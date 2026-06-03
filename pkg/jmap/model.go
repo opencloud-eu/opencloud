@@ -8,6 +8,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
 	"github.com/opencloud-eu/opencloud/pkg/jscontact"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
 // https://www.iana.org/assignments/jmap/jmap.xml#jmap-data-types
@@ -1177,6 +1178,10 @@ func invocation(parameters JmapCommand, tag string) Invocation {
 	}
 }
 
+func skipInvocation() Invocation {
+	return Invocation{Command: ""}
+}
+
 type TypeOfRequest string
 
 const RequestType = TypeOfRequest("Request")
@@ -1376,9 +1381,14 @@ type ChangesResponse[T Foo] interface {
 	GetDestroyed() []string
 }
 
-type QueryCommand[T Foo] interface {
+type QueryCommand[T Foo, SELF QueryCommand[T, SELF]] interface {
 	JmapCommand
 	GetResponse() QueryResponse[T]
+	GetPosition() int
+	GetAnchor() string
+	GetAnchorOffset() *int
+	GetLimit() *uint
+	WithLimit(limit *uint) SELF
 }
 
 type QueryResponse[T Foo] interface {
@@ -1422,11 +1432,36 @@ type Changes[T Foo] interface {
 	GetDestroyed() []string
 }
 
+type QueryParams struct {
+	Position     int    `json:"p,omitzero"`
+	Anchor       string `json:"a,omitempty"`
+	AnchorOffset *int   `json:"o,omitempty"`
+}
+
+var NullQueryParams = QueryParams{Position: 0, Anchor: "", AnchorOffset: nil}
+
+func toNullQueryParams(accountIds []string) map[string]QueryParams {
+	return structs.ToMap(accountIds, func(k string) (string, QueryParams) { return k, NullQueryParams })
+}
+
+type FilterElement[T Foo] interface {
+	GetMarker() T
+}
+
+type Comparator[T Foo] interface {
+	GetMarker() T
+}
+
 // using a custom type for the "canCalculateChanges" attribute in order to customize its rendering:
 // as it's going to be "true" in 99% if not 100% of cases with Stalwart, we only want to render this
 // attribute if its value is "false"
 
 type ChangeCalculation bool
+
+const (
+	CapableOfChangeCalculation   = ChangeCalculation(true)
+	IncapableOfChangeCalculation = ChangeCalculation(false)
+)
 
 func (cc *ChangeCalculation) IsZero() bool {
 	return *cc == true
@@ -1788,22 +1823,27 @@ type MailboxFilterCondition struct {
 	IsSubscribed *bool  `json:"isSubscribed,omitempty"`
 }
 
+var _ FilterElement[Mailbox] = &MailboxFilterCondition{}
+var _ MailboxFilterElement = &MailboxFilterCondition{}
+
 func (c MailboxFilterCondition) _isAMailboxFilterElement() { //NOSONAR
 	// marker interface method, does not need to do anything
 }
 
-var _ MailboxFilterElement = &MailboxFilterCondition{}
+func (c MailboxFilterCondition) GetMarker() Mailbox { return Mailbox{} }
 
 type MailboxFilterOperator struct {
 	Operator   FilterOperatorTerm     `json:"operator"`
 	Conditions []MailboxFilterElement `json:"conditions,omitempty"`
 }
 
+var _ FilterElement[Mailbox] = &MailboxFilterCondition{}
+var _ MailboxFilterElement = &MailboxFilterOperator{}
+
 func (c MailboxFilterOperator) _isAMailboxFilterElement() { //NOSONAR
 	// marker interface method, does not need to do anything
 }
-
-var _ MailboxFilterElement = &MailboxFilterOperator{}
+func (c MailboxFilterOperator) GetMarker() Mailbox { return Mailbox{} }
 
 type MailboxComparator struct {
 	Property       string `json:"property"`
@@ -1811,6 +1851,10 @@ type MailboxComparator struct {
 	Limit          int    `json:"limit,omitzero"`
 	CalculateTotal bool   `json:"calculateTotal,omitempty"`
 }
+
+var _ Comparator[Mailbox] = &MailboxComparator{}
+
+func (c MailboxComparator) GetMarker() Mailbox { return Mailbox{} }
 
 type MailboxQueryCommand struct {
 	AccountId    string               `json:"accountId"`
@@ -1863,11 +1907,29 @@ type MailboxQueryCommand struct {
 	CalculateTotal bool `json:"calculateTotal,omitempty"`
 }
 
-var _ QueryCommand[Mailbox] = &MailboxQueryCommand{}
+var _ QueryCommand[Mailbox, MailboxQueryCommand] = &MailboxQueryCommand{}
 
 func (c MailboxQueryCommand) GetCommand() Command                 { return CommandMailboxQuery }
 func (c MailboxQueryCommand) GetObjectType() ObjectType           { return MailboxType }
-func (c MailboxQueryCommand) GetResponse() QueryResponse[Mailbox] { return MailboxQueryResponse{} }
+func (c MailboxQueryCommand) GetResponse() QueryResponse[Mailbox] { return &MailboxQueryResponse{} }
+func (c MailboxQueryCommand) GetPosition() int                    { return c.Position }
+func (c MailboxQueryCommand) GetAnchor() string                   { return c.Anchor }
+func (c MailboxQueryCommand) GetAnchorOffset() *int               { return c.AnchorOffset }
+func (c MailboxQueryCommand) GetLimit() *uint                     { return c.Limit }
+func (c MailboxQueryCommand) WithLimit(limit *uint) MailboxQueryCommand {
+	return MailboxQueryCommand{
+		AccountId:      c.AccountId,
+		Filter:         c.Filter,
+		Sort:           c.Sort,
+		SortAsTree:     c.SortAsTree,
+		FilterAsTree:   c.FilterAsTree,
+		Position:       c.Position,
+		Anchor:         c.Anchor,
+		AnchorOffset:   c.AnchorOffset,
+		Limit:          limit,
+		CalculateTotal: c.CalculateTotal,
+	}
+}
 
 type EmailFilterElement interface {
 	_isAnEmailFilterElement() // marker method
@@ -1970,6 +2032,11 @@ type EmailFilterCondition struct {
 	Header []string `json:"header,omitempty"`
 }
 
+var _ EmailFilterElement = &EmailFilterCondition{}
+var _ FilterElement[Email] = &EmailFilterCondition{}
+
+func (f EmailFilterCondition) GetMarker() Email { return Email{} }
+
 func (f EmailFilterCondition) _isAnEmailFilterElement() { //NOSONAR
 	// marker interface method, does not need to do anything
 }
@@ -2038,12 +2105,15 @@ func (f EmailFilterCondition) IsNotEmpty() bool { //NOSONAR
 	return false
 }
 
-var _ EmailFilterElement = &EmailFilterCondition{}
-
 type EmailFilterOperator struct {
 	Operator   FilterOperatorTerm   `json:"operator"`
 	Conditions []EmailFilterElement `json:"conditions,omitempty"`
 }
+
+var _ EmailFilterElement = &EmailFilterOperator{}
+var _ FilterElement[Email] = &EmailFilterCondition{}
+
+func (f EmailFilterOperator) GetMarker() Email { return Email{} }
 
 func (o EmailFilterOperator) _isAnEmailFilterElement() { //NOSONAR
 	// marker interface method, does not need to do anything
@@ -2052,8 +2122,6 @@ func (o EmailFilterOperator) _isAnEmailFilterElement() { //NOSONAR
 func (o EmailFilterOperator) IsNotEmpty() bool {
 	return len(o.Conditions) > 0
 }
-
-var _ EmailFilterElement = &EmailFilterOperator{}
 
 type EmailComparator struct {
 	// The name of the property on the objects to compare.
@@ -2079,6 +2147,10 @@ type EmailComparator struct {
 	// Email-specific: keyword that must be included in the Email object.
 	Keyword string `json:"keyword,omitempty"`
 }
+
+var _ Comparator[Email] = &EmailComparator{}
+
+func (c EmailComparator) GetMarker() Email { return Email{} }
 
 // If an anchor argument is given, the anchor is looked for in the results after filtering
 // and sorting.
@@ -2159,11 +2231,28 @@ type EmailQueryCommand struct {
 	CalculateTotal bool `json:"calculateTotal,omitempty"`
 }
 
-var _ QueryCommand[Email] = &EmailQueryCommand{}
+var _ QueryCommand[Email, EmailQueryCommand] = &EmailQueryCommand{}
 
 func (c EmailQueryCommand) GetCommand() Command               { return CommandEmailQuery }
 func (c EmailQueryCommand) GetObjectType() ObjectType         { return MailboxType }
-func (c EmailQueryCommand) GetResponse() QueryResponse[Email] { return EmailQueryResponse{} }
+func (c EmailQueryCommand) GetResponse() QueryResponse[Email] { return &EmailQueryResponse{} }
+func (c EmailQueryCommand) GetPosition() int                  { return c.Position }
+func (c EmailQueryCommand) GetAnchor() string                 { return c.Anchor }
+func (c EmailQueryCommand) GetAnchorOffset() *int             { return c.AnchorOffset }
+func (c EmailQueryCommand) GetLimit() *uint                   { return c.Limit }
+func (c EmailQueryCommand) WithLimit(limit *uint) EmailQueryCommand {
+	return EmailQueryCommand{
+		AccountId:       c.AccountId,
+		Filter:          c.Filter,
+		Sort:            c.Sort,
+		Position:        c.Position,
+		Anchor:          c.Anchor,
+		AnchorOffset:    c.AnchorOffset,
+		Limit:           limit,
+		CalculateTotal:  c.CalculateTotal,
+		CollapseThreads: c.CollapseThreads,
+	}
+}
 
 type EmailGetCommand struct {
 	// The ids of the Email objects to return.
@@ -3189,7 +3278,7 @@ type EmailQueryResponse struct {
 	CanCalculateChanges ChangeCalculation `json:"canCalculateChanges,omitzero"`
 
 	// The zero-based index of the first result in the ids array within the complete list of query results.
-	Position uint `json:"position"`
+	Position *uint `json:"position,omitempty"`
 
 	// The list of ids for each Email in the query results, starting at the index given by the position argument of this
 	// response and continuing until it hits the end of the results or reaches the limit number of ids.
@@ -3207,7 +3296,7 @@ type EmailQueryResponse struct {
 	// The limit enforced by the server on the maximum number of results to return (if set by the server).
 	//
 	// This is only returned if the server set a limit or used a different limit than that given in the request.
-	Limit uint `json:"limit,omitempty,omitzero"`
+	Limit *uint `json:"limit,omitempty,omitzero"`
 }
 
 var _ QueryResponse[Email] = &EmailQueryResponse{}
@@ -3414,7 +3503,7 @@ type MailboxQueryResponse struct {
 	CanCalculateChanges ChangeCalculation `json:"canCalculateChanges,omitzero"`
 
 	// The zero-based index of the first result in the ids array within the complete list of query results.
-	Position int `json:"position"`
+	Position *uint `json:"position,omitempty"`
 
 	// The list of ids for each Mailbox in the query results, starting at the index given by the position argument
 	// of this response and continuing until it hits the end of the results or reaches the limit number of ids.
@@ -3430,7 +3519,7 @@ type MailboxQueryResponse struct {
 	// The limit enforced by the server on the maximum number of results to return (if set by the server).
 	//
 	// This is only returned if the server set a limit or used a different limit than that given in the request.
-	Limit int `json:"limit,omitzero"`
+	Limit *uint `json:"limit,omitzero"`
 }
 
 var _ QueryResponse[Mailbox] = &MailboxQueryResponse{}
@@ -6890,9 +6979,14 @@ type ContactCardComparator struct {
 	Updated time.Time `json:"updated,omitzero"`
 }
 
+var _ Comparator[ContactCard] = &ContactCardComparator{}
+
+func (c ContactCardComparator) GetMarker() ContactCard { return ContactCard{} }
+
 type ContactCardFilterElement interface {
 	_isAContactCardFilterElement() // marker method
 	IsNotEmpty() bool
+	FilterElement[ContactCard]
 }
 
 type ContactCardFilterCondition struct {
@@ -6968,6 +7062,12 @@ type ContactCardFilterCondition struct {
 	Note string `json:"note,omitempty"`
 }
 
+var _ ContactCardFilterElement = &ContactCardFilterCondition{}
+
+var _ FilterElement[ContactCard] = &ContactCardFilterCondition{}
+
+func (f ContactCardFilterCondition) GetMarker() ContactCard { return ContactCard{} }
+
 func (f ContactCardFilterCondition) _isAContactCardFilterElement() { //NOSONAR
 	// marker interface method, does not need to do anything
 }
@@ -7036,12 +7136,16 @@ func (f ContactCardFilterCondition) IsNotEmpty() bool { //NOSONAR
 	return false
 }
 
-var _ ContactCardFilterElement = &ContactCardFilterCondition{}
-
 type ContactCardFilterOperator struct {
 	Operator   FilterOperatorTerm         `json:"operator"`
 	Conditions []ContactCardFilterElement `json:"conditions,omitempty"`
 }
+
+var _ ContactCardFilterElement = &ContactCardFilterOperator{}
+
+var _ FilterElement[ContactCard] = &ContactCardFilterOperator{}
+
+func (f ContactCardFilterOperator) GetMarker() ContactCard { return ContactCard{} }
 
 func (o ContactCardFilterOperator) _isAContactCardFilterElement() { //NOSONAR
 	// marker interface method, does not need to do anything
@@ -7050,8 +7154,6 @@ func (o ContactCardFilterOperator) _isAContactCardFilterElement() { //NOSONAR
 func (o ContactCardFilterOperator) IsNotEmpty() bool {
 	return len(o.Conditions) > 0
 }
-
-var _ ContactCardFilterElement = &ContactCardFilterOperator{}
 
 type ContactCardQueryCommand struct {
 	AccountId string `json:"accountId"`
@@ -7104,12 +7206,28 @@ type ContactCardQueryCommand struct {
 	CalculateTotal bool `json:"calculateTotal,omitzero"`
 }
 
-var _ QueryCommand[ContactCard] = &ContactCardQueryCommand{}
+var _ QueryCommand[ContactCard, ContactCardQueryCommand] = &ContactCardQueryCommand{}
 
 func (c ContactCardQueryCommand) GetCommand() Command       { return CommandContactCardQuery }
 func (c ContactCardQueryCommand) GetObjectType() ObjectType { return ContactCardType }
 func (c ContactCardQueryCommand) GetResponse() QueryResponse[ContactCard] {
-	return ContactCardQueryResponse{}
+	return &ContactCardQueryResponse{}
+}
+func (c ContactCardQueryCommand) GetPosition() int      { return c.Position }
+func (c ContactCardQueryCommand) GetAnchor() string     { return c.Anchor }
+func (c ContactCardQueryCommand) GetAnchorOffset() *int { return c.AnchorOffset }
+func (c ContactCardQueryCommand) GetLimit() *uint       { return c.Limit }
+func (c ContactCardQueryCommand) WithLimit(limit *uint) ContactCardQueryCommand {
+	return ContactCardQueryCommand{
+		AccountId:      c.AccountId,
+		Filter:         c.Filter,
+		Sort:           c.Sort,
+		Position:       c.Position,
+		Anchor:         c.Anchor,
+		AnchorOffset:   c.AnchorOffset,
+		Limit:          limit,
+		CalculateTotal: c.CalculateTotal,
+	}
 }
 
 type ContactCardQueryResponse struct {
@@ -7141,7 +7259,7 @@ type ContactCardQueryResponse struct {
 	CanCalculateChanges ChangeCalculation `json:"canCalculateChanges,omitzero"`
 
 	// The zero-based index of the first result in the ids array within the complete list of query results.
-	Position uint `json:"position"`
+	Position *uint `json:"position,omitempty"`
 
 	// The list of ids for each ContactCard in the query results, starting at the index given by the position argument of this
 	// response and continuing until it hits the end of the results or reaches the limit number of ids.
@@ -7159,7 +7277,7 @@ type ContactCardQueryResponse struct {
 	// The limit enforced by the server on the maximum number of results to return (if set by the server).
 	//
 	// This is only returned if the server set a limit or used a different limit than that given in the request.
-	Limit uint `json:"limit,omitzero"`
+	Limit *uint `json:"limit,omitzero"`
 }
 
 var _ QueryResponse[ContactCard] = &ContactCardQueryResponse{}
@@ -7673,6 +7791,10 @@ type CalendarEventComparator struct {
 	TimeZone string `json:"timeZone,omitempty" doc:"opt" default:"Etc/UTC"`
 }
 
+var _ Comparator[CalendarEvent] = &CalendarEventComparator{}
+
+func (c CalendarEventComparator) GetMarker() CalendarEvent { return CalendarEvent{} }
+
 type CalendarEventFilterElement interface {
 	_isACalendarEventFilterElement() // marker method
 	IsNotEmpty() bool
@@ -7725,6 +7847,11 @@ type CalendarEventFilterCondition struct {
 	Uid string `json:"uid,omitempty" doc:"opt"`
 }
 
+var _ CalendarEventFilterElement = &CalendarEventFilterCondition{}
+var _ FilterElement[CalendarEvent] = &CalendarEventFilterCondition{}
+
+func (f CalendarEventFilterCondition) GetMarker() CalendarEvent { return CalendarEvent{} }
+
 func (f CalendarEventFilterCondition) _isACalendarEventFilterElement() { //NOSONAR
 	// marker interface method, does not need to do anything
 }
@@ -7765,8 +7892,6 @@ func (f CalendarEventFilterCondition) IsNotEmpty() bool {
 	}
 	return false
 }
-
-var _ CalendarEventFilterElement = &CalendarEventFilterCondition{}
 
 type CalendarEventFilterOperator struct {
 	Operator   FilterOperatorTerm           `json:"operator"`
@@ -7834,12 +7959,28 @@ type CalendarEventQueryCommand struct {
 	CalculateTotal bool `json:"calculateTotal,omitempty" doc:"opt" default:"false"`
 }
 
-var _ QueryCommand[CalendarEvent] = &CalendarEventQueryCommand{}
+var _ QueryCommand[CalendarEvent, CalendarEventQueryCommand] = &CalendarEventQueryCommand{}
 
 func (c CalendarEventQueryCommand) GetCommand() Command       { return CommandCalendarEventQuery }
 func (c CalendarEventQueryCommand) GetObjectType() ObjectType { return CalendarEventType }
 func (c CalendarEventQueryCommand) GetResponse() QueryResponse[CalendarEvent] {
-	return CalendarEventQueryResponse{}
+	return &CalendarEventQueryResponse{}
+}
+func (c CalendarEventQueryCommand) GetPosition() int      { return c.Position }
+func (c CalendarEventQueryCommand) GetAnchor() string     { return c.Anchor }
+func (c CalendarEventQueryCommand) GetAnchorOffset() *int { return c.AnchorOffset }
+func (c CalendarEventQueryCommand) GetLimit() *uint       { return c.Limit }
+func (c CalendarEventQueryCommand) WithLimit(limit *uint) CalendarEventQueryCommand {
+	return CalendarEventQueryCommand{
+		AccountId:      c.AccountId,
+		Filter:         c.Filter,
+		Sort:           c.Sort,
+		Position:       c.Position,
+		Anchor:         c.Anchor,
+		AnchorOffset:   c.AnchorOffset,
+		Limit:          limit,
+		CalculateTotal: c.CalculateTotal,
+	}
 }
 
 type CalendarEventQueryResponse struct {
@@ -7871,7 +8012,7 @@ type CalendarEventQueryResponse struct {
 	CanCalculateChanges ChangeCalculation `json:"canCalculateChanges,omitzero"`
 
 	// The zero-based index of the first result in the ids array within the complete list of query results.
-	Position uint `json:"position"`
+	Position *uint `json:"position,omitempty"`
 
 	// The list of ids for each ContactCard in the query results, starting at the index given by the position argument of this
 	// response and continuing until it hits the end of the results or reaches the limit number of ids.
@@ -7889,7 +8030,7 @@ type CalendarEventQueryResponse struct {
 	// The limit enforced by the server on the maximum number of results to return (if set by the server).
 	//
 	// This is only returned if the server set a limit or used a different limit than that given in the request.
-	Limit uint `json:"limit,omitzero"`
+	Limit *uint `json:"limit,omitzero"`
 }
 
 var _ QueryResponse[CalendarEvent] = &CalendarEventQueryResponse{}
@@ -8238,22 +8379,28 @@ type PrincipalFilterCondition struct {
 	TimeZone string `json:"timeZone,omitempty"`
 }
 
+var _ PrincipalFilterElement = &PrincipalFilterCondition{}
+var _ FilterElement[Principal] = &PrincipalFilterCondition{}
+
+func (f PrincipalFilterCondition) GetMarker() Principal { return Principal{} }
+
 func (c PrincipalFilterCondition) _isAPrincipalFilterElement() { //NOSONAR
 	// marker interface method, does not need to do anything
 }
-
-var _ PrincipalFilterElement = &PrincipalFilterCondition{}
 
 type PrincipalFilterOperator struct {
 	Operator   FilterOperatorTerm       `json:"operator"`
 	Conditions []PrincipalFilterElement `json:"conditions,omitempty"`
 }
 
+var _ PrincipalFilterElement = &PrincipalFilterOperator{}
+var _ FilterElement[Principal] = &PrincipalFilterOperator{}
+
+func (f PrincipalFilterOperator) GetMarker() Principal { return Principal{} }
+
 func (c PrincipalFilterOperator) _isAPrincipalFilterElement() { //NOSONAR
 	// marker interface method, does not need to do anything
 }
-
-var _ PrincipalFilterElement = &PrincipalFilterOperator{}
 
 type PrincipalComparator struct {
 	Property       string `json:"property"`
@@ -8261,6 +8408,10 @@ type PrincipalComparator struct {
 	Limit          int    `json:"limit,omitzero"`
 	CalculateTotal bool   `json:"calculateTotal,omitempty"`
 }
+
+var _ Comparator[Principal] = &PrincipalComparator{}
+
+func (c PrincipalComparator) GetMarker() Principal { return Principal{} }
 
 type PrincipalQueryCommand struct {
 	AccountId string                 `json:"accountId"`
@@ -8311,12 +8462,28 @@ type PrincipalQueryCommand struct {
 	CalculateTotal bool `json:"calculateTotal,omitzero"`
 }
 
-var _ QueryCommand[Principal] = PrincipalQueryCommand{}
+var _ QueryCommand[Principal, PrincipalQueryCommand] = &PrincipalQueryCommand{}
 
 func (c PrincipalQueryCommand) GetCommand() Command       { return CommandPrincipalQuery }
 func (c PrincipalQueryCommand) GetObjectType() ObjectType { return PrincipalType }
 func (c PrincipalQueryCommand) GetResponse() QueryResponse[Principal] {
-	return PrincipalQueryResponse{}
+	return &PrincipalQueryResponse{}
+}
+func (c PrincipalQueryCommand) GetPosition() int      { return c.Position }
+func (c PrincipalQueryCommand) GetAnchor() string     { return c.Anchor }
+func (c PrincipalQueryCommand) GetAnchorOffset() *int { return c.AnchorOffset }
+func (c PrincipalQueryCommand) GetLimit() *uint       { return c.Limit }
+func (c PrincipalQueryCommand) WithLimit(limit *uint) PrincipalQueryCommand {
+	return PrincipalQueryCommand{
+		AccountId:      c.AccountId,
+		Filter:         c.Filter,
+		Sort:           c.Sort,
+		Position:       c.Position,
+		Anchor:         c.Anchor,
+		AnchorOffset:   c.AnchorOffset,
+		Limit:          limit,
+		CalculateTotal: c.CalculateTotal,
+	}
 }
 
 type PrincipalQueryResponse struct {
@@ -8347,7 +8514,7 @@ type PrincipalQueryResponse struct {
 	CanCalculateChanges ChangeCalculation `json:"canCalculateChanges,omitzero"`
 
 	// The zero-based index of the first result in the ids array within the complete list of query results.
-	Position uint `json:"position"`
+	Position *uint `json:"position,omitempty"`
 
 	// The list of ids for each Principal in the query results, starting at the index given by the position argument
 	// of this response and continuing until it hits the end of the results or reaches the limit number of ids.
@@ -8363,7 +8530,7 @@ type PrincipalQueryResponse struct {
 	// The limit enforced by the server on the maximum number of results to return (if set by the server).
 	//
 	// This is only returned if the server set a limit or used a different limit than that given in the request.
-	Limit uint `json:"limit,omitzero"`
+	Limit *uint `json:"limit,omitzero"`
 }
 
 var _ QueryResponse[Principal] = &PrincipalQueryResponse{}

@@ -14,6 +14,19 @@ import (
 	c "github.com/opencloud-eu/opencloud/pkg/jscontact"
 )
 
+func copyTo[B any, A any](a A) B {
+	if b, err := json.Marshal(a); err != nil {
+		panic(err)
+	} else {
+		var t B
+		if err := json.Unmarshal(b, &t); err != nil {
+			panic(err)
+		} else {
+			return t
+		}
+	}
+}
+
 func SerializeExamples(e any) { //NOSONAR
 	type example struct {
 		Type    string `json:"type"`
@@ -2327,18 +2340,5 @@ func (e Exemplar) ContactCardSearchResults() ContactCardSearchResults {
 		Position:            ptr(uint(3)),
 		Limit:               ptr(uint(10)),
 		Total:               ptr(uint(4)),
-	}
-}
-
-func copyTo[B any, A any](a A) B {
-	if b, err := json.Marshal(a); err != nil {
-		panic(err)
-	} else {
-		var t B
-		if err := json.Unmarshal(b, &t); err != nil {
-			panic(err)
-		} else {
-			return t
-		}
 	}
 }

@@ -429,13 +429,15 @@ func update[T Foo, CHANGES Change, SET SetCommand[T], GET GetCommand[T], RESP an
 	})
 }
 
-func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T], QUERYRESP QueryResponse[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
+/*
+func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T], QUERYRESP QueryResponse[T], GETRESP GetResponse[T], RESP SearchResults[T]]( //NOSONAR
 	client *Client, name string, objType ObjectType,
 	defaultSortBy []SORT,
-	queryCommandFactory func(filter FILTER, sortBy []SORT, position int, anchor string, anchorOffset *int, limit *uint) QUERY,
+	queryCommandFactory func(filter FILTER, sortBy []SORT) QUERY,
 	getCommandFactory func(cmd Command, path string, rof string) GET,
+	respMapper0 func(query QUERYRESP) *RESP,
 	respMapper func(query QUERYRESP, get GETRESP) *RESP,
-	filter FILTER, sortBy []SORT, position int, anchor string, anchorOffset *int, limit *uint,
+	filter FILTER, sortBy []SORT,
 	ctx Context) (Result[*RESP], Error) {
 
 	logger := client.logger(name, ctx)
@@ -445,8 +447,14 @@ func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T]
 		sortBy = defaultSortBy
 	}
 
-	query := queryCommandFactory(filter, sortBy, position, anchor, anchorOffset, limit)
-	get := getCommandFactory(query.GetCommand(), "/ids/*", "0")
+	query := queryCommandFactory(filter, sortBy)
+	var get GET
+	limit := query.GetLimit()
+	if limit != nil && *limit == 0 {
+		query.SetLimit(UintPtrOne)
+	} else {
+		get = getCommandFactory(query.GetCommand(), "/ids/*", "0")
+	}
 
 	cmd, err := client.request(ctx, objType.Namespaces, invocation(query, "0"), invocation(get, "1"))
 	if err != nil {
@@ -459,43 +467,60 @@ func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T]
 		if err != nil {
 			return nil, EmptyState, err
 		}
-		var getResponse GETRESP
-		err = retrieveGet(ctx, body, get, "1", &getResponse)
-		if err != nil {
-			return nil, EmptyState, err
+		if limit == nil && *limit == 0 {
+			result := respMapper0(queryResponse)
+			if query.GetAnchor() != "" && (*result).GetPosition() != nil && *(*result).GetPosition() == 0 {
+				(*result).SetPosition(nil)
+			}
+			return result, queryResponse.GetQueryState(), nil
+		} else {
+			var getResponse GETRESP
+			err = retrieveGet(ctx, body, get, "1", &getResponse)
+			if err != nil {
+				return nil, EmptyState, err
+			}
+			return respMapper(queryResponse, getResponse), queryResponse.GetQueryState(), nil
 		}
-		return respMapper(queryResponse, getResponse), queryResponse.GetQueryState(), nil
 	})
 }
+*/
 
-func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T], QUERYRESP QueryResponse[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
+func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T, QUERY], GET GetCommand[T], QUERYRESP QueryResponse[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
 	client *Client, name string, objType ObjectType,
 	defaultSortBy []SORT,
-	queryCommandFactory func(accountId string, filter FILTER, sortBy []SORT, position int, anchor string, anchorOffset *int, imit *uint) QUERY,
+	queryCommandFactory func(accountId string, queryParams QueryParams, limit *uint, filter FILTER, sortBy []SORT) QUERY,
 	getCommandFactory func(accountId string, cmd Command, path string, rof string) GET,
-	respMapper func(query QUERYRESP, get GETRESP) *RESP,
-	accountIds []string,
-	filter FILTER, sortBy []SORT, position int, anchor string, anchorOffset *int, limit *uint,
+	respMapper0 func(query QUERYRESP, queryParams QueryParams, limit *uint) *RESP,
+	respMapper func(query QUERYRESP, get GETRESP, queryParams QueryParams, limit *uint) *RESP,
+	accountIds map[string]QueryParams,
+	limit *uint, filter FILTER, sortBy []SORT,
 	ctx Context) (Result[map[string]*RESP], Error) {
 	logger := client.logger(name, ctx)
 	ctx = ctx.WithLogger(logger)
-
-	uniqueAccountIds := structs.Uniq(accountIds)
 
 	if sortBy == nil {
 		sortBy = defaultSortBy
 	}
 
-	invocations := make([]Invocation, len(uniqueAccountIds)*2)
+	invocations := make([]Invocation, len(accountIds)*2)
 	var g GET
 	var q QUERY
-	for i, accountId := range uniqueAccountIds {
-		query := queryCommandFactory(accountId, filter, sortBy, position, anchor, anchorOffset, limit)
-		get := getCommandFactory(accountId, query.GetCommand(), "/ids/*", mcid(accountId, "0"))
-		invocations[i*2+0] = invocation(query, mcid(accountId, "0"))
-		invocations[i*2+1] = invocation(get, mcid(accountId, "1"))
-		q = query
-		g = get
+	{
+		i := 0
+		for accountId, queryParams := range accountIds {
+			query := queryCommandFactory(accountId, queryParams, limit, filter, sortBy)
+			q = query
+			invocations[i*2+0] = invocation(query, mcid(accountId, "0"))
+			if limit != nil && *limit == 0 {
+				query = query.WithLimit(UintPtrOne)
+				invocations[i*2+1] = skipInvocation()
+			} else {
+				get := getCommandFactory(accountId, query.GetCommand(), "/ids/*", mcid(accountId, "0"))
+				invocations[i*2+1] = invocation(get, mcid(accountId, "1"))
+				g = get
+			}
+			i++
+		}
 	}
 
 	cmd, err := client.request(ctx, objType.Namespaces, invocations...)
@@ -506,22 +531,27 @@ func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T
 	return command(client, ctx, cmd, func(body *Response) (map[string]*RESP, State, Error) {
 		resp := map[string]*RESP{}
 		stateByAccountId := map[string]State{}
-		for _, accountId := range uniqueAccountIds {
+		for accountId, queryParams := range accountIds {
 			var queryResponse QUERYRESP
 			err = retrieveQuery(ctx, body, q, mcid(accountId, "0"), &queryResponse)
 			if err != nil {
-				return nil, "", err
+				return nil, EmptyState, err
 			}
-			var getResponse GETRESP
-			err = retrieveGet(ctx, body, g, mcid(accountId, "1"), &getResponse)
-			if err != nil {
-				return nil, "", err
+			if limit != nil && *limit == 0 {
+				resp[accountId] = respMapper0(queryResponse, queryParams, limit)
+				stateByAccountId[accountId] = queryResponse.GetQueryState()
+			} else {
+				var getResponse GETRESP
+				err = retrieveGet(ctx, body, g, mcid(accountId, "1"), &getResponse)
+				if err != nil {
+					return nil, EmptyState, err
+				}
+				if len(getResponse.GetNotFound()) > 0 {
+					// TODO what to do when there are not-found calendarevents here? potentially nothing, they could have been deleted between query and get?
+				}
+				resp[accountId] = respMapper(queryResponse, getResponse, queryParams, limit)
+				stateByAccountId[accountId] = getResponse.GetState()
 			}
-			if len(getResponse.GetNotFound()) > 0 {
-				// TODO what to do when there are not-found calendarevents here? potentially nothing, they could have been deleted between query and get?
-			}
-			resp[accountId] = respMapper(queryResponse, getResponse)
-			stateByAccountId[accountId] = getResponse.GetState()
 		}
 		return resp, squashState(stateByAccountId), nil
 	})

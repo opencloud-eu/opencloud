@@ -223,7 +223,11 @@ func (r *Request) parameterError(param string, detail string) *Error {
 		withSource(&ErrorSource{Parameter: param}))
 }
 
-func (r *Request) parameterErrorResponse(accountIds []string, param string, detail string) Response {
+func (r *Request) parameterErrorResponse(accountId string, param string, detail string) Response {
+	return r.error(accountId, r.parameterError(param, detail))
+}
+
+func (r *Request) parameterErrorResponseN(accountIds []string, param string, detail string) Response {
 	return r.errorN(accountIds, r.parameterError(param, detail))
 }
 
@@ -239,7 +243,7 @@ func (r *Request) unsupportedQueryParams(accountIds []string, allowed supportedQ
 	q := r.r.URL.Query()
 	for n := range q {
 		if _, ok := allowed[n]; !ok {
-			return true, r.parameterErrorResponse(accountIds, n, "Unsupported query parameter")
+			return true, r.parameterErrorResponseN(accountIds, n, "Unsupported query parameter")
 		}
 	}
 	return false, Response{}

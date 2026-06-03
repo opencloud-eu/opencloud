@@ -11,7 +11,7 @@ type AccountBootstrapResult struct {
 
 var NS_MAIL_QUOTA = ns(JmapMail, JmapQuota)
 
-func (j *Client) GetBootstrap(accountIds []string, ctx Context) (Result[map[string]AccountBootstrapResult], Error) { //NOSONAR
+func (j *Client) GetBootstrap(accountIds []string, ctx Context) (Result[map[string]AccountBootstrapResult], error) { //NOSONAR
 	uniqueAccountIds := structs.Uniq(accountIds)
 
 	logger := j.logger("GetBootstrap", ctx)

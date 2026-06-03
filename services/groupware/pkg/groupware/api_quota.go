@@ -13,7 +13,7 @@ import (
 //
 // Note that there may be multiple Quota objects for different resource types.
 func (g *Groupware) GetQuota(w http.ResponseWriter, r *http.Request) {
-	getFromMap(Quota, w, r, g, func(accountIds, _ []string, ctx jmap.Context) (jmap.Result[map[string]jmap.QuotaGetResponse], jmap.Error) {
+	getFromMap(Quota, w, r, g, func(accountIds, _ []string, ctx jmap.Context) (jmap.Result[map[string]jmap.QuotaGetResponse], error) {
 		return g.jmap.GetQuotas(accountIds, ctx)
 	})
 }

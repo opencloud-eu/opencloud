@@ -6,6 +6,7 @@ import (
 	"net/url"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
 type Context struct {
@@ -76,13 +77,52 @@ type Result[T any] struct {
 	Language     Language
 }
 
-func RefineResult[A, B any](a Result[A], refiner func(A) B) Result[B] {
-	return newResult(
-		refiner(a.Payload),
-		a.SessionState,
-		a.State,
-		a.Language,
-	)
+func RefineResultPayload[A, B any](a Result[A], refiner func(A) (B, bool, error)) (Result[B], error) {
+	if payloads, ok, err := refiner(a.Payload); err != nil {
+		return ZeroResult[B](), err
+	} else if ok {
+		return newResult(payloads, a.SessionState, a.State, a.Language), nil
+	} else {
+		return ZeroResult[B](), nil
+	}
+}
+
+func RefineResult[A, B any](a Result[A], refiner func(A, SessionState, State, Language) (B, SessionState, State, Language)) Result[B] {
+	b, bss, bs, bl := refiner(a.Payload, a.SessionState, a.State, a.Language)
+	return newResult(b, bss, bs, bl)
+}
+
+func RefineResultSlice[A, B any](a []*Result[A], refiner func([]*A, []*SessionState, []*State, []*Language) (B, SessionState, State, Language, error)) (Result[B], error) {
+	payloads := structs.Map(a, func(e *Result[A]) *A {
+		if e != nil {
+			return &e.Payload
+		} else {
+			return nil
+		}
+	})
+	sessionStates := structs.Map(a, func(e *Result[A]) *SessionState {
+		if e != nil {
+			return &e.SessionState
+		} else {
+			return nil
+		}
+	})
+	states := structs.Map(a, func(e *Result[A]) *State {
+		if e != nil {
+			return &e.State
+		} else {
+			return nil
+		}
+	})
+	languages := structs.Map(a, func(e *Result[A]) *Language {
+		if e != nil {
+			return &e.Language
+		} else {
+			return nil
+		}
+	})
+	b, bss, bs, bl, err := refiner(payloads, sessionStates, states, languages)
+	return newResult(b, bss, bs, bl), err
 }
 
 func (r Result[T]) GetSessionState() SessionState {

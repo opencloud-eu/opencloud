@@ -8,7 +8,7 @@ import (
 
 var NS_MAILBOX = ns(JmapMail)
 
-func (j *Client) GetMailbox(accountId string, ids []string, ctx Context) (Result[MailboxGetResponse], Error) {
+func (j *Client) GetMailbox(accountId string, ids []string, ctx Context) (Result[MailboxGetResponse], error) {
 	return get(j, "GetMailbox", MailboxType,
 		func(accountId string, ids []string) MailboxGetCommand {
 			return MailboxGetCommand{AccountId: accountId, Ids: ids}
@@ -20,7 +20,7 @@ func (j *Client) GetMailbox(accountId string, ids []string, ctx Context) (Result
 	)
 }
 
-func (j *Client) GetAllMailboxes(accountIds []string, ctx Context) (Result[map[string][]Mailbox], Error) {
+func (j *Client) GetAllMailboxes(accountIds []string, ctx Context) (Result[map[string][]Mailbox], error) {
 	return getAN(j, "GetAllMailboxes", MailboxType,
 		func(accountId string, ids []string) MailboxGetCommand {
 			return MailboxGetCommand{AccountId: accountId}
@@ -32,7 +32,7 @@ func (j *Client) GetAllMailboxes(accountIds []string, ctx Context) (Result[map[s
 	)
 }
 
-func (j *Client) SearchMailboxes(accountIds []string, filter MailboxFilterElement, ctx Context) (Result[map[string][]Mailbox], Error) {
+func (j *Client) SearchMailboxes(accountIds []string, filter MailboxFilterElement, ctx Context) (Result[map[string][]Mailbox], error) {
 	logger := j.logger("SearchMailboxes", ctx)
 	ctx = ctx.WithLogger(logger)
 
@@ -40,7 +40,7 @@ func (j *Client) SearchMailboxes(accountIds []string, filter MailboxFilterElemen
 
 	invocations := make([]Invocation, len(uniqueAccountIds)*2)
 	for i, accountId := range uniqueAccountIds {
-		invocations[i*2+0] = invocation(MailboxQueryCommand{AccountId: accountId, Filter: filter}, mcid(accountId, "0"))
+		invocations[i*2+0] = invocation(&MailboxQueryCommand{AccountId: accountId, Filter: filter}, mcid(accountId, "0"))
 		invocations[i*2+1] = invocation(MailboxGetRefCommand{
 			AccountId: accountId,
 			IdsRef: &ResultReference{
@@ -72,7 +72,7 @@ func (j *Client) SearchMailboxes(accountIds []string, filter MailboxFilterElemen
 	})
 }
 
-func (j *Client) SearchMailboxIdsPerRole(accountIds []string, roles []string, ctx Context) (Result[map[string]map[string]string], Error) { //NOSONAR
+func (j *Client) SearchMailboxIdsPerRole(accountIds []string, roles []string, ctx Context) (Result[map[string]map[string]string], error) { //NOSONAR
 	logger := j.logger("SearchMailboxIdsPerRole", ctx)
 	ctx = ctx.WithLogger(logger)
 
@@ -81,7 +81,7 @@ func (j *Client) SearchMailboxIdsPerRole(accountIds []string, roles []string, ct
 	invocations := make([]Invocation, len(uniqueAccountIds)*len(roles))
 	for i, accountId := range uniqueAccountIds {
 		for j, role := range roles {
-			invocations[i*len(roles)+j] = invocation(MailboxQueryCommand{AccountId: accountId, Filter: MailboxFilterCondition{Role: role}}, mcid(accountId, role))
+			invocations[i*len(roles)+j] = invocation(&MailboxQueryCommand{AccountId: accountId, Filter: MailboxFilterCondition{Role: role}}, mcid(accountId, role))
 		}
 	}
 	cmd, err := j.request(ctx, NS_MAILBOX, invocations...)
@@ -137,8 +137,7 @@ func newMailboxChanges(oldState, newState State, hasMoreChanges bool, created, u
 
 // Retrieve Mailbox changes since a given state.
 // @apidoc mailboxes,changes
-func (j *Client) GetMailboxChanges(accountId string, sinceState State, maxChanges uint,
-	ctx Context) (Result[MailboxChanges], Error) {
+func (j *Client) GetMailboxChanges(accountId string, sinceState State, maxChanges uint, ctx Context) (Result[MailboxChanges], error) {
 	return changesA(j, "GetMailboxChanges", MailboxType,
 		func() MailboxChangesCommand {
 			return MailboxChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: uintPtr(maxChanges)}
@@ -164,7 +163,7 @@ func (j *Client) GetMailboxChanges(accountId string, sinceState State, maxChange
 // @api:tags email,changes
 func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, //NOSONAR
 	sinceStateMap map[string]State, maxChanges uint,
-	ctx Context) (Result[map[string]MailboxChanges], Error) {
+	ctx Context) (Result[map[string]MailboxChanges], error) {
 	return changesN(j, "GetMailboxChangesForMultipleAccounts", MailboxType,
 		accountIds, sinceStateMap,
 		func(accountId string, state State) MailboxChangesCommand {
@@ -182,26 +181,29 @@ func (j *Client) GetMailboxChangesForMultipleAccounts(accountIds []string, //NOS
 	)
 }
 
-func (j *Client) GetMailboxRolesForMultipleAccounts(accountIds []string, ctx Context) (Result[map[string]*[]string], Error) {
+func (j *Client) GetMailboxRolesForMultipleAccounts(accountIds []string, ctx Context) (Result[map[string]*[]string], error) {
 	return queryN(j, "GetMailboxRolesForMultipleAccounts", MailboxType,
 		[]MailboxComparator{{Property: MailboxPropertySortOrder, IsAscending: true}},
-		func(accountId string, filter MailboxFilterCondition, sortBy []MailboxComparator, _ int, _ string, _ *int, _ *uint) MailboxQueryCommand {
+		func(accountId string, _ QueryParams, _ *uint, filter MailboxFilterCondition, sortBy []MailboxComparator) MailboxQueryCommand {
 			return MailboxQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, SortAsTree: false, FilterAsTree: false, Position: 0, Anchor: "", AnchorOffset: nil, Limit: nil, CalculateTotal: false}
 		},
 		func(accountId string, cmd Command, path, rof string) MailboxGetRefCommand {
 			return MailboxGetRefCommand{AccountId: accountId, IdsRef: &ResultReference{Name: cmd, Path: path, ResultOf: rof}}
 		},
-		func(_ MailboxQueryResponse, get MailboxGetResponse) *[]string {
+		func(_ MailboxQueryResponse, _ QueryParams, _ *uint) *[]string {
+			return nil // TODO this should never be called
+		},
+		func(_ MailboxQueryResponse, get MailboxGetResponse, _ QueryParams, _ *uint) *[]string {
 			roles := structs.Map(get.List, func(m Mailbox) string { return m.Role })
 			slices.Sort(roles)
 			return &roles
 		},
-		accountIds, MailboxFilterCondition{HasAnyRole: truep}, nil, 0, "", nil, nil,
+		toNullQueryParams(accountIds), nil, MailboxFilterCondition{HasAnyRole: truep}, nil,
 		ctx,
 	)
 }
 
-func (j *Client) GetInboxNameForMultipleAccounts(accountIds []string, ctx Context) (Result[map[string]string], Error) {
+func (j *Client) GetInboxNameForMultipleAccounts(accountIds []string, ctx Context) (Result[map[string]string], error) {
 	logger := j.logger("GetInboxNameForMultipleAccounts", ctx)
 	ctx = ctx.WithLogger(logger)
 
@@ -213,7 +215,7 @@ func (j *Client) GetInboxNameForMultipleAccounts(accountIds []string, ctx Contex
 
 	invocations := make([]Invocation, n*2)
 	for i, accountId := range uniqueAccountIds {
-		invocations[i*2+0] = invocation(MailboxQueryCommand{
+		invocations[i*2+0] = invocation(&MailboxQueryCommand{
 			AccountId: accountId,
 			Filter: MailboxFilterCondition{
 				Role: JmapMailboxRoleInbox,
@@ -252,7 +254,7 @@ func (j *Client) GetInboxNameForMultipleAccounts(accountIds []string, ctx Contex
 }
 
 func (j *Client) UpdateMailbox(accountId string, mailboxId string, change MailboxChange, //NOSONAR
-	ctx Context) (Result[Mailbox], Error) {
+	ctx Context) (Result[Mailbox], error) {
 	return update(j, "UpdateMailbox", MailboxType,
 		func(update map[string]PatchObject) MailboxSetCommand {
 			return MailboxSetCommand{AccountId: accountId, Update: update}
@@ -267,7 +269,7 @@ func (j *Client) UpdateMailbox(accountId string, mailboxId string, change Mailbo
 	)
 }
 
-func (j *Client) CreateMailbox(accountId string, mailbox MailboxChange, ctx Context) (Result[*Mailbox], Error) {
+func (j *Client) CreateMailbox(accountId string, mailbox MailboxChange, ctx Context) (Result[*Mailbox], error) {
 	return create(j, "CreateMailbox", MailboxType,
 		func(accountId string, create map[string]MailboxChange) MailboxSetCommand {
 			return MailboxSetCommand{AccountId: accountId, Create: create}
@@ -286,7 +288,7 @@ func (j *Client) CreateMailbox(accountId string, mailbox MailboxChange, ctx Cont
 	)
 }
 
-func (j *Client) DeleteMailboxes(accountId string, destroyIds []string, ctx Context) (Result[map[string]SetError], Error) {
+func (j *Client) DeleteMailboxes(accountId string, destroyIds []string, ctx Context) (Result[map[string]SetError], error) {
 	return destroy(j, "DeleteMailboxes", MailboxType,
 		func(accountId string, destroy []string) MailboxSetCommand {
 			return MailboxSetCommand{AccountId: accountId, Destroy: destroyIds}

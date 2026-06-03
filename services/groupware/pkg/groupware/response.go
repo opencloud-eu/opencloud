@@ -35,6 +35,7 @@ type Response struct {
 	accountIds      []string
 	sessionState    jmap.SessionState
 	contentLanguage jmap.Language
+	next            NextToken
 }
 
 func errorResponse(accountIds []string, err *Error, sessionState jmap.SessionState, contentLanguage jmap.Language) Response {
@@ -45,6 +46,7 @@ func errorResponse(accountIds []string, err *Error, sessionState jmap.SessionSta
 		etag:            "",
 		sessionState:    sessionState,
 		contentLanguage: contentLanguage,
+		next:            NoNextToken,
 	}
 }
 
@@ -56,6 +58,7 @@ func response(accountIds []string, body any, sessionState jmap.SessionState, con
 		etag:            jmap.State(sessionState),
 		sessionState:    sessionState,
 		contentLanguage: contentLanguage,
+		next:            NoNextToken,
 	}
 }
 
@@ -72,6 +75,7 @@ func etaggedResponse(accountIds []string, body any, sessionState jmap.SessionSta
 		objectType:      objectType,
 		sessionState:    sessionState,
 		contentLanguage: contentLanguage,
+		next:            NoNextToken,
 	}
 }
 
@@ -81,6 +85,23 @@ func (r *Request) respond(accountId string, body any, objectType ResponseObjectT
 
 func (r *Request) respondN(accountIds []string, body any, objectType ResponseObjectType, result jmap.ResultMetadata) Response {
 	return etaggedResponse(accountIds, body, result.GetSessionState(), objectType, result.GetState(), result.GetLanguage())
+}
+
+func etaggedNextResponse(accountIds []string, body any, sessionState jmap.SessionState, objectType ResponseObjectType, etag jmap.State, contentLanguage jmap.Language, next NextToken) Response {
+	return Response{
+		accountIds:      accountIds,
+		body:            body,
+		err:             nil,
+		etag:            etag,
+		objectType:      objectType,
+		sessionState:    sessionState,
+		contentLanguage: contentLanguage,
+		next:            next,
+	}
+}
+
+func (r *Request) respondNext(accountId string, body any, objectType ResponseObjectType, result jmap.ResultMetadata, next NextToken) Response {
+	return etaggedNextResponse(single(accountId), body, result.GetSessionState(), objectType, result.GetState(), result.GetLanguage(), next)
 }
 
 /*
@@ -104,6 +125,7 @@ func noContentResponse(accountIds []string, sessionState jmap.SessionState) Resp
 		err:          nil,
 		etag:         jmap.State(sessionState),
 		sessionState: sessionState,
+		next:         NoNextToken,
 	}
 }
 
@@ -124,6 +146,7 @@ func noContentResponseWithEtag(accountIds []string, sessionState jmap.SessionSta
 		etag:         etag,
 		objectType:   objectType,
 		sessionState: sessionState,
+		next:         NoNextToken,
 	}
 }
 
@@ -164,6 +187,7 @@ func notFoundResponse(accountIds []string, sessionState jmap.SessionState, objec
 		objectType:   objectType,
 		etag:         etag,
 		sessionState: sessionState,
+		next:         NoNextToken,
 	}
 }
 
@@ -181,6 +205,7 @@ func etaggedNotFoundResponse(accountIds []string, sessionState jmap.SessionState
 		objectType:      objectType,
 		sessionState:    sessionState,
 		contentLanguage: contentLanguage,
+		next:            NoNextToken,
 	}
 }
 
@@ -196,6 +221,7 @@ func notImplementedResponse(accountIds []string, sessionState jmap.SessionState,
 		err:          nil,
 		objectType:   objectType,
 		sessionState: sessionState,
+		next:         NoNextToken,
 	}
 }
 

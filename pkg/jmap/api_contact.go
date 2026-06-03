@@ -6,7 +6,7 @@ var NS_CONTACTS = ns(JmapContacts)
 
 var DEFAULT_CONTACT_CARD_VERSION = jscontact.JSContactVersion_1_0
 
-func (j *Client) GetContactCards(accountId string, contactIds []string, ctx Context) (Result[ContactCardGetResponse], Error) {
+func (j *Client) GetContactCards(accountId string, contactIds []string, ctx Context) (Result[ContactCardGetResponse], error) {
 	return get(j, "GetContactCards", ContactCardType,
 		func(accountId string, ids []string) ContactCardGetCommand {
 			return ContactCardGetCommand{AccountId: accountId, Ids: contactIds}
@@ -31,7 +31,7 @@ func (c ContactCardChanges) GetDestroyed() []string    { return c.Destroyed }
 
 // Retrieve the changes in Contact Cards since a given State.
 // @api:tags contact,changes
-func (j *Client) GetContactCardChanges(accountId string, sinceState State, maxChanges uint, ctx Context) (Result[ContactCardChanges], Error) {
+func (j *Client) GetContactCardChanges(accountId string, sinceState State, maxChanges uint, ctx Context) (Result[ContactCardChanges], error) {
 	return changes(j, "GetContactCardChanges", ContactCardType,
 		func() ContactCardChangesCommand {
 			return ContactCardChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: uintPtr(maxChanges)}
@@ -77,34 +77,46 @@ func (r *ContactCardSearchResults) RemoveResults()             { r.Results = nil
 func (r *ContactCardSearchResults) SetLimit(limit *uint)       { r.Limit = limit }
 func (r *ContactCardSearchResults) SetPosition(position *uint) { r.Position = position }
 
-func (j *Client) QueryContactCards(accountIds []string, //NOSONAR
-	filter ContactCardFilterElement, sortBy []ContactCardComparator,
-	position int, anchor string, anchorOffset *int, limit *uint, calculateTotal bool,
-	ctx Context) (Result[map[string]*ContactCardSearchResults], Error) {
+func (j *Client) QueryContactCards(accountIds map[string]QueryParams, //NOSONAR
+	limit *uint, filter ContactCardFilterElement, sortBy []ContactCardComparator, calculateTotal bool,
+	ctx Context) (Result[map[string]*ContactCardSearchResults], error) {
 	return queryN(j, "QueryContactCards", ContactCardType,
 		[]ContactCardComparator{{Property: ContactCardPropertyUpdated, IsAscending: false}},
-		func(accountId string, filter ContactCardFilterElement, sortBy []ContactCardComparator, position int, anchor string, anchorOffset *int, limit *uint) ContactCardQueryCommand {
-			return ContactCardQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: position, Anchor: anchor, AnchorOffset: anchorOffset, Limit: limit, CalculateTotal: calculateTotal}
+		func(accountId string, qp QueryParams, limit *uint, filter ContactCardFilterElement, sortBy []ContactCardComparator) ContactCardQueryCommand {
+			if qp.Anchor != "" {
+				return ContactCardQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Anchor: qp.Anchor, AnchorOffset: qp.AnchorOffset, Limit: limit, CalculateTotal: calculateTotal}
+			} else {
+				return ContactCardQueryCommand{AccountId: accountId, Filter: filter, Sort: sortBy, Position: qp.Position, Limit: limit, CalculateTotal: calculateTotal}
+			}
 		},
 		func(accountId string, cmd Command, path string, rof string) ContactCardGetRefCommand {
 			return ContactCardGetRefCommand{AccountId: accountId, IdsRef: &ResultReference{Name: cmd, Path: path, ResultOf: rof}}
 		},
-		func(query ContactCardQueryResponse, get ContactCardGetResponse) *ContactCardSearchResults {
+		func(query ContactCardQueryResponse, queryParams QueryParams, limit *uint) *ContactCardSearchResults {
+			return &ContactCardSearchResults{
+				Results:             []ContactCard{},
+				CanCalculateChanges: ChangeCalculation(query.CanCalculateChanges),
+				Position:            valueIf(query.Position, queryParams.Anchor == ""),
+				Total:               valueIf(query.Total, calculateTotal),
+				Limit:               valueIf(query.Limit, limit != nil),
+			}
+		},
+		func(query ContactCardQueryResponse, get ContactCardGetResponse, queryParams QueryParams, limit *uint) *ContactCardSearchResults {
 			return &ContactCardSearchResults{
 				Results:             get.List,
 				CanCalculateChanges: ChangeCalculation(query.CanCalculateChanges),
-				Position:            ptrIf(query.Position, anchor == ""),
+				Position:            valueIf(query.Position, queryParams.Anchor == ""),
 				Total:               valueIf(query.Total, calculateTotal),
-				Limit:               ptrIf(query.Limit, limit != nil),
+				Limit:               valueIf(query.Limit, limit != nil),
 			}
 		},
-		accountIds,
-		filter, sortBy, position, anchor, anchorOffset, limit, ctx,
+		accountIds, limit,
+		filter, sortBy, ctx,
 	)
 }
 
 // @api:example create
-func (j *Client) CreateContactCard(accountId string, contact ContactCardChange, ctx Context) (Result[*ContactCard], Error) {
+func (j *Client) CreateContactCard(accountId string, contact ContactCardChange, ctx Context) (Result[*ContactCard], error) {
 	if contact.Version == nil {
 		contact.Version = &DEFAULT_CONTACT_CARD_VERSION
 	}
@@ -126,7 +138,7 @@ func (j *Client) CreateContactCard(accountId string, contact ContactCardChange, 
 	)
 }
 
-func (j *Client) DeleteContactCard(accountId string, destroyIds []string, ctx Context) (Result[map[string]SetError], Error) {
+func (j *Client) DeleteContactCard(accountId string, destroyIds []string, ctx Context) (Result[map[string]SetError], error) {
 	return destroy(j, "DeleteContactCard", ContactCardType,
 		func(accountId string, destroy []string) ContactCardSetCommand {
 			return ContactCardSetCommand{AccountId: accountId, Destroy: destroy}
@@ -138,7 +150,7 @@ func (j *Client) DeleteContactCard(accountId string, destroyIds []string, ctx Co
 }
 
 // @api:example update
-func (j *Client) UpdateContactCard(accountId string, id string, changes ContactCardChange, ctx Context) (Result[ContactCard], Error) {
+func (j *Client) UpdateContactCard(accountId string, id string, changes ContactCardChange, ctx Context) (Result[ContactCard], error) {
 	return update(j, "UpdateContactCard", ContactCardType,
 		func(update map[string]PatchObject) ContactCardSetCommand {
 			return ContactCardSetCommand{AccountId: accountId, Update: update}

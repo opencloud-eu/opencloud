@@ -2,7 +2,7 @@ package jmap
 
 var NS_CALENDARS = ns(JmapCalendars)
 
-func (j *Client) ParseICalendarBlob(accountId string, blobIds []string, ctx Context) (Result[CalendarEventParseResponse], Error) {
+func (j *Client) ParseICalendarBlob(accountId string, blobIds []string, ctx Context) (Result[CalendarEventParseResponse], error) {
 	logger := j.logger("ParseICalendarBlob", ctx)
 
 	parse := CalendarEventParseCommand{AccountId: accountId, BlobIds: blobIds}
@@ -23,7 +23,7 @@ func (j *Client) ParseICalendarBlob(accountId string, blobIds []string, ctx Cont
 	})
 }
 
-func (j *Client) GetCalendars(accountId string, ids []string, ctx Context) (Result[CalendarGetResponse], Error) {
+func (j *Client) GetCalendars(accountId string, ids []string, ctx Context) (Result[CalendarGetResponse], error) {
 	return get(j, "GetCalendars", CalendarType,
 		func(accountId string, ids []string) CalendarGetCommand {
 			return CalendarGetCommand{AccountId: accountId, Ids: ids}
@@ -48,7 +48,7 @@ func (c CalendarChanges) GetDestroyed() []string  { return c.Destroyed }
 
 // Retrieve Calendar changes since a given state.
 // @apidoc calendar,changes
-func (j *Client) GetCalendarChanges(accountId string, sinceState State, maxChanges uint, ctx Context) (Result[CalendarChanges], Error) {
+func (j *Client) GetCalendarChanges(accountId string, sinceState State, maxChanges uint, ctx Context) (Result[CalendarChanges], error) {
 	return changes(j, "GetCalendarChanges", CalendarType,
 		func() CalendarChangesCommand {
 			return CalendarChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: uintPtr(maxChanges)}
@@ -79,7 +79,7 @@ func (j *Client) GetCalendarChanges(accountId string, sinceState State, maxChang
 	)
 }
 
-func (j *Client) CreateCalendar(accountId string, calendar CalendarChange, ctx Context) (Result[*Calendar], Error) {
+func (j *Client) CreateCalendar(accountId string, calendar CalendarChange, ctx Context) (Result[*Calendar], error) {
 	return create(j, "CreateCalendar", CalendarEventType,
 		func(accountId string, create map[string]CalendarChange) CalendarSetCommand {
 			return CalendarSetCommand{AccountId: accountId, Create: create}
@@ -98,7 +98,7 @@ func (j *Client) CreateCalendar(accountId string, calendar CalendarChange, ctx C
 	)
 }
 
-func (j *Client) DeleteCalendar(accountId string, destroyIds []string, ctx Context) (Result[map[string]SetError], Error) {
+func (j *Client) DeleteCalendar(accountId string, destroyIds []string, ctx Context) (Result[map[string]SetError], error) {
 	return destroy(j, "DeleteCalendar", CalendarEventType,
 		func(accountId string, destroy []string) CalendarSetCommand {
 			return CalendarSetCommand{AccountId: accountId, Destroy: destroy}
@@ -109,7 +109,7 @@ func (j *Client) DeleteCalendar(accountId string, destroyIds []string, ctx Conte
 	)
 }
 
-func (j *Client) UpdateCalendar(accountId string, id string, changes CalendarChange, ctx Context) (Result[Calendar], Error) {
+func (j *Client) UpdateCalendar(accountId string, id string, changes CalendarChange, ctx Context) (Result[Calendar], error) {
 	return update(j, "UpdateCalendar", CalendarEventType,
 		func(update map[string]PatchObject) CalendarSetCommand {
 			return CalendarSetCommand{AccountId: accountId, Update: update}

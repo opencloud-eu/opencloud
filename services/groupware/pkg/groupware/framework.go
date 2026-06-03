@@ -83,11 +83,12 @@ type Job struct {
 type groupwareConfig struct {
 	maxBodyValueBytes uint
 	sanitize          bool
+	publicUrl         *url.URL
 }
 
 type groupwareDefaults struct {
-	emailLimit   uint
-	contactLimit uint
+	emailLimit   *uint
+	contactLimit *uint
 }
 
 type Groupware struct {
@@ -112,6 +113,9 @@ type Groupware struct {
 	jobsChannel chan Job
 	// A threadsafe counter to generate the job IDs.
 	jobCounter atomic.Uint64
+
+	addressBookListSuppliers  []ListSupplier[jmap.AddressBook, jmap.AddressBookGetResponse]
+	contactCardQuerySuppliers []QuerySupplier[jmap.ContactCard, *jmap.ContactCardSearchResults, jmap.ContactCardFilterElement, jmap.ContactCardComparator]
 }
 
 // An error during the Groupware initialization.
@@ -180,9 +184,9 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 
 	sessionUrl := baseUrl.JoinPath(".well-known", "jmap")
 
-	defaultEmailLimit := max(config.Mail.DefaultEmailLimit, 0)
+	defaultEmailLimit := ptrIfNot(max(config.Mail.DefaultEmailLimit, 0), 0)
 	maxBodyValueBytes := max(config.Mail.MaxBodyValueBytes, 0)
-	defaultContactLimit := max(config.Mail.DefaultContactLimit, 0)
+	defaultContactLimit := ptrIfNot(max(config.Mail.DefaultContactLimit, 0), 0)
 	responseHeaderTimeout := max(config.Mail.ResponseHeaderTimeout, 0)
 	sessionCacheMaxCapacity := uint64(max(config.Mail.SessionCache.MaxCapacity, 0))
 	sessionCacheTtl := max(config.Mail.SessionCache.Ttl, 0)
@@ -383,6 +387,30 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 		}
 	}
 
+	addressBookListSuppliers := []ListSupplier[jmap.AddressBook, jmap.AddressBookGetResponse]{}
+	contactCardQuerySuppliers := []QuerySupplier[jmap.ContactCard, *jmap.ContactCardSearchResults, jmap.ContactCardFilterElement, jmap.ContactCardComparator]{}
+	{
+		{
+			j := newJmapContactCardSupplier(&jmapClient)
+			addressBookListSuppliers = append(addressBookListSuppliers, j)
+			contactCardQuerySuppliers = append(contactCardQuerySuppliers, j)
+		}
+		{
+			m := newMockContactCardSupplier()
+			addressBookListSuppliers = append(addressBookListSuppliers, m)
+			contactCardQuerySuppliers = append(contactCardQuerySuppliers, m)
+		}
+	}
+
+	var publicUrl *url.URL
+	{
+		if u, err := url.Parse(config.HTTP.OpenCloudPublicURL); err != nil {
+			return nil, GroupwareInitializationError{Message: "failed to parse the public URL configuration setting", Err: err}
+		} else {
+			publicUrl = u
+		}
+	}
+
 	g := &Groupware{
 		mux:          mux,
 		metrics:      m,
@@ -399,10 +427,13 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 		config: groupwareConfig{
 			maxBodyValueBytes: maxBodyValueBytes,
 			sanitize:          sanitize,
+			publicUrl:         publicUrl,
 		},
-		eventChannel: eventChannel,
-		jobsChannel:  jobsChannel,
-		jobCounter:   atomic.Uint64{},
+		eventChannel:              eventChannel,
+		jobsChannel:               jobsChannel,
+		jobCounter:                atomic.Uint64{},
+		addressBookListSuppliers:  addressBookListSuppliers,
+		contactCardQuerySuppliers: contactCardQuerySuppliers,
 	}
 
 	for w := 1; w <= workerPoolSize; w++ {
@@ -696,6 +727,36 @@ func (g *Groupware) sendResponse(w http.ResponseWriter, r *http.Request, respons
 		w.Header().Add("Content-Language", string(response.contentLanguage))
 	}
 
+	if response.next != "" && response.next != NoNextToken {
+		w.Header().Add("next", string(response.next)) // TODO add RESTful links for next?
+
+		base := g.config.publicUrl.JoinPath("/groupware/contacts")
+
+		limit := r.URL.Query().Get(QueryParamLimit)
+		// TODO add all the other query parameters for filter and sort
+
+		// options for rel: self, first, prev, next
+		{
+			u := base
+			q := u.Query()
+			q.Set(QueryParamNext, string(response.next))
+			if limit != "" {
+				q.Set(QueryParamLimit, limit)
+			}
+			u.RawQuery = q.Encode()
+			w.Header().Add("Link", fmt.Sprintf(`<%s>; rel="next">`, u.String()))
+		}
+		{
+			u := base
+			q := u.Query()
+			if limit != "" {
+				q.Set(QueryParamLimit, limit)
+			}
+			u.RawQuery = q.Encode()
+			w.Header().Add("Link", fmt.Sprintf(`<%s>; rel="first">`, u.String()))
+		}
+	}
+
 	notModified := false
 	{
 		etag := string(response.etag)
@@ -747,7 +808,7 @@ func (g *Groupware) respond(w http.ResponseWriter, r *http.Request, handler func
 	g.sendResponse(w, r, response)
 }
 
-func (g *Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(r Request, w http.ResponseWriter) *Error) {
+func (g *Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(r Request, w http.ResponseWriter) (bool, Response)) {
 	cotx := r.Context()
 	sl := g.logger.SubloggerWithRequestID(cotx)
 	logger := &sl
@@ -796,15 +857,9 @@ func (g *Groupware) stream(w http.ResponseWriter, r *http.Request, handler func(
 		ctx:     ctx,
 	}
 
-	apierr := handler(req, w)
-	if apierr != nil {
-		g.log(apierr)
-		w.Header().Add("Content-Type", ContentTypeJsonApi)
-		render.Status(r, apierr.NumStatus)
-		w.WriteHeader(apierr.NumStatus)
-		if err := render.Render(w, r, errorResponses(*apierr)); err != nil {
-			logger.Error().Err(err).Msgf("failed to render error response")
-		}
+	ok, resp := handler(req, w)
+	if !ok {
+		g.sendResponse(w, r, resp)
 	}
 }
 
@@ -833,3 +888,119 @@ func (g *Groupware) MethodNotAllowed(w http.ResponseWriter, r *http.Request) {
 func single[S any](s S) []S {
 	return []S{s}
 }
+
+type QueryParamsSupplier interface {
+	ForSupplier(supplierId string, accountId string) (jmap.QueryParams, bool, error)
+	ForAccountId(accountId string) (jmap.QueryParams, bool, error)
+}
+
+func mapQueryParams(supplierId string, accountIds []string, qps QueryParamsSupplier) (map[string]jmap.QueryParams, error) {
+	m := map[string]jmap.QueryParams{}
+	if supplierId == "" {
+		for _, accountId := range accountIds {
+			if q, ok, err := qps.ForAccountId(accountId); err != nil {
+				return nil, err
+			} else if ok {
+				m[accountId] = q
+			}
+		}
+	} else {
+		for _, accountId := range accountIds {
+			if q, ok, err := qps.ForSupplier(supplierId, accountId); err != nil {
+				return nil, err
+			} else if ok {
+				m[accountId] = q
+			}
+		}
+	}
+	return m, nil
+}
+
+type ErrorQueryParamsSupplier struct {
+	err error
+}
+
+func (s ErrorQueryParamsSupplier) ForSupplier(supplierId string, accountId string) (jmap.QueryParams, bool, error) {
+	return jmap.NullQueryParams, false, s.err
+}
+
+func (s ErrorQueryParamsSupplier) ForAccountId(accountId string) (jmap.QueryParams, bool, error) {
+	return jmap.NullQueryParams, false, s.err
+}
+
+var _ QueryParamsSupplier = ErrorQueryParamsSupplier{}
+
+type FirstQueryParamsSupplier struct {
+}
+
+func (s FirstQueryParamsSupplier) ForSupplier(supplierId string, accountId string) (jmap.QueryParams, bool, error) {
+	return jmap.NullQueryParams, true, nil
+}
+
+func (s FirstQueryParamsSupplier) ForAccountId(accountId string) (jmap.QueryParams, bool, error) {
+	return jmap.NullQueryParams, true, nil
+}
+
+var _ QueryParamsSupplier = FirstQueryParamsSupplier{}
+
+type StaticQueryParamsSupplier struct {
+	qp jmap.QueryParams
+}
+
+func (s StaticQueryParamsSupplier) ForSupplier(supplierId string, accountId string) (jmap.QueryParams, bool, error) {
+	return s.qp, true, nil
+}
+
+func (s StaticQueryParamsSupplier) ForAccountId(accountId string) (jmap.QueryParams, bool, error) {
+	return s.qp, true, nil
+}
+
+var _ QueryParamsSupplier = StaticQueryParamsSupplier{}
+
+type MultiSupplierQueryParamsSupplier struct {
+	m map[string]map[string]jmap.QueryParams
+}
+
+func (s MultiSupplierQueryParamsSupplier) ForSupplier(supplierId string, accountId string) (jmap.QueryParams, bool, error) {
+	if a, ok := s.m[supplierId]; ok {
+		if b, ok := a[accountId]; ok {
+			return b, true, nil
+		}
+	}
+	return jmap.NullQueryParams, false, nil
+}
+
+func (s MultiSupplierQueryParamsSupplier) ForAccountId(accountId string) (jmap.QueryParams, bool, error) {
+	switch len(s.m) {
+	case 1:
+		for _, v := range s.m {
+			if b, ok := v[accountId]; ok {
+				return b, true, nil
+			}
+		}
+		return jmap.NullQueryParams, false, nil
+	case 0:
+		return jmap.NullQueryParams, false, nil
+	default:
+		return jmap.NullQueryParams, false, fmt.Errorf("unable to provide for account with multi supplier token")
+	}
+}
+
+var _ QueryParamsSupplier = MultiSupplierQueryParamsSupplier{}
+
+type SingleSupplierQueryParamsSupplier struct {
+	m map[string]jmap.QueryParams
+}
+
+func (s SingleSupplierQueryParamsSupplier) ForSupplier(supplierId string, accountId string) (jmap.QueryParams, bool, error) {
+	return jmap.NullQueryParams, false, fmt.Errorf("unable to provide for supplier with single supplier token")
+}
+
+func (s SingleSupplierQueryParamsSupplier) ForAccountId(accountId string) (jmap.QueryParams, bool, error) {
+	if b, ok := s.m[accountId]; ok {
+		return b, true, nil
+	}
+	return jmap.NullQueryParams, false, nil
+}
+
+var _ QueryParamsSupplier = SingleSupplierQueryParamsSupplier{}

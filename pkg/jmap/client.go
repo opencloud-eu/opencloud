@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/rs/zerolog"
 )
 
@@ -107,7 +108,9 @@ func (j *Client) maxCallsCheck(calls int, ctx Context) Error {
 //
 // If an issue occurs, then it is logged prior to returning it.
 func (j *Client) request(ctx Context, using []JmapNamespace, methodCalls ...Invocation) (Request, Error) {
-	err := j.maxCallsCheck(len(methodCalls), ctx)
+	sanitized := structs.Filter(methodCalls, func(inv Invocation) bool { return inv.Command != "" })
+
+	err := j.maxCallsCheck(len(sanitized), ctx)
 	if err != nil {
 		return Request{}, err
 	}
@@ -120,7 +123,7 @@ func (j *Client) request(ctx Context, using []JmapNamespace, methodCalls ...Invo
 	}
 	return Request{
 		Using:       using,
-		MethodCalls: methodCalls,
+		MethodCalls: sanitized,
 		CreatedIds:  nil,
 	}, nil
 }

@@ -71,6 +71,7 @@ const (
 	QueryParamEmailSubmissions        = "submissions"
 	QueryParamId                      = "id"
 	QueryParamCalculateTotal          = "total"
+	QueryParamNext                    = "next"
 	HeaderParamSince                  = "if-none-match"
 )
 
