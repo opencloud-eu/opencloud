@@ -32,6 +32,7 @@ func CreateHome(optionSetters ...Option) func(next http.Handler) http.Handler {
 			tracer:              tracer,
 			revaGatewaySelector: options.RevaGatewaySelector,
 			roleQuotas:          options.RoleQuotas,
+			defaultUsersQuota:   options.DefaultUsersQuota,
 		}
 	}
 }
@@ -42,6 +43,7 @@ type createHome struct {
 	tracer              trace.Tracer
 	revaGatewaySelector pool.Selectable[gateway.GatewayAPIClient]
 	roleQuotas          map[string]uint64
+	defaultUsersQuota   uint64
 }
 
 func (m createHome) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -71,6 +73,8 @@ func (m createHome) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		if limit, hasLimit := m.checkRoleQuotaLimit(roleIDs); hasLimit {
 			createHomeReq.Opaque = utils.AppendPlainToOpaque(nil, "quota", strconv.FormatUint(limit, 10))
+		} else if m.defaultUsersQuota > 0 {
+			createHomeReq.Opaque = utils.AppendPlainToOpaque(nil, "quota", strconv.FormatUint(m.defaultUsersQuota, 10))
 		}
 	}
 

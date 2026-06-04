@@ -24,6 +24,7 @@ type Config struct {
 	GrpcClient    client.Client         `yaml:"-"`
 
 	RoleQuotas                    map[string]uint64   `yaml:"role_quotas"`
+	DefaultUsersQuota             uint64              `yaml:"default_users_quota" env:"PROXY_USERS_DEFAULT_QUOTA" desc:"The default quota in bytes for personal spaces of new users. A value of 0 means unlimited. This quota is used as a fallback when no role-specific quota is configured." introductionVersion:"7.2.0"`
 	Policies                      []Policy            `yaml:"policies"`
 	AdditionalPolicies            []Policy            `yaml:"additional_policies"`
 	OIDC                          OIDC                `yaml:"oidc"`

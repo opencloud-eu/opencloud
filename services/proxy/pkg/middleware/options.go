@@ -70,6 +70,8 @@ type Options struct {
 	// RoleQuotas hold userid:quota mappings. These will be used when provisioning new users.
 	// The users will get as much quota as is set for their role.
 	RoleQuotas map[string]uint64
+	// DefaultUsersQuota is the fallback quota for personal spaces when no role-specific quota is set.
+	DefaultUsersQuota uint64
 	// TraceProvider sets the tracing provider.
 	TraceProvider trace.TracerProvider
 	// SkipUserInfo prevents the oidc middleware from querying the userinfo endpoint and read any claims directly from the access token instead
@@ -239,6 +241,13 @@ func AccessTokenVerifyMethod(method string) Option {
 func RoleQuotas(roleQuotas map[string]uint64) Option {
 	return func(o *Options) {
 		o.RoleQuotas = roleQuotas
+	}
+}
+
+// DefaultUsersQuota sets the default quota for personal spaces when no role-specific quota is configured.
+func DefaultUsersQuota(quota uint64) Option {
+	return func(o *Options) {
+		o.DefaultUsersQuota = quota
 	}
 }
 

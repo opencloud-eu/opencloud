@@ -394,6 +394,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 			middleware.TraceProvider(traceProvider),
 			middleware.WithRevaGatewaySelector(gatewaySelector),
 			middleware.RoleQuotas(cfg.RoleQuotas),
+			middleware.DefaultUsersQuota(cfg.DefaultUsersQuota),
 		),
 	)
 }
