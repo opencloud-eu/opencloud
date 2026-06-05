@@ -390,10 +390,6 @@ github.com/go-chi/chi/v5 v5.3.1/go.mod h1:R+tYY2hNuVUUjxoPtqUdgBqevM9s9njzkTLutV
 github.com/go-chi/render v1.0.3 h1:AsXqd2a1/INaIfUSKq3G5uA8weYx20FOsM7uSoCyyt4=
 github.com/go-chi/render v1.0.3/go.mod h1:/gr3hVkmYR0YlEy3LxCuVRFzEu9Ruok+gFqbIofjao0=
 github.com/go-cmd/cmd v1.0.5/go.mod h1:y8q8qlK5wQibcw63djSl/ntiHUHXHGdCkPk0j4QeW4s=
-github.com/go-crypt/crypt v0.4.5 h1:cCR5vVejGk1kurwoGfkLxGORY+Pc9GiE7xKCpyHZ3n4=
-github.com/go-crypt/crypt v0.4.5/go.mod h1:cQijpCkqavdF52J1bE0PObWwqKKjQCHASHQ2dtLzOJs=
-github.com/go-crypt/x v0.4.7 h1:hObjW67nhq/GI1jaD7XCv5RoiVKzF46XIbULgzH71oU=
-github.com/go-crypt/x v0.4.7/go.mod h1:K3q7VmLC0U1QFAPn0SQvXjkAtu6FJuH0rN9LNqobX6k=
 github.com/go-errors/errors v1.0.1/go.mod h1:f4zRHt4oKfwPJE5k8C9vpYG+aDHdBFUsgrm6/TyX73Q=
 github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 h1:+zs/tPmkDkHx3U66DAb0lQFJrpS6731Oaa12ikc+DiI=
 github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376/go.mod h1:an3vInlBmSxCcxctByoQdvwPiA7DTK7jaaFDBTtu0ic=

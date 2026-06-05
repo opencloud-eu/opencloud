@@ -68,7 +68,7 @@ func TestWs(t *testing.T) {
 	defer s.Close()
 
 	user := pickUser()
-	session := s.Session(user.name)
+	session := s.Session(user.email)
 	ctx := s.Context(session)
 
 	mailAccountId := session.PrimaryAccounts.Mail
@@ -77,7 +77,7 @@ func TestWs(t *testing.T) {
 		_, inboxFolder = s.findInbox(t, mailAccountId, ctx)
 	}
 
-	l := &testWsPushListener{t: t, username: user.name, logger: s.logger, mailAccountId: mailAccountId}
+	l := &testWsPushListener{t: t, username: user.email, logger: s.logger, mailAccountId: mailAccountId}
 	s.client.AddWsPushListener(l)
 
 	require.Equal(uint32(0), l.calls.Load())

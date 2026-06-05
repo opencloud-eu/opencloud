@@ -575,7 +575,7 @@ func (e Exemplar) MailboxInbox() (Mailbox, string, string) {
 		Id:            e.MailboxInboxId,
 		Name:          "Inbox",
 		Role:          JmapMailboxRoleInbox,
-		SortOrder:     ptr(0),
+		SortOrder:     new(0),
 		TotalEmails:   1291,
 		UnreadEmails:  82,
 		TotalThreads:  891,
@@ -600,7 +600,7 @@ func (e Exemplar) MailboxInboxProjects() (Mailbox, string, string) {
 		Id:            e.MailboxProjectId,
 		ParentId:      e.MailboxInboxId,
 		Name:          "Projects",
-		SortOrder:     ptr(0),
+		SortOrder:     new(0),
 		TotalEmails:   112,
 		UnreadEmails:  3,
 		TotalThreads:  85,
@@ -625,7 +625,7 @@ func (e Exemplar) MailboxDrafts() (Mailbox, string, string) {
 		Id:            e.MailboxDraftsId,
 		Name:          "Drafts",
 		Role:          JmapMailboxRoleDrafts,
-		SortOrder:     ptr(0),
+		SortOrder:     new(0),
 		TotalEmails:   12,
 		UnreadEmails:  1,
 		TotalThreads:  12,
@@ -650,7 +650,7 @@ func (e Exemplar) MailboxSent() (Mailbox, string, string) {
 		Id:            e.MailboxSentId,
 		Name:          "Sent Items",
 		Role:          JmapMailboxRoleSent,
-		SortOrder:     ptr(0),
+		SortOrder:     new(0),
 		TotalEmails:   1621,
 		UnreadEmails:  0,
 		TotalThreads:  1621,
@@ -675,7 +675,7 @@ func (e Exemplar) MailboxJunk() (Mailbox, string, string) {
 		Id:            e.MailboxJunkId,
 		Name:          "Junk Mail",
 		Role:          JmapMailboxRoleJunk,
-		SortOrder:     ptr(0),
+		SortOrder:     new(0),
 		TotalEmails:   251,
 		UnreadEmails:  0,
 		TotalThreads:  251,
@@ -700,7 +700,7 @@ func (e Exemplar) MailboxDeleted() (Mailbox, string, string) {
 		Id:            e.MailboxDeletedId,
 		Name:          "Deleted Items",
 		Role:          JmapMailboxRoleTrash,
-		SortOrder:     ptr(0),
+		SortOrder:     new(0),
 		TotalEmails:   99,
 		UnreadEmails:  0,
 		TotalThreads:  91,
@@ -918,7 +918,7 @@ func (e Exemplar) AddressBook() AddressBook {
 
 func (e Exemplar) AddressBookChange() AddressBookChange {
 	return AddressBookChange{
-		Description: ptr("A different name"),
+		Description: new("A different name"),
 	}
 }
 
@@ -2325,9 +2325,9 @@ func (e Exemplar) CalendarEventSearchResults() CalendarEventSearchResults {
 	return CalendarEventSearchResults{
 		Results:             []CalendarEvent{ev},
 		CanCalculateChanges: true,
-		Position:            ptr(uint(3)),
-		Limit:               ptr(uint(10)),
-		Total:               ptr(uint(4)),
+		Position:            new(uint(3)),
+		Limit:               new(uint(10)),
+		Total:               new(uint(4)),
 	}
 }
 
@@ -2337,8 +2337,8 @@ func (e Exemplar) ContactCardSearchResults() ContactCardSearchResults {
 	return ContactCardSearchResults{
 		Results:             []ContactCard{c1, c2},
 		CanCalculateChanges: true,
-		Position:            ptr(uint(3)),
-		Limit:               ptr(uint(10)),
-		Total:               ptr(uint(4)),
+		Position:            new(uint(3)),
+		Limit:               new(uint(10)),
+		Total:               new(uint(4)),
 	}
 }

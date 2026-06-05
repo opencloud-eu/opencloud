@@ -487,16 +487,6 @@ github.com/go-chi/chi/v5/middleware
 # github.com/go-chi/render v1.0.3
 ## explicit; go 1.16
 github.com/go-chi/render
-# github.com/go-crypt/crypt v0.4.5
-## explicit; go 1.23
-github.com/go-crypt/crypt/algorithm
-github.com/go-crypt/crypt/algorithm/shacrypt
-github.com/go-crypt/crypt/internal/encoding
-github.com/go-crypt/crypt/internal/random
-# github.com/go-crypt/x v0.4.7
-## explicit; go 1.23.0
-github.com/go-crypt/x/base64
-github.com/go-crypt/x/crypt
 # github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376
 ## explicit; go 1.13
 github.com/go-git/gcfg
@@ -2137,6 +2127,7 @@ github.com/testcontainers/testcontainers-go/internal/config
 github.com/testcontainers/testcontainers-go/internal/core
 github.com/testcontainers/testcontainers-go/internal/core/network
 github.com/testcontainers/testcontainers-go/log
+github.com/testcontainers/testcontainers-go/network
 github.com/testcontainers/testcontainers-go/wait
 # github.com/testcontainers/testcontainers-go/modules/opensearch v0.43.0
 ## explicit; go 1.25.0

@@ -59,8 +59,8 @@ func TestAddressBooks(t *testing.T) {
 		},
 		func(orig AddressBook) AddressBookChange {
 			return AddressBookChange{
-				Description:  ptr(orig.Description + " (changed)"),
-				IsSubscribed: ptr(!orig.IsSubscribed),
+				Description:  new(orig.Description + " (changed)"),
+				IsSubscribed: new(!orig.IsSubscribed),
 			}
 		},
 		func(t *testing.T, orig AddressBook, _ AddressBookChange, changed AddressBook) {
@@ -85,7 +85,7 @@ func TestContacts(t *testing.T) {
 	defer s.Close()
 
 	user := pickUser()
-	session := s.Session(user.name)
+	session := s.Session(user.email)
 	ctx := s.Context(session)
 
 	accountId, addressbookId, expectedContactCardsById, boxes, err := s.fillContacts(t, count, session, ctx, user)
@@ -213,8 +213,8 @@ func TestContacts(t *testing.T) {
 		now := time.Now().Truncate(time.Duration(1) * time.Second).UTC()
 		for _, event := range expectedContactCardsById {
 			change := ContactCardChange{
-				Language: ptr("xyz"),
-				Updated:  ptr(now),
+				Language: new("xyz"),
+				Updated:  new(now),
 			}
 			result, err := s.client.UpdateContactCard(accountId, event.Id, change, ctx)
 			require.NoError(err)
@@ -359,7 +359,7 @@ func (s *StalwartTest) fillContacts( //NOSONAR
 	user User,
 ) (AccountId, string, map[string]ContactCard, ContactsBoxes, error) {
 	require := require.New(t)
-	c, err := NewTestJmapClient(session, user.name, user.password, true, true)
+	c, err := NewTestJmapClient(session, user.email, user.password, true, true)
 	require.NoError(err)
 	defer c.Close()
 
@@ -401,11 +401,11 @@ func (s *StalwartTest) fillContacts( //NOSONAR
 
 		card := ContactCardChange{
 			Type:           jscontact.ContactCardType,
-			Version:        ptr(jscontact.JSContactVersion_1_0),
+			Version:        new(jscontact.JSContactVersion_1_0),
 			AddressBookIds: toBoolPtrMap([]string{addressbookId}),
 			ProdId:         &productName,
 			Language:       &language,
-			Kind:           ptr(jscontact.ContactCardKindIndividual),
+			Kind:           new(jscontact.ContactCardKindIndividual),
 			Name:           &nameObj,
 		}
 
