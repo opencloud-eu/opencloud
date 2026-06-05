@@ -63,6 +63,8 @@ type Config struct {
 
 	Groupware Groupware `yaml:"groupware"`
 
+	OpenXchange OpenXchange `yaml:"open_xchange"`
+
 	Context context.Context `yaml:"-"`
 }
 
@@ -222,4 +224,9 @@ type PasswordPolicy struct {
 
 type Groupware struct {
 	Enabled bool `yaml:"enabled" env:"FRONTEND_GROUPWARE_ENABLED" desc:"Enable groupware features. Defaults to false." introductionVersion:"3.7.0"`
+}
+
+type OpenXchange struct {
+	Enabled bool   `yaml:"enabled" env:"FRONTEND_OPENXCHANGE_ENABLED" desc:"Enable Open-Xchange integration. Defaults to false." introductionVersion:"%%NEXT_PRODUCTION_VERSION%%"`
+	ApiUrl  string `yaml:"api_url" env:"FRONTEND_OPENXCHANGE_API_URL" desc:"The URL of the Open-Xchange API. Required if Open-Xchange integration is enabled." introductionVersion:"%%NEXT_PRODUCTION_VERSION%%"`
 }

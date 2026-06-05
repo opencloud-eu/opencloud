@@ -158,6 +158,10 @@ func DefaultConfig() *config.Config {
 		Groupware: config.Groupware{
 			Enabled: false,
 		},
+		OpenXchange: config.OpenXchange{
+			Enabled: false,
+			ApiUrl:  "",
+		},
 	}
 }
 

@@ -343,6 +343,10 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 							"groupware": map[string]any{
 								"enabled": cfg.Groupware.Enabled,
 							},
+							"open_xchange": map[string]any{
+								"enabled": cfg.OpenXchange.Enabled,
+								"api_url": cfg.OpenXchange.ApiUrl,
+							},
 						},
 						"version": map[string]any{
 							"product":        "OpenCloud",
