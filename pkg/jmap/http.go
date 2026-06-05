@@ -532,6 +532,7 @@ func (w *HttpWsClientFactory) connect(ctx context.Context, sessionProvider func(
 
 	h := http.Header{}
 	w.auth(ctx, username, logger, h)
+	w.logger.Trace().Str("username", log.SafeString(username)).Str("url", log.SafeString(u.String())).Msgf("connecting")
 	c, res, err := w.dialer.DialContext(ctx, u.String(), h)
 	if err != nil {
 		return nil, "", endpoint, jmapError(err, JmapErrorFailedToEstablishWssConnection)

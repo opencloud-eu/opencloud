@@ -49,8 +49,8 @@ func TestCalendars(t *testing.T) { //NOSONAR
 		},
 		func(orig Calendar) CalendarChange {
 			return CalendarChange{
-				Description:  ptr(orig.Description + " (changed)"),
-				IsSubscribed: ptr(!orig.IsSubscribed),
+				Description:  new(orig.Description + " (changed)"),
+				IsSubscribed: new(!orig.IsSubscribed),
 			}
 		},
 		func(t *testing.T, orig Calendar, _ CalendarChange, changed Calendar) {
@@ -75,7 +75,7 @@ func TestEvents(t *testing.T) {
 	defer s.Close()
 
 	user := pickUser()
-	session := s.Session(user.name)
+	session := s.Session(user.email)
 	ctx := s.Context(session)
 
 	accountId, calendarId, expectedEventsById, boxes, err := s.fillEvents(t, count, ctx, user)
@@ -178,7 +178,7 @@ func TestEvents(t *testing.T) {
 	for _, event := range expectedEventsById {
 		change := CalendarEventChange{
 			EventChange: jscalendar.EventChange{
-				Status: ptr(jscalendar.StatusCancelled),
+				Status: new(jscalendar.StatusCancelled),
 				ObjectChange: jscalendar.ObjectChange{
 					Sequence:        uintPtr(99),
 					ShowWithoutTime: truep,
@@ -382,7 +382,7 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 	user User,
 ) (AccountId, string, map[string]CalendarEvent, EventsBoxes, error) {
 	require := require.New(t)
-	c, err := NewTestJmapClient(ctx.Session, user.name, user.password, true, true)
+	c, err := NewTestJmapClient(ctx.Session, user.email, user.password, true, true)
 	require.NoError(err)
 	defer c.Close()
 
@@ -467,7 +467,7 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 			EventChange: jscalendar.EventChange{
 				Type:     jscalendar.EventType,
 				Start:    jscalendar.LocalDateTime(start),
-				Duration: ptr(jscalendar.Duration(duration)),
+				Duration: new(jscalendar.Duration(duration)),
 				Status:   &status,
 				ObjectChange: jscalendar.ObjectChange{
 					CommonObjectChange: jscalendar.CommonObjectChange{

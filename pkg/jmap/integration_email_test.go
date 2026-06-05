@@ -39,7 +39,7 @@ func TestEmails(t *testing.T) {
 	defer s.Close()
 
 	user := pickUser()
-	session := s.Session(user.name)
+	session := s.Session(user.email)
 	ctx := s.Context(session)
 
 	accountId := session.PrimaryAccounts.Mail
@@ -59,9 +59,11 @@ func TestEmails(t *testing.T) {
 			result, err := s.client.GetIdentities(accountId, []string{}, ctx)
 			require.NoError(err)
 			require.Equal(session.State, result.GetSessionState())
-			require.Len(result.Payload.List, 1)
-			require.Equal(user.email, result.Payload.List[0].Email)
-			require.Equal(user.description, result.Payload.List[0].Name)
+			require.Len(result.Payload.List, 2)
+			emailMatches := structs.Filter(result.Payload.List, func(i Identity) bool { return i.Email == user.email })
+			require.Len(emailMatches, 1)
+			aliasMatches := structs.Filter(result.Payload.List, func(i Identity) bool { return i.Email == user.alias })
+			require.Len(aliasMatches, 1)
 		}
 
 		{
@@ -122,7 +124,7 @@ func TestSendingEmails(t *testing.T) {
 	defer s.Close()
 
 	from := pickUser()
-	session := s.Session(from.name)
+	session := s.Session(from.email)
 	ctx := s.Context(session)
 	accountId := session.PrimaryAccounts.Mail
 
@@ -131,7 +133,7 @@ func TestSendingEmails(t *testing.T) {
 		others := structs.Filter(users[:], func(u User) bool { return u.name != from.name })
 		to = others[rand.Intn(len(others))]
 	}
-	toSession := s.Session(to.name)
+	toSession := s.Session(to.email)
 	toAccountId := toSession.PrimaryAccounts.Mail
 
 	var cc User
@@ -139,7 +141,7 @@ func TestSendingEmails(t *testing.T) {
 		others := structs.Filter(users[:], func(u User) bool { return u.name != from.name && u.name != to.name })
 		cc = others[rand.Intn(len(others))]
 	}
-	ccSession := s.Session(cc.name)
+	ccSession := s.Session(cc.email)
 	ccAccountId := ccSession.PrimaryAccounts.Mail
 
 	var mailboxPerRole map[string]Mailbox
@@ -190,8 +192,10 @@ func TestSendingEmails(t *testing.T) {
 		{
 			result, err := s.client.GetIdentities(accountId, []string{}, ctx)
 			require.NoError(err)
-			require.NotEmpty(result.Payload.List)
-			identity = result.Payload.List[0]
+			require.Len(result.Payload.List, 2)
+			matchesAlias := structs.Filter(result.Payload.List, func(i Identity) bool { return i.Email == from.alias })
+			require.Len(matchesAlias, 1)
+			identity = matchesAlias[0]
 		}
 
 		create := EmailChange{
@@ -270,7 +274,7 @@ func TestSendingEmails(t *testing.T) {
 			require.Equal(sub.UndoStatus, UndoStatusPending) // this *might* be fragile: if the server is fast enough, would we get "final" here?
 			require.Empty(sub.DsnBlobIds)
 			require.Empty(sub.MdnBlobIds)
-			require.Equal(from.email, sub.Envelope.MailFrom.Email)
+			require.Equal(from.alias, sub.Envelope.MailFrom.Email)
 			require.Nil(sub.Envelope.MailFrom.Parameters)
 			require.Len(sub.Envelope.RcptTo, 2)
 			require.Contains(sub.Envelope.RcptTo, Address{Email: to.email})
@@ -325,7 +329,7 @@ func TestSendingEmails(t *testing.T) {
 						require.Equal(1, mailbox.TotalEmails)
 					}
 				}
-				require.NotEmpty(inboxId, "failed to find the Mailbox with the 'inbox' role for %v", r.user.name)
+				require.NotEmpty(inboxId, "failed to find the Mailbox with the 'inbox' role for %v", r.user.email)
 			}
 
 			result, err := s.client.QueryEmails([]AccountId{r.accountId}, EmailFilterCondition{InMailbox: inboxId}, 0, 0, true, 0, rctx)
@@ -538,7 +542,7 @@ func (s *StalwartTest) fillEmailsWithImap(folder string, count int, empty bool, 
 		}
 	}(c)
 
-	if err = c.Login(user.name, user.password).Wait(); err != nil {
+	if err = c.Login(user.email, user.password).Wait(); err != nil {
 		return nil, 0, err
 	}
 
@@ -586,7 +590,7 @@ func (s *StalwartTest) fillEmailsWithImap(folder string, count int, empty bool, 
 	domain := addressParts[0][2]
 
 	toName := displayName
-	toAddress := fmt.Sprintf("%s@%s", user.name, domain)
+	toAddress := fmt.Sprintf("%s@%s", user.email, domain)
 	ccName1 := "Team Lead"
 	ccAddress1 := fmt.Sprintf("lead@%s", domain)
 	ccName2 := "Coworker"

@@ -211,8 +211,6 @@ require (
 	github.com/gdexlab/go-render v1.0.1 // indirect
 	github.com/go-acme/lego/v5 v5.5.2 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.8 // indirect
-	github.com/go-crypt/crypt v0.4.5
-	github.com/go-crypt/x v0.4.7 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.9.1 // indirect
 	github.com/go-git/go-git/v5 v5.19.2 // indirect
@@ -300,7 +298,7 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.3.3 // indirect
-	github.com/moby/moby/api v1.56.0 // indirect
+	github.com/moby/moby/api v1.56.0
 	github.com/moby/moby/client v0.6.0 // indirect
 	github.com/moby/patternmatcher v0.6.1 // indirect
 	github.com/moby/sys/sequential v0.7.0 // indirect
