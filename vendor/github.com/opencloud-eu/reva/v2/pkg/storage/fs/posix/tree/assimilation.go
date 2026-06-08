@@ -49,6 +49,10 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
+var (
+	_errSkipAlreadyKnown = errors.New("skip already known item")
+)
+
 type ScanDebouncer struct {
 	after      time.Duration
 	f          func(item scanItem)
@@ -168,8 +172,19 @@ func (t *Tree) workScanQueue() {
 
 				err := t.assimilate(item)
 				if err != nil {
+					if errors.Is(err, _errSkipAlreadyKnown) {
+						log.Trace().Err(err).Str("path", item.Path).Msg("skip already known item")
+						continue
+					}
 					log.Error().Err(err).Str("path", item.Path).Msg("failed to assimilate item")
 					continue
+				}
+
+				if item.RefreshParent {
+					err = t.WarmupIDCache(filepath.Dir(item.Path), true, true)
+					if err != nil {
+						log.Error().Err(err).Str("path", item.Path).Msg("failed to warmup id cache")
+					}
 				}
 
 				if item.Recurse {
@@ -195,17 +210,16 @@ func (t *Tree) Scan(path string, action watcher.EventAction, isDir bool) error {
 			//   -> scan parent directory recursively to update tree size and catch nodes that weren't covered by an event
 			AssimilationCounter.WithLabelValues(_labelFile, _labelAdded).Inc()
 			if !t.scanDebouncer.Pending(filepath.Dir(path)) {
+				// Use RefreshParent instead of scanning the parent recursively so that it can be skipped if
+				// the current state is already known (based on the mtime on disk vs. metadata)
 				t.scanDebouncer.Debounce(scanItem{
-					Path: path,
+					Path:          path,
+					RefreshParent: true,
 				})
 			}
 			if err := t.setDirty(filepath.Dir(path), true); err != nil {
 				t.log.Error().Err(err).Str("path", path).Bool("isDir", isDir).Msg("failed to mark directory as dirty")
 			}
-			t.scanDebouncer.Debounce(scanItem{
-				Path:    filepath.Dir(path),
-				Recurse: true,
-			})
 		} else {
 			// 2. New directory
 			//  -> scan directory
@@ -451,7 +465,11 @@ func (t *Tree) assimilate(item scanItem) error {
 		if err != nil {
 			return errors.Wrap(err, "failed to lock item for assimilation")
 		}
+		locked := true
 		defer func() {
+			if !locked {
+				return
+			}
 			_ = unlock()
 		}()
 
@@ -463,7 +481,7 @@ func (t *Tree) assimilate(item scanItem) error {
 		// compare metadata mtime with actual mtime. if it matches AND the path hasn't changed (move operation)
 		// we can skip the assimilation because the file was handled by us
 		if previousPath == item.Path && mtime.Equal(fi.ModTime()) {
-			return nil
+			return _errSkipAlreadyKnown
 		}
 
 		// was it moved or copied/restored with a clashing id?
@@ -473,6 +491,11 @@ func (t *Tree) assimilate(item scanItem) error {
 				// this id clashes with an existing item -> clear metadata and re-assimilate
 				t.log.Debug().Str("path", item.Path).Msg("ID clash detected, purging metadata and re-assimilating")
 
+				err := unlock()
+				if err != nil {
+					t.log.Error().Err(err).Str("path", item.Path).Msg("could not unlock item for assimilation")
+				}
+				locked = false
 				if err := t.lookup.MetadataBackend().Purge(context.Background(), assimilationNode); err != nil {
 					t.log.Error().Err(err).Str("path", item.Path).Msg("could not purge metadata")
 				}
@@ -646,6 +669,8 @@ func (t *Tree) assimilate(item scanItem) error {
 	return nil
 }
 
+// updateFile updates the metadata of the given file and returns the new file info and attributes
+// The according file is supposed to be locked for assimilation already when calling this function
 func (t *Tree) updateFile(path, id, spaceID string, fi fs.FileInfo) (fs.FileInfo, node.Attributes, error) {
 	retries := 1
 	parentID := ""
@@ -690,7 +715,7 @@ assimilate:
 		}
 	}
 
-	attrs, err := t.lookup.MetadataBackend().All(context.Background(), bn)
+	attrs, err := t.lookup.MetadataBackend().AllWithLockedSource(context.Background(), bn, nil)
 	if err != nil && !metadata.IsAttrUnset(err) {
 		return nil, nil, errors.Wrap(err, "failed to get item attribs")
 	}
@@ -740,7 +765,10 @@ assimilate:
 		attributes.SetInt64(prefixes.BlobsizeAttr, fi.Size())
 		attributes.SetInt64(prefixes.TypeAttr, int64(provider.ResourceType_RESOURCE_TYPE_FILE))
 		n = node.New(spaceID, id, parentID, filepath.Base(path), fi.Size(), blobID, provider.ResourceType_RESOURCE_TYPE_FILE, nil, t.lookup)
-		n.SpaceRoot = &node.Node{BaseNode: node.BaseNode{SpaceID: spaceID, ID: spaceID}}
+		n.SpaceRoot = &node.Node{
+			BaseNode: *node.NewBaseNode(spaceID, spaceID, t.lookup),
+			Exists:   true,
+		}
 
 		prevBlobSize, err := previousAttribs.Int64(prefixes.BlobsizeAttr)
 		if err != nil || prevBlobSize < 0 {
@@ -752,7 +780,10 @@ assimilate:
 	}
 	attributes.SetTime(prefixes.MTimeAttr, fi.ModTime())
 
-	n.SpaceRoot = &node.Node{BaseNode: node.BaseNode{SpaceID: spaceID, ID: spaceID}}
+	n.SpaceRoot = &node.Node{
+		BaseNode: *node.NewBaseNode(spaceID, spaceID, t.lookup),
+		Exists:   true,
+	}
 
 	if !fi.IsDir() && t.options.EnableFSRevisions {
 		go func() {
@@ -870,8 +901,7 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 		if t.Ignorer.IsInternal(path) ||
 			ignore.IsLockFile(path) ||
 			ignore.IsTrash(path) ||
-			t.Ignorer.IsUpload(path) ||
-			t.Ignorer.IsIndex(path) {
+			t.Ignorer.IsUpload(path) {
 			if info.IsDir() {
 				return filepath.SkipDir
 			}
@@ -893,15 +923,17 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 				dir = filepath.Clean(filepath.Dir(dir))
 				sizes[dir] += info.Size()
 			}
-		} else if onlyDirty {
-			dirty, err := t.isDirty(path)
-			if err != nil {
-				return err
-			}
-			if !dirty {
-				return filepath.SkipDir
-			}
+		} else {
 			sizes[path] += 0 // Make sure to set the size to 0 for empty directories
+			if onlyDirty {
+				dirty, err := t.isDirty(path)
+				if err != nil {
+					return err
+				}
+				if !dirty {
+					return filepath.SkipDir
+				}
+			}
 		}
 
 		nodeSpaceID, id, _, _, err := t.lookup.MetadataBackend().IdentifyPath(context.Background(), path)

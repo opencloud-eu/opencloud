@@ -42,6 +42,10 @@ func (i *Ignorer) IsIndex(path string) bool {
 	return strings.HasPrefix(path, filepath.Join(i.options.Root, "indexes"))
 }
 
+func (i *Ignorer) IsChanges(path string) bool {
+	return strings.HasPrefix(path, filepath.Join(i.options.Root, "changes"))
+}
+
 func (i *Ignorer) IsTemporary(path string) bool {
 	if filepath.IsAbs(path) {
 		tmpDirPattern := filepath.Join(i.options.Root, "*", "*", blobstore.TMPDir)
@@ -72,7 +76,7 @@ func (i *Ignorer) IsSpaceRoot(path string) bool {
 }
 
 func (i *Ignorer) IsInternal(path string) bool {
-	return i.IsIndex(path) || strings.Contains(path, lookup.MetadataDir) || i.IsTemporary(path)
+	return i.IsIndex(path) || strings.Contains(path, lookup.MetadataDir) || i.IsTemporary(path) || i.IsChanges(path)
 }
 
 func IsLockFile(path string) bool {

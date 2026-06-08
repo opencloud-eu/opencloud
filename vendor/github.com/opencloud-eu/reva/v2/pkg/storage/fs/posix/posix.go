@@ -100,6 +100,9 @@ func New(o *options.Options, stream events.Stream, cache, historyCache *idcache.
 	if o.IDCache.Store != "nats-js-kv" {
 		return nil, fmt.Errorf("the posix driver requires a nats-js-kv cache")
 	}
+	if o.FileMetadataCache.Store == "noop" {
+		return nil, fmt.Errorf("the posix driver requires a file metadata cache")
+	}
 
 	var err error
 	if log == nil {

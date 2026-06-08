@@ -107,47 +107,51 @@ func (b HybridBackend) GetInt64(ctx context.Context, n MetadataNode, key string)
 	return v, nil
 }
 
-func (b HybridBackend) list(ctx context.Context, n MetadataNode, acquireLock bool) (attribs []string, err error) {
+func (b HybridBackend) list(ctx context.Context, n MetadataNode) (attribs []string, err error) {
 	filePath := n.InternalPath()
 
 	if len(filePath) == 0 {
 		return nil, &xattr.Error{Op: "HybridBackend.list", Path: n.InternalPath(), Err: syscall.ENOENT} // attribute not found
 	}
 
-	attrs, err := xattr.List(filePath)
-	if err == nil {
-		return attrs, nil
-	}
-
-	// listing xattrs failed, try again, either with lock or without
-	if acquireLock {
-		unlock, err := b.Lock(n)
-		if err != nil {
-			return nil, err
-		}
-		defer func() { _ = unlock() }()
-
-	}
 	return xattr.List(filePath)
 }
 
 // All reads all extended attributes for a node, protected by a
 // shared file lock
 func (b HybridBackend) All(ctx context.Context, n MetadataNode) (map[string][]byte, error) {
-	return b.getAll(ctx, n, false, false, true)
-}
-
-func (b HybridBackend) getAll(ctx context.Context, n MetadataNode, skipCache, skipOffloaded, acquireLock bool) (map[string][]byte, error) {
 	attribs := map[string][]byte{}
 
-	if !skipCache {
-		err := b.metaCache.PullFromCache(b.cacheKey(n), &attribs)
-		if err == nil {
-			return attribs, err
-		}
+	err := b.metaCache.PullFromCache(b.cacheKey(n), &attribs)
+	if err == nil {
+		return attribs, err
 	}
 
-	attrNames, err := b.list(ctx, n, acquireLock)
+	unlock, err := b.Lock(n)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = unlock() }()
+
+	return b.getAll(ctx, n, false, false)
+}
+
+// AllWithLockedSource reads all extended attributes from the given reader.
+// The path argument is used for storing the data in the cache
+func (b HybridBackend) AllWithLockedSource(ctx context.Context, n MetadataNode, _ io.Reader) (map[string][]byte, error) {
+	attribs := map[string][]byte{}
+
+	err := b.metaCache.PullFromCache(b.cacheKey(n), &attribs)
+	if err == nil {
+		return attribs, err
+	}
+
+	return b.getAll(ctx, n, false, false)
+}
+
+func (b HybridBackend) getAll(ctx context.Context, n MetadataNode, skipCache, skipOffloaded bool) (map[string][]byte, error) {
+	attribs := map[string][]byte{}
+	attrNames, err := b.list(ctx, n)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +247,7 @@ func (b HybridBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs 
 				mdSize += len(attribs[key]) + len(key)
 			}
 		}
-		existingAttribs, err := b.getAll(ctx, n, true, true, false)
+		existingAttribs, err := b.getAll(ctx, n, true, true)
 		if err != nil {
 			return err
 		}
@@ -316,7 +320,7 @@ func (b HybridBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs 
 	}
 
 	// Update the cache with the new values
-	_, err = b.getAll(ctx, n, true, false, false)
+	_, err = b.getAll(ctx, n, true, false)
 	return err
 }
 
@@ -327,7 +331,7 @@ func (b HybridBackend) offloadMetadata(ctx context.Context, n MetadataNode) erro
 	var xerr error
 
 	// collect attributes to move
-	existingAttribs, err := b.getAll(ctx, n, true, true, false)
+	existingAttribs, err := b.getAll(ctx, n, true, true)
 	if err != nil {
 		return err
 	}
@@ -440,7 +444,7 @@ func (b HybridBackend) Remove(ctx context.Context, n MetadataNode, key string, a
 	}
 
 	// Update the cache with the new values
-	_, err := b.getAll(ctx, n, true, false, false)
+	_, err := b.getAll(ctx, n, true, false)
 	return err
 }
 
@@ -452,7 +456,13 @@ func (b HybridBackend) Purge(ctx context.Context, n MetadataNode) error {
 	path := n.InternalPath()
 	_, err := os.Stat(path)
 	if err == nil {
-		attribs, err := b.getAll(ctx, n, true, false, true)
+		unlock, err := b.Lock(n)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = unlock() }()
+
+		attribs, err := b.getAll(ctx, n, true, false)
 		if err == nil {
 			for attr := range attribs {
 				if strings.HasPrefix(attr, prefixes.OcPrefix) {
@@ -515,12 +525,6 @@ func (b HybridBackend) Lock(n MetadataNode) (UnlockFunc, error) {
 		// Warning: do not remove the lockfile or we may lock the same file more than once, https://github.com/opencloud-eu/opencloud/issues/1793
 		return mlock.Close()
 	}, nil
-}
-
-// AllWithLockedSource reads all extended attributes from the given reader.
-// The path argument is used for storing the data in the cache
-func (b HybridBackend) AllWithLockedSource(ctx context.Context, n MetadataNode, _ io.Reader) (map[string][]byte, error) {
-	return b.All(ctx, n)
 }
 
 func (b HybridBackend) cacheKey(n MetadataNode) string {

@@ -77,8 +77,9 @@ type IDResolver interface {
 }
 
 type scanItem struct {
-	Path    string
-	Recurse bool
+	Path          string
+	Recurse       bool
+	RefreshParent bool
 }
 
 // Tree manages a hierarchical tree
@@ -422,38 +423,49 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 
 	subspan.End()
 
-	_, subspan = tracer.Start(ctx, "warmup id cache for moved subtree")
-	// update id cache for the moved subtree.
-	if oldNode.IsDir(ctx) {
-		err = t.WarmupIDCache(filepath.Join(newNode.ParentPath(), newNode.Name), false, false)
+	// A pure rename within the same parent must not change treesize accounting.
+	if oldNode.ParentID == newNode.ParentID {
+		err = t.Propagate(ctx, newNode, 0)
 		if err != nil {
-			return err
+			t.log.Error().Err(err).Str("path", newNode.InternalPath()).Msg("could not propagate size changes for renamed node")
 		}
-	}
-	subspan.End()
-
-	// the size diff is the current treesize or blobsize of the old/source node
-	var sizeDiff int64
-	if oldNode.IsDir(ctx) {
-		treeSize, err := oldNode.GetTreeSize(ctx)
-		if err != nil {
-			return err
-		}
-		sizeDiff = int64(treeSize)
 	} else {
-		sizeDiff = oldNode.Blobsize
+		// the size diff is the current treesize or blobsize of the old/source node
+		var sizeDiff int64
+		if oldNode.IsDir(ctx) {
+			treeSize, err := oldNode.GetTreeSize(ctx)
+			if err != nil {
+				return err
+			}
+			sizeDiff = int64(treeSize)
+		} else {
+			sizeDiff = oldNode.Blobsize
+		}
+
+		_, subspan = tracer.Start(ctx, "propagate size changes")
+		err = t.Propagate(ctx, oldNode, -sizeDiff)
+		if err != nil {
+			t.log.Error().Err(err).Str("path", oldNode.InternalPath()).Msg("could not propagate size changes for old node")
+		}
+		err = t.Propagate(ctx, newNode, sizeDiff)
+		if err != nil {
+			t.log.Error().Err(err).Str("path", newNode.InternalPath()).Msg("could not propagate size changes for new node")
+		}
+		subspan.End()
 	}
 
-	_, subspan = tracer.Start(ctx, "propagate size changes")
-	err = t.Propagate(ctx, oldNode, -sizeDiff)
-	if err != nil {
-		return errors.Wrap(err, "posixfs: Move: could not propagate old node")
-	}
-	err = t.Propagate(ctx, newNode, sizeDiff)
-	if err != nil {
-		return errors.Wrap(err, "posixfs: Move: could not propagate new node")
-	}
-	subspan.End()
+	go func() {
+		_, subspan = tracer.Start(ctx, "warmup id cache for moved subtree")
+		// update id cache for the moved subtree.
+		if oldNode.IsDir(ctx) {
+			err = t.WarmupIDCache(filepath.Join(newNode.ParentPath(), newNode.Name), false, false)
+			if err != nil {
+				t.log.Error().Err(err).Str("path", filepath.Join(newNode.ParentPath(), newNode.Name)).Msg("failed to warmup id cache for moved subtree")
+			}
+		}
+		subspan.End()
+	}()
+
 	return nil
 }
 
@@ -709,6 +721,20 @@ func (t *Tree) InitNewNode(ctx context.Context, n *node.Node, fsize uint64) (met
 		}
 		return unlock, err
 	}
+
+	// Set known mtime from filesystem to metadata to preven re-assimilation
+	fi, err := h.Stat()
+	if err != nil {
+		return nil, err
+	}
+	mtime := fi.ModTime()
+	err = n.SetXattrsWithContext(ctx, map[string][]byte{
+		prefixes.MTimeAttr: []byte(mtime.UTC().Format(time.RFC3339Nano)),
+	}, false)
+	if err != nil {
+		t.log.Error().Err(err).Str("path", n.InternalPath()).Msg("could not set mtime attribute on new node")
+	}
+
 	_ = h.Close()
 
 	if _, err := node.CheckQuota(ctx, n.SpaceRoot, false, 0, fsize); err != nil {

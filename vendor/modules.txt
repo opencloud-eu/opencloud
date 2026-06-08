@@ -1363,7 +1363,7 @@ github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260310090739-853d972b282d
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.46.2
+# github.com/opencloud-eu/reva/v2 v2.46.2 => github.com/aduffeck/reva/v2 v2.27.3-0.20260608131523-b02e6552a5bd
 ## explicit; go 1.25.0
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -2737,3 +2737,4 @@ stash.kopano.io/kgol/rndm
 # github.com/unrolled/secure => github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4
 # go-micro.dev/v4 => github.com/butonic/go-micro/v4 v4.11.1-0.20241115112658-b5d4de5ed9b3
 # github.com/go-micro/plugins/v4/store/nats-js-kv => github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a
+# github.com/opencloud-eu/reva/v2 => github.com/aduffeck/reva/v2 v2.27.3-0.20260608131523-b02e6552a5bd

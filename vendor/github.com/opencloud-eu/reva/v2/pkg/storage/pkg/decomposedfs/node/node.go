@@ -351,6 +351,30 @@ func (n *Node) SpaceOwnerOrManager(ctx context.Context) *userpb.UserId {
 	return nil
 }
 
+func LockAndReadNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath string, canListDisabledSpace bool, spaceRoot *Node, skipParentCheck bool) (*Node, metadata.UnlockFunc, error) {
+	ctx, span := tracer.Start(ctx, "LockAndReadNode")
+	defer span.End()
+
+	_, subspan := tracer.Start(ctx, "lockedfile.OpenFile")
+	bn := NewBaseNode(spaceID, nodeID, lu)
+	unlock, err := lu.MetadataBackend().Lock(bn)
+	subspan.End()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	n, err := ReadNode(ctx, lu, spaceID, nodeID, internalPath, canListDisabledSpace, spaceRoot, skipParentCheck)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !n.Exists {
+		_ = unlock()
+		return n, nil, errtypes.NotFound(filepath.Join(n.ParentID, n.Name))
+	}
+
+	return n, unlock, nil
+}
+
 // ReadNode creates a new instance from an id and checks if it exists
 func ReadNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath string, canListDisabledSpace bool, spaceRoot *Node, skipParentCheck bool) (*Node, error) {
 	ctx, span := tracer.Start(ctx, "ReadNode")

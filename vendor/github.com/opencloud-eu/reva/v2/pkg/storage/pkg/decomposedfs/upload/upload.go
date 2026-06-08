@@ -316,14 +316,16 @@ func (session *DecomposedFsSession) Finalize(ctx context.Context) (err error) {
 		_ = lockedNode.Close()
 	}()
 
-	isProcessing := revisionNode.IsProcessing(ctx)
-	var procssingID string
-	if isProcessing {
-		procssingID, _ = revisionNode.ProcessingID(ctx)
+	attribs, err := revisionNode.XattrsWithReader(ctx, lockedNode)
+	if err != nil {
+		return err
 	}
+	status := attribs.String(prefixes.StatusPrefix)
+	isProcessing := strings.HasPrefix(status, node.ProcessingStatus)
+	processingID := strings.TrimPrefix(status, node.ProcessingStatus)
 
 	// another upload on this node is in progress or has finished since we started
-	if !isProcessing || procssingID != session.ID() {
+	if !isProcessing || processingID != session.ID() {
 		versionID := revisionNode.ID + node.RevisionIDDelimiter + session.MTime().UTC().Format(time.RFC3339Nano)
 		// There should be a revision node (created by the other upload that finished before us), read it and upload our blob there.
 		existingRevisionNode, err := node.ReadNode(ctx, session.store.lu, session.SpaceID(), versionID, "", false, spaceRoot, false)

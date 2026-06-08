@@ -415,3 +415,5 @@ replace github.com/go-micro/plugins/v4/store/nats-js-kv => github.com/opencloud-
 
 // to get the logger injection (https://github.com/pablodz/inotifywaitgo/pull/11)
 replace github.com/pablodz/inotifywaitgo v0.0.9 => github.com/opencloud-eu/inotifywaitgo v0.0.0-20251111171128-a390bae3c5e9
+
+replace github.com/opencloud-eu/reva/v2 => github.com/aduffeck/reva/v2 v2.27.3-0.20260608131523-b02e6552a5bd
