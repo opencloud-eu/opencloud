@@ -10,6 +10,12 @@ import (
 	cs3permissions "github.com/cs3org/go-cs3apis/cs3/permissions/v1beta1"
 	rpcv1beta1 "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	"github.com/leonelquinteros/gotext"
+	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
+	merrors "go-micro.dev/v4/errors"
+	"go-micro.dev/v4/metadata"
+	"google.golang.org/protobuf/types/known/emptypb"
+
 	"github.com/opencloud-eu/opencloud/pkg/l10n"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/middleware"
@@ -20,11 +26,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/settings"
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/store/defaults"
 	metastore "github.com/opencloud-eu/opencloud/services/settings/pkg/store/metadata"
-	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
-	merrors "go-micro.dev/v4/errors"
-	"go-micro.dev/v4/metadata"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 //go:embed l10n/locale
@@ -708,6 +709,7 @@ func translateBundle(bundle *settingsmsg.Bundle, t *gotext.Locale) *settingsmsg.
 			defaults.SettingUUIDProfileEventSpaceUnshared,
 			defaults.SettingUUIDProfileEventSpaceMembershipExpired,
 			defaults.SettingUUIDProfileEventSpaceDisabled,
+			defaults.SettingUUIDProfileEventResourceMention,
 			defaults.SettingUUIDProfileEventSpaceDeleted:
 			// translate event names ('Share Received', 'Share Removed', ...)
 			set.DisplayName = t.Get(set.GetDisplayName(), []any{}...)

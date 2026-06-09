@@ -3215,6 +3215,7 @@ def wopiCollaborationService(name):
         "COLLABORATION_CS3API_DATAGATEWAY_INSECURE": True,
         "OC_JWT_SECRET": "some-opencloud-jwt-secret",
         "COLLABORATION_WOPI_SECRET": "some-wopi-secret",
+        "COLLABORATION_EVENTS_ENDPOINT": "%s:9233" % OC_SERVER_NAME,
     }
 
     if name == "collabora":

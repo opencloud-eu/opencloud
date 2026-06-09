@@ -49,6 +49,11 @@ var (
 		Message: l10n.Template("{user} unshared {resource} with you"),
 	}
 
+	Mention = NotificationTemplate{
+		Subject: l10n.Template("You have been mentioned"),
+		Message: l10n.Template("{user} mentioned you in {resource}"),
+	}
+
 	ShareExpired = NotificationTemplate{
 		Subject: l10n.Template("Share expired"),
 		Message: l10n.Template("Access to {resource} expired"),

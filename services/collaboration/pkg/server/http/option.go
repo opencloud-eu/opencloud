@@ -10,6 +10,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/connector"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/font"
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/notification"
 )
 
 // Option defines a single option function.
@@ -17,13 +18,14 @@ type Option func(o *Options)
 
 // Options define the available options for this package.
 type Options struct {
-	Adapter        *connector.HttpAdapter
-	Logger         log.Logger
-	Context        context.Context
-	Config         *config.Config
-	TracerProvider trace.TracerProvider
-	Store          microstore.Store
-	FontService    font.Service
+	Adapter             *connector.HttpAdapter
+	Logger              log.Logger
+	Context             context.Context
+	Config              *config.Config
+	TracerProvider      trace.TracerProvider
+	Store               microstore.Store
+	FontService         font.Service
+	NotificationService notification.Service
 }
 
 // newOptions initializes the available default options.
@@ -83,5 +85,12 @@ func Store(val microstore.Store) Option {
 func FontService(val font.Service) Option {
 	return func(o *Options) {
 		o.FontService = val
+	}
+}
+
+// NotificationService provides a function to set the NotificationService option
+func NotificationService(val notification.Service) Option {
+	return func(o *Options) {
+		o.NotificationService = val
 	}
 }

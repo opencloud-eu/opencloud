@@ -67,13 +67,32 @@ func ChangeLogoPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Sett
 	}
 }
 
-// ManageFontsPermission is the permission to manage fonts
+// CollaborationManageFontsPermission is the permission to manage fonts
 func CollaborationManageFontsPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
 	return &settingsmsg.Setting{
 		Id:          "ed83fc10-1f54-4a9e-b5a7-fb517f5f3e01",
 		Name:        "Collaboration.Fonts.Manage",
 		DisplayName: "Manage fonts",
 		Description: "This permission permits to manage the collaboration fonts.",
+		Resource: &settingsmsg.Resource{
+			Type: settingsmsg.Resource_TYPE_SYSTEM,
+		},
+		Value: &settingsmsg.Setting_PermissionValue{
+			PermissionValue: &settingsmsg.Permission{
+				Operation:  settingsmsg.Permission_OPERATION_READWRITE,
+				Constraint: c,
+			},
+		},
+	}
+}
+
+// CollaborationPublishNotificationPermission is the permission to manage fonts
+func CollaborationPublishNotificationPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
+	return &settingsmsg.Setting{
+		Id:          "43e5948e-8238-41d6-9ef1-f259f00591db",
+		Name:        "Collaboration.Notification.Publish",
+		DisplayName: "Publish collaboration notifications",
+		Description: "This permission permits to publish collaboration related notifications.",
 		Resource: &settingsmsg.Resource{
 			Type: settingsmsg.Resource_TYPE_SYSTEM,
 		},

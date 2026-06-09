@@ -10,8 +10,10 @@ import (
 	"sync"
 	"sync/atomic"
 
-	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
 	"go-micro.dev/v4/store"
+
+	ocEvents "github.com/opencloud-eu/opencloud/pkg/events"
+	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	group "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
@@ -22,6 +24,9 @@ import (
 	"go-micro.dev/v4/metadata"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
+	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+
 	"github.com/opencloud-eu/opencloud/pkg/l10n"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/middleware"
@@ -29,16 +34,13 @@ import (
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/channels"
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/email"
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/store/defaults"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 )
 
 // validate is the package level validator instance
-var validate *validator.Validate
-
-func init() {
-	validate = validator.New()
-}
+var validate = validator.New(
+	validator.WithPrivateFieldValidation(),
+	validator.WithRequiredStructEnabled(),
+)
 
 // Service should be named `Runner`
 type Service interface {
@@ -131,6 +133,8 @@ EventLoop:
 					s.handleScienceMeshInviteTokenGenerated(e)
 				case events.SendEmailsEvent:
 					s.sendGroupedEmailsJob(e, evt.ID)
+				case ocEvents.ResourceMention:
+					s.handleResourceMention(e, evt.ID)
 				}
 			})
 

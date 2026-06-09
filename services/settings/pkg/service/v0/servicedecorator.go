@@ -193,5 +193,6 @@ func getDefaultValueList() map[string]*settingsmsg.ValueWithIdentifier {
 		defaults.SettingUUIDProfileEventSpaceDeleted:               nil,
 		defaults.SettingUUIDProfileEventPostprocessingStepFinished: nil,
 		defaults.SettingUUIDProfileEmailSendingInterval:            nil,
+		defaults.SettingUUIDProfileEventResourceMention:            nil,
 	}
 }

@@ -96,6 +96,7 @@ func Server(opts ...Option) (http.Service, error) {
 // prepareRoutes will prepare all the implemented routes
 func prepareRoutes(r *chi.Mux, options Options) {
 	fontService := options.FontService
+	notificationService := options.NotificationService
 	adapter := options.Adapter
 	logger := options.Logger
 	// prepare basic logger for the request
@@ -214,15 +215,18 @@ func prepareRoutes(r *chi.Mux, options Options) {
 
 	})
 	r.Route("/collaboration", func(r chi.Router) {
+		auth := middleware.ExtractAccountUUID(
+			account.Logger(options.Logger),
+			account.JWTSecret(options.Config.TokenManager.JWTSecret),
+		)
+		r.With(auth).Route("/notify", func(r chi.Router) {
+			r.Post("/", notificationService.HandleNotification)
+		})
 		r.Route("/fonts", func(r chi.Router) {
 			r.Get("/", fontService.ListFonts)
 			r.Get("/{id}", fontService.GetFont)
 			r.Get("/preview/{id}", fontService.PreviewFont)
-			r.Route("/manage", func(r chi.Router) {
-				r.Use(middleware.ExtractAccountUUID(
-					account.Logger(options.Logger),
-					account.JWTSecret(options.Config.TokenManager.JWTSecret),
-				))
+			r.With(auth).Route("/manage", func(r chi.Router) {
 				r.Post("/", fontService.UploadFont)
 				r.Delete("/{id}", fontService.DeleteFont)
 			})

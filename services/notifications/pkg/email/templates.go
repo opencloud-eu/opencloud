@@ -118,6 +118,15 @@ Please visit your federation settings and use the following details:
 		Greeting:    l10n.Template(`Hi {DisplayName},`),
 		MessageBody: "", // is generated using the GroupedTemplates
 	}
+
+	Mention = MessageTemplate{
+		textTemplate: _textTemplate,
+		htmlTemplate: _htmlTemplate,
+		Subject:      l10n.Template(`You were mentioned in '{ResourceName}'`),
+		Greeting:     l10n.Template(`Hello {RecipientName},`),
+		MessageBody:  l10n.Template(`{AuthorName} mentioned you in "{ResourceName}".`),
+		CallToAction: l10n.Template(`You can view the mention here: {ResourceLink}`),
+	}
 )
 
 // holds the information to turn the raw template into a parseable go template
@@ -134,6 +143,10 @@ var _placeholders = map[string]string{
 	"{ProviderDomain}":  "{{ .ProviderDomain }}",
 	"{Token}":           "{{ .Token }}",
 	"{DisplayName}":     "{{ .DisplayName }}",
+	"{AuthorName}":      "{{ .AuthorName }}",
+	"{RecipientName}":   "{{ .RecipientName }}",
+	"{ResourceName}":    "{{ .ResourceName }}",
+	"{ResourceLink}":    "{{ .ResourceLink }}",
 }
 
 // MessageTemplate is the data structure for the email

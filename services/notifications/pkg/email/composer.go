@@ -3,6 +3,7 @@ package email
 import (
 	"bytes"
 	"embed"
+	"fmt"
 	"strings"
 	"text/template"
 
@@ -150,6 +151,11 @@ func callToActionToHTML(s string) string {
 	if strings.TrimSpace(s) == "" {
 		return ""
 	}
-	s = strings.TrimSuffix(s, "{ShareLink}")
-	return s + `<a href="{ShareLink}">{ShareLink}</a>`
+
+	// substitute links
+	for _, token := range []string{"ShareLink", "ResourceLink"} {
+		s = strings.ReplaceAll(s, "{"+token+"}", fmt.Sprintf(`<a href="{%s}">{%s}</a>`, token, token))
+	}
+
+	return s
 }

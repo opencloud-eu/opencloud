@@ -17,6 +17,7 @@ import (
 	"go-micro.dev/v4/store"
 	"go.opentelemetry.io/otel/trace"
 
+	ocEvents "github.com/opencloud-eu/opencloud/pkg/events"
 	"github.com/opencloud-eu/opencloud/pkg/l10n"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/roles"
@@ -168,6 +169,11 @@ func (ul *UserlogService) processEvent(event events.Event) {
 	case events.SpaceShared:
 		executant = e.Executant
 		users, err = utils.ResolveID(ctx, e.GranteeUserID, e.GranteeGroupID, gwc)
+	case ocEvents.ResourceMention:
+		executant = e.Executant
+		for _, userID := range e.UserIDs {
+			users = append(users, userID.GetOpaqueId())
+		}
 	case events.SpaceUnshared:
 		executant = e.Executant
 		users, err = utils.ResolveID(ctx, e.GranteeUserID, e.GranteeGroupID, gwc)

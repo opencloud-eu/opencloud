@@ -6,7 +6,12 @@ import (
 	"os/signal"
 	"reflect"
 
+	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
+	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
+	ocEvents "github.com/opencloud-eu/opencloud/pkg/events"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
@@ -19,14 +24,12 @@ import (
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/service"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 
-	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
 	"github.com/opencloud-eu/reva/v2/pkg/store"
 	"github.com/spf13/cobra"
 	microstore "go-micro.dev/v4/store"
+
+	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
 )
 
 // Server is the entrypoint for the server command.
@@ -86,6 +89,7 @@ func Server(cfg *config.Config) *cobra.Command {
 				events.SpaceMembershipExpired{},
 				events.ScienceMeshInviteTokenGenerated{},
 				events.SendEmailsEvent{},
+				ocEvents.ResourceMention{},
 			}
 			registeredEvents := make(map[string]events.Unmarshaller)
 			for _, e := range evs {

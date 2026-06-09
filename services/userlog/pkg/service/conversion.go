@@ -14,11 +14,13 @@ import (
 	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	collaboration "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/opencloud-eu/opencloud/pkg/l10n"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
+
+	ocEvents "github.com/opencloud-eu/opencloud/pkg/events"
+	"github.com/opencloud-eu/opencloud/pkg/l10n"
 )
 
 //go:embed l10n/locale
@@ -115,7 +117,12 @@ func (c *Converter) ConvertEvent(eventid string, event any) (OC10Notification, e
 		return c.shareMessage(eventid, ShareExpired, ev.ShareOwner, ev.ItemID, ev.ShareID, ev.ExpiredAt)
 	case events.ShareRemoved:
 		return c.shareMessage(eventid, ShareRemoved, ev.Executant, ev.ItemID, ev.ShareID, ev.Timestamp)
+
+	// misc
+	case ocEvents.ResourceMention:
+		return c.resourceMention(eventid, Mention, ev.Executant, ev.Ref.GetResourceId(), ev.Timestamp)
 	}
+
 }
 
 // ConvertGlobalEvent converts a global event to an OC10Notification
@@ -196,6 +203,40 @@ func (c *Converter) spaceMessage(eventid string, nt NotificationTemplate, execut
 		Message:        msg,
 		MessageRaw:     msgraw,
 		MessageDetails: generateDetails(usr, space, nil, nil),
+	}, nil
+}
+
+func (c *Converter) resourceMention(eventid string, nt NotificationTemplate, executant *user.UserId, resourceid *storageprovider.ResourceId, ts time.Time) (OC10Notification, error) {
+	usr, err := c.getUser(context.Background(), executant)
+	if err != nil {
+		return OC10Notification{}, err
+	}
+
+	info, err := c.getResource(c.serviceAccountContext, resourceid)
+	if err != nil {
+		return OC10Notification{}, err
+	}
+
+	subj, subjraw, msg, msgraw, err := composeMessage(nt, c.locale, c.defaultLanguage, c.translationPath, map[string]any{
+		"username":     usr.GetDisplayName(),
+		"resourcename": info.GetName(),
+	})
+	if err != nil {
+		return OC10Notification{}, err
+	}
+
+	return OC10Notification{
+		EventID:        eventid,
+		Service:        c.serviceName,
+		UserName:       usr.GetUsername(),
+		Timestamp:      ts.Format(time.RFC3339Nano),
+		ResourceID:     storagespace.FormatResourceID(info.GetId()),
+		ResourceType:   "mention",
+		Subject:        subj,
+		SubjectRaw:     subjraw,
+		Message:        msg,
+		MessageRaw:     msgraw,
+		MessageDetails: generateDetails(usr, nil, info, nil),
 	}, nil
 }
 

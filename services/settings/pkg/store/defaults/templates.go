@@ -12,6 +12,10 @@ var (
 	TemplateShareRemoved = l10n.Template("Share Removed")
 	// description of the notification option 'Share Removed'
 	TemplateShareRemovedDescription = l10n.Template("Notify when a received share has been removed")
+	// name of the notification option 'Resource Mention'
+	TemplateResourceMention = l10n.Template("Resource Mention")
+	// description of the notification option 'Resource Mention'
+	TemplateResourceMentionDescription = l10n.Template("Notify on resource mentions")
 	// name of the notification option 'Share Expired'
 	TemplateShareExpired = l10n.Template("Share Expired")
 	// description of the notification option 'Share Expired'
