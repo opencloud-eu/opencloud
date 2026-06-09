@@ -571,17 +571,17 @@ func (i *Identity) GetLDAPGroupMembers(ctx context.Context, lc ldap.Client, grou
 	return memberEntries, nil
 }
 
-func filterEscapeAttribute(attribute string, binary bool, id string) (string, error) {
+func (i *Identity) filterEscapeAttribute(attribute string, value string) (string, error) {
 	var escaped string
-	if binary {
-		pid, err := uuid.Parse(id)
+	if (i.User.Schema.IDIsOctetString && i.User.Schema.ID == attribute) || (i.Group.Schema.ID == attribute && i.Group.Schema.IDIsOctetString) {
+		pid, err := uuid.Parse(value)
 		if err != nil {
-			err := fmt.Errorf("error parsing id '%s' as UUID: %w", id, err)
+			err := fmt.Errorf("error parsing id '%s' as UUID: %w", value, err)
 			return "", err
 		}
 		escaped = filterEscapeBinaryUUID(attribute, pid)
 	} else {
-		escaped = ldap.EscapeFilter(id)
+		escaped = ldap.EscapeFilter(value)
 	}
 	return escaped, nil
 }
@@ -618,7 +618,7 @@ func filterEscapeBinaryUUID(attribute string, value uuid.UUID) string {
 
 func (i *Identity) getUserFilter(uid *identityUser.UserId) (string, error) {
 	var escapedUUID string
-	escapedUUID, err := filterEscapeAttribute(i.User.Schema.ID, i.User.Schema.IDIsOctetString, uid.GetOpaqueId())
+	escapedUUID, err := i.filterEscapeAttribute(i.User.Schema.ID, uid.GetOpaqueId())
 	if err != nil {
 		return "", fmt.Errorf("error parsing OpaqueID '%s' as UUID: %w", uid, err)
 	}
@@ -648,7 +648,7 @@ func (i *Identity) getUserAttributeFilter(attribute, value, tenantID string) (st
 	default:
 		return "", errors.New("ldap: invalid field " + attribute)
 	}
-	value, err := filterEscapeAttribute(i.User.Schema.ID, i.User.Schema.IDIsOctetString, value)
+	value, err := i.filterEscapeAttribute(attribute, value)
 	if err != nil {
 		return "", fmt.Errorf("error parsing attribute '%s' value '%s' as UUID: %w", attribute, value, err)
 	}
@@ -697,7 +697,7 @@ func (i *Identity) getUserFindFilter(query, tenantID string) string {
 	}
 	if i.Group.Schema.IDIsOctetString {
 		// try parsing query as uuid
-		idFilter, err := filterEscapeAttribute(i.User.Schema.ID, i.User.Schema.IDIsOctetString, query)
+		idFilter, err := i.filterEscapeAttribute(i.User.Schema.ID, query)
 		if err == nil {
 			filter = fmt.Sprintf("%s(%s=%s)", filter, i.User.Schema.ID, idFilter)
 		}
@@ -736,7 +736,7 @@ func (i *Identity) getGroupFindFilter(query string) string {
 	}
 	if i.Group.Schema.IDIsOctetString {
 		// try parsing query as uuid
-		idFilter, err := filterEscapeAttribute(i.Group.Schema.ID, i.Group.Schema.IDIsOctetString, query)
+		idFilter, err := i.filterEscapeAttribute(i.Group.Schema.ID, query)
 		if err == nil {
 			filter = fmt.Sprintf("%s(%s=%s)", filter, i.Group.Schema.ID, idFilter)
 		}
@@ -792,7 +792,7 @@ func (i *Identity) getGroupMemberFilter(memberName string) string {
 }
 
 func (i *Identity) getGroupFilter(id string) (string, error) {
-	escapedUUID, err := filterEscapeAttribute(i.Group.Schema.ID, i.Group.Schema.IDIsOctetString, id)
+	escapedUUID, err := i.filterEscapeAttribute(i.Group.Schema.ID, id)
 	if err != nil {
 		return "", fmt.Errorf("error parsing attribute '%s' value '%s' as UUID: %w", i.Group.Schema.ID, id, err)
 	}
@@ -820,7 +820,7 @@ func (i *Identity) getGroupAttributeFilter(attribute, value string) (string, err
 	default:
 		return "", errors.New("ldap: invalid field " + attribute)
 	}
-	value, err := filterEscapeAttribute(i.Group.Schema.ID, i.Group.Schema.IDIsOctetString, value)
+	value, err := i.filterEscapeAttribute(attribute, value)
 	if err != nil {
 		return "", fmt.Errorf("error parsing attribute '%s' value '%s' as UUID: %w", attribute, value, err)
 	}
@@ -938,7 +938,7 @@ func (i *Identity) getTenantLDAPAttrTypes() []string {
 
 func (i *Identity) getTenantFilter(id string) (string, error) {
 	var escapedUUID string
-	escapedUUID, err := filterEscapeAttribute(i.Tenant.Schema.ID, false, id)
+	escapedUUID, err := i.filterEscapeAttribute(i.Tenant.Schema.ID, id)
 	if err != nil {
 		return "", fmt.Errorf("error parsing id '%s' as UUID: %w", id, err)
 	}
@@ -957,7 +957,7 @@ func (i *Identity) getTenantAttributeFilter(attribute, value string) (string, er
 	case "externalid":
 		attribute = i.Tenant.Schema.ExternalID
 	}
-	escapedValue, err := filterEscapeAttribute("", false, value)
+	escapedValue, err := i.filterEscapeAttribute(attribute, value)
 	if err != nil {
 		return "", fmt.Errorf("error escaping filter value %q: %w", value, err)
 	}

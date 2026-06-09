@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc"
 
 	preferencespb "github.com/cs3org/go-cs3apis/cs3/preferences/v1beta1"
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/preferences"
 	"github.com/opencloud-eu/reva/v2/pkg/preferences/registry"

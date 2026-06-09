@@ -26,7 +26,7 @@ import (
 	"os"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp/global"
 	"github.com/rs/zerolog"

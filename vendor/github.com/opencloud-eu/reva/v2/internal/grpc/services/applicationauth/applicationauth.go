@@ -22,7 +22,7 @@ import (
 	"context"
 
 	appauthpb "github.com/cs3org/go-cs3apis/cs3/auth/applications/v1beta1"
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/opencloud-eu/reva/v2/pkg/appauth"
 	"github.com/opencloud-eu/reva/v2/pkg/appauth/manager/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"

@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/sharedconf"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/cache"

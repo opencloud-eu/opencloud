@@ -22,7 +22,7 @@ import (
 	"net/http"
 
 	"contrib.go.opencensus.io/exporter/prometheus"
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"go.opencensus.io/stats/view"

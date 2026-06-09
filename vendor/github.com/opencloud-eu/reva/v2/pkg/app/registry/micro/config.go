@@ -18,7 +18,7 @@
 
 package micro
 
-import "github.com/mitchellh/mapstructure"
+import "github.com/go-viper/mapstructure/v2"
 
 type config struct {
 	Namespace string            `mapstructure:"namespace"`

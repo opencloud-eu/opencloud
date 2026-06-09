@@ -27,8 +27,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/mitchellh/mapstructure"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp"

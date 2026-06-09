@@ -598,7 +598,7 @@ github.com/go-playground/locales/en
 # github.com/go-playground/universal-translator v0.18.1
 ## explicit; go 1.18
 github.com/go-playground/universal-translator
-# github.com/go-playground/validator/v10 v10.30.2
+# github.com/go-playground/validator/v10 v10.30.3
 ## explicit; go 1.25.0
 github.com/go-playground/validator/v10
 github.com/go-playground/validator/v10/translations/en
@@ -1067,9 +1067,6 @@ github.com/minio/minio-go/v7/pkg/tags
 # github.com/mitchellh/copystructure v1.2.0
 ## explicit; go 1.15
 github.com/mitchellh/copystructure
-# github.com/mitchellh/mapstructure v1.5.0
-## explicit; go 1.14
-github.com/mitchellh/mapstructure
 # github.com/mitchellh/reflectwalk v1.0.2
 ## explicit
 github.com/mitchellh/reflectwalk
@@ -1363,7 +1360,7 @@ github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260310090739-853d972b282d
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.46.2
+# github.com/opencloud-eu/reva/v2 v2.46.2 => github.com/opencloud-eu/reva/v2 v2.46.3-0.20260609111154-079ecc53abaa
 ## explicit; go 1.25.0
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -1529,6 +1526,7 @@ github.com/opencloud-eu/reva/v2/pkg/mentix/exchangers/importers
 github.com/opencloud-eu/reva/v2/pkg/mentix/meshdata
 github.com/opencloud-eu/reva/v2/pkg/mentix/utils
 github.com/opencloud-eu/reva/v2/pkg/mentix/utils/network
+github.com/opencloud-eu/reva/v2/pkg/metadatacache
 github.com/opencloud-eu/reva/v2/pkg/metrics
 github.com/opencloud-eu/reva/v2/pkg/metrics/config
 github.com/opencloud-eu/reva/v2/pkg/metrics/driver/dummy
@@ -1765,7 +1763,7 @@ github.com/orcaman/concurrent-map
 # github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
 ## explicit; go 1.12
 github.com/oxtoacart/bpool
-# github.com/pablodz/inotifywaitgo v0.0.9 => github.com/opencloud-eu/inotifywaitgo v0.0.0-20251111171128-a390bae3c5e9
+# github.com/pablodz/inotifywaitgo v0.0.12
 ## explicit; go 1.24.1
 github.com/pablodz/inotifywaitgo/inotifywaitgo
 # github.com/patrickmn/go-cache v2.1.0+incompatible
@@ -2412,7 +2410,7 @@ go.yaml.in/yaml/v2
 # go.yaml.in/yaml/v3 v3.0.4
 ## explicit; go 1.16
 go.yaml.in/yaml/v3
-# golang.org/x/crypto v0.51.0
+# golang.org/x/crypto v0.52.0
 ## explicit; go 1.25.0
 golang.org/x/crypto/argon2
 golang.org/x/crypto/bcrypt
@@ -2737,3 +2735,4 @@ stash.kopano.io/kgol/rndm
 # github.com/unrolled/secure => github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4
 # go-micro.dev/v4 => github.com/butonic/go-micro/v4 v4.11.1-0.20241115112658-b5d4de5ed9b3
 # github.com/go-micro/plugins/v4/store/nats-js-kv => github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a
+# github.com/opencloud-eu/reva/v2 => github.com/opencloud-eu/reva/v2 v2.46.3-0.20260609111154-079ecc53abaa

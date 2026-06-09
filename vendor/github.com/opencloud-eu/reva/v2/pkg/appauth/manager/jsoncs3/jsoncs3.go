@@ -2,9 +2,7 @@ package jsoncs3
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -14,19 +12,21 @@ import (
 	authpb "github.com/cs3org/go-cs3apis/cs3/auth/provider/v1beta1"
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	typespb "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/google/uuid"
-	"github.com/mitchellh/mapstructure"
 	"github.com/opencloud-eu/reva/v2/pkg/appauth"
 	"github.com/opencloud-eu/reva/v2/pkg/appauth/manager/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v2/pkg/metadatacache"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/metadata"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/pkg/errors"
 	"github.com/sethvargo/go-diceware/diceware"
 	"github.com/sethvargo/go-password/password"
 	"go.opentelemetry.io/otel/codes"
+	"google.golang.org/protobuf/proto"
 )
 
 type PasswordGenerator interface {
@@ -40,9 +40,9 @@ func init() {
 type manager struct {
 	sync.RWMutex        // for lazy initialization
 	mds                 metadata.Storage
+	store               *metadatacache.Store[string, map[string]*apppb.AppPassword]
 	generator           PasswordGenerator
 	uTimeUpdateInterval time.Duration
-	updateRetryCount    int
 	initialized         bool
 }
 
@@ -58,8 +58,6 @@ type config struct {
 	UTimeUpdateInterval int `mapstructure:"utime_update_interval_seconds"`
 	UpdateRetryCount    int `mapstructure:"update_retry_count"`
 }
-
-type updaterFunc func(map[string]*apppb.AppPassword) (map[string]*apppb.AppPassword, error)
 
 const tracerName = "jsoncs3"
 
@@ -127,11 +125,17 @@ func New(m map[string]any) (appauth.Manager, error) {
 }
 
 func NewWithOptions(mds metadata.Storage, generator PasswordGenerator, uTimeUpdateInterval time.Duration, updateRetries int) (*manager, error) {
+	store := metadatacache.New(metadatacache.Options[string, map[string]*apppb.AppPassword]{
+		Storage: mds,
+		Path:    func(userID string) string { return userID + ".json" },
+		Retries: updateRetries,
+		Init:    func() map[string]*apppb.AppPassword { return map[string]*apppb.AppPassword{} },
+	})
 	return &manager{
 		mds:                 mds,
+		store:               store,
 		generator:           generator,
 		uTimeUpdateInterval: uTimeUpdateInterval,
-		updateRetryCount:    updateRetries,
 	}, nil
 }
 
@@ -170,7 +174,7 @@ func (m *manager) GenerateAppPassword(ctx context.Context, scope map[string]*aut
 	cTime := &typespb.Timestamp{Seconds: uint64(time.Now().Unix())}
 
 	// For persisting we use the hashed password, since we don't
-	// want to store it in cleartext
+	// want to store it in cleartext.
 	appPass := &apppb.AppPassword{
 		Password:   tokenHashed,
 		TokenScope: scope,
@@ -183,21 +187,26 @@ func (m *manager) GenerateAppPassword(ctx context.Context, scope map[string]*aut
 
 	id := uuid.New().String()
 
-	err = m.updateWithRetry(ctx, m.updateRetryCount, true, userID, func(a map[string]*apppb.AppPassword) (map[string]*apppb.AppPassword, error) {
+	err = m.store.Update(ctx, userID.GetOpaqueId(), true, func(a map[string]*apppb.AppPassword) (map[string]*apppb.AppPassword, bool, error) {
 		a[id] = appPass
-		return a, nil
+		return a, true, nil
 	})
-
 	if err != nil {
 		logger.Debug().Err(err).Msg("failed to store new app password")
 		return nil, err
 	}
 
-	// Here we need to resplace the hash with the cleartext password again since
-	// the requestor needs to know the cleartext value.
-	appPass.Password = token
-
-	return appPass, nil
+	// Return a fresh AppPassword with the cleartext token for the caller.
+	// Constructing from scratch avoids copying the proto struct (which contains a mutex).
+	return &apppb.AppPassword{
+		Password:   token,
+		TokenScope: scope,
+		Label:      label,
+		Expiration: expiration,
+		Ctime:      cTime,
+		Utime:      cTime,
+		User:       userID,
+	}, nil
 }
 
 // ListAppPasswords lists the application passwords created by a user.
@@ -216,23 +225,26 @@ func (m *manager) ListAppPasswords(ctx context.Context) ([]*apppb.AppPassword, e
 	} else {
 		return nil, errtypes.BadRequest("no user in context")
 	}
-	_, userAppPasswords, err := m.getUserAppPasswords(ctx, userID)
+
+	unlock := m.store.Lock(userID.GetOpaqueId())
+	defer unlock()
+
+	passwords, ok, err := m.store.Get(ctx, userID.GetOpaqueId())
 	if err != nil {
-		if _, ok := err.(errtypes.NotFound); ok {
-			return []*apppb.AppPassword{}, nil
-		}
-		log.Error().Err(err).Msg("getUserAppPasswords failed")
+		log.Error().Err(err).Msg("store.Get failed")
 		return nil, err
 	}
-
-	userAppPasswordSlice := make([]*apppb.AppPassword, 0, len(userAppPasswords))
-
-	for id, p := range userAppPasswords {
-		p.Password = id
-		userAppPasswordSlice = append(userAppPasswordSlice, p)
+	if !ok {
+		return []*apppb.AppPassword{}, nil
 	}
 
-	return userAppPasswordSlice, nil
+	result := make([]*apppb.AppPassword, 0, len(passwords))
+	for id, p := range passwords {
+		pw := proto.Clone(p).(*apppb.AppPassword)
+		pw.Password = id
+		result = append(result, pw)
+	}
+	return result, nil
 }
 
 // InvalidateAppPassword invalidates a generated password.
@@ -253,16 +265,16 @@ func (m *manager) InvalidateAppPassword(ctx context.Context, secretOrId string) 
 		return errtypes.BadRequest("no user in context")
 	}
 
-	updater := func(a map[string]*apppb.AppPassword) (map[string]*apppb.AppPassword, error) {
+	err := m.store.Update(ctx, userID.GetOpaqueId(), false, func(a map[string]*apppb.AppPassword) (map[string]*apppb.AppPassword, bool, error) {
 		// Allow deleting a token using the ID inside the password property. This is needed because of
-		// some shortcomings of the CS3 APIs. On the API level tokens don't have IDs
+		// some shortcomings of the CS3 APIs. On the API level tokens don't have IDs;
 		// ListAppPasswords in this backend returns the ID as the password value.
 		if _, ok := a[secretOrId]; ok {
 			delete(a, secretOrId)
-			return a, nil
+			return a, true, nil
 		}
 
-		// Check if the supplied parameter matches any of the stored password tokens
+		// Check if the supplied parameter matches any of the stored password tokens.
 		for key, pw := range a {
 			ok, err := argon2id.ComparePasswordAndHash(secretOrId, pw.Password)
 			switch {
@@ -270,15 +282,13 @@ func (m *manager) InvalidateAppPassword(ctx context.Context, secretOrId string) 
 				log.Debug().Err(err).Msg("Error comparing password and hash")
 			case ok:
 				delete(a, key)
-				return a, nil
+				return a, true, nil
 			}
 		}
-		return a, errtypes.NotFound("password not found")
-	}
-
-	err := m.updateWithRetry(ctx, m.updateRetryCount, false, userID, updater)
+		return a, false, errtypes.NotFound("password not found")
+	})
 	if err != nil {
-		log.Error().Err(err).Msg("getUserAppPasswords failed")
+		log.Error().Err(err).Msg("store.Update failed")
 		return errtypes.NotFound("password not found")
 	}
 	return nil
@@ -295,13 +305,12 @@ func (m *manager) GetAppPassword(ctx context.Context, user *userpb.UserId, secre
 		return nil, err
 	}
 
-	errUpdateSkipped := errors.New("update skipped")
-
 	var (
 		matchedPw *apppb.AppPassword
 		matchedID string
 	)
-	updater := func(a map[string]*apppb.AppPassword) (map[string]*apppb.AppPassword, error) {
+
+	err := m.store.Update(ctx, user.GetOpaqueId(), false, func(a map[string]*apppb.AppPassword) (map[string]*apppb.AppPassword, bool, error) {
 		matchedPw = nil
 		for id, pw := range a {
 			ok, err := argon2id.ComparePasswordAndHash(secret, pw.Password)
@@ -312,35 +321,31 @@ func (m *manager) GetAppPassword(ctx context.Context, user *userpb.UserId, secre
 				// password found
 				if pw.Expiration != nil && pw.Expiration.Seconds != 0 && uint64(time.Now().Unix()) > pw.Expiration.Seconds {
 					log.Debug().Str("AppPasswordId", id).Msg("password expired")
-					return nil, errtypes.NotFound("password not found")
+					return nil, false, errtypes.NotFound("password not found")
 				}
 
 				matchedPw = pw
 				matchedID = id
-				// password not expired
 				// Updating the Utime will cause an Upload for every single GetAppPassword request. We are limiting this to one
 				// update per 'uTimeUpdateInterval' (default 5 min) otherwise this backend will become unusable.
 				if time.Since(utils.TSToTime(pw.Utime)) > m.uTimeUpdateInterval {
 					a[id].Utime = utils.TSNow()
-					return a, nil
+					return a, true, nil
 				}
-				return a, errUpdateSkipped
+				return a, false, nil
 			}
 		}
+		return nil, false, errtypes.NotFound("password not found")
+	})
+	if err != nil {
 		return nil, errtypes.NotFound("password not found")
 	}
 
-	err := m.updateWithRetry(ctx, m.updateRetryCount, false, user, updater)
-	switch {
-	case err == nil:
-		fallthrough
-	case errors.Is(err, errUpdateSkipped):
-		// Don't return the hashed password, put the ID into the password field
-		matchedPw.Password = matchedID
-		return matchedPw, nil
-	}
-
-	return nil, errtypes.NotFound("password not found")
+	// Return a clone with the ID in the password field so the cached entry
+	// is not corrupted.
+	result := proto.Clone(matchedPw).(*apppb.AppPassword)
+	result.Password = matchedID
+	return result, nil
 }
 
 func (m *manager) initialize(ctx context.Context) error {
@@ -370,142 +375,6 @@ func (m *manager) initialize(ctx context.Context) error {
 	}
 	m.initialized = true
 	return nil
-}
-
-func (m *manager) updateWithRetry(ctx context.Context, retries int, createIfNotFound bool, userid *userpb.UserId, updater updaterFunc) error {
-	log := appctx.GetLogger(ctx)
-	_, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "initialize")
-	defer span.End()
-
-	retry := true
-	var (
-		etag             string
-		userAppPasswords map[string]*apppb.AppPassword
-		err              error
-	)
-
-	// retry for the specified number of times, then error out
-	for i := 0; i < retries && retry; i++ {
-		if i > 0 {
-			// if we're retrying, wait a bit before the next try
-			jitter := time.Duration(rand.Int63n(int64(100 * time.Millisecond)))
-			time.Sleep(jitter + 100*time.Millisecond)
-		}
-
-		etag, userAppPasswords, err = m.getUserAppPasswords(ctx, userid)
-		switch err.(type) {
-		case nil:
-			// empty
-		case errtypes.NotFound:
-			if createIfNotFound {
-				userAppPasswords = map[string]*apppb.AppPassword{}
-			} else {
-				log.Debug().Err(err).Msg("getUserAppPasswords failed (not found)")
-				span.RecordError(err)
-				span.SetStatus(codes.Error, "downloading app tokens failed")
-				return err
-			}
-		case errtypes.TooEarly:
-			// Ideally this should never happen as we disable asynchronous uploads for the metadata storage.
-			log.Debug().Err(err).Int("try", i).Msg("getUserAppPasswords failed (too early, retrying)")
-			retry = true
-			continue
-		default:
-			log.Debug().Err(err).Msg("getUserAppPasswords failed")
-			span.RecordError(err)
-			span.SetStatus(codes.Error, "downloading app tokens failed")
-			return err
-		}
-
-		userAppPasswords, err = updater(userAppPasswords)
-		if err != nil {
-			return err
-		}
-
-		err = m.updateUserAppPassword(ctx, userid, userAppPasswords, etag)
-		switch err.(type) {
-		case nil:
-			retry = false
-		case errtypes.Aborted:
-			log.Debug().Err(err).Int("attempt", i).Msg("updateUserAppPassword failed (retrying)")
-			retry = true
-		default:
-			log.Debug().Err(err).Int("attempt", i).Msg("updateUserAppPassword failed (not retrying)")
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-			return err
-		}
-	}
-	if retry {
-		log.Debug().Err(err).Msg("updateUserAppPassword failed")
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "updating app token failed")
-		return err
-	}
-	return nil
-}
-
-func (m *manager) updateUserAppPassword(ctx context.Context, userid *userpb.UserId, appPasswords map[string]*apppb.AppPassword, ifMatchEtag string) error {
-	log := appctx.GetLogger(ctx)
-	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "getUserAppPasswords")
-	jsonPath := userAppTokenJSONPath(userid)
-
-	pwBytes, err := json.Marshal(appPasswords)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-
-	ur := metadata.UploadRequest{
-		Path:        jsonPath,
-		Content:     pwBytes,
-		IfMatchEtag: ifMatchEtag,
-	}
-
-	// If there is no etag, make sure to only upload if the file wasn't craeted yet
-	if ifMatchEtag == "" {
-		ur.IfNoneMatch = []string{"*"}
-	}
-	_, err = m.mds.Upload(ctx, ur)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		log.Debug().Err(err).Msg("failed to upload AppPasswword")
-		return err
-	}
-	return nil
-}
-
-func (m *manager) getUserAppPasswords(ctx context.Context, userid *userpb.UserId) (string, map[string]*apppb.AppPassword, error) {
-	log := appctx.GetLogger(ctx)
-	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "getUserAppPasswords")
-	jsonPath := userAppTokenJSONPath(userid)
-	dlreq := metadata.DownloadRequest{
-		Path: jsonPath,
-	}
-
-	var userAppPasswords = map[string]*apppb.AppPassword{}
-	dlres, err := m.mds.Download(ctx, dlreq)
-	switch err.(type) {
-	case nil:
-		err = json.Unmarshal(dlres.Content, &userAppPasswords)
-		if err != nil {
-			log.Error().Err(err).Msg("unmarshaling app tokens failed")
-			return "", nil, err
-		}
-	case errtypes.NotFound:
-		return "", nil, errtypes.NotFound("password not found")
-	default:
-		span.RecordError(err)
-		span.SetStatus(codes.Error, "downloading app tokens failed")
-		return "", nil, err
-	}
-	return dlres.Etag, userAppPasswords, nil
-}
-
-func userAppTokenJSONPath(userID *userpb.UserId) string {
-	return userID.GetOpaqueId() + ".json"
 }
 
 type randomPassword struct {

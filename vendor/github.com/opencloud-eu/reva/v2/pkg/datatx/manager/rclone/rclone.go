@@ -34,8 +34,8 @@ import (
 
 	datatx "github.com/cs3org/go-cs3apis/cs3/tx/v1beta1"
 	typespb "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/google/uuid"
-	"github.com/mitchellh/mapstructure"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	txdriver "github.com/opencloud-eu/reva/v2/pkg/datatx"
 	registry "github.com/opencloud-eu/reva/v2/pkg/datatx/manager/registry"

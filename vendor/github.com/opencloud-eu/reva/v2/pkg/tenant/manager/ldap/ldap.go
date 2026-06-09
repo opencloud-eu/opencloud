@@ -25,7 +25,7 @@ import (
 
 	tenantpb "github.com/cs3org/go-cs3apis/cs3/identity/tenant/v1beta1"
 	"github.com/go-ldap/ldap/v3"
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/tenant"
 	"github.com/opencloud-eu/reva/v2/pkg/tenant/manager/registry"

@@ -51,7 +51,8 @@ Validator returns only InvalidValidationError for bad validation input, nil or V
 
 ```go
 err := validate.Struct(mystruct)
-validationErrors := err.(validator.ValidationErrors)
+var validationErrors validator.ValidationErrors
+errors.As(err, &validationErrors)
  ```
 
 Usage and documentation
@@ -128,6 +129,7 @@ validate := validator.New(validator.WithRequiredStructEnabled())
 | url | URL String |
 | http_url | HTTP(s) URL String |
 | https_url | HTTPS-only URL String |
+| origin | Web origin (URL with HTTP(S) scheme and host, but no path/query/fragment) |
 | url_encoded | URL Encoded |
 | urn_rfc2141 | Urn RFC 2141 String |
 
@@ -169,6 +171,7 @@ validate := validator.New(validator.WithRequiredStructEnabled())
 | bic_iso_9362_2014 | Business Identifier Code (ISO 9362:2014) |
 | bic | Business Identifier Code (ISO 9362:2022) |
 | bcp47_language_tag | Language tag (BCP 47) |
+| bcp47_strict_language_tag | Language tag (BCP 47), strictly following RFC 5646 |
 | btc_addr | Bitcoin Address |
 | btc_addr_bech32 | Bitcoin Bech32 Address (segwit) |
 | credit_card | Credit Card Number |
@@ -222,7 +225,7 @@ validate := validator.New(validator.WithRequiredStructEnabled())
 | sha384 | SHA384 hash |
 | sha512 | SHA512 hash |
 | ripemd128 | RIPEMD-128 hash |
-| ripemd128 | RIPEMD-160 hash |
+| ripemd160 | RIPEMD-160 hash |
 | tiger128 | TIGER128 hash |
 | tiger160 | TIGER160 hash |
 | tiger192 | TIGER192 hash |
@@ -250,11 +253,13 @@ validate := validator.New(validator.WithRequiredStructEnabled())
 | file | Existing File |
 | filepath | File Path |
 | image | Image |
+| mimetype | MIME Type |
 | isdefault | Is Default |
 | len | Length |
 | max | Maximum |
 | min | Minimum |
 | oneof | One Of |
+| noneof | None Of |
 | required | Required |
 | required_if | Required If |
 | required_unless | Required Unless |

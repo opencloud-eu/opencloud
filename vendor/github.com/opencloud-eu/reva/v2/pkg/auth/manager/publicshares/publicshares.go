@@ -28,7 +28,7 @@ import (
 	rpcv1beta1 "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	link "github.com/cs3org/go-cs3apis/cs3/sharing/link/v1beta1"
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/opencloud-eu/reva/v2/pkg/auth"
 	"github.com/opencloud-eu/reva/v2/pkg/auth/manager/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/auth/scope"

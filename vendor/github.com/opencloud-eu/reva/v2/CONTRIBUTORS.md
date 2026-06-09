@@ -17,3 +17,4 @@
 - Thomas Boerger <thomas@webhippie.de>
 - Miroslav Bauer <bauer@cesnet.cz>
 - Daniel Mueller <daniel.mueller@uni-muenster.de>
+- Michael Stingl <mail@michaelstingl.com>

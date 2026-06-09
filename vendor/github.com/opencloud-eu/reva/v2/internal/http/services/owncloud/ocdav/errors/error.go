@@ -159,6 +159,8 @@ var (
 	ErrLocked = errors.New("webdav: locked")
 	// ErrNoSuchLock is returned by a LockSystem's Refresh and Unlock methods.
 	ErrNoSuchLock = errors.New("webdav: no such lock")
+	// ErrNotFound is returned when a resource does not exist.
+	ErrNotFound = errors.New("webdav: not found")
 	// ErrNotImplemented is returned when hitting not implemented code paths
 	ErrNotImplemented = errors.New("webdav: not implemented")
 	// ErrTokenNotFound is returned when a token is not found
@@ -206,6 +208,8 @@ func NewErrFromStatus(s *rpc.Status) error {
 		return ErrForbidden
 	case rpc.Code_CODE_LOCKED, rpc.Code_CODE_FAILED_PRECONDITION:
 		return ErrLocked
+	case rpc.Code_CODE_NOT_FOUND:
+		return ErrNotFound
 	case rpc.Code_CODE_UNIMPLEMENTED:
 		return ErrNotImplemented
 	default:

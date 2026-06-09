@@ -27,7 +27,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/opencloud-eu/reva/v2/internal/http/interceptors/appctx"
 	"github.com/opencloud-eu/reva/v2/internal/http/interceptors/auth"
 	"github.com/opencloud-eu/reva/v2/internal/http/interceptors/log"

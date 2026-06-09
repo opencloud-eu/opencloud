@@ -1467,6 +1467,11 @@ func RegisterDefaultTranslations(v *validator.Validate, trans ut.Translator) (er
 			},
 		},
 		{
+			tag:         "timezone",
+			translation: "{0} must be a valid time zone",
+			override:    false,
+		},
+		{
 			tag:         "postcode_iso3166_alpha2",
 			translation: "{0} does not match postcode format of {1} country",
 			override:    false,
@@ -1505,8 +1510,18 @@ func RegisterDefaultTranslations(v *validator.Validate, trans ut.Translator) (er
 			override:    false,
 		},
 		{
+			tag:         "mimetype",
+			translation: "{0} must be a valid MIME type",
+			override:    false,
+		},
+		{
 			tag:         "cve",
 			translation: "{0} must be a valid cve identifier",
+			override:    false,
+		},
+		{
+			tag:         "bcp47_strict_language_tag",
+			translation: "{0} must be a valid BCP 47 language tag",
 			override:    false,
 		},
 		{

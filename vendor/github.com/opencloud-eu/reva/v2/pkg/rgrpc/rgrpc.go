@@ -25,8 +25,8 @@ import (
 	"net"
 	"sort"
 
+	"github.com/go-viper/mapstructure/v2"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/mitchellh/mapstructure"
 	"github.com/opencloud-eu/reva/v2/internal/grpc/interceptors/appctx"
 	"github.com/opencloud-eu/reva/v2/internal/grpc/interceptors/auth"
 	"github.com/opencloud-eu/reva/v2/internal/grpc/interceptors/log"

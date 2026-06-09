@@ -546,20 +546,26 @@ func (s *svc) lockReference(ctx context.Context, w http.ResponseWriter, r *http.
 		ld.OwnerXML = li.Owner.InnerXML // TODO optional, should be a URL
 		ld.ZeroDepth = depth == 0
 
-		//TODO: @jfd the code tries to create a lock for a file that may not even exist,
-		//      should we do that in the decomposedfs as well? the node does not exist
-		//      this actually is a name based lock ... ugh
 		token, err = s.LockSystem.Create(ctx, now, ld)
-
-		//
 		if err != nil {
 			switch {
-			case errors.Is(err, ocdavErrors.ErrLocked):
-				return http.StatusLocked, err
-			case errors.Is(err, ocdavErrors.ErrForbidden):
-				return http.StatusForbidden, err
+			case errors.Is(err, ocdavErrors.ErrNotFound):
+				// RFC 4918 section 7.3: a LOCK request on an unmapped URL
+				// creates an empty locked resource. Create the resource, then
+				// retry the lock against the now-existing node.
+				resourceCreated, status, cerr := s.createEmptyResource(ctx, ref)
+				if cerr != nil {
+					return status, cerr
+				}
+				// Report 201 only when the resource was actually created; a
+				// concurrent create leaves an existing resource to lock (200).
+				created = resourceCreated
+				if token, err = s.LockSystem.Create(ctx, now, ld); err != nil {
+					sublog.Error().Err(err).Msg("could not lock resource after creating it")
+					return lockCreateErrToStatus(err), err
+				}
 			default:
-				return http.StatusInternalServerError, err
+				return lockCreateErrToStatus(err), err
 			}
 		}
 
@@ -571,19 +577,9 @@ func (s *svc) lockReference(ctx context.Context, w http.ResponseWriter, r *http.
 			}
 		}()
 
-		// Create the resource if it didn't previously exist.
-		// TODO use sdk to stat?
-		/*
-			if _, err := s.FileSystem.Stat(ctx, reqPath); err != nil {
-				f, err := s.FileSystem.OpenFile(ctx, reqPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
-				if err != nil {
-					// TODO: detect missing intermediate dirs and return http.StatusConflict?
-					return http.StatusInternalServerError, err
-				}
-				f.Close()
-				created = true
-			}
-		*/
+		// The resource is created (if it did not previously exist) in the
+		// ErrNotFound branch above, mirroring sabre/dav per RFC 4918 section 7.3.
+
 		// http://www.webdav.org/specs/rfc4918.html#HEADER_Lock-Token says that the
 		// Lock-Token value is a Coded-URL. We add angle brackets.
 		w.Header().Set("Lock-Token", "<"+token+">")
@@ -601,6 +597,59 @@ func (s *svc) lockReference(ctx context.Context, w http.ResponseWriter, r *http.
 		sublog.Err(err).Int("bytes_written", n).Msg("error writing response")
 	}
 	return 0, nil
+}
+
+// lockCreateErrToStatus maps a LockSystem.Create error to the HTTP status the
+// LOCK handler returns. ErrNotFound is handled separately by the caller (it
+// creates the resource and retries), so it falls through to 500 here.
+func lockCreateErrToStatus(err error) int {
+	switch {
+	case errors.Is(err, ocdavErrors.ErrLocked):
+		return http.StatusLocked
+	case errors.Is(err, ocdavErrors.ErrForbidden):
+		return http.StatusForbidden
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
+// createEmptyResource creates a 0-byte file at ref so that a LOCK on an
+// unmapped URL can succeed, as required by RFC 4918 section 7.3. It mirrors
+// the empty-file path of handlePut, which uses TouchFile for a zero-length
+// upload. The first return value reports whether the resource was actually
+// created (CODE_OK); on a concurrent create (CODE_ALREADY_EXISTS) it is false
+// so the caller locks the existing resource and returns 200 rather than 201.
+// On failure it returns an (http status, error) pair the LOCK handler can
+// return directly. Server-side failures (500) are logged, mirroring handlePut.
+func (s *svc) createEmptyResource(ctx context.Context, ref *provider.Reference) (bool, int, error) {
+	client, err := s.gatewaySelector.Next()
+	if err != nil {
+		appctx.GetLogger(ctx).Error().Err(err).Msg("error selecting next gateway client for lock")
+		return false, http.StatusInternalServerError, err
+	}
+
+	res, err := client.TouchFile(ctx, &provider.TouchFileRequest{Ref: ref})
+	if err != nil {
+		appctx.GetLogger(ctx).Error().Err(err).Interface("ref", ref).Msg("error sending grpc touch file request on lock")
+		return false, http.StatusInternalServerError, err
+	}
+
+	switch res.GetStatus().GetCode() {
+	case rpc.Code_CODE_OK:
+		return true, 0, nil
+	case rpc.Code_CODE_ALREADY_EXISTS:
+		// The resource appeared concurrently. Lock the existing one (200).
+		return false, 0, nil
+	case rpc.Code_CODE_NOT_FOUND:
+		// A missing intermediate collection. RFC 4918 section 9.10.6 maps this
+		// to 409 Conflict, not 500.
+		return false, http.StatusConflict, ocdavErrors.NewErrFromStatus(res.GetStatus())
+	case rpc.Code_CODE_PERMISSION_DENIED:
+		return false, http.StatusForbidden, ocdavErrors.NewErrFromStatus(res.GetStatus())
+	default:
+		appctx.GetLogger(ctx).Error().Interface("status", res.GetStatus()).Interface("ref", ref).Msg("error touching file on lock")
+		return false, http.StatusInternalServerError, ocdavErrors.NewErrFromStatus(res.GetStatus())
+	}
 }
 
 func writeLockInfo(w io.Writer, token string, ld LockDetails) (int, error) {

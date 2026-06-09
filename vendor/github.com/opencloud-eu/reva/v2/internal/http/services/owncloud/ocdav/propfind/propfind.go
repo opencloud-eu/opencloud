@@ -1736,12 +1736,11 @@ func hasPreview(md *provider.ResourceInfo, appendToOK func(p ...prop.PropertyXML
 }
 
 func downloadURL(ctx context.Context, log zerolog.Logger, isPublic bool, path string, ls *link.PublicShare, publicURL string, baseURI string, urlSigner signedurl.Signer) string {
-	parts := strings.Split(path, "/")
-	encodedPath, err := url.JoinPath("/", parts...)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to encode the path for the download URL")
-		return ""
-	}
+	// Encode the path with net.EncodePath, the same encoder the resource href
+	// uses, so a filename with a literal "%" or "#" round-trips. url.JoinPath
+	// treats a literal "%" as an escape, so such names 404.
+	// See https://github.com/opencloud-eu/opencloud/issues/2852.
+	encodedPath := net.EncodePath(path)
 
 	switch {
 	case isPublic:

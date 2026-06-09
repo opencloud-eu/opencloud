@@ -27,7 +27,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace"
 	"github.com/opencloud-eu/reva/v2/pkg/logger"
 	"github.com/opencloud-eu/reva/v2/pkg/registry"

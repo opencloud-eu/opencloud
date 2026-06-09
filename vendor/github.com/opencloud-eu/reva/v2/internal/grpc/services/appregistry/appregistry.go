@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc"
 
 	registrypb "github.com/cs3org/go-cs3apis/cs3/app/registry/v1beta1"
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/opencloud-eu/reva/v2/pkg/app"
 	"github.com/opencloud-eu/reva/v2/pkg/app/registry/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"

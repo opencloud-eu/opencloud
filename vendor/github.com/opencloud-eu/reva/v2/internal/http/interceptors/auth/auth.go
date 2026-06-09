@@ -31,7 +31,7 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/opencloud-eu/reva/v2/internal/http/interceptors/auth/credential/registry"
 	tokenregistry "github.com/opencloud-eu/reva/v2/internal/http/interceptors/auth/token/registry"
 	tokenwriterregistry "github.com/opencloud-eu/reva/v2/internal/http/interceptors/auth/tokenwriter/registry"

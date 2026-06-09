@@ -184,6 +184,12 @@ so the above will become excludesall=0x7C
 		Field `validate:"excludesall=0x7C"` // GOOD! Use the UTF-8 hex representation.
 	}
 
+# Build tags
+
+The library provides a build tag for build size optimizations. If you are not using
+`validateFn` you can add the `validator_novalidatefn` build tag to enabled better dead
+code elimination. With this build tag, any usage of `validateFn` tags will panic.
+
 # Baked In Validators and Tags
 
 Here is a list of the current built in validators:
@@ -545,6 +551,24 @@ Works the same as oneof but is case insensitive and therefore only accepts strin
 
 	Usage: oneofci=red green
 	       oneofci='red green' 'blue yellow'
+
+# None Of
+
+For strings, ints, and uints, noneof will ensure that the value is not one of
+the values in the parameter. The parameter should be a list of values separated by whitespace.
+Values may be strings or numbers. To inversely match strings with spaces in them, include the target string between single quotes.
+Kind of like an 'enum'.
+
+	Usage: noneof=red green
+	       noneof='red green' 'blue yellow'
+		   noneof=5 7 9
+
+
+# None Of Case Insensitive
+Works the same as noneof but is case insensitive and therefore only accepts strings.
+
+	Usage: noneofci=red green
+	       noneofci='red green' 'blue yellow'
 
 # Greater Than
 
@@ -968,6 +992,16 @@ the file exists on the machine and is an image.
 This is done using os.Stat and github.com/gabriel-vasile/mimetype
 
 	Usage: image
+
+# MIME type path
+
+This validates that a string value contains a valid file path and that
+the file exists on the machine and matches the provided MIME type in the
+form type/subtype or type/*.
+This is done using os.Stat and github.com/gabriel-vasile/mimetype
+
+	Usage: mimetype=image/png
+	Usage: mimetype=image/*
 
 # File Path
 
@@ -1441,6 +1475,14 @@ This validates that a string value is a valid BCP 47 language tag, as parsed by 
 More information on https://pkg.go.dev/golang.org/x/text/language
 
 	Usage: bcp47_language_tag
+
+# BCP 47 Strict Language Tag
+
+This validates that a string value is a valid BCP 47 language tag strictly following RFC 5646 rules,
+unlike language.Parse which also accepts Unicode extensions.
+see https://www.rfc-editor.org/rfc/bcp/bcp47.txt
+
+	Usage: bcp47_strict_language_tag
 
 BIC (SWIFT code - 2022 standard)
 

@@ -21,7 +21,7 @@ package mentix
 import (
 	"net/http"
 
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/opencloud-eu/reva/v2/pkg/mentix/meshdata"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
