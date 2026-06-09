@@ -1,0 +1,16 @@
+**/.git
+**/.svn
+**/.hg
+**/.DS_Store
+**/.idea
+**/.vscode
+**/node_modules
+**/.pnpm-store
+**/.yarn
+**/.cache
+**/tmp
+**/dist
+**/docs
+**/coverage.out
+**/coverage-*.out
+**/*.log
