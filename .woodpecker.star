@@ -75,11 +75,11 @@ OC_FED_DOMAIN = "%s:10200" % FED_OC_SERVER_NAME
 event = {
     "base": {
         "event": ["push", "manual"],
-        "branch": "main",
+        "branch": "stable-*",
     },
     "cron": {
         "event": "cron",
-        "branch": "main",
+        "branch": "stable-*",
     },
     "pull_request": {
         "event": "pull_request",
@@ -2084,6 +2084,7 @@ def readyReleaseGo():
                 "image": READY_RELEASE_GO,
                 "settings": {
                     "git_email": "devops@opencloud.eu",
+                    "release_branch": "stable-7.2",
                     "forge_type": "github",
                     "forge_token": {
                         "from_secret": "github_token",
