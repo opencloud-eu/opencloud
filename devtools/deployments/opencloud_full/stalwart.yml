@@ -7,20 +7,22 @@ services:
           - ${STALWART_DOMAIN:-stalwart.opencloud.test}
 
   stalwart:
-    image: ghcr.io/stalwartlabs/stalwart:v0.15.5-alpine
+    image: ghcr.io/stalwartlabs/stalwart:v0.16.7-alpine
     hostname: ${STALWART_DOMAIN:-stalwart.opencloud.test}
     networks:
       - opencloud-net
     ports:
+      - "127.0.0.1:8443:443"
+      - "127.0.0.1:8080:8080"
       - "127.0.0.1:143:143"
       - "127.0.0.1:993:993"
       - "127.0.0.1:1465:465"
     volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - "./config/stalwart/${STALWART_AUTH_DIRECTORY:-idmldap}.toml:/opt/stalwart/etc/config.toml"
-      - stalwart-data:/opt/stalwart/data
+      - ./config/stalwart/config.json:/etc/stalwart/config.json
+      - stalwart-data:/var/lib/stalwart
     environment:
-      STALWART_AUTH_DIRECTORY: "${STALWART_AUTH_DIRECTORY:-idmldap}"
+      STALWART_RECOVERY_ADMIN: "admin:secret"
+      STALWART_PUBLIC_URL: "https://${STALWART_DOMAIN:-stalwart.opencloud.test}"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.stalwart.entrypoints=https"
@@ -30,7 +32,83 @@ services:
       - "traefik.http.services.stalwart.loadbalancer.server.port=8080"
     logging:
       driver: ${LOG_DRIVER:-local}
-    restart: always
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ ! -f /var/lib/stalwart/.initialized ]; then
+          echo "Not initialized, starting in recovery mode"
+          STALWART_RECOVERY_MODE=1 /usr/local/bin/stalwart --config /etc/stalwart/config.json &
+          pid=$$!
+          while [ ! -f /var/lib/stalwart/.initialized ]; do sleep 1; done
+          echo "Initialized, stopping recovery mode"
+          kill -TERM $$pid
+          wait $$pid
+        fi
+        echo "Starting Stalwart in production mode"
+        exec /usr/local/bin/stalwart --config /etc/stalwart/config.json
+
+  stalwart-import:
+    image: stalwart-cli:latest
+    build:
+      context: ./config/stalwart/
+      args:
+        VERSION: "1.0.8"
+      dockerfile_inline: |
+        FROM alpine:latest AS downloader
+        ARG VERSION
+        RUN apk add --no-cache curl tar xz
+        RUN arch=$(apk --print-arch) && \
+            mkdir /cli && \
+            curl --proto '=https' --tlsv1.2 -LsSf \
+              https://github.com/stalwartlabs/cli/releases/download/v$${VERSION}/stalwart-cli-$${arch}-unknown-linux-musl.tar.xz \
+              | tar xJf - --strip-components=1 -C /cli
+
+        FROM scratch
+        COPY --from=downloader /cli/stalwart-cli /stalwart-cli
+        CMD ["/stalwart-cli"]
+
+    networks:
+      - opencloud-net
+    volumes:
+      - ./config/stalwart/${STALWART_AUTH_DIRECTORY:-idmldap}.json:/snapshot.json:ro
+      - stalwart-data:/var/lib/stalwart
+    environment:
+      STALWART_URL: "http://stalwart:8080"
+      STALWART_USER: "admin"
+      STALWART_PASSWORD: "secret"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ -f /var/lib/stalwart/.initialized ]; then
+          echo "Already initialized, skipping stalwart-cli."
+          exit 0
+        fi
+        echo "Waiting for the Stalwart recovery API to become live"
+        until wget -qO- $$STALWART_URL/healthz/live >/dev/null 2>&1; do sleep 1; done
+        echo "Applying configuration"
+        /stalwart-cli --debug apply --file /snapshot.json
+        touch /var/lib/stalwart/.initialized
+        echo "Successfully initialized"
+
+    stdin_open: true
+    tty: true
+    depends_on:
+      - stalwart
+
+  stalwart-reset:
+    image: alpine:latest
+    profiles:
+      - maintenance
+    volumes:
+      - stalwart-data:/var/lib/stalwart
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ -f /var/lib/stalwart/.initialized ]; then
+          rm -f /var/lib/stalwart/.initialized
+          echo "Success: Lockfile removed. Next time 'stalwart' boots, it will run in recovery mode."
+        fi
 
 volumes:
   stalwart-data:
