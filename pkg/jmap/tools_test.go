@@ -2,6 +2,9 @@ package jmap
 
 import (
 	"encoding/json"
+	"fmt"
+	"math/rand"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -32,4 +35,13 @@ func TestSquashKeyedStates(t *testing.T) {
 		"c": "ccc",
 	})
 	require.Equal("a:aaa,b:bbb,c:ccc", string(result))
+}
+
+func TestInvocationMarshalling(t *testing.T) {
+	tag := strconv.Itoa(1000 + rand.Intn(1000))
+	accountId := fmt.Sprintf("a%d", 100+rand.Intn(100))
+	inv := invocation(IdentityGetCommand{AccountId: AccountId(accountId), Ids: []string{"x", "y", "z"}}, tag)
+	b, err := json.Marshal(inv)
+	require.NoError(t, err)
+	require.Equal(t, fmt.Sprintf(`{"Command":"Identity/get","Parameters":{"accountId":"%s","ids":["x","y","z"]},"Tag":"%s"}`, accountId, tag), string(b))
 }
