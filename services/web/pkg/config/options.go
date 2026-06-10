@@ -19,6 +19,7 @@ type Options struct {
 	UserListRequiresFilter bool                `json:"userListRequiresFilter,omitempty" yaml:"userListRequiresFilter" env:"WEB_OPTION_USER_LIST_REQUIRES_FILTER" desc:"Defines whether one or more filters must be set in order to list users in the Web admin settings. Set this option to 'true' if running in an environment with a lot of users and listing all users could slow down performance. Defaults to 'false'." introductionVersion:"1.0.0"`
 	ConcurrentRequests     *ConcurrentRequests `json:"concurrentRequests,omitempty" yaml:"concurrentRequests"`
 	DefaultAppID           string              `json:"defaultAppId,omitempty" yaml:"defaultAppId" env:"WEB_OPTION_DEFAULT_APP_ID" desc:"Defines the entrypoint for the web ui." introductionVersion:"4.0.0"`
+	OxAppSuite             *OxAppSuite         `json:"oxAppSuite,omitempty" yaml:"oxAppSuite"`
 }
 
 // AccountEditLink are the AccountEditLink options
@@ -64,4 +65,9 @@ type ConcurrentRequests struct {
 type ConcurrentRequestsShares struct {
 	Create int `json:"create,omitempty" yaml:"create" env:"WEB_OPTION_CONCURRENT_REQUESTS_SHARES_CREATE" desc:"Defines the maximum number of concurrent requests per sharing invite batch. Defaults to 4." introductionVersion:"1.0.0"`
 	List   int `json:"list,omitempty" yaml:"list" env:"WEB_OPTION_CONCURRENT_REQUESTS_SHARES_LIST" desc:"Defines the maximum number of concurrent requests when loading individual share information inside listings. Defaults to 2." introductionVersion:"1.0.0"`
+}
+
+type OxAppSuite struct {
+	Enabled bool   `json:"enabled,omitempty" yaml:"enabled" env:"WEB_OPTION_OX_APP_SUITE_ENABLED" desc:"Enables the OX App Suite. Defaults to false." introductionVersion:"%%NEXT%%"`
+	ApiUrl  string `json:"apiUrl,omitempty" yaml:"apiUrl" env:"WEB_OPTION_OX_APP_SUITE_API_URL" desc:"The API URL for the OX App Suite. Defaults to an empty string." introductionVersion:"%%NEXT%%"`
 }

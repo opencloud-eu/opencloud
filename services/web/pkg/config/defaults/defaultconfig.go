@@ -111,6 +111,7 @@ func DefaultConfig() *config.Config {
 					Upload:                 &config.Upload{},
 					TokenStorageLocal:      true,
 					UserListRequiresFilter: false,
+					OxAppSuite:             &config.OxAppSuite{},
 				},
 			},
 		},
