@@ -30,13 +30,13 @@ var MockContactCardSupplierInstance *MockContactCardSupplier = &MockContactCardS
 	},
 	contacts: []jmap.ContactCard{
 		{
-			Id:             "alan",
+			Id:             "mock:alan",
 			AddressBookIds: map[string]bool{"mock:1": true},
 			Type:           jscontact.ContactCardType,
 			Version:        jmap.DEFAULT_CONTACT_CARD_VERSION,
 			Created:        mustParseTime("2026-05-26T10:21:00.000Z"),
 			Kind:           jscontact.ContactCardKindIndividual,
-			ProdId:         "OC",
+			ProdId:         "OC:mock",
 			Uid:            "dc2858d2-4826-412d-afc9-c4492f8f84bc",
 			Updated:        mustParseTime("2026-05-26T10:21:00.000Z"),
 			Name: &jscontact.Name{

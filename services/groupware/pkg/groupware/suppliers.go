@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
@@ -405,6 +404,7 @@ func combineState[K ~string, S jmap.State | jmap.SessionState](m map[K]S) (S, er
 	}
 }
 
+/*
 func splitState[K ~string, S jmap.State | jmap.SessionState](state S) (map[K]S, error) {
 	s := string(state)
 	if strings.HasPrefix(s, combinedStateEncodingPrefix) {
@@ -422,3 +422,4 @@ func splitState[K ~string, S jmap.State | jmap.SessionState](state S) (map[K]S, 
 		return map[K]S{K("jmap"): state}, nil
 	}
 }
+*/
