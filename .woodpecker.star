@@ -405,7 +405,7 @@ config = {
             # NOTE: need to be updated if new production releases are determined
             "tags": ["2.0", "4.0"],
             # NOTE: need to be set to true if patch releases are made from stable-X-branches
-            "skip_rolling": "false",
+            "skip_rolling": False,
             "repo": docker_repo_slug,
             "build_type": "production",
         },
@@ -1722,7 +1722,7 @@ def dockerReleases(ctx):
             docker_releases.append("rolling")
 
         # on non tag events, do daily build
-    else:
+    elif config["dockerReleases"]["production"]["skip_rolling"]:
         docker_releases.append("daily")
 
     for releaseConfigName in docker_releases:
