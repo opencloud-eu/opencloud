@@ -122,7 +122,6 @@ config = {
                 "apiSettings",
             ],
             "skip": False,
-            "withRemotePhp": [False],
             "emailNeeded": True,
             "extraTestEnvironment": {
                 "EMAIL_HOST": "email",
@@ -145,14 +144,12 @@ config = {
                 #"collaborativePosix",
             ],
             "skip": False,
-            "withRemotePhp": [False],
         },
         "graphUserGroup": {
             "suites": [
                 "apiGraphUserGroup",
             ],
             "skip": False,
-            "withRemotePhp": [False],
         },
         "spaces": {
             "suites": [
@@ -210,7 +207,6 @@ config = {
                 "apiNotification",
             ],
             "skip": False,
-            "withRemotePhp": [False],
             "emailNeeded": True,
             "extraTestEnvironment": {
                 "EMAIL_HOST": "email",
@@ -252,7 +248,6 @@ config = {
                 "apiOcm",
             ],
             "skip": False,
-            "withRemotePhp": [False],
             "federationServer": True,
             "emailNeeded": True,
             "extraTestEnvironment": {
@@ -288,14 +283,12 @@ config = {
                 "apiAuthApp",
             ],
             "skip": False,
-            "withRemotePhp": [False],
         },
         "cliCommands": {
             "suites": [
                 "cliCommands",
             ],
             "skip": False,
-            "withRemotePhp": [False],
             "antivirusNeeded": True,
             "extraServerEnvironment": {
                 "ANTIVIRUS_SCANNER_TYPE": "clamav",
@@ -310,7 +303,6 @@ config = {
                 "apiTenancy",
             ],
             "skip": False,
-            "withRemotePhp": [False],
             "ldapNeeded": True,
             "extraTestEnvironment": {
                 "USE_PREPARED_LDAP_USERS": True,
@@ -1205,6 +1197,18 @@ def localApiTestPipeline(ctx):
         "ldapNeeded": False,
     }
 
+    nightly_matrix = {
+        "storages": ["posix", "decomposed"],
+        "posix": {
+            "withRemotePhp": [False],
+            "enableWatchFs": [False, True],
+        },
+        "decomposed": {
+            "withRemotePhp": [False, True],
+            "enableWatchFs": [False],
+        },
+    }
+
     if "localApiTests" in config:
         for name, matrix in config["localApiTests"].items():
             if "skip" not in matrix or not matrix["skip"]:
@@ -1212,29 +1216,35 @@ def localApiTestPipeline(ctx):
                 for item in defaults:
                     params[item] = matrix[item] if item in matrix else defaults[item]
 
+                if ctx.build.event == "cron":
+                    params["storages"] = nightly_matrix["storages"]
+
                 # use decomposed storage if specified in the PR title
                 # run CLI tests only with decomposed storage
                 if "[decomposed]" in ctx.build.title.lower() or name.startswith("cli"):
                     params["storages"] = ["decomposed"]
 
-                if ctx.build.event == "cron":
-                    params["withRemotePhp"] = [True, False]
-                    params["enableWatchFs"] = [True, False]
-
-                # override withRemotePhp if specified in the suite config
-                if "withRemotePhp" in matrix:
-                    params["withRemotePhp"] = matrix["withRemotePhp"]
-
                 for storage in params["storages"]:
+                    # override with nightly matrix
+                    if ctx.build.event == "cron":
+                        params["withRemotePhp"] = nightly_matrix[storage]["withRemotePhp"]
+                        params["enableWatchFs"] = nightly_matrix[storage]["enableWatchFs"]
+
+                    # override configs if specified in the suite config
+                    if "withRemotePhp" in matrix:
+                        params["withRemotePhp"] = matrix["withRemotePhp"]
+                    if "enableWatchFs" in matrix:
+                        params["enableWatchFs"] = matrix["enableWatchFs"]
+
                     for run_with_remote_php in params["withRemotePhp"]:
                         for run_with_watch_fs_enabled in params["enableWatchFs"]:
                             pipeline_name = "test-API"
                             if name.startswith("cli"):
                                 pipeline_name = "test-CLI"
                             pipeline_name += "-%s" % name
-                            if not run_with_remote_php:
-                                pipeline_name += "-withoutRemotePhp"
                             pipeline_name += "-%s" % storage
+                            if run_with_remote_php:
+                                pipeline_name += "-withRemotePhp"
                             if run_with_watch_fs_enabled:
                                 pipeline_name += "-watchfs"
 
@@ -1325,6 +1335,18 @@ def coreApiTestPipeline(ctx):
         "skip": False,
     }
 
+    nightly_matrix = {
+        "storages": ["posix", "decomposed"],
+        "posix": {
+            "withRemotePhp": [False],
+            "enableWatchFs": [False, True],
+        },
+        "decomposed": {
+            "withRemotePhp": [False, True],
+            "enableWatchFs": [False],
+        },
+    }
+
     pipelines = []
     if "coreApiTests" in config:
         matrix = config["coreApiTests"]
@@ -1335,30 +1357,35 @@ def coreApiTestPipeline(ctx):
         for item in defaults:
             params[item] = matrix[item] if item in matrix else defaults[item]
 
+        if ctx.build.event == "cron":
+            params["storages"] = nightly_matrix["storages"]
+
         # use decomposed storage if specified in the PR title
         if "[decomposed]" in ctx.build.title.lower():
             params["storages"] = ["decomposed"]
-
-        if ctx.build.event == "cron":
-            params["withRemotePhp"] = [True, False]
-            params["enableWatchFs"] = [True, False]
-
-        # override withRemotePhp if specified in the suite config
-        if "withRemotePhp" in matrix:
-            params["withRemotePhp"] = matrix["withRemotePhp"]
 
         debugParts = params["skipExceptParts"]
         debugPartsEnabled = (len(debugParts) != 0)
 
         for storage in params["storages"]:
+            # override with nightly matrix
+            if ctx.build.event == "cron":
+                params["withRemotePhp"] = nightly_matrix[storage]["withRemotePhp"]
+                params["enableWatchFs"] = nightly_matrix[storage]["enableWatchFs"]
+
+            # override configs if specified in the suite config
+            if "withRemotePhp" in matrix:
+                params["withRemotePhp"] = matrix["withRemotePhp"]
+            if "enableWatchFs" in matrix:
+                params["enableWatchFs"] = matrix["enableWatchFs"]
             for runPart in range(1, params["numberOfParts"] + 1):
                 for run_with_remote_php in params["withRemotePhp"]:
                     for run_with_watch_fs_enabled in params["enableWatchFs"]:
                         if not debugPartsEnabled or (debugPartsEnabled and runPart in debugParts):
                             pipeline_name = "test-Core-API-%s" % runPart
-                            if not run_with_remote_php:
-                                pipeline_name += "-withoutRemotePhp"
                             pipeline_name += "-%s" % storage
+                            if run_with_remote_php:
+                                pipeline_name += "-withRemotePhp"
                             if run_with_watch_fs_enabled:
                                 pipeline_name += "-watchfs"
 
