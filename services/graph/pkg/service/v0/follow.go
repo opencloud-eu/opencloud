@@ -3,6 +3,7 @@ package svc
 import (
 	"net/http"
 
+	labels "github.com/cs3org/go-cs3apis/cs3/labels/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/go-chi/render"
@@ -61,7 +62,7 @@ func (g Graph) FollowDriveItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req := &provider.AddLabelRequest{
+	req := &labels.AddLabelRequest{
 		Ref:    ref,
 		UserId: u.Id,
 		Label:  _favoriteLabel,
@@ -130,7 +131,7 @@ func (g Graph) UnfollowDriveItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req := &provider.RemoveLabelRequest{
+	req := &labels.RemoveLabelRequest{
 		Ref:    ref,
 		UserId: u.Id,
 		Label:  _favoriteLabel,
