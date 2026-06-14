@@ -53,6 +53,14 @@ func PermissionsToCS3ResourcePermissions(unifiedRolePermissions []*libregraph.Un
 				p.UpdateGrant = true
 			case DriveItemPermissionsDeny:
 				p.DenyGrant = true
+			case DriveItemContainerDelete:
+				p.DeleteContainer = true
+			case DriveItemContainerUpdate:
+				p.MoveContainer = true
+			case DriveItemImmutableFileSet:
+				p.SetImmutableFile = true
+			case DriveItemImmutableFolderSet:
+				p.SetImmutableContainer = true
 			}
 		}
 	}
@@ -139,6 +147,22 @@ func CS3ResourcePermissionsToLibregraphActions(p *provider.ResourcePermissions) 
 
 	if p.GetDenyGrant() {
 		actions = append(actions, DriveItemPermissionsDeny)
+	}
+
+	if p.GetDeleteContainer() {
+		actions = append(actions, DriveItemContainerDelete)
+	}
+
+	if p.GetMoveContainer() {
+		actions = append(actions, DriveItemContainerUpdate)
+	}
+
+	if p.GetSetImmutableFile() {
+		actions = append(actions, DriveItemImmutableFileSet)
+	}
+
+	if p.GetSetImmutableContainer() {
+		actions = append(actions, DriveItemImmutableFolderSet)
 	}
 
 	return actions

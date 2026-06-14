@@ -86,8 +86,12 @@ const (
 	DriveItemVersionsUpdate    = "libre.graph/driveItem/versions/update"
 	DriveItemDeletedUpdate     = "libre.graph/driveItem/deleted/update"
 	DriveItemBasicRead         = "libre.graph/driveItem/basic/read"
-	DriveItemPermissionsUpdate = "libre.graph/driveItem/permissions/update"
-	DriveItemPermissionsDeny   = "libre.graph/driveItem/permissions/deny"
+	DriveItemPermissionsUpdate  = "libre.graph/driveItem/permissions/update"
+	DriveItemPermissionsDeny    = "libre.graph/driveItem/permissions/deny"
+	DriveItemContainerDelete    = "libre.graph/driveItem/container/delete"
+	DriveItemContainerUpdate    = "libre.graph/driveItem/container/update"
+	DriveItemImmutableFileSet   = "libre.graph/driveItem/immutableFile/set"
+	DriveItemImmutableFolderSet = "libre.graph/driveItem/immutableFolder/set"
 )
 
 var (
