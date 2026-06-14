@@ -284,6 +284,9 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 						r.Delete("/", drivesDriveItemApi.DeleteDriveItem)
 						r.Post("/invite", driveItemPermissionsApi.Invite)
 						r.Post("/createLink", driveItemPermissionsApi.CreateLink)
+						r.Post("/freeze", drivesDriveItemApi.FreezeItem)
+						r.Post("/protect", drivesDriveItemApi.ProtectItem)
+						r.Delete("/protect", drivesDriveItemApi.UnprotectItem)
 						r.Route("/permissions", func(r chi.Router) {
 							r.Get("/", driveItemPermissionsApi.ListPermissions)
 							r.Route("/{permissionID}", func(r chi.Router) {
