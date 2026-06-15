@@ -8,38 +8,38 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 )
 
-// FreezeItem sets the immutable attribute on a file (irreversible).
-// The client should confirm this action before calling, since freezing
-// a file cannot be undone.
-func (api DrivesDriveItemApi) FreezeItem(w http.ResponseWriter, r *http.Request) {
+func (g Graph) FreezeItem(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	_, itemID, err := GetDriveAndItemIDParam(r, &api.logger)
+	itemID, err := parseIDParam(r, "itemID")
 	if err != nil {
-		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "invalid driveID or itemID")
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "invalid itemID")
 		return
 	}
-
-	gatewayClient, err := api.baseGraphService.gatewaySelector.Next()
+	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
 		errorcode.ServiceNotAvailable.Render(w, r, http.StatusServiceUnavailable, "gateway not available")
 		return
 	}
-
 	ref := &provider.Reference{ResourceId: &itemID}
-
 	statRes, err := gatewayClient.Stat(ctx, &provider.StatRequest{Ref: ref})
-	if err != nil || statRes.GetStatus().GetCode() != rpc.Code_CODE_OK {
-		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not stat resource")
+	if err != nil {
+		g.logger.Error().Err(err).Msg("freeze: stat error")
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not stat resource: "+err.Error())
+		return
+	}
+	if statRes.GetStatus().GetCode() != rpc.Code_CODE_OK {
+		g.logger.Error().Str("msg", statRes.GetStatus().GetMessage()).Msg("freeze: stat non-OK")
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "stat: "+statRes.GetStatus().GetMessage())
 		return
 	}
 	if statRes.GetInfo().GetType() == provider.ResourceType_RESOURCE_TYPE_CONTAINER {
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "cannot freeze a directory, use protect instead")
 		return
 	}
-
 	res, err := gatewayClient.SetImmutable(ctx, &provider.SetImmutableRequest{Ref: ref})
 	if err != nil {
-		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not freeze item")
+		g.logger.Error().Err(err).Msg("freeze: SetImmutable error")
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not freeze item: "+err.Error())
 		return
 	}
 	switch res.GetStatus().GetCode() {
@@ -54,36 +54,38 @@ func (api DrivesDriveItemApi) FreezeItem(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-// ProtectItem sets the immutable attribute on a directory (reversible by managers).
-func (api DrivesDriveItemApi) ProtectItem(w http.ResponseWriter, r *http.Request) {
+func (g Graph) ProtectItem(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	_, itemID, err := GetDriveAndItemIDParam(r, &api.logger)
+	itemID, err := parseIDParam(r, "itemID")
 	if err != nil {
-		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "invalid driveID or itemID")
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "invalid itemID")
 		return
 	}
-
-	gatewayClient, err := api.baseGraphService.gatewaySelector.Next()
+	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
 		errorcode.ServiceNotAvailable.Render(w, r, http.StatusServiceUnavailable, "gateway not available")
 		return
 	}
-
 	ref := &provider.Reference{ResourceId: &itemID}
-
 	statRes, err := gatewayClient.Stat(ctx, &provider.StatRequest{Ref: ref})
-	if err != nil || statRes.GetStatus().GetCode() != rpc.Code_CODE_OK {
-		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not stat resource")
+	if err != nil {
+		g.logger.Error().Err(err).Msg("protect: stat error")
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not stat resource: "+err.Error())
+		return
+	}
+	if statRes.GetStatus().GetCode() != rpc.Code_CODE_OK {
+		g.logger.Error().Str("msg", statRes.GetStatus().GetMessage()).Msg("protect: stat non-OK")
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "stat: "+statRes.GetStatus().GetMessage())
 		return
 	}
 	if statRes.GetInfo().GetType() != provider.ResourceType_RESOURCE_TYPE_CONTAINER {
-		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "only directories can be protected, use freeze for files")
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "only directories can be protected")
 		return
 	}
-
 	res, err := gatewayClient.SetImmutable(ctx, &provider.SetImmutableRequest{Ref: ref})
 	if err != nil {
-		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not protect item")
+		g.logger.Error().Err(err).Msg("protect: SetImmutable error")
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not protect item: "+err.Error())
 		return
 	}
 	switch res.GetStatus().GetCode() {
@@ -98,36 +100,38 @@ func (api DrivesDriveItemApi) ProtectItem(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// UnprotectItem removes the immutable attribute from a directory.
-func (api DrivesDriveItemApi) UnprotectItem(w http.ResponseWriter, r *http.Request) {
+func (g Graph) UnprotectItem(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	_, itemID, err := GetDriveAndItemIDParam(r, &api.logger)
+	itemID, err := parseIDParam(r, "itemID")
 	if err != nil {
-		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "invalid driveID or itemID")
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "invalid itemID")
 		return
 	}
-
-	gatewayClient, err := api.baseGraphService.gatewaySelector.Next()
+	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
 		errorcode.ServiceNotAvailable.Render(w, r, http.StatusServiceUnavailable, "gateway not available")
 		return
 	}
-
 	ref := &provider.Reference{ResourceId: &itemID}
-
 	statRes, err := gatewayClient.Stat(ctx, &provider.StatRequest{Ref: ref})
-	if err != nil || statRes.GetStatus().GetCode() != rpc.Code_CODE_OK {
-		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not stat resource")
+	if err != nil {
+		g.logger.Error().Err(err).Msg("unprotect: stat error")
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not stat resource: "+err.Error())
+		return
+	}
+	if statRes.GetStatus().GetCode() != rpc.Code_CODE_OK {
+		g.logger.Error().Str("msg", statRes.GetStatus().GetMessage()).Msg("unprotect: stat non-OK")
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "stat: "+statRes.GetStatus().GetMessage())
 		return
 	}
 	if statRes.GetInfo().GetType() != provider.ResourceType_RESOURCE_TYPE_CONTAINER {
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "only directories can be unprotected")
 		return
 	}
-
 	res, err := gatewayClient.UnsetImmutable(ctx, &provider.UnsetImmutableRequest{Ref: ref})
 	if err != nil {
-		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not unprotect item")
+		g.logger.Error().Err(err).Msg("unprotect: UnsetImmutable error")
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not unprotect item: "+err.Error())
 		return
 	}
 	switch res.GetStatus().GetCode() {

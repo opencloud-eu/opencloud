@@ -1,8 +1,1 @@
-.bingo
-!.bingo/*.mod
-!.bingo/Variables.mk
 .git
-**/bin
-**/node_modules
-**/tmp
-docs
