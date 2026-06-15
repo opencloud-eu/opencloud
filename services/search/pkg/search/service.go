@@ -535,7 +535,7 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 // TrashItem marks the item as deleted.
 func (s *Service) TrashItem(rID *provider.ResourceId) {
 	if err := s.engine.Delete(storagespace.FormatResourceID(rID)); err != nil {
-		s.logger.Error().Err(err).Interface("Id", rID).Msg("failed to remove item from index")
+		s.logger.Info().Err(err).Interface("Id", rID).Msg("failed to remove item from index")
 	}
 }
 
