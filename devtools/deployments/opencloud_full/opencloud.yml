@@ -91,11 +91,18 @@ services:
 
   opencloud-certs:
     image: alpine/openssl:latest
-    command: req -subj '/CN=opencloud.test' -x509 -newkey rsa:4096 -sha256 -days 3650 -batch -nodes -keyout ./certs/ldaps.key -out ./certs/ldaps.crt
+    environment:
+      CERTS: /certs
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ ! -f "$$CERTS/ldaps.key" ]; then
+          mkdir -p "$$CERTS"
+          /usr/bin/openssl req -subj '/CN=opencloud.test' -x509 -newkey rsa:4096 -sha256 -days 3650 -batch -nodes -keyout "$$CERTS/ldaps.key" -out "$$CERTS/ldaps.crt"
+        fi
+        chmod 666 "$$CERTS"/ldaps.*
     volumes:
-      - ./config/opencloud/certs:/certs:rw
-    stdin_open: true
-    tty: true
+      - ./config/opencloud/certs:/certs
 
 volumes:
   opencloud-config:
