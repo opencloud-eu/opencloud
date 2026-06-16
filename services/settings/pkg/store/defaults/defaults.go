@@ -16,6 +16,8 @@ const (
 	BundleUUIDRoleUserLight = "38071a68-456a-4553-846a-fa67bf5596cc"
 	// BundleUUIDRoleGuest represents the guest role.
 	BundleUUIDRoleGuest = "38071a68-456a-4553-846a-fa67bf5596cc"
+	// BundleUUIDRoleManager represents the manager role (user + immutable management).
+	BundleUUIDRoleManager = "a8e05e42-c135-4d1e-b9c8-3f76e12a0c5e"
 	// BundleUUIDProfile represents the user profile.
 	BundleUUIDProfile = "2a506de7-99bd-4f0d-994e-c38e72c28fd9"
 	// BundleUUIDServiceAccount represents the service account role.
@@ -53,6 +55,7 @@ const (
 func GenerateBundlesDefaultRoles() []*settingsmsg.Bundle {
 	return []*settingsmsg.Bundle{
 		generateBundleAdminRole(),
+		generateBundleManagerRole(),
 		generateBundleUserRole(),
 		generateBundleUserLightRole(),
 		generateBundleProfileRequest(),
@@ -144,6 +147,44 @@ func generateBundleAdminRole() *settingsmsg.Bundle {
 			SpaceAbilityPermission(All),
 			WebOfficeManagementPermssion(All),
 			WriteFavoritesPermission(Own),
+			ManageImmutablePermission(All),
+		},
+	}
+}
+
+func generateBundleManagerRole() *settingsmsg.Bundle {
+	return &settingsmsg.Bundle{
+		Id:          BundleUUIDRoleManager,
+		Name:        "manager",
+		Type:        settingsmsg.Bundle_TYPE_ROLE,
+		Extension:   "opencloud-roles",
+		DisplayName: "Manager",
+		Resource: &settingsmsg.Resource{
+			Type: settingsmsg.Resource_TYPE_SYSTEM,
+		},
+		Settings: []*settingsmsg.Setting{
+			// Same as User
+			AutoAcceptSharesPermission(Own),
+			CreatePublicLinkPermission(All),
+			CreateSharePermission(All),
+			CreateSpacesPermission(Own),
+			DisableEmailNotificationsPermission(Own),
+			ProfileEmailSendingIntervalPermission(Own),
+			ProfileEventShareCreatedPermission(Own),
+			ProfileEventShareRemovedPermission(Own),
+			ProfileEventShareExpiredPermission(Own),
+			ProfileEventSpaceSharedPermission(Own),
+			ProfileEventSpaceUnsharedPermission(Own),
+			ProfileEventSpaceMembershipExpiredPermission(Own),
+			ProfileEventSpaceDisabledPermission(Own),
+			ProfileEventSpaceDeletedPermission(Own),
+			ProfileEventPostprocessingStepFinishedPermission(Own),
+			LanguageManagementPermission(Own),
+			ListFavoritesPermission(Own),
+			SelfManagementPermission(Own),
+			WriteFavoritesPermission(Own),
+			// Manager-specific: protect/unprotect/freeze on any space
+			ManageImmutablePermission(All),
 		},
 	}
 }
@@ -184,6 +225,7 @@ func generateBundleSpaceAdminRole() *settingsmsg.Bundle {
 			SetProjectSpaceQuotaPermission(All),
 			SpaceAbilityPermission(All),
 			WriteFavoritesPermission(Own),
+			ManageImmutablePermission(All),
 		},
 	}
 }

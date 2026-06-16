@@ -622,6 +622,25 @@ func WriteFavoritesPermission(c settingsmsg.Permission_Constraint) *settingsmsg.
 	}
 }
 
+// ManageImmutablePermission is the permission to protect/unprotect folders and freeze files across all spaces.
+func ManageImmutablePermission(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
+	return &settingsmsg.Setting{
+		Id:          "4a12c0a1-6b3c-4e8d-9f2a-7d5e8b3c1a0f",
+		Name:        "Drives.ManageImmutable",
+		DisplayName: "Manage Immutable Resources",
+		Description: "This permission allows protecting/unprotecting folders and freezing files on any space.",
+		Resource: &settingsmsg.Resource{
+			Type: settingsmsg.Resource_TYPE_SYSTEM,
+		},
+		Value: &settingsmsg.Setting_PermissionValue{
+			PermissionValue: &settingsmsg.Permission{
+				Operation:  settingsmsg.Permission_OPERATION_READWRITE,
+				Constraint: c,
+			},
+		},
+	}
+}
+
 // WebOfficManagementPermssion is the permission to mark/unmark files as favorites
 func WebOfficeManagementPermssion(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
 	return &settingsmsg.Setting{
