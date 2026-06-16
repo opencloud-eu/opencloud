@@ -63,6 +63,9 @@ services:
       USERS_LDAP_BIND_PASSWORD: "admin"
       GROUPS_LDAP_BIND_PASSWORD: "admin"
       IDM_LDAPS_ADDR: 0.0.0.0:9235
+      IDM_LDAPS_CERT: /etc/opencloud/certs/ldaps.crt
+      IDM_LDAPS_KEY: /etc/opencloud/certs/ldaps.key
+      OC_LDAP_CACERT: /etc/opencloud/certs/ldaps.crt
       GROUPWARE_JMAP_BASE_URL: https://${STALWART_DOMAIN:-stalwart.opencloud.test}
       GROUPWARE_JMAP_MASTER_USERNAME: "master"
       GROUPWARE_JMAP_MASTER_PASSWORD: "admin"
@@ -70,6 +73,7 @@ services:
       - ./config/opencloud/app-registry.yaml:/etc/opencloud/app-registry.yaml
       - ./config/opencloud/csp.yaml:/etc/opencloud/csp.yaml
       - ./config/opencloud/banned-password-list.txt:/etc/opencloud/banned-password-list.txt
+      - ./config/opencloud/certs:/etc/opencloud/certs
       # configure the .env file to use own paths instead of docker internal volumes
       - ${OC_CONFIG_DIR:-opencloud-config}:/etc/opencloud
       - ${OC_DATA_DIR:-opencloud-data}:/var/lib/opencloud
@@ -84,6 +88,14 @@ services:
     logging:
       driver: ${LOG_DRIVER:-local}
     restart: always
+
+  opencloud-certs:
+    image: alpine/openssl:latest
+    command: req -subj '/CN=opencloud.test' -x509 -newkey rsa:4096 -sha256 -days 3650 -batch -nodes -keyout ./certs/ldaps.key -out ./certs/ldaps.crt
+    volumes:
+      - ./config/opencloud/certs:/certs:rw
+    stdin_open: true
+    tty: true
 
 volumes:
   opencloud-config:

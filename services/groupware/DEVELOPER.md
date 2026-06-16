@@ -10,6 +10,16 @@ It is essentially providing a REST API to the OpenCloud UI clients (web, mobile)
 
 The implementation of that REST API turns those high-level APIs into lower-level [JMAP](https://jmap.io/) API calls to [Stalwart, the JMAP mail server](https://stalw.art/), using our own JMAP client library in `./pkg/jmap/` with a couple of additional RFCs used by JMAP in `./pkg/jscalendar` and `./pkg/jscontact`.
 
+## Prerequisites
+
+* `git`: (mandatory) to check out source code of OpenCloud and companion applications
+* `openssl`: (optional) to test IMAPS with Stalwart, and optionally to create certificates
+* `curl`: (recommended) to test the Groupware API, and to perform a few checks and tests
+* `xh` or `httpie`: (optional) to test the Groupware API in a more convenient way
+* `docker` (mandatory, including Docker Compose support)
+* `go`: (mandatory) to build applications
+* `node` + `pnpm`: (mandatory) to build the built-in IDM frontend
+
 ## Repository
 
 The code lives in the same tree as the other OpenCloud backend services, albeit currently in the `groupware` branch, that gets rebased on `main` on a regular basis (at least once per week.)
@@ -22,7 +32,7 @@ OCDIR="$PWD"
 git clone --branch groupware git@github.com:opencloud-eu/opencloud.git
 ```
 
-Note that setting the variable `OCDIR` is merely going to help us with keeping the instructions below as generic as possible, it is not an environment variable that is used by OpenCloud.
+Note that setting the variable `OCDIR` is merely going to help us with keeping the instructions below as generic as possible, it is not an environment variable that is used by OpenCloud, or required for OpenCloud to function in any way.
 
 ### Tools Repository
 
@@ -70,7 +80,7 @@ Alternatively, use the following shell snippet to extract it in a more automated
 cd "$OCDIR/opencloud/devtools/deployments/opencloud_full/"
 
 perl -ne 'if (/^([A-Z][A-Z0-9]+)_DOMAIN=(.*)$/) { print length($2) < 1 ? lc($1).".opencloud.test" : $2,"\n"}' <.env\
-|sort|while read n; do\
+|sort|while read n; do \
 grep -w -q "$n" /etc/hosts && echo -e "\e[32;4mexists :\e[0m $n: \e[32m$(grep -w $n /etc/hosts)\e[0m">&2 ||\
 { echo -e "\e[33;4mmissing:\e[0m ${n}" >&2; echo -e "127.0.0.1\t${n}";};\
 done \
@@ -88,6 +98,11 @@ There are four options, either
 
 > [!NOTE]
 > Note that option 2 is currently not implemented yet.
+>
+> Furthermore, at this time of writing, options 1 and 4 are not properly documented yet due to changes in how Stalwart 0.16 and newer
+> handle their configuration, for which instructions and configuration files still need to be updated.
+>
+> For the time being, use the ["built-in LDAP with master authentication"](#homelab-setup-master) option instead.
 
 In either case, the Docker Compose configuration in `$OCDIR/opencloud/devtools/deployments/opencloud_full/` needs to be modified.
 
@@ -113,6 +128,14 @@ flowchart LR
   kc --> ol
   c --> kc
 ```
+
+##### Production Setup Instructions
+
+> [!NOTE]
+> The setup instructions are currently outdated, due to Stalwart 0.16 or higher having completely overhauled
+> the way they are configured, and will be caught up with and updated in due time, when needed.
+>
+> For now, use the ["built-in LDAP with master authentication"](#homelab-setup-master) option instead.
 
 Edit `$OCDIR/opencloud/devtools/deployments/opencloud_full/.env`, making the following changes (make sure to check out [the shell command-line that automates all of that, below](#automate-env-setup-prod-master)):
 
@@ -175,6 +198,8 @@ Edit `$OCDIR/opencloud/devtools/deployments/opencloud_full/.env`, making the fol
 +#EXTERNALSITES=:web_extensions/externalsites.yml
 ```
 
+##### Production Setup Script
+
 <a name="automate-env-setup-prod-master"></a>
 All those changes above can be automated with the following script:
 
@@ -205,7 +230,7 @@ perl -pi -e '
 
 ```mermaid
 ---
-title: Homelab Setup
+title: Homelab Setup with Impersonation
 ---
 flowchart LR
   oc["`opencloud`"]
@@ -215,8 +240,21 @@ flowchart LR
   c -- http --> oc
   oc -- jmap --> st
   st -- ldap --> oc
-
 ```
+
+"Master Authentication" actually refers to [impersonation](https://stalw.art/docs/auth/authorization/administrator/#impersonation), which works as follows:
+
+* the JMAP username (that is being impersonated) is suffixed with the single character `%` and then the username of the "master account" (the one that impersonates)
+* so for authenticating as `alan@example.org` using the impersonating/master account `admin@example.org`, the username must be `alan@example.org%admin@example.org`
+* the password is obviously the one of the impersonating/master account (so the one of `admin@example.org` in our case)
+
+Since the OpenCloud Groupware service does not have access to the clear text password of the user, typically because the authentication in a production environment will go through OIDC, where only the IdP (such as Keycloak) will see the clear text password, impersonation is required to authenticate between the OpenCloud Groupware service and Stalwart.
+
+Alternatively, OIDC authentication can be used as well, which requires a different configuration setup in Stalwart.
+
+In Stalwart, impersonation requires having a user that has the `impersonate` permission. When using the `opencloud_full` setup, the Stalwart configuration that is imported (using the `stalwart-import` container) adds that permission to the user `admin@example.org` which is one of the pre-provisionined users in the OpenCloud LDAP.
+
+##### Homelab Setup Instructions
 
 Edit `$OCDIR/opencloud/devtools/deployments/opencloud_full/.env`, making the following changes (make sure to check out [the shell command-line that automates all of that, below](#automate-env-setup-homelab-master)):
 
@@ -286,6 +324,8 @@ Edit `$OCDIR/opencloud/devtools/deployments/opencloud_full/.env`, making the fol
 +#EXTERNALSITES=:web_extensions/externalsites.yml
 ```
 
+##### Homelab Setup Script
+
 <a name="automate-env-setup-homelab-master"></a>
 All those changes above can be automated with the following script:
 
@@ -296,7 +336,7 @@ perl -pi -e '
   s|^(OC_DOCKER_IMAGE)=.*$|$1=opencloudeu/opencloud|;
   s|^(OC_DOCKER_TAG)=.*$|$1=dev|;
   s|^(START_ADDITIONAL_SERVICES=".*(?<!groupware))"|$1,groupware"|;
-  s,^(DEMO_USERS)=.+,$1=true,;
+  s,^(DEMO_USERS)=.*,$1=true,;
   s,^#(STALWART)=(.+)$,$1=$2,;
   s,^#(PROXY_ENABLE_BASIC_AUTH)=(.*)$,$1=true,;
   $basic_auth=1 if /^PROXY_ENABLE_BASIC_AUTH=/;
@@ -314,13 +354,35 @@ perl -pi -e '
 ' .env
 ```
 
+##### Homelab Setup LDAP Certificates
+
+<a name="homelab-certs"></a>
+
+We also need to create a private key and a certificate in order to be able to expose LDAP over SSL in the built-in IDM in the `opencloud` container, which can be achieved as follows:
+
+```bash
+cd "$OCDIR/opencloud/devtools/deployments/opencloud_full/"
+docker compose run --rm opencloud-certs
+```
+
+Alternatively, like this:
+
+```bash
+openssl req -subj '/CN=opencloud.test' -x509 -newkey rsa:4096 -sha256 -days 365 -batch -nodes \
+  -keyout ./config/opencloud/certs/ldaps.key \
+  -out ./config/opencloud/certs/ldaps.crt
+chmod 666 ./config/opencloud/certs/ldaps.*
+```
+
+Note that this is only required once, as the certificate only expires after 10 years, and is stored under `./config/opencloud/certs/`.
+
 #### Homelab Setup with OIDC Authentication
 
 <a name="homelab-setup-oidc"></a>
 
 ```mermaid
 ---
-title: Homelab Setup
+title: Homelab Setup with OIDC
 ---
 flowchart LR
   oc["`opencloud`"]
@@ -330,8 +392,23 @@ flowchart LR
   c -- http --> oc
   oc -- jmap --> st
   st -- userinfo --> oc
-
 ```
+
+> [!NOTE]
+> The setup instructions are currently outdated, due to Stalwart 0.16 or higher having completely overhauled
+> the way they are configured, and will be caught up with and updated in due time, when needed.
+>
+> For now, use the ["built-in LDAP with master authentication"](#homelab-setup-master) option instead.
+
+With this setup, the authentication flow is as follows:
+
+1. the client authenticates against an Identity Provider (IdP) to obtain a JWT, typically by submitting username and password credentials
+1. the client uses this JWT to authenticate against OpenCloud
+1. OpenCloud swaps that IdP issued JWT against an internal one, that it mints on its own
+1. the OpenCloud Groupware service uses that internal JWT in JMAP requests that it sends to Stalwart, using bearer authentication
+1. Stalwart is configured to verify that internal token by submitting it to a Token Introspection Endpoint which is running as an OpenCloud service, namely `auth-api`, which also needs to be enabled explicitly in the configuration
+
+##### Homelab Setup with OIDC Setup Instructions
 
 Edit `$OCDIR/opencloud/devtools/deployments/opencloud_full/.env`, making the following changes (make sure to check out [the shell command-line that automates all of that, below](#automate-env-setup-homelab-oidc)):
 
@@ -412,6 +489,8 @@ Edit `$OCDIR/opencloud/devtools/deployments/opencloud_full/.env`, making the fol
 +#EXTERNALSITES=:web_extensions/externalsites.yml
 ```
 
+##### Homelab Setup with OIDC Setup Script
+
 <a name="automate-env-setup-homelab-oidc"></a>
 All those changes above can be automated with the following script:
 
@@ -423,7 +502,7 @@ perl -pi -e '
   s|^(OC_DOCKER_TAG)=.*$|$1=dev|;
   s|^(START_ADDITIONAL_SERVICES=".*(?<!groupware))"|$1,groupware"|;
   s|^(START_ADDITIONAL_SERVICES=".*(?<!auth-api))"|$1,auth-api"|;
-  s,^(DEMO_USERS)=.+,$1=true,;
+  s,^(DEMO_USERS)=.*,$1=true,;
   s,^#(STALWART)=(.+)$,$1=$2,;
   s,^(STALWART_AUTH_DIRECTORY)=.+$,$1=idmoidc,;
   s,^#(PROXY_ENABLE_BASIC_AUTH)=(.*)$,$1=true,;
@@ -449,6 +528,7 @@ perl -pi -e '
 > or as another container in the Docker Compose project.
 > In the former case, it also depends on the operating system.
 > It is currently hard-wired to be `http://172.17.0.1:10000/auth/...`, which only works
+>
 > * on Linux, where `172.17.0.1` _tends_ to be the gateway host IP address, for running the OpenCloud Groupware backend on the host
 > * when the environment variable `AUTHAPI_HTTP_ADDR` is set to `0.0.0.0:10000`, allowing for HTTP access to the auth-api backend, instead of limiting it to HTTPS through the proxy, which opens a whole can of worms with making Stalwart accept self-signed certificates
 
@@ -458,24 +538,32 @@ Build the `opencloudeu/opencloud:dev` image first:
 
 ```bash
 cd "$OCDIR/opencloud/"
-make -C ./opencloud/ clean build dev-docker
-```
-
-If you see obscure JavaScript related errors, do this and then try the `make` command above again:
-
-```bash
-make -C ./opencloud/services/idp/ generate
+make -C ./services/idp/ generate
 make -C ./opencloud/ clean build dev-docker
 ```
 
 ## Running
 
-And then either run everything from the Docker Compose `opencloud_full` setup:
+And then run everything from the Docker Compose `opencloud_full` setup:
 
 ```bash
 cd "$OCDIR/opencloud/devtools/deployments/opencloud_full/"
 docker compose up -d
 ```
+
+Stalwart >= 0.16 requires its configuration to be loaded into its data storage, which means that we also need to run an import of that configuration once.
+
+It initially starts up in "recovery mode", and waits for a lockfile `.initialize` to exist on its storage volume (`opencloud_full_stalwart-data`).
+
+To import the initial configuration and create that lockfile, run this from the same directory:
+
+```bash
+docker compose run --rm stalwart-import
+```
+
+The `stalwart` container will detect the existence of the lockfile that is created after successfully importing the configuration, and will then restart its process in regular mode.
+
+This is only required the first time, or whenever one deleted the storage volume `opencloud_full_stalwart-data`.
 
 ### Running in an IDE in Production Setup
 
@@ -486,13 +574,50 @@ cd "$OCDIR/opencloud/devtools/deployments/opencloud_full/"
 docker compose stop opencloud
 ```
 
-and then use the Launcher `OpenCloud server with external services` in VSCode.
+and then use the Launcher named "`OpenCloud server with external services`" in VSCode.
+
+Do not do this if you plan to use the built-in IDM for OIDC and/or LDAP though, as that requires having an `opencloud` container running that is reachable from Stalwart, which would not be the case if it was solely running in an IDE on the host.
 
 ### Running in an IDE in Homelab Setup
 
 Or if you want to do so but using the [&ldquo;homelab&rdquo; setup](#homelab-setup), then the `opencloud` container needs to be kept running, as it also provides LDAP and OIDC services, as the `stalwart` container cannot access those services on the `opencloud` process that is running on the host (in the IDE.)
 
-In VSCode, use the Launcher `OpenCloud server` instead.
+In VSCode, use the Launcher `OpenCloud server with Groupware` instead, and keep the `opencloud` container running in the `opencloud_full` compose project.
+
+It needs the following environment variables to be set:
+
+* `OC_INSECURE`: `true`
+* `PROXY_ENABLE_BASIC_AUTH`: `true`
+* `IDM_CREATE_DEMO_USERS`: `true`
+* `OC_ADMIN_USER_ID`: `some-admin-user-id-0000-000000000000`
+* `IDM_ADMIN_PASSWORD`: `admin`
+* `OC_SYSTEM_USER_ID`: `some-system-user-id-000-000000000000`
+* `OC_SYSTEM_USER_API_KEY`: `some-system-user-machine-auth-api-key`
+* `OC_JWT_SECRET`: `some-opencloud-jwt-secret`
+* `OC_MACHINE_AUTH_API_KEY`: `some-opencloud-machine-auth-api-key`
+* `OC_TRANSFER_SECRET`: `some-opencloud-transfer-secret`
+* `COLLABORATION_WOPIAPP_SECRET`: `some-wopi-secret`
+* `IDM_SVC_PASSWORD`: `some-ldap-idm-password`
+* `GRAPH_LDAP_BIND_PASSWORD`: `some-ldap-idm-password`
+* `IDM_REVASVC_PASSWORD`: `some-ldap-reva-password`
+* `GROUPS_LDAP_BIND_PASSWORD`: `some-ldap-reva-password`
+* `USERS_LDAP_BIND_PASSWORD`: `some-ldap-reva-password`
+* `AUTH_BASIC_LDAP_BIND_PASSWORD`: `some-ldap-reva-password`
+* `IDM_IDPSVC_PASSWORD`: `some-ldap-idp-password`
+* `IDP_LDAP_BIND_PASSWORD`: `some-ldap-idp-password`
+* `GATEWAY_STORAGE_USERS_MOUNT_ID`: `storage-users-1`
+* `STORAGE_USERS_MOUNT_ID`: `storage-users-1`
+* `GRAPH_APPLICATION_ID`: `application-1`
+* `OC_SERVICE_ACCOUNT_ID`: `service-account-id`
+* `OC_SERVICE_ACCOUNT_SECRET`: `service-account-secret`
+* `OC_ADD_RUN_SERVICES`: `auth-api,groupware`
+* `GROUPWARE_LOG_LEVEL`: `trace`
+* `GROUPWARE_JMAP_MASTER_USERNAME`: `admin@example.org`
+* `GROUPWARE_JMAP_MASTER_PASSWORD`: `admin`
+* `GROUPWARE_SEND_DURATIONS_RESPONSE`: `true`
+* `AUTHAPI_HTTP_ADDR`: `0.0.0.0:10000`
+* `AUTHAPI_AUTH_REQUIRE_SHARED_SECRET`: `true`
+* `AUTHAPI_AUTH_SHARED_SECRETS`: `stalwart=maethaR9eiXaiph8ahn8ohH6dahPiequ`
 
 ## Checking Services
 
@@ -541,8 +666,7 @@ dn: uid=margaret,ou=users,dc=opencloud,dc=eu
 
 #### Homelab Setup LDAP
 
-Instead, when using the &ldquo;homelab&rdquo; setup (as depicted in section [Homelab Setup](#homelab-setup) above), queries cannot be performed directly from the host \
-but, instead, require spinning up another container in the same Docker network and do so from there.
+Instead, when using the &ldquo;homelab&rdquo; setup (as depicted in section [Homelab Setup](#homelab-setup) above), queries cannot be performed directly from the host but, instead, require spinning up another container in the same Docker network and do so from there.
 
 The necessary LDAP parameters are as follows:
 
@@ -661,7 +785,7 @@ When then greeted with the following prompt:
 enter the following command:
 
 ```bash
-A LOGIN alan demo
+A LOGIN alan@example.org demo
 ```
 
 to which one should receive the following response:
@@ -670,66 +794,164 @@ to which one should receive the following response:
 A OK [CAPABILITY IMAP4rev2 ...] Authentication successful
 ```
 
-## Feeding an Inbox
+### Testing Stalwart JMAP Impersonation
 
-Once a [Stalwart](https://stalw.art/) container is running (using the Docker Compose setup as explained above), use [`imap-filler`](https://github.com/opencloud-eu/imap-filler/) to populate the inbox folder via [`IMAP APPEND`](https://www.rfc-editor.org/rfc/rfc9051.html#name-append-command):
+If you are using a setup with impersonation instead of OIDC authentication: to test impersonation directly against Stalwart (the password of the `admin@example.org` user is `admin`, not `demo` as for the other users):
+
+```bash
+curl -fSsLk \
+    -u 'alan@example.org%admin@example.org:admin' \
+    https://stalwart.opencloud.test/.well-known/jmap
+```
+
+## Seeding with Data
+
+<a name="seeding"></a>
+
+Once a [Stalwart](https://stalw.art/) container is running (using the Docker Compose setup as explained above), use [`groupware-assistant`](https://github.com/opencloud-eu/groupware-assistant) to populate the inbox folder using JMAP:
 
 ```bash
 cd "$OCDIR/"
-git clone git@github.com:opencloud-eu/imap-filler.git
-cd ./imap-filler/
-go run . --username=alan --password=demo \
-  --url=localhost:993 \
-  --empty=true \
-  --folder=Inbox \
-  --senders=6 \
-  --count=50
+git clone git@github.com:opencloud-eu/groupware-assistant.git
+cd ./groupware-assistant/
+go build .
+./groupware-assistant email generate --count=50
 ```
 
 > [!NOTE]
 > Note that this operation does not use the Groupware APIs or any other OpenCloud backend services either,
-> as it directly communicates with Stalwart via IMAPS on port `993` which is mapped on the host.
+> as it directly communicates with Stalwart via JMAP on `https://stalwart.opencloud.test` by default.
 
-For more details on the usage of that little helper tool, consult its [`README.md`](https://github.com/opencloud-eu/imap-filler/blob/main/README.md), although it is quite self-explanatory.
+For more details on the usage of that little helper tool, consult its [`README.md`](https://github.com/opencloud-eu/groupware-assistant/blob/main/README.md), or consult its `--help` output.
 
 > [!NOTE]
 > This only needs to be done once, since the emails are stored in a volume used by the Stalwart container.
+
+It also supports generating random
+
+* contacts
+* calendar events
+* tasks
+
+and can also be used to create, list and delete
+
+* address books
+* calendars
+* mailboxes
+
+as well as listing principals.
 
 ## Setting up Stalwart Principals
 
 To make things more interesting, we might want to create some resources that are currently not captured by our LDAP structure and/or not part of our demo users, such as by
 
- * adding quota to users, to have quota limits show up in the JMAP payloads;
- * add groups, to have them listed as additional accounts for the users that are members of those groups;
- * add mailing-lists
+* adding quota to users, to have quota limits show up in the JMAP payloads;
+* add groups, to have them listed as additional accounts for the users that are members of those groups;
+* add mailing-lists
 
-Those things can either be done using the Stalwart administration web UI, manually, or by using its [Management API](https://stalw.art/docs/api/management/endpoints/).
+Those things can either be done using the Stalwart administration web UI, manually, or by using its [JMAP based management API](https://stalw.art/docs/ref/).
 
-For the latter, we have another helper tool that has the ability, among a few other things, to take a file with a desired state and apply the necessary changes accordingly to the current state.
+The latter can be somewhat more easily used via the Stalwart CLI, which can be installed from here: <https://github.com/stalwartlabs/cli>
+
+For example like this from source:
 
 ```bash
-cd "$OCDIR/"
-git clone git@github.com:opencloud-eu/stalwart-admin.git
-cd ./stalwart-admin/
-go run . principal import --log-level=info --activate -f "$OCDIR/opencloud/services/groupware/demo-principals.yaml"
+cd "$OCDIR"
+git clone https://github.com/stalwartlabs/cli.git
+cd ./cli
+cargo install --path .
 ```
 
 ## Setting Quota in Stalwart
 
 Use the [Stalwart Management API](https://stalw.art/docs/category/management-api) to set the quota for a user if you want to test quota-related Groupware APIs.
 
-Note that users that exist in OpenCloud (specifically in the LDAP, be it OpenLDAP or the built-in IDM) are only visible in Stalwart after they have been authenticated successfully once, e.g. by retrieving a [JMAP Session](https://jmap.io/spec-core.html#the-jmap-session-resource), which can be performed using the helper script `oc-st-session` (which uses the environment variable `username` to determine the username), or using `curl` directly as follows:
+Note that users that exist in OpenCloud (specifically in LDAP, be it OpenLDAP or the built-in IDM) are only visible in Stalwart after they have been authenticated successfully once, e.g. by retrieving a [JMAP Session](https://jmap.io/spec-core.html#the-jmap-session-resource), which can be performed using the helper script `oc-st-session` (which uses the environment variable `username` to determine the username), or using `curl` directly as follows:
 
 ```bash
-curl -L -k -s -u alan:demo https://stalwart.opencloud.test/.well-known/jmap
+curl -fSsLk -u alan@example.org:demo https://stalwart.opencloud.test/.well-known/jmap
+```
+
+Or use this snippet to do that for all the auto-provisioned demo users:
+
+```bash
+cd "$OCDIR/opencloud/"
+for u in $(awk '($1=="uid:"){print $2}' <devtools/deployments/opencloud_full/config/ldap/ldif/20_users.ldif); do
+  p="demo"
+  [[ "$u" == "admin" ]] && p="admin"
+  curl -fSsLk -u "$u"@example.org:"$p" https://stalwart.opencloud.test/.well-known/jmap
+done
 ```
 
 The following examples perform operations on the user `alan`.
 
-### Display current Quota
+To make the commands in the examples below shorter, set the following environment variables, which are an alternative to providing those as parameters to `stalwart-cli` using the parameters `--url`, `--user` and `--password`:
 
 ```bash
-curl -k -s -u mailadmin:admin https://stalwart.opencloud.test/api/principal/alan | jq
+export STALWART_URL='https://stalwart.opencloud.test'
+export STALWART_USER='admin'
+export STALWART_PASSWORD='secret'
+```
+
+We first need to find the internal `id` of that account, using the following, which will store the value in the shell variable `id`, to make the subsequent examples easier to copy/paste:
+
+```bash
+id=$(stalwart-cli -k query Account --where name=alan --fields id --json | jq -r .id)
+```
+
+### Display current Quota
+
+Use the following command:
+
+```bash
+stalwart-cli -k get Account "$id"
+```
+
+The output can also be formatted as JSON instead (piped into `jq` for pretty-printing):
+
+```bash
+stalwart-cli -k get Account "$id" --json | jq
+```
+
+Output:
+
+```json
+{
+  "name": "alan",
+  "domainId": "b",
+  "credentials": {
+    "0": {
+      "credentialId": "a",
+      "secret": "****",
+      "expiresAt": null,
+      "allowedIps": {},
+      "@type": "Password"
+    }
+  },
+  "createdAt": "2026-06-11T08:35:13Z",
+  "memberGroupIds": {
+    "b": true
+  },
+  "memberTenantId": null,
+  "roles": {
+    "@type": "User"
+  },
+  "permissions": {
+    "@type": "Inherit"
+  },
+  "quotas": {},
+  "aliases": {},
+  "description": "An English mathematician, computer scientist, logician, cryptanalyst, philosopher and theoretical biologist. He was highly influential in the development of theoretical computer science, providing a formalisation of the concepts of algorithm and computation with the Turing machine.",
+  "locale": "en_US",
+  "timeZone": null,
+  "encryptionAtRest": {
+    "@type": "Disabled"
+  },
+  "@type": "User",
+  "usedDiskQuota": 7948566,
+  "emailAddress": "alan@example.org",
+  "id": "e"
+}
 ```
 
 ### Modify current Quota
@@ -738,7 +960,7 @@ We will change the quota to 256 MB, and since the value is in bytes:
 
 ```bash
 value=$(( 256 * 1024 * 1024 ))
-curl -k -s -u mailadmin:admin -X PATCH https://stalwart.opencloud.test/api/principal/alan -d '[{"action":"set", "field":"quota", "value":'${value}'}]'
+stalwart-cli -k update Account "$id" --field 'quotas/maxDiskQuota'="$value"
 ```
 
 ## Building after Changes
@@ -803,6 +1025,10 @@ As for credentials, `oc-gw` defaults to using the user `alan` (with the password
 * `username`
 * `password`
 
+Note that since version 0.16, Stalwart requires the username to be the primary email address when using basic authentication credentials, which is e.g. `alan@example.org` and not just `alan`, but the Groupware API authenticates against LDAP and then retrieves the email address of that user to authenticate against Stalwart's JMAP API in turn.
+
+Thus, when using the Stalwart APIs directly (as is the case when performing JMAP queries manually, or when using `stalwart-cli` as exemplified above), then use e.g. `alan@example.org`, but when using the OpenCloud Groupware APIs (such as when using `oc-gw`), then use the user's `uid`, e.g. `alan`, instead.
+
 Example:
 
 ```bash
@@ -822,11 +1048,16 @@ oc-gw //accounts/all/mailboxes/roles/inbox
 
 The `oc-gw` script does the following regarding authentication:
 
-* checks whether a container named `opencloud_full-opencloud-1` is running locally
-  * if so, whether it has basic auth enabled or not
-    * if yes, uses basic auth directly to authenticate against the OpenCloud Proxy service that ingresses for the OpenCloud Groupware backend, using the credentials defined in the environment variables `username` and `password` (defaulting to `alan`/`demo`)
-    * if not, always retrieves a fresh access token from Keycloak, using the credentials defined in the environment variables `username` and `password` (defaulting to `alan`/`demo`), using the "Direct Access Grant" OIDC API of Keycloak and then use that JWT for Bearer authentication against the OpenCloud Groupware REST API
-  * if no such container is running locally, it assumes that the `opencloud` process is running from within an IDE, with its OpenCloud Proxy service listening on `https://localhost:9200`
+* first, it checks whether a container named `opencloud_full-opencloud-1` is running locally
+  * next, it checks whether that OpenCloud container also includes the `groupware` service by looking into its `OC_ADD_RUN_SERVICES` environment variable
+    * if it does, it then checks whether that container has basic auth enabled or not by looking for an environment variable `PROXY_ENABLE_BASIC_AUTH` being set to `true`
+      * if so, `oc-gw` uses basic auth directly to authenticate against the OpenCloud Proxy service that ingresses for the OpenCloud Groupware backend, using the credentials defined in the environment variables `username` and `password` (defaulting to `alan`/`demo`)
+      * if not, it retrieves a fresh access token from Keycloak if necessary, using the credentials defined in the environment variables `username` and `password` (defaulting to `alan`/`demo`), through the "Direct Access Grant" OIDC API of Keycloak and then uses that JWT for Bearer authentication against the OpenCloud Groupware REST API
+  * if no such container is running locally, or if it is running without including the `groupware` service, `oc-gw` assumes that the `opencloud` process is running from within an IDE, with its OpenCloud Proxy service listening on `https://localhost:9200`
+    * if a Keycloak container is running, then it will use OIDC authentication
+    * if the process has the environment variable `PROXY_ENABLE_BASIC_AUTH` set to `true`, then it will use basic auth; if not, it will also use OIDC authentication
+
+Note that in the case of OIDC authentication, it will store the access token as `$XDG_CACHE_HOME/oc-gw/token.json` and only retrieve a fresh one if that one is expired, or when that file does not exist.
 
 It will also save you some typing as whenever you use `//` for the URL, it will replace that by the Groupware REST API base URL, e.g.
 
@@ -838,6 +1069,18 @@ will be translated into
 
 ```bash
 http https://cloud.opencloud.test/groupware/accounts
+```
+
+A triple slash `///` will be replaced by `/groupware/accounts/*`, where `*` is replaced by the default account by the Groupware, so e.g.
+
+```bash
+oc-gw ///contacts
+```
+
+will end up being
+
+```bash
+oc-gw /groupware/accounts/*/contacts
 ```
 
 The first thing you might want to test is to query the index, which will ensure everything is working properly, including the authentication and the communication between the Groupware and Stalwart:
@@ -863,13 +1106,13 @@ token=$(curl --silent --insecure --fail -X POST \
 Then use that token to authenticate the Groupware API request:
 
 ```bash
-curl --insecure -s -H "Authorization: Bearer ${token}" "https://cloud.opencloud.test/groupware/"
+curl --insecure -sf -H "Authorization: Bearer ${token}" "https://cloud.opencloud.test/groupware/"
 ```
 
 When using the &ldquo;homelab&rdquo; setup, authenticate directly using basic auth:
 
 ```bash
-curl --insecure -s -u "alan:demo" "https://cloud.opencloud.test/groupware/"
+curl --insecure -sf -u "alan:demo" "https://cloud.opencloud.test/groupware/"
 ```
 
 > [!TIP]
@@ -889,21 +1132,17 @@ Stalwart is configured to authenticate and look up users and groups from LDAP, b
 
 In our Stalwart configuration, that choice is driven by the variable `STALWART_AUTH_DIRECTORY`, which can be set to either `idmldap` or `ldap`, accordingly, in `devtools/deployments/opencloud_full/.env`
 
+> [!IMPORTANT]
+> At the time of writing, only the IDM LDAP server option is supported and `STALWART_AUTH_DIRECTORY` must thus be set to `idmldap` for now.
+
 #### Web UI
 
-To access the Stalwart admin UI, open <https://stalwart.opencloud.test/> and use the following credentials to log in:
+To access the Stalwart admin UI, open <https://stalwart.opencloud.test/admin/> and use the following credentials to log in:
 
-* username: `mailadmin`
-* password: `admin`
+* username: `admin`
+* password: `secret`
 
-The usual admin username `admin` had to be changed into `mailadmin` because there is already an `admin` user that ships with the default users in OpenCloud, and Stalwart always checks the LDAP directory before its internal usernames.
-
-Those credentials are configured in `devtools/deployments/opencloud_full/config/stalwart/config.toml`:
-
-```ruby
-authentication.fallback-admin.secret = "$6$4qPYDVhaUHkKcY7s$bB6qhcukb9oFNYRIvaDZgbwxrMa2RvF5dumCjkBFdX19lSNqrgKltf3aPrFMuQQKkZpK2YNuQ83hB1B3NiWzj."
-authentication.fallback-admin.user = "mailadmin"
-```
+Those credentials are defined in the environment variable `STALWART_RECOVERY_ADMIN` for the `stalwart` container in `$OC_DIR/opencloud/devtools/deployments/opencloud_full/stalwart.yml`
 
 #### Restart from Scratch
 
@@ -914,6 +1153,12 @@ cd "$OCDIR/opencloud/devtools/deployments/opencloud_full"
 docker compose rm stalwart --stop
 docker volume rm opencloud_full_stalwart-data
 docker compose up -d stalwart
+```
+
+And then run the following to import the initial configuration:
+
+```bash
+docker compose run --rm stalwart-import
 ```
 
 #### Diagnostics
