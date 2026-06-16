@@ -91,7 +91,7 @@ event = {
 }
 
 OPENCLOUD_STORAGES = ["posix", "decomposed"]
-API_NIGHTLY_MATRIX = {
+API_TEST_NIGHTLY_CI_MATRIX = {
     "posix": [
         {
             "withRemotePhp": False,
@@ -146,6 +146,8 @@ config = {
                 "apiSettings",
             ],
             "skip": False,
+            "withRemotePhp": False,
+            "enableWatchFs": False,
             "emailNeeded": True,
             "extraTestEnvironment": {
                 "EMAIL_HOST": "email",
@@ -168,12 +170,14 @@ config = {
                 #"collaborativePosix",
             ],
             "skip": False,
+            "withRemotePhp": False,
         },
         "graphUserGroup": {
             "suites": [
                 "apiGraphUserGroup",
             ],
             "skip": False,
+            "withRemotePhp": False,
         },
         "spaces": {
             "suites": [
@@ -231,6 +235,7 @@ config = {
                 "apiNotification",
             ],
             "skip": False,
+            "withRemotePhp": False,
             "emailNeeded": True,
             "extraTestEnvironment": {
                 "EMAIL_HOST": "email",
@@ -272,6 +277,7 @@ config = {
                 "apiOcm",
             ],
             "skip": False,
+            "withRemotePhp": False,
             "federationServer": True,
             "emailNeeded": True,
             "extraTestEnvironment": {
@@ -307,12 +313,15 @@ config = {
                 "apiAuthApp",
             ],
             "skip": False,
+            "withRemotePhp": False,
+            "enableWatchFs": False,
         },
         "cliCommands": {
             "suites": [
                 "cliCommands",
             ],
             "skip": False,
+            "withRemotePhp": False,
             "antivirusNeeded": True,
             "extraServerEnvironment": {
                 "ANTIVIRUS_SCANNER_TYPE": "clamav",
@@ -327,6 +336,7 @@ config = {
                 "apiTenancy",
             ],
             "skip": False,
+            "withRemotePhp": False,
             "ldapNeeded": True,
             "extraTestEnvironment": {
                 "USE_PREPARED_LDAP_USERS": True,
@@ -1201,6 +1211,60 @@ def wopiValidatorTests(ctx, storage, wopiServerType):
     ])
     return [pipeline]
 
+def build_api_test_workflow_matrix(ctx, storage, suite_cfg, default_cfg):
+    """
+    Generates a matrix of feature combinations to run API tests with.
+
+    Args:
+        ctx: woodpecker context
+        storage: opencloud storage type
+        suite_cfg: suite config. E.g.: config["localApiTests"]["spaces"]
+        default_cfg: default suite config values
+
+    Returns:
+        A matrix to run API tests with. E.g.:
+        [
+            {
+                "withRemotePhp": False,
+                "enableWatchFs": False,
+            },
+            {
+                "withRemotePhp": True,
+                "enableWatchFs": False,
+            },
+        ]
+    """
+
+    # default for PRs and commit push events
+    matrices = [{
+        "withRemotePhp": default_cfg["withRemotePhp"],
+        "enableWatchFs": default_cfg["enableWatchFs"],
+    }]
+    if ctx.build.event == "cron":
+        matrices = API_TEST_NIGHTLY_CI_MATRIX[storage]
+
+    override_with_remote_php = None
+    override_enable_watch_fs = None
+    if "withRemotePhp" in suite_cfg:
+        override_with_remote_php = suite_cfg["withRemotePhp"]
+    if "enableWatchFs" in suite_cfg:
+        override_enable_watch_fs = suite_cfg["enableWatchFs"]
+
+    workflow_metrices = []
+    for m in matrices:
+        matrix = {
+            "withRemotePhp": m["withRemotePhp"],
+            "enableWatchFs": m["enableWatchFs"],
+        }
+        if override_with_remote_php != None:
+            matrix["withRemotePhp"] = override_with_remote_php
+        if override_enable_watch_fs != None:
+            matrix["enableWatchFs"] = override_enable_watch_fs
+
+        if matrix not in workflow_metrices and matrix in matrices:
+            workflow_metrices.append(matrix)
+    return workflow_metrices
+
 def localApiTestPipeline(ctx):
     pipelines = []
 
@@ -1240,15 +1304,11 @@ def localApiTestPipeline(ctx):
                 if "[decomposed]" in ctx.build.title.lower() or name.startswith("cli"):
                     params["storages"] = ["decomposed"]
 
-                feat_matrices = [{
-                    "withRemotePhp": params["withRemotePhp"],
-                    "enableWatchFs": params["enableWatchFs"],
-                }]
-
                 for storage in params["storages"]:
-                    for m in feat_matrices:
+                    matrices = build_api_test_workflow_matrix(ctx, storage, matrix, defaults)
+                    for m in matrices:
                         run_with_remote_php = m["withRemotePhp"]
-                        run_with_watch_fs_enabled = m["enableWatchFs"]
+                        run_with_watch_fs = m["enableWatchFs"]
 
                         pipeline_name = "test-API"
                         if name.startswith("cli"):
@@ -1257,7 +1317,7 @@ def localApiTestPipeline(ctx):
                         pipeline_name += "-%s" % storage
                         if run_with_remote_php:
                             pipeline_name += "-withRemotePhp"
-                        if run_with_watch_fs_enabled:
+                        if run_with_watch_fs:
                             pipeline_name += "-watchfs"
 
                         pipeline = {
@@ -1274,9 +1334,9 @@ def localApiTestPipeline(ctx):
                                          extra_server_environment = params["extraServerEnvironment"],
                                          with_wrapper = True,
                                          tika_enabled = params["tikaNeeded"],
-                                         watch_fs_enabled = run_with_watch_fs_enabled,
+                                         watch_fs_enabled = run_with_watch_fs,
                                      ) +
-                                     (opencloudServer(storage, deploy_type = "federation", extra_server_environment = params["extraServerEnvironment"], watch_fs_enabled = run_with_watch_fs_enabled) if params["federationServer"] else []) +
+                                     (opencloudServer(storage, deploy_type = "federation", extra_server_environment = params["extraServerEnvironment"], watch_fs_enabled = run_with_watch_fs) if params["federationServer"] else []) +
                                      ((wopiCollaborationService("fakeoffice") + wopiCollaborationService("collabora") + wopiCollaborationService("onlyoffice")) if params["collaborationServiceNeeded"] else []) +
                                      (openCloudHealthCheck("wopi", ["wopi-collabora:9304", "wopi-onlyoffice:9304", "wopi-fakeoffice:9304"]) if params["collaborationServiceNeeded"] else []) +
                                      localApiTest(params["suites"], storage, params["extraTestEnvironment"], run_with_remote_php) +
@@ -1339,24 +1399,12 @@ def localApiTest(suites, storage = "decomposed", extra_environment = {}, with_re
 
 def coreApiTestPipeline(ctx):
     defaults = {
-        "withRemotePhp": [False],
-        "enableWatchFs": [False],
+        "withRemotePhp": False,
+        "enableWatchFs": False,
         "storages": ["posix"],
         "numberOfParts": 7,
         "skipExceptParts": [],
         "skip": False,
-    }
-
-    nightly_matrix = {
-        "storages": ["posix", "decomposed"],
-        "posix": {
-            "withRemotePhp": [False],
-            "enableWatchFs": [False, True],
-        },
-        "decomposed": {
-            "withRemotePhp": [False, True],
-            "enableWatchFs": [False],
-        },
     }
 
     pipelines = []
@@ -1379,22 +1427,18 @@ def coreApiTestPipeline(ctx):
         debugParts = params["skipExceptParts"]
         debugPartsEnabled = (len(debugParts) != 0)
 
-        feat_matrices = [{
-            "withRemotePhp": params["withRemotePhp"],
-            "enableWatchFs": params["enableWatchFs"],
-        }]
-
         for storage in params["storages"]:
             for runPart in range(1, params["numberOfParts"] + 1):
-                for m in feat_matrices:
+                matrices = build_api_test_workflow_matrix(ctx, storage, matrix, defaults)
+                for m in matrices:
                     run_with_remote_php = m["withRemotePhp"]
-                    run_with_watch_fs_enabled = m["enableWatchFs"]
+                    run_with_watch_fs = m["enableWatchFs"]
                     if not debugPartsEnabled or (debugPartsEnabled and runPart in debugParts):
                         pipeline_name = "test-Core-API-%s" % runPart
                         pipeline_name += "-%s" % storage
                         if run_with_remote_php:
                             pipeline_name += "-withRemotePhp"
-                        if run_with_watch_fs_enabled:
+                        if run_with_watch_fs:
                             pipeline_name += "-watchfs"
 
                         pipeline = {
@@ -1405,7 +1449,7 @@ def coreApiTestPipeline(ctx):
                                      opencloudServer(
                                          storage,
                                          with_wrapper = True,
-                                         watch_fs_enabled = run_with_watch_fs_enabled,
+                                         watch_fs_enabled = run_with_watch_fs,
                                      ) +
                                      coreApiTest(
                                          runPart,
