@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" x="10">
+    <!-- Font Awesome Free 5.15.4 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) -->
+    <g>
+        <path fill="none" d="M0 0h24v24H0z"/>
+        <path d="M224,0 L224,136 C224,149.2 234.8,160 248,160 L384,160 L384,488 C384,501.3 373.3,512 360,512 L24,512 C10.7,512 0,501.3 0,488 L0,24 C0,10.7 10.7,0 24,0 L224,0 Z M224,224 L160,224 L160,288 L96,288 L96,352 L160,352 L160,416 L224,416 L224,352 L288,352 L288,288 L224,287.999 L224,224 Z M262,0 C268.4,0 274.5,2.5 279,7 L279,7 L377,105 C381.5,109.5 384,115.6 384,121.9 L384,121.9 L384,128 L256,128 L256,0 Z"></path>
+   </g>
+</svg>

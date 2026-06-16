@@ -1,0 +1,56 @@
+# Stage 1: Node — generate IDP + embed custom web assets
+FROM quay.io/opencloudeu/nodejs-ci:24 AS generate
+COPY ./ /opencloud/
+WORKDIR /opencloud
+COPY web-dist/ services/web/assets/core/
+RUN git init && \
+    for mod in services/activitylog services/graph services/idp services/notifications services/settings services/userlog; do \
+      echo "=== $mod ===" && make -C $mod node-generate-prod || true; \
+    done
+
+# Stage 2: Go — build binary with custom reva (web assets get embedded)
+FROM docker.io/golang:1.26-alpine AS build
+RUN apk add bash make git curl gcc musl-dev libc-dev binutils-gold inotify-tools vips-dev
+COPY --from=generate /opencloud /opencloud
+COPY reva-src /data/source/gitapps/reva
+COPY go-cs3apis-src /data/source/gitapps/cs3org/go-cs3apis
+COPY warmup-robustness.patch /tmp/warmup-robustness.patch
+RUN cd /data/source/gitapps/reva && git init && git add -A && git apply /tmp/warmup-robustness.patch
+WORKDIR /opencloud
+RUN echo 'replace github.com/opencloud-eu/reva/v2 => /data/source/gitapps/reva' >> go.mod && \
+    echo 'replace github.com/cs3org/go-cs3apis => /data/source/gitapps/cs3org/go-cs3apis' >> go.mod && \
+    go mod tidy && \
+    go mod vendor && \
+    cd opencloud && \
+    EDITION=kosmos make go-generate release-linux-docker-amd64 ENABLE_VIPS=true DIST=/dist
+
+# Stage 3: Runtime
+FROM docker.io/amd64/alpine:3.23
+
+RUN apk add --no-cache attr bash ca-certificates curl imagemagick \
+                       inotify-tools libc6-compat mailcap tree vips \
+                       vips-magick patch && \
+    echo 'hosts: files dns' >| /etc/nsswitch.conf
+
+RUN addgroup -g 1000 -S opencloud-group && \
+    adduser -S --ingroup opencloud-group --uid 1000 opencloud-user --home /var/lib/opencloud
+
+RUN mkdir -p /var/lib/opencloud && \
+    mkdir -p /var/lib/opencloud/web/assets/apps && \
+    chown -R opencloud-user:opencloud-group /var/lib/opencloud && \
+    chmod -R 751 /var/lib/opencloud && \
+    mkdir -p /etc/opencloud && \
+    chown -R opencloud-user:opencloud-group /etc/opencloud && \
+    chmod -R 751 /etc/opencloud
+
+VOLUME [ "/var/lib/opencloud", "/etc/opencloud" ]
+WORKDIR /var/lib/opencloud
+
+USER 1000
+
+EXPOSE 9200/tcp
+
+ENTRYPOINT ["/usr/bin/opencloud"]
+CMD ["server"]
+
+COPY --from=build /dist/binaries/opencloud-linux-amd64 /usr/bin/opencloud

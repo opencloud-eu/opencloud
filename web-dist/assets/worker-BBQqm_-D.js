@@ -1,0 +1,1 @@
+(function(){"use strict";let e;const s=()=>{clearTimeout(e),e=void 0};self.onmessage=r=>{const{topic:i,expiry:o,expiryThreshold:n}=JSON.parse(r.data);if(i==="reset"){s();return}let t=o-n;t<=0&&(t=1),s(),e=setTimeout(()=>{postMessage(!0)},t*1e3)}})();

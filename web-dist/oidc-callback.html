@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>  <link rel="stylesheet" crossorigin href="./assets/style-B5Go8oJh.css">
+</head>
+  <body>
+    <script>
+      window.onload = function () {
+        const base = document.querySelector('base')
+        const path = base
+          ? new URL(base.href).pathname.split('/')
+          : [...window.location.pathname.split('/').slice(0, -1), 'index.html#']
+        const url = new URL(
+          [...path, 'web-oidc-callback'].filter(Boolean).join('/'),
+          window.location.origin
+        )
+        window.location.href = url.href + window.location.search
+      }
+    </script>
+  </body>
+</html>

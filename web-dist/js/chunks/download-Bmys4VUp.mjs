@@ -1,0 +1,1 @@
+const d=(t,o="")=>{const e=document.createElement("a");e.style.display="none",document.body.appendChild(e),e.href=t,e.setAttribute("download",o),e.click(),document.body.removeChild(e)};export{d as t};

@@ -1,0 +1,1 @@
+import{u}from"./useRoute-BGFNOdqM.mjs";import{q as r,bk as s}from"./NoContentMessage.vue_vue_type_style_index_0_scoped_a1dde729_lang-aQYs1JbS.mjs";const n=(t,e)=>{const o=u();return r(()=>s(o).meta[t]||e)};export{n as u};

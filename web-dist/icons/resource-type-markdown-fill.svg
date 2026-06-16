@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512">
+    <!-- Font Awesome Free 5.15.4 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) -->
+    <g>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M224 0V136C224 149.2 234.8 160 248 160H384V488C384 501.3 373.3 512 360 512H24C10.7 512 0 501.3 0 488V24C0 10.7 10.7 0 24 0H224ZM215.005 381.146H178.124V309.36L141.123 355.363L104.122 309.36V381.146H67V256H104.001L141.003 302.002L178.004 256H215.005V381.146ZM296.528 383L240.996 318.573H277.997V256H314.999V318.573H352L296.528 383Z" />
+<path d="M384 128V121.9C384 115.6 381.5 109.5 377 105L279.1 7C274.6 2.5 268.5 0 262.1 0H256V128H384Z" />
+    </g>
+</svg>
+

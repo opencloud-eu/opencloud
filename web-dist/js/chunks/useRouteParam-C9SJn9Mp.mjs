@@ -1,0 +1,1 @@
+import{q as s,cl as o,bk as e,cs as c}from"./NoContentMessage.vue_vue_type_style_index_0_scoped_a1dde729_lang-aQYs1JbS.mjs";const p=(t,a)=>{const r=o();return s({get(){return c(e(r.currentRoute).params[t])||a},async set(u){e(r.currentRoute).params[t]!==u&&await r.replace({params:{...e(r.currentRoute).params,[t]:u}})}})};export{p as u};

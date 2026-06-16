@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512">
+    <!-- Font Awesome Free 5.15.4 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) -->
+    <g>
+<path d="M160 237H108V288H160V237Z" />
+<path d="M160 320H108V370H160V320Z" />
+<path d="M192 370V320H276V370H192Z" />
+<path d="M192 288V237H276V288H192Z" />
+<path fill-rule="evenodd" clip-rule="evenodd" d="M224 0V136C224 149.2 234.8 160 248 160H384V488C384 501.3 373.3 512 360 512H24C10.7 512 0 501.3 0 488V24C0 10.7 10.7 0 24 0H224ZM87 205C80.9249 205 76 209.925 76 216V391C76 397.075 80.9249 402 87 402H297C303.075 402 308 397.075 308 391V216C308 209.925 303.075 205 297 205H87Z" />
+<path d="M384 128V121.9C384 115.6 381.5 109.5 377 105L279.1 7C274.6 2.5 268.5 0 262.1 0H256V128H384Z" />
+    </g>
+</svg>
+

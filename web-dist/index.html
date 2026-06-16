@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script>window.WEB_APPS_MAP = {"web-app-activities":"./web-app-activities-B1KJ630x.mjs","web-app-admin-settings":"./web-app-admin-settings-938Lf0wZ.mjs","web-app-epub-reader":"./web-app-epub-reader-ColAn_m_.mjs","web-app-external":"./web-app-external-BlFhgcbl.mjs","web-app-files":"./web-app-files-Cm2eXkHd.mjs","web-app-mail":"./web-app-mail-xhKIBgXe.mjs","web-app-ocm":"./web-app-ocm-Bs52acNV.mjs","web-app-pdf-viewer":"./web-app-pdf-viewer-BgPerpjL.mjs","web-app-preview":"./web-app-preview-Dr-xWeqd.mjs","web-app-search":"./web-app-search-09u8CExr.mjs","web-app-text-editor":"./web-app-text-editor-BrFZegY3.mjs","web-app-webfinger":"./web-app-webfinger-B1Tyz4A7.mjs","web-app-app-store":"./web-app-app-store-DmVGwoh6.mjs"}</script>
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="initial-scale=1.0, minimum-scale=1.0" />
+    <meta name="theme-color" content="#375f7E" />
+    <meta http-equiv="x-ua-compatible" content="IE=edge" />
+
+    <title>OpenCloud</title>
+    <link rel="manifest" href="manifest.json" crossorigin="use-credentials" />
+    <link rel="icon" href="img/favicon.svg" />
+    
+    <script src="js/require.js?1781563741997"></script>
+    
+    <style>
+      html,
+      body {
+        height: 100%;
+      }
+      .splash-banner {
+        padding: 0.5rem;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+      .splash-hide {
+        display: none;
+      }
+      #loading {
+        height: 34px;
+        width: 34px;
+        border: 1px solid #4c5f79;
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s ease-in-out infinite;
+        -webkit-animation: spin 1s linear infinite;
+      }
+      #splash-incompatible button {
+        margin: 30px 0;
+      }
+
+      @keyframes spin {
+        to {
+          -webkit-transform: rotate(360deg);
+        }
+      }
+      @-webkit-keyframes spin {
+        to {
+          -webkit-transform: rotate(360deg);
+        }
+      }
+    </style>
+    <script type="module" crossorigin src="./js/index.html-Dg8fafME.mjs"></script>
+    <link rel="modulepreload" crossorigin href="./js/chunks/preload-helper-PPVm8Dsz.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/NoContentMessage.vue_vue_type_style_index_0_scoped_a1dde729_lang-aQYs1JbS.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/_plugin-vue_export-helper-DlAUqK2U.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/locale-tv0ZmyWq.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/v4-EwEgHOG0.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/modals-DsP9TGnr.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/useLoadingService-CLoheuuI.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/useRoute-BGFNOdqM.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/index-lRhEXmMs.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/OcButton.vue_vue_type_script_setup_true_lang-DGUoM0xP.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/user-C7xYeMZ3.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/resources-CL0nvFAd.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/_Set-DyVdKz_x.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/vue-router-CmC7u3Bn.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/useClientService-BP8mjZl2.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/eventBus-B07Yv2pA.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/messages-bd5_8QAH.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/ActionMenuItem-5Eo133Qt.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/SpaceInfo.vue_vue_type_script_setup_true_lang-Due4-ozY.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/extensionRegistry-3T3I8mha.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/useRouteMeta-C9xjNr4h.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/AppLoadingSpinner-D4wmhWZf.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/useAbility-DLkgdurK.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/toNumber-BQH-f3hb.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/_getTag-rbyw32wi.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/omit-CjJULzjP.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/useLoadPreview-Cv2y5hqA.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/datetime-CpSA3f1i.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/Pagination-w-FgvznP.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/isEmpty-BPG2bWXw.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/useWindowOpen-BMCzbqTR.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/download-Bmys4VUp.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/useRouteParam-C9SJn9Mp.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/icon-BPAP2zgX.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/ResourceListItem.vue_vue_type_script_setup_true_lang-xPaH43i9.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/FileSideBar.vue_vue_type_script_setup_true_lang-BvQC7MgD.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/useScrollTo--zshzNky.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/useSort-BaUnnp4q.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/debounce-Bg6HwA-m.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/fuse-Dh4lEyaB.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/ItemFilter.vue_vue_type_script_setup_true_lang-i43jAQtj.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/ItemFilterToggle-B0cxdVaA.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/VersionCheck.vue_vue_type_script_setup_true_lang-D5qoa-gp.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/NoContentMessage-CtsU0h69.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/useAppDefaults-BUVwG3-M.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/AppWrapperRoute-BFHFMQoF.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/index-ChwhOZNZ.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/useAppProviderService-DZ_mOvrb.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/types-BoCZvwvE.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/index-Dc0lA-4d.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/SearchBarFilter-C7qMtMoh.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/useOpenEmptyEditor-37ZbJbPk.mjs">
+    <link rel="modulepreload" crossorigin href="./js/chunks/throttle-5Uz_Dt2R.mjs">
+    <link rel="stylesheet" crossorigin href="./assets/style-B5Go8oJh.css">
+  </head>
+  <body>
+    <div id="splash-incompatible" class="splash-banner splash-hide">
+      <div class="oc-card border rounded-sm w-lg text-center">
+        <div class="oc-card-header">
+          <div class="flex items-center justify-center">
+            <span class="mr-2 oc-icon oc-icon-m oc-icon-warning">
+              <svg
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <g xmlns="http://www.w3.org/2000/svg">
+                  <path fill="none" d="M0 0h24v24H0z"></path>
+                  <path
+                    d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm0-2a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM11 7h2v2h-2V7zm0 4h2v6h-2v-6z"
+                  ></path>
+                </g>
+              </svg>
+            </span>
+            <h2>Your browser is not supported</h2>
+          </div>
+        </div>
+        <div class="oc-card-body oc-link-resolve-error-message">
+          <p>Your browser version is considered old and might not work correctly.</p>
+          <p>We recommend you update to a newer version.</p>
+        </div>
+      </div>
+      <button
+        class="oc-button oc-button-primary oc-button-primary-filled rounded-sm"
+        onclick="forceOldBrowser()"
+      >
+        I want to continue anyway
+      </button>
+      
+    </div>
+    <div id="splash-loading" class="splash-banner splash-hide">
+      <div id="loading" class="inline-block"></div>
+    </div>
+    <div id="opencloud"></div>
+    <noscript>
+      <div class="splash-banner"><h3>Please enable JavaScript</h3></div>
+    </noscript>
+    <script>
+      function runtimeLoaded() {}
+
+      var loader = document.getElementById('splash-loading')
+      var browserError = document.getElementById('splash-incompatible')
+
+      var loaderTimer = setTimeout(function () {
+        loader.classList.remove('splash-hide')
+      }, 500);
+
+      function displayError() {
+        loader.classList.remove('splash-hide')
+        loader.innerHTML = "<h3>Oops. Something went wrong.</h3>"
+      }
+
+      function displayBrowserError() {
+        clearTimeout(loaderTimer)
+        removeLoadingSpinner()
+        browserError.classList.remove('splash-hide')
+      }
+
+      function forceOldBrowser() {
+        localStorage.setItem("forceAllowOldBrowser", JSON.stringify({expiry: new Date().getTime() + 30*24*60*60*1000}))
+        browserError.classList.add('splash-hide')
+        init()
+      }
+
+      function removeLoadingSpinner() {
+        if (!loader.classList.contains('splash-hide')) {
+          loader.classList.add('splash-hide')
+        }
+      }
+
+      function init() {
+        if (typeof requirejs === 'undefined') {
+          displayError()
+        } else {
+          window.runtimeLoaded = function(runtime) {
+            clearTimeout(loaderTimer)
+            runtime.bootstrapApp('config.json', removeLoadingSpinner).catch((error) => {
+              removeLoadingSpinner()
+              runtime.bootstrapErrorApp(error)
+            })
+          }
+        }
+      }
+
+      const supportedBrowsers = /Edge?\/(13[89]|1[4-9]\d|[2-9]\d{2}|\d{4,})\.\d+(\.\d+|)|Firefox\/(14\d|1[5-9]\d|[2-9]\d{2}|\d{4,})\.\d+(\.\d+|)|Chrom(ium|e)\/(10[3-9]|1[1-9]\d|[2-9]\d{2}|\d{4,})\.\d+(\.\d+|)|(Maci|X1{2}).+ Version\/(18\.([5-9]|\d{2,})|(19|[2-9]\d|\d{3,})\.\d+)([,.]\d+|)( \(\w+\)|)( Mobile\/\w+|) Safari\/|Chrome.+OPR\/(12\d|1[3-9]\d|[2-9]\d{2}|\d{4,})\.\d+\.\d+|(CPU[ +]OS|iPhone[ +]OS|CPU[ +]iPhone|CPU IPhone OS|CPU iPad OS)[ +]+(15[._]([6-9]|\d{2,})|(1[6-9]|[2-9]\d|\d{3,})[._]\d+)([._]\d+|)|Android:?[ /-](14[5-9]|1[5-9]\d|[2-9]\d{2}|\d{4,})(\.\d+|)(\.\d+|)|Android.+Firefox\/(14[7-9]|1[5-9]\d|[2-9]\d{2}|\d{4,})\.\d+(\.\d+|)|Android.+Chrom(ium|e)\/(14[5-9]|1[5-9]\d|[2-9]\d{2}|\d{4,})\.\d+(\.\d+|)|Android.+(UC? ?Browser|UCWEB|U3)[ /]?(15\.([5-9]|\d{2,})|(1[6-9]|[2-9]\d|\d{3,})\.\d+)\.\d+|SamsungBrowser\/(29|[3-9]\d|\d{3,})\.\d+/
+      const forceAllowOldBrowser = localStorage.getItem("forceAllowOldBrowser") || false
+      const validForceAllowOldBrowser = forceAllowOldBrowser && JSON.parse(localStorage.getItem("forceAllowOldBrowser")).expiry > new Date().getTime()
+
+      if (forceAllowOldBrowser && !validForceAllowOldBrowser)
+        localStorage.removeItem("forceAllowOldBrowser")
+
+      if (!validForceAllowOldBrowser && !supportedBrowsers.test(navigator.userAgent)) {
+        displayBrowserError()
+      } else {
+        init()
+      }
+
+      var scriptTags = document.getElementsByTagName('script')
+      for (let i = 0; i < scriptTags.length; i++) {
+        if (scriptTags[i].src) {
+          scriptTags[i].onerror = displayError
+        }
+      }
+    </script>
+  </body>
+</html>

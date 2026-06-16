@@ -1,0 +1,37 @@
+# Minimal test: identical to official 7.1.0, only "kosmos" edition
+FROM quay.io/opencloudeu/nodejs-ci:24 AS generate
+COPY ./ /opencloud/
+WORKDIR /opencloud
+RUN mkdir -p services/web/assets/core && \
+    curl --fail -sL -o- https://github.com/opencloud-eu/web/releases/download/v7.1.0/web.tar.gz | tar xzf - -C services/web/assets/core/
+RUN git init && \
+    for mod in services/activitylog services/graph services/idp services/notifications services/settings services/userlog; do \
+      echo "=== $mod ===" && make -C $mod node-generate-prod || true; \
+    done
+
+FROM docker.io/golang:1.26-alpine AS build
+RUN apk add bash make git curl gcc musl-dev libc-dev binutils-gold inotify-tools vips-dev
+COPY --from=generate /opencloud /opencloud
+WORKDIR /opencloud
+RUN cd opencloud && \
+    EDITION=rolling make go-generate build ENABLE_VIPS=true
+
+FROM docker.io/amd64/alpine:3.21
+RUN apk add --no-cache attr bash ca-certificates curl inotify-tools libc6-compat mailcap tree vips patch && \
+    echo 'hosts: files dns' >| /etc/nsswitch.conf
+RUN addgroup -g 1000 -S opencloud-group && \
+    adduser -S --ingroup opencloud-group --uid 1000 opencloud-user --home /var/lib/opencloud
+RUN mkdir -p /var/lib/opencloud && \
+    mkdir -p /var/lib/opencloud/web/assets/apps && \
+    chown -R opencloud-user:opencloud-group /var/lib/opencloud && \
+    chmod -R 751 /var/lib/opencloud && \
+    mkdir -p /etc/opencloud && \
+    chown -R opencloud-user:opencloud-group /etc/opencloud && \
+    chmod -R 751 /etc/opencloud
+VOLUME [ "/var/lib/opencloud", "/etc/opencloud" ]
+WORKDIR /var/lib/opencloud
+USER 1000
+EXPOSE 9200/tcp
+ENTRYPOINT ["/usr/bin/opencloud"]
+CMD ["server"]
+COPY --from=build /opencloud/opencloud/bin/opencloud /usr/bin/opencloud

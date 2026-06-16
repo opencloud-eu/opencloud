@@ -1,0 +1,77 @@
+diff --git a/pkg/storage/fs/posix/tree/assimilation.go b/pkg/storage/fs/posix/tree/assimilation.go
+index 0a9971a1..c88acd41 100644
+--- a/pkg/storage/fs/posix/tree/assimilation.go
++++ b/pkg/storage/fs/posix/tree/assimilation.go
+@@ -833,7 +833,11 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
+ 	sizes := make(map[string]int64)
+ 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+ 		if err != nil {
+-			return err
++			t.log.Warn().Err(err).Str("path", path).Msg("error accessing path during warmup, skipping")
++			if info != nil && info.IsDir() {
++				return filepath.SkipDir
++			}
++			return nil
+ 		}
+ 
+ 		// skip irrelevant files
+@@ -848,6 +852,29 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
+ 			return nil // ignore the root paths
+ 		}
+ 
++		// skip directories containing .ocignore with "*"
++		if info.IsDir() {
++			ignoreFile := filepath.Join(path, ".ocignore")
++			if data, err := os.ReadFile(ignoreFile); err == nil {
++				content := strings.TrimSpace(string(data))
++				if content == "*" {
++					// cache this directory's own ID before skipping children,
++					// so directory listings don't trigger on-demand assimilation
++					nodeSpaceID, id, _, _, identErr := t.lookup.MetadataBackend().IdentifyPath(context.Background(), path)
++					if identErr == nil && len(id) > 0 {
++						if len(nodeSpaceID) > 0 {
++							spaceID = nodeSpaceID
++						}
++						if spaceID != "" {
++							_ = t.lookup.CacheID(context.Background(), spaceID, id, path)
++						}
++					}
++					t.log.Info().Str("path", path).Msg("skipping directory due to .ocignore")
++					return filepath.SkipDir
++				}
++			}
++		}
++
+ 		if !info.IsDir() && !info.Mode().IsRegular() {
+ 			t.log.Trace().Str("path", path).Msg("skipping non-regular file")
+ 			return nil
+@@ -936,7 +963,9 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
+ 		}
+ 
+ 		if info.IsDir() {
+-			return t.setDirty(path, false)
++			if err := t.setDirty(path, false); err != nil {
++				t.log.Warn().Err(err).Str("path", path).Msg("could not set dirty flag on directory, skipping")
++			}
+ 		}
+ 		return nil
+ 	})
+diff --git a/pkg/storage/fs/posix/tree/tree.go b/pkg/storage/fs/posix/tree/tree.go
+index eb8dca8c..9a36fad0 100644
+--- a/pkg/storage/fs/posix/tree/tree.go
++++ b/pkg/storage/fs/posix/tree/tree.go
+@@ -458,6 +458,14 @@ func (t *Tree) ListFolder(ctx context.Context, n *node.Node) ([]*node.Node, erro
+ 		_ = f.Close()
+ 	}()
+ 
++	// skip listing children of directories with .ocignore containing "*"
++	ignoreFile := filepath.Join(dir, ".ocignore")
++	if data, err := os.ReadFile(ignoreFile); err == nil {
++		if strings.TrimSpace(string(data)) == "*" {
++			return []*node.Node{}, nil
++		}
++	}
++
+ 	_, subspan = tracer.Start(ctx, "f.Readdirnames")
+ 	names, err := f.Readdirnames(0)
+ 	subspan.End()
