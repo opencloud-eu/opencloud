@@ -22,6 +22,8 @@ const (
 	EditionStable = "stable"
 	// EditionLTS indicates the lts release build channel was used to build the binary.
 	EditionLTS = "lts"
+	// EditionKosmos indicates a custom build with immutable/container-permissions features.
+	EditionKosmos = "kosmos"
 )
 
 var (
@@ -57,7 +59,7 @@ func init() { //nolint:gochecknoinits
 }
 
 func initEdition() error {
-	regularEditions := []string{EditionDev, EditionRolling, EditionStable}
+	regularEditions := []string{EditionDev, EditionRolling, EditionStable, EditionKosmos}
 	versionedEditions := []string{EditionLTS}
 	if !slices.ContainsFunc(slices.Concat(regularEditions, versionedEditions), func(s string) bool {
 		isRegularEdition := slices.Contains(regularEditions, Edition)
