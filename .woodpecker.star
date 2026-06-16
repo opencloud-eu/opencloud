@@ -90,6 +90,30 @@ event = {
     },
 }
 
+OPENCLOUD_STORAGES = ["posix", "decomposed"]
+API_NIGHTLY_MATRIX = {
+    "posix": [
+        {
+            "withRemotePhp": False,
+            "enableWatchFs": True,
+        },
+        {
+            "withRemotePhp": True,
+            "enableWatchFs": False,
+        },
+    ],
+    "decomposed": [
+        {
+            "withRemotePhp": False,
+            "enableWatchFs": False,
+        },
+        {
+            "withRemotePhp": True,
+            "enableWatchFs": False,
+        },
+    ],
+}
+
 # configuration
 config = {
     "cs3ApiTests": {
@@ -1192,21 +1216,9 @@ def localApiTestPipeline(ctx):
         "federationServer": False,
         "collaborationServiceNeeded": False,
         "extraCollaborationEnvironment": {},
-        "withRemotePhp": [False],
-        "enableWatchFs": [False],
+        "withRemotePhp": False,
+        "enableWatchFs": False,
         "ldapNeeded": False,
-    }
-
-    nightly_matrix = {
-        "storages": ["posix", "decomposed"],
-        "posix": {
-            "withRemotePhp": [False],
-            "enableWatchFs": [False, True],
-        },
-        "decomposed": {
-            "withRemotePhp": [False, True],
-            "enableWatchFs": [False],
-        },
     }
 
     if "localApiTests" in config:
@@ -1217,73 +1229,73 @@ def localApiTestPipeline(ctx):
                     params[item] = matrix[item] if item in matrix else defaults[item]
 
                 if ctx.build.event == "cron":
-                    params["storages"] = nightly_matrix["storages"]
+                    params["storages"] = OPENCLOUD_STORAGES
+
+                    # skip CLI tests in nightly pipeline
+                    if name.startswith("cli"):
+                        continue
 
                 # use decomposed storage if specified in the PR title
                 # run CLI tests only with decomposed storage
                 if "[decomposed]" in ctx.build.title.lower() or name.startswith("cli"):
                     params["storages"] = ["decomposed"]
 
+                feat_matrices = [{
+                    "withRemotePhp": params["withRemotePhp"],
+                    "enableWatchFs": params["enableWatchFs"],
+                }]
+
                 for storage in params["storages"]:
-                    # override with nightly matrix
-                    if ctx.build.event == "cron":
-                        params["withRemotePhp"] = nightly_matrix[storage]["withRemotePhp"]
-                        params["enableWatchFs"] = nightly_matrix[storage]["enableWatchFs"]
+                    for m in feat_matrices:
+                        run_with_remote_php = m["withRemotePhp"]
+                        run_with_watch_fs_enabled = m["enableWatchFs"]
 
-                    # override configs if specified in the suite config
-                    if "withRemotePhp" in matrix:
-                        params["withRemotePhp"] = matrix["withRemotePhp"]
-                    if "enableWatchFs" in matrix:
-                        params["enableWatchFs"] = matrix["enableWatchFs"]
+                        pipeline_name = "test-API"
+                        if name.startswith("cli"):
+                            pipeline_name = "test-CLI"
+                        pipeline_name += "-%s" % name
+                        pipeline_name += "-%s" % storage
+                        if run_with_remote_php:
+                            pipeline_name += "-withRemotePhp"
+                        if run_with_watch_fs_enabled:
+                            pipeline_name += "-watchfs"
 
-                    for run_with_remote_php in params["withRemotePhp"]:
-                        for run_with_watch_fs_enabled in params["enableWatchFs"]:
-                            pipeline_name = "test-API"
-                            if name.startswith("cli"):
-                                pipeline_name = "test-CLI"
-                            pipeline_name += "-%s" % name
-                            pipeline_name += "-%s" % storage
-                            if run_with_remote_php:
-                                pipeline_name += "-withRemotePhp"
-                            if run_with_watch_fs_enabled:
-                                pipeline_name += "-watchfs"
-
-                            pipeline = {
-                                "name": pipeline_name,
-                                "steps": skipCheckStep(ctx, "acceptance-tests") + evaluateWorkflowStep() + restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
-                                         (tikaService() if params["tikaNeeded"] else []) +
-                                         (waitForWebOffices(["https://collabora:9980", "https://onlyoffice", "http://fakeoffice:8080"]) if params["collaborationServiceNeeded"] else []) +
-                                         (waitForClamavService() if params["antivirusNeeded"] else []) +
-                                         (waitForEmailService() if params["emailNeeded"] else []) +
-                                         (ldapService() if params["ldapNeeded"] else []) +
-                                         (waitForLdapService() if params["ldapNeeded"] else []) +
-                                         opencloudServer(
-                                             storage,
-                                             extra_server_environment = params["extraServerEnvironment"],
-                                             with_wrapper = True,
-                                             tika_enabled = params["tikaNeeded"],
-                                             watch_fs_enabled = run_with_watch_fs_enabled,
-                                         ) +
-                                         (opencloudServer(storage, deploy_type = "federation", extra_server_environment = params["extraServerEnvironment"], watch_fs_enabled = run_with_watch_fs_enabled) if params["federationServer"] else []) +
-                                         ((wopiCollaborationService("fakeoffice") + wopiCollaborationService("collabora") + wopiCollaborationService("onlyoffice")) if params["collaborationServiceNeeded"] else []) +
-                                         (openCloudHealthCheck("wopi", ["wopi-collabora:9304", "wopi-onlyoffice:9304", "wopi-fakeoffice:9304"]) if params["collaborationServiceNeeded"] else []) +
-                                         localApiTest(params["suites"], storage, params["extraTestEnvironment"], run_with_remote_php) +
-                                         logRequests(),
-                                "services": (emailService() if params["emailNeeded"] else []) +
-                                            (clamavService() if params["antivirusNeeded"] else []) +
-                                            ((fakeOffice() + collaboraService() + onlyofficeService()) if params["collaborationServiceNeeded"] else []),
-                                "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
-                                "when": [
-                                    event["base"],
-                                    event["cron"],
-                                    event["pull_request"],
-                                ],
-                            }
-                            prefixStepCommands(pipeline, [
-                                ". ./.woodpecker.env",
-                                '[ "$SKIP_WORKFLOW" = "true" ] && exit 0',
-                            ])
-                            pipelines.append(pipeline)
+                        pipeline = {
+                            "name": pipeline_name,
+                            "steps": skipCheckStep(ctx, "acceptance-tests") + evaluateWorkflowStep() + restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
+                                     (tikaService() if params["tikaNeeded"] else []) +
+                                     (waitForWebOffices(["https://collabora:9980", "https://onlyoffice", "http://fakeoffice:8080"]) if params["collaborationServiceNeeded"] else []) +
+                                     (waitForClamavService() if params["antivirusNeeded"] else []) +
+                                     (waitForEmailService() if params["emailNeeded"] else []) +
+                                     (ldapService() if params["ldapNeeded"] else []) +
+                                     (waitForLdapService() if params["ldapNeeded"] else []) +
+                                     opencloudServer(
+                                         storage,
+                                         extra_server_environment = params["extraServerEnvironment"],
+                                         with_wrapper = True,
+                                         tika_enabled = params["tikaNeeded"],
+                                         watch_fs_enabled = run_with_watch_fs_enabled,
+                                     ) +
+                                     (opencloudServer(storage, deploy_type = "federation", extra_server_environment = params["extraServerEnvironment"], watch_fs_enabled = run_with_watch_fs_enabled) if params["federationServer"] else []) +
+                                     ((wopiCollaborationService("fakeoffice") + wopiCollaborationService("collabora") + wopiCollaborationService("onlyoffice")) if params["collaborationServiceNeeded"] else []) +
+                                     (openCloudHealthCheck("wopi", ["wopi-collabora:9304", "wopi-onlyoffice:9304", "wopi-fakeoffice:9304"]) if params["collaborationServiceNeeded"] else []) +
+                                     localApiTest(params["suites"], storage, params["extraTestEnvironment"], run_with_remote_php) +
+                                     logRequests(),
+                            "services": (emailService() if params["emailNeeded"] else []) +
+                                        (clamavService() if params["antivirusNeeded"] else []) +
+                                        ((fakeOffice() + collaboraService() + onlyofficeService()) if params["collaborationServiceNeeded"] else []),
+                            "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
+                            "when": [
+                                event["base"],
+                                event["cron"],
+                                event["pull_request"],
+                            ],
+                        }
+                        prefixStepCommands(pipeline, [
+                            ". ./.woodpecker.env",
+                            '[ "$SKIP_WORKFLOW" = "true" ] && exit 0',
+                        ])
+                        pipelines.append(pipeline)
     return pipelines
 
 def localApiTest(suites, storage = "decomposed", extra_environment = {}, with_remote_php = False):
@@ -1358,7 +1370,7 @@ def coreApiTestPipeline(ctx):
             params[item] = matrix[item] if item in matrix else defaults[item]
 
         if ctx.build.event == "cron":
-            params["storages"] = nightly_matrix["storages"]
+            params["storages"] = OPENCLOUD_STORAGES
 
         # use decomposed storage if specified in the PR title
         if "[decomposed]" in ctx.build.title.lower():
@@ -1367,58 +1379,54 @@ def coreApiTestPipeline(ctx):
         debugParts = params["skipExceptParts"]
         debugPartsEnabled = (len(debugParts) != 0)
 
+        feat_matrices = [{
+            "withRemotePhp": params["withRemotePhp"],
+            "enableWatchFs": params["enableWatchFs"],
+        }]
+
         for storage in params["storages"]:
-            # override with nightly matrix
-            if ctx.build.event == "cron":
-                params["withRemotePhp"] = nightly_matrix[storage]["withRemotePhp"]
-                params["enableWatchFs"] = nightly_matrix[storage]["enableWatchFs"]
-
-            # override configs if specified in the suite config
-            if "withRemotePhp" in matrix:
-                params["withRemotePhp"] = matrix["withRemotePhp"]
-            if "enableWatchFs" in matrix:
-                params["enableWatchFs"] = matrix["enableWatchFs"]
             for runPart in range(1, params["numberOfParts"] + 1):
-                for run_with_remote_php in params["withRemotePhp"]:
-                    for run_with_watch_fs_enabled in params["enableWatchFs"]:
-                        if not debugPartsEnabled or (debugPartsEnabled and runPart in debugParts):
-                            pipeline_name = "test-Core-API-%s" % runPart
-                            pipeline_name += "-%s" % storage
-                            if run_with_remote_php:
-                                pipeline_name += "-withRemotePhp"
-                            if run_with_watch_fs_enabled:
-                                pipeline_name += "-watchfs"
+                for m in feat_matrices:
+                    run_with_remote_php = m["withRemotePhp"]
+                    run_with_watch_fs_enabled = m["enableWatchFs"]
+                    if not debugPartsEnabled or (debugPartsEnabled and runPart in debugParts):
+                        pipeline_name = "test-Core-API-%s" % runPart
+                        pipeline_name += "-%s" % storage
+                        if run_with_remote_php:
+                            pipeline_name += "-withRemotePhp"
+                        if run_with_watch_fs_enabled:
+                            pipeline_name += "-watchfs"
 
-                            pipeline = {
-                                "name": pipeline_name,
-                                "steps": skipCheckStep(ctx, "acceptance-tests") +
-                                         evaluateWorkflowStep() +
-                                         restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
-                                         opencloudServer(
-                                             storage,
-                                             with_wrapper = True,
-                                             watch_fs_enabled = run_with_watch_fs_enabled,
-                                         ) +
-                                         coreApiTest(
-                                             runPart,
-                                             params["numberOfParts"],
-                                             run_with_remote_php,
-                                             storage,
-                                         ) +
-                                         logRequests(),
-                                "services": redisForOCStorage(storage),
-                                "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
-                                "when": [
-                                    event["base"],
-                                    event["cron"],
-                                    event["pull_request"],
-                                ],
-                            }
-                            prefixStepCommands(pipeline, [
-                                ". ./.woodpecker.env",
-                                '[ "$SKIP_WORKFLOW" = "true" ] && exit 0',
-                            ])
-                            pipelines.append(pipeline)
+                        pipeline = {
+                            "name": pipeline_name,
+                            "steps": skipCheckStep(ctx, "acceptance-tests") +
+                                     evaluateWorkflowStep() +
+                                     restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
+                                     opencloudServer(
+                                         storage,
+                                         with_wrapper = True,
+                                         watch_fs_enabled = run_with_watch_fs_enabled,
+                                     ) +
+                                     coreApiTest(
+                                         runPart,
+                                         params["numberOfParts"],
+                                         run_with_remote_php,
+                                         storage,
+                                     ) +
+                                     logRequests(),
+                            "services": redisForOCStorage(storage),
+                            "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
+                            "when": [
+                                event["base"],
+                                event["cron"],
+                                event["pull_request"],
+                            ],
+                        }
+                        prefixStepCommands(pipeline, [
+                            ". ./.woodpecker.env",
+                            '[ "$SKIP_WORKFLOW" = "true" ] && exit 0',
+                        ])
+                        pipelines.append(pipeline)
     return pipelines
 
 def coreApiTest(part_number = 1, number_of_parts = 1, with_remote_php = False, storage = "posix"):
