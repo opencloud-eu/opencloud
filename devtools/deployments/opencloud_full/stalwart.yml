@@ -57,15 +57,13 @@ services:
       dockerfile_inline: |
         FROM alpine:latest AS downloader
         ARG VERSION
-        RUN apk add --no-cache curl tar xz
+        RUN apk add --no-cache curl tar xz wget
         RUN arch=$(apk --print-arch) && \
             mkdir /cli && \
             curl --proto '=https' --tlsv1.2 -LsSf \
               https://github.com/stalwartlabs/cli/releases/download/v$${VERSION}/stalwart-cli-$${arch}-unknown-linux-musl.tar.xz \
               | tar xJf - --strip-components=1 -C /cli
-
-        FROM scratch
-        COPY --from=downloader /cli/stalwart-cli /stalwart-cli
+        RUN mv /cli/stalwart-cli /stalwart-cli && rm -rf /cli/
         CMD ["/stalwart-cli"]
 
     networks:
@@ -91,8 +89,6 @@ services:
         touch /var/lib/stalwart/.initialized
         echo "Successfully initialized"
 
-    stdin_open: true
-    tty: true
     depends_on:
       - stalwart
 
