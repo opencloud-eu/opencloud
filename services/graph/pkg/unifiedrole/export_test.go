@@ -5,6 +5,7 @@ var (
 	RoleViewerWithVersions         = roleViewerWithVersions
 	RoleViewerListGrants           = roleViewerListGrants
 	RoleSpaceViewer                = roleSpaceViewer
+	RoleSpaceViewerWithVersions    = roleSpaceViewerWithVersions
 	RoleEditor                     = roleEditor
 	RoleEditorWithVersions         = roleEditorWithVersions
 	RoleEditorListGrants           = roleEditorListGrants

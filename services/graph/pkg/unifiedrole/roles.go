@@ -6,8 +6,9 @@ import (
 	"strings"
 
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	"github.com/opencloud-eu/reva/v2/pkg/conversions"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/opencloud-eu/reva/v2/pkg/conversions"
 
 	"github.com/opencloud-eu/opencloud/pkg/l10n"
 	graphl10n "github.com/opencloud-eu/opencloud/services/graph/pkg/l10n"
@@ -22,6 +23,8 @@ const (
 	UnifiedRoleViewerListGrantsID = "d5041006-ebb3-4b4a-b6a4-7c180ecfb17d"
 	// UnifiedRoleSpaceViewerID Unified role space viewer id.
 	UnifiedRoleSpaceViewerID = "a8d5fe5e-96e3-418d-825b-534dbdf22b99"
+	// UnifiedRoleSpaceViewerWithVersionsID
+	UnifiedRoleSpaceViewerWithVersionsID = "3de465fc-6e17-4839-8b8a-a77cc497878b"
 	// UnifiedRoleEditorID Unified role editor id.
 	UnifiedRoleEditorID = "fb6c3e19-e378-47e5-b277-9732f9de6e21"
 	// UnifiedRoleEditorWithVersionsID
@@ -121,6 +124,12 @@ var (
 	// UnifiedRole SpaseViewer, Role DisplayName (resolves directly)
 	_spaceViewerUnifiedRoleDisplayName = l10n.Template("Can view")
 
+	// UnifiedRole SpaceViewer, Role Description (resolves directly)
+	_spaceViewerWithVersionsUnifiedRoleDescription = l10n.Template("View and download including the history.")
+
+	// UnifiedRole SpaseViewer, Role DisplayName (resolves directly)
+	_spaceViewerWithVersionsUnifiedRoleDisplayName = l10n.Template("Can view")
+
 	// UnifiedRole Editor, Role Description (resolves directly)
 	_editorUnifiedRoleDescription = l10n.Template("View, download, upload, edit, add and delete.")
 
@@ -214,6 +223,7 @@ var (
 		roleViewerWithVersions,
 		roleViewerListGrants,
 		roleSpaceViewer,
+		roleSpaceViewerWithVersions,
 		roleEditor,
 		roleEditorListGrants,
 		roleEditorWithVersions,
@@ -334,6 +344,23 @@ var (
 		return &libregraph.UnifiedRoleDefinition{
 			Id:          proto.String(UnifiedRoleSpaceViewerID),
 			Description: proto.String(_spaceViewerUnifiedRoleDescription),
+			DisplayName: proto.String(cs3RoleToDisplayName(r)),
+			RolePermissions: []libregraph.UnifiedRolePermission{
+				{
+					AllowedResourceActions: CS3ResourcePermissionsToLibregraphActions(r.CS3ResourcePermissions()),
+					Condition:              proto.String(UnifiedRoleConditionDrive),
+				},
+			},
+			LibreGraphWeight: proto.Int32(40),
+		}
+	}()
+
+	// roleSpaceViewer creates a spaceviewer role
+	roleSpaceViewerWithVersions = func() *libregraph.UnifiedRoleDefinition {
+		r := conversions.NewSpaceViewerWithVersionsRole()
+		return &libregraph.UnifiedRoleDefinition{
+			Id:          proto.String(UnifiedRoleSpaceViewerWithVersionsID),
+			Description: proto.String(_spaceViewerWithVersionsUnifiedRoleDescription),
 			DisplayName: proto.String(cs3RoleToDisplayName(r)),
 			RolePermissions: []libregraph.UnifiedRolePermission{
 				{
