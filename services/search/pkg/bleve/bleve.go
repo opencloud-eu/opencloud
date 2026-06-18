@@ -62,6 +62,27 @@ func getFieldSliceValue[T any](m map[string]any, key string) (out []T) {
 	return
 }
 
+// buildHighlights combines Content and Metadata highlights into a single string.
+// Content highlights are shown first, followed by metadata field matches.
+func buildHighlights(fragments bleveSearch.FieldFragmentMap) string {
+	var parts []string
+
+	// Content highlight (traditional full-text match)
+	if contentFrags, ok := fragments["Content"]; ok && len(contentFrags) > 0 {
+		parts = append(parts, contentFrags[0])
+	}
+
+	// Metadata highlights (e.g. Metadata.oy.fileReference, Metadata.oy.subject, ...)
+	for field, frags := range fragments {
+		if strings.HasPrefix(field, "Metadata.") && len(frags) > 0 {
+			key := strings.TrimPrefix(field, "Metadata.")
+			parts = append(parts, key+": "+frags[0])
+		}
+	}
+
+	return strings.Join(parts, " · ")
+}
+
 func getFragmentValue(m bleveSearch.FieldFragmentMap, key string, idx int) string {
 	val, ok := m[key]
 	if !ok {
