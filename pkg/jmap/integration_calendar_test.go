@@ -49,8 +49,8 @@ func TestCalendars(t *testing.T) { //NOSONAR
 		},
 		func(orig Calendar) CalendarChange {
 			return CalendarChange{
-				Description:  new(orig.Description + " (changed)"),
-				IsSubscribed: new(!orig.IsSubscribed),
+				Description:  ptr(orig.Description + " (changed)"),
+				IsSubscribed: ptr(!orig.IsSubscribed),
 			}
 		},
 		func(t *testing.T, orig Calendar, _ CalendarChange, changed Calendar) {
@@ -178,7 +178,7 @@ func TestEvents(t *testing.T) {
 	for _, event := range expectedEventsById {
 		change := CalendarEventChange{
 			EventChange: jscalendar.EventChange{
-				Status: new(jscalendar.StatusCancelled),
+				Status: ptr(jscalendar.StatusCancelled),
 				ObjectChange: jscalendar.ObjectChange{
 					Sequence:        uintPtr(99),
 					ShowWithoutTime: truep,
@@ -467,7 +467,7 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 			EventChange: jscalendar.EventChange{
 				Type:     jscalendar.EventType,
 				Start:    jscalendar.LocalDateTime(start),
-				Duration: new(jscalendar.Duration(duration)),
+				Duration: ptr(jscalendar.Duration(duration)),
 				Status:   &status,
 				ObjectChange: jscalendar.ObjectChange{
 					CommonObjectChange: jscalendar.CommonObjectChange{
