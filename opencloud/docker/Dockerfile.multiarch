@@ -1,12 +1,10 @@
-FROM golang:alpine3.23 AS build
+FROM quay.io/opencloudeu/golang-ci:1.25 AS build
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION
 ARG STRING
 ARG EDITION="dev"
 ARG SRCDIR
-
-RUN apk add bash make git curl gcc musl-dev libc-dev binutils-gold inotify-tools vips-dev
 
 WORKDIR /build
 RUN --mount=type=bind,target=/build,rw \
@@ -15,7 +13,7 @@ RUN --mount=type=bind,target=/build,rw \
     GOOS="${TARGETOS:-linux}" GOARCH="${TARGETARCH:-amd64}" ; \
     make -C ${SRCDIR:-.}/opencloud release-linux-docker-${TARGETARCH} ENABLE_VIPS=true DIST=/dist
 
-FROM alpine:3.23
+FROM alpine:3.24
 ARG VERSION
 ARG REVISION
 ARG TARGETOS

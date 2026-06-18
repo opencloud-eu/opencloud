@@ -21,15 +21,14 @@ COPY ./ /opencloud/
 WORKDIR /opencloud/opencloud
 RUN make node-generate-prod
 
-FROM golang:1.24-alpine AS build
-RUN apk add bash make git curl gcc musl-dev libc-dev binutils-gold inotify-tools vips-dev
+FROM quay.io/opencloudeu/golang-ci:1.25 AS build
 
 COPY --from=generate /opencloud /opencloud
 
 WORKDIR /opencloud/opencloud
 RUN make go-generate build ENABLE_VIPS=true
 
-FROM alpine:3.23
+FROM alpine:3.24
 
 RUN apk add --no-cache attr ca-certificates curl mailcap tree vips && \
 	echo 'hosts: files dns' >| /etc/nsswitch.conf
