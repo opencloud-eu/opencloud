@@ -178,6 +178,19 @@ func getFieldName(structField reflect.StructField) string {
 }
 
 func matchToResource(match *bleveSearch.DocumentMatch) *search.Resource {
+	// Extract Metadata.* fields from the flat bleve field map
+	metadata := make(map[string]string)
+	for k, v := range match.Fields {
+		if strings.HasPrefix(k, "Metadata.") {
+			if s, ok := v.(string); ok {
+				metadata[strings.TrimPrefix(k, "Metadata.")] = s
+			}
+		}
+	}
+	if len(metadata) == 0 {
+		metadata = nil
+	}
+
 	return &search.Resource{
 		ID:       getFieldValue[string](match.Fields, "ID"),
 		RootID:   getFieldValue[string](match.Fields, "RootID"),
@@ -194,6 +207,7 @@ func matchToResource(match *bleveSearch.DocumentMatch) *search.Resource {
 			Content:   getFieldValue[string](match.Fields, "Content"),
 			Tags:      getFieldSliceValue[string](match.Fields, "Tags"),
 			Favorites: getFieldSliceValue[string](match.Fields, "Favorites"),
+			Metadata:  metadata,
 			Audio:     getAudioValue[libregraph.Audio](match.Fields),
 			Image:     getImageValue[libregraph.Image](match.Fields),
 			Location:  getLocationValue[libregraph.GeoCoordinates](match.Fields),

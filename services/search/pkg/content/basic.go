@@ -33,6 +33,16 @@ func (b Basic) Extract(_ context.Context, ri *storageProvider.ResourceInfo) (Doc
 		if t, ok := m["tags"]; ok {
 			doc.Tags = tags.New(t).AsSlice()
 		}
+		// Index all arbitrary metadata (user.oc.md.* xattrs)
+		md := make(map[string]string)
+		for k, v := range m {
+			if k != "tags" && v != "" {
+				md[k] = v
+			}
+		}
+		if len(md) > 0 {
+			doc.Metadata = md
+		}
 	}
 
 	if m := ri.Opaque.GetMap(); m != nil && m["favorites"] != nil {
