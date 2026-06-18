@@ -59,8 +59,8 @@ func TestAddressBooks(t *testing.T) {
 		},
 		func(orig AddressBook) AddressBookChange {
 			return AddressBookChange{
-				Description:  new(orig.Description + " (changed)"),
-				IsSubscribed: new(!orig.IsSubscribed),
+				Description:  ptr(orig.Description + " (changed)"),
+				IsSubscribed: ptr(!orig.IsSubscribed),
 			}
 		},
 		func(t *testing.T, orig AddressBook, _ AddressBookChange, changed AddressBook) {
@@ -213,8 +213,8 @@ func TestContacts(t *testing.T) {
 		now := time.Now().Truncate(time.Duration(1) * time.Second).UTC()
 		for _, event := range expectedContactCardsById {
 			change := ContactCardChange{
-				Language: new("xyz"),
-				Updated:  new(now),
+				Language: ptr("xyz"),
+				Updated:  ptr(now),
 			}
 			result, err := s.client.UpdateContactCard(accountId, event.Id, change, ctx)
 			require.NoError(err)
@@ -401,11 +401,11 @@ func (s *StalwartTest) fillContacts( //NOSONAR
 
 		card := ContactCardChange{
 			Type:           jscontact.ContactCardType,
-			Version:        new(jscontact.JSContactVersion_1_0),
+			Version:        ptr(jscontact.JSContactVersion_1_0),
 			AddressBookIds: toBoolPtrMap([]string{addressbookId}),
 			ProdId:         &productName,
 			Language:       &language,
-			Kind:           new(jscontact.ContactCardKindIndividual),
+			Kind:           ptr(jscontact.ContactCardKindIndividual),
 			Name:           &nameObj,
 		}
 

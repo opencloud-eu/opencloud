@@ -245,7 +245,8 @@ func retrieveSet[T Foo, C SetCommand[T], R SetResponse[T]](ctx Context, data *Re
 	return retrieveResponseMatchParameters(ctx, data, command.GetCommand(), tag, target)
 }
 
-func retrieveQuery[T Foo, C QueryCommand[T, C], R QueryResponse[T]](ctx Context, data *Response, command C, tag string, target *R) Error {
+// TODO enable self-referencing generics parameter when upgrading to Go 1.26
+func retrieveQuery[T Foo, C QueryCommand[T /*, C*/], R QueryResponse[T]](ctx Context, data *Response, command C, tag string, target *R) Error {
 	return retrieveResponseMatchParameters(ctx, data, command.GetCommand(), tag, target)
 }
 
@@ -394,8 +395,8 @@ func mapPairs[K comparable, L, R any](left map[K]L, right map[K]R) map[K]pair[L,
 }
 
 var (
-	truep  = new(true)
-	falsep = new(false)
+	truep  = ptr(true)
+	falsep = ptr(false)
 )
 
 func identity1[T any](t T) T {
@@ -406,10 +407,10 @@ func list[T Foo, GETRESP GetResponse[T]](r GETRESP) []T { return r.GetList() }
 func getid[T Idable](r T) string                        { return r.GetId() }
 
 func uintPtr[T int | uint](i T) *uint {
-	return new(uint(i))
+	return ptr(uint(i))
 }
 
-func valueIf[T any | uint | int | bool](value *T, condition bool) *T {
+func valueIf[T any | uint | int | bool | any](value *T, condition bool) *T {
 	if condition {
 		return value
 	} else {
@@ -432,4 +433,9 @@ func ns(namespaces ...JmapNamespace) []JmapNamespace {
 		result[i+1] = n
 	}
 	return result
+}
+
+// TODO remove and replace with calls to new() when upgrading to Go 1.26
+func ptr[T any | int | uint | bool | string](t T) *T {
+	return &t
 }

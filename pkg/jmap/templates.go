@@ -485,7 +485,8 @@ func query[T Foo, FILTER any, SORT any, QUERY QueryCommand[T], GET GetCommand[T]
 }
 */
 
-func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T, QUERY], GET GetCommand[T], QUERYRESP QueryResponse[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
+// TODO enable self-referencing generics parameter when upgrading to Go 1.26
+func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T /*, QUERY*/], GET GetCommand[T], QUERYRESP QueryResponse[T], GETRESP GetResponse[T], RESP any]( //NOSONAR
 	client *Client, name string, objType ObjectType,
 	defaultSortBy []SORT,
 	queryCommandFactory func(accountId AccountId, queryParams QueryParams, limit *uint, filter FILTER, sortBy []SORT) QUERY,
@@ -504,11 +505,11 @@ func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T, QUERY], GET GetCo
 
 	invocations := make([]Invocation, len(accountIds)*2)
 	var g GET
-	var q QUERY
+	var q QueryCommand[T] // TODO change type to QUERY when upgrading to Go 1.26
 	{
 		i := 0
 		for accountId, queryParams := range accountIds {
-			query := queryCommandFactory(accountId, queryParams, limit, filter, sortBy)
+			var query QueryCommand[T] = queryCommandFactory(accountId, queryParams, limit, filter, sortBy) // TODO change type to QUERY when upgrading to Go 1.26
 			q = query
 			invocations[i*2+0] = invocation(query, mcid(accountId, "0"))
 			if limit != nil && *limit == 0 {

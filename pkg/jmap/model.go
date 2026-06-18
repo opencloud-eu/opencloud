@@ -1389,11 +1389,13 @@ type ChangesResponse[T Foo] interface {
 	GetDestroyed() []string
 }
 
-type QueryCommand[T Foo, SELF QueryCommand[T, SELF]] interface {
+// TODO enable self-referencing generics parameter when upgrading to Go 1.26
+// type QueryCommand[T Foo, SELF QueryCommand[T, SELF]] interface {
+type QueryCommand[T Foo] interface {
 	JmapCommand
 	GetResponse() QueryResponse[T]
 	// Wither that creates a new object of the same type, keeping all the same values except for the limit that is specified as parameter.
-	WithLimit(limit *uint) SELF
+	WithLimit(limit *uint) QueryCommand[T] // TODO change return type to SELF when upgrading to Go 1.26
 }
 
 type QueryResponse[T Foo] interface {
@@ -1912,12 +1914,15 @@ type MailboxQueryCommand struct {
 	CalculateTotal bool `json:"calculateTotal,omitempty"`
 }
 
-var _ QueryCommand[Mailbox, MailboxQueryCommand] = &MailboxQueryCommand{}
+// TODO enable self-referencing generics parameter when upgrading to Go 1.26
+var _ QueryCommand[Mailbox /*, MailboxQueryCommand*/] = &MailboxQueryCommand{}
 
 func (c MailboxQueryCommand) GetCommand() Command                 { return CommandMailboxQuery }
 func (c MailboxQueryCommand) GetObjectType() ObjectType           { return MailboxType }
 func (c MailboxQueryCommand) GetResponse() QueryResponse[Mailbox] { return &MailboxQueryResponse{} }
-func (c MailboxQueryCommand) WithLimit(limit *uint) MailboxQueryCommand {
+
+// TODO enable self-referencing generics parameter when upgrading to Go 1.26
+func (c MailboxQueryCommand) WithLimit(limit *uint) QueryCommand[Mailbox] /*MailboxQueryCommand*/ {
 	return MailboxQueryCommand{
 		AccountId:      c.AccountId,
 		Filter:         c.Filter,
@@ -2232,12 +2237,15 @@ type EmailQueryCommand struct {
 	CalculateTotal bool `json:"calculateTotal,omitempty"`
 }
 
-var _ QueryCommand[Email, EmailQueryCommand] = &EmailQueryCommand{}
+// TODO enable self-referencing generics parameter when upgrading to Go 1.26
+var _ QueryCommand[Email /*, EmailQueryCommand*/] = &EmailQueryCommand{}
 
 func (c EmailQueryCommand) GetCommand() Command               { return CommandEmailQuery }
 func (c EmailQueryCommand) GetObjectType() ObjectType         { return MailboxType }
 func (c EmailQueryCommand) GetResponse() QueryResponse[Email] { return &EmailQueryResponse{} }
-func (c EmailQueryCommand) WithLimit(limit *uint) EmailQueryCommand {
+
+// TODO enable self-referencing generics parameter when upgrading to Go 1.26
+func (c EmailQueryCommand) WithLimit(limit *uint) QueryCommand[Email] /*EmailQueryCommand*/ {
 	return EmailQueryCommand{
 		AccountId:       c.AccountId,
 		Filter:          c.Filter,
@@ -7203,14 +7211,17 @@ type ContactCardQueryCommand struct {
 	CalculateTotal bool `json:"calculateTotal,omitzero"`
 }
 
-var _ QueryCommand[ContactCard, ContactCardQueryCommand] = &ContactCardQueryCommand{}
+// TODO enable self-referencing generics parameter when upgrading to Go 1.26
+var _ QueryCommand[ContactCard /*, ContactCardQueryCommand*/] = &ContactCardQueryCommand{}
 
 func (c ContactCardQueryCommand) GetCommand() Command       { return CommandContactCardQuery }
 func (c ContactCardQueryCommand) GetObjectType() ObjectType { return ContactCardType }
 func (c ContactCardQueryCommand) GetResponse() QueryResponse[ContactCard] {
 	return &ContactCardQueryResponse{}
 }
-func (c ContactCardQueryCommand) WithLimit(limit *uint) ContactCardQueryCommand {
+
+// TODO enable self-referencing generics parameter when upgrading to Go 1.26
+func (c ContactCardQueryCommand) WithLimit(limit *uint) QueryCommand[ContactCard] /*ContactCardQueryCommand*/ {
 	return ContactCardQueryCommand{
 		AccountId:      c.AccountId,
 		Filter:         c.Filter,
@@ -7952,14 +7963,17 @@ type CalendarEventQueryCommand struct {
 	CalculateTotal bool `json:"calculateTotal,omitempty" doc:"opt" default:"false"`
 }
 
-var _ QueryCommand[CalendarEvent, CalendarEventQueryCommand] = &CalendarEventQueryCommand{}
+// TODO enable self-referencing generics parameter when upgrading to Go 1.26
+var _ QueryCommand[CalendarEvent /*, CalendarEventQueryCommand*/] = &CalendarEventQueryCommand{}
 
 func (c CalendarEventQueryCommand) GetCommand() Command       { return CommandCalendarEventQuery }
 func (c CalendarEventQueryCommand) GetObjectType() ObjectType { return CalendarEventType }
 func (c CalendarEventQueryCommand) GetResponse() QueryResponse[CalendarEvent] {
 	return &CalendarEventQueryResponse{}
 }
-func (c CalendarEventQueryCommand) WithLimit(limit *uint) CalendarEventQueryCommand {
+
+// TODO enable self-referencing generics parameter when upgrading to Go 1.26
+func (c CalendarEventQueryCommand) WithLimit(limit *uint) QueryCommand[CalendarEvent] /*CalendarEventQueryCommand*/ {
 	return CalendarEventQueryCommand{
 		AccountId:      c.AccountId,
 		Filter:         c.Filter,
@@ -8451,14 +8465,17 @@ type PrincipalQueryCommand struct {
 	CalculateTotal bool `json:"calculateTotal,omitzero"`
 }
 
-var _ QueryCommand[Principal, PrincipalQueryCommand] = &PrincipalQueryCommand{}
+// TODO enable self-referencing generics parameter when upgrading to Go 1.26
+var _ QueryCommand[Principal /*, PrincipalQueryCommand*/] = &PrincipalQueryCommand{}
 
 func (c PrincipalQueryCommand) GetCommand() Command       { return CommandPrincipalQuery }
 func (c PrincipalQueryCommand) GetObjectType() ObjectType { return PrincipalType }
 func (c PrincipalQueryCommand) GetResponse() QueryResponse[Principal] {
 	return &PrincipalQueryResponse{}
 }
-func (c PrincipalQueryCommand) WithLimit(limit *uint) PrincipalQueryCommand {
+
+// TODO enable self-referencing generics parameter when upgrading to Go 1.26
+func (c PrincipalQueryCommand) WithLimit(limit *uint) QueryCommand[Principal] /*PrincipalQueryCommand*/ {
 	return PrincipalQueryCommand{
 		AccountId:      c.AccountId,
 		Filter:         c.Filter,
