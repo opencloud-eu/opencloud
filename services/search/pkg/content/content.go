@@ -22,6 +22,7 @@ type Document struct {
 	MimeType  string
 	Tags      []string
 	Favorites []string
+	Metadata  map[string]string          `json:"metadata,omitempty"`
 	Audio     *libregraph.Audio          `json:"audio,omitempty"`
 	Image     *libregraph.Image          `json:"image,omitempty"`
 	Location  *libregraph.GeoCoordinates `json:"location,omitempty"`
