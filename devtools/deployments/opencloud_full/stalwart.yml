@@ -48,6 +48,13 @@ services:
         echo "Starting Stalwart in production mode"
         exec /usr/local/bin/stalwart --config /etc/stalwart/config.json
 
+    healthcheck:
+      test: ["CMD-SHELL", "curl -LsSf http://localhost:8080/healthz/live|grep -q '\"status\":200'"]
+      interval: 10s
+      retries: 5
+      start_period: 3s
+      timeout: 3s
+
   stalwart-import:
     image: stalwart-cli:latest
     build:
