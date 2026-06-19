@@ -39,7 +39,6 @@ func Server(opts ...Option) (http.Service, error) {
 		svc.Logger(options.Logger),
 		svc.Config(options.Config),
 		svc.Middleware(
-			middleware.RealIP,
 			middleware.RequestID,
 			groupwaremiddleware.TraceID,
 			opencloudmiddleware.Cors(
