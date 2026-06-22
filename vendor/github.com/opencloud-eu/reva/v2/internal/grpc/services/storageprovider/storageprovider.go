@@ -631,7 +631,10 @@ func (s *Service) DeleteStorageSpace(ctx context.Context, req *provider.DeleteSt
 		case errtypes.IsNotFound:
 			st = status.NewNotFound(ctx, "space not found")
 		case errtypes.PermissionDenied:
-			st = status.NewPermissionDenied(ctx, err, "permission denied")
+			// The requesting user, while being a member of the space, is currently
+			// not allowed to list that space. E.g. because it is disabled. Return
+			// a "NotFound" status here.
+			st = status.NewNotFound(ctx, "space not found")
 		case errtypes.BadRequest:
 			st = status.NewInvalid(ctx, err.Error())
 		default:

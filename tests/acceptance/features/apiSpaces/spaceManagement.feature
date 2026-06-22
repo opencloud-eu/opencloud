@@ -152,11 +152,14 @@ Feature: Space management
 
   Scenario Outline: space admin user tries to disable the personal space
     When user "<user>" disables a space "Alice Hansen" owned by user "Alice"
-    Then the HTTP status code should be "404"
+    Then the HTTP status code should be "<code>"
     Examples:
-      | user  |
-      | Brian |
-      | Carol |
+      | user  | code |
+      # Brian is Space Admin and can currently list all Personal Spaces, so he
+      # gets a 403 instead of a 404 here. This might change in the future see:
+      # https://github.com/opencloud-eu/opencloud/issues/2979
+      | Brian | 403  |
+      | Carol | 404  |
 
 
   Scenario: space admin user deletes the project space

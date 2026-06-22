@@ -41,7 +41,6 @@ import (
 
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/ignore"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
@@ -898,10 +897,7 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 		}
 
 		// skip irrelevant files
-		if t.Ignorer.IsInternal(path) ||
-			ignore.IsLockFile(path) ||
-			ignore.IsTrash(path) ||
-			t.Ignorer.IsUpload(path) {
+		if !t.Ignorer.IsSpaceRoot(path) && t.Ignorer.IsIgnored(path) {
 			if info.IsDir() {
 				return filepath.SkipDir
 			}

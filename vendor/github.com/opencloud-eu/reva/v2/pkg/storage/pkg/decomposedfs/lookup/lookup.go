@@ -45,6 +45,8 @@ var tracer trace.Tracer
 
 const (
 	_spaceTypePersonal = "personal"
+
+	IndexesDir = "indexes"
 )
 
 func init() {

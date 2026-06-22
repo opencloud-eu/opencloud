@@ -7,9 +7,20 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/blobstore"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/tree/propagator"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/templates"
 	"github.com/rs/zerolog"
 )
+
+const (
+	// The needles include the separator at the beginning to avoid matching internal dir names in substrings
+	// The end segment boundary is checked in isInternalDir
+	trashNeedle    = needle(string(filepath.Separator) + lookup.TrashDir)
+	metadataNeedle = needle(string(filepath.Separator) + lookup.MetadataDir)
+	tmpNeedle      = needle(string(filepath.Separator) + blobstore.TMPDir)
+)
+
+type needle string
 
 // Ignorer handles checking if paths should be ignored in posix operations
 type Ignorer struct {
@@ -31,37 +42,27 @@ func NewIgnorer(options *options.Options, log *zerolog.Logger) *Ignorer {
 
 // IsIgnored checking if paths should be ignored in posix operations
 func (i *Ignorer) IsIgnored(path string) bool {
-	return IsLockFile(path) || IsTrash(path) || i.IsUpload(path) || i.IsInternal(path) || i.IsRootPath(path) || i.IsSpaceRoot(path)
+	return i.IsChanges(path) ||
+		i.IsIndex(path) ||
+		IsLockFile(path) ||
+		i.IsTrash(path) ||
+		i.IsMetadata(path) ||
+		i.IsTemporary(path) ||
+		i.IsUpload(path) ||
+		i.IsRootPath(path) ||
+		i.IsSpaceRoot(path)
+}
+
+func (i *Ignorer) IsChanges(path string) bool {
+	return strings.HasPrefix(path, filepath.Join(i.options.Root, propagator.ChangesDir))
+}
+
+func (i *Ignorer) IsIndex(path string) bool {
+	return strings.HasPrefix(path, filepath.Join(i.options.Root, lookup.IndexesDir))
 }
 
 func (i *Ignorer) IsUpload(path string) bool {
 	return strings.HasPrefix(path, i.options.UploadDirectory)
-}
-
-func (i *Ignorer) IsIndex(path string) bool {
-	return strings.HasPrefix(path, filepath.Join(i.options.Root, "indexes"))
-}
-
-func (i *Ignorer) IsChanges(path string) bool {
-	return strings.HasPrefix(path, filepath.Join(i.options.Root, "changes"))
-}
-
-func (i *Ignorer) IsTemporary(path string) bool {
-	if filepath.IsAbs(path) {
-		tmpDirPattern := filepath.Join(i.options.Root, "*", "*", blobstore.TMPDir)
-		isTempDir, err := filepath.Match(tmpDirPattern, path)
-		if err != nil {
-			i.log.Error().Err(err).Str("pattern", tmpDirPattern).Str("path", path).Msg("error matching temporary path")
-			return false
-		}
-		isTempParentDir, err := filepath.Match(tmpDirPattern, filepath.Dir(path))
-		if err != nil {
-			i.log.Error().Err(err).Str("pattern", tmpDirPattern).Str("path", filepath.Dir(path)).Msg("error matching temporary path")
-			return false
-		}
-		return isTempDir || isTempParentDir
-	}
-	return path == blobstore.TMPDir || filepath.Dir(path) == blobstore.TMPDir
 }
 
 func (i *Ignorer) IsRootPath(path string) bool {
@@ -75,14 +76,39 @@ func (i *Ignorer) IsSpaceRoot(path string) bool {
 	return parent == i.personalSpacesRoot || parent == i.projectSpacesRoot
 }
 
-func (i *Ignorer) IsInternal(path string) bool {
-	return i.IsIndex(path) || strings.Contains(path, lookup.MetadataDir) || i.IsTemporary(path) || i.IsChanges(path)
-}
-
 func IsLockFile(path string) bool {
 	return strings.HasSuffix(path, ".flock") || strings.HasSuffix(path, ".mlock")
 }
 
-func IsTrash(path string) bool {
-	return strings.HasSuffix(path, ".trashinfo") || strings.HasSuffix(path, ".trashitem") || strings.Contains(path, ".Trash")
+func (i *Ignorer) IsMetadata(path string) bool {
+	return i.isInternalDir(path, metadataNeedle)
+}
+
+func (i *Ignorer) IsTemporary(path string) bool {
+	return i.isInternalDir(path, tmpNeedle)
+}
+
+func (i *Ignorer) IsTrash(path string) bool {
+	return i.isInternalDir(path, trashNeedle)
+}
+
+// isInternalDir checks if the path contains the match dir and that the match lives
+// in the space root, e.g. "/storage/users/user1/.metadata/file" -> match is ".metadata",
+// parent dir is "/storage/users/user1" which is a space root, so this would return true
+func (i *Ignorer) isInternalDir(path string, match needle) bool {
+	idx := strings.Index(path, string(match))
+	if idx <= 0 {
+		return false
+	}
+
+	// must end at a segment boundary (end of path or separator)
+	if length := idx + len(match); length != len(path) && path[length] != filepath.Separator {
+		return false
+	}
+
+	// get the path of the parent dir, e.g. "/a/match" ->  index of "match" is 3
+	// so parentPath is path[:2] -> "/a"
+	parentPath := path[:idx-1]
+
+	return len(parentPath) > 0 && i.IsSpaceRoot(parentPath)
 }

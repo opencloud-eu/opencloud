@@ -63,28 +63,28 @@ Feature: Disabling and deleting space
   Scenario Outline: user cannot delete their own space without first disabling it
     Given the administrator has assigned the role "<user-role>" to user "Alice" using the Graph API
     When user "Alice" deletes a space "Project Moon"
-    Then the HTTP status code should be "400"
+    Then the HTTP status code should be "<code>"
     And the user "Alice" should have a space called "Project Moon"
     Examples:
-      | user-role   |
-      | Admin       |
-      | Space Admin |
-      | User        |
-      | User Light  |
+      | user-role   | code |
+      | Admin       | 400  |
+      | Space Admin | 400  |
+      | User        | 403  |
+      | User Light  | 403  |
 
 
-  Scenario Outline: user can delete their own disabled space via the Graph API
+  Scenario Outline: user cannot delete their own disabled space via the Graph API
     Given the administrator has assigned the role "<user-role>" to user "Alice" using the Graph API
     And user "Alice" has disabled a space "Project Moon"
     When user "Alice" deletes a space "Project Moon"
-    Then the HTTP status code should be "204"
-    And the user "Alice" should not have a space called "Project Moon"
+    Then the HTTP status code should be "<code>"
+    And the user "Alice" <shouldOrNot> have a space called "Project Moon"
     Examples:
-      | user-role   |
-      | Admin       |
-      | Space Admin |
-      | User        |
-      | User Light  |
+      | user-role   | code | shouldOrNot |
+      | Admin       | 204  | should not  |
+      | Space Admin | 204  | should not  |
+      | User        | 403  | should      |
+      | User Light  | 403  | should      |
 
 
   Scenario Outline: an admin and space manager can disable other space via the Graph API
@@ -134,7 +134,7 @@ Feature: Disabling and deleting space
 
   Scenario Outline: viewer and space editor cannot disable space
     When user "<user>" tries to disable a space "Project Moon" owned by user "Alice"
-    Then the HTTP status code should be "404"
+    Then the HTTP status code should be "403"
     And the user "<user>" should have a space called "Project Moon"
     Examples:
       | user  |

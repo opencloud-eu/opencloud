@@ -326,6 +326,10 @@ func (t *Tree) GetMD(_ context.Context, n *node.Node) (os.FileInfo, error) {
 
 // TouchFile creates a new empty file
 func (t *Tree) TouchFile(ctx context.Context, n *node.Node, markprocessing bool, mtime string) error {
+	if t.Ignorer.IsIgnored(filepath.Join(n.ParentPath(), n.Name)) {
+		return errtypes.PermissionDenied(n.ID)
+	}
+
 	if n.Exists {
 		if markprocessing {
 			return n.SetXattr(ctx, prefixes.StatusPrefix, []byte(node.ProcessingStatus))
@@ -566,7 +570,7 @@ func (t *Tree) ListFolder(ctx context.Context, n *node.Node) ([]*node.Node, erro
 	g.Go(func() error {
 		defer close(work)
 		for _, name := range names {
-			if t.Ignorer.IsInternal(name) || ignore.IsLockFile(name) || ignore.IsTrash(name) {
+			if t.Ignorer.IsIgnored(filepath.Join(dir, name)) {
 				continue
 			}
 
@@ -758,6 +762,10 @@ func (t *Tree) ResolveSpaceIDIndexEntry(spaceID string) (string, error) {
 
 // InitNewNode initializes a new node
 func (t *Tree) InitNewNode(ctx context.Context, n *node.Node, fsize uint64) (metadata.UnlockFunc, error) {
+	if t.Ignorer.IsIgnored(filepath.Join(n.ParentPath(), n.Name)) {
+		return nil, errtypes.PermissionDenied(n.ID)
+	}
+
 	_, span := tracer.Start(ctx, "InitNewNode")
 	defer span.End()
 	// create folder structure (if needed)
@@ -804,6 +812,10 @@ func (t *Tree) InitNewNode(ctx context.Context, n *node.Node, fsize uint64) (met
 
 // TODO check if node exists?
 func (t *Tree) createDirNode(ctx context.Context, n *node.Node) (err error) {
+	if t.Ignorer.IsIgnored(filepath.Join(n.ParentPath(), n.Name)) {
+		return errtypes.PermissionDenied(n.ID)
+	}
+
 	ctx, span := tracer.Start(ctx, "createDirNode")
 	defer span.End()
 
@@ -850,6 +862,7 @@ func (t *Tree) createDirNode(ctx context.Context, n *node.Node) (err error) {
 	attributes := n.NodeMetadata(ctx)
 	attributes[prefixes.MTimeAttr] = []byte(mtime.UTC().Format(time.RFC3339Nano))
 	attributes[prefixes.IDAttr] = []byte(n.ID)
+	attributes[prefixes.SpaceIDAttr] = []byte(n.SpaceID)
 	attributes[prefixes.TreesizeAttr] = []byte("0") // initialize as empty, TODO why bother? if it is not set we could treat it as 0?
 
 	if t.options.TreeTimeAccounting || t.options.TreeSizeAccounting {

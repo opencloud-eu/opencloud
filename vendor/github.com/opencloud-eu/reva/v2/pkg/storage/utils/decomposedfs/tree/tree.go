@@ -867,6 +867,7 @@ func (t *Tree) createDirNode(ctx context.Context, n *node.Node) (err error) {
 	}
 
 	attributes := n.NodeMetadata(ctx)
+	attributes[prefixes.SpaceIDAttr] = []byte(n.SpaceID)
 	attributes[prefixes.TreesizeAttr] = []byte("0") // initialize as empty, TODO why bother? if it is not set we could treat it as 0?
 	if t.options.TreeTimeAccounting || t.options.TreeSizeAccounting {
 		attributes[prefixes.PropagationAttr] = []byte("1") // mark the node for propagation

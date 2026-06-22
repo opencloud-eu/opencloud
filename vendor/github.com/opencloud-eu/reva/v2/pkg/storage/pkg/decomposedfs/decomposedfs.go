@@ -206,17 +206,17 @@ func New(o *options.Options, aspects aspects.Aspects, log *zerolog.Logger) (stor
 	if o.LockCycleDurationFactor != 0 {
 		filelocks.SetLockCycleDurationFactor(o.LockCycleDurationFactor)
 	}
-	userSpaceIndex := spaceidindex.New(filepath.Join(o.Root, "indexes"), "by-user-id")
+	userSpaceIndex := spaceidindex.New(filepath.Join(o.Root, lookup.IndexesDir), "by-user-id")
 	err = userSpaceIndex.Init()
 	if err != nil {
 		return nil, err
 	}
-	groupSpaceIndex := spaceidindex.New(filepath.Join(o.Root, "indexes"), "by-group-id")
+	groupSpaceIndex := spaceidindex.New(filepath.Join(o.Root, lookup.IndexesDir), "by-group-id")
 	err = groupSpaceIndex.Init()
 	if err != nil {
 		return nil, err
 	}
-	spaceTypeIndex := spaceidindex.New(filepath.Join(o.Root, "indexes"), "by-type")
+	spaceTypeIndex := spaceidindex.New(filepath.Join(o.Root, lookup.IndexesDir), "by-type")
 	err = spaceTypeIndex.Init()
 	if err != nil {
 		return nil, err

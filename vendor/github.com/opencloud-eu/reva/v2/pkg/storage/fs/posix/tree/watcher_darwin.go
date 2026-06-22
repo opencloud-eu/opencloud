@@ -12,7 +12,6 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/rs/zerolog"
 
-	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/ignore"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher"
 )
@@ -43,7 +42,7 @@ func NewWatcher(tree *Tree, o *options.Options, log *zerolog.Logger) (*FSnotifyW
 // add takes care of adding watches for root and its subpaths.
 func (w *FSnotifyWatcher) add(fsWatcher *fsnotify.Watcher, root string) error {
 	// Check if the root is ignored before walking the tree
-	if isPathIgnored(w.tree, root) {
+	if w.tree.Ignorer.IsIgnored(root) {
 		return nil
 	}
 
@@ -53,7 +52,7 @@ func (w *FSnotifyWatcher) add(fsWatcher *fsnotify.Watcher, root string) error {
 		}
 
 		// skip ignored paths or files
-		if isPathIgnored(w.tree, p) || !d.IsDir() {
+		if w.tree.Ignorer.IsIgnored(p) || !d.IsDir() {
 			return nil
 		}
 
@@ -99,7 +98,7 @@ func (w *FSnotifyWatcher) handleEvent(fsWatcher *fsnotify.Watcher, event fsnotif
 	isWrite := event.Op&fsnotify.Write != 0
 
 	isKnownEvent := isCreate || isRemove || isRename || isWrite
-	isIgnored := isPathIgnored(w.tree, event.Name)
+	isIgnored := w.tree.Ignorer.IsIgnored(event.Name)
 
 	// filter out unwanted events
 	if isIgnored || !isKnownEvent {
@@ -208,20 +207,4 @@ func isSubpath(root, p string) bool {
 	}
 
 	return rel != "." && !strings.HasPrefix(rel, "..")
-}
-
-// isIgnored checks if the path is ignored by its tree.
-func isPathIgnored(tree *Tree, path string) bool {
-
-	isLockFile := ignore.IsLockFile(path)
-	isTrash := ignore.IsTrash(path)
-	isUpload := tree.isUpload(path)
-	isInternal := tree.isInternal(path)
-
-	// ask the tree if the path is internal or ignored
-	return path == "" ||
-		isLockFile ||
-		isTrash ||
-		isUpload ||
-		isInternal
 }

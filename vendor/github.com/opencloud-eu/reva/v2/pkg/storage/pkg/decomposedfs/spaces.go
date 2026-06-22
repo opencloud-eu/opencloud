@@ -1147,8 +1147,8 @@ func canDeleteSpace(ctx context.Context, spaceID string, typ string, purge bool,
 		return errtypes.PermissionDenied("user is not allowed to delete a personal space")
 	}
 
-	// space managers are allowed to disable and delete their project spaces
-	if rp, err := p.AssemblePermissions(ctx, n); err == nil && permissions.IsManager(rp) {
+	// space managers are allowed to disable their project spaces
+	if rp, err := p.AssemblePermissions(ctx, n); err == nil && !purge && permissions.IsManager(rp) {
 		return nil
 	}
 

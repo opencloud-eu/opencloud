@@ -135,6 +135,7 @@ func (session *DecomposedFsSession) FinishUploadDecomposed(ctx context.Context) 
 
 	ctx = ctxpkg.ContextSetInitiator(ctx, session.InitiatorID())
 
+	ctx = context.WithoutCancel(ctx) // Do not cancel the finish process, we unconditionally want to complete the upload.
 	sha1h, md5h, adler32h, err := node.CalculateChecksums(ctx, session.binPath())
 	if err != nil {
 		return err

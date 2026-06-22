@@ -119,11 +119,18 @@ func (s *svc) handleTusPost(ctx context.Context, w http.ResponseWriter, r *http.
 		isSecretFileDrop = true
 	}
 
-	// r.Header.Get(net.HeaderOCChecksum)
-	// TODO must be SHA1, ADLER32 or MD5 ... in capital letters????
-	// curl -X PUT https://demo.example.org/remote.php/webdav/testcs.bin -u demo:demo -d '123' -v -H 'OC-Checksum: SHA1:40bd001563085fc35165329ea1ff5c5ecbdbbeef'
-
-	// TODO check Expect: 100-continue
+	checksum := ""
+	if cs, ok := meta["checksum"]; ok {
+		cparts := strings.SplitN(cs, " ", 2)
+		if len(cparts) != 2 {
+			log.Debug().Str("upload-checksum", cs).Msg("invalid Upload-Checksum format, expected '[algorithm] [checksum]'")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		} else {
+			// we do not check the algorithm here, because it might depend on the storage
+			checksum = strings.ToLower(cparts[0]) + " " + cparts[1]
+		}
+	}
 
 	client, err := s.gatewaySelector.Next()
 	if err != nil {
@@ -216,6 +223,12 @@ func (s *svc) handleTusPost(ctx context.Context, w http.ResponseWriter, r *http.
 		},
 	}
 
+	if checksum != "" {
+		opaqueMap[net.HeaderUploadChecksum] = &typespb.OpaqueEntry{
+			Decoder: "plain",
+			Value:   []byte(checksum),
+		}
+	}
 	mtime := meta["mtime"]
 	if mtime != "" {
 		opaqueMap[net.HeaderOCMtime] = &typespb.OpaqueEntry{
