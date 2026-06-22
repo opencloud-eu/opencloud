@@ -6,14 +6,15 @@
 
 @Heiko-Pohl, @JammingBen, @aduffeck, @butonic, @dragonchaser, @kulmann, @rhafer
 
+### 🐛 Bug Fixes
+
+- [stable-7.2] Backport fixes from main [[#2999](https://github.com/opencloud-eu/opencloud/pull/2999)]
+- fix(idp): aarch64 build [[#2906](https://github.com/opencloud-eu/opencloud/pull/2906)]
+- use ldap instead of ldaps internally [[#2880](https://github.com/opencloud-eu/opencloud/pull/2880)]
+
 ### 📚 Documentation
 
 - Rename role_name from "guest" to "user-light"  [[#2912](https://github.com/opencloud-eu/opencloud/pull/2912)]
-
-### 🐛 Bug Fixes
-
-- fix(idp): aarch64 build [[#2906](https://github.com/opencloud-eu/opencloud/pull/2906)]
-- use ldap instead of ldaps internally [[#2880](https://github.com/opencloud-eu/opencloud/pull/2880)]
 
 ### 📦️ Dependencies
 
