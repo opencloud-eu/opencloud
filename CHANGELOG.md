@@ -17,6 +17,7 @@
 
 ### 📦️ Dependencies
 
+- [full-ci] chore: bump web to v7.1.1 [[#2998](https://github.com/opencloud-eu/opencloud/pull/2998)]
 - bump reva to latest main [[#2922](https://github.com/opencloud-eu/opencloud/pull/2922)]
 - build(deps-dev): bump webpack-manifest-plugin from 5.0.0 to 6.0.1 in /services/idp [[#2884](https://github.com/opencloud-eu/opencloud/pull/2884)]
 - build(deps): bump axios from 1.16.0 to 1.16.1 in /services/idp [[#2883](https://github.com/opencloud-eu/opencloud/pull/2883)]
