@@ -44,6 +44,9 @@ func Server(opts ...Option) (http.Service, error) {
 		microstore.Database("proxy"),
 		microstore.Table("signing-keys"),
 		store.Authentication(options.Config.SigningKeys.AuthUsername, options.Config.SigningKeys.AuthPassword),
+		store.TLSEnabled(options.Config.SigningKeys.EnableTLS),
+		store.TLSInsecure(options.Config.SigningKeys.TLSInsecure),
+		store.TLSRootCA(options.Config.SigningKeys.TLSRootCACertificate),
 	)
 
 	handle := svc.NewService(

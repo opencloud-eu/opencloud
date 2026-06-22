@@ -8,6 +8,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/checks"
 	"github.com/opencloud-eu/opencloud/pkg/handlers"
+	"github.com/opencloud-eu/opencloud/pkg/nats"
 	"github.com/opencloud-eu/opencloud/pkg/service/debug"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
@@ -21,8 +22,13 @@ func Server(opts ...Option) (*http.Server, error) {
 		WithLogger(options.Logger).
 		WithCheck("web reachability", checks.NewHTTPCheck(options.Config.HTTP.Addr))
 
+	secureOption := nats.Secure(
+		options.Config.Events.EnableTLS,
+		options.Config.Events.TLSInsecure,
+		options.Config.Events.TLSRootCACertificate,
+	)
 	readyHandlerConfiguration := healthHandlerConfiguration.
-		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Endpoint))
+		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Endpoint, secureOption))
 
 	var configDumpFunc http.HandlerFunc = configDump(options.Config)
 	return debug.NewService(

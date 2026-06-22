@@ -37,7 +37,6 @@ func DefaultConfig() *config.Config {
 			Store:    "nats-js-kv",
 			Nodes:    []string{"127.0.0.1:9233"},
 			Database: "activitylog",
-			Table:    "",
 		},
 		RevaGateway:     shared.DefaultRevaConfig().Address,
 		DefaultLanguage: "en",

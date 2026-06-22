@@ -81,7 +81,6 @@ func Server(opts ...Option) (http.Service, error) {
 		svc.Logger(options.Logger),
 		svc.Stream(options.Stream),
 		svc.Mux(mux),
-		svc.Store(options.Store),
 		svc.Config(options.Config),
 		svc.GatewaySelector(options.GatewaySelector),
 		svc.TraceProvider(options.TraceProvider),

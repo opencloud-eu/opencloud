@@ -56,6 +56,9 @@ func Server(cfg *config.Config) *cobra.Command {
 					microstore.Database(cfg.Store.Database),
 					microstore.Table(cfg.Store.Table),
 					store.Authentication(cfg.Store.AuthUsername, cfg.Store.AuthPassword),
+					store.TLSEnabled(cfg.Store.EnableTLS),
+					store.TLSInsecure(cfg.Store.TLSInsecure),
+					store.TLSRootCA(cfg.Store.TLSRootCACertificate),
 				)
 
 				svc, err := service.NewPostprocessingService(ctx, logger, st, traceProvider, cfg)

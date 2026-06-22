@@ -287,9 +287,7 @@ class GraphContext implements Context {
 	public function adminDeletesUserUsingTheGraphApi(string $user, ?string $byUser = null): ?ResponseInterface {
 		$credentials = $this->getAdminOrUserCredentials($byUser);
 		$userId = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
-		if ($userId === null) {
-			throw new \RuntimeException("Cannot delete user '$user': no userId found");
-		}
+		$userId = $userId ?: $user;
 		return GraphHelper::deleteUserByUserId(
 			$this->featureContext->getBaseUrl(),
 			$this->featureContext->getStepLineRef(),

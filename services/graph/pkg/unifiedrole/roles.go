@@ -6,11 +6,11 @@ import (
 	"strings"
 
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"github.com/opencloud-eu/reva/v2/pkg/conversions"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/opencloud-eu/reva/v2/pkg/conversions"
-
 	"github.com/opencloud-eu/opencloud/pkg/l10n"
+	graphl10n "github.com/opencloud-eu/opencloud/services/graph/pkg/l10n"
 )
 
 const (
@@ -544,6 +544,46 @@ func weightRoles(roleSet []*libregraph.UnifiedRoleDefinition, constraints string
 	})
 
 	return roleSet
+}
+
+// cloneRole returns a shallow struct copy of r with independent allocations for
+// the Description and DisplayName pointer fields — the only fields mutated by
+// TranslateEntity. All other fields (Id, LibreGraphWeight, RolePermissions) are
+// either read-only or stripped before rendering, so sharing their values is safe.
+func cloneRole(r *libregraph.UnifiedRoleDefinition) libregraph.UnifiedRoleDefinition {
+	c := *r
+	if r.Description != nil {
+		s := *r.Description
+		c.Description = &s
+	}
+	if r.DisplayName != nil {
+		s := *r.DisplayName
+		c.DisplayName = &s
+	}
+	return c
+}
+
+// LocalizeRole returns a translated, independent copy of a single role definition.
+// The global buildInRoles singleton is never modified.
+func LocalizeRole(r *libregraph.UnifiedRoleDefinition, locale string) libregraph.UnifiedRoleDefinition {
+	c := cloneRole(r)
+	if locale != "" && locale != "en" {
+		_ = graphl10n.TranslateEntity(locale, "en", &c,
+			l10n.TranslateField("Description"),
+			l10n.TranslateField("DisplayName"),
+		)
+	}
+	return c
+}
+
+// LocalizeRoles returns a translated, independent copy of each role definition.
+// The global buildInRoles singleton is never modified.
+func LocalizeRoles(roles []*libregraph.UnifiedRoleDefinition, locale string) []libregraph.UnifiedRoleDefinition {
+	out := make([]libregraph.UnifiedRoleDefinition, len(roles))
+	for i, r := range roles {
+		out[i] = LocalizeRole(r, locale)
+	}
+	return out
 }
 
 // GetAllowedResourceActions returns the allowed resource actions for the provided role by condition

@@ -7,14 +7,17 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 
+	"github.com/opencloud-eu/opencloud/pkg/l10n"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 )
 
 // GetRoleDefinitions a list of permission roles than can be used when sharing with users or groups
 func (g Graph) GetRoleDefinitions(w http.ResponseWriter, r *http.Request) {
+	loc := r.Header.Get(l10n.HeaderAcceptLanguage)
+	w.Header().Add("Content-Language", loc)
 	render.Status(r, http.StatusOK)
-	render.JSON(w, r, g.availableRoles)
+	render.JSON(w, r, unifiedrole.LocalizeRoles(g.availableRoles, loc))
 }
 
 // GetRoleDefinition a permission role than can be used when sharing with users or groups
@@ -32,6 +35,8 @@ func (g Graph) GetRoleDefinition(w http.ResponseWriter, r *http.Request) {
 		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, err.Error())
 		return
 	}
+	loc := r.Header.Get(l10n.HeaderAcceptLanguage)
+	w.Header().Add("Content-Language", loc)
 	render.Status(r, http.StatusOK)
-	render.JSON(w, r, role)
+	render.JSON(w, r, unifiedrole.LocalizeRole(role, loc))
 }

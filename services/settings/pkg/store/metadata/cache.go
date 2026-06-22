@@ -140,6 +140,9 @@ func (c *CachedMDC) Init(ctx context.Context, id string) error {
 		microstore.Table(c.cfg.Metadata.Cache.DirectoryTable),
 		store.DisablePersistence(c.cfg.Metadata.Cache.DisablePersistence),
 		store.Authentication(c.cfg.Metadata.Cache.AuthUsername, c.cfg.Metadata.Cache.AuthPassword),
+		store.TLSEnabled(c.cfg.Metadata.Cache.EnableTLS),
+		store.TLSInsecure(c.cfg.Metadata.Cache.TLSInsecure),
+		store.TLSRootCA(c.cfg.Metadata.Cache.TLSRootCACertificate),
 	)
 	c.filesCache = store.Create(
 		store.Store(c.cfg.Metadata.Cache.Store),
@@ -149,6 +152,9 @@ func (c *CachedMDC) Init(ctx context.Context, id string) error {
 		microstore.Table(c.cfg.Metadata.Cache.FileTable),
 		store.DisablePersistence(c.cfg.Metadata.Cache.DisablePersistence),
 		store.Authentication(c.cfg.Metadata.Cache.AuthUsername, c.cfg.Metadata.Cache.AuthPassword),
+		store.TLSEnabled(c.cfg.Metadata.Cache.EnableTLS),
+		store.TLSInsecure(c.cfg.Metadata.Cache.TLSInsecure),
+		store.TLSRootCA(c.cfg.Metadata.Cache.TLSRootCACertificate),
 	)
 	return c.next.Init(ctx, id)
 }

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base32"
 	"encoding/json"
 	"fmt"
@@ -165,6 +166,18 @@ func New(opts ...Option) (*ActivitylogService, error) {
 	// Connect to NATS servers
 	natsOptions := nats.Options{
 		Servers: o.Config.Store.Nodes,
+	}
+	if o.Config.Store.EnableTLS {
+		if o.Config.Store.TLSRootCACertificate != "" {
+			// when root ca is configured use it. an insecure flag is ignored.
+			nats.RootCAs(o.Config.Store.TLSRootCACertificate)(&natsOptions)
+		} else {
+			// enable tls and use insecure flag
+			nats.Secure(&tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: o.Config.Store.TLSInsecure})(&natsOptions)
+		}
+	}
+	if o.Config.Store.AuthUsername != "" && o.Config.Store.AuthPassword != "" {
+		nats.UserInfo(o.Config.Store.AuthUsername, o.Config.Store.AuthPassword)(&natsOptions)
 	}
 	conn, err := natsOptions.Connect()
 	if err != nil {

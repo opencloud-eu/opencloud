@@ -9,9 +9,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/store"
 	"github.com/spf13/cobra"
-	microstore "go-micro.dev/v4/store"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
@@ -77,15 +75,6 @@ func Server(cfg *config.Config) *cobra.Command {
 				return err
 			}
 
-			evStore := store.Create(
-				store.Store(cfg.Store.Store),
-				store.TTL(cfg.Store.TTL),
-				microstore.Nodes(cfg.Store.Nodes...),
-				microstore.Database(cfg.Store.Database),
-				microstore.Table(cfg.Store.Table),
-				store.Authentication(cfg.Store.AuthUsername, cfg.Store.AuthPassword),
-			)
-
 			tm, err := pool.StringToTLSMode(cfg.GRPCClientTLS.Mode)
 			if err != nil {
 				logger.Error().Err(err).Msg("Failed to parse tls mode")
@@ -120,7 +109,6 @@ func Server(cfg *config.Config) *cobra.Command {
 					http.Context(ctx), // NOTE: not passing this "option" leads to a panic in go-micro
 					http.TraceProvider(tracerProvider),
 					http.Stream(evStream),
-					http.Store(evStore),
 					http.GatewaySelector(gatewaySelector),
 					http.HistoryClient(hClient),
 					http.ValueClient(vClient),

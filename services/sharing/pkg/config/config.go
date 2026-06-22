@@ -155,6 +155,7 @@ type Events struct {
 	EnableTLS         bool   `yaml:"enable_tls" env:"OC_EVENTS_ENABLE_TLS;SHARING_EVENTS_ENABLE_TLS" desc:"Enable TLS for the connection to the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	AuthUsername      string `yaml:"auth_username" env:"OC_EVENTS_AUTH_USERNAME;SHARING_EVENTS_AUTH_USERNAME" desc:"Username for the events broker." introductionVersion:"1.0.0"`
 	AuthPassword      string `yaml:"auth_password" env:"OC_EVENTS_AUTH_PASSWORD;SHARING_EVENTS_AUTH_PASSWORD" desc:"Password for the events broker." introductionVersion:"1.0.0"`
+	// TODO use TLSRootCACertificate string `yaml:"tls_root_ca_certificate" env:"OC_EVENTS_TLS_ROOT_CA_CERTIFICATE;SHARING_EVENTS_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided SHARING_EVENTS_TLS_INSECURE will be seen as false." introductionVersion:"1.0.0"`
 }
 
 // PasswordPolicy configures reva password policy

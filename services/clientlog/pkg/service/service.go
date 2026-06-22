@@ -83,7 +83,8 @@ EventLoop:
 			if !ok {
 				break EventLoop
 			}
-			cl.processEvent(event)
+
+			go cl.processEvent(event)
 
 			if cl.stopped.Load() {
 				break EventLoop

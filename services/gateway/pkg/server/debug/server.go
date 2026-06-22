@@ -18,6 +18,7 @@ func Server(opts ...Option) (*http.Server, error) {
 		WithLogger(options.Logger).
 		WithCheck("nats reachability", func(ctx context.Context) error {
 			if options.Config.Cache.ProviderCacheStore == "nats-js-kv" && len(options.Config.Cache.ProviderCacheNodes) > 0 {
+				// no secureOption because we cannot yet configure tls for the cache store
 				return checks.NewNatsCheck(options.Config.Cache.ProviderCacheNodes[0])(ctx)
 			}
 			return nil

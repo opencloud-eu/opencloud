@@ -165,13 +165,16 @@ func metadataDrivers(localEndpoint string, cfg *config.Config) map[string]any {
 			"cache_database": "system",
 		},
 		"filemetadatacache": map[string]any{
-			"cache_store":               cfg.FileMetadataCache.Store,
-			"cache_nodes":               cfg.FileMetadataCache.Nodes,
-			"cache_database":            cfg.FileMetadataCache.Database,
-			"cache_ttl":                 cfg.FileMetadataCache.TTL,
-			"cache_disable_persistence": cfg.FileMetadataCache.DisablePersistence,
-			"cache_auth_username":       cfg.FileMetadataCache.AuthUsername,
-			"cache_auth_password":       cfg.FileMetadataCache.AuthPassword,
+			"cache_store":                   cfg.FileMetadataCache.Store,
+			"cache_nodes":                   cfg.FileMetadataCache.Nodes,
+			"cache_database":                cfg.FileMetadataCache.Database,
+			"cache_ttl":                     cfg.FileMetadataCache.TTL,
+			"cache_disable_persistence":     cfg.FileMetadataCache.DisablePersistence,
+			"cache_auth_username":           cfg.FileMetadataCache.AuthUsername,
+			"cache_auth_password":           cfg.FileMetadataCache.AuthPassword,
+			"cache_tls_enabled":             cfg.FileMetadataCache.EnableTLS,
+			"cache_tls_insecure":            cfg.FileMetadataCache.TLSInsecure,
+			"cache_tls_root_ca_certificate": cfg.FileMetadataCache.TLSRootCACertificate,
 		},
 	}
 

@@ -172,8 +172,11 @@ type Metadata struct {
 
 // Store configures the store to use
 type Store struct {
-	Nodes        []string `yaml:"nodes" env:"OC_PERSISTENT_STORE_NODES;GRAPH_STORE_NODES" desc:"A list of nodes to access the configured store. This has no effect when 'memory' store is configured. Note that the behaviour how nodes are used is dependent on the library of the configured store. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
-	Database     string   `yaml:"database" env:"GRAPH_STORE_DATABASE" desc:"The database name the configured store should use." introductionVersion:"1.0.0"`
-	AuthUsername string   `yaml:"username" env:"OC_PERSISTENT_STORE_AUTH_USERNAME;GRAPH_STORE_AUTH_USERNAME" desc:"The username to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
-	AuthPassword string   `yaml:"password" env:"OC_PERSISTENT_STORE_AUTH_PASSWORD;GRAPH_STORE_AUTH_PASSWORD" desc:"The password to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
+	Nodes                []string `yaml:"nodes" env:"OC_PERSISTENT_STORE_NODES;GRAPH_STORE_NODES" desc:"A list of nodes to access the configured store. This has no effect when 'memory' store is configured. Note that the behaviour how nodes are used is dependent on the library of the configured store. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
+	Database             string   `yaml:"database" env:"GRAPH_STORE_DATABASE" desc:"The database name the configured store should use." introductionVersion:"1.0.0"`
+	AuthUsername         string   `yaml:"username" env:"OC_PERSISTENT_STORE_AUTH_USERNAME;GRAPH_STORE_AUTH_USERNAME" desc:"The username to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
+	AuthPassword         string   `yaml:"password" env:"OC_PERSISTENT_STORE_AUTH_PASSWORD;GRAPH_STORE_AUTH_PASSWORD" desc:"The password to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
+	EnableTLS            bool     `yaml:"enable_tls" env:"OC_PERSISTENT_STORE_ENABLE_TLS;GRAPH_STORE_ENABLE_TLS" desc:"Enable TLS for the connection to the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"%%NEXT%%"`
+	TLSInsecure          bool     `yaml:"tls_insecure" env:"OC_INSECURE;OC_PERSISTENT_STORE_TLS_INSECURE;GRAPH_STORE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"%%NEXT%%"`
+	TLSRootCACertificate string   `yaml:"tls_root_ca_certificate" env:"OC_PERSISTENT_STORE_TLS_ROOT_CA_CERTIFICATE;GRAPH_STORE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided GRAPH_STORE_TLS_INSECURE will be seen as false." introductionVersion:"%%NEXT%%"`
 }

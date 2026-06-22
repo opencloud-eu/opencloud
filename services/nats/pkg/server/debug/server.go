@@ -6,6 +6,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/checks"
 	"github.com/opencloud-eu/opencloud/pkg/handlers"
+	"github.com/opencloud-eu/opencloud/pkg/nats"
 	"github.com/opencloud-eu/opencloud/pkg/service/debug"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 )
@@ -14,12 +15,17 @@ import (
 func Server(opts ...Option) (*http.Server, error) {
 	options := newOptions(opts...)
 
+	secureOption := nats.Secure(
+		options.Config.Nats.EnableTLS,
+		options.Config.Nats.TLSSkipVerifyClientCert,
+		options.Config.Nats.TLSCert,
+	)
 	// For nats readiness and liveness checks are identical
 	// the nats server will neither be healthy nor ready when it can not reach the nats server/cluster
 	checkHandler := handlers.NewCheckHandler(
 		handlers.NewCheckHandlerConfiguration().
 			WithLogger(options.Logger).
-			WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Nats.Host+":"+strconv.Itoa(options.Config.Nats.Port))),
+			WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Nats.Host+":"+strconv.Itoa(options.Config.Nats.Port), secureOption)),
 	)
 
 	return debug.NewService(

@@ -5,6 +5,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/checks"
 	"github.com/opencloud-eu/opencloud/pkg/handlers"
+	"github.com/opencloud-eu/opencloud/pkg/nats"
 	"github.com/opencloud-eu/opencloud/pkg/service/debug"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 )
@@ -13,9 +14,14 @@ import (
 func Server(opts ...Option) (*http.Server, error) {
 	options := newOptions(opts...)
 
+	secureOption := nats.Secure(
+		options.Config.Events.EnableTLS,
+		options.Config.Events.TLSInsecure,
+		options.Config.Events.TLSRootCaCertPath,
+	)
 	readyHandlerConfiguration := handlers.NewCheckHandlerConfiguration().
 		WithLogger(options.Logger).
-		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Addr)).
+		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Addr, secureOption)).
 		WithCheck("grpc reachability", checks.NewGRPCCheck(options.Config.GRPC.Addr))
 
 	return debug.NewService(

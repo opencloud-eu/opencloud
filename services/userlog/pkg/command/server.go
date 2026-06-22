@@ -92,6 +92,9 @@ func Server(cfg *config.Config) *cobra.Command {
 				microstore.Database(cfg.Persistence.Database),
 				microstore.Table(cfg.Persistence.Table),
 				store.Authentication(cfg.Persistence.AuthUsername, cfg.Persistence.AuthPassword),
+				store.TLSEnabled(cfg.Persistence.EnableTLS),
+				store.TLSInsecure(cfg.Persistence.TLSInsecure),
+				store.TLSRootCA(cfg.Persistence.TLSRootCACertificate),
 			)
 
 			tm, err := pool.StringToTLSMode(cfg.GRPCClientTLS.Mode)

@@ -470,6 +470,80 @@ trait Provisioning {
 	}
 
 	/**
+	 * Creates a user through the Graph API and replaces a stale existing user if needed.
+	 *
+	 * @param string $userName
+	 * @param string $password
+	 * @param string|null $email
+	 * @param string|null $displayName
+	 * @param string|null $byUser
+	 *
+	 * @return string
+	 * @throws Exception|GuzzleException
+	 */
+	private function createGraphUserWithReplacement(
+		string $userName,
+		string $password,
+		?string $email,
+		?string $displayName,
+		?string $byUser = null
+	): string {
+		$userName = $this->getActualUsername($userName);
+		$userName = \trim($userName);
+		if ($displayName === null) {
+			$displayName = $this->getDisplayNameForUser($userName);
+			if ($displayName === null) {
+				$displayName = $this->getDisplayNameForUser('regularuser');
+			}
+		}
+		if ($email === null) {
+			$email = $this->getEmailAddressForUser($userName);
+			if ($email === null) {
+				$email = \str_replace(["@", " "], "", $userName) . '@opencloud.eu';
+			}
+		}
+		$reqUser = $byUser ? $this->getActualUsername($byUser) : $this->getAdminUsername();
+		$response = GraphHelper::createUser(
+			$this->getBaseUrl(),
+			$this->getStepLineRef(),
+			$reqUser,
+			$this->getPasswordForUser($reqUser),
+			$userName,
+			$password,
+			$email,
+			$displayName,
+		);
+
+		if ($response->getStatusCode() === 409) {
+			$responseBody = $this->getJsonDecodedResponse($response);
+			if (($responseBody['error']['code'] ?? null) === 'nameAlreadyExists') {
+				$deleteResponse = $this->deleteUser($userName);
+				$this->theHTTPStatusCodeShouldBe(204, "", $deleteResponse);
+
+				$response = GraphHelper::createUser(
+					$this->getBaseUrl(),
+					$this->getStepLineRef(),
+					$reqUser,
+					$this->getPasswordForUser($reqUser),
+					$userName,
+					$password,
+					$email,
+					$displayName,
+				);
+			}
+		}
+
+		Assert::assertEquals(
+			201,
+			$response->getStatusCode(),
+			__METHOD__ . " cannot create user '$userName'.\nResponse:" .
+			json_encode($this->getJsonDecodedResponse($response))
+		);
+
+		return (string)$this->getJsonDecodedResponse($response)['id'];
+	}
+
+	/**
 	 * @param string $group group name
 	 *
 	 * @return void
@@ -581,37 +655,7 @@ trait Provisioning {
 					);
 				}
 			} else {
-				// Use the same logic as userHasBeenCreated for email generation
-				if ($email === null) {
-					$email = $this->getEmailAddressForUser($userName);
-					if ($email === null) {
-						// escape @ & space if present in userId
-						$email = \str_replace(["@", " "], "", $userName) . '@opencloud.eu';
-					}
-				}
-
-				$userName = $this->getActualUsername($userName);
-				$userName = \trim($userName);
-
-				$response = GraphHelper::createUser(
-					$this->getBaseUrl(),
-					$this->getStepLineRef(),
-					$this->getAdminUsername(),
-					$this->getAdminPassword(),
-					$userName,
-					$password,
-					$email,
-					$displayName,
-				);
-
-				Assert::assertEquals(
-					201,
-					$response->getStatusCode(),
-					__METHOD__ . " cannot create user '$userName'.\nResponse:" .
-					json_encode($this->getJsonDecodedResponse($response))
-				);
-
-				$userId = $this->getJsonDecodedResponse($response)['id'];
+				$userId = $this->createGraphUserWithReplacement($userName, $password, $email, $displayName);
 			}
 
 			$this->addUserToCreatedUsersList($userName, $password, $displayName, $email, $userId ?? null);
@@ -1069,24 +1113,7 @@ trait Provisioning {
 				);
 			}
 		} else {
-			$reqUser = $byUser ? $this->getActualUsername($byUser) : $this->getAdminUsername();
-			$response = GraphHelper::createUser(
-				$this->getBaseUrl(),
-				$this->getStepLineRef(),
-				$reqUser,
-				$this->getPasswordForUser($reqUser),
-				$user,
-				$password,
-				$email,
-				$displayName,
-			);
-			Assert::assertEquals(
-				201,
-				$response->getStatusCode(),
-				__METHOD__ . " cannot create user '$user'.\nResponse:" .
-				json_encode($this->getJsonDecodedResponse($response))
-			);
-			$userId = $this->getJsonDecodedResponse($response)['id'];
+			$userId = $this->createGraphUserWithReplacement($user, $password, $email, $displayName, $byUser);
 		}
 
 		$this->addUserToCreatedUsersList($user, $password, $displayName, $email, $userId);
@@ -1709,7 +1736,6 @@ trait Provisioning {
 				$this->ocsApiVersion
 			);
 		} else {
-			// users can be deleted using the username in the GraphApi too
 			$response = $this->graphContext->adminDeletesUserUsingTheGraphApi($user);
 		}
 		return $response;

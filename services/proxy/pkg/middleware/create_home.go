@@ -11,6 +11,7 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -48,9 +49,13 @@ func (m createHome) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ctx, span := m.tracer.Start(req.Context(), fmt.Sprintf("%s %s", req.Method, req.URL.Path), trace.WithSpanKind(trace.SpanKindServer))
 	req = req.WithContext(ctx)
 	defer span.End()
-	if !m.shouldServe(req) {
+	next := func() {
 		span.End()
 		m.next.ServeHTTP(w, req)
+	}
+
+	if !m.shouldServe(req) {
+		next()
 		return
 	}
 
@@ -63,6 +68,10 @@ func (m createHome) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	createHomeReq := &provider.CreateHomeRequest{}
 	u, ok := revactx.ContextGetUser(ctx)
 	if ok {
+		if u.GetId().GetType() == userv1beta1.UserType_USER_TYPE_LIGHTWEIGHT || u.GetId().GetType() == userv1beta1.UserType_USER_TYPE_SERVICE {
+			next()
+			return
+		}
 		roleIDs, err := m.getUserRoles(u)
 		if err != nil {
 			m.logger.Error().Err(err).Str("userid", u.Id.OpaqueId).Msg("failed to get roles for user")
@@ -88,12 +97,12 @@ func (m createHome) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 	}
-	span.End()
-	m.next.ServeHTTP(w, req)
+	next()
 }
 
 func (m createHome) shouldServe(req *http.Request) bool {
-	return req.Header.Get(revactx.TokenHeader) != ""
+	ri := router.ContextRoutingInfo(req.Context())
+	return req.Header.Get(revactx.TokenHeader) != "" && !ri.IsRouteUnprotected()
 }
 
 func (m createHome) getUserRoles(user *userv1beta1.User) ([]string, error) {

@@ -31,6 +31,7 @@ import (
 const (
 	parentIDAttrName = "user.oc.parentid"
 	idAttrName       = "user.oc.id"
+	nameAttrName     = "user.oc.name"
 	spaceIDAttrName  = "user.oc.space.id"
 	ownerIDAttrName  = "user.oc.owner.id"
 )
@@ -292,7 +293,7 @@ func checkSpaceID(spacePath string) {
 	}
 }
 
-func walkParentIDs(dir string, parentID string) int {
+func walkNodes(dir string, parentID string) int {
 	fixes := 0
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -307,6 +308,7 @@ func walkParentIDs(dir string, parentID string) int {
 			continue
 		}
 
+		// Check if the parent ID attribute matches the expected parent ID, if not, fix it.
 		actualParentID, err := xattr.Get(fullPath, parentIDAttrName)
 		if err != nil || string(actualParentID) != parentID {
 			err = xattr.Set(fullPath, parentIDAttrName, []byte(parentID))
@@ -314,7 +316,22 @@ func walkParentIDs(dir string, parentID string) int {
 				logFailure("Failed to fix parent ID for '%s': %v", fullPath, err)
 			} else {
 				spinner.Pause()
-				fmt.Printf("\n  + Fixed parent ID for '%s'\n", fullPath)
+				fmt.Printf("  + Fixed parent ID for '%s'", fullPath)
+				spinner.Unpause()
+				fixes++
+				restartRequired = true
+			}
+		}
+
+		// Check that the name attribute matches the actual name of the file/directory, if not, fix it.
+		nameAttr, err := xattr.Get(fullPath, nameAttrName)
+		if err != nil || string(nameAttr) != entry.Name() {
+			err = xattr.Set(fullPath, nameAttrName, []byte(entry.Name()))
+			if err != nil {
+				logFailure("Failed to fix name attribute for '%s': %v", fullPath, err)
+			} else {
+				spinner.Pause()
+				fmt.Printf("  + Fixed name attribute for '%s'", fullPath)
 				spinner.Unpause()
 				fixes++
 				restartRequired = true
@@ -327,14 +344,14 @@ func walkParentIDs(dir string, parentID string) int {
 				logFailure("Directory '%s' missing '%s', skipping its children", fullPath, idAttrName)
 				continue
 			}
-			walkParentIDs(fullPath, string(nodeID))
+			walkNodes(fullPath, string(nodeID))
 		}
 	}
 	return fixes
 }
 
 func checkNodeIDs(spacePath string) {
-	spinner.Message(" - checking parent IDs")
+	spinner.Message(" - checking nodes")
 
 	rootID, err := xattr.Get(spacePath, idAttrName)
 	if err != nil || len(rootID) == 0 {
@@ -342,11 +359,11 @@ func checkNodeIDs(spacePath string) {
 		return
 	}
 
-	fixes := walkParentIDs(spacePath, string(rootID))
+	fixes := walkNodes(spacePath, string(rootID))
 
 	if fixes > 0 {
 		spinner.Pause()
-		fmt.Printf("\n  ✓ Fixed %d incorrect parent IDs in %s\n", fixes, filepath.Base(spacePath))
+		fmt.Printf("\n  ✓ Fixed %d incorrect node attributes in %s\n", fixes, filepath.Base(spacePath))
 		spinner.Unpause()
 	}
 }

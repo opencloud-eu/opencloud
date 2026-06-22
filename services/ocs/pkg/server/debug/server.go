@@ -21,6 +21,7 @@ func Server(opts ...Option) (*http.Server, error) {
 	readyHandlerConfiguration := healthHandlerConfiguration.
 		WithCheck("nats reachability", func(ctx context.Context) error {
 			if len(options.Config.SigningKeys.Nodes) > 0 {
+				// no secureOption because we cannot configure it
 				return checks.NewNatsCheck(options.Config.SigningKeys.Nodes[0])(ctx)
 			}
 			return nil

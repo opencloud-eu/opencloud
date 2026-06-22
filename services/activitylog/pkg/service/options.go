@@ -11,7 +11,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	microstore "go-micro.dev/v4/store"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -25,7 +24,6 @@ type Options struct {
 	TraceProvider       trace.TracerProvider
 	Stream              events.Stream
 	RegisteredEvents    []events.Unmarshaller
-	Store               microstore.Store
 	GatewaySelector     pool.Selectable[gateway.GatewayAPIClient]
 	Mux                 *chi.Mux
 	HistoryClient       ehsvc.EventHistoryService
@@ -66,13 +64,6 @@ func Stream(s events.Stream) Option {
 func RegisteredEvents(e []events.Unmarshaller) Option {
 	return func(o *Options) {
 		o.RegisteredEvents = e
-	}
-}
-
-// Store configures the store to use
-func Store(store microstore.Store) Option {
-	return func(o *Options) {
-		o.Store = store
 	}
 }
 

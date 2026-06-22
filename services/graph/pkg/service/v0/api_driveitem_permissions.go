@@ -22,7 +22,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/publicshare"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -30,16 +29,14 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
-	"github.com/opencloud-eu/opencloud/pkg/l10n"
-	l10n_pkg "github.com/opencloud-eu/opencloud/services/graph/pkg/l10n"
-	"github.com/opencloud-eu/opencloud/services/graph/pkg/odata"
-
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
+	"github.com/opencloud-eu/opencloud/pkg/l10n"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/cache"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/odata"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/validate"
 )
@@ -755,16 +752,8 @@ func (api DriveItemPermissionsApi) ListPermissions(w http.ResponseWriter, r *htt
 
 	loc := r.Header.Get(l10n.HeaderAcceptLanguage)
 	w.Header().Add("Content-Language", loc)
-	if loc != "" && loc != "en" {
-		err := l10n_pkg.TranslateEntity(loc, "en", permissions,
-			l10n.TranslateEach("LibreGraphPermissionsRolesAllowedValues",
-				l10n.TranslateField("Description"),
-				l10n.TranslateField("DisplayName"),
-			),
-		)
-		if err != nil {
-			api.logger.Error().Err(err).Msg("tranlation error")
-		}
+	for i := range permissions.LibreGraphPermissionsRolesAllowedValues {
+		permissions.LibreGraphPermissionsRolesAllowedValues[i] = unifiedrole.LocalizeRole(&permissions.LibreGraphPermissionsRolesAllowedValues[i], loc)
 	}
 
 	render.Status(r, http.StatusOK)
@@ -806,16 +795,8 @@ func (api DriveItemPermissionsApi) ListSpaceRootPermissions(w http.ResponseWrite
 
 	loc := r.Header.Get(l10n.HeaderAcceptLanguage)
 	w.Header().Add("Content-Language", loc)
-	if loc != "" && loc != "en" {
-		err := l10n_pkg.TranslateEntity(loc, "en", permissions,
-			l10n.TranslateEach("LibreGraphPermissionsRolesAllowedValues",
-				l10n.TranslateField("Description"),
-				l10n.TranslateField("DisplayName"),
-			),
-		)
-		if err != nil {
-			api.logger.Error().Err(err).Msg("tranlation error")
-		}
+	for i := range permissions.LibreGraphPermissionsRolesAllowedValues {
+		permissions.LibreGraphPermissionsRolesAllowedValues[i] = unifiedrole.LocalizeRole(&permissions.LibreGraphPermissionsRolesAllowedValues[i], loc)
 	}
 
 	render.Status(r, http.StatusOK)

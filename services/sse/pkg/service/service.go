@@ -49,17 +49,19 @@ func (s SSE) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // ListenForEvents listens for events
 func (s SSE) ListenForEvents() {
 	for e := range s.evChannel {
-		switch ev := e.Event.(type) {
-		default:
-			s.l.Error().Interface("event", ev).Msg("unhandled event")
-		case events.SendSSE:
-			for _, uid := range ev.UserIDs {
-				s.sse.Publish(uid, &sse.Event{
-					Event: []byte(ev.Type),
-					Data:  ev.Message,
-				})
+		go func() {
+			switch ev := e.Event.(type) {
+			default:
+				s.l.Error().Interface("event", ev).Msg("unhandled event")
+			case events.SendSSE:
+				for _, uid := range ev.UserIDs {
+					s.sse.Publish(uid, &sse.Event{
+						Event: []byte(ev.Type),
+						Data:  ev.Message,
+					})
+				}
 			}
-		}
+		}()
 	}
 }
 

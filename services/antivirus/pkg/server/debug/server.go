@@ -10,6 +10,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/checks"
 	"github.com/opencloud-eu/opencloud/pkg/handlers"
+	"github.com/opencloud-eu/opencloud/pkg/nats"
 	"github.com/opencloud-eu/opencloud/pkg/service/debug"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 )
@@ -18,9 +19,14 @@ import (
 func Server(opts ...Option) (*http.Server, error) {
 	options := newOptions(opts...)
 
+	secureOption := nats.Secure(
+		options.Config.Events.EnableTLS,
+		options.Config.Events.TLSInsecure,
+		options.Config.Events.TLSRootCACertificate,
+	)
 	readyHandlerConfiguration := handlers.NewCheckHandlerConfiguration().
 		WithLogger(options.Logger).
-		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Endpoint)).
+		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Endpoint, secureOption)).
 		WithCheck("antivirus reachability", func(ctx context.Context) error {
 			cfg := options.Config
 			switch cfg.Scanner.Type {

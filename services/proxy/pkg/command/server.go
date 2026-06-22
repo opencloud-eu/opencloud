@@ -66,6 +66,9 @@ func Server(cfg *config.Config) *cobra.Command {
 				microstore.Table(cfg.OIDC.UserinfoCache.Table),
 				store.DisablePersistence(cfg.OIDC.UserinfoCache.DisablePersistence),
 				store.Authentication(cfg.OIDC.UserinfoCache.AuthUsername, cfg.OIDC.UserinfoCache.AuthPassword),
+				store.TLSEnabled(cfg.OIDC.UserinfoCache.EnableTLS),
+				store.TLSInsecure(cfg.OIDC.UserinfoCache.TLSInsecure),
+				store.TLSRootCA(cfg.OIDC.UserinfoCache.TLSRootCACertificate),
 			)
 
 			signingKeyStore := store.Create(
@@ -76,6 +79,9 @@ func Server(cfg *config.Config) *cobra.Command {
 				microstore.Table("signing-keys"),
 				store.DisablePersistence(cfg.PreSignedURL.SigningKeys.DisablePersistence),
 				store.Authentication(cfg.PreSignedURL.SigningKeys.AuthUsername, cfg.PreSignedURL.SigningKeys.AuthPassword),
+				store.TLSEnabled(cfg.PreSignedURL.SigningKeys.EnableTLS),
+				store.TLSInsecure(cfg.PreSignedURL.SigningKeys.TLSInsecure),
+				store.TLSRootCA(cfg.PreSignedURL.SigningKeys.TLSRootCACertificate),
 			)
 
 			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)

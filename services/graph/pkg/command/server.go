@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os/signal"
+	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	natspkg "github.com/opencloud-eu/opencloud/pkg/nats"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
@@ -50,13 +52,9 @@ func Server(cfg *config.Config) *cobra.Command {
 			var kv jetstream.KeyValue
 			// Allow to run without a NATS store (e.g. for the standalone Education provisioning service)
 			if len(cfg.Store.Nodes) > 0 {
-				//Connect to NATS servers
-				natsOptions := nats.Options{
-					Servers:  cfg.Store.Nodes,
-					User:     cfg.Store.AuthUsername,
-					Password: cfg.Store.AuthPassword,
-				}
-				conn, err := natsOptions.Connect()
+				// Connect to NATS servers
+				secureOption := natspkg.Secure(cfg.Store.EnableTLS, cfg.Store.TLSInsecure, cfg.Store.TLSRootCACertificate)
+				conn, err := nats.Connect(strings.Join(cfg.Store.Nodes, ","), secureOption, nats.UserInfo(cfg.Store.AuthUsername, cfg.Store.AuthPassword))
 				if err != nil {
 					return err
 				}

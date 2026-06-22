@@ -2,6 +2,7 @@ package unifiedrole_test
 
 import (
 	"slices"
+	"sync"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -266,4 +267,85 @@ func TestGetAllowedResourceActions(t *testing.T) {
 				To(ContainElements(tc.expectedActions))
 		})
 	}
+}
+
+func TestLocalizeRole_English(t *testing.T) {
+	g := NewWithT(t)
+	original := unifiedrole.RoleViewer
+
+	result := unifiedrole.LocalizeRole(original, "en")
+
+	// Strings are unchanged for English
+	g.Expect(result.GetDisplayName()).To(Equal(original.GetDisplayName()))
+	g.Expect(result.GetDescription()).To(Equal(original.GetDescription()))
+
+	// Result is an independent copy — mutating it must not touch the global
+	translated := "mutated"
+	result.DisplayName = &translated
+	g.Expect(original.GetDisplayName()).NotTo(Equal("mutated"))
+}
+
+func TestLocalizeRole_German(t *testing.T) {
+	g := NewWithT(t)
+	original := unifiedrole.RoleViewer
+
+	result := unifiedrole.LocalizeRole(original, "de")
+
+	g.Expect(result.GetDisplayName()).To(Equal("Kann anzeigen"))
+	g.Expect(result.GetDescription()).To(Equal("Ansehen und herunterladen."))
+
+	// Global singleton must be untouched
+	g.Expect(original.GetDisplayName()).NotTo(Equal("Kann anzeigen"))
+	g.Expect(original.GetDescription()).NotTo(Equal("Ansehen und herunterladen."))
+}
+
+func TestLocalizeRole_EmptyLocale(t *testing.T) {
+	g := NewWithT(t)
+	original := unifiedrole.RoleViewer
+
+	result := unifiedrole.LocalizeRole(original, "")
+
+	// Empty locale falls back to source strings
+	g.Expect(result.GetDisplayName()).To(Equal(original.GetDisplayName()))
+	g.Expect(result.GetDescription()).To(Equal(original.GetDescription()))
+}
+
+func TestLocalizeRoles_German(t *testing.T) {
+	g := NewWithT(t)
+	roles := unifiedrole.BuildInRoles
+
+	results := unifiedrole.LocalizeRoles(roles, "de")
+
+	g.Expect(results).To(HaveLen(len(roles)))
+
+	// Every result is a value (not a pointer)
+	for i, r := range results {
+		// Id is preserved
+		g.Expect(r.GetId()).To(Equal(roles[i].GetId()))
+		// Global singleton is not mutated
+		g.Expect(roles[i].GetDisplayName()).NotTo(Equal(r.GetDisplayName()),
+			"global displayName for role %s was mutated", r.GetId())
+	}
+}
+
+func TestLocalizeRole_ConcurrentCallsDoNotRace(t *testing.T) {
+	// Run with -race to detect data races on the global buildInRoles strings.
+	const goroutines = 20
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for i := 0; i < goroutines; i++ {
+		locale := "de"
+		if i%2 == 0 {
+			locale = "fr"
+		}
+		go func(loc string) {
+			defer wg.Done()
+			_ = unifiedrole.LocalizeRoles(unifiedrole.BuildInRoles, loc)
+		}(locale)
+	}
+	wg.Wait()
+
+	// After all concurrent translations the globals must still hold English strings
+	g := NewWithT(t)
+	g.Expect(unifiedrole.RoleViewer.GetDisplayName()).To(Equal("Can view"))
 }

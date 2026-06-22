@@ -7,6 +7,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/checks"
 	"github.com/opencloud-eu/opencloud/pkg/handlers"
+	"github.com/opencloud-eu/opencloud/pkg/nats"
 	"github.com/opencloud-eu/opencloud/pkg/service/debug"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 )
@@ -19,8 +20,13 @@ func Server(opts ...Option) (*http.Server, error) {
 		WithLogger(options.Logger).
 		WithCheck("grpc reachability", checks.NewGRPCCheck(options.Config.GRPC.Addr))
 
+	secureOption := nats.Secure(
+		options.Config.Events.EnableTLS,
+		options.Config.Events.TLSInsecure,
+		options.Config.Events.TLSRootCACertificate,
+	)
 	readyHandlerConfiguration := healthHandlerConfiguration.
-		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Endpoint)).
+		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Endpoint, secureOption)).
 		WithCheck("tika-check", func(ctx context.Context) error {
 			if options.Config.Extractor.Type == "tika" {
 				u, err := url.Parse(options.Config.Extractor.Tika.TikaURL)

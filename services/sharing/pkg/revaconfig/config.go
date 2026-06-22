@@ -83,6 +83,7 @@ func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]
 							"events": map[string]any{
 								"natsaddress":          cfg.Events.Addr,
 								"natsclusterid":        cfg.Events.ClusterID,
+								"enabletls":            cfg.Events.EnableTLS,
 								"tlsinsecure":          cfg.Events.TLSInsecure,
 								"tlsrootcacertificate": cfg.Events.TLSRootCaCertPath,
 								"authusername":         cfg.Events.AuthUsername,
