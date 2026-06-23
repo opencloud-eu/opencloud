@@ -23,6 +23,8 @@ type Config struct {
 	TokenManager *TokenManager `yaml:"token_manager"`
 
 	Context context.Context `yaml:"-"`
+
+	EnableMockData bool `env:"GROUPWARE_ENABLE_MOCK_DATA"`
 }
 
 type MailMasterAuth struct {
