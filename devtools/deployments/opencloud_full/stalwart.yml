@@ -56,7 +56,6 @@ services:
       timeout: 3s
 
   stalwart-import:
-    image: stalwart-cli:latest
     build:
       context: ./config/stalwart/
       args:
