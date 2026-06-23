@@ -399,7 +399,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 			addressBookListSuppliers = append(addressBookListSuppliers, j)
 			contactCardQuerySuppliers = append(contactCardQuerySuppliers, j)
 		}
-		{
+		if config.EnableMockData {
 			m := newMockContactCardSupplier()
 			addressBookListSuppliers = append(addressBookListSuppliers, m)
 			contactCardQuerySuppliers = append(contactCardQuerySuppliers, m)

@@ -58,6 +58,7 @@ func DefaultConfig() *config.Config {
 		Service: config.Service{
 			Name: "groupware",
 		},
+		EnableMockData: false,
 	}
 }
 
