@@ -1,7 +1,7 @@
 ---
 services:
   traefik:
-    image: traefik:v3.3.1
+    image: traefik:v3.7.5
     # release notes: https://github.com/traefik/traefik/releases
     networks:
       opencloud-net:
