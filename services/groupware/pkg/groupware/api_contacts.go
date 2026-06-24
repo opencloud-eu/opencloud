@@ -86,6 +86,17 @@ func (g *Groupware) contacts(accountIds []jmap.AccountId, qps QueryParamsSupplie
 	filter jmap.ContactCardFilterElement, sortBy []jmap.ContactCardComparator, calculateTotal bool,
 	ctx jmap.Context) (jmap.Result[*jmap.ContactCardSearchResults], NextToken, error) {
 	return squery(g.contactCardQuerySuppliers, accountIds, qps, limit, filter, sortBy, calculateTotal, ctx,
+		func(supplier QuerySupplier[jmap.ContactCard, *jmap.ContactCardSearchResults, jmap.ContactCardFilterElement, jmap.ContactCardComparator], filter jmap.ContactCardFilterElement) bool {
+			switch c := filter.(type) {
+			case jmap.ContactCardFilterCondition:
+				if c.InAddressBook != "" {
+					if !supplier.IsMine(c.InAddressBook) {
+						return false
+					}
+				}
+			}
+			return true
+		},
 		func(a, b jmap.ContactCard) int { return a.Created.Compare(b.Created) },
 		func(canCalculateChanges jmap.ChangeCalculation, position, limit, total *uint, results []jmap.ContactCard) *jmap.ContactCardSearchResults {
 			return &jmap.ContactCardSearchResults{
