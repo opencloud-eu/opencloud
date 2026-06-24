@@ -13,6 +13,8 @@ import (
 
 type SupplierId string
 
+const EmptySupplierId = ""
+
 type Supplier[T jmap.Foo] interface {
 	GetId() SupplierId
 	IsMine(id string) bool
@@ -171,6 +173,7 @@ func fillMissingAccounts(qps QueryParamsSupplier, supplierId SupplierId, account
 func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C], F jmap.FilterElement[T], C jmap.Comparator[T]]( //NOSONAR
 	suppliers []S, accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter F, sortBy []C,
 	calculateTotal bool, ctx jmap.Context,
+	filterSupplierPredicate func(supplier S, filter F) bool,
 	sorter func(T, T) int,
 	searchResultCtor func(canCalculateChanges jmap.ChangeCalculation, position *uint, limit *uint, total *uint, results []T) R) (
 	jmap.Result[R], NextToken, error,
@@ -296,6 +299,11 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 		lang := jmap.NoLanguage
 		durations := make([][]time.Duration, len(suppliers))
 		for i, supplier := range suppliers {
+			if !filterSupplierPredicate(supplier, filter) {
+				// the filter is not applicable for this supplier => skip
+				continue
+			}
+
 			// we are not injecting id prefixes here for all the objects, as each supplier is responsible for doing that if necessary
 			if result, err := supplier.Query(accountIds, qps, limit, filter, sortBy, calculateTotal, ctx); err != nil {
 				return jmap.ZeroResult[R](result.Durations), NoNextToken, err

@@ -101,6 +101,9 @@ func pets(
 	calculateTotal bool,
 	ctx jmap.Context) (jmap.Result[*PetSearchResults], NextToken, error) {
 	return squery(suppliers, accountIds, qps, limit, filter, sortBy, calculateTotal, ctx,
+		func(supplier QuerySupplier[Pet, *PetSearchResults, PetFilterElement, PetComparator], filter PetFilterElement) bool {
+			return true
+		},
 		func(a, b Pet) int { return strings.Compare(a.name, b.name) },
 		func(canCalculateChanges jmap.ChangeCalculation, position, limit, total *uint, results []Pet) *PetSearchResults {
 			return &PetSearchResults{
