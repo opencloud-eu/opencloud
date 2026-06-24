@@ -125,7 +125,11 @@ func RefineResultSlice[A, B any](a []*Result[A], refiner func([]*A, []*SessionSt
 		}
 	})
 	durations := structs.Flatten(structs.Map(a, func(e *Result[A]) []time.Duration {
-		return e.Durations
+		if e != nil {
+			return e.Durations
+		} else {
+			return nil
+		}
 	}))
 	b, bss, bs, bl, err := refiner(payloads, sessionStates, states, languages)
 	return NewResult(b, bss, bs, bl, durations), err

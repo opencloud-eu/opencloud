@@ -385,11 +385,15 @@ func Reduce[T any](initialValue T, s []T, reducer func(a, b T) T) T {
 func Flatten[T any](s [][]T) []T {
 	l := 0
 	for _, r := range s {
-		l += len(r)
+		if r != nil {
+			l += len(r)
+		}
 	}
 	result := make([]T, 0, l)
 	for _, r := range s {
-		result = append(result, r...)
+		if r != nil {
+			result = append(result, r...)
+		}
 	}
 	return result
 }
