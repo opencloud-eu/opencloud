@@ -1,5 +1,5 @@
 Feature: Disabling, restoring and deleting space
-  As a manager of space I want to be able to disable the space first, then either enable it.
+  As a manager of space I want to be able to disable the space first, then enable it again.
   So that a disabled space isn't accessible by shared users until it is restored,
   and so that data is protected from accidental deletion by a mandatory disable step first.
   Only a space administrator can delete a space.
