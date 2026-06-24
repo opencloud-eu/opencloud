@@ -1,14 +1,14 @@
 Feature: Disabling, restoring and deleting space
-  As a manager of space
-  I want to be able to disable the space first, then either restore or delete it.
+  As a manager of space I want to be able to disable the space first, then either enable it.
   So that a disabled space isn't accessible by shared users until it is restored,
   and so that data is protected from accidental deletion by a mandatory disable step first.
+  Only a space administrator can delete a space.
 
-  | action                           | space admin (system role) | space manager (space role) | space viewer/editor (space role) |
-  | disable space                    | allowed (204)             | allowed (204)              | denied (403)                     |
-  | list disabled space (/me/drives) | yes                       | yes                        | no                               |
-  | enable space                     | allowed (200)             | allowed (200)              | denied (404)                     |
-  | delete space                     | allowed (204)             | denied (403)               | denied (404)                     |
+  | action                           | space admin (user role) | space manager (space role) | space viewer/editor (space role) |
+  | disable space                    | allowed (204)           | allowed (204)              | denied (403)                     |
+  | list disabled space (/me/drives) | yes                     | yes                        | no                               |
+  | enable space                     | allowed (200)           | allowed (200)              | denied (404)                     |
+  | delete space                     | allowed (204)           | denied (403)               | denied (404)                     |
 
   Background:
     Given these users have been created with default attributes:
