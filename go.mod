@@ -1,6 +1,6 @@
 module github.com/opencloud-eu/opencloud
 
-go 1.25.0
+go 1.25.8
 
 require (
 	dario.cat/mergo v1.0.2
