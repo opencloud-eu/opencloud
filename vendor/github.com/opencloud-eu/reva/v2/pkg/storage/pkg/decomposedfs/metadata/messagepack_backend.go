@@ -325,6 +325,20 @@ func (b MessagePackBackend) Lock(n MetadataNode) (UnlockFunc, error) {
 	}, nil
 }
 
+func (b MessagePackBackend) LockAndRead(n MetadataNode) (UnlockFunc, io.Reader, error) {
+	unlock, err := b.Lock(n)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	f, err := os.Open(b.MetadataPath(n))
+	if err != nil {
+		_ = unlock()
+		return nil, nil, err
+	}
+	return unlock, f, nil
+}
+
 func (b MessagePackBackend) cacheKey(n MetadataNode) string {
 	return n.GetSpaceID() + "/" + n.GetID()
 }

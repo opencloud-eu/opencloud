@@ -59,6 +59,7 @@ type Backend interface {
 	Remove(ctx context.Context, n MetadataNode, key string, acquireLock bool) error
 
 	Lock(n MetadataNode) (UnlockFunc, error)
+	LockAndRead(n MetadataNode) (UnlockFunc, io.Reader, error)
 	Purge(ctx context.Context, n MetadataNode) error
 	Rename(oldNode, newNode MetadataNode) error
 	MetadataPath(n MetadataNode) string
@@ -111,6 +112,11 @@ func (NullBackend) Remove(ctx context.Context, n MetadataNode, key string, acqui
 // Lock locks the metadata for the given path
 func (NullBackend) Lock(n MetadataNode) (UnlockFunc, error) {
 	return nil, nil
+}
+
+// LockAndRead locks the metadata for reading
+func (NullBackend) LockAndRead(n MetadataNode) (UnlockFunc, io.Reader, error) {
+	return nil, nil, nil
 }
 
 // IsMetaFile returns whether the given path represents a meta file

@@ -504,6 +504,11 @@ func (b HybridBackend) LockfilePath(n MetadataNode) string {
 
 // Lock locks the metadata for the given path
 func (b HybridBackend) Lock(n MetadataNode) (UnlockFunc, error) {
+	f, _, err := b.LockAndRead(n)
+	return f, err
+}
+
+func (b HybridBackend) LockAndRead(n MetadataNode) (UnlockFunc, io.Reader, error) {
 	metaLockPath := b.LockfilePath(n)
 	mlock, err := lockedfile.OpenFile(metaLockPath, os.O_RDWR|os.O_CREATE, 0600)
 	if err != nil {
@@ -511,20 +516,20 @@ func (b HybridBackend) Lock(n MetadataNode) (UnlockFunc, error) {
 			// create the parent directory
 			err = os.MkdirAll(filepath.Dir(metaLockPath), 0700)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			mlock, err = lockedfile.OpenFile(metaLockPath, os.O_RDWR|os.O_CREATE, 0600)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		} else {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	return func() error {
 		// Warning: do not remove the lockfile or we may lock the same file more than once, https://github.com/opencloud-eu/opencloud/issues/1793
 		return mlock.Close()
-	}, nil
+	}, mlock, nil
 }
 
 func (b HybridBackend) cacheKey(n MetadataNode) string {
