@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- Prevent access to internal files and folders [[#3018](https://github.com/opencloud-eu/opencloud/pull/3018)]
 - [stable-4.0] Revert "fix: disallow thumbnails for tiff and jpeg2000 images" [[#3009](https://github.com/opencloud-eu/opencloud/pull/3009)]
 - [stable-4.0] Bump alpine base image [[#2965](https://github.com/opencloud-eu/opencloud/pull/2965)]
 
