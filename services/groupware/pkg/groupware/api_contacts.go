@@ -46,12 +46,12 @@ func (g *Groupware) GetContactsInAddressbook(w http.ResponseWriter, r *http.Requ
 			return jmap.ContactCardFilterCondition{InAddressBook: addressbookId}
 		},
 		[]jmap.ContactCardComparator{{Property: jmap.ContactCardPropertyCreated, IsAscending: true}},
-		curryQueryFunc(g.contacts),
+		curryQueryFunc(g.queryContacts),
 	)
 }
 
 func (g *Groupware) GetContactById(w http.ResponseWriter, r *http.Request) {
-	get(Contact, w, r, g, g.jmap.GetContactCards)
+	get(Contact, w, r, g, g.contacts)
 }
 
 func (g *Groupware) GetAllContacts(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +60,7 @@ func (g *Groupware) GetAllContacts(w http.ResponseWriter, r *http.Request) {
 			return jmap.ContactCardFilterCondition{}
 		},
 		[]jmap.ContactCardComparator{{Property: jmap.ContactCardPropertyCreated, IsAscending: true}},
-		curryQueryFunc(g.contacts),
+		curryQueryFunc(g.queryContacts),
 	)
 }
 
@@ -82,7 +82,13 @@ func (g *Groupware) ModifyContact(w http.ResponseWriter, r *http.Request) {
 	modify(Contact, w, r, g, g.jmap.UpdateContactCard)
 }
 
-func (g *Groupware) contacts(accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, //NOSONAR
+func (g *Groupware) contacts(accountId jmap.AccountId, ids []string, ctx jmap.Context) (jmap.Result[jmap.ContactCardGetResponse], error) {
+	return slist(g.contactCardListSuppliers, accountId, ids, ctx, func(accountId jmap.AccountId, state jmap.State, notFound []string, list []jmap.ContactCard) jmap.ContactCardGetResponse {
+		return jmap.ContactCardGetResponse{AccountId: accountId, State: state, NotFound: notFound, List: list}
+	})
+}
+
+func (g *Groupware) queryContacts(accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, //NOSONAR
 	filter jmap.ContactCardFilterElement, sortBy []jmap.ContactCardComparator, calculateTotal bool,
 	ctx jmap.Context) (jmap.Result[*jmap.ContactCardSearchResults], NextToken, error) {
 	return squery(g.contactCardQuerySuppliers, accountIds, qps, limit, filter, sortBy, calculateTotal, ctx,

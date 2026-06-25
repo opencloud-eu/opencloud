@@ -119,6 +119,7 @@ type Groupware struct {
 
 	addressBookListSuppliers  []ListSupplier[jmap.AddressBook, jmap.AddressBookGetResponse]
 	contactCardQuerySuppliers []QuerySupplier[jmap.ContactCard, *jmap.ContactCardSearchResults, jmap.ContactCardFilterElement, jmap.ContactCardComparator]
+	contactCardListSuppliers  []ListSupplier[jmap.ContactCard, jmap.ContactCardGetResponse]
 }
 
 // An error during the Groupware initialization.
@@ -393,16 +394,27 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 
 	addressBookListSuppliers := []ListSupplier[jmap.AddressBook, jmap.AddressBookGetResponse]{}
 	contactCardQuerySuppliers := []QuerySupplier[jmap.ContactCard, *jmap.ContactCardSearchResults, jmap.ContactCardFilterElement, jmap.ContactCardComparator]{}
+	contactCardListSuppliers := []ListSupplier[jmap.ContactCard, jmap.ContactCardGetResponse]{}
 	{
 		{
-			j := newJmapContactCardSupplier(&jmapClient)
+			j := newJmapAddressBookSupplier(&jmapClient)
 			addressBookListSuppliers = append(addressBookListSuppliers, j)
+		}
+		{
+			j := newJmapContactCardSupplier(&jmapClient)
 			contactCardQuerySuppliers = append(contactCardQuerySuppliers, j)
+			contactCardListSuppliers = append(contactCardListSuppliers, j)
 		}
 		if config.EnableMockData {
-			m := newMockContactCardSupplier()
-			addressBookListSuppliers = append(addressBookListSuppliers, m)
-			contactCardQuerySuppliers = append(contactCardQuerySuppliers, m)
+			{
+				m := newMockAddressBookSupplier()
+				addressBookListSuppliers = append(addressBookListSuppliers, m)
+			}
+			{
+				m := newMockContactCardSupplier()
+				contactCardQuerySuppliers = append(contactCardQuerySuppliers, m)
+				contactCardListSuppliers = append(contactCardListSuppliers, m)
+			}
 		}
 	}
 
@@ -439,6 +451,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 		jobCounter:                atomic.Uint64{},
 		addressBookListSuppliers:  addressBookListSuppliers,
 		contactCardQuerySuppliers: contactCardQuerySuppliers,
+		contactCardListSuppliers:  contactCardListSuppliers,
 	}
 
 	for w := 1; w <= workerPoolSize; w++ {
