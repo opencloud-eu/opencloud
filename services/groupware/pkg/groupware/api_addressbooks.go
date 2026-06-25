@@ -19,7 +19,7 @@ func (g *Groupware) GetAddressbookById(w http.ResponseWriter, r *http.Request) {
 // Get the changes to Address Books since a certain State.
 // @api:tags addressbook,changes
 func (g *Groupware) GetAddressBookChanges(w http.ResponseWriter, r *http.Request) {
-	changes(AddressBook, w, r, g, g.jmap.GetAddressbookChanges)
+	changes(AddressBook, w, r, g, g.addressbooksChanges)
 }
 
 func (g *Groupware) CreateAddressBook(w http.ResponseWriter, r *http.Request) {
@@ -38,4 +38,12 @@ func (g *Groupware) addressbooks(accountId jmap.AccountId, ids []string, ctx jma
 	return slist(g.addressBookListSuppliers, accountId, ids, ctx, func(accountId jmap.AccountId, state jmap.State, notFound []string, list []jmap.AddressBook) jmap.AddressBookGetResponse {
 		return jmap.AddressBookGetResponse{AccountId: accountId, State: state, NotFound: notFound, List: list}
 	})
+}
+
+func (g *Groupware) addressbooksChanges(accountId jmap.AccountId, sinceState jmap.State, maxChanges uint, ctx jmap.Context) (jmap.Result[jmap.AddressBookChanges], error) {
+	return schanges(g.addressBookChangesSuppliers, accountId, sinceState, maxChanges, ctx,
+		func(accountId jmap.AccountId, oldState, newState jmap.State, created, updated []jmap.AddressBook, destroyed []string, hasMoreChanges bool) jmap.AddressBookChanges {
+			return jmap.AddressBookChanges{HasMoreChanges: hasMoreChanges, OldState: oldState, NewState: newState, Created: created, Updated: updated, Destroyed: destroyed}
+		},
+	)
 }

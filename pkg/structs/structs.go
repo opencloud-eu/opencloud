@@ -397,3 +397,12 @@ func Flatten[T any](s [][]T) []T {
 	}
 	return result
 }
+
+func AllMatch[T any](s []T, predicate func(e T) bool) bool {
+	for _, e := range s {
+		if !predicate(e) {
+			return false
+		}
+	}
+	return true
+}
