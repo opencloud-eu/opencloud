@@ -88,7 +88,7 @@ func (iw *InotifyWatcher) Watch(path string) {
 	for {
 		select {
 		case event := <-events:
-			if iw.tree.isIgnored(event.Filename) {
+			if iw.tree.Ignorer.IsIgnored(event.Filename) {
 				continue
 			}
 			for _, e := range event.Events {

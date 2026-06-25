@@ -82,7 +82,7 @@ start:
 				w.log.Error().Err(err).Str("line", line).Msg("error unmarshalling line")
 				continue
 			}
-			if w.tree.isIgnored(ev.Path) {
+			if w.tree.Ignorer.IsIgnored(ev.Path) {
 				continue
 			}
 			go func() {

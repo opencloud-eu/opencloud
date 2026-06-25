@@ -144,7 +144,7 @@ func (tb *Trashbin) Setup(fs storage.FS) error {
 }
 
 func trashRootForNode(n *node.Node) string {
-	return filepath.Join(n.SpaceRoot.InternalPath(), ".Trash")
+	return filepath.Join(n.SpaceRoot.InternalPath(), lookup.TrashDir)
 }
 
 func (tb *Trashbin) MoveToTrash(ctx context.Context, n *node.Node, path string) error {
@@ -191,7 +191,7 @@ func (tb *Trashbin) ListRecycle(ctx context.Context, spaceID string, key, relati
 	_, span := tracer.Start(ctx, "ListRecycle")
 	defer span.End()
 
-	trashRoot := filepath.Join(tb.lu.InternalPath(spaceID, spaceID), ".Trash")
+	trashRoot := filepath.Join(tb.lu.InternalPath(spaceID, spaceID), lookup.TrashDir)
 	base := filepath.Join(trashRoot, "files")
 
 	var originalPath string
@@ -303,7 +303,7 @@ func (tb *Trashbin) RestoreRecycleItem(ctx context.Context, spaceID string, key,
 	_, span := tracer.Start(ctx, "RestoreRecycleItem")
 	defer span.End()
 
-	trashRoot := filepath.Join(tb.lu.InternalPath(spaceID, spaceID), ".Trash")
+	trashRoot := filepath.Join(tb.lu.InternalPath(spaceID, spaceID), lookup.TrashDir)
 	trashPath := filepath.Clean(filepath.Join(trashRoot, "files", key+".trashitem", relativePath))
 
 	restorePath := ""
@@ -376,7 +376,7 @@ func (tb *Trashbin) PurgeRecycleItem(ctx context.Context, spaceID, key, relative
 	_, span := tracer.Start(ctx, "PurgeRecycleItem")
 	defer span.End()
 
-	trashRoot := filepath.Join(tb.lu.InternalPath(spaceID, spaceID), ".Trash")
+	trashRoot := filepath.Join(tb.lu.InternalPath(spaceID, spaceID), lookup.TrashDir)
 	trashPath := filepath.Clean(filepath.Join(trashRoot, "files", key+".trashitem", relativePath))
 
 	type item struct {
@@ -521,7 +521,7 @@ func (tb *Trashbin) EmptyRecycle(ctx context.Context, spaceID string) error {
 	_, span := tracer.Start(ctx, "EmptyRecycle")
 	defer span.End()
 
-	trashRoot := filepath.Join(tb.lu.InternalPath(spaceID, spaceID), ".Trash")
+	trashRoot := filepath.Join(tb.lu.InternalPath(spaceID, spaceID), lookup.TrashDir)
 	filesRoot := filepath.Join(trashRoot, "files")
 
 	entries, err := os.ReadDir(filesRoot)
@@ -581,7 +581,7 @@ func (tb *Trashbin) EmptyRecycle(ctx context.Context, spaceID string) error {
 func (tb *Trashbin) IsEmpty(ctx context.Context, spaceID string) bool {
 	_, span := tracer.Start(ctx, "HasTrashedItems")
 	defer span.End()
-	trashRoot := filepath.Join(tb.lu.InternalPath(spaceID, spaceID), ".Trash", "info")
+	trashRoot := filepath.Join(tb.lu.InternalPath(spaceID, spaceID), lookup.TrashDir, "info")
 	trash, err := os.Open(filepath.Clean(trashRoot))
 	if err != nil {
 		// there is no trash for this space, so no trashed items

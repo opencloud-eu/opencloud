@@ -679,7 +679,7 @@ assimilate:
 		// The Space's name attribute might not match the directory name. Use the name as
 		// it was set before. Also the space root doesn't have a 'type' attribute
 		// currently so only set it for normal directories.
-		if t.isSpaceRoot(path) {
+		if t.Ignorer.IsSpaceRoot(path) {
 			if previousAttribs != nil && previousAttribs[prefixes.NameAttr] != nil {
 				attributes[prefixes.NameAttr] = previousAttribs[prefixes.NameAttr]
 			}
@@ -830,14 +830,13 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 		}
 
 		// skip irrelevant files
-		if t.isInternal(path) ||
-			isLockFile(path) ||
-			isTrash(path) ||
-			t.isUpload(path) ||
-			t.isIndex(path) {
+		if !t.Ignorer.IsSpaceRoot(path) && t.Ignorer.IsIgnored(path) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
 			return nil
 		}
-		if t.isRootPath(path) {
+		if t.Ignorer.IsRootPath(path) {
 			return nil // ignore the root paths
 		}
 
@@ -935,7 +934,7 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 	})
 
 	for dir, size := range sizes {
-		if t.isRootPath(dir) {
+		if t.Ignorer.IsRootPath(dir) {
 			continue
 		}
 		spaceID, id, err := t.lookup.IDsForPath(context.Background(), dir)
