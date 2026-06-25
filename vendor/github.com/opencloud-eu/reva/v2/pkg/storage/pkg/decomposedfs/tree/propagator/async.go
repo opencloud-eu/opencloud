@@ -37,6 +37,10 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+const (
+	ChangesDir = "changes"
+)
+
 var _propagationGracePeriod = 3 * time.Minute
 
 type PropagationNode interface {
@@ -80,7 +84,7 @@ func NewAsyncPropagator(treeSizeAccounting, treeTimeAccounting bool, o options.A
 			return
 		}
 
-		changesDirPath := filepath.Join(p.lookup.InternalRoot(), "changes")
+		changesDirPath := filepath.Join(p.lookup.InternalRoot(), ChangesDir)
 		doSleep := false // switch to not sleep on the first iteration
 		for {
 			if doSleep {
@@ -426,5 +430,5 @@ func (p AsyncPropagator) propagate(ctx context.Context, pn PropagationNode, reca
 }
 
 func (p AsyncPropagator) changesPath(spaceID, nodeID, filename string) string {
-	return filepath.Join(p.lookup.InternalRoot(), "changes", spaceID[0:2], spaceID+":"+nodeID, filename)
+	return filepath.Join(p.lookup.InternalRoot(), ChangesDir, spaceID[0:2], spaceID+":"+nodeID, filename)
 }

@@ -83,7 +83,7 @@ func (w *CephFSWatcher) Watch(topic string) {
 			continue
 		}
 
-		if w.tree.isIgnored(ev.Path) {
+		if w.tree.Ignorer.IsIgnored(ev.Path) {
 			continue
 		}
 
