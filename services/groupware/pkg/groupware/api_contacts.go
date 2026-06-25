@@ -67,7 +67,7 @@ func (g *Groupware) GetAllContacts(w http.ResponseWriter, r *http.Request) {
 // Get changes to Contacts since a given State
 // @api:tags contact,changes
 func (g *Groupware) GetContactsChanges(w http.ResponseWriter, r *http.Request) {
-	changes(Contact, w, r, g, g.jmap.GetContactCardChanges)
+	changes(Contact, w, r, g, g.contactsChanges)
 }
 
 func (g *Groupware) CreateContact(w http.ResponseWriter, r *http.Request) {
@@ -83,9 +83,19 @@ func (g *Groupware) ModifyContact(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *Groupware) contacts(accountId jmap.AccountId, ids []string, ctx jmap.Context) (jmap.Result[jmap.ContactCardGetResponse], error) {
-	return slist(g.contactCardListSuppliers, accountId, ids, ctx, func(accountId jmap.AccountId, state jmap.State, notFound []string, list []jmap.ContactCard) jmap.ContactCardGetResponse {
-		return jmap.ContactCardGetResponse{AccountId: accountId, State: state, NotFound: notFound, List: list}
-	})
+	return slist(g.contactCardListSuppliers, accountId, ids, ctx,
+		func(accountId jmap.AccountId, state jmap.State, notFound []string, list []jmap.ContactCard) jmap.ContactCardGetResponse {
+			return jmap.ContactCardGetResponse{AccountId: accountId, State: state, NotFound: notFound, List: list}
+		},
+	)
+}
+
+func (g *Groupware) contactsChanges(accountId jmap.AccountId, sinceState jmap.State, maxChanges uint, ctx jmap.Context) (jmap.Result[jmap.ContactCardChanges], error) {
+	return schanges(g.contactCardChangesSuppliers, accountId, sinceState, maxChanges, ctx,
+		func(accountId jmap.AccountId, oldState, newState jmap.State, created, updated []jmap.ContactCard, destroyed []string, hasMoreChanges bool) jmap.ContactCardChanges {
+			return jmap.ContactCardChanges{HasMoreChanges: hasMoreChanges, OldState: oldState, NewState: newState, Created: created, Updated: updated, Destroyed: destroyed}
+		},
+	)
 }
 
 func (g *Groupware) queryContacts(accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, //NOSONAR

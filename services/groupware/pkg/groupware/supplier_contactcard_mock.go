@@ -11,6 +11,7 @@ import (
 
 type MockContactCardSupplier struct {
 	contacts []jmap.ContactCard
+	state    jmap.State
 }
 
 var MockContactCardSupplierInstance *MockContactCardSupplier = &MockContactCardSupplier{
@@ -41,10 +42,12 @@ var MockContactCardSupplierInstance *MockContactCardSupplier = &MockContactCardS
 			},
 		},
 	},
+	state: jmap.State("1"),
 }
 
 var _ QuerySupplier[jmap.ContactCard, *jmap.ContactCardSearchResults, jmap.ContactCardFilterElement, jmap.ContactCardComparator] = &MockContactCardSupplier{}
 var _ ListSupplier[jmap.ContactCard, jmap.ContactCardGetResponse] = &MockContactCardSupplier{}
+var _ ChangesSupplier[jmap.ContactCard, jmap.ContactCardChanges] = &MockContactCardSupplier{}
 
 func newMockContactCardSupplier() *MockContactCardSupplier {
 	return MockContactCardSupplierInstance
@@ -128,5 +131,24 @@ func (c *MockContactCardSupplier) Query(accountIds []jmap.AccountId, qps QueryPa
 		payload[accountId] = res
 	}
 
-	return jmap.NewResult(payload, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, nil), nil
+	return jmap.NewResult(payload, jmap.EmptySessionState, c.state, jmap.NoLanguage, nil), nil
+}
+
+func (c *MockContactCardSupplier) GetChanges(accountId jmap.AccountId, sinceState jmap.State, maxChanges uint, ctx jmap.Context) (jmap.Result[jmap.ContactCardChanges], error) {
+	if sinceState == c.state {
+		ch := jmap.ContactCardChanges{
+			HasMoreChanges: false,
+			OldState:       c.state,
+			NewState:       c.state,
+		}
+		return jmap.NewResult(ch, jmap.EmptySessionState, c.state, jmap.NoLanguage, nil), nil
+	} else {
+		// what happens when the state is unknown?
+		ch := jmap.ContactCardChanges{
+			HasMoreChanges: false,
+			NewState:       c.state,
+			Created:        c.contacts,
+		}
+		return jmap.NewResult(ch, jmap.EmptySessionState, c.state, jmap.NoLanguage, nil), nil
+	}
 }

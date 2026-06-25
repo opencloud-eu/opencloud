@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
@@ -14,6 +15,8 @@ import (
 type SupplierId string
 
 const EmptySupplierId = ""
+
+const DefaultSupplierId = SupplierId("jmap")
 
 type Supplier[T jmap.Foo] interface {
 	GetId() SupplierId
@@ -27,6 +30,11 @@ type ListSupplier[T jmap.Foo, G jmap.GetResponse[T]] interface {
 
 type QuerySupplier[T jmap.Foo, R jmap.SearchResults[T], F jmap.FilterElement[T], C jmap.Comparator[T]] interface {
 	Query(accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter F, sortBy []C, calculateTotal bool, ctx jmap.Context) (jmap.Result[map[jmap.AccountId]R], error)
+	Supplier[T]
+}
+
+type ChangesSupplier[T jmap.Foo, C jmap.Changes[T]] interface {
+	GetChanges(accountId jmap.AccountId, sinceState jmap.State, maxChanges uint, ctx jmap.Context) (jmap.Result[C], error)
 	Supplier[T]
 }
 
@@ -89,6 +97,86 @@ func agg[T jmap.Idable, R jmap.GetResponse[T]](accountId jmap.AccountId, supplie
 	return ctor(accountId, state, notFounds, lists), nil
 }
 
+func aggChanges[T jmap.Idable, R jmap.Changes[T]](accountId jmap.AccountId, supplierIds []SupplierId, responses []*R, //NOSONAR
+	ctor func(accountId jmap.AccountId, oldState jmap.State, newState jmap.State, created []T, updated []T, destroyed []string, hasMoreChanges bool) R,
+) (R, error) {
+	if len(responses) < 1 {
+		var zero R
+		return zero, fmt.Errorf("requires at least one response")
+	}
+	created := structs.Concat(structs.Map(responses, func(e *R) []T {
+		if e != nil {
+			return (*e).GetCreated()
+		} else {
+			return []T{}
+		}
+	})...)
+	updated := structs.Concat(structs.Map(responses, func(e *R) []T {
+		if e != nil {
+			return (*e).GetUpdated()
+		} else {
+			return []T{}
+		}
+	})...)
+	destroyed := structs.Concat(structs.Map(responses, func(e *R) []string {
+		if e != nil {
+			return (*e).GetDestroyed()
+		} else {
+			return []string{}
+		}
+	})...)
+	oldStates, err := structs.MeshMap(supplierIds, responses, func(id SupplierId, e *R) (SupplierId, jmap.State, bool) {
+		if e != nil {
+			state := (*e).GetOldState()
+			if state != jmap.EmptyState {
+				return id, state, true
+			} else {
+				return id, jmap.EmptyState, false
+			}
+		} else {
+			return "", jmap.EmptyState, false
+		}
+	})
+	if err != nil {
+		var zero R
+		return zero, err
+	}
+	oldState, err := combineState(oldStates)
+	if err != nil {
+		var zero R
+		return zero, err
+	}
+	newStates, err := structs.MeshMap(supplierIds, responses, func(id SupplierId, e *R) (SupplierId, jmap.State, bool) {
+		if e != nil {
+			state := (*e).GetNewState()
+			if state != jmap.EmptyState {
+				return id, state, true
+			} else {
+				return id, jmap.EmptyState, false
+			}
+		} else {
+			return "", jmap.EmptyState, false
+		}
+	})
+	if err != nil {
+		var zero R
+		return zero, err
+	}
+	newState, err := combineState(newStates)
+	if err != nil {
+		var zero R
+		return zero, err
+	}
+	hasMoreChanges := structs.AllMatch(structs.Map(responses, func(e *R) bool {
+		if e != nil {
+			return (*e).GetHasMoreChanges()
+		} else {
+			return false
+		}
+	}), func(b bool) bool { return b })
+	return ctor(accountId, oldState, newState, created, updated, destroyed, hasMoreChanges), nil
+}
+
 func slist[T jmap.Idable, G jmap.GetResponse[T], S ListSupplier[T, G]](suppliers []S, accountId jmap.AccountId, ids []string, ctx jmap.Context, //NOSONAR
 	ctor func(accountId jmap.AccountId, state jmap.State, notFound []string, list []T) G) (jmap.Result[G], error) {
 	switch len(suppliers) {
@@ -117,32 +205,141 @@ func slist[T jmap.Idable, G jmap.GetResponse[T], S ListSupplier[T, G]](suppliers
 			}
 		}
 
-		return jmap.RefineResultSlice(results, func(payloads []*G, sessionStates []*jmap.SessionState, states []*jmap.State, langs []*jmap.Language) (G, jmap.SessionState, jmap.State, jmap.Language, error) {
-			resp, err := agg(accountId, supplierIds, payloads, ctor)
-			if err != nil {
-				return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
-			}
-			m, err := structs.MeshMap(supplierIds, sessionStates, func(id SupplierId, state *jmap.SessionState) (SupplierId, jmap.SessionState, bool) {
-				if state != nil && *state != jmap.EmptySessionState {
-					return id, *state, true
-				} else {
-					return id, jmap.EmptySessionState, false
-				}
-			})
-			if err != nil {
-				return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
-			}
-			sessionState, err := combineState(m)
-			if err != nil {
-				return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
-			}
-			lang := jmap.NoLanguage
-			if f, ok := structs.First(langs, func(l *jmap.Language) bool { return l != nil && *l != jmap.NoLanguage }); ok {
-				lang = *f
-			}
-			return resp, sessionState, resp.GetState(), lang, nil
+		return smeld[T](supplierIds, results, func(payloads []*G) (G, error) {
+			return agg(accountId, supplierIds, payloads, ctor)
+		}, func(resp G) jmap.State {
+			return resp.GetState()
 		})
+
+		/*
+
+			return jmap.RefineResultSlice(results, func(payloads []*G, sessionStates []*jmap.SessionState, states []*jmap.State, langs []*jmap.Language) (G, jmap.SessionState, jmap.State, jmap.Language, error) {
+				resp, err := agg(accountId, supplierIds, payloads, ctor)
+				if err != nil {
+					return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
+				}
+				m, err := structs.MeshMap(supplierIds, sessionStates, func(id SupplierId, state *jmap.SessionState) (SupplierId, jmap.SessionState, bool) {
+					if state != nil && *state != jmap.EmptySessionState {
+						return id, *state, true
+					} else {
+						return id, jmap.EmptySessionState, false
+					}
+				})
+				if err != nil {
+					return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
+				}
+				sessionState, err := combineState(m)
+				if err != nil {
+					return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
+				}
+				lang := jmap.NoLanguage
+				if f, ok := structs.First(langs, func(l *jmap.Language) bool { return l != nil && *l != jmap.NoLanguage }); ok {
+					lang = *f
+				}
+				return resp, sessionState, resp.GetState(), lang, nil
+			})
+		*/
 	}
+}
+
+func schanges[T jmap.Idable, C jmap.Changes[T], S ChangesSupplier[T, C]](suppliers []S, accountId jmap.AccountId, sinceState jmap.State, maxChanges uint, ctx jmap.Context, //NOSONAR
+	ctor func(accountId jmap.AccountId, oldState jmap.State, newState jmap.State, created []T, updated []T, destroyed []string, hasMoreChanges bool) C,
+) (jmap.Result[C], error) {
+	switch len(suppliers) {
+	case 0:
+		return jmap.ZeroResultV[C](), nil
+	case 1:
+		return suppliers[0].GetChanges(accountId, sinceState, maxChanges, ctx)
+	default:
+		results := make([]*jmap.Result[C], len(suppliers))
+		supplierIds := make([]SupplierId, len(suppliers))
+		stateBySupplierId, err := splitState(sinceState, DefaultSupplierId)
+		if err != nil {
+			return jmap.ZeroResultV[C](), err
+		}
+		for i, supplier := range suppliers {
+			supplierIds[i] = supplier.GetId()
+			state := jmap.EmptyState
+			if v, ok := stateBySupplierId[supplier.GetId()]; ok {
+				state = v
+			}
+			// we are not injecting id prefixes here for all the objects, as each supplier is responsible for doing that if necessary
+			if result, err := supplier.GetChanges(accountId, state, maxChanges, ctx); err != nil {
+				return result, err
+			} else {
+				results[i] = &result
+			}
+		}
+
+		// TODO need to reduce the maxChanges? this is quite complex to implement, if even possible, not doing that for now
+
+		return smeld[T](supplierIds, results, func(payloads []*C) (C, error) {
+			return aggChanges(accountId, supplierIds, payloads, ctor)
+		}, func(resp C) jmap.State {
+			return resp.GetNewState()
+		})
+
+		/*
+			return jmap.RefineResultSlice(results, func(payloads []*C, sessionStates []*jmap.SessionState, states []*jmap.State, langs []*jmap.Language) (C, jmap.SessionState, jmap.State, jmap.Language, error) {
+				resp, err := aggChanges(accountId, supplierIds, payloads, ctor)
+				if err != nil {
+					return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
+				}
+				m, err := structs.MeshMap(supplierIds, sessionStates, func(id SupplierId, state *jmap.SessionState) (SupplierId, jmap.SessionState, bool) {
+					if state != nil && *state != jmap.EmptySessionState {
+						return id, *state, true
+					} else {
+						return id, jmap.EmptySessionState, false
+					}
+				})
+				if err != nil {
+					return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
+				}
+				sessionState, err := combineState(m)
+				if err != nil {
+					return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
+				}
+				lang := jmap.NoLanguage
+				if f, ok := structs.First(langs, func(l *jmap.Language) bool { return l != nil && *l != jmap.NoLanguage }); ok {
+					lang = *f
+				}
+				return resp, sessionState, resp.GetNewState(), lang, nil
+			})
+		*/
+	}
+}
+
+func smeld[T jmap.Idable, C any](
+	supplierIds []SupplierId,
+	results []*jmap.Result[C],
+	aggregator func(payloads []*C) (C, error),
+	stateSupplier func(resp C) jmap.State,
+) (jmap.Result[C], error) {
+	return jmap.RefineResultSlice(results, func(payloads []*C, sessionStates []*jmap.SessionState, states []*jmap.State, langs []*jmap.Language) (C, jmap.SessionState, jmap.State, jmap.Language, error) {
+		resp, err := aggregator(payloads)
+		if err != nil {
+			return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
+		}
+		m, err := structs.MeshMap(supplierIds, sessionStates, func(id SupplierId, state *jmap.SessionState) (SupplierId, jmap.SessionState, bool) {
+			if state != nil && *state != jmap.EmptySessionState {
+				return id, *state, true
+			} else {
+				return id, jmap.EmptySessionState, false
+			}
+		})
+		if err != nil {
+			return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
+		}
+		sessionState, err := combineState(m)
+		if err != nil {
+			return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
+		}
+		lang := jmap.NoLanguage
+		if f, ok := structs.First(langs, func(l *jmap.Language) bool { return l != nil && *l != jmap.NoLanguage }); ok {
+			lang = *f
+		}
+		return resp, sessionState, stateSupplier(resp), lang, nil
+	})
 }
 
 func fillMissingAccounts(qps QueryParamsSupplier, supplierId SupplierId, accountIds []jmap.AccountId, n map[jmap.AccountId]jmap.QueryParams) error {
@@ -403,7 +600,7 @@ func squery[T jmap.Idable, R jmap.SearchResults[T], S QuerySupplier[T, R, F, C],
 
 const combinedStateEncodingPrefix = "="
 
-func combineState[K ~string, S jmap.State | jmap.SessionState](m map[K]S) (S, error) {
+func combineState[S jmap.State | jmap.SessionState](m map[SupplierId]S) (S, error) {
 	if b, err := json.Marshal(m); err != nil {
 		return "", err
 	} else {
@@ -412,14 +609,13 @@ func combineState[K ~string, S jmap.State | jmap.SessionState](m map[K]S) (S, er
 	}
 }
 
-/*
-func splitState[K ~string, S jmap.State | jmap.SessionState](state S) (map[K]S, error) {
+func splitState[S jmap.State | jmap.SessionState](state S, defaultSupplierId SupplierId) (map[SupplierId]S, error) {
 	s := string(state)
 	if strings.HasPrefix(s, combinedStateEncodingPrefix) {
 		if b, err := base64.RawURLEncoding.DecodeString(s[len(combinedStateEncodingPrefix):]); err != nil {
 			return nil, err
 		} else {
-			m := map[K]S{}
+			m := map[SupplierId]S{}
 			if err := json.Unmarshal(b, &m); err != nil {
 				return nil, err
 			} else {
@@ -427,7 +623,6 @@ func splitState[K ~string, S jmap.State | jmap.SessionState](state S) (map[K]S, 
 			}
 		}
 	} else {
-		return map[K]S{K("jmap"): state}, nil
+		return map[SupplierId]S{defaultSupplierId: state}, nil
 	}
 }
-*/

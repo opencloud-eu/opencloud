@@ -9,11 +9,12 @@ import (
 )
 
 type MockAddressBookSupplier struct {
-	addressBook jmap.AddressBook
+	addressBooks []jmap.AddressBook
+	state        jmap.State
 }
 
 var MockAddressBookSupplierInstance *MockAddressBookSupplier = &MockAddressBookSupplier{
-	addressBook: jmap.AddressBook{
+	addressBooks: []jmap.AddressBook{{
 		Id:           "mock:1",
 		Name:         "Automatic Addressbook",
 		Description:  "Users",
@@ -25,7 +26,8 @@ var MockAddressBookSupplierInstance *MockAddressBookSupplier = &MockAddressBookS
 			MayAdmin:  false,
 			MayDelete: false,
 		},
-	},
+	}},
+	state: jmap.State("1"),
 }
 
 var _ ListSupplier[jmap.AddressBook, jmap.AddressBookGetResponse] = &MockAddressBookSupplier{}
@@ -41,7 +43,7 @@ func (c *MockAddressBookSupplier) IsMine(id string) bool {
 	return strings.HasPrefix(id, "mock:")
 }
 func (c *MockAddressBookSupplier) GetAll(accountId jmap.AccountId, ids []string, ctx jmap.Context) (jmap.Result[jmap.AddressBookGetResponse], error) {
-	abooks := []jmap.AddressBook{c.addressBook}
+	abooks := c.addressBooks
 	if len(ids) > 0 {
 		abooks = structs.Filter(abooks, func(a jmap.AddressBook) bool { return slices.Contains(ids, a.Id) })
 	}
@@ -56,4 +58,23 @@ func (c *MockAddressBookSupplier) GetAll(accountId jmap.AccountId, ids []string,
 		jmap.NoLanguage,
 		nil,
 	), nil
+}
+
+func (c *MockAddressBookSupplier) GetChanges(accountId jmap.AccountId, sinceState jmap.State, maxChanges uint, ctx jmap.Context) (jmap.Result[jmap.AddressBookChanges], error) {
+	if sinceState == c.state {
+		ch := jmap.AddressBookChanges{
+			HasMoreChanges: false,
+			OldState:       c.state,
+			NewState:       c.state,
+		}
+		return jmap.NewResult(ch, jmap.EmptySessionState, c.state, jmap.NoLanguage, nil), nil
+	} else {
+		// what happens when the state is unknown?
+		ch := jmap.AddressBookChanges{
+			HasMoreChanges: false,
+			NewState:       c.state,
+			Created:        c.addressBooks,
+		}
+		return jmap.NewResult(ch, jmap.EmptySessionState, c.state, jmap.NoLanguage, nil), nil
+	}
 }

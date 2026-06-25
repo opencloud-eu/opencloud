@@ -117,9 +117,11 @@ type Groupware struct {
 	// A threadsafe counter to generate the job IDs.
 	jobCounter atomic.Uint64
 
-	addressBookListSuppliers  []ListSupplier[jmap.AddressBook, jmap.AddressBookGetResponse]
-	contactCardQuerySuppliers []QuerySupplier[jmap.ContactCard, *jmap.ContactCardSearchResults, jmap.ContactCardFilterElement, jmap.ContactCardComparator]
-	contactCardListSuppliers  []ListSupplier[jmap.ContactCard, jmap.ContactCardGetResponse]
+	addressBookListSuppliers    []ListSupplier[jmap.AddressBook, jmap.AddressBookGetResponse]
+	addressBookChangesSuppliers []ChangesSupplier[jmap.AddressBook, jmap.AddressBookChanges]
+	contactCardQuerySuppliers   []QuerySupplier[jmap.ContactCard, *jmap.ContactCardSearchResults, jmap.ContactCardFilterElement, jmap.ContactCardComparator]
+	contactCardListSuppliers    []ListSupplier[jmap.ContactCard, jmap.ContactCardGetResponse]
+	contactCardChangesSuppliers []ChangesSupplier[jmap.ContactCard, jmap.ContactCardChanges]
 }
 
 // An error during the Groupware initialization.
@@ -393,27 +395,33 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 	}
 
 	addressBookListSuppliers := []ListSupplier[jmap.AddressBook, jmap.AddressBookGetResponse]{}
+	addressBookChangesSuppliers := []ChangesSupplier[jmap.AddressBook, jmap.AddressBookChanges]{}
 	contactCardQuerySuppliers := []QuerySupplier[jmap.ContactCard, *jmap.ContactCardSearchResults, jmap.ContactCardFilterElement, jmap.ContactCardComparator]{}
 	contactCardListSuppliers := []ListSupplier[jmap.ContactCard, jmap.ContactCardGetResponse]{}
+	contactCardChangesSuppliers := []ChangesSupplier[jmap.ContactCard, jmap.ContactCardChanges]{}
 	{
 		{
 			j := newJmapAddressBookSupplier(&jmapClient)
 			addressBookListSuppliers = append(addressBookListSuppliers, j)
+			addressBookChangesSuppliers = append(addressBookChangesSuppliers, j)
 		}
 		{
 			j := newJmapContactCardSupplier(&jmapClient)
 			contactCardQuerySuppliers = append(contactCardQuerySuppliers, j)
 			contactCardListSuppliers = append(contactCardListSuppliers, j)
+			contactCardChangesSuppliers = append(contactCardChangesSuppliers, j)
 		}
 		if config.EnableMockData {
 			{
 				m := newMockAddressBookSupplier()
 				addressBookListSuppliers = append(addressBookListSuppliers, m)
+				addressBookChangesSuppliers = append(addressBookChangesSuppliers, m)
 			}
 			{
 				m := newMockContactCardSupplier()
 				contactCardQuerySuppliers = append(contactCardQuerySuppliers, m)
 				contactCardListSuppliers = append(contactCardListSuppliers, m)
+				contactCardChangesSuppliers = append(contactCardChangesSuppliers, m)
 			}
 		}
 	}
@@ -446,12 +454,14 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 			publicUrl:             publicUrl,
 			sendDurationsResponse: sendDurationsResponse,
 		},
-		eventChannel:              eventChannel,
-		jobsChannel:               jobsChannel,
-		jobCounter:                atomic.Uint64{},
-		addressBookListSuppliers:  addressBookListSuppliers,
-		contactCardQuerySuppliers: contactCardQuerySuppliers,
-		contactCardListSuppliers:  contactCardListSuppliers,
+		eventChannel:                eventChannel,
+		jobsChannel:                 jobsChannel,
+		jobCounter:                  atomic.Uint64{},
+		addressBookListSuppliers:    addressBookListSuppliers,
+		addressBookChangesSuppliers: addressBookChangesSuppliers,
+		contactCardQuerySuppliers:   contactCardQuerySuppliers,
+		contactCardListSuppliers:    contactCardListSuppliers,
+		contactCardChangesSuppliers: contactCardChangesSuppliers,
 	}
 
 	for w := 1; w <= workerPoolSize; w++ {
