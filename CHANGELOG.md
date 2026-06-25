@@ -1,5 +1,17 @@
 # Changelog
 
+## [4.0.8](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.8) - 2026-06-25
+
+### ❤️ Thanks to all contributors! ❤️
+
+@ScharfViktor, @rhafer
+
+### 🐛 Bug Fixes
+
+- bump reva 2.40.5 [[#3018](https://github.com/opencloud-eu/opencloud/pull/3018)]
+- [stable-4.0] Revert "fix: disallow thumbnails for tiff and jpeg2000 images" [[#3009](https://github.com/opencloud-eu/opencloud/pull/3009)]
+- [stable-4.0] Bump alpine base image [[#2965](https://github.com/opencloud-eu/opencloud/pull/2965)]
+
 ## [4.0.7](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.7) - 2026-05-18
 
 ### ❤️ Thanks to all contributors! ❤️
