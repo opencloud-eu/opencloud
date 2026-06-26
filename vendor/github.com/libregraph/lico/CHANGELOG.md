@@ -4,7 +4,31 @@
 
 
 
-## v0.66.0 (2025-04-28)
+## v0.67.0 (2026-03-18)
+
+- Bump github.com/russellhaering/goxmldsig from 1.5.0 to 1.6.0
+- Run npx update-browserslist-db@latest
+- Add signed JWT auto sign-in flow (LibreGraph.SignedLoginOK)
+- Fix Go formatting treewide
+- Add per-client external authorize redirect URIs
+- Rework banner logo height to use named sizes instead of pixels
+- Add configurable banner logo height via --identifier-default-banner-logo-height
+- Bump docs to match Go 1.24 requirement
+- Bump github.com/prometheus/client_golang from 1.15.1 to 1.23.2
+- Bump github.com/beevik/etree from 1.5.1 to 1.6.0
+- Bump golang.org/x/crypto from 0.37.0 to 0.45.0
+- chore: drop gofrs/uuid module usage and use google/uuid
+- Update golangci-lint to version 2
+- Bump golang.org/x/oauth2 from 0.8.0 to 0.31.0
+- Bump golang.org/x/time from 0.3.0 to 0.13.0
+- Bump form-data from 4.0.0 to 4.0.4 in /identifier
+- Bump golang.org/x/oauth2 from 0.8.0 to 0.27.0
+- Fix typos an add API section to README
+- Fix form submission handler regression introduced in class-to-functional conversion
+- Replace konnect-identifier-api-v1 with comprehensive LibreGraph Connect OpenAPI spec
+
+
+## v0.66.0 (2025-05-12)
 
 - Remove built-in survey client from the licod runner
 - Bump caniuse-lite to latest

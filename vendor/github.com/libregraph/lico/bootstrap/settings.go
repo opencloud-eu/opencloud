@@ -35,6 +35,7 @@ type Settings struct {
 	TrustedProxy                      []string
 	AllowScope                        []string
 	AllowClientGuests                 bool
+	AllowClientSignedLogins           bool
 	AllowDynamicClientRegistration    bool
 	EncryptionSecretFile              string
 	Listen                            string
@@ -43,6 +44,7 @@ type Settings struct {
 	IdentifierRegistrationConf        string
 	IdentifierScopesConf              string
 	IdentifierDefaultBannerLogo       string
+	IdentifierDefaultBannerLogoHeight string
 	IdentifierDefaultSignInPageText   string
 	IdentifierDefaultLogoTargetURI    string
 	IdentifierDefaultUsernameHintText string

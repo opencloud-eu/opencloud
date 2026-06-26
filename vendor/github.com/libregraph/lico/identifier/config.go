@@ -47,6 +47,7 @@ type Config struct {
 	SignedOutEndpointURI     *url.URL
 
 	DefaultBannerLogo        []byte
+	DefaultBannerLogoHeight  *string
 	DefaultSignInPageText    *string
 	DefaultSignInPageLogoURI *string
 	DefaultUsernameHintText  *string

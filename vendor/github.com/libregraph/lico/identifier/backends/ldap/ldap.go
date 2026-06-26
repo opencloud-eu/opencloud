@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
-	uuid "github.com/gofrs/uuid"
+	uuid "github.com/google/uuid"
 	"github.com/libregraph/oidc-go"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/time/rate"

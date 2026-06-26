@@ -158,7 +158,7 @@ type Consent struct {
 }
 
 // Scopes returns the associated consents approved scopes filtered by the
-//provided requested scopes and the full unfiltered approved scopes table.
+// provided requested scopes and the full unfiltered approved scopes table.
 func (c *Consent) Scopes(requestedScopes map[string]bool) (map[string]bool, map[string]bool) {
 	scopes := make(map[string]bool)
 	if c.RawScope != "" {

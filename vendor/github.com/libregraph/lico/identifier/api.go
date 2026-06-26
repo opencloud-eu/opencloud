@@ -48,6 +48,7 @@ func (i Identifier) writeHelloResponse(rw http.ResponseWriter, req *http.Request
 		State: r.State,
 		Branding: &meta.Branding{
 			BannerLogo:        i.defaultBannerLogo,
+			BannerLogoHeight:  i.defaultBannerLogoHeight,
 			UsernameHintText:  i.Config.DefaultUsernameHintText,
 			SignInPageText:    i.Config.DefaultSignInPageText,
 			SignInPageLogoURI: i.Config.DefaultSignInPageLogoURI,

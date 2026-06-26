@@ -206,6 +206,11 @@ func (bs *bootstrap) initialize(settings *Settings) error {
 		logger.Infoln("client controlled guests are enabled")
 	}
 
+	bs.config.Config.AllowClientSignedLogins = settings.AllowClientSignedLogins
+	if bs.config.Config.AllowClientSignedLogins {
+		logger.Infoln("client controlled signed logins are enabled")
+	}
+
 	bs.config.Config.AllowDynamicClientRegistration = settings.AllowDynamicClientRegistration
 	if bs.config.Config.AllowDynamicClientRegistration {
 		logger.Infoln("dynamic client registration is enabled")
@@ -256,6 +261,9 @@ func (bs *bootstrap) initialize(settings *Settings) error {
 			return fmt.Errorf("identifier-default-banner-logo failed to open: %w", errRead)
 		}
 		bs.config.IdentifierDefaultBannerLogo = b
+	}
+	if settings.IdentifierDefaultBannerLogoHeight != "" {
+		bs.config.IdentifierDefaultBannerLogoHeight = &settings.IdentifierDefaultBannerLogoHeight
 	}
 	if settings.IdentifierDefaultSignInPageText != "" {
 		bs.config.IdentifierDefaultSignInPageText = &settings.IdentifierDefaultSignInPageText

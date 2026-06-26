@@ -127,6 +127,7 @@ func NewIdentityManager(bs bootstrap.Bootstrap) (identity.Manager, error) {
 		SignedOutEndpointURI:     fullSignedOutEndpointURL,
 
 		DefaultBannerLogo:        config.IdentifierDefaultBannerLogo,
+		DefaultBannerLogoHeight:  config.IdentifierDefaultBannerLogoHeight,
 		DefaultSignInPageText:    config.IdentifierDefaultSignInPageText,
 		DefaultSignInPageLogoURI: config.IdentifierDefaultLogoTargetURI,
 		DefaultUsernameHintText:  config.IdentifierDefaultUsernameHintText,
@@ -142,13 +143,18 @@ func NewIdentityManager(bs bootstrap.Bootstrap) (identity.Manager, error) {
 		return nil, fmt.Errorf("invalid --encryption-secret parameter value for identifier: %v", err)
 	}
 
+	// Expose the identifier in the managers registry so other managers (e.g.
+	// signedlogin) can access it without creating a second instance.
+	bs.Managers().Set("identifier", activeIdentifier)
+
 	identityManagerConfig := &identity.Config{
 		SignInFormURI: fullSignInFormURL,
 		SignedOutURI:  fullSignedOutEndpointURL,
 
 		Logger: logger,
 
-		ScopesSupported: config.Config.AllowedScopes,
+		ScopesSupported:  config.Config.AllowedScopes,
+		AllowSignedLogin: config.Config.AllowClientSignedLogins,
 	}
 
 	identifierIdentityManager := managers.NewIdentifierIdentityManager(identityManagerConfig, activeIdentifier)

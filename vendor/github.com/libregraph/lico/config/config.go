@@ -38,5 +38,6 @@ type Config struct {
 
 	AllowedScopes                  []string
 	AllowClientGuests              bool
+	AllowClientSignedLogins        bool
 	AllowDynamicClientRegistration bool
 }

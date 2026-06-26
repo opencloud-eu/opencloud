@@ -30,5 +30,8 @@ type Config struct {
 
 	ScopesSupported []string
 
+	// AllowSignedLogin enables the signed JWT auto sign-in flow.
+	AllowSignedLogin bool
+
 	Logger logrus.FieldLogger
 }

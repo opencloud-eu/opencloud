@@ -682,9 +682,6 @@ github.com/goccy/go-yaml/token
 # github.com/gofrs/flock v0.13.0
 ## explicit; go 1.24.0
 github.com/gofrs/flock
-# github.com/gofrs/uuid v4.4.0+incompatible
-## explicit
-github.com/gofrs/uuid
 # github.com/gogo/protobuf v1.3.2
 ## explicit; go 1.15
 github.com/gogo/protobuf/gogoproto
@@ -969,8 +966,8 @@ github.com/libregraph/idm/server
 github.com/libregraph/idm/server/handler
 github.com/libregraph/idm/server/handler/boltdb
 github.com/libregraph/idm/server/handler/ldif
-# github.com/libregraph/lico v0.66.0
-## explicit; go 1.23.0
+# github.com/libregraph/lico v0.67.0
+## explicit; go 1.24.0
 github.com/libregraph/lico
 github.com/libregraph/lico/bootstrap
 github.com/libregraph/lico/bootstrap/backends/guest

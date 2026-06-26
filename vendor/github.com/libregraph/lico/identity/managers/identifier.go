@@ -23,12 +23,16 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/libregraph/oidc-go"
 	"github.com/longsleep/rndm"
 	"github.com/sirupsen/logrus"
 
+	konnect "github.com/libregraph/lico"
 	"github.com/libregraph/lico/identifier"
 	"github.com/libregraph/lico/identity"
 	"github.com/libregraph/lico/identity/clients"
@@ -47,9 +51,17 @@ type IdentifierIdentityManager struct {
 	scopesSupported []string
 	claimsSupported []string
 
-	identifier *identifier.Identifier
-	clients    *clients.Registry
-	logger     logrus.FieldLogger
+	identifier   *identifier.Identifier
+	clients      *clients.Registry
+	guestManager identity.Manager
+	logger       logrus.FieldLogger
+
+	allowSignedLogin bool
+
+	// JTI replay prevention store for the signed login flow.
+	jtiMu     sync.Mutex
+	jtiStore  map[string]time.Time
+	jtiMaxAge time.Duration
 }
 
 type identifierUser struct {
@@ -108,8 +120,11 @@ func NewIdentifierIdentityManager(c *identity.Config, i *identifier.Identifier) 
 			oidc.EmailVerifiedClaim,
 		},
 
-		identifier: i,
-		logger:     c.Logger,
+		identifier:       i,
+		logger:           c.Logger,
+		allowSignedLogin: c.AllowSignedLogin,
+		jtiStore:         make(map[string]time.Time),
+		jtiMaxAge:        10 * time.Minute,
 	}
 
 	return im
@@ -119,7 +134,24 @@ func NewIdentifierIdentityManager(c *identity.Config, i *identifier.Identifier) 
 func (im *IdentifierIdentityManager) RegisterManagers(mgrs *managers.Managers) error {
 	im.clients = mgrs.Must("clients").(*clients.Registry)
 
+	// Wire guest manager as fallback if available.
+	if guestManager, ok := mgrs.Get("guest"); ok && guestManager != nil {
+		im.guestManager = guestManager.(identity.Manager)
+	}
+
 	return im.identifier.RegisterManagers(mgrs)
+}
+
+// getSignInFormURI returns the sign-in form URI for the given client and
+// scopes. If the client has a configured external authorize redirect URI, it
+// is returned. Otherwise the default sign-in form URI is used.
+func (im *IdentifierIdentityManager) getSignInFormURI(clientID string, scopes map[string]bool) string {
+	if registration, ok := im.clients.Get(context.Background(), clientID); ok && registration != nil {
+		if uri := registration.GetExternalAuthorizeRedirectURI(scopes); uri != "" {
+			return uri
+		}
+	}
+	return im.signInFormURI
 }
 
 // Authenticate implements the identity.Manager interface.
@@ -132,7 +164,14 @@ func (im *IdentifierIdentityManager) Authenticate(ctx context.Context, rw http.R
 		return nil, ar.NewError(authenticationErrorID, req.Form.Get("error_description"))
 	}
 
+	// When signed login is enabled and a signed JWT request is present, handle
+	// the signed login flow directly and bypass any existing session cookie.
+	if im.allowSignedLogin && ar.Scopes[konnect.ScopeSignedLoginOK] && ar.Request != nil {
+		return im.authenticateSignedLogin(ctx, rw, req, ar)
+	}
+
 	u, _ := im.identifier.GetUserFromLogonCookie(ctx, req, ar.MaxAge, true)
+
 	if u != nil {
 		// TODO(longsleep): Add other user meta data.
 		user = asIdentifierUser(u)
@@ -254,7 +293,7 @@ func (im *IdentifierIdentityManager) Authenticate(ctx context.Context, rw http.R
 				query.Set("claims_scope", strings.Join(claimsScopes, " "))
 			}
 		}
-		u, _ := url.Parse(im.signInFormURI)
+		u, _ := url.Parse(im.getSignInFormURI(ar.ClientID, ar.Scopes))
 		u.RawQuery = query.Encode()
 		utils.WriteRedirect(rw, http.StatusFound, u, nil, false)
 
@@ -278,6 +317,11 @@ func (im *IdentifierIdentityManager) Authenticate(ctx context.Context, rw http.R
 
 // Authorize implements the identity.Manager interface.
 func (im *IdentifierIdentityManager) Authorize(ctx context.Context, rw http.ResponseWriter, req *http.Request, ar *payload.AuthenticationRequest, auth identity.AuthRecord) (identity.AuthRecord, error) {
+	// Route signed login authorizations through their own path.
+	if im.allowSignedLogin && ar.Scopes[konnect.ScopeSignedLoginOK] && ar.Request != nil {
+		return im.authorizeSignedLogin(ctx, rw, req, ar, auth)
+	}
+
 	promptConsent := false
 	var approvedScopes map[string]bool
 
@@ -399,6 +443,149 @@ func (im *IdentifierIdentityManager) Authorize(ctx context.Context, rw http.Resp
 		if ignoreOfflineAccessErr != nil {
 			delete(approvedScopes, oidc.ScopeOfflineAccess)
 			im.logger.WithError(ignoreOfflineAccessErr).Debugln("removed offline_access scope")
+		}
+	}
+
+	auth.AuthorizeScopes(approvedScopes)
+	auth.AuthorizeClaims(ar.Claims)
+	return auth, nil
+}
+
+// checkAndRecordJTI checks the JTI claim for replay and records it if new.
+func (im *IdentifierIdentityManager) checkAndRecordJTI(ar *payload.AuthenticationRequest) error {
+	roc, ok := ar.Request.Claims.(*payload.RequestObjectClaims)
+	if !ok {
+		return nil
+	}
+
+	jti := roc.ID
+	if jti == "" {
+		return fmt.Errorf("IdentifierIdentityManager: missing or invalid jti claim")
+	}
+
+	now := time.Now()
+	exp := now.Add(im.jtiMaxAge)
+
+	// Use the JWT expiry as TTL if shorter than the max age.
+	if expTime, err := roc.GetExpirationTime(); err == nil && expTime != nil {
+		if expTime.Time.Before(exp) {
+			exp = expTime.Time
+		}
+	}
+
+	im.jtiMu.Lock()
+	defer im.jtiMu.Unlock()
+
+	// Purge expired entries.
+	for k, v := range im.jtiStore {
+		if now.After(v) {
+			delete(im.jtiStore, k)
+		}
+	}
+
+	if _, exists := im.jtiStore[jti]; exists {
+		return fmt.Errorf("IdentifierIdentityManager: replayed jti")
+	}
+
+	im.jtiStore[jti] = exp
+	return nil
+}
+
+// authenticateSignedLogin handles the signed JWT auto sign-in flow.
+func (im *IdentifierIdentityManager) authenticateSignedLogin(ctx context.Context, rw http.ResponseWriter, req *http.Request, ar *payload.AuthenticationRequest) (identity.AuthRecord, error) {
+	if ar.Request.Method == jwt.SigningMethodNone {
+		return nil, ar.NewBadRequest(oidc.ErrorCodeOIDCInvalidRequestObject, "IdentifierIdentityManager: request object must be signed")
+	}
+
+	roc, ok := ar.Request.Claims.(*payload.RequestObjectClaims)
+	if !ok || roc.Claims == nil || ar.Claims == nil || ar.Claims.IDToken == nil {
+		return nil, ar.NewError(oidc.ErrorCodeOAuth2InvalidRequest, "IdentifierIdentityManager: missing claims in request object")
+	}
+
+	// Extract the login hint from the signed claims.
+	loginHint, ok := ar.Claims.IDToken.GetStringValue(oidc.PreferredUsernameClaim)
+	if !ok || loginHint == "" {
+		return nil, ar.NewBadRequest(oidc.ErrorCodeOAuth2InvalidRequest, "IdentifierIdentityManager: missing preferred_username claim")
+	}
+
+	// JTI replay prevention.
+	if err := im.checkAndRecordJTI(ar); err != nil {
+		return nil, ar.NewBadRequest(oidc.ErrorCodeOAuth2InvalidRequest, err.Error())
+	}
+
+	// Look up user from the scoped backend.
+	u, err := im.identifier.GetUserFromID(ctx, loginHint, nil, ar.Scopes)
+	if err != nil {
+		im.logger.WithError(err).Errorln("IdentifierIdentityManager: signed login backend error")
+		return nil, ar.NewError(oidc.ErrorCodeOAuth2ServerError, "IdentifierIdentityManager: backend error")
+	}
+	if u == nil {
+		return nil, ar.NewError(oidc.ErrorCodeOAuth2AccessDenied, "IdentifierIdentityManager: user not found")
+	}
+
+	user := asIdentifierUser(u)
+
+	if err := ar.Verify(user.Subject()); err != nil {
+		return nil, err
+	}
+
+	// Set logon time and write a session cookie so that subsequent
+	// authorization requests (silent renew, re-auth) succeed via the normal
+	// cookie path without requiring a new signed JWT each time.
+	authTime := time.Now()
+	u.SetLogonAt(authTime)
+	if cookieErr := im.identifier.WriteLogonCookie(rw, u); cookieErr != nil {
+		im.logger.WithError(cookieErr).Warnln("IdentifierIdentityManager: failed to set logon cookie")
+	}
+
+	auth := identity.NewAuthRecord(im, user.Subject(), nil, nil, nil)
+	auth.SetUser(user)
+	auth.SetAuthTime(authTime)
+	return auth, nil
+}
+
+// authorizeSignedLogin handles scope approval for the signed JWT auto sign-in flow.
+func (im *IdentifierIdentityManager) authorizeSignedLogin(ctx context.Context, rw http.ResponseWriter, req *http.Request, ar *payload.AuthenticationRequest, auth identity.AuthRecord) (identity.AuthRecord, error) {
+	if ar.Request == nil {
+		return nil, ar.NewError(oidc.ErrorCodeOIDCInvalidRequestObject, "IdentifierIdentityManager: authorize without request object")
+	}
+
+	roc, ok := ar.Request.Claims.(*payload.RequestObjectClaims)
+	if !ok {
+		return nil, ar.NewBadRequest(oidc.ErrorCodeOAuth2InvalidRequest, "IdentifierIdentityManager: authorize with invalid claims request")
+	}
+
+	securedDetails := roc.Secure()
+	if securedDetails == nil {
+		return nil, ar.NewBadRequest(oidc.ErrorCodeOIDCInvalidRequestObject, "IdentifierIdentityManager: authorize without secure client")
+	}
+
+	clientDetails, err := im.clients.Lookup(req.Context(), ar.ClientID, "", ar.RedirectURI, "", true)
+	if err != nil {
+		return nil, ar.NewError(oidc.ErrorCodeOAuth2AccessDenied, err.Error())
+	}
+	if clientDetails.ID != securedDetails.ID {
+		return nil, ar.NewError(oidc.ErrorCodeOAuth2AccessDenied, "client mismatch")
+	}
+
+	var approvedScopes map[string]bool
+	if clientDetails.Trusted && securedDetails.TrustedScopes == nil {
+		approvedScopes = ar.Scopes
+	} else {
+		// Approve openid plus any scope in the client's trusted_scopes list.
+		approvedScopes = make(map[string]bool)
+		for _, scope := range securedDetails.TrustedScopes {
+			if ar.Scopes[scope] {
+				approvedScopes[scope] = true
+			}
+		}
+		if ar.Scopes[oidc.ScopeOpenID] {
+			approvedScopes[oidc.ScopeOpenID] = true
+		}
+
+		// Ensure the signed-login scope was approved.
+		if !approvedScopes[konnect.ScopeSignedLoginOK] {
+			return nil, ar.NewBadRequest(oidc.ErrorCodeOAuth2InvalidRequest, "IdentifierIdentityManager: client does not authorize "+konnect.ScopeSignedLoginOK+" scope")
 		}
 	}
 

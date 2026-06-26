@@ -146,6 +146,12 @@ func (u *IdentifiedUser) LoggedOn() (bool, time.Time) {
 	return !u.logonAt.IsZero(), u.logonAt
 }
 
+// SetLogonAt sets the logon timestamp, marking the user as logged on. Used by
+// flows that authenticate without a password challenge (e.g. signed login).
+func (u *IdentifiedUser) SetLogonAt(t time.Time) {
+	u.logonAt = t
+}
+
 // SessionRef returns the accociated users underlaying session reference.
 func (u *IdentifiedUser) SessionRef() *string {
 	return u.sessionRef

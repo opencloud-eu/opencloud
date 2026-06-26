@@ -23,6 +23,8 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -52,7 +54,8 @@ type ClientRegistration struct {
 	TrustedScopes []string `yaml:"trusted_scopes" json:"-"`
 	Insecure      bool     `yaml:"insecure" json:"-"`
 
-	ImplicitScopes []string `yaml:"implicit_scopes" json:"-"`
+	ImplicitScopes                []string `yaml:"implicit_scopes" json:"-"`
+	ExternalAuthorizeRedirectURIs []string `yaml:"external_authorize_redirect_uris,flow" json:"-"`
 
 	Dynamic         bool      `yaml:"-" json:"-"`
 	IDIssuedAt      time.Time `yaml:"-" json:"-"`
@@ -81,6 +84,23 @@ type ClientRegistration struct {
 // Validate validates the associated client registration data and returns error
 // if the data is not valid.
 func (cr *ClientRegistration) Validate() error {
+	for _, entry := range cr.ExternalAuthorizeRedirectURIs {
+		uri := entry
+		// Strip scope prefix if present using the colon heuristic.
+		if idx := strings.Index(entry, ":"); idx > 0 {
+			rest := entry[idx+1:]
+			if !strings.HasPrefix(rest, "//") {
+				uri = rest
+			}
+		}
+		parsed, err := url.Parse(uri)
+		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+			return fmt.Errorf("invalid external_authorize_redirect_uri: %v", entry)
+		}
+		if parsed.Scheme != "https" {
+			return fmt.Errorf("external_authorize_redirect_uri must use https: %v", entry)
+		}
+	}
 	return nil
 }
 
@@ -198,6 +218,46 @@ func (cr *ClientRegistration) ApplyImplicitScopes(scopes map[string]bool) error 
 		}
 	}
 	return nil
+}
+
+// GetExternalAuthorizeRedirectURI returns the external authorize redirect URI
+// for the given scopes. A scope-specific match takes precedence over the
+// default. Returns empty string if none is configured.
+func (cr *ClientRegistration) GetExternalAuthorizeRedirectURI(scopes map[string]bool) string {
+	if len(cr.ExternalAuthorizeRedirectURIs) == 0 {
+		return ""
+	}
+
+	var defaultURI string
+	scopedURIs := make(map[string]string)
+	for _, entry := range cr.ExternalAuthorizeRedirectURIs {
+		if idx := strings.Index(entry, ":"); idx > 0 {
+			rest := entry[idx+1:]
+			// If the remainder starts with "//", this is a plain URL with
+			// no scope prefix (e.g. https://...).
+			if !strings.HasPrefix(rest, "//") {
+				scopedURIs[entry[:idx]] = rest
+				continue
+			}
+		}
+		if defaultURI == "" {
+			defaultURI = entry
+		}
+	}
+
+	// Try to find a scope-specific match.
+	if scopes != nil {
+		for scope, ok := range scopes {
+			if !ok {
+				continue
+			}
+			if u, found := scopedURIs[scope]; found {
+				return u
+			}
+		}
+	}
+
+	return defaultURI
 }
 
 func (cr *ClientRegistration) makeSecret(secret []byte) (string, string, error) {

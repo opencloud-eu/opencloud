@@ -22,6 +22,20 @@ clients:
 #       - https://my-host:8509
 
 #  - id: playground-trusted.js
+#    name: Trusted OIDC Playground with External Login
+#    trusted: yes
+#    application_type: web
+#    redirect_uris:
+#       - https://my-host:8509/
+#    origins:
+#       - https://my-host:8509
+#    external_authorize_redirect_uris:
+#       # Default external login URI used for any scope.
+#       - https://my-external-login:8443/authorize
+#       # Scope-specific URI used when the given scope is requested.
+#       - MyApp.Special:https://my-external-login:8443/authorize-special
+
+#  - id: playground-trusted.js
 #    name: Trusted Insecure OIDC Playground
 #    trusted: yes
 #    application_type: web

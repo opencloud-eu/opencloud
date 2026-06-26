@@ -90,6 +90,7 @@ func (p *Provider) JwksHandler(rw http.ResponseWriter, req *http.Request) {
 func (p *Provider) AuthorizeHandler(rw http.ResponseWriter, req *http.Request) {
 	var err error
 	var auth identity.AuthRecord
+	var nextManager identity.Manager
 
 	addResponseHeaders(rw.Header())
 
@@ -173,7 +174,8 @@ func (p *Provider) AuthorizeHandler(rw http.ResponseWriter, req *http.Request) {
 
 	// Authorization Server Authenticates End-User
 	// http://openid.net/specs/openid-connect-core-1_0.html#ImplicitAuthenticates
-	auth, err = p.identityManager.Authenticate(ctx, rw, req, ar, p.guestManager)
+	nextManager = p.guestManager
+	auth, err = p.identityManager.Authenticate(ctx, rw, req, ar, nextManager)
 	if err != nil {
 		goto done
 	}

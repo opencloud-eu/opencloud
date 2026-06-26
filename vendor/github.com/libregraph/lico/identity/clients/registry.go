@@ -89,13 +89,14 @@ func NewRegistry(ctx context.Context, trustedURI *url.URL, registrationConfFilep
 		validateErr := client.Validate()
 		registerErr := r.Register(client)
 		fields := logrus.Fields{
-			"client_id":          client.ID,
-			"with_client_secret": client.Secret != "",
-			"trusted":            client.Trusted,
-			"insecure":           client.Insecure,
-			"application_type":   client.ApplicationType,
-			"redirect_uris":      client.RedirectURIs,
-			"origins":            client.Origins,
+			"client_id":                        client.ID,
+			"with_client_secret":               client.Secret != "",
+			"trusted":                          client.Trusted,
+			"insecure":                         client.Insecure,
+			"application_type":                 client.ApplicationType,
+			"redirect_uris":                    client.RedirectURIs,
+			"origins":                          client.Origins,
+			"external_authorize_redirect_uris": client.ExternalAuthorizeRedirectURIs,
 		}
 
 		if validateErr != nil {

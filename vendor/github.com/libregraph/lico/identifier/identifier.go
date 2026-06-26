@@ -85,7 +85,8 @@ type Identifier struct {
 
 	meta *meta.Meta
 
-	defaultBannerLogo *string
+	defaultBannerLogo       *string
+	defaultBannerLogoHeight *string
 
 	onSetLogonCallbacks   []func(ctx context.Context, rw http.ResponseWriter, user identity.User) error
 	onUnsetLogonCallbacks []func(ctx context.Context, rw http.ResponseWriter) error
@@ -157,6 +158,7 @@ func NewIdentifier(c *Config) (*Identifier, error) {
 		}
 		i.defaultBannerLogo = &defaultBannerLogo
 	}
+	i.defaultBannerLogoHeight = c.DefaultBannerLogoHeight
 
 	i.meta.Scopes.Extend(c.Backend.ScopesMeta())
 
@@ -267,27 +269,26 @@ func (i *Identifier) ErrorPage(rw http.ResponseWriter, code int, title string, m
 	utils.WriteErrorPage(rw, code, title, message)
 }
 
-// SetUserToLogonCookie serializes the provided user into an encrypted string
-// and sets it as cookie on the provided http.ResponseWriter.
-func (i *Identifier) SetUserToLogonCookie(ctx context.Context, rw http.ResponseWriter, user *IdentifiedUser) error {
+// WriteLogonCookie serializes the provided user into an encrypted string and
+// sets it as a logon cookie without firing any callbacks. Use this when the
+// cookie must be written mid-flow (e.g. inside an authorize handler) where
+// the caller is responsible for updating browser state separately.
+func (i *Identifier) WriteLogonCookie(rw http.ResponseWriter, user *IdentifiedUser) error {
 	loggedOn, logonAt := user.LoggedOn()
 	if !loggedOn {
 		return fmt.Errorf("refused to set cookie for not logged on user")
 	}
 
-	// Add standard claims.
 	claims := jwt.Claims{
 		Issuer:   user.BackendName(),
 		Audience: audienceMarker,
 		Subject:  user.Subject(),
 		IssuedAt: jwt.NewNumericDate(logonAt),
 	}
-	// Add expiration, if set.
 	if user.expiresAfter != nil {
 		claims.Expiry = jwt.NewNumericDate(*user.expiresAfter)
 	}
 
-	// Additional claims.
 	userClaims := map[string]interface{}(user.Claims())
 	if sessionRef := user.SessionRef(); sessionRef != nil {
 		userClaims[SessionIDClaim] = *sessionRef
@@ -302,25 +303,27 @@ func (i *Identifier) SetUserToLogonCookie(ctx context.Context, rw http.ResponseW
 		userClaims[LockedScopesClaim] = strings.Join(lockedScopes, " ")
 	}
 
-	// Serialize and encrypt cookie value.
 	serialized, err := jwt.Encrypted(i.encrypter).Claims(claims).Claims(userClaims).CompactSerialize()
 	if err != nil {
 		return err
 	}
 
-	// Set cookie.
-	err = i.setLogonCookie(rw, serialized)
-	if err != nil {
+	return i.setLogonCookie(rw, serialized)
+}
+
+// SetUserToLogonCookie serializes the provided user into an encrypted string,
+// sets it as cookie on the provided http.ResponseWriter, and fires the
+// onSetLogon callbacks.
+func (i *Identifier) SetUserToLogonCookie(ctx context.Context, rw http.ResponseWriter, user *IdentifiedUser) error {
+	if err := i.WriteLogonCookie(rw, user); err != nil {
 		return err
 	}
 	// Trigger callbacks.
 	for _, f := range i.onSetLogonCallbacks {
-		err = f(ctx, rw, user)
-		if err != nil {
+		if err := f(ctx, rw, user); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 

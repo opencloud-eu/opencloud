@@ -40,7 +40,7 @@ combine the implementation details.
 
 ## Build dependencies
 
-Make sure you have Go 1.18 or later installed. This project uses Go Modules.
+Make sure you have Go 1.24 or later installed. This project uses Go Modules.
 
 Lico also includes a modern web app which requires a couple of additional
 build dependencies which are furthermore also assumed to be in your $PATH.
@@ -51,7 +51,7 @@ build dependencies which are furthermore also assumed to be in your $PATH.
 
 To build Lico, a `Makefile` is provided, which requires [make](https://www.gnu.org/software/make/manual/make.html).
 
-When building, third party dependencies will tried to be fetched from the Internet
+When building, third party dependencies will be fetched from the Internet
 if not there already.
 
 ## Building from source
@@ -99,7 +99,7 @@ this, Lico will generate a random key on startup.
 To run a functional OpenID Connect provider, an issuer identifier is required.
 The `iss` is a full qualified https:// URI pointing to the web server which
 serves the requests to Lico (example: https://example.com). Provide the
-Issuer Identifier with the `--iss` parametter when starting Lico.
+Issuer Identifier with the `--iss` parameter when starting Lico.
 
 Furthermore to allow clients to utilize the Lico services, clients need to
 be known/registered. For now Lico uses a static configuration file which
@@ -148,6 +148,10 @@ how to expose them through a TLS proxy.
 The base URL of the frontend proxy is what will become the value of the `--iss`
 parameter when starting up Lico. OIDC requires the Issuer Identifier to be
 secure (https:// required).
+
+## API Documentation
+
+The complete API specification is available in OpenAPI 3.0 format at [`docs/libregraph-connect-api-v1.yaml`](docs/libregraph-connect-api-v1.yaml), covering all OIDC, OAuth2, authentication, and SAML2 endpoints with detailed schemas and examples.
 
 ### LibreGraph backend
 

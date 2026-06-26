@@ -52,7 +52,7 @@ require (
 	github.com/kovidgoyal/imaging v1.8.21
 	github.com/leonelquinteros/gotext v1.7.3-0.20260422134830-b012b4ccae69
 	github.com/libregraph/idm v0.5.0
-	github.com/libregraph/lico v0.66.0
+	github.com/libregraph/lico v0.67.0
 	github.com/mna/pigeon v1.3.0
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 	github.com/nats-io/nats-server/v2 v2.14.2
@@ -231,7 +231,6 @@ require (
 	github.com/goccy/go-json v0.10.6 // indirect
 	github.com/goccy/go-yaml v1.19.2 // indirect
 	github.com/gofrs/flock v0.13.0 // indirect
-	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect

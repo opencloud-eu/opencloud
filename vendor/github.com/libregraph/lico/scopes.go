@@ -28,4 +28,7 @@ const (
 
 	// ScopeGuestOK is the string value for the built-in Guest OK scope.
 	ScopeGuestOK = "LibreGraph.GuestOK"
+
+	// ScopeSignedLoginOK is the string value for the built-in Signed Login OK scope.
+	ScopeSignedLoginOK = "LibreGraph.SignedLoginOK"
 )
