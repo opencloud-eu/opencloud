@@ -36,6 +36,8 @@ type Config struct {
 
 	MaxConcurrency int `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;GRAPH_MAX_CONCURRENCY" desc:"The maximum number of concurrent requests the service will handle." introductionVersion:"1.0.0"`
 
+	ReceivedSharesStatTimeout time.Duration `yaml:"received_shares_stat_timeout" env:"GRAPH_RECEIVED_SHARES_STAT_TIMEOUT" desc:"The maximum duration to wait for the storage to respond while resolving a single received share's resource when listing 'sharedWithMe'. Bounding each resource lookup individually prevents one slow or unreachable resource from consuming the request deadline shared by all the other shares. A share whose resource cannot be statted within this time is still listed as a degraded item instead of being dropped. Defaults to '10s'. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+
 	Keycloak       Keycloak       `yaml:"keycloak"`
 	ServiceAccount ServiceAccount `yaml:"service_account"`
 

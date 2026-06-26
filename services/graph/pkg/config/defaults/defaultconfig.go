@@ -149,7 +149,8 @@ func DefaultConfig() *config.Config {
 			Cluster:          "opencloud-cluster",
 			EnableTLS:        false,
 		},
-		MaxConcurrency: 20,
+		MaxConcurrency:            20,
+		ReceivedSharesStatTimeout: 10 * time.Second,
 		UnifiedRoles: config.UnifiedRoles{
 			AvailableRoles: nil, // will be populated with defaults in EnsureDefaults
 		},
