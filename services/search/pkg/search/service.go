@@ -615,15 +615,46 @@ func (s *Service) doUpsertItem(ref *provider.Reference, batch BatchOperator) {
 		r.ParentID = storagespace.FormatResourceID(parentID)
 	}
 
+	// Taki v2 routing: decide what goes to bleve based on content_target
+	bleveDoc := doc
+	if doc.Taki != nil && doc.Taki.Routing != nil {
+		target := doc.Taki.Routing.ContentTarget
+		if target == "vector" || target == "none" {
+			// Content should NOT go to bleve — clear it for the bleve index
+			// but keep Title (meta always goes to bleve)
+			bleveDoc.Content = ""
+			s.logger.Debug().
+				Str("name", doc.Name).
+				Str("target", target).
+				Str("method", doc.Taki.Method).
+				Msg("taki routing: content excluded from bleve index")
+		}
+	}
+
+	bleveResource := r
+	bleveResource.Document = bleveDoc
+
 	if batch != nil {
-		err = batch.Upsert(r.ID, r)
+		err = batch.Upsert(r.ID, bleveResource)
 	} else {
-		err = s.engine.Upsert(r.ID, r)
+		err = s.engine.Upsert(r.ID, bleveResource)
 	}
 	if err != nil {
 		s.logger.Error().Err(err).Msg("error adding updating the resource in the index")
 	} else {
 		logDocCount(s.engine, s.logger)
+	}
+
+	// Taki v2: log extraction summary
+	if doc.Taki != nil {
+		s.logger.Info().
+			Str("name", doc.Name).
+			Str("method", doc.Taki.Method).
+			Int("content_len", len(doc.Content)).
+			Int("embedding_dims", len(doc.Taki.Embed)).
+			Int("entities", len(doc.Taki.Entities)).
+			Str("summary", doc.Taki.Summary).
+			Msg("taki v2 extraction complete")
 	}
 
 	// determine if metadata needs to be stored in storage as well
