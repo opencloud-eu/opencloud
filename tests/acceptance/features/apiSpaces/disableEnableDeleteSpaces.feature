@@ -248,3 +248,27 @@ Feature: Disabling, restoring and deleting space
       | user-role  |
       | User       |
       | User Light |
+
+  @issue-1878
+  Scenario: a space admin can list and delete a project space whose manager was deleted
+    Given the administrator has assigned the role "Space Admin" to user "Brian" using the Graph API
+    When the administrator deletes user "Alice" using the provisioning API
+    Then the HTTP status code should be "204"
+    When user "Brian" lists all spaces via the Graph API with query "$filter=driveType eq 'project'"
+    Then the HTTP status code should be "200"
+    And the JSON response should contain space called "Project Moon" and match
+      """
+      {
+        "type": "object",
+        "required": ["name", "id", "driveType"],
+        "properties": {
+          "name": { "type": "string", "enum": ["Project Moon"] },
+          "driveType": { "type": "string", "enum": ["project"] }
+        }
+      }
+      """
+    When user "Brian" disables a space "Project Moon" owned by user "Alice"
+    Then the HTTP status code should be "204"
+    When user "Brian" deletes a space "Project Moon" owned by user "Alice"
+    Then the HTTP status code should be "204"
+    And the user "Brian" should not have a space called "Project Moon"
