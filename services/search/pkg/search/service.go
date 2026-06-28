@@ -32,6 +32,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/metrics"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/qdrant"
 )
 
 const (
@@ -66,6 +67,7 @@ type Service struct {
 	extractor       content.Extractor
 	metrics         *metrics.Metrics
 	cfg             *config.Config
+	vectorClient    *qdrant.Client
 
 	serviceAccountID     string
 	serviceAccountSecret string
@@ -89,6 +91,21 @@ func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng E
 		serviceAccountSecret: cfg.ServiceAccount.ServiceAccountSecret,
 
 		batchSize: cfg.BatchSize,
+	}
+
+	// Initialize Qdrant vector store if enabled
+	if cfg.Vector.Enabled && cfg.Vector.URL != "" {
+		s.vectorClient = qdrant.New(cfg.Vector.URL, cfg.Vector.Collection, logger)
+		// Auto-create collection (768 dims = nomic-embed default)
+		if err := s.vectorClient.EnsureCollection(768); err != nil {
+			logger.Warn().Err(err).Msg("qdrant: collection init failed, vector search disabled")
+			s.vectorClient = nil
+		} else {
+			logger.Info().
+				Str("url", cfg.Vector.URL).
+				Str("collection", cfg.Vector.Collection).
+				Msg("vector search enabled (qdrant)")
+		}
 	}
 
 	return s
@@ -668,6 +685,52 @@ func (s *Service) doUpsertItem(ref *provider.Reference, batch BatchOperator) {
 		s.logger.Error().Err(err).Msg("error adding updating the resource in the index")
 	} else {
 		logDocCount(s.engine, s.logger)
+	}
+
+	// Taki v2: log + store embedding in Qdrant
+	if doc.Taki != nil {
+		s.logger.Info().
+			Str("name", doc.Name).
+			Str("method", doc.Taki.Method).
+			Int("content_len", len(doc.Content)).
+			Int("embedding_dims", len(doc.Taki.Embed)).
+			Int("entities", len(doc.Taki.Entities)).
+			Str("summary", doc.Taki.Summary).
+			Msg("taki v2 extraction complete")
+
+		// Store embedding in Qdrant if enabled and embedding present
+		if s.vectorClient != nil && len(doc.Taki.Embed) > 0 {
+			payload := map[string]interface{}{
+				"name":        doc.Name,
+				"title":       doc.Title,
+				"mime":        doc.MimeType,
+				"method":      doc.Taki.Method,
+				"path":        r.Path,
+				"root_id":     r.RootID,
+				"resource_id": r.ID,
+			}
+			if doc.Taki.Summary != "" {
+				payload["summary"] = doc.Taki.Summary
+			}
+			if len(doc.Taki.Entities) > 0 {
+				payload["entities"] = doc.Taki.Entities
+			}
+			if len(doc.Content) > 2000 {
+				payload["content_preview"] = doc.Content[:2000]
+			} else if doc.Content != "" {
+				payload["content_preview"] = doc.Content
+			}
+
+			point := qdrant.Point{
+				ID:      stat.Info.Id.OpaqueId, // pure UUID, stable across moves
+				Vector:  doc.Taki.Embed,
+				Payload: payload,
+			}
+
+			if err := s.vectorClient.Upsert([]qdrant.Point{point}); err != nil {
+				s.logger.Warn().Err(err).Str("name", doc.Name).Msg("qdrant upsert failed")
+			}
+		}
 	}
 
 	// determine if metadata needs to be stored in storage as well

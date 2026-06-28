@@ -54,6 +54,11 @@ func DefaultConfig() *config.Config {
 				MaxWorkers:     8,
 			},
 		},
+		Vector: config.VectorStore{
+			Enabled:    false,
+			URL:        "http://localhost:6333",
+			Collection: "opencloud",
+		},
 		Events: config.Events{
 			Endpoint:         "127.0.0.1:9233",
 			Cluster:          "opencloud-cluster",
