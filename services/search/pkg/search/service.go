@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -64,6 +65,7 @@ type Service struct {
 	engine          Engine
 	extractor       content.Extractor
 	metrics         *metrics.Metrics
+	cfg             *config.Config
 
 	serviceAccountID     string
 	serviceAccountSecret string
@@ -81,6 +83,7 @@ func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng E
 		logger:          logger,
 		extractor:       extractor,
 		metrics:         metrics,
+		cfg:             cfg,
 
 		serviceAccountID:     cfg.ServiceAccount.ServiceAccountID,
 		serviceAccountSecret: cfg.ServiceAccount.ServiceAccountSecret,
@@ -485,6 +488,34 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 		}
 		logDocCount(s.engine, s.logger)
 	}()
+
+	// Parallel extraction when taki v2 is detected (LLM benefits from concurrent calls)
+	isTaki := false
+	if tikaExtractor, ok := s.extractor.(*content.Tika); ok {
+		isTaki = tikaExtractor.IsTaki()
+	}
+
+	indexWorkers := s.cfg.Extractor.Tika.MaxWorkers
+	if indexWorkers < 1 {
+		indexWorkers = 8
+	}
+	var workCh chan *provider.Reference
+	var indexWg sync.WaitGroup
+
+	if isTaki {
+		s.logger.Info().Int("workers", indexWorkers).Msg("taki v2 detected: parallel indexing enabled")
+		workCh = make(chan *provider.Reference, indexWorkers*2)
+		for i := 0; i < indexWorkers; i++ {
+			indexWg.Add(1)
+			go func() {
+				defer indexWg.Done()
+				for ref := range workCh {
+					s.doUpsertItem(ref, nil)
+				}
+			}()
+		}
+	}
+
 	err = w.Walk(ownerCtx, &rootID, func(wd string, info *provider.ResourceInfo, err error) error {
 		if err != nil {
 			s.logger.Error().Err(err).Msg("error walking the tree")
@@ -502,7 +533,11 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 		s.logger.Debug().Str("path", ref.Path).Msg("Walking tree")
 
 		if forceRescan {
-			s.doUpsertItem(ref, batch)
+			if isTaki {
+				workCh <- ref
+			} else {
+				s.doUpsertItem(ref, batch)
+			}
 			return nil
 		}
 
@@ -519,10 +554,19 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 			return nil
 		}
 
-		s.doUpsertItem(ref, batch)
+		if isTaki {
+			workCh <- ref
+		} else {
+			s.doUpsertItem(ref, batch)
+		}
 
 		return nil
 	})
+
+	if isTaki {
+		close(workCh)
+		indexWg.Wait()
+	}
 
 	if err != nil {
 		return err

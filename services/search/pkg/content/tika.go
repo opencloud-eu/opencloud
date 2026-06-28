@@ -37,6 +37,11 @@ type Tika struct {
 	isTaki                     bool
 }
 
+// IsTaki returns true if open_taki was detected as the extraction backend.
+func (t *Tika) IsTaki() bool {
+	return t.isTaki
+}
+
 // NewTikaExtractor creates a new Tika instance.
 func NewTikaExtractor(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], logger log.Logger, cfg *config.Config) (*Tika, error) {
 	basic, err := NewBasicExtractor(logger)

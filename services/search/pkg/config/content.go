@@ -11,4 +11,5 @@ type Extractor struct {
 type ExtractorTika struct {
 	TikaURL        string `yaml:"tika_url" env:"SEARCH_EXTRACTOR_TIKA_TIKA_URL" desc:"URL of the tika server." introductionVersion:"1.0.0"`
 	CleanStopWords bool   `yaml:"clean_stop_words" env:"SEARCH_EXTRACTOR_TIKA_CLEAN_STOP_WORDS" desc:"Defines if stop words should be cleaned or not. See the documentation for more details." introductionVersion:"1.0.0"`
+	MaxWorkers     int    `yaml:"max_workers" env:"SEARCH_EXTRACTOR_TIKA_MAX_WORKERS" desc:"Maximum number of parallel extraction workers. Only effective with open_taki v2. Defaults to 8." introductionVersion:"7.1.0"`
 }
