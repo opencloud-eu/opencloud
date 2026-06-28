@@ -33,6 +33,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/qdrant"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -299,6 +300,24 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		}
 	}
 
+	// Qdrant semantic search: only for freetext queries (no field prefixes)
+	if s.vectorClient != nil && isFreetext(req.Query) {
+		vectorMatches := s.searchVector(ctx, req, gatewayClient, spaces, mountpointMap)
+		if len(vectorMatches) > 0 {
+			// Merge: add vector results that aren't already in keyword results
+			existingIDs := map[string]bool{}
+			for _, m := range matches {
+				existingIDs[m.Entity.Id.OpaqueId] = true
+			}
+			for _, vm := range vectorMatches {
+				if !existingIDs[vm.Entity.Id.OpaqueId] {
+					matches = append(matches, vm)
+					total++
+				}
+			}
+		}
+	}
+
 	// compile one sorted list of matches from all spaces and apply the limit if needed
 	sort.Sort(matches)
 	limit := req.PageSize
@@ -314,6 +333,101 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		Matches:      matches,
 		TotalMatches: total,
 	}, nil
+}
+
+// isFreetext returns true if the query is plain text without field prefixes.
+func isFreetext(query string) bool {
+	// Structured queries contain field:value patterns
+	for _, prefix := range []string{"name:", "tag:", "mtime", "mediatype:", "Type:", "id:", "RootID:", "Path:", "Favorites:"} {
+		if strings.Contains(query, prefix) {
+			return false
+		}
+	}
+	return true
+}
+
+// searchVector performs semantic search via Qdrant and returns matching resources.
+func (s *Service) searchVector(ctx context.Context, req *searchsvc.SearchRequest, gatewayClient gateway.GatewayAPIClient, spaces []*provider.StorageSpace, mountpointMap map[string]string) []*searchmsg.Match {
+	// Get embedding for query from open_taki
+	embedding := s.getQueryEmbedding(req.Query)
+	if embedding == nil {
+		return nil
+	}
+
+	results, err := s.vectorClient.Search(embedding, 20)
+	if err != nil {
+		s.logger.Warn().Err(err).Msg("qdrant search failed")
+		return nil
+	}
+
+	// Convert Qdrant results to search matches
+	var matches []*searchmsg.Match
+	for _, result := range results {
+		if result.Score < 0.3 { // minimum relevance threshold
+			continue
+		}
+
+		resourceID, err := storagespace.ParseID(result.ID)
+		if err != nil {
+			continue
+		}
+
+		// Stat the resource to get current info
+		statRes, err := gatewayClient.Stat(ctx, &provider.StatRequest{
+			Ref: &provider.Reference{ResourceId: &resourceID},
+		})
+		if err != nil || statRes.Status.Code != rpc.Code_CODE_OK {
+			continue
+		}
+
+		ri := statRes.Info
+		match := &searchmsg.Match{
+			Score: float32(result.Score),
+			Entity: &searchmsg.Entity{
+				Ref: &searchmsg.Reference{
+					ResourceId: &searchmsg.ResourceID{
+						StorageId: ri.Id.StorageId,
+						SpaceId:   ri.Id.SpaceId,
+						OpaqueId:  ri.Id.OpaqueId,
+					},
+				},
+				Id: &searchmsg.ResourceID{
+					StorageId: ri.Id.StorageId,
+					SpaceId:   ri.Id.SpaceId,
+					OpaqueId:  ri.Id.OpaqueId,
+				},
+				Name:     ri.Name,
+				Size:     ri.Size,
+				MimeType: ri.MimeType,
+			},
+		}
+
+		if ri.Mtime != nil {
+			match.Entity.LastModifiedTime = &timestamppb.Timestamp{
+				Seconds: int64(ri.Mtime.Seconds),
+				Nanos:   int32(ri.Mtime.Nanos),
+			}
+		}
+
+		matches = append(matches, match)
+	}
+
+	s.logger.Debug().
+		Str("query", req.Query).
+		Int("qdrant_hits", len(results)).
+		Int("valid_matches", len(matches)).
+		Msg("vector search completed")
+
+	return matches
+}
+
+// getQueryEmbedding gets an embedding for the search query via the taki extractor.
+func (s *Service) getQueryEmbedding(query string) []float64 {
+	tikaExtractor, ok := s.extractor.(*content.Tika)
+	if !ok || !tikaExtractor.IsTaki() {
+		return nil
+	}
+	return tikaExtractor.GetEmbedding(query)
 }
 
 func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, space *provider.StorageSpace, mountpointID string) (*searchsvc.SearchIndexResponse, error) {
@@ -721,6 +835,7 @@ func (s *Service) doUpsertItem(ref *provider.Reference, batch BatchOperator) {
 				payload["content_preview"] = doc.Content
 			}
 
+			payload["resource_id"] = r.ID // full OpenCloud ID (storageId$spaceId!opaqueId)
 			point := qdrant.Point{
 				ID:      stat.Info.Id.OpaqueId, // pure UUID, stable across moves
 				Vector:  doc.Taki.Embed,
