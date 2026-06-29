@@ -73,7 +73,6 @@ type Graph struct {
 	metrics                  *metrics.Metrics
 	traceProvider            trace.TracerProvider
 	natskv                   jetstream.KeyValue
-	profilePictureHTTPClient HTTPClient
 }
 
 var _ Service = Graph{} // ensure that the Graph struct implements all of the Service interface
