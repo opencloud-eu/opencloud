@@ -112,8 +112,8 @@ importers:
         specifier: ^5.6.7
         version: 5.6.7(webpack@5.105.2)
       i18next-conv:
-        specifier: ^15.1.2
-        version: 15.1.2
+        specifier: ^17.0.0
+        version: 17.0.0
       i18next-parser:
         specifier: ^9.4.0
         version: 9.4.0
@@ -1865,10 +1865,6 @@ packages:
     resolution: {integrity: sha512-a1wflyaL0tHtJSmLSOVybYhy22vRih4eduhhrkcjgrWGnRfrZtovJ2FRjxuTtkkj47O/baf0R86QU5OuYpz8fA==}
     engines: {node: ^20.17.0 || >=22.9.0}
 
-  abort-controller@3.0.0:
-    resolution: {integrity: sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg==}
-    engines: {node: '>=6.5'}
-
   acorn-import-phases@1.0.4:
     resolution: {integrity: sha512-wKmbr/DDiIXzEOiWrTTUcDm24kQ2vGfZQvM2fwg2vXqR5uW6aapr7ObPtj1th32b9u90/Pf4AItvdTh42fBmVQ==}
     engines: {node: '>=10.13.0'}
@@ -2670,10 +2666,6 @@ packages:
     resolution: {integrity: sha512-lW6is4T1NFOYnmqGZIfvixqj7A7sSvScF+DN8EK6K58xI5MZ5UvYe0GjopxOXQtZvUn4eDdVuZ8XSoYWTMEKwA==}
     engines: {node: '>=20'}
 
-  event-target-shim@5.0.1:
-    resolution: {integrity: sha512-i/2XbnSz/uxRCU6+NdVJgKWDTM427+MqYbkQzD321DuCQJUqOuJKIA0IM2+W2xtYHdKOmZ4dR6fExsd4SXL+WQ==}
-    engines: {node: '>=6'}
-
   events-universal@1.0.1:
     resolution: {integrity: sha512-LUd5euvbMLpwOF8m6ivPCbhQeSiYVNb8Vs0fQ8QjXo0JTkEHpz8pxdQf0gStltaPpw0Cca8b39KxvK9cfKRiAw==}
 
@@ -2848,12 +2840,12 @@ packages:
     resolution: {integrity: sha512-w9UMqWwJxHNOvoNzSJ2oPF5wvYcvP7jUvYzhp67yEhTi17ZDBBC1z9pTdGuzjD+EFIqLSYRweZjqfiPzQ06Ebg==}
     engines: {node: '>= 0.4'}
 
-  gettext-converter@1.3.1:
-    resolution: {integrity: sha512-2BTfkX9g9EbfjJVEQFT5BMqY/2HbtZ0RTXWKTgn9xW7gzSXqkAfYAIFtpoiJ1A3/iL9MC9Sp/BlrshqHKP8wxQ==}
+  gettext-converter@1.3.3:
+    resolution: {integrity: sha512-geN4Vc0T45a59rkUdjUYpu4PgpKdAcQ8bZPIAwNLw+ygYAahA7Ky/vwmVZ8v2szwQjHSRJDCuV8RG16PsE8a+Q==}
 
-  gettext-parser@8.0.0:
-    resolution: {integrity: sha512-eFmhDi2xQ+2reMRY2AbJ2oa10uFOl1oyGbAKdCZiNOk94NJHi7aN0OBELSC9v35ZAPQdr+uRBi93/Gu4SlBdrA==}
-    engines: {node: '>=18'}
+  gettext-parser@9.0.2:
+    resolution: {integrity: sha512-dGvq3S1gpS6e9KzNkwgPED5xxfWk7mNYzzdi/fPdJF5qS7B+yo8El2ZQyyhJ79PyzTtHbwiqYOFsqBdzbQ0GPg==}
+    engines: {node: '>=20'}
 
   glob-parent@5.1.2:
     resolution: {integrity: sha512-AOIgSQCepiJYwP3ARnGx+5VnTu2HBYdzbGP45eLw1vr3zB3vZLeyed1sC9hnbcOc9/SrMyM5RPQrkGz4aS9Zow==}
@@ -3016,9 +3008,9 @@ packages:
   i18next-browser-languagedetector@8.2.1:
     resolution: {integrity: sha512-bZg8+4bdmaOiApD7N7BPT9W8MLZG+nPTOFlLiJiT8uzKXFjhxw4v2ierCXOwB5sFDMtuA5G4kgYZ0AznZxQ/cw==}
 
-  i18next-conv@15.1.2:
-    resolution: {integrity: sha512-vIJNuePPnoKwrD51WXbLUeKU5Xz3ZAeeLii61Ng+MOC4AEElnGk6M2zkhMIwLnv98oUoyRPtXMHkJncrx3kKmw==}
-    engines: {node: '>= 18.0'}
+  i18next-conv@17.0.0:
+    resolution: {integrity: sha512-DmWA5wIWo0djzcP3b8DLX23ZBVRshoKB+Aq/zVN+g/+yiDlCYxYxZc7GnYKPHtShRuxrhW6iWScMBAi2lyMzyw==}
+    engines: {node: ^22.13.0 || >=24}
     hasBin: true
 
   i18next-parser@9.4.0:
@@ -3700,9 +3692,9 @@ packages:
     resolution: {integrity: sha512-qFOyK5PjiWZd+QQIh+1jhdb9LpxTF0qs7Pm8o5QHYZ0M3vKqSqzsZaEB6oWlxZ+q2sJBMI/Ktgd2N5ZwQoRHfg==}
     engines: {node: '>= 0.4'}
 
-  p-from-callback@2.0.0:
-    resolution: {integrity: sha512-0gjkaVoLeg71VE4L7lccq8VPGEpZrVpDsS0s+sk6k3lQUVh9QYQPSog7a/Km407vzQt8zS9MoUMG4EgML//k2Q==}
-    engines: {node: '>=18.0'}
+  p-from-callback@3.0.0:
+    resolution: {integrity: sha512-ZkhRnvT4oY6f6XTb6wx07+Sw9NKQP9eguSh79rnPsyoB3pEDFjXle+Yu8Bd05OeqnjTyi54LsrHm3idZwpNDLA==}
+    engines: {node: '>=20.0'}
 
   p-limit@2.3.0:
     resolution: {integrity: sha512-//88mFWSJx8lxCzwdAABTJL2MyWB12+eIY7MDL2SqLmAkeKU9qxRvWuSyTjm3FUmpBEMuFfckAIqEaVGUDxb6w==}
@@ -4230,10 +4222,6 @@ packages:
   process-nextick-args@2.0.1:
     resolution: {integrity: sha512-3ouUOpQhtgrbOa17J7+uxOTpITYWaGP7/AhoR3+A+/1e9skrzelGi/dXzEYyvbxubEF6Wn2ypscTKiKJFFn1ag==}
 
-  process@0.11.10:
-    resolution: {integrity: sha512-cdGef/drWFoydD1JsMzuFf8100nZl+GT+yacc2bEced5f9Rjk4z+WtFUTBu9PhOi9j/jfmBPu0mMEY4wIdAF8A==}
-    engines: {node: '>= 0.6.0'}
-
   proggy@4.0.0:
     resolution: {integrity: sha512-MbA4R+WQT76ZBm/5JUpV9yqcJt92175+Y0Bodg3HgiXzrmKu7Ggq+bpn6y6wHH+gN9NcyKn3yg1+d47VaKwNAQ==}
     engines: {node: ^20.17.0 || >=22.9.0}
@@ -4372,10 +4360,6 @@ packages:
   readable-stream@3.6.2:
     resolution: {integrity: sha512-9u/sniCrY3D5WdsERHzHE4G2YCXqoG5FTHUiCC4SIbr6XcLZBY05ya9EKjYek9O5xOAwjGq+1JdGBAS7Q9ScoA==}
     engines: {node: '>= 6'}
-
-  readable-stream@4.7.0:
-    resolution: {integrity: sha512-oIGGmcpTLwPga8Bn6/Z75SVaH1z5dUut2ibSyAMVhmUggWpmDn2dapB0n7f8nwaSiRtepAsfJyfXIO5DCVAODg==}
-    engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
 
   readdirp@3.6.0:
     resolution: {integrity: sha512-hOS089on8RduqdbhvQ5Z37A0ESjsqz6qnRcffsMU3495FuTdqSm+7bhJ29JvIOsBDEEnan5DPu9t3To9VRlMzA==}
@@ -7099,10 +7083,6 @@ snapshots:
 
   abbrev@4.0.0: {}
 
-  abort-controller@3.0.0:
-    dependencies:
-      event-target-shim: 5.0.1
-
   acorn-import-phases@1.0.4(acorn@8.16.0):
     dependencies:
       acorn: 8.16.0
@@ -8026,8 +8006,6 @@ snapshots:
 
   eta@4.6.0: {}
 
-  event-target-shim@5.0.1: {}
-
   events-universal@1.0.1:
     dependencies:
       bare-events: 2.8.2
@@ -8225,18 +8203,16 @@ snapshots:
       es-errors: 1.3.0
       get-intrinsic: 1.3.0
 
-  gettext-converter@1.3.1:
+  gettext-converter@1.3.3:
     dependencies:
       arrify: 2.0.1
       content-type: 1.0.5
       encoding: 0.1.13
 
-  gettext-parser@8.0.0:
+  gettext-parser@9.0.2:
     dependencies:
       content-type: 1.0.5
       encoding: 0.1.13
-      readable-stream: 4.7.0
-      safe-buffer: 5.2.1
 
   glob-parent@5.1.2:
     dependencies:
@@ -8454,14 +8430,14 @@ snapshots:
     dependencies:
       '@babel/runtime': 7.29.2
 
-  i18next-conv@15.1.2:
+  i18next-conv@17.0.0:
     dependencies:
       '@postalsys/gettext': 4.1.1
       colorette: 2.0.20
       commander: 14.0.3
-      gettext-converter: 1.3.1
-      gettext-parser: 8.0.0
-      p-from-callback: 2.0.0
+      gettext-converter: 1.3.3
+      gettext-parser: 9.0.2
+      p-from-callback: 3.0.0
 
   i18next-parser@9.4.0:
     dependencies:
@@ -9160,7 +9136,7 @@ snapshots:
       object-keys: 1.1.1
       safe-push-apply: 1.0.0
 
-  p-from-callback@2.0.0: {}
+  p-from-callback@3.0.0: {}
 
   p-limit@2.3.0:
     dependencies:
@@ -9742,8 +9718,6 @@ snapshots:
 
   process-nextick-args@2.0.1: {}
 
-  process@0.11.10: {}
-
   proggy@4.0.0: {}
 
   promise-all-reject-late@1.0.1: {}
@@ -9925,14 +9899,6 @@ snapshots:
       inherits: 2.0.4
       string_decoder: 1.3.0
       util-deprecate: 1.0.2
-
-  readable-stream@4.7.0:
-    dependencies:
-      abort-controller: 3.0.0
-      buffer: 6.0.3
-      events: 3.3.0
-      process: 0.11.10
-      string_decoder: 1.3.0
 
   readdirp@3.6.0:
     dependencies:
