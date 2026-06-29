@@ -25,14 +25,14 @@ type Config struct {
 	TokenManager  *TokenManager         `yaml:"token_manager"`
 	GRPCClientTLS *shared.GRPCClientTLS `yaml:"grpc_client_tls"`
 
-	Application        Application        `yaml:"application"`
-	Spaces             Spaces             `yaml:"spaces"`
-	Identity           Identity           `yaml:"identity"`
-	OIDCProfilePicture OIDCProfilePicture `yaml:"oidc_profile_picture"`
-	IncludeOCMSharees  bool               `yaml:"include_ocm_sharees" env:"OC_ENABLE_OCM;GRAPH_INCLUDE_OCM_SHAREES" desc:"Include OCM sharees when listing users." introductionVersion:"1.0.0"`
-	Events             Events             `yaml:"events"`
-	UnifiedRoles       UnifiedRoles       `yaml:"unified_roles"`
-	MaxConcurrency     int                `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;GRAPH_MAX_CONCURRENCY" desc:"The maximum number of concurrent requests the service will handle." introductionVersion:"1.0.0"`
+	Application                Application  `yaml:"application"`
+	Spaces                     Spaces       `yaml:"spaces"`
+	Identity                   Identity     `yaml:"identity"`
+	ProfilePictureURLAllowlist []string     `yaml:"profile_picture_url_allowlist" env:"GRAPH_PROFILE_PICTURE_URL_ALLOWLIST" desc:"A comma separated allowlist of URL patterns accepted for profile-picture sync events. Patterns can be full URLs with glob support in the host (for example 'https://*.example.com') or '*' to allow all URLs (dangerous: only use if the IdP is fully trusted to provide safe URLs, otherwise this is an SSRF attack vector). If empty, the OpenCloud URL host is allowed by default." introductionVersion:"6.3.0"`
+	IncludeOCMSharees          bool         `yaml:"include_ocm_sharees" env:"OC_ENABLE_OCM;GRAPH_INCLUDE_OCM_SHAREES" desc:"Include OCM sharees when listing users." introductionVersion:"1.0.0"`
+	Events                     Events       `yaml:"events"`
+	UnifiedRoles               UnifiedRoles `yaml:"unified_roles"`
+	MaxConcurrency             int          `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;GRAPH_MAX_CONCURRENCY" desc:"The maximum number of concurrent requests the service will handle." introductionVersion:"1.0.0"`
 
 	Keycloak       Keycloak       `yaml:"keycloak"`
 	ServiceAccount ServiceAccount `yaml:"service_account"`
@@ -115,11 +115,6 @@ type LDAPEducationConfig struct {
 type Identity struct {
 	Backend string `yaml:"backend" env:"GRAPH_IDENTITY_BACKEND" desc:"The user identity backend to use. Supported backend types are 'ldap' and 'cs3'." introductionVersion:"1.0.0"`
 	LDAP    LDAP   `yaml:"ldap"`
-}
-
-type OIDCProfilePicture struct {
-	OIDCIssuer   string   `yaml:"oidc_issuer" env:"OC_URL;OC_OIDC_ISSUER;GRAPH_OIDC_ISSUER" desc:"URL of the OIDC issuer used to derive the default profile-picture URL allowlist when no explicit allowlist is configured." introductionVersion:"6.3.0"`
-	URLAllowlist []string `yaml:"url_allowlist" env:"GRAPH_OIDC_PROFILE_PICTURE_URL_ALLOWLIST" desc:"A comma separated allowlist of URL patterns accepted for profile-picture sync events. Patterns can be full URLs with glob support in the host (for example 'https://*.example.com') or '*' to allow all URLs. If empty, only the OIDC issuer host is allowed by default." introductionVersion:"6.3.0"`
 }
 
 // API represents API configuration parameters.
