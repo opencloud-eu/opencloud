@@ -168,7 +168,7 @@ type AutoProvisionClaims struct {
 	Username    string `yaml:"username" env:"PROXY_AUTOPROVISION_CLAIM_USERNAME" desc:"The name of the OIDC claim that holds the username." introductionVersion:"1.0.0"`
 	Email       string `yaml:"email" env:"PROXY_AUTOPROVISION_CLAIM_EMAIL" desc:"The name of the OIDC claim that holds the email." introductionVersion:"1.0.0"`
 	DisplayName string `yaml:"display_name" env:"PROXY_AUTOPROVISION_CLAIM_DISPLAYNAME" desc:"The name of the OIDC claim that holds the display name." introductionVersion:"1.0.0"`
-	ProfilePicture string `yaml:"profile_picture" env:"PROXY_AUTOPROVISION_CLAIM_PROFILE_PICTURE" desc:"The name of the OIDC claim that holds the profile picture URL. When set, the profile picture will be synced on login."`
+	Picture     string `yaml:"picture" env:"PROXY_AUTOPROVISION_CLAIM_PICTURE" desc:"The name of the OIDC claim that holds the profile picture URL. Defaults to 'picture' (the standard OIDC claim). Set to an empty string to disable profile picture sync." introductionVersion:"6.3.0"`
 	Groups      string `yaml:"groups" env:"PROXY_AUTOPROVISION_CLAIM_GROUPS" desc:"The name of the OIDC claim that holds the groups." introductionVersion:"1.0.0"`
 }
 

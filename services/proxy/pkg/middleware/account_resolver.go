@@ -18,6 +18,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	cs3user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	ocevents "github.com/opencloud-eu/opencloud/pkg/events"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
@@ -129,12 +130,12 @@ func readStringClaim(path string, claims map[string]any) (string, error) {
 }
 
 func (m accountResolver) readProfilePictureURL(claims map[string]any) string {
-	if m.autoProvisionClaims.ProfilePicture == "" {
+	if m.autoProvisionClaims.Picture == "" {
 		return ""
 	}
-	pictureURL, err := readStringClaim(m.autoProvisionClaims.ProfilePicture, claims)
+	pictureURL, err := readStringClaim(m.autoProvisionClaims.Picture, claims)
 	if err != nil {
-		m.logger.Debug().Err(err).Str("claim", m.autoProvisionClaims.ProfilePicture).Msg("profile picture claim missing")
+		m.logger.Debug().Err(err).Str("claim", m.autoProvisionClaims.Picture).Msg("no profile picture claim found in OIDC claims")
 		return ""
 	}
 	return pictureURL
@@ -243,14 +244,23 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		// If this is a new session, publish user login event
 		if newSession := oidc.NewSessionFlagFromContext(ctx); newSession && m.eventsPublisher != nil {
-			pictureURL := m.readProfilePictureURL(claims)
-			event := events.UserSignedIn{
-				Executant:  user.Id,
-				PictureURL: pictureURL,
-				Timestamp:  utils.TimeToTS(time.Now()),
-			}
-			if err := events.Publish(req.Context(), m.eventsPublisher, event); err != nil {
+			if err := events.Publish(req.Context(), m.eventsPublisher, events.UserSignedIn{
+				Executant: user.Id,
+				Timestamp: utils.TimeToTS(time.Now()),
+			}); err != nil {
 				m.logger.Error().Err(err).Msg("could not publish user signin event.")
+			}
+
+			// If the OIDC claims contain a profile picture URL, request
+			// the graph service to sync it.
+			if pictureURL := m.readProfilePictureURL(claims); pictureURL != "" {
+				if err := events.Publish(req.Context(), m.eventsPublisher, ocevents.ProfilePictureSyncRequested{
+					Executant:  user.Id,
+					PictureURL: pictureURL,
+					Timestamp:  utils.TimeToTS(time.Now()),
+				}); err != nil {
+					m.logger.Error().Err(err).Msg("could not publish profile picture sync event.")
+				}
 			}
 		}
 
