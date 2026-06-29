@@ -101,7 +101,7 @@ func DefaultConfig() *config.Config {
 			Username:    "preferred_username",
 			Email:       "email",
 			DisplayName: "name",
-			ProfilePicture: "",
+			Picture:     "picture",
 			Groups:      "groups",
 		},
 		EnableBasicAuth:               false,
