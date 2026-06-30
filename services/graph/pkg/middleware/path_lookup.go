@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	cs3rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/go-chi/chi/v5"
 
 	"github.com/rs/zerolog"
 
@@ -21,22 +23,26 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
-// {HTTP.Root}/{version}/drives/{driveID}/root:/<path>[:/<suffix>][:]
-// where {version} is "v1.0" or "v1beta1" — preserves the requested version
-// so it lands on a registered route.
-//   group 1: prefix up to and including the driveID
-//   group 2: driveID
-//   group 3: path (with leading slash)
-//   group 4: suffix (with leading slash) — empty for direct item lookup
-var rootColonRe = regexp.MustCompile(`^(.*?/v1(?:\.0|beta1)/drives/([^/]+))/root:(/.+?)(?::(/[^:]+))?:?$`)
+// The middleware is attached to the /drives/{driveID} sub-routers, so by the
+// time it runs chi has already consumed the {version}/drives/{driveID} prefix
+// and exposes the remainder via chi.RouteContext().RoutePath. The regexes
+// therefore only need to match the part below the drive:
+//
+//	root-anchored: /root:/<path>[:/<suffix>][:]
+//	item-anchored: /items/{itemID}:/<path>[:/<suffix>][:]
 
-// {HTTP.Root}/{version}/drives/{driveID}/items/{itemID}:/<path>[:/<suffix>][:]
-//   group 1: prefix up to and including the driveID
-//   group 2: driveID
-//   group 3: anchor itemID
-//   group 4: path (with leading slash)
-//   group 5: suffix (with leading slash)
-var itemColonRe = regexp.MustCompile(`^(.*?/v1(?:\.0|beta1)/drives/([^/]+))/items/([^/]+):(/.+?)(?::(/[^:]+))?:?$`)
+// /root:/<path>[:/<suffix>][:]
+//
+//	group 1: path (with leading slash)
+//	group 2: suffix (with leading slash) - empty for direct item lookup
+var rootColonRe = regexp.MustCompile(`^/root:(/.+?)(?::(/[^:]+))?:?$`)
+
+// /items/{itemID}:/<path>[:/<suffix>][:]
+//
+//	group 1: anchor itemID
+//	group 2: path (with leading slash)
+//	group 3: suffix (with leading slash)
+var itemColonRe = regexp.MustCompile(`^/items/([^/]+):(/.+?)(?::(/[^:]+))?:?$`)
 
 type contextKey string
 
@@ -47,47 +53,59 @@ const OriginalPathContextKey contextKey = "graph.original_path"
 // Sentinels distinguishing the resolution outcomes that map to specific HTTP
 // statuses. Anything else surfaces as 500.
 //
-//   errPathNotFound   — path doesn't exist or the user lacks permission to
-//                       see it. Both collapse to 404 (no existence disclosure).
-//   errInvalidRequest — client sent a malformed input (unparseable drive/item
-//                       id, drive/item mismatch in item-anchored form). 400.
-//   errUnauthenticated — the gateway said the caller isn't authenticated for
-//                       the lookup (token expired, cross-storage auth, etc.). 401.
+//	errPathNotFound   - path doesn't exist or the user lacks permission to
+//	                    see it. Both collapse to 404 (no existence disclosure).
+//	errInvalidRequest - client sent a malformed input (unparseable drive/item
+//	                    id, drive/item mismatch in item-anchored form). 400.
+//	errUnauthenticated - the gateway said the caller isn't authenticated for
+//	                    the lookup (token expired, cross-storage auth, etc.). 401.
 var (
 	errPathNotFound    = errors.New("path not found")
 	errInvalidRequest  = errors.New("invalid request")
 	errUnauthenticated = errors.New("unauthenticated")
 )
 
-// ResolveGraphPath returns middleware that detects colon-syntax path
-// lookup URLs and rewrites them to the canonical
-// /{version}/drives/{driveID}/items/{resolvedItemID}{suffix} form before
-// chi performs route matching. The requested API version is preserved
-// (for example, "v1.0" or "v1beta1").
+// ResolveGraphPath returns middleware that detects MS Graph colon-syntax path
+// lookup URLs and rewrites chi's internal route path to the canonical
+// /items/{resolvedItemID}{suffix} form so the request lands on the existing
+// /drives/{driveID}/items/{itemID}... routes.
+//
+// It must be attached to the /drives/{driveID} sub-routers (it reads driveID
+// from chi.URLParam and matches against chi.RouteContext().RoutePath). chi runs
+// a sub-router's middleware chain before that sub-router performs its own route
+// matching, so rewriting RoutePath here re-routes the request to a different
+// leaf. (Rewriting r.URL.Path would NOT work at this level: once chi has
+// descended into a sub-router, routeHTTP matches against rctx.RoutePath and
+// ignores r.URL.Path.)
 //
 // Two URL shapes are recognized:
 //
-//	/{version}/drives/{driveID}/root:/<path>[:/<suffix>][:]
-//	/{version}/drives/{driveID}/items/{itemID}:/<path>[:/<suffix>][:]
+//	/drives/{driveID}/root:/<path>[:/<suffix>][:]
+//	/drives/{driveID}/items/{itemID}:/<path>[:/<suffix>][:]
 //
 // Path resolution runs as the request user via CS3 Stat. NOT_FOUND and
 // PERMISSION_DENIED collapse to 404 (no existence disclosure); operational
 // failures (gateway selection, RPC transport, unexpected status) surface
 // as 5xx so outages aren't masked.
 //
-// URLs without colon syntax fast-path through with a single substring check.
+// Requests whose RoutePath contains no colon fast-path through untouched.
 func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.Logger) func(http.Handler) http.Handler {
 	l := logger.With().Str("middleware", "graphPathLookup").Logger()
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Fast-path: skip URLs that can't be colon-syntax.
-			if !strings.Contains(r.URL.Path, ":") {
+			rctx := chi.RouteContext(r.Context())
+
+			// Fast-path: skip anything that can't be colon-syntax. RoutePath
+			// is the part below /drives/{driveID}, e.g. "/items/{id}/children"
+			// for a normal request - no colon, so this returns immediately.
+			if rctx == nil || !strings.Contains(rctx.RoutePath, ":") {
 				next.ServeHTTP(w, r)
 				return
 			}
 
+			driveID := chi.URLParam(r, "driveID")
 			original := r.URL.Path
-			rewritten, err := rewriteColonPath(r.Context(), gws, l, original)
+			rewritten, err := rewriteColonPath(r.Context(), gws, l, driveID, rctx.RoutePath)
 			switch {
 			case errors.Is(err, errPathNotFound):
 				l.Debug().Str("original", original).Msg("colon-path resolution: not found")
@@ -108,7 +126,7 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 				)
 				return
 			case rewritten == "":
-				// No colon-syntax match — pass through untouched.
+				// No colon-syntax match - pass through untouched.
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -118,25 +136,11 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 				Str("rewritten", rewritten).
 				Msg("colon-path resolution: rewrote")
 
-			ctx := context.WithValue(r.Context(), OriginalPathContextKey, original)
-			r = r.WithContext(ctx)
-			r.URL.Path = rewritten
-			// Match the chi-escaping workaround in Graph.ServeHTTP: RawPath
-			// must be a valid encoded form of Path so chi's tree match (which
-			// reads RawPath when non-empty) routes the rewritten URL the same
-			// way it routes the original. The previous RawPath (set by
-			// Graph.ServeHTTP) was for the pre-rewrite Path and no longer
-			// matches; EscapedPath recomputes a canonical encoding for the
-			// new Path.
-			//
-			// Drive/item IDs in this codebase have the shape
-			// {storage}${space}!{opaque}. EscapedPath leaves `$` literal (not
-			// escaped in path segments per RFC 3986) but encodes `!` as `%21`.
-			// chi.URLParam therefore returns the param with `%21`; downstream
-			// handlers (e.g. parseIDParam, GetDriveAndItemIDParam) already
-			// call url.PathUnescape before parsing the ID, so the round-trip
-			// works. See go-chi/chi#641 for the underlying chi behavior.
-			r.URL.RawPath = r.URL.EscapedPath()
+			// Preserve the original (unmodified) request path for downstream
+			// tracing/logging. r.URL.Path itself stays untouched; only chi's
+			// internal RoutePath is rewritten.
+			r = r.WithContext(context.WithValue(r.Context(), OriginalPathContextKey, original))
+			rctx.RoutePath = rewritten
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -145,69 +149,97 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 // colonMatch is the normalized result of matching either the root- or
 // item-anchored colon-syntax regex. The two regexes capture different
 // groups; this struct erases that difference for downstream resolution.
+//
+// itemAnchorID, relPath and suffix hold the raw (still percent-encoded)
+// captures from RoutePath; rewriteColonPath decodes them as needed.
 type colonMatch struct {
-	prefix      string // canonical prefix up to and including /drives/{driveID}
-	driveIDStr  string // captured driveID for item-anchored form (empty for root-anchored, where anchorIDStr already IS the driveID)
-	anchorIDStr string // resource id to anchor path resolution (driveID for root, itemID for item-anchored)
-	relPath     string // relative path with leading slash
-	suffix      string // suffix with leading slash (e.g. "/children"); may be empty
+	isItemAnchored bool   // item-anchored form: anchor is itemAnchorID, validate against driveID
+	itemAnchorID   string // captured itemID for the item-anchored form (empty for root-anchored)
+	relPath        string // relative path with leading slash
+	suffix         string // suffix with leading slash (e.g. "/children"); may be empty
 }
 
 // rewriteColonPath returns:
-//   - ""        + nil                — no colon-syntax pattern matched (passthrough)
-//   - rewritten + nil                — matched and resolved to a canonical URL
-//   - ""        + errPathNotFound    — path doesn't exist or user lacks permission (404)
-//   - ""        + errInvalidRequest  — malformed input (400)
-//   - ""        + errUnauthenticated — gateway said caller isn't authenticated (401)
-//   - ""        + other error        — operational / internal failure (5xx)
+//   - ""        + nil                - no colon-syntax pattern matched (passthrough)
+//   - rewritten + nil                - matched and resolved to a canonical RoutePath
+//   - ""        + errPathNotFound    - path doesn't exist or user lacks permission (404)
+//   - ""        + errInvalidRequest  - malformed input (400)
+//   - ""        + errUnauthenticated - gateway said caller isn't authenticated (401)
+//   - ""        + other error        - operational / internal failure (5xx)
+//
+// driveIDParam is the {driveID} route param (raw chi.URLParam value); routePath
+// is chi.RouteContext().RoutePath (the part below /drives/{driveID}).
 func rewriteColonPath(
 	ctx context.Context,
 	gws pool.Selectable[gateway.GatewayAPIClient],
 	logger zerolog.Logger,
-	urlPath string,
+	driveIDParam string,
+	routePath string,
 ) (string, error) {
 	var match colonMatch
 	switch {
-	case matchInto(rootColonRe, urlPath, &match, rootMatchExtract):
-	case matchInto(itemColonRe, urlPath, &match, itemMatchExtract):
+	case matchInto(rootColonRe, routePath, &match, rootMatchExtract):
+	case matchInto(itemColonRe, routePath, &match, itemMatchExtract):
 	default:
 		return "", nil
 	}
 
-	// r.URL.Path is already URL-decoded by net/http; do NOT call url.PathUnescape
-	// here, that would double-decode and let crafted inputs like "%252F" become
-	// "/", changing path semantics.
-	anchor, err := storagespace.ParseID(match.anchorIDStr)
+	// RoutePath follows chi's RawPath, i.e. the percent-encoded wire form
+	// (e.g. "/Documents/My%20File"). A single PathUnescape reproduces exactly
+	// what net/http put in r.URL.Path; it is NOT a double-decode (a crafted
+	// "%252F" decodes once to "%2F", matching the decoded r.URL.Path, not "/").
+	driveID, err := url.PathUnescape(driveIDParam)
 	if err != nil {
-		// Unparseable input is malformed by the client, not "not found".
-		logger.Debug().Err(err).Str("anchor", match.anchorIDStr).Msg("invalid anchor id in colon path")
+		logger.Debug().Err(err).Str("driveID", driveIDParam).Msg("undecodable drive id in colon path")
 		return "", errInvalidRequest
 	}
 
-	// Item-anchored form ("/drives/{driveID}/items/{itemID}:/...") captures
-	// driveID separately. Validate the itemID belongs to the given driveID
-	// (storage + space prefix) — otherwise the request is malformed and we
-	// short-circuit instead of doing an unnecessary CS3 Stat.
-	if match.driveIDStr != "" {
-		drive, err := storagespace.ParseID(match.driveIDStr)
+	anchorIDStr := driveID
+	if match.isItemAnchored {
+		anchorIDStr, err = url.PathUnescape(match.itemAnchorID)
 		if err != nil {
-			logger.Debug().Err(err).Str("driveID", match.driveIDStr).Msg("invalid drive id in colon path")
+			logger.Debug().Err(err).Str("itemID", match.itemAnchorID).Msg("undecodable item id in colon path")
+			return "", errInvalidRequest
+		}
+	}
+
+	anchor, err := storagespace.ParseID(anchorIDStr)
+	if err != nil {
+		// Unparseable input is malformed by the client, not "not found".
+		logger.Debug().Err(err).Str("anchor", anchorIDStr).Msg("invalid anchor id in colon path")
+		return "", errInvalidRequest
+	}
+
+	// Item-anchored form captures driveID and itemID separately. Validate the
+	// itemID belongs to the given driveID (storage + space prefix) - otherwise
+	// the request is malformed and we short-circuit instead of doing an
+	// unnecessary CS3 Stat.
+	if match.isItemAnchored {
+		drive, err := storagespace.ParseID(driveID)
+		if err != nil {
+			logger.Debug().Err(err).Str("driveID", driveID).Msg("invalid drive id in colon path")
 			return "", errInvalidRequest
 		}
 		if drive.GetStorageId() != anchor.GetStorageId() || drive.GetSpaceId() != anchor.GetSpaceId() {
 			logger.Debug().
-				Str("driveID", match.driveIDStr).
-				Str("itemID", match.anchorIDStr).
+				Str("driveID", driveID).
+				Str("itemID", anchorIDStr).
 				Msg("drive id does not match item id storage/space")
 			return "", errInvalidRequest
 		}
 	}
 
-	itemID, err := resolvePath(ctx, gws, logger, &anchor, match.relPath)
+	relPath, err := url.PathUnescape(match.relPath)
+	if err != nil {
+		logger.Debug().Err(err).Str("relPath", match.relPath).Msg("undecodable path in colon path")
+		return "", errInvalidRequest
+	}
+
+	itemID, err := resolvePath(ctx, gws, &anchor, relPath)
 	if err != nil {
 		return "", err
 	}
-	return buildCanonicalPath(match.prefix, itemID, match.suffix), nil
+	return buildCanonicalRoutePath(itemID, match.suffix), nil
 }
 
 // matchInto runs the regex; on a hit, populates *out via extract and returns true.
@@ -222,15 +254,15 @@ func matchInto(re *regexp.Regexp, s string, out *colonMatch, extract func([]stri
 }
 
 func rootMatchExtract(m []string) colonMatch {
-	// Root-anchored: anchorIDStr IS the driveID, so leave driveIDStr empty
-	// to skip the drive/item match check (it would compare driveID to itself).
-	return colonMatch{prefix: m[1], anchorIDStr: m[2], relPath: m[3], suffix: m[4]}
+	// Root-anchored: the anchor is the {driveID} route param, supplied by the
+	// caller - nothing item-specific to capture here.
+	return colonMatch{relPath: m[1], suffix: m[2]}
 }
 
 func itemMatchExtract(m []string) colonMatch {
-	// Item-anchored: capture driveID (m[2]) so the resolver can validate it
-	// matches the itemID's storage/space.
-	return colonMatch{prefix: m[1], driveIDStr: m[2], anchorIDStr: m[3], relPath: m[4], suffix: m[5]}
+	// Item-anchored: capture itemID so the resolver anchors on it and validates
+	// it against the {driveID} route param's storage/space.
+	return colonMatch{isItemAnchored: true, itemAnchorID: m[1], relPath: m[2], suffix: m[3]}
 }
 
 // resolvePath translates a relative filesystem path (anchored at the given
@@ -239,21 +271,20 @@ func itemMatchExtract(m []string) colonMatch {
 func resolvePath(
 	ctx context.Context,
 	gws pool.Selectable[gateway.GatewayAPIClient],
-	logger zerolog.Logger,
 	anchor *storageprovider.ResourceId,
-	rawPath string,
+	relPath string,
 ) (string, error) {
 	gw, err := gws.Next()
 	if err != nil {
 		return "", fmt.Errorf("gateway selector: %w", err)
 	}
 
-	// rawPath comes from r.URL.Path which is already decoded by net/http —
-	// no extra unescape (would double-decode crafted "%25xx" inputs).
+	// relPath is already decoded (PathUnescape'd once by the caller), matching
+	// the form a normal handler would receive from r.URL.Path.
 	statRes, err := gw.Stat(ctx, &storageprovider.StatRequest{
 		Ref: &storageprovider.Reference{
 			ResourceId: anchor,
-			Path:       utils.MakeRelativePath(rawPath),
+			Path:       utils.MakeRelativePath(relPath),
 		},
 	})
 	if err != nil {
@@ -282,10 +313,13 @@ func resolvePath(
 	return storagespace.FormatResourceID(id), nil
 }
 
-func buildCanonicalPath(prefix, itemID, suffix string) string {
-	// r.URL.Path is the decoded form per Go's net/http convention; chi tree
-	// matching reads it directly. Insert the raw itemID without escaping so
-	// chi's {itemID} param captures the same string the handler will see
-	// after parseIDParam unescapes (no-op for already-decoded chars).
-	return prefix + "/items/" + itemID + suffix
+// buildCanonicalRoutePath produces the RoutePath chi should match against after
+// the rewrite, relative to /drives/{driveID}: /items/{itemID}{suffix}.
+//
+// itemID is inserted literally (the FormatResourceID output, e.g. with `$` and
+// `!` sub-delims). chi binds it verbatim into the {itemID} param; downstream
+// handlers (parseIDParam, GetDriveAndItemIDParam) call url.PathUnescape on the
+// param, which is a no-op for these literal sub-delims, so the id round-trips.
+func buildCanonicalRoutePath(itemID, suffix string) string {
+	return "/items/" + itemID + suffix
 }

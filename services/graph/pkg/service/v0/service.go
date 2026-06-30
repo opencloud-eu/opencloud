@@ -132,12 +132,6 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 
 	m := chi.NewMux()
 	m.Use(options.Middleware...)
-	// Must be top-level mux.Use, not r.Use inside a Route block: chi
-	// sub-router middleware runs after the prefix has already been matched,
-	// so URL rewriting at that point can't redirect to a different leaf
-	// route. Top-level middleware runs before any matching, so the rewritten
-	// URL is what chi walks the radix tree against.
-	m.Use(graphm.ResolveGraphPath(options.GatewaySelector, options.Logger))
 	m.Use(
 		otelchi.Middleware(
 			"graph",
@@ -271,6 +265,12 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 			r.Route("/drives", func(r chi.Router) {
 				r.Get("/", svc.GetAllDrives(APIVersion_1_Beta_1))
 				r.Route("/{driveID}", func(r chi.Router) {
+					// Rewrites MS Graph colon-syntax lookups (root:/path,
+					// items/{id}:/path) to /items/{resolvedID}... before chi
+					// matches the leaf route. Must sit here, on the
+					// /drives/{driveID} sub-router, so it can rewrite the
+					// remaining RoutePath. See graphm.ResolveGraphPath.
+					r.Use(graphm.ResolveGraphPath(options.GatewaySelector, options.Logger))
 					r.Route("/root", func(r chi.Router) {
 						r.Post("/children", drivesDriveItemApi.CreateDriveItem)
 						r.Post("/invite", driveItemPermissionsApi.SpaceRootInvite)
@@ -373,6 +373,12 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 				r.Get("/", svc.GetAllDrives(APIVersion_1))
 				r.Post("/", svc.CreateDrive)
 				r.Route("/{driveID}", func(r chi.Router) {
+					// Rewrites MS Graph colon-syntax lookups (root:/path,
+					// items/{id}:/path) to /items/{resolvedID}... before chi
+					// matches the leaf route. Must sit here, on the
+					// /drives/{driveID} sub-router, so it can rewrite the
+					// remaining RoutePath. See graphm.ResolveGraphPath.
+					r.Use(graphm.ResolveGraphPath(options.GatewaySelector, options.Logger))
 					r.Patch("/", svc.UpdateDrive)
 					r.Get("/", svc.GetSingleDrive)
 					r.Delete("/", svc.DeleteDrive)
