@@ -29,6 +29,12 @@ func (o ObjectType) String() string {
 // For example, `"2014-10-30T06:12:00Z"`.
 type UTCDate string
 
+// Time Format string for parsing a `UTCDate`.
+//
+// According to Section 1.4 of RFC 8620 (JMAP Core), the specification strictly dictates that for a UTCDate type,
+// the time-offset component MUST be "Z". Other timezone numerical specs (like +02:00) are explicitly forbidden.
+const UTCDateFormat = "2026-06-29T15:59:59Z"
+
 // Where `LocalDate` is given as a type, it means a string in the same format as `Date`
 // (see [RFC8620, Section 1.4](https://www.rfc-editor.org/rfc/rfc8620.html#section-1.4)),
 // but with the time-offset omitted from the end.
@@ -1370,8 +1376,9 @@ type SetResponse[T Foo] interface {
 	GetNewState() State
 }
 
-type Change interface {
+type Change[T Foo] interface {
 	AsPatch() (PatchObject, error)
+	GetMarker() T
 }
 
 type ChangesCommand[T Foo] interface {
@@ -1755,10 +1762,14 @@ type MailboxChange struct {
 	IsSubscribed *bool `json:"isSubscribed,omitempty"`
 }
 
-var _ Change = MailboxChange{}
+var _ Change[Mailbox] = MailboxChange{}
 
 func (m MailboxChange) AsPatch() (PatchObject, error) {
 	return toPatchObject(m)
+}
+
+func (m MailboxChange) GetMarker() Mailbox {
+	return Mailbox{}
 }
 
 type MailboxGetCommand struct {
@@ -3634,10 +3645,14 @@ type EmailChange struct {
 	Attachments []EmailBodyPart `json:"attachments,omitempty"`
 }
 
-var _ Change = EmailChange{}
+var _ Change[Email] = EmailChange{}
 
 func (e EmailChange) AsPatch() (PatchObject, error) {
 	return toPatchObject(e)
+}
+
+func (m EmailChange) GetMarker() Email {
+	return Email{}
 }
 
 type EmailSetCommand struct {
@@ -4091,10 +4106,14 @@ type IdentityChange struct {
 	HtmlSignature *string `json:"htmlSignature,omitempty"`
 }
 
-var _ Change = IdentityChange{}
+var _ Change[Identity] = IdentityChange{}
 
 func (i IdentityChange) AsPatch() (PatchObject, error) {
 	return toPatchObject(i)
+}
+
+func (m IdentityChange) GetMarker() Identity {
+	return Identity{}
 }
 
 type IdentityGetResponse struct {
@@ -4340,10 +4359,14 @@ func (f Blob) GetId() string             { return f.Id }
 type BlobChange struct {
 }
 
-var _ Change = BlobChange{}
+var _ Change[Blob] = BlobChange{}
 
 func (m BlobChange) AsPatch() (PatchObject, error) {
 	return nil, fmt.Errorf("BlobChange is unsupported")
+}
+
+func (m BlobChange) GetMarker() Blob {
+	return Blob{}
 }
 
 type BlobChanges ChangesTemplate[Blob]
@@ -5148,10 +5171,14 @@ type ContactCardChange struct {
 	PersonalInfo map[string]jscontact.PersonalInfo `json:"personalInfo,omitempty"`
 }
 
-var _ Change = ContactCardChange{}
+var _ Change[ContactCard] = ContactCardChange{}
 
 func (e ContactCardChange) AsPatch() (PatchObject, error) {
 	return toPatchObject(e)
+}
+
+func (m ContactCardChange) GetMarker() ContactCard {
+	return ContactCard{}
 }
 
 type CalendarRights struct {
@@ -5498,10 +5525,14 @@ type CalendarChange struct {
 	MyRights *CalendarRights `json:"myRights,omitempty"`
 }
 
-var _ Change = CalendarChange{}
+var _ Change[Calendar] = CalendarChange{}
 
 func (c CalendarChange) AsPatch() (PatchObject, error) {
 	return toPatchObject(c)
+}
+
+func (m CalendarChange) GetMarker() Calendar {
+	return Calendar{}
 }
 
 // A CalendarEvent object contains information about an event, or recurring series of events,
@@ -5654,10 +5685,14 @@ type CalendarEventChange struct {
 	jscalendar.EventChange
 }
 
-var _ Change = CalendarEventChange{}
+var _ Change[CalendarEvent] = CalendarEventChange{}
 
 func (e CalendarEventChange) AsPatch() (PatchObject, error) {
 	return toPatchObject(e)
+}
+
+func (m CalendarEventChange) GetMarker() CalendarEvent {
+	return CalendarEvent{}
 }
 
 var _ Idable = &CalendarEvent{}
@@ -6536,10 +6571,14 @@ func (f Quota) GetId() string             { return f.Id }
 type QuotaChange struct {
 }
 
-var _ Change = QuotaChange{}
+var _ Change[Quota] = QuotaChange{}
 
 func (m QuotaChange) AsPatch() (PatchObject, error) {
 	return nil, fmt.Errorf("QuotaChange is unsupported")
+}
+
+func (m QuotaChange) GetMarker() Quota {
+	return Quota{}
 }
 
 // See [RFC8098] for the exact meaning of these different fields.
@@ -6815,10 +6854,14 @@ type AddressBookChange struct {
 	ShareWith map[PrincipalId]AddressBookRights `json:"shareWith,omitempty"`
 }
 
-var _ Change = AddressBookChange{}
+var _ Change[AddressBook] = AddressBookChange{}
 
 func (a AddressBookChange) AsPatch() (PatchObject, error) {
 	return toPatchObject(a)
+}
+
+func (m AddressBookChange) GetMarker() AddressBook {
+	return AddressBook{}
 }
 
 type AddressBookSetCommand struct {
@@ -7007,7 +7050,7 @@ type ContactCardFilterCondition struct {
 	HasMember string `json:"hasMember,omitempty"`
 
 	// A card must have a type property that equals this string exactly to match.
-	Kind string `json:"kind,omitempty"`
+	Kind jscontact.ContactCardKind `json:"kind,omitempty"`
 
 	// The “created” date-time of the ContactCard must be before this date-time to match the condition.
 	CreatedBefore UTCDate `json:"createdBefore,omitzero"`
@@ -7047,11 +7090,11 @@ type ContactCardFilterCondition struct {
 	// matches the value.
 	Organization string `json:"organization,omitempty"`
 
-	//  A card matches this condition if the “address” or “label” of any EmailAddress in the “emails” property of the
+	// A card matches this condition if the “address” or “label” of any EmailAddress in the “emails” property of the
 	// card matches the value.
 	Email string `json:"email,omitempty"`
 
-	//  A card matches this condition if the “number” or “label” of any Phone in the “phones” property of the card
+	// A card matches this condition if the “number” or “label” of any Phone in the “phones” property of the card
 	// matches the value.
 	Phone string `json:"phone,omitempty"`
 

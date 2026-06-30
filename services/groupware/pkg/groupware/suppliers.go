@@ -38,7 +38,134 @@ type ChangesSupplier[T jmap.Foo, C jmap.Changes[T]] interface {
 	Supplier[T]
 }
 
-// queryFunc func(req Request, accountIds []string, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, ctx jmap.Context) (jmap.Result[SEARCHRESULTS], NextToken, error),
+type CreateSupplier[T jmap.Foo, C jmap.Change[T]] interface {
+	CanCreate(accountId jmap.AccountId, create C, ctx jmap.Context) bool
+	Create(accountId jmap.AccountId, create C, ctx jmap.Context) (jmap.Result[*T], error)
+	Supplier[T]
+}
+
+type UpdateSupplier[T jmap.Foo, C jmap.Change[T]] interface {
+	Update(accountId jmap.AccountId, id string, change C, ctx jmap.Context) (jmap.Result[T], error)
+	Supplier[T]
+}
+
+type DeleteSupplier[T jmap.Foo] interface {
+	Delete(accountId jmap.AccountId, destroyIds []string, ctx jmap.Context) (jmap.Result[map[string]jmap.SetError], error)
+	Supplier[T]
+}
+
+type containerSuppliers[
+	T jmap.Foo,
+	G jmap.GetResponse[T],
+	C jmap.Change[T],
+	D jmap.Changes[T],
+] struct {
+	create  []CreateSupplier[T, C]
+	update  []UpdateSupplier[T, C]
+	delete  []DeleteSupplier[T]
+	list    []ListSupplier[T, G]
+	changes []ChangesSupplier[T, D]
+}
+
+type containedSuppliers[
+	T jmap.Foo,
+	G jmap.GetResponse[T],
+	C jmap.Change[T],
+	D jmap.Changes[T],
+	S jmap.SearchResults[T],
+	F jmap.FilterElement[T],
+	O jmap.Comparator[T],
+] struct {
+	create  []CreateSupplier[T, C]
+	update  []UpdateSupplier[T, C]
+	delete  []DeleteSupplier[T]
+	query   []QuerySupplier[T, S, F, O]
+	list    []ListSupplier[T, G]
+	changes []ChangesSupplier[T, D]
+}
+
+type Suppliers struct {
+	addressBooks containerSuppliers[jmap.AddressBook, jmap.AddressBookGetResponse, jmap.AddressBookChange, jmap.AddressBookChanges]
+	contactCards containedSuppliers[jmap.ContactCard, jmap.ContactCardGetResponse, jmap.ContactCardChange, jmap.ContactCardChanges, *jmap.ContactCardSearchResults, jmap.ContactCardFilterElement, jmap.ContactCardComparator]
+}
+
+func newSuppliers(suppliers ...Supplier[jmap.Foo]) (Suppliers, error) {
+	result := Suppliers{
+		addressBooks: containerSuppliers[jmap.AddressBook, jmap.AddressBookGetResponse, jmap.AddressBookChange, jmap.AddressBookChanges]{},
+		contactCards: containedSuppliers[jmap.ContactCard, jmap.ContactCardGetResponse, jmap.ContactCardChange, jmap.ContactCardChanges, *jmap.ContactCardSearchResults, jmap.ContactCardFilterElement, jmap.ContactCardComparator]{},
+	}
+	unsupported := []Supplier[jmap.Foo]{}
+
+	for _, s := range suppliers {
+		hits := 0
+		switch s := s.(type) {
+		case CreateSupplier[jmap.AddressBook, jmap.AddressBookChange]:
+			result.addressBooks.create = append(result.addressBooks.create, s)
+			hits++
+		}
+		switch s := s.(type) {
+		case UpdateSupplier[jmap.AddressBook, jmap.AddressBookChange]:
+			result.addressBooks.update = append(result.addressBooks.update, s)
+			hits++
+		}
+		switch s := s.(type) {
+		case DeleteSupplier[jmap.AddressBook]:
+			result.addressBooks.delete = append(result.addressBooks.delete, s)
+			hits++
+		}
+		switch s := s.(type) {
+		case ListSupplier[jmap.AddressBook, jmap.AddressBookGetResponse]:
+			result.addressBooks.list = append(result.addressBooks.list, s)
+			hits++
+		}
+		switch s := s.(type) {
+		case ChangesSupplier[jmap.AddressBook, jmap.AddressBookChanges]:
+			result.addressBooks.changes = append(result.addressBooks.changes, s)
+			hits++
+		}
+
+		switch s := s.(type) {
+		case CreateSupplier[jmap.ContactCard, jmap.ContactCardChange]:
+			result.contactCards.create = append(result.contactCards.create, s)
+			hits++
+		}
+		switch s := s.(type) {
+		case UpdateSupplier[jmap.ContactCard, jmap.ContactCardChange]:
+			result.contactCards.update = append(result.contactCards.update, s)
+			hits++
+		}
+		switch s := s.(type) {
+		case DeleteSupplier[jmap.ContactCard]:
+			result.contactCards.delete = append(result.contactCards.delete, s)
+			hits++
+		}
+		switch s := s.(type) {
+		case QuerySupplier[jmap.ContactCard, *jmap.ContactCardSearchResults, jmap.ContactCardFilterElement, jmap.ContactCardComparator]:
+			result.contactCards.query = append(result.contactCards.query, s)
+			hits++
+		}
+		switch s := s.(type) {
+		case ListSupplier[jmap.ContactCard, jmap.ContactCardGetResponse]:
+			result.contactCards.list = append(result.contactCards.list, s)
+			hits++
+		}
+		switch s := s.(type) {
+		case ChangesSupplier[jmap.ContactCard, jmap.ContactCardChanges]:
+			result.contactCards.changes = append(result.contactCards.changes, s)
+			hits++
+		}
+
+		if hits < 1 {
+			unsupported = append(unsupported, s)
+		}
+	}
+	if len(unsupported) > 0 {
+		return result, fmt.Errorf("%d unsupported suppliers: %v", len(unsupported), unsupported)
+	} else {
+		return result, nil
+	}
+}
+
 func curryQueryFunc[SRES jmap.SearchResults[T], T jmap.Foo, FILTER any, COMP any](
 	f func(accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, calculateTotal bool, ctx jmap.Context) (jmap.Result[SRES], NextToken, error),
 ) func(req Request, accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter FILTER, sortBy []COMP, ctx jmap.Context) (jmap.Result[SRES], NextToken, error) {
@@ -56,7 +183,7 @@ func agg[T jmap.Idable, R jmap.GetResponse[T]](accountId jmap.AccountId, supplie
 	ctor func(accountId jmap.AccountId, state jmap.State, notFound []string, list []T) R) (R, error) {
 	if len(responses) < 1 {
 		var zero R
-		return zero, fmt.Errorf("requires at least one response")
+		return zero, fmt.Errorf("requires at least one response") //NOSONAR
 	}
 	lists := structs.Concat(structs.Map(responses, func(e *R) []T {
 		if e != nil {
@@ -173,8 +300,23 @@ func aggChanges[T jmap.Idable, R jmap.Changes[T]](accountId jmap.AccountId, supp
 		} else {
 			return false
 		}
-	}), func(b bool) bool { return b })
+	}), identity)
 	return ctor(accountId, oldState, newState, created, updated, destroyed, hasMoreChanges), nil
+}
+
+func aggDeletes(responses []*map[string]jmap.SetError) (map[string]jmap.SetError, error) { //NOSONAR
+	if len(responses) < 1 {
+		return nil, fmt.Errorf("requires at least one response")
+	}
+	payload := map[string]jmap.SetError{}
+	for _, r := range responses {
+		if r != nil {
+			for k, v := range *r {
+				payload[k] = v
+			}
+		}
+	}
+	return payload, nil
 }
 
 func slist[T jmap.Idable, G jmap.GetResponse[T], S ListSupplier[T, G]](suppliers []S, accountId jmap.AccountId, ids []string, ctx jmap.Context, //NOSONAR
@@ -205,40 +347,9 @@ func slist[T jmap.Idable, G jmap.GetResponse[T], S ListSupplier[T, G]](suppliers
 			}
 		}
 
-		return smeld[T](supplierIds, results, func(payloads []*G) (G, error) {
+		return smeld(supplierIds, results, func(payloads []*G) (G, error) {
 			return agg(accountId, supplierIds, payloads, ctor)
-		}, func(resp G) jmap.State {
-			return resp.GetState()
-		})
-
-		/*
-
-			return jmap.RefineResultSlice(results, func(payloads []*G, sessionStates []*jmap.SessionState, states []*jmap.State, langs []*jmap.Language) (G, jmap.SessionState, jmap.State, jmap.Language, error) {
-				resp, err := agg(accountId, supplierIds, payloads, ctor)
-				if err != nil {
-					return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
-				}
-				m, err := structs.MeshMap(supplierIds, sessionStates, func(id SupplierId, state *jmap.SessionState) (SupplierId, jmap.SessionState, bool) {
-					if state != nil && *state != jmap.EmptySessionState {
-						return id, *state, true
-					} else {
-						return id, jmap.EmptySessionState, false
-					}
-				})
-				if err != nil {
-					return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
-				}
-				sessionState, err := combineState(m)
-				if err != nil {
-					return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
-				}
-				lang := jmap.NoLanguage
-				if f, ok := structs.First(langs, func(l *jmap.Language) bool { return l != nil && *l != jmap.NoLanguage }); ok {
-					lang = *f
-				}
-				return resp, sessionState, resp.GetState(), lang, nil
-			})
-		*/
+		}, G.GetState)
 	}
 }
 
@@ -271,45 +382,18 @@ func schanges[T jmap.Idable, C jmap.Changes[T], S ChangesSupplier[T, C]](supplie
 			}
 		}
 
-		// TODO need to reduce the maxChanges? this is quite complex to implement, if even possible, not doing that for now
+		// TODO need to reduce the maxChanges? this is quite complex to implement, if even possible at all, not doing that for now
+		// which means that a request with multiple suppliers with maxChanges=10 can yield a lot more changes than that, but that is
+		// a limitation we have to live with, at least for now, but probably forever, since we don't have the state for each change
+		// and if we cap the changes from a supplier, we do not know which state to use to resume from there
 
-		return smeld[T](supplierIds, results, func(payloads []*C) (C, error) {
+		return smeld(supplierIds, results, func(payloads []*C) (C, error) {
 			return aggChanges(accountId, supplierIds, payloads, ctor)
-		}, func(resp C) jmap.State {
-			return resp.GetNewState()
-		})
-
-		/*
-			return jmap.RefineResultSlice(results, func(payloads []*C, sessionStates []*jmap.SessionState, states []*jmap.State, langs []*jmap.Language) (C, jmap.SessionState, jmap.State, jmap.Language, error) {
-				resp, err := aggChanges(accountId, supplierIds, payloads, ctor)
-				if err != nil {
-					return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
-				}
-				m, err := structs.MeshMap(supplierIds, sessionStates, func(id SupplierId, state *jmap.SessionState) (SupplierId, jmap.SessionState, bool) {
-					if state != nil && *state != jmap.EmptySessionState {
-						return id, *state, true
-					} else {
-						return id, jmap.EmptySessionState, false
-					}
-				})
-				if err != nil {
-					return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
-				}
-				sessionState, err := combineState(m)
-				if err != nil {
-					return resp, jmap.EmptySessionState, jmap.EmptyState, jmap.NoLanguage, err
-				}
-				lang := jmap.NoLanguage
-				if f, ok := structs.First(langs, func(l *jmap.Language) bool { return l != nil && *l != jmap.NoLanguage }); ok {
-					lang = *f
-				}
-				return resp, sessionState, resp.GetNewState(), lang, nil
-			})
-		*/
+		}, C.GetNewState)
 	}
 }
 
-func smeld[T jmap.Idable, C any](
+func smeld[C any](
 	supplierIds []SupplierId,
 	results []*jmap.Result[C],
 	aggregator func(payloads []*C) (C, error),
@@ -340,6 +424,87 @@ func smeld[T jmap.Idable, C any](
 		}
 		return resp, sessionState, stateSupplier(resp), lang, nil
 	})
+}
+
+func screate[T jmap.Idable, C jmap.Change[T], S CreateSupplier[T, C]](suppliers []S, accountId jmap.AccountId, create C, ctx jmap.Context) (jmap.Result[*T], error) {
+	candidates := structs.Filter(suppliers, func(s S) bool { return s.CanCreate(accountId, create, ctx) })
+	switch len(candidates) {
+	case 0:
+		return jmap.ZeroResultV[*T](), fmt.Errorf("TODO found no suppliers to create, must return 5XX Not Implemented") // TODO groupware error for this
+	case 1:
+		return candidates[0].Create(accountId, create, ctx)
+	default:
+		// found more than one Supplier that would be capable of creating this object
+		// there are a few ways to deal with this, but in order to be deal with this in a
+		// predictable way, we will return an error
+		return jmap.ZeroResultV[*T](), fmt.Errorf("TODO found multiple suppliers to create, must return 5XX Conflict") // TODO groupware error for this
+	}
+}
+
+func supdate[T jmap.Idable, C jmap.Change[T], S UpdateSupplier[T, C]](suppliers []S, accountId jmap.AccountId, id string, change C, ctx jmap.Context) (jmap.Result[T], error) {
+	candidates := structs.Filter(suppliers, func(s S) bool { return s.IsMine(id) })
+	switch len(candidates) {
+	case 0:
+		return jmap.ZeroResultV[T](), fmt.Errorf("TODO found no suppliers to update, must return 5XX Not Implemented") // TODO groupware error for this
+	case 1:
+		return candidates[0].Update(accountId, id, change, ctx)
+	default:
+		// found more than one Supplier that would be capable of creating this object
+		// there are a few ways to deal with this, but in order to be deal with this in a
+		// predictable way, we will return an error
+		return jmap.ZeroResultV[T](), fmt.Errorf("TODO found multiple suppliers to update, must return 5XX Conflict") // TODO groupware error for this
+	}
+}
+
+func sdelete[T jmap.Idable, S DeleteSupplier[T]](suppliers []S, accountId jmap.AccountId, destroyIds []string, ctx jmap.Context) (jmap.Result[map[string]jmap.SetError], error) {
+	idsBySupplier := structs.Distribute(destroyIds, func(id string) SupplierId {
+		for _, s := range suppliers {
+			if s.IsMine(id) {
+				return s.GetId()
+			}
+		}
+		return EmptySupplierId
+	})
+
+	result := map[string]jmap.SetError{}
+	if ids, ok := idsBySupplier[EmptySupplierId]; ok {
+		for _, id := range ids {
+			result[id] = jmap.SetError{
+				Type:        jmap.SetErrorTypeNotFound,
+				Description: "no supplier supports that id",
+			}
+		}
+	}
+	delete(idsBySupplier, EmptySupplierId)
+
+	switch len(idsBySupplier) {
+	case 0:
+		return jmap.NewResult(result, ctx.Session.GetSessionState(), jmap.EmptyState, jmap.NoLanguage, nil), nil
+	default:
+		suppliersById := structs.Index(suppliers, S.GetId)
+		results := []*jmap.Result[map[string]jmap.SetError]{}
+		stateBySupplierId := map[SupplierId]jmap.State{}
+		for supplierId, ids := range idsBySupplier {
+			if supplier, ok := suppliersById[supplierId]; ok {
+				if r, err := supplier.Delete(accountId, ids, ctx); err != nil {
+					return jmap.ZeroResult[map[string]jmap.SetError](nil), err
+				} else {
+					results = append(results, &r)
+					stateBySupplierId[supplierId] = r.GetState()
+				}
+			}
+		}
+		if len(results) == 1 {
+			return *results[0], nil
+		} else {
+			supplierIds := structs.Keys(suppliersById)
+			state, err := combineState(stateBySupplierId)
+			if err != nil {
+				return jmap.ZeroResultV[map[string]jmap.SetError](), err
+			}
+			return smeld(supplierIds, results, aggDeletes, func(m map[string]jmap.SetError) jmap.State { return state })
+		}
+	}
 }
 
 func fillMissingAccounts(qps QueryParamsSupplier, supplierId SupplierId, accountIds []jmap.AccountId, n map[jmap.AccountId]jmap.QueryParams) error {

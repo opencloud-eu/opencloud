@@ -78,7 +78,35 @@ func (c *MockContactCardSupplier) GetAll(accountId jmap.AccountId, ids []string,
 }
 func (c *MockContactCardSupplier) Query(accountIds []jmap.AccountId, qps QueryParamsSupplier, limit *uint, filter jmap.ContactCardFilterElement, sortBy []jmap.ContactCardComparator, calculateTotal bool, ctx jmap.Context) (jmap.Result[map[jmap.AccountId]*jmap.ContactCardSearchResults], error) { //NOSONAR
 	payload := make(map[jmap.AccountId]*jmap.ContactCardSearchResults, len(accountIds))
-	total := len(c.contacts)
+
+	hits := []jmap.ContactCard{}
+	switch cond := filter.(type) {
+	case jmap.ContactCardFilterCondition:
+		for _, h := range c.contacts {
+			if cond.Name != "" {
+				for _, comp := range h.Name.Components {
+					if strings.Contains(comp.Value, cond.Name) {
+						hits = append(hits, h)
+						continue
+					}
+				}
+				continue
+			}
+			if cond.Email != "" {
+				for _, email := range h.Emails {
+					if strings.Contains(email.Address, cond.Email) {
+						hits = append(hits, h)
+						continue
+					}
+				}
+				continue
+			}
+			// TODO add more filter conditions
+			hits = append(hits, h)
+		}
+	}
+
+	total := len(hits)
 	for _, accountId := range accountIds {
 		all := []jmap.ContactCard{}
 		var qp jmap.QueryParams
@@ -92,7 +120,7 @@ func (c *MockContactCardSupplier) Query(accountIds []jmap.AccountId, qps QueryPa
 
 		p := uint(qp.Position)
 		if qp.Position < total {
-			all = c.contacts[qp.Position:]
+			all = hits[qp.Position:]
 		}
 		if qp.Anchor != "" {
 			a := slices.IndexFunc(all, func(e jmap.ContactCard) bool { return e.Id == qp.Anchor })

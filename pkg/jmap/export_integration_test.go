@@ -1744,7 +1744,7 @@ func deepEqual[T any](t *testing.T, expected, actual T) {
 	require.Empty(t, diff)
 }
 
-func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change](t *testing.T, //NOSONAR
+func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change[OBJ]](t *testing.T, //NOSONAR
 	acc func(session *Session) AccountId,
 	obj func(RESP) []OBJ,
 	id func(OBJ) string,

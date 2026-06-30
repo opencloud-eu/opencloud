@@ -25,7 +25,7 @@ func (g *Groupware) CreateCalendar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *Groupware) DeleteCalendar(w http.ResponseWriter, r *http.Request) {
-	delete(Calendar, w, r, g, g.jmap.DeleteCalendar)
+	deleteById(Calendar, w, r, g, g.jmap.DeleteCalendar)
 }
 
 func (g *Groupware) ModifyCalendar(w http.ResponseWriter, r *http.Request) {

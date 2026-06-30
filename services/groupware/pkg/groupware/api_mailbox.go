@@ -239,7 +239,7 @@ func (g *Groupware) CreateMailbox(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *Groupware) DeleteMailbox(w http.ResponseWriter, r *http.Request) {
-	delete(Mailbox, w, r, g, g.jmap.DeleteMailboxes)
+	deleteById(Mailbox, w, r, g, g.jmap.DeleteMailboxes)
 }
 
 var mailboxRoleSortOrderScore = map[string]int{

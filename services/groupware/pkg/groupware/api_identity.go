@@ -23,7 +23,7 @@ func (g *Groupware) ModifyIdentity(w http.ResponseWriter, r *http.Request) {
 
 // Delete an identity.
 func (g *Groupware) DeleteIdentity(w http.ResponseWriter, r *http.Request) {
-	delete(Identity, w, r, g, g.jmap.DeleteIdentity)
+	deleteById(Identity, w, r, g, g.jmap.DeleteIdentity)
 }
 
 // Get changes to Identities since a given State

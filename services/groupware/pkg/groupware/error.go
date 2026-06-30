@@ -805,3 +805,16 @@ func (r *Request) jmapErrorN(accountIds []jmap.AccountId, err error, result jmap
 		return r.errorN(accountIds, apiError(errorId, ErrorGeneric, withDetail(e.Error())), result.GetDurations())
 	}
 }
+
+func (r *Request) errorResponse(accountId jmap.AccountId, err error, result jmap.ResultMetadata) Response {
+	switch e := err.(type) {
+	case jmap.Error:
+		return r.jmapError(accountId, e, result)
+	case GroupwareError:
+		errorId := r.errorId()
+		return r.error(accountId, apiError(errorId, e), result.GetDurations())
+	default:
+		errorId := r.errorId()
+		return r.error(accountId, apiError(errorId, ErrorGeneric, withDetail(e.Error())), result.GetDurations())
+	}
+}
