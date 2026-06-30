@@ -1,11 +1,11 @@
 {
-    "i18next-conv@15.1.2": {
+    "i18next-conv@17.0.0": {
         "licenses": "MIT",
         "licenseFile": "LICENSE.md",
         "licenseStart": "# MIT License",
         "licenseEnd": "========="
     },
-    "p-from-callback@2.0.0": {
+    "p-from-callback@3.0.0": {
         "licenses": "MIT",
         "licenseFile": "LICENSE.md",
         "licenseStart": "# MIT License",
