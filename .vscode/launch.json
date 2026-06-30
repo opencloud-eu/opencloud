@@ -151,7 +151,9 @@
 
         "WEB_ASSET_CORE_PATH": "${workspaceFolder}/../web/dist",
         "WEB_UI_CONFIG_FILE": "${workspaceFolder}/../web/dev/docker/opencloud.web.config.json",
-        "FRONTEND_GROUPWARE_ENABLED": "true"
+        "FRONTEND_GROUPWARE_ENABLED": "true",
+
+        "GROUPWARE_ENABLE_MOCK_DATA": "true"
       }
     },
     {
