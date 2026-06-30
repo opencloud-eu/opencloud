@@ -380,7 +380,7 @@ func updates[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 	})
 }
 
-func update[T Foo, CHANGES Change, SET SetCommand[T], GET GetCommand[T], RESP any, SETRESP SetResponse[T], GETRESP GetResponse[T]]( //NOSONAR
+func update[T Foo, CHANGES Change[T], SET SetCommand[T], GET GetCommand[T], RESP any, SETRESP SetResponse[T], GETRESP GetResponse[T]]( //NOSONAR
 	client *Client, name string, objType ObjectType,
 	setCommandFactory func(map[string]PatchObject) SET,
 	getCommandFactory func(string) GET,

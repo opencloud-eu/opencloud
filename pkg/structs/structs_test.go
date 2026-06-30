@@ -309,3 +309,36 @@ func TestFlatten(t *testing.T) {
 		assert.Equal(t, []int{}, result)
 	}
 }
+
+func TestAllMatch(t *testing.T) {
+	assert.True(t, AllMatch([]int{1, 2, 3}, func(i int) bool { return i > 0 }))
+	assert.False(t, AllMatch([]int{1, 2, 0, 3}, func(i int) bool { return i > 0 }))
+	assert.False(t, AllMatch([]int{1, 2, 3, 0}, func(i int) bool { return i > 0 }))
+	assert.False(t, AllMatch([]int{0}, func(i int) bool { return i > 0 }))
+	assert.True(t, AllMatch([]int{}, func(i int) bool { return i > 0 }))
+}
+
+func TestDistribute(t *testing.T) {
+	{
+		result := Distribute([]string{"Z", "a", "b", "X", "c", "Y"}, func(e string) int {
+			if strings.ToUpper(e) == e {
+				return 1
+			} else {
+				return 0
+			}
+		})
+		assert.Len(t, result, 2)
+		assert.Contains(t, result, 1)
+		assert.Equal(t, result[1], []string{"Z", "X", "Y"})
+		assert.Contains(t, result, 0)
+		assert.Equal(t, result[0], []string{"a", "b", "c"})
+	}
+	{
+		result := Distribute([]string{}, func(e string) int { return 1 })
+		assert.Empty(t, result)
+	}
+	{
+		result := Distribute(nil, func(e string) int { return 1 })
+		assert.Empty(t, result)
+	}
+}

@@ -406,3 +406,18 @@ func AllMatch[T any](s []T, predicate func(e T) bool) bool {
 	}
 	return true
 }
+
+func Distribute[T comparable, V any](s []V, distributor func(e V) T) map[T][]V {
+	result := map[T][]V{}
+	for _, e := range s {
+		k := distributor(e)
+		if l, ok := result[k]; ok {
+			l = append(l, e)
+			result[k] = l
+		} else {
+			l := []V{e}
+			result[k] = l
+		}
+	}
+	return result
+}

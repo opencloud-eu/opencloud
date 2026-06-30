@@ -12,9 +12,10 @@ import (
 func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) { //NOSONAR
 	getallpaged(Event, w, r, g,
 		true,
-		func(calendarId string) jmap.CalendarEventFilterElement {
-			return jmap.CalendarEventFilterCondition{InCalendar: calendarId}
+		func(calendarId string, req Request, logger *log.Logger) (jmap.CalendarEventFilterElement, *Error) {
+			return g.buildEventsFilter(calendarId, req, logger)
 		},
+		supportedEventsFilterQueryParams,
 		[]jmap.CalendarEventComparator{{Property: jmap.CalendarEventPropertyStart, IsAscending: true}},
 		curryNoNextMapQuery(
 			g.jmap.QueryCalendarEvents,
@@ -35,7 +36,10 @@ func (g *Groupware) GetEventsInCalendar(w http.ResponseWriter, r *http.Request) 
 func (g *Groupware) GetAllEvents(w http.ResponseWriter, r *http.Request) {
 	getallpaged(Event, w, r, g,
 		false,
-		func(_ string) jmap.CalendarEventFilterElement { return jmap.CalendarEventFilterCondition{} },
+		func(calendarId string, req Request, logger *log.Logger) (jmap.CalendarEventFilterElement, *Error) {
+			return g.buildEventsFilter(calendarId, req, logger)
+		},
+		supportedEventsFilterQueryParams,
 		[]jmap.CalendarEventComparator{{Property: jmap.CalendarEventPropertyStart, IsAscending: true}},
 		curryNoNextMapQuery(
 			g.jmap.QueryCalendarEvents,
@@ -53,6 +57,23 @@ func (g *Groupware) GetAllEvents(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
+var supportedEventsFilterQueryParams = toSupportedQueryParams(
+	QueryParamEventsFilterUid,
+	// TODO add more as they are added below
+)
+
+func (g *Groupware) buildEventsFilter(calendarId string, req Request, _ *log.Logger) (jmap.CalendarEventFilterCondition, *Error) {
+	filter := jmap.CalendarEventFilterCondition{}
+	if calendarId != "" {
+		filter.InCalendar = calendarId
+	}
+	if v, ok := req.getStringParam(QueryParamEventsFilterUid, ""); ok {
+		filter.Uid = v
+	}
+	// TODO more filter conditions for Event
+	return filter, nil
+}
+
 func (g *Groupware) GetEventById(w http.ResponseWriter, r *http.Request) {
 	get(Event, w, r, g, g.jmap.GetCalendarEvents)
 }
@@ -68,7 +89,7 @@ func (g *Groupware) CreateEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *Groupware) DeleteEvent(w http.ResponseWriter, r *http.Request) {
-	delete(Event, w, r, g, g.jmap.DeleteCalendarEvent)
+	deleteById(Event, w, r, g, g.jmap.DeleteCalendarEvent)
 }
 
 func (g *Groupware) ModifyEvent(w http.ResponseWriter, r *http.Request) {

@@ -41,3 +41,17 @@ func ptrIfNot[T comparable](t T, notThis T) *T {
 		return nil
 	}
 }
+
+func identity[T any | uint | int | bool](value T) T {
+	return value
+}
+
+func striter[T ~string](s []T) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		for _, v := range s {
+			if !yield(string(v)) {
+				return
+			}
+		}
+	}
+}

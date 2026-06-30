@@ -116,12 +116,8 @@ type Groupware struct {
 	jobsChannel chan Job
 	// A threadsafe counter to generate the job IDs.
 	jobCounter atomic.Uint64
-
-	addressBookListSuppliers    []ListSupplier[jmap.AddressBook, jmap.AddressBookGetResponse]
-	addressBookChangesSuppliers []ChangesSupplier[jmap.AddressBook, jmap.AddressBookChanges]
-	contactCardQuerySuppliers   []QuerySupplier[jmap.ContactCard, *jmap.ContactCardSearchResults, jmap.ContactCardFilterElement, jmap.ContactCardComparator]
-	contactCardListSuppliers    []ListSupplier[jmap.ContactCard, jmap.ContactCardGetResponse]
-	contactCardChangesSuppliers []ChangesSupplier[jmap.ContactCard, jmap.ContactCardChanges]
+	// Implementations of suppliers to use to provide Groupware objects.
+	suppliers Suppliers
 }
 
 // An error during the Groupware initialization.
@@ -394,36 +390,20 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 		}
 	}
 
-	addressBookListSuppliers := []ListSupplier[jmap.AddressBook, jmap.AddressBookGetResponse]{}
-	addressBookChangesSuppliers := []ChangesSupplier[jmap.AddressBook, jmap.AddressBookChanges]{}
-	contactCardQuerySuppliers := []QuerySupplier[jmap.ContactCard, *jmap.ContactCardSearchResults, jmap.ContactCardFilterElement, jmap.ContactCardComparator]{}
-	contactCardListSuppliers := []ListSupplier[jmap.ContactCard, jmap.ContactCardGetResponse]{}
-	contactCardChangesSuppliers := []ChangesSupplier[jmap.ContactCard, jmap.ContactCardChanges]{}
+	var suppliers Suppliers
 	{
-		{
-			j := newJmapAddressBookSupplier(&jmapClient)
-			addressBookListSuppliers = append(addressBookListSuppliers, j)
-			addressBookChangesSuppliers = append(addressBookChangesSuppliers, j)
-		}
-		{
-			j := newJmapContactCardSupplier(&jmapClient)
-			contactCardQuerySuppliers = append(contactCardQuerySuppliers, j)
-			contactCardListSuppliers = append(contactCardListSuppliers, j)
-			contactCardChangesSuppliers = append(contactCardChangesSuppliers, j)
+		impls := []Supplier[jmap.Foo]{
+			newJmapAddressBookSupplier(&jmapClient),
+			newJmapContactCardSupplier(&jmapClient),
 		}
 		if config.EnableMockData {
-			{
-				m := newMockAddressBookSupplier()
-				addressBookListSuppliers = append(addressBookListSuppliers, m)
-				addressBookChangesSuppliers = append(addressBookChangesSuppliers, m)
-			}
-			{
-				m := newMockContactCardSupplier()
-				contactCardQuerySuppliers = append(contactCardQuerySuppliers, m)
-				contactCardListSuppliers = append(contactCardListSuppliers, m)
-				contactCardChangesSuppliers = append(contactCardChangesSuppliers, m)
-			}
+			impls = append(impls,
+				newMockAddressBookSupplier(),
+				newMockContactCardSupplier(),
+			)
 		}
+
+		suppliers, err = newSuppliers(impls...)
 	}
 
 	var publicUrl *url.URL
@@ -454,14 +434,10 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 			publicUrl:             publicUrl,
 			sendDurationsResponse: sendDurationsResponse,
 		},
-		eventChannel:                eventChannel,
-		jobsChannel:                 jobsChannel,
-		jobCounter:                  atomic.Uint64{},
-		addressBookListSuppliers:    addressBookListSuppliers,
-		addressBookChangesSuppliers: addressBookChangesSuppliers,
-		contactCardQuerySuppliers:   contactCardQuerySuppliers,
-		contactCardListSuppliers:    contactCardListSuppliers,
-		contactCardChangesSuppliers: contactCardChangesSuppliers,
+		eventChannel: eventChannel,
+		jobsChannel:  jobsChannel,
+		jobCounter:   atomic.Uint64{},
+		suppliers:    suppliers,
 	}
 
 	for w := 1; w <= workerPoolSize; w++ {

@@ -1065,7 +1065,7 @@ func (g *Groupware) RemoveEmailKeywords(w http.ResponseWriter, r *http.Request) 
 
 // Delete an email by its unique identifier.
 func (g *Groupware) DeleteEmail(w http.ResponseWriter, r *http.Request) {
-	delete(Email, w, r, g, g.jmap.DeleteEmails)
+	deleteById(Email, w, r, g, g.jmap.DeleteEmails)
 }
 
 // Delete a set of emails by their unique identifiers.

@@ -13,6 +13,7 @@ type JmapContactCardSupplier struct {
 var _ QuerySupplier[jmap.ContactCard, *jmap.ContactCardSearchResults, jmap.ContactCardFilterElement, jmap.ContactCardComparator] = &JmapContactCardSupplier{}
 var _ ListSupplier[jmap.ContactCard, jmap.ContactCardGetResponse] = &JmapContactCardSupplier{}
 var _ ChangesSupplier[jmap.ContactCard, jmap.ContactCardChanges] = &JmapContactCardSupplier{}
+var _ CreateSupplier[jmap.ContactCard, jmap.ContactCardChange] = &JmapContactCardSupplier{}
 
 func newJmapContactCardSupplier(client *jmap.Client) *JmapContactCardSupplier {
 	return &JmapContactCardSupplier{client: client}
@@ -42,4 +43,12 @@ func (c *JmapContactCardSupplier) GetAll(accountId jmap.AccountId, ids []string,
 
 func (c *JmapContactCardSupplier) GetChanges(accountId jmap.AccountId, sinceState jmap.State, maxChanges uint, ctx jmap.Context) (jmap.Result[jmap.ContactCardChanges], error) {
 	return c.client.GetContactCardChanges(accountId, sinceState, maxChanges, ctx)
+}
+
+func (c *JmapContactCardSupplier) CanCreate(accountId jmap.AccountId, create jmap.ContactCardChange, ctx jmap.Context) bool {
+	return true
+}
+
+func (c *JmapContactCardSupplier) Create(accountId jmap.AccountId, create jmap.ContactCardChange, ctx jmap.Context) (jmap.Result[*jmap.ContactCard], error) {
+	return c.client.CreateContactCard(accountId, create, ctx)
 }

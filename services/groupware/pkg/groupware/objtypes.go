@@ -4,7 +4,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/jmap"
 )
 
-type ObjectType[T jmap.Foo, CH jmap.Change, CHS jmap.Changes[T]] struct {
+type ObjectType[T jmap.Foo, CH jmap.Change[T], CHS jmap.Changes[T]] struct {
 	name                  string
 	plural                string
 	responseType          ResponseObjectType

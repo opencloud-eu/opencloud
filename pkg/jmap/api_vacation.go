@@ -47,10 +47,14 @@ type VacationResponseChange struct {
 	HtmlBody string `json:"htmlBody,omitempty"`
 }
 
-var _ Change = VacationResponseChange{}
+var _ Change[VacationResponse] = VacationResponseChange{}
 
 func (m VacationResponseChange) AsPatch() (PatchObject, error) {
 	return toPatchObject(m)
+}
+
+func (m VacationResponseChange) GetMarker() VacationResponse {
+	return VacationResponse{}
 }
 
 type VacationResponseChanges ChangesTemplate[VacationResponse]

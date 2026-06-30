@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"net/http"
 	"slices"
 	"strconv"
@@ -239,12 +240,15 @@ func toSupportedQueryParams(params ...string) supportedQueryParams {
 
 var noSupportedQueryParams supportedQueryParams = toSupportedQueryParams()
 
-func (r *Request) unsupportedQueryParams(accountIds []jmap.AccountId, allowed supportedQueryParams) (bool, Response) {
+func (r *Request) unsupportedQueryParams(accountIds []jmap.AccountId, allowed ...supportedQueryParams) (bool, Response) {
 	q := r.r.URL.Query()
 	for n := range q {
-		if _, ok := allowed[n]; !ok {
-			return true, r.parameterErrorResponseN(accountIds, n, "Unsupported query parameter")
+		for _, a := range allowed {
+			if _, ok := a[n]; ok {
+				return false, Response{}
+			}
 		}
+		return true, r.parameterErrorResponseN(accountIds, n, "Unsupported query parameter")
 	}
 	return false, Response{}
 }
@@ -259,6 +263,27 @@ func (r *Request) getStringParam(param string, defaultValue string) (string, boo
 		return defaultValue, true
 	}
 	return str, true
+}
+
+func (r *Request) getValidStringParam(param string, defaultValue string, possibleValues iter.Seq[string]) (string, bool, *Error) {
+	q := r.r.URL.Query()
+	if !q.Has(param) {
+		return defaultValue, false, nil
+	}
+	str := q.Get(param)
+	if str == "" {
+		return defaultValue, true, nil
+	}
+	for p := range possibleValues {
+		if p == str {
+			return str, true, nil
+		}
+	}
+	msg := fmt.Sprintf("Invalid value for query parameter '%v'", param)
+	return "", true, r.observedParameterError(ErrorInvalidRequestParameter,
+		withDetail(msg),
+		withSource(&ErrorSource{Parameter: param}),
+	)
 }
 
 func (r *Request) getMandatoryStringParam(param string) (string, *Error) {
@@ -345,6 +370,28 @@ func (r *Request) parseDateParam(param string) (time.Time, bool, *Error) {
 		)
 	}
 	return t, true, nil
+}
+
+func (r *Request) parseUTCDateParam(param string) (jmap.UTCDate, bool, *Error) {
+	q := r.r.URL.Query()
+	if !q.Has(param) {
+		return "", false, nil
+	}
+
+	str := q.Get(param)
+	if str == "" {
+		return "", false, nil
+	}
+
+	if _, err := time.Parse(jmap.UTCDateFormat, str); err != nil {
+		msg := fmt.Sprintf("Invalid UTCDate value for query parameter '%v': '%s': %s", param, log.SafeString(str), err.Error())
+		return "", true, r.observedParameterError(ErrorInvalidRequestParameter,
+			withDetail(msg),
+			withSource(&ErrorSource{Parameter: param}),
+		)
+	} else {
+		return jmap.UTCDate(str), true, nil
+	}
 }
 
 func (r *Request) parseBoolParam(param string, defaultValue bool) (bool, bool, *Error) {
