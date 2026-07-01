@@ -496,8 +496,7 @@ func (e *eval) evalStep(iter evalIterator) error {
 				})
 			}
 		case *ast.Term:
-			// generateVar inlined here to avoid extra allocations in hot path
-			rterm := ast.VarTerm(e.fmtVarTerm())
+			rterm := ast.VarTerm(e.fmtVar())
 
 			if e.partial() {
 				e.inliningControl.PushDisable(rterm.Value, true)
@@ -536,9 +535,8 @@ func (e *eval) evalStep(iter evalIterator) error {
 
 		case *ast.Not:
 			en := evalNot{
-				e:    e,
-				not:  terms,
-				expr: expr,
+				e:   e,
+				not: terms,
 			}
 			err = en.eval(func(e *eval) error {
 				defined = true
@@ -575,8 +573,7 @@ func (e *eval) evalStep(iter evalIterator) error {
 			})
 		}
 	case *ast.Term:
-		// generateVar inlined here to avoid extra allocations in hot path
-		rterm := ast.VarTerm(e.fmtVarTerm())
+		rterm := ast.VarTerm(e.fmtVar())
 		err = e.unify(terms, rterm, func() error {
 			if e.saveSet != nil && e.saveSet.Contains(rterm, e.bindings) {
 				return e.saveExpr(ast.NewExpr(rterm), e.bindings, func() error {
@@ -600,9 +597,8 @@ func (e *eval) evalStep(iter evalIterator) error {
 
 	case *ast.Not:
 		en := evalNot{
-			e:    e,
-			not:  terms,
-			expr: expr,
+			e:   e,
+			not: terms,
 		}
 		err = en.eval(func(e *eval) error {
 			return iter(e)
@@ -617,7 +613,7 @@ func (e *eval) evalStep(iter evalIterator) error {
 
 // Single-purpose fmt.Sprintf replacement for generating variable names with only
 // one allocation performed instead of 4, and in 1/3 the time.
-func (e *eval) fmtVarTerm() string {
+func (e *eval) fmtVar() string {
 	buf := make([]byte, 0, len(e.genvarprefix)+util.NumDigitsUint(e.queryID)+util.NumDigitsInt(e.index)+7)
 
 	buf = append(buf, e.genvarprefix...)
@@ -4208,36 +4204,69 @@ func isIterableValue(x ast.Value) bool {
 }
 
 func (e *evalEvery) save(iter unifyIterator) error {
-	return e.e.saveExpr(e.plug(e.expr), e.e.bindings, iter)
+	plugged, err := e.plug(e.expr)
+	if err != nil {
+		return err
+	}
+	return e.e.saveExpr(plugged, e.e.bindings, iter)
 }
 
-func (e *evalEvery) plug(expr *ast.Expr) *ast.Expr {
+func (e *evalEvery) plug(expr *ast.Expr) (*ast.Expr, error) {
 	cpy := expr.Copy()
 	every := cpy.Terms.(*ast.Every)
-	for i := range every.Body {
-		switch t := every.Body[i].Terms.(type) {
-		case *ast.Term:
-			every.Body[i].Terms = e.e.bindings.PlugNamespaced(t, e.e.caller.bindings)
-		case []*ast.Term:
-			for j := 1; j < len(t); j++ { // don't plug operator, t[0]
-				t[j] = e.e.bindings.PlugNamespaced(t[j], e.e.caller.bindings)
-			}
-		case *ast.Every:
-			every.Body[i] = e.plug(every.Body[i])
-		}
+	if err := e.plugBody(every.Body); err != nil {
+		return nil, err
 	}
 
 	every.Key = e.e.bindings.PlugNamespaced(every.Key, e.e.caller.bindings)
 	every.Value = e.e.bindings.PlugNamespaced(every.Value, e.e.caller.bindings)
 	every.Domain = e.e.bindings.PlugNamespaced(every.Domain, e.e.caller.bindings)
 	cpy.Terms = every
-	return cpy
+	return cpy, nil
+}
+
+func (e *evalEvery) plugBody(body ast.Body) error {
+	for i := range body {
+		switch t := body[i].Terms.(type) {
+		case *ast.Term:
+			plugged, err := e.plugTerm(t)
+			if err != nil {
+				return err
+			}
+			body[i].Terms = plugged
+		case []*ast.Term:
+			for j := 1; j < len(t); j++ { // don't plug operator, t[0]
+				plugged, err := e.plugTerm(t[j])
+				if err != nil {
+					return err
+				}
+				t[j] = plugged
+			}
+		case *ast.Every:
+			plugged, err := e.plug(body[i])
+			if err != nil {
+				return err
+			}
+			body[i] = plugged
+		case *ast.Not:
+			if err := e.plugBody(t.Body); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (e *evalEvery) plugTerm(t *ast.Term) (*ast.Term, error) {
+	if ast.IsComprehension(t.Value) {
+		return e.e.amendComprehension(t, e.e.bindings)
+	}
+	return e.e.bindings.PlugNamespaced(t, e.e.caller.bindings), nil
 }
 
 type evalNot struct {
-	e    *eval
-	not  *ast.Not
-	expr *ast.Expr
+	e   *eval
+	not *ast.Not
 }
 
 func (e evalNot) eval(iter evalIterator) error {

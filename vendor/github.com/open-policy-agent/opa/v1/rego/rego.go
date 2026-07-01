@@ -2173,8 +2173,7 @@ func (r *Rego) parseQuery(queryImports []*ast.Import, m metrics.Metrics) (ast.Bo
 
 func parserOptionsFromRegoVersionImport(imports []*ast.Import, popts ast.ParserOptions) (ast.ParserOptions, error) {
 	for _, imp := range imports {
-		path := imp.Path.Value.(ast.Ref)
-		if ast.Compare(path, ast.RegoV1CompatibleRef) == 0 {
+		if ast.RegoV1CompatibleRef.Compare(imp.Path.Value) == 0 {
 			popts.RegoVersion = ast.RegoV1
 			return popts, nil
 		}
@@ -3082,9 +3081,11 @@ func generateJSON(term *ast.Term, ectx *EvalContext) (any, error) {
 }
 
 func (r *Rego) planQuery(queries []ast.Body, evalQueryType queryType) (*ir.Policy, error) {
+	// We sort the list of module names here to ensure a deterministic
+	// output ordering for the planner.
 	modules := make([]*ast.Module, 0, len(r.compiler.Modules))
-	for _, module := range r.compiler.Modules {
-		modules = append(modules, module)
+	for _, name := range util.KeysSorted(r.compiler.Modules) {
+		modules = append(modules, r.compiler.Modules[name])
 	}
 
 	decls := make(map[string]*ast.Builtin, len(r.builtinDecls)+len(ast.BuiltinMap))
