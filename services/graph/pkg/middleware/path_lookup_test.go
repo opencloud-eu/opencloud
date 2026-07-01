@@ -268,29 +268,6 @@ func TestResolveGraphPath(t *testing.T) {
 			expectItemID:     testItemID,
 		},
 		{
-			// A ':' inside a file name is data, not a delimiter (the delimiter
-			// is ":/"). This must resolve the whole path including the colon and
-			// route to the bare item.
-			name:             "colon inside a file name is kept in the path",
-			urlPath:          "/graph/v1.0/drives/" + testDriveID + "/root:/folder1/re:port.txt",
-			statCode:         cs3rpc.Code_CODE_OK,
-			expectStatCalled: true,
-			expectStatus:     http.StatusOK,
-			expectHit:        "item",
-			expectItemID:     testItemID,
-		},
-		{
-			// Colon inside the file name AND a real ":/"-delimited suffix: the
-			// name keeps its colon, the suffix still routes.
-			name:             "colon in file name with a real suffix",
-			urlPath:          "/graph/v1.0/drives/" + testDriveID + "/root:/folder1/re:port.txt:/children",
-			statCode:         cs3rpc.Code_CODE_OK,
-			expectStatCalled: true,
-			expectStatus:     http.StatusOK,
-			expectHit:        "children",
-			expectItemID:     testItemID,
-		},
-		{
 			name:             "item-anchored colon syntax rewrites",
 			urlPath:          "/graph/v1.0/drives/" + testDriveID + "/items/" + testItemID + ":/notes.txt:/children",
 			statCode:         cs3rpc.Code_CODE_OK,
@@ -418,17 +395,10 @@ func TestResolveGraphPath_DecodesEncodedPath(t *testing.T) {
 			expectedStat: "./Documents/children",
 		},
 		{
-			// A ':' inside a file name (delimiter is ":/") must reach Stat as
-			// part of the path, not be treated as a path/suffix separator.
-			name:         "colon inside a file name reaches Stat as part of the path",
-			urlPath:      "/graph/v1.0/drives/" + testDriveID + "/root:/folder1/re:port.txt",
-			expectedStat: "./folder1/re:port.txt",
-		},
-		{
-			// A ':' at a segment boundary is ambiguous raw, so it must be
-			// percent-encoded. "%3A" is never seen as the ":/" delimiter and
-			// decodes back to a literal ':' - here a directory named "weird:".
-			name:         "percent-encoded colon (%3A) at a boundary reaches Stat as a literal colon",
+			// Clients percent-encode ':' as "%3A" to put it in a name. "%3A" is
+			// never seen as the ":/" delimiter and decodes back to a literal ':'
+			// - here a directory named "weird:".
+			name:         "percent-encoded colon (%3A) reaches Stat as a literal colon",
 			urlPath:      "/graph/v1.0/drives/" + testDriveID + "/root:/weird%3A/file.txt",
 			expectedStat: "./weird:/file.txt",
 		},

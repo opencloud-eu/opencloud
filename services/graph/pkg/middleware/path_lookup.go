@@ -234,26 +234,21 @@ func rewriteColonPath(
 //	/root:/<path>[:/<suffix>][:]
 //	/items/<itemID>:/<path>[:/<suffix>][:]
 //
-// The structural delimiter is ":/" - a colon immediately followed by the
-// leading slash of the path or suffix - not a bare ":". Splitting on ":/"
-// keeps a ':' *inside* a file or directory name as data instead of mistaking
-// it for a delimiter (segments are '/'-separated and never start with ':').
-// For example:
+// The structural delimiter is ":/" (a colon immediately followed by the
+// leading slash of the path or suffix); a trailing ":" is the no-suffix
+// terminator. For example:
 //
 //	/root:/Documents                 -> path "/Documents"
 //	/root:/Documents:                -> path "/Documents"
 //	/root:/Documents:/children       -> path "/Documents", suffix "/children"
-//	/root:/a:b.txt                   -> path "/a:b.txt" (colon kept in the name)
 //	/items/{id}:/notes.txt:/children -> itemID "{id}", path "/notes.txt", suffix "/children"
 //
-// A raw ':' at a segment boundary is ambiguous - "/root:/foo:/bar" reads as
-// path "/foo" with suffix "/bar", and a trailing ':' is the no-suffix
-// terminator. To address a name whose ':' sits at a boundary (e.g. a name
-// ending in ':'), percent-encode it as "%3A": the split works on the literal
-// ":/", so "%3A" is never a delimiter and decodes back to ':' with the rest of
-// the path (e.g. "/root:/weird%3A/file.txt" -> "/weird:/file.txt"). MS Graph
-// sidesteps this by forbidding ':' in names entirely; OpenCloud allows it (via
-// WebDAV), so "%3A" is how such names are reached here.
+// Clients must percent-encode each path segment, exactly as MS Graph requires
+// (an unencoded path is ambiguous). The one OpenCloud-specific point: ':' must
+// be encoded as "%3A". The split is on the literal ":/", so an encoded ':' is
+// never a delimiter and decodes back to ':' with the rest of the path (e.g.
+// "/root:/weird%3A/file.txt" -> "/weird:/file.txt"). OpenCloud allows ':' in
+// names whereas MS Graph/OneDrive forbid it, hence this extra character.
 //
 // The returned fields are the raw (still percent-encoded) substrings; the
 // caller decodes them.

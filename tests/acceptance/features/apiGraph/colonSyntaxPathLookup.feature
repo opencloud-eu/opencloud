@@ -12,12 +12,11 @@ Feature: colon-syntax path lookup on the Graph API
   collapse to 404 so the middleware never discloses the existence of
   resources the caller is not allowed to see.
 
-  The delimiter is ":/", so a raw ':' inside a file or directory name is kept
-  as part of the path. A ':' at a segment boundary (e.g. a name ending in ':')
-  is ambiguous and must be percent-encoded as "%3A" to be addressed. MS Graph
-  and OneDrive sidestep this by forbidding ':' in names entirely; OpenCloud
-  allows it (via WebDAV), so the "%3A" escape is how such names are reached
-  here.
+  Clients must percent-encode each path segment, exactly as MS Graph requires.
+  The only OpenCloud-specific point: ':' must be encoded as "%3A" (the split is
+  on the literal ":/", so an encoded ':' is never a delimiter). OpenCloud allows
+  ':' in names whereas MS Graph/OneDrive forbid it, so "%3A" is the one extra
+  character to encode.
 
   Background:
     Given user "Alice" has been created with default attributes
