@@ -50,9 +50,9 @@ services:
 
     healthcheck:
       test: ["CMD-SHELL", "curl -LsSf http://localhost:8080/healthz/live|grep -q '\"status\":200'"]
-      interval: 10s
-      retries: 5
-      start_period: 3s
+      interval: 10m
+      retries: 3
+      start_period: 5s
       timeout: 3s
 
   stalwart-import:
