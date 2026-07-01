@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -25,24 +24,11 @@ import (
 
 // The middleware is attached to the /drives/{driveID} sub-routers, so by the
 // time it runs chi has already consumed the {version}/drives/{driveID} prefix
-// and exposes the remainder via chi.RouteContext().RoutePath. The regexes
-// therefore only need to match the part below the drive:
+// and exposes the remainder via chi.RouteContext().RoutePath. parseColonPath
+// therefore only needs to handle the part below the drive:
 //
 //	root-anchored: /root:/<path>[:/<suffix>][:]
 //	item-anchored: /items/{itemID}:/<path>[:/<suffix>][:]
-
-// /root:/<path>[:/<suffix>][:]
-//
-//	group 1: path (with leading slash)
-//	group 2: suffix (with leading slash) - empty for direct item lookup
-var rootColonRe = regexp.MustCompile(`^/root:(/.+?)(?::(/[^:]+))?:?$`)
-
-// /items/{itemID}:/<path>[:/<suffix>][:]
-//
-//	group 1: anchor itemID
-//	group 2: path (with leading slash)
-//	group 3: suffix (with leading slash)
-var itemColonRe = regexp.MustCompile(`^/items/([^/]+):(/.+?)(?::(/[^:]+))?:?$`)
 
 type contextKey string
 
@@ -146,12 +132,12 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 	}
 }
 
-// colonMatch is the normalized result of matching either the root- or
-// item-anchored colon-syntax regex. The two regexes capture different
-// groups; this struct erases that difference for downstream resolution.
+// colonMatch is the normalized result of parseColonPath for either the root-
+// or item-anchored colon-syntax shape. The two shapes carry different parts;
+// this struct erases that difference for downstream resolution.
 //
 // itemAnchorID, relPath and suffix hold the raw (still percent-encoded)
-// captures from RoutePath; rewriteColonPath decodes them as needed.
+// substrings from RoutePath; rewriteColonPath decodes them as needed.
 type colonMatch struct {
 	isItemAnchored bool   // item-anchored form: anchor is itemAnchorID, validate against driveID
 	itemAnchorID   string // captured itemID for the item-anchored form (empty for root-anchored)
@@ -176,11 +162,8 @@ func rewriteColonPath(
 	driveIDParam string,
 	routePath string,
 ) (string, error) {
-	var match colonMatch
-	switch {
-	case matchInto(rootColonRe, routePath, &match, rootMatchExtract):
-	case matchInto(itemColonRe, routePath, &match, itemMatchExtract):
-	default:
+	match, ok := parseColonPath(routePath)
+	if !ok {
 		return "", nil
 	}
 
@@ -242,27 +225,69 @@ func rewriteColonPath(
 	return buildCanonicalRoutePath(itemID, match.suffix), nil
 }
 
-// matchInto runs the regex; on a hit, populates *out via extract and returns true.
-// A small indirection that lets the switch in rewriteColonPath stay flat.
-func matchInto(re *regexp.Regexp, s string, out *colonMatch, extract func([]string) colonMatch) bool {
-	m := re.FindStringSubmatch(s)
-	if m == nil {
-		return false
+// parseColonPath splits a colon-syntax RoutePath (the part below
+// /drives/{driveID}) into its parts, or reports ok=false when the path is not
+// colon-syntax and should pass through untouched.
+//
+// Below the drive the grammar is one of:
+//
+//	/root:<rest>
+//	/items/<itemID>:<rest>
+//
+// where <rest> is "/<path>", optionally followed by ":/<suffix>", and an
+// optional trailing ":". Colons are structural delimiters, so neither <path>
+// nor <suffix> contains one. For example:
+//
+//	/root:/Documents                 -> path "/Documents"
+//	/root:/Documents:                -> path "/Documents"
+//	/root:/Documents:/children       -> path "/Documents", suffix "/children"
+//	/items/{id}:/notes.txt:/children -> itemID "{id}", path "/notes.txt", suffix "/children"
+//
+// The returned fields are the raw (still percent-encoded) substrings; the
+// caller decodes them.
+func parseColonPath(routePath string) (colonMatch, bool) {
+	var m colonMatch
+
+	// rest is everything after the anchor and its delimiting colon, i.e.
+	// "/<path>[:/<suffix>][:]".
+	var rest string
+	switch {
+	case strings.HasPrefix(routePath, "/root:"):
+		// Root-anchored: the anchor is the {driveID} route param supplied by
+		// the caller, so there's nothing item-specific to capture here.
+		rest = strings.TrimPrefix(routePath, "/root:")
+	case strings.HasPrefix(routePath, "/items/"):
+		// Item-anchored: the itemID is a single segment terminated by ':'. If a
+		// '/' appears before any ':', this is an ordinary /items/{id}/...
+		// request, not colon syntax.
+		after := strings.TrimPrefix(routePath, "/items/")
+		itemID, tail, found := strings.Cut(after, ":")
+		if !found || strings.Contains(itemID, "/") {
+			return m, false
+		}
+		m.isItemAnchored = true
+		m.itemAnchorID = itemID
+		rest = tail
+	default:
+		return m, false
 	}
-	*out = extract(m)
-	return true
-}
 
-func rootMatchExtract(m []string) colonMatch {
-	// Root-anchored: the anchor is the {driveID} route param, supplied by the
-	// caller - nothing item-specific to capture here.
-	return colonMatch{relPath: m[1], suffix: m[2]}
-}
+	// Drop a single optional trailing ':' (the "...:" no-suffix shape), then
+	// split path from suffix on the one remaining delimiter colon, if any.
+	// strings.Cut leaves suffix empty when there's no delimiter.
+	rest = strings.TrimSuffix(rest, ":")
+	m.relPath, m.suffix, _ = strings.Cut(rest, ":")
 
-func itemMatchExtract(m []string) colonMatch {
-	// Item-anchored: capture itemID so the resolver anchors on it and validates
-	// it against the {driveID} route param's storage/space.
-	return colonMatch{isItemAnchored: true, itemAnchorID: m[1], relPath: m[2], suffix: m[3]}
+	// Shape requirements (matching the previous regex): the path must be
+	// absolute and non-empty ("/x"), and a present suffix must be absolute and
+	// colon-free.
+	if len(m.relPath) < 2 || m.relPath[0] != '/' {
+		return m, false
+	}
+	if m.suffix != "" && (m.suffix[0] != '/' || strings.IndexByte(m.suffix, ':') >= 0) {
+		return m, false
+	}
+	return m, true
 }
 
 // resolvePath translates a relative filesystem path (anchored at the given
