@@ -204,8 +204,8 @@ func TestResolveGraphPath(t *testing.T) {
 		},
 		{
 			// Multi-segment suffix: /permissions/{permissionID}/setPassword on
-			// v1beta1 (POST). Pins that the suffix regex carries embedded slashes
-			// through the rewrite into a real nested route.
+			// v1beta1 (POST). Pins that parseColonPath carries a suffix with
+			// embedded slashes through the rewrite into a real nested route.
 			name:             "v1beta1 root-anchored with multi-segment suffix rewrites and routes",
 			method:           http.MethodPost,
 			urlPath:          "/graph/v1beta1/drives/" + testDriveID + "/root:/folder1:/permissions/perm-1/setPassword",

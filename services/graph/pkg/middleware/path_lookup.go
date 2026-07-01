@@ -140,7 +140,7 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 // substrings from RoutePath; rewriteColonPath decodes them as needed.
 type colonMatch struct {
 	isItemAnchored bool   // item-anchored form: anchor is itemAnchorID, validate against driveID
-	itemAnchorID   string // captured itemID for the item-anchored form (empty for root-anchored)
+	itemAnchorID   string // itemID from the path for the item-anchored form (empty for root-anchored)
 	relPath        string // relative path with leading slash
 	suffix         string // suffix with leading slash (e.g. "/children"); may be empty
 }
@@ -193,10 +193,10 @@ func rewriteColonPath(
 		return "", errInvalidRequest
 	}
 
-	// Item-anchored form captures driveID and itemID separately. Validate the
-	// itemID belongs to the given driveID (storage + space prefix) - otherwise
-	// the request is malformed and we short-circuit instead of doing an
-	// unnecessary CS3 Stat.
+	// Item-anchored form: the itemID comes from the path, driveID from the
+	// route param. Validate the itemID belongs to the given driveID (storage +
+	// space prefix) - otherwise the request is malformed and we short-circuit
+	// instead of doing an unnecessary CS3 Stat.
 	if match.isItemAnchored {
 		drive, err := storagespace.ParseID(driveID)
 		if err != nil {
@@ -282,9 +282,8 @@ func parseColonPath(routePath string) (colonMatch, bool) {
 	rest = strings.TrimSuffix(rest, ":")
 	m.relPath, m.suffix, _ = strings.Cut(rest, ":")
 
-	// Shape requirements (matching the previous regex): the path must be
-	// absolute and non-empty ("/x"), and a present suffix must be absolute and
-	// colon-free.
+	// Shape requirements: the path must be absolute and non-empty ("/x"), and a
+	// present suffix must be absolute and colon-free.
 	if len(m.relPath) < 2 || m.relPath[0] != '/' {
 		return m, false
 	}
