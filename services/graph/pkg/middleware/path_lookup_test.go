@@ -254,6 +254,20 @@ func TestResolveGraphPath(t *testing.T) {
 			expectItemID:     testItemID,
 		},
 		{
+			// A trailing segment that looks like a suffix ("children") is only a
+			// suffix when a SECOND colon introduces it. Without it, the whole
+			// thing is the path, so this must resolve to the bare item (GET "/"),
+			// NOT to /items/{id}/children. If the parser wrongly split it, the
+			// request would land on the "children" leaf and this fails.
+			name:             "trailing suffix-looking segment without a second colon stays in the path",
+			urlPath:          "/graph/v1.0/drives/" + testDriveID + "/root:/Documents/children",
+			statCode:         cs3rpc.Code_CODE_OK,
+			expectStatCalled: true,
+			expectStatus:     http.StatusOK,
+			expectHit:        "item",
+			expectItemID:     testItemID,
+		},
+		{
 			name:             "item-anchored colon syntax rewrites",
 			urlPath:          "/graph/v1.0/drives/" + testDriveID + "/items/" + testItemID + ":/notes.txt:/children",
 			statCode:         cs3rpc.Code_CODE_OK,
@@ -372,6 +386,14 @@ func TestResolveGraphPath_DecodesEncodedPath(t *testing.T) {
 			urlPath:      "/graph/v1.0/drives/" + testDriveID + "/root:/a%252Fb:/children",
 			expectedStat: "./a%2Fb",
 		},
+		{
+			// Without a second colon the whole remainder is the path: Stat must
+			// receive "/Documents/children", not "/Documents" (which would mean
+			// "/children" was wrongly treated as a suffix).
+			name:         "suffix-looking segment without a second colon is part of the Stat path",
+			urlPath:      "/graph/v1.0/drives/" + testDriveID + "/root:/Documents/children",
+			expectedStat: "./Documents/children",
+		},
 	}
 
 	for _, tt := range tests {
@@ -385,13 +407,12 @@ func TestResolveGraphPath_DecodesEncodedPath(t *testing.T) {
 				}).
 				Return(statResponse(cs3rpc.Code_CODE_OK, true), nil)
 
-			router, cap := newGraphTestRouter(t, gw)
+			router, _ := newGraphTestRouter(t, gw)
 			req := httptest.NewRequest(http.MethodGet, "http://localhost"+tt.urlPath, nil)
 			rr := httptest.NewRecorder()
 			router.ServeHTTP(rr, req)
 
 			assert.Equal(t, http.StatusOK, rr.Code)
-			assert.Equal(t, "children", cap.hit)
 			assert.Equal(t, tt.expectedStat, statPath, "path passed to CS3 Stat must be decoded exactly once")
 		})
 	}

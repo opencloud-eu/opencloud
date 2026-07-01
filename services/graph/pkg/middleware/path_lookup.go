@@ -248,33 +248,37 @@ func rewriteColonPath(
 func parseColonPath(routePath string) (colonMatch, bool) {
 	var m colonMatch
 
-	// rest is everything after the anchor and its delimiting colon, i.e.
-	// "/<path>[:/<suffix>][:]".
-	var rest string
+	// The anchor is separated from the rest by the first colon; no colon at all
+	// means this isn't colon syntax and should pass through.
+	anchor, rest, found := strings.Cut(routePath, ":")
+	if !found {
+		return m, false
+	}
+
 	switch {
-	case strings.HasPrefix(routePath, "/root:"):
-		// Root-anchored: the anchor is the {driveID} route param supplied by
-		// the caller, so there's nothing item-specific to capture here.
-		rest = strings.TrimPrefix(routePath, "/root:")
-	case strings.HasPrefix(routePath, "/items/"):
-		// Item-anchored: the itemID is a single segment terminated by ':'. If a
-		// '/' appears before any ':', this is an ordinary /items/{id}/...
-		// request, not colon syntax.
-		after := strings.TrimPrefix(routePath, "/items/")
-		itemID, tail, found := strings.Cut(after, ":")
-		if !found || strings.Contains(itemID, "/") {
+	case anchor == "/root":
+		// Root-anchored: path resolution later anchors on the {driveID} route
+		// param, so there's no item id to capture from the URL.
+	case strings.HasPrefix(anchor, "/items/"):
+		// Item-anchored: the anchor is /items/{itemID} with a single-segment
+		// id. A '/' inside the id means this is an ordinary /items/{id}/...
+		// request that just happens to contain a colon further along.
+		itemID := strings.TrimPrefix(anchor, "/items/")
+		if itemID == "" || strings.Contains(itemID, "/") {
 			return m, false
 		}
 		m.isItemAnchored = true
 		m.itemAnchorID = itemID
-		rest = tail
 	default:
 		return m, false
 	}
 
-	// Drop a single optional trailing ':' (the "...:" no-suffix shape), then
-	// split path from suffix on the one remaining delimiter colon, if any.
-	// strings.Cut leaves suffix empty when there's no delimiter.
+	// rest is "/<path>[:/<suffix>][:]". Drop a single optional trailing ':'
+	// (the "...:" no-suffix shape), then split path from an optional suffix on
+	// the one remaining delimiter colon. strings.Cut leaves the suffix empty
+	// when there's no delimiter: a suffix requires an explicit second colon,
+	// so e.g. "/root:/foo/children" is the path "/foo/children", not the path
+	// "/foo" with suffix "/children".
 	rest = strings.TrimSuffix(rest, ":")
 	m.relPath, m.suffix, _ = strings.Cut(rest, ":")
 
@@ -284,7 +288,7 @@ func parseColonPath(routePath string) (colonMatch, bool) {
 	if len(m.relPath) < 2 || m.relPath[0] != '/' {
 		return m, false
 	}
-	if m.suffix != "" && (m.suffix[0] != '/' || strings.IndexByte(m.suffix, ':') >= 0) {
+	if m.suffix != "" && (m.suffix[0] != '/' || strings.Contains(m.suffix, ":")) {
 		return m, false
 	}
 	return m, true
