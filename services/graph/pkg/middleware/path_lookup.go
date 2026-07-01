@@ -231,38 +231,53 @@ func rewriteColonPath(
 //
 // Below the drive the grammar is one of:
 //
-//	/root:<rest>
-//	/items/<itemID>:<rest>
+//	/root:/<path>[:/<suffix>][:]
+//	/items/<itemID>:/<path>[:/<suffix>][:]
 //
-// where <rest> is "/<path>", optionally followed by ":/<suffix>", and an
-// optional trailing ":". Colons are structural delimiters, so neither <path>
-// nor <suffix> contains one. For example:
+// The structural delimiter is ":/" - a colon immediately followed by the
+// leading slash of the path or suffix - not a bare ":". Splitting on ":/"
+// keeps a ':' *inside* a file or directory name as data instead of mistaking
+// it for a delimiter (segments are '/'-separated and never start with ':').
+// For example:
 //
 //	/root:/Documents                 -> path "/Documents"
 //	/root:/Documents:                -> path "/Documents"
 //	/root:/Documents:/children       -> path "/Documents", suffix "/children"
+//	/root:/a:b.txt                   -> path "/a:b.txt" (colon kept in the name)
 //	/items/{id}:/notes.txt:/children -> itemID "{id}", path "/notes.txt", suffix "/children"
+//
+// A raw ':' at a segment boundary is ambiguous - "/root:/foo:/bar" reads as
+// path "/foo" with suffix "/bar", and a trailing ':' is the no-suffix
+// terminator. To address a name whose ':' sits at a boundary (e.g. a name
+// ending in ':'), percent-encode it as "%3A": the split works on the literal
+// ":/", so "%3A" is never a delimiter and decodes back to ':' with the rest of
+// the path (e.g. "/root:/weird%3A/file.txt" -> "/weird:/file.txt"). MS Graph
+// sidesteps this by forbidding ':' in names entirely; OpenCloud allows it (via
+// WebDAV), so "%3A" is how such names are reached here.
 //
 // The returned fields are the raw (still percent-encoded) substrings; the
 // caller decodes them.
 func parseColonPath(routePath string) (colonMatch, bool) {
 	var m colonMatch
 
-	// The anchor is separated from the rest by the first colon; no colon at all
+	// The anchor is separated from the path by the first ":/"; no ":/" at all
 	// means this isn't colon syntax and should pass through.
-	anchor, rest, found := strings.Cut(routePath, ":")
+	anchor, rest, found := strings.Cut(routePath, ":/")
 	if !found {
 		return m, false
 	}
+	// Cut consumed the leading '/' of the path along with the ":/" delimiter;
+	// the path is absolute, so put it back.
+	rest = "/" + rest
 
 	switch {
 	case anchor == "/root":
 		// Root-anchored: path resolution later anchors on the {driveID} route
-		// param, so there's no item id to capture from the URL.
+		// param, so there's no item id to read from the URL.
 	case strings.HasPrefix(anchor, "/items/"):
 		// Item-anchored: the anchor is /items/{itemID} with a single-segment
 		// id. A '/' inside the id means this is an ordinary /items/{id}/...
-		// request that just happens to contain a colon further along.
+		// request that just happens to contain a ":/" further along.
 		itemID := strings.TrimPrefix(anchor, "/items/")
 		if itemID == "" || strings.Contains(itemID, "/") {
 			return m, false
@@ -273,21 +288,24 @@ func parseColonPath(routePath string) (colonMatch, bool) {
 		return m, false
 	}
 
-	// rest is "/<path>[:/<suffix>][:]". Drop a single optional trailing ':'
-	// (the "...:" no-suffix shape), then split path from an optional suffix on
-	// the one remaining delimiter colon. strings.Cut leaves the suffix empty
-	// when there's no delimiter: a suffix requires an explicit second colon,
-	// so e.g. "/root:/foo/children" is the path "/foo/children", not the path
-	// "/foo" with suffix "/children".
-	rest = strings.TrimSuffix(rest, ":")
-	m.relPath, m.suffix, _ = strings.Cut(rest, ":")
+	// rest is "/<path>[:/<suffix>][:]". Split path from an optional suffix on
+	// the next ":/" (the suffix regains the leading '/' Cut consumed), then
+	// drop a single trailing ':' - the "...:" no-suffix terminator. A suffix
+	// therefore requires an explicit ":/", so "/root:/foo/children" is the path
+	// "/foo/children", not "/foo" with suffix "/children".
+	m.relPath = rest
+	if path, suffix, found := strings.Cut(rest, ":/"); found {
+		m.relPath, m.suffix = path, "/"+suffix
+	}
+	m.relPath = strings.TrimSuffix(m.relPath, ":")
 
 	// Shape requirements: the path must be absolute and non-empty ("/x"), and a
-	// present suffix must be absolute and colon-free.
+	// present suffix must be absolute, non-empty and colon-free (suffixes are
+	// fixed API routes like "/children", never file paths).
 	if len(m.relPath) < 2 || m.relPath[0] != '/' {
 		return m, false
 	}
-	if m.suffix != "" && (m.suffix[0] != '/' || strings.Contains(m.suffix, ":")) {
+	if m.suffix != "" && (len(m.suffix) < 2 || strings.Contains(m.suffix, ":")) {
 		return m, false
 	}
 	return m, true

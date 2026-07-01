@@ -163,7 +163,7 @@ func TestResolveGraphPath(t *testing.T) {
 			// Anchoring: the colon-syntax shape appearing under a junk prefix
 			// (i.e. NOT at the configured HTTP root) must not trigger a rewrite
 			// or a CS3 Stat. Because the middleware is mounted under the
-			// /graph root, chi never routes such a path into it (404 first) —
+			// /graph root, chi never routes such a path into it (404 first) -
 			// no /foo/.../v1.0/drives/...:/... can over-match.
 			name:             "colon-syntax under a junk prefix does not match (anchored on HTTP root)",
 			urlPath:          "/foo/graph/v1.0/drives/" + testDriveID + "/root:/Documents:/children",
@@ -265,6 +265,29 @@ func TestResolveGraphPath(t *testing.T) {
 			expectStatCalled: true,
 			expectStatus:     http.StatusOK,
 			expectHit:        "item",
+			expectItemID:     testItemID,
+		},
+		{
+			// A ':' inside a file name is data, not a delimiter (the delimiter
+			// is ":/"). This must resolve the whole path including the colon and
+			// route to the bare item.
+			name:             "colon inside a file name is kept in the path",
+			urlPath:          "/graph/v1.0/drives/" + testDriveID + "/root:/folder1/re:port.txt",
+			statCode:         cs3rpc.Code_CODE_OK,
+			expectStatCalled: true,
+			expectStatus:     http.StatusOK,
+			expectHit:        "item",
+			expectItemID:     testItemID,
+		},
+		{
+			// Colon inside the file name AND a real ":/"-delimited suffix: the
+			// name keeps its colon, the suffix still routes.
+			name:             "colon in file name with a real suffix",
+			urlPath:          "/graph/v1.0/drives/" + testDriveID + "/root:/folder1/re:port.txt:/children",
+			statCode:         cs3rpc.Code_CODE_OK,
+			expectStatCalled: true,
+			expectStatus:     http.StatusOK,
+			expectHit:        "children",
 			expectItemID:     testItemID,
 		},
 		{
@@ -393,6 +416,21 @@ func TestResolveGraphPath_DecodesEncodedPath(t *testing.T) {
 			name:         "suffix-looking segment without a second colon is part of the Stat path",
 			urlPath:      "/graph/v1.0/drives/" + testDriveID + "/root:/Documents/children",
 			expectedStat: "./Documents/children",
+		},
+		{
+			// A ':' inside a file name (delimiter is ":/") must reach Stat as
+			// part of the path, not be treated as a path/suffix separator.
+			name:         "colon inside a file name reaches Stat as part of the path",
+			urlPath:      "/graph/v1.0/drives/" + testDriveID + "/root:/folder1/re:port.txt",
+			expectedStat: "./folder1/re:port.txt",
+		},
+		{
+			// A ':' at a segment boundary is ambiguous raw, so it must be
+			// percent-encoded. "%3A" is never seen as the ":/" delimiter and
+			// decodes back to a literal ':' - here a directory named "weird:".
+			name:         "percent-encoded colon (%3A) at a boundary reaches Stat as a literal colon",
+			urlPath:      "/graph/v1.0/drives/" + testDriveID + "/root:/weird%3A/file.txt",
+			expectedStat: "./weird:/file.txt",
 		},
 	}
 
