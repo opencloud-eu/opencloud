@@ -53,6 +53,14 @@ var _ = Describe("Authenticating requests", Label("OIDCAuthenticator"), func() {
 		}
 	})
 
+	It("should apply the default access token ttl option", func() {
+		ttl := 5 * time.Minute
+
+		authenticator := NewOIDCAuthenticator(DefaultAccessTokenTTL(ttl))
+
+		Expect(authenticator.DefaultTokenCacheTTL).To(Equal(ttl))
+	})
+
 	When("the request contains correct data", func() {
 		It("should successfully authenticate", func() {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com/example/path", http.NoBody)

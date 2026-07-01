@@ -34,6 +34,7 @@ func NewOIDCAuthenticator(opts ...Option) *OIDCAuthenticator {
 		userInfoCache:           options.UserInfoCache,
 		HTTPClient:              options.HTTPClient,
 		OIDCIss:                 options.OIDCIss,
+		DefaultTokenCacheTTL:    options.DefaultAccessTokenTTL,
 		oidcClient:              options.OIDCClient,
 		AccessTokenVerifyMethod: options.AccessTokenVerifyMethod,
 		skipUserInfo:            options.SkipUserInfo,
