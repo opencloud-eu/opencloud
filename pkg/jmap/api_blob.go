@@ -3,6 +3,7 @@ package jmap
 import (
 	"encoding/base64"
 	"io"
+	"net/url"
 	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -44,20 +45,21 @@ type UploadedBlobWithHash struct {
 func (j *Client) UploadBlobStream(accountId AccountId, contentType string, body io.Reader, ctx Context) (UploadedBlob, Language, error) {
 	logger := log.From(ctx.Logger.With().Str(logEndpoint, ctx.Session.UploadEndpoint))
 	ctx = ctx.WithLogger(logger)
-	// TODO(pbleser-oc) use a library for proper URL template parsing
-	uploadUrl := strings.ReplaceAll(ctx.Session.UploadUrlTemplate, "{accountId}", string(accountId))
+	uploadUrl := strings.NewReplacer(
+		"{accountId}", url.PathEscape(string(accountId)),
+	).Replace(ctx.Session.UploadUrlTemplate)
 	return j.blob.UploadBinary(uploadUrl, ctx.Session.UploadEndpoint, contentType, body, ctx)
 }
 
 func (j *Client) DownloadBlobStream(accountId AccountId, blobId string, name string, typ string, ctx Context) (*BlobDownload, Language, error) { //NOSONAR
 	logger := log.From(ctx.Logger.With().Str(logEndpoint, ctx.Session.DownloadEndpoint))
 	ctx = ctx.WithLogger(logger)
-	// TODO(pbleser-oc) use a library for proper URL template parsing
-	downloadUrl := ctx.Session.DownloadUrlTemplate
-	downloadUrl = strings.ReplaceAll(downloadUrl, "{accountId}", string(accountId))
-	downloadUrl = strings.ReplaceAll(downloadUrl, "{blobId}", blobId)
-	downloadUrl = strings.ReplaceAll(downloadUrl, "{name}", name)
-	downloadUrl = strings.ReplaceAll(downloadUrl, "{type}", typ)
+	downloadUrl := strings.NewReplacer(
+		"{accountId}", url.PathEscape(string(accountId)),
+		"{blobId}", url.PathEscape(blobId),
+		"{name}", url.PathEscape(name),
+		"{type}", url.PathEscape(typ),
+	).Replace(ctx.Session.DownloadUrlTemplate)
 	logger = log.From(logger.With().Str(logDownloadUrl, downloadUrl).Str(logBlobId, blobId))
 	return j.blob.DownloadBinary(downloadUrl, ctx.Session.DownloadEndpoint, ctx)
 }

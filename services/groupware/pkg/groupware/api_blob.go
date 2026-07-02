@@ -84,8 +84,8 @@ func (r *Request) serveBlob(blobId string, name string, typ string, ctx jmap.Con
 	}
 	blob, lang, jerr := r.g.jmap.DownloadBlobStream(accountId, blobId, name, typ, ctx)
 	if blob != nil && blob.Body != nil {
-		defer func(Body io.ReadCloser) {
-			err := Body.Close()
+		defer func(body io.ReadCloser) {
+			err := body.Close()
 			if err != nil {
 				ctx.Logger.Error().Err(err).Msg("failed to close response body")
 			}

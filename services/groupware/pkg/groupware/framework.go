@@ -55,6 +55,7 @@ const (
 	logNewState             = "new-state"
 	logCacheEvictionReason  = "reason"
 	logCacheType            = "type"
+	logDuration             = "duration"
 )
 
 // Minimalistic representation of a user, containing only the attributes that are
@@ -205,7 +206,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 
 	useDnsForSessionResolution := false // TODO configuration setting, although still experimental, needs proper unit tests first
 
-	insecureTls := true // TODO make configurable
+	insecureTls := config.HTTP.Insecure
 
 	sanitize := true // TODO make configurable
 
@@ -247,6 +248,10 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 				&httpClient,
 				auth,
 				jmapMetricsAdapter,
+				config.HTTP.TraceRequests,
+				config.HTTP.TraceMaxRequestBodySize,
+				config.HTTP.TraceResponses,
+				config.HTTP.TraceMaxResponseBodySize,
 			)
 			defer func() {
 				if err := api.Close(); err != nil {

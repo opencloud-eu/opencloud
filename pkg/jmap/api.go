@@ -26,7 +26,7 @@ func (c Context) WithContext(newContext context.Context) Context {
 }
 
 type ApiClient interface {
-	Command(request Request, ctx Context) ([]byte, Language, Error)
+	Command(request Request, ctx Context) (io.ReadCloser, Language, Error)
 	io.Closer
 }
 

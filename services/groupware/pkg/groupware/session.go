@@ -118,21 +118,26 @@ var _ jmap.SessionEventListener = &ttlcacheSessionCache{}
 
 func (c *ttlcacheSessionCache) load(key sessionCacheKey, ctx context.Context) cachedSession {
 	username := key.username()
+	logger := log.From(c.logger.With().Str(logUsername, username))
 	sessionUrl, gwerr := c.sessionUrlProvider(ctx, username)
 	if gwerr != nil {
-		c.logger.Warn().Str(logUsername, username).Str(logErrorCode, gwerr.Code).Msgf("failed to determine session URL for '%v'", key)
+		logger.Warn().Str(logErrorCode, gwerr.Code).Msgf("failed to determine session URL for '%v'", key)
 		now := time.Now()
 		until := now.Add(c.errorTtl)
 		return failedSession{since: now, until: until, err: gwerr}
 	}
-	session, jerr := c.sessionSupplier(ctx, sessionUrl, username, c.logger)
+	before := time.Now()
+	session, jerr := c.sessionSupplier(ctx, sessionUrl, username, logger)
+	duration := time.Since(before)
 	if jerr != nil {
-		c.logger.Warn().Str(logUsername, username).Err(jerr).Msgf("failed to create session for '%v'", key)
+		logger.Warn().Err(jerr).Msgf("failed to create session for '%v'", key)
 		now := time.Now()
 		until := now.Add(c.errorTtl)
 		return failedSession{since: now, until: until, err: groupwareErrorFromJmap(jerr)}
 	} else {
-		c.logger.Debug().Str(logUsername, username).Msgf("successfully created session for '%v'", key)
+		if logger.Debug().Enabled() {
+			logger.Debug().Dur(logDuration, duration).Msgf("successfully created session for '%v' in %f.2ms", key, float64(duration.Microseconds())/float64(1000.0))
+		}
 		now := time.Now()
 		until := now.Add(c.successTtl)
 		return succeededSession{since: now, until: until, session: session}
