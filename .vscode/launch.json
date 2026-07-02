@@ -138,12 +138,17 @@
         "OC_SERVICE_ACCOUNT_SECRET": "service-account-secret",
 
         "OC_ADD_RUN_SERVICES": "auth-api,groupware",
+        
         "GROUPWARE_LOG_LEVEL": "trace",
-
+        "GROUPWARE_HTTP_TRACE_REQUESTS": "true",
+        "GROUPWARE_HTTP_TRACE_MAX_REQUEST_BODY_SIZE": "8192",
+        "GROUPWARE_HTTP_TRACE_RESPONSES": "true",
+        "GROUPWARE_HTTP_TRACE_MAX_RESPONSE_BODY_SIZE": "8192",
         "GROUPWARE_JMAP_MASTER_USERNAME": "admin@example.org",
         "GROUPWARE_JMAP_MASTER_PASSWORD": "admin",
-
         "GROUPWARE_SEND_DURATIONS_RESPONSE": "true",
+        "GROUPWARE_ALLOW_INSECURE_TLS": "true",
+        "GROUPWARE_ENABLE_MOCK_DATA": "true",
 
         "AUTHAPI_HTTP_ADDR": "0.0.0.0:10000",
         "AUTHAPI_AUTH_REQUIRE_SHARED_SECRET": "true",
@@ -151,9 +156,7 @@
 
         "WEB_ASSET_CORE_PATH": "${workspaceFolder}/../web/dist",
         "WEB_UI_CONFIG_FILE": "${workspaceFolder}/../web/dev/docker/opencloud.web.config.json",
-        "FRONTEND_GROUPWARE_ENABLED": "true",
-
-        "GROUPWARE_ENABLE_MOCK_DATA": "true"
+        "FRONTEND_GROUPWARE_ENABLED": "true"
       }
     },
     {

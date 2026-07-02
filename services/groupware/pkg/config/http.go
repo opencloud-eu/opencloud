@@ -12,11 +12,16 @@ type CORS struct {
 
 // HTTP defines the available http configuration.
 type HTTP struct {
-	Addr                  string                `yaml:"addr" env:"GROUPWARE_HTTP_ADDR" desc:"The bind address of the HTTP service." introductionVersion:"1.0.0"`
-	TLS                   shared.HTTPServiceTLS `yaml:"tls"`
-	Root                  string                `yaml:"root" env:"GROUPWARE_HTTP_ROOT" desc:"Subdirectory that serves as the root for this HTTP service." introductionVersion:"1.0.0"`
-	Namespace             string                `yaml:"-"`
-	CORS                  CORS                  `yaml:"cors"`
-	OpenCloudPublicURL    string                `yaml:"opencloud_public_url" env:"OC_URL;OC_PUBLIC_URL;GROUPWARE_PUBLIC_URL"`
-	SendDurationsResponse bool                  `yaml:"send_durations_response" env:"GROUPWARE_SEND_DURATIONS_RESPONSE"`
+	Addr                     string                `yaml:"addr" env:"GROUPWARE_HTTP_ADDR" desc:"The bind address of the HTTP service." introductionVersion:"1.0.0"`
+	TLS                      shared.HTTPServiceTLS `yaml:"tls"`
+	Root                     string                `yaml:"root" env:"GROUPWARE_HTTP_ROOT" desc:"Subdirectory that serves as the root for this HTTP service." introductionVersion:"1.0.0"`
+	Namespace                string                `yaml:"-"`
+	CORS                     CORS                  `yaml:"cors"`
+	OpenCloudPublicURL       string                `yaml:"opencloud_public_url" env:"OC_URL;OC_PUBLIC_URL;GROUPWARE_PUBLIC_URL"`
+	SendDurationsResponse    bool                  `yaml:"send_durations_response" env:"GROUPWARE_SEND_DURATIONS_RESPONSE"`
+	Insecure                 bool                  `yaml:"insecure" env:"GROUPWARE_ALLOW_INSECURE_TLS"`
+	TraceRequests            bool                  `yaml:"trace_requests" env:"GROUPWARE_HTTP_TRACE_REQUESTS"`
+	TraceMaxRequestBodySize  int64                 `yaml:"trace_max_request_body_size" env:"GROUPWARE_HTTP_TRACE_MAX_REQUEST_BODY_SIZE"`
+	TraceResponses           bool                  `yaml:"trace_responses" env:"GROUPWARE_HTTP_TRACE_RESPONSES"`
+	TraceMaxResponseBodySize int64                 `yaml:"trace_max_response_body_size" env:"GROUPWARE_HTTP_TRACE_MAX_RESPONSE_BODY_SIZE"`
 }

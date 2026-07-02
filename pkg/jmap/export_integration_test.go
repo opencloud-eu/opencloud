@@ -660,7 +660,7 @@ func createJmapClient(container *testcontainers.DockerContainer, ctx context.Con
 
 	eventListener := nullHttpJmapApiClientEventListener{}
 
-	api := NewHttpJmapClient(&jh, auth, eventListener)
+	api := NewHttpJmapClient(&jh, auth, eventListener, true, 8192, true, 8192)
 
 	wscf, err := NewHttpWsClientFactory(wsd, auth, logger, eventListener)
 	if err != nil {

@@ -14,6 +14,8 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -23,10 +25,14 @@ import (
 // Implementation of ApiClient, SessionClient and BlobClient that uses
 // HTTP to perform JMAP operations.
 type HttpJmapClient struct {
-	client        *http.Client
-	userAgent     string
-	authenticator HttpJmapClientAuthenticator
-	listener      HttpJmapApiClientEventListener
+	client                   *http.Client
+	userAgent                string
+	authenticator            HttpJmapClientAuthenticator
+	listener                 HttpJmapApiClientEventListener
+	traceRequests            bool
+	traceMaxRequestBodySize  int64
+	traceResponses           bool
+	traceMaxResponseBodySize int64
 }
 
 var (
@@ -37,6 +43,8 @@ var (
 
 const (
 	logEndpoint       = "endpoint"
+	logUri            = "uri"
+	logMethod         = "method"
 	logHttpStatus     = "status"
 	logHttpStatusCode = "status-code"
 	logHttpUrl        = "url"
@@ -47,6 +55,8 @@ const (
 	logTypeRequest    = "request"
 	logTypeResponse   = "response"
 	logTypePush       = "push"
+	logDuration       = "duration"
+	logBodyTruncated  = "truncated"
 )
 
 // Record JMAP HTTP execution events that may occur, e.g. using metrics.
@@ -103,21 +113,30 @@ func NewMasterAuthHttpJmapClientAuthenticator(masterUser string, masterPassword 
 
 var _ HttpJmapClientAuthenticator = &MasterAuthHttpJmapClientAuthenticator{}
 
-func (h *MasterAuthHttpJmapClientAuthenticator) Authenticate(ctx context.Context, username string, _ *log.Logger, req *http.Request) Error {
-	u := username
+func (h *MasterAuthHttpJmapClientAuthenticator) auth(username string, headers http.Header) {
+	// not nice to read, but heavily optimized to prevent needless memory allocations, since
+	// this hot path will be used all the time
+	var sb strings.Builder
+	sb.WriteString("Basic ")
+	enc := base64.NewEncoder(base64.StdEncoding, &sb)
+	enc.Write([]byte(username))
 	if username != h.masterUser {
-		u = username + "%" + h.masterUser
+		enc.Write([]byte("%"))
+		enc.Write([]byte(h.masterUser))
 	}
-	req.SetBasicAuth(u, h.masterPassword)
+	enc.Write([]byte(":"))
+	enc.Write([]byte(h.masterPassword))
+	enc.Close()
+	headers.Set("Authorization", sb.String())
+}
+
+func (h *MasterAuthHttpJmapClientAuthenticator) Authenticate(_ context.Context, username string, _ *log.Logger, req *http.Request) Error {
+	h.auth(username, req.Header)
 	return nil
 }
 
-func (h *MasterAuthHttpJmapClientAuthenticator) AuthenticateWS(ctx context.Context, username string, _ *log.Logger, headers http.Header) Error {
-	u := username
-	if username != h.masterUser {
-		u = username + "%" + h.masterUser
-	}
-	headers.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(u+":"+h.masterPassword)))
+func (h *MasterAuthHttpJmapClientAuthenticator) AuthenticateWS(_ context.Context, username string, _ *log.Logger, headers http.Header) Error {
+	h.auth(username, headers)
 	return nil
 }
 
@@ -126,12 +145,19 @@ func NullHttpJmapApiClientEventListener() HttpJmapApiClientEventListener {
 	return nullHttpJmapApiClientEventListener{}
 }
 
-func NewHttpJmapClient(client *http.Client, authenticator HttpJmapClientAuthenticator, listener HttpJmapApiClientEventListener) *HttpJmapClient {
+func NewHttpJmapClient(client *http.Client, authenticator HttpJmapClientAuthenticator, listener HttpJmapApiClientEventListener,
+	traceRequests bool, traceMaxRequestBodySize int64,
+	traceResponses bool, traceMaxResponseBodySize int64,
+) *HttpJmapClient {
 	return &HttpJmapClient{
-		client:        client,
-		authenticator: authenticator,
-		userAgent:     "OpenCloud/" + version.GetString(),
-		listener:      listener,
+		client:                   client,
+		authenticator:            authenticator,
+		userAgent:                "OpenCloud/" + version.GetString(),
+		listener:                 listener,
+		traceRequests:            traceRequests,
+		traceMaxRequestBodySize:  traceMaxRequestBodySize,
+		traceResponses:           traceResponses,
+		traceMaxResponseBodySize: traceMaxResponseBodySize,
 	}
 }
 
@@ -159,6 +185,102 @@ var (
 	errNilBaseUrl = errors.New("sessionUrl is nil")
 )
 
+func (h *HttpJmapClient) beforeRequest(_ context.Context, logger *log.Logger, _ string, endpoint string, req *http.Request) Error {
+	l := logger.Trace()
+	if h.traceRequests && l.Enabled() {
+		var logBuilder bytes.Buffer
+		for key, values := range req.Header {
+			if key == "Authorization" {
+				continue
+			}
+			for _, value := range values {
+				fmt.Fprintf(&logBuilder, "%s: %s\n", key, value)
+			}
+		}
+		if h.traceMaxRequestBodySize >= 0 && req.Body != nil && req.Body != http.NoBody {
+			peekBuffer := new(bytes.Buffer)
+			limitedReader := io.LimitReader(req.Body, h.traceMaxRequestBodySize)
+			tee := io.TeeReader(limitedReader, peekBuffer)
+			if _, err := io.Copy(io.Discard, tee); err != nil {
+				return jmapError(fmt.Errorf("failed to peek at the request body for tracing: %v", err), JmapErrorRequestTracing)
+			} else {
+				logBuilder.Write(peekBuffer.Bytes())
+				if int64(peekBuffer.Len()) >= h.traceMaxRequestBodySize {
+					l = l.Bool(logBodyTruncated, true)
+				}
+				fullBodyReader := io.MultiReader(peekBuffer, req.Body)
+				req.Body = io.NopCloser(fullBodyReader)
+			}
+		}
+		l.Str(logMethod, req.Method).Str(logUri, req.URL.String()).
+			Str(logEndpoint, endpoint).Str(logProto, logProtoJmap).Str(logType, logTypeRequest).
+			Msg(logBuilder.String())
+	}
+	return nil
+}
+
+type httpResponseReadCloser struct {
+	io.Reader
+	body io.ReadCloser
+}
+
+func (c httpResponseReadCloser) Close() error {
+	if c.body != nil {
+		return c.body.Close()
+	}
+	return nil
+}
+
+func (h *HttpJmapClient) response(_ context.Context, logger *log.Logger, _ string, endpoint string, duration time.Duration, req *http.Request, resp *http.Response) (io.ReadCloser, error) {
+	l := logger.Trace()
+	if h.traceResponses && l.Enabled() {
+		var logBuilder bytes.Buffer
+		for key, values := range resp.Header {
+			for _, value := range values {
+				fmt.Fprintf(&logBuilder, "%s: %s\n", key, value)
+			}
+		}
+
+		var peekBuffer *bytes.Buffer = nil
+		if h.traceMaxResponseBodySize > 0 {
+			peekBuffer = new(bytes.Buffer)
+			limitedReader := io.LimitReader(resp.Body, h.traceMaxResponseBodySize)
+			tee := io.TeeReader(limitedReader, peekBuffer)
+			if _, err := io.Copy(io.Discard, tee); err != nil {
+				if resp.Body != nil {
+					if err := resp.Body.Close(); err != nil {
+						logger.Error().Err(err).Msg("failed to close response body") //NOSONAR
+					}
+				}
+				return nil, err
+			}
+
+			if int64(peekBuffer.Len()) >= h.traceMaxResponseBodySize {
+				l = l.Bool(logBodyTruncated, true)
+			}
+
+			logBuilder.Write(peekBuffer.Bytes())
+		}
+
+		l.Str(logProto, logProtoJmap).Str(logType, logTypeResponse).Str(logEndpoint, endpoint).
+			Str(logMethod, req.Method).Str(logUri, req.URL.String()).
+			Str(logHttpStatus, log.SafeString(resp.Status)).Int(logHttpStatusCode, resp.StatusCode).
+			Dur(logDuration, duration).
+			Msg(logBuilder.String())
+
+		if peekBuffer != nil {
+			return httpResponseReadCloser{
+				body:   resp.Body,
+				Reader: io.MultiReader(peekBuffer, resp.Body),
+			}, nil
+		} else {
+			return resp.Body, nil
+		}
+	} else {
+		return resp.Body, nil
+	}
+}
+
 func (h *HttpJmapClient) GetSession(ctx context.Context, sessionUrl *url.URL, username string, logger *log.Logger) (SessionResponse, Error) {
 	if sessionUrl == nil {
 		logger.Error().Msg("sessionUrl is nil")
@@ -179,17 +301,38 @@ func (h *HttpJmapClient) GetSession(ctx context.Context, sessionUrl *url.URL, us
 		logger.Error().Err(err).Msgf("failed to create GET request for %v", sessionUrl)
 		return SessionResponse{}, jmapError(err, JmapErrorInvalidHttpRequest)
 	}
+	req.Header.Add("Cache-Control", "no-cache, no-store, must-revalidate") // spec recommendation
+	req.Header.Add("Content-Type", "application/json")                     //NOSONAR
+	req.Header.Add("User-Agent", h.userAgent)                              //NOSONAR
+
+	if err := h.beforeRequest(ctx, logger, username, endpoint, req); err != nil {
+		return SessionResponse{}, err
+	}
+
 	if err := h.auth(ctx, username, logger, req); err != nil {
 		return SessionResponse{}, err
 	}
-	req.Header.Add("Cache-Control", "no-cache, no-store, must-revalidate") // spec recommendation
 
+	before := time.Now()
 	res, err := h.client.Do(req)
+	duration := time.Since(before)
 	if err != nil {
 		h.listener.OnFailedRequest(endpoint, err)
 		logger.Error().Err(err).Msgf("failed to perform GET %v", sessionUrl)
 		return SessionResponse{}, jmapError(err, JmapErrorInvalidHttpRequest)
 	}
+
+	// dump the response regardless of the status code
+	body, err := h.response(ctx, logger, username, endpoint, duration, req, res)
+
+	// since we are not returning a stream from this function, we have to close the response body
+	// before leaving the scope of the function
+	defer func() {
+		if err := body.Close(); err != nil {
+			logger.Error().Err(err).Msg("failed to close response body") //NOSONAR
+		}
+	}()
+
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		h.listener.OnFailedRequestWithStatus(endpoint, res.StatusCode)
 		logger.Error().Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 200")
@@ -197,16 +340,6 @@ func (h *HttpJmapClient) GetSession(ctx context.Context, sessionUrl *url.URL, us
 	}
 	h.listener.OnSuccessfulRequest(endpoint, res.StatusCode)
 
-	if res.Body != nil {
-		defer func(Body io.ReadCloser) {
-			err := Body.Close()
-			if err != nil {
-				logger.Error().Err(err).Msg("failed to close response body") //NOSONAR
-			}
-		}(res.Body)
-	}
-
-	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to read response body") //NOSONAR
 		h.listener.OnResponseBodyReadingError(endpoint, err)
@@ -214,8 +347,7 @@ func (h *HttpJmapClient) GetSession(ctx context.Context, sessionUrl *url.URL, us
 	}
 
 	var data SessionResponse
-	err = json.Unmarshal(body, &data)
-	if err != nil {
+	if err := json.NewDecoder(body).Decode(&data); err != nil {
 		logger.Error().Str(logHttpUrl, log.SafeString(sessionUrlStr)).Err(err).Msg("failed to decode JSON payload from .well-known/jmap response")
 		h.listener.OnResponseBodyUnmarshallingError(endpoint, err)
 		return SessionResponse{}, jmapError(err, JmapErrorDecodingResponseBody)
@@ -224,7 +356,7 @@ func (h *HttpJmapClient) GetSession(ctx context.Context, sessionUrl *url.URL, us
 	return data, nil
 }
 
-func (h *HttpJmapClient) Command(request Request, ctx Context) ([]byte, Language, Error) { //NOSONAR
+func (h *HttpJmapClient) Command(request Request, ctx Context) (io.ReadCloser, Language, Error) { //NOSONAR
 	session := ctx.Session
 	logger := ctx.Logger
 	acceptLanguage := ctx.AcceptLanguage
@@ -255,54 +387,41 @@ func (h *HttpJmapClient) Command(request Request, ctx Context) ([]byte, Language
 	req.Header.Add("Content-Type", "application/json") //NOSONAR
 	req.Header.Add("User-Agent", h.userAgent)          //NOSONAR
 
-	if logger.Trace().Enabled() {
-		requestBytes, err := httputil.DumpRequestOut(req, true)
-		if err == nil {
-			logger.Trace().Str(logEndpoint, endpoint).Str(logProto, logProtoJmap).Str(logType, logTypeRequest).Msg(string(requestBytes))
-		}
-	}
+	h.beforeRequest(cotx, logger, session.Username, endpoint, req)
+
 	if err := h.auth(cotx, session.Username, logger, req); err != nil {
 		return nil, "", err
 	}
 
+	before := time.Now()
 	res, err := h.client.Do(req)
+	duration := time.Since(before)
 	if err != nil {
 		h.listener.OnFailedRequest(endpoint, err)
 		logger.Error().Err(err).Msgf("failed to perform POST %v", jmapUrl)
 		return nil, "", jmapError(err, JmapErrorSendingRequest)
 	}
 
-	if logger.Trace().Enabled() {
-		responseBytes, err := httputil.DumpResponse(res, true)
-		if err == nil {
-			logger.Trace().Str(logEndpoint, endpoint).Str(logProto, logProtoJmap).Str(logType, logTypeResponse).
-				Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).
-				Msg(string(responseBytes))
-		}
-	}
+	// note that we are omitting the usual deferred response body closer here since we are returning
+	// an io.ReadCloser to the body and if we close it when leaving the scope of this function, the
+	// caller won't be able to read the response; instead, it is up to the caller to close the
+	// ReadCloser we are returning from here
 
+	body, err := h.response(cotx, logger, session.Username, endpoint, duration, req, res)
 	language := Language(res.Header.Get("Content-Language")) //NOSONAR
-	if res.StatusCode < 200 || res.StatusCode > 299 {
-		h.listener.OnFailedRequestWithStatus(endpoint, res.StatusCode)
-		logger.Error().Str(logEndpoint, endpoint).Str(logHttpStatus, log.SafeString(res.Status)).Msg("HTTP response status code is not 2xx") //NOSONAR
-		return nil, language, jmapError(err, JmapErrorServerResponse)
-	}
-	if res.Body != nil {
-		defer func(Body io.ReadCloser) {
-			err := Body.Close()
-			if err != nil {
-				logger.Error().Err(err).Msg("failed to close response body")
-			}
-		}(res.Body)
-	}
-	h.listener.OnSuccessfulRequest(endpoint, res.StatusCode)
-
-	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to read response body")
 		h.listener.OnResponseBodyReadingError(endpoint, err)
 		return nil, language, jmapError(err, JmapErrorServerResponse)
 	}
+
+	if res.StatusCode < 200 || res.StatusCode > 299 {
+		h.listener.OnFailedRequestWithStatus(endpoint, res.StatusCode)
+		logger.Error().Str(logEndpoint, endpoint).Str(logHttpStatus, log.SafeString(res.Status)).Msg("HTTP response status code is not 2xx") //NOSONAR
+		return nil, language, jmapError(err, JmapErrorServerResponse)
+	}
+
+	h.listener.OnSuccessfulRequest(endpoint, res.StatusCode)
 
 	return body, language, nil
 }
@@ -325,58 +444,51 @@ func (h *HttpJmapClient) UploadBinary(uploadUrl string, endpoint string, content
 	if acceptLanguage != "" {
 		req.Header.Add("Accept-Language", acceptLanguage)
 	}
-	if logger.Trace().Enabled() {
-		requestBytes, err := httputil.DumpRequestOut(req, false)
-		if err == nil {
-			logger.Trace().Str(logEndpoint, endpoint).Str(logProto, logProtoJmap).Str(logType, logTypeRequest).Msg(string(requestBytes))
-		}
-	}
+	h.beforeRequest(cotx, logger, session.Username, endpoint, req)
 
 	if err := h.auth(cotx, session.Username, logger, req); err != nil {
 		return UploadedBlob{}, "", err
 	}
 
+	before := time.Now()
 	res, err := h.client.Do(req)
+	duration := time.Since(before)
 	if err != nil {
 		h.listener.OnFailedRequest(endpoint, err)
 		logger.Error().Err(err).Msgf("failed to perform POST %v", uploadUrl)
 		return UploadedBlob{}, "", jmapError(err, JmapErrorSendingRequest)
 	}
-	if logger.Trace().Enabled() {
-		responseBytes, err := httputil.DumpResponse(res, true)
-		if err == nil {
-			logger.Trace().Str(logEndpoint, endpoint).Str(logProto, logProtoJmap).Str(logType, logTypeResponse).
-				Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).
-				Msg(string(responseBytes))
+
+	// note that we are omitting the usual deferred response body closer here since we are returning
+	// an io.ReadCloser to the body and if we close it when leaving the scope of this function, the
+	// caller won't be able to read the response; instead, it is up to the caller to close the
+	// ReadCloser we are returning from here
+
+	responseBody, err := h.response(cotx, logger, session.Username, endpoint, duration, req, res)
+
+	// since we are not returning a stream from this function, we have to close the response body
+	// before leaving the scope of the function
+	defer func() {
+		if err := responseBody.Close(); err != nil {
+			logger.Error().Err(err).Msg("failed to close response body") //NOSONAR
 		}
-	}
-
+	}()
 	language := Language(res.Header.Get("Content-Language"))
-	if res.StatusCode < 200 || res.StatusCode > 299 {
-		h.listener.OnFailedRequestWithStatus(endpoint, res.StatusCode)
-		logger.Error().Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 2xx")
-		return UploadedBlob{}, language, jmapError(err, JmapErrorServerResponse)
-	}
-	if res.Body != nil {
-		defer func(Body io.ReadCloser) {
-			err := Body.Close()
-			if err != nil {
-				logger.Error().Err(err).Msg("failed to close response body")
-			}
-		}(res.Body)
-	}
-	h.listener.OnSuccessfulRequest(endpoint, res.StatusCode)
-
-	responseBody, err := io.ReadAll(res.Body)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to read response body")
 		h.listener.OnResponseBodyReadingError(endpoint, err)
 		return UploadedBlob{}, language, jmapError(err, JmapErrorServerResponse)
 	}
 
+	if res.StatusCode < 200 || res.StatusCode > 299 {
+		h.listener.OnFailedRequestWithStatus(endpoint, res.StatusCode)
+		logger.Error().Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 2xx")
+		return UploadedBlob{}, language, jmapError(err, JmapErrorServerResponse)
+	}
+	h.listener.OnSuccessfulRequest(endpoint, res.StatusCode)
+
 	var result UploadedBlob
-	err = json.Unmarshal(responseBody, &result)
-	if err != nil {
+	if err := json.NewDecoder(responseBody).Decode(&result); err != nil {
 		logger.Error().Str(logHttpUrl, log.SafeString(uploadUrl)).Err(err).Msg("failed to decode JSON payload from the upload response")
 		h.listener.OnResponseBodyUnmarshallingError(endpoint, err)
 		return UploadedBlob{}, language, jmapError(err, JmapErrorDecodingResponseBody)
@@ -402,32 +514,35 @@ func (h *HttpJmapClient) DownloadBinary(downloadUrl string, endpoint string, ctx
 	if acceptLanguage != "" {
 		req.Header.Add("Accept-Language", acceptLanguage)
 	}
-	if logger.Trace().Enabled() {
-		requestBytes, err := httputil.DumpRequestOut(req, true)
-		if err == nil {
-			logger.Trace().Str(logEndpoint, endpoint).Str(logProto, logProtoJmap).Str(logType, logTypeRequest).Msg(string(requestBytes))
-		}
-	}
+	h.beforeRequest(cotx, logger, session.Username, endpoint, req)
 
 	if err := h.auth(cotx, session.Username, logger, req); err != nil {
 		return nil, "", err
 	}
 
+	before := time.Now()
 	res, err := h.client.Do(req)
+	duration := time.Since(before)
 	if err != nil {
 		h.listener.OnFailedRequest(endpoint, err)
 		logger.Error().Err(err).Msgf("failed to perform GET %v", downloadUrl)
 		return nil, "", jmapError(err, JmapErrorSendingRequest)
 	}
-	if logger.Trace().Enabled() {
-		responseBytes, err := httputil.DumpResponse(res, false)
-		if err == nil {
-			logger.Trace().Str(logEndpoint, endpoint).Str(logProto, logProtoJmap).Str(logType, logTypeResponse).
-				Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).
-				Msg(string(responseBytes))
-		}
-	}
+
+	// note that we are omitting the usual deferred response body closer here since we are returning
+	// an io.ReadCloser to the body and if we close it when leaving the scope of this function, the
+	// caller won't be able to read the response; instead, it is up to the caller to close the
+	// ReadCloser we are returning from here
+
+	responseBody, err := h.response(cotx, logger, session.Username, endpoint, duration, req, res)
+
 	language := Language(res.Header.Get("Content-Language"))
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to read response body")
+		h.listener.OnResponseBodyReadingError(endpoint, err)
+		return nil, language, jmapError(err, JmapErrorServerResponse)
+	}
+
 	if res.StatusCode == http.StatusNotFound {
 		return nil, language, nil
 	}
@@ -449,7 +564,7 @@ func (h *HttpJmapClient) DownloadBinary(downloadUrl string, endpoint string, ctx
 	}
 
 	return &BlobDownload{
-		Body:               res.Body,
+		Body:               responseBody,
 		Size:               size,
 		Type:               res.Header.Get("Content-Type"),
 		ContentDisposition: res.Header.Get("Content-Disposition"),

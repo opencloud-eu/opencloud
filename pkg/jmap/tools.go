@@ -77,10 +77,16 @@ func command[T any](client Cmdr, //NOSONAR
 	}
 
 	var response Response
-	err := json.Unmarshal(responseBody, &response)
-	if err != nil {
+	if err := json.NewDecoder(responseBody).Decode(&response); err != nil {
 		logger.Error().Err(err).Msgf("failed to deserialize body JSON payload into a %T", response)
+		if err := responseBody.Close(); err != nil {
+			logger.Error().Err(err).Msg("failed to close response body") //NOSONAR
+		}
 		return ZeroResult[T](single(duration)), jmapError(err, JmapErrorDecodingResponseBody)
+	}
+
+	if err := responseBody.Close(); err != nil {
+		logger.Error().Err(err).Msg("failed to close response body") //NOSONAR
 	}
 
 	if response.SessionState != ctx.Session.State {
@@ -126,7 +132,7 @@ func command[T any](client Cmdr, //NOSONAR
 					code = JmapErrorAccountReadOnly
 				}
 				msg := fmt.Sprintf("found method level error in response '%v', type: '%v', description: '%v'", mr.Tag, errorParameters.Type, errorParameters.Description)
-				err = errors.New(msg)
+				err := errors.New(msg)
 				logger.Warn().Int("code", code).Str("type", errorParameters.Type).Msg(msg)
 				return newPartialResult[T](response.SessionState, language, single(duration)), jmapResponseError(code, err, errorParameters.Type, errorParameters.Description)
 			} else {

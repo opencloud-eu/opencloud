@@ -41,6 +41,7 @@ const (
 	JmapErrorInvalidObjectState
 	JmapErrorPatchObjectSerialization
 	JmapErrorInvalidProperties
+	JmapErrorRequestTracing
 )
 
 var (
