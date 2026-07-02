@@ -9,9 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"reflect"
 	"strconv"
-	"strings"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -28,6 +26,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 )
 
 // CreateUploadSession create an upload session to allow your app to upload files up to the maximum file size.
@@ -452,130 +451,20 @@ func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *sto
 		}
 	}
 
-	if res.GetArbitraryMetadata() != nil {
-		driveItem.Audio = cs3ResourceToDriveItemAudioFacet(logger, res)
-		driveItem.Image = cs3ResourceToDriveItemImageFacet(logger, res)
-		driveItem.Location = cs3ResourceToDriveItemLocationFacet(logger, res)
-		driveItem.Photo = cs3ResourceToDriveItemPhotoFacet(logger, res)
+	if metadata := res.GetArbitraryMetadata().GetMetadata(); metadata != nil {
+		driveItem.Audio = metadataToFacet[libregraph.Audio](metadata, "audio")
+		driveItem.Image = metadataToFacet[libregraph.Image](metadata, "image")
+		driveItem.Location = metadataToFacet[libregraph.GeoCoordinates](metadata, "location")
+		driveItem.Photo = metadataToFacet[libregraph.Photo](metadata, "photo")
 	}
 
 	return driveItem, nil
 }
 
-func cs3ResourceToDriveItemAudioFacet(logger *log.Logger, res *storageprovider.ResourceInfo) *libregraph.Audio {
-	if !strings.HasPrefix(res.GetMimeType(), "audio/") {
-		return nil
-	}
-
-	k := res.GetArbitraryMetadata().GetMetadata()
-	if k == nil {
-		return nil
-	}
-
-	var audio = &libregraph.Audio{}
-	if ok := unmarshalStringMap(logger, audio, k, "libre.graph.audio."); ok {
-		return audio
-	}
-
-	return nil
-}
-
-func cs3ResourceToDriveItemImageFacet(logger *log.Logger, res *storageprovider.ResourceInfo) *libregraph.Image {
-	k := res.GetArbitraryMetadata().GetMetadata()
-	if k == nil {
-		return nil
-	}
-
-	var image = &libregraph.Image{}
-	if ok := unmarshalStringMap(logger, image, k, "libre.graph.image."); ok {
-		return image
-	}
-
-	return nil
-}
-
-func cs3ResourceToDriveItemLocationFacet(logger *log.Logger, res *storageprovider.ResourceInfo) *libregraph.GeoCoordinates {
-	k := res.GetArbitraryMetadata().GetMetadata()
-	if k == nil {
-		return nil
-	}
-
-	var location = &libregraph.GeoCoordinates{}
-	if ok := unmarshalStringMap(logger, location, k, "libre.graph.location."); ok {
-		return location
-	}
-
-	return nil
-}
-
-func cs3ResourceToDriveItemPhotoFacet(logger *log.Logger, res *storageprovider.ResourceInfo) *libregraph.Photo {
-	k := res.GetArbitraryMetadata().GetMetadata()
-	if k == nil {
-		return nil
-	}
-
-	var photo = &libregraph.Photo{}
-	if ok := unmarshalStringMap(logger, photo, k, "libre.graph.photo."); ok {
-		return photo
-	}
-
-	return nil
-}
-
-func getFieldName(structField reflect.StructField) string {
-	tag := structField.Tag.Get("json")
-	if tag == "" {
-		return structField.Name
-	}
-
-	return strings.Split(tag, ",")[0]
-}
-
-func unmarshalStringMap(logger *log.Logger, out any, flatMap map[string]string, prefix string) bool {
-	nonEmpty := false
-	obj := reflect.ValueOf(out).Elem()
-	timeKind := reflect.TypeOf(&time.Time{}).Elem().Kind()
-	for i := 0; i < obj.NumField(); i++ {
-		field := obj.Field(i)
-		structField := obj.Type().Field(i)
-		mapKey := prefix + getFieldName(structField)
-
-		if value, ok := flatMap[mapKey]; ok {
-			if field.Kind() == reflect.Ptr {
-				newValue := reflect.New(field.Type().Elem())
-				var tmp any
-				var err error
-				switch t := newValue.Type().Elem().Kind(); t {
-				case reflect.String:
-					tmp = value
-				case reflect.Int32:
-					tmp, err = strconv.ParseInt(value, 10, 32)
-				case reflect.Int64:
-					tmp, err = strconv.ParseInt(value, 10, 64)
-				case reflect.Float32:
-					tmp, err = strconv.ParseFloat(value, 32)
-				case reflect.Float64:
-					tmp, err = strconv.ParseFloat(value, 64)
-				case reflect.Bool:
-					tmp, err = strconv.ParseBool(value)
-				case timeKind:
-					tmp, err = time.Parse(time.RFC3339, value)
-				default:
-					err = errors.New("unsupported type")
-					logger.Error().Err(err).Str("type", t.String()).Str("mapKey", mapKey).Msg("target field type for value of mapKey is not supported")
-				}
-				if err != nil {
-					logger.Error().Err(err).Str("mapKey", mapKey).Msg("unmarshalling failed")
-					continue
-				}
-				newValue.Elem().Set(reflect.ValueOf(tmp).Convert(field.Type().Elem()))
-				field.Set(newValue)
-				nonEmpty = true
-			}
-		}
-	}
-
-	return nonEmpty
+// metadataToFacet builds a DriveItem facet *T from CS3 arbitrary metadata under
+// the "libre.graph.<facet>." key prefix. Nil when no such keys are present.
+func metadataToFacet[T any](metadata map[string]string, facet string) *T {
+	return mapping.DeserializeStringsAt[T](metadata, "libre.graph."+facet+".")
 }
 
 func cs3ResourceToRemoteItem(res *storageprovider.ResourceInfo) (*libregraph.RemoteItem, error) {

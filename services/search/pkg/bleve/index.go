@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"path/filepath"
+	"reflect"
 
 	"github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/analysis/analyzer/custom"
@@ -15,6 +16,7 @@ import (
 	"github.com/blevesearch/bleve/v2/mapping"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
+	searchmapping "github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -38,27 +40,20 @@ func NewIndex(root string) (bleve.Index, error) {
 }
 
 func NewMapping() (mapping.IndexMapping, error) {
-	nameMapping := bleve.NewTextFieldMapping()
-	nameMapping.Analyzer = "lowercaseKeyword"
-
-	lowercaseMapping := bleve.NewTextFieldMapping()
-	lowercaseMapping.IncludeInAll = false
-	lowercaseMapping.Analyzer = "lowercaseKeyword"
-
-	fulltextFieldMapping := bleve.NewTextFieldMapping()
-	fulltextFieldMapping.Analyzer = "fulltext"
-	fulltextFieldMapping.IncludeInAll = false
-
-	docMapping := bleve.NewDocumentMapping()
-	docMapping.AddFieldMappingsAt("Name", nameMapping)
-	docMapping.AddFieldMappingsAt("Tags", lowercaseMapping)
-	docMapping.AddFieldMappingsAt("Favorites", lowercaseMapping)
-	docMapping.AddFieldMappingsAt("Content", fulltextFieldMapping)
+	resourceType := reflect.TypeFor[search.Resource]()
+	overrides := search.Resource{}.SearchFieldOverrides()
+	if err := searchmapping.Validate(resourceType, overrides); err != nil {
+		return nil, err
+	}
+	docMapping, err := searchmapping.BleveBuildMapping(resourceType, overrides)
+	if err != nil {
+		return nil, err
+	}
 
 	indexMapping := bleve.NewIndexMapping()
 	indexMapping.DefaultAnalyzer = keyword.Name
 	indexMapping.DefaultMapping = docMapping
-	err := indexMapping.AddCustomAnalyzer("lowercaseKeyword",
+	err = indexMapping.AddCustomAnalyzer("lowercaseKeyword",
 		map[string]any{
 			"type":      custom.Name,
 			"tokenizer": single.Name,

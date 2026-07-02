@@ -8,17 +8,25 @@ import (
 	bleveQuery "github.com/blevesearch/bleve/v2/search/query"
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
-// lowercaseFields lists the bleve fields whose index mapping uses a
-// lowercasing analyzer. Values bound to these fields are pre-lowercased
-// so query-side matching stays consistent with the index.
-// Keep in sync with services/search/pkg/bleve/index.go NewMapping.
-var lowercaseFields = map[string]struct{}{
-	"Name":      {},
-	"Tags":      {},
-	"Favorites": {},
-	"Content":   {},
+// lowercaseFields is derived from Resource.SearchFieldOverrides(): any
+// field whose override picks a lowercasing analyzer (`lowercaseKeyword`)
+// or the fulltext type (which uses a lowercasing analyzer under the hood)
+// gets its query-side value pre-lowercased so compile-time matches the
+// index-time tokenization. Anything else keeps its original casing.
+var lowercaseFields = buildLowercaseFields()
+
+func buildLowercaseFields() map[string]struct{} {
+	out := map[string]struct{}{}
+	for key, opts := range (search.Resource{}).SearchFieldOverrides() {
+		if opts.Analyzer == "lowercaseKeyword" || opts.Type == mapping.TypeFulltext {
+			out[key] = struct{}{}
+		}
+	}
+	return out
 }
 
 var _fields = map[string]string{
