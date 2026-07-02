@@ -82,6 +82,9 @@ func decode(r io.Reader, configOnly bool) (image.Image, image.Config, error) {
 			if err != nil {
 				return nil, image.Config{}, err
 			}
+			if seenVP8X && (fh.Width != int(widthMinusOne)+1 || fh.Height != int(heightMinusOne)+1) {
+				return nil, image.Config{}, errInvalidFormat
+			}
 			if configOnly {
 				return nil, image.Config{
 					ColorModel: color.YCbCrModel,
@@ -111,7 +114,16 @@ func decode(r io.Reader, configOnly bool) (image.Image, image.Config, error) {
 				return nil, c, err
 			}
 			m, err := vp8l.Decode(chunkData)
-			return m, image.Config{}, err
+			if err != nil {
+				return nil, image.Config{}, err
+			}
+			if seenVP8X {
+				bounds := m.Bounds()
+				if bounds.Dx() != int(widthMinusOne)+1 || bounds.Dy() != int(heightMinusOne)+1 {
+					return nil, image.Config{}, errInvalidFormat
+				}
+			}
+			return m, image.Config{}, nil
 
 		case fccVP8X:
 			if seenVP8X {
@@ -134,10 +146,12 @@ func decode(r io.Reader, configOnly bool) (image.Image, image.Config, error) {
 			wantAlpha = (buf[0] & alphaBit) != 0
 			widthMinusOne = uint32(buf[4]) | uint32(buf[5])<<8 | uint32(buf[6])<<16
 			heightMinusOne = uint32(buf[7]) | uint32(buf[8])<<8 | uint32(buf[9])<<16
-			if uint64(widthMinusOne+1)*uint64(heightMinusOne+1) > 1<<32-1 {
+			w := uint64(widthMinusOne) + 1
+			h := uint64(heightMinusOne) + 1
+			if w*h > 1<<31-1 {
 				// The product of _Canvas Width_ and _Canvas Height_ MUST be
 				// at most 2^32 - 1.
-				// https://www.rfc-editor.org/rfc/rfc9649.html#section-2.7-12
+				// But it also needs to fit in an int, so limit it to MaxInt32.
 				return nil, image.Config{}, errInvalidFormat
 			}
 			if configOnly {

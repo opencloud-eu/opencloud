@@ -348,6 +348,9 @@ func makeCachedPairPosGlyph(cov indexLookupFunc, num int, buf []byte) kernFunc {
 
 		count := int(u16(glyphs[offset:]))
 		for i := 0; i < count; i++ {
+			if offset+2+i*4+4 > len(glyphs) {
+				return 0, errInvalidGPOSTable
+			}
 			secondGlyphIndex := GlyphIndex(int(u16(glyphs[offset+2+i*4:])))
 			if secondGlyphIndex == b {
 				return int16(u16(glyphs[offset+2+i*4+2:])), nil
@@ -372,6 +375,9 @@ func makeCachedPairPosClass(cov indexLookupFunc, num1, num2 int, cdef1, cdef2 cl
 		}
 		idxa := cdef1(a)
 		idxb := cdef2(b)
+		if idxa < 0 || idxa >= num1 || idxb < 0 || idxb >= num2 {
+			return 0, errInvalidGPOSTable
+		}
 		return int16(u16(glyphs[(idxb+idxa*num2)*2:])), nil
 	}
 }
