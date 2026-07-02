@@ -12,11 +12,15 @@ import (
 	"image"
 	"image/color"
 	"io"
+
+	"golang.org/x/image/internal/safemath"
 )
 
 // ErrUnsupported means that the input BMP image uses a valid but unsupported
 // feature.
 var ErrUnsupported = errors.New("bmp: unsupported BMP image")
+
+var errInvalidPaletteIndex = errors.New("bmp: invalid palette index")
 
 func readUint16(b []byte) uint16 {
 	return uint16(b[0]) | uint16(b[1])<<8
@@ -29,7 +33,8 @@ func readUint32(b []byte) uint32 {
 // decodePaletted reads a 1, 2, 4 or 8 bit-per-pixel BMP image from r.
 // If topDown is false, the image rows will be read bottom-up.
 func decodePaletted(r io.Reader, c image.Config, topDown bool, bpp int) (image.Image, error) {
-	paletted := image.NewPaletted(image.Rect(0, 0, c.Width, c.Height), c.ColorModel.(color.Palette))
+	palette := c.ColorModel.(color.Palette)
+	paletted := image.NewPaletted(image.Rect(0, 0, c.Width, c.Height), palette)
 	if c.Width == 0 || c.Height == 0 {
 		return paletted, nil
 	}
@@ -51,7 +56,11 @@ func decodePaletted(r io.Reader, c image.Config, topDown bool, bpp int) (image.I
 		byteIndex, bitIndex, mask := 0, 8, byte((1<<bpp)-1)
 		for pixIndex := 0; pixIndex < c.Width; pixIndex++ {
 			bitIndex -= bpp
-			p[pixIndex] = (b[byteIndex]) >> bitIndex & mask
+			paletteIndex := (b[byteIndex]) >> bitIndex & mask
+			if int(paletteIndex) >= len(palette) {
+				return nil, errInvalidPaletteIndex
+			}
+			p[pixIndex] = paletteIndex
 			if bitIndex == 0 {
 				byteIndex++
 				bitIndex = 8
@@ -181,6 +190,16 @@ func decodeConfig(r io.Reader) (config image.Config, bitsPerPixel int, topDown b
 		height, topDown = -height, true
 	}
 	if width < 0 || height < 0 {
+		return image.Config{}, 0, false, false, ErrUnsupported
+	}
+	if (width == 0) != (height == 0) {
+		// We'll take 0x0, but Nx0 or 0xN is suspicious.
+		return image.Config{}, 0, false, false, ErrUnsupported
+	}
+	// Check that the image fits in memory.
+	// This conservatively assumes 4 bytes per pixel,
+	// rather than using the actual pixel size.
+	if _, ok := safemath.Mul3(width, height, 4); !ok {
 		return image.Config{}, 0, false, false, ErrUnsupported
 	}
 	// We only support 1 plane and 8, 24 or 32 bits per pixel and no
