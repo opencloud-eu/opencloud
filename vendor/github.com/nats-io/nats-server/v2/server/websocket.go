@@ -828,6 +828,11 @@ func (s *Server) wsUpgrade(w http.ResponseWriter, r *http.Request) (*wsUpgradeRe
 
 	opts := s.getOpts()
 
+	// Reject MQTT-over-WebSocket upgrades unless MQTT is enabled.
+	if kind == MQTT && opts.MQTT.Port == 0 {
+		return nil, wsReturnHTTPError(w, r, http.StatusNotFound, "mqtt websocket endpoint not enabled")
+	}
+
 	// From https://tools.ietf.org/html/rfc6455#section-4.2.1
 	// Point 1.
 	if r.Method != "GET" {

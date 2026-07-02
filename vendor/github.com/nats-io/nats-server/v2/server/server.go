@@ -294,7 +294,7 @@ type Server struct {
 	// to know if it should update the cluster's URLs array.
 	varzUpdateRouteURLs bool
 
-	// Keeps a sublist of of subscriptions attached to leafnode connections
+	// Keeps a sublist of subscriptions attached to leafnode connections
 	// for the $GNR.*.*.*.> subject so that a server can send back a mapped
 	// gateway reply.
 	gwLeafSubs *Sublist
@@ -663,6 +663,8 @@ func s2WriterOptions(cm string) []s2.WriterOption {
 	switch cm {
 	case CompressionS2Uncompressed:
 		return append(opts, s2.WriterUncompressed())
+	case CompressionS2Fast:
+		return opts
 	case CompressionS2Best:
 		return append(opts, s2.WriterBestCompression())
 	case CompressionS2Better:
@@ -1039,7 +1041,10 @@ func (s *Server) setClusterName(name string) {
 		l.closeConnection(ClusterNameConflict)
 	}
 	if resetCh != nil {
-		resetCh <- struct{}{}
+		select {
+		case resetCh <- struct{}{}:
+		case <-s.quitCh:
+		}
 	}
 	s.Noticef("Cluster name updated to %s", name)
 }
@@ -3400,17 +3405,14 @@ func (s *Server) createClientEx(conn net.Conn, inProcess bool) *client {
 	// If we have both TLS and non-TLS allowed we need to see which
 	// one the client wants. We'll always allow this for in-process
 	// connections.
-	if !isClosed && !tlsFirst && opts.TLSConfig != nil && (inProcess || opts.AllowNonTLS) {
+	sniffTLS := !tlsFirst && opts.TLSConfig != nil && (inProcess || opts.AllowNonTLS)
+	if !isClosed && sniffTLS {
 		pre = make([]byte, 6) // Minimum 6 bytes for proxy proto in next step.
 		c.nc.SetReadDeadline(time.Now().Add(secondsToDuration(opts.TLSTimeout)))
 		n, _ := io.ReadFull(c.nc, pre[:])
 		c.nc.SetReadDeadline(time.Time{})
 		pre = pre[:n]
-		if n > 0 && pre[0] == 0x16 {
-			tlsRequired = true
-		} else {
-			tlsRequired = false
-		}
+		tlsRequired = n > 0 && pre[0] == 0x16
 	}
 
 	// Check for proxy protocol if enabled. The PROXY header is sent as
@@ -3450,14 +3452,26 @@ func (s *Server) createClientEx(conn net.Conn, inProcess bool) *client {
 			c.port = addr.srcPort
 		}
 		// At this point, err is either:
-		//  - nil => we parsed the proxy protocol header successfully
-		//  - errProxyProtoUnrecognized => we didn't detect proxy protocol at all
-		// We only clear the pre-read if we successfully read the protocol header
-		// so that the next step doesn't re-read it. Otherwise we have to assume
-		// that it's a non-proxied connection and we want the pre-read to remain
-		// for the next step.
-		if err == nil {
-			pre = proxyPre
+		//  - nil => we parsed the proxy protocol header successfully and
+		//    proxyPre holds any bytes read past the header
+		//  - errProxyProtoUnrecognized => we didn't detect proxy protocol at
+		//    all and proxyPre holds the bytes that detection consumed (which
+		//    may include bytes read directly from the socket beyond the
+		//    original pre-read), so they must be replayed to the next step.
+		pre = proxyPre
+		if err == nil && sniffTLS {
+			// If we sniffed for TLS-vs-plaintext above, the byte we looked
+			// at belonged to the PROXY header, not to the client's actual
+			// traffic. Re-evaluate using the first byte that follows the
+			// header (reading it from the connection if needed).
+			if len(pre) == 0 {
+				buf := make([]byte, 1)
+				c.nc.SetReadDeadline(time.Now().Add(secondsToDuration(opts.TLSTimeout)))
+				n, _ := io.ReadFull(c.nc, buf)
+				c.nc.SetReadDeadline(time.Time{})
+				pre = buf[:n]
+			}
+			tlsRequired = len(pre) > 0 && pre[0] == 0x16
 		}
 		// Because we have ProxyProtocol enabled, our earlier INFO message didn't
 		// include the client_ip. If we need to send it again then we will include
@@ -4396,7 +4410,7 @@ func (s *Server) isLameDuckMode() bool {
 // LameDuckShutdown will perform a lame duck shutdown of NATS, whereby
 // the client listener is closed, existing client connections are
 // kicked, Raft leaderships are transferred, JetStream is shutdown
-// and then finally shutdown the the NATS Server itself.
+// and then finally shutdown the NATS Server itself.
 // This function blocks and will not return until the NATS Server
 // has completed the entire shutdown operation.
 func (s *Server) LameDuckShutdown() {

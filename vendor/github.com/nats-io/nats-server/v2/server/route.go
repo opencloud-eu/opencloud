@@ -2902,6 +2902,10 @@ func (s *Server) connectToRoute(rURL *url.URL, rtype RouteType, firstConnect boo
 	s.mu.RUnlock()
 
 	attemptDelay := routeConnectDelay
+	reconnectTimer := time.NewTimer(attemptDelay)
+	reconnectTimer.Stop()
+	defer stopAndClearTimer(&reconnectTimer)
+
 	for attempts := 0; s.isRunning(); {
 		if tryForEver {
 			if !s.routeStillValid(rURL) {
@@ -2941,10 +2945,11 @@ func (s *Server) connectToRoute(rURL *url.URL, rtype RouteType, firstConnect boo
 					return
 				}
 			}
+			reconnectTimer.Reset(attemptDelay)
 			select {
 			case <-s.quitCh:
 				return
-			case <-time.After(attemptDelay):
+			case <-reconnectTimer.C:
 				if opts.Cluster.ConnectBackoff {
 					// Use exponential backoff for connection attempts.
 					attemptDelay *= 2

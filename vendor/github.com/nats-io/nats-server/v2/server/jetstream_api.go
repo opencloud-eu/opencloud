@@ -2627,18 +2627,15 @@ func (s *Server) jsLeaderServerStreamMoveRequest(sub *subscription, c *client, _
 	cfg := StreamConfig{}
 	currPeers := []string{}
 	currCluster := _EMPTY_
-	js.mu.Lock()
-	streams, ok := cc.streams[accName]
-	if ok {
-		sa, ok := streams[streamName]
-		if ok {
-			cfg = *sa.Config.clone()
-			streamFound = true
-			currPeers = sa.Group.Peers
-			currCluster = sa.Group.Cluster
-		}
+	js.mu.RLock()
+	sa := js.streamAssignmentOrInflight(accName, streamName)
+	if sa != nil {
+		cfg = *sa.Config.clone()
+		streamFound = true
+		currPeers = copyStrings(sa.Group.Peers)
+		currCluster = sa.Group.Cluster
 	}
-	js.mu.Unlock()
+	js.mu.RUnlock()
 
 	if !streamFound {
 		resp.Error = NewJSStreamNotFoundError()
@@ -2778,17 +2775,14 @@ func (s *Server) jsLeaderServerStreamCancelMoveRequest(sub *subscription, c *cli
 	streamFound := false
 	cfg := StreamConfig{}
 	currPeers := []string{}
-	js.mu.Lock()
-	streams, ok := cc.streams[accName]
-	if ok {
-		sa, ok := streams[streamName]
-		if ok {
-			cfg = *sa.Config.clone()
-			streamFound = true
-			currPeers = sa.Group.Peers
-		}
+	js.mu.RLock()
+	sa := js.streamAssignmentOrInflight(accName, streamName)
+	if sa != nil {
+		cfg = *sa.Config.clone()
+		streamFound = true
+		currPeers = copyStrings(sa.Group.Peers)
 	}
-	js.mu.Unlock()
+	js.mu.RUnlock()
 
 	if !streamFound {
 		resp.Error = NewJSStreamNotFoundError()
@@ -2931,12 +2925,22 @@ func (s *Server) jsLeaderAccountPurgeRequest(sub *subscription, c *client, _ *Ac
 	for osa := range js.streamAssignmentsOrInflightSeq(accName) {
 		for oca := range js.consumerAssignmentsOrInflightSeq(accName, osa.Config.Name) {
 			ca := &consumerAssignment{Group: oca.Group, Stream: oca.Stream, Name: oca.Name, Config: oca.Config, Subject: subject, Client: oca.Client, Created: oca.Created}
-			meta.Propose(encodeDeleteConsumerAssignment(ca))
+			if err = meta.Propose(encodeDeleteConsumerAssignment(ca)); err != nil {
+				js.mu.Unlock()
+				resp.Error = NewJSStreamGeneralError(err)
+				s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
+				return
+			}
 			cc.trackInflightConsumerProposal(accName, osa.Config.Name, ca, true)
 			nc++
 		}
 		sa := &streamAssignment{Group: osa.Group, Config: osa.Config, Subject: subject, Client: osa.Client, Created: osa.Created}
-		meta.Propose(encodeDeleteStreamAssignment(sa))
+		if err = meta.Propose(encodeDeleteStreamAssignment(sa)); err != nil {
+			js.mu.Unlock()
+			resp.Error = NewJSStreamGeneralError(err)
+			s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
+			return
+		}
 		cc.trackInflightStreamProposal(accName, sa, true)
 		ns++
 	}
@@ -5042,7 +5046,13 @@ func (s *Server) jsConsumerInfoRequest(sub *subscription, c *client, _ *Account,
 				return
 			}
 			// If we are a member and we have a group leader or we had a previous leader consider bailing out.
-			if !node.Leaderless() || node.HadPreviousLeader() || (rg != nil && rg.Preferred != _EMPTY_ && rg.Preferred != ourID) {
+			bail := !node.Leaderless() || node.HadPreviousLeader() || rg == nil
+			if !bail {
+				js.mu.RLock()
+				bail = rg.Preferred != ourID || (rg.node != nil && time.Since(rg.node.Created()) > lostQuorumIntervalDefault)
+				js.mu.RUnlock()
+			}
+			if bail {
 				if leaderNotPartOfGroup {
 					resp.Error = NewJSConsumerOfflineError()
 					s.sendDelayedAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp), nil, errRespDelay)
@@ -5232,41 +5242,39 @@ func (s *Server) jsConsumerPauseRequest(sub *subscription, c *client, _ *Account
 	consumer := consumerNameFromSubject(subject)
 
 	if isClustered {
-		js.mu.RLock()
+		js.mu.Lock()
 		sa := js.streamAssignment(acc.Name, stream)
 		if sa == nil {
-			js.mu.RUnlock()
+			js.mu.Unlock()
 			resp.Error = NewJSStreamNotFoundError(Unless(err))
 			s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
 			return
 		}
 		if sa.unsupported != nil {
-			js.mu.RUnlock()
+			js.mu.Unlock()
 			// Just let the request time out.
 			return
 		}
 
 		ca, ok := sa.consumers[consumer]
 		if !ok || ca == nil {
-			js.mu.RUnlock()
+			js.mu.Unlock()
 			resp.Error = NewJSConsumerNotFoundError()
 			s.sendAPIErrResponse(ci, acc, subject, reply, string(msg), s.jsonResponse(&resp))
 			return
 		}
 		if ca.unsupported != nil {
-			js.mu.RUnlock()
+			js.mu.Unlock()
 			// Just let the request time out.
 			return
 		}
 
 		nca := ca.clone()
-		// We're only holding the read lock and release below,
-		// we need a copy to prevent concurrent reads/writes.
+		// We need a copy to prevent concurrent reads/writes.
 		ncfg := *ca.Config
 		ncfg.Metadata = maps.Clone(ncfg.Metadata)
 		nca.Config = &ncfg
 		meta := cc.meta
-		js.mu.RUnlock()
 		pauseUTC := req.PauseUntil.UTC()
 		if !pauseUTC.IsZero() {
 			nca.Config.PauseUntil = &pauseUTC
@@ -5279,7 +5287,12 @@ func (s *Server) jsConsumerPauseRequest(sub *subscription, c *client, _ *Account
 		setStaticConsumerMetadata(nca.Config)
 
 		eca := encodeAddConsumerAssignment(nca)
-		meta.Propose(eca)
+		if err = meta.Propose(eca); err != nil {
+			js.mu.Unlock()
+			return
+		}
+		cc.trackInflightConsumerProposal(acc.Name, stream, nca, false)
+		js.mu.Unlock()
 
 		resp.PauseUntil = pauseUTC
 		if resp.Paused = time.Now().Before(pauseUTC); resp.Paused {

@@ -1604,7 +1604,11 @@ func (jsa *jsAccount) subjectsOverlap(subjects []string, self *stream) bool {
 		if self != nil && mset == self {
 			continue
 		}
-		for _, subj := range mset.cfg.Subjects {
+		// Read the other stream's subjects under its cfgMu.
+		mset.cfgMu.RLock()
+		msubjects := mset.cfg.Subjects
+		mset.cfgMu.RUnlock()
+		for _, subj := range msubjects {
 			for _, tsubj := range subjects {
 				if SubjectsCollide(tsubj, subj) {
 					return true
@@ -2420,25 +2424,28 @@ func (mset *stream) updateWithAdvisory(config *StreamConfig, sendAdvisory bool, 
 
 	// In the event that some of the stream-level limits have changed, yell appropriately
 	// if any of the consumers exceed that limit.
-	updateLimits := ocfg.ConsumerLimits.InactiveThreshold != cfg.ConsumerLimits.InactiveThreshold ||
-		ocfg.ConsumerLimits.MaxAckPending != cfg.ConsumerLimits.MaxAckPending
-	if updateLimits {
+	oldInactiveThreshold, newInactiveThreshold := ocfg.ConsumerLimits.InactiveThreshold, cfg.ConsumerLimits.InactiveThreshold
+	oldMaxAckPending, newMaxAckPending := ocfg.ConsumerLimits.MaxAckPending, cfg.ConsumerLimits.MaxAckPending
+	updateLimits := (newInactiveThreshold > 0 && oldInactiveThreshold != newInactiveThreshold) ||
+		(newMaxAckPending > 0 && oldMaxAckPending != newMaxAckPending)
+
+	// Only check if not clustered. The meta leader performs clustered checks.
+	if updateLimits && !mset.js.isClustered() {
 		var errorConsumers []string
-		consumers := map[string]*ConsumerConfig{}
-		if mset.js.isClustered() {
-			for _, c := range mset.sa.consumers {
-				consumers[c.Name] = c.Config
-			}
-		} else {
-			for _, c := range mset.consumers {
-				consumers[c.name] = &c.cfg
-			}
+		mset.mu.RLock()
+		clist := make([]*consumer, 0, len(mset.consumers))
+		for _, c := range mset.consumers {
+			clist = append(clist, c)
 		}
-		for name, ccfg := range consumers {
-			if ccfg.InactiveThreshold > cfg.ConsumerLimits.InactiveThreshold ||
-				ccfg.MaxAckPending > cfg.ConsumerLimits.MaxAckPending {
+		mset.mu.RUnlock()
+		for _, c := range clist {
+			c.mu.RLock()
+			name, ccfg := c.name, c.cfg
+			if (newInactiveThreshold > 0 && ccfg.InactiveThreshold > newInactiveThreshold) ||
+				(newMaxAckPending > 0 && ccfg.MaxAckPending > newMaxAckPending) {
 				errorConsumers = append(errorConsumers, name)
 			}
+			c.mu.RUnlock()
 		}
 		if len(errorConsumers) > 0 {
 			// TODO(nat): Return a parsable error so that we can surface something
@@ -2527,7 +2534,9 @@ func (mset *stream) updateWithAdvisory(config *StreamConfig, sendAdvisory bool, 
 					if mset.sources == nil {
 						mset.sources = make(map[string]*sourceInfo)
 					}
+					mset.cfgMu.Lock()
 					mset.cfg.Sources = append(mset.cfg.Sources, s)
+					mset.cfgMu.Unlock()
 
 					var si *sourceInfo
 
@@ -3243,7 +3252,9 @@ func (mset *stream) processInboundMirrorMsg(m *inMsg) bool {
 	if mset.cfg.MirrorDirect && mset.mirrorDirectSub == nil && pending < dgetCaughtUpThresh {
 		if err := mset.subscribeToMirrorDirect(); err != nil {
 			// Disable since we had problems above.
+			mset.cfgMu.Lock()
 			mset.cfg.MirrorDirect = false
+			mset.cfgMu.Unlock()
 		}
 	}
 
@@ -6852,7 +6863,7 @@ func (mset *stream) processJetStreamMsgWithBatch(subject, reply string, hdr, msg
 
 	// Skip msg here.
 	if noInterest {
-		mset.lseq, _ = store.SkipMsg(0)
+		mset.lseq, _ = store.SkipMsgNoInterest(0)
 		mset.lmsgId = msgId
 		// If we have a msgId make sure to save.
 		if msgId != _EMPTY_ {
@@ -7245,7 +7256,12 @@ func (mset *stream) processJetStreamAtomicBatchMsg(batchId, subject, reply strin
 			if opts.JetStreamLimits.MaxBatchSize > 0 {
 				maxBatchSize = opts.JetStreamLimits.MaxBatchSize
 			}
-			if batchSeq > uint64(maxBatchSize) {
+			size := batchSeq
+			// Don't count the "End Of Batch" marker toward the batch size.
+			if bytes.Equal(sliceHeader(JSBatchCommit, hdr), []byte("eob")) {
+				size--
+			}
+			if size > uint64(maxBatchSize) {
 				err := NewJSAtomicPublishTooLargeBatchError(maxBatchSize)
 				return respondError(err)
 			}
@@ -7337,7 +7353,12 @@ func (mset *stream) processJetStreamAtomicBatchMsg(batchId, subject, reply strin
 	if maxBatchSize := s.getOpts().JetStreamLimits.MaxBatchSize; maxBatchSize > 0 {
 		maxSize = maxBatchSize
 	}
-	if batchSeq > uint64(maxSize) {
+	size := batchSeq
+	// Don't count the "End Of Batch" marker toward the batch size.
+	if commitEob {
+		size--
+	}
+	if size > uint64(maxSize) {
 		b.cleanupLocked(batchId, batches)
 		batches.mu.Unlock()
 		mset.mu.Unlock()
@@ -7415,8 +7436,14 @@ func (mset *stream) processJetStreamAtomicBatchMsg(batchId, subject, reply strin
 		return apiErr
 	}
 
+	type checkedMsg struct {
+		subj string
+		hdr  []byte
+		msg  []byte
+	}
 	var (
 		entries []*Entry
+		checked []checkedMsg
 		bsubj   string
 		bhdr    []byte
 		bmsg    []byte
@@ -7483,6 +7510,11 @@ func (mset *stream) processJetStreamAtomicBatchMsg(batchId, subject, reply strin
 			esm := encodeStreamMsgAllowCompressAndBatch(bsubj, _reply, bhdr, bmsg, mset.clseq, ts, false, batchId, seq, isCommit)
 			entries = append(entries, newEntry(EntryNormal, esm))
 			sz += len(esm)
+		} else {
+			// Preserve the (possibly rewritten) headers and message, for example for counters and
+			// scheduled messages, so the commit below stores the transformed message.
+			// Need to copy, the staged message buffer is reused on every load.
+			checked = append(checked, checkedMsg{bsubj, copyBytes(bhdr), copyBytes(bmsg)})
 		}
 		mset.clseq++
 	}
@@ -7497,16 +7529,11 @@ func (mset *stream) processJetStreamAtomicBatchMsg(batchId, subject, reply strin
 		// can only happen after the full batch is committed.
 		// We keep holding the stream lock.
 		for seq := uint64(1); seq <= batchSeq; seq++ {
-			if seq == batchSeq && !commitEob && b.store.Type() != FileStorage {
-				bsubj, bhdr, bmsg = subject, hdr, msg
-			} else if sm, err = b.store.LoadMsg(seq, &smv); sm != nil && err == nil {
-				bsubj, bhdr, bmsg = sm.subj, sm.hdr, sm.msg
-			} else {
-				// Should not happen, we've already checked this message existed while doing consistency checks.
-				// We'll just exit here, the batch is already inconsistent without the message at this sequence.
-				// No use in trying to still store the rest.
-				break
-			}
+			// Use the checked (and possibly rewritten) message from above, not the raw staged
+			// message, so transformations like counter increments and scheduled message
+			// rollups are persisted just like in the clustered proposal path.
+			cm := checked[seq-1]
+			bsubj, bhdr, bmsg = cm.subj, cm.hdr, cm.msg
 			var _reply string
 			if seq == batchSeq {
 				_reply = reply
@@ -7849,7 +7876,8 @@ func (mset *stream) processJetStreamFastBatchMsg(batch *FastBatch, subject, repl
 		}
 
 		// If gaps are okay, we just allow them to continue.
-		if batch.gapOk {
+		// Unless this is the commit message, in which case we must still complete it below.
+		if batch.gapOk && !batch.commit {
 			batches.mu.Unlock()
 			return err
 		}
@@ -7858,6 +7886,10 @@ func (mset *stream) processJetStreamFastBatchMsg(batch *FastBatch, subject, repl
 		// Otherwise, the batch is cleaned up automatically later.
 		if err != errMsgIdDuplicate {
 			b.lseq--
+			// If there is none pending, correct the persisted sequence as we need to commit below.
+			if b.pending == 0 {
+				b.pseq = b.lseq
+			}
 		}
 		if cleanup = batches.fastBatchCommit(b, batch.id, mset, reply); cleanup {
 			b.cleanupLocked(batch.id, batches)

@@ -956,8 +956,9 @@ func (s *Server) createGateway(cfg *gatewayCfg, url *url.URL, conn net.Conn) {
 // Builds and sends the CONNECT protocol for a gateway.
 // Client lock held on entry.
 func (c *client) sendGatewayConnect(opts *Options) {
-	// FIXME: This can race with updateRemotesTLSConfig
+	c.gw.cfg.RLock()
 	tlsRequired := c.gw.cfg.TLSConfig != nil
+	c.gw.cfg.RUnlock()
 	url := c.gw.connectURL
 	c.gw.connectURL = nil
 	var user, pass string
@@ -2563,15 +2564,6 @@ func (c *client) sendMsgToGateways(acc *Account, msg, subject, reply []byte, qgr
 	pa := c.pa
 
 	mt, _ := c.isMsgTraceEnabled()
-	if mt != nil {
-		// We are going to replace "pa" with our copy of c.pa, but to restore
-		// to the original copy of c.pa, we need to save it again.
-		cpa := c.pa
-		msg = mt.setOriginAccountHeaderIfNeeded(c, acc, msg)
-		defer func() { c.pa = cpa }()
-		// Update pa with our current c.pa state.
-		pa = c.pa
-	}
 
 	var (
 		queuesa    = [512]byte{}

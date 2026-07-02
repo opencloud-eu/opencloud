@@ -308,10 +308,13 @@ func (oc *OCSPMonitor) run() {
 		return
 	}
 
+	nextRunTimer := time.NewTimer(nextRun)
+	defer stopAndClearTimer(&nextRunTimer)
+
 	for {
 		// On reload, if the certificate changes then need to stop this monitor.
 		select {
-		case <-time.After(nextRun):
+		case <-nextRunTimer.C:
 		case <-stopCh:
 			// In case of reload and have to restart the OCSP stapling monitoring.
 			return
@@ -323,6 +326,7 @@ func (oc *OCSPMonitor) run() {
 		if err != nil {
 			nextRun = oc.getNextRun()
 			s.Errorf("Bad OCSP status update for certificate '%s': %s, trying again in %v", certFile, err, nextRun)
+			nextRunTimer.Reset(nextRun)
 			continue
 		}
 
@@ -334,6 +338,7 @@ func (oc *OCSPMonitor) run() {
 				"Received OCSP status for %s certificate '%s': good, next update %s, checking again in %s",
 				kind, certFile, t, nextRun,
 			)
+			nextRunTimer.Reset(nextRun)
 			continue
 		default:
 			s.Errorf("Received OCSP status for %s certificate '%s': %s", kind, certFile, ocspStatusString(n))

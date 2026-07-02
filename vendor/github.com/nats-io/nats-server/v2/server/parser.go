@@ -181,7 +181,8 @@ func (c *client) parse(buf []byte) error {
 							s.mu.Lock()
 							user, exists := s.users[noAuthUser]
 							s.mu.Unlock()
-							if exists {
+							// Enforce the same connection restrictions as CONNECT before allowing.
+							if exists && !user.ProxyRequired && c.connectionTypeAllowed(user.AllowedConnectionTypes) {
 								c.RegisterUser(user)
 								c.mu.Lock()
 								c.clearAuthTimer()
@@ -499,27 +500,30 @@ func (c *client) parse(buf []byte) error {
 			}
 
 			var mt *msgTrace
+			var skip bool
 			if c.pa.hdr > 0 {
-				mt = c.initMsgTrace()
+				skip, mt = c.initMsgTrace(c.msgBuf[:c.pa.hdr], nil)
 			}
-			// Check for mappings.
-			if (c.kind == CLIENT || c.kind == LEAF) && c.in.flags.isSet(hasMappings) {
-				changed := c.selectMappedSubject()
-				if changed {
-					if trace {
-						c.traceInOp("MAPPING", []byte(fmt.Sprintf("%s -> %s", c.pa.mapped, c.pa.subject)))
+			if !skip {
+				// Check for mappings.
+				if (c.kind == CLIENT || c.kind == LEAF) && c.in.flags.isSet(hasMappings) {
+					changed := c.selectMappedSubject()
+					if changed {
+						if trace {
+							c.traceInOp("MAPPING", []byte(fmt.Sprintf("%s -> %s", c.pa.mapped, c.pa.subject)))
+						}
+						// c.pa.subject is the subject the original is now mapped to.
+						mt.addSubjectMappingEvent(c.pa.subject)
 					}
-					// c.pa.subject is the subject the original is now mapped to.
-					mt.addSubjectMappingEvent(c.pa.subject)
 				}
-			}
-			if trace {
-				c.traceMsg(c.msgBuf)
-			}
+				if trace {
+					c.traceMsg(c.msgBuf)
+				}
 
-			c.processInboundMsg(c.msgBuf)
+				c.processInboundMsg(c.msgBuf)
 
-			mt.sendEvent()
+				mt.sendEvent()
+			}
 			c.argBuf, c.msgBuf, c.header = nil, nil, nil
 			c.drop, c.as, c.state = 0, i+1, OP_START
 			// Drop all pub args

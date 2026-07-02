@@ -1477,10 +1477,12 @@ func (s *Server) ReloadOptions(newOpts *Options) error {
 
 	s.recheckPinnedCerts(curOpts, newOpts)
 
+	s.varzMu.Lock()
 	s.mu.Lock()
 	s.configTime = time.Now().UTC()
 	s.updateVarzConfigReloadableFields(s.varz)
 	s.mu.Unlock()
+	s.varzMu.Unlock()
 	return nil
 }
 func applyBoolFlags(newOpts, flagOpts *Options) {
@@ -2101,7 +2103,10 @@ func (s *Server) resetInternalLoopInfo() {
 	s.mu.Unlock()
 
 	if resetCh != nil {
-		resetCh <- struct{}{}
+		select {
+		case resetCh <- struct{}{}:
+		case <-s.quitCh:
+		}
 	}
 }
 
@@ -2295,7 +2300,10 @@ func (s *Server) reloadAuthorization() {
 	}
 
 	if resetCh != nil {
-		resetCh <- struct{}{}
+		select {
+		case resetCh <- struct{}{}:
+		case <-s.quitCh:
+		}
 	}
 
 	// Close clients that have moved accounts
@@ -2536,11 +2544,13 @@ func (s *Server) reloadClusterPoolAndAccounts(co *clusterOption, opts *Options) 
 	// Prevent adding new routes until we are ready to do so.
 	s.routesReject = true
 	var ch chan struct{}
+	// Number of per-account route INFO protocols sent that we expect a
+	// confirmation for. Declared here so the wait below can block on it.
+	protosSent := 0
 	// For accounts that have been added to the list of dedicated routes,
 	// send a protocol to their current assigned routes to allow the
 	// other side to prepare for the changes.
 	if len(co.accsAdded) > 0 {
-		protosSent := 0
 		s.accAddedReqID = nuid.Next()
 		for _, an := range co.accsAdded {
 			if s.accRoutes == nil {
@@ -2662,15 +2672,17 @@ func (s *Server) reloadClusterPoolAndAccounts(co *clusterOption, opts *Options) 
 	// If there are routes to close, we need to release the server lock.
 	// Same if we need to wait on responses from the remotes when
 	// processing new per-account routes.
-	if len(routes) > 0 || len(ch) > 0 {
+	if len(routes) > 0 || protosSent > 0 {
 		s.mu.Unlock()
 
-		for done := false; !done && len(ch) > 0; {
+		// Wait for the expected number of confirmations from the remotes.
+		for received := 0; received < protosSent; {
 			select {
 			case <-ch:
+				received++
 			case <-time.After(2 * time.Second):
 				s.Warnf("Timed out waiting for confirmation from all routes regarding per-account routes changes")
-				done = true
+				received = protosSent
 			}
 		}
 

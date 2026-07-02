@@ -683,6 +683,22 @@ func connectToRemoteLeafNode(s *Server, remote *leafNodeCfg, firstConnect bool) 
 		return false
 	}
 
+	// If this remote is no longer valid by the time we return (e.g. it was
+	// removed or disabled through a configuration reload), we will never
+	// reconnect, so clear any JetStream observer state. Otherwise, the raft
+	// nodes of this account's assets would remain observers.
+	defer func() {
+		if remote.stillValid() {
+			return
+		}
+		s.mu.RLock()
+		shouldMigrate := remote.JetStreamClusterMigrate
+		s.mu.RUnlock()
+		if shouldMigrate {
+			s.clearObserverState(remote)
+		}
+	}()
+
 	opts := s.getOpts()
 	reconnectDelay := opts.LeafNode.ReconnectInterval
 	s.mu.RLock()
@@ -738,6 +754,10 @@ func connectToRemoteLeafNode(s *Server, remote *leafNodeCfg, firstConnect bool) 
 		defer remote.cancelMigrateTimer()
 	}
 
+	reconnectTimer := time.NewTimer(reconnectDelay)
+	reconnectTimer.Stop()
+	defer stopAndClearTimer(&reconnectTimer)
+
 	for s.isRunning() && remote.stillValid() {
 		rURL := remote.pickNextURL()
 		url, err := s.getRandomIP(resolver, rURL.Host, nil)
@@ -789,12 +809,13 @@ func connectToRemoteLeafNode(s *Server, remote *leafNodeCfg, firstConnect bool) 
 				})
 			}
 			remote.Unlock()
+			reconnectTimer.Reset(delay)
 			select {
 			case <-s.quitCh:
 				return false
 			case <-remote.quitCh:
 				return false
-			case <-time.After(delay):
+			case <-reconnectTimer.C:
 				// Check if we should migrate any JetStream assets immediately while this remote is down.
 				// This will be used if JetStreamClusterMigrateDelay was not set
 				if jetstreamMigrateDelay == 0 {

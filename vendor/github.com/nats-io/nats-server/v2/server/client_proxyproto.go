@@ -125,7 +125,9 @@ func detectProxyProtoVersion(conn net.Conn) (version int, header []byte, err err
 	case proxyProtoV2Sig[:6]:
 		return 2, header, nil
 	default:
-		return 0, nil, errProxyProtoUnrecognized
+		// Return the consumed bytes so the caller can replay them into the
+		// next protocol layer instead of discarding them.
+		return 0, header, errProxyProtoUnrecognized
 	}
 }
 
@@ -203,11 +205,17 @@ foundCRLF:
 		return nil, nil, fmt.Errorf("invalid dest port: %w", err)
 	}
 
-	// Validate protocol matches IP version
-	if protocol == proxyProtoV1TCP4 && srcIP.To4() == nil {
+	// Validate protocol matches IP version. The textual form determines the
+	// family: TCP4 requires dotted-quad addresses, TCP6 requires IPv6
+	// addresses. IPv4-mapped IPv6 addresses (e.g. "::ffff:192.0.2.1") are
+	// valid for TCP6 since dual-stack proxies can emit those for IPv4
+	// clients on IPv6 sockets, matching the v2 parser behavior.
+	srcIsV6 := strings.Contains(parts[1], ":")
+	dstIsV6 := strings.Contains(parts[2], ":")
+	if protocol == proxyProtoV1TCP4 && (srcIsV6 || dstIsV6) {
 		return nil, nil, fmt.Errorf("%w: TCP4 with IPv6 address", errProxyProtoInvalid)
 	}
-	if protocol == proxyProtoV1TCP6 && srcIP.To4() != nil {
+	if protocol == proxyProtoV1TCP6 && (!srcIsV6 || !dstIsV6) {
 		return nil, nil, fmt.Errorf("%w: TCP6 with IPv4 address", errProxyProtoInvalid)
 	}
 	if protocol != proxyProtoV1TCP4 && protocol != proxyProtoV1TCP6 {
@@ -236,10 +244,12 @@ func readProxyProtoHeader(conn net.Conn) (*proxyProtoAddr, []byte, error) {
 	}
 	defer conn.SetReadDeadline(time.Time{})
 
-	// Detect version
+	// Detect version.
+	// On errProxyProtoUnrecognized, firstBytes holds the bytes that were
+	// consumed so the caller can replay them.
 	version, firstBytes, err := detectProxyProtoVersion(conn)
 	if err != nil {
-		return nil, nil, err
+		return nil, firstBytes, err
 	}
 
 	switch version {

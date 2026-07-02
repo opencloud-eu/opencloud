@@ -144,7 +144,7 @@ func (s *Server) processClientOrLeafCallout(c *client, opts *Options, proxyRequi
 				pkStr = cr.IssuerAccount
 			}
 			if pkStr != account {
-				if _, ok := acc.signingKeys[pkStr]; !ok {
+				if _, ok := acc.hasIssuer(pkStr); !ok {
 					return nil, errors.New("auth callout signing key is unknown")
 				}
 			}

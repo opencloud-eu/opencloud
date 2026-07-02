@@ -1376,10 +1376,11 @@ func (mset *stream) addConsumerWithAssignment(config *ConsumerConfig, oname stri
 	// in consumer.ackReply(), resulting in erroneous formatting of the ack subject.
 	mn := strings.ReplaceAll(cfg.Name, "%", "%%")
 	on := strings.ReplaceAll(o.name, "%", "%%")
-	domain := strings.ReplaceAll(o.srv.getOpts().JetStreamDomain, "%", "%%")
+	domain := o.srv.getOpts().JetStreamDomain
 	if domain == _EMPTY_ {
 		domain = "_"
 	}
+	dn := strings.ReplaceAll(domain, "%", "%%")
 	accHash := getHash(accName)
 
 	o.useV2Ack = s.getOpts().getFeatureFlag(FeatureFlagJsAckFormatV2)
@@ -1389,18 +1390,18 @@ func (mset *stream) addConsumerWithAssignment(config *ConsumerConfig, oname stri
 	o.fcSubjOld = fmt.Sprintf(jsFlowControl, cfg.Name, o.name)
 	preOld := fmt.Sprintf(jsAckT, mn, on)
 	o.ackReplyOldT = fmt.Sprintf("%s.%%d.%%d.%%d.%%d.%%d", preOld)
-	o.ackSubjOld = fmt.Sprintf("%s.*.*.*.*.*", preOld)
+	o.ackSubjOld = fmt.Sprintf(jsAckT+".*.*.*.*.*", cfg.Name, o.name)
 
 	// v2 format: $JS.(ACK|FC).<domain>.<accHash>.<stream>.<consumer>.etc.
 	o.fcPre = fmt.Sprintf("%s%s.%s.", jsFlowControlPre, domain, accHash)
 	o.fcSubj = fmt.Sprintf(jsFlowControlV2, domain, accHash, cfg.Name, o.name)
-	pre := fmt.Sprintf(jsAckTv2, domain, accHash, mn, on)
+	pre := fmt.Sprintf(jsAckTv2, dn, accHash, mn, on)
 	o.ackReplyT = fmt.Sprintf("%s.%%d.%%d.%%d.%%d.%%d", pre)
 	// Subscribe on this ack subject for v2, we require 11 tokens, but allow for more tokens/extension.
-	o.ackSubj = fmt.Sprintf("%s.*.*.*.*.>", pre)
+	o.ackSubj = fmt.Sprintf(jsAckTv2+".*.*.*.*.>", domain, accHash, cfg.Name, o.name)
 
-	o.nextMsgSubj = fmt.Sprintf(JSApiRequestNextT, mn, o.name)
-	o.resetSubj = fmt.Sprintf(JSApiConsumerResetT, mn, o.name)
+	o.nextMsgSubj = fmt.Sprintf(JSApiRequestNextT, cfg.Name, o.name)
+	o.resetSubj = fmt.Sprintf(JSApiConsumerResetT, cfg.Name, o.name)
 
 	// Check/update the inactive threshold
 	o.updateInactiveThreshold(&o.cfg)
@@ -2187,11 +2188,11 @@ func (o *consumer) deleteNotActive() {
 		l := len(o.cfg.BackOff)
 		var delay time.Duration
 		var ackWait time.Duration
-		for _, p := range o.pending {
+		for seq, p := range o.pending {
 			if l == 0 {
 				ackWait = o.ackWait(0)
 			} else {
-				bi := int(o.rdc[p.Sequence])
+				bi := int(o.rdc[seq])
 				if bi < 0 {
 					bi = 0
 				} else if bi >= l {
@@ -2429,11 +2430,16 @@ func (o *consumer) setRateLimit(bps uint64) {
 	// is already invoked under mset.mu.RLock(), which superseeds cfgMu.
 	if mset.cfg.MaxMsgSize > 0 {
 		burst = int(mset.cfg.MaxMsgSize)
-	} else if mset.jsa.account.limits.mpay > 0 {
-		burst = int(mset.jsa.account.limits.mpay)
 	} else {
-		s := mset.jsa.account.srv
-		burst = int(s.getOpts().MaxPayload)
+		acc := mset.jsa.account
+		acc.mu.RLock()
+		mpay := acc.mpay
+		acc.mu.RUnlock()
+		if mpay > 0 {
+			burst = int(mpay)
+		} else {
+			burst = int(acc.srv.getOpts().MaxPayload)
+		}
 	}
 
 	o.rlimit = rate.NewLimiter(rl, burst)
@@ -2635,8 +2641,12 @@ func (o *consumer) updateConfig(cfg *ConsumerConfig) error {
 	if updatedFilters {
 		// Cleanup messages that lost interest.
 		if o.retention == InterestPolicy {
+			// Capture mset under the lock.
+			mset := o.mset
 			o.mu.Unlock()
-			o.cleanupNoInterestMessages(o.mset, false)
+			if mset != nil {
+				o.cleanupNoInterestMessages(mset, false)
+			}
 			o.mu.Lock()
 		}
 
@@ -4309,34 +4319,14 @@ func (o *consumer) nextWaiting(sz int) *waitingRequest {
 		if wr == nil {
 			break
 		}
-		// Check if we have max bytes set.
-		if wr.b > 0 {
-			if sz <= wr.b {
-				wr.b -= sz
-				// If we are right now at zero, set batch to 1 to deliver this one but stop after.
-				if wr.b == 0 {
-					wr.n = 1
-				}
-			} else {
-				// Since we can't send that message to the requestor, we need to
-				// notify that we are closing the request.
-				const maxBytesT = "NATS/1.0 409 Message Size Exceeds MaxBytes\r\n%s: %d\r\n%s: %d\r\n\r\n"
-				hdr := fmt.Appendf(nil, maxBytesT, JSPullRequestPendingMsgs, wr.n, JSPullRequestPendingBytes, wr.b)
-				o.outq.send(newJSPubMsg(wr.reply, _EMPTY_, _EMPTY_, hdr, nil, nil, 0))
-				// Remove the current one, no longer valid due to max bytes limit.
-				o.waiting.removeCurrent()
-				if o.node != nil {
-					o.removeClusterPendingRequest(wr.reply)
-				}
-				wr.recycle()
-				continue
-			}
-		}
 
 		if wr.expires.IsZero() || time.Now().Before(wr.expires) {
+			// Track whether this iteration just claimed a new pin for this request.
+			assignedPin := false
 			if needNewPin {
-				if wr.priorityGroup.Id == _EMPTY_ {
+				if wr.priorityGroup == nil || wr.priorityGroup.Id == _EMPTY_ {
 					o.assignNewPinId(wr)
+					assignedPin = true
 				} else {
 					// There is pin id set, but not a matching one. Send a notification to the client and remove the request.
 					// Probably this is the old pin id.
@@ -4353,7 +4343,7 @@ func (o *consumer) nextWaiting(sz int) *waitingRequest {
 				// Check if we have a match on the currentNuid
 				if wr.priorityGroup != nil && wr.priorityGroup.Id == o.currentPinId {
 					// If we have a match, we do nothing here and will deliver the message later down the code path.
-				} else if wr.priorityGroup.Id == _EMPTY_ {
+				} else if wr.priorityGroup == nil || wr.priorityGroup.Id == _EMPTY_ {
 					o.waiting.cycle()
 					numCycled++
 					if numCycled >= o.waiting.len() {
@@ -4391,6 +4381,34 @@ func (o *consumer) nextWaiting(sz int) *waitingRequest {
 					continue
 				}
 			}
+			// Check if we have max bytes set.
+			if wr.b > 0 {
+				if sz <= wr.b {
+					wr.b -= sz
+					// If we are right now at zero, set batch to 1 to deliver this one but stop after.
+					if wr.b == 0 {
+						wr.n = 1
+					}
+				} else {
+					// Since we can't send that message to the requestor, we need to
+					// notify that we are closing the request.
+					const maxBytesT = "NATS/1.0 409 Message Size Exceeds MaxBytes\r\n%s: %d\r\n%s: %d\r\n\r\n"
+					hdr := fmt.Appendf(nil, maxBytesT, JSPullRequestPendingMsgs, wr.n, JSPullRequestPendingBytes, wr.b)
+					o.outq.send(newJSPubMsg(wr.reply, _EMPTY_, _EMPTY_, hdr, nil, nil, 0))
+					// If we just claimed the pin for this request, release it.
+					if assignedPin {
+						o.unassignPinId()
+					}
+					// Remove the current one, no longer valid due to max bytes limit.
+					o.waiting.removeCurrent()
+					if o.node != nil {
+						o.removeClusterPendingRequest(wr.reply)
+					}
+					wr.recycle()
+					continue
+				}
+			}
+
 			if wr.acc.sl.HasInterest(wr.interest) {
 				return o.waiting.popOrPopAndRequeue(o.cfg.PriorityPolicy)
 			} else if time.Since(wr.received) < defaultGatewayRecentSubExpiration && (o.srv.leafNodeEnabled || o.srv.gateway.enabled) {
@@ -4573,10 +4591,11 @@ func (o *consumer) processNextMsgRequest(reply string, msg []byte) {
 	if priorityGroup != nil {
 		if (priorityGroup.MinPending != 0 || priorityGroup.MinAckPending != 0) && o.cfg.PriorityPolicy != PriorityOverflow {
 			sendErr(400, "Bad Request - Not a Overflow Priority consumer")
+			return
 		}
-
 		if priorityGroup.Id != _EMPTY_ && o.cfg.PriorityPolicy != PriorityPinnedClient {
 			sendErr(400, "Bad Request - Not a Pinned Client Priority consumer")
+			return
 		}
 		if priorityGroup.Priority < 0 || priorityGroup.Priority > 9 {
 			sendErr(400, "Bad Request - Priority must be between 0 and 9")

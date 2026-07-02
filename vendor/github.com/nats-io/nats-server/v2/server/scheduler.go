@@ -226,7 +226,7 @@ func (ms *MsgScheduling) getScheduledMessages(loadMsg func(seq uint64, smv *Stor
 			if !repeat {
 				hdr = genHeader(hdr, JSScheduleNext, JSScheduleNextPurge) // Purge the schedule message itself.
 			} else {
-				hdr = genHeader(hdr, JSScheduleNext, next.Format(time.RFC3339)) // Next time the schedule fires.
+				hdr = genHeader(hdr, JSScheduleNext, next.Format(time.RFC3339Nano)) // Next time the schedule fires.
 			}
 			if ttl != _EMPTY_ {
 				hdr = genHeader(hdr, JSMessageTTL, ttl)
@@ -287,6 +287,9 @@ func (ms *MsgScheduling) decode(b []byte) (uint64, error) {
 	stamp := binary.LittleEndian.Uint64(b[9:])
 	b = b[headerLen:]
 	for i := uint64(0); i < count; i++ {
+		if len(b) < 2 {
+			return 0, io.ErrUnexpectedEOF
+		}
 		sl := int(binary.LittleEndian.Uint16(b))
 		b = b[2:]
 		if len(b) < sl {
@@ -295,11 +298,11 @@ func (ms *MsgScheduling) decode(b []byte) (uint64, error) {
 		subj := string(b[:sl])
 		b = b[sl:]
 		ts, tn := binary.Varint(b)
-		if tn < 0 {
+		if tn <= 0 {
 			return 0, io.ErrUnexpectedEOF
 		}
 		seq, vn := binary.Uvarint(b[tn:])
-		if vn < 0 {
+		if vn <= 0 {
 			return 0, io.ErrUnexpectedEOF
 		}
 		ms.init(seq, subj, ts)
