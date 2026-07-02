@@ -1,6 +1,6 @@
 SHELL := bash
 NAME := web
-WEB_ASSETS_VERSION = v7.1.2
+WEB_ASSETS_VERSION = v7.1.3
 WEB_ASSETS_BRANCH = stable-7.1
 
 ifneq (, $(shell command -v go 2> /dev/null)) # suppress `command not found warnings` for non go targets in CI
