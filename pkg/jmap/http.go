@@ -104,22 +104,20 @@ func NewMasterAuthHttpJmapClientAuthenticator(masterUser string, masterPassword 
 var _ HttpJmapClientAuthenticator = &MasterAuthHttpJmapClientAuthenticator{}
 
 func (h *MasterAuthHttpJmapClientAuthenticator) Authenticate(ctx context.Context, username string, _ *log.Logger, req *http.Request) Error {
-	if username == h.masterUser {
-		req.SetBasicAuth(username, h.masterPassword)
-	} else {
-		masterUsername := username + "%" + h.masterUser
-		req.SetBasicAuth(masterUsername, h.masterPassword)
+	u := username
+	if username != h.masterUser {
+		u = username + "%" + h.masterUser
 	}
+	req.SetBasicAuth(u, h.masterPassword)
 	return nil
 }
 
 func (h *MasterAuthHttpJmapClientAuthenticator) AuthenticateWS(ctx context.Context, username string, _ *log.Logger, headers http.Header) Error {
-	if username == h.masterUser {
-		headers.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(username+":"+h.masterPassword)))
-	} else {
-		masterUsername := username + "%" + h.masterUser
-		headers.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(masterUsername+":"+h.masterPassword)))
+	u := username
+	if username != h.masterUser {
+		u = username + "%" + h.masterUser
 	}
+	headers.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(u+":"+h.masterPassword)))
 	return nil
 }
 
