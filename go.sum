@@ -938,8 +938,8 @@ github.com/onsi/gomega v1.7.1/go.mod h1:XdKZgCCFLUoM/7CFJVPcG8C1xQ1AJ0vpAezJrB7J
 github.com/onsi/gomega v1.10.1/go.mod h1:iN09h71vgCQne3DLsj+A5owkum+a2tYe+TOCB1ybHNo=
 github.com/onsi/gomega v1.42.1 h1:iN1rCUX+44NZ1Dc97MPoeFYbFR0vh8zxoxMFwKdyZ6I=
 github.com/onsi/gomega v1.42.1/go.mod h1:REff/hsDsodHoKlWsP2mAPhu1+5/6hVYNf9rIEBpeSg=
-github.com/open-policy-agent/opa v1.18.1 h1:PQXN8BZN0zRf5NcI7yt1LfQ7pF1pLgWVAGNM3WgJI/4=
-github.com/open-policy-agent/opa v1.18.1/go.mod h1:9GY+hER4ZEXtxPlMjftVbqJJY9xLtCD3Q0oufRCfAKo=
+github.com/open-policy-agent/opa v1.18.2 h1:VBiLJpioTuk7XTW1JoQi4ILo+FVxD2/8uD8iP9/OcxY=
+github.com/open-policy-agent/opa v1.18.2/go.mod h1:9GY+hER4ZEXtxPlMjftVbqJJY9xLtCD3Q0oufRCfAKo=
 github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a h1:Sakl76blJAaM6NxylVkgSzktjo2dS504iDotEFJsh3M=
 github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a/go.mod h1:pjcozWijkNPbEtX5SIQaxEW/h8VAVZYTLx+70bmB3LY=
 github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89 h1:W1ms+lP5lUUIzjRGDg93WrQfZJZCaV1ZP3KeyXi8bzY=
