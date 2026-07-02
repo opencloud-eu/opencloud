@@ -25,7 +25,7 @@ func (j *Client) GetBlobMetadata(accountId AccountId, ids []string, ctx Context)
 		return ZeroResultV[BlobGetResponse](), jerr
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (BlobGetResponse, State, Error) {
+	return command(j, Operation("GetBlobMetadata"), ctx, cmd, func(body *Response) (BlobGetResponse, State, Error) {
 		var response BlobGetResponse
 		err := retrieveGet(ctx, body, get, "0", &response)
 		if err != nil {
@@ -48,7 +48,7 @@ func (j *Client) UploadBlobStream(accountId AccountId, contentType string, body 
 	uploadUrl := strings.NewReplacer(
 		"{accountId}", url.PathEscape(string(accountId)),
 	).Replace(ctx.Session.UploadUrlTemplate)
-	return j.blob.UploadBinary(uploadUrl, ctx.Session.UploadEndpoint, contentType, body, ctx)
+	return j.blob.UploadBinary(uploadUrl, Operation("UploadBlobStream"), ctx.Session.UploadEndpoint, contentType, body, ctx)
 }
 
 func (j *Client) DownloadBlobStream(accountId AccountId, blobId string, name string, typ string, ctx Context) (*BlobDownload, Language, error) { //NOSONAR
@@ -61,7 +61,7 @@ func (j *Client) DownloadBlobStream(accountId AccountId, blobId string, name str
 		"{type}", url.PathEscape(typ),
 	).Replace(ctx.Session.DownloadUrlTemplate)
 	logger = log.From(logger.With().Str(logDownloadUrl, downloadUrl).Str(logBlobId, blobId))
-	return j.blob.DownloadBinary(downloadUrl, ctx.Session.DownloadEndpoint, ctx)
+	return j.blob.DownloadBinary(downloadUrl, Operation("DownloadBlobStream"), ctx.Session.DownloadEndpoint, ctx)
 }
 
 func (j *Client) UploadBlob(accountId AccountId, data []byte, contentType string, ctx Context) (Result[UploadedBlobWithHash], error) {
@@ -97,7 +97,7 @@ func (j *Client) UploadBlob(accountId AccountId, data []byte, contentType string
 		return ZeroResultV[UploadedBlobWithHash](), jerr
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (UploadedBlobWithHash, State, Error) {
+	return command(j, Operation("UploadBlob"), ctx, cmd, func(body *Response) (UploadedBlobWithHash, State, Error) {
 		var uploadResponse BlobUploadResponse
 		err := retrieveUpload(ctx, body, upload, "0", &uploadResponse)
 		if err != nil {

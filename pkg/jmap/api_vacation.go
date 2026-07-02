@@ -98,7 +98,7 @@ func (j *Client) SetVacationResponse(accountId AccountId, vacation VacationRespo
 	if err != nil {
 		return ZeroResultV[VacationResponse](), err
 	}
-	return command(j, ctx, cmd, func(body *Response) (VacationResponse, State, Error) {
+	return command(j, Operation("SetVacationResponse"), ctx, cmd, func(body *Response) (VacationResponse, State, Error) {
 		var setResponse VacationResponseSetResponse
 		err = retrieveSet(ctx, body, set, "0", &setResponse)
 		if err != nil {

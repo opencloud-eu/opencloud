@@ -1,9 +1,12 @@
 package jmap
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"reflect"
 	"slices"
 	"strings"
@@ -62,7 +65,10 @@ type Cmdr interface {
 	Hooks
 }
 
+type Operation string
+
 func command[T any](client Cmdr, //NOSONAR
+	operation Operation,
 	ctx Context,
 	request Request,
 	mapper func(body *Response) (T, State, Error)) (Result[T], Error) {
@@ -70,7 +76,7 @@ func command[T any](client Cmdr, //NOSONAR
 	logger := ctx.Logger
 
 	before := time.Now()
-	responseBody, language, jmapErr := client.Api().Command(request, ctx)
+	responseBody, language, jmapErr := client.Api().Command(operation, request, ctx)
 	duration := time.Since(before)
 	if jmapErr != nil {
 		return ZeroResult[T](single(duration)), jmapErr
@@ -444,4 +450,82 @@ func ns(namespaces ...JmapNamespace) []JmapNamespace {
 // TODO remove and replace with calls to new() when upgrading to Go 1.26
 func ptr[T any | int | uint | bool | string](t T) *T {
 	return &t
+}
+
+func dumpHttpRequest(req *http.Request, maxBodySize int64, closure func(method string, uri string, content string, truncated bool)) error {
+	var logBuilder bytes.Buffer
+	for key, values := range req.Header {
+		if key == "Authorization" {
+			continue
+		}
+		for _, value := range values {
+			fmt.Fprintf(&logBuilder, "%s: %s\n", key, value)
+		}
+	}
+	truncated := false
+	if maxBodySize >= 0 && req.Body != nil && req.Body != http.NoBody {
+		peekBuffer := new(bytes.Buffer)
+		limitedReader := io.LimitReader(req.Body, maxBodySize)
+		tee := io.TeeReader(limitedReader, peekBuffer)
+		if _, err := io.Copy(io.Discard, tee); err != nil {
+			return fmt.Errorf("failed to peek at the request body for tracing: %v", err)
+		} else {
+			logBuilder.Write(peekBuffer.Bytes())
+			if int64(peekBuffer.Len()) >= maxBodySize {
+				truncated = true
+			}
+			fullBodyReader := io.MultiReader(peekBuffer, req.Body)
+			req.Body = io.NopCloser(fullBodyReader)
+		}
+	}
+	closure(req.Method, req.URL.String(), logBuilder.String(), truncated)
+	return nil
+}
+
+func dumpHttpResponse(req *http.Request, resp *http.Response, maxBodySize int64,
+	closure func(method string, uri string, content string, truncated bool),
+	closeErrorClosure func(err error)) (io.ReadCloser, error) {
+	var logBuilder bytes.Buffer
+	for key, values := range resp.Header {
+		for _, value := range values {
+			fmt.Fprintf(&logBuilder, "%s: %s\n", key, value)
+		}
+	}
+
+	var peekBuffer *bytes.Buffer = nil
+	truncated := false
+	if maxBodySize > 0 {
+		peekBuffer = new(bytes.Buffer)
+		limitedReader := io.LimitReader(resp.Body, maxBodySize)
+		tee := io.TeeReader(limitedReader, peekBuffer)
+		if _, err := io.Copy(io.Discard, tee); err != nil {
+			if resp.Body != nil {
+				if err := resp.Body.Close(); err != nil {
+					closeErrorClosure(err)
+				}
+			}
+			return nil, err
+		}
+
+		if int64(peekBuffer.Len()) >= maxBodySize {
+			truncated = true
+		}
+
+		logBuilder.Write(peekBuffer.Bytes())
+	}
+
+	if req != nil {
+		closure(req.Method, req.URL.String(), logBuilder.String(), truncated)
+	} else {
+		closure("", "", logBuilder.String(), truncated)
+	}
+
+	if peekBuffer != nil {
+		return httpResponseReadCloser{
+			body:   resp.Body,
+			Reader: io.MultiReader(peekBuffer, resp.Body),
+		}, nil
+	} else {
+		return resp.Body, nil
+	}
 }

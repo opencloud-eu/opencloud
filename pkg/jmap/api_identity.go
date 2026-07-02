@@ -55,7 +55,7 @@ func (j *Client) GetIdentitiesAndMailboxes(mailboxAccountId AccountId, accountId
 	if err != nil {
 		return ZeroResultV[IdentitiesAndMailboxesGetResponse](), err
 	}
-	return command(j, ctx, cmd, func(body *Response) (IdentitiesAndMailboxesGetResponse, State, Error) {
+	return command(j, Operation("GetIdentitiesAndMailboxes"), ctx, cmd, func(body *Response) (IdentitiesAndMailboxesGetResponse, State, Error) {
 		identities := make(map[AccountId][]Identity, len(uniqueAccountIds))
 		stateByAccountId := make(map[AccountId]State, len(uniqueAccountIds))
 		notFound := []string{}

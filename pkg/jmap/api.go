@@ -26,7 +26,7 @@ func (c Context) WithContext(newContext context.Context) Context {
 }
 
 type ApiClient interface {
-	Command(request Request, ctx Context) (io.ReadCloser, Language, Error)
+	Command(operation Operation, request Request, ctx Context) (io.ReadCloser, Language, Error)
 	io.Closer
 }
 
@@ -50,8 +50,8 @@ type SessionClient interface {
 }
 
 type BlobClient interface {
-	UploadBinary(uploadUrl string, endpoint string, contentType string, content io.Reader, ctx Context) (UploadedBlob, Language, Error)
-	DownloadBinary(downloadUrl string, endpoint string, ctx Context) (*BlobDownload, Language, Error)
+	UploadBinary(uploadUrl string, operation Operation, endpoint string, contentType string, content io.Reader, ctx Context) (UploadedBlob, Language, Error)
+	DownloadBinary(downloadUrl string, operation Operation, endpoint string, ctx Context) (*BlobDownload, Language, Error)
 	io.Closer
 }
 

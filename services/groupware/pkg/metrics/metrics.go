@@ -1,10 +1,14 @@
 package metrics
 
 import (
+	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
+	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -34,6 +38,7 @@ type Metrics struct {
 	SSEEventsCounter             *prometheus.CounterVec
 	OutdatedSessionsCounter      prometheus.Counter
 
+	OperationSpreadCounter                           *prometheus.CounterVec
 	SuccessfulRequestPerEndpointCounter              *prometheus.CounterVec
 	FailedRequestPerEndpointCounter                  *prometheus.CounterVec
 	FailedRequestStatusPerEndpointCounter            *prometheus.CounterVec
@@ -48,6 +53,7 @@ type Metrics struct {
 var Labels = struct {
 	Endpoint         string
 	Result           string
+	Operation        string
 	SessionCacheType string
 	RequestId        string
 	TraceId          string
@@ -57,6 +63,7 @@ var Labels = struct {
 }{
 	Endpoint:         "endpoint",
 	Result:           "result",
+	Operation:        "op",
 	SessionCacheType: "type",
 	RequestId:        "requestID",
 	TraceId:          "traceID",
@@ -104,7 +111,7 @@ var Values = struct {
 }
 
 // New initializes the available metrics.
-func New(registerer prometheus.Registerer, logger *log.Logger) *Metrics {
+func New(registerer prometheus.Registerer, logger *log.Logger) (*Metrics, error) {
 	m := &Metrics{
 		SessionCacheDesc: prometheus.NewDesc(
 			prometheus.BuildFQName(Namespace, Subsystem, "session_cache"),
@@ -178,11 +185,17 @@ func New(registerer prometheus.Registerer, logger *log.Logger) *Metrics {
 			Name:      "jmap_errors_count",
 			Help:      "Number of JMAP errors that occured",
 		}, []string{Labels.Endpoint, Labels.ErrorCode}),
+		OperationSpreadCounter: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: Namespace,
+			Subsystem: Subsystem,
+			Name:      "jmap_operations",
+			Help:      "Spread of operations by their names",
+		}, []string{Labels.Endpoint, Labels.Operation}),
 		SuccessfulRequestPerEndpointCounter: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: Namespace,
 			Subsystem: Subsystem,
 			Name:      "jmap_requests_count",
-			Help:      "Number of JMAP requests",
+			Help:      "Number of JMAP requests", //NOSONAR
 			ConstLabels: prometheus.Labels{
 				Labels.Result: Values.Result.Success,
 			},
@@ -191,7 +204,7 @@ func New(registerer prometheus.Registerer, logger *log.Logger) *Metrics {
 			Namespace: Namespace,
 			Subsystem: Subsystem,
 			Name:      "jmap_requests_count",
-			Help:      "Number of JMAP requests",
+			Help:      "Number of JMAP requests", //NOSONAR
 			ConstLabels: prometheus.Labels{
 				Labels.Result: Values.Result.Failure,
 			},
@@ -249,40 +262,51 @@ func New(registerer prometheus.Registerer, logger *log.Logger) *Metrics {
 		}, []string{Labels.Endpoint}),
 	}
 
-	registerAll(registerer, m, logger)
+	err := registerAll(registerer, m, logger)
 
-	return m
+	return m, err
 }
 
 func WithExemplar(obs prometheus.Observer, value float64, requestId string, traceId string) {
 	obs.(prometheus.ExemplarObserver).ObserveWithExemplar(value, prometheus.Labels{Labels.RequestId: requestId, Labels.TraceId: traceId})
 }
 
-func registerAll(registerer prometheus.Registerer, m any, logger *log.Logger) {
+func registerAll(registerer prometheus.Registerer, m any, logger *log.Logger) error {
 	r := reflect.ValueOf(m)
 	if r.Kind() == reflect.Pointer {
 		r = r.Elem()
 	}
 	total := 0
-	succeeded := 0
-	failed := 0
+	succeeded := []string{}
+	failed := map[string]error{}
 	for i := 0; i < r.NumField(); i++ {
 		n := r.Type().Field(i).Name
 		f := r.Field(i)
 		v := f.Interface()
-		c, ok := v.(prometheus.Collector)
-		if ok {
+		switch c := v.(type) {
+		case prometheus.Collector:
 			total++
-			err := registerer.Register(c)
-			if err != nil {
-				failed++
-				logger.Warn().Err(err).Msgf("failed to register metric '%s' (%T)", n, c)
+			if err := registerer.Register(c); err != nil {
+				failed[n] = err
 			} else {
-				succeeded++
+				succeeded = append(succeeded, n)
 			}
+		case *prometheus.Desc, prometheus.GaugeOpts, prometheus.CounterOpts, prometheus.UntypedOpts:
+			// skip these
+		default:
+			failed[n] = fmt.Errorf("unsupported metric '%s' of type %T", n, c)
 		}
 	}
-	logger.Debug().Msgf("registered %d/%d metrics successfully (%d failed)", succeeded, total, failed)
+	if len(failed) > 0 {
+		msg := strings.Join(structs.FlatMap(failed, func(name string, err error) string {
+			return fmt.Sprintf("'%s' (%v)", name, err)
+		}), ", ")
+		logger.Warn().Msgf("registered %d/%d metrics successfully (%d failed): %s", len(succeeded), total, len(failed), msg)
+		return fmt.Errorf("failed to register metrics: %s", msg)
+	} else {
+		logger.Debug().Msgf("registered %d/%d metrics successfully (%d failed)", len(succeeded), total, len(failed))
+		return nil
+	}
 }
 
 type ConstMetricCollector struct {
@@ -342,4 +366,8 @@ func Endpoint(endpoint string) prometheus.Labels {
 
 func EndpointAndStatus(endpoint string, status int) prometheus.Labels {
 	return prometheus.Labels{Labels.Endpoint: endpoint, Labels.HttpStatusCode: strconv.Itoa(status)}
+}
+
+func EndpointAndOperation(endpoint string, operation jmap.Operation) prometheus.Labels {
+	return prometheus.Labels{Labels.Endpoint: endpoint, Labels.Operation: string(operation)}
 }
