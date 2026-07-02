@@ -107,9 +107,7 @@ func (s *svc) handleTusPost(ctx context.Context, w http.ResponseWriter, r *http.
 		return
 	}
 	if err := ValidateName(filename(meta["filename"]), s.nameValidators); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		b, err := errors.Marshal(http.StatusBadRequest, err.Error(), "", "")
-		errors.HandleWebdavError(&log, w, b, err)
+		w.WriteHeader(http.StatusPreconditionFailed)
 		return
 	}
 
