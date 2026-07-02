@@ -41,6 +41,21 @@ func buildOpenSearchProperties(t reflect.Type, overrides map[string]FieldOpts, p
 			return nil
 		}
 
+		if fieldType == TypeGeopoint {
+			// Keep the facet object, add a sibling _geopoint field (see GeopointSuffix).
+			sub := structType(fi.GoField.Type)
+			if sub == nil {
+				return fmt.Errorf("mapping: geopoint type on non-struct field %q", key)
+			}
+			subProps, err := buildOpenSearchProperties(sub, overrides, key)
+			if err != nil {
+				return err
+			}
+			props[fi.Name] = map[string]any{"properties": subProps}
+			props[fi.Name+GeopointSuffix] = map[string]any{"type": "geo_point"}
+			return nil
+		}
+
 		fm, err := openSearchFieldMapping(fieldType, opts, fi.GoField.Type)
 		if err != nil {
 			return fmt.Errorf("mapping: field %q: %w", key, err)
@@ -88,6 +103,8 @@ func openSearchFieldMapping(fieldType string, opts FieldOpts, goType reflect.Typ
 		return map[string]any{"type": "boolean"}, nil
 	case TypeDatetime:
 		return map[string]any{"type": "date"}, nil
+	case TypeGeopoint:
+		return map[string]any{"type": "geo_point"}, nil
 	case "":
 		return nil, fmt.Errorf("no type inferred and no override")
 	}

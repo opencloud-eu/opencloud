@@ -24,6 +24,7 @@ func TestValidateAccepts(t *testing.T) {
 		"Name":         {Analyzer: "lowercaseKeyword"},
 		"audio":        {Type: TypeObject},
 		"audio.artist": {Analyzer: "lowercaseKeyword"},
+		"location":     {Type: TypeGeopoint},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

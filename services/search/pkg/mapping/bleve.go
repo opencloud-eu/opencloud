@@ -46,6 +46,21 @@ func buildBleveDocMapping(t reflect.Type, overrides map[string]FieldOpts, prefix
 			return nil
 		}
 
+		if fieldType == TypeGeopoint {
+			// Keep the facet object, add a sibling _geopoint field (see GeopointSuffix).
+			sub := structType(fi.GoField.Type)
+			if sub == nil {
+				return fmt.Errorf("mapping: geopoint type on non-struct field %q", key)
+			}
+			subDoc, err := buildBleveDocMapping(sub, overrides, key)
+			if err != nil {
+				return err
+			}
+			doc.AddSubDocumentMapping(fi.Name, subDoc)
+			doc.AddFieldMappingsAt(fi.Name+GeopointSuffix, bleve.NewGeoPointFieldMapping())
+			return nil
+		}
+
 		fm, err := bleveFieldMapping(fieldType, opts)
 		if err != nil {
 			return fmt.Errorf("mapping: field %q: %w", key, err)
@@ -85,6 +100,8 @@ func bleveFieldMapping(fieldType string, opts FieldOpts) (*bleveMapping.FieldMap
 		return bleve.NewBooleanFieldMapping(), nil
 	case TypeDatetime:
 		return bleve.NewDateTimeFieldMapping(), nil
+	case TypeGeopoint:
+		return bleve.NewGeoPointFieldMapping(), nil
 	case "":
 		return nil, fmt.Errorf("no type inferred and no override")
 	}

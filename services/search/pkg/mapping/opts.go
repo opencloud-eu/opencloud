@@ -14,6 +14,7 @@ const (
 	TypeDatetime = "datetime"
 	TypeBool     = "bool"
 	TypeObject   = "object"
+	TypeGeopoint = "geopoint"
 )
 
 // FieldOpts overrides the default type inference for a struct field. Keys in
