@@ -53,7 +53,7 @@ func (j *Client) GetEmails(accountId AccountId, ids []string, //NOSONAR
 	if err != nil {
 		return ZeroResultV[EmailGetResponse](), err
 	}
-	return command(j, ctx, cmd, func(body *Response) (EmailGetResponse, State, Error) {
+	return command(j, Operation("GetEmails"), ctx, cmd, func(body *Response) (EmailGetResponse, State, Error) {
 		if markAsSeen {
 			var markResponse EmailSetResponse
 			err = retrieveSet(ctx, body, markEmails, "0", &markResponse)
@@ -91,7 +91,7 @@ func (j *Client) GetEmailBlobId(accountId AccountId, id string, ctx Context) (Re
 	if err != nil {
 		return ZeroResultV[string](), err
 	}
-	return command(j, ctx, cmd, func(body *Response) (string, State, Error) {
+	return command(j, Operation("GetEmailBlobId"), ctx, cmd, func(body *Response) (string, State, Error) {
 		var response EmailGetResponse
 		err = retrieveGet(ctx, body, get, "0", &response)
 		if err != nil {
@@ -175,7 +175,7 @@ func (j *Client) GetAllEmailsInMailbox(accountId AccountId, mailboxId string, //
 		return ZeroResultV[*EmailSearchResults](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (*EmailSearchResults, State, Error) {
+	return command(j, Operation("GetAllEmailsInMailbox"), ctx, cmd, func(body *Response) (*EmailSearchResults, State, Error) {
 		var queryResponse EmailQueryResponse
 		err = retrieveQuery(ctx, body, query, "0", &queryResponse)
 		if err != nil {
@@ -262,7 +262,7 @@ func (j *Client) GetEmailChanges(accountId AccountId,
 		return ZeroResultV[EmailChanges](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (EmailChanges, State, Error) {
+	return command(j, Operation("GetEmailChanges"), ctx, cmd, func(body *Response) (EmailChanges, State, Error) {
 		var changesResponse EmailChangesResponse
 		err = retrieveChanges(ctx, body, changes, "0", &changesResponse)
 		if err != nil {
@@ -361,7 +361,7 @@ func (j *Client) QueryEmailSnippets(accountIds []AccountId, //NOSONAR
 		return ZeroResultV[map[AccountId]EmailSnippetSearchResults](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (map[AccountId]EmailSnippetSearchResults, State, Error) {
+	return command(j, Operation("QueryEmailSnippets"), ctx, cmd, func(body *Response) (map[AccountId]EmailSnippetSearchResults, State, Error) {
 		results := make(map[AccountId]EmailSnippetSearchResults, len(uniqueAccountIds))
 		states := make(map[AccountId]State, len(uniqueAccountIds))
 		for _, accountId := range uniqueAccountIds {
@@ -473,7 +473,7 @@ func (j *Client) QueryEmails(accountIds []AccountId,
 		return ZeroResultV[map[AccountId]EmailSearchResults](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (map[AccountId]EmailSearchResults, State, Error) {
+	return command(j, Operation("QueryEmails"), ctx, cmd, func(body *Response) (map[AccountId]EmailSearchResults, State, Error) {
 		results := make(map[AccountId]EmailSearchResults, len(uniqueAccountIds))
 		queryStates := map[AccountId]State{}
 		for _, accountId := range uniqueAccountIds {
@@ -568,7 +568,7 @@ func (j *Client) QueryEmailsWithSnippets(accountIds []AccountId, //NOSONAR
 		return ZeroResultV[map[AccountId]EmailQueryWithSnippetsResult](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (map[AccountId]EmailQueryWithSnippetsResult, State, Error) {
+	return command(j, Operation("QueryEmailsWithSnippets"), ctx, cmd, func(body *Response) (map[AccountId]EmailQueryWithSnippetsResult, State, Error) {
 		result := make(map[AccountId]EmailQueryWithSnippetsResult, len(uniqueAccountIds))
 		for _, accountId := range uniqueAccountIds {
 			var queryResponse EmailQueryResponse
@@ -662,7 +662,7 @@ func (j *Client) ImportEmail(accountId AccountId, data []byte, ctx Context) (Res
 		return ZeroResultV[UploadedEmail](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (UploadedEmail, State, Error) {
+	return command(j, Operation("ImportEmail"), ctx, cmd, func(body *Response) (UploadedEmail, State, Error) {
 		var uploadResponse BlobUploadResponse
 		err = retrieveResponseMatchParameters(ctx, body, CommandBlobUpload, "0", &uploadResponse)
 		if err != nil {
@@ -720,7 +720,7 @@ func (j *Client) CreateEmail(accountId AccountId, email EmailChange, replaceId s
 		return ZeroResultV[*Email](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (*Email, State, Error) {
+	return command(j, Operation("CreateEmail"), ctx, cmd, func(body *Response) (*Email, State, Error) {
 		var setResponse EmailSetResponse
 		err = retrieveResponseMatchParameters(ctx, body, CommandEmailSet, "0", &setResponse)
 		if err != nil {
@@ -767,7 +767,7 @@ func (j *Client) UpdateEmails(accountId AccountId, updates map[string]PatchObjec
 		return ZeroResultV[map[string]*Email](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (map[string]*Email, State, Error) {
+	return command(j, Operation("UpdateEmails"), ctx, cmd, func(body *Response) (map[string]*Email, State, Error) {
 		var setResponse EmailSetResponse
 		err = retrieveSet(ctx, body, set, "0", &setResponse)
 		if err != nil {
@@ -881,7 +881,7 @@ func (j *Client) SubmitEmail(accountId AccountId, identityId string, emailId str
 		return ZeroResultV[EmailSubmission](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (EmailSubmission, State, Error) {
+	return command(j, Operation("SubmitEmail"), ctx, cmd, func(body *Response) (EmailSubmission, State, Error) {
 		var submissionResponse EmailSubmissionSetResponse
 		err = retrieveSet(ctx, body, submit, "0", &submissionResponse)
 		if err != nil {
@@ -939,7 +939,7 @@ func (j *Client) GetEmailSubmissionStatus(accountId AccountId, submissionIds []s
 		return ZeroResultV[EmailSubmissionGetResponse](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (EmailSubmissionGetResponse, State, Error) {
+	return command(j, Operation("GetEmailSubmissionStatus"), ctx, cmd, func(body *Response) (EmailSubmissionGetResponse, State, Error) {
 		var response EmailSubmissionGetResponse
 		err = retrieveGet(ctx, body, get, "0", &response)
 		if err != nil {
@@ -981,7 +981,7 @@ func (j *Client) EmailsInThread(accountId AccountId, threadId string,
 		return ZeroResultV[[]Email](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) ([]Email, State, Error) {
+	return command(j, Operation("EmailsInThread"), ctx, cmd, func(body *Response) ([]Email, State, Error) {
 		var emailsResponse EmailGetResponse
 		err = retrieveGet(ctx, body, get, "1", &emailsResponse)
 		if err != nil {
@@ -1070,7 +1070,7 @@ func (j *Client) QueryEmailSummaries(accountIds []AccountId, //NOSONAR
 		return ZeroResultV[map[AccountId]EmailsSummary](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (map[AccountId]EmailsSummary, State, Error) {
+	return command(j, Operation("QueryEmailSummaries"), ctx, cmd, func(body *Response) (map[AccountId]EmailsSummary, State, Error) {
 		resp := map[AccountId]EmailsSummary{}
 		for _, accountId := range uniqueAccountIds {
 			var queryResponse EmailQueryResponse

@@ -55,7 +55,7 @@ func (j *Client) SearchMailboxes(accountIds []AccountId, filter MailboxFilterEle
 		return ZeroResultV[map[AccountId][]Mailbox](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (map[AccountId][]Mailbox, State, Error) {
+	return command(j, Operation("SearchMailboxes"), ctx, cmd, func(body *Response) (map[AccountId][]Mailbox, State, Error) {
 		resp := map[AccountId][]Mailbox{}
 		stateByAccountid := map[AccountId]State{}
 		for _, accountId := range uniqueAccountIds {
@@ -89,7 +89,7 @@ func (j *Client) SearchMailboxIdsPerRole(accountIds []AccountId, roles []string,
 		return ZeroResultV[map[AccountId]map[string]string](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (map[AccountId]map[string]string, State, Error) {
+	return command(j, Operation("SearchMailboxIdsPerRole"), ctx, cmd, func(body *Response) (map[AccountId]map[string]string, State, Error) {
 		resp := map[AccountId]map[string]string{}
 		stateByAccountid := map[AccountId]State{}
 		for _, accountId := range uniqueAccountIds {
@@ -228,7 +228,7 @@ func (j *Client) GetInboxNameForMultipleAccounts(accountIds []AccountId, ctx Con
 		return ZeroResultV[map[AccountId]string](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (map[AccountId]string, State, Error) {
+	return command(j, Operation("GetInboxNameForMultipleAccounts"), ctx, cmd, func(body *Response) (map[AccountId]string, State, Error) {
 		resp := make(map[AccountId]string, n)
 		stateByAccountId := make(map[AccountId]State, n)
 		for _, accountId := range uniqueAccountIds {

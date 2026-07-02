@@ -22,7 +22,7 @@ func get[T Foo, GETREQ GetCommand[T], GETRESP GetResponse[T], ID any, RESP any](
 		return ZeroResultV[RESP](), err
 	}
 
-	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
+	return command(client, Operation(name), ctx, cmd, func(body *Response) (RESP, State, Error) {
 		var response GETRESP
 		err = retrieveGet(ctx, body, get, "0", &response)
 		if err != nil {
@@ -73,7 +73,7 @@ func getN[T Foo, ITEM any, GETREQ GetCommand[T], GETRESP GetResponse[T], ID any,
 		return ZeroResultV[RESP](), err
 	}
 
-	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
+	return command(client, Operation(name), ctx, cmd, func(body *Response) (RESP, State, Error) {
 		result := map[AccountId]ITEM{}
 		responses := map[AccountId]GETRESP{}
 		for _, accountId := range uniqueAccountIds {
@@ -112,7 +112,7 @@ func create[T Foo, C any, SETREQ SetCommand[T], GETREQ GetCommand[T], SETRESP Se
 		return ZeroResultV[*T](), err
 	}
 
-	return command(client, ctx, cmd, func(body *Response) (*T, State, Error) {
+	return command(client, Operation(name), ctx, cmd, func(body *Response) (*T, State, Error) {
 		var setResponse SETRESP
 		err = retrieveSet(ctx, body, set, "0", &setResponse)
 		if err != nil {
@@ -165,7 +165,7 @@ func destroy[T Foo, REQ SetCommand[T], RESP SetResponse[T]](client *Client, name
 		return ZeroResultV[map[string]SetError](), err
 	}
 
-	return command(client, ctx, cmd, func(body *Response) (map[string]SetError, State, Error) {
+	return command(client, Operation(name), ctx, cmd, func(body *Response) (map[string]SetError, State, Error) {
 		var setResponse RESP
 		err = retrieveSet(ctx, body, set, "0", &setResponse)
 		if err != nil {
@@ -213,7 +213,7 @@ func changes[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 		return ZeroResultV[RESP](), err
 	}
 
-	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
+	return command(client, Operation(name), ctx, cmd, func(body *Response) (RESP, State, Error) {
 		var changesResponse CHANGESRESP
 		err = retrieveChanges(ctx, body, changes, "0", &changesResponse)
 		if err != nil {
@@ -302,7 +302,7 @@ func changesN[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGES
 		return ZeroResultV[RESP](), err
 	}
 
-	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
+	return command(client, Operation(name), ctx, cmd, func(body *Response) (RESP, State, Error) {
 		changesItemByAccount := make(map[AccountId]CHANGESITEM, n)
 		stateByAccountId := make(map[AccountId]State, n)
 		for _, accountId := range uniqueAccountIds {
@@ -357,7 +357,7 @@ func updates[T Foo, CHANGESREQ ChangesCommand[T], GETREQ GetCommand[T], CHANGESR
 		return ZeroResultV[RESP](), err
 	}
 
-	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
+	return command(client, Operation(name), ctx, cmd, func(body *Response) (RESP, State, Error) {
 		var changesResponse CHANGESRESP
 		err = retrieveChanges(ctx, body, changes, "0", &changesResponse)
 		if err != nil {
@@ -405,7 +405,7 @@ func update[T Foo, CHANGES Change[T], SET SetCommand[T], GET GetCommand[T], RESP
 		return ZeroResultV[RESP](), err
 	}
 
-	return command(client, ctx, cmd, func(body *Response) (RESP, State, Error) {
+	return command(client, Operation(name), ctx, cmd, func(body *Response) (RESP, State, Error) {
 		var setResponse SETRESP
 		err = retrieveSet(ctx, body, update, "0", &setResponse)
 		if err != nil {
@@ -529,7 +529,7 @@ func queryN[T Foo, FILTER any, SORT any, QUERY QueryCommand[T /*, QUERY*/], GET 
 		return ZeroResultV[map[AccountId]*RESP](), err
 	}
 
-	return command(client, ctx, cmd, func(body *Response) (map[AccountId]*RESP, State, Error) {
+	return command(client, Operation(name), ctx, cmd, func(body *Response) (map[AccountId]*RESP, State, Error) {
 		resp := map[AccountId]*RESP{}
 		stateByAccountId := map[AccountId]State{}
 		for accountId, queryParams := range accountIds {

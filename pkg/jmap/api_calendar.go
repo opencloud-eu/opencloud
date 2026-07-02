@@ -13,7 +13,7 @@ func (j *Client) ParseICalendarBlob(accountId AccountId, blobIds []string, ctx C
 		return ZeroResultV[CalendarEventParseResponse](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (CalendarEventParseResponse, State, Error) {
+	return command(j, Operation("ParseICalendarBlob"), ctx, cmd, func(body *Response) (CalendarEventParseResponse, State, Error) {
 		var response CalendarEventParseResponse
 		err = retrieveParse(ctx, body, parse, "0", &response)
 		if err != nil {

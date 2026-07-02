@@ -27,7 +27,7 @@ func (j *Client) GetBootstrap(accountIds []AccountId, ctx Context) (Result[map[A
 	if err != nil {
 		return ZeroResultV[map[AccountId]AccountBootstrapResult](), err
 	}
-	return command(j, ctx, cmd, func(body *Response) (map[AccountId]AccountBootstrapResult, State, Error) {
+	return command(j, Operation("GetBootstrap"), ctx, cmd, func(body *Response) (map[AccountId]AccountBootstrapResult, State, Error) {
 		identityPerAccount := map[AccountId][]Identity{}
 		quotaPerAccount := map[AccountId][]Quota{}
 		identityStatesPerAccount := map[AccountId]State{}

@@ -93,7 +93,7 @@ func (j *Client) GetObjects(accountId AccountId, //NOSONAR
 		return ZeroResultV[Objects](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (Objects, State, Error) {
+	return command(j, Operation("GetObjects"), ctx, cmd, func(body *Response) (Objects, State, Error) {
 		objs := Objects{}
 		states := map[string]State{}
 

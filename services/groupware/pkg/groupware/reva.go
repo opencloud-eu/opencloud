@@ -89,6 +89,10 @@ var tokenMissingInRevaContext = RevaError{
 	err:  errors.New("token is missing from Reva context"),
 }
 
+func (h *RevaBearerHttpJmapClientAuthenticator) GetId() string {
+	return "reva"
+}
+
 func (h *RevaBearerHttpJmapClientAuthenticator) Authenticate(ctx context.Context, _ string, logger *log.Logger, req *http.Request) jmap.Error {
 	token, ok := revactx.ContextGetToken(ctx)
 	if !ok {

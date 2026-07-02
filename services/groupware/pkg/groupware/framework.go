@@ -156,25 +156,26 @@ type groupwareHttpJmapApiClientMetricsRecorder struct {
 
 var _ jmap.HttpJmapApiClientEventListener = groupwareHttpJmapApiClientMetricsRecorder{}
 
-func (r groupwareHttpJmapApiClientMetricsRecorder) OnSuccessfulRequest(endpoint string, status int) {
+func (r groupwareHttpJmapApiClientMetricsRecorder) OnSuccessfulRequest(endpoint string, op jmap.Operation, status int) {
 	r.m.SuccessfulRequestPerEndpointCounter.With(metrics.Endpoint(endpoint)).Inc()
+	r.m.OperationSpreadCounter.With(metrics.EndpointAndOperation(endpoint, op)).Inc()
 }
-func (r groupwareHttpJmapApiClientMetricsRecorder) OnFailedRequest(endpoint string, err error) {
+func (r groupwareHttpJmapApiClientMetricsRecorder) OnFailedRequest(endpoint string, op jmap.Operation, err error) {
 	r.m.FailedRequestPerEndpointCounter.With(metrics.Endpoint(endpoint)).Inc()
 }
-func (r groupwareHttpJmapApiClientMetricsRecorder) OnFailedRequestWithStatus(endpoint string, status int) {
+func (r groupwareHttpJmapApiClientMetricsRecorder) OnFailedRequestWithStatus(endpoint string, op jmap.Operation, status int) {
 	r.m.FailedRequestStatusPerEndpointCounter.With(metrics.EndpointAndStatus(endpoint, status)).Inc()
 }
-func (r groupwareHttpJmapApiClientMetricsRecorder) OnResponseBodyReadingError(endpoint string, err error) {
+func (r groupwareHttpJmapApiClientMetricsRecorder) OnResponseBodyReadingError(endpoint string, op jmap.Operation, err error) {
 	r.m.ResponseBodyReadingErrorPerEndpointCounter.With(metrics.Endpoint(endpoint)).Inc()
 }
-func (r groupwareHttpJmapApiClientMetricsRecorder) OnResponseBodyUnmarshallingError(endpoint string, err error) {
+func (r groupwareHttpJmapApiClientMetricsRecorder) OnResponseBodyUnmarshallingError(endpoint string, op jmap.Operation, err error) {
 	r.m.ResponseBodyUnmarshallingErrorPerEndpointCounter.With(metrics.Endpoint(endpoint)).Inc()
 }
-func (r groupwareHttpJmapApiClientMetricsRecorder) OnSuccessfulWsRequest(endpoint string, status int) {
+func (r groupwareHttpJmapApiClientMetricsRecorder) OnSuccessfulWsRequest(endpoint string, op jmap.Operation, status int) {
 	// TODO metrics for WSS
 }
-func (r groupwareHttpJmapApiClientMetricsRecorder) OnFailedWsHandshakeRequestWithStatus(endpoint string, status int) {
+func (r groupwareHttpJmapApiClientMetricsRecorder) OnFailedWsHandshakeRequestWithStatus(endpoint string, op jmap.Operation, status int) {
 	// TODO metrics for WSS
 }
 
@@ -210,7 +211,10 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 
 	sanitize := true // TODO make configurable
 
-	m := metrics.New(prometheusRegistry, logger)
+	m, err := metrics.New(prometheusRegistry, logger)
+	if err != nil {
+		return nil, GroupwareInitializationError{Message: fmt.Sprintf("failed to configure metrics: %v", err), Err: err}
+	}
 
 	userProvider := newRevaContextUsernameProvider()
 
@@ -269,7 +273,9 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 				wsDialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // #nosec G402 insecure TLS is a configuration option for development
 			}
 
-			wsf, err = jmap.NewHttpWsClientFactory(wsDialer, auth, logger, jmapMetricsAdapter)
+			wsf, err = jmap.NewHttpWsClientFactory(wsDialer, auth, logger, jmapMetricsAdapter,
+				config.HTTP.TraceResponses, config.HTTP.TraceMaxResponseBodySize,
+			)
 			if err != nil {
 				logger.Error().Err(err).Msg("failed to create websocket client")
 				return nil, GroupwareInitializationError{Message: "failed to create websocket client", Err: err}

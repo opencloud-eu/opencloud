@@ -662,7 +662,7 @@ func createJmapClient(container *testcontainers.DockerContainer, ctx context.Con
 
 	api := NewHttpJmapClient(&jh, auth, eventListener, true, 8192, true, 8192)
 
-	wscf, err := NewHttpWsClientFactory(wsd, auth, logger, eventListener)
+	wscf, err := NewHttpWsClientFactory(wsd, auth, logger, eventListener, true, 8192)
 	if err != nil {
 		return Client{}, nil, nil, err
 	}
@@ -675,6 +675,10 @@ type ContextPasswordAuthHttpJmapClientAuthenticator struct {
 }
 
 var _ HttpJmapClientAuthenticator = &ContextPasswordAuthHttpJmapClientAuthenticator{}
+
+func (h *ContextPasswordAuthHttpJmapClientAuthenticator) GetId() string {
+	return "context"
+}
 
 func (h *ContextPasswordAuthHttpJmapClientAuthenticator) Authenticate(ctx context.Context, username string, _ *oclog.Logger, req *http.Request) Error {
 	password := ctx.Value(h.key).(string)

@@ -1243,11 +1243,11 @@ type Response struct {
 	// Clients may use this to detect if this object has changed and needs to be refetched.
 	SessionState SessionState `json:"sessionState"`
 
-	// This MUST be the string "Response".
+	// Only for Websockets: This MUST be the string "Response".
 	// The specification extends the Response object with two additional arguments when used over a WebSocket.
 	Type TypeOfResponse `json:"@type,omitempty"`
 
-	// MUST be returned if an identifier is included in the request (optional).
+	// Only for Websockets: MUST be returned if an identifier is included in the request (optional).
 	RequestId string `json:"requestId,omitempty"`
 }
 

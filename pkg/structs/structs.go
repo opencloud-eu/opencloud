@@ -170,6 +170,14 @@ func MapMap[A comparable, B any, X comparable, Y any](m map[A]B, mapper func(A, 
 	return r
 }
 
+func FlatMap[K comparable, V any, E any](m map[K]V, mapper func(K, V) E) []E {
+	r := make([]E, len(m))
+	for k, v := range m {
+		r = append(r, mapper(k, v))
+	}
+	return r
+}
+
 // Creates a map from a map, keeping each key as-is, and using the mapper
 // function to determine the value to store into the resulting map.
 func MapValues[K comparable, S any, T any](m map[K]S, mapper func(S) T) map[K]T {

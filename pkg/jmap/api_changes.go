@@ -110,7 +110,7 @@ func (j *Client) GetChanges(accountId AccountId, stateMap StateMap, maxChanges u
 		return ZeroResultV[ObjectChanges](), err
 	}
 
-	return command(j, ctx, cmd, func(body *Response) (ObjectChanges, State, Error) {
+	return command(j, Operation("GetChanges"), ctx, cmd, func(body *Response) (ObjectChanges, State, Error) {
 		changes := ObjectChanges{
 			MaxChanges: maxChanges,
 		}
