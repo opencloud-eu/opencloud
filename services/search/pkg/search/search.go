@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
@@ -19,6 +20,7 @@ import (
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 )
 
 var scopeRegex = regexp.MustCompile(`scope:\s*([^" "\n\r]*)`)
@@ -51,13 +53,36 @@ type BatchOperator interface {
 type Resource struct {
 	content.Document
 
-	ID       string
-	RootID   string
-	Path     string
-	ParentID string
-	Type     uint64
-	Deleted  bool
-	Hidden   bool
+	ID       string `json:"ID"`
+	RootID   string `json:"RootID"`
+	Path     string `json:"Path"`
+	ParentID string `json:"ParentID"`
+	Type     uint64 `json:"Type"`
+	Deleted  bool   `json:"Deleted"`
+	Hidden   bool   `json:"Hidden"`
+}
+
+// resourceFieldOverrides is built once (it never changes) and reused on hot
+// paths instead of reallocating per call.
+var resourceFieldOverrides = sync.OnceValue(func() map[string]mapping.FieldOpts {
+	excludeFromAll := false
+	return map[string]mapping.FieldOpts{
+		"Name":      {Analyzer: "lowercaseKeyword"},
+		"Content":   {Type: mapping.TypeFulltext},
+		"Tags":      {Analyzer: "lowercaseKeyword", IncludeInAll: &excludeFromAll},
+		"Favorites": {Analyzer: "lowercaseKeyword", IncludeInAll: &excludeFromAll},
+		// Mtime is stored as an RFC3339 string; type it as a date so mtime:>...
+		// range queries are chronological on both backends (bleve DateRangeQuery
+		// / OpenSearch date range), not a lexicographic keyword compare.
+		"Mtime": {Type: mapping.TypeDatetime},
+	}
+})
+
+// SearchFieldOverrides returns the field options the mapping package needs to
+// build per-backend index mappings for a Resource (keys are json-tag names).
+// The map is shared and read-only; clone it before mutating.
+func (Resource) SearchFieldOverrides() map[string]mapping.FieldOpts {
+	return resourceFieldOverrides()
 }
 
 // ResolveReference makes sure the path is relative to the space root

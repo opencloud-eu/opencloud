@@ -136,10 +136,10 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 				Tags:       getFieldSliceValue[string](hit.Fields, "Tags"),
 				Favorites:  getFieldSliceValue[string](hit.Fields, "Favorites"),
 				Highlights: getFragmentValue(hit.Fragments, "Content", 0),
-				Audio:      getAudioValue[searchMessage.Audio](hit.Fields),
-				Image:      getImageValue[searchMessage.Image](hit.Fields),
-				Location:   getLocationValue[searchMessage.GeoCoordinates](hit.Fields),
-				Photo:      getPhotoValue[searchMessage.Photo](hit.Fields),
+				Audio:      hitToFacet[searchMessage.Audio](hit.Fields, "audio"),
+				Image:      hitToFacet[searchMessage.Image](hit.Fields, "image"),
+				Location:   hitToFacet[searchMessage.GeoCoordinates](hit.Fields, "location"),
+				Photo:      hitToFacet[searchMessage.Photo](hit.Fields, "photo"),
 			},
 		}
 

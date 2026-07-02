@@ -14,6 +14,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
@@ -43,7 +44,7 @@ func NewBatch(client *opensearchgoAPI.Client, index string, size int) (*Batch, e
 
 func (b *Batch) Upsert(id string, r search.Resource) error {
 	return b.withSizeLimit(func() error {
-		body, err := conversions.To[map[string]any](r)
+		body, err := mapping.PrepareForIndex(r, r.SearchFieldOverrides())
 		if err != nil {
 			return fmt.Errorf("failed to marshal resource: %w", err)
 		}

@@ -15,6 +15,17 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
+// copyFacet converts a typed pointer from the indexed shape (libregraph) to
+// the protobuf shape via conversions.To. Returns nil when src is nil so the
+// enclosing Match.Entity field stays nil.
+func copyFacet[Dst, Src any](src *Src) *Dst {
+	if src == nil {
+		return nil
+	}
+	dst, _ := conversions.To[*Dst](src)
+	return dst
+}
+
 func OpenSearchHitToMatch(hit opensearchgoAPI.SearchHit) (*searchMessage.Match, error) {
 	resource, err := conversions.To[search.Resource](hit.Source)
 	if err != nil {
@@ -68,26 +79,10 @@ func OpenSearchHitToMatch(hit opensearchgoAPI.SearchHit) (*searchMessage.Match, 
 
 				return strings.Join(contentHighlights[:], "; ")
 			}(),
-			Audio: func() *searchMessage.Audio {
-				if !strings.HasPrefix(resource.MimeType, "audio/") {
-					return nil
-				}
-
-				audio, _ := conversions.To[*searchMessage.Audio](resource.Audio)
-				return audio
-			}(),
-			Image: func() *searchMessage.Image {
-				image, _ := conversions.To[*searchMessage.Image](resource.Image)
-				return image
-			}(),
-			Location: func() *searchMessage.GeoCoordinates {
-				geoCoordinates, _ := conversions.To[*searchMessage.GeoCoordinates](resource.Location)
-				return geoCoordinates
-			}(),
-			Photo: func() *searchMessage.Photo {
-				photo, _ := conversions.To[*searchMessage.Photo](resource.Photo)
-				return photo
-			}(),
+			Audio:    copyFacet[searchMessage.Audio](resource.Audio),
+			Image:    copyFacet[searchMessage.Image](resource.Image),
+			Location: copyFacet[searchMessage.GeoCoordinates](resource.Location),
+			Photo:    copyFacet[searchMessage.Photo](resource.Photo),
 		},
 	}
 
