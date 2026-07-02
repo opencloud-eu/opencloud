@@ -71,6 +71,7 @@ var resourceFieldOverrides = sync.OnceValue(func() map[string]mapping.FieldOpts 
 		"Content":   {Type: mapping.TypeFulltext},
 		"Tags":      {Analyzer: "lowercaseKeyword", IncludeInAll: &excludeFromAll},
 		"Favorites": {Analyzer: "lowercaseKeyword", IncludeInAll: &excludeFromAll},
+		"location":  {Type: mapping.TypeGeopoint},
 		// Mtime is stored as an RFC3339 string; type it as a date so mtime:>...
 		// range queries are chronological on both backends (bleve DateRangeQuery
 		// / OpenSearch date range), not a lexicographic keyword compare.

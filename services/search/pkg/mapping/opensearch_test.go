@@ -130,3 +130,42 @@ func TestOpenSearchBuildMappingOverrides(t *testing.T) {
 		t.Errorf("MimeType: %#v", mime)
 	}
 }
+
+func TestOpenSearchBuildMappingGeopoint(t *testing.T) {
+	type doc struct {
+		Location *struct {
+			Lon float64 `json:"longitude"`
+			Lat float64 `json:"latitude"`
+			Alt float64 `json:"altitude"`
+		} `json:"location,omitempty"`
+	}
+	props, err := OpenSearchBuildMapping(reflect.TypeFor[doc](), map[string]FieldOpts{
+		"location": {Type: TypeGeopoint},
+	})
+	if err != nil {
+		t.Fatalf("OpenSearchBuildMapping: %v", err)
+	}
+	// Object for libregraph-shape data retrieval.
+	loc, ok := props["location"].(map[string]any)
+	if !ok {
+		t.Fatalf("location: %#v", props["location"])
+	}
+	sub, ok := loc["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("location should have numeric sub-properties, got %#v", loc)
+	}
+	for _, k := range []string{"longitude", "latitude", "altitude"} {
+		prop, ok := sub[k].(map[string]any)
+		if !ok || prop["type"] != "double" {
+			t.Errorf("location.%s: %#v", k, sub[k])
+		}
+	}
+	// Sibling geo_point for spatial queries.
+	gp, ok := props["location"+GeopointSuffix].(map[string]any)
+	if !ok {
+		t.Fatalf("location%s: %#v", GeopointSuffix, props["location"+GeopointSuffix])
+	}
+	if gp["type"] != "geo_point" {
+		t.Errorf("location%s.type: %v", GeopointSuffix, gp["type"])
+	}
+}
