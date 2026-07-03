@@ -227,8 +227,8 @@ var (
 		roleEditor,
 		roleEditorListGrants,
 		roleEditorWithVersions,
+		roleSpaceEditorWithVersions,
 		roleSpaceEditor,
-		roleSpaceEditorWithoutVersions,
 		roleFileEditor,
 		roleFileEditorWithVersions,
 		roleFileEditorListGrants,
@@ -447,8 +447,8 @@ var (
 		}
 	}()
 
-	// roleSpaceEditorWithoutVersions creates an editor without versions role
-	roleSpaceEditorWithoutVersions = func() *libregraph.UnifiedRoleDefinition {
+	// roleSpaceEditor creates an editor without versions role
+	roleSpaceEditor = func() *libregraph.UnifiedRoleDefinition {
 		r := conversions.NewSpaceEditorWithoutVersionsRole()
 		return &libregraph.UnifiedRoleDefinition{
 			Id:          proto.String(UnifiedRoleSpaceEditorWithoutVersionsID),
@@ -464,8 +464,8 @@ var (
 		}
 	}()
 
-	// roleSpaceEditor creates an editor role
-	roleSpaceEditor = func() *libregraph.UnifiedRoleDefinition {
+	// roleSpaceEditorWithVersions creates an editor role
+	roleSpaceEditorWithVersions = func() *libregraph.UnifiedRoleDefinition {
 		r := conversions.NewSpaceEditorRole()
 		return &libregraph.UnifiedRoleDefinition{
 			Id:          proto.String(UnifiedRoleSpaceEditorID),
