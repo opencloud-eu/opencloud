@@ -2,8 +2,9 @@ package mapping
 
 import (
 	"reflect"
-	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 type inner struct {
@@ -19,33 +20,28 @@ type sample struct {
 	} `json:"location,omitempty"`
 }
 
-func TestValidateAccepts(t *testing.T) {
-	err := Validate(reflect.TypeFor[sample](), map[string]FieldOpts{
-		"Name":         {Analyzer: "lowercaseKeyword"},
-		"audio":        {Type: TypeObject},
-		"audio.artist": {Analyzer: "lowercaseKeyword"},
-		"location":     {Type: TypeGeopoint},
+var _ = Describe("Validate", func() {
+	It("accepts known override keys", func() {
+		err := Validate(reflect.TypeFor[sample](), map[string]FieldOpts{
+			"Name":         {Analyzer: "lowercaseKeyword"},
+			"audio":        {Type: TypeObject},
+			"audio.artist": {Analyzer: "lowercaseKeyword"},
+			"location":     {Type: TypeGeopoint},
+		})
+		Expect(err).ToNot(HaveOccurred())
 	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
 
-func TestValidateRejectsUnknown(t *testing.T) {
-	err := Validate(reflect.TypeFor[sample](), map[string]FieldOpts{
-		"nope":      {},
-		"audio.zzz": {},
+	It("rejects unknown override keys", func() {
+		err := Validate(reflect.TypeFor[sample](), map[string]FieldOpts{
+			"nope":      {},
+			"audio.zzz": {},
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("nope"))
+		Expect(err.Error()).To(ContainSubstring("audio.zzz"))
 	})
-	if err == nil {
-		t.Fatalf("expected error")
-	}
-	if !strings.Contains(err.Error(), "nope") || !strings.Contains(err.Error(), "audio.zzz") {
-		t.Fatalf("error missing keys: %v", err)
-	}
-}
 
-func TestValidateEmpty(t *testing.T) {
-	if err := Validate(reflect.TypeFor[sample](), nil); err != nil {
-		t.Fatalf("empty overrides should pass: %v", err)
-	}
-}
+	It("accepts empty overrides", func() {
+		Expect(Validate(reflect.TypeFor[sample](), nil)).To(Succeed())
+	})
+})

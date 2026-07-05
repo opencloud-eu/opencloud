@@ -1,9 +1,10 @@
 package mapping
 
 import (
-	"testing"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -31,125 +32,87 @@ type embedded struct {
 	Photo *photo `json:"photo,omitempty"`
 }
 
-func TestDeserializeAtNonStructPanics(t *testing.T) {
-	defer func() {
-		if recover() == nil {
-			t.Error("expected panic for non-struct type")
-		}
-	}()
-	_ = DeserializeAt[int](map[string]any{}, "")
-}
-
-func TestDeserializeLeafFields(t *testing.T) {
-	r := Deserialize[Leaf](map[string]any{
-		"Name":    "n",
-		"Size":    float64(42),
-		"Deleted": true,
+var _ = Describe("Deserialize", func() {
+	It("panics for a non-struct type at a prefix", func() {
+		Expect(func() {
+			_ = DeserializeAt[int](map[string]any{}, "")
+		}).To(Panic())
 	})
-	if r.Name != "n" || r.Size != 42 || !r.Deleted {
-		t.Fatalf("got %#v", r)
-	}
-}
 
-func TestDeserializeScalarToSlice(t *testing.T) {
-	r := Deserialize[Leaf](map[string]any{
-		"Tags":      "single",
-		"Favorites": []any{"a", "b"},
+	It("panics for a non-struct T", func() {
+		Expect(func() {
+			Deserialize[int](nil)
+		}).To(Panic())
 	})
-	if len(r.Tags) != 1 || r.Tags[0] != "single" {
-		t.Errorf("Tags: %#v", r.Tags)
-	}
-	if len(r.Favorites) != 2 || r.Favorites[0] != "a" || r.Favorites[1] != "b" {
-		t.Errorf("Favorites: %#v", r.Favorites)
-	}
-}
 
-func TestDeserializeTimestamp(t *testing.T) {
-	r := Deserialize[embedded](map[string]any{
-		"photo.takenDateTime": "2024-01-02T03:04:05Z",
-		"photo.mtime":         "2024-05-06T07:08:09Z",
+	It("deserializes leaf fields", func() {
+		r := Deserialize[Leaf](map[string]any{
+			"Name":    "n",
+			"Size":    float64(42),
+			"Deleted": true,
+		})
+		Expect(r.Name).To(Equal("n"))
+		Expect(r.Size).To(Equal(uint64(42)))
+		Expect(r.Deleted).To(BeTrue())
 	})
-	if r.Photo == nil {
-		t.Fatal("Photo is nil")
-	}
-	if r.Photo.Taken == nil {
-		t.Fatal("Taken is nil")
-	}
-	expected := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
-	if !r.Photo.Taken.AsTime().Equal(expected) {
-		t.Errorf("Taken: got %v, want %v", r.Photo.Taken.AsTime(), expected)
-	}
-	if r.Photo.Mtime == nil {
-		t.Fatal("Mtime is nil")
-	}
-	if !r.Photo.Mtime.Equal(time.Date(2024, 5, 6, 7, 8, 9, 0, time.UTC)) {
-		t.Errorf("Mtime: %v", r.Photo.Mtime)
-	}
-}
 
-func TestDeserializeIsFailSoft(t *testing.T) {
-	// Malformed values (type mismatch, unparseable time) leave the
-	// affected field at its zero value instead of dropping the whole
-	// record. Matches the pre-refactor getFieldValue behavior so
-	// matchToResource never returns nil on a corrupted hit.
-	r := Deserialize[embedded](map[string]any{
-		"Name":                "n",
-		"Size":                "not-a-number", // wrong type
-		"Deleted":             true,
-		"photo.takenDateTime": "not-an-rfc3339-time",
-		"photo.mtime":         "2024-05-06T07:08:09Z",
+	It("coerces a scalar into a slice field", func() {
+		r := Deserialize[Leaf](map[string]any{
+			"Tags":      "single",
+			"Favorites": []any{"a", "b"},
+		})
+		Expect(r.Tags).To(Equal([]string{"single"}))
+		Expect(r.Favorites).To(Equal([]string{"a", "b"}))
 	})
-	if r == nil {
-		t.Fatal("expected non-nil *embedded even with partial corruption")
-	}
-	if r.Name != "n" {
-		t.Errorf("Name: %q", r.Name)
-	}
-	if r.Size != 0 {
-		t.Errorf("Size should stay zero on mismatch, got %d", r.Size)
-	}
-	if !r.Deleted {
-		t.Errorf("Deleted should still be true")
-	}
-	if r.Photo == nil {
-		t.Fatal("Photo should be populated because Mtime parsed ok")
-	}
-	if r.Photo.Taken != nil {
-		t.Errorf("Taken should stay nil for unparseable time, got %v", r.Photo.Taken)
-	}
-	if r.Photo.Mtime == nil {
-		t.Error("Mtime should be parsed")
-	}
-}
 
-func TestDeserializePanicsOnNonStruct(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Fatal("expected panic for non-struct T")
-		}
-	}()
-	Deserialize[int](nil)
-}
+	It("parses timestamps", func() {
+		r := Deserialize[embedded](map[string]any{
+			"photo.takenDateTime": "2024-01-02T03:04:05Z",
+			"photo.mtime":         "2024-05-06T07:08:09Z",
+		})
+		Expect(r.Photo).ToNot(BeNil())
+		Expect(r.Photo.Taken).ToNot(BeNil())
+		expected := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
+		Expect(r.Photo.Taken.AsTime().Equal(expected)).To(BeTrue(), "Taken: got %v, want %v", r.Photo.Taken.AsTime(), expected)
+		Expect(r.Photo.Mtime).ToNot(BeNil())
+		Expect(r.Photo.Mtime.Equal(time.Date(2024, 5, 6, 7, 8, 9, 0, time.UTC))).To(BeTrue(), "Mtime: %v", r.Photo.Mtime)
+	})
 
-func TestDeserializeAtReturnsNilWhenNothingMatches(t *testing.T) {
-	r := DeserializeAt[audio](map[string]any{"Name": "n"}, "audio")
-	if r != nil {
-		t.Fatalf("expected nil, got %#v", r)
-	}
-}
+	It("is fail-soft on malformed values", func() {
+		// Malformed values (type mismatch, unparseable time) leave the
+		// affected field at its zero value instead of dropping the whole
+		// record. Matches the pre-refactor getFieldValue behavior so
+		// matchToResource never returns nil on a corrupted hit.
+		r := Deserialize[embedded](map[string]any{
+			"Name":                "n",
+			"Size":                "not-a-number", // wrong type
+			"Deleted":             true,
+			"photo.takenDateTime": "not-an-rfc3339-time",
+			"photo.mtime":         "2024-05-06T07:08:09Z",
+		})
+		Expect(r).ToNot(BeNil())
+		Expect(r.Name).To(Equal("n"))
+		Expect(r.Size).To(Equal(uint64(0)), "Size should stay zero on mismatch")
+		Expect(r.Deleted).To(BeTrue())
+		Expect(r.Photo).ToNot(BeNil(), "Photo should be populated because Mtime parsed ok")
+		Expect(r.Photo.Taken).To(BeNil(), "Taken should stay nil for unparseable time")
+		Expect(r.Photo.Mtime).ToNot(BeNil(), "Mtime should be parsed")
+	})
 
-func TestDeserializeAtReturnsValueWhenPrefixMatches(t *testing.T) {
-	r := DeserializeAt[audio](map[string]any{
-		"audio.artist": "A",
-		"audio.year":   float64(2024), // setValue: pointer + numeric convert
-	}, "audio")
-	if r == nil {
-		t.Fatal("expected non-nil *audio")
-	}
-	if r.Artist == nil || *r.Artist != "A" {
-		t.Errorf("Artist: %#v", r.Artist)
-	}
-	if r.Year == nil || *r.Year != 2024 {
-		t.Errorf("Year: %#v", r.Year)
-	}
-}
+	It("returns nil when nothing matches the prefix", func() {
+		r := DeserializeAt[audio](map[string]any{"Name": "n"}, "audio")
+		Expect(r).To(BeNil())
+	})
+
+	It("returns a value when the prefix matches", func() {
+		r := DeserializeAt[audio](map[string]any{
+			"audio.artist": "A",
+			"audio.year":   float64(2024), // setValue: pointer + numeric convert
+		}, "audio")
+		Expect(r).ToNot(BeNil())
+		Expect(r.Artist).ToNot(BeNil())
+		Expect(*r.Artist).To(Equal("A"))
+		Expect(r.Year).ToNot(BeNil())
+		Expect(*r.Year).To(Equal(int32(2024)))
+	})
+})

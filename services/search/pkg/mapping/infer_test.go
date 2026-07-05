@@ -2,52 +2,40 @@ package mapping
 
 import (
 	"reflect"
-	"testing"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func TestInferTypeUnsupported(t *testing.T) {
-	if got := inferType(reflect.TypeFor[map[string]int]()); got != "" {
-		t.Errorf("map: got %q, want empty", got)
-	}
-	if got := inferType(reflect.TypeFor[chan int]()); got != "" {
-		t.Errorf("chan: got %q, want empty", got)
-	}
-}
+var _ = Describe("inferType", func() {
+	It("returns empty for unsupported kinds", func() {
+		Expect(inferType(reflect.TypeFor[map[string]int]())).To(BeEmpty(), "map")
+		Expect(inferType(reflect.TypeFor[chan int]())).To(BeEmpty(), "chan")
+	})
 
-func TestInferType(t *testing.T) {
-	cases := []struct {
-		name string
-		in   any
-		want string
-	}{
-		{"string", "", TypeKeyword},
-		{"*string", (*string)(nil), TypeKeyword},
-		{"[]string", []string(nil), TypeKeyword},
-		{"bool", false, TypeBool},
-		{"int", int(0), TypeNumeric},
-		{"int64", int64(0), TypeNumeric},
-		{"uint64", uint64(0), TypeNumeric},
-		{"float64", float64(0), TypeNumeric},
-		{"time.Time", time.Time{}, TypeDatetime},
-		{"*time.Time", (*time.Time)(nil), TypeDatetime},
-		{"*timestamppb.Timestamp", (*timestamppb.Timestamp)(nil), TypeDatetime},
-		{"struct", struct{ X int }{}, TypeObject},
-		{"*struct", (*struct{ X int })(nil), TypeObject},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			got := inferType(reflect.TypeOf(c.in))
-			if got != c.want {
-				t.Fatalf("inferType(%s): got %q, want %q", c.name, got, c.want)
-			}
-		})
-	}
-}
+	DescribeTable("infers the mapping type",
+		func(in any, want string) {
+			Expect(inferType(reflect.TypeOf(in))).To(Equal(want))
+		},
+		Entry("string", "", TypeKeyword),
+		Entry("*string", (*string)(nil), TypeKeyword),
+		Entry("[]string", []string(nil), TypeKeyword),
+		Entry("bool", false, TypeBool),
+		Entry("int", int(0), TypeNumeric),
+		Entry("int64", int64(0), TypeNumeric),
+		Entry("uint64", uint64(0), TypeNumeric),
+		Entry("float64", float64(0), TypeNumeric),
+		Entry("time.Time", time.Time{}, TypeDatetime),
+		Entry("*time.Time", (*time.Time)(nil), TypeDatetime),
+		Entry("*timestamppb.Timestamp", (*timestamppb.Timestamp)(nil), TypeDatetime),
+		Entry("struct", struct{ X int }{}, TypeObject),
+		Entry("*struct", (*struct{ X int })(nil), TypeObject),
+	)
+})
 
-func TestResolveField(t *testing.T) {
+var _ = Describe("resolveField", func() {
 	type S struct {
 		Exported   string `json:"exp"`
 		Renamed    string `json:"renamed,omitempty"`
@@ -57,69 +45,56 @@ func TestResolveField(t *testing.T) {
 		unexported string //nolint:unused
 	}
 	st := reflect.TypeFor[S]()
-	cases := []struct {
-		fieldIdx int
-		wantName string
-		wantSkip bool
-	}{
-		{0, "exp", false},
-		{1, "renamed", false},
-		{2, "NoTag", false},
-		{3, "OmitOnly", false},
-		{4, "", true},
-		{5, "", true},
-	}
-	for _, c := range cases {
-		fi := resolveField(st.Field(c.fieldIdx))
-		if fi.Skip != c.wantSkip {
-			t.Errorf("field %d: skip=%v, want %v", c.fieldIdx, fi.Skip, c.wantSkip)
-		}
-		if !c.wantSkip && fi.Name != c.wantName {
-			t.Errorf("field %d: name=%q, want %q", c.fieldIdx, fi.Name, c.wantName)
-		}
-	}
-}
 
-func TestWalkFieldsFlattensEmbedded(t *testing.T) {
-	type Inner struct {
-		A string `json:"a"`
-		B int    `json:"b"`
-	}
-	type Outer struct {
-		Inner
-		C bool `json:"c"`
-	}
-	var names []string
-	err := walkFields(reflect.TypeFor[Outer](), func(fi fieldInfo) error {
-		names = append(names, fi.Name)
-		return nil
+	DescribeTable("resolves the field name and skip flag",
+		func(fieldIdx int, wantName string, wantSkip bool) {
+			fi := resolveField(st.Field(fieldIdx))
+			Expect(fi.Skip).To(Equal(wantSkip), "field %d skip", fieldIdx)
+			if !wantSkip {
+				Expect(fi.Name).To(Equal(wantName), "field %d name", fieldIdx)
+			}
+		},
+		Entry("exported json tag", 0, "exp", false),
+		Entry("renamed with omitempty", 1, "renamed", false),
+		Entry("no tag", 2, "NoTag", false),
+		Entry("omitempty only", 3, "OmitOnly", false),
+		Entry("json:- skipped", 4, "", true),
+		Entry("unexported skipped", 5, "", true),
+	)
+})
+
+var _ = Describe("walkFields", func() {
+	It("flattens embedded structs", func() {
+		type Inner struct {
+			A string `json:"a"`
+			B int    `json:"b"`
+		}
+		type Outer struct {
+			Inner
+			C bool `json:"c"`
+		}
+		var names []string
+		err := walkFields(reflect.TypeFor[Outer](), func(fi fieldInfo) error {
+			names = append(names, fi.Name)
+			return nil
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(names).To(Equal([]string{"a", "b", "c"}))
 	})
-	if err != nil {
-		t.Fatalf("walkFields: %v", err)
-	}
-	want := []string{"a", "b", "c"}
-	if !reflect.DeepEqual(names, want) {
-		t.Fatalf("got %v, want %v", names, want)
-	}
-}
+})
 
-func TestStructType(t *testing.T) {
+var _ = Describe("structType", func() {
 	type S struct{ X int }
-	cases := []struct {
-		name    string
-		in      reflect.Type
-		wantNil bool
-	}{
-		{"struct", reflect.TypeFor[S](), false},
-		{"*struct", reflect.TypeFor[*S](), false},
-		{"[]struct", reflect.TypeFor[[]S](), false},
-		{"time.Time", reflect.TypeFor[time.Time](), true},
-		{"string", reflect.TypeFor[string](), true},
-	}
-	for _, c := range cases {
-		got := structType(c.in)
-		if (got == nil) != c.wantNil {
-			t.Errorf("%s: got %v, wantNil %v", c.name, got, c.wantNil)
-		}
-	}
-}
+
+	DescribeTable("resolves struct-ish types",
+		func(in reflect.Type, wantNil bool) {
+			got := structType(in)
+			Expect(got == nil).To(Equal(wantNil))
+		},
+		Entry("struct", reflect.TypeFor[S](), false),
+		Entry("*struct", reflect.TypeFor[*S](), false),
+		Entry("[]struct", reflect.TypeFor[[]S](), false),
+		Entry("time.Time", reflect.TypeFor[time.Time](), true),
+		Entry("string", reflect.TypeFor[string](), true),
+	)
+})
