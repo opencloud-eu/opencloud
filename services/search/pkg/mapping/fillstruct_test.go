@@ -3,7 +3,9 @@ package mapping
 import (
 	"errors"
 	"reflect"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // The walker is shared by both deserializers, so its structural behavior
@@ -45,83 +47,60 @@ func fsSet(v reflect.Value, raw string) error {
 	return nil
 }
 
-func TestFillStruct(t *testing.T) {
+var _ = Describe("fillStruct", func() {
 	fill := func(fields map[string]string, prefix string) (fsRoot, bool) {
 		var root fsRoot
 		touched := fillStruct(reflect.ValueOf(&root).Elem(), fields, prefix, fsSet)
 		return root, touched
 	}
 
-	t.Run("flattens embedded, recurses nested", func(t *testing.T) {
+	It("flattens embedded and recurses nested", func() {
 		root, touched := fill(map[string]string{
 			"leaf":     "L",
 			"ev":       "EV",
 			"ep":       "EP",
 			"nested.n": "N",
 		}, "")
-		if !touched {
-			t.Fatal("expected touched")
-		}
-		if root.Leaf != "L" {
-			t.Errorf("Leaf: %q", root.Leaf)
-		}
-		if root.EV != "EV" {
-			t.Errorf("embedded value not promoted: %q", root.EV)
-		}
-		if root.FsEmbPtr == nil || root.EP != "EP" {
-			t.Errorf("embedded pointer not allocated: %+v", root.FsEmbPtr)
-		}
-		if root.Nested == nil || root.Nested.N != "N" {
-			t.Errorf("nested pointer not populated: %+v", root.Nested)
-		}
+		Expect(touched).To(BeTrue())
+		Expect(root.Leaf).To(Equal("L"))
+		Expect(root.EV).To(Equal("EV"), "embedded value not promoted")
+		Expect(root.FsEmbPtr).ToNot(BeNil(), "embedded pointer not allocated")
+		Expect(root.EP).To(Equal("EP"))
+		Expect(root.Nested).ToNot(BeNil(), "nested pointer not populated")
+		Expect(root.Nested.N).To(Equal("N"))
 	})
 
-	t.Run("nothing matches: touched false, pointers stay nil", func(t *testing.T) {
+	It("leaves touched false and pointers nil when nothing matches", func() {
 		root, touched := fill(map[string]string{"other": "x"}, "")
-		if touched {
-			t.Fatal("expected untouched")
-		}
-		if root.Nested != nil {
-			t.Errorf("Nested should stay nil: %+v", root.Nested)
-		}
-		if root.FsEmbPtr != nil {
-			t.Errorf("embedded pointer should stay nil: %+v", root.FsEmbPtr)
-		}
+		Expect(touched).To(BeFalse())
+		Expect(root.Nested).To(BeNil(), "Nested should stay nil")
+		Expect(root.FsEmbPtr).To(BeNil(), "embedded pointer should stay nil")
 	})
 
-	t.Run("prefix arg is joined with the field name", func(t *testing.T) {
+	It("joins the prefix arg with the field name", func() {
 		root, touched := fill(map[string]string{
 			"pre.leaf":     "L",
 			"pre.nested.n": "N",
 		}, "pre")
-		if !touched || root.Leaf != "L" || root.Nested == nil || root.Nested.N != "N" {
-			t.Fatalf("prefix not joined: leaf=%q nested=%+v", root.Leaf, root.Nested)
-		}
+		Expect(touched).To(BeTrue())
+		Expect(root.Leaf).To(Equal("L"))
+		Expect(root.Nested).ToNot(BeNil())
+		Expect(root.Nested.N).To(Equal("N"))
 	})
 
-	t.Run("fail-soft: errored leaf stays zero, walk continues", func(t *testing.T) {
+	It("is fail-soft: errored leaf stays zero, walk continues", func() {
 		root, touched := fill(map[string]string{
 			"leaf": "BAD",
 			"ev":   "EV",
 		}, "")
-		if !touched {
-			t.Fatal("expected touched because ev was set")
-		}
-		if root.Leaf != "" {
-			t.Errorf("errored leaf should stay zero, got %q", root.Leaf)
-		}
-		if root.EV != "EV" {
-			t.Errorf("walk should continue past the error: %q", root.EV)
-		}
+		Expect(touched).To(BeTrue(), "expected touched because ev was set")
+		Expect(root.Leaf).To(BeEmpty(), "errored leaf should stay zero")
+		Expect(root.EV).To(Equal("EV"), "walk should continue past the error")
 	})
 
-	t.Run("embedded pointer dropped when its only field errors", func(t *testing.T) {
+	It("drops the embedded pointer when its only field errors", func() {
 		root, touched := fill(map[string]string{"ep": "BAD"}, "")
-		if touched {
-			t.Fatal("expected untouched")
-		}
-		if root.FsEmbPtr != nil {
-			t.Errorf("embedded pointer should stay nil on error, got %+v", root.FsEmbPtr)
-		}
+		Expect(touched).To(BeFalse())
+		Expect(root.FsEmbPtr).To(BeNil(), "embedded pointer should stay nil on error")
 	})
-}
+})

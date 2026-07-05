@@ -2,8 +2,10 @@ package mapping
 
 import (
 	"reflect"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 type bleveDoc struct {
@@ -21,140 +23,93 @@ type nested struct {
 	Year   int    `json:"year"`
 }
 
-// bleve wildcard falls back to keyword-ish text (bleve has no wildcard type).
-func TestBleveWildcardFallback(t *testing.T) {
-	type doc struct {
-		Mime string `json:"mime"`
-	}
-	dm, err := BleveBuildMapping(reflect.TypeFor[doc](), map[string]FieldOpts{"mime": {Type: TypeWildcard}})
-	if err != nil {
-		t.Fatalf("BleveBuildMapping: %v", err)
-	}
-	fms := dm.Properties["mime"].Fields
-	if len(fms) != 1 || fms[0].Type != "text" {
-		t.Fatalf("wildcard should map to text, got %+v", fms)
-	}
-}
-
-func TestBleveBuildMappingInferredTypes(t *testing.T) {
-	dm, err := BleveBuildMapping(reflect.TypeFor[bleveDoc](), nil)
-	if err != nil {
-		t.Fatalf("BleveBuildMapping: %v", err)
-	}
-	cases := map[string]string{
-		"Name":      "text",
-		"Content":   "text",
-		"Tags":      "text",
-		"Size":      "number",
-		"Deleted":   "boolean",
-		"CreatedAt": "datetime",
-	}
-	for field, wantType := range cases {
-		prop := dm.Properties[field]
-		if prop == nil {
-			t.Errorf("missing property %q", field)
-			continue
+var _ = Describe("BleveBuildMapping", func() {
+	It("falls back to text for wildcard fields", func() {
+		// bleve wildcard falls back to keyword-ish text (bleve has no wildcard type).
+		type doc struct {
+			Mime string `json:"mime"`
 		}
-		if len(prop.Fields) == 0 {
-			t.Errorf("%q: no field mappings", field)
-			continue
-		}
-		if got := prop.Fields[0].Type; got != wantType {
-			t.Errorf("%q: got type %q, want %q", field, got, wantType)
-		}
-	}
-}
-
-func TestBleveBuildMappingNestedIsSubDocument(t *testing.T) {
-	dm, err := BleveBuildMapping(reflect.TypeFor[bleveDoc](), nil)
-	if err != nil {
-		t.Fatalf("BleveBuildMapping: %v", err)
-	}
-	sub := dm.Properties["nested"]
-	if sub == nil {
-		t.Fatal("missing nested sub-document")
-	}
-	if sub.Properties["artist"] == nil || sub.Properties["year"] == nil {
-		t.Fatalf("nested fields missing: %#v", sub.Properties)
-	}
-	if got := sub.Properties["artist"].Fields[0].Type; got != "text" {
-		t.Errorf("nested.artist: type %q, want text", got)
-	}
-	if got := sub.Properties["year"].Fields[0].Type; got != "number" {
-		t.Errorf("nested.year: type %q, want number", got)
-	}
-}
-
-func TestBleveBuildMappingOverrides(t *testing.T) {
-	includeInAllFalse := false
-	dm, err := BleveBuildMapping(reflect.TypeFor[bleveDoc](), map[string]FieldOpts{
-		"Name":    {Analyzer: "lowercaseKeyword"},
-		"Content": {Type: TypeFulltext},
-		"Tags":    {Analyzer: "lowercaseKeyword", IncludeInAll: &includeInAllFalse},
+		dm, err := BleveBuildMapping(reflect.TypeFor[doc](), map[string]FieldOpts{"mime": {Type: TypeWildcard}})
+		Expect(err).ToNot(HaveOccurred())
+		fms := dm.Properties["mime"].Fields
+		Expect(fms).To(HaveLen(1))
+		Expect(fms[0].Type).To(Equal("text"), "wildcard should map to text")
 	})
-	if err != nil {
-		t.Fatalf("BleveBuildMapping: %v", err)
-	}
-	nameField := dm.Properties["Name"].Fields[0]
-	if nameField.Analyzer != "lowercaseKeyword" {
-		t.Errorf("Name analyzer: %q, want lowercaseKeyword", nameField.Analyzer)
-	}
-	if !nameField.IncludeInAll {
-		t.Errorf("Name IncludeInAll should stay default-true when not overridden")
-	}
-	contentField := dm.Properties["Content"].Fields[0]
-	if contentField.Analyzer != "fulltext" {
-		t.Errorf("Content analyzer: %q, want fulltext", contentField.Analyzer)
-	}
-	if contentField.IncludeInAll {
-		t.Errorf("Content IncludeInAll should default to false for fulltext type")
-	}
-	tagsField := dm.Properties["Tags"].Fields[0]
-	if tagsField.IncludeInAll {
-		t.Errorf("Tags IncludeInAll should honor the explicit false override")
-	}
-}
 
-func TestBleveBuildMappingGeopoint(t *testing.T) {
-	type geoDoc struct {
-		Location *struct {
-			Lon *float64 `json:"longitude,omitempty"`
-			Lat *float64 `json:"latitude,omitempty"`
-			Alt *float64 `json:"altitude,omitempty"`
-		} `json:"location,omitempty"`
-	}
-	dm, err := BleveBuildMapping(reflect.TypeFor[geoDoc](), map[string]FieldOpts{
-		"location": {Type: TypeGeopoint},
+	DescribeTable("infers field types",
+		func(field, wantType string) {
+			dm, err := BleveBuildMapping(reflect.TypeFor[bleveDoc](), nil)
+			Expect(err).ToNot(HaveOccurred())
+			prop := dm.Properties[field]
+			Expect(prop).ToNot(BeNil(), "missing property %q", field)
+			Expect(prop.Fields).ToNot(BeEmpty(), "%q: no field mappings", field)
+			Expect(prop.Fields[0].Type).To(Equal(wantType), "%q type", field)
+		},
+		Entry("Name", "Name", "text"),
+		Entry("Content", "Content", "text"),
+		Entry("Tags", "Tags", "text"),
+		Entry("Size", "Size", "number"),
+		Entry("Deleted", "Deleted", "boolean"),
+		Entry("CreatedAt", "CreatedAt", "datetime"),
+	)
+
+	It("maps a nested struct as a sub-document", func() {
+		dm, err := BleveBuildMapping(reflect.TypeFor[bleveDoc](), nil)
+		Expect(err).ToNot(HaveOccurred())
+		sub := dm.Properties["nested"]
+		Expect(sub).ToNot(BeNil(), "missing nested sub-document")
+		Expect(sub.Properties["artist"]).ToNot(BeNil())
+		Expect(sub.Properties["year"]).ToNot(BeNil())
+		Expect(sub.Properties["artist"].Fields[0].Type).To(Equal("text"), "nested.artist")
+		Expect(sub.Properties["year"].Fields[0].Type).To(Equal("number"), "nested.year")
 	})
-	if err != nil {
-		t.Fatalf("BleveBuildMapping: %v", err)
-	}
-	// Original facet stays as an object sub-document with numeric
-	// sub-properties - for data retrieval via hit.Fields and ordinary
-	// numeric queries.
-	loc := dm.Properties["location"]
-	if loc == nil {
-		t.Fatalf("location sub-document missing: %#v", dm.Properties)
-	}
-	if len(loc.Fields) != 0 {
-		t.Errorf("location should not carry field mappings directly, got %#v", loc.Fields)
-	}
-	for _, sub := range []string{"longitude", "latitude", "altitude"} {
-		prop, ok := loc.Properties[sub]
-		if !ok {
-			t.Errorf("missing sub-field %q under location (properties: %v)", sub, loc.Properties)
-			continue
+
+	It("applies field overrides", func() {
+		includeInAllFalse := false
+		dm, err := BleveBuildMapping(reflect.TypeFor[bleveDoc](), map[string]FieldOpts{
+			"Name":    {Analyzer: "lowercaseKeyword"},
+			"Content": {Type: TypeFulltext},
+			"Tags":    {Analyzer: "lowercaseKeyword", IncludeInAll: &includeInAllFalse},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		nameField := dm.Properties["Name"].Fields[0]
+		Expect(nameField.Analyzer).To(Equal("lowercaseKeyword"), "Name analyzer")
+		Expect(nameField.IncludeInAll).To(BeTrue(), "Name IncludeInAll should stay default-true when not overridden")
+		contentField := dm.Properties["Content"].Fields[0]
+		Expect(contentField.Analyzer).To(Equal("fulltext"), "Content analyzer")
+		Expect(contentField.IncludeInAll).To(BeFalse(), "Content IncludeInAll should default to false for fulltext type")
+		tagsField := dm.Properties["Tags"].Fields[0]
+		Expect(tagsField.IncludeInAll).To(BeFalse(), "Tags IncludeInAll should honor the explicit false override")
+	})
+
+	It("builds an object sub-document plus a geopoint sibling", func() {
+		type geoDoc struct {
+			Location *struct {
+				Lon *float64 `json:"longitude,omitempty"`
+				Lat *float64 `json:"latitude,omitempty"`
+				Alt *float64 `json:"altitude,omitempty"`
+			} `json:"location,omitempty"`
 		}
-		if len(prop.Fields) == 0 || prop.Fields[0].Type != "number" {
-			t.Errorf("location.%s Fields: %#v, want [number]", sub, prop.Fields)
+		dm, err := BleveBuildMapping(reflect.TypeFor[geoDoc](), map[string]FieldOpts{
+			"location": {Type: TypeGeopoint},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		// Original facet stays as an object sub-document with numeric
+		// sub-properties - for data retrieval via hit.Fields and ordinary
+		// numeric queries.
+		loc := dm.Properties["location"]
+		Expect(loc).ToNot(BeNil(), "location sub-document missing")
+		Expect(loc.Fields).To(BeEmpty(), "location should not carry field mappings directly")
+		for _, sub := range []string{"longitude", "latitude", "altitude"} {
+			prop, ok := loc.Properties[sub]
+			Expect(ok).To(BeTrue(), "missing sub-field %q under location", sub)
+			Expect(prop.Fields).ToNot(BeEmpty(), "location.%s Fields", sub)
+			Expect(prop.Fields[0].Type).To(Equal("number"), "location.%s type", sub)
 		}
-	}
-	// Sibling geopoint at "<name>_geopoint" for geo-distance queries.
-	sibling := dm.Properties["location"+GeopointSuffix]
-	if sibling == nil {
-		t.Fatalf("location%s missing: %#v", GeopointSuffix, dm.Properties)
-	}
-	if len(sibling.Fields) == 0 || sibling.Fields[0].Type != "geopoint" {
-		t.Errorf("location%s Fields: %#v, want [geopoint]", GeopointSuffix, sibling.Fields)
-	}
-}
+		// Sibling geopoint at "<name>_geopoint" for geo-distance queries.
+		sibling := dm.Properties["location"+GeopointSuffix]
+		Expect(sibling).ToNot(BeNil(), "location%s missing", GeopointSuffix)
+		Expect(sibling.Fields).ToNot(BeEmpty(), "location%s Fields", GeopointSuffix)
+		Expect(sibling.Fields[0].Type).To(Equal("geopoint"), "location%s type", GeopointSuffix)
+	})
+})

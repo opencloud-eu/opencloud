@@ -2,8 +2,10 @@ package mapping
 
 import (
 	"reflect"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 type osDoc struct {
@@ -18,154 +20,117 @@ type osDoc struct {
 	} `json:"nested,omitempty"`
 }
 
-func TestOpenSearchNumericTypes(t *testing.T) {
-	type doc struct {
-		A int8    `json:"a"`
-		B int16   `json:"b"`
-		C int32   `json:"c"`
-		D int64   `json:"d"`
-		E uint8   `json:"e"`
-		F uint64  `json:"f"`
-		G float32 `json:"g"`
-		H float64 `json:"h"`
-	}
-	props, err := OpenSearchBuildMapping(reflect.TypeFor[doc](), nil)
-	if err != nil {
-		t.Fatalf("OpenSearchBuildMapping: %v", err)
-	}
-	want := map[string]string{"a": "short", "b": "short", "c": "integer", "d": "long", "e": "short", "f": "long", "g": "float", "h": "double"}
-	for k, wt := range want {
-		if got := props[k].(map[string]any)["type"]; got != wt {
-			t.Errorf("%s: type = %v, want %v", k, got, wt)
-		}
-	}
-}
+var _ = Describe("OpenSearchBuildMapping", func() {
+	DescribeTable("maps numeric Go types to OpenSearch types",
+		func(field, wantType string) {
+			type doc struct {
+				A int8    `json:"a"`
+				B int16   `json:"b"`
+				C int32   `json:"c"`
+				D int64   `json:"d"`
+				E uint8   `json:"e"`
+				F uint64  `json:"f"`
+				G float32 `json:"g"`
+				H float64 `json:"h"`
+			}
+			props, err := OpenSearchBuildMapping(reflect.TypeFor[doc](), nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(props[field].(map[string]any)["type"]).To(Equal(wantType), "%s type", field)
+		},
+		Entry("int8 -> short", "a", "short"),
+		Entry("int16 -> short", "b", "short"),
+		Entry("int32 -> integer", "c", "integer"),
+		Entry("int64 -> long", "d", "long"),
+		Entry("uint8 -> short", "e", "short"),
+		Entry("uint64 -> long", "f", "long"),
+		Entry("float32 -> float", "g", "float"),
+		Entry("float64 -> double", "h", "double"),
+	)
 
-func TestOpenSearchBuildMappingInferred(t *testing.T) {
-	props, err := OpenSearchBuildMapping(reflect.TypeFor[osDoc](), nil)
-	if err != nil {
-		t.Fatalf("OpenSearchBuildMapping: %v", err)
-	}
-	want := map[string]string{
-		"ID":        "keyword",
-		"Size":      "long",
-		"Deleted":   "boolean",
-		"CreatedAt": "date",
-		"Rating":    "double",
-	}
-	for k, v := range want {
-		m, ok := props[k].(map[string]any)
-		if !ok {
-			t.Errorf("%s: missing or not a map: %#v", k, props[k])
-			continue
-		}
-		if got := m["type"]; got != v {
-			t.Errorf("%s: type %v, want %v", k, got, v)
-		}
-	}
-}
+	DescribeTable("infers field types",
+		func(field, wantType string) {
+			props, err := OpenSearchBuildMapping(reflect.TypeFor[osDoc](), nil)
+			Expect(err).ToNot(HaveOccurred())
+			m, ok := props[field].(map[string]any)
+			Expect(ok).To(BeTrue(), "%s: missing or not a map: %#v", field, props[field])
+			Expect(m["type"]).To(Equal(wantType), "%s type", field)
+		},
+		Entry("ID -> keyword", "ID", "keyword"),
+		Entry("Size -> long", "Size", "long"),
+		Entry("Deleted -> boolean", "Deleted", "boolean"),
+		Entry("CreatedAt -> date", "CreatedAt", "date"),
+		Entry("Rating -> double", "Rating", "double"),
+	)
 
-func TestOpenSearchBuildMappingNested(t *testing.T) {
-	props, err := OpenSearchBuildMapping(reflect.TypeFor[osDoc](), nil)
-	if err != nil {
-		t.Fatalf("OpenSearchBuildMapping: %v", err)
-	}
-	nested, ok := props["nested"].(map[string]any)
-	if !ok {
-		t.Fatalf("nested: not a map: %#v", props["nested"])
-	}
-	sub, ok := nested["properties"].(map[string]any)
-	if !ok {
-		t.Fatalf("nested.properties: missing: %#v", nested)
-	}
-	artist, ok := sub["artist"].(map[string]any)
-	if !ok {
-		t.Fatalf("nested.artist: %#v", sub)
-	}
-	if artist["type"] != "keyword" {
-		t.Errorf("nested.artist.type: %v", artist["type"])
-	}
-	year, ok := sub["year"].(map[string]any)
-	if !ok {
-		t.Fatalf("nested.year: %#v", sub)
-	}
-	if year["type"] != "integer" {
-		t.Errorf("nested.year.type: %v (int32 → integer expected)", year["type"])
-	}
-}
-
-func TestOpenSearchBuildMappingOverrides(t *testing.T) {
-	type doc struct {
-		Name     string `json:"Name"`
-		Content  string `json:"Content"`
-		Path     string `json:"Path"`
-		MimeType string `json:"MimeType"`
-	}
-	props, err := OpenSearchBuildMapping(reflect.TypeFor[doc](), map[string]FieldOpts{
-		"Name":     {Analyzer: "lowercaseKeyword"},
-		"Content":  {Type: TypeFulltext},
-		"Path":     {Type: TypePath},
-		"MimeType": {Type: TypeWildcard},
+	It("maps nested structs with their sub-properties", func() {
+		props, err := OpenSearchBuildMapping(reflect.TypeFor[osDoc](), nil)
+		Expect(err).ToNot(HaveOccurred())
+		nested, ok := props["nested"].(map[string]any)
+		Expect(ok).To(BeTrue(), "nested: not a map: %#v", props["nested"])
+		sub, ok := nested["properties"].(map[string]any)
+		Expect(ok).To(BeTrue(), "nested.properties: missing: %#v", nested)
+		artist, ok := sub["artist"].(map[string]any)
+		Expect(ok).To(BeTrue(), "nested.artist: %#v", sub)
+		Expect(artist["type"]).To(Equal("keyword"), "nested.artist.type")
+		year, ok := sub["year"].(map[string]any)
+		Expect(ok).To(BeTrue(), "nested.year: %#v", sub)
+		Expect(year["type"]).To(Equal("integer"), "nested.year.type (int32 -> integer expected)")
 	})
-	if err != nil {
-		t.Fatalf("OpenSearchBuildMapping: %v", err)
-	}
-	name := props["Name"].(map[string]any)
-	if name["type"] != "text" || name["analyzer"] != "lowercaseKeyword" {
-		t.Errorf("Name: %#v", name)
-	}
-	content := props["Content"].(map[string]any)
-	if content["type"] != "text" || content["term_vector"] != "with_positions_offsets" {
-		t.Errorf("Content: %#v", content)
-	}
-	if _, ok := content["analyzer"]; ok {
-		t.Errorf("Content should leave analyzer unset (use OpenSearch default), got %#v", content["analyzer"])
-	}
-	path := props["Path"].(map[string]any)
-	if path["type"] != "text" || path["analyzer"] != "path_hierarchy" {
-		t.Errorf("Path: %#v", path)
-	}
-	mime := props["MimeType"].(map[string]any)
-	if mime["type"] != "wildcard" {
-		t.Errorf("MimeType: %#v", mime)
-	}
-}
 
-func TestOpenSearchBuildMappingGeopoint(t *testing.T) {
-	type doc struct {
-		Location *struct {
-			Lon float64 `json:"longitude"`
-			Lat float64 `json:"latitude"`
-			Alt float64 `json:"altitude"`
-		} `json:"location,omitempty"`
-	}
-	props, err := OpenSearchBuildMapping(reflect.TypeFor[doc](), map[string]FieldOpts{
-		"location": {Type: TypeGeopoint},
-	})
-	if err != nil {
-		t.Fatalf("OpenSearchBuildMapping: %v", err)
-	}
-	// Object for libregraph-shape data retrieval.
-	loc, ok := props["location"].(map[string]any)
-	if !ok {
-		t.Fatalf("location: %#v", props["location"])
-	}
-	sub, ok := loc["properties"].(map[string]any)
-	if !ok {
-		t.Fatalf("location should have numeric sub-properties, got %#v", loc)
-	}
-	for _, k := range []string{"longitude", "latitude", "altitude"} {
-		prop, ok := sub[k].(map[string]any)
-		if !ok || prop["type"] != "double" {
-			t.Errorf("location.%s: %#v", k, sub[k])
+	It("applies field overrides", func() {
+		type doc struct {
+			Name     string `json:"Name"`
+			Content  string `json:"Content"`
+			Path     string `json:"Path"`
+			MimeType string `json:"MimeType"`
 		}
-	}
-	// Sibling geo_point for spatial queries.
-	gp, ok := props["location"+GeopointSuffix].(map[string]any)
-	if !ok {
-		t.Fatalf("location%s: %#v", GeopointSuffix, props["location"+GeopointSuffix])
-	}
-	if gp["type"] != "geo_point" {
-		t.Errorf("location%s.type: %v", GeopointSuffix, gp["type"])
-	}
-}
+		props, err := OpenSearchBuildMapping(reflect.TypeFor[doc](), map[string]FieldOpts{
+			"Name":     {Analyzer: "lowercaseKeyword"},
+			"Content":  {Type: TypeFulltext},
+			"Path":     {Type: TypePath},
+			"MimeType": {Type: TypeWildcard},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		name := props["Name"].(map[string]any)
+		Expect(name["type"]).To(Equal("text"), "Name: %#v", name)
+		Expect(name["analyzer"]).To(Equal("lowercaseKeyword"), "Name: %#v", name)
+		content := props["Content"].(map[string]any)
+		Expect(content["type"]).To(Equal("text"), "Content: %#v", content)
+		Expect(content["term_vector"]).To(Equal("with_positions_offsets"), "Content: %#v", content)
+		_, ok := content["analyzer"]
+		Expect(ok).To(BeFalse(), "Content should leave analyzer unset (use OpenSearch default)")
+		path := props["Path"].(map[string]any)
+		Expect(path["type"]).To(Equal("text"), "Path: %#v", path)
+		Expect(path["analyzer"]).To(Equal("path_hierarchy"), "Path: %#v", path)
+		mime := props["MimeType"].(map[string]any)
+		Expect(mime["type"]).To(Equal("wildcard"), "MimeType: %#v", mime)
+	})
+
+	It("builds an object plus a geo_point sibling for geopoints", func() {
+		type doc struct {
+			Location *struct {
+				Lon float64 `json:"longitude"`
+				Lat float64 `json:"latitude"`
+				Alt float64 `json:"altitude"`
+			} `json:"location,omitempty"`
+		}
+		props, err := OpenSearchBuildMapping(reflect.TypeFor[doc](), map[string]FieldOpts{
+			"location": {Type: TypeGeopoint},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		// Object for libregraph-shape data retrieval.
+		loc, ok := props["location"].(map[string]any)
+		Expect(ok).To(BeTrue(), "location: %#v", props["location"])
+		sub, ok := loc["properties"].(map[string]any)
+		Expect(ok).To(BeTrue(), "location should have numeric sub-properties, got %#v", loc)
+		for _, k := range []string{"longitude", "latitude", "altitude"} {
+			prop, ok := sub[k].(map[string]any)
+			Expect(ok).To(BeTrue(), "location.%s: %#v", k, sub[k])
+			Expect(prop["type"]).To(Equal("double"), "location.%s: %#v", k, sub[k])
+		}
+		// Sibling geo_point for spatial queries.
+		gp, ok := props["location"+GeopointSuffix].(map[string]any)
+		Expect(ok).To(BeTrue(), "location%s: %#v", GeopointSuffix, props["location"+GeopointSuffix])
+		Expect(gp["type"]).To(Equal("geo_point"), "location%s.type", GeopointSuffix)
+	})
+})
