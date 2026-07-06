@@ -1,4 +1,4 @@
-package jmap
+package jmaptest
 
 import (
 	"encoding/base64"
@@ -16,6 +16,7 @@ import (
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/stretchr/testify/require"
 
+	. "github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/jscalendar"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
@@ -27,7 +28,7 @@ const (
 )
 
 func TestCalendars(t *testing.T) { //NOSONAR
-	if skip(t) {
+	if Skip(t) {
 		return
 	}
 
@@ -62,7 +63,7 @@ func TestCalendars(t *testing.T) { //NOSONAR
 }
 
 func TestEvents(t *testing.T) {
-	if skip(t) {
+	if Skip(t) {
 		return
 	}
 
@@ -70,7 +71,7 @@ func TestEvents(t *testing.T) {
 
 	require := require.New(t)
 
-	s, err := newStalwartTest(t)
+	s, err := NewStalwartTest(t)
 	require.NoError(err)
 	defer s.Close()
 
@@ -94,7 +95,7 @@ func TestEvents(t *testing.T) {
 	os := EmptyState
 	var results *CalendarEventSearchResults
 	{
-		result, err := s.client.QueryCalendarEvents(toNullQueryParams([]AccountId{accountId}), nil, filter, sortBy, true, ctx)
+		result, err := s.client.QueryCalendarEvents(ToNullQueryParams([]AccountId{accountId}), nil, filter, sortBy, true, ctx)
 		require.NoError(err)
 
 		require.Len(result.Payload, 1)
@@ -207,7 +208,7 @@ func TestEvents(t *testing.T) {
 	}
 
 	{
-		result, err := s.client.QueryCalendarEvents(toNullQueryParams([]AccountId{accountId}), nil, filter, sortBy, true, ctx)
+		result, err := s.client.QueryCalendarEvents(ToNullQueryParams([]AccountId{accountId}), nil, filter, sortBy, true, ctx)
 		require.NoError(err)
 		require.Contains(result.Payload, accountId)
 		resp := result.Payload[accountId]

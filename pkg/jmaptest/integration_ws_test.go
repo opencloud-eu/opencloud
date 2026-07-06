@@ -1,4 +1,4 @@
-package jmap
+package jmaptest
 
 import (
 	"slices"
@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/stretchr/testify/assert"
@@ -53,7 +54,7 @@ func (l *testWsPushListener) OnNotification(username string, pushState StateChan
 var _ WsPushListener = &testWsPushListener{}
 
 func TestWs(t *testing.T) {
-	if skip(t) {
+	if Skip(t) {
 		return
 	}
 
@@ -63,7 +64,7 @@ func TestWs(t *testing.T) {
 
 	cotx := t.Context()
 
-	s, err := newStalwartTest(t)
+	s, err := NewStalwartTest(t)
 	require.NoError(err)
 	defer s.Close()
 

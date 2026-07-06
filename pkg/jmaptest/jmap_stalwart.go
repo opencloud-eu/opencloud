@@ -1,4 +1,4 @@
-package jmap
+package jmaptest
 
 import (
 	"archive/tar"
@@ -38,6 +38,7 @@ import (
 	"github.com/brianvoe/gofakeit/v7"
 	pw "github.com/sethvargo/go-password/password"
 
+	"github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/jscontact"
 	oclog "github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
@@ -196,7 +197,7 @@ type importItem struct {
 	Value  map[string]any `json:"value"`
 }
 
-func skip(t *testing.T) bool {
+func Skip(t *testing.T) bool {
 	if os.Getenv("CI") == "woodpecker" {
 		t.Skip("Skipping tests because CI==woodpecker")
 		return true
@@ -219,7 +220,7 @@ type StalwartTest struct {
 	container   *testcontainers.DockerContainer
 	ctx         context.Context
 	cancelCtx   context.CancelFunc
-	client      *Client
+	client      *jmap.Client
 	logger      *oclog.Logger
 	jmapBaseUrl *url.URL
 	sessionUrl  *url.URL
@@ -238,8 +239,8 @@ func (s *StalwartTest) Close() error {
 	return nil
 }
 
-func (s *StalwartTest) Context(session *Session) Context {
-	return Context{
+func (s *StalwartTest) Context(session *jmap.Session) jmap.Context {
+	return jmap.Context{
 		Session:        session,
 		Context:        s.ctx,
 		Logger:         s.logger,
@@ -247,7 +248,7 @@ func (s *StalwartTest) Context(session *Session) Context {
 	}
 }
 
-func (s *StalwartTest) Session(username string) *Session {
+func (s *StalwartTest) Session(username string) *jmap.Session {
 	session, err := s.client.FetchSession(s.ctx, s.sessionUrl, username, s.logger)
 	require.NoError(s.t, err, "failed to authenticate user '%s' and/or retrieve their JMAP session using the URL '%s'", username, s.sessionUrl.String())
 	require.NotNil(s.t, session.Capabilities.Mail)
@@ -608,10 +609,10 @@ func createManagementObject(ctx context.Context, h http.Client, url string, admi
 	}
 }
 
-func createJmapClient(container *testcontainers.DockerContainer, ctx context.Context, auth HttpJmapClientAuthenticator, logger *oclog.Logger) (Client, *url.URL, *url.URL, error) {
+func createJmapClient(container *testcontainers.DockerContainer, ctx context.Context, auth jmap.HttpJmapClientAuthenticator, logger *oclog.Logger) (jmap.Client, *url.URL, *url.URL, error) {
 	ip, err := container.Host(ctx)
 	if err != nil {
-		return Client{}, nil, nil, err
+		return jmap.Client{}, nil, nil, err
 	}
 
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
@@ -629,7 +630,7 @@ func createJmapClient(container *testcontainers.DockerContainer, ctx context.Con
 
 	jmapPort, err := container.MappedPort(ctx, httpPort)
 	if err != nil {
-		return Client{}, nil, nil, err
+		return jmap.Client{}, nil, nil, err
 	}
 	jmapBaseUrl := &url.URL{
 		Scheme: "http",
@@ -648,54 +649,54 @@ func createJmapClient(container *testcontainers.DockerContainer, ctx context.Con
 		cmd := []string{Wireshark, "-pkSl", "-i", "lo", "-f", fmt.Sprintf("port %d", jmapPort.Num()), "-Y", "http||websocket"}
 		process, err := os.StartProcess(Wireshark, cmd, &attr)
 		if err != nil {
-			return Client{}, nil, nil, err
+			return jmap.Client{}, nil, nil, err
 		}
 		err = process.Release()
 		if err != nil {
-			return Client{}, nil, nil, err
+			return jmap.Client{}, nil, nil, err
 		}
 
 		time.Sleep(10 * time.Second)
 	}
 
-	eventListener := nullHttpJmapApiClientEventListener{}
+	eventListener := jmap.NewNullHttpJmapApiClientEventListener()
 
-	api := NewHttpJmapClient(&jh, auth, eventListener, true, 8192, true, 8192)
+	api := jmap.NewHttpJmapClient(&jh, auth, eventListener, true, 8192, true, 8192)
 
-	wscf, err := NewHttpWsClientFactory(wsd, auth, logger, eventListener, true, 8192)
+	wscf, err := jmap.NewHttpWsClientFactory(wsd, auth, logger, eventListener, true, 8192)
 	if err != nil {
-		return Client{}, nil, nil, err
+		return jmap.Client{}, nil, nil, err
 	}
 
-	return NewClient(api, api, api, wscf), jmapBaseUrl, sessionUrl, nil
+	return jmap.NewClient(api, api, api, wscf), jmapBaseUrl, sessionUrl, nil
 }
 
 type ContextPasswordAuthHttpJmapClientAuthenticator struct {
 	key string
 }
 
-var _ HttpJmapClientAuthenticator = &ContextPasswordAuthHttpJmapClientAuthenticator{}
+var _ jmap.HttpJmapClientAuthenticator = &ContextPasswordAuthHttpJmapClientAuthenticator{}
 
 func (h *ContextPasswordAuthHttpJmapClientAuthenticator) GetId() string {
 	return "context"
 }
 
-func (h *ContextPasswordAuthHttpJmapClientAuthenticator) Authenticate(ctx context.Context, username string, _ *oclog.Logger, req *http.Request) Error {
+func (h *ContextPasswordAuthHttpJmapClientAuthenticator) Authenticate(ctx context.Context, username string, _ *oclog.Logger, req *http.Request) jmap.Error {
 	password := ctx.Value(h.key).(string)
 	req.SetBasicAuth(username, password)
 	return nil
 }
 
-func (h *ContextPasswordAuthHttpJmapClientAuthenticator) AuthenticateWS(ctx context.Context, username string, _ *oclog.Logger, headers http.Header) Error {
+func (h *ContextPasswordAuthHttpJmapClientAuthenticator) AuthenticateWS(ctx context.Context, username string, _ *oclog.Logger, headers http.Header) jmap.Error {
 	password := ctx.Value(h.key).(string)
 	headers.Add("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(username+":"+password)))
 	return nil
 }
 
-func newStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartTest, error) { //NOSONAR
+func NewStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartTest, error) { //NOSONAR
 	//ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	ctx := t.Context()
-	cancel := func() {}
+	cancel := func() {}               //NOSONAR
 	var _ context.CancelFunc = cancel // ignore context leak warning: it is passed in the struct and called in Close()
 
 	// A master user name different from "master" does not seem to work as of the current Stalwart version
@@ -807,7 +808,7 @@ func newStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 		if output, err := importConfig(t, recovery, ctx, net, recoveryAlias, adminUsername, adminPassword, settings, false); err != nil {
 			return nil, err
 		} else {
-			t.Logf("Output of applying configuration:\n%s", strings.Join(output, ""))
+			t.Logf("Output of applying configuration:\n%s", strings.Join(output, "")) //NOSONAR
 		}
 
 		// we can now stop the Stalwart container in recovery mode, but without removing any volumes,
@@ -1070,7 +1071,7 @@ func newStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 	loggerImpl := oclog.NewLogger(oclog.Level("trace"))
 	logger := &loggerImpl
 
-	auth := NewMasterAuthHttpJmapClientAuthenticator(masterUsername, masterPassword)
+	auth := jmap.NewMasterAuthHttpJmapClientAuthenticator(masterUsername, masterPassword)
 
 	j, jmapBaseUrl, sessionUrl, err := createJmapClient(container, ctx, auth, logger)
 	if err != nil {
@@ -1139,13 +1140,13 @@ type TestJmapClient struct {
 	h        *http.Client
 	username string
 	password string
-	session  *Session
+	session  *jmap.Session
 	u        *url.URL
 	trace    bool
 	color    bool
 }
 
-func NewTestJmapClient(session *Session, username string, password string, trace bool, color bool) (*TestJmapClient, error) {
+func NewTestJmapClient(session *jmap.Session, username string, password string, trace bool, color bool) (*TestJmapClient, error) {
 	httpTransport := http.DefaultTransport.(*http.Transport).Clone()
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
 	httpTransport.TLSClientConfig = tlsConfig
@@ -1179,7 +1180,7 @@ type uploadedBlob struct {
 	Sha512 string `json:"sha:512"`
 }
 
-func (j *TestJmapClient) uploadBlob(accountId AccountId, data []byte, mimetype string) (uploadedBlob, error) { //NOSONAR
+func (j *TestJmapClient) uploadBlob(accountId jmap.AccountId, data []byte, mimetype string) (uploadedBlob, error) { //NOSONAR
 	uploadUrl := strings.ReplaceAll(j.session.UploadUrl, "{accountId}", string(accountId))
 	req, err := http.NewRequest(http.MethodPost, uploadUrl, bytes.NewReader(data))
 	if err != nil {
@@ -1302,11 +1303,11 @@ func (c Commander[T]) command(body map[string]any) (T, error) {
 	return c.closure(methodResponses)
 }
 
-func (j *TestJmapClient) objectsById(accountId AccountId, objectType ObjectType) (map[string]map[string]any, error) {
+func (j *TestJmapClient) objectsById(accountId jmap.AccountId, objectType jmap.ObjectType) (map[string]map[string]any, error) {
 	m := map[string]map[string]any{}
 	{
 		body := map[string]any{
-			"using": structs.Map(objectType.Namespaces, func(n JmapNamespace) string { return string(n) }),
+			"using": structs.Map(objectType.Namespaces, func(n jmap.JmapNamespace) string { return string(n) }),
 			"methodCalls": []any{
 				[]any{
 					objectType.Name + "/get",
@@ -1748,20 +1749,20 @@ func deepEqual[T any](t *testing.T, expected, actual T) {
 	require.Empty(t, diff)
 }
 
-func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change[OBJ]](t *testing.T, //NOSONAR
-	acc func(session *Session) AccountId,
+func containerTest[OBJ jmap.Idable, RESP jmap.GetResponse[OBJ], BOXES any, CHANGE jmap.Change[OBJ]](t *testing.T, //NOSONAR
+	acc func(session *jmap.Session) jmap.AccountId,
 	obj func(RESP) []OBJ,
 	id func(OBJ) string,
-	get func(s *StalwartTest, accountId AccountId, ids []string, ctx Context) (Result[RESP], error),
-	update func(s *StalwartTest, accountId AccountId, id string, change CHANGE, ctx Context) (Result[OBJ], error),
-	destroy func(s *StalwartTest, accountId AccountId, ids []string, ctx Context) (Result[map[string]SetError], error),
-	fill func(s *StalwartTest, t *testing.T, accountId AccountId, count uint, ctx Context, _ User, principalIds []PrincipalId) (BOXES, []OBJ, SessionState, State, error),
+	get func(s *StalwartTest, accountId jmap.AccountId, ids []string, ctx jmap.Context) (jmap.Result[RESP], error),
+	update func(s *StalwartTest, accountId jmap.AccountId, id string, change CHANGE, ctx jmap.Context) (jmap.Result[OBJ], error),
+	destroy func(s *StalwartTest, accountId jmap.AccountId, ids []string, ctx jmap.Context) (jmap.Result[map[string]jmap.SetError], error),
+	fill func(s *StalwartTest, t *testing.T, accountId jmap.AccountId, count uint, ctx jmap.Context, _ User, principalIds []jmap.PrincipalId) (BOXES, []OBJ, jmap.SessionState, jmap.State, error),
 	change func(OBJ) CHANGE,
 	checkChanged func(t *testing.T, orig OBJ, change CHANGE, changed OBJ),
 ) {
 	require := require.New(t)
 
-	s, err := newStalwartTest(t, withDirectoryQueries(true))
+	s, err := NewStalwartTest(t, withDirectoryQueries(true))
 	require.NoError(err)
 	defer s.Close()
 
@@ -1772,16 +1773,16 @@ func containerTest[OBJ Idable, RESP GetResponse[OBJ], BOXES any, CHANGE Change[O
 	accountId := acc(session)
 
 	// we first need to retrieve the list of all the Principals in order to be able to use and test sharing
-	principalIds := []PrincipalId{}
+	principalIds := []jmap.PrincipalId{}
 	{
-		result, err := s.client.GetPrincipals(accountId, []PrincipalId{}, ctx)
+		result, err := s.client.GetPrincipals(accountId, []jmap.PrincipalId{}, ctx)
 		require.NoError(err)
 		require.NotEmpty(result.Payload.List)
-		principalIds = structs.Map(result.Payload.List, func(p Principal) PrincipalId { return PrincipalId(p.Id) })
+		principalIds = structs.Map(result.Payload.List, func(p jmap.Principal) jmap.PrincipalId { return jmap.PrincipalId(p.Id) })
 	}
 
-	ss := EmptySessionState
-	as := EmptyState
+	ss := jmap.EmptySessionState
+	as := jmap.EmptyState
 
 	// we need to fetch the ID of the default object that automatically exists for each user, in order to exclude it
 	// from the tests below
