@@ -141,7 +141,7 @@ func SplitNTrimmed(s, sep string, n int) (ss []string) {
 }
 
 // 根据空白字符（空格，TAB，换行等）分隔字符串
-var whitespaceRegexp = regexp.MustCompile("\\s+")
+var whitespaceRegexp = regexp.MustCompile(`\s+`)
 
 // SplitByWhitespace Separate strings by whitespace characters (space, TAB, newline, etc.)
 func SplitByWhitespace(s string) []string {

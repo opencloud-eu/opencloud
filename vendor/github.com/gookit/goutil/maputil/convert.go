@@ -246,6 +246,36 @@ func StrMapToText(m map[string]string) string {
 	return strings.Join(lines, "\n")
 }
 
+// CloneStringMap copy and return a new string map
+func CloneStringMap(items map[string]string) map[string]string {
+	if len(items) == 0 {
+		return nil
+	}
+	cloned := make(map[string]string, len(items))
+	for key, value := range items {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+// CloneAnyMap copy and return a new any map.
+func CloneAnyMap(items map[string]any) map[string]any {
+	return Clone(items)
+}
+
+// Clone copy and return a new map.
+func Clone[M ~map[K]V, K comparable, V any](items M) M {
+	if len(items) == 0 {
+		return nil
+	}
+
+	cloned := make(M, len(items))
+	for key, value := range items {
+		cloned[key] = value
+	}
+	return cloned
+}
+
 /*************************************************************
  * Flat convert tree map to flatten key-value map.
  *************************************************************/

@@ -50,11 +50,6 @@ func ExecCmd(binName string, args []string, workDir ...string) (string, error) {
 	return string(bs), err
 }
 
-var (
-	cmdList  = []string{"cmd", "cmd.exe"}
-	pwshList = []string{"powershell", "powershell.exe", "pwsh", "pwsh.exe"}
-)
-
 // ShellExec exec command by shell
 // cmdLine e.g. "ls -al"
 func ShellExec(cmdLine string, shells ...string) (string, error) {
@@ -117,13 +112,6 @@ func CurrentShell(onlyName bool, fallbackShell ...string) (binPath string) {
 		binPath = fbShell
 	}
 	return
-}
-
-func checkWinCurrentShell() string {
-	// 在 Windows 上，可以检查 COMSPEC 环境变量
-	comSpec := os.Getenv("COMSPEC")
-	// 没法检查 pwsh, 返回的还是 cmd
-	return comSpec
 }
 
 // HasShellEnv has shell env check.

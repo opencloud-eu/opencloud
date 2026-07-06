@@ -61,7 +61,7 @@ func SetColorLevel(level ColorLevel) {
 	// force set color level
 	colorLevel = level
 	supportColor = level > TermColorNone
-	noColor = supportColor == false
+	noColor = !supportColor
 }
 
 // DisableColor in the current terminal

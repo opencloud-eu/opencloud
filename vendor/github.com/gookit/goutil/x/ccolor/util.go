@@ -116,7 +116,12 @@ func doPrintTo(w io.Writer, code, str string) {
 
 // new implementation, support render full color code on pwsh.exe, cmd.exe
 func doPrintln(code string, args []any) {
-	_, lastErr = fmt.Fprintln(output, RenderString(code, formatLikePrintln(args)))
+	doPrintlnTo(output, code, args)
+}
+
+// new implementation, support render full color code on pwsh.exe, cmd.exe
+func doPrintlnTo(w io.Writer, code string, args []any) {
+	_, lastErr = fmt.Fprintln(w, RenderString(code, formatLikePrintln(args)))
 }
 
 // use Println, will add spaces for each arg

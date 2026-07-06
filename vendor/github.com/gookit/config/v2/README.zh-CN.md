@@ -331,7 +331,9 @@ fire the: clean.data
 ### 监听载入的配置文件变动
 
 想要监听载入的配置文件变动，并在变动时重新加载配置，你需要使用 https://github.com/fsnotify/fsnotify 库。
-使用方法可以参考示例 [./_example/watch_file.go](_examples/watch_file.go)
+使用方法可以参考示例 [./_examples/watch_file.go](_examples/watch_file.go)
+
+注意：编辑器保存文件时可能触发多次 `WRITE` 事件，且事件触发时文件内容可能还未完全写入。建议像示例中一样做一个很短的 debounce，再调用 `ReloadFiles()`。
 
 同时，你需要监听 `reload.data` 事件:
 

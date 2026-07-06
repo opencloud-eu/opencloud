@@ -359,6 +359,31 @@ func VersionCompare(v1, v2, op string) bool {
 
 // parseVersion 将版本号字符串解析为整数数组
 func parseVersion(version string) []int {
+	if version[0] == 'v' || version[0] == 'V' {
+		version = version[1:]
+	}
+
+	// 处理 Git 描述格式: v1.7.1-16-gc43a587
+	// 格式: <tag>-<commits>-g<hash>，其中 commits 表示距离 tag 的提交数
+	var extraCommits int
+	var preRelease []int
+	if idx := strings.Index(version, "-"); idx > 0 {
+		remaining := version[idx+1:]
+		version = version[:idx]
+		// 尝试提取提交数（格式: 数字-g<hash> 或 数字）
+		if dashIdx := strings.Index(remaining, "-"); dashIdx > 0 {
+			if commits, err := strconv.Atoi(remaining[:dashIdx]); err == nil {
+				extraCommits = commits
+			} else {
+				preRelease = parsePreRelease(remaining)
+			}
+		} else if commits, err := strconv.Atoi(remaining); err == nil {
+			extraCommits = commits
+		} else {
+			preRelease = parsePreRelease(remaining)
+		}
+	}
+
 	parts := strings.Split(version, ".")
 	result := make([]int, len(parts))
 
@@ -366,7 +391,44 @@ func parseVersion(version string) []int {
 		num, _ := strconv.Atoi(part)
 		result[i] = num
 	}
+
+	// 如果有额外的提交数，追加到版本号末尾
+	// 这样 v1.7.1-16-gc43a587 会变成 [1, 7, 1, 16]
+	// 而 v1.7.1 是 [1, 7, 1]，比较时前者更大
+	if extraCommits > 0 {
+		result = append(result, extraCommits)
+	} else if len(preRelease) > 0 {
+		result = append(result, preRelease...)
+	}
+
 	return result
+}
+
+func parsePreRelease(label string) []int {
+	label = strings.ToLower(label)
+	name := strings.Trim(label, ".-")
+	num := 0
+
+	for idx, char := range name {
+		if char >= '0' && char <= '9' {
+			if nVal, err := strconv.Atoi(strings.Trim(name[idx:], ".-")); err == nil {
+				num = nVal
+			}
+			name = strings.Trim(name[:idx], ".-")
+			break
+		}
+	}
+
+	rank := 0
+	switch name {
+	case "a", "alpha":
+		rank = 1
+	case "b", "beta":
+		rank = 2
+	case "rc":
+		rank = 3
+	}
+	return []int{-1, rank, num}
 }
 
 // compareVersions 比较两个版本号数组

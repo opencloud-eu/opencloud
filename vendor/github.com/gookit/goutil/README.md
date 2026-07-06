@@ -32,7 +32,7 @@
 
 - [`dump`](dump): GO value printing tool. print slice, map will auto wrap each element and display the call location
 - [`errorx`](errorx) Provide an enhanced error implements for go, allow with stacktrace and wrap another error.
-- [`assert`](testutil/assert) Provides commonly asserts functions for help testing
+- [`assert`](x/assert) Provides commonly asserts functions for help testing
 - [`testutil`](testutil) Test help util functions. eg: http test, mock ENV value
 - [`fakeobj`](x/fakeobj) provides a fake object for testing. such as fake fs.File, fs.FileInfo, fs.DirEntry etc.
 

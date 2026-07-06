@@ -15,16 +15,14 @@ import (
 // StrVarRenderer implements like shell vars renderer
 // 简单的实现类似 php, kotlin, shell 插值变量渲染，表达式解析处理。
 //
-//   - var format: $var_name, ${some_var}, ${top.sub_var}
+//   - var format: $var_name, ${some_var}, ${top.sub_var} ${name|default}
 //   - func call: ${func($var_name, 'const string')}
 type StrVarRenderer struct {
 	// global variables
 	vars map[string]any
 	// fallback func for var not exists
 	getter FallbackFn
-	// funcMap map[string]any TODO use any, add reflect value to rfs
-	funcMap map[string]func(...any) any
-	// var func map. refer the text/template TODO
+	// var func map. refer the text/template
 	//
 	// Func allow return 1 or 2 values, if return 2 values, the second value is error.
 	rfs map[string]*reflects.FuncX
@@ -34,8 +32,7 @@ type StrVarRenderer struct {
 func NewStrVarRenderer() *StrVarRenderer {
 	return &StrVarRenderer{
 		vars: make(map[string]any),
-		// funcMap: make(map[string]any),
-		funcMap: make(map[string]func(...any) any),
+		rfs:  make(map[string]*reflects.FuncX),
 	}
 }
 
@@ -53,21 +50,29 @@ func (r *StrVarRenderer) SetVar(name string, value any) *StrVarRenderer {
 	return r
 }
 
+// SetFunc set a function
+func (r *StrVarRenderer) SetFunc(name string, fn any) *StrVarRenderer {
+	r.rfs[name] = reflects.NewFunc(fn).WithEnhanceConv()
+	return r
+}
+
 // SetFuncMap set function map
-func (r *StrVarRenderer) SetFuncMap(funcMap map[string]func(...any) any) *StrVarRenderer {
-	for k, v := range funcMap {
-		r.funcMap[k] = v
+func (r *StrVarRenderer) SetFuncMap(fnMap map[string]func(...any) any) *StrVarRenderer {
+	for k, v := range fnMap {
+		r.SetFunc(k, v)
 	}
 	return r
 }
 
-// SetFunc set a function
-func (r *StrVarRenderer) SetFunc(name string, fn func(...any) any) *StrVarRenderer {
-	r.funcMap[name] = fn
+// SetFuncs set typed function map
+func (r *StrVarRenderer) SetFuncs(fnMap map[string]any) *StrVarRenderer {
+	for k, v := range fnMap {
+		r.SetFunc(k, v)
+	}
 	return r
 }
 
-// SetGetter set variable getter
+// SetGetter set variable fallback getter
 func (r *StrVarRenderer) SetGetter(getter FallbackFn) *StrVarRenderer {
 	r.getter = getter
 	return r
@@ -78,8 +83,8 @@ var (
 	// - 允许：$1..$N 这样的变量
 	// - 也支持 $@, $* 变量
 	reS = regexp.MustCompile(`\$(\w[a-zA-Z0-9_]*|[@|*])`)
-	// 处理 ${var_name} ${top.sub} 格式
-	reQ = regexp.MustCompile(`\$\{([a-zA-Z][a-zA-Z0-9_.]*)\}`)
+	// 处理 ${var_name} ${top.sub} ${var|def} 格式
+	reQ = regexp.MustCompile(`\$\{([a-zA-Z][a-zA-Z0-9_.]*)(?:\s*\|\s*([^}]+))?\}`)
 	// 处理 ${func(...)} 格式
 	reFn = regexp.MustCompile(`\$\{([a-zA-Z][a-zA-Z0-9_]*)\(([^}]*)\)\}`)
 )
@@ -108,10 +113,12 @@ func (r *StrVarRenderer) handleFuncCalls(input string, re *regexp.Regexp, vars m
 		funcName := submatch[1]
 
 		// 解析参数 并 调用函数
-		if fn, ok := r.funcMap[funcName]; ok {
+		if fx, ok := r.rfs[funcName]; ok {
 			args := r.parseArgs(submatch[2], vars)
-			result := fn(args...)
-			return fmt.Sprint(result)
+			result, err := fx.Call2(args...)
+			if err == nil {
+				return fmt.Sprint(result)
+			}
 		}
 
 		return matched
@@ -154,11 +161,15 @@ func (r *StrVarRenderer) parseArgs(argsStr string, data maputil.Map) []any {
 
 func (r *StrVarRenderer) replaceVars(input string, re *regexp.Regexp, data maputil.Map) string {
 	return re.ReplaceAllStringFunc(input, func(matched string) string {
-		var varName string
+		var varName, defVal string
 
 		// format: ${var_name} 提取变量名
 		if strings.HasPrefix(matched, "${") {
-			varName = matched[2 : len(matched)-1]
+			submatch := re.FindStringSubmatch(matched)
+			varName = submatch[1]
+			if len(submatch) > 2 {
+				defVal = strings.TrimSpace(submatch[2])
+			}
 		} else {
 			// format: $var_name
 			varName = matched[1:]
@@ -176,6 +187,9 @@ func (r *StrVarRenderer) replaceVars(input string, re *regexp.Regexp, data maput
 			}
 		}
 
+		if len(defVal) > 0 {
+			return defVal
+		}
 		return matched
 	})
 }

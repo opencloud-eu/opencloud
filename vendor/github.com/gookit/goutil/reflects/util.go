@@ -7,18 +7,6 @@ import (
 	"unsafe"
 )
 
-// loopIndirect returns the item at the end of indirection, and a bool to indicate
-// if it's nil. If the returned bool is true, the returned value's kind will be
-// either a pointer or interface.
-func loopIndirect(v reflect.Value) (rv reflect.Value, isNil bool) {
-	for ; v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface; v = v.Elem() {
-		if v.IsNil() {
-			return v, true
-		}
-	}
-	return v, false
-}
-
 // indirectInterface returns the concrete value in an interface value,
 // or else the zero reflect.Value.
 // That is, if v represents the interface value x, the result is the same as reflect.ValueOf(x):

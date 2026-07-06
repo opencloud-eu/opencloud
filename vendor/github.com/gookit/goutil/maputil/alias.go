@@ -6,7 +6,7 @@ import (
 )
 
 // Aliases implemented a simple string alias map.
-//  - key: alias, value: real name
+//   - key: alias, value: real name
 type Aliases map[string]string
 
 // AddAlias to the Aliases map

@@ -62,6 +62,11 @@ func LastErr() error {
 //
 
 // Disable color of current terminal.
+//
+// Usage:
+//
+//	ccolor.Disable()
+//	defer ccolor.RevertColorSupport()
 func Disable() { termenv.DisableColor() }
 
 // Level value of current terminal.

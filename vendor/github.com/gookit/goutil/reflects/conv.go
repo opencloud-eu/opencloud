@@ -190,11 +190,10 @@ func ConvToKind(val any, kind reflect.Kind, fallback ...ConvFunc) (rv reflect.Va
 	default:
 		// call fallback func
 		if len(fallback) > 0 && fallback[0] != nil {
-			rv, err = fallback[0](val, kind)
+			return fallback[0](val, kind)
 		} else {
 			err = comdef.ErrConvType
 		}
-		err = comdef.ErrConvType
 	}
 	return
 }

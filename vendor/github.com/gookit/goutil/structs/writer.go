@@ -70,16 +70,6 @@ func WithBeforeSetFn(fn BeforeSetFunc) SetOptFunc {
 	return func(opt *SetOptions) { opt.BeforeSetFn = fn }
 }
 
-// TODO refactoring SetValues to the struct
-type ValuesSetter struct {
-	src any // source struct
-	// raw reflect.Value of source struct
-	rv reflect.Value
-
-	option  *SetOptions
-	initOpt *InitOptions
-}
-
 // BindData set values to struct ptr from map data.
 func BindData(ptr any, data map[string]any, optFns ...SetOptFunc) error {
 	return SetValues(ptr, data, optFns...)

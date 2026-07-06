@@ -24,6 +24,10 @@ type Dotenv struct {
 	BaseDir string
 	// UpperKey change key to upper on set ENV. default: true
 	UpperKey bool
+	// DotenvFirst overwrite existing os ENV values on load dotenv.
+	//
+	// default: false - os ENV first
+	DotenvFirst bool
 	// IgnoreNotExist only load exists.
 	//
 	// - default: false - will return error if not exists
@@ -39,7 +43,7 @@ type Dotenv struct {
 func NewDotenv() *Dotenv {
 	return &Dotenv{
 		UpperKey: true,
-		Files: []string{DefaultEnvFile},
+		Files:    []string{DefaultEnvFile},
 		// init fields
 		loadData: make(map[string]string),
 	}
@@ -51,7 +55,7 @@ func (c *Dotenv) LoadAndInit() error {
 }
 
 // LoadFiles append load dotenv files
-//  - filename support simple glob pattern. eg: ".env.*"
+//   - filename support simple glob pattern. eg: ".env.*"
 func (c *Dotenv) LoadFiles(files ...string) error {
 	return c.doLoadFiles(files)
 }
@@ -129,6 +133,13 @@ func (c *Dotenv) parseAndSetEnv(contents string) error {
 	// Set to ENV
 	for key, val := range envMp {
 		key = strings.ToUpper(key)
+		if !c.DotenvFirst {
+			if _, ok := os.LookupEnv(key); ok {
+				if _, loaded := c.loadData[key]; !loaded {
+					continue
+				}
+			}
+		}
 		c.loadData[key] = val
 		_ = os.Setenv(key, val)
 	}
@@ -195,4 +206,3 @@ func LoadEnvFiles(baseDir string, files ...string) error {
 func LoadedEnvFiles() []string {
 	return stdEnv.LoadedFiles()
 }
-

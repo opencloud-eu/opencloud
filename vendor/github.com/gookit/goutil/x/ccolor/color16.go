@@ -2,6 +2,7 @@ package ccolor
 
 import (
 	"fmt"
+	"io"
 	"strconv"
 )
 
@@ -208,6 +209,33 @@ func (c Color) Printf(format string, a ...any) {
 
 // Println messages with new line
 func (c Color) Println(a ...any) { doPrintln(c.String(), a) }
+
+// Fprint writes to w with color setting.
+//
+// Usage:
+//
+//	ccolor.Green.Fprint(os.Stdout, "message")
+func (c Color) Fprint(w io.Writer, a ...any) {
+	doPrintTo(w, c.String(), fmt.Sprint(a...))
+}
+
+// Fprintf formats and writes to w with color setting.
+//
+// Usage:
+//
+//	ccolor.Cyan.Fprintf(os.Stdout, "string %s", "arg0")
+func (c Color) Fprintf(w io.Writer, format string, a ...any) {
+	doPrintTo(w, c.String(), fmt.Sprintf(format, a...))
+}
+
+// Fprintln writes to w with color setting and adds a new line.
+//
+// Usage:
+//
+//	ccolor.Green.Fprintln(os.Stdout, "message")
+func (c Color) Fprintln(w io.Writer, a ...any) {
+	doPrintlnTo(w, c.String(), a)
+}
 
 // Light current color. eg: 36(FgCyan) -> 96(FgLightCyan).
 //

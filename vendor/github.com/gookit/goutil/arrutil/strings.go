@@ -139,3 +139,13 @@ func TrimStrings(ss []string, cutSet ...string) []string {
 	}
 	return ns
 }
+
+// FirstNonEmptyString get
+func FirstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
+}

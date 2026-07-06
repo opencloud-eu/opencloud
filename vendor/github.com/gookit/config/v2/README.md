@@ -338,7 +338,9 @@ fire the: clean.data
 ### Watch loaded config files
 
 To listen for changes to loaded config files, and reload the config when it changes, you need to use the https://github.com/fsnotify/fsnotify library. 
-For usage, please refer to the example [./_example/watch_file.go](_examples/watch_file.go)
+For usage, please refer to the example [./_examples/watch_file.go](_examples/watch_file.go)
+
+Note: editors may emit multiple `WRITE` events while saving, and the file content may not be fully written when the event is received. Use a short debounce, as shown in the example, before calling `ReloadFiles()`.
 
 Also, you need to listen to the `reload.data` event:
 

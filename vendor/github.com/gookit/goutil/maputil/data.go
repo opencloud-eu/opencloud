@@ -1,6 +1,7 @@
 package maputil
 
 import (
+	"math"
 	"strings"
 
 	"github.com/gookit/goutil/arrutil"
@@ -175,7 +176,10 @@ func (d Data) Uint(key string, defVal ...uint) uint {
 // Uint16 value get, or default value
 func (d Data) Uint16(key string, defVal ...uint16) uint16 {
 	if val, ok := d.GetByPath(key); ok {
-		return uint16(mathutil.SafeUint(val))
+		u64 := mathutil.QuietUint64(val)
+		if u64 <= math.MaxUint16 {
+			return uint16(u64)
+		}
 	}
 
 	if len(defVal) > 0 {

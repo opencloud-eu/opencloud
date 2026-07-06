@@ -64,6 +64,16 @@ func (s *Style) Fprint(w io.Writer, v ...any) {
 	doPrintTo(w, s.String(), fmt.Sprint(v...))
 }
 
+// Fprintf like fmt.Fprintf, but with color
+func (s *Style) Fprintf(w io.Writer, format string, v ...any) {
+	doPrintTo(w, s.String(), fmt.Sprintf(format, v...))
+}
+
+// Fprintln like fmt.Fprintln, but with color
+func (s *Style) Fprintln(w io.Writer, v ...any) {
+	doPrintlnTo(w, s.String(), v)
+}
+
 // String convert style setting to color code string.
 func (s *Style) String() string {
 	var codes []string

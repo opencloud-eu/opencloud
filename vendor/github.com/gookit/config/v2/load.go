@@ -153,7 +153,9 @@ func (c *Config) LoadOSEnvs(nameToKeyMap map[string]string) {
 }
 
 // LoadOSEnvByFilter load OS ENVs by custom fitler func. eg: use for load ENV by prefix.
-func LoadOSEnvByFilter(filterFn func(key string) (loadIt bool, cfgKey string)) { dc.LoadOSEnvByFilter(filterFn) }
+func LoadOSEnvByFilter(filterFn func(key string) (loadIt bool, cfgKey string)) {
+	dc.LoadOSEnvByFilter(filterFn)
+}
 
 // LoadOSEnvByFilter load OS ENVs by custom fitler func. eg: use for load ENV by prefix.
 //
@@ -463,7 +465,7 @@ func (c *Config) ReloadFiles() (err error) {
 		return
 	}
 
-	data := c.Data()
+	var data map[string]any
 	c.reloading = true
 	c.ClearCaches()
 
@@ -483,6 +485,8 @@ func (c *Config) ReloadFiles() (err error) {
 
 	// with lock
 	c.lock.Lock()
+	data = c.data
+	c.data = make(map[string]any)
 
 	// reload config files
 	return c.LoadFiles(files...)

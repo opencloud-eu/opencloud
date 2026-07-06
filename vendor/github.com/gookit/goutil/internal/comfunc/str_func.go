@@ -5,8 +5,6 @@ import (
 	"strings"
 )
 
-var commentsPrefixes = []string{"#", ";", "//"}
-
 // ParseEnvLineOption parse env line options
 type ParseEnvLineOption struct {
 	// NotInlineComments dont parse inline comments.
@@ -74,7 +72,7 @@ func SplitLineToKv(line, sep string) (string, string) {
 }
 
 // SplitKvBySep parse string line to k-v, support parse comments.
-//  - rmInlineComments: check and remove inline comments by ' #'
+//   - rmInlineComments: check and remove inline comments by ' #'
 func SplitKvBySep(line, sep string, rmInlineComments bool) (key, val string) {
 	sepPos := strings.Index(line, sep)
 	if sepPos < 0 {

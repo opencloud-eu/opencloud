@@ -33,7 +33,7 @@
 - [`dump`](./dump)  GO变量打印工具，打印 slice, map 会自动换行显示每个元素，同时会显示打印调用位置
 - [`errorx`](./errorx)  为 go 提供增强的错误实现，允许带有堆栈跟踪信息和包装另一个错误。
 - [`testutil`](testutil) test help 相关操作的函数工具包. eg: http test, mock ENV value
-- [`assert`](testutil/assert) 用于帮助测试的断言函数工具包，方便编写单元测试。
+- [`assert`](x/assert) 用于帮助测试的断言函数工具包，方便编写单元测试。
 - [`fakeobj`](x/fakeobj) 提供一些接口的MOCK的实现，用于模拟测试. 例如 fs.File, fs.FileInfo, fs.DirEntry 等等.
 
 ### 扩展工具包

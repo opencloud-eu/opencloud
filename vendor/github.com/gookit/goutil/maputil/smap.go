@@ -7,6 +7,7 @@ import (
 
 // SM is alias of map[string]string
 type SM = StrMap
+
 // SMap and StrMap is alias of map[string]string
 type SMap = StrMap
 type StrMap map[string]string

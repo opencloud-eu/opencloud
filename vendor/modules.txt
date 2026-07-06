@@ -732,11 +732,11 @@ github.com/google/renameio/v2
 # github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
-# github.com/gookit/config/v2 v2.2.8
+# github.com/gookit/config/v2 v2.2.9
 ## explicit; go 1.21.0
 github.com/gookit/config/v2
 github.com/gookit/config/v2/yaml
-# github.com/gookit/goutil v0.7.5
+# github.com/gookit/goutil v0.8.0
 ## explicit; go 1.19
 github.com/gookit/goutil
 github.com/gookit/goutil/arrutil

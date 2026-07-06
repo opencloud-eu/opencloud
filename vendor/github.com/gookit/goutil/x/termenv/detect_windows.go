@@ -98,30 +98,6 @@ func tryEnableOnStdout() bool {
 	return true
 }
 
-// related docs
-// https://docs.microsoft.com/zh-cn/windows/console/console-virtual-terminal-sequences
-// https://docs.microsoft.com/zh-cn/windows/console/console-virtual-terminal-sequences#samples
-var (
-	// isMSys bool
-	kernel32 *syscall.LazyDLL
-
-	procGetConsoleMode *syscall.LazyProc
-	procSetConsoleMode *syscall.LazyProc
-)
-
-func initKernel32Proc() {
-	if kernel32 != nil {
-		return
-	}
-
-	// load related Windows dll
-	// https://docs.microsoft.com/en-us/windows/console/setconsolemode
-	kernel32 = syscall.NewLazyDLL("kernel32.dll")
-
-	procGetConsoleMode = kernel32.NewProc("GetConsoleMode")
-	procSetConsoleMode = kernel32.NewProc("SetConsoleMode")
-}
-
 /*************************************************************
  * render full color code on Windows(8,16,24bit color)
  *************************************************************/
