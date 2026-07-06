@@ -897,14 +897,19 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 		}
 
 		// skip irrelevant files
-		if !t.Ignorer.IsSpaceRoot(path) && t.Ignorer.IsIgnored(path) {
-			if info.IsDir() {
+		if t.Ignorer.IsIgnored(path) {
+			switch {
+			case t.Ignorer.IsSpaceRoot(path):
+				// ignore the space root itself, but do not skip the whole tree
+				return nil
+			case t.Ignorer.IsRootPath(path):
+				// ignor the root path itself, but do not skip the whole tree
+				return nil
+			case info.IsDir():
 				return filepath.SkipDir
+			default:
+				return nil
 			}
-			return nil
-		}
-		if t.Ignorer.IsRootPath(path) {
-			return nil // ignore the root paths
 		}
 
 		if !info.IsDir() && !info.Mode().IsRegular() {
