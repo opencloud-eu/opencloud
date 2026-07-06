@@ -377,7 +377,7 @@ func (h *HttpJmapClient) Command(operation Operation, request Request, ctx Conte
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		h.listener.OnFailedRequestWithStatus(endpoint, operation, res.StatusCode)
 		logger.Error().Str(logEndpoint, endpoint).Str(logHttpStatus, log.SafeString(res.Status)).Msg("HTTP response status code is not 2xx") //NOSONAR
-		return nil, language, jmapError(err, JmapErrorServerResponse)
+		return nil, language, jmapError(fmt.Errorf("JMAP server responsed with '%s'", res.Status), JmapErrorServerResponse)
 	}
 
 	h.listener.OnSuccessfulRequest(endpoint, operation, res.StatusCode)

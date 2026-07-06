@@ -14,6 +14,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httputil"
+	"net/netip"
 	"net/url"
 	"os"
 	"reflect"
@@ -25,6 +26,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	dockernetwork "github.com/moby/moby/api/types/network"
 	"github.com/stretchr/testify/require"
 
@@ -75,11 +77,11 @@ const (
 )
 
 type User struct {
-	name        string
-	description string
-	alias       string
-	password    string
-	email       string
+	Name        string
+	Description string
+	Alias       string
+	Password    string
+	Email       string
 }
 
 func userpassword() string {
@@ -92,7 +94,7 @@ func userpassword() string {
 
 func mkuser(name string, description string, alias string) User {
 	parts := strings.Split(alias, "@")
-	return User{name: name, description: description, alias: alias, email: name + "@" + parts[1], password: userpassword()}
+	return User{Name: name, Description: description, Alias: alias, Email: name + "@" + parts[1], Password: userpassword()}
 }
 
 var (
@@ -214,16 +216,20 @@ func Skip(t *testing.T) bool {
 }
 
 type StalwartTest struct {
-	t           *testing.T
-	ip          string
-	imapPort    uint16
-	container   *testcontainers.DockerContainer
-	ctx         context.Context
-	cancelCtx   context.CancelFunc
-	client      *jmap.Client
-	logger      *oclog.Logger
-	jmapBaseUrl *url.URL
-	sessionUrl  *url.URL
+	t          *testing.T
+	ip         string
+	imapPort   uint16
+	container  *testcontainers.DockerContainer
+	ctx        context.Context
+	cancelCtx  context.CancelFunc
+	logger     *oclog.Logger
+	sessionUrl *url.URL
+
+	Client         *jmap.Client
+	JmapBaseUrl    *url.URL
+	MasterUsername string
+	MasterPassword string
+	Users          []User
 
 	io.Closer
 }
@@ -249,43 +255,11 @@ func (s *StalwartTest) Context(session *jmap.Session) jmap.Context {
 }
 
 func (s *StalwartTest) Session(username string) *jmap.Session {
-	session, err := s.client.FetchSession(s.ctx, s.sessionUrl, username, s.logger)
+	session, err := s.Client.FetchSession(s.ctx, s.sessionUrl, username, s.logger)
 	require.NoError(s.t, err, "failed to authenticate user '%s' and/or retrieve their JMAP session using the URL '%s'", username, s.sessionUrl.String())
 	require.NotNil(s.t, session.Capabilities.Mail)
 	require.NotNil(s.t, session.Capabilities.Calendars)
 	require.NotNil(s.t, session.Capabilities.Contacts)
-
-	// we have to overwrite the hostname in JMAP URL because the container
-	// will know its name to be a random Docker container identifier, or
-	// "localhost" as we defined the hostname in the Stalwart configuration,
-	// and we also need to overwrite the port number as its not mapped
-
-	session.JmapUrl.Host = s.jmapBaseUrl.Host
-	session.JmapUrl.Scheme = "http" // replace https with http
-	session.WebsocketUrl.Host = s.jmapBaseUrl.Host
-	session.WebsocketUrl.Scheme = "ws" // replace wss with ws
-
-	if v, err := replaceHostProto(session.ApiUrl, "http", s.jmapBaseUrl.Host); err != nil {
-		require.NoError(s.t, err)
-	} else {
-		session.ApiUrl = v
-	}
-	if v, err := replaceHostProto(session.DownloadUrl, "http", s.jmapBaseUrl.Host); err != nil {
-		require.NoError(s.t, err)
-	} else {
-		session.DownloadUrl = v
-	}
-	if v, err := replaceHostProto(session.UploadUrl, "http", s.jmapBaseUrl.Host); err != nil {
-		require.NoError(s.t, err)
-	} else {
-		session.UploadUrl = v
-	}
-	if v, err := replaceHostProto(session.EventSourceUrl, "http", s.jmapBaseUrl.Host); err != nil {
-		require.NoError(s.t, err)
-	} else {
-		session.EventSourceUrl = v
-	}
-
 	return &session
 }
 
@@ -609,10 +583,10 @@ func createManagementObject(ctx context.Context, h http.Client, url string, admi
 	}
 }
 
-func createJmapClient(container *testcontainers.DockerContainer, ctx context.Context, auth jmap.HttpJmapClientAuthenticator, logger *oclog.Logger) (jmap.Client, *url.URL, *url.URL, error) {
+func createJmapClient(container *testcontainers.DockerContainer, ctx context.Context, auth jmap.HttpJmapClientAuthenticator, logger *oclog.Logger) (*jmap.Client, *url.URL, *url.URL, error) {
 	ip, err := container.Host(ctx)
 	if err != nil {
-		return jmap.Client{}, nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
@@ -630,7 +604,7 @@ func createJmapClient(container *testcontainers.DockerContainer, ctx context.Con
 
 	jmapPort, err := container.MappedPort(ctx, httpPort)
 	if err != nil {
-		return jmap.Client{}, nil, nil, err
+		return nil, nil, nil, err
 	}
 	jmapBaseUrl := &url.URL{
 		Scheme: "http",
@@ -649,11 +623,11 @@ func createJmapClient(container *testcontainers.DockerContainer, ctx context.Con
 		cmd := []string{Wireshark, "-pkSl", "-i", "lo", "-f", fmt.Sprintf("port %d", jmapPort.Num()), "-Y", "http||websocket"}
 		process, err := os.StartProcess(Wireshark, cmd, &attr)
 		if err != nil {
-			return jmap.Client{}, nil, nil, err
+			return nil, nil, nil, err
 		}
 		err = process.Release()
 		if err != nil {
-			return jmap.Client{}, nil, nil, err
+			return nil, nil, nil, err
 		}
 
 		time.Sleep(10 * time.Second)
@@ -665,7 +639,7 @@ func createJmapClient(container *testcontainers.DockerContainer, ctx context.Con
 
 	wscf, err := jmap.NewHttpWsClientFactory(wsd, auth, logger, eventListener, true, 8192)
 	if err != nil {
-		return jmap.Client{}, nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	return jmap.NewClient(api, api, api, wscf), jmapBaseUrl, sessionUrl, nil
@@ -741,17 +715,17 @@ func NewStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 		option(&settings)
 	}
 
-	var net *testcontainers.DockerNetwork
+	var containerNetwork *testcontainers.DockerNetwork
 	{
 		if useNetwork {
 			if n, err := network.New(ctx); err != nil {
 				return nil, err
 			} else {
 				testcontainers.CleanupNetwork(t, n)
-				net = n
+				containerNetwork = n
 			}
 		} else {
-			net = nil
+			containerNetwork = nil
 		}
 	}
 
@@ -791,8 +765,8 @@ func NewStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 				},
 			),
 		}
-		if net != nil {
-			opts = append(opts, network.WithNetwork([]string{recoveryAlias}, net))
+		if containerNetwork != nil {
+			opts = append(opts, network.WithNetwork([]string{recoveryAlias}, containerNetwork))
 		}
 
 		stalwartImage := fmt.Sprintf(stalwartImageTemplate, StalwartVersion)
@@ -805,7 +779,7 @@ func NewStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 
 		// now that the container is running in recovery mode, we can use the stalwart CLI to import
 		// the configuration
-		if output, err := importConfig(t, recovery, ctx, net, recoveryAlias, adminUsername, adminPassword, settings, false); err != nil {
+		if output, err := importConfig(t, recovery, ctx, containerNetwork, recoveryAlias, adminUsername, adminPassword, settings, false); err != nil {
 			return nil, err
 		} else {
 			t.Logf("Output of applying configuration:\n%s", strings.Join(output, "")) //NOSONAR
@@ -819,13 +793,45 @@ func NewStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 		}
 	}
 
+	httpHostPort, err := FreeLocalhostPort()
+	require.NoError(t, err)
+	imapsHostPort, err := FreeLocalhostPort()
+	require.NoError(t, err)
+
+	publicUrl := fmt.Sprintf("http://127.0.0.1:%d", httpHostPort)
+
 	// and now we start the container in "proper" mode (not recovery), re-using the same volume for data
 	var container *testcontainers.DockerContainer
 	{
+		parsedHttpPort, err := dockernetwork.ParsePort(httpPort + "/tcp")
+		require.NoError(t, err)
+		parsedImapsPort, err := dockernetwork.ParsePort(imapsPort + "/tcp")
+		require.NoError(t, err)
+		address, err := netip.ParseAddr("127.0.0.1")
+		require.NoError(t, err)
+
 		opts := []testcontainers.ContainerCustomizer{
 			testcontainers.WithLogConsumers(&printingLogConsumer{prefix: "STALWART"}),
 			testcontainers.WithExposedPorts(httpPort+"/tcp", imapsPort+"/tcp"),
+			testcontainers.WithHostConfigModifier(func(hc *dockercontainer.HostConfig) {
+				hc.PortBindings = dockernetwork.PortMap{
+					dockernetwork.Port(parsedHttpPort): []dockernetwork.PortBinding{
+						{
+							HostIP:   address,
+							HostPort: fmt.Sprintf("%d", httpHostPort),
+						},
+					},
+					dockernetwork.Port(parsedImapsPort): []dockernetwork.PortBinding{
+						{
+							HostIP:   address,
+							HostPort: fmt.Sprintf("%d", imapsHostPort),
+						},
+					},
+				}
+
+			}),
 			testcontainers.WithEnv(map[string]string{
+				"STALWART_PUBLIC_URL":     publicUrl,
 				"STALWART_RECOVERY_ADMIN": strings.Join([]string{adminUsername, adminPassword}, ":"),
 			}),
 			testcontainers.WithFiles(testcontainers.ContainerFile{
@@ -850,8 +856,8 @@ func NewStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 			),
 		}
 
-		if net != nil {
-			opts = append(opts, network.WithNetwork([]string{containerAlias}, net))
+		if containerNetwork != nil {
+			opts = append(opts, network.WithNetwork([]string{containerAlias}, containerNetwork))
 		}
 
 		stalwartImage := fmt.Sprintf(stalwartImageTemplate, StalwartVersion)
@@ -866,7 +872,7 @@ func NewStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 	if !useRecoveryContainer {
 		// we didn't use a recovery container to initialize the configuration, we will use the
 		// regular container to do so
-		if output, err := importConfig(t, container, ctx, net, containerAlias, adminUsername, adminPassword, settings, true); err != nil {
+		if output, err := importConfig(t, container, ctx, containerNetwork, containerAlias, adminUsername, adminPassword, settings, true); err != nil {
 			t.Logf("Output of applying configuration:\n%s", strings.Join(output, ""))
 			return nil, fmt.Errorf("failed to import configuration: %w: output: %s", err, strings.Join(output, ""))
 		} else {
@@ -887,7 +893,7 @@ func NewStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 	}
 
 	domains := structs.Uniq(structs.Map(users[:], func(u User) string {
-		parts := strings.Split(u.email, "@")
+		parts := strings.Split(u.Email, "@")
 		return parts[1]
 	}))
 	slices.Sort(domains)
@@ -948,26 +954,26 @@ func NewStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 		}
 
 		for _, user := range users {
-			fmt.Printf("Creating individual '%v'\n", user.name)
+			fmt.Printf("Creating individual '%v'\n", user.Name)
 
 			localPart := ""
 			domain := ""
 			domainId := ""
 			{
-				parts := strings.Split(user.alias, "@")
+				parts := strings.Split(user.Alias, "@")
 				localPart = parts[0]
 				domain = parts[1]
 				if v, ok := domainIds[domain]; ok {
 					domainId = v
 				} else {
-					require.FailNow(t, "failed to find id for domain '%s' in user email address '%s'", domain, user.email)
+					require.FailNow(t, "failed to find id for domain '%s' in user email address '%s'", domain, user.Email)
 				}
 			}
 
 			_, err := createManagementObject(ctx, h, url, adminUsername, adminPassword, "Account", map[string]any{
 				"@type":       "User",
-				"name":        user.name,
-				"description": user.description,
+				"name":        user.Name,
+				"description": user.Description,
 				"aliases": map[string]any{
 					"0": map[string]any{
 						"enabled":  true,
@@ -978,7 +984,7 @@ func NewStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 				"credentials": map[string]any{
 					"0": map[string]any{
 						"@type":      "Password",
-						"secret":     user.password,
+						"secret":     user.Password,
 						"allowedIps": map[string]any{},
 						"expiresAt":  nil,
 					},
@@ -1012,7 +1018,7 @@ func NewStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 			})
 			require.NoError(t, err)
 
-			usersByName := structs.Index(users[:], func(u User) string { return u.name })
+			usersByName := structs.Index(users[:], func(u User) string { return u.Name })
 			{
 				mr := result["methodResponses"].([]any)
 				f := mr[0].([]any)
@@ -1023,11 +1029,11 @@ func NewStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 					name := u["name"].(string)
 					email := u["emailAddress"].(string)
 					if match, ok := usersByName[name]; ok {
-						require.Equal(t, match.email, email)
+						require.Equal(t, match.Email, email)
 						aliases := u["aliases"].(map[string]any)
 						require.Len(t, aliases, 1)
 						for _, alias := range aliases {
-							parts := strings.Split(match.alias, "@")
+							parts := strings.Split(match.Alias, "@")
 							alias := alias.(map[string]any)
 							require.True(t, alias["enabled"].(bool))
 							require.Equal(t, parts[0], alias["name"].(string))
@@ -1058,12 +1064,18 @@ func NewStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 				return nil, err
 			}
 
-			// check whether we can fetch a session for the provisioned users
+			// check whether we can fetch a session for the provisioned users,
+			// but since these are flaky once in a blue moon, we will retry
 			for _, user := range users {
-				ctx := context.WithValue(ctx, "password", user.password)
-				session, err := j.FetchSession(ctx, sessionUrl, user.email, oclog.From(logger.With().Str("username", user.email).Str("password", user.password)))
-				require.NoError(t, err, "failed to retrieve JMAP session for newly created principal '%s'", user.email)
-				require.Equal(t, user.email, session.Username)
+				require.Eventually(t, func() bool {
+					ctx := context.WithValue(ctx, "password", user.Password)
+					session, err := j.FetchSession(ctx, sessionUrl, user.Email, oclog.From(logger.With().Str("username", user.Email).Str("password", user.Password)))
+					if err != nil {
+						return false
+					}
+					require.Equal(t, user.Email, session.Username)
+					return true
+				}, 5*time.Second, 500*time.Millisecond, "failed to retrieve JMAP session for newly created principal '%s'", user.Email)
 			}
 		}
 	}
@@ -1079,16 +1091,19 @@ func NewStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 	}
 
 	return &StalwartTest{
-		t:           t,
-		ip:          ip,
-		imapPort:    imapPort.Num(),
-		container:   container,
-		ctx:         ctx,
-		cancelCtx:   cancel,
-		client:      &j,
-		logger:      logger,
-		jmapBaseUrl: jmapBaseUrl,
-		sessionUrl:  sessionUrl,
+		t:              t,
+		ip:             ip,
+		imapPort:       imapPort.Num(),
+		container:      container,
+		ctx:            ctx,
+		cancelCtx:      cancel,
+		logger:         logger,
+		sessionUrl:     sessionUrl,
+		Client:         j,
+		JmapBaseUrl:    jmapBaseUrl,
+		MasterUsername: masterUsername,
+		MasterPassword: masterPassword,
+		Users:          users[:],
 	}, nil
 }
 
@@ -1767,7 +1782,7 @@ func containerTest[OBJ jmap.Idable, RESP jmap.GetResponse[OBJ], BOXES any, CHANG
 	defer s.Close()
 
 	user := pickUser()
-	session := s.Session(user.email)
+	session := s.Session(user.Email)
 	ctx := s.Context(session)
 
 	accountId := acc(session)
@@ -1775,7 +1790,7 @@ func containerTest[OBJ jmap.Idable, RESP jmap.GetResponse[OBJ], BOXES any, CHANG
 	// we first need to retrieve the list of all the Principals in order to be able to use and test sharing
 	principalIds := []jmap.PrincipalId{}
 	{
-		result, err := s.client.GetPrincipals(accountId, []jmap.PrincipalId{}, ctx)
+		result, err := s.Client.GetPrincipals(accountId, []jmap.PrincipalId{}, ctx)
 		require.NoError(err)
 		require.NotEmpty(result.Payload.List)
 		principalIds = structs.Map(result.Payload.List, func(p jmap.Principal) jmap.PrincipalId { return jmap.PrincipalId(p.Id) })

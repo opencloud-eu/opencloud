@@ -26,7 +26,7 @@ var UintPtrZero *uint = uintPtr(0)
 
 type eventListeners[T any] struct {
 	listeners []T
-	m         sync.Mutex
+	m         sync.Mutex // TODO get rid of the mutex to avoid lock contention, use a lock-free alternative, or get rid of it altogether
 }
 
 func (e *eventListeners[T]) add(listener T) {
@@ -80,6 +80,9 @@ func command[T any](client Cmdr, //NOSONAR
 	duration := time.Since(before)
 	if jmapErr != nil {
 		return ZeroResult[T](single(duration)), jmapErr
+	}
+	if responseBody == nil {
+		return ZeroResult[T](single(duration)), jmapError(fmt.Errorf("empty response body"), JmapErrorInvalidJmapResponsePayload)
 	}
 
 	var response Response
@@ -450,6 +453,8 @@ func ptr[T any | int | uint | bool | string](t T) *T {
 
 func dumpHttpRequest(req *http.Request, maxBodySize int64, closure func(method string, uri string, content string, truncated bool)) error {
 	var logBuilder bytes.Buffer
+	uri := req.URL.String()
+	fmt.Fprintf(&logBuilder, "%s %s\n", req.Method, uri)
 	for key, values := range req.Header {
 		if key == "Authorization" {
 			continue
@@ -474,7 +479,7 @@ func dumpHttpRequest(req *http.Request, maxBodySize int64, closure func(method s
 			req.Body = io.NopCloser(fullBodyReader)
 		}
 	}
-	closure(req.Method, req.URL.String(), logBuilder.String(), truncated)
+	closure(req.Method, uri, logBuilder.String(), truncated)
 	return nil
 }
 

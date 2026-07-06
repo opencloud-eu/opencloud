@@ -37,13 +37,13 @@ func TestCalendars(t *testing.T) { //NOSONAR
 		func(resp CalendarGetResponse) []Calendar { return resp.List },
 		func(obj Calendar) string { return obj.Id },
 		func(s *StalwartTest, accountId AccountId, ids []string, ctx Context) (Result[CalendarGetResponse], error) {
-			return s.client.GetCalendars(accountId, ids, ctx)
+			return s.Client.GetCalendars(accountId, ids, ctx)
 		},
 		func(s *StalwartTest, accountId AccountId, id string, change CalendarChange, ctx Context) (Result[Calendar], error) { //NOSONAR
-			return s.client.UpdateCalendar(accountId, id, change, ctx)
+			return s.Client.UpdateCalendar(accountId, id, change, ctx)
 		},
 		func(s *StalwartTest, accountId AccountId, ids []string, ctx Context) (Result[map[string]SetError], error) { //NOSONAR
-			return s.client.DeleteCalendar(accountId, ids, ctx)
+			return s.Client.DeleteCalendar(accountId, ids, ctx)
 		},
 		func(s *StalwartTest, t *testing.T, accountId AccountId, count uint, ctx Context, user User, principalIds []PrincipalId) (CalendarBoxes, []Calendar, SessionState, State, error) {
 			return s.fillCalendar(t, accountId, count, ctx, user, principalIds)
@@ -76,7 +76,7 @@ func TestEvents(t *testing.T) {
 	defer s.Close()
 
 	user := pickUser()
-	session := s.Session(user.email)
+	session := s.Session(user.Email)
 	ctx := s.Context(session)
 
 	accountId, calendarId, expectedEventsById, boxes, err := s.fillEvents(t, count, ctx, user)
@@ -95,7 +95,7 @@ func TestEvents(t *testing.T) {
 	os := EmptyState
 	var results *CalendarEventSearchResults
 	{
-		result, err := s.client.QueryCalendarEvents(ToNullQueryParams([]AccountId{accountId}), nil, filter, sortBy, true, ctx)
+		result, err := s.Client.QueryCalendarEvents(ToNullQueryParams([]AccountId{accountId}), nil, filter, sortBy, true, ctx)
 		require.NoError(err)
 
 		require.Len(result.Payload, 1)
@@ -128,7 +128,7 @@ func TestEvents(t *testing.T) {
 		for i := range slices {
 			position := int(i * limit)
 			page := min(remainder, limit)
-			result, err := s.client.QueryCalendarEvents(map[AccountId]QueryParams{accountId: {Position: position}}, &limit, filter, sortBy, true, ctx)
+			result, err := s.Client.QueryCalendarEvents(map[AccountId]QueryParams{accountId: {Position: position}}, &limit, filter, sortBy, true, ctx)
 			require.NoError(err)
 			require.Len(result.Payload, 1)
 			require.Contains(result.Payload, accountId)
@@ -153,7 +153,7 @@ func TestEvents(t *testing.T) {
 		offset := 0
 		i := 0
 		for chunk := range slices.Chunk(results.Results, chunkSize) {
-			result, err := s.client.QueryCalendarEvents(map[AccountId]QueryParams{accountId: {Anchor: anchor, AnchorOffset: &offset}}, uintPtr(chunkSize), filter, sortBy, true, ctx)
+			result, err := s.Client.QueryCalendarEvents(map[AccountId]QueryParams{accountId: {Anchor: anchor, AnchorOffset: &offset}}, uintPtr(chunkSize), filter, sortBy, true, ctx)
 			require.Equal(ss, result.GetSessionState())
 			require.NoError(err)
 			require.Len(result.Payload, 1)
@@ -186,7 +186,7 @@ func TestEvents(t *testing.T) {
 				},
 			},
 		}
-		result, err := s.client.UpdateCalendarEvent(accountId, event.Id, change, ctx)
+		result, err := s.Client.UpdateCalendarEvent(accountId, event.Id, change, ctx)
 		require.NoError(err)
 		require.Equal(jscalendar.StatusCancelled, result.Payload.Status)
 		require.Equal(uint(99), result.Payload.Sequence)
@@ -198,7 +198,7 @@ func TestEvents(t *testing.T) {
 
 	{
 		ids := structs.Map(slices.Collect(maps.Values(expectedEventsById)), func(e CalendarEvent) string { return e.Id })
-		result, err := s.client.DeleteCalendarEvent(accountId, ids, ctx)
+		result, err := s.Client.DeleteCalendarEvent(accountId, ids, ctx)
 		require.NoError(err)
 		require.Empty(result.Payload)
 
@@ -208,7 +208,7 @@ func TestEvents(t *testing.T) {
 	}
 
 	{
-		result, err := s.client.QueryCalendarEvents(ToNullQueryParams([]AccountId{accountId}), nil, filter, sortBy, true, ctx)
+		result, err := s.Client.QueryCalendarEvents(ToNullQueryParams([]AccountId{accountId}), nil, filter, sortBy, true, ctx)
 		require.NoError(err)
 		require.Contains(result.Payload, accountId)
 		resp := result.Payload[accountId]
@@ -348,7 +348,7 @@ func (s *StalwartTest) fillCalendar( //NOSONAR
 			cal.ShareWith = m
 		}
 
-		result, err := s.client.CreateCalendar(accountId, cal, ctx)
+		result, err := s.Client.CreateCalendar(accountId, cal, ctx)
 		if err != nil {
 			return boxes, created, ss, as, err
 		}
@@ -383,7 +383,7 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 	user User,
 ) (AccountId, string, map[string]CalendarEvent, EventsBoxes, error) {
 	require := require.New(t)
-	c, err := NewTestJmapClient(ctx.Session, user.email, user.password, true, true)
+	c, err := NewTestJmapClient(ctx.Session, user.Email, user.Password, true, true)
 	require.NoError(err)
 	defer c.Close()
 
@@ -572,7 +572,7 @@ func (s *StalwartTest) fillEvents( //NOSONAR
 			obj.RecurrenceRule = &rr
 		}
 
-		result, err := s.client.CreateCalendarEvent(accountId, obj, ctx)
+		result, err := s.Client.CreateCalendarEvent(accountId, obj, ctx)
 		if err != nil {
 			return accountId, calendarId, nil, boxes, err
 		}

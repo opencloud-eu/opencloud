@@ -25,6 +25,8 @@ func authOptions(opts ...account.Option) account.Options {
 	return opt
 }
 
+const RequestIdHeader = "X-Request-ID"
+
 func Auth(opts ...account.Option) func(http.Handler) http.Handler {
 	opt := authOptions(opts...)
 	tokenManager, err := jwt.New(map[string]any{
@@ -39,7 +41,7 @@ func Auth(opts ...account.Option) func(http.Handler) http.Handler {
 			ctx := r.Context()
 			t := r.Header.Get(revactx.TokenHeader)
 			if t == "" {
-				requestID := r.Header.Get("X-Request-ID")
+				requestID := r.Header.Get(RequestIdHeader)
 				traceID := GetTraceID(ctx)
 				l := opt.Logger.Error().Str(log.RequestIDString, log.SafeString(requestID))
 				if traceID != "" {
@@ -52,7 +54,7 @@ func Auth(opts ...account.Option) func(http.Handler) http.Handler {
 
 			u, tokenScope, err := tokenManager.DismantleToken(r.Context(), t)
 			if err != nil {
-				requestID := r.Header.Get("X-Request-ID")
+				requestID := r.Header.Get(RequestIdHeader)
 				traceID := GetTraceID(ctx)
 				l := opt.Logger.Error().Str(log.RequestIDString, log.SafeString(requestID))
 				if traceID != "" {
@@ -63,7 +65,7 @@ func Auth(opts ...account.Option) func(http.Handler) http.Handler {
 				return
 			}
 			if ok, err := scope.VerifyScope(ctx, tokenScope, r); err != nil || !ok {
-				requestID := r.Header.Get("X-Request-ID")
+				requestID := r.Header.Get(RequestIdHeader)
 				traceID := GetTraceID(ctx)
 				l := opt.Logger.Error().Str(log.RequestIDString, log.SafeString(requestID))
 				if traceID != "" {

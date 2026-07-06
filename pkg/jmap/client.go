@@ -44,8 +44,8 @@ func (j *Client) Api() ApiClient {
 	return j.api
 }
 
-func NewClient(session SessionClient, api ApiClient, blob BlobClient, ws WsClientFactory) Client {
-	return Client{
+func NewClient(session SessionClient, api ApiClient, blob BlobClient, ws WsClientFactory) *Client {
+	return &Client{
 		session:               session,
 		api:                   api,
 		blob:                  blob,
@@ -73,11 +73,11 @@ func (j *Client) OnNotification(username string, stateChange StateChange) {
 
 // Retrieve JMAP well-known data from the Stalwart server and create a Session from that.
 func (j *Client) FetchSession(ctx context.Context, sessionUrl *url.URL, username string, logger *log.Logger) (Session, Error) {
-	wk, err := j.session.GetSession(ctx, sessionUrl, username, logger)
+	sessionResponse, err := j.session.GetSession(ctx, sessionUrl, username, logger)
 	if err != nil {
 		return Session{}, err
 	}
-	return newSession(wk)
+	return newSession(sessionResponse)
 }
 
 func (j *Client) logger(operation string, ctx Context) *log.Logger {

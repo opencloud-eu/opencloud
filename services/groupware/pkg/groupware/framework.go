@@ -179,7 +179,7 @@ func (r groupwareHttpJmapApiClientMetricsRecorder) OnFailedWsHandshakeRequestWit
 	// TODO metrics for WSS
 }
 
-func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prometheusRegistry prometheus.Registerer) (*Groupware, error) { //NOSONAR
+func NewGroupwareUsingJmapClient(jmapClient *jmap.Client, config *config.Config, logger *log.Logger, mux *chi.Mux, prometheusRegistry prometheus.Registerer) (*Groupware, error) { //NOSONAR
 	baseUrl, err := url.Parse(config.Mail.BaseUrl)
 	if err != nil {
 		logger.Error().Err(err).Msgf("failed to parse configured Mail.Baseurl '%v'", config.Mail.BaseUrl)
@@ -192,11 +192,9 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 	maxBodyValueBytes := max(config.Mail.MaxBodyValueBytes, 0)
 	sendDurationsResponse := config.HTTP.SendDurationsResponse
 	defaultContactLimit := ptrIfNot(max(config.Mail.DefaultContactLimit, 0), 0)
-	responseHeaderTimeout := max(config.Mail.ResponseHeaderTimeout, 0)
 	sessionCacheMaxCapacity := uint64(max(config.Mail.SessionCache.MaxCapacity, 0))
 	sessionCacheTtl := max(config.Mail.SessionCache.Ttl, 0)
 	sessionFailureCacheTtl := max(config.Mail.SessionCache.FailureTtl, 0)
-	wsHandshakeTimeout := config.Mail.PushHandshakeTimeout
 
 	eventChannelSize := 100 // TODO make channel queue buffering size configurable
 	workerQueueSize := 100  // TODO configuration setting
@@ -207,8 +205,6 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 
 	useDnsForSessionResolution := false // TODO configuration setting, although still experimental, needs proper unit tests first
 
-	insecureTls := config.HTTP.Insecure
-
 	sanitize := true // TODO make configurable
 
 	m, err := metrics.New(prometheusRegistry, logger)
@@ -217,79 +213,6 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 	}
 
 	userProvider := newRevaContextUsernameProvider()
-
-	jmapMetricsAdapter := groupwareHttpJmapApiClientMetricsRecorder{m: m}
-
-	var jmapClient jmap.Client
-	{
-		var auth jmap.HttpJmapClientAuthenticator
-		{
-			masterUsername := config.Mail.Master.Username
-			masterPassword := config.Mail.Master.Password
-			if masterUsername != "" && masterPassword != "" {
-				auth = jmap.NewMasterAuthHttpJmapClientAuthenticator(masterUsername, masterPassword)
-			} else {
-				auth = newRevaBearerHttpJmapClientAuthenticator()
-			}
-		}
-
-		var api *jmap.HttpJmapClient
-		{
-			// TODO add timeouts and other meaningful configuration settings for the HTTP client
-			var httpClient http.Client
-			{
-				httpTransport := http.DefaultTransport.(*http.Transport).Clone()
-				httpTransport.ResponseHeaderTimeout = responseHeaderTimeout
-				if insecureTls {
-					tlsConfig := &tls.Config{InsecureSkipVerify: true} // #nosec G402 insecure TLS is a configuration option for development
-					httpTransport.TLSClientConfig = tlsConfig
-				}
-				httpClient = *http.DefaultClient
-				httpClient.Transport = httpTransport
-			}
-
-			api = jmap.NewHttpJmapClient(
-				&httpClient,
-				auth,
-				jmapMetricsAdapter,
-				config.HTTP.TraceRequests,
-				config.HTTP.TraceMaxRequestBodySize,
-				config.HTTP.TraceResponses,
-				config.HTTP.TraceMaxResponseBodySize,
-			)
-			defer func() {
-				if err := api.Close(); err != nil {
-					logger.Error().Err(err).Msgf("failed to close HTTP JMAP API client")
-				}
-			}()
-		}
-
-		var wsf *jmap.HttpWsClientFactory
-		{
-			wsDialer := &websocket.Dialer{
-				HandshakeTimeout: wsHandshakeTimeout,
-			}
-			if insecureTls {
-				wsDialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // #nosec G402 insecure TLS is a configuration option for development
-			}
-
-			wsf, err = jmap.NewHttpWsClientFactory(wsDialer, auth, logger, jmapMetricsAdapter,
-				config.HTTP.TraceResponses, config.HTTP.TraceMaxResponseBodySize,
-			)
-			if err != nil {
-				logger.Error().Err(err).Msg("failed to create websocket client")
-				return nil, GroupwareInitializationError{Message: "failed to create websocket client", Err: err}
-			}
-		}
-
-		// api implements all three interfaces:
-		jmapClient = jmap.NewClient(api, api, api, wsf)
-		defer func() {
-			if err := jmapClient.Close(); err != nil {
-				logger.Error().Err(err).Msgf("failed to close JMAP client")
-			}
-		}()
-	}
 
 	sessionCacheBuilder := newSessionCacheBuilder(
 		sessionUrl,
@@ -404,8 +327,8 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 	var suppliers Suppliers
 	{
 		impls := []Supplier[jmap.Foo]{
-			newJmapAddressBookSupplier(&jmapClient),
-			newJmapContactCardSupplier(&jmapClient),
+			newJmapAddressBookSupplier(jmapClient),
+			newJmapContactCardSupplier(jmapClient),
 		}
 		if config.EnableMockData {
 			impls = append(impls,
@@ -434,7 +357,7 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 		logger:       logger,
 		sessionCache: sessionCache,
 		userProvider: userProvider,
-		jmap:         &jmapClient,
+		jmap:         jmapClient,
 		defaults: groupwareDefaults{
 			emailLimit:   defaultEmailLimit,
 			contactLimit: defaultContactLimit,
@@ -468,6 +391,92 @@ func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prome
 	go g.listenForEvents()
 
 	return g, nil
+}
+
+func NewGroupware(config *config.Config, logger *log.Logger, mux *chi.Mux, prometheusRegistry prometheus.Registerer) (*Groupware, error) { //NOSONAR
+	responseHeaderTimeout := max(config.Mail.ResponseHeaderTimeout, 0)
+	wsHandshakeTimeout := config.Mail.PushHandshakeTimeout
+	insecureTls := config.HTTP.Insecure
+
+	m, err := metrics.New(prometheusRegistry, logger)
+	if err != nil {
+		return nil, GroupwareInitializationError{Message: fmt.Sprintf("failed to configure metrics: %v", err), Err: err}
+	}
+
+	jmapMetricsAdapter := groupwareHttpJmapApiClientMetricsRecorder{m: m}
+
+	var jmapClient *jmap.Client
+	{
+		var auth jmap.HttpJmapClientAuthenticator
+		{
+			masterUsername := config.Mail.Master.Username
+			masterPassword := config.Mail.Master.Password
+			if masterUsername != "" && masterPassword != "" {
+				auth = jmap.NewMasterAuthHttpJmapClientAuthenticator(masterUsername, masterPassword)
+			} else {
+				auth = newRevaBearerHttpJmapClientAuthenticator()
+			}
+		}
+
+		var api *jmap.HttpJmapClient
+		{
+			// TODO add timeouts and other meaningful configuration settings for the HTTP client
+			var httpClient http.Client
+			{
+				httpTransport := http.DefaultTransport.(*http.Transport).Clone()
+				httpTransport.ResponseHeaderTimeout = responseHeaderTimeout
+				if insecureTls {
+					tlsConfig := &tls.Config{InsecureSkipVerify: true} // #nosec G402 insecure TLS is a configuration option for development
+					httpTransport.TLSClientConfig = tlsConfig
+				}
+				httpClient = *http.DefaultClient
+				httpClient.Transport = httpTransport
+			}
+
+			api = jmap.NewHttpJmapClient(
+				&httpClient,
+				auth,
+				jmapMetricsAdapter,
+				config.HTTP.TraceRequests,
+				config.HTTP.TraceMaxRequestBodySize,
+				config.HTTP.TraceResponses,
+				config.HTTP.TraceMaxResponseBodySize,
+			)
+			defer func() {
+				if err := api.Close(); err != nil {
+					logger.Error().Err(err).Msgf("failed to close HTTP JMAP API client")
+				}
+			}()
+		}
+
+		var wsf *jmap.HttpWsClientFactory
+		{
+			wsDialer := &websocket.Dialer{
+				HandshakeTimeout: wsHandshakeTimeout,
+			}
+			if insecureTls {
+				wsDialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // #nosec G402 insecure TLS is a configuration option for development
+			}
+
+			wsf, err = jmap.NewHttpWsClientFactory(wsDialer, auth, logger, jmapMetricsAdapter,
+				config.HTTP.TraceResponses, config.HTTP.TraceMaxResponseBodySize,
+			)
+			if err != nil {
+				logger.Error().Err(err).Msg("failed to create websocket client")
+				return nil, GroupwareInitializationError{Message: "failed to create websocket client", Err: err}
+			}
+		}
+
+		// api implements all three interfaces:
+		jmapClient = jmap.NewClient(api, api, api, wsf)
+		defer func() {
+			if err := jmapClient.Close(); err != nil {
+				logger.Error().Err(err).Msgf("failed to close JMAP client")
+			}
+		}()
+	}
+
+	return NewGroupwareUsingJmapClient(jmapClient, config, logger, mux, prometheusRegistry)
 }
 
 func (g *Groupware) worker(jobs <-chan Job, busy *atomic.Int32) {
