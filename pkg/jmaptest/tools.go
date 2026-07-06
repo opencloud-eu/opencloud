@@ -1,6 +1,11 @@
 package jmaptest
 
-import "github.com/opencloud-eu/opencloud/pkg/jmap"
+import (
+	"net"
+	"sync"
+
+	"github.com/opencloud-eu/opencloud/pkg/jmap"
+)
 
 var (
 	truep  = ptr(true)
@@ -25,4 +30,23 @@ func firstKey[K comparable, V any](m map[K]V) (K, bool) {
 	}
 	var zero K
 	return zero, false
+}
+
+var freeLocalhostPortSync = sync.Mutex{}
+
+func FreeLocalhostPort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+
+	freeLocalhostPortSync.Lock()
+	defer freeLocalhostPortSync.Unlock()
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+
+	return l.Addr().(*net.TCPAddr).Port, nil
 }

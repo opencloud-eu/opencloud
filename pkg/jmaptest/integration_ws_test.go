@@ -69,7 +69,7 @@ func TestWs(t *testing.T) {
 	defer s.Close()
 
 	user := pickUser()
-	session := s.Session(user.email)
+	session := s.Session(user.Email)
 	ctx := s.Context(session)
 
 	mailAccountId := session.PrimaryAccounts.Mail
@@ -78,8 +78,8 @@ func TestWs(t *testing.T) {
 		_, inboxFolder = s.findInbox(t, mailAccountId, ctx)
 	}
 
-	l := &testWsPushListener{t: t, username: user.email, logger: s.logger, mailAccountId: mailAccountId}
-	s.client.AddWsPushListener(l)
+	l := &testWsPushListener{t: t, username: user.Email, logger: s.logger, mailAccountId: mailAccountId}
+	s.Client.AddWsPushListener(l)
 
 	require.Equal(uint32(0), l.calls.Load())
 	{
@@ -92,7 +92,7 @@ func TestWs(t *testing.T) {
 
 	var initialState State
 	{
-		result, err := s.client.GetEmailChanges(mailAccountId, EmptyState, true, 0, 0, ctx)
+		result, err := s.Client.GetEmailChanges(mailAccountId, EmptyState, true, 0, 0, ctx)
 		require.NoError(err)
 		require.Equal(session.State, result.GetSessionState())
 		require.NotEmpty(result.GetState())
@@ -106,7 +106,7 @@ func TestWs(t *testing.T) {
 	require.NotEmpty(initialState)
 
 	{
-		result, err := s.client.GetEmailChanges(mailAccountId, initialState, true, 0, 0, ctx)
+		result, err := s.Client.GetEmailChanges(mailAccountId, initialState, true, 0, 0, ctx)
 		require.NoError(err)
 		require.Equal(session.State, result.GetSessionState())
 		require.Equal(initialState, result.GetState())
@@ -116,7 +116,7 @@ func TestWs(t *testing.T) {
 		require.Empty(result.Payload.Updated)
 	}
 
-	wsc, err := s.client.EnablePushNotifications(cotx, initialState, func() (*Session, error) { return session, nil })
+	wsc, err := s.Client.EnablePushNotifications(cotx, initialState, func() (*Session, error) { return session, nil })
 	require.NoError(err)
 	defer wsc.Close()
 
@@ -149,7 +149,7 @@ func TestWs(t *testing.T) {
 	}
 	var lastState State
 	{
-		result, err := s.client.GetEmailChanges(mailAccountId, initialState, true, 0, 0, ctx)
+		result, err := s.Client.GetEmailChanges(mailAccountId, initialState, true, 0, 0, ctx)
 		require.NoError(err)
 		require.Equal(session.State, result.GetSessionState())
 		require.NotEqual(initialState, result.GetState())
@@ -183,7 +183,7 @@ func TestWs(t *testing.T) {
 		l.m.Unlock()
 	}
 	{
-		result, err := s.client.GetEmailChanges(mailAccountId, lastState, true, 0, 0, ctx)
+		result, err := s.Client.GetEmailChanges(mailAccountId, lastState, true, 0, 0, ctx)
 		require.NoError(err)
 		require.Equal(session.State, result.GetSessionState())
 		require.NotEqual(lastState, result.GetState())
@@ -217,7 +217,7 @@ func TestWs(t *testing.T) {
 		l.m.Unlock()
 	}
 	{
-		result, err := s.client.GetEmailChanges(mailAccountId, lastState, true, 0, 0, ctx)
+		result, err := s.Client.GetEmailChanges(mailAccountId, lastState, true, 0, 0, ctx)
 		require.NoError(err)
 		require.Equal(session.State, result.GetSessionState())
 		require.NotEqual(lastState, result.GetState())

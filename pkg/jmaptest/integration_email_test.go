@@ -40,7 +40,7 @@ func TestEmails(t *testing.T) {
 	defer s.Close()
 
 	user := pickUser()
-	session := s.Session(user.email)
+	session := s.Session(user.Email)
 	ctx := s.Context(session)
 
 	accountId := session.PrimaryAccounts.Mail
@@ -57,18 +57,18 @@ func TestEmails(t *testing.T) {
 
 	{
 		{
-			result, err := s.client.GetIdentities(accountId, []string{}, ctx)
+			result, err := s.Client.GetIdentities(accountId, []string{}, ctx)
 			require.NoError(err)
 			require.Equal(session.State, result.GetSessionState())
 			require.Len(result.Payload.List, 2)
-			emailMatches := structs.Filter(result.Payload.List, func(i Identity) bool { return i.Email == user.email })
+			emailMatches := structs.Filter(result.Payload.List, func(i Identity) bool { return i.Email == user.Email })
 			require.Len(emailMatches, 1)
-			aliasMatches := structs.Filter(result.Payload.List, func(i Identity) bool { return i.Email == user.alias })
+			aliasMatches := structs.Filter(result.Payload.List, func(i Identity) bool { return i.Email == user.Alias })
 			require.Len(aliasMatches, 1)
 		}
 
 		{
-			result, err := s.client.GetAllMailboxes([]AccountId{accountId}, ctx)
+			result, err := s.Client.GetAllMailboxes([]AccountId{accountId}, ctx)
 			require.NoError(err)
 			require.Equal(session.State, result.GetSessionState())
 			require.Len(result.Payload, 1)
@@ -84,7 +84,7 @@ func TestEmails(t *testing.T) {
 		}
 
 		{
-			result, err := s.client.GetAllEmailsInMailbox(accountId, inboxId, NullQueryParams, nil, true, false, 0, true, ctx)
+			result, err := s.Client.GetAllEmailsInMailbox(accountId, inboxId, NullQueryParams, nil, true, false, 0, true, ctx)
 			require.NoError(err)
 			require.Equal(session.State, result.GetSessionState())
 
@@ -98,7 +98,7 @@ func TestEmails(t *testing.T) {
 		}
 
 		{
-			result, err := s.client.GetAllEmailsInMailbox(accountId, inboxId, NullQueryParams, nil, false, false, 0, true, ctx)
+			result, err := s.Client.GetAllEmailsInMailbox(accountId, inboxId, NullQueryParams, nil, false, false, 0, true, ctx)
 			require.NoError(err)
 			require.Equal(session.State, result.GetSessionState())
 
@@ -125,29 +125,29 @@ func TestSendingEmails(t *testing.T) {
 	defer s.Close()
 
 	from := pickUser()
-	session := s.Session(from.email)
+	session := s.Session(from.Email)
 	ctx := s.Context(session)
 	accountId := session.PrimaryAccounts.Mail
 
 	var to User
 	{
-		others := structs.Filter(users[:], func(u User) bool { return u.name != from.name })
+		others := structs.Filter(users[:], func(u User) bool { return u.Name != from.Name })
 		to = others[rand.Intn(len(others))]
 	}
-	toSession := s.Session(to.email)
+	toSession := s.Session(to.Email)
 	toAccountId := toSession.PrimaryAccounts.Mail
 
 	var cc User
 	{
-		others := structs.Filter(users[:], func(u User) bool { return u.name != from.name && u.name != to.name })
+		others := structs.Filter(users[:], func(u User) bool { return u.Name != from.Name && u.Name != to.Name })
 		cc = others[rand.Intn(len(others))]
 	}
-	ccSession := s.Session(cc.email)
+	ccSession := s.Session(cc.Email)
 	ccAccountId := ccSession.PrimaryAccounts.Mail
 
 	var mailboxPerRole map[string]Mailbox
 	{
-		result, err := s.client.GetAllMailboxes([]AccountId{accountId}, ctx)
+		result, err := s.Client.GetAllMailboxes([]AccountId{accountId}, ctx)
 		require.NoError(err)
 		mailboxPerRole = structs.Index(result.Payload[accountId], func(m Mailbox) string { return m.Role })
 		require.Contains(mailboxPerRole, JmapMailboxRoleInbox)
@@ -157,7 +157,7 @@ func TestSendingEmails(t *testing.T) {
 	}
 	{
 		roles := []string{JmapMailboxRoleDrafts, JmapMailboxRoleSent, JmapMailboxRoleInbox}
-		result, err := s.client.SearchMailboxIdsPerRole([]AccountId{accountId}, roles, ctx)
+		result, err := s.Client.SearchMailboxIdsPerRole([]AccountId{accountId}, roles, ctx)
 		require.NoError(err)
 		require.Contains(result.Payload, accountId)
 		a := result.Payload[accountId]
@@ -177,7 +177,7 @@ func TestSendingEmails(t *testing.T) {
 			Logger:         ctx.Logger,
 			AcceptLanguage: ctx.AcceptLanguage,
 		}
-		result, err := s.client.GetAllMailboxes([]AccountId{u.accountId}, uctx)
+		result, err := s.Client.GetAllMailboxes([]AccountId{u.accountId}, uctx)
 		require.NoError(err)
 		for _, mailbox := range result.Payload[u.accountId] {
 			require.Equal(0, mailbox.TotalEmails)
@@ -185,16 +185,16 @@ func TestSendingEmails(t *testing.T) {
 	}
 
 	subject := fmt.Sprintf("Test Subject %d", 10000+rand.Intn(90000))
-	fromName := fmt.Sprintf("%s (test %d)", from.name, 1000+rand.Intn(9000))
-	sender := EmailAddress{Email: from.email, Name: from.description}
+	fromName := fmt.Sprintf("%s (test %d)", from.Name, 1000+rand.Intn(9000))
+	sender := EmailAddress{Email: from.Email, Name: from.Description}
 
 	{
 		var identity Identity
 		{
-			result, err := s.client.GetIdentities(accountId, []string{}, ctx)
+			result, err := s.Client.GetIdentities(accountId, []string{}, ctx)
 			require.NoError(err)
 			require.Len(result.Payload.List, 2)
-			matchesAlias := structs.Filter(result.Payload.List, func(i Identity) bool { return i.Email == from.alias })
+			matchesAlias := structs.Filter(result.Payload.List, func(i Identity) bool { return i.Email == from.Alias })
 			require.Len(matchesAlias, 1)
 			identity = matchesAlias[0]
 		}
@@ -206,14 +206,14 @@ func TestSendingEmails(t *testing.T) {
 		}
 		var created *Email
 		{
-			result, err := s.client.CreateEmail(accountId, create, "", ctx)
+			result, err := s.Client.CreateEmail(accountId, create, "", ctx)
 			require.NoError(err)
 			created = result.Payload
 			require.NotEmpty(created.Id)
 		}
 
 		{
-			result, err := s.client.GetEmails(accountId, []string{created.Id}, true, 0, false, false, ctx)
+			result, err := s.Client.GetEmails(accountId, []string{created.Id}, true, 0, false, false, ctx)
 			require.NoError(err)
 			require.Len(result.Payload.List, 1)
 			require.Empty(result.Payload.NotFound)
@@ -224,9 +224,9 @@ func TestSendingEmails(t *testing.T) {
 		}
 
 		update := EmailChange{
-			From:       []EmailAddress{{Name: fromName, Email: from.email}},
-			To:         []EmailAddress{{Name: to.description, Email: to.email}},
-			Cc:         []EmailAddress{{Name: cc.description, Email: cc.email}},
+			From:       []EmailAddress{{Name: fromName, Email: from.Email}},
+			To:         []EmailAddress{{Name: to.Description, Email: to.Email}},
+			Cc:         []EmailAddress{{Name: cc.Description, Email: cc.Email}},
 			Sender:     []EmailAddress{sender},
 			Keywords:   toBoolMapS("test"),
 			Subject:    subject,
@@ -234,7 +234,7 @@ func TestSendingEmails(t *testing.T) {
 		}
 		var updated *Email
 		{
-			result, err := s.client.CreateEmail(accountId, update, created.Id, ctx)
+			result, err := s.Client.CreateEmail(accountId, update, created.Id, ctx)
 			require.NoError(err)
 			updated = result.Payload
 			require.NotNil(updated)
@@ -244,7 +244,7 @@ func TestSendingEmails(t *testing.T) {
 
 		var updatedMailboxId string
 		{
-			result, err := s.client.GetEmails(accountId, []string{created.Id, updated.Id}, true, 0, false, false, ctx)
+			result, err := s.Client.GetEmails(accountId, []string{created.Id, updated.Id}, true, 0, false, false, ctx)
 			require.NoError(err)
 			require.Len(result.Payload.List, 1)
 			require.Len(result.Payload.NotFound, 1)
@@ -265,7 +265,7 @@ func TestSendingEmails(t *testing.T) {
 
 		var sub EmailSubmission
 		{
-			result, err := s.client.SubmitEmail(accountId, identity.Id, updated.Id, &move, ctx)
+			result, err := s.Client.SubmitEmail(accountId, identity.Id, updated.Id, &move, ctx)
 			require.NoError(err)
 			sub = result.Payload
 			require.NotEmpty(sub.Id)
@@ -275,20 +275,20 @@ func TestSendingEmails(t *testing.T) {
 			require.Equal(sub.UndoStatus, UndoStatusPending) // this *might* be fragile: if the server is fast enough, would we get "final" here?
 			require.Empty(sub.DsnBlobIds)
 			require.Empty(sub.MdnBlobIds)
-			require.Equal(from.alias, sub.Envelope.MailFrom.Email)
+			require.Equal(from.Alias, sub.Envelope.MailFrom.Email)
 			require.Nil(sub.Envelope.MailFrom.Parameters)
 			require.Len(sub.Envelope.RcptTo, 2)
-			require.Contains(sub.Envelope.RcptTo, Address{Email: to.email})
-			require.Contains(sub.Envelope.RcptTo, Address{Email: cc.email})
+			require.Contains(sub.Envelope.RcptTo, Address{Email: to.Email})
+			require.Contains(sub.Envelope.RcptTo, Address{Email: cc.Email})
 			require.NotZero(sub.SendAt)
 			require.Len(sub.DeliveryStatus, 2)
-			require.Contains(sub.DeliveryStatus, to.email)
-			require.Contains(sub.DeliveryStatus, cc.email)
+			require.Contains(sub.DeliveryStatus, to.Email)
+			require.Contains(sub.DeliveryStatus, cc.Email)
 		}
 
 		a := 0
 		maxAttempts := 3
-		delivery := sub.DeliveryStatus[to.email].Delivered
+		delivery := sub.DeliveryStatus[to.Email].Delivered
 
 		for delivery != DeliveredYes {
 			require.NotEqual(DeliveredNo, delivery)
@@ -298,13 +298,13 @@ func TestSendingEmails(t *testing.T) {
 			}
 			time.Sleep(1 * time.Second)
 
-			result, err := s.client.GetEmailSubmissionStatus(accountId, []string{sub.Id}, ctx)
+			result, err := s.Client.GetEmailSubmissionStatus(accountId, []string{sub.Id}, ctx)
 			require.NoError(err)
 			require.Empty(result.Payload.NotFound)
 			submittedIds := structs.Map(result.Payload.List, func(s EmailSubmission) string { return s.Id })
 			require.Contains(submittedIds, sub.Id)
 			subs := structs.Index(result.Payload.List, func(s EmailSubmission) string { return s.Id })
-			delivery = subs[sub.Id].DeliveryStatus[to.email].Delivered
+			delivery = subs[sub.Id].DeliveryStatus[to.Email].Delivered
 		}
 
 		require.Contains([]DeliveryStatusDelivered{DeliveredYes, DeliveredUnknown}, delivery)
@@ -322,7 +322,7 @@ func TestSendingEmails(t *testing.T) {
 			}
 			inboxId := ""
 			{
-				result, err := s.client.GetAllMailboxes([]AccountId{r.accountId}, rctx)
+				result, err := s.Client.GetAllMailboxes([]AccountId{r.accountId}, rctx)
 				require.NoError(err)
 				for _, mailbox := range result.Payload[r.accountId] {
 					if mailbox.Role == JmapMailboxRoleInbox {
@@ -330,26 +330,26 @@ func TestSendingEmails(t *testing.T) {
 						require.Equal(1, mailbox.TotalEmails)
 					}
 				}
-				require.NotEmpty(inboxId, "failed to find the Mailbox with the 'inbox' role for %v", r.user.email)
+				require.NotEmpty(inboxId, "failed to find the Mailbox with the 'inbox' role for %v", r.user.Email)
 			}
 
-			result, err := s.client.QueryEmails([]AccountId{r.accountId}, EmailFilterCondition{InMailbox: inboxId}, 0, 0, true, 0, rctx)
+			result, err := s.Client.QueryEmails([]AccountId{r.accountId}, EmailFilterCondition{InMailbox: inboxId}, 0, 0, true, 0, rctx)
 			require.NoError(err)
 			require.Contains(result.Payload, r.accountId)
 			require.Len(result.Payload[r.accountId].Results, 1)
 			received := result.Payload[r.accountId].Results[0]
 			require.Len(received.From, 1)
-			require.Equal(from.email, received.From[0].Email)
+			require.Equal(from.Email, received.From[0].Email)
 			require.Equal(fromName, received.From[0].Name)
 			require.Len(received.Sender, 1)
-			require.Equal(from.email, received.Sender[0].Email)
-			require.Equal(from.description, received.Sender[0].Name)
+			require.Equal(from.Email, received.Sender[0].Email)
+			require.Equal(from.Description, received.Sender[0].Name)
 			require.Len(received.To, 1)
-			require.Equal(to.email, received.To[0].Email)
-			require.Equal(to.description, received.To[0].Name)
+			require.Equal(to.Email, received.To[0].Email)
+			require.Equal(to.Description, received.To[0].Name)
 			require.Len(received.Cc, 1)
-			require.Equal(cc.email, received.Cc[0].Email)
-			require.Equal(cc.description, received.Cc[0].Name)
+			require.Equal(cc.Email, received.Cc[0].Email)
+			require.Equal(cc.Description, received.Cc[0].Name)
 			require.Equal(subject, received.Subject)
 		}
 	}
@@ -392,7 +392,7 @@ func matchEmail(t *testing.T, actual Email, expected filledMail, hasBodies bool)
 
 func (s *StalwartTest) findInbox(t *testing.T, accountId AccountId, ctx Context) (string, string) {
 	require := require.New(t)
-	result, err := s.client.GetAllMailboxes([]AccountId{accountId}, ctx)
+	result, err := s.Client.GetAllMailboxes([]AccountId{accountId}, ctx)
 	require.NoError(err)
 	require.Equal(ctx.Session.State, result.GetSessionState())
 	require.Len(result.Payload, 1)
@@ -521,7 +521,7 @@ var allKeywords = map[string]imap.Flag{
 }
 
 func (s *StalwartTest) fillEmailsWithImap(folder string, count int, empty bool, user User) ([]filledMail, int, error) { //NOSONAR
-	to := fmt.Sprintf("%s <%s>", user.description, user.email)
+	to := fmt.Sprintf("%s <%s>", user.Description, user.Email)
 	ccEvery := 2
 	bccEvery := 3
 	attachmentEvery := 2
@@ -543,7 +543,7 @@ func (s *StalwartTest) fillEmailsWithImap(folder string, count int, empty bool, 
 		}
 	}(c)
 
-	if err = c.Login(user.email, user.password).Wait(); err != nil {
+	if err = c.Login(user.Email, user.Password).Wait(); err != nil {
 		return nil, 0, err
 	}
 
@@ -591,7 +591,7 @@ func (s *StalwartTest) fillEmailsWithImap(folder string, count int, empty bool, 
 	domain := addressParts[0][2]
 
 	toName := displayName
-	toAddress := fmt.Sprintf("%s@%s", user.email, domain)
+	toAddress := fmt.Sprintf("%s@%s", user.Email, domain)
 	ccName1 := "Team Lead"
 	ccAddress1 := fmt.Sprintf("lead@%s", domain)
 	ccName2 := "Coworker"
