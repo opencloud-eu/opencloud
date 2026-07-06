@@ -1,4 +1,4 @@
-package jmap
+package jmaptest
 
 import (
 	"maps"
@@ -21,12 +21,13 @@ import (
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
 	"github.com/jhillyerd/enmime/v2"
+	. "github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/stretchr/testify/require"
 )
 
 func TestEmails(t *testing.T) {
-	if skip(t) {
+	if Skip(t) {
 		return
 	}
 
@@ -34,7 +35,7 @@ func TestEmails(t *testing.T) {
 
 	require := require.New(t)
 
-	s, err := newStalwartTest(t)
+	s, err := NewStalwartTest(t)
 	require.NoError(err)
 	defer s.Close()
 
@@ -113,13 +114,13 @@ func TestEmails(t *testing.T) {
 }
 
 func TestSendingEmails(t *testing.T) {
-	if skip(t) {
+	if Skip(t) {
 		return
 	}
 
 	require := require.New(t)
 
-	s, err := newStalwartTest(t)
+	s, err := NewStalwartTest(t)
 	require.NoError(err)
 	defer s.Close()
 

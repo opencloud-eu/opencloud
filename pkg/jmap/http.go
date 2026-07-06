@@ -146,7 +146,7 @@ func (h *MasterAuthHttpJmapClientAuthenticator) AuthenticateWS(_ context.Context
 }
 
 // An implementation of HttpJmapApiClientMetricsRecorder that does nothing.
-func NullHttpJmapApiClientEventListener() HttpJmapApiClientEventListener {
+func NewNullHttpJmapApiClientEventListener() HttpJmapApiClientEventListener {
 	return nullHttpJmapApiClientEventListener{}
 }
 

@@ -1,4 +1,4 @@
-package jmap
+package jmaptest
 
 import (
 	golog "log"
@@ -20,6 +20,7 @@ import (
 
 	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/brianvoe/gofakeit/v7"
+	. "github.com/opencloud-eu/opencloud/pkg/jmap"
 	"github.com/opencloud-eu/opencloud/pkg/jscontact"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
@@ -37,7 +38,7 @@ type AddressBookBoxes struct {
 }
 
 func TestAddressBooks(t *testing.T) {
-	if skip(t) {
+	if Skip(t) {
 		return
 	}
 
@@ -72,7 +73,7 @@ func TestAddressBooks(t *testing.T) {
 }
 
 func TestContacts(t *testing.T) {
-	if skip(t) {
+	if Skip(t) {
 		return
 	}
 
@@ -80,7 +81,7 @@ func TestContacts(t *testing.T) {
 
 	require := require.New(t)
 
-	s, err := newStalwartTest(t)
+	s, err := NewStalwartTest(t)
 	require.NoError(err)
 	defer s.Close()
 
@@ -104,7 +105,7 @@ func TestContacts(t *testing.T) {
 	ss := EmptySessionState
 	os := EmptyState
 	{
-		result, err := s.client.QueryContactCards(toNullQueryParams([]AccountId{accountId}), nil, filter, sortBy, true, ctx)
+		result, err := s.client.QueryContactCards(ToNullQueryParams([]AccountId{accountId}), nil, filter, sortBy, true, ctx)
 		require.NoError(err)
 
 		require.Len(result.Payload, 1)
@@ -236,7 +237,7 @@ func TestContacts(t *testing.T) {
 		os = result.GetState()
 	}
 	{
-		result, err := s.client.QueryContactCards(toNullQueryParams([]AccountId{accountId}), nil, filter, sortBy, true, ctx)
+		result, err := s.client.QueryContactCards(ToNullQueryParams([]AccountId{accountId}), nil, filter, sortBy, true, ctx)
 		require.NoError(err)
 		require.Contains(result.Payload, accountId)
 		resp := result.Payload[accountId]

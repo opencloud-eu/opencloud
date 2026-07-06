@@ -1454,7 +1454,7 @@ type QueryParams struct {
 
 var NullQueryParams = QueryParams{Position: 0, Anchor: "", AnchorOffset: nil}
 
-func toNullQueryParams(accountIds []AccountId) map[AccountId]QueryParams {
+func ToNullQueryParams(accountIds []AccountId) map[AccountId]QueryParams {
 	return structs.ToMap(accountIds, func(k AccountId) (AccountId, QueryParams) { return k, NullQueryParams })
 }
 

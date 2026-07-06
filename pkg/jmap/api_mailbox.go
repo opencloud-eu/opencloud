@@ -198,7 +198,7 @@ func (j *Client) GetMailboxRolesForMultipleAccounts(accountIds []AccountId, ctx 
 			slices.Sort(roles)
 			return &roles
 		},
-		toNullQueryParams(accountIds), nil, MailboxFilterCondition{HasAnyRole: truep}, nil,
+		ToNullQueryParams(accountIds), nil, MailboxFilterCondition{HasAnyRole: truep}, nil,
 		ctx,
 	)
 }
