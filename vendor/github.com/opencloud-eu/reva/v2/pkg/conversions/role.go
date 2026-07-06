@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/grants"
 )
 
@@ -38,18 +37,12 @@ type Role struct {
 const (
 	// RoleViewer grants non-editor role on a resource.
 	RoleViewer = "viewer"
-	// RoleViewerWithVersions grants non-editor role on a resource including list versions.
-	RoleViewerWithVersions = "viewer-with-versions"
 	// RoleViewerListGrants grants non-editor role on a resource.
 	RoleViewerListGrants = "viewer-list-grants"
-	// RoleSpaceViewerWithVersions grants non-editor role on a space, including list/restore versions.
-	RoleSpaceViewerWithVersions = "spaceviewer-with-versions"
 	// RoleSpaceViewer grants non-editor role on a space.
 	RoleSpaceViewer = "spaceviewer"
 	// RoleEditor grants editor permission on a resource, including folders.
 	RoleEditor = "editor"
-	// RoleEditorWithVersions grants editor permission on a resource, including folders and list/restore versions
-	RoleEditorWithVersions = "editor-with-versions"
 	// RoleEditorListGrants grants editor permission on a resource, including folders.
 	RoleEditorListGrants = "editor-list-grants"
 	// RoleSpaceEditor grants editor permission on a space.
@@ -58,8 +51,6 @@ const (
 	RoleSpaceEditorWithoutVersions = "spaceeditor-without-versions"
 	// RoleFileEditor grants editor permission on a single file.
 	RoleFileEditor = "file-editor"
-	// RoleFileEditorWithVersions grants editor permission on a single file, including list/restore versions.
-	RoleFileEditorWithVersions = "file-editor-with-versions"
 	// RoleFileEditorListGrants grants editor permission on a single file.
 	RoleFileEditorListGrants = "file-editor-list-grants"
 	// RoleCoowner grants co-owner permissions on a resource.
@@ -172,26 +163,18 @@ func RoleFromName(name string) *Role {
 		return NewDeniedRole()
 	case RoleViewer:
 		return NewViewerRole()
-	case RoleViewerWithVersions:
-		return NewViewerWithVersionsRole()
 	case RoleViewerListGrants:
 		return NewViewerListGrantsRole()
 	case RoleSpaceViewer:
 		return NewSpaceViewerRole()
-	case RoleSpaceViewerWithVersions:
-		return NewSpaceViewerWithVersionsRole()
 	case RoleEditor:
 		return NewEditorRole()
-	case RoleEditorWithVersions:
-		return NewEditorWithVersionsRole()
 	case RoleEditorListGrants:
 		return NewEditorListGrantsRole()
 	case RoleSpaceEditor:
 		return NewSpaceEditorRole()
 	case RoleFileEditor:
 		return NewFileEditorRole()
-	case RoleFileEditorWithVersions:
-		return NewFileEditorWithVersionsRole()
 	case RoleFileEditorListGrants:
 		return NewFileEditorListGrantsRole()
 	case RoleUploader:
@@ -242,14 +225,6 @@ func NewViewerRole() *Role {
 	}
 }
 
-// NewViewerWithVersionsRole creates a viewer role which enables listing of file versions
-func NewViewerWithVersionsRole() *Role {
-	role := NewViewerRole()
-	role.Name = RoleViewerWithVersions
-	role.cS3ResourcePermissions.ListFileVersions = true
-	return role
-}
-
 // NewViewerListGrantsRole creates a viewer role. `sharing` indicates if sharing permission should be added
 func NewViewerListGrantsRole() *Role {
 	role := NewViewerRole()
@@ -272,14 +247,6 @@ func NewSpaceViewerRole() *Role {
 		},
 		ocsPermissions: PermissionRead,
 	}
-}
-
-// NewSpaceViewerWithVersionsRole creates a spaceviewer role which enables listing of file versions
-func NewSpaceViewerWithVersionsRole() *Role {
-	role := NewSpaceViewerRole()
-	role.Name = RoleSpaceViewerWithVersions
-	role.cS3ResourcePermissions.ListFileVersions = true
-	return role
 }
 
 // NewEditorRole creates an editor role. `sharing` indicates if sharing permission should be added
@@ -308,15 +275,6 @@ func NewEditorRole() *Role {
 func NewEditorListGrantsRole() *Role {
 	role := NewEditorRole()
 	role.cS3ResourcePermissions.ListGrants = true
-	return role
-}
-
-// NewEditorWithVersionsRole creates an editor role including list/restore versions. `sharing` indicates if sharing permission should be added
-func NewEditorWithVersionsRole() *Role {
-	role := NewEditorRole()
-	role.Name = RoleEditorWithVersions
-	role.cS3ResourcePermissions.ListFileVersions = true
-	role.cS3ResourcePermissions.RestoreFileVersion = true
 	return role
 }
 
@@ -389,15 +347,6 @@ func NewFileEditorRole() *Role {
 func NewFileEditorListGrantsRole() *Role {
 	role := NewFileEditorRole()
 	role.cS3ResourcePermissions.ListGrants = true
-	return role
-}
-
-// NewFileEditorWithVersionsRole creates a file-editor role including list/restore versions
-func NewFileEditorWithVersionsRole() *Role {
-	role := NewFileEditorRole()
-	role.Name = RoleFileEditorWithVersions
-	role.cS3ResourcePermissions.ListFileVersions = true
-	role.cS3ResourcePermissions.RestoreFileVersion = true
 	return role
 }
 
