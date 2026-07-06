@@ -90,3 +90,23 @@ Feature: low level tests for upload of chunks
       | old              |
       | new              |
       | spaces           |
+
+  @issue-2409
+  Scenario Outline: finalize a chunked upload and get the etag and permissions
+    Given using <dav-path-version> DAV path
+    And user "Alice" has created a new TUS resource on the WebDAV API with these headers:
+      | Upload-Length   | 10                    |
+      #    ZmlsZS50eHQ= is the base64 encode of file.txt
+      | Upload-Metadata | filename ZmlsZS50eHQ= |
+    When user "Alice" sends a chunk to the last created TUS Location with offset "0" and data "123" using the WebDAV API
+    And user "Alice" sends a chunk to the last created TUS Location with offset "3" and data "4567890" using the WebDAV API
+    Then the HTTP status code should be "204"
+    And the following headers should match these regular expressions
+      | OC-ETag | /^"[^"]*"$/   |
+      | ETag    | /^"[^"]*"$/   |
+      | OC-Perm | /^[A-Za-z]+$/ |
+    Examples:
+      | dav-path-version |
+      | old              |
+      | new              |
+      | spaces           |
