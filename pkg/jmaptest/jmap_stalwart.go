@@ -893,8 +893,7 @@ func NewStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 	}
 
 	domains := structs.Uniq(structs.Map(users[:], func(u User) string {
-		parts := strings.Split(u.Email, "@")
-		return parts[1]
+		return strings.Split(u.Email, "@")[1]
 	}))
 	slices.Sort(domains)
 
@@ -1105,16 +1104,6 @@ func NewStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 		MasterPassword: masterPassword,
 		Users:          users[:],
 	}, nil
-}
-
-var urlHostRegex = regexp.MustCompile(`^(https?://)(.+?)/(.+)$`)
-
-func replaceHostProto(u string, proto string, host string) (string, error) {
-	if m := urlHostRegex.FindAllStringSubmatch(u, -1); m != nil {
-		return fmt.Sprintf("%s://%s/%s", proto, host, m[0][3]), nil
-	} else {
-		return "", fmt.Errorf("'%v' does not match '%v'", u, urlHostRegex)
-	}
 }
 
 func pickRandomlyFromMap[K comparable, V any](m map[K]V, min int, max int) map[K]V {
