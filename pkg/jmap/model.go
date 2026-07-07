@@ -2149,7 +2149,7 @@ type EmailComparator struct {
 	// Optional; default value: true.
 	//
 	// If false, reverse the comparator’s results to sort in descending order.
-	IsAscending bool `json:"isAscending,omitempty"`
+	IsAscending bool `json:"isAscending"`
 
 	// The identifier, as registered in the collation registry defined in
 	// [RFC4790](https://www.rfc-editor.org/rfc/rfc4790.html), for the algorithm
