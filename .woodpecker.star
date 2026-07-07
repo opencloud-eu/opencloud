@@ -329,7 +329,6 @@ config = {
                 "OC_ASYNC_UPLOADS": True,
                 "OC_ADD_RUN_SERVICES": "antivirus",
             },
-            "storages": ["decomposed"],
         },
         "multiTenancy": {
             "suites": [
@@ -1300,8 +1299,7 @@ def localApiTestPipeline(ctx):
                         continue
 
                 # use decomposed storage if specified in the PR title
-                # run CLI tests only with decomposed storage
-                if "[decomposed]" in ctx.build.title.lower() or name.startswith("cli"):
+                if "[decomposed]" in ctx.build.title.lower():
                     params["storages"] = ["decomposed"]
 
                 for storage in params["storages"]:

@@ -326,6 +326,150 @@ class CliContext implements Context {
 	}
 
 	/**
+	 * @When the administrator purges the expired trash-bin items using the CLI
+	 *
+	 * @return void
+	 */
+	public function theAdministratorPurgesExpiredTrashBinItemsUsingTheCli(): void {
+		$command = "storage-users trash-bin purge-expired";
+		$body = [
+		  "command" => $command,
+		  "timeout" => 15
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 * @When the administrator lists the trash-bin items of space :space using the CLI
+	 *
+	 * @param string $space
+	 *
+	 * @return void
+	 */
+	public function theAdministratorListsTrashBinItemsOfSpaceUsingTheCli(string $space): void {
+		$adminUsername = $this->featureContext->getAdminUsername();
+		$spaceId = $this->spacesContext->getSpaceIdByName($adminUsername, $space);
+		$command = "storage-users trash-bin list $spaceId";
+		$body = [
+		  "command" => $command
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 * @When the administrator lists the trash-bin items of the personal space of user :user using the CLI
+	 *
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	public function theAdministratorListsTrashBinItemsOfPersonalSpaceUsingTheCli(string $user): void {
+		$spaceId = $this->spacesContext->getSpaceIdByName($user, 'Personal');
+		$command = "storage-users trash-bin list $spaceId";
+		$body = [
+		  "command" => $command
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 * @When the administrator restores all the trash-bin items of space :space using the CLI
+	 *
+	 * @param string $space
+	 *
+	 * @return void
+	 */
+	public function theAdministratorRestoresAllTrashBinItemsOfSpaceUsingTheCli(string $space): void {
+		$adminUsername = $this->featureContext->getAdminUsername();
+		$spaceId = $this->spacesContext->getSpaceIdByName($adminUsername, $space);
+		$command = "storage-users trash-bin restore-all $spaceId --yes";
+		$body = [
+		  "command" => $command
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 * @When the administrator restores all the trash-bin items of the personal space of user :user using the CLI
+	 *
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	public function theAdministratorRestoresAllTrashBinItemsOfPersonalSpaceUsingTheCli(string $user): void {
+		$spaceId = $this->spacesContext->getSpaceIdByName($user, 'Personal');
+		$command = "storage-users trash-bin restore-all $spaceId --yes";
+		$body = [
+		  "command" => $command
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 * @When the administrator restores the trash-bin item with file-id :fileId of space :space using the CLI
+	 *
+	 * @param string $fileId
+	 * @param string $space
+	 *
+	 * @return void
+	 */
+	public function theAdministratorRestoresTrashBinItemOfSpaceUsingTheCli(string $fileId, string $space): void {
+		$adminUsername = $this->featureContext->getAdminUsername();
+		$spaceId = $this->spacesContext->getSpaceIdByName($adminUsername, $space);
+		$command = "storage-users trash-bin restore $spaceId $fileId";
+		$body = [
+		  "command" => $command
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 * @When the administrator restores the trash-bin item with file-id :fileId of the personal space of user :user using the CLI
+	 *
+	 * @param string $fileId
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	public function theAdministratorRestoresTrashBinItemOfPersonalSpaceUsingTheCli(string $fileId, string $user): void {
+		$spaceId = $this->spacesContext->getSpaceIdByName($user, 'Personal');
+		$command = "storage-users trash-bin restore $spaceId $fileId";
+		$body = [
+		  "command" => $command
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 * @When the administrator cleans up orphaned shares using the CLI
+	 *
+	 * @return void
+	 */
+	public function theAdministratorCleansUpOrphanedSharesUsingTheCli(): void {
+		$serviceAccountId = getenv('OC_SERVICE_ACCOUNT_ID') ?: 'service-account-id';
+		$serviceAccountSecret = getenv('OC_SERVICE_ACCOUNT_SECRET') ?: 'service-account-secret';
+		$command = "shares cleanup --service-account-id=$serviceAccountId"
+			. " --service-account-secret=$serviceAccountSecret";
+		$body = [
+		  "command" => $command
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 * @When the administrator lists the unified roles using the CLI
+	 *
+	 * @return void
+	 */
+	public function theAdministratorListsTheUnifiedRolesUsingTheCli(): void {
+		$command = "graph list-unified-roles";
+		$body = [
+		  "command" => $command
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
 	 * @Then the command should be successful
 	 *
 	 * @return void

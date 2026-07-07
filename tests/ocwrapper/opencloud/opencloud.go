@@ -234,9 +234,14 @@ func waitUntilCompleteShutdown() (bool, string) {
 	return true, "OpenCloud server stopped successfully"
 }
 
-func RunCommand(command string, inputs []string) (int, string) {
+const defaultCommandTimeout = 5 * time.Second
+
+func RunCommand(command string, inputs []string, timeout time.Duration) (int, string) {
 	logs := new(strings.Builder)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if timeout <= 0 {
+		timeout = defaultCommandTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	// build the command
@@ -254,6 +259,11 @@ func RunCommand(command string, inputs []string) (int, string) {
 	for _, input := range inputs {
 		fmt.Fprintf(ptyF, "%s\n", input)
 	}
+	copyDone := make(chan struct{})
+	go func() {
+		io.Copy(logs, ptyF)
+		close(copyDone)
+	}()
 
 	var cmdOutput string
 	if err := c.Wait(); err != nil {
@@ -261,9 +271,7 @@ func RunCommand(command string, inputs []string) (int, string) {
 			cmdOutput = "Command timed out:\n"
 		}
 	}
-
-	// Copy the logs from the pty
-	io.Copy(logs, ptyF)
+	<-copyDone
 	cmdOutput += logs.String()
 
 	// TODO: find if there is a better way to remove stdins from the output
@@ -272,9 +280,12 @@ func RunCommand(command string, inputs []string) (int, string) {
 	return c.ProcessState.ExitCode(), cmdOutput
 }
 
-func RunRawCommand(command string, inputs []string) (int, string) {
+func RunRawCommand(command string, inputs []string, timeout time.Duration) (int, string) {
 	logs := new(strings.Builder)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if timeout <= 0 {
+		timeout = defaultCommandTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	fmt.Print("Running command: ", command)
@@ -290,6 +301,11 @@ func RunRawCommand(command string, inputs []string) (int, string) {
 	for _, input := range inputs {
 		fmt.Fprintf(ptyF, "%s\n", input)
 	}
+	copyDone := make(chan struct{})
+	go func() {
+		io.Copy(logs, ptyF)
+		close(copyDone)
+	}()
 
 	var cmdOutput string
 	if err := c.Wait(); err != nil {
@@ -297,8 +313,7 @@ func RunRawCommand(command string, inputs []string) (int, string) {
 			cmdOutput = "Command timed out:\n"
 		}
 	}
-
-	io.Copy(logs, ptyF)
+	<-copyDone
 	cmdOutput += logs.String()
 	cmdOutput = strings.TrimLeft(cmdOutput, strings.Join(inputs, "\r\n"))
 

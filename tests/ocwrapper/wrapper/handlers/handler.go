@@ -9,6 +9,7 @@ import (
 	"ocwrapper/common"
 	"ocwrapper/opencloud"
 	"os"
+	"time"
 )
 
 type BasicResponse struct {
@@ -203,14 +204,19 @@ func CommandHandler(res http.ResponseWriter, req *http.Request) {
 		raw = r
 	}
 
+	var timeout time.Duration
+	if t, ok := body["timeout"].(float64); ok {
+		timeout = time.Duration(t) * time.Second
+	}
+
 	var exitCode int
 	var output string
 
 
 	if raw {
-		exitCode, output = opencloud.RunRawCommand(command, stdIn)
+		exitCode, output = opencloud.RunRawCommand(command, stdIn, timeout)
 	} else {
-		exitCode, output = opencloud.RunCommand(command, stdIn)
+		exitCode, output = opencloud.RunCommand(command, stdIn, timeout)
 	}
 	sendCmdResponse(res, exitCode, output)
 }

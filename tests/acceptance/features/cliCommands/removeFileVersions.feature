@@ -1,4 +1,4 @@
-@env-config
+@env-config @skipOnOpencloud-posix-Storage
 Feature: remove file versions via CLI command
 
   Background:

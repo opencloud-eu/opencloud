@@ -345,6 +345,14 @@ _ocdav: api compatibility, return correct status code_
 
 - [apiSharingNg1/removeAccessToDrive.feature:145](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSharingNg1/removeAccessToDrive.feature#L145)
 
+tests/acceptance/features/cliCommands/restoreTrashBinItems.feature
+
+#### [POSIX: failing CLI commands](https://github.com/opencloud-eu/opencloud/issues/3095)
+
+- [cliCommands/restoreTrashBinItems.feature:11](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/cliCommands/restoreTrashBinItems.feature#L11)
+- [cliCommands/restoreTrashBinItems.feature:23](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/cliCommands/restoreTrashBinItems.feature#L23)
+- [cliCommands/sharesCleanup.feature:12](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/cliCommands/sharesCleanup.feature#L12)
+
 
 ### Won't fix
 
