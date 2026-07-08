@@ -80,6 +80,20 @@ func TestIndexManager(t *testing.T) {
 		require.ErrorIs(t, indexManager.Apply(t.Context(), indexName, tc.Client(), log.NopLogger()), opensearch.ErrManualActionRequired)
 	})
 
+	t.Run("tolerates replica drift", func(t *testing.T) {
+		indexManager := opensearch.IndexManagerLatest
+		indexName := "opencloud-test-resource"
+
+		tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
+		tc.Require.IndicesReset([]string{indexName})
+
+		body, err := sjson.Set(indexManager.String(), "settings.number_of_replicas", "2")
+		require.NoError(t, err)
+		tc.Require.IndicesCreate(indexName, strings.NewReader(body))
+
+		require.NoError(t, indexManager.Apply(t.Context(), indexName, tc.Client(), log.NopLogger()))
+	})
+
 	t.Run("is idempotent", func(t *testing.T) {
 		indexManager := opensearch.IndexManagerLatest
 		indexName := "opencloud-test-resource"

@@ -66,16 +66,19 @@ func NewIndex(root string) (bleve.Index, searchmapping.Classification, error) {
 		// Safe: everything else is identical and the new fields hold no data.
 		// Reopen so the live mapping picks the change up; otherwise the fields
 		// get indexed dynamically and flip to breaking on the next start.
+		// return the classification even on errors: the mapping may already be
+		// persisted, so the next start classifies equal and the caller's
+		// warning is the only chance to surface the new fields
 		if err := index.SetInternal([]byte("_mapping"), codeB); err != nil {
 			_ = index.Close()
-			return nil, searchmapping.Classification{}, fmt.Errorf("failed to store the updated index mapping: %w", err)
+			return nil, classification, fmt.Errorf("failed to store the updated index mapping: %w", err)
 		}
 		if err := index.Close(); err != nil {
-			return nil, searchmapping.Classification{}, err
+			return nil, classification, err
 		}
 		index, err = bleve.OpenUsing(destination, openRuntimeConfig)
 		if err != nil {
-			return nil, searchmapping.Classification{}, err
+			return nil, classification, err
 		}
 	}
 
