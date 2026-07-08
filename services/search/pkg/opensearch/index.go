@@ -95,11 +95,10 @@ func buildResourceV2Mapping() ([]byte, error) {
 	return json.Marshal(index)
 }
 
-// Apply ensures the index exists and matches the schema generated from code.
-// A missing index is created, an additive schema change is applied in place
-// via PUT _mapping, a breaking one returns ErrManualActionRequired. The
-// classifier decides what is additive; PUT _mapping is only the mechanism to
-// apply it (its merge semantics cannot detect removals or renames).
+// Apply ensures the index exists and matches the schema generated from code:
+// created if missing, additive changes applied via PUT _mapping, breaking ones
+// refused with ErrManualActionRequired. The classifier judges, PUT _mapping
+// only applies (its merge semantics hide removals and renames).
 func (m IndexManager) Apply(ctx context.Context, name string, client *opensearchgoAPI.Client, logger log.Logger) error {
 	localIndexB, err := m.MarshalJSON()
 	if err != nil {
