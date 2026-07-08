@@ -82,8 +82,7 @@ var _ = Describe("Classify", func() {
 		stored := parse(code)
 		delete(stored, "photo")
 
-		// the callback is consulted with the subtree root; reporting data at
-		// or below it is the caller's job
+		// the callback is consulted with the subtree root
 		c := Classify(stored, parse(code), hasData("photo"))
 		Expect(c.Verdict).To(Equal(VerdictBreaking))
 		Expect(c.Reasons).To(ConsistOf(ContainSubstring("photo")))

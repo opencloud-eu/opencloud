@@ -127,8 +127,7 @@ func Server(cfg *config.Config) *cobra.Command {
 					return fmt.Errorf("failed to create OpenSearch client: %w", err)
 				}
 
-				// bound the startup schema check so a hung cluster fails the
-				// start instead of blocking forever
+				// a hung cluster must fail the start, not block it forever
 				startupCtx, cancelStartup := context.WithTimeout(ctx, time.Minute)
 				indexName := opensearch.VersionedIndexName(cfg.Engine.OpenSearch.ResourceIndex.Name)
 				openSearchBackend, err := opensearch.NewBackend(startupCtx, indexName, client, logger)

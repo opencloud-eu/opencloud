@@ -14,10 +14,8 @@ import (
 var ErrManualActionRequired = errors.New("manual action required")
 
 // ManualActionRequiredError builds the operator-facing error for a breaking
-// schema change, shared by both engines. index is the index name (OpenSearch)
-// or path (bleve); deleteStep is the engine-specific instruction to remove the
-// index, e.g. "delete the index (DELETE /name)" or "delete the index
-// directory /path".
+// schema change. index names the index, deleteStep is the engine-specific
+// instruction to remove it.
 func ManualActionRequiredError(index, deleteStep string, reasons []string) error {
 	return fmt.Errorf(
 		"%w: search index %s was built with a different schema (%s). "+
@@ -51,14 +49,10 @@ type Classification struct {
 }
 
 // Classify recursively compares a stored `properties` tree against the one
-// generated from code. Both sides must be generic JSON-decoded values
-// (map[string]any, []any, float64), not marshaled Go structs, so values
-// compare structurally.
-//
-// dataFields reports whether the index holds data at or below a dotted field
-// path even though it is absent from the stored schema (bleve indexes dynamic
-// fields without a schema trace). Engines that record dynamic fields in the
-// live schema (OpenSearch) pass nil.
+// generated from code. Both sides must be generic JSON-decoded values, not
+// marshaled Go structs. dataFields reports whether the index holds data at or
+// below a dotted field path absent from the stored schema (bleve dynamic
+// fields); engines without that blind spot pass nil.
 func Classify(stored, code map[string]any, dataFields func(path string) bool) Classification {
 	c := Classification{Verdict: VerdictEqual}
 	classifyProperties(stored, code, dataFields, "", &c)
