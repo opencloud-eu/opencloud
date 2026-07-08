@@ -107,7 +107,7 @@ checks if that user already exists. This is done by querying the `users` service
 where the attribute set in `PROXY_USER_CS3_CLAIM` matches the value of the OIDC
 claim configured in `PROXY_USER_OIDC_CLAIM`.
 
-If the users does not exist, the proxy will create a new user via the `graph`
+If the user does not exist, the proxy will create a new user via the `graph`
 service using the claim values configured in
 `PROXY_AUTOPROVISION_CLAIM_USERNAME`, `PROXY_AUTOPROVISION_CLAIM_EMAIL` and
 `PROXY_AUTOPROVISION_CLAIM_DISPLAYNAME`.
