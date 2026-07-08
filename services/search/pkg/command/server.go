@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
@@ -20,6 +21,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
+	searchmapping "github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
 	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
@@ -71,9 +73,15 @@ func Server(cfg *config.Config) *cobra.Command {
 			var eng search.Engine
 			switch cfg.Engine.Type {
 			case "bleve":
-				idx, err := bleve.NewIndex(cfg.Engine.Bleve.Datapath)
+				idx, classification, err := bleve.NewIndex(cfg.Engine.Bleve.Datapath)
 				if err != nil {
 					return err
+				}
+
+				if classification.Verdict == searchmapping.VerdictAdditive {
+					logger.Warn().
+						Strs("fields", classification.NewFields).
+						Msgf("the bleve index at %s was built with an older schema; the new fields were added to the index schema, but documents indexed before the upgrade do not contain them and queries on these fields will miss those documents until they are re-indexed; to re-index everything run: opencloud search index --all-spaces", cfg.Engine.Bleve.Datapath)
 				}
 
 				defer func() {
@@ -119,8 +127,12 @@ func Server(cfg *config.Config) *cobra.Command {
 					return fmt.Errorf("failed to create OpenSearch client: %w", err)
 				}
 
+				// bound the startup schema check so a hung cluster fails the
+				// start instead of blocking forever
+				startupCtx, cancelStartup := context.WithTimeout(ctx, time.Minute)
 				indexName := opensearch.VersionedIndexName(cfg.Engine.OpenSearch.ResourceIndex.Name)
-				openSearchBackend, err := opensearch.NewBackend(indexName, client)
+				openSearchBackend, err := opensearch.NewBackend(startupCtx, indexName, client, logger)
+				cancelStartup()
 				if err != nil {
 					return fmt.Errorf("failed to create OpenSearch backend: %w", err)
 				}

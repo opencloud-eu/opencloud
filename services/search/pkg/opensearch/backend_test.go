@@ -11,6 +11,7 @@ import (
 	opensearchgo "github.com/opensearch-project/opensearch-go/v4"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
@@ -62,7 +63,7 @@ func newBackend(indexName string, resources ...search.Resource) (*opensearch.Bac
 	tc.Require.IndicesReset([]string{indexName})
 	tc.Require.IndicesCount([]string{indexName}, nil, 0)
 
-	backend, err := opensearch.NewBackend(indexName, tc.Client())
+	backend, err := opensearch.NewBackend(context.Background(), indexName, tc.Client(), log.NopLogger())
 	Expect(err).ToNot(HaveOccurred())
 
 	for _, r := range resources {
@@ -83,7 +84,7 @@ var _ = Describe("Backend", func() {
 			})
 			Expect(err).ToNot(HaveOccurred(), "failed to create OpenSearch client")
 
-			backend, err := opensearch.NewBackend("test-engine-new-engine", client)
+			backend, err := opensearch.NewBackend(context.Background(), "test-engine-new-engine", client, log.NopLogger())
 			Expect(backend).To(BeNil())
 			Expect(err).To(MatchError(opensearch.ErrUnhealthyCluster))
 		})
@@ -105,7 +106,7 @@ var _ = Describe("Backend", func() {
 			deleteIndexOnCleanup(tc, indexName)
 
 			var err error
-			backend, err = opensearch.NewBackend(indexName, tc.Client())
+			backend, err = opensearch.NewBackend(context.Background(), indexName, tc.Client(), log.NopLogger())
 			Expect(err).ToNot(HaveOccurred())
 
 			document = opensearchtest.Testdata.Resources.File
@@ -194,7 +195,7 @@ var _ = Describe("Backend", func() {
 			deleteIndexOnCleanup(tc, indexName)
 
 			var err error
-			backend, err = opensearch.NewBackend(indexName, tc.Client())
+			backend, err = opensearch.NewBackend(context.Background(), indexName, tc.Client(), log.NopLogger())
 			Expect(err).ToNot(HaveOccurred())
 
 			document := opensearchtest.Testdata.Resources.File
@@ -235,7 +236,7 @@ var _ = Describe("Backend", func() {
 			deleteIndexOnCleanup(tc, indexName)
 
 			var err error
-			backend, err = opensearch.NewBackend(indexName, tc.Client())
+			backend, err = opensearch.NewBackend(context.Background(), indexName, tc.Client(), log.NopLogger())
 			Expect(err).ToNot(HaveOccurred())
 
 			folder := opensearchtest.Testdata.Resources.Folder
@@ -303,7 +304,7 @@ var _ = Describe("Backend", func() {
 			deleteIndexOnCleanup(tc, indexName)
 
 			var err error
-			backend, err = opensearch.NewBackend(indexName, tc.Client())
+			backend, err = opensearch.NewBackend(context.Background(), indexName, tc.Client(), log.NopLogger())
 			Expect(err).ToNot(HaveOccurred())
 
 			svg := opensearchtest.Testdata.Resources.File
@@ -356,7 +357,7 @@ var _ = Describe("Backend", func() {
 			deleteIndexOnCleanup(tc, indexName)
 
 			var err error
-			backend, err = opensearch.NewBackend(indexName, tc.Client())
+			backend, err = opensearch.NewBackend(context.Background(), indexName, tc.Client(), log.NopLogger())
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -393,7 +394,7 @@ var _ = Describe("Backend", func() {
 			deleteIndexOnCleanup(tc, indexName)
 
 			var err error
-			backend, err = opensearch.NewBackend(indexName, tc.Client())
+			backend, err = opensearch.NewBackend(context.Background(), indexName, tc.Client(), log.NopLogger())
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -466,7 +467,7 @@ var _ = Describe("Backend", func() {
 			deleteIndexOnCleanup(tc, indexName)
 
 			var err error
-			backend, err = opensearch.NewBackend(indexName, tc.Client())
+			backend, err = opensearch.NewBackend(context.Background(), indexName, tc.Client(), log.NopLogger())
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -507,7 +508,7 @@ var _ = Describe("Backend", func() {
 			deleteIndexOnCleanup(tc, indexName)
 
 			var err error
-			backend, err = opensearch.NewBackend(indexName, tc.Client())
+			backend, err = opensearch.NewBackend(context.Background(), indexName, tc.Client(), log.NopLogger())
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -549,7 +550,7 @@ var _ = Describe("Backend", func() {
 			deleteIndexOnCleanup(tc, indexName)
 
 			var err error
-			backend, err = opensearch.NewBackend(indexName, tc.Client())
+			backend, err = opensearch.NewBackend(context.Background(), indexName, tc.Client(), log.NopLogger())
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -609,7 +610,7 @@ var _ = Describe("Backend", func() {
 			deleteIndexOnCleanup(tc, indexName)
 
 			var err error
-			backend, err = opensearch.NewBackend(indexName, tc.Client())
+			backend, err = opensearch.NewBackend(context.Background(), indexName, tc.Client(), log.NopLogger())
 			Expect(err).ToNot(HaveOccurred())
 		})
 
