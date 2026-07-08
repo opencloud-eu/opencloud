@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	ochttp "github.com/opencloud-eu/opencloud/pkg/http"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 )
@@ -195,7 +196,7 @@ var (
 func (h *HttpJmapClient) beforeRequest(_ context.Context, logger *log.Logger, _ string, endpoint string, req *http.Request) Error {
 	l := logger.Trace()
 	if h.traceRequests && l.Enabled() {
-		if err := dumpHttpRequest(req, h.traceMaxRequestBodySize, func(method string, uri string, content string, truncated bool) {
+		if err := ochttp.DumpHttpRequest(req, h.traceMaxRequestBodySize, func(method string, uri string, content string, truncated bool) {
 			if truncated {
 				l = l.Bool(logBodyTruncated, true)
 			}
@@ -209,39 +210,27 @@ func (h *HttpJmapClient) beforeRequest(_ context.Context, logger *log.Logger, _ 
 	return nil
 }
 
-type readCloser struct {
-	io.Reader
-	closer io.ReadCloser
-}
-
-func (c readCloser) Close() error {
-	if c.closer != nil {
-		return c.closer.Close()
-	}
-	return nil
-}
-
-func (h *HttpJmapClient) response(peekSize int64, _ context.Context, logger *log.Logger, _ string, endpoint string, duration time.Duration, req *http.Request, resp *http.Response) (io.ReadCloser, []byte, bool, error) {
+func (h *HttpJmapClient) response(peekSize int64, _ context.Context, logger *log.Logger, _ string, endpoint string, duration time.Duration, resp *http.Response) (io.ReadCloser, []byte, bool, error) {
 	whole := resp.Body
 	peek := []byte{}
 	truncated := false
 	var err error
 
 	if peekSize > 0 {
-		whole, peek, truncated, err = peekResponse(resp.Body, peekSize, func(err error) { logger.Error().Err(err).Msg("failed to close response body") }) //NOSONAR
+		whole, peek, truncated, err = ochttp.PeekResponse(resp.Body, peekSize)
 		if err != nil {
 			return whole, peek, truncated, err
 		}
 	}
 	l := logger.Trace()
 	if h.traceResponses && l.Enabled() {
-		body, err := dumpHttpResponse(req, resp, whole, h.traceMaxResponseBodySize, func(method, uri, content string, truncated bool) {
+		body, err := ochttp.DumpHttpResponse(resp, whole, h.traceMaxResponseBodySize, func(method, uri, content string, truncated bool) {
 			l.Str(logProto, logProtoJmap).Str(logType, logTypeResponse).Str(logEndpoint, endpoint).
 				Str(logMethod, method).Str(logUri, uri).
 				Str(logHttpStatus, log.SafeString(resp.Status)).Int(logHttpStatusCode, resp.StatusCode).
 				Dur(logDuration, duration).
 				Msg(content)
-		}, func(err error) { logger.Error().Err(err).Msg("failed to close response body") }) //NOSONAR
+		})
 		if err != nil {
 			return body, peek, truncated, err
 		} else {
@@ -296,7 +285,7 @@ func (h *HttpJmapClient) GetSession(ctx context.Context, sessionUrl *url.URL, us
 	}
 
 	// dump the response regardless of the status code
-	body, _, _, err := h.response(responseBodyPeekSize, ctx, logger, username, endpoint, duration, req, res)
+	body, _, _, err := h.response(responseBodyPeekSize, ctx, logger, username, endpoint, duration, res)
 
 	// since we are not returning a stream from this function, we have to close the response body
 	// before leaving the scope of the function
@@ -383,7 +372,7 @@ func (h *HttpJmapClient) Command(operation Operation, request Request, ctx Conte
 	// caller won't be able to read the response; instead, it is up to the caller to close the
 	// ReadCloser we are returning from here
 
-	body, _, _, err := h.response(responseBodyPeekSize, cotx, logger, session.Username, endpoint, duration, req, res)
+	body, _, _, err := h.response(responseBodyPeekSize, cotx, logger, session.Username, endpoint, duration, res)
 	language := Language(res.Header.Get("Content-Language")) //NOSONAR
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to read response body")
@@ -442,12 +431,7 @@ func (h *HttpJmapClient) UploadBinary(uploadUrl string, operation Operation, end
 		return UploadedBlob{}, "", jmapError(err, JmapErrorSendingRequest)
 	}
 
-	// note that we are omitting the usual deferred response body closer here since we are returning
-	// an io.ReadCloser to the body and if we close it when leaving the scope of this function, the
-	// caller won't be able to read the response; instead, it is up to the caller to close the
-	// ReadCloser we are returning from here
-
-	responseBody, _, _, err := h.response(responseBodyPeekSize, cotx, logger, session.Username, endpoint, duration, req, res)
+	responseBody, _, _, err := h.response(responseBodyPeekSize, cotx, logger, session.Username, endpoint, duration, res)
 
 	// since we are not returning a stream from this function, we have to close the response body
 	// before leaving the scope of the function
@@ -519,7 +503,7 @@ func (h *HttpJmapClient) DownloadBinary(downloadUrl string, operation Operation,
 	// caller won't be able to read the response; instead, it is up to the caller to close the
 	// ReadCloser we are returning from here
 
-	responseBody, _, _, err := h.response(responseBodyPeekSize, cotx, logger, session.Username, endpoint, duration, req, res)
+	responseBody, _, _, err := h.response(responseBodyPeekSize, cotx, logger, session.Username, endpoint, duration, res)
 
 	language := Language(res.Header.Get("Content-Language"))
 	if err != nil {
@@ -656,14 +640,12 @@ func (w *HttpWsClientFactory) connect(operation Operation, ctx context.Context, 
 	{
 		l := logger.Trace()
 		if w.traceWsResponses && l.Enabled() {
-			body, err = dumpHttpResponse(nil, res, res.Body, w.traceMaxResponseBodySize, func(method, uri, content string, truncated bool) {
+			body, err = ochttp.DumpHttpResponse(res, res.Body, w.traceMaxResponseBodySize, func(method, uri, content string, truncated bool) {
 				l.Str(logProto, logProtoJmap).Str(logType, logTypeResponse).Str(logEndpoint, endpoint).
 					Str(logMethod, method).Str(logUri, uri).
 					Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).
 					Dur(logDuration, duration).
 					Msg(content)
-			}, func(err error) {
-				logger.Error().Err(err).Msg("failed to close response body") //NOSONAR
 			})
 		}
 	}
