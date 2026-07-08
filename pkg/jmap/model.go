@@ -4163,11 +4163,11 @@ type VacationResponse struct {
 
 	// If "isEnabled" is true, messages that arrive on or after this date-time (but before the "toDate" if defined) should receive the
 	// user's vacation response. If null, the vacation response is effective immediately.
-	FromDate time.Time `json:"fromDate,omitzero"`
+	FromDate *time.Time `json:"fromDate,omitzero"`
 
 	// If "isEnabled" is true, messages that arrive before this date-time but on or after the "fromDate" if defined) should receive the
 	// user's vacation response.  If null, the vacation response is effective indefinitely.
-	ToDate time.Time `json:"toDate,omitzero"`
+	ToDate *time.Time `json:"toDate,omitzero"`
 
 	// The subject that will be used by the message sent in response to messages when the vacation response is enabled.
 	// If null, an appropriate subject SHOULD be set by the server.

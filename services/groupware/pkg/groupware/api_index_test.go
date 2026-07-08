@@ -14,14 +14,10 @@ func TestGroupwareIndex(t *testing.T) {
 	require.NoError(err)
 
 	index := IndexResponse{}
-	u := gget(g, "/", &index)
+	u := gget("get-index", g, "/", &index)
 	require.Len(index.Accounts, 1)
 	require.Equal(u.Email, index.Accounts[0].Name)
 	require.Len(index.Accounts[0].Identities, 2) // email + alias
-	require.Len(structs.Filter(index.Accounts[0].Identities, func(i jmap.Identity) bool {
-		return i.Email == u.Email
-	}), 1)
-	require.Len(structs.Filter(index.Accounts[0].Identities, func(i jmap.Identity) bool {
-		return i.Email == u.Alias
-	}), 1)
+	require.Len(structs.Filter(index.Accounts[0].Identities, func(i jmap.Identity) bool { return i.Email == u.Email }), 1)
+	require.Len(structs.Filter(index.Accounts[0].Identities, func(i jmap.Identity) bool { return i.Email == u.Alias }), 1)
 }

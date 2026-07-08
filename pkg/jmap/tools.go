@@ -451,38 +451,6 @@ func ptr[T any | int | uint | bool | string](t T) *T {
 	return &t
 }
 
-func dumpHttpRequest(req *http.Request, maxBodySize int64, closure func(method string, uri string, content string, truncated bool)) error {
-	var logBuilder bytes.Buffer
-	uri := req.URL.String()
-	fmt.Fprintf(&logBuilder, "%s %s\n", req.Method, uri)
-	for key, values := range req.Header {
-		if key == "Authorization" {
-			continue
-		}
-		for _, value := range values {
-			fmt.Fprintf(&logBuilder, "%s: %s\n", key, value)
-		}
-	}
-	truncated := false
-	if maxBodySize >= 0 && req.Body != nil && req.Body != http.NoBody {
-		peekBuffer := new(bytes.Buffer)
-		limitedReader := io.LimitReader(req.Body, maxBodySize)
-		tee := io.TeeReader(limitedReader, peekBuffer)
-		if _, err := io.Copy(io.Discard, tee); err != nil {
-			return fmt.Errorf("failed to peek at the request body for tracing: %v", err)
-		} else {
-			logBuilder.Write(peekBuffer.Bytes())
-			if int64(peekBuffer.Len()) >= maxBodySize {
-				truncated = true
-			}
-			fullBodyReader := io.MultiReader(peekBuffer, req.Body)
-			req.Body = io.NopCloser(fullBodyReader)
-		}
-	}
-	closure(req.Method, uri, logBuilder.String(), truncated)
-	return nil
-}
-
 type nullReader struct {
 }
 
@@ -541,6 +509,38 @@ func peekResponse(body io.ReadCloser, size int64,
 		closer: body,
 		Reader: multiReader(peekBuffer, body),
 	}, peek, truncated, nil
+}
+
+func dumpHttpRequest(req *http.Request, maxBodySize int64, closure func(method string, uri string, content string, truncated bool)) error {
+	var logBuilder bytes.Buffer
+	uri := req.URL.String()
+	fmt.Fprintf(&logBuilder, "%s %s\n", req.Method, uri)
+	for key, values := range req.Header {
+		if key == "Authorization" {
+			continue
+		}
+		for _, value := range values {
+			fmt.Fprintf(&logBuilder, "%s: %s\n", key, value)
+		}
+	}
+	truncated := false
+	if maxBodySize >= 0 && req.Body != nil && req.Body != http.NoBody {
+		peekBuffer := new(bytes.Buffer)
+		limitedReader := io.LimitReader(req.Body, maxBodySize)
+		tee := io.TeeReader(limitedReader, peekBuffer)
+		if _, err := io.Copy(io.Discard, tee); err != nil {
+			return fmt.Errorf("failed to peek at the request body for tracing: %v", err)
+		} else {
+			logBuilder.Write(peekBuffer.Bytes())
+			if int64(peekBuffer.Len()) >= maxBodySize {
+				truncated = true
+			}
+			fullBodyReader := io.MultiReader(peekBuffer, req.Body)
+			req.Body = io.NopCloser(fullBodyReader)
+		}
+	}
+	closure(req.Method, uri, logBuilder.String(), truncated)
+	return nil
 }
 
 func dumpHttpResponse(req *http.Request, resp *http.Response, body io.ReadCloser, maxBodySize int64,
