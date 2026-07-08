@@ -9,6 +9,7 @@ import (
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	"github.com/stretchr/testify/require"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
@@ -24,7 +25,7 @@ func TestNewBackend(t *testing.T) {
 		})
 		require.NoError(t, err, "failed to create OpenSearch client")
 
-		backend, err := opensearch.NewBackend("test-engine-new-engine", client)
+		backend, err := opensearch.NewBackend(t.Context(), "test-engine-new-engine", client, log.NopLogger())
 		require.Nil(t, backend)
 		require.ErrorIs(t, err, opensearch.ErrUnhealthyCluster)
 	})
@@ -38,7 +39,7 @@ func TestEngine_Search(t *testing.T) {
 
 	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewBackend(indexName, tc.Client())
+	backend, err := opensearch.NewBackend(t.Context(), indexName, tc.Client(), log.NopLogger())
 	require.NoError(t, err)
 
 	document := opensearchtest.Testdata.Resources.File
@@ -81,7 +82,7 @@ func TestEngine_Upsert(t *testing.T) {
 
 	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewBackend(indexName, tc.Client())
+	backend, err := opensearch.NewBackend(t.Context(), indexName, tc.Client(), log.NopLogger())
 	require.NoError(t, err)
 
 	t.Run("upsert with full document", func(t *testing.T) {
@@ -110,7 +111,7 @@ func TestEngine_Move(t *testing.T) {
 
 	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewBackend(indexName, tc.Client())
+	backend, err := opensearch.NewBackend(t.Context(), indexName, tc.Client(), log.NopLogger())
 	require.NoError(t, err)
 
 	t.Run("moves the document to a new path", func(t *testing.T) {
@@ -147,7 +148,7 @@ func TestEngine_Delete(t *testing.T) {
 
 	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewBackend(indexName, tc.Client())
+	backend, err := opensearch.NewBackend(t.Context(), indexName, tc.Client(), log.NopLogger())
 	require.NoError(t, err)
 
 	t.Run("mark document as deleted", func(t *testing.T) {
@@ -180,7 +181,7 @@ func TestEngine_Restore(t *testing.T) {
 
 	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewBackend(indexName, tc.Client())
+	backend, err := opensearch.NewBackend(t.Context(), indexName, tc.Client(), log.NopLogger())
 	require.NoError(t, err)
 
 	t.Run("mark document as not deleted", func(t *testing.T) {
@@ -214,7 +215,7 @@ func TestEngine_Purge(t *testing.T) {
 
 	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewBackend(indexName, tc.Client())
+	backend, err := opensearch.NewBackend(t.Context(), indexName, tc.Client(), log.NopLogger())
 	require.NoError(t, err)
 
 	t.Run("purge with full document", func(t *testing.T) {
@@ -266,7 +267,7 @@ func TestEngine_DocCount(t *testing.T) {
 
 	defer tc.Require.IndicesDelete([]string{indexName})
 
-	backend, err := opensearch.NewBackend(indexName, tc.Client())
+	backend, err := opensearch.NewBackend(t.Context(), indexName, tc.Client(), log.NopLogger())
 	require.NoError(t, err)
 
 	t.Run("ignore deleted documents", func(t *testing.T) {
