@@ -14,8 +14,8 @@ import (
 //
 // The returned mapping references analyzer names (Analyzer field on the
 // FieldOpts, plus "fulltext" / "path_hierarchy" for the corresponding Types);
-// the caller is responsible for registering those analyzers on the enclosing
-// IndexMapping.
+// the caller must register every referenced analyzer on the enclosing
+// IndexMapping (IndexMapping.Validate catches missing ones).
 func BleveBuildMapping(t reflect.Type, overrides map[string]FieldOpts) (*bleveMapping.DocumentMapping, error) {
 	return buildBleveDocMapping(t, overrides, "")
 }
