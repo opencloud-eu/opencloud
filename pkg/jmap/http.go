@@ -57,6 +57,8 @@ const (
 	logDuration        = "duration"
 	logBodyTruncated   = "truncated"
 	logAuthenticatorId = "auth-id"
+
+	responseBodyPeekSize = 2 * 1024
 )
 
 // Record JMAP HTTP execution events that may occur, e.g. using metrics.
@@ -207,32 +209,46 @@ func (h *HttpJmapClient) beforeRequest(_ context.Context, logger *log.Logger, _ 
 	return nil
 }
 
-type httpResponseReadCloser struct {
+type readCloser struct {
 	io.Reader
-	body io.ReadCloser
+	closer io.ReadCloser
 }
 
-func (c httpResponseReadCloser) Close() error {
-	if c.body != nil {
-		return c.body.Close()
+func (c readCloser) Close() error {
+	if c.closer != nil {
+		return c.closer.Close()
 	}
 	return nil
 }
 
-func (h *HttpJmapClient) response(_ context.Context, logger *log.Logger, _ string, endpoint string, duration time.Duration, req *http.Request, resp *http.Response) (io.ReadCloser, error) {
+func (h *HttpJmapClient) response(peekSize int64, _ context.Context, logger *log.Logger, _ string, endpoint string, duration time.Duration, req *http.Request, resp *http.Response) (io.ReadCloser, []byte, bool, error) {
+	whole := resp.Body
+	peek := []byte{}
+	truncated := false
+	var err error
+
+	if peekSize > 0 {
+		whole, peek, truncated, err = peekResponse(resp.Body, peekSize, func(err error) { logger.Error().Err(err).Msg("failed to close response body") }) //NOSONAR
+		if err != nil {
+			return whole, peek, truncated, err
+		}
+	}
 	l := logger.Trace()
 	if h.traceResponses && l.Enabled() {
-		return dumpHttpResponse(req, resp, h.traceMaxResponseBodySize, func(method, uri, content string, truncated bool) {
+		body, err := dumpHttpResponse(req, resp, whole, h.traceMaxResponseBodySize, func(method, uri, content string, truncated bool) {
 			l.Str(logProto, logProtoJmap).Str(logType, logTypeResponse).Str(logEndpoint, endpoint).
 				Str(logMethod, method).Str(logUri, uri).
 				Str(logHttpStatus, log.SafeString(resp.Status)).Int(logHttpStatusCode, resp.StatusCode).
 				Dur(logDuration, duration).
 				Msg(content)
-		}, func(err error) {
-			logger.Error().Err(err).Msg("failed to close response body") //NOSONAR
-		})
+		}, func(err error) { logger.Error().Err(err).Msg("failed to close response body") }) //NOSONAR
+		if err != nil {
+			return body, peek, truncated, err
+		} else {
+			return body, peek, truncated, nil
+		}
 	} else {
-		return resp.Body, nil
+		return whole, peek, truncated, nil
 	}
 }
 
@@ -280,7 +296,7 @@ func (h *HttpJmapClient) GetSession(ctx context.Context, sessionUrl *url.URL, us
 	}
 
 	// dump the response regardless of the status code
-	body, err := h.response(ctx, logger, username, endpoint, duration, req, res)
+	body, _, _, err := h.response(responseBodyPeekSize, ctx, logger, username, endpoint, duration, req, res)
 
 	// since we are not returning a stream from this function, we have to close the response body
 	// before leaving the scope of the function
@@ -295,6 +311,7 @@ func (h *HttpJmapClient) GetSession(ctx context.Context, sessionUrl *url.URL, us
 		logger.Error().Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 200")
 		return SessionResponse{}, jmapError(fmt.Errorf("JMAP API response status is %v", res.Status), JmapErrorServerResponse)
 	}
+
 	h.listener.OnSuccessfulRequest(endpoint, Operation("GetSession"), res.StatusCode)
 
 	if err != nil {
@@ -366,7 +383,7 @@ func (h *HttpJmapClient) Command(operation Operation, request Request, ctx Conte
 	// caller won't be able to read the response; instead, it is up to the caller to close the
 	// ReadCloser we are returning from here
 
-	body, err := h.response(cotx, logger, session.Username, endpoint, duration, req, res)
+	body, _, _, err := h.response(responseBodyPeekSize, cotx, logger, session.Username, endpoint, duration, req, res)
 	language := Language(res.Header.Get("Content-Language")) //NOSONAR
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to read response body")
@@ -377,7 +394,12 @@ func (h *HttpJmapClient) Command(operation Operation, request Request, ctx Conte
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		h.listener.OnFailedRequestWithStatus(endpoint, operation, res.StatusCode)
 		logger.Error().Str(logEndpoint, endpoint).Str(logHttpStatus, log.SafeString(res.Status)).Msg("HTTP response status code is not 2xx") //NOSONAR
-		return nil, language, jmapError(fmt.Errorf("JMAP server responsed with '%s'", res.Status), JmapErrorServerResponse)
+		switch res.StatusCode {
+		case http.StatusUnauthorized:
+			return nil, language, jmapError(fmt.Errorf("JMAP server responsed with '%s'", res.Status), JmapErrorAuthenticationFailed)
+		default:
+			return nil, language, jmapError(fmt.Errorf("JMAP server responsed with '%s'", res.Status), JmapErrorServerResponse)
+		}
 	}
 
 	h.listener.OnSuccessfulRequest(endpoint, operation, res.StatusCode)
@@ -425,7 +447,7 @@ func (h *HttpJmapClient) UploadBinary(uploadUrl string, operation Operation, end
 	// caller won't be able to read the response; instead, it is up to the caller to close the
 	// ReadCloser we are returning from here
 
-	responseBody, err := h.response(cotx, logger, session.Username, endpoint, duration, req, res)
+	responseBody, _, _, err := h.response(responseBodyPeekSize, cotx, logger, session.Username, endpoint, duration, req, res)
 
 	// since we are not returning a stream from this function, we have to close the response body
 	// before leaving the scope of the function
@@ -497,7 +519,7 @@ func (h *HttpJmapClient) DownloadBinary(downloadUrl string, operation Operation,
 	// caller won't be able to read the response; instead, it is up to the caller to close the
 	// ReadCloser we are returning from here
 
-	responseBody, err := h.response(cotx, logger, session.Username, endpoint, duration, req, res)
+	responseBody, _, _, err := h.response(responseBodyPeekSize, cotx, logger, session.Username, endpoint, duration, req, res)
 
 	language := Language(res.Header.Get("Content-Language"))
 	if err != nil {
@@ -634,7 +656,7 @@ func (w *HttpWsClientFactory) connect(operation Operation, ctx context.Context, 
 	{
 		l := logger.Trace()
 		if w.traceWsResponses && l.Enabled() {
-			body, err = dumpHttpResponse(nil, res, w.traceMaxResponseBodySize, func(method, uri, content string, truncated bool) {
+			body, err = dumpHttpResponse(nil, res, res.Body, w.traceMaxResponseBodySize, func(method, uri, content string, truncated bool) {
 				l.Str(logProto, logProtoJmap).Str(logType, logTypeResponse).Str(logEndpoint, endpoint).
 					Str(logMethod, method).Str(logUri, uri).
 					Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).

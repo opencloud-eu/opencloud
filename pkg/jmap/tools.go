@@ -483,10 +483,71 @@ func dumpHttpRequest(req *http.Request, maxBodySize int64, closure func(method s
 	return nil
 }
 
-func dumpHttpResponse(req *http.Request, resp *http.Response, maxBodySize int64,
+type nullReader struct {
+}
+
+func (r nullReader) Read(p []byte) (n int, err error) {
+	return 0, nil
+}
+
+func (r nullReader) Close() error {
+	return nil
+}
+
+var _ io.ReadCloser = nullReader{}
+
+func multiReader(peekBuffer *bytes.Buffer, body io.Reader) io.Reader {
+	readers := []io.Reader{}
+	if peekBuffer != nil {
+		readers = append(readers, peekBuffer)
+	}
+	if body != nil && body != http.NoBody {
+		readers = append(readers, body)
+	}
+	switch len(readers) {
+	case 0:
+		return http.NoBody
+	case 1:
+		return readers[0]
+	default:
+		return io.MultiReader(readers...)
+	}
+}
+
+func peekResponse(body io.ReadCloser, size int64,
+	closeErrorClosure func(err error)) (io.ReadCloser, []byte, bool, error) {
+	var peekBuffer *bytes.Buffer = nil
+	truncated := false
+	peek := []byte{}
+	if body != nil && body != http.NoBody && size > 0 {
+		peekBuffer = new(bytes.Buffer)
+		limitedReader := io.LimitReader(body, size)
+		tee := io.TeeReader(limitedReader, peekBuffer)
+		if _, err := io.Copy(io.Discard, tee); err != nil {
+			if err := body.Close(); err != nil {
+				closeErrorClosure(err)
+			}
+			return nil, peek, false, err
+		}
+
+		if int64(peekBuffer.Len()) >= size {
+			truncated = true
+		}
+
+		peek = peekBuffer.Bytes()
+	}
+
+	return readCloser{
+		closer: body,
+		Reader: multiReader(peekBuffer, body),
+	}, peek, truncated, nil
+}
+
+func dumpHttpResponse(req *http.Request, resp *http.Response, body io.ReadCloser, maxBodySize int64,
 	closure func(method string, uri string, content string, truncated bool),
 	closeErrorClosure func(err error)) (io.ReadCloser, error) {
 	var logBuilder bytes.Buffer
+	fmt.Fprintf(&logBuilder, "%s\n", resp.Status)
 	for key, values := range resp.Header {
 		for _, value := range values {
 			fmt.Fprintf(&logBuilder, "%s: %s\n", key, value)
@@ -495,15 +556,13 @@ func dumpHttpResponse(req *http.Request, resp *http.Response, maxBodySize int64,
 
 	var peekBuffer *bytes.Buffer = nil
 	truncated := false
-	if maxBodySize > 0 {
+	if body != nil && body != http.NoBody && maxBodySize > 0 {
 		peekBuffer = new(bytes.Buffer)
-		limitedReader := io.LimitReader(resp.Body, maxBodySize)
+		limitedReader := io.LimitReader(body, maxBodySize)
 		tee := io.TeeReader(limitedReader, peekBuffer)
 		if _, err := io.Copy(io.Discard, tee); err != nil {
-			if resp.Body != nil {
-				if err := resp.Body.Close(); err != nil {
-					closeErrorClosure(err)
-				}
+			if err := body.Close(); err != nil {
+				closeErrorClosure(err)
 			}
 			return nil, err
 		}
@@ -522,11 +581,11 @@ func dumpHttpResponse(req *http.Request, resp *http.Response, maxBodySize int64,
 	}
 
 	if peekBuffer != nil {
-		return httpResponseReadCloser{
-			body:   resp.Body,
-			Reader: io.MultiReader(peekBuffer, resp.Body),
+		return readCloser{
+			closer: body,
+			Reader: multiReader(peekBuffer, body),
 		}, nil
 	} else {
-		return resp.Body, nil
+		return body, nil
 	}
 }

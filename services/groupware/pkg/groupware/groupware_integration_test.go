@@ -1,6 +1,7 @@
 package groupware
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net"
@@ -12,6 +13,8 @@ import (
 
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
 	"github.com/opencloud-eu/opencloud/pkg/cors"
 	"github.com/opencloud-eu/opencloud/pkg/jmaptest"
 	opencloudmiddleware "github.com/opencloud-eu/opencloud/pkg/middleware"
@@ -30,8 +33,29 @@ func init() {
 }
 
 type GroupwareTest struct {
+	t       *testing.T
 	BaseURL string
 	Users   []jmaptest.User
+}
+
+func gget[T any](g GroupwareTest, path string, result *T) jmaptest.User {
+	u, err := url.JoinPath(g.BaseURL, path)
+	require.NoError(g.t, err)
+	req, err := http.NewRequest(http.MethodGet, u, nil)
+	require.NoError(g.t, err)
+	user := g.Users[rand.Intn(len(g.Users))] // pick a user at random
+	req.SetBasicAuth(user.Name, user.Password)
+	rid := uuid.New().String()
+	req.Header.Add("X-Request-Id", rid)
+	req.Header.Add("Trace-Id", rid)
+	client := http.Client{}
+	resp, err := client.Do(req)
+	require.NoError(g.t, err)
+	require.Equal(g.t, 200, resp.StatusCode)
+	defer resp.Body.Close()
+	err = json.NewDecoder(resp.Body).Decode(result)
+	require.NoError(g.t, err)
+	return user
 }
 
 func newGroupwareTest(t *testing.T) (GroupwareTest, error) {
@@ -136,6 +160,7 @@ func newGroupwareTest(t *testing.T) (GroupwareTest, error) {
 	}
 
 	m.Use(
+		middleware.RequestID,
 		opencloudmiddleware.Cors(
 			cors.Logger(logger),
 			cors.AllowedOrigins(config.HTTP.CORS.AllowedOrigins),
@@ -166,6 +191,7 @@ func newGroupwareTest(t *testing.T) (GroupwareTest, error) {
 	}
 
 	return GroupwareTest{
+		t:       t,
 		BaseURL: baseURL,
 		Users:   s.Users,
 	}, nil
