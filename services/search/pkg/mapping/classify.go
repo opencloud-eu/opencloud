@@ -15,18 +15,20 @@ var ErrManualActionRequired = errors.New("manual action required")
 
 // ManualActionRequiredError builds the operator-facing error for a breaking
 // schema change, shared by both engines. index is the index name (OpenSearch)
-// or path (bleve).
-func ManualActionRequiredError(index string, reasons []string) error {
+// or path (bleve); deleteStep is the engine-specific instruction to remove the
+// index, e.g. "delete the index (DELETE /name)" or "delete the index
+// directory /path".
+func ManualActionRequiredError(index, deleteStep string, reasons []string) error {
 	return fmt.Errorf(
 		"%w: search index %s was built with a different schema (%s). "+
-			"There is no in-place migration: stop the service, delete %s, "+
+			"There is no in-place migration: stop the service, %s, "+
 			"start the service (an empty index with the new schema is created), "+
 			"then rebuild the content by running: opencloud search index --all-spaces. "+
 			"To bring the instance up without search until a maintenance window, "+
 			"set OC_EXCLUDE_RUN_SERVICES=search; until the service is back, search "+
 			"and features built on it (e.g. the search bar and the tag list) are "+
 			"unavailable",
-		ErrManualActionRequired, index, strings.Join(reasons, "; "), index,
+		ErrManualActionRequired, index, strings.Join(reasons, "; "), deleteStep,
 	)
 }
 
