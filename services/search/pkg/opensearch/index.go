@@ -157,7 +157,7 @@ func (m IndexManager) Apply(ctx context.Context, name string, client *opensearch
 	)
 	reasons = append(reasons, classification.Reasons...)
 	if len(reasons) > 0 {
-		return searchmapping.ManualActionRequiredError(name, reasons)
+		return searchmapping.ManualActionRequiredError(name, fmt.Sprintf("delete the index (DELETE /%s)", name), reasons)
 	}
 	if len(classification.NewFields) == 0 {
 		return nil // schema is up to date
@@ -174,14 +174,14 @@ func (m IndexManager) Apply(ctx context.Context, name string, client *opensearch
 	case err != nil && errors.As(err, &putErr) && putErr.Err.Type == "illegal_argument_exception" &&
 		(strings.Contains(putErr.Err.Reason, "cannot be changed") || strings.Contains(putErr.Err.Reason, "Cannot update parameter")):
 		// backstop, should be unreachable after the classification above
-		return searchmapping.ManualActionRequiredError(name, []string{putErr.Err.Reason})
+		return searchmapping.ManualActionRequiredError(name, fmt.Sprintf("delete the index (DELETE /%s)", name), []string{putErr.Err.Reason})
 	case err != nil:
 		return fmt.Errorf("failed to update mapping of index %s: %w", name, err)
 	case !putResp.Acknowledged:
 		return fmt.Errorf("failed to update mapping of index %s: not acknowledged", name)
 	}
 
-	logger.Info().Strs("fields", classification.NewFields).Str("index", name).Msg("extended the search index mapping with new fields")
+	logger.Warn().Strs("fields", classification.NewFields).Str("index", name).Msg("extended the search index mapping with new fields; documents indexed before the upgrade do not contain them and queries on these fields will miss those documents until they are re-indexed; to re-index everything run: opencloud search index --all-spaces")
 	return nil
 }
 

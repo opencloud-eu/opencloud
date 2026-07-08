@@ -64,7 +64,7 @@ func NewIndex(root string) (bleve.Index, searchmapping.Classification, error) {
 	switch classification.Verdict {
 	case searchmapping.VerdictBreaking:
 		_ = index.Close()
-		return nil, classification, searchmapping.ManualActionRequiredError(destination, classification.Reasons)
+		return nil, classification, searchmapping.ManualActionRequiredError(destination, "delete the index directory "+destination, classification.Reasons)
 	case searchmapping.VerdictAdditive:
 		// The classifier guarantees everything else is identical and the new
 		// fields hold no data yet, so storing the code mapping only adds
