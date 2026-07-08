@@ -69,6 +69,7 @@ services:
       GROUPWARE_JMAP_BASE_URL: https://${STALWART_DOMAIN:-stalwart.opencloud.test}
       GROUPWARE_JMAP_MASTER_USERNAME: "admin@example.org"
       GROUPWARE_JMAP_MASTER_PASSWORD: "admin"
+      GROUPWARE_TLS_INSECURE: "true"
     volumes:
       - ./config/opencloud/app-registry.yaml:/etc/opencloud/app-registry.yaml
       - ./config/opencloud/csp.yaml:/etc/opencloud/csp.yaml
