@@ -19,7 +19,7 @@ type HTTP struct {
 	CORS                     CORS                  `yaml:"cors"`
 	OpenCloudPublicURL       string                `yaml:"opencloud_public_url" env:"OC_URL;OC_PUBLIC_URL;GROUPWARE_PUBLIC_URL"`
 	SendDurationsResponse    bool                  `yaml:"send_durations_response" env:"GROUPWARE_SEND_DURATIONS_RESPONSE"`
-	Insecure                 bool                  `yaml:"insecure" env:"GROUPWARE_ALLOW_INSECURE_TLS"`
+	Insecure                 bool                  `yaml:"tls_insecure" env:"OC_INSECURE;GROUPWARE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"1.0.0"`
 	TraceRequests            bool                  `yaml:"trace_requests" env:"GROUPWARE_HTTP_TRACE_REQUESTS"`
 	TraceMaxRequestBodySize  int64                 `yaml:"trace_max_request_body_size" env:"GROUPWARE_HTTP_TRACE_MAX_REQUEST_BODY_SIZE"`
 	TraceResponses           bool                  `yaml:"trace_responses" env:"GROUPWARE_HTTP_TRACE_RESPONSES"`

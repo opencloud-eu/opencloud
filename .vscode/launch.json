@@ -147,7 +147,7 @@
         "GROUPWARE_JMAP_MASTER_USERNAME": "admin@example.org",
         "GROUPWARE_JMAP_MASTER_PASSWORD": "admin",
         "GROUPWARE_SEND_DURATIONS_RESPONSE": "true",
-        "GROUPWARE_ALLOW_INSECURE_TLS": "true",
+        "GROUPWARE_TLS_INSECURE": "true",
         "GROUPWARE_ENABLE_MOCK_DATA": "true",
         "GROUPWARE_DEBUG_ADDR": "0.0.0.0:9203",
 
