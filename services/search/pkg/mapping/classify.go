@@ -14,7 +14,8 @@ import (
 var ErrManualActionRequired = errors.New("manual action required")
 
 // ManualActionRequiredError builds the operator-facing error for a breaking
-// schema change. index is the index name (OpenSearch) or path (bleve).
+// schema change, shared by both engines. index is the index name (OpenSearch)
+// or path (bleve).
 func ManualActionRequiredError(index string, reasons []string) error {
 	return fmt.Errorf(
 		"%w: search index %s was built with a different schema (%s). "+
@@ -22,7 +23,9 @@ func ManualActionRequiredError(index string, reasons []string) error {
 			"start the service (an empty index with the new schema is created), "+
 			"then rebuild the content by running: opencloud search index --all-spaces. "+
 			"To bring the instance up without search until a maintenance window, "+
-			"set OC_EXCLUDE_RUN_SERVICES=search",
+			"set OC_EXCLUDE_RUN_SERVICES=search; until the service is back, search "+
+			"and features built on it (e.g. the search bar and the tag list) are "+
+			"unavailable",
 		ErrManualActionRequired, index, strings.Join(reasons, "; "), index,
 	)
 }
