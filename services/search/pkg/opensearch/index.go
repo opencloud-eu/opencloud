@@ -105,22 +105,34 @@ func (m IndexManager) Apply(ctx context.Context, name string, client *opensearch
 		return fmt.Errorf("failed to marshal index %s: %w", name, err)
 	}
 
-	createResp, err := client.Indices.Create(ctx, opensearchgoAPI.IndicesCreateReq{
-		Index: name,
-		Body:  bytes.NewReader(localIndexB),
+	// Exists first: a pre-provisioned index must not require create privileges
+	indicesExistsResp, err := client.Indices.Exists(ctx, opensearchgoAPI.IndicesExistsReq{
+		Indices: []string{name},
 	})
-	var createErr *opensearchgo.StructError
 	switch {
-	case err == nil && createResp.Acknowledged:
-		return nil
-	case err == nil:
-		return fmt.Errorf("failed to create index %s: not acknowledged", name)
-	case !errors.As(err, &createErr) || createErr.Err.Type != "resource_already_exists_exception":
-		// transport errors, disk-full etc. stay plain fatal, the restart policy retries
-		return fmt.Errorf("failed to create index %s: %w", name, err)
+	case indicesExistsResp != nil && indicesExistsResp.StatusCode == 404:
+		createResp, createErr := client.Indices.Create(ctx, opensearchgoAPI.IndicesCreateReq{
+			Index: name,
+			Body:  bytes.NewReader(localIndexB),
+		})
+		var structErr *opensearchgo.StructError
+		switch {
+		case createErr == nil && createResp.Acknowledged:
+			return nil
+		case createErr == nil:
+			return fmt.Errorf("failed to create index %s: not acknowledged", name)
+		case !errors.As(createErr, &structErr) || structErr.Err.Type != "resource_already_exists_exception":
+			// transport errors, disk-full etc. stay plain fatal, the restart policy retries
+			return fmt.Errorf("failed to create index %s: %w", name, createErr)
+		}
+		// lost the creation race to another instance, compare against its index
+	case err != nil:
+		return fmt.Errorf("failed to check if index %s exists: %w", name, err)
+	case indicesExistsResp == nil:
+		return fmt.Errorf("indicesExistsResp is nil for index %s", name)
 	}
 
-	// the index already exists: compare settings and classify the mapping diff
+	// the index exists: compare settings and classify the mapping diff
 	resp, err := client.Indices.Get(ctx, opensearchgoAPI.IndicesGetReq{
 		Indices: []string{name},
 	})
@@ -142,6 +154,9 @@ func (m IndexManager) Apply(ctx context.Context, name string, client *opensearch
 
 	var reasons []string
 	for k := range localIndexJson.Get("settings").Map() {
+		if k == "number_of_replicas" {
+			continue // runtime-tunable via PUT _settings, drift needs no rebuild
+		}
 		lv := localIndexJson.Get("settings." + k).Raw
 		rv := remoteIndexJson.Get("settings.index." + k).Raw
 		if !jsonEqual(lv, rv) {
@@ -180,7 +195,7 @@ func (m IndexManager) Apply(ctx context.Context, name string, client *opensearch
 		return fmt.Errorf("failed to update mapping of index %s: not acknowledged", name)
 	}
 
-	logger.Warn().Strs("fields", classification.NewFields).Str("index", name).Msg("extended the search index mapping with new fields; documents indexed before the upgrade do not contain them and queries on these fields will miss those documents until they are re-indexed; to re-index everything run: opencloud search index --all-spaces")
+	logger.Warn().Strs("fields", classification.NewFields).Str("index", name).Msg("extended the search index mapping with new fields; documents indexed before the upgrade do not contain them and queries on these fields will miss those documents until they are re-indexed; to re-index everything run: opencloud search index --all-spaces --force-rescan")
 	return nil
 }
 

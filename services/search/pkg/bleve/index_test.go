@@ -1,6 +1,8 @@
 package bleve_test
 
 import (
+	"encoding/json"
+	"os"
 	"path/filepath"
 
 	bleveSearch "github.com/blevesearch/bleve/v2"
@@ -176,5 +178,22 @@ var _ = Describe("NewMapping", func() {
 		impl, ok := m.(*bleveMapping.IndexMappingImpl)
 		Expect(ok).To(BeTrue())
 		Expect(impl.Validate()).To(Succeed())
+	})
+
+	// A diff here means existing indexes will classify as breaking (schema or
+	// bleve marshaling changed); update the golden file only deliberately.
+	It("matches the committed golden mapping", func() {
+		m, err := bleve.NewMapping()
+		Expect(err).ToNot(HaveOccurred())
+		b, err := json.Marshal(m)
+		Expect(err).ToNot(HaveOccurred())
+		var got, golden map[string]any
+		Expect(json.Unmarshal(b, &got)).To(Succeed())
+
+		goldenB, err := os.ReadFile("testdata/mapping.golden.json")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(json.Unmarshal(goldenB, &golden)).To(Succeed())
+
+		Expect(got).To(Equal(golden))
 	})
 })
