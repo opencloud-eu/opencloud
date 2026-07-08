@@ -661,19 +661,22 @@ func modify[T jmap.Foo, CHANGE jmap.Change[T], CHANGES jmap.Changes[T]](
 			return resp
 		}
 		l := req.logger.With().Str(logAccountId, log.SafeString(accountId))
-		id, err := req.PathParamDoc(o.uriParamName, "The unique identifier of the object to modify")
-		if err != nil {
-			return req.errorV(accountId, err)
+		id := ""
+		if o.uriParamName != "" {
+			value, err := req.PathParamDoc(o.uriParamName, "The unique identifier of the object to modify")
+			if err != nil {
+				return req.errorV(accountId, err)
+			}
+			l.Str(o.uriParamName, log.SafeString(value))
+			id = value
 		}
-		l.Str(o.uriParamName, log.SafeString(id))
 
 		if notok, resp := req.unsupportedQueryParams(single(accountId), noSupportedQueryParams); notok {
 			return resp
 		}
 
 		var change CHANGE
-		err = req.body(&change)
-		if err != nil {
+		if err := req.body(&change); err != nil {
 			return req.errorV(accountId, err)
 		}
 

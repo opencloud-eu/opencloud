@@ -1,6 +1,7 @@
 package groupware
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -38,7 +39,9 @@ type GroupwareTest struct {
 	Users   []jmaptest.User
 }
 
-func gget[T any](g GroupwareTest, path string, result *T) jmaptest.User {
+func gget[T any](id string, g GroupwareTest, path string, result *T) jmaptest.User {
+	id = g.t.Name() + "/" + id
+
 	u, err := url.JoinPath(g.BaseURL, path)
 	require.NoError(g.t, err)
 	req, err := http.NewRequest(http.MethodGet, u, nil)
@@ -47,6 +50,32 @@ func gget[T any](g GroupwareTest, path string, result *T) jmaptest.User {
 	req.SetBasicAuth(user.Name, user.Password)
 	rid := uuid.New().String()
 	req.Header.Add("X-Request-Id", rid)
+	req.Header.Add("Trace-Id", rid)
+	client := http.Client{}
+	resp, err := client.Do(req)
+	require.NoError(g.t, err)
+	require.Equal(g.t, 200, resp.StatusCode)
+	defer resp.Body.Close()
+	err = json.NewDecoder(resp.Body).Decode(result)
+	require.NoError(g.t, err)
+	return user
+}
+
+func gput[B any, T any](id string, g GroupwareTest, path string, body B, result *T) jmaptest.User {
+	id = g.t.Name() + "/" + id
+
+	u, err := url.JoinPath(g.BaseURL, path)
+	require.NoError(g.t, err)
+
+	jsonBody, err := json.Marshal(body)
+	require.NoError(g.t, err)
+
+	req, err := http.NewRequest(http.MethodPut, u, bytes.NewBuffer(jsonBody))
+	require.NoError(g.t, err)
+	user := g.Users[rand.Intn(len(g.Users))] // pick a user at random
+	req.SetBasicAuth(user.Name, user.Password)
+	rid := uuid.New().String()
+	req.Header.Add("X-Request-Id", id)
 	req.Header.Add("Trace-Id", rid)
 	client := http.Client{}
 	resp, err := client.Do(req)

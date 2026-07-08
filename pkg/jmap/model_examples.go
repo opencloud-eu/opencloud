@@ -883,8 +883,8 @@ func (e Exemplar) VacationResponse() VacationResponse {
 	return VacationResponse{
 		Id:        "aefee7ae",
 		IsEnabled: true,
-		FromDate:  from,
-		ToDate:    to,
+		FromDate:  &from,
+		ToDate:    &to,
 		Subject:   "On PTO",
 		TextBody:  "I am currently on PTO, please contact info@example.com for any urgent matters.",
 	}
