@@ -30,12 +30,10 @@ import (
 var openRuntimeConfig = map[string]interface{}{"bolt_timeout": "5s"}
 
 // NewIndex opens (or creates) the bleve index at root and classifies the
-// stored schema against the one generated from code. On a breaking change it
-// refuses with ErrManualActionRequired. On an additive one the code schema is
-// persisted into the index (the bleve analogue of an OpenSearch PUT _mapping),
-// so the new fields are properly typed from now on and later startups classify
-// equal; the caller must still warn that documents indexed before the upgrade
-// lack the Classification.NewFields until they are re-indexed.
+// stored schema against NewMapping(). Breaking changes refuse with
+// ErrManualActionRequired, additive ones are persisted into the index (the
+// bleve analogue of PUT _mapping); the caller must warn that pre-upgrade
+// documents lack the Classification.NewFields until re-indexed.
 func NewIndex(root string) (bleve.Index, searchmapping.Classification, error) {
 	destination := filepath.Join(root, fmt.Sprintf("bleve-v%d", search.SchemaVersion))
 	index, err := bleve.OpenUsing(destination, openRuntimeConfig)
@@ -66,11 +64,9 @@ func NewIndex(root string) (bleve.Index, searchmapping.Classification, error) {
 		_ = index.Close()
 		return nil, classification, searchmapping.ManualActionRequiredError(destination, "delete the index directory "+destination, classification.Reasons)
 	case searchmapping.VerdictAdditive:
-		// The classifier guarantees everything else is identical and the new
-		// fields hold no data yet, so storing the code mapping only adds
-		// fields. Reopen so the live mapping picks it up: without this the
-		// new fields would be indexed dynamically and the data-aware rule
-		// would turn them breaking on the next startup.
+		// Safe: everything else is identical and the new fields hold no data.
+		// Reopen so the live mapping picks the change up; otherwise the fields
+		// get indexed dynamically and flip to breaking on the next start.
 		if err := index.SetInternal([]byte("_mapping"), codeB); err != nil {
 			_ = index.Close()
 			return nil, searchmapping.Classification{}, fmt.Errorf("failed to store the updated index mapping: %w", err)
@@ -87,13 +83,11 @@ func NewIndex(root string) (bleve.Index, searchmapping.Classification, error) {
 	return index, classification, nil
 }
 
-// classifyStoredMapping diffs the mapping stored in the index against
-// NewMapping() and also returns the marshaled code mapping. Fields that are
-// new in the code schema but already have data in the index (previously
-// indexed dynamically) are breaking, their de-facto form is unknown. The JSON
-// compare is stable within one bleve version; if a bleve upgrade changes
-// marshaling defaults it fails towards breaking, normalize the affected key
-// here if that ever fires.
+// classifyStoredMapping diffs the stored mapping against NewMapping() and
+// returns the marshaled code mapping. New-in-code fields that already hold
+// data (previously indexed dynamically) are breaking. The compare is only
+// stable within one bleve version: a changed marshaling default fails towards
+// breaking, normalize the affected key here if that ever fires.
 func classifyStoredMapping(index bleve.Index) (searchmapping.Classification, []byte, error) {
 	storedB, err := index.GetInternal([]byte("_mapping"))
 	if err != nil {
