@@ -125,6 +125,28 @@ var _ = Describe("libregraph", func() {
 		}),
 	)
 
+	// Permission is validated on the update paths (PATCH). It must honour the
+	// admin role allowlist just like DriveItemInvite does.
+	DescribeTable("Permission",
+		func(factory validatableFactory[libregraph.Permission]) {
+			s, pass := factory()
+			switch err := validate.StructCtx(ctx, s); pass {
+			case false:
+				Expect(err).To(HaveOccurred())
+			default:
+				Expect(err).ToNot(HaveOccurred())
+			}
+		},
+		Entry("fail: disabled role rejected when allowlist is set", func() (libregraph.Permission, bool) {
+			ctx = validate.ContextWithAllowedRoleIDs(ctx, []string{unifiedrole.UnifiedRoleEditorID})
+			return libregraph.Permission{Roles: []string{unifiedrole.UnifiedRoleSecureViewerID}}, false
+		}),
+		Entry("succeed: allowed role accepted when allowlist is set", func() (libregraph.Permission, bool) {
+			ctx = validate.ContextWithAllowedRoleIDs(ctx, []string{unifiedrole.UnifiedRoleEditorID})
+			return libregraph.Permission{Roles: []string{unifiedrole.UnifiedRoleEditorID}}, true
+		}),
+	)
+
 	DescribeTable("DriveRecipient",
 		func(factories ...validatableFactory[libregraph.DriveRecipient]) {
 			for _, factory := range factories {
