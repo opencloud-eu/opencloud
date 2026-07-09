@@ -298,7 +298,7 @@ func (h *HttpJmapClient) GetSession(ctx context.Context, sessionUrl *url.URL, us
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		h.listener.OnFailedRequestWithStatus(endpoint, Operation("GetSession"), res.StatusCode)
 		logger.Error().Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 200")
-		return SessionResponse{}, jmapError(fmt.Errorf("JMAP API response status is %v", res.Status), JmapErrorServerResponse)
+		return SessionResponse{}, jmapError(fmt.Errorf("JMAP API response status is %v", res.Status), jmapErrorCode(res.StatusCode))
 	}
 
 	h.listener.OnSuccessfulRequest(endpoint, Operation("GetSession"), res.StatusCode)
@@ -383,12 +383,7 @@ func (h *HttpJmapClient) Command(operation Operation, request Request, ctx Conte
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		h.listener.OnFailedRequestWithStatus(endpoint, operation, res.StatusCode)
 		logger.Error().Str(logEndpoint, endpoint).Str(logHttpStatus, log.SafeString(res.Status)).Msg("HTTP response status code is not 2xx") //NOSONAR
-		switch res.StatusCode {
-		case http.StatusUnauthorized:
-			return nil, language, jmapError(fmt.Errorf("JMAP server responsed with '%s'", res.Status), JmapErrorAuthenticationFailed)
-		default:
-			return nil, language, jmapError(fmt.Errorf("JMAP server responsed with '%s'", res.Status), JmapErrorServerResponse)
-		}
+		return nil, language, jmapError(fmt.Errorf("JMAP server responsed with '%s'", res.Status), jmapErrorCode(res.StatusCode))
 	}
 
 	h.listener.OnSuccessfulRequest(endpoint, operation, res.StatusCode)
@@ -450,7 +445,7 @@ func (h *HttpJmapClient) UploadBinary(uploadUrl string, operation Operation, end
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		h.listener.OnFailedRequestWithStatus(endpoint, operation, res.StatusCode)
 		logger.Error().Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 2xx")
-		return UploadedBlob{}, language, jmapError(err, JmapErrorServerResponse)
+		return UploadedBlob{}, language, jmapError(err, jmapErrorCode(res.StatusCode))
 	}
 	h.listener.OnSuccessfulRequest(endpoint, operation, res.StatusCode)
 
@@ -518,7 +513,7 @@ func (h *HttpJmapClient) DownloadBinary(downloadUrl string, operation Operation,
 	if res.StatusCode < 200 || res.StatusCode > 299 {
 		h.listener.OnFailedRequestWithStatus(endpoint, operation, res.StatusCode)
 		logger.Error().Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 2xx")
-		return nil, language, jmapError(err, JmapErrorServerResponse)
+		return nil, language, jmapError(err, jmapErrorCode(res.StatusCode))
 	}
 	h.listener.OnSuccessfulRequest(endpoint, operation, res.StatusCode)
 
@@ -662,7 +657,7 @@ func (w *HttpWsClientFactory) connect(operation Operation, ctx context.Context, 
 	if res.StatusCode != 101 {
 		w.eventListener.OnFailedRequestWithStatus(endpoint, operation, res.StatusCode)
 		logger.Error().Str(logHttpStatus, log.SafeString(res.Status)).Int(logHttpStatusCode, res.StatusCode).Msg("HTTP response status code is not 101")
-		return nil, "", endpoint, jmapError(fmt.Errorf("JMAP WS API response status is %v", res.Status), JmapErrorServerResponse)
+		return nil, "", endpoint, jmapError(fmt.Errorf("JMAP WS API response status is %v", res.Status), jmapErrorCode(res.StatusCode))
 	} else {
 		w.eventListener.OnSuccessfulWsRequest(endpoint, operation, res.StatusCode)
 	}

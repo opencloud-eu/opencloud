@@ -3,6 +3,7 @@ package jmap
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 )
 
@@ -82,6 +83,15 @@ func (e JmapError) Type() string {
 }
 func (e JmapError) Description() string {
 	return e.description
+}
+
+func jmapErrorCode(statusCode int) int {
+	code := JmapErrorServerResponse
+	switch statusCode {
+	case http.StatusUnauthorized:
+		code = JmapErrorAuthenticationFailed
+	}
+	return code
 }
 
 func jmapError(err error, code int) Error {

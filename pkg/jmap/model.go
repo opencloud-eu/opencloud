@@ -4159,7 +4159,7 @@ type VacationResponse struct {
 	Id string `json:"id,omitempty"`
 
 	// Should a vacation response be sent if a message arrives between the "fromDate" and "toDate"?
-	IsEnabled bool `json:"isEnabled"`
+	IsEnabled *bool `json:"isEnabled,omitempty"`
 
 	// If "isEnabled" is true, messages that arrive on or after this date-time (but before the "toDate" if defined) should receive the
 	// user's vacation response. If null, the vacation response is effective immediately.

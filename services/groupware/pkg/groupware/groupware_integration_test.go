@@ -11,19 +11,20 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/opencloud-eu/opencloud/pkg/cors"
+	ochttp "github.com/opencloud-eu/opencloud/pkg/http"
 	"github.com/opencloud-eu/opencloud/pkg/jmaptest"
 	opencloudmiddleware "github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/groupware/pkg/logging"
-	groupwaremiddleware "github.com/opencloud-eu/opencloud/services/groupware/pkg/middleware"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
@@ -39,29 +40,40 @@ type GroupwareTest struct {
 	Users   []jmaptest.User
 }
 
-func gget[T any](id string, g GroupwareTest, path string, result *T) jmaptest.User {
+// pick a user at random
+func (g GroupwareTest) user() jmaptest.User {
+	return g.Users[rand.Intn(len(g.Users))]
+}
+
+func gget[T any](g GroupwareTest, id string, user jmaptest.User, path string, result *T) {
 	id = g.t.Name() + "/" + id
 
 	u, err := url.JoinPath(g.BaseURL, path)
 	require.NoError(g.t, err)
 	req, err := http.NewRequest(http.MethodGet, u, nil)
 	require.NoError(g.t, err)
-	user := g.Users[rand.Intn(len(g.Users))] // pick a user at random
 	req.SetBasicAuth(user.Name, user.Password)
 	rid := uuid.New().String()
 	req.Header.Add("X-Request-Id", rid)
 	req.Header.Add("Trace-Id", rid)
 	client := http.Client{}
-	resp, err := client.Do(req)
-	require.NoError(g.t, err)
+	var resp *http.Response = nil
+	require.Eventually(g.t, func() bool {
+		r, err := client.Do(req)
+		resp = r
+		if err == nil && r.StatusCode == 200 {
+			resp = r
+			return true
+		}
+		return false
+	}, time.Duration(5*time.Second), time.Duration(1*time.Second))
 	require.Equal(g.t, 200, resp.StatusCode)
 	defer resp.Body.Close()
 	err = json.NewDecoder(resp.Body).Decode(result)
 	require.NoError(g.t, err)
-	return user
 }
 
-func gput[B any, T any](id string, g GroupwareTest, path string, body B, result *T) jmaptest.User {
+func gput[B any, T any](g GroupwareTest, id string, user jmaptest.User, path string, body B, result *T) {
 	id = g.t.Name() + "/" + id
 
 	u, err := url.JoinPath(g.BaseURL, path)
@@ -72,7 +84,6 @@ func gput[B any, T any](id string, g GroupwareTest, path string, body B, result 
 
 	req, err := http.NewRequest(http.MethodPut, u, bytes.NewBuffer(jsonBody))
 	require.NoError(g.t, err)
-	user := g.Users[rand.Intn(len(g.Users))] // pick a user at random
 	req.SetBasicAuth(user.Name, user.Password)
 	rid := uuid.New().String()
 	req.Header.Add("X-Request-Id", id)
@@ -84,7 +95,6 @@ func gput[B any, T any](id string, g GroupwareTest, path string, body B, result 
 	defer resp.Body.Close()
 	err = json.NewDecoder(resp.Body).Decode(result)
 	require.NoError(g.t, err)
-	return user
 }
 
 func newGroupwareTest(t *testing.T) (GroupwareTest, error) {
@@ -125,7 +135,9 @@ func newGroupwareTest(t *testing.T) (GroupwareTest, error) {
 			},
 			BaseUrl: s.JmapBaseUrl.String(),
 			SessionCache: config.MailSessionCache{
-				MaxCapacity: 1,
+				MaxCapacity: 10,
+				Ttl:         time.Duration(30 * time.Minute),
+				FailureTtl:  time.Duration(0),
 			},
 		},
 		HTTP: config.HTTP{
@@ -188,7 +200,18 @@ func newGroupwareTest(t *testing.T) (GroupwareTest, error) {
 		})
 	}
 
+	deeplog := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ochttp.DumpHttpRequest(r, 4*1024, func(method string, uri string, content string, truncated bool) {
+				logger.Trace().Str("method", method).Str("uri", uri).Msg(content)
+				t.Logf("--> Groupware Request: %s %s:\n%s", method, uri, content)
+			})
+			next.ServeHTTP(w, r)
+		})
+	}
+
 	m.Use(
+		deeplog,
 		middleware.RequestID,
 		opencloudmiddleware.Cors(
 			cors.Logger(logger),
@@ -197,7 +220,7 @@ func newGroupwareTest(t *testing.T) (GroupwareTest, error) {
 			cors.AllowedHeaders(config.HTTP.CORS.AllowedHeaders),
 			cors.AllowCredentials(config.HTTP.CORS.AllowCredentials),
 		),
-		groupwaremiddleware.GroupwareLogger(logger),
+		// groupwaremiddleware.GroupwareLogger(logger),
 		auth,
 	)
 	m.Route(config.HTTP.Root, gw.Route)
