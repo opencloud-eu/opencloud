@@ -156,7 +156,11 @@ func (c *ttlcacheSessionCache) Get(ctx context.Context, username string) cachedS
 				// not great, but will do for now:
 				// - when the result is successful, the default TTL is used
 				// - when the result is a failure to retrieve the session, a (most probably shorter) TTL must be used instead
-				c.sessionCache.Set(key, value, c.errorTtl)
+				if c.errorTtl == 0 {
+					c.sessionCache.Delete(key)
+				} else {
+					c.sessionCache.Set(key, value, c.errorTtl)
+				}
 			}
 		}
 		return value

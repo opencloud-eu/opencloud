@@ -12,9 +12,10 @@ func TestGroupwareIndex(t *testing.T) {
 	require := require.New(t)
 	g, err := newGroupwareTest(t)
 	require.NoError(err)
+	u := g.user()
 
 	index := IndexResponse{}
-	u := gget("get-index", g, "/", &index)
+	gget(g, "get-index", u, "/", &index)
 	require.Len(index.Accounts, 1)
 	require.Equal(u.Email, index.Accounts[0].Name)
 	require.Len(index.Accounts[0].Identities, 2) // email + alias

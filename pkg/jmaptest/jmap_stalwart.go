@@ -114,7 +114,7 @@ var (
 )
 
 const (
-	StalwartVersion    = "0.16.9"
+	StalwartVersion    = "0.16.12"
 	StalwartCliVersion = "1.0.8"
 
 	stalwartImageTemplate = "ghcr.io/stalwartlabs/stalwart:v%s-alpine"

@@ -882,7 +882,7 @@ func (e Exemplar) VacationResponse() VacationResponse {
 	to, _ := time.Parse(time.RFC3339, "20260114T23:59:59.999Z")
 	return VacationResponse{
 		Id:        "aefee7ae",
-		IsEnabled: true,
+		IsEnabled: ptr(true),
 		FromDate:  &from,
 		ToDate:    &to,
 		Subject:   "On PTO",

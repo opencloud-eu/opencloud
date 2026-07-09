@@ -1,7 +1,6 @@
 package jmap
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -26,7 +25,7 @@ func (j *Client) GetVacationResponse(accountId AccountId, ctx Context) (Result[V
 // Same as VacationResponse but without the id.
 type VacationResponseChange struct {
 	// Should a vacation response be sent if a message arrives between the "fromDate" and "toDate"?
-	IsEnabled bool `json:"isEnabled"`
+	IsEnabled *bool `json:"isEnabled,omitempty"`
 	// If "isEnabled" is true, messages that arrive on or after this date-time (but before the "toDate" if defined) should receive the
 	// user's vacation response. If null, the vacation response is effective immediately.
 	FromDate *time.Time `json:"fromDate,omitzero"`
@@ -68,62 +67,18 @@ func (c VacationResponseChanges) GetCreated() []VacationResponse { return c.Crea
 func (c VacationResponseChanges) GetUpdated() []VacationResponse { return c.Updated }
 func (c VacationResponseChanges) GetDestroyed() []string         { return c.Destroyed }
 
-func (j *Client) SetVacationResponse(accountId AccountId, vacation VacationResponseChange,
+func (j *Client) SetVacationResponse(accountId AccountId, change VacationResponseChange,
 	ctx Context) (Result[VacationResponse], error) {
-	logger := j.logger("SetVacationResponse", ctx)
-	ctx = ctx.WithLogger(logger)
-
-	set := VacationResponseSetCommand{
-		AccountId: accountId,
-		Create: map[string]VacationResponse{
-			vacationResponseId: {
-				IsEnabled: vacation.IsEnabled,
-				FromDate:  vacation.FromDate,
-				ToDate:    vacation.ToDate,
-				Subject:   vacation.Subject,
-				TextBody:  vacation.TextBody,
-				HtmlBody:  vacation.HtmlBody,
-			},
+	return update(j, "SetVacationResponse", VacationResponseType,
+		func(update map[string]PatchObject) VacationResponseSetCommand {
+			return VacationResponseSetCommand{AccountId: accountId, Update: update}
 		},
-	}
-
-	get := VacationResponseGetCommand{AccountId: accountId}
-
-	cmd, err := j.request(ctx, NS_VACATION,
-		invocation(set, "0"),
-		// chain a second request to get the current complete VacationResponse object
-		// after performing the changes, as that makes for a better API
-		invocation(get, "1"),
+		func(_ string) VacationResponseGetCommand {
+			return VacationResponseGetCommand{AccountId: accountId}
+		},
+		func(resp VacationResponseSetResponse) map[string]SetError { return resp.NotUpdated },
+		func(resp VacationResponseGetResponse) VacationResponse { return resp.List[0] },
+		vacationResponseId, change,
+		ctx,
 	)
-	if err != nil {
-		return ZeroResultV[VacationResponse](), err
-	}
-	return command(j, Operation("SetVacationResponse"), ctx, cmd, func(body *Response) (VacationResponse, State, Error) {
-		var setResponse VacationResponseSetResponse
-		err = retrieveSet(ctx, body, set, "0", &setResponse)
-		if err != nil {
-			return VacationResponse{}, "", err
-		}
-
-		setErr, notok := setResponse.NotCreated[vacationResponseId]
-		if notok {
-			// this means that the VacationResponse was not updated
-			logger.Error().Msgf("%T.NotCreated contains an error: %v", setResponse, setErr)
-			return VacationResponse{}, "", setErrorError(setErr, VacationResponseType)
-		}
-
-		var getResponse VacationResponseGetResponse
-		err = retrieveGet(ctx, body, get, "1", &getResponse)
-		if err != nil {
-			return VacationResponse{}, "", err
-		}
-
-		if len(getResponse.List) != 1 {
-			berr := fmt.Errorf("failed to find %s in %s response", VacationResponseType, string(CommandVacationResponseGet))
-			logger.Error().Msg(berr.Error())
-			return VacationResponse{}, "", jmapError(berr, JmapErrorInvalidJmapResponsePayload)
-		}
-
-		return getResponse.List[0], setResponse.NewState, nil
-	})
 }
