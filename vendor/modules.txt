@@ -292,7 +292,7 @@ github.com/containerd/log
 # github.com/containerd/platforms v1.0.0-rc.2
 ## explicit; go 1.20
 github.com/containerd/platforms
-# github.com/coreos/go-oidc/v3 v3.19.0
+# github.com/coreos/go-oidc/v3 v3.20.0
 ## explicit; go 1.25.0
 github.com/coreos/go-oidc/v3/oidc
 # github.com/coreos/go-semver v0.3.1
