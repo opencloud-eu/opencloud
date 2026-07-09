@@ -27,6 +27,9 @@ use TestHelpers\HttpRequestHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\CollaborationHelper;
 use TestHelpers\BehatHelper;
+use Behat\Step\Given;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 /**
  * steps needed to re-configure OpenCloud server
@@ -71,8 +74,6 @@ class CollaborationContext implements Context {
 	}
 
 	/**
-	 * @When user :user checks the information of file :file of space :space using office :app
-	 * @When user :user checks the information of file :file of space :space using office :app with view mode :view
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -84,6 +85,8 @@ class CollaborationContext implements Context {
 	 *
 	 * @throws GuzzleException
 	 */
+	#[When('user :user checks the information of file :file of space :space using office :app')]
+	#[When('user :user checks the information of file :file of space :space using office :app with view mode :view')]
 	public function userChecksTheInformationOfFileOfSpaceUsingOffice(
 		string $user,
 		string $file,
@@ -120,8 +123,6 @@ class CollaborationContext implements Context {
 	}
 
 	/**
-	 * @When user :user creates a file :file inside folder :folder in space :space using wopi endpoint
-	 * @When user :user tries to create a file :file inside folder :folder in space :space using wopi endpoint
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -131,6 +132,8 @@ class CollaborationContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user creates a file :file inside folder :folder in space :space using wopi endpoint')]
+	#[When('user :user tries to create a file :file inside folder :folder in space :space using wopi endpoint')]
 	public function userCreatesFileInsideFolderInSpaceUsingWopiEndpoint(
 		string $user,
 		string $file,
@@ -193,8 +196,6 @@ class CollaborationContext implements Context {
 	}
 
 	/**
-	 * @When the public creates a file :file inside the last shared public link folder with password :password using wopi endpoint
-	 * @When the public tries to create a file :file inside the last shared public link folder with password :password using wopi endpoint
 	 *
 	 * @param string $file
 	 * @param string $password
@@ -202,6 +203,8 @@ class CollaborationContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('the public creates a file :file inside the last shared public link folder with password :password using wopi endpoint')]
+	#[When('the public tries to create a file :file inside the last shared public link folder with password :password using wopi endpoint')]
 	public function thePublicCreatesAFileInsideTheLastSharedPublicLinkFolderWithPasswordUsingWopiEndpoint(
 		string $file,
 		string $password
@@ -210,8 +213,6 @@ class CollaborationContext implements Context {
 	}
 
 	/**
-	 * @When the public creates a file :file inside folder :folder in the last shared public link space with password :password using wopi endpoint
-	 * @When the public tries to create a file :file inside folder :folder in the last shared public link space with password :password using wopi endpoint
 	 *
 	 * @param string $file
 	 * @param string $folder
@@ -220,6 +221,8 @@ class CollaborationContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('the public creates a file :file inside folder :folder in the last shared public link space with password :password using wopi endpoint')]
+	#[When('the public tries to create a file :file inside folder :folder in the last shared public link space with password :password using wopi endpoint')]
 	public function thePublicCreatesAFileInsideFolderInTheLastSharedPublicLinkSpaceWithPasswordUsingWopiEndpoint(
 		string $file,
 		string $folder,
@@ -229,7 +232,6 @@ class CollaborationContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to check the information of file :file of space :space using office :app with invalid file-id
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -241,6 +243,7 @@ class CollaborationContext implements Context {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[When('user :user tries to check the information of file :file of space :space using office :app with invalid file-id')]
 	public function userTriesToCheckTheInformationOfFileOfSpaceUsingOfficeWithInvalidFileId(
 		string $user,
 		string $file,
@@ -276,7 +279,6 @@ class CollaborationContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to create a file :file inside deleted folder using wopi endpoint
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -284,6 +286,7 @@ class CollaborationContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user tries to create a file :file inside deleted folder using wopi endpoint')]
 	public function userTriesToCreateAFileInsideDeletedFolderUsingWopiEndpoint(string $user, string $file): void {
 		$parentContainerId = $this->featureContext->getStoredFileID();
 		$this->featureContext->setResponse(
@@ -299,7 +302,6 @@ class CollaborationContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has sent the following app-open request:
 	 *
 	 * @param string $user
 	 * @param TableNode $properties
@@ -307,6 +309,7 @@ class CollaborationContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has sent the following app-open request:')]
 	public function userHasSentTheFollowingAppOpenRequest(string $user, TableNode $properties): void {
 		$rows = $properties->getRowsHash();
 		$appResponse = CollaborationHelper::sendPOSTRequestToAppOpen(
@@ -322,14 +325,14 @@ class CollaborationContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to get the information of the last opened file using wopi endpoint
-	 * @When user :user gets the information of the last opened file using wopi endpoint
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user tries to get the information of the last opened file using wopi endpoint')]
+	#[When('user :user gets the information of the last opened file using wopi endpoint')]
 	public function userGetsTheInformationOfTheLastOpenedFileUsingWopiEndpoint(string $user): void {
 		$response = json_decode($this->getLastAppOpenData());
 		$accessToken = $response->form_parameters->access_token;
@@ -348,7 +351,6 @@ class CollaborationContext implements Context {
 	}
 
 	/**
-	 * @Then /^the response (should|should not) contain the following MIME types:$/
 	 *
 	 * @param string    $shouldOrNot
 	 * @param TableNode $table
@@ -356,6 +358,7 @@ class CollaborationContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^the response (should|should not) contain the following MIME types:$/')]
 	public function theFollowingMimeTypesShouldExistForUser(string $shouldOrNot, TableNode $table): void {
 		$rows = $table->getRows();
 		$responseArray = $this->featureContext->getJsonDecodedResponse(
@@ -380,13 +383,13 @@ class CollaborationContext implements Context {
 	}
 
 	/**
-	 * @Then the app list response should contain the following template information for office :app:
 	 *
 	 * @param string $app
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 */
+	#[Then('the app list response should contain the following template information for office :app:')]
 	public function theAppListResponseShouldContainTheFollowingTemplateInformationForOffice(
 		string $app,
 		TableNode $table
@@ -442,7 +445,6 @@ class CollaborationContext implements Context {
 	}
 
 	/**
-	 * @When user :user has created a file :file using wopi endpoint
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -450,6 +452,7 @@ class CollaborationContext implements Context {
 	 * @return string
 	 * @throws GuzzleException
 	 */
+	#[When('user :user has created a file :file using wopi endpoint')]
 	public function userHasCreatedAFileInSpaceUsingWopiEndpoint(string $user, string $file): string {
 		$parentContainerId = $this->featureContext->getFileIdForPath($user, "/");
 		$response = CollaborationHelper::createFile(

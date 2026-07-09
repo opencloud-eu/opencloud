@@ -16,6 +16,9 @@ use Psr\Http\Message\ResponseInterface;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\SettingsHelper;
 use TestHelpers\BehatHelper;
+use Behat\Step\Given;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -60,7 +63,6 @@ class SettingsContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" tries to get all existing roles using the settings API$/
 	 *
 	 * @param string $user
 	 *
@@ -69,6 +71,7 @@ class SettingsContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :user tries to get all existing roles using the settings API')]
 	public function getAllExistingRoles(string $user): void {
 		$response = $this->getRoles($user);
 		$this->featureContext->setResponse($response);
@@ -115,7 +118,6 @@ class SettingsContext implements Context {
 	}
 
 	/**
-	 * @Given /^the administrator has given "([^"]*)" the role "([^"]*)" using the settings api$/
 	 *
 	 * @param string $user
 	 * @param string $role
@@ -124,6 +126,7 @@ class SettingsContext implements Context {
 	 *
 	 * @throws Exception
 	 */
+	#[Given('the administrator has given :user the role :role using the settings api')]
 	public function theAdministratorHasGivenUserTheRole(string $user, string $role): void {
 		$admin = $this->featureContext->getAdminUserName();
 		$roleId = $this->getRoleIdByRoleName($admin, $role);
@@ -137,7 +140,6 @@ class SettingsContext implements Context {
 	}
 
 	/**
-	 * @When user :assigner assigns the role :role to user :assignee using the settings API
 	 *
 	 * @param string $assigner
 	 * @param string $role
@@ -147,6 +149,7 @@ class SettingsContext implements Context {
 	 *
 	 * @throws Exception
 	 */
+	#[When('user :assigner assigns the role :role to user :assignee using the settings API')]
 	public function userAssignsTheRoleToUserUsingTheSettingsApi(
 		string $assigner,
 		string $role,
@@ -218,42 +221,6 @@ class SettingsContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" changes his own role to "([^"]*)"$/
-	 *
-	 * @param string $user
-	 * @param string $role
-	 *
-	 * @return void
-	 * @throws GuzzleException
-	 */
-	public function userChangeOwnRole(string $user, string $role): void {
-		// we assume that the user knows uuid role.
-		$roleId = $this->getRoleIdByRoleName($this->featureContext->getAdminUserName(), $role);
-		$userId = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
-		$response = $this->assignRoleToUser($user, $userId, $roleId);
-		$this->featureContext->setResponse($response);
-	}
-
-	/**
-	 * @When /^user "([^"]*)" changes the role "([^"]*)" for user "([^"]*)"$/
-	 *
-	 * @param string $user
-	 * @param string $role
-	 * @param string $assignedUser
-	 *
-	 * @return void
-	 * @throws GuzzleException
-	 */
-	public function userChangeRoleAnotherUser(string $user, string $role, string $assignedUser): void {
-		// we assume that the user knows uuid role.
-		$roleId = $this->getRoleIdByRoleName($this->featureContext->getAdminUserName(), $role);
-		$userId = $this->featureContext->getAttributeOfCreatedUser($assignedUser, 'id');
-		$response = $this->assignRoleToUser($user, $userId, $roleId);
-		$this->featureContext->setResponse($response);
-	}
-
-	/**
-	 * @When /^user "([^"]*)" tries to get list of assignment using the settings API$/
 	 *
 	 * @param string $user
 	 *
@@ -262,13 +229,13 @@ class SettingsContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :user tries to get list of assignment using the settings API')]
 	public function userGetAssignmentsList(string $user): void {
 		$userId = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$this->featureContext->setResponse($this->getAssignmentsList($user, $userId));
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" should have the role "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $role
@@ -278,6 +245,7 @@ class SettingsContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[Then('user :user should have the role :role')]
 	public function userShouldHaveRole(string $user, string $role): void {
 		$userId = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$response = $this->getAssignmentsList($this->featureContext->getAdminUserName(), $userId);
@@ -295,7 +263,6 @@ class SettingsContext implements Context {
 	}
 
 	/**
-	 * @Then /^the setting API response should have the role "([^"]*)"$/
 	 *
 	 * @param string $role
 	 *
@@ -303,6 +270,7 @@ class SettingsContext implements Context {
 	 *
 	 * @throws Exception
 	 */
+	#[Then('the setting API response should have the role :role')]
 	public function theSettingApiResponseShouldHaveTheRole(string $role): void {
 		$assignmentRoleId = $this->featureContext->getJsonDecodedResponse(
 			$this->featureContext->getResponse()
@@ -370,7 +338,6 @@ class SettingsContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" lists values-list with headers using the Settings API$/
 	 *
 	 * @param string $user
 	 * @param TableNode $headersTable
@@ -380,6 +347,7 @@ class SettingsContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :user lists values-list with headers using the Settings API')]
 	public function theUserListsAllValuesListWithHeadersUsingSettingsApi(string $user, TableNode $headersTable): void {
 		$this->featureContext->verifyTableNodeColumns(
 			$headersTable,
@@ -446,7 +414,6 @@ class SettingsContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has switched the system language to "([^"]*)" using the settings API$/
 	 *
 	 * @param string $user
 	 * @param string $language
@@ -456,6 +423,7 @@ class SettingsContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has switched the system language to :language using the settings API')]
 	public function theUserHasSwitchedSystemLanguage(string $user, string $language): void {
 		$response = $this->sendRequestToSwitchSystemLanguage($user, $language);
 		$this->featureContext->theHTTPStatusCodeShouldBe(
@@ -466,7 +434,6 @@ class SettingsContext implements Context {
 	}
 
 	/**
-	 * @When user :user switches the system language to :language using the settings API
 	 *
 	 * @param string $user
 	 * @param string $language
@@ -476,6 +443,7 @@ class SettingsContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :user switches the system language to :language using the settings API')]
 	public function userSwitchesTheSystemLanguageUsingTheSettingsApi(string $user, string $language): void {
 		$response = $this->sendRequestToSwitchSystemLanguage($user, $language);
 		$this->featureContext->setResponse($response);
@@ -515,8 +483,6 @@ class SettingsContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has disabled auto-accepting
-	 * @Given user :user has disabled the auto-sync share
 	 *
 	 * @param string $user
 	 *
@@ -525,6 +491,8 @@ class SettingsContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has disabled auto-accepting')]
+	#[Given('user :user has disabled the auto-sync share')]
 	public function theUserHasDisabledAutoAccepting(string $user): void {
 		$response = $this->sendRequestToDisableAutoAccepting($user);
 		$this->featureContext->theHTTPStatusCodeShouldBe(
@@ -536,7 +504,6 @@ class SettingsContext implements Context {
 	}
 
 	/**
-	 * @When user :user disables the auto-sync share using the settings API
 	 *
 	 * @param string $user
 	 *
@@ -545,6 +512,7 @@ class SettingsContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :user disables the auto-sync share using the settings API')]
 	public function userDisablesAutoAcceptingUsingSettingsApi(string $user): void {
 		$response = $this->sendRequestToDisableAutoAccepting($user);
 		$this->featureContext->setResponse($response);

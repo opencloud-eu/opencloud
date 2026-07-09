@@ -16,6 +16,9 @@ use TestHelpers\OcsApiHelper;
 use TestHelpers\GraphHelper;
 use TestHelpers\SettingsHelper;
 use TestHelpers\BehatHelper;
+use Behat\Step\Given;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -128,12 +131,12 @@ class NotificationContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" lists all notifications$/
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[When('user :user lists all notifications')]
 	public function userListAllNotifications(string $user): void {
 		$response = $this->listAllNotifications($user);
 		$this->featureContext->setResponse($response);
@@ -160,7 +163,6 @@ class NotificationContext implements Context {
 	}
 
 	/**
-	 * @When user :user deletes all notifications
 	 *
 	 * @param string $user
 	 *
@@ -168,13 +170,13 @@ class NotificationContext implements Context {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[When('user :user deletes all notifications')]
 	public function userDeletesAllNotifications(string $user): void {
 		$response = $this->deleteAllNotifications($user);
 		$this->featureContext->setResponse($response);
 	}
 
 	/**
-	 * @Given user :user has deleted all notifications
 	 *
 	 * @param string $user
 	 *
@@ -182,13 +184,13 @@ class NotificationContext implements Context {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[Given('user :user has deleted all notifications')]
 	public function userHasDeletedAllNotifications(string $user): void {
 		$response = $this->deleteAllNotifications($user);
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, "", $response);
 	}
 
 	/**
-	 * @When user :user deletes a notification related to resource :resource with subject :subject
 	 *
 	 * @param string $user
 	 * @param string $resource
@@ -198,6 +200,7 @@ class NotificationContext implements Context {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[When('user :user deletes a notification related to resource :resource with subject :subject')]
 	public function userDeletesNotificationOfResourceAndSubject(string $user, string $resource, string $subject): void {
 		$response = $this->listAllNotifications($user);
 		$this->filterNotificationsBySubjectAndResource($subject, $resource, $response);
@@ -229,11 +232,11 @@ class NotificationContext implements Context {
 	}
 
 	/**
-	 * @Then the notifications should be empty
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the notifications should be empty')]
 	public function theNotificationsShouldBeEmpty(): void {
 		$statusCode = $this->featureContext->getResponse()->getStatusCode();
 		if ($statusCode !== 200) {
@@ -248,13 +251,13 @@ class NotificationContext implements Context {
 	}
 
 	/**
-	 * @Then user :user should not have any notification
 	 *
 	 * @param $user
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('user :user should not have any notification')]
 	public function userShouldNotHaveAnyNotification($user): void {
 		$response = $this->listAllNotifications($user);
 		$notifications = $this->featureContext->getJsonDecodedResponseBodyContent($response)->ocs->data;
@@ -262,13 +265,13 @@ class NotificationContext implements Context {
 	}
 
 	/**
-	 * @Then /^there should be "([^"]*)" notifications$/
 	 *
 	 * @param int $numberOfNotification
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('there should be :numberOfNotification notifications')]
 	public function userShouldHaveNotifications(int $numberOfNotification): void {
 		if (!isset($this->featureContext->getJsonDecodedResponseBodyContent()->ocs->data)) {
 			throw new Exception("Notification is empty");
@@ -283,7 +286,6 @@ class NotificationContext implements Context {
 	}
 
 	/**
-	 * @Then /^the JSON response should contain a notification message with the subject "([^"]*)" and the message-details should match$/
 	 *
 	 * @param string $subject
 	 * @param PyStringNode $schemaString
@@ -291,6 +293,7 @@ class NotificationContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the JSON response should contain a notification message with the subject :subject and the message-details should match')]
 	public function theJsonDataFromLastResponseShouldMatch(
 		string $subject,
 		PyStringNode $schemaString
@@ -377,7 +380,6 @@ class NotificationContext implements Context {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" should get a notification with subject "([^"]*)" and message:$/
 	 *
 	 * @param string $user
 	 * @param string $subject
@@ -386,6 +388,7 @@ class NotificationContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('user :user should get a notification with subject :subject and message:')]
 	public function userShouldGetANotificationWithMessage(string $user, string $subject, TableNode $table): void {
 		$count = 0;
 		// Sometimes the test might try to get the notifications before the server has created the notification.
@@ -419,7 +422,6 @@ class NotificationContext implements Context {
 	}
 
 	/**
-	 * @Then user :user should get a notification for resource :resource with subject :subject and message:
 	 *
 	 * @param string $user
 	 * @param string $resource
@@ -429,6 +431,7 @@ class NotificationContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('user :user should get a notification for resource :resource with subject :subject and message:')]
 	public function userShouldGetNotificationForResourceWithMessage(
 		string $user,
 		string $resource,
@@ -462,7 +465,6 @@ class NotificationContext implements Context {
 	}
 
 	/**
-	 * @Then user :user should not get a notification related to resource :resource with subject :subject
 	 *
 	 * @param string $user
 	 * @param string $resource
@@ -470,6 +472,7 @@ class NotificationContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[Then('user :user should not get a notification related to resource :resource with subject :subject')]
 	public function userShouldNotHaveANotificationRelatedToResourceWithSubject(
 		string $user,
 		string $resource,
@@ -486,7 +489,6 @@ class NotificationContext implements Context {
 	}
 
 	/**
-	 * @Then user :user should have received the following email from user :sender about the share of project space :spaceName
 	 *
 	 * @param string $user
 	 * @param string $sender
@@ -496,6 +498,7 @@ class NotificationContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('user :user should have received the following email from user :sender about the share of project space :spaceName')]
 	public function userShouldHaveReceivedTheFollowingEmailFromUserAboutTheShareOfProjectSpace(
 		string $user,
 		string $sender,
@@ -529,7 +532,6 @@ class NotificationContext implements Context {
 	}
 
 	/**
-	 * @Then user :user should have received the following email from user :sender
 	 *
 	 * @param string $user
 	 * @param string $sender
@@ -538,6 +540,7 @@ class NotificationContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('user :user should have received the following email from user :sender')]
 	public function userShouldHaveReceivedTheFollowingEmailFromUser(
 		string $user,
 		string $sender,
@@ -552,7 +555,6 @@ class NotificationContext implements Context {
 	}
 
 	/**
-	 * @Then user :user should have received the following email from user :sender ignoring whitespaces
 	 *
 	 * @param string $user
 	 * @param string $sender
@@ -561,6 +563,7 @@ class NotificationContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('user :user should have received the following email from user :sender ignoring whitespaces')]
 	public function userShouldHaveReceivedTheFollowingEmailFromUserIgnoringWhitespaces(
 		string $user,
 		string $sender,
@@ -692,8 +695,6 @@ class NotificationContext implements Context {
 	}
 
 	/**
-	 * @When the administrator creates a deprovisioning notification
-	 * @When user :user tries to create a deprovisioning notification
 	 *
 	 * @param string|null $user
 	 *
@@ -702,6 +703,8 @@ class NotificationContext implements Context {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[When('the administrator creates a deprovisioning notification')]
+	#[When('user :user tries to create a deprovisioning notification')]
 	public function theAdministratorCreatesADeprovisioningNotification(?string $user = null) {
 		$response = $this->userCreatesDeprovisioningNotification($user);
 		$this->featureContext->setResponse($response);
@@ -709,7 +712,6 @@ class NotificationContext implements Context {
 	}
 
 	/**
-	 * @When the administrator creates a deprovisioning notification for date :deprovision_date of format :deprovision_date_format
 	 *
 	 * @param $deprovision_date
 	 * @param $deprovision_date_format
@@ -719,6 +721,7 @@ class NotificationContext implements Context {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[When('the administrator creates a deprovisioning notification for date :deprovision_date of format :deprovision_date_format')]
 	public function theAdministratorCreatesADeprovisioningNotificationUsingDateFormat(
 		$deprovision_date,
 		$deprovision_date_format
@@ -729,23 +732,23 @@ class NotificationContext implements Context {
 	}
 
 	/**
-	 * @Given the administrator has created a deprovisioning notification
 	 *
 	 * @return void
 	 */
+	#[Given('the administrator has created a deprovisioning notification')]
 	public function userHasCreatedDeprovisioningNotification(): void {
 		$response = $this->userCreatesDeprovisioningNotification();
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, "", $response);
 	}
 
 	/**
-	 * @When the administrator deletes the deprovisioning notification
-	 * @When user :user tries to delete the deprovisioning notification
 	 *
 	 * @param string|null $user
 	 *
 	 * @return void
 	 */
+	#[When('the administrator deletes the deprovisioning notification')]
+	#[When('user :user tries to delete the deprovisioning notification')]
 	public function userDeletesDeprovisioningNotification(?string $user = null): void {
 		$payload["ids"] = ["deprovision"];
 

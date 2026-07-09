@@ -27,6 +27,8 @@ use Psr\Http\Message\ResponseInterface;
 use PHPUnit\Framework\Assert;
 use TestHelpers\BehatHelper;
 use TestHelpers\HttpRequestHelper;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -38,13 +40,13 @@ class ShareesContext implements Context {
 	private OCSContext $ocsContext;
 
 	/**
-	 * @When /^user "([^"]*)" gets the sharees using the sharing API with parameters$/
 	 *
 	 * @param string $user
 	 * @param TableNode $body
 	 *
 	 * @return void
 	 */
+	#[When('user :user gets the sharees using the sharing API with parameters')]
 	public function userGetsTheShareesWithParameters(string $user, TableNode $body): void {
 		$this->featureContext->setResponse(
 			$this->getShareesWithParameters(
@@ -55,7 +57,6 @@ class ShareesContext implements Context {
 	}
 
 	/**
-	 * @Then /^the "([^"]*)" sharees returned should be$/
 	 *
 	 * @param string $shareeType
 	 * @param TableNode $shareesList
@@ -63,6 +64,7 @@ class ShareesContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the :shareeType sharees returned should be')]
 	public function theShareesReturnedShouldBe(string $shareeType, TableNode $shareesList): void {
 		$this->featureContext->verifyTableNodeColumnsCount($shareesList, 4);
 		$sharees = $shareesList->getRows();
@@ -78,37 +80,12 @@ class ShareesContext implements Context {
 	}
 
 	/**
-	 * @Then /^the "([^"]*)" sharees returned should include$/
-	 *
-	 * @param string $shareeType
-	 * @param TableNode $shareesList
-	 *
-	 * @return void
-	 * @throws Exception
-	 */
-	public function theShareesReturnedShouldInclude(string $shareeType, TableNode $shareesList): void {
-		$this->featureContext->verifyTableNodeColumnsCount($shareesList, 3);
-		$sharees = $shareesList->getRows();
-		$respondedArray = $this->getArrayOfShareesResponded(
-			$this->featureContext->getResponse(),
-			$shareeType
-		);
-		foreach ($sharees as $sharee) {
-			Assert::assertContains(
-				$sharee,
-				$respondedArray,
-				"Returned sharees do not match the expected ones. See the differences below."
-			);
-		}
-	}
-
-	/**
-	 * @Then /^the "([^"]*)" sharees returned should be empty$/
 	 *
 	 * @param string $shareeType
 	 *
 	 * @return void
 	 */
+	#[Then('the :shareeType sharees returned should be empty')]
 	public function theShareesReturnedShouldBeEmpty(string $shareeType): void {
 		$respondedArray = $this->getArrayOfShareesResponded(
 			$this->featureContext->getResponse(),

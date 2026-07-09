@@ -49,16 +49,17 @@
 
 #### [Same users can be added in a group multiple time](https://github.com/owncloud/ocis/issues/5702)
 
-- [apiGraphUserGroup/addUserToGroup.feature:295](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L295)
+- [apiGraphUserGroup/addUserToGroup.feature:294](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L294)
 
 #### [Users are added in a group with wrong host in host-part of user](https://github.com/owncloud/ocis/issues/5871)
 
-- [apiGraphUserGroup/addUserToGroup.feature:379](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L379)
-- [apiGraphUserGroup/addUserToGroup.feature:393](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L393)
+- [apiGraphUserGroup/addUserToGroup.feature:378](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L378)
+- [apiGraphUserGroup/addUserToGroup.feature:392](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L392)
 
 #### [Adding the same user as multiple members in a single request results in listing the same user twice in the group](https://github.com/owncloud/ocis/issues/5855)
 
-- [apiGraphUserGroup/addUserToGroup.feature:430](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L430)
+
+- [apiGraphUserGroup/addUserToGroup.feature:429](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L429)
 
 #### [Shared file locking is not possible using different path](https://github.com/owncloud/ocis/issues/7599)
 

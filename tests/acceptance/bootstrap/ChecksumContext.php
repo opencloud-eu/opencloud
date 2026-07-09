@@ -26,6 +26,9 @@ use Psr\Http\Message\ResponseInterface;
 use TestHelpers\WebDavHelper;
 use TestHelpers\BehatHelper;
 use TestHelpers\UploadHelper;
+use Behat\Step\Given;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -62,7 +65,6 @@ class ChecksumContext implements Context {
 	}
 
 	/**
-	 * @When user :user uploads file :source to :destination with checksum :checksum using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -71,6 +73,7 @@ class ChecksumContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :user uploads file :source to :destination with checksum :checksum using the WebDAV API')]
 	public function userUploadsFileToWithChecksumUsingTheAPI(
 		string $user,
 		string  $source,
@@ -83,7 +86,6 @@ class ChecksumContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has uploaded file :source to :destination with checksum :checksum
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -92,6 +94,7 @@ class ChecksumContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[Given('user :user has uploaded file :source to :destination with checksum :checksum')]
 	public function userHasUploadedFileToWithChecksumUsingTheAPI(
 		string $user,
 		string $source,
@@ -132,7 +135,6 @@ class ChecksumContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has uploaded file with content :content and checksum :checksum to :destination
 	 *
 	 * @param string $user
 	 * @param string $content
@@ -141,6 +143,7 @@ class ChecksumContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[Given('user :user has uploaded file with content :content and checksum :checksum to :destination')]
 	public function userHasUploadedFileWithContentAndChecksumToUsingTheAPI(
 		string $user,
 		string $content,
@@ -153,13 +156,13 @@ class ChecksumContext implements Context {
 	}
 
 	/**
-	 * @When user :user requests the checksum of :path via propfind
 	 *
 	 * @param string $user
 	 * @param string $path
 	 *
 	 * @return void
 	 */
+	#[When('user :user requests the checksum of :path via propfind')]
 	public function userRequestsTheChecksumOfViaPropfind(string $user, string $path): void {
 		$this->featureContext->setResponse($this->propfindResourceChecksum($user, $path));
 	}
@@ -195,20 +198,19 @@ class ChecksumContext implements Context {
 	}
 
 	/**
-	 * @Then the webdav checksum should match :expectedChecksum
 	 *
 	 * @param string $expectedChecksum
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the webdav checksum should match :expectedChecksum')]
 	public function theWebdavChecksumShouldMatch(string $expectedChecksum): void {
 		$bodyContents = $this->featureContext->getResponse()->getBody()->getContents();
 		$this->validateChecksum($bodyContents, $expectedChecksum);
 	}
 
 	/**
-	 * @Then as user :user the webdav checksum of :path via propfind should match :expectedChecksum
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -217,6 +219,7 @@ class ChecksumContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('as user :user the webdav checksum of :path via propfind should match :expectedChecksum')]
 	public function asUserTheWebdavChecksumOfPathViaPropfindShouldMatch(
 		string $user,
 		string $path,
@@ -321,13 +324,13 @@ class ChecksumContext implements Context {
 	}
 
 	/**
-	 * @Then the header checksum should match :expectedChecksum
 	 *
 	 * @param string $expectedChecksum
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the header checksum should match :expectedChecksum')]
 	public function theHeaderChecksumShouldMatch(string $expectedChecksum): void {
 		$headerChecksums
 			= $this->featureContext->getResponse()->getHeader('OC-Checksum');
@@ -359,7 +362,6 @@ class ChecksumContext implements Context {
 	}
 
 	/**
-	 * @Then the header checksum when user :arg1 downloads file :arg2 using the WebDAV API should match :arg3
 	 *
 	 * @param string $user
 	 * @param string $fileName
@@ -368,6 +370,7 @@ class ChecksumContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the header checksum when user :arg1 downloads file :arg2 using the WebDAV API should match :arg3')]
 	public function theHeaderChecksumWhenUserDownloadsFileUsingTheWebdavApiShouldMatch(
 		string $user,
 		string $fileName,
@@ -433,7 +436,6 @@ class ChecksumContext implements Context {
 	}
 
 	/**
-	 * @When user :user uploads chunk file :num of :total with :data to :destination with checksum :expectedChecksum using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param int $num
@@ -444,6 +446,7 @@ class ChecksumContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :user uploads chunk file :num of :total with :data to :destination with checksum :expectedChecksum using the WebDAV API')]
 	public function userUploadsChunkFileOfWithToWithChecksum(
 		string $user,
 		int $num,
@@ -464,7 +467,6 @@ class ChecksumContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has uploaded chunk file :num of :total with :data to :destination with checksum :expectedChecksum
 	 *
 	 * @param string $user
 	 * @param int $num
@@ -475,6 +477,7 @@ class ChecksumContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[Given('user :user has uploaded chunk file :num of :total with :data to :destination with checksum :expectedChecksum')]
 	public function userHasUploadedChunkFileOfWithToWithChecksum(
 		string $user,
 		int $num,

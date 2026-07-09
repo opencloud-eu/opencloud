@@ -24,6 +24,7 @@ use GuzzleHttp\Exception\GuzzleException;
 use TestHelpers\OcConfigHelper;
 use TestHelpers\GraphHelper;
 use PHPUnit\Framework\Assert;
+use Behat\Step\Given;
 
 /**
  * steps needed to re-configure OpenCloud server
@@ -48,13 +49,13 @@ class OcConfigContext implements Context {
 	}
 
 	/**
-	 * @Given async upload has been enabled with post-processing delayed to :delayTime seconds
 	 *
 	 * @param string $delayTime
 	 *
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Given('async upload has been enabled with post-processing delayed to :delayTime seconds')]
 	public function asyncUploadHasBeenEnabledWithDelayedPostProcessing(string $delayTime): void {
 		$envs = [
 			"OC_ASYNC_UPLOADS" => true,
@@ -72,7 +73,6 @@ class OcConfigContext implements Context {
 	}
 
 	/**
-	 * @Given the config :configVariable has been set to :configValue
 	 *
 	 * @param string $configVariable
 	 * @param string $configValue
@@ -80,6 +80,7 @@ class OcConfigContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Given('the config :configVariable has been set to :configValue')]
 	public function theConfigHasBeenSetTo(string $configVariable, string $configValue): void {
 		$envs = [
 			$configVariable => $configValue,
@@ -97,12 +98,12 @@ class OcConfigContext implements Context {
 	}
 
 	/**
-	 * @Given the administrator has enabled the permissions role :role
 	 *
 	 * @param string $role
 	 *
 	 * @return void
 	 */
+	#[Given('the administrator has enabled the permissions role :role')]
 	public function theAdministratorHasEnabledTheRole(string $role): void {
 		$roleId = GraphHelper::getPermissionsRoleIdByName($role);
 		$defaultRoles = array_values(GraphHelper::DEFAULT_PERMISSIONS_ROLES);
@@ -123,12 +124,12 @@ class OcConfigContext implements Context {
 	}
 
 	/**
-	 * @Given the administrator has disabled the permissions role :role
 	 *
 	 * @param string $role
 	 *
 	 * @return void
 	 */
+	#[Given('the administrator has disabled the permissions role :role')]
 	public function theAdministratorHasDisabledThePermissionsRole(string $role): void {
 		$roleId = GraphHelper::getPermissionsRoleIdByName($role);
 		$availableRoles = $this->getEnabledPermissionsRoles();
@@ -149,7 +150,6 @@ class OcConfigContext implements Context {
 	}
 
 	/**
-	 * @Given the config :configVariable has been set to path :path
 	 *
 	 * @param string $configVariable
 	 * @param string $path
@@ -157,6 +157,7 @@ class OcConfigContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Given('the config :configVariable has been set to path :path')]
 	public function theConfigHasBeenSetPathTo(string $configVariable, string $path): void {
 		if (\getenv('TEST_ROOT_PATH')) {
 			$path = \getenv('TEST_ROOT_PATH') . "/" . $path;
@@ -177,13 +178,13 @@ class OcConfigContext implements Context {
 	}
 
 	/**
-	 * @Given the following configs have been set:
 	 *
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Given('the following configs have been set:')]
 	public function theConfigHasBeenSetToValue(TableNode $table): void {
 		$envs = [];
 		foreach ($table->getHash() as $row) {

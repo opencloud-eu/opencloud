@@ -18,6 +18,9 @@ use TestHelpers\WebDavHelper;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\BehatHelper;
 use TestHelpers\TokenHelper;
+use Behat\Step\Given;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -52,8 +55,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the user "([^"]*)" changes the email of user "([^"]*)" to "([^"]*)" using the Graph API$/
-	 * @When /^the user "([^"]*)" tries to change the email of user "([^"]*)" to "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $byUser
 	 * @param string $user
@@ -63,14 +64,14 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('the user :byUser changes the email of user :user to :email using the Graph API')]
+	#[When('the user :byUser tries to change the email of user :user to :email using the Graph API')]
 	public function theUserChangesTheEmailOfUserToUsingTheGraphApi(string $byUser, string $user, string $email): void {
 		$response = $this->editUserUsingTheGraphApi($byUser, $user, null, null, $email);
 		$this->featureContext->setResponse($response);
 	}
 
 	/**
-	 * @When /^the user "([^"]*)" changes the display name of user "([^"]*)" to "([^"]*)" using the Graph API$/
-	 * @When /^the user "([^"]*)" tries to change the display name of user "([^"]*)" to "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $byUser
 	 * @param string $user
@@ -80,6 +81,8 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('the user :byUser changes the display name of user :user to :displayName using the Graph API')]
+	#[When('the user :byUser tries to change the display name of user :user to :displayName using the Graph API')]
 	public function theUserChangesTheDisplayNameOfUserToUsingTheGraphApi(
 		string $byUser,
 		string $user,
@@ -90,8 +93,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the user "([^"]*)" changes the user name of user "([^"]*)" to "([^"]*)" using the Graph API$/
-	 * @When /^the user "([^"]*)" tries to change the user name of user "([^"]*)" to "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $byUser
 	 * @param string $user
@@ -101,6 +102,8 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('the user :byUser changes the user name of user :user to :userName using the Graph API')]
+	#[When('the user :byUser tries to change the user name of user :user to :userName using the Graph API')]
 	public function theUserChangesTheUserNameOfUserToUsingTheGraphApi(
 		string $byUser,
 		string $user,
@@ -111,8 +114,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the user "([^"]*)" disables user "([^"]*)" using the Graph API$/
-	 * @When /^the user "([^"]*)" tries to disable user "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $byUser
 	 * @param string $user
@@ -121,13 +122,14 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('the user :byUser disables user :user using the Graph API')]
+	#[When('the user :byUser tries to disable user :user using the Graph API')]
 	public function theUserDisablesUserToUsingTheGraphApi(string $byUser, string $user): void {
 		$response = $this->editUserUsingTheGraphApi($byUser, $user, null, null, null, null, false);
 		$this->featureContext->setResponse($response);
 	}
 
 	/**
-	 * @Given /^the user "([^"]*)" has disabled user "([^"]*)"$/
 	 *
 	 * @param string $byUser
 	 * @param string $user
@@ -136,14 +138,13 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[Given('the user :byUser has disabled user :user')]
 	public function theUserHasDisabledUser(string $byUser, string $user): void {
 		$response = $this->editUserUsingTheGraphApi($byUser, $user, null, null, null, null, false);
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, '', $response);
 	}
 
 	/**
-	 * @When /^the user "([^"]*)" enables user "([^"]*)" using the Graph API$/
-	 * @When /^the user "([^"]*)" tries to enable user "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $byUser
 	 * @param string $user
@@ -152,13 +153,14 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('the user :byUser enables user :user using the Graph API')]
+	#[When('the user :byUser tries to enable user :user using the Graph API')]
 	public function theUserEnablesUserToUsingTheGraphApi(string $byUser, string $user): void {
 		$response = $this->editUserUsingTheGraphApi($byUser, $user);
 		$this->featureContext->setResponse($response);
 	}
 
 	/**
-	 * @Then /^the user information of "([^"]*)" should match this JSON schema$/
 	 *
 	 * @param string $user
 	 * @param PyStringNode $schemaString
@@ -168,6 +170,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[Then('the user information of :user should match this JSON schema')]
 	public function theUserInformationShouldMatchTheJSON(string $user, PyStringNode $schemaString): void {
 		$response = $this->adminHasRetrievedUserUsingTheGraphApi($user);
 		$responseBody = $this->featureContext->getJsonDecodedResponseBodyContent($response);
@@ -342,7 +345,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the user "([^"]*)" deletes a user "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $byUser
 	 * @param string $user
@@ -351,13 +353,13 @@ class GraphContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('the user :byUser deletes a user :user using the Graph API')]
 	public function theUserDeletesAUserUsingTheGraphAPI(string $byUser, string $user): void {
 		$userId = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$this->featureContext->setResponse($this->deleteUserByUserIdUsingTheGraphApi($userId, $byUser));
 	}
 
 	/**
-	 * @When /^the user "([^"]*)" tries to delete a nonexistent user using the Graph API$/
 	 *
 	 * @param string $byUser
 	 *
@@ -365,13 +367,13 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('the user :byUser tries to delete a nonexistent user using the Graph API')]
 	public function theUserTriesToDeleteNonExistingUser(string $byUser): void {
 		$userId = WebDavHelper::generateUUIDv4();
 		$this->featureContext->setResponse($this->deleteUserByUserIdUsingTheGraphApi($userId, $byUser));
 	}
 
 	/**
-	 * @Given /^the user "([^"]*)" has deleted a user "([^"]*)"$/
 	 *
 	 * @param string $byUser
 	 * @param string $user
@@ -380,6 +382,7 @@ class GraphContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Given('the user :byUser has deleted a user :user')]
 	public function theUserHasDeletedAUser(string $byUser, string $user): void {
 		$response = $this->adminDeletesUserUsingTheGraphApi($user, $byUser);
 		$this->featureContext->theHttpStatusCodeShouldBe(204, "", $response);
@@ -479,7 +482,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the user "([^"]*)" resets the password of user "([^"]*)" to "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $byUser
 	 * @param string $user
@@ -488,6 +490,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('the user :byUser resets the password of user :user to :password using the Graph API')]
 	public function theUserResetsThePasswordOfUserToUsingTheGraphApi(string $byUser, string $user, string $password) {
 		$response = $this->adminChangesPasswordOfUserToUsingTheGraphApi($user, $password, $byUser);
 		$this->featureContext->setResponse($response);
@@ -666,7 +669,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the user "([^"]*)" creates a new user with the following attributes using the Graph API:$/
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -674,6 +676,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[When('the user :user creates a new user with the following attributes using the Graph API:')]
 	public function theUserCreatesNewUser(string $user, TableNode $table): void {
 		$rows = $table->getRowsHash();
 		$response = GraphHelper::createUser(
@@ -734,7 +737,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Given /^the administrator has added a user "([^"]*)" to the group "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -743,6 +745,7 @@ class GraphContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Given('the administrator has added a user :user to the group :group using the Graph API')]
 	public function adminHasAddedUserToGroupUsingTheGraphApi(
 		string $user,
 		string $group
@@ -752,12 +755,12 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When the administrator adds the following users to the following groups using the Graph API
 	 *
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 */
+	#[When('the administrator adds the following users to the following groups using the Graph API')]
 	public function theAdministratorAddsTheFollowingUsersToTheFollowingGroupsUsingTheGraphAPI(TableNode $table): void {
 		$this->featureContext->verifyTableNodeColumns($table, ['username', 'groupname']);
 		$userGroupList = $table->getColumnsHash();
@@ -769,14 +772,14 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When the administrator tries to add nonexistent user to group :group using the Graph API
-	 * @When user :byUser tries to add nonexistent user to group :group using the Graph API
 	 *
 	 * @param string $group
 	 * @param string|null $byUser
 	 *
 	 * @return void
 	 */
+	#[When('the administrator tries to add nonexistent user to group :group using the Graph API')]
+	#[When('user :byUser tries to add nonexistent user to group :group using the Graph API')]
 	public function theAdministratorTriesToAddNonExistentUserToGroupUsingTheGraphAPI(
 		string $group,
 		?string $byUser = null
@@ -785,8 +788,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When the administrator tries to add user :user to a nonexistent group using the Graph API
-	 * @When user :byUser tries to add user :user to a nonexistent group using the Graph API
 	 *
 	 * @param string $user
 	 * @param string|null $byUser
@@ -795,6 +796,8 @@ class GraphContext implements Context {
 	 *
 	 * @throws GuzzleException | Exception
 	 */
+	#[When('the administrator tries to add user :user to a nonexistent group using the Graph API')]
+	#[When('user :byUser tries to add user :user to a nonexistent group using the Graph API')]
 	public function theAdministratorTriesToAddUserToNonExistentGroupUsingTheGraphAPI(
 		string $user,
 		?string $byUser = null
@@ -803,19 +806,18 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to add himself/herself to group :group using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $group
 	 *
 	 * @return void
 	 */
+	#[When('user :user tries to add himself/herself to group :group using the Graph API')]
 	public function theUserTriesToAddHimselfToGroupUsingTheGraphAPI(string $user, string $group): void {
 		$this->featureContext->setResponse($this->addUserToGroup($group, $user, $user));
 	}
 
 	/**
-	 * @When user :byUser tries to add user :user to group :group using the Graph API
 	 *
 	 * @param string $byUser
 	 * @param string $user
@@ -823,6 +825,7 @@ class GraphContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :byUser tries to add user :user to group :group using the Graph API')]
 	public function theUserTriesToAddAnotherUserToGroupUsingTheGraphAPI(
 		string $byUser,
 		string $user,
@@ -852,9 +855,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the administrator creates a group "([^"]*)" using the Graph API$/
-	 * @When user :user creates a group :group using the Graph API
-	 * @When user :user tries to create a group :group using the Graph API
 	 *
 	 * @param string $group
 	 * @param ?string $user
@@ -863,6 +863,9 @@ class GraphContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('the administrator creates a group :group using the Graph API')]
+	#[When('user :user creates a group :group using the Graph API')]
+	#[When('user :user tries to create a group :group using the Graph API')]
 	public function userCreatesGroupUsingTheGraphApi(string $group, ?string $user = null): void {
 		$response = $this->createGroup($group, $user);
 		$this->featureContext->setResponse($response);
@@ -875,8 +878,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Given /^the administrator has created a group "([^"]*)" using the Graph API$/
-	 * @Given user :user has created a group :group using the Graph API
 	 *
 	 * @param string $group
 	 * @param ?string $user
@@ -885,6 +886,8 @@ class GraphContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Given('the administrator has created a group :group using the Graph API')]
+	#[Given('user :user has created a group :group using the Graph API')]
 	public function userHasCreatedGroupUsingTheGraphApi(string $group, ?string $user = null): void {
 		$response = $this->createGroup($group, $user);
 
@@ -957,7 +960,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the user "([^"]*)" changes its own password "([^"]*)" to "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $currentPassword
@@ -967,6 +969,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('the user :user changes its own password :currentPassword to :newPassword using the Graph API')]
 	public function userChangesOwnPassword(string $user, string $currentPassword, string $newPassword): void {
 		$response = GraphHelper::changeOwnPassword(
 			$this->featureContext->getBaseUrl(),
@@ -980,31 +983,29 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user gets all the groups using the Graph API
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[When('user :user gets all the groups using the Graph API')]
 	public function userGetsAllTheGroupsUsingTheGraphApi(string $user): void {
 		$this->featureContext->setResponse($this->listGroups($user));
 	}
 
 	/**
-	 * @When user :user gets all the members of group :group using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $group
 	 *
 	 * @return void
 	 */
+	#[When('user :user gets all the members of group :group using the Graph API')]
 	public function userGetsAllTheMembersOfGroupUsingTheGraphApi(string $user, string $group): void {
 		$this->featureContext->setResponse($this->listGroupMembers($group, $user));
 	}
 
 	/**
-	 * @When user :user retrieves all groups along with their members using the Graph API
-	 * @When user :user gets all the members information of group :group using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -1012,20 +1013,22 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user retrieves all groups along with their members using the Graph API')]
+	#[When('user :user gets all the members information of group :group using the Graph API')]
 	public function userRetrievesAllMemberInformationOfSingleOrAllGroups(string $user, string $group = ''): void {
 		$this->featureContext->setResponse($this->listSingleOrAllGroupsAlongWithAllMemberInformation($user, $group));
 	}
 
 	/**
-	 * @When user :user deletes group :group using the Graph API
-	 * @When the administrator deletes group :group using the Graph API
-	 * @When user :user tries to delete group :group using the Graph API
 	 *
 	 * @param string $group
 	 * @param string|null $user
 	 *
 	 * @return void
 	 */
+	#[When('user :user deletes group :group using the Graph API')]
+	#[When('the administrator deletes group :group using the Graph API')]
+	#[When('user :user tries to delete group :group using the Graph API')]
 	public function userDeletesGroupUsingTheGraphApi(string $group, ?string $user = null): void {
 		$groupId = $this->featureContext->getAttributeOfCreatedGroup($group, "id") ?: $group;
 		$response = $this->deleteGroupWithId($groupId, $user);
@@ -1036,13 +1039,13 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Then the following users should be listed in the following groups
 	 *
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the following users should be listed in the following groups')]
 	public function theFollowingUsersShouldBeListedInFollowingGroups(TableNode $table): void {
 		$this->featureContext->verifyTableNodeColumns($table, ['username', 'groupname']);
 		$usersGroups = $table->getColumnsHash();
@@ -1090,8 +1093,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user renames group :oldGroup to :newGroup using the Graph API
-	 * @When user :user tries to rename group :oldGroup to :newGroup using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $oldGroup
@@ -1100,13 +1101,14 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user renames group :oldGroup to :newGroup using the Graph API')]
+	#[When('user :user tries to rename group :oldGroup to :newGroup using the Graph API')]
 	public function userRenamesGroupUsingTheGraphApi(string $user, string $oldGroup, string $newGroup): void {
 		$oldGroupId = $this->featureContext->getAttributeOfCreatedGroup($oldGroup, "id");
 		$this->featureContext->setResponse($this->renameGroup($oldGroupId, $newGroup, $user));
 	}
 
 	/**
-	 * @When user :user tries to rename a nonexistent group to :newGroup using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $newGroup
@@ -1115,18 +1117,19 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :user tries to rename a nonexistent group to :newGroup using the Graph API')]
 	public function userTriesToRenameNonExistentGroupToNewGroupName(string $user, string $newGroup): void {
 		$oldGroupId = WebDavHelper::generateUUIDv4();
 		$this->featureContext->setResponse($this->renameGroup($oldGroupId, $newGroup, $user));
 	}
 
 	/**
-	 * @When the administrator removes the following users from the following groups using the Graph API
 	 *
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 */
+	#[When('the administrator removes the following users from the following groups using the Graph API')]
 	public function theAdministratorRemovesTheFollowingUsersFromTheFollowingGroupsUsingTheGraphApi(
 		TableNode $table
 	): void {
@@ -1142,7 +1145,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :byUser tries to remove user :user from group :group using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -1151,6 +1153,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws Exception | GuzzleException
 	 */
+	#[When('user :byUser tries to remove user :user from group :group using the Graph API')]
 	public function theUserTriesToRemoveAnotherUserFromGroupUsingTheGraphAPI(
 		string $user,
 		string $group,
@@ -1160,8 +1163,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When the administrator tries to remove user :user from a nonexistent group using the Graph API
-	 * @When user :byUser tries to remove user :user from a nonexistent group using the Graph API
 	 *
 	 * @param string $user
 	 * @param string|null $byUser
@@ -1169,6 +1170,8 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('the administrator tries to remove user :user from a nonexistent group using the Graph API')]
+	#[When('user :byUser tries to remove user :user from a nonexistent group using the Graph API')]
 	public function theUserTriesToRemoveAnotherUserFromNonExistentGroupUsingTheGraphAPI(
 		string $user,
 		?string $byUser = null
@@ -1196,13 +1199,13 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the user "([^"]*)" retrieves (her|his) information using the Graph API$/
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws JsonException
 	 */
+	#[When('/^the user "([^"]*)" retrieves (her|his) information using the Graph API$/')]
 	public function userRetrievesHisOrHerInformationOfUserUsingGraphApi(
 		string $user
 	): void {
@@ -1211,8 +1214,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :byUser tries to get information of user :user using Graph API
-	 * @When user :byUser gets information of user :user using Graph API
 	 *
 	 * @param string $byUser
 	 * @param string $user
@@ -1220,6 +1221,8 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :byUser tries to get information of user :user using Graph API')]
+	#[When('user :byUser gets information of user :user using Graph API')]
 	public function userTriesToGetInformationOfUser(string $byUser, string $user): void {
 		$credentials = $this->getAdminOrUserCredentials($byUser);
 		$response = GraphHelper::getUser(
@@ -1233,8 +1236,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :byUser tries to search for user :searchTerm using Graph API
-	 * @When user :byUser searches for user :searchTerm using Graph API
 	 *
 	 * @param string $byUser
 	 * @param string $searchTerm
@@ -1242,6 +1243,8 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :byUser tries to search for user :searchTerm using Graph API')]
+	#[When('user :byUser searches for user :searchTerm using Graph API')]
 	public function userSearchesForUserUsingGraphApi(string $byUser, string $searchTerm): void {
 		$credentials = $this->getAdminOrUserCredentials($byUser);
 		$response = GraphHelper::searchUser(
@@ -1255,7 +1258,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :byUser searches for federated user :searchTerm using Graph API
 	 *
 	 * @param string $byUser
 	 * @param string $searchTerm
@@ -1263,6 +1265,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :byUser searches for federated user :searchTerm using Graph API')]
 	public function userSearchesForFederatedUserUsingGraphApi(string $byUser, string $searchTerm): void {
 		$credentials = $this->getAdminOrUserCredentials($byUser);
 		$response = GraphHelper::searchFederatedUser(
@@ -1276,14 +1279,14 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to get all users using the Graph API
-	 * @When user :user gets all users using the Graph API
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user tries to get all users using the Graph API')]
+	#[When('user :user gets all users using the Graph API')]
 	public function userGetsAllUserUsingTheGraphApi(string $user) {
 		$credentials = $this->getAdminOrUserCredentials($user);
 		$response = GraphHelper::getUsers(
@@ -1342,26 +1345,26 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the user "([^"]*)" gets user "([^"]*)" along with (his|her) drive information using Graph API$/
 	 *
 	 * @param string $byUser
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[When('/^the user "([^"]*)" gets user "([^"]*)" along with (his|her) drive information using Graph API$/')]
 	public function userTriesToGetInformationOfUserAlongWithHisDriveData(string $byUser, string $user) {
 		$response = $this->retrieveUserInformationAlongWithDriveUsingGraphApi($byUser, $user);
 		$this->featureContext->setResponse($response);
 	}
 
 	/**
-	 * @When /^the user "([^"]*)" gets user "([^"]*)" along with (his|her) group information using Graph API$/
 	 *
 	 * @param string $byUser
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[When('/^the user "([^"]*)" gets user "([^"]*)" along with (his|her) group information using Graph API$/')]
 	public function userTriesToGetInformationOfUserAlongWithHisGroup(string $byUser, string $user) {
 		$response = $this->retrieveUserInformationAlongWithGroupUsingGraphApi($byUser, $user);
 		$this->featureContext->setResponse($response);
@@ -1369,12 +1372,12 @@ class GraphContext implements Context {
 
 	/**
 	 *
-	 * @When /^the user "([^"]*)" gets (his|her) drive information using Graph API$/
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[When('/^the user "([^"]*)" gets (his|her) drive information using Graph API$/')]
 	public function userTriesToGetOwnDriveInformation(string $user) {
 		$response = $this->retrieveUserInformationAlongWithDriveUsingGraphApi($user);
 		$this->featureContext->setResponse($response);
@@ -1409,7 +1412,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the administrator "([^"]*)" adds the following users to a group "([^"]*)" at once using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -1419,6 +1421,7 @@ class GraphContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('the administrator :user adds the following users to a group :group at once using the Graph API')]
 	public function theAdministratorAddsTheFollowingUsersToAGroupInASingleRequestUsingTheGraphApi(
 		string $user,
 		string $group,
@@ -1435,7 +1438,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" tries to add the following users to a group "([^"]*)" at once with an invalid host using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -1445,6 +1447,7 @@ class GraphContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :user tries to add the following users to a group :group at once with an invalid host using the Graph API')]
 	public function userTriesToAddTheFollowingUsersToAGroupAtOnceWithInvalidHostUsingTheGraphApi(
 		string $user,
 		string $group,
@@ -1478,7 +1481,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" tries to add user "([^"]*)" to group "([^"]*)" with an invalid host using the Graph API$/
 	 *
 	 * @param string $adminUser
 	 * @param string $user
@@ -1488,6 +1490,7 @@ class GraphContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :adminUser tries to add user :user to group :group with an invalid host using the Graph API')]
 	public function userTriesToAddUserToGroupWithInvalidHostUsingTheGraphApi(
 		string $adminUser,
 		string $user,
@@ -1514,7 +1517,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the administrator "([^"]*)" tries to add the following users to a nonexistent group at once using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -1523,6 +1525,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('the administrator :user tries to add the following users to a nonexistent group at once using the Graph API')]
 	public function theAdministratorTriesToAddsTheFollowingUsersToANonExistingGroupAtOnceUsingTheGraphApi(
 		string $user,
 		TableNode $table
@@ -1538,7 +1541,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the administrator "([^"]*)" tries to add the following nonexistent users to a group "([^"]*)" at once using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -1548,6 +1550,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('the administrator :user tries to add the following nonexistent users to a group :group at once using the Graph API')]
 	public function theAdministratorTriesToAddTheFollowingNonExistingUsersToAGroupAtOnceUsingTheGraphApi(
 		string $user,
 		string $group,
@@ -1564,8 +1567,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the administrator "([^"]*)" tries to add the following users to a group "([^"]*)" at once using the Graph API$/
-	 * @When /^the administrator "([^"]*)" tries to add the following existent and nonexistent users to a group "([^"]*)" at once using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -1575,6 +1576,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('the administrator :user tries to add the following existent and nonexistent users to a group :group at once using the Graph API')]
 	public function theAdministratorTriesToAddTheFollowingUsersToAGroupAtOnceUsingTheGraphApi(
 		string $user,
 		string $group,
@@ -1592,13 +1594,13 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user gets all applications using the Graph API
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user gets all applications using the Graph API')]
 	public function userGetsAllApplicationsUsingTheGraphApi(string $user) {
 		$response = GraphHelper::getApplications(
 			$this->featureContext->getBaseUrl(),
@@ -1610,12 +1612,12 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Then the user API response should contain the following application information:
 	 *
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 */
+	#[Then('the user API response should contain the following application information:')]
 	public function theResponseShouldContainTheFollowingApplicationInformation(TableNode $table): void {
 		Assert::assertIsArray(
 			$responseArray = (
@@ -1636,12 +1638,12 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Then the user API response should contain the following app roles:
 	 *
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 */
+	#[Then('the user API response should contain the following app roles:')]
 	public function theResponseShouldContainTheFollowingAppRolesInformation(TableNode $table): void {
 		Assert::assertIsArray(
 			$responseArray = (
@@ -1661,7 +1663,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When the user :user gets all users of the group :group using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -1669,6 +1670,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('the user :user gets all users of the group :group using the Graph API')]
 	public function userGetsAllUsersOfTheGroupUsingTheGraphApi(string $user, string $group) {
 		$groupId = $this->featureContext->getGroupIdByGroupName($group);
 		$response = GraphHelper::getUsersWithFilterMemberOf(
@@ -1682,7 +1684,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When the user :user gets all users of two groups :groups using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $groups
@@ -1690,6 +1691,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('the user :user gets all users of two groups :groups using the Graph API')]
 	public function userGetsAllUsersOfTwoGroupsUsingTheGraphApi(string $user, string $groups) {
 		$groupsIdArray = [];
 		foreach (explode(',', $groups) as $group) {
@@ -1706,7 +1708,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When the user :user gets all users that are members in the group :firstGroup or the group :secondGroup using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $firstGroup
@@ -1715,6 +1716,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('the user :user gets all users that are members in the group :firstGroup or the group :secondGroup using the Graph API')]
 	public function userGetsAllUsersOfFirstGroupOderSecondGroupUsingTheGraphApi(
 		string $user,
 		string $firstGroup,
@@ -1758,7 +1760,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When the user :user gets all users with role :role using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $role
@@ -1766,6 +1767,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('the user :user gets all users with role :role using the Graph API')]
 	public function userGetsAllUsersWithRoleUsingTheGraphApi(string $user, string $role) {
 		$response = GraphHelper::getUsersWithFilterRoleAssignment(
 			$this->featureContext->getBaseUrl(),
@@ -1778,7 +1780,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When the user :user gets all users with role :role and member of the group :group using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $role
@@ -1787,6 +1788,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('the user :user gets all users with role :role and member of the group :group using the Graph API')]
 	public function userGetsAllUsersWithRoleAndMemberOfGroupUsingTheGraphApi(
 		string $user,
 		string $role,
@@ -1804,7 +1806,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Given /^the administrator has assigned the role "([^"]*)" to user "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $role
 	 * @param string $user
@@ -1814,6 +1815,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[Given('the administrator has assigned the role :role to user :user using the Graph API')]
 	public function theAdministratorHasGivenTheRoleUsingTheGraphApi(string $role, string $user): void {
 		$userId = $this->featureContext->getAttributeOfCreatedUser($user, 'id') ?: $user;
 
@@ -1839,13 +1841,13 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the administrator retrieves the assigned role of user "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('the administrator retrieves the assigned role of user :user using the Graph API')]
 	public function userRetrievesAssignedRoleUsingTheGraphApi(string $user): void {
 		$admin = $this->featureContext->getAdminUserName();
 		$userId = $this->featureContext->getAttributeOfCreatedUser($user, 'id') ?: $user;
@@ -1861,7 +1863,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" tries to get the assigned role of user "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $ofUser
@@ -1869,6 +1870,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user tries to get the assigned role of user :ofUser using the Graph API')]
 	public function userTriesToGetAssignedRoleOfUserUsingTheGraphApi(string $user, string $ofUser): void {
 		$credentials = $this->getAdminOrUserCredentials($user);
 		$userId = $this->featureContext->getAttributeOfCreatedUser($ofUser, 'id') ?: $user;
@@ -1907,7 +1909,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Then /^the Graph API response should have the role "([^"]*)"$/
 	 *
 	 * @param string $role
 	 *
@@ -1915,6 +1916,7 @@ class GraphContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Then('the Graph API response should have the role :role')]
 	public function theGraphApiResponseShouldHaveTheRole(string $role): void {
 		$response = $this->featureContext->getJsonDecodedResponse($this->featureContext->getResponse())['value'][0];
 		if (empty($this->appEntity)) {
@@ -1930,12 +1932,12 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Then /^the Graph API response should have no role$/
 	 *
 	 * @return void
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Then('the Graph API response should have no role')]
 	public function theGraphApiResponseShouldHaveNoRole(): void {
 		Assert::assertEmpty(
 			$this->featureContext->getJsonDecodedResponse($this->featureContext->getResponse())['value'],
@@ -1944,13 +1946,13 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user gets details of the group :groupName using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $groupName
 	 *
 	 * @return void
 	 */
+	#[When('user :user gets details of the group :groupName using the Graph API')]
 	public function userGetsDetailsOfTheGroupUsingTheGraphApi(string $user, string $groupName): void {
 		$credentials = $this->getAdminOrUserCredentials($user);
 
@@ -1966,14 +1968,14 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to search for group :searchTerm using Graph API
-	 * @When user :user searches for group :searchTerm using Graph API
 	 *
 	 * @param string $user
 	 * @param string $searchTerm
 	 *
 	 * @return void
 	 */
+	#[When('user :user tries to search for group :searchTerm using Graph API')]
+	#[When('user :user searches for group :searchTerm using Graph API')]
 	public function userSearchesForGroupUsingGraphApi(string $user, string $searchTerm): void {
 		$credentials = $this->getAdminOrUserCredentials($user);
 		$this->featureContext->setResponse(
@@ -1988,8 +1990,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Then /^the JSON data of the response should (not )?contain the user "([^"]*)" in the item 'value'(?:, the user-details should match)?$/
-	 * @Then /^the JSON data of the response should (not )?contain the group "([^"]*)" in the item 'value'(?:, the group-details should match)?$/
 	 *
 	 * @param string $shouldOrNot (not| )
 	 * @param string $userOrGroup
@@ -1998,6 +1998,8 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^the JSON data of the response should (not )?contain the user "([^"]*)" in the item \'value\'(?:, the user-details should match)?$/')]
+	#[Then('/^the JSON data of the response should (not )?contain the group "([^"]*)" in the item \'value\'(?:, the group-details should match)?$/')]
 	public function theJsonDataResponseShouldOrNotContainUserOrGroupAndMatch(
 		string $shouldOrNot,
 		string $userOrGroup,
@@ -2027,7 +2029,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Given /^the administrator "([^"]*)" has added the following users to a group "([^"]*)" at once using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -2037,6 +2038,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[Given('the administrator :user has added the following users to a group :group at once using the Graph API')]
 	public function theAdministratorHasAddedTheFollowingUsersToAGroupAtOnceUsingTheGraphApi(
 		string $user,
 		string $group,
@@ -2053,7 +2055,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the administrator "([^"]*)" tries to add a group "([^"]*)" to another group "([^"]*)" with PATCH request using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $groupToAdd
@@ -2063,6 +2064,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('the administrator :user tries to add a group :groupToAdd to another group :group with PATCH request using the Graph API')]
 	public function theAdministratorTriesToAddGroupToAGroupAtOnceUsingTheGraphApi(
 		string $user,
 		string $groupToAdd,
@@ -2091,7 +2093,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the administrator "([^"]*)" tries to add a group "([^"]*)" to another group "([^"]*)" with POST request using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $groupToAdd
@@ -2101,6 +2102,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('the administrator :user tries to add a group :groupToAdd to another group :group with POST request using the Graph API')]
 	public function theAdministratorTriesToAddAGroupToAGroupThroughPostRequestUsingTheGraphApi(
 		string $user,
 		string $groupToAdd,
@@ -2127,7 +2129,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" tries to add user "([^"]*)" to group "([^"]*)" with invalid JSON "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $adminUser
 	 * @param string $user
@@ -2138,6 +2139,7 @@ class GraphContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :adminUser tries to add user :user to group :group with invalid JSON :invalidJSON using the Graph API')]
 	public function userTriesToAddUserToGroupWithInvalidJsonUsingTheGraphApi(
 		string $adminUser,
 		string $user,
@@ -2169,7 +2171,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" tries to add the following users to a group "([^"]*)" at once with invalid JSON "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -2180,6 +2181,7 @@ class GraphContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :user tries to add the following users to a group :group at once with invalid JSON :invalidJSON using the Graph API')]
 	public function userTriesToAddTheFollowingUsersToAGroupAtOnceWithInvalidJsonUsingTheGraphApi(
 		string $user,
 		string $group,
@@ -2213,7 +2215,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the administrator "([^"]*)" tries to add the following invalid user ids to a group "([^"]*)" at once using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -2223,6 +2224,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('the administrator :user tries to add the following invalid user ids to a group :group at once using the Graph API')]
 	public function theAdministratorTriesToAddTheFollowingUserIdWithInvalidCharacterToAGroup(
 		string $user,
 		string $group,
@@ -2247,7 +2249,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the administrator "([^"]*)" tries to add an invalid user id "([^"]*)" to a group "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $userId
@@ -2257,6 +2258,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('the administrator :user tries to add an invalid user id :userId to a group :group using the Graph API')]
 	public function theAdministratorTriesToAddUserIdWithInvalidCharactersToAGroup(
 		string $user,
 		string $userId,
@@ -2277,7 +2279,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Then the user :user should be listed once in the group :group
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -2285,6 +2286,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Then('the user :user should be listed once in the group :group')]
 	public function theUsersShouldBeListedOnceToAGroup(string $user, string $group): void {
 		$count = 0;
 		$members = $this->listGroupMembers($group);
@@ -2304,14 +2306,14 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" gets the personal drive information of user "([^"]*)" using Graph API$/
-	 * @When /^user "([^"]*)" gets own personal drive information using Graph API$/
 	 *
 	 * @param string $byUser
 	 * @param string|null $user
 	 *
 	 * @return  void
 	 */
+	#[When('user :byUser gets the personal drive information of user :user using Graph API')]
+	#[When('user :byUser gets own personal drive information using Graph API')]
 	public function userGetsThePersonalDriveInformationOfUserUsingGraphApi(string $byUser, ?string $user = null): void {
 		$user = $user ?? $byUser;
 		$credentials = $this->getAdminOrUserCredentials($byUser);
@@ -2328,7 +2330,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" exports (?:her|his) GDPR report to "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -2336,6 +2337,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" exports (?:her|his) GDPR report to "([^"]*)" using the Graph API$/')]
 	public function userGeneratesGDPRReportOfOwnDataToPath(string $user, string $path): void {
 		$credentials = $this->getAdminOrUserCredentials($user);
 		$userId = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
@@ -2353,8 +2355,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Then the downloaded JSON content should contain event type :eventType in item 'events' and should match
-	 * @Then the downloaded JSON content should contain event type :eventType for :spaceType space and should match
 	 *
 	 * @param string $eventType
 	 * @param string|null $spaceType
@@ -2364,6 +2364,8 @@ class GraphContext implements Context {
 	 * @throws Exception
 	 *
 	 */
+	#[Then('the downloaded JSON content should contain event type :eventType in item \'events\' and should match')]
+	#[Then('the downloaded JSON content should contain event type :eventType for :spaceType space and should match')]
 	public function downloadedJsonContentShouldContainEventTypeInItemAndShouldMatch(
 		string $eventType,
 		?string $spaceType=null,
@@ -2396,7 +2398,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Then the downloaded JSON content should contain key 'user' and match
 	 *
 	 * @param PyStringNode $schemaString
 	 *
@@ -2404,6 +2405,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 *
 	 */
+	#[Then('the downloaded JSON content should contain key \'user\' and match')]
 	public function downloadedJsonContentShouldContainKeyUserAndMatch(PyStringNode $schemaString): void {
 		$actualResponseToAssert = $this->featureContext->getJsonDecodedResponseBodyContent();
 		if (!isset($actualResponseToAssert->user)) {
@@ -2418,7 +2420,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to export GDPR report of user :ofUser to :path using Graph API
 	 *
 	 * @param string $user
 	 * @param string $ofUser
@@ -2427,6 +2428,7 @@ class GraphContext implements Context {
 	 * @return void
 	 *
 	 */
+	#[When('user :user tries to export GDPR report of user :ofUser to :path using Graph API')]
 	public function userTriesToExportGdprReportOfAnotherUserUsingGraphApi(
 		string $user,
 		string $ofUser,
@@ -2465,7 +2467,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" (?:unassigns|tries to unassign) the role of user "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $ofUser
@@ -2475,6 +2476,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" (?:unassigns|tries to unassign) the role of user "([^"]*)" using the Graph API$/')]
 	public function theUserUnassignsTheRoleOfUserUsingTheGraphApi(string $user, string $ofUser): void {
 		$credentials = $this->getAdminOrUserCredentials($user);
 		$userId = $this->featureContext->getAttributeOfCreatedUser($ofUser, 'id');
@@ -2503,7 +2505,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Then user :user should have the role :role assigned
 	 *
 	 * @param string $user
 	 * @param string $role
@@ -2512,6 +2513,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[Then('user :user should have the role :role assigned')]
 	public function userShouldHaveTheRoleAssigned(string $user, string $role): void {
 		$jsonDecodedResponse = $this->featureContext->getJsonDecodedResponse($this->getAssignedRole($user))['value'][0];
 		if (empty($this->appEntity)) {
@@ -2527,7 +2529,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Then user :user should not have any role assigned
 	 *
 	 * @param string $user
 	 *
@@ -2535,6 +2536,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[Then('user :user should not have any role assigned')]
 	public function userShouldNotHaveAnyRoleAssigned(string $user): void {
 		$jsonDecodedResponse = $this->featureContext->getJsonDecodedResponse($this->getAssignedRole($user))['value'];
 		Assert::assertEmpty(
@@ -2545,8 +2547,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user changes the role of user :ofUser to role :role using the Graph API
-	 * @When user :user tries to change the role of user :ofUser to role :role using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $ofUser
@@ -2557,6 +2557,8 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :user changes the role of user :ofUser to role :role using the Graph API')]
+	#[When('user :user tries to change the role of user :ofUser to role :role using the Graph API')]
 	public function userChangesTheRoleOfUserToRoleUsingTheGraphApi(string $user, string $ofUser, string $role): void {
 		$userId = $this->featureContext->getAttributeOfCreatedUser($ofUser, 'id') ?: $ofUser;
 		$credentials = $this->getAdminOrUserCredentials($user);
@@ -2578,7 +2580,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has switched the system language to :language using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $language
@@ -2586,6 +2587,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has switched the system language to :language using the Graph API')]
 	public function userHasSwitchedTheSystemLanguageUsingGraphApi(string $user, string $language): void {
 		$credentials = $this->getAdminOrUserCredentials($user);
 		$response =  GraphHelper::switchSystemLanguage(
@@ -2603,7 +2605,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user switches the system language to :language using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $language
@@ -2611,6 +2612,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user switches the system language to :language using the Graph API')]
 	public function userSwitchesTheSystemLanguageUsingGraphApi(string $user, string $language): void {
 		$credentials = $this->getAdminOrUserCredentials($user);
 		$this->featureContext->setResponse(
@@ -2625,7 +2627,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" lists the shares shared with (?:him|her)(| after clearing user cache)(| without retry) using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $cacheStepString
@@ -2634,6 +2635,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" lists the shares shared with (?:him|her)(| after clearing user cache)(| without retry) using the Graph API$/')]
 	public function userListsTheResourcesSharedWithThemUsingGraphApi(
 		string $user,
 		string $cacheStepString,
@@ -2711,33 +2713,32 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user lists the shares shared by him/her using the Graph API
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user lists the shares shared by him/her using the Graph API')]
 	public function userListsTheResourcesSharedByAUserUsingGraphApi(string $user): void {
 		$response = $this->listSharesSharedByMe($user);
 		$this->featureContext->setResponse($response);
 	}
 
 	/**
-	 * @When user :user lists the shares shared by him/her after clearing user/group cache using the Graph API
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user lists the shares shared by him/her after clearing user/group cache using the Graph API')]
 	public function userListsTheResourcesSharedByAUserAfterClearingUserOrGroupSpaceUsingGraphApi(string $user): void {
 		$response = $this->listSharesSharedByMe($user, true);
 		$this->featureContext->setResponse($response);
 	}
 
 	/**
-	 * @Then /^the JSON data of the response should (not )?contain resource "([^"]*)" with the following data:?$/
 	 *
 	 * @param string $shouldOrNot (not| )
 	 * @param string $fileName
@@ -2746,6 +2747,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^the JSON data of the response should (not )?contain resource "([^"]*)" with the following data:?$/')]
 	public function theJsonDataResponseShouldOrNotContainSharedByMeDetails(
 		string $shouldOrNot,
 		string $fileName,
@@ -2775,11 +2777,11 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Then the JSON data of the search response should not contain user(s) email
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the JSON data of the search response should not contain user(s) email')]
 	public function theJsonDataResponseShouldNotContainUserEmail(): void {
 		$responseBody = $this->featureContext->getJsonDecodedResponseBodyContent()->value;
 		$mailValueExist = false;
@@ -2798,7 +2800,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Then user :byUser using password :password should be able to create a new user :user with default attributes
 	 *
 	 * @param string $byUser
 	 * @param string $password
@@ -2808,6 +2809,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[Then('user :byUser using password :password should be able to create a new user :user with default attributes')]
 	public function userUsingPasswordShouldBeAbleToCreateANewUserWithDefaultAttributes(
 		string $byUser,
 		string $password,
@@ -2841,7 +2843,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Given user :byUser has changed the username to :userName
 	 *
 	 * @param string $byUser
 	 * @param string $userName
@@ -2850,6 +2851,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[Given('user :byUser has changed the username to :userName')]
 	public function theUserHasChangedItsOwnUsernameTo(string $byUser, string $userName): void {
 		$userId = $this->featureContext->getAttributeOfCreatedUser($byUser, 'id');
 		$response = GraphHelper::editUser(
@@ -2867,13 +2869,13 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user gets a list of permissions role definitions using the Graph API
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user gets a list of permissions role definitions using the Graph API')]
 	public function getListOfPermissionRoleDefinitionsUsingTheGraphAPI(string $user): void {
 		$credentials = $this->getAdminOrUserCredentials($user);
 		$this->featureContext->setResponse(
@@ -2887,7 +2889,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user gets the :permissionRole role definition using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $permissionRole
@@ -2896,6 +2897,7 @@ class GraphContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :user gets the :permissionRole role definition using the Graph API')]
 	public function getPermissionRoleDefinitionUsingGraphAPI(string $user, string $permissionRole): void {
 		$credentials = $this->getAdminOrUserCredentials($user);
 		$this->featureContext->setResponse(
@@ -2910,7 +2912,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" lists the activities of (?:folder|file) "([^"]*)" from space "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $resource
@@ -2919,6 +2920,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" lists the activities of (?:folder|file) "([^"]*)" from space "([^"]*)" using the Graph API$/')]
 	public function userListsTheActivitiesForResourceOfSpaceUsingTheGraphAPI(
 		string $user,
 		string $resource,
@@ -2936,13 +2938,13 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to list the activities of folder :folder with share mount-point id using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $folder
 	 *
 	 * @return void
 	 */
+	#[When('user :user tries to list the activities of folder :folder with share mount-point id using the Graph API')]
 	public function userTriesToListTheActivitiesOfFolderWithShareMountIdPointIdUsingTheGraphApi(
 		string $user,
 		string $folder
@@ -2965,7 +2967,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to list the activities of file :file from space :spaceName owned by user :owner using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -2974,6 +2975,7 @@ class GraphContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :user tries to list the activities of file :file from space :spaceName owned by user :owner using the Graph API')]
 	public function userTriesToListActivitiesOfFileFromSpaceOwnedByUserUsingTheGraphApi(
 		string $user,
 		string $file,
@@ -2992,13 +2994,13 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user lists the activities of space :spaceName using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $spaceName
 	 *
 	 * @return void
 	 */
+	#[When('user :user lists the activities of space :spaceName using the Graph API')]
 	public function userListsTheActivitiesOfProjectSpaceUsingTheGraphApi(string $user, string $spaceName): void {
 		$spaceId = ($this->featureContext->spacesContext->getSpaceByName($user, $spaceName))["id"];
 		$response = GraphHelper::getActivities(
@@ -3012,12 +3014,12 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user lists the activities of personal space using the Graph API
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[When('user :user lists the activities of personal space using the Graph API')]
 	public function userListsTheActivitiesOfPersonalSpaceUsingTheGraphApi(string $user): void {
 		$space = $this->featureContext->spacesContext->getPersonalSpace($user);
 		$response = GraphHelper::getActivities(
@@ -3031,7 +3033,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When the public tries to check the activities of space :spaceName owned by user :user with password :password using the Graph API
 	 *
 	 * @param string $spaceName
 	 * @param string $user
@@ -3039,6 +3040,7 @@ class GraphContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('the public tries to check the activities of space :spaceName owned by user :user with password :password using the Graph API')]
 	public function thePublicTriesToCheckTheActivitiesOfSpaceOwnedByUserWithPasswordUsingGraphApi(
 		string $spaceName,
 		string $user,
@@ -3055,7 +3057,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^the public tries to check the activities of (?:folder|file) "([^"]*)" from space "([^"]*)" owned by user "([^"]*)" with password "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $resource
 	 * @param string $space
@@ -3064,6 +3065,7 @@ class GraphContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('/^the public tries to check the activities of (?:folder|file) "([^"]*)" from space "([^"]*)" owned by user "([^"]*)" with password "([^"]*)" using the Graph API$/')]
 	public function thePublicTriesToCheckTheActivitiesOfResourceFromSpaceOwnedByUserWithPasswordUsingGraphApi(
 		string $resource,
 		string $space,
@@ -3081,7 +3083,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" lists the activities of (?:folder|file) "([^"]*)" from space "([^"]*)" with (depth|limit|sort) "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $resource
@@ -3091,6 +3092,7 @@ class GraphContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" lists the activities of (?:folder|file) "([^"]*)" from space "([^"]*)" with (depth|limit|sort) "([^"]*)" using the Graph API$/')]
 	public function userListsTheActivitiesForFolderOfSpaceWithDepthOrLimitUsingTheGraphApi(
 		string $user,
 		string $resource,
@@ -3111,13 +3113,13 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Then the activities should be in the following order:
 	 *
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the activities should be in the following order:')]
 	public function theActivitiesShouldBeInTheFollowingOrder(TableNode $table): void {
 		$responseBody = $this->featureContext->getJsonDecodedResponseBodyContent();
 		$activities = $responseBody->value;
@@ -3132,7 +3134,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" lists the activities of (?:folder|file) "([^"]*)" from space "([^"]*)" with (depth|limit) "([^"]*)" and sort "(asc|desc)" using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $resource
@@ -3144,6 +3145,7 @@ class GraphContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" lists the activities of (?:folder|file) "([^"]*)" from space "([^"]*)" with (depth|limit) "([^"]*)" and sort "(asc|desc)" using the Graph API$/')]
 	public function userListsTheActivitiesOfResourceFromSpaceWithDepthOrLimitAndSortUsingTheGraphApi(
 		string $user,
 		string $resource,
@@ -3165,13 +3167,13 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When the administrator gets federated users using the Graph API
-	 * @When user :user tries to get federated users using the Graph API
 	 *
 	 * @param ?string $user
 	 *
 	 * @return void
 	 */
+	#[When('the administrator gets federated users using the Graph API')]
+	#[When('user :user tries to get federated users using the Graph API')]
 	public function theUserGetsFederatedUsersUsingTheGraphApi(?string $user = null): void {
 		$credentials = $this->getAdminOrUserCredentials($user);
 
@@ -3186,13 +3188,12 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When the administrator gets federated and local users using the Graph API
-	 * @When user :user tries to get federated and local users using the Graph API
 	 *
 	 * @param ?string $user
 	 *
 	 * @return void
 	 */
+	#[When('the administrator gets federated and local users using the Graph API')]
 	public function theUserGetsAllUsersUsingTheGraphApi(?string $user = null): void {
 		$credentials = $this->getAdminOrUserCredentials($user);
 
@@ -3244,7 +3245,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user marks :item :itemName as favorite from space :spaceName using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $item (file|folder)
@@ -3253,6 +3253,7 @@ class GraphContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :user marks :item :itemName as favorite from space :spaceName using the Graph API')]
 	public function userMarksItemFromSpaceAsFavoriteUsingTheGraphApi(
 		string $user,
 		string $item,
@@ -3266,7 +3267,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When user :user unmarks :item :itemName as favorite from space :spaceName using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $item (file|folder)
@@ -3275,6 +3275,7 @@ class GraphContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :user unmarks :item :itemName as favorite from space :spaceName using the Graph API')]
 	public function userUnmarksItemFromSpaceAsFavoriteUsingTheGraphApi(
 		string $user,
 		string $item,
@@ -3288,7 +3289,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has marked :item :itemName as favorite from space :spaceName
 	 *
 	 * @param string $user
 	 * @param string $item (folder|file)
@@ -3297,6 +3297,7 @@ class GraphContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[Given('user :user has marked :item :itemName as favorite from space :spaceName')]
 	public function userHasMarkedItemFromSpaceAsFavoriteUsingTheGraphApi(
 		string $user,
 		string $item,
@@ -3312,7 +3313,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has unmarked :item :itemName as favorite from space :spaceName
 	 *
 	 * @param string $user
 	 * @param string $item (folder|file)
@@ -3321,6 +3321,7 @@ class GraphContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[Given('user :user has unmarked :item :itemName as favorite from space :spaceName')]
 	public function userHasUnmarkedItemFromSpaceAsFavoriteUsingTheGraphApi(
 		string $user,
 		string $item,
@@ -3369,8 +3370,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" gets the drive item with colon path "([^"]*)" of space "([^"]*)" using the Graph API version "(v1\.0|v1beta1)"$/
-	 *
 	 * Hits /graph/{version}/drives/{driveID}/root:/{path}, exercising the
 	 * colon-syntax path lookup middleware (root-anchored, no suffix).
 	 *
@@ -3381,6 +3380,7 @@ class GraphContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" gets the drive item with colon path "([^"]*)" of space "([^"]*)" using the Graph API version "(v1\\.0|v1beta1)"$/')]
 	public function userGetsDriveItemWithColonPathOfSpace(
 		string $user,
 		string $path,
@@ -3394,8 +3394,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" gets the drive item with colon path "([^"]*)" of space "([^"]*)" with trailing colon using the Graph API version "(v1\.0|v1beta1)"$/
-	 *
 	 * Hits /graph/{version}/drives/{driveID}/root:/{path}: with the optional
 	 * trailing ":" — verifies the middleware accepts both forms.
 	 *
@@ -3406,6 +3404,7 @@ class GraphContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" gets the drive item with colon path "([^"]*)" of space "([^"]*)" with trailing colon using the Graph API version "(v1\\.0|v1beta1)"$/')]
 	public function userGetsDriveItemWithColonPathOfSpaceWithTrailingColon(
 		string $user,
 		string $path,
@@ -3419,8 +3418,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" gets the drive item with colon path "([^"]*)" relative to folder "([^"]*)" of space "([^"]*)" using the Graph API version "(v1\.0|v1beta1)"$/
-	 *
 	 * Hits /graph/{version}/drives/{driveID}/items/{itemID}:/{relPath}, the
 	 * item-anchored colon-syntax form.
 	 *
@@ -3432,6 +3429,7 @@ class GraphContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" gets the drive item with colon path "([^"]*)" relative to folder "([^"]*)" of space "([^"]*)" using the Graph API version "(v1\\.0|v1beta1)"$/')]
 	public function userGetsDriveItemWithColonPathRelativeToFolderOfSpace(
 		string $user,
 		string $relPath,
@@ -3447,8 +3445,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" lists permissions of the drive item with colon path "([^"]*)" of space "([^"]*)" using the Graph API version "(v1\.0|v1beta1)"$/
-	 *
 	 * Hits /graph/{version}/drives/{driveID}/root:/{path}:/permissions, the
 	 * "colon path with suffix" form (root-anchored colon path + canonical
 	 * sub-route).
@@ -3460,6 +3456,7 @@ class GraphContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" lists permissions of the drive item with colon path "([^"]*)" of space "([^"]*)" using the Graph API version "(v1\\.0|v1beta1)"$/')]
 	public function userListsPermissionsOfDriveItemWithColonPathOfSpace(
 		string $user,
 		string $path,
@@ -3473,8 +3470,6 @@ class GraphContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" gets the drive item with colon path "([^"]*)" of the personal space of "([^"]*)" using the Graph API version "(v1\.0|v1beta1)"$/
-	 *
 	 * Same as userGetsDriveItemWithColonPathOfSpace, but the request is
 	 * issued by :user against the personal space drive ID of :owner. Used
 	 * for security tests where one user attempts to reach another user's
@@ -3488,6 +3483,7 @@ class GraphContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" gets the drive item with colon path "([^"]*)" of the personal space of "([^"]*)" using the Graph API version "(v1\\.0|v1beta1)"$/')]
 	public function userGetsDriveItemWithColonPathOfPersonalSpaceOf(
 		string $user,
 		string $path,

@@ -29,6 +29,8 @@ use Psr\Http\Message\ResponseInterface;
 use splitbrain\PHPArchive\Tar;
 use splitbrain\PHPArchive\Zip;
 use splitbrain\PHPArchive\Archive;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -133,7 +135,6 @@ class ArchiverContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" downloads the (zip|tar) archive of "([^"]*)" using the resource (id|ids|path|paths) and setting these headers:$/
 	 *
 	 * @param string $user
 	 * @param string $archiveType
@@ -146,6 +147,7 @@ class ArchiverContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" downloads the (zip|tar) archive of "([^"]*)" using the resource (id|ids|path|paths) and setting these headers:$/')]
 	public function userDownloadsTheZipOrTarArchiveOfResourceUsingResourceIdOrPathAndSettingTheseHeaders(
 		string $user,
 		string $archiveType,
@@ -167,7 +169,6 @@ class ArchiverContext implements Context {
 	}
 
 	/**
-	 * @When user :downloader downloads the archive of :item of user :owner using the resource :addressType
 	 *
 	 * @param string $downloader Who sends the request
 	 * @param string $resource
@@ -179,6 +180,7 @@ class ArchiverContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :downloader downloads the archive of :item of user :owner using the resource :addressType')]
 	public function userDownloadsTheArchiveOfItemOfUser(
 		string $downloader,
 		string $resource,
@@ -224,7 +226,6 @@ class ArchiverContext implements Context {
 	}
 
 	/**
-	 * @When user :user downloads the archive of these items using the resource :addressType
 	 *
 	 * @param string $user
 	 * @param string $addressType ids|paths
@@ -234,6 +235,7 @@ class ArchiverContext implements Context {
 	 *
 	 * @throws GuzzleException|Exception
 	 */
+	#[When('user :user downloads the archive of these items using the resource :addressType')]
 	public function userDownloadsTheArchiveOfTheseItems(
 		string $user,
 		string $addressType,
@@ -257,7 +259,6 @@ class ArchiverContext implements Context {
 	}
 
 	/**
-	 * @Then the downloaded :type archive should contain these files:
 	 *
 	 * @param string $type
 	 * @param TableNode $expectedFiles
@@ -266,6 +267,7 @@ class ArchiverContext implements Context {
 	 *
 	 * @throws Exception
 	 */
+	#[Then('the downloaded :type archive should contain these files:')]
 	public function theDownloadedArchiveShouldContainTheseFiles(string $type, TableNode $expectedFiles): void {
 		$this->featureContext->verifyTableNodeColumns($expectedFiles, ['name', 'content']);
 		$contents = $this->featureContext->getResponse()->getBody()->getContents();

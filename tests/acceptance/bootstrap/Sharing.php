@@ -30,6 +30,9 @@ use TestHelpers\HttpRequestHelper;
 use TestHelpers\TranslationHelper;
 use TestHelpers\WebDavHelper;
 use GuzzleHttp\Exception\GuzzleException;
+use Behat\Step\Given;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 /**
  * Sharing trait
@@ -213,7 +216,7 @@ trait Sharing {
 			throw new Error(
 				'Response did not contain share id '
 				. $this->getJsonDecodedResponse($lastResponse)['link']['webUrl']
-				. ' for the created public link'
+				. '  for the created public link'
 			);
 		}
 		$last_created_link_webURL =  $this->getJsonDecodedResponse($lastResponse)['link']['webUrl'];
@@ -389,7 +392,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" creates a share using the sharing API with settings$/
 	 *
 	 * @param string $user
 	 * @param TableNode|null $body {@link createShareWithSettings}
@@ -397,6 +399,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user creates a share using the sharing API with settings')]
 	public function userCreatesAShareWithSettings(string $user, ?TableNode $body): void {
 		$user = $this->getActualUsername($user);
 		$response = $this->createShareWithSettings(
@@ -422,7 +425,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" creates a public link share using the sharing API with settings$/
 	 *
 	 * @param string $user
 	 * @param TableNode $body
@@ -430,6 +432,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user creates a public link share using the sharing API with settings')]
 	public function userCreatesAPublicLinkShareWithSettings(string $user, TableNode $body): void {
 		$this->setResponse($this->createPublicLinkShare($user, $body));
 		$this->pushToLastStatusCodesArrays();
@@ -572,7 +575,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" updates the last share using the sharing API with$/
 	 *
 	 * @param string $user
 	 * @param TableNode|null $body
@@ -580,13 +582,13 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user updates the last share using the sharing API with')]
 	public function userUpdatesTheLastShareWith(string $user, ?TableNode $body): void {
 		$this->setResponse($this->updateLastShareWithSettings($user, $body));
 		$this->pushToLastStatusCodesArrays();
 	}
 
 	/**
-	 * @When /^user "([^"]*)" updates the last public link share using the sharing API with$/
 	 *
 	 * @param string $user
 	 * @param TableNode|null $body
@@ -594,13 +596,13 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user updates the last public link share using the sharing API with')]
 	public function userUpdatesTheLastPublicLinkShareWith(string $user, ?TableNode $body): void {
 		$this->response = $this->updateLastShareWithSettings($user, $body, null, true);
 		$this->pushToLastStatusCodesArrays();
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has updated the last share with$/
 	 *
 	 * @param string $user
 	 * @param TableNode|null $body
@@ -608,6 +610,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('user :user has updated the last share with')]
 	public function userHasUpdatedTheLastShareWith(string $user, ?TableNode $body): void {
 		$response = $this->updateLastShareWithSettings($user, $body);
 		$this->theHTTPStatusCodeShouldBeBetween(200, 299, $response);
@@ -803,10 +806,10 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then no files or folders should be included in the response
 	 *
 	 * @return void
 	 */
+	#[Then('no files or folders should be included in the response')]
 	public function checkNoFilesFoldersInResponse(): void {
 		$data = HttpRequestHelper::getResponseXml($this->response, __METHOD__)->data[0];
 		Assert::assertIsObject($data, __METHOD__ . " data not found in response XML");
@@ -814,12 +817,12 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then exactly :count file/files or folder/folders should be included in the response
 	 *
 	 * @param string $count
 	 *
 	 * @return void
 	 */
+	#[Then('exactly :count file/files or folder/folders should be included in the response')]
 	public function checkCountFilesFoldersInResponse(string $count): void {
 		$count = (int) $count;
 		$data = HttpRequestHelper::getResponseXml($this->response, __METHOD__)->data[0];
@@ -828,13 +831,13 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then /^(?:file|folder|entry) "([^"]*)" should be included in the response$/
 	 *
 	 * @param string $filename
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^(?:file|folder|entry) "([^"]*)" should be included in the response$/')]
 	public function checkSharedFileInResponse(string $filename): void {
 		$filename = "/" . \ltrim($filename, '/');
 		Assert::assertTrue(
@@ -844,13 +847,13 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then /^(?:file|folder|entry) "([^"]*)" should not be included in the response$/
 	 *
 	 * @param string $filename
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^(?:file|folder|entry) "([^"]*)" should not be included in the response$/')]
 	public function checkSharedFileNotInResponse(string $filename): void {
 		$filename = "/" . \ltrim($filename, '/');
 		Assert::assertFalse(
@@ -860,13 +863,13 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then /^(?:file|folder|entry) "([^"]*)" should be included as path in the response$/
 	 *
 	 * @param string $filename
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^(?:file|folder|entry) "([^"]*)" should be included as path in the response$/')]
 	public function checkSharedFileAsPathInResponse(string $filename): void {
 		$filename = "/" . \ltrim($filename, '/');
 		Assert::assertTrue(
@@ -876,13 +879,13 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then /^(?:file|folder|entry) "([^"]*)" should not be included as path in the response$/
 	 *
 	 * @param string $filename
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^(?:file|folder|entry) "([^"]*)" should not be included as path in the response$/')]
 	public function checkSharedFileAsPathNotInResponse(string $filename): void {
 		$filename = "/" . \ltrim($filename, '/');
 		Assert::assertFalse(
@@ -892,7 +895,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then /^(user|group) "([^"]*)" should be included in the response$/
 	 *
 	 * @param string $type
 	 * @param string $user
@@ -900,6 +902,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^(user|group) "([^"]*)" should be included in the response$/')]
 	public function checkSharedUserOrGroupInResponse(string $type, string $user): void {
 		if ($type === 'user') {
 			$user = $this->getActualUsername($user);
@@ -911,14 +914,14 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" should not be included in the response$/
-	 * @Then /^group "([^"]*)" should not be included in the response$/
 	 *
 	 * @param string $userOrGroup
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('user :userOrGroup should not be included in the response')]
+	#[Then('group :userOrGroup should not be included in the response')]
 	public function checkSharedUserOrGroupNotInResponse(string $userOrGroup): void {
 		Assert::assertFalse(
 			$this->isFieldInResponse('share_with', "$userOrGroup", false),
@@ -953,8 +956,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" shares (?:file|folder|entry) "([^"]*)" with user "([^"]*)"(?: with permissions (\d+))? using the sharing API$/
-	 * @When /^user "([^"]*)" shares (?:file|folder|entry) "([^"]*)" with user "([^"]*)" with permissions "([^"]*)" using the sharing API$/
 	 *
 	 * @param string $sharer
 	 * @param string $filepath
@@ -963,6 +964,8 @@ trait Sharing {
 	 *
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" shares (?:file|folder|entry) "([^"]*)" with user "([^"]*)"(?: with permissions (\\d+))? using the sharing API$/')]
+	#[When('/^user "([^"]*)" shares (?:file|folder|entry) "([^"]*)" with user "([^"]*)" with permissions "([^"]*)" using the sharing API$/')]
 	public function userSharesFileWithUserUsingTheSharingApi(
 		string $sharer,
 		string $filepath,
@@ -980,8 +983,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" shares the following (?:files|folders|entries) with user "([^"]*)"(?: with permissions (\d+))? using the sharing API$/
-	 * @When /^user "([^"]*)" shares the following (?:files|folders|entries) with user "([^"]*)" with permissions "([^"]*)" using the sharing API$/
 	 *
 	 * @param string $sharer
 	 * @param string $sharee
@@ -991,6 +992,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" shares the following (?:files|folders|entries) with user "([^"]*)" using the sharing API$/')]
 	public function userSharesTheFollowingFilesWithUserUsingTheSharingApi(
 		string $sharer,
 		string $sharee,
@@ -1010,31 +1012,6 @@ trait Sharing {
 			$this->setResponse($response);
 			$this->pushToLastStatusCodesArrays();
 		}
-	}
-
-	/**
-	 * @When /^the user shares (?:file|folder|entry) "([^"]*)" with user "([^"]*)"(?: with permissions (\d+))? using the sharing API$/
-	 * @When /^the user shares (?:file|folder|entry) "([^"]*)" with user "([^"]*)" with permissions "([^"]*)" using the sharing API$/
-	 *
-	 * @param string $filepath
-	 * @param string $user2
-	 * @param string|int|string[]|int[] $permissions
-	 *
-	 * @return void
-	 */
-	public function theUserSharesFileWithUserUsingTheSharingApi(
-		string $filepath,
-		string $user2,
-		$permissions = null
-	) {
-		$response = $this->createAUserShare(
-			$this->getCurrentUser(),
-			$filepath["path"],
-			$this->getActualUsername($user2),
-			$permissions
-		);
-		$this->setResponse($response);
-		$this->pushToLastStatusCodesArrays();
 	}
 
 	/**
@@ -1064,8 +1041,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" shares (?:file|folder|entry) "([^"]*)" with group "([^"]*)" with permissions "([^"]*)" using the sharing API$/
-	 * @When /^user "([^"]*)" shares (?:file|folder|entry) "([^"]*)" with group "([^"]*)"(?: with permissions (\d+))? using the sharing API$/
 	 *
 	 * @param string $user
 	 * @param string $filepath
@@ -1074,6 +1049,8 @@ trait Sharing {
 	 *
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" shares (?:file|folder|entry) "([^"]*)" with group "([^"]*)" with permissions "([^"]*)" using the sharing API$/')]
+	#[When('/^user "([^"]*)" shares (?:file|folder|entry) "([^"]*)" with group "([^"]*)"(?: with permissions (\\d+))? using the sharing API$/')]
 	public function userSharesFileWithGroupUsingTheSharingApi(
 		string $user,
 		string $filepath,
@@ -1091,8 +1068,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" shares the following (?:files|folders|entries) with group "([^"]*)"(?: with permissions (\d+))? using the sharing API$/
-	 * @When /^user "([^"]*)" shares the following (?:files|folders|entries) with group "([^"]*)" with permissions "([^"]*)" using the sharing API$/
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -1102,6 +1077,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" shares the following (?:files|folders|entries) with group "([^"]*)" using the sharing API$/')]
 	public function userSharesTheFollowingFilesWithGroupUsingTheSharingApi(
 		string $user,
 		string $group,
@@ -1124,8 +1100,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" should not be able to share (?:file|folder|entry) "([^"]*)" with (user|group) "([^"]*)"(?: with permissions (\d+))? using the sharing API$/
-	 * @Then /^user "([^"]*)" should not be able to share (?:file|folder|entry) "([^"]*)" with (user|group) "([^"]*)" with permissions "([^"]*)" using the sharing API$/
 	 *
 	 * @param string $sharer
 	 * @param string $filepath
@@ -1136,6 +1110,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^user "([^"]*)" should not be able to share (?:file|folder|entry) "([^"]*)" with (user|group) "([^"]*)" with permissions "([^"]*)" using the sharing API$/')]
 	public function userTriesToShareFileUsingTheSharingApi(
 		string $sharer,
 		string $filepath,
@@ -1161,8 +1136,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" should be able to share (?:file|folder|entry) "([^"]*)" with (user|group) "([^"]*)"(?: with permissions (\d+))? using the sharing API$/
-	 * @Then /^user "([^"]*)" should be able to share (?:file|folder|entry) "([^"]*)" with (user|group) "([^"]*)" with permissions "([^"]*)" using the sharing API$/
 	 *
 	 * @param string $sharer
 	 * @param string $filepath
@@ -1173,6 +1146,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^user "([^"]*)" should be able to share (?:file|folder|entry) "([^"]*)" with (user|group) "([^"]*)" with permissions "([^"]*)" using the sharing API$/')]
 	public function userShouldBeAbleToShareUsingTheSharingApi(
 		string $sharer,
 		string $filepath,
@@ -1238,41 +1212,29 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" deletes the last share using the sharing API$/
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[When('user :user deletes the last share using the sharing API')]
 	public function userDeletesLastShareUsingTheSharingApi(string $user): void {
 		$this->setResponse($this->deleteLastShareUsingSharingApi($user));
 		$this->pushToLastStatusCodesArrays();
 	}
 
 	/**
-	 * @When /^user "([^"]*)" deletes the last share of user "([^"]*)" using the sharing API$/
-	 * @When /^user "([^"]*)" tries to delete the last share of user "([^"]*)" using the sharing API$/
 	 *
 	 * @param string $user
 	 * @param string $sharer
 	 *
 	 * @return void
 	 */
+	#[When('user :user deletes the last share of user :sharer using the sharing API')]
+	#[When('user :user tries to delete the last share of user :sharer using the sharing API')]
 	public function userDeletesLastShareOfUserUsingTheSharingApi(string $user, string $sharer): void {
 		$this->setResponse($this->deleteLastShareUsingSharingApi($user, $sharer));
 		$this->pushToLastStatusCodesArrays();
-	}
-
-	/**
-	 * @Given /^user "([^"]*)" has deleted the last share$/
-	 *
-	 * @param string $user
-	 *
-	 * @return void
-	 */
-	public function userHasDeletedLastShareUsingTheSharingApi(string $user): void {
-		$response = $this->deleteLastShareUsingSharingApi($user);
-		$this->theHTTPStatusCodeShouldBeBetween(200, 299, $response);
 	}
 
 	/**
@@ -1300,13 +1262,13 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" gets the info of the last share using the sharing API$/
 	 *
 	 * @param string $user username that requests the information (might not be the user that has initiated the share)
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user gets the info of the last share using the sharing API')]
 	public function userGetsInfoOfLastShareUsingTheSharingApi(string $user): void {
 		$response = $this->getLastShareInfo($user, "user");
 		$this->setResponse($response);
@@ -1314,13 +1276,13 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" gets the info of the last public link share using the sharing API$/
 	 *
 	 * @param string $user username that requests the information (might not be the user that has initiated the share)
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user gets the info of the last public link share using the sharing API')]
 	public function userGetsInfoOfLastPublicLinkShareUsingTheSharingApi(string $user): void {
 		$response = $this->getLastShareInfo($user, "link");
 		$this->setResponse($response);
@@ -1328,7 +1290,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then /^as "([^"]*)" the info about the last share by user "([^"]*)" with user "([^"]*)" should include$/
 	 *
 	 * @param string $requester
 	 * @param string $sharer
@@ -1338,6 +1299,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('as :requester the info about the last share by user :sharer with user :sharee should include')]
 	public function asLastShareInfoAboutUserSharingWithUserShouldInclude(
 		string    $requester,
 		string    $sharer,
@@ -1392,18 +1354,17 @@ trait Sharing {
 	}
 
 	/**
-	 * @When user :user gets all the shares shared with him/her using the sharing API
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[When('user :user gets all the shares shared with him/her using the sharing API')]
 	public function userGetsAllTheSharesSharedWithHimUsingTheSharingApi(string $user): void {
 		$this->setResponse($this->getSharedWithMeShares($user));
 	}
 
 	/**
-	 * @Then as user :user the last share should include the following properties:
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -1411,6 +1372,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('as user :user the last share should include the following properties:')]
 	public function userGetsTheLastShareSharedWithHimUsingTheSharingApi(string $user, TableNode $table): void {
 		$user = $this->getActualUsername($user);
 		$this->verifyTableNodeRows($table, [], $this->shareResponseFields);
@@ -1436,7 +1398,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" gets the (|pending)\s?(user|group|user and group|public link) shares shared with (?:him|her) using the sharing API$/
 	 *
 	 * @param string $user
 	 * @param string $pending
@@ -1444,6 +1405,7 @@ trait Sharing {
 	 *
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" gets the (|pending)\\s?(user|group|user and group|public link) shares shared with (?:him|her) using the sharing API$/')]
 	public function userGetsFilteredSharesSharedWithHimUsingTheSharingApi(
 		string $user,
 		string $pending,
@@ -1474,13 +1436,13 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" gets all the shares shared with (?:him|her|them) that are received as (?:file|folder|entry) "([^"]*)" using the provisioning API$/
 	 *
 	 * @param string $user
 	 * @param string $path
 	 *
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" gets all the shares shared with (?:him|her|them) that are received as (?:file|folder|entry) "([^"]*)" using the provisioning API$/')]
 	public function userGetsAllSharesSharedWithHimFromFileOrFolderUsingTheProvisioningApi(
 		string $user,
 		string $path
@@ -1522,33 +1484,33 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" gets all shares shared by (?:him|her) using the sharing API$/
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" gets all shares shared by (?:him|her) using the sharing API$/')]
 	public function userGetsAllSharesSharedByHimUsingTheSharingApi(string $user): void {
 		$this->setResponse($this->getAllshares($user));
 	}
 
 	/**
-	 * @When /^the administrator gets all shares shared by (?:him|her) using the sharing API$/
 	 *
 	 * @return void
 	 */
+	#[When('/^the administrator gets all shares shared by (?:him|her) using the sharing API$/')]
 	public function theAdministratorGetsAllSharesSharedByHimUsingTheSharingApi(): void {
 		$this->setResponse($this->getAllShares($this->getAdminUsername()));
 	}
 
 	/**
-	 * @When /^user "([^"]*)" gets the (user|group|user and group|public link) shares shared by (?:him|her) using the sharing API$/
 	 *
 	 * @param string $user
 	 * @param string $shareType
 	 *
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" gets the (user|group|user and group|public link) shares shared by (?:him|her) using the sharing API$/')]
 	public function userGetsFilteredSharesSharedByHimUsingTheSharingApi(string $user, string $shareType): void {
 		if ($shareType === 'public link') {
 			$shareType = 'public_link';
@@ -1562,23 +1524,23 @@ trait Sharing {
 	}
 
 	/**
-	 * @When user :user gets all the shares of the file :path using the sharing API
 	 *
 	 * @param string $user
 	 * @param string $path
 	 *
 	 * @return void
 	 */
+	#[When('user :user gets all the shares of the file :path using the sharing API')]
 	public function userGetsAllTheSharesFromTheFileUsingTheSharingApi(string $user, string $path): void {
 		$this->setResponse($this->getAllShares($user, "?path=$path"));
 	}
 
 	/**
-	 * @Then /^the last share_id should be included in the response/
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^the last share_id should be included in the response/')]
 	public function checkingLastShareIDIsIncluded(): void {
 		$shareId = ($this->isUsingSharingNG())
 		? $this->shareNgGetLastCreatedUserGroupShareID() : $this->getLastCreatedUserGroupShareId();
@@ -1590,11 +1552,11 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then /^the last share id should not be included in the response/
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^the last share id should not be included in the response/')]
 	public function checkLastShareIDIsNotIncluded(): void {
 		$shareId = $this->isUsingSharingNG()
 		? $this->shareNgGetLastCreatedUserGroupShareID() : $this->getLastCreatedUserGroupShareId();
@@ -1636,13 +1598,13 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then user :user should not see the share id of the last share
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('user :user should not see the share id of the last share')]
 	public function userShouldNotSeeShareIdOfLastShare(string $user): void {
 		$response = $this->getSharedWithMeShares($user);
 		$this->theHTTPStatusCodeShouldBe(200, "", $response);
@@ -1656,12 +1618,12 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then user :user should not have any received shares
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[Then('user :user should not have any received shares')]
 	public function userShouldNotHaveAnyReceivedShares(string $user): void {
 		$response = $this->getSharedWithMeShares($user);
 		$this->theHTTPStatusCodeShouldBe(200, "", $response);
@@ -1669,12 +1631,12 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then /^the response should contain ([0-9]+) entries$/
 	 *
 	 * @param int $count
 	 *
 	 * @return void
 	 */
+	#[Then('/^the response should contain ([0-9]+) entries$/')]
 	public function checkingTheResponseEntriesCount(int $count): void {
 		$actualCount = \count(HttpRequestHelper::getResponseXml($this->response, __METHOD__)->data[0]);
 		Assert::assertEquals(
@@ -1685,7 +1647,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then the fields of the last response to user :user should include
 	 *
 	 * @param string $user
 	 * @param TableNode|null $body
@@ -1693,6 +1654,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the fields of the last response to user :user should include')]
 	public function checkFields(string $user, ?TableNode $body): void {
 		$this->checkTheFields($user, $body);
 	}
@@ -1734,7 +1696,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then the fields of the last response to user :user and space :space should include
 	 *
 	 * @param string $user
 	 * @param string $space
@@ -1743,6 +1704,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the fields of the last response to user :user and space :space should include')]
 	public function checkFieldsOfSpaceSharingResponse(string $user, string $space, ?TableNode $body): void {
 		$this->verifyTableNodeColumnsCount($body, 2);
 
@@ -1798,7 +1760,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then /^the fields of the last response (?:to|about) user "([^"]*)" sharing with (?:user|group) "([^"]*)" should include$/
 	 *
 	 * @param string $sharer
 	 * @param string $sharee
@@ -1807,6 +1768,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^the fields of the last response (?:to|about) user "([^"]*)" sharing with (?:user|group) "([^"]*)" should include$/')]
 	public function checkFieldsOfLastResponseToUser(string $sharer, string $sharee, ?TableNode $body): void {
 		$this->checkTheFieldsOfLastResponseToUser($sharer, $sharee, $body);
 	}
@@ -1875,13 +1837,13 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then the fields of the last response should not include
 	 *
 	 * @param TableNode|null $body
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the fields of the last response should not include')]
 	public function checkFieldsNotInResponse(?TableNode $body): void {
 		$this->verifyTableNodeColumnsCount($body, 2);
 		$bodyRows = $body->getRowsHash();
@@ -1925,7 +1887,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then /^as user "([^"]*)" the public shares of (?:file|folder) "([^"]*)" should be$/
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -1934,6 +1895,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^as user "([^"]*)" the public shares of (?:file|folder) "([^"]*)" should be$/')]
 	public function checkPublicShares(string $user, string $path, ?TableNode $TableNode): void {
 		$user = $this->getActualUsername($user);
 		$response = $this->getShares($user, $path);
@@ -1975,7 +1937,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then /^as user "([^"]*)" the (?:file|folder) "([^"]*)" should not have any shares$/
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -1983,6 +1944,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^as user "([^"]*)" the (?:file|folder) "([^"]*)" should not have any shares$/')]
 	public function checkPublicSharesAreEmpty(string $user, string $path): void {
 		$user = $this->getActualUsername($user);
 		$response = $this->getShares($user, $path);
@@ -2037,7 +1999,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" deletes public link share named "([^"]*)" in (?:file|folder) "([^"]*)" using the sharing API$/
 	 *
 	 * @param string $user
 	 * @param string $name
@@ -2045,6 +2006,7 @@ trait Sharing {
 	 *
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" deletes public link share named "([^"]*)" in (?:file|folder) "([^"]*)" using the sharing API$/')]
 	public function userDeletesPublicLinkShareNamedUsingTheSharingApi(
 		string $user,
 		string $name,
@@ -2124,7 +2086,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" (declines|accepts) share "([^"]*)" offered by user "([^"]*)" using the sharing API$/
 	 *
 	 * @param string $user
 	 * @param string $action
@@ -2135,6 +2096,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" (declines|accepts) share "([^"]*)" offered by user "([^"]*)" using the sharing API$/')]
 	public function userReactsToShareOfferedBy(
 		string $user,
 		string $action,
@@ -2153,7 +2115,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" (declines|accepts) the already (?:accepted|declined) share "([^"]*)" offered by user "([^"]*)" using the sharing API$/
 	 *
 	 * @param string $user
 	 * @param string $action
@@ -2164,6 +2125,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" (declines|accepts) the already (?:accepted|declined) share "([^"]*)" offered by user "([^"]*)" using the sharing API$/')]
 	public function userAcceptsTheAlreadyAcceptedShareOfferedByUsingTheSharingApi(
 		string $user,
 		string $action,
@@ -2182,7 +2144,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" (declines|accepts) the following shares offered by user "([^"]*)" using the sharing API$/
 	 *
 	 * @param string $user
 	 * @param string $action
@@ -2192,6 +2153,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" (declines|accepts) the following shares offered by user "([^"]*)" using the sharing API$/')]
 	public function userReactsToTheFollowingSharesOfferedBy(
 		string $user,
 		string $action,
@@ -2215,7 +2177,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" (declines|accepts) share with ID "([^"]*)" using the sharing API$/
 	 *
 	 * @param string $user
 	 * @param string $action
@@ -2224,6 +2185,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" (declines|accepts) share with ID "([^"]*)" using the sharing API$/')]
 	public function userReactsToShareWithShareIDOfferedBy(string $user, string $action, string $share_id): void {
 		$user = $this->getActualUsername($user);
 
@@ -2247,7 +2209,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has (declined|accepted) share "([^"]*)" offered by user "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $action
@@ -2257,6 +2218,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('/^user "([^"]*)" has (declined|accepted) share "([^"]*)" offered by user "([^"]*)"$/')]
 	public function userHasReactedToShareOfferedBy(
 		string $user,
 		string $action,
@@ -2284,7 +2246,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" should be able to (decline|accept) pending share "([^"]*)" offered by user "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $action
@@ -2294,6 +2255,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^user "([^"]*)" should be able to (decline|accept) pending share "([^"]*)" offered by user "([^"]*)"$/')]
 	public function userShouldBeAbleToAcceptShareOfferedBy(
 		string $user,
 		string $action,
@@ -2321,7 +2283,6 @@ trait Sharing {
 
 	/**
 	 *
-	 * @Then /^the sharing API should report to user "([^"]*)" that these shares are in the (pending|accepted|declined) state$/
 	 *
 	 * @param string $user
 	 * @param string $state
@@ -2331,6 +2292,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^the sharing API should report to user "([^"]*)" that these shares are in the (pending|accepted|declined) state$/')]
 	public function assertSharesOfUserAreInState(string $user, string $state, TableNode $table): void {
 		$this->verifyTableNodeColumns($table, ["path"], $this->shareResponseFields);
 		$usersShares = $this->getAllSharesSharedWithUser($user, $state);
@@ -2359,7 +2321,6 @@ trait Sharing {
 
 	/**
 	 *
-	 * @Then /^the sharing API should report to user "([^"]*)" that no shares are in the (pending|accepted|declined) state$/
 	 *
 	 * @param string $user
 	 * @param string $state
@@ -2367,6 +2328,7 @@ trait Sharing {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^the sharing API should report to user "([^"]*)" that no shares are in the (pending|accepted|declined) state$/')]
 	public function assertNoSharesOfUserAreInState(string $user, string $state): void {
 		$usersShares = $this->getAllSharesSharedWithUser($user, $state);
 		Assert::assertEmpty(
@@ -2407,7 +2369,6 @@ trait Sharing {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" unshares (?:folder|file|entity) "([^"]*)" shared to "([^"]*)"$/
 	 *
 	 * @param string $sharer
 	 * @param string $path
@@ -2416,19 +2377,20 @@ trait Sharing {
 	 * @return void
 	 * @throws JsonException
 	 */
+	#[When('/^user "([^"]*)" unshares (?:folder|file|entity) "([^"]*)" shared to "([^"]*)"$/')]
 	public function userUnsharesResourceSharedTo(string $sharer, string $path, string $sharee): void {
 		$response = $this->unshareResourceSharedTo($sharer, $path, $sharee);
 		$this->setResponse($response);
 	}
 
 	/**
-	 * @Then the sharing API should report that no shares are shared with user :user
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the sharing API should report that no shares are shared with user :user')]
 	public function assertThatNoSharesAreSharedWithUser(string $user): void {
 		$usersShares = $this->getAllSharesSharedWithUser($user);
 		Assert::assertEmpty(
@@ -2438,13 +2400,13 @@ trait Sharing {
 	}
 
 	/**
-	 * @When user :user gets share with id :share using the sharing API
 	 *
 	 * @param string $user
 	 * @param string $share_id
 	 *
 	 * @return ResponseInterface|null
 	 */
+	#[When('user :user gets share with id :share using the sharing API')]
 	public function userGetsTheLastShareWithTheShareIdUsingTheSharingApi(
 		string $user,
 		string $share_id
@@ -2530,12 +2492,12 @@ trait Sharing {
 	}
 
 	/**
-	 * @When the public accesses the preview of file :path from the last shared public link using the sharing API
 	 *
 	 * @param string $path
 	 *
 	 * @return void
 	 */
+	#[When('the public accesses the preview of file :path from the last shared public link using the sharing API')]
 	public function thePublicAccessesThePreviewOfTheSharedFileUsingTheSharingApi(string $path): void {
 		$token = ($this->isUsingSharingNG())
 		? $this->shareNgGetLastCreatedLinkShareToken() : $this->getLastCreatedPublicShareToken();
@@ -2545,13 +2507,13 @@ trait Sharing {
 	}
 
 	/**
-	 * @When the public accesses the preview of the following files from the last shared public link using the sharing API
 	 *
 	 * @param TableNode $table
 	 *
 	 * @throws Exception
 	 * @return void
 	 */
+	#[When('the public accesses the preview of the following files from the last shared public link using the sharing API')]
 	public function thePublicAccessesThePreviewOfTheFollowingSharedFileUsingTheSharingApi(
 		TableNode $table
 	): void {

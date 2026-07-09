@@ -32,6 +32,9 @@ use TestHelpers\WebDavHelper;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\Asserts\WebDav as WebDavAssert;
 use TestHelpers\GraphHelper;
+use Behat\Step\Given;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 /**
  * WebDav functions
@@ -179,12 +182,12 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given /^using (old|new|spaces) DAV path$/
 	 *
 	 * @param string $davChoice
 	 *
 	 * @return void
 	 */
+	#[Given('/^using (old|new|spaces) DAV path$/')]
 	public function usingOldOrNewOrSpacesDavPath(string $davChoice): void {
 		switch ($davChoice) {
 			case 'old':
@@ -415,13 +418,13 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the number of versions should be :arg1
 	 *
 	 * @param int $number
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the number of versions should be :arg1')]
 	public function theNumberOfVersionsShouldBe(int $number): void {
 		$responseXmlObject = HttpRequestHelper::getResponseXml($this->getResponse(), __METHOD__);
 		$xmlPart = $responseXmlObject->xpath("//d:getlastmodified");
@@ -434,13 +437,13 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the number of etag elements in the response should be :number
 	 *
 	 * @param int $number
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the number of etag elements in the response should be :number')]
 	public function theNumberOfEtagElementInTheResponseShouldBe(int $number): void {
 		$responseXmlObject = HttpRequestHelper::getResponseXml($this->getResponse());
 		$xmlPart = $responseXmlObject->xpath("//d:getetag");
@@ -482,7 +485,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has moved (?:file|folder|entry) "([^"]*)" to "([^"]*)"$/
 	 *
 	 * @param string|null $user
 	 * @param string|null $fileSource
@@ -490,6 +492,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[Given('/^user "([^"]*)" has moved (?:file|folder|entry) "([^"]*)" to "([^"]*)"$/')]
 	public function userHasMovedFile(
 		?string $user,
 		?string $fileSource,
@@ -527,8 +530,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user moves file :source to :destination using the WebDAV API
-	 * @When user :user moves folder :source to :destination using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -538,6 +539,8 @@ trait WebDav {
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
+	#[When('user :user moves file :source to :destination using the WebDAV API')]
+	#[When('user :user moves folder :source to :destination using the WebDAV API')]
 	public function userMovesFileOrFolderUsingTheWebDavAPI(
 		string $user,
 		string $source,
@@ -549,7 +552,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user moves the following file using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -557,6 +559,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user moves the following file using the WebDAV API')]
 	public function userMovesTheFollowingFileUsingTheWebdavApi(string $user, TableNode $table): void {
 		$this->verifyTableNodeColumns($table, ["source",  "destination"]);
 		$rows = $table->getHash();
@@ -570,7 +573,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" moves the following (?:files|folders|entries)\s?(asynchronously|) using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $type "asynchronously" or empty
@@ -579,6 +581,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" moves the following (?:files|folders|entries)\\s?(asynchronously|) using the WebDAV API$/')]
 	public function userMovesFollowingFileUsingTheAPI(
 		string $user,
 		string $type,
@@ -596,7 +599,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" should be able to rename (file|folder|entry) "([^"]*)" to "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $entry
@@ -606,6 +608,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^user "([^"]*)" should be able to rename (file|folder|entry) "([^"]*)" to "([^"]*)"$/')]
 	public function theUserShouldBeAbleToRenameEntryTo(
 		string $user,
 		string $entry,
@@ -621,7 +624,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" should not be able to rename (file|folder|entry) "([^"]*)" to "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $entry
@@ -631,6 +633,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^user "([^"]*)" should not be able to rename (file|folder|entry) "([^"]*)" to "([^"]*)"$/')]
 	public function theUserShouldNotBeAbleToRenameEntryTo(
 		string $user,
 		string $entry,
@@ -670,7 +673,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" copies (?:file|folder) "([^"]*)" to "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $fileSource
@@ -678,6 +680,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" copies (?:file|folder) "([^"]*)" to "([^"]*)" using the WebDAV API$/')]
 	public function userCopiesFileUsingTheAPI(
 		string $user,
 		string $fileSource,
@@ -689,7 +692,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has copied (?:file|folder) "([^"]*)" to "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $fileSource
@@ -697,6 +699,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[Given('/^user "([^"]*)" has copied (?:file|folder) "([^"]*)" to "([^"]*)"$/')]
 	public function userHasCopiedFileUsingTheAPI(
 		string $user,
 		string $fileSource,
@@ -730,7 +733,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" downloads file "([^"]*)" with range "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $fileSource
@@ -738,56 +740,24 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[When('user :user downloads file :fileSource with range :range using the WebDAV API')]
 	public function userDownloadsFileWithRangeUsingWebDavApi(string $user, string $fileSource, string $range): void {
 		$this->setResponse($this->downloadFileWithRange($user, $fileSource, $range));
 	}
 
 	/**
-	 * @When the user waits for :time seconds for postprocessing to finish
-	 * @When the user waits for :time seconds
 	 *
 	 * @param int $time
 	 *
 	 * @return void
 	 */
+	#[When('the user waits for :time seconds for postprocessing to finish')]
+	#[When('the user waits for :time seconds')]
 	public function waitForCertainSeconds(int $time): void {
 		\sleep($time);
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" using password "([^"]*)" should not be able to download file "([^"]*)"$/
-	 *
-	 * @param string $user
-	 * @param string $password
-	 * @param string $fileName
-	 *
-	 * @return void
-	 */
-	public function userUsingPasswordShouldNotBeAbleToDownloadFile(
-		string $user,
-		string $password,
-		string $fileName
-	): void {
-		$user = $this->getActualUsername($user);
-		$password = $this->getActualPassword($password);
-		$response = $this->downloadFileAsUserUsingPassword($user, $fileName, $password);
-		Assert::assertGreaterThanOrEqual(
-			400,
-			$response->getStatusCode(),
-			__METHOD__
-			. ' download must fail'
-		);
-		Assert::assertLessThanOrEqual(
-			499,
-			$response->getStatusCode(),
-			__METHOD__
-			. ' 4xx error expected but got status code "'
-			. $response->getStatusCode() . '"'
-		);
-	}
-
-	/**
-	 * @Then /^user "([^"]*)" should not be able to download file "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $fileName
@@ -795,6 +765,7 @@ trait WebDav {
 	 * @return void
 	 * @throws JsonException
 	 */
+	#[Then('user :user should not be able to download file :fileName')]
 	public function userShouldNotBeAbleToDownloadFile(
 		string $user,
 		string $fileName
@@ -806,24 +777,24 @@ trait WebDav {
 			400,
 			$response->getStatusCode(),
 			__METHOD__
-			. ' download must fail'
+			. '  download must fail'
 		);
 		Assert::assertLessThanOrEqual(
 			499,
 			$response->getStatusCode(),
 			__METHOD__
-			. ' 4xx error expected but got status code "'
+			. '  4xx error expected but got status code "'
 			. $response->getStatusCode() . '"'
 		);
 	}
 
 	/**
-	 * @Then the size of the downloaded file should be :size bytes
 	 *
 	 * @param string $size
 	 *
 	 * @return void
 	 */
+	#[Then('the size of the downloaded file should be :size bytes')]
 	public function sizeOfDownloadedFileShouldBe(string $size): void {
 		$actualSize = \strlen((string) $this->response->getBody());
 		Assert::assertEquals(
@@ -834,12 +805,12 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^the downloaded content should end with "([^"]*)"$/
 	 *
 	 * @param string $content
 	 *
 	 * @return void
 	 */
+	#[Then('the downloaded content should end with :content')]
 	public function downloadedContentShouldEndWith(string $content): void {
 		$actualContent = \substr((string) $this->response->getBody(), -\strlen($content));
 		Assert::assertEquals(
@@ -850,12 +821,12 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^the downloaded content should be "([^"]*)"$/
 	 *
 	 * @param string $content
 	 *
 	 * @return void
 	 */
+	#[Then('the downloaded content should be :content')]
 	public function downloadedContentShouldBe(string $content): void {
 		$this->checkDownloadedContentMatches($content, '', $this->getResponse());
 	}
@@ -891,23 +862,23 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the content in the response should match the following content:
 	 *
 	 * @param PyStringNode $content
 	 *
 	 * @return void
 	 */
+	#[Then('the content in the response should match the following content:')]
 	public function theContentInTheResponseShouldMatchTheFollowingContent(PyStringNode $content): void {
 		$this->checkDownloadedContentMatches($content->getRaw(), '', $this->getResponse());
 	}
 
 	/**
-	 * @Then the content in the response should include the following content:
 	 *
 	 * @param PyStringNode $content
 	 *
 	 * @return void
 	 */
+	#[Then('the content in the response should include the following content:')]
 	public function theContentInTheResponseShouldIncludeTheFollowingContent(PyStringNode $content): void {
 		Assert::assertStringContainsString(
 			$content->getRaw(),
@@ -916,7 +887,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^if the HTTP status code was "([^"]*)" then the downloaded content for multipart byterange should be:$/
 	 *
 	 * @param int $statusCode
 	 * @param PyStringNode $content
@@ -924,6 +894,7 @@ trait WebDav {
 	 * @return void
 	 *
 	 */
+	#[Then('if the HTTP status code was :statusCode then the downloaded content for multipart byterange should be:')]
 	public function theDownloadedContentForMultipartByteRangeShouldBe(int $statusCode, PyStringNode $content): void {
 		$actualStatusCode = $this->response->getStatusCode();
 		if ($actualStatusCode === $statusCode) {
@@ -941,13 +912,13 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^if the HTTP status code was "([^"]*)" then the downloaded content should be "([^"]*)"$/
 	 *
 	 * @param int $statusCode
 	 * @param string $content
 	 *
 	 * @return void
 	 */
+	#[Then('if the HTTP status code was :statusCode then the downloaded content should be :content')]
 	public function checkStatusCodeForDownloadedContentShouldBe(int $statusCode, string $content): void {
 		$actualStatusCode = $this->response->getStatusCode();
 		if ($actualStatusCode === $statusCode) {
@@ -956,7 +927,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the content of file :fileName for user :user should be :content
 	 *
 	 * @param string $fileName
 	 * @param string $user
@@ -964,6 +934,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[Then('the content of file :fileName for user :user should be :content')]
 	public function contentOfFileForUserShouldBe(string $fileName, string $user, string $content): void {
 		$response = $this->downloadFileAsUserUsingPassword($this->getActualUsername($user), $fileName);
 		$actualStatus = $response->getStatusCode();
@@ -1018,7 +989,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then as :user the final content of file :fileName should be :content
 	 *
 	 * @param string $user
 	 * @param string $fileName
@@ -1026,12 +996,12 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[Then('as :user the final content of file :fileName should be :content')]
 	public function asUserFinalContentOfFileShouldBe(string $user, string $fileName, string $content): void {
 		$this->checkFileContentWithRetry($user, $fileName, $content);
 	}
 
 	/**
-	 * @Then /^the content of the following files for user "([^"]*)" should be "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $content
@@ -1040,6 +1010,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the content of the following files for user :user should be :content')]
 	public function contentOfFollowingFilesShouldBe(string $user, string $content, TableNode $table): void {
 		$this->verifyTableNodeColumns($table, ["path"]);
 		$paths = $table->getHash();
@@ -1058,7 +1029,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^the content of file "([^"]*)" for user "([^"]*)" using password "([^"]*)" should be "([^"]*)"$/
 	 *
 	 * @param string $fileName
 	 * @param string $user
@@ -1067,6 +1037,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[Then('the content of file :fileName for user :user using password :password should be :content')]
 	public function contentOfFileForUserUsingPasswordShouldBe(
 		string $fileName,
 		string $user,
@@ -1080,7 +1051,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^the content of file "([^"]*)" for user "([^"]*)" should be:$/
 	 *
 	 * @param string $fileName
 	 * @param string $user
@@ -1088,6 +1058,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[Then('the content of file :fileName for user :user should be:')]
 	public function contentOfFileForUserShouldBePyString(
 		string $fileName,
 		string $user,
@@ -1105,14 +1076,14 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user downloads file :fileName using the WebDAV API
-	 * @When user :user tries to download file :fileName using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $fileName
 	 *
 	 * @return void
 	 */
+	#[When('user :user downloads file :fileName using the WebDAV API')]
+	#[When('user :user tries to download file :fileName using the WebDAV API')]
 	public function userDownloadsFileUsingTheAPI(
 		string $user,
 		string $fileName
@@ -1153,11 +1124,11 @@ trait WebDav {
 	}
 
 	/**
-	 * @When the public gets the size of the last shared public link using the WebDAV API
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('the public gets the size of the last shared public link using the WebDAV API')]
 	public function publicGetsSizeOfLastSharedPublicLinkUsingTheWebdavApi(): void {
 		$token = ($this->isUsingSharingNG())
 		? $this->shareNgGetLastCreatedLinkShareToken() : $this->getLastCreatedPublicShareToken();
@@ -1171,7 +1142,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user gets the size of file :resource using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $resource
@@ -1179,6 +1149,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user gets the size of file :resource using the WebDAV API')]
 	public function userGetsSizeOfFileUsingTheWebdavApi(string $user, string $resource): void {
 		$user = $this->getActualUsername($user);
 		$password = $this->getPasswordForUser($user);
@@ -1197,13 +1168,13 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the size of the file should be :size
 	 *
 	 * @param string $size
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the size of the file should be :size')]
 	public function theSizeOfTheFileShouldBe(string $size): void {
 		$responseXmlObject = HttpRequestHelper::getResponseXml(
 			$this->response,
@@ -1220,7 +1191,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^the content of file "([^"]*)" for user "([^"]*)" should be "([^"]*)" plus end-of-line$/
 	 *
 	 * @param string $fileName
 	 * @param string $user
@@ -1228,6 +1198,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[Then('the content of file :fileName for user :user should be :content plus end-of-line')]
 	public function contentOfFileForUserShouldBePlusEndOfLine(string $fileName, string $user, string $content): void {
 		$user = $this->getActualUsername($user);
 		$response = $this->downloadFileAsUserUsingPassword($user, $fileName);
@@ -1241,13 +1212,13 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the following headers should be set
 	 *
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the following headers should be set')]
 	public function theFollowingHeadersShouldBeSet(TableNode $table): void {
 		$this->verifyTableNodeColumns(
 			$table,
@@ -1279,7 +1250,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then as :user :entry :path should not exist
 	 *
 	 * @param string $user
 	 * @param string $entry
@@ -1288,6 +1258,7 @@ trait WebDav {
 	 * @return ResponseInterface
 	 * @throws Exception
 	 */
+	#[Then('as :user :entry :path should not exist')]
 	public function asFileOrFolderShouldNotExist(
 		string $user,
 		string $entry,
@@ -1354,7 +1325,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^as "([^"]*)" the following (files|folders) should not exist$/
 	 *
 	 * @param string $user
 	 * @param string $entry
@@ -1363,6 +1333,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^as "([^"]*)" the following (files|folders) should not exist$/')]
 	public function followingFilesShouldNotExist(
 		string $user,
 		string $entry,
@@ -1378,7 +1349,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then as :user :entry :path should exist
 	 *
 	 * @param string $user
 	 * @param string $entry
@@ -1387,6 +1357,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('as :user :entry :path should exist')]
 	public function asFileOrFolderShouldExist(
 		string $user,
 		string $entry,
@@ -1436,7 +1407,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^as "([^"]*)" the following (files|folders) should exist$/
 	 *
 	 * @param string $user
 	 * @param string $entry
@@ -1445,6 +1415,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^as "([^"]*)" the following (files|folders) should exist$/')]
 	public function followingFilesOrFoldersShouldExist(
 		string $user,
 		string $entry,
@@ -1517,7 +1488,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" should (not|)\s?see the following elements$/
 	 *
 	 * @param string $user
 	 * @param string $shouldOrNot
@@ -1527,6 +1497,7 @@ trait WebDav {
 	 * @throws InvalidArgumentException|Exception
 	 *
 	 */
+	#[Then('/^user "([^"]*)" should (not|)\\s?see the following elements$/')]
 	public function userShouldSeeTheElements(string $user, string $shouldOrNot, TableNode $elements): void {
 		$should = ($shouldOrNot !== "not");
 		$this->checkElementList($user, $elements, $should);
@@ -1670,7 +1641,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user uploads file :source to :destination using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -1678,6 +1648,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[When('user :user uploads file :source to :destination using the WebDAV API')]
 	public function userUploadsAFileToUsingWebDavApi(
 		string $user,
 		string $source,
@@ -1691,7 +1662,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given user :user has uploaded file :source to :destination
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -1699,6 +1669,7 @@ trait WebDav {
 	 *
 	 * @return array
 	 */
+	#[Given('user :user has uploaded file :source to :destination')]
 	public function userHasUploadedAFileTo(string $user, string $source, string $destination): array {
 		$response = $this->uploadFile($user, $source, $destination, null, true);
 		$this->theHTTPStatusCodeShouldBe(
@@ -1789,7 +1760,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" uploads file "([^"]*)" to "([^"]*)" in (\d+) chunks using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -1799,6 +1769,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" uploads file "([^"]*)" to "([^"]*)" in (\\d+) chunks using the WebDAV API$/')]
 	public function userUploadsAFileToWithChunks(
 		string $user,
 		string $source,
@@ -1811,13 +1782,13 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the HTTP status code of responses on all endpoints should be :statusCode
 	 *
 	 * @param int $statusCode
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the HTTP status code of responses on all endpoints should be :statusCode')]
 	public function theHTTPStatusCodeOfResponsesOnAllEndpointsShouldBe(int $statusCode): void {
 		$duplicateRemovedStatusCodes = \array_unique($this->lastHttpStatusCodesArray);
 		if (\count($duplicateRemovedStatusCodes) === 1) {
@@ -1866,46 +1837,25 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the HTTP status code of responses on each endpoint should be :statusCodes respectively
 	 *
 	 * @param string $statusCodes a comma-separated string of expected HTTP status codes
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the HTTP status code of responses on each endpoint should be :statusCodes respectively')]
 	public function theHTTPStatusCodeOfResponsesOnEachEndpointShouldBe(string $statusCodes): void {
 		$this->checkTheHTTPStatusCodeOfResponsesOnEachEndpoint($statusCodes);
 	}
 
 	/**
-	 * @Then the HTTP status code of responses on each endpoint should be :ocStatusCodes on OpenCloud or :revaStatusCodes on reva
-	 *
-	 * @param string $ocStatusCodes a comma-separated string of expected HTTP status codes when running on OpenCloud
-	 * @param string $revaStatusCodes a comma-separated string of expected HTTP status codes when running on reva
-	 *
-	 * @return void
-	 * @throws Exception
-	 */
-	public function theHTTPStatusCodeOfResponsesOnEachEndpointShouldBeOcReva(
-		string $ocStatusCodes,
-		string $revaStatusCodes
-	): void {
-		if (OcHelper::isTestingOnReva()) {
-			$expectedStatusCodes = $revaStatusCodes;
-		} else {
-			$expectedStatusCodes = $ocStatusCodes;
-		}
-		$this->checkTheHTTPStatusCodeOfResponsesOnEachEndpoint($expectedStatusCodes);
-	}
-
-	/**
-	 * @Then the OCS status code of responses on each endpoint should be :statusCode respectively
 	 *
 	 * @param string $statusCodes
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the OCS status code of responses on each endpoint should be :statusCode respectively')]
 	public function theOCStatusCodeOfResponsesOnEachEndpointShouldBe(string $statusCodes): void {
 		$statusCodes = \explode(',', $statusCodes);
 		$count = \count($statusCodes);
@@ -1926,13 +1876,13 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the OCS status code of responses on all endpoints should be :statusCode
 	 *
 	 * @param string $statusCode
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the OCS status code of responses on all endpoints should be :statusCode')]
 	public function theOCSStatusCodeOfResponsesOnAllEndpointsShouldBe(string $statusCode): void {
 		$duplicateRemovedStatusCodes = \array_unique($this->lastOCSStatusCodesArray);
 		if (\count($duplicateRemovedStatusCodes) === 1) {
@@ -1951,7 +1901,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then user :user should be able to upload file :source to :destination
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -1960,6 +1909,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('user :user should be able to upload file :source to :destination')]
 	public function userShouldBeAbleToUploadFileTo(string $user, string $source, string $destination): void {
 		$user = $this->getActualUsername($user);
 		$response = $this->uploadFile($user, $source, $destination);
@@ -1972,7 +1922,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then user :user should not be able to upload file :source to :destination
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -1981,6 +1930,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('user :user should not be able to upload file :source to :destination')]
 	public function theUserShouldNotBeAbleToUploadFileTo(string $user, string $source, string $destination): void {
 		$fileAlreadyExists = $this->fileOrFolderExists($user, "file", $destination);
 		if ($fileAlreadyExists) {
@@ -2057,7 +2007,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given user :user has uploaded file :destination of size :bytes bytes
 	 *
 	 * @param string $user
 	 * @param string $destination
@@ -2066,6 +2015,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('user :user has uploaded file :destination of size :bytes bytes')]
 	public function userHasUploadedFileToOfSizeBytes(string $user, string $destination, string $bytes): void {
 		$user = $this->getActualUsername($user);
 		$filename = "filespecificSize.txt";
@@ -2078,7 +2028,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given user :user has uploaded file :destination ending with :text of size :bytes bytes
 	 *
 	 * @param string $user
 	 * @param string $destination
@@ -2088,6 +2037,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('user :user has uploaded file :destination ending with :text of size :bytes bytes')]
 	public function userHasUploadedFileToEndingWithOfSizeBytes(
 		string $user,
 		string $destination,
@@ -2151,7 +2101,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user uploads file with content :content to :destination using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string|null $content
@@ -2161,6 +2110,7 @@ trait WebDav {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[When('user :user uploads file with content :content to :destination using the WebDAV API')]
 	public function userUploadsAFileWithContentTo(
 		string $user,
 		?string $content,
@@ -2172,7 +2122,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" uploads the following files with content "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string|null $content
@@ -2181,6 +2130,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[When('user :user uploads the following files with content :content')]
 	public function userUploadsFollowingFilesWithContentTo(
 		string $user,
 		?string $content,
@@ -2197,7 +2147,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user uploads file :source to :destination with mtime :mtime using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -2208,6 +2157,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user uploads file :source to :destination with mtime :mtime using the WebDAV API')]
 	public function userUploadsFileToWithMtimeUsingTheWebdavApi(
 		string $user,
 		string $source,
@@ -2234,7 +2184,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given user :user has uploaded file :source to :destination with mtime :mtime
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -2244,6 +2193,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('user :user has uploaded file :source to :destination with mtime :mtime')]
 	public function userHasUploadedFileToWithMtimeUsingTheWebdavApi(
 		string $user,
 		string $source,
@@ -2274,7 +2224,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then as :user the mtime of the file :resource should be :mtime
 	 *
 	 * @param string $user
 	 * @param string $resource
@@ -2283,6 +2232,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('as :user the mtime of the file :resource should be :mtime')]
 	public function theMtimeOfTheFileShouldBe(
 		string $user,
 		string $resource,
@@ -2307,7 +2257,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given user :user has uploaded file with content :content to :destination
 	 *
 	 * @param string $user
 	 * @param string|null $content
@@ -2317,6 +2266,7 @@ trait WebDav {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[Given('user :user has uploaded file with content :content to :destination')]
 	public function userHasUploadedAFileWithContentTo(
 		string $user,
 		?string $content,
@@ -2338,7 +2288,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has uploaded the following files with content "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string|null $content
@@ -2347,6 +2296,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[Given('user :user has uploaded the following files with content :content')]
 	public function userHasUploadedFollowingFilesWithContent(
 		string $user,
 		?string $content,
@@ -2368,7 +2318,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" downloads the following files using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -2376,6 +2325,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user downloads the following files using the WebDAV API')]
 	public function userDownloadsFollowingFiles(
 		string $user,
 		TableNode $table
@@ -2391,7 +2341,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user uploads a file with content :content and mtime :mtime to :destination using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string|null $content
@@ -2401,6 +2350,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user uploads a file with content :content and mtime :mtime to :destination using the WebDAV API')]
 	public function userUploadsAFileWithContentAndMtimeTo(
 		string $user,
 		?string $content,
@@ -2459,7 +2409,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user uploads file with checksum :checksum and content :content to :destination using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $checksum
@@ -2468,6 +2417,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[When('user :user uploads file with checksum :checksum and content :content to :destination using the WebDAV API')]
 	public function userUploadsAFileWithChecksumAndContentTo(
 		string $user,
 		string $checksum,
@@ -2479,7 +2429,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given user :user has uploaded file with checksum :checksum and content :content to :destination
 	 *
 	 * @param string $user
 	 * @param string $checksum
@@ -2488,6 +2437,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[Given('user :user has uploaded file with checksum :checksum and content :content to :destination')]
 	public function userHasUploadedAFileWithChecksumAndContentTo(
 		string $user,
 		string $checksum,
@@ -2510,7 +2460,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" should be able to delete (file|folder|entry) "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $entry
@@ -2519,6 +2468,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^user "([^"]*)" should be able to delete (file|folder|entry) "([^"]*)"$/')]
 	public function userShouldBeAbleToDeleteEntry(string $user, string $entry, string $source): void {
 		$user = $this->getActualUsername($user);
 		$this->checkFileOrFolderExistsForUser($user, $entry, $source);
@@ -2527,7 +2477,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" should not be able to delete (file|folder|entry) "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $entry
@@ -2536,6 +2485,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^user "([^"]*)" should not be able to delete (file|folder|entry) "([^"]*)"$/')]
 	public function theUserShouldNotBeAbleToDeleteEntry(string $user, string $entry, string $source): void {
 		$this->checkFileOrFolderExistsForUser($user, $entry, $source);
 		$this->deleteFile($user, $source);
@@ -2557,13 +2507,13 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user deletes file/folder :resource using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $resource
 	 *
 	 * @return void
 	 */
+	#[When('user :user deletes file/folder :resource using the WebDAV API')]
 	public function userDeletesFile(string $user, string $resource): void {
 		$response = $this->deleteFile($user, $resource);
 		$this->setResponse($response);
@@ -2571,7 +2521,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user deletes file :filename from space :space using file-id :fileId
 	 *
 	 * @param string $user
 	 * @param string $filename
@@ -2580,6 +2529,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[When('user :user deletes file :filename from space :space using file-id :fileId')]
 	public function userDeletesFileFromSpaceUsingFileIdPath(
 		string $user,
 		string $filename,
@@ -2603,7 +2553,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given user :user has updated a file with content :content using file-id :fileId
 	 *
 	 * @param string $user
 	 * @param string $content
@@ -2611,6 +2560,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[Given('user :user has updated a file with content :content using file-id :fileId')]
 	public function userHasUpdatedAFileWithContentUsingFileId(string $user, string $content, string $fileId): void {
 		$baseUrl = $this->getBaseUrl();
 		$sourceDavPath = WebdavHelper::getDavPath($this->getDavPathVersion());
@@ -2628,7 +2578,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has deleted (?:file|folder|entity) "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $resource
@@ -2636,6 +2585,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('/^user "([^"]*)" has deleted (?:file|folder|entity) "([^"]*)"$/')]
 	public function userHasDeletedResource(string $user, string $resource): void {
 		$user = $this->getActualUsername($user);
 		$response = $this->deleteFile($user, $resource);
@@ -2654,7 +2604,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has deleted the following (?:files|folders|resources)$/
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -2662,6 +2611,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('/^user "([^"]*)" has deleted the following (?:files|folders|resources)$/')]
 	public function userHasDeletedFollowingFiles(string $user, TableNode $table): void {
 		$this->verifyTableNodeColumns($table, ["path"]);
 		$paths = $table->getHash();
@@ -2679,7 +2629,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" deletes the following (?:files|folders)$/
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -2687,6 +2636,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" deletes the following (?:files|folders)$/')]
 	public function userDeletesFollowingFiles(string $user, TableNode $table): void {
 		$user = $this->getActualUsername($user);
 		$this->verifyTableNodeColumns($table, ["path"]);
@@ -2701,7 +2651,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" deletes these (?:files|folders|entries) without delays using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param TableNode $table of files or folders to delete
@@ -2709,6 +2658,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" deletes these (?:files|folders|entries) without delays using the WebDAV API$/')]
 	public function userDeletesFilesFoldersWithoutDelays(string $user, TableNode $table): void {
 		$user = $this->getActualUsername($user);
 		$this->verifyTableNodeColumnsCount($table, 1);
@@ -2721,7 +2671,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user creates folder :destination using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $destination
@@ -2730,13 +2679,13 @@ trait WebDav {
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
+	#[When('user :user creates folder :destination using the WebDAV API')]
 	public function userCreatesFolder(string $user, string $destination): void {
 		$response = $this->createFolder($user, $destination);
 		$this->setResponse($response);
 	}
 
 	/**
-	 * @Given user :user has created folder :destination
 	 *
 	 * @param string $user
 	 * @param string $destination
@@ -2745,6 +2694,7 @@ trait WebDav {
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has created folder :destination')]
 	public function userHasCreatedFolder(string $user, string $destination): void {
 		$user = $this->getActualUsername($user);
 		$response = $this->createFolder($user, $destination, true);
@@ -2756,7 +2706,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given admin has created folder :destination
 	 *
 	 * @param string $destination
 	 *
@@ -2764,6 +2713,7 @@ trait WebDav {
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
+	#[Given('admin has created folder :destination')]
 	public function adminHasCreatedFolder(string $destination): void {
 		$admin = $this->getAdminUsername();
 		Assert::assertEquals(
@@ -2781,7 +2731,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has created the following folders$/
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -2789,6 +2738,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('user :user has created the following folders')]
 	public function userHasCreatedFollowingFolders(string $user, TableNode $table): void {
 		$this->verifyTableNodeColumns($table, ["path"]);
 		$paths = $table->getHash();
@@ -2806,7 +2756,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then user :user should be able to create folder :destination
 	 *
 	 * @param string $user
 	 * @param string $destination
@@ -2814,6 +2763,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('user :user should be able to create folder :destination')]
 	public function userShouldBeAbleToCreateFolder(string $user, string $destination): void {
 		$user = $this->getActualUsername($user);
 		$response = $this->createFolder($user, $destination, true);
@@ -2830,7 +2780,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then user :user should be able to create folder :destination using password :password
 	 *
 	 * @param string $user
 	 * @param string $destination
@@ -2839,6 +2788,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('user :user should be able to create folder :destination using password :password')]
 	public function userShouldBeAbleToCreateFolderUsingPassword(
 		string $user,
 		string $destination,
@@ -2859,7 +2809,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then user :user should not be able to create folder :destination
 	 *
 	 * @param string $user
 	 * @param string $destination
@@ -2867,6 +2816,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('user :user should not be able to create folder :destination')]
 	public function userShouldNotBeAbleToCreateFolder(string $user, string $destination): void {
 		$user = $this->getActualUsername($user);
 		$response = $this->createFolder($user, $destination);
@@ -2879,33 +2829,7 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then user :user should not be able to create folder :destination using password :password
-	 *
-	 * @param string $user
-	 * @param string $destination
-	 * @param string $password
-	 *
-	 * @return void
-	 * @throws Exception
-	 */
-	public function userShouldNotBeAbleToCreateFolderUsingPassword(
-		string $user,
-		string $destination,
-		string $password
-	): void {
-		$user = $this->getActualUsername($user);
-		$response = $this->createFolder($user, $destination, false, $password);
-		$this->theHTTPStatusCodeShouldBeBetween(400, 499, $response);
-		$this->checkFileOrFolderDoesNotExistsForUser(
-			$user,
-			"folder",
-			$destination
-		);
-	}
-	/**
 	 * Old style chunking upload
-	 *
-	 * @When user :user uploads the following :total chunks to :file with old chunking and using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $total
@@ -2920,6 +2844,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user uploads the following :total chunks to :file with old chunking and using the WebDAV API')]
 	public function userUploadsTheFollowingTotalChunksUsingOldChunking(
 		string $user,
 		string $total,
@@ -2937,8 +2862,6 @@ trait WebDav {
 	/**
 	 * Old style chunking upload
 	 *
-	 * @When user :user uploads the following chunks to :file with old chunking and using the WebDAV API
-	 *
 	 * @param string $user
 	 * @param string $file
 	 * @param TableNode $chunkDetails table of 2 columns, chunk number and chunk
@@ -2951,6 +2874,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user uploads the following chunks to :file with old chunking and using the WebDAV API')]
 	public function userUploadsTheFollowingChunksUsingOldChunking(
 		string $user,
 		string $file,
@@ -3199,109 +3123,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" moves new chunk file with id "([^"]*)"\s?(asynchronously|) to "([^"]*)" using the WebDAV API$/
-	 *
-	 * @param string $user
-	 * @param string $id
-	 * @param string $type "asynchronously" or empty
-	 * @param string $dest
-	 *
-	 * @return void
-	 */
-	public function userMovesNewChunkFileWithIdToMychunkedfile(
-		string $user,
-		string $id,
-		string $type,
-		string $dest
-	): void {
-		$this->setResponse($this->userMoveNewChunkFileWithIdToMychunkedfile($user, $id, $type, $dest));
-	}
-
-	/**
-	 * @param string $user
-	 * @param string $id
-	 * @param string $type "asynchronously" or empty
-	 * @param string $dest
-	 * @param int $size
-	 *
-	 * @return ResponseInterface
-	 */
-	public function userMoveNewChunkFileWithIdToMychunkedfileWithSize(
-		string $user,
-		string $id,
-		string $type,
-		string $dest,
-		int $size
-	): ResponseInterface {
-		$headers = ['OC-Total-Length' => $size];
-		if ($type === "asynchronously") {
-			$headers['OC-LazyOps'] = 'true';
-		}
-		return $this->moveNewDavChunkToFinalFile(
-			$user,
-			$id,
-			$dest,
-			$headers
-		);
-	}
-
-	/**
-	 * @param string $user
-	 * @param string $id
-	 * @param string $type "asynchronously" or empty
-	 * @param string $dest
-	 * @param string $checksum
-	 *
-	 * @return ResponseInterface
-	 */
-	public function userMoveNewChunkFileWithIdToMychunkedfileWithChecksum(
-		string $user,
-		string $id,
-		string $type,
-		string $dest,
-		string $checksum
-	): ResponseInterface {
-		$headers = ['OC-Checksum' => $checksum];
-		if ($type === "asynchronously") {
-			$headers['OC-LazyOps'] = 'true';
-		}
-		return $this->moveNewDavChunkToFinalFile(
-			$user,
-			$id,
-			$dest,
-			$headers
-		);
-	}
-
-	/**
-	 * @Given /^user "([^"]*)" has moved new chunk file with id "([^"]*)"\s?(asynchronously|) to "([^"]*)" with checksum "([^"]*)"
-	 *
-	 * @param string $user
-	 * @param string $id
-	 * @param string $type "asynchronously" or empty
-	 * @param string $dest
-	 * @param string $checksum
-	 *
-	 * @return void
-	 */
-	public function userHasMovedNewChunkFileWithIdToMychunkedfileWithChecksum(
-		string $user,
-		string $id,
-		string $type,
-		string $dest,
-		string $checksum
-	): void {
-		$response = $this->userMoveNewChunkFileWithIdToMychunkedfileWithChecksum(
-			$user,
-			$id,
-			$type,
-			$dest,
-			$checksum
-		);
-		$this->theHTTPStatusCodeShouldBe("201", "", $response);
-	}
-
-	/**
 	 * Move chunked new DAV file to final file
 	 *
 	 * @param string $user user
@@ -3393,20 +3214,20 @@ trait WebDav {
 	}
 
 	/**
-	 * @When an unauthenticated client connects to the DAV endpoint using the WebDAV API
 	 *
 	 * @return void
 	 */
+	#[When('an unauthenticated client connects to the DAV endpoint using the WebDAV API')]
 	public function connectingToDavEndpoint(): void {
 		$this->setResponse($this->connectToDavEndpoint());
 	}
 
 	/**
-	 * @Then there should be no duplicate headers
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('there should be no duplicate headers')]
 	public function thereAreNoDuplicateHeaders(): void {
 		$headers = $this->response->getHeaders();
 		foreach ($headers as $headerName => $headerValues) {
@@ -3420,13 +3241,13 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the following headers should not be set
 	 *
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the following headers should not be set')]
 	public function theFollowingHeadersShouldNotBeSet(TableNode $table): void {
 		$this->verifyTableNodeColumns(
 			$table,
@@ -3446,13 +3267,13 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the following headers should match these regular expressions
 	 *
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the following headers should match these regular expressions')]
 	public function theFollowingHeadersShouldMatchTheseRegularExpressions(TableNode $table): void {
 		$this->headersShouldMatchRegularExpressions($table);
 	}
@@ -3483,7 +3304,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^if the HTTP status code was "([^"]*)" then the following headers should match these regular expressions$/
 	 *
 	 * @param int $statusCode
 	 * @param TableNode $table
@@ -3491,6 +3311,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('if the HTTP status code was :statusCode then the following headers should match these regular expressions')]
 	public function statusCodeShouldMatchTheseRegularExpressions(int $statusCode, TableNode $table): void {
 		$actualStatusCode = $this->response->getStatusCode();
 		if ($actualStatusCode === $statusCode) {
@@ -3499,7 +3320,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the following headers should match these regular expressions for user :user
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -3507,6 +3327,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the following headers should match these regular expressions for user :user')]
 	public function headersShouldMatchRegularExpressionsForUser(string $user, TableNode $table): void {
 		$this->verifyTableNodeColumnsCount($table, 2);
 		$user = $this->getActualUsername($user);
@@ -3529,7 +3350,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" deletes everything from folder "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $folder
@@ -3537,6 +3357,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user deletes everything from folder :folder using the WebDAV API')]
 	public function userDeletesEverythingInFolder(
 		string $user,
 		string $folder
@@ -3588,8 +3409,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user downloads the preview of :path with width :width and height :height using the WebDAV API
-	 * @When user :user tries to download the preview of nonexistent file :path with width :width and height :height using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -3598,6 +3417,8 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[When('user :user downloads the preview of :path with width :width and height :height using the WebDAV API')]
+	#[When('user :user tries to download the preview of nonexistent file :path with width :width and height :height using the WebDAV API')]
 	public function downloadPreviewOfFiles(string $user, string $path, string $width, string $height): void {
 		$response = $this->downloadPreviews(
 			$user,
@@ -3610,7 +3431,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user tries to download the preview of :path with width :width and height :height and preview set to 0 using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -3619,6 +3439,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[When('user :user tries to download the preview of :path with width :width and height :height and preview set to 0 using the WebDAV API')]
 	public function userDownloadsThePreviewOfWithPreviewZero(
 		string $user,
 		string $path,
@@ -3648,7 +3469,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user downloads the preview of shared resource :path with width :width and height :height using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -3657,6 +3477,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[When('user :user downloads the preview of shared resource :path with width :width and height :height using the WebDAV API')]
 	public function userDownloadsThePreviewOfSharedResourceWithWidthAndHeightUsingTheWebdavApi(
 		string $user,
 		string $path,
@@ -3671,7 +3492,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user downloads the preview of :path with width :width and height :height and processor :processor using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -3681,6 +3501,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[When('user :user downloads the preview of :path with width :width and height :height and processor :processor using the WebDAV API')]
 	public function userDownloadsThePreviewOfWithWidthHeightProcessorUsingWebDAVAPI(
 		string $user,
 		string $path,
@@ -3712,7 +3533,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user downloads the preview of federated share image :path with width :width and height :height using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -3721,6 +3541,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[When('user :user downloads the preview of federated share image :path with width :width and height :height using the WebDAV API')]
 	public function userDownloadsThePreviewOfFederatedShareImageWithWidthHeightUsingWebDAVAPI(
 		string $user,
 		string $path,
@@ -3752,7 +3573,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given user :user has downloaded the preview of shared resource :path with width :width and height :height
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -3761,6 +3581,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[Given('user :user has downloaded the preview of shared resource :path with width :width and height :height')]
 	public function userHasDownloadedThePreviewOfSharedResourceWithWidthAndHeight(
 		string $user,
 		string $path,
@@ -3781,7 +3602,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then as user :user the preview of shared resource :path with width :width and height :height should have been changed
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -3790,6 +3610,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[Then('as user :user the preview of shared resource :path with width :width and height :height should have been changed')]
 	public function asUserThePreviewOfSharedResourceWithWidthAndHeightShouldHaveBeenChanged(
 		string $user,
 		string $path,
@@ -3816,7 +3637,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user uploads file with content :content to shared resource :destination using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $content
@@ -3824,6 +3644,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[When('user :user uploads file with content :content to shared resource :destination using the WebDAV API')]
 	public function userUploadsFileWithContentSharedResourceToUsingTheWebdavApi(
 		string $user,
 		string $content,
@@ -3910,7 +3731,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user downloads the preview of :path of :ofUser with width :width and height :height using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -3920,6 +3740,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[When('user :user downloads the preview of :path of :ofUser with width :width and height :height using the WebDAV API')]
 	public function downloadPreviewOfOtherUser(
 		string $user,
 		string $path,
@@ -3938,13 +3759,13 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the downloaded image should be :width pixels wide and :height pixels high
 	 *
 	 * @param string $width
 	 * @param string $height
 	 *
 	 * @return void
 	 */
+	#[Then('the downloaded image should be :width pixels wide and :height pixels high')]
 	public function imageDimensionsShouldBe(string $width, string $height): void {
 		$this->checkImageDimensions($width, $height);
 	}
@@ -3967,13 +3788,13 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the downloaded preview content should match with :preview fixtures preview content
 	 *
 	 * @param string $filename relative path from fixtures directory
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the downloaded preview content should match with :preview fixtures preview content')]
 	public function theDownloadedPreviewContentShouldMatchWithFixturesPreviewContentFor(string $filename): void {
 		$expectedPreview = \file_get_contents(__DIR__ . "/../fixtures/" . $filename);
 		$this->getResponse()->getBody()->rewind();
@@ -3982,7 +3803,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given user :user has downloaded the preview of :path with width :width and height :height
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -3991,6 +3811,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[Given('user :user has downloaded the preview of :path with width :width and height :height')]
 	public function userDownloadsThePreviewOfWithWidthAndHeight(
 		string $user,
 		string $path,
@@ -4012,7 +3833,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then as user :user the preview of :path with width :width and height :height should have been changed
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -4021,6 +3841,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[Then('as user :user the preview of :path with width :width and height :height should have been changed')]
 	public function asUserThePreviewOfPathWithHeightAndWidthShouldHaveBeenChanged(
 		string $user,
 		string $path,
@@ -4072,19 +3893,18 @@ trait WebDav {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has stored id of (?:file|folder) "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $path
 	 *
 	 * @return void
 	 */
+	#[Given('/^user "([^"]*)" has stored id of (?:file|folder) "([^"]*)"$/')]
 	public function userStoresFileIdForPath(string $user, string $path): void {
 		$this->storedFileID = $this->getFileIdForPath($user, $path);
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" (file|folder) "([^"]*)" should have the previously stored id$/
 	 *
 	 * @param string370 $user
 	 * @param string $fileOrFolder
@@ -4092,6 +3912,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
+	#[Then('/^user "([^"]*)" (file|folder) "([^"]*)" should have the previously stored id$/')]
 	public function userFileShouldHaveStoredId(string $user, string $fileOrFolder, string $path): void {
 		$user = $this->getActualUsername($user);
 		$currentFileID = $this->getFileIdForPath($user, $path);
@@ -4105,7 +3926,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^the (?:Cal|Card)?DAV (exception|message|reason) should be "([^"]*)"$/
 	 *
 	 * @param string $element exception|message|reason
 	 * @param string $message
@@ -4113,6 +3933,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^the (?:Cal|Card)?DAV (exception|message|reason) should be "([^"]*)"$/')]
 	public function theDavElementShouldBe(string $element, string $message): void {
 		$responseXmlArray = HttpRequestHelper::parseResponseAsXml($this->getResponse());
 		WebDavAssert::assertDavResponseElementIs(
@@ -4185,7 +4006,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^the (?:propfind|search) result of user "([^"]*)" should (not|)\s?contain these (?:files|entries):$/
 	 *
 	 * @param string $user
 	 * @param string $shouldOrNot (not|)
@@ -4194,6 +4014,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^the (?:propfind|search) result of user "([^"]*)" should (not|)\\s?contain these (?:files|entries):$/')]
 	public function thePropfindResultShouldContainEntries(
 		string $user,
 		string $shouldOrNot,
@@ -4208,7 +4029,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then /^the (?:propfind|search) result of user "([^"]*)" should contain only these (?:files|entries):$/
 	 *
 	 * @param string $user
 	 * @param TableNode $expectedFiles
@@ -4216,6 +4036,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^the (?:propfind|search) result of user "([^"]*)" should contain only these (?:files|entries):$/')]
 	public function thePropfindResultShouldContainOnlyEntries(
 		string $user,
 		TableNode $expectedFiles
@@ -4237,12 +4058,12 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the propfind/search result should contain :numFiles files/entries
 	 *
 	 * @param int $numFiles
 	 *
 	 * @return void
 	 */
+	#[Then('the propfind/search result should contain :numFiles files/entries')]
 	public function propfindResultShouldContainNumEntries(int $numFiles): void {
 		$this->checkIFResponseContainsNumberEntries($numFiles);
 	}
@@ -4281,27 +4102,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the propfind/search result should contain any :expectedNumber of these files/entries:
-	 *
-	 * @param integer $expectedNumber
-	 * @param TableNode $expectedFiles
-	 *
-	 * @return void
-	 * @throws Exception
-	 */
-	public function theSearchResultShouldContainAnyOfTheseEntries(
-		int $expectedNumber,
-		TableNode $expectedFiles
-	): void {
-		$this->checkIfSearchResultContainsFiles(
-			$this->getCurrentUser(),
-			$expectedNumber,
-			$expectedFiles
-		);
-	}
-
-	/**
-	 * @Then the propfind/search result of user :user should contain any :expectedNumber of these files/entries:
 	 *
 	 * @param string $user
 	 * @param integer $expectedNumber
@@ -4310,6 +4110,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the propfind/search result of user :user should contain any :expectedNumber of these files/entries:')]
 	public function theSearchResultOfUserShouldContainAnyOfTheseEntries(
 		string $user,
 		int $expectedNumber,
@@ -4354,7 +4155,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :arg1 lists the resources in :path with depth :depth using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -4363,6 +4163,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :arg1 lists the resources in :path with depth :depth using the WebDAV API')]
 	public function userListsTheResourcesInPathWithDepthUsingTheWebdavApi(
 		string $user,
 		string $path,
@@ -4377,7 +4178,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the last DAV response for user :user should contain these nodes/elements
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -4385,6 +4185,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the last DAV response for user :user should contain these nodes/elements')]
 	public function theLastDavResponseShouldContainTheseNodes(string $user, TableNode $table): void {
 		$this->verifyTableNodeColumns($table, ["name"]);
 		foreach ($table->getHash() as $row) {
@@ -4395,7 +4196,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the last DAV response for user :user should not contain these nodes/elements
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -4403,6 +4203,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the last DAV response for user :user should not contain these nodes/elements')]
 	public function theLastDavResponseShouldNotContainTheseNodes(string $user, TableNode $table): void {
 		$this->verifyTableNodeColumns($table, ["name"]);
 		foreach ($table->getHash() as $row) {
@@ -4413,13 +4214,13 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the last public link DAV response should contain these nodes/elements
 	 *
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the last public link DAV response should contain these nodes/elements')]
 	public function theLastPublicDavResponseShouldContainTheseNodes(TableNode $table): void {
 		$token = ($this->isUsingSharingNG())
 		? $this->shareNgGetLastCreatedLinkShareToken() : $this->getLastCreatedPublicShareToken();
@@ -4433,13 +4234,13 @@ trait WebDav {
 	}
 
 	/**
-	 * @Then the last public link DAV response should not contain these nodes/elements
 	 *
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the last public link DAV response should not contain these nodes/elements')]
 	public function theLastPublicDavResponseShouldNotContainTheseNodes(TableNode $table): void {
 		$token = ($this->isUsingSharingNG())
 		? $this->shareNgGetLastCreatedLinkShareToken() : $this->getLastCreatedPublicShareToken();
@@ -4453,13 +4254,13 @@ trait WebDav {
 	}
 
 	/**
-	 * @When the public lists the resources in the last created public link with depth :depth using the WebDAV API
 	 *
 	 * @param string $depth
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('the public lists the resources in the last created public link with depth :depth using the WebDAV API')]
 	public function thePublicListsTheResourcesInTheLastCreatedPublicLinkWithDepthUsingTheWebdavApi(
 		string $depth
 	): void {
@@ -4754,7 +4555,7 @@ trait WebDav {
 		if (!isset($authors[$index - 1])) {
 			Assert::fail(
 				'could not find version with index "' . $index
-				. '" for oc:meta-version-edited-by property in response to user "' . $this->responseUser . '"'
+				. ' " for oc:meta-version-edited-by property in response to user "' . $this->responseUser . '"'
 			);
 		}
 		$actualUser = $authors[$index - 1];
@@ -4778,7 +4579,7 @@ trait WebDav {
 		if (!isset($displaynames[$index - 1])) {
 			Assert::fail(
 				'could not find version with index "' . $index
-				. '" for oc:meta-version-edited-by-name property in response to user "' . $this->responseUser . '"'
+				. ' " for oc:meta-version-edited-by-name property in response to user "' . $this->responseUser . '"'
 			);
 		}
 		$actualUserDisplayName = $displaynames[$index - 1];
@@ -4791,7 +4592,6 @@ trait WebDav {
 	}
 
 	/**
-	 * @When user :user downloads the content of GDPR report :pathToFile
 	 *
 	 * @param string $user
 	 * @param string $pathToFile
@@ -4799,6 +4599,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user downloads the content of GDPR report :pathToFile')]
 	public function userGetsTheContentOfGeneratedJsonReport(string $user, string $pathToFile): void {
 		$password = $this->getPasswordForUser($user);
 		$response = $this->downloadFileAsUserUsingPassword($user, $pathToFile, $password);

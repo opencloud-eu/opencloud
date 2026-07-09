@@ -33,6 +33,8 @@ use TestHelpers\HttpRequestHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\BehatHelper;
 use TestHelpers\UploadHelper;
+use Behat\Step\Given;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -130,7 +132,6 @@ class TUSContext implements Context {
 	}
 
 	/**
-	 * @When user :user creates a new TUS resource on the WebDAV API with these headers:
 	 *
 	 * @param string $user
 	 * @param TableNode $headers
@@ -141,13 +142,13 @@ class TUSContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :user creates a new TUS resource on the WebDAV API with these headers:')]
 	public function userCreateNewTUSResourceWithHeaders(string $user, TableNode $headers, string $content = ''): void {
 		$response = $this->createNewTUSResourceWithHeaders($user, $headers, $content);
 		$this->featureContext->setResponse($response);
 	}
 
 	/**
-	 * @Given user :user has created a new TUS resource on the WebDAV API with these headers:
 	 *
 	 * @param string $user
 	 * @param TableNode $headers Tus-Resumable: 1.0.0 header is added automatically
@@ -157,6 +158,7 @@ class TUSContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has created a new TUS resource on the WebDAV API with these headers:')]
 	public function userHasCreatedNewTUSResourceWithHeaders(string $user, TableNode $headers): void {
 		$response = $this->createNewTUSResource($user, $headers);
 		$this->featureContext->theHTTPStatusCodeShouldBe(201, "", $response);
@@ -218,7 +220,6 @@ class TUSContext implements Context {
 	}
 
 	/**
-	 * @When user :user sends a chunk to the last created TUS Location with offset :offset and data :data with retry on offset mismatch using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $offset
@@ -229,6 +230,7 @@ class TUSContext implements Context {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[When('user :user sends a chunk to the last created TUS Location with offset :offset and data :data with retry on offset mismatch using the WebDAV API')]
 	public function userSendsAChunkToTUSLocationWithOffsetAndDataWithRetryOnOffsetMismatch(
 		string $user,
 		string $offset,
@@ -256,7 +258,6 @@ class TUSContext implements Context {
 	}
 
 	/**
-	 * @When user :user sends a chunk to the last created TUS Location with offset :offset and data :data using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $offset
@@ -267,6 +268,7 @@ class TUSContext implements Context {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[When('user :user sends a chunk to the last created TUS Location with offset :offset and data :data using the WebDAV API')]
 	public function userSendsAChunkToTUSLocationWithOffsetAndData(string $user, string $offset, string $data): void {
 		$resourceLocation = $this->getLastTusResourceLocation();
 		$response = $this->uploadChunkToTUSLocation($user, $resourceLocation, $offset, $data);
@@ -274,7 +276,6 @@ class TUSContext implements Context {
 	}
 
 	/**
-	 * @When user :user uploads file :source to :destination using the TUS protocol on the WebDAV API
 	 *
 	 * @param string|null $user
 	 * @param string $source
@@ -294,6 +295,7 @@ class TUSContext implements Context {
 	 * @throws ReflectionException
 	 * @throws TusException
 	 */
+	#[When('user :user uploads file :source to :destination using the TUS protocol on the WebDAV API')]
 	public function userUploadsUsingTusAFileTo(
 		?string $user,
 		string  $source,
@@ -384,7 +386,6 @@ class TUSContext implements Context {
 	}
 
 	/**
-	 * @When user :user uploads file with content :content to :destination using the TUS protocol on the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $content
@@ -394,6 +395,7 @@ class TUSContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :user uploads file with content :content to :destination using the TUS protocol on the WebDAV API')]
 	public function userUploadsAFileWithContentToUsingTus(
 		string $user,
 		string $content,
@@ -414,7 +416,6 @@ class TUSContext implements Context {
 	}
 
 	/**
-	 * @When user :user uploads file with content :content in :noOfChunks chunks to :destination using the TUS protocol on the WebDAV API
 	 *
 	 * @param string|null $user
 	 * @param string $content
@@ -430,6 +431,7 @@ class TUSContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :user uploads file with content :content in :noOfChunks chunks to :destination using the TUS protocol on the WebDAV API')]
 	public function userUploadsAFileWithContentInChunksUsingTus(
 		?string $user,
 		string  $content,
@@ -450,7 +452,6 @@ class TUSContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has uploaded file :source to :destination with mtime :mtime using the TUS protocol
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -461,6 +462,7 @@ class TUSContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has uploaded file :source to :destination with mtime :mtime using the TUS protocol')]
 	public function userHasUploadedFileWithMtimeUsingTUS(
 		string $user,
 		string $source,
@@ -481,7 +483,6 @@ class TUSContext implements Context {
 	}
 
 	/**
-	 * @When user :user uploads file :source to :destination with mtime :mtime using the TUS protocol on the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -492,6 +493,7 @@ class TUSContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :user uploads file :source to :destination with mtime :mtime using the TUS protocol on the WebDAV API')]
 	public function userUploadsFileWithContentToWithMtimeUsingTUS(
 		string $user,
 		string $source,
@@ -551,7 +553,6 @@ class TUSContext implements Context {
 	}
 
 	/**
-	 * @When user :user creates a new TUS resource with content :content on the WebDAV API with these headers:
 	 *
 	 * @param string $user
 	 * @param string $content
@@ -561,6 +562,7 @@ class TUSContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :user creates a new TUS resource with content :content on the WebDAV API with these headers:')]
 	public function userCreatesWithUpload(
 		string    $user,
 		string    $content,
@@ -571,7 +573,6 @@ class TUSContext implements Context {
 	}
 
 	/**
-	 * @When user :user creates file :source and uploads content :content in the same request using the TUS protocol on the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -580,6 +581,7 @@ class TUSContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user creates file :source and uploads content :content in the same request using the TUS protocol on the WebDAV API')]
 	public function userUploadsWithCreatesWithUpload(
 		string $user,
 		string $source,
@@ -600,7 +602,6 @@ class TUSContext implements Context {
 	}
 
 	/**
-	 * @When user :user uploads file with checksum :checksum to the last created TUS Location with offset :offset and content :content using the TUS protocol on the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $checksum
@@ -610,6 +611,7 @@ class TUSContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user uploads file with checksum :checksum to the last created TUS Location with offset :offset and content :content using the TUS protocol on the WebDAV API')]
 	public function userUploadsFileWithChecksum(
 		string $user,
 		string $checksum,
@@ -622,8 +624,6 @@ class TUSContext implements Context {
 	}
 
 	/**
-	 * @When user :user uploads content :content with checksum :checksum and offset :offset to the index :locationIndex location of file :filename using the TUS protocol
-	 * @When user :user tries to upload content :content with checksum :checksum and offset :offset to the index :locationIndex location of file :filename using the TUS protocol
 	 *
 	 * @param string $user
 	 * @param string $content
@@ -635,6 +635,8 @@ class TUSContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user uploads content :content with checksum :checksum and offset :offset to the index :locationIndex location of file :filename using the TUS protocol')]
+	#[When('user :user tries to upload content :content with checksum :checksum and offset :offset to the index :locationIndex location of file :filename using the TUS protocol')]
 	public function userUploadsContentWithChecksumAndOffsetToIndexLocationUsingTUSProtocol(
 		string $user,
 		string $content,
@@ -650,7 +652,6 @@ class TUSContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has uploaded file with checksum :checksum to the last created TUS Location with offset :offset and content :content using the TUS protocol on the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $checksum
@@ -660,6 +661,7 @@ class TUSContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('user :user has uploaded file with checksum :checksum to the last created TUS Location with offset :offset and content :content using the TUS protocol on the WebDAV API')]
 	public function userHasUploadedFileWithChecksum(
 		string $user,
 		string $checksum,
@@ -672,7 +674,6 @@ class TUSContext implements Context {
 	}
 
 	/**
-	 * @When user :user sends a chunk to the last created TUS Location with offset :offset and data :data with checksum :checksum using the TUS protocol on the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $offset
@@ -682,6 +683,7 @@ class TUSContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user sends a chunk to the last created TUS Location with offset :offset and data :data with checksum :checksum using the TUS protocol on the WebDAV API')]
 	public function userUploadsChunkFileWithChecksum(
 		string $user,
 		string $offset,
@@ -694,7 +696,6 @@ class TUSContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has uploaded a chunk to the last created TUS Location with offset :offset and data :data with checksum :checksum using the TUS protocol on the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $offset
@@ -704,6 +705,7 @@ class TUSContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('user :user has uploaded a chunk to the last created TUS Location with offset :offset and data :data with checksum :checksum using the TUS protocol on the WebDAV API')]
 	public function userHasUploadedChunkFileWithChecksum(
 		string $user,
 		string $offset,
@@ -716,8 +718,6 @@ class TUSContext implements Context {
 	}
 
 	/**
-	 * @When user :user overwrites recently shared file with offset :offset and data :data with checksum :checksum using the TUS protocol on the WebDAV API with these headers:
-	 * @When user :user overwrites existing file with offset :offset and data :data with checksum :checksum using the TUS protocol on the WebDAV API with these headers:
 	 *
 	 * @param string $user
 	 * @param string $offset
@@ -730,6 +730,8 @@ class TUSContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :user overwrites recently shared file with offset :offset and data :data with checksum :checksum using the TUS protocol on the WebDAV API with these headers:')]
+	#[When('user :user overwrites existing file with offset :offset and data :data with checksum :checksum using the TUS protocol on the WebDAV API with these headers:')]
 	public function userOverwritesFileWithChecksum(
 		string $user,
 		string $offset,

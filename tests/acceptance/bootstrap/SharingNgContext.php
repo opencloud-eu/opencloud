@@ -29,6 +29,9 @@ use TestHelpers\GraphHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\BehatHelper;
+use Behat\Step\Given;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -209,7 +212,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" gets permissions list for (folder|file) "([^"]*)" of the space "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $fileOrFolder   (file|folder)
@@ -219,6 +221,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" gets permissions list for (folder|file) "([^"]*)" of the space "([^"]*)" using the Graph API$/')]
 	public function userGetsPermissionsListForResourceOfTheSpaceUsingTheGraphAPI(
 		string $user,
 		string $fileOrFolder,
@@ -231,7 +234,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" lists the permissions of space "([^"]*)" using permissions endpoint of the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $space
@@ -239,6 +241,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user lists the permissions of space :space using permissions endpoint of the Graph API')]
 	public function userListsThePermissionsOfSpaceUsingTheGraphApi(string $user, string $space): void {
 		$this->featureContext->setResponse(
 			$this->getPermissionsList($user, 'folder', $space)
@@ -246,7 +249,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" tries to list the permissions of space "([^"]*)" owned by "([^"]*)" using permissions endpoint of the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $space
@@ -255,6 +257,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user tries to list the permissions of space :space owned by :spaceOwner using permissions endpoint of the Graph API')]
 	public function userTriesToListThePermissionsOfSpaceUsingPermissionsEndpointOfTheGraphApi(
 		string $user,
 		string $space,
@@ -439,7 +442,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has sent the following resource share invitation:$/
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -448,6 +450,7 @@ class SharingNgContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has sent the following resource share invitation:')]
 	public function userHasSentTheFollowingResourceShareInvitation(string $user, TableNode $table): void {
 		$rows = $table->getRowsHash();
 		Assert::assertArrayHasKey(
@@ -460,7 +463,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has sent the following resource share invitation to federated user:$/
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -469,6 +471,7 @@ class SharingNgContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has sent the following resource share invitation to federated user:')]
 	public function userHasSentTheFollowingResourceShareInvitationToFederatedUser(
 		string $user,
 		TableNode $table
@@ -484,7 +487,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has sent the following space share invitation:$/
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -493,6 +495,7 @@ class SharingNgContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has sent the following space share invitation:')]
 	public function userHasSentTheFollowingShareShareInvitation(string $user, TableNode $table): void {
 		$rows = $table->getRowsHash();
 		Assert::assertArrayNotHasKey(
@@ -505,8 +508,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" sends the following resource share invitation using the Graph API:$/
-	 * @When /^user "([^"]*)" tries to send the following resource share invitation using the Graph API:$/
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -515,6 +516,8 @@ class SharingNgContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :user sends the following resource share invitation using the Graph API:')]
+	#[When('user :user tries to send the following resource share invitation using the Graph API:')]
 	public function userSendsTheFollowingResourceShareInvitationUsingTheGraphApi(string $user, TableNode $table): void {
 		$rows = $table->getRowsHash();
 		Assert::assertArrayHasKey(
@@ -528,7 +531,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" sends the following resource share invitation to federated user using the Graph API:$/
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -537,6 +539,7 @@ class SharingNgContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :user sends the following resource share invitation to federated user using the Graph API:')]
 	public function userSendsTheFollowingResourceShareInvitationToFederatedUserUsingTheGraphApi(
 		string $user,
 		TableNode $table
@@ -553,7 +556,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" sends the following space share invitation using permissions endpoint of the Graph API:$/
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -562,6 +564,7 @@ class SharingNgContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :user sends the following space share invitation using permissions endpoint of the Graph API:')]
 	public function userSendsTheFollowingSpaceShareInvitationUsingPermissionsEndpointOfTheGraphApi(
 		string $user,
 		TableNode $table
@@ -578,7 +581,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" tries to send the following space share invitation to federated user using permissions endpoint of the Graph API:$/
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -587,6 +589,7 @@ class SharingNgContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :user tries to send the following space share invitation to federated user using permissions endpoint of the Graph API:')]
 	public function userSendsTheFollowingSpaceShareInvitationToFederatedUserUsingPermissionsEndpointOfTheGraphApi(
 		string $user,
 		TableNode $table
@@ -603,13 +606,13 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has updated the last resource share with the following properties:
 	 *
 	 * @param string $user
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 */
+	#[Given('user :user has updated the last resource share with the following properties:')]
 	public function userHasUpdatedTheLastResourceShareWithTheFollowingProperties(string $user, TableNode $table): void {
 		$permissionID = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		$response = $this->updateResourceShare(
@@ -621,13 +624,13 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When user :user updates the last resource share with the following properties using the Graph API:
 	 *
 	 * @param string $user
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 */
+	#[When('user :user updates the last resource share with the following properties using the Graph API:')]
 	public function userUpdatesTheLastShareWithFollowingPropertiesUsingGraphApi($user, TableNode $table) {
 		$permissionID = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		$this->featureContext->setResponse(
@@ -640,7 +643,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" updates the space share for (user|group) "([^"]*)" with the following using the Graph API:$/
 	 *
 	 * @param string $user
 	 * @param string $shareType
@@ -649,6 +651,7 @@ class SharingNgContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" updates the space share for (user|group) "([^"]*)" with the following using the Graph API:$/')]
 	public function userUpdatesTheSpaceShareForUserOrGroupWithFollowingUsingGraphApi(
 		string $user,
 		string $shareType,
@@ -706,7 +709,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When user :user sends the following share invitation with file-id :fileId using the Graph API:
 	 *
 	 * @param string $user
 	 * @param string $fileId
@@ -716,6 +718,7 @@ class SharingNgContext implements Context {
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
+	#[When('user :user sends the following share invitation with file-id :fileId using the Graph API:')]
 	public function userSendsTheFollowingShareInvitationWithFileIdUsingTheGraphApi(
 		string $user,
 		string $fileId,
@@ -728,8 +731,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" creates the following resource link share using the Graph API:$/
-	 * @When /^user "([^"]*)" tries to create the following resource link share using the Graph API:$/
 	 *
 	 * @param string $user
 	 * @param TableNode $body
@@ -737,13 +738,14 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user creates the following resource link share using the Graph API:')]
+	#[When('user :user tries to create the following resource link share using the Graph API:')]
 	public function userCreatesAPublicLinkShareWithSettings(string $user, TableNode  $body): void {
 		$response = $this->createLinkShare($user, $body);
 		$this->featureContext->setResponse($response);
 	}
 
 	/**
-	 * @When /^user "([^"]*)" (?:tries to create|creates) the following space link share using permissions endpoint of the Graph API:$/
 	 *
 	 * @param string $user
 	 * @param TableNode $body
@@ -751,6 +753,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" (?:tries to create|creates) the following space link share using permissions endpoint of the Graph API:$/')]
 	public function userCreatesTheFollowingSpaceLinkShareUsingPermissionsEndpointOfTheGraphApi(
 		string $user,
 		TableNode $body
@@ -759,7 +762,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has created the following resource link share:$/
 	 *
 	 * @param string $user
 	 * @param TableNode $body
@@ -767,6 +769,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has created the following resource link share:')]
 	public function userHasCreatedTheFollowingResourceLinkShare(string $user, TableNode  $body): void {
 		$rows = $body->getRowsHash();
 		Assert::assertArrayHasKey(
@@ -780,7 +783,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has created the following space link share:$/
 	 *
 	 * @param string $user
 	 * @param TableNode $body
@@ -788,6 +790,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has created the following space link share:')]
 	public function userHasCreatedTheFollowingLinkShare(string $user, TableNode  $body): void {
 		$rows = $body->getRowsHash();
 		Assert::assertArrayNotHasKey(
@@ -801,7 +804,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has updated the last resource/space link share with
 	 *
 	 * @param string $user
 	 * @param TableNode $body
@@ -809,6 +811,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[Given('user :user has updated the last resource/space link share with')]
 	public function userHasUpdatedLastPublicLinkShare(string $user, TableNode  $body): void {
 		$response = $this->updateLinkShare(
 			$user,
@@ -819,8 +822,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When user :user updates the last public link share using the permissions endpoint of the Graph API:
-	 * @When user :user tries to update the last public link share using the permissions endpoint of the Graph API:
 	 *
 	 * @param string $user
 	 * @param TableNode $body
@@ -828,6 +829,8 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user updates the last public link share using the permissions endpoint of the Graph API:')]
+	#[When('user :user tries to update the last public link share using the permissions endpoint of the Graph API:')]
 	public function userUpdatesTheLastPublicLinkShareUsingThePermissionsEndpointOfTheGraphApi(
 		string $user,
 		TableNode  $body
@@ -921,7 +924,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has set the following password for the last link share:
 	 *
 	 * @param string $user
 	 * @param TableNode $body
@@ -929,6 +931,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('user :user has set the following password for the last link share:')]
 	public function userHasSetTheFollowingPasswordForTheLastLinkShare(string $user, TableNode  $body): void {
 		$response = $this->setLinkSharePassword(
 			$user,
@@ -943,8 +946,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When user :user sets the following password for the last link share using the Graph API:
-	 * @When user :user tries to set the following password for the last link share using the Graph API:
 	 *
 	 * @param string $user
 	 * @param TableNode $body
@@ -952,6 +953,8 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user sets the following password for the last link share using the Graph API:')]
+	#[When('user :user tries to set the following password for the last link share using the Graph API:')]
 	public function userSetsOrUpdatesFollowingPasswordForLastLinkShareUsingTheGraphApi(
 		string $user,
 		TableNode $body
@@ -1048,7 +1051,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has removed the access of (user|group) "([^"]*)" from (?:file|folder|resource) "([^"]*)" of space "([^"]*)"$/
 	 *
 	 * @param string $sharer
 	 * @param string $recipientType (user|group)
@@ -1060,6 +1062,7 @@ class SharingNgContext implements Context {
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
+	#[Given('/^user "([^"]*)" has removed the access of (user|group) "([^"]*)" from (?:file|folder|resource) "([^"]*)" of space "([^"]*)"$/')]
 	public function userHasRemovedAccessOfUserOrGroupFromResourceOfSpace(
 		string $sharer,
 		string $recipientType,
@@ -1072,7 +1075,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" removes the access of (user|group) "([^"]*)" from (?:file|folder|resource) "([^"]*)" of space "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $sharer
 	 * @param string $recipientType (user|group)
@@ -1084,6 +1086,7 @@ class SharingNgContext implements Context {
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" removes the access of (user|group) "([^"]*)" from (?:file|folder|resource) "([^"]*)" of space "([^"]*)" using the Graph API$/')]
 	public function userRemovesAccessOfUserOrGroupFromResourceOfSpaceUsingGraphAPI(
 		string $sharer,
 		string $recipientType,
@@ -1097,7 +1100,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" removes the access of (user|group) "([^"]*)" from space "([^"]*)" using permissions endpoint of the Graph API$/
 	 *
 	 * @param string $sharer
 	 * @param string $recipientType (user|group)
@@ -1108,6 +1110,7 @@ class SharingNgContext implements Context {
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" removes the access of (user|group) "([^"]*)" from space "([^"]*)" using permissions endpoint of the Graph API$/')]
 	public function userRemovesAccessOfUserOrGroupFromSpaceUsingPermissionsEndpointOfGraphAPI(
 		string $sharer,
 		string $recipientType,
@@ -1120,7 +1123,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" has removed the last link share of (?:file|folder) "([^"]*)" from space "([^"]*)"$/
 	 *
 	 * @param string $sharer
 	 * @param string $resource
@@ -1130,6 +1132,7 @@ class SharingNgContext implements Context {
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" has removed the last link share of (?:file|folder) "([^"]*)" from space "([^"]*)"$/')]
 	public function userHasRemovedTheLastLinkShareOfFileOrFolderFromSpace(
 		string $sharer,
 		string $resource,
@@ -1140,7 +1143,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" removes the link of (?:file|folder) "([^"]*)" from space "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $sharer
 	 * @param string $resource
@@ -1150,6 +1152,7 @@ class SharingNgContext implements Context {
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" removes the link of (?:file|folder) "([^"]*)" from space "([^"]*)" using the Graph API$/')]
 	public function userRemovesSharePermissionOfAResourceInLinkShareUsingGraphAPI(
 		string $sharer,
 		string $resource,
@@ -1161,8 +1164,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" removes the access of (user|group) "([^"]*)" from space "([^"]*)" using root endpoint of the Graph API$/
-	 * @When /^user "([^"]*)" tries to remove the access of (user|group) "([^"]*)" from space "([^"]*)" using root endpoint of the Graph API$/
 	 *
 	 * @param string $sharer
 	 * @param string $recipientType (user|group)
@@ -1173,6 +1174,8 @@ class SharingNgContext implements Context {
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" removes the access of (user|group) "([^"]*)" from space "([^"]*)" using root endpoint of the Graph API$/')]
+	#[When('/^user "([^"]*)" tries to remove the access of (user|group) "([^"]*)" from space "([^"]*)" using root endpoint of the Graph API$/')]
 	public function userRemovesAccessOfUserOrGroupFromSpaceUsingGraphAPI(
 		string $sharer,
 		string $recipientType,
@@ -1185,8 +1188,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" removes own access from space "([^"]*)" using root endpoint of the Graph API$/
-	 * @When /^user "([^"]*)" tries to remove own access from space "([^"]*)" using root endpoint of the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $space
@@ -1195,6 +1196,7 @@ class SharingNgContext implements Context {
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
+	#[When('user :user tries to remove own access from space :space using root endpoint of the Graph API')]
 	public function userRemovesOwnAccessFromSpaceUsingGraphAPI(
 		string $user,
 		string $space
@@ -1205,7 +1207,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has removed own access from space "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $space
@@ -1214,6 +1215,7 @@ class SharingNgContext implements Context {
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has removed own access from space :space')]
 	public function userHasRemovedOwnAccessFromSpace(
 		string $user,
 		string $space
@@ -1223,7 +1225,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" removes the link from space "([^"]*)" using root endpoint of the Graph API$/
 	 *
 	 * @param string $sharer
 	 * @param string $space
@@ -1232,6 +1233,7 @@ class SharingNgContext implements Context {
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
+	#[When('user :sharer removes the link from space :space using root endpoint of the Graph API')]
 	public function userRemovesLinkFromSpaceUsingRootEndpointOfGraphAPI(
 		string $sharer,
 		string $space
@@ -1242,7 +1244,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has removed the access of (user|group) "([^"]*)" from space "([^"]*)"$/
 	 *
 	 * @param string $sharer
 	 * @param string $recipientType (user|group)
@@ -1253,6 +1254,7 @@ class SharingNgContext implements Context {
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
+	#[Given('/^user "([^"]*)" has removed the access of (user|group) "([^"]*)" from space "([^"]*)"$/')]
 	public function userHasRemovedAccessOfUserOrGroupFromSpace(
 		string $sharer,
 		string $recipientType,
@@ -1288,13 +1290,13 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has disabled sync of last shared resource
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[Given('user :user has disabled sync of last shared resource')]
 	public function userHasDisabledSyncOfLastSharedResource(string $user): void {
 		$shareItemId = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		$shareSpaceId = GraphHelper::SHARES_SPACE_ID;
@@ -1315,14 +1317,14 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When user :user disables sync of share :share using the Graph API
-	 * @When user :user tries to disable sync of share :share using the Graph API
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user disables sync of share :share using the Graph API')]
+	#[When('user :user tries to disable sync of share :share using the Graph API')]
 	public function userDisablesSyncOfShareUsingTheGraphApi(string $user): void {
 		$shareItemId = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		$shareSpaceId = GraphHelper::SHARES_SPACE_ID;
@@ -1342,7 +1344,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When user :user hides the shared resource :sharedResource using the Graph API
 	 *
 	 * @param string $user
 	 *
@@ -1350,6 +1351,7 @@ class SharingNgContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :user hides the shared resource :sharedResource using the Graph API')]
 	public function userHidesTheSharedResourceUsingTheGraphApi(string $user): void {
 		$shareItemId = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		$response = $this->hideOrUnhideSharedResource($user, $shareItemId);
@@ -1357,7 +1359,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Given  user :user has hidden the share :sharedResource
 	 *
 	 * @param string $user
 	 *
@@ -1365,6 +1366,7 @@ class SharingNgContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has hidden the share :sharedResource')]
 	public function userHasHiddenTheShare(string $user): void {
 		$shareItemId = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		$response = $this->hideOrUnhideSharedResource($user, $shareItemId);
@@ -1372,7 +1374,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When user :user unhides the shared resource :sharedResource using the Graph API
 	 *
 	 * @param string $user
 	 *
@@ -1380,6 +1381,7 @@ class SharingNgContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :user unhides the shared resource :sharedResource using the Graph API')]
 	public function userUnhidesTheSharedResourceUsingTheGraphApi(string $user): void {
 		$shareItemId = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		$response = $this->hideOrUnhideSharedResource($user, $shareItemId, false);
@@ -1387,7 +1389,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When user :user enables sync of share :share offered by :offeredBy from :space space using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $share
@@ -1397,6 +1398,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user enables sync of share :share offered by :offeredBy from :space space using the Graph API')]
 	public function userEnablesSyncOfShareUsingTheGraphApi(
 		string $user,
 		string $share,
@@ -1420,15 +1422,14 @@ class SharingNgContext implements Context {
 	/**
 	 * step definition for enabling sync for items for non-existing group|user|space sharer
 	 *
-	 * @When user :user tries to enable share sync of a resource :resource using the Graph API
-	 * @When user :user enables share sync of a resource :resource using the Graph API
-	 *
 	 * @param string $user
 	 * @param string $resource
 	 *
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[When('user :user tries to enable share sync of a resource :resource using the Graph API')]
+	#[When('user :user enables share sync of a resource :resource using the Graph API')]
 	public function userTriesToEnableShareSyncOfResourceUsingTheGraphApi(string $user, string $resource): void {
 		$shareSpaceId = GraphHelper::SHARES_SPACE_ID;
 		$itemId = ($resource === 'nonexistent') ? WebDavHelper::generateUUIDv4() : $resource;
@@ -1445,7 +1446,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to disable share sync of a resource :resource using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $resource
@@ -1453,6 +1453,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[When('user :user tries to disable share sync of a resource :resource using the Graph API')]
 	public function userTriesToDisableShareSyncOfResourceUsingTheGraphApi(string $user, string $resource): void {
 		$shareSpaceId = GraphHelper::SHARES_SPACE_ID;
 		$shareID = ($resource === 'nonexistent') ? WebDavHelper::generateUUIDv4() : $resource;
@@ -1528,7 +1529,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" has a share "([^"]*)" synced$/
 	 *
 	 * @param string $user
 	 * @param string $resource
@@ -1536,12 +1536,12 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[Then('user :user has a share :resource synced')]
 	public function userHasShareSynced(string $user, string $resource): void {
 		$this->waitAndCheckShareSyncStatus($user, $resource, "enabled");
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" should have sync (enabled|disabled) for share "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $status
@@ -1550,12 +1550,12 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Then('/^user "([^"]*)" should have sync (enabled|disabled) for share "([^"]*)"$/')]
 	public function userShouldHaveSyncEnabledOrDisabledForShare(string $user, string $status, string $resource): void {
 		$this->waitAndCheckShareSyncStatus($user, $resource, $status);
 	}
 
 	/**
-	 * @Then user :user should be able to send the following resource share invitation with all allowed permission roles
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -1564,6 +1564,7 @@ class SharingNgContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Then('user :user should be able to send the following resource share invitation with all allowed permission roles')]
 	public function userShouldBeAbleToSendShareTheFollowingInvitationWithAllAllowedPermissionRoles(
 		string $user,
 		TableNode $table
@@ -1615,7 +1616,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" (?:tries to list|lists) the permissions of space "([^"]*)" using root endpoint of the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $space
@@ -1625,12 +1625,12 @@ class SharingNgContext implements Context {
 	 * @throws GuzzleException
 	 *
 	 */
+	#[When('/^user "([^"]*)" (?:tries to list|lists) the permissions of space "([^"]*)" using root endpoint of the Graph API$/')]
 	public function userListsThePermissionsOfDriveUsingRootEndPointOFTheGraphApi(string $user, string $space): void {
 		$this->featureContext->setResponse($this->getDrivePermissionsList($user, $space));
 	}
 
 	/**
-	 * @When /^user "([^"]*)" (?:tries to send|sends) the following space share invitation using root endpoint of the Graph API:$/
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -1638,6 +1638,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" (?:tries to send|sends) the following space share invitation using root endpoint of the Graph API:$/')]
 	public function userSendsTheFollowingShareInvitationUsingRootEndPointTheGraphApi(
 		string $user,
 		TableNode $table
@@ -1647,7 +1648,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" tries to send the following space share invitation to federated user using root endpoint of the Graph API:$/
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -1655,6 +1655,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user tries to send the following space share invitation to federated user using root endpoint of the Graph API:')]
 	public function userSendsTheFollowingShareInvitationToFederatedUserUsingRootEndPointTheGraphApi(
 		string $user,
 		TableNode $table
@@ -1664,7 +1665,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When user :user updates the last drive share with the following using root endpoint of the Graph API:
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -1672,6 +1672,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user updates the last drive share with the following using root endpoint of the Graph API:')]
 	public function userUpdatesTheLastDriveShareWithTheFollowingUsingRootEndpointOfTheGraphApi(
 		string $user,
 		TableNode $table
@@ -1705,7 +1706,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" (?:tries to create|creates) the following space link share using root endpoint of the Graph API:$/
 	 *
 	 * @param string $user
 	 * @param TableNode $body
@@ -1713,6 +1713,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" (?:tries to create|creates) the following space link share using root endpoint of the Graph API:$/')]
 	public function userCreatesTheFollowingSpaceLinkShareUsingRootEndpointOfTheGraphApi(
 		string $user,
 		TableNode $body
@@ -1729,7 +1730,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When user :user sets the following password for the last space link share using root endpoint of the Graph API:
 	 *
 	 * @param string $user
 	 * @param TableNode $body
@@ -1737,6 +1737,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user sets the following password for the last space link share using root endpoint of the Graph API:')]
 	public function userSetsTheFollowingPasswordForTheLastSpaceLinkShareUsingRootEndpointOfTheGraphAPI(
 		string $user,
 		TableNode $body
@@ -1769,7 +1770,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to remove the link from space :space owned by :owner using root endpoint of the Graph API
 	 *
 	 * @param string $user
 	 * @param string $space
@@ -1778,6 +1778,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user tries to remove the link from space :space owned by :owner using root endpoint of the Graph API')]
 	public function userTriesToRemoveShareLinkOfSpaceOwnedByUsingRootEndpointOfTheGraphApi(
 		string $user,
 		string $space,
@@ -1798,7 +1799,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Then user :user should not have any :shareType permissions on space :space
 	 *
 	 * @param string $user
 	 * @param string $shareType
@@ -1807,6 +1807,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Then('user :user should not have any :shareType permissions on space :space')]
 	public function userShouldNotHaveAnyPermissionsOnSpace(string $user, string $shareType, string $space): void {
 		$response = $this->getDrivePermissionsList($user, $space);
 		$responseBody = $this->featureContext->getJsonDecodedResponse($response);
@@ -1833,7 +1834,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Then user :user should be able to send the following space share invitation with all allowed permission roles using root endpoint of the Graph API
 	 *
 	 * @param string $user
 	 * @param TableNode $table
@@ -1842,6 +1842,7 @@ class SharingNgContext implements Context {
 	 * @throws GuzzleException
 	 * @codingStandardsIgnoreStart
 	 */
+	#[Then('user :user should be able to send the following space share invitation with all allowed permission roles using root endpoint of the Graph API')]
 	public function userShouldBeAbleToSendTheFollowingSpaceShareInvitationWithAllAllowedPermissionRolesUsingRootEndpointOFTheGraphApi(
 		// @codingStandardsIgnoreEnd
 		string $user,
@@ -1893,7 +1894,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to list the permissions of space :space owned by :spaceOwner using root endpoint of the Graph API
 	 *
 	 * @param string $user
 	 * @param string $space
@@ -1902,6 +1902,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user tries to list the permissions of space :space owned by :spaceOwner using root endpoint of the Graph API')]
 	public function userTriesToListThePermissionsOfSpaceOwnedByUsingRootEndpointOfTheGraphApi(
 		string $user,
 		string $space,
@@ -1911,13 +1912,13 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When user :user removes the last link share of space :space using permissions endpoint of the Graph API
 	 *
 	 * @param string $user
 	 * @param string $space
 	 *
 	 * @return void
 	 */
+	#[When('user :user removes the last link share of space :space using permissions endpoint of the Graph API')]
 	public function userRemovesTheLastLinkShareOfSpaceUsingPermissionsEndpointOfGraphApi(
 		string $user,
 		string $space
@@ -2010,7 +2011,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" (should|should not) have a share "([^"]*)" shared by user "([^"]*)" from space "([^"]*)"$/
 	 *
 	 * @param string $sharee
 	 * @param string $shouldOrNot
@@ -2020,6 +2020,7 @@ class SharingNgContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[Then('/^user "([^"]*)" (should|should not) have a share "([^"]*)" shared by user "([^"]*)" from space "([^"]*)"$/')]
 	public function userShouldHaveShareSharedByUserFromSpace(
 		string $sharee,
 		string $shouldOrNot,
@@ -2031,7 +2032,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" (should|should not) have a federated share "([^"]*)" shared by user "([^"]*)" from space "([^"]*)"$/
 	 *
 	 * @param string $sharee
 	 * @param string $shouldOrNot
@@ -2041,6 +2041,7 @@ class SharingNgContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[Then('/^user "([^"]*)" (should|should not) have a federated share "([^"]*)" shared by user "([^"]*)" from space "([^"]*)"$/')]
 	public function userShouldOrShouldNotHaveFederatedShareSharedByUserFromSpace(
 		string $sharee,
 		string $shouldOrNot,
@@ -2052,7 +2053,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has shared the following (?:files|folders) from space "([^"]*)" with user "([^"]*)" and role "([^"]*)":$/
 	 *
 	 * @param string $sharer
 	 * @param string $space
@@ -2062,6 +2062,7 @@ class SharingNgContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[Given('/^user "([^"]*)" has shared the following (?:files|folders) from space "([^"]*)" with user "([^"]*)" and role "([^"]*)":$/')]
 	public function userHasSharedTheFollowingFilesFromSpaceWithUserAndRole(
 		string $sharer,
 		string $space,
@@ -2086,12 +2087,12 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Then the json response should contain the following shares:
 	 *
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 */
+	#[Then('the json response should contain the following shares:')]
 	public function theJsonResponseShouldContainTheFollowingShares(TableNode $table): void {
 		$responseBody = $this->featureContext->getJsonDecodedResponseBodyContent();
 
@@ -2115,7 +2116,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" gets the allowed roles for federated user of (folder|file) "([^"]*)" from the space "([^"]*)" using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $fileOrFolder (file|folder)
@@ -2125,6 +2125,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" gets the allowed roles for federated user of (folder|file) "([^"]*)" from the space "([^"]*)" using the Graph API$/')]
 	public function userGetsFederatedPermissionsListForFileOfTheSpaceUsingTheGraphApi(
 		string $user,
 		string $fileOrFolder,
@@ -2140,7 +2141,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" gets the permittion list of (folder|file) "([^"]*)" from the space "([^"]*)" using the Graph API with query "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $fileOrFolder (file|folder)
@@ -2151,6 +2151,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" gets the permittion list of (folder|file) "([^"]*)" from the space "([^"]*)" using the Graph API with query "([^"]*)"$/')]
 	public function userGetsPermissionsListWithQueryForFileOfTheSpaceUsingTheGraphApi(
 		string $user,
 		string $fileOrFolder,
@@ -2164,7 +2165,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" gets the drive permittion list of the space "([^"]*)" using the Graph API with query "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $space
@@ -2173,6 +2173,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user gets the drive permittion list of the space :space using the Graph API with query :query')]
 	public function userGetsDrivePermissionsListWithQueryUsingTheGraphApi(
 		string $user,
 		string $space,
@@ -2182,7 +2183,6 @@ class SharingNgContext implements Context {
 	}
 
 	/**
-	 * @Then /^the JSON data of the response should (not |)contain the following keys:$/
 	 *
 	 * @param string|null $shouldOrNot (not| )
 	 * @param TableNode $table
@@ -2190,6 +2190,7 @@ class SharingNgContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^the JSON data of the response should (not |)contain the following keys:$/')]
 	public function theJsonDataResponseShouldOrNotContainData(string $shouldOrNot, TableNode $table): void {
 		$response = $this->featureContext->getJsonDecodedResponse($this->featureContext->getResponse());
 

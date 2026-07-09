@@ -26,6 +26,9 @@ use PHPUnit\Framework\Assert;
 use Psr\Http\Message\ResponseInterface;
 use TestHelpers\GraphHelper;
 use TestHelpers\BehatHelper;
+use Behat\Step\Given;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -92,7 +95,6 @@ class TagContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" creates the following tags for (folder|file) "([^"]*)" of space "([^"]*)":$/
 	 *
 	 * @param string $user
 	 * @param string $fileOrFolder   (file|folder)
@@ -103,6 +105,7 @@ class TagContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" creates the following tags for (folder|file) "([^"]*)" of space "([^"]*)":$/')]
 	public function theUserCreatesFollowingTags(
 		string $user,
 		string $fileOrFolder,
@@ -115,7 +118,6 @@ class TagContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has created the following tags for (folder|file)\s?"([^"]*)" of the space "([^"]*)":$/
 	 *
 	 * @param string $user
 	 * @param string $fileOrFolder   (file|folder)
@@ -126,6 +128,7 @@ class TagContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('/^user "([^"]*)" has created the following tags for (folder|file)\\s?"([^"]*)" of the space "([^"]*)":$/')]
 	public function theUserHasCreatedFollowingTags(
 		string $user,
 		string $fileOrFolder,
@@ -138,7 +141,6 @@ class TagContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has tagged the following (folders|files) of the space "([^"]*)":$/
 	 *
 	 * @param string $user
 	 * @param string $filesOrFolders (files|folders)
@@ -148,6 +150,7 @@ class TagContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('/^user "([^"]*)" has tagged the following (folders|files) of the space "([^"]*)":$/')]
 	public function userHasCreatedTheFollowingTagsForFilesOfTheSpace(
 		string $user,
 		string $filesOrFolders,
@@ -164,13 +167,13 @@ class TagContext implements Context {
 	}
 
 	/**
-	 * @When user :user lists all available tag(s) via the Graph API
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user lists all available tag(s) via the Graph API')]
 	public function theUserGetsAllAvailableTags(string $user): void {
 		// Note: after creating or deleting tags, in some cases tags do not appear or disappear immediately,
 		// So wait is necessary before listing tags
@@ -186,7 +189,6 @@ class TagContext implements Context {
 	}
 
 	/**
-	 * @Then /^the response should (not|)\s?contain following tag(s):$/
 	 *
 	 * @param string    $shouldOrNot   (not|)
 	 * @param TableNode $table
@@ -194,6 +196,7 @@ class TagContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^the response should (not|)\\s?contain following tag(s):$/')]
 	public function theFollowingTagsShouldExistForUser(string $shouldOrNot, TableNode $table): void {
 		$rows = $table->getRows();
 		foreach ($rows as $row) {
@@ -255,7 +258,6 @@ class TagContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" removes the following tags for (folder|file) "([^"]*)" of space "([^"]*)":$/
 	 *
 	 * @param string $user
 	 * @param string $fileOrFolder   (file|folder)
@@ -266,6 +268,7 @@ class TagContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" removes the following tags for (folder|file) "([^"]*)" of space "([^"]*)":$/')]
 	public function userRemovesTagsFromResourceOfTheSpace(
 		string $user,
 		string $fileOrFolder,
@@ -284,7 +287,6 @@ class TagContext implements Context {
 	}
 
 	/**
-	 * @Given  /^user "([^"]*)" has removed the following tags for (folder|file) "([^"]*)" of space "([^"]*)":$/
 	 *
 	 * @param string $user
 	 * @param string $fileOrFolder   (file|folder)
@@ -295,6 +297,7 @@ class TagContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('/^user "([^"]*)" has removed the following tags for (folder|file) "([^"]*)" of space "([^"]*)":$/')]
 	public function userHAsRemovedTheFollowingTagsForFileOfSpace(
 		string $user,
 		string $fileOrFolder,

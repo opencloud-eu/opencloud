@@ -21,6 +21,7 @@
 use Behat\Behat\Context\Context;
 use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use TestHelpers\BehatHelper;
+use Behat\Step\Then;
 
 require_once 'bootstrap.php';
 
@@ -31,7 +32,6 @@ class FavoritesContext implements Context {
 	private WebDavPropertiesContext $webDavPropertiesContext;
 
 	/**
-	 * @Then /^as user "([^"]*)" (?:file|folder|entry) "([^"]*)" should be favorited$/
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -40,6 +40,7 @@ class FavoritesContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[Then('/^as user "([^"]*)" (?:file|folder|entry) "([^"]*)" should be favorited$/')]
 	public function asUserFileOrFolderShouldBeFavorited(
 		string $user,
 		string $path,
@@ -58,13 +59,13 @@ class FavoritesContext implements Context {
 	}
 
 	/**
-	 * @Then /^as user "([^"]*)" (?:file|folder|entry) "([^"]*)" should not be favorited$/
 	 *
 	 * @param string $user
 	 * @param string $path
 	 *
 	 * @return void
 	 */
+	#[Then('/^as user "([^"]*)" (?:file|folder|entry) "([^"]*)" should not be favorited$/')]
 	public function asUserFileShouldNotBeFavorited(string $user, string $path): void {
 		$this->asUserFileOrFolderShouldBeFavorited($user, $path, 0);
 	}

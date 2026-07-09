@@ -681,9 +681,8 @@ Feature: an user gets the resources shared to them
 
 
   Scenario: sharee lists the file share received via group invitation (Personal space)
-    Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
+    Given the administrator has created a group "grp1" using the Graph API
     And user "Alice" has uploaded file with content "hello" to "textfile0.txt"
-    And user "Alice" has created a group "grp1" using the Graph API
     And user "Brian" has been added to group "grp1"
     And user "Alice" has sent the following resource share invitation:
       | resource        | textfile0.txt |
@@ -974,9 +973,8 @@ Feature: an user gets the resources shared to them
 
   Scenario: sharee lists the folder share received via group invitation (Personal space)
     Given using spaces DAV path
-    And the administrator has assigned the role "Admin" to user "Alice" using the Graph API
-    And  user "Alice" has created folder "folder"
-    And user "Alice" has created a group "grp1" using the Graph API
+    And the administrator has created a group "grp1" using the Graph API
+    And user "Alice" has created folder "folder"
     And user "Brian" has been added to group "grp1"
     And user "Alice" has sent the following resource share invitation:
       | resource        | folder   |
@@ -1214,9 +1212,8 @@ Feature: an user gets the resources shared to them
 
 
   Scenario: sharee list the same file shares received via user and group invitation (Personal space)
-    Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
+    Given the administrator has created a group "grp1" using the Graph API
     And user "Alice" has uploaded file with content "hello" to "textfile0.txt"
-    And user "Alice" has created a group "grp1" using the Graph API
     And user "Brian" has been added to group "grp1"
     And user "Alice" has sent the following resource share invitation:
       | resource        | textfile0.txt |
@@ -1585,9 +1582,8 @@ Feature: an user gets the resources shared to them
 
 
   Scenario: sharee list the same folder shares received via user and group invitation (Personal space)
-    Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
+    Given the administrator has created a group "grp1" using the Graph API
     And  user "Alice" has created folder "folder"
-    And user "Alice" has created a group "grp1" using the Graph API
     And user "Brian" has been added to group "grp1"
     And user "Alice" has sent the following resource share invitation:
       | resource        | folder   |
@@ -3027,10 +3023,10 @@ Feature: an user gets the resources shared to them
 
   Scenario: sharee lists the file share received via group invitation (Project space)
     Given using spaces DAV path
-    And the administrator has assigned the role "Admin" to user "Alice" using the Graph API
+    And the administrator has created a group "grp1" using the Graph API
+    And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "new-space" with the default quota using the Graph API
     And user "Alice" has uploaded a file inside space "new-space" with content "hello world" to "textfile0.txt"
-    And user "Alice" has created a group "grp1" using the Graph API
     And user "Brian" has been added to group "grp1"
     And user "Alice" has sent the following resource share invitation:
       | resource        | textfile0.txt |
@@ -3242,9 +3238,9 @@ Feature: an user gets the resources shared to them
 
   Scenario: sharee lists the folder share received via group invitation (Project space)
     Given using spaces DAV path
-    And the administrator has assigned the role "Admin" to user "Alice" using the Graph API
+    And the administrator has created a group "grp1" using the Graph API
+    And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "new-space" with the default quota using the Graph API
-    And user "Alice" has created a group "grp1" using the Graph API
     And user "Alice" has created a folder "folder" in space "new-space"
     And user "Brian" has been added to group "grp1"
     And user "Alice" has sent the following resource share invitation:
@@ -3435,10 +3431,10 @@ Feature: an user gets the resources shared to them
 
   Scenario: sharee list the same file shares received via user and group invitation (Project space)
     Given using spaces DAV path
-    And the administrator has assigned the role "Admin" to user "Alice" using the Graph API
+    And the administrator has created a group "grp1" using the Graph API
+    And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "new-space" with the default quota using the Graph API
     And user "Alice" has uploaded a file inside space "new-space" with content "hello world" to "textfile0.txt"
-    And user "Alice" has created a group "grp1" using the Graph API
     And user "Brian" has been added to group "grp1"
     And user "Alice" has sent the following resource share invitation:
       | resource        | textfile0.txt |
@@ -3727,9 +3723,9 @@ Feature: an user gets the resources shared to them
 
   Scenario: sharee list the same folder shares received via user and group invitation (Project space)
     Given using spaces DAV path
-    And the administrator has assigned the role "Admin" to user "Alice" using the Graph API
+    And the administrator has created a group "grp1" using the Graph API
+    And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "new-space" with the default quota using the Graph API
-    And user "Alice" has created a group "grp1" using the Graph API
     And user "Alice" has created a folder "folder" in space "new-space"
     And user "Brian" has been added to group "grp1"
     And user "Alice" has sent the following resource share invitation:

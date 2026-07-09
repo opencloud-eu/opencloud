@@ -27,6 +27,8 @@ use Psr\Http\Message\ResponseInterface;
 use TestHelpers\WebDavHelper;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\BehatHelper;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -126,10 +128,6 @@ class SearchContext implements Context {
 	}
 
 	/**
-	 * @When user :user searches for :pattern using the WebDAV API
-	 * @When user :user searches for :pattern and limits the results to :limit items using the WebDAV API
-	 * @When user :user searches for :pattern using the WebDAV API requesting these properties:
-	 * @When user :user searches for :pattern and limits the results to :limit items using the WebDAV API requesting these properties:
 	 *
 	 * @param string $user
 	 * @param string $pattern
@@ -139,6 +137,9 @@ class SearchContext implements Context {
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[When('user :user searches for :pattern using the WebDAV API')]
+	#[When('user :user searches for :pattern and limits the results to :limit items using the WebDAV API')]
+	#[When('user :user searches for :pattern using the WebDAV API requesting these properties:')]
 	public function userSearchesUsingWebDavAPI(
 		string     $user,
 		string     $pattern,
@@ -153,7 +154,6 @@ class SearchContext implements Context {
 	}
 
 	/**
-	 * @Then file/folder :path in the search result of user :user should contain these properties:
 	 *
 	 * @param string $path
 	 * @param string $user
@@ -162,6 +162,7 @@ class SearchContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('file/folder :path in the search result of user :user should contain these properties:')]
 	public function fileOrFolderInTheSearchResultShouldContainProperties(
 		string    $path,
 		string    $user,
@@ -216,7 +217,6 @@ class SearchContext implements Context {
 	}
 
 	/**
-	 * @Then /^the search result should contain these (?:files|entries) with highlight on keyword "([^"]*)"/
 	 *
 	 * @param TableNode $expectedFiles
 	 * @param string $expectedContent
@@ -225,6 +225,7 @@ class SearchContext implements Context {
 	 *
 	 * @throws Exception
 	 */
+	#[Then('/^the search result should contain these (?:files|entries) with highlight on keyword "([^"]*)"/')]
 	public function theSearchResultShouldContainEntriesWithHighlight(
 		TableNode $expectedFiles,
 		string    $expectedContent
@@ -253,8 +254,6 @@ class SearchContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" searches for "([^"]*)" inside (folder|space) "([^"]*)" using the WebDAV API$/
-	 * @When /^user "([^"]*)" searches for "([^"]*)" inside (folder) "([^"]*)" in space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $pattern
@@ -265,6 +264,8 @@ class SearchContext implements Context {
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[When('/^user "([^"]*)" searches for "([^"]*)" inside (folder|space) "([^"]*)" using the WebDAV API$/')]
+	#[When('/^user "([^"]*)" searches for "([^"]*)" inside (folder) "([^"]*)" in space "([^"]*)" using the WebDAV API$/')]
 	public function userSearchesInsideFolderOrSpaceUsingWebDavAPI(
 		string  $user,
 		string  $pattern,

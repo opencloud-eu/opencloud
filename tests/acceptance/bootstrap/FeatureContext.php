@@ -54,6 +54,9 @@ use Swaggest\JsonSchema\Exception\NumericException;
 use Swaggest\JsonSchema\Exception\ObjectException;
 use Swaggest\JsonSchema\Exception\StringException;
 use Swaggest\JsonSchema\Exception\TypeException;
+use Behat\Step\Given;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -949,21 +952,21 @@ class FeatureContext extends BehatVariablesContext {
 	}
 
 	/**
-	 * @Given using SharingNG
 	 *
 	 * @return void
 	 */
+	#[Given('using SharingNG')]
 	public function usingSharingNG(): void {
 		$this->useSharingNG = true;
 	}
 
 	/**
-	 * @Given /^using OCS API version "([^"]*)"$/
 	 *
 	 * @param string $version
 	 *
 	 * @return void
 	 */
+	#[Given('using OCS API version :version')]
 	public function usingOcsApiVersion(string $version): void {
 		$this->ocsApiVersion = (int)$version;
 	}
@@ -1019,12 +1022,12 @@ class FeatureContext extends BehatVariablesContext {
 	}
 
 	/**
-	 * @Given /^using server "(LOCAL|REMOTE)"$/
 	 *
 	 * @param string|null $server
 	 *
 	 * @return string Previous used server
 	 */
+	#[Given('/^using server "(LOCAL|REMOTE)"$/')]
 	public function usingServer(?string $server): string {
 		$previousServer = $this->currentServer;
 		if ($server === 'LOCAL') {
@@ -1323,8 +1326,6 @@ class FeatureContext extends BehatVariablesContext {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" sends HTTP method "([^"]*)" to URL "([^"]*)"$/
-	 * @When /^user "([^"]*)" tries to send HTTP method "([^"]*)" to URL "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $verb
@@ -1332,6 +1333,8 @@ class FeatureContext extends BehatVariablesContext {
 	 *
 	 * @return void
 	 */
+	#[When('user :user sends HTTP method :verb to URL :url')]
+	#[When('user :user tries to send HTTP method :verb to URL :url')]
 	public function userSendsHTTPMethodToUrl(string $user, string $verb, string $url): void {
 		$user = $this->getActualUsername($user);
 		$endpoint = $this->substituteInLineCodes($url, $user);
@@ -1339,7 +1342,6 @@ class FeatureContext extends BehatVariablesContext {
 	}
 
 	/**
-	 * @When the public sends HTTP method :method to URL :url with password :password
 	 *
 	 * @param string $method
 	 * @param string $url
@@ -1347,6 +1349,7 @@ class FeatureContext extends BehatVariablesContext {
 	 *
 	 * @return void
 	 */
+	#[When('the public sends HTTP method :method to URL :url with password :password')]
 	public function thePublicSendsHttpMethodToUrlWithPassword(string $method, string $url, string $password): void {
 		$password = $this->getActualPassword($password);
 		$token = $this->shareNgGetLastCreatedLinkShareToken();
@@ -1367,7 +1370,6 @@ class FeatureContext extends BehatVariablesContext {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" sends HTTP method "([^"]*)" to URL "([^"]*)" with headers$/
 	 *
 	 * @param string $user
 	 * @param string $verb
@@ -1378,6 +1380,7 @@ class FeatureContext extends BehatVariablesContext {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[When('user :user sends HTTP method :verb to URL :url with headers')]
 	public function userSendsHTTPMethodToUrlWithHeaders(
 		string $user,
 		string $verb,
@@ -1419,7 +1422,6 @@ class FeatureContext extends BehatVariablesContext {
 	}
 
 	/**
-	 * @When user :user sends HTTP method :method to URL :davPath with content :content
 	 *
 	 * @param string $user
 	 * @param string $method
@@ -1428,6 +1430,7 @@ class FeatureContext extends BehatVariablesContext {
 	 *
 	 * @return void
 	 */
+	#[When('user :user sends HTTP method :method to URL :davPath with content :content')]
 	public function userSendsHttpMethodToUrlWithContent(
 		string $user,
 		string $method,
@@ -1435,25 +1438,6 @@ class FeatureContext extends BehatVariablesContext {
 		string $content
 	): void {
 		$this->setResponse($this->sendingToWithDirectUrl($user, $method, $davPath, $content));
-	}
-
-	/**
-	 * @When /^user "([^"]*)" sends HTTP method "([^"]*)" to URL "([^"]*)" with password "([^"]*)"$/
-	 *
-	 * @param string $user
-	 * @param string $verb
-	 * @param string $url
-	 * @param string $password
-	 *
-	 * @return void
-	 */
-	public function userSendsHTTPMethodToUrlWithPassword(
-		string $user,
-		string $verb,
-		string $url,
-		string $password
-	): void {
-		$this->setResponse($this->sendingToWithDirectUrl($user, $verb, $url, null, $password));
 	}
 
 	/**
@@ -1618,7 +1602,6 @@ class FeatureContext extends BehatVariablesContext {
 	}
 
 	/**
-	 * @Then the ocs JSON data of the response should match
 	 *
 	 * @param PyStringNode $schemaString
 	 *
@@ -1626,6 +1609,7 @@ class FeatureContext extends BehatVariablesContext {
 	 *
 	 * @throws Exception
 	 */
+	#[Then('the ocs JSON data of the response should match')]
 	public function theOcsDataOfTheResponseShouldMatch(
 		PyStringNode $schemaString
 	): void {
@@ -1637,13 +1621,13 @@ class FeatureContext extends BehatVariablesContext {
 	}
 
 	/**
-	 * @Then the JSON data of the response should match
 	 *
 	 * @param PyStringNode $schemaString
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the JSON data of the response should match')]
 	public function theJsonDataOfTheResponseShouldMatch(PyStringNode $schemaString): void {
 		$responseBody = $this->getJsonDecodedResponseBodyContent();
 		$this->assertJsonDocumentMatchesSchema(
@@ -1653,24 +1637,24 @@ class FeatureContext extends BehatVariablesContext {
 	}
 
 	/**
-	 * @Then /^the HTTP status code should be "([^"]*)"$/
 	 *
 	 * @param int|string $statusCode
 	 *
 	 * @return void
 	 */
+	#[Then('the HTTP status code should be :statusCode')]
 	public function thenTheHTTPStatusCodeShouldBe($statusCode): void {
 		$this->theHTTPStatusCodeShouldBe($statusCode);
 	}
 
 	/**
-	 * @Then /^the HTTP status code should be "([^"]*)" or "([^"]*)"$/
 	 *
 	 * @param int|string $statusCode1
 	 * @param int|string $statusCode2
 	 *
 	 * @return void
 	 */
+	#[Then('the HTTP status code should be :statusCode1 or :statusCode2')]
 	public function theHTTPStatusCodeShouldBeOr($statusCode1, $statusCode2): void {
 		$this->theHTTPStatusCodeShouldBe(
 			[$statusCode1, $statusCode2]
@@ -1678,7 +1662,6 @@ class FeatureContext extends BehatVariablesContext {
 	}
 
 	/**
-	 * @Then /^the HTTP status code should be between "(\d+)" and "(\d+)"$/
 	 *
 	 * @param int|string $minStatusCode
 	 * @param int|string $maxStatusCode
@@ -1686,6 +1669,7 @@ class FeatureContext extends BehatVariablesContext {
 	 *
 	 * @return void
 	 */
+	#[Then('the HTTP status code should be between :minStatusCode and :maxStatusCode')]
 	public function theHTTPStatusCodeShouldBeBetween(
 		$minStatusCode,
 		$maxStatusCode,
@@ -2016,10 +2000,10 @@ class FeatureContext extends BehatVariablesContext {
 	}
 
 	/**
-	 * @When the administrator requests status.php
 	 *
 	 * @return void
 	 */
+	#[When('the administrator requests status.php')]
 	public function theAdministratorRequestsStatusPhp(): void {
 		$this->response = $this->getStatusPhp();
 	}

@@ -107,6 +107,7 @@ help:
 	@echo -e "${GREEN}Tools for linting gherkin feature files:\n${RESET}"
 	@echo -e "\tmake test-gherkin-lint\t\t${BLUE}run lint checks on Gherkin feature files${RESET}"
 	@echo -e "\tmake test-gherkin-lint-fix\t${BLUE}apply lint fixes to gherkin feature files${RESET}"
+	@echo -e "\tmake find-unused-steps\t\t${BLUE}list Behat step definitions unused by any .feature file${RESET}"
 	@echo
 
 .PHONY: clean-tests
@@ -227,6 +228,10 @@ test-gherkin-lint:
 .PHONY: test-gherkin-lint-fix
 test-gherkin-lint-fix:
 	gherlint --fix tests/acceptance/features -c tests/acceptance/config/.gherlintrc.json
+
+.PHONY: find-unused-steps
+find-unused-steps: vendor-bin/behat/vendor
+	tests/acceptance/scripts/find-unused-steps.sh
 
 .PHONY: bingo-update
 bingo-update: $(BINGO)

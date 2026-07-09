@@ -26,6 +26,9 @@ use Psr\Http\Message\ResponseInterface;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\BehatHelper;
+use Behat\Step\Given;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -55,7 +58,6 @@ class FilesVersionsContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to get versions of file :file from :fileOwner
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -64,12 +66,12 @@ class FilesVersionsContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user tries to get versions of file :file from :fileOwner')]
 	public function userTriesToGetFileVersions(string $user, string $file, string $fileOwner): void {
 		$this->featureContext->setResponse($this->getFileVersions($user, $file, $fileOwner));
 	}
 
 	/**
-	 * @When user :user gets the number of versions of file :file
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -77,12 +79,12 @@ class FilesVersionsContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user gets the number of versions of file :file')]
 	public function userGetsFileVersions(string $user, string $file): void {
 		$this->featureContext->setResponse($this->getFileVersions($user, $file));
 	}
 
 	/**
-	 * @When the public tries to get the number of versions of file :file with password :password using file-id :endpoint
 	 *
 	 * @param string $file
 	 * @param string $password
@@ -90,6 +92,7 @@ class FilesVersionsContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('the public tries to get the number of versions of file :file with password :password using file-id :endpoint')]
 	public function thePublicTriesToGetTheNumberOfVersionsOfFileWithPasswordUsingFileId(
 		string $file,
 		string $password,
@@ -148,14 +151,14 @@ class FilesVersionsContext implements Context {
 	}
 
 	/**
-	 * @When user :user gets the number of versions of file :resource using file-id :fileId
-	 * @When user :user tries to get the number of versions of file :resource using file-id :fileId
 	 *
 	 * @param string $user
 	 * @param string $fileId
 	 *
 	 * @return void
 	 */
+	#[When('user :user gets the number of versions of file :resource using file-id :fileId')]
+	#[When('user :user tries to get the number of versions of file :resource using file-id :fileId')]
 	public function userGetsTheNumberOfVersionsOfFileOfTheSpace(string $user, string $fileId): void {
 		$this->featureContext->setResponse(
 			$this->featureContext->makeDavRequest(
@@ -240,7 +243,6 @@ class FilesVersionsContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has restored version index :versionIndex of file :path
 	 *
 	 * @param string $user
 	 * @param int $versionIndex
@@ -249,13 +251,13 @@ class FilesVersionsContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('user :user has restored version index :versionIndex of file :path')]
 	public function userHasRestoredVersionIndexOfFile(string $user, int $versionIndex, string $path): void {
 		$response = $this->restoreVersionIndexOfFile($user, $versionIndex, $path);
 		$this->featureContext->theHTTPStatusCodeShouldBe(204, "", $response);
 	}
 
 	/**
-	 * @When user :user restores version index :versionIndex of file :path using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param int $versionIndex
@@ -264,6 +266,7 @@ class FilesVersionsContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user restores version index :versionIndex of file :path using the WebDAV API')]
 	public function userRestoresVersionIndexOfFile(string $user, int $versionIndex, string $path): void {
 		$response = $this->restoreVersionIndexOfFile($user, $versionIndex, $path);
 		$this->featureContext->setResponse($response, $user);
@@ -297,7 +300,6 @@ class FilesVersionsContext implements Context {
 	}
 
 	/**
-	 * @Then the version folder of file :path for user :user should contain :count element(s)
 	 *
 	 * @param string $path
 	 * @param string $user
@@ -306,6 +308,7 @@ class FilesVersionsContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the version folder of file :path for user :user should contain :count element(s)')]
 	public function theVersionFolderOfFileShouldContainElements(
 		string $path,
 		string $user,
@@ -322,7 +325,6 @@ class FilesVersionsContext implements Context {
 	}
 
 	/**
-	 * @Then the content length of file :path with version index :index for user :user in versions folder should be :length
 	 *
 	 * @param string $path
 	 * @param int $index
@@ -332,6 +334,7 @@ class FilesVersionsContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the content length of file :path with version index :index for user :user in versions folder should be :length')]
 	public function theContentLengthOfFileForUserInVersionsFolderIs(
 		string $path,
 		int $index,
@@ -406,7 +409,6 @@ class FilesVersionsContext implements Context {
 	}
 
 	/**
-	 * @When user :user downloads the version of file :path with the index :index
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -415,12 +417,12 @@ class FilesVersionsContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user downloads the version of file :path with the index :index')]
 	public function userDownloadsVersion(string $user, string $path, string $index): void {
 		$this->featureContext->setResponse($this->downloadVersion($user, $path, $index), $user);
 	}
 
 	/**
-	 * @Then /^the content of version index "([^"]*)" of file "([^"]*)" for user "([^"]*)" should be "([^"]*)"$/
 	 *
 	 * @param string $index
 	 * @param string $path
@@ -430,6 +432,7 @@ class FilesVersionsContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the content of version index :index of file :path for user :user should be :content')]
 	public function theContentOfVersionIndexOfFileForUserShouldBe(
 		string $index,
 		string $path,
@@ -442,7 +445,6 @@ class FilesVersionsContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" retrieves the meta information of (file|fileId) "([^"]*)" using the meta API$/
 	 *
 	 * @param string $user
 	 * @param string $fileOrFileId
@@ -450,6 +452,7 @@ class FilesVersionsContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" retrieves the meta information of (file|fileId) "([^"]*)" using the meta API$/')]
 	public function userGetMetaInfo(string $user, string $fileOrFileId, string $path): void {
 		$user = $this->featureContext->getActualUsername($user);
 		$baseUrl = $this->featureContext->getBaseUrl();
@@ -525,8 +528,6 @@ class FilesVersionsContext implements Context {
 	}
 
 	/**
-	 * @When user :user gets the number of versions of file :file from space :space
-	 * @When user :user tries to get the number of versions of file :file from space :space
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -534,6 +535,7 @@ class FilesVersionsContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :user tries to get the number of versions of file :file from space :space')]
 	public function userGetsTheNumberOfVersionsOfFileFromSpace(string $user, string $file, string $space): void {
 		$fileId = $this->spacesContext->getFileId($user, $space, $file);
 		$this->featureContext->setResponse(

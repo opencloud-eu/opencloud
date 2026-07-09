@@ -26,6 +26,9 @@ use TestHelpers\CliHelper;
 use TestHelpers\OcConfigHelper;
 use TestHelpers\BehatHelper;
 use Psr\Http\Message\ResponseInterface;
+use Behat\Step\Given;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 /**
  * CLI context
@@ -120,27 +123,26 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @Given the administrator has stopped the server
 	 *
 	 * @return void
 	 */
+	#[Given('the administrator has stopped the server')]
 	public function theAdministratorHasStoppedTheServer(): void {
 		$response = OcConfigHelper::stopOpencloud();
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, '', $response);
 	}
 
 	/**
-	 * @Given /^the administrator (?:starts|has started) the server$/
 	 *
 	 * @return void
 	 */
+	#[Given('/^the administrator (?:starts|has started) the server$/')]
 	public function theAdministratorHasStartedTheServer(): void {
 		$response = OcConfigHelper::startOpencloud();
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, '', $response);
 	}
 
 	/**
-	 * @When /^the administrator resets the password of (non-existing|existing) user "([^"]*)" to "([^"]*)" using the CLI$/
 	 *
 	 * @param string $status
 	 * @param string $user
@@ -148,6 +150,7 @@ class CliContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('/^the administrator resets the password of (non-existing|existing) user "([^"]*)" to "([^"]*)" using the CLI$/')]
 	public function theAdministratorResetsThePasswordOfUserUsingTheCLI(
 		string $status,
 		string $user,
@@ -167,10 +170,10 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator deletes the empty trashbin folders using the CLI
 	 *
 	 * @return void
 	 */
+	#[When('the administrator deletes the empty trashbin folders using the CLI')]
 	public function theAdministratorDeletesEmptyTrashbinFoldersUsingTheCli(): void {
 		$path = $this->featureContext->getStorageUsersRoot();
 		$command = "trash purge-empty-dirs -p $path --dry-run=false";
@@ -181,10 +184,10 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator checks the backup consistency using the CLI
 	 *
 	 * @return void
 	 */
+	#[When('the administrator checks the backup consistency using the CLI')]
 	public function theAdministratorChecksTheBackupConsistencyUsingTheCli(): void {
 		$path = $this->featureContext->getStorageUsersRoot();
 		$command = "backup consistency -p $path";
@@ -195,13 +198,13 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator creates app token for user :user with expiration time :expirationTime using the auth-app CLI
 	 *
 	 * @param string $user
 	 * @param string $expirationTime
 	 *
 	 * @return void
 	 */
+	#[When('the administrator creates app token for user :user with expiration time :expirationTime using the auth-app CLI')]
 	public function theAdministratorCreatesAppTokenForUserWithExpirationTimeUsingTheAuthAppCLI(
 		string $user,
 		string $expirationTime
@@ -215,13 +218,13 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has created app token with expiration time :expirationTime using the auth-app CLI
 	 *
 	 * @param string $user
 	 * @param string $expirationTime
 	 *
 	 * @return void
 	 */
+	#[Given('user :user has created app token with expiration time :expirationTime using the auth-app CLI')]
 	public function userHasCreatedAppTokenWithExpirationTimeUsingTheAuthAppCLI(
 		string $user,
 		string $expirationTime
@@ -244,10 +247,10 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator removes all the file versions using the CLI
 	 *
 	 * @return void
 	 */
+	#[When('the administrator removes all the file versions using the CLI')]
 	public function theAdministratorRemovesAllVersionsOfResources() {
 		$path = $this->featureContext->getStorageUsersRoot();
 		$command = "revisions purge -p $path --dry-run=false";
@@ -258,7 +261,6 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator removes the versions of file :file of user :user from space :space using the CLI
 	 *
 	 * @param string $file
 	 * @param string $user
@@ -266,6 +268,7 @@ class CliContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('the administrator removes the versions of file :file of user :user from space :space using the CLI')]
 	public function theAdministratorRemovesTheVersionsOfFileUsingFileId($file, $user, $space) {
 		$path = $this->featureContext->getStorageUsersRoot();
 		$fileId = $this->spacesContext->getFileId($user, $space, $file);
@@ -277,10 +280,10 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When /^the administrator reindexes all spaces using the CLI$/
 	 *
 	 * @return void
 	 */
+	#[When('the administrator reindexes all spaces using the CLI')]
 	public function theAdministratorReindexesAllSpacesUsingTheCli(): void {
 		$endpoint = $this->featureContext->getBaseUrlHostName();
 		$command = "search index --all-spaces --endpoint $endpoint:9220 --insecure";
@@ -291,12 +294,12 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When /^the administrator reindexes a space "([^"]*)" using the CLI$/
 	 *
 	 * @param string $spaceName
 	 *
 	 * @return void
 	 */
+	#[When('the administrator reindexes a space :spaceName using the CLI')]
 	public function theAdministratorReindexesASpaceUsingTheCli(string $spaceName): void {
 		$spaceId = $this->spacesContext->getSpaceIdByName($this->featureContext->getAdminUsername(), $spaceName);
 		$endpoint = $this->featureContext->getBaseUrlHostName();
@@ -308,12 +311,12 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator removes the file versions of space :space using the CLI
 	 *
 	 * @param string $space
 	 *
 	 * @return void
 	 */
+	#[When('the administrator removes the file versions of space :space using the CLI')]
 	public function theAdministratorRemovesTheVersionsOfFilesInSpaceUsingSpaceId(string $space): void {
 		$path = $this->featureContext->getStorageUsersRoot();
 		$adminUsername = $this->featureContext->getAdminUsername();
@@ -326,10 +329,10 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator purges the expired trash-bin items using the CLI
 	 *
 	 * @return void
 	 */
+	#[When('the administrator purges the expired trash-bin items using the CLI')]
 	public function theAdministratorPurgesExpiredTrashBinItemsUsingTheCli(): void {
 		$command = "storage-users trash-bin purge-expired";
 		$body = [
@@ -340,12 +343,12 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator lists the trash-bin items of space :space using the CLI
 	 *
 	 * @param string $space
 	 *
 	 * @return void
 	 */
+	#[When('the administrator lists the trash-bin items of space :space using the CLI')]
 	public function theAdministratorListsTrashBinItemsOfSpaceUsingTheCli(string $space): void {
 		$adminUsername = $this->featureContext->getAdminUsername();
 		$spaceId = $this->spacesContext->getSpaceIdByName($adminUsername, $space);
@@ -357,12 +360,12 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator lists the trash-bin items of the personal space of user :user using the CLI
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[When('the administrator lists the trash-bin items of the personal space of user :user using the CLI')]
 	public function theAdministratorListsTrashBinItemsOfPersonalSpaceUsingTheCli(string $user): void {
 		$spaceId = $this->spacesContext->getSpaceIdByName($user, 'Personal');
 		$command = "storage-users trash-bin list $spaceId";
@@ -373,12 +376,12 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator restores all the trash-bin items of space :space using the CLI
 	 *
 	 * @param string $space
 	 *
 	 * @return void
 	 */
+	#[When('the administrator restores all the trash-bin items of space :space using the CLI')]
 	public function theAdministratorRestoresAllTrashBinItemsOfSpaceUsingTheCli(string $space): void {
 		$adminUsername = $this->featureContext->getAdminUsername();
 		$spaceId = $this->spacesContext->getSpaceIdByName($adminUsername, $space);
@@ -390,12 +393,12 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator restores all the trash-bin items of the personal space of user :user using the CLI
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[When('the administrator restores all the trash-bin items of the personal space of user :user using the CLI')]
 	public function theAdministratorRestoresAllTrashBinItemsOfPersonalSpaceUsingTheCli(string $user): void {
 		$spaceId = $this->spacesContext->getSpaceIdByName($user, 'Personal');
 		$command = "storage-users trash-bin restore-all $spaceId --yes";
@@ -406,13 +409,13 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator restores the trash-bin item with file-id :fileId of space :space using the CLI
 	 *
 	 * @param string $fileId
 	 * @param string $space
 	 *
 	 * @return void
 	 */
+	#[When('the administrator restores the trash-bin item with file-id :fileId of space :space using the CLI')]
 	public function theAdministratorRestoresTrashBinItemOfSpaceUsingTheCli(string $fileId, string $space): void {
 		$adminUsername = $this->featureContext->getAdminUsername();
 		$spaceId = $this->spacesContext->getSpaceIdByName($adminUsername, $space);
@@ -424,13 +427,13 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator restores the trash-bin item with file-id :fileId of the personal space of user :user using the CLI
 	 *
 	 * @param string $fileId
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[When('the administrator restores the trash-bin item with file-id :fileId of the personal space of user :user using the CLI')]
 	public function theAdministratorRestoresTrashBinItemOfPersonalSpaceUsingTheCli(string $fileId, string $user): void {
 		$spaceId = $this->spacesContext->getSpaceIdByName($user, 'Personal');
 		$command = "storage-users trash-bin restore $spaceId $fileId";
@@ -441,10 +444,10 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator cleans up orphaned shares using the CLI
 	 *
 	 * @return void
 	 */
+	#[When('the administrator cleans up orphaned shares using the CLI')]
 	public function theAdministratorCleansUpOrphanedSharesUsingTheCli(): void {
 		$serviceAccountId = getenv('OC_SERVICE_ACCOUNT_ID') ?: 'service-account-id';
 		$serviceAccountSecret = getenv('OC_SERVICE_ACCOUNT_SECRET') ?: 'service-account-secret';
@@ -457,10 +460,10 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator lists the unified roles using the CLI
 	 *
 	 * @return void
 	 */
+	#[When('the administrator lists the unified roles using the CLI')]
 	public function theAdministratorListsTheUnifiedRolesUsingTheCli(): void {
 		$command = "graph list-unified-roles";
 		$body = [
@@ -470,10 +473,10 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @Then the command should be successful
 	 *
 	 * @return void
 	 */
+	#[Then('the command should be successful')]
 	public function theCommandShouldBeSuccessful(): void {
 		$response = $this->featureContext->getResponse();
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, '', $response);
@@ -490,13 +493,13 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @Then /^the command output (should|should not) contain "([^"]*)"$/
 	 *
 	 * @param string $shouldOrNot
 	 * @param string $output
 	 *
 	 * @return void
 	 */
+	#[Then('/^the command output (should|should not) contain "([^"]*)"$/')]
 	public function theCommandOutputShouldContain(string $shouldOrNot, string $output): void {
 		$response = $this->featureContext->getResponse();
 		$jsonResponse = $this->featureContext->getJsonDecodedResponse($response);
@@ -510,13 +513,13 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator lists all the upload sessions
-	 * @When the administrator lists all the upload sessions with flag :flag
 	 *
 	 * @param string|null $flag
 	 *
 	 * @return void
 	 */
+	#[When('the administrator lists all the upload sessions')]
+	#[When('the administrator lists all the upload sessions with flag :flag')]
 	public function theAdministratorListsAllTheUploadSessions(?string $flag = null): void {
 		if ($flag) {
 			$flag = "--$flag";
@@ -529,12 +532,12 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator cleans upload sessions with the following flags:
 	 *
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 */
+	#[When('the administrator cleans upload sessions with the following flags:')]
 	public function theAdministratorCleansUploadSessionsWithTheFollowingFlags(TableNode $table): void {
 		$flag = "";
 		foreach ($table->getRows() as $row) {
@@ -549,10 +552,10 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator restarts the upload sessions that are in postprocessing
 	 *
 	 * @return void
 	 */
+	#[When('the administrator restarts the upload sessions that are in postprocessing')]
 	public function theAdministratorRestartsTheUploadSessionsThatAreInPostprocessing(): void {
 		$command = "storage-users uploads sessions --processing --restart --json";
 		$body = [
@@ -562,13 +565,13 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator restarts the upload sessions of file :file
 	 *
 	 * @param string $file
 	 *
 	 * @return void
 	 * @throws JsonException
 	 */
+	#[When('the administrator restarts the upload sessions of file :file')]
 	public function theAdministratorRestartsUploadSessionsOfFile(string $file): void {
 		$response = CliHelper::runCommand(["command" => "storage-users uploads sessions --json"]);
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, '', $response);
@@ -588,7 +591,6 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @Then /^the CLI response (should|should not) contain these entries:$/
 	 *
 	 * @param string $shouldOrNot
 	 * @param TableNode $table
@@ -596,6 +598,7 @@ class CliContext implements Context {
 	 * @return void
 	 * @throws JsonException
 	 */
+	#[Then('/^the CLI response (should|should not) contain these entries:$/')]
 	public function theCLIResponseShouldContainTheseEntries(string $shouldOrNot, TableNode $table): void {
 		$expectedFiles = $table->getColumn(0);
 		$responseArray = $this->getJSONDecodedCliMessage($this->featureContext->getResponse());
@@ -655,13 +658,13 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator creates the folder :folder for user :user on the POSIX filesystem
 	 *
 	 * @param string $folder
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[When('the administrator creates the folder :folder for user :user on the POSIX filesystem')]
 	public function theAdministratorCreatesFolder(string $folder, string $user): void {
 		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
@@ -677,12 +680,12 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator lists the content of the POSIX storage folder of user :user
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[When('the administrator lists the content of the POSIX storage folder of user :user')]
 	public function theAdministratorCheckUsersFolder(string $user): void {
 		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
@@ -694,7 +697,6 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator creates the file :file with content :content for user :user on the POSIX filesystem
 	 *
 	 * @param string $file
 	 * @param string $content
@@ -702,6 +704,7 @@ class CliContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('the administrator creates the file :file with content :content for user :user on the POSIX filesystem')]
 	public function theAdministratorCreatesFile(string $file, string $content, string $user): void {
 		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
@@ -717,7 +720,6 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator has created the file :file with content :content for user :user on the POSIX filesystem
 	 *
 	 * @param string $file
 	 * @param string $content
@@ -725,13 +727,13 @@ class CliContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('the administrator has created the file :file with content :content for user :user on the POSIX filesystem')]
 	public function theAdministratorHasCreatedFile(string $file, string $content, string $user): void {
 		$this->theAdministratorCreatesFile($file, $content, $user);
 		$this->theCommandShouldBeSuccessful();
 	}
 
 	/**
-	 * @When the administrator creates the file :file with size :size for user :user on the POSIX filesystem
 	 *
 	 * @param string $file
 	 * @param string $size Example: "1gb", "5gb"
@@ -739,6 +741,7 @@ class CliContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('the administrator creates the file :file with size :size for user :user on the POSIX filesystem')]
 	public function theAdministratorCreatesLargeFileWithSize(string $file, string $size, string $user): void {
 		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
@@ -762,7 +765,6 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator creates :count files sequentially in the directory :dir for user :user on the POSIX filesystem
 	 *
 	 * @param int $count
 	 * @param string $dir
@@ -770,6 +772,7 @@ class CliContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('the administrator creates :count files sequentially in the directory :dir for user :user on the POSIX filesystem')]
 	public function theAdministratorCreatesFilesSequentially(int $count, string $dir, string $user): void {
 		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath() . "/$userUuid/$dir";
@@ -787,7 +790,6 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator creates :count files in parallel in the directory :dir for user :user on the POSIX filesystem
 	 *
 	 * @param int $count
 	 * @param string $dir
@@ -795,6 +797,7 @@ class CliContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('the administrator creates :count files in parallel in the directory :dir for user :user on the POSIX filesystem')]
 	public function theAdministratorCreatesFilesInParallel(int $count, string $dir, string $user): void {
 		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath() . "/$userUuid/$dir";
@@ -813,7 +816,6 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator puts the content :content into the file :file in the POSIX storage folder of user :user
 	 *
 	 * @param string $content
 	 * @param string $file
@@ -821,6 +823,7 @@ class CliContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('the administrator puts the content :content into the file :file in the POSIX storage folder of user :user')]
 	public function theAdministratorChangesFileContent(string $content, string $file, string $user): void {
 		// this downloads the file using WebDAV and by that checks if it's still in
 		// postprocessing. So its effectively a check for finished postprocessing
@@ -838,13 +841,13 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator reads the content of the file :file in the POSIX storage folder of user :user
 	 *
 	 * @param string $user
 	 * @param string $file
 	 *
 	 * @return void
 	 */
+	#[When('the administrator reads the content of the file :file in the POSIX storage folder of user :user')]
 	public function theAdministratorReadsTheFileContent(string $user, string $file): void {
 		// this downloads the file using WebDAV and by that checks if it's still in
 		// postprocessing. So its effectively a check for finished postprocessing
@@ -860,7 +863,6 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator copies the file :file to the folder :folder for user :user on the POSIX filesystem
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -868,6 +870,7 @@ class CliContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('the administrator copies the file :file to the folder :folder for user :user on the POSIX filesystem')]
 	public function theAdministratorCopiesFileToFolder(string $user, string $file, string $folder): void {
 		// this downloads the file using WebDAV and by that checks if it's still in
 		// postprocessing. So its effectively a check for finished postprocessing
@@ -888,7 +891,6 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator renames the file :file to :newName for user :user on the POSIX filesystem
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -896,6 +898,7 @@ class CliContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('the administrator renames the file :file to :newName for user :user on the POSIX filesystem')]
 	public function theAdministratorRenamesFile(string $user, string $file, string $newName): void {
 		// this downloads the file using WebDAV and by that checks if it's still in
 		// postprocessing. So its effectively a check for finished postprocessing
@@ -916,7 +919,6 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator moves the file :file to the folder :folder for user :user on the POSIX filesystem
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -924,6 +926,7 @@ class CliContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('the administrator moves the file :file to the folder :folder for user :user on the POSIX filesystem')]
 	public function theAdministratorMovesFileToFolder(string $user, string $file, string $folder): void {
 		// this downloads the file using WebDAV and by that checks if it's still in
 		// postprocessing. So its effectively a check for finished postprocessing
@@ -944,13 +947,13 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator deletes the file :file for user :user on the POSIX filesystem
 	 *
 	 * @param string $file
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[When('the administrator deletes the file :file for user :user on the POSIX filesystem')]
 	public function theAdministratorDeletesFile(string $file, string $user): void {
 		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
@@ -964,13 +967,13 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator deletes the folder :folder for user :user on the POSIX filesystem
 	 *
 	 * @param string $folder
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[When('the administrator deletes the folder :folder for user :user on the POSIX filesystem')]
 	public function theAdministratorDeletesFolder(string $folder, string $user): void {
 		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
 		$storagePath = $this->getUsersStoragePath();
@@ -984,7 +987,6 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator copies the file :file to the space :space for user :user on the POSIX filesystem
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -992,6 +994,7 @@ class CliContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('the administrator copies the file :file to the space :space for user :user on the POSIX filesystem')]
 	public function theAdministratorCopiesFileToSpace(string $user, string $file, string $space): void {
 		// this downloads the file using WebDAV and by that checks if it's still in
 		// postprocessing. So its effectively a check for finished postprocessing
@@ -1015,27 +1018,6 @@ class CliContext implements Context {
 	}
 
 	/**
-	 * @When the administrator deletes the project space :space on the POSIX filesystem
-	 *
-	 * @param string $space
-	 *
-	 * @return void
-	 */
-	public function theAdministratorDeletesSpace(string $space): void {
-		$projectsStoragePath = $this->getProjectsStoragePath();
-		$spaceId = $this->spacesContext->getSpaceIdByName($this->featureContext->getAdminUsername(), $space);
-		$spaceId = explode('$', $spaceId)[1];
-
-		$body = [
-		  "command" => "rm -r $projectsStoragePath/$spaceId",
-		  "raw" => true
-		];
-		$this->featureContext->setResponse(CliHelper::runCommand($body));
-		sleep(1);
-	}
-
-	/**
-	 * @When the administrator checks the attribute :attribute of file :file for user :user on the POSIX filesystem
 	 *
 	 * @param string $attribute
 	 * @param string $file
@@ -1043,6 +1025,7 @@ class CliContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('the administrator checks the attribute :attribute of file :file for user :user on the POSIX filesystem')]
 	public function theAdminChecksTheAttributeOfFileForUser(string $attribute, string $file, string $user): void {
 		// this downloads the file using WebDAV and by that checks if it's still in
 		// postprocessing. So its effectively a check for finished postprocessing
