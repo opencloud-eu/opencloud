@@ -28,6 +28,13 @@
 // another io.Writer, copying the underlying TTF file, but this package does
 // not provide an encoder. Specifically, there is no API to build a different
 // TTF file, whether 'from scratch' or by modifying an existing one.
+//
+// # Security Considerations
+//
+// This package is not hardened against malicious inputs.
+// Crashes, excessive CPU or memory consumption, or similar misbehavior
+// caused by malicious or corrupt inputs will be handled as ordinary bugs,
+// not vulnerabilities.
 package sfnt // import "golang.org/x/image/font/sfnt"
 
 // This implementation was written primarily to the
