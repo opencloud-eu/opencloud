@@ -104,6 +104,7 @@ func Server(cfg *config.Config) *cobra.Command {
 						InsecureSkipVerify: cfg.OIDC.Insecure, //nolint:gosec
 					},
 					DisableKeepAlives: true,
+					Proxy: http.ProxyFromEnvironment,
 				},
 				Timeout: time.Second * 10,
 			}
@@ -279,6 +280,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 				InsecureSkipVerify: cfg.OIDC.Insecure, //nolint:gosec
 			},
 			DisableKeepAlives: true,
+			Proxy: http.ProxyFromEnvironment,
 		},
 		Timeout: time.Second * 10,
 	}
