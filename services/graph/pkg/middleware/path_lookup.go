@@ -49,6 +49,7 @@ var (
 	errPathNotFound    = errors.New("path not found")
 	errInvalidRequest  = errors.New("invalid request")
 	errUnauthenticated = errors.New("unauthenticated")
+	errAccessDenied    = errors.New("access denied")
 )
 
 // ResolveGraphPath returns middleware that detects MS Graph colon-syntax path
@@ -91,7 +92,7 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 
 			driveID := chi.URLParam(r, "driveID")
 			original := r.URL.Path
-			rewritten, err := rewriteColonPath(r.Context(), gws, l, driveID, rctx.RoutePath)
+			rewritten, err := rewriteColonPath(r.Context(), gws, l, driveID, rctx.RoutePath, r)
 			switch {
 			case errors.Is(err, errPathNotFound):
 				l.Debug().Str("original", original).Msg("colon-path resolution: not found")
@@ -104,6 +105,10 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 			case errors.Is(err, errUnauthenticated):
 				l.Debug().Str("original", original).Msg("colon-path resolution: unauthenticated")
 				errorcode.Unauthenticated.Render(w, r, http.StatusUnauthorized, "unauthenticated")
+				return
+			case errors.Is(err, errAccessDenied):
+				l.Debug().Str("original", original).Msg("colon-path resolution: access denied")
+				errorcode.AccessDenied.Render(w, r, http.StatusForbidden, "access denied")
 				return
 			case err != nil:
 				l.Error().Err(err).Str("original", original).Msg("colon-path resolution: internal error")
@@ -154,17 +159,36 @@ type colonMatch struct {
 //   - ""        + other error        - operational / internal failure (5xx)
 //
 // driveIDParam is the {driveID} route param (raw chi.URLParam value); routePath
-// is chi.RouteContext().RoutePath (the part below /drives/{driveID}).
+// is chi.RouteContext().RoutePath (the part below /drives/{driveID}). r is only
+// consulted for the method and the @libre.graph.missingParentsBehavior query
+// parameter, which is meaningful for POST .../children requests only and
+// ignored otherwise.
 func rewriteColonPath(
 	ctx context.Context,
 	gws pool.Selectable[gateway.GatewayAPIClient],
 	logger zerolog.Logger,
 	driveIDParam string,
 	routePath string,
+	r *http.Request,
 ) (string, error) {
 	match, ok := parseColonPath(routePath)
 	if !ok {
 		return "", nil
+	}
+
+	// The colon path addresses the parent of the item a POST .../children
+	// creates. With missingParentsBehavior=create the missing folders along
+	// that path are created instead of returning 404.
+	createParents := false
+	if r.Method == http.MethodPost && match.suffix == "/children" {
+		switch r.URL.Query().Get("@libre.graph.missingParentsBehavior") {
+		case "", "fail":
+		case "create":
+			createParents = true
+		default:
+			logger.Debug().Msg("invalid @libre.graph.missingParentsBehavior in colon path")
+			return "", errInvalidRequest
+		}
 	}
 
 	// RoutePath follows chi's RawPath, i.e. the percent-encoded wire form
@@ -218,7 +242,11 @@ func rewriteColonPath(
 		return "", errInvalidRequest
 	}
 
-	itemID, err := resolvePath(ctx, gws, &anchor, relPath)
+	resolve := resolvePath
+	if createParents {
+		resolve = resolveOrCreatePath
+	}
+	itemID, err := resolve(ctx, gws, &anchor, relPath)
 	if err != nil {
 		return "", err
 	}
@@ -306,9 +334,7 @@ func parseColonPath(routePath string) (colonMatch, bool) {
 	return m, true
 }
 
-// resolvePath translates a relative filesystem path (anchored at the given
-// CS3 resource id) into the resolved item's id, running with the request
-// user's permissions via CS3 Stat.
+// resolvePath resolves relPath (anchored at anchor) to the item's id, as the request user.
 func resolvePath(
 	ctx context.Context,
 	gws pool.Selectable[gateway.GatewayAPIClient],
@@ -320,6 +346,75 @@ func resolvePath(
 		return "", fmt.Errorf("gateway selector: %w", err)
 	}
 
+	return statPath(ctx, gw, anchor, relPath)
+}
+
+// resolveOrCreatePath is resolvePath with missingParentsBehavior=create: it creates the missing folders along relPath.
+func resolveOrCreatePath(
+	ctx context.Context,
+	gws pool.Selectable[gateway.GatewayAPIClient],
+	anchor *storageprovider.ResourceId,
+	relPath string,
+) (string, error) {
+	gw, err := gws.Next()
+	if err != nil {
+		return "", fmt.Errorf("gateway selector: %w", err)
+	}
+
+	var id, walked string
+	for _, segment := range strings.Split(strings.Trim(relPath, "/"), "/") {
+		walked += "/" + segment
+		id, err = statPath(ctx, gw, anchor, walked)
+		if err == nil {
+			continue
+		}
+		if !errors.Is(err, errPathNotFound) {
+			return "", err
+		}
+
+		res, err := gw.CreateContainer(ctx, &storageprovider.CreateContainerRequest{
+			Ref: &storageprovider.Reference{
+				ResourceId: anchor,
+				Path:       utils.MakeRelativePath(walked),
+			},
+		})
+		if err != nil {
+			return "", fmt.Errorf("CS3 CreateContainer: %w", err)
+		}
+		switch res.GetStatus().GetCode() {
+		case cs3rpc.Code_CODE_OK:
+			// fall through
+		case cs3rpc.Code_CODE_ALREADY_EXISTS:
+			// lost a creation race, the folder is there
+		case cs3rpc.Code_CODE_NOT_FOUND:
+			return "", errPathNotFound
+		case cs3rpc.Code_CODE_PERMISSION_DENIED:
+			return "", errAccessDenied
+		case cs3rpc.Code_CODE_UNAUTHENTICATED:
+			return "", errUnauthenticated
+		default:
+			return "", fmt.Errorf(
+				"CS3 CreateContainer returned %s: %s",
+				res.GetStatus().GetCode(),
+				res.GetStatus().GetMessage(),
+			)
+		}
+
+		id, err = statPath(ctx, gw, anchor, walked)
+		if err != nil {
+			return "", err
+		}
+	}
+	return id, nil
+}
+
+// statPath stats relPath (anchored at anchor) and returns the item's id, as the request user.
+func statPath(
+	ctx context.Context,
+	gw gateway.GatewayAPIClient,
+	anchor *storageprovider.ResourceId,
+	relPath string,
+) (string, error) {
 	// relPath is already decoded (PathUnescape'd once by the caller), matching
 	// the form a normal handler would receive from r.URL.Path.
 	statRes, err := gw.Stat(ctx, &storageprovider.StatRequest{

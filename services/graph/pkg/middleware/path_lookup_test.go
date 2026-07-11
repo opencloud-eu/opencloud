@@ -1,6 +1,7 @@
 package middleware_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -115,6 +116,7 @@ func newGraphTestRouter(t *testing.T, gw *cs3mocks.GatewayAPIClient) (http.Handl
 			r.Use(middleware.ResolveGraphPath(selector, log.NopLogger()))
 			r.Route("/items/{itemID}", func(r chi.Router) {
 				r.Get("/", leaf("item"))
+				r.Post("/children", leaf("createChild"))
 				r.Post("/createLink", leaf("createLink"))
 				r.Route("/permissions", func(r chi.Router) {
 					r.Get("/", leaf("permissions"))
@@ -468,4 +470,95 @@ func TestResolveGraphPath_OriginalPathContext(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, original, cap.original, "original URL must be available via OriginalPathContextKey")
 	assert.Equal(t, original, cap.urlPath, "r.URL.Path must remain the original request path")
+}
+
+// TestResolveGraphPath_MissingParentsBehavior covers the
+// @libre.graph.missingParentsBehavior query parameter on POST .../children
+// colon-syntax requests.
+func TestResolveGraphPath_MissingParentsBehavior(t *testing.T) {
+	childrenURL := "/graph/v1beta1/drives/" + testDriveID + "/root:/a/b:/children"
+
+	t.Run("create creates the missing folders along the path", func(t *testing.T) {
+		gw := cs3mocks.NewGatewayAPIClient(t)
+		created := false
+		gw.EXPECT().Stat(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
+			func(_ context.Context, req *storageprovider.StatRequest, _ ...grpc.CallOption) (*storageprovider.StatResponse, error) {
+				switch path := req.GetRef().GetPath(); path {
+				case "./a":
+					return statResponse(cs3rpc.Code_CODE_OK, true), nil
+				case "./a/b":
+					if created {
+						return statResponse(cs3rpc.Code_CODE_OK, true), nil
+					}
+					return statResponse(cs3rpc.Code_CODE_NOT_FOUND, false), nil
+				default:
+					t.Errorf("unexpected stat path %q", path)
+					return statResponse(cs3rpc.Code_CODE_NOT_FOUND, false), nil
+				}
+			})
+		gw.EXPECT().CreateContainer(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
+			func(_ context.Context, req *storageprovider.CreateContainerRequest, _ ...grpc.CallOption) (*storageprovider.CreateContainerResponse, error) {
+				assert.Equal(t, "./a/b", req.GetRef().GetPath())
+				created = true
+				return &storageprovider.CreateContainerResponse{Status: &cs3rpc.Status{Code: cs3rpc.Code_CODE_OK}}, nil
+			}).Once()
+
+		router, cap := newGraphTestRouter(t, gw)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, httptest.NewRequest(
+			http.MethodPost, childrenURL+"?%40libre.graph.missingParentsBehavior=create", nil,
+		))
+
+		assert.Equal(t, http.StatusOK, rr.Code)
+		assert.Equal(t, "createChild", cap.hit)
+		assert.Equal(t, testItemID, cap.itemID)
+	})
+
+	t.Run("default fail returns 404 for a missing path without creating anything", func(t *testing.T) {
+		gw := cs3mocks.NewGatewayAPIClient(t)
+		gw.EXPECT().Stat(mock.Anything, mock.Anything, mock.Anything).
+			Return(statResponse(cs3rpc.Code_CODE_NOT_FOUND, false), nil).
+			Once()
+
+		router, cap := newGraphTestRouter(t, gw)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, childrenURL, nil))
+
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+		assert.Equal(t, "", cap.hit)
+	})
+
+	t.Run("invalid value returns 400", func(t *testing.T) {
+		gw := cs3mocks.NewGatewayAPIClient(t)
+
+		router, cap := newGraphTestRouter(t, gw)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, httptest.NewRequest(
+			http.MethodPost, childrenURL+"?%40libre.graph.missingParentsBehavior=maybe", nil,
+		))
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Equal(t, "", cap.hit)
+	})
+
+	t.Run("denied folder creation returns 403", func(t *testing.T) {
+		gw := cs3mocks.NewGatewayAPIClient(t)
+		gw.EXPECT().Stat(mock.Anything, mock.Anything, mock.Anything).
+			Return(statResponse(cs3rpc.Code_CODE_NOT_FOUND, false), nil).
+			Once()
+		gw.EXPECT().CreateContainer(mock.Anything, mock.Anything, mock.Anything).
+			Return(&storageprovider.CreateContainerResponse{
+				Status: &cs3rpc.Status{Code: cs3rpc.Code_CODE_PERMISSION_DENIED},
+			}, nil).
+			Once()
+
+		router, cap := newGraphTestRouter(t, gw)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, httptest.NewRequest(
+			http.MethodPost, childrenURL+"?%40libre.graph.missingParentsBehavior=create", nil,
+		))
+
+		assert.Equal(t, http.StatusForbidden, rr.Code)
+		assert.Equal(t, "", cap.hit)
+	})
 }
