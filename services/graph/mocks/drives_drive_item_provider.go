@@ -41,6 +41,92 @@ func (_m *DrivesDriveItemProvider) EXPECT() *DrivesDriveItemProvider_Expecter {
 	return &DrivesDriveItemProvider_Expecter{mock: &_m.Mock}
 }
 
+// CreateChild provides a mock function for the type DrivesDriveItemProvider
+func (_mock *DrivesDriveItemProvider) CreateChild(ctx context.Context, parentID *providerv1beta1.ResourceId, name string, isFolder bool, replace bool) (*providerv1beta1.ResourceInfo, error) {
+	ret := _mock.Called(ctx, parentID, name, isFolder, replace)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateChild")
+	}
+
+	var r0 *providerv1beta1.ResourceInfo
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *providerv1beta1.ResourceId, string, bool, bool) (*providerv1beta1.ResourceInfo, error)); ok {
+		return returnFunc(ctx, parentID, name, isFolder, replace)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *providerv1beta1.ResourceId, string, bool, bool) *providerv1beta1.ResourceInfo); ok {
+		r0 = returnFunc(ctx, parentID, name, isFolder, replace)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*providerv1beta1.ResourceInfo)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *providerv1beta1.ResourceId, string, bool, bool) error); ok {
+		r1 = returnFunc(ctx, parentID, name, isFolder, replace)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// DrivesDriveItemProvider_CreateChild_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateChild'
+type DrivesDriveItemProvider_CreateChild_Call struct {
+	*mock.Call
+}
+
+// CreateChild is a helper method to define mock.On call
+//   - ctx context.Context
+//   - parentID *providerv1beta1.ResourceId
+//   - name string
+//   - isFolder bool
+//   - replace bool
+func (_e *DrivesDriveItemProvider_Expecter) CreateChild(ctx interface{}, parentID interface{}, name interface{}, isFolder interface{}, replace interface{}) *DrivesDriveItemProvider_CreateChild_Call {
+	return &DrivesDriveItemProvider_CreateChild_Call{Call: _e.mock.On("CreateChild", ctx, parentID, name, isFolder, replace)}
+}
+
+func (_c *DrivesDriveItemProvider_CreateChild_Call) Run(run func(ctx context.Context, parentID *providerv1beta1.ResourceId, name string, isFolder bool, replace bool)) *DrivesDriveItemProvider_CreateChild_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *providerv1beta1.ResourceId
+		if args[1] != nil {
+			arg1 = args[1].(*providerv1beta1.ResourceId)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 bool
+		if args[3] != nil {
+			arg3 = args[3].(bool)
+		}
+		var arg4 bool
+		if args[4] != nil {
+			arg4 = args[4].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+			arg4,
+		)
+	})
+	return _c
+}
+
+func (_c *DrivesDriveItemProvider_CreateChild_Call) Return(resourceInfo *providerv1beta1.ResourceInfo, err error) *DrivesDriveItemProvider_CreateChild_Call {
+	_c.Call.Return(resourceInfo, err)
+	return _c
+}
+
+func (_c *DrivesDriveItemProvider_CreateChild_Call) RunAndReturn(run func(ctx context.Context, parentID *providerv1beta1.ResourceId, name string, isFolder bool, replace bool) (*providerv1beta1.ResourceInfo, error)) *DrivesDriveItemProvider_CreateChild_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetShare provides a mock function for the type DrivesDriveItemProvider
 func (_mock *DrivesDriveItemProvider) GetShare(ctx context.Context, shareID *collaborationv1beta1.ShareId) (*collaborationv1beta1.ReceivedShare, error) {
 	ret := _mock.Called(ctx, shareID)
