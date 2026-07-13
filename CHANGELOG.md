@@ -1,5 +1,15 @@
 # Changelog
 
+## [7.2.2](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.2) - 2026-07-13
+
+### ❤️ Thanks to all contributors! ❤️
+
+@kulmann
+
+### 📦️ Dependencies
+
+- [full-ci] chore: bump web to v7.1.4 [[#3122](https://github.com/opencloud-eu/opencloud/pull/3122)]
+
 ## [7.2.1](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.1) - 2026-07-06
 
 ### ❤️ Thanks to all contributors! ❤️
