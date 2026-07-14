@@ -20,7 +20,6 @@ package ocdav
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"path"
@@ -30,14 +29,12 @@ import (
 	"time"
 
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
-	link "github.com/cs3org/go-cs3apis/cs3/sharing/link/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	typespb "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/errors"
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/net"
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/spacelookup"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
-	"github.com/opencloud-eu/reva/v2/pkg/conversions"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
@@ -374,23 +371,7 @@ func (s *svc) handleTusPost(ctx context.Context, w http.ResponseWriter, r *http.
 				return
 			}
 
-			// get WebDav permissions for file
-			isPublic := false
-			if info.Opaque != nil && info.Opaque.Map != nil {
-				if info.Opaque.Map["link-share"] != nil && info.Opaque.Map["link-share"].Decoder == "json" {
-					ls := &link.PublicShare{}
-					_ = json.Unmarshal(info.Opaque.Map["link-share"].Value, ls)
-					isPublic = ls != nil
-				}
-			}
-			isShared := !net.IsCurrentUserOwnerOrManager(ctx, info.Owner, info)
-			role := conversions.RoleFromResourcePermissions(info.PermissionSet, isPublic)
-			permissions := role.WebDAVPermissions(
-				info.Type == provider.ResourceType_RESOURCE_TYPE_CONTAINER,
-				isShared,
-				false,
-				isPublic,
-			)
+			permissions := net.WebDAVPermissions(ctx, info)
 
 			w.Header().Set(net.HeaderContentType, info.MimeType)
 			w.Header().Set(net.HeaderOCFileID, storagespace.FormatResourceID(info.Id))

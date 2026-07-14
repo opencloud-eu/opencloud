@@ -176,6 +176,9 @@ func New(lu node.PathLookup, bs node.Blobstore, um usermapper.Mapper, trashbin *
 			watchPath = o.Root
 		}
 
+		if o.ScanDebounceDelay == 0 {
+			log.Warn().Msg("'scan_debounce_delay' is set to 0. This is not recommended for production setups.")
+		}
 		go t.watcher.Watch(watchPath)
 		go t.workScanQueue()
 	}
@@ -394,7 +397,7 @@ func (t *Tree) TouchFile(ctx context.Context, n *node.Node, markprocessing bool,
 		attributes[prefixes.MTimeAttr] = []byte(mtime.UTC().Format(time.RFC3339Nano))
 	}
 
-	err = n.SetXattrsWithContext(ctx, attributes, false)
+	err = n.SetXattrsWithContext(ctx, attributes)
 	if err != nil {
 		return err
 	}
@@ -477,7 +480,7 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 	attribs := node.Attributes{}
 	attribs.SetString(prefixes.ParentidAttr, newNode.ParentID)
 	attribs.SetString(prefixes.NameAttr, newNode.Name)
-	if err := newNode.SetXattrsWithContext(ctx, attribs, true); err != nil {
+	if err := newNode.SetXattrsWithContext(ctx, attribs); err != nil {
 		return errors.Wrap(err, "posixfs: could not update node attributes")
 	}
 
@@ -726,7 +729,7 @@ func (t *Tree) WriteBlob(n *node.Node, source string) error {
 			attrs.SetString(prefixes.BlobIDAttr, n.BlobID)
 			attrs.SetInt64(prefixes.BlobsizeAttr, n.Blobsize)
 
-			err := t.lookup.MetadataBackend().SetMultiple(context.Background(), node.NewBaseNode(n.SpaceID, n.ID+node.CurrentIDDelimiter, t.lookup), attrs, true)
+			err := t.lookup.MetadataBackend().SetMultiple(context.Background(), node.NewBaseNode(n.SpaceID, n.ID+node.CurrentIDDelimiter, t.lookup), attrs)
 			if err != nil {
 				t.log.Error().Err(err).Str("spaceID", n.SpaceID).Str("id", n.ID).Msg("could not copy metadata to current revision")
 			}
@@ -796,7 +799,7 @@ func (t *Tree) InitNewNode(ctx context.Context, n *node.Node, fsize uint64) (met
 	mtime := fi.ModTime()
 	err = n.SetXattrsWithContext(ctx, map[string][]byte{
 		prefixes.MTimeAttr: []byte(mtime.UTC().Format(time.RFC3339Nano)),
-	}, false)
+	})
 	if err != nil {
 		t.log.Error().Err(err).Str("path", n.InternalPath()).Msg("could not set mtime attribute on new node")
 	}
@@ -868,5 +871,5 @@ func (t *Tree) createDirNode(ctx context.Context, n *node.Node) (err error) {
 	if t.options.TreeTimeAccounting || t.options.TreeSizeAccounting {
 		attributes[prefixes.PropagationAttr] = []byte("1") // mark the node for propagation
 	}
-	return n.SetXattrsWithContext(ctx, attributes, false)
+	return n.SetXattrsWithContext(ctx, attributes)
 }

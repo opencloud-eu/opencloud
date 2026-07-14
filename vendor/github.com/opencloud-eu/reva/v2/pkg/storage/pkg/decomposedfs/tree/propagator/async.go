@@ -43,12 +43,6 @@ const (
 
 var _propagationGracePeriod = 3 * time.Minute
 
-type PropagationNode interface {
-	GetSpaceID() string
-	GetID() string
-	InternalPath() string
-}
-
 // AsyncPropagator implements asynchronous treetime & treesize propagation
 type AsyncPropagator struct {
 	treeSizeAccounting bool
@@ -130,8 +124,8 @@ func NewAsyncPropagator(treeSizeAccounting, treeTimeAccounting bool, o options.A
 					now := time.Now()
 					_ = os.Chtimes(changesDirPath, now, now)
 
-					n := node.NewBaseNode(parts[0], strings.TrimSuffix(parts[1], ".processing"), lookup)
-					p.propagate(context.Background(), n, true, *log)
+					nodeID := strings.TrimSuffix(parts[1], ".processing")
+					p.propagate(context.Background(), parts[0], nodeID, true, *log)
 				}()
 			}
 		}
@@ -164,14 +158,17 @@ func (p AsyncPropagator) Propagate(ctx context.Context, n *node.Node, sizeDiff i
 		SyncTime: time.Now().UTC(),
 		SizeDiff: sizeDiff,
 	}
-	go p.queuePropagation(ctx, n, c, log)
+
+	// Hand only the node's logical identity to the goroutine, never the live
+	// *node.Node: sharing the instance would leak and race its metadata-lock state.
+	go p.queuePropagation(ctx, n.SpaceID, n.ID, c, log)
 
 	return nil
 }
 
-func (p AsyncPropagator) queuePropagation(ctx context.Context, n *node.Node, change Change, log zerolog.Logger) {
+func (p AsyncPropagator) queuePropagation(ctx context.Context, spaceID, nodeID string, change Change, log zerolog.Logger) {
 	// add a change to the parent node
-	changePath := p.changesPath(n.SpaceID, n.ID, uuid.New().String()+".mpk")
+	changePath := p.changesPath(spaceID, nodeID, uuid.New().String()+".mpk")
 
 	data, err := msgpack.Marshal(change)
 	if err != nil {
@@ -212,7 +209,7 @@ func (p AsyncPropagator) queuePropagation(ctx context.Context, n *node.Node, cha
 
 	log.Debug().Msg("propagating")
 	// add a change to the parent node
-	changeDirPath := p.changesPath(n.SpaceID, n.ID, "")
+	changeDirPath := p.changesPath(spaceID, nodeID, "")
 
 	// first rename the existing node dir
 	err = os.Rename(changeDirPath, changeDirPath+".processing")
@@ -224,11 +221,11 @@ func (p AsyncPropagator) queuePropagation(ctx context.Context, n *node.Node, cha
 		//    -> ignore, the previous propagation will pick the new changes up
 		return
 	}
-	p.propagate(ctx, n, false, log)
+	p.propagate(ctx, spaceID, nodeID, false, log)
 }
 
-func (p AsyncPropagator) propagate(ctx context.Context, pn PropagationNode, recalculateTreeSize bool, log zerolog.Logger) {
-	changeDirPath := p.changesPath(pn.GetSpaceID(), pn.GetID(), "")
+func (p AsyncPropagator) propagate(ctx context.Context, spaceID, nodeID string, recalculateTreeSize bool, log zerolog.Logger) {
+	changeDirPath := p.changesPath(spaceID, nodeID, "")
 	processingPath := changeDirPath + ".processing"
 
 	cleanup := func() {
@@ -286,7 +283,7 @@ func (p AsyncPropagator) propagate(ctx context.Context, pn PropagationNode, reca
 	attrs := node.Attributes{}
 
 	_, subspan = tracer.Start(ctx, "node.LockAndReadNode")
-	n, unlock, err := node.LockAndReadNode(ctx, p.lookup, pn.GetSpaceID(), pn.GetID(), "", false, nil, false)
+	n, unlock, err := node.LockAndReadNode(ctx, p.lookup, spaceID, nodeID, "", false, nil, false)
 	subspan.End()
 	if err != nil {
 		if n != nil && !n.Exists {
@@ -385,7 +382,7 @@ func (p AsyncPropagator) propagate(ctx context.Context, pn PropagationNode, reca
 		log.Debug().Uint64("newSize", newSize).Msg("updated treesize of node")
 	}
 
-	if err = n.SetXattrsWithContext(ctx, attrs, false); err != nil {
+	if err = n.SetXattrsWithContext(ctx, attrs); err != nil {
 		log.Error().Err(err).Msg("Failed to update extend attributes of node")
 		cleanup()
 		return
@@ -400,7 +397,7 @@ func (p AsyncPropagator) propagate(ctx context.Context, pn PropagationNode, reca
 	cleanup()
 
 	if !n.IsSpaceRoot(ctx) {
-		p.queuePropagation(ctx, n, pc, log)
+		p.queuePropagation(ctx, n.SpaceID, n.ID, pc, log)
 	}
 
 	// Check for a changes dir that might have been added meanwhile and pick it up
@@ -416,7 +413,7 @@ func (p AsyncPropagator) propagate(ctx context.Context, pn PropagationNode, reca
 			//    -> ignore, the previous propagation will pick the new changes up
 			return
 		}
-		p.propagate(ctx, n, false, log)
+		p.propagate(ctx, spaceID, nodeID, false, log)
 	}
 }
 

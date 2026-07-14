@@ -142,7 +142,7 @@ func (fs *Decomposedfs) UnsetArbitraryMetadata(ctx context.Context, ref *provide
 
 	errs := []error{}
 	for _, k := range keys {
-		if err = n.RemoveXattr(ctx, prefixes.MetadataPrefix+k, true); err != nil {
+		if err = n.RemoveXattr(ctx, prefixes.MetadataPrefix+k); err != nil {
 			if metadata.IsAttrUnset(err) {
 				continue // already gone, ignore
 			}

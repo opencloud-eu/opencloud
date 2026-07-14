@@ -190,7 +190,7 @@ func (p SyncPropagator) propagateItem(ctx context.Context, n *node.Node, sTime t
 		log.Debug().Uint64("newSize", newSize).Msg("updated treesize of parent node")
 	}
 
-	if err = n.SetXattrsWithContext(ctx, attrs, false); err != nil {
+	if err = n.SetXattrsWithContext(ctx, attrs); err != nil {
 		log.Error().Err(err).Msg("Failed to update extend attributes of parent node")
 		return n, true, err
 	}

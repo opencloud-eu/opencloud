@@ -108,6 +108,7 @@ type IDCachingTree interface {
 
 type SessionStore interface {
 	New(ctx context.Context) *upload.DecomposedFsSession
+	SessionFromInfo(info tusd.FileInfo) *upload.DecomposedFsSession
 	List(ctx context.Context) ([]*upload.DecomposedFsSession, error)
 	Get(ctx context.Context, id string) (*upload.DecomposedFsSession, error)
 	Cleanup(ctx context.Context, session upload.Session, revertNodeMetadata, keepUpload, unmarkPostprocessing bool)

@@ -15,11 +15,12 @@ package template
 
 import (
 	"bytes"
+	"embed"
 	"encoding/json"
+	"fmt"
 	tmplhtml "html/template"
 	"io"
 	"net/url"
-	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -34,9 +35,11 @@ import (
 	"golang.org/x/text/language"
 	"gopkg.in/yaml.v2"
 
-	"github.com/prometheus/alertmanager/asset"
 	"github.com/prometheus/alertmanager/types"
 )
+
+//go:embed default.tmpl email.tmpl
+var asset embed.FS
 
 // Template bundles a text and a html template instance.
 type Template struct {
@@ -79,7 +82,7 @@ func FromGlobs(paths []string, options ...Option) (*Template, error) {
 	defaultTemplates := []string{"default.tmpl", "email.tmpl"}
 
 	for _, file := range defaultTemplates {
-		f, err := asset.Assets.Open(path.Join("/templates", file))
+		f, err := asset.Open(file)
 		if err != nil {
 			return nil, err
 		}
@@ -212,6 +215,7 @@ var DefaultFuncs = FuncMap{
 		}
 		return t.In(loc), nil
 	},
+	"now":              time.Now,
 	"since":            time.Since,
 	"humanizeDuration": commonTemplates.HumanizeDuration,
 	"toJson": func(v any) (string, error) {
@@ -220,6 +224,31 @@ var DefaultFuncs = FuncMap{
 			return "", err
 		}
 		return string(bytes), nil
+	},
+	"list": func(args ...any) ([]any, error) {
+		if args == nil {
+			return []any{}, nil
+		}
+		return args, nil
+	},
+	"append": func(slice []any, args ...any) []any {
+		return append(slice, args...)
+	},
+	"dict": func(values ...any) (map[string]any, error) {
+		if len(values)%2 != 0 {
+			return nil, fmt.Errorf("dict requires an even number of arguments")
+		}
+
+		res := make(map[string]any, len(values)/2)
+		for i := 0; i < len(values); i += 2 {
+			key, ok := values[i].(string)
+			if !ok {
+				return nil, fmt.Errorf("dict keys must be strings")
+			}
+			res[key] = values[i+1]
+		}
+
+		return res, nil
 	},
 }
 
@@ -327,6 +356,8 @@ type Data struct {
 	Status   string `json:"status"`
 	Alerts   Alerts `json:"alerts"`
 
+	NotificationReason string `json:"notification_reason"`
+
 	GroupLabels       KV `json:"groupLabels"`
 	CommonLabels      KV `json:"commonLabels"`
 	CommonAnnotations KV `json:"commonAnnotations"`
@@ -371,20 +402,23 @@ func (as Alerts) Resolved() []Alert {
 }
 
 // Data assembles data for template expansion.
-func (t *Template) Data(recv string, groupLabels model.LabelSet, alerts ...*types.Alert) *Data {
+func (t *Template) Data(recv string, groupLabels model.LabelSet, notificationReason string, alerts ...*types.Alert) *Data {
+	typedAlerts := types.Alerts(alerts...)
+
 	data := &Data{
-		Receiver:          regexp.QuoteMeta(recv),
-		Status:            string(types.Alerts(alerts...).Status()),
-		Alerts:            make(Alerts, 0, len(alerts)),
-		GroupLabels:       KV{},
-		CommonLabels:      KV{},
-		CommonAnnotations: KV{},
-		ExternalURL:       t.ExternalURL.String(),
+		Receiver:           regexp.QuoteMeta(recv),
+		Status:             string(typedAlerts.Status()),
+		Alerts:             make(Alerts, 0, len(alerts)),
+		NotificationReason: notificationReason,
+		GroupLabels:        KV{},
+		CommonLabels:       KV{},
+		CommonAnnotations:  KV{},
+		ExternalURL:        t.ExternalURL.String(),
 	}
 
 	// The call to types.Alert is necessary to correctly resolve the internal
 	// representation to the user representation.
-	for _, a := range types.Alerts(alerts...) {
+	for _, a := range typedAlerts {
 		alert := Alert{
 			Status:       string(a.Status()),
 			Labels:       make(KV, len(a.Labels)),

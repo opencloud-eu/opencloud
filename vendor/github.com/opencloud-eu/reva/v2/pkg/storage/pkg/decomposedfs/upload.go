@@ -380,6 +380,19 @@ func (fs *Decomposedfs) GetUpload(ctx context.Context, id string) (tusd.Upload, 
 	return ul, err
 }
 
+// ResolveUpload stats the resource produced by a finished upload, reading it as the upload's
+// executant. The session is reconstructed from the given tus FileInfo rather than the session
+// store, so it still resolves after a synchronous upload has cleaned up its session. It returns
+// the resource info and the executant context, so the caller can derive identity dependent
+// values such as the WebDAV permissions. https://github.com/opencloud-eu/opencloud/issues/2409
+func (fs *Decomposedfs) ResolveUpload(ctx context.Context, info tusd.FileInfo) (*provider.ResourceInfo, context.Context, error) {
+	session := fs.sessionStore.SessionFromInfo(info)
+	ctx = session.Context(ctx)
+	ref := session.Reference()
+	ri, err := fs.GetMD(ctx, &ref, nil, nil)
+	return ri, ctx, err
+}
+
 // ListUploadSessions returns the upload sessions for the given filter
 func (fs *Decomposedfs) ListUploadSessions(ctx context.Context, filter storage.UploadSessionFilter) ([]storage.UploadSession, error) {
 	var sessions []*upload.DecomposedFsSession

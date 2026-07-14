@@ -41,7 +41,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/usermapper"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/templates"
 	"github.com/pkg/errors"
-	"github.com/rogpeppe/go-internal/lockedfile"
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -398,46 +397,14 @@ func refFromCS3(b []byte) (*provider.Reference, error) {
 	}, nil
 }
 
-// CopyMetadata copies all extended attributes from source to target.
-// The optional filter function can be used to filter by attribute name, e.g. by checking a prefix
-// For the source file, a shared lock is acquired.
-// NOTE: target resource will be write locked!
-func (lu *Lookup) CopyMetadata(ctx context.Context, src, target metadata.MetadataNode, filter func(attributeName string, value []byte) (newValue []byte, copy bool), acquireTargetLock bool) (err error) {
-	// Acquire a read log on the source node
-	// write lock existing node before reading treesize or tree time
-	lock, err := lockedfile.OpenFile(lu.MetadataBackend().LockfilePath(src), os.O_RDONLY|os.O_CREATE, 0600)
-	if err != nil {
-		return err
-	}
-
-	if err != nil {
-		return errors.Wrap(err, "xattrs: Unable to lock source to read")
-	}
-	defer func() {
-		rerr := lock.Close()
-
-		// if err is non nil we do not overwrite that
-		if err == nil {
-			err = rerr
-		}
-	}()
-
-	return lu.CopyMetadataWithSourceLock(ctx, src, target, filter, lock, acquireTargetLock)
-}
-
-// CopyMetadataWithSourceLock copies all extended attributes from source to target.
-// The optional filter function can be used to filter by attribute name, e.g. by checking a prefix
-// For the source file, a matching lockedfile is required.
-// NOTE: target resource will be write locked!
-func (lu *Lookup) CopyMetadataWithSourceLock(ctx context.Context, src, target metadata.MetadataNode, filter func(attributeName string, value []byte) (newValue []byte, copy bool), lockedSource *lockedfile.File, acquireTargetLock bool) (err error) {
-	switch {
-	case lockedSource == nil:
-		return errors.New("no lock provided")
-	case lockedSource.Name() != lu.MetadataBackend().LockfilePath(src):
-		return errors.New("lockpath does not match filepath")
-	}
-
-	attrs, err := lu.metadataBackend.AllWithLockedSource(ctx, src, lockedSource)
+// CopyMetadata copies all extended attributes from source to target. The optional filter
+// function can be used to filter by attribute name, e.g. by checking a prefix.
+//
+// Locking is derived from the nodes: the source's metadata lock is acquired for the duration
+// of the read unless the caller already holds it (src.LockHeld()), and the target is write
+// locked while its attributes are written unless the caller already holds its lock
+func (lu *Lookup) CopyMetadata(ctx context.Context, src, target metadata.MetadataNode, filter func(attributeName string, value []byte) (newValue []byte, copy bool)) (err error) {
+	attrs, err := lu.metadataBackend.All(ctx, src)
 	if err != nil {
 		return err
 	}
@@ -453,7 +420,7 @@ func (lu *Lookup) CopyMetadataWithSourceLock(ctx context.Context, src, target me
 		newAttrs[attrName] = val
 	}
 
-	return lu.MetadataBackend().SetMultiple(ctx, target, newAttrs, acquireTargetLock)
+	return lu.MetadataBackend().SetMultiple(ctx, target, newAttrs)
 }
 
 // GenerateSpaceID generates a space id for the given space type and owner

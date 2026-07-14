@@ -27,7 +27,6 @@ import (
 	"time"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/rogpeppe/go-internal/lockedfile"
 
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
@@ -99,12 +98,12 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 	}
 
 	// write lock node before copying metadata
-	f, err := lockedfile.OpenFile(fs.lu.MetadataBackend().LockfilePath(n), os.O_RDWR|os.O_CREATE, 0600)
+	unlock, err := fs.lu.MetadataBackend().Lock(n)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = f.Close()
+		_ = unlock()
 		_ = os.Remove(fs.lu.MetadataBackend().LockfilePath(n))
 	}()
 
@@ -116,7 +115,7 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 	}
 
 	// create a revision of the current node
-	if _, err := fs.tp.CreateRevision(ctx, n, mtime.UTC().Format(time.RFC3339Nano), f); err != nil {
+	if _, err := fs.tp.CreateRevision(ctx, n, mtime.UTC().Format(time.RFC3339Nano)); err != nil {
 		return err
 	}
 

@@ -42,6 +42,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/internal/goroutinelock"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
@@ -72,18 +73,31 @@ type assimilationNode struct {
 	path    string
 	nodeId  string
 	spaceID string
+	lock    goroutinelock.Lock
 }
 
-func (d assimilationNode) GetID() string {
+func (d *assimilationNode) GetID() string {
 	return d.nodeId
 }
 
-func (d assimilationNode) GetSpaceID() string {
+func (d *assimilationNode) GetSpaceID() string {
 	return d.spaceID
 }
 
-func (d assimilationNode) InternalPath() string {
+func (d *assimilationNode) InternalPath() string {
 	return d.path
+}
+
+func (d *assimilationNode) LockHeld() bool {
+	return d.lock.Held()
+}
+
+func (d *assimilationNode) SetLockHeld(held bool) {
+	if held {
+		d.lock.Hold()
+		return
+	}
+	d.lock.Release()
 }
 
 // NewScanDebouncer returns a new SpaceDebouncer instance
@@ -673,7 +687,8 @@ func (t *Tree) assimilate(item scanItem) error {
 func (t *Tree) updateFile(path, id, spaceID string, fi fs.FileInfo) (fs.FileInfo, node.Attributes, error) {
 	retries := 1
 	parentID := ""
-	bn := assimilationNode{spaceID: spaceID, nodeId: id, path: path}
+	bn := &assimilationNode{spaceID: spaceID, nodeId: id, path: path}
+	bn.SetLockHeld(true)
 assimilate:
 	if id != spaceID {
 		// read parent
@@ -714,7 +729,7 @@ assimilate:
 		}
 	}
 
-	attrs, err := t.lookup.MetadataBackend().AllWithLockedSource(context.Background(), bn, nil)
+	attrs, err := t.lookup.MetadataBackend().All(context.Background(), bn)
 	if err != nil && !metadata.IsAttrUnset(err) {
 		return nil, nil, errors.Wrap(err, "failed to get item attribs")
 	}
@@ -788,6 +803,8 @@ assimilate:
 		go func() {
 			// Copy the previous current version to a revision
 			currentNode := node.NewBaseNode(n.SpaceID, n.ID+node.CurrentIDDelimiter, t.lookup)
+			currentNode.SetLockHeld(true)
+
 			currentPath := currentNode.InternalPath()
 			stat, err := os.Stat(currentPath)
 			if err == nil {
@@ -834,7 +851,7 @@ assimilate:
 					attributeName == prefixes.TypeAttr ||
 					attributeName == prefixes.BlobIDAttr ||
 					attributeName == prefixes.BlobsizeAttr
-			}, false)
+			})
 			if err != nil {
 				t.log.Error().Err(err).Str("currentPath", currentPath).Str("path", path).Msg("failed to copy xattrs to 'current' file")
 				return
@@ -848,7 +865,7 @@ assimilate:
 	}
 
 	t.log.Debug().Str("path", path).Interface("attributes", attributes).Msg("setting attributes")
-	err = t.lookup.MetadataBackend().SetMultiple(context.Background(), bn, attributes, false)
+	err = t.lookup.MetadataBackend().SetMultiple(context.Background(), bn, attributes)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to set attributes")
 	}
@@ -856,7 +873,7 @@ assimilate:
 	// clear the status attribute if it was set before, if there was any upload to this file in progress
 	// it needs notice that this file was changes meanwhile.
 	if _, ok := previousAttribs[prefixes.StatusPrefix]; ok {
-		err = t.lookup.MetadataBackend().Remove(context.Background(), bn, prefixes.StatusPrefix, false)
+		err = t.lookup.MetadataBackend().Remove(context.Background(), bn, prefixes.StatusPrefix)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "failed to clear status attribute")
 		}
@@ -897,14 +914,19 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 		}
 
 		// skip irrelevant files
-		if !t.Ignorer.IsSpaceRoot(path) && t.Ignorer.IsIgnored(path) {
-			if info.IsDir() {
+		if t.Ignorer.IsIgnored(path) {
+			switch {
+			case t.Ignorer.IsSpaceRoot(path):
+				// ignore the space root itself, but do not skip the whole tree
+				return nil
+			case t.Ignorer.IsRootPath(path):
+				// ignor the root path itself, but do not skip the whole tree
+				return nil
+			case info.IsDir():
 				return filepath.SkipDir
+			default:
+				return nil
 			}
-			return nil
-		}
-		if t.Ignorer.IsRootPath(path) {
-			return nil // ignore the root paths
 		}
 
 		if !info.IsDir() && !info.Mode().IsRegular() {

@@ -52,6 +52,20 @@ type UploadSessionLister interface {
 	ListUploadSessions(ctx context.Context, filter UploadSessionFilter) ([]UploadSession, error)
 }
 
+// UploadSessionResolver defines the interface for FS implementations that can resolve a finished
+// upload to the resource it produced, read as the upload's executant. The tus data path is
+// authenticated by a transfer token that carries no user identity, so a caller there cannot stat
+// the resource itself; this lets the storage driver, which knows the upload's executant, do it.
+// https://github.com/opencloud-eu/opencloud/issues/2409
+type UploadSessionResolver interface {
+	// ResolveUpload stats the resource produced by the given finished upload and returns it
+	// together with a context carrying the upload's executant identity, so the caller can derive
+	// identity dependent values such as the WebDAV permissions. The upload is identified by the
+	// given tus FileInfo rather than a session store lookup, so the call still works after a
+	// synchronous upload has cleaned up its session.
+	ResolveUpload(ctx context.Context, info tusd.FileInfo) (*provider.ResourceInfo, context.Context, error)
+}
+
 // UploadSession is the interface that storage drivers need to return whan listing upload sessions.
 type UploadSession interface {
 	// ID returns the upload id

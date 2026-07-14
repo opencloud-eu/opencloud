@@ -40,6 +40,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/internal/goroutinelock"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
@@ -66,6 +67,7 @@ type trashNode struct {
 	spaceID string
 	id      string
 	path    string
+	lock    goroutinelock.Lock
 }
 
 func (tn *trashNode) GetSpaceID() string {
@@ -78,6 +80,18 @@ func (tn *trashNode) GetID() string {
 
 func (tn *trashNode) InternalPath() string {
 	return tn.path
+}
+
+func (tn *trashNode) LockHeld() bool {
+	return tn.lock.Held()
+}
+
+func (tn *trashNode) SetLockHeld(held bool) {
+	if held {
+		tn.lock.Hold()
+		return
+	}
+	tn.lock.Release()
 }
 
 const (
@@ -345,7 +359,7 @@ func (tb *Trashbin) RestoreRecycleItem(ctx context.Context, spaceID string, key,
 	if err = tb.lu.MetadataBackend().SetMultiple(ctx, trashedNode, map[string][]byte{
 		prefixes.NameAttr:     []byte(filepath.Base(restorePath)),
 		prefixes.ParentidAttr: []byte(parentID),
-	}, true); err != nil {
+	}); err != nil {
 		return nil, fmt.Errorf("posixfs: failed to update trashed node metadata: %w", err)
 	}
 

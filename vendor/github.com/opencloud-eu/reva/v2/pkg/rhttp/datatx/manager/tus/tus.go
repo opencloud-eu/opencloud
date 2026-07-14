@@ -108,6 +108,9 @@ func (m *manager) Handler(fs storage.FS) (http.Handler, error) {
 		StoreComposer:         composer,
 		NotifyCompleteUploads: true,
 		Logger:                slog.New(tusdLogger{log: m.log}),
+		// Add the finalized resource's etag and permissions to the last chunk's response
+		// (see preFinishResponseCallback). https://github.com/opencloud-eu/opencloud/issues/2409
+		PreFinishResponseCallback: m.preFinishResponseCallback(fs),
 	}
 
 	if m.conf.CorsEnabled {
@@ -205,6 +208,42 @@ func (m *manager) Handler(fs storage.FS) (http.Handler, error) {
 	}))
 
 	return h, nil
+}
+
+// preFinishResponseCallback returns the tusd callback that runs when an upload completes. Before
+// the final response is written, it looks up the finalized resource and attaches its etag and
+// WebDAV permissions to the response headers, so clients do not need a follow-up PROPFIND after
+// the last chunk. It mirrors the etag and permissions the ocdav gateway already produces for the
+// creation-with-upload path. The storage driver resolves the resource as the upload's executant
+// (the data path's transfer token carries no user identity), so this layer does not reconstruct
+// the user. It is best effort: it logs any lookup failure and still completes the upload (the
+// client falls back to a PROPFIND). https://github.com/opencloud-eu/opencloud/issues/2409
+func (m *manager) preFinishResponseCallback(fs storage.FS) func(tusd.HookEvent) (tusd.HTTPResponse, error) {
+	resolver, ok := fs.(storage.UploadSessionResolver)
+	return func(hook tusd.HookEvent) (tusd.HTTPResponse, error) {
+		resp := tusd.HTTPResponse{Header: tusd.HTTPHeader{}}
+		if !ok {
+			// the storage driver cannot resolve the upload; the client falls back to a PROPFIND
+			return resp, nil
+		}
+
+		ri, ctx, err := resolver.ResolveUpload(hook.Context, hook.Upload)
+		if err != nil || ri == nil {
+			// The stat can fail for a finished upload (for example an expired upload token or a
+			// removed node); the client recovers with a PROPFIND, so this is a warning, not an error.
+			m.log.Warn().Err(err).Str("uploadid", hook.Upload.ID).Msg("could not stat finished upload, not setting etag/permission headers")
+			return resp, nil
+		}
+
+		if etag := ri.GetEtag(); etag != "" {
+			resp.Header[net.HeaderOCETag] = etag
+			resp.Header[net.HeaderETag] = etag
+		}
+
+		resp.Header[net.HeaderOCPermissions] = net.WebDAVPermissions(ctx, ri)
+
+		return resp, nil
+	}
 }
 
 func setHeaders(fs storage.FS, w http.ResponseWriter, r *http.Request) {

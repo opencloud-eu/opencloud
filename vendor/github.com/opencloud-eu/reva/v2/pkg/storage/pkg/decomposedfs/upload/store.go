@@ -44,7 +44,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/options"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/usermapper"
 	"github.com/pkg/errors"
-	"github.com/rogpeppe/go-internal/lockedfile"
 	"github.com/rs/zerolog"
 	tusd "github.com/tus/tusd/v2/pkg/handler"
 )
@@ -97,6 +96,17 @@ func (store DecomposedFsStore) New(ctx context.Context) *DecomposedFsSession {
 			},
 			MetaData: tusd.MetaData{},
 		},
+	}
+}
+
+// SessionFromInfo wraps an existing tus FileInfo into an upload session without reading the
+// session store. It lets callers use an upload's session, e.g. its reference and
+// executant context, after the store entry has already been cleaned up, as happens for a
+// synchronous upload in its finish response callback.
+func (store DecomposedFsStore) SessionFromInfo(info tusd.FileInfo) *DecomposedFsSession {
+	return &DecomposedFsSession{
+		store: store,
+		info:  info,
 	}
 }
 
@@ -286,7 +296,7 @@ func (store DecomposedFsStore) CreateNodeForUpload(ctx context.Context, session 
 	}
 
 	// update node metadata with new blobid etc
-	err = n.SetXattrsWithContext(ctx, initAttrs, false)
+	err = n.SetXattrsWithContext(ctx, initAttrs)
 	if err != nil {
 		return nil, errors.Wrap(err, "Decomposedfs: could not write metadata")
 	}
@@ -306,14 +316,9 @@ func (store DecomposedFsStore) updateExistingNode(ctx context.Context, session *
 	defer span.End()
 
 	// write lock existing node before reading any metadata
-	f, err := lockedfile.OpenFile(store.lu.MetadataBackend().LockfilePath(n), os.O_RDWR|os.O_CREATE, 0600)
+	unlock, err := store.lu.MetadataBackend().Lock(n)
 	if err != nil {
 		return nil, err
-	}
-
-	unlock := func() error {
-		// NOTE: to prevent stale NFS file handles do not remove lock file!
-		return f.Close()
 	}
 
 	old, _ := node.ReadNode(ctx, store.lu, spaceID, n.ID, "", false, nil, false)
@@ -366,7 +371,7 @@ func (store DecomposedFsStore) updateExistingNode(ctx context.Context, session *
 		span.AddEvent("CreateVersion")
 		timestamp := oldNodeMtime.UTC().Format(time.RFC3339Nano)
 		versionID := n.ID + node.RevisionIDDelimiter + timestamp
-		versionPath, err := session.store.tp.CreateRevision(ctx, n, timestamp, f)
+		versionPath, err := session.store.tp.CreateRevision(ctx, n, timestamp)
 		if err != nil {
 			if !errors.Is(err, os.ErrExist) {
 				return unlock, err
@@ -389,7 +394,7 @@ func (store DecomposedFsStore) updateExistingNode(ctx context.Context, session *
 			}
 
 			// clean revision file
-			if versionPath, err = session.store.tp.CreateRevision(ctx, n, timestamp, f); err != nil {
+			if versionPath, err = session.store.tp.CreateRevision(ctx, n, timestamp); err != nil {
 				return unlock, err
 			}
 		}

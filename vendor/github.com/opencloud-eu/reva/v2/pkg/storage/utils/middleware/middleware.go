@@ -27,6 +27,7 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	tusd "github.com/tus/tusd/v2/pkg/handler"
 
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/upload"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
@@ -61,6 +62,17 @@ func (fs *FS) WithDisabledSpaces() storage.FS {
 // ListUploadSessions returns the upload sessions matching the given filter
 func (f *FS) ListUploadSessions(ctx context.Context, filter storage.UploadSessionFilter) ([]storage.UploadSession, error) {
 	return f.next.(storage.UploadSessionLister).ListUploadSessions(ctx, filter)
+}
+
+// ResolveUpload resolves a finished upload to the resource it produced, read as the upload's
+// executant. It is best effort: if the wrapped storage does not resolve uploads it returns
+// NotSupported rather than panicking, so the tus finalize falls back to no headers.
+func (f *FS) ResolveUpload(ctx context.Context, info tusd.FileInfo) (*provider.ResourceInfo, context.Context, error) {
+	r, ok := f.next.(storage.UploadSessionResolver)
+	if !ok {
+		return nil, ctx, errtypes.NotSupported("storage does not resolve upload sessions")
+	}
+	return r.ResolveUpload(ctx, info)
 }
 
 // UseIn tells the tus upload middleware which extensions it supports.

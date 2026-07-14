@@ -58,10 +58,9 @@ type runner struct {
 
 	runmatch *Match // result object
 
-	ignoreTimeout       bool
-	timeout             time.Duration // timeout in milliseconds (needed for actual)
-	timeoutChecksToSkip int
-	timeoutAt           time.Time
+	ignoreTimeout bool
+	timeout       time.Duration // timeout in milliseconds (needed for actual)
+	deadline      fasttime
 
 	operator        syntax.InstOp
 	codepos         int
@@ -314,12 +313,9 @@ func (r *runner) execute() error {
 					}
 				} else {
 					// The inner expression found an empty match, so we'll go directly to 'back2' if we
-					// backtrack.  In this case, we need to push something on the stack, since back2 pops.
-					// However, in the case of ()+? or similar, this empty match may be legitimate, so push the text
-					// position associated with that empty match.
-					r.stackPush(oldMarkPos)
-
-					r.trackPushNeg1(r.stackPeek()) // Save old mark
+					// backtrack. Don't touch the grouping stack here; instead, record the old mark and
+					// a flag indicating that backtracking doesn't need to pop a grouping stack frame.
+					r.trackPushNeg2(oldMarkPos, 0)
 				}
 				r.advance(1)
 				continue
@@ -335,18 +331,22 @@ func (r *runner) execute() error {
 
 			r.trackPopN(2)
 			pos := r.trackPeekN(1)
-			r.trackPushNeg1(r.trackPeek()) // Save old mark
-			r.stackPush(pos)               // Make new mark
-			r.textto(pos)                  // Recall position
-			r.goTo(r.operand(0))           // Loop
+			r.trackPushNeg2(r.trackPeek(), 1) // Save old mark, note that we pushed a new mark
+			r.stackPush(pos)                  // Make new mark
+			r.textto(pos)                     // Recall position
+			r.goTo(r.operand(0))              // Loop
 			continue
 
 		case syntax.Lazybranchmark | syntax.Back2:
 			// The lazy loop has failed.  We'll do a true backtrack and
 			// start over before the lazy loop.
-			r.stackPop()
-			r.trackPop()
-			r.stackPush(r.trackPeek()) // Recall old mark
+			r.trackPopN(2)
+			oldMark := r.trackPeek()
+			needsPop := r.trackPeekN(1)
+			if needsPop != 0 {
+				r.stackPop()
+			}
+			r.stackPush(oldMark) // Recall old mark
 			break
 
 		case syntax.Setcount:
@@ -1551,39 +1551,15 @@ func (r *runner) isECMABoundary(index, startpos, endpos int) bool {
 		(index < endpos && syntax.IsECMAWordChar(r.runtext[index]))
 }
 
-// this seems like a comment to justify randomly picking 1000 :-P
-// We have determined this value in a series of experiments where x86 retail
-// builds (ono-lab-optimized) were run on different pattern/input pairs. Larger values
-// of TimeoutCheckFrequency did not tend to increase performance; smaller values
-// of TimeoutCheckFrequency tended to slow down the execution.
-const timeoutCheckFrequency int = 1000
-
 func (r *runner) startTimeoutWatch() {
 	if r.ignoreTimeout {
 		return
 	}
-
-	r.timeoutChecksToSkip = timeoutCheckFrequency
-	r.timeoutAt = time.Now().Add(r.timeout)
+	r.deadline = makeDeadline(r.timeout)
 }
 
 func (r *runner) checkTimeout() error {
-	if r.ignoreTimeout {
-		return nil
-	}
-	r.timeoutChecksToSkip--
-	if r.timeoutChecksToSkip != 0 {
-		return nil
-	}
-
-	r.timeoutChecksToSkip = timeoutCheckFrequency
-	return r.doCheckTimeout()
-}
-
-func (r *runner) doCheckTimeout() error {
-	current := time.Now()
-
-	if current.Before(r.timeoutAt) {
+	if r.ignoreTimeout || !r.deadline.reached() {
 		return nil
 	}
 
@@ -1629,6 +1605,10 @@ func (re *Regexp) getRunner() *runner {
 // run using re.  (The cache empties when re gets garbage collected.)
 func (re *Regexp) putRunner(r *runner) {
 	re.muRun.Lock()
+	r.runtext = nil
+	if r.runmatch != nil {
+		r.runmatch.text = nil
+	}
 	re.runner = append(re.runner, r)
 	re.muRun.Unlock()
 }

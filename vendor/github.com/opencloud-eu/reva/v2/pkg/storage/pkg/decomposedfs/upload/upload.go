@@ -35,7 +35,6 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/pkg/errors"
-	"github.com/rogpeppe/go-internal/lockedfile"
 	tusd "github.com/tus/tusd/v2/pkg/handler"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -46,6 +45,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx/metrics"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx/utils/download"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/disk"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
@@ -71,6 +71,10 @@ func (session *DecomposedFsSession) WriteChunk(ctx context.Context, _ int64, src
 		return 0, err
 	}
 	defer func() {
+		// sync the written chunk to disk. This ensures that the upload can be resumed,
+		// and helps to prevent issues with filesystem/journal freezes at the end of the upload
+		// when committing a large fsync operation on slow disks.
+		_ = disk.Fdatasync(file)
 		_ = file.Close()
 	}()
 
@@ -291,7 +295,7 @@ func (session *DecomposedFsSession) Finalize(ctx context.Context) (err error) {
 	ctx, span := tracer.Start(session.Context(ctx), "Finalize")
 	defer span.End()
 
-	revisionNode := node.New(session.SpaceID(), session.NodeID(), "", "", session.Size(), session.ID(),
+	n := node.New(session.SpaceID(), session.NodeID(), "", "", session.Size(), session.ID(),
 		provider.ResourceType_RESOURCE_TYPE_FILE, session.SpaceOwner(), session.store.lu)
 
 	var (
@@ -305,19 +309,20 @@ func (session *DecomposedFsSession) Finalize(ctx context.Context) (err error) {
 	case spaceRoot.InternalPath() == "":
 		return fmt.Errorf("space root for space id %s has no valid internal path", session.SpaceID())
 	default:
-		revisionNode.SpaceRoot = spaceRoot
+		n.SpaceRoot = spaceRoot
 	}
 
-	// lock the node before writing the blob
-	lockedNode, err := lockedfile.OpenFile(session.store.lu.MetadataBackend().LockfilePath(revisionNode), os.O_RDWR|os.O_CREATE, 0600)
+	// lock the node before reading its metadata and writing the blob
+	unlock, err := session.store.lu.MetadataBackend().Lock(n)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = lockedNode.Close()
+		_ = unlock()
 	}()
 
-	attribs, err := revisionNode.XattrsWithReader(ctx, lockedNode)
+	// Read the node attributes while holding the lock acquired above.
+	attribs, err := n.Xattrs(ctx)
 	if err != nil {
 		return err
 	}
@@ -327,32 +332,27 @@ func (session *DecomposedFsSession) Finalize(ctx context.Context) (err error) {
 
 	// another upload on this node is in progress or has finished since we started
 	if !isProcessing || processingID != session.ID() {
-		versionID := revisionNode.ID + node.RevisionIDDelimiter + session.MTime().UTC().Format(time.RFC3339Nano)
+		versionID := n.ID + node.RevisionIDDelimiter + session.MTime().UTC().Format(time.RFC3339Nano)
 		// There should be a revision node (created by the other upload that finished before us), read it and upload our blob there.
-		existingRevisionNode, err := node.ReadNode(ctx, session.store.lu, session.SpaceID(), versionID, "", false, spaceRoot, false)
+		existingRevisionNode, revisionNodeUnlock, err := node.LockAndReadNode(ctx, session.store.lu, session.SpaceID(), versionID, "", false, spaceRoot, false)
 		if err != nil || !existingRevisionNode.Exists {
 			// The revision node has not been created. Likely because the file on disk was modified externally and re-assilimated (watchfs == true)
 			// Let's create the revision node now and upload the blob to it.
-			revisionNode, err = session.createRevisionNodeForUpload(ctx, revisionNode, session.MTime().UTC().Format(time.RFC3339Nano), lockedNode)
+			n, revisionNodeUnlock, err = session.createRevisionNodeForUpload(ctx, n, session.MTime().UTC().Format(time.RFC3339Nano))
 			if err != nil {
 				appctx.GetLogger(ctx).Debug().Err(err).Str("versionID", session.MTime().UTC().Format(time.RFC3339Nano)).Msg("failed to create revision node for upload finalization")
 				return err
 			}
 		} else {
-			revisionNode = existingRevisionNode
+			n = existingRevisionNode
 		}
-		// lock this node as well, before writing the blob
-		revisionNodeUnlock, err := session.store.lu.MetadataBackend().Lock(revisionNode)
-		if err != nil {
-			return err
-		}
-		appctx.GetLogger(ctx).Debug().Str("new nodepath", revisionNode.InternalPath()).Msg("uploading to revision node, that was created for us by another upload")
+		appctx.GetLogger(ctx).Debug().Str("new nodepath", n.InternalPath()).Msg("uploading to revision node, that was created for us by another upload")
 		defer func() { _ = revisionNodeUnlock() }()
 	}
 
 	// upload the data to the blobstore
 	_, subspan := tracer.Start(ctx, "WriteBlob")
-	err = session.store.tp.WriteBlob(revisionNode, session.binPath())
+	err = session.store.tp.WriteBlob(n, session.binPath())
 	subspan.End()
 	if err != nil {
 		return errors.Wrap(err, "failed to upload file to blobstore")
@@ -361,19 +361,19 @@ func (session *DecomposedFsSession) Finalize(ctx context.Context) (err error) {
 	return nil
 }
 
-func (session *DecomposedFsSession) createRevisionNodeForUpload(ctx context.Context, baseNode *node.Node, rev string, lockedNode *lockedfile.File) (*node.Node, error) {
+func (session *DecomposedFsSession) createRevisionNodeForUpload(ctx context.Context, baseNode *node.Node, rev string) (*node.Node, func() error, error) {
 	versionID := baseNode.ID + node.RevisionIDDelimiter + rev
 	log := appctx.GetLogger(ctx)
-	_, err := session.store.tp.CreateRevision(ctx, baseNode, rev, lockedNode)
+	_, err := session.store.tp.CreateRevision(ctx, baseNode, rev)
 	if err != nil {
 		log.Error().Err(err).Str("versionID", versionID).Msg("failed to create revision node for upload")
-		return nil, err
+		return nil, nil, err
 	}
 
 	// FIXME: We already calculated the checksums in FinishUpload, we should maybe pass them via the session instead of recalculating them here
 	sha1h, md5h, adler32h, err := node.CalculateChecksums(ctx, session.binPath())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// update checksums
@@ -382,7 +382,7 @@ func (session *DecomposedFsSession) createRevisionNodeForUpload(ctx context.Cont
 		prefixes.ChecksumPrefix + "md5":     md5h.Sum(nil),
 		prefixes.ChecksumPrefix + "adler32": adler32h.Sum(nil),
 	}
-	revisionNode, err := node.ReadNode(ctx, session.store.lu, session.SpaceID(), versionID, "", false, baseNode.SpaceRoot, false)
+	revisionNode, unlock, err := node.LockAndReadNode(ctx, session.store.lu, session.SpaceID(), versionID, "", false, baseNode.SpaceRoot, false)
 	if err == nil {
 		mtime := session.MTime()
 		attrs.SetString(prefixes.BlobIDAttr, session.ID())
@@ -392,14 +392,16 @@ func (session *DecomposedFsSession) createRevisionNodeForUpload(ctx context.Cont
 
 		err = session.store.lu.TimeManager().OverrideMtime(ctx, revisionNode, &attrs, mtime)
 		if err != nil {
-			return nil, errors.Wrap(err, "Decomposedfs: failed to set the mtime")
+			_ = unlock()
+			return nil, nil, errors.Wrap(err, "Decomposedfs: failed to set the mtime")
 		}
-		err = revisionNode.SetXattrsWithContext(ctx, attrs, false)
+		err = revisionNode.SetXattrsWithContext(ctx, attrs)
 		if err != nil {
-			return nil, errors.Wrap(err, "Decomposedfs: failed to set node attributes")
+			_ = unlock()
+			return nil, nil, errors.Wrap(err, "Decomposedfs: failed to set node attributes")
 		}
 	}
-	return revisionNode, err
+	return revisionNode, unlock, err
 }
 
 func checkHash(expected string, h hash.Hash) error {
