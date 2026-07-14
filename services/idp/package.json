@@ -61,6 +61,7 @@
     "css-minimizer-webpack-plugin": "^8.0.0",
     "dotenv": "17.4.2",
     "dotenv-expand": "^13.0.0",
+    "fs-extra": "^11.3.6",
     "gettext-parser": "^9.0.2",
     "html-webpack-plugin": "^5.6.7",
     "i18next-cli": "^1.65.0",
