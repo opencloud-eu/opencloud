@@ -1,5 +1,29 @@
 # Changelog
 
+## [7.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.0) - 2026-06-24
+
+### ❤️ Thanks to all contributors! ❤️
+
+@Heiko-Pohl, @JammingBen, @ScharfViktor, @aduffeck, @butonic, @dragonchaser, @kulmann, @rhafer
+
+### 🐛 Bug Fixes
+
+- [stable-7.2] Backport fixes from main [[#2999](https://github.com/opencloud-eu/opencloud/pull/2999)]
+- fix(idp): aarch64 build [[#2906](https://github.com/opencloud-eu/opencloud/pull/2906)]
+- use ldap instead of ldaps internally [[#2880](https://github.com/opencloud-eu/opencloud/pull/2880)]
+
+### 📚 Documentation
+
+- Rename role_name from "guest" to "user-light"  [[#2912](https://github.com/opencloud-eu/opencloud/pull/2912)]
+
+### 📦️ Dependencies
+
+- [full-ci] chore: bump web to v7.1.2 [[#3012](https://github.com/opencloud-eu/opencloud/pull/3012)]
+- [full-ci] chore: bump web to v7.1.1 [[#2998](https://github.com/opencloud-eu/opencloud/pull/2998)]
+- bump reva to latest main [[#2922](https://github.com/opencloud-eu/opencloud/pull/2922)]
+- build(deps-dev): bump webpack-manifest-plugin from 5.0.0 to 6.0.1 in /services/idp [[#2884](https://github.com/opencloud-eu/opencloud/pull/2884)]
+- build(deps): bump axios from 1.16.0 to 1.16.1 in /services/idp [[#2883](https://github.com/opencloud-eu/opencloud/pull/2883)]
+
 ## [7.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.1.0) - 2026-06-02
 
 ### ❤️ Thanks to all contributors! ❤️
