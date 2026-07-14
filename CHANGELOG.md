@@ -1,5 +1,59 @@
 # Changelog
 
+## [7.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.3.0) - 2026-07-14
+
+### 🐛 Bug Fixes
+
+- fix(proxy): honor access token cache ttl [[#3056](https://github.com/opencloud-eu/opencloud/pull/3056)]
+- chore(idp): update axios [[#3094](https://github.com/opencloud-eu/opencloud/pull/3094)]
+- fix: make the collaboration service events optional [[#3001](https://github.com/opencloud-eu/opencloud/pull/3001)]
+- Revert "fix: disallow thumbnails for tiff and jpeg2000 images" [[#2973](https://github.com/opencloud-eu/opencloud/pull/2973)]
+- bump reva [[#2950](https://github.com/opencloud-eu/opencloud/pull/2950)]
+- change error level for trashing items interaction with search [[#2951](https://github.com/opencloud-eu/opencloud/pull/2951)]
+- fix: Send SSE events for SpaceEnabled/Disabled to affected users [[#2871](https://github.com/opencloud-eu/opencloud/pull/2871)]
+
+### 📚 Documentation
+
+- update collaboration readme [[#3076](https://github.com/opencloud-eu/opencloud/pull/3076)]
+- fix: fix typo in proxy service documentation [[#3089](https://github.com/opencloud-eu/opencloud/pull/3089)]
+- roling release template [[#2972](https://github.com/opencloud-eu/opencloud/pull/2972)]
+- enhance: fix typos in webfinger service description [[#2958](https://github.com/opencloud-eu/opencloud/pull/2958)]
+
+### ✅ Tests
+
+- [full-ci] gherkin steps refactoring. cleaning code [[#3100](https://github.com/opencloud-eu/opencloud/pull/3100)]
+- [decomposed] more cli command tests [[#3087](https://github.com/opencloud-eu/opencloud/pull/3087)]
+- test(apiSpaces): a space admin can delete a space with no manager [[#3040](https://github.com/opencloud-eu/opencloud/pull/3040)]
+- Update tests for opencloud-eu/reva#655 [[#2889](https://github.com/opencloud-eu/opencloud/pull/2889)]
+- api-test: deleting space [[#2970](https://github.com/opencloud-eu/opencloud/pull/2970)]
+
+### 📈 Enhancement
+
+- feat: add disableSponsorLink web config option [[#3093](https://github.com/opencloud-eu/opencloud/pull/3093)]
+- feat(graph): add MS Graph colon-syntax path lookup middleware [[#2688](https://github.com/opencloud-eu/opencloud/pull/2688)]
+- feat: adjust theme chrome colors and logos [[#2599](https://github.com/opencloud-eu/opencloud/pull/2599)]
+- add tls support for all nats connections [[#2063](https://github.com/opencloud-eu/opencloud/pull/2063)]
+- feat: add more roles [[#2928](https://github.com/opencloud-eu/opencloud/pull/2928)]
+- next to main [[#2924](https://github.com/opencloud-eu/opencloud/pull/2924)]
+- feat: add core apps env variable to override the default core apps [[#2930](https://github.com/opencloud-eu/opencloud/pull/2930)]
+
+### 📦️ Dependencies
+
+- build(deps): bump golang.org/x/image from 0.43.0 to 0.44.0 [[#3112](https://github.com/opencloud-eu/opencloud/pull/3112)]
+- build(deps): bump golang.org/x/text from 0.39.0 to 0.40.0 [[#3101](https://github.com/opencloud-eu/opencloud/pull/3101)]
+- [full-ci] chore: bump web to v7.2.0 [[#3121](https://github.com/opencloud-eu/opencloud/pull/3121)]
+- build(deps): bump golang.org/x/term from 0.44.0 to 0.45.0 [[#3103](https://github.com/opencloud-eu/opencloud/pull/3103)]
+- build(deps): bump github.com/coreos/go-oidc/v3 from 3.19.0 to 3.20.0 [[#3102](https://github.com/opencloud-eu/opencloud/pull/3102)]
+- build(deps): bump golang.org/x/text from 0.38.0 to 0.39.0 [[#3085](https://github.com/opencloud-eu/opencloud/pull/3085)]
+- build(deps): bump github.com/go-chi/chi/v5 from 5.3.0 to 5.3.1 [[#3073](https://github.com/opencloud-eu/opencloud/pull/3073)]
+- build(deps): bump github.com/nats-io/nats-server/v2 from 2.14.2 to 2.14.3 [[#3063](https://github.com/opencloud-eu/opencloud/pull/3063)]
+- build(deps): bump github.com/gookit/config/v2 from 2.2.8 to 2.2.9 [[#3075](https://github.com/opencloud-eu/opencloud/pull/3075)]
+- build(deps): bump github.com/open-policy-agent/opa from 1.18.1 to 1.18.2 [[#3061](https://github.com/opencloud-eu/opencloud/pull/3061)]
+- build(deps): bump github.com/kovidgoyal/imaging from 1.8.21 to 1.8.22 [[#3060](https://github.com/opencloud-eu/opencloud/pull/3060)]
+- build(deps): bump github.com/libregraph/lico from 0.66.0 to 0.67.0 [[#3028](https://github.com/opencloud-eu/opencloud/pull/3028)]
+- chore: bump web to v7.2.0-beta.3 [[#2953](https://github.com/opencloud-eu/opencloud/pull/2953)]
+- chore: bump reva to latest main [[#2943](https://github.com/opencloud-eu/opencloud/pull/2943)]
+
 ## [7.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.0) - 2026-06-24
 
 ### ❤️ Thanks to all contributors! ❤️
