@@ -1,10 +1,10 @@
 # Changelog
 
-## [7.2.2](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.2) - 2026-07-13
+## [7.2.2](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.2) - 2026-07-14
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@kulmann
+@kulmann, @v-scharf
 
 ### 📦️ Dependencies
 
