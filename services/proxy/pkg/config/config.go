@@ -140,9 +140,9 @@ type Cache struct {
 	DisablePersistence   bool          `yaml:"disable_persistence" env:"OC_CACHE_DISABLE_PERSISTENCE;PROXY_OIDC_USERINFO_CACHE_DISABLE_PERSISTENCE" desc:"Disables persistence of the cache. Only applies when store type 'nats-js-kv' is configured. Defaults to false." introductionVersion:"1.0.0"`
 	AuthUsername         string        `yaml:"username" env:"OC_CACHE_AUTH_USERNAME;PROXY_OIDC_USERINFO_CACHE_AUTH_USERNAME" desc:"The username to authenticate with the cache. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
 	AuthPassword         string        `yaml:"password" env:"OC_CACHE_AUTH_PASSWORD;PROXY_OIDC_USERINFO_CACHE_AUTH_PASSWORD" desc:"The password to authenticate with the cache. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
-	EnableTLS            bool          `yaml:"enable_tls" env:"OC_CACHE_ENABLE_TLS;PROXY_OIDC_USERINFO_CACHE_ENABLE_TLS" desc:"Enable TLS for the connection to file metadata cache." introductionVersion:"%%NEXT%%"`
-	TLSInsecure          bool          `yaml:"tls_insecure" env:"OC_INSECURE;OC_CACHE_TLS_INSECURE;PROXY_OIDC_USERINFO_CACHE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"%%NEXT%%"`
-	TLSRootCACertificate string        `yaml:"tls_root_ca_certificate" env:"OC_CACHE_TLS_ROOT_CA_CERTIFICATE;PROXY_OIDC_USERINFO_CACHE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided PROXY_OIDC_USERINFO_CACHE_TLS_INSECURE will be seen as false." introductionVersion:"%%NEXT%%"`
+	EnableTLS            bool          `yaml:"enable_tls" env:"OC_CACHE_ENABLE_TLS;PROXY_OIDC_USERINFO_CACHE_ENABLE_TLS" desc:"Enable TLS for the connection to file metadata cache." introductionVersion:"7.3.0"`
+	TLSInsecure          bool          `yaml:"tls_insecure" env:"OC_INSECURE;OC_CACHE_TLS_INSECURE;PROXY_OIDC_USERINFO_CACHE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"7.3.0"`
+	TLSRootCACertificate string        `yaml:"tls_root_ca_certificate" env:"OC_CACHE_TLS_ROOT_CA_CERTIFICATE;PROXY_OIDC_USERINFO_CACHE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided PROXY_OIDC_USERINFO_CACHE_TLS_INSECURE will be seen as false." introductionVersion:"7.3.0"`
 }
 
 // RoleAssignment contains the configuration for how to assign roles to users during login
@@ -198,9 +198,9 @@ type SigningKeys struct {
 	DisablePersistence   bool          `yaml:"disable_persistence" env:"OC_CACHE_DISABLE_PERSISTENCE;PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_DISABLE_PERSISTENCE" desc:"Disables persistence of the store. Only applies when store type 'nats-js-kv' is configured. Defaults to true." introductionVersion:"1.0.0"`
 	AuthUsername         string        `yaml:"username" env:"OC_CACHE_AUTH_USERNAME;PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_AUTH_USERNAME" desc:"The username to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
 	AuthPassword         string        `yaml:"password" env:"OC_CACHE_AUTH_PASSWORD;PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_AUTH_PASSWORD" desc:"The password to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
-	EnableTLS            bool          `yaml:"enable_tls" env:"OC_CACHE_ENABLE_TLS;PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_ENABLE_TLS" desc:"Enable TLS for the connection to file metadata cache." introductionVersion:"%%NEXT%%"`
-	TLSInsecure          bool          `yaml:"tls_insecure" env:"OC_INSECURE;OC_CACHE_TLS_INSECURE;PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"%%NEXT%%"`
-	TLSRootCACertificate string        `yaml:"tls_root_ca_certificate" env:"OC_CACHE_TLS_ROOT_CA_CERTIFICATE;PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_TLS_INSECURE will be seen as false." introductionVersion:"%%NEXT%%"`
+	EnableTLS            bool          `yaml:"enable_tls" env:"OC_CACHE_ENABLE_TLS;PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_ENABLE_TLS" desc:"Enable TLS for the connection to file metadata cache." introductionVersion:"7.3.0"`
+	TLSInsecure          bool          `yaml:"tls_insecure" env:"OC_INSECURE;OC_CACHE_TLS_INSECURE;PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"7.3.0"`
+	TLSRootCACertificate string        `yaml:"tls_root_ca_certificate" env:"OC_CACHE_TLS_ROOT_CA_CERTIFICATE;PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_TLS_INSECURE will be seen as false." introductionVersion:"7.3.0"`
 }
 
 // ClaimsSelectorConf is the config for the claims-selector

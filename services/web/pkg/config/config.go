@@ -56,7 +56,7 @@ type WebConfig struct {
 	Server        string              `json:"server,omitempty" yaml:"server" env:"OC_URL;WEB_UI_CONFIG_SERVER" desc:"URL, where the OpenCloud APIs are reachable for OpenCloud Web." introductionVersion:"1.0.0"`
 	Theme         string              `json:"theme,omitempty" yaml:"-"`
 	OpenIDConnect OIDC                `json:"openIdConnect,omitempty" yaml:"oidc"`
-	Apps          []string            `json:"apps" yaml:"apps" env:"WEB_UI_CORE_APPS" desc:"Allows to override the default list of core apps in OpenCloud Web." introductionVersion:"%%NEXT%%"`
+	Apps          []string            `json:"apps" yaml:"apps" env:"WEB_UI_CORE_APPS" desc:"Allows to override the default list of core apps in OpenCloud Web." introductionVersion:"7.3.0"`
 	Applications  []Application       `json:"applications,omitempty" yaml:"applications"`
 	ExternalApps  []ExternalApp       `json:"external_apps,omitempty" yaml:"external_apps"`
 	Options       Options             `json:"options,omitempty" yaml:"options"`
