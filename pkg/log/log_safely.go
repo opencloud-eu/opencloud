@@ -1,0 +1,60 @@
+package log
+
+import "github.com/rs/zerolog"
+
+const (
+	logMaxStrLength      = 512
+	logMaxStrArrayLength = 16 // 8kb
+)
+
+// Safely caps a string to a given size to avoid log bombing.
+// Use this function to wrap strings that are user input (HTTP headers, path parameters, URI parameters, HTTP body, ...).
+func SafeString[S ~string](text S) string {
+	t := string(text)
+	runes := []rune(t)
+
+	if len(runes) <= logMaxStrLength {
+		return t
+	} else {
+		return string(runes[0:logMaxStrLength-1]) + `\u2026` // hellip
+	}
+}
+
+type SafeLogStringArrayMarshaller struct {
+	array []string
+}
+
+func (m SafeLogStringArrayMarshaller) MarshalZerologArray(a *zerolog.Array) {
+	for i, elem := range m.array {
+		if i >= logMaxStrArrayLength {
+			return
+		}
+		a.Str(SafeString(elem))
+	}
+}
+
+var _ zerolog.LogArrayMarshaler = SafeLogStringArrayMarshaller{}
+
+func SafeStringArray(array []string) SafeLogStringArrayMarshaller {
+	return SafeLogStringArrayMarshaller{array: array}
+}
+
+type StringArrayMarshaller struct {
+	array []string
+}
+
+func (m StringArrayMarshaller) MarshalZerologArray(a *zerolog.Array) {
+	for _, elem := range m.array {
+		a.Str(elem)
+	}
+}
+
+var _ zerolog.LogArrayMarshaler = StringArrayMarshaller{}
+
+func StringArray(array []string) StringArrayMarshaller {
+	return StringArrayMarshaller{array: array}
+}
+
+func From(context zerolog.Context) *Logger {
+	return &Logger{Logger: context.Logger()}
+}

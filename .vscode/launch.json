@@ -77,6 +77,157 @@
       }
     },
     {
+      "name": "OpenCloud server with Groupware",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "buildFlags": [
+        // "-tags", "enable_vips"
+      ],
+      "program": "${workspaceFolder}/opencloud/cmd/opencloud",
+      "args": ["server"],
+      "env": {
+        // log settings for human developers
+        "OC_LOG_LEVEL": "info",
+        "OC_LOG_PRETTY": "true",
+        "OC_LOG_COLOR": "true",
+        // set insecure options because we don't have valid certificates in dev environments
+        "OC_INSECURE": "true",
+        // enable basic auth for dev setup so that we can use curl for testing
+        "PROXY_ENABLE_BASIC_AUTH": "true",
+        // demo users
+        "IDM_CREATE_DEMO_USERS": "true",
+        // OC_RUN_SERVICES allows to start a subset of services even in the supervised mode
+        //"OC_RUN_SERVICES": "settings,storage-system,graph,idp,idm,ocs,store,thumbnails,web,webdav,frontend,gateway,users,groups,auth-basic,storage-authmachine,storage-users,storage-shares,storage-publiclink,storage-system,app-provider,sharing,proxy,ocdav",
+
+        /*
+         * Keep secrets and passwords in one block to allow easy uncommenting
+         */
+        // user id of "admin", for user creation and admin role assignement
+        "OC_ADMIN_USER_ID": "some-admin-user-id-0000-000000000000", // FIXME currently must have the length of a UUID, see reva/pkg/storage/utils/decomposedfs/spaces.go:228
+        // admin user default password
+        "IDM_ADMIN_PASSWORD": "admin",
+        // system user
+        "OC_SYSTEM_USER_ID": "some-system-user-id-000-000000000000", // FIXME currently must have the length of a UUID, see reva/pkg/storage/utils/decomposedfs/spaces.go:228
+        "OC_SYSTEM_USER_API_KEY": "some-system-user-machine-auth-api-key",
+        // set some hardcoded secrets
+        "OC_JWT_SECRET": "some-opencloud-jwt-secret",
+        "OC_MACHINE_AUTH_API_KEY": "some-opencloud-machine-auth-api-key",
+        "OC_TRANSFER_SECRET": "some-opencloud-transfer-secret",
+        // collaboration
+        "COLLABORATION_WOPIAPP_SECRET": "some-wopi-secret",
+        // idm ldap
+        "IDM_SVC_PASSWORD": "some-ldap-idm-password",
+        "GRAPH_LDAP_BIND_PASSWORD": "some-ldap-idm-password",
+        // reva ldap
+        "IDM_REVASVC_PASSWORD": "some-ldap-reva-password",
+        "GROUPS_LDAP_BIND_PASSWORD": "some-ldap-reva-password",
+        "USERS_LDAP_BIND_PASSWORD": "some-ldap-reva-password",
+        "AUTH_BASIC_LDAP_BIND_PASSWORD": "some-ldap-reva-password",
+        // idp ldap
+        "IDM_IDPSVC_PASSWORD": "some-ldap-idp-password",
+        "IDP_LDAP_BIND_PASSWORD": "some-ldap-idp-password",
+        // storage users mount ID
+        "GATEWAY_STORAGE_USERS_MOUNT_ID": "storage-users-1",
+        "STORAGE_USERS_MOUNT_ID": "storage-users-1",
+        // graph application ID
+        "GRAPH_APPLICATION_ID": "application-1",
+
+        // service accounts
+        "OC_SERVICE_ACCOUNT_ID": "service-account-id",
+        "OC_SERVICE_ACCOUNT_SECRET": "service-account-secret",
+
+        "OC_ADD_RUN_SERVICES": "auth-api,groupware",
+        
+        "GROUPWARE_LOG_LEVEL": "trace",
+        "GROUPWARE_HTTP_TRACE_REQUESTS": "true",
+        "GROUPWARE_HTTP_TRACE_MAX_REQUEST_BODY_SIZE": "8192",
+        "GROUPWARE_HTTP_TRACE_RESPONSES": "true",
+        "GROUPWARE_HTTP_TRACE_MAX_RESPONSE_BODY_SIZE": "8192",
+        "GROUPWARE_JMAP_MASTER_USERNAME": "admin@example.org",
+        "GROUPWARE_JMAP_MASTER_PASSWORD": "admin",
+        "GROUPWARE_SEND_DURATIONS_RESPONSE": "true",
+        "GROUPWARE_TLS_INSECURE": "true",
+        "GROUPWARE_ENABLE_MOCK_DATA": "true",
+        "GROUPWARE_DEBUG_ADDR": "0.0.0.0:9203",
+
+        "AUTHAPI_HTTP_ADDR": "0.0.0.0:10000",
+        "AUTHAPI_AUTH_REQUIRE_SHARED_SECRET": "true",
+        "AUTHAPI_AUTH_SHARED_SECRETS": "stalwart=maethaR9eiXaiph8ahn8ohH6dahPiequ;unused=eeyaigh6hae1zo5ahGeete6oohaiquei",
+
+        "WEB_ASSET_CORE_PATH": "${workspaceFolder}/../web/dist",
+        "WEB_UI_CONFIG_FILE": "${workspaceFolder}/../web/dev/docker/opencloud.web.config.json",
+        "FRONTEND_GROUPWARE_ENABLED": "true"
+      }
+    },
+    {
+      "name": "OpenCloud server with external services",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "buildFlags": [
+        // "-tags", "enable_vips"
+      ],
+      "program": "${workspaceFolder}/opencloud/cmd/opencloud",
+      "args": ["server"],
+      "env": {
+        "OC_URL": "https://localhost:9200/",
+        "PROXY_DEBUG_ADDR": "0.0.0.0:9205",
+        "OC_BASE_DATA_PATH": "${env:HOME}/.opencloud-with-external",
+        "OC_CONFIG_DIR": "${env:HOME}/.opencloud-with-external/config",
+        "GROUPWARE_LOG_LEVEL": "trace",
+        "OC_LOG_LEVEL": "info",
+        "OC_LOG_PRETTY": "true",
+        "OC_LOG_COLOR": "true",
+        "OC_INSECURE": "true",
+        "PROXY_ENABLE_BASIC_AUTH": "false",
+        "IDM_CREATE_DEMO_USERS": "false",
+        "OC_LDAP_URI": "ldaps://localhost:636",
+        "OC_LDAP_INSECURE": "true",
+        "OC_LDAP_BIND_DN": "cn=admin,dc=opencloud,dc=eu",
+        "OC_LDAP_BIND_PASSWORD": "admin",
+        "OC_LDAP_GROUP_BASE_DN": "ou=groups,dc=opencloud,dc=eu",
+        "OC_LDAP_GROUP_SCHEMA_ID": "entryUUID",
+        "OC_LDAP_USER_BASE_DN": "ou=users,dc=opencloud,dc=eu",
+        "OC_LDAP_USER_FILTER": "(objectclass=inetOrgPerson)",
+        "OC_LDAP_USER_SCHEMA_ID": "entryUUID",
+        "OC_LDAP_DISABLE_USER_MECHANISM": "none",
+        "OC_LDAP_SERVER_WRITE_ENABLED": "false",
+        "OC_EXCLUDE_RUN_SERVICES": "idm",
+        "OC_ADD_RUN_SERVICES": "notifications,groupware",
+        "NATS_NATS_HOST": "0.0.0.0",
+        "NATS_NATS_PORT": "9233",
+        "FRONTEND_ARCHIVER_MAX_SIZE": "10000000000",
+        "MICRO_REGISTRY_ADDRESS": "127.0.0.1:9233",
+        "NOTIFICATIONS_SMTP_HOST": "localhost",
+        "NOTIFICATIONS_SMTP_PORT": "2500",
+        "NOTIFICATIONS_SMTP_SENDER": "OpenCloud notifications <notifications@cloud.opencloud.test>",
+        "NOTIFICATIONS_SMTP_USERNAME": "notifications@cloud.opencloud.test",
+        "NOTIFICATIONS_SMTP_INSECURE": "true",
+        "NOTIFICATIONS_SMTP_PASSWORD": "",
+        "NOTIFICATIONS_SMTP_AUTHENTICATION": "",
+        "NOTIFICATIONS_SMTP_ENCRYPTION": "none",
+        "PROXY_AUTOPROVISION_ACCOUNTS": "false",
+        "PROXY_ROLE_ASSIGNMENT_DRIVER": "oidc",
+        "OC_OIDC_ISSUER": "https://keycloak.opencloud.test/realms/openCloud",
+        "PROXY_OIDC_REWRITE_WELLKNOWN": "true",
+        "WEB_OIDC_CLIENT_ID": "web",
+        "PROXY_USER_OIDC_CLAIM": "uuid",
+        "PROXY_USER_CS3_CLAIM": "userid",
+        "WEB_OPTION_ACCOUNT_EDIT_LINK_HREF": "https://keycloak.opencloud.test/realms/openCloud/account",
+        "OC_ADMIN_USER_ID": "",
+        "SETTINGS_SETUP_DEFAULT_ASSIGNMENTS": "false",
+        "GRAPH_ASSIGN_DEFAULT_USER_ROLE": "false",
+        "GRAPH_USERNAME_MATCH": "none",
+        "KEYCLOAK_DOMAIN": "keycloak.opencloud.test",
+        "IDM_ADMIN_PASSWORD": "admin",
+        "GRAPH_LDAP_SERVER_UUID": "true",
+        "GRAPH_LDAP_GROUP_CREATE_BASE_DN": "ou=custom,ou=groups,dc=opencloud,dc=eu",
+        "GRAPH_LDAP_REFINT_ENABLED": "true",
+        "GATEWAY_GRPC_ADDR": "0.0.0.0:9142",
+      }
+    },
+    {
       "name": "Fed OpenCloud server",
       "type": "go",
       "request": "launch",

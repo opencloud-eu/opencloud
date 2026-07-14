@@ -1,0 +1,346 @@
+package groupware
+
+import (
+	"context"
+	"fmt"
+	"net/url"
+	"time"
+
+	"github.com/jellydator/ttlcache/v3"
+	"github.com/miekg/dns"
+	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/opencloud-eu/opencloud/pkg/jmap"
+	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/services/groupware/pkg/metrics"
+)
+
+// An alias for the internal session cache key, which might become something composed in the future.
+type sessionCacheKey string
+
+func toSessionCacheKey(username string) sessionCacheKey {
+	return sessionCacheKey(username)
+}
+
+func (k sessionCacheKey) username() string {
+	return string(k)
+}
+
+// Interface for cached sessions in the session cache.
+// The purpose here is mainly to be able to also persist failed
+// attempts to retrieve a session.
+type cachedSession interface {
+	// Whether the Session retrieval was successful or not.
+	Success() bool
+	// When Success() returns true, one may use this method to retrieve the actual JMAP Session.
+	Get() jmap.Session
+	// When Success() returns false, one may use this method to retrieve the error that caused the failure.
+	Error() *GroupwareError
+	// The timestamp of when this cached session information was obtained, regardless of success or failure.
+	Since() time.Time
+	// The timestamp of when this cached session information will be invalidated, regardless of success or failure.
+	Until() time.Time
+}
+
+// An implementation of a cachedSession that succeeded.
+type succeededSession struct {
+	// Timestamp of when this succeededSession was created.
+	since time.Time
+	// Until when the session will be cached
+	until time.Time
+	// The JMAP Session itself.
+	session jmap.Session
+}
+
+var _ cachedSession = succeededSession{}
+
+func (s succeededSession) Success() bool {
+	return true
+}
+func (s succeededSession) Get() jmap.Session {
+	return s.session
+}
+func (s succeededSession) Error() *GroupwareError {
+	return nil
+}
+func (s succeededSession) Since() time.Time {
+	return s.since
+}
+func (s succeededSession) Until() time.Time {
+	return s.until
+}
+
+// An implementation of a cachedSession that failed.
+type failedSession struct {
+	// Timestamp of when this failedSession was created.
+	since time.Time
+	// Until when the failure will be cached, without re-attempting to retrieve the Session.
+	until time.Time
+	// The error that caused the Session acquisition to fail.
+	err *GroupwareError
+}
+
+var _ cachedSession = failedSession{}
+
+func (s failedSession) Success() bool {
+	return false
+}
+func (s failedSession) Get() jmap.Session {
+	panic(fmt.Sprintf("never call %T.Get()", failedSession{}))
+}
+func (s failedSession) Error() *GroupwareError {
+	return s.err
+}
+func (s failedSession) Since() time.Time {
+	return s.since
+}
+func (s failedSession) Until() time.Time {
+	return s.until
+}
+
+type sessionCache interface {
+	Get(ctx context.Context, username string) cachedSession
+	jmap.SessionEventListener
+}
+
+type ttlcacheSessionCache struct {
+	sessionCache           *ttlcache.Cache[sessionCacheKey, cachedSession]
+	sessionUrlProvider     func(ctx context.Context, username string) (*url.URL, *GroupwareError)
+	sessionSupplier        func(ctx context.Context, sessionUrl *url.URL, username string, logger *log.Logger) (jmap.Session, jmap.Error)
+	successTtl             time.Duration
+	errorTtl               time.Duration
+	outdatedSessionCounter prometheus.Counter
+	logger                 *log.Logger
+}
+
+var _ sessionCache = &ttlcacheSessionCache{}
+var _ jmap.SessionEventListener = &ttlcacheSessionCache{}
+
+func (c *ttlcacheSessionCache) load(key sessionCacheKey, ctx context.Context) cachedSession {
+	username := key.username()
+	logger := log.From(c.logger.With().Str(logUsername, username))
+	sessionUrl, gwerr := c.sessionUrlProvider(ctx, username)
+	if gwerr != nil {
+		logger.Warn().Str(logErrorCode, gwerr.Code).Msgf("failed to determine session URL for '%v'", key)
+		now := time.Now()
+		until := now.Add(c.errorTtl)
+		return failedSession{since: now, until: until, err: gwerr}
+	}
+	before := time.Now()
+	session, jerr := c.sessionSupplier(ctx, sessionUrl, username, logger)
+	duration := time.Since(before)
+	if jerr != nil {
+		logger.Warn().Err(jerr).Msgf("failed to create session for '%v'", key)
+		now := time.Now()
+		until := now.Add(c.errorTtl)
+		return failedSession{since: now, until: until, err: groupwareErrorFromJmap(jerr)}
+	} else {
+		if logger.Debug().Enabled() {
+			logger.Debug().Dur(logDuration, duration).Msgf("successfully created session for '%v' in %f.2ms", key, float64(duration.Microseconds())/float64(1000.0))
+		}
+		now := time.Now()
+		until := now.Add(c.successTtl)
+		return succeededSession{since: now, until: until, session: session}
+	}
+}
+
+func (c *ttlcacheSessionCache) Get(ctx context.Context, username string) cachedSession {
+	key := toSessionCacheKey(username)
+	item, cached := c.sessionCache.GetOrSetFunc(key, func() cachedSession {
+		return c.load(key, ctx) // TODO can't set the TTL on the cached item
+	})
+	if item != nil {
+		value := item.Value()
+		if !cached {
+			if !value.Success() && c.errorTtl != c.successTtl {
+				// not great, but will do for now:
+				// - when the result is successful, the default TTL is used
+				// - when the result is a failure to retrieve the session, a (most probably shorter) TTL must be used instead
+				if c.errorTtl == 0 {
+					c.sessionCache.Delete(key)
+				} else {
+					c.sessionCache.Set(key, value, c.errorTtl)
+				}
+			}
+		}
+		return value
+	} else {
+		return nil
+	}
+}
+
+type sessionCacheBuilder struct {
+	logger                    *log.Logger
+	sessionSupplier           func(ctx context.Context, sessionUrl *url.URL, username string, logger *log.Logger) (jmap.Session, jmap.Error)
+	defaultUrlResolver        func(context.Context, string) (*url.URL, *GroupwareError)
+	sessionUrlResolverFactory func() (func(context.Context, string) (*url.URL, *GroupwareError), *GroupwareInitializationError)
+	prometheusRegistry        prometheus.Registerer
+	m                         *metrics.Metrics
+	sessionCacheMaxCapacity   uint64
+	sessionCacheTtl           time.Duration
+	sessionFailureCacheTtl    time.Duration
+}
+
+func newSessionCacheBuilder( //NOSONAR
+	sessionUrl *url.URL,
+	logger *log.Logger,
+	sessionSupplier func(ctx context.Context, sessionUrl *url.URL, username string, logger *log.Logger) (jmap.Session, jmap.Error),
+	prometheusRegistry prometheus.Registerer,
+	m *metrics.Metrics,
+	sessionCacheMaxCapacity uint64,
+	sessionCacheTtl time.Duration,
+	sessionFailureCacheTtl time.Duration,
+) *sessionCacheBuilder {
+	defaultUrlResolver := func(_ context.Context, _ string) (*url.URL, *GroupwareError) {
+		return sessionUrl, nil
+	}
+
+	return &sessionCacheBuilder{
+		logger:             logger,
+		sessionSupplier:    sessionSupplier,
+		defaultUrlResolver: defaultUrlResolver,
+		sessionUrlResolverFactory: func() (func(context.Context, string) (*url.URL, *GroupwareError), *GroupwareInitializationError) {
+			return defaultUrlResolver, nil
+		},
+		prometheusRegistry:      prometheusRegistry,
+		m:                       m,
+		sessionCacheMaxCapacity: sessionCacheMaxCapacity,
+		sessionCacheTtl:         sessionCacheTtl,
+		sessionFailureCacheTtl:  sessionFailureCacheTtl,
+	}
+}
+
+func (b *sessionCacheBuilder) withDnsAutoDiscovery(
+	defaultSessionDomain string,
+	config *dns.ClientConfig,
+	dnsDialTimeout time.Duration,
+	dnsReadTimeout time.Duration,
+	domainGreenList []string,
+	domainRedList []string,
+) *sessionCacheBuilder {
+	dnsSessionUrlResolverFactory := func() (func(context.Context, string) (*url.URL, *GroupwareError), *GroupwareInitializationError) {
+		d, err := NewDnsSessionUrlResolver(
+			b.defaultUrlResolver,
+			defaultSessionDomain,
+			config,
+			domainGreenList,
+			domainRedList,
+			dnsDialTimeout,
+			dnsReadTimeout,
+		)
+		if err != nil {
+			return nil, &GroupwareInitializationError{Message: "failed to instantiate the DNS session URL resolver", Err: err}
+		} else {
+			return d.Resolve, nil
+		}
+	}
+	b.sessionUrlResolverFactory = dnsSessionUrlResolverFactory
+	return b
+}
+
+func (b *sessionCacheBuilder) build() (sessionCache, error) { //NOSONAR
+	var cache *ttlcache.Cache[sessionCacheKey, cachedSession]
+
+	sessionUrlResolver, err := b.sessionUrlResolverFactory()
+	if err != nil {
+		return nil, err
+	}
+
+	cache = ttlcache.New(
+		ttlcache.WithCapacity[sessionCacheKey, cachedSession](b.sessionCacheMaxCapacity),
+		ttlcache.WithTTL[sessionCacheKey, cachedSession](b.sessionCacheTtl),
+		ttlcache.WithDisableTouchOnHit[sessionCacheKey, cachedSession](),
+	)
+
+	if err := b.prometheusRegistry.Register(sessionCacheMetricsCollector{desc: b.m.SessionCacheDesc, supply: cache.Metrics}); err != nil {
+		b.logger.Error().Err(err).Msg("failed to register session cache metrics")
+	}
+
+	cache.OnEviction(func(c context.Context, r ttlcache.EvictionReason, item *ttlcache.Item[sessionCacheKey, cachedSession]) {
+		if b.logger.Trace().Enabled() {
+			reason := ""
+			switch r {
+			case ttlcache.EvictionReasonDeleted:
+				reason = "deleted"
+			case ttlcache.EvictionReasonCapacityReached:
+				reason = "capacity reached"
+			case ttlcache.EvictionReasonExpired:
+				reason = fmt.Sprintf("expired after %v", item.TTL())
+			case ttlcache.EvictionReasonMaxCostExceeded:
+				reason = "max cost exceeded"
+			}
+			if reason == "" {
+				reason = fmt.Sprintf("unknown (%v)", r)
+			}
+			spentInCache := time.Since(item.Value().Since())
+			tipe := "successful"
+			if !item.Value().Success() {
+				tipe = "failed"
+			}
+			if b.logger.Trace().Enabled() {
+				b.logger.Trace().
+					Str(logUsername, item.Key().username()).
+					Str(logCacheEvictionReason, reason).
+					Str(logCacheType, tipe).
+					Msgf("%s session cache eviction of user '%v' after %v: %v", tipe, item.Key(), spentInCache, reason)
+			}
+		}
+	})
+
+	s := &ttlcacheSessionCache{
+		sessionCache:           cache,
+		sessionSupplier:        b.sessionSupplier,
+		successTtl:             b.sessionCacheTtl,
+		errorTtl:               b.sessionFailureCacheTtl,
+		sessionUrlProvider:     sessionUrlResolver,
+		logger:                 b.logger,
+		outdatedSessionCounter: b.m.OutdatedSessionsCounter,
+	}
+
+	go cache.Start()
+
+	return s, nil
+}
+
+func (c *ttlcacheSessionCache) OnSessionOutdated(session *jmap.Session, newSessionState jmap.SessionState) {
+	// it's enough to remove the session from the cache, as it will be fetched on-demand
+	// the next time an operation is performed on behalf of the user
+	c.sessionCache.Delete(toSessionCacheKey(session.Username))
+	if c.outdatedSessionCounter != nil {
+		c.outdatedSessionCounter.Inc()
+	}
+
+	if c.logger.Trace().Enabled() {
+		c.logger.Trace().
+			Str(logUsername, log.SafeString(session.Username)).
+			Str(logPreviousState, string(session.State)).
+			Str(logNewState, string(newSessionState)).
+			Msgf("removed outdated session for user '%v': state %v -> %v", session.Username, session.State, newSessionState)
+	}
+}
+
+// A Prometheus Collector for the Session cache metrics.
+type sessionCacheMetricsCollector struct {
+	desc   *prometheus.Desc
+	supply func() ttlcache.Metrics
+}
+
+func (s sessionCacheMetricsCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- s.desc
+}
+func (s sessionCacheMetricsCollector) Collect(ch chan<- prometheus.Metric) {
+	m := s.supply()
+	ch <- prometheus.MustNewConstMetric(s.desc, prometheus.GaugeValue, float64(m.Evictions), metrics.Values.SessionCache.Evictions)
+	ch <- prometheus.MustNewConstMetric(s.desc, prometheus.GaugeValue, float64(m.Insertions), metrics.Values.SessionCache.Insertions)
+	ch <- prometheus.MustNewConstMetric(s.desc, prometheus.GaugeValue, float64(m.Hits), metrics.Values.SessionCache.Hits)
+	ch <- prometheus.MustNewConstMetric(s.desc, prometheus.GaugeValue, float64(m.Misses), metrics.Values.SessionCache.Misses)
+}
+
+var _ prometheus.Collector = sessionCacheMetricsCollector{}
+
+// Create a new log.Logger that is decorated with fields containing information about the Session.
+func decorateLogger(l *log.Logger, session jmap.Session) *log.Logger {
+	return log.From(l.With().
+		Str(logUsername, log.SafeString(session.Username)).
+		Str(logSessionState, log.SafeString(string(session.State))))
+}

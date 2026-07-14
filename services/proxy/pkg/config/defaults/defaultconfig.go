@@ -304,7 +304,20 @@ func DefaultPolicies() []config.Policy {
 				{
 					Endpoint:    "/collaboration",
 					Service:     "eu.opencloud.web.collaboration",
-					Unprotected: true,
+				},
+				{
+					Endpoint: "/groupware/",
+					Service:  "eu.opencloud.web.groupware",
+				},
+				{
+					Endpoint: "/groupware",
+					Service:  "eu.opencloud.web.groupware",
+				},
+				{
+					Endpoint:         "/auth",
+					Service:          "eu.opencloud.web.auth-api",
+					Unprotected:      true,
+					SkipXAccessToken: true,
 				},
 			},
 		},

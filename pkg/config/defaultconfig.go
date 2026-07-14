@@ -7,6 +7,7 @@ import (
 	appProvider "github.com/opencloud-eu/opencloud/services/app-provider/pkg/config/defaults"
 	appRegistry "github.com/opencloud-eu/opencloud/services/app-registry/pkg/config/defaults"
 	audit "github.com/opencloud-eu/opencloud/services/audit/pkg/config/defaults"
+	authapi "github.com/opencloud-eu/opencloud/services/auth-api/pkg/config/defaults"
 	authapp "github.com/opencloud-eu/opencloud/services/auth-app/pkg/config/defaults"
 	authbasic "github.com/opencloud-eu/opencloud/services/auth-basic/pkg/config/defaults"
 	authbearer "github.com/opencloud-eu/opencloud/services/auth-bearer/pkg/config/defaults"
@@ -19,6 +20,7 @@ import (
 	gateway "github.com/opencloud-eu/opencloud/services/gateway/pkg/config/defaults"
 	graph "github.com/opencloud-eu/opencloud/services/graph/pkg/config/defaults"
 	groups "github.com/opencloud-eu/opencloud/services/groups/pkg/config/defaults"
+	groupware "github.com/opencloud-eu/opencloud/services/groupware/pkg/config/defaults"
 	idm "github.com/opencloud-eu/opencloud/services/idm/pkg/config/defaults"
 	idp "github.com/opencloud-eu/opencloud/services/idp/pkg/config/defaults"
 	invitations "github.com/opencloud-eu/opencloud/services/invitations/pkg/config/defaults"
@@ -62,6 +64,7 @@ func DefaultConfig() *Config {
 		AppProvider:       appProvider.DefaultConfig(),
 		AppRegistry:       appRegistry.DefaultConfig(),
 		Audit:             audit.DefaultConfig(),
+		AuthApi:           authapi.DefaultConfig(),
 		AuthApp:           authapp.DefaultConfig(),
 		AuthBasic:         authbasic.DefaultConfig(),
 		AuthBearer:        authbearer.DefaultConfig(),
@@ -74,6 +77,7 @@ func DefaultConfig() *Config {
 		Gateway:           gateway.DefaultConfig(),
 		Graph:             graph.DefaultConfig(),
 		Groups:            groups.DefaultConfig(),
+		Groupware:         groupware.DefaultConfig(),
 		IDM:               idm.DefaultConfig(),
 		IDP:               idp.DefaultConfig(),
 		Invitations:       invitations.DefaultConfig(),
