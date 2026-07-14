@@ -1,3 +1,27 @@
+Release 1.7.0
+=============
+
+**Changes**
+
+**Breaking changes**
+
+* To address a security issue, it was necessary to add a `MaxDepth` option to
+  `ReadSettings` to limit the depth of XML trees during parsing. A generous
+  default value of 1024 was chosen to avoid breaking most existing code.
+  However, if your code is processing XML hierarchies with a depth greater
+  than 1024, you will need to assign your `Document` a `ReadSettings` that has
+  a `MaxDepth` set to a higher value.
+
+**Security Fixes**
+
+* Limited the depth of XML trees processed by all `ReadFrom` functions during
+  parsing.
+* Fixed a `CompilePath` index-out-of-range panic that could be caused by a
+  missing path filter key.
+* Sanitized the contents of XML text, comment, ProcInst and Directive tokens
+  provided by the user.
+
+
 Release 1.6.0
 =============
 
