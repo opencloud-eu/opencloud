@@ -14,11 +14,17 @@ func DefaultApp(app *cobra.Command) *cobra.Command {
 	// version info
 	app.Version = fmt.Sprintf("%s (%s <%s>) (%s)", version.String, "OpenCloud GmbH", "support@opencloud.eu", version.Compiled())
 
-	// a failing RunE is a runtime error, not a usage error: printing it here
-	// would put unstructured text next to the JSON log records, and the usage
-	// block on top of it is noise. main() reports what reaches it.
+	// cobra would print the error on top of what main() already prints
 	app.SilenceErrors = true
-	app.SilenceUsage = true
+
+	// keep the usage block for flag parse errors, drop it once RunE runs.
+	// Traversing runs the hook even below a subcommand that brings its own,
+	// e.g. every service below ServiceCommand.
+	cobra.EnableTraverseRunHooks = true
+	app.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		cmd.SilenceUsage = true
+		return nil
+	}
 
 	return app
 }
