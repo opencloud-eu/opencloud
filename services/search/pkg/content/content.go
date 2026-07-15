@@ -2,6 +2,7 @@ package content
 
 import (
 	"strings"
+	"time"
 
 	"github.com/bbalet/stopwords"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
@@ -18,7 +19,7 @@ type Document struct {
 	Name      string                     `json:"Name"`
 	Content   string                     `json:"Content"`
 	Size      uint64                     `json:"Size"`
-	Mtime     string                     `json:"Mtime"`
+	Mtime     *time.Time                 `json:"Mtime"`
 	MimeType  string                     `json:"MimeType"`
 	Tags      []string                   `json:"Tags"`
 	Favorites []string                   `json:"Favorites"`
