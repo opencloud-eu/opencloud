@@ -18,7 +18,7 @@ var ErrManualActionRequired = errors.New("manual action required")
 // instruction to remove it.
 func ManualActionRequiredError(index, deleteStep string, reasons []string) error {
 	return fmt.Errorf(
-		"%w: search index %s was built with a different schema (%s). "+
+		"%w: search index %s was built with a different schema:\n  - %s\n"+
 			"There is no in-place migration: with the OpenCloud search service stopped, %s, "+
 			"then start it again (an empty index with the new schema is created), "+
 			"then rebuild the content by running: opencloud search index --all-spaces. "+
@@ -26,7 +26,7 @@ func ManualActionRequiredError(index, deleteStep string, reasons []string) error
 			"set OC_EXCLUDE_RUN_SERVICES=search; until the service is back, search "+
 			"and features built on it (e.g. the search bar and the tag list) are "+
 			"unavailable",
-		ErrManualActionRequired, index, strings.Join(reasons, "; "), deleteStep,
+		ErrManualActionRequired, index, strings.Join(reasons, "\n  - "), deleteStep,
 	)
 }
 
@@ -79,7 +79,7 @@ func classifyProperties(stored, code map[string]any, dataFields func(string) boo
 		}
 		path := joinPath(prefix, k)
 		if dataFields != nil && dataFields(path) {
-			c.breaking(fmt.Sprintf("field %s is new in the code schema but the index already contains data for it (previously indexed dynamically)", path))
+			c.breaking(fmt.Sprintf("field %s is explicitly mapped now, but the index already holds data that was indexed dynamically for it, of an unknown type", path))
 			continue
 		}
 		c.NewFields = append(c.NewFields, leafPaths(code[k], path)...)
