@@ -389,9 +389,16 @@ func Start(ctx context.Context, o ...Option) error {
 				if ev.Restarting {
 					l = s.Log.Error()
 				}
-				l.Str("event", e.String()).Str("service", ev.ServiceName).Str("supervisor", ev.SupervisorName).
-					Bool("restarting", ev.Restarting).Float64("failures", ev.CurrentFailures).Float64("threshold", ev.FailureThreshold).
-					Interface("error", ev.Err).Msg("service terminated")
+				l = l.Str("event", e.String()).Str("service", ev.ServiceName).Str("supervisor", ev.SupervisorName).
+					Bool("restarting", ev.Restarting).Float64("failures", ev.CurrentFailures).Float64("threshold", ev.FailureThreshold)
+				// ev.Err is an interface{}: marshaling an error yields {} because
+				// its fields are unexported, so the message has to go through Err
+				if err, ok := ev.Err.(error); ok {
+					l = l.Err(err)
+				} else {
+					l = l.Interface("error", ev.Err)
+				}
+				l.Msg("service terminated")
 			case suture.EventBackoff:
 				s.Log.Warn().Str("event", e.String()).Str("supervisor", ev.SupervisorName).Msg("service backoff")
 			case suture.EventResume:

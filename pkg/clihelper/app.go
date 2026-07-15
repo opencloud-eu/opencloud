@@ -14,5 +14,11 @@ func DefaultApp(app *cobra.Command) *cobra.Command {
 	// version info
 	app.Version = fmt.Sprintf("%s (%s <%s>) (%s)", version.String, "OpenCloud GmbH", "support@opencloud.eu", version.Compiled())
 
+	// a failing RunE is a runtime error, not a usage error: printing it here
+	// would put unstructured text next to the JSON log records, and the usage
+	// block on top of it is noise. main() reports what reaches it.
+	app.SilenceErrors = true
+	app.SilenceUsage = true
+
 	return app
 }
