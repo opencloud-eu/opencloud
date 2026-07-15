@@ -210,11 +210,20 @@ func (b *Batch) Push() error {
 			body.WriteString("\n")
 		}
 
-		if _, err := b.client.Bulk(context.Background(), opensearchgoAPI.BulkReq{
+		resp, err := b.client.Bulk(context.Background(), opensearchgoAPI.BulkReq{
 			Body:   strings.NewReader(body.String()),
 			Params: opensearchgoAPI.BulkParams{Refresh: "wait_for"},
-		}); err != nil {
+		})
+		switch {
+		case err != nil:
 			return fmt.Errorf("failed to execute bulk operations: %w", err)
+		case resp.Errors:
+			items, err := json.Marshal(resp.Items)
+			if err != nil {
+				return fmt.Errorf("failed to marshal bulk response: %w", err)
+			}
+
+			return fmt.Errorf("failed to execute bulk operations, response: %s", items)
 		}
 
 		bulkOperations = nil
