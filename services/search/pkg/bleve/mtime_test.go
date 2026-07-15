@@ -1,6 +1,10 @@
 package bleve_test
 
 import (
+	"time"
+
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
+
 	bleveSearch "github.com/blevesearch/bleve/v2"
 	bquery "github.com/blevesearch/bleve/v2/search/query"
 	. "github.com/onsi/ginkgo/v2"
@@ -21,7 +25,7 @@ var _ = Describe("Mtime date range", func() {
 		idx, err := bleveSearch.NewMemOnly(m)
 		Expect(err).ToNot(HaveOccurred())
 
-		r := search.Resource{ID: "x", Document: content.Document{Name: "f", Mtime: "2026-03-15T12:00:00.123456789Z"}}
+		r := search.Resource{ID: "x", Document: content.Document{Name: "f", Mtime: conversions.ToPointer(time.Date(2026, 3, 15, 12, 0, 0, 123456789, time.UTC))}}
 		doc, err := mapping.PrepareForIndex(r, r.SearchFieldOverrides())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(idx.Index(r.ID, doc)).To(Succeed())

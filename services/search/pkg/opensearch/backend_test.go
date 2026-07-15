@@ -91,6 +91,16 @@ func TestEngine_Upsert(t *testing.T) {
 
 		tc.Require.IndicesCount([]string{indexName}, nil, 1)
 	})
+
+	t.Run("upsert without mtime", func(t *testing.T) {
+		// content.Extract leaves Mtime nil when the resource info carries none
+		document := opensearchtest.Testdata.Resources.File
+		document.ID = "1$1!4"
+		document.Mtime = nil
+		require.NoError(t, backend.Upsert(document.ID, document))
+
+		tc.Require.IndicesCount([]string{indexName}, nil, 2)
+	})
 }
 
 func TestEngine_Move(t *testing.T) {

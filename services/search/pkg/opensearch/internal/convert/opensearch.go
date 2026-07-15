@@ -3,7 +3,6 @@ package convert
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -86,8 +85,8 @@ func OpenSearchHitToMatch(hit opensearchgoAPI.SearchHit) (*searchMessage.Match, 
 		},
 	}
 
-	if mtime, err := time.Parse(time.RFC3339, resource.Mtime); err == nil {
-		match.Entity.LastModifiedTime = &timestamppb.Timestamp{Seconds: mtime.Unix(), Nanos: int32(mtime.Nanosecond())}
+	if resource.Mtime != nil {
+		match.Entity.LastModifiedTime = timestamppb.New(*resource.Mtime)
 	}
 
 	return match, nil
