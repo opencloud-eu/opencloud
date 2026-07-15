@@ -223,12 +223,21 @@ func (b *Batch) Push() error {
 		case err != nil:
 			return fmt.Errorf("failed to execute bulk operations: %w", err)
 		case resp.Errors:
-			items, err := json.Marshal(resp.Items)
-			if err != nil {
-				return fmt.Errorf("failed to marshal bulk response: %w", err)
+			var failed []opensearchgoAPI.BulkRespItem
+			for _, item := range resp.Items {
+				for _, result := range item {
+					if result.Error != nil {
+						failed = append(failed, result)
+					}
+				}
 			}
 
-			return fmt.Errorf("failed to execute bulk operations, response: %s", items)
+			failures, err := json.Marshal(failed)
+			if err != nil {
+				return fmt.Errorf("failed to marshal bulk failures: %w", err)
+			}
+
+			return fmt.Errorf("failed to execute bulk operations, failures: %s", failures)
 		}
 
 		bulkOperations = nil
