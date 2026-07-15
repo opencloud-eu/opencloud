@@ -19,8 +19,8 @@ var ErrManualActionRequired = errors.New("manual action required")
 func ManualActionRequiredError(index, deleteStep string, reasons []string) error {
 	return fmt.Errorf(
 		"%w: search index %s was built with a different schema (%s). "+
-			"There is no in-place migration: stop the service, %s, "+
-			"start the service (an empty index with the new schema is created), "+
+			"There is no in-place migration: with the OpenCloud search service stopped, %s, "+
+			"then start it again (an empty index with the new schema is created), "+
 			"then rebuild the content by running: opencloud search index --all-spaces. "+
 			"To bring the instance up without search until a maintenance window, "+
 			"set OC_EXCLUDE_RUN_SERVICES=search; until the service is back, search "+
