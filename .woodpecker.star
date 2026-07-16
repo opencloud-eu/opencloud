@@ -2301,7 +2301,6 @@ def notifyMatrixCheckSteps(ctx, depends_on):
     result = [{
         "name": "all-checks-finished",
         "skip_clone": True,
-        "runs_on": ["success", "failure"],
         "depends_on": depends_on,
         "steps": [
             {
@@ -2340,9 +2339,9 @@ def notifyMatrixCheckSteps(ctx, depends_on):
             },
         ],
         "when": [
-            event["cron"],
-            event["base"],
-            event["pull_request"],
+            dict(event["cron"], status = ["success", "failure"]),
+            dict(event["base"], status = ["success", "failure"]),
+            dict(event["pull_request"], status = ["success", "failure"]),
         ],
     }]
 
@@ -2712,11 +2711,10 @@ def purgeCache(name, flush_path, flush_age):
         "name": name,
         "skip_clone": True,
         "when": [
-            event["cron"],
-            event["base"],
-            event["pull_request"],
+            dict(event["cron"], status = ["success", "failure"]),
+            dict(event["base"], status = ["success", "failure"]),
+            dict(event["pull_request"], status = ["success", "failure"]),
         ],
-        "runs_on": ["success", "failure"],
         "steps": [
             {
                 "name": "purge",
