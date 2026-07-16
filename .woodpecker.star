@@ -2610,13 +2610,13 @@ def skipIfUnchanged(ctx, type):
         return []
 
     base = [
-         ".agents/**",
+        ".agents/**",
         ".claude/**",
         ".github/**",
         ".vscode/**",
         "docs/**",
         "deployments/**",
-        ".codacy.yml"
+        ".codacy.yml",
         "CHANGELOG.md",
         "CONTRIBUTING.md",
         "LICENSE",
