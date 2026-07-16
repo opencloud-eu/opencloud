@@ -15,6 +15,7 @@ exclude_paths:
   - 'idp/src/**'
   - 'devtools/**'
   - 'deployments/**'
+  - "release-config.ts"
   - 'tests/acceptance/expected-failures-*.md'
   - 'tests/acceptance/bootstrap/**'
   - 'tests/acceptance/TestHelpers/**'
