@@ -37,7 +37,8 @@ func DefaultConfig() *config.Config {
 		Engine: config.Engine{
 			Type: "bleve",
 			Bleve: config.EngineBleve{
-				Datapath: filepath.Join(defaults.BaseDataPath(), "search"),
+				Datapath:    filepath.Join(defaults.BaseDataPath(), "search"),
+				AutoMigrate: true,
 			},
 			OpenSearch: config.EngineOpenSearch{
 				ResourceIndex: config.EngineOpenSearchResourceIndex{

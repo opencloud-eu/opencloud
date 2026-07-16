@@ -14,7 +14,8 @@ type Engine struct {
 
 // EngineBleve configures the bleve engine
 type EngineBleve struct {
-	Datapath string `yaml:"data_path" env:"SEARCH_ENGINE_BLEVE_DATA_PATH" desc:"The directory where the filesystem will store search data. If not defined, the root directory derives from $OC_BASE_DATA_PATH/search." introductionVersion:"1.0.0"`
+	Datapath    string `yaml:"data_path" env:"SEARCH_ENGINE_BLEVE_DATA_PATH" desc:"The directory where the filesystem will store search data. If not defined, the root directory derives from $OC_BASE_DATA_PATH/search." introductionVersion:"1.0.0"`
+	AutoMigrate bool   `yaml:"auto_migrate" env:"SEARCH_ENGINE_BLEVE_AUTO_MIGRATE" desc:"Rebuild the index on startup when the schema revision was bumped, instead of refusing to start. Safe for bleve because a single instance holds the data path lock. Defaults to 'true'; set to 'false' to migrate manually with 'opencloud search migrate'." introductionVersion:"%%NEXT%%"`
 }
 
 // EngineOpenSearch configures the OpenSearch engine

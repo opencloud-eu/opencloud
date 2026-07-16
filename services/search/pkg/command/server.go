@@ -2,10 +2,7 @@ package command
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
-	"net/http"
-	"os"
 	"os/signal"
 	"time"
 
@@ -32,8 +29,6 @@ import (
 
 	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	opensearchgo "github.com/opensearch-project/opensearch-go/v4"
-	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	"github.com/spf13/cobra"
 )
 
@@ -73,7 +68,13 @@ func Server(cfg *config.Config) *cobra.Command {
 			var eng search.Engine
 			switch cfg.Engine.Type {
 			case "bleve":
-				idx, classification, err := bleve.NewIndex(cfg.Engine.Bleve.Datapath)
+				// with AutoMigrate a schema revision bump rebuilds the index in
+				// place instead of refusing to start. Safe for bleve because a
+				// single instance holds the datapath lock.
+				idx, classification, migrated, err := bleve.OpenOrMigrate(cfg.Engine.Bleve.Datapath, cfg.Engine.Bleve.AutoMigrate, logger)
+				if migrated > 0 {
+					logger.Info().Int("documents", migrated).Msgf("the bleve index at %s was rebuilt for the new schema revision; %s", cfg.Engine.Bleve.Datapath, rescanRecommendation)
+				}
 				// warn before the error check: the new mapping may already be
 				// persisted, then later startups classify equal and stay silent
 				if classification.Verdict == searchmapping.VerdictAdditive {
@@ -93,44 +94,18 @@ func Server(cfg *config.Config) *cobra.Command {
 
 				eng = bleve.NewBackend(idx, bleveQuery.DefaultCreator, logger)
 			case "open-search":
-				clientConfig := opensearchgo.Config{
-					Addresses:             cfg.Engine.OpenSearch.Client.Addresses,
-					Username:              cfg.Engine.OpenSearch.Client.Username,
-					Password:              cfg.Engine.OpenSearch.Client.Password,
-					Header:                cfg.Engine.OpenSearch.Client.Header,
-					RetryOnStatus:         cfg.Engine.OpenSearch.Client.RetryOnStatus,
-					DisableRetry:          cfg.Engine.OpenSearch.Client.DisableRetry,
-					EnableRetryOnTimeout:  cfg.Engine.OpenSearch.Client.EnableRetryOnTimeout,
-					MaxRetries:            cfg.Engine.OpenSearch.Client.MaxRetries,
-					CompressRequestBody:   cfg.Engine.OpenSearch.Client.CompressRequestBody,
-					DiscoverNodesOnStart:  cfg.Engine.OpenSearch.Client.DiscoverNodesOnStart,
-					DiscoverNodesInterval: cfg.Engine.OpenSearch.Client.DiscoverNodesInterval,
-					EnableMetrics:         cfg.Engine.OpenSearch.Client.EnableMetrics,
-					EnableDebugLogger:     cfg.Engine.OpenSearch.Client.EnableDebugLogger,
-					Transport: &http.Transport{
-						TLSClientConfig: &tls.Config{
-							MinVersion:         tls.VersionTLS12,
-							InsecureSkipVerify: cfg.Engine.OpenSearch.Client.Insecure,
-						},
-					},
-				}
-
-				if cfg.Engine.OpenSearch.Client.CACert != "" {
-					certBytes, err := os.ReadFile(cfg.Engine.OpenSearch.Client.CACert)
-					if err != nil {
-						return fmt.Errorf("failed to read CA cert: %w", err)
-					}
-					clientConfig.CACert = certBytes
-				}
-
-				client, err := opensearchgoAPI.NewClient(opensearchgoAPI.Config{Client: clientConfig})
+				client, err := opensearch.NewClient(cfg.Engine.OpenSearch.Client)
 				if err != nil {
-					return fmt.Errorf("failed to create OpenSearch client: %w", err)
+					return err
 				}
+
+				// the revision is in the index name, so each instance uses its own
+				// index and rollouts never share one; a pre-rollout migrate builds it
+				indexName := opensearch.TargetIndex(cfg.Engine.OpenSearch.ResourceIndex.Name)
 
 				// a hung cluster must fail the start, not block it forever
 				startupCtx, cancelStartup := context.WithTimeout(ctx, time.Minute)
-				openSearchBackend, err := opensearch.NewBackend(startupCtx, cfg.Engine.OpenSearch.ResourceIndex.Name, client, logger)
+				openSearchBackend, err := opensearch.NewBackend(startupCtx, indexName, client, logger)
 				cancelStartup()
 				if err != nil {
 					return fmt.Errorf("failed to create OpenSearch backend: %w", err)

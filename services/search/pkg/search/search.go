@@ -49,6 +49,12 @@ type BatchOperator interface {
 	Push() error
 }
 
+// SchemaRevision is the version of the index schema defined by Resource and its
+// SearchFieldOverrides. Bump it deliberately when a change needs a rebuild: the
+// bump triggers the migration, not a classifier diff. Both backends share it,
+// bleve stores it in the index, opensearch carries it as the index name suffix.
+const SchemaRevision = 1
+
 // Resource is the entity that is stored in the index.
 type Resource struct {
 	content.Document

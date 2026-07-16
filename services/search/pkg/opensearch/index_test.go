@@ -51,6 +51,7 @@ func TestIndexManager(t *testing.T) {
 		require.NoError(t, indexManager.Apply(t.Context(), indexName, tc.Client(), log.NopLogger()))
 	})
 
+
 	t.Run("fails to create index if it already exists but is not up to date", func(t *testing.T) {
 		indexManager := opensearch.IndexManagerLatest
 		indexName := "opencloud-test-resource"

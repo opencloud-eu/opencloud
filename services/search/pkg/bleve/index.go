@@ -46,6 +46,12 @@ func NewIndex(root string) (bleve.Index, searchmapping.Classification, error) {
 		if err != nil {
 			return nil, searchmapping.Classification{}, err
 		}
+		// stamp the current revision so a fresh index is not seen as outdated
+		// and needlessly migrated on the next start
+		if err := writeRevision(index); err != nil {
+			_ = index.Close()
+			return nil, searchmapping.Classification{}, err
+		}
 
 		return index, searchmapping.Classification{Verdict: searchmapping.VerdictEqual}, nil
 	}

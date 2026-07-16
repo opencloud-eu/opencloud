@@ -95,5 +95,7 @@ func Index(cfg *config.Config) *cobra.Command {
 		"disable TLS for the gRPC connection.",
 	)
 
+	indexCmd.AddCommand(Migrate(cfg), Prune(cfg))
+
 	return indexCmd
 }
