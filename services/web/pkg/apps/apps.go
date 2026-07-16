@@ -50,6 +50,9 @@ type Application struct {
 	// Entrypoint is the entrypoint of the application within the bundle
 	Entrypoint string `json:"entrypoint" validate:"required"`
 
+	// Version is the version of the application
+	Version string `json:"version,omitempty"`
+
 	// Config contains the application-specific configuration
 	Config map[string]any `json:"config,omitempty"`
 }
@@ -57,9 +60,10 @@ type Application struct {
 // ToExternal converts an Application to an ExternalApp configuration
 func (a Application) ToExternal(entrypoint string) config.ExternalApp {
 	return config.ExternalApp{
-		ID:     a.ID,
-		Path:   filepathx.JailJoin(entrypoint, a.Entrypoint),
-		Config: a.Config,
+		ID:      a.ID,
+		Path:    filepathx.JailJoin(entrypoint, a.Entrypoint),
+		Version: a.Version,
+		Config:  a.Config,
 	}
 }
 
