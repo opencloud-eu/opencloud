@@ -101,10 +101,12 @@ Feature: low level tests for upload of chunks
     When user "Alice" sends a chunk to the last created TUS Location with offset "0" and data "123" using the WebDAV API
     And user "Alice" sends a chunk to the last created TUS Location with offset "3" and data "4567890" using the WebDAV API
     Then the HTTP status code should be "204"
+    And the following headers should be set
+      | header  | value   |
+      | OC-Perm | RDNVWZP |
     And the following headers should match these regular expressions
-      | OC-ETag | /^"[^"]*"$/   |
-      | ETag    | /^"[^"]*"$/   |
-      | OC-Perm | /^[A-Za-z]+$/ |
+      | OC-ETag | /^"[a-f0-9:.]{1,32}"$/ |
+      | ETag    | /^"[a-f0-9:.]{1,32}"$/ |
     Examples:
       | dav-path-version |
       | old              |
