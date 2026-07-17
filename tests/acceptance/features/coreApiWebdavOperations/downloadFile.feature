@@ -316,3 +316,16 @@ Feature: download file
       | spaces           | "C++ file.cpp"   |
       | spaces           | "file #2.txt"    |
       | spaces           | "file ?2.pdf"    |
+
+  @issue-2852
+  Scenario Outline: download a file whose name contains a literal "%" via its oc:downloadURL
+    Given using <dav-path-version> DAV path
+    And user "Alice" has uploaded file with content "test file" to "firstword%20secondword.txt"
+    When user "Alice" downloads the "firstword%20secondword.txt" file via its oc:downloadURL
+    Then the HTTP status code should be "200"
+    And the downloaded content should be "test file"
+    Examples:
+      | dav-path-version |
+      | old              |
+      | new              |
+      | spaces           |
