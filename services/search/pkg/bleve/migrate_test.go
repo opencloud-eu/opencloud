@@ -7,7 +7,6 @@ import (
 
 	bleveSearch "github.com/blevesearch/bleve/v2"
 	bleveMapping "github.com/blevesearch/bleve/v2/mapping"
-	"github.com/blevesearch/bleve/v2/search/query"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/stretchr/testify/require"
 
@@ -129,35 +128,23 @@ func TestMigrateIndex(t *testing.T) {
 	_, _, err = bleve.NewIndex(root)
 	require.ErrorIs(t, err, searchmapping.ErrManualActionRequired)
 
-	// 3) migrate
+	// 3) migrate resets the outdated index, dropping its documents
 	n, err := bleve.MigrateIndex(root, log.NopLogger())
 	require.NoError(t, err)
 	require.Equal(t, 3, n)
 
-	// 4) the migrated index classifies as equal and holds every document
+	// 4) the reset index classifies as equal and is empty, awaiting a re-crawl
 	migrated, classification, err := bleve.NewIndex(root)
 	require.NoError(t, err)
 	require.Equal(t, searchmapping.VerdictEqual, classification.Verdict)
 
 	count, err := migrated.DocCount()
 	require.NoError(t, err)
-	require.Equal(t, uint64(3), count)
-
-	// 4a) the trashed document survived (a rescan would have dropped it)
-	trashed, err := migrated.Document("1$1!3")
-	require.NoError(t, err)
-	require.NotNil(t, trashed)
-
-	// 5) location_geopoint was synthesized during migration (absent in the old index)
-	near := query.NewGeoDistanceQuery(11.103870357204285, 49.48675890884328, "1km")
-	near.SetField("location" + searchmapping.GeopointSuffix)
-	res, err := migrated.Search(bleveSearch.NewSearchRequest(near))
-	require.NoError(t, err)
-	require.Equal(t, uint64(3), res.Total, "all three docs match a geo-distance query on the new sibling field")
+	require.Equal(t, uint64(0), count, "reset drops the documents; a re-crawl repopulates")
 
 	require.NoError(t, migrated.Close()) // release the lock before the second run
 
-	// 6) idempotent: a second run is a no-op because the revision is now current
+	// 5) idempotent: a second run is a no-op because the revision is now current
 	n, err = bleve.MigrateIndex(root, log.NopLogger())
 	require.NoError(t, err)
 	require.Equal(t, 0, n)
