@@ -8,6 +8,7 @@
 
 ### ✅ Tests
 
+- test(apiArchiver): the single-resource archive is named after the resource [[#3080](https://github.com/opencloud-eu/opencloud/pull/3080)]
 - test(coreApiWebdavUploadTUS): assert etag and permissions on the finalizing TUS chunk [[#3078](https://github.com/opencloud-eu/opencloud/pull/3078)]
 - test(coreApiWebdavOperations): download a file with a literal "%" via its oc:downloadURL [[#3079](https://github.com/opencloud-eu/opencloud/pull/3079)]
 
