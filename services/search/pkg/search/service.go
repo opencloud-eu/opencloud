@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -487,6 +488,12 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 	}()
 	err = w.Walk(ownerCtx, &rootID, func(wd string, info *provider.ResourceInfo, err error) error {
 		if err != nil {
+			var notFoundErr errtypes.IsNotFound
+			if errors.As(err, &notFoundErr) {
+				// The resource disappeared while walking the tree. E.g. the underlying file/directory/space
+				// might just have been deleted meanwhile. We can just ignore this error.
+				return nil
+			}
 			s.logger.Error().Err(err).Msg("error walking the tree")
 			return err
 		}
