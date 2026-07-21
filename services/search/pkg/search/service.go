@@ -599,6 +599,11 @@ func (s *Service) doUpsertItem(ref *provider.Reference, batch BatchOperator) {
 		return
 	}
 
+	if utils.IsProcessing(stat.Info) {
+		s.logger.Debug().Str("path", path).Msg("resource is still being processed. Skipping.")
+		return
+	}
+
 	doc, err := s.extractor.Extract(ctx, stat.Info)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("failed to extract resource content")
