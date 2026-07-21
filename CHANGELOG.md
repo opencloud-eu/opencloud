@@ -1,10 +1,10 @@
 # Changelog
 
-## [7.3.1](https://github.com/opencloud-eu/opencloud/releases/tag/v7.3.1) - 2026-07-19
+## [7.3.1](https://github.com/opencloud-eu/opencloud/releases/tag/v7.3.1) - 2026-07-21
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @michaelstingl, @v-scharf
+@AlexAndBear, @JammingBen, @michaelstingl, @rhafer, @v-scharf
 
 ### ✅ Tests
 
