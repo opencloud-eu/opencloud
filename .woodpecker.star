@@ -610,7 +610,7 @@ def main(ctx):
         ),
     )
 
-    pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + notifyMatrixCheckSteps(ctx, getPipelineNames(testPipelines(ctx), optional = True))
+    pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + serverTestingDocs(ctx) + notifyMatrixCheckSteps(ctx, getPipelineNames(testPipelines(ctx), optional = True))
 
     pipelineSanityChecks(pipelines)
     return savePipelineNumber(ctx) + pipelines
@@ -2339,6 +2339,52 @@ def genDocsPr(ctx):
                 "event": "cron",
                 "branch": "main",
                 "cron": "nightly*",
+            },
+        ],
+    }]
+
+def serverTestingDocs(ctx):
+    return [{
+        "name": "server-testing-docs",
+        "steps": [
+            {
+                "name": "build",
+                "image": OC_CI_NODEJS,
+                "commands": [
+                    "node tests/scripts/generate-docs.mjs",
+                    # add dummy woodpecker config to disable CI on push to the docs branch
+                    "printf 'def main(ctx):\n    return [{\n        \"name\":\"dummy-pipeline\",\n" +
+                    "        \"steps\":[{\"name\":\"dummy-step\",\"image\":\"alpine:latest\"}],\n" +
+                    "        \"when\":[{\"branch\":[\"main\"]}],\n    }]\n' > tests/.docs-dist/.woodpecker.star",
+                ],
+            },
+            {
+                "name": "publish",
+                "image": "plugins/gh-pages:1",
+                "settings": {
+                    "username": {
+                        "from_secret": "github_username",
+                    },
+                    "password": {
+                        "from_secret": "github_token",
+                    },
+                    "pages_directory": "tests/.docs-dist/",
+                    "copy_contents": True,
+                    "target_branch": "server-testing-docs",
+                    "delete": True,
+                },
+                "when": [
+                    {
+                        "event": ["push"],
+                        "branch": "${CI_REPO_DEFAULT_BRANCH}",
+                        "path": "tests/README.md",
+                    },
+                ],
+            },
+        ],
+        "when": [
+            {
+                "event": ["push", "pull_request"],
             },
         ],
     }]
