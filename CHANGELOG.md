@@ -6,15 +6,16 @@
 
 @AlexAndBear, @JammingBen, @fschade, @michaelstingl, @rhafer, @v-scharf
 
-### 📈 Enhancement
-
-- feat: add space viewer with versions role [[#2961](https://github.com/opencloud-eu/opencloud/pull/2961)]
-
 ### ✅ Tests
 
+- test(apiAuthApp): fix flaky token pattern [[#3163](https://github.com/opencloud-eu/opencloud/pull/3163)]
 - test(apiArchiver): the single-resource archive is named after the resource [[#3080](https://github.com/opencloud-eu/opencloud/pull/3080)]
 - test(coreApiWebdavUploadTUS): assert etag and permissions on the finalizing TUS chunk [[#3078](https://github.com/opencloud-eu/opencloud/pull/3078)]
 - test(coreApiWebdavOperations): download a file with a literal "%" via its oc:downloadURL [[#3079](https://github.com/opencloud-eu/opencloud/pull/3079)]
+
+### 📈 Enhancement
+
+- feat: add space viewer with versions role [[#2961](https://github.com/opencloud-eu/opencloud/pull/2961)]
 
 ## [7.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.3.0) - 2026-07-14
 
