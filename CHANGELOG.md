@@ -1,10 +1,14 @@
 # Changelog
 
-## [7.3.1](https://github.com/opencloud-eu/opencloud/releases/tag/v7.3.1) - 2026-07-21
+## [7.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.4.0) - 2026-07-22
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @michaelstingl, @rhafer, @v-scharf
+@AlexAndBear, @JammingBen, @fschade, @michaelstingl, @rhafer, @v-scharf
+
+### 📈 Enhancement
+
+- feat: add space viewer with versions role [[#2961](https://github.com/opencloud-eu/opencloud/pull/2961)]
 
 ### ✅ Tests
 
