@@ -15,6 +15,7 @@ var (
 	// but can be enabled by the user.
 	_disabledByDefaultUnifiedRoleRoleIDs = []string{
 		unifiedrole.UnifiedRoleSecureViewerID,
+		unifiedrole.UnifiedRoleSpaceViewerWithVersionsID,
 		unifiedrole.UnifiedRoleSpaceEditorWithoutVersionsID,
 		unifiedrole.UnifiedRoleViewerListGrantsID,
 		unifiedrole.UnifiedRoleEditorListGrantsID,
