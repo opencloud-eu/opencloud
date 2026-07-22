@@ -6,6 +6,10 @@
 
 @AlexAndBear, @JammingBen, @fschade, @michaelstingl, @rhafer, @v-scharf
 
+### 📚 Documentation
+
+- ci: sync tests/README.md to docs [[#3164](https://github.com/opencloud-eu/opencloud/pull/3164)]
+
 ### ✅ Tests
 
 - test(apiAuthApp): fix flaky token pattern [[#3163](https://github.com/opencloud-eu/opencloud/pull/3163)]
