@@ -1,13 +1,14 @@
 # Changelog
 
-## [7.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.4.0) - 2026-07-22
+## [7.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.4.0) - 2026-07-24
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @fschade, @michaelstingl, @rhafer, @v-scharf
+@AlexAndBear, @JammingBen, @fschade, @michaelstingl, @rhafer, @schweigisito, @v-scharf
 
 ### 📚 Documentation
 
+- maint: clean-up auth-app documentation [[#3155](https://github.com/opencloud-eu/opencloud/pull/3155)]
 - ci: sync tests/README.md to docs [[#3164](https://github.com/opencloud-eu/opencloud/pull/3164)]
 
 ### ✅ Tests
