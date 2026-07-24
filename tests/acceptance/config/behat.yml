@@ -326,6 +326,7 @@ default:
         - SharingNgContext:
         - OcConfigContext:
         - SettingsContext:
+        - FilesVersionsContext:
 
     apiSharingNg2:
       paths:
@@ -355,6 +356,7 @@ default:
         - FeatureContext: *common_feature_context_params
         - SpacesContext:
         - SharingNgContext:
+        - OcConfigContext:
 
     apiSharingNgLinkSharePermission:
       paths:

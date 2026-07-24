@@ -303,6 +303,37 @@ class SpacesContext implements Context {
 	}
 
 	/**
+	 * @param string $user
+	 * @param string $share
+	 *
+	 * @return string
+	 *
+	 * @throws Exception|GuzzleException
+	 */
+	public function getSharesMountId(string $user, string $share): string {
+		$credentials = $this->featureContext->graphContext->getAdminOrUserCredentials($user);
+		$response = GraphHelper::getSharesSharedWithMe(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			$credentials['username'],
+			$credentials['password']
+		);
+
+		$jsonBody = $this->featureContext->getJsonDecodedResponseBodyContent($response);
+
+		foreach ($jsonBody->value as $item) {
+			if (isset($item->name) && $item->name === $share) {
+				if (isset($item->id)) {
+					return $item->id;
+				}
+				throw new Exception("Failed to find mount ID for share: $share");
+			}
+		}
+
+		throw new Exception("Cannot find share: $share");
+	}
+
+	/**
 	 * The method finds file by fileName and spaceName and returns data of file which contains in responseHeader
 	 * fileName contains the path, if the file is in the folder
 	 *

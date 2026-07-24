@@ -3,6 +3,22 @@ Feature: checking file versions using file id
   I want the versions of files to be available
   So that I can manage the changes made to the files
 
+  ┌───────────────────────────────┬──────┬────────┬─────────┐
+  │ role                          │ view │ upload │ restore │
+  ├───────────────────────────────┼──────┼────────┼─────────┤
+  │ Viewer                        │ no   │ no     │ no      │
+  │ Viewer With Versions          │ yes  │ no     │ no      │
+  │ File Editor                   │ no   │ yes    │ no      │
+  │ File Editor With Versions     │ yes  │ yes    │ yes     │
+  │ Editor                        │ no   │ yes    │ no      │
+  │ Editor With Versions          │ yes  │ yes    │ yes     │
+  │ Space Viewer                  │ no   │ no     │ no      │
+  │ Space Viewer With Versions    │ yes  │ no     │ no      │
+  │ Space Editor Without Versions │ no   │ yes    │ no      │
+  │ Space Editor                  │ yes  │ yes    │ yes     │
+  │ Manager                       │ yes  │ yes    │ yes     │
+  └───────────────────────────────┴──────┴────────┴─────────┘
+
   Background:
     Given these users have been created with default attributes:
       | username |
@@ -61,6 +77,46 @@ Feature: checking file versions using file id
       | permissionsRole | Space Viewer |
     When user "Brian" tries to get the number of versions of file "/text.txt" using file-id "<<FILEID>>"
     Then the HTTP status code should be "403"
+
+  @env-config
+  Scenario: sharee can view file versions in a shared space as space viewer with versions role
+    Given the administrator has enabled the permissions role "Space Viewer With Versions"
+    And user "Alice" has sent the following space share invitation:
+      | space           | Project1                   |
+      | sharee          | Brian                      |
+      | shareType       | user                       |
+      | permissionsRole | Space Viewer With Versions |
+    When user "Brian" gets the number of versions of file "/text.txt" using file-id "<<FILEID>>"
+    Then the HTTP status code should be "207"
+    And the number of versions should be "1"
+    When user "Brian" restores version index "1" of file "/text.txt" using file-id "<<FILEID>>"
+    Then the HTTP status code should be "403"
+
+  @env-config
+  Scenario Outline: sharee can view file versions of a file inside a shared folder while upload and restore depend on the role
+    Given the administrator has enabled the permissions role "<role>"
+    And user "Alice" has created a folder "folderToShare" in space "Project1"
+    And user "Alice" has uploaded a file inside space "Project1" with content "folder file version 1" to "folderToShare/insideText.txt"
+    And user "Alice" has uploaded a file inside space "Project1" with content "folder file version 1.1" to "folderToShare/insideText.txt"
+    And we save it into "FOLDERFILEID"
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | folderToShare |
+      | space           | Project1      |
+      | sharee          | Brian         |
+      | shareType       | user          |
+      | permissionsRole | <role>        |
+    And user "Brian" has a share "folderToShare" synced
+    When user "Brian" gets the number of versions of file "/Shares/folderToShare/insideText.txt" using file-id "<<FOLDERFILEID>>"
+    Then the HTTP status code should be "207"
+    And the number of versions should be "1"
+    When user "Brian" uploads file with content "folder file new version" to "/Shares/folderToShare/insideText.txt" using the WebDAV API
+    Then the HTTP status code should be "<upload-code>"
+    When user "Brian" restores version index "1" of file "/Shares/folderToShare/insideText.txt" using file-id "<<FOLDERFILEID>>"
+    Then the HTTP status code should be "<restore-code>"
+    Examples:
+      | role                 | upload-code | restore-code |
+      | Viewer With Versions | 403         | 403          |
+      | Editor With Versions | 204         | 204          |
 
   @issue-7738
   Scenario Outline: check the versions of a file after moving to a shared folder inside a project space as editor/viewer

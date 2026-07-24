@@ -6,6 +6,64 @@ Feature: List a sharing permissions
       | username |
       | Alice    |
 
+  @env-config
+  Scenario Outline: enabled additional role is listed in the permissions of a folder
+    Given the administrator has enabled the permissions role "<permissions-role>"
+    And user "Alice" has created folder "folder"
+    When user "Alice" gets permissions list for folder "folder" of the space "Personal" using the Graph API
+    Then the HTTP status code should be "200"
+    And the permissions roles allowed values should contain a role with id "<role-id>"
+    Examples:
+      | permissions-role     | role-id                              |
+      | Viewer With Versions | d1e2218d-eef8-4d4c-b82d-0f1a1b48f3b5 |
+      | Viewer List Grants   | d5041006-ebb3-4b4a-b6a4-7c180ecfb17d |
+      | Editor With Versions | b8c6e1c9-5d2a-4f0e-9c3b-1a2b3c4d5e6f |
+      | Editor List Grants   | e8ea8b21-abd4-45d2-b893-8d1546378e9e |
+
+  @env-config
+  Scenario Outline: enabled additional role is listed in the permissions of a file
+    Given the administrator has enabled the permissions role "<permissions-role>"
+    And user "Alice" has uploaded file with content "hello" to "textfile.txt"
+    When user "Alice" gets permissions list for file "textfile.txt" of the space "Personal" using the Graph API
+    Then the HTTP status code should be "200"
+    And the permissions roles allowed values should contain a role with id "<role-id>"
+    Examples:
+      | permissions-role          | role-id                              |
+      | Viewer With Versions      | d1e2218d-eef8-4d4c-b82d-0f1a1b48f3b5 |
+      | Viewer List Grants        | d5041006-ebb3-4b4a-b6a4-7c180ecfb17d |
+      | File Editor With Versions | 3d00ce52-1fc2-4dbc-8b95-a73b73395f5a |
+      | File Editor List Grants   | c1235aea-d106-42db-8458-7d5610fb0a67 |
+
+  @env-config
+  Scenario Outline: sharee with a list-grants role can see the other grants of a shared resource
+    Given user "Brian" has been created with default attributes
+    And user "Carol" has been created with default attributes
+    And the administrator has enabled the permissions role "<permissions-role>"
+    And user "Alice" has uploaded file with content "hello" to "textfile.txt"
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | textfile.txt       |
+      | space           | Personal           |
+      | sharee          | Brian              |
+      | shareType       | user               |
+      | permissionsRole | <permissions-role> |
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | textfile.txt |
+      | space           | Personal     |
+      | sharee          | Carol        |
+      | shareType       | user         |
+      | permissionsRole | Viewer       |
+    And user "Brian" has a share "textfile.txt" synced
+    When user "Brian" gets permissions list of shared resource "textfile.txt" using the Graph API
+    Then the HTTP status code should be "200"
+    And the permissions list of the response should contain a grant for user "Carol"
+    When user "Carol" gets permissions list of shared resource "textfile.txt" using the Graph API
+    Then the HTTP status code should be "200"
+    And the permissions list of the response should not contain a grant for user "Brian"
+    Examples:
+      | permissions-role        |
+      | Viewer List Grants      |
+      | File Editor List Grants |
+
 
   Scenario: user lists permissions of a folder in personal space
     Given user "Alice" has created folder "folder"
@@ -2307,6 +2365,104 @@ Feature: List a sharing permissions
                     },
                     "id": {
                       "const": "3284f2d5-0070-4ad8-ac40-c247f7c1fb27"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "@libre.graph.weight",
+                    "description",
+                    "displayName",
+                    "id"
+                  ],
+                  "properties": {
+                    "displayName": {
+                      "const": "Can edit"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "@libre.graph.weight",
+                    "description",
+                    "displayName",
+                    "id"
+                  ],
+                  "properties": {
+                    "displayName": {
+                      "const": "Can manage"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+      """
+
+  @env-config
+  Scenario: user lists permissions of a space after enabling 'Space Viewer With Versions' role
+    Given the administrator has enabled the permissions role "Space Viewer With Versions"
+    And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
+    And user "Alice" has created a space "new-space" with the default quota using the Graph API
+    When user "Alice" lists the permissions of space "new-space" using root endpoint of the Graph API
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": [
+          "@libre.graph.permissions.actions.allowedValues",
+          "@libre.graph.permissions.roles.allowedValues"
+        ],
+        "properties": {
+          "@libre.graph.permissions.roles.allowedValues": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "uniqueItems": true,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "@libre.graph.weight",
+                    "description",
+                    "displayName",
+                    "id"
+                  ],
+                  "properties": {
+                    "displayName": {
+                      "const": "Can view"
+                    },
+                    "id": {
+                      "const": "a8d5fe5e-96e3-418d-825b-534dbdf22b99"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "@libre.graph.weight",
+                    "description",
+                    "displayName",
+                    "id"
+                  ],
+                  "properties": {
+                    "@libre.graph.weight": {
+                      "const": 40
+                    },
+                    "description": {
+                      "const": "View and download including the history."
+                    },
+                    "displayName": {
+                      "const": "Can view"
+                    },
+                    "id": {
+                      "const": "3de465fc-6e17-4839-8b8a-a77cc497878b"
                     }
                   }
                 },

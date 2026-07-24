@@ -273,6 +273,103 @@ class FilesVersionsContext implements Context {
 	}
 
 	/**
+	 * @param string $user
+	 * @param int $versionIndex
+	 * @param string $fileId
+	 *
+	 * @return ResponseInterface
+	 * @throws Exception
+	 */
+	public function restoreVersionIndexOfFileUsingFileId(
+		string $user,
+		int $versionIndex,
+		string $fileId
+	): ResponseInterface {
+		$user = $this->featureContext->getActualUsername($user);
+		$response = $this->listVersionFolder($user, $fileId, 1);
+		$responseXmlObject = HttpRequestHelper::getResponseXml(
+			$response,
+			__METHOD__
+		);
+		$xmlPart = $responseXmlObject->xpath("//d:response/d:href");
+		$destinationUrl = $this->featureContext->getBaseUrl() . "/" .
+			WebDavHelper::getDavPath(WebDavHelper::DAV_VERSION_SPACES, $fileId);
+		$fullUrl = $this->featureContext->getBaseUrlWithoutPath() .
+			$xmlPart[$versionIndex];
+		return HttpRequestHelper::sendRequest(
+			$fullUrl,
+			$this->featureContext->getStepLineRef(),
+			'COPY',
+			$user,
+			$this->featureContext->getPasswordForUser($user),
+			['Destination' => $destinationUrl]
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param int $versionIndex
+	 * @param string $fileId
+	 *
+	 * @return void
+	 * @throws Exception
+	 */
+	#[When('user :user restores version index :versionIndex of file :resource using file-id :fileId')]
+	public function userRestoresVersionIndexOfFileUsingFileId(
+		string $user,
+		int $versionIndex,
+		string $fileId
+	): void {
+		$response = $this->restoreVersionIndexOfFileUsingFileId($user, $versionIndex, $fileId);
+		$this->featureContext->setResponse($response, $user);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $share
+	 *
+	 * @return void
+	 * @throws Exception
+	 */
+	#[When('user :user gets the number of versions of shared resource :share')]
+	#[When('user :user tries to get the number of versions of shared resource :share')]
+	public function userGetsTheNumberOfVersionsOfSharedResource(string $user, string $share): void {
+		$fileId = $this->spacesContext->getSharesMountId($user, $share);
+		$this->featureContext->setResponse(
+			$this->featureContext->makeDavRequest(
+				$user,
+				"PROPFIND",
+				$fileId,
+				null,
+				null,
+				null,
+				"versions"
+			)
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param int $versionIndex
+	 * @param string $share
+	 *
+	 * @return void
+	 * @throws Exception
+	 */
+	#[When('user :user restores version index :versionIndex of shared resource :share')]
+	public function userRestoresVersionIndexOfSharedResource(
+		string $user,
+		int $versionIndex,
+		string $share
+	): void {
+		$fileId = $this->spacesContext->getSharesMountId($user, $share);
+		$this->featureContext->setResponse(
+			$this->restoreVersionIndexOfFileUsingFileId($user, $versionIndex, $fileId),
+			$user
+		);
+	}
+
+	/**
 	 * assert file versions count
 	 *
 	 * @param string $user

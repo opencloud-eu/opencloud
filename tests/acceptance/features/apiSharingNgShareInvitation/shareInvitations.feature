@@ -97,6 +97,95 @@ Feature: Send a sharing invitations
       | Editor           | FolderToShare  |
       | Uploader         | FolderToShare  |
 
+  @env-config
+  Scenario Outline: send share invitation to user with the disabled-by-default roles
+    Given the administrator has enabled the permissions role "<permissions-role>"
+    And user "Alice" has uploaded file with content "to share" to "/textfile1.txt"
+    And user "Alice" has created folder "FolderToShare"
+    When user "Alice" sends the following resource share invitation using the Graph API:
+      | resource        | <resource>         |
+      | space           | Personal           |
+      | sharee          | Brian              |
+      | shareType       | user               |
+      | permissionsRole | <permissions-role> |
+    Then the HTTP status code should be "200"
+    And user "Brian" has a share "<resource>" synced
+    And user "Brian" should have a share "<resource>" shared by user "Alice" from space "Personal"
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "properties": {
+          "value": {
+            "type": "array",
+            "maxItems": 1,
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "createdDateTime",
+                "id",
+                "roles",
+                "grantedToV2"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^%permissions_id_pattern%$"
+                },
+                "roles": {
+                  "type": "array",
+                  "maxItems": 1,
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^%role_id_pattern%$"
+                  }
+                },
+                "grantedToV2": {
+                  "type": "object",
+                  "required": [
+                    "user"
+                  ],
+                  "properties": {
+                    "user": {
+                      "type": "object",
+                      "required": [
+                        "id",
+                        "displayName"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^%user_id_pattern%$"
+                        },
+                        "displayName": {
+                          "const": "Brian Murphy"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      """
+    Examples:
+      | permissions-role          | resource       |
+      | Viewer With Versions      | /textfile1.txt |
+      | Viewer With Versions      | FolderToShare  |
+      | File Editor With Versions | /textfile1.txt |
+      | Editor With Versions      | FolderToShare  |
+      | Viewer List Grants        | /textfile1.txt |
+      | Viewer List Grants        | FolderToShare  |
+      | File Editor List Grants   | /textfile1.txt |
+      | Editor List Grants        | FolderToShare  |
+
 
   Scenario Outline: send share invitation to group with different roles
     Given user "Carol" has been created with default attributes
