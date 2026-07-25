@@ -18,7 +18,7 @@ FROM quay.io/opencloudeu/nodejs-ci:24 AS generate
 
 COPY ./ /opencloud/
 
-WORKDIR /opencloud/opencloud
+WORKDIR /opencloud
 RUN make node-generate-prod
 
 FROM quay.io/opencloudeu/golang-ci:1.25 AS build
