@@ -20,8 +20,11 @@ type routingInfoCtxKey struct{}
 var noInfo = RoutingInfo{}
 
 // Middleware returns a HTTP middleware containing the router.
-func Middleware(serviceSelector selector.Selector, policySelectorCfg *config.PolicySelector, policies []config.Policy, logger log.Logger) func(http.Handler) http.Handler {
-	router := New(serviceSelector, policySelectorCfg, policies, logger)
+// root is the subpath OpenCloud is deployed under (e.g. from OC_URL /
+// PROXY_HTTP_ROOT), used to match requests against policy routes regardless
+// of the prefix a reverse proxy forwards unchanged.
+func Middleware(serviceSelector selector.Selector, policySelectorCfg *config.PolicySelector, policies []config.Policy, logger log.Logger, root string) func(http.Handler) http.Handler {
+	router := New(serviceSelector, policySelectorCfg, policies, logger, root)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ri, ok := router.Route(r)
@@ -36,7 +39,7 @@ func Middleware(serviceSelector selector.Selector, policySelectorCfg *config.Pol
 
 // New creates a new request router.
 // It initializes the routes before returning the router.
-func New(serviceSelector selector.Selector, policySelectorCfg *config.PolicySelector, policies []config.Policy, logger log.Logger) Router {
+func New(serviceSelector selector.Selector, policySelectorCfg *config.PolicySelector, policies []config.Policy, logger log.Logger, root string) Router {
 	if policySelectorCfg == nil {
 		firstPolicy := policies[0].Name
 		logger.Warn().Str("policy", firstPolicy).Msg("policy-selector not configured. Will always use first policy")
@@ -61,6 +64,7 @@ func New(serviceSelector selector.Selector, policySelectorCfg *config.PolicySele
 		rewriters:       make(map[string]map[config.RouteType]map[string][]RoutingInfo),
 		policySelector:  policySelector,
 		serviceSelector: serviceSelector,
+		root:            root,
 	}
 	for _, pol := range policies {
 		for _, route := range pol.Routes {
@@ -121,6 +125,28 @@ type Router struct {
 	rewriters       map[string]map[config.RouteType]map[string][]RoutingInfo
 	policySelector  policy.Selector
 	serviceSelector selector.Selector
+	// root is the subpath OpenCloud is deployed under. Policy Endpoint
+	// patterns are written unprefixed, so it is stripped from a copy of the
+	// request URL before matching (see Route); the real, forwarded request
+	// keeps the prefix untouched, since every backend service is expected to
+	// be root-aware. The exception is routes with StripRoot set, for
+	// backends that hardcode an unprefixed path (see config.Route.StripRoot).
+	root string
+}
+
+// stripRootPrefix removes root from the start of p, if present, leaving a
+// leading slash behind. It is a no-op when root is empty or "/".
+func stripRootPrefix(root, p string) string {
+	if root == "" || root == "/" {
+		return p
+	}
+	if p == root {
+		return "/"
+	}
+	if strings.HasPrefix(p, root+"/") {
+		return p[len(root):]
+	}
+	return p
 }
 
 func (rt Router) addHost(policy string, target *url.URL, route config.Route) {
@@ -181,7 +207,11 @@ func (rt Router) addHost(policy string, target *url.URL, route config.Route) {
 				req.Out.Header.Set(k, v)
 			}
 
-			req.Out.URL.Path = singleJoiningSlash(target.Path, req.Out.URL.Path)
+			outPath := req.Out.URL.Path
+			if route.StripRoot {
+				outPath = stripRootPrefix(rt.root, outPath)
+			}
+			req.Out.URL.Path = singleJoiningSlash(target.Path, outPath)
 			if targetQuery == "" || req.Out.URL.RawQuery == "" {
 				req.Out.URL.RawQuery = targetQuery + req.Out.URL.RawQuery
 			} else {
@@ -212,6 +242,12 @@ func (rt Router) Route(r *http.Request) (RoutingInfo, bool) {
 		return noInfo, false
 	}
 
+	// Match against a copy of the URL with root stripped -- policy Endpoint
+	// patterns are unprefixed. The real request (r.URL), and what eventually
+	// gets forwarded, is never touched here.
+	matchURL := *r.URL
+	matchURL.Path = stripRootPrefix(rt.root, matchURL.Path)
+
 	method := ""
 	// find matching rewrite hook
 	for _, rtype := range config.RouteTypes {
@@ -234,7 +270,7 @@ func (rt Router) Route(r *http.Request) (RoutingInfo, bool) {
 		}
 
 		for _, ri := range rt.rewriters[pol][rtype][method] {
-			if handler(ri.endpoint, *r.URL) {
+			if handler(ri.endpoint, matchURL) {
 				rt.logger.Debug().
 					Str("policy", pol).
 					Str("method", r.Method).

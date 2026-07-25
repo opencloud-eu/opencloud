@@ -1,6 +1,7 @@
 package defaults
 
 import (
+	"path"
 	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
@@ -57,6 +58,12 @@ func EnsureDefaults(cfg *config.Config) {
 
 	if cfg.Commons != nil {
 		cfg.HTTP.TLS = cfg.Commons.HTTPServiceTLS
+	}
+
+	if cfg.Commons != nil {
+		if root := shared.SubPath(cfg.Commons.OpenCloudURL); root != "" && cfg.HTTP.Root != root && !strings.HasPrefix(cfg.HTTP.Root, root+"/") {
+			cfg.HTTP.Root = path.Join(root, cfg.HTTP.Root)
+		}
 	}
 }
 

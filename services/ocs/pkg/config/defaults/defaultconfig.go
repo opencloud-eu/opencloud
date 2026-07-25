@@ -1,9 +1,11 @@
 package defaults
 
 import (
+	"path"
 	"strings"
 	"time"
 
+	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/ocs/pkg/config"
 )
@@ -67,6 +69,12 @@ func EnsureDefaults(cfg *config.Config) {
 
 	if cfg.GRPCClientTLS == nil && cfg.Commons != nil {
 		cfg.GRPCClientTLS = structs.CopyOrZeroValue(cfg.Commons.GRPCClientTLS)
+	}
+
+	if cfg.Commons != nil {
+		if root := shared.SubPath(cfg.Commons.OpenCloudURL); root != "" && cfg.HTTP.Root != root && !strings.HasPrefix(cfg.HTTP.Root, root+"/") {
+			cfg.HTTP.Root = path.Join(root, cfg.HTTP.Root)
+		}
 	}
 }
 

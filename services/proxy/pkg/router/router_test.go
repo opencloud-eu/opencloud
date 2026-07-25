@@ -73,7 +73,7 @@ func TestRegexRouteMatcher(t *testing.T) {
 	cfg.Policies = defaults.DefaultPolicies()
 	reg := registry.GetRegistry()
 	sel := selector.NewSelector(selector.Registry(reg))
-	rt := New(sel, cfg.PolicySelector, cfg.Policies, log.NewLogger())
+	rt := New(sel, cfg.PolicySelector, cfg.Policies, log.NewLogger(), "")
 
 	table := []matchertest{
 		{endpoint: ".*some\\/url.*parameter=true", target: "/foobar/baz/some/url?parameter=true", matches: true},
@@ -135,7 +135,7 @@ func TestRouter(t *testing.T) {
 
 	reg := registry.GetRegistry()
 	sel := selector.NewSelector(selector.Registry(reg))
-	router := New(sel, policySelectorCfg, policies, log.NewLogger())
+	router := New(sel, policySelectorCfg, policies, log.NewLogger(), "")
 
 	table := []matchertest{
 		{method: "PROPFIND", endpoint: "/dav/files/demo/", target: "frontend"},
@@ -163,5 +163,93 @@ func TestRouter(t *testing.T) {
 		if pr.Out.URL.Host != test.target {
 			t.Errorf("TestRouter got host %s expected %s", pr.Out.URL.Host, test.target)
 		}
+	}
+}
+
+// TestRouterWithRoot verifies that a request prefixed with the deployment
+// root matches an unprefixed policy route, and that -- since StripRoot is
+// not set -- the forwarded request still carries the full, prefixed path,
+// because every root-aware backend expects to see it.
+func TestRouterWithRoot(t *testing.T) {
+	policySelectorCfg := &config.PolicySelector{
+		Static: &config.StaticSelectorConf{
+			Policy: "default",
+		},
+	}
+
+	policies := []config.Policy{
+		{
+			Name: "default",
+			Routes: []config.Route{
+				{Type: config.PrefixRoute, Endpoint: "/dav", Backend: "http://frontend"},
+			},
+		},
+	}
+
+	reg := registry.GetRegistry()
+	sel := selector.NewSelector(selector.Registry(reg))
+	router := New(sel, policySelectorCfg, policies, log.NewLogger(), "/test/opencloud")
+
+	r := httptest.NewRequest("PROPFIND", "/test/opencloud/dav/files/demo/", nil)
+	routingInfo, ok := router.Route(r)
+	if !ok {
+		t.Fatalf("expected a request prefixed with root to match the unprefixed policy route")
+	}
+
+	pr := &httputil.ProxyRequest{
+		In:  r,
+		Out: r.Clone(context.Background()),
+	}
+	routingInfo.Rewrite()(pr)
+
+	if pr.Out.URL.Host != "frontend" {
+		t.Errorf("got host %s expected frontend", pr.Out.URL.Host)
+	}
+	want := "/test/opencloud/dav/files/demo/"
+	if pr.Out.URL.Path != want {
+		t.Errorf("forwarded path = %q, want %q (root should be preserved when StripRoot is unset)", pr.Out.URL.Path, want)
+	}
+}
+
+// TestRouterWithRootAndStripRoot covers the escape hatch for backends that
+// hardcode an unprefixed path (e.g. lico's RFC 8615 well-known endpoint):
+// the request still matches the unprefixed policy route via root-stripped
+// matching, but with StripRoot set the forwarded request also has the root
+// removed.
+func TestRouterWithRootAndStripRoot(t *testing.T) {
+	policySelectorCfg := &config.PolicySelector{
+		Static: &config.StaticSelectorConf{
+			Policy: "default",
+		},
+	}
+
+	policies := []config.Policy{
+		{
+			Name: "default",
+			Routes: []config.Route{
+				{Type: config.PrefixRoute, Endpoint: "/.well-known/openid-configuration", Backend: "http://idp", StripRoot: true},
+			},
+		},
+	}
+
+	reg := registry.GetRegistry()
+	sel := selector.NewSelector(selector.Registry(reg))
+	router := New(sel, policySelectorCfg, policies, log.NewLogger(), "/test/opencloud")
+
+	r := httptest.NewRequest("GET", "/test/opencloud/.well-known/openid-configuration", nil)
+	routingInfo, ok := router.Route(r)
+	if !ok {
+		t.Fatalf("expected a request prefixed with root to match the unprefixed policy route")
+	}
+
+	pr := &httputil.ProxyRequest{
+		In:  r,
+		Out: r.Clone(context.Background()),
+	}
+	routingInfo.Rewrite()(pr)
+
+	want := "/.well-known/openid-configuration"
+	if pr.Out.URL.Path != want {
+		t.Errorf("forwarded path = %q, want %q (StripRoot should remove the deployment root)", pr.Out.URL.Path, want)
 	}
 }

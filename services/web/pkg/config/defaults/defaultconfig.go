@@ -1,10 +1,12 @@
 package defaults
 
 import (
+	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/defaults"
+	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/config"
 )
 
@@ -140,6 +142,12 @@ func EnsureDefaults(cfg *config.Config) {
 			len(cfg.HTTP.CORS.AllowedOrigins) == 1 &&
 				cfg.HTTP.CORS.AllowedOrigins[0] == "https://localhost:9200") {
 		cfg.HTTP.CORS.AllowedOrigins = []string{cfg.Commons.OpenCloudURL}
+	}
+
+	if cfg.Commons != nil {
+		if root := shared.SubPath(cfg.Commons.OpenCloudURL); root != "" && cfg.HTTP.Root != root && !strings.HasPrefix(cfg.HTTP.Root, root+"/") {
+			cfg.HTTP.Root = path.Join(root, cfg.HTTP.Root)
+		}
 	}
 }
 

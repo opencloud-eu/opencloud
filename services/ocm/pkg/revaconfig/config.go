@@ -33,6 +33,7 @@ func OCMConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]any {
 		"http": map[string]any{
 			"network": cfg.HTTP.Protocol,
 			"address": cfg.HTTP.Addr,
+			"prefix":  cfg.HTTP.Prefix,
 			"middlewares": map[string]any{
 				"cors": map[string]any{
 					"allowed_origins":   cfg.HTTP.CORS.AllowedOrigins,
