@@ -49,7 +49,7 @@ const ResponsiveScreen = (props) => {
   const { theme } = useContext(OpenCloudContext);
 
   const logo = (theme && !withoutLogo) ? (
-        <img src={`${deploymentRoot}/${theme.common?.logo}`} className="oc-logo" alt="OpenCloud Logo"/>
+        <img src={`${deploymentRoot}/${theme.common?.logo}`} className="oc-logo" height="80" alt="OpenCloud Logo"/>
     ) : null;
 
   const content = loading ? <Loading/> : (withoutPadding ? children : <DialogContent>{children}</DialogContent>);
