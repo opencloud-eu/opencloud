@@ -2377,7 +2377,6 @@ def serverTestingDocs(ctx):
                     {
                         "event": ["push"],
                         "branch": "${CI_REPO_DEFAULT_BRANCH}",
-                        "path": "tests/README.md",
                     },
                 ],
             },
@@ -2385,6 +2384,7 @@ def serverTestingDocs(ctx):
         "when": [
             {
                 "event": ["push", "pull_request"],
+                "path": "tests/README.md",
             },
         ],
     }]
