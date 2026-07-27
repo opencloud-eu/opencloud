@@ -1030,6 +1030,9 @@ class SharingNgContext implements Context {
 		if ($shareType == 'user' && !isset($recipient)) {
 			$this->featureContext->shareNgAddToCreatedUserGroupShares($this->getDrivePermissionsList($sharer, $space));
 			$permissionID = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
+		} elseif ($shareType == 'group' && !isset($recipient)) {
+			$response = $this->getDrivePermissionsList($sharer, $space);
+			$permissionID = $this->featureContext->getJsonDecodedResponse($response)['value'][0]['id'];
 		} else {
 			$permissionID = match ($shareType) {
 				'link' => $this->featureContext->shareNgGetLastCreatedLinkShareID(),
@@ -1203,6 +1206,27 @@ class SharingNgContext implements Context {
 	): void {
 		$this->featureContext->setResponse(
 			$this->removeAccessToSpace($user, 'user', $space)
+		);
+	}
+
+	/**
+	 *
+	 * @param string $user
+	 * @param string $group
+	 * @param string $space
+	 *
+	 * @return void
+	 * @throws JsonException
+	 * @throws GuzzleException
+	 */
+	#[When('user :user tries to remove own access of group :group from space :space using root endpoint of the Graph API')]
+	public function userRemovesOwnAccessOfGroupFromSpaceUsingGraphAPI(
+		string $user,
+		string $group,
+		string $space
+	): void {
+		$this->featureContext->setResponse(
+			$this->removeAccessToSpace($user, 'group', $space)
 		);
 	}
 

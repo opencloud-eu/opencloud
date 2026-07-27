@@ -153,7 +153,7 @@ Feature: Remove access to a drive
       | shareType       | group    |
       | permissionsRole | Manager  |
     And user "Alice" has removed own access from space "NewSpace"
-    When user "Brian" tries to remove the access of group "group1" from space "NewSpace" using root endpoint of the Graph API
+    When user "Brian" tries to remove own access of group "group1" from space "NewSpace" using root endpoint of the Graph API
     Then the HTTP status code should be "403"
     And the user "Brian" should have a space called "NewSpace"
 
