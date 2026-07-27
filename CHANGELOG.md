@@ -1,22 +1,23 @@
 # Changelog
 
-## [7.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.4.0) - 2026-07-25
+## [7.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.4.0) - 2026-07-27
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @AlexAndBear, @JammingBen, @fschade, @michaelstingl, @rhafer, @schweigisito, @v-scharf
 
-### 📚 Documentation
-
-- maint: clean-up auth-app documentation [[#3155](https://github.com/opencloud-eu/opencloud/pull/3155)]
-- ci: sync tests/README.md to docs [[#3164](https://github.com/opencloud-eu/opencloud/pull/3164)]
-
 ### ✅ Tests
 
+- api-test: cover additional unified roles in acceptance tests [[#3169](https://github.com/opencloud-eu/opencloud/pull/3169)]
 - test(apiAuthApp): fix flaky token pattern [[#3163](https://github.com/opencloud-eu/opencloud/pull/3163)]
 - test(apiArchiver): the single-resource archive is named after the resource [[#3080](https://github.com/opencloud-eu/opencloud/pull/3080)]
 - test(coreApiWebdavUploadTUS): assert etag and permissions on the finalizing TUS chunk [[#3078](https://github.com/opencloud-eu/opencloud/pull/3078)]
 - test(coreApiWebdavOperations): download a file with a literal "%" via its oc:downloadURL [[#3079](https://github.com/opencloud-eu/opencloud/pull/3079)]
+
+### 📚 Documentation
+
+- maint: clean-up auth-app documentation [[#3155](https://github.com/opencloud-eu/opencloud/pull/3155)]
+- ci: sync tests/README.md to docs [[#3164](https://github.com/opencloud-eu/opencloud/pull/3164)]
 
 ### 📈 Enhancement
 
