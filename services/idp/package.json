@@ -51,7 +51,7 @@
     "redux-thunk": "^2.4.2"
   },
   "devDependencies": {
-    "@babel/core": "7.26.10",
+    "@babel/core": "8.0.1",
     "babel-loader": "10.0.0",
     "babel-plugin-named-asset-import": "^0.3.8",
     "babel-preset-react-app": "^10.1.0",
