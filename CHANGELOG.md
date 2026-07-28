@@ -1,6 +1,6 @@
 # Changelog
 
-## [7.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.4.0) - 2026-07-27
+## [7.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.4.0) - 2026-07-28
 
 ### ❤️ Thanks to all contributors! ❤️
 
