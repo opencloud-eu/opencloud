@@ -418,7 +418,7 @@ Feature:  enable or disable sync of incoming shares
       }
       """
 
-
+  @flaky @issue-1878
   Scenario: try to enable sync of shared resource from Personal Space when sharer is deleted
     Given user "Brian" has disabled the auto-sync share
     And user "Alice" has uploaded file with content "hello world" to "/textfile0.txt"

@@ -191,6 +191,12 @@ then
 	BEHAT_RERUN_TIMES=1
 fi
 
+# rerun a failed scenario that is tagged @flaky.
+if [ -z "${BEHAT_FLAKY_RERUN_TIMES}" ]
+then
+	BEHAT_FLAKY_RERUN_TIMES=1
+fi
+
 # expected variables
 # --------------------
 # $SUITE_FEATURE_TEXT - human readable which test to run
@@ -211,6 +217,7 @@ fi
 declare -a UNEXPECTED_FAILED_SCENARIOS
 declare -a UNEXPECTED_PASSED_SCENARIOS
 declare -a UNEXPECTED_BEHAT_EXIT_STATUSES
+declare -a ALL_FAILED_SCENARIO_PATHS
 
 function run_behat_tests() {
 	echo "Running ${SUITE_FEATURE_TEXT} tests tagged ${BEHAT_FILTER_TAGS}" | tee ${TEST_LOG_FILE}
@@ -297,6 +304,11 @@ function run_behat_tests() {
 	if [ -z "${FAILED_SCENARIO_PATHS}" ]
 	then
 		unset FAILED_SCENARIO_PATHS
+	else
+		for FAILED_SCENARIO_PATH in ${FAILED_SCENARIO_PATHS}
+		do
+			ALL_FAILED_SCENARIO_PATHS+=("${FAILED_SCENARIO_PATH}")
+		done
 	fi
 
 	if [ -n "${EXPECTED_FAILURES_FILE}" ]
@@ -401,6 +413,101 @@ function run_behat_tests() {
 		fi
 		rm -f "${DRY_RUN_FILE}"
 	fi
+}
+
+# Retry scenarios that failed but are tagged @flaky.
+function rerun_failed_flaky_scenarios() {
+	if [ ${BEHAT_FLAKY_RERUN_TIMES} -lt 1 ]
+	then
+		return
+	fi
+
+	if [ ${#UNEXPECTED_FAILED_SCENARIOS[@]} -eq 0 ] || [ ${#ALL_FAILED_SCENARIO_PATHS[@]} -eq 0 ]
+	then
+		return
+	fi
+
+	# suite/scenario keys that failed first but passed on a retry
+	local recovered=()
+
+	for FEATURE_PATH in "${ALL_FAILED_SCENARIO_PATHS[@]}"
+	do
+		local suite scenario key
+		suite=$(basename "$(dirname "${FEATURE_PATH}")")
+		scenario=$(basename "${FEATURE_PATH}")
+		key="${suite}/${scenario}"
+
+		local is_unexpected=false
+		for uf in "${UNEXPECTED_FAILED_SCENARIOS[@]}"
+		do
+			if [ "${uf}" = "${key}" ]
+			then
+				is_unexpected=true
+				break
+			fi
+		done
+		if [ "${is_unexpected}" != true ]
+		then
+			continue
+		fi
+
+		local dry_run_file
+		dry_run_file=$(mktemp)
+		${BEHAT} --dry-run --no-colors -c ${BEHAT_YML} -f pretty --tags '@flaky' "${FEATURE_PATH}" 1>${dry_run_file} 2>/dev/null
+		if grep -q -m 1 'No scenarios' "${dry_run_file}"
+		then
+			rm -f "${dry_run_file}"
+			continue
+		fi
+		rm -f "${dry_run_file}"
+
+		log_info "Scenario ${key} is tagged @flaky, retrying up to ${BEHAT_FLAKY_RERUN_TIMES} times"
+
+		local passed=false
+		for attempt in $(seq 1 ${BEHAT_FLAKY_RERUN_TIMES})
+		do
+			echo -e "\nFlaky retry attempt ${attempt} of ${BEHAT_FLAKY_RERUN_TIMES}: ${key}"
+			${BEHAT} ${COLORS_OPTION} --strict -c ${BEHAT_YML} -f pretty --tags '@flaky' "${FEATURE_PATH}" -v 2>&1 | tee -a ${TEST_LOG_FILE}
+			if [ ${PIPESTATUS[0]} -eq 0 ]
+			then
+				passed=true
+				break
+			fi
+		done
+
+		if [ "${passed}" = true ]
+		then
+			log_info "Flaky scenario ${key} passed on retry, not counting it as a failure."
+			recovered+=("${key}")
+		else
+			log_failed "Flaky scenario ${key} still failing after ${BEHAT_FLAKY_RERUN_TIMES} retries."
+		fi
+	done
+
+	if [ ${#recovered[@]} -eq 0 ]
+	then
+		return
+	fi
+
+	# Drop the recovered flaky scenarios from the list of unexpected failures.
+	local remaining=()
+	for uf in "${UNEXPECTED_FAILED_SCENARIOS[@]}"
+	do
+		local drop=false
+		for r in "${recovered[@]}"
+		do
+			if [ "${uf}" = "${r}" ]
+			then
+				drop=true
+				break
+			fi
+		done
+		if [ "${drop}" != true ]
+		then
+			remaining+=("${uf}")
+		fi
+	done
+	UNEXPECTED_FAILED_SCENARIOS=("${remaining[@]}")
 }
 
 declare -x TEST_SERVER_URL
@@ -589,6 +696,9 @@ for i in "${!BEHAT_SUITES[@]}"
 				run_behat_tests
 			done
 done
+
+# Give scenarios tagged @flaky another chance before treating them as failures.
+rerun_failed_flaky_scenarios
 
 # 3 types of things can have gone wrong:
 #   - some scenario failed (and it was not expected to fail)
