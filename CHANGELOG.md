@@ -8,6 +8,7 @@
 
 ### ✅ Tests
 
+- api-test: fix removeAccessToDrive.feature:145 [[#3179](https://github.com/opencloud-eu/opencloud/pull/3179)]
 - api-test: cover additional unified roles in acceptance tests [[#3169](https://github.com/opencloud-eu/opencloud/pull/3169)]
 - test(apiAuthApp): fix flaky token pattern [[#3163](https://github.com/opencloud-eu/opencloud/pull/3163)]
 - test(apiArchiver): the single-resource archive is named after the resource [[#3080](https://github.com/opencloud-eu/opencloud/pull/3080)]
