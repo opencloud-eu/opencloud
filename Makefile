@@ -346,10 +346,3 @@ vendor-bin/php_codesniffer/vendor: vendor/bamarni/composer-bin-plugin vendor-bin
 vendor-bin/php_codesniffer/composer.lock: vendor-bin/php_codesniffer/composer.json
 	@echo php_codesniffer composer.lock is not up to date.
 
-.PHONY: generate-qa-activity-report
-generate-qa-activity-report: node_modules
-	@if [ -z "${MONTH}" ] || [ -z "${YEAR}" ]; then \
-		echo "Please set the MONTH and YEAR environment variables. Usage: make generate-qa-activity-report MONTH=<month> YEAR=<year>"; \
-		exit 1; \
-	fi
-	go run tests/qa-activity-report/generate-qa-activity-report.go --month ${MONTH} --year ${YEAR}
