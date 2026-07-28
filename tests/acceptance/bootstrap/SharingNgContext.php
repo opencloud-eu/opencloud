@@ -1030,6 +1030,21 @@ class SharingNgContext implements Context {
 		if ($shareType == 'user' && !isset($recipient)) {
 			$this->featureContext->shareNgAddToCreatedUserGroupShares($this->getDrivePermissionsList($sharer, $space));
 			$permissionID = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
+		} elseif ($shareType == 'group' && !isset($recipient)) {
+			// https://github.com/opencloud-eu/opencloud/pull/3179#issuecomment-5103212045
+			$retried = 0;
+			do {
+				$response = $this->getDrivePermissionsList($sharer, $space);
+				$tryAgain = $response->getStatusCode() === 404
+				&& $retried < HttpRequestHelper::numRetriesOnHttpTooEarly();
+				if ($tryAgain) {
+					$retried += 1;
+					echo "Drive permissions of space '$space' not available for user '$sharer' yet, retrying ($retried)...\n";
+					// wait 500ms and try again
+					\usleep(500 * 1000);
+				}
+			} while ($tryAgain);
+			$permissionID = $this->featureContext->getJsonDecodedResponse($response)['value'][0]['id'];
 		} else {
 			$permissionID = match ($shareType) {
 				'link' => $this->featureContext->shareNgGetLastCreatedLinkShareID(),
@@ -1203,6 +1218,25 @@ class SharingNgContext implements Context {
 	): void {
 		$this->featureContext->setResponse(
 			$this->removeAccessToSpace($user, 'user', $space)
+		);
+	}
+
+	/**
+	 *
+	 * @param string $user
+	 * @param string $space
+	 *
+	 * @return void
+	 * @throws JsonException
+	 * @throws GuzzleException
+	 */
+	#[When('user :user tries to remove own group access from space :space using root endpoint of the Graph API')]
+	public function userRemovesOwnAccessOfGroupFromSpaceUsingGraphAPI(
+		string $user,
+		string $space
+	): void {
+		$this->featureContext->setResponse(
+			$this->removeAccessToSpace($user, 'group', $space)
 		);
 	}
 

@@ -342,10 +342,6 @@ _ocdav: api compatibility, return correct status code_
 - [coreApiWebdavPreviews/previews.feature:264](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L264)
 - [coreApiWebdavPreviews/previews.feature:265](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L265)
 
-### TODO: adjust test
-
-- [apiSharingNg1/removeAccessToDrive.feature:145](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSharingNg1/removeAccessToDrive.feature#L145)
-
 tests/acceptance/features/cliCommands/restoreTrashBinItems.feature
 
 #### [POSIX: failing CLI commands](https://github.com/opencloud-eu/opencloud/issues/3095)

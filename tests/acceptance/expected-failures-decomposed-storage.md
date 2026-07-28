@@ -339,10 +339,6 @@ _ocdav: api compatibility, return correct status code_
 - [coreApiWebdavPreviews/previews.feature:265](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L265)
 
 
-#### [500 when user tries to delete group from space](https://github.com/opencloud-eu/opencloud/issues/2799)
-
-- [apiSharingNg1/removeAccessToDrive.feature:145](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSharingNg1/removeAccessToDrive.feature#L145)
-
 #### [POSIX: failing CLI commands](https://github.com/opencloud-eu/opencloud/issues/3095)
 
 - [cliCommands/restoreTrashBinItems.feature:11](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/cliCommands/restoreTrashBinItems.feature#L11)
