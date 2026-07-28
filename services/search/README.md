@@ -39,7 +39,7 @@ To enable OpenSearch as a backend, the following settings must be set:
 
 Additionally, the following optional settings can be set:
 
-*   `SEARCH_ENGINE_OPEN_SEARCH_RESOURCE_INDEX_NAME=val` (default: `opencloud-resource`): Name of the OpenSearch index
+*   `SEARCH_ENGINE_OPEN_SEARCH_RESOURCE_INDEX_NAME=val` (default: `opencloud-resource`): Base name of the OpenSearch index. The running index is suffixed with the schema version (e.g. `opencloud-resource-v3`); a breaking schema change targets a fresh index and leaves the old one in place.
 *   `SEARCH_ENGINE_OPEN_SEARCH_CLIENT_USERNAME=val`: Username for HTTP Basic Authentication.
 *   `SEARCH_ENGINE_OPEN_SEARCH_CLIENT_PASSWORD=val`: Password for HTTP Basic Authentication.
 *   `SEARCH_ENGINE_OPEN_SEARCH_CLIENT_HEADER=val`: HTTP headers to include in requests.

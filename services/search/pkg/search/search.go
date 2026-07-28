@@ -23,6 +23,12 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 )
 
+// SchemaVersion is the shared schema version for both search backends. Bump it
+// on a breaking mapping change: each version gets its own index (OpenSearch name
+// suffix, bleve path suffix), so the service builds a fresh index instead of
+// colliding with the old one. No migration; reindex to populate.
+const SchemaVersion = 3
+
 var scopeRegex = regexp.MustCompile(`scope:\s*([^" "\n\r]*)`)
 
 // Engine is the interface to the search engine

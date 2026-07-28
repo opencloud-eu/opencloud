@@ -17,16 +17,24 @@ import (
 )
 
 var (
-	ErrManualActionRequired                  = errors.New("manual action required")
-	IndexManagerLatest                       = IndexIndexManagerResourceV2
-	IndexIndexManagerResourceV2 IndexManager = "resource_v2"
+	ErrManualActionRequired = errors.New("manual action required")
+
+	// IndexManagerLatest identifies the current resource mapping; its version is
+	// derived from search.SchemaVersion so it never drifts from the index name.
+	IndexManagerLatest = IndexManager(fmt.Sprintf("resource_v%d", search.SchemaVersion))
 )
+
+// VersionedIndexName suffixes the base index name with the schema version, e.g.
+// "opencloud-resource" -> "opencloud-resource-v3".
+func VersionedIndexName(base string) string {
+	return fmt.Sprintf("%s-v%d", base, search.SchemaVersion)
+}
 
 type IndexManager string
 
 // indexGenerators dispatches each IndexManager variant to its builder.
 var indexGenerators = map[IndexManager]func() ([]byte, error){
-	IndexIndexManagerResourceV2: buildResourceV2Mapping,
+	IndexManagerLatest: buildResourceMapping,
 }
 
 func (m IndexManager) String() string {
@@ -46,10 +54,10 @@ func (m IndexManager) MarshalJSON() ([]byte, error) {
 	return gen()
 }
 
-// buildResourceV2Mapping renders the OpenSearch index template for a
+// buildResourceMapping renders the OpenSearch index template for a
 // search.Resource from the shared SearchFieldOverrides. OpenSearch-specific
 // tweaks (wildcard MimeType, path_hierarchy Path) are applied on top.
-func buildResourceV2Mapping() ([]byte, error) {
+func buildResourceMapping() ([]byte, error) {
 	resourceType := reflect.TypeFor[search.Resource]()
 	overrides := maps.Clone(search.Resource{}.SearchFieldOverrides())
 	overrides["MimeType"] = searchmapping.FieldOpts{Type: searchmapping.TypeWildcard}
