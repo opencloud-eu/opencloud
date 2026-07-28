@@ -1212,17 +1212,15 @@ class SharingNgContext implements Context {
 	/**
 	 *
 	 * @param string $user
-	 * @param string $group
 	 * @param string $space
 	 *
 	 * @return void
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
-	#[When('user :user tries to remove own access of group :group from space :space using root endpoint of the Graph API')]
+	#[When('user :user tries to remove own group access from space :space using root endpoint of the Graph API')]
 	public function userRemovesOwnAccessOfGroupFromSpaceUsingGraphAPI(
 		string $user,
-		string $group,
 		string $space
 	): void {
 		$this->featureContext->setResponse(
