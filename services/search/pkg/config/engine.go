@@ -25,7 +25,7 @@ type EngineOpenSearch struct {
 
 // EngineOpenSearchResourceIndex defines the OpenSearch index for resources
 type EngineOpenSearchResourceIndex struct {
-	Name string `yaml:"name" env:"SEARCH_ENGINE_OPEN_SEARCH_RESOURCE_INDEX_NAME" desc:"The name of the OpenSearch index for resources." introductionVersion:"4.0.0"`
+	Name string `yaml:"name" env:"SEARCH_ENGINE_OPEN_SEARCH_RESOURCE_INDEX_NAME" desc:"The base name of the OpenSearch index for resources. The running index is suffixed with the schema version, e.g. opencloud-resource-v3." introductionVersion:"4.0.0"`
 }
 
 // EngineOpenSearchClient configures the OpenSearch client
