@@ -25,7 +25,6 @@ import (
 	"github.com/pkg/xattr"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
-	"github.com/theckman/yacspin"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -39,7 +38,6 @@ const (
 )
 
 var (
-	spinner         *yacspin.Spinner
 	restartRequired = false
 	ignorer         *ignore.Ignorer
 )
@@ -221,30 +219,11 @@ func checkPosixfsConsistency(cmd *cobra.Command, cfg *config.Config) error {
 		return fmt.Errorf("error accessing '%s': %w", indexesPath, err)
 	}
 
-	spinnerCfg := yacspin.Config{
-		Frequency:         100 * time.Millisecond,
-		CharSet:           yacspin.CharSets[11],
-		StopCharacter:     "✓",
-		StopColors:        []string{"fgGreen"},
-		StopFailCharacter: "✗",
-		StopFailColors:    []string{"fgRed"},
-	}
-
-	spinner, err = yacspin.New(spinnerCfg)
-	err = spinner.Start()
-	if err != nil {
-		return fmt.Errorf("error creating spinner: %w", err)
-	}
-
+	fmt.Println("Checking personal spaces...")
 	checkSpaces(filepath.Join(rootPath, "users"))
-	spinner.Suffix(" Personal spaces check ")
-	spinner.StopMessage("completed\n")
-	spinner.Stop()
 
+	fmt.Println("Checking project spaces...")
 	checkSpaces(filepath.Join(rootPath, "projects"))
-	spinner.Suffix(" Project spaces check ")
-	spinner.StopMessage("completed")
-	spinner.Stop()
 
 	if restartRequired {
 		fmt.Println("\n\n  ⚠️  Please restart your openCloud instance to apply changes.")
@@ -255,8 +234,7 @@ func checkPosixfsConsistency(cmd *cobra.Command, cfg *config.Config) error {
 func checkSpaces(basePath string) {
 	dirEntries, err := os.ReadDir(basePath)
 	if err != nil {
-		spinner.Message(fmt.Sprintf("Error reading spaces directory '%s'\n", basePath))
-		spinner.StopFail()
+		logFailure("Error reading spaces directory '%s': %v", basePath, err)
 		return
 	}
 
@@ -269,9 +247,6 @@ func checkSpaces(basePath string) {
 }
 
 func checkSpace(spacePath string) {
-	spinner.Message("")
-	spinner.Suffix(fmt.Sprintf(" Checking space '%s'", spacePath))
-
 	info, err := os.Stat(spacePath)
 	if err != nil {
 		logFailure("Error accessing path '%s': %v", spacePath, err)
@@ -289,12 +264,10 @@ func checkSpace(spacePath string) {
 	}
 
 	checkSpaceID(spacePath)
-	checkNodeIDs(spacePath)
+	checkNodes(spacePath)
 }
 
 func checkSpaceID(spacePath string) {
-	spinner.Message(" - checking space ID uniqueness")
-
 	entries, uniqueIDs, oldestEntry, err := gatherAttributes(spacePath)
 	if err != nil {
 		logFailure("Failed to gather attributes: %v", err)
@@ -306,7 +279,6 @@ func checkSpaceID(spacePath string) {
 	}
 
 	if len(uniqueIDs) > 1 {
-		spinner.Pause()
 		fmt.Println("\n  ⚠ Multiple space IDs found:")
 		for id := range uniqueIDs {
 			fmt.Printf("    - %s\n", id)
@@ -325,7 +297,6 @@ func checkSpaceID(spacePath string) {
 		input = strings.TrimSpace(strings.ToLower(input))
 
 		if input != "y" {
-			spinner.Unpause()
 			logFailure("Operation cancelled by user.")
 			return
 		}
@@ -338,7 +309,6 @@ func checkSpaceID(spacePath string) {
 			}
 		}
 		fixSpaceID(spacePath, obsoleteIDs, targetID, entries)
-		spinner.Unpause()
 	}
 }
 
@@ -364,9 +334,7 @@ func walkNodes(dir string, parentID string) int {
 			if err != nil {
 				logFailure("Failed to fix parent ID for '%s': %v", fullPath, err)
 			} else {
-				spinner.Pause()
 				fmt.Printf("  + Fixed parent ID for '%s'", fullPath)
-				spinner.Unpause()
 				fixes++
 				restartRequired = true
 			}
@@ -379,9 +347,7 @@ func walkNodes(dir string, parentID string) int {
 			if err != nil {
 				logFailure("Failed to fix name attribute for '%s': %v", fullPath, err)
 			} else {
-				spinner.Pause()
 				fmt.Printf("  + Fixed name attribute for '%s'", fullPath)
-				spinner.Unpause()
 				fixes++
 				restartRequired = true
 			}
@@ -399,9 +365,7 @@ func walkNodes(dir string, parentID string) int {
 	return fixes
 }
 
-func checkNodeIDs(spacePath string) {
-	spinner.Message(" - checking nodes")
-
+func checkNodes(spacePath string) {
 	rootID, err := xattr.Get(spacePath, idAttrName)
 	if err != nil || len(rootID) == 0 {
 		logFailure("Space root '%s' missing '%s' attribute", spacePath, idAttrName)
@@ -411,9 +375,7 @@ func checkNodeIDs(spacePath string) {
 	fixes := walkNodes(spacePath, string(rootID))
 
 	if fixes > 0 {
-		spinner.Pause()
 		fmt.Printf("\n  ✓ Fixed %d incorrect node attributes in %s\n", fixes, filepath.Base(spacePath))
-		spinner.Unpause()
 	}
 }
 
@@ -584,7 +546,5 @@ func removeAttributes(path string) error {
 }
 
 func logFailure(message string, args ...any) {
-	spinner.StopFailMessage(fmt.Sprintf("\n"+message, args...))
-	spinner.StopFail()
-	spinner.Start()
+	fmt.Fprintf(os.Stderr, message+"\n", args...)
 }
