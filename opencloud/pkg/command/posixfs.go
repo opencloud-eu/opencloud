@@ -55,11 +55,23 @@ func init() {
 
 // scanCmd performs a posixfs id cache warmup scan
 func scanCmd(ocCfg *config.Config) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "scan",
+	scanCmd := &cobra.Command{
+		Use:   "scan [path ...]",
 		Short: "Perform a filesystem scan and update the ID and filemetadata cache",
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		Long: `Perform a filesystem scan and update the ID and filemetadata cache.
 
+You can specify one or more paths to limit the scope of the scan.
+If no path is provided, the whole storage is checked, starting at the storage root directory.
+
+The provided arguments determines the scope of the check:
+  - a storage root:   the whole storage (all personal and project spaces) is scanned
+  - a space root:     only that space is scanned
+  - a file or directory: only that single resource is scanned (and its children, if it is a directory)
+
+Any specified file or directory must be underneath the storage root directory and if that is not the case,
+the command is aborted with an error before performing any scanning.`,
+		Args: cobra.ArbitraryArgs,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
 			if err := parser.ParseConfig(ocCfg, true); err != nil {
 				return configlog.ReturnError(err)
 			}
@@ -76,91 +88,110 @@ func scanCmd(ocCfg *config.Config) *cobra.Command {
 				os.Exit(1)
 			}
 
+			haltOnError, err := cmd.Flags().GetBool("halt-on-error")
+			if err != nil {
+				return err
+			}
+
 			storageRoot := cfg.Drivers.Posix.Root
-			root := storageRoot
-			defaultRoot := true
-			if v, err := cmd.Flags().GetString("basepath"); err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to parse command-line parameter '--basepath': %v\n", err)
-				os.Exit(1)
-			} else if v != "" {
-				root = v
-				if !filepath.IsAbs(v) {
-					if v, err = filepath.Abs(v); err != nil {
-						fmt.Fprintf(os.Stderr, "Failed to make the basepath mentioned using '--basepath' absolute: %v\n", err)
-						os.Exit(1)
-					} else {
-						root = v
+			paths := []string{storageRoot}
+			if len(args) > 0 {
+				paths = []string{}
+				for _, v := range args {
+					path := v
+					if !filepath.IsAbs(path) {
+						if v, err := filepath.Abs(path); err != nil {
+							fmt.Fprintf(os.Stderr, "Failed to make the specified path %q absolute: %v\n", v, err)
+							os.Exit(1)
+						} else {
+							path = v
+						}
 					}
-				} else {
-					root = v
-				}
-				root = filepath.Clean(root)
-				defaultRoot = false
-			}
-
-			// ensure that, if a basepath has been indicated, it is under the storage root
-			if !defaultRoot {
-				if contained, err := filepathx.IsSameOrContainedBy(storageRoot, root); err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to determine whether the specified basepath %q is contained by the storage root %q: %v\n", root, storageRoot, err)
-					os.Exit(1)
-				} else if !contained {
-					fmt.Fprintf(os.Stderr, "The specified basepath %q is neither the storage root %q, nor a subdirectory thereof, nor a file underneath it\n", root, storageRoot)
-					os.Exit(1)
+					// not ensuring whether the path is under the storage root here, will be done when iterating over them
+					path = filepath.Clean(path)
+					paths = append(paths, path)
 				}
 			}
 
-			// We want to initialize the driver but disable scanfs on boot, so we can trigger it manually afterwards
-			drivers := revaconfig.StorageProviderDrivers(cfg)
-			drivers["posix"] = revaconfig.Posix(cfg, false, false)
+			var scan func(path string) error = nil
+			{
+				// We want to initialize the driver but disable scanfs on boot, so we can trigger it manually afterwards
+				drivers := revaconfig.StorageProviderDrivers(cfg)
+				drivers["posix"] = revaconfig.Posix(cfg, false, false)
 
-			var fsStream events.Stream
-			var err error
-			fsStream, err = event.NewStream(cfg)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to create event stream for posix driver: %v\n", err)
-				os.Exit(1)
+				var fsStream events.Stream
+				var err error
+				fsStream, err = event.NewStream(cfg)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to create event stream for posix driver: %v\n", err)
+					os.Exit(1)
+				}
+				log := logger("posixfs")
+
+				f, ok := registry.NewFuncs["posix"]
+				if !ok {
+					fmt.Fprintf(os.Stderr, "posix driver not found in registry\n")
+					os.Exit(1)
+				}
+
+				fs, err := f(drivers["posix"].(map[string]any), fsStream, &log)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to initialize filesystem driver '%s': %v\n", cfg.Driver, err)
+					return err
+				}
+
+				cacher, ok := fs.(IDCacher)
+				if !ok {
+					fmt.Fprintf(os.Stderr, "The posix driver does not expose WarmupIDCache.\n")
+					os.Exit(1)
+				}
+
+				scan = func(path string) error {
+					err := cacher.WarmupIDCache(path, true, false)
+					if err != nil {
+						logFailure("Error scanning path '%s': %v", path, err)
+					}
+					return err
+				}
 			}
-			log := logger("posixfs")
 
-			if !defaultRoot {
-				log = log.With().Str("basepath", root).Logger()
-			}
+			errors := processPosixFsResources(paths, !haltOnError,
+				func(path string) error {
+					fmt.Println("Scanning personal spaces...")
+					return scan(path)
+				},
+				func(path string) error {
+					fmt.Println("Scanning project spaces...")
+					return scan(path)
+				},
+				func(path string) error {
+					fmt.Printf("Scanning space '%s'...\n", path)
+					return scan(path)
+				},
+				func(path string) error {
+					fmt.Printf("Scanning '%s'...\n", path)
+					return scan(path)
+				},
+			)
 
-			f, ok := registry.NewFuncs["posix"]
-			if !ok {
-				fmt.Fprintf(os.Stderr, "posix driver not found in registry\n")
-				os.Exit(1)
-			}
-
-			fs, err := f(drivers["posix"].(map[string]any), fsStream, &log)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to initialize filesystem driver '%s': %v\n", cfg.Driver, err)
-				return err
-			}
-
-			cacher, ok := fs.(IDCacher)
-			if !ok {
-				fmt.Fprintf(os.Stderr, "The posix driver does not expose WarmupIDCache.\n")
-				os.Exit(1)
-			}
-
-			if defaultRoot {
-				fmt.Println("Starting posixfs scan...")
+			if len(errors) == 0 {
+				fmt.Println("Scan completed successfully.")
+				return nil
 			} else {
-				fmt.Printf("Starting posixfs scan at '%s'...\n", root)
+				plural := "s"
+				if len(errors) == 1 {
+					plural = ""
+				}
+				verb := "completed"
+				if haltOnError {
+					verb = "aborted"
+				}
+				return fmt.Errorf("scan %s with %d error%s", verb, len(errors), plural)
 			}
-			err = cacher.WarmupIDCache(root, true, false)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Scan failed: %v\n", err)
-				return err
-			}
-
-			fmt.Println("Scan completed successfully.")
-			return nil
 		},
 	}
-	cmd.Flags().StringP("basepath", "p", "", "the root under which to scan files, which may be a directory or a file (when omitted, detaults to using the storage root)")
-	return cmd
+	scanCmd.Flags().BoolP("halt-on-error", "E", false, "Halt at once when an error occurs when processing one of the paths (default behaviour is to keep going and attempt to process all paths).")
+	return scanCmd
 }
 
 // consistencyCmd returns a command to check the consistency of the posixfs storage.
@@ -195,7 +226,10 @@ The provided arguments determines the scope of the check:
 				args = []string{cfg.Drivers.Posix.Root}
 			}
 			log := logger("posixfs")
-			recalculateChecksums, _ := cmd.Flags().GetBool("fix-checksums")
+			recalculateChecksums, err := cmd.Flags().GetBool("fix-checksums")
+			if err != nil {
+				return err
+			}
 
 			drivers := revaconfig.StorageProviderDrivers(cfg)
 			drivers["posix"] = revaconfig.Posix(cfg, false, false)
@@ -215,7 +249,6 @@ The provided arguments determines the scope of the check:
 		},
 	}
 	consCmd.Flags().Bool("fix-checksums", false, "Recalculate and fix the file checksums. This reads every file and can be slow on large storages.")
-
 	return consCmd
 }
 
@@ -253,4 +286,83 @@ func findStorageRoot(path string) (string, error) {
 func isSpaceRoot(path string) bool {
 	spaceID, err := xattr.Get(path, prefixes.SpaceIDAttr)
 	return err == nil && len(spaceID) > 0
+}
+
+// iterates over a list of paths and processes them all, using the appropriate function
+// depending on the type of resource
+//
+// note that whenever an error occurs, it collects that error and continues processing
+// subsequent paths, and then returns a slice of errors at the end (or an empty slice
+// if no errors occured)
+func processPosixFsResources(paths []string,
+	keepGoing bool,
+	personalSpaceDir func(string) error,
+	projectSpaceDir func(string) error,
+	spaceRoot func(string) error,
+	entity func(string) error,
+) []error {
+	// no need to guard this with a mutex for now, since the implementation is not parallelized
+	errors := []error{}
+
+	for _, path := range paths {
+		rootPath, err := findStorageRoot(path)
+		if err != nil {
+			errors = append(errors, err)
+			logFailure("error: %s", err)
+			if keepGoing {
+				continue
+			} else {
+				return errors
+			}
+		}
+		path = filepath.Clean(path)
+		if _, err := os.Stat(path); err != nil {
+			errors = append(errors, err)
+			logFailure("error accessing '%s': %w", path, err)
+			if keepGoing {
+				continue
+			} else {
+				return errors
+			}
+		}
+		contained, _ := filepathx.IsSameOrContainedBy(rootPath, path)
+
+		switch {
+		case path == rootPath:
+			if err := personalSpaceDir(filepath.Join(path, "users")); err != nil {
+				errors = append(errors, err)
+				if !keepGoing {
+					return errors
+				}
+			}
+			if err := projectSpaceDir(filepath.Join(path, "projects")); err != nil {
+				errors = append(errors, err)
+				if !keepGoing {
+					return errors
+				}
+			}
+		case isSpaceRoot(path):
+			if err := spaceRoot(path); err != nil {
+				errors = append(errors, err)
+				if !keepGoing {
+					return errors
+				}
+			}
+		case contained:
+			if err := entity(path); err != nil {
+				errors = append(errors, err)
+				if !keepGoing {
+					return errors
+				}
+			}
+		default:
+			err := fmt.Errorf("error: the provided path '%s' is neither a space root nor contained by the storage root '%s'", path, rootPath)
+			errors = append(errors, err)
+			logFailure(err.Error())
+			if !keepGoing {
+				return errors
+			}
+		}
+	}
+	return errors
 }

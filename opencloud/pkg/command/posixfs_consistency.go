@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/opencloud-eu/opencloud/pkg/x/path/filepathx"
 	storageUsersConfig "github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/ignore"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
@@ -35,38 +34,31 @@ type consistencyChecker struct {
 // given path determines the scope of the check: the whole storage, a single
 // space or a single entity within a space.
 func (c *consistencyChecker) Check(paths []string) error {
-	for _, path := range paths {
-		rootPath, err := findStorageRoot(path)
-		if err != nil {
-			return err
-		}
-		path = filepath.Clean(path)
-		if _, err := os.Stat(path); err != nil {
-			return fmt.Errorf("error accessing '%s': %w", path, err)
-		}
-		contained, _ := filepathx.IsSameOrContainedBy(rootPath, path)
-
-		switch {
-		case path == rootPath:
+	_ = processPosixFsResources(paths, true,
+		func(path string) error {
 			fmt.Println("Checking personal spaces...")
-			c.checkSpaces(filepath.Join(path, "users"))
-
+			c.checkSpaces(path)
+			return nil
+		},
+		func(path string) error {
 			fmt.Println("Checking project spaces...")
-			c.checkSpaces(filepath.Join(path, "projects"))
-		case isSpaceRoot(path):
+			c.checkSpaces(path)
+			return nil
+		},
+		func(path string) error {
 			fmt.Printf("Checking space '%s'...\n", path)
 			c.checkSpace(path)
-		case contained:
+			return nil
+		},
+		func(path string) error {
 			if c.ignorer.IsIgnored(path) {
-				continue
+				return nil
 			}
 			fmt.Printf("Checking '%s'...\n", path)
 			c.checkEntity(path)
-		default:
-			return fmt.Errorf("the provided path '%s' is neither a space root nor contained by the storage root '%s'", path, rootPath)
-		}
-	}
-
+			return nil
+		},
+	)
 	if c.restartRequired {
 		fmt.Println("\n\n  ⚠️  Please restart your openCloud instance to apply changes.")
 	}
