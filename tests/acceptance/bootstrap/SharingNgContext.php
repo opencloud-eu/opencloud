@@ -1031,19 +1031,7 @@ class SharingNgContext implements Context {
 			$this->featureContext->shareNgAddToCreatedUserGroupShares($this->getDrivePermissionsList($sharer, $space));
 			$permissionID = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
 		} elseif ($shareType == 'group' && !isset($recipient)) {
-			// https://github.com/opencloud-eu/opencloud/pull/3179#issuecomment-5103212045
-			$retried = 0;
-			do {
-				$response = $this->getDrivePermissionsList($sharer, $space);
-				$tryAgain = $response->getStatusCode() === 404
-				&& $retried < HttpRequestHelper::numRetriesOnHttpTooEarly();
-				if ($tryAgain) {
-					$retried += 1;
-					echo "Drive permissions of space '$space' not available for user '$sharer' yet, retrying ($retried)...\n";
-					// wait 500ms and try again
-					\usleep(500 * 1000);
-				}
-			} while ($tryAgain);
+			$response = $this->getDrivePermissionsList($sharer, $space);
 			$permissionID = $this->featureContext->getJsonDecodedResponse($response)['value'][0]['id'];
 		} else {
 			$permissionID = match ($shareType) {
