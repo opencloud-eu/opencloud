@@ -71,10 +71,12 @@ step needs to be communicated in two directions:
 
 Release notes alone are not enough here. Plenty of instances are upgraded by pulling a
 new image tag, and nobody reads a changelog for that. So the service has to say it
-itself: when it creates a new index it logs that a reindex is pending, names the command,
-and keeps that state readable from the outside, so it also shows up in monitoring. If we
-skip this, the realistic path is that the operator learns about it from users who miss
-their favorites.
+itself: when it creates a new index it logs that a reindex is pending and names the
+command. If we skip this, the realistic path is that the operator learns about it from
+users who miss their favorites.
+
+This is only about the moment the index is created. Whether a reindex has finished is
+not something we track, and the reindex is the operator's job anyway.
 
 We deliberately do not ship this batteries included. A migration that runs by itself is
 a black box for us, we cannot look into the instance it runs on and we cannot promise it
@@ -94,12 +96,15 @@ the release note and the sticky message it looks like data loss to the user.
 
 1. Derive the index name (OpenSearch) and the index path (bleve) from the mapping
    version, so a breaking mapping change automatically means a new, empty index.
-2. Drop the startup failure path, the mismatch now leads to a new index instead of an
-   error.
-3. Log the pending reindex on startup and expose it as state that can be monitored.
+2. Keep the mismatch detection as it is and only change what an operator gets out of it:
+   a new index instead of a service that refuses to start. The error path stays, as the
+   fallback when the new index cannot be created and as a strict mode for development,
+   where failing loudly on an unversioned mapping change is what we want.
+3. Log that a reindex is pending when a new index is created, and name the command.
 4. Make the reindex fit for a long run. It has to report progress, survive longer than a
    fixed timeout, and a single failing space must not kill the whole run.
-5. Add the sticky message to the web UI, publishable by the operator.
+5. Add the sticky message to the web UI, publishable by the operator. In progress in
+   https://github.com/opencloud-eu/opencloud/pull/3189.
 6. Document the reindex, `opencloud search index --all-spaces`, and the cleanup of old
    indexes in the admin docs.
 7. Add the manual step to the release notes of every release that bumps the index
