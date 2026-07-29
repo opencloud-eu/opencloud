@@ -5,6 +5,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/query"
 )
 
 var (
@@ -17,10 +18,9 @@ func KQLToOpenSearchBoolQuery(kqlQuery string) (*osu.BoolQuery, error) {
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
-	kqlNodes, err := ExpandKQL(kqlAst.Nodes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to expand KQL AST nodes: %w", err)
-	}
+	// shared lowering (field resolution + media-type), then value lowercasing.
+	kqlAst = query.Normalize(kqlAst, query.ResolveField)
+	kqlNodes := LowerValues(kqlAst.Nodes)
 
 	builder, err := TranspileKQLToOpenSearch(kqlNodes)
 	if err != nil {
