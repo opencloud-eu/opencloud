@@ -244,7 +244,22 @@ func TestExpandKQLAST(t *testing.T) {
 	t.Run("lowercases some values", func(t *testing.T) {
 		tests := []opensearchtest.TableTest[[]ast.Node, []ast.Node]{
 			{
-				Name: "!Hidden: StringNode -> stringnode",
+				Name: "lowercase-analyzed field: value is folded",
+				Got: []ast.Node{
+					ast.StringNode{Key: "Name", Value: "StringNode"},
+					ast.GroupNode{Key: "GroupNode", Nodes: []ast.Node{
+						ast.StringNode{Key: "Name", Value: "StringNode"},
+					}},
+				},
+				Want: []ast.Node{
+					&ast.StringNode{Key: "Name", Value: "stringnode"},
+					&ast.GroupNode{Key: "GroupNode", Nodes: []ast.Node{
+						&ast.StringNode{Key: "Name", Value: "stringnode"},
+					}},
+				},
+			},
+			{
+				Name: "case-preserved field: value keeps its casing",
 				Got: []ast.Node{
 					ast.StringNode{Key: "aBc", Value: "StringNode"},
 					ast.GroupNode{Key: "GroupNode", Nodes: []ast.Node{
@@ -252,24 +267,9 @@ func TestExpandKQLAST(t *testing.T) {
 					}},
 				},
 				Want: []ast.Node{
-					&ast.StringNode{Key: "aBc", Value: "stringnode"},
+					&ast.StringNode{Key: "aBc", Value: "StringNode"},
 					&ast.GroupNode{Key: "GroupNode", Nodes: []ast.Node{
-						&ast.StringNode{Key: "aBc", Value: "stringnode"},
-					}},
-				},
-			},
-			{
-				Name: "Hidden: StringNode -> StringNode",
-				Got: []ast.Node{
-					ast.StringNode{Key: "Hidden", Value: "StringNode"},
-					ast.GroupNode{Key: "GroupNode", Nodes: []ast.Node{
-						ast.StringNode{Key: "Hidden", Value: "StringNode"},
-					}},
-				},
-				Want: []ast.Node{
-					&ast.StringNode{Key: "Hidden", Value: "StringNode"},
-					&ast.GroupNode{Key: "GroupNode", Nodes: []ast.Node{
-						&ast.StringNode{Key: "Hidden", Value: "StringNode"},
+						&ast.StringNode{Key: "aBc", Value: "StringNode"},
 					}},
 				},
 			},

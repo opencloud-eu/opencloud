@@ -3,10 +3,10 @@ package convert
 import (
 	"fmt"
 	"reflect"
-	"slices"
 	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
 func ExpandKQL(nodes []ast.Node) ([]ast.Node, error) {
@@ -94,10 +94,12 @@ func (_ kqlExpander) remapKey(current string, defaultKey string) string {
 }
 
 func (_ kqlExpander) lowerValue(key, value string) string {
-	if slices.Contains([]string{"Hidden"}, key) {
-		return value // ignore certain keys and return the original value
+	// only fold the value for fields whose index analyzer lowercases too;
+	// case-preserved (keyword) fields must keep their casing or they never match
+	// their stored token. Shared with bleve via search.LowercaseValueFields.
+	if _, ok := search.LowercaseValueFields()[key]; !ok {
+		return value
 	}
-
 	return strings.ToLower(value)
 }
 
