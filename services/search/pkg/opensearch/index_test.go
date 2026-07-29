@@ -66,14 +66,14 @@ func TestIndexManager(t *testing.T) {
 		require.NoError(t, indexManager.Apply(t.Context(), indexName, tc.Client(), log.NopLogger()))
 	})
 
-	t.Run("fails to create index if it already exists but is not up to date", func(t *testing.T) {
+	t.Run("fails when the analysis settings drift", func(t *testing.T) {
 		indexManager := opensearch.IndexManagerLatest
 		indexName := "opencloud-test-resource"
 
 		tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
 		tc.Require.IndicesReset([]string{indexName})
 
-		body, err := sjson.Set(indexManager.String(), "settings.number_of_shards", "2")
+		body, err := sjson.Set(indexManager.String(), "settings.analysis.analyzer.lowercaseKeyword.tokenizer", "standard")
 		require.NoError(t, err)
 		tc.Require.IndicesCreate(indexName, strings.NewReader(body))
 
@@ -88,6 +88,20 @@ func TestIndexManager(t *testing.T) {
 		tc.Require.IndicesReset([]string{indexName})
 
 		body, err := sjson.Set(indexManager.String(), "settings.number_of_replicas", "2")
+		require.NoError(t, err)
+		tc.Require.IndicesCreate(indexName, strings.NewReader(body))
+
+		require.NoError(t, indexManager.Apply(t.Context(), indexName, tc.Client(), log.NopLogger()))
+	})
+
+	t.Run("tolerates shard drift", func(t *testing.T) {
+		indexManager := opensearch.IndexManagerLatest
+		indexName := "opencloud-test-resource"
+
+		tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
+		tc.Require.IndicesReset([]string{indexName})
+
+		body, err := sjson.Set(indexManager.String(), "settings.number_of_shards", "2")
 		require.NoError(t, err)
 		tc.Require.IndicesCreate(indexName, strings.NewReader(body))
 
