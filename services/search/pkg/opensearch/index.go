@@ -104,11 +104,8 @@ func buildResourceMapping() ([]byte, error) {
 	return json.Marshal(index)
 }
 
-// Apply ensures the index exists and matches the schema generated from code: it
-// is created if missing, otherwise its schema is reconciled via
-// searchmapping.Reconcile (see osReconciler). PUT _mapping only applies the
-// change; the classifier judges, because its merge semantics hide removals and
-// renames.
+// Apply ensures the index exists and matches the code schema: created if
+// missing, otherwise reconciled via searchmapping.Reconcile (see osReconciler).
 func (m IndexManager) Apply(ctx context.Context, name string, client *opensearchgoAPI.Client, logger log.Logger) error {
 	localIndexB, err := m.MarshalJSON()
 	if err != nil {
@@ -180,8 +177,7 @@ type osReconciler struct {
 }
 
 func (r *osReconciler) Classify() (searchmapping.Classification, error) {
-	// Only the analysis settings (analyzers/tokenizers/filters) affect how data
-	// is indexed and queried; a drift there yields wrong results. Shard/replica
+	// Only the analysis settings affect indexing correctness; shard/replica
 	// counts and other operational knobs are the operator's to tune (and a
 	// pre-provisioned index's to own), so they are not compared.
 	var reasons []string
@@ -204,9 +200,8 @@ func (r *osReconciler) Classify() (searchmapping.Classification, error) {
 	return classification, nil
 }
 
-// ApplyAdditive puts the full code properties; the classifier guarantees every
-// existing field already matches the remote state, so this can only add fields.
-// The PUT is atomic, so persisted is true only on success.
+// ApplyAdditive puts the full code properties (only additions, per the
+// classifier). The PUT is atomic, so persisted is true only on success.
 func (r *osReconciler) ApplyAdditive() (bool, error) {
 	putResp, err := r.client.Indices.Mapping.Put(r.ctx, opensearchgoAPI.MappingPutReq{
 		Indices: []string{r.name},
