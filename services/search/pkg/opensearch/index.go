@@ -128,7 +128,7 @@ func (m IndexManager) Apply(ctx context.Context, name string, client *opensearch
 		var structErr *opensearchgo.StructError
 		switch {
 		case createErr == nil && createResp.Acknowledged:
-			logger.Info().Str("index", name).Msg("created a new empty search index; if this OpenCloud instance already held files, they are not in it yet, index them by running: opencloud search index --all-spaces --force-rescan")
+			searchmapping.LogNewIndexCreated(logger, name)
 			return nil
 		case createErr == nil:
 			return fmt.Errorf("failed to create index %s: not acknowledged", name)
