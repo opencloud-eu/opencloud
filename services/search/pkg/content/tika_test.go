@@ -217,6 +217,39 @@ var _ = Describe("Tika", func() {
 			Expect(doc.Content).To(Equal("one two"))
 		})
 
+		It("verifies the motion photo video against the file", func() {
+			fullResponse = `[{"Camera:MotionPhotoVersion": "1", "Container:Directory/Item[2]/Item:Semantic": "MotionPhoto", "Container:Directory/Item[2]/Item:Length": "40"}]`
+			retriever := &contentMocks.Retriever{}
+			retriever.On("Retrieve", mock.Anything, mock.Anything).Return(io.NopCloser(strings.NewReader("")), nil)
+			retriever.On("RetrieveRange", mock.Anything, mock.Anything, int64(60), mock.Anything).
+				Return(io.NopCloser(strings.NewReader("\x00\x00\x00\x18ftypisom")), nil)
+			tika.Retriever = retriever
+
+			doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+				Type: provider.ResourceType_RESOURCE_TYPE_FILE,
+				Size: 100,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(doc.MotionPhoto).ToNot(BeNil())
+			Expect(doc.MotionPhoto.VideoSize).To(Equal(libregraph.PtrInt64(40)))
+		})
+
+		It("drops the motion photo facet when the advertised video is gone", func() {
+			fullResponse = `[{"Camera:MotionPhotoVersion": "1", "Container:Directory/Item[2]/Item:Semantic": "MotionPhoto", "Container:Directory/Item[2]/Item:Length": "40"}]`
+			retriever := &contentMocks.Retriever{}
+			retriever.On("Retrieve", mock.Anything, mock.Anything).Return(io.NopCloser(strings.NewReader("")), nil)
+			retriever.On("RetrieveRange", mock.Anything, mock.Anything, int64(60), mock.Anything).
+				Return(io.NopCloser(strings.NewReader("JFIF leftovers")), nil)
+			tika.Retriever = retriever
+
+			doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+				Type: provider.ResourceType_RESOURCE_TYPE_FILE,
+				Size: 100,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(doc.MotionPhoto).To(BeNil())
+		})
+
 		It("keeps stop words", func() {
 			body = "body to test stop words!!! against almost everyone"
 			language = "en"

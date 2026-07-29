@@ -115,6 +115,15 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		if v := t.getVideo(meta); v != nil {
 			doc.Video = v
 		}
+		if v := t.getMotionPhoto(meta); v != nil {
+			doc.MotionPhoto = v
+		}
+	}
+
+	// verify against the file itself: a shared motion photo can keep the XMP but
+	// lose the appended video, which would leave an unplayable facet.
+	if doc.MotionPhoto != nil && !t.motionPhotoHasVideo(ctx, ri, doc.MotionPhoto.GetVideoSize()) {
+		doc.MotionPhoto = nil
 	}
 
 	if langCode := t.detectLanguage(ctx, doc.Content); langCode != "" && t.CleanStopWords {
