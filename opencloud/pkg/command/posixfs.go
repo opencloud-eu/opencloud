@@ -12,6 +12,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/config/parser"
+	oclog "github.com/opencloud-eu/opencloud/pkg/log"
 	storageUsersParser "github.com/opencloud-eu/opencloud/services/storage-users/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/event"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/revaconfig"
@@ -105,6 +106,11 @@ func scanCmd(ocCfg *config.Config) *cobra.Command {
 				fmt.Fprintf(os.Stderr, "Failed to create event stream for posix driver: %v\n", err)
 				os.Exit(1)
 			}
+			log := oclog.NewLogger(
+				oclog.Name("posixfs scan"),
+				oclog.Level("error"),
+				oclog.Pretty(true),
+				oclog.Color(false)).Logger
 
 			f, ok := registry.NewFuncs["posix"]
 			if !ok {
@@ -112,7 +118,7 @@ func scanCmd(ocCfg *config.Config) *cobra.Command {
 				os.Exit(1)
 			}
 
-			fs, err := f(drivers["posix"].(map[string]any), fsStream, nil)
+			fs, err := f(drivers["posix"].(map[string]any), fsStream, &log)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to initialize filesystem driver '%s': %v\n", cfg.Driver, err)
 				return err
