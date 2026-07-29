@@ -30,9 +30,23 @@ func (t Tika) getAudio(meta map[string][]string) *libregraph.Audio {
 		audio.SetArtist(v)
 	}
 
-	// TODO: audio.Bitrate: not provided by tika
-	// TODO: audio.Composers: not provided by tika
-	// TODO: audio.Copyright: not provided by tika for audio files?
+	if v, err := getFirstValue(meta, "audio:bitrate"); err == nil {
+		// tika emits bits per second, graph wants kbps
+		if bps, err := strconv.ParseInt(v, 10, 64); err == nil {
+			initAudio()
+			audio.SetBitrate(bps / 1000)
+		}
+	}
+
+	if v, err := getFirstValue(meta, "xmpDM:composer"); err == nil {
+		initAudio()
+		audio.SetComposers(v)
+	}
+
+	if v, err := getFirstValue(meta, "xmpDM:copyright"); err == nil {
+		initAudio()
+		audio.SetCopyright(v)
+	}
 
 	if v, err := getFirstValue(meta, "xmpDM:discNumber"); err == nil {
 		if i, err := strconv.ParseInt(v, 10, 32); err == nil {
@@ -42,7 +56,12 @@ func (t Tika) getAudio(meta map[string][]string) *libregraph.Audio {
 
 	}
 
-	//  TODO: audio.DiscCount: not provided by tika
+	if v, err := getFirstValue(meta, "audio:disc-count"); err == nil {
+		if i, err := strconv.ParseInt(v, 10, 32); err == nil {
+			initAudio()
+			audio.SetDiscCount(int32(i))
+		}
+	}
 
 	if v, err := getFirstValue(meta, "xmpDM:duration"); err == nil {
 		// Tika emits fractional seconds.
@@ -57,8 +76,19 @@ func (t Tika) getAudio(meta map[string][]string) *libregraph.Audio {
 		audio.SetGenre(v)
 	}
 
-	// TODO: audio.HasDrm: not provided by tika
-	// TODO: audio.IsVariableBitrate: not provided by tika
+	if v, err := getFirstValue(meta, "audio:has-drm"); err == nil {
+		if b, err := strconv.ParseBool(v); err == nil {
+			initAudio()
+			audio.SetHasDrm(b)
+		}
+	}
+
+	if v, err := getFirstValue(meta, "audio:is-variable-bitrate"); err == nil {
+		if b, err := strconv.ParseBool(v); err == nil {
+			initAudio()
+			audio.SetIsVariableBitrate(b)
+		}
+	}
 
 	if v, err := getFirstValue(meta, "dc:title"); err == nil {
 		initAudio()
@@ -72,7 +102,12 @@ func (t Tika) getAudio(meta map[string][]string) *libregraph.Audio {
 		}
 	}
 
-	// TODO: audio.TrackCount: not provided by tika
+	if v, err := getFirstValue(meta, "audio:track-count"); err == nil {
+		if i, err := strconv.ParseInt(v, 10, 32); err == nil {
+			initAudio()
+			audio.SetTrackCount(int32(i))
+		}
+	}
 
 	if v, err := getFirstValue(meta, "xmpDM:releaseDate"); err == nil {
 		if i, err := strconv.ParseInt(v, 10, 32); err == nil {

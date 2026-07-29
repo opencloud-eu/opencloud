@@ -90,10 +90,7 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		doc.Location = t.getLocation(meta)
 		doc.Image = t.getImage(meta)
 		doc.Photo = t.getPhoto(meta)
-
-		if contentType, err := getFirstValue(meta, "Content-Type"); err == nil && strings.HasPrefix(contentType, "audio/") {
-			doc.Audio = t.getAudio(meta)
-		}
+		doc.Audio = t.getAudio(meta)
 	}
 
 	if langCode, _ := t.tika.LanguageString(ctx, doc.Content); langCode != "" && t.CleanStopWords {
