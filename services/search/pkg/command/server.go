@@ -18,7 +18,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
-	searchmapping "github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
 	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
@@ -68,14 +67,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			var eng search.Engine
 			switch cfg.Engine.Type {
 			case "bleve":
-				idx, classification, err := bleve.NewIndex(cfg.Engine.Bleve.Datapath)
-				// warn before the error check: the new mapping may already be
-				// persisted, then later startups classify equal and stay silent
-				if classification.Verdict == searchmapping.VerdictAdditive {
-					logger.Warn().
-						Strs("fields", classification.NewFields).
-						Msgf("the bleve index at %s was built with an older schema; the new fields were added to the index schema, but documents indexed before the upgrade do not contain them and queries on these fields will miss those documents until they are re-indexed; to re-index everything run: opencloud search index --all-spaces --force-rescan", cfg.Engine.Bleve.Datapath)
-				}
+				idx, _, err := bleve.NewIndex(cfg.Engine.Bleve.Datapath, logger)
 				if err != nil {
 					return err
 				}

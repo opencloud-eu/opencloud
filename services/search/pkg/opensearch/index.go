@@ -104,10 +104,11 @@ func buildResourceMapping() ([]byte, error) {
 	return json.Marshal(index)
 }
 
-// Apply ensures the index exists and matches the schema generated from code:
-// created if missing, additive changes applied via PUT _mapping, breaking ones
-// refused with ErrManualActionRequired. The classifier judges, PUT _mapping
-// only applies (its merge semantics hide removals and renames).
+// Apply ensures the index exists and matches the schema generated from code: it
+// is created if missing, otherwise its schema is reconciled via
+// searchmapping.Reconcile (see osReconciler). PUT _mapping only applies the
+// change; the classifier judges, because its merge semantics hide removals and
+// renames.
 func (m IndexManager) Apply(ctx context.Context, name string, client *opensearchgoAPI.Client, logger log.Logger) error {
 	localIndexB, err := m.MarshalJSON()
 	if err != nil {
@@ -141,14 +142,13 @@ func (m IndexManager) Apply(ctx context.Context, name string, client *opensearch
 		return fmt.Errorf("indicesExistsResp is nil for index %s", name)
 	}
 
-	// the index exists: compare settings and classify the mapping diff
+	// the index exists: reconcile its schema through the shared verdict flow
 	resp, err := client.Indices.Get(ctx, opensearchgoAPI.IndicesGetReq{
 		Indices: []string{name},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get index %s: %w", name, err)
 	}
-
 	remoteIndex, ok := resp.Indices[name]
 	if !ok {
 		return fmt.Errorf("index %s not found in response", name)
@@ -158,52 +158,69 @@ func (m IndexManager) Apply(ctx context.Context, name string, client *opensearch
 		return fmt.Errorf("failed to marshal index %s: %w", name, err)
 	}
 
-	localIndexJson := gjson.ParseBytes(localIndexB)
-	remoteIndexJson := gjson.ParseBytes(remoteIndexB)
+	r := &osReconciler{
+		ctx:    ctx,
+		name:   name,
+		client: client,
+		local:  gjson.ParseBytes(localIndexB),
+		remote: gjson.ParseBytes(remoteIndexB),
+	}
+	_, err = searchmapping.Reconcile(name, r, logger)
+	return err
+}
 
+// osReconciler adapts an existing OpenSearch index to searchmapping.SchemaReconciler.
+type osReconciler struct {
+	ctx    context.Context
+	name   string
+	client *opensearchgoAPI.Client
+	local  gjson.Result
+	remote gjson.Result
+}
+
+func (r *osReconciler) Classify() (searchmapping.Classification, error) {
 	// Only the analysis settings (analyzers/tokenizers/filters) affect how data
 	// is indexed and queried; a drift there yields wrong results. Shard/replica
 	// counts and other operational knobs are the operator's to tune (and a
 	// pre-provisioned index's to own), so they are not compared.
 	var reasons []string
-	lv := localIndexJson.Get("settings.analysis").Raw
-	rv := remoteIndexJson.Get("settings.index.analysis").Raw
+	lv := r.local.Get("settings.analysis").Raw
+	rv := r.remote.Get("settings.index.analysis").Raw
 	if !jsonEqual(lv, rv) {
 		reasons = append(reasons, fmt.Sprintf("settings.analysis changed: index %s, code %s", rawOrUnset(rv), rawOrUnset(lv)))
 	}
 
 	classification := searchmapping.Classify(
-		propertiesMap(remoteIndexJson.Get("mappings.properties").Raw),
-		propertiesMap(localIndexJson.Get("mappings.properties").Raw),
+		propertiesMap(r.remote.Get("mappings.properties").Raw),
+		propertiesMap(r.local.Get("mappings.properties").Raw),
 		nil,
 	)
 	reasons = append(reasons, classification.Reasons...)
 	if len(reasons) > 0 {
-		return searchmapping.ManualActionRequiredError(name, reasons)
+		classification.Verdict = searchmapping.VerdictBreaking
+		classification.Reasons = reasons
 	}
-	if len(classification.NewFields) == 0 {
-		return nil // schema is up to date
-	}
+	return classification, nil
+}
 
-	// additive: the classifier guarantees every existing field matches the
-	// remote state, so putting the full code properties can only add fields
-	putResp, err := client.Indices.Mapping.Put(ctx, opensearchgoAPI.MappingPutReq{
-		Indices: []string{name},
-		Body:    strings.NewReader(localIndexJson.Get("mappings").Raw),
+// ApplyAdditive puts the full code properties; the classifier guarantees every
+// existing field already matches the remote state, so this can only add fields.
+func (r *osReconciler) ApplyAdditive() error {
+	putResp, err := r.client.Indices.Mapping.Put(r.ctx, opensearchgoAPI.MappingPutReq{
+		Indices: []string{r.name},
+		Body:    strings.NewReader(r.local.Get("mappings").Raw),
 	})
 	var putErr *opensearchgo.StructError
 	switch {
 	case err != nil && errors.As(err, &putErr) && putErr.Err.Type == "illegal_argument_exception" &&
 		(strings.Contains(putErr.Err.Reason, "cannot be changed") || strings.Contains(putErr.Err.Reason, "Cannot update parameter")):
 		// backstop, should be unreachable after the classification above
-		return searchmapping.ManualActionRequiredError(name, []string{putErr.Err.Reason})
+		return searchmapping.ManualActionRequiredError(r.name, []string{putErr.Err.Reason})
 	case err != nil:
-		return fmt.Errorf("failed to update mapping of index %s: %w", name, err)
+		return fmt.Errorf("failed to update mapping of index %s: %w", r.name, err)
 	case !putResp.Acknowledged:
-		return fmt.Errorf("failed to update mapping of index %s: not acknowledged", name)
+		return fmt.Errorf("failed to update mapping of index %s: not acknowledged", r.name)
 	}
-
-	logger.Warn().Strs("fields", classification.NewFields).Str("index", name).Msg("extended the search index mapping with new fields; documents indexed before the upgrade do not contain them and queries on these fields will miss those documents until they are re-indexed; to re-index everything run: opencloud search index --all-spaces --force-rescan")
 	return nil
 }
 

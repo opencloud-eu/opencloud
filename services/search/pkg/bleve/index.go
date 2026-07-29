@@ -20,6 +20,7 @@ import (
 	"github.com/blevesearch/bleve/v2/mapping"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmapping "github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
@@ -28,12 +29,10 @@ import (
 // instead of blocking forever on the file lock.
 var openRuntimeConfig = map[string]interface{}{"bolt_timeout": "5s"}
 
-// NewIndex opens (or creates) the bleve index at root and classifies the
-// stored schema against NewMapping(). Breaking changes refuse with
-// ErrManualActionRequired, additive ones are persisted into the index (the
-// bleve analogue of PUT _mapping); the caller must warn that pre-upgrade
-// documents lack the Classification.NewFields until re-indexed.
-func NewIndex(root string) (bleve.Index, searchmapping.Classification, error) {
+// NewIndex opens (or creates) the bleve index at root and reconciles the stored
+// schema against NewMapping() via searchmapping.Reconcile: a breaking change
+// refuses to start, an additive one is persisted into the index and warned about.
+func NewIndex(root string, logger log.Logger) (bleve.Index, searchmapping.Classification, error) {
 	destination := filepath.Join(root, fmt.Sprintf("bleve-v%d", search.SchemaVersion))
 	index, err := bleve.OpenUsing(destination, openRuntimeConfig)
 	if errors.Is(err, bleve.ErrorIndexPathDoesNotExist) {
@@ -52,37 +51,51 @@ func NewIndex(root string) (bleve.Index, searchmapping.Classification, error) {
 		return nil, searchmapping.Classification{}, err
 	}
 
-	classification, codeB, err := classifyStoredMapping(index)
+	r := &bleveReconciler{index: index, destination: destination}
+	classification, err := searchmapping.Reconcile(destination, r, logger)
 	if err != nil {
-		_ = index.Close()
-		return nil, searchmapping.Classification{}, err
+		if r.index != nil {
+			_ = r.index.Close()
+		}
+		return nil, classification, err
 	}
 
-	switch classification.Verdict {
-	case searchmapping.VerdictBreaking:
-		_ = index.Close()
-		return nil, classification, searchmapping.ManualActionRequiredError(destination, classification.Reasons)
-	case searchmapping.VerdictAdditive:
-		// Safe: everything else is identical and the new fields hold no data.
-		// Reopen so the live mapping picks the change up; otherwise the fields
-		// get indexed dynamically and flip to breaking on the next start.
-		// return the classification even on errors: the mapping may already be
-		// persisted, so the next start classifies equal and the caller's
-		// warning is the only chance to surface the new fields
-		if err := index.SetInternal([]byte("_mapping"), codeB); err != nil {
-			_ = index.Close()
-			return nil, classification, fmt.Errorf("failed to store the updated index mapping: %w", err)
-		}
-		if err := index.Close(); err != nil {
-			return nil, classification, err
-		}
-		index, err = bleve.OpenUsing(destination, openRuntimeConfig)
-		if err != nil {
-			return nil, classification, err
-		}
-	}
+	return r.index, classification, nil
+}
 
-	return index, classification, nil
+// bleveReconciler adapts a bleve index to searchmapping.SchemaReconciler.
+type bleveReconciler struct {
+	index       bleve.Index
+	destination string
+	codeB       []byte // marshaled code mapping, produced by Classify, used by ApplyAdditive
+}
+
+func (r *bleveReconciler) Classify() (searchmapping.Classification, error) {
+	classification, codeB, err := classifyStoredMapping(r.index)
+	r.codeB = codeB
+	return classification, err
+}
+
+// ApplyAdditive persists the code mapping and reopens so the live mapping picks
+// it up; otherwise the new fields get indexed dynamically and flip to breaking
+// on the next start. On failure it closes the index and clears the handle.
+func (r *bleveReconciler) ApplyAdditive() error {
+	if err := r.index.SetInternal([]byte("_mapping"), r.codeB); err != nil {
+		_ = r.index.Close()
+		r.index = nil
+		return fmt.Errorf("failed to store the updated index mapping: %w", err)
+	}
+	if err := r.index.Close(); err != nil {
+		r.index = nil
+		return err
+	}
+	index, err := bleve.OpenUsing(r.destination, openRuntimeConfig)
+	if err != nil {
+		r.index = nil
+		return err
+	}
+	r.index = index
+	return nil
 }
 
 // classifyStoredMapping diffs the stored mapping against NewMapping() and
