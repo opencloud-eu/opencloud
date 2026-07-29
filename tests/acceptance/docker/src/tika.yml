@@ -5,4 +5,6 @@ services:
       - tika
     command: tika:9998
   tika:
-    image: apache/tika:3.2.3.0-full
+    # latest snapshot, pinned by digest (the SNAPSHOT tag is rebuilt daily);
+    # needed for the audio/GPS metadata keys added in the tika 4.0.0 dev line.
+    image: apache/tika:4.0.0-SNAPSHOT-full@sha256:64a022ebae0830e90067d619b6b1b1d5640d5bfd635b2173ae51ed8de967078f
