@@ -934,6 +934,194 @@
             ]
           }
         }
+      },
+      "video": {
+        "enabled": true,
+        "dynamic": true,
+        "properties": {
+          "audioBitsPerSample": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "number",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "audioChannels": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "number",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "audioFormat": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "text",
+                "analyzer": "keyword",
+                "store": true,
+                "index": true,
+                "include_term_vectors": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "audioFormat_lowercase": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "text",
+                "analyzer": "keyword",
+                "index": true,
+                "include_term_vectors": true
+              }
+            ]
+          },
+          "audioFormat_words": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "text",
+                "analyzer": "words",
+                "index": true,
+                "include_term_vectors": true
+              }
+            ]
+          },
+          "audioSamplesPerSecond": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "number",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "bitrate": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "number",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "duration": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "number",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "fourCC": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "text",
+                "analyzer": "keyword",
+                "store": true,
+                "index": true,
+                "include_term_vectors": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "fourCC_lowercase": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "text",
+                "analyzer": "keyword",
+                "index": true,
+                "include_term_vectors": true
+              }
+            ]
+          },
+          "fourCC_words": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "text",
+                "analyzer": "words",
+                "index": true,
+                "include_term_vectors": true
+              }
+            ]
+          },
+          "frameRate": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "number",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "height": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "number",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "width": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "number",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          }
+        }
       }
     }
   },
