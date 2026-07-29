@@ -2,9 +2,12 @@ package command
 
 import (
 	"bufio"
+	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +24,8 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/ignore"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/registry"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 
 	"github.com/pkg/xattr"
 	"github.com/rs/zerolog"
@@ -28,18 +33,10 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-// Define the names of the extended attributes we are working with.
-const (
-	parentIDAttrName = "user.oc.parentid"
-	idAttrName       = "user.oc.id"
-	nameAttrName     = "user.oc.name"
-	spaceIDAttrName  = "user.oc.space.id"
-	ownerIDAttrName  = "user.oc.owner.id"
-)
-
 var (
-	restartRequired = false
-	ignorer         *ignore.Ignorer
+	restartRequired      = false
+	recalculateChecksums = false
+	ignorer              *ignore.Ignorer
 )
 
 type IDCacher interface {
@@ -196,6 +193,7 @@ func consistencyCmd(cfg *config.Config) *cobra.Command {
 	}
 	consCmd.Flags().StringP("root", "r", "", "Path to the root directory of the posixfs storage")
 	_ = consCmd.MarkFlagRequired("root")
+	consCmd.Flags().Bool("fix-checksums", false, "Recalculate and fix the file checksums. This reads every file and can be slow on large storages.")
 
 	return consCmd
 }
@@ -203,6 +201,7 @@ func consistencyCmd(cfg *config.Config) *cobra.Command {
 // checkPosixfsConsistency checks the consistency of the posixfs storage.
 func checkPosixfsConsistency(cmd *cobra.Command, cfg *config.Config) error {
 	rootPath, _ := cmd.Flags().GetString("root")
+	recalculateChecksums, _ = cmd.Flags().GetBool("fix-checksums")
 	indexesPath := filepath.Join(rootPath, "indexes")
 
 	opt, _ := options.New(map[string]interface{}{
@@ -257,9 +256,9 @@ func checkSpace(spacePath string) {
 		return
 	}
 
-	spaceID, err := xattr.Get(spacePath, spaceIDAttrName)
+	spaceID, err := xattr.Get(spacePath, prefixes.SpaceIDAttr)
 	if err != nil || len(spaceID) == 0 {
-		logFailure("Error: The directory '%s' does not seem to be a space root, it's missing the '%s' attribute\n", spacePath, spaceIDAttrName)
+		logFailure("Error: The directory '%s' does not seem to be a space root, it's missing the '%s' attribute\n", spacePath, prefixes.SpaceIDAttr)
 		return
 	}
 
@@ -328,9 +327,9 @@ func walkNodes(dir string, parentID string) int {
 		}
 
 		// Check if the parent ID attribute matches the expected parent ID, if not, fix it.
-		actualParentID, err := xattr.Get(fullPath, parentIDAttrName)
+		actualParentID, err := xattr.Get(fullPath, prefixes.ParentidAttr)
 		if err != nil || string(actualParentID) != parentID {
-			err = xattr.Set(fullPath, parentIDAttrName, []byte(parentID))
+			err = xattr.Set(fullPath, prefixes.ParentidAttr, []byte(parentID))
 			if err != nil {
 				logFailure("Failed to fix parent ID for '%s': %v", fullPath, err)
 			} else {
@@ -341,9 +340,9 @@ func walkNodes(dir string, parentID string) int {
 		}
 
 		// Check that the name attribute matches the actual name of the file/directory, if not, fix it.
-		nameAttr, err := xattr.Get(fullPath, nameAttrName)
+		nameAttr, err := xattr.Get(fullPath, prefixes.NameAttr)
 		if err != nil || string(nameAttr) != entry.Name() {
-			err = xattr.Set(fullPath, nameAttrName, []byte(entry.Name()))
+			err = xattr.Set(fullPath, prefixes.NameAttr, []byte(entry.Name()))
 			if err != nil {
 				logFailure("Failed to fix name attribute for '%s': %v", fullPath, err)
 			} else {
@@ -354,21 +353,83 @@ func walkNodes(dir string, parentID string) int {
 		}
 
 		if entry.IsDir() {
-			nodeID, err := xattr.Get(fullPath, idAttrName)
+			nodeID, err := xattr.Get(fullPath, prefixes.IDAttr)
 			if err != nil || len(nodeID) == 0 {
-				logFailure("Directory '%s' missing '%s', skipping its children", fullPath, idAttrName)
+				logFailure("Directory '%s' missing '%s', skipping its children", fullPath, prefixes.IDAttr)
 				continue
 			}
-			walkNodes(fullPath, string(nodeID))
+			fixes += walkNodes(fullPath, string(nodeID))
+		} else {
+			fixes += checkBlobsize(fullPath)
+			if recalculateChecksums {
+				fixes += fixChecksums(fullPath)
+			}
 		}
 	}
 	return fixes
 }
 
+// checkBlobsize verifies that the stored blobsize attribute matches the actual
+// file size and fixes it if it doesn't. It returns the number of fixes applied.
+func checkBlobsize(path string) int {
+	info, err := os.Stat(path)
+	if err != nil {
+		logFailure("Error accessing file '%s': %v", path, err)
+		return 0
+	}
+
+	expectedSize := strconv.FormatInt(info.Size(), 10)
+	blobsize, err := xattr.Get(path, prefixes.BlobsizeAttr)
+	if err == nil && string(blobsize) == expectedSize {
+		return 0
+	}
+
+	if err := xattr.Set(path, prefixes.BlobsizeAttr, []byte(expectedSize)); err != nil {
+		logFailure("Failed to fix blobsize for '%s': %v", path, err)
+		return 0
+	}
+
+	fmt.Printf("  + Fixed blobsize for '%s'\n", path)
+	restartRequired = true
+	return 1
+}
+
+// fixChecksums recalculates the sha1, md5 and adler32 checksums of the file and
+// updates the stored attributes if they differ. It returns the number of fixes applied.
+func fixChecksums(path string) int {
+	sha1h, md5h, adler32h, err := node.CalculateChecksums(context.Background(), path)
+	if err != nil {
+		logFailure("Failed to calculate checksums for '%s': %v", path, err)
+		return 0
+	}
+
+	checksums := map[string][]byte{
+		prefixes.ChecksumPrefix + "sha1":    sha1h.Sum(nil),
+		prefixes.ChecksumPrefix + "md5":     md5h.Sum(nil),
+		prefixes.ChecksumPrefix + "adler32": adler32h.Sum(nil),
+	}
+
+	fixes := 0
+	for attrName, sum := range checksums {
+		current, err := xattr.Get(path, attrName)
+		if err == nil && bytes.Equal(current, sum) {
+			continue
+		}
+		if err := xattr.Set(path, attrName, sum); err != nil {
+			logFailure("Failed to fix checksum '%s' for '%s': %v", attrName, path, err)
+			continue
+		}
+		fmt.Printf("  + Fixed checksum '%s' for '%s'\n", attrName, path)
+		restartRequired = true
+		fixes++
+	}
+	return fixes
+}
+
 func checkNodes(spacePath string) {
-	rootID, err := xattr.Get(spacePath, idAttrName)
+	rootID, err := xattr.Get(spacePath, prefixes.IDAttr)
 	if err != nil || len(rootID) == 0 {
-		logFailure("Space root '%s' missing '%s' attribute", spacePath, idAttrName)
+		logFailure("Space root '%s' missing '%s' attribute", spacePath, prefixes.IDAttr)
 		return
 	}
 
@@ -388,13 +449,13 @@ func fixSpaceID(spacePath string, obsoleteIDs []string, targetID string, entries
 	}
 
 	// Update space ID itself
-	fmt.Printf("  Updating directory '%s' with attribute '%s' -> %s\n", filepath.Base(spacePath), idAttrName, targetID)
-	err = xattr.Set(spacePath, idAttrName, []byte(targetID))
+	fmt.Printf("  Updating directory '%s' with attribute '%s' -> %s\n", filepath.Base(spacePath), prefixes.IDAttr, targetID)
+	err = xattr.Set(spacePath, prefixes.IDAttr, []byte(targetID))
 	if err != nil {
 		logFailure("Failed to set attribute on directory '%s': %v", spacePath, err)
 		return
 	}
-	err = xattr.Set(spacePath, spaceIDAttrName, []byte(targetID))
+	err = xattr.Set(spacePath, prefixes.SpaceIDAttr, []byte(targetID))
 	if err != nil {
 		logFailure("Failed to set attribute on directory '%s': %v", spacePath, err)
 		return
@@ -429,7 +490,7 @@ func gatherAttributes(path string) ([]EntryInfo, map[string]struct{}, EntryInfo,
 			continue
 		}
 
-		parentID, err := xattr.Get(fullPath, parentIDAttrName)
+		parentID, err := xattr.Get(fullPath, prefixes.ParentidAttr)
 		if err != nil {
 			continue // Skip if attribute doesn't exist or can't be read
 		}
@@ -481,7 +542,7 @@ func setAllParentIDAttributes(entries []EntryInfo, targetID string) error {
 func updateOwnerIndexFile(basePath string, obsoleteIDs []string) error {
 	fmt.Printf("  Rewriting index file '%s'\n", basePath)
 
-	ownerID, err := xattr.Get(basePath, ownerIDAttrName)
+	ownerID, err := xattr.Get(basePath, prefixes.OwnerIDAttr)
 	if err != nil {
 		return fmt.Errorf("could not get owner ID from oldest entry '%s' to find index: %w", basePath, err)
 	}
