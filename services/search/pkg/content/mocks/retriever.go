@@ -106,3 +106,83 @@ func (_c *Retriever_Retrieve_Call) RunAndReturn(run func(ctx context.Context, rI
 	_c.Call.Return(run)
 	return _c
 }
+
+// RetrieveRange provides a mock function for the type Retriever
+func (_mock *Retriever) RetrieveRange(ctx context.Context, rID *providerv1beta1.ResourceId, offset int64, length int64) (io.ReadCloser, error) {
+	ret := _mock.Called(ctx, rID, offset, length)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RetrieveRange")
+	}
+
+	var r0 io.ReadCloser
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *providerv1beta1.ResourceId, int64, int64) (io.ReadCloser, error)); ok {
+		return returnFunc(ctx, rID, offset, length)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *providerv1beta1.ResourceId, int64, int64) io.ReadCloser); ok {
+		r0 = returnFunc(ctx, rID, offset, length)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(io.ReadCloser)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *providerv1beta1.ResourceId, int64, int64) error); ok {
+		r1 = returnFunc(ctx, rID, offset, length)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// Retriever_RetrieveRange_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RetrieveRange'
+type Retriever_RetrieveRange_Call struct {
+	*mock.Call
+}
+
+// RetrieveRange is a helper method to define mock.On call
+//   - ctx context.Context
+//   - rID *providerv1beta1.ResourceId
+//   - offset int64
+//   - length int64
+func (_e *Retriever_Expecter) RetrieveRange(ctx interface{}, rID interface{}, offset interface{}, length interface{}) *Retriever_RetrieveRange_Call {
+	return &Retriever_RetrieveRange_Call{Call: _e.mock.On("RetrieveRange", ctx, rID, offset, length)}
+}
+
+func (_c *Retriever_RetrieveRange_Call) Run(run func(ctx context.Context, rID *providerv1beta1.ResourceId, offset int64, length int64)) *Retriever_RetrieveRange_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *providerv1beta1.ResourceId
+		if args[1] != nil {
+			arg1 = args[1].(*providerv1beta1.ResourceId)
+		}
+		var arg2 int64
+		if args[2] != nil {
+			arg2 = args[2].(int64)
+		}
+		var arg3 int64
+		if args[3] != nil {
+			arg3 = args[3].(int64)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *Retriever_RetrieveRange_Call) Return(readCloser io.ReadCloser, err error) *Retriever_RetrieveRange_Call {
+	_c.Call.Return(readCloser, err)
+	return _c
+}
+
+func (_c *Retriever_RetrieveRange_Call) RunAndReturn(run func(ctx context.Context, rID *providerv1beta1.ResourceId, offset int64, length int64) (io.ReadCloser, error)) *Retriever_RetrieveRange_Call {
+	_c.Call.Return(run)
+	return _c
+}

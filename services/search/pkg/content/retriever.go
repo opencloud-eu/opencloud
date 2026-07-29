@@ -12,6 +12,10 @@ import (
 // It requests and then returns a resource from the underlying storage.
 type Retriever interface {
 	Retrieve(ctx context.Context, rID *provider.ResourceId) (io.ReadCloser, error)
+	// RetrieveRange returns a reader positioned at offset for up to length bytes
+	// of the resource. Implementations must ensure the reader starts at offset
+	// even when the storage does not honor HTTP range requests.
+	RetrieveRange(ctx context.Context, rID *provider.ResourceId, offset, length int64) (io.ReadCloser, error)
 }
 
 func contextGet(ctx context.Context, k string) (string, bool) {
