@@ -1,4 +1,4 @@
-package query
+package kql
 
 import (
 	"fmt"
@@ -38,6 +38,8 @@ func (e UnsupportedTimeRangeError) Error() string {
 	return fmt.Sprintf("unable to convert '%v' to a time range", e.Value)
 }
 
+// IsValidationError reports whether err is one of the KQL parse/validation
+// errors produced by this package.
 func IsValidationError(err error) bool {
 	switch err.(type) {
 	case *StartsWithBinaryOperatorError, *NamedGroupInvalidNodesError, *UnsupportedTimeRangeError:

@@ -5,7 +5,6 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/query"
 	tAssert "github.com/stretchr/testify/assert"
 )
 
@@ -22,7 +21,7 @@ func TestNewAST(t *testing.T) {
 		{
 			name:       "error",
 			givenQuery: kql.BoolAND,
-			expectedError: query.StartsWithBinaryOperatorError{
+			expectedError: kql.StartsWithBinaryOperatorError{
 				Node: &ast.OperatorNode{Value: kql.BoolAND},
 			},
 		},

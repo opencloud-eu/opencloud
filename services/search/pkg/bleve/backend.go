@@ -14,6 +14,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 
@@ -45,7 +46,7 @@ func NewBackend(index bleve.Index, queryCreator searchQuery.Creator[query.Query]
 func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
 	createdQuery, err := b.queryCreator.Create(sir.Query)
 	if err != nil {
-		if searchQuery.IsValidationError(err) {
+		if kql.IsValidationError(err) {
 			return nil, errtypes.BadRequest(err.Error())
 		}
 		return nil, err
