@@ -43,3 +43,10 @@ func Reconcile(index string, r SchemaReconciler, logger log.Logger) (Classificat
 
 	return classification, nil
 }
+
+// LogNewIndexCreated logs that a fresh, empty index was created and how to
+// backfill it. Both backends call it after creating their index (that path does
+// not run through Reconcile); an existing, up-to-date index stays silent.
+func LogNewIndexCreated(logger log.Logger, index string) {
+	logger.Info().Str("index", index).Msg("created a new empty search index; if this OpenCloud instance already held files, they are not in it yet, index them by running: opencloud search index --all-spaces --force-rescan")
+}
