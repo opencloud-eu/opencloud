@@ -206,7 +206,14 @@ func (m IndexManager) Apply(ctx context.Context, name string, client *opensearch
 	return nil
 }
 
+// jsonEqual reports whether two raw JSON values are deeply equal. gjson yields
+// an empty string for a path that does not exist; two such unset values are
+// equal, an unset value never equals a present one, and a value that fails to
+// parse counts as unequal.
 func jsonEqual(a, b string) bool {
+	if a == "" || b == "" {
+		return a == b
+	}
 	var av, bv any
 	if err := json.Unmarshal([]byte(a), &av); err != nil {
 		return false
@@ -217,11 +224,14 @@ func jsonEqual(a, b string) bool {
 	return reflect.DeepEqual(av, bv)
 }
 
-// propertiesMap parses a raw mappings.properties object; missing or empty
-// input yields an empty map, which classifies as purely additive.
+// propertiesMap parses a raw mappings.properties object into a map. Missing,
+// empty, null or malformed input yields an empty (non-nil) map, which
+// classifies as purely additive.
 func propertiesMap(raw string) map[string]any {
 	props := map[string]any{}
-	_ = json.Unmarshal([]byte(raw), &props)
+	if err := json.Unmarshal([]byte(raw), &props); err != nil || props == nil {
+		return map[string]any{}
+	}
 	return props
 }
 
