@@ -13,6 +13,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/config/parser"
 	oclog "github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/x/path/filepathx"
 	storageUsersParser "github.com/opencloud-eu/opencloud/services/storage-users/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/event"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/revaconfig"
@@ -95,6 +96,39 @@ func scanCmd(ocCfg *config.Config) *cobra.Command {
 				os.Exit(1)
 			}
 
+			storageRoot := cfg.Drivers.Posix.Root
+			root := storageRoot
+			defaultRoot := true
+			if v, err := cmd.Flags().GetString("basepath"); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to parse command-line parameter '--basepath': %v\n", err)
+				os.Exit(1)
+			} else if v != "" {
+				root = v
+				if !filepath.IsAbs(v) {
+					if v, err = filepath.Abs(v); err != nil {
+						fmt.Fprintf(os.Stderr, "Failed to make the basepath mentioned using '--basepath' absolute: %v\n", err)
+						os.Exit(1)
+					} else {
+						root = v
+					}
+				} else {
+					root = v
+				}
+				root = filepath.Clean(root)
+				defaultRoot = false
+			}
+
+			// ensure that, if a basepath has been indicated, it is under the storage root
+			if !defaultRoot {
+				if contained, err := filepathx.IsSameOrContainedBy(storageRoot, root); err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to determine whether the specified basepath %q is contained by the storage root %q: %v\n", root, storageRoot, err)
+					os.Exit(1)
+				} else if !contained {
+					fmt.Fprintf(os.Stderr, "The specified basepath %q is neither the storage root %q, nor a subdirectory thereof, nor a file underneath it\n", root, storageRoot)
+					os.Exit(1)
+				}
+			}
+
 			// We want to initialize the driver but disable scanfs on boot, so we can trigger it manually afterwards
 			drivers := revaconfig.StorageProviderDrivers(cfg)
 			drivers["posix"] = revaconfig.Posix(cfg, false, false)
@@ -111,6 +145,10 @@ func scanCmd(ocCfg *config.Config) *cobra.Command {
 				oclog.Level("error"),
 				oclog.Pretty(true),
 				oclog.Color(false)).Logger
+
+			if !defaultRoot {
+				log = log.With().Str("basepath", root).Logger()
+			}
 
 			f, ok := registry.NewFuncs["posix"]
 			if !ok {
@@ -130,8 +168,12 @@ func scanCmd(ocCfg *config.Config) *cobra.Command {
 				os.Exit(1)
 			}
 
-			fmt.Println("Starting posixfs scan...")
-			err = cacher.WarmupIDCache(cfg.Drivers.Posix.Root, true, false)
+			if defaultRoot {
+				fmt.Println("Starting posixfs scan...")
+			} else {
+				fmt.Printf("Starting posixfs scan at '%s'...\n", root)
+			}
+			err = cacher.WarmupIDCache(root, true, false)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Scan failed: %v\n", err)
 				return err
@@ -141,6 +183,7 @@ func scanCmd(ocCfg *config.Config) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringP("basepath", "p", "", "the root under which to scan files, which may be a directory or a file (when omitted, detaults to using the storage root)")
 	return cmd
 }
 
