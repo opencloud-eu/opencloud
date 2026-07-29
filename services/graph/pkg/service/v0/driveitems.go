@@ -486,6 +486,7 @@ func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *sto
 		driveItem.Photo = metadataToFacet[libregraph.Photo](metadata, "photo")
 		driveItem.Video = metadataToFacet[libregraph.Video](metadata, "video")
 		driveItem.LibreGraphMotionPhoto = metadataToFacet[libregraph.MotionPhoto](metadata, "motionPhoto")
+		driveItem.LibreGraphLivePhoto = metadataToFacet[libregraph.LivePhoto](metadata, "livePhoto")
 		driveItem.LibreGraphMeFollowing = libregraph.PtrBool(metadata[_favoriteMetadataKey] == "1")
 		if t := metadata["tags"]; t != "" {
 			driveItem.LibreGraphTags = tags.New(t).AsSlice()

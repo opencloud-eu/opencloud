@@ -304,6 +304,9 @@
         },
         "video": {
           "$ref": "#/definitions/v0Video"
+        },
+        "livePhoto": {
+          "$ref": "#/definitions/v0LivePhoto"
         }
       }
     },
@@ -379,6 +382,29 @@
         "error": {
           "type": "string",
           "description": "Contains an error message in case indexing this particular space failed."
+        }
+      }
+    },
+    "v0LivePhoto": {
+      "type": "object",
+      "properties": {
+        "contentId": {
+          "type": "string"
+        },
+        "stillImageTimeUs": {
+          "type": "string",
+          "format": "int64"
+        },
+        "auto": {
+          "type": "boolean"
+        },
+        "vitalityScore": {
+          "type": "number",
+          "format": "double"
+        },
+        "vitalityScoringVersion": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },

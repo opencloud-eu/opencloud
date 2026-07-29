@@ -702,6 +702,103 @@
           }
         }
       },
+      "livePhoto": {
+        "enabled": true,
+        "dynamic": true,
+        "properties": {
+          "auto": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "boolean",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "contentId": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "text",
+                "analyzer": "keyword",
+                "store": true,
+                "index": true,
+                "include_term_vectors": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "contentId_lowercase": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "text",
+                "analyzer": "keyword",
+                "index": true,
+                "include_term_vectors": true
+              }
+            ]
+          },
+          "contentId_words": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "text",
+                "analyzer": "words",
+                "index": true,
+                "include_term_vectors": true
+              }
+            ]
+          },
+          "stillImageTimeUs": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "number",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "vitalityScore": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "number",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "vitalityScoringVersion": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "number",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          }
+        }
+      },
       "location": {
         "enabled": true,
         "dynamic": true,
