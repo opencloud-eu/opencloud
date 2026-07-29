@@ -161,16 +161,15 @@ func (m IndexManager) Apply(ctx context.Context, name string, client *opensearch
 	localIndexJson := gjson.ParseBytes(localIndexB)
 	remoteIndexJson := gjson.ParseBytes(remoteIndexB)
 
+	// Only the analysis settings (analyzers/tokenizers/filters) affect how data
+	// is indexed and queried; a drift there yields wrong results. Shard/replica
+	// counts and other operational knobs are the operator's to tune (and a
+	// pre-provisioned index's to own), so they are not compared.
 	var reasons []string
-	for k := range localIndexJson.Get("settings").Map() {
-		if k == "number_of_replicas" {
-			continue // runtime-tunable via PUT _settings, drift needs no rebuild
-		}
-		lv := localIndexJson.Get("settings." + k).Raw
-		rv := remoteIndexJson.Get("settings.index." + k).Raw
-		if !jsonEqual(lv, rv) {
-			reasons = append(reasons, fmt.Sprintf("settings.%s changed: index %s, code %s", k, rawOrUnset(rv), rawOrUnset(lv)))
-		}
+	lv := localIndexJson.Get("settings.analysis").Raw
+	rv := remoteIndexJson.Get("settings.index.analysis").Raw
+	if !jsonEqual(lv, rv) {
+		reasons = append(reasons, fmt.Sprintf("settings.analysis changed: index %s, code %s", rawOrUnset(rv), rawOrUnset(lv)))
 	}
 
 	classification := searchmapping.Classify(
