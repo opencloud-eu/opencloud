@@ -4,18 +4,16 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
-// SchemaReconciler is the engine-specific half of the startup schema check.
-// Classify reads the stored and code schema and returns the verdict (with any
-// engine-specific extras, e.g. analyzer/settings drift, already folded in);
-// ApplyAdditive applies an additive change to the live index. Reconcile drives
-// them so the verdict-to-action mapping lives in one place for every backend.
+// SchemaReconciler is the engine-specific half of the startup schema check:
+// Classify reads stored vs code schema (extras like analyzer drift folded in),
+// ApplyAdditive applies an additive change. Reconcile drives them so the
+// verdict-to-action policy lives in one place for every backend.
 type SchemaReconciler interface {
 	Classify() (Classification, error)
-	// ApplyAdditive applies an additive change to the live index and reports
-	// whether the schema was persisted. It returns persisted=true even when a
-	// later step then fails (e.g. a bleve reopen), so Reconcile can still warn:
-	// the change is on disk, a subsequent start classifies equal and stays
-	// silent, so this is the only chance to surface the new fields.
+	// ApplyAdditive applies an additive change and reports whether the schema
+	// was persisted. persisted=true even if a later step fails (e.g. a bleve
+	// reopen), so Reconcile still warns: it is on disk, the next start
+	// classifies equal and stays silent.
 	ApplyAdditive() (persisted bool, err error)
 }
 
@@ -45,8 +43,7 @@ func Reconcile(index string, r SchemaReconciler, logger log.Logger) (Classificat
 }
 
 // LogNewIndexCreated logs that a fresh, empty index was created and how to
-// backfill it. Both backends call it after creating their index (that path does
-// not run through Reconcile); an existing, up-to-date index stays silent.
+// backfill it. The create path does not run through Reconcile.
 func LogNewIndexCreated(logger log.Logger, index string) {
 	logger.Info().Str("index", index).Msg("created a new empty search index; if this OpenCloud instance already held files, they are not in it yet, index them by running: opencloud search index --all-spaces --force-rescan")
 }

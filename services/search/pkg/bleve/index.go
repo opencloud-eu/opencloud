@@ -30,9 +30,8 @@ import (
 // instead of blocking forever on the file lock.
 var openRuntimeConfig = map[string]interface{}{"bolt_timeout": "5s"}
 
-// NewIndex opens (or creates) the bleve index at root and reconciles the stored
-// schema against NewMapping() via searchmapping.Reconcile: a breaking change
-// refuses to start, an additive one is persisted into the index and warned about.
+// NewIndex opens (or creates) the bleve index at root and reconciles its schema
+// against NewMapping() via searchmapping.Reconcile.
 func NewIndex(root string, logger log.Logger) (bleve.Index, searchmapping.Classification, error) {
 	destination := filepath.Join(root, fmt.Sprintf("bleve-v%d", search.SchemaVersion))
 	index, err := bleve.OpenUsing(destination, openRuntimeConfig)
@@ -79,9 +78,8 @@ func (r *bleveReconciler) Classify() (searchmapping.Classification, error) {
 }
 
 // ApplyAdditive persists the code mapping and reopens so the live mapping picks
-// it up; otherwise the new fields get indexed dynamically and flip to breaking
-// on the next start. Once SetInternal succeeds it reports persisted=true even if
-// the reopen then fails. On failure it closes the index and clears the handle.
+// it up. persisted=true once SetInternal succeeds, even if the reopen then
+// fails; on error it closes the index and clears the handle.
 func (r *bleveReconciler) ApplyAdditive() (bool, error) {
 	if err := r.index.SetInternal([]byte("_mapping"), r.codeB); err != nil {
 		_ = r.index.Close()
