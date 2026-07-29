@@ -205,7 +205,8 @@ func (r *osReconciler) Classify() (searchmapping.Classification, error) {
 
 // ApplyAdditive puts the full code properties; the classifier guarantees every
 // existing field already matches the remote state, so this can only add fields.
-func (r *osReconciler) ApplyAdditive() error {
+// The PUT is atomic, so persisted is true only on success.
+func (r *osReconciler) ApplyAdditive() (bool, error) {
 	putResp, err := r.client.Indices.Mapping.Put(r.ctx, opensearchgoAPI.MappingPutReq{
 		Indices: []string{r.name},
 		Body:    strings.NewReader(r.local.Get("mappings").Raw),
@@ -215,13 +216,13 @@ func (r *osReconciler) ApplyAdditive() error {
 	case err != nil && errors.As(err, &putErr) && putErr.Err.Type == "illegal_argument_exception" &&
 		(strings.Contains(putErr.Err.Reason, "cannot be changed") || strings.Contains(putErr.Err.Reason, "Cannot update parameter")):
 		// backstop, should be unreachable after the classification above
-		return searchmapping.ManualActionRequiredError(r.name, []string{putErr.Err.Reason})
+		return false, searchmapping.ManualActionRequiredError(r.name, []string{putErr.Err.Reason})
 	case err != nil:
-		return fmt.Errorf("failed to update mapping of index %s: %w", r.name, err)
+		return false, fmt.Errorf("failed to update mapping of index %s: %w", r.name, err)
 	case !putResp.Acknowledged:
-		return fmt.Errorf("failed to update mapping of index %s: not acknowledged", r.name)
+		return false, fmt.Errorf("failed to update mapping of index %s: not acknowledged", r.name)
 	}
-	return nil
+	return true, nil
 }
 
 // jsonEqual reports whether two raw JSON values are deeply equal. gjson yields
