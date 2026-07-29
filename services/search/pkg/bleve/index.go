@@ -45,6 +45,7 @@ func NewIndex(root string, logger log.Logger) (bleve.Index, searchmapping.Classi
 			return nil, searchmapping.Classification{}, err
 		}
 
+		logger.Info().Str("index", destination).Msg("created a new empty search index; if this OpenCloud instance already held files, they are not in it yet, index them by running: opencloud search index --all-spaces --force-rescan")
 		return index, searchmapping.Classification{Verdict: searchmapping.VerdictEqual}, nil
 	}
 	if err != nil {
