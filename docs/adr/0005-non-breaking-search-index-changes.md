@@ -15,12 +15,16 @@ that describes the shape of an indexed document. Whenever we change that shape i
 incompatible way, for example a changed field type or a different analyzer, the index
 that is already on disk or in the cluster no longer matches what the code expects.
 
-Today this stops the instance. The service detects the mismatch on startup, returns an
-error and refuses to come up until the operator drops the index and reindexes. Two
-consequences follow from that:
+Today this stops the instance, but only on OpenSearch. There the service compares the
+stored mapping on startup, returns an error and refuses to come up until the operator
+drops the index and reindexes. Two consequences follow from that:
 
 * an upgrade can take an instance down, and it stays down until the operator reacts,
 * the change is breaking, so we can only ship it with a major release.
+
+Bleve is the opposite and just as wrong. It has no such check at all, it opens the index
+and keeps answering from the stored mapping without a word, so a mapping change there
+goes unnoticed and quietly returns wrong results.
 
 We already hit this once and solved it by waiting for the next major release. That is
 not a process, it just moves the problem.
@@ -99,16 +103,18 @@ the release note and the sticky message it looks like data loss to the user.
    `SEARCH_ENGINE_OPEN_SEARCH_RESOURCE_INDEX_NAME` becomes the prefix of that name
    instead of the full name. A configured index can then never be the wrong version,
    there is only "this version doesn't exist yet", which is the normal path.
-2. Keep the mismatch detection as it is and only change what an operator gets out of it:
-   a new index instead of a service that refuses to start. The error path stays, as the
-   fallback when the new index cannot be created and as a strict mode for development,
-   where failing loudly on an unversioned mapping change is what we want.
+2. Detect a mismatch on both engines, bleve needs that built first. Change what an
+   operator gets out of it: log it and keep running instead of refusing to start. A
+   change that makes the index unusable gets its own version and therefore its own
+   index, so what still reaches this path is additive, and those fields stay empty until
+   the next reindex. The error stays as a strict mode for development, where failing
+   loudly on a mapping change without a version is what we want.
 3. Log that a reindex is pending when a new index is created, and name the command.
 4. Make the reindex fit for a long run. It has to report progress, survive longer than a
    fixed timeout, and a single failing space must not kill the whole run.
 5. Add the sticky message to the web UI, publishable by the operator. In progress in
    https://github.com/opencloud-eu/opencloud/pull/3189.
 6. Document the reindex, `opencloud search index --all-spaces`, and the cleanup of old
-   indexes in the admin docs.
+   indexes in the admin docs. Owned by the docs team.
 7. Add the manual step to the release notes of every release that bumps the index
-   version.
+   version. Owned by the docs team.
