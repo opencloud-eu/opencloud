@@ -1,10 +1,14 @@
 # Changelog
 
-## [7.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.4.0) - 2026-07-28
+## [7.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.4.0) - 2026-07-29
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @AlexAndBear, @JammingBen, @fschade, @michaelstingl, @rhafer, @schweigisito, @v-scharf
+
+### 🐛 Bug Fixes
+
+- fix(posixfs scan): Setup logger for scan command [[#3185](https://github.com/opencloud-eu/opencloud/pull/3185)]
 
 ### ✅ Tests
 
