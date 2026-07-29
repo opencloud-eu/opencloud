@@ -81,9 +81,9 @@ not something we track, and the reindex is the operator's job anyway.
 We deliberately do not ship this batteries included. A migration that runs by itself is
 a black box for us, we cannot look into the instance it runs on and we cannot promise it
 goes through cleanly. Data volume, cluster sizing and what load is acceptable are things
-the operator knows and we do not. So the operator triggers the reindex, watches it, and
-can stop and repeat it. We would rather have a manual step that is understood than an
-automatic one that fails halfway.
+the operator knows and we do not. So the operator triggers the reindex and watches it.
+We would rather have a manual step that is understood than an automatic one that fails
+halfway.
 
 Old indexes stay around and cost storage. Removing them is the operator's call as well,
 we only document how.
@@ -96,6 +96,9 @@ the release note and the sticky message it looks like data loss to the user.
 
 1. Derive the index name (OpenSearch) and the index path (bleve) from the mapping
    version, so a breaking mapping change automatically means a new, empty index.
+   `SEARCH_ENGINE_OPEN_SEARCH_RESOURCE_INDEX_NAME` becomes the prefix of that name
+   instead of the full name. A configured index can then never be the wrong version,
+   there is only "this version doesn't exist yet", which is the normal path.
 2. Keep the mismatch detection as it is and only change what an operator gets out of it:
    a new index instead of a service that refuses to start. The error path stays, as the
    fallback when the new index cannot be created and as a strict mode for development,
