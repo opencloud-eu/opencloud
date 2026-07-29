@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	searchmapping "github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
@@ -45,7 +46,7 @@ var _ = Describe("NewIndex", func() {
 	}
 
 	It("creates a fresh index", func() {
-		idx, classification, err := bleve.NewIndex(root)
+		idx, classification, err := bleve.NewIndex(root, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(classification.Verdict).To(Equal(searchmapping.VerdictEqual))
 		Expect(idx.Close()).To(Succeed())
@@ -54,7 +55,7 @@ var _ = Describe("NewIndex", func() {
 	It("opens an index with an identical schema", func() {
 		buildIndex(codeMapping(), nil)
 
-		idx, classification, err := bleve.NewIndex(root)
+		idx, classification, err := bleve.NewIndex(root, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(classification.Verdict).To(Equal(searchmapping.VerdictEqual))
 		Expect(classification.NewFields).To(BeEmpty())
@@ -67,7 +68,7 @@ var _ = Describe("NewIndex", func() {
 		delete(old.DefaultMapping.Properties, "Title")
 		buildIndex(old, nil)
 
-		idx, classification, err := bleve.NewIndex(root)
+		idx, classification, err := bleve.NewIndex(root, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(classification.Verdict).To(Equal(searchmapping.VerdictAdditive))
 		Expect(classification.NewFields).To(ConsistOf("Title"))
@@ -83,7 +84,7 @@ var _ = Describe("NewIndex", func() {
 		delete(photo.Properties, "cameraMake")
 		buildIndex(old, nil)
 
-		idx, classification, err := bleve.NewIndex(root)
+		idx, classification, err := bleve.NewIndex(root, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(classification.Verdict).To(Equal(searchmapping.VerdictAdditive))
 		Expect(classification.NewFields).To(ConsistOf("photo.cameraMake"))
@@ -95,13 +96,13 @@ var _ = Describe("NewIndex", func() {
 		delete(old.DefaultMapping.Properties, "Title")
 		buildIndex(old, nil)
 
-		idx, classification, err := bleve.NewIndex(root)
+		idx, classification, err := bleve.NewIndex(root, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(classification.Verdict).To(Equal(searchmapping.VerdictAdditive))
 		Expect(idx.Index("1", map[string]any{"Title": "hello"})).To(Succeed())
 		Expect(idx.Close()).To(Succeed())
 
-		idx, classification, err = bleve.NewIndex(root)
+		idx, classification, err = bleve.NewIndex(root, log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(classification.Verdict).To(Equal(searchmapping.VerdictEqual))
 		Expect(idx.Close()).To(Succeed())
@@ -113,7 +114,7 @@ var _ = Describe("NewIndex", func() {
 		delete(old.DefaultMapping.Properties, "Mtime")
 		buildIndex(old, map[string]map[string]any{"1": {"Mtime": "2026-01-02T03:04:05Z"}})
 
-		idx, _, err := bleve.NewIndex(root)
+		idx, _, err := bleve.NewIndex(root, log.NopLogger())
 		Expect(err).To(MatchError(searchmapping.ErrManualActionRequired))
 		Expect(idx).To(BeNil())
 	})
@@ -124,7 +125,7 @@ var _ = Describe("NewIndex", func() {
 		delete(old.DefaultMapping.Properties, "photo")
 		buildIndex(old, map[string]map[string]any{"1": {"photo": map[string]any{"cameraMake": "ACME"}}})
 
-		_, _, err := bleve.NewIndex(root)
+		_, _, err := bleve.NewIndex(root, log.NopLogger())
 		Expect(err).To(MatchError(searchmapping.ErrManualActionRequired))
 	})
 
@@ -136,7 +137,7 @@ var _ = Describe("NewIndex", func() {
 		name.Fields[0].Analyzer = "fulltext"
 		buildIndex(old, nil)
 
-		_, _, err := bleve.NewIndex(root)
+		_, _, err := bleve.NewIndex(root, log.NopLogger())
 		Expect(err).To(MatchError(searchmapping.ErrManualActionRequired))
 	})
 
@@ -145,7 +146,7 @@ var _ = Describe("NewIndex", func() {
 		old.DefaultMapping.AddFieldMappingsAt("Legacy", bleveSearch.NewTextFieldMapping())
 		buildIndex(old, nil)
 
-		_, _, err := bleve.NewIndex(root)
+		_, _, err := bleve.NewIndex(root, log.NopLogger())
 		Expect(err).To(MatchError(searchmapping.ErrManualActionRequired))
 	})
 
@@ -154,7 +155,7 @@ var _ = Describe("NewIndex", func() {
 		old.DefaultMapping.Dynamic = false
 		buildIndex(old, nil)
 
-		_, _, err := bleve.NewIndex(root)
+		_, _, err := bleve.NewIndex(root, log.NopLogger())
 		Expect(err).To(MatchError(searchmapping.ErrManualActionRequired))
 	})
 
@@ -168,7 +169,7 @@ var _ = Describe("NewIndex", func() {
 		}
 		buildIndex(old, nil)
 
-		_, _, err := bleve.NewIndex(root)
+		_, _, err := bleve.NewIndex(root, log.NopLogger())
 		Expect(err).To(MatchError(searchmapping.ErrManualActionRequired))
 	})
 })
