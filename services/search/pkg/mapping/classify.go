@@ -13,20 +13,16 @@ import (
 // ErrManualActionRequired marks schema changes that cannot be applied in place.
 var ErrManualActionRequired = errors.New("manual action required")
 
-// ManualActionRequiredError builds the operator-facing error for a breaking
-// schema change. index names the index, deleteStep is the engine-specific
-// instruction to remove it.
-func ManualActionRequiredError(index, deleteStep string, reasons []string) error {
+// ManualActionRequiredError reports a breaking schema change. Because the index
+// is versioned by search.SchemaVersion, a released instance never hits this: a
+// version bump builds a fresh index. It fires in development when the mapping is
+// changed in a breaking way without bumping search.SchemaVersion, so the fix is
+// to bump it (or revert the change).
+func ManualActionRequiredError(index string, reasons []string) error {
 	return fmt.Errorf(
-		"%w: search index %s was built with a different schema:\n  - %s\n"+
-			"There is no in-place migration: with the OpenCloud search service stopped, %s, "+
-			"then start it again (an empty index with the new schema is created), "+
-			"then rebuild the content by running: opencloud search index --all-spaces. "+
-			"To bring the instance up without search until a maintenance window, "+
-			"set OC_EXCLUDE_RUN_SERVICES=search; until the service is back, search "+
-			"and features built on it (e.g. the search bar and the tag list) are "+
-			"unavailable",
-		ErrManualActionRequired, index, strings.Join(reasons, "\n  - "), deleteStep,
+		"%w: the search mapping in code differs from index %s in a breaking way:\n  - %s\n"+
+			"bump search.SchemaVersion to build a fresh index, or revert the mapping change",
+		ErrManualActionRequired, index, strings.Join(reasons, "\n  - "),
 	)
 }
 
