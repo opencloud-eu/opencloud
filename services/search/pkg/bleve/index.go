@@ -79,24 +79,25 @@ func (r *bleveReconciler) Classify() (searchmapping.Classification, error) {
 
 // ApplyAdditive persists the code mapping and reopens so the live mapping picks
 // it up; otherwise the new fields get indexed dynamically and flip to breaking
-// on the next start. On failure it closes the index and clears the handle.
-func (r *bleveReconciler) ApplyAdditive() error {
+// on the next start. Once SetInternal succeeds it reports persisted=true even if
+// the reopen then fails. On failure it closes the index and clears the handle.
+func (r *bleveReconciler) ApplyAdditive() (bool, error) {
 	if err := r.index.SetInternal([]byte("_mapping"), r.codeB); err != nil {
 		_ = r.index.Close()
 		r.index = nil
-		return fmt.Errorf("failed to store the updated index mapping: %w", err)
+		return false, fmt.Errorf("failed to store the updated index mapping: %w", err)
 	}
 	if err := r.index.Close(); err != nil {
 		r.index = nil
-		return err
+		return true, err
 	}
 	index, err := bleve.OpenUsing(r.destination, openRuntimeConfig)
 	if err != nil {
 		r.index = nil
-		return err
+		return true, err
 	}
 	r.index = index
-	return nil
+	return true, nil
 }
 
 // classifyStoredMapping diffs the stored mapping against NewMapping() and

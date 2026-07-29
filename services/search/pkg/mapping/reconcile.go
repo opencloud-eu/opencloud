@@ -11,7 +11,12 @@ import (
 // them so the verdict-to-action mapping lives in one place for every backend.
 type SchemaReconciler interface {
 	Classify() (Classification, error)
-	ApplyAdditive() error
+	// ApplyAdditive applies an additive change to the live index and reports
+	// whether the schema was persisted. It returns persisted=true even when a
+	// later step then fails (e.g. a bleve reopen), so Reconcile can still warn:
+	// the change is on disk, a subsequent start classifies equal and stays
+	// silent, so this is the only chance to surface the new fields.
+	ApplyAdditive() (persisted bool, err error)
 }
 
 // Reconcile runs the shared schema-verdict flow: an equal schema starts
@@ -27,10 +32,13 @@ func Reconcile(index string, r SchemaReconciler, logger log.Logger) (Classificat
 	case VerdictBreaking:
 		return classification, ManualActionRequiredError(index, classification.Reasons)
 	case VerdictAdditive:
-		if err := r.ApplyAdditive(); err != nil {
+		persisted, err := r.ApplyAdditive()
+		if persisted {
+			logger.Warn().Strs("fields", classification.NewFields).Str("index", index).Msg("extended the search index mapping with new fields; documents indexed before the upgrade do not contain them and queries on these fields will miss those documents until they are re-indexed; to re-index everything run: opencloud search index --all-spaces --force-rescan")
+		}
+		if err != nil {
 			return classification, err
 		}
-		logger.Warn().Strs("fields", classification.NewFields).Str("index", index).Msg("extended the search index mapping with new fields; documents indexed before the upgrade do not contain them and queries on these fields will miss those documents until they are re-indexed; to re-index everything run: opencloud search index --all-spaces --force-rescan")
 	}
 
 	return classification, nil
