@@ -6,6 +6,7 @@ import (
 
 	"github.com/blevesearch/bleve/v2/search/query"
 	"github.com/opencloud-eu/opencloud/pkg/ast"
+	searchquery "github.com/opencloud-eu/opencloud/services/search/pkg/query"
 	tAssert "github.com/stretchr/testify/assert"
 )
 
@@ -18,6 +19,11 @@ var timeMustParse = func(t *testing.T, ts string) time.Time {
 	return tp
 }
 
+// TODO(followup): make this a pure compiler test. Field resolution and
+// media-type expansion live in query.Normalize, so this test could feed
+// canonical ASTs (real field names, media-type already expanded) and call
+// compile() directly, dropping the query.Normalize wrapper and the mediatype
+// cases.
 func Test_compile(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -531,7 +537,7 @@ func Test_compile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := compile(tt.args)
+			got, err := compile(searchquery.Normalize(tt.args, searchquery.ResolveField))
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("compile() error = %v, wantErr %v", err, tt.wantErr)
