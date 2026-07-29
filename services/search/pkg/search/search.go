@@ -88,6 +88,27 @@ func (Resource) SearchFieldOverrides() map[string]mapping.FieldOpts {
 	return resourceFieldOverrides()
 }
 
+// lowercaseValueFields is the set of index field names whose query values must
+// be lowercased to match their index-time lowercasing analyzer (lowercaseKeyword
+// or the fulltext type). Built once from the field overrides.
+var lowercaseValueFields = sync.OnceValue(func() map[string]struct{} {
+	out := map[string]struct{}{}
+	for key, opts := range resourceFieldOverrides() {
+		if opts.Analyzer == "lowercaseKeyword" || opts.Type == mapping.TypeFulltext {
+			out[key] = struct{}{}
+		}
+	}
+	return out
+})
+
+// LowercaseValueFields returns the set of index field names whose query values
+// must be lowercased so query-side matching lines up with the index-time
+// analyzer. Both search backends use it, so value casing stays consistent; every
+// other (case-preserved) field keeps its original case. Read-only, do not mutate.
+func LowercaseValueFields() map[string]struct{} {
+	return lowercaseValueFields()
+}
+
 // ResolveReference makes sure the path is relative to the space root
 func ResolveReference(ctx context.Context, ref *provider.Reference, ri *provider.ResourceInfo, gatewaySelector pool.Selectable[gateway.GatewayAPIClient]) (*provider.Reference, error) {
 	if ref.GetResourceId().GetOpaqueId() == ref.GetResourceId().GetSpaceId() {
