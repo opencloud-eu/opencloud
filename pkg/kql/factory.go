@@ -238,3 +238,63 @@ func buildGroupNode(k, n any, text []byte, pos position) (*ast.GroupNode, error)
 
 	return gn, nil
 }
+
+func buildGeoDistanceNode(k, a any, text []byte, pos position) (*ast.GeoDistanceNode, error) {
+	b, err := base(text, pos)
+	if err != nil {
+		return nil, err
+	}
+	key, err := toString(k)
+	if err != nil {
+		return nil, err
+	}
+	args, err := toString(a)
+	if err != nil {
+		return nil, err
+	}
+	lat, lon, radius, err := parseGeoDistanceArgs(args)
+	if err != nil {
+		return nil, err
+	}
+	return &ast.GeoDistanceNode{Base: b, Key: key, Lat: lat, Lon: lon, Radius: radius}, nil
+}
+
+func buildGeoBoundingBoxNode(k, a any, text []byte, pos position) (*ast.GeoBoundingBoxNode, error) {
+	b, err := base(text, pos)
+	if err != nil {
+		return nil, err
+	}
+	key, err := toString(k)
+	if err != nil {
+		return nil, err
+	}
+	args, err := toString(a)
+	if err != nil {
+		return nil, err
+	}
+	minLat, minLon, maxLat, maxLon, err := parseGeoBoundingBoxArgs(args)
+	if err != nil {
+		return nil, err
+	}
+	return &ast.GeoBoundingBoxNode{Base: b, Key: key, MinLat: minLat, MinLon: minLon, MaxLat: maxLat, MaxLon: maxLon}, nil
+}
+
+func buildGeoPolygonNode(k, a any, text []byte, pos position) (*ast.GeoPolygonNode, error) {
+	b, err := base(text, pos)
+	if err != nil {
+		return nil, err
+	}
+	key, err := toString(k)
+	if err != nil {
+		return nil, err
+	}
+	args, err := toString(a)
+	if err != nil {
+		return nil, err
+	}
+	points, err := parseGeoPolygonArgs(args)
+	if err != nil {
+		return nil, err
+	}
+	return &ast.GeoPolygonNode{Base: b, Key: key, Points: points}, nil
+}
