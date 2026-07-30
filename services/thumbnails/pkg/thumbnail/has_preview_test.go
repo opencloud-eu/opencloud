@@ -1,9 +1,11 @@
-package thumbnail
+package thumbnail_test
 
 import (
-	"testing"
-
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail"
 )
 
 func resourceInfo(mime string, meta map[string]string) *provider.ResourceInfo {
@@ -14,42 +16,30 @@ func resourceInfo(mime string, meta map[string]string) *provider.ResourceInfo {
 	return ri
 }
 
-func TestHasPreview(t *testing.T) {
-	cases := []struct {
-		name string
-		md   *provider.ResourceInfo
-		want bool
-	}{
-		{"nil", nil, false},
-		{"unconditional image", resourceInfo("image/png", nil), true},
-		{"unconditional text", resourceInfo("text/plain", nil), true},
-		{"unsupported type", resourceInfo("application/pdf", nil), false},
-		{"audio without preview dims", resourceInfo("audio/mpeg", nil), false},
-		{"audio with empty dims", resourceInfo("audio/mpeg", map[string]string{
-			PreviewWidthKey: "0", PreviewHeightKey: "0",
-		}), false},
-		{"audio with preview dims", resourceInfo("audio/mpeg", map[string]string{
-			PreviewWidthKey: "500", PreviewHeightKey: "500",
-		}), true},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := HasPreview(tc.md); got != tc.want {
-				t.Errorf("HasPreview(%s) = %v, want %v", tc.name, got, tc.want)
-			}
-		})
-	}
-}
+var _ = Describe("HasPreview", func() {
+	DescribeTable("preview availability",
+		func(md *provider.ResourceInfo, want bool) {
+			Expect(thumbnail.HasPreview(md)).To(Equal(want))
+		},
+		Entry("nil", nil, false),
+		Entry("unconditional image", resourceInfo("image/png", nil), true),
+		Entry("unconditional text", resourceInfo("text/plain", nil), true),
+		Entry("unsupported type", resourceInfo("application/pdf", nil), false),
+		Entry("audio without preview dims", resourceInfo("audio/mpeg", nil), false),
+		Entry("audio with zero dims", resourceInfo("audio/mpeg", map[string]string{
+			thumbnail.PreviewWidthKey: "0", thumbnail.PreviewHeightKey: "0",
+		}), false),
+		Entry("audio with preview dims", resourceInfo("audio/mpeg", map[string]string{
+			thumbnail.PreviewWidthKey: "500", thumbnail.PreviewHeightKey: "500",
+		}), true),
+	)
 
-func TestSupportedMimeTypesIsUnion(t *testing.T) {
-	for k := range UnconditionalPreviewMimeTypes {
-		if _, ok := SupportedMimeTypes[k]; !ok {
-			t.Errorf("SupportedMimeTypes missing unconditional type %q", k)
+	It("SupportedMimeTypes is the union of both preview sets", func() {
+		for k := range thumbnail.UnconditionalPreviewMimeTypes {
+			Expect(thumbnail.SupportedMimeTypes).To(HaveKey(k))
 		}
-	}
-	for k := range EmbeddedPreviewMimeTypes {
-		if _, ok := SupportedMimeTypes[k]; !ok {
-			t.Errorf("SupportedMimeTypes missing embedded type %q", k)
+		for k := range thumbnail.EmbeddedPreviewMimeTypes {
+			Expect(thumbnail.SupportedMimeTypes).To(HaveKey(k))
 		}
-	}
-}
+	})
+})

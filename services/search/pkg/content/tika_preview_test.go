@@ -1,8 +1,11 @@
 package content
 
-import "testing"
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
 
-func TestGetPreview(t *testing.T) {
+var _ = Describe("getPreview", func() {
 	audio := map[string][]string{"Content-Type": {"audio/mpeg"}}
 	cover := map[string][]string{
 		"Content-Type":     {"image/jpeg"},
@@ -11,26 +14,21 @@ func TestGetPreview(t *testing.T) {
 	}
 	coverNoDims := map[string][]string{"Content-Type": {"image/jpeg"}}
 
-	t.Run("audio with embedded cover returns dims", func(t *testing.T) {
+	It("returns the embedded cover dimensions for audio", func() {
 		p := getPreview("audio/mpeg", []map[string][]string{audio, cover})
-		if p == nil || p.Width != 500 || p.Height != 400 {
-			t.Fatalf("expected 500x400, got %+v", p)
-		}
+		Expect(p).ToNot(BeNil())
+		Expect(*p).To(Equal(Preview{Width: 500, Height: 400}))
 	})
 
-	t.Run("audio without cover returns nil", func(t *testing.T) {
-		if p := getPreview("audio/mpeg", []map[string][]string{audio}); p != nil {
-			t.Fatalf("expected nil, got %+v", p)
-		}
+	It("returns nil when the audio has no cover", func() {
+		Expect(getPreview("audio/mpeg", []map[string][]string{audio})).To(BeNil())
 	})
 
-	t.Run("audio with cover lacking dims returns nil", func(t *testing.T) {
-		if p := getPreview("audio/mpeg", []map[string][]string{audio, coverNoDims}); p != nil {
-			t.Fatalf("expected nil, got %+v", p)
-		}
+	It("returns nil when the cover lacks dimensions", func() {
+		Expect(getPreview("audio/mpeg", []map[string][]string{audio, coverNoDims})).To(BeNil())
 	})
 
-	t.Run("prefers the front cover over an earlier back cover", func(t *testing.T) {
+	It("prefers the front cover over an earlier back cover", func() {
 		back := map[string][]string{
 			"Content-Type": {"image/jpeg"}, "dc:description": {"Cover (back)"},
 			"tiff:ImageWidth": {"30"}, "tiff:ImageLength": {"30"},
@@ -40,16 +38,12 @@ func TestGetPreview(t *testing.T) {
 			"tiff:ImageWidth": {"64"}, "tiff:ImageLength": {"40"},
 		}
 		p := getPreview("audio/mpeg", []map[string][]string{audio, back, front})
-		if p == nil || p.Width != 64 || p.Height != 40 {
-			t.Fatalf("expected front cover 64x40, got %+v", p)
-		}
+		Expect(p).ToNot(BeNil())
+		Expect(*p).To(Equal(Preview{Width: 64, Height: 40}))
 	})
 
-	t.Run("non-embedded type is gated out", func(t *testing.T) {
-		// an image file is unconditional; its preview is not driven by oc.preview,
-		// so getPreview must return nil even though an image meta is present.
-		if p := getPreview("image/png", []map[string][]string{cover}); p != nil {
-			t.Fatalf("expected nil for non-embedded type, got %+v", p)
-		}
+	It("is gated to embedded-preview types", func() {
+		// an image is unconditional; its preview is not driven by oc.preview.
+		Expect(getPreview("image/png", []map[string][]string{cover})).To(BeNil())
 	})
-}
+})
