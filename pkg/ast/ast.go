@@ -86,6 +86,38 @@ type GroupNode struct {
 	Nodes []Node
 }
 
+// GeoPoint is a lat/lon vertex.
+type GeoPoint struct {
+	Lat float64
+	Lon float64
+}
+
+// GeoDistanceNode represents a geo.distance(lat, lon, radius) predicate; Radius is in meters.
+type GeoDistanceNode struct {
+	*Base
+	Key    string
+	Lat    float64
+	Lon    float64
+	Radius float64
+}
+
+// GeoBoundingBoxNode represents a geo.bbox(minLat, minLon, maxLat, maxLon) predicate.
+type GeoBoundingBoxNode struct {
+	*Base
+	Key    string
+	MinLat float64
+	MinLon float64
+	MaxLat float64
+	MaxLon float64
+}
+
+// GeoPolygonNode represents a geo.polygon(lat lon, ...) predicate.
+type GeoPolygonNode struct {
+	*Base
+	Key    string
+	Points []GeoPoint
+}
+
 // NodeKey tries to return the node key
 func NodeKey(n Node) string {
 	switch node := n.(type) {
@@ -96,6 +128,12 @@ func NodeKey(n Node) string {
 	case *BooleanNode:
 		return node.Key
 	case *GroupNode:
+		return node.Key
+	case *GeoDistanceNode:
+		return node.Key
+	case *GeoBoundingBoxNode:
+		return node.Key
+	case *GeoPolygonNode:
 		return node.Key
 	default:
 		return ""
