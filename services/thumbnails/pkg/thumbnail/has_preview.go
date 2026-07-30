@@ -1,9 +1,9 @@
 package thumbnail
 
 import (
-	"strconv"
-
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
 )
 
 // Arbitrary-metadata keys holding an embedded preview's dimensions (e.g. audio
@@ -39,19 +39,7 @@ func HasPreviewForMimeType(mimeType string, hasEmbeddedPreview bool) bool {
 // Only meaningful for EmbeddedPreviewMimeTypes.
 func PreviewDimensions(md *provider.ResourceInfo) (width, height int32) {
 	meta := md.GetArbitraryMetadata().GetMetadata()
-	if meta == nil {
-		return 0, 0
-	}
-	return parseInt32(meta[PreviewWidthKey]), parseInt32(meta[PreviewHeightKey])
-}
-
-func parseInt32(s string) int32 {
-	if s == "" {
-		return 0
-	}
-	v, err := strconv.ParseInt(s, 10, 32)
-	if err != nil {
-		return 0
-	}
-	return int32(v)
+	width, _ = conversions.StringToInt32(meta[PreviewWidthKey])
+	height, _ = conversions.StringToInt32(meta[PreviewHeightKey])
+	return
 }
