@@ -8,7 +8,7 @@ import (
 )
 
 // frontCoverDescription is the picture type Tika reports (as dc:description) for
-// the front cover, matching the thumbnailer's selection in the dhowden/tag fork.
+// the front cover, matching the thumbnailer's cover selection.
 const frontCoverDescription = "Cover (front)"
 
 // getPreview returns the dimensions of an audio file's embedded cover art from
