@@ -2,9 +2,8 @@
 
 package thumbnail
 
-// UnconditionalPreviewMimeTypes are mimetypes whose preview availability follows
-// from the mimetype alone: the thumbnailer can always render a preview from the
-// content, so a preview is guaranteed to exist.
+// UnconditionalPreviewMimeTypes always have a preview: the thumbnailer renders
+// one from the content.
 var UnconditionalPreviewMimeTypes = map[string]struct{}{
 	"image/png":                         {},
 	"image/jpg":                         {},
