@@ -6,21 +6,15 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 )
 
-// Arbitrary-metadata keys under which the content extraction pipeline stores the
-// dimensions of an embedded preview (for example audio cover art). These are an
-// internal signal, not a Microsoft Graph facet. Their presence means the file
-// carries an embedded preview.
+// Arbitrary-metadata keys holding an embedded preview's dimensions (e.g. audio
+// cover art), written at index time. Their presence signals a preview exists.
 const (
 	PreviewWidthKey  = "oc.preview.width"
 	PreviewHeightKey = "oc.preview.height"
 )
 
-// HasPreview reports whether a thumbnail/preview can be produced for the given
-// resource. For unconditional types it follows from the mimetype alone. For
-// embedded-preview types (audio cover art) it depends on whether an embedded
-// preview was detected at index time, signalled by the stored preview
-// dimensions. Files that have not been indexed yet report no preview rather than
-// promising one that would fail to render.
+// HasPreview reports whether a preview can be produced for the resource:
+// unconditional types by mimetype, embedded-preview types by stored dimensions.
 func HasPreview(md *provider.ResourceInfo) bool {
 	if md == nil {
 		return false
@@ -29,12 +23,8 @@ func HasPreview(md *provider.ResourceInfo) bool {
 	return HasPreviewForMimeType(md.GetMimeType(), w > 0 && h > 0)
 }
 
-// HasPreviewForMimeType reports whether a preview can be produced for a resource
-// of the given mimetype. For unconditional types it follows from the mimetype
-// alone; for embedded-preview types (audio cover art) it depends on
-// hasEmbeddedPreview, i.e. whether an embedded preview was detected at index
-// time. Callers that only have the mimetype and a presence signal (for example
-// search results) use this instead of HasPreview.
+// HasPreviewForMimeType is HasPreview for callers that only have the mimetype
+// and a presence signal (e.g. search results) rather than a full ResourceInfo.
 func HasPreviewForMimeType(mimeType string, hasEmbeddedPreview bool) bool {
 	if _, ok := UnconditionalPreviewMimeTypes[mimeType]; ok {
 		return true
