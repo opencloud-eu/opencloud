@@ -283,6 +283,16 @@
           }
         }
       },
+      "preview": {
+        "properties": {
+          "height": {
+            "type": "integer"
+          },
+          "width": {
+            "type": "integer"
+          }
+        }
+      },
       "video": {
         "properties": {
           "audioBitsPerSample": {
