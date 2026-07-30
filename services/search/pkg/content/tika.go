@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail"
 )
 
 // Tika is used to extract content from a resource,
@@ -134,6 +136,8 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		}
 	}
 
+	doc.Preview = getPreview(ri.GetMimeType(), metas)
+
 	if langCode := t.detectLanguage(ctx, doc.Content); langCode != "" && t.CleanStopWords {
 		doc.Content = CleanString(doc.Content, langCode)
 	}
@@ -161,4 +165,32 @@ func (t Tika) detectLanguage(ctx context.Context, content string) string {
 		}
 	}
 	return ""
+}
+
+// getPreview extracts the dimensions of an embedded preview image for content
+// whose thumbnail is embedded rather than rendered (audio cover art). Tika with
+// TIKA-4801 surfaces the embedded cover as an additional image entry carrying
+// tiff dimensions. It only runs for EmbeddedPreviewMimeTypes; unconditional
+// types have their preview availability decided by the mimetype alone.
+func getPreview(mimeType string, metas []map[string][]string) *Preview {
+	if _, ok := thumbnail.EmbeddedPreviewMimeTypes[mimeType]; !ok {
+		return nil
+	}
+	for _, meta := range metas {
+		ct, err := getFirstValue(meta, "Content-Type")
+		if err != nil || !strings.HasPrefix(ct, "image/") {
+			continue
+		}
+		w, wErr := getFirstValue(meta, "tiff:ImageWidth")
+		h, hErr := getFirstValue(meta, "tiff:ImageLength")
+		if wErr != nil || hErr != nil {
+			continue
+		}
+		width, wErr := strconv.ParseInt(w, 10, 32)
+		height, hErr := strconv.ParseInt(h, 10, 32)
+		if wErr == nil && hErr == nil && width > 0 && height > 0 {
+			return &Preview{Width: int32(width), Height: int32(height)}
+		}
+	}
+	return nil
 }
