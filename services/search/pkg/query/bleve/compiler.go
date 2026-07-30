@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/blevesearch/bleve/v2"
+	"github.com/blevesearch/bleve/v2/geo"
 	bleveQuery "github.com/blevesearch/bleve/v2/search/query"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
@@ -65,6 +66,12 @@ func fieldQuery(field, value string) bleveQuery.Query {
 	}
 	q.SetField(field)
 	return q
+}
+
+// geoField maps a KQL geo key to its indexed geopoint sibling, e.g.
+// "location" to "location_geopoint".
+func geoField(key string) string {
+	return strings.ToLower(key) + mapping.GeopointSuffix
 }
 
 // Compiler represents a KQL query search string to the bleve query formatter.
@@ -226,6 +233,35 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 			if prev == nil {
 				prev = q
 				isGroup = true
+			} else {
+				next = q
+			}
+		case *ast.GeoDistanceNode:
+			q := bleveQuery.NewGeoDistanceQuery(n.Lon, n.Lat, strconv.FormatFloat(n.Radius, 'f', -1, 64)+"m")
+			q.SetField(geoField(n.Key))
+			if prev == nil {
+				prev = q
+			} else {
+				next = q
+			}
+		case *ast.GeoBoundingBoxNode:
+			// bleve takes the top-left and bottom-right corners.
+			q := bleveQuery.NewGeoBoundingBoxQuery(n.MinLon, n.MaxLat, n.MaxLon, n.MinLat)
+			q.SetField(geoField(n.Key))
+			if prev == nil {
+				prev = q
+			} else {
+				next = q
+			}
+		case *ast.GeoPolygonNode:
+			points := make([]geo.Point, 0, len(n.Points))
+			for _, p := range n.Points {
+				points = append(points, geo.Point{Lon: p.Lon, Lat: p.Lat})
+			}
+			q := bleveQuery.NewGeoBoundingPolygonQuery(points)
+			q.SetField(geoField(n.Key))
+			if prev == nil {
+				prev = q
 			} else {
 				next = q
 			}
