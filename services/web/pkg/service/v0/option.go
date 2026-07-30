@@ -10,6 +10,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/x/io/fsx"
+	"github.com/opencloud-eu/opencloud/services/web/pkg/announcement"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/config"
 )
 
@@ -18,15 +19,16 @@ type Option func(o *Options)
 
 // Options define the available options for this package.
 type Options struct {
-	Logger           log.Logger
-	Config           *config.Config
-	Middleware       []func(http.Handler) http.Handler
-	GatewaySelector  pool.Selectable[gateway.GatewayAPIClient]
-	TraceProvider    trace.TracerProvider
-	AppsHTTPEndpoint string
-	CoreFS           fs.FS
-	AppFS            fs.FS
-	ThemeFS          *fsx.FallbackFS
+	Logger            log.Logger
+	Config            *config.Config
+	Middleware        []func(http.Handler) http.Handler
+	GatewaySelector   pool.Selectable[gateway.GatewayAPIClient]
+	TraceProvider     trace.TracerProvider
+	AppsHTTPEndpoint  string
+	CoreFS            fs.FS
+	AppFS             fs.FS
+	ThemeFS           *fsx.FallbackFS
+	AnnouncementStore *announcement.Store
 }
 
 // newOptions initializes the available default options.
@@ -86,6 +88,13 @@ func AppFS(val fs.FS) Option {
 func ThemeFS(val *fsx.FallbackFS) Option {
 	return func(o *Options) {
 		o.ThemeFS = val
+	}
+}
+
+// AnnouncementStore provides a function to set the announcement store option.
+func AnnouncementStore(val *announcement.Store) Option {
+	return func(o *Options) {
+		o.AnnouncementStore = val
 	}
 }
 

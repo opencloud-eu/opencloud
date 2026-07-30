@@ -138,6 +138,10 @@ func DefaultPolicies() []config.Policy {
 					Service:  "eu.opencloud.web.web",
 				},
 				{
+					Endpoint: "/announcement",
+					Service:  "eu.opencloud.web.web",
+				},
+				{
 					Endpoint:    "/konnect/",
 					Service:     "eu.opencloud.web.idp",
 					Unprotected: true,

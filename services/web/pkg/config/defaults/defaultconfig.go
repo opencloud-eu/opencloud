@@ -85,6 +85,10 @@ func DefaultConfig() *config.Config {
 			ThemesPath: filepath.Join(defaults.BaseDataPath(), "web/assets/themes"),
 		},
 		GatewayAddress: "eu.opencloud.api.gateway",
+		Store: config.Store{
+			Nodes:    []string{"127.0.0.1:9233"},
+			Database: "web",
+		},
 		Web: config.Web{
 			ThemeServer: "https://localhost:9200",
 			ThemePath:   "/themes/opencloud/theme.json",
