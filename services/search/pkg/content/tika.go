@@ -156,15 +156,23 @@ func (t Tika) detectLanguage(ctx context.Context, content string) string {
 	return ""
 }
 
-// getPreview extracts the dimensions of an embedded preview image for content
+// frontCoverDescription is the picture type Tika reports (as dc:description) for
+// the front cover, matching the thumbnailer's selection in the dhowden/tag fork.
+const frontCoverDescription = "Cover (front)"
+
+// getPreview extracts the dimensions of the embedded preview image for content
 // whose thumbnail is embedded rather than rendered (audio cover art). Tika with
-// TIKA-4801 surfaces the embedded cover as an additional image entry carrying
-// tiff dimensions. It only runs for EmbeddedPreviewMimeTypes; unconditional
-// types have their preview availability decided by the mimetype alone.
+// TIKA-4801 surfaces embedded covers as image entries carrying tiff dimensions
+// and the picture type as dc:description. It prefers the front cover and falls
+// back to the first embedded image, matching the thumbnailer's cover selection,
+// so the reported dimensions belong to the picture that actually gets rendered.
+// It only runs for EmbeddedPreviewMimeTypes; unconditional types have their
+// preview availability decided by the mimetype alone.
 func getPreview(mimeType string, metas []map[string][]string) *Preview {
 	if _, ok := thumbnail.EmbeddedPreviewMimeTypes[mimeType]; !ok {
 		return nil
 	}
+	var first *Preview
 	for _, meta := range metas {
 		ct, err := getFirstValue(meta, "Content-Type")
 		if err != nil || !strings.HasPrefix(ct, "image/") {
@@ -177,9 +185,16 @@ func getPreview(mimeType string, metas []map[string][]string) *Preview {
 		}
 		width, wErr := strconv.ParseInt(w, 10, 32)
 		height, hErr := strconv.ParseInt(h, 10, 32)
-		if wErr == nil && hErr == nil && width > 0 && height > 0 {
-			return &Preview{Width: int32(width), Height: int32(height)}
+		if wErr != nil || hErr != nil || width <= 0 || height <= 0 {
+			continue
+		}
+		preview := &Preview{Width: int32(width), Height: int32(height)}
+		if desc, _ := getFirstValue(meta, "dc:description"); desc == frontCoverDescription {
+			return preview
+		}
+		if first == nil {
+			first = preview
 		}
 	}
-	return nil
+	return first
 }

@@ -30,6 +30,21 @@ func TestGetPreview(t *testing.T) {
 		}
 	})
 
+	t.Run("prefers the front cover over an earlier back cover", func(t *testing.T) {
+		back := map[string][]string{
+			"Content-Type": {"image/jpeg"}, "dc:description": {"Cover (back)"},
+			"tiff:ImageWidth": {"30"}, "tiff:ImageLength": {"30"},
+		}
+		front := map[string][]string{
+			"Content-Type": {"image/jpeg"}, "dc:description": {"Cover (front)"},
+			"tiff:ImageWidth": {"64"}, "tiff:ImageLength": {"40"},
+		}
+		p := getPreview("audio/mpeg", []map[string][]string{audio, back, front})
+		if p == nil || p.Width != 64 || p.Height != 40 {
+			t.Fatalf("expected front cover 64x40, got %+v", p)
+		}
+	})
+
 	t.Run("non-embedded type is gated out", func(t *testing.T) {
 		// an image file is unconditional; its preview is not driven by oc.preview,
 		// so getPreview must return nil even though an image meta is present.
