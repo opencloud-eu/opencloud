@@ -1,17 +1,14 @@
 # Changelog
 
-## [7.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.4.0) - 2026-07-29
+## [7.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.4.0) - 2026-07-30
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @AlexAndBear, @JammingBen, @fschade, @michaelstingl, @rhafer, @schweigisito, @v-scharf
 
-### 🐛 Bug Fixes
-
-- fix(posixfs scan): Setup logger for scan command [[#3185](https://github.com/opencloud-eu/opencloud/pull/3185)]
-
 ### ✅ Tests
 
+- api-test: mark group last-manager removal scenario as flaky [[#3194](https://github.com/opencloud-eu/opencloud/pull/3194)]
 - rerun flaky tests [[#3183](https://github.com/opencloud-eu/opencloud/pull/3183)]
 - api-test: fix removeAccessToDrive.feature:145 [[#3179](https://github.com/opencloud-eu/opencloud/pull/3179)]
 - api-test: cover additional unified roles in acceptance tests [[#3169](https://github.com/opencloud-eu/opencloud/pull/3169)]
@@ -19,6 +16,10 @@
 - test(apiArchiver): the single-resource archive is named after the resource [[#3080](https://github.com/opencloud-eu/opencloud/pull/3080)]
 - test(coreApiWebdavUploadTUS): assert etag and permissions on the finalizing TUS chunk [[#3078](https://github.com/opencloud-eu/opencloud/pull/3078)]
 - test(coreApiWebdavOperations): download a file with a literal "%" via its oc:downloadURL [[#3079](https://github.com/opencloud-eu/opencloud/pull/3079)]
+
+### 🐛 Bug Fixes
+
+- fix(posixfs scan): Setup logger for scan command [[#3185](https://github.com/opencloud-eu/opencloud/pull/3185)]
 
 ### 📚 Documentation
 
