@@ -25,14 +25,22 @@ func HasPreview(md *provider.ResourceInfo) bool {
 	if md == nil {
 		return false
 	}
+	w, h := PreviewDimensions(md)
+	return HasPreviewForMimeType(md.GetMimeType(), w > 0 && h > 0)
+}
 
-	mimeType := md.GetMimeType()
+// HasPreviewForMimeType reports whether a preview can be produced for a resource
+// of the given mimetype. For unconditional types it follows from the mimetype
+// alone; for embedded-preview types (audio cover art) it depends on
+// hasEmbeddedPreview, i.e. whether an embedded preview was detected at index
+// time. Callers that only have the mimetype and a presence signal (for example
+// search results) use this instead of HasPreview.
+func HasPreviewForMimeType(mimeType string, hasEmbeddedPreview bool) bool {
 	if _, ok := UnconditionalPreviewMimeTypes[mimeType]; ok {
 		return true
 	}
 	if _, ok := EmbeddedPreviewMimeTypes[mimeType]; ok {
-		w, h := PreviewDimensions(md)
-		return w > 0 && h > 0
+		return hasEmbeddedPreview
 	}
 	return false
 }
