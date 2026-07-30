@@ -4,7 +4,12 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @fschade, @michaelstingl, @rhafer, @schweigisito, @v-scharf
+@AlexAndBear, @JammingBen, @dschmidt, @fschade, @michaelstingl, @rhafer, @schweigisito, @v-scharf
+
+### 📈 Enhancement
+
+- feat: add announcement banner [[#3189](https://github.com/opencloud-eu/opencloud/pull/3189)]
+- feat: add space viewer with versions role [[#2961](https://github.com/opencloud-eu/opencloud/pull/2961)]
 
 ### ✅ Tests
 
@@ -25,10 +30,6 @@
 
 - maint: clean-up auth-app documentation [[#3155](https://github.com/opencloud-eu/opencloud/pull/3155)]
 - ci: sync tests/README.md to docs [[#3164](https://github.com/opencloud-eu/opencloud/pull/3164)]
-
-### 📈 Enhancement
-
-- feat: add space viewer with versions role [[#2961](https://github.com/opencloud-eu/opencloud/pull/2961)]
 
 ## [7.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.3.0) - 2026-07-14
 
