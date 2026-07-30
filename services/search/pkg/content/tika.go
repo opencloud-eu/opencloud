@@ -160,14 +160,10 @@ func (t Tika) detectLanguage(ctx context.Context, content string) string {
 // the front cover, matching the thumbnailer's selection in the dhowden/tag fork.
 const frontCoverDescription = "Cover (front)"
 
-// getPreview extracts the dimensions of the embedded preview image for content
-// whose thumbnail is embedded rather than rendered (audio cover art). Tika with
-// TIKA-4801 surfaces embedded covers as image entries carrying tiff dimensions
-// and the picture type as dc:description. It prefers the front cover and falls
-// back to the first embedded image, matching the thumbnailer's cover selection,
-// so the reported dimensions belong to the picture that actually gets rendered.
-// It only runs for EmbeddedPreviewMimeTypes; unconditional types have their
-// preview availability decided by the mimetype alone.
+// getPreview returns the dimensions of an audio file's embedded cover art from
+// Tika's recursive metadata, preferring the front cover (dc:description) and
+// falling back to the first image, matching the thumbnailer's selection. It only
+// runs for EmbeddedPreviewMimeTypes.
 func getPreview(mimeType string, metas []map[string][]string) *Preview {
 	if _, ok := thumbnail.EmbeddedPreviewMimeTypes[mimeType]; !ok {
 		return nil

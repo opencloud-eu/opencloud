@@ -33,19 +33,15 @@ type Document struct {
 	Preview     *Preview                   `json:"preview,omitempty"`
 }
 
-// Preview holds the dimensions of an embedded preview image (for example audio
-// cover art) for content types whose thumbnail is embedded rather than rendered
-// and may therefore be absent. It is an internal signal, not a Microsoft Graph
-// facet: its presence marks that a preview exists for the resource.
+// Preview holds the dimensions of an embedded preview (e.g. audio cover art).
+// Internal signal, not a Graph facet; its presence marks that a preview exists.
 type Preview struct {
 	Width  int32 `json:"width"`
 	Height int32 `json:"height"`
 }
 
-// ToMap lets Preview flow through the same facet-to-metadata flattening as the
-// Microsoft Graph facets, so it is stored under the oc.preview. prefix (keys
-// oc.preview.width / oc.preview.height, matching thumbnail.PreviewWidthKey /
-// thumbnail.PreviewHeightKey). Preview is not itself a Graph facet.
+// ToMap lets Preview flow through the shared facet-to-metadata flattening (under
+// the oc.preview. prefix). Preview is not itself a Graph facet.
 func (p Preview) ToMap() (map[string]interface{}, error) {
 	return map[string]interface{}{
 		"width":  p.Width,
