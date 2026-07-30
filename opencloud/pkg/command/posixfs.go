@@ -17,6 +17,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/config/parser"
 	oclog "github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/x/path/filepathx"
+	storageUsersConfig "github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
 	storageUsersParser "github.com/opencloud-eu/opencloud/services/storage-users/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/event"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/revaconfig"
@@ -28,7 +29,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 
 	"github.com/pkg/xattr"
-	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -183,51 +183,114 @@ func scanCmd(ocCfg *config.Config) *cobra.Command {
 }
 
 // consistencyCmd returns a command to check the consistency of the posixfs storage.
-func consistencyCmd(cfg *config.Config) *cobra.Command {
+func consistencyCmd(ocCfg *config.Config) *cobra.Command {
 	consCmd := &cobra.Command{
-		Use:   "consistency",
+		Use:   "consistency <path>",
 		Short: "check the consistency of the posixfs storage",
+		Long: `check the consistency of the posixfs storage.
+
+The <path> argument determines the scope of the check:
+  - a storage root:   the whole storage (all personal and project spaces) is checked
+  - a space root:     only that space is checked
+  - a file or folder: only that single entity is checked (and its children, if it is a folder)`,
+		Args: cobra.ExactArgs(1),
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+
+			if err := parser.ParseConfig(ocCfg, true); err != nil {
+				return configlog.ReturnError(err)
+			}
+
+			// Parse storage users config
+			ocCfg.StorageUsers.Commons = ocCfg.Commons
+
+			return configlog.ReturnFatal(storageUsersParser.ParseConfig(ocCfg.StorageUsers))
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return checkPosixfsConsistency(cmd, cfg)
+			cfg := ocCfg.StorageUsers
+			return checkPosixfsConsistency(cfg, cmd, args[0])
 		},
 	}
-	consCmd.Flags().StringP("root", "r", "", "Path to the root directory of the posixfs storage")
-	_ = consCmd.MarkFlagRequired("root")
 	consCmd.Flags().Bool("fix-checksums", false, "Recalculate and fix the file checksums. This reads every file and can be slow on large storages.")
 
 	return consCmd
 }
 
-// checkPosixfsConsistency checks the consistency of the posixfs storage.
-func checkPosixfsConsistency(cmd *cobra.Command, cfg *config.Config) error {
-	rootPath, _ := cmd.Flags().GetString("root")
+// checkPosixfsConsistency checks the consistency of the posixfs storage. The
+// given path determines the scope of the check: the whole storage, a single
+// space or a single entity within a space.
+func checkPosixfsConsistency(cfg *storageUsersConfig.Config, cmd *cobra.Command, path string) error {
 	recalculateChecksums, _ = cmd.Flags().GetBool("fix-checksums")
-	indexesPath := filepath.Join(rootPath, "indexes")
 
-	opt, _ := options.New(map[string]interface{}{
-		"root": rootPath,
-	})
-	log := zerolog.Nop()
-	ignorer = ignore.NewIgnorer(opt, &log)
-
-	_, err := os.Stat(indexesPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("consistency check failed: '%s' is not a posixfs root", rootPath)
-		}
-		return fmt.Errorf("error accessing '%s': %w", indexesPath, err)
+	path = filepath.Clean(path)
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("error accessing '%s': %w", path, err)
 	}
 
-	fmt.Println("Checking personal spaces...")
-	checkSpaces(filepath.Join(rootPath, "users"))
+	rootPath, err := findStorageRoot(path)
+	if err != nil {
+		return err
+	}
 
-	fmt.Println("Checking project spaces...")
-	checkSpaces(filepath.Join(rootPath, "projects"))
+	drivers := revaconfig.StorageProviderDrivers(cfg)
+	drivers["posix"] = revaconfig.Posix(cfg, false, false)
+	opts, err := options.New(drivers["posix"].(map[string]any))
+	if err != nil {
+		return err
+	}
+
+	ignorer = ignore.NewIgnorer(opts, nil)
+
+	switch {
+	case path == rootPath:
+		fmt.Println("Checking personal spaces...")
+		checkSpaces(filepath.Join(path, "users"))
+
+		fmt.Println("Checking project spaces...")
+		checkSpaces(filepath.Join(path, "projects"))
+	case isSpaceRoot(path):
+		fmt.Printf("Checking space '%s'...\n", path)
+		checkSpace(path)
+	default:
+		fmt.Printf("Checking '%s'...\n", path)
+		checkEntity(path)
+	}
 
 	if restartRequired {
 		fmt.Println("\n\n  ⚠️  Please restart your openCloud instance to apply changes.")
 	}
 	return nil
+}
+
+// findStorageRoot walks up the directory tree starting at path until it finds a
+// directory that contains an "indexes" subdirectory which marks the root of a
+// posixfs storage. A user folder inside a space might also be named "indexes",
+// so to disambiguate we require that the "indexes" directory is an internal
+// directory: the storage's own indexes directory is skipped during assimilation
+// and therefore never receives a node ID attribute, whereas a regular user
+// folder would have one.
+func findStorageRoot(path string) (string, error) {
+	current := path
+	for {
+		indexesPath := filepath.Join(current, "indexes")
+		if info, err := os.Stat(indexesPath); err == nil && info.IsDir() {
+			if id, err := xattr.Get(indexesPath, prefixes.IDAttr); err != nil || len(id) == 0 {
+				return current, nil
+			}
+		}
+
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", fmt.Errorf("'%s' does not appear to be inside a posixfs storage (no 'indexes' directory found)", path)
+		}
+		current = parent
+	}
+}
+
+// isSpaceRoot reports whether the given path is a space root, which is
+// identified by the presence of the space ID attribute.
+func isSpaceRoot(path string) bool {
+	spaceID, err := xattr.Get(path, prefixes.SpaceIDAttr)
+	return err == nil && len(spaceID) > 0
 }
 
 func checkSpaces(basePath string) {
@@ -326,31 +389,7 @@ func walkNodes(dir string, parentID string) int {
 			continue
 		}
 
-		// Check if the parent ID attribute matches the expected parent ID, if not, fix it.
-		actualParentID, err := xattr.Get(fullPath, prefixes.ParentidAttr)
-		if err != nil || string(actualParentID) != parentID {
-			err = xattr.Set(fullPath, prefixes.ParentidAttr, []byte(parentID))
-			if err != nil {
-				logFailure("Failed to fix parent ID for '%s': %v", fullPath, err)
-			} else {
-				fmt.Printf("  + Fixed parent ID for '%s'", fullPath)
-				fixes++
-				restartRequired = true
-			}
-		}
-
-		// Check that the name attribute matches the actual name of the file/directory, if not, fix it.
-		nameAttr, err := xattr.Get(fullPath, prefixes.NameAttr)
-		if err != nil || string(nameAttr) != entry.Name() {
-			err = xattr.Set(fullPath, prefixes.NameAttr, []byte(entry.Name()))
-			if err != nil {
-				logFailure("Failed to fix name attribute for '%s': %v", fullPath, err)
-			} else {
-				fmt.Printf("  + Fixed name attribute for '%s'", fullPath)
-				fixes++
-				restartRequired = true
-			}
-		}
+		fixes += checkNodeAttributes(fullPath, entry.Name(), parentID, entry.IsDir())
 
 		if entry.IsDir() {
 			nodeID, err := xattr.Get(fullPath, prefixes.IDAttr)
@@ -359,14 +398,83 @@ func walkNodes(dir string, parentID string) int {
 				continue
 			}
 			fixes += walkNodes(fullPath, string(nodeID))
-		} else {
-			fixes += checkBlobsize(fullPath)
-			if recalculateChecksums {
-				fixes += fixChecksums(fullPath)
-			}
 		}
 	}
 	return fixes
+}
+
+// checkNodeAttributes checks and fixes the parent ID and name attributes of a
+// single node. For files it additionally checks the blobsize and, when
+// requested, the checksums. It returns the number of fixes applied.
+func checkNodeAttributes(path, name, parentID string, isDir bool) int {
+	fixes := 0
+
+	// Check if the parent ID attribute matches the expected parent ID, if not, fix it.
+	actualParentID, err := xattr.Get(path, prefixes.ParentidAttr)
+	if err != nil || string(actualParentID) != parentID {
+		if err := xattr.Set(path, prefixes.ParentidAttr, []byte(parentID)); err != nil {
+			logFailure("Failed to fix parent ID for '%s': %v", path, err)
+		} else {
+			fmt.Printf("  + Fixed parent ID for '%s'\n", path)
+			fixes++
+			restartRequired = true
+		}
+	}
+
+	// Check that the name attribute matches the actual name of the file/directory, if not, fix it.
+	nameAttr, err := xattr.Get(path, prefixes.NameAttr)
+	if err != nil || string(nameAttr) != name {
+		if err := xattr.Set(path, prefixes.NameAttr, []byte(name)); err != nil {
+			logFailure("Failed to fix name attribute for '%s': %v", path, err)
+		} else {
+			fmt.Printf("  + Fixed name attribute for '%s'\n", path)
+			fixes++
+			restartRequired = true
+		}
+	}
+
+	if !isDir {
+		fixes += checkBlobsize(path)
+		if recalculateChecksums {
+			fixes += fixChecksums(path)
+		}
+	}
+
+	return fixes
+}
+
+// checkEntity checks a single file or folder within a space, including its own
+// parent ID, name and (for files) blobsize/checksums. If the entity is a folder
+// its children are checked recursively.
+func checkEntity(path string) {
+	info, err := os.Stat(path)
+	if err != nil {
+		logFailure("Error accessing path '%s': %v", path, err)
+		return
+	}
+
+	// The expected parent ID is the ID attribute of the containing directory.
+	parentDir := filepath.Dir(path)
+	parentID, err := xattr.Get(parentDir, prefixes.IDAttr)
+	if err != nil || len(parentID) == 0 {
+		logFailure("Parent directory '%s' is missing the '%s' attribute", parentDir, prefixes.IDAttr)
+		return
+	}
+
+	fixes := checkNodeAttributes(path, info.Name(), string(parentID), info.IsDir())
+
+	if info.IsDir() {
+		nodeID, err := xattr.Get(path, prefixes.IDAttr)
+		if err != nil || len(nodeID) == 0 {
+			logFailure("Directory '%s' missing '%s' attribute", path, prefixes.IDAttr)
+		} else {
+			fixes += walkNodes(path, string(nodeID))
+		}
+	}
+
+	if fixes > 0 {
+		fmt.Printf("  ✓ Fixed %d incorrect node attributes for %s\n", fixes, filepath.Base(path))
+	}
 }
 
 // checkBlobsize verifies that the stored blobsize attribute matches the actual
@@ -436,7 +544,7 @@ func checkNodes(spacePath string) {
 	fixes := walkNodes(spacePath, string(rootID))
 
 	if fixes > 0 {
-		fmt.Printf("\n  ✓ Fixed %d incorrect node attributes in %s\n", fixes, filepath.Base(spacePath))
+		fmt.Printf("  ✓ Fixed %d incorrect node attributes in %s\n", fixes, filepath.Base(spacePath))
 	}
 }
 
