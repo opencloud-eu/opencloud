@@ -135,6 +135,9 @@ type Metadata interface {
 	// Picture returns a picture, or nil if not available.
 	Picture() *Picture
 
+	// Pictures returns all attached pictures, or nil if none are available.
+	Pictures() []Picture
+
 	// Lyrics returns the lyrics, or an empty string if unavailable.
 	Lyrics() string
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/dhowden/tag"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 
@@ -124,6 +125,28 @@ var _ = Describe("ImageDecoder", func() {
 			img, err := decoder.Convert(bytes.NewReader([]byte("not an audio")))
 			Expect(err).To(HaveOccurred())
 			Expect(img).To(BeNil())
+		})
+	})
+
+	Describe("selectCoverArt", func() {
+		front := tag.Picture{RawType: frontCoverType, MIMEType: "image/jpeg", Data: []byte("front")}
+		back := tag.Picture{RawType: 0x04, MIMEType: "image/jpeg", Data: []byte("back")}
+		other := tag.Picture{RawType: 0x00, MIMEType: "image/png", Data: []byte("other")}
+
+		It("returns nil when there are no pictures", func() {
+			Expect(selectCoverArt(nil)).To(BeNil())
+			Expect(selectCoverArt([]tag.Picture{})).To(BeNil())
+		})
+		It("prefers the front cover regardless of order", func() {
+			got := selectCoverArt([]tag.Picture{back, other, front})
+			Expect(got).ToNot(BeNil())
+			Expect(got.RawType).To(Equal(frontCoverType))
+			Expect(got.Data).To(Equal([]byte("front")))
+		})
+		It("falls back to the first picture when none is a front cover", func() {
+			got := selectCoverArt([]tag.Picture{other, back})
+			Expect(got).ToNot(BeNil())
+			Expect(got.Data).To(Equal([]byte("other")))
 		})
 	})
 

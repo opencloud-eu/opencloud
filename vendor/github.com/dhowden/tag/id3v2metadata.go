@@ -150,3 +150,28 @@ func (m metadataID3v2) Picture() *Picture {
 	}
 	return v.(*Picture)
 }
+
+// Pictures returns all attached pictures. Duplicate picture frames are stored
+// under suffixed keys ("APIC", "APIC_0", "APIC_1", ...) by readFrames, so we
+// walk that sequence to return them in file order.
+func (m metadataID3v2) Pictures() []Picture {
+	base := frames.Name("picture", m.Format())
+	if base == "" {
+		return nil
+	}
+	var pics []Picture
+	for i := -1; ; i++ {
+		key := base
+		if i >= 0 {
+			key = base + "_" + strconv.Itoa(i)
+		}
+		v, ok := m.frames[key]
+		if !ok {
+			break
+		}
+		if p, ok := v.(*Picture); ok {
+			pics = append(pics, *p)
+		}
+	}
+	return pics
+}

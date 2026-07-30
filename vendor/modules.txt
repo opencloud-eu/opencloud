@@ -373,7 +373,7 @@ github.com/dgraph-io/ristretto/z/simd
 # github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f
 ## explicit
 github.com/dgryski/go-rendezvous
-# github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
+# github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8 => github.com/dschmidt/tag v0.0.0-20260730135516-8eb6fc4a6973
 ## explicit; go 1.20
 github.com/dhowden/tag
 # github.com/distribution/reference v0.6.0
@@ -2736,3 +2736,4 @@ stash.kopano.io/kgol/rndm
 # github.com/unrolled/secure => github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4
 # go-micro.dev/v4 => github.com/butonic/go-micro/v4 v4.11.1-0.20241115112658-b5d4de5ed9b3
 # github.com/go-micro/plugins/v4/store/nats-js-kv => github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a
+# github.com/dhowden/tag => github.com/dschmidt/tag v0.0.0-20260730135516-8eb6fc4a6973

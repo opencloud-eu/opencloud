@@ -546,6 +546,7 @@ type Picture struct {
 	Ext         string // Extension of the picture file.
 	MIMEType    string // MIMEType of the picture.
 	Type        string // Type of the picture (see pictureTypes).
+	RawType     byte   // Raw picture type byte (see pictureTypes); 0x03 is the front cover.
 	Description string // Description.
 	Data        []byte // Raw picture data.
 }
@@ -596,6 +597,7 @@ func readPICFrame(b []byte) (*Picture, error) {
 		Ext:         ext,
 		MIMEType:    mimeType,
 		Type:        pictureTypes[picType],
+		RawType:     picType,
 		Description: desc,
 		Data:        descDataSplit[1],
 	}, nil
@@ -649,6 +651,7 @@ func readAPICFrame(b []byte) (*Picture, error) {
 		Ext:         ext,
 		MIMEType:    mimeType,
 		Type:        pictureTypes[picType],
+		RawType:     picType,
 		Description: desc,
 		Data:        descDataSplit[1],
 	}, nil

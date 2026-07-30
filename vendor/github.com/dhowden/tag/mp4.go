@@ -377,3 +377,13 @@ func (m metadataMP4) Picture() *Picture {
 	p, _ := v.(*Picture)
 	return p
 }
+
+// Pictures returns the attached cover art. The MP4 "covr" atom carries no
+// picture type, so at most a single untyped picture is returned.
+func (m metadataMP4) Pictures() []Picture {
+	p := m.Picture()
+	if p == nil {
+		return nil
+	}
+	return []Picture{*p}
+}

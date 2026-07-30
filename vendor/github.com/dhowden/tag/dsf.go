@@ -96,6 +96,10 @@ func (m metadataDSF) Picture() *Picture {
 	return m.id3.Picture()
 }
 
+func (m metadataDSF) Pictures() []Picture {
+	return m.id3.Pictures()
+}
+
 func (m metadataDSF) Lyrics() string {
 	return m.id3.Lyrics()
 }

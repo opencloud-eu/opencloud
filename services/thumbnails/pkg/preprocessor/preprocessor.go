@@ -89,7 +89,7 @@ func (i AudioDecoder) Convert(r io.Reader) (any, error) {
 		return nil, err
 	}
 
-	picture := m.Picture()
+	picture := selectCoverArt(m.Pictures())
 	if picture == nil {
 		return nil, thumbnailerErrors.ErrNoImageFromAudioFile
 	}
@@ -100,6 +100,27 @@ func (i AudioDecoder) Convert(r io.Reader) (any, error) {
 	}
 
 	return converter.Convert(bytes.NewReader(picture.Data))
+}
+
+// frontCoverType is the ID3/APIC picture type byte for a front cover, shared by
+// the ID3v2, FLAC and OGG tag formats (see github.com/dhowden/tag pictureTypes).
+const frontCoverType byte = 0x03
+
+// selectCoverArt deterministically picks the cover art from an audio file's
+// embedded pictures: the explicitly tagged front cover if present, otherwise
+// the first available picture. Many taggers store the cover as type "Other"
+// (0x00) instead of "Cover (front)" (0x03), so the fallback is the common case.
+// It returns nil when there are no pictures.
+func selectCoverArt(pictures []tag.Picture) *tag.Picture {
+	if len(pictures) == 0 {
+		return nil
+	}
+	for i := range pictures {
+		if pictures[i].RawType == frontCoverType {
+			return &pictures[i]
+		}
+	}
+	return &pictures[0]
 }
 
 // TxtToImageConverter is a converter for the text file
