@@ -15,6 +15,12 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/query"
 )
 
+// geoField maps a KQL geo key to its indexed geopoint sibling, e.g.
+// "location" to "location_geopoint".
+func geoField(key string) string {
+	return strings.ToLower(key) + mapping.GeopointSuffix
+}
+
 func TranspileKQLToOpenSearch(nodes []ast.Node) (osu.Builder, error) {
 	return kqlOpensearchTranspiler{}.Transpile(nodes)
 }
@@ -186,6 +192,19 @@ func (t kqlOpensearchTranspiler) toBuilder(node ast.Node) (osu.Builder, error) {
 		}
 
 		return group, nil
+	case *ast.GeoDistanceNode:
+		return osu.NewGeoDistanceQuery(geoField(node.Key)).
+			Distance(strconv.FormatFloat(node.Radius, 'f', -1, 64)+"m").
+			Point(node.Lat, node.Lon), nil
+	case *ast.GeoBoundingBoxNode:
+		return osu.NewGeoBoundingBoxQuery(geoField(node.Key)).
+			Box(node.MinLat, node.MinLon, node.MaxLat, node.MaxLon), nil
+	case *ast.GeoPolygonNode:
+		q := osu.NewGeoPolygonQuery(geoField(node.Key))
+		for _, p := range node.Points {
+			q.Point(p.Lat, p.Lon)
+		}
+		return q, nil
 	}
 
 	return nil, fmt.Errorf("%w: %T", ErrUnsupportedNodeType, node)
