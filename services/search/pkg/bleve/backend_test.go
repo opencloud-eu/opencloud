@@ -1,14 +1,21 @@
 package bleve_test
 
 import (
+	"context"
 	"fmt"
+	"os"
 
 	bleveSearch "github.com/blevesearch/bleve/v2"
+	"github.com/blevesearch/bleve/v2/index/scorch"
 	sprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
+	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
@@ -29,7 +36,10 @@ var _ = Describe("Bleve", func() {
 		mapping, err := bleve.NewMapping()
 		Expect(err).ToNot(HaveOccurred())
 
-		idx, err = bleveSearch.NewMemOnly(mapping)
+		tmpDir, err := os.MkdirTemp("", "bleve-test-")
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(os.RemoveAll, tmpDir)
+		idx, err = bleveSearch.NewUsing(tmpDir, mapping, scorch.Name, bleveSearch.Config.DefaultKVStore, nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		eng = bleve.NewBackend(idx, bleveQuery.DefaultCreator, log.Logger{})
@@ -115,4 +125,160 @@ var _ = Describe("Bleve", func() {
 		})
 	})
 
+	Describe("Aggregations", func() {
+		upsertAudio := func(id, name, artist, album, title string) {
+			r := search.Resource{
+				ID:       id,
+				ParentID: rootResource.ID,
+				RootID:   rootResource.ID,
+				Path:     "./" + name,
+				Type:     uint64(sprovider.ResourceType_RESOURCE_TYPE_FILE),
+				Document: content.Document{
+					Name:     name,
+					MimeType: "audio/mpeg",
+					Audio: &libregraph.Audio{
+						Artist: libregraph.PtrString(artist),
+						Album:  libregraph.PtrString(album),
+						Title:  libregraph.PtrString(title),
+					},
+				},
+			}
+			Expect(eng.Upsert(r.ID, r)).To(Succeed())
+		}
+
+		searchWithAggs := func(query string, aggs ...*searchsvc.AggregationOption) *searchsvc.SearchIndexResponse {
+			rID, err := storagespace.ParseID(rootResource.ID)
+			Expect(err).ToNot(HaveOccurred())
+			res, err := eng.Search(context.Background(), &searchsvc.SearchIndexRequest{
+				Query: query,
+				Ref: &searchmsg.Reference{
+					ResourceId: &searchmsg.ResourceID{
+						StorageId: rID.StorageId,
+						SpaceId:   rID.SpaceId,
+						OpaqueId:  rID.OpaqueId,
+					},
+				},
+				Aggregations: aggs,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			return res
+		}
+
+		BeforeEach(func() {
+			Expect(eng.Upsert(rootResource.ID, rootResource)).To(Succeed())
+			upsertAudio("1$2!1001", "a.mp3", "Pink Floyd", "The Wall", "Brick")
+			upsertAudio("1$2!1002", "b.mp3", "Pink Floyd", "The Wall", "Comfortably Numb")
+			upsertAudio("1$2!1003", "c.mp3", "Motörhead", "Bomber", "Bomber")
+			upsertAudio("1$2!1004", "d.mp3", "Motörhead", "Bomber", "Stone Dead Forever")
+			upsertAudio("1$2!1005", "e.mp3", "Motörhead", "Ace of Spades", "Ace of Spades")
+		})
+
+		It("returns term buckets on audio.artist", func() {
+			res := searchWithAggs("mediatype:audio", &searchsvc.AggregationOption{
+				Field: "audio.artist",
+				Size:  10,
+			})
+			Expect(res.Aggregations).To(HaveLen(1))
+			agg := res.Aggregations[0]
+			Expect(agg.Field).To(Equal("audio.artist"))
+
+			counts := map[string]int64{}
+			for _, b := range agg.Buckets {
+				counts[b.Key] = b.Count
+			}
+			Expect(counts).To(HaveKeyWithValue("Pink Floyd", int64(2)))
+			Expect(counts).To(HaveKeyWithValue("Motörhead", int64(3)))
+		})
+
+		It("returns nil aggregations when none are requested", func() {
+			res := searchWithAggs("mediatype:audio")
+			Expect(res.Aggregations).To(BeNil())
+		})
+
+		It("handles multiple aggregations in one request", func() {
+			res := searchWithAggs("mediatype:audio",
+				&searchsvc.AggregationOption{Field: "audio.artist"},
+				&searchsvc.AggregationOption{Field: "audio.album"},
+			)
+			fields := []string{}
+			for _, a := range res.Aggregations {
+				fields = append(fields, a.Field)
+			}
+			Expect(fields).To(ConsistOf("audio.artist", "audio.album"))
+		})
+
+		Describe("numeric range aggregations", func() {
+			upsertWithYear := func(id, name string, year int32) {
+				r := search.Resource{
+					ID:       id,
+					ParentID: rootResource.ID,
+					RootID:   rootResource.ID,
+					Path:     "./" + name,
+					Type:     uint64(sprovider.ResourceType_RESOURCE_TYPE_FILE),
+					Document: content.Document{
+						Name:     name,
+						MimeType: "audio/mpeg",
+						Audio:    &libregraph.Audio{Year: libregraph.PtrInt32(year)},
+					},
+				}
+				Expect(eng.Upsert(r.ID, r)).To(Succeed())
+			}
+
+			BeforeEach(func() {
+				upsertWithYear("1$2!2001", "70a.mp3", 1971)
+				upsertWithYear("1$2!2002", "70b.mp3", 1975)
+				upsertWithYear("1$2!2003", "80a.mp3", 1982)
+				upsertWithYear("1$2!2004", "90a.mp3", 1999)
+				upsertWithYear("1$2!2005", "00a.mp3", 2001)
+				upsertWithYear("1$2!2006", "00b.mp3", 2005)
+				upsertWithYear("1$2!2007", "00c.mp3", 2009)
+			})
+
+			It("returns buckets per decade range", func() {
+				res := searchWithAggs("mediatype:audio",
+					&searchsvc.AggregationOption{
+						Field: "audio.year",
+						BucketDefinition: &searchsvc.BucketDefinition{
+							Ranges: []*searchsvc.BucketRange{
+								{From: "1970", To: "1980"},
+								{From: "1980", To: "1990"},
+								{From: "1990", To: "2000"},
+								{From: "2000", To: "2010"},
+							},
+						},
+					},
+				)
+				Expect(res.Aggregations).To(HaveLen(1))
+				counts := map[string]int64{}
+				for _, b := range res.Aggregations[0].Buckets {
+					counts[b.Key] = b.Count
+				}
+				Expect(counts).To(HaveKeyWithValue("1970-1980", int64(2)))
+				Expect(counts).To(HaveKeyWithValue("1980-1990", int64(1)))
+				Expect(counts).To(HaveKeyWithValue("1990-2000", int64(1)))
+				Expect(counts).To(HaveKeyWithValue("2000-2010", int64(3)))
+			})
+
+			It("supports open-ended ranges", func() {
+				res := searchWithAggs("mediatype:audio",
+					&searchsvc.AggregationOption{
+						Field: "audio.year",
+						BucketDefinition: &searchsvc.BucketDefinition{
+							Ranges: []*searchsvc.BucketRange{
+								{To: "1990"},
+								{From: "2000"},
+							},
+						},
+					},
+				)
+				Expect(res.Aggregations).To(HaveLen(1))
+				counts := map[string]int64{}
+				for _, b := range res.Aggregations[0].Buckets {
+					counts[b.Key] = b.Count
+				}
+				Expect(counts).To(HaveKeyWithValue("-1990", int64(3)))
+				Expect(counts).To(HaveKeyWithValue("2000-", int64(3)))
+			})
+		})
+	})
 })
