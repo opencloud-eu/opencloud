@@ -22,6 +22,7 @@ import (
 	"go-micro.dev/v4/metadata"
 	"golang.org/x/sync/errgroup"
 	grpcmetadata "google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -94,14 +95,15 @@ func (s Service) Search(ctx context.Context, in *searchsvc.SearchRequest, out *s
 	}
 	ctx = revactx.ContextSetUser(ctx, u)
 
-	key := cacheKey(in.Query, in.PageSize, in.Ref, u)
+	key := cacheKey(in.Query, in.PageSize, in.Ref, u, in.Aggregations)
 	res, ok := s.FromCache(key)
 	if !ok {
 		var err error
 		res, err = s.searcher.Search(ctx, &searchsvc.SearchRequest{
-			Query:    in.Query,
-			PageSize: in.PageSize,
-			Ref:      in.Ref,
+			Query:        in.Query,
+			PageSize:     in.PageSize,
+			Ref:          in.Ref,
+			Aggregations: in.Aggregations,
 		})
 		if err != nil {
 			switch err.(type) {
@@ -118,6 +120,7 @@ func (s Service) Search(ctx context.Context, in *searchsvc.SearchRequest, out *s
 	out.Matches = res.Matches
 	out.TotalMatches = res.TotalMatches
 	out.NextPageToken = res.NextPageToken
+	out.Aggregations = res.Aggregations
 	return nil
 }
 
@@ -242,6 +245,18 @@ func (s Service) Cache(key string, res *searchsvc.SearchResponse) {
 	_ = s.cache.Set(key, res)
 }
 
-func cacheKey(query string, pagesize int32, ref *v0.Reference, user *user.User) string {
-	return fmt.Sprintf("%s|%d|%s$%s!%s/%s|%s", query, pagesize, ref.GetResourceId().GetStorageId(), ref.GetResourceId().GetSpaceId(), ref.GetResourceId().GetOpaqueId(), ref.GetPath(), user.GetId().GetOpaqueId())
+// cacheKey builds the cache identity for a search. Every result-affecting field
+// must be in the key, including aggregations (serialised via deterministic proto
+// marshalling). If the aggregation proto ever gains a map field, determinism
+// requires all writers to set Deterministic=true.
+func cacheKey(query string, pagesize int32, ref *v0.Reference, user *user.User, aggs []*searchsvc.AggregationOption) string {
+	aggPart := ""
+	if len(aggs) > 0 {
+		b, _ := proto.MarshalOptions{Deterministic: true}.Marshal(&searchsvc.SearchRequest{Aggregations: aggs})
+		aggPart = string(b)
+	}
+	return fmt.Sprintf("%s|%d|%s$%s!%s/%s|%s|%s",
+		query, pagesize,
+		ref.GetResourceId().GetStorageId(), ref.GetResourceId().GetSpaceId(), ref.GetResourceId().GetOpaqueId(),
+		ref.GetPath(), user.GetId().GetOpaqueId(), aggPart)
 }

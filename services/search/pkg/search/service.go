@@ -271,6 +271,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		return nil, err
 	}
 
+	mergedAggregations := map[string]map[string]*searchmsgBucket{}
 	for _, res := range responses {
 		if res == nil {
 			continue
@@ -278,6 +279,26 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		total += res.TotalMatches
 		for _, match := range res.Matches {
 			matches = append(matches, match)
+		}
+		for _, agg := range res.GetAggregations() {
+			field := agg.GetField()
+			if _, ok := mergedAggregations[field]; !ok {
+				mergedAggregations[field] = map[string]*searchmsgBucket{}
+			}
+			for _, b := range agg.GetBuckets() {
+				if existing, ok := mergedAggregations[field][b.GetKey()]; ok {
+					existing.Count += b.GetCount()
+					// union child buckets per sub-aggregation so counts stay
+					// right when a key spans multiple spaces
+					existing.SubAggregations = mergeSubAggregations(existing.GetSubAggregations(), b.GetSubAggregations())
+					continue
+				}
+				mergedAggregations[field][b.GetKey()] = &searchsvc.Bucket{
+					Key:             b.GetKey(),
+					Count:           b.GetCount(),
+					SubAggregations: b.GetSubAggregations(),
+				}
+			}
 		}
 	}
 
@@ -291,11 +312,155 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		matches = matches[0:limit]
 	}
 
+	aggregations := make([]*searchsvc.AggregationResult, 0, len(req.GetAggregations()))
+	for _, opt := range req.GetAggregations() {
+		field := opt.GetField()
+		bucketMap := mergedAggregations[field]
+		buckets := make([]*searchsvc.Bucket, 0, len(bucketMap))
+		for _, b := range bucketMap {
+			buckets = append(buckets, b)
+		}
+		aggregations = append(aggregations, &searchsvc.AggregationResult{
+			Field:   field,
+			Buckets: postProcessBuckets(buckets, opt),
+		})
+	}
+
 	success = true
 	return &searchsvc.SearchResponse{
 		Matches:      matches,
 		TotalMatches: total,
+		Aggregations: aggregations,
 	}, nil
+}
+
+// searchmsgBucket aliases the bucket type for the map-of-maps below.
+type searchmsgBucket = searchsvc.Bucket
+
+// mergeSubAggregations unions two nested-aggregation lists by field: terms
+// union child buckets by key (summing, recursing); metrics apply their reducer
+// (sum/min/max).
+func mergeSubAggregations(a, b []*searchsvc.AggregationResult) []*searchsvc.AggregationResult {
+	if len(a) == 0 {
+		return b
+	}
+	if len(b) == 0 {
+		return a
+	}
+	byField := make(map[string]*searchsvc.AggregationResult, len(a))
+	for _, r := range a {
+		byField[r.GetField()] = r
+	}
+	for _, r := range b {
+		existing, ok := byField[r.GetField()]
+		if !ok {
+			byField[r.GetField()] = r
+			continue
+		}
+		if existing.GetMetricKind() != searchsvc.MetricKind_METRIC_KIND_UNSPECIFIED ||
+			r.GetMetricKind() != searchsvc.MetricKind_METRIC_KIND_UNSPECIFIED {
+			// Metric result: apply the kind's reducer; prefer existing's kind.
+			kind := existing.GetMetricKind()
+			if kind == searchsvc.MetricKind_METRIC_KIND_UNSPECIFIED {
+				kind = r.GetMetricKind()
+			}
+			existing.MetricKind = kind
+			if kind == searchsvc.MetricKind_METRIC_KIND_AVG {
+				existing.Sum += r.GetSum()
+				existing.Count += r.GetCount()
+			} else {
+				existing.Value = reduceMetric(kind, existing.GetValue(), r.GetValue())
+			}
+			continue
+		}
+		byKey := make(map[string]*searchsvc.Bucket, len(existing.Buckets))
+		for _, bk := range existing.Buckets {
+			byKey[bk.GetKey()] = bk
+		}
+		for _, bk := range r.GetBuckets() {
+			if prev, ok := byKey[bk.GetKey()]; ok {
+				prev.Count += bk.GetCount()
+				prev.SubAggregations = mergeSubAggregations(prev.GetSubAggregations(), bk.GetSubAggregations())
+			} else {
+				existing.Buckets = append(existing.Buckets, bk)
+				byKey[bk.GetKey()] = bk
+			}
+		}
+	}
+	out := make([]*searchsvc.AggregationResult, 0, len(byField))
+	for _, r := range byField {
+		out = append(out, r)
+	}
+	return out
+}
+
+// reduceMetric applies the metric's cross-shard reducer; only called when both
+// sides carry a value.
+func reduceMetric(kind searchsvc.MetricKind, a, b float64) float64 {
+	switch kind {
+	case searchsvc.MetricKind_METRIC_KIND_SUM:
+		return a + b
+	case searchsvc.MetricKind_METRIC_KIND_MIN:
+		if b < a {
+			return b
+		}
+		return a
+	case searchsvc.MetricKind_METRIC_KIND_MAX:
+		if b > a {
+			return b
+		}
+		return a
+	}
+	return a
+}
+
+// postProcessBuckets applies the BucketDefinition (minimumCount filter, sort by
+// count/keyAsString/keyAsNumber, trim to Size). Defaults to count-descending.
+func postProcessBuckets(buckets []*searchsvc.Bucket, opt *searchsvc.AggregationOption) []*searchsvc.Bucket {
+	bd := opt.GetBucketDefinition()
+	sortBy := "count"
+	desc := true
+	var minCount int64
+	if bd != nil {
+		if bd.GetSortBy() != "" {
+			sortBy = bd.GetSortBy()
+		}
+		desc = bd.GetIsDescending()
+		minCount = int64(bd.GetMinimumCount())
+	}
+
+	if minCount > 0 {
+		filtered := buckets[:0]
+		for _, b := range buckets {
+			if b.GetCount() >= minCount {
+				filtered = append(filtered, b)
+			}
+		}
+		buckets = filtered
+	}
+
+	sort.SliceStable(buckets, func(i, j int) bool {
+		less := false
+		switch sortBy {
+		case "keyAsString":
+			less = buckets[i].GetKey() < buckets[j].GetKey()
+		case "keyAsNumber":
+			iv, _ := strconv.ParseFloat(buckets[i].GetKey(), 64)
+			jv, _ := strconv.ParseFloat(buckets[j].GetKey(), 64)
+			less = iv < jv
+		default: // "count"
+			less = buckets[i].GetCount() < buckets[j].GetCount()
+		}
+		if desc {
+			return !less
+		}
+		return less
+	})
+
+	if size := opt.GetSize(); size > 0 && int32(len(buckets)) > size {
+		buckets = buckets[:size]
+	}
+	return buckets
 }
 
 func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, space *provider.StorageSpace, mountpointID string) (*searchsvc.SearchIndexResponse, error) {
@@ -395,7 +560,8 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 	}
 
 	searchRequest := &searchsvc.SearchIndexRequest{
-		Query: req.Query,
+		Query:        req.Query,
+		Aggregations: req.GetAggregations(),
 		Ref: &searchmsg.Reference{
 			ResourceId: searchRootID,
 			Path:       searchPathPrefix,

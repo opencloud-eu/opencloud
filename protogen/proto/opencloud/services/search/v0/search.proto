@@ -72,6 +72,9 @@ message SearchRequest {
 
   string query = 3;
   opencloud.messages.search.v0.Reference ref = 4 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional. Aggregations (facets) to compute alongside the matches.
+  repeated AggregationOption aggregations = 5 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message SearchResponse {
@@ -81,6 +84,9 @@ message SearchResponse {
   // more results in the list
   string next_page_token = 2;
   int32 total_matches = 3;
+
+  // Aggregation results, one entry per requested aggregation.
+  repeated AggregationResult aggregations = 4;
 }
 
 message SearchIndexRequest {
@@ -93,6 +99,9 @@ message SearchIndexRequest {
 
 	string query = 3;
   opencloud.messages.search.v0.Reference ref = 4 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional. Per-space aggregations (facets) to compute alongside the matches.
+  repeated AggregationOption aggregations = 5 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message SearchIndexResponse {
@@ -102,6 +111,83 @@ message SearchIndexResponse {
   // more results in the list
   string next_page_token = 2;
   int32 total_matches = 3;
+
+  // Per-space aggregation results. The service layer merges these across
+  // spaces before returning them to the caller.
+  repeated AggregationResult aggregations = 4;
+}
+
+message AggregationOption {
+  // Required. The indexed field to aggregate on (for terms/range
+  // aggregations) or to reduce (for metric aggregations).
+  string field = 1;
+  // Optional. Maximum number of buckets to return for a terms aggregation.
+  // Ignored for range and metric aggregations.
+  int32 size = 2 [(google.api.field_behavior) = OPTIONAL];
+  // Optional. Controls bucket selection, ordering and filtering.
+  // Ignored for metric aggregations.
+  BucketDefinition bucket_definition = 3 [(google.api.field_behavior) = OPTIONAL];
+  // Optional. Nested aggregations computed within each bucket of this
+  // aggregation. On bleve, sub-aggregations are emulated by walking the
+  // matched result set; on OpenSearch they translate to native composite
+  // aggregations.
+  repeated AggregationOption sub_aggregations = 4 [(google.api.field_behavior) = OPTIONAL];
+  // Optional. When set, this aggregation is a scalar metric over `field`
+  // rather than a bucket aggregation; the corresponding AggregationResult
+  // carries `value` instead of `buckets`.
+  MetricKind metric_kind = 5 [(google.api.field_behavior) = OPTIONAL];
+}
+
+enum MetricKind {
+  METRIC_KIND_UNSPECIFIED = 0;
+  METRIC_KIND_SUM = 1;
+  METRIC_KIND_MIN = 2;
+  METRIC_KIND_MAX = 3;
+  METRIC_KIND_AVG = 4;
+}
+
+message BucketDefinition {
+  // One of "count", "keyAsString", "keyAsNumber".
+  string sort_by = 1;
+  bool is_descending = 2;
+  int32 minimum_count = 3;
+  // Optional. When non-empty, the aggregation is computed over these numeric
+  // or date ranges instead of as a terms aggregation.
+  repeated BucketRange ranges = 4;
+}
+
+message BucketRange {
+  // At least one of `from` or `to` must be set. Both are string-encoded;
+  // numeric bounds are decimal strings, dates use RFC3339.
+  string from = 1;
+  string to = 2;
+}
+
+message AggregationResult {
+  string field = 1;
+  repeated Bucket buckets = 2;
+  // Scalar value for metric aggregations (metric_kind set on the
+  // corresponding AggregationOption). Unset / zero for terms/range
+  // aggregations.
+  double value = 3;
+  // Echoes the metric_kind of the corresponding AggregationOption. Lets
+  // the cross-space merge layer pick the right reducer.
+  MetricKind metric_kind = 4;
+  // Accumulators used exclusively for AVG during cross-space merges.
+  // A backend computes (sum, count) per bucket so the service layer can
+  // merge them additively and emit `value = sum/count` only at the
+  // outermost collapse. Other metric kinds leave these unset.
+  double sum = 5;
+  int64 count = 6;
+}
+
+message Bucket {
+  string key = 1;
+  int64 count = 2;
+  string aggregation_filter_token = 3;
+  // Nested aggregation results, one entry per sub_aggregation requested
+  // on the parent AggregationOption.
+  repeated AggregationResult sub_aggregations = 4;
 }
 
 message IndexSpaceRequest {
