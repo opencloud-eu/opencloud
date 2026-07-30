@@ -390,6 +390,7 @@ func (g Graph) GetDriveItemChildren(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	g.setDriveItemsThumbnails(r, files, res.GetInfos())
 
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, &ListResponse{Value: files})
