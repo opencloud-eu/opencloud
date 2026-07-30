@@ -35,9 +35,8 @@ func HasPreviewForMimeType(mimeType string, hasEmbeddedPreview bool) bool {
 	return false
 }
 
-// PreviewDimensions returns the stored dimensions of a resource's embedded
-// preview, or (0, 0) if none were recorded. Only meaningful for
-// EmbeddedPreviewMimeTypes.
+// PreviewDimensions returns the stored embedded-preview dimensions, or (0, 0).
+// Only meaningful for EmbeddedPreviewMimeTypes.
 func PreviewDimensions(md *provider.ResourceInfo) (width, height int32) {
 	meta := md.GetArbitraryMetadata().GetMetadata()
 	if meta == nil {

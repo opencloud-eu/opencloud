@@ -40,8 +40,7 @@ type Preview struct {
 	Height int32 `json:"height"`
 }
 
-// ToMap lets Preview flow through the shared facet-to-metadata flattening (under
-// the oc.preview. prefix). Preview is not itself a Graph facet.
+// ToMap flows Preview through the shared facet flattening, under oc.preview.
 func (p Preview) ToMap() (map[string]interface{}, error) {
 	return map[string]interface{}{
 		"width":  p.Width,
