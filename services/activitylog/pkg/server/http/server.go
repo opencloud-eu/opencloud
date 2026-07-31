@@ -13,7 +13,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/service/http"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
-	svc "github.com/opencloud-eu/opencloud/services/activitylog/pkg/service"
+	svc "github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/event"
 	"github.com/riandyrn/otelchi"
 	"go-micro.dev/v4"
 )

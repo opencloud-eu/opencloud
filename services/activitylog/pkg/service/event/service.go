@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -28,7 +27,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config"
 )
@@ -50,7 +48,6 @@ type ActivitylogService struct {
 	events        <-chan events.Event
 	gws           pool.Selectable[gateway.GatewayAPIClient]
 	mux           *chi.Mux
-	evHistory     ehsvc.EventHistoryService
 	valService    settingssvc.ValueService
 	lock          sync.RWMutex
 	tp            trace.TracerProvider
@@ -60,8 +57,6 @@ type ActivitylogService struct {
 	natskv        nats.KeyValue
 
 	maxActivities int
-
-	registeredEvents map[string]events.Unmarshaller
 }
 
 type Debouncer struct {
@@ -148,17 +143,8 @@ func New(opts ...Option) (*ActivitylogService, error) {
 		opt(o)
 	}
 
-	if o.Stream == nil {
-		return nil, errors.New("stream is required")
-	}
-
-	ch, err := events.Consume(o.Stream, o.Config.Service.Name, o.RegisteredEvents...)
-	if err != nil {
-		return nil, err
-	}
-
 	cache := ttlcache.NewCache()
-	err = cache.SetTTL(30 * time.Second)
+	err := cache.SetTTL(30 * time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -207,20 +193,17 @@ func New(opts ...Option) (*ActivitylogService, error) {
 	}
 
 	s := &ActivitylogService{
-		log:              o.Logger,
-		cfg:              o.Config,
-		events:           ch,
-		gws:              o.GatewaySelector,
-		mux:              o.Mux,
-		evHistory:        o.HistoryClient,
-		valService:       o.ValueClient,
-		lock:             sync.RWMutex{},
-		registeredEvents: make(map[string]events.Unmarshaller),
-		tp:               o.TraceProvider,
-		tracer:           o.TraceProvider.Tracer("github.com/opencloud-eu/opencloud/services/activitylog/pkg/service"),
-		parentIdCache:    cache,
-		maxActivities:    o.Config.MaxActivities,
-		natskv:           kv,
+		log:           o.Logger,
+		cfg:           o.Config,
+		gws:           o.GatewaySelector,
+		mux:           o.Mux,
+		valService:    o.ValueClient,
+		lock:          sync.RWMutex{},
+		tp:            o.TraceProvider,
+		tracer:        o.TraceProvider.Tracer("github.com/opencloud-eu/opencloud/services/activitylog/pkg/service"),
+		parentIdCache: cache,
+		maxActivities: o.Config.MaxActivities,
+		natskv:        kv,
 	}
 	s.debouncer = NewDebouncer(o.Config.WriteBufferDuration, s.storeActivity)
 
@@ -231,11 +214,6 @@ func New(opts ...Option) (*ActivitylogService, error) {
 	}
 
 	s.mux.Get("/graph/v1beta1/extensions/org.libregraph/activities", s.HandleGetItemActivities)
-
-	for _, e := range o.RegisteredEvents {
-		typ := reflect.TypeOf(e)
-		s.registeredEvents[typ.String()] = e
-	}
 
 	go s.Run()
 
