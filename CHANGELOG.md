@@ -6,6 +6,11 @@
 
 @AlexAndBear, @JammingBen, @aduffeck, @dschmidt, @fschade, @michaelstingl, @rhafer, @schweigisito, @v-scharf
 
+### 🐛 Bug Fixes
+
+- fix(runtime): log service startup errors instead of printing them beside the log [[#3140](https://github.com/opencloud-eu/opencloud/pull/3140)]
+- fix(posixfs scan): Setup logger for scan command [[#3185](https://github.com/opencloud-eu/opencloud/pull/3185)]
+
 ### 📈 Enhancement
 
 - Improve reindex command [[#3213](https://github.com/opencloud-eu/opencloud/pull/3213)]
@@ -22,10 +27,6 @@
 - test(apiArchiver): the single-resource archive is named after the resource [[#3080](https://github.com/opencloud-eu/opencloud/pull/3080)]
 - test(coreApiWebdavUploadTUS): assert etag and permissions on the finalizing TUS chunk [[#3078](https://github.com/opencloud-eu/opencloud/pull/3078)]
 - test(coreApiWebdavOperations): download a file with a literal "%" via its oc:downloadURL [[#3079](https://github.com/opencloud-eu/opencloud/pull/3079)]
-
-### 🐛 Bug Fixes
-
-- fix(posixfs scan): Setup logger for scan command [[#3185](https://github.com/opencloud-eu/opencloud/pull/3185)]
 
 ### 📚 Documentation
 
