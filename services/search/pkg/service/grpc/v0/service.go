@@ -19,6 +19,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	merrors "go-micro.dev/v4/errors"
 	"go-micro.dev/v4/metadata"
+	"golang.org/x/sync/errgroup"
 	grpcmetadata "google.golang.org/grpc/metadata"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -144,13 +145,28 @@ func (s Service) IndexSpace(_ context.Context, in *searchsvc.IndexSpaceRequest, 
 		return errors.New(resp.GetStatus().GetMessage())
 	}
 
+	// Index all spaces concurrently, limited to a configurable number of spaces
+	// being reindexed at the same time.
+	concurrency := max(s.cfg.ReindexMaxConcurrency, 1)
+	var g errgroup.Group
+	g.SetLimit(concurrency)
+
 	for _, space := range resp.GetStorageSpaces() {
-		if err := s.searcher.IndexSpace(space.GetId(), in.GetForceReindex()); err != nil {
-			return err
-		}
+		g.Go(func() error {
+			s.log.Info().Str("space_id", space.GetId().GetOpaqueId()).Msg("indexing space")
+
+			err := s.searcher.IndexSpace(space.GetId(), in.GetForceReindex())
+			if err != nil {
+				s.log.Error().Err(err).Str("space_id", space.GetId().GetOpaqueId()).Msg("failed to index space")
+			} else {
+				s.log.Info().Str("space_id", space.GetId().GetOpaqueId()).Msg("finished indexing space")
+			}
+
+			return nil
+		})
 	}
 
-	return nil
+	return g.Wait()
 }
 
 // FromCache pulls a search result from cache

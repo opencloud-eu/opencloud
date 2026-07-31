@@ -65,6 +65,7 @@ func DefaultConfig() *config.Config {
 		},
 		ContentExtractionSizeLimit: 20 * 1024 * 1024, // Limit content extraction to <20MB files by default
 		BatchSize:                  50,
+		ReindexMaxConcurrency:      3,
 	}
 }
 
