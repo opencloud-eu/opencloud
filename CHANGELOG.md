@@ -8,6 +8,7 @@
 
 ### 📈 Enhancement
 
+- Improve reindex command [[#3213](https://github.com/opencloud-eu/opencloud/pull/3213)]
 - feat: add announcement banner [[#3189](https://github.com/opencloud-eu/opencloud/pull/3189)]
 - feat: add space viewer with versions role [[#2961](https://github.com/opencloud-eu/opencloud/pull/2961)]
 
