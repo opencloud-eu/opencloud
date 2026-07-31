@@ -45,4 +45,9 @@ var _ = Describe("Geo KQL predicates", func() {
 		Expect(hits(near + " AND location:geo.bbox(49.0, 11.0, 50.0, 12.0)")).To(Equal(1))
 		Expect(hits(near + " AND location:geo.bbox(52.0, 13.0, 53.0, 14.0)")).To(Equal(0))
 	})
+
+	It("rejects a geo predicate on a non-geopoint field", func() {
+		_, err := qbleve.DefaultCreator.Create("name:geo.distance(48.2, 16.3, 5km)")
+		Expect(err).To(HaveOccurred())
+	})
 })
