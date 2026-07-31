@@ -42,10 +42,14 @@ var bleveEscaper = strings.NewReplacer(
 	` `, `\ `,
 )
 
-// geoField maps a KQL geo key to its indexed geopoint sibling, e.g.
-// "location" to "location_geopoint".
-func geoField(key string) string {
-	return strings.ToLower(key) + mapping.GeopointSuffix
+// geoQueryField resolves a KQL geo key to its indexed geopoint field, erroring
+// when the key is not a geopoint field.
+func geoQueryField(key string) (string, error) {
+	field, ok := searchQuery.ResolveGeoField(key)
+	if !ok {
+		return "", fmt.Errorf("geo predicate on non-geo field %q", key)
+	}
+	return field, nil
 }
 
 // Compiler represents a KQL query search string to the bleve query formatter.
@@ -237,29 +241,41 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 				next = q
 			}
 		case *ast.GeoDistanceNode:
+			field, err := geoQueryField(n.Key)
+			if err != nil {
+				return nil, 0, err
+			}
 			q := bleveQuery.NewGeoDistanceQuery(n.Lon, n.Lat, strconv.FormatFloat(n.Radius, 'f', -1, 64)+"m")
-			q.SetField(geoField(n.Key))
+			q.SetField(field)
 			if prev == nil {
 				prev = q
 			} else {
 				next = q
 			}
 		case *ast.GeoBoundingBoxNode:
+			field, err := geoQueryField(n.Key)
+			if err != nil {
+				return nil, 0, err
+			}
 			// bleve takes the top-left and bottom-right corners.
 			q := bleveQuery.NewGeoBoundingBoxQuery(n.MinLon, n.MaxLat, n.MaxLon, n.MinLat)
-			q.SetField(geoField(n.Key))
+			q.SetField(field)
 			if prev == nil {
 				prev = q
 			} else {
 				next = q
 			}
 		case *ast.GeoPolygonNode:
+			field, err := geoQueryField(n.Key)
+			if err != nil {
+				return nil, 0, err
+			}
 			points := make([]geo.Point, 0, len(n.Points))
 			for _, p := range n.Points {
 				points = append(points, geo.Point{Lon: p.Lon, Lat: p.Lat})
 			}
 			q := bleveQuery.NewGeoBoundingPolygonQuery(points)
-			q.SetField(geoField(n.Key))
+			q.SetField(field)
 			if prev == nil {
 				prev = q
 			} else {

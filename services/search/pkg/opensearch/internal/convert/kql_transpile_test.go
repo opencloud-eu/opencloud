@@ -473,3 +473,10 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 		})
 	}
 }
+
+func TestTranspileRejectsGeoOnNonGeoField(t *testing.T) {
+	_, err := convert.TranspileKQLToOpenSearch([]ast.Node{
+		&ast.GeoDistanceNode{Key: "name", Lat: 48.2, Lon: 16.3, Radius: 5000},
+	})
+	assert.Error(t, err)
+}
