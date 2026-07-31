@@ -101,7 +101,9 @@ type GeoDistanceNode struct {
 	Radius float64
 }
 
-// GeoBoundingBoxNode represents a geo.bbox(minLat, minLon, maxLat, maxLon) predicate.
+// GeoBoundingBoxNode represents a geo.bbox(minLat, minLon, maxLat, maxLon)
+// predicate. Latitude is normalised so MinLat <= MaxLat; longitude order is
+// preserved, so MinLon > MaxLon denotes a box crossing the antimeridian.
 type GeoBoundingBoxNode struct {
 	*Base
 	Key    string

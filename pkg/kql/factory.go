@@ -276,6 +276,14 @@ func buildGeoBoundingBoxNode(k, a any, text []byte, pos position) (*ast.GeoBound
 	if err != nil {
 		return nil, err
 	}
+	// Latitude does not wrap, so the two values just delimit the box. Only bleve
+	// strictly requires MinLat <= MaxLat (OpenSearch tolerates the inverted
+	// order), but we normalise centrally here for consistency and easier
+	// debugging. Longitude order is kept: minLon > maxLon denotes a box crossing
+	// the antimeridian, which both backends interpret the same way.
+	if minLat > maxLat {
+		minLat, maxLat = maxLat, minLat
+	}
 	return &ast.GeoBoundingBoxNode{Base: b, Key: key, MinLat: minLat, MinLon: minLon, MaxLat: maxLat, MaxLon: maxLon}, nil
 }
 
