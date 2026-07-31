@@ -52,6 +52,17 @@ var _ = Describe("geo KQL predicates", func() {
 		}))
 	})
 
+	It("normalises inverted latitude order but keeps longitude order", func() {
+		// minLat (48.3) > maxLat (47.9) on input; longitude kept as given.
+		n, err := firstNode("location:geo.bbox(48.3, 16.1, 47.9, 16.5)")
+		Expect(err).ToNot(HaveOccurred())
+		b := n.(*ast.GeoBoundingBoxNode)
+		Expect(b.MinLat).To(Equal(47.9))
+		Expect(b.MaxLat).To(Equal(48.3))
+		Expect(b.MinLon).To(Equal(16.1))
+		Expect(b.MaxLon).To(Equal(16.5))
+	})
+
 	It("parses geo.polygon into a GeoPolygonNode with its vertices", func() {
 		n, err := firstNode("location:geo.polygon(48.3 16.1, 48.3 16.5, 47.9 16.5)")
 		Expect(err).ToNot(HaveOccurred())
