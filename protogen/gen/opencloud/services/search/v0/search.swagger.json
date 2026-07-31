@@ -34,12 +34,22 @@
   "paths": {
     "/api/v0/search/index-space": {
       "post": {
+        "summary": "IndexSpace (re)indexes one or all spaces. The response is streamed, sending\nprogress information after each space has been indexed.",
         "operationId": "SearchProvider_IndexSpace",
         "responses": {
           "200": {
-            "description": "A successful response.",
+            "description": "A successful response.(streaming responses)",
             "schema": {
-              "$ref": "#/definitions/v0IndexSpaceResponse"
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/v0IndexSpaceResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of v0IndexSpaceResponse"
             }
           },
           "default": {
@@ -332,11 +342,39 @@
         },
         "forceReindex": {
           "type": "boolean"
+        },
+        "concurrency": {
+          "type": "integer",
+          "format": "int32"
         }
       }
     },
     "v0IndexSpaceResponse": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "description": "The id of the space that has just been indexed."
+        },
+        "spaceDuration": {
+          "type": "string",
+          "description": "The duration it took to index this space."
+        },
+        "indexedSpaces": {
+          "type": "string",
+          "format": "int64",
+          "description": "The number of spaces that have been indexed so far."
+        },
+        "totalSpaces": {
+          "type": "string",
+          "format": "int64",
+          "description": "The total number of spaces that are being indexed."
+        },
+        "error": {
+          "type": "string",
+          "description": "Contains an error message in case indexing this particular space failed."
+        }
+      }
     },
     "v0Match": {
       "type": "object",
