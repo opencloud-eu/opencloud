@@ -2,13 +2,12 @@
 
 First, thank you for taking the time to read this and your interest in contributing to OpenCloud!
 
-The following is a set of guidelines suitable to most of the projects hosted in the [OpenCloud Organization](https://github.com/opencloud-eu).
-These are mostly guidelines, not rules.
-
 Use your best judgment and feel free to propose changes to this document in a [pull request](https://github.com/opencloud-eu/opencloud/pulls).
 
 For simplicity reasons, this document mostly refers to the [opencloud repository](https://www.github.com/opencloud-eu/opencloud),
-but it should be easily transferable to other (sub)projects.
+but should be easily transferable to all other sub-projects.
+
+Please also make sure to read our [AI Assisted Contribution](https://github.com/opencloud-eu/opencloud/blob/main/AI_GUIDELINE.md) guideline.
 
 #### Table Of Contents
 
