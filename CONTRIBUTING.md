@@ -164,7 +164,7 @@ Please follow these steps to have your contribution considered by the maintainer
 
 While the prerequisites above must be satisfied prior to having your pull request reviewed, the reviewer(s) may ask you to complete additional design work, tests, or other changes before your pull request can be ultimately accepted.
 
-Please be patient. Silence does not mean denail, but sitting in a queue. While waiting, consider to review other PRs to speed up the process.
+Please be patient. Silence does not mean denial, but sitting in a queue. While waiting, consider to review other PRs to speed up the process.
 
 ### Documentation Contributions
 
