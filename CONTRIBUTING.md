@@ -115,6 +115,27 @@ Enhancement suggestions are tracked as [GitHub issues](https://guides.github.com
 Always try to explain the problem that you want to see solved, and why it hurts today. That opens the space for a creative solution finding.
 Consider if your proposal affects many users and if it is worth to maintain it for the time being. Programming something is cheap, maintaining it is expensive.
 
+### Size of the Contribution
+
+Before submitting a PR to any repository of OpenCloud, it is important to think about its size and fit to the project. That is a big factor how maintainers look at it, especially in times of AI assisted development.
+
+#### Bug Fixes
+Bug fixes in form of "one-liners", typo fixes, fixes to translations and such are always very appreciated. Never think "that is too trivial to submit", it is not.
+
+#### Refactorings
+Bigger changes that fix misbehaviour, refactor parts of the codebase are also appreciated, but be careful. Have tests and keep changes small. Possibly ask before submitting what the maintainers think of your idea.
+
+#### Feature Additions
+Yes, we love it, but we also apply the rules here, as we take the responsibility to maintain code that we include into the project. Try to structure the changes you plan into multiple steps to make it easier to understand and review. Try to consider alternatives and document your decisions (ADR).
+
+Most important: make sure to talk before you invest work and tokens. There is a chance that we will not take your contribution even if it is formally great because it does not fit the roadmap.
+
+#### "Scratch your itch"
+"Scratching your own itch" and pushing the results upstream is in general a great motivation to contribute to open source projects. OpenCloud supports that idea.
+However, we have to keep the main direction of the project in mind, so we can not accept every "special purpose" feature.
+
+Make sure to find a balance between functions that are good for everybody and your own needs. You will have to keep private patches for some of your additions. OpenCloud comes with a [web extension system](https://docs.opencloud.eu/de/docs/dev/web/extension-system/) to make independently maintained extensions easy.
+
 ### Your First Code Contribution
 
 Unsure where to begin contributing to OpenCloud? You can start by looking through these `Needs-help` issues:
