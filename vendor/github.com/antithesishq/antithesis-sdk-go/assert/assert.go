@@ -6,7 +6,7 @@
 //
 // These functions are no-ops with minimal performance overhead when called outside of the Antithesis environment. However, if the environment variable ANTITHESIS_SDK_LOCAL_OUTPUT is set, these functions will log to the file pointed to by that variable using a structured JSON format defined [here]. This allows you to make use of the Antithesis assertions package in your regular testing, or even in production. In particular, very few assertions frameworks offer a convenient way to define [Sometimes assertions], but they can be quite useful even outside Antithesis.
 //
-// Each function in this package takes a parameter called message, which is a human readable identifier used to aggregate assertions. Antithesis generates one test property per unique message and this test property will be named "<message>" in the [triage report].
+// Each function in this package takes a parameter called message, which is a human readable identifier used to aggregate assertions. Antithesis generates one test property per unique message and this test property will be named "<message>" in the [triage report]. Message must be provided as a string literal.
 //
 // This test property either passes or fails, which depends upon the evaluation of every assertion that shares its message. Different assertions in different parts of the code should have different message, but the same assertion should always have the same message even if it is moved to a different file.
 //
