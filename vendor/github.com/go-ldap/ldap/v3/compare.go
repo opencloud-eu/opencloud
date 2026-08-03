@@ -46,6 +46,9 @@ func (l *Conn) Compare(dn, attribute, value string) (bool, error) {
 		return false, err
 	}
 
+	if len(packet.Children) < 2 {
+		return false, fmt.Errorf("ldap: malformed response: expected at least 2 children, got %d", len(packet.Children))
+	}
 	if packet.Children[1].Tag == ApplicationCompareResponse {
 		err := GetLDAPError(packet)
 
