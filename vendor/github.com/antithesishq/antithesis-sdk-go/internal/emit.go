@@ -38,7 +38,7 @@ type libHandler interface {
 }
 
 const (
-	errorLogLinePrefix       = "[* antithesis-sdk-go *]"
+	errorLogLinePrefix = "[* antithesis-sdk-go *]"
 )
 
 var handler libHandler

@@ -216,6 +216,12 @@ func validateLeafNode(o *Options) error {
 			if r.LocalAccount == _EMPTY_ {
 				r.LocalAccount = globalAccountName
 			}
+			if err := checkPermSubjectArray(r.DenyImports, false); err != nil {
+				return fmt.Errorf("invalid deny_imports for remote %s: %w", r.safeName(), err)
+			}
+			if err := checkPermSubjectArray(r.DenyExports, false); err != nil {
+				return fmt.Errorf("invalid deny_exports for remote %s: %w", r.safeName(), err)
+			}
 			rn := r.name()
 			if _, dup := names[rn]; dup {
 				return fmt.Errorf("duplicate remote %s", r.safeName())
@@ -2049,7 +2055,7 @@ func (s *Server) addLeafNodeConnection(c *client, srvName, clusterName string, c
 				meta.setObserver(false, extNotExtended)
 				c.Debugf("Turning JetStream metadata controller Observer Mode off")
 				// Take note that the domain was not extended to avoid this state from startup.
-				writePeerState(js.config.StoreDir, meta.currentPeerState())
+				writePeerState(c.srv.diskIOSemaphore(), js.config.StoreDir, meta.currentPeerState())
 				// Meta controller can't be leader yet.
 				// Yet it is possible that due to observer mode every server already stopped campaigning.
 				// Therefore this server needs to be kicked into campaigning gear explicitly.
@@ -2284,9 +2290,10 @@ func (c *client) processLeafNodeConnect(s *Server, arg []byte, lang string) erro
 	if !c.isSolicitedLeafNode() && c.perms != nil {
 		sp, pp := c.perms.sub, c.perms.pub
 		c.perms.sub, c.perms.pub = pp, sp
-		if c.opts.Import != nil {
-			c.darray = c.opts.Import.Deny
-		} else {
+		// setPermissions populated darray from the subscribe permissions,
+		// which are the import permissions advertised to the spoke. Keep
+		// those parsed denies after reversing the live permission directions.
+		if c.opts.Import == nil {
 			c.darray = nil
 		}
 	}
@@ -2959,6 +2966,7 @@ func (c *client) processLeafSub(argo []byte) (err error) {
 			c.Debugf(fmt.Sprintf("Permissions Violation for Subscription to %q", sub.subject))
 			return nil
 		}
+		c.loadMsgDenyFilterIfNeeded(subj, len(sub.queue) > 0)
 	}
 
 	// Check if we have a maximum on the number of subscriptions.
