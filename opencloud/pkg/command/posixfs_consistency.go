@@ -147,7 +147,7 @@ func (c *consistencyChecker) checkSpaceID(spacePath string) {
 				obsoleteIDs = append(obsoleteIDs, id)
 			}
 		}
-		fixSpaceID(spacePath, obsoleteIDs, targetID, entries)
+		c.fixSpaceID(spacePath, obsoleteIDs, targetID, entries)
 	}
 }
 
@@ -325,7 +325,9 @@ func (c *consistencyChecker) checkNodes(spacePath string) {
 	}
 }
 
-func fixSpaceID(spacePath string, obsoleteIDs []string, targetID string, entries []EntryInfo) {
+// fixSpaceID updates the parentid attributes of all entries in a space to a new target ID,
+// updates the space's own ID attributes, and removes obsolete IDs from the user index file.
+func (c *consistencyChecker) fixSpaceID(spacePath string, obsoleteIDs []string, targetID string, entries []EntryInfo) {
 	// Set all parentid attributes to the proper space ID
 	err := setAllParentIDAttributes(entries, targetID)
 	if err != nil {
@@ -347,7 +349,7 @@ func fixSpaceID(spacePath string, obsoleteIDs []string, targetID string, entries
 	}
 
 	// update the index
-	err = updateOwnerIndexFile(spacePath, obsoleteIDs)
+	err = c.updateOwnerIndexFile(spacePath, obsoleteIDs)
 	if err != nil {
 		logFailure("Could not update the owner index file: %v", err)
 	}
@@ -424,7 +426,7 @@ func setAllParentIDAttributes(entries []EntryInfo, targetID string) error {
 }
 
 // updateOwnerIndexFile handles the logic of reading, modifying, and writing the MessagePack index file.
-func updateOwnerIndexFile(basePath string, obsoleteIDs []string) error {
+func (c *consistencyChecker) updateOwnerIndexFile(basePath string, obsoleteIDs []string) error {
 	fmt.Printf("  Rewriting index file '%s'\n", basePath)
 
 	ownerID, err := xattr.Get(basePath, prefixes.OwnerIDAttr)
@@ -432,7 +434,7 @@ func updateOwnerIndexFile(basePath string, obsoleteIDs []string) error {
 		return fmt.Errorf("could not get owner ID from oldest entry '%s' to find index: %w", basePath, err)
 	}
 
-	indexPath := filepath.Join(basePath, "../../indexes/by-user-id", string(ownerID)+".mpk")
+	indexPath := filepath.Join(c.cfg.Drivers.Posix.Root, "indexes", "by-user-id", string(ownerID)+".mpk")
 	indexPath = filepath.Clean(indexPath)
 
 	// Read the MessagePack file
