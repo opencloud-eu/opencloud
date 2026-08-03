@@ -8,6 +8,7 @@
 
 ### 📈 Enhancement
 
+- Do not check ignored paths [[#3233](https://github.com/opencloud-eu/opencloud/pull/3233)]
 - Extend posixfs consistency check [[#3220](https://github.com/opencloud-eu/opencloud/pull/3220)]
 - Improve reindex command [[#3213](https://github.com/opencloud-eu/opencloud/pull/3213)]
 - Reindex spaces concurrently [[#3207](https://github.com/opencloud-eu/opencloud/pull/3207)]
