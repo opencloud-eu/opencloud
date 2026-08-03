@@ -38,6 +38,7 @@
 
 ### 📦️ Dependencies
 
+- [full-ci] chore: bump web to v7.3.0 [[#3223](https://github.com/opencloud-eu/opencloud/pull/3223)]
 - build(deps): bump github.com/open-policy-agent/opa from 1.18.2 to 1.19.0 [[#3231](https://github.com/opencloud-eu/opencloud/pull/3231)]
 - build(deps): bump google.golang.org/grpc from 1.82.0 to 1.83.0 [[#3232](https://github.com/opencloud-eu/opencloud/pull/3232)]
 - chore(idp): bump dependencies [[#3226](https://github.com/opencloud-eu/opencloud/pull/3226)]
