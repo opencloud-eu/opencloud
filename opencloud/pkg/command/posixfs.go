@@ -188,7 +188,7 @@ The <path> argument determines the scope of the check:
   - a storage root:   the whole storage (all personal and project spaces) is checked
   - a space root:     only that space is checked
   - a file or folder: only that single entity is checked (and its children, if it is a folder)`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 
 			if err := parser.ParseConfig(ocCfg, true); err != nil {
@@ -202,7 +202,11 @@ The <path> argument determines the scope of the check:
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := ocCfg.StorageUsers
-			return checkPosixfsConsistency(cfg, cmd, args[0])
+			path := cfg.Drivers.Posix.Root
+			if len(args) > 0 {
+				path = args[0]
+			}
+			return checkPosixfsConsistency(cfg, cmd, path)
 		},
 	}
 	consCmd.Flags().Bool("fix-checksums", false, "Recalculate and fix the file checksums. This reads every file and can be slow on large storages.")
@@ -235,6 +239,7 @@ func checkPosixfsConsistency(cfg *storageUsersConfig.Config, cmd *cobra.Command,
 	}
 
 	ignorer = ignore.NewIgnorer(opts, &log)
+	contained, _ := filepathx.IsSameOrContainedBy(rootPath, path)
 
 	switch {
 	case path == rootPath:
@@ -246,9 +251,11 @@ func checkPosixfsConsistency(cfg *storageUsersConfig.Config, cmd *cobra.Command,
 	case isSpaceRoot(path):
 		fmt.Printf("Checking space '%s'...\n", path)
 		checkSpace(path)
-	default:
+	case contained:
 		fmt.Printf("Checking '%s'...\n", path)
 		checkEntity(path)
+	default:
+		return fmt.Errorf("the provided path '%s' is neither a space root nor contained by the storage root '%s'", path, rootPath)
 	}
 
 	if restartRequired {
