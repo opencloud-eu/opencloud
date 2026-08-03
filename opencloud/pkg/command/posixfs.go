@@ -15,7 +15,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/config/parser"
-	oclog "github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/x/path/filepathx"
 	storageUsersConfig "github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
 	storageUsersParser "github.com/opencloud-eu/opencloud/services/storage-users/pkg/config/parser"
@@ -135,11 +134,7 @@ func scanCmd(ocCfg *config.Config) *cobra.Command {
 				fmt.Fprintf(os.Stderr, "Failed to create event stream for posix driver: %v\n", err)
 				os.Exit(1)
 			}
-			log := oclog.NewLogger(
-				oclog.Name("posixfs scan"),
-				oclog.Level("error"),
-				oclog.Pretty(true),
-				oclog.Color(false)).Logger
+			log := logger("posixfs")
 
 			if !defaultRoot {
 				log = log.With().Str("basepath", root).Logger()
@@ -219,6 +214,7 @@ The <path> argument determines the scope of the check:
 // given path determines the scope of the check: the whole storage, a single
 // space or a single entity within a space.
 func checkPosixfsConsistency(cfg *storageUsersConfig.Config, cmd *cobra.Command, path string) error {
+	log := logger("posixfs")
 	recalculateChecksums, _ = cmd.Flags().GetBool("fix-checksums")
 
 	path = filepath.Clean(path)
@@ -238,7 +234,7 @@ func checkPosixfsConsistency(cfg *storageUsersConfig.Config, cmd *cobra.Command,
 		return err
 	}
 
-	ignorer = ignore.NewIgnorer(opts, nil)
+	ignorer = ignore.NewIgnorer(opts, &log)
 
 	switch {
 	case path == rootPath:

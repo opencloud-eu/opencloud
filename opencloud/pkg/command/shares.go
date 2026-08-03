@@ -9,7 +9,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/config/parser"
-	oclog "github.com/opencloud-eu/opencloud/pkg/log"
 	mregistry "github.com/opencloud-eu/opencloud/pkg/registry"
 	sharing "github.com/opencloud-eu/opencloud/services/sharing/pkg/config"
 	sharingparser "github.com/opencloud-eu/opencloud/services/sharing/pkg/config/parser"
@@ -85,7 +84,7 @@ func cleanup(_ *cobra.Command, cfg *config.Config) error {
 		return configlog.ReturnError(errors.New("cleanup is only implemented for the jsoncs3 share manager"))
 	}
 
-	l := logger()
+	l := logger("migrate")
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
@@ -94,7 +93,7 @@ func cleanup(_ *cobra.Command, cfg *config.Config) error {
 	if !ok {
 		return configlog.ReturnError(errors.New("Unknown share manager type '" + driver + "'"))
 	}
-	mgr, err := f(rcfg[driver].(map[string]any), l)
+	mgr, err := f(rcfg[driver].(map[string]any), &l)
 	if err != nil {
 		return configlog.ReturnError(err)
 	}
@@ -166,13 +165,4 @@ func revaShareConfig(cfg *sharing.Config) map[string]any {
 			"machine_auth_apikey": cfg.UserSharingDrivers.JSONCS3.SystemUserAPIKey,
 		},
 	}
-}
-
-func logger() *zerolog.Logger {
-	log := oclog.NewLogger(
-		oclog.Name("migrate"),
-		oclog.Level("info"),
-		oclog.Pretty(true),
-		oclog.Color(true)).Logger
-	return &log
 }
