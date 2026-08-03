@@ -37,6 +37,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/open-policy-agent/opa from 1.18.2 to 1.19.0 [[#3231](https://github.com/opencloud-eu/opencloud/pull/3231)]
 - build(deps): bump google.golang.org/grpc from 1.82.0 to 1.83.0 [[#3232](https://github.com/opencloud-eu/opencloud/pull/3232)]
 - chore(idp): bump dependencies [[#3226](https://github.com/opencloud-eu/opencloud/pull/3226)]
 - build(deps): bump github.com/nats-io/nats-server/v2 from 2.14.3 to 2.14.4 [[#3221](https://github.com/opencloud-eu/opencloud/pull/3221)]
