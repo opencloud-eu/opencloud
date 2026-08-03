@@ -6,16 +6,18 @@
 
 @AlexAndBear, @JammingBen, @aduffeck, @dschmidt, @fschade, @michaelstingl, @pbleser-oc, @rhafer, @schweigisito, @v-scharf
 
+### 📈 Enhancement
+
+- Extend posixfs consistency check [[#3220](https://github.com/opencloud-eu/opencloud/pull/3220)]
+- Improve reindex command [[#3213](https://github.com/opencloud-eu/opencloud/pull/3213)]
+- Reindex spaces concurrently [[#3207](https://github.com/opencloud-eu/opencloud/pull/3207)]
+- feat: add announcement banner [[#3189](https://github.com/opencloud-eu/opencloud/pull/3189)]
+- feat: add space viewer with versions role [[#2961](https://github.com/opencloud-eu/opencloud/pull/2961)]
+
 ### 🐛 Bug Fixes
 
 - fix(runtime): log service startup errors instead of printing them beside the log [[#3140](https://github.com/opencloud-eu/opencloud/pull/3140)]
 - fix(posixfs scan): Setup logger for scan command [[#3185](https://github.com/opencloud-eu/opencloud/pull/3185)]
-
-### 📈 Enhancement
-
-- Improve reindex command [[#3213](https://github.com/opencloud-eu/opencloud/pull/3213)]
-- feat: add announcement banner [[#3189](https://github.com/opencloud-eu/opencloud/pull/3189)]
-- feat: add space viewer with versions role [[#2961](https://github.com/opencloud-eu/opencloud/pull/2961)]
 
 ### ✅ Tests
 
@@ -35,6 +37,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump google.golang.org/grpc from 1.82.0 to 1.83.0 [[#3232](https://github.com/opencloud-eu/opencloud/pull/3232)]
 - chore(idp): bump dependencies [[#3226](https://github.com/opencloud-eu/opencloud/pull/3226)]
 - build(deps): bump github.com/nats-io/nats-server/v2 from 2.14.3 to 2.14.4 [[#3221](https://github.com/opencloud-eu/opencloud/pull/3221)]
 - build(deps): bump github.com/go-ldap/ldap/v3 from 3.4.13 to 3.4.14 [[#3222](https://github.com/opencloud-eu/opencloud/pull/3222)]
