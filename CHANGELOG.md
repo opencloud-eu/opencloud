@@ -35,6 +35,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/gabriel-vasile/mimetype from 1.4.13 to 1.4.15 [[#3217](https://github.com/opencloud-eu/opencloud/pull/3217)]
 - build(deps): bump golang.org/x/net from 0.56.0 to 0.57.0 [[#3136](https://github.com/opencloud-eu/opencloud/pull/3136)]
 - build(deps): bump github.com/beevik/etree from 1.6.0 to 1.7.0 [[#3134](https://github.com/opencloud-eu/opencloud/pull/3134)]
 
