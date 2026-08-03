@@ -5,14 +5,13 @@
 //	if err != nil  {
 //	  log.Fatal(err)
 //	}
-//	log.Printf(res)
+//	log.Print(res)
 //
 // Most functions are safe for concurrent use.
 package password
 
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -47,19 +46,23 @@ const (
 var (
 	// ErrExceedsTotalLength is the error returned with the number of digits and
 	// symbols is greater than the total length.
-	ErrExceedsTotalLength = errors.New("number of digits and symbols must be less than total length")
+	ErrExceedsTotalLength = fmt.Errorf("number of digits and symbols must be less than total length")
 
 	// ErrLettersExceedsAvailable is the error returned with the number of letters
 	// exceeds the number of available letters and repeats are not allowed.
-	ErrLettersExceedsAvailable = errors.New("number of letters exceeds available letters and repeats are not allowed")
+	ErrLettersExceedsAvailable = fmt.Errorf("number of letters exceeds available letters and repeats are not allowed")
 
 	// ErrDigitsExceedsAvailable is the error returned with the number of digits
 	// exceeds the number of available digits and repeats are not allowed.
-	ErrDigitsExceedsAvailable = errors.New("number of digits exceeds available digits and repeats are not allowed")
+	ErrDigitsExceedsAvailable = fmt.Errorf("number of digits exceeds available digits and repeats are not allowed")
 
 	// ErrSymbolsExceedsAvailable is the error returned with the number of symbols
 	// exceeds the number of available symbols and repeats are not allowed.
-	ErrSymbolsExceedsAvailable = errors.New("number of symbols exceeds available symbols and repeats are not allowed")
+	ErrSymbolsExceedsAvailable = fmt.Errorf("number of symbols exceeds available symbols and repeats are not allowed")
+
+	// ErrNegativeInput is the error returned when the number of digits or symbols
+	// is negative.
+	ErrNegativeInput = fmt.Errorf("number of digits and symbols must not be negative")
 )
 
 // Generator is the stateful generator which can be used to customize the list
@@ -129,6 +132,10 @@ func NewGenerator(i *GeneratorInput) (*Generator, error) {
 // The algorithm is fast, but it's not designed to be performant; it favors
 // entropy over speed. This function is safe for concurrent use.
 func (g *Generator) Generate(length, numDigits, numSymbols int, noUpper, allowRepeat bool) (string, error) {
+	if numDigits < 0 || numSymbols < 0 {
+		return "", ErrNegativeInput
+	}
+
 	letters := g.lowerLetters
 	if !noUpper {
 		letters += g.upperLetters
