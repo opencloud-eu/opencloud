@@ -1344,9 +1344,12 @@ func (c *Compiler) checkRuleConflicts() {
 		kinds := make(map[RuleKind]struct{}, len(rules))
 		completeRules := 0
 		partialRules := 0
+		// `p contains x` (set) vs `p[k] contains v` (object of sets): a mix is a conflict.
+		var hasMultiValueSet bool
+		var hasMultiValueObject bool
 		arities := make(map[int]struct{}, len(rules))
 		name := ""
-		var conflicts []Ref
+		var conflicts []ruleRef
 		defaultRules := make([]*Rule, 0)
 
 		for _, rule := range rules {
@@ -1403,6 +1406,15 @@ func (c *Compiler) checkRuleConflicts() {
 			} else {
 				partialRules++
 			}
+
+			if r.Head.RuleKind() == MultiValue {
+				// A ground ref ends at the node (set); a longer one extends past it (object).
+				if ref.IsGround() {
+					hasMultiValueSet = true
+				} else {
+					hasMultiValueObject = true
+				}
+			}
 		}
 
 		// Functions cannot exist within a rule's dynamic extent, as there is no valid
@@ -1422,9 +1434,9 @@ func (c *Compiler) checkRuleConflicts() {
 
 		switch {
 		case conflicts != nil:
-			return !c.err(NewError(TypeErr, rules[0].Loc(), "rule %v conflicts with %v", name, conflicts))
+			return !c.err(NewError(TypeErr, rules[0].Loc(), "rule %v conflicts with%v", name, formatConflict(conflicts, rw)))
 
-		case len(kinds) > 1 || len(arities) > 1 || (completeRules >= 1 && partialRules >= 1):
+		case len(kinds) > 1 || len(arities) > 1 || (completeRules >= 1 && partialRules >= 1) || (hasMultiValueSet && hasMultiValueObject):
 			return !c.err(NewError(TypeErr, rules[0].Loc(), "conflicting rules %v found", name))
 
 		case len(defaultRules) > 1:
@@ -1596,11 +1608,15 @@ func (c *Compiler) checkSafetyRuleHeads() {
 				if vars.DiffCount(vis.vars) > 0 {
 					unsafe := vars.Diff(vis.vars)
 					for v := range unsafe {
+						// vars is keyed by the original name, so the location must be
+						// read before v is replaced with the rewritten one -- otherwise
+						// the lookup misses and the error is reported without a location.
+						loc := vars[v].Location
 						if w, ok := c.RewrittenVars[v]; ok {
 							v = w
 						}
 						if !v.IsGenerated() {
-							if !c.err(NewError(UnsafeVarErr, vars[v].Location, "var %v is unsafe", v)) {
+							if !c.err(NewError(UnsafeVarErr, loc, "var %v is unsafe", v)) {
 								return true
 							}
 						}
@@ -1701,16 +1717,17 @@ func (parser *schemaParser) parseSchemaWithPropertyKey(schema any, propertyKey s
 
 	// Handle referenced schemas, returns directly when a $ref is found
 	if subSchema.RefSchema != nil {
-		if existing, ok := parser.definitionCache[subSchema.Ref.String()]; ok {
+		subSchemaStr := subSchema.Ref.String()
+		if existing, ok := parser.definitionCache[subSchemaStr]; ok {
 			if existing.processing {
 				if existing.rec == nil {
-					existing.rec = types.NewRecursive(subSchema.Ref.String(), nil)
+					existing.rec = types.NewRecursive(subSchemaStr, nil)
 				}
 				return existing.rec, nil
 			}
 			return existing.typ, nil
 		}
-		return parser.parseSchemaWithPropertyKey(subSchema.RefSchema, subSchema.Ref.String())
+		return parser.parseSchemaWithPropertyKey(subSchema.RefSchema, subSchemaStr)
 	}
 
 	// Cache this $ref definition and finalize it via defer when parsing
@@ -2218,7 +2235,7 @@ func (c *Compiler) resolveAllRefs() {
 				}
 
 				for v, u := range globals {
-					if v.Equal(imp.Name()) && !u.used {
+					if v == imp.Name() && !u.used {
 						if !c.err(NewError(CompileErr, imp.Location, "%s unused", imp.String())) {
 							return
 						}
@@ -3327,6 +3344,50 @@ func (c *Compiler) rewriteLocalVarsInRule(rule *Rule, unusedArgs VarSet, argsSta
 
 	stack := argsStack.Copy()
 
+	// A variable shadowing a built-in name (e.g. `count`) is allowed in Rego,
+	// but if left un-rewritten later stages (type checking, arity, partial
+	// eval) can mistake it for the built-in, causing spurious,
+	// map-order-dependent errors (issue #3729). Rewrite such variables to
+	// fresh locals, like `:=`-declared ones.
+	//
+	// Only variables bound in the body are rewritten. Excluded: head-only
+	// references (stay unsafe-var errors), call operators (SkipRefCallHead),
+	// and `with` targets/values (possible function mocks).
+	if len(c.builtins) > 0 {
+		bodyVis := NewVarVisitor().WithParams(VarVisitorParams{
+			SkipRefCallHead: true,
+			SkipClosures:    true,
+		})
+		bodyVis.Walk(rule.Body)
+		bodyVars := bodyVis.Vars()
+
+		declaredInBody := declaredVars(rule.Body)
+
+		withVars := NewVarSet()
+		NewGenericVisitor(func(x any) bool {
+			if w, ok := x.(*With); ok {
+				WalkVars(w, func(v Var) bool {
+					withVars.Add(v)
+					return false
+				})
+			}
+			return false
+		}).Walk(rule)
+
+		for _, v := range bodyVars.Sorted() {
+			if _, ok := c.builtins[v.String()]; !ok {
+				continue
+			}
+			if declaredInBody.Contains(v) || withVars.Contains(v) {
+				continue
+			}
+			if _, ok := stack.Declared(v); ok {
+				continue
+			}
+			stack.Insert(v, gen.Generate(), seenVar)
+		}
+	}
+
 	body, declared, errs := rewriteLocalVars(gen, stack, used, rule.Body, c.strict)
 
 	// For rewritten vars use the collection of all variables that
@@ -4285,26 +4346,61 @@ func (n *TreeNode) add(path Ref, val any) {
 	}
 }
 
+// ExternalIndex ties an ExternalRuleSource-provided index to the package Ref it
+// serves. It is internal plumbing exported only so the topdown evaluator can
+// reach it across the ast/topdown package boundary; it is not part of OPA's
+// supported public API and may change without notice. The stable surface for
+// implementing external rule sources is the ExternalRuleSource and
+// ExternalRuleIndex interfaces.
 type ExternalIndex struct {
 	Index ExternalRuleIndex
 	Ref   Ref
 }
 
-func (ei *ExternalIndex) Tree(ctx context.Context, rt *TreeNode, prefix Ref, input *Term, m metrics.Metrics, reqMD map[string]any, respMD map[string]any) (*TreeNode, ExternalRuleIndex, error) {
-	resolver := &termResolver{input: input}
+// Tree resolves external rules for prefix, using resolver to resolve references
+// while building search queries. Passing a save-set-aware resolver (e.g. the
+// topdown evaluator) lets sources that opt into
+// ExternalSourceOptions.DistinguishAbsentFromUnknown distinguish absent input
+// from values that are unknown under partial evaluation.
+//
+// params carries the ground key values that followed the registered prefix for
+// a parametrized source (see ParametrizedExternalRuleIndex); it is nil for
+// conventional sources. The returned subtree is always rooted at prefix (the
+// registered ref), regardless of params — the evaluator layers the parameter
+// levels back on top.
+//
+// Like ExternalIndex, Tree is internal plumbing exported only for the topdown
+// evaluator. It is not part of OPA's supported public API and may change
+// without notice.
+func (ei *ExternalIndex) Tree(ctx context.Context, rt *TreeNode, prefix Ref, params []Value, resolver ValueResolver, m metrics.Metrics, reqMD map[string]any, respMD map[string]any) (*TreeNode, ExternalRuleIndex, error) {
+	o := ei.Index.Opts()
+
+	// Select the resolver handed to the source. By default we wrap the caller's
+	// resolver so external sources see the legacy behavior (absent and unknown
+	// both collapse to UnknownValueErr, non-input refs are never resolved).
+	// Sources that set DistinguishAbsentFromUnknown receive the caller's
+	// save-set-aware resolver unchanged, letting them tell absent from unknown.
+	lookupResolver := resolver
+	switch {
+	case lookupResolver == nil:
+		lookupResolver = unknownResolver{}
+	case o == nil || !o.DistinguishAbsentFromUnknown:
+		lookupResolver = legacyExternalResolver{inner: lookupResolver}
+	}
 
 	rules, updatedIndex, err := ei.Index.Lookup(ctx,
-		LookupResolver(resolver),
+		LookupResolver(lookupResolver),
 		LookupMetrics(m),
 		LookupRequestMetadata(reqMD),
 		LookupResponseMetadata(respMD),
+		LookupParams(params),
 	)
 	if err != nil {
 		return nil, nil, err
 	}
 	c0 := NewCompiler()
 
-	if o := ei.Index.Opts(); o != nil {
+	if o != nil {
 		if len(o.SkippedStages) > 0 {
 			c0.WithSkipStages(o.SkippedStages...)
 		}
@@ -4343,23 +4439,36 @@ func (ei *ExternalIndex) Tree(ctx context.Context, rt *TreeNode, prefix Ref, inp
 	return node, updatedIndex, nil
 }
 
-type termResolver struct {
-	input *Term
+// legacyExternalResolver reproduces the historical external-source resolver
+// behavior on top of an arbitrary (typically save-set-aware) resolver: only
+// input references are resolvable, and any input reference that does not
+// resolve to a concrete value is reported as UnknownValueErr. This collapses
+// "absent from the concrete input" and "symbolic under partial evaluation"
+// into a single signal, matching what external sources saw before
+// ExternalSourceOptions.DistinguishAbsentFromUnknown existed.
+type legacyExternalResolver struct {
+	inner ValueResolver
 }
 
-func (r *termResolver) Resolve(ref Ref) (Value, error) {
-	if ref.HasPrefix(InputRootRef) {
-		if r.input == nil {
-			return nil, UnknownValueErr{}
-		}
-		v, err := r.input.Value.Find(ref[1:])
-		if err != nil {
-			return nil, UnknownValueErr{}
-		}
-		return v, nil
+func (r legacyExternalResolver) Resolve(ref Ref) (Value, error) {
+	if !ref.HasPrefix(InputRootRef) {
+		return nil, UnknownValueErr{}
 	}
-	return nil, UnknownValueErr{}
+	v, err := r.inner.Resolve(ref)
+	if err != nil {
+		return nil, err
+	}
+	if v == nil {
+		return nil, UnknownValueErr{}
+	}
+	return v, nil
 }
+
+// unknownResolver treats every reference as unknown. It is used as a safe
+// fallback when Tree is invoked without a resolver.
+type unknownResolver struct{}
+
+func (unknownResolver) Resolve(Ref) (Value, error) { return nil, UnknownValueErr{} }
 
 // Size returns the number of rules in the tree.
 func (n *TreeNode) Size() (s int) {
@@ -4481,30 +4590,50 @@ func attachValueToNode(node *TreeNode, ref Ref, val any) {
 	}
 }
 
+type ruleRef struct {
+	ref Ref
+	loc *Location
+}
+
 // flattenChildren flattens all children's rule refs into a sorted array.
-func (n *TreeNode) flattenChildren() []Ref {
+func (n *TreeNode) flattenChildren() []ruleRef {
 	return n.flattenMatchingChildren(func(_ *Rule) bool { return true })
 }
 
 // flattenChildFunctions is like flattenChildren but only collects functions (rules with args).
-func (n *TreeNode) flattenChildFunctions() []Ref {
+func (n *TreeNode) flattenChildFunctions() []ruleRef {
 	return n.flattenMatchingChildren(func(r *Rule) bool { return r.isFunction() })
 }
 
-func (n *TreeNode) flattenMatchingChildren(f func(*Rule) bool) []Ref {
-	ret := newRefSet()
+func (n *TreeNode) flattenMatchingChildren(f func(*Rule) bool) []ruleRef {
+	var ret ruleRefSet
 	for _, sub := range n.Children { // we only want the children, so don't use n.DepthFirst() right away
 		sub.DepthFirst(func(x *TreeNode) bool {
 			for _, rule := range x.Values {
 				if f(rule) {
-					ret.AddPrefix(rule.Ref())
+					ret.AddPrefix(ruleRef{ref: rule.Ref(), loc: rule.Loc()})
 				}
 			}
 			return false
 		})
 	}
 
-	return util.SortedFunc(ret.s, RefCompare)
+	return util.SortedFunc(ret.s, func(a, b ruleRef) int {
+		return RefCompare(a.ref, b.ref)
+	})
+}
+
+func formatConflict(conflicts []ruleRef, rw varRewriter) string {
+	s := strings.Builder{}
+	s.WriteString(":\n")
+	for _, conflict := range conflicts {
+		s.WriteString("  rule ")
+		s.WriteString(rw(conflict.ref.Copy()).String())
+		s.WriteString(" at ")
+		s.WriteString(conflict.loc.String())
+		s.WriteString("\n")
+	}
+	return strings.TrimSuffix(s.String(), "\n")
 }
 
 // Copy creates a shallow copy of the TreeNode suitable for augmentation.
@@ -4639,7 +4768,12 @@ func (g *Graph) Sort() (sorted []util.T, ok bool) {
 		temp:   map[util.T]struct{}{},
 	}
 
+	nodesList := make([]util.T, 0, len(g.nodes))
 	for node := range g.nodes {
+		nodesList = append(nodesList, node)
+	}
+	sortGraphNodes(nodesList)
+	for _, node := range nodesList {
 		if !sorter.Visit(node) {
 			return nil, false
 		}
@@ -4687,6 +4821,24 @@ type graphSort struct {
 	temp   map[util.T]struct{}
 }
 
+// sortGraphNodes orders rule nodes deterministically (by location, then ref)
+// so the topological sort, and thus the rule type-checking order, doesn't
+// depend on Go's randomized map iteration (issue #3729). Head.Ref is used for
+// the tie-break rather than Rule.Ref so nodes with a nil Module don't panic.
+func sortGraphNodes(nodes []util.T) {
+	slices.SortStableFunc(nodes, func(a, b util.T) int {
+		ra, aok := a.(*Rule)
+		rb, bok := b.(*Rule)
+		if !aok || !bok {
+			return 0
+		}
+		if c := ra.Location.Compare(rb.Location); c != 0 {
+			return c
+		}
+		return ra.Head.Ref().Compare(rb.Head.Ref())
+	})
+}
+
 func (sort *graphSort) Marked(node util.T) bool {
 	_, marked := sort.marked[node]
 	return marked
@@ -4700,7 +4852,13 @@ func (sort *graphSort) Visit(node util.T) (ok bool) {
 		return true
 	}
 	sort.temp[node] = struct{}{}
-	for other := range sort.deps(node) {
+	deps := sort.deps(node)
+	depList := make([]util.T, 0, len(deps))
+	for other := range deps {
+		depList = append(depList, other)
+	}
+	sortGraphNodes(depList)
+	for _, other := range depList {
 		if !sort.Visit(other) {
 			return false
 		}
@@ -5249,6 +5407,15 @@ func outputVarsForExprEq(expr *Expr, safe VarSet, output VarSet) VarSet {
 
 	output = outputVarsForTerms(expr, safe, output)
 	output.Update(safe)
+	if expr.fromAssignment {
+		// The LHS of `:=` is a pure output; excluding it from the safe basis
+		// stops the RHS being made safe by unifying backwards through the LHS.
+		// See issue #3546.
+		WalkVars(expr.Operand(0), func(v Var) bool {
+			delete(output, v)
+			return false
+		})
+	}
 	output.Update(Unify(output, expr.Operand(0), expr.Operand(1)))
 
 	diff := output.Diff(safe)
@@ -6368,7 +6535,7 @@ func (s localDeclaredVars) Insert(x, y Var, occurrence varOccurrence) {
 	// If the variable has been rewritten (where x != y, with y being
 	// the generated value), store it in the map of rewritten vars.
 	// Assume that the generated values are unique for the compilation.
-	if !x.Equal(y) {
+	if x != y {
 		s.rewritten[y] = x
 	}
 }
@@ -6817,6 +6984,7 @@ func rewriteDeclaredAssignment(g *localVarGenerator, stack *localDeclaredVars, e
 	if len(errs) == numErrsBefore {
 		loc := expr.Operator()[0].Location
 		expr.SetOperator(RefTerm(VarTerm(Equality.Name).SetLocation(loc)).SetLocation(loc))
+		expr.fromAssignment = true
 	}
 
 	return expr, errs
@@ -6845,7 +7013,7 @@ func rewriteDeclaredVarsInTerm(g *localVarGenerator, stack *localDeclaredVars, t
 	case Call:
 		ref := v[0]
 		WalkVars(ref, func(v Var) bool {
-			if gv, ok := stack.Declared(v); ok && !gv.Equal(v) {
+			if gv, ok := stack.Declared(v); ok && gv != v {
 				// We will rewrite the ref of a function call, which is never ok since we don't have first-class functions.
 				errs = append(errs, NewError(CompileErr, term.Location, "called function %s shadowed", ref))
 				return true
@@ -6900,11 +7068,11 @@ func rewriteDeclaredVarsInWithRecursive(g *localVarGenerator, stack *localDeclar
 	if sdwInput, ok := stack.Declared(InputRootDocument.Value.(Var)); ok { // Was "input" shadowed...
 		switch value := w.Target.Value.(type) {
 		case Var:
-			if sdwInput.Equal(value) { // ...and replaced? If so, fix it
+			if sdwInput == value { // ...and replaced? If so, fix it
 				w.Target.Value = InputRootRef
 			}
 		case Ref:
-			if sdwInput.Equal(value[0].Value.(Var)) {
+			if sdwInput.Equal(value[0].Value) {
 				w.Target.Value.(Ref)[0].Value = InputRootDocument.Value
 			}
 		}
@@ -7233,48 +7401,24 @@ func rewriteVarsInRef(vars ...map[Var]Var) varRewriter {
 	}
 }
 
-// NOTE(sr): This is duplicated with compile/compile.go; but moving it into another location
-// would cause a circular dependency -- the refSet definition needs ast.Ref. If we make it
-// public in the ast package, the compile package could take it from there, but it would also
-// increase our public interface. Let's reconsider if we need it in a third place.
-type refSet struct {
-	s []Ref
-}
-
-func newRefSet(x ...Ref) *refSet {
-	result := &refSet{}
-	for i := range x {
-		result.AddPrefix(x[i])
-	}
-	return result
-}
-
-// ContainsPrefix returns true if r is prefixed by any of the existing refs in the set.
-func (rs *refSet) ContainsPrefix(r Ref) bool {
-	return slices.ContainsFunc(rs.s, r.HasPrefix)
+type ruleRefSet struct {
+	s []ruleRef
 }
 
 // AddPrefix inserts r into the set if r is not prefixed by any existing
 // refs in the set. If any existing refs are prefixed by r, those existing
 // refs are removed.
-func (rs *refSet) AddPrefix(r Ref) {
-	if rs.ContainsPrefix(r) {
-		return
-	}
-	cpy := []Ref{r}
+func (rs *ruleRefSet) AddPrefix(r ruleRef) {
 	for i := range rs.s {
-		if !rs.s[i].HasPrefix(r) {
+		if r.ref.HasPrefix(rs.s[i].ref) {
+			return
+		}
+	}
+	cpy := []ruleRef{r}
+	for i := range rs.s {
+		if !rs.s[i].ref.HasPrefix(r.ref) {
 			cpy = append(cpy, rs.s[i])
 		}
 	}
 	rs.s = cpy
-}
-
-// Sorted returns a sorted slice of terms for refs in the set.
-func (rs *refSet) Sorted() []*Term {
-	terms := make([]*Term, len(rs.s))
-	for i := range rs.s {
-		terms[i] = NewTerm(rs.s[i])
-	}
-	return util.SortedFunc(terms, TermValueCompare)
 }
