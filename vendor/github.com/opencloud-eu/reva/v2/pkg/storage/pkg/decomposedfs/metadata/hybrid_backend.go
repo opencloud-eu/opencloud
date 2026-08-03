@@ -500,9 +500,21 @@ func (b HybridBackend) Lock(n MetadataNode) (UnlockFunc, error) {
 	mlock, err := lockedfile.OpenFile(metaLockPath, os.O_RDWR|os.O_CREATE, 0600)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			// create the parent directory
-			err = os.MkdirAll(filepath.Dir(metaLockPath), 0700)
-			if err != nil {
+			// The lock file's parent directories don't exist yet (or anymore).
+			// We may only create the space's metadata directories, never the
+			// space's base directory itself: locking a node (i.e. the space
+			// root) whose space has been removed (or has not been created yet)
+			// must not resurrect the spaca.
+			base := b.metadataPathFunc(n)
+			if base == "" {
+				return nil, err
+			}
+			// base is the space's metadata directory (e.g. <spaceRoot>/.oc-nodes),
+			// so its parent is the space's base directory.
+			if _, statErr := os.Stat(filepath.Dir(base)); statErr != nil {
+				return nil, statErr
+			}
+			if err = os.MkdirAll(filepath.Dir(metaLockPath), 0700); err != nil {
 				return nil, err
 			}
 			mlock, err = lockedfile.OpenFile(metaLockPath, os.O_RDWR|os.O_CREATE, 0600)

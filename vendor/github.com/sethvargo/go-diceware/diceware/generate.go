@@ -4,9 +4,11 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"math"
 	"math/big"
 )
+
+// ErrNumWordsNegative is returned when a negative number of words is requested.
+var ErrNumWordsNegative = fmt.Errorf("number of words cannot be negative")
 
 // sides is the number of sides on a die.
 var sides = big.NewInt(6)
@@ -68,6 +70,10 @@ func NewGenerator(i *GeneratorInput) (*Generator, error) {
 // non-overlapping words, use a single invocation of the function and split the
 // resulting string list.
 func (g *Generator) Generate(numWords int) ([]string, error) {
+	if numWords < 0 {
+		return nil, ErrNumWordsNegative
+	}
+
 	if typ, ok := g.wordList.(WordListNumWordser); ok {
 		if l := typ.NumWords(); numWords > l {
 			return nil, fmt.Errorf("number of requested words (%d) cannot exceed the size of the wordlist (%d)",
@@ -182,13 +188,13 @@ func (g *Generator) RollDie() (int, error) {
 func (g *Generator) RollWord(d int) (int, error) {
 	var final int
 
-	for i := d; i > 0; i-- {
+	for range d {
 		res, err := g.RollDie()
 		if err != nil {
 			return 0, err
 		}
 
-		final += res * int(math.Pow(10, float64(i-1)))
+		final = final*10 + res
 	}
 
 	return final, nil
