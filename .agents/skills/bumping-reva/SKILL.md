@@ -21,10 +21,8 @@ Template PR: https://github.com/opencloud-eu/opencloud/pull/3127
 
 ## Inputs
 
-Two versions are needed — **ask the user for whichever they did not give**:
-
-- `REVA_VERSION` — the new reva tag, always normalized to a leading `v` (e.g. `v2.48.0`).
-- `OC_VERSION` — the OpenCloud target for `LatestTag`, **without** the `+dev` suffix (e.g. `7.4.0`). This is a deliberate release target, not a mechanical `+1` — never guess it, ask if unclear.
+- `REVA_VERSION` — the new reva tag, always normalized to a leading `v` (e.g. `v2.48.0`). If the user didn't give it, ask (or take the latest reva release tag).
+- `OC_VERSION` — the OpenCloud target for `LatestTag`, **without** the `+dev` suffix (e.g. `7.4.0`). **Do not ask or guess** — derive it from the open OpenCloud release PR (step 3). It can be a new major (e.g. `8.0.0`) when release-please picked up a breaking change.
 
 ## What changes
 
@@ -63,6 +61,15 @@ go mod vendor
 - `go mod tidy` will also bump indirect dependencies that reva pulled in — that is expected (the template PR did the same).
 
 ### 3. Bump the OpenCloud dev version
+
+`OC_VERSION` is the version of the **open OpenCloud release PR** — the release-please PR from branch `next-release/main`, titled `🎉 Release X.Y.Z` (e.g. #3143). Derive it, don't ask:
+
+```bash
+gh pr list --repo opencloud-eu/opencloud --head next-release/main --state open \
+  --json title --jq '.[0].title' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1
+```
+
+This is the next release target and tracks breaking changes — it may be a new major (e.g. `8.0.0`), not just a minor bump. If no such PR is open, stop and ask the user.
 
 Edit `pkg/version/version.go`:
 
@@ -127,8 +134,9 @@ gh pr create --base main \
 
 ```bash
 REVA_VERSION=v2.48.0
-OC_VERSION=7.4.0
 gh api repos/opencloud-eu/reva/commits/$REVA_VERSION --jq '.sha'                       # verify tag exists
+OC_VERSION=$(gh pr list --repo opencloud-eu/opencloud --head next-release/main --state open \
+  --json title --jq '.[0].title' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)         # from open release PR
 go get github.com/opencloud-eu/reva/v2@$REVA_VERSION && go mod tidy && go mod vendor    # bump + re-vendor
 # edit pkg/version/version.go -> LatestTag = "$OC_VERSION+dev"
 gh api "repos/opencloud-eu/reva/contents/CHANGELOG.md?ref=$REVA_VERSION" --jq '.content' | base64 -d  # changelog
@@ -138,7 +146,7 @@ gh api "repos/opencloud-eu/reva/contents/CHANGELOG.md?ref=$REVA_VERSION" --jq '.
 
 - Running the bump before the reva release PR is merged — the tag won't exist and `go get` will fail. Verify the tag first (step 1).
 - Forgetting to re-run `go mod vendor` after `go mod tidy`, leaving `vendor/` out of sync with `go.mod`.
-- Guessing `OC_VERSION` — it is a deliberate release target (the template PR jumped 7.1.0 → 7.3.0). Ask the user.
+- Asking for or hardcoding `OC_VERSION` — always derive it from the open `next-release/main` release PR (step 3); it can even be a new major after a breaking change.
 - Reading the changelog from reva `main` instead of the tag (`?ref=$REVA_VERSION`). Always pin to the tag.
 - Missing the `[full-ci] ` prefix in the PR title, the `Type:Maintenance` label, or the two summary bullets at the top of the body.
 - Dumping the full `vendor/` diff at the confirmation step instead of `go.mod` + `version.go` + a `--stat` summary.
