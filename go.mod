@@ -10,7 +10,7 @@ require (
 	github.com/MicahParks/keyfunc/v2 v2.1.0
 	github.com/Nerzal/gocloak/v13 v13.9.0
 	github.com/bbalet/stopwords v1.0.0
-	github.com/beevik/etree v1.6.0
+	github.com/beevik/etree v1.7.0
 	github.com/blevesearch/bleve/v2 v2.6.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/coreos/go-oidc/v3 v3.20.0
@@ -102,10 +102,10 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.44.0
 	go.opentelemetry.io/otel/sdk v1.44.0
 	go.opentelemetry.io/otel/trace v1.44.0
-	golang.org/x/crypto v0.53.0
+	golang.org/x/crypto v0.54.0
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
 	golang.org/x/image v0.44.0
-	golang.org/x/net v0.56.0
+	golang.org/x/net v0.57.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.22.0
 	golang.org/x/term v0.45.0
