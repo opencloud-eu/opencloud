@@ -35,6 +35,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/go-ldap/ldap/v3 from 3.4.13 to 3.4.14 [[#3222](https://github.com/opencloud-eu/opencloud/pull/3222)]
 - build(deps): bump github.com/prometheus/client_golang from 1.23.2 to 1.24.1 [[#3218](https://github.com/opencloud-eu/opencloud/pull/3218)]
 - build(deps): bump github.com/gabriel-vasile/mimetype from 1.4.13 to 1.4.15 [[#3217](https://github.com/opencloud-eu/opencloud/pull/3217)]
 - build(deps): bump golang.org/x/net from 0.56.0 to 0.57.0 [[#3136](https://github.com/opencloud-eu/opencloud/pull/3136)]
