@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/open-policy-agent/opa/v1/ast"
+	"github.com/open-policy-agent/opa/v1/util"
 )
 
 // saveSet contains a stack of terms that are considered 'unknown' during
@@ -183,40 +184,33 @@ func (sse *saveSetElem) containsVar(t *ast.Term, b *bindings) bool {
 // partially evaluated. In this case, the partially evaluated rule will be
 // output in the support module.
 type saveStack struct {
-	Stack []saveStackQuery
+	Stack util.GroupStack[saveStackElem]
 }
 
 func newSaveStack() *saveStack {
-	return &saveStack{
-		Stack: []saveStackQuery{
-			{},
-		},
-	}
+	s := &saveStack{}
+	s.Stack.PushGroup(nil)
+	return s
 }
 
 func (s *saveStack) PushQuery(query saveStackQuery) {
-	s.Stack = append(s.Stack, query)
+	s.Stack.PushGroup(query)
 }
 
 func (s *saveStack) PopQuery() saveStackQuery {
-	last := s.Stack[len(s.Stack)-1]
-	s.Stack = s.Stack[:len(s.Stack)-1]
-	return last
+	return s.Stack.PopGroup()
 }
 
 func (s *saveStack) Peek() saveStackQuery {
-	return s.Stack[len(s.Stack)-1]
+	return s.Stack.PeekGroup()
 }
 
 func (s *saveStack) Push(expr *ast.Expr, b1 *bindings, b2 *bindings) {
-	idx := len(s.Stack) - 1
-	s.Stack[idx] = append(s.Stack[idx], saveStackElem{expr, b1, b2})
+	s.Stack.Push(saveStackElem{expr, b1, b2})
 }
 
 func (s *saveStack) Pop() {
-	idx := len(s.Stack) - 1
-	query := s.Stack[idx]
-	s.Stack[idx] = query[:len(query)-1]
+	s.Stack.Pop()
 }
 
 type saveStackQuery []saveStackElem
@@ -298,7 +292,7 @@ func (s *saveSupport) Exists(path ast.Ref) bool {
 	if len(ruleRef) == 1 {
 		name := ruleRef[0].Value.(ast.Var)
 		for _, rule := range module.Rules {
-			if rule.Head.Name.Equal(name) {
+			if rule.Head.Name == name {
 				return true
 			}
 		}
@@ -586,7 +580,7 @@ func (i *inliningControl) DisabledVar(v ast.Var, ignoreInternal bool) bool {
 	}
 
 	for _, frame := range i.disable {
-		if (!frame.internal || !ignoreInternal) && frame.v.Equal(v) {
+		if (!frame.internal || !ignoreInternal) && frame.v == v {
 			return true
 		}
 	}
