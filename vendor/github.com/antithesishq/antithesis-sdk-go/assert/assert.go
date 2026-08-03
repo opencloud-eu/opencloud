@@ -1,4 +1,4 @@
-//go:build enable_antithesis_sdk
+//go:build !no_antithesis_sdk
 
 // Package assert enables defining [test properties] about your program or [workload]. It is part of the [Antithesis Go SDK], which enables Go applications to integrate with the [Antithesis platform].
 //

@@ -282,8 +282,10 @@ func (p AsyncPropagator) propagate(ctx context.Context, spaceID, nodeID string, 
 
 	attrs := node.Attributes{}
 
+	// lock parent before reading treesize or tree time
+	// we deliberately allow reading disabled spaces so that the metadata is always consistent (see https://github.com/opencloud-eu/reva/issues/747)
 	_, subspan = tracer.Start(ctx, "node.LockAndReadNode")
-	n, unlock, err := node.LockAndReadNode(ctx, p.lookup, spaceID, nodeID, "", false, nil, false)
+	n, unlock, err := node.LockAndReadNode(ctx, p.lookup, spaceID, nodeID, "", true, nil, false)
 	subspan.End()
 	if err != nil {
 		if n != nil && !n.Exists {
