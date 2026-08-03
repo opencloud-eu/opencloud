@@ -57,6 +57,9 @@ func (c *consistencyChecker) Check(paths []string) error {
 			fmt.Printf("Checking space '%s'...\n", path)
 			c.checkSpace(path)
 		case contained:
+			if c.ignorer.IsIgnored(path) {
+				continue
+			}
 			fmt.Printf("Checking '%s'...\n", path)
 			c.checkEntity(path)
 		default:
