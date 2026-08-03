@@ -2071,9 +2071,6 @@ github.com/testcontainers/testcontainers-go/wait
 # github.com/testcontainers/testcontainers-go/modules/opensearch v0.43.0
 ## explicit; go 1.25.0
 github.com/testcontainers/testcontainers-go/modules/opensearch
-# github.com/theckman/yacspin v0.13.12
-## explicit; go 1.17
-github.com/theckman/yacspin
 # github.com/thejerf/suture/v4 v4.0.6
 ## explicit; go 1.9
 github.com/thejerf/suture/v4
@@ -2574,7 +2571,7 @@ google.golang.org/genproto/googleapis/api/httpbody
 ## explicit; go 1.25.0
 google.golang.org/genproto/googleapis/rpc/errdetails
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.82.0
+# google.golang.org/grpc v1.83.0
 ## explicit; go 1.25.0
 google.golang.org/grpc
 google.golang.org/grpc/attributes
