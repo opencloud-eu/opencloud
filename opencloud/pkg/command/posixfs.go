@@ -180,15 +180,18 @@ func scanCmd(ocCfg *config.Config) *cobra.Command {
 // consistencyCmd returns a command to check the consistency of the posixfs storage.
 func consistencyCmd(ocCfg *config.Config) *cobra.Command {
 	consCmd := &cobra.Command{
-		Use:   "consistency <path>",
+		Use:   "consistency [path ...]",
 		Short: "check the consistency of the posixfs storage",
 		Long: `check the consistency of the posixfs storage.
 
-The <path> argument determines the scope of the check:
+You can specify one or more paths to limit the scope of the check.
+If no path is provided, the whole storage is checked.
+
+The provided arguments determines the scope of the check:
   - a storage root:   the whole storage (all personal and project spaces) is checked
   - a space root:     only that space is checked
   - a file or folder: only that single entity is checked (and its children, if it is a folder)`,
-		Args: cobra.MaximumNArgs(1),
+		Args: cobra.ArbitraryArgs,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 
 			if err := parser.ParseConfig(ocCfg, true); err != nil {
@@ -202,11 +205,7 @@ The <path> argument determines the scope of the check:
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := ocCfg.StorageUsers
-			path := cfg.Drivers.Posix.Root
-			if len(args) > 0 {
-				path = args[0]
-			}
-			return checkPosixfsConsistency(cfg, cmd, path)
+			return checkPosixfsConsistency(cfg, cmd, args)
 		},
 	}
 	consCmd.Flags().Bool("fix-checksums", false, "Recalculate and fix the file checksums. This reads every file and can be slow on large storages.")
@@ -217,19 +216,12 @@ The <path> argument determines the scope of the check:
 // checkPosixfsConsistency checks the consistency of the posixfs storage. The
 // given path determines the scope of the check: the whole storage, a single
 // space or a single entity within a space.
-func checkPosixfsConsistency(cfg *storageUsersConfig.Config, cmd *cobra.Command, path string) error {
+func checkPosixfsConsistency(cfg *storageUsersConfig.Config, cmd *cobra.Command, paths []string) error {
+	if len(paths) == 0 {
+		paths = []string{cfg.Drivers.Posix.Root}
+	}
 	log := logger("posixfs")
 	recalculateChecksums, _ = cmd.Flags().GetBool("fix-checksums")
-
-	path = filepath.Clean(path)
-	if _, err := os.Stat(path); err != nil {
-		return fmt.Errorf("error accessing '%s': %w", path, err)
-	}
-
-	rootPath, err := findStorageRoot(path)
-	if err != nil {
-		return err
-	}
 
 	drivers := revaconfig.StorageProviderDrivers(cfg)
 	drivers["posix"] = revaconfig.Posix(cfg, false, false)
@@ -237,25 +229,35 @@ func checkPosixfsConsistency(cfg *storageUsersConfig.Config, cmd *cobra.Command,
 	if err != nil {
 		return err
 	}
-
 	ignorer = ignore.NewIgnorer(opts, &log)
-	contained, _ := filepathx.IsSameOrContainedBy(rootPath, path)
 
-	switch {
-	case path == rootPath:
-		fmt.Println("Checking personal spaces...")
-		checkSpaces(filepath.Join(path, "users"))
+	for _, path := range paths {
+		rootPath, err := findStorageRoot(path)
+		if err != nil {
+			return err
+		}
+		path = filepath.Clean(path)
+		if _, err := os.Stat(path); err != nil {
+			return fmt.Errorf("error accessing '%s': %w", path, err)
+		}
+		contained, _ := filepathx.IsSameOrContainedBy(rootPath, path)
 
-		fmt.Println("Checking project spaces...")
-		checkSpaces(filepath.Join(path, "projects"))
-	case isSpaceRoot(path):
-		fmt.Printf("Checking space '%s'...\n", path)
-		checkSpace(path)
-	case contained:
-		fmt.Printf("Checking '%s'...\n", path)
-		checkEntity(path)
-	default:
-		return fmt.Errorf("the provided path '%s' is neither a space root nor contained by the storage root '%s'", path, rootPath)
+		switch {
+		case path == rootPath:
+			fmt.Println("Checking personal spaces...")
+			checkSpaces(filepath.Join(path, "users"))
+
+			fmt.Println("Checking project spaces...")
+			checkSpaces(filepath.Join(path, "projects"))
+		case isSpaceRoot(path):
+			fmt.Printf("Checking space '%s'...\n", path)
+			checkSpace(path)
+		case contained:
+			fmt.Printf("Checking '%s'...\n", path)
+			checkEntity(path)
+		default:
+			return fmt.Errorf("the provided path '%s' is neither a space root nor contained by the storage root '%s'", path, rootPath)
+		}
 	}
 
 	if restartRequired {
