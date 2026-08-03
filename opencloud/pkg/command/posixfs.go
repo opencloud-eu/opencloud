@@ -190,7 +190,7 @@ If no path is provided, the whole storage is checked.
 The provided arguments determines the scope of the check:
   - a storage root:   the whole storage (all personal and project spaces) is checked
   - a space root:     only that space is checked
-  - a file or folder: only that single entity is checked (and its children, if it is a folder)`,
+  - a file or directory: only that single entity is checked (and its children, if it is a directory)`,
 		Args: cobra.ArbitraryArgs,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 
@@ -268,11 +268,11 @@ func checkPosixfsConsistency(cfg *storageUsersConfig.Config, cmd *cobra.Command,
 
 // findStorageRoot walks up the directory tree starting at path until it finds a
 // directory that contains an "indexes" subdirectory which marks the root of a
-// posixfs storage. A user folder inside a space might also be named "indexes",
+// posixfs storage. A user directory inside a space might also be named "indexes",
 // so to disambiguate we require that the "indexes" directory is an internal
 // directory: the storage's own indexes directory is skipped during assimilation
 // and therefore never receives a node ID attribute, whereas a regular user
-// folder would have one.
+// directory would have one.
 func findStorageRoot(path string) (string, error) {
 	current := path
 	for {
@@ -448,8 +448,8 @@ func checkNodeAttributes(path, name, parentID string, isDir bool) int {
 	return fixes
 }
 
-// checkEntity checks a single file or folder within a space, including its own
-// parent ID, name and (for files) blobsize/checksums. If the entity is a folder
+// checkEntity checks a single file or directory within a space, including its own
+// parent ID, name and (for files) blobsize/checksums. If the entity is a directory
 // its children are checked recursively.
 func checkEntity(path string) {
 	info, err := os.Stat(path)
