@@ -19,5 +19,11 @@ func (l *Conn) WhoAmI(controls []Control) (*WhoAmIResult, error) {
 		return nil, err
 	}
 
-	return &WhoAmIResult{AuthzID: resp.Value.Data.String()}, nil
+	// responseValue is OPTIONAL (RFC 4532); Extended leaves Value nil when the
+	// server omits it. Guard the dereference and report an empty authzId.
+	result := &WhoAmIResult{}
+	if resp.Value != nil {
+		result.AuthzID = resp.Value.Data.String()
+	}
+	return result, nil
 }

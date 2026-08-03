@@ -40,7 +40,7 @@ func readLength(reader io.Reader) (length int, read int, err error) {
 		}
 
 		// Accumulate into a 64-bit variable
-		var length64 int64
+		var length64 uint64
 		for i := 0; i < lengthBytes; i++ {
 			b, err = readByte(reader)
 			if err != nil {
@@ -53,13 +53,14 @@ func readLength(reader io.Reader) (length int, read int, err error) {
 
 			// x.600, 8.1.3.5
 			length64 <<= 8
-			length64 |= int64(b)
+			length64 |= uint64(b)
 		}
 
 		// Cast to a platform-specific integer
 		length = int(length64)
-		// Ensure we didn't overflow
-		if int64(length) != length64 {
+		// Ensure we didn't overflow or wrap negative. Length octets are unsigned
+		// (x.600, 8.1.3.5), so a negative result is unrepresentable, not indefinite.
+		if length < 0 || uint64(length) != length64 {
 			return 0, read, errors.New("long-form length overflow")
 		}
 

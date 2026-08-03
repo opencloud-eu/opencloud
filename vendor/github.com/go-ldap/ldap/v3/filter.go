@@ -131,7 +131,7 @@ func DecompileFilter(packet *ber.Packet) (_ string, err error) {
 		buf.WriteString(childStr)
 
 	case FilterSubstrings:
-		buf.WriteString(ber.DecodeString(packet.Children[0].Data.Bytes()))
+		buf.WriteString(EscapeFilter(ber.DecodeString(packet.Children[0].Data.Bytes())))
 		buf.WriteByte('=')
 		for i, child := range packet.Children[1].Children {
 			if i == 0 && child.Tag != FilterSubstringsInitial {
@@ -143,22 +143,22 @@ func DecompileFilter(packet *ber.Packet) (_ string, err error) {
 			}
 		}
 	case FilterEqualityMatch:
-		buf.WriteString(ber.DecodeString(packet.Children[0].Data.Bytes()))
+		buf.WriteString(EscapeFilter(ber.DecodeString(packet.Children[0].Data.Bytes())))
 		buf.WriteByte('=')
 		buf.WriteString(EscapeFilter(ber.DecodeString(packet.Children[1].Data.Bytes())))
 	case FilterGreaterOrEqual:
-		buf.WriteString(ber.DecodeString(packet.Children[0].Data.Bytes()))
+		buf.WriteString(EscapeFilter(ber.DecodeString(packet.Children[0].Data.Bytes())))
 		buf.WriteString(">=")
 		buf.WriteString(EscapeFilter(ber.DecodeString(packet.Children[1].Data.Bytes())))
 	case FilterLessOrEqual:
-		buf.WriteString(ber.DecodeString(packet.Children[0].Data.Bytes()))
+		buf.WriteString(EscapeFilter(ber.DecodeString(packet.Children[0].Data.Bytes())))
 		buf.WriteString("<=")
 		buf.WriteString(EscapeFilter(ber.DecodeString(packet.Children[1].Data.Bytes())))
 	case FilterPresent:
-		buf.WriteString(ber.DecodeString(packet.Data.Bytes()))
+		buf.WriteString(EscapeFilter(ber.DecodeString(packet.Data.Bytes())))
 		buf.WriteString("=*")
 	case FilterApproxMatch:
-		buf.WriteString(ber.DecodeString(packet.Children[0].Data.Bytes()))
+		buf.WriteString(EscapeFilter(ber.DecodeString(packet.Children[0].Data.Bytes())))
 		buf.WriteString("~=")
 		buf.WriteString(EscapeFilter(ber.DecodeString(packet.Children[1].Data.Bytes())))
 	case FilterExtensibleMatch:
@@ -181,14 +181,14 @@ func DecompileFilter(packet *ber.Packet) (_ string, err error) {
 		}
 
 		if len(attr) > 0 {
-			buf.WriteString(attr)
+			buf.WriteString(EscapeFilter(attr))
 		}
 		if dnAttributes {
 			buf.WriteString(":dn")
 		}
 		if len(matchingRule) > 0 {
 			buf.WriteString(":")
-			buf.WriteString(matchingRule)
+			buf.WriteString(EscapeFilter(matchingRule))
 		}
 		buf.WriteString(":=")
 		buf.WriteString(EscapeFilter(value))
