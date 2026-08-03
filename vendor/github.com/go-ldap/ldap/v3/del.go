@@ -52,6 +52,9 @@ func (l *Conn) Del(delRequest *DelRequest) error {
 		return err
 	}
 
+	if len(packet.Children) < 2 {
+		return fmt.Errorf("ldap: malformed response: expected at least 2 children, got %d", len(packet.Children))
+	}
 	if packet.Children[1].Tag == ApplicationDelResponse {
 		err := GetLDAPError(packet)
 		if err != nil {

@@ -3,13 +3,13 @@ package ldap
 import (
 	"bytes"
 	"crypto/md5"
+	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
 	enchex "encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"strings"
 	"unicode/utf16"
 
@@ -221,12 +221,15 @@ func (l *Conn) DigestMD5Bind(digestMD5BindRequest *DigestMD5BindRequest) (*Diges
 	}
 
 	if len(params) > 0 {
-		resp := computeResponse(
+		resp, err := computeResponse(
 			params,
 			"ldap/"+strings.ToLower(digestMD5BindRequest.Host),
 			digestMD5BindRequest.Username,
 			digestMD5BindRequest.Password,
 		)
+		if err != nil {
+			return nil, fmt.Errorf("compute digest-md5 response: %s", err)
+		}
 		packet = ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
 		packet.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagInteger, l.nextMessageID(), "MessageID"))
 
@@ -291,11 +294,21 @@ func parseParams(str string) (map[string]string, error) {
 	m := make(map[string]string)
 	var key, value string
 	var state int
+	var escaped bool
 	for i := 0; i <= len(str); i++ {
 		switch state {
 		case 0: // reading key
 			if i == len(str) {
 				return nil, fmt.Errorf("syntax error on %d", i)
+			}
+			// The digest-challenge is an RFC 2068 #rule (RFC 2831 section 2.1.1),
+			// which permits optional linear whitespace around the comma directive
+			// separators. Directive names are tokens that never contain
+			// whitespace, so skip it here; otherwise a directive following
+			// "..., name" is keyed with a leading space and the lookups in
+			// computeResponse (realm, nonce, authzid) miss it.
+			if str[i] == ' ' || str[i] == '\t' {
+				continue
 			}
 			if str[i] != '=' {
 				key += string(str[i])
@@ -306,6 +319,14 @@ func parseParams(str string) (map[string]string, error) {
 			if i == len(str) {
 				m[key] = value
 				break
+			}
+			// Linear whitespace outside a quoted string is not part of the
+			// value: an unquoted value is a token and a quoted value's content
+			// is read in the quoted state below. Skipping it lets a challenge
+			// using the whitespace the #rule allows (e.g. `nonce="n" , qop=auth`)
+			// parse the same as the unspaced form.
+			if str[i] == ' ' || str[i] == '\t' {
+				continue
 			}
 			switch str[i] {
 			case ',':
@@ -325,20 +346,34 @@ func parseParams(str string) (map[string]string, error) {
 			if i == len(str) {
 				return nil, fmt.Errorf("syntax error on %d", i)
 			}
-			if str[i] != '"' {
+			switch {
+			case escaped:
+				// RFC 2831 section 7.1 quoted-pair: a backslash escapes the
+				// following character, so the next byte is taken literally
+				// (this is how a server sends a literal " or \ in a realm or
+				// nonce).
 				value += string(str[i])
-			} else {
+				escaped = false
+			case str[i] == '\\':
+				escaped = true
+			case str[i] == '"':
 				state = 1
+			default:
+				value += string(str[i])
 			}
 		}
 	}
 	return m, nil
 }
 
-func computeResponse(params map[string]string, uri, username, password string) string {
+func computeResponse(params map[string]string, uri, username, password string) (string, error) {
 	nc := "00000001"
 	qop := "auth"
-	cnonce := enchex.EncodeToString(randomBytes(16))
+	rb, err := randomBytes(16)
+	if err != nil {
+		return "", err
+	}
+	cnonce := enchex.EncodeToString(rb)
 	x := username + ":" + params["realm"] + ":" + password
 	y := md5Hash([]byte(x))
 
@@ -361,14 +396,24 @@ func computeResponse(params map[string]string, uri, username, password string) s
 	resp := enchex.EncodeToString(md5Hash([]byte(kd)))
 	return fmt.Sprintf(
 		`username="%s",realm="%s",nonce="%s",cnonce="%s",nc=00000001,qop=%s,digest-uri="%s",response=%s`,
-		username,
-		params["realm"],
-		params["nonce"],
+		quotedStringEscape(username),
+		quotedStringEscape(params["realm"]),
+		quotedStringEscape(params["nonce"]),
 		cnonce,
 		qop,
-		uri,
+		quotedStringEscape(uri),
 		resp,
-	)
+	), nil
+}
+
+// quotedStringEscape escapes the two characters that may not appear unescaped
+// inside a DIGEST-MD5 quoted string per RFC 2831 section 7.1: the backslash
+// and the double quote. The backslash is replaced first so the quotes escaped
+// afterwards are not doubled.
+func quotedStringEscape(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	return s
 }
 
 func md5Hash(b []byte) []byte {
@@ -377,12 +422,12 @@ func md5Hash(b []byte) []byte {
 	return hasher.Sum(nil)
 }
 
-func randomBytes(len int) []byte {
-	b := make([]byte, len)
-	for i := 0; i < len; i++ {
-		b[i] = byte(rand.Intn(256))
+func randomBytes(length int) ([]byte, error) {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return nil, err
 	}
-	return b
+	return b, nil
 }
 
 var externalBindRequest = requestFunc(func(envelope *ber.Packet) error {
