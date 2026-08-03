@@ -1,6 +1,6 @@
 # Changelog
 
-## [7.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.4.0) - 2026-07-31
+## [7.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.4.0) - 2026-08-03
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -32,6 +32,11 @@
 
 - maint: clean-up auth-app documentation [[#3155](https://github.com/opencloud-eu/opencloud/pull/3155)]
 - ci: sync tests/README.md to docs [[#3164](https://github.com/opencloud-eu/opencloud/pull/3164)]
+
+### 📦️ Dependencies
+
+- build(deps): bump golang.org/x/net from 0.56.0 to 0.57.0 [[#3136](https://github.com/opencloud-eu/opencloud/pull/3136)]
+- build(deps): bump github.com/beevik/etree from 1.6.0 to 1.7.0 [[#3134](https://github.com/opencloud-eu/opencloud/pull/3134)]
 
 ## [7.3.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.3.0) - 2026-07-14
 
