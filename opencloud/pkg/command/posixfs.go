@@ -181,8 +181,8 @@ func scanCmd(ocCfg *config.Config) *cobra.Command {
 func consistencyCmd(ocCfg *config.Config) *cobra.Command {
 	consCmd := &cobra.Command{
 		Use:   "consistency [path ...]",
-		Short: "check the consistency of the posixfs storage",
-		Long: `check the consistency of the posixfs storage.
+		Short: "Check the consistency of the posixfs storage",
+		Long: `Check the consistency of the posixfs storage.
 
 You can specify one or more paths to limit the scope of the check.
 If no path is provided, the whole storage is checked.
