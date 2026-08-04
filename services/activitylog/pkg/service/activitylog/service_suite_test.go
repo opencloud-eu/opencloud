@@ -1,4 +1,4 @@
-package service_test
+package activitylog_test
 
 import (
 	"testing"

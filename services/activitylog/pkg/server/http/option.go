@@ -3,18 +3,12 @@ package http
 import (
 	"context"
 
-	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config"
-	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/metrics"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-
 	"github.com/spf13/pflag"
-	"go-micro.dev/v4/store"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 // Option defines a single option function.
@@ -22,19 +16,15 @@ type Option func(o *Options)
 
 // Options defines the available options for this package.
 type Options struct {
-	Logger           log.Logger
-	Context          context.Context
-	Config           *config.Config
-	Metrics          *metrics.Metrics
-	Flags            []pflag.Flag
-	Namespace        string
-	Store            store.Store
-	Stream           events.Stream
-	GatewaySelector  pool.Selectable[gateway.GatewayAPIClient]
-	TraceProvider    trace.TracerProvider
-	HistoryClient    ehsvc.EventHistoryService
-	ValueClient      settingssvc.ValueService
-	RegisteredEvents []events.Unmarshaller
+	Name          string
+	Namespace     string
+	Logger        log.Logger
+	Context       context.Context
+	Config        *config.Config
+	Flags         []pflag.Flag
+	Service       ActivityLogService
+	TraceProvider trace.TracerProvider
+	ValueClient   settingssvc.ValueService
 }
 
 // newOptions initializes the available default options.
@@ -69,10 +59,10 @@ func Config(val *config.Config) Option {
 	}
 }
 
-// Metrics provides a function to set the metrics option.
-func Metrics(val *metrics.Metrics) Option {
+// Service provides a function to set the service option.
+func Service(val ActivityLogService) Option {
 	return func(o *Options) {
-		o.Metrics = val
+		o.Service = val
 	}
 }
 
@@ -83,58 +73,20 @@ func Flags(flags ...pflag.Flag) Option {
 	}
 }
 
-// Namespace provides a function to set the Namespace option.
-func Namespace(val string) Option {
+// TraceProvider provides a function to configure the trace provider
+func TraceProvider(traceProvider trace.TracerProvider) Option {
 	return func(o *Options) {
-		o.Namespace = val
+		if traceProvider != nil {
+			o.TraceProvider = traceProvider
+		} else {
+			o.TraceProvider = noop.NewTracerProvider()
+		}
 	}
 }
 
-// Store provides a function to configure the store
-func Store(store store.Store) Option {
+// ValueClient adds a grpc client for the value service
+func ValueClient(vs settingssvc.ValueService) Option {
 	return func(o *Options) {
-		o.Store = store
-	}
-}
-
-// Stream provides a function to configure the stream
-func Stream(stream events.Stream) Option {
-	return func(o *Options) {
-		o.Stream = stream
-	}
-}
-
-// GatewaySelector provides a function to configure the gateway client selector
-func GatewaySelector(gatewaySelector pool.Selectable[gateway.GatewayAPIClient]) Option {
-	return func(o *Options) {
-		o.GatewaySelector = gatewaySelector
-	}
-}
-
-// HistoryClient provides a function to configure the event history client
-func HistoryClient(h ehsvc.EventHistoryService) Option {
-	return func(o *Options) {
-		o.HistoryClient = h
-	}
-}
-
-// RegisteredEvents provides a function to register events
-func RegisteredEvents(evs []events.Unmarshaller) Option {
-	return func(o *Options) {
-		o.RegisteredEvents = evs
-	}
-}
-
-// TraceProvider provides a function to set the TracerProvider option
-func TraceProvider(val trace.TracerProvider) Option {
-	return func(o *Options) {
-		o.TraceProvider = val
-	}
-}
-
-// ValueClient provides a function to set the ValueClient options
-func ValueClient(val settingssvc.ValueService) Option {
-	return func(o *Options) {
-		o.ValueClient = val
+		o.ValueClient = vs
 	}
 }

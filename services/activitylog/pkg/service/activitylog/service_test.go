@@ -1,7 +1,6 @@
-package service
+package activitylog_test
 
 import (
-	"bytes"
 	"context"
 	"net"
 	"os"
@@ -9,17 +8,14 @@ import (
 	"time"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	nserver "github.com/nats-io/nats-server/v2/server"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/command"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config"
-	eventsmocks "github.com/opencloud-eu/reva/v2/pkg/events/mocks"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/test-go/testify/mock"
-	"go.opentelemetry.io/otel/trace/noop"
+	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/data"
+	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/activitylog"
 )
 
 var (
@@ -68,31 +64,25 @@ var _ = SynchronizedAfterSuite(func() {
 
 var _ = Describe("ActivitylogService", func() {
 	var (
-		alog                *ActivitylogService
+		alog                *activitylog.ActivityLog
 		getResource         func(_ context.Context, ref *provider.Reference) (*provider.ResourceInfo, error)
 		writebufferduration = 100 * time.Millisecond
 	)
 
 	JustBeforeEach(func() {
 		var err error
-		stream := &eventsmocks.Stream{}
-		stream.EXPECT().Consume(mock.Anything, mock.Anything).Return(nil, nil)
-		alog, err = New(
-			Config(&config.Config{
-				Service: config.Service{
-					Name: "activitylog-test",
-				},
-				Store: config.Store{
-					Store:    "nats-js-kv",
-					Nodes:    []string{server.Addr().String()},
-					Database: "activitylog-test-" + uuid.New().String(),
-				},
-				MaxActivities:       4,
-				WriteBufferDuration: writebufferduration,
-			}),
-			Stream(stream),
-			TraceProvider(noop.NewTracerProvider()),
-			Mux(chi.NewMux()),
+		db := "activitylog-test-" + uuid.New().String()
+
+		kv, err := command.ConnectNatsKV(config.Store{
+			Nodes:    []string{server.Addr().String()},
+			Database: db,
+		})
+		Expect(err).ToNot(HaveOccurred())
+
+		alog, err = activitylog.New(
+			kv,
+			activitylog.MaxActivities(4),
+			activitylog.WriteBufferDuration(writebufferduration),
 		)
 		Expect(err).ToNot(HaveOccurred())
 	})
@@ -107,7 +97,7 @@ var _ = Describe("ActivitylogService", func() {
 				Name       string
 				Tree       map[string]*provider.ResourceInfo
 				Activities map[string]string
-				Expected   map[string][]RawActivity
+				Expected   map[string][]data.RawActivity
 			}
 
 			testCases := []testCase{
@@ -121,7 +111,7 @@ var _ = Describe("ActivitylogService", func() {
 					Activities: map[string]string{
 						"activity": "base",
 					},
-					Expected: map[string][]RawActivity{
+					Expected: map[string][]data.RawActivity{
 						"base":    activitites("activity", 0),
 						"parent":  activitites("activity", 1),
 						"spaceid": activitites("activity", 2),
@@ -138,7 +128,7 @@ var _ = Describe("ActivitylogService", func() {
 						"activity1": "base",
 						"activity2": "base",
 					},
-					Expected: map[string][]RawActivity{
+					Expected: map[string][]data.RawActivity{
 						"base":    activitites("activity1", 0, "activity2", 0),
 						"parent":  activitites("activity1", 1, "activity2", 1),
 						"spaceid": activitites("activity1", 2, "activity2", 2),
@@ -155,7 +145,7 @@ var _ = Describe("ActivitylogService", func() {
 						}
 
 						for k, v := range tc.Activities {
-							err := alog.addActivity(context.Background(), reference(v), nil, k, time.Time{}, getResource)
+							err := alog.AddActivity(context.Background(), reference(v), nil, k, time.Time{}, getResource)
 							Expect(err).NotTo(HaveOccurred())
 						}
 					})
@@ -194,9 +184,9 @@ var _ = Describe("ActivitylogService", func() {
 
 			It("debounces activities", func() {
 
-				err := alog.addActivity(context.Background(), reference("base"), nil, "activity1", time.Time{}, getResource)
+				err := alog.AddActivity(context.Background(), reference("base"), nil, "activity1", time.Time{}, getResource)
 				Expect(err).NotTo(HaveOccurred())
-				err = alog.addActivity(context.Background(), reference("base"), nil, "activity2", time.Time{}, getResource)
+				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity2", time.Time{}, getResource)
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func(g Gomega) {
@@ -207,7 +197,7 @@ var _ = Describe("ActivitylogService", func() {
 			})
 
 			It("adheres to the MaxActivities setting", func() {
-				err := alog.addActivity(context.Background(), reference("base"), nil, "activity1", time.Time{}, getResource)
+				err := alog.AddActivity(context.Background(), reference("base"), nil, "activity1", time.Time{}, getResource)
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(func(g Gomega) {
 					activities, err := alog.Activities(resourceID("base"))
@@ -215,7 +205,7 @@ var _ = Describe("ActivitylogService", func() {
 					g.Expect(len(activities)).To(Equal(1))
 				}).Should(Succeed())
 
-				err = alog.addActivity(context.Background(), reference("base"), nil, "activity2", time.Time{}, getResource)
+				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity2", time.Time{}, getResource)
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(func(g Gomega) {
 					activities, err := alog.Activities(resourceID("base"))
@@ -223,11 +213,11 @@ var _ = Describe("ActivitylogService", func() {
 					g.Expect(len(activities)).To(Equal(2))
 				}).Should(Succeed())
 
-				err = alog.addActivity(context.Background(), reference("base"), nil, "activity3", time.Time{}, getResource)
+				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity3", time.Time{}, getResource)
 				Expect(err).NotTo(HaveOccurred())
-				err = alog.addActivity(context.Background(), reference("base"), nil, "activity4", time.Time{}, getResource)
+				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity4", time.Time{}, getResource)
 				Expect(err).NotTo(HaveOccurred())
-				err = alog.addActivity(context.Background(), reference("base"), nil, "activity5", time.Time{}, getResource)
+				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity5", time.Time{}, getResource)
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func(g Gomega) {
@@ -244,9 +234,9 @@ var _ = Describe("ActivitylogService", func() {
 					return tree[ref.GetResourceId().GetOpaqueId()], nil
 				}
 
-				err := alog.addActivity(context.Background(), reference("base"), nil, "activity1", time.Time{}, getResource)
+				err := alog.AddActivity(context.Background(), reference("base"), nil, "activity1", time.Time{}, getResource)
 				Expect(err).NotTo(HaveOccurred())
-				err = alog.addActivity(context.Background(), reference("base"), nil, "activity2", time.Time{}, getResource)
+				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity2", time.Time{}, getResource)
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func(g Gomega) {
@@ -255,9 +245,9 @@ var _ = Describe("ActivitylogService", func() {
 					g.Expect(activities).To(ConsistOf(activitites("activity1", 0, "activity2", 0)))
 				}).Should(Succeed())
 
-				err = alog.addActivity(context.Background(), reference("base"), nil, "activity3", time.Time{}, getResource)
+				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity3", time.Time{}, getResource)
 				Expect(err).NotTo(HaveOccurred())
-				err = alog.addActivity(context.Background(), reference("base"), nil, "activity4", time.Time{}, getResource)
+				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity4", time.Time{}, getResource)
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func(g Gomega) {
@@ -268,47 +258,11 @@ var _ = Describe("ActivitylogService", func() {
 			})
 		})
 	})
-
-	Describe("removeCachedParentID", func() {
-		var logBuffer *bytes.Buffer
-
-		newLoggerAtLevel := func(level string) log.Logger {
-			logBuffer = &bytes.Buffer{}
-			return log.Logger{Logger: log.NewLogger(log.Level(level)).Output(logBuffer)}
-		}
-
-		It("does not log an error when the entry was never cached", func() {
-			alog.log = newLoggerAtLevel("error")
-
-			alog.removeCachedParentID(reference("never-cached"))
-
-			Expect(logBuffer.String()).To(BeEmpty())
-		})
-
-		It("logs a missing entry at debug level", func() {
-			alog.log = newLoggerAtLevel("debug")
-
-			alog.removeCachedParentID(reference("never-cached"))
-
-			Expect(logBuffer.String()).To(ContainSubstring("could not delete parent id cache"))
-			Expect(logBuffer.String()).To(ContainSubstring(`"level":"debug"`))
-		})
-
-		It("does not log at all when the entry was cached", func() {
-			alog.log = newLoggerAtLevel("debug")
-			ref := reference("cached")
-			Expect(alog.parentIdCache.Set(storagespace.FormatResourceID(ref.GetResourceId()), resourceID("parent"))).To(Succeed())
-
-			alog.removeCachedParentID(ref)
-
-			Expect(logBuffer.String()).To(BeEmpty())
-		})
-	})
 })
 
-func activitites(acts ...any) []RawActivity {
-	var activities []RawActivity
-	act := RawActivity{}
+func activitites(acts ...any) []data.RawActivity {
+	var activities []data.RawActivity
+	act := data.RawActivity{}
 	for _, a := range acts {
 		switch v := a.(type) {
 		case string:

@@ -29,9 +29,11 @@ func DefaultConfig() *config.Config {
 			Name: "activitylog",
 		},
 		Events: config.Events{
-			Endpoint:  "127.0.0.1:9233",
-			Cluster:   "opencloud-cluster",
-			EnableTLS: false,
+			Endpoint:      "127.0.0.1:9233",
+			Cluster:       "opencloud-cluster",
+			EnableTLS:     false,
+			MaxAckPending: 1000,
+			AckWait:       1 * time.Minute,
 		},
 		Store: config.Store{
 			Store:    "nats-js-kv",
@@ -52,7 +54,9 @@ func DefaultConfig() *config.Config {
 			},
 		},
 		WriteBufferDuration: 10 * time.Second,
-		MaxActivities:       6000,
+		// Nats runs into max payload exceeded errors at around 7k activities. Let's keep a buffer.
+		MaxActivities: 6000,
+		NumConsumers:  1,
 	}
 }
 

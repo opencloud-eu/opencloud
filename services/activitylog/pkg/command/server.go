@@ -2,18 +2,18 @@ package command
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 
-	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/pkg/runner"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/nats-io/nats.go"
+	"github.com/olekukonko/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
+	"github.com/opencloud-eu/opencloud/pkg/runner"
 	ogrpc "github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
@@ -24,6 +24,12 @@ import (
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/server/http"
+	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/activitylog"
+	svcEvents "github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/events"
+	svcHttp "github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/http"
+	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
+	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 )
 
 var _registeredEvents = []events.Unmarshaller{
@@ -62,18 +68,10 @@ func Server(cfg *config.Config) *cobra.Command {
 
 			gr := runner.NewGroup()
 			ctx, cancel := context.WithCancel(cmd.Context())
+			defer cancel()
 
 			mtrcs := metrics.New()
 			mtrcs.BuildInfo.WithLabelValues(version.GetString()).Set(1)
-
-			defer cancel()
-
-			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
-			evStream, err := stream.NatsFromConfig(connName, false, stream.NatsConfig(cfg.Events))
-			if err != nil {
-				logger.Error().Err(err).Msg("Failed to initialize event stream")
-				return err
-			}
 
 			tm, err := pool.StringToTLSMode(cfg.GRPCClientTLS.Mode)
 			if err != nil {
@@ -99,28 +97,103 @@ func Server(cfg *config.Config) *cobra.Command {
 				return err
 			}
 
-			hClient := ehsvc.NewEventHistoryService("eu.opencloud.api.eventhistory", grpcClient)
-			vClient := settingssvc.NewValueService("eu.opencloud.api.settings", grpcClient)
+			kv, err := ConnectNatsKV(cfg.Store)
+			if err != nil {
+				return err
+			}
+			activityLog, err := activitylog.New(kv,
+				activitylog.Logger(logger),
+				activitylog.MaxActivities(cfg.MaxActivities),
+				activitylog.WriteBufferDuration(cfg.WriteBufferDuration),
+			)
+			if err != nil {
+				logger.Error().Err(err).Msg("Failed to initialize activity log")
+				return err
+			}
 
-			{
-				svc, err := http.Server(
-					http.Logger(logger),
-					http.Config(cfg),
-					http.Context(ctx), // NOTE: not passing this "option" leads to a panic in go-micro
-					http.TraceProvider(tracerProvider),
-					http.Stream(evStream),
-					http.GatewaySelector(gatewaySelector),
-					http.HistoryClient(hClient),
-					http.ValueClient(vClient),
-					http.RegisteredEvents(_registeredEvents),
+			if !cfg.HTTP.Disabled {
+
+				hClient := ehsvc.NewEventHistoryService("eu.opencloud.api.eventhistory", grpcClient)
+
+				svc, err := svcHttp.New(
+					activityLog,
+					svcHttp.Logger(logger),
+					svcHttp.GatewaySelector(gatewaySelector),
+					svcHttp.RegisteredEvents(_registeredEvents),
+					//svcHttp.TraceProvider(tracerProvider),
+					svcHttp.HistoryClient(hClient),
 				)
-
 				if err != nil {
-					logger.Error().Err(err).Str("transport", "http").Msg("Failed to initialize server")
+					logger.Error().Err(err).Msg("handler init")
+					return err
+				}
+				// TODO svc = service.NewInstrument(svc, metrics)
+				// TODO svc = service.NewLogging(svc, logger) // this logs service specific data
+				// TODO svc = service.NewTracing(svc, traceProvider)
+				vClient := settingssvc.NewValueService("eu.opencloud.api.settings", grpcClient)
+
+				server, err := http.Server(
+					http.ValueClient(vClient),
+					http.Logger(logger),
+					http.Context(ctx),
+					http.Config(cfg),
+					http.Service(svc),
+				)
+				if err != nil {
+					logger.Info().
+						Err(err).
+						Str("transport", "http").
+						Msg("Failed to initialize server")
+
 					return err
 				}
 
-				gr.Add(runner.NewGoMicroHttpServerRunner(cfg.Service.Name+".http", svc))
+				gr.Add(runner.NewGoMicroHttpServerRunner(cfg.Service.Name+".http", server))
+			} else {
+				logger.Info().Msg("HTTP server disabled, not starting HTTP service")
+			}
+
+			if !cfg.Events.Disabled {
+
+				connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
+				evStream, err := raw.FromConfig(ctx, connName, raw.Config{
+					Endpoint:             cfg.Events.Endpoint,
+					Cluster:              cfg.Events.Cluster,
+					EnableTLS:            cfg.Events.EnableTLS,
+					TLSInsecure:          cfg.Events.TLSInsecure,
+					TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
+					AuthUsername:         cfg.Events.AuthUsername,
+					AuthPassword:         cfg.Events.AuthPassword,
+					MaxAckPending:        cfg.Events.MaxAckPending,
+					AckWait:              cfg.Events.AckWait,
+				})
+				if err != nil {
+					logger.Error().Err(err).Msg("Failed to initialize event stream")
+					return err
+				}
+
+				eventSvc, err := svcEvents.New(
+					activityLog,
+					evStream,
+					svcEvents.Context(ctx),
+					svcEvents.Logger(logger),
+					svcEvents.ServiceAccount(cfg.ServiceAccount),
+					svcEvents.GatewaySelector(gatewaySelector),
+					svcEvents.RegisteredEvents(_registeredEvents),
+					svcEvents.NumConsumers(cfg.NumConsumers),
+				)
+				if err != nil {
+					logger.Error().Err(err).Str("transport", "event").Msg("Failed to initialize server")
+					return err
+				}
+
+				gr.Add(runner.New(cfg.Service.Name+".svc", func() error {
+					return eventSvc.Run()
+				}, func() {
+					eventSvc.Close()
+				}))
+			} else {
+				logger.Info().Msg("event listening disabled, not starting event service")
 			}
 
 			{
@@ -148,4 +221,48 @@ func Server(cfg *config.Config) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func ConnectNatsKV(cfg config.Store) (nats.KeyValue, error) {
+	// Connect to NATS servers
+	natsOptions := nats.Options{
+		Servers: cfg.Nodes,
+	}
+	if cfg.EnableTLS {
+		if cfg.TLSRootCACertificate != "" {
+			// when root ca is configured use it. an insecure flag is ignored.
+			nats.RootCAs(cfg.TLSRootCACertificate)(&natsOptions)
+		} else {
+			// enable tls and use insecure flag
+			nats.Secure(&tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: cfg.TLSInsecure})(&natsOptions)
+		}
+	}
+	if cfg.AuthUsername != "" && cfg.AuthPassword != "" {
+		nats.UserInfo(cfg.AuthUsername, cfg.AuthPassword)(&natsOptions)
+	}
+	conn, err := natsOptions.Connect()
+	if err != nil {
+		return nil, err
+	}
+
+	js, err := conn.JetStream()
+	if err != nil {
+		return nil, err
+	}
+
+	kv, err := js.KeyValue(cfg.Database)
+	if err != nil {
+		if !errors.Is(err, nats.ErrBucketNotFound) {
+			return nil, errors.Wrapf(err, "Failed to get bucket (%s)", cfg.Database)
+		}
+
+		kv, err = js.CreateKeyValue(&nats.KeyValueConfig{
+			Bucket: cfg.Database,
+		})
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to create bucket (%s)", cfg.Database)
+		}
+	}
+
+	return kv, nil
 }
