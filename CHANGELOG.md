@@ -1,5 +1,15 @@
 # Changelog
 
+## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-04
+
+### ❤️ Thanks to all contributors! ❤️
+
+@pbleser-oc
+
+### 📈 Enhancement
+
+- feat(posixfs): #3182 add basepath option in the "posixfs scan" command [[#3235](https://github.com/opencloud-eu/opencloud/pull/3235)]
+
 ## [7.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.4.0) - 2026-08-03
 
 ### ❤️ Thanks to all contributors! ❤️
