@@ -3860,7 +3860,7 @@ class SpacesContext implements Context {
 		// NOTE: extracting properties occurs asynchronously after upload, so we need to wait until the properties are available
 		$spaceId = $this->getSpaceIdByName($user, $spaceName);
 		$response = WaitHelper::waitUntil(
-			fn() => $this->webDavPropertiesContext->getPropertiesOfFolder(
+			fn () => $this->webDavPropertiesContext->getPropertiesOfFolder(
 				$user,
 				$resourceName,
 				$spaceId,
@@ -4560,7 +4560,7 @@ class SpacesContext implements Context {
 		// NOTE: extracting properties occurs asynchronously after upload, so we need to wait until the properties are available
 		$extractionFacets = ["image", "photo", "location", "audio", "video"];
 		$response = WaitHelper::waitUntil(
-			fn() => HttpRequestHelper::get(
+			fn () => HttpRequestHelper::get(
 				$url,
 				$this->featureContext->getStepLineRef(),
 				$user,

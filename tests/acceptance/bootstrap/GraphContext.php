@@ -2657,7 +2657,7 @@ class GraphContext implements Context {
 		// the share is expected to be not synced.
 		$retryEnabled = ($retryOption === '');
 		$response = WaitHelper::waitUntil(
-			fn() => GraphHelper::getSharesSharedWithMe(
+			fn () => GraphHelper::getSharesSharedWithMe(
 				$this->featureContext->getBaseUrl(),
 				$this->featureContext->getStepLineRef(),
 				$credentials['username'],

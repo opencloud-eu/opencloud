@@ -22,6 +22,7 @@ namespace TestHelpers;
 
 /**
  * Helper for waiting on asynchronous/eventually-consistent server state.
+ *
  * @package TestHelpers
  */
 class WaitHelper {

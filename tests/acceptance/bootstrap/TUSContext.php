@@ -240,8 +240,8 @@ class TUSContext implements Context {
 		$resourceLocation = $this->getLastTusResourceLocation();
 
 		$response = WaitHelper::waitUntil(
-			fn() => $this->uploadChunkToTUSLocation($user, $resourceLocation, $offset, $data),
-			fn($response) => $response->getStatusCode() !== 409
+			fn () => $this->uploadChunkToTUSLocation($user, $resourceLocation, $offset, $data),
+			fn ($response) => $response->getStatusCode() !== 409
 		);
 		$this->featureContext->setResponse($response);
 	}
