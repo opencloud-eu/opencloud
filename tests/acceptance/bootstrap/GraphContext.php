@@ -18,6 +18,7 @@ use TestHelpers\WebDavHelper;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\BehatHelper;
 use TestHelpers\TokenHelper;
+use TestHelpers\WaitHelper;
 use Behat\Step\Given;
 use Behat\Step\Then;
 use Behat\Step\When;
@@ -2650,40 +2651,34 @@ class GraphContext implements Context {
 
 		$credentials = $this->getAdminOrUserCredentials($user);
 
-		// Sometimes listing shares might not return the updated shares list
-		// so try again until @client.synchronize is true for the max. number of retries (i.e. 10)
-		// and do not retry when the share is expected to be not synced
+		// Sometimes listing shares might not return the updated shares list, so poll
+		// until every share reports @client.synchronize (auto-synced). Do not wait
+		// when retry is disabled or when the user has auto-sync turned off, i.e. when
+		// the share is expected to be not synced.
 		$retryEnabled = ($retryOption === '');
-		$tryAgain = false;
-		$retried = 0;
-		do {
-			$response = GraphHelper::getSharesSharedWithMe(
+		$response = WaitHelper::waitUntil(
+			fn() => GraphHelper::getSharesSharedWithMe(
 				$this->featureContext->getBaseUrl(),
 				$this->featureContext->getStepLineRef(),
 				$credentials['username'],
 				$credentials['password']
-			);
-
-			$jsonBody = $this->featureContext->getJsonDecodedResponseBodyContent($response);
-
-			if ($retryEnabled) {
+			),
+			function ($response) use ($retryEnabled, $credentials) {
+				if (!$retryEnabled) {
+					return true;
+				}
+				if (!$this->featureContext->getUserAutoSyncSetting($credentials['username'])) {
+					return true;
+				}
+				$jsonBody = $this->featureContext->getJsonDecodedResponseBodyContent($response);
 				foreach ($jsonBody->value as $share) {
-					$autoSync = $this->featureContext->getUserAutoSyncSetting($credentials['username']);
-					$tryAgain = !$share->{'@client.synchronize'}
-					&& $autoSync
-					&& $retried < HttpRequestHelper::numRetriesOnHttpTooEarly();
-
-					if ($tryAgain) {
-						$retried += 1;
-						echo "auto-sync share for user '$user' is enabled\n";
-						echo "but share '$share->name' was not auto-synced, retrying ($retried)...\n";
-						// wait 500ms and try again
-						\usleep(500 * 1000);
-						break;
+					if (!$share->{'@client.synchronize'}) {
+						return false;
 					}
 				}
+				return true;
 			}
-		} while ($tryAgain);
+		);
 
 		$this->featureContext->setResponse($response);
 		$this->featureContext->pushToLastStatusCodesArrays();

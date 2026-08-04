@@ -33,6 +33,7 @@ use TestHelpers\HttpRequestHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\BehatHelper;
 use TestHelpers\UploadHelper;
+use TestHelpers\WaitHelper;
 use Behat\Step\Given;
 use Behat\Step\When;
 
@@ -238,22 +239,10 @@ class TUSContext implements Context {
 	): void {
 		$resourceLocation = $this->getLastTusResourceLocation();
 
-		$retried = 0;
-		do {
-			$tryAgain = false;
-			$response = $this->uploadChunkToTUSLocation($user, $resourceLocation, $offset, $data);
-			// retry on 409 Conflict (Offset mismatch during TUS upload)
-			if ($response->getStatusCode() === 409) {
-				$tryAgain = true;
-			}
-			$tryAgain = $tryAgain && $retried < HttpRequestHelper::numRetriesOnHttpTooEarly();
-			if ($tryAgain) {
-				$retried += 1;
-				echo "Offset mismatch during TUS upload, retrying ($retried)...\n";
-				// wait 1s and try again
-				\sleep(1);
-			}
-		} while ($tryAgain);
+		$response = WaitHelper::waitUntil(
+			fn() => $this->uploadChunkToTUSLocation($user, $resourceLocation, $offset, $data),
+			fn($response) => $response->getStatusCode() !== 409
+		);
 		$this->featureContext->setResponse($response);
 	}
 
