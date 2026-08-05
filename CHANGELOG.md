@@ -1,10 +1,14 @@
 # Changelog
 
-## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-04
+## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-05
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@pbleser-oc
+@pbleser-oc, @v-scharf
+
+### ✅ Tests
+
+- api-test: replace sleeps with WaitHelper poll for async state [[#3239](https://github.com/opencloud-eu/opencloud/pull/3239)]
 
 ### 📈 Enhancement
 
