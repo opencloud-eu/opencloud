@@ -90,7 +90,9 @@ var _ = Describe("Driveitems", func() {
 		cfg = defaults.FullDefaultConfig()
 		cfg.Identity.LDAP.CACert = "" // skip the startup checks, we don't use LDAP at all in this tests
 		cfg.TokenManager.JWTSecret = "loremipsum"
-		cfg.Commons = &shared.Commons{}
+		cfg.Commons = &shared.Commons{
+			URLSigningSecret: "url-signing-secret",
+		}
 		cfg.GRPCClientTLS = &shared.GRPCClientTLS{}
 
 		var err error
@@ -433,6 +435,8 @@ var _ = Describe("Driveitems", func() {
 				res := assertItemsList(1)
 				Expect(res.Value[0].Audio).To(BeNil())
 				Expect(res.Value[0].Location).To(BeNil())
+				// not requested via $select -> no downloadUrl
+				Expect(res.Value[0].MicrosoftGraphDownloadUrl).To(BeNil())
 				Expect(res.Value[0].LibreGraphMeFollowing).To(BeNil())
 				Expect(res.Value[0].LibreGraphTags).To(BeNil())
 				Expect(res.Value[0].PendingOperations).To(BeNil())
@@ -671,6 +675,30 @@ var _ = Describe("Driveitems", func() {
 				res := assertItemsList(1)
 				Expect(res.Value[0].LibreGraphMeFollowing).ToNot(BeNil())
 				Expect(res.Value[0].GetLibreGraphMeFollowing()).To(BeFalse())
+			})
+
+			It("adds @microsoft.graph.downloadUrl to files when selected via $select", func() {
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:  provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:  "etag",
+							Mtime: utils.TimeToTS(mtime),
+						},
+					},
+				}, nil)
+
+				r = httptest.NewRequest(http.MethodGet, "/graph/v1.0/drives/storageid$spaceid/items/storageid$spaceid!nodeid/children?$select=@microsoft.graph.downloadUrl", nil)
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("driveID", "storageid$spaceid")
+				rctx.URLParams.Add("driveItemID", "storageid$spaceid!nodeid")
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, currentUser), chi.RouteCtxKey, rctx))
+
+				res := assertItemsList(1)
+				Expect(res.Value[0].GetMicrosoftGraphDownloadUrl()).To(ContainSubstring("/dav/spaces/storageid$spaceid%21opaqueid"))
+				Expect(res.Value[0].GetMicrosoftGraphDownloadUrl()).To(ContainSubstring("oc-jwt-sig="))
 			})
 
 			It("returns the audio facet if metadata is available", func() {

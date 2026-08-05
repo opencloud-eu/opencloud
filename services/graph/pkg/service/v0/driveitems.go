@@ -252,6 +252,7 @@ func (g Graph) GetRootDriveChildren(w http.ResponseWriter, r *http.Request) {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
+	g.setDriveItemsDownloadURL(r, files, lRes.GetInfos())
 
 	if driveItemPropertySelected(r, _selectAllowedValues) {
 		for i, info := range lRes.GetInfos() {
@@ -326,6 +327,7 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
+	g.setDriveItemsDownloadURL(r, []*libregraph.DriveItem{driveItem}, []*storageprovider.ResourceInfo{res.GetInfo()})
 
 	if driveItemPropertySelected(r, _selectAllowedValues) {
 		driveItem.LibreGraphPermissionsActionsAllowedValues = unifiedrole.CS3ResourcePermissionsToLibregraphActions(res.GetInfo().GetPermissionSet())
@@ -381,6 +383,7 @@ func (g Graph) GetDriveItemChildren(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	g.setDriveItemsDownloadURL(r, files, res.GetInfos())
 
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, &ListResponse{Value: files})

@@ -96,15 +96,6 @@ func (g Graph) publishEvent(ctx context.Context, ev any) {
 	}
 }
 
-func (g Graph) getWebDavBaseURL() (*url.URL, error) {
-	webDavBaseURL, err := url.Parse(g.config.Spaces.WebDavBase)
-	if err != nil {
-		return nil, err
-	}
-	webDavBaseURL.Path = path.Join(webDavBaseURL.Path, g.config.Spaces.WebDavPath)
-	return webDavBaseURL, nil
-}
-
 // ListResponse is used for proper marshalling of Graph list responses
 type ListResponse struct {
 	Value any `json:"value,omitempty"`
@@ -156,4 +147,10 @@ func parseIDParam(r *http.Request, param string) (storageprovider.ResourceId, er
 		return storageprovider.ResourceId{}, errorcode.New(errorcode.InvalidRequest, err.Error())
 	}
 	return id, nil
+}
+
+func (g BaseGraphService) getWebDavBaseURL() (*url.URL, error) {
+	webDavBaseURL := *g.publicBaseURL
+	webDavBaseURL.Path = path.Join(webDavBaseURL.Path, g.config.Spaces.WebDavPath)
+	return &webDavBaseURL, nil
 }
