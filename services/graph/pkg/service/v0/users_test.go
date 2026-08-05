@@ -122,6 +122,43 @@ var _ = Describe("Users", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		Describe("GetUserDrive", func() {
+			It("resolves the user by name before looking up the personal space", func() {
+				user := &libregraph.User{}
+				user.SetId("user1")
+
+				// A name in the path must be resolved to the user id via the
+				// identity backend before the storage space filter runs.
+				permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(&settings.GetPermissionByIDResponse{}, nil)
+				identityBackend.On("GetUser", mock.Anything, "alice", mock.Anything).Return(user, nil)
+				gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+					Status: status.NewOK(ctx),
+					StorageSpaces: []*provider.StorageSpace{
+						{
+							Id:        &provider.StorageSpaceId{OpaqueId: "drive1"},
+							Root:      &provider.ResourceId{StorageId: "storage", SpaceId: "space", OpaqueId: "space"},
+							SpaceType: "personal",
+						},
+					},
+				}, nil)
+				gatewayClient.On("GetQuota", mock.Anything, mock.Anything, mock.Anything).Return(&provider.GetQuotaResponse{
+					Status:     status.NewOK(ctx),
+					TotalBytes: 10,
+				}, nil)
+				valueService.On("GetValueByUniqueIdentifiers", mock.Anything, mock.Anything, mock.Anything).
+					Return(&settings.GetValueResponse{}, nil)
+
+				r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/users/alice/drive", nil)
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("userID", "alice")
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, currentUser), chi.RouteCtxKey, rctx))
+				svc.GetUserDrive(rr, r)
+
+				Expect(rr.Code).To(Equal(http.StatusOK))
+				identityBackend.AssertCalled(GinkgoT(), "GetUser", mock.Anything, "alice", mock.Anything)
+			})
+		})
+
 		Describe("GetMe", func() {
 			It("handles missing user", func() {
 				r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/me", nil)
