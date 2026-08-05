@@ -16,7 +16,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 )
 
 
@@ -122,7 +121,7 @@ type ApiGetOwnUserPhotoRequest struct {
 	ApiService *MePhotoApiService
 }
 
-func (r ApiGetOwnUserPhotoRequest) Execute() (*os.File, *http.Response, error) {
+func (r ApiGetOwnUserPhotoRequest) Execute() (io.Reader, *http.Response, error) {
 	return r.ApiService.GetOwnUserPhotoExecute(r)
 }
 
@@ -140,13 +139,13 @@ func (a *MePhotoApiService) GetOwnUserPhoto(ctx context.Context) ApiGetOwnUserPh
 }
 
 // Execute executes the request
-//  @return *os.File
-func (a *MePhotoApiService) GetOwnUserPhotoExecute(r ApiGetOwnUserPhotoRequest) (*os.File, *http.Response, error) {
+//  @return io.Reader
+func (a *MePhotoApiService) GetOwnUserPhotoExecute(r ApiGetOwnUserPhotoRequest) (io.Reader, *http.Response, error) {
 	var (
 		localVarHTTPMethod   = http.MethodGet
 		localVarPostBody     interface{}
 		formFiles            []formFile
-		localVarReturnValue  *os.File
+		localVarReturnValue  io.Reader
 	)
 
 	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "MePhotoApiService.GetOwnUserPhoto")
@@ -225,11 +224,11 @@ func (a *MePhotoApiService) GetOwnUserPhotoExecute(r ApiGetOwnUserPhotoRequest) 
 type ApiUpdateOwnUserPhotoPatchRequest struct {
 	ctx context.Context
 	ApiService *MePhotoApiService
-	body *os.File
+	body io.Reader
 }
 
 // New user photo
-func (r ApiUpdateOwnUserPhotoPatchRequest) Body(body *os.File) ApiUpdateOwnUserPhotoPatchRequest {
+func (r ApiUpdateOwnUserPhotoPatchRequest) Body(body io.Reader) ApiUpdateOwnUserPhotoPatchRequest {
 	r.body = body
 	return r
 }
@@ -328,11 +327,11 @@ func (a *MePhotoApiService) UpdateOwnUserPhotoPatchExecute(r ApiUpdateOwnUserPho
 type ApiUpdateOwnUserPhotoPutRequest struct {
 	ctx context.Context
 	ApiService *MePhotoApiService
-	body *os.File
+	body io.Reader
 }
 
 // New user photo
-func (r ApiUpdateOwnUserPhotoPutRequest) Body(body *os.File) ApiUpdateOwnUserPhotoPutRequest {
+func (r ApiUpdateOwnUserPhotoPutRequest) Body(body io.Reader) ApiUpdateOwnUserPhotoPutRequest {
 	r.body = body
 	return r
 }

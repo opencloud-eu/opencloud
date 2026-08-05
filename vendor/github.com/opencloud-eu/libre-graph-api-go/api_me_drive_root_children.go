@@ -25,6 +25,13 @@ type MeDriveRootChildrenApiService service
 type ApiHomeGetChildrenRequest struct {
 	ctx context.Context
 	ApiService *MeDriveRootChildrenApiService
+	select_ *[]string
+}
+
+// Select additional properties to be returned.
+func (r ApiHomeGetChildrenRequest) Select_(select_ []string) ApiHomeGetChildrenRequest {
+	r.select_ = &select_
+	return r
 }
 
 func (r ApiHomeGetChildrenRequest) Execute() (*CollectionOfDriveItems, *http.Response, error) {
@@ -65,6 +72,9 @@ func (a *MeDriveRootChildrenApiService) HomeGetChildrenExecute(r ApiHomeGetChild
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
 
+	if r.select_ != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "$select", r.select_, "form", "csv")
+	}
 	// to determine the Content-Type header
 	localVarHTTPContentTypes := []string{}
 
