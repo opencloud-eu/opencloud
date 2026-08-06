@@ -1,10 +1,14 @@
 # Changelog
 
-## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-05
+## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-06
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@pbleser-oc, @v-scharf
+@aduffeck, @pbleser-oc, @v-scharf
+
+### 🐛 Bug Fixes
+
+- Fix missing favorite flag on opensearch hits [[#3252](https://github.com/opencloud-eu/opencloud/pull/3252)]
 
 ### ✅ Tests
 
