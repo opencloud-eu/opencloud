@@ -73,8 +73,7 @@
 
         // service accounts
         "OC_SERVICE_ACCOUNT_ID": "service-account-id",
-        "OC_SERVICE_ACCOUNT_SECRET": "service-account-secret",
-        "FRONTEND_CONFIGURABLE_NOTIFICATIONS": "true"
+        "OC_SERVICE_ACCOUNT_SECRET": "service-account-secret"
       }
     },
     {
