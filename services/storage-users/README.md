@@ -87,6 +87,7 @@ OPTIONS:
    --processing  filter sessions by processing status (default: unset)
    --expired     filter sessions by expired status (default: unset)
    --has-virus   filter sessions by virus scan result (default: unset)
+   --orphaned    filter sessions by whether their node metadata is unreadable (default: unset)
    --json        output as json (default: false)
    --restart     send restart event for all listed sessions (default: false)
    --resume      send resume event for all listed sessions (default: false)
@@ -140,6 +141,23 @@ opencloud storage-users uploads sessions --expired=true --clean
 # resumes all uploads that are processing and are not virus infected
 opencloud storage-users uploads sessions --processing=false --has-virus=false --resume
 ```
+
+Uploads whose node metadata can no longer be read are orphaned: they can never finish
+postprocessing, because the destination of the upload cannot be resolved. Such uploads stay
+in processing state indefinitely and keep consuming the quota of their space. Use the
+`--orphaned` filter to list them, and `--clean` to remove them and release the quota.
+
+```bash
+# lists all orphaned upload sessions
+opencloud storage-users uploads sessions --orphaned=true
+
+# removes them and releases the quota they consume
+opencloud storage-users uploads sessions --orphaned=true --clean
+```
+
+Note: `--orphaned` reads the node metadata of every upload session, so it is slower than the
+other filters. Cleaning an orphaned session deletes the uploaded bytes, which are the only
+copy as long as postprocessing has not finished. Run the command without `--clean` first.
 
 
 #### Delete Stale Nodes command

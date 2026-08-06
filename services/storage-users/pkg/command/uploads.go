@@ -246,6 +246,7 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 	listUploadSessionsCmd.Flags().Bool("processing", false, "filter sessions by processing status")
 	listUploadSessionsCmd.Flags().Bool("expired", false, "filter sessions by expired status")
 	listUploadSessionsCmd.Flags().Bool("has-virus", false, "filter sessions by virus scan result")
+	listUploadSessionsCmd.Flags().Bool("orphaned", false, "filter sessions by whether their node metadata is unreadable. Such sessions can never finish processing and can be removed with --clean")
 	listUploadSessionsCmd.Flags().Bool("json", false, "output as json")
 	listUploadSessionsCmd.Flags().Bool("restart", false, "send restart event for all listed sessions. Only one of resume/restart/clean can be set.")
 	listUploadSessionsCmd.Flags().Bool("resume", false, "send resume event for all listed sessions. Only one of resume/restart/clean can be set.")
@@ -266,6 +267,10 @@ func buildFilter(cmd *cobra.Command) storage.UploadSessionFilter {
 	if cmd.Flag("has-virus").Changed {
 		infectedValue, _ := cmd.Flags().GetBool("has-virus")
 		filter.HasVirus = &infectedValue
+	}
+	if cmd.Flag("orphaned").Changed {
+		orphanedValue, _ := cmd.Flags().GetBool("orphaned")
+		filter.Orphaned = &orphanedValue
 	}
 	if cmd.Flag("id").Changed {
 		idValue, _ := cmd.Flags().GetString("id")
@@ -322,6 +327,24 @@ func buildInfo(filter storage.UploadSessionFilter) string {
 			b.WriteString("Virusinfected")
 		} else {
 			b.WriteString("virusinfected")
+		}
+	}
+
+	if filter.Orphaned != nil {
+		if b.Len() != 0 {
+			b.WriteString(", ")
+		}
+		if !*filter.Orphaned {
+			if b.Len() == 0 {
+				b.WriteString("Not ")
+			} else {
+				b.WriteString("not ")
+			}
+		}
+		if b.Len() == 0 {
+			b.WriteString("Orphaned")
+		} else {
+			b.WriteString("orphaned")
 		}
 	}
 
