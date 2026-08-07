@@ -345,11 +345,6 @@ _ocdav: api compatibility, return correct status code_
 - [cliCommands/restoreTrashBinItems.feature:23](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/cliCommands/restoreTrashBinItems.feature#L23)
 - [cliCommands/sharesCleanup.feature:12](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/cliCommands/sharesCleanup.feature#L12)
 
-#### [user with roleFileEditorWithVersions permission cannot restore version of file](https://github.com/opencloud-eu/opencloud/issues/3168)
-
-- [apiSharingNg1/shareFileVersions.feature:55](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSharingNg1/shareFileVersions.feature#L55)
-- [apiSharingNg1/shareFileVersions.feature:56](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSharingNg1/shareFileVersions.feature#L56)
-
 ### Won't fix
 
 Not everything needs to be implemented for opencloud.
