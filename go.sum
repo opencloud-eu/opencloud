@@ -944,6 +944,8 @@ github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260310090739-853d972b282d 
 github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260310090739-853d972b282d/go.mod h1:pzatilMEHZFT3qV7C/X3MqOa3NlRQuYhlRhZTL+hN6Q=
 github.com/opencloud-eu/reva/v2 v2.48.0 h1:G/4Jbv0DWWOfA5u5DtV0CB75pi9Wwtj7JkJQOEBvErs=
 github.com/opencloud-eu/reva/v2 v2.48.0/go.mod h1:ZCo/xQM6if+upZa7rJCmdifZ/Y5XHLCrscHytC39yI4=
+github.com/opencloud-eu/reva/v2 v2.48.1-0.20260807155401-7a869e7a8f33 h1:64Exr/SP7r58ommVTsEQlmahfL4HqjlAjbGkpLA0by0=
+github.com/opencloud-eu/reva/v2 v2.48.1-0.20260807155401-7a869e7a8f33/go.mod h1:ZCo/xQM6if+upZa7rJCmdifZ/Y5XHLCrscHytC39yI4=
 github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4 h1:l2oB/RctH+t8r7QBj5p8thfEHCM/jF35aAY3WQ3hADI=
 github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4/go.mod h1:BmF5hyM6tXczk3MpQkFf1hpKSRqCyhqcbiQtiAF7+40=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=

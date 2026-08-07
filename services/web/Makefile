@@ -1,7 +1,7 @@
 SHELL := bash
 NAME := web
 WEB_ASSETS_VERSION = v7.3.0
-WEB_ASSETS_BRANCH = main
+WEB_ASSETS_BRANCH = fix/restore_version_url
 
 ifneq (, $(shell command -v go 2> /dev/null)) # suppress `command not found warnings` for non go targets in CI
 include ../../.bingo/Variables.mk
