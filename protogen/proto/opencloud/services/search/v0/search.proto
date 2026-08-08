@@ -136,6 +136,10 @@ message AggregationOption {
   // rather than a bucket aggregation; the corresponding AggregationResult
   // carries `value` instead of `buckets`.
   MetricKind metric_kind = 5 [(google.api.field_behavior) = OPTIONAL];
+  // Optional. When > 0, this is a geohash-grid aggregation over `field` (which
+  // must resolve to a geo-point field) at the given precision (1-12). Buckets
+  // carry the geohash cell as key and its doc count. OpenSearch backend only.
+  int32 geohash_precision = 6 [(google.api.field_behavior) = OPTIONAL];
 }
 
 enum MetricKind {

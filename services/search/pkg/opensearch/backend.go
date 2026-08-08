@@ -115,6 +115,11 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 		searchParams.Size = conversions.ToPointer(int(sir.PageSize))
 	}
 
+	builtAggs, err := aggs.Build(sir.GetAggregations())
+	if err != nil {
+		return nil, fmt.Errorf("failed to build aggregations: %w", err)
+	}
+
 	req, err := osu.BuildSearchReq(&opensearchgoAPI.SearchReq{
 		Indices: []string{b.index},
 		Params:  searchParams,
@@ -133,7 +138,7 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 					},
 				},
 			},
-			Aggs: aggs.Build(sir.GetAggregations()),
+			Aggs: builtAggs,
 		},
 	)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/query"
 )
 
 // DefaultFacetSize matches the bleve backend: pull a generous bucket count per
@@ -18,41 +19,57 @@ const DefaultFacetSize = 1000
 // Build translates AggregationOptions into the OpenSearch aggregation DSL
 // (terms, range, metric, nested). Entries get an index-derived name so repeated
 // aggs on one field don't collide.
-func Build(opts []*searchsvc.AggregationOption) map[string]any {
+func Build(opts []*searchsvc.AggregationOption) (map[string]any, error) {
 	return buildLevel(opts, "a")
 }
 
-func buildLevel(opts []*searchsvc.AggregationOption, prefix string) map[string]any {
+func buildLevel(opts []*searchsvc.AggregationOption, prefix string) (map[string]any, error) {
 	if len(opts) == 0 {
-		return nil
+		return nil, nil
 	}
 	aggs := map[string]any{}
 	for i, opt := range opts {
 		name := fmt.Sprintf("%s_%d", prefix, i)
-		if entry := buildOne(opt, name); entry != nil {
+		entry, err := buildOne(opt, name)
+		if err != nil {
+			return nil, err
+		}
+		if entry != nil {
 			aggs[name] = entry
 		}
 	}
 	if len(aggs) == 0 {
-		return nil
+		return nil, nil
 	}
-	return aggs
+	return aggs, nil
 }
 
-func buildOne(opt *searchsvc.AggregationOption, name string) map[string]any {
+func buildOne(opt *searchsvc.AggregationOption, name string) (map[string]any, error) {
 	field := opt.GetField()
 	if mk := opt.GetMetricKind(); mk != searchsvc.MetricKind_METRIC_KIND_UNSPECIFIED {
-		return buildMetric(field, mk)
+		return buildMetric(field, mk), nil
 	}
 	var entry map[string]any
-	if ranges := rangesOf(opt); len(ranges) > 0 {
+	switch {
+	case opt.GetGeohashPrecision() > 0:
+		geoField, ok := query.ResolveGeoField(field)
+		if !ok {
+			return nil, fmt.Errorf("geohash aggregation on non-geo field %q", field)
+		}
+		entry = map[string]any{
+			"geohash_grid": map[string]any{
+				"field":     geoField,
+				"precision": int(opt.GetGeohashPrecision()),
+			},
+		}
+	case len(rangesOf(opt)) > 0:
 		entry = map[string]any{
 			"range": map[string]any{
 				"field":  field,
-				"ranges": buildRanges(ranges),
+				"ranges": buildRanges(rangesOf(opt)),
 			},
 		}
-	} else {
+	default:
 		size := int(opt.GetSize())
 		if size <= 0 {
 			size = DefaultFacetSize
@@ -65,11 +82,15 @@ func buildOne(opt *searchsvc.AggregationOption, name string) map[string]any {
 		}
 	}
 	if subs := opt.GetSubAggregations(); len(subs) > 0 {
-		if nested := buildLevel(subs, name); nested != nil {
+		nested, err := buildLevel(subs, name)
+		if err != nil {
+			return nil, err
+		}
+		if nested != nil {
 			entry["aggs"] = nested
 		}
 	}
-	return entry
+	return entry, nil
 }
 
 // buildMetric emits the sum/min/max metric. AVG uses a stats agg to transport

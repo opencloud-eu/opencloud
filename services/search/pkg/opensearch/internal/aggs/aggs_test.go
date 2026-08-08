@@ -13,9 +13,10 @@ import (
 
 var _ = Describe("Build", func() {
 	It("builds a terms aggregation", func() {
-		res := aggs.Build([]*searchsvc.AggregationOption{
+		res, err := aggs.Build([]*searchsvc.AggregationOption{
 			{Field: "audio.artist", Size: 10},
 		})
+		Expect(err).ToNot(HaveOccurred())
 		Expect(res).ToNot(BeNil())
 		entry, ok := res["a_0"].(map[string]any)
 		Expect(ok).To(BeTrue())
@@ -26,7 +27,7 @@ var _ = Describe("Build", func() {
 	})
 
 	It("builds a range aggregation with open-ended bounds", func() {
-		res := aggs.Build([]*searchsvc.AggregationOption{{
+		res, err := aggs.Build([]*searchsvc.AggregationOption{{
 			Field: "audio.year",
 			BucketDefinition: &searchsvc.BucketDefinition{
 				Ranges: []*searchsvc.BucketRange{
@@ -36,6 +37,7 @@ var _ = Describe("Build", func() {
 				},
 			},
 		}})
+		Expect(err).ToNot(HaveOccurred())
 		r := res["a_0"].(map[string]any)["range"].(map[string]any)
 		Expect(r["field"]).To(Equal("audio.year"))
 		ranges := r["ranges"].([]map[string]any)
@@ -51,9 +53,10 @@ var _ = Describe("Build", func() {
 
 	DescribeTable("builds single-value metric aggregations",
 		func(kind searchsvc.MetricKind, esKind string) {
-			res := aggs.Build([]*searchsvc.AggregationOption{
+			res, err := aggs.Build([]*searchsvc.AggregationOption{
 				{Field: "audio.duration", MetricKind: kind},
 			})
+			Expect(err).ToNot(HaveOccurred())
 			body, ok := res["a_0"].(map[string]any)[esKind].(map[string]any)
 			Expect(ok).To(BeTrue())
 			Expect(body["field"]).To(Equal("audio.duration"))
@@ -64,16 +67,17 @@ var _ = Describe("Build", func() {
 	)
 
 	It("uses a stats aggregation for AVG", func() {
-		res := aggs.Build([]*searchsvc.AggregationOption{
+		res, err := aggs.Build([]*searchsvc.AggregationOption{
 			{Field: "audio.duration", MetricKind: searchsvc.MetricKind_METRIC_KIND_AVG},
 		})
+		Expect(err).ToNot(HaveOccurred())
 		stats, ok := res["a_0"].(map[string]any)["stats"].(map[string]any)
 		Expect(ok).To(BeTrue())
 		Expect(stats["field"]).To(Equal("audio.duration"))
 	})
 
 	It("nests sub-aggregations under their parent bucket", func() {
-		res := aggs.Build([]*searchsvc.AggregationOption{{
+		res, err := aggs.Build([]*searchsvc.AggregationOption{{
 			Field: "audio.artist", Size: 5,
 			SubAggregations: []*searchsvc.AggregationOption{{
 				Field: "audio.album", Size: 7,
@@ -82,12 +86,33 @@ var _ = Describe("Build", func() {
 				},
 			}},
 		}})
+		Expect(err).ToNot(HaveOccurred())
 		album := res["a_0"].(map[string]any)["aggs"].(map[string]any)["a_0_0"].(map[string]any)
 		albumTerms := album["terms"].(map[string]any)
 		Expect(albumTerms["field"]).To(Equal("audio.album"))
 		Expect(albumTerms["size"]).To(Equal(7))
 		metric := album["aggs"].(map[string]any)["a_0_0_0"].(map[string]any)
 		Expect(metric["sum"].(map[string]any)["field"]).To(Equal("audio.duration"))
+	})
+
+	It("builds a geohash_grid aggregation over the resolved geo-point field", func() {
+		res, err := aggs.Build([]*searchsvc.AggregationOption{
+			{Field: "location", GeohashPrecision: 5},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		grid, ok := res["a_0"].(map[string]any)["geohash_grid"].(map[string]any)
+		Expect(ok).To(BeTrue())
+		// "location" resolves to its indexed geo-point sibling field.
+		Expect(grid["field"]).To(Equal("location_geopoint"))
+		Expect(grid["precision"]).To(Equal(5))
+	})
+
+	It("rejects a geohash aggregation on a non-geo field", func() {
+		_, err := aggs.Build([]*searchsvc.AggregationOption{
+			{Field: "name", GeohashPrecision: 5},
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("non-geo field"))
 	})
 })
 
