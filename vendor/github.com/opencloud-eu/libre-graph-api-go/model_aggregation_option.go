@@ -29,6 +29,8 @@ type AggregationOption struct {
 	// Nested aggregations computed within each bucket of this aggregation. Libregraph extension not present in MS Graph.  Backends that don't support native composite aggregations (e.g. bleve) emulate them by walking the matched result set; OpenSearch translates them to native composite aggregations. 
 	LibreGraphSubAggregations []AggregationOption `json:"@libre.graph.subAggregations,omitempty"`
 	LibreGraphMetricDefinition *MetricDefinition `json:"@libre.graph.metricDefinition,omitempty"`
+	// When greater than 0, this is a geohash-grid aggregation over `field`, which must resolve to a geo-point field (e.g. `location`). Each returned `searchBucket` carries a geohash cell as `key` and its count, suitable for density/heatmap rendering. The value is the geohash length (1-12); higher means finer cells. Libregraph extension not present in MS Graph. 
+	LibreGraphGeohashPrecision *int32 `json:"@libre.graph.geohashPrecision,omitempty"`
 }
 
 type _AggregationOption AggregationOption
@@ -203,6 +205,38 @@ func (o *AggregationOption) SetLibreGraphMetricDefinition(v MetricDefinition) {
 	o.LibreGraphMetricDefinition = &v
 }
 
+// GetLibreGraphGeohashPrecision returns the LibreGraphGeohashPrecision field value if set, zero value otherwise.
+func (o *AggregationOption) GetLibreGraphGeohashPrecision() int32 {
+	if o == nil || IsNil(o.LibreGraphGeohashPrecision) {
+		var ret int32
+		return ret
+	}
+	return *o.LibreGraphGeohashPrecision
+}
+
+// GetLibreGraphGeohashPrecisionOk returns a tuple with the LibreGraphGeohashPrecision field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *AggregationOption) GetLibreGraphGeohashPrecisionOk() (*int32, bool) {
+	if o == nil || IsNil(o.LibreGraphGeohashPrecision) {
+		return nil, false
+	}
+	return o.LibreGraphGeohashPrecision, true
+}
+
+// HasLibreGraphGeohashPrecision returns a boolean if a field has been set.
+func (o *AggregationOption) HasLibreGraphGeohashPrecision() bool {
+	if o != nil && !IsNil(o.LibreGraphGeohashPrecision) {
+		return true
+	}
+
+	return false
+}
+
+// SetLibreGraphGeohashPrecision gets a reference to the given int32 and assigns it to the LibreGraphGeohashPrecision field.
+func (o *AggregationOption) SetLibreGraphGeohashPrecision(v int32) {
+	o.LibreGraphGeohashPrecision = &v
+}
+
 func (o AggregationOption) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -225,6 +259,9 @@ func (o AggregationOption) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.LibreGraphMetricDefinition) {
 		toSerialize["@libre.graph.metricDefinition"] = o.LibreGraphMetricDefinition
+	}
+	if !IsNil(o.LibreGraphGeohashPrecision) {
+		toSerialize["@libre.graph.geohashPrecision"] = o.LibreGraphGeohashPrecision
 	}
 	return toSerialize, nil
 }

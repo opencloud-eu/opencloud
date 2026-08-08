@@ -125,7 +125,7 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 
 	builtAggs, err := aggs.Build(sir.GetAggregations())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build aggregations: %w", err)
 	}
 
 	req, err := osu.BuildSearchReq(&opensearchgoAPI.SearchReq{
