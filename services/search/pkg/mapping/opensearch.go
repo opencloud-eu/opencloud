@@ -53,6 +53,12 @@ func buildOpenSearchProperties(t reflect.Type, overrides map[string]FieldOpts, p
 			}
 			props[fi.Name] = map[string]any{"properties": subProps}
 			props[fi.Name+GeopointSuffix] = map[string]any{"type": "geo_point"}
+			// Mirror the bleve geohash prefix siblings so the document shape
+			// stays consistent across backends (OpenSearch aggregates via
+			// geohash_grid on _geopoint and does not query these).
+			for p := 1; p <= MaxGeohashPrecision; p++ {
+				props[GeohashField(fi.Name, p)] = map[string]any{"type": "keyword"}
+			}
 			return nil
 		}
 

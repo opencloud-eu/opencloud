@@ -197,7 +197,7 @@
         "geohashPrecision": {
           "type": "integer",
           "format": "int32",
-          "description": "Optional. When \u003e 0, this is a geohash-grid aggregation over `field` (which\nmust resolve to a geo-point field) at the given precision (1-12). Buckets\ncarry the geohash cell as key and its doc count. OpenSearch backend only."
+          "description": "Optional. When \u003e 0, this is a geohash-grid aggregation over `field` (which\nmust resolve to a geo-point field) at the given precision (1-12). Buckets\ncarry the geohash cell as key and its doc count."
         }
       }
     },

@@ -420,7 +420,7 @@ type AggregationOption struct {
 	MetricKind MetricKind `protobuf:"varint,5,opt,name=metric_kind,json=metricKind,proto3,enum=opencloud.services.search.v0.MetricKind" json:"metric_kind,omitempty"`
 	// Optional. When > 0, this is a geohash-grid aggregation over `field` (which
 	// must resolve to a geo-point field) at the given precision (1-12). Buckets
-	// carry the geohash cell as key and its doc count. OpenSearch backend only.
+	// carry the geohash cell as key and its doc count.
 	GeohashPrecision int32 `protobuf:"varint,6,opt,name=geohash_precision,json=geohashPrecision,proto3" json:"geohash_precision,omitempty"`
 }
 

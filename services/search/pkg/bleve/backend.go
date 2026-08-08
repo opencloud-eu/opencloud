@@ -204,6 +204,15 @@ func newBleveFacetRequest(agg *searchService.AggregationOption) (*bleve.FacetReq
 	if size <= 0 {
 		size = defaultFacetSize
 	}
+	// Geohash: terms facet on the precomputed geohash-prefix sibling field of
+	// the requested precision (bleve has no native geohash-grid aggregation).
+	if p := int(agg.GetGeohashPrecision()); p > 0 {
+		field, ok := searchQuery.ResolveGeohashField(agg.GetField(), p)
+		if !ok {
+			return nil, fmt.Errorf("geohash aggregation on non-geo field %q", agg.GetField())
+		}
+		return bleve.NewFacetRequest(field, size), nil
+	}
 	fr := bleve.NewFacetRequest(agg.GetField(), size)
 	ranges := aggregationRanges(agg)
 	if rangesAreDates(ranges) {

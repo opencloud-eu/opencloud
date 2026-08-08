@@ -964,6 +964,64 @@ var _ = Describe("Bleve", func() {
 			Expect(fields).To(ConsistOf("audio.artist", "audio.album"))
 		})
 
+		Describe("geohash aggregations", func() {
+			upsertGeo := func(id, name string, lat, lon float64) {
+				la, lo := lat, lon
+				r := search.Resource{
+					ID:       id,
+					ParentID: rootResource.ID,
+					RootID:   rootResource.ID,
+					Path:     "./" + name,
+					Type:     uint64(sprovider.ResourceType_RESOURCE_TYPE_FILE),
+					Document: content.Document{
+						Name:     name,
+						MimeType: "image/jpeg",
+						Location: &libregraph.GeoCoordinates{Latitude: &la, Longitude: &lo},
+					},
+				}
+				Expect(eng.Upsert(r.ID, r)).To(Succeed())
+			}
+
+			BeforeEach(func() {
+				upsertGeo("1$2!2001", "a.jpg", 52.5100, 13.3800) // Berlin
+				upsertGeo("1$2!2002", "b.jpg", 52.5105, 13.3805) // ~60m away -> same geohash-5 cell
+				upsertGeo("1$2!2003", "c.jpg", 48.1372, 11.5756) // Munich -> different cell
+			})
+
+			It("buckets geo points into geohash cells by density", func() {
+				res := searchWithAggs("mediatype:image", &searchsvc.AggregationOption{
+					Field:            "location",
+					GeohashPrecision: 5,
+				})
+				Expect(res.Aggregations).To(HaveLen(1))
+				agg := res.Aggregations[0]
+				Expect(agg.Field).To(Equal("location"))
+
+				counts := []int64{}
+				for _, b := range agg.Buckets {
+					Expect(b.Key).To(HaveLen(5), "expected a geohash-5 key, got %q", b.Key)
+					counts = append(counts, b.Count)
+				}
+				// Berlin pair shares a cell (2), Munich alone (1).
+				Expect(counts).To(ConsistOf(int64(2), int64(1)))
+			})
+
+			It("rejects a geohash aggregation on a non-geo field", func() {
+				rID, err := storagespace.ParseID(rootResource.ID)
+				Expect(err).ToNot(HaveOccurred())
+				_, err = eng.Search(context.Background(), &searchsvc.SearchIndexRequest{
+					Query: "mediatype:image",
+					Ref: &searchmsg.Reference{ResourceId: &searchmsg.ResourceID{
+						StorageId: rID.StorageId, SpaceId: rID.SpaceId, OpaqueId: rID.OpaqueId,
+					}},
+					Aggregations: []*searchsvc.AggregationOption{
+						{Field: "audio.artist", GeohashPrecision: 5},
+					},
+				})
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
 		Describe("numeric range aggregations", func() {
 			upsertWithYear := func(id, name string, year int32) {
 				r := search.Resource{
