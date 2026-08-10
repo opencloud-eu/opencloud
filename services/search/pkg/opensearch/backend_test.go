@@ -170,18 +170,26 @@ func TestEngine_MediaTypeSearch(t *testing.T) {
 	png.ID = "1$2!png"
 	png.MimeType = "image/png"
 	require.NoError(t, backend.Upsert(png.ID, png))
+
+	folder := opensearchtest.Testdata.Resources.Folder
+	folder.ID = "1$2!dir"
+	folder.MimeType = "httpd/unix-directory"
+	require.NoError(t, backend.Upsert(folder.ID, folder))
 	tc.Require.IndicesRefresh([]string{indexName}, nil)
 
 	cases := []struct {
 		query string
 		want  int
 	}{
-		{"mediatype:image", 2},         // image/* wildcard -> both
+		{"mediatype:image", 2},         // image/* wildcard -> both files
 		{"mediatype:IMAGE", 2},         // categories are case-insensitive
 		{"mediatype:image/svg+xml", 1}, // literal MIME (+ and /) via mediatype
 		{"MimeType:image/svg+xml", 1},  // same literal via the raw field name
 		{"mediatype:image/png", 1},
 		{"mediatype:pdf", 0},
+		{"mediatype:folder", 1},                    // the directory only
+		{"mediatype:file", 2},                      // both files, not the directory
+		{"mediatype:file AND MimeType:image/png", 1}, // file NOT-dir combined with a term
 	}
 	for _, c := range cases {
 		resp, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: c.query})

@@ -23,9 +23,14 @@ func Expand(key, value string) []ast.Node {
 	value = strings.ToLower(value)
 	switch value {
 	case "file":
+		// Group the negation so it stays atomic next to an operator: a bare
+		// `NOT <term>` sequence spliced inline miscompiles as the left of an AND
+		// (mediatype:file AND name:x would drop name:x).
 		return []ast.Node{
-			&ast.OperatorNode{Value: kql.BoolNOT},
-			&ast.StringNode{Key: field, Value: "httpd/unix-directory"},
+			&ast.GroupNode{Nodes: []ast.Node{
+				&ast.OperatorNode{Value: kql.BoolNOT},
+				&ast.StringNode{Key: field, Value: "httpd/unix-directory"},
+			}},
 		}
 	case "folder":
 		return term("httpd/unix-directory")
