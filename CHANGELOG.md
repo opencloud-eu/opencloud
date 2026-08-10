@@ -1,10 +1,15 @@
 # Changelog
 
-## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-08
+## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-10
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @JammingBen, @aduffeck, @pbleser-oc, @v-scharf
+
+### ✅ Tests
+
+- api-test: add posixfs scan and consistency CLI tests [[#3263](https://github.com/opencloud-eu/opencloud/pull/3263)]
+- api-test: replace sleeps with WaitHelper poll for async state [[#3239](https://github.com/opencloud-eu/opencloud/pull/3239)]
 
 ### 📈 Enhancement
 
@@ -14,10 +19,6 @@
 ### 🐛 Bug Fixes
 
 - Fix missing favorite flag on opensearch hits [[#3252](https://github.com/opencloud-eu/opencloud/pull/3252)]
-
-### ✅ Tests
-
-- api-test: replace sleeps with WaitHelper poll for async state [[#3239](https://github.com/opencloud-eu/opencloud/pull/3239)]
 
 ## [7.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.4.0) - 2026-08-03
 
