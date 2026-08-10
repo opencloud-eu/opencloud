@@ -72,9 +72,15 @@ func setupOpenSearchTestContainer(ctx context.Context, cfg *config.Config) (func
 		opensearch.WithPassword(cfg.Engine.OpenSearch.Client.Password),
 		testcontainers.WithName(containerName),
 		testcontainers.WithReuseByName(containerName),
+		// test indexes are tiny; don't let a full host disk trip the flood-stage
+		// create-index / read-only blocks mid-run
+		testcontainers.WithEnv(map[string]string{
+			"cluster.routing.allocation.disk.threshold_enabled": "false",
+		}),
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("ML configuration initialized successfully").
-				WithStartupTimeout(5*time.Second),
+				// a cold OpenSearch boot takes well over the previous 5s
+				WithStartupTimeout(2*time.Minute),
 		),
 	)
 	if err != nil {
