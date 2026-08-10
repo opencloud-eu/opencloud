@@ -150,6 +150,45 @@ func TestEngine_CaseInsensitiveSearch(t *testing.T) {
 	})
 }
 
+func TestEngine_MediaTypeSearch(t *testing.T) {
+	indexName := "opencloud-test-engine-mediatype"
+	tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
+	tc.Require.IndicesReset([]string{indexName})
+	tc.Require.IndicesCount([]string{indexName}, nil, 0)
+
+	defer tc.Require.IndicesDelete([]string{indexName})
+
+	backend, err := opensearch.NewBackend(indexName, tc.Client())
+	require.NoError(t, err)
+
+	svg := opensearchtest.Testdata.Resources.File
+	svg.ID = "1$2!svg"
+	svg.MimeType = "image/svg+xml"
+	require.NoError(t, backend.Upsert(svg.ID, svg))
+
+	png := opensearchtest.Testdata.Resources.File
+	png.ID = "1$2!png"
+	png.MimeType = "image/png"
+	require.NoError(t, backend.Upsert(png.ID, png))
+	tc.Require.IndicesRefresh([]string{indexName}, nil)
+
+	cases := []struct {
+		query string
+		want  int
+	}{
+		{"mediatype:image", 2},         // image/* wildcard -> both
+		{"mediatype:image/svg+xml", 1}, // literal MIME (+ and /) via mediatype
+		{"MimeType:image/svg+xml", 1},  // same literal via the raw field name
+		{"mediatype:image/png", 1},
+		{"mediatype:pdf", 0},
+	}
+	for _, c := range cases {
+		resp, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: c.query})
+		require.NoError(t, err, c.query)
+		require.Len(t, resp.Matches, c.want, c.query)
+	}
+}
+
 func TestEngine_Upsert(t *testing.T) {
 	indexName := "opencloud-test-engine-upsert"
 	tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
