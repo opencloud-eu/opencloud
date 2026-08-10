@@ -88,6 +88,26 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 			Want: osu.NewWildcardQuery("Name").Value("open*"),
 		},
 		{
+			// a phrase match would analyze the query with path_hierarchy and match
+			// everything under the root
+			Name: "path with spaces stays an unanalyzed term query",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Path", Value: "./parent d!r/child.pdf"},
+				},
+			},
+			Want: osu.NewTermQuery[string]("Path").Value("./parent d!r/child.pdf"),
+		},
+		{
+			Name: "case-insensitive path with spaces routes to the lowercased sibling as a term query",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Path", Value: "./Parent Dir", CaseInsensitive: true},
+				},
+			},
+			Want: osu.NewTermQuery[string]("Path_lowercase").Value("./parent dir"),
+		},
+		{
 			Name: "bool query",
 			Got: &ast.Ast{
 				Nodes: []ast.Node{
