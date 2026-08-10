@@ -177,6 +177,7 @@ func TestEngine_MediaTypeSearch(t *testing.T) {
 		want  int
 	}{
 		{"mediatype:image", 2},         // image/* wildcard -> both
+		{"mediatype:IMAGE", 2},         // categories are case-insensitive
 		{"mediatype:image/svg+xml", 1}, // literal MIME (+ and /) via mediatype
 		{"MimeType:image/svg+xml", 1},  // same literal via the raw field name
 		{"mediatype:image/png", 1},
