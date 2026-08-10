@@ -61,7 +61,6 @@ func buildResourceMapping() ([]byte, error) {
 	resourceType := reflect.TypeFor[search.Resource]()
 	overrides := maps.Clone(search.Resource{}.SearchFieldOverrides())
 	overrides["MimeType"] = searchmapping.FieldOpts{Type: searchmapping.TypeWildcard}
-	overrides["Path"] = searchmapping.FieldOpts{Type: searchmapping.TypePath}
 	if err := searchmapping.Validate(resourceType, overrides); err != nil {
 		return nil, err
 	}
@@ -75,16 +74,11 @@ func buildResourceMapping() ([]byte, error) {
 			"number_of_shards":   "1",
 			"number_of_replicas": "1",
 			"analysis": map[string]any{
+				// path_hierarchy is case-preserving; casing lives in the value.
 				"analyzer": map[string]any{
 					"path_hierarchy": map[string]any{
 						"type":      "custom",
 						"tokenizer": "path_hierarchy",
-						"filter":    []string{"lowercase"},
-					},
-					"lowercaseKeyword": map[string]any{
-						"type":      "custom",
-						"tokenizer": "keyword",
-						"filter":    []string{"lowercase"},
 					},
 				},
 				"tokenizer": map[string]any{

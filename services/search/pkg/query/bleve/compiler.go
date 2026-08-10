@@ -8,13 +8,9 @@ import (
 	bleveQuery "github.com/blevesearch/bleve/v2/search/query"
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
+	searchQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query"
 )
-
-// lowercaseFields holds the fields whose query-side value is pre-lowercased so
-// it matches the index-time lowercasing analyzer. Shared with the OpenSearch
-// backend via search.LowercaseValueFields; every other field keeps its casing.
-var lowercaseFields = search.LowercaseValueFields()
 
 // The following quoted string enumerates the characters which may be escaped: "+-=&|><!(){}[]^\"~*?:\\/ "
 // based on bleve docs https://blevesearch.com/docs/Query-String-Query/
@@ -82,12 +78,21 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 			if k != "ID" && k != "Size" && k != "MimeType" {
 				v = bleveEscaper.Replace(n.Value)
 			}
-
-			if _, ok := lowercaseFields[k]; ok {
+			if n.CaseInsensitive {
+				k += mapping.LowercaseSuffix
 				v = strings.ToLower(v)
 			}
 
-			q := bleveQuery.NewQueryStringQuery(k + ":" + v)
+			var q bleveQuery.Query = bleveQuery.NewQueryStringQuery(k + ":" + v)
+			if searchQuery.FieldIsPath(n.Key) {
+				// bleve has no path hierarchy analyzer, unlike OpenSearch: match
+				// the folder itself and its descendants (`\/*`, a trailing
+				// wildcard on the value).
+				q = bleveQuery.NewDisjunctionQuery([]bleveQuery.Query{
+					q,
+					bleveQuery.NewQueryStringQuery(k + ":" + v + `\/*`),
+				})
+			}
 
 			if prev == nil {
 				prev = q

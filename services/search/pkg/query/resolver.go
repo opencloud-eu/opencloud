@@ -15,27 +15,56 @@ var aliases = map[string]string{
 	"favorite": "Favorites",
 }
 
-// fieldIndex maps a lowercased KQL key to the real field name: derived once from
-// the resource struct, overlaid with the explicit aliases.
+// fieldIndex maps a lowercased KQL key to its canonical field name ("" is the
+// bare-search default).
 var fieldIndex = sync.OnceValue(func() map[string]string {
-	idx := mapping.FieldNameIndex(
-		reflect.TypeFor[search.Resource](),
-		search.Resource{}.SearchFieldOverrides(),
-	)
+	idx := mapping.FieldNameIndex(reflect.TypeFor[search.Resource](), search.Resource{}.SearchFieldOverrides())
 	for k, v := range aliases {
 		idx[k] = v
 	}
+	idx[""] = idx["name"]
 	return idx
 })
 
-// ResolveField maps a KQL key to the index field name: empty -> Name, a known
-// key (case-insensitive) -> its field, anything else unchanged.
-func ResolveField(name string) string {
-	if name == "" {
-		return "Name"
+// caseInsensitiveFields are the fields searched case-insensitively by default,
+// derived from the CaseInsensitive overrides.
+var caseInsensitiveFields = sync.OnceValue(func() map[string]struct{} {
+	out := map[string]struct{}{}
+	for field, opts := range (search.Resource{}).SearchFieldOverrides() {
+		if opts.CaseInsensitive != nil && *opts.CaseInsensitive {
+			out[field] = struct{}{}
+		}
 	}
+	return out
+})
+
+// pathFields are hierarchical path fields (TypePath), derived from the overrides.
+var pathFields = sync.OnceValue(func() map[string]struct{} {
+	out := map[string]struct{}{}
+	for field, opts := range (search.Resource{}).SearchFieldOverrides() {
+		if opts.Type == mapping.TypePath {
+			out[field] = struct{}{}
+		}
+	}
+	return out
+})
+
+// ResolveField maps a KQL key to its canonical field name; unknown keys pass through.
+func ResolveField(name string) string {
 	if v, ok := fieldIndex()[strings.ToLower(name)]; ok {
 		return v
 	}
 	return name
+}
+
+// FieldIsCaseInsensitive reports whether a field's default search is case-insensitive.
+func FieldIsCaseInsensitive(field string) bool {
+	_, ok := caseInsensitiveFields()[field]
+	return ok
+}
+
+// FieldIsPath reports whether a field is a hierarchical path field.
+func FieldIsPath(field string) bool {
+	_, ok := pathFields()[field]
+	return ok
 }

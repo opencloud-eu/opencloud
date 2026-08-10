@@ -25,6 +25,24 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 			Want: osu.NewTermQuery[string]("Name").Value("openCloud"),
 		},
 		{
+			Name: "case-insensitive term routes to the lowercased sibling",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Name", Value: "openCloud", CaseInsensitive: true},
+				},
+			},
+			Want: osu.NewTermQuery[string]("Name_lowercase").Value("opencloud"),
+		},
+		{
+			Name: "case-insensitive wildcard routes to the lowercased sibling",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Name", Value: "Open*", CaseInsensitive: true},
+				},
+			},
+			Want: osu.NewWildcardQuery("Name_lowercase").Value("open*"),
+		},
+		{
 			Name: "term query - boolean node - true",
 			Got: &ast.Ast{
 				Nodes: []ast.Node{

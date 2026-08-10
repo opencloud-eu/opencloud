@@ -23,9 +23,9 @@ type sample struct {
 var _ = Describe("Validate", func() {
 	It("accepts known override keys", func() {
 		err := Validate(reflect.TypeFor[sample](), map[string]FieldOpts{
-			"Name":         {Analyzer: "lowercaseKeyword"},
+			"Name":         {},
 			"audio":        {Type: TypeObject},
-			"audio.artist": {Analyzer: "lowercaseKeyword"},
+			"audio.artist": {},
 			"location":     {Type: TypeGeopoint},
 		})
 		Expect(err).ToNot(HaveOccurred())

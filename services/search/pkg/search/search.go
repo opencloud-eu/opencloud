@@ -71,12 +71,13 @@ type Resource struct {
 // resourceFieldOverrides is built once (it never changes) and reused on hot
 // paths instead of reallocating per call.
 var resourceFieldOverrides = sync.OnceValue(func() map[string]mapping.FieldOpts {
-	excludeFromAll := false
+	True, False := true, false
 	return map[string]mapping.FieldOpts{
-		"Name":      {Analyzer: "lowercaseKeyword"},
+		"Name":      {CaseInsensitive: &True},
+		"Path":      {Type: mapping.TypePath, CaseInsensitive: &True},
 		"Content":   {Type: mapping.TypeFulltext},
-		"Tags":      {Analyzer: "lowercaseKeyword", IncludeInAll: &excludeFromAll},
-		"Favorites": {Analyzer: "lowercaseKeyword", IncludeInAll: &excludeFromAll},
+		"Tags":      {CaseInsensitive: &True, IncludeInAll: &False},
+		"Favorites": {CaseInsensitive: &True, IncludeInAll: &False},
 		"location":  {Type: mapping.TypeGeopoint},
 	}
 })
@@ -86,27 +87,6 @@ var resourceFieldOverrides = sync.OnceValue(func() map[string]mapping.FieldOpts 
 // The map is shared and read-only; clone it before mutating.
 func (Resource) SearchFieldOverrides() map[string]mapping.FieldOpts {
 	return resourceFieldOverrides()
-}
-
-// lowercaseValueFields is the set of index field names whose query values must
-// be lowercased to match their index-time lowercasing analyzer (lowercaseKeyword
-// or the fulltext type). Built once from the field overrides.
-var lowercaseValueFields = sync.OnceValue(func() map[string]struct{} {
-	out := map[string]struct{}{}
-	for key, opts := range resourceFieldOverrides() {
-		if opts.Analyzer == "lowercaseKeyword" || opts.Type == mapping.TypeFulltext {
-			out[key] = struct{}{}
-		}
-	}
-	return out
-})
-
-// LowercaseValueFields returns the set of index field names whose query values
-// must be lowercased so query-side matching lines up with the index-time
-// analyzer. Both search backends use it, so value casing stays consistent; every
-// other (case-preserved) field keeps its original case. Read-only, do not mutate.
-func LowercaseValueFields() map[string]struct{} {
-	return lowercaseValueFields()
 }
 
 // ResolveReference makes sure the path is relative to the space root

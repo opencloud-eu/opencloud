@@ -78,6 +78,7 @@ var _ = Describe("OpenSearchBuildMapping", func() {
 	})
 
 	It("applies field overrides", func() {
+		True := true
 		type doc struct {
 			Name     string `json:"Name"`
 			Content  string `json:"Content"`
@@ -85,23 +86,23 @@ var _ = Describe("OpenSearchBuildMapping", func() {
 			MimeType string `json:"MimeType"`
 		}
 		props, err := OpenSearchBuildMapping(reflect.TypeFor[doc](), map[string]FieldOpts{
-			"Name":     {Analyzer: "lowercaseKeyword"},
+			"Name":     {CaseInsensitive: &True},
 			"Content":  {Type: TypeFulltext},
-			"Path":     {Type: TypePath},
+			"Path":     {Type: TypePath, CaseInsensitive: &True},
 			"MimeType": {Type: TypeWildcard},
 		})
 		Expect(err).ToNot(HaveOccurred())
-		name := props["Name"].(map[string]any)
-		Expect(name["type"]).To(Equal("text"), "Name: %#v", name)
-		Expect(name["analyzer"]).To(Equal("lowercaseKeyword"), "Name: %#v", name)
+		// Name: case-preserved keyword base + lowercased keyword sibling.
+		Expect(props["Name"]).To(Equal(map[string]any{"type": "keyword"}))
+		Expect(props["Name_lowercase"]).To(Equal(map[string]any{"type": "keyword"}))
 		content := props["Content"].(map[string]any)
 		Expect(content["type"]).To(Equal("text"), "Content: %#v", content)
 		Expect(content["term_vector"]).To(Equal("with_positions_offsets"), "Content: %#v", content)
 		_, ok := content["analyzer"]
 		Expect(ok).To(BeFalse(), "Content should leave analyzer unset (use OpenSearch default)")
-		path := props["Path"].(map[string]any)
-		Expect(path["type"]).To(Equal("text"), "Path: %#v", path)
-		Expect(path["analyzer"]).To(Equal("path_hierarchy"), "Path: %#v", path)
+		// Path: path_hierarchy base + lowercased sibling, both case-preserving.
+		Expect(props["Path"]).To(Equal(map[string]any{"type": "text", "analyzer": "path_hierarchy"}))
+		Expect(props["Path_lowercase"]).To(Equal(map[string]any{"type": "text", "analyzer": "path_hierarchy"}))
 		mime := props["MimeType"].(map[string]any)
 		Expect(mime["type"]).To(Equal("wildcard"), "MimeType: %#v", mime)
 	})

@@ -8,6 +8,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
 )
 
@@ -99,22 +100,28 @@ func (t kqlOpensearchTranspiler) toBuilder(node ast.Node) (osu.Builder, error) {
 	case *ast.BooleanNode:
 		return osu.NewTermQuery[bool](node.Key).Value(node.Value), nil
 	case *ast.StringNode:
-		isWildcard := strings.Contains(node.Value, "*")
-		if isWildcard {
-			return osu.NewWildcardQuery(node.Key).Value(node.Value), nil
+		field, value := node.Key, node.Value
+		if node.CaseInsensitive {
+			field += mapping.LowercaseSuffix
+			value = strings.ToLower(value)
 		}
 
-		totalTerms := strings.Split(node.Value, " ")
+		isWildcard := strings.Contains(value, "*")
+		if isWildcard {
+			return osu.NewWildcardQuery(field).Value(value), nil
+		}
+
+		totalTerms := strings.Split(value, " ")
 		isSingleTerm := len(totalTerms) == 1
 		isMultiTerm := len(totalTerms) >= 1
 		switch {
 		case isSingleTerm:
-			return osu.NewTermQuery[string](node.Key).Value(node.Value), nil
+			return osu.NewTermQuery[string](field).Value(value), nil
 		case isMultiTerm:
-			return osu.NewMatchPhraseQuery(node.Key).Query(node.Value), nil
+			return osu.NewMatchPhraseQuery(field).Query(value), nil
 		}
 
-		return nil, fmt.Errorf("unsupported string node value: %s", node.Value)
+		return nil, fmt.Errorf("unsupported string node value: %s", value)
 	case *ast.DateTimeNode:
 		if node.Operator == nil {
 			return builder, fmt.Errorf("date time node without operator: %w", ErrUnsupportedNodeType)

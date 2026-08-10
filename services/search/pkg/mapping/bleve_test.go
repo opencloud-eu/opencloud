@@ -65,21 +65,31 @@ var _ = Describe("BleveBuildMapping", func() {
 	})
 
 	It("applies field overrides", func() {
-		includeInAllFalse := false
+		True, False := true, false
 		dm, err := BleveBuildMapping(reflect.TypeFor[bleveDoc](), map[string]FieldOpts{
-			"Name":    {Analyzer: "lowercaseKeyword"},
+			"Name":    {CaseInsensitive: &True},
 			"Content": {Type: TypeFulltext},
-			"Tags":    {Analyzer: "lowercaseKeyword", IncludeInAll: &includeInAllFalse},
+			"Tags":    {CaseInsensitive: &True, IncludeInAll: &False},
 		})
 		Expect(err).ToNot(HaveOccurred())
-		nameField := dm.Properties["Name"].Fields[0]
-		Expect(nameField.Analyzer).To(Equal("lowercaseKeyword"), "Name analyzer")
-		Expect(nameField.IncludeInAll).To(BeTrue(), "Name IncludeInAll should stay default-true when not overridden")
+		// Name: case-preserved base keyword + lowercased sibling.
+		Expect(dm.Properties["Name"]).ToNot(BeNil(), "Name base field")
+		Expect(dm.Properties["Name"].Fields[0].Analyzer).To(Equal("keyword"), "Name base is a keyword")
+		Expect(dm.Properties["Name"].Fields[0].Store).To(BeTrue(), "Name base is stored (returned)")
+		Expect(dm.Properties["Name_lowercase"]).ToNot(BeNil(), "Name_lowercase sibling")
+		// The sibling is a search-only shadow: indexed but never stored, kept out
+		// of _all, no doc values (the base is what we return).
+		sibling := dm.Properties["Name_lowercase"].Fields[0]
+		Expect(sibling.Index).To(BeTrue(), "Name_lowercase is indexed")
+		Expect(sibling.Store).To(BeFalse(), "Name_lowercase is not stored")
+		Expect(sibling.IncludeInAll).To(BeFalse(), "Name_lowercase is out of _all")
+		Expect(sibling.DocValues).To(BeFalse(), "Name_lowercase has no doc values")
 		contentField := dm.Properties["Content"].Fields[0]
 		Expect(contentField.Analyzer).To(Equal("fulltext"), "Content analyzer")
 		Expect(contentField.IncludeInAll).To(BeFalse(), "Content IncludeInAll should default to false for fulltext type")
-		tagsField := dm.Properties["Tags"].Fields[0]
-		Expect(tagsField.IncludeInAll).To(BeFalse(), "Tags IncludeInAll should honor the explicit false override")
+		// Tags: base + lowercased sibling, both honoring the IncludeInAll override.
+		Expect(dm.Properties["Tags"].Fields[0].IncludeInAll).To(BeFalse(), "Tags base IncludeInAll honored")
+		Expect(dm.Properties["Tags_lowercase"].Fields[0].IncludeInAll).To(BeFalse(), "Tags sibling IncludeInAll honored")
 	})
 
 	It("builds an object sub-document plus a geopoint sibling", func() {

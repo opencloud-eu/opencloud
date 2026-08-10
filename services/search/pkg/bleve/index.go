@@ -12,7 +12,6 @@ import (
 	"github.com/blevesearch/bleve/v2/analysis/analyzer/keyword"
 	"github.com/blevesearch/bleve/v2/analysis/token/lowercase"
 	"github.com/blevesearch/bleve/v2/analysis/token/porter"
-	"github.com/blevesearch/bleve/v2/analysis/tokenizer/single"
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/unicode"
 	"github.com/blevesearch/bleve/v2/mapping"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -54,19 +53,6 @@ func NewMapping() (mapping.IndexMapping, error) {
 	indexMapping := bleve.NewIndexMapping()
 	indexMapping.DefaultAnalyzer = keyword.Name
 	indexMapping.DefaultMapping = docMapping
-	err = indexMapping.AddCustomAnalyzer("lowercaseKeyword",
-		map[string]any{
-			"type":      custom.Name,
-			"tokenizer": single.Name,
-			"token_filters": []string{
-				lowercase.Name,
-			},
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	err = indexMapping.AddCustomAnalyzer("fulltext",
 		map[string]any{
 			"type":      custom.Name,

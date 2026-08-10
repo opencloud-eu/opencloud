@@ -41,8 +41,11 @@ func TestEngine_Search(t *testing.T) {
 	backend, err := opensearch.NewBackend(indexName, tc.Client())
 	require.NoError(t, err)
 
+	// Upsert (not DocumentCreate) so PrepareForIndex writes the _lowercase
+	// siblings the case-insensitive Name search relies on.
 	document := opensearchtest.Testdata.Resources.File
-	tc.Require.DocumentCreate(indexName, document.ID, strings.NewReader(opensearchtest.JSONMustMarshal(t, document)))
+	require.NoError(t, backend.Upsert(document.ID, document))
+	tc.Require.IndicesRefresh([]string{indexName}, nil)
 	tc.Require.IndicesCount([]string{indexName}, nil, 1)
 
 	t.Run("most simple search", func(t *testing.T) {
@@ -60,7 +63,8 @@ func TestEngine_Search(t *testing.T) {
 		deletedDocument.ID = "1$2!4"
 		deletedDocument.Deleted = true
 
-		tc.Require.DocumentCreate(indexName, deletedDocument.ID, strings.NewReader(opensearchtest.JSONMustMarshal(t, deletedDocument)))
+		require.NoError(t, backend.Upsert(deletedDocument.ID, deletedDocument))
+		tc.Require.IndicesRefresh([]string{indexName}, nil)
 		tc.Require.IndicesCount([]string{indexName}, nil, 2)
 
 		resp, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{
@@ -136,6 +140,30 @@ func TestEngine_Move(t *testing.T) {
 		resources = opensearchtest.SearchHitsMustBeConverted[search.Resource](t, tc.Require.Search(indexName, strings.NewReader(body)).Hits)
 		require.Len(t, resources, 1)
 		require.Equal(t, document.Path, resources[0].Path)
+	})
+
+	t.Run("keeps case-insensitive path search working after a move", func(t *testing.T) {
+		// Upsert (not DocumentCreate) so PrepareForIndex writes Path_lowercase.
+		document := opensearchtest.Testdata.Resources.File
+		document.ID = "1$2!cimove"
+		document.Path = "./Foo/Bar"
+		require.NoError(t, backend.Upsert(document.ID, document))
+		tc.Require.IndicesRefresh([]string{indexName}, nil)
+
+		document.Path = "./Moved/Bar"
+		require.NoError(t, backend.Move(document.ID, document.ParentID, document.Path))
+		tc.Require.IndicesRefresh([]string{indexName}, nil)
+
+		// The move script rebuilds Path_lowercase, so an upper-cased
+		// (case-insensitive) query finds the doc at the new path and no longer at
+		// the old one. Without the sibling update this would be reversed.
+		respNew, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: `path:"./MOVED/BAR"`})
+		require.NoError(t, err)
+		require.Len(t, respNew.Matches, 1)
+
+		respOld, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: `path:"./FOO/BAR"`})
+		require.NoError(t, err)
+		require.Len(t, respOld.Matches, 0)
 	})
 }
 

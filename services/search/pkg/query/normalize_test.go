@@ -19,12 +19,23 @@ func norm(nodes ...ast.Node) []ast.Node {
 }
 
 func TestResolveField(t *testing.T) {
-	require.Equal(t, "Name", query.ResolveField(""))          // empty -> free-text default
-	require.Equal(t, "Name", query.ResolveField("NAME"))      // case-insensitive
-	require.Equal(t, "Tags", query.ResolveField("tag"))       // singular alias
-	require.Equal(t, "MimeType", query.ResolveField("mimetype"))                 // real field, case-insensitive
-	require.Equal(t, "photo.cameraMake", query.ResolveField("photo.CAMERAMAKE")) // facet, case-insensitive
+	require.Equal(t, "Name", query.ResolveField(""))     // empty -> free-text default
+	require.Equal(t, "Name", query.ResolveField("NAME")) // canonical, case-insensitive key match
+	require.Equal(t, "Tags", query.ResolveField("tag"))  // singular alias
+	require.Equal(t, "MimeType", query.ResolveField("mimetype"))                 // real field
+	require.Equal(t, "photo.cameraMake", query.ResolveField("photo.CAMERAMAKE")) // facet, case-insensitive key match
 	require.Equal(t, "unknown.field", query.ResolveField("unknown.field"))       // unknown key: unchanged, becomes a dead query
+}
+
+func TestFieldIsCaseInsensitive(t *testing.T) {
+	// The four CaseInsensitive override fields (resolved canonical names).
+	for _, f := range []string{"Name", "Path", "Tags", "Favorites"} {
+		require.True(t, query.FieldIsCaseInsensitive(f), f)
+	}
+	// Case-preserved / non-keyword fields are not.
+	for _, f := range []string{"MimeType", "ID", "Content", "unknown"} {
+		require.False(t, query.FieldIsCaseInsensitive(f), f)
+	}
 }
 
 func TestNormalize_ResolvesFieldsAndExpandsMediatype(t *testing.T) {
@@ -38,9 +49,9 @@ func TestNormalize_ResolvesFieldsAndExpandsMediatype(t *testing.T) {
 		&ast.StringNode{Key: "mediatype", Value: "file"},
 	)
 	require.Equal(t, []ast.Node{
-		&ast.StringNode{Key: "Name", Value: "free"},
+		&ast.StringNode{Key: "Name", Value: "free", CaseInsensitive: true},
 		&ast.OperatorNode{Value: "AND"},
-		&ast.StringNode{Key: "Tags", Value: "x"},
+		&ast.StringNode{Key: "Tags", Value: "x", CaseInsensitive: true},
 		&ast.OperatorNode{Value: "AND"},
 		&ast.StringNode{Key: "photo.cameraMake", Value: "canon"},
 		&ast.OperatorNode{Value: "AND"},
@@ -67,11 +78,11 @@ func TestNormalize_GroupKeyDefaulting(t *testing.T) {
 		&ast.GroupNode{Key: "author", Nodes: []ast.Node{
 			&ast.StringNode{Key: "author", Value: "b"},
 			&ast.OperatorNode{Value: "OR"},
-			&ast.StringNode{Key: "Name", Value: "d"},
+			&ast.StringNode{Key: "Name", Value: "d", CaseInsensitive: true},
 		}},
 		&ast.OperatorNode{Value: "AND"},
 		&ast.GroupNode{Nodes: []ast.Node{
-			&ast.StringNode{Key: "Name", Value: "e"},
+			&ast.StringNode{Key: "Name", Value: "e", CaseInsensitive: true},
 		}},
 	}, got)
 }
@@ -83,7 +94,7 @@ func TestNormalize_ConvertsValueNodesToPointers(t *testing.T) {
 		ast.DateTimeNode{Key: "mtime"},
 	)
 	require.Equal(t, []ast.Node{
-		&ast.StringNode{Key: "Name", Value: "x"},
+		&ast.StringNode{Key: "Name", Value: "x", CaseInsensitive: true},
 		&ast.OperatorNode{Value: "AND"},
 		&ast.DateTimeNode{Key: "Mtime"},
 	}, got)
