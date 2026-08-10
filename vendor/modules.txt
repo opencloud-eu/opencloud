@@ -1862,7 +1862,7 @@ github.com/rcrowley/go-metrics
 ## explicit; go 1.22.0
 github.com/riandyrn/otelchi
 github.com/riandyrn/otelchi/version
-# github.com/rogpeppe/go-internal v1.15.0
+# github.com/rogpeppe/go-internal v1.16.0
 ## explicit; go 1.25
 github.com/rogpeppe/go-internal/internal/syscall/windows
 github.com/rogpeppe/go-internal/internal/syscall/windows/sysdll
