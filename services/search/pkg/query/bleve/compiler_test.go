@@ -52,10 +52,16 @@ func Test_compile(t *testing.T) {
 					&ast.StringNode{Key: "path", Value: "/Foo"},
 				},
 			},
-			want: query.NewDisjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Path_lowercase:\/foo`),
-				query.NewQueryStringQuery(`Path_lowercase:\/foo\/*`),
-			}),
+			// a BooleanQuery (should: exact OR descendants), not a DisjunctionQuery,
+			// so an enclosing AND does not redistribute the folder-itself clause.
+			want: func() query.Query {
+				bq := query.NewBooleanQuery(nil, []query.Query{
+					query.NewQueryStringQuery(`Path_lowercase:\/foo`),
+					query.NewQueryStringQuery(`Path_lowercase:\/foo\/*`),
+				}, nil)
+				bq.SetMinShould(1)
+				return query.NewConjunctionQuery([]query.Query{bq})
+			}(),
 			wantErr: false,
 		},
 		{

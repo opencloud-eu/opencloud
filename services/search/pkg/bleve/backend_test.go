@@ -125,6 +125,17 @@ var _ = Describe("Bleve", func() {
 				assertDocCount(rootResource.ID, "Tags:baz", 0)
 			})
 
+			It("finds files by tags case-insensitively", func() {
+				// exercises the []string/[]any sibling-lowercasing branch end-to-end.
+				parentResource.Document.Tags = []string{"Work", "Urgent"}
+				Expect(eng.Upsert(parentResource.ID, parentResource)).To(Succeed())
+
+				assertDocCount(rootResource.ID, "tag:work", 1)   // stored "Work", queried lower
+				assertDocCount(rootResource.ID, "tag:WORK", 1)   // queried upper
+				assertDocCount(rootResource.ID, "Tags:Urgent", 1)
+				assertDocCount(rootResource.ID, "tag:missing", 0)
+			})
+
 			It("finds files by size", func() {
 				parentResource.Document.Size = 12345
 				err := eng.Upsert(parentResource.ID, parentResource)
@@ -286,6 +297,13 @@ var _ = Describe("Bleve", func() {
 			It("matches case-insensitively", func() {
 				assertDocCount(rootResource.ID, `path:"./PARENT D!R"`, 3)
 			})
+
+			It("applies an AND filter to the folder itself, not only descendants", func() {
+				// regression: the folder-itself clause used to match unconditionally
+				// under an AND, so the parent leaked in despite the name filter.
+				matches := assertDocCount(rootResource.ID, `path:"./parent d!r" AND name:child.pdf`, 1)
+				Expect(matches[0].Entity.Name).To(Equal("child.pdf"))
+			})
 		})
 
 		Context("by content", func() {
@@ -296,6 +314,7 @@ var _ = Describe("Bleve", func() {
 				assertDocCount(rootResource.ID, "content:running", 1)
 				assertDocCount(rootResource.ID, "content:RUNNING", 1) // case-insensitive
 				assertDocCount(rootResource.ID, "content:run", 1)     // porter stemming
+				assertDocCount(rootResource.ID, "content:run*", 1)    // wildcard over the stemmed term
 				assertDocCount(rootResource.ID, "content:cat", 0)
 			})
 		})

@@ -96,7 +96,9 @@ func TestEngine_FullTextSearch(t *testing.T) {
 	t.Run("content search is case-insensitive and stemmed, like bleve", func(t *testing.T) {
 		// case-folded and porter-stemmed by the fulltext analyzer; the match
 		// query analyzes the query value the same way.
-		for _, q := range []string{"content:running", "content:RUNNING", "content:run"} {
+		// "content:run*" is an unanalyzed wildcard over the stemmed term "run", so
+		// it must still route to a wildcard query (not degrade to a phrase match).
+		for _, q := range []string{"content:running", "content:RUNNING", "content:run", "content:run*"} {
 			resp, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: q})
 			require.NoError(t, err, q)
 			require.Len(t, resp.Matches, 1, q)
@@ -105,6 +107,46 @@ func TestEngine_FullTextSearch(t *testing.T) {
 		resp, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: "content:cat"})
 		require.NoError(t, err)
 		require.Len(t, resp.Matches, 0)
+	})
+}
+
+func TestEngine_CaseInsensitiveSearch(t *testing.T) {
+	indexName := "opencloud-test-engine-ci"
+	tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
+	tc.Require.IndicesReset([]string{indexName})
+	tc.Require.IndicesCount([]string{indexName}, nil, 0)
+
+	defer tc.Require.IndicesDelete([]string{indexName})
+
+	backend, err := opensearch.NewBackend(indexName, tc.Client())
+	require.NoError(t, err)
+
+	folder := opensearchtest.Testdata.Resources.Folder
+	folder.ID = "1$2!cifolder"
+	folder.Path = "./My Dir"
+	folder.Tags = []string{"Work", "Urgent"}
+	require.NoError(t, backend.Upsert(folder.ID, folder))
+
+	child := opensearchtest.Testdata.Resources.File
+	child.ID = "1$2!cichild"
+	child.ParentID = folder.ID
+	child.Path = "./My Dir/report.pdf"
+	child.Tags = nil
+	require.NoError(t, backend.Upsert(child.ID, child))
+	tc.Require.IndicesRefresh([]string{indexName}, nil)
+
+	t.Run("tags match case-insensitively (array sibling)", func(t *testing.T) {
+		for _, q := range []string{"tag:work", "tag:WORK", "Tags:Urgent"} {
+			resp, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: q})
+			require.NoError(t, err, q)
+			require.Len(t, resp.Matches, 1, q)
+		}
+	})
+
+	t.Run("path with spaces matches folder and descendants case-insensitively", func(t *testing.T) {
+		resp, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: `path:"./MY DIR"`})
+		require.NoError(t, err)
+		require.Len(t, resp.Matches, 2) // folder itself + the descendant
 	})
 }
 
