@@ -38,4 +38,17 @@ var _ = Describe("PrepareForIndex casing", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(m).ToNot(HaveKey("ID" + LowercaseSuffix))
 	})
+
+	It("writes an empty sibling for an empty array, like a non-empty one", func() {
+		True := true
+		type doc struct {
+			Tags []string `json:"Tags"`
+		}
+		m, err := PrepareForIndex(doc{Tags: []string{}}, map[string]FieldOpts{
+			"Tags": {CaseInsensitive: &True},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(m).To(HaveKey("Tags" + LowercaseSuffix))
+		Expect(m["Tags"+LowercaseSuffix]).To(BeEmpty())
+	})
 })
