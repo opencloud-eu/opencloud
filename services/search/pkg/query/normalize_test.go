@@ -55,8 +55,10 @@ func TestNormalize_ResolvesFieldsAndExpandsMediatype(t *testing.T) {
 		&ast.OperatorNode{Value: "AND"},
 		&ast.StringNode{Key: "photo.cameraMake", Value: "canon"},
 		&ast.OperatorNode{Value: "AND"},
-		&ast.OperatorNode{Value: "NOT"},
-		&ast.StringNode{Key: "MimeType", Value: "httpd/unix-directory"},
+		&ast.GroupNode{Nodes: []ast.Node{
+			&ast.OperatorNode{Value: "NOT"},
+			&ast.StringNode{Key: "MimeType", Value: "httpd/unix-directory"},
+		}},
 	}, got)
 }
 

@@ -45,9 +45,12 @@ func TestExpand_literalValuePassesThroughToMimeType(t *testing.T) {
 }
 
 func TestExpand_fileIsNotAFolder(t *testing.T) {
+	// grouped so the negation stays atomic next to an operator.
 	require.Equal(t, []ast.Node{
-		&ast.OperatorNode{Value: "NOT"},
-		&ast.StringNode{Key: "MimeType", Value: "httpd/unix-directory"},
+		&ast.GroupNode{Nodes: []ast.Node{
+			&ast.OperatorNode{Value: "NOT"},
+			&ast.StringNode{Key: "MimeType", Value: "httpd/unix-directory"},
+		}},
 	}, mimetype.Expand("mediatype", "file"))
 }
 

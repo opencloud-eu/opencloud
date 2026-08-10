@@ -337,6 +337,19 @@ var _ = Describe("Bleve", func() {
 				assertDocCount(rootResource.ID, "MimeType:image/svg+xml", 1)
 				assertDocCount(rootResource.ID, "MimeType:image/png", 1)
 			})
+
+			It("combines mediatype:file with another term", func() {
+				// regression: mediatype:file (a NOT) next to an operator dropped the
+				// other operand, so mediatype:file AND name:x matched nothing.
+				parentResource.Document.MimeType = "httpd/unix-directory" // a folder
+				childResource.Document.MimeType = "image/png"            // a file
+				for _, r := range []search.Resource{parentResource, childResource} {
+					Expect(eng.Upsert(r.ID, r)).To(Succeed())
+				}
+				assertDocCount(rootResource.ID, "mediatype:file", 1)                    // only the file
+				assertDocCount(rootResource.ID, "mediatype:file AND name:child.pdf", 1) // file AND its name
+				assertDocCount(rootResource.ID, "mediatype:file AND name:nope", 0)
+			})
 		})
 
 		Context("Highlights", func() {
