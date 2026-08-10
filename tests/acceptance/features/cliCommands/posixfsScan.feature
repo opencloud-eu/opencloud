@@ -23,15 +23,15 @@ Feature: posixfs scan CLI command
     And the command output should not contain "user.oc.id"
     And the administrator gets the extended attributes of file "inProject2.txt" in the space "projectSpace2" on the POSIX filesystem
     And the command output should not contain "user.oc.id"
-    And the administrator scans the whole storage using the CLI
-    And the command should be successful
+    When the administrator scans the whole storage using the CLI
+    Then the command should be successful
     And the command output should contain "Scan completed successfully."
-    And the administrator gets the extended attributes of file "scanned.txt" of user "Alice" on the POSIX filesystem
-    And the command output should contain "user.oc.id"
-    And the administrator gets the extended attributes of file "inProject1.txt" in the space "projectSpace1" on the POSIX filesystem
-    And the command output should contain "user.oc.id"
-    And the administrator gets the extended attributes of file "inProject2.txt" in the space "projectSpace2" on the POSIX filesystem
-    And the command output should contain "user.oc.id"
+    When the administrator gets the extended attributes of file "scanned.txt" of user "Alice" on the POSIX filesystem
+    Then the command output should contain "user.oc.id"
+    When the administrator gets the extended attributes of file "inProject1.txt" in the space "projectSpace1" on the POSIX filesystem
+    Then the command output should contain "user.oc.id"
+    When the administrator gets the extended attributes of file "inProject2.txt" in the space "projectSpace2" on the POSIX filesystem
+    Then the command output should contain "user.oc.id"
     And as "Alice" the final content of file "scanned.txt" should be "personal"
     And using spaces DAV path
     And for user "Alice" the space "projectSpace1" should contain these entries:
@@ -48,8 +48,8 @@ Feature: posixfs scan CLI command
     And the administrator scans the folder "scanFolder" of user "Alice" using the CLI
     And the command should be successful
     And the command output should contain "Scan completed successfully."
-    And the administrator gets the extended attributes of file "scanFolder/inside.txt" of user "Alice" on the POSIX filesystem
-    And the command output should contain "user.oc.id"
+    When the administrator gets the extended attributes of file "scanFolder/inside.txt" of user "Alice" on the POSIX filesystem
+    Then the command output should contain "user.oc.id"
     And as "Alice" the final content of file "scanFolder/inside.txt" should be "inside content"
 
 
@@ -59,8 +59,8 @@ Feature: posixfs scan CLI command
     And user "Alice" has created a space "projectSpace2" with the default quota using the Graph API
     And the administrator creates the file "inProject1.txt" with content "project one" in the space "projectSpace1" on the POSIX filesystem
     And the administrator creates the file "inProject2.txt" with content "project two" in the space "projectSpace2" on the POSIX filesystem
-    And the administrator scans the space "projectSpace1" using the CLI
-    And the command should be successful
+    When the administrator scans the space "projectSpace1" using the CLI
+    Then the command should be successful
     And the command output should contain "Scan completed successfully."
     And the administrator gets the extended attributes of file "inProject1.txt" in the space "projectSpace1" on the POSIX filesystem
     And the command output should contain "user.oc.id"
@@ -93,8 +93,8 @@ Feature: posixfs scan CLI command
   Scenario Outline: the halt-on-error flag controls whether the scan continues after an error
     Given the administrator creates the folder "validFolder" for user "Alice" on the POSIX filesystem
     And the administrator has created the file "validFolder/inside.txt" with content "keep going" for user "Alice" on the POSIX filesystem
-    And the administrator scans a non-existing path and the folder "validFolder" of user "Alice" using the CLI with flag "<flag>"
-    And the command should not be successful
+    When the administrator scans a non-existing path and the folder "validFolder" of user "Alice" using the CLI with flag "<flag>"
+    Then the command should not be successful
     And the command output should contain "<message>"
     And the administrator gets the extended attributes of file "validFolder/inside.txt" of user "Alice" on the POSIX filesystem
     And the command output <shouldOrNot> contain "user.oc.id"

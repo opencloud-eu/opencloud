@@ -39,12 +39,12 @@ Feature: posixfs consistency CLI command
     Given user "Alice" has uploaded file with content "content" to "textfile.txt"
     When the administrator sets the extended attribute "user.oc.cs.sha1" of file "textfile.txt" of user "Alice" to "corrupted" on the POSIX filesystem
     Then the command should be successful
-    And the administrator checks the posixfs consistency using the CLI
-    And the command should be successful
+    When the administrator checks the posixfs consistency using the CLI
+    Then the command should be successful
     And the command output should not contain "Fixed checksum"
-    And the administrator checks the posixfs consistency using the CLI with flag "--fix-checksums"
-    And the command should be successful
+    When the administrator checks the posixfs consistency using the CLI with flag "--fix-checksums"
+    Then the command should be successful
     And the command output should contain "Fixed checksum"
-    And the administrator checks the posixfs consistency using the CLI with flag "--fix-checksums"
-    And the command should be successful
+    When the administrator checks the posixfs consistency using the CLI with flag "--fix-checksums"
+    Then the command should be successful
     And the command output should not contain "Fixed checksum"
