@@ -85,13 +85,14 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 
 			var q bleveQuery.Query = bleveQuery.NewQueryStringQuery(k + ":" + v)
 			if searchQuery.FieldIsPath(n.Key) {
-				// bleve has no path hierarchy analyzer, unlike OpenSearch: match
-				// the folder itself and its descendants (`\/*`, a trailing
-				// wildcard on the value).
-				q = bleveQuery.NewDisjunctionQuery([]bleveQuery.Query{
-					q,
-					bleveQuery.NewQueryStringQuery(k + ":" + v + `\/*`),
-				})
+				// bleve has no path hierarchy analyzer, unlike OpenSearch: match the
+				// folder itself and its descendants (`\/*`). A BooleanQuery keeps
+				// this atomic; a DisjunctionQuery would be redistributed by an
+				// enclosing AND (mapBinary treats a left disjunction as an OR-chain).
+				bq := bleve.NewBooleanQuery()
+				bq.AddShould(q, bleveQuery.NewQueryStringQuery(k+":"+v+`\/*`))
+				bq.SetMinShould(1)
+				q = bq
 			}
 
 			if prev == nil {

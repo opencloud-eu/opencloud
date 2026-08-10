@@ -107,13 +107,13 @@ func (t kqlOpensearchTranspiler) toBuilder(node ast.Node) (osu.Builder, error) {
 			value = strings.ToLower(value)
 		}
 
-		if query.FieldIsFulltext(node.Key) {
-			return osu.NewMatchPhraseQuery(field).Query(value), nil
-		}
-
 		isWildcard := strings.Contains(value, "*")
 		if isWildcard {
 			return osu.NewWildcardQuery(field).Value(value), nil
+		}
+
+		if query.FieldIsFulltext(node.Key) {
+			return osu.NewMatchPhraseQuery(field).Query(value), nil
 		}
 
 		totalTerms := strings.Split(value, " ")
