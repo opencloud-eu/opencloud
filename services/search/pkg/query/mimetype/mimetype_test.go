@@ -22,6 +22,17 @@ func TestExpand_keyIsCaseInsensitive(t *testing.T) {
 	require.NotNil(t, mimetype.Expand("MediaType", "file"))
 }
 
+func TestExpand_valueIsCaseInsensitive(t *testing.T) {
+	// a category matches regardless of case
+	require.Equal(t, []ast.Node{
+		&ast.StringNode{Key: "MimeType", Value: "httpd/unix-directory"},
+	}, mimetype.Expand("mediatype", "Folder"))
+	// a literal MIME type is lowercased too (MIME types are case-insensitive)
+	require.Equal(t, []ast.Node{
+		&ast.StringNode{Key: "MimeType", Value: "image/svg+xml"},
+	}, mimetype.Expand("mediatype", "Image/SVG+XML"))
+}
+
 // A non-category value is a literal MIME type and targets the MimeType field.
 func TestExpand_literalValuePassesThroughToMimeType(t *testing.T) {
 	require.Equal(t, []ast.Node{

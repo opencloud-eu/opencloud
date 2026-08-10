@@ -328,6 +328,7 @@ var _ = Describe("Bleve", func() {
 				}
 
 				assertDocCount(rootResource.ID, "mediatype:image", 2) // image/* wildcard -> both
+				assertDocCount(rootResource.ID, "mediatype:IMAGE", 2) // categories are case-insensitive
 				assertDocCount(rootResource.ID, "mediatype:pdf", 0)
 				// literal MIME with + and /, must hit only the svg doc, not the png
 				assertDocCount(rootResource.ID, "mediatype:image/svg+xml", 1)

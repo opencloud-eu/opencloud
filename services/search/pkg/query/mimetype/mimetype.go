@@ -14,11 +14,13 @@ const field = "MimeType"
 
 // Expand turns mediatype:<value> into the MimeType query it stands for: category
 // values (file/document/image/...) expand to their MIME set, anything else is a
-// literal MimeType:<value>. Returns nil for non-mediatype keys.
+// literal MimeType:<value>. Returns nil for non-mediatype keys. Categories and
+// MIME types are case-insensitive, so the value is lowercased.
 func Expand(key, value string) []ast.Node {
 	if strings.ToLower(key) != "mediatype" {
 		return nil
 	}
+	value = strings.ToLower(value)
 	switch value {
 	case "file":
 		return []ast.Node{
