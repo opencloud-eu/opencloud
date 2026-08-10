@@ -133,6 +133,15 @@ func TestEngine_CaseInsensitiveSearch(t *testing.T) {
 	child.Path = "./My Dir/report.pdf"
 	child.Tags = nil
 	require.NoError(t, backend.Upsert(child.ID, child))
+
+	// a doc outside the folder, so the path assertions below discriminate: a
+	// phrase-matched path query would analyze into the "." prefix and match
+	// this one too
+	outside := opensearchtest.Testdata.Resources.File
+	outside.ID = "1$2!cioutside"
+	outside.Path = "./other.pdf"
+	outside.Tags = nil
+	require.NoError(t, backend.Upsert(outside.ID, outside))
 	tc.Require.IndicesRefresh([]string{indexName}, nil)
 
 	t.Run("tags match case-insensitively (array sibling)", func(t *testing.T) {
@@ -146,7 +155,13 @@ func TestEngine_CaseInsensitiveSearch(t *testing.T) {
 	t.Run("path with spaces matches folder and descendants case-insensitively", func(t *testing.T) {
 		resp, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: `path:"./MY DIR"`})
 		require.NoError(t, err)
-		require.Len(t, resp.Matches, 2) // folder itself + the descendant
+		require.Len(t, resp.Matches, 2) // folder itself + the descendant, not the outside doc
+	})
+
+	t.Run("path with spaces matches a descendant only itself", func(t *testing.T) {
+		resp, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: `path:"./My Dir/report.pdf"`})
+		require.NoError(t, err)
+		require.Len(t, resp.Matches, 1)
 	})
 }
 
@@ -265,24 +280,26 @@ func TestEngine_Move(t *testing.T) {
 
 	t.Run("keeps case-insensitive path search working after a move", func(t *testing.T) {
 		// Upsert (not DocumentCreate) so PrepareForIndex writes Path_lowercase.
+		// Spaced paths so the queries only stay exact as term queries; a phrase
+		// match would analyze into the "." prefix and match regardless.
 		document := opensearchtest.Testdata.Resources.File
 		document.ID = "1$2!cimove"
-		document.Path = "./Foo/Bar"
+		document.Path = "./Foo Dir/Bar"
 		require.NoError(t, backend.Upsert(document.ID, document))
 		tc.Require.IndicesRefresh([]string{indexName}, nil)
 
-		document.Path = "./Moved/Bar"
+		document.Path = "./Moved Dir/Bar"
 		require.NoError(t, backend.Move(document.ID, document.ParentID, document.Path))
 		tc.Require.IndicesRefresh([]string{indexName}, nil)
 
 		// The move script rebuilds Path_lowercase, so an upper-cased
 		// (case-insensitive) query finds the doc at the new path and no longer at
 		// the old one. Without the sibling update this would be reversed.
-		respNew, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: `path:"./MOVED/BAR"`})
+		respNew, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: `path:"./MOVED DIR/BAR"`})
 		require.NoError(t, err)
 		require.Len(t, respNew.Matches, 1)
 
-		respOld, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: `path:"./FOO/BAR"`})
+		respOld, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: `path:"./FOO DIR/BAR"`})
 		require.NoError(t, err)
 		require.Len(t, respOld.Matches, 0)
 	})

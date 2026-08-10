@@ -116,6 +116,13 @@ func (t kqlOpensearchTranspiler) toBuilder(node ast.Node) (osu.Builder, error) {
 			return osu.NewMatchPhraseQuery(field).Query(value), nil
 		}
 
+		// a path value is a single term in the path_hierarchy token stream; a
+		// phrase match would analyze the query into its path prefixes and match
+		// everything under the root, so paths with spaces must stay term queries.
+		if query.FieldIsPath(node.Key) {
+			return osu.NewTermQuery[string](field).Value(value), nil
+		}
+
 		totalTerms := strings.Split(value, " ")
 		isSingleTerm := len(totalTerms) == 1
 		isMultiTerm := len(totalTerms) >= 1
