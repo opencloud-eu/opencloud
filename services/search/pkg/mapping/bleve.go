@@ -12,10 +12,8 @@ import (
 // struct via reflection. Field names come from json tags; overrides are
 // keyed by those names (or dotted paths for nested fields).
 //
-// The returned mapping references analyzer names (Analyzer field on the
-// FieldOpts, plus "fulltext" / "path_hierarchy" for the corresponding Types);
-// the caller is responsible for registering those analyzers on the enclosing
-// IndexMapping.
+// The returned mapping references the "fulltext" analyzer for Fulltext fields;
+// the caller registers it on the enclosing IndexMapping.
 func BleveBuildMapping(t reflect.Type, overrides map[string]FieldOpts) (*bleveMapping.DocumentMapping, error) {
 	return buildBleveDocMapping(t, overrides, "")
 }
@@ -61,6 +59,16 @@ func buildBleveDocMapping(t reflect.Type, overrides map[string]FieldOpts, prefix
 			return nil
 		}
 
+		if fieldType == TypeKeyword || fieldType == TypePath {
+			// bleve has no path tokenizer, so a path is a plain keyword here.
+			base := bleveKeywordMapping(fieldType, opts)
+			doc.AddFieldMappingsAt(fi.Name, base)
+			if opts.caseInsensitive() {
+				doc.AddFieldMappingsAt(fi.Name+LowercaseSuffix, lowercaseSibling(base))
+			}
+			return nil
+		}
+
 		fm, err := bleveFieldMapping(fieldType, opts)
 		if err != nil {
 			return fmt.Errorf("mapping: field %q: %w", key, err)
@@ -71,26 +79,46 @@ func buildBleveDocMapping(t reflect.Type, overrides map[string]FieldOpts, prefix
 	return doc, err
 }
 
+// bleveKeywordMapping is a case-preserving keyword field; path fields stay out
+// of _all by default.
+func bleveKeywordMapping(fieldType string, opts FieldOpts) *bleveMapping.FieldMapping {
+	fm := bleve.NewKeywordFieldMapping()
+	switch {
+	case opts.IncludeInAll != nil:
+		fm.IncludeInAll = *opts.IncludeInAll
+	case fieldType == TypePath:
+		fm.IncludeInAll = false
+	}
+	return fm
+}
+
+// lowercaseSibling derives the lowercased shadow of a keyword/path field from its
+// base mapping: used only for case-insensitive matching, so indexed but never
+// stored, kept out of _all, and without doc values, since the case-preserved base
+// field is what we return and aggregate on.
+func lowercaseSibling(base *bleveMapping.FieldMapping) *bleveMapping.FieldMapping {
+	fm := *base
+	fm.Store = false
+	fm.IncludeInAll = false
+	fm.DocValues = false
+	return &fm
+}
+
 func bleveFieldMapping(fieldType string, opts FieldOpts) (*bleveMapping.FieldMapping, error) {
 	switch fieldType {
 	case TypeWildcard:
 		// bleve has no wildcard type; fall back to keyword-ish text.
 		fieldType = TypeKeyword
 		fallthrough
-	case TypeKeyword, TypeFulltext, TypePath:
+	case TypeKeyword, TypeFulltext:
 		fm := bleve.NewTextFieldMapping()
-		switch {
-		case opts.Analyzer != "":
-			fm.Analyzer = opts.Analyzer
-		case fieldType == TypeFulltext:
+		if fieldType == TypeFulltext {
 			fm.Analyzer = "fulltext"
-		case fieldType == TypePath:
-			fm.Analyzer = "path_hierarchy"
 		}
 		switch {
 		case opts.IncludeInAll != nil:
 			fm.IncludeInAll = *opts.IncludeInAll
-		case fieldType == TypeFulltext, fieldType == TypePath:
+		case fieldType == TypeFulltext:
 			fm.IncludeInAll = false
 		}
 		return fm, nil

@@ -35,6 +35,7 @@ func normalizeNodes(nodes []ast.Node, resolve func(string) string, defaultKey st
 				out = append(out, normalizeNodes(exp, resolve, defaultKey)...)
 				continue
 			}
+			node.CaseInsensitive = FieldIsCaseInsensitive(node.Key)
 			out = append(out, node)
 		case *ast.DateTimeNode:
 			node.Key = resolveKey(node.Key)

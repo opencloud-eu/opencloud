@@ -56,7 +56,20 @@ func buildOpenSearchProperties(t reflect.Type, overrides map[string]FieldOpts, p
 			return nil
 		}
 
-		fm, err := openSearchFieldMapping(fieldType, opts, fi.GoField.Type)
+		if fieldType == TypeKeyword || fieldType == TypePath {
+			// path_hierarchy is case-preserving here; casing lives in the value.
+			m := map[string]any{"type": "keyword"}
+			if fieldType == TypePath {
+				m = map[string]any{"type": "text", "analyzer": "path_hierarchy"}
+			}
+			props[fi.Name] = m
+			if opts.caseInsensitive() {
+				props[fi.Name+LowercaseSuffix] = m
+			}
+			return nil
+		}
+
+		fm, err := openSearchFieldMapping(fieldType, fi.GoField.Type)
 		if err != nil {
 			return fmt.Errorf("mapping: field %q: %w", key, err)
 		}
@@ -66,32 +79,15 @@ func buildOpenSearchProperties(t reflect.Type, overrides map[string]FieldOpts, p
 	return props, err
 }
 
-func openSearchFieldMapping(fieldType string, opts FieldOpts, goType reflect.Type) (map[string]any, error) {
+// openSearchFieldMapping handles the non-keyword/path types; keyword and path
+// are emitted (with their cased forms) by buildOpenSearchProperties directly.
+func openSearchFieldMapping(fieldType string, goType reflect.Type) (map[string]any, error) {
 	switch fieldType {
-	case TypeKeyword:
-		m := map[string]any{"type": "keyword"}
-		if opts.Analyzer != "" {
-			m["type"] = "text"
-			m["analyzer"] = opts.Analyzer
-		}
-		return m, nil
 	case TypeFulltext:
-		m := map[string]any{
+		return map[string]any{
 			"type":        "text",
 			"term_vector": "with_positions_offsets",
-		}
-		if opts.Analyzer != "" {
-			m["analyzer"] = opts.Analyzer
-		}
-		return m, nil
-	case TypePath:
-		m := map[string]any{"type": "text"}
-		if opts.Analyzer != "" {
-			m["analyzer"] = opts.Analyzer
-		} else {
-			m["analyzer"] = "path_hierarchy"
-		}
-		return m, nil
+		}, nil
 	case TypeWildcard:
 		// OpenSearch stores wildcard fields with doc_values=false by
 		// default, so emit it explicitly to keep local and remote

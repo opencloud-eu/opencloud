@@ -39,7 +39,22 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewConjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Name:federated`),
+				query.NewQueryStringQuery(`Name_lowercase:federated`),
+			}),
+			wantErr: false,
+		},
+		{
+			// path fields expand to match the folder itself and its descendants,
+			// since bleve has no path hierarchy analyzer.
+			name: `path:/Foo`,
+			args: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "path", Value: "/Foo"},
+				},
+			},
+			want: query.NewDisjunctionQuery([]query.Query{
+				query.NewQueryStringQuery(`Path_lowercase:\/foo`),
+				query.NewQueryStringQuery(`Path_lowercase:\/foo\/*`),
 			}),
 			wantErr: false,
 		},
@@ -51,7 +66,7 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewConjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Name:john\ smith`),
+				query.NewQueryStringQuery(`Name_lowercase:john\ smith`),
 			}),
 			wantErr: false,
 		},
@@ -65,8 +80,8 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewConjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Name:john\ smith`),
-				query.NewQueryStringQuery(`Name:jane`),
+				query.NewQueryStringQuery(`Name_lowercase:john\ smith`),
+				query.NewQueryStringQuery(`Name_lowercase:jane`),
 			}),
 			wantErr: false,
 		},
@@ -80,8 +95,8 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewConjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Tags:bestseller`),
-				query.NewQueryStringQuery(`Tags:book`),
+				query.NewQueryStringQuery(`Tags_lowercase:bestseller`),
+				query.NewQueryStringQuery(`Tags_lowercase:book`),
 			}),
 			wantErr: false,
 		},
@@ -97,10 +112,10 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewDisjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Name:moby\ di*`),
+				query.NewQueryStringQuery(`Name_lowercase:moby\ di*`),
 				query.NewConjunctionQuery([]query.Query{
-					query.NewQueryStringQuery(`Tags:bestseller`),
-					query.NewQueryStringQuery(`Tags:book`),
+					query.NewQueryStringQuery(`Tags_lowercase:bestseller`),
+					query.NewQueryStringQuery(`Tags_lowercase:book`),
 				}),
 			}),
 			wantErr: false,
@@ -118,10 +133,10 @@ func Test_compile(t *testing.T) {
 			},
 			want: query.NewDisjunctionQuery([]query.Query{
 				query.NewConjunctionQuery([]query.Query{
-					query.NewQueryStringQuery(`Name:a`),
-					query.NewQueryStringQuery(`Name:b`),
+					query.NewQueryStringQuery(`Name_lowercase:a`),
+					query.NewQueryStringQuery(`Name_lowercase:b`),
 				}),
-				query.NewQueryStringQuery(`Name:c`),
+				query.NewQueryStringQuery(`Name_lowercase:c`),
 			}),
 			wantErr: false,
 		},
@@ -137,10 +152,10 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewDisjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Name:a`),
+				query.NewQueryStringQuery(`Name_lowercase:a`),
 				query.NewConjunctionQuery([]query.Query{
-					query.NewQueryStringQuery(`Name:b`),
-					query.NewQueryStringQuery(`Name:c`),
+					query.NewQueryStringQuery(`Name_lowercase:b`),
+					query.NewQueryStringQuery(`Name_lowercase:c`),
 				}),
 			}),
 			wantErr: false,
@@ -162,11 +177,11 @@ func Test_compile(t *testing.T) {
 			},
 			want: query.NewConjunctionQuery([]query.Query{
 				query.NewDisjunctionQuery([]query.Query{
-					query.NewQueryStringQuery(`Name:a`),
-					query.NewQueryStringQuery(`Name:b`),
-					query.NewQueryStringQuery(`Name:c`),
+					query.NewQueryStringQuery(`Name_lowercase:a`),
+					query.NewQueryStringQuery(`Name_lowercase:b`),
+					query.NewQueryStringQuery(`Name_lowercase:c`),
 				}),
-				query.NewQueryStringQuery(`Name:d`),
+				query.NewQueryStringQuery(`Name_lowercase:d`),
 			}),
 			wantErr: false,
 		},
@@ -185,10 +200,10 @@ func Test_compile(t *testing.T) {
 			},
 			want: query.NewConjunctionQuery([]query.Query{
 				query.NewDisjunctionQuery([]query.Query{
-					query.NewQueryStringQuery(`Name:moby\ di*`),
-					query.NewQueryStringQuery(`Tags:bestseller`),
+					query.NewQueryStringQuery(`Name_lowercase:moby\ di*`),
+					query.NewQueryStringQuery(`Tags_lowercase:bestseller`),
 				}),
-				query.NewQueryStringQuery(`Tags:book`),
+				query.NewQueryStringQuery(`Tags_lowercase:book`),
 			}),
 			wantErr: false,
 		},
@@ -210,11 +225,11 @@ func Test_compile(t *testing.T) {
 			},
 			want: query.NewConjunctionQuery([]query.Query{
 				query.NewDisjunctionQuery([]query.Query{
-					query.NewQueryStringQuery(`Name:moby\ di*`),
-					query.NewQueryStringQuery(`Tags:bestseller`),
+					query.NewQueryStringQuery(`Name_lowercase:moby\ di*`),
+					query.NewQueryStringQuery(`Tags_lowercase:bestseller`),
 				}),
-				query.NewQueryStringQuery(`Tags:book`),
-				query.NewBooleanQuery(nil, nil, []query.Query{query.NewQueryStringQuery(`Tags:read`)}),
+				query.NewQueryStringQuery(`Tags_lowercase:book`),
+				query.NewBooleanQuery(nil, nil, []query.Query{query.NewQueryStringQuery(`Tags_lowercase:read`)}),
 			}),
 			wantErr: false,
 		},
@@ -257,7 +272,7 @@ func Test_compile(t *testing.T) {
 			want: query.NewConjunctionQuery([]query.Query{
 				query.NewQueryStringQuery(`author:John\ Smith`),
 				query.NewQueryStringQuery(`author:Jane`),
-				query.NewQueryStringQuery(`Tags:bestseller`),
+				query.NewQueryStringQuery(`Tags_lowercase:bestseller`),
 			}),
 			wantErr: false,
 		},
@@ -299,7 +314,7 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewConjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Name:john\ smith`),
+				query.NewQueryStringQuery(`Name_lowercase:john\ smith`),
 				query.NewQueryStringQuery(`Hidden:T`),
 				query.NewQueryStringQuery(`Hidden:T`),
 			}),
@@ -314,7 +329,7 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewConjunctionQuery([]query.Query{
-				query.NewBooleanQuery(nil, nil, []query.Query{query.NewQueryStringQuery(`Tags:physik`)}),
+				query.NewBooleanQuery(nil, nil, []query.Query{query.NewQueryStringQuery(`Tags_lowercase:physik`)}),
 			}),
 			wantErr: false,
 		},
@@ -430,7 +445,7 @@ func Test_compile(t *testing.T) {
 					query.NewQueryStringQuery(`MimeType:application/rtf`),
 					query.NewQueryStringQuery(`MimeType:application/vnd.apple.pages`),
 				}),
-				query.NewQueryStringQuery(`Name:*tdd*`),
+				query.NewQueryStringQuery(`Name_lowercase:*tdd*`),
 			}),
 			wantErr: false,
 		},
@@ -456,7 +471,7 @@ func Test_compile(t *testing.T) {
 				query.NewQueryStringQuery(`MimeType:application/vnd.apple.pages`),
 				query.NewConjunctionQuery([]query.Query{
 					query.NewQueryStringQuery(`MimeType:application/pdf`),
-					query.NewQueryStringQuery(`Name:*tdd*`),
+					query.NewQueryStringQuery(`Name_lowercase:*tdd*`),
 				}),
 			}),
 			wantErr: false,
@@ -486,7 +501,7 @@ func Test_compile(t *testing.T) {
 					query.NewQueryStringQuery(`MimeType:application/vnd.apple.pages`),
 					query.NewQueryStringQuery(`MimeType:application/pdf`),
 				}),
-				query.NewQueryStringQuery(`Name:*tdd*`),
+				query.NewQueryStringQuery(`Name_lowercase:*tdd*`),
 			}),
 			wantErr: false,
 		},
@@ -515,7 +530,7 @@ func Test_compile(t *testing.T) {
 					query.NewQueryStringQuery(`MimeType:application/rtf`),
 					query.NewQueryStringQuery(`MimeType:application/vnd.apple.pages`),
 				}),
-				query.NewQueryStringQuery(`Name:*tdd*`),
+				query.NewQueryStringQuery(`Name_lowercase:*tdd*`),
 			}),
 			wantErr: false,
 		},
@@ -527,7 +542,7 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewConjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Name:john\ smith\ \+\-\=\&\|\>\<\!\(\)\{\}\[\]\^\"\~\:\ `),
+				query.NewQueryStringQuery(`Name_lowercase:john\ smith\ \+\-\=\&\|\>\<\!\(\)\{\}\[\]\^\"\~\:\ `),
 			}),
 			wantErr: false,
 		},

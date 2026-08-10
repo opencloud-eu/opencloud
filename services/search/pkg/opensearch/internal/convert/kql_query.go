@@ -18,11 +18,10 @@ func KQLToOpenSearchBoolQuery(kqlQuery string) (*osu.BoolQuery, error) {
 		return nil, fmt.Errorf("failed to build query: %w", err)
 	}
 
-	// shared lowering (field resolution + media-type), then value lowercasing.
+	// shared lowering: field resolution, media-type expansion, value lowercasing.
 	kqlAst = query.Normalize(kqlAst, query.ResolveField)
-	kqlNodes := LowerValues(kqlAst.Nodes)
 
-	builder, err := TranspileKQLToOpenSearch(kqlNodes)
+	builder, err := TranspileKQLToOpenSearch(kqlAst.Nodes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile query: %w", err)
 	}

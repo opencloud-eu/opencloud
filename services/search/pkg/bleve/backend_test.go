@@ -268,6 +268,26 @@ var _ = Describe("Bleve", func() {
 			})
 		})
 
+		Context("by path", func() {
+			BeforeEach(func() {
+				for _, r := range []search.Resource{parentResource, childResource, childResource2} {
+					Expect(eng.Upsert(r.ID, r)).To(Succeed())
+				}
+			})
+
+			It("matches a folder and its descendants", func() {
+				assertDocCount(rootResource.ID, `path:"./parent d!r"`, 3)
+			})
+
+			It("matches a descendant path only itself", func() {
+				assertDocCount(rootResource.ID, `path:"./parent d!r/child.pdf"`, 1)
+			})
+
+			It("matches case-insensitively", func() {
+				assertDocCount(rootResource.ID, `path:"./PARENT D!R"`, 3)
+			})
+		})
+
 		Context("Highlights", func() {
 
 			It("highlights only for content searches", func() {
@@ -554,6 +574,20 @@ var _ = Describe("Bleve", func() {
 			Expect(matches[0].Entity.ParentId.OpaqueId).To(Equal("somewhereopaqueid"))
 			Expect(matches[0].Entity.Ref.Path).To(Equal("./somewhere/else/newname"))
 
+		})
+
+		It("keeps case-insensitive search working after a move", func() {
+			Expect(eng.Upsert(parentResource.ID, parentResource)).To(Succeed())
+			Expect(eng.Upsert(childResource.ID, childResource)).To(Succeed())
+
+			Expect(eng.Move(parentResource.ID, parentResource.ParentID, "./my/NewName")).To(Succeed())
+
+			// the lowercased siblings are rebuilt at the new path, so a
+			// case-insensitive query finds the folder under its new name and path,
+			// including the descendant, and no longer under the old path.
+			assertDocCount(rootResource.ID, "name:NEWNAME", 1)
+			assertDocCount(rootResource.ID, `path:"./MY/NEWNAME"`, 2)
+			assertDocCount(rootResource.ID, `path:"./parent d!r"`, 0)
 		})
 	})
 
