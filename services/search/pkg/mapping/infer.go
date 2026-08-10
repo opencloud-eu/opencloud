@@ -58,6 +58,7 @@ func resolveField(sf reflect.StructField) fieldInfo {
 		return fieldInfo{Skip: true}
 	}
 	name := sf.Name
+	named := false
 	tag := sf.Tag.Get("json")
 	if tag != "" {
 		first, _, _ := strings.Cut(tag, ",")
@@ -66,12 +67,16 @@ func resolveField(sf reflect.StructField) fieldInfo {
 		}
 		if first != "" {
 			name = first
+			named = true
 		}
 	}
 	return fieldInfo{
-		Name:     name,
-		GoField:  sf,
-		Embedded: sf.Anonymous,
+		Name:    name,
+		GoField: sf,
+		// An anonymous field is embedded (flattened onto the parent) only when it
+		// has no json tag name, matching encoding/json: a tag name nests it as a
+		// regular field instead.
+		Embedded: sf.Anonymous && !named,
 	}
 }
 

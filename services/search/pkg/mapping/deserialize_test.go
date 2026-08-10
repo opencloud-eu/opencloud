@@ -32,6 +32,13 @@ type embedded struct {
 	Photo *photo `json:"photo,omitempty"`
 }
 
+// taggedEmbedded embeds Leaf with a json tag, so encoding/json nests it under
+// "leaf" rather than flattening it onto the parent.
+type taggedEmbedded struct {
+	Leaf `json:"leaf"`
+	Top  string `json:"top"`
+}
+
 var _ = Describe("Deserialize", func() {
 	It("panics for a non-struct type at a prefix", func() {
 		Expect(func() {
@@ -114,5 +121,19 @@ var _ = Describe("Deserialize", func() {
 		Expect(*r.Artist).To(Equal("A"))
 		Expect(r.Year).ToNot(BeNil())
 		Expect(*r.Year).To(Equal(int32(2024)))
+	})
+
+	It("nests a tagged embedded struct instead of flattening it", func() {
+		// matches encoding/json: a tagged embedded struct is read under its tag.
+		r := Deserialize[taggedEmbedded](map[string]any{
+			"leaf.Name": "n",
+			"top":       "t",
+		})
+		Expect(r.Leaf.Name).To(Equal("n"))
+		Expect(r.Top).To(Equal("t"))
+
+		// the flattened top-level key must NOT populate the nested field.
+		flat := Deserialize[taggedEmbedded](map[string]any{"Name": "flat"})
+		Expect(flat.Leaf.Name).To(BeEmpty())
 	})
 })

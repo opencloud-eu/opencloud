@@ -87,6 +87,14 @@ func fillStruct[V any](v reflect.Value, fields map[string]V, prefix string, setL
 			}
 		}
 
+		// Value nested struct (e.g. a tagged embedded struct): recurse under key.
+		if fv.Kind() == reflect.Struct && fv.Type() != timeType && fv.Type() != timestampType {
+			if fillStruct(fv, fields, key, setLeaf) {
+				touched = true
+			}
+			continue
+		}
+
 		if raw, ok := fields[key]; ok && setLeaf(fv, raw) == nil {
 			touched = true
 		}
