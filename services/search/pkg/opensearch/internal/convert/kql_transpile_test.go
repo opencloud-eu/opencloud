@@ -43,6 +43,15 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 			Want: osu.NewWildcardQuery("Name_lowercase").Value("open*"),
 		},
 		{
+			Name: "full-text field uses an analyzed match query, not an unanalyzed term",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Content", Value: "Running"},
+				},
+			},
+			Want: osu.NewMatchPhraseQuery("Content").Query("Running"),
+		},
+		{
 			Name: "term query - boolean node - true",
 			Got: &ast.Ast{
 				Nodes: []ast.Node{

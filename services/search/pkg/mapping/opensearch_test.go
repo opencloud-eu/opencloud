@@ -98,8 +98,7 @@ var _ = Describe("OpenSearchBuildMapping", func() {
 		content := props["Content"].(map[string]any)
 		Expect(content["type"]).To(Equal("text"), "Content: %#v", content)
 		Expect(content["term_vector"]).To(Equal("with_positions_offsets"), "Content: %#v", content)
-		_, ok := content["analyzer"]
-		Expect(ok).To(BeFalse(), "Content should leave analyzer unset (use OpenSearch default)")
+		Expect(content["analyzer"]).To(Equal("fulltext"), "Content uses the stemming fulltext analyzer, like bleve")
 		// Path: path_hierarchy base + lowercased sibling, both case-preserving.
 		Expect(props["Path"]).To(Equal(map[string]any{"type": "text", "analyzer": "path_hierarchy"}))
 		Expect(props["Path_lowercase"]).To(Equal(map[string]any{"type": "text", "analyzer": "path_hierarchy"}))

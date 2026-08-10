@@ -77,6 +77,37 @@ func TestEngine_Search(t *testing.T) {
 	})
 }
 
+func TestEngine_FullTextSearch(t *testing.T) {
+	indexName := "opencloud-test-engine-fulltext"
+	tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
+	tc.Require.IndicesReset([]string{indexName})
+	tc.Require.IndicesCount([]string{indexName}, nil, 0)
+
+	defer tc.Require.IndicesDelete([]string{indexName})
+
+	backend, err := opensearch.NewBackend(indexName, tc.Client())
+	require.NoError(t, err)
+
+	document := opensearchtest.Testdata.Resources.File
+	document.Content = "Running Foxes"
+	require.NoError(t, backend.Upsert(document.ID, document))
+	tc.Require.IndicesRefresh([]string{indexName}, nil)
+
+	t.Run("content search is case-insensitive and stemmed, like bleve", func(t *testing.T) {
+		// case-folded and porter-stemmed by the fulltext analyzer; the match
+		// query analyzes the query value the same way.
+		for _, q := range []string{"content:running", "content:RUNNING", "content:run"} {
+			resp, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: q})
+			require.NoError(t, err, q)
+			require.Len(t, resp.Matches, 1, q)
+		}
+
+		resp, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: "content:cat"})
+		require.NoError(t, err)
+		require.Len(t, resp.Matches, 0)
+	})
+}
+
 func TestEngine_Upsert(t *testing.T) {
 	indexName := "opencloud-test-engine-upsert"
 	tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)

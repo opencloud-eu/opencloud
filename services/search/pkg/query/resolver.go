@@ -49,6 +49,18 @@ var pathFields = sync.OnceValue(func() map[string]struct{} {
 	return out
 })
 
+// fulltextFields are analyzed full-text fields (TypeFulltext), derived from the
+// overrides.
+var fulltextFields = sync.OnceValue(func() map[string]struct{} {
+	out := map[string]struct{}{}
+	for field, opts := range (search.Resource{}).SearchFieldOverrides() {
+		if opts.Type == mapping.TypeFulltext {
+			out[field] = struct{}{}
+		}
+	}
+	return out
+})
+
 // ResolveField maps a KQL key to its canonical field name; unknown keys pass through.
 func ResolveField(name string) string {
 	if v, ok := fieldIndex()[strings.ToLower(name)]; ok {
@@ -66,5 +78,11 @@ func FieldIsCaseInsensitive(field string) bool {
 // FieldIsPath reports whether a field is a hierarchical path field.
 func FieldIsPath(field string) bool {
 	_, ok := pathFields()[field]
+	return ok
+}
+
+// FieldIsFulltext reports whether a field is an analyzed full-text field.
+func FieldIsFulltext(field string) bool {
+	_, ok := fulltextFields()[field]
 	return ok
 }
