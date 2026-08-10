@@ -450,3 +450,20 @@ Feature: Notification
     When user "Brian" lists all notifications
     Then the HTTP status code should be "200"
     And there should be "2" notifications
+
+
+  Scenario: get a notification of space deleted
+    Given user "Alice" has disabled a space "notification checking"
+    When user "Alice" has deleted a space "notification checking"
+    Then user "Brian" should get a notification with subject "Space deleted" and message:
+      | message                                          |
+      | Alice Hansen deleted Space notification checking |
+
+
+  Scenario: get a notification of space membership expired
+    When user "Alice" expires the user share of space "notification checking" for user "Brian"
+    Then the HTTP status code should be "200"
+    # trigger the notification to be sent to the user
+    And user "Brian" should get a notification with subject "Membership expired" and message:
+      | message                                    |
+      | Access to Space notification checking lost |

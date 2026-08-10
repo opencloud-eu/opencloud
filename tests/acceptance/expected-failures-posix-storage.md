@@ -355,6 +355,11 @@ tests/acceptance/features/cliCommands/restoreTrashBinItems.feature
 - [apiSharingNg1/shareFileVersions.feature:55](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSharingNg1/shareFileVersions.feature#L55)
 - [apiSharingNg1/shareFileVersions.feature:56](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSharingNg1/shareFileVersions.feature#L56)
 
+### notification issue #323
+- [apiNotification/emailNotification.feature:280](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiNotification/emailNotification.feature#L280)
+- [apiNotification/emailNotification.feature:298](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiNotification/emailNotification.feature#L298)
+- [apiNotification/spaceNotification.feature:463](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiNotification/spaceNotification.feature#L463)
+
 ### Won't fix
 
 Not everything needs to be implemented for opencloud.

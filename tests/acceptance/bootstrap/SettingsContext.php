@@ -518,4 +518,196 @@ class SettingsContext implements Context {
 		$this->featureContext->setResponse($response);
 		$this->featureContext->rememberUserAutoSyncSetting($user, false);
 	}
+
+	/**
+	 * maps a notification event name
+	 */
+	private const EVENT_TO_SETTING = [
+		"Share Received" => "event-share-created-options",
+		"Share Removed" => "event-share-removed-options",
+		"Share Expired" => "event-share-expired-options",
+		"Added As Space Member" => "event-space-shared-options",
+		"Removed As Space Member" => "event-space-unshared-options",
+		"Space Membership Expired" => "event-space-membership-expired-options",
+		"Space Disabled" => "event-space-disabled-options",
+		"Space Deleted" => "event-space-deleted-options",
+		"File Rejected" => "event-postprocessing-step-finished-options",
+	];
+
+	/**
+	 * @param string $user
+	 * @param string $enableOrDisable
+	 * @param array $event
+	 *
+	 * @return ResponseInterface
+	 *
+	 * @throws GuzzleException
+	 * @throws Exception
+	 */
+	public function sendRequestToEnableOrDisableNotificationForEvent(
+		string $user,
+		string $enableOrDisable,
+		array $event
+	): ResponseInterface {
+		Assert::assertArrayHasKey(
+			$event['event'],
+			self::EVENT_TO_SETTING,
+			"Unknown notification event '{$event['event']}'"
+		);
+		$settingName = self::EVENT_TO_SETTING[$event['event']];
+
+		$profileBundlesList = $this->getBundleByName($user, "Profile");
+		Assert::assertNotEmpty($profileBundlesList, "bundles list is empty");
+
+		$settingId = '';
+		foreach ($profileBundlesList["settings"] as $value) {
+			if ($value["name"] === $settingName) {
+				$settingId = $value["id"];
+				break;
+			}
+		}
+		Assert::assertNotEmpty($settingId, "settingId for '$settingName' is empty");
+
+		$enable = \in_array($enableOrDisable, ["enables", "enabled"], true);
+		$value = [
+			"account_uuid" => "me",
+			"bundleId" => $profileBundlesList["id"],
+			"settingId" => $settingId,
+			"resource" => [
+				"type" => "TYPE_USER"
+			],
+		];
+		foreach (explode(',', $event['notificationTypes']) as $type) {
+			$value["collectionValue"]["values"][] = [
+				"key" => $type,
+				"boolValue" => $enable,
+			];
+		}
+		$body = json_encode(["value" => $value], JSON_THROW_ON_ERROR);
+
+		return SettingsHelper::updateSettings(
+			$this->featureContext->getBaseUrl(),
+			$user,
+			$this->featureContext->getPasswordForUser($user),
+			$body,
+			$this->featureContext->getStepLineRef()
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $enableOrDisable
+	 * @param TableNode $table
+	 *
+	 * @return void
+	 *
+	 * @throws GuzzleException
+	 * @throws Exception
+	 */
+	#[When('/^user "([^"]*)" (disables|enables) notification for the following event using the settings API:$/')]
+	public function userEnablesOrDisablesNotificationForTheFollowingEventUsingTheSettingsApi(
+		string $user,
+		string $enableOrDisable,
+		TableNode $table
+	): void {
+		$response = $this->sendRequestToEnableOrDisableNotificationForEvent(
+			$user,
+			$enableOrDisable,
+			$table->getRowsHash()
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $enableOrDisable
+	 * @param TableNode $table
+	 *
+	 * @return void
+	 *
+	 * @throws GuzzleException
+	 * @throws Exception
+	 */
+	#[Given('/^user "([^"]*)" has (disabled|enabled) notification for the following event using the settings API:$/')]
+	public function userHasEnabledOrDisabledNotificationForTheFollowingEventUsingTheSettingsApi(
+		string $user,
+		string $enableOrDisable,
+		TableNode $table
+	): void {
+		$response = $this->sendRequestToEnableOrDisableNotificationForEvent(
+			$user,
+			$enableOrDisable,
+			$table->getRowsHash()
+		);
+		$this->featureContext->theHTTPStatusCodeShouldBe(
+			201,
+			"Expected response status code should be 201",
+			$response
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $interval
+	 *
+	 * @return ResponseInterface
+	 *
+	 * @throws GuzzleException
+	 * @throws Exception
+	 */
+	public function sendRequestToSetEmailSendingInterval(string $user, string $interval): ResponseInterface {
+		$profileBundlesList = $this->getBundleByName($user, "Profile");
+		Assert::assertNotEmpty($profileBundlesList, "bundles list is empty");
+
+		$settingId = '';
+		foreach ($profileBundlesList["settings"] as $value) {
+			if ($value["name"] === "email-sending-interval-options") {
+				$settingId = $value["id"];
+				break;
+			}
+		}
+		Assert::assertNotEmpty($settingId, "settingId for 'email-sending-interval-options' is empty");
+
+		$body = json_encode(
+			[
+				"value" => [
+					"accountUuid" => "me",
+					"bundleId" => $profileBundlesList["id"],
+					"settingId" => $settingId,
+					"resource" => [
+						"type" => "TYPE_USER"
+					],
+					"stringValue" => $interval
+				]
+			],
+			JSON_THROW_ON_ERROR
+		);
+
+		return SettingsHelper::updateSettings(
+			$this->featureContext->getBaseUrl(),
+			$user,
+			$this->featureContext->getPasswordForUser($user),
+			$body,
+			$this->featureContext->getStepLineRef()
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $interval
+	 *
+	 * @return void
+	 *
+	 * @throws GuzzleException
+	 * @throws Exception
+	 */
+	#[Given('user :user has set the email sending interval to :interval using the settings API')]
+	public function userHasSetTheEmailSendingInterval(string $user, string $interval): void {
+		$response = $this->sendRequestToSetEmailSendingInterval($user, $interval);
+		$this->featureContext->theHTTPStatusCodeShouldBe(
+			201,
+			"Expected response status code should be 201",
+			$response
+		);
+	}
 }
