@@ -16,17 +16,20 @@ func Validate(t reflect.Type, overrides map[string]FieldOpts) error {
 	if len(overrides) == 0 {
 		return nil
 	}
-	names := collectNames(t, "")
+	fields := collectFields(t, "")
 	var unknown, miscased []string
 	for k, opts := range overrides {
-		if _, ok := names[k]; !ok {
+		goType, ok := fields[k]
+		if !ok {
 			unknown = append(unknown, k)
 			continue
 		}
 		// CaseInsensitive routes queries to a <field>_lowercase sibling, which is
 		// only generated for keyword/path fields; on any other type the query
-		// would target a non-existent field and silently match nothing.
-		if opts.caseInsensitive() && !isCasedType(opts) {
+		// would target a non-existent field and silently match nothing. Use the
+		// effective type (override, else the inferred Go type), since an override
+		// with no explicit Type still infers keyword/numeric/... from the field.
+		if opts.caseInsensitive() && !effectivelyCased(opts, goType) {
 			miscased = append(miscased, k)
 		}
 	}
@@ -41,17 +44,29 @@ func Validate(t reflect.Type, overrides map[string]FieldOpts) error {
 	return nil
 }
 
-func collectNames(t reflect.Type, prefix string) map[string]struct{} {
-	out := map[string]struct{}{}
+// effectivelyCased reports whether a field is keyword/path (the only types that
+// get a _lowercase sibling), from the override type or the inferred Go type.
+func effectivelyCased(opts FieldOpts, goType reflect.Type) bool {
+	eff := opts.Type
+	if eff == "" && goType != nil {
+		eff = inferType(goType)
+	}
+	return eff == TypeKeyword || eff == TypePath
+}
+
+// collectFields maps every known field name (nested as "parent.child") to its Go
+// type. Embedded structs are flattened, matching encoding/json.
+func collectFields(t reflect.Type, prefix string) map[string]reflect.Type {
+	out := map[string]reflect.Type{}
 	_ = walkFields(t, func(fi fieldInfo) error {
 		key := fi.Name
 		if prefix != "" {
 			key = prefix + "." + fi.Name
 		}
-		out[key] = struct{}{}
+		out[key] = fi.GoField.Type
 		if sub := structType(fi.GoField.Type); sub != nil {
-			for k := range collectNames(sub, key) {
-				out[k] = struct{}{}
+			for k, v := range collectFields(sub, key) {
+				out[k] = v
 			}
 		}
 		return nil

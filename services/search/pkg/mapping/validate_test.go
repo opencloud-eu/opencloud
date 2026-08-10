@@ -54,4 +54,28 @@ var _ = Describe("Validate", func() {
 		Expect(err.Error()).To(ContainSubstring("Name"))
 		Expect(err.Error()).To(ContainSubstring("CaseInsensitive"))
 	})
+
+	It("rejects CaseInsensitive on an inferred non-keyword field (empty Type)", func() {
+		True := true
+		type doc struct {
+			Size uint64 `json:"Size"`
+		}
+		err := Validate(reflect.TypeFor[doc](), map[string]FieldOpts{
+			"Size": {CaseInsensitive: &True}, // no explicit Type -> inferred numeric
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("Size"))
+	})
+
+	It("accepts CaseInsensitive on an inferred keyword field (empty Type)", func() {
+		True := true
+		type doc struct {
+			Name string   `json:"Name"`
+			Tags []string `json:"Tags"`
+		}
+		Expect(Validate(reflect.TypeFor[doc](), map[string]FieldOpts{
+			"Name": {CaseInsensitive: &True},
+			"Tags": {CaseInsensitive: &True},
+		})).To(Succeed())
+	})
 })
