@@ -319,6 +319,25 @@ var _ = Describe("Bleve", func() {
 			})
 		})
 
+		Context("by mediatype", func() {
+			It("matches categories and literal MIME types (incl. + and /)", func() {
+				childResource.Document.MimeType = "image/svg+xml"
+				childResource2.Document.MimeType = "image/png"
+				for _, r := range []search.Resource{childResource, childResource2} {
+					Expect(eng.Upsert(r.ID, r)).To(Succeed())
+				}
+
+				assertDocCount(rootResource.ID, "mediatype:image", 2) // image/* wildcard -> both
+				assertDocCount(rootResource.ID, "mediatype:pdf", 0)
+				// literal MIME with + and /, must hit only the svg doc, not the png
+				assertDocCount(rootResource.ID, "mediatype:image/svg+xml", 1)
+				assertDocCount(rootResource.ID, "mediatype:image/png", 1)
+				// the same literal via the raw field name (no mediatype alias)
+				assertDocCount(rootResource.ID, "MimeType:image/svg+xml", 1)
+				assertDocCount(rootResource.ID, "MimeType:image/png", 1)
+			})
+		})
+
 		Context("Highlights", func() {
 
 			It("highlights only for content searches", func() {

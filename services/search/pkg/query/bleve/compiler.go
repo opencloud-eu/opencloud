@@ -71,8 +71,10 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 	for i := offset; i < len(nodes); i++ {
 		switch n := nodes[i].(type) {
 		case *ast.StringNode:
-			// keys are resolved and media-type expanded by normalize; MimeType
-			// values are literal MIME types, so they skip the escaper.
+			// keys are resolved and media-type expanded by normalize. MimeType
+			// skips the escaper so the category wildcards (image/*) keep their `*`;
+			// bleve treats `/` and `+` as literals mid-term, so a literal MIME like
+			// image/svg+xml still matches exactly.
 			k := n.Key
 			v := n.Value
 			if k != "ID" && k != "Size" && k != "MimeType" {
