@@ -44,4 +44,14 @@ var _ = Describe("Validate", func() {
 	It("accepts empty overrides", func() {
 		Expect(Validate(reflect.TypeFor[sample](), nil)).To(Succeed())
 	})
+
+	It("rejects CaseInsensitive on a non-keyword/path field", func() {
+		True := true
+		err := Validate(reflect.TypeFor[sample](), map[string]FieldOpts{
+			"Name": {Type: TypeFulltext, CaseInsensitive: &True},
+		})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("Name"))
+		Expect(err.Error()).To(ContainSubstring("CaseInsensitive"))
+	})
 })
