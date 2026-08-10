@@ -44,9 +44,7 @@ func addLowercaseSibling(parent map[string]any, leaf string) {
 				out = append(out, strings.ToLower(s))
 			}
 		}
-		if len(out) > 0 {
-			parent[leaf+LowercaseSuffix] = out
-		}
+		parent[leaf+LowercaseSuffix] = out
 	case []string:
 		out := make([]string, len(v))
 		for i, s := range v {
