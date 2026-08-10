@@ -77,3 +77,22 @@ func TestFieldNameIndex_CoversAllTopLevelFields(t *testing.T) {
 		require.Equalf(t, want, resolve(idx, in), "derived should cover %q", in)
 	}
 }
+
+// NestInner is embedded with a json tag below, so it must nest, not flatten.
+type NestInner struct {
+	A string `json:"A"`
+}
+
+type taggedOuter struct {
+	NestInner `json:"inner"`
+	Top       string `json:"top"`
+}
+
+// A json-tagged embedded struct nests under its tag in the derived index too
+// (walkFields must match encoding/json), so its fields are "inner.A", not "A".
+func TestFieldNameIndex_TaggedEmbeddedNests(t *testing.T) {
+	idx := mapping.FieldNameIndex(reflect.TypeFor[taggedOuter](), nil)
+	require.Equal(t, "inner.A", resolve(idx, "inner.a")) // nested under the tag
+	require.Equal(t, "top", resolve(idx, "top"))
+	require.Equal(t, "a", resolve(idx, "a")) // not flattened: bare "a" is not a key
+}
