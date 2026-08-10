@@ -1,9 +1,8 @@
 package query_test
 
 import (
-	"testing"
-
-	"github.com/stretchr/testify/require"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/query"
@@ -18,86 +17,93 @@ func norm(nodes ...ast.Node) []ast.Node {
 	return query.Normalize(&ast.Ast{Nodes: nodes}, query.ResolveField).Nodes
 }
 
-func TestResolveField(t *testing.T) {
-	require.Equal(t, "Name", query.ResolveField(""))     // empty -> free-text default
-	require.Equal(t, "Name", query.ResolveField("NAME")) // canonical, case-insensitive key match
-	require.Equal(t, "Tags", query.ResolveField("tag"))  // singular alias
-	require.Equal(t, "MimeType", query.ResolveField("mimetype"))                 // real field
-	require.Equal(t, "photo.cameraMake", query.ResolveField("photo.CAMERAMAKE")) // facet, case-insensitive key match
-	require.Equal(t, "unknown.field", query.ResolveField("unknown.field"))       // unknown key: unchanged, becomes a dead query
-}
+var _ = Describe("ResolveField", func() {
+	It("resolves keys to canonical field names", func() {
+		Expect(query.ResolveField("")).To(Equal("Name"))                             // empty -> free-text default
+		Expect(query.ResolveField("NAME")).To(Equal("Name"))                         // canonical, case-insensitive key match
+		Expect(query.ResolveField("tag")).To(Equal("Tags"))                          // singular alias
+		Expect(query.ResolveField("mimetype")).To(Equal("MimeType"))                 // real field
+		Expect(query.ResolveField("photo.CAMERAMAKE")).To(Equal("photo.cameraMake")) // facet, case-insensitive key match
+		Expect(query.ResolveField("unknown.field")).To(Equal("unknown.field"))       // unknown key: unchanged, becomes a dead query
+	})
+})
 
-func TestFieldIsCaseInsensitive(t *testing.T) {
-	// The four CaseInsensitive override fields (resolved canonical names).
-	for _, f := range []string{"Name", "Path", "Tags", "Favorites"} {
-		require.True(t, query.FieldIsCaseInsensitive(f), f)
-	}
-	// Case-preserved / non-keyword fields are not.
-	for _, f := range []string{"MimeType", "ID", "Content", "unknown"} {
-		require.False(t, query.FieldIsCaseInsensitive(f), f)
-	}
-}
+var _ = Describe("FieldIsCaseInsensitive", func() {
+	It("reports the CaseInsensitive override fields", func() {
+		// The four CaseInsensitive override fields (resolved canonical names).
+		for _, f := range []string{"Name", "Path", "Tags", "Favorites"} {
+			Expect(query.FieldIsCaseInsensitive(f)).To(BeTrue(), f)
+		}
+		// Case-preserved / non-keyword fields are not.
+		for _, f := range []string{"MimeType", "ID", "Content", "unknown"} {
+			Expect(query.FieldIsCaseInsensitive(f)).To(BeFalse(), f)
+		}
+	})
+})
 
-func TestNormalize_ResolvesFieldsAndExpandsMediatype(t *testing.T) {
-	got := norm(
-		&ast.StringNode{Key: "", Value: "free"},
-		&ast.OperatorNode{Value: "AND"},
-		&ast.StringNode{Key: "TAG", Value: "x"},
-		&ast.OperatorNode{Value: "AND"},
-		&ast.StringNode{Key: "photo.cameramake", Value: "canon"},
-		&ast.OperatorNode{Value: "AND"},
-		&ast.StringNode{Key: "mediatype", Value: "file"},
-	)
-	require.Equal(t, []ast.Node{
-		&ast.StringNode{Key: "Name", Value: "free", CaseInsensitive: true},
-		&ast.OperatorNode{Value: "AND"},
-		&ast.StringNode{Key: "Tags", Value: "x", CaseInsensitive: true},
-		&ast.OperatorNode{Value: "AND"},
-		&ast.StringNode{Key: "photo.cameraMake", Value: "canon"},
-		&ast.OperatorNode{Value: "AND"},
-		&ast.GroupNode{Nodes: []ast.Node{
-			&ast.OperatorNode{Value: "NOT"},
-			&ast.StringNode{Key: "MimeType", Value: "httpd/unix-directory"},
-		}},
-	}, got)
-}
+var _ = Describe("Normalize", func() {
+	It("resolves fields and expands mediatype", func() {
+		got := norm(
+			&ast.StringNode{Key: "", Value: "free"},
+			&ast.OperatorNode{Value: "AND"},
+			&ast.StringNode{Key: "TAG", Value: "x"},
+			&ast.OperatorNode{Value: "AND"},
+			&ast.StringNode{Key: "photo.cameramake", Value: "canon"},
+			&ast.OperatorNode{Value: "AND"},
+			&ast.StringNode{Key: "mediatype", Value: "file"},
+		)
+		Expect(got).To(Equal([]ast.Node{
+			&ast.StringNode{Key: "Name", Value: "free", CaseInsensitive: true},
+			&ast.OperatorNode{Value: "AND"},
+			&ast.StringNode{Key: "Tags", Value: "x", CaseInsensitive: true},
+			&ast.OperatorNode{Value: "AND"},
+			&ast.StringNode{Key: "photo.cameraMake", Value: "canon"},
+			&ast.OperatorNode{Value: "AND"},
+			&ast.GroupNode{Nodes: []ast.Node{
+				&ast.OperatorNode{Value: "NOT"},
+				&ast.StringNode{Key: "MimeType", Value: "httpd/unix-directory"},
+			}},
+		}))
+	})
 
-// A bare restriction inside a named group inherits the group key; a keyed child
-// keeps its own key; a bare restriction in an unnamed group falls back to Name.
-func TestNormalize_GroupKeyDefaulting(t *testing.T) {
-	got := norm(
-		&ast.GroupNode{Key: "author", Nodes: []ast.Node{
-			&ast.StringNode{Value: "b"},
-			&ast.OperatorNode{Value: "OR"},
-			&ast.StringNode{Key: "name", Value: "d"},
-		}},
-		&ast.OperatorNode{Value: "AND"},
-		&ast.GroupNode{Nodes: []ast.Node{
-			&ast.StringNode{Value: "e"},
-		}},
-	)
-	require.Equal(t, []ast.Node{
-		&ast.GroupNode{Key: "author", Nodes: []ast.Node{
-			&ast.StringNode{Key: "author", Value: "b"},
-			&ast.OperatorNode{Value: "OR"},
-			&ast.StringNode{Key: "Name", Value: "d", CaseInsensitive: true},
-		}},
-		&ast.OperatorNode{Value: "AND"},
-		&ast.GroupNode{Nodes: []ast.Node{
-			&ast.StringNode{Key: "Name", Value: "e", CaseInsensitive: true},
-		}},
-	}, got)
-}
+	// A bare restriction inside a named group inherits the group key; a keyed
+	// child keeps its own key; a bare restriction in an unnamed group falls
+	// back to Name.
+	It("defaults group keys", func() {
+		got := norm(
+			&ast.GroupNode{Key: "author", Nodes: []ast.Node{
+				&ast.StringNode{Value: "b"},
+				&ast.OperatorNode{Value: "OR"},
+				&ast.StringNode{Key: "name", Value: "d"},
+			}},
+			&ast.OperatorNode{Value: "AND"},
+			&ast.GroupNode{Nodes: []ast.Node{
+				&ast.StringNode{Value: "e"},
+			}},
+		)
+		Expect(got).To(Equal([]ast.Node{
+			&ast.GroupNode{Key: "author", Nodes: []ast.Node{
+				&ast.StringNode{Key: "author", Value: "b"},
+				&ast.OperatorNode{Value: "OR"},
+				&ast.StringNode{Key: "Name", Value: "d", CaseInsensitive: true},
+			}},
+			&ast.OperatorNode{Value: "AND"},
+			&ast.GroupNode{Nodes: []ast.Node{
+				&ast.StringNode{Key: "Name", Value: "e", CaseInsensitive: true},
+			}},
+		}))
+	})
 
-func TestNormalize_ConvertsValueNodesToPointers(t *testing.T) {
-	got := norm(
-		ast.StringNode{Key: "name", Value: "x"},
-		ast.OperatorNode{Value: "AND"},
-		ast.DateTimeNode{Key: "mtime"},
-	)
-	require.Equal(t, []ast.Node{
-		&ast.StringNode{Key: "Name", Value: "x", CaseInsensitive: true},
-		&ast.OperatorNode{Value: "AND"},
-		&ast.DateTimeNode{Key: "Mtime"},
-	}, got)
-}
+	It("converts value nodes to pointers", func() {
+		got := norm(
+			ast.StringNode{Key: "name", Value: "x"},
+			ast.OperatorNode{Value: "AND"},
+			ast.DateTimeNode{Key: "mtime"},
+		)
+		Expect(got).To(Equal([]ast.Node{
+			&ast.StringNode{Key: "Name", Value: "x", CaseInsensitive: true},
+			&ast.OperatorNode{Value: "AND"},
+			&ast.DateTimeNode{Key: "Mtime"},
+		}))
+	})
+})
