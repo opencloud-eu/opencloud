@@ -17,17 +17,28 @@ func Validate(t reflect.Type, overrides map[string]FieldOpts) error {
 		return nil
 	}
 	names := collectNames(t, "")
-	var unknown []string
-	for k := range overrides {
+	var unknown, miscased []string
+	for k, opts := range overrides {
 		if _, ok := names[k]; !ok {
 			unknown = append(unknown, k)
+			continue
+		}
+		// CaseInsensitive routes queries to a <field>_lowercase sibling, which is
+		// only generated for keyword/path fields; on any other type the query
+		// would target a non-existent field and silently match nothing.
+		if opts.caseInsensitive() && !isCasedType(opts) {
+			miscased = append(miscased, k)
 		}
 	}
-	if len(unknown) == 0 {
-		return nil
+	if len(unknown) > 0 {
+		sort.Strings(unknown)
+		return fmt.Errorf("mapping: unknown override keys: %s", strings.Join(unknown, ", "))
 	}
-	sort.Strings(unknown)
-	return fmt.Errorf("mapping: unknown override keys: %s", strings.Join(unknown, ", "))
+	if len(miscased) > 0 {
+		sort.Strings(miscased)
+		return fmt.Errorf("mapping: CaseInsensitive is only valid on keyword/path fields: %s", strings.Join(miscased, ", "))
+	}
+	return nil
 }
 
 func collectNames(t reflect.Type, prefix string) map[string]struct{} {
