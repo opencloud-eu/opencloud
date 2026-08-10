@@ -72,7 +72,10 @@ func (b *Batch) Move(id, parentID, location string) error {
 				newName := path.Base(newPath)
 				return &osu.BodyParamScript{
 					// Keep the case-preserved base fields and their lowercased
-					// search siblings in sync: swap the moved prefix in both. The
+					// search siblings in sync: swap the moved prefix in both. Only
+					// the leading oldPath is replaced (startsWith + substring, not
+					// String.replace, which would also rewrite a repeated segment
+					// deeper in a descendant's path, e.g. /Music/Music.m3u). The
 					// lowercased new values come from Go's strings.ToLower via
 					// params, so the sibling stays byte-identical to what
 					// PrepareForIndex writes on upsert (painless toLowerCase would
@@ -83,9 +86,11 @@ func (b *Batch) Move(id, parentID, location string) error {
 							ctx._source.ParentID = params.parentID;
 							if (ctx._source.Name%[1]s != null) { ctx._source.Name%[1]s = params.newNameLower; }
 						}
-						ctx._source.Path = ctx._source.Path.replace(params.oldPath, params.newPath);
-						if (ctx._source.Path%[1]s != null) {
-							ctx._source.Path%[1]s = ctx._source.Path%[1]s.replace(params.oldPathLower, params.newPathLower);
+						if (ctx._source.Path != null && ctx._source.Path.startsWith(params.oldPath)) {
+							ctx._source.Path = params.newPath + ctx._source.Path.substring(params.oldPath.length());
+						}
+						if (ctx._source.Path%[1]s != null && ctx._source.Path%[1]s.startsWith(params.oldPathLower)) {
+							ctx._source.Path%[1]s = params.newPathLower + ctx._source.Path%[1]s.substring(params.oldPathLower.length());
 						}
 					`, mapping.LowercaseSuffix),
 					Lang: "painless",
