@@ -75,10 +75,17 @@ func buildResourceMapping() ([]byte, error) {
 			"number_of_replicas": "1",
 			"analysis": map[string]any{
 				// path_hierarchy is case-preserving; casing lives in the value.
+				// fulltext mirrors the bleve fulltext analyzer (lowercase + porter
+				// stemming) so full-text search behaves the same on both backends.
 				"analyzer": map[string]any{
 					"path_hierarchy": map[string]any{
 						"type":      "custom",
 						"tokenizer": "path_hierarchy",
+					},
+					"fulltext": map[string]any{
+						"type":      "custom",
+						"tokenizer": "standard",
+						"filter":    []string{"lowercase", "porter_stem"},
 					},
 				},
 				"tokenizer": map[string]any{

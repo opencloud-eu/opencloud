@@ -10,6 +10,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/query"
 )
 
 func TranspileKQLToOpenSearch(nodes []ast.Node) (osu.Builder, error) {
@@ -104,6 +105,10 @@ func (t kqlOpensearchTranspiler) toBuilder(node ast.Node) (osu.Builder, error) {
 		if node.CaseInsensitive {
 			field += mapping.LowercaseSuffix
 			value = strings.ToLower(value)
+		}
+
+		if query.FieldIsFulltext(node.Key) {
+			return osu.NewMatchPhraseQuery(field).Query(value), nil
 		}
 
 		isWildcard := strings.Contains(value, "*")
