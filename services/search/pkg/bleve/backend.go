@@ -102,6 +102,11 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 	}
 
 	for _, agg := range sir.GetAggregations() {
+		// Top-level metrics are computed by scanning the matched hits, they
+		// have no facet representation.
+		if agg.GetMetricKind() != searchService.MetricKind_METRIC_KIND_UNSPECIFIED {
+			continue
+		}
 		fr, err := newBleveFacetRequest(agg)
 		if err != nil {
 			return nil, err
@@ -109,8 +114,9 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 		bleveReq.AddFacet(agg.GetField(), fr)
 	}
 
-	// Sub-aggregations need the matched hit set, not just count facets: widen
-	// the page so the emulator has enough docs. The caller's larger PageSize wins.
+	// Sub-aggregations and top-level metrics need the matched hit set, not just
+	// count facets: widen the page so the emulator has enough docs. The caller's
+	// larger PageSize wins.
 	if needsSubAggScan(sir.GetAggregations()) && bleveReq.Size < subAggScanSize {
 		bleveReq.Size = subAggScanSize
 	}
@@ -180,6 +186,9 @@ const subAggScanSize = math.MaxInt
 func needsSubAggScan(aggs []*searchService.AggregationOption) bool {
 	for _, agg := range aggs {
 		if len(agg.GetSubAggregations()) > 0 {
+			return true
+		}
+		if agg.GetMetricKind() != searchService.MetricKind_METRIC_KIND_UNSPECIFIED {
 			return true
 		}
 	}
@@ -257,11 +266,23 @@ func parseRangeTime(s string) (time.Time, error) {
 }
 
 func extractBleveAggregations(res *bleve.SearchResult, aggs []*searchService.AggregationOption) []*searchService.AggregationResult {
-	if len(aggs) == 0 || len(res.Facets) == 0 {
+	if len(aggs) == 0 {
 		return nil
 	}
 	out := make([]*searchService.AggregationResult, 0, len(aggs))
 	for _, agg := range aggs {
+		// Top-level metric: fold the matched hits through the sub-agg
+		// accumulator, there is no facet to read from.
+		if agg.GetMetricKind() != searchService.MetricKind_METRIC_KIND_UNSPECIFIED {
+			acc := newSubAcc(agg)
+			for _, hit := range res.Hits {
+				accumulateHit(acc, agg, hit)
+			}
+			if r := emitAcc(acc, agg); r != nil {
+				out = append(out, r)
+			}
+			continue
+		}
 		fr, ok := res.Facets[agg.GetField()]
 		if !ok {
 			continue

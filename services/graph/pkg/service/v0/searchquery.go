@@ -141,6 +141,10 @@ func validateAggregations(aggs []libregraph.AggregationOption) error {
 		if !search.IsNumericField(a.Field) {
 			continue
 		}
+		if a.MetricKind != nil && *a.MetricKind != "" {
+			// metrics reduce numeric values, no term buckets involved
+			continue
+		}
 		hasRanges := a.BucketDefinition != nil && len(a.BucketDefinition.Ranges) > 0
 		if hasRanges {
 			continue
