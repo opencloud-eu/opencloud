@@ -21,7 +21,9 @@ import (
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/server/http"
+	"github.com/opencloud-eu/opencloud/services/userlog/pkg/service"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -84,9 +86,12 @@ func Server(cfg *config.Config) *cobra.Command {
 			mtrcs.BuildInfo.WithLabelValues(version.GetString()).Set(1)
 
 			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
-			stream, err := stream.NatsFromConfig(connName, false, stream.NatsConfig(cfg.Events))
-			if err != nil {
-				return err
+			var evStream events.Stream
+			if !cfg.EventsDisabled {
+				evStream, err = stream.NatsFromConfig(connName, false, stream.NatsConfig(cfg.Events))
+				if err != nil {
+					return err
+				}
 			}
 
 			st := store.Create(
@@ -121,14 +126,15 @@ func Server(cfg *config.Config) *cobra.Command {
 			rClient := settingssvc.NewRoleService("eu.opencloud.api.settings", grpcClient)
 
 			gr := runner.NewGroup()
-			{
+
+			if !cfg.HTTPDisabled {
 				server, err := http.Server(
 					http.Logger(logger),
 					http.Context(ctx),
 					http.Config(cfg),
 					http.Metrics(mtrcs),
 					http.Store(st),
-					http.Stream(stream),
+					http.Stream(evStream),
 					http.GatewaySelector(gatewaySelector),
 					http.History(hClient),
 					http.Value(vClient),
@@ -143,6 +149,36 @@ func Server(cfg *config.Config) *cobra.Command {
 				}
 
 				gr.Add(runner.NewGoMicroHttpServerRunner(cfg.Service.Name+".http", server))
+			} else {
+				logger.Info().Msg("HTTP server disabled, not starting HTTP service")
+
+				if !cfg.EventsDisabled {
+					_, err := service.NewUserlogService(
+						service.Logger(logger),
+						service.Stream(evStream),
+						service.Mux(chi.NewMux()),
+						service.Store(st),
+						service.Config(cfg),
+						service.HistoryClient(hClient),
+						service.GatewaySelector(gatewaySelector),
+						service.ValueClient(vClient),
+						service.RoleClient(rClient),
+						service.RegisteredEvents(_registeredEvents),
+						service.TraceProvider(tracerProvider),
+					)
+					if err != nil {
+						return err
+					}
+
+					gr.Add(runner.New(cfg.Service.Name+".consumer", func() error {
+						<-ctx.Done()
+						return nil
+					}, func() {}))
+				}
+			}
+
+			if cfg.EventsDisabled {
+				logger.Info().Msg("event listening disabled, not starting event consumer")
 			}
 
 			{

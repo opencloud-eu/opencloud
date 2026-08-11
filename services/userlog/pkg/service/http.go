@@ -228,7 +228,6 @@ func RequireAdminOrSecret(rm *roles.Manager, secret string) func(http.HandlerFun
 			}
 
 			errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "Not found")
-			return
 		}
 	}
 }

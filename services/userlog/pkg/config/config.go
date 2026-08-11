@@ -30,6 +30,9 @@ type Config struct {
 
 	DisableSSE bool `yaml:"disable_sse" env:"OC_DISABLE_SSE,USERLOG_DISABLE_SSE" desc:"Disables server-sent events (sse). When disabled, clients will no longer receive sse notifications." introductionVersion:"1.0.0"`
 
+	EventsDisabled bool `yaml:"events_disabled" env:"USERLOG_EVENTS_DISABLED" desc:"Disables listening for events. Set this to true if the service should only handle HTTP requests." introductionVersion:"%NEXT%"`
+	HTTPDisabled   bool `yaml:"http_disabled" env:"USERLOG_HTTP_DISABLED" desc:"Disables the HTTP service. Set this to true if the service should only handle events." introductionVersion:"%NEXT%"`
+
 	GlobalNotificationsSecret string `yaml:"global_notifications_secret" env:"USERLOG_GLOBAL_NOTIFICATIONS_SECRET" desc:"The secret to secure the global notifications endpoint. Only system admins and users knowing that secret can call the global notifications POST/DELETE endpoints." introductionVersion:"1.0.0"`
 
 	ServiceAccount ServiceAccount `yaml:"service_account"`
