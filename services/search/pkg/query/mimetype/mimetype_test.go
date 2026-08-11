@@ -55,12 +55,9 @@ var _ = Describe("Expand", func() {
 	})
 
 	It("expands file to not-a-folder", func() {
-		// grouped so the negation stays atomic next to an operator.
 		Expect(mimetype.Expand("mediatype", "file")).To(Equal([]ast.Node{
-			&ast.GroupNode{Nodes: []ast.Node{
-				&ast.OperatorNode{Value: "NOT"},
-				&ast.StringNode{Key: "MimeType", Value: "httpd/unix-directory"},
-			}},
+			&ast.OperatorNode{Value: "NOT"},
+			&ast.StringNode{Key: "MimeType", Value: "httpd/unix-directory"},
 		}))
 	})
 

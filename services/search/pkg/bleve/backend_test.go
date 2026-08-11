@@ -136,6 +136,18 @@ var _ = Describe("Bleve", func() {
 				assertDocCount(rootResource.ID, "tag:missing", 0)
 			})
 
+			It("binds a leading NOT to the term right after it, combined with AND", func() {
+				// regression: a leading NOT next to AND dropped the AND'd term, so
+				// `NOT tag:x AND name:y` matched nothing (a self-contradicting clause).
+				parentResource.Document.Tags = []string{"physik"}
+				childResource.Document.Tags = []string{"mathe"}
+				Expect(eng.Upsert(parentResource.ID, parentResource)).To(Succeed())
+				Expect(eng.Upsert(childResource.ID, childResource)).To(Succeed())
+
+				assertDocCount(rootResource.ID, "NOT tag:physik AND name:child.pdf", 1) // the mathe child
+				assertDocCount(rootResource.ID, "NOT tag:mathe AND name:parent*", 1)    // the physik parent
+			})
+
 			It("finds files by size", func() {
 				parentResource.Document.Size = 12345
 				err := eng.Upsert(parentResource.ID, parentResource)
