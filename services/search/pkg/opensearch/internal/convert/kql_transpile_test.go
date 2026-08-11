@@ -271,6 +271,26 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 				),
 		},
 		{
+			// NOT binds to the node directly after it, not to whatever operator
+			// follows that node: NOT x AND y is (NOT x) AND y.
+			Name: "[NOT * AND *]",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.OperatorNode{Value: "NOT"},
+					&ast.StringNode{Key: "age", Value: "32"},
+					&ast.OperatorNode{Value: "AND"},
+					&ast.StringNode{Key: "Name", Value: "openCloud"},
+				},
+			},
+			Want: osu.NewBoolQuery().
+				MustNot(
+					osu.NewTermQuery[string]("age").Value("32"),
+				).
+				Must(
+					osu.NewTermQuery[string]("Name").Value("openCloud"),
+				),
+		},
+		{
 			Name: "[* OR * OR *]",
 			Got: &ast.Ast{
 				Nodes: []ast.Node{

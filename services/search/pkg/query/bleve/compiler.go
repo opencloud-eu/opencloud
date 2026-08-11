@@ -168,8 +168,11 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 				q := bleve.NewBooleanQuery()
 				q.AddMustNot(next)
 				if prev == nil {
-					// unary in the beginning
+					// unary at the beginning: the term was consumed into the
+					// MustNot via nextNode, so clear next, otherwise a following
+					// operator would bind the stale term (NOT x AND y drops y).
 					prev = q
+					next = nil
 				} else {
 					next = q
 				}

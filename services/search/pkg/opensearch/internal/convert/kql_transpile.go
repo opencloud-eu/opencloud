@@ -48,13 +48,21 @@ func (t kqlOpensearchTranspiler) transpile(nodes []ast.Node) (osu.Builder, error
 		nextOp := t.getOperatorValueAt(nodes, i+1)
 		prevOp := t.getOperatorValueAt(nodes, i-1)
 
+		// A preceding NOT negates this node regardless of what follows (NOT x AND y
+		// is (NOT x) AND y), so it must win over nextOp. The prevOp AND/OR cases
+		// give the right operand its own bucket instead of inheriting the previous
+		// one, which matters right after a NOT (its MustNot must not carry over).
 		switch {
+		case prevOp == kql.BoolNOT:
+			boolQueryAdd = boolQuery.MustNot
 		case nextOp == kql.BoolOR:
 			boolQueryAdd = boolQuery.Should
 		case nextOp == kql.BoolAND:
 			boolQueryAdd = boolQuery.Must
-		case prevOp == kql.BoolNOT:
-			boolQueryAdd = boolQuery.MustNot
+		case prevOp == kql.BoolOR:
+			boolQueryAdd = boolQuery.Should
+		case prevOp == kql.BoolAND:
+			boolQueryAdd = boolQuery.Must
 		}
 
 		builder, err := t.toBuilder(node)
@@ -71,7 +79,7 @@ func (t kqlOpensearchTranspiler) transpile(nodes []ast.Node) (osu.Builder, error
 			continue
 		}
 
-		if nextOp == kql.BoolOR {
+		if nextOp == kql.BoolOR || prevOp == kql.BoolOR {
 			// if there are should clauses, we set the minimum should match to 1
 			boolQueryParams.MinimumShouldMatch = 1
 		}
