@@ -280,6 +280,24 @@ var _ = Describe("Bleve", func() {
 				Expect(counts).To(HaveKeyWithValue("-1990", int64(3)))
 				Expect(counts).To(HaveKeyWithValue("2000-", int64(3)))
 			})
+
+			It("computes top-level metric aggregations by scanning hits", func() {
+				res := searchWithAggs("mediatype:audio",
+					&searchsvc.AggregationOption{Field: "audio.year", MetricKind: searchsvc.MetricKind_METRIC_KIND_SUM},
+					&searchsvc.AggregationOption{Field: "audio.year", MetricKind: searchsvc.MetricKind_METRIC_KIND_MIN},
+					&searchsvc.AggregationOption{Field: "audio.year", MetricKind: searchsvc.MetricKind_METRIC_KIND_MAX},
+					&searchsvc.AggregationOption{Field: "audio.year", MetricKind: searchsvc.MetricKind_METRIC_KIND_AVG},
+				)
+				Expect(res.Aggregations).To(HaveLen(4))
+				// upserted years: 1971, 1975, 1982, 1999, 2001, 2005, 2009
+				Expect(res.Aggregations[0].MetricKind).To(Equal(searchsvc.MetricKind_METRIC_KIND_SUM))
+				Expect(res.Aggregations[0].Value).To(Equal(float64(13942)))
+				Expect(res.Aggregations[1].Value).To(Equal(float64(1971)))
+				Expect(res.Aggregations[2].Value).To(Equal(float64(2009)))
+				Expect(res.Aggregations[3].MetricKind).To(Equal(searchsvc.MetricKind_METRIC_KIND_AVG))
+				Expect(res.Aggregations[3].Sum).To(Equal(float64(13942)))
+				Expect(res.Aggregations[3].Count).To(Equal(int64(7)))
+			})
 		})
 
 		Describe("date range aggregations", func() {
