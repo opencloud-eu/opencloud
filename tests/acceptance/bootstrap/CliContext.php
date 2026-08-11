@@ -38,18 +38,27 @@ class CliContext implements Context {
 	private SpacesContext $spacesContext;
 
 	/**
-	 * opencloud users storage path
+	 * opencloud storage root path (with $HOME/~ expanded for CI)
 	 *
 	 * @return string
 	 */
-	public static function getUsersStoragePath(): string {
+	public static function getStorageRootPath(): string {
 		$path = getenv('OC_STORAGE_PATH') ?: '/var/lib/opencloud/storage/users';
 		// need for CI
 		$home = getenv('HOME');
 		$path = preg_replace('#^~/#', $home . '/', $path);
 		$path = str_replace('$HOME', $home, $path);
 
-		return rtrim($path, '/') . '/users';
+		return rtrim($path, '/');
+	}
+
+	/**
+	 * opencloud users storage path
+	 *
+	 * @return string
+	 */
+	public static function getUsersStoragePath(): string {
+		return self::getStorageRootPath() . '/users';
 	}
 
 	/**
@@ -58,8 +67,7 @@ class CliContext implements Context {
 	 * @return string
 	 */
 	public static function getProjectsStoragePath(): string {
-		$path = getenv('OC_STORAGE_PATH') ?: '/var/lib/opencloud/storage/users';
-		return $path . '/projects';
+		return self::getStorageRootPath() . '/projects';
 	}
 
 	/**
@@ -1038,5 +1046,262 @@ class CliContext implements Context {
 			"raw" => true
 		];
 		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 * on-disk path of a project space root
+	 *
+	 * @param string $space
+	 *
+	 * @return string
+	 */
+	private function getProjectSpaceStoragePath(string $space): string {
+		$spaceId = $this->spacesContext->getSpaceIdByName($this->featureContext->getAdminUsername(), $space);
+		$spaceId = explode('$', $spaceId)[1];
+		return $this->getProjectsStoragePath() . "/$spaceId";
+	}
+
+	/**
+	 *
+	 * @return void
+	 */
+	#[When('the administrator scans the whole storage using the CLI')]
+	public function theAdministratorScansTheWholeStorageUsingTheCli(): void {
+		$body = [
+		  "command" => "posixfs scan"
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 *
+	 * @param string $folder
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	#[When('the administrator scans the folder :folder of user :user using the CLI')]
+	public function theAdministratorScansTheFolderOfUserUsingTheCli(string $folder, string $user): void {
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
+		$storagePath = $this->getUsersStoragePath();
+		$body = [
+		  "command" => "posixfs scan $storagePath/$userUuid/$folder"
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 *
+	 * @param string $space
+	 *
+	 * @return void
+	 */
+	#[When('the administrator scans the space :space using the CLI')]
+	public function theAdministratorScansTheSpaceUsingTheCli(string $space): void {
+		$body = [
+		  "command" => "posixfs scan " . $this->getProjectSpaceStoragePath($space)
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 *
+	 * @return void
+	 */
+	#[When('the administrator checks the posixfs consistency using the CLI')]
+	public function theAdministratorChecksThePosixfsConsistencyUsingTheCli(): void {
+		$body = [
+		  "command" => "posixfs consistency"
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 *
+	 * @param string $flag
+	 *
+	 * @return void
+	 */
+	#[When('the administrator checks the posixfs consistency using the CLI with flag :flag')]
+	public function theAdministratorChecksThePosixfsConsistencyUsingTheCliWithFlag(string $flag): void {
+		$body = [
+		  "command" => "posixfs consistency $flag"
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 *
+	 * @param string $file
+	 * @param string $content
+	 * @param string $space
+	 *
+	 * @return void
+	 */
+	#[When('the administrator creates the file :file with content :content in the space :space on the POSIX filesystem')]
+	public function theAdministratorCreatesFileInSpaceOnPosix(string $file, string $content, string $space): void {
+		$fullPath = $this->getProjectSpaceStoragePath($space) . "/$file";
+		$safeContent = escapeshellarg($content);
+		$body = [
+		  "command" => "echo -n $safeContent > $fullPath",
+		  "raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		$this->waitForPath($fullPath);
+	}
+
+	/**
+	 * reads xattrs from disk with getfattr, bypassing the driver's on-the-fly assimilation
+	 *
+	 * @param string $file
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	#[When('the administrator gets the extended attributes of file :file of user :user on the POSIX filesystem')]
+	public function theAdministratorGetsExtendedAttributesOfFileOfUser(string $file, string $user): void {
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
+		$storagePath = $this->getUsersStoragePath();
+		$body = [
+		  "command" => "getfattr -d $storagePath/$userUuid/$file",
+		  "raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 *
+	 * @param string $file
+	 * @param string $space
+	 *
+	 * @return void
+	 */
+	#[When('the administrator gets the extended attributes of file :file in the space :space on the POSIX filesystem')]
+	public function theAdministratorGetsExtendedAttributesOfFileInSpace(string $file, string $space): void {
+		$body = [
+		  "command" => "getfattr -d " . $this->getProjectSpaceStoragePath($space) . "/$file",
+		  "raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 *
+	 * @param string $attribute
+	 * @param string $file
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	#[When('the administrator gets the extended attribute :attribute of file :file of user :user on the POSIX filesystem')]
+	public function theAdministratorGetsExtendedAttributeOfFileOfUser(string $attribute, string $file, string $user): void {
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
+		$storagePath = $this->getUsersStoragePath();
+		$body = [
+		  "command" => "getfattr -n " . escapeshellarg($attribute) . " --only-values $storagePath/$userUuid/$file",
+		  "raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 *
+	 * @param string $attribute
+	 * @param string $file
+	 * @param string $user
+	 * @param string $value
+	 *
+	 * @return void
+	 */
+	#[When('the administrator sets the extended attribute :attribute of file :file of user :user to :value on the POSIX filesystem')]
+	public function theAdministratorSetsExtendedAttributeOfFileOfUser(
+		string $attribute,
+		string $file,
+		string $user,
+		string $value
+	): void {
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
+		$storagePath = $this->getUsersStoragePath();
+		$body = [
+		  "command" => "setfattr -n " . escapeshellarg($attribute)
+			. " -v " . escapeshellarg($value) . " $storagePath/$userUuid/$file",
+		  "raw" => true
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 *
+	 * @param string $file
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	#[When('the administrator scans the file :file of user :user using the CLI')]
+	public function theAdministratorScansTheFileOfUserUsingTheCli(string $file, string $user): void {
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
+		$storagePath = $this->getUsersStoragePath();
+		$body = [
+		  "command" => "posixfs scan $storagePath/$userUuid/$file"
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 *
+	 * @param string $path
+	 *
+	 * @return void
+	 */
+	#[When('the administrator scans path :path using the CLI')]
+	public function theAdministratorScansPathUsingTheCli(string $path): void {
+		$body = [
+		  "command" => "posixfs scan $path"
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 * non-existing path first, so with "-E" the scan aborts before the valid folder
+	 *
+	 * @param string $folder
+	 * @param string $user
+	 * @param string $flag
+	 *
+	 * @return void
+	 */
+	#[When('the administrator scans a non-existing path and the folder :folder of user :user using the CLI with flag :flag')]
+	public function theAdministratorScansNonExistingPathAndFolderUsingTheCli(
+		string $folder,
+		string $user,
+		string $flag
+	): void {
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
+		$storagePath = $this->getUsersStoragePath();
+		$nonExistingPath = "$storagePath/$userUuid/nonExistingPath";
+		$validPath = "$storagePath/$userUuid/$folder";
+		$flagPart = $flag !== "" ? "$flag " : "";
+		$body = [
+		  "command" => "posixfs scan {$flagPart}$nonExistingPath $validPath"
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 *
+	 * @return void
+	 */
+	#[Then('the command should not be successful')]
+	public function theCommandShouldNotBeSuccessful(): void {
+		$response = $this->featureContext->getResponse();
+		$this->featureContext->theHTTPStatusCodeShouldBe(200, '', $response);
+
+		$jsonResponse = $this->featureContext->getJsonDecodedResponse($response);
+
+		Assert::assertNotSame(
+			0,
+			$jsonResponse["exitCode"],
+			"Expected command to fail with a non-zero exit code, but got 0. Message: " . $jsonResponse["message"]
+		);
 	}
 }
