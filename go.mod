@@ -64,7 +64,7 @@ require (
 	github.com/open-policy-agent/opa v1.19.0
 	github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89
 	github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260310090739-853d972b282d
-	github.com/opencloud-eu/reva/v2 v2.48.1-0.20260807155401-7a869e7a8f33
+	github.com/opencloud-eu/reva/v2 v2.48.1-0.20260811071808-9bf68d2ccd96
 	github.com/opensearch-project/opensearch-go/v4 v4.6.0
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/pkg/errors v0.9.1
@@ -72,7 +72,7 @@ require (
 	github.com/prometheus/client_golang v1.24.1
 	github.com/r3labs/sse/v2 v2.10.0
 	github.com/riandyrn/otelchi v0.12.3
-	github.com/rogpeppe/go-internal v1.15.0
+	github.com/rogpeppe/go-internal v1.16.0
 	github.com/rs/cors v1.11.1
 	github.com/rs/zerolog v1.35.1
 	github.com/shamaton/msgpack/v2 v2.4.1
@@ -206,7 +206,7 @@ require (
 	github.com/go-asn1-ber/asn1-ber v1.5.8 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.9.0 // indirect
-	github.com/go-git/go-git/v5 v5.19.1 // indirect
+	github.com/go-git/go-git/v5 v5.19.2 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect

@@ -475,7 +475,7 @@ github.com/go-git/go-billy/v5/helper/polyfill
 github.com/go-git/go-billy/v5/memfs
 github.com/go-git/go-billy/v5/osfs
 github.com/go-git/go-billy/v5/util
-# github.com/go-git/go-git/v5 v5.19.1
+# github.com/go-git/go-git/v5 v5.19.2
 ## explicit; go 1.25.0
 github.com/go-git/go-git/v5
 github.com/go-git/go-git/v5/config
@@ -1364,7 +1364,7 @@ github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260310090739-853d972b282d
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.48.1-0.20260807155401-7a869e7a8f33
+# github.com/opencloud-eu/reva/v2 v2.48.1-0.20260811071808-9bf68d2ccd96
 ## explicit; go 1.25.8
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -1862,7 +1862,7 @@ github.com/rcrowley/go-metrics
 ## explicit; go 1.22.0
 github.com/riandyrn/otelchi
 github.com/riandyrn/otelchi/version
-# github.com/rogpeppe/go-internal v1.15.0
+# github.com/rogpeppe/go-internal v1.16.0
 ## explicit; go 1.25
 github.com/rogpeppe/go-internal/internal/syscall/windows
 github.com/rogpeppe/go-internal/internal/syscall/windows/sysdll
