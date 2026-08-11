@@ -287,6 +287,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	}
 
 	mergedAggregations := map[string]map[string]*searchmsgBucket{}
+	mergedMetrics := map[string]*searchsvc.AggregationResult{}
 	for _, res := range responses {
 		if res == nil {
 			continue
@@ -296,6 +297,23 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 			matches = append(matches, match)
 		}
 		for _, agg := range res.GetAggregations() {
+			// Top-level metric: reduce across spaces; keyed by field+kind so
+			// several metrics on the same field stay separate.
+			if kind := agg.GetMetricKind(); kind != searchsvc.MetricKind_METRIC_KIND_UNSPECIFIED {
+				key := agg.GetField() + "|" + kind.String()
+				existing, ok := mergedMetrics[key]
+				if !ok {
+					mergedMetrics[key] = agg
+					continue
+				}
+				if kind == searchsvc.MetricKind_METRIC_KIND_AVG {
+					existing.Sum += agg.GetSum()
+					existing.Count += agg.GetCount()
+				} else {
+					existing.Value = reduceMetric(kind, existing.GetValue(), agg.GetValue())
+				}
+				continue
+			}
 			field := agg.GetField()
 			if _, ok := mergedAggregations[field]; !ok {
 				mergedAggregations[field] = map[string]*searchmsgBucket{}
@@ -330,6 +348,12 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	aggregations := make([]*searchsvc.AggregationResult, 0, len(req.GetAggregations()))
 	for _, opt := range req.GetAggregations() {
 		field := opt.GetField()
+		if kind := opt.GetMetricKind(); kind != searchsvc.MetricKind_METRIC_KIND_UNSPECIFIED {
+			if m, ok := mergedMetrics[field+"|"+kind.String()]; ok {
+				aggregations = append(aggregations, m)
+			}
+			continue
+		}
 		bucketMap := mergedAggregations[field]
 		buckets := make([]*searchsvc.Bucket, 0, len(bucketMap))
 		for _, b := range bucketMap {
