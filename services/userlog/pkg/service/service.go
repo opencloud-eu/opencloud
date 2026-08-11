@@ -50,13 +50,8 @@ func NewUserlogService(opts ...Option) (*UserlogService, error) {
 		opt(o)
 	}
 
-	if o.Stream == nil || o.Store == nil {
-		return nil, fmt.Errorf("need non nil stream (%v) and store (%v) to work properly", o.Stream, o.Store)
-	}
-
-	ch, err := events.Consume(o.Stream, "userlog", o.RegisteredEvents...)
-	if err != nil {
-		return nil, err
+	if o.Store == nil {
+		return nil, fmt.Errorf("need non nil store to work properly")
 	}
 
 	ul := &UserlogService{
@@ -92,7 +87,13 @@ func NewUserlogService(opts ...Option) (*UserlogService, error) {
 		r.Delete("/global", RequireAdminOrSecret(&m, o.Config.GlobalNotificationsSecret)(ul.HandleDeleteGlobalEvent))
 	})
 
-	go ul.MemorizeEvents(ch)
+	if !o.Config.EventsDisabled {
+		ch, err := events.Consume(o.Stream, "userlog", o.RegisteredEvents...)
+		if err != nil {
+			return nil, err
+		}
+		go ul.MemorizeEvents(ch)
+	}
 
 	return ul, nil
 }

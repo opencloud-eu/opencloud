@@ -150,6 +150,60 @@ var _ = Describe("UserlogService", func() {
 		Expect(len(evs)).To(Equal(0))
 	})
 
+	It("verifies events are stored in store without using HTTP (consumer-only mode)", func() {
+		ids := make(map[string]struct{})
+		ids[bus.publish(events.SpaceDisabled{Executant: &user.UserId{OpaqueId: "executinguserid"}})] = struct{}{}
+
+		time.Sleep(500 * time.Millisecond)
+
+		recs, err := sto.Read("userid")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(len(recs)).To(Equal(1))
+
+		var storedIDs []string
+		err = json.Unmarshal(recs[0].Value, &storedIDs)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(len(storedIDs)).To(Equal(1))
+		_, exists := ids[storedIDs[0]]
+		Expect(exists).To(BeTrue())
+	})
+
+	It("works without event consumer (HTTP-only mode)", func() {
+		localEhc := mocks.EventHistoryService{}
+		cfgNoEvents := &config.Config{
+			MaxConcurrency: 5,
+			EventsDisabled: true,
+		}
+		ulNoConsumer, err := service.NewUserlogService(
+			service.Config(cfgNoEvents),
+			service.Stream(bus),
+			service.Store(sto),
+			service.Logger(log.NewLogger()),
+			service.Mux(chi.NewMux()),
+			service.GatewaySelector(gatewaySelector),
+			service.HistoryClient(&localEhc),
+			service.ValueClient(&vc),
+			service.RegisteredEvents([]events.Unmarshaller{
+				events.SpaceDisabled{},
+			}),
+			service.TraceProvider(trace.NewNoopTracerProvider()),
+		)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ulNoConsumer).ToNot(BeNil())
+
+		id := bus.publish(events.SpaceDisabled{Executant: &user.UserId{OpaqueId: "executinguserid"}})
+		time.Sleep(500 * time.Millisecond)
+
+		localEhc.On("GetEvents", mock.Anything, mock.Anything).Return(&ehsvc.GetEventsResponse{
+			Events: []*ehmsg.Event{{Id: id}},
+		}, nil)
+
+		evs, err := ulNoConsumer.GetEvents(context.Background(), "userid")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(len(evs)).To(Equal(1))
+		Expect(evs[0].Id).To(Equal(id))
+	})
+
 	AfterEach(func() {
 		close(bus)
 	})
