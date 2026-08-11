@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	bleveSearch "github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/index/scorch"
@@ -278,6 +279,100 @@ var _ = Describe("Bleve", func() {
 				}
 				Expect(counts).To(HaveKeyWithValue("-1990", int64(3)))
 				Expect(counts).To(HaveKeyWithValue("2000-", int64(3)))
+			})
+		})
+
+		Describe("date range aggregations", func() {
+			upsertWithTakenDateTime := func(id, name, taken string) {
+				t, err := time.Parse(time.RFC3339, taken)
+				Expect(err).ToNot(HaveOccurred())
+				r := search.Resource{
+					ID:       id,
+					ParentID: rootResource.ID,
+					RootID:   rootResource.ID,
+					Path:     "./" + name,
+					Type:     uint64(sprovider.ResourceType_RESOURCE_TYPE_FILE),
+					Document: content.Document{
+						Name:     name,
+						MimeType: "image/jpeg",
+						Photo:    &libregraph.Photo{TakenDateTime: &t},
+					},
+				}
+				Expect(eng.Upsert(r.ID, r)).To(Succeed())
+			}
+
+			BeforeEach(func() {
+				upsertWithTakenDateTime("1$2!3001", "a.jpg", "2018-08-11T09:15:00Z")
+				upsertWithTakenDateTime("1$2!3002", "b.jpg", "2018-08-11T19:42:00Z")
+				upsertWithTakenDateTime("1$2!3003", "c.jpg", "2018-09-01T12:00:00Z")
+				upsertWithTakenDateTime("1$2!3004", "d.jpg", "2021-08-11T08:00:00Z")
+			})
+
+			It("returns buckets per date range", func() {
+				res := searchWithAggs("mediatype:image",
+					&searchsvc.AggregationOption{
+						Field: "photo.takenDateTime",
+						BucketDefinition: &searchsvc.BucketDefinition{
+							Ranges: []*searchsvc.BucketRange{
+								{From: "2018-08-11T00:00:00Z", To: "2018-08-12T00:00:00Z"},
+								{From: "2018-08-01", To: "2018-09-01"},
+								{From: "2021-01-01", To: "2022-01-01"},
+								{From: "2023-01-01", To: "2024-01-01"},
+							},
+						},
+					},
+				)
+				Expect(res.Aggregations).To(HaveLen(1))
+				counts := map[string]int64{}
+				for _, b := range res.Aggregations[0].Buckets {
+					counts[b.Key] = b.Count
+				}
+				Expect(counts).To(HaveKeyWithValue("2018-08-11T00:00:00Z-2018-08-12T00:00:00Z", int64(2)))
+				Expect(counts).To(HaveKeyWithValue("2018-08-01-2018-09-01", int64(2)))
+				Expect(counts).To(HaveKeyWithValue("2021-01-01-2022-01-01", int64(1)))
+			})
+
+			It("supports open-ended date ranges", func() {
+				res := searchWithAggs("mediatype:image",
+					&searchsvc.AggregationOption{
+						Field: "photo.takenDateTime",
+						BucketDefinition: &searchsvc.BucketDefinition{
+							Ranges: []*searchsvc.BucketRange{
+								{To: "2019-01-01"},
+								{From: "2019-01-01"},
+							},
+						},
+					},
+				)
+				Expect(res.Aggregations).To(HaveLen(1))
+				counts := map[string]int64{}
+				for _, b := range res.Aggregations[0].Buckets {
+					counts[b.Key] = b.Count
+				}
+				Expect(counts).To(HaveKeyWithValue("-2019-01-01", int64(3)))
+				Expect(counts).To(HaveKeyWithValue("2019-01-01-", int64(1)))
+			})
+
+			It("rejects malformed date range bounds", func() {
+				rID, err := storagespace.ParseID(rootResource.ID)
+				Expect(err).ToNot(HaveOccurred())
+				_, err = eng.Search(context.Background(), &searchsvc.SearchIndexRequest{
+					Query: "mediatype:image",
+					Ref: &searchmsg.Reference{ResourceId: &searchmsg.ResourceID{
+						StorageId: rID.StorageId, SpaceId: rID.SpaceId, OpaqueId: rID.OpaqueId,
+					}},
+					Aggregations: []*searchsvc.AggregationOption{
+						{
+							Field: "photo.takenDateTime",
+							BucketDefinition: &searchsvc.BucketDefinition{
+								Ranges: []*searchsvc.BucketRange{
+									{From: "2018-08-11T00:00:00Z", To: "not-a-date"},
+								},
+							},
+						},
+					},
+				})
+				Expect(err).To(HaveOccurred())
 			})
 		})
 	})
