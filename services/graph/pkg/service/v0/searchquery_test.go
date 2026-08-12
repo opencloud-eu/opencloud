@@ -148,23 +148,56 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		Expect(captured.OrderBy[1].IsDescending).To(BeFalse())
 	})
 
-	ginkgo.It("rejects sorting by an unsupported field with 400", func() {
-		g := graphWithSearch(stubSearchService{
-			search: func(*searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {
-				ginkgo.Fail("search service must not be called when validation fails")
-				return nil, nil
-			},
-		})
-		rr := postSearchQuery(g, `{
-			"requests": [{
-				"entityTypes": ["driveItem"],
-				"query": {"queryString": "mediatype:image"},
-				"sortProperties": [{"name": "photo.iso"}]
-			}]
-		}`)
-		Expect(rr.Code).To(Equal(http.StatusBadRequest), rr.Body.String())
-		Expect(rr.Body.String()).To(ContainSubstring("photo.iso"))
-	})
+	ginkgo.DescribeTable("accepts sorting by scalar hit fields",
+		func(field string) {
+			g := graphWithSearch(stubSearchService{
+				search: func(*searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {
+					return &searchsvc.SearchResponse{}, nil
+				},
+			})
+			rr := postSearchQuery(g, `{
+				"requests": [{
+					"entityTypes": ["driveItem"],
+					"query": {"queryString": "*"},
+					"sortProperties": [{"name": "`+field+`"}]
+				}]
+			}`)
+			Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+		},
+		ginkgo.Entry("name", "name"),
+		ginkgo.Entry("size", "size"),
+		ginkgo.Entry("lastModifiedDateTime", "lastModifiedDateTime"),
+		ginkgo.Entry("mimeType", "mimeType"),
+		ginkgo.Entry("photo.takenDateTime", "photo.takenDateTime"),
+		ginkgo.Entry("photo.iso", "photo.iso"),
+		ginkgo.Entry("audio.artist", "audio.artist"),
+		ginkgo.Entry("image.width", "image.width"),
+	)
+
+	ginkgo.DescribeTable("rejects sorting by unsortable fields with 400",
+		func(field string) {
+			g := graphWithSearch(stubSearchService{
+				search: func(*searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {
+					ginkgo.Fail("search service must not be called when validation fails")
+					return nil, nil
+				},
+			})
+			rr := postSearchQuery(g, `{
+				"requests": [{
+					"entityTypes": ["driveItem"],
+					"query": {"queryString": "mediatype:image"},
+					"sortProperties": [{"name": "`+field+`"}]
+				}]
+			}`)
+			Expect(rr.Code).To(Equal(http.StatusBadRequest), rr.Body.String())
+			Expect(rr.Body.String()).To(ContainSubstring(field))
+		},
+		ginkgo.Entry("unknown field", "definitelyNotAField"),
+		ginkgo.Entry("multivalued field", "tags"),
+		ginkgo.Entry("internal index field name", "Mtime"),
+		ginkgo.Entry("bare audio facet", "audio"),
+		ginkgo.Entry("bare location facet", "location"),
+	)
 
 	ginkgo.It("rejects a terms aggregation on a numeric field with 400", func() {
 		g := graphWithSearch(stubSearchService{

@@ -708,7 +708,7 @@
       "properties": {
         "name": {
           "type": "string",
-          "description": "Required. The field to sort on, in graph notation. Supported: \"name\",\n\"size\", \"lastModifiedDateTime\", \"photo.takenDateTime\". A field is only\nsortable if it is indexed as a sortable type in both backends AND\npresent on the Match entity (the service layer needs the sort key to\nmerge per-space result streams)."
+          "description": "Required. The field to sort on, in graph notation (\"name\", \"size\",\n\"lastModifiedDateTime\", \"mimeType\" or a scalar facet field such as\n\"photo.takenDateTime\" or \"audio.artist\"). A field is sortable when it is\nindexed as a scalar in both backends AND carried on the Match entity\n(the service layer needs the sort key to merge per-space result\nstreams); see the search package's IsSortableField."
         },
         "isDescending": {
           "type": "boolean",

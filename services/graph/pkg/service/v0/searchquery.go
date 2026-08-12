@@ -164,23 +164,14 @@ func validateAggregations(aggs []libregraph.AggregationOption) error {
 	return nil
 }
 
-// sortableFields is the set of fields accepted in sortProperties (mirrored in
-// the openapi spec). A field qualifies only if it is indexed as a sortable
-// type in both search backends AND carried on the Match entity: the service
-// layer re-sorts matches when merging the per-space result streams and needs
-// the sort key on the match itself.
-var sortableFields = map[string]struct{}{
-	"name":                 {},
-	"size":                 {},
-	"lastModifiedDateTime": {},
-	"photo.takenDateTime":  {},
-}
-
-// validateSortProperties rejects sorting by fields outside sortableFields.
+// validateSortProperties rejects sorting by unknown or multivalued fields.
+// Sortable are scalar fields carried on the search hit: name, size,
+// lastModifiedDateTime, mimeType and the facet fields (photo.takenDateTime,
+// audio.artist, image.width, ...); see search.IsSortableField.
 func validateSortProperties(sortProperties []libregraph.SortProperty) error {
 	for _, sp := range sortProperties {
-		if _, ok := sortableFields[sp.Name]; !ok {
-			return fmt.Errorf("field %q is not sortable; sortable fields: name, size, lastModifiedDateTime, photo.takenDateTime", sp.Name)
+		if !search.IsSortableField(sp.Name) {
+			return fmt.Errorf("field %q is not sortable; sortable are scalar hit fields such as name, size, lastModifiedDateTime, mimeType or photo.takenDateTime", sp.Name)
 		}
 	}
 	return nil

@@ -515,11 +515,12 @@ type SortProperty struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Required. The field to sort on, in graph notation. Supported: "name",
-	// "size", "lastModifiedDateTime", "photo.takenDateTime". A field is only
-	// sortable if it is indexed as a sortable type in both backends AND
-	// present on the Match entity (the service layer needs the sort key to
-	// merge per-space result streams).
+	// Required. The field to sort on, in graph notation ("name", "size",
+	// "lastModifiedDateTime", "mimeType" or a scalar facet field such as
+	// "photo.takenDateTime" or "audio.artist"). A field is sortable when it is
+	// indexed as a scalar in both backends AND carried on the Match entity
+	// (the service layer needs the sort key to merge per-space result
+	// streams); see the search package's IsSortableField.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Optional. Sort in descending order. Defaults to ascending.
 	IsDescending bool `protobuf:"varint,2,opt,name=is_descending,json=isDescending,proto3" json:"is_descending,omitempty"`
