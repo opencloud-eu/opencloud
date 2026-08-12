@@ -130,8 +130,8 @@ var _ = Describe("Bleve", func() {
 				parentResource.Document.Tags = []string{"Work", "Urgent"}
 				Expect(eng.Upsert(parentResource.ID, parentResource)).To(Succeed())
 
-				assertDocCount(rootResource.ID, "tag:work", 1)   // stored "Work", queried lower
-				assertDocCount(rootResource.ID, "tag:WORK", 1)   // queried upper
+				assertDocCount(rootResource.ID, "tag:work", 1) // stored "Work", queried lower
+				assertDocCount(rootResource.ID, "tag:WORK", 1) // queried upper
 				assertDocCount(rootResource.ID, "Tags:Urgent", 1)
 				assertDocCount(rootResource.ID, "tag:missing", 0)
 			})
@@ -306,8 +306,10 @@ var _ = Describe("Bleve", func() {
 				assertDocCount(rootResource.ID, `path:"./parent d!r/child.pdf"`, 1)
 			})
 
-			It("matches case-insensitively", func() {
-				assertDocCount(rootResource.ID, `path:"./PARENT D!R"`, 3)
+			It("matches case-sensitively", func() {
+				// paths act as references: /Foo and /foo are distinct siblings,
+				// so a wrong-cased path must not match
+				assertDocCount(rootResource.ID, `path:"./PARENT D!R"`, 0)
 			})
 
 			It("applies an AND filter to the folder itself, not only descendants", func() {
@@ -354,7 +356,7 @@ var _ = Describe("Bleve", func() {
 				// regression: mediatype:file (a NOT) next to an operator dropped the
 				// other operand, so mediatype:file AND name:x matched nothing.
 				parentResource.Document.MimeType = "httpd/unix-directory" // a folder
-				childResource.Document.MimeType = "image/png"            // a file
+				childResource.Document.MimeType = "image/png"             // a file
 				for _, r := range []search.Resource{parentResource, childResource} {
 					Expect(eng.Upsert(r.ID, r)).To(Succeed())
 				}
@@ -473,6 +475,61 @@ var _ = Describe("Bleve", func() {
 			})
 		})
 
+	})
+
+	Describe("path scoped searches", func() {
+		BeforeEach(func() {
+			Expect(eng.Upsert(parentResource.ID, parentResource)).To(Succeed())
+			Expect(eng.Upsert(childResource.ID, childResource)).To(Succeed())
+			Expect(eng.Upsert(childResource2.ID, childResource2)).To(Succeed())
+			outside := search.Resource{
+				ID:       "1$2!6",
+				ParentID: rootResource.ID,
+				RootID:   rootResource.ID,
+				Path:     "./other/child3.pdf",
+				Type:     uint64(sprovider.ResourceType_RESOURCE_TYPE_FILE),
+				Document: content.Document{Name: "child3.pdf"},
+			}
+			Expect(eng.Upsert(outside.ID, outside)).To(Succeed())
+		})
+
+		It("restricts hits and totals to the scope at query level", func() {
+			// without the scope all three children match
+			res, err := doSearch(rootResource.ID, "name:child*", "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.TotalMatches).To(Equal(int32(3)))
+
+			res, err = doSearch(rootResource.ID, "name:child*", "./parent d!r")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.TotalMatches).To(Equal(int32(2)))
+			Expect(len(res.Matches)).To(Equal(2))
+		})
+
+		It("keeps totals right on a small page", func() {
+			// the scope is part of the query, so totals cover the full scope
+			// even when the page holds a single hit
+			rID, err := storagespace.ParseID(rootResource.ID)
+			Expect(err).ToNot(HaveOccurred())
+			res, err := eng.Search(context.Background(), &searchsvc.SearchIndexRequest{
+				Query:    "name:child*",
+				PageSize: 1,
+				Ref: &searchmsg.Reference{
+					ResourceId: &searchmsg.ResourceID{
+						StorageId: rID.StorageId, SpaceId: rID.SpaceId, OpaqueId: rID.OpaqueId,
+					},
+					Path: "./parent d!r",
+				},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.TotalMatches).To(Equal(int32(2)))
+			Expect(len(res.Matches)).To(Equal(1))
+		})
+
+		It("matches the scope case-sensitively", func() {
+			res, err := doSearch(rootResource.ID, "name:child*", "./PARENT D!R")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.TotalMatches).To(Equal(int32(0)))
+		})
 	})
 
 	Describe("Upsert", func() {
@@ -658,11 +715,12 @@ var _ = Describe("Bleve", func() {
 
 			Expect(eng.Move(parentResource.ID, parentResource.ParentID, "./my/NewName")).To(Succeed())
 
-			// the lowercased siblings are rebuilt at the new path, so a
-			// case-insensitive query finds the folder under its new name and path,
-			// including the descendant, and no longer under the old path.
+			// the lowercased name sibling is rebuilt, so a case-insensitive
+			// name query still works; the path is case-sensitive by design, so
+			// only the exact new path matches (and the old one no longer does).
 			assertDocCount(rootResource.ID, "name:NEWNAME", 1)
-			assertDocCount(rootResource.ID, `path:"./MY/NEWNAME"`, 2)
+			assertDocCount(rootResource.ID, `path:"./my/NewName"`, 2)
+			assertDocCount(rootResource.ID, `path:"./MY/NEWNAME"`, 0)
 			assertDocCount(rootResource.ID, `path:"./parent d!r"`, 0)
 		})
 	})

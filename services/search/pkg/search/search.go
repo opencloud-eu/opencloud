@@ -74,7 +74,7 @@ var resourceFieldOverrides = sync.OnceValue(func() map[string]mapping.FieldOpts 
 	True, False := true, false
 	return map[string]mapping.FieldOpts{
 		"Name":      {CaseInsensitive: &True},
-		"Path":      {Type: mapping.TypePath, CaseInsensitive: &True},
+		"Path":      {Type: mapping.TypePath},
 		"Content":   {Type: mapping.TypeFulltext},
 		"Tags":      {CaseInsensitive: &True, IncludeInAll: &False},
 		"Favorites": {CaseInsensitive: &True, IncludeInAll: &False},

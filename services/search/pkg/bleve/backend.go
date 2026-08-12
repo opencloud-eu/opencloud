@@ -3,7 +3,6 @@ package bleve
 import (
 	"context"
 	"math"
-	"strings"
 	"time"
 
 	"github.com/blevesearch/bleve/v2"
@@ -75,6 +74,16 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 				),
 			},
 		)
+		// Scope below the space root: restrict at query level so totals and
+		// paging respect the path too. Path is a case-preserving keyword
+		// (paths act as references, /Foo and /foo are distinct), so the exact
+		// folder or the folder prefix matches all of, and only, the scope.
+		if requestedPath := utils.MakeRelativePath(sir.Ref.Path); requestedPath != "." {
+			q.Conjuncts = append(q.Conjuncts, query.NewDisjunctionQuery([]query.Query{
+				&query.TermQuery{FieldVal: "Path", Term: requestedPath},
+				&query.PrefixQuery{FieldVal: "Path", Prefix: requestedPath + "/"},
+			}))
+		}
 	}
 
 	bleveReq := bleve.NewSearchRequest(q)
@@ -98,17 +107,6 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 	matches := make([]*searchMessage.Match, 0, len(res.Hits))
 	totalMatches := res.Total
 	for _, hit := range res.Hits {
-		if sir.Ref != nil {
-			hitPath := strings.TrimSuffix(getFieldValue[string](hit.Fields, "Path"), "/")
-			requestedPath := utils.MakeRelativePath(sir.Ref.Path)
-			isRoot := hitPath == requestedPath
-
-			if !isRoot && requestedPath != "." && !strings.HasPrefix(hitPath, requestedPath+"/") {
-				totalMatches--
-				continue
-			}
-		}
-
 		rootID, err := storagespace.ParseID(getFieldValue[string](hit.Fields, "RootID"))
 		if err != nil {
 			return nil, err

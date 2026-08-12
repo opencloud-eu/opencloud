@@ -9,6 +9,7 @@ import (
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	"github.com/stretchr/testify/require"
 
+	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
@@ -56,6 +57,43 @@ func TestEngine_Search(t *testing.T) {
 		require.Len(t, resp.Matches, 1)
 		require.Equal(t, int32(1), resp.TotalMatches)
 		require.Equal(t, document.ID, fmt.Sprintf("%s$%s!%s", resp.Matches[0].Entity.Id.StorageId, resp.Matches[0].Entity.Id.SpaceId, resp.Matches[0].Entity.Id.OpaqueId))
+	})
+
+	t.Run("path scope restricts hits and totals at query level", func(t *testing.T) {
+		outside := opensearchtest.Testdata.Resources.File
+		outside.ID = "1$1!5"
+		outside.Path = "./other folder/else.jpg"
+		require.NoError(t, backend.Upsert(outside.ID, outside))
+		tc.Require.IndicesRefresh([]string{indexName}, nil)
+
+		scoped := &searchMessage.Reference{
+			ResourceId: &searchMessage.ResourceID{StorageId: "1", SpaceId: "1", OpaqueId: "1"},
+			Path:       "./parent d!r",
+		}
+		resp, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{
+			Query: fmt.Sprintf(`"%s"`, document.Name),
+			Ref:   scoped,
+		})
+		require.NoError(t, err)
+		require.Len(t, resp.Matches, 1)
+		require.Equal(t, int32(1), resp.TotalMatches)
+		require.Equal(t, "./parent d!r/child.jpg", resp.Matches[0].Entity.Ref.Path)
+
+		// the scope is a reference and matches case-sensitively
+		wrongCase := &searchMessage.Reference{
+			ResourceId: &searchMessage.ResourceID{StorageId: "1", SpaceId: "1", OpaqueId: "1"},
+			Path:       "./PARENT D!R",
+		}
+		respWrongCase, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{
+			Query: fmt.Sprintf(`"%s"`, document.Name),
+			Ref:   wrongCase,
+		})
+		require.NoError(t, err)
+		require.Len(t, respWrongCase.Matches, 0)
+		require.Equal(t, int32(0), respWrongCase.TotalMatches)
+
+		require.NoError(t, backend.Purge(outside.ID, false))
+		tc.Require.IndicesRefresh([]string{indexName}, nil)
 	})
 
 	t.Run("ignores files that are marked as deleted", func(t *testing.T) {
@@ -152,10 +190,15 @@ func TestEngine_CaseInsensitiveSearch(t *testing.T) {
 		}
 	})
 
-	t.Run("path with spaces matches folder and descendants case-insensitively", func(t *testing.T) {
-		resp, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: `path:"./MY DIR"`})
+	t.Run("path with spaces matches folder and descendants case-sensitively", func(t *testing.T) {
+		resp, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: `path:"./My Dir"`})
 		require.NoError(t, err)
 		require.Len(t, resp.Matches, 2) // folder itself + the descendant, not the outside doc
+
+		// paths act as references, a wrong-cased path must not match
+		respWrongCase, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: `path:"./MY DIR"`})
+		require.NoError(t, err)
+		require.Len(t, respWrongCase.Matches, 0)
 	})
 
 	t.Run("path with spaces matches a descendant only itself", func(t *testing.T) {
@@ -202,8 +245,8 @@ func TestEngine_MediaTypeSearch(t *testing.T) {
 		{"MimeType:image/svg+xml", 1},  // same literal via the raw field name
 		{"mediatype:image/png", 1},
 		{"mediatype:pdf", 0},
-		{"mediatype:folder", 1},                    // the directory only
-		{"mediatype:file", 2},                      // both files, not the directory
+		{"mediatype:folder", 1},                      // the directory only
+		{"mediatype:file", 2},                        // both files, not the directory
 		{"mediatype:file AND MimeType:image/png", 1}, // file NOT-dir combined with a term
 	}
 	for _, c := range cases {
@@ -278,8 +321,7 @@ func TestEngine_Move(t *testing.T) {
 		require.Equal(t, document.Path, resources[0].Path)
 	})
 
-	t.Run("keeps case-insensitive path search working after a move", func(t *testing.T) {
-		// Upsert (not DocumentCreate) so PrepareForIndex writes Path_lowercase.
+	t.Run("keeps case-sensitive path search working after a move", func(t *testing.T) {
 		// Spaced paths so the queries only stay exact as term queries; a phrase
 		// match would analyze into the "." prefix and match regardless.
 		document := opensearchtest.Testdata.Resources.File
@@ -292,14 +334,17 @@ func TestEngine_Move(t *testing.T) {
 		require.NoError(t, backend.Move(document.ID, document.ParentID, document.Path))
 		tc.Require.IndicesRefresh([]string{indexName}, nil)
 
-		// The move script rebuilds Path_lowercase, so an upper-cased
-		// (case-insensitive) query finds the doc at the new path and no longer at
-		// the old one. Without the sibling update this would be reversed.
-		respNew, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: `path:"./MOVED DIR/BAR"`})
+		// Path is case-sensitive by design: the exact new path matches, a
+		// wrong-cased query does not, and the old path no longer matches.
+		respNew, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: `path:"./Moved Dir/Bar"`})
 		require.NoError(t, err)
 		require.Len(t, respNew.Matches, 1)
 
-		respOld, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: `path:"./FOO DIR/BAR"`})
+		respWrongCase, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: `path:"./MOVED DIR/BAR"`})
+		require.NoError(t, err)
+		require.Len(t, respWrongCase.Matches, 0)
+
+		respOld, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{Query: `path:"./Foo Dir/Bar"`})
 		require.NoError(t, err)
 		require.Len(t, respOld.Matches, 0)
 	})

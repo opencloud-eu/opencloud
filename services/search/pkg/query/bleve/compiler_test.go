@@ -56,8 +56,8 @@ func Test_compile(t *testing.T) {
 			// so an enclosing AND does not redistribute the folder-itself clause.
 			want: func() query.Query {
 				bq := query.NewBooleanQuery(nil, []query.Query{
-					query.NewQueryStringQuery(`Path_lowercase:\/foo`),
-					query.NewQueryStringQuery(`Path_lowercase:\/foo\/*`),
+					query.NewQueryStringQuery(`Path:\/Foo`),
+					query.NewQueryStringQuery(`Path:\/Foo\/*`),
 				}, nil)
 				bq.SetMinShould(1)
 				return query.NewConjunctionQuery([]query.Query{bq})

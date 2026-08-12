@@ -3,7 +3,6 @@ package opensearch
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -90,6 +89,15 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 				),
 			),
 		)
+		// Scope below the space root: restrict at query level so totals and
+		// paging respect the path too. Path uses the case-preserving
+		// path_hierarchy analyzer, so the folder path is an indexed token of
+		// the folder itself and every descendant.
+		if requestedPath := utils.MakeRelativePath(sir.Ref.Path); requestedPath != "." {
+			boolQuery.Filter(
+				osu.NewTermQuery[string]("Path").Value(requestedPath),
+			)
+		}
 	}
 
 	searchParams := opensearchgoAPI.SearchParams{
@@ -140,17 +148,6 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 		match, err := convert.OpenSearchHitToMatch(hit)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert hit to match: %w", err)
-		}
-
-		if sir.Ref != nil {
-			hitPath := strings.TrimSuffix(match.GetEntity().GetRef().GetPath(), "/")
-			requestedPath := utils.MakeRelativePath(sir.Ref.Path)
-			isRoot := hitPath == requestedPath
-
-			if !isRoot && requestedPath != "." && !strings.HasPrefix(hitPath, requestedPath+"/") {
-				totalMatches--
-				continue
-			}
 		}
 
 		matches = append(matches, match)
