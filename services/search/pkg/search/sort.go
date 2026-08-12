@@ -64,6 +64,19 @@ func SortIndexField(name string) (string, bool) {
 	return field, true
 }
 
+// lowercaseSortFields returns the set of index fields whose values are lowercased
+// at index time (the case-insensitive fields), so the cross-space sort merge
+// compares them the same way the backends do. Keyed by index field name.
+func lowercaseSortFields() map[string]struct{} {
+	out := map[string]struct{}{}
+	for field, opts := range (Resource{}).SearchFieldOverrides() {
+		if opts.CaseInsensitive != nil && *opts.CaseInsensitive {
+			out[field] = struct{}{}
+		}
+	}
+	return out
+}
+
 // CompareMatches orders match a relative to b according to orderBy: -1 when a
 // comes first, 1 when b comes first, 0 when the sort keys tie (callers fall
 // back to the score). Matches missing a sort key sort after those that have
@@ -84,7 +97,16 @@ func CompareMatches(a, b *searchmsg.Match, orderBy []*searchsvc.SortProperty) in
 		c := 0
 		switch {
 		case ka.isString:
-			c = strings.Compare(ka.str, kb.str)
+			sa, sb := ka.str, kb.str
+			// lowercase-analyzed fields (e.g. Name) are sorted by their
+			// lowercased terms in the index; compare the same way here so the
+			// cross-space merge preserves the backend order.
+			if field, ok := SortIndexField(sp.GetName()); ok {
+				if _, lower := lowercaseSortFields()[field]; lower {
+					sa, sb = strings.ToLower(sa), strings.ToLower(sb)
+				}
+			}
+			c = strings.Compare(sa, sb)
 		case ka.num < kb.num:
 			c = -1
 		case ka.num > kb.num:

@@ -56,6 +56,7 @@ var _ = Describe("CompareMatches", func() {
 		mutate(e)
 		return &searchmsg.Match{Entity: e}
 	}
+	strPtr := func(s string) *string { return &s }
 	asc := func(name string) []*searchsvc.SortProperty {
 		return []*searchsvc.SortProperty{{Name: name}}
 	}
@@ -69,6 +70,20 @@ var _ = Describe("CompareMatches", func() {
 		Expect(search.CompareMatches(a, b, asc("name"))).To(Equal(-1))
 		Expect(search.CompareMatches(b, a, asc("name"))).To(Equal(1))
 		Expect(search.CompareMatches(a, b, desc("name"))).To(Equal(1))
+	})
+
+	It("compares lowercase-analyzed fields case-insensitively, like the index sorts them", func() {
+		upper := match(func(e *searchmsg.Entity) { e.Name = "B.jpg" })
+		lower := match(func(e *searchmsg.Entity) { e.Name = "a.jpg" })
+		Expect(search.CompareMatches(lower, upper, asc("name"))).To(Equal(-1))
+		Expect(search.CompareMatches(upper, lower, asc("name"))).To(Equal(1))
+	})
+
+	It("compares case-preserved fields case-sensitively", func() {
+		upper := match(func(e *searchmsg.Entity) { e.Audio = &searchmsg.Audio{Artist: strPtr("Beatles")} })
+		lower := match(func(e *searchmsg.Entity) { e.Audio = &searchmsg.Audio{Artist: strPtr("abba")} })
+		// byte order: uppercase sorts before lowercase
+		Expect(search.CompareMatches(upper, lower, asc("audio.artist"))).To(Equal(-1))
 	})
 
 	It("compares numeric fields numerically", func() {
