@@ -430,11 +430,34 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		Expect(captured().GetOrderBy()[1].GetIsDescending()).To(BeFalse())
 	})
 
-	ginkgo.It("rejects sorting by an unsupported field with 400", func() {
-		rr := postSearchQuery(graphWithoutSearch(), searchQueryBody(`"sortProperties": [{"name": "photo.iso"}]`))
-		Expect(rr.Code).To(Equal(http.StatusBadRequest), rr.Body.String())
-		Expect(rr.Body.String()).To(ContainSubstring("photo.iso"))
-	})
+	ginkgo.DescribeTable("accepts sorting by scalar hit fields",
+		func(field string) {
+			g, _ := graphWithSearchAnswer(&searchsvc.SearchResponse{})
+			rr := postSearchQuery(g, searchQueryBody(fmt.Sprintf(`"sortProperties": [{"name": %q}]`, field)))
+			Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+		},
+		ginkgo.Entry("name", "name"),
+		ginkgo.Entry("size", "size"),
+		ginkgo.Entry("lastModifiedDateTime", "lastModifiedDateTime"),
+		ginkgo.Entry("mimeType", "mimeType"),
+		ginkgo.Entry("photo.takenDateTime", "photo.takenDateTime"),
+		ginkgo.Entry("photo.iso", "photo.iso"),
+		ginkgo.Entry("audio.artist", "audio.artist"),
+		ginkgo.Entry("image.width", "image.width"),
+	)
+
+	ginkgo.DescribeTable("rejects sorting by unsortable fields with 400",
+		func(field string) {
+			rr := postSearchQuery(graphWithoutSearch(), searchQueryBody(fmt.Sprintf(`"sortProperties": [{"name": %q}]`, field)))
+			Expect(rr.Code).To(Equal(http.StatusBadRequest), rr.Body.String())
+			Expect(rr.Body.String()).To(ContainSubstring(field))
+		},
+		ginkgo.Entry("unknown field", "definitelyNotAField"),
+		ginkgo.Entry("multivalued field", "tags"),
+		ginkgo.Entry("internal index field name", "Mtime"),
+		ginkgo.Entry("bare audio facet", "audio"),
+		ginkgo.Entry("bare location facet", "location"),
+	)
 
 	ginkgo.It("rejects an $expand it does not know with 400", func() {
 		req := httptest.NewRequest(http.MethodPost, "/search/query?$expand=thumbnails,permissions", bytes.NewBufferString(searchQueryBody(`"from": 0`)))
