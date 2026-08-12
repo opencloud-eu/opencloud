@@ -21,7 +21,7 @@ var _ MappedNullable = &SortProperty{}
 
 // SortProperty Indicates the order to sort search results in. Follows the [MS Graph sortProperty](https://learn.microsoft.com/en-us/graph/api/resources/sortproperty) resource type.
 type SortProperty struct {
-	// The name of the property to sort the search results by. The sortable fields are `name`, `size`, `lastModifiedDateTime` and `photo.takenDateTime`. Sorting by any other field is rejected with `invalidRequest`. Required.
+	// The name of the property to sort the search results by. Sortable are the scalar properties carried on the search hit's resource: `name`, `size`, `lastModifiedDateTime`, `mimeType` and the scalar facet properties such as `photo.takenDateTime`, `photo.iso`, `audio.artist`, `audio.year` or `image.width`. Strings sort lexicographically, numbers and dates by value. Multivalued properties (e.g. `tags`) and unknown properties are rejected with `invalidRequest`. Required.
 	Name string `json:"name"`
 	// Set to `true` to sort the results in descending order. Optional, defaults to `false` (ascending).
 	IsDescending *bool `json:"isDescending,omitempty"`
