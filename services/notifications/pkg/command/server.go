@@ -84,6 +84,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			evs := []events.Unmarshaller{
 				events.ShareCreated{},
 				events.ShareExpired{},
+				events.ShareRemoved{},
 				events.SpaceShared{},
 				events.SpaceUnshared{},
 				events.SpaceMembershipExpired{},
