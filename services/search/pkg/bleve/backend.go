@@ -2,6 +2,7 @@ package bleve
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -96,8 +97,19 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 
 	bleveReq := bleve.NewSearchRequest(q)
 	bleveReq.Highlight = bleve.NewHighlight()
-	// ties by id, like the cross-space merge
-	bleveReq.SortBy([]string{"-_score", "_id"})
+	// order_by first, then like the cross-space merge: score, ties by id
+	sortOrder := make([]string, 0, len(sir.GetOrderBy())+2)
+	for _, sp := range sir.GetOrderBy() {
+		field, ok := search.SortIndexField(sp.GetName())
+		if !ok {
+			return nil, errtypes.BadRequest(fmt.Sprintf("field %q is not sortable", sp.GetName()))
+		}
+		if sp.GetIsDescending() {
+			field = "-" + field
+		}
+		sortOrder = append(sortOrder, field)
+	}
+	bleveReq.SortBy(append(sortOrder, "-_score", "_id"))
 	bleveReq.Size = size
 
 	collector, err := newAggCollector(sir.GetAggregations())
