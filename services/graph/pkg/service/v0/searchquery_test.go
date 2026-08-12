@@ -412,12 +412,29 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 			Expect(rr.Body.String()).To(ContainSubstring("notSupported"))
 			Expect(rr.Body.String()).To(ContainSubstring(property))
 		},
-		ginkgo.Entry("sortProperties", `"sortProperties": [{"name": "name"}]`, "sortProperties"),
 		ginkgo.Entry("a geohash aggregation",
 			`"aggregations": [{"field": "location", "@libre.graph.geohashDefinition": {"precision": 5}}]`, "geohashDefinition"),
 		ginkgo.Entry("a nested geohash aggregation",
 			`"aggregations": [{"field": "audio.artist", "@libre.graph.subAggregations": [{"field": "location", "@libre.graph.geohashDefinition": {"precision": 5}}]}]`, "geohashDefinition"),
 	)
+
+	ginkgo.It("forwards sortProperties to the search service as order_by", func() {
+		g, captured := graphWithSearchAnswer(&searchsvc.SearchResponse{})
+		rr := postSearchQuery(g, searchQueryBody(`"sortProperties": [{"name": "photo.takenDateTime", "isDescending": true}, {"name": "name"}]`))
+		Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+
+		Expect(captured().GetOrderBy()).To(HaveLen(2))
+		Expect(captured().GetOrderBy()[0].GetName()).To(Equal("photo.takenDateTime"))
+		Expect(captured().GetOrderBy()[0].GetIsDescending()).To(BeTrue())
+		Expect(captured().GetOrderBy()[1].GetName()).To(Equal("name"))
+		Expect(captured().GetOrderBy()[1].GetIsDescending()).To(BeFalse())
+	})
+
+	ginkgo.It("rejects sorting by an unsupported field with 400", func() {
+		rr := postSearchQuery(graphWithoutSearch(), searchQueryBody(`"sortProperties": [{"name": "photo.iso"}]`))
+		Expect(rr.Code).To(Equal(http.StatusBadRequest), rr.Body.String())
+		Expect(rr.Body.String()).To(ContainSubstring("photo.iso"))
+	})
 
 	ginkgo.It("rejects an $expand it does not know with 400", func() {
 		req := httptest.NewRequest(http.MethodPost, "/search/query?$expand=thumbnails,permissions", bytes.NewBufferString(searchQueryBody(`"from": 0`)))

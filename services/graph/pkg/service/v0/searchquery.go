@@ -86,9 +86,6 @@ func validateSearchExpand(r *http.Request) error {
 // unsupportedProperty names a property of the spec this endpoint does not
 // evaluate yet.
 func unsupportedProperty(sr libregraph.SearchRequest) string {
-	if len(sr.SortProperties) > 0 {
-		return "sortProperties"
-	}
 	var geohash func(aggs []libregraph.AggregationOption) bool
 	geohash = func(aggs []libregraph.AggregationOption) bool {
 		for _, a := range aggs {
@@ -117,6 +114,9 @@ func searchRequestOf(sr libregraph.SearchRequest) (*searchsvc.SearchRequest, err
 	if err := validateAggregations(sr.Aggregations); err != nil {
 		return nil, err
 	}
+	if err := validateSortProperties(sr.SortProperties); err != nil {
+		return nil, err
+	}
 	aggregations := libregraphAggregationsToSearch(sr.Aggregations)
 	filters, err := aggregationFiltersToSearch(sr.AggregationFilters)
 	if err != nil {
@@ -141,6 +141,7 @@ func searchRequestOf(sr libregraph.SearchRequest) (*searchsvc.SearchRequest, err
 		PageSize:           &size,
 		Aggregations:       aggregations,
 		AggregationFilters: filters,
+		OrderBy:            libregraphSortToSearch(sr.SortProperties),
 	}, nil
 }
 
@@ -260,6 +261,43 @@ func validateAggregations(aggs []libregraph.AggregationOption) error {
 		}
 	}
 	return nil
+}
+
+// sortableFields is the set of fields accepted in sortProperties (mirrored in
+// the openapi spec). A field qualifies only if it is indexed as a sortable
+// type in both search backends AND carried on the Match entity: the service
+// layer re-sorts matches when merging the per-space result streams and needs
+// the sort key on the match itself.
+var sortableFields = map[string]struct{}{
+	"name":                 {},
+	"size":                 {},
+	"lastModifiedDateTime": {},
+	"photo.takenDateTime":  {},
+}
+
+// validateSortProperties rejects sorting by fields outside sortableFields.
+func validateSortProperties(sortProperties []libregraph.SortProperty) error {
+	for _, sp := range sortProperties {
+		if _, ok := sortableFields[sp.Name]; !ok {
+			return fmt.Errorf("field %q is not sortable; sortable fields: name, size, lastModifiedDateTime, photo.takenDateTime", sp.Name)
+		}
+	}
+	return nil
+}
+
+func libregraphSortToSearch(in []libregraph.SortProperty) []*searchsvc.SortProperty {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]*searchsvc.SortProperty, 0, len(in))
+	for _, sp := range in {
+		p := &searchsvc.SortProperty{Name: sp.Name}
+		if sp.IsDescending != nil {
+			p.IsDescending = *sp.IsDescending
+		}
+		out = append(out, p)
+	}
+	return out
 }
 
 // renderSearchError answers with the status the search service failed with.
