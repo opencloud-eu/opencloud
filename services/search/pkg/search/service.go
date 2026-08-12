@@ -332,7 +332,17 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	// independent of depth. Pushing plain offsets down into the engines
 	// would only trim the transfer, not the per-space overfetch, so it is
 	// not worth doing on its own.
-	sort.Sort(matches)
+	//
+	// Each engine already returns its matches in order_by order (or by score
+	// when no order_by is given); this merge re-establishes that order across
+	// spaces, with the score as tiebreaker.
+	orderBy := req.GetOrderBy()
+	sort.SliceStable(matches, func(i, j int) bool {
+		if c := CompareMatches(matches[i], matches[j], orderBy); c != 0 {
+			return c < 0
+		}
+		return matches[i].GetScore() > matches[j].GetScore()
+	})
 	limit := req.PageSize
 	if limit == 0 {
 		limit = 200
@@ -597,6 +607,7 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 	searchRequest := &searchsvc.SearchIndexRequest{
 		Query:        req.Query,
 		Aggregations: req.GetAggregations(),
+		OrderBy:      req.GetOrderBy(),
 		Ref: &searchmsg.Reference{
 			ResourceId: searchRootID,
 			Path:       searchPathPrefix,

@@ -118,16 +118,6 @@ func ResolveReference(ctx context.Context, ref *provider.Reference, ri *provider
 
 type matchArray []*searchmsg.Match
 
-func (ma matchArray) Len() int {
-	return len(ma)
-}
-func (ma matchArray) Swap(i, j int) {
-	ma[i], ma[j] = ma[j], ma[i]
-}
-func (ma matchArray) Less(i, j int) bool {
-	return ma[i].GetScore() > ma[j].GetScore()
-}
-
 func logDocCount(engine Engine, logger log.Logger) {
 	c, err := engine.DocCount()
 	if err != nil {

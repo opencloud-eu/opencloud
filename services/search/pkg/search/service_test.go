@@ -16,6 +16,7 @@ import (
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
+	typespb "google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
@@ -220,6 +221,103 @@ var _ = Describe("Searchprovider", func() {
 						req.Aggregations[0].Field == "audio.artist" &&
 						req.Aggregations[0].Size == 10
 				}))
+			})
+		})
+
+		Context("with two personal spaces returning matches", func() {
+			var (
+				spaceA = &sprovider.StorageSpace{
+					Id:        &sprovider.StorageSpaceId{OpaqueId: "storageid$a!a"},
+					Root:      &sprovider.ResourceId{StorageId: "storageid", SpaceId: "a", OpaqueId: "a"},
+					Name:      "space-a",
+					SpaceType: "personal",
+				}
+				spaceB = &sprovider.StorageSpace{
+					Id:        &sprovider.StorageSpaceId{OpaqueId: "storageid$b!b"},
+					Root:      &sprovider.ResourceId{StorageId: "storageid", SpaceId: "b", OpaqueId: "b"},
+					Name:      "space-b",
+					SpaceType: "personal",
+				}
+
+				photoMatch = func(space string, name string, taken int64, score float32) *searchmsg.Match {
+					return &searchmsg.Match{
+						Score: score,
+						Entity: &searchmsg.Entity{
+							Ref: &searchmsg.Reference{
+								ResourceId: &searchmsg.ResourceID{StorageId: "storageid", SpaceId: space, OpaqueId: space},
+								Path:       "./" + name,
+							},
+							Id:   &searchmsg.ResourceID{StorageId: "storageid", SpaceId: space, OpaqueId: name},
+							Name: name,
+							Photo: &searchmsg.Photo{
+								TakenDateTime: &typespb.Timestamp{Seconds: taken},
+							},
+						},
+					}
+				}
+			)
+
+			BeforeEach(func() {
+				gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&sprovider.ListStorageSpacesResponse{
+					Status:        status.NewOK(ctx),
+					StorageSpaces: []*sprovider.StorageSpace{spaceA, spaceB},
+				}, nil)
+				indexClient.On("Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
+					return req.Ref != nil && req.Ref.ResourceId.SpaceId == "a"
+				})).Return(&searchsvc.SearchIndexResponse{
+					TotalMatches: 2,
+					Matches: []*searchmsg.Match{
+						photoMatch("a", "a-old.jpg", 100, 0.9),
+						photoMatch("a", "a-new.jpg", 300, 0.1),
+					},
+				}, nil)
+				indexClient.On("Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
+					return req.Ref != nil && req.Ref.ResourceId.SpaceId == "b"
+				})).Return(&searchsvc.SearchIndexResponse{
+					TotalMatches: 2,
+					Matches: []*searchmsg.Match{
+						photoMatch("b", "b-newest.jpg", 400, 0.5),
+						photoMatch("b", "b-mid.jpg", 200, 0.4),
+					},
+				}, nil)
+			})
+
+			It("forwards order_by to the engine", func() {
+				_, err := s.Search(ctx, &searchsvc.SearchRequest{
+					Query:   "mediatype:image",
+					OrderBy: []*searchsvc.SortProperty{{Name: "photo.takenDateTime", IsDescending: true}},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
+					return len(req.OrderBy) == 1 &&
+						req.OrderBy[0].Name == "photo.takenDateTime" &&
+						req.OrderBy[0].IsDescending
+				}))
+			})
+
+			It("merges matches across spaces in sort order", func() {
+				res, err := s.Search(ctx, &searchsvc.SearchRequest{
+					Query:   "mediatype:image",
+					OrderBy: []*searchsvc.SortProperty{{Name: "photo.takenDateTime", IsDescending: true}},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				names := []string{}
+				for _, m := range res.Matches {
+					names = append(names, m.Entity.Name)
+				}
+				Expect(names).To(Equal([]string{"b-newest.jpg", "a-new.jpg", "b-mid.jpg", "a-old.jpg"}))
+			})
+
+			It("merges matches by score when no order_by is given", func() {
+				res, err := s.Search(ctx, &searchsvc.SearchRequest{
+					Query: "mediatype:image",
+				})
+				Expect(err).ToNot(HaveOccurred())
+				names := []string{}
+				for _, m := range res.Matches {
+					names = append(names, m.Entity.Name)
+				}
+				Expect(names).To(Equal([]string{"a-old.jpg", "b-newest.jpg", "b-mid.jpg", "a-new.jpg"}))
 			})
 		})
 
