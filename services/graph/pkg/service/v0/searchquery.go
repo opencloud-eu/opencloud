@@ -43,6 +43,10 @@ func (g Graph) SearchQuery(w http.ResponseWriter, r *http.Request) {
 			errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, err.Error())
 			return
 		}
+		if err := validateSortProperties(sr.SortProperties); err != nil {
+			errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	th := r.Header.Get(revaCtx.TokenHeader)
@@ -80,6 +84,7 @@ func (g Graph) runSingleSearch(ctx context.Context, sr libregraph.SearchRequest,
 		PageSize:           pageSize,
 		Aggregations:       libregraphAggregationsToSearch(sr.Aggregations),
 		AggregationFilters: sr.AggregationFilters,
+		OrderBy:            libregraphSortToSearch(sr.SortProperties),
 	})
 	if err != nil {
 		return libregraph.SearchResponse{}, err
@@ -168,6 +173,43 @@ func validateAggregations(aggs []libregraph.AggregationOption) error {
 		return fmt.Errorf("terms aggregation is not supported on numeric field %q; use bucketDefinition.ranges", a.Field)
 	}
 	return nil
+}
+
+// sortableFields is the set of fields accepted in sortProperties (mirrored in
+// the openapi spec). A field qualifies only if it is indexed as a sortable
+// type in both search backends AND carried on the Match entity: the service
+// layer re-sorts matches when merging the per-space result streams and needs
+// the sort key on the match itself.
+var sortableFields = map[string]struct{}{
+	"name":                 {},
+	"size":                 {},
+	"lastModifiedDateTime": {},
+	"photo.takenDateTime":  {},
+}
+
+// validateSortProperties rejects sorting by fields outside sortableFields.
+func validateSortProperties(sortProperties []libregraph.SortProperty) error {
+	for _, sp := range sortProperties {
+		if _, ok := sortableFields[sp.Name]; !ok {
+			return fmt.Errorf("field %q is not sortable; sortable fields: name, size, lastModifiedDateTime, photo.takenDateTime", sp.Name)
+		}
+	}
+	return nil
+}
+
+func libregraphSortToSearch(in []libregraph.SortProperty) []*searchsvc.SortProperty {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]*searchsvc.SortProperty, 0, len(in))
+	for _, sp := range in {
+		p := &searchsvc.SortProperty{Name: sp.Name}
+		if sp.IsDescending != nil {
+			p.IsDescending = *sp.IsDescending
+		}
+		out = append(out, p)
+	}
+	return out
 }
 
 func libregraphAggregationsToSearch(in []libregraph.AggregationOption) []*searchsvc.AggregationOption {
