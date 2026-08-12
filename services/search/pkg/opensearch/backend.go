@@ -130,9 +130,7 @@ func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.I
 
 	searchParams := opensearchgoAPI.SearchParams{
 		SourceExcludes: []string{"Content"}, // Do not send back the full content in the search response, as it is only needed for highlighting and can be large. The highlighted snippets will be sent back in the response instead.
-		// ties by id, like the cross-space merge
-		Sort:        []string{"_score:desc", "ID:asc"},
-		TrackScores: conversions.ToPointer(true),
+		TrackScores:    conversions.ToPointer(true),
 		// count every match, the default stops at 10000
 		TrackTotalHits: true,
 		Size:           conversions.ToPointer(search.EnginePageSize(sir.PageSize, 1000)),
@@ -142,6 +140,22 @@ func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.I
 	if u, ok := revactx.ContextGetUser(ctx); ok && u.GetId().GetOpaqueId() != "" {
 		searchParams.Preference = "user-" + u.GetId().GetOpaqueId()
 	}
+
+	// order_by first, missing values last in both directions, then like the
+	// cross-space merge: score, ties by id
+	sortClause := make([]map[string]any, 0, len(sir.OrderBy)+2)
+	for _, sp := range sir.OrderBy {
+		field, ok := search.SortIndexField(sp.GetName())
+		if !ok {
+			return nil, errtypes.BadRequest(fmt.Sprintf("field %q is not sortable", sp.GetName()))
+		}
+		order := "asc"
+		if sp.GetIsDescending() {
+			order = "desc"
+		}
+		sortClause = append(sortClause, map[string]any{field: map[string]any{"order": order, "missing": "_last"}})
+	}
+	sortClause = append(sortClause, map[string]any{"_score": map[string]any{"order": "desc"}}, map[string]any{"ID": map[string]any{"order": "asc"}})
 
 	aggregationsBody, err := aggs.Build(sir.Aggregations)
 	if err != nil {
@@ -168,6 +182,7 @@ func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.I
 				},
 			},
 			Aggs: aggregationsBody,
+			Sort: sortClause,
 		},
 	)
 	if err != nil {
