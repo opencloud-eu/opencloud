@@ -83,6 +83,11 @@ message SearchRequest {
   // Optional. Number of leading matches to skip in the globally sorted,
   // cross-space merged result list.
   int32 from = 7 [(google.api.field_behavior) = OPTIONAL];
+  // Optional. Fields to sort the matches by, in order of precedence. When
+  // empty, matches are sorted by relevance score. Only a subset of the
+  // indexed fields is sortable; the graph service validates this before
+  // forwarding the request.
+  repeated SortProperty order_by = 8 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message SearchResponse {
@@ -115,6 +120,10 @@ message SearchIndexRequest {
   // Optional. Filters narrowing the matches to buckets of a prior
   // aggregation; the engine ANDs them with `query`.
   repeated AggregationFilter aggregation_filters = 6 [(google.api.field_behavior) = OPTIONAL];
+  // Optional. Fields to sort the matches by, in order of precedence. When
+  // empty, matches are sorted by relevance score. Each backend translates
+  // this to its native sort (bleve: SortBy, OpenSearch: sort clause).
+  repeated SortProperty order_by = 7 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message SearchIndexResponse {
@@ -153,6 +162,17 @@ message AggregationOption {
 
 message MetricDefinition {
   MetricKind kind = 1;
+}
+
+message SortProperty {
+  // Required. The field to sort on, in graph notation. Supported: "name",
+  // "size", "lastModifiedDateTime", "photo.takenDateTime". A field is only
+  // sortable if it is indexed as a sortable type in both backends AND
+  // present on the Match entity (the service layer needs the sort key to
+  // merge per-space result streams).
+  string name = 1;
+  // Optional. Sort in descending order. Defaults to ascending.
+  bool is_descending = 2;
 }
 
 enum MetricKind {
