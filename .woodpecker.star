@@ -1902,10 +1902,12 @@ def checkVersionPlaceholder():
 def dockerRelease(ctx, repo, build_type):
     build_args = {
         "REVISION": "%s" % ctx.build.commit,
-        "STRING": "%s" % ctx.build.commit[:8],
         "VERSION": "%s" % (ctx.build.ref.replace("refs/tags/", "") if ctx.build.event == "tag" else "daily"),
         "EDITION": "stable" if build_type == "production" else "rolling",
     }
+
+    if ctx.build.event != "tag":
+        build_args["STRING"] = ctx.build.commit[:8]
 
     # if no additional tag is given, the build-plugin adds latest
     hard_tag = "daily"
