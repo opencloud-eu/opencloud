@@ -66,7 +66,8 @@ func DefaultConfig() *config.Config {
 			Zpages: false,
 		},
 		Wopi: config.Wopi{
-			WopiSrc: "https://localhost:9300",
+			WopiSrc:      "https://localhost:9300",
+			EnableMobile: true,
 		},
 		CS3Api: config.CS3Api{
 			Gateway: config.Gateway{
