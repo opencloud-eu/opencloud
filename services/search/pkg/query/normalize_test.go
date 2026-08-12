@@ -30,12 +30,12 @@ var _ = Describe("ResolveField", func() {
 
 var _ = Describe("FieldIsCaseInsensitive", func() {
 	It("reports the CaseInsensitive override fields", func() {
-		// The four CaseInsensitive override fields (resolved canonical names).
-		for _, f := range []string{"Name", "Path", "Tags", "Favorites"} {
+		// The three CaseInsensitive override fields (resolved canonical names).
+		for _, f := range []string{"Name", "Tags", "Favorites"} {
 			Expect(query.FieldIsCaseInsensitive(f)).To(BeTrue(), f)
 		}
 		// Case-preserved / non-keyword fields are not.
-		for _, f := range []string{"MimeType", "ID", "Content", "unknown"} {
+		for _, f := range []string{"MimeType", "ID", "Content", "Path", "unknown"} {
 			Expect(query.FieldIsCaseInsensitive(f)).To(BeFalse(), f)
 		}
 	})
