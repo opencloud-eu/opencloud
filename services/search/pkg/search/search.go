@@ -54,6 +54,7 @@ type IndexQuery struct {
 	PageSize           *int32
 	Aggregations       []*searchsvc.AggregationOption
 	AggregationFilters []*searchsvc.AggregationFilter
+	OrderBy            []*searchsvc.SortProperty
 }
 
 // IndexResult is what the engine answers: the matches of one space and how
