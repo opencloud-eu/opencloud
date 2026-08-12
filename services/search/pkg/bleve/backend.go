@@ -92,6 +92,24 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 	bleveReq := bleve.NewSearchRequest(q)
 	bleveReq.Highlight = bleve.NewHighlight()
 
+	// Sort natively in the index; the service layer re-establishes this order
+	// when merging matches across spaces. Score sorting (bleve's default)
+	// stays in place when no order_by is given.
+	if orderBy := sir.GetOrderBy(); len(orderBy) > 0 {
+		sortOrder := make([]string, 0, len(orderBy)+1)
+		for _, sp := range orderBy {
+			field, ok := search.SortIndexField(sp.GetName())
+			if !ok {
+				return nil, errtypes.BadRequest(fmt.Sprintf("field %q is not sortable", sp.GetName()))
+			}
+			if sp.GetIsDescending() {
+				field = "-" + field
+			}
+			sortOrder = append(sortOrder, field)
+		}
+		bleveReq.SortBy(append(sortOrder, "-_score"))
+	}
+
 	switch {
 	case sir.PageSize == -1:
 		bleveReq.Size = math.MaxInt

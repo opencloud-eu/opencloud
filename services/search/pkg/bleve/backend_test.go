@@ -1150,4 +1150,91 @@ var _ = Describe("Bleve", func() {
 			})
 		})
 	})
+
+	Describe("Sorting", func() {
+		upsertPhoto := func(id, name string, size uint64, taken string) {
+			t, err := time.Parse(time.RFC3339, taken)
+			Expect(err).ToNot(HaveOccurred())
+			r := search.Resource{
+				ID:       id,
+				ParentID: rootResource.ID,
+				RootID:   rootResource.ID,
+				Path:     "./" + name,
+				Type:     uint64(sprovider.ResourceType_RESOURCE_TYPE_FILE),
+				Document: content.Document{
+					Name:     name,
+					Size:     size,
+					MimeType: "image/jpeg",
+					Photo:    &libregraph.Photo{TakenDateTime: &t},
+				},
+			}
+			Expect(eng.Upsert(r.ID, r)).To(Succeed())
+		}
+
+		searchSorted := func(query string, pageSize int32, orderBy ...*searchsvc.SortProperty) (*searchsvc.SearchIndexResponse, error) {
+			rID, err := storagespace.ParseID(rootResource.ID)
+			Expect(err).ToNot(HaveOccurred())
+			return eng.Search(context.Background(), &searchsvc.SearchIndexRequest{
+				Query:    query,
+				PageSize: pageSize,
+				OrderBy:  orderBy,
+				Ref: &searchmsg.Reference{
+					ResourceId: &searchmsg.ResourceID{
+						StorageId: rID.StorageId, SpaceId: rID.SpaceId, OpaqueId: rID.OpaqueId,
+					},
+				},
+			})
+		}
+
+		matchNames := func(res *searchsvc.SearchIndexResponse) []string {
+			names := make([]string, 0, len(res.Matches))
+			for _, m := range res.Matches {
+				names = append(names, m.Entity.Name)
+			}
+			return names
+		}
+
+		BeforeEach(func() {
+			// insertion order deliberately differs from every sort order
+			upsertPhoto("1$2!4001", "c.jpg", 300, "2020-06-15T12:00:00Z")
+			upsertPhoto("1$2!4002", "a.jpg", 100, "2022-01-01T08:00:00Z")
+			upsertPhoto("1$2!4003", "d.jpg", 400, "2019-03-03T10:30:00Z")
+			upsertPhoto("1$2!4004", "b.jpg", 200, "2021-11-20T18:45:00Z")
+		})
+
+		It("sorts by photo.takenDateTime descending", func() {
+			res, err := searchSorted("mediatype:image", 10,
+				&searchsvc.SortProperty{Name: "photo.takenDateTime", IsDescending: true})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(matchNames(res)).To(Equal([]string{"a.jpg", "b.jpg", "c.jpg", "d.jpg"}))
+		})
+
+		It("sorts by name ascending", func() {
+			res, err := searchSorted("mediatype:image", 10,
+				&searchsvc.SortProperty{Name: "name"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(matchNames(res)).To(Equal([]string{"a.jpg", "b.jpg", "c.jpg", "d.jpg"}))
+		})
+
+		It("sorts by size ascending", func() {
+			res, err := searchSorted("mediatype:image", 10,
+				&searchsvc.SortProperty{Name: "size"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(matchNames(res)).To(Equal([]string{"a.jpg", "b.jpg", "c.jpg", "d.jpg"}))
+		})
+
+		It("returns the head of the sorted order when the page is smaller than the result set", func() {
+			res, err := searchSorted("mediatype:image", 2,
+				&searchsvc.SortProperty{Name: "photo.takenDateTime"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.TotalMatches).To(Equal(int32(4)))
+			Expect(matchNames(res)).To(Equal([]string{"d.jpg", "c.jpg"}))
+		})
+
+		It("rejects sorting by an unsortable field", func() {
+			_, err := searchSorted("mediatype:image", 10,
+				&searchsvc.SortProperty{Name: "definitelyNotAField"})
+			Expect(err).To(HaveOccurred())
+		})
+	})
 })
