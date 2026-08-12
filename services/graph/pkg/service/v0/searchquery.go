@@ -67,6 +67,11 @@ func (g Graph) runSingleSearch(ctx context.Context, sr libregraph.SearchRequest)
 
 	// The gRPC layer has no from field: request from+size matches and slice
 	// client-side. int64 avoids int32 overflow.
+	//
+	// NOTE(perf): this makes offset pagination cost O(from+size) per page,
+	// multiplied by the per-space fan-out in the search service. Accepted
+	// for now; the fix is cursor pagination (see the merge in
+	// services/search/pkg/search/service.go).
 	pageSize := int32(int64(from) + int64(size))
 	if size == 0 {
 		pageSize = 0

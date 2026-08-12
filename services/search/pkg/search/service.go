@@ -321,6 +321,17 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	}
 
 	// compile one sorted list of matches from all spaces and apply the limit if needed
+	//
+	// NOTE(perf): every space was searched with the caller's full page size,
+	// so serving one page costs O(spaces x page_size) fetched matches. With
+	// offset pagination (the graph layer maps from/size onto a single
+	// page_size) each deeper page re-fetches everything before it on top.
+	// Accepted for now. The known fix is field-sorted cursor pagination via
+	// the currently unused page_token request/response fields: each space
+	// then serves "sort key < cursor, limit size" and page cost becomes
+	// independent of depth. Pushing plain offsets down into the engines
+	// would only trim the transfer, not the per-space overfetch, so it is
+	// not worth doing on its own.
 	sort.Sort(matches)
 	limit := req.PageSize
 	if limit == 0 {
