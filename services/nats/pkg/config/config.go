@@ -18,14 +18,22 @@ type Config struct {
 	Context context.Context `yaml:"-"`
 }
 
+type Monitoring struct {
+	Enabled   bool   `yaml:"enabled" env:"NATS_MONITORING_ENABLED" desc:"Whether to enable the NATS server monitoring HTTP endpoint" introductionVersion:"%NEXT%"`
+	Host      string `yaml:"host" env:"NATS_MONITORING_HTTP_HOST" desc:"The address the NATS server monitoring HTTP endpoint should be bound to" introductionVersion:"%NEXT%"`
+	Port      int    `yaml:"port" env:"NATS_MONITORING_HTTP_PORT" desc:"The port the NATS server monitoring HTTP endpoint should be bound to" introductionVersion:"%NEXT%"`
+	EnableTLS bool   `yaml:"enable_tls" env:"NATS_MONITORING_ENABLE_TLS" desc:"Enable TLS for NATS server monitoring HTTP endpoint. Note that it will use the same TLS configuration as the streaming API." introductionVersion:"%NEXT%"`
+}
+
 // Nats is the nats config
 type Nats struct {
-	Host                    string `yaml:"host" env:"NATS_NATS_HOST" desc:"Bind address." introductionVersion:"1.0.0"`
-	Port                    int    `yaml:"port" env:"NATS_NATS_PORT" desc:"Bind port." introductionVersion:"1.0.0"`
-	ClusterID               string `yaml:"clusterid" env:"NATS_NATS_CLUSTER_ID" desc:"ID of the NATS cluster." introductionVersion:"1.0.0"`
-	StoreDir                string `yaml:"store_dir" env:"NATS_NATS_STORE_DIR" desc:"The directory where the filesystem storage will store NATS JetStream data. If not defined, the root directory derives from $OC_BASE_DATA_PATH/nats." introductionVersion:"1.0.0"`
-	TLSCert                 string `yaml:"tls_cert" env:"NATS_TLS_CERT" desc:"Path/File name of the TLS server certificate (in PEM format) for the NATS listener. If not defined, the root directory derives from $OC_BASE_DATA_PATH/nats." introductionVersion:"1.0.0"`
-	TLSKey                  string `yaml:"tls_key" env:"NATS_TLS_KEY" desc:"Path/File name for the TLS certificate key (in PEM format) for the NATS listener. If not defined, the root directory derives from $OC_BASE_DATA_PATH/nats." introductionVersion:"1.0.0"`
-	TLSSkipVerifyClientCert bool   `yaml:"tls_skip_verify_client_cert" env:"OC_INSECURE;NATS_TLS_SKIP_VERIFY_CLIENT_CERT" desc:"Whether the NATS server should skip the client certificate verification during the TLS handshake." introductionVersion:"1.0.0"`
-	EnableTLS               bool   `yaml:"enable_tls" env:"OC_EVENTS_ENABLE_TLS;NATS_EVENTS_ENABLE_TLS" desc:"Enable TLS for the connection to the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
+	Host                    string     `yaml:"host" env:"NATS_NATS_HOST" desc:"Bind address." introductionVersion:"1.0.0"`
+	Port                    int        `yaml:"port" env:"NATS_NATS_PORT" desc:"Bind port." introductionVersion:"1.0.0"`
+	ClusterID               string     `yaml:"clusterid" env:"NATS_NATS_CLUSTER_ID" desc:"ID of the NATS cluster." introductionVersion:"1.0.0"`
+	StoreDir                string     `yaml:"store_dir" env:"NATS_NATS_STORE_DIR" desc:"The directory where the filesystem storage will store NATS JetStream data. If not defined, the root directory derives from $OC_BASE_DATA_PATH/nats." introductionVersion:"1.0.0"`
+	TLSCert                 string     `yaml:"tls_cert" env:"NATS_TLS_CERT" desc:"Path/File name of the TLS server certificate (in PEM format) for the NATS listener. If not defined, the root directory derives from $OC_BASE_DATA_PATH/nats." introductionVersion:"1.0.0"`
+	TLSKey                  string     `yaml:"tls_key" env:"NATS_TLS_KEY" desc:"Path/File name for the TLS certificate key (in PEM format) for the NATS listener. If not defined, the root directory derives from $OC_BASE_DATA_PATH/nats." introductionVersion:"1.0.0"`
+	TLSSkipVerifyClientCert bool       `yaml:"tls_skip_verify_client_cert" env:"OC_INSECURE;NATS_TLS_SKIP_VERIFY_CLIENT_CERT" desc:"Whether the NATS server should skip the client certificate verification during the TLS handshake." introductionVersion:"1.0.0"`
+	EnableTLS               bool       `yaml:"enable_tls" env:"OC_EVENTS_ENABLE_TLS;NATS_EVENTS_ENABLE_TLS" desc:"Enable TLS for the connection to the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
+	Monitoring              Monitoring `yaml:"monitoring"`
 }
