@@ -32,6 +32,8 @@ type SearchRequest struct {
 	Aggregations []AggregationOption `json:"aggregations,omitempty"`
 	// Contains one or more filters to obtain search results narrowed down to a specific value of a field. Build this filter based on a prior search that aggregates by the same field. From the response of the prior search, identify the `searchBucket` that filters results to the specific value of the field, use the string in its `aggregationFilterToken` property, and build an aggregation filter string in the format `\"{field}:\\\"{aggregationFilterToken}\\\"\"`.  Multiple filters can be provided as separate array items. This results in a logical AND between the filters. 
 	AggregationFilters []string `json:"aggregationFilters,omitempty"`
+	// Contains the ordered collection of fields to sort the results on. If absent, the results are sorted by relevance. See `SortProperty.Name` for the set of sortable fields. Optional.
+	SortProperties []SortProperty `json:"sortProperties,omitempty"`
 }
 
 type _SearchRequest SearchRequest

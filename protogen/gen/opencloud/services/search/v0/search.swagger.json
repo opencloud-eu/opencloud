@@ -607,6 +607,13 @@
             "$ref": "#/definitions/v0AggregationOption"
           },
           "description": "Optional. Per-space aggregations (facets) to compute alongside the matches."
+        },
+        "orderBy": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0SortProperty"
+          },
+          "description": "Optional. Fields to sort the matches by, in order of precedence. When\nempty, matches are sorted by relevance score. Each backend translates\nthis to its native sort (bleve: SortBy, OpenSearch: sort clause)."
         }
       }
     },
@@ -660,6 +667,13 @@
             "$ref": "#/definitions/v0AggregationOption"
           },
           "description": "Optional. Aggregations (facets) to compute alongside the matches."
+        },
+        "orderBy": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0SortProperty"
+          },
+          "description": "Optional. Fields to sort the matches by, in order of precedence. When\nempty, matches are sorted by relevance score. Only a subset of the\nindexed fields is sortable; the graph service validates this before\nforwarding the request."
         }
       }
     },
@@ -686,6 +700,19 @@
             "$ref": "#/definitions/v0AggregationResult"
           },
           "description": "Aggregation results, one entry per requested aggregation."
+        }
+      }
+    },
+    "v0SortProperty": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Required. The field to sort on, in graph notation. Supported: \"name\",\n\"size\", \"lastModifiedDateTime\", \"photo.takenDateTime\". A field is only\nsortable if it is indexed as a sortable type in both backends AND\npresent on the Match entity (the service layer needs the sort key to\nmerge per-space result streams)."
+        },
+        "isDescending": {
+          "type": "boolean",
+          "description": "Optional. Sort in descending order. Defaults to ascending."
         }
       }
     }
