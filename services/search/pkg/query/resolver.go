@@ -13,6 +13,7 @@ import (
 var aliases = map[string]string{
 	"tag":      "Tags",
 	"favorite": "Favorites",
+	"driveid":  "RootID",
 }
 
 // fieldIndex maps a lowercased KQL key to its canonical field name ("" is the

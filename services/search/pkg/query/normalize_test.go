@@ -64,6 +64,23 @@ var _ = Describe("Normalize", func() {
 		}))
 	})
 
+	It("resolves driveId to RootID and completes the root id", func() {
+		got := norm(
+			&ast.StringNode{Key: "driveId", Value: "1$2"},
+			&ast.OperatorNode{Value: "AND"},
+			&ast.StringNode{Key: "driveid", Value: "1$2!4"},
+			&ast.OperatorNode{Value: "AND"},
+			&ast.StringNode{Key: "RootID", Value: "1$2"},
+		)
+		Expect(got).To(Equal([]ast.Node{
+			&ast.StringNode{Key: "RootID", Value: "1$2!2"},
+			&ast.OperatorNode{Value: "AND"},
+			&ast.StringNode{Key: "RootID", Value: "1$2!4"},
+			&ast.OperatorNode{Value: "AND"},
+			&ast.StringNode{Key: "RootID", Value: "1$2!2"},
+		}))
+	})
+
 	// A bare restriction inside a named group inherits the group key; a keyed
 	// child keeps its own key; a bare restriction in an unnamed group falls
 	// back to Name.

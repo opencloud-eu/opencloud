@@ -477,6 +477,29 @@ var _ = Describe("Bleve", func() {
 
 	})
 
+	Describe("driveId scoped searches", func() {
+		It("restricts results to a drive via the driveId field", func() {
+			Expect(eng.Upsert(childResource.ID, childResource)).To(Succeed())
+			foreign := search.Resource{
+				ID:       "1$3!7",
+				RootID:   "1$3!3",
+				Path:     "./child.pdf",
+				Type:     uint64(sprovider.ResourceType_RESOURCE_TYPE_FILE),
+				Document: content.Document{Name: "child.pdf"},
+			}
+			Expect(eng.Upsert(foreign.ID, foreign)).To(Succeed())
+
+			res, err := eng.Search(context.Background(), &searchsvc.SearchIndexRequest{Query: "name:child.pdf"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.TotalMatches).To(Equal(int32(2)))
+
+			res, err = eng.Search(context.Background(), &searchsvc.SearchIndexRequest{Query: `driveId:"1$2" name:child.pdf`})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.TotalMatches).To(Equal(int32(1)))
+			Expect(res.Matches[0].Entity.Ref.ResourceId.SpaceId).To(Equal("2"))
+		})
+	})
+
 	Describe("path scoped searches", func() {
 		BeforeEach(func() {
 			Expect(eng.Upsert(parentResource.ID, parentResource)).To(Succeed())
