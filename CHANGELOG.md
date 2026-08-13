@@ -23,6 +23,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/kovidgoyal/imaging from 1.8.22 to 1.8.23 [[#3135](https://github.com/opencloud-eu/opencloud/pull/3135)]
 - build(deps): bump go.opentelemetry.io/otel/trace from 1.44.0 to 1.45.0 [[#3266](https://github.com/opencloud-eu/opencloud/pull/3266)]
 
 ## [7.4.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.4.0) - 2026-08-03
