@@ -3,6 +3,7 @@ package testcontainers
 import (
 	"context"
 
+	"github.com/testcontainers/testcontainers-go/internal/config"
 	"github.com/testcontainers/testcontainers-go/internal/core"
 )
 
@@ -50,5 +51,5 @@ func MustExtractDockerSocket(ctx context.Context) string {
 //   - identify the test session, aggregating the test execution of multiple packages in the same test session.
 //   - tag the containers created by testcontainers-go, adding a label to the container with the session ID.
 func SessionID() string {
-	return core.SessionID()
+	return config.Read().SessionID
 }

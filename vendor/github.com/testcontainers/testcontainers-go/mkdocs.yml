@@ -25,6 +25,7 @@ extra_javascript:
     - https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js
     - https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js
     - js/usage-metrics.js
+    - js/modules-usage-metrics.js
 repo_name: testcontainers-go
 repo_url: https://github.com/testcontainers/testcontainers-go
 markdown_extensions:
@@ -74,6 +75,8 @@ nav:
         - features/tls.md
     - Modules:
         - modules/index.md
+        - modules/fakegcsserver.md
+        - modules/activemq.md
         - modules/aerospike.md
         - modules/arangodb.md
         - modules/artemis.md
@@ -85,6 +88,8 @@ nav:
         - modules/cockroachdb.md
         - modules/consul.md
         - modules/couchbase.md
+        - modules/couchdb.md
+        - modules/cratedb.md
         - modules/databend.md
         - modules/dex.md
         - modules/dind.md
@@ -94,6 +99,7 @@ nav:
         - modules/dynamodb.md
         - modules/elasticsearch.md
         - modules/etcd.md
+        - modules/firebird.md
         - modules/forgejo.md
         - modules/gcloud.md
         - modules/grafana-lgtm.md
@@ -102,7 +108,9 @@ nav:
         - modules/k3s.md
         - modules/k6.md
         - modules/kafka.md
+        - modules/kurrentdb.md
         - modules/localstack.md
+        - modules/mailpit.md
         - modules/mariadb.md
         - modules/meilisearch.md
         - modules/memcached.md
@@ -111,29 +119,42 @@ nav:
         - modules/mockserver.md
         - modules/mongodb-atlaslocal.md
         - modules/mongodb.md
+        - modules/mosquitto.md
         - modules/mssql.md
         - modules/mysql.md
         - modules/nats.md
         - modules/nebulagraph.md
         - modules/neo4j.md
+        - modules/nginx.md
         - modules/ollama.md
         - modules/openfga.md
         - modules/openldap.md
         - modules/opensearch.md
+        - modules/orientdb.md
+        - modules/papercutsmtp.md
         - modules/pinecone.md
         - modules/postgres.md
+        - modules/presto.md
         - modules/pulsar.md
         - modules/qdrant.md
+        - modules/questdb.md
         - modules/rabbitmq.md
+        - modules/ravendb.md
         - modules/redis.md
         - modules/redpanda.md
         - modules/registry.md
+        - modules/s3mock.md
         - modules/scylladb.md
+        - modules/sftp.md
         - modules/socat.md
         - modules/solace.md
+        - modules/solr.md
         - modules/surrealdb.md
         - modules/tidb.md
+        - modules/timeplus.md
         - modules/toxiproxy.md
+        - modules/trino.md
+        - modules/typesense.md
         - modules/valkey.md
         - modules/vault.md
         - modules/vearch.md
@@ -158,10 +179,12 @@ nav:
         - system_requirements/using_colima.md
         - system_requirements/using_podman.md
         - system_requirements/rancher.md
-    - Usage Metrics: usage-metrics.md
+    - Usage Metrics:
+        - Core Library: usage-metrics/index.md
+        - Modules: usage-metrics/modules.md
     - Dependabot: dependabot.md
     - Contributing: contributing.md
     - Getting help: getting_help.md
 edit_uri: edit/main/docs/
 extra:
-    latest_version: v0.43.0
+    latest_version: v0.44.0

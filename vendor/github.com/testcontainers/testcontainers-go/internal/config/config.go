@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/magiconair/properties"
+
+	"github.com/testcontainers/testcontainers-go/internal/core/bootstrap"
 )
 
 const ReaperDefaultImage = "testcontainers/ryuk:0.14.0"
@@ -51,6 +53,13 @@ type Config struct {
 	//
 	// Environment variable: TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX
 	HubImageNamePrefix string `properties:"hub.image.name.prefix,default="`
+
+	// SessionID is the ID of the testing session.
+	// Setting this value will preclude runs from creating more than one reaper. Therefore,
+	// changes to ryuk settings past its creation will be ignored.
+	//
+	// Environment variable: TESTCONTAINERS_SESSION_ID
+	SessionID string `properties:"session.id,default="`
 
 	// RyukDisabled is a flag to enable or disable the Garbage Collector.
 	// Setting this to true will prevent testcontainers from automatically cleaning up
@@ -119,6 +128,13 @@ func read() Config {
 		hubImageNamePrefix := os.Getenv("TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX")
 		if hubImageNamePrefix != "" {
 			config.HubImageNamePrefix = hubImageNamePrefix
+		}
+
+		sessionID := os.Getenv("TESTCONTAINERS_SESSION_ID")
+		if sessionID != "" {
+			config.SessionID = sessionID
+		} else if config.SessionID == "" {
+			config.SessionID = bootstrap.SessionID()
 		}
 
 		ryukPrivilegedEnv := os.Getenv("TESTCONTAINERS_RYUK_CONTAINER_PRIVILEGED")

@@ -1,4 +1,4 @@
-package core
+package bootstrap
 
 import (
 	"crypto/sha256"

@@ -3,6 +3,7 @@ package testcontainers
 import (
 	"archive/tar"
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -586,8 +587,29 @@ func (c *DockerContainer) Exec(ctx context.Context, cmd []string, options ...tce
 	if err != nil {
 		return 0, nil, fmt.Errorf("container exec attach: %w", err)
 	}
+	defer hijack.Close()
 
-	processOptions.Reader = hijack.Reader
+	// A not-yet-started exec inspects as {Running:false, ExitCode:null->0}, which
+	// is indistinguishable from "exited 0". The daemon closes the stream only once
+	// the process ends, so drain to EOF before inspecting; buffer it so callers
+	// can still read the output from the returned reader.
+	var buf bytes.Buffer
+	drained := make(chan error, 1) // buffered so the goroutine can finish after we return on ctx cancel
+	go func() {
+		_, copyErr := io.Copy(&buf, hijack.Reader)
+		drained <- copyErr
+	}()
+
+	select {
+	case copyErr := <-drained:
+		if copyErr != nil {
+			return 0, nil, fmt.Errorf("container exec read: %w", copyErr)
+		}
+	case <-ctx.Done():
+		return 0, nil, ctx.Err()
+	}
+
+	processOptions.Reader = bytes.NewReader(buf.Bytes())
 
 	// second loop to process the multiplexed option, as now we have a reader
 	// from the created exec response.
@@ -595,6 +617,9 @@ func (c *DockerContainer) Exec(ctx context.Context, cmd []string, options ...tce
 		o.Apply(processOptions)
 	}
 
+	// The daemon marks the exec stopped asynchronously after closing the stream,
+	// so a single immediate inspect can still observe Running:true; poll until it
+	// reports terminal.
 	var exitCode int
 	for {
 		execResp, err := cli.ExecInspect(ctx, response.ID, client.ExecInspectOptions{})
@@ -607,7 +632,11 @@ func (c *DockerContainer) Exec(ctx context.Context, cmd []string, options ...tce
 			break
 		}
 
-		time.Sleep(100 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return 0, nil, ctx.Err()
+		case <-time.After(100 * time.Millisecond):
+		}
 	}
 
 	return exitCode, processOptions.Reader, nil
@@ -981,7 +1010,7 @@ func (c *DockerContainer) connectReaper(ctx context.Context) error {
 		return nil
 	}
 
-	reaper, err := spawner.reaper(context.WithValue(ctx, core.DockerHostContextKey, c.provider.host), core.SessionID(), c.provider)
+	reaper, err := spawner.reaper(context.WithValue(ctx, core.DockerHostContextKey, c.provider.host), c.provider.config.SessionID, c.provider)
 	if err != nil {
 		return fmt.Errorf("reaper: %w", err)
 	}
@@ -1353,7 +1382,7 @@ func (p *DockerProvider) findContainerByName(ctx context.Context, name string) (
 	// Note that, 'name' filter will use regex to find the containers
 	containers, err := p.client.ContainerList(ctx, client.ContainerListOptions{
 		All:     true,
-		Filters: make(client.Filters).Add("name", fmt.Sprintf("^%s$", name)),
+		Filters: make(client.Filters).Add("name", fmt.Sprintf("^%s$", regexp.QuoteMeta(name))),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("container list: %w", err)

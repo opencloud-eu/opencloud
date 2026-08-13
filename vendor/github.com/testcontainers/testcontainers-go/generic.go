@@ -7,6 +7,7 @@ import (
 	"maps"
 	"sync"
 
+	"github.com/testcontainers/testcontainers-go/internal/config"
 	"github.com/testcontainers/testcontainers-go/internal/core"
 	"github.com/testcontainers/testcontainers-go/log"
 )
@@ -100,7 +101,7 @@ type GenericProvider interface {
 // reaper is enabled, otherwise this is excluded to prevent resources being
 // incorrectly reaped.
 func GenericLabels() map[string]string {
-	return core.DefaultLabels(core.SessionID())
+	return core.DefaultLabels(config.Read().SessionID)
 }
 
 // AddGenericLabels adds the generic labels to target.

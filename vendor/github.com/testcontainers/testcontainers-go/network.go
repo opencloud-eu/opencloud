@@ -5,6 +5,7 @@ import (
 
 	"github.com/moby/moby/api/types/network"
 
+	"github.com/testcontainers/testcontainers-go/internal/config"
 	"github.com/testcontainers/testcontainers-go/internal/core"
 )
 
@@ -56,5 +57,5 @@ func (r NetworkRequest) sessionID() string {
 		return sessionID
 	}
 
-	return core.SessionID()
+	return config.Read().SessionID
 }
