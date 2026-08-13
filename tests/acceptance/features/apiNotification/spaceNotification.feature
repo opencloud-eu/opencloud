@@ -464,6 +464,7 @@ Feature: Notification
     When user "Alice" expires the user share of space "notification checking" for user "Brian"
     Then the HTTP status code should be "200"
     # trigger the notification to be sent to the user
+    When user "Brian" lists the shares shared with him using the Graph API
     And user "Brian" should get a notification with subject "Membership expired" and message:
       | message                                    |
       | Access to Space notification checking lost |

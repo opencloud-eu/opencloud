@@ -306,9 +306,11 @@ Feature: Email notification
     When user "Alice" has removed the access of user "Brian" from resource "lorem.txt" of space "Personal"
     Then user "Brian" should have received the following email from user "Alice"
       """
-      Hello Brian Murphy
+      Hello Brian Murphy,
 
-      %displayname% has unshared "lorem.txt" with you.
+      %displayname% has unshared 'lorem.txt' with you.
+
+      Even though this share has been revoked you still might have access through other shares and/or space memberships.
       """
 
 
