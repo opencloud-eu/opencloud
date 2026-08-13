@@ -1279,7 +1279,7 @@ def build_api_test_workflow_matrix(ctx, storage, suite_cfg, default_cfg):
             workflow_metrices.append(matrix)
 
     # Add an OpenSearch search-engine variant for nightly running search tests
-    if (ctx.build.event == "cron" or ctx.build.event == "pull_request") and storage == "posix" and suite_cfg.get("nightlyOpenSearch", default_cfg["nightlyOpenSearch"]):
+    if (ctx.build.event == "cron" or ctx.build.event == "pull_request") and storage == "posix" and suite_cfg.get("nightlyOpenSearch", False):
         os_matrix = {
             "withRemotePhp": False,
             "enableWatchFs": False,
