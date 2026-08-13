@@ -532,6 +532,7 @@ class SettingsContext implements Context {
 		"Space Disabled" => "event-space-disabled-options",
 		"Space Deleted" => "event-space-deleted-options",
 		"File Rejected" => "event-postprocessing-step-finished-options",
+		"Disable Email Notifications" => "33ffb5d6-cd07-4dc0-afb0-84f7559ae438",
 	];
 
 	/**
@@ -709,5 +710,33 @@ class SettingsContext implements Context {
 			"Expected response status code should be 201",
 			$response
 		);
+	}
+
+	/**
+	 * @param string $user
+	 *
+	 * @return void
+	 */
+	#[When('user :user disables email notification using the settings API')]
+	public function userDisablesEmailNotificationUsingTheSettingsAPI(string $user): void {
+		$body = [
+			"value" => [
+				"account_uuid" => "me",
+				"bundleId" => SettingsHelper::getBundleId(),
+				"settingId" => self::EVENT_TO_SETTING["Disable Email Notifications"],
+				"resource" => [
+					"type" => "TYPE_USER",
+				],
+				"boolValue" => true,
+			],
+		];
+		$response = SettingsHelper::updateSettings(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getActualUsername($user),
+			$this->featureContext->getPasswordForUser($user),
+			json_encode($body),
+			$this->featureContext->getStepLineRef()
+		);
+		$this->featureContext->setResponse($response);
 	}
 }
