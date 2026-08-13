@@ -77,7 +77,7 @@ func New(kv nats.KeyValue, opts ...Option) (*ActivityLog, error) {
 		maxActivities: o.MaxActivities,
 		natskv:        kv,
 	}
-	s.debouncer = NewDebouncer(o.Logger, o.WriteBufferDuration, s.StoreActivity)
+	s.debouncer = NewDebouncer(o.WriteBufferDuration, s.StoreActivity)
 
 	// run migrations
 	err = s.runMigrations(context.Background(), kv)
@@ -89,7 +89,7 @@ func New(kv nats.KeyValue, opts ...Option) (*ActivityLog, error) {
 }
 
 // RemoveResource removes the resource from the store
-func (a *ActivityLog) RemoveResource(rid *provider.ResourceId, ack func() error) error {
+func (a *ActivityLog) RemoveResource(rid *provider.ResourceId) error {
 	if rid == nil {
 		return fmt.Errorf("resource id is required")
 	}
@@ -101,16 +101,10 @@ func (a *ActivityLog) RemoveResource(rid *provider.ResourceId, ack func() error)
 	if err != nil {
 		return fmt.Errorf("could not delete resource %s: %w", rid.OpaqueId, err)
 	}
-	go func() {
-		err := ack()
-		if err != nil {
-			a.log.Error().Err(err).Msg("error while acknowledging resource removal")
-		}
-	}()
 	return nil
 }
 
-func (a *ActivityLog) AddActivity(ctx context.Context, initRef *provider.Reference, parentId *provider.ResourceId, eventID string, timestamp time.Time, getResource func(context.Context, *provider.Reference) (*provider.ResourceInfo, error), ack func() error) error {
+func (a *ActivityLog) AddActivity(ctx context.Context, initRef *provider.Reference, parentId *provider.ResourceId, eventID string, timestamp time.Time, getResource func(context.Context, *provider.Reference) (*provider.ResourceInfo, error)) error {
 	var (
 		err   error
 		depth int
@@ -141,7 +135,7 @@ func (a *ActivityLog) AddActivity(ctx context.Context, initRef *provider.Referen
 			EventID:   eventID,
 			Depth:     depth,
 			Timestamp: timestamp,
-		}, ack)
+		})
 
 		if id.OpaqueId == id.SpaceId {
 			// we are at the root of the space, no need to go further

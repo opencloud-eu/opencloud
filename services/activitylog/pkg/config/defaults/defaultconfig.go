@@ -29,11 +29,9 @@ func DefaultConfig() *config.Config {
 			Name: "activitylog",
 		},
 		Events: config.Events{
-			Endpoint:      "127.0.0.1:9233",
-			Cluster:       "opencloud-cluster",
-			EnableTLS:     false,
-			MaxAckPending: 1000,
-			AckWait:       1 * time.Minute,
+			Endpoint:  "127.0.0.1:9233",
+			Cluster:   "opencloud-cluster",
+			EnableTLS: false,
 		},
 		Store: config.Store{
 			Store:    "nats-js-kv",

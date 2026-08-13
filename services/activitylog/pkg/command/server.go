@@ -28,7 +28,7 @@ import (
 	svcEvents "github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/events"
 	svcHttp "github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/http"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
+	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 )
 
@@ -156,7 +156,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			if !cfg.Events.Disabled {
 
 				connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
-				evStream, err := raw.FromConfig(ctx, connName, raw.Config{
+				evStream, err := stream.NatsFromConfig(connName, false, stream.NatsConfig{
 					Endpoint:             cfg.Events.Endpoint,
 					Cluster:              cfg.Events.Cluster,
 					EnableTLS:            cfg.Events.EnableTLS,
@@ -164,8 +164,6 @@ func Server(cfg *config.Config) *cobra.Command {
 					TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
 					AuthUsername:         cfg.Events.AuthUsername,
 					AuthPassword:         cfg.Events.AuthPassword,
-					MaxAckPending:        cfg.Events.MaxAckPending,
-					AckWait:              cfg.Events.AckWait,
 				})
 				if err != nil {
 					logger.Error().Err(err).Msg("Failed to initialize event stream")
@@ -187,11 +185,11 @@ func Server(cfg *config.Config) *cobra.Command {
 					return err
 				}
 
-				gr.Add(runner.New(cfg.Service.Name+".svc", func() error {
-					return eventSvc.Run()
-				}, func() {
-					eventSvc.Close()
-				}))
+			gr.Add(runner.New(cfg.Service.Name+".svc", func() error {
+				return eventSvc.Run()
+			}, func() {
+				eventSvc.Close()
+			}))
 			} else {
 				logger.Info().Msg("event listening disabled, not starting event service")
 			}
