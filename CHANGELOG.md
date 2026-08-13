@@ -4,18 +4,19 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@JammingBen, @aduffeck, @fschade, @pbleser-oc, @v-scharf
+@JammingBen, @aduffeck, @butonic, @fschade, @pbleser-oc, @v-scharf
+
+### 📈 Enhancement
+
+- allow tuning the proxies http client [[#3278](https://github.com/opencloud-eu/opencloud/pull/3278)]
+- feat(web): add yjsServerUrl config [[#3259](https://github.com/opencloud-eu/opencloud/pull/3259)]
+- feat(posixfs): #3182 add basepath option in the "posixfs scan" command [[#3235](https://github.com/opencloud-eu/opencloud/pull/3235)]
 
 ### ✅ Tests
 
 - api-test: notification settings and getting email notifications [[#3281](https://github.com/opencloud-eu/opencloud/pull/3281)]
 - api-test: add posixfs scan and consistency CLI tests [[#3263](https://github.com/opencloud-eu/opencloud/pull/3263)]
 - api-test: replace sleeps with WaitHelper poll for async state [[#3239](https://github.com/opencloud-eu/opencloud/pull/3239)]
-
-### 📈 Enhancement
-
-- feat(web): add yjsServerUrl config [[#3259](https://github.com/opencloud-eu/opencloud/pull/3259)]
-- feat(posixfs): #3182 add basepath option in the "posixfs scan" command [[#3235](https://github.com/opencloud-eu/opencloud/pull/3235)]
 
 ### 🐛 Bug Fixes
 
