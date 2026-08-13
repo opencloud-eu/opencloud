@@ -35,13 +35,12 @@ var (
 
 // ActivitylogService logs events per resource
 type ActivitylogService struct {
-	ctx       context.Context
-	sa        config.ServiceAccount
-	log       log.Logger
-	stream    raw.Stream
-	gws       pool.Selectable[gateway.GatewayAPIClient]
-	debouncer *Debouncer
-	al        *activitylog.ActivityLog
+	ctx    context.Context
+	sa     config.ServiceAccount
+	log    log.Logger
+	stream raw.Stream
+	gws    pool.Selectable[gateway.GatewayAPIClient]
+	al     *activitylog.ActivityLog
 
 	numConsumers int
 
@@ -152,9 +151,9 @@ func (s *ActivitylogService) processEvent(e raw.Event) error {
 
 	switch ev := e.Event.Event.(type) {
 	case events.UploadReady:
-		return s.AddActivity(ctx, ev.FileRef, ev.ParentID, e.ID, utils.TSToTime(ev.Timestamp))
+		return s.AddActivity(ctx, ev.FileRef, ev.ParentID, e.ID, utils.TSToTime(ev.Timestamp), e.Ack)
 	case events.FileTouched:
-		return s.AddActivity(ctx, ev.Ref, ev.ParentID, e.ID, utils.TSToTime(ev.Timestamp))
+		return s.AddActivity(ctx, ev.Ref, ev.ParentID, e.ID, utils.TSToTime(ev.Timestamp), e.Ack)
 	// Disabled https://github.com/owncloud/ocis/issues/10293
 	//case events.FileDownloaded:
 	// we are only interested in public link downloads - so no need to store others.
@@ -162,43 +161,57 @@ func (s *ActivitylogService) processEvent(e raw.Event) error {
 	//	err = a.AddActivity(ev.Ref, e.ID, utils.TSToTime(ev.Timestamp))
 	//}
 	case events.ContainerCreated:
-		return s.AddActivity(ctx, ev.Ref, ev.ParentID, e.ID, utils.TSToTime(ev.Timestamp))
+		return s.AddActivity(ctx, ev.Ref, ev.ParentID, e.ID, utils.TSToTime(ev.Timestamp), e.Ack)
 	case events.ItemTrashed:
-		return s.AddActivityTrashed(ctx, ev.ID, ev.Ref, nil, e.ID, utils.TSToTime(ev.Timestamp))
+		return s.AddActivityTrashed(ctx, ev.ID, ev.Ref, nil, e.ID, utils.TSToTime(ev.Timestamp), e.Ack)
 	case events.ItemPurged:
-		return s.al.RemoveResource(ev.ID)
+		return s.al.RemoveResource(ev.ID, e.Ack)
 	case events.ItemMoved:
 		// remove the cached parent id for this resource
 		s.removeCachedParentID(ctx, ev.Ref)
 
-		return s.AddActivity(ctx, ev.Ref, nil, e.ID, utils.TSToTime(ev.Timestamp))
+		return s.AddActivity(ctx, ev.Ref, nil, e.ID, utils.TSToTime(ev.Timestamp), e.Ack)
 	case events.ShareCreated:
-		return s.AddActivity(ctx, toRef(ev.ItemID), nil, e.ID, utils.TSToTime(ev.CTime))
+		return s.AddActivity(ctx, toRef(ev.ItemID), nil, e.ID, utils.TSToTime(ev.CTime), e.Ack)
 	case events.ShareUpdated:
 		if ev.Sharer != nil && ev.ItemID != nil && ev.Sharer.GetOpaqueId() != ev.ItemID.GetSpaceId() {
-			return s.AddActivity(ctx, toRef(ev.ItemID), nil, e.ID, utils.TSToTime(ev.MTime))
+			return s.AddActivity(ctx, toRef(ev.ItemID), nil, e.ID, utils.TSToTime(ev.MTime), e.Ack)
+		} else {
+			go func() {
+				err := e.Ack()
+				if err != nil {
+					s.log.Error().Err(err).Msg("error while acknowledging event")
+				}
+			}()
 		}
 	case events.ShareRemoved:
-		return s.AddActivity(ctx, toRef(ev.ItemID), nil, e.ID, ev.Timestamp)
+		return s.AddActivity(ctx, toRef(ev.ItemID), nil, e.ID, ev.Timestamp, e.Ack)
 	case events.LinkCreated:
-		return s.AddActivity(ctx, toRef(ev.ItemID), nil, e.ID, utils.TSToTime(ev.CTime))
+		return s.AddActivity(ctx, toRef(ev.ItemID), nil, e.ID, utils.TSToTime(ev.CTime), e.Ack)
 	case events.LinkUpdated:
 		if ev.Sharer != nil && ev.ItemID != nil && ev.Sharer.GetOpaqueId() != ev.ItemID.GetSpaceId() {
-			return s.AddActivity(ctx, toRef(ev.ItemID), nil, e.ID, utils.TSToTime(ev.MTime))
+			return s.AddActivity(ctx, toRef(ev.ItemID), nil, e.ID, utils.TSToTime(ev.MTime), e.Ack)
+		} else {
+			go func() {
+				err := e.Ack()
+				if err != nil {
+					s.log.Error().Err(err).Msg("error while acknowledging event")
+				}
+			}()
 		}
 	case events.LinkRemoved:
-		return s.AddActivity(ctx, toRef(ev.ItemID), nil, e.ID, utils.TSToTime(ev.Timestamp))
+		return s.AddActivity(ctx, toRef(ev.ItemID), nil, e.ID, utils.TSToTime(ev.Timestamp), e.Ack)
 	case events.SpaceShared:
-		return s.AddSpaceActivity(ctx, ev.ID, e.ID, ev.Timestamp)
+		return s.AddSpaceActivity(ctx, ev.ID, e.ID, ev.Timestamp, e.Ack)
 	case events.SpaceUnshared:
-		return s.AddSpaceActivity(ctx, ev.ID, e.ID, ev.Timestamp)
+		return s.AddSpaceActivity(ctx, ev.ID, e.ID, ev.Timestamp, e.Ack)
 	}
 
 	return nil
 }
 
 // AddActivity adds the activity to the given resource and all its parents
-func (a *ActivitylogService) AddActivity(ctx context.Context, initRef *provider.Reference, parentId *provider.ResourceId, eventID string, timestamp time.Time) error {
+func (a *ActivitylogService) AddActivity(ctx context.Context, initRef *provider.Reference, parentId *provider.ResourceId, eventID string, timestamp time.Time, ack func() error) error {
 	ctx, span := tracer.Start(ctx, "AddActivity")
 	defer span.End()
 
@@ -214,11 +227,11 @@ func (a *ActivitylogService) AddActivity(ctx context.Context, initRef *provider.
 	}
 	return a.al.AddActivity(ctx, initRef, parentId, eventID, timestamp, func(ctx context.Context, ref *provider.Reference) (*provider.ResourceInfo, error) {
 		return utils.GetResource(ctx, ref, gwc)
-	})
+	}, ack)
 }
 
 // AddActivityTrashed adds the activity to given trashed resource and all its former parents
-func (a *ActivitylogService) AddActivityTrashed(ctx context.Context, resourceID *provider.ResourceId, reference *provider.Reference, parentId *provider.ResourceId, eventID string, timestamp time.Time) error {
+func (a *ActivitylogService) AddActivityTrashed(ctx context.Context, resourceID *provider.ResourceId, reference *provider.Reference, parentId *provider.ResourceId, eventID string, timestamp time.Time, ack func() error) error {
 	ctx, span := tracer.Start(ctx, "AddActivityTrashed")
 	defer span.End()
 
@@ -251,11 +264,11 @@ func (a *ActivitylogService) AddActivityTrashed(ctx context.Context, resourceID 
 
 	return a.al.AddActivity(ctx, ref, parentId, eventID, timestamp, func(ctx context.Context, ref *provider.Reference) (*provider.ResourceInfo, error) {
 		return utils.GetResource(ctx, ref, gwc)
-	})
+	}, ack)
 }
 
 // AddSpaceActivity adds the activity to the given spaceroot
-func (a *ActivitylogService) AddSpaceActivity(ctx context.Context, spaceID *provider.StorageSpaceId, eventID string, timestamp time.Time) error {
+func (a *ActivitylogService) AddSpaceActivity(ctx context.Context, spaceID *provider.StorageSpaceId, eventID string, timestamp time.Time, ack func() error) error {
 	_, span := tracer.Start(ctx, "AddSpaceActivity")
 	defer span.End()
 	// spaceID is in format <providerid>$<spaceid>
@@ -266,14 +279,23 @@ func (a *ActivitylogService) AddSpaceActivity(ctx context.Context, spaceID *prov
 		return fmt.Errorf("could not parse space id: %w", err)
 	}
 	rid.OpaqueId = rid.GetSpaceId()
-	return a.al.StoreActivity(storagespace.FormatResourceID(&rid), []data.RawActivity{
+	err = a.al.StoreActivity(storagespace.FormatResourceID(&rid), []data.RawActivity{
 		{
 			EventID:   eventID,
 			Depth:     0,
 			Timestamp: timestamp,
 		},
 	})
-
+	if err != nil {
+		return fmt.Errorf("could not store activity: %w", err)
+	}
+	go func() {
+		err := ack()
+		if err != nil {
+			a.log.Error().Err(err).Msg("error while acknowledging event")
+		}
+	}()
+	return nil
 }
 
 func toRef(r *provider.ResourceId) *provider.Reference {

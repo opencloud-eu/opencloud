@@ -34,6 +34,10 @@ func getFreeLocalhostPort() (int, error) {
 	return port, nil
 }
 
+func NoOpAck() error {
+	return nil
+}
+
 // Spawn a nats server and a JetStream instance for the duration of the test suite.
 // The different tests need to make sure to use different databases to avoid conflicts.
 var _ = SynchronizedBeforeSuite(func() {
@@ -145,7 +149,7 @@ var _ = Describe("ActivitylogService", func() {
 						}
 
 						for k, v := range tc.Activities {
-							err := alog.AddActivity(context.Background(), reference(v), nil, k, time.Time{}, getResource)
+							err := alog.AddActivity(context.Background(), reference(v), nil, k, time.Time{}, getResource, NoOpAck)
 							Expect(err).NotTo(HaveOccurred())
 						}
 					})
@@ -184,9 +188,9 @@ var _ = Describe("ActivitylogService", func() {
 
 			It("debounces activities", func() {
 
-				err := alog.AddActivity(context.Background(), reference("base"), nil, "activity1", time.Time{}, getResource)
+				err := alog.AddActivity(context.Background(), reference("base"), nil, "activity1", time.Time{}, getResource, NoOpAck)
 				Expect(err).NotTo(HaveOccurred())
-				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity2", time.Time{}, getResource)
+				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity2", time.Time{}, getResource, NoOpAck)
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func(g Gomega) {
@@ -197,7 +201,7 @@ var _ = Describe("ActivitylogService", func() {
 			})
 
 			It("adheres to the MaxActivities setting", func() {
-				err := alog.AddActivity(context.Background(), reference("base"), nil, "activity1", time.Time{}, getResource)
+				err := alog.AddActivity(context.Background(), reference("base"), nil, "activity1", time.Time{}, getResource, NoOpAck)
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(func(g Gomega) {
 					activities, err := alog.Activities(resourceID("base"))
@@ -205,7 +209,7 @@ var _ = Describe("ActivitylogService", func() {
 					g.Expect(len(activities)).To(Equal(1))
 				}).Should(Succeed())
 
-				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity2", time.Time{}, getResource)
+				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity2", time.Time{}, getResource, NoOpAck)
 				Expect(err).NotTo(HaveOccurred())
 				Eventually(func(g Gomega) {
 					activities, err := alog.Activities(resourceID("base"))
@@ -213,11 +217,11 @@ var _ = Describe("ActivitylogService", func() {
 					g.Expect(len(activities)).To(Equal(2))
 				}).Should(Succeed())
 
-				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity3", time.Time{}, getResource)
+				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity3", time.Time{}, getResource, NoOpAck)
 				Expect(err).NotTo(HaveOccurred())
-				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity4", time.Time{}, getResource)
+				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity4", time.Time{}, getResource, NoOpAck)
 				Expect(err).NotTo(HaveOccurred())
-				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity5", time.Time{}, getResource)
+				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity5", time.Time{}, getResource, NoOpAck)
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func(g Gomega) {
@@ -234,9 +238,9 @@ var _ = Describe("ActivitylogService", func() {
 					return tree[ref.GetResourceId().GetOpaqueId()], nil
 				}
 
-				err := alog.AddActivity(context.Background(), reference("base"), nil, "activity1", time.Time{}, getResource)
+				err := alog.AddActivity(context.Background(), reference("base"), nil, "activity1", time.Time{}, getResource, NoOpAck)
 				Expect(err).NotTo(HaveOccurred())
-				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity2", time.Time{}, getResource)
+				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity2", time.Time{}, getResource, NoOpAck)
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func(g Gomega) {
@@ -245,9 +249,9 @@ var _ = Describe("ActivitylogService", func() {
 					g.Expect(activities).To(ConsistOf(activitites("activity1", 0, "activity2", 0)))
 				}).Should(Succeed())
 
-				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity3", time.Time{}, getResource)
+				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity3", time.Time{}, getResource, NoOpAck)
 				Expect(err).NotTo(HaveOccurred())
-				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity4", time.Time{}, getResource)
+				err = alog.AddActivity(context.Background(), reference("base"), nil, "activity4", time.Time{}, getResource, NoOpAck)
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func(g Gomega) {

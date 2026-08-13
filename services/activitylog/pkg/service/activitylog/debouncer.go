@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/data"
 )
 
@@ -12,6 +13,7 @@ type Debouncer struct {
 	f          func(id string, ra []data.RawActivity) error
 	pending    sync.Map
 	inProgress sync.Map
+	log        log.Logger
 
 	mutex sync.Mutex
 }
@@ -22,17 +24,18 @@ type queueItem struct {
 }
 
 // NewDebouncer returns a new Debouncer instance
-func NewDebouncer(d time.Duration, f func(id string, ra []data.RawActivity) error) *Debouncer {
+func NewDebouncer(log log.Logger, d time.Duration, f func(id string, ra []data.RawActivity) error) *Debouncer {
 	return &Debouncer{
 		after:      d,
 		f:          f,
 		pending:    sync.Map{},
 		inProgress: sync.Map{},
+		log:        log,
 	}
 }
 
 // Debounce restarts the debounce timer for the given space
-func (d *Debouncer) Debounce(id string, ra data.RawActivity) {
+func (d *Debouncer) Debounce(id string, ra data.RawActivity, ack func() error) {
 	if d.after == 0 {
 		d.f(id, []data.RawActivity{ra})
 		return
@@ -70,6 +73,13 @@ func (d *Debouncer) Debounce(id string, ra data.RawActivity) {
 			d.inProgress.Store(id, true)
 			defer d.inProgress.Delete(id)
 			d.f(id, item.activities)
+			go func() {
+				if ack != nil {
+					if err := ack(); err != nil {
+						d.log.Error().Err(err).Msg("error while acknowledging event")
+					}
+				}
+			}()
 		})
 	}
 

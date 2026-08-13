@@ -77,7 +77,7 @@ func New(kv nats.KeyValue, opts ...Option) (*ActivityLog, error) {
 		maxActivities: o.MaxActivities,
 		natskv:        kv,
 	}
-	s.debouncer = NewDebouncer(o.WriteBufferDuration, s.StoreActivity)
+	s.debouncer = NewDebouncer(o.Logger, o.WriteBufferDuration, s.StoreActivity)
 
 	// run migrations
 	err = s.runMigrations(context.Background(), kv)
@@ -89,7 +89,7 @@ func New(kv nats.KeyValue, opts ...Option) (*ActivityLog, error) {
 }
 
 // RemoveResource removes the resource from the store
-func (a *ActivityLog) RemoveResource(rid *provider.ResourceId) error {
+func (a *ActivityLog) RemoveResource(rid *provider.ResourceId, ack func() error) error {
 	if rid == nil {
 		return fmt.Errorf("resource id is required")
 	}
@@ -97,10 +97,20 @@ func (a *ActivityLog) RemoveResource(rid *provider.ResourceId) error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	return a.natskv.Delete(storagespace.FormatResourceID(rid))
+	err := a.natskv.Delete(storagespace.FormatResourceID(rid))
+	if err != nil {
+		return fmt.Errorf("could not delete resource %s: %w", rid.OpaqueId, err)
+	}
+	go func() {
+		err := ack()
+		if err != nil {
+			a.log.Error().Err(err).Msg("error while acknowledging resource removal")
+		}
+	}()
+	return nil
 }
 
-func (a *ActivityLog) AddActivity(ctx context.Context, initRef *provider.Reference, parentId *provider.ResourceId, eventID string, timestamp time.Time, getResource func(context.Context, *provider.Reference) (*provider.ResourceInfo, error)) error {
+func (a *ActivityLog) AddActivity(ctx context.Context, initRef *provider.Reference, parentId *provider.ResourceId, eventID string, timestamp time.Time, getResource func(context.Context, *provider.Reference) (*provider.ResourceInfo, error), ack func() error) error {
 	var (
 		err   error
 		depth int
@@ -117,7 +127,8 @@ func (a *ActivityLog) AddActivity(ctx context.Context, initRef *provider.Referen
 			info, err = getResource(ctx, ref)
 			span.End()
 			if err != nil {
-				return fmt.Errorf("could not get resource info: %w", err)
+				// TODO If the resource was deleted should we still log an activity in the parent?
+				return fmt.Errorf("could not get resource info for reference %v: %w", ref, err)
 			}
 			id = info.GetId()
 		}
@@ -130,7 +141,7 @@ func (a *ActivityLog) AddActivity(ctx context.Context, initRef *provider.Referen
 			EventID:   eventID,
 			Depth:     depth,
 			Timestamp: timestamp,
-		})
+		}, ack)
 
 		if id.OpaqueId == id.SpaceId {
 			// we are at the root of the space, no need to go further
