@@ -166,6 +166,17 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 			Path: gpRes.Path,
 		}
 	}
+	// drive-pinned queries only need that space's index; the restriction
+	// stays in the query, mountpoints are kept for path mapping
+	var pinnedRoot *provider.ResourceId
+	if req.Ref == nil {
+		if pinned := PinnedRootID(req.Query); pinned != "" {
+			if rid, err := storagespace.ParseID(pinned); err == nil {
+				pinnedRoot = &rid
+			}
+		}
+	}
+
 	filters := []*provider.ListStorageSpacesRequest_Filter{
 		{
 			Type: provider.ListStorageSpacesRequest_Filter_TYPE_USER,
@@ -192,6 +203,9 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		if space.SpaceType != "mountpoint" && req.Ref != nil && (req.Ref.GetResourceId().GetSpaceId() != space.Root.GetSpaceId()) {
 			// Do not search (non-mountpoint) spaces that do not match the given scope (if a scope is set)
 			// We still need the mountpoint in order to map the result paths to the according share
+			continue
+		}
+		if pinnedRoot != nil && space.SpaceType != _spaceTypeMountpoint && pinnedRoot.GetSpaceId() != space.Root.GetSpaceId() {
 			continue
 		}
 		spaces = append(spaces, space)

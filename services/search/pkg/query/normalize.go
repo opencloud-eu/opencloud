@@ -2,10 +2,10 @@ package query
 
 import (
 	"reflect"
-	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/query/mimetype"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
 // Normalize is the shared KQL lowering pass between parse and compile: it
@@ -33,7 +33,7 @@ func normalizeNodes(nodes []ast.Node, resolve func(string) string, defaultKey st
 		case *ast.StringNode:
 			node.Key = resolveKey(node.Key)
 			if node.Key == "RootID" {
-				node.Value = completeRootID(node.Value)
+				node.Value = search.CompleteRootID(node.Value)
 			}
 			if exp := mimetype.Expand(node.Key, node.Value); exp != nil {
 				out = append(out, normalizeNodes(exp, resolve, defaultKey)...)
@@ -60,19 +60,6 @@ func normalizeNodes(nodes []ast.Node, resolve func(string) string, defaultKey st
 		}
 	}
 	return out
-}
-
-// completeRootID turns a driveId ("storage$space") into the full root
-// resource id ("storage$space!space") stored in the index: a space root's
-// opaque id is its space id. Full ids pass through untouched.
-func completeRootID(v string) string {
-	if strings.Contains(v, "!") {
-		return v
-	}
-	if i := strings.LastIndex(v, "$"); i >= 0 && i+1 < len(v) {
-		return v + "!" + v[i+1:]
-	}
-	return v
 }
 
 // toPointer returns n as a pointer; the parser emits some nodes by value and the
