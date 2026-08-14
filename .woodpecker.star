@@ -820,7 +820,7 @@ def testOpencloud(ctx):
             ],
             "environment": CI_HTTP_PROXY_ENV,
         },
-    ] + openSearchService() + waitForOpenSearch() + [
+    ] + waitForOpenSearch() + [
         {
             "name": "test",
             "image": OC_CI_GOLANG,
@@ -852,6 +852,7 @@ def testOpencloud(ctx):
     pipeline = {
         "name": "test-lint-unit",
         "steps": steps,
+        "services": openSearchService(),
         "when": [
             event["base"],
             event["cron"],
@@ -1279,7 +1280,7 @@ def build_api_test_workflow_matrix(ctx, storage, suite_cfg, default_cfg):
             workflow_metrices.append(matrix)
 
     # Add an OpenSearch search-engine variant for nightly running search tests
-    if (ctx.build.event == "cron" or ctx.build.event == "pull_request") and storage == "posix" and suite_cfg.get("nightlyOpenSearch", False):
+    if ctx.build.event == "cron" and storage == "posix" and suite_cfg.get("nightlyOpenSearch", False):
         os_matrix = {
             "withRemotePhp": False,
             "enableWatchFs": False,
@@ -3446,7 +3447,6 @@ def openSearchService():
     return [{
         "name": "open-search",
         "image": OPEN_SEARCH,
-        "detach": True,
         "environment": {
             "discovery.type": "single-node",
             "DISABLE_INSTALL_DEMO_CONFIG": True,
