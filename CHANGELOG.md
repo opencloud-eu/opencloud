@@ -4,18 +4,19 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @aduffeck, @butonic, @fschade, @maki5, @pbleser-oc, @v-scharf
+@AlexAndBear, @JammingBen, @aduffeck, @butonic, @fschade, @maki5, @pbleser-oc, @schweigisito, @v-scharf
+
+### 📈 Enhancement
+
+- enhance: send events for adding/removing favourite items [[#3229](https://github.com/opencloud-eu/opencloud/pull/3229)]
+- allow tuning the proxies http client [[#3278](https://github.com/opencloud-eu/opencloud/pull/3278)]
+- feat(web): add yjsServerUrl config [[#3259](https://github.com/opencloud-eu/opencloud/pull/3259)]
+- feat(posixfs): #3182 add basepath option in the "posixfs scan" command [[#3235](https://github.com/opencloud-eu/opencloud/pull/3235)]
 
 ### 🐛 Bug Fixes
 
 - fix restore file version for shared resource [[#3268](https://github.com/opencloud-eu/opencloud/pull/3268)]
 - Fix missing favorite flag on opensearch hits [[#3252](https://github.com/opencloud-eu/opencloud/pull/3252)]
-
-### 📈 Enhancement
-
-- allow tuning the proxies http client [[#3278](https://github.com/opencloud-eu/opencloud/pull/3278)]
-- feat(web): add yjsServerUrl config [[#3259](https://github.com/opencloud-eu/opencloud/pull/3259)]
-- feat(posixfs): #3182 add basepath option in the "posixfs scan" command [[#3235](https://github.com/opencloud-eu/opencloud/pull/3235)]
 
 ### ✅ Tests
 
