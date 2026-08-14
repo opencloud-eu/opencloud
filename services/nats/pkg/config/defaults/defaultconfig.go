@@ -20,6 +20,7 @@ func FullDefaultConfig() *config.Config {
 
 // DefaultConfig returns a basic default configuration
 func DefaultConfig() *config.Config {
+	baseDataPath := defaults.BaseDataPath()
 	return &config.Config{
 		Debug: config.Debug{
 			Addr:   "127.0.0.1:9234",
@@ -34,10 +35,16 @@ func DefaultConfig() *config.Config {
 			Host:      "127.0.0.1",
 			Port:      9233,
 			ClusterID: "opencloud-cluster",
-			StoreDir:  filepath.Join(defaults.BaseDataPath(), "nats"),
-			TLSCert:   filepath.Join(defaults.BaseDataPath(), "nats/tls.crt"),
-			TLSKey:    filepath.Join(defaults.BaseDataPath(), "nats/tls.key"),
+			StoreDir:  filepath.Join(baseDataPath, "nats"),
+			TLSCert:   filepath.Join(baseDataPath, "nats", "tls.crt"),
+			TLSKey:    filepath.Join(baseDataPath, "nats", "tls.key"),
 			EnableTLS: false,
+			Monitoring: config.Monitoring{
+				Enabled:   false,       // don't enable by default for now
+				Host:      "127.0.0.1", // only bind to localhost by default for security reasons
+				Port:      8222,        // default NATS monitoring HTTP endpoint port
+				EnableTLS: false,
+			},
 		},
 	}
 }

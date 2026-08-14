@@ -1,34 +1,39 @@
 # Policies
 
-The policies service provides a new gRPC API which can be used to check whether a requested operation is allowed or not. To do so, Open Policy Agent (OPA) is used to define the set of rules of what is permitted and what is not.
+The policies service provides a new gRPC API which can be used to check whether a requested operation is allowed or not.
+To do so, Open Policy Agent (OPA) is used to define the set of rules of what is permitted and what is not.
 
-Policies are written in the [rego query language](https://www.openpolicyagent.org/docs/latest/policy-language/). The location of the rego files can be configured via yaml, a configuration via environment variables is not possible.
+Policies are written in the [rego query language](https://www.openpolicyagent.org/docs/latest/policy-language/). The
+location of the rego files can be configured via yaml, a configuration via environment variables is not possible.
 
 ## General Information
 
 The policies service consists of the following modules:
 
-*   Proxy authorization (middleware)
-*   Event authorization (async post-processing)
-*   gRPC API (can be used by other services)
+* Proxy authorization (middleware)
+* Event authorization (async post-processing)
+* gRPC API (can be used by other services)
 
 To configure the policies service, three environment variables need to be defined:
 
-*   `POLICIES_ENGINE_TIMEOUT`
-*   `POLICIES_POSTPROCESSING_QUERY`
-*   `PROXY_POLICIES_QUERY`
+* `POLICIES_ENGINE_TIMEOUT`
+* `POLICIES_POSTPROCESSING_QUERY`
+* `PROXY_POLICIES_QUERY`
 
-Note that each query setting defines the [Complete Rules](https://www.openpolicyagent.org/docs/latest/#complete-rules) variable defined in the rego rule set the corresponding step uses for the evaluation. If the variable is mistyped or not found, the evaluation defaults to deny. Individual query definitions can be defined for each module.
+Note that each query setting defines the [Complete Rules](https://www.openpolicyagent.org/docs/latest/#complete-rules)
+variable defined in the rego rule set the corresponding step uses for the evaluation. If the variable is mistyped or not
+found, the evaluation defaults to deny. Individual query definitions can be defined for each module.
 
-To activate the policies service for a module, it must be started with a yaml configuration that points to one or more rego files. Note that if the service is scaled horizontally, each instance should have access to the same rego files to avoid unpredictable results. If a file path has been configured but the file is not present or accessible, the evaluation defaults to deny.
+To activate the policies service for a module, it must be started with a yaml configuration that points to at least one
+rego file that contains the complete rule variable to be queried. Note that if the service is scaled horizontally, each
+instance should have access to the same rego files to avoid unpredictable results.
 
-When using async post-processing which is done via the postprocessing service, the value `policies` must be added to the `POSTPROCESSING_STEPS` configuration in postprocessing service in the order where the evaluation should take place.
+The rego files are read once when the service starts. A changed rule set takes effect after a restart, and a configured
+file that is missing or does not parse keeps the service from starting.
 
-variable defined in the Rego rule set the corresponding step uses for the evaluation. If the variable is mistyped or not found, the evaluation defaults to deny. Individual query definitions can be defined for each module.
-
-To activate the policies service for a module, it must be started with a yaml configuration that points to at least one Rego file that contains the complete rule variable to be queried. Note that if the service is scaled horizontally, each instance should have access to the same Rego files to avoid unpredictable results. If a file path has been configured but the file it is not present or accessible, the evaluation defaults to deny.
-
-When using async post-processing via the postprocessing service, the value `policies` must be added to the `POSTPROCESSING_STEPS` configuration in the order in which the evaluation should take place. Example: First check if a file contains questionable content via policies. If it looks okay, continue to check for viruses.
+When using async post-processing via the postprocessing service, the value `policies` must be added to the
+`POSTPROCESSING_STEPS` configuration in the order in which the evaluation should take place. Example: First check if a
+file contains questionable content via policies. If it looks okay, continue to check for viruses.
 
 For configuration examples, the [Example Policies](#example-policies) from below are used.
 
@@ -36,39 +41,59 @@ For configuration examples, the [Example Policies](#example-policies) from below
 
 ### gRPC API
 
-The gRPC API can be used by any other internal service. It can also be used for example by third parties to find out if an action is allowed or not. This layer is already used by the proxy middleware. There is no configuration necessary, because the query setting (complete rule variable) must be part of the request.
+The gRPC API can be used by any other internal service. It can also be used for example by third parties to find out if
+an action is allowed or not. This layer is already used by the proxy middleware. There is no configuration necessary,
+because the query setting (complete rule variable) must be part of the request.
 
 ### Proxy Middleware
 
-The proxy service already includes a middleware which uses the internal [gRPC API](#grpc-api) to evaluate the policies. Since the proxy is in heavy use and every HTTP request is processed here, only simple and quick decisions should be evaluated. More complex queries such as file content evaluation are _strongly_ discouraged.
+The proxy service already includes a middleware which uses the internal [gRPC API](#grpc-api) to evaluate the policies.
+Since the proxy is in heavy use and every HTTP request is processed here, only simple and quick decisions should be
+evaluated. More complex queries such as file content evaluation are _strongly_ discouraged.
 
-If the evaluation in the proxy results in a "denied" outcome, the response will return a `403 Permission Denied` with the following response body
+The middleware only denies on the outcome of the policy, it makes no decision of its own. Where the file name is not
+part of the request path, for example when a single shared resource is uploaded to by its id, the middleware stats the
+resource to obtain it. If that stat fails, `input.resource.name` reaches the policy empty and the policy decides what
+that means. Prefer policies that state which files are allowed over policies that list what is forbidden, a rule
+matching on a specific extension does not match an empty name:
+
+```rego
+granted = false if {
+    input.resource.name == ""
+}
+```
+
+If the evaluation in the proxy results in a "denied" outcome, the response will return a `403 Permission Denied` with
+the following response body
 
 ```json
 {
-    "error":
-    {
-        "code": "deniedByPolicy",
-        "message": "Operation denied due to security policies",
-        "innererror":
-        {
-            "date": "2023-09-19T13:22:20Z",
-            "filename": "File",
-            "method": "POST",
-            "path": "/dav/spaces/some-space-id/Folder/",
-            "request-id": "9CFCE925-F9D9-4F26-AB3B-2C1C40A9CD0C"
-        }
+  "error": {
+    "code": "deniedByPolicy",
+    "message": "Operation denied due to security policies",
+    "innererror": {
+      "date": "2023-09-19T13:22:20Z",
+      "filename": "File",
+      "method": "POST",
+      "path": "/dav/spaces/some-space-id/Folder/",
+      "request-id": "9CFCE925-F9D9-4F26-AB3B-2C1C40A9CD0C"
     }
+  }
 }
 ```
 
 ### Event Service (Postprocessing)
 
-This layer is event-based and part of the postprocessing service. Since processing at this point is asynchronous, the operations can also take longer and be more expensive, like evaluating the contents of a file.
+This layer is event-based and part of the postprocessing service. Since processing at this point is asynchronous, the
+operations can also take longer and be more expensive, like evaluating the contents of a file.
 
 ## Defining Policies to Evaluate
 
-Each module can have as many policy files as needed for evaluation. Files can also include other files if necessary. To use policies, they have to be saved to a location that is accessible to the policies service. As a good starting point, take the config directory and use a subdirectory collecting all the `.rego` files, though any other directory can be defined. The config directory is already accessible by all services and usually is included in a xref:maintenance/b-r/backup.adoc[backup] plan.
+Each module can have as many policy files as needed for evaluation. Files can also include other files if necessary. To
+use policies, they have to be saved to a location that is accessible to the policies service. As a good starting point,
+take the config directory and use a subdirectory collecting all the `.rego` files, though any other directory can be
+defined. The config directory is already accessible by all services and usually is included in a xref:
+maintenance/b-r/backup.adoc[backup] plan.
 
 If this is done, it's required to configure the policies service to use these files:
 
@@ -83,7 +108,8 @@ policies:
       - your_path_to_policies/util.rego
 ```
 
-Once the references to policy files are configured correctly, the `_QUERY`  configuration needs to be defined for the proxy middleware and for the events service.
+Once the references to policy files are configured correctly, the `_QUERY`  configuration needs to be defined for the
+proxy middleware and for the events service.
 
 ## Setting the Query Configuration
 
@@ -92,9 +118,11 @@ To define a value for the query evaluation, the following scheme is necessary:
 `data.<package-name>.<complete-rule-variable-name>`
 
 * The keyword `data` is mandatory and must be present.
-* The `package-name` is defined in one .rego file like `package postprocessing`. It is not related to the filename. For more details, see the [packages](https://www.openpolicyagent.org/docs/latest/policy-language/#packages) documentation.
+* The `package-name` is defined in one .rego file like `package postprocessing`. It is not related to the filename. For
+  more details, see the [packages](https://www.openpolicyagent.org/docs/latest/policy-language/#packages) documentation.
 * The `complete-rule-variable-name` is the variable providing the result of the evaluation.
-* Exact one of the defined files, which is responsible for returning the evaluation result, must contain the combination of `<package-name>` and `<complete-rule-variable-name>`.
+* Exact one of the defined files, which is responsible for returning the evaluation result, must contain the combination
+  of `<package-name>` and `<complete-rule-variable-name>`.
 
 ### Proxy
 
@@ -126,29 +154,54 @@ The same can be achieved by setting the following environment variable:
 export POLICIES_POSTPROCESSING_QUERY=data.postprocessing.granted
 ```
 
-As soon as that query is configured, the postprocessing service must be informed to use the policies step by setting the environment variable:
+As soon as that query is configured, the postprocessing service must be informed to use the policies step by setting the
+environment variable:
 
 ```shell
 export POSTPROCESSING_STEPS=policies
 ```
 
-Note that additional steps can be configured and their position in the list defines the order of processing. For details see the postprocessing service documentation.
+Note that additional steps can be configured and their position in the list defines the order of processing. For details
+see the postprocessing service documentation.
 
 ## Rego Key Match
 
-To identify available keys for OPA, you need to look at [engine.go](https://github.com/opencloud-eu/opencloud/blob/main/services/policies/pkg/engine/engine.go) and the [policies.swagger.json](https://github.com/opencloud-eu/opencloud/blob/master/protogen/gen/opencloud/services/policies/v0/policies.swagger.json) file. Note that which keys are available depends on from which module it is used.
+To identify available keys for OPA, you need to look
+at [engine.go](https://github.com/opencloud-eu/opencloud/blob/main/services/policies/pkg/engine/engine.go) and
+the [policies.swagger.json](https://github.com/opencloud-eu/opencloud/blob/master/protogen/gen/opencloud/services/policies/v0/policies.swagger.json)
+file. Note that which keys are available depends on from which module it is used.
+
+## Rego Extensions
+
+Besides the standard rego built-in functions, the following functions are added on top:
+
+| Function                                           | Result              | Description                                                                                                                                  |
+|----------------------------------------------------|---------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| `opencloud.mimetype.extensions("application/pdf")` | `[".pdf"]`          | Lists the file extensions associated with a mimetype. See [Extend Mimetype File Extension Mapping](#extend-mimetype-file-extension-mapping). |
+| `opencloud.mimetype.detect(bytes)`                 | `"application/pdf"` | Detects a mimetype from content. The list of known mimetypes is limited.                                                                     |
+| `opencloud.resource.download(input.resource.url)`  | bytes               | Downloads a resource. Available in the event service (postprocessing) where `input.resource.url` is set.                                     |
+
+Rego has no byte type, so `opencloud.resource.download` hands the content to the policy as base64.
+`opencloud.mimetype.detect` takes that value as it is, a policy working on the content itself has to run it through
+`base64.decode` first.
+
+Note that `opencloud.resource.download` performs an HTTP request and holds the whole resource in memory. Use it in
+postprocessing policies only, not in policies evaluated by the proxy middleware.
 
 ## Extend Mimetype File Extension Mapping
 
-In the extended set of the rego query language, it is possible to get a list of associated file extensions based on a mimetype, for example `opencloud.mimetype.extensions("application/pdf")`.
+In the extended set of the rego query language, it is possible to get a list of associated file extensions based on a
+mimetype, for example `opencloud.mimetype.extensions("application/pdf")`.
 
 The list of mappings is restricted by default and is provided by the host system OpenCloud is installed on.
 
-In order to extend this list, OpenCloud must be provided with the path to a custom `mime.types` file that maps mimetypes to extensions.
-The location for the file must be accessible by all instances of the policy service. As a rule of thumb, use the directory where the OpenCloud configuration files are stored.
-Note that existing mappings from the host are extended by the definitions from the mime types file, but not replaced.
+In order to extend this list, OpenCloud must be provided with the path to a custom `mime.types` file that maps mimetypes
+to extensions. The location for the file must be accessible by all instances of the policy service. As a rule of thumb,
+use the directory where the OpenCloud configuration files are stored. Note that existing mappings from the host are
+extended by the definitions from the mime types file, but not replaced.
 
-The path to that file can be provided via a yaml configuration or an environment variable. Note to replace the `OC_CONFIG_DIR` string by an existing path.
+The path to that file can be provided via a yaml configuration or an environment variable. Note to replace the
+`OC_CONFIG_DIR` string by an existing path.
 
 ```shell
 export POLICIES_ENGINE_MIMES=OC_CONFIG_DIR/mime.types
@@ -160,8 +213,12 @@ policies:
     mimes: OC_CONFIG_DIR/mime.types
 ```
 
-A good example of how such a file should be formatted can be found in the [Apache svn repository](https://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types).
+A good example of how such a file should be formatted can be found in
+the [Apache svn repository](https://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types).
 
 ## Example Policies
 
-The policies service contains a set of preconfigured example policies. See the [devtools policie](https://github.com/opencloud-eu/opencloud/tree/main/devtools/deployments/service_policies/policies/) directory for details. The contained policies disallow OpenCloud to create certain file types, both via the proxy middleware and the events service via postprocessing.
+The policies service contains a set of preconfigured example policies. See
+the [devtools policie](https://github.com/opencloud-eu/opencloud/tree/main/devtools/deployments/service_policies/policies/)
+directory for details. The contained policies disallow OpenCloud to create certain file types, both via the proxy
+middleware and the events service via postprocessing.

@@ -34,3 +34,4 @@ directives:
   style-src:
     - '''self'''
     - '''unsafe-inline'''
+    - 'blob:'

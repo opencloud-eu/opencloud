@@ -489,6 +489,71 @@ class NotificationContext implements Context {
 	}
 
 	/**
+	 * filter notification according to subject and space
+	 *
+	 * @param string $subject
+	 * @param string $space
+	 * @param ResponseInterface|null $response
+	 *
+	 * @return array
+	 */
+	public function filterNotificationsBySubjectAndSpace(
+		string $subject,
+		string $space,
+		?ResponseInterface $response = null
+	): array {
+		$filteredNotifications = [];
+		$response = $response ?? $this->featureContext->getResponse();
+		$responseObject = $this->featureContext->getJsonDecodedResponseBodyContent($response);
+
+		if (!isset($responseObject->ocs->data)) {
+			Assert::fail("Response doesn't contain notification: " . print_r($responseObject, true));
+		}
+
+		$notifications = $responseObject->ocs->data;
+		foreach ($notifications as $notification) {
+			if (isset($notification->subject) && $notification->subject === $subject
+				&& isset($notification->messageRichParameters->space->name)
+				&& $notification->messageRichParameters->space->name === $space
+			) {
+				$this->notificationIds[] = $notification->notification_id;
+				$filteredNotifications[] = $notification;
+			}
+		}
+		return $filteredNotifications;
+	}
+
+	/**
+	 *
+	 * @param string $user
+	 * @param string $resourceOrSpace
+	 * @param string $resource
+	 * @param string $subject
+	 *
+	 * @return void
+	 */
+	#[Then('/^user "([^"]*)" should not have a notification related to (resource|space) "([^"]*)" with subject "([^"]*)"$/')]
+	public function userShouldNotHaveANotificationRelatedToResourceOrSpaceWithSubject(
+		string $user,
+		string $resourceOrSpace,
+		string $resource,
+		string $subject
+	): void {
+		$response = $this->listAllNotifications($user);
+		if ($resourceOrSpace === "space") {
+			$filteredResponse = $this->filterNotificationsBySubjectAndSpace($subject, $resource, $response);
+		} else {
+			$filteredResponse = $this->filterNotificationsBySubjectAndResource($subject, $resource, $response);
+		}
+		Assert::assertCount(
+			0,
+			$filteredResponse,
+			"Response should not contain notification related to $resourceOrSpace '$resource'"
+			. " with subject '$subject' but found" . print_r($filteredResponse, true)
+		);
+	}
+
+	/**
 	 *
 	 * @param string $user
 	 * @param string $sender
@@ -762,5 +827,43 @@ class NotificationContext implements Context {
 			json_encode($payload)
 		);
 		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 *
+	 * @param string $user
+	 * @param string $count
+	 *
+	 * @return void
+	 *
+	 * @throws GuzzleException
+	 */
+	#[Then('user :user should have :count emails')]
+	public function userShouldHaveEmails(string $user, string $count): void {
+		$expectedCount = (int)$count;
+		$address = $this->featureContext->getEmailAddressForUser($user);
+		$this->featureContext->pushEmailRecipientAsMailBox($address);
+		$mailBox = EmailHelper::getMailBoxFromEmail($address);
+
+		// assert with retries as email delivery might be delayed
+		$retried = 0;
+		do {
+			$mailBoxInfo = EmailHelper::getMailBoxInformation($mailBox, $this->featureContext->getStepLineRef());
+			$actualCount = \count($mailBoxInfo);
+			$tryAgain = $actualCount !== $expectedCount && $retried <= STANDARD_RETRY_COUNT;
+			$retried++;
+			if ($tryAgain) {
+				echo "[INFO] Expected '$expectedCount' emails for mailbox '$mailBox'"
+				. " but got '$actualCount'. (Retry $retried)\n";
+				// wait for 1 second before trying again
+				sleep(1);
+			}
+		} while ($tryAgain);
+
+		Assert::assertCount(
+			$expectedCount,
+			$mailBoxInfo,
+			"Expected '$expectedCount' emails for user '$user' but found '" . \count($mailBoxInfo) . "'"
+		);
 	}
 }
