@@ -1906,6 +1906,9 @@ def dockerRelease(ctx, repo, build_type):
         "EDITION": "stable" if build_type == "production" else "rolling",
     }
 
+    if ctx.build.event != "tag":
+        build_args["STRING"] = ctx.build.commit[:8]
+
     # if no additional tag is given, the build-plugin adds latest
     hard_tag = "daily"
     if ctx.build.event == "tag":

@@ -1304,4 +1304,18 @@ class CliContext implements Context {
 			"Expected command to fail with a non-zero exit code, but got 0. Message: " . $jsonResponse["message"]
 		);
 	}
+
+	/**
+	 * @param string $interval
+	 *
+	 * @return void
+	 */
+	#[When('the administrator sends the grouped :interval email notifications using the CLI')]
+	public function theAdministratorSendsTheGroupedEmailNotifications(string $interval): void {
+		$body = [
+		  "command" => "notifications send-email --$interval"
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+		$this->theCommandShouldBeSuccessful();
+	}
 }
