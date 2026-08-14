@@ -2,8 +2,8 @@ package command
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
+	"strings"
 
 	"github.com/nats-io/nats.go"
 	"github.com/olekukonko/errors"
@@ -12,6 +12,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	natspkg "github.com/opencloud-eu/opencloud/pkg/nats"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	ogrpc "github.com/opencloud-eu/opencloud/pkg/service/grpc"
@@ -185,11 +186,11 @@ func Server(cfg *config.Config) *cobra.Command {
 					return err
 				}
 
-			gr.Add(runner.New(cfg.Service.Name+".svc", func() error {
-				return eventSvc.Run()
-			}, func() {
-				eventSvc.Close()
-			}))
+				gr.Add(runner.New(cfg.Service.Name+".svc", func() error {
+					return eventSvc.Run()
+				}, func() {
+					eventSvc.Close()
+				}))
 			} else {
 				logger.Info().Msg("event listening disabled, not starting event service")
 			}
@@ -223,22 +224,8 @@ func Server(cfg *config.Config) *cobra.Command {
 
 func ConnectNatsKV(cfg config.Store) (nats.KeyValue, error) {
 	// Connect to NATS servers
-	natsOptions := nats.Options{
-		Servers: cfg.Nodes,
-	}
-	if cfg.EnableTLS {
-		if cfg.TLSRootCACertificate != "" {
-			// when root ca is configured use it. an insecure flag is ignored.
-			nats.RootCAs(cfg.TLSRootCACertificate)(&natsOptions)
-		} else {
-			// enable tls and use insecure flag
-			nats.Secure(&tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: cfg.TLSInsecure})(&natsOptions)
-		}
-	}
-	if cfg.AuthUsername != "" && cfg.AuthPassword != "" {
-		nats.UserInfo(cfg.AuthUsername, cfg.AuthPassword)(&natsOptions)
-	}
-	conn, err := natsOptions.Connect()
+	secureOption := natspkg.Secure(cfg.EnableTLS, cfg.TLSInsecure, cfg.TLSRootCACertificate)
+	conn, err := nats.Connect(strings.Join(cfg.Nodes, ","), secureOption, nats.UserInfo(cfg.AuthUsername, cfg.AuthPassword))
 	if err != nil {
 		return nil, err
 	}
