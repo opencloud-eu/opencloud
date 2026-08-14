@@ -2,7 +2,6 @@ package service
 
 import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
-	"github.com/go-chi/chi/v5"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
@@ -20,13 +19,11 @@ type Option func(*Options)
 type Options struct {
 	Logger           log.Logger
 	Stream           events.Stream
-	Mux              *chi.Mux
 	Store            store.Store
 	Config           *config.Config
 	HistoryClient    ehsvc.EventHistoryService
 	GatewaySelector  pool.Selectable[gateway.GatewayAPIClient]
 	ValueClient      settingssvc.ValueService
-	RoleClient       settingssvc.RoleService
 	RegisteredEvents []events.Unmarshaller
 	TraceProvider    trace.TracerProvider
 }
@@ -42,13 +39,6 @@ func Logger(log log.Logger) Option {
 func Stream(s events.Stream) Option {
 	return func(o *Options) {
 		o.Stream = s
-	}
-}
-
-// Mux defines the muxer for the userlog service
-func Mux(m *chi.Mux) Option {
-	return func(o *Options) {
-		o.Mux = m
 	}
 }
 
@@ -91,13 +81,6 @@ func RegisteredEvents(e []events.Unmarshaller) Option {
 func ValueClient(vs settingssvc.ValueService) Option {
 	return func(o *Options) {
 		o.ValueClient = vs
-	}
-}
-
-// RoleClient adds a grpc client for the role service
-func RoleClient(rs settingssvc.RoleService) Option {
-	return func(o *Options) {
-		o.RoleClient = rs
 	}
 }
 

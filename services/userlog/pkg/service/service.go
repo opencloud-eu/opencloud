@@ -10,7 +10,6 @@ import (
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
-	"github.com/go-chi/chi/v5"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
@@ -20,7 +19,6 @@ import (
 	ocEvents "github.com/opencloud-eu/opencloud/pkg/events"
 	"github.com/opencloud-eu/opencloud/pkg/l10n"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/pkg/roles"
 	ehmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/eventhistory/v0"
 	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
@@ -30,7 +28,6 @@ import (
 // UserlogService is the service responsible for user activities
 type UserlogService struct {
 	log              log.Logger
-	m                *chi.Mux
 	store            store.Store
 	cfg              *config.Config
 	historyClient    ehsvc.EventHistoryService
@@ -56,7 +53,6 @@ func NewUserlogService(opts ...Option) (*UserlogService, error) {
 
 	ul := &UserlogService{
 		log:              o.Logger,
-		m:                o.Mux,
 		store:            o.Store,
 		cfg:              o.Config,
 		historyClient:    o.HistoryClient,
@@ -72,27 +68,6 @@ func NewUserlogService(opts ...Option) (*UserlogService, error) {
 	for _, e := range o.RegisteredEvents {
 		typ := reflect.TypeOf(e)
 		ul.registeredEvents[typ.String()] = e
-	}
-
-	m := roles.NewManager(
-		// TODO: caching?
-		roles.Logger(o.Logger),
-		roles.RoleService(o.RoleClient),
-	)
-
-	ul.m.Route("/ocs/v2.php/apps/notifications/api/v1/notifications", func(r chi.Router) {
-		r.Get("/", ul.HandleGetEvents)
-		r.Delete("/", ul.HandleDeleteEvents)
-		r.Post("/global", RequireAdminOrSecret(&m, o.Config.GlobalNotificationsSecret)(ul.HandlePostGlobalEvent))
-		r.Delete("/global", RequireAdminOrSecret(&m, o.Config.GlobalNotificationsSecret)(ul.HandleDeleteGlobalEvent))
-	})
-
-	if !o.Config.EventsDisabled {
-		ch, err := events.Consume(o.Stream, "userlog", o.RegisteredEvents...)
-		if err != nil {
-			return nil, err
-		}
-		go ul.MemorizeEvents(ch)
 	}
 
 	return ul, nil

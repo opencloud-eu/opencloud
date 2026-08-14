@@ -18,11 +18,6 @@ import (
 // HeaderAcceptLanguage is the header where the client can set the locale
 var HeaderAcceptLanguage = "Accept-Language"
 
-// ServeHTTP fulfills Handler interface
-func (ul *UserlogService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ul.m.ServeHTTP(w, r)
-}
-
 // HandleGetEvents is the GET handler for events
 func (ul *UserlogService) HandleGetEvents(w http.ResponseWriter, r *http.Request) {
 	ctx, span := ul.tracer.Start(r.Context(), "HandleGetEvents")
