@@ -257,3 +257,108 @@ Feature: Email notification
 
       Click here to view it: %base_url%/files/shares/with-me
       """
+
+
+  Scenario: user gets an email notification when a received share expires
+    Given using SharingNG
+    And user "Alice" has uploaded file with content "hello world" to "lorem.txt"
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | lorem.txt |
+      | space           | Personal  |
+      | sharee          | Brian     |
+      | shareType       | user      |
+      | permissionsRole | Viewer    |
+    When user "Alice" expires the last share of resource "lorem.txt" inside of the space "Personal"
+    Then the HTTP status code should be "200"
+    When user "Brian" lists the shares shared with him using the Graph API
+    Then user "Brian" should have received the following email from user "Alice"
+      """
+      Your share to lorem.txt has expired at
+      """
+
+
+  Scenario: user gets an email notification when a space membership expires
+    Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
+    And user "Alice" has created a space "new-space" with the default quota using the Graph API
+    And user "Alice" has sent the following space share invitation:
+      | space           | new-space    |
+      | sharee          | Brian        |
+      | shareType       | user         |
+      | permissionsRole | Space Viewer |
+    When user "Alice" expires the user share of space "new-space" for user "Brian"
+    Then the HTTP status code should be "200"
+    # trigger the email notification
+    When user "Brian" lists the shares shared with him using the Graph API
+    Then user "Brian" should have received the following email from user "Alice"
+      """
+      Your membership of space new-space has expired at
+      """
+
+
+  Scenario: user gets an email notification when a received share is removed
+    Given user "Alice" has uploaded file with content "sample text" to "lorem.txt"
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | lorem.txt |
+      | space           | Personal  |
+      | sharee          | Brian     |
+      | shareType       | user      |
+      | permissionsRole | Viewer    |
+    When user "Alice" has removed the access of user "Brian" from resource "lorem.txt" of space "Personal"
+    Then user "Brian" should have received the following email from user "Alice"
+      """
+      Hello Brian Murphy
+
+      %displayname% has unshared "lorem.txt" with you.
+      """
+
+
+  Scenario: no email is sent when the email sending interval is set to never
+    Given user "Brian" has set the email sending interval to "never" using the settings API
+    And user "Alice" has uploaded file with content "sample text" to "lorem.txt"
+    And user "Alice" has uploaded file with content "more sample text" to "textfile.txt"
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | lorem.txt |
+      | space           | Personal  |
+      | sharee          | Brian     |
+      | shareType       | user      |
+      | permissionsRole | Viewer    |
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | textfile.txt |
+      | space           | Personal     |
+      | sharee          | Brian        |
+      | shareType       | user         |
+      | permissionsRole | Viewer       |
+    Then user "Brian" should have "0" emails
+
+
+  Scenario Outline: queued notifications are delivered as one grouped email when the interval is <interval>
+    Given user "Brian" has set the email sending interval to "<interval>" using the settings API
+    And user "Alice" has uploaded file with content "sample text" to "lorem.txt"
+    And user "Alice" has uploaded file with content "more sample text" to "textfile.txt"
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | lorem.txt |
+      | space           | Personal  |
+      | sharee          | Brian     |
+      | shareType       | user      |
+      | permissionsRole | Viewer    |
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | textfile.txt |
+      | space           | Personal     |
+      | sharee          | Brian        |
+      | shareType       | user         |
+      | permissionsRole | Viewer       |
+    And user "Brian" should have "0" emails
+    When the administrator sends the grouped "<interval>" email notifications using the CLI
+    Then user "Brian" should have received the following email from user "Alice"
+      """
+      %displayname% has shared "lorem.txt" with you.
+      """
+    And user "Brian" should have received the following email from user "Alice"
+      """
+      %displayname% has shared "textfile.txt" with you.
+      """
+    And user "Brian" should have "1" emails
+    Examples:
+      | interval |
+      | daily    |
+      | weekly   |

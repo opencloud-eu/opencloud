@@ -50,3 +50,19 @@ func AllowNonTLS(v bool) NatsOption {
 		o.AllowNonTLS = v
 	}
 }
+
+// enables NATS server monitoring through its HTTP endpoint
+func EnableMonitoringHTTPEndpoint(httpHost string, httpPort int) NatsOption {
+	return func(o *nserver.Options) {
+		o.HTTPHost = httpHost
+		o.HTTPPort = httpPort
+	}
+}
+
+// enables NATS server monitoring through its HTTPS endpoint
+func EnableMonitoringHTTPSEndpoint(httpHost string, httpsPort int) NatsOption {
+	return func(o *nserver.Options) {
+		o.HTTPHost = httpHost
+		o.HTTPSPort = httpsPort
+	}
+}

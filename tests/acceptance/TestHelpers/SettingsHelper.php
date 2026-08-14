@@ -30,6 +30,7 @@ use PHPUnit\Framework\Assert;
  */
 class SettingsHelper {
 	private static string $settingsEndpoint = '/api/v0/settings/';
+	private const BUNDLE_ID = "2a506de7-99bd-4f0d-994e-c38e72c28fd9";
 
 	/**
 	 * @param string $baseUrl
@@ -39,6 +40,13 @@ class SettingsHelper {
 	 */
 	public static function buildFullUrl(string $baseUrl, string $path): string {
 		return $baseUrl . self::$settingsEndpoint . $path;
+	}
+
+	/**
+	 * @return string
+	 */
+	public static function getBundleId(): string {
+		return self::BUNDLE_ID;
 	}
 
 	/**

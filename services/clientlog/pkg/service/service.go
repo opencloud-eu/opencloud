@@ -132,6 +132,11 @@ func (cl *ClientlogService) processEvent(event events.Event) {
 		users, data, err = processShareEvent(ctx, ref, gwc, event.InitiatorID, uid, gid)
 	}
 
+	labelEv := func(typ string, ref *provider.Reference, uid *user.UserId) {
+		evType = typ
+		users, data, err = processLabelEvent(ctx, ref, gwc, event.InitiatorID, uid)
+	}
+
 	spaceEv := func(typ string, id *provider.StorageSpaceId, uids []string) {
 		evType = typ
 		users, data, err = processSpaceEvent(ctx, id, gwc, event.InitiatorID, uids)
@@ -166,6 +171,10 @@ func (cl *ClientlogService) processEvent(event events.Event) {
 		fileEv("file-unlocked", e.Ref)
 	case events.FileTouched:
 		fileEv("file-touched", e.Ref)
+	case events.LabelAdded:
+		labelEv("item-favorite-added", e.Ref, e.UserID)
+	case events.LabelRemoved:
+		labelEv("item-favorite-removed", e.Ref, e.UserID)
 	case events.SpaceCreated:
 		spaceEv("space-created", e.ID, []string{e.Executant.GetOpaqueId()})
 	case events.SpaceDisabled:
@@ -253,6 +262,24 @@ func processFileEvent(ctx context.Context, ref *provider.Reference, gwc gateway.
 
 	users, err := utils.GetSpaceMembers(ctx, info.GetSpace().GetId().GetOpaqueId(), gwc, utils.ViewerRole)
 	return users, data, err
+}
+
+// process label (e.g. favorite) related events, notifying only the user the label belongs to
+func processLabelEvent(ctx context.Context, ref *provider.Reference, gwc gateway.GatewayAPIClient, initiatorid string, uid *user.UserId) ([]string, FileEvent, error) {
+	info, err := utils.GetResource(ctx, ref, gwc)
+	if err != nil {
+		return nil, FileEvent{}, err
+	}
+
+	data := FileEvent{
+		ParentItemID: storagespace.FormatResourceID(info.GetParentId()),
+		ItemID:       storagespace.FormatResourceID(info.GetId()),
+		SpaceID:      storagespace.FormatStorageID(info.GetSpace().GetRoot().GetStorageId(), info.GetSpace().GetRoot().GetSpaceId()),
+		InitiatorID:  initiatorid,
+		Etag:         info.GetEtag(),
+	}
+
+	return []string{uid.GetOpaqueId()}, data, nil
 }
 
 // process share related events

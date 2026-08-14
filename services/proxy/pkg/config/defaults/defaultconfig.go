@@ -35,6 +35,16 @@ func DefaultConfig() *config.Config {
 			TLSCert:   path.Join(defaults.BaseDataPath(), "proxy", "server.crt"),
 			TLSKey:    path.Join(defaults.BaseDataPath(), "proxy", "server.key"),
 			TLS:       true,
+			Client: config.Client{
+				ForceAttemptHTTP2:     false,
+				DialTimeout:           30 * time.Second,
+				DialKeepAlive:         30 * time.Second,
+				MaxIdleConns:          100,
+				MaxIdleConnsPerHost:   100,
+				IdleConnTimeout:       90 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
+			},
 		},
 		Service: config.Service{
 			Name: "proxy",
