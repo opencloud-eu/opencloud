@@ -1,6 +1,7 @@
 package http
 
 import (
+	"errors"
 	"fmt"
 
 	stdhttp "net/http"
@@ -10,6 +11,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/account"
 	"github.com/opencloud-eu/opencloud/pkg/cors"
 	"github.com/opencloud-eu/opencloud/pkg/middleware"
+	"github.com/opencloud-eu/opencloud/pkg/roles"
 	"github.com/opencloud-eu/opencloud/pkg/service/http"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
@@ -77,24 +79,24 @@ func Server(opts ...Option) (http.Service, error) {
 		),
 	)
 
-	handle, err := svc.NewUserlogService(
-		svc.Logger(options.Logger),
-		svc.Stream(options.Stream),
-		svc.Mux(mux),
-		svc.Store(options.Store),
-		svc.Config(options.Config),
-		svc.HistoryClient(options.HistoryClient),
-		svc.GatewaySelector(options.GatewaySelector),
-		svc.ValueClient(options.ValueClient),
-		svc.RoleClient(options.RoleClient),
-		svc.RegisteredEvents(options.RegisteredEvents),
-		svc.TraceProvider(options.TracerProvider),
-	)
-	if err != nil {
-		return http.Service{}, err
+	if options.UserlogService == nil {
+		return http.Service{}, errors.New("need non nil userlog service to serve http requests")
 	}
 
-	if err := micro.RegisterHandler(service.Server(), handle); err != nil {
+	m := roles.NewManager(
+		// TODO: caching?
+		roles.Logger(options.Logger),
+		roles.RoleService(options.RoleClient),
+	)
+
+	mux.Route("/ocs/v2.php/apps/notifications/api/v1/notifications", func(r chi.Router) {
+		r.Get("/", options.UserlogService.HandleGetEvents)
+		r.Delete("/", options.UserlogService.HandleDeleteEvents)
+		r.Post("/global", svc.RequireAdminOrSecret(&m, options.Config.GlobalNotificationsSecret)(options.UserlogService.HandlePostGlobalEvent))
+		r.Delete("/global", svc.RequireAdminOrSecret(&m, options.Config.GlobalNotificationsSecret)(options.UserlogService.HandleDeleteGlobalEvent))
+	})
+
+	if err := micro.RegisterHandler(service.Server(), mux); err != nil {
 		return http.Service{}, err
 	}
 

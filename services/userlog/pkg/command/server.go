@@ -19,11 +19,11 @@ import (
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/metrics"
+	"github.com/opencloud-eu/opencloud/services/userlog/pkg/server/consumer"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/server/http"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/service"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -87,8 +87,16 @@ func Server(cfg *config.Config) *cobra.Command {
 
 			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
 			var evStream events.Stream
-			if !cfg.EventsDisabled {
-				evStream, err = stream.NatsFromConfig(connName, false, stream.NatsConfig(cfg.Events))
+			if !cfg.Events.Disabled {
+				evStream, err = stream.NatsFromConfig(connName, false, stream.NatsConfig{
+					Endpoint:             cfg.Events.Endpoint,
+					Cluster:              cfg.Events.Cluster,
+					TLSInsecure:          cfg.Events.TLSInsecure,
+					TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
+					EnableTLS:            cfg.Events.EnableTLS,
+					AuthUsername:         cfg.Events.AuthUsername,
+					AuthPassword:         cfg.Events.AuthPassword,
+				})
 				if err != nil {
 					return err
 				}
@@ -125,21 +133,31 @@ func Server(cfg *config.Config) *cobra.Command {
 			vClient := settingssvc.NewValueService("eu.opencloud.api.settings", grpcClient)
 			rClient := settingssvc.NewRoleService("eu.opencloud.api.settings", grpcClient)
 
+			handle, err := service.NewUserlogService(
+				service.Logger(logger),
+				service.Stream(evStream),
+				service.Store(st),
+				service.Config(cfg),
+				service.HistoryClient(hClient),
+				service.GatewaySelector(gatewaySelector),
+				service.ValueClient(vClient),
+				service.RegisteredEvents(_registeredEvents),
+				service.TraceProvider(tracerProvider),
+			)
+			if err != nil {
+				return err
+			}
+
 			gr := runner.NewGroup()
 
-			if !cfg.HTTPDisabled {
+			if !cfg.HTTP.Disabled {
 				server, err := http.Server(
 					http.Logger(logger),
 					http.Context(ctx),
 					http.Config(cfg),
 					http.Metrics(mtrcs),
-					http.Store(st),
-					http.Stream(evStream),
-					http.GatewaySelector(gatewaySelector),
-					http.History(hClient),
-					http.Value(vClient),
 					http.Role(rClient),
-					http.RegisteredEvents(_registeredEvents),
+					http.UserlogService(handle),
 					http.TracerProvider(tracerProvider),
 				)
 
@@ -151,33 +169,23 @@ func Server(cfg *config.Config) *cobra.Command {
 				gr.Add(runner.NewGoMicroHttpServerRunner(cfg.Service.Name+".http", server))
 			} else {
 				logger.Info().Msg("HTTP server disabled, not starting HTTP service")
-
-				if !cfg.EventsDisabled {
-					_, err := service.NewUserlogService(
-						service.Logger(logger),
-						service.Stream(evStream),
-						service.Mux(chi.NewMux()),
-						service.Store(st),
-						service.Config(cfg),
-						service.HistoryClient(hClient),
-						service.GatewaySelector(gatewaySelector),
-						service.ValueClient(vClient),
-						service.RoleClient(rClient),
-						service.RegisteredEvents(_registeredEvents),
-						service.TraceProvider(tracerProvider),
-					)
-					if err != nil {
-						return err
-					}
-
-					gr.Add(runner.New(cfg.Service.Name+".consumer", func() error {
-						<-ctx.Done()
-						return nil
-					}, func() {}))
-				}
 			}
 
-			if cfg.EventsDisabled {
+			if !cfg.Events.Disabled {
+				server, err := consumer.Server(
+					consumer.Logger(logger),
+					consumer.Context(ctx),
+					consumer.Config(cfg),
+					consumer.Stream(evStream),
+					consumer.UserlogService(handle),
+					consumer.RegisteredEvents(_registeredEvents),
+				)
+				if err != nil {
+					return err
+				}
+
+				gr.Add(server)
+			} else {
 				logger.Info().Msg("event listening disabled, not starting event consumer")
 			}
 

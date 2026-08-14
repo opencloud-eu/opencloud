@@ -12,7 +12,6 @@ import (
 	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -100,7 +99,6 @@ var _ = Describe("UserlogService", func() {
 			service.Stream(bus),
 			service.Store(sto),
 			service.Logger(log.NewLogger()),
-			service.Mux(chi.NewMux()),
 			service.GatewaySelector(gatewaySelector),
 			service.HistoryClient(&ehc),
 			service.ValueClient(&vc),
@@ -110,6 +108,10 @@ var _ = Describe("UserlogService", func() {
 			service.TraceProvider(trace.NewNoopTracerProvider()),
 		)
 		Expect(err).ToNot(HaveOccurred())
+
+		ch, err := events.Consume(bus, "userlog", events.SpaceDisabled{})
+		Expect(err).ToNot(HaveOccurred())
+		go ul.MemorizeEvents(ch)
 	})
 
 	It("it stores, returns and deletes a couple of events", func() {
@@ -172,14 +174,15 @@ var _ = Describe("UserlogService", func() {
 		localEhc := mocks.EventHistoryService{}
 		cfgNoEvents := &config.Config{
 			MaxConcurrency: 5,
-			EventsDisabled: true,
+			Events: config.Events{
+				Disabled: true,
+			},
 		}
 		ulNoConsumer, err := service.NewUserlogService(
 			service.Config(cfgNoEvents),
 			service.Stream(bus),
 			service.Store(sto),
 			service.Logger(log.NewLogger()),
-			service.Mux(chi.NewMux()),
 			service.GatewaySelector(gatewaySelector),
 			service.HistoryClient(&localEhc),
 			service.ValueClient(&vc),
