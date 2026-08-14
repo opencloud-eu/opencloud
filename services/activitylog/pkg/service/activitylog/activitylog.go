@@ -15,7 +15,6 @@ import (
 	"github.com/jellydator/ttlcache/v2"
 	"github.com/nats-io/nats.go"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/data"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/vmihailenco/msgpack/v5"
 	"go.opentelemetry.io/otel"
@@ -104,6 +103,13 @@ func (a *ActivityLog) RemoveResource(rid *provider.ResourceId) error {
 	return nil
 }
 
+// RawActivity represents an activity as it is stored in the activitylog store
+type RawActivity struct {
+	EventID   string    `json:"event_id"`
+	Depth     int       `json:"depth"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
 func (a *ActivityLog) AddActivity(ctx context.Context, initRef *provider.Reference, parentId *provider.ResourceId, eventID string, timestamp time.Time, getResource func(context.Context, *provider.Reference) (*provider.ResourceInfo, error)) error {
 	var (
 		err   error
@@ -131,7 +137,7 @@ func (a *ActivityLog) AddActivity(ctx context.Context, initRef *provider.Referen
 		}
 
 		key := storagespace.FormatResourceID(id)
-		a.debouncer.Debounce(key, data.RawActivity{
+		a.debouncer.Debounce(key, RawActivity{
 			EventID:   eventID,
 			Depth:     depth,
 			Timestamp: timestamp,
@@ -172,7 +178,7 @@ func (a *ActivityLog) AddActivity(ctx context.Context, initRef *provider.Referen
 	return nil
 }
 
-func (a *ActivityLog) StoreActivity(resourceID string, activities []data.RawActivity) error {
+func (a *ActivityLog) StoreActivity(resourceID string, activities []RawActivity) error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
@@ -221,7 +227,7 @@ func (a *ActivityLog) enforceMaxActivities(ctx context.Context, resourceID strin
 			break
 		}
 
-		var batchActivities []data.RawActivity
+		var batchActivities []RawActivity
 		if err := msgpack.Unmarshal(update.Value(), &batchActivities); err != nil {
 			a.log.Debug().Err(err).Str("resourceID", resourceID).Msg("could not unmarshal messagepack, trying json")
 		}
@@ -299,14 +305,14 @@ func natsKey(resourceID string, activitiesCount int) string {
 		time.Now().UnixNano())
 }
 
-func (a *ActivityLog) Activities(rid *provider.ResourceId) ([]data.RawActivity, error) {
+func (a *ActivityLog) Activities(rid *provider.ResourceId) ([]RawActivity, error) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
 	return a.activities(rid)
 }
 
-func (a *ActivityLog) activities(rid *provider.ResourceId) ([]data.RawActivity, error) {
+func (a *ActivityLog) activities(rid *provider.ResourceId) ([]RawActivity, error) {
 	resourceID := storagespace.FormatResourceID(rid)
 
 	glob := fmt.Sprintf("%s.>", base32.StdEncoding.EncodeToString([]byte(resourceID)))
@@ -317,13 +323,13 @@ func (a *ActivityLog) activities(rid *provider.ResourceId) ([]data.RawActivity, 
 	}
 	defer watcher.Stop()
 
-	var activities []data.RawActivity
+	var activities []RawActivity
 	for update := range watcher.Updates() {
 		if update == nil {
 			break
 		}
 
-		var batchActivities []data.RawActivity
+		var batchActivities []RawActivity
 		if err := msgpack.Unmarshal(update.Value(), &batchActivities); err != nil {
 			a.log.Debug().Err(err).Str("resourceID", resourceID).Msg("could not unmarshal messagepack")
 		}
@@ -343,7 +349,7 @@ func (a *ActivityLog) RemoveActivities(rid *provider.ResourceId, toDelete map[st
 		return err
 	}
 
-	var acts []data.RawActivity
+	var acts []RawActivity
 	for _, a := range curActivities {
 		if _, ok := toDelete[a.EventID]; !ok {
 			acts = append(acts, a)

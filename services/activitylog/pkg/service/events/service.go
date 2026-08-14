@@ -12,7 +12,6 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config"
-	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/data"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/activitylog"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -221,7 +220,7 @@ func (a *ActivitylogService) AddActivityTrashed(ctx context.Context, resourceID 
 	}
 
 	// store activity on trashed item
-	if err := a.al.StoreActivity(storagespace.FormatResourceID(resourceID), []data.RawActivity{
+	if err := a.al.StoreActivity(storagespace.FormatResourceID(resourceID), []activitylog.RawActivity{
 		{
 			EventID:   eventID,
 			Depth:     0,
@@ -254,7 +253,7 @@ func (a *ActivitylogService) AddSpaceActivity(ctx context.Context, spaceID *prov
 		return fmt.Errorf("could not parse space id: %w", err)
 	}
 	rid.OpaqueId = rid.GetSpaceId()
-	err = a.al.StoreActivity(storagespace.FormatResourceID(&rid), []data.RawActivity{
+	err = a.al.StoreActivity(storagespace.FormatResourceID(&rid), []activitylog.RawActivity{
 		{
 			EventID:   eventID,
 			Depth:     0,

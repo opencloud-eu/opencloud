@@ -7,7 +7,6 @@ import (
 	"log"
 
 	"github.com/nats-io/nats.go"
-	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/data"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -84,7 +83,7 @@ func (a *ActivityLog) migrateToV1(_ context.Context, kv nats.KeyValue) error {
 		}
 
 		// Unmarshal value into a list of strings
-		var activities []data.RawActivity
+		var activities []RawActivity
 		if err := msgpack.Unmarshal(val.Data, &activities); err != nil {
 			if err := json.Unmarshal(val.Data, &activities); err != nil {
 				// This key's value is not a JSON array of strings. Skip it.

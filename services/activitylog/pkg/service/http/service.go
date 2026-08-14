@@ -19,8 +19,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	ehmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/eventhistory/v0"
 	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
-	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/apierrors"
-	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/data"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/activitylog"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -63,6 +61,11 @@ type svc struct {
 	registeredEvents map[string]events.Unmarshaller
 }
 
+var (
+	ErrBadRequest = errors.New("bad request")
+	ErrForbidden  = errors.New("forbidden")
+)
+
 func (s *svc) GetItemActivities(ctx context.Context, query, loc string, t l10n.Translator) ([]libregraph.Activity, error) {
 	gwc, err := s.gws.Next()
 	if err != nil {
@@ -72,17 +75,17 @@ func (s *svc) GetItemActivities(ctx context.Context, query, loc string, t l10n.T
 	rid, limit, rawActivityAccepted, activityAccepted, sort, err := s.getFilters(query)
 	if err != nil {
 		s.log.Info().Str("query", query).Err(err).Msg("error getting filters")
-		return nil, apierrors.ErrBadRequest
+		return nil, ErrBadRequest
 	}
 
 	info, err := utils.GetResourceByID(ctx, rid, gwc)
 	if err != nil {
-		return nil, apierrors.ErrForbidden
+		return nil, ErrForbidden
 	}
 
 	// you need ListGrants to see activities
 	if !info.GetPermissionSet().GetListGrants() {
-		return nil, apierrors.ErrForbidden
+		return nil, ErrForbidden
 	}
 
 	raw, err := s.al.Activities(rid)
@@ -264,13 +267,13 @@ func (s *svc) unwrapEvent(e *ehmsg.Event) any {
 	return einterface
 }
 
-func (s *svc) getFilters(query string) (*provider.ResourceId, int, func(data.RawActivity) bool, func(*ehmsg.Event) bool, func([]*ehmsg.Event), error) {
+func (s *svc) getFilters(query string) (*provider.ResourceId, int, func(activitylog.RawActivity) bool, func(*ehmsg.Event) bool, func([]*ehmsg.Event), error) {
 	qast, err := kql.Builder{}.Build(query)
 	if err != nil {
 		return nil, 0, nil, nil, nil, err
 	}
 
-	prefilters := make([]func(data.RawActivity) bool, 0)
+	prefilters := make([]func(activitylog.RawActivity) bool, 0)
 	postfilters := make([]func(*ehmsg.Event) bool, 0)
 
 	sortby := func(_ []*ehmsg.Event) {}
@@ -295,7 +298,7 @@ func (s *svc) getFilters(query string) (*provider.ResourceId, int, func(data.Raw
 					break
 				}
 
-				prefilters = append(prefilters, func(a data.RawActivity) bool {
+				prefilters = append(prefilters, func(a activitylog.RawActivity) bool {
 					return a.Depth <= depth
 				})
 			case "limit":
@@ -318,11 +321,11 @@ func (s *svc) getFilters(query string) (*provider.ResourceId, int, func(data.Raw
 		case *ast.DateTimeNode:
 			switch v.Operator.Value {
 			case "<", "<=":
-				prefilters = append(prefilters, func(a data.RawActivity) bool {
+				prefilters = append(prefilters, func(a activitylog.RawActivity) bool {
 					return a.Timestamp.Before(v.Value)
 				})
 			case ">", ">=":
-				prefilters = append(prefilters, func(a data.RawActivity) bool {
+				prefilters = append(prefilters, func(a activitylog.RawActivity) bool {
 					return a.Timestamp.After(v.Value)
 				})
 			}
@@ -341,7 +344,7 @@ func (s *svc) getFilters(query string) (*provider.ResourceId, int, func(data.Raw
 		// space root requested - fix format
 		rid.OpaqueId = rid.GetSpaceId()
 	}
-	pref := func(a data.RawActivity) bool {
+	pref := func(a activitylog.RawActivity) bool {
 		for _, f := range prefilters {
 			if !f(a) {
 				return false

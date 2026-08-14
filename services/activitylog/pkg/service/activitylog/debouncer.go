@@ -3,14 +3,12 @@ package activitylog
 import (
 	"sync"
 	"time"
-
-	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/data"
 )
 
 // Debouncer is used to debounce writes to the activity log store.
 type Debouncer struct {
 	after      time.Duration
-	f          func(id string, ra []data.RawActivity) error
+	f          func(id string, ra []RawActivity) error
 	pending    sync.Map
 	inProgress sync.Map
 
@@ -18,12 +16,12 @@ type Debouncer struct {
 }
 
 type queueItem struct {
-	activities []data.RawActivity
+	activities []RawActivity
 	timer      *time.Timer
 }
 
 // NewDebouncer returns a new Debouncer instance.
-func NewDebouncer(d time.Duration, f func(id string, ra []data.RawActivity) error) *Debouncer {
+func NewDebouncer(d time.Duration, f func(id string, ra []RawActivity) error) *Debouncer {
 	return &Debouncer{
 		after:      d,
 		f:          f,
@@ -33,9 +31,9 @@ func NewDebouncer(d time.Duration, f func(id string, ra []data.RawActivity) erro
 }
 
 // Debounce restarts the debounce timer for the given space.
-func (d *Debouncer) Debounce(id string, ra data.RawActivity) {
+func (d *Debouncer) Debounce(id string, ra RawActivity) {
 	if d.after == 0 {
-		d.f(id, []data.RawActivity{ra})
+		d.f(id, []RawActivity{ra})
 		return
 	}
 
@@ -43,7 +41,7 @@ func (d *Debouncer) Debounce(id string, ra data.RawActivity) {
 	defer d.mutex.Unlock()
 
 	item := &queueItem{
-		activities: []data.RawActivity{ra},
+		activities: []RawActivity{ra},
 	}
 
 	if i, ok := d.pending.Load(id); ok {

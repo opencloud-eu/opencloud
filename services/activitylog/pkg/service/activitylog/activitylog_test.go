@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/command"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config"
-	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/data"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/activitylog"
 )
 
@@ -97,7 +96,7 @@ var _ = Describe("ActivitylogService", func() {
 				Name       string
 				Tree       map[string]*provider.ResourceInfo
 				Activities map[string]string
-				Expected   map[string][]data.RawActivity
+				Expected   map[string][]activitylog.RawActivity
 			}
 
 			testCases := []testCase{
@@ -111,7 +110,7 @@ var _ = Describe("ActivitylogService", func() {
 					Activities: map[string]string{
 						"activity": "base",
 					},
-					Expected: map[string][]data.RawActivity{
+					Expected: map[string][]activitylog.RawActivity{
 						"base":    activitites("activity", 0),
 						"parent":  activitites("activity", 1),
 						"spaceid": activitites("activity", 2),
@@ -128,7 +127,7 @@ var _ = Describe("ActivitylogService", func() {
 						"activity1": "base",
 						"activity2": "base",
 					},
-					Expected: map[string][]data.RawActivity{
+					Expected: map[string][]activitylog.RawActivity{
 						"base":    activitites("activity1", 0, "activity2", 0),
 						"parent":  activitites("activity1", 1, "activity2", 1),
 						"spaceid": activitites("activity1", 2, "activity2", 2),
@@ -260,9 +259,9 @@ var _ = Describe("ActivitylogService", func() {
 	})
 })
 
-func activitites(acts ...any) []data.RawActivity {
-	var activities []data.RawActivity
-	act := data.RawActivity{}
+func activitites(acts ...any) []activitylog.RawActivity {
+	var activities []activitylog.RawActivity
+	act := activitylog.RawActivity{}
 	for _, a := range acts {
 		switch v := a.(type) {
 		case string:
