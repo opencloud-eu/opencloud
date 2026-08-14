@@ -8,6 +8,7 @@
 
 ### 📈 Enhancement
 
+- feat(web): add rclone-crypt to default apps [[#3313](https://github.com/opencloud-eu/opencloud/pull/3313)]
 - enhance: send events for adding/removing favourite items [[#3229](https://github.com/opencloud-eu/opencloud/pull/3229)]
 - allow tuning the proxies http client [[#3278](https://github.com/opencloud-eu/opencloud/pull/3278)]
 - feat(web): add yjsServerUrl config [[#3259](https://github.com/opencloud-eu/opencloud/pull/3259)]
