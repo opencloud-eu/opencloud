@@ -1,10 +1,15 @@
 # Changelog
 
-## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-13
+## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-14
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @aduffeck, @butonic, @fschade, @pbleser-oc, @v-scharf
+@AlexAndBear, @JammingBen, @aduffeck, @butonic, @fschade, @maki5, @pbleser-oc, @v-scharf
+
+### 🐛 Bug Fixes
+
+- fix restore file version for shared resource [[#3268](https://github.com/opencloud-eu/opencloud/pull/3268)]
+- Fix missing favorite flag on opensearch hits [[#3252](https://github.com/opencloud-eu/opencloud/pull/3252)]
 
 ### 📈 Enhancement
 
@@ -17,10 +22,6 @@
 - api-test: notification settings and getting email notifications [[#3281](https://github.com/opencloud-eu/opencloud/pull/3281)]
 - api-test: add posixfs scan and consistency CLI tests [[#3263](https://github.com/opencloud-eu/opencloud/pull/3263)]
 - api-test: replace sleeps with WaitHelper poll for async state [[#3239](https://github.com/opencloud-eu/opencloud/pull/3239)]
-
-### 🐛 Bug Fixes
-
-- Fix missing favorite flag on opensearch hits [[#3252](https://github.com/opencloud-eu/opencloud/pull/3252)]
 
 ### 📦️ Dependencies
 
