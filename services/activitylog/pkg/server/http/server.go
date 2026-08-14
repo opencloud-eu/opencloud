@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -17,6 +18,7 @@ import (
 	ohttp "github.com/opencloud-eu/opencloud/pkg/service/http"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
+	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/apierrors"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"go-micro.dev/v4"
 	"google.golang.org/grpc/metadata"
@@ -121,9 +123,20 @@ func GetItemActivitiesHandler(log log.Logger, s ActivityLogService, vc settingss
 
 		activities, err := s.GetItemActivities(ctx, r.URL.Query().Get("kql"), loc, t)
 		if err != nil {
-			log.Error().Err(err).Msg("error getting activities")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+			switch {
+			case errors.Is(err, apierrors.ErrBadRequest):
+				log.Debug().Str("query", r.URL.Query().Get("kql")).Err(err).Msg("error getting activities")
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			case errors.Is(err, apierrors.ErrForbidden):
+				log.Debug().Err(err).Msg("error getting activities")
+				w.WriteHeader(http.StatusForbidden)
+				return
+			default:
+				log.Error().Err(err).Msg("error getting activities")
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 		}
 		res := GetActivitiesResponse{
 			Activities: activities,

@@ -76,7 +76,7 @@ func New(al *activitylog.ActivityLog, stream events.Stream, opts ...Option) (*Ac
 
 // Run to fulfil Runner interface
 func (s *ActivitylogService) Run() error {
-	ch, err := events.Consume(s.stream, "activitylog-pull", s.events...)
+	ch, err := events.Consume(s.stream, "activitylog", s.events...)
 	if err != nil {
 		return err
 	}
