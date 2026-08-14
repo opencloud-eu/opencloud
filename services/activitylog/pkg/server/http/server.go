@@ -142,23 +142,16 @@ func GetItemActivitiesHandler(log log.Logger, s ActivityLogService, vc settingss
 			Activities: activities,
 		}
 
-		b, err := json.Marshal(res)
-		if err != nil {
-			log.Error().Err(err).Msg("error marshalling activities")
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
 		w.Header().Set("Content-Type", "application/json; odata.metadata=minimal")
 		w.Header().Set("OData-Version", "4.0")
 		if reqID := chimiddleware.GetReqID(ctx); reqID != "" {
 			w.Header().Set("request-id", reqID)
 		}
 		w.Header().Set("Cache-Control", "no-cache")
-
-		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write(b); err != nil {
-			log.Error().Err(err).Msg("error writing response")
+		if err := json.NewEncoder(w).Encode(res); err != nil {
+			log.Error().Err(err).Msg("error encoding activities")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
 	}
 }
