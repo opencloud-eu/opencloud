@@ -79,6 +79,9 @@ func buildResourceMapping() ([]byte, error) {
 		"settings": map[string]any{
 			"number_of_shards":   "1",
 			"number_of_replicas": "1",
+			// static setting, must be set at creation time: enables the knn
+			// query type for the imageVector field
+			"knn": "true",
 			"analysis": map[string]any{
 				// path_hierarchy is case-preserving; casing lives in the value.
 				"analyzer": map[string]any{

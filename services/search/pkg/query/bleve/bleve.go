@@ -34,5 +34,29 @@ func (c Creator[T]) Create(qs string) (T, error) {
 	return t, nil
 }
 
+// CreateWithSemantic implements the Creator interface: the semantic clause is
+// split off the parsed tree before lowering, the rest compiles as usual. A
+// purely semantic query returns the zero query.
+func (c Creator[T]) CreateWithSemantic(qs string) (T, string, error) {
+	var t T
+	builderAst, err := c.builder.Build(qs)
+	if err != nil {
+		return t, "", err
+	}
+
+	text := query.ExtractSemantic(builderAst)
+	if text != "" && len(builderAst.Nodes) == 0 {
+		return t, text, nil
+	}
+
+	builderAst = query.Normalize(builderAst, query.ResolveField)
+	t, err = c.compiler.Compile(builderAst)
+	if err != nil {
+		return t, "", err
+	}
+
+	return t, text, nil
+}
+
 // DefaultCreator exposes a kql to bleve query creator.
 var DefaultCreator = Creator[bQuery.Query]{kql.Builder{}, Compiler{}}

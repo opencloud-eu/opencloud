@@ -48,6 +48,13 @@ type Engine interface {
 	NewBatch(batchSize int) (BatchOperator, error)
 }
 
+// TextVectorizer embeds a query text into the image vector space, so the
+// backends can rank image vectors against it. nil means semantic search is not
+// configured.
+type TextVectorizer interface {
+	VectorizeText(ctx context.Context, text string) ([]float32, error)
+}
+
 type BatchOperator interface {
 	Upsert(id string, r Resource) error
 	Move(id string, parentID string, targetPath string) error
@@ -79,15 +86,16 @@ var resourceFieldOverrides = sync.OnceValue(func() map[string]mapping.FieldOpts 
 		// every keyword field searches case-insensitively and by word (name,
 		// title, the facets) unless opted out: ids are opaque, paths are POSIX,
 		// the mime type is normalized already, a tag is one label
-		"ID":        {CaseInsensitive: &False, NoWordBreaker: &True},
-		"RootID":    {CaseInsensitive: &False, NoWordBreaker: &True},
-		"ParentID":  {CaseInsensitive: &False, NoWordBreaker: &True},
-		"Path":      {Type: mapping.TypePath, CaseInsensitive: &False},
-		"MimeType":  {CaseInsensitive: &False, NoWordBreaker: &True},
-		"Content":   {Type: mapping.TypeFulltext},
-		"Tags":      {NoWordBreaker: &True, IncludeInAll: &False},
-		"Favorites": {NoWordBreaker: &True, IncludeInAll: &False, CaseInsensitive: &False}, // opaque user ids
-		"location":  {Type: mapping.TypeGeopoint},
+		"ID":          {CaseInsensitive: &False, NoWordBreaker: &True},
+		"RootID":      {CaseInsensitive: &False, NoWordBreaker: &True},
+		"ParentID":    {CaseInsensitive: &False, NoWordBreaker: &True},
+		"Path":        {Type: mapping.TypePath, CaseInsensitive: &False},
+		"MimeType":    {CaseInsensitive: &False, NoWordBreaker: &True},
+		"Content":     {Type: mapping.TypeFulltext},
+		"Tags":        {NoWordBreaker: &True, IncludeInAll: &False},
+		"Favorites":   {NoWordBreaker: &True, IncludeInAll: &False, CaseInsensitive: &False}, // opaque user ids
+		"location":    {Type: mapping.TypeGeopoint},
+		"imageVector": {Type: mapping.TypeVector, Dims: content.ImageVectorDims},
 	}
 })
 

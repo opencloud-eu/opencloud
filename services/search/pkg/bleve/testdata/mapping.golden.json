@@ -702,6 +702,16 @@
           }
         }
       },
+      "imageVector": {
+        "enabled": true,
+        "dynamic": true,
+        "fields": [
+          {
+            "type": "number",
+            "store": true
+          }
+        ]
+      },
       "location": {
         "enabled": true,
         "dynamic": true,

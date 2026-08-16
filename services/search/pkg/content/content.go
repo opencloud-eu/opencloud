@@ -12,6 +12,13 @@ func init() {
 	stopwords.OverwriteWordSegmenter(`[^ ]+`)
 }
 
+// ImageVectorDims is the dimensionality of the ImageVector field. It is part
+// of the index schema (baked into the index mapping on creation), not a
+// configuration value: vectors of any other length cannot be indexed, and a
+// model of another size requires a new index. The CLIP extractor verifies at
+// startup that the configured model produces vectors of this length.
+const ImageVectorDims = 512
+
 // Document wraps all resource meta fields,
 // it is used as a content extraction result.
 type Document struct {
@@ -29,6 +36,7 @@ type Document struct {
 	Photo       *libregraph.Photo          `json:"photo,omitempty"`
 	Video       *libregraph.Video          `json:"video,omitempty"`
 	MotionPhoto *libregraph.MotionPhoto    `json:"motionPhoto,omitempty"`
+	ImageVector []float32                  `json:"imageVector,omitempty"`
 }
 
 func CleanString(content, langCode string) string {
