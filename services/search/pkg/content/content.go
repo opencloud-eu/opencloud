@@ -18,7 +18,7 @@ type Document struct {
 	Name      string
 	Content   string
 	Size      uint64
-	Mtime     string
+	Mtime     string `json:"Mtime,omitempty"`
 	MimeType  string
 	Tags      []string
 	Favorites []string

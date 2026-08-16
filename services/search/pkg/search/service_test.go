@@ -138,6 +138,46 @@ var _ = Describe("Searchprovider", func() {
 		})
 	})
 
+	Describe("UpsertItem", func() {
+		DescribeTable("marks a resource hidden when a dot starts one of its names",
+			func(path string, hidden bool) {
+				info := &sprovider.ResourceInfo{
+					Id:       &sprovider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "hidden-opaqueid"},
+					ParentId: &sprovider.ResourceId{StorageId: "storageid", OpaqueId: "parentopaqueid"},
+					Path:     path,
+				}
+
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
+					Status: status.NewOK(context.Background()),
+					Info:   info,
+				}, nil)
+
+				gatewayClient.On("GetPath", mock.Anything, mock.MatchedBy(func(req *sprovider.GetPathRequest) bool {
+					return req.GetResourceId().GetOpaqueId() == info.GetId().GetOpaqueId()
+				})).Return(&sprovider.GetPathResponse{
+					Status: status.NewOK(context.Background()),
+					Path:   path,
+				}, nil)
+
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, nil)
+
+				var indexed search.Resource
+				indexClient.On("Upsert", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+					indexed = args.Get(1).(search.Resource)
+				}).Return(nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				Expect(indexed.Hidden).To(Equal(hidden))
+			},
+			Entry("/folder", "/documents", false),
+			Entry("/folder/file", "/documents/notes.txt", false),
+			Entry("/folder/.file", "/documents/.notes.txt", true),
+			Entry("/.folder/file", "/.git/config", true),
+			Entry("/folder/.folder/file", "/documents/.git/config", true),
+			Entry("/", "/", false),
+		)
+	})
+
 	Describe("Search", func() {
 		It("fails when an empty query is given", func() {
 			res, err := s.Search(ctx, &searchsvc.SearchRequest{

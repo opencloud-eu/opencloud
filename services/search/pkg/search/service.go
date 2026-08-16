@@ -616,7 +616,13 @@ func (s *Service) doUpsertItem(ref *provider.Reference, batch BatchOperator) {
 		Type:     uint64(stat.Info.Type),
 		Document: doc,
 	}
-	r.Hidden = strings.HasPrefix(r.Path, ".")
+
+	for name := range strings.SplitSeq(filepath.Clean(r.Path), string(filepath.Separator)) {
+		if name != "." && strings.HasPrefix(name, ".") {
+			r.Hidden = true
+			break
+		}
+	}
 
 	if parentID := stat.GetInfo().GetParentId(); parentID != nil {
 		r.ParentID = storagespace.FormatResourceID(parentID)

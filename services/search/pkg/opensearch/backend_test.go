@@ -281,3 +281,49 @@ func TestEngine_DocCount(t *testing.T) {
 		require.Equal(t, uint64(0), count)
 	})
 }
+
+func TestEngine_UppercasePath(t *testing.T) {
+	indexName := "opencloud-test-engine-uppercase-path"
+	tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
+	tc.Require.IndicesReset([]string{indexName})
+
+	defer tc.Require.IndicesDelete([]string{indexName})
+
+	backend, err := opensearch.NewBackend(indexName, tc.Client())
+	require.NoError(t, err)
+
+	folder := opensearchtest.Testdata.Resources.Folder
+	folder.Path = "./Documents"
+	tc.Require.DocumentCreate(indexName, folder.ID, strings.NewReader(opensearchtest.JSONMustMarshal(t, folder)))
+
+	file := opensearchtest.Testdata.Resources.File
+	file.Path = "./Documents/Picture.jpg"
+	tc.Require.DocumentCreate(indexName, file.ID, strings.NewReader(opensearchtest.JSONMustMarshal(t, file)))
+	tc.Require.IndicesRefresh([]string{indexName}, nil)
+
+	t.Run("a path is indexed as it is written", func(t *testing.T) {
+		require.Len(t, tc.Require.Search(indexName, strings.NewReader(`{"query":{"term":{"Path":"./Documents"}}}`)).Hits, 2)
+		require.Empty(t, tc.Require.Search(indexName, strings.NewReader(`{"query":{"term":{"Path":"./documents"}}}`)).Hits)
+	})
+
+	t.Run("deleting reaches the resource and its descendants", func(t *testing.T) {
+		require.NoError(t, backend.Delete(folder.ID))
+		tc.Require.IndicesRefresh([]string{indexName}, nil)
+
+		deleted := tc.Require.Search(indexName, strings.NewReader(`{"query":{"term":{"Deleted":true}}}`))
+		require.Len(t, deleted.Hits, 2)
+	})
+
+	t.Run("moving takes the descendants along", func(t *testing.T) {
+		require.NoError(t, backend.Move(folder.ID, folder.ParentID, "./Other Documents"))
+		tc.Require.IndicesRefresh([]string{indexName}, nil)
+
+		require.Len(t, tc.Require.Search(indexName, strings.NewReader(`{"query":{"term":{"Path":"./Other Documents"}}}`)).Hits, 2)
+		require.Empty(t, tc.Require.Search(indexName, strings.NewReader(`{"query":{"term":{"Path":"./Documents"}}}`)).Hits)
+	})
+
+	t.Run("purging reaches the resource and its descendants", func(t *testing.T) {
+		require.NoError(t, backend.Purge(folder.ID, false))
+		tc.Require.IndicesCount([]string{indexName}, nil, 0)
+	})
+}

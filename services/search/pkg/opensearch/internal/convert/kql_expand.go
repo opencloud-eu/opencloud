@@ -94,7 +94,7 @@ func (_ kqlExpander) remapKey(current string, defaultKey string) string {
 }
 
 func (_ kqlExpander) lowerValue(key, value string) string {
-	if slices.Contains([]string{"Hidden"}, key) {
+	if slices.Contains([]string{"Hidden", "Path"}, key) {
 		return value // ignore certain keys and return the original value
 	}
 
