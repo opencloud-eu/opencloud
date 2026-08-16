@@ -19,7 +19,7 @@ func TestFileServer(t *testing.T) {
 	}
 
 	{
-		s := FileServer(fstest.MapFS{})
+		s := FileServer(fstest.MapFS{}, "")
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest("GET", "/foo", nil)
 		//defer req.Body.Close()
@@ -33,6 +33,7 @@ func TestFileServer(t *testing.T) {
 	for _, tt := range []struct {
 		name     string
 		url      string
+		root     string
 		fs       fstest.MapFS
 		expected string
 	}{
@@ -45,6 +46,39 @@ func TestFileServer(t *testing.T) {
 				},
 			},
 			expected: `<html><head><base href="/"/></head><body>index file content</body></html>`,
+		},
+		{
+			name: "index.html under a subpath deployment",
+			url:  "/index.html",
+			root: "/test/opencloud",
+			fs: fstest.MapFS{
+				"index.html": &fstest.MapFile{
+					Data: []byte("index file content"),
+				},
+			},
+			expected: `<html><head><base href="/test/opencloud/"/></head><body>index file content</body></html>`,
+		},
+		{
+			name: "oidc-callback.html under a subpath deployment",
+			url:  "/oidc-callback.html",
+			root: "/test/opencloud",
+			fs: fstest.MapFS{
+				"index.html": &fstest.MapFile{
+					Data: []byte("oidc-callback file content"),
+				},
+			},
+			expected: `<html><head><base href="/test/opencloud/"/></head><body>oidc-callback file content</body></html>`,
+		},
+		{
+			name: "some-file.txt under a subpath deployment is untouched",
+			url:  "/some-file.txt",
+			root: "/test/opencloud",
+			fs: fstest.MapFS{
+				"some-file.txt": &fstest.MapFile{
+					Data: []byte("some file content"),
+				},
+			},
+			expected: "some file content",
 		},
 		{
 			name: "directory fallback",
@@ -105,7 +139,7 @@ func TestFileServer(t *testing.T) {
 
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", tt.url, nil)
-			FileServer(tt.fs).ServeHTTP(w, req)
+			FileServer(tt.fs, tt.root).ServeHTTP(w, req)
 			res := w.Result()
 			defer res.Body.Close()
 

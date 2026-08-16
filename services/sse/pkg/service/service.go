@@ -32,8 +32,17 @@ func NewSSE(c *config.Config, l log.Logger, ch <-chan events.Event, mux *chi.Mux
 		sse:       sse.New(),
 		evChannel: ch,
 	}
-	mux.Route("/ocs/v2.php/apps/notifications/api/v1/notifications", func(r chi.Router) {
-		r.Get("/sse", s.HandleSSE)
+	root := c.HTTP.Root
+	if root == "" {
+		// chi.Mux.Route panics on a literal empty string; this also covers
+		// callers (e.g. tests) that construct a config.Config by hand rather
+		// than through defaults.DefaultConfig(), leaving Root at its zero value.
+		root = "/"
+	}
+	mux.Route(root, func(r chi.Router) {
+		r.Route("/ocs/v2.php/apps/notifications/api/v1/notifications", func(r chi.Router) {
+			r.Get("/sse", s.HandleSSE)
+		})
 	})
 
 	go s.ListenForEvents()

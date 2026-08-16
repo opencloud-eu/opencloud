@@ -85,11 +85,20 @@ func NewUserlogService(opts ...Option) (*UserlogService, error) {
 		roles.RoleService(o.RoleClient),
 	)
 
-	ul.m.Route("/ocs/v2.php/apps/notifications/api/v1/notifications", func(r chi.Router) {
-		r.Get("/", ul.HandleGetEvents)
-		r.Delete("/", ul.HandleDeleteEvents)
-		r.Post("/global", RequireAdminOrSecret(&m, o.Config.GlobalNotificationsSecret)(ul.HandlePostGlobalEvent))
-		r.Delete("/global", RequireAdminOrSecret(&m, o.Config.GlobalNotificationsSecret)(ul.HandleDeleteGlobalEvent))
+	root := o.Config.HTTP.Root
+	if root == "" {
+		// chi.Mux.Route panics on a literal empty string; this also covers
+		// callers (e.g. tests) that construct a config.Config by hand rather
+		// than through defaults.DefaultConfig(), leaving Root at its zero value.
+		root = "/"
+	}
+	ul.m.Route(root, func(r chi.Router) {
+		r.Route("/ocs/v2.php/apps/notifications/api/v1/notifications", func(r chi.Router) {
+			r.Get("/", ul.HandleGetEvents)
+			r.Delete("/", ul.HandleDeleteEvents)
+			r.Post("/global", RequireAdminOrSecret(&m, o.Config.GlobalNotificationsSecret)(ul.HandlePostGlobalEvent))
+			r.Delete("/global", RequireAdminOrSecret(&m, o.Config.GlobalNotificationsSecret)(ul.HandleDeleteGlobalEvent))
+		})
 	})
 
 	go ul.MemorizeEvents(ch)

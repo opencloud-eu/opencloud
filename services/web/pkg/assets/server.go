@@ -14,11 +14,15 @@ import (
 
 type fileServer struct {
 	fsys http.FileSystem
+	root string
 }
 
-// FileServer defines the http handler for the embedded files
-func FileServer(fsys fs.FS) http.Handler {
-	return &fileServer{http.FS(fsys)}
+// FileServer defines the http handler for the embedded files. root is the
+// subpath OpenCloud is deployed under (e.g. from OC_URL / WEB_HTTP_ROOT),
+// templated into the served HTML's <base href> so relative asset/API
+// references resolve under the deployment prefix instead of the domain root.
+func FileServer(fsys fs.FS, root string) http.Handler {
+	return &fileServer{fsys: http.FS(fsys), root: root}
 }
 
 func (f *fileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -61,7 +65,7 @@ func (f *fileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "index.html", "oidc-callback.html", "oidc-silent-redirect.html":
 		w.Header().Del("Expires")
 		w.Header().Set("Cache-Control", "no-cache")
-		_ = withBase(buf, asset, "/")
+		_ = withBase(buf, asset, f.root+"/")
 	default:
 		_, _ = buf.ReadFrom(asset)
 	}

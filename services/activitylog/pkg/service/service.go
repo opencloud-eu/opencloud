@@ -230,7 +230,16 @@ func New(opts ...Option) (*ActivitylogService, error) {
 		return nil, err
 	}
 
-	s.mux.Get("/graph/v1beta1/extensions/org.libregraph/activities", s.HandleGetItemActivities)
+	root := o.Config.HTTP.Root
+	if root == "" {
+		// chi.Mux.Route panics on a literal empty string; this also covers
+		// callers (e.g. tests) that construct a config.Config by hand rather
+		// than through defaults.DefaultConfig(), leaving Root at its zero value.
+		root = "/"
+	}
+	s.mux.Route(root, func(r chi.Router) {
+		r.Get("/graph/v1beta1/extensions/org.libregraph/activities", s.HandleGetItemActivities)
+	})
 
 	for _, e := range o.RegisteredEvents {
 		typ := reflect.TypeOf(e)

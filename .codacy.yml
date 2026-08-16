@@ -11,9 +11,9 @@ exclude_paths:
   - '**/pkg/proto/**'
   - 'protogen/**'
   - 'scripts/**'
-  - 'idp/ui_config/**'
-  - 'idp/scripts/**'
-  - 'idp/src/**'
+  - 'services/idp/ui_config/**'
+  - 'services/idp/scripts/**'
+  - 'services/idp/src/**'
   - 'devtools/**'
   - 'deployments/**'
   - "release-config.ts"

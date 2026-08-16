@@ -72,6 +72,13 @@ type Route struct {
 	AdditionalHeaders map[string]string `yaml:"additional_headers,omitempty"`
 	RemoteUserHeader  string            `yaml:"remote_user_header,omitempty"`
 	SkipXAccessToken  bool              `yaml:"skip_x_access_token"`
+	// StripRoot removes the deployment root (see HTTPConfig.Root) from the
+	// forwarded request path before it reaches the backend. Every backend
+	// service is expected to be root-aware and forward the prefix
+	// unchanged; this is only for the rare backend that hardcodes an
+	// unprefixed path, e.g. the vendored lico IDP library's RFC 8615
+	// well-known endpoint, or the identifier login page's own routes.
+	StripRoot bool `yaml:"strip_root,omitempty"`
 }
 
 // RouteType defines the type of route

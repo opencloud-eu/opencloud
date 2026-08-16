@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"path"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/go-viper/mapstructure/v2"
@@ -80,8 +81,15 @@ type Server struct {
 }
 
 type config struct {
-	Network     string                            `mapstructure:"network"`
-	Address     string                            `mapstructure:"address"`
+	Network string `mapstructure:"network"`
+	Address string `mapstructure:"address"`
+	// Prefix is the subpath this server is exposed under by a reverse proxy
+	// in front of it (e.g. when OpenCloud is deployed at
+	// https://host/some/subpath/). rhttp's own dispatch (getHandler) only
+	// ever shifts a single path segment at a time to look up a registered
+	// service, so a multi-segment external prefix has to be stripped before
+	// that dispatch runs; see stripServerPrefix.
+	Prefix      string                            `mapstructure:"prefix"`
 	Services    map[string]map[string]interface{} `mapstructure:"services"`
 	Middlewares map[string]map[string]interface{} `mapstructure:"middlewares"`
 	CertFile    string                            `mapstructure:"certfile"`
@@ -216,7 +224,7 @@ func (s *Server) registerServices() error {
 			h := traceHandler(svcName, svc.Handler(), s.tracerProvider)
 			s.handlers[svc.Prefix()] = h
 			s.svcs[svc.Prefix()] = svc
-			s.unprotected = append(s.unprotected, getUnprotected(svc.Prefix(), svc.Unprotected())...)
+			s.unprotected = append(s.unprotected, getUnprotected(path.Join(s.conf.Prefix, svc.Prefix()), svc.Unprotected())...)
 			s.log.Info().Msgf("http service enabled: %s@/%s", svcName, svc.Prefix())
 		} else {
 			message := fmt.Sprintf("http service %s does not exist", svcName)
@@ -231,8 +239,6 @@ func (s *Server) isServiceEnabled(svcName string) bool {
 	return ok
 }
 
-// TODO(labkode): if the http server is exposed under a basename we need to prepend
-// to prefix.
 func getUnprotected(prefix string, unprotected []string) []string {
 	for i := range unprotected {
 		unprotected[i] = path.Join("/", prefix, unprotected[i])
@@ -240,27 +246,49 @@ func getUnprotected(prefix string, unprotected []string) []string {
 	return unprotected
 }
 
+// stripServerPrefix removes prefix from the start of p, if present, leaving
+// a leading slash behind. It is a no-op when prefix is empty or "/".
+func stripServerPrefix(prefix, p string) string {
+	if prefix == "" || prefix == "/" {
+		return p
+	}
+	if p == prefix {
+		return "/"
+	}
+	if strings.HasPrefix(p, prefix+"/") {
+		return p[len(prefix):]
+	}
+	return p
+}
+
+// dispatch shifts the deployment prefix and a single path segment off the
+// request and forwards it to the matching registered service, if any.
+// Split out of getHandler so it can be exercised directly in tests without
+// pulling in the rest of the middleware chain (auth, tracing, ...), which
+// isn't relevant to routing/prefix-handling behavior.
+func (s *Server) dispatch(w http.ResponseWriter, r *http.Request) {
+	head, tail := router.ShiftPath(stripServerPrefix(s.conf.Prefix, r.URL.Path))
+	if h, ok := s.handlers[head]; ok {
+		r.URL.Path = tail
+		s.log.Debug().Msgf("http routing: head=%s tail=%s svc=%s", head, r.URL.Path, head)
+		h.ServeHTTP(w, r)
+		return
+	}
+
+	// when a service is exposed at the root.
+	if h, ok := s.handlers[""]; ok {
+		r.URL.Path = "/" + head + tail
+		s.log.Debug().Msgf("http routing: head= tail=%s svc=root", r.URL.Path)
+		h.ServeHTTP(w, r)
+		return
+	}
+
+	s.log.Debug().Msgf("http routing: head=%s tail=%s svc=not-found", head, tail)
+	w.WriteHeader(http.StatusNotFound)
+}
+
 func (s *Server) getHandler() (http.Handler, error) {
-	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		head, tail := router.ShiftPath(r.URL.Path)
-		if h, ok := s.handlers[head]; ok {
-			r.URL.Path = tail
-			s.log.Debug().Msgf("http routing: head=%s tail=%s svc=%s", head, r.URL.Path, head)
-			h.ServeHTTP(w, r)
-			return
-		}
-
-		// when a service is exposed at the root.
-		if h, ok := s.handlers[""]; ok {
-			r.URL.Path = "/" + head + tail
-			s.log.Debug().Msgf("http routing: head= tail=%s svc=root", r.URL.Path)
-			h.ServeHTTP(w, r)
-			return
-		}
-
-		s.log.Debug().Msgf("http routing: head=%s tail=%s svc=not-found", head, tail)
-		w.WriteHeader(http.StatusNotFound)
-	})
+	h := http.HandlerFunc(s.dispatch)
 
 	// sort middlewares by priority.
 	sort.SliceStable(s.middlewares, func(i, j int) bool {

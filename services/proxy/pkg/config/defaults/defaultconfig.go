@@ -139,9 +139,15 @@ func DefaultPolicies() []config.Policy {
 					Unprotected: true,
 				},
 				{
+					// The vendored lico IDP library hardcodes this path per RFC 8615
+					// (bootstrap.WellKnownPath), unlike every other lico endpoint,
+					// which is built prefix-aware via MakeURIPath -- so under a
+					// subpath deployment the deployment root has to be stripped
+					// before forwarding.
 					Endpoint:    "/.well-known/openid-configuration",
 					Service:     "eu.opencloud.web.idp",
 					Unprotected: true,
+					StripRoot:   true,
 				},
 				{
 					Endpoint: "/branding/logo",
@@ -155,6 +161,32 @@ func DefaultPolicies() []config.Policy {
 					Endpoint:    "/konnect/",
 					Service:     "eu.opencloud.web.idp",
 					Unprotected: true,
+				},
+				{
+					// The identifier login page's own routes -- along with the
+					// sibling welcome/goodbye/consent/chooseaccount routes
+					// services/idp/pkg/service/v0/service.go also registers this
+					// way -- are hardcoded unprefixed (registered directly with
+					// chi, not via lico's MakeURIPath), so this needs StripRoot.
+					// Deliberately scoped to just these five pages themselves
+					// (and their trailing index.html/query-string variants), NOT
+					// deeper paths like ".../identifier/_/authorize", which are
+					// separate, already-prefix-aware lico endpoints routed by the
+					// general /signin/ rule below.
+					Type:        config.RegexRoute,
+					Endpoint:    `^/signin/v1/(identifier|chooseaccount|consent|welcome|goodbye)(/(index\.html)?)?(\?.*)?$`,
+					Service:     "eu.opencloud.web.idp",
+					Unprotected: true,
+					StripRoot:   true,
+				},
+				{
+					// The identifier app's static JS/CSS bundle is served through
+					// services/idp/pkg/middleware/static.go, which also only
+					// recognizes the literal, unprefixed string "/signin/v1/static/".
+					Endpoint:    "/signin/v1/static/",
+					Service:     "eu.opencloud.web.idp",
+					Unprotected: true,
+					StripRoot:   true,
 				},
 				{
 					Endpoint:    "/signin/",
@@ -350,6 +382,18 @@ func EnsureDefaults(cfg *config.Config) {
 
 	if cfg.GRPCClientTLS == nil && cfg.Commons != nil {
 		cfg.GRPCClientTLS = structs.CopyOrZeroValue(cfg.Commons.GRPCClientTLS)
+	}
+
+	if cfg.Commons != nil {
+		// DefaultConfig sets HTTP.Root to "/" as its own baseline (a
+		// sensible default for a root-of-domain deployment), so it's never
+		// actually empty by the time EnsureDefaults runs -- a plain
+		// "== ''" unset check would never fire. Prepend the OC_URL-derived
+		// subpath instead, guarded so repeated EnsureDefaults calls (this
+		// runs more than once) don't prepend it twice.
+		if root := shared.SubPath(cfg.Commons.OpenCloudURL); root != "" && cfg.HTTP.Root != root && !strings.HasPrefix(cfg.HTTP.Root, root+"/") {
+			cfg.HTTP.Root = path.Join(root, cfg.HTTP.Root)
+		}
 	}
 }
 

@@ -2,6 +2,7 @@ package defaults
 
 import (
 	"net/http"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -147,6 +148,12 @@ func EnsureDefaults(cfg *config.Config) {
 
 	if cfg.MachineAuthAPIKey == "" && cfg.Commons != nil && cfg.Commons.MachineAuthAPIKey != "" {
 		cfg.MachineAuthAPIKey = cfg.Commons.MachineAuthAPIKey
+	}
+
+	if cfg.Commons != nil {
+		if root := shared.SubPath(cfg.Commons.OpenCloudURL); root != "" && cfg.IDP.URIBasePath != root && !strings.HasPrefix(cfg.IDP.URIBasePath, root+"/") {
+			cfg.IDP.URIBasePath = path.Join(root, cfg.IDP.URIBasePath)
+		}
 	}
 }
 

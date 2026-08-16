@@ -12,6 +12,25 @@ const LazyMain = lazy(() => import(/* webpackChunkName: "identifier-main" */ './
 
 console.info(`Kopano Identifier build version: ${version.build}`); // eslint-disable-line no-console
 
+// config.json, and theme.json's own relative asset paths (theme.common.logo
+// etc., see components/ResponsiveScreen.jsx), are served by the main web app
+// at the deployment root, not under this app's own /signin/v1 path -- so
+// unlike every other asset reference in this file, they can't be resolved
+// via process.env.PUBLIC_URL (which is relative to *this* page). Derive the
+// deployment root the same way reducers/common.js derives pathPrefix, by
+// reading the server-templated data-path-prefix attribute (itself
+// "<root>/signin/v1") and stripping the "/signin/v1" suffix back off. Empty
+// root ("") is correct for a root-of-domain deployment.
+export const deploymentRoot = (() => {
+    const root = document.getElementById('root');
+    const pathPrefix = root ? root.getAttribute('data-path-prefix') : null;
+    return pathPrefix && pathPrefix !== '__PATH_PREFIX__'
+        ? pathPrefix.replace(/\/signin\/v1$/, '')
+        : '';
+})();
+
+const configJsonUrl = `${deploymentRoot}/config.json`;
+
 const App = ({ bgImg }): ReactElement => {
     const [theme, setTheme] = useState(null);
     const [config, setConfig] = useState(null);
@@ -20,7 +39,7 @@ const App = ({ bgImg }): ReactElement => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const configResponse = await fetch('/config.json');
+                const configResponse = await fetch(configJsonUrl);
                 const configData = await configResponse.json();
                 setConfig(configData);
 
