@@ -69,7 +69,7 @@ func buildOpenSearchProperties(t reflect.Type, overrides map[string]FieldOpts, p
 			return nil
 		}
 
-		fm, err := openSearchFieldMapping(fieldType, fi.GoField.Type)
+		fm, err := openSearchFieldMapping(fieldType, opts, fi.GoField.Type)
 		if err != nil {
 			return fmt.Errorf("mapping: field %q: %w", key, err)
 		}
@@ -81,7 +81,7 @@ func buildOpenSearchProperties(t reflect.Type, overrides map[string]FieldOpts, p
 
 // openSearchFieldMapping handles the non-keyword/path types; keyword and path
 // are emitted (with their cased forms) by buildOpenSearchProperties directly.
-func openSearchFieldMapping(fieldType string, goType reflect.Type) (map[string]any, error) {
+func openSearchFieldMapping(fieldType string, opts FieldOpts, goType reflect.Type) (map[string]any, error) {
 	switch fieldType {
 	case TypeFulltext:
 		return map[string]any{
@@ -102,6 +102,23 @@ func openSearchFieldMapping(fieldType string, goType reflect.Type) (map[string]a
 		return map[string]any{"type": "date"}, nil
 	case TypeGeopoint:
 		return map[string]any{"type": "geo_point"}, nil
+	case TypeVector:
+		if opts.Dims <= 0 {
+			return nil, fmt.Errorf("vector field needs Dims")
+		}
+		// lucene engine: native efficient pre-filtering, no plugin config
+		return map[string]any{
+			"type":      "knn_vector",
+			"dimension": opts.Dims,
+			"method": map[string]any{
+				"name":       "hnsw",
+				"engine":     "lucene",
+				"space_type": "cosinesimil",
+				// OpenSearch adds this on read, emit it so the reconcile
+				// comparison sees local and remote as equal
+				"parameters": map[string]any{},
+			},
+		}, nil
 	case "":
 		return nil, fmt.Errorf("no type inferred and no override")
 	}

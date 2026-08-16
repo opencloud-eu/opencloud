@@ -45,6 +45,13 @@ type Engine interface {
 	NewBatch(batchSize int) (BatchOperator, error)
 }
 
+// TextVectorizer embeds a query text into the image vector space, so the
+// backends can rank image vectors against it. nil means semantic search is not
+// configured.
+type TextVectorizer interface {
+	VectorizeText(ctx context.Context, text string) ([]float32, error)
+}
+
 type BatchOperator interface {
 	Upsert(id string, r Resource) error
 	Move(rootID, parentID, location string) error
@@ -73,12 +80,13 @@ type Resource struct {
 var resourceFieldOverrides = sync.OnceValue(func() map[string]mapping.FieldOpts {
 	True, False := true, false
 	return map[string]mapping.FieldOpts{
-		"Name":      {CaseInsensitive: &True},
-		"Path":      {Type: mapping.TypePath},
-		"Content":   {Type: mapping.TypeFulltext},
-		"Tags":      {CaseInsensitive: &True, IncludeInAll: &False},
-		"Favorites": {CaseInsensitive: &True, IncludeInAll: &False},
-		"location":  {Type: mapping.TypeGeopoint},
+		"Name":        {CaseInsensitive: &True},
+		"Path":        {Type: mapping.TypePath},
+		"Content":     {Type: mapping.TypeFulltext},
+		"Tags":        {CaseInsensitive: &True, IncludeInAll: &False},
+		"Favorites":   {CaseInsensitive: &True, IncludeInAll: &False},
+		"location":    {Type: mapping.TypeGeopoint},
+		"imageVector": {Type: mapping.TypeVector, Dims: content.ImageVectorDims},
 	}
 })
 

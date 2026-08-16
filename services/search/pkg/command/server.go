@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
@@ -17,6 +18,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/clip"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
@@ -67,6 +69,15 @@ func Server(cfg *config.Config) *cobra.Command {
 			mtrcs := metrics.New()
 			mtrcs.BuildInfo.WithLabelValues(version.GetString()).Set(1)
 
+			// one clip client serves both sides: the extractor embeds images at
+			// index time, the engines embed query texts at search time
+			var clipClient *clip.Client
+			var vectorizer search.TextVectorizer
+			if cfg.Extractor.Clip.URL != "" {
+				clipClient = clip.NewClient(cfg.Extractor.Clip.URL, cfg.Extractor.Clip.Model, time.Duration(cfg.Extractor.Clip.Timeout)*time.Second)
+				vectorizer = clip.NewQueryCache(clipClient, 512)
+			}
+
 			// initialize search engine
 			var eng search.Engine
 			switch cfg.Engine.Type {
@@ -82,7 +93,11 @@ func Server(cfg *config.Config) *cobra.Command {
 					}
 				}()
 
-				eng = bleve.NewBackend(idx, bleveQuery.DefaultCreator, logger)
+				var opts []bleve.Option
+				if vectorizer != nil {
+					opts = append(opts, bleve.WithTextVectorizer(vectorizer))
+				}
+				eng = bleve.NewBackend(idx, bleveQuery.DefaultCreator, logger, opts...)
 			case "open-search":
 				clientConfig := opensearchgo.Config{
 					Addresses:             cfg.Engine.OpenSearch.Client.Addresses,
@@ -119,8 +134,13 @@ func Server(cfg *config.Config) *cobra.Command {
 					return fmt.Errorf("failed to create OpenSearch client: %w", err)
 				}
 
+				var opts []opensearch.Option
+				if vectorizer != nil {
+					opts = append(opts, opensearch.WithTextVectorizer(vectorizer))
+				}
+
 				indexName := opensearch.VersionedIndexName(cfg.Engine.OpenSearch.ResourceIndex.Name)
-				openSearchBackend, err := opensearch.NewBackend(indexName, client)
+				openSearchBackend, err := opensearch.NewBackend(indexName, client, opts...)
 				if err != nil {
 					return fmt.Errorf("failed to create OpenSearch backend: %w", err)
 				}
@@ -150,6 +170,14 @@ func Server(cfg *config.Config) *cobra.Command {
 				}
 			default:
 				return fmt.Errorf("unknown search extractor: %s", cfg.Extractor.Type)
+			}
+
+			// vectorization is orthogonal to text extraction: decorate the
+			// chosen extractor instead of adding an exclusive type
+			if clipClient != nil {
+				if extractor, err = content.NewClipExtractor(extractor, clipClient, selector, logger, cfg); err != nil {
+					return err
+				}
 			}
 
 			ss := search.NewService(selector, eng, extractor, mtrcs, logger, cfg)

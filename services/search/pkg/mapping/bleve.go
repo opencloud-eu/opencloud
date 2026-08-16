@@ -69,6 +69,29 @@ func buildBleveDocMapping(t reflect.Type, overrides map[string]FieldOpts, prefix
 			return nil
 		}
 
+		if fieldType == TypeVector {
+			// The field itself is stored-only: it round-trips through the
+			// regular deserialization (bleve cannot return vector-typed fields
+			// as stored fields, see VectorIndexSuffix). Both builds.
+			nf := bleve.NewNumericFieldMapping()
+			nf.Index = false
+			nf.Store = true
+			nf.IncludeInAll = false
+			nf.DocValues = false
+			doc.AddFieldMappingsAt(fi.Name, nf)
+			// The _faiss sibling carries the searchable vector; without the
+			// vectors build tag bleve cannot index it and the field is left
+			// out of the mapping entirely (nil, nil from the !vectors twin).
+			fm, err := bleveVectorFieldMapping(opts)
+			if err != nil {
+				return fmt.Errorf("mapping: field %q: %w", key, err)
+			}
+			if fm != nil {
+				doc.AddFieldMappingsAt(fi.Name+VectorIndexSuffix, fm)
+			}
+			return nil
+		}
+
 		fm, err := bleveFieldMapping(fieldType, opts)
 		if err != nil {
 			return fmt.Errorf("mapping: field %q: %w", key, err)

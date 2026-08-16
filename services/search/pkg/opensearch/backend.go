@@ -3,11 +3,13 @@ package opensearch
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
@@ -26,11 +28,23 @@ var (
 )
 
 type Backend struct {
-	index  string
-	client *opensearchgoAPI.Client
+	index      string
+	client     *opensearchgoAPI.Client
+	vectorizer search.TextVectorizer
 }
 
-func NewBackend(index string, client *opensearchgoAPI.Client) (*Backend, error) {
+// Option configures a Backend.
+type Option func(*Backend)
+
+// WithTextVectorizer enables semantic queries (`semantic:"..."`); without it
+// they are rejected.
+func WithTextVectorizer(v search.TextVectorizer) Option {
+	return func(b *Backend) {
+		b.vectorizer = v
+	}
+}
+
+func NewBackend(index string, client *opensearchgoAPI.Client, opts ...Option) (*Backend, error) {
 	pingResp, err := client.Ping(context.TODO(), &opensearchgoAPI.PingReq{})
 	switch {
 	case err != nil:
@@ -62,13 +76,25 @@ func NewBackend(index string, client *opensearchgoAPI.Client) (*Backend, error) 
 		return nil, fmt.Errorf("%w, cluster health is not green or yellow: %s", ErrUnhealthyCluster, resp.Status)
 	}
 
-	return &Backend{index: index, client: client}, nil
+	b := &Backend{index: index, client: client}
+	for _, opt := range opts {
+		opt(b)
+	}
+	return b, nil
 }
 
 func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
-	boolQuery, err := convert.KQLToOpenSearchBoolQuery(sir.Query)
+	// the semantic clause ranks, the remaining query filters: it scopes the
+	// vector search and stays the only source of totals. The converter splits
+	// the clause off the parsed KQL tree.
+	boolQuery, semanticText, err := convert.KQLToOpenSearchBoolQueryWithSemantic(sir.Query, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert KQL query to OpenSearch bool query: %w", err)
+	}
+	pureSemantic := semanticText != "" && isEmptyBoolQuery(boolQuery)
+
+	if semanticText != "" && b.vectorizer == nil {
+		return nil, errtypes.BadRequest("semantic search is not configured")
 	}
 
 	// filter out deleted resources
@@ -101,7 +127,9 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 	}
 
 	searchParams := opensearchgoAPI.SearchParams{
-		SourceExcludes: []string{"Content"}, // Do not send back the full content in the search response, as it is only needed for highlighting and can be large. The highlighted snippets will be sent back in the response instead.
+		// Do not send back the full content (only needed for highlighting, the
+		// snippets come back instead) or the raw image vectors (ranking data).
+		SourceExcludes: []string{"Content", "imageVector"},
 	}
 
 	switch {
@@ -113,9 +141,15 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 		searchParams.Size = conversions.ToPointer(int(sir.PageSize))
 	}
 
+	// the filter request carries the totals and the lexical ranking; for a
+	// purely semantic query it only supplies the totals
+	filterParams := searchParams
+	if pureSemantic {
+		filterParams.Size = conversions.ToPointer(0)
+	}
 	req, err := osu.BuildSearchReq(&opensearchgoAPI.SearchReq{
 		Indices: []string{b.index},
-		Params:  searchParams,
+		Params:  filterParams,
 	},
 		boolQuery,
 		osu.SearchBodyParams{
@@ -142,21 +176,127 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 		return nil, fmt.Errorf("failed to search: %w", err)
 	}
 
-	matches := make([]*searchMessage.Match, 0, len(resp.Hits.Hits))
+	matches, err := convertHits(resp.Hits.Hits)
+	if err != nil {
+		return nil, err
+	}
 	totalMatches := resp.Hits.Total.Value
-	for _, hit := range resp.Hits.Hits {
-		match, err := convert.OpenSearchHitToMatch(hit)
+
+	if semanticText != "" {
+		vector, err := b.vectorizer.VectorizeText(ctx, semanticText)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert hit to match: %w", err)
+			return nil, fmt.Errorf("failed to vectorize the semantic query: %w", err)
+		}
+		k := semanticK(searchParams.Size)
+		knnParams := searchParams
+		knnParams.Size = conversions.ToPointer(k)
+		// the full filter query also pre-filters the neighbor search
+		knnQuery := osu.NewKnnQuery("imageVector").Vector(vector).K(k).Filter(boolQuery)
+		knnReq, err := osu.BuildSearchReq(&opensearchgoAPI.SearchReq{
+			Indices: []string{b.index},
+			Params:  knnParams,
+		}, knnQuery)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build knn request: %w", err)
+		}
+		knnResp, err := b.client.Search(ctx, knnReq)
+		if err != nil {
+			return nil, fmt.Errorf("failed to run knn search: %w", err)
+		}
+		knnMatches, err := convertHits(knnResp.Hits.Hits)
+		if err != nil {
+			return nil, err
 		}
 
-		matches = append(matches, match)
+		if pureSemantic {
+			// the knn result is the ranking, and the only honest total is the
+			// number of semantic hits (a similarity search has no result set,
+			// only a ranking)
+			matches = knnMatches
+			totalMatches = len(knnMatches)
+		} else {
+			matches = fuseRRF(matches, knnMatches, searchParams.Size)
+		}
 	}
 
 	return &searchService.SearchIndexResponse{
 		Matches:      matches,
 		TotalMatches: int32(totalMatches),
 	}, nil
+}
+
+// isEmptyBoolQuery reports whether q carries no clauses (yet): an empty map
+// render means the parsed query had no filter part.
+func isEmptyBoolQuery(q *osu.BoolQuery) bool {
+	m, err := q.Map()
+	return err == nil && len(m) == 0
+}
+
+// convertHits converts OpenSearch hits to matches.
+func convertHits(hits []opensearchgoAPI.SearchHit) ([]*searchMessage.Match, error) {
+	matches := make([]*searchMessage.Match, 0, len(hits))
+	for _, hit := range hits {
+		match, err := convert.OpenSearchHitToMatch(hit)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert hit to match: %w", err)
+		}
+		matches = append(matches, match)
+	}
+	return matches, nil
+}
+
+// semanticK picks the number of nearest neighbors for a semantic clause: at
+// least a fusion-friendly window, at most a sane cap (huge page sizes stand
+// for "everything", but a similarity ranking beyond 1000 hits carries no
+// signal).
+func semanticK(size *int) int {
+	const minK, maxK = 200, 1000
+	switch {
+	case size == nil || *size >= maxK:
+		return maxK
+	case *size < minK:
+		return minK
+	default:
+		return *size
+	}
+}
+
+// fuseRRF merges the lexical and the semantic ranking via reciprocal rank
+// fusion (rank constant 60, like bleve's default) and trims to limit.
+func fuseRRF(lexical, semantic []*searchMessage.Match, limit *int) []*searchMessage.Match {
+	const rankConst = 60
+	type entry struct {
+		match *searchMessage.Match
+		score float64
+	}
+	byID := map[string]*entry{}
+	order := make([]*entry, 0, len(lexical)+len(semantic))
+	add := func(list []*searchMessage.Match) {
+		for i, m := range list {
+			id := m.GetEntity().GetId()
+			key := id.GetStorageId() + "$" + id.GetSpaceId() + "!" + id.GetOpaqueId()
+			e, ok := byID[key]
+			if !ok {
+				e = &entry{match: m}
+				byID[key] = e
+				order = append(order, e)
+			}
+			e.score += 1.0 / float64(rankConst+i+1)
+		}
+	}
+	add(lexical)
+	add(semantic)
+	sort.SliceStable(order, func(i, j int) bool { return order[i].score > order[j].score })
+
+	out := make([]*searchMessage.Match, 0, len(order))
+	for _, e := range order {
+		e.match.Score = float32(e.score)
+		out = append(out, e.match)
+	}
+	if limit != nil && len(out) > *limit {
+		out = out[:*limit]
+	}
+	return out
 }
 
 func (b *Backend) DocCount() (uint64, error) {

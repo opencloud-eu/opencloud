@@ -15,6 +15,7 @@ const (
 	TypeBool     = "bool"
 	TypeObject   = "object"
 	TypeGeopoint = "geopoint"
+	TypeVector   = "vector"
 )
 
 // LowercaseSuffix names the lowercased sibling of a keyword/path field.
@@ -35,6 +36,11 @@ type FieldOpts struct {
 	// IncludeInAll controls bleve's _all field inclusion. Nil means "use the
 	// bleve default for this field type". Has no effect on OpenSearch.
 	IncludeInAll *bool
+
+	// Dims is the dimensionality of a TypeVector field. It is index schema:
+	// vectors of any other length are not indexed (bleve drops them silently),
+	// and changing it requires a new index. Similarity is always cosine.
+	Dims int
 }
 
 func (o FieldOpts) caseInsensitive() bool { return o.CaseInsensitive != nil && *o.CaseInsensitive }
