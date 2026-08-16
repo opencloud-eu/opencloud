@@ -60,6 +60,7 @@ func New(ctx context.Context, stream raw.Stream, logger log.Logger, tp trace.Tra
 			events.FileVersionRestored{},
 			events.TagsAdded{},
 			events.TagsRemoved{},
+			events.ArbitraryMetadataUpdated{},
 			events.SpaceRenamed{},
 			events.LabelAdded{},
 			events.LabelRemoved{},
@@ -192,6 +193,9 @@ func (s Service) processEvent(e raw.Event) error {
 		s.index.UpsertItem(ev.Ref)
 		s.indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
 	case events.TagsRemoved:
+		s.index.UpsertItem(ev.Ref)
+		s.indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
+	case events.ArbitraryMetadataUpdated:
 		s.index.UpsertItem(ev.Ref)
 		s.indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
 	case events.FileUploaded:
