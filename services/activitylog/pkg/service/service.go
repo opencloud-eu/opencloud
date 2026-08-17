@@ -661,8 +661,10 @@ func (a *ActivitylogService) removeCachedParentID(ref *provider.Reference) {
 		}
 		purgeId = info.GetId()
 	}
+	// The parent id cache is populated lazily and its entries expire, so a
+	// missing key is the expected case rather than an error.
 	if err := a.parentIdCache.Remove(storagespace.FormatResourceID(purgeId)); err != nil {
-		a.log.Error().Interface("event", ref).Err(err).Msg("could not delete parent id cache")
+		a.log.Debug().Interface("event", ref).Err(err).Msg("could not delete parent id cache")
 	}
 }
 
