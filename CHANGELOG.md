@@ -8,6 +8,7 @@
 
 ### ✅ Tests
 
+- test: add api tests for cross-space search index mutation [[#3320](https://github.com/opencloud-eu/opencloud/pull/3320)]
 - ci: run search acceptance tests against OpenSearch in nightly [[#3302](https://github.com/opencloud-eu/opencloud/pull/3302)]
 - api-test: notification settings and getting email notifications [[#3281](https://github.com/opencloud-eu/opencloud/pull/3281)]
 - api-test: add posixfs scan and consistency CLI tests [[#3263](https://github.com/opencloud-eu/opencloud/pull/3263)]
