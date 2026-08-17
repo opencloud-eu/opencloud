@@ -465,3 +465,39 @@ Feature: Search
       | old              |
       | new              |
       | spaces           |
+
+  @issue-internal-326
+  Scenario Outline: deleting a resource in one space does not remove identically-named paths from other spaces from the search index
+    Given user "Alice" has created a folder "foo" in space "Personal"
+    And user "Alice" has uploaded a file inside space "Personal" with content "alice content" to "foo/alice-file.txt"
+    And user "Brian" has created a folder "foo" in space "Personal"
+    And user "Brian" has uploaded a file inside space "Personal" with content "brian content" to "foo/brian-file.txt"
+    And user "Brian" has removed the folder "foo" from space "Personal"
+    And using <dav-path-version> DAV path
+    When user "Alice" searches for "*file.txt*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result should contain "1" entries
+    And the search result of user "Alice" should contain these entries:
+      | alice-file.txt |
+    Examples:
+      | dav-path-version |
+      | old              |
+      | new              |
+      | spaces           |
+
+  @issue-internal-326
+  Scenario Outline: deleting a resource in one project space does not remove identically-named paths from other project spaces from the search index
+    Given user "Alice" has created a space "project-1" with the default quota using the Graph API
+    And user "Alice" has created a folder "folderMain/folder" in space "project-1"
+    And user "Alice" has removed the folder "folderMain" from space "project-1"
+    And using <dav-path-version> DAV path
+    When user "Alice" searches for "*insideTheFolder*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result should contain "1" entries
+    And the search result of user "Alice" should contain these entries:
+      | insideTheFolder.txt |
+    Examples:
+      | dav-path-version |
+      | old              |
+      | new              |
+      | spaces           |
