@@ -30,6 +30,8 @@ type AggregationOption struct {
 	SubAggregations []AggregationOption `json:"subAggregations,omitempty"`
 	// When set, this aggregation is a scalar metric over `field` rather than a bucket aggregation: `size` and `bucketDefinition` are ignored, and the corresponding `searchAggregation` in the response carries a `value` rather than `buckets`. Libregraph extension not present in MS Graph.  `avg` is not a simple reducer (averages of averages are not averages) — the backend carries `(sum, count)` internally and emits only `value` on the outermost merge. 
 	MetricKind *string `json:"metricKind,omitempty"`
+	// When greater than 0, this is a geohash-grid aggregation over `field`, which must resolve to a geo-point field (e.g. `location`). Each returned `searchBucket` carries a geohash cell as `key` and its count, suitable for density/heatmap rendering. The value is the geohash length (1-12); higher means finer cells. Libregraph extension not present in MS Graph. OpenSearch backend only. 
+	GeohashPrecision *int32 `json:"geohashPrecision,omitempty"`
 }
 
 type _AggregationOption AggregationOption
@@ -204,6 +206,38 @@ func (o *AggregationOption) SetMetricKind(v string) {
 	o.MetricKind = &v
 }
 
+// GetGeohashPrecision returns the GeohashPrecision field value if set, zero value otherwise.
+func (o *AggregationOption) GetGeohashPrecision() int32 {
+	if o == nil || IsNil(o.GeohashPrecision) {
+		var ret int32
+		return ret
+	}
+	return *o.GeohashPrecision
+}
+
+// GetGeohashPrecisionOk returns a tuple with the GeohashPrecision field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *AggregationOption) GetGeohashPrecisionOk() (*int32, bool) {
+	if o == nil || IsNil(o.GeohashPrecision) {
+		return nil, false
+	}
+	return o.GeohashPrecision, true
+}
+
+// HasGeohashPrecision returns a boolean if a field has been set.
+func (o *AggregationOption) HasGeohashPrecision() bool {
+	if o != nil && !IsNil(o.GeohashPrecision) {
+		return true
+	}
+
+	return false
+}
+
+// SetGeohashPrecision gets a reference to the given int32 and assigns it to the GeohashPrecision field.
+func (o *AggregationOption) SetGeohashPrecision(v int32) {
+	o.GeohashPrecision = &v
+}
+
 func (o AggregationOption) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -226,6 +260,9 @@ func (o AggregationOption) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.MetricKind) {
 		toSerialize["metricKind"] = o.MetricKind
+	}
+	if !IsNil(o.GeohashPrecision) {
+		toSerialize["geohashPrecision"] = o.GeohashPrecision
 	}
 	return toSerialize, nil
 }

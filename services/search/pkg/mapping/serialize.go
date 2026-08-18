@@ -20,5 +20,6 @@ func PrepareForIndex(v any, overrides map[string]FieldOpts) (map[string]any, err
 	}
 	addGeopointSiblings(out, overrides)
 	addLowercaseSiblings(out, overrides)
+	addGeohashSiblings(out, overrides)
 	return out, nil
 }

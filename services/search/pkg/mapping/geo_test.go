@@ -141,3 +141,42 @@ var _ = Describe("PrepareForIndex geopoint", func() {
 		Expect(endGp["lon"]).To(Equal(elon))
 	})
 })
+
+var _ = Describe("geohash", func() {
+	// Wikipedia's canonical reference point.
+	const refLat, refLon = 57.64911, 10.40744
+
+	It("encodes the canonical geohash vector (matches Lucene/OpenSearch)", func() {
+		Expect(encodeGeohash(refLat, refLon, 11)).To(Equal("u4pruydqqvj"))
+	})
+
+	It("is prefix-consistent across precisions", func() {
+		full := encodeGeohash(refLat, refLon, 11)
+		for p := 1; p <= 11; p++ {
+			Expect(encodeGeohash(refLat, refLon, p)).To(Equal(full[:p]),
+				"precision %d must be the %d-char prefix", p, p)
+		}
+	})
+
+	It("adds geohash prefix siblings for a geopoint at every precision", func() {
+		type geoDoc struct {
+			Location *struct {
+				Longitude *float64 `json:"longitude,omitempty"`
+				Latitude  *float64 `json:"latitude,omitempty"`
+			} `json:"location,omitempty"`
+		}
+		lon, lat := refLon, refLat
+		doc := geoDoc{Location: &struct {
+			Longitude *float64 `json:"longitude,omitempty"`
+			Latitude  *float64 `json:"latitude,omitempty"`
+		}{Longitude: &lon, Latitude: &lat}}
+
+		m, err := PrepareForIndex(doc, map[string]FieldOpts{"location": {Type: TypeGeopoint}})
+		Expect(err).ToNot(HaveOccurred())
+		for p := 1; p <= MaxGeohashPrecision; p++ {
+			Expect(m[GeohashField("location", p)]).To(Equal(encodeGeohash(lat, lon, p)),
+				"location_geohash_%d", p)
+		}
+		Expect(m[GeohashField("location", 5)]).To(Equal("u4pru"))
+	})
+})

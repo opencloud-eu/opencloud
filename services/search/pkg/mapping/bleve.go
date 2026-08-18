@@ -58,6 +58,13 @@ func buildBleveDocMapping(t reflect.Type, overrides map[string]FieldOpts, prefix
 			}
 			doc.AddSubDocumentMapping(fi.Name, subDoc)
 			doc.AddFieldMappingsAt(fi.Name+GeopointSuffix, bleve.NewGeoPointFieldMapping())
+			// Geohash prefix siblings power the terms-based geohash aggregation
+			// (bleve has no native geohash-grid).
+			for p := 1; p <= MaxGeohashPrecision; p++ {
+				gh := bleve.NewKeywordFieldMapping()
+				gh.IncludeInAll = false
+				doc.AddFieldMappingsAt(GeohashField(fi.Name, p), gh)
+			}
 			return nil
 		}
 
