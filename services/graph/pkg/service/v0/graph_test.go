@@ -802,6 +802,7 @@ var _ = Describe("Graph", func() {
 							Map: map[string]*typesv1beta1.OpaqueEntry{
 								"description": {Decoder: "plain", Value: []byte("This space is for testing")},
 								"spaceAlias":  {Decoder: "plain", Value: []byte("project/testspace")},
+								"contentType": {Decoder: "plain", Value: []byte("application/vnd.opencloud.test")},
 							},
 						},
 					},
@@ -819,7 +820,7 @@ var _ = Describe("Graph", func() {
 					TotalBytes: 500,
 				}, nil)
 
-				jsonBody := []byte(`{"name": "Test Space", "driveType": "project", "description": "This space is for testing", "DriveAlias": "project/testspace"}`)
+				jsonBody := []byte(`{"name": "Test Space", "driveType": "project", "description": "This space is for testing", "DriveAlias": "project/testspace", "@libre.graph.contentType": "application/vnd.opencloud.test"}`)
 				r := httptest.NewRequest(http.MethodPost, "/graph/v1.0/drives", bytes.NewBuffer(jsonBody)).WithContext(ctx)
 				rr := httptest.NewRecorder()
 				svc.CreateDrive(rr, r)
@@ -833,6 +834,7 @@ var _ = Describe("Graph", func() {
 				Expect(*response.DriveType).To(Equal("project"))
 				Expect(*response.DriveAlias).To(Equal("project/testspace"))
 				Expect(*response.Description).To(Equal("This space is for testing"))
+				Expect(*response.LibreGraphContentType).To(Equal("application/vnd.opencloud.test"))
 			})
 			It("Incomplete space", func() {
 				gatewayClient.On("CreateStorageSpace", mock.Anything, mock.Anything).Return(&provider.CreateStorageSpaceResponse{
@@ -1134,11 +1136,12 @@ var _ = Describe("Graph", func() {
 			Expect(rr.Code).To(Equal(http.StatusBadRequest))
 		})
 
-		It("sets the description, alias and name", func() {
+		It("sets the description, alias, name and content type", func() {
 			drive := libregraph.NewDrive("thename")
 			drive.SetDriveAlias("thealias")
 			drive.SetDescription("thedescription")
 			drive.SetName("thename")
+			drive.SetLibreGraphContentType("thecontenttype")
 			driveJson, err := json.Marshal(drive)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1162,7 +1165,8 @@ var _ = Describe("Graph", func() {
 			gatewayClient.AssertCalled(GinkgoT(), "UpdateStorageSpace", mock.Anything, mock.MatchedBy(func(req *provider.UpdateStorageSpaceRequest) bool {
 				return req.StorageSpace.Id.OpaqueId == "spaceid" &&
 					utils.ReadPlainFromOpaque(req.StorageSpace.Opaque, "description") == drive.GetDescription() &&
-					utils.ReadPlainFromOpaque(req.StorageSpace.Opaque, "spaceAlias") == drive.GetDriveAlias()
+					utils.ReadPlainFromOpaque(req.StorageSpace.Opaque, "spaceAlias") == drive.GetDriveAlias() &&
+					utils.ReadPlainFromOpaque(req.StorageSpace.Opaque, "contentType") == drive.GetLibreGraphContentType()
 			}))
 		})
 
