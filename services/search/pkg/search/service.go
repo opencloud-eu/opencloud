@@ -321,7 +321,28 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	}
 
 	// compile one sorted list of matches from all spaces and apply the limit if needed
-	sort.Sort(matches)
+	//
+	// NOTE(perf): every space was searched with the caller's full page size,
+	// so serving one page costs O(spaces x page_size) fetched matches. With
+	// offset pagination (the graph layer maps from/size onto a single
+	// page_size) each deeper page re-fetches everything before it on top.
+	// Accepted for now. The known fix is field-sorted cursor pagination via
+	// the currently unused page_token request/response fields: each space
+	// then serves "sort key < cursor, limit size" and page cost becomes
+	// independent of depth. Pushing plain offsets down into the engines
+	// would only trim the transfer, not the per-space overfetch, so it is
+	// not worth doing on its own.
+	//
+	// Each engine already returns its matches in order_by order (or by score
+	// when no order_by is given); this merge re-establishes that order across
+	// spaces, with the score as tiebreaker.
+	orderBy := req.GetOrderBy()
+	sort.SliceStable(matches, func(i, j int) bool {
+		if c := CompareMatches(matches[i], matches[j], orderBy); c != 0 {
+			return c < 0
+		}
+		return matches[i].GetScore() > matches[j].GetScore()
+	})
 	limit := req.PageSize
 	if limit == 0 {
 		limit = 200
@@ -586,6 +607,7 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 	searchRequest := &searchsvc.SearchIndexRequest{
 		Query:        req.Query,
 		Aggregations: req.GetAggregations(),
+		OrderBy:      req.GetOrderBy(),
 		Ref: &searchmsg.Reference{
 			ResourceId: searchRootID,
 			Path:       searchPathPrefix,

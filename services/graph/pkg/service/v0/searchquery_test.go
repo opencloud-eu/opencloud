@@ -121,6 +121,84 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		ginkgo.Entry("from+size overflow collapses", int32Ptr(1<<31-1), int32Ptr(500), int32(1<<31-1-500), int32(500)),
 	)
 
+	ginkgo.It("forwards sortProperties to the search service as order_by", func() {
+		var captured *searchsvc.SearchRequest
+		g := graphWithSearch(stubSearchService{
+			search: func(req *searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {
+				captured = req
+				return &searchsvc.SearchResponse{}, nil
+			},
+		})
+		rr := postSearchQuery(g, `{
+			"requests": [{
+				"entityTypes": ["driveItem"],
+				"query": {"queryString": "mediatype:image"},
+				"sortProperties": [
+					{"name": "photo.takenDateTime", "isDescending": true},
+					{"name": "name"}
+				]
+			}]
+		}`)
+		Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+		Expect(captured).ToNot(BeNil())
+		Expect(captured.OrderBy).To(HaveLen(2))
+		Expect(captured.OrderBy[0].Name).To(Equal("photo.takenDateTime"))
+		Expect(captured.OrderBy[0].IsDescending).To(BeTrue())
+		Expect(captured.OrderBy[1].Name).To(Equal("name"))
+		Expect(captured.OrderBy[1].IsDescending).To(BeFalse())
+	})
+
+	ginkgo.DescribeTable("accepts sorting by scalar hit fields",
+		func(field string) {
+			g := graphWithSearch(stubSearchService{
+				search: func(*searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {
+					return &searchsvc.SearchResponse{}, nil
+				},
+			})
+			rr := postSearchQuery(g, `{
+				"requests": [{
+					"entityTypes": ["driveItem"],
+					"query": {"queryString": "*"},
+					"sortProperties": [{"name": "`+field+`"}]
+				}]
+			}`)
+			Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+		},
+		ginkgo.Entry("name", "name"),
+		ginkgo.Entry("size", "size"),
+		ginkgo.Entry("lastModifiedDateTime", "lastModifiedDateTime"),
+		ginkgo.Entry("mimeType", "mimeType"),
+		ginkgo.Entry("photo.takenDateTime", "photo.takenDateTime"),
+		ginkgo.Entry("photo.iso", "photo.iso"),
+		ginkgo.Entry("audio.artist", "audio.artist"),
+		ginkgo.Entry("image.width", "image.width"),
+	)
+
+	ginkgo.DescribeTable("rejects sorting by unsortable fields with 400",
+		func(field string) {
+			g := graphWithSearch(stubSearchService{
+				search: func(*searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {
+					ginkgo.Fail("search service must not be called when validation fails")
+					return nil, nil
+				},
+			})
+			rr := postSearchQuery(g, `{
+				"requests": [{
+					"entityTypes": ["driveItem"],
+					"query": {"queryString": "mediatype:image"},
+					"sortProperties": [{"name": "`+field+`"}]
+				}]
+			}`)
+			Expect(rr.Code).To(Equal(http.StatusBadRequest), rr.Body.String())
+			Expect(rr.Body.String()).To(ContainSubstring(field))
+		},
+		ginkgo.Entry("unknown field", "definitelyNotAField"),
+		ginkgo.Entry("multivalued field", "tags"),
+		ginkgo.Entry("internal index field name", "Mtime"),
+		ginkgo.Entry("bare audio facet", "audio"),
+		ginkgo.Entry("bare location facet", "location"),
+	)
+
 	ginkgo.It("rejects a terms aggregation on a numeric field with 400", func() {
 		g := graphWithSearch(stubSearchService{
 			search: func(*searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {

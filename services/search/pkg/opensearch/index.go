@@ -72,7 +72,6 @@ func buildResourceMapping() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	index := map[string]any{
 		"settings": map[string]any{
 			"number_of_shards":   "1",

@@ -42,6 +42,10 @@ func (g Graph) SearchQuery(w http.ResponseWriter, r *http.Request) {
 			errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, err.Error())
 			return
 		}
+		if err := validateSortProperties(sr.SortProperties); err != nil {
+			errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	th := r.Header.Get(revaCtx.TokenHeader)
@@ -67,6 +71,11 @@ func (g Graph) runSingleSearch(ctx context.Context, sr libregraph.SearchRequest)
 
 	// The gRPC layer has no from field: request from+size matches and slice
 	// client-side. int64 avoids int32 overflow.
+	//
+	// NOTE(perf): this makes offset pagination cost O(from+size) per page,
+	// multiplied by the per-space fan-out in the search service. Accepted
+	// for now; the fix is cursor pagination (see the merge in
+	// services/search/pkg/search/service.go).
 	pageSize := int32(int64(from) + int64(size))
 	if size == 0 {
 		pageSize = 0
@@ -76,6 +85,7 @@ func (g Graph) runSingleSearch(ctx context.Context, sr libregraph.SearchRequest)
 		Query:        applyAggregationFilters(sr.Query.QueryString, sr.AggregationFilters),
 		PageSize:     pageSize,
 		Aggregations: libregraphAggregationsToSearch(sr.Aggregations),
+		OrderBy:      libregraphSortToSearch(sr.SortProperties),
 	})
 	if err != nil {
 		return libregraph.SearchResponse{}, err
@@ -152,6 +162,34 @@ func validateAggregations(aggs []libregraph.AggregationOption) error {
 		return fmt.Errorf("terms aggregation is not supported on numeric field %q; use bucketDefinition.ranges", a.Field)
 	}
 	return nil
+}
+
+// validateSortProperties rejects sorting by unknown or multivalued fields.
+// Sortable are scalar fields carried on the search hit: name, size,
+// lastModifiedDateTime, mimeType and the facet fields (photo.takenDateTime,
+// audio.artist, image.width, ...); see search.IsSortableField.
+func validateSortProperties(sortProperties []libregraph.SortProperty) error {
+	for _, sp := range sortProperties {
+		if !search.IsSortableField(sp.Name) {
+			return fmt.Errorf("field %q is not sortable; sortable are scalar hit fields such as name, size, lastModifiedDateTime, mimeType or photo.takenDateTime", sp.Name)
+		}
+	}
+	return nil
+}
+
+func libregraphSortToSearch(in []libregraph.SortProperty) []*searchsvc.SortProperty {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]*searchsvc.SortProperty, 0, len(in))
+	for _, sp := range in {
+		p := &searchsvc.SortProperty{Name: sp.Name}
+		if sp.IsDescending != nil {
+			p.IsDescending = *sp.IsDescending
+		}
+		out = append(out, p)
+	}
+	return out
 }
 
 // applyAggregationFilters AND-combines the query string with prior-response KQL

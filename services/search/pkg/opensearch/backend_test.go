@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -340,6 +341,99 @@ var _ = Describe("Backend", func() {
 			Entry("file category matches both files, not the directory", "mediatype:file", 2),
 			Entry("file category combined with a term", "mediatype:file AND MimeType:image/png", 1),
 		)
+	})
+
+	Describe("Search sorting", func() {
+		const indexName = "opencloud-test-engine-search-sorting"
+
+		var (
+			tc      *opensearchtest.TestClient
+			backend *opensearch.Backend
+		)
+
+		searchSorted := func(pageSize int32, orderBy ...*searchService.SortProperty) (*searchService.SearchIndexResponse, error) {
+			return backend.Search(context.Background(), &searchService.SearchIndexRequest{
+				Query:    "mediatype:image",
+				PageSize: pageSize,
+				OrderBy:  orderBy,
+			})
+		}
+
+		matchNames := func(resp *searchService.SearchIndexResponse) []string {
+			names := make([]string, 0, len(resp.Matches))
+			for _, m := range resp.Matches {
+				names = append(names, m.Entity.Name)
+			}
+			return names
+		}
+
+		BeforeEach(func() {
+			tc = opensearchtest.NewDefaultTestClient(GinkgoTB(), defaultConfig.Engine.OpenSearch.Client)
+			tc.Require.IndicesReset([]string{indexName})
+			tc.Require.IndicesCount([]string{indexName}, nil, 0)
+			deleteIndexOnCleanup(tc, indexName)
+
+			var err error
+			backend, err = opensearch.NewBackend(context.Background(), indexName, tc.Client(), log.NopLogger())
+			Expect(err).ToNot(HaveOccurred())
+
+			// insertion order deliberately differs from every sort order.
+			// Upsert (not DocumentCreate) so the _lowercase sort siblings are written.
+			for i, doc := range []struct {
+				name  string
+				size  uint64
+				taken string
+			}{
+				{"c.jpg", 300, "2020-06-15T12:00:00Z"},
+				{"a.jpg", 100, "2022-01-01T08:00:00Z"},
+				{"d.jpg", 400, "2019-03-03T10:30:00Z"},
+				{"b.jpg", 200, "2021-11-20T18:45:00Z"},
+			} {
+				resource := opensearchtest.Testdata.Resources.File
+				resource.ID = fmt.Sprintf("1$1!%d", 4001+i)
+				resource.Name = doc.name
+				resource.Path = "./parent d!r/" + doc.name
+				resource.Size = doc.size
+				taken, err := time.Parse(time.RFC3339, doc.taken)
+				Expect(err).ToNot(HaveOccurred())
+				photo := *resource.Photo
+				photo.TakenDateTime = &taken
+				resource.Photo = &photo
+				Expect(backend.Upsert(resource.ID, resource)).To(Succeed())
+			}
+			tc.Require.IndicesRefresh([]string{indexName}, nil)
+			tc.Require.IndicesCount([]string{indexName}, nil, 4)
+		})
+
+		It("sorts by photo.takenDateTime descending", func() {
+			resp, err := searchSorted(10, &searchService.SortProperty{Name: "photo.takenDateTime", IsDescending: true})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(matchNames(resp)).To(Equal([]string{"a.jpg", "b.jpg", "c.jpg", "d.jpg"}))
+		})
+
+		It("sorts by name ascending", func() {
+			resp, err := searchSorted(10, &searchService.SortProperty{Name: "name"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(matchNames(resp)).To(Equal([]string{"a.jpg", "b.jpg", "c.jpg", "d.jpg"}))
+		})
+
+		It("sorts by size ascending", func() {
+			resp, err := searchSorted(10, &searchService.SortProperty{Name: "size"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(matchNames(resp)).To(Equal([]string{"a.jpg", "b.jpg", "c.jpg", "d.jpg"}))
+		})
+
+		It("returns the head of the sorted order when the page is smaller than the result set", func() {
+			resp, err := searchSorted(2, &searchService.SortProperty{Name: "photo.takenDateTime"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.TotalMatches).To(Equal(int32(4)))
+			Expect(matchNames(resp)).To(Equal([]string{"d.jpg", "c.jpg"}))
+		})
+
+		It("rejects sorting by an unsortable field", func() {
+			_, err := searchSorted(10, &searchService.SortProperty{Name: "definitelyNotAField"})
+			Expect(err).To(HaveOccurred())
+		})
 	})
 
 	Describe("Upsert", func() {

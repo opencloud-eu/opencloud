@@ -8,6 +8,7 @@ import (
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
@@ -115,6 +116,27 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 		searchParams.Size = conversions.ToPointer(int(sir.PageSize))
 	}
 
+	// Sort natively in the index; the service layer re-establishes this order
+	// when merging matches across spaces. Score sorting (the default) stays in
+	// place when no order_by is given. Missing values sort last in both
+	// directions, matching the cross-space merge.
+	var sortClause []map[string]any
+	if orderBy := sir.GetOrderBy(); len(orderBy) > 0 {
+		sortClause = make([]map[string]any, 0, len(orderBy)+1)
+		for _, sp := range orderBy {
+			field, ok := search.SortIndexField(sp.GetName())
+			if !ok {
+				return nil, errtypes.BadRequest(fmt.Sprintf("field %q is not sortable", sp.GetName()))
+			}
+			order := "asc"
+			if sp.GetIsDescending() {
+				order = "desc"
+			}
+			sortClause = append(sortClause, map[string]any{field: map[string]any{"order": order, "missing": "_last"}})
+		}
+		sortClause = append(sortClause, map[string]any{"_score": map[string]any{"order": "desc"}})
+	}
+
 	req, err := osu.BuildSearchReq(&opensearchgoAPI.SearchReq{
 		Indices: []string{b.index},
 		Params:  searchParams,
@@ -134,6 +156,7 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 				},
 			},
 			Aggs: aggs.Build(sir.GetAggregations()),
+			Sort: sortClause,
 		},
 	)
 	if err != nil {
