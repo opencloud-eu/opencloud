@@ -36,18 +36,14 @@ type contextKey string
 // tracing/logging consumers.
 const OriginalPathContextKey contextKey = "graph.original_path"
 
-// CreateParentsContextKey holds the unresolved parent path of a POST children
-// colon request with @libre.graph.missingParentsBehavior=create. The middleware
-// leaves such paths unresolved (the route is rewritten to the anchor item
-// instead); the handler resolves the path and creates the missing folders, but
-// only after fully validating the request - so an invalid request has no side
-// effects.
-const CreateParentsContextKey contextKey = "graph.create_parents"
+// ParentPathContextKey holds the unresolved parent path of a POST .../children
+// colon request; the handler resolves (or creates) it after validation.
+const ParentPathContextKey contextKey = "graph.parent_path"
 
-// CreateParentsPath returns the parent path stored by ResolveGraphPath, or ""
-// for all other requests.
-func CreateParentsPath(ctx context.Context) string {
-	path, _ := ctx.Value(CreateParentsContextKey).(string)
+// ParentPath returns the parent path stored by ResolveGraphPath, or "" for all
+// other requests.
+func ParentPath(ctx context.Context) string {
+	path, _ := ctx.Value(ParentPathContextKey).(string)
 	return path
 }
 
@@ -89,6 +85,10 @@ var (
 // failures (gateway selection, RPC transport, unexpected status) surface
 // as 5xx so outages aren't masked.
 //
+// POST .../children colon requests are never resolved here: the rewrite targets
+// the anchor item and the parent path reaches the handler via
+// ParentPathContextKey (see createChild).
+//
 // Requests whose RoutePath contains no colon fast-path through untouched.
 func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.Logger) func(http.Handler) http.Handler {
 	l := logger.With().Str("middleware", "graphPathLookup").Logger()
@@ -106,7 +106,7 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 
 			driveID := chi.URLParam(r, "driveID")
 			original := r.URL.Path
-			rewritten, createParents, err := rewriteColonPath(r.Context(), gws, l, driveID, rctx.RoutePath, r)
+			rewritten, parentPath, err := rewriteColonPath(r.Context(), gws, l, driveID, rctx.RoutePath, r.Method)
 			switch {
 			case errors.Is(err, errPathNotFound):
 				l.Debug().Str("original", original).Msg("colon-path resolution: not found")
@@ -141,8 +141,8 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 			// tracing/logging. r.URL.Path itself stays untouched; only chi's
 			// internal RoutePath is rewritten.
 			r = r.WithContext(context.WithValue(r.Context(), OriginalPathContextKey, original))
-			if createParents != "" {
-				r = r.WithContext(context.WithValue(r.Context(), CreateParentsContextKey, createParents))
+			if parentPath != "" {
+				r = r.WithContext(context.WithValue(r.Context(), ParentPathContextKey, parentPath))
 			}
 			rctx.RoutePath = rewritten
 			next.ServeHTTP(w, r)
@@ -163,7 +163,7 @@ type colonMatch struct {
 	suffix         string // suffix with leading slash (e.g. "/children"); may be empty
 }
 
-// rewriteColonPath returns (rewritten, createParents, err):
+// rewriteColonPath returns (rewritten, parentPath, err):
 //   - ""        + nil                - no colon-syntax pattern matched (passthrough)
 //   - rewritten + nil                - matched and resolved to a canonical RoutePath
 //   - ""        + errPathNotFound    - path doesn't exist or user lacks permission (404)
@@ -171,24 +171,19 @@ type colonMatch struct {
 //   - ""        + errUnauthenticated - gateway said caller isn't authenticated (401)
 //   - ""        + other error        - operational / internal failure (5xx)
 //
-// createParents is non-empty for POST .../children requests with
-// @libre.graph.missingParentsBehavior=create: the colon path is then not
-// resolved at all - the rewrite targets the anchor item and createParents
-// carries the parent path for the handler to resolve/create (see
-// CreateParentsContextKey).
+// parentPath is non-empty for POST .../children requests: their colon path is
+// never resolved here, the rewrite targets the anchor item and the handler
+// resolves (or creates) the parent path (see ParentPathContextKey).
 //
 // driveIDParam is the {driveID} route param (raw chi.URLParam value); routePath
-// is chi.RouteContext().RoutePath (the part below /drives/{driveID}). r is only
-// consulted for the method and the @libre.graph.missingParentsBehavior query
-// parameter, which is meaningful for POST .../children requests only and
-// ignored otherwise.
+// is chi.RouteContext().RoutePath (the part below /drives/{driveID}).
 func rewriteColonPath(
 	ctx context.Context,
 	gws pool.Selectable[gateway.GatewayAPIClient],
 	logger zerolog.Logger,
 	driveIDParam string,
 	routePath string,
-	r *http.Request,
+	method string,
 ) (string, string, error) {
 	match, ok := parseColonPath(routePath)
 	if !ok {
@@ -196,19 +191,8 @@ func rewriteColonPath(
 	}
 
 	// The colon path addresses the parent of the item a POST .../children
-	// creates. With missingParentsBehavior=create the missing folders along
-	// that path are created instead of returning 404.
-	createParents := false
-	if r.Method == http.MethodPost && match.suffix == "/children" {
-		switch r.URL.Query().Get("@libre.graph.missingParentsBehavior") {
-		case "", "fail":
-		case "create":
-			createParents = true
-		default:
-			logger.Debug().Msg("invalid @libre.graph.missingParentsBehavior in colon path")
-			return "", "", errInvalidRequest
-		}
-	}
+	// creates; the handler decides how to resolve it.
+	deferToHandler := method == http.MethodPost && match.suffix == "/children"
 
 	// RoutePath follows chi's RawPath, i.e. the percent-encoded wire form
 	// (e.g. "/Documents/My%20File"). A single PathUnescape reproduces exactly
@@ -261,14 +245,10 @@ func rewriteColonPath(
 		return "", "", errInvalidRequest
 	}
 
-	if createParents {
-		// Leave the path unresolved: rewrite to the anchor item and hand the
-		// parent path to the handler (via CreateParentsContextKey), which
-		// creates the missing folders after validating the request. This
-		// middleware stays free of side effects.
+	if deferToHandler {
+		// rewrite to the anchor item, the handler resolves the parent path
 		if anchor.GetOpaqueId() == "" {
-			// the root-anchored form parses without an opaque part; the space
-			// root item id is storage$space!space
+			// the space root item id is storage$space!space
 			anchor.OpaqueId = anchor.GetSpaceId()
 		}
 		return buildCanonicalRoutePath(storagespace.FormatResourceID(&anchor), match.suffix), relPath, nil

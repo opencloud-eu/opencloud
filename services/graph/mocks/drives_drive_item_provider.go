@@ -127,48 +127,49 @@ func (_c *DrivesDriveItemProvider_CreateChild_Call) RunAndReturn(run func(ctx co
 	return _c
 }
 
-// CreatePath provides a mock function for the type DrivesDriveItemProvider
-func (_mock *DrivesDriveItemProvider) CreatePath(ctx context.Context, parentID *providerv1beta1.ResourceId, relPath string) (*providerv1beta1.ResourceId, error) {
-	ret := _mock.Called(ctx, parentID, relPath)
+// ResolvePath provides a mock function for the type DrivesDriveItemProvider
+func (_mock *DrivesDriveItemProvider) ResolvePath(ctx context.Context, parentID *providerv1beta1.ResourceId, relPath string, createMissing bool) (*providerv1beta1.ResourceId, error) {
+	ret := _mock.Called(ctx, parentID, relPath, createMissing)
 
 	if len(ret) == 0 {
-		panic("no return value specified for CreatePath")
+		panic("no return value specified for ResolvePath")
 	}
 
 	var r0 *providerv1beta1.ResourceId
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *providerv1beta1.ResourceId, string) (*providerv1beta1.ResourceId, error)); ok {
-		return returnFunc(ctx, parentID, relPath)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *providerv1beta1.ResourceId, string, bool) (*providerv1beta1.ResourceId, error)); ok {
+		return returnFunc(ctx, parentID, relPath, createMissing)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *providerv1beta1.ResourceId, string) *providerv1beta1.ResourceId); ok {
-		r0 = returnFunc(ctx, parentID, relPath)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *providerv1beta1.ResourceId, string, bool) *providerv1beta1.ResourceId); ok {
+		r0 = returnFunc(ctx, parentID, relPath, createMissing)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*providerv1beta1.ResourceId)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *providerv1beta1.ResourceId, string) error); ok {
-		r1 = returnFunc(ctx, parentID, relPath)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *providerv1beta1.ResourceId, string, bool) error); ok {
+		r1 = returnFunc(ctx, parentID, relPath, createMissing)
 	} else {
 		r1 = ret.Error(1)
 	}
 	return r0, r1
 }
 
-// DrivesDriveItemProvider_CreatePath_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreatePath'
-type DrivesDriveItemProvider_CreatePath_Call struct {
+// DrivesDriveItemProvider_ResolvePath_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ResolvePath'
+type DrivesDriveItemProvider_ResolvePath_Call struct {
 	*mock.Call
 }
 
-// CreatePath is a helper method to define mock.On call
+// ResolvePath is a helper method to define mock.On call
 //   - ctx context.Context
 //   - parentID *providerv1beta1.ResourceId
 //   - relPath string
-func (_e *DrivesDriveItemProvider_Expecter) CreatePath(ctx interface{}, parentID interface{}, relPath interface{}) *DrivesDriveItemProvider_CreatePath_Call {
-	return &DrivesDriveItemProvider_CreatePath_Call{Call: _e.mock.On("CreatePath", ctx, parentID, relPath)}
+//   - createMissing bool
+func (_e *DrivesDriveItemProvider_Expecter) ResolvePath(ctx interface{}, parentID interface{}, relPath interface{}, createMissing interface{}) *DrivesDriveItemProvider_ResolvePath_Call {
+	return &DrivesDriveItemProvider_ResolvePath_Call{Call: _e.mock.On("ResolvePath", ctx, parentID, relPath, createMissing)}
 }
 
-func (_c *DrivesDriveItemProvider_CreatePath_Call) Run(run func(ctx context.Context, parentID *providerv1beta1.ResourceId, relPath string)) *DrivesDriveItemProvider_CreatePath_Call {
+func (_c *DrivesDriveItemProvider_ResolvePath_Call) Run(run func(ctx context.Context, parentID *providerv1beta1.ResourceId, relPath string, createMissing bool)) *DrivesDriveItemProvider_ResolvePath_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -182,21 +183,26 @@ func (_c *DrivesDriveItemProvider_CreatePath_Call) Run(run func(ctx context.Cont
 		if args[2] != nil {
 			arg2 = args[2].(string)
 		}
+		var arg3 bool
+		if args[3] != nil {
+			arg3 = args[3].(bool)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
 }
 
-func (_c *DrivesDriveItemProvider_CreatePath_Call) Return(resourceId *providerv1beta1.ResourceId, err error) *DrivesDriveItemProvider_CreatePath_Call {
+func (_c *DrivesDriveItemProvider_ResolvePath_Call) Return(resourceId *providerv1beta1.ResourceId, err error) *DrivesDriveItemProvider_ResolvePath_Call {
 	_c.Call.Return(resourceId, err)
 	return _c
 }
 
-func (_c *DrivesDriveItemProvider_CreatePath_Call) RunAndReturn(run func(ctx context.Context, parentID *providerv1beta1.ResourceId, relPath string) (*providerv1beta1.ResourceId, error)) *DrivesDriveItemProvider_CreatePath_Call {
+func (_c *DrivesDriveItemProvider_ResolvePath_Call) RunAndReturn(run func(ctx context.Context, parentID *providerv1beta1.ResourceId, relPath string, createMissing bool) (*providerv1beta1.ResourceId, error)) *DrivesDriveItemProvider_ResolvePath_Call {
 	_c.Call.Return(run)
 	return _c
 }
