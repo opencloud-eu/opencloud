@@ -190,10 +190,6 @@ func rewriteColonPath(
 		return "", "", nil
 	}
 
-	// The colon path addresses the parent of the item a POST .../children
-	// creates; the handler decides how to resolve it.
-	deferToHandler := method == http.MethodPost && match.suffix == "/children"
-
 	// RoutePath follows chi's RawPath, i.e. the percent-encoded wire form
 	// (e.g. "/Documents/My%20File"). A single PathUnescape reproduces exactly
 	// what net/http put in r.URL.Path; it is NOT a double-decode (a crafted
@@ -245,8 +241,9 @@ func rewriteColonPath(
 		return "", "", errInvalidRequest
 	}
 
-	if deferToHandler {
-		// rewrite to the anchor item, the handler resolves the parent path
+	if method == http.MethodPost && match.suffix == "/children" {
+		// the colon path addresses the parent of the item to create: rewrite
+		// to the anchor item, the handler resolves the parent path
 		if anchor.GetOpaqueId() == "" {
 			// the space root item id is storage$space!space
 			anchor.OpaqueId = anchor.GetSpaceId()
