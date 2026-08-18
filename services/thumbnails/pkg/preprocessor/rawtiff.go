@@ -46,6 +46,9 @@ const (
 	// the JPEG header segments walked before the SOF marker
 	maxIFDs         = 64
 	maxJPEGSegments = 32
+	// previews are camera-generated JPEGs; tens of MB is already generous, an
+	// oversized declared length is rejected rather than served
+	maxPreviewLength = 100 * 1024 * 1024
 )
 
 // extractEmbeddedJPEG walks the IFD chain incl. SubIFDs and returns the
@@ -157,7 +160,7 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 	var best []byte
 	for _, c := range candidates {
 		end := int64(c.offset) + int64(c.length)
-		if end > int64(len(data)) || int(c.length) <= len(best) {
+		if end > int64(len(data)) || c.length > maxPreviewLength || int(c.length) <= len(best) {
 			continue
 		}
 		jpg := data[c.offset:end]
