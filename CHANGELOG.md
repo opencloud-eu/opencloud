@@ -1,5 +1,15 @@
 # Changelog
 
+## [7.2.4](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.4) - 2026-08-18
+
+### ❤️ Thanks to all contributors! ❤️
+
+@rhafer
+
+### 🐛 Bug Fixes
+
+- [stable-7.2] fix(posixfs scan): Setup logger for scan command [[#3195](https://github.com/opencloud-eu/opencloud/pull/3195)]
+
 ## [7.2.3](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.3) - 2026-08-06
 
 ### ❤️ Thanks to all contributors! ❤️
