@@ -30,6 +30,9 @@ Thumbnails can be generated from the following source file types:
 -   tiff
 -   bmp
 -   txt
+-   camera raw files: nef, cr2, pef, arw, sr2, dng
+
+For camera raw files the thumbnail is generated from the JPEG preview the camera embedded in the file, the raw sensor data itself is not developed. Raw files without an embedded preview cannot be thumbnailed.
 
 The thumbnail service retrieves source files using the information provided by the backend. The Linux backend identifies source files usually based on the extension.
 
