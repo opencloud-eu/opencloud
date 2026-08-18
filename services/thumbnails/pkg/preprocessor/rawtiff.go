@@ -43,7 +43,7 @@ const (
 	tiffTypeShort          = 3
 	tiffTypeLong           = 4
 	// cycle and decompression-bomb guard for untrusted IFD chains
-	maxIFDs = 64
+	maxIFDs      = 64
 	sofScanLimit = 64 * 1024
 )
 
