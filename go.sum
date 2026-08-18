@@ -940,8 +940,8 @@ github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-202505121527
 github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a/go.mod h1:pjcozWijkNPbEtX5SIQaxEW/h8VAVZYTLx+70bmB3LY=
 github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89 h1:W1ms+lP5lUUIzjRGDg93WrQfZJZCaV1ZP3KeyXi8bzY=
 github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89/go.mod h1:vigJkNss1N2QEceCuNw/ullDehncuJNFB6mEnzfq9UI=
-github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260817095307-387da64db0b1 h1:Wch/JQLDALKqALokqd99/k38qwN1kUsa8ucVSoiV3mc=
-github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260817095307-387da64db0b1/go.mod h1:lTM8JeGblNpoMySTW7Lui2+c5TTLI95mwxtdUIHHrhU=
+github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260818063016-69f82a7dde55 h1:dzYZ5iA6i0QoFUap9l6sZ4Ts2HXiXVfsOoiRYToYgm8=
+github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260818063016-69f82a7dde55/go.mod h1:lTM8JeGblNpoMySTW7Lui2+c5TTLI95mwxtdUIHHrhU=
 github.com/opencloud-eu/reva/v2 v2.48.1-0.20260811071808-9bf68d2ccd96 h1:2yPjf1jhrhEkrHsX8s6gAQVogBmNY6ZTtPNOtLfc1p8=
 github.com/opencloud-eu/reva/v2 v2.48.1-0.20260811071808-9bf68d2ccd96/go.mod h1:+2IJFVwi3yBEBfw0T+jgY7M9LBSPv7ecPYDiG3/bWYg=
 github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4 h1:l2oB/RctH+t8r7QBj5p8thfEHCM/jF35aAY3WQ3hADI=

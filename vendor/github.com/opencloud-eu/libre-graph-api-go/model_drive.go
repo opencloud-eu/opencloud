@@ -52,8 +52,8 @@ type Drive struct {
 	Special []DriveItem `json:"special,omitempty"`
 	// Indicates whether the drive has items in the trash. Read-only.
 	LibreGraphHasTrashedItems *bool `json:"@libre.graph.hasTrashedItems,omitempty"`
-	// Specifier for the web client that a drive has an associated extension that could potentially be opened by a specific web app (like a file extension). 
-	UIExtension *string `json:"@UI.extension,omitempty"`
+	// Specifier for the web client that a drive is of a certain content type that could potentially be opened by a specific web app. Example: `application/vnd.opencloud.vault`, indicating the drive can be opened by the rclone-crypt web app. 
+	LibreGraphContentType *string `json:"@libre.graph.contentType,omitempty"`
 }
 
 type _Drive Drive
@@ -644,36 +644,36 @@ func (o *Drive) SetLibreGraphHasTrashedItems(v bool) {
 	o.LibreGraphHasTrashedItems = &v
 }
 
-// GetUIExtension returns the UIExtension field value if set, zero value otherwise.
-func (o *Drive) GetUIExtension() string {
-	if o == nil || IsNil(o.UIExtension) {
+// GetLibreGraphContentType returns the LibreGraphContentType field value if set, zero value otherwise.
+func (o *Drive) GetLibreGraphContentType() string {
+	if o == nil || IsNil(o.LibreGraphContentType) {
 		var ret string
 		return ret
 	}
-	return *o.UIExtension
+	return *o.LibreGraphContentType
 }
 
-// GetUIExtensionOk returns a tuple with the UIExtension field value if set, nil otherwise
+// GetLibreGraphContentTypeOk returns a tuple with the LibreGraphContentType field value if set, nil otherwise
 // and a boolean to check if the value has been set.
-func (o *Drive) GetUIExtensionOk() (*string, bool) {
-	if o == nil || IsNil(o.UIExtension) {
+func (o *Drive) GetLibreGraphContentTypeOk() (*string, bool) {
+	if o == nil || IsNil(o.LibreGraphContentType) {
 		return nil, false
 	}
-	return o.UIExtension, true
+	return o.LibreGraphContentType, true
 }
 
-// HasUIExtension returns a boolean if a field has been set.
-func (o *Drive) HasUIExtension() bool {
-	if o != nil && !IsNil(o.UIExtension) {
+// HasLibreGraphContentType returns a boolean if a field has been set.
+func (o *Drive) HasLibreGraphContentType() bool {
+	if o != nil && !IsNil(o.LibreGraphContentType) {
 		return true
 	}
 
 	return false
 }
 
-// SetUIExtension gets a reference to the given string and assigns it to the UIExtension field.
-func (o *Drive) SetUIExtension(v string) {
-	o.UIExtension = &v
+// SetLibreGraphContentType gets a reference to the given string and assigns it to the LibreGraphContentType field.
+func (o *Drive) SetLibreGraphContentType(v string) {
+	o.LibreGraphContentType = &v
 }
 
 func (o Drive) MarshalJSON() ([]byte, error) {
@@ -738,8 +738,8 @@ func (o Drive) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.LibreGraphHasTrashedItems) {
 		toSerialize["@libre.graph.hasTrashedItems"] = o.LibreGraphHasTrashedItems
 	}
-	if !IsNil(o.UIExtension) {
-		toSerialize["@UI.extension"] = o.UIExtension
+	if !IsNil(o.LibreGraphContentType) {
+		toSerialize["@libre.graph.contentType"] = o.LibreGraphContentType
 	}
 	return toSerialize, nil
 }
