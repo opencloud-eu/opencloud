@@ -9,6 +9,7 @@
     "phpunit/phpunit": "^13.3",
     "laminas/laminas-ldap": "^2.20",
     "swaggest/json-schema": "^0.12",
-    "splitbrain/php-archive": "^1.5"
+    "splitbrain/php-archive": "^1.5",
+    "symfony/http-foundation": "^8.1"
   }
 }

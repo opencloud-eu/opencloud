@@ -24,9 +24,6 @@ use Behat\Behat\Context\Context;
 use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use Behat\Gherkin\Node\TableNode;
 use GuzzleHttp\Exception\GuzzleException;
-use TusPhp\Exception\ConnectionException;
-use TusPhp\Exception\TusException;
-use TusPhp\Tus\Client;
 use PHPUnit\Framework\Assert;
 use Psr\Http\Message\ResponseInterface;
 use TestHelpers\HttpRequestHelper;
@@ -34,6 +31,9 @@ use TestHelpers\WebDavHelper;
 use TestHelpers\BehatHelper;
 use TestHelpers\UploadHelper;
 use TestHelpers\WaitHelper;
+use TestHelpers\TUSClient;
+use TestHelpers\TUSClient\TusException;
+use TestHelpers\TUSClient\ConnectionException;
 use Behat\Step\Given;
 use Behat\Step\When;
 
@@ -339,7 +339,7 @@ class TUSContext implements Context {
 			$headers = \array_merge($headers, $checksumHeader);
 		}
 
-		$client = new Client(
+		$client = new TUSClient(
 			$this->featureContext->getBaseUrl(),
 			[
 				'verify' => false,
@@ -353,19 +353,18 @@ class TUSContext implements Context {
 			$suffixPath = $spaceId ?: $this->featureContext->getPersonalSpaceIdForUser($user);
 		}
 
-		$client->setChecksumAlgorithm('sha1');
+		$sourceFile = UploadHelper::getAcceptanceTestsDir() . $source;
 		$client->setApiPath(WebDavHelper::getDavPath($davPathVersion, $suffixPath));
 		$client->setMetadata($uploadMetadata);
-		$sourceFile = UploadHelper::getAcceptanceTestsDir() . $source;
-		$client->setKey((string)rand())->file($sourceFile, $destination);
+		$client->file($sourceFile, $destination);
 		$this->featureContext->pauseUploadDelete();
 
 		if ($bytes !== null) {
-			$client->file($sourceFile, $destination)->createWithUpload($client->getKey(), $bytes);
+			$client->createWithUpload($bytes);
 		} elseif (\filesize($sourceFile) === 0) {
-			$client->file($sourceFile, $destination)->createWithUpload($client->getKey(), 0);
+			$client->createWithUpload(0);
 		} elseif ($noOfChunks === 1) {
-			$client->file($sourceFile, $destination)->upload();
+			$client->upload();
 		} else {
 			$bytesPerChunk = (int)\ceil(\filesize($sourceFile) / $noOfChunks);
 			for ($i = 0; $i < $noOfChunks; $i++) {
@@ -399,7 +398,7 @@ class TUSContext implements Context {
 			);
 			$this->featureContext->setLastUploadDeleteTime(\time());
 		} catch (Exception $e) {
-			Assert::assertStringContainsString('TusPhp\Exception\FileException: Unable to create resource', (string)$e);
+			Assert::assertStringContainsString('FileException: Unable to create resource', (string)$e);
 		}
 		\unlink($temporaryFileName);
 	}
