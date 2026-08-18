@@ -344,6 +344,8 @@ func ForType(mimeType string, opts map[string]any) FileConverter {
 		fallthrough
 	case "audio/ogg":
 		return AudioDecoder{}
+	case "image/x-nikon-nef":
+		return RawImageDecoder{}
 	default:
 		return ImageDecoder{}
 	}

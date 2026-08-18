@@ -17,6 +17,8 @@ var (
 	ErrNoConverterForExtractedImageFromGgsFile = errors.New("thumbnails: could not find converter for image extracted from ggs file")
 	// ErrNoConverterForExtractedImageFromAudioFile defines an error when the extracted image from an audio file could not be converted
 	ErrNoConverterForExtractedImageFromAudioFile = errors.New("thumbnails: could not find converter for image extracted from audio file")
+	// ErrNoImageFromRawFile defines an error when no embedded preview image could be extracted from a raw file
+	ErrNoImageFromRawFile = errors.New("thumbnails: could not extract preview image from raw file")
 	// ErrCS3AuthorizationMissing defines an error when the CS3 authorization is missing
 	ErrCS3AuthorizationMissing = errors.New("thumbnails: cs3source - authorization missing")
 )

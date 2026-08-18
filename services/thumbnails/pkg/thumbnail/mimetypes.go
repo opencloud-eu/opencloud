@@ -12,6 +12,7 @@ var (
 		"image/bmp":                         {},
 		"image/x-ms-bmp":                    {},
 		"image/tiff":                        {},
+		"image/x-nikon-nef":                 {},
 		"text/plain":                        {},
 		"audio/flac":                        {},
 		"audio/mpeg":                        {},
