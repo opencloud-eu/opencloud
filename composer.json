@@ -2,7 +2,7 @@
   "name": "opencloud-eu/opencloud",
   "config": {
     "platform": {
-      "php": "8.3"
+      "php": "8.4"
     },
     "vendor-dir": "./vendor-php",
     "allow-plugins": {
@@ -11,11 +11,12 @@
   },
   "require-dev": {
     "ext-simplexml": "*",
-    "bamarni/composer-bin-plugin": "^1.8"
+    "bamarni/composer-bin-plugin": "^1.9"
   },
   "extra": {
     "bamarni-bin": {
-      "bin-links": false
+      "bin-links": false,
+      "forward-command": false
     }
   }
 }

@@ -1,27 +1,14 @@
 {
-  "config": {
-    "platform": {
-      "php": "8.3"
-    },
-    "allow-plugins": {
-      "composer/package-versions-deprecated": true
-    }
-  },
   "require": {
-    "behat/behat": "^3.24",
-    "behat/gherkin": "^4.9",
-    "behat/mink": "1.7.1",
-    "friends-of-behat/mink-extension": "^2.7",
+    "behat/behat": "^3.32",
+    "behat/gherkin": "^4.17",
     "ciaranmcnulty/behat-stepthroughextension": "dev-master",
     "rdx/behat-variables": "^1.2",
-    "sensiolabs/behat-page-object-extension": "^2.3",
-    "symfony/translation": "^5.4",
-    "sabre/xml": "^2.2",
-    "guzzlehttp/guzzle": "^7.7",
-    "phpunit/phpunit": "^9.6",
-    "laminas/laminas-ldap": "^2.15",
-    "ankitpokhrel/tus-php": "^2.4",
-    "swaggest/json-schema": "^0.12.42",
-    "splitbrain/php-archive": "^1.3"
+    "sabre/xml": "^4.1",
+    "guzzlehttp/guzzle": "^8.0",
+    "phpunit/phpunit": "^13.3",
+    "laminas/laminas-ldap": "^2.20",
+    "swaggest/json-schema": "^0.12",
+    "splitbrain/php-archive": "^1.5"
   }
 }
