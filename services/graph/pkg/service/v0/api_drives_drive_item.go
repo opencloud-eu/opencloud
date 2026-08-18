@@ -22,6 +22,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	graphm "github.com/opencloud-eu/opencloud/services/graph/pkg/middleware"
 )
 
 const (
@@ -81,6 +82,9 @@ var (
 	// ErrExactlyOneFacet is returned when not exactly one of the create facets is set
 	ErrExactlyOneFacet = errorcode.New(errorcode.InvalidRequest, "exactly one of folder, file or remoteItem must be set")
 
+	// ErrExactlyOneChildFacet is returned when not exactly one of the child create facets is set
+	ErrExactlyOneChildFacet = errorcode.New(errorcode.InvalidRequest, "exactly one of folder or file must be set")
+
 	// ErrInvalidConflictBehavior is returned when the conflictBehavior query parameter is invalid
 	ErrInvalidConflictBehavior = errorcode.New(errorcode.InvalidRequest, "invalid @libre.graph.conflictBehavior")
 )
@@ -93,6 +97,9 @@ type (
 	DrivesDriveItemProvider interface {
 		// CreateChild creates a folder or an empty file below the given parent
 		CreateChild(ctx context.Context, parentID *storageprovider.ResourceId, name string, isFolder, replace bool) (*storageprovider.ResourceInfo, error)
+
+		// CreatePath ensures the folders along relPath below parentID exist and returns the id of the deepest one
+		CreatePath(ctx context.Context, parentID *storageprovider.ResourceId, relPath string) (*storageprovider.ResourceId, error)
 
 		// MountShare mounts a share
 		MountShare(ctx context.Context, resourceID *storageprovider.ResourceId, name string) ([]*collaboration.ReceivedShare, error)
@@ -370,8 +377,7 @@ func (s DrivesDriveItemService) CreateChild(ctx context.Context, parentID *stora
 	}
 
 	err = create()
-	var lgErr errorcode.Error
-	if replace && errors.As(err, &lgErr) && lgErr.GetCode() == errorcode.NameAlreadyExists {
+	if replace && hasErrorCode(err, errorcode.NameAlreadyExists) {
 		delRes, delErr := gatewayClient.Delete(ctx, &storageprovider.DeleteRequest{Ref: ref})
 		if err := errorcode.FromCS3Status(delRes.GetStatus(), delErr); err != nil {
 			return nil, err
@@ -395,6 +401,63 @@ func (s DrivesDriveItemService) CreateChild(ctx context.Context, parentID *stora
 		return nil, err
 	}
 	return idRes.GetInfo(), nil
+}
+
+// CreatePath ensures the folders along relPath below parentID exist, creating the missing
+// ones, and returns the id of the deepest one. It backs @libre.graph.missingParentsBehavior=create.
+func (s DrivesDriveItemService) CreatePath(ctx context.Context, parentID *storageprovider.ResourceId, relPath string) (*storageprovider.ResourceId, error) {
+	segments := strings.Split(strings.Trim(relPath, "/"), "/")
+	for _, segment := range segments {
+		if segment == "" || segment == "." || segment == ".." {
+			return nil, ErrInvalidItemName
+		}
+	}
+
+	gatewayClient, err := s.gatewaySelector.Next()
+	if err != nil {
+		return nil, err
+	}
+
+	stat := func() (*storageprovider.ResourceId, error) {
+		res, err := gatewayClient.Stat(ctx, &storageprovider.StatRequest{
+			Ref: &storageprovider.Reference{
+				ResourceId: parentID,
+				Path:       utils.MakeRelativePath(relPath),
+			},
+		})
+		if err := errorcode.FromCS3Status(res.GetStatus(), err); err != nil {
+			return nil, err
+		}
+		return res.GetInfo().GetId(), nil
+	}
+
+	// common case: the full path exists already
+	id, err := stat()
+	if err == nil || !hasErrorCode(err, errorcode.ItemNotFound) {
+		return id, err
+	}
+
+	var walked string
+	for _, segment := range segments {
+		walked += "/" + segment
+		res, err := gatewayClient.CreateContainer(ctx, &storageprovider.CreateContainerRequest{
+			Ref: &storageprovider.Reference{
+				ResourceId: parentID,
+				Path:       utils.MakeRelativePath(walked),
+			},
+		})
+		// existing folders along the path (or a lost creation race) are fine, they are reused
+		if err := errorcode.FromCS3Status(res.GetStatus(), err); err != nil && !hasErrorCode(err, errorcode.NameAlreadyExists) {
+			return nil, err
+		}
+	}
+	return stat()
+}
+
+// hasErrorCode reports whether err is an errorcode.Error carrying the given code
+func hasErrorCode(err error, code errorcode.ErrorCode) bool {
+	var lgErr errorcode.Error
+	return errors.As(err, &lgErr) && lgErr.GetCode() == code
 }
 
 // DrivesDriveItemApi is the api that registers the http endpoints which expose needed operation to the graph api.
@@ -574,13 +637,7 @@ func (api DrivesDriveItemApi) CreateDriveItem(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	facets := 0
-	for _, set := range []bool{requestDriveItem.Folder != nil, requestDriveItem.File != nil, requestDriveItem.RemoteItem != nil} {
-		if set {
-			facets++
-		}
-	}
-	if facets != 1 {
+	if !exactlyOne(requestDriveItem.Folder != nil, requestDriveItem.File != nil, requestDriveItem.RemoteItem != nil) {
 		api.logger.Debug().Msg(ErrExactlyOneFacet.Error())
 		ErrExactlyOneFacet.Render(w, r)
 		return
@@ -621,13 +678,24 @@ func (api DrivesDriveItemApi) CreateChildDriveItem(w http.ResponseWriter, r *htt
 		return
 	}
 
-	if (requestDriveItem.Folder != nil) == (requestDriveItem.File != nil) || requestDriveItem.RemoteItem != nil {
-		api.logger.Debug().Msg(ErrExactlyOneFacet.Error())
-		ErrExactlyOneFacet.Render(w, r)
+	if requestDriveItem.RemoteItem != nil || !exactlyOne(requestDriveItem.Folder != nil, requestDriveItem.File != nil) {
+		api.logger.Debug().Msg(ErrExactlyOneChildFacet.Error())
+		ErrExactlyOneChildFacet.Render(w, r)
 		return
 	}
 
 	api.createChild(w, r, itemID, requestDriveItem)
+}
+
+// exactlyOne reports whether exactly one of the given flags is set
+func exactlyOne(flags ...bool) bool {
+	set := 0
+	for _, flag := range flags {
+		if flag {
+			set++
+		}
+	}
+	return set == 1
 }
 
 // createChild creates a folder or an empty file below the given parent and renders the result
@@ -641,6 +709,19 @@ func (api DrivesDriveItemApi) createChild(w http.ResponseWriter, r *http.Request
 		api.logger.Debug().Msg(ErrInvalidConflictBehavior.Error())
 		ErrInvalidConflictBehavior.Render(w, r)
 		return
+	}
+
+	// a colon path with missingParentsBehavior=create arrives unresolved: parentID is
+	// the anchor item and the parent path below it still needs to be resolved/created.
+	// This runs after all validation so an invalid request has no side effects.
+	if parents := graphm.CreateParentsPath(r.Context()); parents != "" {
+		var err error
+		parentID, err = api.drivesDriveItemService.CreatePath(r.Context(), parentID, parents)
+		if err != nil {
+			api.logger.Debug().Err(err).Msg("creating parent folders failed")
+			errorcode.RenderError(w, r, err)
+			return
+		}
 	}
 
 	info, err := api.drivesDriveItemService.CreateChild(r.Context(), parentID, requestDriveItem.GetName(), requestDriveItem.Folder != nil, replace)
@@ -657,7 +738,7 @@ func (api DrivesDriveItemApi) createChild(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	render.Status(r, http.StatusOK)
+	render.Status(r, http.StatusCreated)
 	render.JSON(w, r, driveItem)
 }
 

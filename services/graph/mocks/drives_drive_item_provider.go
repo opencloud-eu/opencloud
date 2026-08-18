@@ -127,6 +127,80 @@ func (_c *DrivesDriveItemProvider_CreateChild_Call) RunAndReturn(run func(ctx co
 	return _c
 }
 
+// CreatePath provides a mock function for the type DrivesDriveItemProvider
+func (_mock *DrivesDriveItemProvider) CreatePath(ctx context.Context, parentID *providerv1beta1.ResourceId, relPath string) (*providerv1beta1.ResourceId, error) {
+	ret := _mock.Called(ctx, parentID, relPath)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreatePath")
+	}
+
+	var r0 *providerv1beta1.ResourceId
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *providerv1beta1.ResourceId, string) (*providerv1beta1.ResourceId, error)); ok {
+		return returnFunc(ctx, parentID, relPath)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *providerv1beta1.ResourceId, string) *providerv1beta1.ResourceId); ok {
+		r0 = returnFunc(ctx, parentID, relPath)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*providerv1beta1.ResourceId)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *providerv1beta1.ResourceId, string) error); ok {
+		r1 = returnFunc(ctx, parentID, relPath)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// DrivesDriveItemProvider_CreatePath_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreatePath'
+type DrivesDriveItemProvider_CreatePath_Call struct {
+	*mock.Call
+}
+
+// CreatePath is a helper method to define mock.On call
+//   - ctx context.Context
+//   - parentID *providerv1beta1.ResourceId
+//   - relPath string
+func (_e *DrivesDriveItemProvider_Expecter) CreatePath(ctx interface{}, parentID interface{}, relPath interface{}) *DrivesDriveItemProvider_CreatePath_Call {
+	return &DrivesDriveItemProvider_CreatePath_Call{Call: _e.mock.On("CreatePath", ctx, parentID, relPath)}
+}
+
+func (_c *DrivesDriveItemProvider_CreatePath_Call) Run(run func(ctx context.Context, parentID *providerv1beta1.ResourceId, relPath string)) *DrivesDriveItemProvider_CreatePath_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *providerv1beta1.ResourceId
+		if args[1] != nil {
+			arg1 = args[1].(*providerv1beta1.ResourceId)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *DrivesDriveItemProvider_CreatePath_Call) Return(resourceId *providerv1beta1.ResourceId, err error) *DrivesDriveItemProvider_CreatePath_Call {
+	_c.Call.Return(resourceId, err)
+	return _c
+}
+
+func (_c *DrivesDriveItemProvider_CreatePath_Call) RunAndReturn(run func(ctx context.Context, parentID *providerv1beta1.ResourceId, relPath string) (*providerv1beta1.ResourceId, error)) *DrivesDriveItemProvider_CreatePath_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetShare provides a mock function for the type DrivesDriveItemProvider
 func (_mock *DrivesDriveItemProvider) GetShare(ctx context.Context, shareID *collaborationv1beta1.ShareId) (*collaborationv1beta1.ReceivedShare, error) {
 	ret := _mock.Called(ctx, shareID)

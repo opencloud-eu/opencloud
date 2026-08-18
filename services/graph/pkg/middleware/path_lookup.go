@@ -36,6 +36,21 @@ type contextKey string
 // tracing/logging consumers.
 const OriginalPathContextKey contextKey = "graph.original_path"
 
+// CreateParentsContextKey holds the unresolved parent path of a POST children
+// colon request with @libre.graph.missingParentsBehavior=create. The middleware
+// leaves such paths unresolved (the route is rewritten to the anchor item
+// instead); the handler resolves the path and creates the missing folders, but
+// only after fully validating the request - so an invalid request has no side
+// effects.
+const CreateParentsContextKey contextKey = "graph.create_parents"
+
+// CreateParentsPath returns the parent path stored by ResolveGraphPath, or ""
+// for all other requests.
+func CreateParentsPath(ctx context.Context) string {
+	path, _ := ctx.Value(CreateParentsContextKey).(string)
+	return path
+}
+
 // Sentinels distinguishing the resolution outcomes that map to specific HTTP
 // statuses. Anything else surfaces as 500.
 //
@@ -49,7 +64,6 @@ var (
 	errPathNotFound    = errors.New("path not found")
 	errInvalidRequest  = errors.New("invalid request")
 	errUnauthenticated = errors.New("unauthenticated")
-	errAccessDenied    = errors.New("access denied")
 )
 
 // ResolveGraphPath returns middleware that detects MS Graph colon-syntax path
@@ -92,7 +106,7 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 
 			driveID := chi.URLParam(r, "driveID")
 			original := r.URL.Path
-			rewritten, err := rewriteColonPath(r.Context(), gws, l, driveID, rctx.RoutePath, r)
+			rewritten, createParents, err := rewriteColonPath(r.Context(), gws, l, driveID, rctx.RoutePath, r)
 			switch {
 			case errors.Is(err, errPathNotFound):
 				l.Debug().Str("original", original).Msg("colon-path resolution: not found")
@@ -105,10 +119,6 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 			case errors.Is(err, errUnauthenticated):
 				l.Debug().Str("original", original).Msg("colon-path resolution: unauthenticated")
 				errorcode.Unauthenticated.Render(w, r, http.StatusUnauthorized, "unauthenticated")
-				return
-			case errors.Is(err, errAccessDenied):
-				l.Debug().Str("original", original).Msg("colon-path resolution: access denied")
-				errorcode.AccessDenied.Render(w, r, http.StatusForbidden, "access denied")
 				return
 			case err != nil:
 				l.Error().Err(err).Str("original", original).Msg("colon-path resolution: internal error")
@@ -131,6 +141,9 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 			// tracing/logging. r.URL.Path itself stays untouched; only chi's
 			// internal RoutePath is rewritten.
 			r = r.WithContext(context.WithValue(r.Context(), OriginalPathContextKey, original))
+			if createParents != "" {
+				r = r.WithContext(context.WithValue(r.Context(), CreateParentsContextKey, createParents))
+			}
 			rctx.RoutePath = rewritten
 			next.ServeHTTP(w, r)
 		})
@@ -150,13 +163,19 @@ type colonMatch struct {
 	suffix         string // suffix with leading slash (e.g. "/children"); may be empty
 }
 
-// rewriteColonPath returns:
+// rewriteColonPath returns (rewritten, createParents, err):
 //   - ""        + nil                - no colon-syntax pattern matched (passthrough)
 //   - rewritten + nil                - matched and resolved to a canonical RoutePath
 //   - ""        + errPathNotFound    - path doesn't exist or user lacks permission (404)
 //   - ""        + errInvalidRequest  - malformed input (400)
 //   - ""        + errUnauthenticated - gateway said caller isn't authenticated (401)
 //   - ""        + other error        - operational / internal failure (5xx)
+//
+// createParents is non-empty for POST .../children requests with
+// @libre.graph.missingParentsBehavior=create: the colon path is then not
+// resolved at all - the rewrite targets the anchor item and createParents
+// carries the parent path for the handler to resolve/create (see
+// CreateParentsContextKey).
 //
 // driveIDParam is the {driveID} route param (raw chi.URLParam value); routePath
 // is chi.RouteContext().RoutePath (the part below /drives/{driveID}). r is only
@@ -170,10 +189,10 @@ func rewriteColonPath(
 	driveIDParam string,
 	routePath string,
 	r *http.Request,
-) (string, error) {
+) (string, string, error) {
 	match, ok := parseColonPath(routePath)
 	if !ok {
-		return "", nil
+		return "", "", nil
 	}
 
 	// The colon path addresses the parent of the item a POST .../children
@@ -187,7 +206,7 @@ func rewriteColonPath(
 			createParents = true
 		default:
 			logger.Debug().Msg("invalid @libre.graph.missingParentsBehavior in colon path")
-			return "", errInvalidRequest
+			return "", "", errInvalidRequest
 		}
 	}
 
@@ -198,7 +217,7 @@ func rewriteColonPath(
 	driveID, err := url.PathUnescape(driveIDParam)
 	if err != nil {
 		logger.Debug().Err(err).Str("driveID", driveIDParam).Msg("undecodable drive id in colon path")
-		return "", errInvalidRequest
+		return "", "", errInvalidRequest
 	}
 
 	anchorIDStr := driveID
@@ -206,7 +225,7 @@ func rewriteColonPath(
 		anchorIDStr, err = url.PathUnescape(match.itemAnchorID)
 		if err != nil {
 			logger.Debug().Err(err).Str("itemID", match.itemAnchorID).Msg("undecodable item id in colon path")
-			return "", errInvalidRequest
+			return "", "", errInvalidRequest
 		}
 	}
 
@@ -214,7 +233,7 @@ func rewriteColonPath(
 	if err != nil {
 		// Unparseable input is malformed by the client, not "not found".
 		logger.Debug().Err(err).Str("anchor", anchorIDStr).Msg("invalid anchor id in colon path")
-		return "", errInvalidRequest
+		return "", "", errInvalidRequest
 	}
 
 	// Item-anchored form: the itemID comes from the path, driveID from the
@@ -225,32 +244,41 @@ func rewriteColonPath(
 		drive, err := storagespace.ParseID(driveID)
 		if err != nil {
 			logger.Debug().Err(err).Str("driveID", driveID).Msg("invalid drive id in colon path")
-			return "", errInvalidRequest
+			return "", "", errInvalidRequest
 		}
 		if drive.GetStorageId() != anchor.GetStorageId() || drive.GetSpaceId() != anchor.GetSpaceId() {
 			logger.Debug().
 				Str("driveID", driveID).
 				Str("itemID", anchorIDStr).
 				Msg("drive id does not match item id storage/space")
-			return "", errInvalidRequest
+			return "", "", errInvalidRequest
 		}
 	}
 
 	relPath, err := url.PathUnescape(match.relPath)
 	if err != nil {
 		logger.Debug().Err(err).Str("relPath", match.relPath).Msg("undecodable path in colon path")
-		return "", errInvalidRequest
+		return "", "", errInvalidRequest
 	}
 
-	resolve := resolvePath
 	if createParents {
-		resolve = resolveOrCreatePath
+		// Leave the path unresolved: rewrite to the anchor item and hand the
+		// parent path to the handler (via CreateParentsContextKey), which
+		// creates the missing folders after validating the request. This
+		// middleware stays free of side effects.
+		if anchor.GetOpaqueId() == "" {
+			// the root-anchored form parses without an opaque part; the space
+			// root item id is storage$space!space
+			anchor.OpaqueId = anchor.GetSpaceId()
+		}
+		return buildCanonicalRoutePath(storagespace.FormatResourceID(&anchor), match.suffix), relPath, nil
 	}
-	itemID, err := resolve(ctx, gws, &anchor, relPath)
+
+	itemID, err := resolvePath(ctx, gws, &anchor, relPath)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return buildCanonicalRoutePath(itemID, match.suffix), nil
+	return buildCanonicalRoutePath(itemID, match.suffix), "", nil
 }
 
 // parseColonPath splits a colon-syntax RoutePath (the part below
@@ -334,7 +362,9 @@ func parseColonPath(routePath string) (colonMatch, bool) {
 	return m, true
 }
 
-// resolvePath resolves relPath (anchored at anchor) to the item's id, as the request user.
+// resolvePath translates a relative filesystem path (anchored at the given
+// CS3 resource id) into the resolved item's id, running with the request
+// user's permissions via CS3 Stat.
 func resolvePath(
 	ctx context.Context,
 	gws pool.Selectable[gateway.GatewayAPIClient],
@@ -346,75 +376,6 @@ func resolvePath(
 		return "", fmt.Errorf("gateway selector: %w", err)
 	}
 
-	return statPath(ctx, gw, anchor, relPath)
-}
-
-// resolveOrCreatePath is resolvePath with missingParentsBehavior=create: it creates the missing folders along relPath.
-func resolveOrCreatePath(
-	ctx context.Context,
-	gws pool.Selectable[gateway.GatewayAPIClient],
-	anchor *storageprovider.ResourceId,
-	relPath string,
-) (string, error) {
-	gw, err := gws.Next()
-	if err != nil {
-		return "", fmt.Errorf("gateway selector: %w", err)
-	}
-
-	var id, walked string
-	for _, segment := range strings.Split(strings.Trim(relPath, "/"), "/") {
-		walked += "/" + segment
-		id, err = statPath(ctx, gw, anchor, walked)
-		if err == nil {
-			continue
-		}
-		if !errors.Is(err, errPathNotFound) {
-			return "", err
-		}
-
-		res, err := gw.CreateContainer(ctx, &storageprovider.CreateContainerRequest{
-			Ref: &storageprovider.Reference{
-				ResourceId: anchor,
-				Path:       utils.MakeRelativePath(walked),
-			},
-		})
-		if err != nil {
-			return "", fmt.Errorf("CS3 CreateContainer: %w", err)
-		}
-		switch res.GetStatus().GetCode() {
-		case cs3rpc.Code_CODE_OK:
-			// fall through
-		case cs3rpc.Code_CODE_ALREADY_EXISTS:
-			// lost a creation race, the folder is there
-		case cs3rpc.Code_CODE_NOT_FOUND:
-			return "", errPathNotFound
-		case cs3rpc.Code_CODE_PERMISSION_DENIED:
-			return "", errAccessDenied
-		case cs3rpc.Code_CODE_UNAUTHENTICATED:
-			return "", errUnauthenticated
-		default:
-			return "", fmt.Errorf(
-				"CS3 CreateContainer returned %s: %s",
-				res.GetStatus().GetCode(),
-				res.GetStatus().GetMessage(),
-			)
-		}
-
-		id, err = statPath(ctx, gw, anchor, walked)
-		if err != nil {
-			return "", err
-		}
-	}
-	return id, nil
-}
-
-// statPath stats relPath (anchored at anchor) and returns the item's id, as the request user.
-func statPath(
-	ctx context.Context,
-	gw gateway.GatewayAPIClient,
-	anchor *storageprovider.ResourceId,
-	relPath string,
-) (string, error) {
 	// relPath is already decoded (PathUnescape'd once by the caller), matching
 	// the form a normal handler would receive from r.URL.Path.
 	statRes, err := gw.Stat(ctx, &storageprovider.StatRequest{
