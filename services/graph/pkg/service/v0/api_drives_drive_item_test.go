@@ -583,7 +583,7 @@ var _ = Describe("DrivesDriveItemService", func() {
 		})
 	})
 
-	var _ = Describe("CreatePath", func() {
+	var _ = Describe("ResolvePath", func() {
 		parentID := &storageprovider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "2"}
 		pathID := &storageprovider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "3"}
 
@@ -597,7 +597,7 @@ var _ = Describe("DrivesDriveItemService", func() {
 
 		It("rejects invalid path segments", func() {
 			for _, relPath := range []string{"", ".", "..", "a/../b", "a//b"} {
-				_, err := drivesDriveItemService.CreatePath(context.Background(), parentID, relPath)
+				_, err := drivesDriveItemService.ResolvePath(context.Background(), parentID, relPath, false)
 				Expect(err).To(MatchError(svc.ErrInvalidItemName))
 			}
 		})
@@ -612,9 +612,31 @@ var _ = Describe("DrivesDriveItemService", func() {
 				}).
 				Once()
 
-			id, err := drivesDriveItemService.CreatePath(context.Background(), parentID, "/a/b")
+			id, err := drivesDriveItemService.ResolvePath(context.Background(), parentID, "/a/b", true)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(id.GetOpaqueId()).To(Equal("3"))
+		})
+
+		It("returns ErrPathNotFound for a missing path without createMissing", func() {
+			gatewayClient.
+				EXPECT().
+				Stat(mock.Anything, mock.Anything, mock.Anything).
+				Return(statResponse(status.NewNotFound(context.Background(), "missing")), nil).
+				Once()
+
+			_, err := drivesDriveItemService.ResolvePath(context.Background(), parentID, "/a/b", false)
+			Expect(err).To(MatchError(svc.ErrPathNotFound))
+		})
+
+		It("returns ErrPathNotFound for a denied path without createMissing", func() {
+			gatewayClient.
+				EXPECT().
+				Stat(mock.Anything, mock.Anything, mock.Anything).
+				Return(statResponse(status.NewPermissionDenied(context.Background(), nil, "denied")), nil).
+				Once()
+
+			_, err := drivesDriveItemService.ResolvePath(context.Background(), parentID, "/a/b", false)
+			Expect(err).To(MatchError(svc.ErrPathNotFound))
 		})
 
 		It("creates the folders along a missing path, reusing existing ones", func() {
@@ -645,7 +667,7 @@ var _ = Describe("DrivesDriveItemService", func() {
 				Return(statResponse(status.NewOK(context.Background())), nil).
 				Once()
 
-			id, err := drivesDriveItemService.CreatePath(context.Background(), parentID, "/a/b")
+			id, err := drivesDriveItemService.ResolvePath(context.Background(), parentID, "/a/b", true)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(id.GetOpaqueId()).To(Equal("3"))
 		})
@@ -662,7 +684,7 @@ var _ = Describe("DrivesDriveItemService", func() {
 				Return(&storageprovider.CreateContainerResponse{Status: status.NewPermissionDenied(context.Background(), nil, "denied")}, nil).
 				Once()
 
-			_, err := drivesDriveItemService.CreatePath(context.Background(), parentID, "/a")
+			_, err := drivesDriveItemService.ResolvePath(context.Background(), parentID, "/a", true)
 			var lgErr errorcode.Error
 			Expect(errors.As(err, &lgErr)).To(BeTrue())
 			Expect(lgErr.GetCode()).To(Equal(errorcode.AccessDenied))
@@ -1605,7 +1627,7 @@ var _ = Describe("DrivesDriveItemApi", func() {
 			Expect(gjson.Get(w.Body.String(), "file.mimeType").String()).To(Equal("text/plain"))
 		})
 
-		It("creates the unresolved parent path from the context first", func() {
+		It("resolves the parent path from the context first", func() {
 			rCTX.URLParams.Add("driveID", "1$2")
 			rCTX.URLParams.Add("itemID", "1$2!2")
 
@@ -1620,9 +1642,9 @@ var _ = Describe("DrivesDriveItemApi", func() {
 			parentID := &storageprovider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "3"}
 			drivesDriveItemProvider.
 				EXPECT().
-				CreatePath(mock.Anything, mock.MatchedBy(func(id *storageprovider.ResourceId) bool {
+				ResolvePath(mock.Anything, mock.MatchedBy(func(id *storageprovider.ResourceId) bool {
 					return id.GetOpaqueId() == "2"
-				}), "/a/b").
+				}), "/a/b", true).
 				Return(parentID, nil).
 				Once()
 			drivesDriveItemProvider.
@@ -1636,14 +1658,14 @@ var _ = Describe("DrivesDriveItemApi", func() {
 				Once()
 
 			ctx := context.WithValue(context.Background(), chi.RouteCtxKey, rCTX)
-			ctx = context.WithValue(ctx, graphm.CreateParentsContextKey, "/a/b")
-			r := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(driveItemJson)).WithContext(ctx)
+			ctx = context.WithValue(ctx, graphm.ParentPathContextKey, "/a/b")
+			r := httptest.NewRequest(http.MethodPost, "/?%40libre.graph.missingParentsBehavior=create", bytes.NewBuffer(driveItemJson)).WithContext(ctx)
 
 			drivesDriveItemApi.CreateChildDriveItem(w, r)
 			Expect(w.Code).To(Equal(http.StatusCreated))
 		})
 
-		It("does not create parent folders when the request is invalid", func() {
+		It("fails on an invalid missingParentsBehavior without calling the provider", func() {
 			rCTX.URLParams.Add("driveID", "1$2")
 			rCTX.URLParams.Add("itemID", "1$2!2")
 
@@ -1656,10 +1678,34 @@ var _ = Describe("DrivesDriveItemApi", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			ctx := context.WithValue(context.Background(), chi.RouteCtxKey, rCTX)
-			ctx = context.WithValue(ctx, graphm.CreateParentsContextKey, "/a/b")
+			ctx = context.WithValue(ctx, graphm.ParentPathContextKey, "/a/b")
+			r := httptest.NewRequest(http.MethodPost, "/?%40libre.graph.missingParentsBehavior=maybe", bytes.NewBuffer(driveItemJson)).WithContext(ctx)
+
+			// no ResolvePath / CreateChild expectations: the provider must not be called
+			drivesDriveItemApi.CreateChildDriveItem(w, r)
+			Expect(w.Code).To(Equal(http.StatusBadRequest))
+
+			jsonData := gjson.Get(w.Body.String(), "error")
+			Expect(jsonData.Get("code").String() + ": " + jsonData.Get("message").String()).To(Equal(svc.ErrInvalidMissingParentsBehavior.Error()))
+		})
+
+		It("does not resolve parent folders when the request is invalid", func() {
+			rCTX.URLParams.Add("driveID", "1$2")
+			rCTX.URLParams.Add("itemID", "1$2!2")
+
+			w := httptest.NewRecorder()
+
+			driveItemJson, err := json.Marshal(libregraph.DriveItem{
+				Name:   conversions.ToPointer("New Folder"),
+				Folder: &libregraph.Folder{},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			ctx := context.WithValue(context.Background(), chi.RouteCtxKey, rCTX)
+			ctx = context.WithValue(ctx, graphm.ParentPathContextKey, "/a/b")
 			r := httptest.NewRequest(http.MethodPost, "/?%40libre.graph.conflictBehavior=rename", bytes.NewBuffer(driveItemJson)).WithContext(ctx)
 
-			// no CreatePath / CreateChild expectations: the provider must not be called
+			// no ResolvePath / CreateChild expectations: the provider must not be called
 			drivesDriveItemApi.CreateChildDriveItem(w, r)
 			Expect(w.Code).To(Equal(http.StatusBadRequest))
 		})

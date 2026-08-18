@@ -87,6 +87,12 @@ var (
 
 	// ErrInvalidConflictBehavior is returned when the conflictBehavior query parameter is invalid
 	ErrInvalidConflictBehavior = errorcode.New(errorcode.InvalidRequest, "invalid @libre.graph.conflictBehavior")
+
+	// ErrInvalidMissingParentsBehavior is returned when the missingParentsBehavior query parameter is invalid
+	ErrInvalidMissingParentsBehavior = errorcode.New(errorcode.InvalidRequest, "invalid @libre.graph.missingParentsBehavior")
+
+	// ErrPathNotFound is returned when a parent path cannot be resolved
+	ErrPathNotFound = errorcode.New(errorcode.ItemNotFound, "path not found")
 )
 
 type (
@@ -98,8 +104,8 @@ type (
 		// CreateChild creates a folder or an empty file below the given parent
 		CreateChild(ctx context.Context, parentID *storageprovider.ResourceId, name string, isFolder, replace bool) (*storageprovider.ResourceInfo, error)
 
-		// CreatePath ensures the folders along relPath below parentID exist and returns the id of the deepest one
-		CreatePath(ctx context.Context, parentID *storageprovider.ResourceId, relPath string) (*storageprovider.ResourceId, error)
+		// ResolvePath resolves relPath below parentID to its id, creating missing folders when createMissing is set
+		ResolvePath(ctx context.Context, parentID *storageprovider.ResourceId, relPath string, createMissing bool) (*storageprovider.ResourceId, error)
 
 		// MountShare mounts a share
 		MountShare(ctx context.Context, resourceID *storageprovider.ResourceId, name string) ([]*collaboration.ReceivedShare, error)
@@ -403,9 +409,10 @@ func (s DrivesDriveItemService) CreateChild(ctx context.Context, parentID *stora
 	return idRes.GetInfo(), nil
 }
 
-// CreatePath ensures the folders along relPath below parentID exist, creating the missing
-// ones, and returns the id of the deepest one. It backs @libre.graph.missingParentsBehavior=create.
-func (s DrivesDriveItemService) CreatePath(ctx context.Context, parentID *storageprovider.ResourceId, relPath string) (*storageprovider.ResourceId, error) {
+// ResolvePath resolves relPath below parentID to its id; with createMissing the
+// missing folders along the path are created first. It backs colon-path POST
+// .../children requests and @libre.graph.missingParentsBehavior.
+func (s DrivesDriveItemService) ResolvePath(ctx context.Context, parentID *storageprovider.ResourceId, relPath string, createMissing bool) (*storageprovider.ResourceId, error) {
 	segments := strings.Split(strings.Trim(relPath, "/"), "/")
 	for _, segment := range segments {
 		if segment == "" || segment == "." || segment == ".." {
@@ -433,8 +440,15 @@ func (s DrivesDriveItemService) CreatePath(ctx context.Context, parentID *storag
 
 	// common case: the full path exists already
 	id, err := stat()
-	if err == nil || !hasErrorCode(err, errorcode.ItemNotFound) {
-		return id, err
+	switch {
+	case err == nil:
+		return id, nil
+	case !hasErrorCode(err, errorcode.ItemNotFound) && !hasErrorCode(err, errorcode.AccessDenied):
+		return nil, err
+	case !createMissing:
+		// denied collapses to not-found, matching the middleware's colon
+		// lookups (no existence disclosure)
+		return nil, ErrPathNotFound
 	}
 
 	var walked string
@@ -711,14 +725,24 @@ func (api DrivesDriveItemApi) createChild(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// a colon path with missingParentsBehavior=create arrives unresolved: parentID is
-	// the anchor item and the parent path below it still needs to be resolved/created.
-	// This runs after all validation so an invalid request has no side effects.
-	if parents := graphm.CreateParentsPath(r.Context()); parents != "" {
+	// colon-path POST children requests arrive unresolved: parentID is the anchor
+	// item, the parent path below it is resolved (or created) here, after validation
+	if parentPath := graphm.ParentPath(r.Context()); parentPath != "" {
+		var createMissing bool
+		switch r.URL.Query().Get("@libre.graph.missingParentsBehavior") {
+		case "", "fail":
+		case "create":
+			createMissing = true
+		default:
+			api.logger.Debug().Msg(ErrInvalidMissingParentsBehavior.Error())
+			ErrInvalidMissingParentsBehavior.Render(w, r)
+			return
+		}
+
 		var err error
-		parentID, err = api.drivesDriveItemService.CreatePath(r.Context(), parentID, parents)
+		parentID, err = api.drivesDriveItemService.ResolvePath(r.Context(), parentID, parentPath, createMissing)
 		if err != nil {
-			api.logger.Debug().Err(err).Msg("creating parent folders failed")
+			api.logger.Debug().Err(err).Msg("resolving the parent path failed")
 			errorcode.RenderError(w, r, err)
 			return
 		}
