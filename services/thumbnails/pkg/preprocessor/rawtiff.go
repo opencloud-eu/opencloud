@@ -8,11 +8,8 @@ import (
 	thumbnailerErrors "github.com/opencloud-eu/opencloud/services/thumbnails/pkg/errors"
 )
 
-// RawTiffDecoder is a converter for TIFF-based camera raw files (NEF, CR2,
-// PEF, ARW, SR2, DNG). Decoding the raw sensor data would need a full raw
-// development engine; instead it serves the camera-generated JPEG preview
-// embedded in the file, the same image cameras and photo tools show for raw
-// thumbnails.
+// RawTiffDecoder serves the embedded JPEG preview of TIFF-based camera raw
+// files (NEF, CR2, PEF, ARW, SR2, DNG) instead of decoding raw sensor data.
 type RawTiffDecoder struct{}
 
 // Convert extracts the largest renderable embedded JPEG preview and decodes it
@@ -25,9 +22,7 @@ func (RawTiffDecoder) Convert(r io.Reader) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	// the embedded preview usually carries no EXIF of its own, the rotation
-	// lives in the raw container: splice it in so the regular image decoding
-	// orients the thumbnail like any plain JPEG
+	// the rotation lives in the container, the preview carries no EXIF
 	if orientation > 1 {
 		preview = spliceJPEGOrientation(preview, orientation)
 	}
@@ -49,18 +44,11 @@ const (
 	tiffTypeLong           = 4
 	// cycle and decompression-bomb guard for untrusted IFD chains
 	maxIFDs = 64
-	// metadata segments (APPn, DQT, DHT) rarely exceed a few KB before the
-	// SOF marker appears
 	sofScanLimit = 64 * 1024
 )
 
-// extractEmbeddedJPEG walks the TIFF IFD chain (including SubIFDs, where NEF
-// stores its full-size "JpgFromRaw") and returns the largest renderable
-// embedded JPEG plus the container's EXIF orientation. Candidates come from
-// the JPEGInterchangeFormat pair and from single-strip images (CR2 keeps its
-// full-size JPEG as an IFD0 strip); they qualify by their actual stream
-// content, which keeps raw sensor payloads out (DNG stores those as lossless
-// JPEG, which no common decoder renders).
+// extractEmbeddedJPEG walks the IFD chain incl. SubIFDs and returns the
+// largest renderable embedded JPEG plus the container orientation.
 func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 	if len(data) < 8 {
 		return nil, 0, thumbnailerErrors.ErrNoImageFromRawFile
@@ -109,7 +97,7 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 			count := order.Uint32(entry[4:8])
 			switch tag {
 			case tiffTagOrientation:
-				// only the primary image's orientation applies to the previews
+				// only IFD0's orientation applies
 				if first && typ == tiffTypeShort && count == 1 {
 					orientation = order.Uint16(entry[8:10])
 				}
@@ -176,10 +164,8 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 	return best, orientation, nil
 }
 
-// isRenderableJPEG walks the JPEG segments until the SOF marker and accepts
-// only the DCT processes common decoders implement. Raw sensor payloads in
-// DNGs are lossless JPEG (SOF3) and start with the same SOI marker, so the
-// SOI alone does not qualify a stream.
+// isRenderableJPEG accepts only DCT processes common decoders render; DNG
+// raw payloads are lossless JPEG (SOF3) behind a regular SOI marker.
 func isRenderableJPEG(buf []byte) bool {
 	if len(buf) < 4 || buf[0] != 0xff || buf[1] != 0xd8 {
 		return false
