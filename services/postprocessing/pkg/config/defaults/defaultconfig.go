@@ -36,6 +36,7 @@ func DefaultConfig() *config.Config {
 			Workers:              3,
 			RetryBackoffDuration: 5 * time.Second,
 			MaxRetries:           14,
+			PublishMaxRetries:    5,
 		},
 		Store: config.Store{
 			Store:    "nats-js-kv",
