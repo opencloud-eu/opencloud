@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"image"
 	"image/jpeg"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -156,4 +157,68 @@ var _ = Describe("RawTiffDecoder", func() {
 			Expect(bounds.Dy()).To(Equal(64))
 		})
 	})
+	Describe("hardening against crafted files", func() {
+		It("stays bounded when an IFD is packed with huge SubIFD counts", func() {
+			le := binary.LittleEndian
+			preview := encodeJPEG(64, 32)
+			entry := func(tag, typ uint16, count, value uint32) []byte {
+				e := le.AppendUint16(nil, tag)
+				e = le.AppendUint16(e, typ)
+				e = le.AppendUint32(e, count)
+				return le.AppendUint32(e, value)
+			}
+			const subEntries = 200
+			buf := []byte{'I', 'I', 42, 0, 8, 0, 0, 0}
+			ifdStart := uint32(len(buf))
+			entryCount := uint16(2 + subEntries)
+			previewStart := ifdStart + 2 + uint32(entryCount)*12 + 4
+
+			ifd := le.AppendUint16(nil, entryCount)
+			ifd = append(ifd, entry(tiffTagJPEGOffset, tiffTypeLong, 1, previewStart)...)
+			ifd = append(ifd, entry(tiffTagJPEGLength, tiffTypeLong, 1, uint32(len(preview)))...)
+			for i := 0; i < subEntries; i++ {
+				// each claims 4 billion SubIFD pointers at a bogus array offset
+				ifd = append(ifd, entry(tiffTagSubIFDs, tiffTypeLong, 0xffffffff, 8)...)
+			}
+			ifd = le.AppendUint32(ifd, 0)
+			buf = append(buf, ifd...)
+			buf = append(buf, preview...)
+
+			done := make(chan []byte, 1)
+			go func() {
+				jpg, _, _ := extractEmbeddedJPEG(buf)
+				done <- jpg
+			}()
+			select {
+			case jpg := <-done:
+				Expect(jpg).To(Equal(preview))
+			case <-time.After(5 * time.Second):
+				Fail("extractEmbeddedJPEG did not return within 5s on a crafted file")
+			}
+		})
+	})
+
+	Describe("isRenderableJPEG", func() {
+		It("reaches a SOF that lies past 64KB of leading segments", func() {
+			buf := []byte{0xff, 0xd8}
+			// two ~40KB APP1 segments push the SOF past the old 64KB window
+			for n := 0; n < 2; n++ {
+				const payload = 40000
+				buf = append(buf, 0xff, 0xe1, byte((payload+2)>>8), byte((payload+2)&0xff))
+				buf = append(buf, make([]byte, payload)...)
+			}
+			buf = append(buf, 0xff, 0xc0, 0x00, 0x0b, 0x08, 0, 16, 0, 16, 0x01, 0x01, 0x11, 0x00)
+			Expect(isRenderableJPEG(buf)).To(BeTrue())
+		})
+
+		It("rejects a stream that hides the SOF behind too many segments", func() {
+			buf := []byte{0xff, 0xd8}
+			for n := 0; n < maxJPEGSegments+5; n++ {
+				buf = append(buf, 0xff, 0xe1, 0x00, 0x04, 0x00, 0x00) // tiny APP1
+			}
+			buf = append(buf, 0xff, 0xc0, 0x00, 0x0b, 0x08, 0, 16, 0, 16, 0x01, 0x01, 0x11, 0x00)
+			Expect(isRenderableJPEG(buf)).To(BeFalse())
+		})
+	})
+
 })

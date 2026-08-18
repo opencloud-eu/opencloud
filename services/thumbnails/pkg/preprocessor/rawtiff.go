@@ -42,9 +42,10 @@ const (
 	tiffTagJPEGLength      = 0x0202 // JPEGInterchangeFormatLength
 	tiffTypeShort          = 3
 	tiffTypeLong           = 4
-	// cycle and decompression-bomb guard for untrusted IFD chains
-	maxIFDs      = 64
-	sofScanLimit = 64 * 1024
+	// bound work on untrusted input: cap processed IFDs (and the queue) and
+	// the JPEG header segments walked before the SOF marker
+	maxIFDs         = 64
+	maxJPEGSegments = 32
 )
 
 // extractEmbeddedJPEG walks the IFD chain incl. SubIFDs and returns the
@@ -72,6 +73,13 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 
 	queue := []uint32{order.Uint32(data[4:8])}
 	seen := map[uint32]struct{}{}
+	// push queues an IFD offset unless the queue is already full; a crafted
+	// file with millions of SubIFD pointers must not grow it without bound
+	push := func(offset uint32) {
+		if len(queue) < maxIFDs {
+			queue = append(queue, offset)
+		}
+	}
 	first := true
 	for len(queue) > 0 && len(seen) < maxIFDs {
 		ifdOffset := queue[0]
@@ -123,16 +131,16 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 					continue
 				}
 				if count == 1 {
-					queue = append(queue, order.Uint32(entry[8:12]))
+					push(order.Uint32(entry[8:12]))
 					continue
 				}
 				arrayOffset := order.Uint32(entry[8:12])
 				for j := uint32(0); j < count && j < maxIFDs; j++ {
 					pos := int(arrayOffset) + int(j)*4
-					if pos+4 > len(data) {
+					if pos+4 > len(data) || len(queue) >= maxIFDs {
 						break
 					}
-					queue = append(queue, order.Uint32(data[pos:pos+4]))
+					push(order.Uint32(data[pos : pos+4]))
 				}
 			}
 		}
@@ -142,7 +150,7 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 		if stripOffset > 0 && stripLength > 0 {
 			candidates = append(candidates, candidate{stripOffset, stripLength})
 		}
-		queue = append(queue, order.Uint32(data[entriesEnd:entriesEnd+4]))
+		push(order.Uint32(data[entriesEnd : entriesEnd+4]))
 		first = false
 	}
 
@@ -170,11 +178,8 @@ func isRenderableJPEG(buf []byte) bool {
 	if len(buf) < 4 || buf[0] != 0xff || buf[1] != 0xd8 {
 		return false
 	}
-	if len(buf) > sofScanLimit {
-		buf = buf[:sofScanLimit]
-	}
 	i := 2
-	for i+4 <= len(buf) {
+	for segments := 0; i+4 <= len(buf) && segments < maxJPEGSegments; segments++ {
 		if buf[i] != 0xff {
 			return false
 		}
