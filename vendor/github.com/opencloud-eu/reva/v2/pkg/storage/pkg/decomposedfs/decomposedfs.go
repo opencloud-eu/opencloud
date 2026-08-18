@@ -82,6 +82,7 @@ var (
 		events.PostprocessingFinished{},
 		events.PostprocessingStepFinished{},
 		events.RestartPostprocessing{},
+		events.StartPostprocessingStep{},
 	}
 )
 
@@ -440,6 +441,22 @@ func (fs *Decomposedfs) Postprocessing(ch <-chan events.Event) {
 				Filesize:      uint64(session.Size()),
 			}); err != nil {
 				sublog.Error().Err(err).Msg("Failed to publish BytesReceived event")
+			}
+		case events.StartPostprocessingStep:
+			sublog := log.With().Str("event", "StartPostprocessingStep").Str("uploadid", ev.UploadID).Logger()
+			if ev.UploadID == "" {
+				sublog.Error().Msg("UploadID is empty, cannot start postprocessing step")
+				continue
+			}
+			session, err := fs.sessionStore.Get(ctx, ev.UploadID)
+			if err != nil {
+				sublog.Error().Err(err).Msg("Failed to get upload")
+				continue
+			}
+			session.SetStatus(upload.SessionStatusProcessing, "started postprocessing step: "+string(ev.StepToStart))
+			err = session.Persist(ctx)
+			if err != nil {
+				sublog.Error().Err(err).Msg("Failed to persist upload session after starting postprocessing step")
 			}
 		case events.PostprocessingStepFinished:
 			sublog := log.With().Str("event", "PostprocessingStepFinished").Str("uploadid", ev.UploadID).Logger()

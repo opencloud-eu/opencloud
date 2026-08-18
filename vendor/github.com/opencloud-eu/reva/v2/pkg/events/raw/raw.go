@@ -53,6 +53,20 @@ func (re *Event) Ack() error {
 	return re.msg.Ack()
 }
 
+func (re *Event) Nak() error {
+	if re.msg == nil {
+		return errors.New("cannot nack event without message")
+	}
+	return re.msg.Nak()
+}
+
+func (re *Event) Term() error {
+	if re.msg == nil {
+		return errors.New("cannot terminate event without message")
+	}
+	return re.msg.Term()
+}
+
 func (re *Event) InProgress() error {
 	if re.msg == nil {
 		return errors.New("cannot mark event as in progress without message")

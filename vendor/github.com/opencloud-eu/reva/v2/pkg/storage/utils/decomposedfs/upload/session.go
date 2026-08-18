@@ -338,6 +338,22 @@ func (s *OcisSession) ScanData() (string, time.Time) {
 	return s.info.MetaData["scanResult"], d
 }
 
+func (s *OcisSession) SetStatus(status string) {
+	s.info.MetaData["status"] = status
+}
+
+func (s *OcisSession) Status() string {
+	return s.info.MetaData["status"]
+}
+
+func (s *OcisSession) SetStatusMessage(message string) {
+	s.info.MetaData["status_message"] = message
+}
+
+func (s *OcisSession) StatusMessage() string {
+	return s.info.MetaData["status_message"]
+}
+
 // sessionPath returns the path to the .info file storing the file's info.
 func sessionPath(root, id string) string {
 	return filepath.Join(root, "uploads", id+".info")

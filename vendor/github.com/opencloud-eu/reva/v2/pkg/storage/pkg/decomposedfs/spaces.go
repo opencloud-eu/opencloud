@@ -99,6 +99,7 @@ func (fs *Decomposedfs) CreateStorageSpace(ctx context.Context, req *provider.Cr
 	}
 
 	description := utils.ReadPlainFromOpaque(req.Opaque, "description")
+	contentType := utils.ReadPlainFromOpaque(req.Opaque, "contentType")
 	alias := utils.ReadPlainFromOpaque(req.Opaque, "spaceAlias")
 	if alias == "" {
 		alias = templates.WithSpacePropertiesAndUser(u, req.Type, req.Name, spaceID, fs.o.GeneralSpaceAliasTemplate)
@@ -190,6 +191,10 @@ func (fs *Decomposedfs) CreateStorageSpace(ctx context.Context, req *provider.Cr
 
 	if description != "" {
 		metadata.SetString(prefixes.SpaceDescriptionAttr, description)
+	}
+
+	if contentType != "" {
+		metadata.SetString(prefixes.SpaceContentTypeAttr, contentType)
 	}
 
 	if alias != "" {
@@ -607,6 +612,9 @@ func (fs *Decomposedfs) UpdateStorageSpace(ctx context.Context, req *provider.Up
 		if description, ok := space.Opaque.Map["description"]; ok {
 			metadata[prefixes.SpaceDescriptionAttr] = description.Value
 		}
+		if contentType, ok := space.Opaque.Map["contentType"]; ok {
+			metadata[prefixes.SpaceContentTypeAttr] = contentType.Value
+		}
 		if alias := utils.ReadPlainFromOpaque(space.Opaque, "spaceAlias"); alias != "" {
 			metadata.SetString(prefixes.SpaceAliasAttr, alias)
 		}
@@ -660,7 +668,7 @@ func (fs *Decomposedfs) UpdateStorageSpace(ctx context.Context, req *provider.Up
 
 	if !permissions.IsManager(sp) {
 		// We are not a space manager. We need to check for additional permissions.
-		k := []string{prefixes.NameAttr, prefixes.SpaceDescriptionAttr}
+		k := []string{prefixes.NameAttr, prefixes.SpaceDescriptionAttr, prefixes.SpaceContentTypeAttr}
 		if !permissions.IsEditor(sp) {
 			k = append(k, prefixes.SpaceReadmeAttr, prefixes.SpaceAliasAttr, prefixes.SpaceImageAttr)
 		}
@@ -1117,6 +1125,9 @@ func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, 
 	}
 	if sd := spaceAttributes.String(prefixes.SpaceDescriptionAttr); sd != "" {
 		space.Opaque = utils.AppendPlainToOpaque(space.Opaque, "description", sd)
+	}
+	if se := spaceAttributes.String(prefixes.SpaceContentTypeAttr); se != "" {
+		space.Opaque = utils.AppendPlainToOpaque(space.Opaque, "contentType", se)
 	}
 	if sr := spaceAttributes.String(prefixes.SpaceReadmeAttr); sr != "" {
 		space.Opaque = utils.AppendPlainToOpaque(space.Opaque, "readme", storagespace.FormatResourceID(
