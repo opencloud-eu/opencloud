@@ -345,10 +345,12 @@ func ForType(mimeType string, opts map[string]any) FileConverter {
 	case "audio/ogg":
 		return AudioDecoder{}
 	case "image/x-nikon-nef",
+		"image/x-nikon-nrw",
 		"image/x-canon-cr2",
 		"image/x-pentax-pef",
 		"image/x-sony-arw",
 		"image/x-sony-sr2",
+		"image/x-sony-srf",
 		"image/x-adobe-dng":
 		return RawTiffDecoder{}
 	default:
