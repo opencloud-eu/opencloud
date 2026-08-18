@@ -31,6 +31,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump go.opentelemetry.io/otel/exporters/stdout/stdouttrace from 1.44.0 to 1.45.0 [[#3306](https://github.com/opencloud-eu/opencloud/pull/3306)]
 - build(deps): bump go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp from 0.69.0 to 0.70.0 [[#3305](https://github.com/opencloud-eu/opencloud/pull/3305)]
 - build(deps): bump go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc from 1.44.0 to 1.45.0 [[#3280](https://github.com/opencloud-eu/opencloud/pull/3280)]
 - build(deps): bump github.com/rogpeppe/go-internal from 1.15.0 to 1.16.0 [[#3250](https://github.com/opencloud-eu/opencloud/pull/3250)]
