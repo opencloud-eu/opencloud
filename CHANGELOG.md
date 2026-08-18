@@ -4,7 +4,16 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @aduffeck, @butonic, @fschade, @maki5, @pbleser-oc, @schweigisito, @v-scharf
+@AlexAndBear, @JammingBen, @aduffeck, @butonic, @fschade, @maki5, @pbleser-oc, @saw-jan, @schweigisito, @v-scharf
+
+### ✅ Tests
+
+- test(api): fix share role update test scenario [[#3322](https://github.com/opencloud-eu/opencloud/pull/3322)]
+- test: add api tests for cross-space search index mutation [[#3320](https://github.com/opencloud-eu/opencloud/pull/3320)]
+- ci: run search acceptance tests against OpenSearch in nightly [[#3302](https://github.com/opencloud-eu/opencloud/pull/3302)]
+- api-test: notification settings and getting email notifications [[#3281](https://github.com/opencloud-eu/opencloud/pull/3281)]
+- api-test: add posixfs scan and consistency CLI tests [[#3263](https://github.com/opencloud-eu/opencloud/pull/3263)]
+- api-test: replace sleeps with WaitHelper poll for async state [[#3239](https://github.com/opencloud-eu/opencloud/pull/3239)]
 
 ### 📈 Enhancement
 
@@ -15,14 +24,6 @@
 - feat(web): add yjsServerUrl config [[#3259](https://github.com/opencloud-eu/opencloud/pull/3259)]
 - feat(posixfs): #3182 add basepath option in the "posixfs scan" command [[#3235](https://github.com/opencloud-eu/opencloud/pull/3235)]
 
-### ✅ Tests
-
-- test: add api tests for cross-space search index mutation [[#3320](https://github.com/opencloud-eu/opencloud/pull/3320)]
-- ci: run search acceptance tests against OpenSearch in nightly [[#3302](https://github.com/opencloud-eu/opencloud/pull/3302)]
-- api-test: notification settings and getting email notifications [[#3281](https://github.com/opencloud-eu/opencloud/pull/3281)]
-- api-test: add posixfs scan and consistency CLI tests [[#3263](https://github.com/opencloud-eu/opencloud/pull/3263)]
-- api-test: replace sleeps with WaitHelper poll for async state [[#3239](https://github.com/opencloud-eu/opencloud/pull/3239)]
-
 ### 🐛 Bug Fixes
 
 - fix restore file version for shared resource [[#3268](https://github.com/opencloud-eu/opencloud/pull/3268)]
@@ -30,6 +31,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp from 0.69.0 to 0.70.0 [[#3305](https://github.com/opencloud-eu/opencloud/pull/3305)]
 - build(deps): bump go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc from 1.44.0 to 1.45.0 [[#3280](https://github.com/opencloud-eu/opencloud/pull/3280)]
 - build(deps): bump github.com/rogpeppe/go-internal from 1.15.0 to 1.16.0 [[#3250](https://github.com/opencloud-eu/opencloud/pull/3250)]
 - build(deps): bump github.com/kovidgoyal/imaging from 1.8.22 to 1.8.23 [[#3135](https://github.com/opencloud-eu/opencloud/pull/3135)]
