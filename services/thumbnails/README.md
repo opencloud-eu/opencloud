@@ -30,7 +30,7 @@ Thumbnails can be generated from the following source file types:
 -   tiff
 -   bmp
 -   txt
--   camera raw files: nef, nrw, cr2, pef, arw, sr2, srf, dng
+-   camera raw files: nef, cr2, pef, arw, sr2, srf, dng (and nrw once reva maps the extension, see opencloud-eu/reva#773)
 
 For camera raw files the thumbnail is generated from the JPEG preview the camera embedded in the file, the raw sensor data itself is not developed. Raw files without an embedded preview cannot be thumbnailed.
 

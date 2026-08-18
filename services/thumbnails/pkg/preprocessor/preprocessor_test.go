@@ -173,6 +173,17 @@ var _ = Describe("ImageDecoder", func() {
 			Expect(decoder).To(BeAssignableToTypeOf(GifDecoder{}))
 		})
 
+		It("should return a RawTiffDecoder for every registered raw type", func() {
+			rawTypes := []string{
+				"image/x-nikon-nef", "image/x-nikon-nrw", "image/x-canon-cr2",
+				"image/x-pentax-pef", "image/x-sony-arw", "image/x-sony-sr2",
+				"image/x-sony-srf", "image/x-adobe-dng",
+			}
+			for _, mt := range rawTypes {
+				Expect(ForType(mt, nil)).To(BeAssignableToTypeOf(RawTiffDecoder{}), mt)
+			}
+		})
+
 		It("should return an GgsDecoder for ggs types", func() {
 			decoder := ForType("application/vnd.geogebra.ggs", nil)
 			// This will not return the expected ggsDecoder, but an ImageDecoder since ggs contains an embedded png.

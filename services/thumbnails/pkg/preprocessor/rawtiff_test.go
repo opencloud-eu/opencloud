@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"image"
+	"image/color"
 	"image/jpeg"
 	"time"
 
@@ -221,4 +222,172 @@ var _ = Describe("RawTiffDecoder", func() {
 		})
 	})
 
+})
+
+// buildRawFileBE mirrors buildRawFile in big-endian ('MM') byte order, which is
+// how real Nikon NEFs are laid out. The inline orientation SHORT must be
+// left-justified in the 4-byte value field, so it is shifted into the high
+// bytes; LONG offset/length entries fill the field and need no adjustment.
+func buildRawFileBE(orientation uint16, thumb, preview []byte) []byte {
+	be := binary.BigEndian
+	buf := []byte{'M', 'M', 0, 42, 0, 0, 0, 8}
+
+	entryLong := func(tag uint16, value uint32) []byte {
+		e := be.AppendUint16(nil, tag)
+		e = be.AppendUint16(e, tiffTypeLong)
+		e = be.AppendUint32(e, 1)
+		return be.AppendUint32(e, value)
+	}
+	entryShort := func(tag uint16, value uint16) []byte {
+		e := be.AppendUint16(nil, tag)
+		e = be.AppendUint16(e, tiffTypeShort)
+		e = be.AppendUint32(e, 1)
+		return be.AppendUint32(e, uint32(value)<<16) // left-justified
+	}
+
+	ifd0Start := uint32(len(buf))
+	subifdStart := ifd0Start + 2 + 4*12 + 4
+	thumbStart := subifdStart + 2 + 2*12 + 4
+	previewStart := thumbStart + uint32(len(thumb))
+
+	ifd0 := be.AppendUint16(nil, 4)
+	ifd0 = append(ifd0, entryShort(tiffTagOrientation, orientation)...)
+	ifd0 = append(ifd0, entryLong(tiffTagSubIFDs, subifdStart)...)
+	ifd0 = append(ifd0, entryLong(tiffTagJPEGOffset, thumbStart)...)
+	ifd0 = append(ifd0, entryLong(tiffTagJPEGLength, uint32(len(thumb)))...)
+	ifd0 = be.AppendUint32(ifd0, 0)
+
+	subifd := be.AppendUint16(nil, 2)
+	subifd = append(subifd, entryLong(tiffTagJPEGOffset, previewStart)...)
+	subifd = append(subifd, entryLong(tiffTagJPEGLength, uint32(len(preview)))...)
+	subifd = be.AppendUint32(subifd, 0)
+
+	buf = append(buf, ifd0...)
+	buf = append(buf, subifd...)
+	buf = append(buf, thumb...)
+	return append(buf, preview...)
+}
+
+var _ = Describe("RawTiffDecoder byte order and selection", func() {
+	It("parses big-endian (MM) files like real NEFs", func() {
+		thumb := encodeJPEG(16, 8)
+		preview := encodeJPEG(64, 32)
+		jpg, orientation, err := extractEmbeddedJPEG(buildRawFileBE(6, thumb, preview))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(jpg).To(Equal(preview))
+		Expect(orientation).To(Equal(uint16(6)))
+	})
+
+	It("applies the container orientation on a big-endian file", func() {
+		img, err := RawTiffDecoder{}.Convert(bytes.NewReader(buildRawFileBE(6, encodeJPEG(16, 8), encodeJPEG(64, 32))))
+		Expect(err).ToNot(HaveOccurred())
+		bounds := img.(image.Image).Bounds()
+		Expect(bounds.Dx()).To(Equal(32))
+		Expect(bounds.Dy()).To(Equal(64))
+	})
+
+	It("selects the largest candidate regardless of discovery order", func() {
+		// the larger JPEG sits in IFD0 (appended first), the smaller in the
+		// SubIFD (appended later): a last-wins bug would pick the small one
+		large := encodeJPEG(64, 32)
+		small := encodeJPEG(16, 8)
+		jpg, _, err := extractEmbeddedJPEG(buildRawFile(1, large, small))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(jpg).To(Equal(large))
+	})
+
+	It("rejects a preview whose length exceeds maxPreviewLength", func() {
+		preview := encodeJPEG(64, 32)
+		original := maxPreviewLength
+		defer func() { maxPreviewLength = original }()
+		maxPreviewLength = int64(len(preview)) - 1
+		_, _, err := extractEmbeddedJPEG(buildRawFile(1, encodeJPEG(8, 8), preview))
+		// only the tiny thumbnail remains under the cap
+		Expect(err).ToNot(HaveOccurred())
+		maxPreviewLength = 1
+		_, _, err = extractEmbeddedJPEG(buildRawFile(1, preview, preview))
+		Expect(err).To(MatchError(thumbnailerErrors.ErrNoImageFromRawFile))
+	})
+})
+
+var _ = Describe("isRenderableJPEG classification", func() {
+	sof := func(marker byte) []byte {
+		return []byte{0xff, 0xd8, 0xff, marker, 0x00, 0x0b, 0x08, 0, 16, 0, 16, 0x01, 0x01, 0x11, 0x00}
+	}
+	cases := []struct {
+		name string
+		buf  []byte
+		want bool
+	}{
+		{"baseline SOF0", sof(0xc0), true},
+		{"extended sequential SOF1", sof(0xc1), true},
+		{"progressive SOF2", sof(0xc2), true},
+		{"lossless SOF3", sof(0xc3), false},
+		{"arithmetic SOF9", sof(0xc9), false},
+		{"not a JPEG", []byte{0x00, 0x01, 0x02, 0x03}, false},
+		{"SOI only, truncated", []byte{0xff, 0xd8}, false},
+		{"SOS before any SOF", []byte{0xff, 0xd8, 0xff, 0xda, 0x00, 0x02}, false},
+		{"skips a fill byte before the SOF", append([]byte{0xff, 0xd8, 0xff}, sof(0xc0)[2:]...), true},
+		{"skips an APP1 segment before the SOF", append([]byte{0xff, 0xd8, 0xff, 0xe1, 0x00, 0x04, 0x00, 0x00}, sof(0xc0)[2:]...), true},
+	}
+	for _, tc := range cases {
+		It(tc.name, func() {
+			Expect(isRenderableJPEG(tc.buf)).To(Equal(tc.want))
+		})
+	}
+})
+
+var _ = Describe("RawTiffDecoder orientation direction", func() {
+	// encodeCornerMarked returns a JPEG with the top-left quadrant bright red on
+	// black, so the rotation direction can be read from where the red lands.
+	encodeCornerMarked := func(w, h int) []byte {
+		img := image.NewRGBA(image.Rect(0, 0, w, h))
+		for y := 0; y < h/2; y++ {
+			for x := 0; x < w/2; x++ {
+				img.Set(x, y, color.RGBA{R: 255, A: 255})
+			}
+		}
+		var buf bytes.Buffer
+		Expect(jpeg.Encode(&buf, img, &jpeg.Options{Quality: 95})).To(Succeed())
+		return buf.Bytes()
+	}
+	reddestCorner := func(img image.Image) string {
+		b := img.Bounds()
+		w, h := b.Dx(), b.Dy()
+		avg := func(x0, y0 int) int {
+			sum := 0
+			for y := y0; y < y0+h/4; y++ {
+				for x := x0; x < x0+w/4; x++ {
+					r, _, _, _ := img.At(b.Min.X+x, b.Min.Y+y).RGBA()
+					sum += int(r >> 8)
+				}
+			}
+			return sum
+		}
+		corners := map[string]int{"TL": avg(0, 0), "TR": avg(3*w/4, 0), "BL": avg(0, 3*h/4), "BR": avg(3*w/4, 3*h/4)}
+		best, bestV := "", -1
+		for k, v := range corners {
+			if v > bestV {
+				best, bestV = k, v
+			}
+		}
+		return best
+	}
+	cases := []struct {
+		name        string
+		orientation uint16
+		wantCorner  string
+	}{
+		{"orientation 1 keeps it top-left", 1, "TL"},
+		{"orientation 6 rotates it to top-right", 6, "TR"},
+		{"orientation 8 rotates it to bottom-left", 8, "BL"},
+	}
+	for _, tc := range cases {
+		It(tc.name, func() {
+			marked := encodeCornerMarked(48, 24)
+			img, err := RawTiffDecoder{}.Convert(bytes.NewReader(buildRawFile(tc.orientation, encodeJPEG(8, 8), marked)))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(reddestCorner(img.(image.Image))).To(Equal(tc.wantCorner))
+		})
+	}
 })

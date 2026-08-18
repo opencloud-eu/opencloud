@@ -9,7 +9,8 @@ import (
 )
 
 // RawTiffDecoder serves the embedded JPEG preview of TIFF-based camera raw
-// files (NEF, CR2, PEF, ARW, SR2, DNG) instead of decoding raw sensor data.
+// files (the formats routed to it in ForType) instead of decoding raw sensor
+// data.
 type RawTiffDecoder struct{}
 
 // Convert extracts the largest renderable embedded JPEG preview and decodes it
@@ -42,14 +43,17 @@ const (
 	tiffTagJPEGLength      = 0x0202 // JPEGInterchangeFormatLength
 	tiffTypeShort          = 3
 	tiffTypeLong           = 4
+	tiffMagic              = 42
 	// bound work on untrusted input: cap processed IFDs (and the queue) and
 	// the JPEG header segments walked before the SOF marker
 	maxIFDs         = 64
 	maxJPEGSegments = 32
-	// previews are camera-generated JPEGs; tens of MB is already generous, an
-	// oversized declared length is rejected rather than served
-	maxPreviewLength = 100 * 1024 * 1024
 )
+
+// maxPreviewLength bounds the served preview: previews are camera-generated
+// JPEGs, so tens of MB is already generous and an oversized declared length is
+// rejected rather than served. A var so tests can lower it.
+var maxPreviewLength int64 = 100 * 1024 * 1024
 
 // extractEmbeddedJPEG walks the IFD chain incl. SubIFDs and returns the
 // largest renderable embedded JPEG plus the container orientation.
@@ -66,7 +70,7 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 	default:
 		return nil, 0, thumbnailerErrors.ErrNoImageFromRawFile
 	}
-	if order.Uint16(data[2:4]) != 42 {
+	if order.Uint16(data[2:4]) != tiffMagic {
 		return nil, 0, thumbnailerErrors.ErrNoImageFromRawFile
 	}
 
@@ -160,7 +164,7 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 	var best []byte
 	for _, c := range candidates {
 		end := int64(c.offset) + int64(c.length)
-		if end > int64(len(data)) || c.length > maxPreviewLength || int(c.length) <= len(best) {
+		if end > int64(len(data)) || int64(c.length) > maxPreviewLength || int(c.length) <= len(best) {
 			continue
 		}
 		jpg := data[c.offset:end]
@@ -222,7 +226,7 @@ func spliceJPEGOrientation(jpg []byte, orientation uint16) []byte {
 	tiff := make([]byte, 0, 26)
 	le := binary.LittleEndian
 	tiff = append(tiff, 'I', 'I')
-	tiff = le.AppendUint16(tiff, 42)
+	tiff = le.AppendUint16(tiff, tiffMagic)
 	tiff = le.AppendUint32(tiff, 8) // IFD0 offset
 	tiff = le.AppendUint16(tiff, 1) // one entry
 	tiff = le.AppendUint16(tiff, tiffTagOrientation)
