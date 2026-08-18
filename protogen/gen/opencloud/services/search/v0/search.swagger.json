@@ -167,6 +167,67 @@
         }
       }
     },
+    "v0AggregationOption": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string",
+          "description": "Required. The indexed field to aggregate on (for terms/range\naggregations) or to reduce (for metric aggregations)."
+        },
+        "size": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Optional. Maximum number of buckets to return for a terms aggregation.\nIgnored for range and metric aggregations."
+        },
+        "bucketDefinition": {
+          "$ref": "#/definitions/v0BucketDefinition",
+          "description": "Optional. Controls bucket selection, ordering and filtering.\nIgnored for metric aggregations."
+        },
+        "subAggregations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0AggregationOption"
+          },
+          "description": "Optional. Nested aggregations computed within each bucket of this\naggregation. On bleve, sub-aggregations are emulated by walking the\nmatched result set; on OpenSearch they translate to native composite\naggregations."
+        },
+        "metricKind": {
+          "$ref": "#/definitions/v0MetricKind",
+          "description": "Optional. When set, this aggregation is a scalar metric over `field`\nrather than a bucket aggregation; the corresponding AggregationResult\ncarries `value` instead of `buckets`."
+        }
+      }
+    },
+    "v0AggregationResult": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "buckets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0Bucket"
+          }
+        },
+        "value": {
+          "type": "number",
+          "format": "double",
+          "description": "Scalar value for metric aggregations (metric_kind set on the\ncorresponding AggregationOption). Unset / zero for terms/range\naggregations."
+        },
+        "metricKind": {
+          "$ref": "#/definitions/v0MetricKind",
+          "description": "Echoes the metric_kind of the corresponding AggregationOption. Lets\nthe cross-space merge layer pick the right reducer."
+        },
+        "sum": {
+          "type": "number",
+          "format": "double",
+          "description": "Accumulators used exclusively for AVG during cross-space merges.\nA backend computes (sum, count) per bucket so the service layer can\nmerge them additively and emit `value = sum/count` only at the\noutermost collapse. Other metric kinds leave these unset."
+        },
+        "count": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
     "v0Audio": {
       "type": "object",
       "properties": {
@@ -224,6 +285,63 @@
         "year": {
           "type": "integer",
           "format": "int32"
+        }
+      }
+    },
+    "v0Bucket": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "count": {
+          "type": "string",
+          "format": "int64"
+        },
+        "aggregationFilterToken": {
+          "type": "string"
+        },
+        "subAggregations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0AggregationResult"
+          },
+          "description": "Nested aggregation results, one entry per sub_aggregation requested\non the parent AggregationOption."
+        }
+      }
+    },
+    "v0BucketDefinition": {
+      "type": "object",
+      "properties": {
+        "sortBy": {
+          "type": "string",
+          "description": "One of \"count\", \"keyAsString\", \"keyAsNumber\"."
+        },
+        "isDescending": {
+          "type": "boolean"
+        },
+        "minimumCount": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "ranges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0BucketRange"
+          },
+          "description": "Optional. When non-empty, the aggregation is computed over these numeric\nor date ranges instead of as a terms aggregation."
+        }
+      }
+    },
+    "v0BucketRange": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string",
+          "description": "At least one of `from` or `to` must be set. Both are string-encoded;\nnumeric bounds are decimal strings, dates use RFC3339."
+        },
+        "to": {
+          "type": "string"
         }
       }
     },
@@ -390,6 +508,17 @@
         }
       }
     },
+    "v0MetricKind": {
+      "type": "string",
+      "enum": [
+        "METRIC_KIND_UNSPECIFIED",
+        "METRIC_KIND_SUM",
+        "METRIC_KIND_MIN",
+        "METRIC_KIND_MAX",
+        "METRIC_KIND_AVG"
+      ],
+      "default": "METRIC_KIND_UNSPECIFIED"
+    },
     "v0Photo": {
       "type": "object",
       "properties": {
@@ -471,6 +600,13 @@
         },
         "ref": {
           "$ref": "#/definitions/v0Reference"
+        },
+        "aggregations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0AggregationOption"
+          },
+          "description": "Optional. Per-space aggregations (facets) to compute alongside the matches."
         }
       }
     },
@@ -490,6 +626,13 @@
         "totalMatches": {
           "type": "integer",
           "format": "int32"
+        },
+        "aggregations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0AggregationResult"
+          },
+          "description": "Per-space aggregation results. The service layer merges these across\nspaces before returning them to the caller."
         }
       }
     },
@@ -510,6 +653,13 @@
         },
         "ref": {
           "$ref": "#/definitions/v0Reference"
+        },
+        "aggregations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0AggregationOption"
+          },
+          "description": "Optional. Aggregations (facets) to compute alongside the matches."
         }
       }
     },
@@ -529,6 +679,13 @@
         "totalMatches": {
           "type": "integer",
           "format": "int32"
+        },
+        "aggregations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0AggregationResult"
+          },
+          "description": "Aggregation results, one entry per requested aggregation."
         }
       }
     }

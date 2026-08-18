@@ -124,6 +124,8 @@ type Service interface { //nolint:interfacebloat
 	GetTags(w http.ResponseWriter, r *http.Request)
 	AssignTags(w http.ResponseWriter, r *http.Request)
 	UnassignTags(w http.ResponseWriter, r *http.Request)
+
+	SearchQuery(w http.ResponseWriter, r *http.Request)
 }
 
 // NewService returns a service implementation for Service.
@@ -305,6 +307,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 				r.Get("/", svc.GetRoleDefinitions)
 				r.Get("/{roleID}", svc.GetRoleDefinition)
 			})
+			r.Post("/search/query", svc.SearchQuery)
 		})
 		r.Route("/v1.0", func(r chi.Router) {
 			r.Route("/extensions/org.libregraph", func(r chi.Router) {
