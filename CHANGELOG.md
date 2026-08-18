@@ -31,6 +31,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/testcontainers/testcontainers-go/modules/opensearch from 0.43.0 to 0.44.0 [[#3303](https://github.com/opencloud-eu/opencloud/pull/3303)]
 - build(deps): bump github.com/opencloud-eu/libre-graph-api-go [[#3326](https://github.com/opencloud-eu/opencloud/pull/3326)]
 - build(deps): bump go.opentelemetry.io/otel/exporters/stdout/stdouttrace from 1.44.0 to 1.45.0 [[#3306](https://github.com/opencloud-eu/opencloud/pull/3306)]
 - build(deps): bump go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp from 0.69.0 to 0.70.0 [[#3305](https://github.com/opencloud-eu/opencloud/pull/3305)]
