@@ -163,7 +163,7 @@ Feature: Share spaces
       | sharee          | Brian        |
       | shareType       | user         |
       | permissionsRole | <space-role> |
-    When user "Alice" shares a space "share space" with settings:
+    When user "Alice" updates the space "share space" with settings:
       | shareWith | Brian              |
       | role      | <share-space-role> |
     Then the HTTP status code should be "200"
