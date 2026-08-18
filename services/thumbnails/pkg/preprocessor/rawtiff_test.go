@@ -58,7 +58,7 @@ func buildRawFile(orientation uint16, thumb, preview []byte) []byte {
 	return append(buf, preview...)
 }
 
-var _ = Describe("RawImageDecoder", func() {
+var _ = Describe("RawTiffDecoder", func() {
 	var (
 		thumb   = encodeJPEG(16, 8)
 		preview = encodeJPEG(64, 32)
@@ -105,9 +105,42 @@ var _ = Describe("RawImageDecoder", func() {
 		})
 	})
 
+	Describe("candidate selection", func() {
+		It("accepts a single-strip JPEG (the CR2 IFD0 layout)", func() {
+			le := binary.LittleEndian
+			jpg := encodeJPEG(32, 16)
+			buf := []byte{'I', 'I', 42, 0, 8, 0, 0, 0}
+			ifdStart := uint32(len(buf))
+			dataStart := ifdStart + 2 + 2*12 + 4
+			entry := func(tag, typ uint16, value uint32) []byte {
+				e := le.AppendUint16(nil, tag)
+				e = le.AppendUint16(e, typ)
+				e = le.AppendUint32(e, 1)
+				return le.AppendUint32(e, value)
+			}
+			ifd := le.AppendUint16(nil, 2)
+			ifd = append(ifd, entry(tiffTagStripOffsets, tiffTypeLong, dataStart)...)
+			ifd = append(ifd, entry(tiffTagStripByteCounts, tiffTypeLong, uint32(len(jpg)))...)
+			ifd = le.AppendUint32(ifd, 0)
+			buf = append(buf, ifd...)
+			buf = append(buf, jpg...)
+
+			got, _, err := extractEmbeddedJPEG(buf)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got).To(Equal(jpg))
+		})
+
+		It("rejects lossless JPEG payloads (the DNG raw layout)", func() {
+			// SOI + SOF3: starts like a JPEG but no common decoder renders it
+			lossless := append([]byte{0xff, 0xd8, 0xff, 0xc3, 0x00, 0x0b, 8, 0, 16, 0, 16, 1, 0, 0x11, 0}, thumb...)
+			_, _, err := extractEmbeddedJPEG(buildRawFile(1, nil, lossless))
+			Expect(err).To(MatchError(thumbnailerErrors.ErrNoImageFromRawFile))
+		})
+	})
+
 	Describe("Convert", func() {
 		It("decodes the embedded preview", func() {
-			img, err := RawImageDecoder{}.Convert(bytes.NewReader(buildRawFile(1, thumb, preview)))
+			img, err := RawTiffDecoder{}.Convert(bytes.NewReader(buildRawFile(1, thumb, preview)))
 			Expect(err).ToNot(HaveOccurred())
 			bounds := img.(image.Image).Bounds()
 			Expect(bounds.Dx()).To(Equal(64))
@@ -116,7 +149,7 @@ var _ = Describe("RawImageDecoder", func() {
 
 		It("applies the container orientation to the preview", func() {
 			// orientation 6 = 90 degrees clockwise: dimensions swap
-			img, err := RawImageDecoder{}.Convert(bytes.NewReader(buildRawFile(6, thumb, preview)))
+			img, err := RawTiffDecoder{}.Convert(bytes.NewReader(buildRawFile(6, thumb, preview)))
 			Expect(err).ToNot(HaveOccurred())
 			bounds := img.(image.Image).Bounds()
 			Expect(bounds.Dx()).To(Equal(32))

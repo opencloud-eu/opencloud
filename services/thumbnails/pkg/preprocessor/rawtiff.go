@@ -8,14 +8,15 @@ import (
 	thumbnailerErrors "github.com/opencloud-eu/opencloud/services/thumbnails/pkg/errors"
 )
 
-// RawImageDecoder is a converter for TIFF-based camera raw files (NEF & co).
-// Decoding the raw sensor data would need a full raw development engine;
-// instead it serves the camera-generated JPEG preview embedded in the file,
-// the same image cameras and photo tools show for raw thumbnails.
-type RawImageDecoder struct{}
+// RawTiffDecoder is a converter for TIFF-based camera raw files (NEF, CR2,
+// PEF, ARW, SR2, DNG). Decoding the raw sensor data would need a full raw
+// development engine; instead it serves the camera-generated JPEG preview
+// embedded in the file, the same image cameras and photo tools show for raw
+// thumbnails.
+type RawTiffDecoder struct{}
 
-// Convert extracts the largest embedded JPEG preview and decodes it
-func (RawImageDecoder) Convert(r io.Reader) (any, error) {
+// Convert extracts the largest renderable embedded JPEG preview and decodes it
+func (RawTiffDecoder) Convert(r io.Reader) (any, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -38,19 +39,28 @@ func (RawImageDecoder) Convert(r io.Reader) (any, error) {
 }
 
 const (
-	tiffTagOrientation = 0x0112
-	tiffTagSubIFDs     = 0x014a
-	tiffTagJPEGOffset  = 0x0201 // JPEGInterchangeFormat
-	tiffTagJPEGLength  = 0x0202 // JPEGInterchangeFormatLength
-	tiffTypeShort      = 3
-	tiffTypeLong       = 4
+	tiffTagStripOffsets    = 0x0111
+	tiffTagOrientation     = 0x0112
+	tiffTagStripByteCounts = 0x0117
+	tiffTagSubIFDs         = 0x014a
+	tiffTagJPEGOffset      = 0x0201 // JPEGInterchangeFormat
+	tiffTagJPEGLength      = 0x0202 // JPEGInterchangeFormatLength
+	tiffTypeShort          = 3
+	tiffTypeLong           = 4
 	// cycle and decompression-bomb guard for untrusted IFD chains
 	maxIFDs = 64
+	// metadata segments (APPn, DQT, DHT) rarely exceed a few KB before the
+	// SOF marker appears
+	sofScanLimit = 64 * 1024
 )
 
-// extractEmbeddedJPEG walks the TIFF IFD chain (including SubIFDs, where
-// NEF stores its full-size "JpgFromRaw") and returns the largest embedded
-// JPEG plus the container's EXIF orientation.
+// extractEmbeddedJPEG walks the TIFF IFD chain (including SubIFDs, where NEF
+// stores its full-size "JpgFromRaw") and returns the largest renderable
+// embedded JPEG plus the container's EXIF orientation. Candidates come from
+// the JPEGInterchangeFormat pair and from single-strip images (CR2 keeps its
+// full-size JPEG as an IFD0 strip); they qualify by their actual stream
+// content, which keeps raw sensor payloads out (DNG stores those as lossless
+// JPEG, which no common decoder renders).
 func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 	if len(data) < 8 {
 		return nil, 0, thumbnailerErrors.ErrNoImageFromRawFile
@@ -91,7 +101,7 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 			continue
 		}
 
-		var jpegOffset, jpegLength uint32
+		var jpegOffset, jpegLength, stripOffset, stripLength uint32
 		for i := 0; i < entryCount; i++ {
 			entry := data[int(ifdOffset)+2+i*12:]
 			tag := order.Uint16(entry[0:2])
@@ -110,6 +120,15 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 			case tiffTagJPEGLength:
 				if typ == tiffTypeLong && count == 1 {
 					jpegLength = order.Uint32(entry[8:12])
+				}
+			case tiffTagStripOffsets:
+				// only single-strip images can be a contiguous JPEG stream
+				if typ == tiffTypeLong && count == 1 {
+					stripOffset = order.Uint32(entry[8:12])
+				}
+			case tiffTagStripByteCounts:
+				if typ == tiffTypeLong && count == 1 {
+					stripLength = order.Uint32(entry[8:12])
 				}
 			case tiffTagSubIFDs:
 				if typ != tiffTypeLong {
@@ -132,6 +151,9 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 		if jpegOffset > 0 && jpegLength > 0 {
 			candidates = append(candidates, candidate{jpegOffset, jpegLength})
 		}
+		if stripOffset > 0 && stripLength > 0 {
+			candidates = append(candidates, candidate{stripOffset, stripLength})
+		}
 		queue = append(queue, order.Uint32(data[entriesEnd:entriesEnd+4]))
 		first = false
 	}
@@ -143,7 +165,7 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 			continue
 		}
 		jpg := data[c.offset:end]
-		if len(jpg) < 3 || jpg[0] != 0xff || jpg[1] != 0xd8 {
+		if !isRenderableJPEG(jpg) {
 			continue
 		}
 		best = jpg
@@ -152,6 +174,49 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 		return nil, 0, thumbnailerErrors.ErrNoImageFromRawFile
 	}
 	return best, orientation, nil
+}
+
+// isRenderableJPEG walks the JPEG segments until the SOF marker and accepts
+// only the DCT processes common decoders implement. Raw sensor payloads in
+// DNGs are lossless JPEG (SOF3) and start with the same SOI marker, so the
+// SOI alone does not qualify a stream.
+func isRenderableJPEG(buf []byte) bool {
+	if len(buf) < 4 || buf[0] != 0xff || buf[1] != 0xd8 {
+		return false
+	}
+	if len(buf) > sofScanLimit {
+		buf = buf[:sofScanLimit]
+	}
+	i := 2
+	for i+4 <= len(buf) {
+		if buf[i] != 0xff {
+			return false
+		}
+		marker := buf[i+1]
+		switch {
+		case marker == 0xff: // fill byte
+			i++
+			continue
+		case marker >= 0xd0 && marker <= 0xd7: // RST, no length field
+			i += 2
+			continue
+		}
+		switch marker {
+		case 0xc0, 0xc1, 0xc2: // baseline, extended sequential, progressive
+			return true
+		case 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf:
+			// lossless, differential and arithmetic processes
+			return false
+		case 0xd9, 0xda: // EOI or scan start without a SOF
+			return false
+		}
+		segLen := int(buf[i+2])<<8 | int(buf[i+3])
+		if segLen < 2 {
+			return false
+		}
+		i += 2 + segLen
+	}
+	return false
 }
 
 // spliceJPEGOrientation inserts a minimal EXIF APP1 segment carrying only the
