@@ -68,11 +68,8 @@ OC_MODULES = \
 	protogen
 
 # bin file definitions
-PHP_CS_FIXER=php -d zend.enable_gc=0 vendor-bin/opencloud-codestyle/vendor/bin/php-cs-fixer
-PHP_CODESNIFFER=vendor-bin/php_codesniffer/vendor/bin/phpcs
-PHP_CODEBEAUTIFIER=vendor-bin/php_codesniffer/vendor/bin/phpcbf
-PHAN=php -d zend.enable_gc=0 vendor-bin/phan/vendor/bin/phan
-PHPSTAN=php -d zend.enable_gc=0 vendor-bin/phpstan/vendor/bin/phpstan
+PHP_CODESNIFFER=vendor-bin/opencloud-codestyle/vendor/bin/phpcs
+PHP_CODEBEAUTIFIER=vendor-bin/opencloud-codestyle/vendor/bin/phpcbf
 
 ifneq (, $(shell command -v go 2> /dev/null)) # suppress `command not found warnings` for non go targets in CI
 include .bingo/Variables.mk
@@ -319,13 +316,11 @@ ci-format: $(BUILDIFIER)
 	$(BUILDIFIER) --mode=fix .woodpecker.star
 
 .PHONY: test-php-style
-test-php-style: vendor-bin/opencloud-codestyle/vendor vendor-bin/php_codesniffer/vendor
-	$(PHP_CS_FIXER) fix -v --diff --allow-risky yes --dry-run
+test-php-style: vendor-bin/opencloud-codestyle/vendor
 	$(PHP_CODESNIFFER) --cache --runtime-set ignore_warnings_on_exit --standard=phpcs.xml tests/acceptance tests/acceptance/TestHelpers
 
 .PHONY: test-php-style-fix
 test-php-style-fix: vendor-bin/opencloud-codestyle/vendor
-	$(PHP_CS_FIXER) fix -v --diff --allow-risky yes
 	$(PHP_CODEBEAUTIFIER) --cache --runtime-set ignore_warnings_on_exit --standard=phpcs.xml tests/acceptance
 
 vendor-bin/opencloud-codestyle/vendor: vendor/bamarni/composer-bin-plugin vendor-bin/opencloud-codestyle/composer.lock
@@ -333,10 +328,3 @@ vendor-bin/opencloud-codestyle/vendor: vendor/bamarni/composer-bin-plugin vendor
 
 vendor-bin/opencloud-codestyle/composer.lock: vendor-bin/opencloud-codestyle/composer.json
 	@echo opencloud-codestyle composer.lock is not up to date.
-
-vendor-bin/php_codesniffer/vendor: vendor/bamarni/composer-bin-plugin vendor-bin/php_codesniffer/composer.lock
-	composer bin php_codesniffer install --no-progress
-
-vendor-bin/php_codesniffer/composer.lock: vendor-bin/php_codesniffer/composer.json
-	@echo php_codesniffer composer.lock is not up to date.
-

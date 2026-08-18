@@ -36,7 +36,6 @@ vendor-bin/**/composer.lock
 vendor-php
 
 # API acceptance tests - auto-generated files
-.php-cs-fixer.cache
 suite-logs
 tests/acceptance/filesForUpload/filesWithVirus/
 
