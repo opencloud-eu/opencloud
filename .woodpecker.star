@@ -920,30 +920,6 @@ def buildOpencloudBinaryForTesting(ctx):
     }
     return [pipeline]
 
-def vendorbinCodestyle(phpVersion):
-    return [{
-        "name": "vendorbin-codestyle",
-        "image": OC_CI_PHP % phpVersion,
-        "environment": {
-            "COMPOSER_HOME": "%s/.cache/composer" % dirs["base"],
-        },
-        "commands": [
-            "make vendor-bin-codestyle",
-        ],
-    }]
-
-def vendorbinCodesniffer(phpVersion):
-    return [{
-        "name": "vendorbin-codesniffer",
-        "image": OC_CI_PHP % phpVersion,
-        "environment": {
-            "COMPOSER_HOME": "%s/.cache/composer" % dirs["base"],
-        },
-        "commands": [
-            "make vendor-bin-codesniffer",
-        ],
-    }]
-
 def checkTestSuitesInExpectedFailures(ctx):
     return [{
         "name": "check-suites-in-expected-failures",
@@ -1031,24 +1007,22 @@ def codestyle(ctx):
 
             result = {
                 "name": name,
-                "steps": vendorbinCodestyle(phpVersion) +
-                         vendorbinCodesniffer(phpVersion) +
-                         [
-                             {
-                                 "name": "php-style",
-                                 "image": OC_CI_PHP % phpVersion,
-                                 "commands": [
-                                     "make test-php-style",
-                                 ],
-                             },
-                             {
-                                 "name": "check-env-var-annotations",
-                                 "image": OC_CI_PHP % phpVersion,
-                                 "commands": [
-                                     "make check-env-var-annotations",
-                                 ],
-                             },
-                         ],
+                "steps": [
+                    {
+                        "name": "php-style",
+                        "image": OC_CI_PHP % phpVersion,
+                        "commands": [
+                            "make test-php-style",
+                        ],
+                    },
+                    {
+                        "name": "check-env-var-annotations",
+                        "image": OC_CI_PHP % phpVersion,
+                        "commands": [
+                            "make check-env-var-annotations",
+                        ],
+                    },
+                ],
                 "depends_on": [],
                 "when": [
                     event["base"],

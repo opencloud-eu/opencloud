@@ -328,12 +328,6 @@ test-php-style-fix: vendor-bin/opencloud-codestyle/vendor
 	$(PHP_CS_FIXER) fix -v --diff --allow-risky yes
 	$(PHP_CODEBEAUTIFIER) --cache --runtime-set ignore_warnings_on_exit --standard=phpcs.xml tests/acceptance
 
-.PHONY: vendor-bin-codestyle
-vendor-bin-codestyle: vendor-bin/opencloud-codestyle/vendor
-
-.PHONY: vendor-bin-codesniffer
-vendor-bin-codesniffer: vendor-bin/php_codesniffer/vendor
-
 vendor-bin/opencloud-codestyle/vendor: vendor/bamarni/composer-bin-plugin vendor-bin/opencloud-codestyle/composer.lock
 	composer bin opencloud-codestyle install --no-progress
 
