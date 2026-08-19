@@ -175,9 +175,9 @@ func (g Thumbnail) handleCS3Source(ctx context.Context, req *thumbnailssvc.GetTh
 	pp := preprocessor.ForType(sRes.GetInfo().GetMimeType(), ppOpts)
 	img, err := pp.Convert(ctx, r)
 	switch {
-	case errors.Is(err, terrors.ErrNoImageFromRawFile):
-		// a raw file without an embedded preview is expected, not an error
-		g.logger.Debug().Err(err).Msg("no embedded preview in raw file")
+	case errors.Is(err, terrors.ErrNoEmbeddedImage):
+		// a source without an embedded image is expected, not an error
+		g.logger.Debug().Err(err).Msg("no embedded image in source")
 	case err != nil:
 		g.logger.Error().Err(err).Msg("failed to convert image")
 	}

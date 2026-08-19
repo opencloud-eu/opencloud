@@ -16,14 +16,13 @@ import (
 // maxPreviewLength bounds a served preview; a var so tests can lower it.
 var maxPreviewLength int64 = 100 * 1024 * 1024
 
-// maxJPEGSegments bounds the header segments walked before the SOF marker;
-// generous so a big ICC profile split across many APP2 markers still resolves.
+// maxJPEGSegments bounds the header segments walked before the SOF marker.
 const maxJPEGSegments = 128
 
-// TikaDecoder extracts an embedded preview image from a file via a Tika server.
+// TikaDecoder extracts a file's embedded preview image via a Tika server.
 type TikaDecoder struct {
 	tikaURL string
-	// filename lets Tika route by extension; content alone sniffs raws as plain image/tiff.
+	// filename lets Tika route by extension; content alone sniffs raws as image/tiff.
 	filename string
 }
 
@@ -32,7 +31,7 @@ func (d TikaDecoder) Convert(ctx context.Context, r io.Reader) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	preview, err := tikaExtractPreview(ctx, d.tikaURL, d.filename, data)
+	preview, err := tikaLargestPreview(ctx, d.tikaURL, d.filename, data)
 	if err != nil {
 		return nil, err
 	}
@@ -41,16 +40,16 @@ func (d TikaDecoder) Convert(ctx context.Context, r io.Reader) (any, error) {
 
 var tikaHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
-// tikaExtractPreview unpacks the file via Tika and returns its largest renderable embedded JPEG.
-func tikaExtractPreview(ctx context.Context, tikaURL, filename string, data []byte) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, strings.TrimRight(tikaURL, "/")+"/unpack", bytes.NewReader(data))
+// tikaUnpack PUTs the file to a Tika unpack endpoint and returns the response zip.
+func tikaUnpack(ctx context.Context, tikaURL, endpoint, filename string, data []byte) (*zip.Reader, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, strings.TrimRight(tikaURL, "/")+endpoint, bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Accept", "application/zip")
 	if filename != "" {
-		// quoted: unquoted values with spaces/specials would truncate the extension Tika routes on
+		// the extension routes Tika to its raw parser; quote it so spaces survive
 		req.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 	}
 
@@ -59,14 +58,12 @@ func tikaExtractPreview(ctx context.Context, tikaURL, filename string, data []by
 		return nil, fmt.Errorf("tika unpack request failed: %w", err)
 	}
 	defer resp.Body.Close()
-	// Tika answers 204 when the file carries no embedded resources: an expected previewless raw
-	if resp.StatusCode == http.StatusNoContent {
-		return nil, thumbnailerErrors.ErrNoImageFromRawFile
+	if resp.StatusCode == http.StatusNoContent { // no embedded resources
+		return nil, thumbnailerErrors.ErrNoEmbeddedImage
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("tika unpack returned %s", resp.Status)
 	}
-
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxPreviewLength))
 	if err != nil {
 		return nil, err
@@ -75,27 +72,42 @@ func tikaExtractPreview(ctx context.Context, tikaURL, filename string, data []by
 	if err != nil {
 		return nil, fmt.Errorf("tika unpack response is not a valid zip: %w", err)
 	}
+	return zr, nil
+}
 
+// tikaLargestPreview returns the largest renderable embedded JPEG.
+func tikaLargestPreview(ctx context.Context, tikaURL, filename string, data []byte) ([]byte, error) {
+	zr, err := tikaUnpack(ctx, tikaURL, "/unpack", filename, data)
+	if err != nil {
+		return nil, err
+	}
 	var best []byte
 	for _, f := range zr.File {
 		if f.UncompressedSize64 == 0 || f.UncompressedSize64 > uint64(maxPreviewLength) || int(f.UncompressedSize64) <= len(best) {
 			continue
 		}
-		rc, err := f.Open()
-		if err != nil {
-			continue
+		if jpg := readZipEntry(f); isRenderableJPEG(jpg) {
+			best = jpg
 		}
-		jpg, err := io.ReadAll(io.LimitReader(rc, maxPreviewLength))
-		_ = rc.Close()
-		if err != nil || !isRenderableJPEG(jpg) {
-			continue
-		}
-		best = jpg
 	}
 	if best == nil {
-		return nil, thumbnailerErrors.ErrNoImageFromRawFile
+		return nil, thumbnailerErrors.ErrNoEmbeddedImage
 	}
 	return best, nil
+}
+
+// readZipEntry reads a zip entry fully, bounded by maxPreviewLength.
+func readZipEntry(f *zip.File) []byte {
+	rc, err := f.Open()
+	if err != nil {
+		return nil
+	}
+	defer rc.Close()
+	b, err := io.ReadAll(io.LimitReader(rc, maxPreviewLength))
+	if err != nil {
+		return nil
+	}
+	return b
 }
 
 // isRenderableJPEG accepts only DCT processes common decoders render; DNG raw

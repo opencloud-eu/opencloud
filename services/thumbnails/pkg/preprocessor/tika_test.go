@@ -78,7 +78,7 @@ var _ = Describe("TikaDecoder", func() {
 		defer srv.Close()
 
 		_, err := TikaDecoder{tikaURL: srv.URL}.Convert(context.TODO(), bytes.NewReader([]byte("raw")))
-		Expect(err).To(MatchError(thumbnailerErrors.ErrNoImageFromRawFile))
+		Expect(err).To(MatchError(thumbnailerErrors.ErrNoEmbeddedImage))
 	})
 
 	It("errors when Tika returns a non-OK status", func() {
@@ -125,7 +125,7 @@ var _ = Describe("TikaDecoder", func() {
 		defer srv.Close()
 
 		_, err := TikaDecoder{tikaURL: srv.URL}.Convert(context.TODO(), bytes.NewReader([]byte("raw")))
-		Expect(err).To(MatchError(thumbnailerErrors.ErrNoImageFromRawFile))
+		Expect(err).To(MatchError(thumbnailerErrors.ErrNoEmbeddedImage))
 	})
 
 	It("errors when the 200 response body is not a zip", func() {
@@ -136,7 +136,7 @@ var _ = Describe("TikaDecoder", func() {
 
 		_, err := TikaDecoder{tikaURL: srv.URL}.Convert(context.TODO(), bytes.NewReader([]byte("raw")))
 		Expect(err).To(HaveOccurred())
-		Expect(err).ToNot(MatchError(thumbnailerErrors.ErrNoImageFromRawFile))
+		Expect(err).ToNot(MatchError(thumbnailerErrors.ErrNoEmbeddedImage))
 	})
 
 	It("classifies JPEG renderability by SOF marker", func() {

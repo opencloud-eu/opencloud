@@ -20,7 +20,7 @@ func TestImageDecoder(t *testing.T) {
 	RunSpecs(t, "ImageDecoder Suite")
 }
 
-var _ = Describe("ImageDecoder", func() {
+var _ = Describe("preprocessor", func() {
 	Describe("ImageDecoder", func() {
 		var fileReader io.Reader
 		BeforeEach(func() {
