@@ -170,6 +170,7 @@ func (g Thumbnail) handleCS3Source(ctx context.Context, req *thumbnailssvc.GetTh
 	ppOpts := map[string]any{
 		"fontFileMap": g.preprocessorOpts.TxtFontFileMap,
 		"tikaURL":     g.preprocessorOpts.TikaURL,
+		"filename":    sRes.GetInfo().GetName(),
 	}
 	pp := preprocessor.ForType(sRes.GetInfo().GetMimeType(), ppOpts)
 	img, err := pp.Convert(r)
@@ -271,6 +272,7 @@ func (g Thumbnail) handleWebdavSource(ctx context.Context, req *thumbnailssvc.Ge
 	ppOpts := map[string]any{
 		"fontFileMap": g.preprocessorOpts.TxtFontFileMap,
 		"tikaURL":     g.preprocessorOpts.TikaURL,
+		"filename":    sRes.GetInfo().GetName(),
 	}
 	pp := preprocessor.ForType(sRes.GetInfo().GetMimeType(), ppOpts)
 	img, err := pp.Convert(r)

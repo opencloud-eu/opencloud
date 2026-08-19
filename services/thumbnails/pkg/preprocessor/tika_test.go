@@ -31,7 +31,17 @@ func zipWith(entries map[string][]byte) []byte {
 	return buf.Bytes()
 }
 
-var _ = Describe("RawTikaDecoder", func() {
+// losslessJPEG builds a SOF3 (lossless) JPEG of the given size; such payloads
+// carry DNG raw data and must be rejected by isRenderableJPEG.
+func losslessJPEG(size int) []byte {
+	b := []byte{0xff, 0xd8, 0xff, 0xc3}
+	if size > len(b) {
+		b = append(b, make([]byte, size-len(b))...)
+	}
+	return b
+}
+
+var _ = Describe("TikaDecoder", func() {
 	It("extracts the largest renderable JPEG from Tika's unpack zip", func() {
 		small := encodeJPEG(16, 8)
 		large := encodeJPEG(64, 32)
@@ -47,7 +57,7 @@ var _ = Describe("RawTikaDecoder", func() {
 		}))
 		defer srv.Close()
 
-		img, err := RawTikaDecoder{tikaURL: srv.URL}.Convert(bytes.NewReader([]byte("raw")))
+		img, err := TikaDecoder{tikaURL: srv.URL}.Convert(bytes.NewReader([]byte("raw")))
 		Expect(err).ToNot(HaveOccurred())
 		// default (imaging) build decodes to an image.Image
 		bounds := img.(image.Image).Bounds()
@@ -61,7 +71,7 @@ var _ = Describe("RawTikaDecoder", func() {
 		}))
 		defer srv.Close()
 
-		_, err := RawTikaDecoder{tikaURL: srv.URL}.Convert(bytes.NewReader([]byte("raw")))
+		_, err := TikaDecoder{tikaURL: srv.URL}.Convert(bytes.NewReader([]byte("raw")))
 		Expect(err).To(MatchError(thumbnailerErrors.ErrNoImageFromRawFile))
 	})
 
@@ -71,7 +81,63 @@ var _ = Describe("RawTikaDecoder", func() {
 		}))
 		defer srv.Close()
 
-		_, err := RawTikaDecoder{tikaURL: srv.URL}.Convert(bytes.NewReader([]byte("raw")))
+		_, err := TikaDecoder{tikaURL: srv.URL}.Convert(bytes.NewReader([]byte("raw")))
 		Expect(err).To(HaveOccurred())
+	})
+
+	It("sends the quoted source filename so Tika can route by extension", func() {
+		var gotCD string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotCD = r.Header.Get("Content-Disposition")
+			_, _ = w.Write(zipWith(map[string][]byte{"0.jpg": encodeJPEG(8, 8)}))
+		}))
+		defer srv.Close()
+
+		_, err := TikaDecoder{tikaURL: srv.URL, filename: "my photo.nef"}.Convert(bytes.NewReader([]byte("raw")))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(gotCD).To(Equal(`attachment; filename="my photo.nef"`))
+	})
+
+	It("skips a larger lossless entry and picks the smaller renderable JPEG", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write(zipWith(map[string][]byte{
+				"big-lossless": losslessJPEG(4096),
+				"small":        encodeJPEG(16, 8),
+			}))
+		}))
+		defer srv.Close()
+
+		img, err := TikaDecoder{tikaURL: srv.URL}.Convert(bytes.NewReader([]byte("raw")))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(img.(image.Image).Bounds().Dx()).To(Equal(16))
+	})
+
+	It("treats Tika's 204 (no embedded resources) as a previewless raw", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		}))
+		defer srv.Close()
+
+		_, err := TikaDecoder{tikaURL: srv.URL}.Convert(bytes.NewReader([]byte("raw")))
+		Expect(err).To(MatchError(thumbnailerErrors.ErrNoImageFromRawFile))
+	})
+
+	It("errors when the 200 response body is not a zip", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte("not a zip"))
+		}))
+		defer srv.Close()
+
+		_, err := TikaDecoder{tikaURL: srv.URL}.Convert(bytes.NewReader([]byte("raw")))
+		Expect(err).To(HaveOccurred())
+		Expect(err).ToNot(MatchError(thumbnailerErrors.ErrNoImageFromRawFile))
+	})
+
+	It("classifies JPEG renderability by SOF marker", func() {
+		Expect(isRenderableJPEG(encodeJPEG(8, 8))).To(BeTrue())
+		Expect(isRenderableJPEG(losslessJPEG(64))).To(BeFalse())
+		Expect(isRenderableJPEG([]byte{0xff, 0xd8})).To(BeFalse())
+		Expect(isRenderableJPEG(nil)).To(BeFalse())
+		Expect(isRenderableJPEG([]byte("not a jpeg"))).To(BeFalse())
 	})
 })

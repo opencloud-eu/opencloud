@@ -179,10 +179,10 @@ var _ = Describe("ImageDecoder", func() {
 			"image/x-sony-srf", "image/x-adobe-dng",
 		}
 
-		It("should return a RawTikaDecoder for every registered raw type when a Tika URL is set", func() {
+		It("should return a TikaDecoder for every registered raw type when a Tika URL is set", func() {
 			opts := map[string]any{"tikaURL": "http://tika:9998"}
 			for _, mt := range rawTypes {
-				Expect(ForType(mt, opts)).To(BeAssignableToTypeOf(RawTikaDecoder{}), mt)
+				Expect(ForType(mt, opts)).To(BeAssignableToTypeOf(TikaDecoder{}), mt)
 			}
 		})
 

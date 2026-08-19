@@ -16,52 +16,53 @@ import (
 // maxPreviewLength bounds a served preview; a var so tests can lower it.
 var maxPreviewLength int64 = 100 * 1024 * 1024
 
-// maxJPEGSegments bounds the header segments walked before the SOF marker.
-const maxJPEGSegments = 32
+// maxJPEGSegments bounds the header segments walked before the SOF marker;
+// generous so a big ICC profile split across many APP2 markers still resolves.
+const maxJPEGSegments = 128
 
-// RawTikaDecoder extracts a raw file's embedded JPEG preview by asking a Tika
-// server to unpack it (Tika returns embedded documents from /unpack as a zip).
-type RawTikaDecoder struct {
+// TikaDecoder extracts an embedded preview image from a file via a Tika server.
+type TikaDecoder struct {
 	tikaURL string
+	// filename lets Tika route by extension; content alone sniffs raws as plain image/tiff.
+	filename string
 }
 
-// Convert extracts the largest renderable embedded JPEG preview via Tika and
-// decodes it through the image pipeline.
-func (d RawTikaDecoder) Convert(r io.Reader) (any, error) {
+func (d TikaDecoder) Convert(r io.Reader) (any, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
-	preview, err := tikaExtractPreview(context.Background(), d.tikaURL, data)
+	preview, err := tikaExtractPreview(context.Background(), d.tikaURL, d.filename, data)
 	if err != nil {
 		return nil, err
 	}
-	converter := ForType("image/jpeg", nil)
-	if converter == nil {
-		return nil, thumbnailerErrors.ErrNoImageFromRawFile
-	}
-	return converter.Convert(bytes.NewReader(preview))
+	return ForType("image/jpeg", nil).Convert(bytes.NewReader(preview))
 }
 
 var tikaHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
-// tikaExtractPreview PUTs the raw file to Tika's /unpack endpoint and returns
-// the largest renderable embedded JPEG it hands back.
-func tikaExtractPreview(ctx context.Context, tikaURL string, data []byte) ([]byte, error) {
+// tikaExtractPreview unpacks the file via Tika and returns its largest renderable embedded JPEG.
+func tikaExtractPreview(ctx context.Context, tikaURL, filename string, data []byte) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, strings.TrimRight(tikaURL, "/")+"/unpack", bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
-	// let Tika detect the raw type; its MIME names differ from opencloud's, so a
-	// forced Content-Type would misroute
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Accept", "application/zip")
+	if filename != "" {
+		// quoted: unquoted values with spaces/specials would truncate the extension Tika routes on
+		req.Header.Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+	}
 
 	resp, err := tikaHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("tika unpack request failed: %w", err)
 	}
 	defer resp.Body.Close()
+	// Tika answers 204 when the file carries no embedded resources: an expected previewless raw
+	if resp.StatusCode == http.StatusNoContent {
+		return nil, thumbnailerErrors.ErrNoImageFromRawFile
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("tika unpack returned %s", resp.Status)
 	}
