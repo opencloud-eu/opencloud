@@ -2005,8 +2005,8 @@ github.com/shirou/gopsutil/v4/internal/common
 github.com/shirou/gopsutil/v4/mem
 github.com/shirou/gopsutil/v4/net
 github.com/shirou/gopsutil/v4/process
-# github.com/sirupsen/logrus v1.9.4
-## explicit; go 1.17
+# github.com/sirupsen/logrus v1.10.0
+## explicit; go 1.23
 github.com/sirupsen/logrus
 # github.com/skeema/knownhosts v1.3.1
 ## explicit; go 1.22
