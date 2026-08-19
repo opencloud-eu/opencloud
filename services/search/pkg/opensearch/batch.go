@@ -63,7 +63,7 @@ func (b *Batch) Upsert(id string, r search.Resource) error {
 	})
 }
 
-func (b *Batch) Move(id, parentID, location string) error {
+func (b *Batch) Move(id string, parentID string, targetPath string) error {
 	return b.withSizeLimit(func() error {
 		op := func() error {
 			return updateSelfAndDescendants(context.Background(), b.client, b.index, id, func(rootResource search.Resource) *osu.BodyParamScript {
@@ -77,8 +77,8 @@ func (b *Batch) Move(id, parentID, location string) error {
 						"id":       id,
 						"parentID": parentID,
 						"oldPath":  rootResource.Path,
-						"newPath":  utils.MakeRelativePath(location),
-						"newName":  path.Base(utils.MakeRelativePath(location)),
+						"newPath":  utils.MakeRelativePath(targetPath),
+						"newName":  path.Base(utils.MakeRelativePath(targetPath)),
 					},
 				}
 			})

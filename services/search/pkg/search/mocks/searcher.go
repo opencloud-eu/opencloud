@@ -40,8 +40,8 @@ func (_m *Searcher) EXPECT() *Searcher_Expecter {
 }
 
 // IndexSpace provides a mock function for the type Searcher
-func (_mock *Searcher) IndexSpace(rID *providerv1beta1.StorageSpaceId, forceRescan bool) error {
-	ret := _mock.Called(rID, forceRescan)
+func (_mock *Searcher) IndexSpace(spaceID *providerv1beta1.StorageSpaceId, forceRescan bool) error {
+	ret := _mock.Called(spaceID, forceRescan)
 
 	if len(ret) == 0 {
 		panic("no return value specified for IndexSpace")
@@ -49,7 +49,7 @@ func (_mock *Searcher) IndexSpace(rID *providerv1beta1.StorageSpaceId, forceResc
 
 	var r0 error
 	if returnFunc, ok := ret.Get(0).(func(*providerv1beta1.StorageSpaceId, bool) error); ok {
-		r0 = returnFunc(rID, forceRescan)
+		r0 = returnFunc(spaceID, forceRescan)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -62,13 +62,13 @@ type Searcher_IndexSpace_Call struct {
 }
 
 // IndexSpace is a helper method to define mock.On call
-//   - rID *providerv1beta1.StorageSpaceId
+//   - spaceID *providerv1beta1.StorageSpaceId
 //   - forceRescan bool
-func (_e *Searcher_Expecter) IndexSpace(rID interface{}, forceRescan interface{}) *Searcher_IndexSpace_Call {
-	return &Searcher_IndexSpace_Call{Call: _e.mock.On("IndexSpace", rID, forceRescan)}
+func (_e *Searcher_Expecter) IndexSpace(spaceID interface{}, forceRescan interface{}) *Searcher_IndexSpace_Call {
+	return &Searcher_IndexSpace_Call{Call: _e.mock.On("IndexSpace", spaceID, forceRescan)}
 }
 
-func (_c *Searcher_IndexSpace_Call) Run(run func(rID *providerv1beta1.StorageSpaceId, forceRescan bool)) *Searcher_IndexSpace_Call {
+func (_c *Searcher_IndexSpace_Call) Run(run func(spaceID *providerv1beta1.StorageSpaceId, forceRescan bool)) *Searcher_IndexSpace_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 *providerv1beta1.StorageSpaceId
 		if args[0] != nil {
@@ -91,7 +91,7 @@ func (_c *Searcher_IndexSpace_Call) Return(err error) *Searcher_IndexSpace_Call 
 	return _c
 }
 
-func (_c *Searcher_IndexSpace_Call) RunAndReturn(run func(rID *providerv1beta1.StorageSpaceId, forceRescan bool) error) *Searcher_IndexSpace_Call {
+func (_c *Searcher_IndexSpace_Call) RunAndReturn(run func(spaceID *providerv1beta1.StorageSpaceId, forceRescan bool) error) *Searcher_IndexSpace_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -188,8 +188,8 @@ func (_c *Searcher_PurgeDeleted_Call) RunAndReturn(run func(spaceID *providerv1b
 }
 
 // PurgeItem provides a mock function for the type Searcher
-func (_mock *Searcher) PurgeItem(rID *providerv1beta1.Reference) {
-	_mock.Called(rID)
+func (_mock *Searcher) PurgeItem(ref *providerv1beta1.Reference) {
+	_mock.Called(ref)
 	return
 }
 
@@ -199,12 +199,12 @@ type Searcher_PurgeItem_Call struct {
 }
 
 // PurgeItem is a helper method to define mock.On call
-//   - rID *providerv1beta1.Reference
-func (_e *Searcher_Expecter) PurgeItem(rID interface{}) *Searcher_PurgeItem_Call {
-	return &Searcher_PurgeItem_Call{Call: _e.mock.On("PurgeItem", rID)}
+//   - ref *providerv1beta1.Reference
+func (_e *Searcher_Expecter) PurgeItem(ref interface{}) *Searcher_PurgeItem_Call {
+	return &Searcher_PurgeItem_Call{Call: _e.mock.On("PurgeItem", ref)}
 }
 
-func (_c *Searcher_PurgeItem_Call) Run(run func(rID *providerv1beta1.Reference)) *Searcher_PurgeItem_Call {
+func (_c *Searcher_PurgeItem_Call) Run(run func(ref *providerv1beta1.Reference)) *Searcher_PurgeItem_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 *providerv1beta1.Reference
 		if args[0] != nil {
@@ -222,7 +222,7 @@ func (_c *Searcher_PurgeItem_Call) Return() *Searcher_PurgeItem_Call {
 	return _c
 }
 
-func (_c *Searcher_PurgeItem_Call) RunAndReturn(run func(rID *providerv1beta1.Reference)) *Searcher_PurgeItem_Call {
+func (_c *Searcher_PurgeItem_Call) RunAndReturn(run func(ref *providerv1beta1.Reference)) *Searcher_PurgeItem_Call {
 	_c.Run(run)
 	return _c
 }
@@ -336,8 +336,8 @@ func (_c *Searcher_Search_Call) RunAndReturn(run func(ctx context.Context, req *
 }
 
 // TrashItem provides a mock function for the type Searcher
-func (_mock *Searcher) TrashItem(rID *providerv1beta1.ResourceId) {
-	_mock.Called(rID)
+func (_mock *Searcher) TrashItem(resourceID *providerv1beta1.ResourceId) {
+	_mock.Called(resourceID)
 	return
 }
 
@@ -347,12 +347,12 @@ type Searcher_TrashItem_Call struct {
 }
 
 // TrashItem is a helper method to define mock.On call
-//   - rID *providerv1beta1.ResourceId
-func (_e *Searcher_Expecter) TrashItem(rID interface{}) *Searcher_TrashItem_Call {
-	return &Searcher_TrashItem_Call{Call: _e.mock.On("TrashItem", rID)}
+//   - resourceID *providerv1beta1.ResourceId
+func (_e *Searcher_Expecter) TrashItem(resourceID interface{}) *Searcher_TrashItem_Call {
+	return &Searcher_TrashItem_Call{Call: _e.mock.On("TrashItem", resourceID)}
 }
 
-func (_c *Searcher_TrashItem_Call) Run(run func(rID *providerv1beta1.ResourceId)) *Searcher_TrashItem_Call {
+func (_c *Searcher_TrashItem_Call) Run(run func(resourceID *providerv1beta1.ResourceId)) *Searcher_TrashItem_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 *providerv1beta1.ResourceId
 		if args[0] != nil {
@@ -370,7 +370,7 @@ func (_c *Searcher_TrashItem_Call) Return() *Searcher_TrashItem_Call {
 	return _c
 }
 
-func (_c *Searcher_TrashItem_Call) RunAndReturn(run func(rID *providerv1beta1.ResourceId)) *Searcher_TrashItem_Call {
+func (_c *Searcher_TrashItem_Call) RunAndReturn(run func(resourceID *providerv1beta1.ResourceId)) *Searcher_TrashItem_Call {
 	_c.Run(run)
 	return _c
 }

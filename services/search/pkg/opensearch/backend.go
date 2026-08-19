@@ -194,13 +194,13 @@ func (b *Backend) Upsert(id string, r search.Resource) error {
 	return batch.Push()
 }
 
-func (b *Backend) Move(id string, parentID string, target string) error {
+func (b *Backend) Move(id string, parentID string, targetPath string) error {
 	batch, err := b.NewBatch(defaultBatchSize)
 	if err != nil {
 		return err
 	}
 
-	if err := batch.Move(id, parentID, target); err != nil {
+	if err := batch.Move(id, parentID, targetPath); err != nil {
 		return err
 	}
 
