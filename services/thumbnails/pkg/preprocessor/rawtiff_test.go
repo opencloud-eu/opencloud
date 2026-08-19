@@ -391,3 +391,65 @@ var _ = Describe("RawTiffDecoder orientation direction", func() {
 		})
 	}
 })
+
+// buildBigTiffRawFile assembles a minimal little-endian BigTIFF (magic 43,
+// 8-byte counts/offsets, 20-byte entries) as DNG allows since spec 1.7: IFD0
+// carries the orientation and a LONG8 JpegInterchange preview.
+func buildBigTiffRawFile(orientation uint16, preview []byte) []byte {
+	le := binary.LittleEndian
+	// header: II, magic 43, offset size 8, constant 0, then the 8-byte IFD0 offset
+	buf := []byte{'I', 'I', 43, 0, 8, 0, 0, 0}
+	buf = le.AppendUint64(buf, 16)
+
+	entry := func(tag, typ uint16, value uint64) []byte {
+		e := le.AppendUint16(nil, tag)
+		e = le.AppendUint16(e, typ)
+		e = le.AppendUint64(e, 1) // count
+		return le.AppendUint64(e, value)
+	}
+
+	// IFD0: entryCount(8) + 3 entries(20 each) + next(8)
+	previewStart := uint64(16) + 8 + 3*20 + 8
+
+	ifd0 := le.AppendUint64(nil, 3)
+	ifd0 = append(ifd0, entry(tiffTagOrientation, tiffTypeShort, uint64(orientation))...)
+	ifd0 = append(ifd0, entry(tiffTagJPEGOffset, tiffTypeLong8, previewStart)...)
+	ifd0 = append(ifd0, entry(tiffTagJPEGLength, tiffTypeLong8, uint64(len(preview)))...)
+	ifd0 = le.AppendUint64(ifd0, 0)
+
+	buf = append(buf, ifd0...)
+	return append(buf, preview...)
+}
+
+var _ = Describe("RawTiffDecoder BigTIFF (DNG 1.7)", func() {
+	preview := encodeJPEG(64, 32)
+
+	It("extracts the embedded JPEG and orientation from a BigTIFF container", func() {
+		jpg, orientation, err := extractEmbeddedJPEG(buildBigTiffRawFile(6, preview))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(jpg).To(Equal(preview))
+		Expect(orientation).To(Equal(uint16(6)))
+	})
+
+	It("rejects a BigTIFF header with an unexpected offset size", func() {
+		data := buildBigTiffRawFile(1, preview)
+		data[4] = 4 // offset size must be 8
+		_, _, err := extractEmbeddedJPEG(data)
+		Expect(err).To(MatchError(thumbnailerErrors.ErrNoImageFromRawFile))
+	})
+
+	It("decodes and orients a BigTIFF preview end to end", func() {
+		img, err := RawTiffDecoder{}.Convert(bytes.NewReader(buildBigTiffRawFile(6, preview)))
+		Expect(err).ToNot(HaveOccurred())
+		bounds := img.(image.Image).Bounds()
+		Expect(bounds.Dx()).To(Equal(32))
+		Expect(bounds.Dy()).To(Equal(64))
+	})
+
+	It("survives truncated BigTIFF files", func() {
+		full := buildBigTiffRawFile(1, preview)
+		for cut := 0; cut < len(full); cut += 7 {
+			_, _, _ = extractEmbeddedJPEG(full[:cut])
+		}
+	})
+})
