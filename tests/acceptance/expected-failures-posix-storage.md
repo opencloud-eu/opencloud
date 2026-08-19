@@ -56,11 +56,6 @@
 - [apiGraphUserGroup/addUserToGroup.feature:378](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L378)
 - [apiGraphUserGroup/addUserToGroup.feature:392](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L392)
 
-#### [Adding the same user as multiple members in a single request results in listing the same user twice in the group](https://github.com/owncloud/ocis/issues/5855)
-
-
-- [apiGraphUserGroup/addUserToGroup.feature:429](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L429)
-
 #### [Shared file locking is not possible using different path](https://github.com/owncloud/ocis/issues/7599)
 
 - [apiLocks/lockFiles.feature:185](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiLocks/lockFiles.feature#L185)
