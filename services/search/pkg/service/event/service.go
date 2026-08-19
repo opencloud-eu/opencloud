@@ -2,6 +2,7 @@ package event
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -165,52 +166,64 @@ func (s Service) processEvent(e raw.Event) error {
 	_, span := tracer.Start(ctx, "processEvent")
 	defer span.End()
 
-	e.InProgress() // let nats know that we are processing this event
+	if err := e.InProgress(); err != nil {
+		s.log.Debug().Err(err).Interface("event", e).Msg("failed to set event progress")
+	}
+
 	s.log.Debug().Interface("event", e).Msg("updating index")
+
+	ack := e.Ack
+
+	debounce := func(id *provider.StorageSpaceId) {
+		ack = func() error { return nil }
+		s.indexSpaceDebouncer.Debounce(id, e.Ack)
+	}
+
+	var err error
 
 	switch ev := e.Event.Event.(type) {
 	case events.ItemTrashed:
 		s.index.TrashItem(ev.ID)
-		s.indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
+		debounce(getSpaceID(ev.Ref))
 	case events.ItemPurged:
 		s.index.PurgeItem(ev.Ref)
-		e.Ack()
 	case events.TrashbinPurged:
-		s.index.PurgeDeleted(getSpaceID(ev.Ref))
-		e.Ack()
+		err = s.index.PurgeDeleted(getSpaceID(ev.Ref))
 	case events.ItemMoved:
 		s.index.MoveItem(ev.Ref)
-		s.indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
+		debounce(getSpaceID(ev.Ref))
 	case events.ItemRestored:
 		s.index.RestoreItem(ev.Ref)
-		s.indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
+		debounce(getSpaceID(ev.Ref))
 	case events.ContainerCreated:
-		s.indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
+		debounce(getSpaceID(ev.Ref))
 	case events.FileTouched:
-		s.indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
+		debounce(getSpaceID(ev.Ref))
 	case events.FileVersionRestored:
-		s.indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
+		debounce(getSpaceID(ev.Ref))
 	case events.TagsAdded:
 		s.index.UpsertItem(ev.Ref)
-		s.indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
+		debounce(getSpaceID(ev.Ref))
 	case events.TagsRemoved:
 		s.index.UpsertItem(ev.Ref)
-		s.indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
+		debounce(getSpaceID(ev.Ref))
 	case events.FileUploaded:
-		s.indexSpaceDebouncer.Debounce(getSpaceID(ev.Ref), e.Ack)
+		debounce(getSpaceID(ev.Ref))
 	case events.UploadReady:
-		s.indexSpaceDebouncer.Debounce(getSpaceID(ev.FileRef), e.Ack)
+		debounce(getSpaceID(ev.FileRef))
 	case events.SpaceRenamed:
-		s.indexSpaceDebouncer.Debounce(ev.ID, e.Ack)
+		debounce(ev.ID)
 	case events.SpaceDeleted:
-		s.index.PurgeSpace(ev.ID)
-		e.Ack()
+		err = s.index.PurgeSpace(ev.ID)
 	case events.LabelAdded:
 		s.index.UpsertItem(ev.Ref)
 	case events.LabelRemoved:
 		s.index.UpsertItem(ev.Ref)
+	default:
+		s.log.Error().Interface("event", e).Msg("unhandled event type, acknowledged without indexing")
 	}
-	return nil
+
+	return errors.Join(err, ack())
 }
 
 func monitorMetrics(ctx context.Context, stream raw.Stream, name string, m *metrics.Metrics, logger log.Logger) {
