@@ -225,6 +225,31 @@ func (b *Backend) Purge(id string, onlyDeleted bool) error {
 	return batch.Push()
 }
 
+func (b *Backend) PurgeSpace(rootID string) error {
+	for {
+		req := bleve.NewSearchRequest(&query.TermQuery{FieldVal: "RootID", Term: rootID})
+		req.Size = defaultBatchSize
+
+		res, err := b.index.Search(req)
+		if err != nil {
+			return err
+		}
+
+		if res.Hits.Len() == 0 {
+			return nil
+		}
+
+		batch := b.index.NewBatch()
+		for _, hit := range res.Hits {
+			batch.Delete(hit.ID)
+		}
+
+		if err := b.index.Batch(batch); err != nil {
+			return err
+		}
+	}
+}
+
 func (b *Backend) NewBatch(size int) (search.BatchOperator, error) {
 	return NewBatch(b.index, size)
 }

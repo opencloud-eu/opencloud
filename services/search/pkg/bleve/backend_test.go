@@ -103,6 +103,52 @@ var _ = Describe("Bleve", func() {
 		}
 	})
 
+	Describe("PurgeSpace", func() {
+		It("takes every record of that space out of the index", func() {
+			otherSpace := search.Resource{
+				ID:       "1$9!9",
+				RootID:   "1$9!9",
+				Path:     ".",
+				Document: content.Document{Name: "other"},
+			}
+			for _, resource := range []search.Resource{rootResource, parentResource, childResource, otherSpace} {
+				Expect(eng.Upsert(resource.ID, resource)).To(Succeed())
+			}
+
+			Expect(eng.PurgeSpace(rootResource.RootID)).To(Succeed())
+
+			count, err := idx.DocCount()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(count).To(Equal(uint64(1)), "only the records of that space are gone")
+		})
+
+		It("takes a space out that holds more records than one round", func() {
+			otherSpace := search.Resource{
+				ID:       "1$9!9",
+				RootID:   "1$9!9",
+				Path:     ".",
+				Document: content.Document{Name: "other"},
+			}
+			Expect(eng.Upsert(otherSpace.ID, otherSpace)).To(Succeed())
+
+			for i := range 120 {
+				resource := search.Resource{
+					ID:       fmt.Sprintf("%s!file-%d", rootResource.RootID, i),
+					RootID:   rootResource.RootID,
+					Path:     fmt.Sprintf("./file-%d", i),
+					Document: content.Document{Name: fmt.Sprintf("file-%d", i)},
+				}
+				Expect(eng.Upsert(resource.ID, resource)).To(Succeed())
+			}
+
+			Expect(eng.PurgeSpace(rootResource.RootID)).To(Succeed())
+
+			count, err := idx.DocCount()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(count).To(Equal(uint64(1)), "only the record of the other space is left")
+		})
+	})
+
 	Describe("New", func() {
 		It("returns a new index instance", func() {
 			b := bleve.NewBackend(idx, bleveQuery.DefaultCreator, log.Logger{})

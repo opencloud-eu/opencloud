@@ -7,14 +7,15 @@ import (
 	"time"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/metrics"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/metrics"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
 var tracer trace.Tracer
@@ -61,6 +62,7 @@ func New(ctx context.Context, stream raw.Stream, logger log.Logger, tp trace.Tra
 			events.TagsAdded{},
 			events.TagsRemoved{},
 			events.SpaceRenamed{},
+			events.SpaceDeleted{},
 			events.LabelAdded{},
 			events.LabelRemoved{},
 		},
@@ -200,6 +202,9 @@ func (s Service) processEvent(e raw.Event) error {
 		s.indexSpaceDebouncer.Debounce(getSpaceID(ev.FileRef), e.Ack)
 	case events.SpaceRenamed:
 		s.indexSpaceDebouncer.Debounce(ev.ID, e.Ack)
+	case events.SpaceDeleted:
+		s.index.PurgeSpace(ev.ID)
+		e.Ack()
 	case events.LabelAdded:
 		s.index.UpsertItem(ev.Ref)
 	case events.LabelRemoved:

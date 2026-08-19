@@ -47,6 +47,7 @@ type Searcher interface {
 	Search(ctx context.Context, req *searchsvc.SearchRequest) (*searchsvc.SearchResponse, error)
 
 	IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool) error
+	PurgeSpace(spaceID *provider.StorageSpaceId) error
 	PurgeDeleted(spaceID *provider.StorageSpaceId) error
 
 	TrashItem(resourceID *provider.ResourceId)
@@ -552,6 +553,31 @@ func (s *Service) PurgeItem(ref *provider.Reference) {
 	}
 	s.logger.Info().Interface("Id", ref.ResourceId).Msg("purged item from index")
 	logDocCount(s.engine, s.logger)
+}
+
+func (s *Service) PurgeSpace(spaceID *provider.StorageSpaceId) error {
+	if spaceID == nil {
+		return fmt.Errorf("spaceID must not be nil")
+	}
+
+	rootID, err := storagespace.ParseID(spaceID.GetOpaqueId())
+	if err != nil {
+		s.logger.Error().Err(err).Str("space_id", spaceID.GetOpaqueId()).Msg("invalid space id")
+		return err
+	}
+	if rootID.StorageId == "" || rootID.SpaceId == "" {
+		return fmt.Errorf("invalid space id %s", spaceID.GetOpaqueId())
+	}
+	rootID.OpaqueId = rootID.SpaceId
+
+	if err := s.engine.PurgeSpace(storagespace.FormatResourceID(&rootID)); err != nil {
+		s.logger.Error().Err(err).Str("space_id", spaceID.GetOpaqueId()).Msg("failed to purge the space from the index")
+		return err
+	}
+
+	logDocCount(s.engine, s.logger)
+
+	return nil
 }
 
 func (s *Service) PurgeDeleted(spaceID *provider.StorageSpaceId) error {

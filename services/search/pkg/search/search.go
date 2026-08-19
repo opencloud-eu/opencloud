@@ -33,6 +33,7 @@ type Engine interface {
 	Delete(id string) error
 	Restore(id string) error
 	Purge(id string, onlyDeleted bool) error
+	PurgeSpace(rootID string) error
 
 	NewBatch(batchSize int) (BatchOperator, error)
 }

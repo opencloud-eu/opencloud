@@ -227,6 +227,57 @@ func (_c *Searcher_PurgeItem_Call) RunAndReturn(run func(ref *providerv1beta1.Re
 	return _c
 }
 
+// PurgeSpace provides a mock function for the type Searcher
+func (_mock *Searcher) PurgeSpace(spaceID *providerv1beta1.StorageSpaceId) error {
+	ret := _mock.Called(spaceID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PurgeSpace")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(*providerv1beta1.StorageSpaceId) error); ok {
+		r0 = returnFunc(spaceID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// Searcher_PurgeSpace_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PurgeSpace'
+type Searcher_PurgeSpace_Call struct {
+	*mock.Call
+}
+
+// PurgeSpace is a helper method to define mock.On call
+//   - spaceID *providerv1beta1.StorageSpaceId
+func (_e *Searcher_Expecter) PurgeSpace(spaceID interface{}) *Searcher_PurgeSpace_Call {
+	return &Searcher_PurgeSpace_Call{Call: _e.mock.On("PurgeSpace", spaceID)}
+}
+
+func (_c *Searcher_PurgeSpace_Call) Run(run func(spaceID *providerv1beta1.StorageSpaceId)) *Searcher_PurgeSpace_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *providerv1beta1.StorageSpaceId
+		if args[0] != nil {
+			arg0 = args[0].(*providerv1beta1.StorageSpaceId)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *Searcher_PurgeSpace_Call) Return(err error) *Searcher_PurgeSpace_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *Searcher_PurgeSpace_Call) RunAndReturn(run func(spaceID *providerv1beta1.StorageSpaceId) error) *Searcher_PurgeSpace_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RestoreItem provides a mock function for the type Searcher
 func (_mock *Searcher) RestoreItem(ref *providerv1beta1.Reference) {
 	_mock.Called(ref)
