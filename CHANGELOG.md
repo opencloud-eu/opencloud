@@ -33,6 +33,7 @@
 
 ### 📦️ Dependencies
 
+- chore: bump reva to latest main [[#3329](https://github.com/opencloud-eu/opencloud/pull/3329)]
 - build(deps): bump github.com/stretchr/testify from 1.11.1 to 1.12.0 [[#3341](https://github.com/opencloud-eu/opencloud/pull/3341)]
 - build(deps): bump golang.org/x/net from 0.57.0 to 0.58.0 [[#3342](https://github.com/opencloud-eu/opencloud/pull/3342)]
 - build(deps): bump github.com/onsi/ginkgo/v2 from 2.32.0 to 2.32.1 [[#3340](https://github.com/opencloud-eu/opencloud/pull/3340)]
