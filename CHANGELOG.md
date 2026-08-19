@@ -1,13 +1,14 @@
 # Changelog
 
-## [7.2.4](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.4) - 2026-08-18
+## [7.2.4](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.4) - 2026-08-19
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@rhafer
+@aduffeck, @rhafer
 
 ### 🐛 Bug Fixes
 
+- Fix opensearch space scope [stable-7.2] [[#3351](https://github.com/opencloud-eu/opencloud/pull/3351)]
 - [stable-7.2] fix(posixfs scan): Setup logger for scan command [[#3195](https://github.com/opencloud-eu/opencloud/pull/3195)]
 
 ## [7.2.3](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.3) - 2026-08-06
