@@ -121,6 +121,9 @@ func (l *Conn) Modify(modifyRequest *ModifyRequest) error {
 		return err
 	}
 
+	if len(packet.Children) < 2 {
+		return fmt.Errorf("ldap: malformed response: expected at least 2 children, got %d", len(packet.Children))
+	}
 	if packet.Children[1].Tag == ApplicationModifyResponse {
 		err := GetLDAPError(packet)
 		if err != nil {
@@ -157,6 +160,10 @@ func (l *Conn) ModifyWithResult(modifyRequest *ModifyRequest) (*ModifyResult, er
 	packet, err := l.readPacket(msgCtx)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(packet.Children) < 2 {
+		return nil, fmt.Errorf("ldap: malformed response: expected at least 2 children, got %d", len(packet.Children))
 	}
 
 	switch packet.Children[1].Tag {

@@ -48,6 +48,8 @@ var _registeredEvents = []events.Unmarshaller{
 	events.LinkUpdated{},
 	events.LinkRemoved{},
 	events.BackchannelLogout{},
+	events.LabelAdded{},
+	events.LabelRemoved{},
 }
 
 // Server is the entrypoint for the server command.

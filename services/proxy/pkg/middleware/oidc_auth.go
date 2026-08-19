@@ -104,13 +104,15 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 	expiration := m.extractExpiration(aClaims)
 	// always set an exp claim
 	claims["exp"] = expiration.Unix()
-	go func() {
-		d, err := msgpack.Marshal(claims)
-		if err != nil {
-			m.Logger.Error().Err(err).Msg("failed to marshal claims for userinfo cache")
-			return
-		}
 
+	d, err := msgpack.Marshal(claims)
+	if err != nil {
+		m.Logger.Error().Err(err).Msg("failed to marshal claims for userinfo cache")
+
+		return claims, true, nil
+	}
+
+	go func() {
 		err = m.userInfoCache.Write(&store.Record{
 			Key:    encodedHash,
 			Value:  d,

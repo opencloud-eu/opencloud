@@ -202,12 +202,14 @@ config = {
                 "apiSearch1",
             ],
             "skip": False,
+            "nightlyOpenSearch": True,
         },
         "search2": {
             "suites": [
                 "apiSearch2",
             ],
             "skip": False,
+            "nightlyOpenSearch": True,
         },
         "sharingNg": {
             "suites": [
@@ -271,6 +273,7 @@ config = {
             ],
             "skip": False,
             "tikaNeeded": True,
+            "nightlyOpenSearch": True,
         },
         "ocm": {
             "suites": [
@@ -398,7 +401,8 @@ config = {
         "4": {
             "skip": False,
             "suites": [
-                "user-settings/",
+                # skip user-settings due to failing pagination test. see https://github.com/opencloud-eu/opencloud/pull/3324
+                #"user-settings/",
                 "fileaction/",
                 "embed",
             ],
@@ -610,7 +614,7 @@ def main(ctx):
         ),
     )
 
-    pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + notifyMatrixCheckSteps(ctx, getPipelineNames(testPipelines(ctx), optional = True))
+    pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + serverTestingDocs(ctx) + notifyMatrixCheckSteps(ctx, getPipelineNames(testPipelines(ctx), optional = True))
 
     pipelineSanityChecks(pipelines)
     return savePipelineNumber(ctx) + pipelines
@@ -817,30 +821,7 @@ def testOpencloud(ctx):
             ],
             "environment": CI_HTTP_PROXY_ENV,
         },
-        {
-            "name": "open-search",
-            "image": OPEN_SEARCH,
-            "detach": True,
-            "environment": {
-                "discovery.type": "single-node",
-                "DISABLE_INSTALL_DEMO_CONFIG": True,
-                "DISABLE_SECURITY_PLUGIN": True,
-            },
-            "entrypoint": ["/usr/share/opensearch/opensearch-docker-entrypoint.sh", "opensearch"],
-        },
-        {
-            "name": "wait-for-open-search",
-            "image": OC_CI_ALPINE,
-            "commands": [
-                "bash -c '" +
-                "until curl -sS \"http://open-search:9200/_cat/health?h=status\" | grep \"green\\|yellow\"; do\n" +
-                "  echo \"Waiting for http://open-search:9200 to be healthy...\"\n" +
-                "  sleep 5\n" +
-                "done\n" +
-                "echo \"http://open-search:9200 healthy...\"\n" +
-                "'",
-            ],
-        },
+    ] + waitForOpenSearch() + [
         {
             "name": "test",
             "image": OC_CI_GOLANG,
@@ -872,6 +853,7 @@ def testOpencloud(ctx):
     pipeline = {
         "name": "test-lint-unit",
         "steps": steps,
+        "services": openSearchService(),
         "when": [
             event["base"],
             event["cron"],
@@ -1284,14 +1266,31 @@ def build_api_test_workflow_matrix(ctx, storage, suite_cfg, default_cfg):
         matrix = {
             "withRemotePhp": m["withRemotePhp"],
             "enableWatchFs": m["enableWatchFs"],
+            "openSearch": False,
         }
         if override_with_remote_php != None:
             matrix["withRemotePhp"] = override_with_remote_php
         if override_enable_watch_fs != None:
             matrix["enableWatchFs"] = override_enable_watch_fs
 
-        if matrix not in workflow_metrices and matrix in matrices:
+        base = {
+            "withRemotePhp": matrix["withRemotePhp"],
+            "enableWatchFs": matrix["enableWatchFs"],
+        }
+        if matrix not in workflow_metrices and base in matrices:
             workflow_metrices.append(matrix)
+
+    # Add an OpenSearch search-engine variant for nightly running search tests,
+    # or on demand when "opensearch" is specified in the PR title
+    run_open_search = ctx.build.event == "cron" or "opensearch" in ctx.build.title.lower()
+    if run_open_search and storage == "posix" and suite_cfg.get("nightlyOpenSearch", False):
+        os_matrix = {
+            "withRemotePhp": False,
+            "enableWatchFs": False,
+            "openSearch": True,
+        }
+        if os_matrix not in workflow_metrices:
+            workflow_metrices.append(os_matrix)
     return workflow_metrices
 
 def localApiTestPipeline(ctx):
@@ -1312,6 +1311,7 @@ def localApiTestPipeline(ctx):
         "withRemotePhp": False,
         "enableWatchFs": False,
         "ldapNeeded": False,
+        "nightlyOpenSearch": False,
     }
 
     if "localApiTests" in config:
@@ -1337,6 +1337,7 @@ def localApiTestPipeline(ctx):
                     for m in matrices:
                         run_with_remote_php = m["withRemotePhp"]
                         run_with_watch_fs = m["enableWatchFs"]
+                        run_with_open_search = m["openSearch"]
 
                         pipeline_name = "test-API"
                         if name.startswith("cli"):
@@ -1347,11 +1348,19 @@ def localApiTestPipeline(ctx):
                             pipeline_name += "-withRemotePhp"
                         if run_with_watch_fs:
                             pipeline_name += "-watchfs"
+                        if run_with_open_search:
+                            pipeline_name += "-opensearch"
+
+                        server_environment = dict(params["extraServerEnvironment"])
+                        if run_with_open_search:
+                            server_environment["SEARCH_ENGINE_TYPE"] = "open-search"
+                            server_environment["SEARCH_ENGINE_OPEN_SEARCH_CLIENT_ADDRESSES"] = "http://open-search:9200"
 
                         pipeline = {
                             "name": pipeline_name,
                             "steps": evaluateWorkflowStep() + restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                                      (tikaService() if params["tikaNeeded"] else []) +
+                                     (waitForOpenSearch() if run_with_open_search else []) +
                                      (waitForWebOffices(["https://collabora:9980", "https://onlyoffice", "http://fakeoffice:8080"]) if params["collaborationServiceNeeded"] else []) +
                                      (waitForClamavService() if params["antivirusNeeded"] else []) +
                                      (waitForEmailService() if params["emailNeeded"] else []) +
@@ -1359,7 +1368,7 @@ def localApiTestPipeline(ctx):
                                      (waitForLdapService() if params["ldapNeeded"] else []) +
                                      opencloudServer(
                                          storage,
-                                         extra_server_environment = params["extraServerEnvironment"],
+                                         extra_server_environment = server_environment,
                                          with_wrapper = True,
                                          tika_enabled = params["tikaNeeded"],
                                          watch_fs_enabled = run_with_watch_fs,
@@ -1371,6 +1380,7 @@ def localApiTestPipeline(ctx):
                                      logRequests(),
                             "services": (emailService() if params["emailNeeded"] else []) +
                                         (clamavService() if params["antivirusNeeded"] else []) +
+                                        (openSearchService() if run_with_open_search else []) +
                                         ((fakeOffice() + collaboraService() + onlyofficeService()) if params["collaborationServiceNeeded"] else []),
                             "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
                             "when": [
@@ -1906,6 +1916,9 @@ def dockerRelease(ctx, repo, build_type):
         "EDITION": "stable" if build_type == "production" else "rolling",
     }
 
+    if ctx.build.event != "tag":
+        build_args["STRING"] = ctx.build.commit[:8]
+
     # if no additional tag is given, the build-plugin adds latest
     hard_tag = "daily"
     if ctx.build.event == "tag":
@@ -2339,6 +2352,52 @@ def genDocsPr(ctx):
                 "event": "cron",
                 "branch": "main",
                 "cron": "nightly*",
+            },
+        ],
+    }]
+
+def serverTestingDocs(ctx):
+    return [{
+        "name": "server-testing-docs",
+        "steps": [
+            {
+                "name": "build",
+                "image": OC_CI_NODEJS,
+                "commands": [
+                    "node tests/scripts/generate-docs.mjs",
+                    # add dummy woodpecker config to disable CI on push to the docs branch
+                    "printf 'def main(ctx):\n    return [{\n        \"name\":\"dummy-pipeline\",\n" +
+                    "        \"steps\":[{\"name\":\"dummy-step\",\"image\":\"alpine:latest\"}],\n" +
+                    "        \"when\":[{\"branch\":[\"main\"]}],\n    }]\n' > tests/.docs-dist/.woodpecker.star",
+                ],
+            },
+            {
+                "name": "publish",
+                "image": "plugins/gh-pages:1",
+                "settings": {
+                    "username": {
+                        "from_secret": "github_username",
+                    },
+                    "password": {
+                        "from_secret": "github_token",
+                    },
+                    "pages_directory": "tests/.docs-dist/",
+                    "copy_contents": True,
+                    "target_branch": "server-testing-docs",
+                    "delete": True,
+                },
+                "when": [
+                    {
+                        "event": ["push"],
+                        "branch": "${CI_REPO_DEFAULT_BRANCH}",
+                    },
+                ],
+            },
+        ],
+        "when": [
+            {
+                "event": ["push", "pull_request"],
+                "path": "tests/README.md",
             },
         ],
     }]
@@ -3384,6 +3443,33 @@ def tikaService():
         "image": OC_CI_WAIT_FOR,
         "commands": [
             "wait-for -host tika -port 9998 -timeout 300",
+        ],
+    }]
+
+def openSearchService():
+    return [{
+        "name": "open-search",
+        "image": OPEN_SEARCH,
+        "environment": {
+            "discovery.type": "single-node",
+            "DISABLE_INSTALL_DEMO_CONFIG": True,
+            "DISABLE_SECURITY_PLUGIN": True,
+        },
+        "entrypoint": ["/usr/share/opensearch/opensearch-docker-entrypoint.sh", "opensearch"],
+    }]
+
+def waitForOpenSearch():
+    return [{
+        "name": "wait-for-open-search",
+        "image": OC_CI_ALPINE,
+        "commands": [
+            "bash -c '" +
+            "until curl -sS \"http://open-search:9200/_cat/health?h=status\" | grep \"green\\|yellow\"; do\n" +
+            "  echo \"Waiting for http://open-search:9200 to be healthy...\"\n" +
+            "  sleep 5\n" +
+            "done\n" +
+            "echo \"http://open-search:9200 healthy...\"\n" +
+            "'",
         ],
     }]
 

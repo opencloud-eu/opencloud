@@ -93,6 +93,9 @@ func (l *Conn) PasswordModify(passwordModifyRequest *PasswordModifyRequest) (*Pa
 
 	result := &PasswordModifyResult{}
 
+	if len(packet.Children) < 2 {
+		return nil, fmt.Errorf("ldap: malformed response: expected at least 2 children, got %d", len(packet.Children))
+	}
 	if packet.Children[1].Tag == ApplicationExtendedResponse {
 		if err = GetLDAPError(packet); err != nil {
 			result.Referral = getReferral(err, packet)
@@ -106,7 +109,10 @@ func (l *Conn) PasswordModify(passwordModifyRequest *PasswordModifyRequest) (*Pa
 	extendedResponse := packet.Children[1]
 	for _, child := range extendedResponse.Children {
 		if child.Tag == ber.TagEmbeddedPDV {
-			passwordModifyResponseValue := ber.DecodePacket(child.Data.Bytes())
+			passwordModifyResponseValue, err := ber.DecodePacketErr(child.Data.Bytes())
+			if err != nil {
+				return nil, fmt.Errorf("ldap: failed to decode PasswordModifyResponseValue: %s", err)
+			}
 			if len(passwordModifyResponseValue.Children) == 1 {
 				if passwordModifyResponseValue.Children[0].Tag == ber.TagEOC {
 					result.GeneratedPassword = ber.DecodeString(passwordModifyResponseValue.Children[0].Data.Bytes())

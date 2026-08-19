@@ -174,7 +174,7 @@ TEST_GROUP=BaseWopiViewing docker compose -f tests/acceptance/docker/src/wopi-va
 Use the arm image for macOS to run the validator tests.
 
 ```bash
-WOPI_VALIDATOR_IMAGE=scharfvi/wopi-validator \
+WOPI_VALIDATOR_IMAGE=opencloudeu/wopi-validator \
 TEST_GROUP=BaseWopiViewing \
 docker compose -f tests/acceptance/docker/src/wopi-validator-test.yml up -d
 ```

@@ -55,11 +55,12 @@ func OpenSearchHitToMatch(hit opensearchgoAPI.SearchHit) (*searchMessage.Match, 
 				SpaceId:   resourceParentID.GetSpaceId(),
 				OpaqueId:  resourceParentID.GetOpaqueId(),
 			},
-			Size:     resource.Size,
-			Type:     resource.Type,
-			MimeType: resource.MimeType,
-			Deleted:  resource.Deleted,
-			Tags:     resource.Tags,
+			Size:      resource.Size,
+			Type:      resource.Type,
+			MimeType:  resource.MimeType,
+			Deleted:   resource.Deleted,
+			Tags:      resource.Tags,
+			Favorites: resource.Favorites,
 			Highlights: func() string {
 				contentHighlights, ok := hit.Highlight["Content"]
 				if !ok {

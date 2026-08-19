@@ -9,6 +9,7 @@ import "protoc-gen-openapiv2/options/annotations.proto";
 import "google/api/field_behavior.proto";
 import "google/api/annotations.proto";
 import "google/protobuf/field_mask.proto";
+import "google/protobuf/duration.proto";
 
 option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
   info: {
@@ -41,7 +42,9 @@ service SearchProvider {
         body: "*"
     };
   };
-  rpc IndexSpace(IndexSpaceRequest) returns (IndexSpaceResponse) {
+  // IndexSpace (re)indexes one or all spaces. The response is streamed, sending
+  // progress information after each space has been indexed.
+  rpc IndexSpace(IndexSpaceRequest) returns (stream IndexSpaceResponse) {
     option (google.api.http) = {
         post: "/api/v0/search/index-space",
         body: "*"
@@ -105,7 +108,18 @@ message IndexSpaceRequest {
   string space_id = 1;
   string user_id = 2;
   bool force_reindex = 3;
+  int32 concurrency = 4 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message IndexSpaceResponse {
+  // The id of the space that has just been indexed.
+  string space_id = 1;
+  // The duration it took to index this space.
+  google.protobuf.Duration space_duration = 2;
+  // The number of spaces that have been indexed so far.
+  int64 indexed_spaces = 3;
+  // The total number of spaces that are being indexed.
+  int64 total_spaces = 4;
+  // Contains an error message in case indexing this particular space failed.
+  string error = 5;
 }

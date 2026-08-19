@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/store"
 	"github.com/spf13/afero"
@@ -17,7 +16,6 @@ import (
 	microstore "go-micro.dev/v4/store"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
-	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
@@ -28,7 +26,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/connector"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/font"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/helpers"
-	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/notification"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/server/grpc"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/server/http"
@@ -174,32 +171,8 @@ func Server(cfg *config.Config) *cobra.Command {
 				}
 			}
 
-			var optionalHTTPServerOptions []http.Option
-			var notificationService notification.Service
-			if cfg.Events.Endpoint == "" {
-				logger.Warn().Msg("Events endpoint is not configured, notifications from the collaboration service will not work")
-			} else {
-				connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
-				natsStream, err := stream.NatsFromConfig(connName, true, stream.NatsConfig(cfg.Events))
-				if err != nil {
-					return err
-				}
-				notificationService, err = notification.NewService(
-					notification.ServiceOptions{}.
-						WithLogger(logger).
-						WithGatewaySelector(gatewaySelector).
-						WithEventPublisher(natsStream).
-						WithMachineAuthAPIKey(cfg.MachineAuthAPIKey),
-				)
-				if err != nil {
-					return err
-				}
-
-				optionalHTTPServerOptions = append(optionalHTTPServerOptions, http.NotificationService(&notificationService))
-			}
-
 			// start HTTP server
-			httpServer, err := http.Server(append([]http.Option{
+			httpServer, err := http.Server(
 				http.Adapter(connector.NewHttpAdapter(gatewaySelector, cfg, st, selector.NewSelector(selector.Registry(registry.GetRegistry())))),
 				http.Logger(logger),
 				http.Config(cfg),
@@ -207,7 +180,7 @@ func Server(cfg *config.Config) *cobra.Command {
 				http.TracerProvider(traceProvider),
 				http.Store(st),
 				http.FontService(fontService),
-			}, optionalHTTPServerOptions...)...)
+			)
 			if err != nil {
 				logger.Info().Err(err).Str("transport", "http").Msg("Failed to initialize server")
 				return err

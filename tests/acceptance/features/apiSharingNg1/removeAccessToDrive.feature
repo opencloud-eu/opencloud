@@ -141,7 +141,7 @@ Feature: Remove access to a drive
     Then the HTTP status code should be "403"
     And the user "Alice" should have a space called "NewSpace"
 
-
+  @flaky @issue-3193
   Scenario: user of a group cannot remove own group from project space if it is the last manager using root endpoint
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And group "group1" has been created
@@ -153,7 +153,7 @@ Feature: Remove access to a drive
       | shareType       | group    |
       | permissionsRole | Manager  |
     And user "Alice" has removed own access from space "NewSpace"
-    When user "Brian" tries to remove the access of group "group1" from space "NewSpace" using root endpoint of the Graph API
+    When user "Brian" tries to remove own group access from space "NewSpace" using root endpoint of the Graph API
     Then the HTTP status code should be "403"
     And the user "Brian" should have a space called "NewSpace"
 

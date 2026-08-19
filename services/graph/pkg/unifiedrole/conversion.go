@@ -5,6 +5,7 @@ import (
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+
 	"github.com/opencloud-eu/reva/v2/pkg/conversions"
 )
 
@@ -210,6 +211,8 @@ func cs3RoleToDisplayName(role *conversions.Role) string {
 		return _viewerListGrantsUnifiedRoleDisplayName
 	case conversions.RoleSpaceViewer:
 		return _spaceViewerUnifiedRoleDisplayName
+	case conversions.RoleSpaceViewerWithVersions:
+		return _spaceViewerWithVersionsUnifiedRoleDisplayName
 	case conversions.RoleEditor:
 		return _editorUnifiedRoleDisplayName
 	case conversions.RoleEditorWithVersions:

@@ -26,6 +26,10 @@ linters:
   exclusions:
     rules:
       - linters:
+          - misspell
+        path: "^modules/mosquitto"
+        text: "(?i)mosquitto"
+      - linters:
           - revive
         path: "^exec/"
         text: "var-naming: avoid package names that conflict with Go standard library package names"

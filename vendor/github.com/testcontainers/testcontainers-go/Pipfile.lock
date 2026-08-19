@@ -428,12 +428,12 @@
         },
         "pymdown-extensions": {
             "hashes": [
-                "sha256:aace82bcccba3efc03e25d584e6a22d27a8e17caa3f4dd9f207e49b787aa9a91",
-                "sha256:d6ba157a6c03146a7fb122b2b9a121300056384eafeec9c9f9e584adfdb2a32d"
+                "sha256:72cfcf55f07aea0d4af2c4f11dd4e52466ddfb1bb819673146398e0bd3a77354",
+                "sha256:d7a5d08014fc571e80ca21dd6f854e31f94c489800350564d55d15b3c41e76b6"
             ],
             "index": "pypi",
             "markers": "python_version >= '3.9'",
-            "version": "==10.16.1"
+            "version": "==10.21.3"
         },
         "python-dateutil": {
             "hashes": [

@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -46,11 +47,11 @@ const (
 type Searcher interface {
 	Search(ctx context.Context, req *searchsvc.SearchRequest) (*searchsvc.SearchResponse, error)
 
-	IndexSpace(rID *provider.StorageSpaceId, forceRescan bool) error
+	IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool) error
 	PurgeDeleted(spaceID *provider.StorageSpaceId) error
 
-	TrashItem(rID *provider.ResourceId)
-	PurgeItem(rID *provider.Reference)
+	TrashItem(resourceID *provider.ResourceId)
+	PurgeItem(ref *provider.Reference)
 	UpsertItem(ref *provider.Reference)
 	RestoreItem(ref *provider.Reference)
 	MoveItem(ref *provider.Reference)
@@ -487,6 +488,12 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 	}()
 	err = w.Walk(ownerCtx, &rootID, func(wd string, info *provider.ResourceInfo, err error) error {
 		if err != nil {
+			var notFoundErr errtypes.IsNotFound
+			if errors.As(err, &notFoundErr) {
+				// The resource disappeared while walking the tree. E.g. the underlying file/directory/space
+				// might just have been deleted meanwhile. We can just ignore this error.
+				return nil
+			}
 			s.logger.Error().Err(err).Msg("error walking the tree")
 			return err
 		}
@@ -533,9 +540,9 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 }
 
 // TrashItem marks the item as deleted.
-func (s *Service) TrashItem(rID *provider.ResourceId) {
-	if err := s.engine.Delete(storagespace.FormatResourceID(rID)); err != nil {
-		s.logger.Info().Err(err).Interface("Id", rID).Msg("failed to remove item from index")
+func (s *Service) TrashItem(resourceID *provider.ResourceId) {
+	if err := s.engine.Delete(storagespace.FormatResourceID(resourceID)); err != nil {
+		s.logger.Info().Err(err).Interface("Id", resourceID).Msg("failed to remove item from index")
 	}
 }
 

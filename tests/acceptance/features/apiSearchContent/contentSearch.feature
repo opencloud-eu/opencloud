@@ -26,7 +26,7 @@ Feature: content search
       | new              |
       | spaces           |
 
-  @issue-10329
+  @issue-10329 @issue-3310
   Scenario Outline: search files by different content types
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "Using k6, you can test the reliability and performance of your systems" to "wordWithNumber.md"

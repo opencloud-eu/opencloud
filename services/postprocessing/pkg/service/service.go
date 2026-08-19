@@ -293,12 +293,64 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 	}
 
 	if next != nil {
-		if err := events.Publish(ctx, pps.pub, next); err != nil {
+		if err := pps.publishWithRetry(ctx, &e, next); err != nil {
+			// The successor event never made it onto the bus. Don't ack the source event so
+			// jetstream redelivers it and the upload can continue instead of being stuck in
+			// the store forever.
+			ackEvent = false
 			pps.log.Error().Err(err).Msg("unable to publish event")
+
+			if pps.stopped.Load() || ctx.Err() != nil {
+				// we are shutting down anyway, no need to take the whole process down with us
+				return fmt.Errorf("%w: unable to publish event", ErrEvent)
+			}
 			return fmt.Errorf("%w: unable to publish event", ErrFatal) // we can't publish -> we are screwed
 		}
 	}
 	return nil
+}
+
+// publishWithRetry publishes an event, retrying transient failures of the event system with
+// the same exponential backoff that is used for failed postprocessing steps. Between the
+// attempts the source event is marked as in progress and the wait is capped to half the ack
+// wait, so jetstream should not hand the source event to a second worker while we are still
+// retrying. Note that marking the event as in progress is best effort: it is a fire and forget
+// publish, so it can be lost exactly when the event system is unhealthy. A redelivery during a
+// retry is therefore possible, it is just unlikely. If all attempts fail, the last error is
+// returned.
+func (pps *PostprocessingService) publishWithRetry(ctx context.Context, e *raw.Event, ev any) error {
+	for attempt := 0; ; attempt++ {
+		err := events.Publish(ctx, pps.pub, ev)
+		if err == nil {
+			return nil
+		}
+
+		if attempt >= pps.c.PublishMaxRetries {
+			return err
+		}
+
+		backoff := postprocessing.BackoffDuration(pps.c.RetryBackoffDuration, attempt+1)
+		// Never wait longer than half the ack wait. We only refresh the redelivery timer
+		// between the attempts, so a longer wait would let jetstream hand the source event
+		// to a second worker while we are still retrying here.
+		if maxBackoff := pps.c.Events.AckWait / 2; maxBackoff > 0 && backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+		pps.log.Warn().Err(err).Int("attempt", attempt+1).Dur("backoff", backoff).Msg("unable to publish event, retrying")
+
+		// tell jetstream that we are still working on the source event
+		if ipErr := e.InProgress(); ipErr != nil {
+			pps.log.Debug().Err(ipErr).Msg("unable to mark event as in progress")
+		}
+
+		select {
+		case <-ctx.Done():
+			return err
+		case <-pps.stopCh:
+			return err
+		case <-time.After(backoff):
+		}
+	}
 }
 
 func (pps *PostprocessingService) getPP(sto store.Store, uploadID string) (*postprocessing.Postprocessing, error) {

@@ -187,6 +187,7 @@ default:
         - OcConfigContext:
         - SharingNgContext:
         - OcmContext:
+        - CliContext:
 
     apiAntivirus:
       paths:
@@ -326,6 +327,7 @@ default:
         - SharingNgContext:
         - OcConfigContext:
         - SettingsContext:
+        - FilesVersionsContext:
 
     apiSharingNg2:
       paths:
@@ -346,6 +348,9 @@ default:
         - FeatureContext: *common_feature_context_params
         - GraphContext:
         - SettingsContext:
+        - SpacesContext:
+        - SharingNgContext:
+        - NotificationContext:
 
     apiSharingNgShareInvitation:
       paths:
@@ -355,6 +360,7 @@ default:
         - FeatureContext: *common_feature_context_params
         - SpacesContext:
         - SharingNgContext:
+        - OcConfigContext:
 
     apiSharingNgLinkSharePermission:
       paths:

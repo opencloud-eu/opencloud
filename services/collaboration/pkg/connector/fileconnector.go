@@ -27,17 +27,18 @@ import (
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
-	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
-	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/connector/fileinfo"
-	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/helpers"
-	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/middleware"
-	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/wopisrc"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/rs/zerolog"
 	microstore "go-micro.dev/v4/store"
+
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/connector/fileinfo"
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/helpers"
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/middleware"
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/wopisrc"
 )
 
 const (
@@ -1578,7 +1579,6 @@ func (f *FileConnector) GetAvatar(ctx context.Context, userID string) (*Connecto
 		}
 		return nil, NewConnectorError(http.StatusBadGateway, "failed to fetch avatar")
 	}
-	defer photoFile.Close()
 
 	data, err := io.ReadAll(photoFile)
 	if err != nil {

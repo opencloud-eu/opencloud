@@ -38,6 +38,10 @@ func TestGetDefinition(t *testing.T) {
 			ids:                   []string{unifiedrole.UnifiedRoleFileEditorWithVersionsID},
 			unifiedRoleDefinition: unifiedrole.RoleFileEditorWithVersions,
 		},
+		"pass space-viewer-with-versions": {
+			ids:                   []string{unifiedrole.UnifiedRoleSpaceViewerWithVersionsID},
+			unifiedRoleDefinition: unifiedrole.RoleSpaceViewerWithVersions,
+		},
 		"fail unknown": {
 			ids:         []string{"unknown"},
 			expectError: unifiedrole.ErrUnknownRole,
@@ -203,8 +207,9 @@ func TestGetRolesByPermissions(t *testing.T) {
 			constraints:  unifiedrole.UnifiedRoleConditionDrive,
 			unifiedRoleDefinition: []*libregraph.UnifiedRoleDefinition{
 				unifiedrole.RoleSpaceViewer,
-				unifiedrole.RoleSpaceEditorWithoutVersions,
+				unifiedrole.RoleSpaceViewerWithVersions,
 				unifiedrole.RoleSpaceEditor,
+				unifiedrole.RoleSpaceEditorWithVersions,
 				unifiedrole.RoleManager,
 			},
 		},

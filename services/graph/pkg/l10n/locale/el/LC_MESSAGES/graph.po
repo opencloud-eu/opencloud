@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-07-02 23:15+0000\n"
+"POT-Creation-Date: 2026-08-11 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Efstathios Iosifidis <eiosifidis@gmail.com>, 2026\n"
 "Language-Team: Greek (https://app.transifex.com/opencloud-eu/teams/204053/el/)\n"
@@ -28,26 +28,26 @@ msgstr ""
 #. UnifiedRole FileEditor, Role DisplayName (resolves directly)
 #. UnifiedRole FileEditorWithVersions, Role DisplayName (resolves directly)
 #. UnifiedRole FileEditorListGrants, Role DisplayName (resolves directly)
-#: pkg/unifiedrole/roles.go:128 pkg/unifiedrole/roles.go:134
-#: pkg/unifiedrole/roles.go:140 pkg/unifiedrole/roles.go:146
-#: pkg/unifiedrole/roles.go:158 pkg/unifiedrole/roles.go:164
-#: pkg/unifiedrole/roles.go:170
+#: pkg/unifiedrole/roles.go:137 pkg/unifiedrole/roles.go:143
+#: pkg/unifiedrole/roles.go:149 pkg/unifiedrole/roles.go:155
+#: pkg/unifiedrole/roles.go:167 pkg/unifiedrole/roles.go:173
+#: pkg/unifiedrole/roles.go:179
 msgid "Can edit"
 msgstr "Δυνατότητα επεξεργασίας"
 
 #. UnifiedRole SpaseEditorWithoutVersions, Role DisplayName (resolves
 #. directly)
-#: pkg/unifiedrole/roles.go:152
+#: pkg/unifiedrole/roles.go:161
 msgid "Can edit without versions"
 msgstr "Δυνατότητα επεξεργασίας χωρίς εκδόσεις"
 
 #. UnifiedRole Manager, Role DisplayName (resolves directly)
-#: pkg/unifiedrole/roles.go:182
+#: pkg/unifiedrole/roles.go:191
 msgid "Can manage"
 msgstr "Δυνατότητα διαχείρισης"
 
 #. UnifiedRole EditorLite, Role DisplayName (resolves directly)
-#: pkg/unifiedrole/roles.go:176
+#: pkg/unifiedrole/roles.go:185
 msgid "Can upload"
 msgstr "Δυνατότητα μεταφόρτωσης"
 
@@ -55,23 +55,25 @@ msgstr "Δυνατότητα μεταφόρτωσης"
 #. UnifiedRole ViewerWithVersions, Role DisplayName (resolves directly)
 #. UnifiedRole Viewer, Role DisplayName (resolves directly)
 #. UnifiedRole SpaseViewer, Role DisplayName (resolves directly)
-#: pkg/unifiedrole/roles.go:104 pkg/unifiedrole/roles.go:110
-#: pkg/unifiedrole/roles.go:116 pkg/unifiedrole/roles.go:122
+#. UnifiedRole SpaseViewer, Role DisplayName (resolves directly)
+#: pkg/unifiedrole/roles.go:107 pkg/unifiedrole/roles.go:113
+#: pkg/unifiedrole/roles.go:119 pkg/unifiedrole/roles.go:125
+#: pkg/unifiedrole/roles.go:131
 msgid "Can view"
 msgstr "Δυνατότητα προβολής"
 
 #. UnifiedRole SecureViewer, Role DisplayName (resolves directly)
-#: pkg/unifiedrole/roles.go:188
+#: pkg/unifiedrole/roles.go:197
 msgid "Can view (secure)"
 msgstr "Δυνατότητα προβολής (ασφαλής)"
 
 #. UnifiedRole FullDenial, Role DisplayName (resolves directly)
-#: pkg/unifiedrole/roles.go:194
+#: pkg/unifiedrole/roles.go:203
 msgid "Cannot access"
 msgstr "Δεν υπάρχει πρόσβαση"
 
 #. UnifiedRole FullDenial, Role Description (resolves directly)
-#: pkg/unifiedrole/roles.go:191
+#: pkg/unifiedrole/roles.go:200
 msgid "Deny all access."
 msgstr "Άρνηση κάθε πρόσβασης."
 
@@ -81,76 +83,77 @@ msgid "Here you can add a description for this Space."
 msgstr "Εδώ μπορείτε να προσθέσετε μια περιγραφή για αυτόν τον Χώρο."
 
 #. UnifiedRole ViewerWithVersions, Role Description (resolves directly)
-#: pkg/unifiedrole/roles.go:107
+#. UnifiedRole SpaceViewer, Role Description (resolves directly)
+#: pkg/unifiedrole/roles.go:110 pkg/unifiedrole/roles.go:128
 msgid "View and download including the history."
 msgstr ""
 
 #. UnifiedRole Viewer, Role Description (resolves directly)
 #. UnifiedRole SpaceViewer, Role Description (resolves directly)
-#: pkg/unifiedrole/roles.go:101 pkg/unifiedrole/roles.go:119
+#: pkg/unifiedrole/roles.go:104 pkg/unifiedrole/roles.go:122
 msgid "View and download."
 msgstr "Προβολή και λήψη."
 
 #. UnifiedRole SecureViewer, Role Description (resolves directly)
-#: pkg/unifiedrole/roles.go:185
+#: pkg/unifiedrole/roles.go:194
 msgid "View only documents, images and PDFs. Watermarks will be applied."
 msgstr ""
 "Προβολή μόνο εγγράφων, εικόνων και PDF. Θα εφαρμοστούν υδατογραφήματα."
 
 #. UnifiedRole FileEditorWithVErsions, Role Description (resolves directly)
-#: pkg/unifiedrole/roles.go:167
+#: pkg/unifiedrole/roles.go:176
 msgid "View, download and edit including the history."
 msgstr ""
 
 #. UnifiedRole FileEditor, Role Description (resolves directly)
-#: pkg/unifiedrole/roles.go:155
+#: pkg/unifiedrole/roles.go:164
 msgid "View, download and edit."
 msgstr "Προβολή, λήψη και επεξεργασία."
 
 #. UnifiedRole ViewerListGrants, Role Description (resolves directly)
-#: pkg/unifiedrole/roles.go:113
+#: pkg/unifiedrole/roles.go:116
 msgid "View, download and show all invited people."
 msgstr "Προβολή, λήψη και εμφάνιση όλων των προσκεκλημένων ατόμων."
 
 #. UnifiedRole EditorLite, Role Description (resolves directly)
-#: pkg/unifiedrole/roles.go:173
+#: pkg/unifiedrole/roles.go:182
 msgid "View, download and upload."
 msgstr "Προβολή, λήψη και μεταφόρτωση."
 
 #. UnifiedRole FileEditorListGrants, Role Description (resolves directly)
-#: pkg/unifiedrole/roles.go:161
+#: pkg/unifiedrole/roles.go:170
 msgid "View, download, edit and show all invited people."
 msgstr ""
 "Προβολή, λήψη, επεξεργασία και εμφάνιση όλων των προσκεκλημένων ατόμων."
 
 #. UnifiedRole Editor, Role Description (resolves directly)
-#: pkg/unifiedrole/roles.go:131
+#: pkg/unifiedrole/roles.go:140
 msgid "View, download, upload, edit, add and delete including the history."
 msgstr ""
 
 #. UnifiedRole Editor, Role Description (resolves directly)
 #. UnifiedRole SpaseEditorWithoutVersions, Role Description (resolves
 #. directly)
-#: pkg/unifiedrole/roles.go:125 pkg/unifiedrole/roles.go:149
+#: pkg/unifiedrole/roles.go:134 pkg/unifiedrole/roles.go:158
 msgid "View, download, upload, edit, add and delete."
 msgstr "Προβολή, λήψη, μεταφόρτωση, επεξεργασία, προσθήκη και διαγραφή."
 
 #. UnifiedRole Manager, Role Description (resolves directly)
-#: pkg/unifiedrole/roles.go:179
+#: pkg/unifiedrole/roles.go:188
 msgid "View, download, upload, edit, add, delete and manage members."
 msgstr ""
 "Προβολή, λήψη, μεταφόρτωση, επεξεργασία, προσθήκη, διαγραφή και διαχείριση "
 "μελών."
 
 #. UnifiedRoleListGrants Editor, Role Description (resolves directly)
-#: pkg/unifiedrole/roles.go:137
+#: pkg/unifiedrole/roles.go:146
 msgid "View, download, upload, edit, add, delete and show all invited people."
 msgstr ""
 "Προβολή, λήψη, μεταφόρτωση, επεξεργασία, προσθήκη, διαγραφή και εμφάνιση "
 "όλων των προσκεκλημένων ατόμων."
 
 #. UnifiedRole SpaseEditor, Role Description (resolves directly)
-#: pkg/unifiedrole/roles.go:143
+#: pkg/unifiedrole/roles.go:152
 msgid "View, download, upload, edit, add, delete including the history."
 msgstr ""
 "Προβολή, λήψη, μεταφόρτωση, επεξεργασία, προσθήκη, διαγραφή "

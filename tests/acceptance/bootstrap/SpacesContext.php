@@ -32,6 +32,7 @@ use TestHelpers\WebDavHelper;
 use TestHelpers\GraphHelper;
 use TestHelpers\OcHelper;
 use TestHelpers\BehatHelper;
+use TestHelpers\WaitHelper;
 use Behat\Step\Given;
 use Behat\Step\Then;
 use Behat\Step\When;
@@ -296,6 +297,37 @@ class SpacesContext implements Context {
 					return $item->remoteItem->id;
 				}
 				throw new Exception("Failed to find remoteItem ID for share: $share");
+			}
+		}
+
+		throw new Exception("Cannot find share: $share");
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $share
+	 *
+	 * @return string
+	 *
+	 * @throws Exception|GuzzleException
+	 */
+	public function getSharesMountId(string $user, string $share): string {
+		$credentials = $this->featureContext->graphContext->getAdminOrUserCredentials($user);
+		$response = GraphHelper::getSharesSharedWithMe(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			$credentials['username'],
+			$credentials['password']
+		);
+
+		$jsonBody = $this->featureContext->getJsonDecodedResponseBodyContent($response);
+
+		foreach ($jsonBody->value as $item) {
+			if (isset($item->name) && $item->name === $share) {
+				if (isset($item->id)) {
+					return $item->id;
+				}
+				throw new Exception("Failed to find mount ID for share: $share");
 			}
 		}
 
@@ -3825,15 +3857,26 @@ class SpacesContext implements Context {
 		string $spaceName,
 		TableNode $propertiesTable
 	): void {
-		// NOTE: extracting properties occurs asynchronously
-		// short wait is necessary before getting those properties
-		sleep(2);
+		// NOTE: extracting properties occurs asynchronously after upload, so we need to wait until the properties are available
 		$spaceId = $this->getSpaceIdByName($user, $spaceName);
-		$response = $this->webDavPropertiesContext->getPropertiesOfFolder(
-			$user,
-			$resourceName,
-			$spaceId,
-			$propertiesTable
+		$response = WaitHelper::waitUntil(
+			fn () => $this->webDavPropertiesContext->getPropertiesOfFolder(
+				$user,
+				$resourceName,
+				$spaceId,
+				$propertiesTable
+			),
+			function ($response) {
+				// check if the response body contains any of the extracted-property leaf names
+				$body = (string) $response->getBody();
+				$response->getBody()->rewind();
+				foreach (["camera-make", "latitude", "longitude", "album", "artist", "width", "height"] as $leaf) {
+					if (\str_contains($body, $leaf)) {
+						return true;
+					}
+				}
+				return false;
+			}
 		);
 		$this->featureContext->setResponse($response);
 	}
@@ -4513,16 +4556,26 @@ class SpacesContext implements Context {
 			$itemId = $this->getFileId($user, $space, $file);
 		}
 		$url = $this->featureContext->getBaseUrl() . "/graph/v1.0/drives/$spaceId/items/$itemId";
-		// NOTE: extracting properties occurs asynchronously
-		// short wait is necessary before getting those properties
-		sleep(2);
-		$this->featureContext->setResponse(
-			HttpRequestHelper::get(
+
+		// NOTE: extracting properties occurs asynchronously after upload, so we need to wait until the properties are available
+		$extractionFacets = ["image", "photo", "location", "audio", "video"];
+		$response = WaitHelper::waitUntil(
+			fn () => HttpRequestHelper::get(
 				$url,
 				$this->featureContext->getStepLineRef(),
 				$user,
 				$this->featureContext->getPasswordForUser($user),
-			)
+			),
+			function ($response) use ($extractionFacets) {
+				if ($response->getStatusCode() !== 200) {
+					return true;
+				}
+				$body = $this->featureContext->getJsonDecodedResponseBodyContent($response);
+				return \is_object($body)
+					&& !empty(\array_intersect($extractionFacets, \array_keys((array) $body)));
+			}
 		);
+
+		$this->featureContext->setResponse($response);
 	}
 }

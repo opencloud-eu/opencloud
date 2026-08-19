@@ -17,7 +17,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"os"
 )
 
 
@@ -30,7 +29,7 @@ type ApiGetUserPhotoRequest struct {
 	userId string
 }
 
-func (r ApiGetUserPhotoRequest) Execute() (*os.File, *http.Response, error) {
+func (r ApiGetUserPhotoRequest) Execute() (io.Reader, *http.Response, error) {
 	return r.ApiService.GetUserPhotoExecute(r)
 }
 
@@ -50,13 +49,13 @@ func (a *UserPhotoApiService) GetUserPhoto(ctx context.Context, userId string) A
 }
 
 // Execute executes the request
-//  @return *os.File
-func (a *UserPhotoApiService) GetUserPhotoExecute(r ApiGetUserPhotoRequest) (*os.File, *http.Response, error) {
+//  @return io.Reader
+func (a *UserPhotoApiService) GetUserPhotoExecute(r ApiGetUserPhotoRequest) (io.Reader, *http.Response, error) {
 	var (
 		localVarHTTPMethod   = http.MethodGet
 		localVarPostBody     interface{}
 		formFiles            []formFile
-		localVarReturnValue  *os.File
+		localVarReturnValue  io.Reader
 	)
 
 	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "UserPhotoApiService.GetUserPhoto")

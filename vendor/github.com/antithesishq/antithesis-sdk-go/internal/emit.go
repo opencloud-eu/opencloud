@@ -1,4 +1,4 @@
-//go:build enable_antithesis_sdk
+//go:build !no_antithesis_sdk
 
 package internal
 
@@ -38,7 +38,7 @@ type libHandler interface {
 }
 
 const (
-	errorLogLinePrefix       = "[* antithesis-sdk-go *]"
+	errorLogLinePrefix = "[* antithesis-sdk-go *]"
 )
 
 var handler libHandler

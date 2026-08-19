@@ -35,6 +35,16 @@ func DefaultConfig() *config.Config {
 			TLSCert:   path.Join(defaults.BaseDataPath(), "proxy", "server.crt"),
 			TLSKey:    path.Join(defaults.BaseDataPath(), "proxy", "server.key"),
 			TLS:       true,
+			Client: config.Client{
+				ForceAttemptHTTP2:     false,
+				DialTimeout:           30 * time.Second,
+				DialKeepAlive:         30 * time.Second,
+				MaxIdleConns:          100,
+				MaxIdleConnsPerHost:   100,
+				IdleConnTimeout:       90 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
+			},
 		},
 		Service: config.Service{
 			Name: "proxy",
@@ -135,6 +145,10 @@ func DefaultPolicies() []config.Policy {
 				},
 				{
 					Endpoint: "/branding/logo",
+					Service:  "eu.opencloud.web.web",
+				},
+				{
+					Endpoint: "/announcement",
 					Service:  "eu.opencloud.web.web",
 				},
 				{
@@ -293,11 +307,6 @@ func DefaultPolicies() []config.Policy {
 				},
 				{
 					Endpoint: "/collaboration/fonts/manage",
-					Service:  "eu.opencloud.web.collaboration",
-					// Method: "POST" // toDo: fails with method, WHY???
-				},
-				{
-					Endpoint: "/collaboration/notify",
 					Service:  "eu.opencloud.web.collaboration",
 					// Method: "POST" // toDo: fails with method, WHY???
 				},

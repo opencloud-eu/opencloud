@@ -36,6 +36,43 @@ func (p *SyncPool[T]) Put(x *T) {
 	}
 }
 
+// resettable is implemented by *T when used with [ResettablePool], allowing
+// pooled values to clear their internal state (e.g. drop pointers so they
+// don't outlive their useful life) before being returned to the pool.
+type resettable[T any] interface {
+	*T
+	Reset()
+}
+
+// ResettablePool is like [SyncPool], but for types whose pointer clears its
+// own fields via a Reset method before being pooled. Unlike a runtime
+// interface check on every Put, the PT type parameter is resolved at compile
+// time, so there's no extra dispatch cost over a hand-written pool.
+type ResettablePool[T any, PT resettable[T]] struct {
+	pool sync.Pool
+}
+
+func NewResettablePool[T any, PT resettable[T]]() *ResettablePool[T, PT] {
+	return &ResettablePool[T, PT]{
+		pool: sync.Pool{
+			New: func() any {
+				return new(T)
+			},
+		},
+	}
+}
+
+func (p *ResettablePool[T, PT]) Get() *T {
+	return p.pool.Get().(*T)
+}
+
+func (p *ResettablePool[T, PT]) Put(x *T) {
+	if x != nil {
+		PT(x).Reset()
+		p.pool.Put(x)
+	}
+}
+
 // NewPtrSlice returns a slice of pointers to T with length n,
 // with only 2 allocations performed no matter the size of n.
 // See:
@@ -112,6 +149,58 @@ func NumDigitsUint(n uint64) int {
 // AppendInt is a less messy version of strconv.AppendInt for base 10 ints.
 func AppendInt(buf []byte, n int) []byte {
 	return strconv.AppendInt(buf, int64(n), 10)
+}
+
+// Atoi is a convenience function for [Atoi64] where an int is preferable to an int64.
+// See the documentation of [Atoi64] for details on the performance benefits of this
+// function over strconv.Atoi.
+func Atoi(s string) (int, bool) {
+	if i, ok := Atoi64(s); ok {
+		return int(i), true
+	}
+	return 0, false
+}
+
+// Atoi64 is an alternative implementation of strconv.Atoi which is slightly faster for the
+// (for our use case) common case of a successful conversion, and crucially — *much* faster
+// for the failure case, as this function allocates nothing for any given input string, while
+// strconv.Atoi performs 1-2 allocations on failure in its error handling. The callers in this
+// codebase — most notably ast.Number's Int() and Int64() methods — have no interest in the
+// details of the failure, and keeping this allocation free means both methods can be used
+// not only for conversion, but as a most efficient "IsInt64" check.
+func Atoi64(s string) (int64, bool) {
+	sLen := len(s)
+	if sLen > 0 {
+		negative := s[0] == '-'
+		if negative || s[0] == '+' {
+			s = s[1:]
+			sLen--
+		}
+		if sLen == 0 || sLen > 19 {
+			return 0, false
+		}
+
+		var n int64
+		for _, ch := range []byte(s) {
+			ch -= '0'
+			if ch > 9 {
+				return 0, false
+			}
+			n = n*10 + int64(ch)
+		}
+		if !negative && n < 0 {
+			return 0, false // overflow
+		}
+		if negative {
+			n = -n
+			if n > 0 {
+				return 0, false // underflow
+			}
+		}
+		return n, true
+	}
+
+	return 0, false
 }
 
 // SplitMap calls fn for each delim-separated part of text and returns a slice of the results.

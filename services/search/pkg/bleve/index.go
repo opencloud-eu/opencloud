@@ -102,9 +102,9 @@ func searchResourceByID(id string, index bleve.Index) (*search.Resource, error) 
 	return matchToResource(res.Hits[0]), nil
 }
 
-func searchResourcesByPath(rootId, lookupPath string, index bleve.Index) ([]*search.Resource, error) {
+func searchResourcesByPath(rootID string, lookupPath string, index bleve.Index) ([]*search.Resource, error) {
 	q := bleve.NewConjunctionQuery(
-		bleve.NewQueryStringQuery("RootID:"+rootId),
+		bleve.NewQueryStringQuery("RootID:"+rootID),
 		bleve.NewQueryStringQuery("Path:"+escapeQuery(lookupPath+"/*")),
 	)
 	bleveReq := bleve.NewSearchRequest(q)

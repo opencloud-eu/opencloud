@@ -341,6 +341,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 					r.Get("/", svc.GetUser)
 					r.Get("/drive", svc.GetUserDrive)
 					r.Post("/exportPersonalData", svc.ExportPersonalData)
+					r.Post("/teamwork/sendActivityNotification", svc.SendActivityNotification)
 					r.Route("/photo/$value", func(r chi.Router) {
 						r.Get("/", usersUserProfilePhotoApi.GetProfilePhoto(GetSlugValue("userID")))
 					})

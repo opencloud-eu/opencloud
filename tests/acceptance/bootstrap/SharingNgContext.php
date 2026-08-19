@@ -1030,6 +1030,9 @@ class SharingNgContext implements Context {
 		if ($shareType == 'user' && !isset($recipient)) {
 			$this->featureContext->shareNgAddToCreatedUserGroupShares($this->getDrivePermissionsList($sharer, $space));
 			$permissionID = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
+		} elseif ($shareType == 'group' && !isset($recipient)) {
+			$response = $this->getDrivePermissionsList($sharer, $space);
+			$permissionID = $this->featureContext->getJsonDecodedResponse($response)['value'][0]['id'];
 		} else {
 			$permissionID = match ($shareType) {
 				'link' => $this->featureContext->shareNgGetLastCreatedLinkShareID(),
@@ -1203,6 +1206,25 @@ class SharingNgContext implements Context {
 	): void {
 		$this->featureContext->setResponse(
 			$this->removeAccessToSpace($user, 'user', $space)
+		);
+	}
+
+	/**
+	 *
+	 * @param string $user
+	 * @param string $space
+	 *
+	 * @return void
+	 * @throws JsonException
+	 * @throws GuzzleException
+	 */
+	#[When('user :user tries to remove own group access from space :space using root endpoint of the Graph API')]
+	public function userRemovesOwnAccessOfGroupFromSpaceUsingGraphAPI(
+		string $user,
+		string $space
+	): void {
+		$this->featureContext->setResponse(
+			$this->removeAccessToSpace($user, 'group', $space)
 		);
 	}
 
@@ -2113,6 +2135,121 @@ class SharingNgContext implements Context {
 				"The share '$expectedShare' was not found in the response."
 			);
 		}
+	}
+
+	/**
+	 * @param string $roleId
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[Then('the permissions roles allowed values should contain a role with id :roleId')]
+	public function thePermissionsRolesAllowedValuesShouldContainARoleWithId(string $roleId): void {
+		$responseBody = $this->featureContext->getJsonDecodedResponseBodyContent();
+		$allowedValues = $responseBody->{'@libre.graph.permissions.roles.allowedValues'} ?? [];
+		$actualIds = [];
+		foreach ($allowedValues as $role) {
+			if (isset($role->id)) {
+				$actualIds[] = $role->id;
+			}
+		}
+		Assert::assertContains(
+			$roleId,
+			$actualIds,
+			"Permission role id '$roleId' was not found in the allowed values. Found: " . \implode(', ', $actualIds)
+		);
+	}
+
+	/**
+	 * @return string[] list of user ids the resource is granted to (from the last permissions response)
+	 */
+	private function getGranteeUserIdsFromResponse(): array {
+		$responseBody = $this->featureContext->getJsonDecodedResponseBodyContent();
+		$grantees = [];
+		foreach (($responseBody->value ?? []) as $permission) {
+			if (isset($permission->grantedToV2->user->id)) {
+				$grantees[] = $permission->grantedToV2->user->id;
+			}
+		}
+		return $grantees;
+	}
+
+	/**
+	 * @param string $grantee
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[Then('the permissions list of the response should contain a grant for user :grantee')]
+	public function thePermissionsListOfTheResponseShouldContainAGrantForUser(string $grantee): void {
+		$granteeId = $this->featureContext->getAttributeOfCreatedUser($grantee, 'id');
+		$grantees = $this->getGranteeUserIdsFromResponse();
+		Assert::assertContains(
+			$granteeId,
+			$grantees,
+			"Expected a grant for user '$grantee' ($granteeId) but found grantees: " . \implode(', ', $grantees)
+		);
+	}
+
+	/**
+	 * @param string $grantee
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[Then('the permissions list of the response should not contain a grant for user :grantee')]
+	public function thePermissionsListOfTheResponseShouldNotContainAGrantForUser(string $grantee): void {
+		$granteeId = $this->featureContext->getAttributeOfCreatedUser($grantee, 'id');
+		$grantees = $this->getGranteeUserIdsFromResponse();
+		Assert::assertNotContains(
+			$granteeId,
+			$grantees,
+			"Did not expect a grant for user '$grantee' ($granteeId) but it was present"
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $share
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user gets permissions list of shared resource :share using the Graph API')]
+	public function userGetsPermissionsListOfSharedResourceUsingTheGraphAPI(string $user, string $share): void {
+		$credentials = $this->featureContext->graphContext->getAdminOrUserCredentials($user);
+		$sharedWithMe = GraphHelper::getSharesSharedWithMe(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			$credentials['username'],
+			$credentials['password']
+		);
+
+		$jsonBody = $this->featureContext->getJsonDecodedResponseBodyContent($sharedWithMe);
+		$driveId = null;
+		$itemId = null;
+		foreach ($jsonBody->value as $item) {
+			if (isset($item->name) && $item->name === $share && isset($item->remoteItem->id)) {
+				$itemId = $item->remoteItem->id;
+				$driveId = $item->remoteItem->parentReference->driveId;
+				break;
+			}
+		}
+		Assert::assertNotNull(
+			$itemId,
+			"Cannot find shared resource '$share' in the shared-with-me list of user '$user'"
+		);
+
+		$this->featureContext->setResponse(
+			GraphHelper::getPermissionsList(
+				$this->featureContext->getBaseUrl(),
+				$this->featureContext->getStepLineRef(),
+				$credentials['username'],
+				$credentials['password'],
+				$driveId,
+				$itemId
+			)
+		);
 	}
 
 	/**

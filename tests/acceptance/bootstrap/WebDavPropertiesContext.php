@@ -141,6 +141,27 @@ class WebDavPropertiesContext implements Context {
 	}
 
 	/**
+	 * @param string $user
+	 * @param string $path
+	 *
+	 * @return void
+	 * @throws Exception
+	 */
+	#[When('/^user "([^"]*)" downloads the "([^"]*)" file via its oc:downloadURL$/')]
+	public function userDownloadsFileViaItsDownloadUrl(string $user, string $path): void {
+		$propertiesTable = new TableNode([["propertyName"], ["oc:downloadURL"]]);
+		$propfindResponse = $this->getPropertiesOfFolder($user, $path, null, $propertiesTable);
+		$downloadUrl = (string)$this->checkResponseContainsProperty($propfindResponse, "oc:downloadURL");
+		// GET the server-built URL as-is, the way the web client does: the signature
+		// in the URL authenticates the request, so no credentials are sent.
+		$response = HttpRequestHelper::get(
+			$downloadUrl,
+			$this->featureContext->getStepLineRef()
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
 	 *
 	 * @param string $username
 	 * @param string $path

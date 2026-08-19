@@ -25,7 +25,20 @@ type Config struct {
 	TokenManager *TokenManager `yaml:"token_manager"`
 
 	GatewayAddress string          `yaml:"gateway_addr" env:"WEB_GATEWAY_GRPC_ADDR" desc:"The bind address of the GRPC service." introductionVersion:"1.0.0"`
+	Store          Store           `yaml:"store"`
 	Context        context.Context `yaml:"-"`
+}
+
+// Store configures the NATS JetStream key-value store used to keep runtime managed web settings,
+// e.g. the announcement banner.
+type Store struct {
+	Nodes                []string `yaml:"nodes" env:"OC_PERSISTENT_STORE_NODES;WEB_STORE_NODES" desc:"A list of nodes to access the NATS JetStream store. See the Environment Variable Types description for more details." introductionVersion:"7.4.0"`
+	Database             string   `yaml:"database" env:"WEB_STORE_DATABASE" desc:"The bucket name the store should use." introductionVersion:"7.4.0"`
+	AuthUsername         string   `yaml:"username" env:"OC_PERSISTENT_STORE_AUTH_USERNAME;WEB_STORE_AUTH_USERNAME" desc:"The username to authenticate with the store." introductionVersion:"7.4.0"`
+	AuthPassword         string   `yaml:"password" env:"OC_PERSISTENT_STORE_AUTH_PASSWORD;WEB_STORE_AUTH_PASSWORD" desc:"The password to authenticate with the store." introductionVersion:"7.4.0"`
+	EnableTLS            bool     `yaml:"enable_tls" env:"OC_PERSISTENT_STORE_ENABLE_TLS;WEB_STORE_ENABLE_TLS" desc:"Enable TLS for the connection to the store." introductionVersion:"7.4.0"`
+	TLSInsecure          bool     `yaml:"tls_insecure" env:"OC_INSECURE;OC_PERSISTENT_STORE_TLS_INSECURE;WEB_STORE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"7.4.0"`
+	TLSRootCACertificate string   `yaml:"tls_root_ca_certificate" env:"OC_PERSISTENT_STORE_TLS_ROOT_CA_CERTIFICATE;WEB_STORE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided WEB_STORE_TLS_INSECURE will be seen as false." introductionVersion:"7.4.0"`
 }
 
 // Asset defines the available asset configuration.

@@ -11,7 +11,7 @@ PROXY_ENABLE_APP_AUTH=false      # mandatory, disables app authentication. In ca
 
 ## App Tokens
 
-App Tokens are password specifically generated to be used by 3rd party applications
+App Tokens are passwords specifically generated to be used by 3rd party applications
 for authentication when accessing the OpenCloud API endpoints. To
 be able to use an app token, one must first create a token. There are different
 options of creating a token.
@@ -32,16 +32,22 @@ in the `graph` service for allowing the management of App Tokens.
 
 The `auth-app` service provides an API to create (POST), list (GET) and delete (DELETE) tokens at the `/auth-app/tokens` endpoint.
 
-* **Create a token**\
+* **Create a token**
+
   The POST request requires:
-  * A `expiry` key/value pair in the form of `expiry=<number><h|m|s>`\
-    Example: `expiry=72h`
+
+  An `expiry` key/value pair in the form of `expiry=<number><h|m|s>`
+
+  Example: `expiry=72h`
+
   ```bash
   curl --request POST 'https://<your host:9200>/auth-app/tokens?expiry={value}' \
        --header 'accept: application/json'
   ```
+
   Example output:
-  ```
+
+  ```bash
   {
   "token": "3s2K7816M4vuSpd5",
   "expiration_date": "2024-08-08T13:42:42.796888022+02:00",
@@ -53,18 +59,20 @@ The `auth-app` service provides an API to create (POST), list (GET) and delete (
   Note, that this is the only time the app token will be returned in cleartext. To use the token
   please copy it from the response.
 
-* **List tokens**\
+* **List tokens**
+
   ```bash
   curl --request GET 'https://<your host:9200>/auth-app/tokens' \
        --header 'accept: application/json'
   ```
 
-  Note that the `token` value in the response to the "List Tokens` request is not the actual
+  Note that the `token` value in the response to the "List Tokens" request is not the actual
   app token, but the UUID of the token. So this value cannot be used for authenticating
   with the token.
 
   Example output:
-  ```
+
+  ```bash
   [
     {
       "token": "155f402e-1c5c-411c-92d4-92f3b612cd99"
@@ -81,10 +89,14 @@ The `auth-app` service provides an API to create (POST), list (GET) and delete (
   ]
   ```
 
-* **Delete a token**\
+* **Delete a token**
+
   The DELETE request requires:
-  * A `token` key/value pair in the form of `token=<token_issued>`. The value needs to be the hashed value as returned by the `List Tokens` respone.\
+
+  A `token` key/value pair in the form of `token=<token_issued>`. The value needs to be the hashed value as returned by the `List Tokens` respone.
+
     Example: `token=8c606bdb-e22e-4094-9304-732fd4702bc9`
+
   ```bash
   curl --request DELETE 'https://<your host:9200>/auth-app/tokens?token={value}' \
        --header 'accept: application/json'
@@ -101,16 +113,22 @@ reasons.
 To impersonate, the respective requests from the CLI commands above extend with
 the following parameters, where you can use one or the other:
 
-* The `userID` in the form of: `userID={value}`\
-  Example:\
+* The `userID` in the form of: `userID={value}`
+
+  Example:
+
   `userID=4c510ada- ... -42cdf82c3d51`
 
-* The `userName` in the form of: `userName={value}`\
-  Example:\
+* The `userName` in the form of: `userName={value}`
+
+  Example:
+
   `userName=alan`
 
-Example:\
+Example:
+
 A final create request would then look like:
+
 ```bash
 curl --request POST 'https://<your host:9200>/auth-app/tokens?expiry={value}&userName={value}' \
      --header 'accept: application/json'

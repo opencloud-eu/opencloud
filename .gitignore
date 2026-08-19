@@ -40,8 +40,8 @@ vendor-php
 suite-logs
 tests/acceptance/filesForUpload/filesWithVirus/
 
-# QA activity reports
-tests/qa-activity-report/reports/
+# Generated docs page (published to the server-testing-docs branch by CI)
+tests/.docs-dist/
 
 # drone CI is in .drone.star, do not let someone accidentally commit a local .drone.yml
 .drone.yml
