@@ -1,6 +1,6 @@
 # Changelog
 
-## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-18
+## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-19
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -31,6 +31,8 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump golang.org/x/net from 0.57.0 to 0.58.0 [[#3342](https://github.com/opencloud-eu/opencloud/pull/3342)]
+- build(deps): bump github.com/onsi/ginkgo/v2 from 2.32.0 to 2.32.1 [[#3340](https://github.com/opencloud-eu/opencloud/pull/3340)]
 - build(deps): bump github.com/testcontainers/testcontainers-go/modules/opensearch from 0.43.0 to 0.44.0 [[#3303](https://github.com/opencloud-eu/opencloud/pull/3303)]
 - build(deps): bump github.com/opencloud-eu/libre-graph-api-go [[#3326](https://github.com/opencloud-eu/opencloud/pull/3326)]
 - build(deps): bump go.opentelemetry.io/otel/exporters/stdout/stdouttrace from 1.44.0 to 1.45.0 [[#3306](https://github.com/opencloud-eu/opencloud/pull/3306)]
