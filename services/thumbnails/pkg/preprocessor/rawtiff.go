@@ -43,7 +43,9 @@ const (
 	tiffTagJPEGLength      = 0x0202 // JPEGInterchangeFormatLength
 	tiffTypeShort          = 3
 	tiffTypeLong           = 4
+	tiffTypeIFD            = 13 // 32-bit IFD pointer
 	tiffTypeLong8          = 16 // BigTIFF 64-bit offset
+	tiffTypeIFD8           = 18 // BigTIFF 64-bit IFD pointer
 	tiffMagic              = 42
 	bigTiffMagic           = 43
 	// caps that bound work on untrusted input
@@ -56,6 +58,19 @@ const (
 // 64-bit) integer offset we can follow.
 func isLongType(typ uint16, bigTiff bool) bool {
 	return typ == tiffTypeLong || (bigTiff && typ == tiffTypeLong8)
+}
+
+// isSubIFDType reports whether a SubIFDs tag carries a followable pointer.
+// Besides LONG/LONG8 it accepts the dedicated IFD (13) and, in BigTIFF, IFD8
+// (18) pointer types, which cameras use for SubIFDs; length fields keep the
+// stricter isLongType so they never accept a pointer type.
+func isSubIFDType(typ uint16, bigTiff bool) bool {
+	return isLongType(typ, bigTiff) || typ == tiffTypeIFD || (bigTiff && typ == tiffTypeIFD8)
+}
+
+// is8ByteType reports whether a value of this type occupies 8 bytes.
+func is8ByteType(typ uint16) bool {
+	return typ == tiffTypeLong8 || typ == tiffTypeIFD8
 }
 
 // maxPreviewLength caps the served preview; a var so tests can lower it.
@@ -116,7 +131,7 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 	// value field. A LONG offset in a BigTIFF entry is 4 bytes, not 8, so reading
 	// it as Uint64 would shift it on big-endian input.
 	readVal := func(b []byte, typ uint16) uint64 {
-		if typ == tiffTypeLong8 {
+		if is8ByteType(typ) {
 			return order.Uint64(b[:8])
 		}
 		return uint64(order.Uint32(b[:4]))
@@ -197,7 +212,7 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 					stripLength = readVal(entry[valAt:], typ)
 				}
 			case tiffTagSubIFDs:
-				if !isLongType(typ, bigTiff) {
+				if !isSubIFDType(typ, bigTiff) {
 					continue
 				}
 				if count == 1 {
@@ -205,10 +220,10 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 					continue
 				}
 				// count > 1: the value field points at an array of count offsets,
-				// each of the tag's own width (LONG 4B, LONG8 8B)
+				// each of the tag's own width (LONG/IFD 4B, LONG8/IFD8 8B)
 				arrayOffset := readOff(entry[valAt:])
 				elemW := uint64(4)
-				if typ == tiffTypeLong8 {
+				if is8ByteType(typ) {
 					elemW = 8
 				}
 				for j := uint64(0); j < count && j < uint64(maxIFDs); j++ {

@@ -520,3 +520,41 @@ var _ = Describe("RawTiffDecoder BigTIFF hardening", func() {
 		Expect(jpg).To(Equal(p))
 	})
 })
+
+var _ = Describe("RawTiffDecoder SubIFD pointer types", func() {
+	le := binary.LittleEndian
+	entry := func(tag, typ uint16, value uint32) []byte {
+		e := le.AppendUint16(nil, tag)
+		e = le.AppendUint16(e, typ)
+		e = le.AppendUint32(e, 1)
+		return le.AppendUint32(e, value)
+	}
+
+	// a classic TIFF whose IFD0 references its SubIFD with the given pointer type
+	build := func(subIFDType uint16, preview []byte) []byte {
+		buf := []byte{'I', 'I', 42, 0, 8, 0, 0, 0}
+		ifd0Start := uint32(len(buf))
+		subifdStart := ifd0Start + 2 + 1*12 + 4
+		previewStart := subifdStart + 2 + 2*12 + 4
+		ifd0 := le.AppendUint16(nil, 1)
+		ifd0 = append(ifd0, entry(tiffTagSubIFDs, subIFDType, subifdStart)...)
+		ifd0 = le.AppendUint32(ifd0, 0)
+		subifd := le.AppendUint16(nil, 2)
+		subifd = append(subifd, entry(tiffTagJPEGOffset, tiffTypeLong, previewStart)...)
+		subifd = append(subifd, entry(tiffTagJPEGLength, tiffTypeLong, uint32(len(preview)))...)
+		subifd = le.AppendUint32(subifd, 0)
+		buf = append(buf, ifd0...)
+		buf = append(buf, subifd...)
+		return append(buf, preview...)
+	}
+
+	follows := func(subIFDType uint16) {
+		preview := encodeJPEG(64, 32)
+		jpg, _, err := extractEmbeddedJPEG(build(subIFDType, preview))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(jpg).To(Equal(preview))
+	}
+
+	It("follows a SubIFDs pointer typed LONG (4)", func() { follows(tiffTypeLong) })
+	It("follows a SubIFDs pointer typed IFD (13)", func() { follows(tiffTypeIFD) })
+})
