@@ -4,7 +4,14 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @aduffeck, @butonic, @fschade, @maki5, @pbleser-oc, @saw-jan, @schweigisito, @v-scharf
+@AlexAndBear, @JammingBen, @aduffeck, @butonic, @fschade, @junkerderprovinz, @maki5, @pbleser-oc, @rhafer, @saw-jan, @schweigisito, @v-scharf
+
+### 🐛 Bug Fixes
+
+- actually log error on exit [[#3344](https://github.com/opencloud-eu/opencloud/pull/3344)]
+- fix(activitylog): log missing parent id cache entry at debug level [[#3325](https://github.com/opencloud-eu/opencloud/pull/3325)]
+- fix restore file version for shared resource [[#3268](https://github.com/opencloud-eu/opencloud/pull/3268)]
+- Fix missing favorite flag on opensearch hits [[#3252](https://github.com/opencloud-eu/opencloud/pull/3252)]
 
 ### ✅ Tests
 
@@ -24,13 +31,9 @@
 - feat(web): add yjsServerUrl config [[#3259](https://github.com/opencloud-eu/opencloud/pull/3259)]
 - feat(posixfs): #3182 add basepath option in the "posixfs scan" command [[#3235](https://github.com/opencloud-eu/opencloud/pull/3235)]
 
-### 🐛 Bug Fixes
-
-- fix restore file version for shared resource [[#3268](https://github.com/opencloud-eu/opencloud/pull/3268)]
-- Fix missing favorite flag on opensearch hits [[#3252](https://github.com/opencloud-eu/opencloud/pull/3252)]
-
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/stretchr/testify from 1.11.1 to 1.12.0 [[#3341](https://github.com/opencloud-eu/opencloud/pull/3341)]
 - build(deps): bump golang.org/x/net from 0.57.0 to 0.58.0 [[#3342](https://github.com/opencloud-eu/opencloud/pull/3342)]
 - build(deps): bump github.com/onsi/ginkgo/v2 from 2.32.0 to 2.32.1 [[#3340](https://github.com/opencloud-eu/opencloud/pull/3340)]
 - build(deps): bump github.com/testcontainers/testcontainers-go/modules/opensearch from 0.43.0 to 0.44.0 [[#3303](https://github.com/opencloud-eu/opencloud/pull/3303)]
