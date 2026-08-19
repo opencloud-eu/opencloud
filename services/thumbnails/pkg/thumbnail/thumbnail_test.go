@@ -1,6 +1,7 @@
 package thumbnail
 
 import (
+	"context"
 	"image"
 	"os"
 	"path"
@@ -176,7 +177,7 @@ func TestPreviewGenerationTooBigImage(t *testing.T) {
 			defer f.Close()
 
 			preproc := preprocessor.ForType(tt.mimeType, nil)
-			convert, err := preproc.Convert(f)
+			convert, err := preproc.Convert(context.TODO(), f)
 			if err != nil {
 				return
 			}

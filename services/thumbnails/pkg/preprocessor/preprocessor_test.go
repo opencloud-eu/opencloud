@@ -2,6 +2,7 @@ package preprocessor
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"testing"
@@ -32,14 +33,14 @@ var _ = Describe("ImageDecoder", func() {
 
 		It("should decode an image", func() {
 			decoder := ImageDecoder{}
-			img, err := decoder.Convert(fileReader)
+			img, err := decoder.Convert(context.TODO(), fileReader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(img).ToNot(BeNil())
 		})
 
 		It("should return an error if the image is invalid", func() {
 			decoder := ImageDecoder{}
-			img, err := decoder.Convert(bytes.NewReader([]byte("not an image")))
+			img, err := decoder.Convert(context.TODO(), bytes.NewReader([]byte("not an image")))
 			Expect(err).To(HaveOccurred())
 			Expect(img).To(BeNil())
 		})
@@ -57,14 +58,14 @@ var _ = Describe("ImageDecoder", func() {
 
 		It("should decode a gif", func() {
 			decoder := GifDecoder{}
-			img, err := decoder.Convert(fileReader)
+			img, err := decoder.Convert(context.TODO(), fileReader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(img).ToNot(BeNil())
 		})
 
 		It("should return an error if the gif is invalid", func() {
 			decoder := GifDecoder{}
-			img, err := decoder.Convert(bytes.NewReader([]byte("not a gif")))
+			img, err := decoder.Convert(context.TODO(), bytes.NewReader([]byte("not a gif")))
 			Expect(err).To(HaveOccurred())
 			Expect(img).To(BeNil())
 		})
@@ -82,14 +83,14 @@ var _ = Describe("ImageDecoder", func() {
 
 		It("should decode a ggs", func() {
 			decoder := GgsDecoder{"_slide0/geogebra_thumbnail.png"}
-			img, err := decoder.Convert(fileReader)
+			img, err := decoder.Convert(context.TODO(), fileReader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(img).ToNot(BeNil())
 		})
 
 		It("should return an error if the ggs is invalid", func() {
 			decoder := GgsDecoder{"_slide0/geogebra_thumbnail.png"}
-			img, err := decoder.Convert(bytes.NewReader([]byte("not a ggs")))
+			img, err := decoder.Convert(context.TODO(), bytes.NewReader([]byte("not a ggs")))
 			Expect(err).To(HaveOccurred())
 			Expect(img).To(BeNil())
 		})
@@ -104,7 +105,7 @@ var _ = Describe("ImageDecoder", func() {
 			}
 			fileReader = bytes.NewReader(fileContent)
 			decoder := AudioDecoder{}
-			img, err := decoder.Convert(fileReader)
+			img, err := decoder.Convert(context.TODO(), fileReader)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(img).ToNot(BeNil())
 		})
@@ -115,13 +116,13 @@ var _ = Describe("ImageDecoder", func() {
 			}
 			fileReader = bytes.NewReader(fileContent)
 			decoder := AudioDecoder{}
-			img, err := decoder.Convert(fileReader)
+			img, err := decoder.Convert(context.TODO(), fileReader)
 			Expect(err).To(HaveOccurred())
 			Expect(img).To(BeNil())
 		})
 		It("should return an error if the audio is invalid", func() {
 			decoder := AudioDecoder{}
-			img, err := decoder.Convert(bytes.NewReader([]byte("not an audio")))
+			img, err := decoder.Convert(context.TODO(), bytes.NewReader([]byte("not an audio")))
 			Expect(err).To(HaveOccurred())
 			Expect(img).To(BeNil())
 		})
@@ -145,7 +146,7 @@ var _ = Describe("ImageDecoder", func() {
 			}
 		})
 		It("should decode a text", func() {
-			img, err := decoder.Convert(bytes.NewReader([]byte("This is a test text")))
+			img, err := decoder.Convert(context.TODO(), bytes.NewReader([]byte("This is a test text")))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(img).ToNot(BeNil())
 		})
@@ -156,7 +157,7 @@ var _ = Describe("ImageDecoder", func() {
 					DefaultFont: "/some/unknown/font.otf",
 				},
 			}
-			img, err := decoder.Convert(bytes.NewReader([]byte("This is a test text")))
+			img, err := decoder.Convert(context.TODO(), bytes.NewReader([]byte("This is a test text")))
 			Expect(err).To(HaveOccurred())
 			Expect(img).To(BeNil())
 		})

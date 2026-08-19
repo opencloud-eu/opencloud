@@ -173,7 +173,7 @@ func (g Thumbnail) handleCS3Source(ctx context.Context, req *thumbnailssvc.GetTh
 		"filename":    sRes.GetInfo().GetName(),
 	}
 	pp := preprocessor.ForType(sRes.GetInfo().GetMimeType(), ppOpts)
-	img, err := pp.Convert(r)
+	img, err := pp.Convert(ctx, r)
 	switch {
 	case errors.Is(err, terrors.ErrNoImageFromRawFile):
 		// a raw file without an embedded preview is expected, not an error
@@ -275,7 +275,7 @@ func (g Thumbnail) handleWebdavSource(ctx context.Context, req *thumbnailssvc.Ge
 		"filename":    sRes.GetInfo().GetName(),
 	}
 	pp := preprocessor.ForType(sRes.GetInfo().GetMimeType(), ppOpts)
-	img, err := pp.Convert(r)
+	img, err := pp.Convert(ctx, r)
 	if img == nil || err != nil {
 		return "", merrors.NotFound(g.serviceID, "could not get image")
 	}

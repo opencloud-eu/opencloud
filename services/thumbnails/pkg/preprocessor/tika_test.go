@@ -3,6 +3,7 @@ package preprocessor
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"image"
 	"image/jpeg"
 	"io"
@@ -62,7 +63,7 @@ var _ = Describe("TikaDecoder", func() {
 		}))
 		defer srv.Close()
 
-		img, err := TikaDecoder{tikaURL: srv.URL}.Convert(bytes.NewReader([]byte("raw")))
+		img, err := TikaDecoder{tikaURL: srv.URL}.Convert(context.TODO(), bytes.NewReader([]byte("raw")))
 		Expect(err).ToNot(HaveOccurred())
 		// default (imaging) build decodes to an image.Image
 		bounds := img.(image.Image).Bounds()
@@ -76,7 +77,7 @@ var _ = Describe("TikaDecoder", func() {
 		}))
 		defer srv.Close()
 
-		_, err := TikaDecoder{tikaURL: srv.URL}.Convert(bytes.NewReader([]byte("raw")))
+		_, err := TikaDecoder{tikaURL: srv.URL}.Convert(context.TODO(), bytes.NewReader([]byte("raw")))
 		Expect(err).To(MatchError(thumbnailerErrors.ErrNoImageFromRawFile))
 	})
 
@@ -86,7 +87,7 @@ var _ = Describe("TikaDecoder", func() {
 		}))
 		defer srv.Close()
 
-		_, err := TikaDecoder{tikaURL: srv.URL}.Convert(bytes.NewReader([]byte("raw")))
+		_, err := TikaDecoder{tikaURL: srv.URL}.Convert(context.TODO(), bytes.NewReader([]byte("raw")))
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -98,7 +99,7 @@ var _ = Describe("TikaDecoder", func() {
 		}))
 		defer srv.Close()
 
-		_, err := TikaDecoder{tikaURL: srv.URL, filename: "my photo.nef"}.Convert(bytes.NewReader([]byte("raw")))
+		_, err := TikaDecoder{tikaURL: srv.URL, filename: "my photo.nef"}.Convert(context.TODO(), bytes.NewReader([]byte("raw")))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(gotCD).To(Equal(`attachment; filename="my photo.nef"`))
 	})
@@ -112,7 +113,7 @@ var _ = Describe("TikaDecoder", func() {
 		}))
 		defer srv.Close()
 
-		img, err := TikaDecoder{tikaURL: srv.URL}.Convert(bytes.NewReader([]byte("raw")))
+		img, err := TikaDecoder{tikaURL: srv.URL}.Convert(context.TODO(), bytes.NewReader([]byte("raw")))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(img.(image.Image).Bounds().Dx()).To(Equal(16))
 	})
@@ -123,7 +124,7 @@ var _ = Describe("TikaDecoder", func() {
 		}))
 		defer srv.Close()
 
-		_, err := TikaDecoder{tikaURL: srv.URL}.Convert(bytes.NewReader([]byte("raw")))
+		_, err := TikaDecoder{tikaURL: srv.URL}.Convert(context.TODO(), bytes.NewReader([]byte("raw")))
 		Expect(err).To(MatchError(thumbnailerErrors.ErrNoImageFromRawFile))
 	})
 
@@ -133,7 +134,7 @@ var _ = Describe("TikaDecoder", func() {
 		}))
 		defer srv.Close()
 
-		_, err := TikaDecoder{tikaURL: srv.URL}.Convert(bytes.NewReader([]byte("raw")))
+		_, err := TikaDecoder{tikaURL: srv.URL}.Convert(context.TODO(), bytes.NewReader([]byte("raw")))
 		Expect(err).To(HaveOccurred())
 		Expect(err).ToNot(MatchError(thumbnailerErrors.ErrNoImageFromRawFile))
 	})

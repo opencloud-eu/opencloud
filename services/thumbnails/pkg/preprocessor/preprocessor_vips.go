@@ -3,6 +3,7 @@
 package preprocessor
 
 import (
+	"context"
 	"io"
 
 	"github.com/davidbyttow/govips/v2/vips"
@@ -14,7 +15,7 @@ func init() {
 
 type ImageDecoder struct{}
 
-func (v ImageDecoder) Convert(r io.Reader) (interface{}, error) {
+func (v ImageDecoder) Convert(_ context.Context, r io.Reader) (interface{}, error) {
 	img, err := vips.NewImageFromReader(r)
 	return img, err
 }

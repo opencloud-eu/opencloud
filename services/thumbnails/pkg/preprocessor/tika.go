@@ -27,16 +27,16 @@ type TikaDecoder struct {
 	filename string
 }
 
-func (d TikaDecoder) Convert(r io.Reader) (any, error) {
+func (d TikaDecoder) Convert(ctx context.Context, r io.Reader) (any, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
-	preview, err := tikaExtractPreview(context.Background(), d.tikaURL, d.filename, data)
+	preview, err := tikaExtractPreview(ctx, d.tikaURL, d.filename, data)
 	if err != nil {
 		return nil, err
 	}
-	return ForType("image/jpeg", nil).Convert(bytes.NewReader(preview))
+	return ForType("image/jpeg", nil).Convert(ctx, bytes.NewReader(preview))
 }
 
 var tikaHTTPClient = &http.Client{Timeout: 30 * time.Second}
