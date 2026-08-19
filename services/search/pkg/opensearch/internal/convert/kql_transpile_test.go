@@ -52,6 +52,17 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 			Want: osu.NewMatchPhraseQuery("Name").Query(`open cloud`),
 		},
 		{
+			Name: "match-phrase query - full text Content field, single term",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Content", Value: "https://opencloud.eu/"},
+				},
+			},
+			// Content is analyzed, so even a single term must use match_phrase
+			// rather than a term query, which would not match tokenized content.
+			Want: osu.NewMatchPhraseQuery("Content").Query("https://opencloud.eu/"),
+		},
+		{
 			Name: "wildcard query - string node",
 			Got: &ast.Ast{
 				Nodes: []ast.Node{

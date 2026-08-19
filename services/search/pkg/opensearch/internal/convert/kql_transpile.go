@@ -15,6 +15,18 @@ func TranspileKQLToOpenSearch(nodes []ast.Node) (osu.Builder, error) {
 	return kqlOpensearchTranspiler{}.Transpile(nodes)
 }
 
+// fullTextFields are analyzed (text) fields whose query value must be analyzed
+// the same way as the indexed content. Querying them with a term query would
+// match the raw, unanalyzed value against tokenized content and miss.
+var fullTextFields = map[string]struct{}{
+	"Content": {},
+}
+
+func isFullTextField(key string) bool {
+	_, ok := fullTextFields[key]
+	return ok
+}
+
 type kqlOpensearchTranspiler struct{}
 
 func (t kqlOpensearchTranspiler) Transpile(nodes []ast.Node) (osu.Builder, error) {
@@ -108,6 +120,11 @@ func (t kqlOpensearchTranspiler) toBuilder(node ast.Node) (osu.Builder, error) {
 		isSingleTerm := len(totalTerms) == 1
 		isMultiTerm := len(totalTerms) >= 1
 		switch {
+		case isFullTextField(node.Key):
+			// analyzed text fields must analyze the query too; a term query looks
+			// for the raw value and never matches tokenized content, e.g.
+			// "Content:https://opencloud.eu/" against the tokenized URL
+			return osu.NewMatchPhraseQuery(node.Key).Query(node.Value), nil
 		case isSingleTerm:
 			return osu.NewTermQuery[string](node.Key).Value(node.Value), nil
 		case isMultiTerm:
