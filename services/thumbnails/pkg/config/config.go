@@ -57,5 +57,5 @@ type Preprocessor struct {
 
 // Tika configures preview extraction via an Apache Tika server.
 type Tika struct {
-	TikaURL string `yaml:"tika_url" env:"OC_TIKA_URL;THUMBNAILS_PREPROCESSOR_TIKA_TIKA_URL" desc:"URL of a Tika server used to extract embedded previews from raw images. When empty, raw images are not thumbnailed." introductionVersion:"%NEXT%"`
+	TikaURL string `yaml:"tika_url" env:"OC_TIKA_URL;THUMBNAILS_PREPROCESSOR_TIKA_TIKA_URL" desc:"URL of a Tika server used to extract embedded previews from raw images. When empty, raw images are not thumbnailed." introductionVersion:"%%NEXT%%"`
 }
