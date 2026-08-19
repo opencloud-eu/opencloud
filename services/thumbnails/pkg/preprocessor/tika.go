@@ -96,7 +96,6 @@ func tikaLargestPreview(ctx context.Context, tikaURL, filename string, data []by
 	return best, nil
 }
 
-// readZipEntry reads a zip entry fully, bounded by maxPreviewLength.
 func readZipEntry(f *zip.File) []byte {
 	rc, err := f.Open()
 	if err != nil {
