@@ -55,6 +55,7 @@ func NewService(opts ...Option) decorators.DecoratedService {
 		preprocessorOpts: PreprocessorOpts{
 			TxtFontFileMap: options.Config.Thumbnail.FontMapFile,
 			TikaURL:        options.Config.Thumbnail.Preprocessor.Tika.TikaURL,
+			AudioProcessor: options.Config.Thumbnail.Preprocessor.AudioProcessor,
 		},
 		dataEndpoint:   options.Config.Thumbnail.DataEndpoint,
 		transferSecret: options.Config.Thumbnail.TransferSecret,
@@ -80,6 +81,7 @@ type Thumbnail struct {
 type PreprocessorOpts struct {
 	TxtFontFileMap string
 	TikaURL        string
+	AudioProcessor string
 }
 
 // GetThumbnail retrieves a thumbnail for an image
@@ -168,9 +170,10 @@ func (g Thumbnail) handleCS3Source(ctx context.Context, req *thumbnailssvc.GetTh
 
 	defer r.Close()
 	ppOpts := map[string]any{
-		"fontFileMap": g.preprocessorOpts.TxtFontFileMap,
-		"tikaURL":     g.preprocessorOpts.TikaURL,
-		"filename":    sRes.GetInfo().GetName(),
+		"fontFileMap":    g.preprocessorOpts.TxtFontFileMap,
+		"tikaURL":        g.preprocessorOpts.TikaURL,
+		"filename":       sRes.GetInfo().GetName(),
+		"audioProcessor": g.preprocessorOpts.AudioProcessor,
 	}
 	pp := preprocessor.ForType(sRes.GetInfo().GetMimeType(), ppOpts)
 	img, err := pp.Convert(ctx, r)
@@ -270,9 +273,10 @@ func (g Thumbnail) handleWebdavSource(ctx context.Context, req *thumbnailssvc.Ge
 	}
 	defer r.Close()
 	ppOpts := map[string]any{
-		"fontFileMap": g.preprocessorOpts.TxtFontFileMap,
-		"tikaURL":     g.preprocessorOpts.TikaURL,
-		"filename":    sRes.GetInfo().GetName(),
+		"fontFileMap":    g.preprocessorOpts.TxtFontFileMap,
+		"tikaURL":        g.preprocessorOpts.TikaURL,
+		"filename":       sRes.GetInfo().GetName(),
+		"audioProcessor": g.preprocessorOpts.AudioProcessor,
 	}
 	pp := preprocessor.ForType(sRes.GetInfo().GetMimeType(), ppOpts)
 	img, err := pp.Convert(ctx, r)

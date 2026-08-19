@@ -47,6 +47,23 @@ func losslessJPEG(size int) []byte {
 	return b
 }
 
+// zipOrdered builds a zip preserving entry order, so "first image" fallback is deterministic.
+func zipOrdered(entries ...[2]string) []byte {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for _, e := range entries {
+		w, _ := zw.Create(e[0])
+		writeBody(w, []byte(e[1]))
+	}
+	_ = zw.Close()
+	return buf.Bytes()
+}
+
+// coverSidecar mimics a Tika /unpack/all image metadata sidecar with a picture type.
+func coverSidecar(desc string) string {
+	return `{"Content-Type":"image/jpeg","dc:description":"` + desc + `"}`
+}
+
 var _ = Describe("TikaDecoder", func() {
 	It("extracts the largest renderable JPEG from Tika's unpack zip", func() {
 		small := encodeJPEG(16, 8)
@@ -145,5 +162,38 @@ var _ = Describe("TikaDecoder", func() {
 		Expect(isRenderableJPEG([]byte{0xff, 0xd8})).To(BeFalse())
 		Expect(isRenderableJPEG(nil)).To(BeFalse())
 		Expect(isRenderableJPEG([]byte("not a jpeg"))).To(BeFalse())
+	})
+
+	It("picks the tagged front cover over other embedded images (audio)", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			Expect(r.URL.Path).To(Equal("/unpack/all"))
+			writeBody(w, zipOrdered(
+				[2]string{"1.jpg", string(encodeJPEG(64, 32))}, // larger, first, but not front
+				[2]string{"1.jpg.metadata.json", coverSidecar("Other")},
+				[2]string{"2.jpg", string(encodeJPEG(16, 8))}, // smaller, second, front cover
+				[2]string{"2.jpg.metadata.json", coverSidecar("Cover (front)")},
+			))
+		}))
+		defer srv.Close()
+
+		img, err := TikaDecoder{tikaURL: srv.URL, mimeType: "audio/mpeg"}.Convert(context.TODO(), bytes.NewReader([]byte("mp3")))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(img.(image.Image).Bounds().Dx()).To(Equal(16))
+	})
+
+	It("falls back to the first image when none is tagged front cover (audio)", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			writeBody(w, zipOrdered(
+				[2]string{"1.jpg", string(encodeJPEG(16, 8))}, // first
+				[2]string{"1.jpg.metadata.json", coverSidecar("Other")},
+				[2]string{"2.jpg", string(encodeJPEG(64, 32))}, // larger, but not first
+				[2]string{"2.jpg.metadata.json", coverSidecar("Other")},
+			))
+		}))
+		defer srv.Close()
+
+		img, err := TikaDecoder{tikaURL: srv.URL, mimeType: "audio/mpeg"}.Convert(context.TODO(), bytes.NewReader([]byte("mp3")))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(img.(image.Image).Bounds().Dx()).To(Equal(16))
 	})
 })

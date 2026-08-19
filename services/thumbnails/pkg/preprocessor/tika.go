@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,6 +25,8 @@ type TikaDecoder struct {
 	tikaURL string
 	// filename lets Tika route by extension; content alone sniffs raws as image/tiff.
 	filename string
+	// mimeType picks the strategy: audio/* takes the front cover, else the largest preview.
+	mimeType string
 }
 
 func (d TikaDecoder) Convert(ctx context.Context, r io.Reader) (any, error) {
@@ -31,7 +34,11 @@ func (d TikaDecoder) Convert(ctx context.Context, r io.Reader) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	preview, err := tikaLargestPreview(ctx, d.tikaURL, d.filename, data)
+	pick := tikaLargestPreview
+	if strings.HasPrefix(d.mimeType, "audio/") {
+		pick = tikaFrontCover
+	}
+	preview, err := pick(ctx, d.tikaURL, d.filename, data)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +101,71 @@ func tikaLargestPreview(ctx context.Context, tikaURL, filename string, data []by
 		return nil, thumbnailerErrors.ErrNoEmbeddedImage
 	}
 	return best, nil
+}
+
+// tikaFrontCover returns the tagged front cover (ID3 APIC "Cover (front)") among the
+// embedded images, else the first renderable one. Reads /unpack/all for the sidecars.
+func tikaFrontCover(ctx context.Context, tikaURL, filename string, data []byte) ([]byte, error) {
+	zr, err := tikaUnpack(ctx, tikaURL, "/unpack/all", filename, data)
+	if err != nil {
+		return nil, err
+	}
+	byName := make(map[string]*zip.File, len(zr.File))
+	for _, f := range zr.File {
+		byName[f.Name] = f
+	}
+	var first []byte
+	for _, f := range zr.File {
+		if strings.HasSuffix(f.Name, ".metadata.json") {
+			continue
+		}
+		sidecar, ok := byName[f.Name+".metadata.json"]
+		if !ok {
+			continue
+		}
+		meta := parseEmbeddedMeta(readZipEntry(sidecar))
+		if !strings.HasPrefix(meta.ContentType, "image/") {
+			continue // skip the audio stream and other non-image parts
+		}
+		if f.UncompressedSize64 == 0 || f.UncompressedSize64 > uint64(maxPreviewLength) {
+			continue
+		}
+		img := readZipEntry(f)
+		if !isRenderableImage(img) {
+			continue
+		}
+		if first == nil {
+			first = img
+		}
+		if meta.Description == "Cover (front)" {
+			return img, nil
+		}
+	}
+	if first == nil {
+		return nil, thumbnailerErrors.ErrNoEmbeddedImage
+	}
+	return first, nil
+}
+
+// tikaEmbeddedMeta is the subset of a Tika /unpack/all sidecar we read.
+type tikaEmbeddedMeta struct {
+	ContentType string `json:"Content-Type"`
+	Description string `json:"dc:description"`
+}
+
+func parseEmbeddedMeta(b []byte) tikaEmbeddedMeta {
+	var m tikaEmbeddedMeta
+	_ = json.Unmarshal(b, &m)
+	return m
+}
+
+// isRenderableImage accepts the formats audio cover art uses.
+func isRenderableImage(buf []byte) bool {
+	return isRenderableJPEG(buf) || isPNG(buf)
+}
+
+func isPNG(buf []byte) bool {
+	return len(buf) >= 8 && bytes.Equal(buf[:8], []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'})
 }
 
 func readZipEntry(f *zip.File) []byte {

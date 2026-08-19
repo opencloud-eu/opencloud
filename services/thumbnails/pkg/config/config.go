@@ -53,6 +53,8 @@ type Thumbnail struct {
 // thumbnailable image.
 type Preprocessor struct {
 	Tika Tika `yaml:"tika"`
+	// AudioProcessor selects the audio cover-art extractor.
+	AudioProcessor string `yaml:"audio_processor" env:"THUMBNAILS_PREPROCESSOR_AUDIO_PROCESSOR" desc:"The processor for extracting cover art from audio files. When a Tika server is configured it is used by default. Set this to 'builtin' to force the in-process extractor even when a Tika server is configured. The 'builtin' processor is deprecated and will be removed in a future major release." introductionVersion:"%%NEXT%%" deprecationVersion:"%%NEXT%%" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"THUMBNAILS_PREPROCESSOR_AUDIO_PROCESSOR only selects the deprecated in-process audio extractor; once it is removed audio cover art always uses Tika when configured." deprecationReplacement:""`
 }
 
 // Tika configures preview extraction via an Apache Tika server.

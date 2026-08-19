@@ -34,6 +34,8 @@ Thumbnails can be generated from the following source file types:
 
 For camera raw files the thumbnail is generated from the JPEG preview the camera embedded in the file, the raw sensor data itself is not developed. Raw files without an embedded preview cannot be thumbnailed. Preview extraction is done by an Apache Tika server, so raw thumbnails require `THUMBNAILS_PREPROCESSOR_TIKA_TIKA_URL` (or the shared `OC_TIKA_URL`, which the search service reads too) to be set.
 
+For audio files the thumbnail is the embedded cover art. When a Tika server is configured it is extracted via Tika (preferring the tagged front cover); otherwise it is read in-process. Setting `THUMBNAILS_PREPROCESSOR_AUDIO_PROCESSOR=builtin` forces the in-process extractor even when a Tika server is configured; that `builtin` processor is deprecated and will be removed in a future major release.
+
 The thumbnail service retrieves source files using the information provided by the backend. The Linux backend identifies source files usually based on the extension.
 
 If a file type was not properly assigned or the type identification failed, thumbnail generation will fail and an error will be logged.

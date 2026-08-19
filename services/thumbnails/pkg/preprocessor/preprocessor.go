@@ -76,7 +76,8 @@ func (g GgsDecoder) Convert(ctx context.Context, r io.Reader) (any, error) {
 	return nil, errors.Errorf("%s not found", g.thumbnailpath)
 }
 
-// AudioDecoder is a converter for the audio file
+// AudioDecoder extracts an audio file's embedded cover art from its ID3 tag. It is
+// deprecated in favour of the Tika extractor and slated for removal in the next major.
 type AudioDecoder struct{}
 
 // Convert reads the audio file and extracts the thumbnail image from the id3 tag
@@ -339,11 +340,13 @@ func ForType(mimeType string, opts map[string]any) FileConverter {
 		return GgpDecoder{}
 	case "image/gif":
 		return GifDecoder{}
-	case "audio/flac":
-		fallthrough
-	case "audio/mpeg":
-		fallthrough
-	case "audio/ogg":
+	case "audio/flac", "audio/mpeg", "audio/ogg":
+		// Tika is used whenever configured; "builtin" forces the in-process extractor
+		url, _ := opts["tikaURL"].(string)
+		if p, _ := opts["audioProcessor"].(string); url != "" && p != "builtin" {
+			filename, _ := opts["filename"].(string)
+			return TikaDecoder{tikaURL: url, filename: filename, mimeType: mimeType}
+		}
 		return AudioDecoder{}
 	case "image/x-nikon-nef",
 		"image/x-nikon-nrw",

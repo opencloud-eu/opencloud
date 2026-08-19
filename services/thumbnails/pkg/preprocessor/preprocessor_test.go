@@ -199,9 +199,19 @@ var _ = Describe("preprocessor", func() {
 			Expect(decoder).To(BeAssignableToTypeOf(ImageDecoder{}))
 		})
 
-		It("should return an AudioDecoder for audio types", func() {
+		It("should return an AudioDecoder for audio types without a Tika URL", func() {
 			decoder := ForType("audio/mpeg", nil)
 			Expect(decoder).To(BeAssignableToTypeOf(AudioDecoder{}))
+		})
+
+		It("should return a TikaDecoder for audio types when a Tika URL is set", func() {
+			opts := map[string]any{"tikaURL": "http://tika:9998"}
+			Expect(ForType("audio/mpeg", opts)).To(BeAssignableToTypeOf(TikaDecoder{}))
+		})
+
+		It("should force the AudioDecoder when the builtin processor is selected", func() {
+			opts := map[string]any{"tikaURL": "http://tika:9998", "audioProcessor": "builtin"}
+			Expect(ForType("audio/mpeg", opts)).To(BeAssignableToTypeOf(AudioDecoder{}))
 		})
 
 		It("should return an TxtToImageConverter for text types", func() {
