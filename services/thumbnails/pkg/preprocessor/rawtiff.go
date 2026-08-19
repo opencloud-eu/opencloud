@@ -46,9 +46,7 @@ const (
 	tiffTypeLong8          = 16 // BigTIFF 64-bit offset
 	tiffMagic              = 42
 	bigTiffMagic           = 43
-	// bound work on untrusted input: cap processed IFDs (and the queue), the
-	// entries per IFD (BigTIFF counts are 64-bit) and the JPEG header segments
-	// walked before the SOF marker
+	// caps that bound work on untrusted input
 	maxIFDs         = 64
 	maxIFDEntries   = 4096
 	maxJPEGSegments = 32
@@ -60,9 +58,7 @@ func isLongType(typ uint16, bigTiff bool) bool {
 	return typ == tiffTypeLong || (bigTiff && typ == tiffTypeLong8)
 }
 
-// maxPreviewLength bounds the served preview: previews are camera-generated
-// JPEGs, so tens of MB is already generous and an oversized declared length is
-// rejected rather than served. A var so tests can lower it.
+// maxPreviewLength caps the served preview; a var so tests can lower it.
 var maxPreviewLength int64 = 100 * 1024 * 1024
 
 // extractEmbeddedJPEG walks the IFD chain incl. SubIFDs and returns the
@@ -108,9 +104,19 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 		return nil, 0, thumbnailerErrors.ErrNoImageFromRawFile
 	}
 
-	// readOff reads a 4- or 8-byte offset/value depending on the container.
+	// readOff reads a structural offset (IFD0, next-IFD, SubIFD array pointer):
+	// container width, 4 bytes classic / 8 bytes BigTIFF.
 	readOff := func(b []byte) uint64 {
 		if bigTiff {
+			return order.Uint64(b[:8])
+		}
+		return uint64(order.Uint32(b[:4]))
+	}
+	// readVal reads a tag value at its declared type width, left-justified in the
+	// value field. A LONG offset in a BigTIFF entry is 4 bytes, not 8, so reading
+	// it as Uint64 would shift it on big-endian input.
+	readVal := func(b []byte, typ uint16) uint64 {
+		if typ == tiffTypeLong8 {
 			return order.Uint64(b[:8])
 		}
 		return uint64(order.Uint32(b[:4]))
@@ -123,8 +129,7 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 
 	queue := []uint64{firstIFD}
 	seen := map[uint64]struct{}{}
-	// push queues an IFD offset unless the queue is already full; a crafted
-	// file with millions of SubIFD pointers must not grow it without bound
+	// push caps the queue so a crafted SubIFD flood can't grow it unbounded
 	push := func(offset uint64) {
 		if len(queue) < maxIFDs {
 			queue = append(queue, offset)
@@ -139,7 +144,8 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 			continue
 		}
 		seen[ifdOffset] = struct{}{}
-		if ifdOffset == 0 || ifdOffset+uint64(countSize) > dlen {
+		// overflow-safe bound: a crafted BigTIFF offset near 2^64 must not wrap
+		if ifdOffset == 0 || ifdOffset > dlen || dlen-ifdOffset < uint64(countSize) {
 			continue
 		}
 		var entryCount int
@@ -175,36 +181,43 @@ func extractEmbeddedJPEG(data []byte) ([]byte, uint16, error) {
 				}
 			case tiffTagJPEGOffset:
 				if isLongType(typ, bigTiff) && count == 1 {
-					jpegOffset = readOff(entry[valAt:])
+					jpegOffset = readVal(entry[valAt:], typ)
 				}
 			case tiffTagJPEGLength:
 				if isLongType(typ, bigTiff) && count == 1 {
-					jpegLength = readOff(entry[valAt:])
+					jpegLength = readVal(entry[valAt:], typ)
 				}
 			case tiffTagStripOffsets:
 				// only single-strip images can be a contiguous JPEG stream
 				if isLongType(typ, bigTiff) && count == 1 {
-					stripOffset = readOff(entry[valAt:])
+					stripOffset = readVal(entry[valAt:], typ)
 				}
 			case tiffTagStripByteCounts:
 				if isLongType(typ, bigTiff) && count == 1 {
-					stripLength = readOff(entry[valAt:])
+					stripLength = readVal(entry[valAt:], typ)
 				}
 			case tiffTagSubIFDs:
 				if !isLongType(typ, bigTiff) {
 					continue
 				}
 				if count == 1 {
-					push(readOff(entry[valAt:]))
+					push(readVal(entry[valAt:], typ))
 					continue
 				}
+				// count > 1: the value field points at an array of count offsets,
+				// each of the tag's own width (LONG 4B, LONG8 8B)
 				arrayOffset := readOff(entry[valAt:])
+				elemW := uint64(4)
+				if typ == tiffTypeLong8 {
+					elemW = 8
+				}
 				for j := uint64(0); j < count && j < uint64(maxIFDs); j++ {
-					pos := arrayOffset + j*uint64(offW)
-					if pos+uint64(offW) > dlen || len(queue) >= maxIFDs {
+					pos := arrayOffset + j*elemW
+					// overflow-safe bound: a crafted array offset must not wrap
+					if pos < arrayOffset || pos > dlen || dlen-pos < elemW || len(queue) >= maxIFDs {
 						break
 					}
-					push(readOff(data[pos:]))
+					push(readVal(data[pos:], typ))
 				}
 			}
 		}

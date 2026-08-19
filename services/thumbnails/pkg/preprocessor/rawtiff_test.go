@@ -449,7 +449,74 @@ var _ = Describe("RawTiffDecoder BigTIFF (DNG 1.7)", func() {
 	It("survives truncated BigTIFF files", func() {
 		full := buildBigTiffRawFile(1, preview)
 		for cut := 0; cut < len(full); cut += 7 {
-			_, _, _ = extractEmbeddedJPEG(full[:cut])
+			// a truncated file must degrade to a clean error, never a panic and
+			// never a junk image from an out-of-bounds read
+			_, _, err := extractEmbeddedJPEG(full[:cut])
+			Expect(err).To(MatchError(thumbnailerErrors.ErrNoImageFromRawFile))
 		}
+	})
+})
+
+var _ = Describe("RawTiffDecoder BigTIFF hardening", func() {
+	preview := encodeJPEG(64, 32)
+
+	It("returns an error instead of panicking on an out-of-range IFD offset", func() {
+		data := buildBigTiffRawFile(1, preview)
+		binary.LittleEndian.PutUint64(data[8:16], ^uint64(0)) // IFD0 offset near 2^64
+
+		Expect(func() {
+			_, _, err := extractEmbeddedJPEG(data)
+			Expect(err).To(MatchError(thumbnailerErrors.ErrNoImageFromRawFile))
+		}).ToNot(Panic())
+	})
+
+	It("returns an error instead of panicking on an out-of-range SubIFD array", func() {
+		le := binary.LittleEndian
+		entry := func(tag, typ uint16, count, value uint64) []byte {
+			e := le.AppendUint16(nil, tag)
+			e = le.AppendUint16(e, typ)
+			e = le.AppendUint64(e, count)
+			return le.AppendUint64(e, value)
+		}
+		buf := []byte{'I', 'I', 43, 0, 8, 0, 0, 0}
+		buf = le.AppendUint64(buf, 16) // IFD0 at 16
+		ifd0 := le.AppendUint64(nil, 1)
+		// SubIFDs, count 2 (an at-offset array) whose array offset overflows
+		ifd0 = append(ifd0, entry(tiffTagSubIFDs, tiffTypeLong8, 2, ^uint64(0))...)
+		ifd0 = le.AppendUint64(ifd0, 0)
+		buf = append(buf, ifd0...)
+
+		Expect(func() {
+			_, _, err := extractEmbeddedJPEG(buf)
+			Expect(err).To(MatchError(thumbnailerErrors.ErrNoImageFromRawFile))
+		}).ToNot(Panic())
+	})
+
+	It("reads a LONG offset at its true width in a big-endian BigTIFF", func() {
+		be := binary.BigEndian
+		p := encodeJPEG(48, 24)
+		entry := func(tag, typ uint16, value []byte) []byte {
+			e := be.AppendUint16(nil, tag)
+			e = be.AppendUint16(e, typ)
+			e = be.AppendUint64(e, 1) // count
+			slot := make([]byte, 8)
+			copy(slot, value) // left-justified in the 8-byte value field
+			return append(e, slot...)
+		}
+		// MM, magic 43, offset size 8, constant 0, IFD0 offset(8) = 16
+		buf := []byte{'M', 'M', 0, 43, 0, 8, 0, 0}
+		buf = be.AppendUint64(buf, 16)
+		previewStart := uint64(16) + 8 + 2*20 + 8
+		ifd0 := be.AppendUint64(nil, 2)
+		// LONG (4-byte) offsets, not LONG8: reading them as Uint64 would shift them
+		ifd0 = append(ifd0, entry(tiffTagJPEGOffset, tiffTypeLong, be.AppendUint32(nil, uint32(previewStart)))...)
+		ifd0 = append(ifd0, entry(tiffTagJPEGLength, tiffTypeLong, be.AppendUint32(nil, uint32(len(p))))...)
+		ifd0 = be.AppendUint64(ifd0, 0)
+		buf = append(buf, ifd0...)
+		buf = append(buf, p...)
+
+		jpg, _, err := extractEmbeddedJPEG(buf)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(jpg).To(Equal(p))
 	})
 })
