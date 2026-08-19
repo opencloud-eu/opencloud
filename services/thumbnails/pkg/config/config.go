@@ -46,4 +46,16 @@ type Thumbnail struct {
 	MaxInputWidth         int               `yaml:"max_input_width" env:"THUMBNAILS_MAX_INPUT_WIDTH" desc:"The maximum width of an input image which is being processed." introductionVersion:"1.0.0"`
 	MaxInputHeight        int               `yaml:"max_input_height" env:"THUMBNAILS_MAX_INPUT_HEIGHT" desc:"The maximum height of an input image which is being processed." introductionVersion:"1.0.0"`
 	MaxInputImageFileSize string            `yaml:"max_input_image_file_size" env:"THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE" desc:"The maximum file size of an input image which is being processed. Usable common abbreviations: [KB, KiB, MB, MiB, GB, GiB, TB, TiB, PB, PiB, EB, EiB], example: 2GB." introductionVersion:"1.0.0"`
+	Preprocessor          Preprocessor      `yaml:"preprocessor"`
+}
+
+// Preprocessor configures the preprocessors that turn a source file into a
+// thumbnailable image.
+type Preprocessor struct {
+	Tika Tika `yaml:"tika"`
+}
+
+// Tika configures preview extraction via an Apache Tika server.
+type Tika struct {
+	TikaURL string `yaml:"tika_url" env:"THUMBNAILS_PREPROCESSOR_TIKA_TIKA_URL" desc:"URL of a Tika server used to extract embedded previews from raw images. When empty, raw images are not thumbnailed." introductionVersion:"%%NEXT%%"`
 }

@@ -352,7 +352,12 @@ func ForType(mimeType string, opts map[string]any) FileConverter {
 		"image/x-sony-sr2",
 		"image/x-sony-srf",
 		"image/x-adobe-dng":
-		return RawTiffDecoder{}
+		// raw previews come from Tika; without a URL, fall back to the default
+		url, ok := opts["tikaURL"].(string)
+		if !ok || url == "" {
+			return ImageDecoder{}
+		}
+		return RawTikaDecoder{tikaURL: url}
 	default:
 		return ImageDecoder{}
 	}
