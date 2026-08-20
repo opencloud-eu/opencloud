@@ -31,7 +31,7 @@ Thumbnails can be generated from the following source file types:
 -   bmp
 -   txt
 
-Builds with libvips support additionally handle `webp`, see [Using libvips for Thumbnail Generation](#using-libvips-for-thumbnail-generation), and can optionelly be extended with `heic`/`heif` and `avif` at runtime, see [HEIF, HEIC and AVIF Images](#heif-heic-and-avif-images).
+Builds with libvips support additionally handle `webp`, see [Using libvips for Thumbnail Generation](#using-libvips-for-thumbnail-generation), and can optionally be extended with `heic`/`heif` and `avif` at runtime, see [HEIF, HEIC and AVIF Images](#heif-heic-and-avif-images).
 
 The thumbnail service retrieves source files using the information provided by the backend. The Linux backend identifies source files usually based on the extension.
 
@@ -131,7 +131,7 @@ However, the `libvips` library, that OpenCloud (optionally) uses to generate thu
 
 To add HEIF-support based on the official OpenCloud Docker images, which are Alpine-based, one tiny package has to be added to the image: `vips-heif`. This means, due to legal reasons, you have to build your own Docker image and you cannot use the existing images from the public Docker repository.
 
-The `vips-heif` package needs to be either added to the existing Dockerfile or it can be added by creating a second, small Dockerfile wrapper around the official image from the registry. Place this new Dockerfile next to your existing Dockerfile:
+The `vips-heif` package needs to be either added to the existing Dockerfile or it can be added by creating a second, small Dockerfile wrapper around the official image from the registry. Save this wrapper as `Dockerfile.heif` next to your existing `Dockerfile`:
 
 ```Dockerfile
 FROM opencloudeu/opencloud:latest
@@ -144,7 +144,7 @@ USER 1000
 Then build this new Dockerfile and use the resulting image in place of the stock one. Without Compose, tag it yourself and reference that tag wherever the stock image is used:
 
 ```shell
-docker build -t opencloud-heif:latest .
+docker build -f Dockerfile.heif -t opencloud-heif:latest .
 ```
 
 With Compose, replace the `image:` line of the `opencloud` service with a `build:` section. Keeping an `image:` line as well is useful, it gives the image Compose builds a name of its own:
@@ -152,7 +152,9 @@ With Compose, replace the `image:` line of the `opencloud` service with a `build
 ```yaml
 services:
   opencloud:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.heif
     image: opencloud-heif:latest
 ```
 
@@ -176,4 +178,6 @@ docker compose exec opencloud sh -c 'ls /usr/lib/vips-modules-*/'
 
 The output should list `vips-heif.so`.
 
-AVIF is not affected by the HEVC patent situation. It is listed here because libvips reads it through the same module, so `vips-heif` brings both along and there is nothing extra to install for it.
+OpenCloud verifies the HEVC and AV1 decoders independently when thumbnail support is first queried by decoding a tiny image with each codec. It only advertises previews for the formats whose decoder actually works, even on systems where the codec backends are packaged separately.
+
+AVIF is not affected by the HEVC patent situation. It is listed here because libvips reads it through the same module. Alpine's `vips-heif` dependencies provide the required decoders, so there is nothing extra to install for it when using the wrapper image above.

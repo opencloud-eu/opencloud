@@ -107,6 +107,7 @@ func IsMimeTypeSupported(m string) bool {
 	if err != nil {
 		return false
 	}
+	initializeSupportedMimeTypes()
 	_, supported := SupportedMimeTypes[mimeType]
 	return supported
 }

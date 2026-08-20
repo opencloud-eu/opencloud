@@ -1727,8 +1727,7 @@ func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, p
 }
 
 func hasPreview(md *provider.ResourceInfo, appendToOK func(p ...prop.PropertyXML)) {
-	_, match := thumbnail.SupportedMimeTypes[md.MimeType]
-	if match {
+	if thumbnail.IsMimeTypeSupported(md.MimeType) {
 		appendToOK(prop.Escaped("oc:has-preview", "1"))
 	} else {
 		appendToOK(prop.Escaped("oc:has-preview", "0"))
