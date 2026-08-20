@@ -50,6 +50,11 @@ var _ = DescribeTable("event",
 			return int(calls.Load())
 		}, "2s").Should(Equal(len(mcks)))
 	},
+	Entry("SpaceDeleted", []string{"PurgeSpace"}, events.SpaceDeleted{}, false),
+	Entry("ItemPurged", []string{"PurgeItem"}, events.ItemPurged{}, false),
+	Entry("TrashbinPurged", []string{"PurgeDeleted"}, events.TrashbinPurged{}, false),
+	Entry("LabelAdded", []string{"UpsertItem"}, events.LabelAdded{}, false),
+	Entry("LabelRemoved", []string{"UpsertItem"}, events.LabelRemoved{}, false),
 	Entry("ItemTrashed", []string{"TrashItem", "IndexSpace"}, events.ItemTrashed{}, false),
 	Entry("ItemMoved", []string{"MoveItem", "IndexSpace"}, events.ItemMoved{}, false),
 	Entry("ItemRestored", []string{"RestoreItem", "IndexSpace"}, events.ItemRestored{}, false),

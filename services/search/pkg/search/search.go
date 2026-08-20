@@ -29,17 +29,18 @@ type Engine interface {
 	DocCount() (uint64, error)
 
 	Upsert(id string, r Resource) error
-	Move(id string, parentid string, target string) error
+	Move(id string, parentID string, targetPath string) error
 	Delete(id string) error
 	Restore(id string) error
 	Purge(id string, onlyDeleted bool) error
+	PurgeSpace(rootID string) error
 
 	NewBatch(batchSize int) (BatchOperator, error)
 }
 
 type BatchOperator interface {
 	Upsert(id string, r Resource) error
-	Move(rootID, parentID, location string) error
+	Move(id string, parentID string, targetPath string) error
 	Delete(id string) error
 	Restore(id string) error
 	Purge(id string, onlyDeleted bool) error

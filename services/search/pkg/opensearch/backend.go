@@ -194,13 +194,13 @@ func (b *Backend) Upsert(id string, r search.Resource) error {
 	return batch.Push()
 }
 
-func (b *Backend) Move(id string, parentID string, target string) error {
+func (b *Backend) Move(id string, parentID string, targetPath string) error {
 	batch, err := b.NewBatch(defaultBatchSize)
 	if err != nil {
 		return err
 	}
 
-	if err := batch.Move(id, parentID, target); err != nil {
+	if err := batch.Move(id, parentID, targetPath); err != nil {
 		return err
 	}
 
@@ -244,6 +244,32 @@ func (b *Backend) Purge(id string, onlyDeleted bool) error {
 	}
 
 	return batch.Push()
+}
+
+func (b *Backend) PurgeSpace(rootID string) error {
+	req, err := osu.BuildDocumentDeleteByQueryReq(
+		opensearchgoAPI.DocumentDeleteByQueryReq{
+			Indices: []string{b.index},
+			Params: opensearchgoAPI.DocumentDeleteByQueryParams{
+				WaitForCompletion: conversions.ToPointer(true),
+				Refresh:           conversions.ToPointer(true),
+			},
+		},
+		osu.NewBoolQuery().Must(osu.NewTermQuery[string]("RootID").Value(rootID)),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to build the space purge request %s: %w", rootID, err)
+	}
+
+	resp, err := b.client.Document.DeleteByQuery(context.TODO(), req)
+	switch {
+	case err != nil:
+		return fmt.Errorf("failed to purge space %s: %w", rootID, err)
+	case len(resp.Failures) != 0:
+		return fmt.Errorf("failed to purge space %s: %v", rootID, resp.Failures)
+	}
+
+	return nil
 }
 
 func (b *Backend) NewBatch(size int) (search.BatchOperator, error) {

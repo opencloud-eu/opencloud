@@ -355,6 +355,48 @@ var _ = Describe("Backend", func() {
 		})
 	})
 
+	Describe("PurgeSpace", func() {
+		const indexName = "opencloud-test-engine-purge-space"
+
+		var (
+			tc      *opensearchtest.TestClient
+			backend *opensearch.Backend
+		)
+
+		BeforeEach(func() {
+			tc = opensearchtest.NewDefaultTestClient(GinkgoTB(), defaultConfig.Engine.OpenSearch.Client)
+			tc.Require.IndicesReset([]string{indexName})
+			tc.Require.IndicesCount([]string{indexName}, nil, 0)
+			deleteIndexOnCleanup(tc, indexName)
+
+			var err error
+			backend, err = opensearch.NewBackend(indexName, tc.Client())
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("takes every record of that space out of the index", func() {
+			gone := opensearchtest.Testdata.Resources.File
+			tc.Require.DocumentCreate(indexName, gone.ID, strings.NewReader(opensearchtest.JSONMustMarshal(GinkgoTB(), gone)))
+
+			stays := opensearchtest.Testdata.Resources.File
+			stays.ID = "1$2!3"
+			stays.RootID = "1$2!2"
+			tc.Require.DocumentCreate(indexName, stays.ID, strings.NewReader(opensearchtest.JSONMustMarshal(GinkgoTB(), stays)))
+
+			tc.Require.IndicesCount([]string{indexName}, nil, 2)
+
+			Expect(backend.PurgeSpace(gone.RootID)).To(Succeed())
+
+			tc.Require.IndicesRefresh([]string{indexName}, nil)
+			left := opensearchtest.SearchHitsMustBeConverted[search.Resource](
+				GinkgoTB(),
+				tc.Require.Search(indexName, strings.NewReader(`{"query":{"match_all":{}}}`)).Hits,
+			)
+			Expect(left).To(HaveLen(1), "only the records of that space are gone")
+			Expect(left[0].ID).To(Equal(stays.ID))
+		})
+	})
+
 	Describe("DocCount", func() {
 		const indexName = "opencloud-test-engine-doc-count"
 
