@@ -87,8 +87,7 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 			driver := opencloudstorage.EffectiveDriver(cfg.Driver)
 			f, ok := registry.NewFuncs[driver]
 			if !ok {
-				fmt.Fprintf(os.Stderr, "Unknown filesystem driver '%s'\n", cfg.Driver)
-				os.Exit(1)
+				return fmt.Errorf("unknown filesystem driver '%s'", cfg.Driver)
 			}
 			drivers := revaconfig.StorageProviderDrivers(cfg)
 			var fsStream events.Stream
@@ -107,8 +106,7 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 				// Also posix refuses to start without an events stream
 				fsStream, err = event.NewStream(cfg)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to create event stream for posix driver: %v\n", err)
-					os.Exit(1)
+					return fmt.Errorf("failed to create event stream for posix driver: %w", err)
 				}
 			}
 
@@ -126,8 +124,7 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 			logger := olog.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
 			coord, err := upload.NewCoordinatorFromConfig("", driverConf, fs, nil, &logger.Logger, false)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to initialize the upload coordinator: %v\n", err)
-				os.Exit(1)
+				return fmt.Errorf("failed to initialize the upload coordinator: %w", err)
 			}
 
 			restart, _ := cmd.Flags().GetBool("restart")
@@ -139,8 +136,7 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 			if restart || resume || clean {
 				stream, err = event.NewStream(cfg)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to create event stream: %v\n", err)
-					os.Exit(1)
+					return fmt.Errorf("failed to create event stream: %w", err)
 				}
 			}
 
@@ -204,9 +200,8 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 						UploadID:  u.ID(),
 						Timestamp: utils.TSNow(),
 					}); err != nil {
-						fmt.Fprintf(os.Stderr, "Failed to send restart event for upload session '%s'\n", u.ID())
 						// if publishing fails there is no need to try publishing other events - they will fail too.
-						os.Exit(1)
+						return fmt.Errorf("failed to send restart event for upload session '%s': %w", u.ID(), err)
 					}
 
 				case resume:
@@ -214,9 +209,8 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 						UploadID:  u.ID(),
 						Timestamp: utils.TSNow(),
 					}); err != nil {
-						fmt.Fprintf(os.Stderr, "Failed to send resume event for upload session '%s'\n", u.ID())
 						// if publishing fails there is no need to try publishing other events - they will fail too.
-						os.Exit(1)
+						return fmt.Errorf("failed to send resume event for upload session '%s': %w", u.ID(), err)
 					}
 
 				case clean:
