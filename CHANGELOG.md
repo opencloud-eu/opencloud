@@ -6,14 +6,15 @@
 
 @aduffeck, @rhafer, @v-scharf
 
+### 🐛 Bug Fixes
+
+- [stable-7.2] Expose upload status and message [[#3365](https://github.com/opencloud-eu/opencloud/pull/3365)]
+- Fix opensearch space scope [stable-7.2] [[#3351](https://github.com/opencloud-eu/opencloud/pull/3351)]
+- [stable-7.2] fix(posixfs scan): Setup logger for scan command [[#3195](https://github.com/opencloud-eu/opencloud/pull/3195)]
+
 ### ✅ Tests
 
 - api-tests against open-search in stable [[#3353](https://github.com/opencloud-eu/opencloud/pull/3353)]
-
-### 🐛 Bug Fixes
-
-- Fix opensearch space scope [stable-7.2] [[#3351](https://github.com/opencloud-eu/opencloud/pull/3351)]
-- [stable-7.2] fix(posixfs scan): Setup logger for scan command [[#3195](https://github.com/opencloud-eu/opencloud/pull/3195)]
 
 ## [7.2.3](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.3) - 2026-08-06
 
