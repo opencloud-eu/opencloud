@@ -1,6 +1,6 @@
 # Changelog
 
-## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-19
+## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-20
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- Only log a debug message when an item is still in processing state [[#3158](https://github.com/opencloud-eu/opencloud/pull/3158)]
 - actually log error on exit [[#3344](https://github.com/opencloud-eu/opencloud/pull/3344)]
 - fix(activitylog): log missing parent id cache entry at debug level [[#3325](https://github.com/opencloud-eu/opencloud/pull/3325)]
 - fix restore file version for shared resource [[#3268](https://github.com/opencloud-eu/opencloud/pull/3268)]
@@ -33,6 +34,9 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/nats-io/nats-server/v2 from 2.14.4 to 2.14.5 [[#3357](https://github.com/opencloud-eu/opencloud/pull/3357)]
+- build(deps): bump go.opentelemetry.io/contrib/zpages from 0.69.0 to 0.70.0 [[#3360](https://github.com/opencloud-eu/opencloud/pull/3360)]
+- build(deps): bump github.com/sirupsen/logrus from 1.9.4 to 1.10.0 [[#3359](https://github.com/opencloud-eu/opencloud/pull/3359)]
 - chore: bump reva to latest main [[#3329](https://github.com/opencloud-eu/opencloud/pull/3329)]
 - build(deps): bump github.com/stretchr/testify from 1.11.1 to 1.12.0 [[#3341](https://github.com/opencloud-eu/opencloud/pull/3341)]
 - build(deps): bump golang.org/x/net from 0.57.0 to 0.58.0 [[#3342](https://github.com/opencloud-eu/opencloud/pull/3342)]
