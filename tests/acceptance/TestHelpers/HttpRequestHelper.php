@@ -463,6 +463,10 @@ class HttpRequestHelper {
 		if ($xRequestId !== '') {
 			$headers['X-Request-ID'] = $xRequestId;
 		}
+
+		// Guzzle 8 expects all header values to be strings or arrays of strings.
+		$headers = array_map('strval', $headers);
+
 		if (\is_array($body)) {
 			// When creating the client, it is possible to set 'form_params' and
 			// the Client constructor sorts out doing this http_build_query stuff.
