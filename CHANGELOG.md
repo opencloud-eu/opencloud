@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- [stable-7.2] backport fixes for the opencloud posixfs command [[#3367](https://github.com/opencloud-eu/opencloud/pull/3367)]
 - [stable-7.2] Expose upload status and message [[#3365](https://github.com/opencloud-eu/opencloud/pull/3365)]
 - Fix opensearch space scope [stable-7.2] [[#3351](https://github.com/opencloud-eu/opencloud/pull/3351)]
 - [stable-7.2] fix(posixfs scan): Setup logger for scan command [[#3195](https://github.com/opencloud-eu/opencloud/pull/3195)]
