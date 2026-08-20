@@ -6,6 +6,17 @@
 
 @AlexAndBear, @JammingBen, @Svanvith, @aduffeck, @butonic, @fschade, @junkerderprovinz, @maki5, @pbleser-oc, @rhafer, @saw-jan, @schweigisito, @v-scharf
 
+### ✅ Tests
+
+- fix(acceptance): fix running acceptance tests against host on Linux [[#3358](https://github.com/opencloud-eu/opencloud/pull/3358)]
+- fix(graph): adding the same user as multiple members in a group (#3354) [[#3356](https://github.com/opencloud-eu/opencloud/pull/3356)]
+- test(api): fix share role update test scenario [[#3322](https://github.com/opencloud-eu/opencloud/pull/3322)]
+- test: add api tests for cross-space search index mutation [[#3320](https://github.com/opencloud-eu/opencloud/pull/3320)]
+- ci: run search acceptance tests against OpenSearch in nightly [[#3302](https://github.com/opencloud-eu/opencloud/pull/3302)]
+- api-test: notification settings and getting email notifications [[#3281](https://github.com/opencloud-eu/opencloud/pull/3281)]
+- api-test: add posixfs scan and consistency CLI tests [[#3263](https://github.com/opencloud-eu/opencloud/pull/3263)]
+- api-test: replace sleeps with WaitHelper poll for async state [[#3239](https://github.com/opencloud-eu/opencloud/pull/3239)]
+
 ### 📚 Documentation
 
 - docs: clarify custom role bootstrap behavior [[#3366](https://github.com/opencloud-eu/opencloud/pull/3366)]
@@ -20,19 +31,10 @@
 - feat(web): add yjsServerUrl config [[#3259](https://github.com/opencloud-eu/opencloud/pull/3259)]
 - feat(posixfs): #3182 add basepath option in the "posixfs scan" command [[#3235](https://github.com/opencloud-eu/opencloud/pull/3235)]
 
-### ✅ Tests
-
-- fix(graph): adding the same user as multiple members in a group (#3354) [[#3356](https://github.com/opencloud-eu/opencloud/pull/3356)]
-- test(api): fix share role update test scenario [[#3322](https://github.com/opencloud-eu/opencloud/pull/3322)]
-- test: add api tests for cross-space search index mutation [[#3320](https://github.com/opencloud-eu/opencloud/pull/3320)]
-- ci: run search acceptance tests against OpenSearch in nightly [[#3302](https://github.com/opencloud-eu/opencloud/pull/3302)]
-- api-test: notification settings and getting email notifications [[#3281](https://github.com/opencloud-eu/opencloud/pull/3281)]
-- api-test: add posixfs scan and consistency CLI tests [[#3263](https://github.com/opencloud-eu/opencloud/pull/3263)]
-- api-test: replace sleeps with WaitHelper poll for async state [[#3239](https://github.com/opencloud-eu/opencloud/pull/3239)]
-
 ### 🐛 Bug Fixes
 
 - Only log a debug message when an item is still in processing state [[#3158](https://github.com/opencloud-eu/opencloud/pull/3158)]
+- fix(postprocessing): retry publishing events instead of killing the server [[#3347](https://github.com/opencloud-eu/opencloud/pull/3347)]
 - actually log error on exit [[#3344](https://github.com/opencloud-eu/opencloud/pull/3344)]
 - fix(activitylog): log missing parent id cache entry at debug level [[#3325](https://github.com/opencloud-eu/opencloud/pull/3325)]
 - fix restore file version for shared resource [[#3268](https://github.com/opencloud-eu/opencloud/pull/3268)]
