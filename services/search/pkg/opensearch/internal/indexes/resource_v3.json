@@ -5,9 +5,6 @@
     "analysis": {
       "analyzer": {
         "path_hierarchy": {
-          "filter": [
-            "lowercase"
-          ],
           "tokenizer": "path_hierarchy",
           "type": "custom"
         }
@@ -35,8 +32,7 @@
         "type": "keyword"
       },
       "MimeType": {
-        "type": "wildcard",
-        "doc_values": false
+        "type": "wildcard"
       },
       "Path": {
         "type": "text",
@@ -50,6 +46,34 @@
       },
       "Favorites": {
         "type": "keyword"
+      },
+      "Tags": {
+        "type": "text",
+        "fields": {
+          "wildcard": {
+            "type": "wildcard"
+          }
+        }
+      },
+      "Name": {
+        "type": "text",
+        "fields": {
+          "wildcard": {
+            "type": "wildcard"
+          }
+        }
+      },
+      "Title": {
+        "type": "text",
+        "fields": {
+          "wildcard": {
+            "type": "wildcard"
+          }
+        }
+      },
+      "Mtime": {
+        "type": "date",
+        "ignore_malformed": true
       }
     }
   }

@@ -202,14 +202,14 @@ config = {
                 "apiSearch1",
             ],
             "skip": False,
-            "nightlyOpenSearch": True,
+            "openSearch": True,
         },
         "search2": {
             "suites": [
                 "apiSearch2",
             ],
             "skip": False,
-            "nightlyOpenSearch": True,
+            "openSearch": True,
         },
         "sharingNg": {
             "suites": [
@@ -273,7 +273,7 @@ config = {
             ],
             "skip": False,
             "tikaNeeded": True,
-            "nightlyOpenSearch": True,
+            "openSearch": True,
         },
         "ocm": {
             "suites": [
@@ -406,6 +406,16 @@ config = {
                 "fileaction/",
                 "embed",
             ],
+        },
+        # Runs the search-related e2e-tests against an OpenSearch search-engine.
+        "search": {
+            "skip": False,
+            "suites": [
+                "search/",
+                "file-action/favorites.feature",
+            ],
+            "tikaNeeded": True,
+            "openSearch": True,
         },
     },
     "e2eMultiService": {
@@ -1280,10 +1290,8 @@ def build_api_test_workflow_matrix(ctx, storage, suite_cfg, default_cfg):
         if matrix not in workflow_metrices and base in matrices:
             workflow_metrices.append(matrix)
 
-    # Add an OpenSearch search-engine variant for nightly running search tests,
-    # or on demand when "opensearch" is specified in the PR title
-    run_open_search = ctx.build.event == "cron" or "opensearch" in ctx.build.title.lower()
-    if run_open_search and storage == "posix" and suite_cfg.get("nightlyOpenSearch", False):
+    # Add an OpenSearch search-engine variant for the search test suites.
+    if storage == "posix" and suite_cfg.get("openSearch", False):
         os_matrix = {
             "withRemotePhp": False,
             "enableWatchFs": False,
@@ -1311,7 +1319,7 @@ def localApiTestPipeline(ctx):
         "withRemotePhp": False,
         "enableWatchFs": False,
         "ldapNeeded": False,
-        "nightlyOpenSearch": False,
+        "openSearch": False,
     }
 
     if "localApiTests" in config:
@@ -1557,6 +1565,7 @@ def e2eTestPipeline(ctx):
         "reportTracing": False,
         "enableWatchFs": [False],
         "storages": ["posix"],
+        "openSearch": False,
     }
 
     extra_server_environment = {
@@ -1600,14 +1609,30 @@ def e2eTestPipeline(ctx):
         if "[decomposed]" in ctx.build.title.lower():
             params["storages"] = ["decomposed"]
 
-        e2e_args = " ".join(params["suites"]) if params["suites"] else ""
-
         if "with-tracing" in ctx.build.title.lower():
             params["reportTracing"] = True
 
+        e2e_args = " ".join(params["suites"]) if params["suites"] else ""
+
+        # OpenSearch search-engine suites run posix-only without the watchfs matrix.
+        run_with_open_search = params["openSearch"]
+        if run_with_open_search:
+            params["storages"] = ["posix"]
+            params["enableWatchFs"] = [False]
+
         for storage in params["storages"]:
             for watch_fs_enabled in params["enableWatchFs"]:
-                pipeline_name = "test-e2e-%s-%s%s" % (name, storage, "-watchfs" if watch_fs_enabled else "")
+                pipeline_name = "test-e2e-%s-%s%s%s" % (
+                    name,
+                    storage,
+                    "-watchfs" if watch_fs_enabled else "",
+                    "-opensearch" if run_with_open_search else "",
+                )
+
+                server_environment = dict(extra_server_environment)
+                if run_with_open_search:
+                    server_environment["SEARCH_ENGINE_TYPE"] = "open-search"
+                    server_environment["SEARCH_ENGINE_OPEN_SEARCH_CLIENT_ADDRESSES"] = "http://open-search:9200"
 
                 steps = \
                     evaluateWorkflowStep() + \
@@ -1616,9 +1641,10 @@ def e2eTestPipeline(ctx):
                     restoreWebPnpmCache() + \
                     restoreBrowsersCache() + \
                     (tikaService() if params["tikaNeeded"] else []) + \
+                    (waitForOpenSearch() if run_with_open_search else []) + \
                     opencloudServer(
                         storage,
-                        extra_server_environment = extra_server_environment,
+                        extra_server_environment = server_environment,
                         tika_enabled = params["tikaNeeded"],
                         watch_fs_enabled = watch_fs_enabled,
                     ) + \
@@ -1645,6 +1671,7 @@ def e2eTestPipeline(ctx):
                 pipeline = {
                     "name": pipeline_name,
                     "steps": steps,
+                    "services": openSearchService() if run_with_open_search else [],
                     "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
                     "when": e2e_trigger,
                 }

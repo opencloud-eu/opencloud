@@ -158,6 +158,7 @@ func (b *Batch) Purge(id string, onlyDeleted bool) error {
 				Indices: []string{b.index},
 				Params: opensearchgoAPI.DocumentDeleteByQueryParams{
 					WaitForCompletion: conversions.ToPointer(true),
+					Refresh:           conversions.ToPointer(true),
 				},
 			},
 			query,
@@ -210,7 +211,8 @@ func (b *Batch) Push() error {
 		}
 
 		if _, err := b.client.Bulk(context.Background(), opensearchgoAPI.BulkReq{
-			Body: strings.NewReader(body.String()),
+			Body:   strings.NewReader(body.String()),
+			Params: opensearchgoAPI.BulkParams{Refresh: "wait_for"},
 		}); err != nil {
 			return fmt.Errorf("failed to execute bulk operations: %w", err)
 		}

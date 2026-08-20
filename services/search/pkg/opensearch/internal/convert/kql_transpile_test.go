@@ -58,12 +58,12 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 					&ast.StringNode{Key: "Name", Value: "open*"},
 				},
 			},
-			Want: osu.NewWildcardQuery("Name.keyword").
+			Want: osu.NewWildcardQuery("Name.wildcard").
 				Value("open*").
 				Params(&osu.WildcardQueryParams{CaseInsensitive: true}),
 		},
 		{
-			Name: "wildcard query - string node without a keyword sub field",
+			Name: "wildcard query - string node without an unanalyzed sub field",
 			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "Content", Value: "open*"},

@@ -263,3 +263,35 @@ Feature: tag search
       | tag:mathe AND NOT name:exercises          | 1            | answers           |                   |
       # The third finding is the personal space itself
       | NOT tag:mathe                             | 3            | verification work | withoutTagFolder  |
+
+
+  Scenario: a tag is matched as a whole, not by one of its words
+    Given using spaces DAV path
+    And user "Alice" has uploaded the following files with content "some data"
+      | path        |
+      | tagged.txt  |
+      | partial.txt |
+    And user "Alice" has tagged the following files of the space "Personal":
+      | path        | tagName |
+      | tagged.txt  | foo-bar |
+      | partial.txt | foo     |
+    When user "Alice" searches for 'tag:("foo-bar")' using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result of user "Alice" should contain only these files:
+      | tagged.txt |
+    When user "Alice" searches for 'tag:("foo")' using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result of user "Alice" should contain only these files:
+      | partial.txt |
+
+
+  Scenario: search a tag that is longer than 256 characters
+    Given using spaces DAV path
+    And user "Alice" has uploaded file with content "some data" to "longTag.txt"
+    And user "Alice" has tagged the following files of the space "Personal":
+      | path        | tagName |
+      | longTag.txt | aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaneedle |
+    When user "Alice" searches for 'tag:("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaneedle")' using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result of user "Alice" should contain only these files:
+      | longTag.txt |

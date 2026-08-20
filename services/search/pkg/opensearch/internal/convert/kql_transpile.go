@@ -122,7 +122,7 @@ func stringNodeQuery(node *ast.StringNode) osu.Builder {
 	// Title: "*rterly rep*"
 	// Tags: "*spaced tag*"
 	case isWildcard && slices.Contains([]string{"Name", "Title", "Tags"}, node.Key):
-		return osu.NewWildcardQuery(node.Key + ".keyword").
+		return osu.NewWildcardQuery(node.Key + ".wildcard").
 			Value(node.Value).
 			Params(&osu.WildcardQueryParams{CaseInsensitive: true})
 	// Path: "./foo*", MimeType: "*plain"
@@ -130,7 +130,7 @@ func stringNodeQuery(node *ast.StringNode) osu.Builder {
 		return osu.NewWildcardQuery(node.Key).Value(node.Value)
 	// Tags: "foo-bar", "spaced tag", "FOO-BAR"
 	case node.Key == "Tags":
-		return osu.NewTermQuery[string](node.Key + ".keyword").
+		return osu.NewTermQuery[string](node.Key + ".wildcard").
 			Value(node.Value).
 			Params(&osu.TermQueryParams{CaseInsensitive: true})
 	// Name: "foo-bar", "foo bar"

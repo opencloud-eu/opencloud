@@ -259,6 +259,21 @@ func TestExpandKQLAST(t *testing.T) {
 				},
 			},
 			{
+				Name: "Path: ./Documents -> ./Documents",
+				Got: []ast.Node{
+					ast.StringNode{Key: "Path", Value: "./Documents"},
+					ast.GroupNode{Key: "GroupNode", Nodes: []ast.Node{
+						ast.StringNode{Key: "Path", Value: "./Documents"},
+					}},
+				},
+				Want: []ast.Node{
+					&ast.StringNode{Key: "Path", Value: "./Documents"},
+					&ast.GroupNode{Key: "GroupNode", Nodes: []ast.Node{
+						&ast.StringNode{Key: "Path", Value: "./Documents"},
+					}},
+				},
+			},
+			{
 				Name: "Hidden: StringNode -> StringNode",
 				Got: []ast.Node{
 					ast.StringNode{Key: "Hidden", Value: "StringNode"},

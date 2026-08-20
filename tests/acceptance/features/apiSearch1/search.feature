@@ -429,7 +429,7 @@ Feature: Search
       | d:getlastmodified     | ^[MTWFS][uedhfriatno]{2},\s(\d){2}\s[JFMAJSOND][anebrpyulgctov]{2}\s\d{4}\s\d{2}:\d{2}:\d{2} GMT$ |
       | d:getetag             | ^\"[a-f0-9:\.]{1,32}\"$                                                                           |
       | d:getcontenttype      | text\/plain                                                                                       |
-      | oc:size               | 15                                                                                                |
+      | oc:size               | 12                                                                                                |
       | oc:owner-id           | %username%                                                                                        |
       | oc:owner-display-name | %displayname%                                                                                     |
     Examples:
@@ -457,7 +457,7 @@ Feature: Search
       | oc:permissions        | ^(RDNVCK\|RMDNVCK)$                                                                               |
       | d:getlastmodified     | ^[MTWFS][uedhfriatno]{2},\s(\d){2}\s[JFMAJSOND][anebrpyulgctov]{2}\s\d{4}\s\d{2}:\d{2}:\d{2} GMT$ |
       | d:getetag             | ^\"[a-f0-9:\.]{1,32}\"$                                                                           |
-      | oc:size               | 0                                                                                                 |
+      | oc:size               | 12                                                                                                |
       | oc:owner-id           | %username%                                                                                        |
       | oc:owner-display-name | %displayname%                                                                                     |
     Examples:
@@ -501,3 +501,75 @@ Feature: Search
       | old              |
       | new              |
       | spaces           |
+
+
+  Scenario Outline: search a file with a hyphen in its name
+    Given using <dav-path-version> DAV path
+    And user "Alice" has uploaded file with content "some data" to "foo-bar.txt"
+    And user "Alice" has uploaded file with content "some data" to "unrelated.txt"
+    When user "Alice" searches for "*foo-bar*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result of user "Alice" should contain only these entries:
+      | foo-bar.txt |
+    Examples:
+      | dav-path-version |
+      | old              |
+      | new              |
+      | spaces           |
+
+
+  Scenario Outline: search inside a folder whose name has uppercase letters
+    Given using <dav-path-version> DAV path
+    And user "Alice" has created folder "/Documents"
+    And user "Alice" has uploaded file with content "some data" to "/Documents/report.txt"
+    And user "Alice" has uploaded file with content "some data" to "/reportInRoot.txt"
+    When user "Alice" searches for "*report*" inside folder "/Documents" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result of user "Alice" should contain only these entries:
+      | report.txt |
+    Examples:
+      | dav-path-version |
+      | old              |
+      | new              |
+      | spaces           |
+
+
+  Scenario: removing a folder whose name has uppercase letters takes its content out of the search index
+    Given using spaces DAV path
+    And user "Alice" has created folder "/Documents"
+    And user "Alice" has uploaded file with content "some data" to "/Documents/report.txt"
+    When user "Alice" has removed the folder "Documents" from space "Personal"
+    And user "Alice" searches for "*report*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result should contain "0" entries
+
+
+  Scenario: the hidden flag follows a file that is moved into a dot folder
+    Given using spaces DAV path
+    And user "Alice" has created folder "/.private"
+    And user "Alice" has uploaded file with content "some data" to "/notes.txt"
+    When user "Alice" searches for 'hidden:true' using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result of user "Alice" should not contain these entries:
+      | notes.txt |
+    When user "Alice" has moved file "/notes.txt" to "/.private/notes.txt"
+    And user "Alice" searches for 'hidden:true' using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result of user "Alice" should contain these entries:
+      | notes.txt |
+
+
+  Scenario: a deleted space leaves the search index
+    Given using spaces DAV path
+    And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
+    And user "Alice" has created a space "index-space" with the default quota using the Graph API
+    And user "Alice" has uploaded a file inside space "index-space" with content "some data" to "inSpace.txt"
+    When user "Alice" searches for "*inSpace*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result of user "Alice" should contain these entries:
+      | inSpace.txt |
+    When user "Alice" has disabled a space "index-space"
+    And user "Alice" has deleted a space "index-space"
+    And user "Alice" searches for "*inSpace*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result should contain "0" entries

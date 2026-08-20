@@ -55,6 +55,14 @@ Additionally, the following optional settings can be set:
 *   `SEARCH_ENGINE_OPEN_SEARCH_CLIENT_ENABLE_DEBUG_LOGGER=val`: Enable debug logging.
 *   `SEARCH_ENGINE_OPEN_SEARCH_CLIENT_INSECURE=val`: Skip TLS certificate verification.
 
+### Bringing an existing index over
+
+A version can bring a new index definition. The service does not start on an index that was built with an
+older one and says so in the error. A new installation is not affected.
+
+An existing index is changed where it is: the new settings are applied and the documents are indexed again from
+their own source. No second index, no indexer run. See [MIGRATION.md](MIGRATION.md).
+
 ## Query language
 
 By default, [KQL](https://learn.microsoft.com/en-us/sharepoint/dev/general-development/keyword-query-language-kql-syntax-reference) is used as the query language.

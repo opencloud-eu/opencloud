@@ -159,7 +159,8 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 				next = q
 			}
 		case *ast.BooleanNode:
-			q := bleveQuery.NewQueryStringQuery(getField(n.Key) + fmt.Sprintf(":%v", n.Value))
+			q := bleveQuery.NewBoolFieldQuery(n.Value)
+			q.SetField(getField(n.Key))
 			if prev == nil {
 				prev = q
 			} else {

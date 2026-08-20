@@ -214,6 +214,29 @@ var _ = Describe("Backend", func() {
 		})
 	})
 
+	Describe("WriteVisibility", func() {
+		const indexName = "opencloud-test-engine-write-visibility"
+
+		It("deletes a record that was just written", func() {
+			document := opensearchtest.Testdata.Resources.File
+			document.ID = "1$1!95"
+			document.Name = "textfile.txt"
+			document.Path = "./textfile.txt"
+
+			backend, tc := newBackend(indexName)
+			deleteIndexOnCleanup(tc, indexName)
+
+			Expect(backend.Upsert(document.ID, document)).To(Succeed())
+			Expect(backend.Delete(document.ID)).To(Succeed())
+
+			resp, err := backend.Search(context.Background(), &searchService.SearchIndexRequest{
+				Query: fmt.Sprintf(`name:"%s"`, document.Name),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Matches).To(BeEmpty())
+		})
+	})
+
 	Describe("Delete", func() {
 		const indexName = "opencloud-test-engine-delete"
 
@@ -610,6 +633,32 @@ var _ = Describe("Backend", func() {
 		)
 	})
 
+	Describe("SearchLongName", func() {
+		const indexName = "opencloud-test-engine-search-long-name"
+
+		It("finds long names", func() {
+			long := strings.Repeat("a", 250) + "-needle-tail"
+
+			document := opensearchtest.Testdata.Resources.Folder
+			document.ID = "1$1!70"
+			document.Name = long
+			document.Path = "./" + long
+
+			backend, tc := newBackend(indexName, document)
+			deleteIndexOnCleanup(tc, indexName)
+			tc.Require.IndicesRefresh([]string{indexName}, nil)
+
+			Expect(len(long)).To(BeNumerically(">", 256))
+
+			resp, err := backend.Search(context.Background(), &searchService.SearchIndexRequest{
+				Query: `name:"*needle*"`,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Matches).To(HaveLen(1))
+			Expect(resp.Matches[0].Entity.Name).To(Equal(long))
+		})
+	})
+
 	Describe("SearchByTag", func() {
 		const indexName = "opencloud-test-engine-search-by-tag"
 
@@ -666,6 +715,86 @@ var _ = Describe("Backend", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(BeAssignableToTypeOf(errtypes.BadRequest("")))
 			Expect(err.Error()).To(Equal(`error: bad request: the expression can't begin from a binary operator: 'AND'`))
+		})
+	})
+
+	Describe("UppercasePath", Ordered, func() {
+		const indexName = "opencloud-test-engine-uppercase-path"
+
+		var (
+			tc      *opensearchtest.TestClient
+			backend *opensearch.Backend
+			folder  search.Resource
+			file    search.Resource
+		)
+
+		BeforeAll(func() {
+			folder = opensearchtest.Testdata.Resources.Folder
+			folder.Path = "./Documents"
+
+			file = opensearchtest.Testdata.Resources.File
+			file.Path = "./Documents/Picture.jpg"
+
+			backend, tc = newBackend(indexName, folder, file)
+			deleteIndexOnCleanup(tc, indexName)
+			tc.Require.IndicesRefresh([]string{indexName}, nil)
+		})
+
+		It("indexes a path as it is written", func() {
+			Expect(tc.Require.Search(indexName, strings.NewReader(`{"query":{"term":{"Path":"./Documents"}}}`)).Hits).To(HaveLen(2))
+			Expect(tc.Require.Search(indexName, strings.NewReader(`{"query":{"term":{"Path":"./documents"}}}`)).Hits).To(BeEmpty())
+		})
+
+		It("deletes a resource and its descendants", func() {
+			Expect(backend.Delete(folder.ID)).To(Succeed())
+			tc.Require.IndicesRefresh([]string{indexName}, nil)
+
+			Expect(tc.Require.Search(indexName, strings.NewReader(`{"query":{"term":{"Deleted":true}}}`)).Hits).To(HaveLen(2))
+		})
+
+		It("takes the descendants along when moving", func() {
+			Expect(backend.Move(folder.ID, folder.ParentID, "./Other Documents")).To(Succeed())
+			tc.Require.IndicesRefresh([]string{indexName}, nil)
+
+			Expect(tc.Require.Search(indexName, strings.NewReader(`{"query":{"term":{"Path":"./Other Documents"}}}`)).Hits).To(HaveLen(2))
+			Expect(tc.Require.Search(indexName, strings.NewReader(`{"query":{"term":{"Path":"./Documents"}}}`)).Hits).To(BeEmpty())
+		})
+
+		It("reaches the resource and its descendants when purging", func() {
+			Expect(backend.Purge(folder.ID, false)).To(Succeed())
+			tc.Require.IndicesCount([]string{indexName}, nil, 0)
+		})
+	})
+
+	Describe("MixedCasePath", func() {
+		const indexName = "opencloud-test-engine-mixed-case-path"
+
+		It("keeps paths apart that differ only in case", func() {
+			paths := map[string]string{
+				"1$1!74": "./documents",
+				"1$1!75": "./DOCUMENTS",
+				"1$1!76": "./Documents",
+			}
+
+			resources := make([]search.Resource, 0, len(paths))
+			for id, path := range paths {
+				resource := opensearchtest.Testdata.Resources.Folder
+				resource.ID = id
+				resource.Path = path
+				resources = append(resources, resource)
+			}
+
+			_, tc := newBackend(indexName, resources...)
+			deleteIndexOnCleanup(tc, indexName)
+			tc.Require.IndicesRefresh([]string{indexName}, nil)
+
+			for id, path := range paths {
+				body := fmt.Sprintf(`{"query":{"term":{"Path":%q}}}`, path)
+				hits := tc.Require.Search(indexName, strings.NewReader(body)).Hits
+
+				Expect(hits).To(HaveLen(1))
+				Expect(hits[0].ID).To(Equal(id))
+			}
 		})
 	})
 })
