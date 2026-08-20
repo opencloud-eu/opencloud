@@ -156,7 +156,7 @@ func (t *Tree) TouchFile(ctx context.Context, n *node.Node, markprocessing bool,
 			return errors.Wrap(err, "Decomposedfs: could not set mtime")
 		}
 	}
-	err = n.SetXattrsWithContext(ctx, attributes, true)
+	err = n.SetXattrsWithContext(ctx, attributes)
 	if err != nil {
 		return err
 	}
@@ -288,7 +288,7 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 	attribs := node.Attributes{}
 	attribs.SetString(prefixes.ParentidAttr, newNode.ParentID)
 	attribs.SetString(prefixes.NameAttr, newNode.Name)
-	if err := oldNode.SetXattrsWithContext(ctx, attribs, true); err != nil {
+	if err := oldNode.SetXattrsWithContext(ctx, attribs); err != nil {
 		return errors.Wrap(err, "Decomposedfs: could not update old node attributes")
 	}
 
@@ -458,7 +458,7 @@ func (t *Tree) Delete(ctx context.Context, n *node.Node) (err error) {
 	trashLink := filepath.Join(t.options.Root, "spaces", lookup.Pathify(n.SpaceRoot.ID, 1, 2), "trash", lookup.Pathify(n.ID, 4, 2))
 	if err := os.MkdirAll(filepath.Dir(trashLink), 0700); err != nil {
 		// Roll back changes
-		_ = n.RemoveXattr(ctx, prefixes.TrashOriginAttr, true)
+		_ = n.RemoveXattr(ctx, prefixes.TrashOriginAttr)
 		return err
 	}
 
@@ -471,7 +471,7 @@ func (t *Tree) Delete(ctx context.Context, n *node.Node) (err error) {
 	err = os.Symlink("../../../../../nodes/"+lookup.Pathify(n.ID, 4, 2)+node.TrashIDDelimiter+deletionTime, trashLink)
 	if err != nil {
 		// Roll back changes
-		_ = n.RemoveXattr(ctx, prefixes.TrashOriginAttr, true)
+		_ = n.RemoveXattr(ctx, prefixes.TrashOriginAttr)
 		return
 	}
 
@@ -485,12 +485,12 @@ func (t *Tree) Delete(ctx context.Context, n *node.Node) (err error) {
 		// To roll back changes
 		// TODO remove symlink
 		// Roll back changes
-		_ = n.RemoveXattr(ctx, prefixes.TrashOriginAttr, true)
+		_ = n.RemoveXattr(ctx, prefixes.TrashOriginAttr)
 		return
 	}
 	err = t.lookup.MetadataBackend().Rename(n, trashNode)
 	if err != nil {
-		_ = n.RemoveXattr(ctx, prefixes.TrashOriginAttr, true)
+		_ = n.RemoveXattr(ctx, prefixes.TrashOriginAttr)
 		_ = os.Rename(trashPath, nodePath)
 		return
 	}
@@ -507,7 +507,7 @@ func (t *Tree) Delete(ctx context.Context, n *node.Node) (err error) {
 		// TODO revert the rename
 		// TODO remove symlink
 		// Roll back changes
-		_ = n.RemoveXattr(ctx, prefixes.TrashOriginAttr, true)
+		_ = n.RemoveXattr(ctx, prefixes.TrashOriginAttr)
 		return
 	}
 
@@ -580,7 +580,7 @@ func (t *Tree) RestoreRecycleItemFunc(ctx context.Context, spaceid, key, trashPa
 		// set ParentidAttr to restorePath's node parent id
 		attrs.SetString(prefixes.ParentidAttr, targetNode.ParentID)
 
-		if err = t.lookup.MetadataBackend().SetMultiple(ctx, restoreNode, map[string][]byte(attrs), true); err != nil {
+		if err = t.lookup.MetadataBackend().SetMultiple(ctx, restoreNode, map[string][]byte(attrs)); err != nil {
 			return nil, errors.Wrap(err, "Decomposedfs: could not update recycle node")
 		}
 
@@ -850,7 +850,7 @@ func (t *Tree) createDirNode(ctx context.Context, n *node.Node) (err error) {
 	if t.options.TreeTimeAccounting || t.options.TreeSizeAccounting {
 		attributes[prefixes.PropagationAttr] = []byte("1") // mark the node for propagation
 	}
-	return n.SetXattrsWithContext(ctx, attributes, true)
+	return n.SetXattrsWithContext(ctx, attributes)
 }
 
 var nodeIDRegep = regexp.MustCompile(`.*/nodes/([^.]*).*`)

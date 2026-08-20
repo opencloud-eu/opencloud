@@ -44,13 +44,13 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/mime"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx/metrics"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/internal/goroutinelock"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/ace"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/grants"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/pkg/errors"
-	"github.com/rogpeppe/go-internal/lockedfile"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -139,7 +139,7 @@ type Tree interface {
 	BuildSpaceIDIndexEntry(spaceID string) string
 	ResolveSpaceIDIndexEntry(spaceID string) (string, error)
 
-	CreateRevision(ctx context.Context, n *Node, version string, f *lockedfile.File) (string, error)
+	CreateRevision(ctx context.Context, n *Node, version string) (string, error)
 	ListRevisions(ctx context.Context, ref *provider.Reference) ([]*provider.FileVersion, error)
 	DownloadRevision(ctx context.Context, ref *provider.Reference, revisionKey string, openReaderFunc func(md *provider.ResourceInfo) bool) (*provider.ResourceInfo, io.ReadCloser, error)
 
@@ -166,8 +166,7 @@ type PathLookup interface {
 	MetadataBackend() metadata.Backend
 	TimeManager() TimeManager
 	ReadBlobIDAndSizeAttr(ctx context.Context, n metadata.MetadataNode, attrs Attributes) (string, int64, error)
-	CopyMetadataWithSourceLock(ctx context.Context, sourceNode, targetNode metadata.MetadataNode, filter func(attributeName string, value []byte) (newValue []byte, copy bool), lockedSource *lockedfile.File, acquireTargetLock bool) (err error)
-	CopyMetadata(ctx context.Context, sourceNode, targetNode metadata.MetadataNode, filter func(attributeName string, value []byte) (newValue []byte, copy bool), acquireTargetLock bool) (err error)
+	CopyMetadata(ctx context.Context, sourceNode, targetNode metadata.MetadataNode, filter func(attributeName string, value []byte) (newValue []byte, copy bool)) (err error)
 
 	PurgeNode(n *Node) error
 }
@@ -180,6 +179,12 @@ type IDCacher interface {
 type BaseNode struct {
 	SpaceID string
 	ID      string
+
+	// lock records which goroutine (if any) holds this node's metadata lock, so the
+	// metadata backend must not (re-)acquire it when reading attributes. Ownership is
+	// scoped to the acquiring goroutine: a node leaked into another goroutine reports
+	// LockHeld() == false there and takes its own lock rather than riding a stale flag.
+	lock goroutinelock.Lock
 
 	lu             PathLookup
 	internalPathID string
@@ -196,6 +201,19 @@ func NewBaseNode(spaceID, nodeID string, lu PathLookup) *BaseNode {
 
 func (n *BaseNode) GetSpaceID() string { return n.SpaceID }
 func (n *BaseNode) GetID() string      { return n.ID }
+
+// LockHeld reports whether the calling goroutine holds this node's metadata lock.
+func (n *BaseNode) LockHeld() bool { return n.lock.Held() }
+
+// SetLockHeld records whether the calling goroutine holds this node's metadata
+// lock
+func (n *BaseNode) SetLockHeld(held bool) {
+	if held {
+		n.lock.Hold()
+		return
+	}
+	n.lock.Release()
+}
 
 // InternalPath returns the internal path of the Node
 func (n *BaseNode) InternalPath() string {
@@ -355,15 +373,15 @@ func LockAndReadNode(ctx context.Context, lu PathLookup, spaceID, nodeID, intern
 	ctx, span := tracer.Start(ctx, "LockAndReadNode")
 	defer span.End()
 
-	_, subspan := tracer.Start(ctx, "lockedfile.OpenFile")
+	_, subspan := tracer.Start(ctx, "MetadataBackend.Lock")
 	bn := NewBaseNode(spaceID, nodeID, lu)
-	unlock, r, err := lu.MetadataBackend().LockAndRead(bn)
+	unlock, err := lu.MetadataBackend().Lock(bn)
 	subspan.End()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	n, err := readNode(ctx, lu, spaceID, nodeID, internalPath, canListDisabledSpace, spaceRoot, skipParentCheck, r)
+	n, err := readNode(ctx, lu, spaceID, nodeID, internalPath, canListDisabledSpace, spaceRoot, skipParentCheck, true)
 	if err != nil {
 		_ = unlock()
 		return nil, nil, err
@@ -373,17 +391,22 @@ func LockAndReadNode(ctx context.Context, lu PathLookup, spaceID, nodeID, intern
 		return n, nil, errtypes.NotFound(filepath.Join(n.ParentID, n.Name))
 	}
 
-	return n, unlock, nil
+	n.SetLockHeld(true)
+	return n, func() error {
+		n.SetLockHeld(false)
+		return unlock()
+	}, nil
 }
 
 // ReadNode creates a new instance from an id and checks if it exists
 func ReadNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath string, canListDisabledSpace bool, spaceRoot *Node, skipParentCheck bool) (*Node, error) {
-	return readNode(ctx, lu, spaceID, nodeID, internalPath, canListDisabledSpace, spaceRoot, skipParentCheck, nil)
+	return readNode(ctx, lu, spaceID, nodeID, internalPath, canListDisabledSpace, spaceRoot, skipParentCheck, false)
 }
 
-// readNode reads a node by its id. If a reader is provided, it will be passed to the metadata backend to read the metadata.
-// This is useful when the caller already holds a lock to prevent deadlocks when reading the metadata.
-func readNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath string, canListDisabledSpace bool, spaceRoot *Node, skipParentCheck bool, r io.Reader) (*Node, error) {
+// readNode reads a node by its id. When alreadyLocked is true the caller already
+// holds the node's metadata lock, so the attributes are read without re-acquiring it
+// (which would dead-lock e.g. the hybrid backend).
+func readNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath string, canListDisabledSpace bool, spaceRoot *Node, skipParentCheck bool, alreadyLocked bool) (*Node, error) {
 	ctx, span := tracer.Start(ctx, "ReadNode")
 	defer span.End()
 	var err error
@@ -398,12 +421,15 @@ func readNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath 
 			},
 		}
 		spaceRoot.SpaceRoot = spaceRoot
+		if alreadyLocked && nodeID == spaceID {
+			spaceRoot.SetLockHeld(true)
+		}
 
 		// If we hold the lock on the space root itself, prime its attribute cache
 		// through the no-lock path so the owner/name/disabled reads below do not try
 		// to re-acquire the already-held lock and self-deadlock.
-		if r != nil && nodeID == spaceID {
-			_, err = spaceRoot.XattrsWithReader(ctx, r)
+		if alreadyLocked && nodeID == spaceID {
+			_, err = spaceRoot.Xattrs(ctx)
 			switch {
 			case metadata.IsNotExist(err):
 				return spaceRoot, nil // swallow not found, the node defaults to exists = false
@@ -464,6 +490,9 @@ func readNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath 
 		},
 		SpaceRoot: spaceRoot,
 	}
+	if alreadyLocked {
+		n.SetLockHeld(true)
+	}
 	if internalPath != "" {
 		n.internalPath = internalPath
 	}
@@ -477,7 +506,7 @@ func readNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath 
 	}()
 
 	var attrs Attributes
-	attrs, err = n.XattrsWithReader(ctx, r)
+	attrs, err = n.Xattrs(ctx)
 	switch {
 	case metadata.IsNotExist(err):
 		return n, nil // swallow not found, the node defaults to exists = false
@@ -570,9 +599,9 @@ func (n *Node) Child(ctx context.Context, name string) (*Node, error) {
 	return readNode, nil
 }
 
-// ParentWithReader returns the parent node
-func (n *Node) ParentWithReader(ctx context.Context, r io.Reader) (*Node, error) {
-	_, span := tracer.Start(ctx, "ParentWithReader")
+// Parent returns the parent node
+func (n *Node) Parent(ctx context.Context) (*Node, error) {
+	_, span := tracer.Start(ctx, "Parent")
 	defer span.End()
 	if n.ParentID == "" {
 		return nil, fmt.Errorf("decomposedfs: root has no parent")
@@ -586,8 +615,7 @@ func (n *Node) ParentWithReader(ctx context.Context, r io.Reader) (*Node, error)
 		SpaceRoot: n.SpaceRoot,
 	}
 
-	// fill metadata cache using the reader
-	attrs, err := p.XattrsWithReader(ctx, r)
+	attrs, err := p.Xattrs(ctx)
 	switch {
 	case metadata.IsNotExist(err):
 		return p, nil // swallow not found, the node defaults to exists = false
@@ -600,11 +628,6 @@ func (n *Node) ParentWithReader(ctx context.Context, r io.Reader) (*Node, error)
 	p.ParentID = attrs.String(prefixes.ParentidAttr)
 
 	return p, err
-}
-
-// Parent returns the parent node
-func (n *Node) Parent(ctx context.Context) (p *Node, err error) {
-	return n.ParentWithReader(ctx, nil)
 }
 
 // Owner returns the space owner
@@ -740,7 +763,7 @@ func (n *Node) SetMtimeString(ctx context.Context, mtime string) error {
 // SetMTime writes the UTC mtime to the extended attributes or removes the attribute if nil is passed
 func (n *Node) SetMtime(ctx context.Context, t *time.Time) (err error) {
 	if t == nil {
-		return n.RemoveXattr(ctx, prefixes.MTimeAttr, true)
+		return n.RemoveXattr(ctx, prefixes.MTimeAttr)
 	}
 	return n.SetXattrString(ctx, prefixes.MTimeAttr, t.UTC().Format(time.RFC3339Nano))
 }
@@ -780,7 +803,7 @@ func (n *Node) SetFavorite(ctx context.Context, uid *userpb.UserId) error {
 func (n *Node) UnsetFavorite(ctx context.Context, uid *userpb.UserId) error {
 	// the favorite flag is specific to the user, so we need to incorporate the userid
 	fa := prefixes.FavoriteKey(uid)
-	return n.RemoveXattr(ctx, fa, true)
+	return n.RemoveXattr(ctx, fa)
 }
 
 // IsDir returns true if the node is a directory
@@ -1117,7 +1140,7 @@ func (n *Node) SetChecksum(ctx context.Context, csType string, h hash.Hash) (err
 
 // UnsetTempEtag removes the temporary etag attribute
 func (n *Node) UnsetTempEtag(ctx context.Context) (err error) {
-	return n.RemoveXattr(ctx, prefixes.TmpEtagAttr, true)
+	return n.RemoveXattr(ctx, prefixes.TmpEtagAttr)
 }
 
 func isGrantExpired(g *provider.Grant) bool {
@@ -1278,7 +1301,7 @@ func (n *Node) ReadGrant(ctx context.Context, grantee string) (g *provider.Grant
 }
 
 // ReadGrant reads a CS3 grant
-func (n *Node) DeleteGrant(ctx context.Context, g *provider.Grant, acquireLock bool) (err error) {
+func (n *Node) DeleteGrant(ctx context.Context, g *provider.Grant) (err error) {
 
 	var attr string
 	if g.Grantee.Type == provider.GranteeType_GRANTEE_TYPE_GROUP {
@@ -1287,7 +1310,7 @@ func (n *Node) DeleteGrant(ctx context.Context, g *provider.Grant, acquireLock b
 		attr = prefixes.GrantUserAcePrefix + g.Grantee.GetUserId().OpaqueId
 	}
 
-	if err = n.RemoveXattr(ctx, attr, acquireLock); err != nil {
+	if err = n.RemoveXattr(ctx, attr); err != nil {
 		return err
 	}
 
@@ -1379,7 +1402,7 @@ func (n *Node) UnmarkProcessing(ctx context.Context, uploadID string) error {
 		// file started another postprocessing later - do not remove
 		return nil
 	}
-	return n.RemoveXattr(ctx, prefixes.StatusPrefix, true)
+	return n.RemoveXattr(ctx, prefixes.StatusPrefix)
 }
 
 // IsProcessing returns true if the node is currently being processed
@@ -1404,7 +1427,7 @@ func (n *Node) SetScanData(ctx context.Context, info string, date time.Time) err
 	attribs := Attributes{}
 	attribs.SetString(prefixes.ScanStatusPrefix, info)
 	attribs.SetString(prefixes.ScanDatePrefix, date.Format(time.RFC3339Nano))
-	return n.SetXattrsWithContext(ctx, attribs, true)
+	return n.SetXattrsWithContext(ctx, attribs)
 }
 
 // ScanData returns scanning information of the node

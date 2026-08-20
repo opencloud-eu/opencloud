@@ -21,7 +21,6 @@ package metadata
 import (
 	"context"
 	"errors"
-	"io"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -42,6 +41,11 @@ type MetadataNode interface {
 	GetSpaceID() string
 	GetID() string
 	InternalPath() string
+	// LockHeld reports whether the caller already holds this node's metadata lock.
+	// Backends use it to decide whether they must (re-)acquire the lock when reading
+	// metadata; re-acquiring a held, non-reentrant advisory file lock self-deadlocks.
+	LockHeld() bool
+	SetLockHeld(held bool)
 }
 
 // Backend defines the interface for file attribute backends
@@ -49,17 +53,21 @@ type Backend interface {
 	Name() string
 	IdentifyPath(ctx context.Context, path string) (string, string, string, time.Time, error)
 
+	// All reads all extended attributes for a node. It acquires the node's metadata
+	// lock unless n.LockHeld() reports that the caller already holds it.
 	All(ctx context.Context, n MetadataNode) (map[string][]byte, error)
-	AllWithLockedSource(ctx context.Context, n MetadataNode, source io.Reader) (map[string][]byte, error)
 
 	Get(ctx context.Context, n MetadataNode, key string) ([]byte, error)
 	GetInt64(ctx context.Context, n MetadataNode, key string) (int64, error)
 	Set(ctx context.Context, n MetadataNode, key string, val []byte) error
-	SetMultiple(ctx context.Context, n MetadataNode, attribs map[string][]byte, acquireLock bool) error
-	Remove(ctx context.Context, n MetadataNode, key string, acquireLock bool) error
+	// SetMultiple sets multiple extended attributes for a node. It acquires the node's
+	// metadata lock unless n.LockHeld() reports that the caller already holds it.
+	SetMultiple(ctx context.Context, n MetadataNode, attribs map[string][]byte) error
+	// Remove removes an extended attribute key. It acquires the node's metadata lock
+	// unless n.LockHeld() reports that the caller already holds it.
+	Remove(ctx context.Context, n MetadataNode, key string) error
 
 	Lock(n MetadataNode) (UnlockFunc, error)
-	LockAndRead(n MetadataNode) (UnlockFunc, io.Reader, error)
 	Purge(ctx context.Context, n MetadataNode) error
 	Rename(oldNode, newNode MetadataNode) error
 	MetadataPath(n MetadataNode) string
@@ -100,23 +108,18 @@ func (NullBackend) Set(ctx context.Context, n MetadataNode, key string, val []by
 }
 
 // SetMultiple sets a set of attribute for the given path
-func (NullBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs map[string][]byte, acquireLock bool) error {
+func (NullBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs map[string][]byte) error {
 	return errUnconfiguredError
 }
 
 // Remove removes an extended attribute key
-func (NullBackend) Remove(ctx context.Context, n MetadataNode, key string, acquireLock bool) error {
+func (NullBackend) Remove(ctx context.Context, n MetadataNode, key string) error {
 	return errUnconfiguredError
 }
 
 // Lock locks the metadata for the given path
 func (NullBackend) Lock(n MetadataNode) (UnlockFunc, error) {
 	return nil, nil
-}
-
-// LockAndRead locks the metadata for reading
-func (NullBackend) LockAndRead(n MetadataNode) (UnlockFunc, io.Reader, error) {
-	return nil, nil, nil
 }
 
 // IsMetaFile returns whether the given path represents a meta file
@@ -133,9 +136,3 @@ func (NullBackend) MetadataPath(n MetadataNode) string { return "" }
 
 // LockfilePath returns the path of the lock file
 func (NullBackend) LockfilePath(n MetadataNode) string { return "" }
-
-// AllWithLockedSource reads all extended attributes from the given reader
-// The path argument is used for storing the data in the cache
-func (NullBackend) AllWithLockedSource(ctx context.Context, n MetadataNode, source io.Reader) (map[string][]byte, error) {
-	return nil, errUnconfiguredError
-}

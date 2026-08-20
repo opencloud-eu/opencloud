@@ -127,7 +127,7 @@ func New(m map[string]interface{}) (*Options, error) {
 	o.GatewayAddr = sharedconf.GetGatewaySVC(o.GatewayAddr)
 
 	if o.MetadataBackend == "" {
-		o.MetadataBackend = "xattrs"
+		o.MetadataBackend = "messagepack"
 	}
 
 	// ensure user layout has no starting or trailing /

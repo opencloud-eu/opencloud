@@ -92,7 +92,8 @@ func (p SyncPropagator) propagateItem(ctx context.Context, n *node.Node, sTime t
 	attrs := node.Attributes{}
 
 	// lock parent before reading treesize or tree time
-	n, unlock, err := node.LockAndReadNode(ctx, p.lookup, n.SpaceID, n.ParentID, "", false, n.SpaceRoot, false)
+	// we deliberately allow reading disabled spaces so that the metadata is always consistent (see https://github.com/opencloud-eu/reva/issues/747)
+	n, unlock, err := node.LockAndReadNode(ctx, p.lookup, n.SpaceID, n.ParentID, "", true, n.SpaceRoot, false)
 	if err != nil {
 		return nil, true, err
 	}
@@ -190,7 +191,7 @@ func (p SyncPropagator) propagateItem(ctx context.Context, n *node.Node, sTime t
 		log.Debug().Uint64("newSize", newSize).Msg("updated treesize of parent node")
 	}
 
-	if err = n.SetXattrsWithContext(ctx, attrs, false); err != nil {
+	if err = n.SetXattrsWithContext(ctx, attrs); err != nil {
 		log.Error().Err(err).Msg("Failed to update extend attributes of parent node")
 		return n, true, err
 	}

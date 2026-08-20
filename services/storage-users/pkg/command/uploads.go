@@ -27,17 +27,19 @@ import (
 
 // Session contains the information of an upload session
 type Session struct {
-	ID         string         `json:"id"`
-	Space      string         `json:"space"`
-	Filename   string         `json:"filename"`
-	Offset     int64          `json:"offset"`
-	Size       int64          `json:"size"`
-	Executant  userpb.UserId  `json:"executant"`
-	SpaceOwner *userpb.UserId `json:"spaceowner,omitempty"`
-	Expires    time.Time      `json:"expires"`
-	Processing bool           `json:"processing"`
-	ScanDate   time.Time      `json:"virus_scan_date"`
-	ScanResult string         `json:"virus_scan_result"`
+	ID            string         `json:"id"`
+	Space         string         `json:"space"`
+	Filename      string         `json:"filename"`
+	Offset        int64          `json:"offset"`
+	Size          int64          `json:"size"`
+	Executant     userpb.UserId  `json:"executant"`
+	SpaceOwner    *userpb.UserId `json:"spaceowner,omitempty"`
+	Expires       time.Time      `json:"expires"`
+	Processing    bool           `json:"processing"`
+	ScanDate      time.Time      `json:"virus_scan_date"`
+	ScanResult    string         `json:"virus_scan_result"`
+	Status        string         `json:"status"`
+	StatusMessage string         `json:"status_message"`
 }
 
 // Uploads is the entry point for the uploads command
@@ -123,7 +125,7 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 				fmt.Println(buildInfo(filter))
 
 				table = tablewriter.NewTable(os.Stdout, tablewriter.WithHeaderAutoFormat(tw.Off))
-				table.Header([]string{"Space", "Upload Id", "Name", "Offset", "Size", "Executant", "Owner", "Expires", "Processing", "Scan Date", "Scan Result"})
+				table.Header([]string{"Space", "Upload Id", "Name", "Status", "Message", "Offset", "Size", "Executant", "Owner", "Expires", "Scan Date", "Scan Result"})
 			}
 
 			for _, u := range uploads {
@@ -131,17 +133,18 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 				sr, sd := u.ScanData()
 
 				session := Session{
-					Space:      ref.GetResourceId().GetSpaceId(),
-					ID:         u.ID(),
-					Filename:   u.Filename(),
-					Offset:     u.Offset(),
-					Size:       u.Size(),
-					Executant:  u.Executant(),
-					SpaceOwner: u.SpaceOwner(),
-					Expires:    u.Expires(),
-					Processing: u.IsProcessing(),
-					ScanDate:   sd,
-					ScanResult: sr,
+					Space:         ref.GetResourceId().GetSpaceId(),
+					ID:            u.ID(),
+					Filename:      u.Filename(),
+					Offset:        u.Offset(),
+					Size:          u.Size(),
+					Executant:     u.Executant(),
+					SpaceOwner:    u.SpaceOwner(),
+					Expires:       u.Expires(),
+					ScanDate:      sd,
+					ScanResult:    sr,
+					Status:        string(u.Status()),
+					StatusMessage: u.StatusMessage(),
 				}
 
 				if renderJson {
@@ -151,12 +154,13 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 						session.Space,
 						session.ID,
 						session.Filename,
+						session.Status,
+						session.StatusMessage,
 						strconv.FormatInt(session.Offset, 10),
 						strconv.FormatInt(session.Size, 10),
 						session.Executant.OpaqueId,
 						session.SpaceOwner.GetOpaqueId(),
 						session.Expires.Format(time.RFC3339),
-						strconv.FormatBool(session.Processing),
 						session.ScanDate.Format(time.RFC3339),
 						session.ScanResult,
 					})

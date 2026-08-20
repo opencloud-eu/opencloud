@@ -196,7 +196,7 @@ func (fs *Decomposedfs) CreateStorageSpace(ctx context.Context, req *provider.Cr
 		metadata.SetString(prefixes.SpaceAliasAttr, alias)
 	}
 
-	if err := root.SetXattrsWithContext(ctx, metadata, true); err != nil {
+	if err := root.SetXattrsWithContext(ctx, metadata); err != nil {
 		return nil, err
 	}
 
@@ -697,7 +697,7 @@ func (fs *Decomposedfs) UpdateStorageSpace(ctx context.Context, req *provider.Up
 	}
 	metadata[prefixes.TreeMTimeAttr] = []byte(time.Now().UTC().Format(time.RFC3339Nano))
 
-	err = spaceNode.SetXattrsWithContext(ctx, metadata, true)
+	err = spaceNode.SetXattrsWithContext(ctx, metadata)
 	if err != nil {
 		return nil, err
 	}
@@ -935,7 +935,7 @@ func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, 
 			// This way we don't have to have a cron job checking the grants in regular intervals.
 			// The tradeof obviously is that this code is here.
 			if isGrantExpired(g) {
-				if err := n.DeleteGrant(ctx, g, true); err != nil {
+				if err := n.DeleteGrant(ctx, g); err != nil {
 					sublog.Error().Err(err).Str("grantee", id).
 						Msg("failed to delete expired space grant")
 				}

@@ -223,7 +223,7 @@ func (fs *Decomposedfs) RemoveGrant(ctx context.Context, ref *provider.Reference
 		}
 	}
 
-	if err := grantNode.DeleteGrant(ctx, g, false); err != nil {
+	if err := grantNode.DeleteGrant(ctx, g); err != nil {
 		return err
 	}
 
@@ -349,7 +349,7 @@ func (fs *Decomposedfs) storeGrant(ctx context.Context, n *node.Node, g *provide
 	attribs := node.Attributes{
 		prefixes.GrantPrefix + principal: value,
 	}
-	if err := n.SetXattrsWithContext(ctx, attribs, false); err != nil {
+	if err := n.SetXattrsWithContext(ctx, attribs); err != nil {
 		appctx.GetLogger(ctx).Error().Err(err).
 			Str("principal", principal).Msg("Could not set grant for principal")
 		return err

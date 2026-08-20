@@ -80,6 +80,11 @@ type UploadSession interface {
 
 	// ScanData returns the scan data for the UploadSession
 	ScanData() (string, time.Time)
+
+	// Status returns the status for the UploadSession
+	Status() string
+	// StatusMessage returns the status message for the UploadSession
+	StatusMessage() string
 }
 
 // UploadSessionFilter can be used to filter upload sessions

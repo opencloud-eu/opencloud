@@ -46,6 +46,12 @@ type DecomposedFsSession struct {
 	info tusd.FileInfo
 }
 
+const (
+	SessionStatusUploading  = "uploading"
+	SessionStatusProcessing = "processing"
+	SessionStatusFailed     = "failed"
+)
+
 // Context returns a context with the user, logger and lockid used when initiating the upload session
 func (session *DecomposedFsSession) Context(ctx context.Context) context.Context { // restore logger from file info
 	sub := session.store.log.With().Int("pid", os.Getpid()).Logger()
@@ -307,10 +313,9 @@ func (session *DecomposedFsSession) MTime() time.Time {
 	return t
 }
 
-// IsProcessing returns true if all bytes have been received. The session then has entered postprocessing state.
+// IsProcessing returns true if the upload is in the processing state, meaning that the upload has finished and postprocessing is still running.
 func (session *DecomposedFsSession) IsProcessing() bool {
-	// We might need a more sophisticated way to determine processing status soon
-	return session.info.Size == session.info.Offset && session.info.MetaData["scanResult"] == ""
+	return session.info.MetaData["status"] == SessionStatusProcessing
 }
 
 // binPath returns the path to the file storing the binary data.
@@ -337,6 +342,22 @@ func (session *DecomposedFsSession) ScanData() (string, time.Time) {
 	}
 	d, _ := time.Parse(time.RFC3339, date)
 	return session.info.MetaData["scanResult"], d
+}
+
+// SetStatus sets the status of the upload session
+func (session *DecomposedFsSession) SetStatus(status, msg string) {
+	session.info.MetaData["status"] = status
+	session.info.MetaData["statusMessage"] = msg
+}
+
+// Status returns the status of the upload session
+func (session *DecomposedFsSession) Status() string {
+	return session.info.MetaData["status"]
+}
+
+// StatusMessage returns the status message of the upload session
+func (session *DecomposedFsSession) StatusMessage() string {
+	return session.info.MetaData["statusMessage"]
 }
 
 // sessionPath returns the path to the .info file storing the file's info.

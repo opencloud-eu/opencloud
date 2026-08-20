@@ -1360,7 +1360,7 @@ github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260310090739-853d972b282d
 ## explicit; go 1.18
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.46.7
+# github.com/opencloud-eu/reva/v2 v2.46.8-0.20260819135700-04eb6648bf17
 ## explicit; go 1.25.0
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -1660,8 +1660,10 @@ github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher/natswatcher
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/registry
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/s3ng
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/s3ng/blobstore
+github.com/opencloud-eu/reva/v2/pkg/storage/internal/goroutinelock
 github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs
 github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/aspects
+github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/disk
 github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/lookup
 github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata
 github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes

@@ -26,28 +26,34 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/pkg/xattr"
 
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/disk"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 )
 
 const (
-	TMPDir = ".oc-tmp"
+	TMPDir     = ".oc-tmp"
+	fsyncEvery = 16 << 20 // 16 MiB
 )
 
 // Blobstore provides an interface to an filesystem based blobstore
 type Blobstore struct {
 	root string
+
+	canUseRenameForUpload bool
 }
 
 // New returns a new Blobstore
 func New(root string) (*Blobstore, error) {
 	return &Blobstore{
-		root: root,
+		root:                  root,
+		canUseRenameForUpload: true, // let's assume the upload area is on the same device as the blobstore root by default
 	}, nil
 }
 
@@ -61,29 +67,40 @@ func (bs *Blobstore) Upload(n *node.Node, source, copyTarget string) error {
 		return err
 	}
 
-	sourceFile, err := os.Open(source)
-	if err != nil {
-		return fmt.Errorf("failed to open source file '%s': %v", source, err)
-	}
-	defer func() {
-		_ = sourceFile.Close()
-	}()
-
-	tempFile, err := os.OpenFile(tempName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
-	if err != nil {
-		return fmt.Errorf("unable to create temp file '%s': %v", tempName, err)
-	}
-
-	if _, err := tempFile.ReadFrom(sourceFile); err != nil {
-		return fmt.Errorf("failed to write data from source file '%s' to temp file '%s' - %v", source, tempName, err)
+	if bs.canUseRenameForUpload {
+		err := os.Rename(source, tempName)
+		switch {
+		case err == nil:
+			// continue
+		case errors.Is(err, syscall.EXDEV):
+			// the upload and target file are on different devices, we need to copy the file instead of renaming it
+			bs.canUseRenameForUpload = false
+		default:
+			return fmt.Errorf("failed to move source file '%s' to temp file '%s' - %v", source, tempName, err)
+		}
 	}
 
-	if err := tempFile.Sync(); err != nil {
-		return fmt.Errorf("failed to sync temp file '%s' - %v", tempName, err)
-	}
+	if !bs.canUseRenameForUpload {
+		sourceFile, err := os.Open(source)
+		if err != nil {
+			return fmt.Errorf("failed to open source file '%s': %v", source, err)
+		}
+		defer func() {
+			_ = sourceFile.Close()
+		}()
 
-	if err := tempFile.Close(); err != nil {
-		return fmt.Errorf("failed to close temp file '%s' - %v", tempName, err)
+		tempFile, err := os.OpenFile(tempName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+		if err != nil {
+			return fmt.Errorf("unable to create temp file '%s': %v", tempName, err)
+		}
+
+		if err := copyWithPeriodicSync(tempFile, sourceFile); err != nil {
+			return fmt.Errorf("failed to copy source file '%s' to temp file '%s' - %v", source, tempName, err)
+		}
+
+		if err := tempFile.Close(); err != nil {
+			return fmt.Errorf("failed to close temp file '%s' - %v", tempName, err)
+		}
 	}
 
 	nodeAttributes, err := n.Xattrs(context.Background())
@@ -137,11 +154,15 @@ func (bs *Blobstore) Upload(n *node.Node, source, copyTarget string) error {
 	}
 
 	// also "upload" the file to a local path, e.g., for keeping the "current" version of the file
-	if err := os.MkdirAll(filepath.Dir(copyTarget), 0700); err != nil {
-		return err
+	sourceFile, err := os.Open(source)
+	if err != nil {
+		return errors.Wrapf(err, "could not open source file '%s' for reading", source)
 	}
+	defer func() {
+		_ = sourceFile.Close()
+	}()
 
-	if _, err := sourceFile.Seek(0, 0); err != nil {
+	if err := os.MkdirAll(filepath.Dir(copyTarget), 0700); err != nil {
 		return err
 	}
 
@@ -153,7 +174,7 @@ func (bs *Blobstore) Upload(n *node.Node, source, copyTarget string) error {
 		_ = copyFile.Close()
 	}()
 
-	if _, err := copyFile.ReadFrom(sourceFile); err != nil {
+	if err := copyWithPeriodicSync(copyFile, sourceFile); err != nil {
 		return errors.Wrapf(err, "could not write blob copy of '%s' to '%s'", n.InternalPath(), copyTarget)
 	}
 
@@ -172,4 +193,22 @@ func (bs *Blobstore) Download(node *node.Node) (io.ReadCloser, error) {
 // Delete deletes a blob from the blobstore
 func (bs *Blobstore) Delete(node *node.Node) error {
 	return nil
+}
+
+func copyWithPeriodicSync(dst, src *os.File) error {
+	for {
+		n, err := io.CopyN(dst, src, fsyncEvery)
+		if n > 0 {
+			if serr := disk.Fdatasync(dst); serr != nil {
+				return serr
+			}
+		}
+		if err == io.EOF {
+			_ = dst.Sync()
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
 }
