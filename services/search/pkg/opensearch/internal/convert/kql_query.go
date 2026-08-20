@@ -14,7 +14,7 @@ var (
 func KQLToOpenSearchBoolQuery(kqlQuery string) (*osu.BoolQuery, error) {
 	kqlAst, err := kql.Builder{}.Build(kqlQuery)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build query: %w", err)
+		return nil, err
 	}
 
 	kqlNodes, err := ExpandKQL(kqlAst.Nodes)

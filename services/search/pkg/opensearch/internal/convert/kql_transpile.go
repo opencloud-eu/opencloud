@@ -3,6 +3,7 @@ package convert
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -93,47 +94,13 @@ func (t kqlOpensearchTranspiler) getOperatorValueAt(nodes []ast.Node, i int) str
 }
 
 func (t kqlOpensearchTranspiler) toBuilder(node ast.Node) (osu.Builder, error) {
-	var builder osu.Builder
-
 	switch node := node.(type) {
 	case *ast.BooleanNode:
 		return osu.NewTermQuery[bool](node.Key).Value(node.Value), nil
 	case *ast.StringNode:
-		isWildcard := strings.Contains(node.Value, "*")
-		if isWildcard {
-			return osu.NewWildcardQuery(node.Key).Value(node.Value), nil
-		}
-
-		totalTerms := strings.Split(node.Value, " ")
-		isSingleTerm := len(totalTerms) == 1
-		isMultiTerm := len(totalTerms) >= 1
-		switch {
-		case isSingleTerm:
-			return osu.NewTermQuery[string](node.Key).Value(node.Value), nil
-		case isMultiTerm:
-			return osu.NewMatchPhraseQuery(node.Key).Query(node.Value), nil
-		}
-
-		return nil, fmt.Errorf("unsupported string node value: %s", node.Value)
+		return stringNodeQuery(node), nil
 	case *ast.DateTimeNode:
-		if node.Operator == nil {
-			return builder, fmt.Errorf("date time node without operator: %w", ErrUnsupportedNodeType)
-		}
-
-		query := osu.NewRangeQuery[time.Time](node.Key)
-
-		switch node.Operator.Value {
-		case ">":
-			return query.Gt(node.Value), nil
-		case ">=":
-			return query.Gte(node.Value), nil
-		case "<":
-			return query.Lt(node.Value), nil
-		case "<=":
-			return query.Lte(node.Value), nil
-		}
-
-		return nil, fmt.Errorf("unsupported operator %s for date time node: %w", node.Operator.Value, ErrUnsupportedNodeType)
+		return dateTimeNodeQuery(node)
 	case *ast.GroupNode:
 		group, err := t.transpile(node.Nodes)
 		if err != nil {
@@ -144,4 +111,57 @@ func (t kqlOpensearchTranspiler) toBuilder(node ast.Node) (osu.Builder, error) {
 	}
 
 	return nil, fmt.Errorf("%w: %T", ErrUnsupportedNodeType, node)
+}
+
+// stringNodeQuery picks the query a string node turns into.
+func stringNodeQuery(node *ast.StringNode) osu.Builder {
+	isWildcard := strings.Contains(node.Value, "*")
+
+	switch {
+	// Name: "*oo-bar", "*oo ba*", "*OO*"
+	// Title: "*rterly rep*"
+	// Tags: "*spaced tag*"
+	case isWildcard && slices.Contains([]string{"Name", "Title", "Tags"}, node.Key):
+		return osu.NewWildcardQuery(node.Key + ".keyword").
+			Value(node.Value).
+			Params(&osu.WildcardQueryParams{CaseInsensitive: true})
+	// Path: "./foo*", MimeType: "*plain"
+	case isWildcard:
+		return osu.NewWildcardQuery(node.Key).Value(node.Value)
+	// Tags: "foo-bar", "spaced tag", "FOO-BAR"
+	case node.Key == "Tags":
+		return osu.NewTermQuery[string](node.Key + ".keyword").
+			Value(node.Value).
+			Params(&osu.TermQueryParams{CaseInsensitive: true})
+	// Name: "foo-bar", "foo bar"
+	// Title: "quarterly report"
+	// Content: "foo bar"
+	case slices.Contains([]string{"Name", "Title", "Content"}, node.Key):
+		return osu.NewMatchPhraseQuery(node.Key).Query(node.Value)
+	// Path: "./foo bar", MimeType: "text/plain"
+	default:
+		return osu.NewTermQuery[string](node.Key).Value(node.Value)
+	}
+}
+
+// dateTimeNodeQuery turns a date time node into a range query.
+func dateTimeNodeQuery(node *ast.DateTimeNode) (osu.Builder, error) {
+	if node.Operator == nil {
+		return nil, fmt.Errorf("date time node without operator: %w", ErrUnsupportedNodeType)
+	}
+
+	query := osu.NewRangeQuery[time.Time](node.Key)
+
+	switch node.Operator.Value {
+	case ">":
+		return query.Gt(node.Value), nil
+	case ">=":
+		return query.Gte(node.Value), nil
+	case "<":
+		return query.Lt(node.Value), nil
+	case "<=":
+		return query.Lte(node.Value), nil
+	}
+
+	return nil, fmt.Errorf("unsupported operator %s for date time node: %w", node.Operator.Value, ErrUnsupportedNodeType)
 }
