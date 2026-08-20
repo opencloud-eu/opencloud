@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- [stable-7.2] Only log a debug message when an item is still in processing state [[#3369](https://github.com/opencloud-eu/opencloud/pull/3369)]
 - [stable-7.2] backport fixes for the opencloud posixfs command [[#3367](https://github.com/opencloud-eu/opencloud/pull/3367)]
 - [stable-7.2] Expose upload status and message [[#3365](https://github.com/opencloud-eu/opencloud/pull/3365)]
 - Fix opensearch space scope [stable-7.2] [[#3351](https://github.com/opencloud-eu/opencloud/pull/3351)]
