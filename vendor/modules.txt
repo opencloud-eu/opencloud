@@ -106,7 +106,7 @@ github.com/asaskevich/govalidator
 # github.com/bbalet/stopwords v1.0.0
 ## explicit
 github.com/bbalet/stopwords
-# github.com/beevik/etree v1.7.0
+# github.com/beevik/etree v1.7.1
 ## explicit; go 1.23.0
 github.com/beevik/etree
 # github.com/beorn7/perks v1.0.1

@@ -635,19 +635,27 @@ func (e *Element) Text() string {
 		return ""
 	}
 
-	text := ""
+	var text string
+	var b strings.Builder
 	for _, ch := range e.Child {
 		if cd, ok := ch.(*CharData); ok {
 			if text == "" {
 				text = cd.Data
 			} else {
-				text += cd.Data
+				if b.Len() == 0 {
+					b.WriteString(text)
+				}
+				b.WriteString(cd.Data)
 			}
 		} else if _, ok := ch.(*Comment); ok {
 			// ignore
 		} else {
 			break
 		}
+	}
+
+	if b.Len() > 0 {
+		return b.String()
 	}
 	return text
 }
@@ -674,17 +682,25 @@ func (e *Element) Tail() string {
 	p := e.Parent()
 	i := e.Index()
 
-	text := ""
+	var text string
+	var b strings.Builder
 	for _, ch := range p.Child[i+1:] {
 		if cd, ok := ch.(*CharData); ok {
 			if text == "" {
 				text = cd.Data
 			} else {
-				text += cd.Data
+				if b.Len() == 0 {
+					b.WriteString(text)
+				}
+				b.WriteString(cd.Data)
 			}
 		} else {
 			break
 		}
+	}
+
+	if b.Len() > 0 {
+		return b.String()
 	}
 	return text
 }

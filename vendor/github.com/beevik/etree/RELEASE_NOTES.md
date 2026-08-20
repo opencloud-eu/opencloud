@@ -1,7 +1,12 @@
-Release 1.7.0
+Release 1.7.1
 =============
 
 **Changes**
+
+* Improve efficiency of `Element.Text` and `Element.Tail`.
+
+Release 1.7.0
+=============
 
 **Breaking changes**
 
