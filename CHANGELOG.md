@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @aduffeck, @butonic, @fschade, @junkerderprovinz, @maki5, @pbleser-oc, @rhafer, @saw-jan, @schweigisito, @v-scharf
+@AlexAndBear, @JammingBen, @Svanvith, @aduffeck, @butonic, @fschade, @junkerderprovinz, @maki5, @pbleser-oc, @rhafer, @saw-jan, @schweigisito, @v-scharf
+
+### 📚 Documentation
+
+- docs: clarify custom role bootstrap behavior [[#3366](https://github.com/opencloud-eu/opencloud/pull/3366)]
 
 ### 📈 Enhancement
 
