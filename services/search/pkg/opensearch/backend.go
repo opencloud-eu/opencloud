@@ -9,6 +9,7 @@ import (
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
@@ -17,6 +18,7 @@ import (
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/convert"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
+	searchQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -68,7 +70,10 @@ func NewBackend(index string, client *opensearchgoAPI.Client) (*Backend, error) 
 
 func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
 	boolQuery, err := convert.KQLToOpenSearchBoolQuery(sir.Query)
-	if err != nil {
+	switch {
+	case searchQuery.IsValidationError(err):
+		return nil, errtypes.BadRequest(err.Error())
+	case err != nil:
 		return nil, fmt.Errorf("failed to convert KQL query to OpenSearch bool query: %w", err)
 	}
 

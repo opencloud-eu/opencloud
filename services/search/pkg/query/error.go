@@ -1,6 +1,7 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
@@ -38,10 +39,16 @@ func (e UnsupportedTimeRangeError) Error() string {
 	return fmt.Sprintf("unable to convert '%v' to a time range", e.Value)
 }
 
+// IsValidationError says whether the query itself is at fault, which makes it a
+// bad request and not an error of ours.
 func IsValidationError(err error) bool {
-	switch err.(type) {
-	case *StartsWithBinaryOperatorError, *NamedGroupInvalidNodesError, *UnsupportedTimeRangeError:
-		return true
-	}
-	return false
+	var (
+		startsWithBinaryOperator *StartsWithBinaryOperatorError
+		namedGroupInvalidNodes   *NamedGroupInvalidNodesError
+		unsupportedTimeRange     *UnsupportedTimeRangeError
+	)
+
+	return errors.As(err, &startsWithBinaryOperator) ||
+		errors.As(err, &namedGroupInvalidNodes) ||
+		errors.As(err, &unsupportedTimeRange)
 }

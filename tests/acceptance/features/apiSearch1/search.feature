@@ -97,7 +97,7 @@ Feature: Search
       | new              |
       | spaces           |
 
-  @issue-10329 @issue-3310
+  @issue-10329
   Scenario Outline: user can search hidden files
     Given using <dav-path-version> DAV path
     And user "Alice" has created a folder ".space" in space "project101"
@@ -320,7 +320,7 @@ Feature: Search
       | name:*der2   | subFOLDER2    | patern 'name:''                 |
       | name:"*der2" | subFOLDER2    | pattern 'name:""' (with quotes) |
 
-  @issue-7812 @issue-8442 @issue-10329 @issue-3312
+  @issue-7812 @issue-8442 @issue-10329
   Scenario: try to search with invalid patterns
     Given using spaces DAV path
     And user "Alice" has uploaded file with content "test file" to "testFile.txt"
@@ -395,7 +395,7 @@ Feature: Search
       | new              |
       | spaces           |
 
-  @issue-10329 @issue-3310
+  @issue-10329
   Scenario Outline: search for entry with emoji by pattern
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "hello world" to "upload😀 😁.txt"
