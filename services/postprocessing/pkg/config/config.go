@@ -32,7 +32,7 @@ type Postprocessing struct {
 
 	RetryBackoffDuration time.Duration `yaml:"retry_backoff_duration" env:"POSTPROCESSING_RETRY_BACKOFF_DURATION" desc:"The base for the exponential backoff duration before retrying a failed postprocessing step. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
 	MaxRetries           int           `yaml:"max_retries" env:"POSTPROCESSING_MAX_RETRIES" desc:"The maximum number of retries for a failed postprocessing step." introductionVersion:"1.0.0"`
-	PublishMaxRetries    int           `yaml:"publish_max_retries" env:"POSTPROCESSING_PUBLISH_MAX_RETRIES" desc:"The maximum number of retries when publishing an event to the event system fails. The same exponential backoff as for failed postprocessing steps is used, based on POSTPROCESSING_RETRY_BACKOFF_DURATION. Set to 0 to not retry at all." introductionVersion:"%NEXT%"`
+	PublishMaxRetries    int           `yaml:"-"` // hardcoded default only, for the stable-7.2. Config setting will come with the next stable release
 }
 
 // Events combines the configuration options for the event bus.
