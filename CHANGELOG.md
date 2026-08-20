@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- [stable-7.2] fix(search): ack every event the index service handles [[#3374](https://github.com/opencloud-eu/opencloud/pull/3374)]
 - [stable-7.2] fix(postprocessing): retry publishing events [[#3370](https://github.com/opencloud-eu/opencloud/pull/3370)]
 - [stable-7.2] Only log a debug message when an item is still in processing state [[#3369](https://github.com/opencloud-eu/opencloud/pull/3369)]
 - [stable-7.2] backport fixes for the opencloud posixfs command [[#3367](https://github.com/opencloud-eu/opencloud/pull/3367)]
