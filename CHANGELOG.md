@@ -1,10 +1,14 @@
 # Changelog
 
-## [7.2.4](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.4) - 2026-08-19
+## [7.2.4](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.4) - 2026-08-20
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @rhafer
+@aduffeck, @rhafer, @v-scharf
+
+### ✅ Tests
+
+- api-tests against open-search in stable [[#3353](https://github.com/opencloud-eu/opencloud/pull/3353)]
 
 ### 🐛 Bug Fixes
 
