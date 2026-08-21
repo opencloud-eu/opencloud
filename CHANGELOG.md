@@ -6,6 +6,18 @@
 
 @AlexAndBear, @JammingBen, @Svanvith, @aduffeck, @butonic, @fschade, @junkerderprovinz, @maki5, @pbleser-oc, @rhafer, @saw-jan, @schweigisito, @v-scharf
 
+### 📈 Enhancement
+
+- feat(thumbnails): extend list of default resolutions [[#3386](https://github.com/opencloud-eu/opencloud/pull/3386)]
+- ability to disable grpc and/or event consumer for event history service [[#3279](https://github.com/opencloud-eu/opencloud/pull/3279)]
+- feat(graph): add LibreGraphContentType on drive [[#3355](https://github.com/opencloud-eu/opencloud/pull/3355)]
+- feat: update space template image [[#3324](https://github.com/opencloud-eu/opencloud/pull/3324)]
+- feat(web): add rclone-crypt to default apps [[#3313](https://github.com/opencloud-eu/opencloud/pull/3313)]
+- enhance: send events for adding/removing favourite items [[#3229](https://github.com/opencloud-eu/opencloud/pull/3229)]
+- allow tuning the proxies http client [[#3278](https://github.com/opencloud-eu/opencloud/pull/3278)]
+- feat(web): add yjsServerUrl config [[#3259](https://github.com/opencloud-eu/opencloud/pull/3259)]
+- feat(posixfs): #3182 add basepath option in the "posixfs scan" command [[#3235](https://github.com/opencloud-eu/opencloud/pull/3235)]
+
 ### 🐛 Bug Fixes
 
 - fix(search): refresh the opensearch index after a write [[#3388](https://github.com/opencloud-eu/opencloud/pull/3388)]
@@ -17,17 +29,6 @@
 - fix(activitylog): log missing parent id cache entry at debug level [[#3325](https://github.com/opencloud-eu/opencloud/pull/3325)]
 - fix restore file version for shared resource [[#3268](https://github.com/opencloud-eu/opencloud/pull/3268)]
 - Fix missing favorite flag on opensearch hits [[#3252](https://github.com/opencloud-eu/opencloud/pull/3252)]
-
-### 📈 Enhancement
-
-- ability to disable grpc and/or event consumer for event history service [[#3279](https://github.com/opencloud-eu/opencloud/pull/3279)]
-- feat(graph): add LibreGraphContentType on drive [[#3355](https://github.com/opencloud-eu/opencloud/pull/3355)]
-- feat: update space template image [[#3324](https://github.com/opencloud-eu/opencloud/pull/3324)]
-- feat(web): add rclone-crypt to default apps [[#3313](https://github.com/opencloud-eu/opencloud/pull/3313)]
-- enhance: send events for adding/removing favourite items [[#3229](https://github.com/opencloud-eu/opencloud/pull/3229)]
-- allow tuning the proxies http client [[#3278](https://github.com/opencloud-eu/opencloud/pull/3278)]
-- feat(web): add yjsServerUrl config [[#3259](https://github.com/opencloud-eu/opencloud/pull/3259)]
-- feat(posixfs): #3182 add basepath option in the "posixfs scan" command [[#3235](https://github.com/opencloud-eu/opencloud/pull/3235)]
 
 ### ✅ Tests
 
