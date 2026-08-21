@@ -60,7 +60,7 @@ func Server(opts ...Option) (ohttp.Service, error) {
 
 	mux.Use(middleware.Version(
 		options.Name,
-		version.GetString(),
+		version.String,
 	))
 
 	mux.Use(
