@@ -86,15 +86,6 @@ func Server(cfg *config.Config) *cobra.Command {
 				logger.Fatal().Err(err).Msg("failed to register the http service")
 			}
 
-			// add event handler
-			gr.Add(runner.New(cfg.Service.Name+".event",
-				func() error {
-					return ListenForEvents(ctx, cfg, logger)
-				}, func() {
-					logger.Info().Msg("stopping event handler")
-				},
-			))
-
 			grResults := gr.Run(ctx)
 
 			// return the first non-nil error found in the results

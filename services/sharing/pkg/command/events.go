@@ -25,8 +25,8 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
-	"github.com/opencloud-eu/opencloud/services/frontend/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/store/defaults"
+	"github.com/opencloud-eu/opencloud/services/sharing/pkg/config"
 )
 
 var _registeredEvents = []events.Unmarshaller{
@@ -36,19 +36,27 @@ var _registeredEvents = []events.Unmarshaller{
 // ListenForEvents listens for events and acts accordingly
 func ListenForEvents(ctx context.Context, cfg *config.Config, l log.Logger) error {
 	connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
-	bus, err := stream.NatsFromConfig(connName, false, stream.NatsConfig(cfg.Events))
+	bus, err := stream.NatsFromConfig(connName, false, stream.NatsConfig{
+		Endpoint:             cfg.Events.Addr,
+		Cluster:              cfg.Events.ClusterID,
+		TLSInsecure:          cfg.Events.TLSInsecure,
+		TLSRootCACertificate: cfg.Events.TLSRootCaCertPath,
+		EnableTLS:            cfg.Events.EnableTLS,
+		AuthUsername:         cfg.Events.AuthUsername,
+		AuthPassword:         cfg.Events.AuthPassword,
+	})
 	if err != nil {
 		l.Error().Err(err).Msg("cannot connect to nats")
 		return err
 	}
 
-	evChannel, err := events.Consume(bus, "frontend", _registeredEvents...)
+	evChannel, err := events.Consume(bus, "sharing", _registeredEvents...)
 	if err != nil {
 		l.Error().Err(err).Msg("cannot consume from nats")
 		return err
 	}
 
-	tm, err := pool.StringToTLSMode(cfg.GRPCClientTLS.Mode)
+	tm, err := pool.StringToTLSMode(cfg.Reva.TLS.Mode)
 	if err != nil {
 		return err
 	}
@@ -61,7 +69,7 @@ func ListenForEvents(ctx context.Context, cfg *config.Config, l log.Logger) erro
 
 	gatewaySelector, err := pool.GatewaySelector(
 		cfg.Reva.Address,
-		pool.WithTLSCACert(cfg.GRPCClientTLS.CACert),
+		pool.WithTLSCACert(cfg.Reva.TLS.CACert),
 		pool.WithTLSMode(tm),
 		pool.WithRegistry(registry.GetRegistry()),
 		pool.WithTracerProvider(traceProvider),
@@ -73,7 +81,7 @@ func ListenForEvents(ctx context.Context, cfg *config.Config, l log.Logger) erro
 
 	grpcClient, err := grpc.NewClient(
 		append(
-			grpc.GetClientOptions(cfg.GRPCClientTLS),
+			grpc.GetClientOptions(&cfg.Reva.TLS),
 			grpc.WithTraceProvider(traceProvider),
 		)...,
 	)

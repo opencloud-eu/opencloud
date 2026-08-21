@@ -78,6 +78,8 @@ func DefaultConfig() *config.Config {
 		},
 		EnableExpiredSharesCleanup:  true,
 		PublicShareMustHavePassword: true,
+		AutoAcceptShares:            true,
+		MaxConcurrency:              1,
 		PasswordPolicy: config.PasswordPolicy{
 			MinCharacters:          8,
 			MinLowerCaseCharacters: 1,
@@ -145,5 +147,7 @@ func EnsureDefaults(cfg *config.Config) {
 
 // Sanitize sanitized the configuration
 func Sanitize(cfg *config.Config) {
-	// nothing to sanitize here atm
+	if cfg.MaxConcurrency <= 0 {
+		cfg.MaxConcurrency = 5
+	}
 }
