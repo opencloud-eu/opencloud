@@ -6,6 +6,17 @@
 
 @AlexAndBear, @JammingBen, @Svanvith, @aduffeck, @butonic, @fschade, @junkerderprovinz, @maki5, @pbleser-oc, @rhafer, @saw-jan, @schweigisito, @v-scharf
 
+### 📈 Enhancement
+
+- ability to disable grpc and/or event consumer for event history service [[#3279](https://github.com/opencloud-eu/opencloud/pull/3279)]
+- feat(graph): add LibreGraphContentType on drive [[#3355](https://github.com/opencloud-eu/opencloud/pull/3355)]
+- feat: update space template image [[#3324](https://github.com/opencloud-eu/opencloud/pull/3324)]
+- feat(web): add rclone-crypt to default apps [[#3313](https://github.com/opencloud-eu/opencloud/pull/3313)]
+- enhance: send events for adding/removing favourite items [[#3229](https://github.com/opencloud-eu/opencloud/pull/3229)]
+- allow tuning the proxies http client [[#3278](https://github.com/opencloud-eu/opencloud/pull/3278)]
+- feat(web): add yjsServerUrl config [[#3259](https://github.com/opencloud-eu/opencloud/pull/3259)]
+- feat(posixfs): #3182 add basepath option in the "posixfs scan" command [[#3235](https://github.com/opencloud-eu/opencloud/pull/3235)]
+
 ### 🐛 Bug Fixes
 
 - fix(thumbnails): respect the requested height in libvips builds [[#3377](https://github.com/opencloud-eu/opencloud/pull/3377)]
@@ -31,16 +42,6 @@
 ### 📚 Documentation
 
 - docs: clarify custom role bootstrap behavior [[#3366](https://github.com/opencloud-eu/opencloud/pull/3366)]
-
-### 📈 Enhancement
-
-- feat(graph): add LibreGraphContentType on drive [[#3355](https://github.com/opencloud-eu/opencloud/pull/3355)]
-- feat: update space template image [[#3324](https://github.com/opencloud-eu/opencloud/pull/3324)]
-- feat(web): add rclone-crypt to default apps [[#3313](https://github.com/opencloud-eu/opencloud/pull/3313)]
-- enhance: send events for adding/removing favourite items [[#3229](https://github.com/opencloud-eu/opencloud/pull/3229)]
-- allow tuning the proxies http client [[#3278](https://github.com/opencloud-eu/opencloud/pull/3278)]
-- feat(web): add yjsServerUrl config [[#3259](https://github.com/opencloud-eu/opencloud/pull/3259)]
-- feat(posixfs): #3182 add basepath option in the "posixfs scan" command [[#3235](https://github.com/opencloud-eu/opencloud/pull/3235)]
 
 ### 📦️ Dependencies
 
