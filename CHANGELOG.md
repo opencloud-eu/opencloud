@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(thumbnails): respect the requested height in libvips builds [[#3377](https://github.com/opencloud-eu/opencloud/pull/3377)]
 - refactor datagateway into proxy middleware [[#3289](https://github.com/opencloud-eu/opencloud/pull/3289)]
 - Only log a debug message when an item is still in processing state [[#3158](https://github.com/opencloud-eu/opencloud/pull/3158)]
 - fix(postprocessing): retry publishing events instead of killing the server [[#3347](https://github.com/opencloud-eu/opencloud/pull/3347)]
