@@ -41,6 +41,8 @@ use Symfony\Component\HttpFoundation\Response;
 class HttpRequestHelper {
 	public const HTTP_TOO_EARLY = 425;
 	public const HTTP_CONFLICT = 409;
+	public const HTTP_INTERNAL_SERVER_ERROR = 500;
+	private const SHARE_MANAGER_MIGRATING_ERROR = 'share manager is currently migrating, please retry';
 
 	/**
 	 * Some systems-under-test do async post-processing of operations like upload,
@@ -58,6 +60,22 @@ class HttpRequestHelper {
 		// Currently reva and OpenCloud may return HTTP_TOO_EARLY
 		// So try up to 10 times before giving up.
 		return STANDARD_RETRY_COUNT;
+	}
+
+	/**
+	 * Check whether a response is the transient share-manager migration error.
+	 *
+	 * @param ResponseInterface $response
+	 * @return bool
+	 */
+	private static function isShareManagerMigrating(ResponseInterface $response): bool {
+		if ($response->getStatusCode() !== self::HTTP_INTERNAL_SERVER_ERROR) {
+			return false;
+		}
+
+		$body = (string)$response->getBody();
+		$response->getBody()->rewind();
+		return \str_contains($body, self::SHARE_MANAGER_MIGRATING_ERROR);
 	}
 
 	/**
@@ -275,9 +293,11 @@ class HttpRequestHelper {
 				$client,
 			);
 
+			$shareManagerMigrating = self::isShareManagerMigrating($response);
 			if ($response->getStatusCode() >= 400
 				&& $response->getStatusCode() !== self::HTTP_TOO_EARLY
 				&& $response->getStatusCode() !== self::HTTP_CONFLICT
+				&& !$shareManagerMigrating
 			) {
 				$sendExceptionHappened = true;
 			}
@@ -286,14 +306,16 @@ class HttpRequestHelper {
 				self::debugResponse($response);
 			}
 			$sendCount = $sendCount + 1;
-			// Here we check if the response has status code 425 or is a 409 gotten from a Given step
+			// Here we check if the response has status code 425, is a 409 gotten from a Given step,
+			// or is the transient share-manager migration error.
 			// HTTP_TOO_EARLY (425) can happen if async processing of a previous request is still happening.
 			// For example, if a test uploads a file and then immediately tries to download it.
 			// HTTP_CONFLICT (409) can happen if the user has just been created in the previous step.
 			// The OCS API might not "realize" yet that the user exists. A folder creation (MKCOL) or maybe even
 			// a file upload might return 409.
 			// In all these cases we can try the API request again after a short time.
-			$loopAgain = !$sendExceptionHappened && ($response->getStatusCode() === self::HTTP_TOO_EARLY ||
+			$loopAgain = !$sendExceptionHappened && ($shareManagerMigrating ||
+					$response->getStatusCode() === self::HTTP_TOO_EARLY ||
 						($response->getStatusCode() === self::HTTP_CONFLICT && $isGivenStep)) &&
 						$sendCount <= $sendRetryLimit;
 			if ($loopAgain) {
