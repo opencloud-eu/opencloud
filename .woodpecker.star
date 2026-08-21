@@ -201,14 +201,14 @@ config = {
                 "apiSearch1",
             ],
             "skip": False,
-            "nightlyOpenSearch": True,
+            "openSearch": True,
         },
         "search2": {
             "suites": [
                 "apiSearch2",
             ],
             "skip": False,
-            "nightlyOpenSearch": True,
+            "openSearch": True,
         },
         "sharingNg": {
             "suites": [
@@ -272,7 +272,7 @@ config = {
             ],
             "skip": False,
             "tikaNeeded": True,
-            "nightlyOpenSearch": True,
+            "openSearch": True,
         },
         "ocm": {
             "suites": [
@@ -401,9 +401,20 @@ config = {
             "skip": False,
             "suites": [
                 "user-settings",
-                #"fileaction",
+                "fileaction",
                 "embed",
             ],
+        },
+        # Runs the search-related suites against an OpenSearch search-engine.
+        # favorites is a single feature file, so it is passed as an explicit path.
+        "search": {
+            "skip": False,
+            "suites": [
+                "cucumber/features/search",
+                "cucumber/features/file-action/favorites.feature",
+            ],
+            "tikaNeeded": True,
+            "openSearch": True,
         },
     },
     "e2eMultiService": {
@@ -1251,9 +1262,9 @@ def build_api_test_workflow_matrix(ctx, storage, suite_cfg, default_cfg):
             workflow_metrices.append(matrix)
 
     # Add an OpenSearch search-engine variant for nightly running search tests,
-    # or on demand when "opensearch" is specified in the PR title
+    # or on demand when "opensearch" is specified in the PR title.
     run_open_search = ctx.build.event == "cron" or "opensearch" in ctx.build.title.lower()
-    if run_open_search and storage == "posix" and suite_cfg.get("nightlyOpenSearch", False):
+    if run_open_search and storage == "posix" and suite_cfg.get("openSearch", False):
         os_matrix = {
             "withRemotePhp": False,
             "enableWatchFs": False,
@@ -1281,7 +1292,7 @@ def localApiTestPipeline(ctx):
         "withRemotePhp": False,
         "enableWatchFs": False,
         "ldapNeeded": False,
-        "nightlyOpenSearch": False,
+        "openSearch": False,
     }
 
     if "localApiTests" in config:
@@ -1519,6 +1530,7 @@ def e2eTestPipeline(ctx):
         "reportTracing": False,
         "enableWatchFs": [False],
         "storages": ["posix"],
+        "openSearch": False,
     }
 
     extra_server_environment = {
@@ -1557,13 +1569,33 @@ def e2eTestPipeline(ctx):
         if "[decomposed]" in ctx.build.title.lower():
             params["storages"] = ["decomposed"]
 
-        e2e_args = "--suites %s" % ",".join(params["suites"]) if params["suites"] else ""
-
         if "with-tracing" in ctx.build.title.lower():
             params["reportTracing"] = True
 
+        run_with_open_search = params["openSearch"]
+        if run_with_open_search:
+            if ctx.build.event != "cron" and "opensearch" not in ctx.build.title.lower():
+                continue
+            params["storages"] = ["posix"]
+            params["enableWatchFs"] = [False]
+            e2e_args = " ".join(params["suites"]) if params["suites"] else ""
+        else:
+            e2e_args = "--suites %s" % ",".join(params["suites"]) if params["suites"] else ""
+
         for storage in params["storages"]:
             for watch_fs_enabled in params["enableWatchFs"]:
+                pipeline_name = "test-e2e-%s-%s%s%s" % (
+                    name,
+                    storage,
+                    "-watchfs" if watch_fs_enabled else "",
+                    "-opensearch" if run_with_open_search else "",
+                )
+
+                server_environment = dict(extra_server_environment)
+                if run_with_open_search:
+                    server_environment["SEARCH_ENGINE_TYPE"] = "open-search"
+                    server_environment["SEARCH_ENGINE_OPEN_SEARCH_CLIENT_ADDRESSES"] = "http://open-search:9200"
+
                 steps = \
                     skipCheckStep(ctx, "e2e-tests") + \
                     evaluateWorkflowStep() + \
@@ -1572,9 +1604,10 @@ def e2eTestPipeline(ctx):
                     restoreWebPnpmCache() + \
                     restoreBrowsersCache() + \
                     (tikaService() if params["tikaNeeded"] else []) + \
+                    (waitForOpenSearch() if run_with_open_search else []) + \
                     opencloudServer(
                         storage,
-                        extra_server_environment = extra_server_environment,
+                        extra_server_environment = server_environment,
                         tika_enabled = params["tikaNeeded"],
                         watch_fs_enabled = watch_fs_enabled,
                     ) + \
@@ -1600,8 +1633,9 @@ def e2eTestPipeline(ctx):
                     uploadTracingResult(ctx)
 
                 pipeline = {
-                    "name": "test-e2e-%s-%s%s" % (name, storage, "-watchfs" if watch_fs_enabled else ""),
+                    "name": pipeline_name,
                     "steps": steps,
+                    "services": openSearchService() if run_with_open_search else [],
                     "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
                     "when": e2e_trigger,
                 }
