@@ -1,10 +1,20 @@
 # Changelog
 
-## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-20
+## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-21
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @AlexAndBear, @JammingBen, @Svanvith, @aduffeck, @butonic, @fschade, @junkerderprovinz, @maki5, @pbleser-oc, @rhafer, @saw-jan, @schweigisito, @v-scharf
+
+### 🐛 Bug Fixes
+
+- refactor datagateway into proxy middleware [[#3289](https://github.com/opencloud-eu/opencloud/pull/3289)]
+- Only log a debug message when an item is still in processing state [[#3158](https://github.com/opencloud-eu/opencloud/pull/3158)]
+- fix(postprocessing): retry publishing events instead of killing the server [[#3347](https://github.com/opencloud-eu/opencloud/pull/3347)]
+- actually log error on exit [[#3344](https://github.com/opencloud-eu/opencloud/pull/3344)]
+- fix(activitylog): log missing parent id cache entry at debug level [[#3325](https://github.com/opencloud-eu/opencloud/pull/3325)]
+- fix restore file version for shared resource [[#3268](https://github.com/opencloud-eu/opencloud/pull/3268)]
+- Fix missing favorite flag on opensearch hits [[#3252](https://github.com/opencloud-eu/opencloud/pull/3252)]
 
 ### ✅ Tests
 
@@ -30,15 +40,6 @@
 - allow tuning the proxies http client [[#3278](https://github.com/opencloud-eu/opencloud/pull/3278)]
 - feat(web): add yjsServerUrl config [[#3259](https://github.com/opencloud-eu/opencloud/pull/3259)]
 - feat(posixfs): #3182 add basepath option in the "posixfs scan" command [[#3235](https://github.com/opencloud-eu/opencloud/pull/3235)]
-
-### 🐛 Bug Fixes
-
-- Only log a debug message when an item is still in processing state [[#3158](https://github.com/opencloud-eu/opencloud/pull/3158)]
-- fix(postprocessing): retry publishing events instead of killing the server [[#3347](https://github.com/opencloud-eu/opencloud/pull/3347)]
-- actually log error on exit [[#3344](https://github.com/opencloud-eu/opencloud/pull/3344)]
-- fix(activitylog): log missing parent id cache entry at debug level [[#3325](https://github.com/opencloud-eu/opencloud/pull/3325)]
-- fix restore file version for shared resource [[#3268](https://github.com/opencloud-eu/opencloud/pull/3268)]
-- Fix missing favorite flag on opensearch hits [[#3252](https://github.com/opencloud-eu/opencloud/pull/3252)]
 
 ### 📦️ Dependencies
 
