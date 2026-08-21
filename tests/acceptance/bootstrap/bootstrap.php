@@ -20,6 +20,9 @@
  */
 
 use Composer\Autoload\ClassLoader;
+use PHPUnit\TextUI\CliArguments\Builder as CliArgumentsBuilder;
+use PHPUnit\TextUI\Configuration\Registry as ConfigurationRegistry;
+use PHPUnit\TextUI\XmlConfiguration\DefaultConfiguration;
 
 $classLoader = new ClassLoader();
 
@@ -53,3 +56,11 @@ if (!\defined('ACCEPTANCE_TEST_DIR_ON_REMOTE_SERVER')) {
 if (!\defined('TEMPORARY_STORAGE_DIR_ON_REMOTE_SERVER')) {
 	\define('TEMPORARY_STORAGE_DIR_ON_REMOTE_SERVER', ACCEPTANCE_TEST_DIR_ON_REMOTE_SERVER . '/server_tmp');
 }
+
+// With PHPUnit 10+, initialize the PHPUnit configuration registry with default values
+// as config initialization never happens when using behat test runner.
+// This is needed to be able to use some assertions like 'assertSame' from PHPUnit.
+ConfigurationRegistry::init(
+    (new CliArgumentsBuilder())->fromParameters(['phpunit']),
+    DefaultConfiguration::create()
+);
