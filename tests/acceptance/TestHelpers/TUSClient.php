@@ -345,6 +345,10 @@ class TUSClient {
 	 * @return int
 	 */
 	protected function sendHeadRequest(): int {
+		if (!$this->getUrl()) {
+			throw new FileException('Upload URL not found.');
+		}
+
 		$response   = $this->getClient()->head($this->getUrl());
 		$statusCode = $response->getStatusCode();
 
@@ -374,7 +378,7 @@ class TUSClient {
 			'Content-Type' => self::HEADER_CONTENT_TYPE,
 			'Content-Length' => (string)\strlen($data),
 			'Upload-Checksum' => $this->getUploadChecksumHeader(),
-			'Upload-Offset' => $offset,
+			'Upload-Offset' => (string)$offset,
 		];
 
 		try {
