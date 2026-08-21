@@ -61,6 +61,6 @@ if (!\defined('TEMPORARY_STORAGE_DIR_ON_REMOTE_SERVER')) {
 // as config initialization never happens when using behat test runner.
 // This is needed to be able to use some assertions like 'assertSame' from PHPUnit.
 ConfigurationRegistry::init(
-    (new CliArgumentsBuilder())->fromParameters(['phpunit']),
-    DefaultConfiguration::create()
+	(new CliArgumentsBuilder())->fromParameters(['phpunit']),
+	DefaultConfiguration::create()
 );
