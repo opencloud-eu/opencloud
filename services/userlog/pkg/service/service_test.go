@@ -2,127 +2,61 @@ package service_test
 
 import (
 	"context"
-	"encoding/json"
 	"reflect"
 	"time"
 
-	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
-
-	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
-	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
-	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
-	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/store"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
 	"github.com/stretchr/testify/mock"
-	microevents "go-micro.dev/v4/events"
 	microstore "go-micro.dev/v4/store"
 	"go.opentelemetry.io/otel/trace"
-	"google.golang.org/grpc"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	ehmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/eventhistory/v0"
 	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
 	"github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0/mocks"
-	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
-	settingsmocks "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0/mocks"
-	"github.com/opencloud-eu/opencloud/services/userlog/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/service"
 )
 
 var _ = Describe("UserlogService", func() {
 	var (
-		cfg = &config.Config{
-			MaxConcurrency: 5,
-		}
-
 		ul  *service.UserlogService
-		bus testBus
 		sto microstore.Store
-
-		gatewayClient   *cs3mocks.GatewayAPIClient
-		gatewaySelector pool.Selectable[gateway.GatewayAPIClient]
-
 		ehc mocks.EventHistoryService
-		vc  settingsmocks.ValueService
 	)
 
 	BeforeEach(func() {
 		var err error
 		sto = store.Create()
-		bus = testBus(make(chan events.Event))
-
-		pool.RemoveSelector("GatewaySelector" + "eu.opencloud.api.gateway")
-		gatewayClient = &cs3mocks.GatewayAPIClient{}
-		gatewaySelector = pool.GetSelector[gateway.GatewayAPIClient](
-			"GatewaySelector",
-			"eu.opencloud.api.gateway",
-			func(cc grpc.ClientConnInterface) gateway.GatewayAPIClient {
-				return gatewayClient
-			},
-		)
-
-		o := utils.AppendJSONToOpaque(nil, "grants", map[string]*provider.ResourcePermissions{"userid": {Stat: true}})
-		gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{StorageSpaces: []*provider.StorageSpace{
-			{
-				Opaque:    o,
-				SpaceType: "project",
-			},
-		}, Status: &rpc.Status{Code: rpc.Code_CODE_OK}}, nil)
-		gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(&user.GetUserResponse{User: &user.User{Id: &user.UserId{OpaqueId: "userid"}}, Status: &rpc.Status{Code: rpc.Code_CODE_OK}}, nil)
-		gatewayClient.On("Authenticate", mock.Anything, mock.Anything).Return(&gateway.AuthenticateResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}}, nil)
-		vc.On("GetValueByUniqueIdentifiers", mock.Anything, mock.Anything).Return(&settingssvc.GetValueResponse{
-			Value: &settingsmsg.ValueWithIdentifier{
-				Value: &settingsmsg.Value{
-					Value: &settingsmsg.Value_CollectionValue{
-						CollectionValue: &settingsmsg.CollectionValue{
-							Values: []*settingsmsg.CollectionOption{
-								{
-									Key:    "in-app",
-									Option: &settingsmsg.CollectionOption_BoolValue{BoolValue: true},
-								},
-							},
-						},
-					},
-				},
-			},
-		}, nil)
+		ehc = mocks.EventHistoryService{}
 
 		ul, err = service.NewUserlogService(
-			service.Config(cfg),
-			service.Stream(bus),
 			service.Store(sto),
 			service.Logger(log.NewLogger()),
-			service.GatewaySelector(gatewaySelector),
 			service.HistoryClient(&ehc),
-			service.ValueClient(&vc),
-			service.RegisteredEvents([]events.Unmarshaller{
-				events.SpaceDisabled{},
-			}),
 			service.TraceProvider(trace.NewNoopTracerProvider()),
 		)
 		Expect(err).ToNot(HaveOccurred())
-
-		ch, err := events.Consume(bus, "userlog", events.SpaceDisabled{})
-		Expect(err).ToNot(HaveOccurred())
-		go ul.MemorizeEvents(ch)
 	})
+
+	newEvent := func() events.Event {
+		return events.Event{
+			ID:    uuid.New().String(),
+			Type:  reflect.TypeOf(events.SpaceDisabled{}).String(),
+			Event: events.SpaceDisabled{},
+		}
+	}
 
 	It("it stores, returns and deletes a couple of events", func() {
 		ids := make(map[string]struct{})
-		ids[bus.publish(events.SpaceDisabled{Executant: &user.UserId{OpaqueId: "executinguserid"}})] = struct{}{}
-		ids[bus.publish(events.SpaceDisabled{Executant: &user.UserId{OpaqueId: "executinguserid"}})] = struct{}{}
-		ids[bus.publish(events.SpaceDisabled{Executant: &user.UserId{OpaqueId: "executinguserid"}})] = struct{}{}
-		// ids[bus.Publish(events.SpaceMembershipExpired{SpaceOwner: &user.UserId{OpaqueId: "userid"}})] = struct{}{}
-		// ids[bus.Publish(events.ShareCreated{Executant: &user.UserId{OpaqueId: "userid"}})] = struct{}{}
-
-		time.Sleep(500 * time.Millisecond)
+		for i := 0; i < 3; i++ {
+			ev := newEvent()
+			Expect(ul.AddEventToUser("userid", ev)).To(Succeed())
+			ids[ev.ID] = struct{}{}
+		}
 
 		var events []*ehmsg.Event
 		for id := range ids {
@@ -152,96 +86,32 @@ var _ = Describe("UserlogService", func() {
 		Expect(len(evs)).To(Equal(0))
 	})
 
-	It("verifies events are stored in store without using HTTP (consumer-only mode)", func() {
-		ids := make(map[string]struct{})
-		ids[bus.publish(events.SpaceDisabled{Executant: &user.UserId{OpaqueId: "executinguserid"}})] = struct{}{}
-
-		time.Sleep(500 * time.Millisecond)
-
-		recs, err := sto.Read("userid")
-		Expect(err).ToNot(HaveOccurred())
-		Expect(len(recs)).To(Equal(1))
-
-		var storedIDs []string
-		err = json.Unmarshal(recs[0].Value, &storedIDs)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(len(storedIDs)).To(Equal(1))
-		_, exists := ids[storedIDs[0]]
-		Expect(exists).To(BeTrue())
-	})
-
 	It("works without event consumer (HTTP-only mode)", func() {
-		localEhc := mocks.EventHistoryService{}
-		cfgNoEvents := &config.Config{
-			MaxConcurrency: 5,
-			Events: config.Events{
-				Disabled: true,
-			},
-		}
-		ulNoConsumer, err := service.NewUserlogService(
-			service.Config(cfgNoEvents),
-			service.Stream(bus),
-			service.Store(sto),
-			service.Logger(log.NewLogger()),
-			service.GatewaySelector(gatewaySelector),
-			service.HistoryClient(&localEhc),
-			service.ValueClient(&vc),
-			service.RegisteredEvents([]events.Unmarshaller{
-				events.SpaceDisabled{},
-			}),
-			service.TraceProvider(trace.NewNoopTracerProvider()),
-		)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(ulNoConsumer).ToNot(BeNil())
+		ev := newEvent()
+		Expect(ul.AddEventToUser("userid", ev)).To(Succeed())
 
-		id := bus.publish(events.SpaceDisabled{Executant: &user.UserId{OpaqueId: "executinguserid"}})
-		time.Sleep(500 * time.Millisecond)
-
-		localEhc.On("GetEvents", mock.Anything, mock.Anything).Return(&ehsvc.GetEventsResponse{
-			Events: []*ehmsg.Event{{Id: id}},
+		ehc.On("GetEvents", mock.Anything, mock.Anything).Return(&ehsvc.GetEventsResponse{
+			Events: []*ehmsg.Event{{Id: ev.ID}},
 		}, nil)
 
-		evs, err := ulNoConsumer.GetEvents(context.Background(), "userid")
+		evs, err := ul.GetEvents(context.Background(), "userid")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(evs)).To(Equal(1))
-		Expect(evs[0].Id).To(Equal(id))
+		Expect(evs[0].Id).To(Equal(ev.ID))
 	})
 
-	AfterEach(func() {
-		close(bus)
+	It("stores and deletes global events", func() {
+		Expect(ul.StoreGlobalEvent(context.Background(), "deprovision", map[string]string{
+			"deprovision_date": time.Now().Add(time.Hour).Format(time.RFC3339),
+		})).To(Succeed())
+
+		evs, err := ul.GetGlobalEvents(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(evs).To(HaveLen(1))
+
+		Expect(ul.DeleteGlobalEvents(context.Background(), []string{"deprovision"})).To(Succeed())
+		evs, err = ul.GetGlobalEvents(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(evs).To(HaveLen(0))
 	})
 })
-
-type testBus chan events.Event
-
-func (tb testBus) Consume(_ string, _ ...microevents.ConsumeOption) (<-chan microevents.Event, error) {
-	ch := make(chan microevents.Event)
-	go func() {
-		for ev := range tb {
-			b, _ := json.Marshal(ev.Event)
-			ch <- microevents.Event{
-				Payload: b,
-				Metadata: map[string]string{
-					events.MetadatakeyEventID:   ev.ID,
-					events.MetadatakeyEventType: ev.Type,
-				},
-			}
-		}
-	}()
-	return ch, nil
-}
-
-func (tb testBus) Publish(_ string, _ any, _ ...microevents.PublishOption) error {
-	return nil
-}
-
-func (tb testBus) publish(e any) string {
-	ev := events.Event{
-		ID:    uuid.New().String(),
-		Type:  reflect.TypeOf(e).String(),
-		Event: e,
-	}
-
-	tb <- ev
-	return ev.ID
-}

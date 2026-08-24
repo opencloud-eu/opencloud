@@ -2,16 +2,24 @@ package http
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/metrics"
-	svc "github.com/opencloud-eu/opencloud/services/userlog/pkg/service"
 
 	"github.com/spf13/pflag"
 	"go.opentelemetry.io/otel/trace"
 )
+
+// UserlogService is the http service interface the server needs
+type UserlogService interface {
+	HandleGetEvents(w http.ResponseWriter, r *http.Request)
+	HandleDeleteEvents(w http.ResponseWriter, r *http.Request)
+	HandlePostGlobalEvent(w http.ResponseWriter, r *http.Request)
+	HandleDeleteGlobalEvent(w http.ResponseWriter, r *http.Request)
+}
 
 // Option defines a single option function.
 type Option func(o *Options)
@@ -25,7 +33,7 @@ type Options struct {
 	Flags          []pflag.Flag
 	Namespace      string
 	RoleClient     settingssvc.RoleService
-	UserlogService *svc.UserlogService
+	UserlogService        UserlogService
 	TracerProvider trace.TracerProvider
 }
 
@@ -82,8 +90,8 @@ func Namespace(val string) Option {
 	}
 }
 
-// UserlogService provides a function to set the userlog service
-func UserlogService(s *svc.UserlogService) Option {
+// Service provides a function to set the userlog http service
+func Service(s UserlogService) Option {
 	return func(o *Options) {
 		o.UserlogService = s
 	}

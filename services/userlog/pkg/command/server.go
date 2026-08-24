@@ -19,10 +19,11 @@ import (
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/metrics"
-	"github.com/opencloud-eu/opencloud/services/userlog/pkg/server/consumer"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/server/http"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/service"
+	consumerSvc "github.com/opencloud-eu/opencloud/services/userlog/pkg/service/consumer"
+	httpSvc "github.com/opencloud-eu/opencloud/services/userlog/pkg/service/http"
 
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
@@ -86,21 +87,6 @@ func Server(cfg *config.Config) *cobra.Command {
 			mtrcs.BuildInfo.WithLabelValues(version.GetString()).Set(1)
 
 			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
-			var evStream events.Stream
-			if !cfg.Events.Disabled {
-				evStream, err = stream.NatsFromConfig(connName, false, stream.NatsConfig{
-					Endpoint:             cfg.Events.Endpoint,
-					Cluster:              cfg.Events.Cluster,
-					TLSInsecure:          cfg.Events.TLSInsecure,
-					TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
-					EnableTLS:            cfg.Events.EnableTLS,
-					AuthUsername:         cfg.Events.AuthUsername,
-					AuthPassword:         cfg.Events.AuthPassword,
-				})
-				if err != nil {
-					return err
-				}
-			}
 
 			st := store.Create(
 				store.Store(cfg.Persistence.Store),
@@ -135,13 +121,8 @@ func Server(cfg *config.Config) *cobra.Command {
 
 			handle, err := service.NewUserlogService(
 				service.Logger(logger),
-				service.Stream(evStream),
 				service.Store(st),
-				service.Config(cfg),
 				service.HistoryClient(hClient),
-				service.GatewaySelector(gatewaySelector),
-				service.ValueClient(vClient),
-				service.RegisteredEvents(_registeredEvents),
 				service.TraceProvider(tracerProvider),
 			)
 			if err != nil {
@@ -151,13 +132,27 @@ func Server(cfg *config.Config) *cobra.Command {
 			gr := runner.NewGroup()
 
 			if !cfg.HTTP.Disabled {
+				httpService, err := httpSvc.New(
+					handle,
+					httpSvc.Logger(logger),
+					httpSvc.Config(cfg),
+					httpSvc.GatewaySelector(gatewaySelector),
+					httpSvc.ValueClient(vClient),
+					httpSvc.RegisteredEvents(_registeredEvents),
+					httpSvc.TraceProvider(tracerProvider),
+				)
+				if err != nil {
+					logger.Info().Err(err).Str("transport", "http").Msg("Failed to initialize server")
+					return err
+				}
+
 				server, err := http.Server(
 					http.Logger(logger),
 					http.Context(ctx),
 					http.Config(cfg),
 					http.Metrics(mtrcs),
 					http.Role(rClient),
-					http.UserlogService(handle),
+					http.Service(httpService),
 					http.TracerProvider(tracerProvider),
 				)
 
@@ -172,19 +167,34 @@ func Server(cfg *config.Config) *cobra.Command {
 			}
 
 			if !cfg.Events.Disabled {
-				server, err := consumer.Server(
-					consumer.Logger(logger),
-					consumer.Context(ctx),
-					consumer.Config(cfg),
-					consumer.Stream(evStream),
-					consumer.UserlogService(handle),
-					consumer.RegisteredEvents(_registeredEvents),
+				evStream, err := stream.NatsFromConfig(connName, false, stream.NatsConfig{
+					Endpoint:             cfg.Events.Endpoint,
+					Cluster:              cfg.Events.Cluster,
+					TLSInsecure:          cfg.Events.TLSInsecure,
+					TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
+					EnableTLS:            cfg.Events.EnableTLS,
+					AuthUsername:         cfg.Events.AuthUsername,
+					AuthPassword:         cfg.Events.AuthPassword,
+				})
+				if err != nil {
+					return err
+				}
+
+				consumerService, err := consumerSvc.New(
+					handle,
+					evStream,
+					consumerSvc.Context(ctx),
+					consumerSvc.Logger(logger),
+					consumerSvc.Config(cfg),
+					consumerSvc.GatewaySelector(gatewaySelector),
+					consumerSvc.ValueClient(vClient),
+					consumerSvc.RegisteredEvents(_registeredEvents),
 				)
 				if err != nil {
 					return err
 				}
 
-				gr.Add(server)
+				gr.Add(runner.New(cfg.Service.Name+".consumer", consumerService.Run, consumerService.Close))
 			} else {
 				logger.Info().Msg("event listening disabled, not starting event consumer")
 			}
