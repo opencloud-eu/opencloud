@@ -59,7 +59,7 @@ func (g SimpleGenerator) Generate(size image.Rectangle, img interface{}) (interf
 		return nil, errors.ErrInvalidType
 	}
 
-	if err := m.ThumbnailWithSize(size.Dx(), 0, g.crop, g.size); err != nil {
+	if err := m.ThumbnailWithSize(size.Dx(), size.Dy(), g.crop, g.size); err != nil {
 		return nil, err
 	}
 

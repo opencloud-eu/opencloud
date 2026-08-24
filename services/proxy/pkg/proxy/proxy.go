@@ -12,6 +12,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/proxy/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/proxy/policy"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
 	"github.com/rs/zerolog"
@@ -41,6 +42,13 @@ func NewMultiHostReverseProxy(opts ...Option) (*MultiHostReverseProxy, error) {
 	}
 
 	rp.Rewrite = func(r *httputil.ProxyRequest) {
+		// Check if datagateway middleware already handled this request
+		if skip, _ := r.In.Context().Value(middleware.DatagatewaySkipRoutingKey).(bool); skip {
+			r.SetXForwarded()
+			return
+		}
+
+		// Fallback to standard service routing logic
 		ri := router.ContextRoutingInfo(r.In.Context())
 		ri.Rewrite()(r)
 	}

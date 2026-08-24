@@ -101,9 +101,6 @@ func DefaultConfig() *config.Config {
 			MaxNumFiles: 10000,
 			MaxSize:     1073741824,
 		},
-		DataGateway: config.DataGateway{
-			Prefix: "data",
-		},
 		OCS: config.OCS{
 			Prefix:                      "ocs",
 			SharePrefix:                 "/Shares",

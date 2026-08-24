@@ -23,17 +23,14 @@ type Config struct {
 	SkipUserGroupsInToken   bool `yaml:"skip_user_groups_in_token" env:"STORAGE_USERS_SKIP_USER_GROUPS_IN_TOKEN" desc:"Disables the loading of user's group memberships from the reva access token." introductionVersion:"1.0.0"`
 	GracefulShutdownTimeout int  `yaml:"graceful_shutdown_timeout" env:"STORAGE_USERS_GRACEFUL_SHUTDOWN_TIMEOUT" desc:"The number of seconds to wait for the 'storage-users' service to shutdown cleanly before exiting with an error that gets logged. Note: This setting is only applicable when running the 'storage-users' service as a standalone service. See the text description for more details." introductionVersion:"1.0.0"`
 
-	Driver         string  `yaml:"driver" env:"STORAGE_USERS_DRIVER" desc:"The storage driver which should be used by the service. Defaults to 'posix'. Supported values are: 'posix', 'decomposed', 'decomposeds3' and 'owncloudsql'. For backwards compatibility reasons it's also possible to use the 'ocis' and 's3ng' driver and configure them using the 'decomposed'/'decomposeds3' options. The 'posix' driver stores data directly on a POSIX-compliant filesystem. The 'decomposed' driver stores all data (blob and meta data) in a POSIX compliant volume. The 'decomposeds3' driver stores metadata in a POSIX compliant volume and uploads blobs to the s3 bucket." introductionVersion:"1.0.0"`
-	Drivers        Drivers `yaml:"drivers"`
-	DataServerURL  string  `yaml:"data_server_url" env:"STORAGE_USERS_DATA_SERVER_URL" desc:"URL of the data server, needs to be reachable by the data gateway provided by the frontend service or the user if directly exposed." introductionVersion:"1.0.0"`
-	DataGatewayURL string  `yaml:"data_gateway_url" env:"STORAGE_USERS_DATA_GATEWAY_URL" desc:"URL of the data gateway server" introductionVersion:"1.0.0"`
+	Driver        string  `yaml:"driver" env:"STORAGE_USERS_DRIVER" desc:"The storage driver which should be used by the service. Defaults to 'posix'. Supported values are: 'posix', 'decomposed', 'decomposeds3' and 'owncloudsql'. For backwards compatibility reasons it's also possible to use the 'ocis' and 's3ng' driver and configure them using the 'decomposed'/'decomposeds3' options. The 'posix' driver stores data directly on a POSIX-compliant filesystem. The 'decomposed' driver stores all data (blob and meta data) in a POSIX compliant volume. The 'decomposeds3' driver stores metadata in a POSIX compliant volume and uploads blobs to the s3 bucket." introductionVersion:"1.0.0"`
+	Drivers       Drivers `yaml:"drivers"`
+	DataServerURL string  `yaml:"data_server_url" env:"STORAGE_USERS_DATA_SERVER_URL" desc:"URL of the data server, needs to be reachable by the data gateway provided by the frontend service or the user if directly exposed." introductionVersion:"1.0.0"`
 
-	TransferExpires   int64             `yaml:"transfer_expires" env:"STORAGE_USERS_TRANSFER_EXPIRES" desc:"The time after which the token for upload postprocessing expires" introductionVersion:"1.0.0"`
 	Events            Events            `yaml:"events"`
 	FilemetadataCache FilemetadataCache `yaml:"filemetadata_cache"`
 	IDCache           IDCache           `yaml:"id_cache"`
 	MountID           string            `yaml:"mount_id" env:"STORAGE_USERS_MOUNT_ID" desc:"Mount ID of this storage." introductionVersion:"1.0.0"`
-	ExposeDataServer  bool              `yaml:"expose_data_server" env:"STORAGE_USERS_EXPOSE_DATA_SERVER" desc:"Exposes the data server directly to users and bypasses the data gateway. Ensure that the data server address is reachable by users." introductionVersion:"1.0.0"`
 	ReadOnly          bool              `yaml:"readonly" env:"STORAGE_USERS_READ_ONLY" desc:"Set this storage to be read-only." introductionVersion:"1.0.0"`
 	UploadExpiration  int64             `yaml:"upload_expiration" env:"STORAGE_USERS_UPLOAD_EXPIRATION" desc:"Duration in seconds after which uploads will expire. Note that when setting this to a low number, uploads could be cancelled before they are finished and return a 403 to the user." introductionVersion:"1.0.0"`
 	Tasks             Tasks             `yaml:"tasks"`

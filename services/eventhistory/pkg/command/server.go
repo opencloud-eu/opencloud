@@ -6,18 +6,19 @@ import (
 	"os/signal"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
-	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	ogrpc "github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
+	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
 	"github.com/opencloud-eu/opencloud/services/eventhistory/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/eventhistory/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/eventhistory/pkg/metrics"
+	"github.com/opencloud-eu/opencloud/services/eventhistory/pkg/server/consumer"
 	"github.com/opencloud-eu/opencloud/services/eventhistory/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/eventhistory/pkg/server/grpc"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
+	svc "github.com/opencloud-eu/opencloud/services/eventhistory/pkg/service"
 	"github.com/opencloud-eu/reva/v2/pkg/store"
 
 	"github.com/spf13/cobra"
@@ -58,12 +59,6 @@ func Server(cfg *config.Config) *cobra.Command {
 
 			gr := runner.NewGroup()
 
-			connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
-			consumer, err := stream.NatsFromConfig(connName, false, stream.NatsConfig(cfg.Events))
-			if err != nil {
-				return err
-			}
-
 			st := store.Create(
 				store.Store(cfg.Store.Store),
 				store.TTL(cfg.Store.TTL),
@@ -76,34 +71,56 @@ func Server(cfg *config.Config) *cobra.Command {
 				store.TLSRootCA(cfg.Store.TLSRootCACertificate),
 			)
 
-			service := grpc.NewService(
-				grpc.Logger(logger),
-				grpc.Context(ctx),
-				grpc.Config(cfg),
-				grpc.Name(cfg.Service.Name),
-				grpc.Namespace(cfg.GRPC.Namespace),
-				grpc.Address(cfg.GRPC.Addr),
-				grpc.Metrics(m),
-				grpc.Consumer(consumer),
-				grpc.Persistence(st),
-				grpc.TraceProvider(traceProvider),
-			)
-
-			gr.Add(runner.NewGoMicroGrpcServerRunner(cfg.Service.Name+".grpc", service))
-
-			{
-				debugServer, err := debug.Server(
-					debug.Logger(logger),
-					debug.Context(ctx),
-					debug.Config(cfg),
+			if !cfg.Events.Disabled {
+				_, err = consumer.NewConsumer(
+					consumer.Logger(logger),
+					consumer.Config(cfg),
+					consumer.Persistence(st),
 				)
 				if err != nil {
-					logger.Info().Err(err).Str("server", "debug").Msg("Failed to initialize server")
+					return err
+				}
+			} else {
+				logger.Info().Msg("event listening disabled, not starting event consumer")
+			}
+
+			if !cfg.GRPC.Disabled {
+				eh, err := svc.NewEventHistoryService(cfg, st, logger)
+				if err != nil {
 					return err
 				}
 
-				gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
+				service := grpc.NewService(
+					grpc.Logger(logger),
+					grpc.Context(ctx),
+					grpc.Config(cfg),
+					grpc.Name(cfg.Service.Name),
+					grpc.Namespace(cfg.GRPC.Namespace),
+					grpc.Address(cfg.GRPC.Addr),
+					grpc.Metrics(m),
+					grpc.TraceProvider(traceProvider),
+				)
+
+				if err := ehsvc.RegisterEventHistoryServiceHandler(service.Server(), eh); err != nil {
+					return err
+				}
+
+				gr.Add(runner.NewGoMicroGrpcServerRunner(cfg.Service.Name+".grpc", service))
+			} else {
+				logger.Info().Msg("gRPC server disabled, not starting gRPC service")
 			}
+
+			debugServer, err := debug.Server(
+				debug.Logger(logger),
+				debug.Context(ctx),
+				debug.Config(cfg),
+			)
+			if err != nil {
+				logger.Info().Err(err).Str("server", "debug").Msg("Failed to initialize server")
+				return err
+			}
+
+			gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 
 			grResults := gr.Run(ctx)
 

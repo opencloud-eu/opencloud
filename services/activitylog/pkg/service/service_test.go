@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"net"
 	"os"
@@ -13,8 +14,10 @@ import (
 	nserver "github.com/nats-io/nats-server/v2/server"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config"
 	eventsmocks "github.com/opencloud-eu/reva/v2/pkg/events/mocks"
+	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/test-go/testify/mock"
 	"go.opentelemetry.io/otel/trace/noop"
 )
@@ -263,6 +266,42 @@ var _ = Describe("ActivitylogService", func() {
 					g.Expect(activities).To(ConsistOf(activitites("activity1", 0, "activity2", 0, "activity3", 0, "activity4", 0)))
 				}).Should(Succeed())
 			})
+		})
+	})
+
+	Describe("removeCachedParentID", func() {
+		var logBuffer *bytes.Buffer
+
+		newLoggerAtLevel := func(level string) log.Logger {
+			logBuffer = &bytes.Buffer{}
+			return log.Logger{Logger: log.NewLogger(log.Level(level)).Output(logBuffer)}
+		}
+
+		It("does not log an error when the entry was never cached", func() {
+			alog.log = newLoggerAtLevel("error")
+
+			alog.removeCachedParentID(reference("never-cached"))
+
+			Expect(logBuffer.String()).To(BeEmpty())
+		})
+
+		It("logs a missing entry at debug level", func() {
+			alog.log = newLoggerAtLevel("debug")
+
+			alog.removeCachedParentID(reference("never-cached"))
+
+			Expect(logBuffer.String()).To(ContainSubstring("could not delete parent id cache"))
+			Expect(logBuffer.String()).To(ContainSubstring(`"level":"debug"`))
+		})
+
+		It("does not log at all when the entry was cached", func() {
+			alog.log = newLoggerAtLevel("debug")
+			ref := reference("cached")
+			Expect(alog.parentIdCache.Set(storagespace.FormatResourceID(ref.GetResourceId()), resourceID("parent"))).To(Succeed())
+
+			alog.removeCachedParentID(ref)
+
+			Expect(logBuffer.String()).To(BeEmpty())
 		})
 	})
 })

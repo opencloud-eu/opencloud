@@ -92,5 +92,6 @@ func ldapConfigFromString(cfg config.LDAPProvider) map[string]any {
 			"groupName":       cfg.GroupSchema.Groupname,
 			"member":          cfg.GroupSchema.Member,
 		},
+		"lookup_cache_ttl": cfg.LookupCacheTTL,
 	}
 }

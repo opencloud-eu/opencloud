@@ -345,10 +345,12 @@ func (r *reaperSpawner) fromContainer(ctx context.Context, sessionID string, pro
 	log.Printf("⏳ Waiting for Reaper %q to be ready", dockerContainer.ID[:8])
 
 	// Reusing an existing container so we determine the port from the container's exposed ports.
-	if err := wait.ForExposedPort().
-		WithPollInterval(100*time.Millisecond).
-		SkipInternalCheck().
-		WaitUntilReady(ctx, dockerContainer); err != nil {
+	if err := wait.ForAll(
+		wait.ForLog("Started"),
+		wait.ForExposedPort().
+			WithPollInterval(100*time.Millisecond).
+			SkipInternalCheck(),
+	).WaitUntilReady(ctx, dockerContainer); err != nil {
 		return nil, fmt.Errorf("wait for reaper %s: %w", dockerContainer.ID[:8], err)
 	}
 

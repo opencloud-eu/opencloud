@@ -94,7 +94,9 @@ func (store DecomposedFsStore) New(ctx context.Context) *DecomposedFsSession {
 			Storage: map[string]string{
 				"Type": "DecomposedFsStore",
 			},
-			MetaData: tusd.MetaData{},
+			MetaData: tusd.MetaData{
+				"status": string(SessionStatusUploading),
+			},
 		},
 	}
 }

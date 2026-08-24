@@ -1,5 +1,10 @@
 {
-    "require": {
-      "owncloud/coding-standard": "^5.3"
+  "require-dev": {
+    "doctrine/coding-standard": "^14.0"
+  },
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
     }
   }
+}

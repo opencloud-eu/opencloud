@@ -27,10 +27,24 @@ type ApiCreateDriveItemRequest struct {
 	ctx context.Context
 	ApiService *DrivesRootApiService
 	driveId string
+	libreGraphConflictBehavior *string
+	libreGraphMissingParentsBehavior *string
 	driveItem *DriveItem
 }
 
-// In the request body, provide a JSON object with the following parameters. For mounting a share the necessary remoteItem id and permission id can be taken from the [sharedWithMe](#/me.drive/ListSharedWithMe) endpoint.
+// Controls what happens when a child with the same name already exists. &#x60;fail&#x60; (default) returns 409; &#x60;replace&#x60; overwrites the existing item. MS Graph&#39;s &#x60;rename&#x60; value is not supported. 
+func (r ApiCreateDriveItemRequest) LibreGraphConflictBehavior(libreGraphConflictBehavior string) ApiCreateDriveItemRequest {
+	r.libreGraphConflictBehavior = &libreGraphConflictBehavior
+	return r
+}
+
+// Controls what happens when a colon-syntax URL refers to a path whose intermediate folders don&#39;t all exist yet. &#x60;fail&#x60; (default) returns 404; &#x60;create&#x60; creates the missing intermediate folders before creating the final item. Only meaningful for colon-syntax URLs; ignored otherwise. 
+func (r ApiCreateDriveItemRequest) LibreGraphMissingParentsBehavior(libreGraphMissingParentsBehavior string) ApiCreateDriveItemRequest {
+	r.libreGraphMissingParentsBehavior = &libreGraphMissingParentsBehavior
+	return r
+}
+
+// In the request body, provide a JSON object describing the new driveItem. Must specify exactly one of &#x60;folder&#x60;, &#x60;file&#x60;, or &#x60;remoteItem&#x60;. For mount-share, see [sharedWithMe](#/me.drive/ListSharedWithMe) for obtaining the source &#x60;remoteItem.id&#x60; and &#x60;permission&#x60; id.
 func (r ApiCreateDriveItemRequest) DriveItem(driveItem DriveItem) ApiCreateDriveItemRequest {
 	r.driveItem = &driveItem
 	return r
@@ -41,9 +55,22 @@ func (r ApiCreateDriveItemRequest) Execute() (*DriveItem, *http.Response, error)
 }
 
 /*
-CreateDriveItem Create a drive item
+CreateDriveItem Create a new DriveItem at the drive root
 
-You can use the root childrens endpoint to mount a remoteItem in the share jail. The `@client.synchronize` property of the `driveItem` in the [sharedWithMe](#/me.drive/ListSharedWithMe) endpoint will change to true.
+Create a new folder or DriveItem in a Drive with the drive root as the parent.
+
+Modeled on the MS Graph create driveItem endpoint
+(https://learn.microsoft.com/en-us/graph/api/driveitem-post-children).
+
+The request body must specify exactly one of `folder` (set to `{}` to create a folder), `file` (to create a file item), or `remoteItem` (to mount a shared item; see [sharedWithMe](#/me.drive/ListSharedWithMe) for obtaining the source `remoteItem.id`). Requests with none of these, or with more than one, return 400. Mounting a share changes the `@client.synchronize` property of the `driveItem` in [sharedWithMe](#/me.drive/ListSharedWithMe) to true.
+
+The `@libre.graph.conflictBehavior` query parameter controls what happens if a child with the same name already exists.
+
+This endpoint also accepts the MS Graph colon-syntax URL form:
+
+    POST /v1beta1/drives/{drive-id}/root:/{path}:/children
+
+OpenAPI cannot express the colon-delimited path segment, so this URL form is not represented as a separate operation in this specification. The server still accepts it, resolves `:/{path}:` as the parent of the new item, and applies `@libre.graph.missingParentsBehavior` to decide whether to create missing intermediate folders.
 
 
  @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
@@ -80,6 +107,20 @@ func (a *DrivesRootApiService) CreateDriveItemExecute(r ApiCreateDriveItemReques
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
 
+	if r.libreGraphConflictBehavior != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "@libre.graph.conflictBehavior", r.libreGraphConflictBehavior, "form", "")
+	} else {
+		var defaultValue string = "fail"
+		parameterAddToHeaderOrQuery(localVarQueryParams, "@libre.graph.conflictBehavior", defaultValue, "form", "")
+		r.libreGraphConflictBehavior = &defaultValue
+	}
+	if r.libreGraphMissingParentsBehavior != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "@libre.graph.missingParentsBehavior", r.libreGraphMissingParentsBehavior, "form", "")
+	} else {
+		var defaultValue string = "fail"
+		parameterAddToHeaderOrQuery(localVarQueryParams, "@libre.graph.missingParentsBehavior", defaultValue, "form", "")
+		r.libreGraphMissingParentsBehavior = &defaultValue
+	}
 	// to determine the Content-Type header
 	localVarHTTPContentTypes := []string{"application/json"}
 
@@ -506,6 +547,13 @@ type ApiGetRootRequest struct {
 	ctx context.Context
 	ApiService *DrivesRootApiService
 	driveId string
+	select_ *[]string
+}
+
+// Select additional properties to be returned.
+func (r ApiGetRootRequest) Select_(select_ []string) ApiGetRootRequest {
+	r.select_ = &select_
+	return r
 }
 
 func (r ApiGetRootRequest) Execute() (*DriveItem, *http.Response, error) {
@@ -549,6 +597,9 @@ func (a *DrivesRootApiService) GetRootExecute(r ApiGetRootRequest) (*DriveItem, 
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
 
+	if r.select_ != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "$select", r.select_, "form", "csv")
+	}
 	// to determine the Content-Type header
 	localVarHTTPContentTypes := []string{}
 

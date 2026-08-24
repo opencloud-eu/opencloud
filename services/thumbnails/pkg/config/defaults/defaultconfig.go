@@ -47,7 +47,7 @@ func DefaultConfig() *config.Config {
 			Name: "thumbnails",
 		},
 		Thumbnail: config.Thumbnail{
-			Resolutions: []string{"16x16", "32x32", "64x64", "128x128", "1080x1920", "1920x1080", "2160x3840", "3840x2160", "4320x7680", "7680x4320"},
+			Resolutions: []string{"16x16", "32x32", "64x64", "128x128", "500x280", "280x500", "1000x560", "560x1000", "512x2048", "1080x1920", "1920x1080", "2160x3840", "3840x2160", "4320x7680", "7680x4320"},
 			FileSystemStorage: config.FileSystemStorage{
 				RootDirectory: path.Join(defaults.BaseDataPath(), "thumbnails"),
 			},

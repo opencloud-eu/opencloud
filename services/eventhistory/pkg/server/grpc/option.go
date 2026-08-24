@@ -6,8 +6,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/eventhistory/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/eventhistory/pkg/metrics"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"go-micro.dev/v4/store"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -23,8 +21,6 @@ type Options struct {
 	Config        *config.Config
 	Metrics       *metrics.Metrics
 	Namespace     string
-	Persistence   store.Store
-	Consumer      events.Consumer
 	TraceProvider trace.TracerProvider
 }
 
@@ -85,20 +81,6 @@ func Metrics(val *metrics.Metrics) Option {
 func Namespace(val string) Option {
 	return func(o *Options) {
 		o.Namespace = val
-	}
-}
-
-// Persistence provides a function to configure the store
-func Persistence(store store.Store) Option {
-	return func(o *Options) {
-		o.Persistence = store
-	}
-}
-
-// Consumer provides a function to configure the consumer
-func Consumer(consumer events.Consumer) Option {
-	return func(o *Options) {
-		o.Consumer = consumer
 	}
 }
 

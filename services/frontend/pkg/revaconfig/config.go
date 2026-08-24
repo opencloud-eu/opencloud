@@ -153,12 +153,6 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 					"max_num_files": cfg.Archiver.MaxNumFiles,
 					"max_size":      cfg.Archiver.MaxSize,
 				},
-				"datagateway": map[string]any{
-					"prefix":                 cfg.DataGateway.Prefix,
-					"transfer_shared_secret": cfg.TransferSecret,
-					"timeout":                86400,
-					"insecure":               true,
-				},
 				"ocs": map[string]any{
 					"storage_registry_svc": cfg.Reva.Address,
 					"share_prefix":         cfg.OCS.SharePrefix,

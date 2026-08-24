@@ -144,8 +144,8 @@ func (_c *Engine_DocCount_Call) RunAndReturn(run func() (uint64, error)) *Engine
 }
 
 // Move provides a mock function for the type Engine
-func (_mock *Engine) Move(id string, parentid string, target string) error {
-	ret := _mock.Called(id, parentid, target)
+func (_mock *Engine) Move(id string, parentID string, targetPath string) error {
+	ret := _mock.Called(id, parentID, targetPath)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Move")
@@ -153,7 +153,7 @@ func (_mock *Engine) Move(id string, parentid string, target string) error {
 
 	var r0 error
 	if returnFunc, ok := ret.Get(0).(func(string, string, string) error); ok {
-		r0 = returnFunc(id, parentid, target)
+		r0 = returnFunc(id, parentID, targetPath)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -167,13 +167,13 @@ type Engine_Move_Call struct {
 
 // Move is a helper method to define mock.On call
 //   - id string
-//   - parentid string
-//   - target string
-func (_e *Engine_Expecter) Move(id interface{}, parentid interface{}, target interface{}) *Engine_Move_Call {
-	return &Engine_Move_Call{Call: _e.mock.On("Move", id, parentid, target)}
+//   - parentID string
+//   - targetPath string
+func (_e *Engine_Expecter) Move(id interface{}, parentID interface{}, targetPath interface{}) *Engine_Move_Call {
+	return &Engine_Move_Call{Call: _e.mock.On("Move", id, parentID, targetPath)}
 }
 
-func (_c *Engine_Move_Call) Run(run func(id string, parentid string, target string)) *Engine_Move_Call {
+func (_c *Engine_Move_Call) Run(run func(id string, parentID string, targetPath string)) *Engine_Move_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 string
 		if args[0] != nil {
@@ -201,7 +201,7 @@ func (_c *Engine_Move_Call) Return(err error) *Engine_Move_Call {
 	return _c
 }
 
-func (_c *Engine_Move_Call) RunAndReturn(run func(id string, parentid string, target string) error) *Engine_Move_Call {
+func (_c *Engine_Move_Call) RunAndReturn(run func(id string, parentID string, targetPath string) error) *Engine_Move_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -321,6 +321,57 @@ func (_c *Engine_Purge_Call) Return(err error) *Engine_Purge_Call {
 }
 
 func (_c *Engine_Purge_Call) RunAndReturn(run func(id string, onlyDeleted bool) error) *Engine_Purge_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// PurgeSpace provides a mock function for the type Engine
+func (_mock *Engine) PurgeSpace(rootID string) error {
+	ret := _mock.Called(rootID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PurgeSpace")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string) error); ok {
+		r0 = returnFunc(rootID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// Engine_PurgeSpace_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PurgeSpace'
+type Engine_PurgeSpace_Call struct {
+	*mock.Call
+}
+
+// PurgeSpace is a helper method to define mock.On call
+//   - rootID string
+func (_e *Engine_Expecter) PurgeSpace(rootID interface{}) *Engine_PurgeSpace_Call {
+	return &Engine_PurgeSpace_Call{Call: _e.mock.On("PurgeSpace", rootID)}
+}
+
+func (_c *Engine_PurgeSpace_Call) Run(run func(rootID string)) *Engine_PurgeSpace_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *Engine_PurgeSpace_Call) Return(err error) *Engine_PurgeSpace_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *Engine_PurgeSpace_Call) RunAndReturn(run func(rootID string) error) *Engine_PurgeSpace_Call {
 	_c.Call.Return(run)
 	return _c
 }

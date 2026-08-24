@@ -4,16 +4,16 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
 # Translators:
-# Jiri Grönroos <jiri.gronroos@iki.fi>, 2025
+# Jiri Grönroos <jiri.gronroos@iki.fi>, 2026
 # 
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-08-10 23:16+0000\n"
+"POT-Creation-Date: 2026-08-17 23:18+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
-"Last-Translator: Jiri Grönroos <jiri.gronroos@iki.fi>, 2025\n"
+"Last-Translator: Jiri Grönroos <jiri.gronroos@iki.fi>, 2026\n"
 "Language-Team: Finnish (https://app.transifex.com/opencloud-eu/teams/204053/fi/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -54,7 +54,7 @@ msgstr "Ei koskaan"
 #. description of the notification option 'Resource Mention'
 #: pkg/store/defaults/templates.go:18
 msgid "Notify on resource mentions"
-msgstr ""
+msgstr "Ilmoita resurssimaininnoista"
 
 #. description of the notification option 'Space Shared'
 #: pkg/store/defaults/templates.go:26
@@ -113,7 +113,7 @@ msgstr "Poistettu avaruuden jäsenyydestä"
 #. name of the notification option 'Resource Mention'
 #: pkg/store/defaults/templates.go:16
 msgid "Resource Mention"
-msgstr ""
+msgstr "Resurssimaininta"
 
 #. description of the notification option 'Email Interval'
 #: pkg/store/defaults/templates.go:50

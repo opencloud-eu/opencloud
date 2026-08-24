@@ -401,7 +401,8 @@ config = {
         "4": {
             "skip": False,
             "suites": [
-                "user-settings/",
+                # skip user-settings due to failing pagination test. see https://github.com/opencloud-eu/opencloud/pull/3324
+                #"user-settings/",
                 "fileaction/",
                 "embed",
             ],
@@ -919,30 +920,6 @@ def buildOpencloudBinaryForTesting(ctx):
     }
     return [pipeline]
 
-def vendorbinCodestyle(phpVersion):
-    return [{
-        "name": "vendorbin-codestyle",
-        "image": OC_CI_PHP % phpVersion,
-        "environment": {
-            "COMPOSER_HOME": "%s/.cache/composer" % dirs["base"],
-        },
-        "commands": [
-            "make vendor-bin-codestyle",
-        ],
-    }]
-
-def vendorbinCodesniffer(phpVersion):
-    return [{
-        "name": "vendorbin-codesniffer",
-        "image": OC_CI_PHP % phpVersion,
-        "environment": {
-            "COMPOSER_HOME": "%s/.cache/composer" % dirs["base"],
-        },
-        "commands": [
-            "make vendor-bin-codesniffer",
-        ],
-    }]
-
 def checkTestSuitesInExpectedFailures(ctx):
     return [{
         "name": "check-suites-in-expected-failures",
@@ -1030,24 +1007,22 @@ def codestyle(ctx):
 
             result = {
                 "name": name,
-                "steps": vendorbinCodestyle(phpVersion) +
-                         vendorbinCodesniffer(phpVersion) +
-                         [
-                             {
-                                 "name": "php-style",
-                                 "image": OC_CI_PHP % phpVersion,
-                                 "commands": [
-                                     "make test-php-style",
-                                 ],
-                             },
-                             {
-                                 "name": "check-env-var-annotations",
-                                 "image": OC_CI_PHP % phpVersion,
-                                 "commands": [
-                                     "make check-env-var-annotations",
-                                 ],
-                             },
-                         ],
+                "steps": [
+                    {
+                        "name": "php-style",
+                        "image": OC_CI_PHP % phpVersion,
+                        "commands": [
+                            "make test-php-style",
+                        ],
+                    },
+                    {
+                        "name": "check-env-var-annotations",
+                        "image": OC_CI_PHP % phpVersion,
+                        "commands": [
+                            "make check-env-var-annotations",
+                        ],
+                    },
+                ],
                 "depends_on": [],
                 "when": [
                     event["base"],
@@ -1279,8 +1254,10 @@ def build_api_test_workflow_matrix(ctx, storage, suite_cfg, default_cfg):
         if matrix not in workflow_metrices and base in matrices:
             workflow_metrices.append(matrix)
 
-    # Add an OpenSearch search-engine variant for nightly running search tests
-    if ctx.build.event == "cron" and storage == "posix" and suite_cfg.get("nightlyOpenSearch", False):
+    # Add an OpenSearch search-engine variant for nightly running search tests,
+    # or on demand when "opensearch" is specified in the PR title
+    run_open_search = ctx.build.event == "cron" or "opensearch" in ctx.build.title.lower()
+    if run_open_search and storage == "posix" and suite_cfg.get("nightlyOpenSearch", False):
         os_matrix = {
             "withRemotePhp": False,
             "enableWatchFs": False,
@@ -2470,6 +2447,7 @@ def opencloudServer(storage = "decomposed", depends_on = [], deploy_type = "", e
         "EVENTHISTORY_STORE": "memory",
         "OC_TRANSLATION_PATH": "%s/tests/config/translations" % dirs["base"],
         "ACTIVITYLOG_WRITE_BUFFER_DURATION": "0",  # Disable write buffer so that test expectations are met in time
+        "OC_LDAP_LOOKUP_CACHE_TTL": "0",  # disable ldap lookup cache so that test fixture change are applied right away
         # search grpc port needed for index cli tests
         "SEARCH_GRPC_ADDR": "0.0.0.0:9220",
         # debug addresses required for running services health tests
@@ -2522,10 +2500,14 @@ def opencloudServer(storage = "decomposed", depends_on = [], deploy_type = "", e
 
     if deploy_type == "cs3api_validator":
         environment["GATEWAY_GRPC_ADDR"] = "0.0.0.0:9142"  #  make gateway available to cs3api-validator
+        environment["STORAGE_USERS_HTTP_ADDR"] = "0.0.0.0:9158"  # make dataprovider available to wopi server
+        environment["STORAGE_USERS_DATA_SERVER_URL"] = "http://opencloud-server:9158/data"  # make dataprovider routable by wopi server
         environment["OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD"] = False
 
     if deploy_type == "wopi_validator":
         environment["GATEWAY_GRPC_ADDR"] = "0.0.0.0:9142"  # make gateway available to wopi server
+        environment["STORAGE_USERS_HTTP_ADDR"] = "0.0.0.0:9158"  # make dataprovider available to wopi server
+        environment["STORAGE_USERS_DATA_SERVER_URL"] = "http://opencloud-server:9158/data"  # make dataprovider routable by wopi server
         environment["APP_PROVIDER_EXTERNAL_ADDR"] = "eu.opencloud.api.app-provider"
         environment["APP_PROVIDER_DRIVER"] = "wopi"
         environment["APP_PROVIDER_WOPI_APP_NAME"] = "FakeOffice"

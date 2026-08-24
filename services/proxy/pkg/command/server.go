@@ -343,7 +343,8 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 	return alice.New(
 		chimiddleware.RealIP,
 		chimiddleware.RequestID,
-		// first make sure we log all requests and redirect to https if necessary
+
+		// 1. Logging & Tracing first
 		otelhttp.NewMiddleware("proxy",
 			otelhttp.WithTracerProvider(traceProvider),
 			otelhttp.WithSpanNameFormatter(func(name string, r *http.Request) string {
@@ -355,8 +356,15 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		middleware.Instrumenter(metrics),
 		middleware.AccessLog(logger),
 		middleware.ContextLogger(logger),
-		middleware.HTTPSRedirect,
+		middleware.HTTPSRedirect, // redirect to https if enabled
+
+		// 2. Rewrite datagateway url tokens to dataprovider endpoint and
+		// rewrite Location headers in TUS responses to signed datagateway urls
+		middleware.NewDataGatewayMiddleware("/data", cfg.TransferSecret, cfg.TransferTimeout).Handler,
+
 		middleware.Security(cspConfig),
+
+		// 3. Routing & Authentication
 		router.Middleware(serviceSelector, cfg.PolicySelector, cfg.Policies, logger),
 		middleware.Authentication(
 			authenticators,

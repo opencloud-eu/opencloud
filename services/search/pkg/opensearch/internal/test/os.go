@@ -20,7 +20,7 @@ type TestClient struct {
 	Require *testRequireClient
 }
 
-func NewDefaultTestClient(t *testing.T, cfg config.EngineOpenSearchClient) *TestClient {
+func NewDefaultTestClient(t testing.TB, cfg config.EngineOpenSearchClient) *TestClient {
 	client, err := opensearchgoAPI.NewClient(opensearchgoAPI.Config{
 		Client: opensearchgo.Config{
 			Addresses: cfg.Addresses,
@@ -33,7 +33,7 @@ func NewDefaultTestClient(t *testing.T, cfg config.EngineOpenSearchClient) *Test
 	return NewTestClient(t, client)
 }
 
-func NewTestClient(t *testing.T, client *opensearchgoAPI.Client) *TestClient {
+func NewTestClient(t testing.TB, client *opensearchgoAPI.Client) *TestClient {
 	tc := &TestClient{c: client}
 	trc := &testRequireClient{tc: tc, t: t}
 	tc.Require = trc
@@ -210,7 +210,7 @@ func (tc *TestClient) Search(ctx context.Context, index string, body io.Reader) 
 
 type testRequireClient struct {
 	tc *TestClient
-	t  *testing.T
+	t  testing.TB
 }
 
 func (trc *testRequireClient) IndicesReset(indices []string) {

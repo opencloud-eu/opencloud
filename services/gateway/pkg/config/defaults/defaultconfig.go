@@ -37,7 +37,6 @@ func DefaultConfig() *config.Config {
 		CommitShareToStorageGrant:  true,
 		ShareFolder:                "Shares",
 		DisableHomeCreationOnLogin: true,
-		TransferExpires:            24 * 60 * 60,
 		Cache: config.Cache{
 			ProviderCacheStore:      "noop",
 			ProviderCacheNodes:      []string{"127.0.0.1:9233"},
@@ -88,10 +87,6 @@ func EnsureDefaults(cfg *config.Config) {
 		}
 	} else if cfg.TokenManager == nil {
 		cfg.TokenManager = &config.TokenManager{}
-	}
-
-	if cfg.TransferSecret == "" && cfg.Commons != nil && cfg.Commons.TransferSecret != "" {
-		cfg.TransferSecret = cfg.Commons.TransferSecret
 	}
 
 	if cfg.GRPC.TLS == nil && cfg.Commons != nil {

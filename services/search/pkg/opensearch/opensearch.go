@@ -54,9 +54,12 @@ func updateSelfAndDescendants(ctx context.Context, client *opensearchgoAPI.Clien
 			Indices: []string{index},
 			Params: opensearchgoAPI.UpdateByQueryParams{
 				WaitForCompletion: conversions.ToPointer(true),
+				Refresh:           conversions.ToPointer(true),
 			},
 		},
-		osu.NewTermQuery[string]("Path").Value(resource.Path),
+		osu.NewBoolQuery().
+			Must(osu.NewTermQuery[string]("RootID").Value(resource.RootID)).
+			Must(osu.NewTermQuery[string]("Path").Value(resource.Path)),
 		osu.UpdateByQueryBodyParams{
 			Script: scriptProvider(resource),
 		},

@@ -138,6 +138,58 @@ var _ = Describe("Searchprovider", func() {
 		})
 	})
 
+	Describe("UpsertItem", func() {
+		DescribeTable("marks a resource hidden when a dot starts one of its names",
+			func(path string, hidden bool) {
+				info := &sprovider.ResourceInfo{
+					Id:       &sprovider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "hidden-opaqueid"},
+					ParentId: &sprovider.ResourceId{StorageId: "storageid", OpaqueId: "parentopaqueid"},
+					Path:     path,
+				}
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
+					Status: status.NewOK(context.Background()),
+					Info:   info,
+				}, nil)
+				gatewayClient.On("GetPath", mock.Anything, mock.MatchedBy(func(req *sprovider.GetPathRequest) bool {
+					return req.GetResourceId().GetOpaqueId() == info.GetId().GetOpaqueId()
+				})).Return(&sprovider.GetPathResponse{
+					Status: status.NewOK(context.Background()),
+					Path:   path,
+				}, nil)
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, nil)
+
+				var indexed search.Resource
+				indexClient.On("Upsert", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+					indexed = args.Get(1).(search.Resource)
+				}).Return(nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				Expect(indexed.Hidden).To(Equal(hidden))
+			},
+			Entry("./documents/notes.txt", "./documents/notes.txt", false),
+			Entry("./documents/.notes.txt", "./documents/.notes.txt", true),
+			Entry("documents/.notes.txt", "documents/.notes.txt", true),
+			Entry("./.git/config", "./.git/config", true),
+			Entry(".git/config", ".git/config", true),
+			Entry("/.git/config", "/.git/config", true),
+			Entry("./", "./", false),
+			Entry("/", "/", false),
+		)
+	})
+
+	DescribeTable("IsHidden",
+		func(path string, hidden bool) {
+			Expect(search.IsHidden(path)).To(Equal(hidden))
+		},
+		Entry("a plain path", "./documents/notes.txt", false),
+		Entry("a dot file", "./documents/.notes.txt", true),
+		Entry("a dot folder above it", "./.git/config", true),
+		Entry("the current folder", ".", false),
+		Entry("a leading traversal", "../documents/notes.txt", false),
+		Entry("a traversal in the middle", "./documents/../notes.txt", false),
+		Entry("a traversal out of a dot folder", "./.git/../notes.txt", false),
+	)
+
 	Describe("Search", func() {
 		It("fails when an empty query is given", func() {
 			res, err := s.Search(ctx, &searchsvc.SearchRequest{

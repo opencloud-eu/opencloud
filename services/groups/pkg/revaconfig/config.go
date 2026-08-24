@@ -87,5 +87,6 @@ func ldapConfigFromString(cfg config.LDAPDriver) map[string]any {
 			"groupName":       cfg.GroupSchema.Groupname,
 			"member":          cfg.GroupSchema.Member,
 		},
+		"lookup_cache_ttl": cfg.LookupCacheTTL,
 	}
 }

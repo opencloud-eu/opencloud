@@ -1,6 +1,8 @@
 package defaults
 
 import (
+	"time"
+
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/auth-basic/pkg/config"
@@ -64,6 +66,7 @@ func DefaultConfig() *config.Config {
 					Groupname:   "cn",
 					Member:      "member",
 				},
+				LookupCacheTTL: 10 * time.Second,
 			},
 			JSON: config.JSONProvider{},
 			OwnCloudSQL: config.OwnCloudSQLProvider{

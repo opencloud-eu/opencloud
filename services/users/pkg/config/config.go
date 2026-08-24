@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 )
@@ -55,31 +56,32 @@ type JSONDriver struct {
 	File string `yaml:"file"`
 }
 type LDAPDriver struct {
-	URI                      string          `yaml:"uri" env:"OC_LDAP_URI;USERS_LDAP_URI" desc:"URI of the LDAP Server to connect to. Supported URI schemes are 'ldaps://' and 'ldap://'" introductionVersion:"1.0.0"`
-	CACert                   string          `yaml:"ca_cert" env:"OC_LDAP_CACERT;USERS_LDAP_CACERT" desc:"Path/File name for the root CA certificate (in PEM format) used to validate TLS server certificates of the LDAP service. If not defined, the root directory derives from $OC_BASE_DATA_PATH/idm." introductionVersion:"1.0.0"`
-	Insecure                 bool            `yaml:"insecure" env:"OC_LDAP_INSECURE;USERS_LDAP_INSECURE" desc:"Disable TLS certificate validation for the LDAP connections. Do not set this in production environments." introductionVersion:"1.0.0"`
-	BindDN                   string          `yaml:"bind_dn" env:"OC_LDAP_BIND_DN;USERS_LDAP_BIND_DN" desc:"LDAP DN to use for simple bind authentication with the target LDAP server." introductionVersion:"1.0.0"`
-	BindPassword             string          `yaml:"bind_password" env:"OC_LDAP_BIND_PASSWORD;USERS_LDAP_BIND_PASSWORD" desc:"Password to use for authenticating the 'bind_dn'." introductionVersion:"1.0.0"`
-	UserBaseDN               string          `yaml:"user_base_dn" env:"OC_LDAP_USER_BASE_DN;USERS_LDAP_USER_BASE_DN" desc:"Search base DN for looking up LDAP users." introductionVersion:"1.0.0"`
-	GroupBaseDN              string          `yaml:"group_base_dn" env:"OC_LDAP_GROUP_BASE_DN;USERS_LDAP_GROUP_BASE_DN" desc:"Search base DN for looking up LDAP groups." introductionVersion:"1.0.0"`
+	URI                      string           `yaml:"uri" env:"OC_LDAP_URI;USERS_LDAP_URI" desc:"URI of the LDAP Server to connect to. Supported URI schemes are 'ldaps://' and 'ldap://'" introductionVersion:"1.0.0"`
+	CACert                   string           `yaml:"ca_cert" env:"OC_LDAP_CACERT;USERS_LDAP_CACERT" desc:"Path/File name for the root CA certificate (in PEM format) used to validate TLS server certificates of the LDAP service. If not defined, the root directory derives from $OC_BASE_DATA_PATH/idm." introductionVersion:"1.0.0"`
+	Insecure                 bool             `yaml:"insecure" env:"OC_LDAP_INSECURE;USERS_LDAP_INSECURE" desc:"Disable TLS certificate validation for the LDAP connections. Do not set this in production environments." introductionVersion:"1.0.0"`
+	BindDN                   string           `yaml:"bind_dn" env:"OC_LDAP_BIND_DN;USERS_LDAP_BIND_DN" desc:"LDAP DN to use for simple bind authentication with the target LDAP server." introductionVersion:"1.0.0"`
+	BindPassword             string           `yaml:"bind_password" env:"OC_LDAP_BIND_PASSWORD;USERS_LDAP_BIND_PASSWORD" desc:"Password to use for authenticating the 'bind_dn'." introductionVersion:"1.0.0"`
+	UserBaseDN               string           `yaml:"user_base_dn" env:"OC_LDAP_USER_BASE_DN;USERS_LDAP_USER_BASE_DN" desc:"Search base DN for looking up LDAP users." introductionVersion:"1.0.0"`
+	GroupBaseDN              string           `yaml:"group_base_dn" env:"OC_LDAP_GROUP_BASE_DN;USERS_LDAP_GROUP_BASE_DN" desc:"Search base DN for looking up LDAP groups." introductionVersion:"1.0.0"`
 	TenantBaseDN             string           `yaml:"tenant_base_dn" env:"OC_LDAP_TENANT_BASE_DN;USERS_LDAP_TENANT_BASE_DN" desc:"Search base DN for looking up LDAP tenants. Only relevant in multi-tenant setups." introductionVersion:"6.1.0"`
 	TenantScope              string           `yaml:"tenant_scope" env:"OC_LDAP_TENANT_SCOPE;USERS_LDAP_TENANT_SCOPE" desc:"LDAP search scope to use when looking up tenants. Supported values are 'base', 'one' and 'sub'. Only relevant in multi-tenant setups." introductionVersion:"6.1.0"`
 	TenantFilter             string           `yaml:"tenant_filter" env:"OC_LDAP_TENANT_FILTER;USERS_LDAP_TENANT_FILTER" desc:"LDAP filter to add to the default filters for tenant searches. Only relevant in multi-tenant setups." introductionVersion:"6.1.0"`
 	TenantObjectClass        string           `yaml:"tenant_object_class" env:"OC_LDAP_TENANT_OBJECTCLASS;USERS_LDAP_TENANT_OBJECTCLASS" desc:"The object class to use for tenants in the default tenant search filter. Only relevant in multi-tenant setups." introductionVersion:"6.1.0"`
 	TenantSchema             LDAPTenantSchema `yaml:"tenant_schema"`
-	UserScope                string          `yaml:"user_scope" env:"OC_LDAP_USER_SCOPE;USERS_LDAP_USER_SCOPE" desc:"LDAP search scope to use when looking up users. Supported values are 'base', 'one' and 'sub'." introductionVersion:"1.0.0"`
-	GroupScope               string          `yaml:"group_scope" env:"OC_LDAP_GROUP_SCOPE;USERS_LDAP_GROUP_SCOPE" desc:"LDAP search scope to use when looking up groups. Supported values are 'base', 'one' and 'sub'." introductionVersion:"1.0.0"`
-	UserSubstringFilterType  string          `yaml:"user_substring_filter_type" env:"LDAP_USER_SUBSTRING_FILTER_TYPE;USERS_LDAP_USER_SUBSTRING_FILTER_TYPE" desc:"Type of substring search filter to use for substring searches for users. Possible values: 'initial' for doing prefix only searches, 'final' for doing suffix only searches or 'any' for doing full substring searches" introductionVersion:"1.0.0"`
-	UserFilter               string          `yaml:"user_filter" env:"OC_LDAP_USER_FILTER;USERS_LDAP_USER_FILTER" desc:"LDAP filter to add to the default filters for user search like '(objectclass=openCloudUser)'." introductionVersion:"1.0.0"`
-	GroupFilter              string          `yaml:"group_filter" env:"OC_LDAP_GROUP_FILTER;USERS_LDAP_GROUP_FILTER" desc:"LDAP filter to add to the default filters for group searches." introductionVersion:"1.0.0"`
-	UserObjectClass          string          `yaml:"user_object_class" env:"OC_LDAP_USER_OBJECTCLASS;USERS_LDAP_USER_OBJECTCLASS" desc:"The object class to use for users in the default user search filter like 'inetOrgPerson'." introductionVersion:"1.0.0"`
-	GroupObjectClass         string          `yaml:"group_object_class" env:"OC_LDAP_GROUP_OBJECTCLASS;USERS_LDAP_GROUP_OBJECTCLASS" desc:"The object class to use for groups in the default group search filter like 'groupOfNames'." introductionVersion:"1.0.0"`
-	IDP                      string          `yaml:"idp" env:"OC_URL;OC_OIDC_ISSUER;USERS_IDP_URL" desc:"The identity provider value to set in the userids of the CS3 user objects for users returned by this user provider." introductionVersion:"1.0.0"`
-	DisableUserMechanism     string          `yaml:"disable_user_mechanism" env:"OC_LDAP_DISABLE_USER_MECHANISM;USERS_LDAP_DISABLE_USER_MECHANISM" desc:"An option to control the behavior for disabling users. Valid options are 'none', 'attribute' and 'group'. If set to 'group', disabling a user via API will add the user to the configured group for disabled users, if set to 'attribute' this will be done in the ldap user entry, if set to 'none' the disable request is not processed." introductionVersion:"1.0.0"`
-	UserTypeAttribute        string          `yaml:"user_type_attribute" env:"OC_LDAP_USER_SCHEMA_USER_TYPE;USERS_LDAP_USER_TYPE_ATTRIBUTE" desc:"LDAP Attribute to distinguish between 'Member' and 'Guest' users. Default is 'openCloudUserType'." introductionVersion:"1.0.0"`
-	LdapDisabledUsersGroupDN string          `yaml:"ldap_disabled_users_group_dn" env:"OC_LDAP_DISABLED_USERS_GROUP_DN;USERS_LDAP_DISABLED_USERS_GROUP_DN" desc:"The distinguished name of the group to which added users will be classified as disabled when 'disable_user_mechanism' is set to 'group'." introductionVersion:"1.0.0"`
-	UserSchema               LDAPUserSchema  `yaml:"user_schema"`
-	GroupSchema              LDAPGroupSchema `yaml:"group_schema"`
+	UserScope                string           `yaml:"user_scope" env:"OC_LDAP_USER_SCOPE;USERS_LDAP_USER_SCOPE" desc:"LDAP search scope to use when looking up users. Supported values are 'base', 'one' and 'sub'." introductionVersion:"1.0.0"`
+	GroupScope               string           `yaml:"group_scope" env:"OC_LDAP_GROUP_SCOPE;USERS_LDAP_GROUP_SCOPE" desc:"LDAP search scope to use when looking up groups. Supported values are 'base', 'one' and 'sub'." introductionVersion:"1.0.0"`
+	UserSubstringFilterType  string           `yaml:"user_substring_filter_type" env:"LDAP_USER_SUBSTRING_FILTER_TYPE;USERS_LDAP_USER_SUBSTRING_FILTER_TYPE" desc:"Type of substring search filter to use for substring searches for users. Possible values: 'initial' for doing prefix only searches, 'final' for doing suffix only searches or 'any' for doing full substring searches" introductionVersion:"1.0.0"`
+	UserFilter               string           `yaml:"user_filter" env:"OC_LDAP_USER_FILTER;USERS_LDAP_USER_FILTER" desc:"LDAP filter to add to the default filters for user search like '(objectclass=openCloudUser)'." introductionVersion:"1.0.0"`
+	GroupFilter              string           `yaml:"group_filter" env:"OC_LDAP_GROUP_FILTER;USERS_LDAP_GROUP_FILTER" desc:"LDAP filter to add to the default filters for group searches." introductionVersion:"1.0.0"`
+	UserObjectClass          string           `yaml:"user_object_class" env:"OC_LDAP_USER_OBJECTCLASS;USERS_LDAP_USER_OBJECTCLASS" desc:"The object class to use for users in the default user search filter like 'inetOrgPerson'." introductionVersion:"1.0.0"`
+	GroupObjectClass         string           `yaml:"group_object_class" env:"OC_LDAP_GROUP_OBJECTCLASS;USERS_LDAP_GROUP_OBJECTCLASS" desc:"The object class to use for groups in the default group search filter like 'groupOfNames'." introductionVersion:"1.0.0"`
+	IDP                      string           `yaml:"idp" env:"OC_URL;OC_OIDC_ISSUER;USERS_IDP_URL" desc:"The identity provider value to set in the userids of the CS3 user objects for users returned by this user provider." introductionVersion:"1.0.0"`
+	DisableUserMechanism     string           `yaml:"disable_user_mechanism" env:"OC_LDAP_DISABLE_USER_MECHANISM;USERS_LDAP_DISABLE_USER_MECHANISM" desc:"An option to control the behavior for disabling users. Valid options are 'none', 'attribute' and 'group'. If set to 'group', disabling a user via API will add the user to the configured group for disabled users, if set to 'attribute' this will be done in the ldap user entry, if set to 'none' the disable request is not processed." introductionVersion:"1.0.0"`
+	UserTypeAttribute        string           `yaml:"user_type_attribute" env:"OC_LDAP_USER_SCHEMA_USER_TYPE;USERS_LDAP_USER_TYPE_ATTRIBUTE" desc:"LDAP Attribute to distinguish between 'Member' and 'Guest' users. Default is 'openCloudUserType'." introductionVersion:"1.0.0"`
+	LdapDisabledUsersGroupDN string           `yaml:"ldap_disabled_users_group_dn" env:"OC_LDAP_DISABLED_USERS_GROUP_DN;USERS_LDAP_DISABLED_USERS_GROUP_DN" desc:"The distinguished name of the group to which added users will be classified as disabled when 'disable_user_mechanism' is set to 'group'." introductionVersion:"1.0.0"`
+	UserSchema               LDAPUserSchema   `yaml:"user_schema"`
+	GroupSchema              LDAPGroupSchema  `yaml:"group_schema"`
+	LookupCacheTTL           time.Duration    `yaml:"lookup_cache_ttl" env:"OC_LDAP_LOOKUP_CACHE_TTL;USERS_LDAP_LOOKUP_CACHE_TTL" desc:"The time to live for the in-memory cache of LDAP lookups. This cache is used to reduce the number of LDAP queries for user and group lookups." introductionVersion:"%%NEXT%%"`
 }
 
 type LDAPUserSchema struct {

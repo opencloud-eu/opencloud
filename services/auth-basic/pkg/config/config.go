@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 )
@@ -72,6 +73,7 @@ type LDAPProvider struct {
 	LdapDisabledUsersGroupDN string          `yaml:"ldap_disabled_users_group_dn" env:"OC_LDAP_DISABLED_USERS_GROUP_DN;AUTH_BASIC_DISABLED_USERS_GROUP_DN" desc:"The distinguished name of the group to which added users will be classified as disabled when 'disable_user_mechanism' is set to 'group'." introductionVersion:"1.0.0"`
 	UserSchema               LDAPUserSchema  `yaml:"user_schema"`
 	GroupSchema              LDAPGroupSchema `yaml:"group_schema"`
+	LookupCacheTTL           time.Duration   `yaml:"lookup_cache_ttl" env:"OC_LDAP_LOOKUP_CACHE_TTL;AUTH_BASIC_LDAP_LOOKUP_CACHE_TTL" desc:"The time to live for the in-memory cache of LDAP lookups. This cache is used to reduce the number of LDAP queries for user and group lookups." introductionVersion:"%%NEXT%%"`
 }
 
 type LDAPUserSchema struct {

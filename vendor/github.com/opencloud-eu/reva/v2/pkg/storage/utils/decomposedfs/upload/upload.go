@@ -371,12 +371,17 @@ func (session *OcisSession) Cleanup(revertNodeMetadata, cleanBin, cleanInfo bool
 
 // URL returns a url to download an upload
 func (session *OcisSession) URL(_ context.Context) (string, error) {
+	u := joinurl(session.store.tknopts.DownloadEndpoint, "tus/", session.ID())
+	if session.store.tknopts.DataGatewayEndpoint == "" {
+		return u, nil
+	}
+
+	// we need to create a token
 	type transferClaims struct {
 		jwt.RegisteredClaims
 		Target string `json:"target"`
 	}
 
-	u := joinurl(session.store.tknopts.DownloadEndpoint, "tus/", session.ID())
 	ttl := time.Duration(session.store.tknopts.TransferExpires) * time.Second
 	claims := transferClaims{
 		RegisteredClaims: jwt.RegisteredClaims{

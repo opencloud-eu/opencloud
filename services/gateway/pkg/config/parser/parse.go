@@ -39,10 +39,6 @@ func Validate(cfg *config.Config) error {
 		return shared.MissingJWTTokenError(cfg.Service.Name)
 	}
 
-	if cfg.TransferSecret == "" {
-		return shared.MissingRevaTransferSecretError(cfg.Service.Name)
-	}
-
 	if cfg.StorageRegistry.StorageUsersMountID == "" {
 		return fmt.Errorf("The storage users mount ID has not been configured for %s. "+
 			"Make sure your %s config contains the proper values "+

@@ -293,6 +293,26 @@ func (i *LDAP) AddMembersToGroup(ctx context.Context, groupID string, memberIDs 
 	if !i.writeEnabled && i.groupCreateBaseDN == i.groupBaseDN {
 		return errorcode.New(errorcode.NotAllowed, "server is configured read-only")
 	}
+
+	// eliminate duplicates in memberIDs by their UUID, to prevent unnecessary LDAP
+	// lookups below, and for https://github.com/opencloud-eu/opencloud/issues/3354
+	{
+		uniqueMemberIDs := make([]string, 0, len(memberIDs))
+		memory := map[string]struct{}{}
+		for _, id := range memberIDs {
+			if len(strings.TrimSpace(id)) == 0 {
+				continue // while we're at it, clean the input parameters and skip empty strings
+			}
+			if _, present := memory[id]; !present {
+				uniqueMemberIDs = append(uniqueMemberIDs, id)
+				memory[id] = struct{}{}
+			} else {
+				logger.Debug().Str("id", id).Msg("Duplicate member in group addition. Skipping")
+			}
+		}
+		memberIDs = uniqueMemberIDs
+	}
+
 	ge, err := i.getLDAPGroupByNameOrID(groupID, true)
 	if err != nil {
 		return err

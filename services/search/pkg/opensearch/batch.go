@@ -63,22 +63,27 @@ func (b *Batch) Upsert(id string, r search.Resource) error {
 	})
 }
 
-func (b *Batch) Move(id, parentID, location string) error {
+func (b *Batch) Move(id string, parentID string, targetPath string) error {
 	return b.withSizeLimit(func() error {
 		op := func() error {
 			return updateSelfAndDescendants(context.Background(), b.client, b.index, id, func(rootResource search.Resource) *osu.BodyParamScript {
 				return &osu.BodyParamScript{
 					Source: `
 					if (ctx._source.ID == params.id ) { ctx._source.Name = params.newName; ctx._source.ParentID = params.parentID; }
-					ctx._source.Path = ctx._source.Path.replace(params.oldPath, params.newPath)
+					ctx._source.Path = ctx._source.Path.replace(params.oldPath, params.newPath);
+					boolean hidden = false;
+					for (String name : ctx._source.Path.splitOnToken('/')) {
+						if (!name.equals('.') && !name.equals('..') && name.startsWith('.')) { hidden = true; break; }
+					}
+					ctx._source.Hidden = hidden;
 				`,
 					Lang: "painless",
 					Params: map[string]any{
 						"id":       id,
 						"parentID": parentID,
 						"oldPath":  rootResource.Path,
-						"newPath":  utils.MakeRelativePath(location),
-						"newName":  path.Base(utils.MakeRelativePath(location)),
+						"newPath":  utils.MakeRelativePath(targetPath),
+						"newName":  path.Base(utils.MakeRelativePath(targetPath)),
 					},
 				}
 			})
@@ -153,6 +158,7 @@ func (b *Batch) Purge(id string, onlyDeleted bool) error {
 				Indices: []string{b.index},
 				Params: opensearchgoAPI.DocumentDeleteByQueryParams{
 					WaitForCompletion: conversions.ToPointer(true),
+					Refresh:           conversions.ToPointer(true),
 				},
 			},
 			query,
@@ -205,7 +211,8 @@ func (b *Batch) Push() error {
 		}
 
 		if _, err := b.client.Bulk(context.Background(), opensearchgoAPI.BulkReq{
-			Body: strings.NewReader(body.String()),
+			Body:   strings.NewReader(body.String()),
+			Params: opensearchgoAPI.BulkParams{Refresh: "wait_for"},
 		}); err != nil {
 			return fmt.Errorf("failed to execute bulk operations: %w", err)
 		}

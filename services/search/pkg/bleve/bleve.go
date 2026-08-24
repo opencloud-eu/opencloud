@@ -185,6 +185,7 @@ func matchToResource(match *bleveSearch.DocumentMatch) *search.Resource {
 		ParentID: getFieldValue[string](match.Fields, "ParentID"),
 		Type:     uint64(getFieldValue[float64](match.Fields, "Type")),
 		Deleted:  getFieldValue[bool](match.Fields, "Deleted"),
+		Hidden:   getFieldValue[bool](match.Fields, "Hidden"),
 		Document: content.Document{
 			Name:      getFieldValue[string](match.Fields, "Name"),
 			Title:     getFieldValue[string](match.Fields, "Title"),

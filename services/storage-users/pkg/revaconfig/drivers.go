@@ -136,10 +136,7 @@ func Posix(cfg *config.Config, enableFSScan, enableFSWatch bool) map[string]any 
 			"numconsumers": cfg.Events.NumConsumers,
 		},
 		"tokens": map[string]any{
-			"transfer_shared_secret": cfg.Commons.TransferSecret,
-			"transfer_expires":       cfg.TransferExpires,
-			"download_endpoint":      cfg.DataServerURL,
-			"datagateway_endpoint":   cfg.DataGatewayURL,
+			"download_endpoint": cfg.DataServerURL,
 		},
 		"use_space_groups":           cfg.Drivers.Posix.UseSpaceGroups,
 		"enable_fs_revisions":        cfg.Drivers.Posix.EnableFSRevisions,
@@ -177,10 +174,7 @@ func OwnCloudSQL(cfg *config.Config) map[string]any {
 		"dbname":          cfg.Drivers.OwnCloudSQL.DBName,
 		"userprovidersvc": cfg.Drivers.OwnCloudSQL.UsersProviderEndpoint,
 		"tokens": map[string]any{
-			"download_endpoint":      cfg.DataServerURL,
-			"datagateway_endpoint":   cfg.DataGatewayURL,
-			"transfer_shared_secret": cfg.Commons.TransferSecret,
-			"transfer_expires":       cfg.TransferExpires,
+			"download_endpoint": cfg.DataServerURL,
 		},
 	}
 }
@@ -239,10 +233,7 @@ func Decomposed(cfg *config.Config) map[string]any {
 			"numconsumers": cfg.Events.NumConsumers,
 		},
 		"tokens": map[string]any{
-			"transfer_shared_secret": cfg.Commons.TransferSecret,
-			"transfer_expires":       cfg.TransferExpires,
-			"download_endpoint":      cfg.DataServerURL,
-			"datagateway_endpoint":   cfg.DataGatewayURL,
+			"download_endpoint": cfg.DataServerURL,
 		},
 	}
 }
@@ -363,10 +354,7 @@ func DecomposedS3(cfg *config.Config) map[string]any {
 			"numconsumers": cfg.Events.NumConsumers,
 		},
 		"tokens": map[string]any{
-			"transfer_shared_secret": cfg.Commons.TransferSecret,
-			"transfer_expires":       cfg.TransferExpires,
-			"download_endpoint":      cfg.DataServerURL,
-			"datagateway_endpoint":   cfg.DataGatewayURL,
+			"download_endpoint": cfg.DataServerURL,
 		},
 	}
 }

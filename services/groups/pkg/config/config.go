@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 )
@@ -69,6 +70,7 @@ type LDAPDriver struct {
 	IDP                      string          `yaml:"idp" env:"OC_URL;OC_OIDC_ISSUER;GROUPS_IDP_URL" desc:"The identity provider value to set in the group IDs of the CS3 group objects for groups returned by this group provider." introductionVersion:"1.0.0"`
 	UserSchema               LDAPUserSchema  `yaml:"user_schema"`
 	GroupSchema              LDAPGroupSchema `yaml:"group_schema"`
+	LookupCacheTTL           time.Duration   `yaml:"lookup_cache_ttl" env:"OC_LDAP_LOOKUP_CACHE_TTL;GROUPS_LDAP_LOOKUP_CACHE_TTL" desc:"The time to live for the in-memory cache of LDAP lookups. This cache is used to reduce the number of LDAP queries for user and group lookups." introductionVersion:"%%NEXT%%"`
 }
 
 type LDAPUserSchema struct {

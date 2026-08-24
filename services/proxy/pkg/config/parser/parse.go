@@ -38,6 +38,10 @@ func Validate(cfg *config.Config) error {
 		return shared.MissingMachineAuthApiKeyError(cfg.Service.Name)
 	}
 
+	if cfg.TransferSecret == "" {
+		return shared.MissingRevaTransferSecretError(cfg.Service.Name)
+	}
+
 	if cfg.OIDC.AccessTokenVerifyMethod != config.AccessTokenVerificationNone &&
 		cfg.OIDC.AccessTokenVerifyMethod != config.AccessTokenVerificationJWT {
 		return fmt.Errorf(

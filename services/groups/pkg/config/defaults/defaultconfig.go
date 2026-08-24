@@ -1,6 +1,8 @@
 package defaults
 
 import (
+	"time"
+
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/groups/pkg/config"
@@ -61,6 +63,7 @@ func DefaultConfig() *config.Config {
 					Groupname:   "cn",
 					Member:      "member",
 				},
+				LookupCacheTTL: 10 * time.Second,
 			},
 			OwnCloudSQL: config.OwnCloudSQLDriver{
 				DBUsername:         "owncloud",

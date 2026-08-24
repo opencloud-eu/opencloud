@@ -102,6 +102,7 @@ const (
 	SpaceImageAttr       string = OcPrefix + "space.image"
 	SpaceAliasAttr       string = OcPrefix + "space.alias"
 	SpaceTenantIDAttr    string = OcPrefix + "space.tenantid"
+	SpaceContentTypeAttr string = OcPrefix + "space.contenttype"
 
 	UserAcePrefix  string = "u:"
 	GroupAcePrefix string = "g:"

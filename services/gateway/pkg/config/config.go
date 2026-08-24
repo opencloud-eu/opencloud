@@ -24,8 +24,6 @@ type Config struct {
 	CommitShareToStorageGrant  bool   `yaml:"commit_share_to_storage_grant" env:"GATEWAY_COMMIT_SHARE_TO_STORAGE_GRANT" desc:"Commit shares to storage grants. This grants access to shared resources for the share receiver directly on the storage." introductionVersion:"1.0.0"`
 	ShareFolder                string `yaml:"share_folder_name" env:"GATEWAY_SHARE_FOLDER_NAME" desc:"Name of the share folder in users' home space." introductionVersion:"1.0.0"`
 	DisableHomeCreationOnLogin bool   `yaml:"disable_home_creation_on_login" env:"GATEWAY_DISABLE_HOME_CREATION_ON_LOGIN" desc:"Disable creation of the home space on login." introductionVersion:"1.0.0"`
-	TransferSecret             string `yaml:"transfer_secret" env:"OC_TRANSFER_SECRET" desc:"The storage transfer secret." introductionVersion:"1.0.0"`
-	TransferExpires            int    `yaml:"transfer_expires" env:"GATEWAY_TRANSFER_EXPIRES" desc:"Expiry for the gateway tokens." introductionVersion:"1.0.0"`
 	Cache                      Cache  `yaml:"cache"`
 
 	FrontendPublicURL string `yaml:"frontend_public_url" env:"OC_URL;GATEWAY_FRONTEND_PUBLIC_URL" desc:"The public facing URL of the OpenCloud frontend." introductionVersion:"1.0.0"`

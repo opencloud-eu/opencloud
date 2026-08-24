@@ -1,5 +1,0 @@
-{
-    "require": {
-        "squizlabs/php_codesniffer": "^3.7"
-    }
-}

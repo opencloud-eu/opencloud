@@ -32,6 +32,7 @@ type GRPCConfig struct {
 	Addr      string                 `yaml:"addr" env:"EVENTHISTORY_GRPC_ADDR" desc:"The bind address of the GRPC service." introductionVersion:"1.0.0"`
 	Namespace string                 `yaml:"-"`
 	TLS       *shared.GRPCServiceTLS `yaml:"tls"`
+	Disabled  bool                   `yaml:"disabled" env:"EVENTHISTORY_GRPC_DISABLED" desc:"Disables the GRPC service. Set this to true if the service should only handle events." introductionVersion:"%NEXT%"`
 }
 
 // Store configures the store to use
@@ -57,4 +58,5 @@ type Events struct {
 	EnableTLS            bool   `yaml:"enable_tls" env:"OC_EVENTS_ENABLE_TLS;EVENTHISTORY_EVENTS_ENABLE_TLS" desc:"Enable TLS for the connection to the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	AuthUsername         string `yaml:"username" env:"OC_EVENTS_AUTH_USERNAME;EVENTHISTORY_EVENTS_AUTH_USERNAME" desc:"The username to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	AuthPassword         string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD;EVENTHISTORY_EVENTS_AUTH_PASSWORD" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
+	Disabled             bool   `yaml:"disabled" env:"EVENTHISTORY_EVENTS_DISABLED" desc:"Disables listening for events. Set this to true if the service should only handle GRPC requests." introductionVersion:"%NEXT%"`
 }

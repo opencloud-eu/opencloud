@@ -1,0 +1,133 @@
+[tools]
+go = "1.25"
+node = "24"
+pnpm = "11.1.3"
+"go:github.com/go-delve/delve/cmd/dlv" = "1.27.0"
+"aqua:nats-io/natscli" = "0.4.0"
+
+[tasks.build]
+description = "build"
+run = "make -C opencloud build"
+
+[tasks."build:debug"]
+description = "build with debug symbols"
+run = "make -C opencloud build-debug"
+
+[tasks."docker:build"]
+description = "docker image opencloudeu/opencloud:dev"
+run = "make -C opencloud dev-docker"
+
+[tasks."docker:build:multiarch"]
+description = "docker image for amd64 + arm64"
+depends = ["gen"]
+run = "make -C opencloud dev-docker-multiarch"
+
+[tasks."docker:build:debug"]
+description = "docker image with delve"
+run = "make -C opencloud debug-docker"
+
+[tasks.serve]
+description = "start the server"
+depends = ["build"]
+run = "opencloud/bin/opencloud server"
+
+[tasks."serve:init"]
+description = "create the local config"
+depends = ["build"]
+run = "opencloud/bin/opencloud init"
+
+[tasks."serve:debug"]
+description = "start the server under delve"
+depends = ["build:debug"]
+run = "dlv exec opencloud/bin/opencloud-debug -- server"
+
+[tasks.test]
+description = "go test"
+run = "go test -tags disable_crypt ./..."
+
+[tasks."test:changed"]
+description = "go test, changed packages"
+run = """
+base=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo origin/main)
+files=$(git diff --name-only --diff-filter=ACM $(git merge-base "$base" HEAD) -- '*.go' | grep -v vendor/ || true)
+[ -n "$files" ] || exit 0
+go test -tags disable_crypt $(echo "$files" | xargs -n1 dirname | sort -u | sed 's|^|./|')
+"""
+
+[tasks."test:race"]
+description = "go test + race"
+run = "go test -race -tags disable_crypt ./..."
+
+[tasks."test:coverage"]
+description = "go test + coverage"
+run = ["make test", "make go-coverage"]
+
+[tasks.check]
+description = "all checks"
+depends = ["check:fmt", "check:lint", "check:vendor", "check:env-vars", "test"]
+
+[tasks."check:fmt"]
+description = "gofmt"
+run = """
+base=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo origin/main)
+files=$(git diff --name-only --diff-filter=ACM $(git merge-base "$base" HEAD) -- '*.go' | grep -v vendor/ || true)
+[ -n "$files" ] || exit 0
+out=$(gofmt -s -l $files)
+[ -z "$out" ] || { echo "$out"; exit 1; }
+"""
+
+[tasks."check:lint"]
+description = "golangci-lint"
+run = """
+set -e
+base=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo origin/main)
+gobin=$(go env GOBIN)
+[ -n "$gobin" ] || gobin="$(go env GOPATH)/bin"
+bin="$gobin/golangci-lint-$(awk '/golangci-lint v/ {print $3}' .bingo/golangci-lint.mod)"
+[ -x "$bin" ] || make -s golangci-lint >/dev/null
+exec "$bin" run --modules-download-mode vendor --timeout 15m0s --new-from-merge-base "$base"
+"""
+
+[tasks."check:vendor"]
+description = "vendor matches go.mod"
+run = "GOWORK=off go list -mod=vendor ./... >/dev/null"
+
+[tasks."check:env-vars"]
+description = "env var annotations"
+run = "make check-env-var-annotations"
+
+[tasks.fix]
+description = "gofmt + lint fixes"
+run = [{ task = "fix:fmt" }, { task = "fix:lint" }]
+
+[tasks."fix:fmt"]
+description = "gofmt -w"
+run = """
+base=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || echo origin/main)
+files=$(git diff --name-only --diff-filter=ACM $(git merge-base "$base" HEAD) -- '*.go' | grep -v vendor/ || true)
+[ -z "$files" ] || gofmt -s -w $files
+"""
+
+[tasks."fix:lint"]
+description = "golangci-lint --fix"
+run = "make golangci-lint-fix"
+
+[tasks."pre:commit"]
+description = "before commit"
+run = [{ task = "fix:fmt" }, { task = "check:lint" }, { task = "test:changed" }]
+
+[tasks."pre:push"]
+description = "before push"
+run = [{ task = "tidy" }, { task = "fix:fmt" }, { task = "check" }]
+
+[tasks.gen]
+description = "assets & mocks"
+run = "make generate"
+
+[tasks."gen:protobuf"]
+description = "protobuf"
+run = "make protobuf"
+
+[tasks.tidy]
+description = "tidy + vendor"
+run = ["GOWORK=off go mod tidy", "GOWORK=off go mod vendor"]

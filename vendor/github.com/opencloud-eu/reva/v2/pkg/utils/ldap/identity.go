@@ -23,10 +23,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	identityUser "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/go-ldap/ldap/v3"
 	"github.com/google/uuid"
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/sharedconf"
@@ -38,12 +40,44 @@ import (
 
 // Identity provides methods to query users and groups from an LDAP server
 type Identity struct {
-	User   userConfig   `mapstructure:",squash"`
-	Group  groupConfig  `mapstructure:",squash"`
-	Tenant tenantConfig `mapstructure:",squash"`
+	User           userConfig    `mapstructure:",squash"`
+	Group          groupConfig   `mapstructure:",squash"`
+	Tenant         tenantConfig  `mapstructure:",squash"`
+	LookupCacheTTL time.Duration `mapstructure:"lookup_cache_ttl"`
+
+	lookupCache entryCache
 }
 
-const tracerName = "pkg/utils/ldap"
+// entryCache is a small nil-safe wrapper around the expirable LRU used to cache
+// LDAP lookups. A zero-value entryCache (nil lru) is a valid, disabled cache:
+// Get always misses and Add is a no-op. This lets the cache be turned off
+// entirely (e.g. in acceptance tests) by configuring a lookup_cache_ttl of 0.
+type entryCache struct {
+	lru *expirable.LRU[string, *ldap.Entry]
+}
+
+// Get returns the cached entry for key. It reports a miss when the cache is
+// disabled (nil lru).
+func (c entryCache) Get(key string) (*ldap.Entry, bool) {
+	if c.lru == nil {
+		return nil, false
+	}
+	return c.lru.Get(key)
+}
+
+// Add stores entry under key. It is a no-op when the cache is disabled (nil lru).
+func (c entryCache) Add(key string, entry *ldap.Entry) {
+	if c.lru == nil {
+		return
+	}
+	c.lru.Add(key, entry)
+}
+
+const (
+	tracerName = "pkg/utils/ldap"
+
+	lookupCacheSize = 1024
+)
 
 type userConfig struct {
 	BaseDN              string `mapstructure:"user_base_dn"`
@@ -223,6 +257,14 @@ func (i *Identity) Setup() error {
 		}
 	}
 
+	if i.LookupCacheTTL > 0 {
+		i.lookupCache = entryCache{lru: expirable.NewLRU[string, *ldap.Entry](lookupCacheSize, nil, i.LookupCacheTTL)}
+	} else {
+		// A TTL of 0 disables the lookup cache entirely. A zero-value
+		// entryCache always misses and never stores anything.
+		i.lookupCache = entryCache{}
+	}
+
 	return nil
 }
 
@@ -254,6 +296,12 @@ func (i *Identity) GetLDAPUserByFilter(ctx context.Context, lc ldap.Client, filt
 	log := appctx.GetLogger(ctx)
 	_, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "GetLDAPUserByFilter")
 	defer span.End()
+
+	cacheKey := fmt.Sprintf("user:filter:%s", filter)
+	if cached, ok := i.lookupCache.Get(cacheKey); ok {
+		return cached, nil
+	}
+
 	searchRequest := ldap.NewSearchRequest(
 		i.User.BaseDN, i.User.scopeVal, ldap.NeverDerefAliases, 1, 0, false,
 		filter,
@@ -275,6 +323,7 @@ func (i *Identity) GetLDAPUserByFilter(ctx context.Context, lc ldap.Client, filt
 		return nil, errtypes.NotFound(filter)
 	}
 	span.SetStatus(codes.Ok, "")
+	i.lookupCache.Add(cacheKey, res.Entries[0])
 
 	return res.Entries[0], nil
 }
@@ -285,6 +334,11 @@ func (i *Identity) GetLDAPUserByDN(ctx context.Context, lc ldap.Client, dn strin
 	log := appctx.GetLogger(ctx)
 	_, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "GetLDAPUserByDN")
 	defer span.End()
+
+	cacheKey := fmt.Sprintf("user:dn:%s", dn)
+	if cached, ok := i.lookupCache.Get(cacheKey); ok {
+		return cached, nil
+	}
 
 	filter := fmt.Sprintf("(objectclass=%s)", i.User.Objectclass)
 	if i.User.Filter != "" {
@@ -310,6 +364,7 @@ func (i *Identity) GetLDAPUserByDN(ctx context.Context, lc ldap.Client, dn strin
 	if len(res.Entries) == 0 {
 		return nil, errtypes.NotFound(dn)
 	}
+	i.lookupCache.Add(cacheKey, res.Entries[0])
 
 	return res.Entries[0], nil
 }
@@ -483,6 +538,12 @@ func (i *Identity) GetLDAPGroupByFilter(ctx context.Context, lc ldap.Client, fil
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "GetLDAPGroupByFilter")
 	defer span.End()
 	log := appctx.GetLogger(ctx)
+
+	cacheKey := fmt.Sprintf("group:filter:%s", filter)
+	if cached, ok := i.lookupCache.Get(cacheKey); ok {
+		return cached, nil
+	}
+
 	searchRequest := ldap.NewSearchRequest(
 		i.Group.BaseDN, i.Group.scopeVal, ldap.NeverDerefAliases, 1, 0, false,
 		filter,
@@ -511,6 +572,7 @@ func (i *Identity) GetLDAPGroupByFilter(ctx context.Context, lc ldap.Client, fil
 		return nil, errtypes.NotFound(filter)
 	}
 	span.SetStatus(codes.Ok, "")
+	i.lookupCache.Add(cacheKey, res.Entries[0])
 	return res.Entries[0], nil
 }
 
@@ -901,6 +963,12 @@ func (i *Identity) GetLDAPTenantByFilter(ctx context.Context, lc ldap.Client, fi
 	log := appctx.GetLogger(ctx)
 	_, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "GetLDAPTenantByFilter")
 	defer span.End()
+
+	cacheKey := fmt.Sprintf("tenant:filter:%s", filter)
+	if cached, ok := i.lookupCache.Get(cacheKey); ok {
+		return cached, nil
+	}
+
 	searchRequest := ldap.NewSearchRequest(
 		i.Tenant.BaseDN, i.Tenant.scopeVal, ldap.NeverDerefAliases, 1, 0, false,
 		filter,
@@ -922,6 +990,7 @@ func (i *Identity) GetLDAPTenantByFilter(ctx context.Context, lc ldap.Client, fi
 		return nil, errtypes.NotFound(filter)
 	}
 	span.SetStatus(codes.Ok, "")
+	i.lookupCache.Add(cacheKey, res.Entries[0])
 
 	return res.Entries[0], nil
 }

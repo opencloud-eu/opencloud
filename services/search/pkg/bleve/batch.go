@@ -40,14 +40,14 @@ func (b *Batch) Upsert(id string, r search.Resource) error {
 	})
 }
 
-func (b *Batch) Move(id, parentID, location string) error {
+func (b *Batch) Move(id string, parentID string, targetPath string) error {
 	return b.withSizeLimit(func() error {
 		rootResource, err := searchResourceByID(id, b.index)
 		if err != nil {
 			return err
 		}
 		currentPath := rootResource.Path
-		nextPath := utils.MakeRelativePath(location)
+		nextPath := utils.MakeRelativePath(targetPath)
 
 		rootResource.Path = nextPath
 		rootResource.Name = path.Base(nextPath)
@@ -68,6 +68,8 @@ func (b *Batch) Move(id, parentID, location string) error {
 		}
 
 		for _, resource := range resources {
+			resource.Hidden = search.IsHidden(resource.Path)
+
 			if err := b.batch.Index(resource.ID, resource); err != nil {
 				return err
 			}

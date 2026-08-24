@@ -31,6 +31,8 @@ type Config struct {
 	RoleAssignment                RoleAssignment      `yaml:"role_assignment"`
 	PolicySelector                *PolicySelector     `yaml:"policy_selector"`
 	PreSignedURL                  PreSignedURL        `yaml:"pre_signed_url"`
+	TransferSecret                string              `yaml:"transfer_secret" env:"OC_TRANSFER_SECRET" desc:"The storage transfer secret." introductionVersion:"%NEXT%"`
+	TransferTimeout               time.Duration       `yaml:"transfer_timeout" env:"PROXY_TRANSFER_TIMEOUT" desc:"The storage transfer timeout." introductionVersion:"%NEXT%"`
 	AccountBackend                string              `yaml:"account_backend" env:"PROXY_ACCOUNT_BACKEND_TYPE" desc:"Account backend the PROXY service should use. Currently only 'cs3' is possible here." introductionVersion:"1.0.0"`
 	UserOIDCClaim                 string              `yaml:"user_oidc_claim" env:"PROXY_USER_OIDC_CLAIM" desc:"The name of an OpenID Connect claim that is used for resolving users with the account backend. The value of the claim must hold a per user unique, stable and non re-assignable identifier. The availability of claims depends on your Identity Provider. There are common claims available for most Identity providers like 'email' or 'preferred_username' but you can also add your own claim." introductionVersion:"1.0.0"`
 	UserCS3Claim                  string              `yaml:"user_cs3_claim" env:"PROXY_USER_CS3_CLAIM" desc:"The name of a CS3 user attribute (claim) that should be mapped to the 'user_oidc_claim'. Supported values are 'username', 'mail' and 'userid'." introductionVersion:"1.0.0"`

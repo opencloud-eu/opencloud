@@ -194,8 +194,18 @@ func (session *DecomposedFsSession) FinishUploadDecomposed(ctx context.Context) 
 
 	n, err := session.store.CreateNodeForUpload(ctx, session, attrs)
 	if err != nil {
+		session.SetStatus(SessionStatusFailed, err.Error())
+		if perr := session.Persist(ctx); perr != nil {
+			log.Error().Err(perr).Msg("failed to persist upload session after setting status to failed")
+		}
 		return err
 	}
+
+	session.SetStatus(SessionStatusProcessing, "")
+	if err = session.Persist(ctx); err != nil {
+		log.Error().Err(err).Msg("failed to persist upload session after setting status to processing")
+	}
+
 	// increase the processing counter for every started processing
 	// will be decreased in Cleanup()
 	metrics.UploadProcessing.Inc()
@@ -493,12 +503,18 @@ func (session *DecomposedFsSession) Cleanup(revertNodeMetadata, cleanBin, cleanI
 
 // URL returns a url to download an upload
 func (session *DecomposedFsSession) URL(_ context.Context) (string, error) {
+
+	u := joinurl(session.store.tknopts.DownloadEndpoint, "tus/", session.ID())
+	if session.store.tknopts.DataGatewayEndpoint == "" {
+		return u, nil
+	}
+
+	// we need to create a token
 	type transferClaims struct {
 		jwt.RegisteredClaims
 		Target string `json:"target"`
 	}
 
-	u := joinurl(session.store.tknopts.DownloadEndpoint, "tus/", session.ID())
 	ttl := time.Duration(session.store.tknopts.TransferExpires) * time.Second
 	claims := transferClaims{
 		RegisteredClaims: jwt.RegisteredClaims{

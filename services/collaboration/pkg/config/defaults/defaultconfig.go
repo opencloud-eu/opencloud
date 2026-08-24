@@ -39,10 +39,6 @@ func DefaultConfig() *config.Config {
 			AssetPath:   filepath.Join(defaults.BaseDataPath(), "collaboration/fonts"),
 			PreviewText: "OpenCloud",
 		},
-		Events: config.Events{
-			Endpoint: "127.0.0.1:9233",
-			Cluster:  "opencloud-cluster",
-		},
 		Store: config.Store{
 			Store:    "nats-js-kv",
 			Nodes:    []string{"127.0.0.1:9233"},
@@ -95,10 +91,6 @@ func EnsureDefaults(cfg *config.Config) {
 	}
 	if cfg.CS3Api.GRPCClientTLS == nil && cfg.Commons != nil {
 		cfg.CS3Api.GRPCClientTLS = structs.CopyOrZeroValue(cfg.Commons.GRPCClientTLS)
-	}
-
-	if cfg.MachineAuthAPIKey == "" && cfg.Commons != nil && cfg.Commons.MachineAuthAPIKey != "" {
-		cfg.MachineAuthAPIKey = cfg.Commons.MachineAuthAPIKey
 	}
 }
 

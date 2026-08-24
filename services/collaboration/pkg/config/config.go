@@ -14,7 +14,6 @@ type Config struct {
 	App     App     `yaml:"app"`
 	Font    Font    `yaml:"font"`
 	Store   Store   `yaml:"store"`
-	Events  Events  `yaml:"events"`
 
 	TokenManager *TokenManager `yaml:"token_manager"`
 
@@ -28,6 +27,4 @@ type Config struct {
 	Debug    Debug  `yaml:"debug"`
 
 	Context context.Context `yaml:"-"`
-
-	MachineAuthAPIKey string `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY;COLLABORATION_MACHINE_AUTH_API_KEY" desc:"The machine auth API key used to validate internal requests necessary to access resources from other services." introductionVersion:"7.3.0"`
 }

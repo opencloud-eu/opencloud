@@ -16,6 +16,8 @@ services:
       EMAIL_PORT: 9000
     env_file:
       - ../../../../.woodpecker.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./run-tests.sh:/test/run-tests.sh
       - ../../../../:/woodpecker/src/github.com/opencloud-eu/opencloud

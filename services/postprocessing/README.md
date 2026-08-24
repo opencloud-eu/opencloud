@@ -69,6 +69,8 @@ Once the service defined as custom step has finished its work, it should send an
 
 The backoff behavior as mentioned in the `retry` outcome can be configured using the `POSTPROCESSING_RETRY_BACKOFF_DURATION` and `POSTPROCESSING_MAX_RETRIES` environment variables. The backoff duration is calculated using the following formula after each failure: `backoff_duration = POSTPROCESSING_RETRY_BACKOFF_DURATION * 2^(number of failures - 1)`. This means that the time between the next round grows exponentially limited by the number of retries. Steps that still don't succeed after the maximum number of retries will be automatically moved to the `abort` state.
 
+The same backoff formula is used when publishing an event to the event system fails, which can happen when the event system is briefly unavailable or slow to acknowledge. The number of publish retries is configured with the `POSTPROCESSING_PUBLISH_MAX_RETRIES` environment variable, setting it to `0` disables retrying. A single wait is never longer than half the configured ack wait, so that the event being processed is not redelivered to another worker while the publish is still being retried. If publishing still fails after the last retry, the incoming event is not acknowledged so that it gets redelivered and postprocessing can pick up where it left off.
+
 See the [cs3 org](https://github.com/cs3org/reva/blob/edge/pkg/events/postprocessing.go) for up-to-date information of reserved step names and event definitions.
 
 ## CLI Commands
