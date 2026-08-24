@@ -15,13 +15,10 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/service/http"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
-	svc "github.com/opencloud-eu/opencloud/services/userlog/pkg/service"
+	httpSvc "github.com/opencloud-eu/opencloud/services/userlog/pkg/service/http"
 	"github.com/riandyrn/otelchi"
 	"go-micro.dev/v4"
 )
-
-// Service is the service interface
-type Service any
 
 // Server initializes the http service and server.
 func Server(opts ...Option) (http.Service, error) {
@@ -80,7 +77,7 @@ func Server(opts ...Option) (http.Service, error) {
 	)
 
 	if options.UserlogService == nil {
-		return http.Service{}, errors.New("need non nil userlog service to serve http requests")
+		return http.Service{}, errors.New("need non nil userlog http service to serve http requests")
 	}
 
 	m := roles.NewManager(
@@ -92,8 +89,8 @@ func Server(opts ...Option) (http.Service, error) {
 	mux.Route("/ocs/v2.php/apps/notifications/api/v1/notifications", func(r chi.Router) {
 		r.Get("/", options.UserlogService.HandleGetEvents)
 		r.Delete("/", options.UserlogService.HandleDeleteEvents)
-		r.Post("/global", svc.RequireAdminOrSecret(&m, options.Config.GlobalNotificationsSecret)(options.UserlogService.HandlePostGlobalEvent))
-		r.Delete("/global", svc.RequireAdminOrSecret(&m, options.Config.GlobalNotificationsSecret)(options.UserlogService.HandleDeleteGlobalEvent))
+		r.Post("/global", httpSvc.RequireAdminOrSecret(&m, options.Config.GlobalNotificationsSecret)(options.UserlogService.HandlePostGlobalEvent))
+		r.Delete("/global", httpSvc.RequireAdminOrSecret(&m, options.Config.GlobalNotificationsSecret)(options.UserlogService.HandleDeleteGlobalEvent))
 	})
 
 	if err := micro.RegisterHandler(service.Server(), mux); err != nil {
