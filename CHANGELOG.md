@@ -1,6 +1,6 @@
 # Changelog
 
-## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-21
+## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-24
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -48,6 +48,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/beevik/etree from 1.7.0 to 1.7.1 [[#3382](https://github.com/opencloud-eu/opencloud/pull/3382)]
 - build(deps): bump github.com/nats-io/nats-server/v2 from 2.14.4 to 2.14.5 [[#3357](https://github.com/opencloud-eu/opencloud/pull/3357)]
 - build(deps): bump go.opentelemetry.io/contrib/zpages from 0.69.0 to 0.70.0 [[#3360](https://github.com/opencloud-eu/opencloud/pull/3360)]
 - build(deps): bump github.com/sirupsen/logrus from 1.9.4 to 1.10.0 [[#3359](https://github.com/opencloud-eu/opencloud/pull/3359)]
