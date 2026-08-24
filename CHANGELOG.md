@@ -48,6 +48,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump golang.org/x/image from 0.44.0 to 0.45.0 [[#3381](https://github.com/opencloud-eu/opencloud/pull/3381)]
 - build(deps): bump github.com/beevik/etree from 1.7.0 to 1.7.1 [[#3382](https://github.com/opencloud-eu/opencloud/pull/3382)]
 - build(deps): bump github.com/nats-io/nats-server/v2 from 2.14.4 to 2.14.5 [[#3357](https://github.com/opencloud-eu/opencloud/pull/3357)]
 - build(deps): bump go.opentelemetry.io/contrib/zpages from 0.69.0 to 0.70.0 [[#3360](https://github.com/opencloud-eu/opencloud/pull/3360)]
