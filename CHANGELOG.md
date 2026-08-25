@@ -1,6 +1,6 @@
 # Changelog
 
-## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-24
+## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-25
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -48,6 +48,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/go-chi/chi/v5 from 5.3.1 to 5.3.2 [[#3394](https://github.com/opencloud-eu/opencloud/pull/3394)]
 - build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.29.0 to 2.30.0 [[#3380](https://github.com/opencloud-eu/opencloud/pull/3380)]
 - build(deps): bump golang.org/x/image from 0.44.0 to 0.45.0 [[#3381](https://github.com/opencloud-eu/opencloud/pull/3381)]
 - build(deps): bump github.com/beevik/etree from 1.7.0 to 1.7.1 [[#3382](https://github.com/opencloud-eu/opencloud/pull/3382)]
