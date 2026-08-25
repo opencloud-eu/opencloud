@@ -1,5 +1,11 @@
 # Changelog
 
+## [7.5.1](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.1) - 2026-08-25
+
+### 📦️ Dependencies
+
+- build(deps): bump github.com/open-policy-agent/opa from 1.19.0 to 1.19.1 [[#3402](https://github.com/opencloud-eu/opencloud/pull/3402)]
+
 ## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-25
 
 ### ❤️ Thanks to all contributors! ❤️
