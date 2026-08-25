@@ -48,6 +48,7 @@
 
 ### 📦️ Dependencies
 
+- [full-ci] chore: bump web to v7.4.0 [[#3399](https://github.com/opencloud-eu/opencloud/pull/3399)]
 - build(deps): bump google.golang.org/grpc from 1.83.0 to 1.83.1 [[#3396](https://github.com/opencloud-eu/opencloud/pull/3396)]
 - build(deps): bump github.com/stretchr/testify from 1.12.0 to 1.12.1 [[#3395](https://github.com/opencloud-eu/opencloud/pull/3395)]
 - build(deps): bump github.com/go-chi/chi/v5 from 5.3.1 to 5.3.2 [[#3394](https://github.com/opencloud-eu/opencloud/pull/3394)]
