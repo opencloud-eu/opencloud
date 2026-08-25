@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // ScriptPainlessExecuteReq represents possible options for the delete script request
@@ -23,9 +24,9 @@ type ScriptPainlessExecuteReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r ScriptPainlessExecuteReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"POST",
+func (r ScriptPainlessExecuteReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_scripts/painless/_execute",
 		r.Body,
 		r.Params.get(),

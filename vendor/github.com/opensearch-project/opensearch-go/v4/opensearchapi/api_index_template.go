@@ -8,6 +8,7 @@ package opensearchapi
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
 )
@@ -22,7 +23,7 @@ func (c indexTemplateClient) Create(ctx context.Context, req IndexTemplateCreate
 		data IndexTemplateCreateResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodPut, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -35,7 +36,7 @@ func (c indexTemplateClient) Delete(ctx context.Context, req IndexTemplateDelete
 		data IndexTemplateDeleteResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodDelete, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -52,7 +53,7 @@ func (c indexTemplateClient) Get(ctx context.Context, req *IndexTemplateGetReq) 
 		data IndexTemplateGetResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -61,7 +62,7 @@ func (c indexTemplateClient) Get(ctx context.Context, req *IndexTemplateGetReq) 
 
 // Exists executes a exists indexTemplate request with the required IndexTemplatExistsReq
 func (c indexTemplateClient) Exists(ctx context.Context, req IndexTemplateExistsReq) (*opensearch.Response, error) {
-	return c.apiClient.do(ctx, req, nil)
+	return do(ctx, c.apiClient, http.MethodHead, req, noBody)
 }
 
 // Simulate executes a _simulate indexTemplate request with the required IndexTemplateSimulateReq
@@ -70,7 +71,7 @@ func (c indexTemplateClient) Simulate(ctx context.Context, req IndexTemplateSimu
 		data IndexTemplateSimulateResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodPost, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -86,7 +87,7 @@ func (c indexTemplateClient) SimulateIndex(
 		data IndexTemplateSimulateIndexResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodPost, req, &data); err != nil {
 		return &data, err
 	}
 

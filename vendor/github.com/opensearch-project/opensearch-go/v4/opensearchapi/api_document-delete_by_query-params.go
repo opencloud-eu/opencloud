@@ -57,9 +57,9 @@ type DocumentDeleteByQueryParams struct {
 	SearchTimeout       time.Duration
 	SearchType          string
 	Size                *int
-	Slices              interface{}
+	Slices              any
 	Sort                []string
-	Source              interface{}
+	Source              any
 	SourceExcludes      []string
 	SourceIncludes      []string
 	Stats               []string

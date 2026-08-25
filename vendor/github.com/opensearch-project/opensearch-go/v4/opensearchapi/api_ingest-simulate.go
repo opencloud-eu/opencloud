@@ -10,9 +10,10 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // IngestSimulateReq represents possible options for the index create request
@@ -26,22 +27,12 @@ type IngestSimulateReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r IngestSimulateReq) GetRequest() (*http.Request, error) {
-	var path strings.Builder
-	path.Grow(len("/_ingest/pipeline//_simulate") + len(r.PipelineID))
-	path.WriteString("/_ingest/pipeline/")
-	if len(r.PipelineID) > 0 {
-		path.WriteString(r.PipelineID)
-		path.WriteString("/")
+func (r IngestSimulateReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.IngestSimulatePath{ID: r.PipelineID}.Build()
+	if err != nil {
+		return nil, err
 	}
-	path.WriteString("_simulate")
-	return opensearch.BuildRequest(
-		"POST",
-		path.String(),
-		r.Body,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, r.Body, r.Params.get(), r.Header)
 }
 
 // IngestSimulateResp represents the returned struct of the index create response

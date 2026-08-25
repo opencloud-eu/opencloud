@@ -8,9 +8,10 @@ package opensearchapi
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // PointInTimeCreateReq represents possible options for the index create request
@@ -22,34 +23,23 @@ type PointInTimeCreateReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r PointInTimeCreateReq) GetRequest() (*http.Request, error) {
-	indices := strings.Join(r.Indices, ",")
-
-	var path strings.Builder
-	path.Grow(len("//_search/point_in_time") + len(indices))
-	if len(r.Indices) > 0 {
-		path.WriteString("/")
-		path.WriteString(indices)
+func (r PointInTimeCreateReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.CreatePITPath{Index: r.Indices}.Build()
+	if err != nil {
+		return nil, err
 	}
-	path.WriteString("/_search/point_in_time")
-
-	return opensearch.BuildRequest(
-		"POST",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // PointInTimeCreateResp represents the returned struct of the index create response
 type PointInTimeCreateResp struct {
 	PitID  string `json:"pit_id"`
 	Shards struct {
-		Total      int `json:"total"`
-		Successful int `json:"successful"`
-		Skipped    int `json:"skipped"`
-		Failed     int `json:"failed"`
+		Total      int                     `json:"total"`
+		Successful int                     `json:"successful"`
+		Skipped    int                     `json:"skipped"`
+		Failed     int                     `json:"failed"`
+		Failures   []ResponseShardsFailure `json:"failures,omitempty"` // Only present when Failed > 0
 	} `json:"_shards"`
 	CreationTime int64 `json:"creation_time"`
 	response     *opensearch.Response

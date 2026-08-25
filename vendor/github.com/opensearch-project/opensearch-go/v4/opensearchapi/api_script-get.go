@@ -7,10 +7,11 @@
 package opensearchapi
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // ScriptGetReq represents possible options for the get script request
@@ -22,14 +23,13 @@ type ScriptGetReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r ScriptGetReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"GET",
-		fmt.Sprintf("/_scripts/%s", r.ScriptID),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+func (r ScriptGetReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.GetScriptPath{ID: r.ScriptID}.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // ScriptGetResp represents the returned struct of the get script response

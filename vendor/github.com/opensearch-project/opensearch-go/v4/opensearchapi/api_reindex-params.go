@@ -39,7 +39,7 @@ type ReindexParams struct {
 	Refresh             *bool
 	RequestsPerSecond   *int
 	Scroll              time.Duration
-	Slices              interface{}
+	Slices              any
 	Timeout             time.Duration
 	WaitForActiveShards string
 	WaitForCompletion   *bool

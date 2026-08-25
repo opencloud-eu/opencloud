@@ -8,10 +8,11 @@ package opensearchapi
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // DocumentDeleteByQueryRethrottleReq represents possible options for the /_delete_by_query/<index>/_rethrottle request
@@ -23,14 +24,13 @@ type DocumentDeleteByQueryRethrottleReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r DocumentDeleteByQueryRethrottleReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"POST",
-		fmt.Sprintf("/_delete_by_query/%s/_rethrottle", r.TaskID),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+func (r DocumentDeleteByQueryRethrottleReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.DeleteByQueryRethrottlePath{TaskID: r.TaskID}.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // DocumentDeleteByQueryRethrottleResp represents the returned struct of the /_delete_by_query/<index>/_rethrottle response

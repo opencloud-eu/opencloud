@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // ScriptContextReq represents possible options for the delete script request
@@ -19,9 +20,9 @@ type ScriptContextReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r ScriptContextReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"GET",
+func (r ScriptContextReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_script_context",
 		nil,
 		r.Params.get(),

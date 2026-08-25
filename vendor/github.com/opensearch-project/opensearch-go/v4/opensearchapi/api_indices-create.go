@@ -7,11 +7,12 @@
 package opensearchapi
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // IndicesCreateReq represents possible options for the index create request
@@ -23,14 +24,12 @@ type IndicesCreateReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r IndicesCreateReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"PUT",
-		fmt.Sprintf("%s%s", "/", r.Index),
-		r.Body,
-		r.Params.get(),
-		r.Header,
-	)
+func (r IndicesCreateReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.IndicesCreatePath{Index: r.Index}.Build()
+	if err != nil {
+		return nil, err
+	}
+	return build.Request(method, path, r.Body, r.Params.get(), r.Header)
 }
 
 // IndicesCreateResp represents the returned struct of the index create response

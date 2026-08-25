@@ -64,7 +64,7 @@ type SearchParams struct {
 	SeqNoPrimaryTerm           *bool
 	Size                       *int
 	Sort                       []string
-	Source                     interface{}
+	Source                     any
 	SourceExcludes             []string
 	SourceIncludes             []string
 	Stats                      []string
@@ -76,7 +76,7 @@ type SearchParams struct {
 	TerminateAfter             *int
 	Timeout                    time.Duration
 	TrackScores                *bool
-	TrackTotalHits             interface{}
+	TrackTotalHits             any
 	TypedKeys                  *bool
 	Version                    *bool
 	PhaseTook                  bool

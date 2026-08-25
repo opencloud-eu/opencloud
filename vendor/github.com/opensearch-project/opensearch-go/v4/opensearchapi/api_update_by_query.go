@@ -8,13 +8,12 @@ package opensearchapi
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // UpdateByQuery executes a /_update_by_query request with the optional UpdateByQueryReq
@@ -23,7 +22,7 @@ func (c Client) UpdateByQuery(ctx context.Context, req UpdateByQueryReq) (*Updat
 		data UpdateByQueryResp
 		err  error
 	)
-	if data.response, err = c.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, &c, http.MethodPost, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -41,14 +40,13 @@ type UpdateByQueryReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r UpdateByQueryReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"POST",
-		fmt.Sprintf("/%s/_update_by_query", strings.Join(r.Indices, ",")),
-		r.Body,
-		r.Params.get(),
-		r.Header,
-	)
+func (r UpdateByQueryReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.UpdateByQueryPath{Index: r.Indices}.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	return build.Request(method, path, r.Body, r.Params.get(), r.Header)
 }
 
 // UpdateByQueryResp represents the returned struct of the /_update_by_query response
@@ -65,12 +63,12 @@ type UpdateByQueryResp struct {
 		Bulk   int `json:"bulk"`
 		Search int `json:"search"`
 	} `json:"retries"`
-	ThrottledMillis      int               `json:"throttled_millis"`
-	RequestsPerSecond    float32           `json:"requests_per_second"`
-	ThrottledUntilMillis int               `json:"throttled_until_millis"`
-	Failures             []json.RawMessage `json:"failures"`
-	Type                 string            `json:"_type"` // Deprecated field
-	Task                 string            `json:"task"`
+	ThrottledMillis      int                   `json:"throttled_millis"`
+	RequestsPerSecond    float32               `json:"requests_per_second"`
+	ThrottledUntilMillis int                   `json:"throttled_until_millis"`
+	Failures             []BulkByScrollFailure `json:"failures"`
+	Type                 string                `json:"_type,omitempty"` // Deprecated: ES 6.0, removed in OS 2.0
+	Task                 string                `json:"task"`
 	response             *opensearch.Response
 }
 

@@ -7,11 +7,12 @@
 package opensearchapi
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // SnapshotCloneReq represents possible options for the index create request
@@ -27,14 +28,17 @@ type SnapshotCloneReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r SnapshotCloneReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"PUT",
-		fmt.Sprintf("/_snapshot/%s/%s/_clone/%s", r.Repo, r.Snapshot, r.TargetSnapshot),
-		r.Body,
-		r.Params.get(),
-		r.Header,
-	)
+func (r SnapshotCloneReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.SnapshotClonePath{
+		Repository:     r.Repo,
+		Snapshot:       r.Snapshot,
+		TargetSnapshot: r.TargetSnapshot,
+	}.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	return build.Request(method, path, r.Body, r.Params.get(), r.Header)
 }
 
 // SnapshotCloneResp represents the returned struct of the index create response

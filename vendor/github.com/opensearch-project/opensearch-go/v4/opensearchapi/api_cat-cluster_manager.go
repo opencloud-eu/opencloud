@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // CatClusterManagerReq represent possible options for the /_cat/cluster_manager request
@@ -19,9 +20,9 @@ type CatClusterManagerReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r CatClusterManagerReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"GET",
+func (r CatClusterManagerReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_cat/cluster_manager",
 		nil,
 		r.Params.get(),

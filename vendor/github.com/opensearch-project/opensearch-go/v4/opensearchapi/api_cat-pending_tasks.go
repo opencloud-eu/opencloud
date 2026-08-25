@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // CatPendingTasksReq represent possible options for the /_cat/pending_tasks request
@@ -19,9 +20,9 @@ type CatPendingTasksReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r CatPendingTasksReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"GET",
+func (r CatPendingTasksReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_cat/pending_tasks",
 		nil,
 		r.Params.get(),

@@ -9,12 +9,12 @@ package opensearchapi
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // Search executes a /_search request with the optional SearchReq
@@ -27,10 +27,13 @@ func (c Client) Search(ctx context.Context, req *SearchReq) (*SearchResp, error)
 		data SearchResp
 		err  error
 	)
-	if data.response, err = c.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, &c, http.MethodPost, req, &data); err != nil {
 		return &data, err
 	}
 
+	if errs := data.PartialFailures(c.errors); len(errs) > 0 {
+		return &data, errs[0]
+	}
 	return &data, nil
 }
 
@@ -44,16 +47,14 @@ type SearchReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r SearchReq) GetRequest() (*http.Request, error) {
-	var path string
-	if len(r.Indices) > 0 {
-		path = fmt.Sprintf("/%s/_search", strings.Join(r.Indices, ","))
-	} else {
-		path = "/_search"
+func (r SearchReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.SearchPath{Index: r.Indices}.Build()
+	if err != nil {
+		return nil, err
 	}
 
-	return opensearch.BuildRequest(
-		"POST",
+	return build.Request(
+		method,
 		path,
 		r.Body,
 		r.Params.get(),
@@ -63,16 +64,17 @@ func (r SearchReq) GetRequest() (*http.Request, error) {
 
 // SearchResp represents the returned struct of the /_search response
 type SearchResp struct {
-	Took         int                  `json:"took"`
-	PhaseTook    *PhaseTook           `json:"phase_took,omitempty"`
-	Timeout      bool                 `json:"timed_out"`
-	Shards       ResponseShards       `json:"_shards"`
-	Hits         SearchHits           `json:"hits"`
-	Errors       bool                 `json:"errors"`
-	Aggregations json.RawMessage      `json:"aggregations"`
-	ScrollID     *string              `json:"_scroll_id,omitempty"`
-	Suggest      map[string][]Suggest `json:"suggest,omitempty"`
-	response     *opensearch.Response
+	Took            int                  `json:"took"`
+	PhaseTook       *PhaseTook           `json:"phase_took,omitempty"`
+	Timeout         bool                 `json:"timed_out"`
+	NumReducePhases int                  `json:"num_reduce_phases,omitempty"` // Number of reduce phases executed
+	Shards          ResponseShards       `json:"_shards"`
+	Hits            SearchHits           `json:"hits"`
+	Errors          bool                 `json:"errors"`
+	Aggregations    json.RawMessage      `json:"aggregations"`
+	ScrollID        *string              `json:"_scroll_id,omitempty"`
+	Suggest         map[string][]Suggest `json:"suggest,omitempty"`
+	response        *opensearch.Response
 }
 
 // Inspect returns the Inspect type containing the raw *opensearch.Response
@@ -101,7 +103,7 @@ type SearchHit struct {
 	InnerHits map[string]struct {
 		Hits SearchHits `json:"hits"`
 	} `json:"inner_hits"`
-	Type           string                  `json:"_type"` // Deprecated field
+	Type           string                  `json:"_type,omitempty"` // Deprecated: ES 6.0, removed in OS 2.0
 	Sort           []any                   `json:"sort"`
 	Explanation    *DocumentExplainDetails `json:"_explanation"`
 	SeqNo          *int                    `json:"_seq_no"`
@@ -122,7 +124,7 @@ type Suggest struct {
 type SuggestOptions struct {
 	Text            string              `json:"text"`
 	Index           string              `json:"_index"`
-	Type            string              `json:"_type"`
+	Type            string              `json:"_type,omitempty"` // Deprecated: ES 6.0, removed in OS 2.0
 	ID              string              `json:"_id"`
 	Score           float64             `json:"score"`  // term suggesters uses "score"
 	ScoreUnderscore float64             `json:"_score"` // completion and context suggesters uses "_score"

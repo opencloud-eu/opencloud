@@ -8,6 +8,7 @@ package opensearchapi
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
 )
@@ -26,7 +27,7 @@ func (c clusterClient) AllocationExplain(ctx context.Context, req *ClusterAlloca
 		data ClusterAllocationExplainResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -43,7 +44,7 @@ func (c clusterClient) Health(ctx context.Context, req *ClusterHealthReq) (*Clus
 		data ClusterHealthResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -60,7 +61,7 @@ func (c clusterClient) PendingTasks(ctx context.Context, req *ClusterPendingTask
 		data ClusterPendingTasksResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -77,7 +78,7 @@ func (c clusterClient) GetSettings(ctx context.Context, req *ClusterGetSettingsR
 		data ClusterGetSettingsResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -90,7 +91,7 @@ func (c clusterClient) PutSettings(ctx context.Context, req ClusterPutSettingsRe
 		data ClusterPutSettingsResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodPut, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -107,7 +108,7 @@ func (c clusterClient) State(ctx context.Context, req *ClusterStateReq) (*Cluste
 		data ClusterStateResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -124,7 +125,7 @@ func (c clusterClient) Stats(ctx context.Context, req *ClusterStatsReq) (*Cluste
 		data ClusterStatsResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -137,7 +138,7 @@ func (c clusterClient) Reroute(ctx context.Context, req ClusterRerouteReq) (*Clu
 		data ClusterRerouteResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodPost, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -153,7 +154,7 @@ func (c clusterClient) PostVotingConfigExclusions(
 		resp *opensearch.Response
 		err  error
 	)
-	if resp, err = c.apiClient.do(ctx, req, nil); err != nil {
+	if resp, err = do(ctx, c.apiClient, http.MethodPost, req, noBody); err != nil {
 		return resp, err
 	}
 
@@ -170,7 +171,7 @@ func (c clusterClient) DeleteVotingConfigExclusions(
 		resp *opensearch.Response
 		err  error
 	)
-	if resp, err = c.apiClient.do(ctx, req, nil); err != nil {
+	if resp, err = do(ctx, c.apiClient, http.MethodDelete, req, noBody); err != nil {
 		return resp, err
 	}
 
@@ -183,7 +184,7 @@ func (c clusterClient) PutDecommission(ctx context.Context, req ClusterPutDecomm
 		data ClusterPutDecommissionResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodPut, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -203,7 +204,7 @@ func (c clusterClient) DeleteDecommission(
 		data ClusterDeleteDecommissionResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodDelete, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -216,7 +217,7 @@ func (c clusterClient) GetDecommission(ctx context.Context, req ClusterGetDecomm
 		data ClusterGetDecommissionResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Values); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Values); err != nil {
 		return &data, err
 	}
 
@@ -233,7 +234,7 @@ func (c clusterClient) RemoteInfo(ctx context.Context, req *ClusterRemoteInfoReq
 		data ClusterRemoteInfoResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Clusters); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Clusters); err != nil {
 		return &data, err
 	}
 

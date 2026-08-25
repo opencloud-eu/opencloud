@@ -9,9 +9,10 @@ package opensearchapi
 import (
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // ScrollDeleteReq represents possible options for the index create request
@@ -25,22 +26,12 @@ type ScrollDeleteReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r ScrollDeleteReq) GetRequest() (*http.Request, error) {
-	scrolls := strings.Join(r.ScrollIDs, ",")
-	var path strings.Builder
-	path.Grow(len("/_search/scroll/") + len(scrolls))
-	path.WriteString("/_search/scroll")
-	if len(r.ScrollIDs) > 0 {
-		path.WriteString("/")
-		path.WriteString(scrolls)
+func (r ScrollDeleteReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.ClearScrollPath{ScrollID: r.ScrollIDs}.Build()
+	if err != nil {
+		return nil, err
 	}
-	return opensearch.BuildRequest(
-		"DELETE",
-		path.String(),
-		r.Body,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, r.Body, r.Params.get(), r.Header)
 }
 
 // ScrollDeleteResp represents the returned struct of the index create response

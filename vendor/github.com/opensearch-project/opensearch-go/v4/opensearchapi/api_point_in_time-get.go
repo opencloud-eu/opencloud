@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // PointInTimeGetReq represents possible options for the index create request
@@ -19,9 +20,9 @@ type PointInTimeGetReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r PointInTimeGetReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"GET",
+func (r PointInTimeGetReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_search/point_in_time/_all",
 		nil,
 		r.Params.get(),

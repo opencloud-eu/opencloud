@@ -8,9 +8,10 @@ package opensearchapi
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // IndicesFlushReq represents possible options for the flush indices request
@@ -22,23 +23,12 @@ type IndicesFlushReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r IndicesFlushReq) GetRequest() (*http.Request, error) {
-	indices := strings.Join(r.Indices, ",")
-
-	var path strings.Builder
-	path.Grow(len("//_flush") + len(indices))
-	if len(indices) > 0 {
-		path.WriteString("/")
-		path.WriteString(indices)
+func (r IndicesFlushReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.IndicesFlushPath{Index: r.Indices}.Build()
+	if err != nil {
+		return nil, err
 	}
-	path.WriteString("/_flush")
-	return opensearch.BuildRequest(
-		"POST",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // IndicesFlushResp represents the returned struct of the flush indices response

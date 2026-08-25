@@ -9,9 +9,10 @@ package opensearchapi
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // NodesUsageReq represents possible options for the /_nodes request
@@ -24,32 +25,15 @@ type NodesUsageReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r NodesUsageReq) GetRequest() (*http.Request, error) {
-	nodes := strings.Join(r.NodeID, ",")
-	metrics := strings.Join(r.Metrics, ",")
-
-	var path strings.Builder
-
-	path.Grow(len("/_nodes//usage/") + len(nodes) + len(metrics))
-
-	path.WriteString("/_nodes")
-	if len(r.NodeID) > 0 {
-		path.WriteString("/")
-		path.WriteString(nodes)
+func (r NodesUsageReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.NodesUsagePath{
+		Metric: r.Metrics,
+		NodeID: r.NodeID,
+	}.Build()
+	if err != nil {
+		return nil, err
 	}
-	path.WriteString("/usage")
-	if len(r.Metrics) > 0 {
-		path.WriteString("/")
-		path.WriteString(metrics)
-	}
-
-	return opensearch.BuildRequest(
-		"GET",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // NodesUsageResp represents the returned struct of the /_nodes response
