@@ -13,19 +13,22 @@ import (
 	"strings"
 )
 
+const (
+	procSelfMountInfoPath = "/proc/self/mountinfo"
+	procSelfCgroupPath    = "/proc/self/cgroup"
+)
+
 var (
-	// ErrNoCgroup is returned when the process is not in cgroup.
+	// ErrNoCgroup is returned when the process is not assigned to a cgroup.
 	ErrNoCgroup = errors.New("process is not in cgroup")
 	// ErrCgroupsNotSupported is returned when the system does not support cgroups.
 	ErrCgroupsNotSupported = errors.New("cgroups is not supported on this system")
 )
 
-// fromCgroup retrieves the memory limit from the cgroup.
-// The versionDetector function is used to detect the cgroup version from the mountinfo.
-func fromCgroup(versionDetector func(mis []mountInfo) (bool, bool)) (uint64, error) {
-	mf, err := os.Open("/proc/self/mountinfo")
+func fromCgroup(mountInfoPath, cgroupPath string) (uint64, error) {
+	mf, err := os.Open(mountInfoPath)
 	if err != nil {
-		return 0, fmt.Errorf("failed to open /proc/self/mountinfo: %w", err)
+		return 0, fmt.Errorf("failed to open %s: %w", mountInfoPath, err)
 	}
 	defer mf.Close()
 
@@ -34,14 +37,9 @@ func fromCgroup(versionDetector func(mis []mountInfo) (bool, bool)) (uint64, err
 		return 0, fmt.Errorf("failed to parse mountinfo: %w", err)
 	}
 
-	v1, v2 := versionDetector(mis)
-	if !(v1 || v2) {
-		return 0, ErrNoCgroup
-	}
-
-	cf, err := os.Open("/proc/self/cgroup")
+	cf, err := os.Open(cgroupPath)
 	if err != nil {
-		return 0, fmt.Errorf("failed to open /proc/self/cgroup: %w", err)
+		return 0, fmt.Errorf("failed to open %s: %w", cgroupPath, err)
 	}
 	defer cf.Close()
 
@@ -50,70 +48,75 @@ func fromCgroup(versionDetector func(mis []mountInfo) (bool, bool)) (uint64, err
 		return 0, fmt.Errorf("failed to parse cgroup file: %w", err)
 	}
 
-	if v2 {
-		limit, err := getMemoryLimitV2(chs, mis)
-		if err == nil {
-			return limit, nil
-		} else if !v1 {
-			return 0, err
-		}
-	}
-
-	return getMemoryLimitV1(chs, mis)
-}
-
-// detectCgroupVersion detects the cgroup version from the mountinfo.
-func detectCgroupVersion(mis []mountInfo) (bool, bool) {
-	var v1, v2 bool
-	for _, mi := range mis {
-		switch mi.FilesystemType {
-		case "cgroup":
-			v1 = true
-		case "cgroup2":
-			v2 = true
-		}
-	}
-	return v1, v2
-}
-
-// getMemoryLimitV2 retrieves the memory limit from the cgroup v2 controller.
-func getMemoryLimitV2(chs []cgroupHierarchy, mis []mountInfo) (uint64, error) {
-	// find the cgroup v2 path for the memory controller.
-	// in cgroup v2, the paths are unified and the controller list is empty.
-	idx := slices.IndexFunc(chs, func(ch cgroupHierarchy) bool {
-		return ch.HierarchyID == "0" && ch.ControllerList == ""
-	})
-	if idx == -1 {
-		return 0, errors.New("cgroup v2 path not found")
-	}
-	relPath := chs[idx].CgroupPath
-
-	// find the mountpoint for the cgroup v2 controller.
-	idx = slices.IndexFunc(mis, func(mi mountInfo) bool {
-		return mi.FilesystemType == "cgroup2"
-	})
-	if idx == -1 {
-		return 0, errors.New("cgroup v2 mountpoint not found")
-	}
-	root, mountPoint := mis[idx].Root, mis[idx].MountPoint
-
-	// resolve the actual cgroup path
-	cgroupPath, err := resolveCgroupPath(mountPoint, root, relPath)
+	controller, err := selectMemoryController(chs, mis)
 	if err != nil {
 		return 0, err
 	}
+	if controller.isV2 {
+		return getMemoryLimitV2FromControllerPath(controller.path, mis)
+	}
 
-	// retrieve the memory limit from the memory.max recursively.
-	return walkCgroupV2Hierarchy(cgroupPath, mountPoint)
+	return getMemoryLimitV1FromControllerPath(controller.path, mis)
 }
 
-// readMemoryLimitV2FromPath reads the memory limit for cgroup v2 from the given path.
-// this function expects the path to be memory.max file.
+type memoryController struct {
+	path string
+	isV2 bool
+}
+
+// selectMemoryController selects v1 when both v1 and v2 are available.
+func selectMemoryController(chs []cgroupHierarchy, mis []mountInfo) (memoryController, error) {
+	var (
+		v1Path     string
+		v2Path     string
+		hasV1Entry bool
+		hasV2Entry bool
+		hasV1Mount bool
+		hasV2Mount bool
+	)
+
+	for _, ch := range chs {
+		if !hasV1Entry && ch.HierarchyID != "0" && slices.Contains(strings.Split(ch.ControllerList, ","), "memory") {
+			v1Path = ch.CgroupPath
+			hasV1Entry = true
+		} else if !hasV2Entry && ch.HierarchyID == "0" && ch.ControllerList == "" {
+			v2Path = ch.CgroupPath
+			hasV2Entry = true
+		}
+	}
+
+	for _, mi := range mis {
+		if !hasV1Mount && mi.FilesystemType == "cgroup" && slices.Contains(strings.Split(mi.SuperOptions, ","), "memory") {
+			hasV1Mount = true
+		} else if !hasV2Mount && mi.FilesystemType == "cgroup2" {
+			// cgroup v2 uses a unified hierarchy, so the filesystem type is sufficient
+			hasV2Mount = true
+		}
+	}
+
+	switch {
+	case hasV1Entry:
+		if !hasV1Mount {
+			return memoryController{}, errors.New("memory controller found in /proc/self/cgroup but no cgroup v1 memory mount found")
+		}
+		return memoryController{path: v1Path}, nil
+	case hasV2Entry:
+		if !hasV2Mount {
+			return memoryController{}, errors.New("cgroup v2 hierarchy found in /proc/self/cgroup but no cgroup2 mount found")
+		}
+		return memoryController{path: v2Path, isV2: true}, nil
+	default:
+		return memoryController{}, ErrNoCgroup
+	}
+}
+
+// readMemoryLimitV2FromPath reads a memory limit from a cgroup v2 memory.max file.
+// It returns [ErrNoLimit] for "max" and preserves [os.ErrNotExist] for a missing file.
 func readMemoryLimitV2FromPath(path string) (uint64, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return 0, ErrNoLimit
+			return 0, err
 		}
 		return 0, fmt.Errorf("failed to read memory.max: %w", err)
 	}
@@ -131,22 +134,21 @@ func readMemoryLimitV2FromPath(path string) (uint64, error) {
 	return limit, nil
 }
 
-// walkCgroupV2Hierarchy walks up the cgroup v2 hierarchy to find the most restrictive memory limit.
+// walkCgroupV2Hierarchy returns the smallest limit between cgroupPath and mountPoint.
+// It skips missing and unlimited values, returning [ErrNoLimit] if no concrete limit remains.
 func walkCgroupV2Hierarchy(cgroupPath, mountPoint string) (uint64, error) {
 	var (
-		found              = false
-		minLimit    uint64 = math.MaxUint64
-		currentPath        = cgroupPath
+		found           = false
+		minLimit uint64 = math.MaxUint64
 	)
-	for {
+	for currentPath := cgroupPath; ; {
 		limit, err := readMemoryLimitV2FromPath(filepath.Join(currentPath, "memory.max"))
-		if err != nil && !errors.Is(err, ErrNoLimit) {
-			return 0, err
-		} else if err == nil {
+		if err == nil {
 			found = true
 			minLimit = min(minLimit, limit)
+		} else if !errors.Is(err, os.ErrNotExist) && !errors.Is(err, ErrNoLimit) {
+			return 0, err
 		}
-
 		if currentPath == mountPoint {
 			break
 		}
@@ -164,83 +166,236 @@ func walkCgroupV2Hierarchy(cgroupPath, mountPoint string) (uint64, error) {
 	return minLimit, nil
 }
 
-// getMemoryLimitV1 retrieves the memory limit from the cgroup v1 controller.
-func getMemoryLimitV1(chs []cgroupHierarchy, mis []mountInfo) (uint64, error) {
-	// find the cgroup v1 path for the memory controller.
-	idx := slices.IndexFunc(chs, func(ch cgroupHierarchy) bool {
-		return slices.Contains(strings.Split(ch.ControllerList, ","), "memory")
-	})
-	if idx == -1 {
-		return 0, errors.New("cgroup v1 path for memory controller not found")
-	}
-	relPath := chs[idx].CgroupPath
-
-	// find the mountpoint for the cgroup v1 controller.
-	idx = slices.IndexFunc(mis, func(mi mountInfo) bool {
-		return mi.FilesystemType == "cgroup" && slices.Contains(strings.Split(mi.SuperOptions, ","), "memory")
-	})
-	if idx == -1 {
-		return 0, errors.New("cgroup v1 mountpoint for memory controller not found")
-	}
-	root, mountPoint := mis[idx].Root, mis[idx].MountPoint
-
-	// resolve the actual cgroup path
-	cgroupPath, err := resolveCgroupPath(mountPoint, root, relPath)
+// getMemoryLimitV2FromControllerPath prefers mounts rooted closest to the cgroup hierarchy root.
+func getMemoryLimitV2FromControllerPath(relPath string, mis []mountInfo) (uint64, error) {
+	rootClosestMounts, err := getRootClosestMountCandidates(
+		relPath,
+		mis,
+		func(mi mountInfo) bool {
+			return mi.FilesystemType == "cgroup2"
+		},
+	)
 	if err != nil {
 		return 0, err
 	}
 
-	// retrieve the memory limit from the memory.stat and memory.limit_in_bytes files.
-	return readMemoryLimitV1FromPath(cgroupPath)
-}
+	limit, found, err := getMemoryLimitFromMountCandidates(
+		rootClosestMounts,
+		func(mi mountInfo) (uint64, bool, error) {
+			cgroupPath, err := resolveCgroupPath(mi.MountPoint, mi.Root, relPath)
+			if err != nil {
+				return 0, false, err
+			}
 
-// getCgroupV1NoLimit returns the maximum value that is used to represent no limit in cgroup v1.
-// the max memory limit is max int64, but it should be multiple of the page size.
-func getCgroupV1NoLimit() uint64 {
-	ps := uint64(os.Getpagesize())
-	return math.MaxInt64 / ps * ps
-}
+			stat, err := os.Stat(cgroupPath)
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					return 0, false, nil
+				}
+				return 0, false, err
+			}
+			if !stat.IsDir() {
+				return 0, false, fmt.Errorf("cgroup v2 path %s is not a directory", cgroupPath)
+			}
 
-// readMemoryLimitV1FromPath reads the memory limit for cgroup v1 from the given path.
-// this function expects the path to be the cgroup directory.
-func readMemoryLimitV1FromPath(cgroupPath string) (uint64, error) {
-	// read hierarchical_memory_limit and memory.limit_in_bytes files.
-	// but if hierarchical_memory_limit is not available, then use the max value as a fallback.
-	hml, err := readHierarchicalMemoryLimit(filepath.Join(cgroupPath, "memory.stat"))
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return 0, fmt.Errorf("failed to read hierarchical_memory_limit: %w", err)
-	} else if hml == 0 {
-		hml = math.MaxUint64
-	}
+			limit, err := walkCgroupV2Hierarchy(cgroupPath, mi.MountPoint)
+			if err != nil {
+				return 0, false, err
+			}
 
-	// read memory.limit_in_bytes file.
-	b, err := os.ReadFile(filepath.Join(cgroupPath, "memory.limit_in_bytes"))
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return 0, fmt.Errorf("failed to read memory.limit_in_bytes: %w", err)
-	}
-	lib, err := strconv.ParseUint(strings.TrimSpace(string(b)), 10, 64)
+			return limit, true, nil
+		},
+	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse memory.limit_in_bytes value: %w", err)
-	} else if lib == 0 {
+		return 0, err
+	} else if found {
+		return limit, nil
+	}
+
+	return 0, errors.New("no usable cgroup v2 memory mount found")
+}
+
+// getMemoryLimitV1FromControllerPath prefers mounts rooted closest to the cgroup hierarchy root.
+func getMemoryLimitV1FromControllerPath(relPath string, mis []mountInfo) (uint64, error) {
+	rootClosestMounts, err := getRootClosestMountCandidates(
+		relPath,
+		mis,
+		func(mi mountInfo) bool {
+			return mi.FilesystemType == "cgroup" && slices.Contains(strings.Split(mi.SuperOptions, ","), "memory")
+		},
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	limit, found, err := getMemoryLimitFromMountCandidates(
+		rootClosestMounts,
+		func(mi mountInfo) (uint64, bool, error) {
+			cgroupPath, err := resolveCgroupPath(mi.MountPoint, mi.Root, relPath)
+			if err != nil {
+				return 0, false, err
+			}
+
+			return readMemoryLimitV1FromPath(cgroupPath)
+		},
+	)
+	if err != nil {
+		return 0, err
+	} else if found {
+		return limit, nil
+	}
+
+	return 0, errors.New("no usable cgroup v1 memory mount found")
+}
+
+func getRootClosestMountCandidates(
+	relPath string,
+	mis []mountInfo,
+	isCandidate func(mi mountInfo) bool,
+) ([]mountInfo, error) {
+	var (
+		rootClosestMounts []mountInfo
+		maxDepth          = -1
+	)
+	for _, mi := range mis {
+		if !isCandidate(mi) {
+			continue
+		}
+
+		cgroupPath, err := resolveCgroupPath(mi.MountPoint, mi.Root, relPath)
+		if err != nil {
+			return nil, err
+		} else if cgroupPath == "" {
+			continue
+		}
+		if _, err := os.Stat(cgroupPath); errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+
+		rel, err := filepath.Rel(mi.MountPoint, cgroupPath)
+		if err != nil {
+			return nil, err
+		}
+
+		depth := 0
+		if rel != "." {
+			depth = strings.Count(rel, string(filepath.Separator)) + 1
+		}
+
+		switch {
+		case depth > maxDepth:
+			rootClosestMounts = []mountInfo{mi}
+			maxDepth = depth
+		case depth == maxDepth:
+			rootClosestMounts = append(rootClosestMounts, mi)
+		}
+	}
+
+	return rootClosestMounts, nil
+}
+
+// getLimit may return found=false to skip a candidate or [ErrNoLimit] for no usable limit.
+// Other errors and conflicting concrete limits are returned.
+func getMemoryLimitFromMountCandidates(
+	mis []mountInfo,
+	getLimit func(mi mountInfo) (uint64, bool, error),
+) (uint64, bool, error) {
+	var (
+		firstErr, conflictErr  error
+		sawNoLimit, limitFound bool
+		firstLimit             uint64
+	)
+	for _, mi := range mis {
+		limit, found, err := getLimit(mi)
+		if err != nil {
+			if errors.Is(err, ErrNoLimit) {
+				sawNoLimit = true
+			} else if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		} else if !found {
+			continue
+		}
+
+		if !limitFound {
+			limitFound = true
+			firstLimit = limit
+		} else if limit != firstLimit && conflictErr == nil {
+			conflictErr = fmt.Errorf("conflicting memory limits from cgroup mount candidates: %d and %d", firstLimit, limit)
+		}
+	}
+	if firstErr != nil {
+		return 0, false, firstErr
+	}
+	if conflictErr != nil {
+		return 0, false, conflictErr
+	}
+
+	if limitFound {
+		return firstLimit, true, nil
+	}
+	if sawNoLimit {
+		return 0, false, ErrNoLimit
+	}
+
+	return 0, false, nil
+}
+
+// cgroup v1 uses the kernel's maximum page counter value to represent no limit
+func isCgroupV1NoLimit(limit uint64) bool {
+	pageSize := uint64(os.Getpagesize())
+	if limit >= math.MaxInt64/pageSize*pageSize {
+		return true
+	}
+
+	// strconv.IntSize reflects the Go binary width, not the kernel bitness
+	if strconv.IntSize == 32 {
+		return limit == math.MaxInt32*pageSize
+	}
+
+	return false
+}
+
+// readMemoryLimitV1FromPath reads the effective memory limit from a cgroup v1 directory.
+// It returns [ErrNoLimit] for a no-limit sentinel.
+// The bool reports whether a limit value was found.
+func readMemoryLimitV1FromPath(cgroupPath string) (uint64, bool, error) {
+	// use math.MaxUint64 as a neutral fallback so memory.limit_in_bytes determines the result
+	hml, hmlFound, err := readHierarchicalMemoryLimit(filepath.Join(cgroupPath, "memory.stat"))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return 0, false, fmt.Errorf("failed to read hierarchical_memory_limit: %w", err)
+	} else if !hmlFound {
 		hml = math.MaxUint64
 	}
 
-	// use the minimum value between hierarchical_memory_limit and memory.limit_in_bytes.
-	// if the limit is the maximum value, then it is considered as no limit.
-	limit := min(hml, lib)
-	if limit >= getCgroupV1NoLimit() {
-		return 0, ErrNoLimit
+	var libFound bool
+	lib, err := readMemoryLimitInBytes(filepath.Join(cgroupPath, "memory.limit_in_bytes"))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return 0, false, err
+	} else if errors.Is(err, os.ErrNotExist) {
+		lib = math.MaxUint64
+	} else {
+		libFound = true
 	}
 
-	return limit, nil
+	if !hmlFound && !libFound {
+		return 0, false, nil
+	}
+
+	limit := min(hml, lib)
+	if isCgroupV1NoLimit(limit) {
+		return 0, true, ErrNoLimit
+	}
+
+	return limit, true, nil
 }
 
-// readHierarchicalMemoryLimit extracts hierarchical_memory_limit from memory.stat.
-// this function expects the path to be memory.stat file.
-func readHierarchicalMemoryLimit(path string) (uint64, error) {
+// readHierarchicalMemoryLimit returns false if memory.stat has no hierarchical_memory_limit field.
+func readHierarchicalMemoryLimit(path string) (uint64, bool, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	defer file.Close()
 
@@ -248,23 +403,42 @@ func readHierarchicalMemoryLimit(path string) (uint64, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		fields := strings.Split(line, " ")
+		fields := strings.Fields(line)
+		if len(fields) == 0 || fields[0] != "hierarchical_memory_limit" {
+			continue
+		}
 		if len(fields) < 2 {
-			return 0, fmt.Errorf("failed to parse memory.stat %q: not enough fields", line)
+			return 0, false, fmt.Errorf("failed to parse memory.stat %q: not enough fields", line)
+		} else if len(fields) > 2 {
+			return 0, false, fmt.Errorf("failed to parse memory.stat %q: too many fields for hierarchical_memory_limit", line)
 		}
 
-		if fields[0] == "hierarchical_memory_limit" {
-			if len(fields) > 2 {
-				return 0, fmt.Errorf("failed to parse memory.stat %q: too many fields for hierarchical_memory_limit", line)
-			}
-			return strconv.ParseUint(fields[1], 10, 64)
+		limit, err := strconv.ParseUint(fields[1], 10, 64)
+		if err != nil {
+			return 0, false, fmt.Errorf("failed to parse hierarchical_memory_limit value: %w", err)
 		}
+
+		return limit, true, nil
 	}
 	if err := scanner.Err(); err != nil {
-		return 0, err
+		return 0, false, err
 	}
 
-	return 0, nil
+	return 0, false, nil
+}
+
+func readMemoryLimitInBytes(path string) (uint64, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read memory.limit_in_bytes: %w", err)
+	}
+
+	limit, err := strconv.ParseUint(strings.TrimSpace(string(b)), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse memory.limit_in_bytes value: %w", err)
+	}
+
+	return limit, nil
 }
 
 // https://www.man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html
@@ -291,7 +465,6 @@ type mountInfo struct {
 	SuperOptions   string
 }
 
-// parseMountInfoLine parses a line from the mountinfo file.
 func parseMountInfoLine(line string) (mountInfo, error) {
 	if line == "" {
 		return mountInfo{}, errors.New("empty line")
@@ -315,14 +488,50 @@ func parseMountInfoLine(line string) (mountInfo, error) {
 	}
 
 	return mountInfo{
-		Root:           fields1[3],
-		MountPoint:     fields1[4],
+		Root:           unescapeMountInfoPath(fields1[3]),
+		MountPoint:     unescapeMountInfoPath(fields1[4]),
 		FilesystemType: fields2[0],
 		SuperOptions:   fields2[2],
 	}, nil
 }
 
-// parseMountInfo parses the mountinfo file.
+// unescapeMountInfoPath decodes path escapes written to /proc/<pid>/mountinfo.
+// https://github.com/torvalds/linux/blob/master/fs/proc_namespace.c
+func unescapeMountInfoPath(path string) string {
+	if strings.IndexByte(path, '\\') == -1 {
+		return path
+	}
+
+	var b strings.Builder
+	b.Grow(len(path))
+	for i := 0; i < len(path); i++ {
+		if path[i] == '\\' && i+3 < len(path) {
+			switch path[i : i+4] {
+			case `\040`:
+				b.WriteByte(' ')
+				i += 3
+				continue
+			case `\011`:
+				b.WriteByte('\t')
+				i += 3
+				continue
+			case `\012`:
+				b.WriteByte('\n')
+				i += 3
+				continue
+			case `\134`:
+				b.WriteByte('\\')
+				i += 3
+				continue
+			}
+		}
+
+		b.WriteByte(path[i])
+	}
+
+	return b.String()
+}
+
 func parseMountInfo(r io.Reader) ([]mountInfo, error) {
 	var (
 		s   = bufio.NewScanner(r)
@@ -377,17 +586,14 @@ type cgroupHierarchy struct {
 	CgroupPath     string
 }
 
-// parseCgroupHierarchyLine parses a line from the cgroup file.
 func parseCgroupHierarchyLine(line string) (cgroupHierarchy, error) {
 	if line == "" {
 		return cgroupHierarchy{}, errors.New("empty line")
 	}
 
-	fields := strings.Split(line, ":")
+	fields := strings.SplitN(line, ":", 3)
 	if len(fields) < 3 {
 		return cgroupHierarchy{}, fmt.Errorf("not enough fields: %v", fields)
-	} else if len(fields) > 3 {
-		return cgroupHierarchy{}, fmt.Errorf("too many fields: %v", fields)
 	}
 
 	return cgroupHierarchy{
@@ -397,7 +603,6 @@ func parseCgroupHierarchyLine(line string) (cgroupHierarchy, error) {
 	}, nil
 }
 
-// parseCgroupFile parses the cgroup file.
 func parseCgroupFile(r io.Reader) ([]cgroupHierarchy, error) {
 	var (
 		s   = bufio.NewScanner(r)
@@ -420,22 +625,26 @@ func parseCgroupFile(r io.Reader) ([]cgroupHierarchy, error) {
 	return chs, nil
 }
 
-// resolveCgroupPath resolves the actual cgroup path from the mountpoint, root, and cgroupRelPath.
-func resolveCgroupPath(mountpoint, root, cgroupRelPath string) (string, error) {
-	rel, err := filepath.Rel(root, cgroupRelPath)
-	if err != nil {
-		return "", err
+// resolveCgroupPath maps cgroupRelPath from root into mountPoint.
+// It returns an empty path when cgroupRelPath lies outside root.
+func resolveCgroupPath(mountPoint, root, cgroupRelPath string) (string, error) {
+	if !strings.HasPrefix(root, "/") || !strings.HasPrefix(cgroupRelPath, "/") {
+		return "", errors.New("cgroup root and path must be absolute")
 	}
 
-	// if the relative path is ".", then the cgroupRelPath is the root itself.
-	if rel == "." {
-		return mountpoint, nil
+	if root == cgroupRelPath {
+		return mountPoint, nil
 	}
 
-	// if the relative path starts with "..", then it is outside the root.
-	if strings.HasPrefix(rel, "..") {
-		return "", fmt.Errorf("invalid cgroup path: %s is not under root %s", cgroupRelPath, root)
+	prefix := root
+	if root != "/" {
+		prefix += "/"
 	}
 
-	return filepath.Join(mountpoint, rel), nil
+	rel, ok := strings.CutPrefix(cgroupRelPath, prefix)
+	if !ok || !filepath.IsLocal(rel) {
+		return "", nil
+	}
+
+	return filepath.Join(mountPoint, rel), nil
 }
