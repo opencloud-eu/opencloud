@@ -9,9 +9,10 @@ package opensearchapi
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // NodesInfoReq represents possible options for the /_nodes request
@@ -24,31 +25,15 @@ type NodesInfoReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r NodesInfoReq) GetRequest() (*http.Request, error) {
-	nodes := strings.Join(r.NodeID, ",")
-	metrics := strings.Join(r.Metrics, ",")
-
-	var path strings.Builder
-
-	path.Grow(len("/_nodes//") + len(nodes) + len(metrics))
-
-	path.WriteString("/_nodes")
-	if len(r.NodeID) > 0 {
-		path.WriteString("/")
-		path.WriteString(nodes)
+func (r NodesInfoReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.NodesInfoPath{
+		NodeID: r.NodeID,
+		Metric: r.Metrics,
+	}.Build()
+	if err != nil {
+		return nil, err
 	}
-	if len(r.Metrics) > 0 {
-		path.WriteString("/")
-		path.WriteString(metrics)
-	}
-
-	return opensearch.BuildRequest(
-		"GET",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // NodesInfoResp represents the returned struct of the /_nodes response
@@ -187,9 +172,10 @@ type NodesInfoAgg struct {
 
 // NodesInfoSearchPipelines is a sub type of NodesInfo containing information about search pipelines
 type NodesInfoSearchPipelines struct {
-	RequestProcessors  []NodesInfoType `json:"request_processors"`
-	ResponseProcessors []NodesInfoType `json:"response_processors"`
-	Processors         []NodesInfoType `json:"processors,omitempty"` // Deprecated field only available in 2.7.0
+	RequestProcessors      []NodesInfoType `json:"request_processors"`
+	ResponseProcessors     []NodesInfoType `json:"response_processors"`
+	PhaseResultsProcessors []NodesInfoType `json:"phase_results_processors,omitempty"` // Available in OpenSearch 3.1.0+
+	Processors             []NodesInfoType `json:"processors,omitempty"`               // Deprecated field only available in 2.7.0
 }
 
 // NodesInfoType is a sub type of NodesInfoIngest, NodesInfoSearchPipelines containing information about a type

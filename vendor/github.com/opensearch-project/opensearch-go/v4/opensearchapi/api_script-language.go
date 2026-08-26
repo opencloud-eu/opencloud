@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // ScriptLanguageReq represents possible options for the delete script request
@@ -19,9 +20,9 @@ type ScriptLanguageReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r ScriptLanguageReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"GET",
+func (r ScriptLanguageReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_script_language",
 		nil,
 		r.Params.get(),

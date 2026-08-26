@@ -8,9 +8,10 @@ package opensearchapi
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // DocumentDeleteReq represents possible options for the /<index>/_doc/<DocID> delete request
@@ -23,37 +24,30 @@ type DocumentDeleteReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r DocumentDeleteReq) GetRequest() (*http.Request, error) {
-	var path strings.Builder
-	path.Grow(7 + len(r.Index) + len(r.DocumentID))
-	path.WriteString("/")
-	path.WriteString(r.Index)
-	path.WriteString("/_doc/")
-	path.WriteString(r.DocumentID)
-	return opensearch.BuildRequest(
-		"DELETE",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+func (r DocumentDeleteReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.DeletePath{
+		ID:    r.DocumentID,
+		Index: r.Index,
+	}.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // DocumentDeleteResp represents the returned struct of the /<index>/_doc/<DocID> response
 type DocumentDeleteResp struct {
-	Index   string `json:"_index"`
-	ID      string `json:"_id"`
-	Version int    `json:"_version"`
-	Result  string `json:"result"`
-	Type    string `json:"_type"` // Deprecated field
-	Shards  struct {
-		Total      int `json:"total"`
-		Successful int `json:"successful"`
-		Failed     int `json:"failed"`
-	} `json:"_shards"`
-	SeqNo       int `json:"_seq_no"`
-	PrimaryTerm int `json:"_primary_term"`
-	response    *opensearch.Response
+	Index         string         `json:"_index"`
+	ID            string         `json:"_id"`
+	Version       int            `json:"_version"`
+	Result        string         `json:"result"`
+	ForcedRefresh bool           `json:"forced_refresh"`
+	Type          string         `json:"_type,omitempty"` // Deprecated: ES 6.0, removed in OS 2.0
+	Shards        ResponseShards `json:"_shards"`
+	SeqNo         int            `json:"_seq_no"`
+	PrimaryTerm   int            `json:"_primary_term"`
+	response      *opensearch.Response
 }
 
 // Inspect returns the Inspect type containing the raw *opensearch.Response

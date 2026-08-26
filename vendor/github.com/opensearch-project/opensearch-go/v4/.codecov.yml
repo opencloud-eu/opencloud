@@ -11,5 +11,29 @@ coverage:
   status:
     project:
       default:
-        threshold: 5%  # allow 5% coverage decrease
+        target: auto
+        threshold: 5%
+      core:
+        paths:
+          - "opensearch*.go"
+          - "opensearchtransport/"
+          - "opensearchutil/"
+          - "signer/"
+        target: 80%
+        threshold: 2%
+      path:
+        paths:
+          - "internal/path/"
+        target: 95%
+        threshold: 2%
+      opensearchapi:
+        paths:
+          - "opensearchapi/"
+        target: 14%
+        threshold: 2%
+      opensearchapiv5:
+        paths:
+          - "v5preview/opensearchapi/"
+        target: 25%
+        threshold: 5%
     patch: off

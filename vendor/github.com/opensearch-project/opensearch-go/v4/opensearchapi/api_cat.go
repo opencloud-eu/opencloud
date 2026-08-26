@@ -8,6 +8,7 @@ package opensearchapi
 
 import (
 	"context"
+	"net/http"
 )
 
 type catClient struct {
@@ -24,7 +25,7 @@ func (c catClient) Aliases(ctx context.Context, req *CatAliasesReq) (*CatAliases
 		data CatAliasesResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Aliases); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Aliases); err != nil {
 		return &data, err
 	}
 
@@ -41,7 +42,7 @@ func (c catClient) Allocation(ctx context.Context, req *CatAllocationReq) (*CatA
 		data CatAllocationsResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Allocations); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Allocations); err != nil {
 		return &data, err
 	}
 
@@ -58,7 +59,7 @@ func (c catClient) ClusterManager(ctx context.Context, req *CatClusterManagerReq
 		data CatClusterManagersResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.ClusterManagers); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.ClusterManagers); err != nil {
 		return &data, err
 	}
 
@@ -75,7 +76,7 @@ func (c catClient) Count(ctx context.Context, req *CatCountReq) (*CatCountsResp,
 		data CatCountsResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Counts); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Counts); err != nil {
 		return &data, err
 	}
 
@@ -92,7 +93,7 @@ func (c catClient) FieldData(ctx context.Context, req *CatFieldDataReq) (*CatFie
 		data CatFieldDataResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.FieldData); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.FieldData); err != nil {
 		return &data, err
 	}
 
@@ -109,7 +110,7 @@ func (c catClient) Health(ctx context.Context, req *CatHealthReq) (*CatHealthRes
 		data CatHealthResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Health); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Health); err != nil {
 		return &data, err
 	}
 
@@ -126,7 +127,7 @@ func (c catClient) Indices(ctx context.Context, req *CatIndicesReq) (*CatIndices
 		data CatIndicesResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Indices); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Indices); err != nil {
 		return &data, err
 	}
 
@@ -143,7 +144,7 @@ func (c catClient) Master(ctx context.Context, req *CatMasterReq) (*CatMasterRes
 		data CatMasterResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Master); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Master); err != nil {
 		return &data, err
 	}
 
@@ -160,7 +161,7 @@ func (c catClient) NodeAttrs(ctx context.Context, req *CatNodeAttrsReq) (*CatNod
 		data CatNodeAttrsResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.NodeAttrs); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.NodeAttrs); err != nil {
 		return &data, err
 	}
 
@@ -177,7 +178,7 @@ func (c catClient) Nodes(ctx context.Context, req *CatNodesReq) (*CatNodesResp, 
 		data CatNodesResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Nodes); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Nodes); err != nil {
 		return &data, err
 	}
 
@@ -194,7 +195,7 @@ func (c catClient) PendingTasks(ctx context.Context, req *CatPendingTasksReq) (*
 		data CatPendingTasksResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.PendingTasks); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.PendingTasks); err != nil {
 		return &data, err
 	}
 
@@ -211,7 +212,7 @@ func (c catClient) Plugins(ctx context.Context, req *CatPluginsReq) (*CatPlugins
 		data CatPluginsResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Plugins); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Plugins); err != nil {
 		return &data, err
 	}
 
@@ -228,7 +229,7 @@ func (c catClient) Recovery(ctx context.Context, req *CatRecoveryReq) (*CatRecov
 		data CatRecoveryResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Recovery); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Recovery); err != nil {
 		return &data, err
 	}
 
@@ -245,7 +246,7 @@ func (c catClient) Repositories(ctx context.Context, req *CatRepositoriesReq) (*
 		data CatRepositoriesResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Repositories); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Repositories); err != nil {
 		return &data, err
 	}
 
@@ -262,7 +263,7 @@ func (c catClient) Segments(ctx context.Context, req *CatSegmentsReq) (*CatSegme
 		data CatSegmentsResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Segments); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Segments); err != nil {
 		return &data, err
 	}
 
@@ -279,7 +280,7 @@ func (c catClient) Shards(ctx context.Context, req *CatShardsReq) (*CatShardsRes
 		data CatShardsResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Shards); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Shards); err != nil {
 		return &data, err
 	}
 
@@ -292,7 +293,7 @@ func (c catClient) Snapshots(ctx context.Context, req CatSnapshotsReq) (*CatSnap
 		data CatSnapshotsResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Snapshots); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Snapshots); err != nil {
 		return &data, err
 	}
 
@@ -309,7 +310,7 @@ func (c catClient) Tasks(ctx context.Context, req *CatTasksReq) (*CatTasksResp, 
 		data CatTasksResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Tasks); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Tasks); err != nil {
 		return &data, err
 	}
 
@@ -326,7 +327,7 @@ func (c catClient) Templates(ctx context.Context, req *CatTemplatesReq) (*CatTem
 		data CatTemplatesResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Templates); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Templates); err != nil {
 		return &data, err
 	}
 
@@ -343,7 +344,7 @@ func (c catClient) ThreadPool(ctx context.Context, req *CatThreadPoolReq) (*CatT
 		data CatThreadPoolResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.ThreadPool); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.ThreadPool); err != nil {
 		return &data, err
 	}
 

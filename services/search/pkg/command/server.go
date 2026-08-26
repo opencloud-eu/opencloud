@@ -94,7 +94,7 @@ func Server(cfg *config.Config) *cobra.Command {
 					EnableRetryOnTimeout:  cfg.Engine.OpenSearch.Client.EnableRetryOnTimeout,
 					MaxRetries:            cfg.Engine.OpenSearch.Client.MaxRetries,
 					CompressRequestBody:   cfg.Engine.OpenSearch.Client.CompressRequestBody,
-					DiscoverNodesOnStart:  cfg.Engine.OpenSearch.Client.DiscoverNodesOnStart,
+					DiscoverNodesOnStart:  &cfg.Engine.OpenSearch.Client.DiscoverNodesOnStart,
 					DiscoverNodesInterval: cfg.Engine.OpenSearch.Client.DiscoverNodesInterval,
 					EnableMetrics:         cfg.Engine.OpenSearch.Client.EnableMetrics,
 					EnableDebugLogger:     cfg.Engine.OpenSearch.Client.EnableDebugLogger,

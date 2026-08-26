@@ -8,10 +8,11 @@ package opensearchapi
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // DocumentGetReq represents possible options for the /<Index>/_doc/<DocumentID> get request
@@ -24,14 +25,16 @@ type DocumentGetReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r DocumentGetReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"GET",
-		fmt.Sprintf("/%s/_doc/%s", r.Index, r.DocumentID),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+func (r DocumentGetReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.GetPath{
+		ID:    r.DocumentID,
+		Index: r.Index,
+	}.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // DocumentGetResp represents the returned struct of the /<Index>/_doc/<DocumentID> get response
@@ -42,7 +45,7 @@ type DocumentGetResp struct {
 	SeqNo       int             `json:"_seq_no"`
 	PrimaryTerm int             `json:"_primary_term"`
 	Found       bool            `json:"found"`
-	Type        string          `json:"_type"` // Deprecated field
+	Type        string          `json:"_type,omitempty"` // Deprecated: ES 6.0, removed in OS 2.0
 	Source      json.RawMessage `json:"_source"`
 	Fields      json.RawMessage `json:"fields"`
 	response    *opensearch.Response

@@ -74,7 +74,7 @@ func (m IndexManager) Apply(ctx context.Context, name string, client *opensearch
 			return fmt.Errorf("failed to get index %s: %w", name, err)
 		}
 
-		remoteIndex, ok := resp.Indices[name]
+		remoteIndex, ok := (*resp.IndicesGetRespData)[name]
 		if !ok {
 			return fmt.Errorf("index %s not found in response", name)
 		}

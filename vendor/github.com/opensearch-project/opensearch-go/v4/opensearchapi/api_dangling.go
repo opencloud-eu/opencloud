@@ -8,6 +8,7 @@ package opensearchapi
 
 import (
 	"context"
+	"net/http"
 )
 
 type danglingClient struct {
@@ -20,7 +21,7 @@ func (c danglingClient) Delete(ctx context.Context, req DanglingDeleteReq) (*Dan
 		data DanglingDeleteResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodDelete, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -33,7 +34,7 @@ func (c danglingClient) Import(ctx context.Context, req DanglingImportReq) (*Dan
 		data DanglingImportResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodPost, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -50,7 +51,7 @@ func (c danglingClient) Get(ctx context.Context, req *DanglingGetReq) (*Dangling
 		data DanglingGetResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data); err != nil {
 		return &data, err
 	}
 

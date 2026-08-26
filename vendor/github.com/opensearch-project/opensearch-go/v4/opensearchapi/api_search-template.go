@@ -10,9 +10,10 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // SearchTemplate executes a /_search request with the optional SearchTemplateReq
@@ -21,10 +22,13 @@ func (c Client) SearchTemplate(ctx context.Context, req SearchTemplateReq) (*Sea
 		data SearchTemplateResp
 		err  error
 	)
-	if data.response, err = c.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, &c, http.MethodPost, req, &data); err != nil {
 		return &data, err
 	}
 
+	if errs := data.PartialFailures(c.errors); len(errs) > 0 {
+		return &data, errs[0]
+	}
 	return &data, nil
 }
 
@@ -39,22 +43,12 @@ type SearchTemplateReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r SearchTemplateReq) GetRequest() (*http.Request, error) {
-	indices := strings.Join(r.Indices, ",")
-	var path strings.Builder
-	path.Grow(len("//_search/template") + len(indices))
-	if len(r.Indices) > 0 {
-		path.WriteString("/")
-		path.WriteString(indices)
+func (r SearchTemplateReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.SearchTemplatePath{Index: r.Indices}.Build()
+	if err != nil {
+		return nil, err
 	}
-	path.WriteString("/_search/template")
-	return opensearch.BuildRequest(
-		"POST",
-		path.String(),
-		r.Body,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, r.Body, r.Params.get(), r.Header)
 }
 
 // SearchTemplateResp represents the returned struct of the /_search response

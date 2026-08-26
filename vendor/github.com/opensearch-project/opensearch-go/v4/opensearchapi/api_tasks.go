@@ -8,6 +8,7 @@ package opensearchapi
 
 import (
 	"context"
+	"net/http"
 )
 
 type tasksClient struct {
@@ -20,7 +21,7 @@ func (c tasksClient) Cancel(ctx context.Context, req TasksCancelReq) (*TasksCanc
 		data TasksCancelResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodPost, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -37,7 +38,7 @@ func (c tasksClient) List(ctx context.Context, req *TasksListReq) (*TasksListRes
 		data TasksListResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -50,7 +51,7 @@ func (c tasksClient) Get(ctx context.Context, req TasksGetReq) (*TasksGetResp, e
 		data TasksGetResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data); err != nil {
 		return &data, err
 	}
 

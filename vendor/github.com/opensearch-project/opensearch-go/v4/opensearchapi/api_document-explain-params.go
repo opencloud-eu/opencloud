@@ -41,7 +41,7 @@ type DocumentExplainParams struct {
 	Preference      string
 	Query           string
 	Routing         string
-	Source          interface{}
+	Source          any
 	SourceExcludes  []string
 	SourceIncludes  []string
 	StoredFields    []string

@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // Info executes a / request with the optional InfoReq
@@ -23,7 +24,7 @@ func (c Client) Info(ctx context.Context, req *InfoReq) (*InfoResp, error) {
 		data InfoResp
 		err  error
 	)
-	if data.response, err = c.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, &c, http.MethodGet, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -37,9 +38,9 @@ type InfoReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r InfoReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"GET",
+func (r InfoReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/",
 		nil,
 		r.Params.get(),

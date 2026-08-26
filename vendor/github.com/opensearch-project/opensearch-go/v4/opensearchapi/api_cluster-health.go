@@ -8,9 +8,10 @@ package opensearchapi
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // ClusterHealthReq represents possible options for the /_cluster/health request
@@ -21,24 +22,12 @@ type ClusterHealthReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r ClusterHealthReq) GetRequest() (*http.Request, error) {
-	indices := strings.Join(r.Indices, ",")
-
-	var path strings.Builder
-	path.Grow(17 + len(indices))
-	path.WriteString("/_cluster/health")
-	if len(indices) > 0 {
-		path.WriteString("/")
-		path.WriteString(indices)
+func (r ClusterHealthReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.ClusterHealthPath{Index: r.Indices}.Build()
+	if err != nil {
+		return nil, err
 	}
-
-	return opensearch.BuildRequest(
-		"GET",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // ClusterHealthResp represents the returned struct of the ClusterHealthReq response

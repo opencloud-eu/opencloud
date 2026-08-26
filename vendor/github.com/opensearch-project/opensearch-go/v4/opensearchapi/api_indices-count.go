@@ -9,9 +9,10 @@ package opensearchapi
 import (
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // IndicesCountReq represents possible options for the index shrink request
@@ -25,34 +26,18 @@ type IndicesCountReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r IndicesCountReq) GetRequest() (*http.Request, error) {
-	indices := strings.Join(r.Indices, ",")
-
-	var path strings.Builder
-	path.Grow(8 + len(indices))
-	if len(indices) > 0 {
-		path.WriteString("/")
-		path.WriteString(indices)
+func (r IndicesCountReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.CountPath{Index: r.Indices}.Build()
+	if err != nil {
+		return nil, err
 	}
-	path.WriteString("/_count")
-	return opensearch.BuildRequest(
-		"POST",
-		path.String(),
-		r.Body,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, r.Body, r.Params.get(), r.Header)
 }
 
 // IndicesCountResp represents the returned struct of the index shrink response
 type IndicesCountResp struct {
-	Shards struct {
-		Total      int `json:"total"`
-		Successful int `json:"successful"`
-		Skipped    int `json:"skipped"`
-		Failed     int `json:"failed"`
-	} `json:"_shards"`
-	Count    int `json:"count"`
+	Shards   ResponseShards `json:"_shards"`
+	Count    int            `json:"count"`
 	response *opensearch.Response
 }
 

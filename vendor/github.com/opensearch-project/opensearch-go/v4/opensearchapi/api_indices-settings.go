@@ -11,9 +11,10 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 type settingsClient struct {
@@ -29,7 +30,7 @@ func (c settingsClient) Get(ctx context.Context, req *SettingsGetReq) (*Settings
 		data SettingsGetResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Indices); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -42,7 +43,7 @@ func (c settingsClient) Put(ctx context.Context, req SettingsPutReq) (*SettingsP
 		data SettingsPutResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodPut, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -59,36 +60,40 @@ type SettingsGetReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r SettingsGetReq) GetRequest() (*http.Request, error) {
-	indices := strings.Join(r.Indices, ",")
-	settings := strings.Join(r.Settings, ",")
-
-	var path strings.Builder
-	path.Grow(11 + len(indices) + len(settings))
-	if len(indices) > 0 {
-		path.WriteString("/")
-		path.WriteString(indices)
+func (r SettingsGetReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.IndicesGetSettingsPath{
+		Index: r.Indices,
+		Name:  r.Settings,
+	}.Build()
+	if err != nil {
+		return nil, err
 	}
-	path.WriteString("/_settings")
-	if len(settings) > 0 {
-		path.WriteString("/")
-		path.WriteString(settings)
-	}
-	return opensearch.BuildRequest(
-		"GET",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // SettingsGetResp represents the returned struct of the settings get response
 type SettingsGetResp struct {
-	Indices map[string]struct {
-		Settings json.RawMessage `json:"settings"`
-	}
 	response *opensearch.Response
+
+	// Direct mapping of index names to their settings as top-level keys
+	raw map[string]SettingsGetRespIndex
+}
+
+// SettingsGetRespIndex represents the structure of each index in the settings response
+type SettingsGetRespIndex struct {
+	Settings json.RawMessage `json:"settings"` // Available since OpenSearch 1.0.0
+}
+
+// GetIndices returns the map of index names to their settings
+func (r *SettingsGetResp) GetIndices() map[string]SettingsGetRespIndex {
+	return r.raw
+}
+
+// UnmarshalJSON custom unmarshaling to handle dynamic index names as top-level keys
+func (r *SettingsGetResp) UnmarshalJSON(data []byte) error {
+	// Unmarshal into a map to capture all dynamic index names
+	r.raw = make(map[string]SettingsGetRespIndex)
+	return json.Unmarshal(data, &r.raw)
 }
 
 // Inspect returns the Inspect type containing the raw *opensearch.Response
@@ -107,21 +112,13 @@ type SettingsPutReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r SettingsPutReq) GetRequest() (*http.Request, error) {
-	indices := strings.Join(r.Indices, ",")
+func (r SettingsPutReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.IndicesPutSettingsPath{Index: r.Indices}.Build()
+	if err != nil {
+		return nil, err
+	}
 
-	var path strings.Builder
-	path.Grow(10 + len(indices))
-	path.WriteString("/")
-	path.WriteString(indices)
-	path.WriteString("/_settings")
-	return opensearch.BuildRequest(
-		"PUT",
-		path.String(),
-		r.Body,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, r.Body, r.Params.get(), r.Header)
 }
 
 // SettingsPutResp represents the returned struct of the settings put response

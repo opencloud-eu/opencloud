@@ -90,7 +90,7 @@ func (tc *TestClient) IndicesExists(ctx context.Context, indices []string) (bool
 
 func (tc *TestClient) IndicesRefresh(ctx context.Context, indices []string, allow []int) error {
 	resp, err := tc.c.Indices.Refresh(ctx, &opensearchgoAPI.IndicesRefreshReq{
-		Indices: indices,
+		Index: indices,
 	})
 
 	isAllowed := resp != nil

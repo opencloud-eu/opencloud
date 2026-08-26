@@ -9,9 +9,10 @@ package opensearchapi
 import (
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // IndicesValidateQueryReq represents possible options for the index shrink request
@@ -25,23 +26,12 @@ type IndicesValidateQueryReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r IndicesValidateQueryReq) GetRequest() (*http.Request, error) {
-	indices := strings.Join(r.Indices, ",")
-
-	var path strings.Builder
-	path.Grow(17 + len(indices))
-	if len(indices) > 0 {
-		path.WriteString("/")
-		path.WriteString(indices)
+func (r IndicesValidateQueryReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.IndicesValidateQueryPath{Index: r.Indices}.Build()
+	if err != nil {
+		return nil, err
 	}
-	path.WriteString("/_validate/query")
-	return opensearch.BuildRequest(
-		"POST",
-		path.String(),
-		r.Body,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, r.Body, r.Params.get(), r.Header)
 }
 
 // IndicesValidateQueryResp represents the returned struct of the index shrink response

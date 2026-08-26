@@ -1753,12 +1753,17 @@ github.com/opencontainers/go-digest
 ## explicit; go 1.18
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/opensearch-project/opensearch-go/v4 v4.6.0
-## explicit; go 1.24
+# github.com/opensearch-project/opensearch-go/v4 v4.7.3
+## explicit; go 1.25.9
 github.com/opensearch-project/opensearch-go/v4
+github.com/opensearch-project/opensearch-go/v4/errmask
+github.com/opensearch-project/opensearch-go/v4/internal/build
+github.com/opensearch-project/opensearch-go/v4/internal/envvars
+github.com/opensearch-project/opensearch-go/v4/internal/path
 github.com/opensearch-project/opensearch-go/v4/internal/version
 github.com/opensearch-project/opensearch-go/v4/opensearchapi
 github.com/opensearch-project/opensearch-go/v4/opensearchtransport
+github.com/opensearch-project/opensearch-go/v4/opensearchutil/shardhash
 github.com/opensearch-project/opensearch-go/v4/signer
 # github.com/opentracing/opentracing-go v1.2.0
 ## explicit; go 1.14

@@ -7,11 +7,12 @@
 package opensearchapi
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // IndicesShrinkReq represents possible options for the index shrink request
@@ -26,14 +27,15 @@ type IndicesShrinkReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r IndicesShrinkReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"POST",
-		fmt.Sprintf("/%s/_shrink/%s", r.Index, r.Target),
-		r.Body,
-		r.Params.get(),
-		r.Header,
-	)
+func (r IndicesShrinkReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.IndicesShrinkPath{
+		Index:  r.Index,
+		Target: r.Target,
+	}.Build()
+	if err != nil {
+		return nil, err
+	}
+	return build.Request(method, path, r.Body, r.Params.get(), r.Header)
 }
 
 // IndicesShrinkResp represents the returned struct of the index shrink response
