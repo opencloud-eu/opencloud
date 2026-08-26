@@ -1,4 +1,4 @@
-// Copyright 2022-2024 The NATS Authors
+// Copyright 2022-2026 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -465,6 +465,7 @@ var subjectRegexp = regexp.MustCompile(`^[^ >]*[>]?$`)
 // Available options:
 //   - [WithClientTrace] - enables request/response tracing.
 //   - [WithPublishAsyncErrHandler] - sets error handler for async message publish.
+//   - [WithPublishAsyncAckHandler] - sets ack handler for async message publish.
 //   - [WithPublishAsyncMaxPending] - sets the maximum outstanding async publishes
 //     that can be inflight at one time.
 func New(nc *nats.Conn, opts ...JetStreamOpt) (JetStream, error) {
@@ -511,6 +512,7 @@ func setReplyPrefix(nc *nats.Conn, jsOpts *JetStreamOptions) {
 // Available options:
 //   - [WithClientTrace] - enables request/response tracing.
 //   - [WithPublishAsyncErrHandler] - sets error handler for async message publish.
+//   - [WithPublishAsyncAckHandler] - sets ack handler for async message publish.
 //   - [WithPublishAsyncMaxPending] - sets the maximum outstanding async publishes
 //     that can be inflight at one time.
 func NewWithAPIPrefix(nc *nats.Conn, apiPrefix string, opts ...JetStreamOpt) (JetStream, error) {
@@ -549,6 +551,7 @@ func NewWithAPIPrefix(nc *nats.Conn, apiPrefix string, opts ...JetStreamOpt) (Je
 // Available options:
 //   - [WithClientTrace] - enables request/response tracing.
 //   - [WithPublishAsyncErrHandler] - sets error handler for async message publish.
+//   - [WithPublishAsyncAckHandler] - sets ack handler for async message publish.
 //   - [WithPublishAsyncMaxPending] - sets the maximum outstanding async publishes
 //     that can be inflight at one time.
 func NewWithDomain(nc *nats.Conn, domain string, opts ...JetStreamOpt) (JetStream, error) {
@@ -625,6 +628,9 @@ func (js *jetStream) CreateStream(ctx context.Context, cfg StreamConfig) (Stream
 			return nil, ErrStreamNameAlreadyInUse
 		}
 		return nil, resp.Error
+	}
+	if resp.StreamInfo == nil {
+		return nil, ErrInvalidJetStreamResponse
 	}
 
 	// check that input subject transform (if used) is reflected in the returned StreamInfo
@@ -749,6 +755,9 @@ func (js *jetStream) UpdateStream(ctx context.Context, cfg StreamConfig) (Stream
 		}
 		return nil, resp.Error
 	}
+	if resp.StreamInfo == nil {
+		return nil, ErrInvalidJetStreamResponse
+	}
 
 	// check that input subject transform (if used) is reflected in the returned StreamInfo
 	if cfg.SubjectTransform != nil && resp.StreamInfo.Config.SubjectTransform == nil {
@@ -817,6 +826,9 @@ func (js *jetStream) Stream(ctx context.Context, name string) (Stream, error) {
 			return nil, ErrStreamNotFound
 		}
 		return nil, resp.Error
+	}
+	if resp.StreamInfo == nil {
+		return nil, ErrInvalidJetStreamResponse
 	}
 	return &stream{
 		js:   js,

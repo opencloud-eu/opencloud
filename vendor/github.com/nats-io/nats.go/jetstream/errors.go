@@ -1,4 +1,4 @@
-// Copyright 2022-2025 The NATS Authors
+// Copyright 2022-2026 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -57,6 +57,11 @@ const (
 
 	JSErrCodeStreamWrongLastSequence ErrorCode = 10071
 	JSErrCodeJetStreamNotEnabled     ErrorCode = 10076
+
+	// JSErrCodeStreamWrongLastSequenceConstant is returned instead of
+	// JSErrCodeStreamWrongLastSequence for CAS conflicts on replicated (R>1)
+	// streams. The two are equivalent "wrong last sequence" responses.
+	JSErrCodeStreamWrongLastSequenceConstant ErrorCode = 10164
 
 	JSErrCodeConsumerAlreadyExists ErrorCode = 10105
 
@@ -134,6 +139,12 @@ var (
 	// when creating a consumer is empty. This means that the state of the consumer is unknown and
 	// the consumer may not have been created successfully.
 	ErrConsumerCreationResponseEmpty JetStreamError = &jsError{message: "consumer creation response is empty"}
+
+	// ErrInvalidJetStreamResponse is returned when the response from the server
+	// to a JetStream API call (stream CRUD, message get, etc.) does not contain
+	// the expected data payload. The operation may or may not have succeeded on
+	// the server side.
+	ErrInvalidJetStreamResponse JetStreamError = &jsError{message: "invalid jetstream api response"}
 
 	// ErrConsumerExists is returned when attempting to create a consumer with
 	// CreateConsumer but a consumer with given name already exists.
@@ -373,7 +384,20 @@ var (
 
 	// ErrKeyExists is returned when attempting to create a key that already
 	// exists.
+	//
+	// Note: ErrKeyExists matches errors by code 10071, which CAS conflicts
+	// from Update/Delete/Purge also carry on non-replicated streams;
+	// replicated (R>1) streams report code 10164 instead and will not match.
+	// Do not use ErrKeyExists to detect revision conflicts - use
+	// ErrKeyRevisionMismatch.
 	ErrKeyExists JetStreamError = &jsError{apiErr: &APIError{ErrorCode: JSErrCodeStreamWrongLastSequence, Code: 400}, message: "key exists"}
+
+	// ErrKeyRevisionMismatch is returned by Update, and by Delete/Purge when
+	// the LastRevision option is used, if the provided revision does not
+	// match the key's current revision (an optimistic-concurrency conflict).
+	// Replicated (R>1) streams report this as error code 10164 instead of
+	// 10071; both map to this error.
+	ErrKeyRevisionMismatch JetStreamError = &jsError{message: "key revision mismatch"}
 
 	// ErrKeyValueConfigRequired is returned when attempting to create a bucket
 	// without a config.
