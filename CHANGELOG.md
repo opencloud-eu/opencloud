@@ -1,6 +1,14 @@
 # Changelog
 
-## [7.5.1](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.1) - 2026-08-26
+## [7.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.6.0) - 2026-08-26
+
+### ❤️ Thanks to all contributors! ❤️
+
+@maki5
+
+### 📈 Enhancement
+
+- moved ShareCreated event consumer from frontend to shared service [[#3389](https://github.com/opencloud-eu/opencloud/pull/3389)]
 
 ### 📦️ Dependencies
 
