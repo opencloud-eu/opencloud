@@ -20,8 +20,8 @@ type Config struct {
 
 	ServiceAccount        ServiceAccount `yaml:"service_account"`
 	SkipUserGroupsInToken bool           `yaml:"skip_user_groups_in_token" env:"SHARING_SKIP_USER_GROUPS_IN_TOKEN" desc:"Disables the loading of user's group memberships from the reva access token." introductionVersion:"1.0.0"`
-	AutoAcceptShares      bool           `yaml:"auto_accept_shares" env:"FRONTEND_AUTO_ACCEPT_SHARES;SHARING_AUTO_ACCEPT_SHARES" desc:"Defines if shares should be auto accepted by default. Users can change this setting individually in their profile." introductionVersion:"1.0.0"`
-	MaxConcurrency        int            `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;FRONTEND_MAX_CONCURRENCY;SHARING_MAX_CONCURRENCY" desc:"Maximum number of concurrent go-routines. Higher values can potentially get work done faster but will also cause more load on the system. Values of 0 or below will be ignored and the default value will be used." introductionVersion:"1.0.0"`
+	AutoAcceptShares      bool           `yaml:"auto_accept_shares" env:"FRONTEND_AUTO_ACCEPT_SHARES;SHARING_AUTO_ACCEPT_SHARES" desc:"Defines if shares should be auto accepted by default. Users can change this setting individually in their profile." introductionVersion:"%%NEXT%%"`
+	MaxConcurrency        int            `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;FRONTEND_MAX_CONCURRENCY;SHARING_MAX_CONCURRENCY" desc:"Maximum number of concurrent go-routines. Higher values can potentially get work done faster but will also cause more load on the system. Values of 0 or below will be ignored and the default value will be used." introductionVersion:"%%NEXT%%"`
 
 	UserSharingDriver              string               `yaml:"user_sharing_driver" env:"SHARING_USER_DRIVER" desc:"Driver to be used to persist shares. Supported values are 'jsoncs3', 'json', 'cs3' (deprecated) and 'owncloudsql'." introductionVersion:"1.0.0"`
 	UserSharingDrivers             UserSharingDrivers   `yaml:"user_sharing_drivers"`

@@ -138,13 +138,6 @@ func DefaultConfig() *config.Config {
 			},
 		},
 		LDAPServerWriteEnabled: true,
-		AutoAcceptShares:       true,
-		Events: config.Events{
-			Endpoint:  "127.0.0.1:9233",
-			Cluster:   "opencloud-cluster",
-			EnableTLS: false,
-		},
-		MaxConcurrency: 1,
 		PasswordPolicy: config.PasswordPolicy{
 			MinCharacters:          8,
 			MinLowerCaseCharacters: 1,
@@ -194,7 +187,5 @@ func EnsureDefaults(cfg *config.Config) {
 
 // Sanitize sanitized the configuration
 func Sanitize(cfg *config.Config) {
-	if cfg.MaxConcurrency <= 0 {
-		cfg.MaxConcurrency = 5
-	}
+	// nothing to sanitize here atm
 }
