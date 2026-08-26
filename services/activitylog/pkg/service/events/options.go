@@ -1,17 +1,14 @@
-package service
+package events
 
 import (
+	"context"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
-	"github.com/go-chi/chi/v5"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
-	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"go.opentelemetry.io/otel/trace"
 )
 
 // Option for the activitylog service
@@ -19,17 +16,20 @@ type Option func(*Options)
 
 // Options for the activitylog service
 type Options struct {
+	Context             context.Context
 	Logger              log.Logger
-	Config              *config.Config
-	TraceProvider       trace.TracerProvider
+	ServiceAccount      config.ServiceAccount
 	Stream              events.Stream
 	RegisteredEvents    []events.Unmarshaller
 	GatewaySelector     pool.Selectable[gateway.GatewayAPIClient]
-	Mux                 *chi.Mux
-	HistoryClient       ehsvc.EventHistoryService
-	ValueClient         settingssvc.ValueService
 	WriteBufferDuration time.Duration
-	MaxActivities       int
+	NumConsumers        int
+}
+
+func Context(ctx context.Context) Option {
+	return func(o *Options) {
+		o.Context = ctx
+	}
 }
 
 // Logger configures a logger for the activitylog service
@@ -39,17 +39,10 @@ func Logger(log log.Logger) Option {
 	}
 }
 
-// Config adds the config for the activitylog service
-func Config(c *config.Config) Option {
+// ServiceAccount configures a service account for the activitylog service
+func ServiceAccount(sa config.ServiceAccount) Option {
 	return func(o *Options) {
-		o.Config = c
-	}
-}
-
-// TraceProvider adds a tracer provider for the activitylog service
-func TraceProvider(tp trace.TracerProvider) Option {
-	return func(o *Options) {
-		o.TraceProvider = tp
+		o.ServiceAccount = sa
 	}
 }
 
@@ -74,23 +67,8 @@ func GatewaySelector(gatewaySelector pool.Selectable[gateway.GatewayAPIClient]) 
 	}
 }
 
-// Mux defines the muxer for the service
-func Mux(m *chi.Mux) Option {
+func NumConsumers(num int) Option {
 	return func(o *Options) {
-		o.Mux = m
-	}
-}
-
-// HistoryClient adds a grpc client for the eventhistory service
-func HistoryClient(hc ehsvc.EventHistoryService) Option {
-	return func(o *Options) {
-		o.HistoryClient = hc
-	}
-}
-
-// ValueClient adds a grpc client for the value service
-func ValueClient(vs settingssvc.ValueService) Option {
-	return func(o *Options) {
-		o.ValueClient = vs
+		o.NumConsumers = num
 	}
 }

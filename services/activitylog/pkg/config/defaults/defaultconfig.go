@@ -52,7 +52,9 @@ func DefaultConfig() *config.Config {
 			},
 		},
 		WriteBufferDuration: 10 * time.Second,
-		MaxActivities:       6000,
+		// Nats runs into max payload exceeded errors at around 7k activities. Let's keep a buffer.
+		MaxActivities: 6000,
+		NumConsumers:  1,
 	}
 }
 

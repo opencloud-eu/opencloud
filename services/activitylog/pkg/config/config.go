@@ -35,10 +35,12 @@ type Config struct {
 
 	WriteBufferDuration time.Duration `yaml:"write_buffer_duration" env:"ACTIVITYLOG_WRITE_BUFFER_DURATION" desc:"The duration to wait before flushing the write buffer. This is used to reduce the number of writes to the store." introductionVersion:"4.0.0"`
 	MaxActivities       int           `yaml:"max_activities" env:"ACTIVITYLOG_MAX_ACTIVITIES" desc:"The maximum number of activities to keep in the store per resource. If the number of activities exceeds this value, the oldest activities will be removed." introductionVersion:"4.0.0"`
+	NumConsumers        int           `yaml:"num_consumers" env:"ACTIVITYLOG_NUM_CONSUMERS" desc:"The amount of concurrent event consumers to start. Event consumers are used for updating the list of activities. Multiple consumers increase parallelisation, but will also increase CPU and memory demands." introductionVersion:"%NEXT%"`
 }
 
 // Events combines the configuration options for the event bus.
 type Events struct {
+	Disabled             bool   `yaml:"disabled" env:"ACTIVITYLOG_EVENTS_DISABLED" desc:"Disables listening for events. Set this to true if the service should only handle HTTP requests." introductionVersion:"%NEXT%"`
 	Endpoint             string `yaml:"endpoint" env:"OC_EVENTS_ENDPOINT" desc:"The address of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture." introductionVersion:"1.0.0"`
 	Cluster              string `yaml:"cluster" env:"OC_EVENTS_CLUSTER" desc:"The clusterID of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture. Mandatory when using NATS as event system." introductionVersion:"1.0.0"`
 	TLSInsecure          bool   `yaml:"tls_insecure" env:"OC_INSECURE;OC_EVENTS_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"1.0.0"`
@@ -77,6 +79,7 @@ type CORS struct {
 
 // HTTP defines the available http configuration.
 type HTTP struct {
+	Disabled  bool                  `yaml:"disabled" env:"ACTIVITYLOG_HTTP_DISABLED" desc:"Disables the HTTP service. Set this to true if the service should only handle events." introductionVersion:"1.0.0"`
 	Addr      string                `yaml:"addr" env:"ACTIVITYLOG_HTTP_ADDR" desc:"The bind address of the HTTP service." introductionVersion:"1.0.0"`
 	Namespace string                `yaml:"-"`
 	Root      string                `yaml:"root" env:"ACTIVITYLOG_HTTP_ROOT" desc:"Subdirectory that serves as the root for this HTTP service." introductionVersion:"1.0.0"`

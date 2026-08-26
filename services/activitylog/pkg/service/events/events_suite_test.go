@@ -1,4 +1,4 @@
-package service_test
+package events_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestService(t *testing.T) {
+func TestEvents(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Suite")
+	RunSpecs(t, "Events Suite")
 }
