@@ -1,9 +1,10 @@
 # Changelog
 
-## [7.5.1](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.1) - 2026-08-25
+## [7.5.1](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.1) - 2026-08-26
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/nats-io/nats.go from 1.52.0 to 1.53.1 [[#3403](https://github.com/opencloud-eu/opencloud/pull/3403)]
 - build(deps): bump github.com/open-policy-agent/opa from 1.19.0 to 1.19.1 [[#3402](https://github.com/opencloud-eu/opencloud/pull/3402)]
 
 ## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-25
