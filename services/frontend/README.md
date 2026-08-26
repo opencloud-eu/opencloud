@@ -24,7 +24,7 @@ The ocs endpoint, by default `/ocs`, implements the Open Collaboration Services 
 
 #### Event Handler
 
-The `frontend` service contains an eventhandler for handling `ocs` related events. As of now, it only listens to the `ShareCreated` event.
+As of now, the `frontend` service does not contain any event handlers.
 
 ### Sharing
 
@@ -65,7 +65,7 @@ Store specific notes:
 
 ### Auto-Accept Shares
 
-When setting the `FRONTEND_AUTO_ACCEPT_SHARES` to `true`, all incoming shares will be accepted automatically. Users can overwrite this setting individually in their profile.
+When setting the `SHARING_AUTO_ACCEPT_SHARES` to `true` (sharing service), all incoming shares will be accepted automatically. Users can overwrite this setting individually in their profile. The deprecated `FRONTEND_AUTO_ACCEPT_SHARES` is still supported for backwards compatibility.
 
 ## Passwords
 
