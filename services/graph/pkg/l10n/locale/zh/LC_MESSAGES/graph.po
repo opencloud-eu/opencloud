@@ -5,15 +5,16 @@
 # 
 # Translators:
 # YQS Yang, 2025
+# Dean Tree, 2026
 # 
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-08-11 23:16+0000\n"
+"POT-Creation-Date: 2026-08-28 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
-"Last-Translator: YQS Yang, 2025\n"
+"Last-Translator: Dean Tree, 2026\n"
 "Language-Team: Chinese (https://app.transifex.com/opencloud-eu/teams/204053/zh/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -86,7 +87,7 @@ msgstr "此处可为该空间添加描述。"
 #. UnifiedRole SpaceViewer, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:110 pkg/unifiedrole/roles.go:128
 msgid "View and download including the history."
-msgstr ""
+msgstr "查看和下载（包括历史版本）。"
 
 #. UnifiedRole Viewer, Role Description (resolves directly)
 #. UnifiedRole SpaceViewer, Role Description (resolves directly)
@@ -102,7 +103,7 @@ msgstr "仅可查看文档、图片和PDF，且会添加水印。"
 #. UnifiedRole FileEditorWithVErsions, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:176
 msgid "View, download and edit including the history."
-msgstr ""
+msgstr "查看、下载和编辑（包括历史版本）。"
 
 #. UnifiedRole FileEditor, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:164
@@ -127,7 +128,7 @@ msgstr "查看、下载、编辑并显示所有受邀人员。"
 #. UnifiedRole Editor, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:140
 msgid "View, download, upload, edit, add and delete including the history."
-msgstr ""
+msgstr "查看、下载、上传、编辑、添加和删除（包括历史版本）。"
 
 #. UnifiedRole Editor, Role Description (resolves directly)
 #. UnifiedRole SpaseEditorWithoutVersions, Role Description (resolves
@@ -149,4 +150,4 @@ msgstr "查看、下载、上传、编辑、添加、删除并显示所有受邀
 #. UnifiedRole SpaseEditor, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:152
 msgid "View, download, upload, edit, add, delete including the history."
-msgstr "查看、下载、上传、编辑、添加和删除（含历史版本）。"
+msgstr "查看、下载、上传、编辑、添加和删除（包括历史版本）。"

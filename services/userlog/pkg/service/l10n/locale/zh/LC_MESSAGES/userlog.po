@@ -5,15 +5,16 @@
 # 
 # Translators:
 # YQS Yang, 2025
+# Dean Tree, 2026
 # 
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-08-10 23:16+0000\n"
+"POT-Creation-Date: 2026-08-28 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
-"Last-Translator: YQS Yang, 2025\n"
+"Last-Translator: Dean Tree, 2026\n"
 "Language-Team: Chinese (https://app.transifex.com/opencloud-eu/teams/204053/zh/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -82,6 +83,7 @@ msgid ""
 " cloud. This could be due to an unsupported file type, potentially harmful "
 "or prohibited content, or file size limits."
 msgstr ""
+"由于违反此云服务器的限制，文件 {resource} 已被删除。可能的原因是文件类型不受支持、包含潜在有害或被禁止的内容，或者超出文件大小限制。"
 
 #: pkg/service/templates.go:8
 msgid "Virus found"
@@ -93,7 +95,7 @@ msgstr "在{resource}中发现病毒。无法上传。病毒名称：{virus}"
 
 #: pkg/service/templates.go:53
 msgid "You have been mentioned"
-msgstr ""
+msgstr "您被提及。"
 
 #: pkg/service/templates.go:19
 msgid "{user} added you to Space {space}"
@@ -109,7 +111,7 @@ msgstr "{user}已禁用空间{space}"
 
 #: pkg/service/templates.go:54
 msgid "{user} mentioned you in {resource}"
-msgstr ""
+msgstr "{user} 在 {resource} 中提及了您。"
 
 #: pkg/service/templates.go:24
 msgid "{user} removed you from Space {space}"
