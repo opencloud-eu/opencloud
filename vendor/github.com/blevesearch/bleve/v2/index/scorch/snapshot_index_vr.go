@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"sync/atomic"
 
 	"github.com/blevesearch/bleve/v2/size"
 	index "github.com/blevesearch/bleve_index_api"
@@ -123,10 +124,7 @@ func (i *IndexSnapshotVectorReader) Advance(ID index.IndexInternalID,
 		*i = *(i2.(*IndexSnapshotVectorReader))
 	}
 
-	num, err := ID.Value()
-	if err != nil {
-		return nil, fmt.Errorf("error converting to doc number % x - %v", ID, err)
-	}
+	num := ID.Value()
 	segIndex, ldocNum := i.snapshot.segmentIndexAndLocalDocNumFromGlobal(num)
 	if segIndex >= len(i.snapshot.segment) {
 		return nil, fmt.Errorf("computed segment index %d out of bounds %d",
@@ -164,7 +162,9 @@ func (i *IndexSnapshotVectorReader) Count() uint64 {
 }
 
 func (i *IndexSnapshotVectorReader) Close() error {
-	// TODO Consider if any scope of recycling here.
+	if i.snapshot != nil {
+		atomic.AddUint64(&i.snapshot.parent.stats.TotKNNSearches, 1)
+	}
 	return nil
 }
 

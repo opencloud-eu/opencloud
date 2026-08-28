@@ -12,9 +12,16 @@ package faiss
 import "C"
 import (
 	"encoding/json"
-	"fmt"
+	"reflect"
 	"unsafe"
 )
+
+var reflectStaticSizeFaissBinaryIndex uint64
+
+func init() {
+	var b faissBinaryIndex
+	reflectStaticSizeFaissBinaryIndex = uint64(reflect.TypeOf(b).Size())
+}
 
 type BinaryIndex interface {
 	// D returns the dimension of the indexed vectors.
@@ -88,13 +95,18 @@ type BinaryIndex interface {
 		centroidsToProbe int, xb []uint8, k int64, include Selector,
 		params json.RawMessage) ([]int32, []int64, error)
 
-	// returns the total size of the index in bytes
+	// Size estimates the memory footprint of the index in bytes
+	// if the underlying faiss index is memory-mapped and not fully loaded into memory.
 	Size() uint64
 
 	// frees the memory associated with the index
 	Close()
 
+	// bPtr returns a pointer to the underlying C index struct.
 	bPtr() *C.FaissIndexBinary
+
+	// CodeSize returns the size of the produced codes in bytes.
+	CodeSize() (uint64, error)
 }
 
 type faissBinaryIndex struct {
@@ -121,13 +133,13 @@ func (b *faissBinaryIndex) SetDirectMap(mapType int) (err error) {
 	// Applicable only to IVF indexes
 	ivfPtrBinary := C.faiss_IndexBinaryIVF_cast(b.bIdx)
 	if ivfPtrBinary == nil {
-		return errNotBIVFIndex
+		return ErrNotBIVFIndex
 	}
 	if c := C.faiss_IndexBinaryIVF_set_direct_map(
 		ivfPtrBinary,
 		C.int(mapType),
 	); c != 0 {
-		err = getLastError()
+		err = newFaissError(ErrSetParamsFailed, getLastError(), int(c))
 	}
 	return err
 }
@@ -161,7 +173,7 @@ func (b *faissBinaryIndex) Train(x []uint8) error {
 	n := (len(x) * 8) / b.D()
 	if c := C.faiss_IndexBinary_train(b.bIdx, C.idx_t(n),
 		(*C.uint8_t)(&x[0])); c != 0 {
-		return getLastError()
+		return newFaissError(ErrTrainFailed, getLastError(), int(c))
 	}
 	return nil
 }
@@ -170,7 +182,7 @@ func (b *faissBinaryIndex) Add(x []uint8) error {
 	n := (len(x) * 8) / b.D()
 	if c := C.faiss_IndexBinary_add(b.bIdx, C.idx_t(n),
 		(*C.uint8_t)(&x[0])); c != 0 {
-		return getLastError()
+		return newFaissError(ErrAddFailed, getLastError(), int(c))
 	}
 	return nil
 }
@@ -189,7 +201,7 @@ func (b *faissBinaryIndex) Search(xb []uint8, k int64) (
 		(*C.int32_t)(&distances[0]),
 		(*C.idx_t)(&labels[0]),
 	); c != 0 {
-		return nil, nil, getLastError()
+		return nil, nil, newFaissError(ErrSearchFailed, getLastError(), int(c))
 	}
 	return distances, labels, nil
 }
@@ -223,7 +235,7 @@ func (b *faissBinaryIndex) searchWithOptions(xb []uint8, k int64, selector Selec
 		(*C.int32_t)(&distances[0]),
 		(*C.idx_t)(&labels[0]),
 	); c != 0 {
-		return nil, nil, getLastError()
+		return nil, nil, newFaissError(ErrSearchFailed, getLastError(), int(c))
 	}
 	return distances, labels, nil
 }
@@ -232,7 +244,7 @@ func (b *faissBinaryIndex) ObtainClusterVectorCountsFromIVFIndex(includedVectors
 	// Applicable only to IVF indexes
 	ivfPtrBinary := C.faiss_IndexBinaryIVF_cast(b.bIdx)
 	if ivfPtrBinary == nil {
-		return nil, errNotBIVFIndex
+		return nil, ErrNotBIVFIndex
 	}
 	// Creating a slice to hold the count of vectors per cluster
 	// Since we have nlist clusters, we create a slice of size nlist
@@ -253,7 +265,7 @@ func (b *faissBinaryIndex) ObtainClusterVectorCountsFromIVFIndex(includedVectors
 		C.size_t(nlist),
 		params.sp,
 	); c != 0 {
-		return nil, getLastError()
+		return nil, newFaissError(ErrInspectIndexFailed, getLastError(), int(c))
 	}
 	return listCount, nil
 }
@@ -262,7 +274,7 @@ func (b *faissBinaryIndex) ObtainClustersWithDistancesFromIVFIndex(xb []uint8, i
 	// Applicable only to IVF indexes
 	ivfPtrBinary := C.faiss_IndexBinaryIVF_cast(b.bIdx)
 	if ivfPtrBinary == nil {
-		return nil, nil, errNotBIVFIndex
+		return nil, nil, ErrNotBIVFIndex
 	}
 	params, err := NewStandardSearchParams(includedCentroids)
 	if err != nil {
@@ -285,7 +297,7 @@ func (b *faissBinaryIndex) ObtainClustersWithDistancesFromIVFIndex(xb []uint8, i
 		(*C.idx_t)(&centroids[0]),
 		params.sp,
 	); c != 0 {
-		return nil, nil, getLastError()
+		return nil, nil, newFaissError(ErrSearchFailed, getLastError(), int(c))
 	}
 
 	return centroids, centroidDistances, nil
@@ -300,7 +312,7 @@ func (b *faissBinaryIndex) ObtainKCentroidCardinalitiesFromIVFIndex(limit int, d
 	// Applicable only to IVF indexes
 	ivfPtrBinary := C.faiss_IndexBinaryIVF_cast(b.bIdx)
 	if ivfPtrBinary == nil {
-		return nil, nil, errNotBIVFIndex
+		return nil, nil, ErrNotBIVFIndex
 	}
 
 	nlist := int(C.faiss_IndexBinaryIVF_nlist(ivfPtrBinary))
@@ -322,7 +334,7 @@ func (b *faissBinaryIndex) ObtainKCentroidCardinalitiesFromIVFIndex(limit int, d
 		nil,
 	)
 	if c != 0 {
-		return nil, nil, getLastError()
+		return nil, nil, newFaissError(ErrInspectIndexFailed, getLastError(), int(c))
 	}
 
 	topIndices := getIndicesOfKCentroidCardinalities(
@@ -347,12 +359,12 @@ func (b *faissBinaryIndex) SearchClustersFromIVFIndex(eligibleCentroidIDs []int6
 	// Applicable only to IVF indexes
 	ivfPtrBinary := C.faiss_IndexBinaryIVF_cast(b.bIdx)
 	if ivfPtrBinary == nil {
-		return nil, nil, errNotBIVFIndex
+		return nil, nil, ErrNotBIVFIndex
 	}
 	// If no include selector is provided, we have no results to return.
 	// return an error indicating that the SearchClustersFromIVFIndex requires a valid selector.
 	if include == nil {
-		return nil, nil, fmt.Errorf("SearchClustersFromIVFIndex requires a valid include selector")
+		return nil, nil, ErrSelectorNil
 	}
 	// create a temporary search params object to set nprobe, this will override
 	// the nprobe and the nlist set at index time, this will allow the search to
@@ -396,15 +408,27 @@ func (b *faissBinaryIndex) SearchClustersFromIVFIndex(eligibleCentroidIDs []int6
 		(C.int)(0),
 		searchParams.sp,
 	); c != 0 {
-		return nil, nil, getLastError()
+		return nil, nil, newFaissError(ErrSearchFailed, getLastError(), int(c))
 	}
 
 	return distances, labels, nil
 }
 
 func (b *faissBinaryIndex) Size() uint64 {
-	size := C.faiss_IndexBinary_size(b.bIdx)
-	return uint64(size)
+	rv := reflectStaticSizeFaissBinaryIndex
+	var size C.size_t
+	if code := C.faiss_IndexBinary_size(b.bIdx, &size); code == 0 {
+		rv += uint64(size)
+	}
+	return rv
+}
+
+func (b *faissBinaryIndex) CodeSize() (uint64, error) {
+	var size C.size_t
+	if c := C.faiss_IndexBinary_sa_code_size(b.bIdx, &size); c != 0 {
+		return 0, newFaissError(ErrInspectIndexFailed, getLastError(), int(c))
+	}
+	return uint64(size), nil
 }
 
 func (idx *faissBinaryIndex) Close() {
@@ -423,43 +447,32 @@ func BinaryIndexFactory(dims int, description string) (*BinaryIndexImpl, error) 
 	}
 	var idx faissBinaryIndex
 	if c := C.faiss_index_binary_factory(&idx.bIdx, C.int(dims), cDescription); c != 0 {
-		return nil, getLastError()
+		return nil, newFaissError(ErrCreateIndexFailed, getLastError(), int(c))
 	}
-
 	return &BinaryIndexImpl{&idx}, nil
 }
 
 func (idx *faissBinaryIndex) SetQuantizers(srcIndex BinaryIndex) error {
-	bivf := C.faiss_IndexBinaryIVF_cast(idx.bPtr())
-	if bivf == nil {
-		return errNotBIVFIndex
+	if !(idx.IsIVFIndex() && srcIndex.IsIVFIndex()) {
+		return ErrSetQuantizerNotSupported
 	}
-
-	srcIndexPtr := srcIndex.bPtr()
-	if srcIndexPtr == nil {
-		return fmt.Errorf("coarse quantizer is not valid")
+	c := C.faiss_Set_quantizers_binary(idx.bIdx, srcIndex.bPtr())
+	if c != 0 {
+		return newFaissError(ErrSetQuantizerFailed, getLastError(), int(c))
 	}
-
-	err := C.faiss_Set_quantizers_binary(idx.bIdx, srcIndexPtr)
-	if err != 0 {
-		return fmt.Errorf("faissBinaryIndex err: %w", errFailedToSetQuantizers)
-	}
-
 	return nil
 }
 
 func (idx *faissBinaryIndex) MergeFrom(other BinaryIndex, add_id int64) (err error) {
-	if !idx.IsIVFIndex() && !other.IsIVFIndex() {
-		return fmt.Errorf("faissBinaryIndex err: %w", errNotBIVFIndex)
+	if !(idx.IsIVFIndex() && other.IsIVFIndex()) {
+		return ErrMergeFromNotSupported
 	}
-
 	if c := C.faiss_IndexBinaryIVF_merge_from(
 		idx.bPtr(),
 		other.bPtr(),
 		(C.idx_t)(add_id),
 	); c != 0 {
-		err = getLastError()
+		err = newFaissError(ErrMergeFromFailed, getLastError(), int(c))
 	}
-
 	return err
 }

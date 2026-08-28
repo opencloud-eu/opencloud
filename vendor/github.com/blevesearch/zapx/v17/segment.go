@@ -49,28 +49,39 @@ func (z *ZapPlugin) Open(path string) (segment.Segment, error) {
 	return z.open(path, nil)
 }
 
-func (*ZapPlugin) open(path string, config map[string]interface{}) (segment.Segment, error) {
+func (z *ZapPlugin) open(path string, config map[string]interface{}) (segment.Segment, error) {
+	zapStats, ok := config[segment.StatsKey].(*segment.Stats)
+	if !ok || zapStats == nil {
+		zapStats = new(segment.Stats)
+	}
+
+	atomic.AddUint64(&zapStats.TotOpenBeg, 1)
 	f, err := os.Open(path)
 	if err != nil {
+		atomic.AddUint64(&zapStats.TotOpenErrors, 1)
 		return nil, err
 	}
 	mm, err := mmap.Map(f, mmap.RDONLY, 0)
 	if err != nil {
 		// mmap failed, try to close the file
 		_ = f.Close()
+		atomic.AddUint64(&zapStats.TotOpenErrors, 1)
 		return nil, err
 	}
 
 	rv := &Segment{
 		SegmentBase: SegmentBase{
-			fieldsMap:      make(map[string]uint16),
-			fieldsOptions:  make(map[string]index.FieldIndexingOptions),
-			invIndexCache:  newInvertedIndexCache(),
-			vecIndexCache:  newVectorIndexCache(),
-			synIndexCache:  newSynonymIndexCache(),
-			nstIndexCache:  newNestedIndexCache(),
-			fieldDvReaders: make([][]*docValueReader, len(segmentSections)),
-			config:         config,
+			fieldsMap:         make(map[string]uint16),
+			fieldsOptions:     make(map[string]index.FieldIndexingOptions),
+			invIndexCache:     newInvertedIndexCache(),
+			vecIndexCache:     newVectorIndexCache(),
+			synIndexCache:     newSynonymIndexCache(),
+			geoIndexCache:     newGeoIndexCache(),
+			nstIndexCache:     newNestedIndexCache(),
+			trainedIndexCache: newTrainedIndexCache(),
+			fieldDvReaders:    make([][]*docValueReader, len(segmentSections)),
+			config:            config,
+			stats:             zapStats,
 		},
 		f:    f,
 		mm:   mm,
@@ -82,18 +93,21 @@ func (*ZapPlugin) open(path string, config map[string]interface{}) (segment.Segm
 	err = rv.loadConfig()
 	if err != nil {
 		_ = rv.Close()
+		atomic.AddUint64(&zapStats.TotOpenErrors, 1)
 		return nil, err
 	}
 
 	err = rv.loadFields()
 	if err != nil {
 		_ = rv.Close()
+		atomic.AddUint64(&zapStats.TotOpenErrors, 1)
 		return nil, err
 	}
 
 	err = rv.loadDvReaders()
 	if err != nil {
 		_ = rv.Close()
+		atomic.AddUint64(&zapStats.TotOpenErrors, 1)
 		return nil, err
 	}
 
@@ -101,9 +115,11 @@ func (*ZapPlugin) open(path string, config map[string]interface{}) (segment.Segm
 	err = rv.nstIndexCache.initialize(rv.numDocs, rv.getEdgeListOffset(), rv.mem)
 	if err != nil {
 		_ = rv.Close()
+		atomic.AddUint64(&zapStats.TotOpenErrors, 1)
 		return nil, err
 	}
 
+	atomic.AddUint64(&zapStats.TotOpenEnd, 1)
 	return rv, nil
 }
 
@@ -136,10 +152,15 @@ type SegmentBase struct {
 	config        map[string]interface{} // config for the segment
 
 	// section-specific caches
-	invIndexCache *invertedIndexCache
-	vecIndexCache *vectorIndexCache
-	synIndexCache *synonymIndexCache
-	nstIndexCache *nestedIndexCache
+	invIndexCache     *invertedIndexCache
+	vecIndexCache     *vectorIndexCache
+	trainedIndexCache *trainedIndexCache
+	synIndexCache     *synonymIndexCache
+	geoIndexCache     *geoIndexCache
+	nstIndexCache     *nestedIndexCache
+
+	// segment level stats that are tracked and reported as part of the segment's lifecycle
+	stats *segment.Stats
 }
 
 func (sb *SegmentBase) Size() int {
@@ -183,8 +204,10 @@ func (sb *SegmentBase) DecRef() (err error) { return nil }
 func (sb *SegmentBase) Close() (err error) {
 	sb.invIndexCache.Clear()
 	sb.vecIndexCache.Clear()
+	sb.trainedIndexCache.Clear()
 	sb.synIndexCache.Clear()
 	sb.nstIndexCache.Clear()
+	sb.geoIndexCache.Clear()
 	return nil
 }
 
@@ -692,6 +715,7 @@ func (s *Segment) closeActual() (err error) {
 	s.vecIndexCache.Clear()
 	s.synIndexCache.Clear()
 	s.nstIndexCache.Clear()
+	s.trainedIndexCache.Clear()
 
 	if s.mm != nil {
 		err = s.mm.Unmap()
@@ -705,6 +729,7 @@ func (s *Segment) closeActual() (err error) {
 		}
 	}
 
+	atomic.AddUint64(&s.stats.TotSegmentsClosed, 1)
 	return
 }
 
@@ -882,44 +907,48 @@ func (sb *SegmentBase) CountRoot(deleted *roaring.Bitmap) uint64 {
 	// dR = D - dS
 	// Therefore, the count of root docs excluding deleted ones is:
 	// R - dR = (T - S) - (D - dS)
-	return (sb.Count() - sb.countNested()) - (sb.nstIndexCache.countRoot(deleted))
+	return sb.countRoot() - sb.countRootDeleted(deleted)
 }
 
-// AddNestedDocuments returns a bitmap containing the original document numbers in drops,
-// plus any descendant document numbers for each dropped document. The drops
-// parameter represents a set of document numbers to be dropped, and the returned
+// AddNestedDocuments returns a bitmap containing the original root document numbers in drops,
+// plus any descendant document numbers for each dropped root document. The drops
+// parameter represents a set of root document numbers to be dropped, and the returned
 // bitmap includes both the original drops and all their descendants (if any).
+// NOTE: This method MODIFIES the drops bitmap in place.
+// NOTE: This method EXPECTS that the drops bitmap contains ONLY root document numbers.
 func (sb *SegmentBase) AddNestedDocuments(drops *roaring.Bitmap) *roaring.Bitmap {
-	// If no drops or no subDocs, nothing to do
+	// If no drops or no nested documents, nothing to do
 	if drops == nil || drops.GetCardinality() == 0 || sb.countNested() == 0 {
 		return drops
 	}
-	// Get the edge list for this segment
-	el := sb.EdgeList()
-	// Algorithm => iterate through each child->parent mapping in the edge list,
-	// and for each pair, check if the parent is in the drops bitmap.
-	// If it is, and the child is also not already in the drops bitmap,
-	// add the child to the drops. Repeat this process until no
-	// new additions are made in an iteration.
-	changed := true
-	for changed {
-		changed = false
-		el.Iterate(func(child uint64, parent uint64) bool {
-			if drops.Contains(uint32(parent)) && !drops.Contains(uint32(child)) {
-				drops.Add(uint32(child))
-				changed = true
-			}
-			return true
-		})
+	ds := sb.descendantStore()
+	if ds == nil {
+		return drops
 	}
+	descendantBM := roaring.New()
+	dropsItr := drops.Iterator()
+	for dropsItr.HasNext() {
+		rootDoc := uint64(dropsItr.Next())
+		if bm, ok := ds.descendants(rootDoc); ok {
+			descendantBM.Or(bm)
+		}
+	}
+	drops.Or(descendantBM)
 	return drops
 }
 
-// EdgeList returns an EdgeList interface representing the parent-child relationships between documents in the segment.
-// The EdgeList interface allows iteration over child-parent document pairs, enabling navigation of document hierarchies.
+// edgeList returns an edgeList interface representing the parent-child relationships between documents in the segment.
+// The edgeList interface allows iteration over child-parent document pairs, enabling navigation of document hierarchies.
 // The underlying implementation may use a map or a slice, but callers should rely on the interface methods.
-func (sb *SegmentBase) EdgeList() EdgeList {
+func (sb *SegmentBase) edgeList() edgeList {
 	return sb.nstIndexCache.edgeList()
+}
+
+// descendantStore returns a descendantStore interface that provides access to the descendants of documents in the segment.
+// The descendantStore interface allows retrieval of descendant document numbers for a given root document number.
+// The underlying implementation may use a map or a slice, but callers should rely on the interface methods.
+func (sb *SegmentBase) descendantStore() descendantStore {
+	return sb.nstIndexCache.descendantStore()
 }
 
 // Utility method to count the number of nested documents in the segment, not exported.
@@ -927,6 +956,33 @@ func (sb *SegmentBase) countNested() uint64 {
 	return sb.nstIndexCache.countNested()
 }
 
+// Utility method to count the number of root documents in the given bitmap, not exported.
+func (sb *SegmentBase) countRoot() uint64 {
+	return sb.Count() - sb.countNested()
+}
+
+// Utility method to count the number of root documents that are marked as deleted in the given bitmap, not exported.
+func (sb *SegmentBase) countRootDeleted(deleted *roaring.Bitmap) uint64 {
+	return sb.nstIndexCache.countRootDeleted(deleted)
+}
+
 func (sb *SegmentBase) CallbackId() string {
 	return sb.fileReader.id
+}
+
+func (sb *SegmentBase) GeoShapeV2Data(field string, except *roaring.Bitmap) (segment.GeoShapeV2Data, error) {
+	fieldIDPlus1 := sb.fieldsMap[field]
+	if fieldIDPlus1 == 0 {
+		return nil, nil
+	}
+	pos := sb.fieldsSectionsMap[fieldIDPlus1-1][SectionGeoShapeV2Index]
+	if pos > 0 {
+		// skip the doc value offsets to get to the geo cell data portion
+		for i := 0; i < 2; i++ {
+			_, n := binary.Uvarint(sb.mem[pos : pos+binary.MaxVarintLen64])
+			pos += uint64(n)
+		}
+		return sb.geoIndexCache.loadOrCreate(fieldIDPlus1-1, sb.mem[pos:], except, sb.fileReader)
+	}
+	return nil, nil
 }

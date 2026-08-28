@@ -20,39 +20,61 @@ package zap
 import (
 	"encoding/binary"
 	"encoding/json"
+	"reflect"
+	"sync/atomic"
 
 	index "github.com/blevesearch/bleve_index_api"
 	faiss "github.com/blevesearch/go-faiss"
 )
 
+var reflectStaticSizeFloat32Index uint64
+
+func init() {
+	var f faissFloat32Index
+	reflectStaticSizeFloat32Index = uint64(reflect.TypeOf(f).Size())
+}
+
 // ---------------------------------
 // Faiss Float32 Index
 // ---------------------------------
 type faissFloat32Index struct {
-	cfg *faissIndexConfig
 	idx *faiss.IndexImpl
+	// idxBytes holds the original serialized index bytes to prevent GC.
+	idxBytes []byte
+	params   *faissIndexParams
 }
 
-func newFaissFloat32Index(idx *faiss.IndexImpl) (index faissIndex, err error) {
+func newFaissFloat32Index(idx *faiss.IndexImpl, params *faissIndexParams) (faissIndex, error) {
 	if idx == nil {
 		return nil, errNilIndex
 	}
+	if params == nil {
+		return nil, errNilParams
+	}
 	return &faissFloat32Index{
-		idx: idx,
+		idx:    idx,
+		params: params,
 	}, nil
 }
 
-func newFaissFloat32IndexWithConfig(idx *faiss.IndexImpl, cfg *faissIndexConfig) (index faissIndex, err error) {
-	if idx == nil {
+func newFaissFloat32IndexFromBytes(idxBytes []byte, params *faissIndexParams) (faissIndex, error) {
+	if idxBytes == nil {
 		return nil, errNilIndex
 	}
-	if cfg == nil {
-		return nil, errNilConfig
+
+	if params == nil {
+		return nil, errNilParams
+	}
+
+	idx, err := faiss.ReadIndexFromBuffer(idxBytes, params.ioFlags)
+	if err != nil {
+		return nil, err
 	}
 
 	return &faissFloat32Index{
-		idx: idx,
-		cfg: cfg,
+		idx:      idx,
+		idxBytes: idxBytes,
+		params:   params,
 	}, nil
 }
 
@@ -62,6 +84,7 @@ func (f *faissFloat32Index) add(vecs *vectorSet) error {
 
 func (f *faissFloat32Index) close() {
 	f.idx.Close()
+	f.idxBytes = nil
 }
 
 func (f *faissFloat32Index) dim() int {
@@ -90,7 +113,7 @@ func (f *faissFloat32Index) write(buf []byte, w *FileWriter) error {
 		return err
 	}
 	idxBytes = w.process(idxBytes)
-
+	atomic.AddUint64(&f.params.stats.TotVecSectionFloatIndexBytesWritten, uint64(len(idxBytes)))
 	// write the length of the serialized vector index bytes
 	n := binary.PutUvarint(buf, uint64(len(idxBytes)))
 	_, err = w.Write(buf[:n])
@@ -106,7 +129,9 @@ func (f *faissFloat32Index) write(buf []byte, w *FileWriter) error {
 }
 
 func (f *faissFloat32Index) size() uint64 {
-	return f.idx.Size()
+	return reflectStaticSizeFloat32Index +
+		f.params.size() +
+		f.idx.Size()
 }
 
 // -----------------------------------------------------------------
@@ -155,7 +180,8 @@ func (f *faissFloat32Index) setNProbe(nprobe int32) {
 }
 
 func (f *faissFloat32Index) trainAndAdd(trainingData *vectorSet, vecsToAdd *vectorSet) error {
-	err := f.idx.Train(trainingData.floatData)
+	nvecsToTrain := f.params.numTrainingVecs(trainingData.nvecs)
+	err := f.idx.Train(trainingData.floatData[:nvecsToTrain*f.dim()])
 	if err != nil {
 		return err
 	}
@@ -173,17 +199,14 @@ func (f *faissFloat32Index) setQuantizers(trainedIndex faissIndexIVF) error {
 }
 
 func (f *faissFloat32Index) isMergeable() bool {
-	if f.cfg != nil {
-		switch f.cfg.optimizationType {
-		case index.IndexOptimizedForLatency, index.IndexOptimizedForRecall:
-			return f.ntotal() > ivfSq8Threshold
-		case index.IndexOptimizedForMemoryEfficient, index.IndexIVFRaBitQ:
-			return f.ntotal() > ivfThreshold
-		default:
-			return false
-		}
+	switch f.params.optimization {
+	case index.IndexOptimizedForLatency, index.IndexOptimizedForRecall:
+		return f.params.numVecs >= ivfSq8Threshold
+	case index.IndexOptimizedForMemoryEfficient, index.IndexIVFRaBitQ:
+		return f.params.numVecs >= ivfThreshold
+	default:
+		return false
 	}
-	return false
 }
 
 func (f *faissFloat32Index) mergeFrom(other faissIndex, offset int64) error {

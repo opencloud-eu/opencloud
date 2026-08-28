@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"strings"
 
-	index "github.com/blevesearch/bleve_index_api"
 	"github.com/blevesearch/geo/s1"
 	"github.com/blevesearch/geo/s2"
 )
@@ -121,17 +120,6 @@ func polygonsIntersectsPoint(s2pgns []*s2.Polygon,
 	}
 
 	return s2.NewContainsPointQuery(idx, s2.VertexModelClosed).Contains(*point)
-}
-
-func geometryCollectionIntersectsShape(gc *GeometryCollection,
-	shapeIn index.GeoJSON) bool {
-	for _, shape := range gc.Members() {
-		intersects, err := shapeIn.Intersects(shape)
-		if err == nil && intersects {
-			return true
-		}
-	}
-	return false
 }
 
 func polygonsContainsLineStrings(s2pgns []*s2.Polygon,

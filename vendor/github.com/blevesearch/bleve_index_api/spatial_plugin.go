@@ -44,4 +44,17 @@ type GeoJSON interface {
 
 	// Value returns the byte value for the shape.
 	Value() ([]byte, error)
+
+	// ---------------------- geo shape v2 methods ------------------------
+
+	// IndexCells returns the covering cells computed with the
+	// index-time coverer.
+	IndexCells() (inner, cross []uint64)
+
+	// QueryCells returns the covering cells computed with the
+	// query-time coverer.
+	QueryCells() (inner, cross []uint64)
+
+	// BoundingBox returns the bounding box of the shape
+	BoundingBox() GeoJSON
 }

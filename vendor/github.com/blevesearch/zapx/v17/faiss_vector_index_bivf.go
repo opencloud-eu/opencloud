@@ -20,43 +20,74 @@ package zap
 import (
 	"encoding/binary"
 	"encoding/json"
+	"reflect"
 
 	index "github.com/blevesearch/bleve_index_api"
 	faiss "github.com/blevesearch/go-faiss"
 )
 
+var reflectStaticSizeBinaryIndex uint64
+
+func init() {
+	var b faissBinaryIndex
+	reflectStaticSizeBinaryIndex = uint64(reflect.TypeOf(b).Size())
+}
+
 // ---------------------------------
 // Faiss Binary IVF Index
 // ---------------------------------
 type faissBinaryIndex struct {
-	cfg     *faissIndexConfig
 	backing *faiss.IndexImpl
 	binary  *faiss.BinaryIndexImpl
+
+	// backingBytes and binaryBytes hold the original serialized index bytes to prevent GC.
+	backingBytes []byte
+	binaryBytes  []byte
+
+	params *faissIndexParams
 }
 
-func newFaissBinaryIndex(binary *faiss.BinaryIndexImpl, backing *faiss.IndexImpl) (index faissIndex, err error) {
+func newFaissBinaryIndex(binary *faiss.BinaryIndexImpl, backing *faiss.IndexImpl, params *faissIndexParams) (faissIndex, error) {
 	// we always create this object only with valid backing and binary indexes
 	if binary == nil || backing == nil {
 		return nil, errNilIndex
 	}
+	if params == nil {
+		return nil, errNilParams
+	}
 	return &faissBinaryIndex{
 		backing: backing,
 		binary:  binary,
+		params:  params,
 	}, nil
 }
 
-func newFaissBinaryIndexWithConfig(binary *faiss.BinaryIndexImpl, backing *faiss.IndexImpl, cfg *faissIndexConfig) (index faissIndex, err error) {
-	if binary == nil || backing == nil {
+func newFaissBinaryIndexFromBytes(binaryIndexBytes, backingIndexBytes []byte,
+	params *faissIndexParams) (faissIndex, error) {
+	if binaryIndexBytes == nil || backingIndexBytes == nil {
 		return nil, errNilIndex
 	}
-	if cfg == nil {
-		return nil, errNilConfig
+
+	if params == nil {
+		return nil, errNilParams
+	}
+
+	backing, err := faiss.ReadIndexFromBuffer(backingIndexBytes, params.ioFlags)
+	if err != nil {
+		return nil, err
+	}
+
+	binary, err := faiss.ReadBinaryIndexFromBuffer(binaryIndexBytes, params.ioFlags)
+	if err != nil {
+		return nil, err
 	}
 
 	return &faissBinaryIndex{
-		cfg:     cfg,
-		backing: backing,
-		binary:  binary,
+		backing:      backing,
+		binary:       binary,
+		backingBytes: backingIndexBytes,
+		binaryBytes:  binaryIndexBytes,
+		params:       params,
 	}, nil
 }
 
@@ -72,6 +103,8 @@ func (b *faissBinaryIndex) add(vecs *vectorSet) error {
 func (b *faissBinaryIndex) close() {
 	b.binary.Close()
 	b.backing.Close()
+	b.backingBytes = nil
+	b.binaryBytes = nil
 }
 
 func (b *faissBinaryIndex) dim() int {
@@ -155,7 +188,10 @@ func (b *faissBinaryIndex) write(buf []byte, w *FileWriter) error {
 }
 
 func (b *faissBinaryIndex) size() uint64 {
-	return b.binary.Size() + b.backing.Size()
+	return reflectStaticSizeBinaryIndex +
+		b.params.size() +
+		b.backing.Size() +
+		b.binary.Size()
 }
 
 // -----------------------------------------------------------------
@@ -251,16 +287,16 @@ func (b *faissBinaryIndex) setNProbe(nprobe int32) {
 }
 
 func (b *faissBinaryIndex) trainAndAdd(trainingData *vectorSet, vecsToAdd *vectorSet) error {
-	// train the backing index with the floatData
+	nvecsToTrain := b.params.numTrainingVecs(trainingData.nvecs)
 	var err error
 	if b.backing.IsSQIndex() {
-		err = b.backing.Train(trainingData.floatData)
+		err = b.backing.Train(trainingData.floatData[:nvecsToTrain*b.dim()])
 		if err != nil {
 			return err
 		}
 	}
 
-	err = b.binary.Train(trainingData.binaryData)
+	err = b.binary.Train(trainingData.binaryData[:nvecsToTrain*(b.dim()/8)])
 	if err != nil {
 		return err
 	}
@@ -287,16 +323,15 @@ func (b *faissBinaryIndex) setQuantizers(trainedIndex faissIndexIVF) error {
 }
 
 func (b *faissBinaryIndex) isMergeable() bool {
-	if b.cfg != nil {
-		switch b.cfg.optimizationType {
-		case index.IndexBIVFWithBackingFlat:
-			// the flat backing index currently doesn't support merge_from
-			return false
-		case index.IndexBIVFWithBackingSQ8:
-			return b.backing.Ntotal() > ivfThreshold
-		}
+	switch b.params.optimization {
+	case index.IndexBIVFWithBackingFlat:
+		// the flat backing index currently doesn't support merge_from
+		return false
+	case index.IndexBIVFWithBackingSQ8:
+		return b.params.numVecs >= ivfThreshold
+	default:
+		return false
 	}
-	return false
 }
 
 func (b *faissBinaryIndex) mergeFrom(other faissIndex, offset int64) error {

@@ -38,16 +38,14 @@ type SegmentSnapshot struct {
 	creator string
 	stats   *fieldStats
 
-	// if this segment is in-memory then we'll try to undo the internal values
-	// in the indexSnapshot internal map before updating the bolt, since its
-	// supposed to be reflective of the on-disk data.
-	internal map[string][]byte
-
 	updatedFields map[string]*index.UpdateFieldInfo
 
 	cachedMeta *cachedMeta
 
 	cachedDocs *cachedDocs
+
+	rootCountOnce sync.Once
+	rootCount     uint64
 }
 
 func (s *SegmentSnapshot) Segment() segment.Segment {
@@ -95,6 +93,27 @@ func (s *SegmentSnapshot) FileSize() int64 {
 	return fi.Size()
 }
 
+func (s *SegmentSnapshot) LiveFileSize() int64 {
+	fullSize := float64(s.FullSize())
+	if fullSize <= 0 {
+		return 0
+	}
+
+	liveSize := float64(s.LiveSize())
+	if liveSize <= 0 {
+		return 0
+	}
+
+	fileSize := float64(s.FileSize())
+	if fileSize <= 0 {
+		return 0
+	}
+
+	liveRatio := liveSize / fullSize
+
+	return int64(fileSize * liveRatio)
+}
+
 func (s *SegmentSnapshot) Close() error {
 	return s.segment.Close()
 }
@@ -119,13 +138,14 @@ func (s *SegmentSnapshot) Count() uint64 {
 // Count() counts all live documents including nested children, whereas this method
 // counts only root live documents
 func (s *SegmentSnapshot) CountRoot() uint64 {
-	var rv uint64
-	if nsb, ok := s.segment.(segment.NestedSegment); ok {
-		rv = nsb.CountRoot(s.deleted)
-	} else {
-		rv = s.Count()
-	}
-	return rv
+	s.rootCountOnce.Do(func() {
+		if nsb, ok := s.segment.(segment.NestedSegment); ok {
+			s.rootCount = nsb.CountRoot(s.deleted)
+		} else {
+			s.rootCount = s.Count()
+		}
+	})
+	return s.rootCount
 }
 
 func (s *SegmentSnapshot) DocNumbers(docIDs []string) (*roaring.Bitmap, error) {
@@ -350,34 +370,33 @@ func (c *cachedDocs) visitDoc(localDocNum uint64,
 	c.m.RUnlock()
 }
 
-// the purpose of the cachedMeta is to simply allow the user of this type to record
-// and cache certain meta data information (specific to the segment) that can be
-// used across calls to save compute on the same.
-// for example searcher creations on the same index snapshot can use this struct
-// to help and fetch the backing index size information which can be used in
-// memory usage calculation thereby deciding whether to allow a query or not.
+// cachedMeta is a simple wrapper around sync.Map to provide typed
+// access to cached metadata values for segments.
 type cachedMeta struct {
-	m    sync.RWMutex
-	meta map[string]interface{}
+	meta sync.Map
 }
 
-func (c *cachedMeta) updateMeta(field string, val interface{}) {
-	c.m.Lock()
-	if c.meta == nil {
-		c.meta = make(map[string]interface{})
+func newCachedMeta() *cachedMeta {
+	return &cachedMeta{
+		meta: sync.Map{},
 	}
-	c.meta[field] = val
-	c.m.Unlock()
 }
 
-func (c *cachedMeta) fetchMeta(field string) (rv interface{}) {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	if c.meta == nil {
-		return nil
-	}
-	rv = c.meta[field]
-	return rv
+// store the value for a field in the cache, overwriting any existing value.
+func (c *cachedMeta) store(field string, val interface{}) {
+	c.meta.Store(field, val)
+}
+
+// load the value for a field from the cache, returning the value
+// and a boolean indicating whether the value was present.
+func (c *cachedMeta) load(field string) (rv interface{}, ok bool) {
+	return c.meta.Load(field)
+}
+
+// contains reports whether the cache has an entry for the given field.
+func (c *cachedMeta) contains(field string) bool {
+	_, ok := c.meta.Load(field)
+	return ok
 }
 
 func (s *SegmentSnapshot) Ancestors(docNum uint64, prealloc []index.AncestorID) []index.AncestorID {

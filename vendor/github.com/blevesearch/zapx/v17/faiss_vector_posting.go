@@ -24,6 +24,7 @@ import (
 
 	"github.com/RoaringBitmap/roaring/v2"
 	"github.com/RoaringBitmap/roaring/v2/roaring64"
+	index "github.com/blevesearch/bleve_index_api"
 	segment "github.com/blevesearch/scorch_segment_api/v2"
 )
 
@@ -289,28 +290,27 @@ func (sb *SegmentBase) InterpretVectorIndex(field string, except *roaring.Bitmap
 	if pos <= 0 {
 		return rv, nil
 	}
-	// the below loop loads the following:
-	// 1. doc values(first 2 iterations) - adhering to the sections format. never
-	// valid values for vector section
-	// 2. index optimization type.
-	for i := 0; i < 3; i++ {
+	// skip the docvalue offsets as they are not required for the
+	// vector index section.
+	for i := 0; i < 2; i++ {
 		_, n := binary.Uvarint(sb.mem[pos : pos+binary.MaxVarintLen64])
 		pos += uint64(n)
 	}
-
+	// read the index optimization type
+	opt, n := binary.Uvarint(sb.mem[pos : pos+binary.MaxVarintLen64])
+	pos += uint64(n)
+	// get the optimization type string from the reverse lookup map
+	optStr := index.VectorIndexOptimizationsReverseLookup[int(opt)]
 	// create the vector index wrapper by loading (or creating) the vector index
 	// and the vector to docID mapping
 	useGPU := sb.fieldsOptions[field].UseGPU()
+
 	var err error
-	rv.index, rv.mapping, rv.exclude, err = sb.vecIndexCache.loadOrCreate(fieldID, sb.mem[pos:], uint32(sb.numDocs), except, useGPU, sb.fileReader)
+	opts := newVectorCacheOptions(sb.mem[pos:], uint32(sb.numDocs), except, useGPU, sb.fileReader, optStr, false)
+	rv.index, rv.mapping, rv.exclude, err = sb.vecIndexCache.loadOrCreate(fieldID, opts)
 	if err != nil {
 		return nil, err
 	}
-	// get the size of the vector index
-	if rv.index != nil {
-		rv.vecIndexSize = rv.index.size()
-	}
-
 	// get the number of nested documents in this segment, if any
 	// to determine if the wrapper needs to handle nested documents
 	rv.nestedMode = sb.countNested() > 0
@@ -350,6 +350,9 @@ func (sb *SegmentBase) UpdateVectorFieldStats(stats segment.FieldStats) {
 			stats.Store("num_vector_indexes_in_gpu", fieldName, 1)
 		case vectorIndexInCPU:
 			stats.Store("num_vector_indexes_in_cpu", fieldName, 1)
+		default:
+			stats.Store("num_vector_indexes_in_cpu", fieldName, 0)
+			stats.Store("num_vector_indexes_in_gpu", fieldName, 0)
 		}
 	}
 }

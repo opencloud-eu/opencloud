@@ -9,21 +9,18 @@ package faiss
 #include <faiss/c_api/IndexScalarQuantizer_c.h>
 */
 import "C"
-import (
-	"fmt"
-)
 
 func (idx *faissIndex) SetDirectMap(mapType int) (err error) {
 
 	ivfPtr := C.faiss_IndexIVF_cast(idx.cPtr())
 	if ivfPtr == nil {
-		return errNotIVFIndex
+		return ErrNotIVFIndex
 	}
 	if c := C.faiss_IndexIVF_set_direct_map(
 		ivfPtr,
 		C.int(mapType),
 	); c != 0 {
-		err = getLastError()
+		err = newFaissError(ErrSetParamsFailed, getLastError(), int(c))
 	}
 	return err
 }
@@ -32,12 +29,12 @@ func (idx *faissIndex) GetSubIndex() (Index, error) {
 
 	ptr := C.faiss_IndexIDMap2_cast(idx.cPtr())
 	if ptr == nil {
-		return nil, fmt.Errorf("index is not a id map")
+		return nil, ErrNotIDMapIndex
 	}
 
 	subIdx := C.faiss_IndexIDMap2_sub_index(ptr)
 	if subIdx == nil {
-		return nil, fmt.Errorf("couldn't retrieve the sub index")
+		return nil, ErrNotIDMapIndex
 	}
 
 	return &IndexImpl{&faissIndex{subIdx}}, nil
@@ -70,18 +67,11 @@ func (idx *faissIndex) IsSQIndex() bool {
 func (idx *faissIndex) SetQuantizers(srcIndex Index) error {
 	if !(idx.IsIVFIndex() && srcIndex.IsIVFIndex()) &&
 		!(idx.IsSQIndex() && srcIndex.IsSQIndex()) {
-		return fmt.Errorf("faissIndex SetQuantizers: %w, index type not supported", errFailedToSetQuantizers)
+		return ErrSetQuantizerNotSupported
 	}
-
-	srcIndexPtr := srcIndex.cPtr()
-	if srcIndexPtr == nil {
-		return fmt.Errorf("coarse quantizer is not valid")
+	c := C.faiss_Set_quantizers(idx.idx, srcIndex.cPtr())
+	if c != 0 {
+		return newFaissError(ErrSetQuantizerFailed, getLastError(), int(c))
 	}
-
-	err := C.faiss_Set_quantizers(idx.idx, srcIndexPtr)
-	if err != 0 {
-		return fmt.Errorf("faissIndex SetQuantizers: %w", errFailedToSetQuantizers)
-	}
-
 	return nil
 }

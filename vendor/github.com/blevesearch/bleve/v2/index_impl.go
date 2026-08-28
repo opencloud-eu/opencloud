@@ -213,9 +213,6 @@ func openIndexUsing(path string, runtimeConfig map[string]interface{}) (rv *inde
 		if !ok {
 			return nil, fmt.Errorf("updated mapping present for unupdatable index")
 		}
-
-		// Load the meta data from bolt so that we can read the current index
-		// mapping to compare with
 		err = ui.OpenMeta()
 		if err != nil {
 			return nil, err
@@ -225,12 +222,12 @@ func openIndexUsing(path string, runtimeConfig map[string]interface{}) (rv *inde
 		if err != nil {
 			return nil, err
 		}
-		defer func(rv *indexImpl) {
-			if !rv.open {
-				rv.i.Close()
-			}
-		}(rv)
 	}
+	defer func(rv *indexImpl) {
+		if !rv.open {
+			rv.i.Close()
+		}
+	}(rv)
 
 	// now load the mapping
 	indexReader, err := rv.i.Reader()
@@ -269,7 +266,8 @@ func openIndexUsing(path string, runtimeConfig map[string]interface{}) (rv *inde
 			return nil, err
 		}
 
-		fieldInfo, err := DeletedFields(im, um)
+		var fieldInfo map[string]*index.UpdateFieldInfo
+		fieldInfo, err = DeletedFields(im, um)
 		if err != nil {
 			return nil, err
 		}
@@ -284,11 +282,6 @@ func openIndexUsing(path string, runtimeConfig map[string]interface{}) (rv *inde
 		if err != nil {
 			return nil, err
 		}
-		defer func(rv *indexImpl) {
-			if !rv.open {
-				rv.i.Close()
-			}
-		}(rv)
 	}
 
 	// mark the index as open
@@ -759,6 +752,9 @@ func (i *indexImpl) SearchInContext(ctx context.Context, req *SearchRequest) (sr
 			ctx = context.WithValue(ctx, search.NestedSearchKey, true)
 		}
 	}
+	// Install here, before presearch and the knn collector, so the counter also
+	// covers presearch and KNN filter searchers, not just the main query's.
+	ctx = search.ContextWithTermSearchersCounter(ctx)
 	// ------------------------------------------------------------------------------------------
 
 	if _, ok := ctx.Value(search.PreSearchKey).(bool); ok {
@@ -791,6 +787,19 @@ func (i *indexImpl) SearchInContext(ctx context.Context, req *SearchRequest) (sr
 	coll, err := i.buildTopNCollector(ctx, req, indexReader)
 	if err != nil {
 		return nil, err
+	}
+
+	// score="none" + Size means "return any Size+From matching docs", so the
+	// collector may stop scanning early — provided nothing below depends on
+	// unseen matches (facets, KNN, pagination cursor, nested rollup, field sort).
+	if req.Score == ScoreNone && req.Size > 0 &&
+		len(req.Facets) == 0 &&
+		!requestHasKNN(req) &&
+		req.SearchAfter == nil && !reverseQueryExecution &&
+		len(req.Sort) == 1 && req.Sort[0].RequiresScoring() {
+		if nestedMode, ok := ctx.Value(search.NestedSearchKey).(bool); !ok || !nestedMode {
+			coll.SetEarlyStop(req.Size + req.From)
+		}
 	}
 
 	var knnHits []*search.DocumentMatch
@@ -1043,16 +1052,21 @@ func (i *indexImpl) SearchInContext(ctx context.Context, req *SearchRequest) (sr
 		req.SearchAfter = nil
 	}
 
+	totalRelation := TotalRelationEq
+	if coll.EarlyStopped() {
+		totalRelation = TotalRelationGte
+	}
 	rv := &SearchResult{
 		Status: &SearchStatus{
 			Total:      1,
 			Successful: 1,
 		},
-		Hits:     hits,
-		Total:    coll.Total(),
-		MaxScore: coll.MaxScore(),
-		Took:     searchDuration,
-		Facets:   coll.FacetResults(),
+		Hits:          hits,
+		Total:         coll.Total(),
+		TotalRelation: totalRelation,
+		MaxScore:      coll.MaxScore(),
+		Took:          searchDuration,
+		Facets:        coll.FacetResults(),
 	}
 
 	// rescore if fusion flag is set

@@ -89,6 +89,22 @@ type GeoShapeField interface {
 	EncodedShape() []byte
 }
 
+// GeoShapeV2Field represents an analyzed geo shape field
+type GeoShapeV2Field interface {
+	// InnerCells returns the covering cells fully contained within the shape
+	InnerCells() []uint64
+	// CrossCells returns the covering cells that overlap the shape's boundary
+	CrossCells() []uint64
+
+	// EncodedBoundingBox returns the serialized bounding box of the shape
+	EncodedBoundingBox() []byte
+	// EncodedShape returns the serialized shape
+	EncodedShape() []byte
+
+	// Scores returns the shape's inner and cross cell scores
+	Scores() (inner, cross uint64)
+}
+
 type IPField interface {
 	IP() (net.IP, error)
 }

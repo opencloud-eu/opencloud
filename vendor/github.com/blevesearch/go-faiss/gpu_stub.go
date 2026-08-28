@@ -13,29 +13,27 @@
 // limitations under the License.
 
 //go:build !gpu
+// +build !gpu
 
 package faiss
-
-import "errors"
 
 // GPUIndexImpl is an opaque type when not built with GPU support.
 type GPUIndexImpl struct{}
 
-func (g *GPUIndexImpl) Train(x []float32) error { return errGPUNotBuilt }
-func (g *GPUIndexImpl) Add(x []float32) error   { return errGPUNotBuilt }
+func (g *GPUIndexImpl) Train(x []float32) error { return ErrNoUsableGPUDevices }
+func (g *GPUIndexImpl) Add(x []float32) error   { return ErrNoUsableGPUDevices }
 func (g *GPUIndexImpl) Search(x []float32, k int64) ([]float32, []int64, error) {
-	return nil, nil, errGPUNotBuilt
+	return nil, nil, ErrNoUsableGPUDevices
 }
-func (g *GPUIndexImpl) Close() {}
-
-var errGPUNotBuilt = errors.New("not built with GPU support (requires -tags gpu)")
+func (g *GPUIndexImpl) Close()       {}
+func (g *GPUIndexImpl) Size() uint64 { return 0 }
 
 // CloneToGPU is not available without the gpu build tag.
 func CloneToGPU(_ *IndexImpl) (*GPUIndexImpl, error) {
-	return nil, errGPUNotBuilt
+	return nil, ErrNoUsableGPUDevices
 }
 
 // CloneToCPU is not available without the gpu build tag.
 func CloneToCPU(_ *GPUIndexImpl) (*IndexImpl, error) {
-	return nil, errGPUNotBuilt
+	return nil, ErrNoUsableGPUDevices
 }

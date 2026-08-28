@@ -16,7 +16,7 @@ func WriteIndex(idx Index, filename string) error {
 	cfname := C.CString(filename)
 	defer C.free(unsafe.Pointer(cfname))
 	if c := C.faiss_write_index_fname(idx.cPtr(), cfname); c != 0 {
-		return getLastError()
+		return newFaissError(ErrWriteIndexFailed, getLastError(), int(c))
 	}
 	return nil
 }
@@ -32,7 +32,7 @@ func WriteIndexIntoBuffer(idx Index) ([]byte, error) {
 		&tempBuf,
 	); c != 0 {
 		C.faiss_free_buf(&tempBuf)
-		return nil, getLastError()
+		return nil, newFaissError(ErrWriteIndexFailed, getLastError(), int(c))
 	}
 
 	// at this point, the idx has a valid ref count. furthermore, the index is
@@ -89,7 +89,7 @@ func ReadIndexFromBuffer(buf []byte, ioflags int) (*IndexImpl, error) {
 		size,
 		C.int(ioflags),
 		&idx.idx); c != 0 {
-		return nil, getLastError()
+		return nil, newFaissError(ErrReadIndexFailed, getLastError(), int(c))
 	}
 
 	ptr = nil
@@ -114,7 +114,7 @@ func ReadIndex(filename string, ioflags int) (*IndexImpl, error) {
 	defer C.free(unsafe.Pointer(cfname))
 	var idx faissIndex
 	if c := C.faiss_read_index_fname(cfname, C.int(ioflags), &idx.idx); c != 0 {
-		return nil, getLastError()
+		return nil, newFaissError(ErrReadIndexFailed, getLastError(), int(c))
 	}
 	return &IndexImpl{&idx}, nil
 }
@@ -130,7 +130,7 @@ func WriteBinaryIndexIntoBuffer(idx BinaryIndex) ([]byte, error) {
 		&tempBuf,
 	); c != 0 {
 		C.faiss_free_buf(&tempBuf)
-		return nil, getLastError()
+		return nil, newFaissError(ErrWriteIndexFailed, getLastError(), int(c))
 	}
 
 	val := unsafe.Slice((*byte)(unsafe.Pointer(tempBuf)), uint(bufSize))
@@ -153,7 +153,7 @@ func ReadBinaryIndexFromBuffer(buf []byte, ioflags int) (*BinaryIndexImpl, error
 		size,
 		C.int(ioflags),
 		&bIdx.bIdx); c != 0 {
-		return nil, getLastError()
+		return nil, newFaissError(ErrReadIndexFailed, getLastError(), int(c))
 	}
 
 	return &BinaryIndexImpl{&bIdx}, nil
