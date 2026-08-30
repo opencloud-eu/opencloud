@@ -41,6 +41,8 @@ const (
 	UnifiedRoleFileEditorWithVersionsID = "3d00ce52-1fc2-4dbc-8b95-a73b73395f5a"
 	// UnifiedRoleFileEditorListGrantsID Unified role file editor id.
 	UnifiedRoleFileEditorListGrantsID = "c1235aea-d106-42db-8458-7d5610fb0a67"
+	// UnifiedRoleEditorLitePlusID Unified role editor-lite-plus id.
+	UnifiedRoleEditorLitePlusID = "48d8a2b0-d7c2-4b63-a0b5-2e3f5c9e8d1a"
 	// UnifiedRoleEditorLiteID Unified role editor-lite id.
 	UnifiedRoleEditorLiteID = "1c996275-f1c9-4e71-abdf-a42f6495e960"
 	// UnifiedRoleManagerID Unified role manager id.
@@ -178,6 +180,12 @@ var (
 	// UnifiedRole FileEditorListGrants, Role DisplayName (resolves directly)
 	_fileEditorListGrantsUnifiedRoleDisplayName = l10n.Template("Can edit")
 
+	// UnifiedRole EditorLitePlus, Role Description (resolves directly)
+	_editorLightUnifiedRoleDescription = l10n.Template("View, download, upload, edit and add. No delete.")
+
+	// UnifiedRole EditorLitePlus, Role DisplayName (resolves directly)
+	_editorLightUnifiedRoleDisplayName = l10n.Template("Can edit (no delete)")
+
 	// UnifiedRole EditorLite, Role Description (resolves directly)
 	_editorLiteUnifiedRoleDescription = l10n.Template("View, download and upload.")
 
@@ -212,6 +220,7 @@ var (
 		UnifiedRoleSpaceEditorWithoutVersionsID: conversions.RoleSpaceEditorWithoutVersions,
 		UnifiedRoleEditorID:                     conversions.RoleEditor,
 		UnifiedRoleFileEditorID:                 conversions.RoleFileEditor,
+		UnifiedRoleEditorLitePlusID:                conversions.RoleEditorLitePlus,
 		UnifiedRoleEditorLiteID:                 conversions.RoleEditorLite,
 		UnifiedRoleManagerID:                    conversions.RoleManager,
 		UnifiedRoleSecureViewerID:               conversions.RoleSecureViewer,
@@ -232,6 +241,7 @@ var (
 		roleFileEditor,
 		roleFileEditorWithVersions,
 		roleFileEditorListGrants,
+		roleEditorLitePlus,
 		roleEditorLite,
 		roleManager,
 		roleSecureViewer,
@@ -386,6 +396,23 @@ var (
 				},
 			},
 			LibreGraphWeight: proto.Int32(50),
+		}
+	}()
+
+	// roleEditorLitePlus creates an editor role without delete permission.
+	roleEditorLitePlus = func() *libregraph.UnifiedRoleDefinition {
+		r := conversions.NewEditorLitePlusRole()
+		return &libregraph.UnifiedRoleDefinition{
+			Id:          proto.String(UnifiedRoleEditorLitePlusID),
+			Description: proto.String(_editorLitePlusUnifiedRoleDescription),
+			DisplayName: proto.String(cs3RoleToDisplayName(r)),
+			RolePermissions: []libregraph.UnifiedRolePermission{
+				{
+					AllowedResourceActions: CS3ResourcePermissionsToLibregraphActions(r.CS3ResourcePermissions()),
+					Condition:              proto.String(UnifiedRoleConditionFolder),
+				},
+			},
+			LibreGraphWeight: proto.Int32(55),
 		}
 	}()
 

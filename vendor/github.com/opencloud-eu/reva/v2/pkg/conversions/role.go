@@ -64,6 +64,8 @@ const (
 	RoleFileEditorListGrants = "file-editor-list-grants"
 	// RoleCoowner grants co-owner permissions on a resource.
 	RoleCoowner = "coowner"
+	// RoleEditorLitePlus grants editor permission without delete on a resource.
+	RoleEditorLitePlus = "editor-lite-plus"
 	// RoleEditorLite grants permission to upload and download to a resource.
 	RoleEditorLite = "editor-lite"
 	// RoleUploader grants uploader permission to upload onto a resource (no download).
@@ -301,6 +303,25 @@ func NewEditorRole() *Role {
 			Stat:                 true,
 		},
 		ocsPermissions: p,
+	}
+}
+
+// NewEditorLitePlusRole creates an editor role without delete permission.
+// Users can view, download, upload, edit, add and move but not delete.
+func NewEditorLitePlusRole() *Role {
+	return &Role{
+		Name: RoleEditorLitePlus,
+		cS3ResourcePermissions: &provider.ResourcePermissions{
+			CreateContainer:      true,
+			GetPath:              true,
+			GetQuota:             true,
+			InitiateFileDownload: true,
+			InitiateFileUpload:   true,
+			ListContainer:        true,
+			Move:                 true,
+			Stat:                 true,
+		},
+		ocsPermissions: PermissionRead | PermissionCreate | PermissionWrite,
 	}
 }
 
