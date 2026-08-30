@@ -7,4 +7,5 @@ var (
 	ErrNoConverterForExtractedImageFromGgsFile   = errors.New("preprocessor: could not find converter for image extracted from ggs file")
 	ErrNoConverterForExtractedImageFromAudioFile = errors.New("preprocessor: could not find converter for image extracted from audio file")
 	ErrNoConverterForExtractedImageFromGgpFile   = errors.New("preprocessor: could not find converter for image extracted from ggp file")
+	ErrNoThumbnail                               = errors.New("preprocessor: the document has no thumbnail")
 )

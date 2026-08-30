@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 	"image"
 	"image/draw"
 	"image/png"
@@ -36,12 +37,13 @@ type Image struct {
 	Data        []byte
 }
 
-// GgsDecoder is a converter for the geogebra slides file
+// GgsDecoder is a converter for the geogebra slides file.
+//
+// Deprecated: Tika provides the thumbnail; kept for setups without Tika.
 type GgsDecoder struct {
 	thumbnailpath string
 
-	// maxSize bounds the extracted image, because a deflated entry expands by
-	// orders of magnitude and the container's own size says nothing about it.
+	// a deflated entry expands by orders of magnitude, so its own size says nothing
 	maxSize uint64
 }
 
@@ -87,7 +89,9 @@ func (g GgsDecoder) Convert(r io.Reader) (*Image, error) {
 	return nil, errors.Errorf("%s not found", g.thumbnailpath)
 }
 
-// AudioDecoder is a converter for the audio file
+// AudioDecoder is a converter for the audio file.
+//
+// Deprecated: Tika provides the cover art; kept for setups without Tika.
 type AudioDecoder struct{}
 
 // Convert reads the audio file and extracts the thumbnail image from the id3 tag.
@@ -226,7 +230,9 @@ type GGPStruct struct {
 	}
 }
 
-// GgpDecoder is a converter for the geogebra pinboard file
+// GgpDecoder is a converter for the geogebra pinboard file.
+//
+// Deprecated: see GgsDecoder.
 type GgpDecoder struct{}
 
 // Convert reads the ggp file and returns the first thumbnail image.
@@ -355,6 +361,17 @@ type Options struct {
 	FontMapFile  string
 	FontFace     *opentype.FaceOptions
 	MaxImageSize uint64
+	Tika         thumbnail.Tika
+	Filename     string
+}
+
+// tikaOr prefers a configured Tika server, else the fallback
+func tikaOr(opts Options, mimeType string, fallback FileConverter) FileConverter {
+	if !opts.Tika.Supports(mimeType) {
+		return fallback
+	}
+
+	return TikaThumbnail{tikaURL: opts.Tika.URL, filename: opts.Filename, contentType: opts.Tika.ContentType(mimeType)}
 }
 
 // ForType returns the converter for the specified mimeType
@@ -383,19 +400,26 @@ func ForType(mimeType string, opts Options) FileConverter {
 			fontLoader: fontLoader,
 		}
 	case "application/vnd.geogebra.slides":
-		return GgsDecoder{thumbnailpath: "_slide0/geogebra_thumbnail.png", maxSize: maxExtractedSize(opts)}
+		return tikaOr(opts, mimeType, GgsDecoder{thumbnailpath: "_slide0/geogebra_thumbnail.png", maxSize: maxExtractedSize(opts)})
 	case "application/vnd.geogebra.pinboard":
-		return GgpDecoder{}
+		return tikaOr(opts, mimeType, GgpDecoder{})
 	case "audio/flac":
 		fallthrough
 	case "audio/mpeg":
 		fallthrough
 	case "audio/ogg":
-		return AudioDecoder{}
+		return tikaOr(opts, mimeType, AudioDecoder{})
 	default:
 		// webdav decodes no image: an image/* source is streamed to the
 		// generator untouched, so a type without a converter here is one
-		// nobody can make a preview of.
-		return nil
+		// only Tika can make a preview of.
+		return tikaOr(opts, mimeType, nil)
 	}
+}
+
+// Encoded is an image a converter hands on as it found it. The type decides
+// the format the thumbnail is written in.
+type Encoded struct {
+	ContentType string
+	Data        []byte
 }

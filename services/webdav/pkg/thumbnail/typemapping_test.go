@@ -27,6 +27,10 @@ var _ = Describe("TypeMapping", func() {
 		Expect(m.TargetFor("image/x-icon")).To(Equal("image/png"))
 	})
 
+	It("writes the icon of a windows binary as a png", func() {
+		Expect(m.TargetFor("application/x-msdownload")).To(Equal("image/png"))
+	})
+
 	It("reads a type with parameters", func() {
 		Expect(m.TargetFor("image/png; charset=binary")).To(Equal("image/png"))
 	})

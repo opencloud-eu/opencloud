@@ -10,6 +10,8 @@ Currently, the webdav service handles request for two functionalities, which are
 
 The webdav service provides various `GET` endpoints to get the thumbnails of a file in authenticated and unauthenticated contexts. It also provides thumbnails for spaces on different endpoints.
 
+When `OC_TIKA_URL` (or `WEBDAV_TIKA_URL`) is set, an Apache Tika server (4.1 or newer) supplies the preview image for documents, raw photos, audio cover art and other types. Every file that is not a directly supported image is sent to Tika; `OC_TIKA_THUMBNAIL_MIME_TYPES` (or `WEBDAV_TIKA_THUMBNAIL_MIME_TYPES`) restricts that to a list of mime types, where an entry like `image/x-nikon-nef:image/x-raw-nikon` maps a type to the one Tika knows the format by. Tika takes a declared type only when it refines what it detected itself, so an entry pins a subtype its detector left at the parent type, a raw photo it only read as a tiff. Without Tika, audio cover art and GeoGebra thumbnails are still extracted by the webdav service itself; those built-in extractors are deprecated. A type Tika takes is attempted even when `OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES` does not announce it, so a direct request can get a preview that a listing reports as absent.
+
 Generated thumbnails are cached by the webdav service itself. The cache backend defaults to `file`, storing entries under `$OC_BASE_DATA_PATH/thumbnails/files` (override with `WEBDAV_THUMBNAILS_CACHE_BACKEND` and `WEBDAV_THUMBNAILS_CACHE_DIR`). Use the `s3` backend when running multiple instances behind a load balancer so they share one cache. A backend nobody can serve, an unknown name or an `s3` backend without bucket, region and credentials, fails at startup instead of serving without a cache, as long as previews are enabled. A service that is not AWS needs `WEBDAV_THUMBNAILS_CACHE_S3_ENDPOINT` too, and it is always addressed over https. The `memory` backend is bounded and drops its oldest entries; `none` disables caching on purpose.
 
 #### Thumbnail Query String Parameters
@@ -76,7 +78,7 @@ Three settings say what is made of what. Each one is merged onto the built-in de
 
 Reading them as a chain: a source type is mapped to the type its thumbnail is returned in, and that type is asked for by the name the generator knows it under. An icon becomes `image/png`, which the generator is asked for as `format(png)`. A type nobody mapped becomes a JPEG, and so does a mapping onto a type this service has no format name for: what a generator behind the URL really writes is its own business, and a wrong guess here must not keep the service from starting.
 
-The defaults return `image/png` for png and icon sources, keep `image/gif` for a gif and return `image/jpeg` for everything else, so a client must read the response's `Content-Type` instead of assuming the type it got before.
+The defaults return `image/png` for png, icon and windows binary sources, keep `image/gif` for a gif and return `image/jpeg` for everything else, so a client must read the response's `Content-Type` instead of assuming the type it got before.
 
 Previews can be switched off entirely with `OC_DISABLE_PREVIEWS`. Search keeps working, every thumbnail path answers `404`, and nothing here is read or checked: a typo in the resolutions, the cache backend or the type mapping surfaces when previews are switched back on, not before.
 
