@@ -33,7 +33,7 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewConjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Name:federated`),
+				query.NewQueryStringQuery(`federated`),
 			}),
 			wantErr: false,
 		},
@@ -45,7 +45,7 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewConjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Name:john\ smith`),
+				query.NewQueryStringQuery(`john\ smith`),
 			}),
 			wantErr: false,
 		},
