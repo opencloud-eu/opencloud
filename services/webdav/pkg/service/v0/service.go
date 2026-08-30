@@ -119,6 +119,7 @@ func NewService(opts ...Option) (Service, error) {
 		workflow.WithResolutions(resolutions),
 		workflow.WithWebdavNamespace(conf.WebdavNamespace),
 		workflow.WithFontMapFile(conf.FontMapFile),
+		workflow.WithTika(thumbnail.NewTika(conf.TikaURL, conf.TikaThumbnailMimeTypes)),
 		workflow.WithLogger(options.Logger),
 		workflow.WithStater(workflow.NewGatewayStater(gatewaySelector)),
 		workflow.WithFileDownloader(workflow.NewGatewayFileDownloader(gatewaySelector, httpClient)),

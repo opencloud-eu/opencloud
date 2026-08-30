@@ -38,6 +38,8 @@ type Config struct {
 	ThumbnailCacheS3AccessKey string   `yaml:"thumbnail_cache_s3_access_key" env:"WEBDAV_THUMBNAIL_CACHE_S3_ACCESS_KEY" desc:"S3 access key for thumbnail cache authentication." introductionVersion:"1.0.0"`
 	ThumbnailCacheS3SecretKey string   `yaml:"thumbnail_cache_s3_secret_key" env:"WEBDAV_THUMBNAIL_CACHE_S3_SECRET_KEY" desc:"S3 secret key for thumbnail cache authentication." introductionVersion:"1.0.0"`
 	FontMapFile               string   `yaml:"font_map_file" env:"WEBDAV_THUMBNAILS_TXT_FONTMAP_FILE;THUMBNAILS_TXT_FONTMAP_FILE" desc:"The path to a font map file for txt thumbnails." introductionVersion:"1.0.0"`
+	TikaURL                   string   `yaml:"tika_url" env:"OC_TIKA_URL;WEBDAV_TIKA_URL" desc:"URL of an Apache Tika server. When set, thumbnails are generated for documents, raw photos, audio cover art and other formats Tika can extract a preview from." introductionVersion:"%%NEXT%%"`
+	TikaThumbnailMimeTypes    []string `yaml:"tika_thumbnail_mime_types" env:"OC_TIKA_THUMBNAIL_MIME_TYPES;WEBDAV_TIKA_THUMBNAIL_MIME_TYPES" desc:"Restrict thumbnail generation via Tika to these mime types. Empty means all types that are not handled directly. An entry can map a type to the one Tika knows the format by, e.g. image/x-raw-samsung:image/x-samsung-srw." introductionVersion:"%%NEXT%%"`
 
 	Context context.Context `yaml:"-"`
 }
