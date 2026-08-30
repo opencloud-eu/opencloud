@@ -51,6 +51,7 @@ func DefaultConfig() *config.Config {
 			Tika: config.ExtractorTika{
 				TikaURL:        "http://127.0.0.1:9998",
 				CleanStopWords: false,
+				MaxWorkers:     8,
 			},
 		},
 		Events: config.Events{

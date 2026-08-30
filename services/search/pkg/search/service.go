@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -66,6 +67,7 @@ type Service struct {
 	engine          Engine
 	extractor       content.Extractor
 	metrics         *metrics.Metrics
+	cfg             *config.Config
 
 	serviceAccountID     string
 	serviceAccountSecret string
@@ -83,6 +85,7 @@ func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng E
 		logger:          logger,
 		extractor:       extractor,
 		metrics:         metrics,
+		cfg:             cfg,
 
 		serviceAccountID:     cfg.ServiceAccount.ServiceAccountID,
 		serviceAccountSecret: cfg.ServiceAccount.ServiceAccountSecret,
@@ -487,6 +490,34 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 		}
 		logDocCount(s.engine, s.logger)
 	}()
+
+	// Parallel extraction when taki v2 is detected (LLM benefits from concurrent calls)
+	isTaki := false
+	if tikaExtractor, ok := s.extractor.(*content.Tika); ok {
+		isTaki = tikaExtractor.IsTaki()
+	}
+
+	indexWorkers := s.cfg.Extractor.Tika.MaxWorkers
+	if indexWorkers < 1 {
+		indexWorkers = 8
+	}
+	var workCh chan *provider.Reference
+	var indexWg sync.WaitGroup
+
+	if isTaki {
+		s.logger.Info().Int("workers", indexWorkers).Msg("taki v2 detected: parallel indexing enabled")
+		workCh = make(chan *provider.Reference, indexWorkers*2)
+		for i := 0; i < indexWorkers; i++ {
+			indexWg.Add(1)
+			go func() {
+				defer indexWg.Done()
+				for ref := range workCh {
+					s.doUpsertItem(ref, nil)
+				}
+			}()
+		}
+	}
+
 	err = w.Walk(ownerCtx, &rootID, func(wd string, info *provider.ResourceInfo, err error) error {
 		if err != nil {
 			var notFoundErr errtypes.IsNotFound
@@ -510,7 +541,11 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 		s.logger.Debug().Str("path", ref.Path).Msg("Walking tree")
 
 		if forceRescan {
-			s.doUpsertItem(ref, batch)
+			if isTaki {
+				workCh <- ref
+			} else {
+				s.doUpsertItem(ref, batch)
+			}
 			return nil
 		}
 
@@ -527,10 +562,19 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 			return nil
 		}
 
-		s.doUpsertItem(ref, batch)
+		if isTaki {
+			workCh <- ref
+		} else {
+			s.doUpsertItem(ref, batch)
+		}
 
 		return nil
 	})
+
+	if isTaki {
+		close(workCh)
+		indexWg.Wait()
+	}
 
 	if err != nil {
 		return err
@@ -653,15 +697,46 @@ func (s *Service) doUpsertItem(ref *provider.Reference, batch BatchOperator) {
 		r.ParentID = storagespace.FormatResourceID(parentID)
 	}
 
+	// Taki v2 routing: decide what goes to bleve based on content_target
+	bleveDoc := doc
+	if doc.Taki != nil && doc.Taki.Routing != nil {
+		target := doc.Taki.Routing.ContentTarget
+		if target == "vector" || target == "none" {
+			// Content should NOT go to bleve — clear it for the bleve index
+			// but keep Title (meta always goes to bleve)
+			bleveDoc.Content = ""
+			s.logger.Debug().
+				Str("name", doc.Name).
+				Str("target", target).
+				Str("method", doc.Taki.Method).
+				Msg("taki routing: content excluded from bleve index")
+		}
+	}
+
+	bleveResource := r
+	bleveResource.Document = bleveDoc
+
 	if batch != nil {
-		err = batch.Upsert(r.ID, r)
+		err = batch.Upsert(r.ID, bleveResource)
 	} else {
-		err = s.engine.Upsert(r.ID, r)
+		err = s.engine.Upsert(r.ID, bleveResource)
 	}
 	if err != nil {
 		s.logger.Error().Err(err).Msg("error adding updating the resource in the index")
 	} else {
 		logDocCount(s.engine, s.logger)
+	}
+
+	// Taki v2: log extraction summary
+	if doc.Taki != nil {
+		s.logger.Info().
+			Str("name", doc.Name).
+			Str("method", doc.Taki.Method).
+			Int("content_len", len(doc.Content)).
+			Int("embedding_dims", len(doc.Taki.Embed)).
+			Int("entities", len(doc.Taki.Entities)).
+			Str("summary", doc.Taki.Summary).
+			Msg("taki v2 extraction complete")
 	}
 
 	// determine if metadata needs to be stored in storage as well

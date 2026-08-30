@@ -1,9 +1,13 @@
 package content
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"math"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -12,20 +16,30 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/google/go-tika/tika"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 )
 
-// Tika is used to extract content from a resource,
-// it uses apache tika to retrieve all the data.
+// Tika is used to extract content from a resource.
+// Supports both Apache Tika and open_taki (drop-in replacement).
+// When open_taki is detected, uses the v2 protocol for enhanced extraction.
 type Tika struct {
 	*Basic
 	Retriever
 	tika                       *tika.Client
+	tikaURL                    string
+	httpClient                 *http.Client
 	ContentExtractionSizeLimit uint64
 	CleanStopWords             bool
+	isTaki                     bool
+}
+
+// IsTaki returns true if open_taki was detected as the extraction backend.
+func (t *Tika) IsTaki() bool {
+	return t.isTaki
 }
 
 // NewTikaExtractor creates a new Tika instance.
@@ -35,23 +49,46 @@ func NewTikaExtractor(gatewaySelector pool.Selectable[gateway.GatewayAPIClient],
 		return nil, err
 	}
 
-	tk := tika.NewClient(nil, cfg.Extractor.Tika.TikaURL)
+	tikaURL := cfg.Extractor.Tika.TikaURL
+
+	tk := tika.NewClient(nil, tikaURL)
 	tkv, err := tk.Version(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	logger.Info().Msgf("Tika version: %s", tkv)
+
+	// Detect open_taki by checking the health endpoint
+	isTaki := false
+	hc := &http.Client{Timeout: 5 * time.Second}
+	if resp, err := hc.Get(tikaURL + "/tika"); err == nil {
+		defer resp.Body.Close()
+		var health map[string]interface{}
+		if json.NewDecoder(resp.Body).Decode(&health) == nil {
+			if name, ok := health["name"].(string); ok && name == "open_taki" {
+				isTaki = true
+				logger.Info().Msgf("open_taki detected (version: %v), using v2 protocol", health["version"])
+			}
+		}
+	}
+
+	if !isTaki {
+		logger.Info().Msgf("Tika version: %s", tkv)
+	}
 
 	return &Tika{
 		Basic:                      basic,
 		Retriever:                  newCS3Retriever(gatewaySelector, logger, cfg.Extractor.CS3AllowInsecure),
-		tika:                       tika.NewClient(nil, cfg.Extractor.Tika.TikaURL),
+		tika:                       tk,
+		tikaURL:                    tikaURL,
+		httpClient:                 &http.Client{Timeout: 5 * time.Minute},
 		ContentExtractionSizeLimit: cfg.ContentExtractionSizeLimit,
 		CleanStopWords:             cfg.Extractor.Tika.CleanStopWords,
+		isTaki:                     isTaki,
 	}, nil
 }
 
-// Extract loads a resource from its underlying storage, passes it to tika and processes the result into a Document.
+// Extract loads a resource from its underlying storage, passes it to tika/taki
+// and processes the result into a Document.
 func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document, error) {
 	doc, err := t.Basic.Extract(ctx, ri)
 	if err != nil {
@@ -77,6 +114,14 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	}
 	defer data.Close()
 
+	if t.isTaki {
+		return t.extractTakiV2(ctx, ri, data, doc)
+	}
+	return t.extractTikaV1(ctx, ri, data, doc)
+}
+
+// extractTikaV1 is the original Tika extraction path (unchanged behavior).
+func (t Tika) extractTikaV1(ctx context.Context, ri *provider.ResourceInfo, data io.ReadCloser, doc Document) (Document, error) {
 	metas, err := t.tika.MetaRecursive(ctx, data)
 	if err != nil {
 		return doc, err
@@ -102,6 +147,107 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 
 	if langCode, _ := t.tika.LanguageString(ctx, doc.Content); langCode != "" && t.CleanStopWords {
 		doc.Content = CleanString(doc.Content, langCode)
+	}
+
+	return doc, nil
+}
+
+// takiV2Response matches open_taki's v2 JSON response format.
+type takiV2Response struct {
+	Content     string `json:"X-TIKA:content"`
+	ContentType string `json:"Content-Type"`
+	Method      string `json:"X-TAKI:method"`
+	Meta        *struct {
+		Title    string `json:"title"`
+		Author   string `json:"author"`
+		Created  string `json:"created"`
+		Language string `json:"language"`
+		DocType  string `json:"doc_type"`
+	} `json:"X-TAKI:meta"`
+	Entities []Entity  `json:"X-TAKI:entities"`
+	Summary  string    `json:"X-TAKI:summary"`
+	Embed    []float64 `json:"X-TAKI:embedding"`
+	Routing  *struct {
+		ContentTarget string `json:"content_target"`
+		MetaTarget    string `json:"meta_target"`
+		VectorTarget  string `json:"vector_target"`
+		SourceRef     string `json:"source_ref"`
+	} `json:"X-TAKI:routing"`
+}
+
+// extractTakiV2 uses the open_taki v2 protocol for enhanced extraction.
+func (t Tika) extractTakiV2(ctx context.Context, ri *provider.ResourceInfo, data io.ReadCloser, doc Document) (Document, error) {
+	body, err := io.ReadAll(data)
+	if err != nil {
+		return doc, fmt.Errorf("reading resource data: %w", err)
+	}
+
+	sourceRef := storagespace.FormatResourceID(ri.Id)
+
+	req, err := http.NewRequestWithContext(ctx, "PUT",
+		t.tikaURL+"/rmeta/text", bytes.NewReader(body))
+	if err != nil {
+		return doc, err
+	}
+
+	req.Header.Set("Content-Type", ri.MimeType)
+	req.Header.Set("X-Taki-Protocol", "v2")
+	req.Header.Set("X-Taki-Features", "meta,entities,summary,embedding")
+	req.Header.Set("X-Taki-Source-Ref", sourceRef)
+
+	resp, err := t.httpClient.Do(req)
+	if err != nil {
+		t.logger.Warn().Err(err).Msg("taki v2 request failed, falling back to v1")
+		return t.extractTikaV1(ctx, ri, io.NopCloser(bytes.NewReader(body)), doc)
+	}
+	defer resp.Body.Close()
+
+	var results []takiV2Response
+	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
+		t.logger.Warn().Err(err).Msg("taki v2 response parse failed, falling back to v1")
+		return t.extractTikaV1(ctx, ri, io.NopCloser(bytes.NewReader(body)), doc)
+	}
+
+	if len(results) == 0 {
+		return doc, nil
+	}
+
+	r := results[0]
+
+	// Content — always populate (bleve needs it for fulltext)
+	doc.Content = strings.TrimSpace(r.Content)
+
+	// Title — prefer taki meta over Tika's title field
+	if r.Meta != nil && r.Meta.Title != "" {
+		doc.Title = r.Meta.Title
+	}
+
+	// Build TakiExtraction with routing + enrichments
+	taki := &TakiExtraction{
+		Method:  r.Method,
+		Summary: r.Summary,
+	}
+
+	if r.Entities != nil {
+		taki.Entities = r.Entities
+	}
+
+	if r.Embed != nil {
+		taki.Embed = r.Embed
+	}
+
+	if r.Routing != nil {
+		taki.Routing = &Routing{
+			ContentTarget: r.Routing.ContentTarget,
+			MetaTarget:    r.Routing.MetaTarget,
+			VectorTarget:  r.Routing.VectorTarget,
+		}
+	}
+
+	doc.Taki = taki
+
+	if t.CleanStopWords && r.Meta != nil && r.Meta.Language != "" {
+		doc.Content = CleanString(doc.Content, r.Meta.Language)
 	}
 
 	return doc, nil
