@@ -2,9 +2,11 @@ package http
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	stdhttp "net/http"
+	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
@@ -155,7 +157,36 @@ func Server(opts ...Option) (http.Service, error) {
 			return http.Service{}, fmt.Errorf("could not initialize metadata storage: %w", err)
 		}
 
-		userProfilePhotoService, err = svc.NewUsersUserProfilePhotoService(photoStorage)
+		photoOpts := []svc.UserProfilePhotoOption{}
+		// The profile picture sync is always enabled; the proxy decides
+		// whether to emit sync events based on PROXY_AUTOPROVISION_CLAIM_PICTURE.
+		// The default allowlist uses the OpenCloud URL host.
+		oidcIssuer := ""
+		if options.Config.Commons != nil {
+			oidcIssuer = options.Config.Commons.OpenCloudURL
+		}
+		// HTTP client for downloading profile pictures from OIDC claims.
+		// Respects OC_INSECURE for TLS certificate validation and
+		// honours HTTP_PROXY/HTTPS_PROXY environment variables.
+		profilePictureHTTPClient := &stdhttp.Client{
+			Timeout: 10 * time.Second,
+			Transport: &stdhttp.Transport{
+				Proxy: stdhttp.ProxyFromEnvironment,
+				//nolint:gosec // We need the ability to run with "insecure" (dev/testing)
+				TLSClientConfig: &tls.Config{
+					MinVersion:         tls.VersionTLS12,
+					InsecureSkipVerify: options.Config.Events.TLSInsecure,
+				},
+				DisableKeepAlives: true,
+			},
+		}
+		photoOpts = append(photoOpts, svc.WithProfilePictureSync(
+			profilePictureHTTPClient,
+			options.Config.ProfilePictureURLAllowlist,
+			oidcIssuer,
+		))
+
+		userProfilePhotoService, err = svc.NewUsersUserProfilePhotoService(photoStorage, photoOpts...)
 		if err != nil {
 			return http.Service{}, fmt.Errorf("could not initialize user profile photo service: %w", err)
 		}

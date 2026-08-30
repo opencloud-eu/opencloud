@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	ldapv3 "github.com/go-ldap/ldap/v3"
 	"github.com/jellydator/ttlcache/v3"
+	ocevents "github.com/opencloud-eu/opencloud/pkg/events"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/cache"
 	"github.com/riandyrn/otelchi"
 	microstore "go-micro.dev/v4/store"
@@ -198,6 +198,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 		BaseGraphService:         baseGraphService,
 		mux:                      m,
 		specialDriveItemsCache:   spacePropertiesCache,
+		userProfilePhotoService:  options.UserProfilePhotoService,
 		eventsPublisher:          options.EventsPublisher,
 		eventsConsumer:           options.EventsConsumer,
 		searchService:            options.SearchService,
@@ -581,6 +582,7 @@ func (g *Graph) StartListenForLogonEvents(ctx context.Context, l log.Logger) err
 	}
 	var _registeredEvents = []events.Unmarshaller{
 		events.UserSignedIn{},
+		ocevents.ProfilePictureSyncRequested{},
 	}
 	evChannel, err := events.Consume(g.eventsConsumer, "graph", _registeredEvents...)
 	if err != nil {
@@ -597,6 +599,17 @@ func (g *Graph) StartListenForLogonEvents(ctx context.Context, l log.Logger) err
 				case events.UserSignedIn:
 					if err := g.identityBackend.UpdateLastSignInDate(ctx, ev.Executant.OpaqueId, utils.TSToTime(ev.Timestamp)); err != nil {
 						l.Error().Err(err).Str("userid", ev.Executant.OpaqueId).Msg("Error updating last sign in date")
+					}
+				case ocevents.ProfilePictureSyncRequested:
+					if err := g.userProfilePhotoService.SyncPhotoFromURL(ctx, ev.Executant.GetOpaqueId(), ev.PictureURL); err != nil {
+						l.Warn().Err(err).Str("userid", ev.Executant.GetOpaqueId()).Msg("Failed to sync profile picture from OIDC claim")
+					} else if g.eventsPublisher != nil {
+						if err := events.Publish(ctx, g.eventsPublisher, ocevents.UserProfilePictureUpdated{
+							Executant: ev.Executant,
+							Timestamp: utils.TimeToTS(time.Now()),
+						}); err != nil {
+							l.Warn().Err(err).Str("userid", ev.Executant.GetOpaqueId()).Msg("Failed to publish profile picture updated event")
+						}
 					}
 				}
 			case <-ctx.Done():

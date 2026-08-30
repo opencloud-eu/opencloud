@@ -111,6 +111,7 @@ func DefaultConfig() *config.Config {
 				EducationResourcesEnabled: false,
 			},
 		},
+		ProfilePictureURLAllowlist: []string{},
 		Cache: &config.Cache{
 			Store:    "memory",
 			Nodes:    []string{"127.0.0.1:9233"},

@@ -62,6 +62,7 @@ type Graph struct {
 	permissionsService       Permissions
 	valueService             settingssvc.ValueService
 	specialDriveItemsCache   *ttlcache.Cache[string, any]
+	userProfilePhotoService  UsersUserProfilePhotoProvider
 	eventsPublisher          events.Publisher
 	eventsConsumer           events.Consumer
 	searchService            searchsvc.SearchProviderService

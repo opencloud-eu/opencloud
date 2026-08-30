@@ -52,6 +52,8 @@ type Options struct {
 	// TenantOIDCClaim is a JMESPath expression to extract the tenant ID from the OIDC claims.
 	// When set, the extracted value is verified against the tenant ID on the resolved user.
 	TenantOIDCClaim string
+	// AutoProvisionClaims to read the user info from the oidc claims
+	AutoProvisionClaims config.AutoProvisionClaims
 	// AutoprovisionAccounts when an accountResolver does not exist.
 	AutoprovisionAccounts bool
 	// EnableBasicAuth to allow basic auth
@@ -80,8 +82,8 @@ type Options struct {
 	// tenant ID in the OIDC claims via the gateway's TenantAPI before comparing it to the user's stored tenant ID.
 	TenantIDMappingEnabled bool
 	// ServiceAccount holds credentials used to authenticate internal service calls (e.g. TenantAPI lookups).
-	ServiceAccount         config.ServiceAccount
-	EventsPublisher        events.Publisher
+	ServiceAccount  config.ServiceAccount
+	EventsPublisher events.Publisher
 }
 
 // newOptions initializes the available default options.
@@ -183,6 +185,13 @@ func UserCS3Claim(val string) Option {
 func TenantOIDCClaim(val string) Option {
 	return func(o *Options) {
 		o.TenantOIDCClaim = val
+	}
+}
+
+// AutoProvisionClaims provides a function to set the AutoProvisionClaims config
+func AutoProvisionClaims(cfg config.AutoProvisionClaims) Option {
+	return func(o *Options) {
+		o.AutoProvisionClaims = cfg
 	}
 }
 
