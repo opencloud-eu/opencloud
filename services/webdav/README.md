@@ -10,6 +10,8 @@ Currently, the webdav service handles request for two functionalities, which are
 
 The webdav service provides various `GET` endpoints to get the thumbnails of a file in authenticated and unauthenticated contexts. It also provides thumbnails for spaces on different endpoints.
 
+When `OC_TIKA_URL` (or `WEBDAV_TIKA_URL`) is set, an Apache Tika server (4.1 or newer) supplies the preview image for documents, raw photos, audio cover art and other types. Every file that is not a directly supported image is sent to Tika; `OC_TIKA_THUMBNAIL_MIME_TYPES` (or `WEBDAV_TIKA_THUMBNAIL_MIME_TYPES`) restricts that to a list of mime types, where an entry like `image/x-raw-samsung:image/x-samsung-srw` maps a type to the one Tika knows the format by. Without Tika, audio cover art and GeoGebra thumbnails are still extracted by the webdav service itself; those built-in extractors are deprecated.
+
 Generated thumbnails are cached by the webdav service itself. The cache backend defaults to `file`, storing entries under `$OC_BASE_DATA_PATH/thumbnails/files` (override with `WEBDAV_THUMBNAIL_CACHE_BACKEND` and `WEBDAV_THUMBNAIL_CACHE_DIR`). Use the `s3` backend when running multiple instances behind a load balancer so they share one cache. A backend nobody can serve, an unknown name or an `s3` backend without bucket, region and credentials, fails at startup instead of serving without a cache, as long as previews are enabled. A service that is not AWS needs `WEBDAV_THUMBNAIL_CACHE_S3_ENDPOINT` too, and it is always addressed over https. The `memory` backend is bounded and drops its oldest entries; `none` disables caching on purpose.
 
 #### Thumbnail Query String Parameters

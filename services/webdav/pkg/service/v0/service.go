@@ -212,6 +212,7 @@ func newThumbnailWorkflow(conf *config.Config, sourceTypes thumbnail.SourceTypes
 		workflow.WithMaxInputSize(maxInputSize),
 		workflow.WithSizes(sizes),
 		workflow.WithSourceTypes(sourceTypes),
+		workflow.WithTika(thumbnail.NewTika(conf.TikaURL, conf.TikaThumbnailMimeTypes)),
 		workflow.WithFormats(formats),
 		workflow.WithTypeMapping(typeMapping),
 		workflow.WithWebdavNamespace(conf.WebdavNamespace),
@@ -421,7 +422,6 @@ func setAspectIgnoredHeader(w http.ResponseWriter, ignored bool) {
 // was attempted, for the log line.
 func (g Webdav) handleWorkflowError(w http.ResponseWriter, r *http.Request, err error, tr *requests.ThumbnailRequest, logger log.Logger, step string) {
 	var busy *workflow.GeneratorBusyError
-
 	logger = log.Logger{Logger: logger.With().Str("step", step).Logger()}
 
 	switch {
@@ -443,6 +443,9 @@ func (g Webdav) handleWorkflowError(w http.ResponseWriter, r *http.Request, err 
 		renderError(w, r, errBadRequest("Unsupported file type"))
 	case errors.Is(err, workflow.ErrNotFound):
 		logger.Debug().Err(err).Msg("thumbnail source could not be located")
+		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
+	case errors.Is(err, workflow.ErrNoThumbnail):
+		logger.Debug().Err(err).Msg("the file carries no thumbnail")
 		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
 	case errors.Is(err, workflow.ErrUnsupportedFileType):
 		logger.Debug().Err(err).Msg("requested for an unsupported file type")
