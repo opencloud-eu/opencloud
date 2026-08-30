@@ -51,7 +51,13 @@ func DefaultConfig() *config.Config {
 			Tika: config.ExtractorTika{
 				TikaURL:        "http://127.0.0.1:9998",
 				CleanStopWords: false,
+				MaxWorkers:     8,
 			},
+		},
+		Vector: config.VectorStore{
+			Enabled:    false,
+			URL:        "http://localhost:6333",
+			Collection: "opencloud",
 		},
 		Events: config.Events{
 			Endpoint:         "127.0.0.1:9233",
