@@ -62,6 +62,27 @@ func getFieldSliceValue[T any](m map[string]any, key string) (out []T) {
 	return
 }
 
+// buildHighlights combines Content and Metadata highlights into a single string.
+// Content highlights are shown first, followed by metadata field matches.
+func buildHighlights(fragments bleveSearch.FieldFragmentMap) string {
+	var parts []string
+
+	// Content highlight (traditional full-text match)
+	if contentFrags, ok := fragments["Content"]; ok && len(contentFrags) > 0 {
+		parts = append(parts, contentFrags[0])
+	}
+
+	// Metadata highlights (e.g. Metadata.oy.fileReference, Metadata.oy.subject, ...)
+	for field, frags := range fragments {
+		if strings.HasPrefix(field, "Metadata.") && len(frags) > 0 {
+			key := strings.TrimPrefix(field, "Metadata.")
+			parts = append(parts, key+": "+frags[0])
+		}
+	}
+
+	return strings.Join(parts, " · ")
+}
+
 func getFragmentValue(m bleveSearch.FieldFragmentMap, key string, idx int) string {
 	val, ok := m[key]
 	if !ok {
@@ -178,6 +199,19 @@ func getFieldName(structField reflect.StructField) string {
 }
 
 func matchToResource(match *bleveSearch.DocumentMatch) *search.Resource {
+	// Extract Metadata.* fields from the flat bleve field map
+	metadata := make(map[string]string)
+	for k, v := range match.Fields {
+		if strings.HasPrefix(k, "Metadata.") {
+			if s, ok := v.(string); ok {
+				metadata[strings.TrimPrefix(k, "Metadata.")] = s
+			}
+		}
+	}
+	if len(metadata) == 0 {
+		metadata = nil
+	}
+
 	return &search.Resource{
 		ID:       getFieldValue[string](match.Fields, "ID"),
 		RootID:   getFieldValue[string](match.Fields, "RootID"),
@@ -195,6 +229,7 @@ func matchToResource(match *bleveSearch.DocumentMatch) *search.Resource {
 			Content:   getFieldValue[string](match.Fields, "Content"),
 			Tags:      getFieldSliceValue[string](match.Fields, "Tags"),
 			Favorites: getFieldSliceValue[string](match.Fields, "Favorites"),
+			Metadata:  metadata,
 			Audio:     getAudioValue[libregraph.Audio](match.Fields),
 			Image:     getImageValue[libregraph.Image](match.Fields),
 			Location:  getLocationValue[libregraph.GeoCoordinates](match.Fields),

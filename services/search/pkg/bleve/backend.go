@@ -135,7 +135,7 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 				Deleted:    getFieldValue[bool](hit.Fields, "Deleted"),
 				Tags:       getFieldSliceValue[string](hit.Fields, "Tags"),
 				Favorites:  getFieldSliceValue[string](hit.Fields, "Favorites"),
-				Highlights: getFragmentValue(hit.Fragments, "Content", 0),
+				Highlights: buildHighlights(hit.Fragments),
 				Audio:      getAudioValue[searchMessage.Audio](hit.Fields),
 				Image:      getImageValue[searchMessage.Image](hit.Fields),
 				Location:   getLocationValue[searchMessage.GeoCoordinates](hit.Fields),

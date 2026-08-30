@@ -62,12 +62,17 @@ func OpenSearchHitToMatch(hit opensearchgoAPI.SearchHit) (*searchMessage.Match, 
 			Tags:      resource.Tags,
 			Favorites: resource.Favorites,
 			Highlights: func() string {
-				contentHighlights, ok := hit.Highlight["Content"]
-				if !ok {
-					return ""
+				var parts []string
+				if contentHighlights, ok := hit.Highlight["Content"]; ok {
+					parts = append(parts, strings.Join(contentHighlights, "; "))
 				}
-
-				return strings.Join(contentHighlights[:], "; ")
+				for field, frags := range hit.Highlight {
+					if strings.HasPrefix(field, "Metadata.") && len(frags) > 0 {
+						key := strings.TrimPrefix(field, "Metadata.")
+						parts = append(parts, key+": "+strings.Join(frags, "; "))
+					}
+				}
+				return strings.Join(parts, " · ")
 			}(),
 			Audio: func() *searchMessage.Audio {
 				if !strings.HasPrefix(resource.MimeType, "audio/") {

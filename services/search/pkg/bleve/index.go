@@ -49,11 +49,17 @@ func NewMapping() (mapping.IndexMapping, error) {
 	fulltextFieldMapping.Analyzer = "fulltext"
 	fulltextFieldMapping.IncludeInAll = false
 
+	// Metadata sub-document: each key is a searchable text field
+	metadataMapping := bleve.NewDocumentMapping()
+	metadataMapping.Dynamic = true
+	metadataMapping.DefaultAnalyzer = "lowercaseKeyword"
+
 	docMapping := bleve.NewDocumentMapping()
 	docMapping.AddFieldMappingsAt("Name", nameMapping)
 	docMapping.AddFieldMappingsAt("Tags", lowercaseMapping)
 	docMapping.AddFieldMappingsAt("Favorites", lowercaseMapping)
 	docMapping.AddFieldMappingsAt("Content", fulltextFieldMapping)
+	docMapping.AddSubDocumentMapping("Metadata", metadataMapping)
 
 	indexMapping := bleve.NewIndexMapping()
 	indexMapping.DefaultAnalyzer = keyword.Name
