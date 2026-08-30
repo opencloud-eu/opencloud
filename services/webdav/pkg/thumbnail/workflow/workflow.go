@@ -69,6 +69,26 @@ type UserResolver interface {
 // surface this as HTTP 425 Too Early with a Retry-After header.
 var ErrFileProcessing = fmt.Errorf("file is processing")
 
+// keys a cache entry before the format is known, so it is found without
+// downloading the file
+const tikaExtPlaceholder = "tika"
+
+// extOf names the format of bytes cached under the placeholder.
+func extOf(data []byte, fallback string) string {
+	switch {
+	case bytes.HasPrefix(data, []byte{0x89, 'P', 'N', 'G'}):
+		return "png"
+	case bytes.HasPrefix(data, []byte{0xff, 0xd8}):
+		return "jpg"
+	case bytes.HasPrefix(data, []byte("GIF8")):
+		return "gif"
+	}
+	return fallback
+}
+
+// ErrNoThumbnail is returned when the file has no thumbnail; cached.
+var ErrNoThumbnail = errors.New("thumbnails: the file has no thumbnail")
+
 // ErrImageTooLarge is returned when the input image exceeds the configured
 // maximum width/height. Callers should surface this as HTTP 403 Forbidden,
 // matching the legacy thumbnail service error message.
@@ -138,6 +158,8 @@ type ThumbnailWorkflow struct {
 	maxInputSize   uint64
 	resolutions    *thumbnail.Resolutions
 	webdavNS       string
+	tika           thumbnail.Tika
+	formats        thumbnail.Formats
 	fontMapFile    string
 	log            log.Logger
 	stater         Stater
@@ -207,6 +229,15 @@ func WithWebdavNamespace(ns string) Option {
 }
 
 // WithFontMapFile sets the font map file used for text thumbnail rendering.
+// WithTika sets the Tika server the preprocessing falls back to.
+func WithTika(t thumbnail.Tika) Option {
+	return func(w *ThumbnailWorkflow) { w.tika = t }
+}
+
+func WithFormats(f thumbnail.Formats) Option {
+	return func(w *ThumbnailWorkflow) { w.formats = f }
+}
+
 func WithFontMapFile(file string) Option {
 	return func(w *ThumbnailWorkflow) { w.fontMapFile = file }
 }
@@ -285,7 +316,7 @@ func (w *ThumbnailWorkflow) Head(ctx context.Context, tr *requests.ThumbnailRequ
 		return ErrPermissionDenied
 	}
 
-	if !thumbnail.IsMimeTypeSupported(info.GetMimeType()) {
+	if !w.supportsMimeType(info.GetMimeType()) {
 		return fmt.Errorf("%w: %s", ErrUnsupportedFileType, info.GetMimeType())
 	}
 
@@ -393,7 +424,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 		return nil, "", false, ErrPermissionDenied
 	}
 
-	if !thumbnail.IsMimeTypeSupported(info.GetMimeType()) {
+	if !w.supportsMimeType(info.GetMimeType()) {
 		return nil, "", false, fmt.Errorf("%w: %s", ErrUnsupportedFileType, info.GetMimeType())
 	}
 
@@ -418,6 +449,14 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	if ext := generator.ExtForMime(mimeType); ext != "" {
 		outputExt = ext
 	}
+	if ext := w.formats.ExtFor(mimeType); ext != "" {
+		outputExt = ext
+	}
+	// the format follows the type Tika answers with, which is not known yet
+	fromTika := !strings.HasPrefix(mimeType, "image/") && w.tika.Supports(mimeType)
+	if fromTika {
+		outputExt = tikaExtPlaceholder
+	}
 
 	// The operation is resolved up front so it can be part of the cache key: a
 	// fill and a fit-in request with the same dimensions produce different images
@@ -434,7 +473,11 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 
 	if w.cache != nil {
 		if cached, err := w.cache.Get(cacheKey); err == nil {
-			return cached, outputExt, aIgnored, nil
+			// empty entry: known to have no thumbnail
+			if len(cached) == 0 {
+				return nil, "", false, ErrNoThumbnail
+			}
+			return cached, extOf(cached, outputExt), aIgnored, nil
 		}
 	}
 
@@ -451,19 +494,32 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	// generator fill that box. Only fit-in suppresses upscaling (noUpscale); for
 	// fill/thumbnail/resize the generator may enlarge a small source (e.g. a text
 	// file rendered at a fixed canvas) to fill the snapped box, matching main.
-	genURL := generator.BuildURL(w.generatorURL, int32(box.Dx()), int32(box.Dy()), operation, outputExt, noUpscale)
-
 	// Produce the source image to send to the generator, never decoding an image
 	// in webdav: real images (incl. gif) are streamed straight through undecoded;
 	// non-image sources are converted to image bytes here so the generator always
 	// receives an image.
-	imgStream, cleanup, err := w.sourceImage(ctx, ref, auth, mimeType, tr.Filename, logger)
+	imgStream, sourceContentType, cleanup, err := w.sourceImage(ctx, ref, auth, mimeType, tr.Filename, logger)
 	if err != nil {
-		logger.Error().Err(err).Msg("could not obtain source image for thumbnail")
+		if errors.Is(err, ErrNoThumbnail) {
+			// a file that carries no thumbnail is an answer, not a failure
+			logger.Debug().Err(err).Msg("no source image for thumbnail")
+		} else {
+			logger.Error().Err(err).Msg("could not obtain source image for thumbnail")
+		}
 		return nil, "", false, err
 	}
 	defer cleanup()
+	if fromTika {
+		outputExt = generator.OutputFormat(tr.Extension)
+		if ext := generator.ExtForMime(sourceContentType); ext != "" {
+			outputExt = ext
+		}
+		if ext := w.formats.ExtFor(sourceContentType); ext != "" {
+			outputExt = ext
+		}
+	}
 
+	genURL := generator.BuildURL(w.generatorURL, int32(box.Dx()), int32(box.Dy()), operation, outputExt, noUpscale)
 	thumbBytes, err := w.postToGenerator(ctx, genURL, imgStream, tr.Filename)
 	if err != nil {
 		logger.Error().Err(err).Msg("could not generate thumbnail")
@@ -486,40 +542,50 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 //     undecoded; the generator handles decoding and multi-frame gifs itself.
 //   - text/plain is rendered to an image here (the only true conversion).
 //   - audio and geogebra sources have their embedded image extracted to bytes.
-func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta1.Reference, auth, mimeType, filename string, logger log.Logger) (io.Reader, func(), error) {
+//
+// sourceImage returns the source image and the type of its bytes, empty when
+// the file is streamed through as it is.
+func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta1.Reference, auth, mimeType, filename string, logger log.Logger) (io.Reader, string, func(), error) {
 	m, _, _ := mime.ParseMediaType(mimeType)
 
 	if strings.HasPrefix(m, "image/") {
 		body, err := w.fileDownloader.DownloadStream(ctx, ref, auth)
 		if err != nil {
-			return nil, nil, fmt.Errorf("download: %w", err)
+			return nil, "", nil, fmt.Errorf("download: %w", err)
 		}
-		return body, func() { _ = body.Close() }, nil
+		return body, "", func() { _ = body.Close() }, nil
 	}
 
 	body, err := w.fileDownloader.DownloadStream(ctx, ref, auth)
 	if err != nil {
-		return nil, nil, fmt.Errorf("download: %w", err)
+		return nil, "", nil, fmt.Errorf("download: %w", err)
 	}
 	defer body.Close()
 
 	fileBytes, err := io.ReadAll(body)
 	if err != nil {
-		return nil, nil, fmt.Errorf("read source: %w", err)
+		return nil, "", nil, fmt.Errorf("read source: %w", err)
 	}
 
-	ppOpts := map[string]any{"fontFileMap": w.fontMapFile}
+	ppOpts := map[string]any{
+		"fontFileMap": w.fontMapFile,
+		"tika":        w.tika,
+		"filename":    filename,
+	}
 	img, err := preprocessor.ForType(mimeType, ppOpts).Convert(bytes.NewReader(fileBytes))
+	if errors.Is(err, preprocessor.ErrNoThumbnail) {
+		return nil, "", nil, ErrNoThumbnail
+	}
 	if img == nil || err != nil {
 		logger.Debug().Err(err).Msg("could not convert file to image")
-		return nil, nil, fmt.Errorf("%w: could not get image", ErrNotFound)
+		return nil, "", nil, fmt.Errorf("%w: could not get image", ErrNotFound)
 	}
 
-	data, _, err := encodeForUpload(img, mimeType)
+	data, contentType, err := encodeForUpload(img, mimeType)
 	if err != nil {
-		return nil, nil, fmt.Errorf("encode converted image: %w", err)
+		return nil, "", nil, fmt.Errorf("encode converted image: %w", err)
 	}
-	return bytes.NewReader(data), func() {}, nil
+	return bytes.NewReader(data), contentType, func() {}, nil
 }
 
 // matchOperation resolves the generator resize/crop operation for a request from
@@ -655,6 +721,11 @@ func (w *ThumbnailWorkflow) postToGenerator(ctx context.Context, url string, img
 	}
 
 	return rspData, nil
+}
+
+// supportsMimeType is the built-in list plus what Tika is asked for.
+func (w *ThumbnailWorkflow) supportsMimeType(mimeType string) bool {
+	return thumbnail.IsMimeTypeSupported(mimeType) || w.tika.Supports(mimeType)
 }
 
 // gatewaySelector is the interface for selecting a gateway client.

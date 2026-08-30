@@ -1,6 +1,7 @@
 package defaults
 
 import (
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 	"path"
 	"strings"
 
@@ -48,6 +49,7 @@ func DefaultConfig() *config.Config {
 		ThumbnailGeneratorURL:     "http://127.0.0.1:9186",
 		ThumbnailGeneratorTimeout: "30s",
 		MaxInputFileSize:          "50MB",
+		ThumbnailFormats:          thumbnail.DefaultFormats,
 		ThumbnailCacheBackend:     "file",
 		ThumbnailCacheDir:         path.Join(cored.BaseDataPath(), "thumbnails", "files"),
 		ThumbnailResolutions: []string{

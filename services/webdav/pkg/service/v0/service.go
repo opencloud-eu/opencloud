@@ -119,6 +119,8 @@ func NewService(opts ...Option) (Service, error) {
 		workflow.WithResolutions(resolutions),
 		workflow.WithWebdavNamespace(conf.WebdavNamespace),
 		workflow.WithFontMapFile(conf.FontMapFile),
+		workflow.WithTika(thumbnail.NewTika(conf.TikaURL, conf.TikaThumbnailMimeTypes)),
+		workflow.WithFormats(thumbnail.NewFormats(conf.ThumbnailFormats)),
 		workflow.WithLogger(options.Logger),
 		workflow.WithStater(workflow.NewGatewayStater(gatewaySelector)),
 		workflow.WithFileDownloader(workflow.NewGatewayFileDownloader(gatewaySelector, httpClient)),
@@ -405,6 +407,11 @@ func (g Webdav) handleWorkflowError(w http.ResponseWriter, r *http.Request, err 
 		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
 		return
 	}
+	if errors.Is(err, workflow.ErrNoThumbnail) {
+		logger.Debug().Err(err).Msg("the file carries no thumbnail")
+		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
+		return
+	}
 	// Anything else (generator down, download failure, timeout, ...) is a server
 	// error: clients must not cache it as "no preview" the way they do 404s.
 	logger.Error().Err(err).Msg("thumbnail workflow failed")
@@ -439,6 +446,11 @@ func (g Webdav) handleHeadError(w http.ResponseWriter, r *http.Request, err erro
 	}
 	if errors.Is(err, workflow.ErrUnsupportedFileType) {
 		logger.Debug().Err(err).Msg("thumbnail head check requested for unsupported file type")
+		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
+		return
+	}
+	if errors.Is(err, workflow.ErrNoThumbnail) {
+		logger.Debug().Err(err).Msg("the file carries no thumbnail")
 		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
 		return
 	}
