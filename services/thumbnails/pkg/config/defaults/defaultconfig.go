@@ -55,8 +55,8 @@ func DefaultConfig() *config.Config {
 			RevaGateway:           shared.DefaultRevaConfig().Address,
 			CS3AllowInsecure:      false,
 			DataEndpoint:          "http://127.0.0.1:9186/thumbnails/data",
-			MaxInputWidth:         7680,
-			MaxInputHeight:        7680,
+			MaxInputWidth:         10000,
+			MaxInputHeight:        10000,
 			MaxInputImageFileSize: "50MB",
 		},
 	}
