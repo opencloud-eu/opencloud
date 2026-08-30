@@ -28,6 +28,9 @@ type Config struct {
 
 	Thumbnails Thumbnails `yaml:"thumbnails"`
 
+	TikaURL                string   `yaml:"tika_url" env:"OC_TIKA_URL;WEBDAV_TIKA_URL" desc:"URL of an Apache Tika server. When set, thumbnails are generated for documents, raw photos, audio cover art and other formats Tika can extract a preview from. Needs Tika 4.1 or newer with the thumbnail preset active in its configuration." introductionVersion:"%%NEXT%%"`
+	TikaThumbnailMimeTypes []string `yaml:"tika_thumbnail_mime_types" env:"OC_TIKA_THUMBNAIL_MIME_TYPES;WEBDAV_TIKA_THUMBNAIL_MIME_TYPES" desc:"Restrict thumbnail generation via Tika to these mime types. Empty means all types that are not handled directly. An entry can map a type to the one Tika knows the format by, e.g. image/x-nikon-nef:image/x-raw-nikon. Tika takes a declared type only when it refines what it detected itself, so an entry pins a subtype its detector left at the parent type, a raw photo it only read as a tiff." introductionVersion:"%%NEXT%%"`
+
 	Context context.Context `yaml:"-"`
 }
 
