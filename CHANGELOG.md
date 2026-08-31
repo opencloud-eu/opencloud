@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@maki5
+@dschmidt, @maki5
+
+### ✅ Tests
+
+- test(search): engine parity suite for bleve and opensearch [[#3418](https://github.com/opencloud-eu/opencloud/pull/3418)]
 
 ### 📈 Enhancement
 
