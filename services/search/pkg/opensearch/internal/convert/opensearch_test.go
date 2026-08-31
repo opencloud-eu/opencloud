@@ -10,8 +10,8 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
+	opensearchtest "github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/convert"
-	opensearchtest "github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 

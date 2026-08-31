@@ -18,6 +18,8 @@ exclude_paths:
   - 'deployments/**'
   - "release-config.ts"
   - 'tests/acceptance/expected-failures-*.md'
+  # written by the search engine parity suite, table rows are as wide as they are
+  - 'services/search/pkg/parity/README.md'
   - 'tests/acceptance/bootstrap/**'
   - 'tests/acceptance/TestHelpers/**'
   - 'tests/acceptance/scripts/run.sh'

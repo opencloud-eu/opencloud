@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
+	opensearchtest "github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
-	opensearchtest "github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 var defaultConfig *config.Config

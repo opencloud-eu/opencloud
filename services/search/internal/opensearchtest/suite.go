@@ -3,6 +3,7 @@ package opensearchtest
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"slices"
 	"strings"
@@ -18,7 +19,9 @@ import (
 )
 
 const (
-	openSearchImage = "opensearchproject/opensearch:2"
+	openSearchImage          = "opensearchproject/opensearch:2"
+	openSearchPort           = "9200"
+	openSearchStartupTimeout = 3 * time.Minute
 )
 
 func SetupTests(ctx context.Context) (*config.Config, func(), error) {
@@ -62,6 +65,14 @@ func setupOpenSearchTestContainer(ctx context.Context, cfg *config.Config) (func
 		return func() {}, nil
 	}
 
+	keepContainer := os.Getenv("KEEP_TEST_CONTAINER") == "true"
+	if keepContainer {
+		// the reaper would take the kept container down with the session
+		if err := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true"); err != nil {
+			return nil, fmt.Errorf("failed to disable the testcontainers reaper: %w", err)
+		}
+	}
+
 	containerName := fmt.Sprintf("opencloud/test/%s", openSearchImage)
 	containerName = strings.Replace(containerName, "/", "__", -1)
 	containerName = strings.Replace(containerName, ":", "_", -1)
@@ -72,9 +83,21 @@ func setupOpenSearchTestContainer(ctx context.Context, cfg *config.Config) (func
 		opensearch.WithPassword(cfg.Engine.OpenSearch.Client.Password),
 		testcontainers.WithName(containerName),
 		testcontainers.WithReuseByName(containerName),
+		// test indexes are tiny; don't let a full host disk trip the flood-stage
+		// create-index / read-only blocks mid-run
+		testcontainers.WithEnv(map[string]string{
+			"cluster.routing.allocation.disk.threshold_enabled": "false",
+		}),
+		// a health probe answers at once on a reused container, a log wait
+		// would sit out the log timeout on it; a cold boot takes well over the
+		// previous 5s
 		testcontainers.WithWaitStrategy(
-			wait.ForLog("ML configuration initialized successfully").
-				WithStartupTimeout(5*time.Second),
+			wait.ForHTTP("/_cluster/health?wait_for_status=yellow&timeout=1s").
+				WithPort(openSearchPort).
+				WithTLS(false).
+				WithBasicAuth(cfg.Engine.OpenSearch.Client.Username, cfg.Engine.OpenSearch.Client.Password).
+				WithStatusCodeMatcher(func(status int) bool { return status == http.StatusOK }).
+				WithStartupTimeout(openSearchStartupTimeout),
 		),
 	)
 	if err != nil {
@@ -91,6 +114,13 @@ func setupOpenSearchTestContainer(ctx context.Context, cfg *config.Config) (func
 	cfg.Engine.OpenSearch.Client.Addresses = []string{address}
 
 	return func() {
+		// KEEP_TEST_CONTAINER=true leaves the container up for the next run,
+		// which picks it up again by name instead of booting a fresh one
+		if keepContainer {
+			_, _ = fmt.Fprintf(os.Stderr, "keeping OpenSearch container %s\n", containerName)
+			return
+		}
+
 		err := container.Terminate(ctx)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "failed to terminate OpenSearch container: %v\n", err)

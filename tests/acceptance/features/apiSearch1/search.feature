@@ -501,3 +501,19 @@ Feature: Search
       | old              |
       | new              |
       | spaces           |
+
+
+  Scenario: a deleted space leaves the search index
+    Given using spaces DAV path
+    And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
+    And user "Alice" has created a space "index-space" with the default quota using the Graph API
+    And user "Alice" has uploaded a file inside space "index-space" with content "some data" to "inSpace.txt"
+    When user "Alice" searches for "*inSpace*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result of user "Alice" should contain these entries:
+      | inSpace.txt |
+    When user "Alice" has disabled a space "index-space"
+    And user "Alice" has deleted a space "index-space"
+    And user "Alice" searches for "*inSpace*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result should contain "0" entries

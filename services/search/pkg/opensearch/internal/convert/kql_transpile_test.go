@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
+	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/convert"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestTranspileKQLToOpenSearch(t *testing.T) {

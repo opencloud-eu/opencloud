@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/sjson"
 
+	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestIndexManager(t *testing.T) {

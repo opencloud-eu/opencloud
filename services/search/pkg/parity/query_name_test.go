@@ -1,0 +1,66 @@
+package parity
+
+import (
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
+)
+
+func nameGroup() queryGroup {
+	return queryGroup{
+		name: "name",
+		fixtures: []search.Resource{
+			fixtureFolder("new-folder"),
+			fixtureDoc("quarterly notes.txt"),
+			fixtureDoc("Report.txt"),
+			fixtureDoc("Übung.txt"),
+			fixtureDoc("a+b.txt"),
+			fixtureDoc("c(d).txt"),
+			fixtureDoc("e&f.txt"),
+			fixtureDoc("v1.2.3.txt"),
+			fixtureDoc("foo bar.txt"),
+			fixtureDoc(fixtureLongName),
+		},
+		cases: []queryCase{
+			{id: 1, query: `new`, want: []string{"new-folder"}, engineOverrides: map[string]override{"bleve": override{}}},
+			{id: 2, query: `quarterly`, want: []string{"quarterly notes.txt"}, engineOverrides: map[string]override{"bleve": override{}}},
+			{id: 3, query: `report`, want: []string{"Report.txt"}, engineOverrides: map[string]override{"bleve": override{}, "opensearch": override{}}},
+			{id: 4, query: `name:"*new-folder*"`, want: []string{"new-folder"}},
+			{id: 5, query: `name:"*w-fol*"`, want: []string{"new-folder"}},
+			{id: 6, query: `name:"*oo ba*"`, want: []string{"foo bar.txt"}},
+			{id: 7, query: `name:"*REPORT*"`, want: []string{"Report.txt"}},
+			{id: 8, query: `name:"*übung*"`, want: []string{"Übung.txt"}, engineOverrides: map[string]override{"opensearch": override{}}},
+			{id: 9, query: `name:"*ÜBUNG*"`, want: []string{"Übung.txt"}, engineOverrides: map[string]override{"opensearch": override{}}},
+			{id: 10, query: `name:"*a+b*"`, want: []string{"a+b.txt"}},
+			{id: 11, query: `name:"*c(d)*"`, want: []string{"c(d).txt"}},
+			{id: 12, query: `name:"*e&f*"`, want: []string{"e&f.txt"}},
+			{id: 13, query: `name:"*v1.2*"`, want: []string{"v1.2.3.txt"}},
+			{id: 14, query: `new-folder`, want: []string{"new-folder"}},
+			{id: 15, query: `*folder*`, want: []string{"new-folder"}},
+			{id: 16, query: `name:"*foo bar*"`, want: []string{"foo bar.txt"}},
+			{id: 17, query: `name:"foo bar.txt"`, want: []string{"foo bar.txt"}},
+			{id: 18, query: `name:"*needle*"`, want: []string{fixtureLongName}, engineOverrides: map[string]override{"opensearch": override{}}},
+			{id: 19, query: `name:"report*"`, want: []string{"Report.txt"}},
+			{id: 20, query: `name:"*report"`, want: []string{"Report.txt"}, engineOverrides: map[string]override{"bleve": override{}, "opensearch": override{}}},
+			{id: 21, query: `name:"Rep*rt.txt"`, want: []string{"Report.txt"}},
+			{id: 22, query: `Name:"*report*"`, want: []string{"Report.txt"}},
+			{id: 23, query: `NAME:"*report*"`, want: []string{"Report.txt"}, engineOverrides: map[string]override{"opensearch": override{}}},
+			{id: 24, query: `name:Rep?rt.txt`, want: []string{"Report.txt"}, engineOverrides: map[string]override{"opensearch": override{}}},
+			{id: 25, query: `name:"*eport"`, want: []string{"Report.txt"}, engineOverrides: map[string]override{"bleve": override{}, "opensearch": override{}}},
+			{id: 26, query: `name:"repor*"`, want: []string{"Report.txt"}},
+			{id: 27, query: `REPORT`, want: []string{"Report.txt"}, engineOverrides: map[string]override{"bleve": override{}, "opensearch": override{}}},
+			{id: 28, query: `name:REPORT`, want: []string{"Report.txt"}, engineOverrides: map[string]override{"bleve": override{}, "opensearch": override{}}},
+			{id: 29, query: `name:"REPORT.TXT"`, want: []string{"Report.txt"}},
+			{id: 30, query: `name:"FOO BAR.TXT"`, want: []string{"foo bar.txt"}},
+			{id: 31, query: `name:"ÜBUNG.TXT"`, want: []string{"Übung.txt"}},
+			{id: 32, query: `name:"folder*"`},
+			{id: 33, query: `name:"*new"`},
+			{id: 34, query: `name:new`, want: []string{"new-folder"}, engineOverrides: map[string]override{"bleve": override{}}},
+			{id: 35, query: `name:"new"`, engineOverrides: map[string]override{"opensearch": override{want: []string{"new-folder"}}}},
+			{id: 36, query: `name:"new-folder"`, want: []string{"new-folder"}},
+			{id: 37, query: `name:"new-*"`, want: []string{"new-folder"}},
+			{id: 38, query: `name:"new*"`, want: []string{"new-folder"}},
+			{id: 39, query: `name:new-*`, want: []string{"new-folder"}},
+			{id: 40, query: `name:"*-folder"`, want: []string{"new-folder"}},
+			{id: 41, query: `name:"Rep?rt.txt"`, want: []string{"Report.txt"}, engineOverrides: map[string]override{"opensearch": override{}}},
+		},
+	}
+}

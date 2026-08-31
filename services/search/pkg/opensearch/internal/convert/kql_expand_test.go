@@ -9,7 +9,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/convert"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
+	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
 )
 
 func TestExpandKQLAST(t *testing.T) {
