@@ -15,7 +15,7 @@ func (t Tika) getLivePhoto(meta map[string][]string) *libregraph.LivePhoto {
 	// parsed since metadata-extractor 2.21.0). A file is only ever one half, so
 	// reading both keys covers both.
 	contentID, err := getFirstValue(meta, "com.apple.quicktime.content.identifier", "Content Identifier")
-	if err != nil {
+	if err != nil || contentID == "" {
 		return nil
 	}
 	livePhoto := libregraph.NewLivePhoto(contentID)
@@ -40,7 +40,7 @@ func (t Tika) getLivePhoto(meta map[string][]string) *libregraph.LivePhoto {
 	}
 
 	if v, err := getFirstValue(meta, "com.apple.quicktime.live-photo.vitality-scoring-version"); err == nil {
-		if i, err := strconv.ParseInt(v, 0, 64); err == nil {
+		if i, err := strconv.ParseInt(v, 10, 64); err == nil {
 			livePhoto.SetVitalityScoringVersion(i)
 		}
 	}

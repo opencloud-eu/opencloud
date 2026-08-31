@@ -41,5 +41,40 @@ var _ = Describe("getLivePhoto", func() {
 		Expect(Tika{}.getLivePhoto(map[string][]string{
 			"Content-Type": {"image/jpeg"},
 		})).To(BeNil())
+		Expect(Tika{}.getLivePhoto(map[string][]string{
+			"Content-Type":       {"image/heic"},
+			"Content Identifier": {""},
+		})).To(BeNil(), "an empty pairing id is no live photo")
+	})
+
+	It("rounds a fractional still-image-time", func() {
+		livePhoto := Tika{}.getLivePhoto(map[string][]string{
+			"com.apple.quicktime.content.identifier": {"6F1A2B3C"},
+			"quicktime:still-image-time":             {"1500000.7"},
+		})
+		Expect(livePhoto).ToNot(BeNil())
+		Expect(livePhoto.StillImageTimeUs).To(Equal(libregraph.PtrInt64(1500001)))
+	})
+
+	It("keeps the facet when optional values are malformed", func() {
+		livePhoto := Tika{}.getLivePhoto(map[string][]string{
+			"com.apple.quicktime.content.identifier":        {"6F1A2B3C"},
+			"com.apple.quicktime.live-photo.auto":           {"maybe"},
+			"com.apple.quicktime.live-photo.vitality-score": {"very"},
+		})
+		Expect(livePhoto).ToNot(BeNil())
+		Expect(livePhoto.Auto).To(BeNil())
+		Expect(livePhoto.VitalityScore).To(BeNil())
+	})
+
+	It("leaves the video-only fields empty on the still half", func() {
+		livePhoto := Tika{}.getLivePhoto(map[string][]string{
+			"Content Identifier": {"6F1A2B3C"},
+		})
+		Expect(livePhoto).ToNot(BeNil())
+		Expect(livePhoto.StillImageTimeUs).To(BeNil())
+		Expect(livePhoto.Auto).To(BeNil())
+		Expect(livePhoto.VitalityScore).To(BeNil())
+		Expect(livePhoto.VitalityScoringVersion).To(BeNil())
 	})
 })
