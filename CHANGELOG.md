@@ -12,6 +12,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/sirupsen/logrus from 1.10.0 to 1.10.1 [[#3409](https://github.com/opencloud-eu/opencloud/pull/3409)]
 - build(deps): bump github.com/opensearch-project/opensearch-go/v4 from 4.6.0 to 4.7.3 [[#3216](https://github.com/opencloud-eu/opencloud/pull/3216)]
 - build(deps): bump github.com/KimMachineGun/automemlimit from 0.7.5 to 1.0.0 [[#3404](https://github.com/opencloud-eu/opencloud/pull/3404)]
 - build(deps): bump github.com/nats-io/nats.go from 1.52.0 to 1.53.1 [[#3403](https://github.com/opencloud-eu/opencloud/pull/3403)]
