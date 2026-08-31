@@ -22,6 +22,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump google.golang.org/grpc from 1.83.1 to 1.83.2 [[#3429](https://github.com/opencloud-eu/opencloud/pull/3429)]
 - build(deps): bump github.com/blevesearch/bleve/v2 from 2.6.0 to 2.6.1 [[#3417](https://github.com/opencloud-eu/opencloud/pull/3417)]
 - build(deps): bump github.com/sirupsen/logrus from 1.10.0 to 1.10.1 [[#3409](https://github.com/opencloud-eu/opencloud/pull/3409)]
 - build(deps): bump github.com/opensearch-project/opensearch-go/v4 from 4.6.0 to 4.7.3 [[#3216](https://github.com/opencloud-eu/opencloud/pull/3216)]
