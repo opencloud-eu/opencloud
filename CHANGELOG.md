@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@dschmidt, @maki5
+@dschmidt, @fschade, @maki5
+
+### 🐛 Bug Fixes
+
+- fix(search): make openSearch and bleve behave the same [[#3408](https://github.com/opencloud-eu/opencloud/pull/3408)]
 
 ### ✅ Tests
 
