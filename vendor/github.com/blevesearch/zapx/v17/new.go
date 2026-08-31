@@ -50,10 +50,16 @@ func (z *ZapPlugin) NewUsing(results []index.Document, config map[string]interfa
 	return z.newWithChunkMode(results, DefaultChunkMode, config)
 }
 
-func (*ZapPlugin) newWithChunkMode(results []index.Document,
+func (z *ZapPlugin) newWithChunkMode(results []index.Document,
 	chunkMode uint32, config map[string]interface{}) (segment.Segment, uint64, error) {
 	s := interimPool.Get().(*interim)
 
+	zapStats, ok := config[segment.StatsKey].(*segment.Stats)
+	if !ok || zapStats == nil {
+		zapStats = new(segment.Stats)
+	}
+
+	s.stats = zapStats
 	var br bytes.Buffer
 	if s.lastNumDocs > 0 {
 		// use previous results to initialize the buf with an estimate
@@ -67,6 +73,7 @@ func (*ZapPlugin) newWithChunkMode(results []index.Document,
 		br.Grow(estimateAvgBytesPerDoc * estimateNumResults)
 	}
 
+	atomic.AddUint64(&s.stats.TotNewRootDocsProcessed, uint64(len(results)))
 	var err error
 	s.results, s.edgeList = flattenNestedDocuments(results, s.edgeList)
 	s.config = config
@@ -80,7 +87,7 @@ func (*ZapPlugin) newWithChunkMode(results []index.Document,
 	}
 
 	sb, err := InitSegmentBase(br.Bytes(), s.w.Sum32(), chunkMode,
-		uint64(len(s.results)), storedIndexOffset, sectionsIndexOffset, config)
+		uint64(len(s.results)), storedIndexOffset, sectionsIndexOffset, config, s.stats)
 
 	// get the bytes written before the interim's reset() call
 	// write it to the newly formed segment base.
@@ -100,6 +107,9 @@ var interimPool = sync.Pool{New: func() interface{} { return &interim{} }}
 // interim holds temporary working data used while converting from
 // analysis results to a zap-encoded segment
 type interim struct {
+	// atomic access to this variable, moved to top to correct alignment issues on ARM, 386 and 32-bit MIPS.
+	bytesWritten uint64
+
 	results []index.Document
 
 	// edge list for nested documents: child -> parent
@@ -130,10 +140,9 @@ type interim struct {
 	lastNumDocs int
 	lastOutSize int
 
-	// atomic access to this variable
-	bytesWritten uint64
-
 	opaque map[int]resetable
+
+	stats *segment.Stats
 }
 
 func (s *interim) reset() (err error) {
@@ -204,12 +213,12 @@ func (s *interim) convert() (uint64, uint64, error) {
 		result.VisitComposite(func(field index.CompositeField) {
 			fName = field.Name()
 			s.getOrDefineField(fName)
-			s.FieldsOptions[fName] = field.Options()
+			s.FieldsOptions[fName] |= field.Options()
 		})
 		result.VisitFields(func(field index.Field) {
 			fName = field.Name()
 			s.getOrDefineField(fName)
-			s.FieldsOptions[fName] = field.Options()
+			s.FieldsOptions[fName] |= field.Options()
 		})
 	}
 
@@ -224,8 +233,11 @@ func (s *interim) convert() (uint64, uint64, error) {
 		"chunkMode":     s.chunkMode,
 		"fieldsMap":     s.FieldsMap,
 		"fieldsInv":     s.FieldsInv,
-		"config":        s.config,
 		"fieldsOptions": s.FieldsOptions,
+		"stats":         s.stats,
+	}
+	if s.config != nil {
+		args["config"] = s.config
 	}
 	if s.opaque == nil {
 		s.opaque = map[int]resetable{}
@@ -289,6 +301,7 @@ func (s *interim) processDocuments() {
 	for docNum, result := range s.results {
 		s.processDocument(uint32(docNum), result)
 	}
+	atomic.AddUint64(&s.stats.TotNewDocsProcessed, uint64(len(s.results)))
 }
 
 func (s *interim) processDocument(docNum uint32,
@@ -296,7 +309,9 @@ func (s *interim) processDocument(docNum uint32,
 	// this callback is essentially going to be invoked on each field,
 	// as part of which preprocessing, cumulation etc. of the doc's data
 	// will take place.
+	var fieldCount int
 	visitField := func(field index.Field) {
+		fieldCount++
 		fieldID := uint16(s.getOrDefineField(field.Name()))
 
 		// section specific processing of the field
@@ -322,6 +337,11 @@ func (s *interim) processDocument(docNum uint32,
 		section.Process(s.opaque, docNum, nil, math.MaxUint16)
 	}
 
+	if fieldCount > 0 {
+		atomic.AddUint64(&s.stats.TotNewDocsIndexed, 1)
+	} else {
+		atomic.AddUint64(&s.stats.TotNewDocsDropped, 1)
+	}
 }
 
 func (s *interim) getBytesWritten() uint64 {

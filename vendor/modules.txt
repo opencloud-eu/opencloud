@@ -118,7 +118,7 @@ github.com/bitly/go-simplejson
 # github.com/bits-and-blooms/bitset v1.24.2
 ## explicit; go 1.16
 github.com/bits-and-blooms/bitset
-# github.com/blevesearch/bleve/v2 v2.6.0
+# github.com/blevesearch/bleve/v2 v2.6.1
 ## explicit; go 1.25.0
 github.com/blevesearch/bleve/v2
 github.com/blevesearch/bleve/v2/analysis
@@ -140,6 +140,7 @@ github.com/blevesearch/bleve/v2/analysis/tokenizer/unicode
 github.com/blevesearch/bleve/v2/document
 github.com/blevesearch/bleve/v2/fusion
 github.com/blevesearch/bleve/v2/geo
+github.com/blevesearch/bleve/v2/geov2
 github.com/blevesearch/bleve/v2/index/scorch
 github.com/blevesearch/bleve/v2/index/scorch/mergeplan
 github.com/blevesearch/bleve/v2/index/upsidedown
@@ -161,10 +162,10 @@ github.com/blevesearch/bleve/v2/search/scorer
 github.com/blevesearch/bleve/v2/search/searcher
 github.com/blevesearch/bleve/v2/size
 github.com/blevesearch/bleve/v2/util
-# github.com/blevesearch/bleve_index_api v1.3.11
+# github.com/blevesearch/bleve_index_api v1.4.1
 ## explicit; go 1.24
 github.com/blevesearch/bleve_index_api
-# github.com/blevesearch/geo v0.2.5
+# github.com/blevesearch/geo v0.2.6
 ## explicit; go 1.24
 github.com/blevesearch/geo/geojson
 github.com/blevesearch/geo/r1
@@ -172,8 +173,8 @@ github.com/blevesearch/geo/r2
 github.com/blevesearch/geo/r3
 github.com/blevesearch/geo/s1
 github.com/blevesearch/geo/s2
-# github.com/blevesearch/go-faiss v1.1.0
-## explicit; go 1.21
+# github.com/blevesearch/go-faiss v1.1.5
+## explicit; go 1.25.0
 github.com/blevesearch/go-faiss
 # github.com/blevesearch/go-porterstemmer v1.0.3
 ## explicit; go 1.13
@@ -184,7 +185,7 @@ github.com/blevesearch/gtreap
 # github.com/blevesearch/mmap-go v1.2.0
 ## explicit; go 1.24.0
 github.com/blevesearch/mmap-go
-# github.com/blevesearch/scorch_segment_api/v2 v2.4.7
+# github.com/blevesearch/scorch_segment_api/v2 v2.4.10
 ## explicit; go 1.24.0
 github.com/blevesearch/scorch_segment_api/v2
 # github.com/blevesearch/segment v0.9.1
@@ -221,7 +222,7 @@ github.com/blevesearch/zapx/v15
 # github.com/blevesearch/zapx/v16 v16.3.4
 ## explicit; go 1.24
 github.com/blevesearch/zapx/v16
-# github.com/blevesearch/zapx/v17 v17.1.2
+# github.com/blevesearch/zapx/v17 v17.2.3
 ## explicit; go 1.25.0
 github.com/blevesearch/zapx/v17
 # github.com/bluele/gcache v0.0.2

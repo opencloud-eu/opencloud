@@ -591,9 +591,15 @@ func (p *Polygon) RectBound() Rect { return p.bound }
 
 // ContainsPoint reports whether the polygon contains the point.
 func (p *Polygon) ContainsPoint(point Point) bool {
+	// The full polygon contains every point, and initEdgesAndIndex leaves it
+	// without a ShapeIndex, so answer it before any index access below.
+	if p.IsFull() {
+		return true
+	}
+
 	// NOTE: A bounds check slows down this function by about 50%. It is
 	// worthwhile only when it might allow us to delay building the index.
-	if !p.index.IsFresh() && !p.bound.ContainsPoint(point) {
+	if (p.index == nil || !p.index.IsFresh()) && !p.bound.ContainsPoint(point) {
 		return false
 	}
 
@@ -1238,10 +1244,17 @@ func (p *Polygon) Project(point *Point) Point {
 }
 
 func (p *Polygon) ProjectToBoundary(point *Point) Point {
+	if p.index == nil || p.NumEdges() == 0 {
+		return *point
+	}
+
 	options := NewClosestEdgeQueryOptions().MaxResults(1).IncludeInteriors(false)
 	q := NewClosestEdgeQuery(p.index, options)
 	target := NewMinDistanceToPointTarget(*point)
 	edges := q.FindEdges(target)
+	if len(edges) == 0 {
+		return *point
+	}
 	return q.Project(*point, edges[0])
 }
 

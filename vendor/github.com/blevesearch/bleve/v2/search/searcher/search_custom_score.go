@@ -30,30 +30,57 @@ func init() {
 	reflectStaticSizeCustomScoreSearcher = int(reflect.TypeOf(sfs).Size())
 }
 
-// CustomScoreFunc defines a function which can mutate document scores.
-type CustomScoreFunc func(d *search.DocumentMatch) float64
+// CustomScoreFunc defines a function which can mutate document scores. It
+// receives the search's context so a long-running callback (e.g. a JS UDF) can
+// honor the query deadline/cancellation. A non-nil error aborts the search so
+// the failure can be surfaced to the caller rather than silently falling back
+// to the original score.
+type CustomScoreFunc func(ctx context.Context, d *search.DocumentMatch) (float64, error)
 
 // CustomScoreSearcher wraps any other searcher, optionally loads doc values
 // into each DocumentMatch, then mutates the score using the supplied
 // CustomScoreFunc.
 type CustomScoreSearcher struct {
+	ctx         context.Context
 	child       search.Searcher
 	mutate      CustomScoreFunc
 	dvReader    index.DocValueReader
 	indexReader index.IndexReader
 	fieldTypes  map[string]string
+	explain     bool
 }
 
 func NewCustomScoreSearcher(ctx context.Context, s search.Searcher, mutate CustomScoreFunc,
 	dvReader index.DocValueReader, indexReader index.IndexReader,
-	fieldTypes map[string]string) *CustomScoreSearcher {
+	fieldTypes map[string]string, explain bool) *CustomScoreSearcher {
 	return &CustomScoreSearcher{
+		ctx:         ctx,
 		child:       s,
 		mutate:      mutate,
 		dvReader:    dvReader,
 		indexReader: indexReader,
 		fieldTypes:  fieldTypes,
+		explain:     explain,
 	}
+}
+
+// applyScore mutates the score on the hit and, when explain is enabled,
+// replaces the explanation with a single node describing the custom score
+// result. A non-nil error from the score function is returned so the caller
+// can abort the search.
+func (f *CustomScoreSearcher) applyScore(d *search.DocumentMatch) error {
+	score, err := f.mutate(f.ctx, d)
+	if err != nil {
+		return err
+	}
+	d.Score = score
+	if f.explain {
+		d.Expl = &search.Explanation{
+			Value:   d.Score,
+			Message: "custom_score function result",
+		}
+	}
+	return nil
 }
 
 func (f *CustomScoreSearcher) Size() int {
@@ -67,10 +94,19 @@ func (f *CustomScoreSearcher) Next(ctx *search.SearchContext) (*search.DocumentM
 		return nil, err
 	}
 	if next != nil {
-		if err = loadDocValuesOnHitWithTypes(next, f.dvReader, f.indexReader, f.fieldTypes); err != nil {
-			return nil, err
+		// Put the loaded fields on the hit only for scoring, so UDF-input fields
+		// don't override SearchRequest.Fields in the response.
+		udfFields, lerr := loadDocValuesOnHitWithTypes(next, f.dvReader, f.indexReader, f.fieldTypes)
+		if lerr != nil {
+			return nil, lerr
 		}
-		next.Score = f.mutate(next)
+		priorFields := next.Fields
+		next.Fields = udfFields
+		serr := f.applyScore(next)
+		next.Fields = priorFields
+		if serr != nil {
+			return nil, serr
+		}
 	}
 	return next, nil
 }
@@ -81,10 +117,18 @@ func (f *CustomScoreSearcher) Advance(ctx *search.SearchContext, ID index.IndexI
 		return nil, err
 	}
 	if adv != nil {
-		if err = loadDocValuesOnHitWithTypes(adv, f.dvReader, f.indexReader, f.fieldTypes); err != nil {
-			return nil, err
+		// See Next: put the loaded fields on the hit only for scoring.
+		udfFields, lerr := loadDocValuesOnHitWithTypes(adv, f.dvReader, f.indexReader, f.fieldTypes)
+		if lerr != nil {
+			return nil, lerr
 		}
-		adv.Score = f.mutate(adv)
+		priorFields := adv.Fields
+		adv.Fields = udfFields
+		serr := f.applyScore(adv)
+		adv.Fields = priorFields
+		if serr != nil {
+			return nil, serr
+		}
 	}
 	return adv, nil
 }
