@@ -4,7 +4,13 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@dschmidt, @fredrikblau, @fschade, @maki5
+@dschmidt, @fredrikblau, @fschade, @maki5, @pbleser-oc
+
+### 📈 Enhancement
+
+- refactor: reflection-based search mapping + location geopoint [[#3345](https://github.com/opencloud-eu/opencloud/pull/3345)]
+- chore(policies): disable gRPC or event handlers by configuration + add metrics [[#3287](https://github.com/opencloud-eu/opencloud/pull/3287)]
+- moved ShareCreated event consumer from frontend to shared service [[#3389](https://github.com/opencloud-eu/opencloud/pull/3389)]
 
 ### 🐛 Bug Fixes
 
@@ -13,10 +19,6 @@
 ### ✅ Tests
 
 - test(search): engine parity suite for bleve and opensearch [[#3418](https://github.com/opencloud-eu/opencloud/pull/3418)]
-
-### 📈 Enhancement
-
-- moved ShareCreated event consumer from frontend to shared service [[#3389](https://github.com/opencloud-eu/opencloud/pull/3389)]
 
 ### 📦️ Dependencies
 
