@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"sync"
@@ -61,7 +62,10 @@ func OidcAuth(opts ...Option) func(http.Handler) http.Handler {
 						provider, err = providerFunc()
 					}
 					initializeProviderLock.Unlock()
-					if err != nil {
+					if err != nil || provider == nil {
+						if err == nil {
+							err = errors.New("OIDC provider initialization returned nil")
+						}
 						opt.Logger.Error().Err(err).Msg("could not initialize OIDC provider")
 						w.WriteHeader(http.StatusInternalServerError)
 						return
@@ -78,6 +82,12 @@ func OidcAuth(opts ...Option) func(http.Handler) http.Handler {
 					oauth2.StaticTokenSource(oauth2Token),
 				)
 				if err != nil {
+					w.Header().Add("WWW-Authenticate", `Bearer`)
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+				if userInfo == nil {
+					opt.Logger.Error().Msg("OIDC provider returned empty user info")
 					w.Header().Add("WWW-Authenticate", `Bearer`)
 					w.WriteHeader(http.StatusUnauthorized)
 					return
