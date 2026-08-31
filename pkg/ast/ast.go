@@ -43,6 +43,7 @@ type StringNode struct {
 	*Base
 	Key   string
 	Value string
+	Exact bool
 }
 
 // BooleanNode represents a bool value
@@ -58,6 +59,14 @@ type DateTimeNode struct {
 	Key      string
 	Operator *OperatorNode
 	Value    time.Time
+}
+
+// NumberNode represents a numeric value
+type NumberNode struct {
+	*Base
+	Key      string
+	Operator *OperatorNode
+	Value    float64
 }
 
 // OperatorNode represents an operator value like

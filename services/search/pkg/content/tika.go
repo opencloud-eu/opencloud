@@ -11,8 +11,8 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/google/go-tika/tika"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
@@ -83,7 +83,11 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	}
 
 	for _, meta := range metas {
-		if title, err := getFirstValue(meta, "title"); err == nil {
+		title, err := getFirstValue(meta, "dc:title")
+		if err != nil {
+			title, err = getFirstValue(meta, "title")
+		}
+		if err == nil {
 			doc.Title = strings.TrimSpace(fmt.Sprintf("%s %s", doc.Title, title))
 		}
 

@@ -40,6 +40,7 @@ GroupNode <-
 PropertyRestrictionNodes <-
     YesNoPropertyRestrictionNode /
     DateTimeRestrictionNode /
+    NumberRestrictionNode /
     TextPropertyRestrictionNode
 
 YesNoPropertyRestrictionNode <-
@@ -69,9 +70,22 @@ DateTimeRestrictionNode <-
         return buildNaturalLanguageDateTimeNodes(k, v, c.text, c.pos)
     }
 
+NumberRestrictionNode <-
+    k:Key o:(
+        OperatorGreaterOrEqualNode /
+        OperatorLessOrEqualNode /
+        OperatorGreaterNode /
+        OperatorLessNode
+    ) '"'? v:Number '"'? {
+        return buildNumberNode(k, o, v, c.text, c.pos)
+    }
+
 TextPropertyRestrictionNode <-
-    k:Key (OperatorColonNode / OperatorEqualNode) v:(String / [^ ()]+){
-        return buildStringNode(k, v, c.text, c.pos)
+    k:Key OperatorEqualNode v:(String / [^ ()]+) {
+        return buildStringNode(k, v, true, c.text, c.pos)
+    } /
+    k:Key OperatorColonNode v:(String / [^ ()]+) {
+        return buildStringNode(k, v, false, c.text, c.pos)
     }
 
 ////////////////////////////////////////////////////////
@@ -84,12 +98,12 @@ FreeTextKeywordNodes <-
 
 PhraseNode <-
      OperatorColonNode? _ v:String _ OperatorColonNode? {
-        return buildStringNode("", v, c.text, c.pos)
+        return buildStringNode("", v, false, c.text, c.pos)
     }
 
 WordNode <-
      OperatorColonNode? _ v:[^ :()]+ _ OperatorColonNode? {
-        return buildStringNode("", v, c.text, c.pos)
+        return buildStringNode("", v, false, c.text, c.pos)
     }
 
 ////////////////////////////////////////////////////////
@@ -227,6 +241,11 @@ Key <-
 String <-
     '"' v:[^"]* '"' {
         return v, nil
+    }
+
+Number <-
+    [0-9]+ ("." [0-9]+)? {
+        return string(c.text), nil
     }
 
 Digit <-

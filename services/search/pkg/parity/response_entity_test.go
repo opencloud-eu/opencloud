@@ -72,7 +72,7 @@ func entityGroup() responseGroup {
 				}),
 			},
 			{
-				id: 11, query: `path:"./parent"`, reads: "TotalMatches", want: []string{"2"}, engineOverrides: map[string]override{"bleve": override{want: []string{"1"}}},
+				id: 11, query: `path:"./parent"`, reads: "TotalMatches", want: []string{"2"},
 				read: func(resp *searchService.SearchIndexResponse) []string {
 					return []string{fmt.Sprint(resp.GetTotalMatches())}
 				},

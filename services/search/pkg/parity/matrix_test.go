@@ -173,7 +173,9 @@ func writeMatrix(report types.Report) {
 	out.WriteString("Written by the parity suite (`go test ./services/search/pkg/parity/`), do not edit.\n")
 	out.WriteString("Every case runs against bleve and OpenSearch. `same?` is ✅ when both answer as\n")
 	out.WriteString("expected, `❌ known` when an engine's divergence is documented in the case\n")
-	out.WriteString("(`engineOverrides`), `❌` when it is not.\n")
+	out.WriteString("(`engineOverrides`), `❌` when it is not. `✅ stale` when every engine\n")
+	out.WriteString("answers the expected value although the case still documents a\n")
+	out.WriteString("divergence, that override can come out.\n")
 
 	group, section := "", ""
 	for _, row := range rows {
@@ -426,6 +428,8 @@ func matrixVerdict(row *matrixResult) string {
 	}
 
 	switch {
+	case len(off) == 0 && len(row.Overrides) > 0:
+		return "✅ stale"
 	case len(off) == 0:
 		return "✅"
 	case known:

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"path"
 	"reflect"
+	"strings"
 
 	"github.com/go-jose/go-jose/v3/json"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
@@ -16,15 +17,38 @@ import (
 
 var (
 	ErrManualActionRequired                  = errors.New("manual action required")
-	IndexManagerLatest                       = IndexIndexManagerResourceV2
-	IndexIndexManagerResourceV1 IndexManager = "resource_v1.json"
-	IndexIndexManagerResourceV2 IndexManager = "resource_v2.json"
+	IndexManagerLatest                       = IndexIndexManagerResourceV3
+	IndexIndexManagerResourceV3 IndexManager = "resource_v3.json"
 )
 
 //go:embed internal/indexes/*.json
 var indexes embed.FS
 
 type IndexManager string
+
+// Version is the part of the definition file name that says which generation it
+// is, resource_v3.json carries v3.
+func (m IndexManager) Version() string {
+	name := strings.TrimSuffix(string(m), path.Ext(string(m)))
+	_, version, found := strings.Cut(name, "_")
+	if !found {
+		return ""
+	}
+
+	return version
+}
+
+// IndexName puts the generation of the definition behind the configured name,
+// so a new one starts on an index of its own instead of refusing to work with
+// the one that is there.
+func IndexName(name string) string {
+	version := IndexManagerLatest.Version()
+	if version == "" {
+		return name
+	}
+
+	return name + "-" + version
+}
 
 func (m IndexManager) String() string {
 	b, err := m.MarshalJSON()
@@ -46,6 +70,43 @@ func (m IndexManager) MarshalJSON() ([]byte, error) {
 	}
 
 	return body, nil
+}
+
+func coveredAt(declared, index gjson.Result, declaredPath, indexPath string) (string, string, bool) {
+	declaredRaw := declared.Get(declaredPath).Raw
+	indexRaw := index.Get(indexPath).Raw
+
+	var declaredValue, indexValue any
+	if err := json.Unmarshal([]byte(declaredRaw), &declaredValue); err != nil {
+		return declaredRaw, indexRaw, false
+	}
+
+	if err := json.Unmarshal([]byte(indexRaw), &indexValue); err != nil {
+		return declaredRaw, indexRaw, false
+	}
+
+	return declaredRaw, indexRaw, covered(declaredValue, indexValue)
+}
+
+func covered(declared, index any) bool {
+	declaredMap, ok := declared.(map[string]any)
+	if !ok {
+		return reflect.DeepEqual(declared, index)
+	}
+
+	indexMap, ok := index.(map[string]any)
+	if !ok {
+		return false
+	}
+
+	for key, declaredValue := range declaredMap {
+		indexValue, ok := indexMap[key]
+		if !ok || !covered(declaredValue, indexValue) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (m IndexManager) Apply(ctx context.Context, name string, client *opensearchgoAPI.Client) error {
@@ -86,32 +147,16 @@ func (m IndexManager) Apply(ctx context.Context, name string, client *opensearch
 		localIndexJson := gjson.ParseBytes(localIndexB)
 		remoteIndexJson := gjson.ParseBytes(remoteIndexB)
 
-		compare := func(lvPath, rvPath string) (any, any, bool) {
-			lv := localIndexJson.Get(lvPath).Raw
-			rv := remoteIndexJson.Get(rvPath).Raw
-
-			var lvv, rvv any
-			if err := json.Unmarshal([]byte(lv), &lvv); err != nil {
-				return nil, nil, false
-			}
-
-			if err := json.Unmarshal([]byte(rv), &rvv); err != nil {
-				return nil, nil, false
-			}
-
-			return lv, rv, reflect.DeepEqual(lvv, rvv)
-		}
-
 		var errs []error
 
 		for k := range localIndexJson.Get("settings").Map() {
-			if lv, rv, ok := compare("settings."+k, "settings.index."+k); !ok {
+			if lv, rv, ok := coveredAt(localIndexJson, remoteIndexJson, "settings."+k, "settings.index."+k); !ok {
 				errs = append(errs, fmt.Errorf("settings.%s local %s, remote %s", k, lv, rv))
 			}
 		}
 
 		for k := range localIndexJson.Get("mappings.properties").Map() {
-			if _, _, ok := compare("mappings.properties."+k, "mappings.properties."+k); !ok {
+			if _, _, ok := coveredAt(localIndexJson, remoteIndexJson, "mappings.properties."+k, "mappings.properties."+k); !ok {
 				errs = append(errs, fmt.Errorf("mappings.properties.%s", k))
 			}
 		}

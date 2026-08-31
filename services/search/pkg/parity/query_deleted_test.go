@@ -20,7 +20,7 @@ func deletedGroup() queryGroup {
 			{id: 2, query: `name:"*.txt"`, want: []string{"kept.txt", "book.txt"}},
 			{id: 3, query: `name:"*receipt*"`},
 			{id: 4, query: `path:"./bin"`},
-			{id: 5, query: `path:"./shelf"`, want: []string{"shelf", "book.txt"}, engineOverrides: map[string]override{"bleve": override{want: []string{"shelf"}}}},
+			{id: 5, query: `path:"./shelf"`, want: []string{"shelf", "book.txt"}},
 		},
 	}
 }

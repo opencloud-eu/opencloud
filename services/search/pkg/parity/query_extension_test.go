@@ -13,10 +13,10 @@ func extensionGroup() queryGroup {
 			fixtureFolder("archive"),
 		},
 		cases: []queryCase{
-			{id: 1, query: `txt`, want: []string{"report.txt"}, engineOverrides: map[string]override{"bleve": override{}, "opensearch": override{}}},
-			{id: 2, query: `md`, want: []string{"notes.md"}, engineOverrides: map[string]override{"bleve": override{}, "opensearch": override{}}},
+			{id: 1, query: `txt`, want: []string{"report.txt"}},
+			{id: 2, query: `md`, want: []string{"notes.md"}},
 			{id: 3, query: `name:"*.txt"`, want: []string{"report.txt"}},
-			{id: 4, query: `report`, want: []string{"report.txt"}, engineOverrides: map[string]override{"bleve": override{}, "opensearch": override{}}},
+			{id: 4, query: `report`, want: []string{"report.txt"}},
 		},
 	}
 }

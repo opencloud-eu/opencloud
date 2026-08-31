@@ -33,8 +33,7 @@ func restoreLifecycle() lifecycleGroup {
 
 					return e.Restore(secret.ID)
 				},
-				expect:          []expectation{{`hidden:true`, []string{"file.txt"}}},
-				engineOverrides: map[string]lifecycleOverride{"bleve": {expect: map[string][]string{`hidden:true`: {}}}},
+				expect: []expectation{{`hidden:true`, []string{"file.txt"}}},
 			},
 		},
 	}

@@ -61,7 +61,6 @@ func (tc *TestClient) IndicesReset(ctx context.Context, indices []string) error 
 	}
 
 	if len(indicesToDelete) == 0 {
-		// If no indices to delete, return nil
 		return nil
 	}
 
@@ -138,76 +137,6 @@ func (tc *TestClient) IndicesCreate(ctx context.Context, index string, body io.R
 	}
 }
 
-func (tc *TestClient) IndicesCount(ctx context.Context, indices []string, body io.Reader) (int, error) {
-	if err := tc.IndicesRefresh(ctx, indices, []int{404}); err != nil {
-		return 0, err
-	}
-
-	resp, err := tc.c.Indices.Count(ctx, &opensearchgoAPI.IndicesCountReq{
-		Indices: indices,
-		Body:    body,
-	})
-
-	switch {
-	case err != nil:
-		return 0, fmt.Errorf("failed to count documents in indices: %w", err)
-	default:
-		return resp.Count, nil
-	}
-}
-
-func (tc *TestClient) DocumentCreate(ctx context.Context, index, id string, body io.Reader) error {
-	if err := tc.IndicesRefresh(ctx, []string{index}, []int{404}); err != nil {
-		return err
-	}
-
-	_, err := tc.c.Document.Create(ctx, opensearchgoAPI.DocumentCreateReq{
-		Index:      index,
-		DocumentID: id,
-		Body:       body,
-	})
-	switch {
-	case err != nil:
-		return fmt.Errorf("failed to create document in index %s: %w", index, err)
-	default:
-		return nil
-	}
-}
-
-func (tc *TestClient) Update(ctx context.Context, index, id string, body io.Reader) error {
-	if err := tc.IndicesRefresh(ctx, []string{index}, []int{404}); err != nil {
-		return err
-	}
-
-	_, err := tc.c.Update(ctx, opensearchgoAPI.UpdateReq{
-		Index:      index,
-		DocumentID: id,
-		Body:       body,
-	})
-	switch {
-	case err != nil:
-		return fmt.Errorf("failed to update document in index %s: %w", index, err)
-	default:
-		return nil
-	}
-}
-
-func (tc *TestClient) Search(ctx context.Context, index string, body io.Reader) (opensearchgoAPI.SearchHits, error) {
-	if err := tc.IndicesRefresh(ctx, []string{index}, []int{404}); err != nil {
-		return opensearchgoAPI.SearchHits{}, err
-	}
-
-	resp, err := tc.c.Search(ctx, &opensearchgoAPI.SearchReq{
-		Indices: []string{index},
-		Body:    body,
-	})
-	if err != nil {
-		return opensearchgoAPI.SearchHits{}, fmt.Errorf("failed to search in index %s: %w", index, err)
-	}
-
-	return resp.Hits, nil
-}
-
 type testRequireClient struct {
 	tc *TestClient
 	t  testing.TB
@@ -227,30 +156,4 @@ func (trc *testRequireClient) IndicesCreate(index string, body io.Reader) {
 
 func (trc *testRequireClient) IndicesDelete(indices []string) {
 	require.NoError(trc.t, trc.tc.IndicesDelete(trc.t.Context(), indices))
-}
-
-func (trc *testRequireClient) IndicesCount(indices []string, body io.Reader, expected int) {
-	count, err := trc.tc.IndicesCount(trc.t.Context(), indices, body)
-
-	switch {
-	case expected <= 0:
-		require.True(trc.t, count <= 0, "expected indices to have no documents, but got a count of %d", count)
-	default:
-		require.Equal(trc.t, expected, count, "expected indices to have %d documents, but got %d", expected, count)
-		require.NoError(trc.t, err, "expected indices to have documents, but got an error")
-	}
-}
-
-func (trc *testRequireClient) DocumentCreate(index, id string, body io.Reader) {
-	require.NoError(trc.t, trc.tc.DocumentCreate(trc.t.Context(), index, id, body))
-}
-
-func (trc *testRequireClient) Update(index, id string, body io.Reader) {
-	require.NoError(trc.t, trc.tc.Update(trc.t.Context(), index, id, body))
-}
-
-func (trc *testRequireClient) Search(index string, body io.Reader) opensearchgoAPI.SearchHits {
-	hits, err := trc.tc.Search(trc.t.Context(), index, body)
-	require.NoError(trc.t, err)
-	return hits
 }

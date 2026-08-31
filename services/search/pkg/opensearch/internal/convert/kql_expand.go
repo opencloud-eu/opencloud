@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
+
+	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 )
@@ -53,6 +56,8 @@ func (e kqlExpander) expand(nodes []ast.Node, defaultKey string) ([]ast.Node, er
 			cnode.Key = e.remapKey(cnode.Key, defaultKey)
 		case *ast.BooleanNode:
 			cnode.Key = e.remapKey(cnode.Key, defaultKey)
+		case *ast.NumberNode:
+			cnode.Key = e.remapKey(cnode.Key, defaultKey)
 		}
 
 		if unfoldedNodes != nil {
@@ -73,6 +78,7 @@ func (_ kqlExpander) remapKey(current string, defaultKey string) string {
 
 	key, ok := map[string]string{
 		"":          defaultKey, // Default case if current is empty
+		"title":     "Title",
 		"rootid":    "RootID",
 		"path":      "Path",
 		"id":        "ID",
@@ -85,7 +91,8 @@ func (_ kqlExpander) remapKey(current string, defaultKey string) string {
 		"tags":      "Tags",
 		"content":   "Content",
 		"hidden":    "Hidden",
-	}[current]
+		"favorite":  "Favorites",
+	}[strings.ToLower(current)]
 	if !ok {
 		return current // Return the original key if not found
 	}
@@ -94,15 +101,21 @@ func (_ kqlExpander) remapKey(current string, defaultKey string) string {
 }
 
 func (_ kqlExpander) lowerValue(key, value string) string {
-	if slices.Contains([]string{"Hidden"}, key) {
-		return value // ignore certain keys and return the original value
+	if slices.Contains([]string{"Name", "Title", "Tags", "Content", "MimeType", "Type", "Hidden"}, key) {
+		return strings.ToLower(value)
 	}
 
-	return strings.ToLower(value)
+	return value
 }
 
 func (_ kqlExpander) unfoldValue(key, value string) []ast.Node {
 	result, ok := map[string][]ast.Node{
+		"Type:file": {
+			&ast.StringNode{Key: key, Value: strconv.FormatUint(uint64(provider.ResourceType_RESOURCE_TYPE_FILE), 10)},
+		},
+		"Type:folder": {
+			&ast.StringNode{Key: key, Value: strconv.FormatUint(uint64(provider.ResourceType_RESOURCE_TYPE_CONTAINER), 10)},
+		},
 		"MimeType:file": {
 			&ast.OperatorNode{Value: "NOT"},
 			&ast.StringNode{Key: key, Value: "httpd/unix-directory"},
@@ -138,8 +151,6 @@ func (_ kqlExpander) unfoldValue(key, value string) []ast.Node {
 				&ast.StringNode{Key: key, Value: "text/csv"},
 				&ast.OperatorNode{Value: "OR"},
 				&ast.StringNode{Key: key, Value: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
-				&ast.OperatorNode{Value: "OR"},
-				&ast.StringNode{Key: key, Value: "application/vnd.oasis.opendocument.spreadshee"},
 				&ast.OperatorNode{Value: "OR"},
 				&ast.StringNode{Key: key, Value: "application/vnd.apple.numbers"},
 			}},

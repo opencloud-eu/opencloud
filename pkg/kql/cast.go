@@ -2,6 +2,7 @@ package kql
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/jinzhu/now"
@@ -135,4 +136,13 @@ func toTimeRange(in any) (*time.Time, *time.Time, error) {
 	}
 
 	return &from, &to, nil
+}
+
+func toFloat(v any) (float64, error) {
+	value, err := toString(v)
+	if err != nil {
+		return 0, err
+	}
+
+	return strconv.ParseFloat(value, 64)
 }

@@ -145,6 +145,22 @@ func TestParse_Spec(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: `author="John Smith"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "author", Value: "John Smith", Exact: true},
+				},
+			},
+		},
+		{
+			name: `filename=budget.xlsx`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "filename", Value: "budget.xlsx", Exact: true},
+				},
+			},
+		},
 		// 3.2.3 Implicit Operator for Property Restriction
 		{
 			name: `author:"John Smith" filetype:docx`,
@@ -410,6 +426,60 @@ func TestParse_Spec(t *testing.T) {
 						Key:      "Modified",
 						Operator: &ast.OperatorNode{Value: "<="},
 						Value:    mustParseTime(t, "2023-09-10 23:59:59.999999999"),
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			testKQL(t, tc)
+		})
+	}
+}
+
+func TestParse_NumberRestrictionNode(t *testing.T) {
+	tests := []testCase{
+		{
+			name: "format",
+			query: join([]string{
+				`size>100`,
+				`size>"100"`,
+				`size>=15.5`,
+				`size<100`,
+				`size<=100`,
+			}),
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.NumberNode{
+						Key:      "size",
+						Operator: &ast.OperatorNode{Value: ">"},
+						Value:    100,
+					},
+					&ast.OperatorNode{Value: kql.BoolAND},
+					&ast.NumberNode{
+						Key:      "size",
+						Operator: &ast.OperatorNode{Value: ">"},
+						Value:    100,
+					},
+					&ast.OperatorNode{Value: kql.BoolAND},
+					&ast.NumberNode{
+						Key:      "size",
+						Operator: &ast.OperatorNode{Value: ">="},
+						Value:    15.5,
+					},
+					&ast.OperatorNode{Value: kql.BoolAND},
+					&ast.NumberNode{
+						Key:      "size",
+						Operator: &ast.OperatorNode{Value: "<"},
+						Value:    100,
+					},
+					&ast.OperatorNode{Value: kql.BoolAND},
+					&ast.NumberNode{
+						Key:      "size",
+						Operator: &ast.OperatorNode{Value: "<="},
+						Value:    100,
 					},
 				},
 			},

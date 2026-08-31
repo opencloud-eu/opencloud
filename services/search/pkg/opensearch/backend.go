@@ -33,7 +33,10 @@ type Backend struct {
 	client *opensearchgoAPI.Client
 }
 
-func NewBackend(index string, client *opensearchgoAPI.Client) (*Backend, error) {
+// NewBackend creates a backend on the versioned generation of the named index.
+func NewBackend(name string, client *opensearchgoAPI.Client) (*Backend, error) {
+	index := IndexName(name)
+
 	pingResp, err := client.Ping(context.TODO(), &opensearchgoAPI.PingReq{})
 	switch {
 	case err != nil:
@@ -172,7 +175,7 @@ func (b *Backend) DocCount() (uint64, error) {
 		&opensearchgoAPI.IndicesCountReq{
 			Indices: []string{b.index},
 		},
-		osu.NewTermQuery[bool]("Deleted").Value(false),
+		osu.NewMatchAllQuery(),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to build count request: %w", err)

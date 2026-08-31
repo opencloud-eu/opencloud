@@ -88,16 +88,17 @@ func newBleve(fixtures []search.Resource) testEngine {
 	return testEngine{name: "bleve", backend: backend, settle: func() {}}
 }
 
-func newOpenSearch(index string, fixtures []search.Resource) testEngine {
+func newOpenSearch(name string, fixtures []search.Resource) testEngine {
 	GinkgoHelper()
 
 	tc := opensearchtest.NewDefaultTestClient(GinkgoTB(), openSearchClient)
+	index := opensearch.IndexName(name)
 
 	if err := tc.IndicesReset(context.Background(), []string{index}); err != nil {
 		return testEngine{name: "opensearch", unavailable: err.Error()}
 	}
 
-	backend, err := opensearch.NewBackend(index, tc.Client())
+	backend, err := opensearch.NewBackend(name, tc.Client())
 	if err != nil {
 		return testEngine{name: "opensearch", unavailable: err.Error()}
 	}

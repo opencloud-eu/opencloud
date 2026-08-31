@@ -142,6 +142,7 @@ func TestExpandKQLAST(t *testing.T) {
 			"tags":      "Tags",
 			"content":   "Content",
 			"hidden":    "Hidden",
+			"favorite":  "Favorites",
 			"any":       "any", // Example of an unknown key that should remain unchanged
 		} {
 			tests = append(tests, opensearchtest.TableTest[[]ast.Node, []ast.Node]{
@@ -244,33 +245,70 @@ func TestExpandKQLAST(t *testing.T) {
 	t.Run("lowercases some values", func(t *testing.T) {
 		tests := []opensearchtest.TableTest[[]ast.Node, []ast.Node]{
 			{
-				Name: "!Hidden: StringNode -> stringnode",
+				Name: "Name: StringNode -> stringnode",
 				Got: []ast.Node{
-					ast.StringNode{Key: "aBc", Value: "StringNode"},
+					ast.StringNode{Key: "Name", Value: "StringNode"},
 					ast.GroupNode{Key: "GroupNode", Nodes: []ast.Node{
-						ast.StringNode{Key: "aBc", Value: "StringNode"},
+						ast.StringNode{Key: "Name", Value: "StringNode"},
 					}},
 				},
 				Want: []ast.Node{
-					&ast.StringNode{Key: "aBc", Value: "stringnode"},
+					&ast.StringNode{Key: "Name", Value: "stringnode"},
 					&ast.GroupNode{Key: "GroupNode", Nodes: []ast.Node{
-						&ast.StringNode{Key: "aBc", Value: "stringnode"},
+						&ast.StringNode{Key: "Name", Value: "stringnode"},
 					}},
 				},
 			},
 			{
-				Name: "Hidden: StringNode -> StringNode",
+				Name: "aBc: StringNode -> StringNode",
 				Got: []ast.Node{
-					ast.StringNode{Key: "Hidden", Value: "StringNode"},
+					ast.StringNode{Key: "aBc", Value: "StringNode"},
+				},
+				Want: []ast.Node{
+					&ast.StringNode{Key: "aBc", Value: "StringNode"},
+				},
+			},
+			{
+				Name: "Path: ./Documents -> ./Documents",
+				Got: []ast.Node{
+					ast.StringNode{Key: "Path", Value: "./Documents"},
 					ast.GroupNode{Key: "GroupNode", Nodes: []ast.Node{
-						ast.StringNode{Key: "Hidden", Value: "StringNode"},
+						ast.StringNode{Key: "Path", Value: "./Documents"},
 					}},
 				},
 				Want: []ast.Node{
-					&ast.StringNode{Key: "Hidden", Value: "StringNode"},
+					&ast.StringNode{Key: "Path", Value: "./Documents"},
 					&ast.GroupNode{Key: "GroupNode", Nodes: []ast.Node{
-						&ast.StringNode{Key: "Hidden", Value: "StringNode"},
+						&ast.StringNode{Key: "Path", Value: "./Documents"},
 					}},
+				},
+			},
+			{
+				Name: "Hidden: TRUE -> true",
+				Got: []ast.Node{
+					ast.StringNode{Key: "Hidden", Value: "TRUE"},
+					ast.GroupNode{Key: "GroupNode", Nodes: []ast.Node{
+						ast.StringNode{Key: "Hidden", Value: "TRUE"},
+					}},
+				},
+				Want: []ast.Node{
+					&ast.StringNode{Key: "Hidden", Value: "true"},
+					&ast.GroupNode{Key: "GroupNode", Nodes: []ast.Node{
+						&ast.StringNode{Key: "Hidden", Value: "true"},
+					}},
+				},
+			},
+			{
+				Name: "ID: 1$1!AB23 -> 1$1!AB23",
+				Got: []ast.Node{
+					ast.StringNode{Key: "ID", Value: "1$1!AB23"},
+					ast.StringNode{Key: "RootID", Value: "1$1!AB23"},
+					ast.StringNode{Key: "ParentID", Value: "1$1!AB23"},
+				},
+				Want: []ast.Node{
+					&ast.StringNode{Key: "ID", Value: "1$1!AB23"},
+					&ast.StringNode{Key: "RootID", Value: "1$1!AB23"},
+					&ast.StringNode{Key: "ParentID", Value: "1$1!AB23"},
 				},
 			},
 		}
@@ -383,8 +421,6 @@ func TestExpandKQLAST(t *testing.T) {
 						&ast.StringNode{Key: "MimeType", Value: "text/csv"},
 						&ast.OperatorNode{Value: "OR"},
 						&ast.StringNode{Key: "MimeType", Value: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
-						&ast.OperatorNode{Value: "OR"},
-						&ast.StringNode{Key: "MimeType", Value: "application/vnd.oasis.opendocument.spreadshee"},
 						&ast.OperatorNode{Value: "OR"},
 						&ast.StringNode{Key: "MimeType", Value: "application/vnd.apple.numbers"},
 					}},

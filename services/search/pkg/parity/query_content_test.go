@@ -12,16 +12,16 @@ func contentGroup() queryGroup {
 			fixtureDoc("links.txt", withContent("see https://opencloud.example.com/help or write to alan@example.org")),
 		},
 		cases: []queryCase{
-			{id: 1, query: `Content:report`, engineOverrides: map[string]override{"bleve": override{want: []string{"monthly.txt"}}}},
+			{id: 1, query: `Content:report`},
 			{id: 2, query: `Content:REPORTS`, want: []string{"monthly.txt"}},
 			{id: 3, query: `Content:"monthly reports"`, want: []string{"monthly.txt"}},
-			{id: 4, query: `Content:"reports monthly"`, engineOverrides: map[string]override{"bleve": override{want: []string{"monthly.txt"}}}},
+			{id: 4, query: `Content:"reports monthly"`},
 			{id: 5, query: `Content:report*`, want: []string{"monthly.txt"}},
 			{id: 6, query: `Content:*eport*`, want: []string{"monthly.txt"}},
 			{id: 7, query: `Content:month*`, want: []string{"monthly.txt"}},
 			{id: 8, query: `Content:"https://opencloud.example.com/help"`, want: []string{"links.txt"}},
 			{id: 9, query: `Content:"alan@example.org"`, want: []string{"links.txt"}},
-			{id: 10, query: `Content:opencloud`, want: []string{"links.txt"}, engineOverrides: map[string]override{"bleve": override{}, "opensearch": override{}}},
+			{id: 10, query: `Content:opencloud`, want: []string{"links.txt"}},
 		},
 	}
 }

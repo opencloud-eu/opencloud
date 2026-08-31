@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	opensearchtest "github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
+	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 )
 

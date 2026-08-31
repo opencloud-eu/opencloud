@@ -2,7 +2,11 @@ package bleve
 
 import (
 	"fmt"
+	"slices"
+	"strconv"
 	"strings"
+
+	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
 	"github.com/blevesearch/bleve/v2"
 	bleveQuery "github.com/blevesearch/bleve/v2/search/query"
@@ -10,15 +14,14 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 )
 
-// lowercaseFields lists the bleve fields whose index mapping uses a
-// lowercasing analyzer. Values bound to these fields are pre-lowercased
-// so query-side matching stays consistent with the index.
-// Keep in sync with services/search/pkg/bleve/index.go NewMapping.
 var lowercaseFields = map[string]struct{}{
 	"Name":      {},
+	"Title":     {},
 	"Tags":      {},
 	"Favorites": {},
 	"Content":   {},
+	"MimeType":  {},
+	"Hidden":    {},
 }
 
 var _fields = map[string]string{
@@ -33,6 +36,7 @@ var _fields = map[string]string{
 	"tag":       "Tags",
 	"tags":      "Tags",
 	"content":   "Content",
+	"title":     "Title",
 	"hidden":    "Hidden",
 	"favorite":  "Favorites",
 }
@@ -53,7 +57,6 @@ var bleveEscaper = strings.NewReplacer(
 	`)`, `\)`,
 	`{`, `\{`,
 	`}`, `\}`,
-	`{`, `\}`,
 	`[`, `\[`,
 	`]`, `\]`,
 	`^`, `\^`,
@@ -106,14 +109,43 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 				v = strings.ToLower(v)
 			}
 
+			if k == "Type" {
+				v = resourceType(v)
+			}
+
 			var q bleveQuery.Query
 			var group bool
-			switch k {
-			case "MimeType":
+			switch {
+			case k == "Hidden":
+				value, err := strconv.ParseBool(v)
+				if err != nil {
+					q = bleveQuery.NewMatchNoneQuery()
+					break
+				}
+
+				bq := bleveQuery.NewBoolFieldQuery(value)
+				bq.SetField(k)
+				q = bq
+			case k == "MimeType":
 				q, group = mimeType(k, v)
 				if prev == nil {
 					isGroup = group
 				}
+			case slices.Contains([]string{"Name", "Title"}, k) && strings.ContainsAny(n.Value, "*?"):
+				patterns := []bleveQuery.Query{bleveQuery.NewQueryStringQuery(k + ".wildcard:" + v)}
+				if !strings.HasSuffix(v, "*") {
+					patterns = append(patterns, bleveQuery.NewQueryStringQuery(k+".wildcard:"+v+".*"))
+				}
+
+				q = closed(bleveQuery.NewDisjunctionQuery(patterns))
+			case n.Exact && !strings.ContainsAny(n.Value, "*?") && slices.Contains([]string{"Name", "Title"}, k):
+				q = bleveQuery.NewQueryStringQuery(k + ".wildcard:" + v)
+			case k == "Path" && !strings.ContainsAny(n.Value, "*?"):
+				q = pathAndBelow(k, n.Value)
+			case slices.Contains([]string{"Name", "Title", "Content"}, k) && !strings.ContainsAny(n.Value, "*?"):
+				q = phrase(k, n.Value)
+			case strings.Contains(n.Value, " ") && !strings.ContainsAny(n.Value, "*?"):
+				q = phrase(k, n.Value)
 			default:
 				q = bleveQuery.NewQueryStringQuery(k + ":" + v)
 			}
@@ -158,8 +190,20 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 			} else {
 				next = q
 			}
+		case *ast.NumberNode:
+			q := numberRange(getField(n.Key), n.Operator, n.Value)
+			if q == nil {
+				continue
+			}
+
+			if prev == nil {
+				prev = q
+			} else {
+				next = q
+			}
 		case *ast.BooleanNode:
-			q := bleveQuery.NewQueryStringQuery(getField(n.Key) + fmt.Sprintf(":%v", n.Value))
+			q := bleveQuery.NewBoolFieldQuery(n.Value)
+			q.SetField(getField(n.Key))
 			if prev == nil {
 				prev = q
 			} else {
@@ -216,6 +260,10 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 
 func nextNode(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 	if n, ok := nodes[offset].(*ast.GroupNode); ok {
+		if n.Key != "" {
+			n = normalizeGroupingProperty(n)
+		}
+
 		gq, _, err := walk(0, n.Nodes)
 		if err != nil {
 			return nil, 0, err
@@ -277,6 +325,57 @@ func mapBinary(operator *ast.OperatorNode, ln, rn bleveQuery.Query, leftIsGroup 
 	})
 }
 
+func numberRange(field string, operator *ast.OperatorNode, value float64) bleveQuery.Query {
+	if operator == nil {
+		return nil
+	}
+
+	inclusive, exclusive := true, false
+
+	var q *bleveQuery.NumericRangeQuery
+	switch operator.Value {
+	case ">":
+		q = bleveQuery.NewNumericRangeInclusiveQuery(&value, nil, &exclusive, nil)
+	case ">=":
+		q = bleveQuery.NewNumericRangeInclusiveQuery(&value, nil, &inclusive, nil)
+	case "<":
+		q = bleveQuery.NewNumericRangeInclusiveQuery(nil, &value, nil, &exclusive)
+	case "<=":
+		q = bleveQuery.NewNumericRangeInclusiveQuery(nil, &value, nil, &inclusive)
+	default:
+		return nil
+	}
+
+	q.SetField(field)
+
+	return q
+}
+
+func pathAndBelow(field, path string) bleveQuery.Query {
+	path = strings.TrimSuffix(path, "/")
+
+	self := bleveQuery.NewTermQuery(path)
+	self.SetField(field)
+
+	below := bleveQuery.NewPrefixQuery(path + "/")
+	below.SetField(field)
+
+	return closed(bleveQuery.NewDisjunctionQuery([]bleveQuery.Query{self, below}))
+}
+
+func closed(q bleveQuery.Query) bleveQuery.Query {
+	// a bare disjunction reads as an open OR chain to mapBinary, a later OR
+	// would merge into it and widen the group
+	return bleveQuery.NewConjunctionQuery([]bleveQuery.Query{q})
+}
+
+func phrase(field, value string) bleveQuery.Query {
+	q := bleveQuery.NewMatchPhraseQuery(value)
+	q.SetField(field)
+
+	return q
+}
+
 func getField(name string) string {
 	if name == "" {
 		return "Name"
@@ -294,6 +393,17 @@ func normalizeGroupingProperty(group *ast.GroupNode) *ast.GroupNode {
 		}
 	}
 	return group
+}
+
+func resourceType(value string) string {
+	switch strings.ToLower(value) {
+	case "file":
+		return strconv.FormatUint(uint64(provider.ResourceType_RESOURCE_TYPE_FILE), 10)
+	case "folder":
+		return strconv.FormatUint(uint64(provider.ResourceType_RESOURCE_TYPE_CONTAINER), 10)
+	default:
+		return value
+	}
 }
 
 func mimeType(k, v string) (bleveQuery.Query, bool) {
@@ -321,7 +431,6 @@ func mimeType(k, v string) (bleveQuery.Query, bool) {
 			"application/vnd.oasis.opendocument.spreadsheet",
 			"text/csv",
 			"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-			"application/vnd.oasis.opendocument.spreadsheet",
 			"application/vnd.apple.numbers",
 		)), true
 	case "presentation":

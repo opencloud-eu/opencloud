@@ -3,7 +3,9 @@
 Written by the parity suite (`go test ./services/search/pkg/parity/`), do not edit.
 Every case runs against bleve and OpenSearch. `same?` is ✅ when both answer as
 expected, `❌ known` when an engine's divergence is documented in the case
-(`engineOverrides`), `❌` when it is not.
+(`engineOverrides`), `❌` when it is not. `✅ stale` when every engine
+answers the expected value although the case still documents a
+divergence, that override can come out.
 
 ## Queries
 
@@ -24,15 +26,15 @@ Fixtures:
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
-| NAME-01 | `new` | new-folder | no match | new-folder | ❌ known |
-| NAME-02 | `quarterly` | quarterly notes.txt | no match | quarterly notes.txt | ❌ known |
-| NAME-03 | `report` | Report.txt | no match | no match | ❌ known |
+| NAME-01 | `new` | new-folder | new-folder | new-folder | ✅ |
+| NAME-02 | `quarterly` | quarterly notes.txt | quarterly notes.txt | quarterly notes.txt | ✅ |
+| NAME-03 | `report` | Report.txt | Report.txt | Report.txt | ✅ |
 | NAME-04 | `name:"*new-folder*"` | new-folder | new-folder | new-folder | ✅ |
 | NAME-05 | `name:"*w-fol*"` | new-folder | new-folder | new-folder | ✅ |
 | NAME-06 | `name:"*oo ba*"` | foo bar.txt | foo bar.txt | foo bar.txt | ✅ |
 | NAME-07 | `name:"*REPORT*"` | Report.txt | Report.txt | Report.txt | ✅ |
-| NAME-08 | `name:"*übung*"` | Übung.txt | Übung.txt | no match | ❌ known |
-| NAME-09 | `name:"*ÜBUNG*"` | Übung.txt | Übung.txt | no match | ❌ known |
+| NAME-08 | `name:"*übung*"` | Übung.txt | Übung.txt | Übung.txt | ✅ |
+| NAME-09 | `name:"*ÜBUNG*"` | Übung.txt | Übung.txt | Übung.txt | ✅ |
 | NAME-10 | `name:"*a+b*"` | a+b.txt | a+b.txt | a+b.txt | ✅ |
 | NAME-11 | `name:"*c(d)*"` | c(d).txt | c(d).txt | c(d).txt | ✅ |
 | NAME-12 | `name:"*e&f*"` | e&f.txt | e&f.txt | e&f.txt | ✅ |
@@ -41,30 +43,35 @@ Fixtures:
 | NAME-15 | `*folder*` | new-folder | new-folder | new-folder | ✅ |
 | NAME-16 | `name:"*foo bar*"` | foo bar.txt | foo bar.txt | foo bar.txt | ✅ |
 | NAME-17 | `name:"foo bar.txt"` | foo bar.txt | foo bar.txt | foo bar.txt | ✅ |
-| NAME-18 | `name:"*needle*"` | aaaaaaaaaa...edle.txt | aaaaaaaaaa...edle.txt | no match | ❌ known |
+| NAME-18 | `name:"*needle*"` | aaaaaaaaaa...edle.txt | aaaaaaaaaa...edle.txt | aaaaaaaaaa...edle.txt | ✅ |
 | NAME-19 | `name:"report*"` | Report.txt | Report.txt | Report.txt | ✅ |
-| NAME-20 | `name:"*report"` | Report.txt | no match | no match | ❌ known |
+| NAME-20 | `name:"*report"` | Report.txt | Report.txt | Report.txt | ✅ |
 | NAME-21 | `name:"Rep*rt.txt"` | Report.txt | Report.txt | Report.txt | ✅ |
 | NAME-22 | `Name:"*report*"` | Report.txt | Report.txt | Report.txt | ✅ |
-| NAME-23 | `NAME:"*report*"` | Report.txt | Report.txt | no match | ❌ known |
-| NAME-24 | `name:Rep?rt.txt` | Report.txt | Report.txt | no match | ❌ known |
-| NAME-25 | `name:"*eport"` | Report.txt | no match | no match | ❌ known |
+| NAME-23 | `NAME:"*report*"` | Report.txt | Report.txt | Report.txt | ✅ |
+| NAME-24 | `name:Rep?rt.txt` | Report.txt | Report.txt | Report.txt | ✅ |
+| NAME-25 | `name:"*eport"` | Report.txt | Report.txt | Report.txt | ✅ |
 | NAME-26 | `name:"repor*"` | Report.txt | Report.txt | Report.txt | ✅ |
-| NAME-27 | `REPORT` | Report.txt | no match | no match | ❌ known |
-| NAME-28 | `name:REPORT` | Report.txt | no match | no match | ❌ known |
+| NAME-27 | `REPORT` | Report.txt | Report.txt | Report.txt | ✅ |
+| NAME-28 | `name:REPORT` | Report.txt | Report.txt | Report.txt | ✅ |
 | NAME-29 | `name:"REPORT.TXT"` | Report.txt | Report.txt | Report.txt | ✅ |
 | NAME-30 | `name:"FOO BAR.TXT"` | foo bar.txt | foo bar.txt | foo bar.txt | ✅ |
 | NAME-31 | `name:"ÜBUNG.TXT"` | Übung.txt | Übung.txt | Übung.txt | ✅ |
 | NAME-32 | `name:"folder*"` | no match | no match | no match | ✅ |
 | NAME-33 | `name:"*new"` | no match | no match | no match | ✅ |
-| NAME-34 | `name:new` | new-folder | no match | new-folder | ❌ known |
-| NAME-35 | `name:"new"` | no match | no match | new-folder | ❌ known |
+| NAME-34 | `name:new` | new-folder | new-folder | new-folder | ✅ |
+| NAME-35 | `name:"new"` | new-folder | new-folder | new-folder | ✅ |
 | NAME-36 | `name:"new-folder"` | new-folder | new-folder | new-folder | ✅ |
 | NAME-37 | `name:"new-*"` | new-folder | new-folder | new-folder | ✅ |
 | NAME-38 | `name:"new*"` | new-folder | new-folder | new-folder | ✅ |
 | NAME-39 | `name:new-*` | new-folder | new-folder | new-folder | ✅ |
 | NAME-40 | `name:"*-folder"` | new-folder | new-folder | new-folder | ✅ |
-| NAME-41 | `name:"Rep?rt.txt"` | Report.txt | Report.txt | no match | ❌ known |
+| NAME-41 | `name:"Rep?rt.txt"` | Report.txt | Report.txt | Report.txt | ✅ |
+| NAME-42 | `name="Report.txt"` | Report.txt | Report.txt | Report.txt | ✅ |
+| NAME-43 | `name="REPORT.TXT"` | Report.txt | Report.txt | Report.txt | ✅ |
+| NAME-44 | `name="new"` | no match | no match | no match | ✅ |
+| NAME-45 | `name="new-folder"` | new-folder | new-folder | new-folder | ✅ |
+| NAME-46 | `name="foo bar.txt"` | foo bar.txt | foo bar.txt | foo bar.txt | ✅ |
 
 ### extension
 
@@ -76,10 +83,10 @@ Fixtures:
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
-| EXTENSION-01 | `txt` | report.txt | no match | no match | ❌ known |
-| EXTENSION-02 | `md` | notes.md | no match | no match | ❌ known |
+| EXTENSION-01 | `txt` | report.txt | report.txt | report.txt | ✅ |
+| EXTENSION-02 | `md` | notes.md | notes.md | notes.md | ✅ |
 | EXTENSION-03 | `name:"*.txt"` | report.txt | report.txt | report.txt | ✅ |
-| EXTENSION-04 | `report` | report.txt | no match | no match | ❌ known |
+| EXTENSION-04 | `report` | report.txt | report.txt | report.txt | ✅ |
 
 ### tags
 
@@ -102,7 +109,7 @@ Fixtures:
 | TAGS-06 | `tag:("spaced tag")` | spaced.txt | spaced.txt | spaced.txt | ✅ |
 | TAGS-07 | `tag:("*paced ta*")` | spaced.txt | spaced.txt | spaced.txt | ✅ |
 | TAGS-08 | `tag:("work")` | project | project | project | ✅ |
-| TAGS-09 | `tag:("zzzzzzzzzzzzzzzzzzzzzzzzzz...zzzzzzzzzzzzzzzzneedle")` | longtag.txt | longtag.txt | no match | ❌ known |
+| TAGS-09 | `tag:("zzzzzzzzzzzzzzzzzzzzzzzzzz...zzzzzzzzzzzzzzzzneedle")` | longtag.txt | longtag.txt | longtag.txt | ✅ |
 
 ### title
 
@@ -113,12 +120,14 @@ Fixtures:
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
 | TITLE-01 | `Title:"quarterly report"` | q1.html | q1.html | q1.html | ✅ |
-| TITLE-02 | `Title:quarterly` | q1.html | no match | q1.html | ❌ known |
-| TITLE-03 | `Title:QUARTERLY` | q1.html | no match | q1.html | ❌ known |
+| TITLE-02 | `Title:quarterly` | q1.html | q1.html | q1.html | ✅ |
+| TITLE-03 | `Title:QUARTERLY` | q1.html | q1.html | q1.html | ✅ |
 | TITLE-04 | `Title:quarterl*` | q1.html | q1.html | q1.html | ✅ |
 | TITLE-05 | `Title:"*ly rep*"` | q1.html | q1.html | q1.html | ✅ |
-| TITLE-06 | `title:quarterly` | q1.html | no match | no match | ❌ known |
-| TITLE-07 | `Title:"QUARTERLY REPORT"` | q1.html | no match | q1.html | ❌ known |
+| TITLE-06 | `title:quarterly` | q1.html | q1.html | q1.html | ✅ |
+| TITLE-07 | `Title:"QUARTERLY REPORT"` | q1.html | q1.html | q1.html | ✅ |
+| TITLE-08 | `Title="quarterly report"` | q1.html | q1.html | q1.html | ✅ |
+| TITLE-09 | `Title="quarterly"` | no match | no match | no match | ✅ |
 
 ### content
 
@@ -129,16 +138,16 @@ Fixtures:
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
-| CONTENT-01 | `Content:report` | no match | monthly.txt | no match | ❌ known |
+| CONTENT-01 | `Content:report` | no match | no match | no match | ✅ |
 | CONTENT-02 | `Content:REPORTS` | monthly.txt | monthly.txt | monthly.txt | ✅ |
 | CONTENT-03 | `Content:"monthly reports"` | monthly.txt | monthly.txt | monthly.txt | ✅ |
-| CONTENT-04 | `Content:"reports monthly"` | no match | monthly.txt | no match | ❌ known |
+| CONTENT-04 | `Content:"reports monthly"` | no match | no match | no match | ✅ |
 | CONTENT-05 | `Content:report*` | monthly.txt | monthly.txt | monthly.txt | ✅ |
 | CONTENT-06 | `Content:*eport*` | monthly.txt | monthly.txt | monthly.txt | ✅ |
 | CONTENT-07 | `Content:month*` | monthly.txt | monthly.txt | monthly.txt | ✅ |
 | CONTENT-08 | `Content:"https://opencloud.example.com/help"` | links.txt | links.txt | links.txt | ✅ |
 | CONTENT-09 | `Content:"alan@example.org"` | links.txt | links.txt | links.txt | ✅ |
-| CONTENT-10 | `Content:opencloud` | links.txt | no match | no match | ❌ known |
+| CONTENT-10 | `Content:opencloud` | links.txt | links.txt | links.txt | ✅ |
 
 ### favorites
 
@@ -151,8 +160,8 @@ Fixtures:
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
-| FAVORITES-01 | `Favorites:"A1B2-Upper"` | keepsakes, starred.txt | keepsakes, starred.txt | no match | ❌ known |
-| FAVORITES-02 | `favorite:"A1B2-Upper"` | keepsakes, starred.txt | keepsakes, starred.txt | no match | ❌ known |
+| FAVORITES-01 | `Favorites:"A1B2-Upper"` | keepsakes, starred.txt | keepsakes, starred.txt | keepsakes, starred.txt | ✅ |
+| FAVORITES-02 | `favorite:"A1B2-Upper"` | keepsakes, starred.txt | keepsakes, starred.txt | keepsakes, starred.txt | ✅ |
 | FAVORITES-03 | `Favorites:"somebody-else"` | no match | no match | no match | ✅ |
 
 ### mediatype
@@ -167,7 +176,7 @@ Fixtures:
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
 | MEDIATYPE-01 | `mediatype:text/markdown` | notes.md | notes.md | notes.md | ✅ |
-| MEDIATYPE-02 | `mediatype:TEXT/MARKDOWN` | notes.md | no match | notes.md | ❌ known |
+| MEDIATYPE-02 | `mediatype:TEXT/MARKDOWN` | notes.md | notes.md | notes.md | ✅ |
 | MEDIATYPE-03 | `mediatype:image/jpeg` | photo.jpg | photo.jpg | photo.jpg | ✅ |
 | MEDIATYPE-04 | `mediatype:*jpeg` | photo.jpg | photo.jpg | photo.jpg | ✅ |
 | MEDIATYPE-05 | `mediatype:image` | photo.jpg | photo.jpg | photo.jpg | ✅ |
@@ -185,14 +194,14 @@ Fixtures:
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
-| PATH-01 | `path:"./parent"` | child.jpg, parent | parent | child.jpg, parent | ❌ known |
+| PATH-01 | `path:"./parent"` | child.jpg, parent | child.jpg, parent | child.jpg, parent | ✅ |
 | PATH-02 | `path:"./parent/child.jpg"` | child.jpg | child.jpg | child.jpg | ✅ |
-| PATH-03 | `path:"./Parent"` | no match | no match | child.jpg, parent | ❌ known |
+| PATH-03 | `path:"./Parent"` | no match | no match | no match | ✅ |
 | PATH-04 | `path:"*child*"` | child.jpg | child.jpg | child.jpg | ✅ |
-| PATH-05 | `path:"./documents"` | docs-lower | docs-lower | docs-lower, docs-mixed, docs-upper | ❌ known |
-| PATH-06 | `path:"./DOCUMENTS"` | docs-upper | docs-upper | docs-lower, docs-mixed, docs-upper | ❌ known |
-| PATH-07 | `path:"./Documents"` | docs-mixed | docs-mixed | docs-lower, docs-mixed, docs-upper | ❌ known |
-| PATH-08 | `path:"./parent/"` | child.jpg, parent | no match | no match | ❌ known |
+| PATH-05 | `path:"./documents"` | docs-lower | docs-lower | docs-lower | ✅ |
+| PATH-06 | `path:"./DOCUMENTS"` | docs-upper | docs-upper | docs-upper | ✅ |
+| PATH-07 | `path:"./Documents"` | docs-mixed | docs-mixed | docs-mixed | ✅ |
+| PATH-08 | `path:"./parent/"` | child.jpg, parent | child.jpg, parent | child.jpg, parent | ✅ |
 
 ### fields
 
@@ -213,16 +222,16 @@ Fixtures:
 | FIELDS-01 | `size:42` | small.txt | small.txt | small.txt | ✅ |
 | FIELDS-02 | `mtime<"2021-01-01T00:00:00Z"` | old.txt | old.txt | old.txt | ✅ |
 | FIELDS-03 | `id:"1$1!23"` | known.txt | known.txt | known.txt | ✅ |
-| FIELDS-04 | `hidden:true` | hidden.txt | no match | hidden.txt | ❌ known |
-| FIELDS-05 | `type:file` | boxed.txt, cased.txt, hidden.txt, known.txt, old.txt, plain.txt, small.txt | no match | error | ❌ known |
-| FIELDS-06 | `type:folder` | box | no match | error | ❌ known |
+| FIELDS-04 | `hidden:true` | hidden.txt | hidden.txt | hidden.txt | ✅ |
+| FIELDS-05 | `type:file` | boxed.txt, cased.txt, hidden.txt, known.txt, old.txt, plain.txt, small.txt, song.mp3 | boxed.txt, cased.txt, hidden.txt, known.txt, old.txt, plain.txt, small.txt, song.mp3 | boxed.txt, cased.txt, hidden.txt, known.txt, old.txt, plain.txt, small.txt, song.mp3 | ✅ |
+| FIELDS-06 | `type:folder` | box | box | box | ✅ |
 | FIELDS-07 | `unknown:field` | no match | no match | no match | ✅ |
-| FIELDS-08 | `type:File` | boxed.txt, cased.txt, hidden.txt, known.txt, old.txt, plain.txt, small.txt | no match | error | ❌ known |
-| FIELDS-09 | `type:FOLDER` | box | no match | error | ❌ known |
-| FIELDS-10 | `hidden:TRUE` | hidden.txt | no match | error | ❌ known |
-| FIELDS-11 | `id:"1$1!AB-23"` | cased.txt | cased.txt | no match | ❌ known |
+| FIELDS-08 | `type:File` | boxed.txt, cased.txt, hidden.txt, known.txt, old.txt, plain.txt, small.txt, song.mp3 | boxed.txt, cased.txt, hidden.txt, known.txt, old.txt, plain.txt, small.txt, song.mp3 | boxed.txt, cased.txt, hidden.txt, known.txt, old.txt, plain.txt, small.txt, song.mp3 | ✅ |
+| FIELDS-09 | `type:FOLDER` | box | box | box | ✅ |
+| FIELDS-10 | `hidden:TRUE` | hidden.txt | hidden.txt | hidden.txt | ✅ |
+| FIELDS-11 | `id:"1$1!AB-23"` | cased.txt | cased.txt | cased.txt | ✅ |
 | FIELDS-12 | `id:"1$1!ab-23"` | no match | no match | no match | ✅ |
-| FIELDS-13 | `audio.artist:"Some Artist"` | song.mp3 | song.mp3 | no match | ❌ known |
+| FIELDS-13 | `audio.artist:"Some Artist"` | song.mp3 | song.mp3 | song.mp3 | ✅ |
 | FIELDS-14 | `audio.artist:"some artist"` | no match | no match | no match | ✅ |
 
 ### deleted
@@ -242,7 +251,7 @@ Fixtures:
 | DELETED-02 | `name:"*.txt"` | book.txt, kept.txt | book.txt, kept.txt | book.txt, kept.txt | ✅ |
 | DELETED-03 | `name:"*receipt*"` | no match | no match | no match | ✅ |
 | DELETED-04 | `path:"./bin"` | no match | no match | no match | ✅ |
-| DELETED-05 | `path:"./shelf"` | book.txt, shelf | shelf | book.txt, shelf | ❌ known |
+| DELETED-05 | `path:"./shelf"` | book.txt, shelf | book.txt, shelf | book.txt, shelf | ✅ |
 
 ### visibility
 
@@ -255,13 +264,13 @@ Fixtures:
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
-| VISIBILITY-01 | `hidden:true` | .private, dotfile.txt, secret.txt | no match | .private, dotfile.txt, secret.txt | ❌ known |
-| VISIBILITY-02 | `hidden:TRUE` | .private, dotfile.txt, secret.txt | no match | error | ❌ known |
-| VISIBILITY-03 | `hidden:false` | visible.txt | no match | visible.txt | ❌ known |
+| VISIBILITY-01 | `hidden:true` | .private, dotfile.txt, secret.txt | .private, dotfile.txt, secret.txt | .private, dotfile.txt, secret.txt | ✅ |
+| VISIBILITY-02 | `hidden:TRUE` | .private, dotfile.txt, secret.txt | .private, dotfile.txt, secret.txt | .private, dotfile.txt, secret.txt | ✅ |
+| VISIBILITY-03 | `hidden:false` | visible.txt | visible.txt | visible.txt | ✅ |
 | VISIBILITY-04 | `name:"*secret*"` | secret.txt | secret.txt | secret.txt | ✅ |
-| VISIBILITY-05 | `path:"./.private"` | .private, secret.txt | .private | .private, secret.txt | ❌ known |
-| VISIBILITY-06 | `hidden:banana` | no match | no match | error | ❌ known |
-| VISIBILITY-07 | `hidden:"true"` | .private, dotfile.txt, secret.txt | no match | .private, dotfile.txt, secret.txt | ❌ known |
+| VISIBILITY-05 | `path:"./.private"` | .private, secret.txt | .private, secret.txt | .private, secret.txt | ✅ |
+| VISIBILITY-06 | `hidden:banana` | no match | no match | no match | ✅ |
+| VISIBILITY-07 | `hidden:"true"` | .private, dotfile.txt, secret.txt | .private, dotfile.txt, secret.txt | .private, dotfile.txt, secret.txt | ✅ |
 
 ### boolean
 
@@ -310,21 +319,21 @@ Fixtures:
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
 | STRESS-01 | `name:"*report*" AND mediatype:document` | draft report.txt, quarterly report.docx | draft report.txt, quarterly report.docx | draft report.txt, quarterly report.docx | ✅ |
-| STRESS-02 | `name:"*report*" AND NOT tag:("draft")` | quarterly report.docx | draft report.txt, quarterly report.docx | quarterly report.docx | ❌ known |
+| STRESS-02 | `name:"*report*" AND NOT tag:("draft")` | quarterly report.docx | quarterly report.docx | quarterly report.docx | ✅ |
 | STRESS-03 | `(tag:("final") OR tag:("draft")) AND mediatype:image` | photo.jpg | photo.jpg | photo.jpg | ✅ |
 | STRESS-04 | `mediatype:document AND mtime>"2021-01-01T00:00:00Z"` | notes.md, quarterly report.docx | notes.md, quarterly report.docx | notes.md, quarterly report.docx | ✅ |
-| STRESS-05 | `name:"*report*" AND size>100` | quarterly report.docx | no match | no match | ❌ known |
+| STRESS-05 | `name:"*report*" AND size>100` | quarterly report.docx | quarterly report.docx | quarterly report.docx | ✅ |
 | STRESS-06 | `tag:("final") AND NOT mediatype:folder` | photo.jpg, quarterly report.docx | photo.jpg, quarterly report.docx | photo.jpg, quarterly report.docx | ✅ |
-| STRESS-07 | `hidden:true AND name:"*notes*"` | notes.md | no match | notes.md | ❌ known |
-| STRESS-08 | `name:quarterly report` | quarterly report.docx | no match | no match | ❌ known |
-| STRESS-09 | `name:"quarterly report"` | no match | no match | no match | ✅ |
+| STRESS-07 | `hidden:true AND name:"*notes*"` | notes.md | notes.md | notes.md | ✅ |
+| STRESS-08 | `name:quarterly report` | quarterly report.docx | quarterly report.docx | quarterly report.docx | ✅ |
+| STRESS-09 | `name:"quarterly report"` | quarterly report.docx | quarterly report.docx | quarterly report.docx | ✅ |
 | STRESS-10 | `name:"quarterly report.docx"` | quarterly report.docx | quarterly report.docx | quarterly report.docx | ✅ |
-| STRESS-11 | `NOT tag:("draft")` | archive, notes.md, photo.jpg, quarterly report.docx | archive, draft report.txt, notes.md, photo.jpg, quarterly report.docx | archive, notes.md, photo.jpg, quarterly report.docx | ❌ known |
-| STRESS-12 | `tag:("final") OR hidden:true` | notes.md, photo.jpg, quarterly report.docx | photo.jpg, quarterly report.docx | notes.md, photo.jpg, quarterly report.docx | ❌ known |
-| STRESS-13 | `(name:"*report*" OR name:"*notes..."draft") OR hidden:true)` | quarterly report.docx | notes.md, quarterly report.docx | quarterly report.docx | ❌ known |
+| STRESS-11 | `NOT tag:("draft")` | archive, notes.md, photo.jpg, quarterly report.docx | archive, notes.md, photo.jpg, quarterly report.docx | archive, notes.md, photo.jpg, quarterly report.docx | ✅ |
+| STRESS-12 | `tag:("final") OR hidden:true` | notes.md, photo.jpg, quarterly report.docx | notes.md, photo.jpg, quarterly report.docx | notes.md, photo.jpg, quarterly report.docx | ✅ |
+| STRESS-13 | `(name:"*report*" OR name:"*notes..."draft") OR hidden:true)` | quarterly report.docx | quarterly report.docx | quarterly report.docx | ✅ |
 | STRESS-14 | `mediatype:image OR (mediatype:document AND tag:("draft"))` | draft report.txt, photo.jpg | draft report.txt, photo.jpg | draft report.txt, photo.jpg | ✅ |
-| STRESS-15 | `NOT (mediatype:folder OR hidden:true)` | draft report.txt, photo.jpg, quarterly report.docx | draft report.txt, notes.md, photo.jpg, quarterly report.docx | draft report.txt, photo.jpg, quarterly report.docx | ❌ known |
-| STRESS-16 | `name:"*report*" AND (size>100 OR tag:("draft"))` | draft report.txt, quarterly report.docx | draft report.txt | draft report.txt | ❌ known |
+| STRESS-15 | `NOT (mediatype:folder OR hidden:true)` | draft report.txt, photo.jpg, quarterly report.docx | draft report.txt, photo.jpg, quarterly report.docx | draft report.txt, photo.jpg, quarterly report.docx | ✅ |
+| STRESS-16 | `name:"*report*" AND (size>100 OR tag:("draft"))` | draft report.txt, quarterly report.docx | draft report.txt, quarterly report.docx | draft report.txt, quarterly report.docx | ✅ |
 
 ### everything
 
@@ -351,8 +360,8 @@ Fixtures:
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
-| RANGE-01 | `size>100` | big.txt | no match | no match | ❌ known |
-| RANGE-02 | `size<100` | ancient.txt, small.txt | no match | no match | ❌ known |
+| RANGE-01 | `size>100` | big.txt | big.txt | big.txt | ✅ |
+| RANGE-02 | `size<100` | ancient.txt, small.txt | ancient.txt, small.txt | ancient.txt, small.txt | ✅ |
 | RANGE-03 | `mtime>"2021-01-01T00:00:00Z"` | big.txt, small.txt | big.txt, small.txt | big.txt, small.txt | ✅ |
 | RANGE-04 | `mtime<"2021-01-01T00:00:00Z"` | ancient.txt | ancient.txt | ancient.txt | ✅ |
 | RANGE-05 | `Mtime:"today"` | big.txt, small.txt | big.txt, small.txt | big.txt, small.txt | ✅ |
@@ -403,7 +412,7 @@ Fixtures:
 | DELETE-01 | takes the resource out of the results, then `name:"*child*"` | no match | no match | no match | ✅ |
 | DELETE-02 | takes the descendants along, then `name:"*parent*"` | no match | no match | no match | ✅ |
 | DELETE-02 | takes the descendants along, then `name:"*child*"` | no match | no match | no match | ✅ |
-| DELETE-03 | leaves the resource in the index, then `DocCount()` | 2 | 2 | 1 | ❌ known |
+| DELETE-03 | leaves the resource in the index, then `DocCount()` | 2 | 2 | 2 | ✅ |
 | DELETE-04 | takes a resource out that was just written, then `name:"*fresh*"` | no match | no match | no match | ✅ |
 
 ### restore
@@ -418,7 +427,7 @@ Fixtures:
 |---|---|---|---|---|---|
 | RESTORE-01 | brings the descendants back, then `name:"*parent*"` | parent | parent | parent | ✅ |
 | RESTORE-01 | brings the descendants back, then `name:"*child*"` | child.pdf | child.pdf | child.pdf | ✅ |
-| RESTORE-02 | leaves the hidden flag alone, then `hidden:true` | file.txt | no match | file.txt | ❌ known |
+| RESTORE-02 | leaves the hidden flag alone, then `hidden:true` | file.txt | file.txt | file.txt | ✅ |
 
 ### purge
 
@@ -502,11 +511,11 @@ Fixtures:
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
-| CASEPATH-01 | takes the descendants along when deleting, then `path:"./Documents"` | no match | no match | Documents, Picture.jpg | ❌ known |
-| CASEPATH-02 | takes the descendants along when moving, then `path:"./Other Documents"` | Other Documents, Picture.jpg | Other Documents | no match | ❌ known |
-| CASEPATH-02 | takes the descendants along when moving, then `path:"./Documents"` | no match | no match | Documents, Picture.jpg | ❌ known |
-| CASEPATH-03 | reaches the descendants when purging, then `path:"./Documents"` | no match | no match | Documents, Picture.jpg | ❌ known |
-| CASEPATH-03 | reaches the descendants when purging, then `DocCount()` | 0 | 0 | 2 | ❌ known |
+| CASEPATH-01 | takes the descendants along when deleting, then `path:"./Documents"` | no match | no match | no match | ✅ |
+| CASEPATH-02 | takes the descendants along when moving, then `path:"./Other Documents"` | Other Documents, Picture.jpg | Other Documents, Picture.jpg | Other Documents, Picture.jpg | ✅ |
+| CASEPATH-02 | takes the descendants along when moving, then `path:"./Documents"` | no match | no match | no match | ✅ |
+| CASEPATH-03 | reaches the descendants when purging, then `path:"./Documents"` | no match | no match | no match | ✅ |
+| CASEPATH-03 | reaches the descendants when purging, then `DocCount()` | 0 | 0 | 0 | ✅ |
 
 ### hidden
 
@@ -521,12 +530,12 @@ Fixtures:
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
-| HIDDEN-01 | follows a move into a dot folder, then `hidden:true` | child.pdf, parent | no match | child.pdf, parent | ❌ known |
+| HIDDEN-01 | follows a move into a dot folder, then `hidden:true` | child.pdf, parent | child.pdf, parent | child.pdf, parent | ✅ |
 | HIDDEN-02 | follows a move into a plain folder, then `hidden:true` | no match | no match | no match | ✅ |
-| HIDDEN-03 | follows a move renamed with a leading dot, then `hidden:true` | .parent, child.pdf | no match | .parent, child.pdf | ❌ known |
+| HIDDEN-03 | follows a move renamed with a leading dot, then `hidden:true` | .parent, child.pdf | .parent, child.pdf | .parent, child.pdf | ✅ |
 | HIDDEN-04 | follows a move out of a dot folder, then `hidden:true` | no match | no match | no match | ✅ |
 | HIDDEN-05 | follows a move renamed without the leading dot, then `hidden:true` | no match | no match | no match | ✅ |
-| HIDDEN-06 | follows a move within the same dot folder, then `hidden:true` | child.pdf, moved | no match | child.pdf, moved | ❌ known |
+| HIDDEN-06 | follows a move within the same dot folder, then `hidden:true` | child.pdf, moved | child.pdf, moved | child.pdf, moved | ✅ |
 
 ### upsert
 
@@ -610,7 +619,7 @@ Fixtures:
 | ENTITY-08 | `name:"bar.pdf"` reads `MimeType` | application/pdf | application/pdf | application/pdf | ✅ |
 | ENTITY-09 | `name:"bar.pdf"` reads `Deleted` | false | false | false | ✅ |
 | ENTITY-10 | `name:"bar.pdf"` reads `Score` | above zero | above zero | above zero | ✅ |
-| ENTITY-11 | `path:"./parent"` reads `TotalMatches` | 2 | 1 | 2 | ❌ known |
+| ENTITY-11 | `path:"./parent"` reads `TotalMatches` | 2 | 2 | 2 | ✅ |
 | ENTITY-12 | `name:"*notes*"` reads `Highlights` | "" | "" | "" | ✅ |
 | ENTITY-13 | `content:bar` reads `Highlights` | foo <mark>bar</mark> baz | foo <mark>bar</mark> baz | foo <mark>bar</mark> baz | ✅ |
 | ENTITY-14 | moved to another parent, then `name:"newname"` reads `ParentId` | 1$1!9 | 1$1!9 | 1$1!9 | ✅ |

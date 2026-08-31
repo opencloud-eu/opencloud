@@ -16,8 +16,6 @@ func TestOpenSearchBackend(t *testing.T) {
 	RunSpecs(t, "OpenSearch Backend Suite")
 }
 
-// what the engine does with its index is covered for both engines by
-// services/search/pkg/parity; this is the one thing only OpenSearch can do
 var _ = Describe("Backend", func() {
 	Describe("NewBackend", func() {
 		It("fails to create if the cluster is not healthy", func() {

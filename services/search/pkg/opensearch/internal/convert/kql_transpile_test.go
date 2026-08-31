@@ -58,18 +58,78 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 					&ast.StringNode{Key: "Name", Value: "open*"},
 				},
 			},
-			Want: osu.NewWildcardQuery("Name.keyword").
-				Value("open*").
-				Params(&osu.WildcardQueryParams{CaseInsensitive: true}),
+			Want: osu.NewBoolQuery().
+				Params(&osu.BoolQueryParams{MinimumShouldMatch: 1}).
+				Should(
+					osu.NewWildcardQuery("Name.wildcard").
+						Value("open*").
+						Params(&osu.WildcardQueryParams{CaseInsensitive: true}),
+				),
 		},
 		{
-			Name: "wildcard query - string node without a keyword sub field",
+			Name: "wildcard query - string node without an unanalyzed sub field",
 			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "Content", Value: "open*"},
 				},
 			},
 			Want: osu.NewWildcardQuery("Content").Value("open*"),
+		},
+		{
+			Name: "wildcard query - a question mark counts as a wildcard",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Name", Value: "fo?o"},
+				},
+			},
+			Want: osu.NewBoolQuery().
+				Params(&osu.BoolQueryParams{MinimumShouldMatch: 1}).
+				Should(
+					osu.NewWildcardQuery("Name.wildcard").
+						Value("fo?o").
+						Params(&osu.WildcardQueryParams{CaseInsensitive: true}),
+					osu.NewWildcardQuery("Name.wildcard").
+						Value("fo?o.*").
+						Params(&osu.WildcardQueryParams{CaseInsensitive: true}),
+				),
+		},
+		{
+			Name: "term query - an equals restriction matches the whole name",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Name", Value: "foo bar.txt", Exact: true},
+				},
+			},
+			Want: osu.NewTermQuery[string]("Name.wildcard").
+				Value("foo bar.txt").
+				Params(&osu.TermQueryParams{CaseInsensitive: true}),
+		},
+		{
+			Name: "term query - a path loses its trailing slash",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Path", Value: "./Documents/"},
+				},
+			},
+			Want: osu.NewTermQuery[string]("Path").Value("./Documents"),
+		},
+		{
+			Name: "term query - a hidden string turns into a bool",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Hidden", Value: "true"},
+				},
+			},
+			Want: osu.NewTermQuery[bool]("Hidden").Value(true),
+		},
+		{
+			Name: "match-none query - a hidden string that is no bool",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Hidden", Value: "banana"},
+				},
+			},
+			Want: osu.NewMatchNoneQuery(),
 		},
 		{
 			Name: "bool query",

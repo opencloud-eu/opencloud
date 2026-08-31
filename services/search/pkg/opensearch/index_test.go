@@ -47,6 +47,34 @@ func TestIndexManager(t *testing.T) {
 		require.NoError(t, indexManager.Apply(t.Context(), indexName, tc.Client()))
 	})
 
+	t.Run("accepts an index that carries more than the definition declares", func(t *testing.T) {
+		indexManager := opensearch.IndexManagerLatest
+		indexName := "opencloud-test-resource"
+
+		tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
+		tc.Require.IndicesReset([]string{indexName})
+
+		body, err := sjson.Set(indexManager.String(), "mappings.properties.Path.fields.raw.type", "keyword")
+		require.NoError(t, err)
+		tc.Require.IndicesCreate(indexName, strings.NewReader(body))
+
+		require.NoError(t, indexManager.Apply(t.Context(), indexName, tc.Client()))
+	})
+
+	t.Run("fails when the index misses something the definition declares", func(t *testing.T) {
+		indexManager := opensearch.IndexManagerLatest
+		indexName := "opencloud-test-resource"
+
+		tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
+		tc.Require.IndicesReset([]string{indexName})
+
+		body, err := sjson.Delete(indexManager.String(), "mappings.properties.Path.analyzer")
+		require.NoError(t, err)
+		tc.Require.IndicesCreate(indexName, strings.NewReader(body))
+
+		require.ErrorIs(t, indexManager.Apply(t.Context(), indexName, tc.Client()), opensearch.ErrManualActionRequired)
+	})
+
 	t.Run("fails to create index if it already exists but is not up to date", func(t *testing.T) {
 		indexManager := opensearch.IndexManagerLatest
 		indexName := "opencloud-test-resource"

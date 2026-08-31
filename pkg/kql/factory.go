@@ -50,7 +50,7 @@ func buildAST(n any, text []byte, pos position) (*ast.Ast, error) {
 	return a, nil
 }
 
-func buildStringNode(k, v any, text []byte, pos position) (*ast.StringNode, error) {
+func buildStringNode(k, v any, exact bool, text []byte, pos position) (*ast.StringNode, error) {
 	b, err := base(text, pos)
 	if err != nil {
 		return nil, err
@@ -70,6 +70,7 @@ func buildStringNode(k, v any, text []byte, pos position) (*ast.StringNode, erro
 		Base:  b,
 		Key:   key,
 		Value: value,
+		Exact: exact,
 	}, nil
 }
 
@@ -101,6 +102,36 @@ func buildDateTimeNode(k, o, v any, text []byte, pos position) (*ast.DateTimeNod
 		Value:    value,
 	}, nil
 }
+
+func buildNumberNode(k, o, v any, text []byte, pos position) (*ast.NumberNode, error) {
+	b, err := base(text, pos)
+	if err != nil {
+		return nil, err
+	}
+
+	operator, err := toNode[*ast.OperatorNode](o)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := toString(k)
+	if err != nil {
+		return nil, err
+	}
+
+	value, err := toFloat(v)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ast.NumberNode{
+		Base:     b,
+		Key:      key,
+		Operator: operator,
+		Value:    value,
+	}, nil
+}
+
 func buildNaturalLanguageDateTimeNodes(k, v any, text []byte, pos position) ([]ast.Node, error) {
 	b, err := base(text, pos)
 	if err != nil {

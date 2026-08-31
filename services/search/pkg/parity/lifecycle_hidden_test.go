@@ -29,14 +29,9 @@ func hiddenLifecycle() lifecycleGroup {
 		child.Path = move.from + "/child.pdf"
 		child.Hidden = parent.Hidden
 
-		var (
-			hidden    []string
-			overrides map[string]lifecycleOverride
-		)
+		var hidden []string
 		if move.hidden {
 			hidden = []string{path.Base(move.target), "child.pdf"}
-			// bleve does not answer hidden:true at all today
-			overrides = map[string]lifecycleOverride{"bleve": {expect: map[string][]string{`hidden:true`: {}}}}
 		}
 
 		group.cases = append(group.cases, lifecycleCase{
@@ -45,8 +40,7 @@ func hiddenLifecycle() lifecycleGroup {
 			do: func(e search.Engine) error {
 				return e.Move(parent.ID, parent.ParentID, move.target)
 			},
-			expect:          []expectation{{`hidden:true`, hidden}},
-			engineOverrides: overrides,
+			expect: []expectation{{`hidden:true`, hidden}},
 		})
 	}
 

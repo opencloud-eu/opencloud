@@ -28,7 +28,7 @@ func tagsGroup() queryGroup {
 			{id: 6, query: `tag:("spaced tag")`, want: []string{"spaced.txt"}},
 			{id: 7, query: `tag:("*paced ta*")`, want: []string{"spaced.txt"}},
 			{id: 8, query: `tag:("work")`, want: []string{"project"}},
-			{id: 9, query: `tag:("` + longTag + `")`, want: []string{"longtag.txt"}, engineOverrides: map[string]override{"opensearch": override{}}},
+			{id: 9, query: `tag:("` + longTag + `")`, want: []string{"longtag.txt"}},
 		},
 	}
 }

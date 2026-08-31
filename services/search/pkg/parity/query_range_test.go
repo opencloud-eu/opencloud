@@ -13,8 +13,8 @@ func rangeGroup() queryGroup {
 			fixtureDoc("ancient.txt", withSize(10), withMtime("2020-01-01T00:00:00Z")),
 		},
 		cases: []queryCase{
-			{id: 1, query: `size>100`, want: []string{"big.txt"}, engineOverrides: map[string]override{"bleve": override{}, "opensearch": override{}}},
-			{id: 2, query: `size<100`, want: []string{"small.txt", "ancient.txt"}, engineOverrides: map[string]override{"bleve": override{}, "opensearch": override{}}},
+			{id: 1, query: `size>100`, want: []string{"big.txt"}},
+			{id: 2, query: `size<100`, want: []string{"small.txt", "ancient.txt"}},
 			{id: 3, query: `mtime>"2021-01-01T00:00:00Z"`, want: []string{"small.txt", "big.txt"}},
 			{id: 4, query: `mtime<"2021-01-01T00:00:00Z"`, want: []string{"ancient.txt"}},
 			{id: 5, query: `Mtime:"today"`, want: []string{"small.txt", "big.txt"}},

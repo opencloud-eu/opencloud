@@ -47,3 +47,9 @@ func (b Builder) Build(q string) (*ast.Ast, error) {
 // timeNow mirrors time.Now by default, the only reason why this exists
 // is to monkey patch it from the tests. See PatchTimeNow
 var timeNow = time.Now
+
+// PatchTimeNow pins the clock the natural language dates resolve against,
+// so a test can hold "today" still while it runs
+func PatchTimeNow(t func() time.Time) {
+	timeNow = t
+}

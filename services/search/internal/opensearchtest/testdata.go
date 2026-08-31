@@ -16,16 +16,12 @@ var Testdata = struct {
 	Resources resourceTestdata
 }{
 	Resources: resourceTestdata{
-		Root:   fromTestData[search.Resource]("resource_root.json"),
-		Folder: fromTestData[search.Resource]("resource_folder.json"),
-		File:   fromTestData[search.Resource]("resource_file.json"),
+		File: fromTestData[search.Resource]("resource_file.json"),
 	},
 }
 
 type resourceTestdata struct {
-	Root   search.Resource
-	File   search.Resource
-	Folder search.Resource
+	File search.Resource
 }
 
 func fromTestData[D any](name string) D {

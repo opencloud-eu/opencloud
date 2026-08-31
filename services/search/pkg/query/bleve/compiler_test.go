@@ -1,6 +1,7 @@
 package bleve
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +19,29 @@ var timeMustParse = func(t *testing.T, ts string) time.Time {
 	return tp
 }
 
+func wildcardQuery(field, value string) query.Query {
+	patterns := []query.Query{query.NewQueryStringQuery(field + ".wildcard:" + value)}
+	if !strings.HasSuffix(value, "*") {
+		patterns = append(patterns, query.NewQueryStringQuery(field+".wildcard:"+value+".*"))
+	}
+
+	return query.NewConjunctionQuery([]query.Query{query.NewDisjunctionQuery(patterns)})
+}
+
+func phraseQuery(field, value string) query.Query {
+	q := query.NewMatchPhraseQuery(value)
+	q.SetField(field)
+
+	return q
+}
+
+func boolFieldQuery(field string, value bool) query.Query {
+	q := query.NewBoolFieldQuery(value)
+	q.SetField(field)
+
+	return q
+}
+
 func Test_compile(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -33,7 +57,7 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewConjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Name:federated`),
+				phraseQuery("Name", "federated"),
 			}),
 			wantErr: false,
 		},
@@ -45,7 +69,7 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewConjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Name:john\ smith`),
+				phraseQuery("Name", "John Smith"),
 			}),
 			wantErr: false,
 		},
@@ -59,8 +83,8 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewConjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Name:john\ smith`),
-				query.NewQueryStringQuery(`Name:jane`),
+				phraseQuery("Name", "John Smith"),
+				phraseQuery("Name", "Jane"),
 			}),
 			wantErr: false,
 		},
@@ -91,7 +115,7 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewDisjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Name:moby\ di*`),
+				wildcardQuery("Name", `moby\ di*`),
 				query.NewConjunctionQuery([]query.Query{
 					query.NewQueryStringQuery(`Tags:bestseller`),
 					query.NewQueryStringQuery(`Tags:book`),
@@ -112,10 +136,10 @@ func Test_compile(t *testing.T) {
 			},
 			want: query.NewDisjunctionQuery([]query.Query{
 				query.NewConjunctionQuery([]query.Query{
-					query.NewQueryStringQuery(`Name:a`),
-					query.NewQueryStringQuery(`Name:b`),
+					phraseQuery("Name", "a"),
+					phraseQuery("Name", "b"),
 				}),
-				query.NewQueryStringQuery(`Name:c`),
+				phraseQuery("Name", "c"),
 			}),
 			wantErr: false,
 		},
@@ -131,10 +155,10 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewDisjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Name:a`),
+				phraseQuery("Name", "a"),
 				query.NewConjunctionQuery([]query.Query{
-					query.NewQueryStringQuery(`Name:b`),
-					query.NewQueryStringQuery(`Name:c`),
+					phraseQuery("Name", "b"),
+					phraseQuery("Name", "c"),
 				}),
 			}),
 			wantErr: false,
@@ -156,11 +180,11 @@ func Test_compile(t *testing.T) {
 			},
 			want: query.NewConjunctionQuery([]query.Query{
 				query.NewDisjunctionQuery([]query.Query{
-					query.NewQueryStringQuery(`Name:a`),
-					query.NewQueryStringQuery(`Name:b`),
-					query.NewQueryStringQuery(`Name:c`),
+					phraseQuery("Name", "a"),
+					phraseQuery("Name", "b"),
+					phraseQuery("Name", "c"),
 				}),
-				query.NewQueryStringQuery(`Name:d`),
+				phraseQuery("Name", "d"),
 			}),
 			wantErr: false,
 		},
@@ -179,7 +203,7 @@ func Test_compile(t *testing.T) {
 			},
 			want: query.NewConjunctionQuery([]query.Query{
 				query.NewDisjunctionQuery([]query.Query{
-					query.NewQueryStringQuery(`Name:moby\ di*`),
+					wildcardQuery("Name", `moby\ di*`),
 					query.NewQueryStringQuery(`Tags:bestseller`),
 				}),
 				query.NewQueryStringQuery(`Tags:book`),
@@ -204,7 +228,7 @@ func Test_compile(t *testing.T) {
 			},
 			want: query.NewConjunctionQuery([]query.Query{
 				query.NewDisjunctionQuery([]query.Query{
-					query.NewQueryStringQuery(`Name:moby\ di*`),
+					wildcardQuery("Name", `moby\ di*`),
 					query.NewQueryStringQuery(`Tags:bestseller`),
 				}),
 				query.NewQueryStringQuery(`Tags:book`),
@@ -227,7 +251,7 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewConjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`author:John\ Smith`),
+				phraseQuery("author", "John Smith"),
 				query.NewQueryStringQuery(`author:Jane`),
 			}),
 			wantErr: false,
@@ -249,7 +273,7 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewConjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`author:John\ Smith`),
+				phraseQuery("author", "John Smith"),
 				query.NewQueryStringQuery(`author:Jane`),
 				query.NewQueryStringQuery(`Tags:bestseller`),
 			}),
@@ -293,9 +317,44 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewConjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Name:john\ smith`),
-				query.NewQueryStringQuery(`Hidden:T`),
-				query.NewQueryStringQuery(`Hidden:T`),
+				phraseQuery("Name", "John Smith"),
+				boolFieldQuery("Hidden", true),
+				boolFieldQuery("Hidden", true),
+			}),
+			wantErr: false,
+		},
+		{
+			name: `hidden:banana`,
+			args: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "hidden", Value: "banana"},
+				},
+			},
+			want:    query.NewConjunctionQuery([]query.Query{query.NewMatchNoneQuery()}),
+			wantErr: false,
+		},
+		{
+			name: `name="Report.txt"`,
+			args: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: "Report.txt", Exact: true},
+				},
+			},
+			want:    query.NewConjunctionQuery([]query.Query{query.NewQueryStringQuery(`Name.wildcard:report.txt`)}),
+			wantErr: false,
+		},
+		{
+			name: `type:File`,
+			args: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "type", Value: "File"},
+					&ast.OperatorNode{Value: "OR"},
+					&ast.StringNode{Key: "type", Value: "FOLDER"},
+				},
+			},
+			want: query.NewDisjunctionQuery([]query.Query{
+				query.NewQueryStringQuery(`Type:1`),
+				query.NewQueryStringQuery(`Type:2`),
 			}),
 			wantErr: false,
 		},
@@ -424,7 +483,7 @@ func Test_compile(t *testing.T) {
 					query.NewQueryStringQuery(`MimeType:application/rtf`),
 					query.NewQueryStringQuery(`MimeType:application/vnd.apple.pages`),
 				}),
-				query.NewQueryStringQuery(`Name:*tdd*`),
+				wildcardQuery("Name", `*tdd*`),
 			}),
 			wantErr: false,
 		},
@@ -450,7 +509,7 @@ func Test_compile(t *testing.T) {
 				query.NewQueryStringQuery(`MimeType:application/vnd.apple.pages`),
 				query.NewConjunctionQuery([]query.Query{
 					query.NewQueryStringQuery(`MimeType:application/pdf`),
-					query.NewQueryStringQuery(`Name:*tdd*`),
+					wildcardQuery("Name", `*tdd*`),
 				}),
 			}),
 			wantErr: false,
@@ -480,7 +539,7 @@ func Test_compile(t *testing.T) {
 					query.NewQueryStringQuery(`MimeType:application/vnd.apple.pages`),
 					query.NewQueryStringQuery(`MimeType:application/pdf`),
 				}),
-				query.NewQueryStringQuery(`Name:*tdd*`),
+				wildcardQuery("Name", `*tdd*`),
 			}),
 			wantErr: false,
 		},
@@ -509,7 +568,7 @@ func Test_compile(t *testing.T) {
 					query.NewQueryStringQuery(`MimeType:application/rtf`),
 					query.NewQueryStringQuery(`MimeType:application/vnd.apple.pages`),
 				}),
-				query.NewQueryStringQuery(`Name:*tdd*`),
+				wildcardQuery("Name", `*tdd*`),
 			}),
 			wantErr: false,
 		},
@@ -521,7 +580,7 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewConjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`Name:john\ smith\ \+\-\=\&\|\>\<\!\(\)\{\}\[\]\^\"\~\:\ `),
+				phraseQuery("Name", "John Smith +-=&|><!(){}[]^\"~: "),
 			}),
 			wantErr: false,
 		},

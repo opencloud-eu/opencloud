@@ -126,6 +126,7 @@ github.com/blevesearch/bleve/v2/analysis/analyzer/custom
 github.com/blevesearch/bleve/v2/analysis/analyzer/keyword
 github.com/blevesearch/bleve/v2/analysis/analyzer/standard
 github.com/blevesearch/bleve/v2/analysis/datetime/flexible
+github.com/blevesearch/bleve/v2/analysis/char/regexp
 github.com/blevesearch/bleve/v2/analysis/datetime/optional
 github.com/blevesearch/bleve/v2/analysis/datetime/timestamp/microseconds
 github.com/blevesearch/bleve/v2/analysis/datetime/timestamp/milliseconds

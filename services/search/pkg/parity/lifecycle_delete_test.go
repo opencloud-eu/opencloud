@@ -26,9 +26,6 @@ func deleteLifecycle() lifecycleGroup {
 				id: 3, title: "leaves the resource in the index",
 				do:           func(e search.Engine) error { return e.Delete(child.ID) },
 				wantDocCount: conversions.ToPointer(uint64(2)),
-				engineOverrides: map[string]lifecycleOverride{
-					"opensearch": {wantDocCount: conversions.ToPointer(uint64(1))},
-				},
 			},
 			{
 				id: 4, title: "takes a resource out that was just written",
