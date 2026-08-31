@@ -734,30 +734,6 @@
               }
             ]
           },
-          "contentId_lowercase": {
-            "enabled": true,
-            "dynamic": true,
-            "fields": [
-              {
-                "type": "text",
-                "analyzer": "keyword",
-                "index": true,
-                "include_term_vectors": true
-              }
-            ]
-          },
-          "contentId_words": {
-            "enabled": true,
-            "dynamic": true,
-            "fields": [
-              {
-                "type": "text",
-                "analyzer": "words",
-                "index": true,
-                "include_term_vectors": true
-              }
-            ]
-          },
           "stillImageTimeUs": {
             "enabled": true,
             "dynamic": true,

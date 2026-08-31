@@ -196,14 +196,6 @@
           "contentId": {
             "type": "keyword"
           },
-          "contentId_lowercase": {
-            "doc_values": false,
-            "type": "keyword"
-          },
-          "contentId_words": {
-            "analyzer": "words",
-            "type": "text"
-          },
           "stillImageTimeUs": {
             "type": "long"
           },
