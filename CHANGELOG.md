@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@dschmidt, @fschade, @maki5
+@dschmidt, @fredrikblau, @fschade, @maki5
 
 ### 🐛 Bug Fixes
 
