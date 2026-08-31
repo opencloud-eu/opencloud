@@ -181,6 +181,10 @@ Fixtures:
 | MEDIATYPE-04 | `mediatype:*jpeg` | photo.jpg | photo.jpg | photo.jpg | ✅ |
 | MEDIATYPE-05 | `mediatype:image` | photo.jpg | photo.jpg | photo.jpg | ✅ |
 | MEDIATYPE-06 | `mediatype:folder` | albums, drafts | albums, drafts | albums, drafts | ✅ |
+| MEDIATYPE-07 | `mediatype:file` | notes.md, photo.jpg | notes.md, photo.jpg | notes.md, photo.jpg | ✅ |
+| MEDIATYPE-08 | `NOT mediatype:file` | albums, drafts | albums, drafts | albums, drafts | ✅ |
+| MEDIATYPE-09 | `mediatype:file OR mediatype:image` | notes.md, photo.jpg | notes.md, photo.jpg | notes.md, photo.jpg | ✅ |
+| MEDIATYPE-10 | `NOT mediatype:(image OR folder)` | notes.md | notes.md | notes.md | ✅ |
 
 ### path
 
@@ -232,7 +236,8 @@ Fixtures:
 | FIELDS-11 | `id:"1$1!AB-23"` | cased.txt | cased.txt | cased.txt | ✅ |
 | FIELDS-12 | `id:"1$1!ab-23"` | no match | no match | no match | ✅ |
 | FIELDS-13 | `audio.artist:"Some Artist"` | song.mp3 | song.mp3 | song.mp3 | ✅ |
-| FIELDS-14 | `audio.artist:"some artist"` | no match | no match | no match | ✅ |
+| FIELDS-14 | `audio.artist:"some artist"` | song.mp3 | song.mp3 | song.mp3 | ✅ |
+| FIELDS-15 | `audio.duration>100` | no match | no match | no match | ✅ |
 
 ### deleted
 
@@ -499,6 +504,8 @@ Fixtures:
 | ROOTSCOPE-01 | deletes only the one in the target root, then `name:"*twin*"` | twin.txt | twin.txt | twin.txt | ✅ |
 | ROOTSCOPE-02 | restores only the one in the target root, then `name:"*target*"` | target.txt | target.txt | target.txt | ✅ |
 | ROOTSCOPE-02 | restores only the one in the target root, then `name:"*twin*"` | no match | no match | no match | ✅ |
+| ROOTSCOPE-04 | purges only the one in the target root, then `name:"*target*"` | no match | no match | no match | ✅ |
+| ROOTSCOPE-04 | purges only the one in the target root, then `name:"*twin*"` | twin.txt | twin.txt | twin.txt | ✅ |
 | ROOTSCOPE-03 | moves only the one in the target root, then `path:"./moved.txt"` | moved.txt | moved.txt | moved.txt | ✅ |
 | ROOTSCOPE-03 | moves only the one in the target root, then `path:"./same/path.txt"` | twin.txt | twin.txt | twin.txt | ✅ |
 

@@ -1,4 +1,4 @@
-package query
+package kql
 
 import (
 	"errors"
@@ -39,8 +39,9 @@ func (e UnsupportedTimeRangeError) Error() string {
 	return fmt.Sprintf("unable to convert '%v' to a time range", e.Value)
 }
 
-// IsValidationError says whether the query itself is at fault, which makes it a
-// bad request and not an error of ours.
+// IsValidationError reports whether err is one of the KQL parse/validation
+// errors produced by this package, i.e. the query itself is at fault and the
+// caller should treat it as a bad request.
 func IsValidationError(err error) bool {
 	var (
 		startsWithBinaryOperator *StartsWithBinaryOperatorError

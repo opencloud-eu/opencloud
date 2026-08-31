@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
@@ -19,7 +20,14 @@ import (
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 )
+
+// SchemaVersion is the shared schema version for both search backends. Bump it
+// on a breaking mapping change: each version gets its own index (OpenSearch name
+// suffix, bleve path suffix), so the service builds a fresh index instead of
+// colliding with the old one. No migration; reindex to populate.
+const SchemaVersion = 4
 
 var scopeRegex = regexp.MustCompile(`scope:\s*([^" "\n\r]*)`)
 
@@ -52,13 +60,40 @@ type BatchOperator interface {
 type Resource struct {
 	content.Document
 
-	ID       string
-	RootID   string
-	Path     string
-	ParentID string
-	Type     uint64
-	Deleted  bool
-	Hidden   bool
+	ID       string `json:"ID"`
+	RootID   string `json:"RootID"`
+	Path     string `json:"Path"`
+	ParentID string `json:"ParentID"`
+	Type     uint64 `json:"Type"`
+	Deleted  bool   `json:"Deleted"`
+	Hidden   bool   `json:"Hidden"`
+}
+
+// resourceFieldOverrides is built once (it never changes) and reused on hot
+// paths instead of reallocating per call.
+var resourceFieldOverrides = sync.OnceValue(func() map[string]mapping.FieldOpts {
+	True, False := true, false
+	return map[string]mapping.FieldOpts{
+		// every keyword field searches case-insensitively and by word (name,
+		// title, the facets) unless opted out: ids are opaque, paths are POSIX,
+		// the mime type is normalized already, a tag is one label
+		"ID":        {CaseInsensitive: &False, NoWordBreaker: &True},
+		"RootID":    {CaseInsensitive: &False, NoWordBreaker: &True},
+		"ParentID":  {CaseInsensitive: &False, NoWordBreaker: &True},
+		"Path":      {Type: mapping.TypePath, CaseInsensitive: &False},
+		"MimeType":  {CaseInsensitive: &False, NoWordBreaker: &True},
+		"Content":   {Type: mapping.TypeFulltext},
+		"Tags":      {NoWordBreaker: &True, IncludeInAll: &False},
+		"Favorites": {NoWordBreaker: &True, IncludeInAll: &False, CaseInsensitive: &False}, // opaque user ids
+		"location":  {Type: mapping.TypeGeopoint},
+	}
+})
+
+// SearchFieldOverrides returns the field options the mapping package needs to
+// build per-backend index mappings for a Resource (keys are json-tag names).
+// The map is shared and read-only; clone it before mutating.
+func (Resource) SearchFieldOverrides() map[string]mapping.FieldOpts {
+	return resourceFieldOverrides()
 }
 
 // ResolveReference makes sure the path is relative to the space root

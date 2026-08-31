@@ -1,12 +1,14 @@
 package bleve_test
 
 import (
+	"fmt"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
 var _ = Describe("Index", func() {
@@ -18,8 +20,8 @@ var _ = Describe("Index", func() {
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(index.Close)
 
-			Expect(index.Name()).To(Equal(filepath.Join(root, "bleve-v2")))
-			Expect(filepath.Join(root, "bleve-v2")).To(BeADirectory())
+			Expect(index.Name()).To(Equal(filepath.Join(root, fmt.Sprintf("bleve-v%d", search.SchemaVersion))))
+			Expect(filepath.Join(root, fmt.Sprintf("bleve-v%d", search.SchemaVersion))).To(BeADirectory())
 		})
 
 		It("opens the index that is already there", func() {
@@ -33,7 +35,7 @@ var _ = Describe("Index", func() {
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(reopened.Close)
 
-			Expect(reopened.Name()).To(Equal(filepath.Join(root, "bleve-v2")))
+			Expect(reopened.Name()).To(Equal(filepath.Join(root, fmt.Sprintf("bleve-v%d", search.SchemaVersion))))
 		})
 	})
 })

@@ -3,7 +3,6 @@ package convert
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -14,6 +13,17 @@ import (
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
+
+// copyFacet converts a typed pointer from the indexed shape (libregraph) to
+// the protobuf shape via conversions.To. Returns nil when src is nil so the
+// enclosing Match.Entity field stays nil.
+func copyFacet[Dst, Src any](src *Src) *Dst {
+	if src == nil {
+		return nil
+	}
+	dst, _ := conversions.To[*Dst](src)
+	return dst
+}
 
 func OpenSearchHitToMatch(hit opensearchgoAPI.SearchHit) (*searchMessage.Match, error) {
 	resource, err := conversions.To[search.Resource](hit.Source)
@@ -69,31 +79,15 @@ func OpenSearchHitToMatch(hit opensearchgoAPI.SearchHit) (*searchMessage.Match, 
 
 				return strings.Join(contentHighlights[:], "; ")
 			}(),
-			Audio: func() *searchMessage.Audio {
-				if !strings.HasPrefix(resource.MimeType, "audio/") {
-					return nil
-				}
-
-				audio, _ := conversions.To[*searchMessage.Audio](resource.Audio)
-				return audio
-			}(),
-			Image: func() *searchMessage.Image {
-				image, _ := conversions.To[*searchMessage.Image](resource.Image)
-				return image
-			}(),
-			Location: func() *searchMessage.GeoCoordinates {
-				geoCoordinates, _ := conversions.To[*searchMessage.GeoCoordinates](resource.Location)
-				return geoCoordinates
-			}(),
-			Photo: func() *searchMessage.Photo {
-				photo, _ := conversions.To[*searchMessage.Photo](resource.Photo)
-				return photo
-			}(),
+			Audio:    copyFacet[searchMessage.Audio](resource.Audio),
+			Image:    copyFacet[searchMessage.Image](resource.Image),
+			Location: copyFacet[searchMessage.GeoCoordinates](resource.Location),
+			Photo:    copyFacet[searchMessage.Photo](resource.Photo),
 		},
 	}
 
-	if mtime, err := time.Parse(time.RFC3339, resource.Mtime); err == nil {
-		match.Entity.LastModifiedTime = &timestamppb.Timestamp{Seconds: mtime.Unix(), Nanos: int32(mtime.Nanosecond())}
+	if resource.Mtime != nil {
+		match.Entity.LastModifiedTime = timestamppb.New(*resource.Mtime)
 	}
 
 	return match, nil

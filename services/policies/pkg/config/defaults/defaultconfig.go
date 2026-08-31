@@ -28,10 +28,12 @@ func DefaultConfig() *config.Config {
 			Zpages: false,
 		},
 		GRPC: config.GRPC{
+			Disabled:  false,
 			Addr:      "127.0.0.1:9125",
 			Namespace: "eu.opencloud.api",
 		},
 		Events: config.Events{
+			Disabled:  false,
 			Endpoint:  "127.0.0.1:9233",
 			Cluster:   "opencloud-cluster",
 			EnableTLS: false,

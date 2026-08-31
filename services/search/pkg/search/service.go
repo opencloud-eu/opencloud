@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -666,10 +667,10 @@ func (s *Service) doUpsertItem(ref *provider.Reference, batch BatchOperator) {
 
 	// determine if metadata needs to be stored in storage as well
 	metadata := map[string]string{}
-	addAudioMetadata(metadata, doc.Audio)
-	addImageMetadata(metadata, doc.Image)
-	addLocationMetadata(metadata, doc.Location)
-	addPhotoMetadata(metadata, doc.Photo)
+	facetToMetadata(metadata, doc.Audio, "libre.graph.audio.")
+	facetToMetadata(metadata, doc.Image, "libre.graph.image.")
+	facetToMetadata(metadata, doc.Location, "libre.graph.location.")
+	facetToMetadata(metadata, doc.Photo, "libre.graph.photo.")
 	if len(metadata) == 0 {
 		return
 	}
@@ -705,43 +706,25 @@ func IsHidden(path string) bool {
 	return false
 }
 
-func addAudioMetadata(metadata map[string]string, audio *libregraph.Audio) {
-	if audio == nil {
-		return
+// facetToMetadata flattens a libregraph facet (Audio / Image / Location / Photo
+// pointer) into the metadata map under the given prefix via the model's ToMap.
+// No-op when the facet is nil.
+func facetToMetadata[T libregraph.MappedNullable](metadata map[string]string, facet T, prefix string) {
+	// Only nilable kinds can be nil; IsNil panics on a value type (some
+	// libregraph models satisfy MappedNullable with a value receiver).
+	switch v := reflect.ValueOf(facet); v.Kind() {
+	case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Interface, reflect.Chan, reflect.Func:
+		if v.IsNil() {
+			return
+		}
 	}
-	marshalToStringMap(audio, metadata, "libre.graph.audio.")
-}
-
-func addImageMetadata(metadata map[string]string, image *libregraph.Image) {
-	if image == nil {
-		return
-	}
-	marshalToStringMap(image, metadata, "libre.graph.image.")
-}
-
-func addLocationMetadata(metadata map[string]string, location *libregraph.GeoCoordinates) {
-	if location == nil {
-		return
-	}
-	marshalToStringMap(location, metadata, "libre.graph.location.")
-}
-
-func addPhotoMetadata(metadata map[string]string, photo *libregraph.Photo) {
-	if photo == nil {
-		return
-	}
-	marshalToStringMap(photo, metadata, "libre.graph.photo.")
-}
-
-func marshalToStringMap[T libregraph.MappedNullable](source T, target map[string]string, prefix string) {
-	// ToMap never returns a non-nil error ...
-	m, _ := source.ToMap()
-
+	// ToMap never returns a non-nil error.
+	m, _ := facet.ToMap()
 	for k, v := range m {
 		if v == nil {
 			continue
 		}
-		target[prefix+k] = valueToString(v)
+		metadata[prefix+k] = valueToString(v)
 	}
 }
 

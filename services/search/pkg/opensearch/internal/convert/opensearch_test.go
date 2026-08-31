@@ -36,7 +36,7 @@ var _ = Describe("OpenSearchHitToMatch", func() {
 		resource = opensearchtest.Testdata.Resources.File
 		resource.MimeType = "audio/mpeg"
 		mtime = time.Date(2025, 7, 24, 15, 15, 1, 0, time.UTC)
-		resource.Mtime = mtime.Format(time.RFC3339)
+		resource.Mtime = &mtime
 		resource.Favorites = []string{"cbf24bce-3e6e-4d9e-a2a2-cbf24bce3e6e"}
 
 		hit = opensearchgoAPI.SearchHit{

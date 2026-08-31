@@ -44,6 +44,9 @@ type StringNode struct {
 	Key   string
 	Value string
 	Exact bool
+	// CaseInsensitive marks a case-insensitive restriction; set by the search
+	// lowering pass, a backend routes it to the field's lowercased form.
+	CaseInsensitive bool
 }
 
 // BooleanNode represents a bool value

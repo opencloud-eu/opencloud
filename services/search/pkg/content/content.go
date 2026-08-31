@@ -2,6 +2,7 @@ package content
 
 import (
 	"strings"
+	"time"
 
 	"github.com/bbalet/stopwords"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
@@ -14,14 +15,14 @@ func init() {
 // Document wraps all resource meta fields,
 // it is used as a content extraction result.
 type Document struct {
-	Title     string
-	Name      string
-	Content   string
-	Size      uint64
-	Mtime     string `json:"Mtime,omitempty"`
-	MimeType  string
-	Tags      []string
-	Favorites []string
+	Title     string                     `json:"Title"`
+	Name      string                     `json:"Name"`
+	Content   string                     `json:"Content"`
+	Size      uint64                     `json:"Size"`
+	Mtime     *time.Time                 `json:"Mtime,omitempty"`
+	MimeType  string                     `json:"MimeType"`
+	Tags      []string                   `json:"Tags"`
+	Favorites []string                   `json:"Favorites"`
 	Audio     *libregraph.Audio          `json:"audio,omitempty"`
 	Image     *libregraph.Image          `json:"image,omitempty"`
 	Location  *libregraph.GeoCoordinates `json:"location,omitempty"`

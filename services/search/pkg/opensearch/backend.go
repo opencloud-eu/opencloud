@@ -3,7 +3,6 @@ package opensearch
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -14,11 +13,11 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
+	"github.com/opencloud-eu/opencloud/pkg/kql"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/convert"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
-	searchQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -35,7 +34,7 @@ type Backend struct {
 
 // NewBackend creates a backend on the versioned generation of the named index.
 func NewBackend(name string, client *opensearchgoAPI.Client) (*Backend, error) {
-	index := IndexName(name)
+	index := VersionedIndexName(name)
 
 	pingResp, err := client.Ping(context.TODO(), &opensearchgoAPI.PingReq{})
 	switch {
@@ -74,7 +73,7 @@ func NewBackend(name string, client *opensearchgoAPI.Client) (*Backend, error) {
 func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
 	boolQuery, err := convert.KQLToOpenSearchBoolQuery(sir.Query)
 	switch {
-	case searchQuery.IsValidationError(err):
+	case kql.IsValidationError(err):
 		return nil, errtypes.BadRequest(err.Error())
 	case err != nil:
 		return nil, fmt.Errorf("failed to convert KQL query to OpenSearch bool query: %w", err)
@@ -98,6 +97,15 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 				),
 			),
 		)
+		// Scope below the space root: restrict at query level so totals and
+		// paging respect the path too. Path uses the case-preserving
+		// path_hierarchy analyzer, so the folder path is an indexed token of
+		// the folder itself and every descendant.
+		if requestedPath := utils.MakeRelativePath(sir.Ref.Path); requestedPath != "." {
+			boolQuery.Filter(
+				osu.NewTermQuery[string]("Path").Value(requestedPath),
+			)
+		}
 	}
 
 	searchParams := opensearchgoAPI.SearchParams{
@@ -148,17 +156,6 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 		match, err := convert.OpenSearchHitToMatch(hit)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert hit to match: %w", err)
-		}
-
-		if sir.Ref != nil {
-			hitPath := strings.TrimSuffix(match.GetEntity().GetRef().GetPath(), "/")
-			requestedPath := utils.MakeRelativePath(sir.Ref.Path)
-			isRoot := hitPath == requestedPath
-
-			if !isRoot && requestedPath != "." && !strings.HasPrefix(hitPath, requestedPath+"/") {
-				totalMatches--
-				continue
-			}
 		}
 
 		matches = append(matches, match)

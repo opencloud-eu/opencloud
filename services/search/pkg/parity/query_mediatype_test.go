@@ -20,6 +20,10 @@ func mediatypeGroup() queryGroup {
 			{id: 4, query: `mediatype:*jpeg`, want: []string{"photo.jpg"}},
 			{id: 5, query: `mediatype:image`, want: []string{"photo.jpg"}},
 			{id: 6, query: `mediatype:folder`, want: []string{"albums", "drafts"}},
+			{id: 7, query: `mediatype:file`, want: []string{"notes.md", "photo.jpg"}},
+			{id: 8, query: `NOT mediatype:file`, want: []string{"albums", "drafts"}},
+			{id: 9, query: `mediatype:file OR mediatype:image`, want: []string{"notes.md", "photo.jpg"}},
+			{id: 10, query: `NOT mediatype:(image OR folder)`, want: []string{"notes.md"}},
 		},
 	}
 }

@@ -24,7 +24,15 @@ func withMime(mime string) fixtureOption { return func(r *search.Resource) { r.M
 func withTitle(t string) fixtureOption   { return func(r *search.Resource) { r.Title = t } }
 func withContent(c string) fixtureOption { return func(r *search.Resource) { r.Content = c } }
 func withSize(s uint64) fixtureOption    { return func(r *search.Resource) { r.Size = s } }
-func withMtime(m string) fixtureOption   { return func(r *search.Resource) { r.Mtime = m } }
+func withMtime(m string) fixtureOption {
+	return func(r *search.Resource) {
+		t, err := time.Parse(time.RFC3339Nano, m)
+		if err != nil {
+			panic(err)
+		}
+		r.Mtime = &t
+	}
+}
 func withID(id string) fixtureOption     { return func(r *search.Resource) { r.ID = id } }
 func withParent(id string) fixtureOption { return func(r *search.Resource) { r.ParentID = id } }
 func withRoot(id string) fixtureOption   { return func(r *search.Resource) { r.RootID = id } }
@@ -47,6 +55,7 @@ func withLocation(location *libregraph.GeoCoordinates) fixtureOption {
 }
 
 func fixtureDoc(name string, opts ...fixtureOption) search.Resource {
+	mtime := fixtureNow
 	r := search.Resource{
 		ID:       "1$1!" + name,
 		RootID:   "1$1!1",
@@ -56,7 +65,7 @@ func fixtureDoc(name string, opts ...fixtureOption) search.Resource {
 		Document: content.Document{
 			Name:     name,
 			MimeType: "text/plain",
-			Mtime:    fixtureNow.Format(time.RFC3339Nano),
+			Mtime:    &mtime,
 			Size:     1000,
 		},
 	}

@@ -2,33 +2,26 @@ package bleve
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"path/filepath"
+	"reflect"
 
 	"github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/analysis/analyzer/custom"
 	"github.com/blevesearch/bleve/v2/analysis/analyzer/keyword"
-	regexpCharFilter "github.com/blevesearch/bleve/v2/analysis/char/regexp"
+	"github.com/blevesearch/bleve/v2/analysis/char/regexp"
 	"github.com/blevesearch/bleve/v2/analysis/token/lowercase"
-	"github.com/blevesearch/bleve/v2/analysis/tokenizer/single"
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/unicode"
 	"github.com/blevesearch/bleve/v2/mapping"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
+	searchmapping "github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
-const (
-	wildcardSuffix = ".wildcard"
-	indexVersion   = "v2"
-)
-
-func indexPath(root string) string {
-	return filepath.Join(root, "bleve-"+indexVersion)
-}
-
 func NewIndex(root string) (bleve.Index, error) {
-	destination := indexPath(root)
+	destination := filepath.Join(root, fmt.Sprintf("bleve-v%d", search.SchemaVersion))
 	index, err := bleve.Open(destination)
 	if errors.Is(err, bleve.ErrorIndexPathDoesNotExist) {
 		indexMapping, err := NewMapping()
@@ -47,77 +40,35 @@ func NewIndex(root string) (bleve.Index, error) {
 }
 
 func NewMapping() (mapping.IndexMapping, error) {
-	words := func() *mapping.FieldMapping {
-		fm := bleve.NewTextFieldMapping()
-		fm.Analyzer = "lowercaseWords"
-
-		return fm
+	resourceType := reflect.TypeFor[search.Resource]()
+	overrides := search.Resource{}.SearchFieldOverrides()
+	if err := searchmapping.Validate(resourceType, overrides); err != nil {
+		return nil, err
 	}
-
-	whole := func(field string) *mapping.FieldMapping {
-		fm := bleve.NewTextFieldMapping()
-		fm.Analyzer = "lowercaseKeyword"
-		fm.IncludeInAll = false
-		fm.Name = field + wildcardSuffix
-
-		return fm
+	docMapping, err := searchmapping.BleveBuildMapping(resourceType, overrides)
+	if err != nil {
+		return nil, err
 	}
-
-	lowercaseMapping := bleve.NewTextFieldMapping()
-	lowercaseMapping.IncludeInAll = false
-	lowercaseMapping.Analyzer = "lowercaseKeyword"
-
-	contentMapping := words()
-	contentMapping.IncludeInAll = false
-
-	docMapping := bleve.NewDocumentMapping()
-	docMapping.AddFieldMappingsAt("Name",
-		words(),
-		whole("Name"),
-	)
-	docMapping.AddFieldMappingsAt("Title",
-		words(),
-		whole("Title"),
-	)
-	docMapping.AddFieldMappingsAt("Tags", lowercaseMapping)
-	docMapping.AddFieldMappingsAt("Favorites", lowercaseMapping)
-	docMapping.AddFieldMappingsAt("Content", contentMapping)
 
 	indexMapping := bleve.NewIndexMapping()
 	indexMapping.DefaultAnalyzer = keyword.Name
 	indexMapping.DefaultMapping = docMapping
-	err := indexMapping.AddCustomCharFilter("dotToSpace",
-		map[string]any{
-			"type":    regexpCharFilter.Name,
-			"regexp":  `\.`,
-			"replace": " ",
-		},
-	)
+	// words: split into lowercased words, a dot is a word boundary too so that
+	// "report" finds "Report.txt"; no stemming, a name is not prose
+	err = indexMapping.AddCustomCharFilter("dot_to_space", map[string]any{
+		"type":    regexp.Name,
+		"regexp":  `\.`,
+		"replace": " ",
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	err = indexMapping.AddCustomAnalyzer("lowercaseWords",
+	err = indexMapping.AddCustomAnalyzer(searchmapping.WordsAnalyzer,
 		map[string]any{
-			"type":         custom.Name,
-			"char_filters": []string{"dotToSpace"},
-			"tokenizer":    unicode.Name,
-			"token_filters": []string{
-				lowercase.Name,
-			},
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	err = indexMapping.AddCustomAnalyzer("lowercaseKeyword",
-		map[string]any{
-			"type":      custom.Name,
-			"tokenizer": single.Name,
-			"token_filters": []string{
-				lowercase.Name,
-			},
+			"type":          custom.Name,
+			"char_filters":  []string{"dot_to_space"},
+			"tokenizer":     unicode.Name,
+			"token_filters": []string{lowercase.Name},
 		},
 	)
 	if err != nil {

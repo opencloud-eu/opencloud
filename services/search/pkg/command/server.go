@@ -119,7 +119,8 @@ func Server(cfg *config.Config) *cobra.Command {
 					return fmt.Errorf("failed to create OpenSearch client: %w", err)
 				}
 
-				openSearchBackend, err := opensearch.NewBackend(cfg.Engine.OpenSearch.ResourceIndex.Name, client)
+				indexName := opensearch.VersionedIndexName(cfg.Engine.OpenSearch.ResourceIndex.Name)
+				openSearchBackend, err := opensearch.NewBackend(indexName, client)
 				if err != nil {
 					return fmt.Errorf("failed to create OpenSearch backend: %w", err)
 				}

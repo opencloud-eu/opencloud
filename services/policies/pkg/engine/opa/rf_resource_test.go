@@ -60,7 +60,7 @@ var _ = Describe("opa opencloud resource functions", func() {
 			source := "package download\n\nimport future.keywords.if\n\ndefault granted := true\n\ngranted = false if {\n    opencloud.resource.download(input.resource.url)\n}\n"
 			Expect(os.WriteFile(path, []byte(source), 0o600)).To(Succeed())
 
-			e, err := opa.NewOPA(timeout, log.NopLogger(), config.Engine{Policies: []string{path}})
+			e, err := opa.NewOPA(timeout, log.NopLogger(), config.Engine{Policies: []string{path}}, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			start := time.Now()

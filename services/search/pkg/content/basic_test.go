@@ -1,6 +1,10 @@
 package content_test
 
 import (
+	"time"
+
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
+
 	"context"
 	"encoding/json"
 
@@ -69,11 +73,11 @@ var _ = Describe("Basic", func() {
 		It("RFC3339 mtime", func() {
 			for _, data := range []struct {
 				second uint64
-				expect string
+				expect *time.Time
 			}{
-				{second: 4000, expect: "1970-01-01T01:06:40Z"},
-				{second: 3000, expect: "1970-01-01T00:50:00Z"},
-				{expect: ""},
+				{second: 4000, expect: conversions.ToPointer(time.Unix(4000, 0).UTC())},
+				{second: 3000, expect: conversions.ToPointer(time.Unix(3000, 0).UTC())},
+				{},
 			} {
 				ri := &storageProvider.ResourceInfo{}
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	sprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
@@ -336,8 +337,8 @@ func fixtureFields(f search.Resource, withID bool) string {
 		add("Size = %d", f.Size)
 	}
 
-	if !strings.HasPrefix(f.Mtime, fixtureNow.Format("2006-01-02")) {
-		add("Mtime = %s", f.Mtime)
+	if f.Mtime == nil || f.Mtime.Format("2006-01-02") != fixtureNow.Format("2006-01-02") {
+		add("Mtime = %s", f.Mtime.Format(time.RFC3339))
 	}
 
 	if f.Hidden {

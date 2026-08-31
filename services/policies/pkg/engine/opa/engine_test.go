@@ -26,7 +26,7 @@ var _ = Describe("engine", func() {
 		path := filepath.Join(GinkgoT().TempDir(), "policy.rego")
 		Expect(os.WriteFile(path, []byte(source), 0o600)).To(Succeed())
 
-		e, err := opa.NewOPA(10*time.Second, log.NopLogger(), config.Engine{Policies: []string{path}})
+		e, err := opa.NewOPA(10*time.Second, log.NopLogger(), config.Engine{Policies: []string{path}}, nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		return e, path
@@ -42,7 +42,7 @@ var _ = Describe("engine", func() {
 		}
 
 		start := func(policies ...string) engine.Engine {
-			e, err := opa.NewOPA(10*time.Second, log.NopLogger(), config.Engine{Policies: policies})
+			e, err := opa.NewOPA(10*time.Second, log.NopLogger(), config.Engine{Policies: policies}, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			return e
@@ -78,14 +78,14 @@ var _ = Describe("engine", func() {
 		It("refuses to start on a broken policy", func() {
 			install("broken.rego")
 
-			_, err := opa.NewOPA(10*time.Second, log.NopLogger(), config.Engine{Policies: []string{path}})
+			_, err := opa.NewOPA(10*time.Second, log.NopLogger(), config.Engine{Policies: []string{path}}, nil)
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("refuses to start when a policy is missing", func() {
 			Expect(os.Remove(path)).To(Succeed())
 
-			_, err := opa.NewOPA(10*time.Second, log.NopLogger(), config.Engine{Policies: []string{path}})
+			_, err := opa.NewOPA(10*time.Second, log.NopLogger(), config.Engine{Policies: []string{path}}, nil)
 			Expect(err).To(HaveOccurred())
 		})
 

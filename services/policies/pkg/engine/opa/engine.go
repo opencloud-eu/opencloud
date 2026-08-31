@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/open-policy-agent/opa/loader"
@@ -25,14 +27,25 @@ type OPA struct {
 	options  []func(r *rego.Rego)
 }
 
-// NewOPA returns a ready to use opa engine.
-func NewOPA(timeout time.Duration, logger log.Logger, conf config.Engine) (*OPA, error) {
-	var mtReader io.ReadCloser
+func path(p string, pathPrefixMap map[string]func() string) string {
+	for prefix, mapper := range pathPrefixMap {
+		if pp, ok := strings.CutPrefix(p, prefix); ok {
+			p = filepath.Join(mapper(), pp)
+		}
+	}
+	return p
+}
 
+// NewOPA returns a ready to use opa engine.
+func NewOPA(timeout time.Duration, logger log.Logger, conf config.Engine, pathPrefixMap map[string]func() string) (*OPA, error) {
+	var mtReader io.ReadCloser
+	mimesPath := ""
 	if conf.Mimes != "" {
+		mimesPath = path(conf.Mimes, pathPrefixMap)
 		var err error
-		mtReader, err = os.Open(conf.Mimes)
+		mtReader, err = os.Open(mimesPath)
 		if err != nil {
+			logger.Error().Err(err).Str("filename", mimesPath).Msgf("failed to load MIME type definitions file %q specified in 'mime'", mimesPath)
 			return nil, err
 		}
 
@@ -43,10 +56,16 @@ func NewOPA(timeout time.Duration, logger log.Logger, conf config.Engine) (*OPA,
 
 	rfMimetypeExtensions, err := RFMimetypeExtensions(mtReader)
 	if err != nil {
+		logger.Error().Err(err).Str("filename", conf.Mimes).Msgf("failed to parse MIME type definitions file %q specified in 'mime'", mimesPath)
 		return nil, err
 	}
 
-	policies, err := loader.NewFileLoader().WithProcessAnnotation(true).Filtered(conf.Policies, nil)
+	policyPaths := []string{}
+	for _, p := range conf.Policies {
+		policyPaths = append(policyPaths, path(p, pathPrefixMap))
+	}
+
+	policies, err := loader.NewFileLoader().WithProcessAnnotation(true).Filtered(policyPaths, nil)
 	if err != nil {
 		return nil, err
 	}

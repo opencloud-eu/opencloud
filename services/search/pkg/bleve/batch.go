@@ -10,6 +10,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -36,18 +37,29 @@ func NewBatch(index bleve.Index, size int) (*Batch, error) {
 
 func (b *Batch) Upsert(id string, r search.Resource) error {
 	return b.withSizeLimit(func() error {
-		return b.batch.Index(id, r)
+		return b.indexResource(id, r)
 	})
 }
 
-func (b *Batch) Move(id string, parentID string, targetPath string) error {
+// indexResource prepares r for bleve (resolving json tags and splicing in
+// type-specific adaptations via the mapping package) and appends it to the
+// batch under id.
+func (b *Batch) indexResource(id string, r search.Resource) error {
+	doc, err := mapping.PrepareForIndex(r, r.SearchFieldOverrides())
+	if err != nil {
+		return err
+	}
+	return b.batch.Index(id, doc)
+}
+
+func (b *Batch) Move(id, parentID, location string) error {
 	return b.withSizeLimit(func() error {
 		rootResource, err := searchResourceByID(id, b.index)
 		if err != nil {
 			return err
 		}
 		currentPath := rootResource.Path
-		nextPath := utils.MakeRelativePath(targetPath)
+		nextPath := utils.MakeRelativePath(location)
 
 		rootResource.Path = nextPath
 		rootResource.Name = path.Base(nextPath)
@@ -70,7 +82,7 @@ func (b *Batch) Move(id string, parentID string, targetPath string) error {
 		for _, resource := range resources {
 			resource.Hidden = search.IsHidden(resource.Path)
 
-			if err := b.batch.Index(resource.ID, resource); err != nil {
+			if err := b.indexResource(resource.ID, *resource); err != nil {
 				return err
 			}
 			if b.batch.Size() >= b.size {
@@ -92,7 +104,7 @@ func (b *Batch) Delete(id string) error {
 		}
 
 		for _, resource := range affectedResources {
-			if err := b.batch.Index(resource.ID, resource); err != nil {
+			if err := b.indexResource(resource.ID, *resource); err != nil {
 				return err
 			}
 			if b.batch.Size() >= b.size {
@@ -114,7 +126,7 @@ func (b *Batch) Restore(id string) error {
 		}
 
 		for _, resource := range affectedResources {
-			if err := b.batch.Index(resource.ID, resource); err != nil {
+			if err := b.indexResource(resource.ID, *resource); err != nil {
 				return err
 			}
 			if b.batch.Size() >= b.size {

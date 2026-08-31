@@ -92,7 +92,7 @@ func newOpenSearch(name string, fixtures []search.Resource) testEngine {
 	GinkgoHelper()
 
 	tc := opensearchtest.NewDefaultTestClient(GinkgoTB(), openSearchClient)
-	index := opensearch.IndexName(name)
+	index := opensearch.VersionedIndexName(name)
 
 	if err := tc.IndicesReset(context.Background(), []string{index}); err != nil {
 		return testEngine{name: "opensearch", unavailable: err.Error()}

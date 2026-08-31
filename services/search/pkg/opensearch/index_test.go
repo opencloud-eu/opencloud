@@ -1,6 +1,7 @@
 package opensearch_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -9,7 +10,21 @@ import (
 
 	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
+
+// TestVersionedIndexName guards that the index name and the generator identity
+// carry the same schema version.
+func TestVersionedIndexName(t *testing.T) {
+	require.Equal(t,
+		fmt.Sprintf("opencloud-resource-v%d", search.SchemaVersion),
+		opensearch.VersionedIndexName("opencloud-resource"),
+	)
+	require.Equal(t,
+		fmt.Sprintf("resource_v%d", search.SchemaVersion),
+		string(opensearch.IndexManagerLatest),
+	)
+}
 
 func TestIndexManager(t *testing.T) {
 	t.Run("index plausibility", func(t *testing.T) {

@@ -38,6 +38,14 @@ func rootScopeLifecycle() lifecycleGroup {
 				},
 			},
 			{
+				id: 4, title: "purges only the one in the target root",
+				do: func(e search.Engine) error { return e.Purge(target.ID, false) },
+				expect: []expectation{
+					{`name:"*target*"`, nil},
+					{`name:"*twin*"`, []string{"twin.txt"}},
+				},
+			},
+			{
 				id: 3, title: "moves only the one in the target root",
 				do: func(e search.Engine) error { return e.Move(target.ID, target.ParentID, "./moved.txt") },
 				expect: []expectation{

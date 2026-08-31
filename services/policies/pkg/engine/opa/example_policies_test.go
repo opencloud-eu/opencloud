@@ -45,7 +45,7 @@ var _ = Describe("the shipped example policies", func() {
 			filepath.Join(examplePolicyDir, "proxy.rego"),
 			filepath.Join(examplePolicyDir, "postprocessing.rego"),
 			filepath.Join(examplePolicyDir, "utils.rego"),
-		}})
+		}}, nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

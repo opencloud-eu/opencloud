@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
+	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
 )
 
 // Config combines all available configuration parts.
@@ -28,6 +29,7 @@ type Service struct {
 
 // GRPC defines the available grpc configuration.
 type GRPC struct {
+	Disabled  bool                   `yaml:"disabled" env:"POLICIES_GRPC_DISABLED" desc:"Disables listening for GRPC API calls. Set this to true if the service should only handle requests through events." introductionVersion:"%NEXT%"`
 	Addr      string                 `yaml:"addr" env:"POLICIES_GRPC_ADDR" desc:"The bind address of the GRPC service." introductionVersion:"1.0.0"`
 	Namespace string                 `yaml:"-"`
 	TLS       *shared.GRPCServiceTLS `yaml:"tls"`
@@ -36,7 +38,7 @@ type GRPC struct {
 // Engine configures the policy engine.
 type Engine struct {
 	Timeout  time.Duration `yaml:"timeout" env:"POLICIES_ENGINE_TIMEOUT" desc:"Sets the timeout the rego expression evaluation can take. Rules default to deny if the timeout was reached. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
-	Policies []string      `yaml:"policies"`
+	Policies []string      `yaml:"policies" env:"POLICIES_ENGINE_FILES" desc:"A list of filesystem paths to rego files or directories containing rego files." introductionVersion:"1.0.0"`
 	// Mimes file path, RFC 4288
 	Mimes string `yaml:"mimes" env:"POLICIES_ENGINE_MIMES" desc:"Sets the mimes file path which maps mimetypes to associated file extensions. See the text description for details." introductionVersion:"1.0.0"`
 }
@@ -48,6 +50,7 @@ type Postprocessing struct {
 
 // Events combines the configuration options for the event bus.
 type Events struct {
+	Disabled             bool   `yaml:"disabled" env:"POLICIES_EVENTS_DISABLED" desc:"Disables listening for events. Set this to true if the service should only handle GRPC requests." introductionVersion:"%NEXT%"`
 	Endpoint             string `yaml:"endpoint" env:"OC_EVENTS_ENDPOINT;POLICIES_EVENTS_ENDPOINT" desc:"The address of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture." introductionVersion:"1.0.0"`
 	Cluster              string `yaml:"cluster" env:"OC_EVENTS_CLUSTER;POLICIES_EVENTS_CLUSTER" desc:"The clusterID of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture. Mandatory when using NATS as event system." introductionVersion:"1.0.0"`
 	TLSInsecure          bool   `yaml:"tls_insecure" env:"OC_INSECURE;OC_EVENTS_TLS_INSECURE;POLICIES_EVENTS_TLS_INSECURE" desc:"Whether the server should skip the client certificate verification during the TLS handshake." introductionVersion:"1.0.0"`
@@ -55,6 +58,18 @@ type Events struct {
 	EnableTLS            bool   `yaml:"enable_tls" env:"OC_EVENTS_ENABLE_TLS;POLICIES_EVENTS_ENABLE_TLS" desc:"Enable TLS for the connection to the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	AuthUsername         string `yaml:"username" env:"OC_EVENTS_AUTH_USERNAME;POLICIES_EVENTS_AUTH_USERNAME" desc:"The username to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	AuthPassword         string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD;POLICIES_EVENTS_AUTH_PASSWORD" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
+}
+
+func (e Events) ToNatsConfig() stream.NatsConfig {
+	return stream.NatsConfig{
+		Endpoint:             e.Endpoint,
+		Cluster:              e.Cluster,
+		TLSInsecure:          e.TLSInsecure,
+		TLSRootCACertificate: e.TLSRootCACertificate,
+		EnableTLS:            e.EnableTLS,
+		AuthUsername:         e.AuthUsername,
+		AuthPassword:         e.AuthPassword,
+	}
 }
 
 // Debug defines the available debug configuration.

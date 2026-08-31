@@ -137,6 +137,19 @@ func (tc *TestClient) IndicesCreate(ctx context.Context, index string, body io.R
 	}
 }
 
+// IndicesCount returns the number of documents in the given indices.
+func (tc *TestClient) IndicesCount(ctx context.Context, indices []string, body io.Reader) (int, error) {
+	resp, err := tc.c.Indices.Count(ctx, &opensearchgoAPI.IndicesCountReq{
+		Indices: indices,
+		Body:    body,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to count documents in %v: %w", indices, err)
+	}
+
+	return resp.Count, nil
+}
+
 type testRequireClient struct {
 	tc *TestClient
 	t  testing.TB
@@ -156,4 +169,10 @@ func (trc *testRequireClient) IndicesCreate(index string, body io.Reader) {
 
 func (trc *testRequireClient) IndicesDelete(indices []string) {
 	require.NoError(trc.t, trc.tc.IndicesDelete(trc.t.Context(), indices))
+}
+
+func (trc *testRequireClient) IndicesCount(indices []string, body io.Reader, want int) {
+	got, err := trc.tc.IndicesCount(trc.t.Context(), indices, body)
+	require.NoError(trc.t, err)
+	require.Equal(trc.t, want, got)
 }

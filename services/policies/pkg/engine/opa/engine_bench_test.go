@@ -18,7 +18,7 @@ func benchEngine(tb testing.TB) engine.Engine {
 	e, err := opa.NewOPA(10*time.Second, log.NopLogger(), config.Engine{Policies: []string{
 		filepath.Join("testdata", "bench", "proxy.rego"),
 		filepath.Join("testdata", "bench", "utils.rego"),
-	}})
+	}}, nil)
 	if err != nil {
 		tb.Fatal(err)
 	}
@@ -40,9 +40,8 @@ func BenchmarkEvaluate(b *testing.B) {
 	ctx := context.Background()
 
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for range b.N {
+	for b.Loop() {
 		granted, err := e.Evaluate(ctx, "data.proxy.granted", env)
 		if err != nil {
 			b.Fatal(err)
