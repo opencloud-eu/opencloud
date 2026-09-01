@@ -321,10 +321,7 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return
 		}
-		driveItem.Children = make([]libregraph.DriveItem, 0, len(children))
-		for _, child := range children {
-			driveItem.Children = append(driveItem.Children, *child)
-		}
+		driveItem.Children = children
 	}
 
 	render.Status(r, http.StatusOK)
@@ -371,7 +368,7 @@ func (g Graph) GetDriveItemChildren(w http.ResponseWriter, r *http.Request) {
 // listDriveItemChildren lists the children of the given container. Shared by
 // the children endpoint and by $expand=children so both return the same items.
 // It renders the error response itself and reports whether it succeeded.
-func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, driveItemID *storageprovider.ResourceId) ([]*libregraph.DriveItem, bool) {
+func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, driveItemID *storageprovider.ResourceId) ([]libregraph.DriveItem, bool) {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
@@ -448,14 +445,14 @@ func (g Graph) getRemoteItem(ctx context.Context, root *storageprovider.Resource
 	return item, nil
 }
 
-func formatDriveItems(logger *log.Logger, publicBaseURL *url.URL, mds []*storageprovider.ResourceInfo) ([]*libregraph.DriveItem, error) {
-	responses := make([]*libregraph.DriveItem, 0, len(mds))
+func formatDriveItems(logger *log.Logger, publicBaseURL *url.URL, mds []*storageprovider.ResourceInfo) ([]libregraph.DriveItem, error) {
+	responses := make([]libregraph.DriveItem, 0, len(mds))
 	for i := range mds {
 		res, err := cs3ResourceToDriveItem(logger, publicBaseURL, mds[i])
 		if err != nil {
 			return nil, err
 		}
-		responses = append(responses, res)
+		responses = append(responses, *res)
 	}
 
 	return responses, nil
