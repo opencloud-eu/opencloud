@@ -190,6 +190,9 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 		cTime = createShareResponse.GetShare().GetCtime()
 		expiration = createShareResponse.GetShare().GetExpiration()
 	case "mail":
+		if !s.config.EnableGuestInvites {
+			return libregraph.Permission{}, errorcode.New(errorcode.NotSupported, "sharing with mail recipients is not enabled")
+		}
 		email := strings.TrimSpace(objectID)
 		if len(email) == 0 {
 			return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "invalid mail recipient")
