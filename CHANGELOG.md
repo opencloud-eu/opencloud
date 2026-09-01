@@ -6,16 +6,17 @@
 
 @dschmidt, @fredrikblau, @fschade, @maki5, @pbleser-oc, @v-scharf
 
+### 📈 Enhancement
+
+- feat(search): check the index schema on startup and refuse breaking changes [[#3197](https://github.com/opencloud-eu/opencloud/pull/3197)]
+- refactor: reflection-based search mapping + location geopoint [[#3345](https://github.com/opencloud-eu/opencloud/pull/3345)]
+- chore(policies): disable gRPC or event handlers by configuration + add metrics [[#3287](https://github.com/opencloud-eu/opencloud/pull/3287)]
+- moved ShareCreated event consumer from frontend to shared service [[#3389](https://github.com/opencloud-eu/opencloud/pull/3389)]
+
 ### ✅ Tests
 
 - ci: run search API and e2e suites against OpenSearch [[#3379](https://github.com/opencloud-eu/opencloud/pull/3379)]
 - test(search): engine parity suite for bleve and opensearch [[#3418](https://github.com/opencloud-eu/opencloud/pull/3418)]
-
-### 📈 Enhancement
-
-- refactor: reflection-based search mapping + location geopoint [[#3345](https://github.com/opencloud-eu/opencloud/pull/3345)]
-- chore(policies): disable gRPC or event handlers by configuration + add metrics [[#3287](https://github.com/opencloud-eu/opencloud/pull/3287)]
-- moved ShareCreated event consumer from frontend to shared service [[#3389](https://github.com/opencloud-eu/opencloud/pull/3389)]
 
 ### 🐛 Bug Fixes
 
