@@ -111,6 +111,8 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		doc.MotionPhoto = t.getMotionPhoto(metas[0], metas[i+1])
 	}
 
+	doc.Preview = getPreview(ri.GetMimeType(), metas)
+
 	// Facets come from the container (first entry) only; embedded resources like
 	// audio cover art must not leak in (the cover becomes the preview instead).
 	container := metas[0]
@@ -120,8 +122,6 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	doc.Audio = t.getAudio(container)
 	doc.Video = t.getVideo(container)
 	doc.LivePhoto = t.getLivePhoto(container)
-
-	doc.Preview = getPreview(ri.GetMimeType(), metas)
 
 	if langCode := t.detectLanguage(ctx, doc.Content); langCode != "" && t.CleanStopWords {
 		doc.Content = CleanString(doc.Content, langCode)
