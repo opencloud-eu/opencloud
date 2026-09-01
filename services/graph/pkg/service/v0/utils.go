@@ -21,6 +21,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/cache"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 )
@@ -109,27 +110,27 @@ func userIdToIdentity(ctx context.Context, cache cache.IdentityCache, tennantId,
 // as a libregraph.Identity
 func federatedIdToIdentity(ctx context.Context, cache cache.IdentityCache, cs3UserID *cs3User.UserId) (libregraph.Identity, error) {
 	userID := fmt.Sprintf("%s@%s", cs3UserID.GetOpaqueId(), cs3UserID.GetIdp())
-	identity := libregraph.Identity{
+	lgIdentity := libregraph.Identity{
 		Id:                 libregraph.PtrString(userID),
-		LibreGraphUserType: libregraph.PtrString("Federated"),
+		LibreGraphUserType: libregraph.PtrString(identity.UserTypeFederated),
 	}
 	user, err := cache.GetAcceptedUser(ctx, userID)
 	if err == nil {
-		identity.SetDisplayName(user.GetDisplayName())
-		identity.SetLibreGraphUserType(user.GetUserType())
+		lgIdentity.SetDisplayName(user.GetDisplayName())
+		lgIdentity.SetLibreGraphUserType(user.GetUserType())
 	}
-	return identity, err
+	return lgIdentity, err
 }
 
 // guestMailToIdentity converts a USER_TYPE_GUEST (used for guest invites vial mail) into a libregraph.Identity
 func guestMailToIdentity(cs3UserID *cs3User.UserId) (libregraph.Identity, error) {
-	identity := libregraph.Identity{
+	lgIdentity := libregraph.Identity{
 		Id:                 libregraph.PtrString(cs3UserID.GetOpaqueId()),
-		LibreGraphUserType: libregraph.PtrString("Guest"),
+		LibreGraphUserType: libregraph.PtrString(identity.UserTypeGuest),
 	}
-	identity.SetDisplayName(cs3UserID.GetOpaqueId())
-	identity.SetLibreGraphUserType("Guest")
-	return identity, nil
+	lgIdentity.SetDisplayName(cs3UserID.GetOpaqueId())
+	lgIdentity.SetLibreGraphUserType(identity.UserTypeGuest)
+	return lgIdentity, nil
 }
 
 // cs3UserIdToIdentity looks up the user for the supplied cs3 userid using the cache and returns it
