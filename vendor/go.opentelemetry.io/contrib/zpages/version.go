@@ -4,4 +4,4 @@
 package zpages
 
 // Version is the current release version of the zpages span processor.
-const Version = "0.70.0"
+const Version = "0.71.0"
