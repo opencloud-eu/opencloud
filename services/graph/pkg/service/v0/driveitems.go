@@ -364,8 +364,6 @@ func (g Graph) GetDriveItemChildren(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, &ListResponse{Value: files})
 }
 
-// listDriveItemChildren backs both the children endpoint and $expand=children.
-// It renders the error response itself and reports whether it succeeded.
 func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, driveItemID *storageprovider.ResourceId) ([]libregraph.DriveItem, bool) {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
