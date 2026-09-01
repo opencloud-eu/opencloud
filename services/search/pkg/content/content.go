@@ -15,14 +15,16 @@ func init() {
 // Document wraps all resource meta fields,
 // it is used as a content extraction result.
 type Document struct {
-	Title       string                     `json:"Title"`
-	Name        string                     `json:"Name"`
-	Content     string                     `json:"Content"`
-	Size        uint64                     `json:"Size"`
-	Mtime       *time.Time                 `json:"Mtime,omitempty"`
-	MimeType    string                     `json:"MimeType"`
-	Tags        []string                   `json:"Tags"`
-	Favorites   []string                   `json:"Favorites"`
+	Title     string     `json:"Title"`
+	Name      string     `json:"Name"`
+	Content   string     `json:"Content"`
+	Size      uint64     `json:"Size"`
+	Mtime     *time.Time `json:"Mtime,omitempty"`
+	MimeType  string     `json:"MimeType"`
+	Tags      []string   `json:"Tags"`
+	Favorites []string   `json:"Favorites"`
+	Preview   *Preview   `json:"preview,omitempty"`
+
 	Audio       *libregraph.Audio          `json:"audio,omitempty"`
 	Image       *libregraph.Image          `json:"image,omitempty"`
 	Location    *libregraph.GeoCoordinates `json:"location,omitempty"`
@@ -30,7 +32,6 @@ type Document struct {
 	Video       *libregraph.Video          `json:"video,omitempty"`
 	MotionPhoto *libregraph.MotionPhoto    `json:"motionPhoto,omitempty"`
 	LivePhoto   *libregraph.LivePhoto      `json:"livePhoto,omitempty"`
-	Preview     *Preview                   `json:"preview,omitempty"`
 }
 
 // Preview holds the dimensions of an embedded preview (e.g. audio cover art).
