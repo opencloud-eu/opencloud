@@ -98,7 +98,7 @@ func newOpenSearch(name string, fixtures []search.Resource) testEngine {
 		return testEngine{name: "opensearch", unavailable: err.Error()}
 	}
 
-	backend, err := opensearch.NewBackend(name, tc.Client())
+	backend, err := opensearch.NewBackend(context.Background(), name, tc.Client(), log.NopLogger())
 	if err != nil {
 		return testEngine{name: "opensearch", unavailable: err.Error()}
 	}

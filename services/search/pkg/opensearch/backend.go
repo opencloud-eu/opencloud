@@ -14,6 +14,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/convert"
@@ -33,10 +34,10 @@ type Backend struct {
 }
 
 // NewBackend creates a backend on the versioned generation of the named index.
-func NewBackend(name string, client *opensearchgoAPI.Client) (*Backend, error) {
+func NewBackend(ctx context.Context, name string, client *opensearchgoAPI.Client, logger log.Logger) (*Backend, error) {
 	index := VersionedIndexName(name)
 
-	pingResp, err := client.Ping(context.TODO(), &opensearchgoAPI.PingReq{})
+	pingResp, err := client.Ping(ctx, &opensearchgoAPI.PingReq{})
 	switch {
 	case err != nil:
 		return nil, fmt.Errorf("%w, failed to ping opensearch: %w", ErrUnhealthyCluster, err)
@@ -45,13 +46,13 @@ func NewBackend(name string, client *opensearchgoAPI.Client) (*Backend, error) {
 	}
 
 	// apply the index template
-	if err := IndexManagerLatest.Apply(context.TODO(), index, client); err != nil {
+	if err := IndexManagerLatest.Apply(ctx, index, client, logger); err != nil {
 		return nil, fmt.Errorf("failed to apply index template: %w", err)
 	}
 
 	// first check if the cluster is healthy
 
-	resp, err := client.Cluster.Health(context.TODO(), &opensearchgoAPI.ClusterHealthReq{
+	resp, err := client.Cluster.Health(ctx, &opensearchgoAPI.ClusterHealthReq{
 		Indices: []string{index},
 		Params: opensearchgoAPI.ClusterHealthParams{
 			Local:   opensearchgoAPI.ToPointer(true),

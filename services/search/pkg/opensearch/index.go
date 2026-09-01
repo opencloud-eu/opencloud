@@ -3,21 +3,25 @@ package opensearch
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
 	"reflect"
+	"strings"
 
-	"github.com/go-jose/go-jose/v3/json"
+	opensearchgo "github.com/opensearch-project/opensearch-go/v4"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 	"github.com/tidwall/gjson"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmapping "github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
 var (
-	ErrManualActionRequired = errors.New("manual action required")
+	// ErrManualActionRequired is the shared sentinel, see the mapping package.
+	ErrManualActionRequired = searchmapping.ErrManualActionRequired
 
 	// IndexManagerLatest identifies the current resource mapping; its version is
 	// derived from search.SchemaVersion so it never drifts from the index name.
@@ -110,120 +114,150 @@ func buildResourceMapping() ([]byte, error) {
 	return json.Marshal(index)
 }
 
-func coveredAt(declared, index gjson.Result, declaredPath, indexPath string) (string, string, bool) {
-	declaredRaw := declared.Get(declaredPath).Raw
-	indexRaw := index.Get(indexPath).Raw
-
-	var declaredValue, indexValue any
-	if err := json.Unmarshal([]byte(declaredRaw), &declaredValue); err != nil {
-		return declaredRaw, indexRaw, false
-	}
-
-	if err := json.Unmarshal([]byte(indexRaw), &indexValue); err != nil {
-		return declaredRaw, indexRaw, false
-	}
-
-	return declaredRaw, indexRaw, covered(declaredValue, indexValue)
-}
-
-func covered(declared, index any) bool {
-	declaredMap, ok := declared.(map[string]any)
-	if !ok {
-		return reflect.DeepEqual(declared, index)
-	}
-
-	indexMap, ok := index.(map[string]any)
-	if !ok {
-		return false
-	}
-
-	for key, declaredValue := range declaredMap {
-		indexValue, ok := indexMap[key]
-		if !ok || !covered(declaredValue, indexValue) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (m IndexManager) Apply(ctx context.Context, name string, client *opensearchgoAPI.Client) error {
+// Apply ensures the index exists and matches the code schema: created if
+// missing, otherwise reconciled via searchmapping.Reconcile (see osReconciler).
+func (m IndexManager) Apply(ctx context.Context, name string, client *opensearchgoAPI.Client, logger log.Logger) error {
 	localIndexB, err := m.MarshalJSON()
 	if err != nil {
 		return fmt.Errorf("failed to marshal index %s: %w", name, err)
 	}
 
+	// Exists first: a pre-provisioned index must not require create privileges
 	indicesExistsResp, err := client.Indices.Exists(ctx, opensearchgoAPI.IndicesExistsReq{
 		Indices: []string{name},
 	})
 	switch {
 	case indicesExistsResp != nil && indicesExistsResp.StatusCode == 404:
-		break
+		createResp, createErr := client.Indices.Create(ctx, opensearchgoAPI.IndicesCreateReq{
+			Index: name,
+			Body:  bytes.NewReader(localIndexB),
+		})
+		var structErr *opensearchgo.StructError
+		switch {
+		case createErr == nil && createResp.Acknowledged:
+			searchmapping.LogNewIndexCreated(logger, name)
+			return nil
+		case createErr == nil:
+			return fmt.Errorf("failed to create index %s: not acknowledged", name)
+		case !errors.As(createErr, &structErr) || structErr.Err.Type != "resource_already_exists_exception":
+			// transport errors, disk-full etc. stay plain fatal, the restart policy retries
+			return fmt.Errorf("failed to create index %s: %w", name, createErr)
+		}
+		// lost the creation race to another instance, compare against its index
 	case err != nil:
 		return fmt.Errorf("failed to check if index %s exists: %w", name, err)
 	case indicesExistsResp == nil:
 		return fmt.Errorf("indicesExistsResp is nil for index %s", name)
 	}
 
-	if indicesExistsResp.StatusCode == 200 {
-		resp, err := client.Indices.Get(ctx, opensearchgoAPI.IndicesGetReq{
-			Indices: []string{name},
-		})
-		if err != nil {
-			return fmt.Errorf("failed to get index %s: %w", name, err)
-		}
-
-		remoteIndex, ok := (*resp.IndicesGetRespData)[name]
-		if !ok {
-			return fmt.Errorf("index %s not found in response", name)
-		}
-		remoteIndexB, err := json.Marshal(remoteIndex)
-		if err != nil {
-			return fmt.Errorf("failed to marshal index %s: %w", name, err)
-		}
-
-		localIndexJson := gjson.ParseBytes(localIndexB)
-		remoteIndexJson := gjson.ParseBytes(remoteIndexB)
-
-		var errs []error
-
-		for k := range localIndexJson.Get("settings").Map() {
-			if lv, rv, ok := coveredAt(localIndexJson, remoteIndexJson, "settings."+k, "settings.index."+k); !ok {
-				errs = append(errs, fmt.Errorf("settings.%s local %s, remote %s", k, lv, rv))
-			}
-		}
-
-		for k := range localIndexJson.Get("mappings.properties").Map() {
-			if _, _, ok := coveredAt(localIndexJson, remoteIndexJson, "mappings.properties."+k, "mappings.properties."+k); !ok {
-				errs = append(errs, fmt.Errorf("mappings.properties.%s", k))
-			}
-		}
-
-		if errs != nil {
-			return fmt.Errorf(
-				"index %s already exists with a different mapping than the requested version. "+
-					"There is no in-place migration today: drop the index in OpenSearch (DELETE /%s) "+
-					"and restart the search service. The index will be recreated with the new mapping. "+
-					"%w: %w",
-				name, name,
-				ErrManualActionRequired,
-				errors.Join(errs...),
-			)
-		}
-
-		return nil // Index is already up to date, no action needed
-	}
-
-	createResp, err := client.Indices.Create(ctx, opensearchgoAPI.IndicesCreateReq{
-		Index: name,
-		Body:  bytes.NewReader(localIndexB),
+	// the index exists: reconcile its schema through the shared verdict flow
+	resp, err := client.Indices.Get(ctx, opensearchgoAPI.IndicesGetReq{
+		Indices: []string{name},
 	})
-	switch {
-	case err != nil:
-		return fmt.Errorf("failed to create index %s: %w", name, err)
-	case !createResp.Acknowledged:
-		return fmt.Errorf("failed to create index %s: not acknowledged", name)
+	if err != nil {
+		return fmt.Errorf("failed to get index %s: %w", name, err)
 	}
 
-	return nil
+	remoteIndex, ok := (*resp.IndicesGetRespData)[name]
+	if !ok {
+		return fmt.Errorf("index %s not found in response", name)
+	}
+	remoteIndexB, err := json.Marshal(remoteIndex)
+	if err != nil {
+		return fmt.Errorf("failed to marshal index %s: %w", name, err)
+	}
+
+	r := &osReconciler{
+		ctx:    ctx,
+		name:   name,
+		client: client,
+		local:  gjson.ParseBytes(localIndexB),
+		remote: gjson.ParseBytes(remoteIndexB),
+	}
+	_, err = searchmapping.Reconcile(name, r, logger)
+	return err
+}
+
+// osReconciler adapts an existing OpenSearch index to searchmapping.SchemaReconciler.
+type osReconciler struct {
+	ctx    context.Context
+	name   string
+	client *opensearchgoAPI.Client
+	local  gjson.Result
+	remote gjson.Result
+}
+
+func (r *osReconciler) Classify() (searchmapping.Classification, error) {
+	// Only the analysis settings affect indexing correctness; shard/replica
+	// counts and other operational knobs are the operator's to tune (and a
+	// pre-provisioned index's to own), so they are not compared.
+	var reasons []string
+	lv := r.local.Get("settings.analysis").Raw
+	rv := r.remote.Get("settings.index.analysis").Raw
+	if !jsonEqual(lv, rv) {
+		reasons = append(reasons, fmt.Sprintf("settings.analysis changed: index %s, code %s", rawOrUnset(rv), rawOrUnset(lv)))
+	}
+
+	classification := searchmapping.Classify(
+		propertiesMap(r.remote.Get("mappings.properties").Raw),
+		propertiesMap(r.local.Get("mappings.properties").Raw),
+		nil,
+	)
+	classification.AddBreaking(reasons...)
+	return classification, nil
+}
+
+// ApplyAdditive puts the full code properties (only additions, per the
+// classifier). The PUT is atomic, so persisted is true only on success.
+func (r *osReconciler) ApplyAdditive() (bool, error) {
+	putResp, err := r.client.Indices.Mapping.Put(r.ctx, opensearchgoAPI.MappingPutReq{
+		Indices: []string{r.name},
+		Body:    strings.NewReader(r.local.Get("mappings").Raw),
+	})
+	var putErr *opensearchgo.StructError
+	switch {
+	case err != nil && errors.As(err, &putErr) && putErr.Err.Type == "illegal_argument_exception" &&
+		(strings.Contains(putErr.Err.Reason, "cannot be changed") || strings.Contains(putErr.Err.Reason, "Cannot update parameter")):
+		// backstop, should be unreachable after the classification above
+		return false, searchmapping.ManualActionRequiredError(r.name, []string{putErr.Err.Reason})
+	case err != nil:
+		return false, fmt.Errorf("failed to update mapping of index %s: %w", r.name, err)
+	case !putResp.Acknowledged:
+		return false, fmt.Errorf("failed to update mapping of index %s: not acknowledged", r.name)
+	}
+	return true, nil
+}
+
+// jsonEqual reports whether two raw JSON values are deeply equal. A missing
+// gjson path is an empty string, so two unset values compare equal.
+func jsonEqual(a, b string) bool {
+	if a == "" || b == "" {
+		return a == b
+	}
+	var av, bv any
+	if err := json.Unmarshal([]byte(a), &av); err != nil {
+		return false
+	}
+	if err := json.Unmarshal([]byte(b), &bv); err != nil {
+		return false
+	}
+	return reflect.DeepEqual(av, bv)
+}
+
+// propertiesMap parses a raw mappings.properties object into a map. Missing,
+// empty, null or malformed input yields an empty (non-nil) map, which
+// classifies as purely additive.
+func propertiesMap(raw string) map[string]any {
+	props := map[string]any{}
+	if err := json.Unmarshal([]byte(raw), &props); err != nil || props == nil {
+		return map[string]any{}
+	}
+	return props
+}
+
+func rawOrUnset(raw string) string {
+	if raw == "" {
+		return "(unset)"
+	}
+	return raw
 }

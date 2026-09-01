@@ -9,6 +9,7 @@ import (
 	opensearchgo "github.com/opensearch-project/opensearch-go/v4"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
 )
@@ -34,7 +35,7 @@ var _ = Describe("Backend", func() {
 			})
 			Expect(err).ToNot(HaveOccurred(), "failed to create OpenSearch client")
 
-			backend, err := opensearch.NewBackend("test-engine-new-engine", client)
+			backend, err := opensearch.NewBackend(context.Background(), "test-engine-new-engine", client, log.NopLogger())
 			Expect(backend).To(BeNil())
 			Expect(err).To(MatchError(opensearch.ErrUnhealthyCluster))
 		})
@@ -57,7 +58,7 @@ var _ = Describe("Backend", func() {
 			deleteIndexOnCleanup(tc, physical)
 
 			var err error
-			backend, err = opensearch.NewBackend(indexName, tc.Client())
+			backend, err = opensearch.NewBackend(context.Background(), indexName, tc.Client(), log.NopLogger())
 			Expect(err).ToNot(HaveOccurred())
 		})
 

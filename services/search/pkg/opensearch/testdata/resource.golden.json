@@ -1,0 +1,291 @@
+{
+  "mappings": {
+    "properties": {
+      "Content": {
+        "analyzer": "words",
+        "term_vector": "with_positions_offsets",
+        "type": "text"
+      },
+      "Deleted": {
+        "type": "boolean"
+      },
+      "Favorites": {
+        "type": "keyword"
+      },
+      "Hidden": {
+        "type": "boolean"
+      },
+      "ID": {
+        "type": "keyword"
+      },
+      "MimeType": {
+        "doc_values": false,
+        "type": "wildcard"
+      },
+      "Mtime": {
+        "type": "date"
+      },
+      "Name": {
+        "type": "keyword"
+      },
+      "Name_lowercase": {
+        "doc_values": false,
+        "type": "keyword"
+      },
+      "Name_words": {
+        "analyzer": "words",
+        "type": "text"
+      },
+      "ParentID": {
+        "type": "keyword"
+      },
+      "Path": {
+        "analyzer": "path_hierarchy",
+        "type": "text"
+      },
+      "RootID": {
+        "type": "keyword"
+      },
+      "Size": {
+        "type": "long"
+      },
+      "Tags": {
+        "type": "keyword"
+      },
+      "Tags_lowercase": {
+        "doc_values": false,
+        "type": "keyword"
+      },
+      "Title": {
+        "type": "keyword"
+      },
+      "Title_lowercase": {
+        "doc_values": false,
+        "type": "keyword"
+      },
+      "Title_words": {
+        "analyzer": "words",
+        "type": "text"
+      },
+      "Type": {
+        "type": "long"
+      },
+      "audio": {
+        "properties": {
+          "album": {
+            "type": "keyword"
+          },
+          "albumArtist": {
+            "type": "keyword"
+          },
+          "albumArtist_lowercase": {
+            "doc_values": false,
+            "type": "keyword"
+          },
+          "albumArtist_words": {
+            "analyzer": "words",
+            "type": "text"
+          },
+          "album_lowercase": {
+            "doc_values": false,
+            "type": "keyword"
+          },
+          "album_words": {
+            "analyzer": "words",
+            "type": "text"
+          },
+          "artist": {
+            "type": "keyword"
+          },
+          "artist_lowercase": {
+            "doc_values": false,
+            "type": "keyword"
+          },
+          "artist_words": {
+            "analyzer": "words",
+            "type": "text"
+          },
+          "bitrate": {
+            "type": "long"
+          },
+          "composers": {
+            "type": "keyword"
+          },
+          "composers_lowercase": {
+            "doc_values": false,
+            "type": "keyword"
+          },
+          "composers_words": {
+            "analyzer": "words",
+            "type": "text"
+          },
+          "copyright": {
+            "type": "keyword"
+          },
+          "copyright_lowercase": {
+            "doc_values": false,
+            "type": "keyword"
+          },
+          "copyright_words": {
+            "analyzer": "words",
+            "type": "text"
+          },
+          "disc": {
+            "type": "integer"
+          },
+          "discCount": {
+            "type": "integer"
+          },
+          "duration": {
+            "type": "long"
+          },
+          "genre": {
+            "type": "keyword"
+          },
+          "genre_lowercase": {
+            "doc_values": false,
+            "type": "keyword"
+          },
+          "genre_words": {
+            "analyzer": "words",
+            "type": "text"
+          },
+          "hasDrm": {
+            "type": "boolean"
+          },
+          "isVariableBitrate": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": "keyword"
+          },
+          "title_lowercase": {
+            "doc_values": false,
+            "type": "keyword"
+          },
+          "title_words": {
+            "analyzer": "words",
+            "type": "text"
+          },
+          "track": {
+            "type": "integer"
+          },
+          "trackCount": {
+            "type": "integer"
+          },
+          "year": {
+            "type": "integer"
+          }
+        }
+      },
+      "image": {
+        "properties": {
+          "height": {
+            "type": "integer"
+          },
+          "width": {
+            "type": "integer"
+          }
+        }
+      },
+      "location": {
+        "properties": {
+          "altitude": {
+            "type": "double"
+          },
+          "latitude": {
+            "type": "double"
+          },
+          "longitude": {
+            "type": "double"
+          }
+        }
+      },
+      "location_geopoint": {
+        "type": "geo_point"
+      },
+      "photo": {
+        "properties": {
+          "cameraMake": {
+            "type": "keyword"
+          },
+          "cameraMake_lowercase": {
+            "doc_values": false,
+            "type": "keyword"
+          },
+          "cameraMake_words": {
+            "analyzer": "words",
+            "type": "text"
+          },
+          "cameraModel": {
+            "type": "keyword"
+          },
+          "cameraModel_lowercase": {
+            "doc_values": false,
+            "type": "keyword"
+          },
+          "cameraModel_words": {
+            "analyzer": "words",
+            "type": "text"
+          },
+          "exposureDenominator": {
+            "type": "double"
+          },
+          "exposureNumerator": {
+            "type": "double"
+          },
+          "fNumber": {
+            "type": "double"
+          },
+          "focalLength": {
+            "type": "double"
+          },
+          "iso": {
+            "type": "integer"
+          },
+          "orientation": {
+            "type": "integer"
+          },
+          "takenDateTime": {
+            "type": "date"
+          }
+        }
+      }
+    }
+  },
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "path_hierarchy": {
+          "tokenizer": "path_hierarchy",
+          "type": "custom"
+        },
+        "words": {
+          "char_filter": [
+            "dot_to_space"
+          ],
+          "filter": [
+            "lowercase"
+          ],
+          "tokenizer": "standard",
+          "type": "custom"
+        }
+      },
+      "char_filter": {
+        "dot_to_space": {
+          "mappings": [
+            ". =\u003e \\u0020"
+          ],
+          "type": "mapping"
+        }
+      },
+      "tokenizer": {
+        "path_hierarchy": {
+          "type": "path_hierarchy"
+        }
+      }
+    },
+    "number_of_replicas": "1",
+    "number_of_shards": "1"
+  }
+}
