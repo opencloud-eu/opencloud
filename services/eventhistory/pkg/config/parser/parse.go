@@ -36,7 +36,7 @@ func ParseConfig(cfg *config.Config) error {
 // Validate validates the config
 func Validate(cfg *config.Config) error {
 	if cfg.Events.Disabled && cfg.GRPC.Disabled {
-		return shared.AllComponentsDisabledError(cfg.Service.Name)
+		return shared.AllApiHandlersDisabledError(cfg.Service.Name)
 	}
 
 	return nil

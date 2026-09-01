@@ -2,40 +2,39 @@ package http
 
 import (
 	"context"
+	"net/http"
 
-	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/userlog/pkg/metrics"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 
 	"github.com/spf13/pflag"
-	"go-micro.dev/v4/store"
 	"go.opentelemetry.io/otel/trace"
 )
+
+// UserlogService is the http service interface the server needs
+type UserlogService interface {
+	HandleGetEvents(w http.ResponseWriter, r *http.Request)
+	HandleDeleteEvents(w http.ResponseWriter, r *http.Request)
+	HandlePostGlobalEvent(w http.ResponseWriter, r *http.Request)
+	HandleDeleteGlobalEvent(w http.ResponseWriter, r *http.Request)
+}
 
 // Option defines a single option function.
 type Option func(o *Options)
 
 // Options defines the available options for this package.
 type Options struct {
-	Logger           log.Logger
-	Context          context.Context
-	Config           *config.Config
-	Metrics          *metrics.Metrics
-	Flags            []pflag.Flag
-	Namespace        string
-	Store            store.Store
-	Stream           events.Stream
-	GatewaySelector  pool.Selectable[gateway.GatewayAPIClient]
-	HistoryClient    ehsvc.EventHistoryService
-	ValueClient      settingssvc.ValueService
-	RoleClient       settingssvc.RoleService
-	RegisteredEvents []events.Unmarshaller
-	TracerProvider   trace.TracerProvider
+	Logger         log.Logger
+	Context        context.Context
+	Config         *config.Config
+	Metrics        *metrics.Metrics
+	Flags          []pflag.Flag
+	Namespace      string
+	RoleClient     settingssvc.RoleService
+	UserlogService        UserlogService
+	TracerProvider trace.TracerProvider
 }
 
 // newOptions initializes the available default options.
@@ -91,45 +90,10 @@ func Namespace(val string) Option {
 	}
 }
 
-// Store provides a function to configure the store
-func Store(store store.Store) Option {
+// Service provides a function to set the userlog http service
+func Service(s UserlogService) Option {
 	return func(o *Options) {
-		o.Store = store
-	}
-}
-
-// Stream provides a function to configure the stream
-func Stream(stream events.Stream) Option {
-	return func(o *Options) {
-		o.Stream = stream
-	}
-}
-
-// GatewaySelector provides a function to configure the gateway client selector
-func GatewaySelector(gatewaySelector pool.Selectable[gateway.GatewayAPIClient]) Option {
-	return func(o *Options) {
-		o.GatewaySelector = gatewaySelector
-	}
-}
-
-// History provides a function to configure the event history client
-func History(h ehsvc.EventHistoryService) Option {
-	return func(o *Options) {
-		o.HistoryClient = h
-	}
-}
-
-// RegisteredEvents provides a function to register events
-func RegisteredEvents(evs []events.Unmarshaller) Option {
-	return func(o *Options) {
-		o.RegisteredEvents = evs
-	}
-}
-
-// Value provides a function to configure the value service client
-func Value(vs settingssvc.ValueService) Option {
-	return func(o *Options) {
-		o.ValueClient = vs
+		o.UserlogService = s
 	}
 }
 
