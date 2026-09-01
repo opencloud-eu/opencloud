@@ -19,7 +19,7 @@ func scopeGroup() queryGroup {
 			fixtureFolder("parent"),
 			fixtureDoc("child.pdf", withPath("./parent/child.pdf")),
 			fixtureDoc("outside.txt"),
-			fixtureDoc("elsewhere.txt", withRoot("2$2!1")),
+			fixtureDoc("elsewhere.txt", withRoot("2$2!2")),
 		},
 		cases: []queryCase{
 			{id: 1, query: `*`, want: []string{"parent", "child.pdf", "outside.txt", "elsewhere.txt"}},
@@ -27,6 +27,10 @@ func scopeGroup() queryGroup {
 			{id: 3, query: `*`, ref: space("./parent"), want: []string{"parent", "child.pdf"}},
 			{id: 4, query: `*`, ref: space("./parent/child.pdf"), want: []string{"child.pdf"}},
 			{id: 5, query: `name:"*elsewhere*"`, ref: space(""), want: nil},
+			{id: 6, query: `driveid:"2$2"`, want: []string{"elsewhere.txt"}},
+			{id: 7, query: `driveid:"1$1"`, want: []string{"parent", "child.pdf", "outside.txt"}},
+			{id: 8, query: `NOT driveid:"2$2"`, want: []string{"parent", "child.pdf", "outside.txt"}},
+			{id: 9, query: `name:"*elsewhere*" AND driveid:"2$2"`, want: []string{"elsewhere.txt"}},
 		},
 	}
 }

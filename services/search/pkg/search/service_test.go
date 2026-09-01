@@ -498,6 +498,27 @@ var _ = Describe("Searchprovider", func() {
 					}, nil)
 				})
 
+				It("prunes the fan-out when the query pins a drive", func() {
+					res, err := s.Search(ctx, &searchsvc.SearchRequest{
+						Query: `driveId:"storageid$personalspace" AND foo`,
+					})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(res).ToNot(BeNil())
+					Expect(len(res.Matches)).To(Equal(1))
+					Expect(res.Matches[0].Entity.Id.OpaqueId).To(Equal("foo-id"))
+					indexClient.AssertNumberOfCalls(GinkgoT(), "Search", 1)
+				})
+
+				It("keeps the full fan-out for an OR query", func() {
+					res, err := s.Search(ctx, &searchsvc.SearchRequest{
+						Query: `driveId:"storageid$personalspace" OR foo`,
+					})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(res).ToNot(BeNil())
+					Expect(len(res.Matches)).To(Equal(3))
+					indexClient.AssertNumberOfCalls(GinkgoT(), "Search", 2)
+				})
+
 				It("considers the search Ref parameter", func() {
 					res, err := s.Search(ctx, &searchsvc.SearchRequest{
 						Query: "foo",

@@ -422,10 +422,10 @@ Fixtures:
 
 Fixtures:
 
-- `parent`, folder
-- `child.pdf`, Path = ./parent/child.pdf
-- `outside.txt`
-- `elsewhere.txt`
+- `parent`, ID = 1$1!parent, folder
+- `child.pdf`, ID = 1$1!child.pdf, Path = ./parent/child.pdf
+- `outside.txt`, ID = 1$1!outside.txt
+- `elsewhere.txt`, ID = 1$1!elsewhere.txt
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
@@ -434,6 +434,10 @@ Fixtures:
 | SCOPE-03 | `*` in 1$1!1 under ./parent | child.pdf, parent | child.pdf, parent | child.pdf, parent | ✅ |
 | SCOPE-04 | `*` in 1$1!1 under ./parent/child.pdf | child.pdf | child.pdf | child.pdf | ✅ |
 | SCOPE-05 | `name:"*elsewhere*"` in 1$1!1 | no match | no match | no match | ✅ |
+| SCOPE-06 | `driveid:"2$2"` | elsewhere.txt | elsewhere.txt | elsewhere.txt | ✅ |
+| SCOPE-07 | `driveid:"1$1"` | child.pdf, outside.txt, parent | child.pdf, outside.txt, parent | child.pdf, outside.txt, parent | ✅ |
+| SCOPE-08 | `NOT driveid:"2$2"` | child.pdf, outside.txt, parent | child.pdf, outside.txt, parent | child.pdf, outside.txt, parent | ✅ |
+| SCOPE-09 | `name:"*elsewhere*" AND driveid:"2$2"` | elsewhere.txt | elsewhere.txt | elsewhere.txt | ✅ |
 
 ### invalid
 

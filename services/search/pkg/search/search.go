@@ -11,6 +11,8 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/opencloud-eu/opencloud/pkg/ast"
+	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/reva/v2/pkg/conversions"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/grants"
@@ -221,6 +223,69 @@ func convertToWebDAVPermissions(isShared, isMountpoint, isDir bool, p *provider.
 		fmt.Fprintf(&b, "X")
 	}
 	return b.String()
+}
+
+// CompleteRootID completes a bare driveId ("storage$space") to the root
+// resource id stored in the index. Assumes a space root's opaque id equals
+// its space id (true for decomposedfs); elsewhere a bare driveId matches
+// nothing, the pinning stays safe either way.
+func CompleteRootID(v string) string {
+	// leave wildcards alone, "1$*!*" would match nothing
+	if strings.Contains(v, "!") || strings.ContainsAny(v, "*?") {
+		return v
+	}
+	if i := strings.LastIndex(v, "$"); i >= 0 && i+1 < len(v) {
+		return v + "!" + v[i+1:]
+	}
+	return v
+}
+
+// PinnedRootID returns the single space root the query is pinned to via
+// top-level AND driveId/RootID conjuncts, or "". OR, NOT and group-nested
+// restrictions never pin: skipping a space would be wrong.
+func PinnedRootID(query string) string {
+	a, err := kql.Builder{}.Build(query)
+	if err != nil {
+		return ""
+	}
+	pinned := ""
+	negated := false
+	for _, n := range a.Nodes {
+		switch node := n.(type) {
+		case *ast.OperatorNode:
+			if strings.EqualFold(node.Value, "OR") {
+				return ""
+			}
+			negated = strings.EqualFold(node.Value, "NOT")
+			continue
+		case ast.OperatorNode:
+			if strings.EqualFold(node.Value, "OR") {
+				return ""
+			}
+			negated = strings.EqualFold(node.Value, "NOT")
+			continue
+		}
+		var key, value string
+		switch node := n.(type) {
+		case *ast.StringNode:
+			key, value = node.Key, node.Value
+		case ast.StringNode:
+			key, value = node.Key, node.Value
+		}
+		if strings.EqualFold(key, "driveid") || strings.EqualFold(key, "rootid") {
+			// a negated or wildcard restriction cannot pin a single space
+			if negated || strings.ContainsAny(value, "*?") {
+				return ""
+			}
+			v := CompleteRootID(value)
+			if pinned != "" && pinned != v {
+				return ""
+			}
+			pinned = v
+		}
+		negated = false
+	}
+	return pinned
 }
 
 // ParseScope extract a scope value from the query string and returns search, scope strings

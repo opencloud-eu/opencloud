@@ -2,13 +2,14 @@ package query
 
 import (
 	"strconv"
+	"strings"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"reflect"
-	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/query/mimetype"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
 // Normalize is the shared KQL lowering pass between parse and compile: it
@@ -40,6 +41,9 @@ func normalizeNodes(nodes []ast.Node, resolve func(string) string, defaultKey st
 			}
 			if node.Key == "Type" {
 				node.Value = resourceType(node.Value)
+			}
+			if node.Key == "RootID" {
+				node.Value = search.CompleteRootID(node.Value)
 			}
 			if exp := mimetype.Expand(node.Key, node.Value); exp != nil {
 				out = append(out, normalizeNodes(exp, resolve, defaultKey)...)
