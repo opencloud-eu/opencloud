@@ -38,7 +38,6 @@ const _selectAllowedValues = "@libre.graph.permissions.actions.allowedValues"
 // opt-in driveItem relations, returned only when requested via $expand
 const _expandChildren = "children"
 
-// odataListContains reports whether the given comma separated odata query parameter contains value
 func odataListContains(r *http.Request, parameter, value string) bool {
 	for _, values := range r.URL.Query()[parameter] {
 		for _, v := range strings.Split(values, ",") {
@@ -55,7 +54,7 @@ func driveItemPropertySelected(r *http.Request, property string) bool {
 	return odataListContains(r, "$select", property)
 }
 
-// driveItemRelationExpanded reports whether the given opt-in relation was requested via $expand
+// driveItemRelationExpanded reports whether the relation was requested via $expand
 func driveItemRelationExpanded(r *http.Request, relation string) bool {
 	return odataListContains(r, "$expand", relation)
 }
@@ -315,7 +314,7 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		driveItem.LibreGraphPermissionsActionsAllowedValues = unifiedrole.CS3ResourcePermissionsToLibregraphActions(res.GetInfo().GetPermissionSet())
 	}
 
-	// only containers have children, for anything else the relation stays unset
+	// only containers have children
 	if driveItemRelationExpanded(r, _expandChildren) && res.GetInfo().GetType() == storageprovider.ResourceType_RESOURCE_TYPE_CONTAINER {
 		children, ok := g.listDriveItemChildren(w, r, &driveItemID)
 		if !ok {
@@ -365,8 +364,7 @@ func (g Graph) GetDriveItemChildren(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, &ListResponse{Value: files})
 }
 
-// listDriveItemChildren lists the children of the given container. Shared by
-// the children endpoint and by $expand=children so both return the same items.
+// listDriveItemChildren backs both the children endpoint and $expand=children.
 // It renders the error response itself and reports whether it succeeded.
 func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, driveItemID *storageprovider.ResourceId) ([]libregraph.DriveItem, bool) {
 	gatewayClient, err := g.gatewaySelector.Next()
