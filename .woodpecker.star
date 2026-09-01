@@ -331,6 +331,8 @@ config = {
                 "ANTIVIRUS_CLAMAV_SOCKET": "tcp://clamav:3310",
                 "OC_ASYNC_UPLOADS": True,
                 "OC_ADD_RUN_SERVICES": "antivirus",
+                "OC_SERVICE_ACCOUNT_ID": "service-account-id",
+                "OC_SERVICE_ACCOUNT_SECRET": "service-account-secret",
             },
         },
         "multiTenancy": {

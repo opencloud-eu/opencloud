@@ -10,6 +10,7 @@ services:
       STORAGE_DRIVER: ${STORAGE_DRIVER:-posix}
       BEHAT_SUITE: ${BEHAT_SUITE:-}
       BEHAT_FEATURE: ${BEHAT_FEATURE:-}
+      OC_BASE_DATA_PATH: ${OC_BASE_DATA_PATH:-/var/lib/opencloud}
       USE_BEARER_TOKEN: ${USE_BEARER_TOKEN:-false}
       # email
       EMAIL_HOST: email

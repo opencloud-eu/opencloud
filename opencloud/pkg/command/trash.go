@@ -36,7 +36,8 @@ func TrashPurgeEmptyDirsCommand(cfg *config.Config) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			basePath, _ := cmd.Flags().GetString("basepath")
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if err := trash.PurgeTrashEmptyPaths(basePath, dryRun); err != nil {
+			posix := cfg.StorageUsers.Driver == posixDriver
+			if err := trash.PurgeTrashEmptyPaths(basePath, dryRun, posix); err != nil {
 				fmt.Println(err)
 				return err
 			}

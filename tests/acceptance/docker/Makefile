@@ -54,6 +54,11 @@ else ifeq ($(STORAGE_DRIVER),decomposeds3)
 	COMPOSE_FILE := src/ceph.yml:$(COMPOSE_FILE)
 endif
 
+# CLI commands use fixed service-account credentials expected by the CLI tests.
+ifneq ($(or $(filter cliCommands,$(BEHAT_SUITE)),$(findstring cliCommands/,$(BEHAT_FEATURE))),)
+	COMPOSE_FILE := $(COMPOSE_FILE):src/cliCommands.yml
+endif
+
 # use latest as default tag if OC_IMAGE is provided but no tag is set
 ifneq ($(strip $(OC_IMAGE)),)
 	ifeq ($(strip $(OC_IMAGE_TAG)),)

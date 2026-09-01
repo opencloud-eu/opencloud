@@ -306,8 +306,13 @@ func restoreTrashBinItem(cfg *config.Config) *cobra.Command {
 
 			var found bool
 			var itemRef *provider.RecycleItem
+			rid, err := storagespace.ParseID(itemID)
+			if err != nil {
+				return err
+			}
+			opaqueID := rid.GetOpaqueId()
 			for _, item := range res.GetRecycleItems() {
-				if item.GetKey() == itemID {
+				if item.GetKey() == opaqueID {
 					itemRef = item
 					found = true
 					break
@@ -349,10 +354,6 @@ func listRecycle(ctx context.Context, client gateway.GatewayAPIClient, ref provi
 	}
 	if res.Status.Code != rpc.Code_CODE_OK {
 		return nil, fmt.Errorf("%s %s", _retrievingErrorMsg, res.Status.Code)
-	}
-	if len(res.GetRecycleItems()) == 0 {
-		fmt.Errorf("The trash-bin is empty. Nothing to restore")
-		os.Exit(0)
 	}
 	return res, nil
 }

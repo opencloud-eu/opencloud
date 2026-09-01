@@ -1,7 +1,9 @@
 package command
 
 import (
+	"context"
 	"errors"
+	"time"
 
 	"github.com/spf13/viper"
 
@@ -20,6 +22,14 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
+
+// need to be discussed, for now I will let it here
+//
+// Problem:
+// in reva on CleanupStaleShares call there is migrations invokation, which at leat in tests takes some time,
+// reva code was modified to wait until migrations are done, to prevent cases when migrations are stuck and the
+// this executions is not returned this timeout is needed
+const cleanupTimeout = 1 * time.Minute
 
 // SharesCommand is the entrypoint for the groups command.
 func SharesCommand(cfg *config.Config) *cobra.Command {
@@ -120,7 +130,11 @@ func cleanup(_ *cobra.Command, cfg *config.Config) error {
 	}
 	serviceUserCtx = l.WithContext(serviceUserCtx)
 
-	mgr.(*jsoncs3.Manager).CleanupStaleShares(serviceUserCtx)
+	cleanupCtx, cancel := context.WithTimeout(serviceUserCtx, cleanupTimeout)
+	defer cancel()
+	if err := mgr.(*jsoncs3.Manager).CleanupStaleShares(cleanupCtx); err != nil {
+		return configlog.ReturnError(err)
+	}
 
 	return nil
 }
@@ -158,11 +172,13 @@ func revaShareConfig(cfg *sharing.Config) map[string]any {
 			"machine_auth_apikey": cfg.UserSharingDrivers.CS3.SystemUserAPIKey,
 		},
 		"jsoncs3": map[string]any{
-			"gateway_addr":        cfg.Reva.Address,
-			"provider_addr":       cfg.UserSharingDrivers.JSONCS3.ProviderAddr,
-			"service_user_id":     cfg.UserSharingDrivers.JSONCS3.SystemUserID,
-			"service_user_idp":    cfg.UserSharingDrivers.JSONCS3.SystemUserIDP,
-			"machine_auth_apikey": cfg.UserSharingDrivers.JSONCS3.SystemUserAPIKey,
+			"gateway_addr":           cfg.Reva.Address,
+			"provider_addr":          cfg.UserSharingDrivers.JSONCS3.ProviderAddr,
+			"system_user_id":         cfg.UserSharingDrivers.JSONCS3.SystemUserID,
+			"system_user_idp":        cfg.UserSharingDrivers.JSONCS3.SystemUserIDP,
+			"machine_auth_apikey":    cfg.UserSharingDrivers.JSONCS3.SystemUserAPIKey,
+			"service_account_id":     cfg.ServiceAccount.ServiceAccountID,
+			"service_account_secret": cfg.ServiceAccount.ServiceAccountSecret,
 		},
 	}
 }

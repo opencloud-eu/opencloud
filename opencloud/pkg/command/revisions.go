@@ -25,6 +25,8 @@ var (
 	_nodesGlobPattern = "spaces/*/*/nodes/"
 )
 
+const posixDriver = "posix"
+
 // RevisionsCommand is the entrypoint for the revisions command.
 func RevisionsCommand(cfg *config.Config) *cobra.Command {
 	revCmd := &cobra.Command{
@@ -86,23 +88,28 @@ func PurgeRevisionsCommand(cfg *config.Config) *cobra.Command {
 				mechanism = "glob"
 			}
 
+			var posix = cfg.StorageUsers.Driver == posixDriver
+
 			var ch <-chan string
 			switch mechanism {
 			default:
 				fallthrough
 			case "glob":
-				p := generatePath(basePath, rid)
+				p := generatePath(basePath, rid, posix)
 				if rid.GetOpaqueId() == "" {
 					p = filepath.Join(p, "*/*/*/*/*")
 				}
 				ch = revisions.Glob(p)
 			case "workers":
-				p := generatePath(basePath, rid)
+				p := generatePath(basePath, rid, posix)
 				ch = revisions.GlobWorkers(p, "/*", "/*/*/*/*")
 			case "list":
-				p := filepath.Join(basePath, "spaces")
+				p := basePath
+				if !posix {
+					p = filepath.Join(basePath, "spaces")
+				}
 				if rid != nil {
-					p = generatePath(basePath, rid)
+					p = generatePath(basePath, rid, posix)
 				}
 				ch = revisions.List(p, 10)
 			}
@@ -144,22 +151,44 @@ func printResults(countFiles, countBlobs, countRevisions int, dryRun bool) {
 	}
 }
 
-func generatePath(basePath string, rid *provider.ResourceId) string {
-	if rid == nil {
-		return filepath.Join(basePath, _nodesGlobPattern)
-	}
+func generatePath(basePath string, rid *provider.ResourceId, posix bool) string {
+	// decomposedfs and posix store the revisions of a node at different
+	// locations on disk, so the path has to be built per driver:
+	//   - decomposedfs: <basePath>/spaces/<pathified spaceID>/nodes/<pathified nodeID>.REV.<ts>
+	//   - posix:        <basePath>/<users|projects>/<spaceID>/.oc-nodes/<pathified nodeID>.REV.<ts>
+	if posix {
+		if rid == nil {
+			return filepath.Join(basePath, "*", "*", ".oc-nodes")
+		}
 
-	sid := lookup.Pathify(rid.GetSpaceId(), 1, 2)
-	if sid == "" {
-		return ""
-	}
+		nid := lookup.Pathify(rid.GetOpaqueId(), 4, 2)
+		if nid != "" {
+			return filepath.Join(basePath, "*", "*", ".oc-nodes", nid+"*")
+		}
 
-	nid := lookup.Pathify(rid.GetOpaqueId(), 4, 2)
-	if nid == "" {
-		return filepath.Join(basePath, "spaces", sid, "nodes")
-	}
+		if rid.GetSpaceId() == "" {
+			return ""
+		}
+		return filepath.Join(basePath, "*", rid.GetSpaceId(), ".oc-nodes")
+	} else {
+		// decomposedfs
+		if rid == nil {
 
-	return filepath.Join(basePath, "spaces", sid, "nodes", nid+"*")
+			return filepath.Join(basePath, _nodesGlobPattern)
+		}
+
+		sid := lookup.Pathify(rid.GetSpaceId(), 1, 2)
+		if sid == "" {
+			return ""
+		}
+
+		nid := lookup.Pathify(rid.GetOpaqueId(), 4, 2)
+		if nid == "" {
+			return filepath.Join(basePath, "spaces", sid, "nodes")
+		}
+
+		return filepath.Join(basePath, "spaces", sid, "nodes", nid+"*")
+	}
 }
 
 func init() {
