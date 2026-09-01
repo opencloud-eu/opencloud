@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -22,12 +23,29 @@ import (
 
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v2/pkg/tags"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 )
+
+// opt-in driveItem instance annotations, returned only when requested via $select
+const _selectAllowedValues = "@libre.graph.permissions.actions.allowedValues"
+
+// driveItemPropertySelected reports whether the given opt-in property was requested via $select
+func driveItemPropertySelected(r *http.Request, property string) bool {
+	for _, values := range r.URL.Query()["$select"] {
+		for _, v := range strings.Split(values, ",") {
+			if v == property {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // CreateUploadSession create an upload session to allow your app to upload files up to the maximum file size.
 // An upload session allows your app to upload ranges of the file in sequential API requests, which allows the
@@ -210,6 +228,12 @@ func (g Graph) GetRootDriveChildren(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if driveItemPropertySelected(r, _selectAllowedValues) {
+		for i, info := range lRes.GetInfos() {
+			files[i].LibreGraphPermissionsActionsAllowedValues = unifiedrole.CS3ResourcePermissionsToLibregraphActions(info.GetPermissionSet())
+		}
+	}
+
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, &ListResponse{Value: files})
 }
@@ -272,6 +296,10 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
+	}
+
+	if driveItemPropertySelected(r, _selectAllowedValues) {
+		driveItem.LibreGraphPermissionsActionsAllowedValues = unifiedrole.CS3ResourcePermissionsToLibregraphActions(res.GetInfo().GetPermissionSet())
 	}
 
 	render.Status(r, http.StatusOK)
@@ -456,6 +484,10 @@ func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *sto
 		driveItem.Image = metadataToFacet[libregraph.Image](metadata, "image")
 		driveItem.Location = metadataToFacet[libregraph.GeoCoordinates](metadata, "location")
 		driveItem.Photo = metadataToFacet[libregraph.Photo](metadata, "photo")
+		driveItem.LibreGraphMeFollowing = libregraph.PtrBool(metadata[_favoriteMetadataKey] == "1")
+		if t := metadata["tags"]; t != "" {
+			driveItem.LibreGraphTags = tags.New(t).AsSlice()
+		}
 	}
 
 	return driveItem, nil
