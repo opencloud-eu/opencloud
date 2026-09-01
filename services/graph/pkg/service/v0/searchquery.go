@@ -365,11 +365,36 @@ func searchEntityToDriveItem(e *searchmsg.Entity) *libregraph.DriveItem {
 		}
 		di.ParentReference = ref
 	}
+	di.RemoteItem = searchEntityToRemoteItem(e)
 	di.Audio = searchAudioToLibregraph(e.GetAudio())
 	di.Image = searchImageToLibregraph(e.GetImage())
 	di.Photo = searchPhotoToLibregraph(e.GetPhoto())
 	di.Location = searchLocationToLibregraph(e.GetLocation())
 	return di
+}
+
+// searchEntityToRemoteItem describes a hit that lives in a space shared with the
+// caller: the item id in the owner's drive and the mountpoint it is reached
+// through. Absent for hits from the caller's own spaces.
+func searchEntityToRemoteItem(e *searchmsg.Entity) *libregraph.RemoteItem {
+	id := e.GetRemoteItemId()
+	if id == nil {
+		return nil
+	}
+
+	item := libregraph.NewRemoteItem()
+	item.SetId(storagespace.FormatResourceID(&storageprovider.ResourceId{
+		StorageId: id.GetStorageId(),
+		SpaceId:   id.GetSpaceId(),
+		OpaqueId:  id.GetOpaqueId(),
+	}))
+
+	if root := e.GetShareRootName(); root != "" {
+		item.SetPath(root)
+		item.SetName(path.Base(root))
+	}
+
+	return item
 }
 
 func searchAudioToLibregraph(a *searchmsg.Audio) *libregraph.Audio {

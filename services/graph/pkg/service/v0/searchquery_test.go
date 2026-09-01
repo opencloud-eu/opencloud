@@ -14,6 +14,7 @@ import (
 	"go-micro.dev/v4/client"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 )
 
@@ -46,6 +47,35 @@ func postSearchQuery(g Graph, body string) *httptest.ResponseRecorder {
 }
 
 func int32Ptr(v int32) *int32 { return &v }
+
+// searchHitRemoteItem decodes the remoteItem of the first hit, nil when absent.
+func searchHitRemoteItem(rr *httptest.ResponseRecorder) *struct {
+	Id   *string `json:"id"`
+	Name *string `json:"name"`
+	Path *string `json:"path"`
+} {
+	var decoded struct {
+		Value []struct {
+			HitsContainers []struct {
+				Hits []struct {
+					Resource struct {
+						RemoteItem *struct {
+							Id   *string `json:"id"`
+							Name *string `json:"name"`
+							Path *string `json:"path"`
+						} `json:"remoteItem"`
+					} `json:"resource"`
+				} `json:"hits"`
+			} `json:"hitsContainers"`
+		} `json:"value"`
+	}
+	Expect(json.Unmarshal(rr.Body.Bytes(), &decoded)).To(Succeed())
+	Expect(decoded.Value).To(HaveLen(1))
+	Expect(decoded.Value[0].HitsContainers).To(HaveLen(1))
+	Expect(decoded.Value[0].HitsContainers[0].Hits).To(HaveLen(1))
+
+	return decoded.Value[0].HitsContainers[0].Hits[0].Resource.RemoteItem
+}
 
 var _ = ginkgo.Describe("SearchQuery", func() {
 	ginkgo.It("forwards aggregations to the search service and groups results by request", func() {
@@ -105,6 +135,53 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		Expect(aggs).To(HaveLen(1))
 		Expect(aggs[0].Field).To(HaveValue(Equal("audio.artist")))
 		Expect(aggs[0].Buckets).To(HaveLen(2))
+	})
+
+	ginkgo.It("describes a hit from a shared space as a remote item", func() {
+		g := graphWithSearch(stubSearchService{
+			search: func(_ *searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {
+				return &searchsvc.SearchResponse{
+					TotalMatches: 1,
+					Matches: []*searchmsg.Match{{
+						Entity: &searchmsg.Entity{
+							Id:            &searchmsg.ResourceID{StorageId: "1", SpaceId: "2", OpaqueId: "3"},
+							Name:          "contract.pdf",
+							ShareRootName: "/Project X",
+							RemoteItemId:  &searchmsg.ResourceID{StorageId: "4", SpaceId: "5", OpaqueId: "6"},
+						},
+					}},
+				}, nil
+			},
+		})
+
+		rr := postSearchQuery(g, `{"requests": [{"entityTypes": ["driveItem"], "query": {"queryString": "contract"}}]}`)
+		Expect(rr.Code).To(Equal(http.StatusOK))
+
+		remote := searchHitRemoteItem(rr)
+		Expect(remote).ToNot(BeNil())
+		Expect(remote.Id).To(HaveValue(Equal("4$5!6")))
+		Expect(remote.Path).To(HaveValue(Equal("/Project X")))
+		Expect(remote.Name).To(HaveValue(Equal("Project X")), "the mountpoint name the caller sees")
+	})
+
+	ginkgo.It("leaves the remote item out for hits from the caller's own spaces", func() {
+		g := graphWithSearch(stubSearchService{
+			search: func(_ *searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {
+				return &searchsvc.SearchResponse{
+					TotalMatches: 1,
+					Matches: []*searchmsg.Match{{
+						Entity: &searchmsg.Entity{
+							Id:   &searchmsg.ResourceID{StorageId: "1", SpaceId: "2", OpaqueId: "3"},
+							Name: "notes.txt",
+						},
+					}},
+				}, nil
+			},
+		})
+
+		rr := postSearchQuery(g, `{"requests": [{"entityTypes": ["driveItem"], "query": {"queryString": "notes"}}]}`)
+		Expect(rr.Code).To(Equal(http.StatusOK))
+		Expect(searchHitRemoteItem(rr)).To(BeNil())
 	})
 
 	ginkgo.DescribeTable("clampPagination keeps from/size within valid bounds",
