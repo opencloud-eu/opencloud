@@ -693,3 +693,33 @@ Fixtures:
 | METADATA-01 | `*song*` reads `Audio` | all 16 fields unchanged | all 16 fields unchanged | all 16 fields unchanged | ✅ |
 | METADATA-02 | `*team*` reads `Location` | all 3 fields unchanged | all 3 fields unchanged | all 3 fields unchanged | ✅ |
 | METADATA-03 | `*team*` reads `Audio` | none | none | none | ✅ |
+
+## Aggregations
+
+### aggregations
+
+Fixtures:
+
+- `a.mp3`, MimeType = audio/mpeg
+- `b.mp3`, MimeType = audio/mpeg
+- `c.mp3`, MimeType = audio/mpeg
+- `d.mp3`, MimeType = audio/mpeg
+- `e.mp3`, MimeType = audio/mpeg
+- `f.mp3`, MimeType = audio/mpeg
+- `g.mp3`, MimeType = audio/mpeg
+- `a.jpg`, MimeType = image/jpeg
+- `b.jpg`, MimeType = image/jpeg
+- `c.jpg`, MimeType = image/jpeg
+- `d.jpg`, MimeType = image/jpeg
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| AGG-01 | `mediatype:audio` reads `term buckets on audio.artist` | audio.arti... Floyd=2, audio.arti...�rhead=3 | audio.arti... Floyd=2, audio.arti...�rhead=3 | audio.arti... Floyd=2, audio.arti...�rhead=3 | ✅ |
+| AGG-02 | `mediatype:audio` reads `no aggregations requested` | no match | no match | no match | ✅ |
+| AGG-03 | `mediatype:audio` reads `artist and album buckets in one request` | audio.albu...Spades=1, audio.album Bomber=2, audio.album The Wall=2, audio.arti... Floyd=2, audio.arti...�rhead=3 | audio.albu...Spades=1, audio.album Bomber=2, audio.album The Wall=2, audio.arti... Floyd=2, audio.arti...�rhead=3 | audio.albu...Spades=1, audio.album Bomber=2, audio.album The Wall=2, audio.arti... Floyd=2, audio.arti...�rhead=3 | ✅ |
+| AGG-04 | `mediatype:audio` reads `audio.year buckets per decade` | audio.year 1970-1980=2, audio.year 1980-1990=1, audio.year 1990-2000=1, audio.year 2000-2010=3 | audio.year 1970-1980=2, audio.year 1980-1990=1, audio.year 1990-2000=1, audio.year 2000-2010=3 | audio.year 1970-1980=2, audio.year 1980-1990=1, audio.year 1990-2000=1, audio.year 2000-2010=3 | ✅ |
+| AGG-05 | `mediatype:audio` reads `open-ended audio.year ranges` | audio.year -1990=3, audio.year 2000-=3 | audio.year -1990=3, audio.year 2000-=3 | audio.year -1990=3, audio.year 2000-=3 | ✅ |
+| AGG-06 | `mediatype:audio` reads `top-level metrics on audio.year` | audio.year max=2009, audio.year min=1971, audio.year sum=13942, audio.year... count=7 | audio.year max=2009, audio.year min=1971, audio.year sum=13942, audio.year... count=7 | audio.year max=2009, audio.year min=1971, audio.year sum=13942, audio.year... count=7 | ✅ |
+| AGG-07 | `mediatype:image` reads `photo.takenDateTime buckets per date range` | photo.take...-01-01=1, photo.take...-09-01=2, photo.take...00:00Z=2 | photo.take...-01-01=1, photo.take...-09-01=2, photo.take...00:00Z=2 | photo.take...-01-01=1, photo.take...-09-01=2, photo.take...00:00Z=2 | ✅ |
+| AGG-08 | `mediatype:image` reads `open-ended date ranges` | photo.take...-01-01=3, photo.take...01-01-=1 | photo.take...-01-01=3, photo.take...01-01-=1 | photo.take...-01-01=3, photo.take...01-01-=1 | ✅ |
+| AGG-09 | `mediatype:image` reads `malformed date range bound` | error | error | error | ✅ |
