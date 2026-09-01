@@ -6,6 +6,11 @@
 
 @dschmidt, @fredrikblau, @fschade, @maki5, @pbleser-oc, @v-scharf
 
+### 🐛 Bug Fixes
+
+- fix: posix cli commands [[#3348](https://github.com/opencloud-eu/opencloud/pull/3348)]
+- fix(search): make openSearch and bleve behave the same [[#3408](https://github.com/opencloud-eu/opencloud/pull/3408)]
+
 ### 📈 Enhancement
 
 - feat(search): extract more data from tika 4 (if available) [[#3198](https://github.com/opencloud-eu/opencloud/pull/3198)]
@@ -21,10 +26,6 @@
 - test(search): fail the parity suite when the committed matrix is stale [[#3423](https://github.com/opencloud-eu/opencloud/pull/3423)]
 - ci: run search API and e2e suites against OpenSearch [[#3379](https://github.com/opencloud-eu/opencloud/pull/3379)]
 - test(search): engine parity suite for bleve and opensearch [[#3418](https://github.com/opencloud-eu/opencloud/pull/3418)]
-
-### 🐛 Bug Fixes
-
-- fix(search): make openSearch and bleve behave the same [[#3408](https://github.com/opencloud-eu/opencloud/pull/3408)]
 
 ### 📦️ Dependencies
 
