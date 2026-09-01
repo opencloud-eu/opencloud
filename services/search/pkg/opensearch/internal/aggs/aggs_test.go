@@ -12,8 +12,14 @@ import (
 )
 
 var _ = Describe("Build", func() {
+	build := func(opts []*searchsvc.AggregationOption) map[string]any {
+		res, err := aggs.Build(opts)
+		Expect(err).ToNot(HaveOccurred())
+		return res
+	}
+
 	It("builds a terms aggregation", func() {
-		res := aggs.Build([]*searchsvc.AggregationOption{
+		res := build([]*searchsvc.AggregationOption{
 			{Field: "audio.artist", Size: 10},
 		})
 		Expect(res).ToNot(BeNil())
@@ -25,8 +31,43 @@ var _ = Describe("Build", func() {
 		Expect(terms["size"]).To(Equal(10))
 	})
 
+	It("builds a date_range aggregation for date bounds", func() {
+		res := build([]*searchsvc.AggregationOption{{
+			Field: "photo.takenDateTime",
+			BucketDefinition: &searchsvc.BucketDefinition{
+				Ranges: []*searchsvc.BucketRange{
+					{From: "2018-08-01", To: "2018-09-01"},
+					{From: "2018-08-11T00:00:00Z"},
+				},
+			},
+		}})
+		r := res["a_0"].(map[string]any)["date_range"].(map[string]any)
+		Expect(r["field"]).To(Equal("photo.takenDateTime"))
+		ranges := r["ranges"].([]map[string]any)
+		Expect(ranges).To(HaveLen(2))
+		Expect(ranges[0]).To(SatisfyAll(
+			HaveKeyWithValue("key", "2018-08-01-2018-09-01"),
+			HaveKeyWithValue("from", "2018-08-01"),
+			HaveKeyWithValue("to", "2018-09-01"),
+		))
+		Expect(ranges[1]).To(HaveKeyWithValue("from", "2018-08-11T00:00:00Z"))
+		Expect(ranges[1]).ToNot(HaveKey("to"))
+	})
+
+	It("rejects a bound that is neither number nor date", func() {
+		_, err := aggs.Build([]*searchsvc.AggregationOption{{
+			Field: "photo.takenDateTime",
+			BucketDefinition: &searchsvc.BucketDefinition{
+				Ranges: []*searchsvc.BucketRange{
+					{From: "2018-08-11T00:00:00Z", To: "not-a-date"},
+				},
+			},
+		}})
+		Expect(err).To(HaveOccurred())
+	})
+
 	It("builds a range aggregation with open-ended bounds", func() {
-		res := aggs.Build([]*searchsvc.AggregationOption{{
+		res := build([]*searchsvc.AggregationOption{{
 			Field: "audio.year",
 			BucketDefinition: &searchsvc.BucketDefinition{
 				Ranges: []*searchsvc.BucketRange{
@@ -51,7 +92,7 @@ var _ = Describe("Build", func() {
 
 	DescribeTable("builds single-value metric aggregations",
 		func(kind searchsvc.MetricKind, esKind string) {
-			res := aggs.Build([]*searchsvc.AggregationOption{
+			res := build([]*searchsvc.AggregationOption{
 				{Field: "audio.duration", MetricKind: kind},
 			})
 			body, ok := res["a_0"].(map[string]any)[esKind].(map[string]any)
@@ -64,7 +105,7 @@ var _ = Describe("Build", func() {
 	)
 
 	It("uses a stats aggregation for AVG", func() {
-		res := aggs.Build([]*searchsvc.AggregationOption{
+		res := build([]*searchsvc.AggregationOption{
 			{Field: "audio.duration", MetricKind: searchsvc.MetricKind_METRIC_KIND_AVG},
 		})
 		stats, ok := res["a_0"].(map[string]any)["stats"].(map[string]any)
@@ -73,7 +114,7 @@ var _ = Describe("Build", func() {
 	})
 
 	It("nests sub-aggregations under their parent bucket", func() {
-		res := aggs.Build([]*searchsvc.AggregationOption{{
+		res := build([]*searchsvc.AggregationOption{{
 			Field: "audio.artist", Size: 5,
 			SubAggregations: []*searchsvc.AggregationOption{{
 				Field: "audio.album", Size: 7,
