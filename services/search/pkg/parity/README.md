@@ -1,6 +1,6 @@
 # Engine parity
 
-Written by the parity suite (`go test ./services/search/pkg/parity/`), do not edit.
+Written by the parity suite (`UPDATE_SEARCH_PARITY_MATRIX=true go test ./services/search/pkg/parity/`), do not edit.
 Every case runs against bleve and OpenSearch. `same?` is ✅ when both answer as
 expected, `❌ known` when an engine's divergence is documented in the case
 (`engineOverrides`), `❌` when it is not. `✅ stale` when every engine
@@ -148,6 +148,50 @@ Fixtures:
 | CONTENT-08 | `Content:"https://opencloud.example.com/help"` | links.txt | links.txt | links.txt | ✅ |
 | CONTENT-09 | `Content:"alan@example.org"` | links.txt | links.txt | links.txt | ✅ |
 | CONTENT-10 | `Content:opencloud` | links.txt | links.txt | links.txt | ✅ |
+
+### cjk
+
+Fixtures:
+
+- `报告.txt`, Content = "这是一个关于年度销售的中文文档"
+- `说明书.pdf`, MimeType = application/pdf, Content = "产品说明与安装步骤"
+- `手册.txt`, Content = "学生手册"
+- `图片`, folder
+- `english.txt`, Content = "annual sales report"
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| CJK-01 | `Content:中文` | 报告.txt | 报告.txt | 报告.txt | ✅ |
+| CJK-02 | `Content:中文文档` | 报告.txt | 报告.txt | 报告.txt | ✅ |
+| CJK-03 | `Content:"中文文档"` | 报告.txt | 报告.txt | 报告.txt | ✅ |
+| CJK-04 | `Content:销售` | 报告.txt | 报告.txt | 报告.txt | ✅ |
+| CJK-05 | `Content:说明` | 说明书.pdf | 说明书.pdf | 说明书.pdf | ✅ |
+| CJK-06 | `name:报告` | 报告.txt | 报告.txt | 报告.txt | ✅ |
+| CJK-07 | `name:"*报告*"` | 报告.txt | 报告.txt | 报告.txt | ✅ |
+| CJK-08 | `name:"报告.txt"` | 报告.txt | 报告.txt | 报告.txt | ✅ |
+| CJK-09 | `报告` | 报告.txt | 报告.txt | 报告.txt | ✅ |
+| CJK-10 | `说明书` | 说明书.pdf | 说明书.pdf | 说明书.pdf | ✅ |
+| CJK-11 | `name:图片` | 图片 | 图片 | 图片 | ✅ |
+| CJK-12 | `name:"*图片*"` | 图片 | 图片 | 图片 | ✅ |
+| CJK-13 | `图片` | 图片 | 图片 | 图片 | ✅ |
+| CJK-14 | `Content:学生` | 手册.txt | 手册.txt | 手册.txt | ✅ |
+| CJK-15 | `Content:手册` | 手册.txt | 手册.txt | 手册.txt | ✅ |
+| CJK-16 | `Content:生手` | 手册.txt | 手册.txt | 手册.txt | ✅ |
+| CJK-17 | `name:"报*"` | 报告.txt | 报告.txt | 报告.txt | ✅ |
+| CJK-18 | `name:"*告*"` | 报告.txt | 报告.txt | 报告.txt | ✅ |
+| CJK-19 | `name:"*册*"` | 手册.txt | 手册.txt | 手册.txt | ✅ |
+| CJK-20 | `name:"图?"` | 图片 | 图片 | 图片 | ✅ |
+| CJK-21 | `name:"报?.txt"` | 报告.txt | 报告.txt | 报告.txt | ✅ |
+| CJK-22 | `name:"*报?*"` | 报告.txt | 报告.txt | 报告.txt | ✅ |
+| CJK-23 | `Content:中文*` | no match | no match | no match | ✅ |
+| CJK-24 | `Content:*销售*` | no match | no match | no match | ✅ |
+| CJK-25 | `Content:*文档` | no match | no match | no match | ✅ |
+| CJK-26 | `Content:文*` | 报告.txt | 报告.txt | 报告.txt | ✅ |
+| CJK-27 | `Content:*文*` | 报告.txt | 报告.txt | 报告.txt | ✅ |
+| CJK-28 | `Content:*文` | 报告.txt | 报告.txt | 报告.txt | ✅ |
+| CJK-29 | `Content:销*` | 报告.txt | 报告.txt | 报告.txt | ✅ |
+| CJK-30 | `Content:说*` | 说明书.pdf | 说明书.pdf | 说明书.pdf | ✅ |
+| CJK-31 | `Content:*明` | 说明书.pdf | 说明书.pdf | 说明书.pdf | ✅ |
 
 ### favorites
 

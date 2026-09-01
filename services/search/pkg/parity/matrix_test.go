@@ -171,7 +171,7 @@ func writeMatrix(report types.Report) {
 
 	out := &strings.Builder{}
 	out.WriteString("# Engine parity\n\n")
-	out.WriteString("Written by the parity suite (`go test ./services/search/pkg/parity/`), do not edit.\n")
+	out.WriteString("Written by the parity suite (`UPDATE_SEARCH_PARITY_MATRIX=true go test ./services/search/pkg/parity/`), do not edit.\n")
 	out.WriteString("Every case runs against bleve and OpenSearch. `same?` is ✅ when both answer as\n")
 	out.WriteString("expected, `❌ known` when an engine's divergence is documented in the case\n")
 	out.WriteString("(`engineOverrides`), `❌` when it is not. `✅ stale` when every engine\n")
@@ -226,8 +226,17 @@ func writeMatrix(report types.Report) {
 			matrixNames(row.answered["bleve"]), matrixNames(row.answered["opensearch"]), matrixVerdict(row))
 	}
 
-	if err := os.WriteFile(matrixFile, []byte(out.String()), 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to write %s: %v\n", matrixFile, err)
+	if os.Getenv("UPDATE_SEARCH_PARITY_MATRIX") != "" {
+		if err := os.WriteFile(matrixFile, []byte(out.String()), 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write %s: %v\n", matrixFile, err)
+		}
+		return
+	}
+
+	// the committed matrix must match what the suite answers
+	previous, _ := os.ReadFile(matrixFile)
+	if string(previous) != out.String() {
+		Fail(matrixFile + " is out of date: regenerate it with UPDATE_SEARCH_PARITY_MATRIX=true and commit the change")
 	}
 }
 

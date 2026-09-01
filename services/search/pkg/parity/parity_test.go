@@ -97,6 +97,7 @@ func queryGroups() []queryGroup {
 		tagsGroup(),
 		titleGroup(),
 		contentGroup(),
+		cjkGroup(),
 		favoritesGroup(),
 		mediatypeGroup(),
 		pathGroup(),
