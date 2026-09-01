@@ -4,16 +4,16 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
 # Translators:
-# Daniel Nylander <po@danielnylander.se>, 2025
+# Daniel Nylander <po@danielnylander.se>, 2026
 # 
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-08-11 23:16+0000\n"
+"POT-Creation-Date: 2026-08-31 23:19+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
-"Last-Translator: Daniel Nylander <po@danielnylander.se>, 2025\n"
+"Last-Translator: Daniel Nylander <po@danielnylander.se>, 2026\n"
 "Language-Team: Swedish (https://app.transifex.com/opencloud-eu/teams/204053/sv/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -86,7 +86,7 @@ msgstr "Här kan du lägga till en beskrivning av denna arbetsyta."
 #. UnifiedRole SpaceViewer, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:110 pkg/unifiedrole/roles.go:128
 msgid "View and download including the history."
-msgstr ""
+msgstr "Visa och ladda ner, inklusive historiken."
 
 #. UnifiedRole Viewer, Role Description (resolves directly)
 #. UnifiedRole SpaceViewer, Role Description (resolves directly)
@@ -103,7 +103,7 @@ msgstr ""
 #. UnifiedRole FileEditorWithVErsions, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:176
 msgid "View, download and edit including the history."
-msgstr ""
+msgstr "Visa, ladda ner och redigera, inklusive historiken."
 
 #. UnifiedRole FileEditor, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:164
@@ -129,6 +129,8 @@ msgstr "Visa, hämta ner, redigera och visa alla inbjudna personer."
 #: pkg/unifiedrole/roles.go:140
 msgid "View, download, upload, edit, add and delete including the history."
 msgstr ""
+"Visa, ladda ner, ladda upp, redigera, lägga till och ta bort, inklusive "
+"historiken."
 
 #. UnifiedRole Editor, Role Description (resolves directly)
 #. UnifiedRole SpaseEditorWithoutVersions, Role Description (resolves
