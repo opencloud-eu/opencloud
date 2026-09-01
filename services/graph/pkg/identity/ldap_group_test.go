@@ -60,11 +60,11 @@ func TestGetGroup(t *testing.T) {
 
 	b, _ := getMockedBackend(lm, lconfig, &logger)
 	_, err := b.GetGroup(context.Background(), "group", nil)
-	assert.ErrorContains(t, err, "itemNotFound:")
+	assert.ErrorContains(t, err, "tooManyResults:")
 	_, err = b.GetGroup(context.Background(), "group", queryParamExpand)
-	assert.ErrorContains(t, err, "itemNotFound:")
+	assert.ErrorContains(t, err, "tooManyResults:")
 	_, err = b.GetGroup(context.Background(), "group", queryParamSelect)
-	assert.ErrorContains(t, err, "itemNotFound:")
+	assert.ErrorContains(t, err, "tooManyResults:")
 
 	// Mock an empty Search Result
 	lm = &mocks.Client{}

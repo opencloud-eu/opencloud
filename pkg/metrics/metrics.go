@@ -51,7 +51,6 @@ func describe(metric prometheus.Collector, initialize func() error) (string, err
 // Take a struct that contains metrics as attributes and register all of them
 // with the specified Registerer.
 func RegisterAll(registerer prometheus.Registerer, m any, logger *log.Logger) error {
-
 	// we go over all of them, use this to keep track of succeesses and failures
 	total := 0
 	succeeded := []string{}
@@ -65,8 +64,12 @@ func RegisterAll(registerer prometheus.Registerer, m any, logger *log.Logger) er
 	}
 
 	for i := 0; i < r.NumField(); i++ {
-		n := r.Type().Field(i).Name // the name of the attribute (not the name of the metric)
+		t := r.Type().Field(i)
+		n := t.Name // the name of the attribute (not the name of the metric)
 		f := r.Field(i)
+		if !f.CanInterface() {
+			continue // we won't be able to process that one, most probably because it's not exported
+		}
 		v := f.Interface()
 		switch c := v.(type) {
 		case prometheus.Collector:
@@ -95,7 +98,12 @@ func RegisterAll(registerer prometheus.Registerer, m any, logger *log.Logger) er
 					}
 				}
 			}
-		case *prometheus.Desc, prometheus.GaugeOpts, prometheus.CounterOpts, prometheus.UntypedOpts:
+		case *prometheus.Desc,
+			prometheus.GaugeOpts,
+			prometheus.CounterOpts,
+			prometheus.HistogramOpts,
+			prometheus.SummaryOpts,
+			prometheus.UntypedOpts:
 			// skip these
 		default:
 			failed[n] = fmt.Errorf("unsupported metric '%s' of type %T", n, c)
@@ -107,20 +115,29 @@ func RegisterAll(registerer prometheus.Registerer, m any, logger *log.Logger) er
 			failedMsgs = append(failedMsgs, fmt.Sprintf("'%s' (%v)", name, err))
 		}
 		msg := strings.Join(failedMsgs, ", ")
-		logger.Warn().Msgf("registered %d/%d metrics successfully (%d failed): %s", len(succeeded), total, len(failed), msg)
+		if logger != nil {
+			logger.Warn().Msgf("registered %d/%d metrics successfully (%d failed): %s", len(succeeded), total, len(failed), msg)
+		}
 		return fmt.Errorf("failed to register metrics: %s", msg)
 	} else {
-		logger.Debug().Msgf("registered %d/%d metrics successfully (%d failed)", len(succeeded), total, len(failed))
+		if logger != nil {
+			logger.Debug().Msgf("registered %d/%d metrics successfully (%d failed)", len(succeeded), total, len(failed))
+		}
 		return nil
 	}
 }
 
 // Register all the metrics that are contained as public attributes in the struct,
 // and log any errors that might occur while doing so.
-func Register[M any](logger *log.Logger, m M) (M, error) {
-	reg := NewLoggingPrometheusRegisterer(prometheus.DefaultRegisterer, logger)
-	err := RegisterAll(reg, m, logger)
+func Register[M any](reg prometheus.Registerer, m M, logger *log.Logger) (M, error) {
+	lr := NewLoggingPrometheusRegisterer(reg, logger)
+	err := RegisterAll(lr, m, logger)
 	return m, err
+}
+
+// Register a single metric.
+func RegisterMetric[M prometheus.Collector](reg prometheus.Registerer, m M, logger *log.Logger) error {
+	return NewLoggingPrometheusRegisterer(reg, logger).Register(m)
 }
 
 // Prometheus Registerer wrapper that logs every error that occurs when registering
@@ -147,7 +164,9 @@ func (r *LoggingPrometheusRegisterer) Register(c prometheus.Collector) error {
 			// silently ignore this error, as this case can happen when the suture service decides to restart
 			err = nil
 		default:
-			r.logger.Warn().Err(err).Msgf("failed to register metric")
+			if r.logger != nil {
+				r.logger.Warn().Err(err).Msgf("failed to register metric")
+			}
 		}
 	}
 	return err
@@ -156,7 +175,9 @@ func (r *LoggingPrometheusRegisterer) Register(c prometheus.Collector) error {
 func (r *LoggingPrometheusRegisterer) MustRegister(collectors ...prometheus.Collector) {
 	for _, c := range collectors {
 		if err := r.Register(c); err != nil {
-			r.logger.Error().Err(err).Msg("failed to register metrics collector")
+			if r.logger != nil {
+				r.logger.Error().Err(err).Msg("failed to register metrics collector")
+			}
 		}
 	}
 }

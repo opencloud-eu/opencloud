@@ -168,7 +168,7 @@ The output of this command includes the following information for each role:
 * `Condition`
 * `Allowed resource actions`
 
-**Example output (shortned)**
+**Example output (shortened)**
 
 ```bash
 +--------------------------------------+----------+--------------------------------+--------------------------------+------------------------------------------+
@@ -183,4 +183,96 @@ The output of this command includes the following information for each role:
 |                                      |          |                                |                                | libre.graph/driveItem/basic/read         |
 +--------------------------------------+----------+--------------------------------+--------------------------------+------------------------------------------+
 ```
+
+## API Handlers
+
+To specialize `graph` service instances in order to scale them independently, it is possible to disable its API handlers:
+
+* `GRAPH_HTTP_DISABLE`: when set to `true`, the service does not listen on HTTP and only consumes events (defaults to `false`)
+* `GRAPH_EVENTS_DISABLE_CONSUMER`: when set to `true`, the service does not consome events and only listens on HTTP (defaults to `false`)
+
+## Metrics
+
+Metrics are disabled by default, and must be enabled using the following environment variables:
+
+* `GRAPH_LDAP_METRICS_DISABLE`: set to `false` to enable metrics for the duration of outbound LDAP client operations (defaults to `true`)
+* `GRAPH_HTTP_METRICS_DISABLE`: set to `false` to enable metrics for the duration of inbound Graph HTTP API requests (defaults to `true`)
+* `GRAPH_IDENTITY_BACKEND_METRICS_DISABLE`: set to `false` to enable metrics for the duration of Graph identity backend operations (defaults to `true`)
+
+The `graph` service provides the following metrics:
+
+| Name | Description |
+| ---- | ----------- |
+| `opencloud_graph_build_info{version=...}` | Contains a label `version` that is set to the current version of the service, and always has a value of `1` |
+| `opencloud_graph_events_enabled` | Is set to `1` if the Events API handler is enabled, or `0` if not |
+| `opencloud_graph_http_enabled` | Is set to `1` if the HTTP API handler is enabled, or `0` if not |
+| `opencloud_graph_events{event=...,result=...}` | Counts the number of events that have been consumed, with a `event` label that contains the name of the event, and a `result` label that is set to `success` or `failure` |
+| `opencloud_graph_events_invalid` | Counts the number of invalid events that are malformed or are missing required data |
+| `opencloud_graph_events_unsupported` | Counts the numbef of consumed events that cannot be processes by this service, should always be `0` |
+| `opencloud_graph_user_password_changes{result=...,reason=...}` | Counts the number of user password change attempts, including the reason for failure when `result`=`failure` |
+| `opencloud_graph_http_request_duration_seconds{method=...,path=...,version=...,resource=...,code=...,result=...}` | Histogram that measures the duration of Graph HTTP API requests, in buckets |
+| `opencloud_graph_http_requests` | Gauge that counts the number of concurrent inbound HTTP requests to the Graph API |
+| `opencloud_graph_ldap_client_operation_duration_seconds{uri=...,write=...,operation=...,result=...}` | Histogram that measures the duration of outbound LDAP operations |
+| `opencloud_graph_ldap_client_operations{uri=...,write=...}` | Gauge that counts the number of concurrent outbound LDAP operations |
+| `opencloud_graph_identity_backend_api_duration_seconds{type=...,operation=...,result=...}` | Histogram that measures the duration of requests to the Graph identity backend, in buckets |
+
+To create some moderate load on a running `opencloud` instance, one can use the k6 script `load_test.js` as follows:
+
+```bash
+k6 run --vus=10 --duration=3m ./load_test.js
+```
+
+The following environment variables can be used to influence its behavior:
+
+ * `BASE_URL`: defaults to `https://localhost:9200`
+ * `USERNAME`: defaults to `alan`
+ * `PASSWORD`: defaults to `demo`
+
+For example, to use a different user and a different URL:
+
+```bash
+k6 run --vus=10 --duration=3m -e USERNAME=lynn -e BASE_URL=https://localhost:9201 ./load_test.js
+```
+
+It is not meant to be a feature test suite, but merely a small k6 script to generate some read-only load in order to make Grafana displays.
+
+### Graph User Password Change Counter Metric
+
+For `opencloud_graph_user_password_changes`:
+
+* `result` is either
+  * `success`: when the password was changed successfully
+  * `failure`: when the password could not be changed, the reason being tracked in the `reason` label
+* `reason` is either
+  * empty when `result` is `success`
+  * `invalid`: when parameters were invalid, such as the new password being an empty password
+  * `error`: when an error prevented the password change, such as a network failure
+  * `wrong-password`: when the password change was refused because the current password is wrong
+
+### Graph Inbound HTTP Request Duration Metrics
+
+For `opencloud_graph_http_request_duration_seconds`:
+
+* `method` is the HTTP method (`GET`, `PUT`, ...)
+* `path` is the canonical request path with placeholders (e.g. `/v1beta1/drives/{driveID}/root/children`)
+* `version` is the Graph API version (`v1beta` or `v1.0`)
+* `resource` is the top-level resource after the version (`me`, `application`, `drives`, ...)
+* `code` is the resulting HTTP status code (`200`, `404`, `500`, ...)
+* `result` is one of `success`, `client-error`, `server-error`
+
+### Graph Outbound LDAP Operation Duration Metrics
+
+For `opencloud_graph_ldap_client_operation_duration_seconds`:
+
+* `operation` is the name of the LDAP operation (`add`, `delete`, `modify`, `modify-dn`, ...)
+* `result` is either `success`, `failure`, `read-only` (when attempting a write operation on a LDAP server that is configured as read-only in OpenCloud) or `not-found`
+* `uri` contains the LDAP server URI the client is connected to
+* `write` is set to `1` if the LDAP client is allowed to perform write operations, or to `0` if it is configured to be read-only
+
+### Graph Identity Backend API Duration Metrics
+
+* `type` is the type of the identity backend that is being used (`ldap` or `cs3`)
+* `operation` is the name of the API operation (`create-user`, `get-users`, ...)
+* `result` is `success`, `failure` or `not-found`
+
 

@@ -1,5 +1,8 @@
 package identity
 
+//go:generate $GOWRAP gen -g -i Backend -t ./backend_prometheus.tmpl -o backend_prometheus.go
+//go:generate $GOWRAP gen -g -i EducationBackend -t ./backend_prometheus.tmpl -o education_backend_prometheus.go
+
 import (
 	"context"
 	"net/url"
@@ -18,6 +21,8 @@ var (
 	ErrReadOnly = errorcode.New(errorcode.NotAllowed, "server is configured read-only")
 	// ErrNotFound signals that the requested resource was not found.
 	ErrNotFound = errorcode.New(errorcode.ItemNotFound, "not found")
+	// ErrTooManyResults signals that multiple results were found when only one was expected
+	ErrTooManyResults = errorcode.New(errorcode.TooManyResults, "too many results")
 	// ErrUnsupportedFilter signals that the requested filter is not supported by the backend.
 	ErrUnsupportedFilter = godata.NotImplementedError("unsupported filter")
 )
@@ -26,6 +31,24 @@ const (
 	UserTypeMember    = "Member"
 	UserTypeGuest     = "Guest"
 	UserTypeFederated = "Federated"
+)
+
+const (
+	MetricOpCreateUser            = "create-user"
+	MetricOpDeleteUser            = "delete-user"
+	MetricOpUpdateUser            = "update-user"
+	MetricOpGetUser               = "get-user"
+	MetricOpGetUsers              = "get-users"
+	MetricOpFilterUsers           = "filter-users"
+	MetricOpUpdateLastSignInDate  = "update-last-signin-date"
+	MetricOpGetGroup              = "get-group"
+	MetricOpGetGroups             = "get-groups"
+	MetricOpCreateGroup           = "create-group"
+	MetricOpDeleteGroup           = "delete-group"
+	MetricOpUpdateGroupName       = "update-group-name"
+	MetricOpAddMembersToGroup     = "add-members-to-group"
+	MetricOpRemoveMemberFromGroup = "remove-member-from-group"
+	MetricOpGetGroupMembers       = "get-group-members"
 )
 
 // Backend defines the Interface for an IdentityBackend implementation
@@ -57,6 +80,36 @@ type Backend interface {
 	// RemoveMemberFromGroup removes a single member (by ID) from a group
 	RemoveMemberFromGroup(ctx context.Context, groupID string, memberID string) error
 }
+
+const (
+	MetricOpCreateEducationSchool             = "create-school"
+	MetricOpUpdateEducationSchool             = "update-school"
+	MetricOpDeleteEducationSchool             = "delete-school"
+	MetricOpGetEducationSchool                = "get-school"
+	MetricOpGetEducationSchools               = "get-schools"
+	MetricOpFilterEducationSchoolsByAttribute = "filter-schools-byattr"
+	MetricOpAddUsersToEducationSchool         = "add-eduusers-to-school"
+	MetricOpRemoveUserFromEducationSchool     = "remove-eduser-from-school"
+	MetricOpGetEducationSchoolClasses         = "get-school-classes"
+	MetricOpAddClassesToEducationSchool       = "add-classes-to-school"
+	MetricOpRemoveClassFromEducationSchool    = "remove-class-from-school"
+	MetricOpAddTeacherToEducationClass        = "add-teacher-to-class"
+	MetricOpCreateEducationUser               = "create-eduser"
+	MetricOpDeleteEducationClass              = "delete-class"
+	MetricOpDeleteEducationUser               = "delete-eduser"
+	MetricOpFilterEducationUsersByAttribute   = "filter-edusers"
+	MetricOpGetEducationClass                 = "get-class"
+	MetricOpGetEducationClassMembers          = "get-class-members"
+	MetricOpGetEducationClassTeachers         = "get-class-teachers"
+	MetricOpGetEducationClasses               = "get-classes"
+	MetricOpGetEducationSchoolUsers           = "get-school-edusers"
+	MetricOpGetEducationUser                  = "get-eduser"
+	MetricOpGetEducationUsers                 = "get-edusers"
+	MetricOpUpdateEducationUser               = "update-eduser"
+	MetricOpRemoveTeacherFromEducationClass   = "remove-teacher-from-class"
+	MetricOpUpdateEducationClass              = "update-class"
+	MetricOpCreateEducationClass              = "create-class"
+)
 
 // EducationBackend defines the Interface for an EducationBackend implementation
 type EducationBackend interface {

@@ -163,7 +163,7 @@ func (g Graph) PatchGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if reflect.ValueOf(*changes).IsZero() {
-		logger.Debug().Interface("body", r.Body).Msg("ignoring empyt request body")
+		logger.Debug().Interface("body", r.Body).Msg("ignoring empty request body")
 		render.Status(r, http.StatusNoContent)
 		render.NoContent(w, r)
 		return
@@ -176,7 +176,7 @@ func (g Graph) PatchGroup(w http.ResponseWriter, r *http.Request) {
 			errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "Invalid displayName")
 			return
 		}
-		if err = g.identityBackend.UpdateGroupName(r.Context(), groupID, displayName); err != nil {
+		if err := g.identityBackend.UpdateGroupName(r.Context(), groupID, displayName); err != nil {
 			logger.Debug().Err(err).Msg("could not update group displayName")
 			errorcode.RenderError(w, r, err)
 			return
@@ -279,7 +279,6 @@ func (g Graph) DeleteGroup(w http.ResponseWriter, r *http.Request) {
 
 	logger.Debug().Str("id", groupID).Msg("calling delete group on backend")
 	err = g.identityBackend.DeleteGroup(r.Context(), groupID)
-
 	if err != nil {
 		logger.Debug().Err(err).Msg("could not delete group: backend error")
 		errorcode.RenderError(w, r, err)
@@ -439,14 +438,15 @@ func (g Graph) DeleteGroupMember(w http.ResponseWriter, r *http.Request) {
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "missing member id")
 		return
 	}
+
 	logger.Debug().Str("groupID", groupID).Str("memberID", memberID).Msg("calling delete member on backend")
 	err = g.identityBackend.RemoveMemberFromGroup(r.Context(), groupID, memberID)
-
 	if err != nil {
 		logger.Debug().Err(err).Msg("could not delete group member: backend error")
 		errorcode.RenderError(w, r, err)
 		return
 	}
+
 	e := events.GroupMemberRemoved{
 		GroupID: groupID,
 		UserID:  memberID,

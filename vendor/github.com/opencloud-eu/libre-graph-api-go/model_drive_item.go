@@ -42,6 +42,7 @@ type DriveItem struct {
 	// An eTag for the content of the item. This eTag is not changed if only the metadata is changed. Note This property is not returned if the item is a folder. Read-only.
 	CTag *string `json:"cTag,omitempty"`
 	Deleted *Deleted `json:"deleted,omitempty"`
+	PendingOperations *PendingOperations `json:"pendingOperations,omitempty"`
 	File *OpenGraphFile `json:"file,omitempty"`
 	FileSystemInfo *FileSystemInfo `json:"fileSystemInfo,omitempty"`
 	Folder *Folder `json:"folder,omitempty"`
@@ -512,6 +513,38 @@ func (o *DriveItem) HasDeleted() bool {
 // SetDeleted gets a reference to the given Deleted and assigns it to the Deleted field.
 func (o *DriveItem) SetDeleted(v Deleted) {
 	o.Deleted = &v
+}
+
+// GetPendingOperations returns the PendingOperations field value if set, zero value otherwise.
+func (o *DriveItem) GetPendingOperations() PendingOperations {
+	if o == nil || IsNil(o.PendingOperations) {
+		var ret PendingOperations
+		return ret
+	}
+	return *o.PendingOperations
+}
+
+// GetPendingOperationsOk returns a tuple with the PendingOperations field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *DriveItem) GetPendingOperationsOk() (*PendingOperations, bool) {
+	if o == nil || IsNil(o.PendingOperations) {
+		return nil, false
+	}
+	return o.PendingOperations, true
+}
+
+// HasPendingOperations returns a boolean if a field has been set.
+func (o *DriveItem) HasPendingOperations() bool {
+	if o != nil && !IsNil(o.PendingOperations) {
+		return true
+	}
+
+	return false
+}
+
+// SetPendingOperations gets a reference to the given PendingOperations and assigns it to the PendingOperations field.
+func (o *DriveItem) SetPendingOperations(v PendingOperations) {
+	o.PendingOperations = &v
 }
 
 // GetFile returns the File field value if set, zero value otherwise.
@@ -1362,6 +1395,9 @@ func (o DriveItem) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.Deleted) {
 		toSerialize["deleted"] = o.Deleted
+	}
+	if !IsNil(o.PendingOperations) {
+		toSerialize["pendingOperations"] = o.PendingOperations
 	}
 	if !IsNil(o.File) {
 		toSerialize["file"] = o.File

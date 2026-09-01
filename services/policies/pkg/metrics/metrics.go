@@ -64,7 +64,7 @@ var Values = struct {
 }
 
 func New(registerer prometheus.Registerer, logger *log.Logger) (*Metrics, error) {
-	return ocmetrics.Register(logger, &Metrics{
+	return ocmetrics.Register(registerer, &Metrics{
 		BuildInfo: ocmetrics.BuildInfo(Namespace, Subsystem),
 		EventsEnabled: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: Namespace,
@@ -154,5 +154,5 @@ func New(registerer prometheus.Registerer, logger *log.Logger) (*Metrics, error)
 				Labels.Origin: Values.Origin.GRPC,
 			},
 		}, []string{}),
-	})
+	}, logger)
 }

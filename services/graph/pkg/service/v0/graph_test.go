@@ -25,10 +25,12 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
 	"github.com/tidwall/gjson"
 	"google.golang.org/grpc"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	v0 "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
@@ -36,6 +38,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
 	service "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 )
@@ -61,6 +64,9 @@ var _ = Describe("Graph", func() {
 	BeforeEach(func() {
 		rr = httptest.NewRecorder()
 
+		logger := log.NewLogger()
+		metrics, _ := metrics.New(prometheus.NewRegistry(), &logger, func([]string) (string, string) { return "", "" })
+
 		ctx = revactx.ContextSetUser(context.Background(), &userprovider.User{Id: &userprovider.UserId{Type: userprovider.UserType_USER_TYPE_PRIMARY, OpaqueId: "testuser"}, Username: "testuser"})
 		cfg = defaults.FullDefaultConfig()
 		cfg.Identity.LDAP.CACert = "" // skip the startup checks, we don't use LDAP at all in this tests
@@ -84,6 +90,7 @@ var _ = Describe("Graph", func() {
 		var err error
 		svc, err = service.NewService(
 			service.Config(cfg),
+			service.Metrics(metrics),
 			service.WithGatewaySelector(gatewaySelector),
 			service.EventsPublisher(&eventsPublisher),
 			service.PermissionService(&permissionService),

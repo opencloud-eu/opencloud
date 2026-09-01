@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/CiscoM31/godata"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -393,7 +393,6 @@ func (g Graph) DeleteEducationClassMember(w http.ResponseWriter, r *http.Request
 	}
 	logger.Debug().Str("classID", classID).Str("memberID", memberID).Msg("calling delete member on backend")
 	err = g.identityBackend.RemoveMemberFromGroup(r.Context(), classID, memberID)
-
 	if err != nil {
 		logger.Debug().Err(err).Msg("could not delete class member: backend error")
 		errorcode.RenderError(w, r, err)

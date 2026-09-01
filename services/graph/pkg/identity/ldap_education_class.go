@@ -28,7 +28,7 @@ func newEducationClassAttributeMap() educationClassAttributeMap {
 // GetEducationClasses implements the EducationBackend interface for the LDAP backend.
 func (i *LDAP) GetEducationClasses(ctx context.Context) ([]*libregraph.EducationClass, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("GetEducationClasses")
+	logger.Debug().Msg("GetEducationClasses")
 
 	classFilter := fmt.Sprintf("(&%s(objectClass=%s))", i.groupFilter, i.educationConfig.classObjectClass)
 
@@ -40,7 +40,7 @@ func (i *LDAP) GetEducationClasses(ctx context.Context) ([]*libregraph.Education
 		classAttrs,
 		nil,
 	)
-	logger.Debug().Str("backend", "ldap").
+	logger.Debug().
 		Str("base", searchRequest.BaseDN).
 		Str("filter", searchRequest.Filter).
 		Int("scope", searchRequest.Scope).
@@ -56,7 +56,9 @@ func (i *LDAP) GetEducationClasses(ctx context.Context) ([]*libregraph.Education
 
 	var c *libregraph.EducationClass
 	for _, e := range res.Entries {
-		if c = i.createEducationClassModelFromLDAP(e); c == nil {
+		if c, err = i.createEducationClassModelFromLDAP(e); err != nil {
+			// TODO: should we really just silently ignore invalid LDAP entries here, or rather return it as an error?
+		} else if c == nil {
 			continue
 		}
 		classes = append(classes, c)
@@ -69,7 +71,7 @@ func (i *LDAP) GetEducationClasses(ctx context.Context) ([]*libregraph.Education
 // With a few additional Attributes added on top via the "openCloudEducationClass" auxiliary ObjectClass.
 func (i *LDAP) CreateEducationClass(ctx context.Context, class libregraph.EducationClass) (*libregraph.EducationClass, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("create educationClass")
+	logger.Debug().Msg("create educationClass")
 	if !i.writeEnabled {
 		return nil, errorcode.New(errorcode.NotAllowed, "server is configured read-only")
 	}
@@ -94,19 +96,20 @@ func (i *LDAP) CreateEducationClass(ctx context.Context, class libregraph.Educat
 	if err != nil {
 		return nil, err
 	}
-	return i.createEducationClassModelFromLDAP(e), nil
+	return i.createEducationClassModelFromLDAP(e)
 }
 
 // GetEducationClass implements the EducationBackend interface for the LDAP backend.
 func (i *LDAP) GetEducationClass(ctx context.Context, id string) (*libregraph.EducationClass, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("GetEducationClass")
+	logger.Debug().Msg("GetEducationClass")
 	e, err := i.getEducationClassByID(id, false)
 	if err != nil {
 		return nil, err
 	}
 	var class *libregraph.EducationClass
-	if class = i.createEducationClassModelFromLDAP(e); class == nil {
+	if class, err = i.createEducationClassModelFromLDAP(e); err != nil || class == nil {
+		// TODO: should we really just mask invalid LDAP entries as 'not found' here, or rather the actual error?
 		return nil, errorcode.New(errorcode.ItemNotFound, "not found")
 	}
 	return class, nil
@@ -115,7 +118,7 @@ func (i *LDAP) GetEducationClass(ctx context.Context, id string) (*libregraph.Ed
 // DeleteEducationClass implements the EducationBackend interface for the LDAP backend.
 func (i *LDAP) DeleteEducationClass(ctx context.Context, id string) error {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("DeleteEducationClass")
+	logger.Debug().Msg("DeleteEducationClass")
 	if !i.writeEnabled {
 		return ErrReadOnly
 	}
@@ -137,7 +140,7 @@ func (i *LDAP) DeleteEducationClass(ctx context.Context, id string) error {
 // Only the displayName and externalID are supported to change at this point.
 func (i *LDAP) UpdateEducationClass(ctx context.Context, id string, class libregraph.EducationClass) (*libregraph.EducationClass, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("UpdateEducationClass")
+	logger.Debug().Msg("UpdateEducationClass")
 	if !i.writeEnabled {
 		return nil, ErrReadOnly
 	}
@@ -203,7 +206,7 @@ func (i *LDAP) UpdateEducationClass(ctx context.Context, id string, class libreg
 		return nil, err
 	}
 
-	return i.createEducationClassModelFromLDAP(g), nil
+	return i.createEducationClassModelFromLDAP(g)
 }
 
 func (i *LDAP) updateClassExternalID(ctx context.Context, dn, externalID string) (string, error) {
@@ -211,7 +214,7 @@ func (i *LDAP) updateClassExternalID(ctx context.Context, dn, externalID string)
 	newDN := fmt.Sprintf("openCloudEducationExternalId=%s", externalID)
 
 	mrdn := ldap.NewModifyDNRequest(dn, newDN, true, "")
-	i.logger.Debug().Str("Backend", "ldap").
+	i.logger.Debug().
 		Str("dn", mrdn.DN).
 		Str("newrdn", mrdn.NewRDN).
 		Msg("updating class external ID")
@@ -233,7 +236,7 @@ func (i *LDAP) updateClassExternalID(ctx context.Context, dn, externalID string)
 // GetEducationClassMembers implements the EducationBackend interface for the LDAP backend.
 func (i *LDAP) GetEducationClassMembers(ctx context.Context, id string) ([]*libregraph.EducationUser, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("GetEducationClassMembers")
+	logger.Debug().Msg("GetEducationClassMembers")
 	e, err := i.getEducationClassByID(id, true)
 	if err != nil {
 		return nil, err
@@ -245,7 +248,7 @@ func (i *LDAP) GetEducationClassMembers(ctx context.Context, id string) ([]*libr
 		return nil, err
 	}
 	for _, member := range memberEntries {
-		if u := i.createEducationUserModelFromLDAP(member); u != nil {
+		if u, err := i.createEducationUserModelFromLDAP(member); u != nil && err == nil {
 			result = append(result, u)
 		}
 	}
@@ -315,12 +318,18 @@ func (i *LDAP) getEducationClassByDN(dn string) (*ldap.Entry, error) {
 	return i.getEntryByDN(dn, i.getEducationClassAttrTypes(false), filter)
 }
 
-func (i *LDAP) createEducationClassModelFromLDAP(e *ldap.Entry) *libregraph.EducationClass {
-	group := i.createGroupModelFromLDAP(e)
-	return i.groupToEducationClass(*group, e)
+func (i *LDAP) createEducationClassModelFromLDAP(e *ldap.Entry) (*libregraph.EducationClass, error) {
+	if e == nil {
+		return nil, nil
+	}
+	if group, err := i.createGroupModelFromLDAP(e); err != nil {
+		return nil, err
+	} else {
+		return i.groupToEducationClass(*group, e)
+	}
 }
 
-func (i *LDAP) groupToEducationClass(group libregraph.Group, e *ldap.Entry) *libregraph.EducationClass {
+func (i *LDAP) groupToEducationClass(group libregraph.Group, e *ldap.Entry) (*libregraph.EducationClass, error) {
 	class := libregraph.NewEducationClass(group.GetDisplayName(), "")
 	class.SetId(group.GetId())
 
@@ -334,7 +343,7 @@ func (i *LDAP) groupToEducationClass(group libregraph.Group, e *ldap.Entry) *lib
 		}
 	}
 
-	return class
+	return class, nil
 }
 
 func (i *LDAP) getEducationClassLDAPDN(class libregraph.EducationClass) string {
@@ -345,6 +354,12 @@ func (i *LDAP) getEducationClassLDAPDN(class libregraph.EducationClass) string {
 	return fmt.Sprintf("%s,%s", attributeTypeAndValue.String(), i.groupBaseDN)
 }
 
+// Retrieves a single class from LDAP by its namd or id.
+//
+// It never returns nil for the *ldap.Entry:
+//   - if no class is found, it returns a ErrNotFound error
+//   - if more than one class is found, it returns a ErrTooManyResults error
+//   - if exactly one class is found, it returns that entry and no error
 func (i *LDAP) getEducationClassByID(nameOrID string, requestMembers bool) (*ldap.Entry, error) {
 	return i.getEducationObjectByNameOrID(
 		nameOrID,
@@ -372,7 +387,7 @@ func (i *LDAP) GetEducationClassTeachers(ctx context.Context, classID string) ([
 		return nil, err
 	}
 	for _, teacher := range teacherEntries {
-		if u := i.createEducationUserModelFromLDAP(teacher); u != nil {
+		if u, err := i.createEducationUserModelFromLDAP(teacher); u != nil && err == nil {
 			result = append(result, u)
 		}
 	}

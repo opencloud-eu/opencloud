@@ -27,7 +27,8 @@ type groupAttributeMap struct {
 // GetGroup implements the Backend Interface for the LDAP Backend
 func (i *LDAP) GetGroup(ctx context.Context, nameOrID string, queryParam url.Values) (*libregraph.Group, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("GetGroup")
+	logger.Debug().Msg("GetGroup")
+
 	e, err := i.getLDAPGroupByNameOrID(nameOrID, true)
 	if err != nil {
 		return nil, err
@@ -35,8 +36,8 @@ func (i *LDAP) GetGroup(ctx context.Context, nameOrID string, queryParam url.Val
 	sel := strings.Split(queryParam.Get("$select"), ",")
 	exp := strings.Split(queryParam.Get("$expand"), ",")
 	var g *libregraph.Group
-	if g = i.createGroupModelFromLDAP(e); g == nil {
-		return nil, errorcode.New(errorcode.ItemNotFound, "not found")
+	if g, err = i.createGroupModelFromLDAP(e); err != nil {
+		return nil, ErrNotFound // TODO: ideally, we would have an error that indicates invalid IDM data instead
 	}
 	if slices.Contains(sel, "members") || slices.Contains(exp, "members") {
 		members, err := i.expandLDAPAttributeEntries(ctx, e, i.groupAttributeMap.member, "")
@@ -46,7 +47,7 @@ func (i *LDAP) GetGroup(ctx context.Context, nameOrID string, queryParam url.Val
 		g.Members = make([]libregraph.User, 0, len(members))
 		if len(members) > 0 {
 			for _, ue := range members {
-				if u := i.createUserModelFromLDAP(ue); u != nil {
+				if u, err := i.createUserModelFromLDAP(ue); u != nil && err == nil {
 					g.Members = append(g.Members, *u)
 				}
 			}
@@ -58,7 +59,7 @@ func (i *LDAP) GetGroup(ctx context.Context, nameOrID string, queryParam url.Val
 // GetGroups implements the Backend Interface for the LDAP Backend
 func (i *LDAP) GetGroups(ctx context.Context, oreq *godata.GoDataRequest) ([]*libregraph.Group, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("GetGroups")
+	logger.Debug().Msg("GetGroups")
 
 	search, err := odata.GetSearchValues(oreq.Query)
 	if err != nil {
@@ -103,7 +104,7 @@ func (i *LDAP) GetGroups(ctx context.Context, oreq *godata.GoDataRequest) ([]*li
 		groupAttrs,
 		nil,
 	)
-	logger.Debug().Str("backend", "ldap").
+	logger.Debug().
 		Str("base", searchRequest.BaseDN).
 		Str("filter", searchRequest.Filter).
 		Int("scope", searchRequest.Scope).
@@ -119,8 +120,8 @@ func (i *LDAP) GetGroups(ctx context.Context, oreq *godata.GoDataRequest) ([]*li
 
 	var g *libregraph.Group
 	for _, e := range res.Entries {
-		if g = i.createGroupModelFromLDAP(e); g == nil {
-			continue
+		if g, err = i.createGroupModelFromLDAP(e); err != nil || g == nil {
+			continue // TODO: should we really silently skip 'invalid' groups here, or return an error instead?
 		}
 		if expandMembers {
 			members, err := i.expandLDAPAttributeEntries(ctx, e, i.groupAttributeMap.member, "")
@@ -130,7 +131,7 @@ func (i *LDAP) GetGroups(ctx context.Context, oreq *godata.GoDataRequest) ([]*li
 			g.Members = make([]libregraph.User, 0, len(members))
 			if len(members) > 0 {
 				for _, ue := range members {
-					if u := i.createUserModelFromLDAP(ue); u != nil {
+					if u, err := i.createUserModelFromLDAP(ue); u != nil && err == nil {
 						g.Members = append(g.Members, *u)
 					}
 				}
@@ -144,7 +145,7 @@ func (i *LDAP) GetGroups(ctx context.Context, oreq *godata.GoDataRequest) ([]*li
 // GetGroupMembers implements the Backend Interface for the LDAP Backend
 func (i *LDAP) GetGroupMembers(ctx context.Context, groupID string, req *godata.GoDataRequest) ([]*libregraph.User, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("GetGroupMembers")
+	logger.Debug().Msg("GetGroupMembers")
 
 	exp, err := odata.GetExpandValues(req.Query)
 	if err != nil {
@@ -162,18 +163,22 @@ func (i *LDAP) GetGroupMembers(ctx context.Context, groupID string, req *godata.
 	}
 
 	memberEntries, err := i.expandLDAPAttributeEntries(ctx, e, i.groupAttributeMap.member, searchTerm)
-	result := make([]*libregraph.User, 0, len(memberEntries))
 	if err != nil {
 		return nil, err
 	}
+	result := make([]*libregraph.User, 0, len(memberEntries))
 	for _, member := range memberEntries {
-		if u := i.createUserModelFromLDAP(member); u != nil {
+		if u, err := i.createUserModelFromLDAP(member); u != nil && err == nil {
 			if slices.Contains(exp, "memberOf") {
 				userGroups, err := i.getGroupsForUser(member.DN)
 				if err != nil {
 					return nil, err
 				}
-				u.MemberOf = i.groupsFromLDAPEntries(userGroups)
+				if memberOf, err := i.groupsFromLDAPEntries(userGroups); err != nil {
+					// TODO: should we really just silently ignore the LDAP data model error here? or return this as an error instead?
+				} else {
+					u.MemberOf = memberOf
+				}
 			}
 			result = append(result, u)
 		}
@@ -188,7 +193,7 @@ func (i *LDAP) GetGroupMembers(ctx context.Context, groupID string, req *godata.
 // without a member) a represented by adding an empty DN as the single member.
 func (i *LDAP) CreateGroup(ctx context.Context, group libregraph.Group) (*libregraph.Group, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("create group")
+	logger.Debug().Msg("create group")
 	if !i.writeEnabled && i.groupCreateBaseDN == i.groupBaseDN {
 		return nil, errorcode.New(errorcode.NotAllowed, "server is configured read-only")
 	}
@@ -199,7 +204,7 @@ func (i *LDAP) CreateGroup(ctx context.Context, group libregraph.Group) (*libreg
 
 	if err := i.conn.Add(ar); err != nil {
 		var lerr *ldap.Error
-		logger.Debug().Str("backend", "ldap").Str("dn", group.GetDisplayName()).Err(err).Msg("Failed to create group")
+		logger.Debug().Str("dn", group.GetDisplayName()).Err(err).Msg("Failed to create group")
 		if errors.As(err, &lerr) {
 			if lerr.ResultCode == ldap.LDAPResultEntryAlreadyExists {
 				err = errorcode.New(errorcode.NameAlreadyExists, "group already exists")
@@ -213,13 +218,13 @@ func (i *LDAP) CreateGroup(ctx context.Context, group libregraph.Group) (*libreg
 	if err != nil {
 		return nil, err
 	}
-	return i.createGroupModelFromLDAP(e), nil
+	return i.createGroupModelFromLDAP(e)
 }
 
 // DeleteGroup implements the Backend Interface.
 func (i *LDAP) DeleteGroup(ctx context.Context, id string) error {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("DeleteGroup")
+	logger.Debug().Msg("DeleteGroup")
 	if !i.writeEnabled && i.groupCreateBaseDN == i.groupBaseDN {
 		return errorcode.New(errorcode.NotAllowed, "server is configured read-only")
 	}
@@ -243,7 +248,7 @@ func (i *LDAP) DeleteGroup(ctx context.Context, id string) error {
 // UpdateGroupName implements the Backend Interface.
 func (i *LDAP) UpdateGroupName(ctx context.Context, groupID string, groupName string) error {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("AddMembersToGroup")
+	logger.Debug().Msg("UpdateGroupName")
 	if !i.writeEnabled && i.groupCreateBaseDN == i.groupBaseDN {
 		return errorcode.New(errorcode.NotAllowed, "server is configured read-only")
 	}
@@ -289,7 +294,7 @@ func (i *LDAP) UpdateGroupName(ctx context.Context, groupID string, groupName st
 // as members is not yet implemented
 func (i *LDAP) AddMembersToGroup(ctx context.Context, groupID string, memberIDs []string) error {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("AddMembersToGroup")
+	logger.Debug().Msg("AddMembersToGroup")
 	if !i.writeEnabled && i.groupCreateBaseDN == i.groupBaseDN {
 		return errorcode.New(errorcode.NotAllowed, "server is configured read-only")
 	}
@@ -353,7 +358,7 @@ func (i *LDAP) AddMembersToGroup(ctx context.Context, groupID string, memberIDs 
 		}
 		nDN, err := ldapdn.ParseNormalize(me.DN)
 		if err != nil {
-			logger.Error().Str("new member", me.DN).Err(err).Msg("Couldn't parse DN")
+			logger.Error().Err(err).Str("memberId", memberID).Str("new-member", me.DN).Msg("Couldn't parse DN")
 			return err
 		}
 		if _, present := currentSet[nDN]; !present {
@@ -403,14 +408,14 @@ func (i *LDAP) AddMembersToGroup(ctx context.Context, groupID string, memberIDs 
 // RemoveMemberFromGroup implements the Backend Interface.
 func (i *LDAP) RemoveMemberFromGroup(ctx context.Context, groupID string, memberID string) error {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("RemoveMemberFromGroup")
+	logger.Debug().Msg("RemoveMemberFromGroup")
 	if !i.writeEnabled && i.groupCreateBaseDN == i.groupBaseDN {
 		return errorcode.New(errorcode.NotAllowed, "server is configured read-only")
 	}
 
 	ge, err := i.getLDAPGroupByID(groupID, true)
 	if err != nil {
-		logger.Debug().Str("backend", "ldap").Str("groupID", groupID).Msg("Error looking up group")
+		logger.Debug().Str("groupID", groupID).Msg("Error looking up group")
 		return err
 	}
 
@@ -420,14 +425,18 @@ func (i *LDAP) RemoveMemberFromGroup(ctx context.Context, groupID string, member
 
 	me, err := i.getLDAPUserByID(memberID)
 	if err != nil {
-		logger.Debug().Str("backend", "ldap").Str("memberID", memberID).Msg("Error looking up group member")
+		logger.Debug().Str("memberID", memberID).Msg("Error looking up group member")
 		return err
 	}
 
-	logger.Debug().Str("backend", "ldap").Str("groupdn", ge.DN).Str("member", me.DN).Msg("remove member")
+	logger.Debug().Str("groupdn", ge.DN).Str("member", me.DN).Msg("removing member")
 
 	if err = i.removeEntryByDNAndAttributeFromEntry(ge, me.DN, i.groupAttributeMap.member); err != nil {
-		logger.Error().Err(err).Str("backend", "ldap").Str("group", groupID).Str("member", memberID).Msg("Failed to remove member from group.")
+		msg := "Failed to remove member from group."
+		if errorcode.IsErrorCode(err, errorcode.ItemNotFound) {
+			msg = "Failed to find member to remove in group."
+		}
+		logger.Error().Err(err).Str("group", groupID).Str("member", memberID).Msg(msg)
 	}
 	return err
 }
@@ -501,11 +510,15 @@ func (i *LDAP) getLDAPGroupByFilter(filter string, requestMembers bool) (*ldap.E
 	if err != nil {
 		return nil, err
 	}
-	if len(e) == 0 {
-		return nil, errorcode.New(errorcode.ItemNotFound, "not found")
-	}
 
-	return e[0], nil
+	switch len(e) {
+	case 0:
+		return nil, ErrNotFound
+	case 1:
+		return e[0], nil
+	default:
+		return nil, ErrTooManyResults
+	}
 }
 
 // Search for LDAP Groups matching the specified filter, if requestMembers is true the groupMemberShip
@@ -531,7 +544,7 @@ func (i *LDAP) getLDAPGroupsByFilter(filter string, requestMembers, single bool)
 		attrs,
 		nil,
 	)
-	i.logger.Debug().Str("backend", "ldap").
+	i.logger.Debug().
 		Str("base", searchRequest.BaseDN).
 		Str("filter", searchRequest.Filter).
 		Int("scope", searchRequest.Scope).
@@ -540,14 +553,15 @@ func (i *LDAP) getLDAPGroupsByFilter(filter string, requestMembers, single bool)
 		Msg("getLDAPGroupsByFilter")
 	res, err := i.conn.Search(searchRequest)
 	if err != nil {
-		var errmsg string
-		if lerr, ok := err.(*ldap.Error); ok {
-			if lerr.ResultCode == ldap.LDAPResultSizeLimitExceeded {
-				errmsg = fmt.Sprintf("too many results searching for group '%s'", filter)
-				i.logger.Debug().Str("backend", "ldap").Err(lerr).Msg(errmsg)
-			}
+		msg := "failed to search for LDAP groups"
+		errMap := ldapResultToErrMap{
+			ldap.LDAPResultNoSuchObject:             errorcode.New(errorcode.ItemNotFound, msg),
+			ldap.LDAPResultUnwillingToPerform:       errorcode.New(errorcode.NotAllowed, msg),
+			ldap.LDAPResultInsufficientAccessRights: errorcode.New(errorcode.NotAllowed, msg),
+			ldap.LDAPResultSizeLimitExceeded:        errorcode.New(errorcode.TooManyResults, msg),
+			ldapGenericErr:                          errorcode.New(errorcode.GeneralException, msg),
 		}
-		return nil, errorcode.New(errorcode.ItemNotFound, errmsg)
+		return nil, i.mapLDAPError(err, errMap)
 	}
 	return res.Entries, nil
 }
@@ -577,11 +591,15 @@ func (i *LDAP) getGroupsForUser(dn string) ([]*ldap.Entry, error) {
 	return userGroups, nil
 }
 
-func (i *LDAP) createGroupModelFromLDAP(e *ldap.Entry) *libregraph.Group {
+func (i *LDAP) createGroupModelFromLDAP(e *ldap.Entry) (*libregraph.Group, error) {
+	if e == nil {
+		return nil, nil
+	}
 	name := e.GetEqualFoldAttributeValue(i.groupAttributeMap.name)
 	id, err := i.ldapUUIDtoString(e, i.groupAttributeMap.id, i.groupIDisOctetString)
 	if err != nil {
 		i.logger.Warn().Str("dn", e.DN).Str(i.groupAttributeMap.id, e.GetEqualFoldAttributeValue(i.groupAttributeMap.id)).Msg("Invalid User. Cannot convert UUID")
+		return nil, err
 	}
 	groupTypes := []string{}
 
@@ -594,10 +612,10 @@ func (i *LDAP) createGroupModelFromLDAP(e *ldap.Entry) *libregraph.Group {
 			DisplayName: &name,
 			Id:          &id,
 			GroupTypes:  groupTypes,
-		}
+		}, nil
 	}
 	i.logger.Warn().Str("dn", e.DN).Msg("Group is missing name or id")
-	return nil
+	return nil, errors.New("LDAP group is missing name or id")
 }
 
 func (i *LDAP) isLDAPGroupReadOnly(e *ldap.Entry) bool {
@@ -616,12 +634,21 @@ func (i *LDAP) isLDAPGroupReadOnly(e *ldap.Entry) bool {
 	return !baseDN.AncestorOfFold(groupDN)
 }
 
-func (i *LDAP) groupsFromLDAPEntries(e []*ldap.Entry) []libregraph.Group {
+func (i *LDAP) groupsFromLDAPEntries(e []*ldap.Entry) ([]libregraph.Group, error) {
 	groups := make([]libregraph.Group, 0, len(e))
+	errs := []error{}
 	for _, g := range e {
-		if grp := i.createGroupModelFromLDAP(g); grp != nil {
+		if grp, err := i.createGroupModelFromLDAP(g); err != nil {
+			// don't bail out here, continue processing the other elements in range to give
+			// the caller the opportunity to decide whether to ignore these or not
+			errs = append(errs, err)
+		} else if grp != nil {
 			groups = append(groups, *grp)
 		}
 	}
-	return groups
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
+	} else {
+		return groups, nil
+	}
 }

@@ -14,9 +14,11 @@ import (
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	settings "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
@@ -24,6 +26,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config/defaults"
 	identitymocks "github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
 	service "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
 )
 
@@ -48,8 +51,10 @@ var _ = Describe("Applications", func() {
 	BeforeEach(func() {
 		eventsPublisher.On("Publish", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
+		logger := log.NewLogger()
 		identityBackend = &identitymocks.Backend{}
 		roleService = &mocks.RoleService{}
+		metrics, _ := metrics.New(prometheus.NewRegistry(), &logger, func([]string) (string, string) { return "", "" })
 
 		pool.RemoveSelector("GatewaySelector" + "eu.opencloud.api.gateway")
 		gatewayClient = &cs3mocks.GatewayAPIClient{}
@@ -74,6 +79,7 @@ var _ = Describe("Applications", func() {
 		var err error
 		svc, err = service.NewService(
 			service.Config(cfg),
+			service.Metrics(metrics),
 			service.WithGatewaySelector(gatewaySelector),
 			service.EventsPublisher(&eventsPublisher),
 			service.WithIdentityBackend(identityBackend),

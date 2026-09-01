@@ -116,7 +116,7 @@ func newSchoolAttributeMap() schoolAttributeMap {
 // CreateEducationSchool creates the supplied school in the identity backend.
 func (i *LDAP) CreateEducationSchool(ctx context.Context, school libregraph.EducationSchool) (*libregraph.EducationSchool, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("CreateEducationSchool")
+	logger.Debug().Msg("CreateEducationSchool")
 	if !i.writeEnabled {
 		return nil, ErrReadOnly
 	}
@@ -175,7 +175,7 @@ func (i *LDAP) CreateEducationSchool(ctx context.Context, school libregraph.Educ
 	if err != nil {
 		return nil, err
 	}
-	return i.createSchoolModelFromLDAP(e), nil
+	return i.createSchoolModelFromLDAP(e)
 }
 
 // UpdateEducationSchoolOperation contains the logic for which update operation to apply to a school
@@ -229,7 +229,7 @@ func (i *LDAP) updateDisplayName(ctx context.Context, dn string, providedDisplay
 	}
 
 	mrdn := ldap.NewModifyDNRequest(dn, attributeTypeAndValue.String(), true, "")
-	i.logger.Debug().Str("backend", "ldap").
+	i.logger.Debug().
 		Str("dn", mrdn.DN).
 		Str("newrdn", mrdn.NewRDN).
 		Msg("updateDisplayName")
@@ -286,7 +286,7 @@ func (i *LDAP) updateSchoolProperties(ctx context.Context, dn string, currentSch
 // UpdateEducationSchool updates the supplied school in the identity backend
 func (i *LDAP) UpdateEducationSchool(ctx context.Context, numberOrID string, school libregraph.EducationSchool) (*libregraph.EducationSchool, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("UpdateEducationSchool")
+	logger.Debug().Msg("UpdateEducationSchool")
 	if !i.writeEnabled {
 		return nil, ErrReadOnly
 	}
@@ -296,12 +296,15 @@ func (i *LDAP) UpdateEducationSchool(ctx context.Context, numberOrID string, sch
 		return nil, err
 	}
 
-	currentSchool := i.createSchoolModelFromLDAP(e)
+	currentSchool, err := i.createSchoolModelFromLDAP(e)
+	if err != nil {
+		return nil, err
+	}
 	switch i.updateEducationSchoolOperation(school, *currentSchool) {
 	case tooManyValues:
-		return nil, fmt.Errorf("school name and school number cannot be updated in the same request")
+		return nil, errors.New("school name and school number cannot be updated in the same request")
 	case schoolUnchanged:
-		logger.Debug().Str("backend", "ldap").Msg("UpdateEducationSchool: Nothing changed")
+		logger.Debug().Msg("UpdateEducationSchool: Nothing changed")
 		return currentSchool, nil
 	case schoolRenamed:
 		if err := i.updateDisplayName(ctx, e.DN, school.GetDisplayName()); err != nil {
@@ -318,16 +321,17 @@ func (i *LDAP) UpdateEducationSchool(ctx context.Context, numberOrID string, sch
 	if err != nil {
 		return nil, err
 	}
-	return i.createSchoolModelFromLDAP(e), nil
+	return i.createSchoolModelFromLDAP(e)
 }
 
 // DeleteEducationSchool deletes a given school, identified by id
 func (i *LDAP) DeleteEducationSchool(ctx context.Context, id string) error {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("DeleteEducationSchool")
+	logger.Debug().Msg("DeleteEducationSchool")
 	if !i.writeEnabled {
 		return ErrReadOnly
 	}
+
 	e, err := i.getSchoolByNumberOrID(id)
 	if err != nil {
 		return err
@@ -345,13 +349,14 @@ func (i *LDAP) DeleteEducationSchool(ctx context.Context, id string) error {
 // GetEducationSchool implements the EducationBackend interface for the LDAP backend.
 func (i *LDAP) GetEducationSchool(ctx context.Context, numberOrID string) (*libregraph.EducationSchool, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("GetEducationSchool")
+	logger.Debug().Msg("GetEducationSchool")
+
 	e, err := i.getSchoolByNumberOrID(numberOrID)
 	if err != nil {
 		return nil, err
 	}
 
-	return i.createSchoolModelFromLDAP(e), nil
+	return i.createSchoolModelFromLDAP(e)
 }
 
 // GetEducationSchools implements the EducationBackend interface for the LDAP backend.
@@ -366,7 +371,7 @@ func (i *LDAP) GetEducationSchools(ctx context.Context) ([]*libregraph.Education
 // FilterEducationSchoolsByAttribute implements the EducationBackend interface for the LDAP backend.
 func (i *LDAP) FilterEducationSchoolsByAttribute(ctx context.Context, attr, value string) ([]*libregraph.EducationSchool, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx).With().Str("func", "FilterEducationSchoolsByAttribute").Logger()
-	logger.Debug().Str("backend", "ldap").Str("attribute", attr).Str("value", value).Msg("")
+	logger.Debug().Str("attribute", attr).Str("value", value).Send()
 
 	var ldapAttr string
 	switch attr {
@@ -395,7 +400,7 @@ func (i *LDAP) searchEducationSchools(ctx context.Context, filter string) ([]*li
 		nil,
 	)
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").
+	logger.Debug().
 		Str("base", searchRequest.BaseDN).
 		Str("filter", searchRequest.Filter).
 		Int("scope", searchRequest.Scope).
@@ -405,17 +410,27 @@ func (i *LDAP) searchEducationSchools(ctx context.Context, filter string) ([]*li
 
 	res, err := i.conn.Search(searchRequest)
 	if err != nil {
-		return nil, errorcode.New(errorcode.ItemNotFound, err.Error())
+		msg := "school search failed"
+		errMap := ldapResultToErrMap{
+			ldap.LDAPResultNoSuchObject:             errorcode.New(errorcode.ItemNotFound, msg),
+			ldap.LDAPResultUnwillingToPerform:       errorcode.New(errorcode.NotAllowed, msg),
+			ldap.LDAPResultInsufficientAccessRights: errorcode.New(errorcode.NotAllowed, msg),
+			ldapGenericErr:                          errorcode.New(errorcode.GeneralException, msg),
+		}
+		return nil, i.mapLDAPError(err, errMap)
+	}
+	if res == nil {
+		return nil, ErrNotFound
 	}
 
 	schools := make([]*libregraph.EducationSchool, 0, len(res.Entries))
 	for _, e := range res.Entries {
-		school := i.createSchoolModelFromLDAP(e)
-		// Skip invalid LDAP entries
-		if school == nil {
-			continue
+		if school, err := i.createSchoolModelFromLDAP(e); err != nil || school == nil {
+			// Skip invalid LDAP entries
+			// TODO: is it really the best idea to silently skip school LDAP data that is invalid, rather than returning an error?
+		} else {
+			schools = append(schools, school)
 		}
-		schools = append(schools, school)
 	}
 	return schools, nil
 }
@@ -423,7 +438,7 @@ func (i *LDAP) searchEducationSchools(ctx context.Context, filter string) ([]*li
 // GetEducationSchoolUsers implements the EducationBackend interface for the LDAP backend.
 func (i *LDAP) GetEducationSchoolUsers(ctx context.Context, schoolNumberOrID string) ([]*libregraph.EducationUser, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("GetEducationSchoolUsers")
+	logger.Debug().Msg("GetEducationSchoolUsers")
 
 	entries, err := i.getEducationSchoolEntries(
 		schoolNumberOrID, i.userFilter, i.educationConfig.userObjectClass, i.userBaseDN, i.userScope, i.getEducationUserAttrTypes(), logger,
@@ -435,12 +450,12 @@ func (i *LDAP) GetEducationSchoolUsers(ctx context.Context, schoolNumberOrID str
 	users := make([]*libregraph.EducationUser, 0, len(entries))
 
 	for _, e := range entries {
-		u := i.createEducationUserModelFromLDAP(e)
-		// Skip invalid LDAP users
-		if u == nil {
-			continue
+		if u, err := i.createEducationUserModelFromLDAP(e); u != nil && err == nil {
+			users = append(users, u)
+		} else {
+			// Skip invalid LDAP users
+			// TODO: is it really the best idea to silently skip school user LDAP data that is invalid, rather than returning an error?
 		}
-		users = append(users, u)
 	}
 	return users, nil
 }
@@ -448,13 +463,12 @@ func (i *LDAP) GetEducationSchoolUsers(ctx context.Context, schoolNumberOrID str
 // AddUsersToEducationSchool adds new members (reference by a slice of IDs) to supplied school in the identity backend.
 func (i *LDAP) AddUsersToEducationSchool(ctx context.Context, schoolNumberOrID string, memberIDs []string) error {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("AddUsersToEducationSchool")
+	logger.Debug().Msg("AddUsersToEducationSchool")
 
 	schoolEntry, err := i.getSchoolByNumberOrID(schoolNumberOrID)
 	if err != nil {
 		return err
 	}
-
 	if schoolEntry == nil {
 		return ErrNotFound
 	}
@@ -463,12 +477,12 @@ func (i *LDAP) AddUsersToEducationSchool(ctx context.Context, schoolNumberOrID s
 
 	userEntries := make([]*ldap.Entry, 0, len(memberIDs))
 	for _, memberID := range memberIDs {
-		user, err := i.getEducationUserByNameOrID(memberID)
-		if err != nil {
-			i.logger.Warn().Str("userid", memberID).Msg("User does not exist")
+		if user, err := i.getEducationUserByNameOrID(memberID); err != nil {
+			i.logger.Warn().Err(err).Str("userid", memberID).Msg("Failed to retrieve education user")
 			return errorcode.New(errorcode.ItemNotFound, fmt.Sprintf("user '%s' not found", memberID))
+		} else {
+			userEntries = append(userEntries, user)
 		}
-		userEntries = append(userEntries, user)
 	}
 
 	for _, userEntry := range userEntries {
@@ -494,23 +508,20 @@ func (i *LDAP) addEntryToSchool(entry *ldap.Entry, schoolID string) error {
 // RemoveUserFromEducationSchool removes a single member (by ID) from a school
 func (i *LDAP) RemoveUserFromEducationSchool(ctx context.Context, schoolNumberOrID string, memberID string) error {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("RemoveUserFromEducationSchool")
+	logger.Debug().Msg("RemoveUserFromEducationSchool")
 
 	schoolEntry, err := i.getSchoolByNumberOrID(schoolNumberOrID)
 	if err != nil {
 		return err
 	}
 
-	if schoolEntry == nil {
-		return ErrNotFound
-	}
-
 	schoolID := schoolEntry.GetEqualFoldAttributeValue(i.educationConfig.schoolAttributeMap.id)
 	user, err := i.getEducationUserByNameOrID(memberID)
 	if err != nil {
-		i.logger.Warn().Str("userid", memberID).Msg("User does not exist")
+		i.logger.Warn().Err(err).Str("userid", memberID).Msg("Failed to retrieve education user")
 		return err
 	}
+
 	currentSchools := user.GetEqualFoldAttributeValues(i.educationConfig.memberOfSchoolAttribute)
 	for _, currentSchool := range currentSchools {
 		if currentSchool == schoolID {
@@ -528,7 +539,7 @@ func (i *LDAP) RemoveUserFromEducationSchool(ctx context.Context, schoolNumberOr
 // GetEducationSchoolClasses implements the EducationBackend interface for the LDAP backend.
 func (i *LDAP) GetEducationSchoolClasses(ctx context.Context, schoolNumberOrID string) ([]*libregraph.EducationClass, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("GetEducationSchoolClasses")
+	logger.Debug().Msg("GetEducationSchoolClasses")
 
 	entries, err := i.getEducationSchoolEntries(
 		schoolNumberOrID, i.groupFilter, i.educationConfig.classObjectClass, i.groupBaseDN, i.groupScope, i.getEducationClassAttrTypes(false), logger,
@@ -540,12 +551,13 @@ func (i *LDAP) GetEducationSchoolClasses(ctx context.Context, schoolNumberOrID s
 	classes := make([]*libregraph.EducationClass, 0, len(entries))
 
 	for _, e := range entries {
-		class := i.createEducationClassModelFromLDAP(e)
-		// Skip invalid LDAP classes
-		if class == nil {
-			continue
+		if class, err := i.createEducationClassModelFromLDAP(e); err != nil || class == nil {
+			// Skip invalid LDAP classes
+			logger.Warn().Err(err).Str("school-number", schoolNumberOrID).Interface("entry", e).Msg("failed to create class model from LDAP")
+			continue // TODO: should we really silently skip invalid LDAP data here, or rather return this as an error?
+		} else {
+			classes = append(classes, class)
 		}
-		classes = append(classes, class)
 	}
 	return classes, nil
 }
@@ -578,7 +590,7 @@ func (i *LDAP) getEducationSchoolEntries(
 		attributes,
 		nil,
 	)
-	logger.Debug().Str("backend", "ldap").
+	logger.Debug().
 		Str("base", searchRequest.BaseDN).
 		Str("filter", searchRequest.Filter).
 		Int("scope", searchRequest.Scope).
@@ -587,7 +599,17 @@ func (i *LDAP) getEducationSchoolEntries(
 		Msg("GetEducationClasses")
 	res, err := i.conn.Search(searchRequest)
 	if err != nil {
-		return nil, errorcode.New(errorcode.ItemNotFound, err.Error())
+		msg := "school search failed"
+		errMap := ldapResultToErrMap{
+			ldap.LDAPResultNoSuchObject:             ErrNotFound,
+			ldap.LDAPResultUnwillingToPerform:       errorcode.New(errorcode.NotAllowed, msg),
+			ldap.LDAPResultInsufficientAccessRights: errorcode.New(errorcode.NotAllowed, msg),
+			ldapGenericErr:                          errorcode.New(errorcode.GeneralException, msg),
+		}
+		return nil, i.mapLDAPError(err, errMap)
+	}
+	if res == nil {
+		return nil, ErrNotFound
 	}
 	return res.Entries, nil
 }
@@ -595,13 +617,12 @@ func (i *LDAP) getEducationSchoolEntries(
 // AddClassesToEducationSchool adds new members (reference by a slice of IDs) to supplied school in the identity backend.
 func (i *LDAP) AddClassesToEducationSchool(ctx context.Context, schoolNumberOrID string, memberIDs []string) error {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("AddClassesToEducationSchool")
+	logger.Debug().Msg("AddClassesToEducationSchool")
 
 	schoolEntry, err := i.getSchoolByNumberOrID(schoolNumberOrID)
 	if err != nil {
 		return err
 	}
-
 	if schoolEntry == nil {
 		return ErrNotFound
 	}
@@ -612,7 +633,7 @@ func (i *LDAP) AddClassesToEducationSchool(ctx context.Context, schoolNumberOrID
 	for _, memberID := range memberIDs {
 		class, err := i.getEducationClassByID(memberID, false)
 		if err != nil {
-			i.logger.Warn().Str("userid", memberID).Msg("Class does not exist")
+			i.logger.Warn().Err(err).Str("userid", memberID).Msg("Failed to retrieve class")
 			return err
 		}
 		classEntries = append(classEntries, class)
@@ -630,13 +651,12 @@ func (i *LDAP) AddClassesToEducationSchool(ctx context.Context, schoolNumberOrID
 // RemoveClassFromEducationSchool removes a single member (by ID) from a school
 func (i *LDAP) RemoveClassFromEducationSchool(ctx context.Context, schoolNumberOrID string, memberID string) error {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("RemoveClassFromEducationSchool")
+	logger.Debug().Msg("RemoveClassFromEducationSchool")
 
 	schoolEntry, err := i.getSchoolByNumberOrID(schoolNumberOrID)
 	if err != nil {
 		return err
 	}
-
 	if schoolEntry == nil {
 		return ErrNotFound
 	}
@@ -644,7 +664,7 @@ func (i *LDAP) RemoveClassFromEducationSchool(ctx context.Context, schoolNumberO
 	schoolID := schoolEntry.GetEqualFoldAttributeValue(i.educationConfig.schoolAttributeMap.id)
 	class, err := i.getEducationClassByID(memberID, false)
 	if err != nil {
-		i.logger.Warn().Str("userid", memberID).Msg("Class does not exist")
+		i.logger.Warn().Err(err).Str("userid", memberID).Msg("Failed to retrieve class")
 		return err
 	}
 	currentSchools := class.GetEqualFoldAttributeValues(i.educationConfig.memberOfSchoolAttribute)
@@ -661,6 +681,12 @@ func (i *LDAP) RemoveClassFromEducationSchool(ctx context.Context, schoolNumberO
 	return nil
 }
 
+// Retrieves a single school from LDAP by its DN
+//
+// It never returns nil for the *ldap.Entry:
+//   - if no school is found, it returns a ErrNotFound error
+//   - if more than one school is found, it returns a ErrTooManyResults error
+//   - if exactly one school is found, it returns that entry and no error
 func (i *LDAP) getSchoolByDN(dn string) (*ldap.Entry, error) {
 	filter := fmt.Sprintf("(objectClass=%s)", i.educationConfig.schoolObjectClass)
 
@@ -670,6 +696,12 @@ func (i *LDAP) getSchoolByDN(dn string) (*ldap.Entry, error) {
 	return i.getEntryByDN(dn, i.getEducationSchoolAttrTypes(), filter)
 }
 
+// Retrieves a single school from LDAP by a given school number or id
+//
+// It never returns nil for the *ldap.Entry:
+//   - if no school is found, it returns a ErrNotFound error
+//   - if more than one school is found, it returns a ErrTooManyResults error
+//   - if exactly one school is found, it returns that entry and no error
 func (i *LDAP) getSchoolByNumberOrID(numberOrID string) (*ldap.Entry, error) {
 	numberOrID = ldap.EscapeFilter(numberOrID)
 	filter := fmt.Sprintf(
@@ -682,6 +714,12 @@ func (i *LDAP) getSchoolByNumberOrID(numberOrID string) (*ldap.Entry, error) {
 	return i.getSchoolByFilter(filter)
 }
 
+// Retrieves a single school from LDAP by a given school number
+//
+// It never returns nil for the *ldap.Entry:
+//   - if no school is found, it returns a ErrNotFound error
+//   - if more than one school is found, it returns a ErrTooManyResults error
+//   - if exactly one school is found, it returns that entry and no error
 func (i *LDAP) getSchoolByNumber(schoolNumber string) (*ldap.Entry, error) {
 	schoolNumber = ldap.EscapeFilter(schoolNumber)
 	filter := fmt.Sprintf(
@@ -692,6 +730,12 @@ func (i *LDAP) getSchoolByNumber(schoolNumber string) (*ldap.Entry, error) {
 	return i.getSchoolByFilter(filter)
 }
 
+// Retrieves a single school from LDAP by a given filter
+//
+// It never returns nil for the *ldap.Entry:
+//   - if no school is found, it returns a ErrNotFound error
+//   - if more than one school is found, it returns a ErrTooManyResults error
+//   - if exactly one school is found, it returns that entry and no error
 func (i *LDAP) getSchoolByFilter(filter string) (*ldap.Entry, error) {
 	filter = fmt.Sprintf("(&%s(objectClass=%s)%s)",
 		i.educationConfig.schoolFilter,
@@ -706,7 +750,7 @@ func (i *LDAP) getSchoolByFilter(filter string) (*ldap.Entry, error) {
 		i.getEducationSchoolAttrTypes(),
 		nil,
 	)
-	i.logger.Debug().Str("backend", "ldap").
+	i.logger.Debug().
 		Str("base", searchRequest.BaseDN).
 		Str("filter", searchRequest.Filter).
 		Int("scope", searchRequest.Scope).
@@ -715,26 +759,30 @@ func (i *LDAP) getSchoolByFilter(filter string) (*ldap.Entry, error) {
 		Msg("getSchoolByFilter")
 	res, err := i.conn.Search(searchRequest)
 	if err != nil {
-		var errmsg string
-		if lerr, ok := err.(*ldap.Error); ok {
-			if lerr.ResultCode == ldap.LDAPResultSizeLimitExceeded {
-				errmsg = fmt.Sprintf("too many results searching for school '%s'", filter)
-				i.logger.Debug().Str("backend", "ldap").Err(lerr).
-					Str("schoolfilter", filter).Msg("too many results searching for school")
-			}
+		msg := "school search failed"
+		errMap := ldapResultToErrMap{
+			ldap.LDAPResultNoSuchObject:             errorcode.New(errorcode.ItemNotFound, msg),
+			ldap.LDAPResultUnwillingToPerform:       errorcode.New(errorcode.NotAllowed, msg),
+			ldap.LDAPResultInsufficientAccessRights: errorcode.New(errorcode.NotAllowed, msg),
+			ldap.LDAPResultSizeLimitExceeded:        errorcode.New(errorcode.TooManyResults, msg),
+			ldapGenericErr:                          errorcode.New(errorcode.GeneralException, msg),
 		}
-		return nil, errorcode.New(errorcode.ItemNotFound, errmsg)
-	}
-	if len(res.Entries) == 0 {
-		return nil, ErrNotFound
+		return nil, i.mapLDAPError(err, errMap)
 	}
 
-	return res.Entries[0], nil
+	switch len(res.Entries) {
+	case 0:
+		return nil, ErrNotFound
+	case 1:
+		return res.Entries[0], nil
+	default:
+		return nil, ErrTooManyResults
+	}
 }
 
-func (i *LDAP) createSchoolModelFromLDAP(e *ldap.Entry) *libregraph.EducationSchool {
+func (i *LDAP) createSchoolModelFromLDAP(e *ldap.Entry) (*libregraph.EducationSchool, error) {
 	if e == nil {
-		return nil
+		return nil, nil
 	}
 
 	displayName := i.getDisplayName(e)
@@ -750,7 +798,7 @@ func (i *LDAP) createSchoolModelFromLDAP(e *ldap.Entry) *libregraph.EducationSch
 
 	if id == "" || displayName == "" {
 		i.logger.Warn().Str("dn", e.DN).Str("id", id).Str("displayName", displayName).Msg("Invalid School. Missing required attribute")
-		return nil
+		return nil, errors.New("Invalid school: missing required attribute id or displayName")
 	}
 
 	school := libregraph.NewEducationSchool()
@@ -765,7 +813,7 @@ func (i *LDAP) createSchoolModelFromLDAP(e *ldap.Entry) *libregraph.EducationSch
 	if t != nil {
 		school.SetTerminationDate(*t)
 	}
-	return school
+	return school, nil
 }
 
 func (i *LDAP) getSchoolNumber(e *ldap.Entry) string {

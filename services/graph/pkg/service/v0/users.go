@@ -757,9 +757,11 @@ func (g Graph) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	if (g.config.UserSoftDeleteRetentionTime > 0 && us.State == userstate.UserStateSoftDeleted && purgeUser) ||
 		(g.config.UserSoftDeleteRetentionTime == 0) {
 		logger.Debug().Str("id", user.GetId()).Msg("calling delete user on backend")
-		err = g.identityBackend.DeleteUser(r.Context(), user.GetId())
+		err := g.identityBackend.DeleteUser(r.Context(), user.GetId())
 		if err != nil {
-			logger.Debug().Err(err).Msg("could not delete user: backend error")
+			// since cases where the user cannot be found in the backend don't return an error,
+			// we can safely log this as an error:
+			logger.Error().Err(err).Msg("could not delete user: backend error")
 			errorcode.RenderError(w, r, err)
 			return
 		}
@@ -769,7 +771,13 @@ func (g Graph) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logger.Error().Err(err).Str("id", userID).Msg("could not set user state")
 			errorcode.RenderError(w, r, err)
+			return
 		}
+
+		// user has successfully been hard-deleted
+		e := events.UserDeleted{UserID: user.GetId()}
+		e.Executant = currentUser.GetId()
+		g.publishEvent(r.Context(), e)
 	} else {
 		logger.Debug().Str("id", user.GetId()).Msg("calling soft delete user on backend")
 		userUpdate := *libregraph.NewUserUpdate()
@@ -778,33 +786,40 @@ func (g Graph) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		us.RetentionPeriod = g.config.UserSoftDeleteRetentionTime
 		us.Reason = "User soft deleted via Graph API" // TODO: this needs a proper implementation through the request
 		us.TimeStamp = time.Now()
-		err = g.setUserStateToNatsKeyValue(r.Context(), userID, us)
-		if err != nil {
+		if err := g.setUserStateToNatsKeyValue(r.Context(), userID, us); err != nil {
 			logger.Error().Err(err).Str("id", userID).Msg("could not set user state")
 			errorcode.RenderError(w, r, err)
 			return
 		}
-		g.identityBackend.UpdateUser(r.Context(), user.GetId(), userUpdate)
+		// note: logging these as WARN for backwards compatibility reason since they previously were not logged at all
+		if softDeletedUser, err := g.identityBackend.UpdateUser(r.Context(), user.GetId(), userUpdate); err != nil {
+			if errorcode.IsErrorCode(err, errorcode.ItemNotFound) {
+				// in thie case, an attempt to perform a soft-delete on a user failed because the user was not found,
+				// in which case we don't treat this as an error, as it is most certainly caused by a parallel operation
+				// that performed a hard-delete on that user.
+				logger.Warn().Err(err).Str("id", userID).Msg("failed to update user for soft-deletion because the user was not found")
+			} else {
+				// any other error does denote a failure to soft-delete that user though, and should be treated as such
+				logger.Error().Err(err).Str("id", userID).Msg("failed to update user")
+				errorcode.RenderError(w, r, err)
+				return
+			}
+		} else {
+			// user has successfully been soft-deleted
+			e := events.UserSoftDeleted{
+				UserID:        softDeletedUser.GetId(),
+				RetentionTime: g.config.UserSoftDeleteRetentionTime,
+				Timestamp: &v1beta1.Timestamp{
+					Seconds: uint64(time.Now().Unix()),
+					Nanos:   uint32(time.Now().Nanosecond()),
+				},
+				Reason: "User deleted via Graph API", // TODO: this needs a proper implementation through the request
+			}
+			e.Executant = currentUser.GetId()
+			g.publishEvent(r.Context(), e)
+		}
 	}
 
-	if g.config.UserSoftDeleteRetentionTime == 0 ||
-		(g.config.UserSoftDeleteRetentionTime > 0 && purgeUser && us.State == userstate.UserStateSoftDeleted) {
-		e := events.UserDeleted{UserID: user.GetId()}
-		e.Executant = currentUser.GetId()
-		g.publishEvent(r.Context(), e)
-	} else {
-		e := events.UserSoftDeleted{
-			UserID:        user.GetId(),
-			RetentionTime: g.config.UserSoftDeleteRetentionTime,
-			Timestamp: &v1beta1.Timestamp{
-				Seconds: uint64(time.Now().Unix()),
-				Nanos:   uint32(time.Now().Nanosecond()),
-			},
-			Reason: "User deleted via Graph API", // TODO: this needs a proper implementation through the request
-		}
-		e.Executant = currentUser.GetId()
-		g.publishEvent(r.Context(), e)
-	}
 	render.Status(r, http.StatusNoContent)
 	render.NoContent(w, r)
 }
@@ -885,6 +900,12 @@ func (g Graph) patchUser(w http.ResponseWriter, r *http.Request, nameOrID string
 	if err != nil {
 		logger.Debug().Err(err).Str("id", nameOrID).Msg("could not get user: backend error")
 		errorcode.RenderError(w, r, err)
+		return
+	}
+	if oldUserValues == nil {
+		// this is an error
+		logger.Debug().Err(err).Interface("query", r.URL.Query()).Msg("could not get user: user not found in backend")
+		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "user not found")
 		return
 	}
 

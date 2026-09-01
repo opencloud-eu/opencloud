@@ -1,0 +1,73 @@
+import (
+  "errors"
+  "time"
+
+  "github.com/go-ldap/ldap/v3"
+  "github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
+  "github.com/prometheus/client_golang/prometheus"
+)
+
+{{ $decorator := (or .Vars.DecoratorName (printf "Prometheus%s" .Interface.Name)) }}
+
+// {{$decorator}} implements {{.Interface.Type}} interface with all methods wrapped
+// with Prometheus metrics
+type {{$decorator}} struct {
+  delegate {{.Interface.Type}}
+  metric   *prometheus.HistogramVec
+}
+
+var _ {{.Interface.Type}} = &{{$decorator}}{}
+
+// returns an instance of the {{.Interface.Type}} decorated with prometheus metric
+func New{{$decorator}}(delegate {{.Interface.Type}}, metric *prometheus.HistogramVec) {{$decorator}} {
+  return {{$decorator}} {
+    delegate: delegate,
+    metric: metric,
+  }
+}
+
+{{range $method := .Interface.Methods}}
+  // {{$method.Name}} implements {{$.Interface.Type}}.{{$method.Name}}
+  func (_d {{$decorator}}) {{$method.Declaration}} {
+    _since := time.Now()
+    defer func() {
+      duration := time.Since(_since).Seconds()
+      result := MetricResultSuccess
+      {{- if $method.ReturnsError}}
+      if err != nil {
+        result = MetricResultFailure
+        if err == ErrReadOnly {
+          result = MetricResultReadOnly
+        }
+        if e, ok := errorcode.ToError(err); ok {
+          if e.GetCode() == errorcode.ItemNotFound {
+            result = MetricResultNotFound
+          }
+        }
+      } else {
+        {{- if or (hasPrefix "Get" $method.Name) }}
+          {{- range $i, $result := $method.Results }}
+            {{- if and (hasPrefix "*" $result.Type) (not (hasPrefix "*[]" $result.Type)) }}
+              // it's a get operation that returns a pointer (and not an array): check whether that's nil or not
+              if {{$result.Name}} == nil {
+                result = MetricResultNotFound
+              }{{break}}
+            {{end}}
+          {{end}}
+        {{end}}
+        {{- range $i, $result := $method.Results }}
+          {{- if eq $result.Type "error" }}
+            if e, ok := errorcode.ToError(err); ok {
+              if e.GetCode() == errorcode.ItemNotFound {
+                result = MetricResultNotFound
+              }
+            }
+          {{end}}
+        {{end}}
+      }
+      {{end}}
+      _d.metric.WithLabelValues(MetricOp{{upFirst $method.Name}}, result).Observe(duration)
+    }()
+    {{$method.Pass "_d.delegate."}}
+  }
+{{end}}

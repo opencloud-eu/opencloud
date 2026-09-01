@@ -28,6 +28,22 @@ type CS3 struct {
 	GatewaySelector pool.Selectable[gateway.GatewayAPIClient]
 }
 
+var _ Backend = &CS3{}
+
+func NewCS3Backend(config *shared.Reva, gatewaySelector pool.Selectable[gateway.GatewayAPIClient], logger *log.Logger) (*CS3, error) {
+	logger = &log.Logger{Logger: logger.With().
+		// Str("backend", "cs3"). // already added upstream
+		Str("gateway", config.Address).
+		Logger(),
+	}
+
+	return &CS3{
+		Config:          config,
+		GatewaySelector: gatewaySelector,
+		Logger:          logger,
+	}, nil
+}
+
 // CreateUser implements the Backend Interface. It's currently not supported for the CS3 backend
 func (i *CS3) CreateUser(ctx context.Context, user libregraph.User) (*libregraph.User, error) {
 	return nil, errNotImplemented

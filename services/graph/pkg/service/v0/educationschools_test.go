@@ -19,16 +19,19 @@ import (
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
 
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	identitymocks "github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
 	service "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
 )
 
@@ -66,7 +69,9 @@ var _ = Describe("Schools", func() {
 			},
 		)
 
+		logger := log.NewLogger()
 		identityEducationBackend = &identitymocks.EducationBackend{}
+		metrics, _ := metrics.New(prometheus.NewRegistry(), &logger, func([]string) (string, string) { return "", "" })
 		newSchool = libregraph.NewEducationSchool()
 		newSchool.SetId("school1")
 
@@ -83,6 +88,7 @@ var _ = Describe("Schools", func() {
 		var err error
 		svc, err = service.NewService(
 			service.Config(cfg),
+			service.Metrics(metrics),
 			service.WithGatewaySelector(gatewaySelector),
 			service.WithIdentityEducationBackend(identityEducationBackend),
 		)

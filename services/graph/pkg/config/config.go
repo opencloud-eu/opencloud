@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
+	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
 )
 
 // Config combines all available configuration parts.
@@ -59,6 +60,10 @@ type Spaces struct {
 	TranslationPath                 string `yaml:"translation_path" env:"OC_TRANSLATION_PATH;GRAPH_TRANSLATION_PATH" desc:"(optional) Set this to a path with custom translations to overwrite the builtin translations. Note that file and folder naming rules apply, see the documentation for more details." introductionVersion:"1.0.0"`
 }
 
+type LDAPMetrics struct {
+	Disabled bool `yaml:"disabled" env:"GRAPH_LDAP_METRICS_DISABLE" desc:"Disables the metrics for outbound LDAP operations." introductionVersion:"%NEXT%"`
+}
+
 type LDAP struct {
 	URI                string `yaml:"uri" env:"OC_LDAP_URI;GRAPH_LDAP_URI" desc:"URI of the LDAP Server to connect to. Supported URI schemes are 'ldaps://' and 'ldap://'" introductionVersion:"1.0.0"`
 	CACert             string `yaml:"cacert" env:"OC_LDAP_CACERT;GRAPH_LDAP_CACERT" desc:"Path/File name for the root CA certificate (in PEM format) used to validate TLS server certificates of the LDAP service. If not defined, the root directory derives from $OC_BASE_DATA_PATH/idm." introductionVersion:"1.0.0"`
@@ -96,6 +101,8 @@ type LDAP struct {
 
 	EducationResourcesEnabled bool `yaml:"education_resources_enabled" env:"GRAPH_LDAP_EDUCATION_RESOURCES_ENABLED" desc:"Enable LDAP support for managing education related resources." introductionVersion:"1.0.0"`
 	EducationConfig           LDAPEducationConfig
+
+	Metrics LDAPMetrics `yaml:"metrics"`
 }
 
 // LDAPEducationConfig represents the LDAP configuration for education related resources
@@ -113,9 +120,14 @@ type LDAPEducationConfig struct {
 	SchoolTerminationGraceDays int `yaml:"school_termination_min_grace_days" env:"GRAPH_LDAP_SCHOOL_TERMINATION_MIN_GRACE_DAYS" desc:"When setting a 'terminationDate' for a school, require the date to be at least this number of days in the future." introductionVersion:"1.0.0"`
 }
 
+type IdentityMetrics struct {
+	Disabled bool `yaml:"disabled" env:"GRAPH_IDENTITY_BACKEND_METRICS_DISABLE" desc:"Disables the metrics for inbound identity backend operations." introductionVersion:"%NEXT%"`
+}
+
 type Identity struct {
-	Backend string `yaml:"backend" env:"GRAPH_IDENTITY_BACKEND" desc:"The user identity backend to use. Supported backend types are 'ldap' and 'cs3'." introductionVersion:"1.0.0"`
-	LDAP    LDAP   `yaml:"ldap"`
+	Backend string          `yaml:"backend" env:"GRAPH_IDENTITY_BACKEND" desc:"The user identity backend to use. Supported backend types are 'ldap' and 'cs3'." introductionVersion:"1.0.0"`
+	LDAP    LDAP            `yaml:"ldap"`
+	Metrics IdentityMetrics `yaml:"metrics"`
 }
 
 // API represents API configuration parameters.
@@ -129,6 +141,7 @@ type API struct {
 
 // Events combines the configuration options for the event bus.
 type Events struct {
+	DisabledConsumer     bool   `yaml:"disabled_consumer" env:"GRAPH_EVENTS_DISABLE_CONSUMER" desc:"Disables consuming events. Set this to true if the service should only handle HTTP requests." introductionVersion:"%NEXT%"`
 	Endpoint             string `yaml:"endpoint" env:"OC_EVENTS_ENDPOINT;GRAPH_EVENTS_ENDPOINT" desc:"The address of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture. Set to a empty string to disable emitting events." introductionVersion:"1.0.0"`
 	Cluster              string `yaml:"cluster" env:"OC_EVENTS_CLUSTER;GRAPH_EVENTS_CLUSTER" desc:"The clusterID of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture." introductionVersion:"1.0.0"`
 	TLSInsecure          bool   `yaml:"tls_insecure" env:"OC_INSECURE;OC_EVENTS_TLS_INSECURE;GRAPH_EVENTS_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"1.0.0"`
@@ -136,6 +149,18 @@ type Events struct {
 	EnableTLS            bool   `yaml:"enable_tls" env:"OC_EVENTS_ENABLE_TLS;GRAPH_EVENTS_ENABLE_TLS" desc:"Enable TLS for the connection to the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	AuthUsername         string `yaml:"username" env:"OC_EVENTS_AUTH_USERNAME;GRAPH_EVENTS_AUTH_USERNAME" desc:"The username to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	AuthPassword         string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD;GRAPH_EVENTS_AUTH_PASSWORD" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
+}
+
+func (e Events) ToNatsConfig() stream.NatsConfig {
+	return stream.NatsConfig{
+		Endpoint:             e.Endpoint,
+		Cluster:              e.Cluster,
+		TLSInsecure:          e.TLSInsecure,
+		TLSRootCACertificate: e.TLSRootCACertificate,
+		EnableTLS:            e.EnableTLS,
+		AuthUsername:         e.AuthUsername,
+		AuthPassword:         e.AuthPassword,
+	}
 }
 
 // CORS defines the available cors configuration.

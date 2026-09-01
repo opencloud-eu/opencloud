@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
 
@@ -25,11 +26,13 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/graph/mocks"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config/defaults"
 	identitymocks "github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
 	service "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 )
@@ -72,7 +75,9 @@ var _ = Describe("Driveitems", func() {
 			},
 		)
 
+		logger := log.NewLogger()
 		identityBackend = &identitymocks.Backend{}
+		metrics, _ := metrics.New(prometheus.NewRegistry(), &logger, func([]string) (string, string) { return "", "" })
 		newGroup = libregraph.NewGroup()
 		newGroup.SetMembersodataBind([]string{"/users/user1"})
 		newGroup.SetId("group1")
@@ -89,6 +94,7 @@ var _ = Describe("Driveitems", func() {
 		var err error
 		svc, err = service.NewService(
 			service.Config(cfg),
+			service.Metrics(metrics),
 			service.WithGatewaySelector(gatewaySelector),
 			service.EventsPublisher(&eventsPublisher),
 			service.WithIdentityBackend(identityBackend),
@@ -333,6 +339,27 @@ var _ = Describe("Driveitems", func() {
 				Expect(res.Value[0].Location).To(BeNil())
 				Expect(res.Value[0].LibreGraphMeFollowing).To(BeNil())
 				Expect(res.Value[0].LibreGraphTags).To(BeNil())
+				Expect(res.Value[0].PendingOperations).To(BeNil())
+			})
+
+			It("reports a pending content update while the item is being processed", func() {
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:   provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:     &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:   "etag",
+							Mtime:  utils.TimeToTS(mtime),
+							Opaque: utils.AppendPlainToOpaque(nil, "status", "processing"),
+						},
+					},
+				}, nil)
+
+				res := assertItemsList(1)
+				Expect(res.Value[0].PendingOperations).ToNot(BeNil())
+				Expect(res.Value[0].PendingOperations.PendingContentUpdate).ToNot(BeNil())
+				Expect(res.Value[0].PendingOperations.PendingContentUpdate.QueuedDateTime).To(BeNil())
 			})
 
 			It("returns tags if metadata is available", func() {

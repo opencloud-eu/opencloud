@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	stdhttp "net/http"
+	"sync/atomic"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	revaMetadata "github.com/opencloud-eu/reva/v2/pkg/storage/utils/metadata"
 	"go-micro.dev/v4"
@@ -16,7 +16,6 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/account"
 	"github.com/opencloud-eu/opencloud/pkg/cors"
-	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/keycloak"
 	"github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
@@ -27,12 +26,14 @@ import (
 	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
 	graphMiddleware "github.com/opencloud-eu/opencloud/services/graph/pkg/middleware"
 	svc "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
 )
 
 // Server initializes the http service and server.
-func Server(opts ...Option) (http.Service, error) {
+func Server(identityBackend identity.Backend, eduBackend identity.EducationBackend, eventsStream events.Stream, opts ...Option) (http.Service, error) {
 	options := newOptions(opts...)
 
 	service, err := http.NewService(
@@ -53,20 +54,6 @@ func Server(opts ...Option) (http.Service, error) {
 		return http.Service{}, fmt.Errorf("could not initialize http service: %w", err)
 	}
 
-	var eventsStream events.Stream
-
-	if options.Config.Events.Endpoint != "" {
-		var err error
-		connName := generators.GenerateConnectionName(options.Config.Service.Name, generators.NTypeBus)
-		eventsStream, err = stream.NatsFromConfig(connName, false, stream.NatsConfig(options.Config.Events))
-		if err != nil {
-			options.Logger.Error().
-				Err(err).
-				Msg("Error initializing events publisher")
-			return http.Service{}, fmt.Errorf("could not initialize events publisher: %w", err)
-		}
-	}
-
 	middlewares := []func(stdhttp.Handler) stdhttp.Handler{
 		middleware.TraceContext,
 		chimiddleware.RequestID,
@@ -77,6 +64,15 @@ func Server(opts ...Option) (http.Service, error) {
 		middleware.Logger(
 			options.Logger,
 		),
+	}
+
+	if !options.Config.HTTP.Metrics.Disabled {
+		var inFlight atomic.Int64
+		middlewares = append(middlewares, metrics.HTTPMetrics(&inFlight, options.Metrics.RecordHTTPDuration))
+		options.Metrics.InitHttpInFlightGauge(&inFlight)
+	}
+
+	middlewares = append(middlewares,
 		middleware.Cors(
 			cors.Logger(options.Logger),
 			cors.AllowedOrigins(options.Config.HTTP.CORS.AllowedOrigins),
@@ -84,7 +80,8 @@ func Server(opts ...Option) (http.Service, error) {
 			cors.AllowedHeaders(options.Config.HTTP.CORS.AllowedHeaders),
 			cors.AllowCredentials(options.Config.HTTP.CORS.AllowCredentials),
 		),
-	}
+	)
+
 	// how do we secure the api?
 	var requireAdminMiddleware func(stdhttp.Handler) stdhttp.Handler
 	var roleService svc.RoleService
@@ -167,9 +164,9 @@ func Server(opts ...Option) (http.Service, error) {
 		svc.UserProfilePhotoService(userProfilePhotoService),
 		svc.Logger(options.Logger),
 		svc.Config(options.Config),
+		svc.Metrics(options.Metrics),
 		svc.Middleware(middlewares...),
-		svc.EventsPublisher(eventsStream),
-		svc.EventsConsumer(eventsStream),
+		svc.EventsPublisher(eventsStream), // is required even when event consumption is disabled
 		svc.WithRoleService(roleService),
 		svc.WithValueService(valueService),
 		svc.WithRequireAdminMiddleware(requireAdminMiddleware),
@@ -179,6 +176,8 @@ func Server(opts ...Option) (http.Service, error) {
 		svc.EventHistoryClient(hClient),
 		svc.TraceProvider(options.TraceProvider),
 		svc.WithNatsKeyValue(options.NatsKeyValue),
+		svc.WithIdentityBackend(identityBackend),
+		svc.WithIdentityEducationBackend(eduBackend),
 	)
 
 	if err != nil {

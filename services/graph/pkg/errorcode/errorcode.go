@@ -50,6 +50,8 @@ const (
 	InvalidRequest
 	// ItemNotFound defines the error if the resource could not be found.
 	ItemNotFound
+	// TooManyResults defines the error if multiple results are found for a unique resource.
+	TooManyResults
 	// MalwareDetected defines the error if malware was detected in the requested resource.
 	MalwareDetected
 	// NameAlreadyExists defines the error if the specified item name already exists.
@@ -84,6 +86,7 @@ var errorCodes = [...]string{
 	"invalidRange",
 	"invalidRequest",
 	"itemNotFound",
+	"tooManyResults",
 	"malwareDetected",
 	"nameAlreadyExists",
 	"notAllowed",
@@ -205,4 +208,17 @@ func ToError(err error) (Error, bool) {
 	}
 
 	return Error{}, false
+}
+
+// Returns true if the error is of type Error and has an ErrorCode that matches
+// the one specified as the second parameter, and false if not.
+func IsErrorCode(err error, code ErrorCode) bool {
+	if err == nil {
+		return false
+	}
+	if e, ok := ToError(err); ok {
+		return e.errorCode == code
+	} else {
+		return false
+	}
 }

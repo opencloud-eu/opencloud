@@ -13,7 +13,8 @@ include ../../.make/release.mk
 include ../../.make/docs.mk
 
 .PHONY: go-generate
-go-generate: $(MOCKERY)
+go-generate: $(MOCKERY) $(GOWRAP)
+	GOWRAP=$(GOWRAP) go generate ./...
 	$(MOCKERY)
 
 .PHONY: l10n-pull

@@ -942,6 +942,8 @@ github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89 h1:W1ms+l
 github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89/go.mod h1:vigJkNss1N2QEceCuNw/ullDehncuJNFB6mEnzfq9UI=
 github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260818063016-69f82a7dde55 h1:dzYZ5iA6i0QoFUap9l6sZ4Ts2HXiXVfsOoiRYToYgm8=
 github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260818063016-69f82a7dde55/go.mod h1:lTM8JeGblNpoMySTW7Lui2+c5TTLI95mwxtdUIHHrhU=
+github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260901070651-08a5330ce57d h1:3zbb31655ZvqwLMWMIiUAhYer6YcFnv/oguujnX7aOU=
+github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260901070651-08a5330ce57d/go.mod h1:lTM8JeGblNpoMySTW7Lui2+c5TTLI95mwxtdUIHHrhU=
 github.com/opencloud-eu/reva/v2 v2.49.0 h1:AwECMDDth3NUaihZRf9bI9HNpWutvaRijOCvQyQfTT4=
 github.com/opencloud-eu/reva/v2 v2.49.0/go.mod h1:Frg+UWnVcSy+412UB3l2LcD0KY8ZNu1samimwkNywbg=
 github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4 h1:l2oB/RctH+t8r7QBj5p8thfEHCM/jF35aAY3WQ3hADI=

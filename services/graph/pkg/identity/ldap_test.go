@@ -14,12 +14,13 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
 func getMockedBackend(l ldap.Client, lc config.LDAP, logger *log.Logger) (*LDAP, error) {
-	return NewLDAPBackend(l, lc, logger)
+	return NewLDAPBackend(l, lc, logger, "opencloud", "test", prometheus.NewRegistry())
 }
 
 const (
@@ -105,31 +106,35 @@ var ldapUserAttributes = []string{"displayname", "entryUUID", "mail", "uid", "sn
 func TestNewLDAPBackend(t *testing.T) {
 	l := &mocks.Client{}
 
+	newBackend := func(c config.LDAP) (*LDAP, error) {
+		return NewLDAPBackend(l, c, &logger, "opencloud", "test", prometheus.NewRegistry())
+	}
+
 	tc := lconfig
 	tc.UserDisplayNameAttribute = ""
-	if _, err := NewLDAPBackend(l, tc, &logger); err == nil {
+	if _, err := newBackend(tc); err == nil {
 		t.Error("Should fail with incomplete user attr config")
 	}
 
 	tc = lconfig
 	tc.GroupIDAttribute = ""
-	if _, err := NewLDAPBackend(l, tc, &logger); err == nil {
+	if _, err := newBackend(tc); err == nil {
 		t.Errorf("Should fail with incomplete group	config")
 	}
 
 	tc = lconfig
 	tc.UserSearchScope = ""
-	if _, err := NewLDAPBackend(l, tc, &logger); err == nil {
+	if _, err := newBackend(tc); err == nil {
 		t.Errorf("Should fail with invalid user search scope")
 	}
 
 	tc = lconfig
 	tc.GroupSearchScope = ""
-	if _, err := NewLDAPBackend(l, tc, &logger); err == nil {
+	if _, err := newBackend(tc); err == nil {
 		t.Errorf("Should fail with invalid group search scope")
 	}
 
-	if _, err := NewLDAPBackend(l, lconfig, &logger); err != nil {
+	if _, err := newBackend(lconfig); err != nil {
 		t.Errorf("Should fail with invalid group search scope")
 	}
 }
@@ -172,7 +177,7 @@ func TestCreateUser(t *testing.T) {
 
 	c := lconfig
 	c.UseServerUUID = true
-	b, _ := NewLDAPBackend(l, c, &logger)
+	b, _ := NewLDAPBackend(l, c, &logger, "opencloud", "test", prometheus.NewRegistry())
 
 	newUser, err := b.CreateUser(context.Background(), *user)
 	assert.Nil(t, err)
@@ -189,12 +194,16 @@ func TestCreateUserModelFromLDAP(t *testing.T) {
 	l := &mocks.Client{}
 	logger := log.NewLogger(log.Level("debug"))
 
-	b, _ := NewLDAPBackend(l, lconfig, &logger)
-	if user := b.createUserModelFromLDAP(nil); user != nil {
-		t.Errorf("createUserModelFromLDAP should return on nil Entry")
+	b, _ := NewLDAPBackend(l, lconfig, &logger, "opencloud", "test", prometheus.NewRegistry())
+	{
+		res, err := b.createUserModelFromLDAP(nil)
+		assert.NoError(t, err)
+		assert.Nil(t, res)
 	}
-	user := b.createUserModelFromLDAP(userEntry)
-	if user == nil {
+	user, err := b.createUserModelFromLDAP(userEntry)
+	if err != nil {
+		t.Error("Converting a valid LDAP Entry should succeed and not return an error")
+	} else if user == nil {
 		t.Error("Converting a valid LDAP Entry should succeed")
 	} else {
 		if user.OnPremisesSamAccountName != userEntry.GetEqualFoldAttributeValue(b.userAttributeMap.userName) {
@@ -233,10 +242,10 @@ func TestGetUser(t *testing.T) {
 	}
 
 	_, err = b.GetUser(context.Background(), "fred", odataReqDefault)
-	assert.ErrorContains(t, err, "itemNotFound:")
+	assert.ErrorContains(t, err, "user search failed")
 
 	_, err = b.GetUser(context.Background(), "fred", odataReqExpand)
-	assert.ErrorContains(t, err, "itemNotFound:")
+	assert.ErrorContains(t, err, "user search failed")
 
 	// Mock an empty Search Result
 	lm = &mocks.Client{}
@@ -285,7 +294,7 @@ func TestGetUser(t *testing.T) {
 
 	b, _ = getMockedBackend(lm, lconfig, &logger)
 	_, err = b.GetUser(context.Background(), "invalid", nil)
-	assert.ErrorContains(t, err, "itemNotFound:")
+	assert.ErrorContains(t, err, "Invalid User")
 }
 
 func TestGetUserAD(t *testing.T) {

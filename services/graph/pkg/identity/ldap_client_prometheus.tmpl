@@ -1,0 +1,62 @@
+import (
+  "errors"
+  "time"
+  "sync/atomic"
+
+  "github.com/go-ldap/ldap/v3"
+  "github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
+  "github.com/prometheus/client_golang/prometheus"
+)
+
+{{ $decorator := (or .Vars.DecoratorName (printf "Prometheus%s" .Interface.Name)) }}
+
+// {{$decorator}} implements {{.Interface.Type}} interface with all methods wrapped
+// with Prometheus metrics
+type {{$decorator}} struct {
+  delegate {{.Interface.Type}}
+  timer    *prometheus.HistogramVec
+  inflight *atomic.Int64
+}
+
+var _ {{.Interface.Type}} = &{{$decorator}}{}
+
+// returns an instance of the {{.Interface.Type}} decorated with prometheus metric
+func New{{$decorator}}(delegate {{.Interface.Type}}, timer *prometheus.HistogramVec, inflight *atomic.Int64) {{$decorator}} {
+  return {{$decorator}} {
+    delegate: delegate,
+    timer: timer,
+    inflight: inflight,
+  }
+}
+
+{{range $method := .Interface.Methods}}
+  // {{$method.Name}} implements {{$.Interface.Type}}.{{$method.Name}}
+  func (_d {{$decorator}}) {{$method.Declaration}} {
+    _d.inflight.Add(1)
+	  defer _d.inflight.Add(-1)
+
+    _since := time.Now()
+    defer func() {
+      duration := time.Since(_since).Seconds()
+      result := metrics.ResultSuccess
+      {{- if $method.ReturnsError}}
+      if err != nil {
+  			if err == ErrReadOnly {
+				  result = metrics.ResultReadOnly
+			  } else {
+          result = metrics.ResultFailure
+          var lerr *ldap.Error
+          if errors.As(err, &lerr) {
+            if lerr != nil && lerr.ResultCode == ldap.LDAPResultNoSuchObject {
+              result = metrics.ResultNotFound
+            }
+          }
+        }
+      }
+      {{end}}
+      _d.timer.WithLabelValues(LdapOp{{upFirst $method.Name}}, result).Observe(duration)
+    }()
+
+    {{$method.Pass "_d.delegate."}}
+  }
+{{end}}

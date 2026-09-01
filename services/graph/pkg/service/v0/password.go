@@ -11,6 +11,7 @@ import (
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 )
@@ -21,6 +22,7 @@ func (g Graph) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u, ok := revactx.ContextGetUser(ctx)
 	if !ok {
+		g.metrics.UserPasswordChanges.WithLabelValues(metrics.ResultFailure, metrics.ReasonInvalid)
 		g.logger.Error().Msg("user not in context")
 		errorcode.ServiceNotAvailable.Render(w, r, http.StatusInternalServerError, "user not in context")
 		return
@@ -29,6 +31,7 @@ func (g Graph) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 	sanitizedPath := strings.TrimPrefix(r.URL.Path, "/graph/v1.0/")
 	_, err := godata.ParseRequest(r.Context(), sanitizedPath, r.URL.Query())
 	if err != nil {
+		g.metrics.UserPasswordChanges.WithLabelValues(metrics.ResultFailure, metrics.ReasonInvalid)
 		g.logger.Err(err).Interface("query", r.URL.Query()).Msg("query error")
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, err.Error())
 		return
@@ -36,23 +39,27 @@ func (g Graph) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 	cpw := libregraph.NewPasswordChangeWithDefaults()
 	err = StrictJSONUnmarshal(r.Body, cpw)
 	if err != nil {
+		g.metrics.UserPasswordChanges.WithLabelValues(metrics.ResultFailure, metrics.ReasonInvalid)
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	currentPw := cpw.GetCurrentPassword()
 	if currentPw == "" {
+		g.metrics.UserPasswordChanges.WithLabelValues(metrics.ResultFailure, metrics.ReasonInvalid)
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "current password cannot be empty")
 		return
 	}
 
 	newPw := cpw.GetNewPassword()
 	if newPw == "" {
+		g.metrics.UserPasswordChanges.WithLabelValues(metrics.ResultFailure, metrics.ReasonInvalid)
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "new password cannot be empty")
 		return
 	}
 
 	if newPw == currentPw {
+		g.metrics.UserPasswordChanges.WithLabelValues(metrics.ResultFailure, metrics.ReasonInvalid)
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "new password must be different from current password")
 		return
 	}
@@ -64,11 +71,13 @@ func (g Graph) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	client, err := g.gatewaySelector.Next()
 	if err != nil {
+		g.metrics.UserPasswordChanges.WithLabelValues(metrics.ResultFailure, metrics.ReasonError)
 		errorcode.ServiceNotAvailable.Render(w, r, http.StatusInternalServerError, "could not select next gateway client, aborting")
 		return
 	}
 	authRes, err := client.Authenticate(r.Context(), authReq)
 	if err != nil {
+		g.metrics.UserPasswordChanges.WithLabelValues(metrics.ResultFailure, metrics.ReasonError)
 		errorcode.ServiceNotAvailable.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -77,9 +86,11 @@ func (g Graph) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 	case cs3rpc.Code_CODE_OK:
 		break
 	case cs3rpc.Code_CODE_UNAUTHENTICATED, cs3rpc.Code_CODE_PERMISSION_DENIED:
+		g.metrics.UserPasswordChanges.WithLabelValues(metrics.ResultFailure, metrics.ReasonWrongPassword)
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "wrong current password")
 		return
 	default:
+		g.metrics.UserPasswordChanges.WithLabelValues(metrics.ResultFailure, metrics.ReasonError)
 		errorcode.InvalidRequest.Render(w, r, http.StatusInternalServerError, "password change failed")
 		return
 	}
@@ -88,10 +99,17 @@ func (g Graph) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 	newPwProfile.SetPassword(newPw)
 	changes := libregraph.NewUserUpdate()
 	changes.SetPasswordProfile(*newPwProfile)
-	_, err = g.identityBackend.UpdateUser(ctx, u.Id.OpaqueId, *changes)
+	found, err := g.identityBackend.UpdateUser(ctx, u.Id.OpaqueId, *changes)
 	if err != nil {
+		g.metrics.UserPasswordChanges.WithLabelValues(metrics.ResultFailure, metrics.ReasonError)
 		errorcode.InvalidRequest.Render(w, r, http.StatusInternalServerError, "password change failed")
 		g.logger.Debug().Err(err).Str("userid", u.Id.OpaqueId).Msg("failed to update user password")
+		return
+	}
+	if found == nil {
+		g.metrics.UserPasswordChanges.WithLabelValues(metrics.ResultFailure, metrics.ReasonInvalid)
+		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "password change failed")
+		g.logger.Debug().Err(err).Str("userid", u.Id.OpaqueId).Msg("failed to update user password: user not found in backend")
 		return
 	}
 
@@ -106,6 +124,8 @@ func (g Graph) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 			},
 		},
 	)
+
+	g.metrics.UserPasswordChanges.WithLabelValues(metrics.ResultSuccess, "")
 
 	render.Status(r, http.StatusNoContent)
 	render.NoContent(w, r)

@@ -92,7 +92,7 @@ func TestGetEducationClasses(t *testing.T) {
 	g, err = b.GetEducationClasses(context.Background())
 	if err != nil {
 		t.Errorf("Expected GetEducationClasses to succeed. Got %s", err.Error())
-	} else if *g[0].Id != classEntry.GetEqualFoldAttributeValue(b.groupAttributeMap.id) {
+	} else if len(g) == 0 || *g[0].Id != classEntry.GetEqualFoldAttributeValue(b.groupAttributeMap.id) {
 		t.Errorf("Expected GetEducationClasses to return a valid group")
 	}
 }

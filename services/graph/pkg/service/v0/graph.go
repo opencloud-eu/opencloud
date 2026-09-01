@@ -26,6 +26,7 @@ import (
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
 )
 
 // Permissions is the interface used to access the permissions service
@@ -63,13 +64,15 @@ type Graph struct {
 	valueService             settingssvc.ValueService
 	specialDriveItemsCache   *ttlcache.Cache[string, any]
 	eventsPublisher          events.Publisher
-	eventsConsumer           events.Consumer
 	searchService            searchsvc.SearchProviderService
 	keycloakClient           keycloak.Client
 	historyClient            ehsvc.EventHistoryService
+	metrics                  *metrics.Metrics
 	traceProvider            trace.TracerProvider
 	natskv                   jetstream.KeyValue
 }
+
+var _ Service = Graph{} // ensure that the Graph struct implements all of the Service interface
 
 // ServeHTTP implements the Service interface.
 func (g Graph) ServeHTTP(w http.ResponseWriter, r *http.Request) {

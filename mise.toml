@@ -4,6 +4,8 @@ node = "24"
 pnpm = "11.1.3"
 "go:github.com/go-delve/delve/cmd/dlv" = "1.27.1"
 "aqua:nats-io/natscli" = "0.4.0"
+k6 = "2.2.0"
+ginkgo = "latest"
 
 [tasks.build]
 description = "build"

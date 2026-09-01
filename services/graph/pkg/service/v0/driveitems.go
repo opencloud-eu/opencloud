@@ -490,6 +490,13 @@ func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *sto
 		}
 	}
 
+	if utils.IsProcessing(res) {
+		// queuedDateTime stays absent, we do not track when postprocessing started
+		driveItem.PendingOperations = &libregraph.PendingOperations{
+			PendingContentUpdate: &libregraph.PendingOperationsPendingContentUpdate{},
+		}
+	}
+
 	return driveItem, nil
 }
 

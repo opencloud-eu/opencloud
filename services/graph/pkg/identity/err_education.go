@@ -9,6 +9,8 @@ import (
 // ErrEducationBackend is a dummy EducationBackend, doing nothing
 type ErrEducationBackend struct{}
 
+var _ EducationBackend = &ErrEducationBackend{}
+
 // CreateEducationSchool creates the supplied school in the identity backend.
 func (i *ErrEducationBackend) CreateEducationSchool(ctx context.Context, school libregraph.EducationSchool) (*libregraph.EducationSchool, error) {
 	return nil, errNotImplemented
