@@ -315,7 +315,7 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// only containers have children
-	if driveItemRelationExpanded(r, _expandChildren) && res.GetInfo().GetType() == storageprovider.ResourceType_RESOURCE_TYPE_CONTAINER {
+	if res.GetInfo().GetType() == storageprovider.ResourceType_RESOURCE_TYPE_CONTAINER && driveItemRelationExpanded(r, _expandChildren) {
 		children, ok := g.listDriveItemChildren(w, r, &driveItemID)
 		if !ok {
 			return
