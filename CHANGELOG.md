@@ -8,6 +8,7 @@
 
 ### 📈 Enhancement
 
+- graph: expose following state, tags and allowed actions on driveItems [[#3113](https://github.com/opencloud-eu/opencloud/pull/3113)]
 - feat(search): scope searches to a drive via the driveId field [[#3424](https://github.com/opencloud-eu/opencloud/pull/3424)]
 - feat(search): check the index schema on startup and refuse breaking changes [[#3197](https://github.com/opencloud-eu/opencloud/pull/3197)]
 - refactor: reflection-based search mapping + location geopoint [[#3345](https://github.com/opencloud-eu/opencloud/pull/3345)]
