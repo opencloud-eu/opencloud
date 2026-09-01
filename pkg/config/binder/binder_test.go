@@ -14,11 +14,13 @@ type TestConfig struct {
 }
 
 func TestBindSourcesToStructs(t *testing.T) {
-	// setup test env
+	// setup test env: one var set to pin env expansion, two deliberately
+	// unset to pin the defaults
+	t.Setenv("BINDER_TEST_SET_VAR", "from-env")
 	yaml := `
-a: "${FOO_VAR|no-foo}"
-b: "${BAR_VAR|no-bar}"
-c: "${CODE_VAR|code}"
+a: "${BINDER_TEST_SET_VAR|no-foo}"
+b: "${BINDER_TEST_UNSET_VAR|no-bar}"
+c: "${BINDER_TEST_OTHER_UNSET_VAR|code}"
 `
 	filePath := "etc/opencloud/foo.yaml"
 	fs := fstest.MapFS{
@@ -31,7 +33,7 @@ c: "${CODE_VAR|code}"
 		t.Error(err)
 	}
 
-	assert.Equal(t, c.A, "no-foo")
+	assert.Equal(t, c.A, "from-env")
 	assert.Equal(t, c.B, "no-bar")
 	assert.Equal(t, c.C, "code")
 }

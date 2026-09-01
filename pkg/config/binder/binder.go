@@ -16,7 +16,7 @@ import (
 // decoderConfigTagName sets the tag name to be used from the config structs
 // currently we only support "yaml" because we only support config loading
 // from yaml files and the yaml parser has no simple way to set a custom tag name to use
-var decoderConfigTagName = "yaml"
+const decoderConfigTagName = "yaml"
 
 // BindSourcesToStructs assigns any config value from a config file / env variable to struct `dst`.
 func BindSourcesToStructs(service string, dst any) error {
@@ -42,6 +42,8 @@ func BindSourcesToStructsFS(fileSystem fs.FS, filePath, service string, dst any)
 
 		return err
 	}
+	// the error is ignored on purpose, matching the pre-extraction behavior:
+	// an unparseable yaml file binds nothing instead of failing the startup
 	_ = cnf.LoadSources("yaml", yamlContent)
 
 	err = cnf.BindStruct("", &dst)

@@ -7,8 +7,10 @@ import (
 )
 
 // BindSourcesToStructs assigns any config value from a config file / env variable to struct `dst`.
-// Backward-compatible re-export; the implementation lives in pkg/config/binder.
-var BindSourcesToStructs = binder.BindSourcesToStructs
+// The implementation lives in pkg/config/binder.
+func BindSourcesToStructs(service string, dst any) error {
+	return binder.BindSourcesToStructs(service, dst)
+}
 
 // LocalEndpoint returns the local endpoint for a given protocol and address.
 // Use it when configuring the reva runtime to get a service endpoint in the same
