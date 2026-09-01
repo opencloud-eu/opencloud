@@ -23,7 +23,7 @@ func getFirstValue(m map[string][]string, key string) (string, error) {
 		return "", fmt.Errorf("unknown key: %v", key)
 	}
 
-	if len(m) == 0 {
+	if len(v) == 0 {
 		return "", fmt.Errorf("no values for: %v", key)
 	}
 

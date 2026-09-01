@@ -99,7 +99,7 @@ It does not do any further content analysis.
 
 The main difference is that this extractor is able to analyze and extract data from more advanced file types like PDF, DOCX, PPTX, etc.
 However, [Apache Tika](https://tika.apache.org/) is required for this task.
-Read the [Getting Started with Apache Tika](https://tika.apache.org/2.6.0/gettingstarted.html) guide on how to install and run Tika or use a ready to run [Tika container](https://hub.docker.com/r/apache/tika).
+Read the [Getting Started with Apache Tika](https://tika.apache.org/) guide on how to install and run Tika or use a ready to run [Tika container](https://hub.docker.com/r/apache/tika).
 See the [Tika container usage document](https://github.com/apache/tika-docker#usage) for a quickstart.
 
 As soon as Tika is installed and configured, the search service needs to be told to use it.

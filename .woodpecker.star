@@ -8,7 +8,7 @@ docker_repo_slug = "opencloudeu/opencloud"
 
 # images
 ALPINE_GIT = "alpine/git:latest"
-APACHE_TIKA = "apache/tika:3.2.3.0-full"
+APACHE_TIKA = "apache/tika:4.0.0-full"
 CHKO_DOCKER_PUSHRM = "chko/docker-pushrm:1"
 CODACY_COVERAGE_REPORTER = "codacy/codacy-coverage-reporter:14.1.3"
 COLLABORA_CODE = "collabora/code:24.04.5.1.1"
@@ -3442,6 +3442,9 @@ def tikaService():
     return [{
         "name": "tika",
         "image": APACHE_TIKA,
+        # tika 4 discovers its plugins relative to the image working directory,
+        # the workspace default would leave the pipes fetchers empty
+        "directory": "/opt/tika-server",
         "detach": True,
     }, {
         "name": "wait-for-tika-service",
