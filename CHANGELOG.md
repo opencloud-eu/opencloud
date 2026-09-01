@@ -1,10 +1,15 @@
 # Changelog
 
-## [7.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.6.0) - 2026-08-31
+## [7.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.6.0) - 2026-09-01
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@dschmidt, @fredrikblau, @fschade, @maki5, @pbleser-oc
+@dschmidt, @fredrikblau, @fschade, @maki5, @pbleser-oc, @v-scharf
+
+### ✅ Tests
+
+- ci: run search API and e2e suites against OpenSearch [[#3379](https://github.com/opencloud-eu/opencloud/pull/3379)]
+- test(search): engine parity suite for bleve and opensearch [[#3418](https://github.com/opencloud-eu/opencloud/pull/3418)]
 
 ### 📈 Enhancement
 
@@ -15,10 +20,6 @@
 ### 🐛 Bug Fixes
 
 - fix(search): make openSearch and bleve behave the same [[#3408](https://github.com/opencloud-eu/opencloud/pull/3408)]
-
-### ✅ Tests
-
-- test(search): engine parity suite for bleve and opensearch [[#3418](https://github.com/opencloud-eu/opencloud/pull/3418)]
 
 ### 📦️ Dependencies
 
