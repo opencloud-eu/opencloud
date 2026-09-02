@@ -298,6 +298,9 @@
           "items": {
             "type": "string"
           }
+        },
+        "video": {
+          "$ref": "#/definitions/v0Video"
         }
       }
     },
@@ -527,6 +530,49 @@
           "title": "Token to retrieve the next page of results, or empty if there are no\nmore results in the list"
         },
         "totalMatches": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "v0Video": {
+      "type": "object",
+      "properties": {
+        "audioBitsPerSample": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "audioChannels": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "audioFormat": {
+          "type": "string"
+        },
+        "audioSamplesPerSecond": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "bitrate": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "duration": {
+          "type": "string",
+          "format": "int64"
+        },
+        "fourCC": {
+          "type": "string"
+        },
+        "frameRate": {
+          "type": "number",
+          "format": "double"
+        },
+        "height": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "width": {
           "type": "integer",
           "format": "int32"
         }
