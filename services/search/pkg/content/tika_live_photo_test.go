@@ -26,9 +26,6 @@ var _ = Describe("getLivePhoto", func() {
 	})
 
 	It("maps the still half via the Apple maker-note content identifier", func() {
-		// the still carries the pairing id in the Apple maker note, which tika
-		// surfaces under "Content Identifier" (HEIC maker note parsed since
-		// metadata-extractor 2.21.0, drewnoakes/metadata-extractor#739).
 		livePhoto := Tika{}.getLivePhoto(map[string][]string{
 			"Content-Type":       {"image/heic"},
 			"Content Identifier": {"6F1A2B3C-1234-4E5F-9A8B-0011223344CC"},

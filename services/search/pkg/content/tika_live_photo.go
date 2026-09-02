@@ -8,12 +8,10 @@ import (
 )
 
 func (t Tika) getLivePhoto(meta map[string][]string) *libregraph.LivePhoto {
-	// ContentId pairs the two halves and is what makes it a live photo, so without
-	// it there is no facet. The video exposes it via the QuickTime item list; the
-	// still image carries it in the Apple maker note (tag 0x0011), which tika
-	// surfaces generically under "Content Identifier" (the HEIC maker note is
-	// parsed since metadata-extractor 2.21.0). A file is only ever one half, so
-	// reading both keys covers both.
+	// ContentId pairs the two halves, without it there is no live photo. The
+	// video carries it in the QuickTime item list, the still image in the Apple
+	// maker note, which tika surfaces as "Content Identifier". A file is only
+	// ever one half, so both keys are read.
 	contentID, err := getFirstValue(meta, "com.apple.quicktime.content.identifier", "Content Identifier")
 	if err != nil || contentID == "" {
 		return nil
