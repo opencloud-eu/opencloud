@@ -13,6 +13,8 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	grouppb "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	permissionsapi "github.com/cs3org/go-cs3apis/cs3/permissions/v1beta1"
+	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	collaboration "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	link "github.com/cs3org/go-cs3apis/cs3/sharing/link/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -169,6 +171,8 @@ var _ = Describe("DriveItemPermissionsService", func() {
 
 		It("creates guest share using an email address", func() {
 			cfg.EnableGuestInvites = true
+			gatewayClient.On("CheckPermission", mock.Anything, mock.Anything).Return(
+				&permissionsapi.CheckPermissionResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}}, nil)
 			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
 			gatewayClient.On("CreateShare", mock.Anything, mock.Anything).Return(createShareResponse, nil)
 			driveItemInvite.Recipients = []libregraph.DriveRecipient{
@@ -187,6 +191,8 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		})
 		It("verifies that invalid email addresses are handled", func() {
 			cfg.EnableGuestInvites = true
+			gatewayClient.On("CheckPermission", mock.Anything, mock.Anything).Return(
+				&permissionsapi.CheckPermissionResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}}, nil)
 			driveItemInvite.Recipients = []libregraph.DriveRecipient{
 				{Email: libregraph.PtrString("invalid")},
 			}
@@ -198,6 +204,8 @@ var _ = Describe("DriveItemPermissionsService", func() {
 
 		It("verifies that empty email addresses are handled", func() {
 			cfg.EnableGuestInvites = true
+			gatewayClient.On("CheckPermission", mock.Anything, mock.Anything).Return(
+				&permissionsapi.CheckPermissionResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}}, nil)
 			driveItemInvite.Recipients = []libregraph.DriveRecipient{
 				{Email: libregraph.PtrString(" ")},
 			}
@@ -216,6 +224,19 @@ var _ = Describe("DriveItemPermissionsService", func() {
 
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("not enabled"))
+		})
+
+		It("rejects guest shares without the permission to invite guests", func() {
+			cfg.EnableGuestInvites = true
+			gatewayClient.On("CheckPermission", mock.Anything, mock.Anything).Return(
+				&permissionsapi.CheckPermissionResponse{Status: &rpc.Status{Code: rpc.Code_CODE_PERMISSION_DENIED}}, nil)
+			driveItemInvite.Recipients = []libregraph.DriveRecipient{
+				{Email: libregraph.PtrString("guest@example.com")},
+			}
+			_, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
+
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("permission denied"))
 		})
 
 		It("succeeds with file roles (happy path)", func() {

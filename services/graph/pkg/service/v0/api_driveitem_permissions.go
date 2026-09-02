@@ -15,6 +15,8 @@ import (
 	grouppb "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	ocmprovider "github.com/cs3org/go-cs3apis/cs3/ocm/provider/v1beta1"
+	permissionsapi "github.com/cs3org/go-cs3apis/cs3/permissions/v1beta1"
+	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	collaboration "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	link "github.com/cs3org/go-cs3apis/cs3/sharing/link/v1beta1"
 	ocm "github.com/cs3org/go-cs3apis/cs3/sharing/ocm/v1beta1"
@@ -167,6 +169,16 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 	if email := driveRecipient.GetEmail(); email != "" {
 		if !s.config.EnableGuestInvites {
 			return libregraph.Permission{}, errorcode.New(errorcode.NotSupported, "sharing with mail recipients is not enabled")
+		}
+		user := revactx.ContextMustGetUser(ctx)
+		rsp, err := gatewayClient.CheckPermission(ctx, &permissionsapi.CheckPermissionRequest{
+			Permission: "GuestInvites.Create",
+			SubjectRef: &permissionsapi.SubjectReference{
+				Spec: &permissionsapi.SubjectReference_UserId{UserId: user.GetId()},
+			},
+		})
+		if err != nil || rsp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+			return libregraph.Permission{}, errorcode.New(errorcode.NotAllowed, "permission denied")
 		}
 		email = strings.TrimSpace(email)
 		if len(email) == 0 {
