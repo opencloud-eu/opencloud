@@ -121,8 +121,10 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	// a motion photo is the xmp on the file itself plus the video tika extracted
 	// from it. The xmp alone proves nothing: a share can keep it and strip the
 	// appended video.
-	if len(metas) > 0 && slices.ContainsFunc(metas[1:], isVideo) {
-		doc.MotionPhoto = t.getMotionPhoto(metas[0])
+	if len(metas) > 0 {
+		if i := slices.IndexFunc(metas[1:], isVideo); i >= 0 {
+			doc.MotionPhoto = t.getMotionPhoto(metas[0], metas[i+1])
+		}
 	}
 
 	if langCode := t.detectLanguage(ctx, doc.Content); langCode != "" && t.CleanStopWords {
