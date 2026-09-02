@@ -112,6 +112,9 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		if v := t.getAudio(meta); v != nil {
 			doc.Audio = v
 		}
+		if v := t.getVideo(meta); v != nil {
+			doc.Video = v
+		}
 	}
 
 	if langCode := t.detectLanguage(ctx, doc.Content); langCode != "" && t.CleanStopWords {

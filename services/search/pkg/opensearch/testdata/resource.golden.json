@@ -250,6 +250,56 @@
             "type": "date"
           }
         }
+      },
+      "video": {
+        "properties": {
+          "audioBitsPerSample": {
+            "type": "integer"
+          },
+          "audioChannels": {
+            "type": "integer"
+          },
+          "audioFormat": {
+            "type": "keyword"
+          },
+          "audioFormat_lowercase": {
+            "doc_values": false,
+            "type": "keyword"
+          },
+          "audioFormat_words": {
+            "analyzer": "words",
+            "type": "text"
+          },
+          "audioSamplesPerSecond": {
+            "type": "integer"
+          },
+          "bitrate": {
+            "type": "integer"
+          },
+          "duration": {
+            "type": "long"
+          },
+          "fourCC": {
+            "type": "keyword"
+          },
+          "fourCC_lowercase": {
+            "doc_values": false,
+            "type": "keyword"
+          },
+          "fourCC_words": {
+            "analyzer": "words",
+            "type": "text"
+          },
+          "frameRate": {
+            "type": "double"
+          },
+          "height": {
+            "type": "integer"
+          },
+          "width": {
+            "type": "integer"
+          }
+        }
       }
     }
   },

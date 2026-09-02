@@ -2,11 +2,18 @@ package content
 
 import (
 	"strconv"
+	"strings"
 
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 )
 
 func (t Tika) getImage(meta map[string][]string) *libregraph.Image {
+	// tiff:ImageWidth/Length are also set for videos; the content type is what
+	// tells an image apart.
+	if ct, err := getFirstValue(meta, "Content-Type"); err != nil || !strings.HasPrefix(ct, "image/") {
+		return nil
+	}
+
 	var image *libregraph.Image
 	initImage := func() {
 		if image == nil {
