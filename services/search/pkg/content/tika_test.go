@@ -218,7 +218,7 @@ var _ = Describe("Tika", func() {
 		})
 
 		It("keeps the motion photo facet when tika emits the video", func() {
-			fullResponse = `[{"Camera:MotionPhotoVersion": "1", "Container:Directory/Item[2]/Item:Semantic": "MotionPhoto", "Container:Directory/Item[2]/Item:Length": "40"}, {"Content-Type": "video/mp4"}]`
+			fullResponse = `[{"Camera:MotionPhotoVersion": "1", "xmp-raw:Container:Directory[2]/Container:Item/Item:Semantic": "MotionPhoto", "xmp-raw:Container:Directory[2]/Container:Item/Item:Length": "40"}, {"Content-Type": "video/mp4"}]`
 
 			doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
 				Type: provider.ResourceType_RESOURCE_TYPE_FILE,
@@ -230,7 +230,7 @@ var _ = Describe("Tika", func() {
 		})
 
 		It("drops the motion photo facet when the advertised video is gone", func() {
-			fullResponse = `[{"Camera:MotionPhotoVersion": "1", "Container:Directory/Item[2]/Item:Semantic": "MotionPhoto", "Container:Directory/Item[2]/Item:Length": "40"}]`
+			fullResponse = `[{"Camera:MotionPhotoVersion": "1", "xmp-raw:Container:Directory[2]/Container:Item/Item:Semantic": "MotionPhoto", "xmp-raw:Container:Directory[2]/Container:Item/Item:Length": "40"}]`
 
 			doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
 				Type: provider.ResourceType_RESOURCE_TYPE_FILE,

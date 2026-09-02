@@ -9,10 +9,10 @@ import (
 var _ = Describe("getMotionPhoto", func() {
 	It("maps the current MotionPhoto XMP scheme (container item length)", func() {
 		mp := Tika{}.getMotionPhoto(map[string][]string{
-			"Camera:MotionPhotoVersion":                 {"1"},
-			"Camera:MotionPhotoPresentationTimestampUs": {"1500000"},
-			"Container:Directory/Item[2]/Item:Semantic": {"MotionPhoto"},
-			"Container:Directory/Item[2]/Item:Length":   {"1048576"},
+			"Camera:MotionPhotoVersion":                                   {"1"},
+			"Camera:MotionPhotoPresentationTimestampUs":                   {"1500000"},
+			"xmp-raw:Container:Directory[2]/Container:Item/Item:Semantic": {"MotionPhoto"},
+			"xmp-raw:Container:Directory[2]/Container:Item/Item:Length":   {"1048576"},
 		})
 		Expect(mp).ToNot(BeNil())
 		Expect(mp.Version).To(Equal(libregraph.PtrInt32(1)))
@@ -44,10 +44,10 @@ var _ = Describe("getMotionPhoto", func() {
 
 	It("treats a zero MotionPhoto marker as a still image", func() {
 		Expect(Tika{}.getMotionPhoto(map[string][]string{
-			"Camera:MotionPhoto":                        {"0"},
-			"Camera:MotionPhotoVersion":                 {"1"},
-			"Container:Directory/Item[2]/Item:Semantic": {"MotionPhoto"},
-			"Container:Directory/Item[2]/Item:Length":   {"1048576"},
+			"Camera:MotionPhoto":        {"0"},
+			"Camera:MotionPhotoVersion": {"1"},
+			"xmp-raw:Container:Directory[2]/Container:Item/Item:Semantic": {"MotionPhoto"},
+			"xmp-raw:Container:Directory[2]/Container:Item/Item:Length":   {"1048576"},
 		})).To(BeNil())
 		Expect(Tika{}.getMotionPhoto(map[string][]string{
 			"Camera:MicroVideo":       {"0"},
@@ -57,19 +57,19 @@ var _ = Describe("getMotionPhoto", func() {
 
 	It("treats undefined marker values as a still image", func() {
 		Expect(Tika{}.getMotionPhoto(map[string][]string{
-			"Camera:MotionPhoto":                        {"2"},
-			"Container:Directory/Item[2]/Item:Semantic": {"MotionPhoto"},
-			"Container:Directory/Item[2]/Item:Length":   {"1048576"},
+			"Camera:MotionPhoto": {"2"},
+			"xmp-raw:Container:Directory[2]/Container:Item/Item:Semantic": {"MotionPhoto"},
+			"xmp-raw:Container:Directory[2]/Container:Item/Item:Length":   {"1048576"},
 		})).To(BeNil())
 	})
 
 	It("prefers the current scheme when both are present", func() {
 		mp := Tika{}.getMotionPhoto(map[string][]string{
-			"Camera:MotionPhotoVersion":                 {"2"},
-			"Camera:MicroVideoVersion":                  {"1"},
-			"Camera:MicroVideoOffset":                   {"2097152"},
-			"Container:Directory/Item[2]/Item:Semantic": {"MotionPhoto"},
-			"Container:Directory/Item[2]/Item:Length":   {"1048576"},
+			"Camera:MotionPhotoVersion":                                   {"2"},
+			"Camera:MicroVideoVersion":                                    {"1"},
+			"Camera:MicroVideoOffset":                                     {"2097152"},
+			"xmp-raw:Container:Directory[2]/Container:Item/Item:Semantic": {"MotionPhoto"},
+			"xmp-raw:Container:Directory[2]/Container:Item/Item:Length":   {"1048576"},
 		})
 		Expect(mp).ToNot(BeNil())
 		Expect(mp.Version).To(Equal(libregraph.PtrInt32(2)))

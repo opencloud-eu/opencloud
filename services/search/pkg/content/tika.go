@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -82,7 +83,6 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		return doc, err
 	}
 
-	var embeddedVideo bool
 	for _, meta := range metas {
 		title, err := getFirstValue(meta, "dc:title")
 		if err != nil {
@@ -116,17 +116,13 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		if v := t.getVideo(meta); v != nil {
 			doc.Video = v
 		}
-		if v := t.getMotionPhoto(meta); v != nil {
-			doc.MotionPhoto = v
-		}
-		if isVideo(meta) {
-			embeddedVideo = true
-		}
 	}
 
-	// the xmp alone does not prove the video is there, tika extracting it does
-	if !embeddedVideo {
-		doc.MotionPhoto = nil
+	// a motion photo is the xmp on the file itself plus the video tika extracted
+	// from it. The xmp alone proves nothing: a share can keep it and strip the
+	// appended video.
+	if len(metas) > 0 && slices.ContainsFunc(metas[1:], isVideo) {
+		doc.MotionPhoto = t.getMotionPhoto(metas[0])
 	}
 
 	if langCode := t.detectLanguage(ctx, doc.Content); langCode != "" && t.CleanStopWords {
