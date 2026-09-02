@@ -331,7 +331,7 @@ func generateBundleProfileRequest() *settingsmsg.Bundle {
 					MultiChoiceCollectionValue: &settingsmsg.MultiChoiceCollection{
 						Options: []*settingsmsg.MultiChoiceCollectionOption{
 							&optionInAppTrue,
-							&optionMailFalseDisabled,
+							&optionMailTrue,
 						},
 					},
 				},

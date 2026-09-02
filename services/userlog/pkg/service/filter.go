@@ -65,6 +65,8 @@ func (ulf userlogFilter) filterUsersBySettings(ctx context.Context, users []stri
 		settingId = defaults.SettingUUIDProfileEventSpaceDeleted
 	case ocEvents.ResourceMention:
 		settingId = defaults.SettingUUIDProfileEventResourceMention
+	case events.PostprocessingStepFinished:
+		settingId = defaults.SettingUUIDProfileEventPostprocessingStepFinished
 	default:
 		// event that cannot be disabled
 		return users
