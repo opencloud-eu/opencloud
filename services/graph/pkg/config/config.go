@@ -26,13 +26,14 @@ type Config struct {
 	TokenManager  *TokenManager         `yaml:"token_manager"`
 	GRPCClientTLS *shared.GRPCClientTLS `yaml:"grpc_client_tls"`
 
-	Application       Application  `yaml:"application"`
-	Spaces            Spaces       `yaml:"spaces"`
-	Identity          Identity     `yaml:"identity"`
-	IncludeOCMSharees bool         `yaml:"include_ocm_sharees" env:"OC_ENABLE_OCM;GRAPH_INCLUDE_OCM_SHAREES" desc:"Include OCM sharees when listing users." introductionVersion:"1.0.0"`
-	Events            Events       `yaml:"events"`
-	UnifiedRoles      UnifiedRoles `yaml:"unified_roles"`
-	MaxConcurrency    int          `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;GRAPH_MAX_CONCURRENCY" desc:"The maximum number of concurrent requests the service will handle." introductionVersion:"1.0.0"`
+	Application        Application  `yaml:"application"`
+	Spaces             Spaces       `yaml:"spaces"`
+	Identity           Identity     `yaml:"identity"`
+	IncludeOCMSharees  bool         `yaml:"include_ocm_sharees" env:"OC_ENABLE_OCM;GRAPH_INCLUDE_OCM_SHAREES" desc:"Include OCM sharees when listing users." introductionVersion:"1.0.0"`
+	EnableGuestInvites bool         `yaml:"enable_guest_invites" env:"GRAPH_ENABLE_GUEST_INVITES" desc:"Enables creating permission invites (shares) to mail addresses. Disabled by default." introductionVersion:"%NEXT%"`
+	Events             Events       `yaml:"events"`
+	UnifiedRoles       UnifiedRoles `yaml:"unified_roles"`
+	MaxConcurrency     int          `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;GRAPH_MAX_CONCURRENCY" desc:"The maximum number of concurrent requests the service will handle." introductionVersion:"1.0.0"`
 
 	Keycloak       Keycloak       `yaml:"keycloak"`
 	ServiceAccount ServiceAccount `yaml:"service_account"`

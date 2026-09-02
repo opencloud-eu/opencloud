@@ -21,6 +21,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/cache"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 )
@@ -109,28 +110,42 @@ func userIdToIdentity(ctx context.Context, cache cache.IdentityCache, tennantId,
 // as a libregraph.Identity
 func federatedIdToIdentity(ctx context.Context, cache cache.IdentityCache, cs3UserID *cs3User.UserId) (libregraph.Identity, error) {
 	userID := fmt.Sprintf("%s@%s", cs3UserID.GetOpaqueId(), cs3UserID.GetIdp())
-	identity := libregraph.Identity{
+	lgIdentity := libregraph.Identity{
 		Id:                 libregraph.PtrString(userID),
-		LibreGraphUserType: libregraph.PtrString("Federated"),
+		LibreGraphUserType: libregraph.PtrString(identity.UserTypeFederated),
 	}
 	user, err := cache.GetAcceptedUser(ctx, userID)
 	if err == nil {
-		identity.SetDisplayName(user.GetDisplayName())
-		identity.SetLibreGraphUserType(user.GetUserType())
+		lgIdentity.SetDisplayName(user.GetDisplayName())
+		lgIdentity.SetLibreGraphUserType(user.GetUserType())
 	}
-	return identity, err
+	return lgIdentity, err
+}
+
+// guestMailToIdentity converts a USER_TYPE_GUEST (used for guest invites vial mail) into a libregraph.Identity
+func guestMailToIdentity(cs3UserID *cs3User.UserId) (libregraph.Identity, error) {
+	lgIdentity := libregraph.Identity{
+		Id:                 libregraph.PtrString(cs3UserID.GetOpaqueId()),
+		LibreGraphUserType: libregraph.PtrString(identity.UserTypeGuest),
+	}
+	lgIdentity.SetDisplayName(cs3UserID.GetOpaqueId())
+	lgIdentity.SetLibreGraphUserType(identity.UserTypeGuest)
+	return lgIdentity, nil
 }
 
 // cs3UserIdToIdentity looks up the user for the supplied cs3 userid using the cache and returns it
 // as a libregraph.Identity. Skips the user lookup if the id type is USER_TYPE_SPACE_OWNER
 func cs3UserIdToIdentity(ctx context.Context, cache cache.IdentityCache, cs3UserID *cs3User.UserId) (libregraph.Identity, error) {
-	if cs3UserID.GetType() == cs3User.UserType_USER_TYPE_FEDERATED {
+	switch cs3UserID.GetType() {
+	case cs3User.UserType_USER_TYPE_FEDERATED:
 		return federatedIdToIdentity(ctx, cache, cs3UserID)
-	}
-	if cs3UserID.GetType() != cs3User.UserType_USER_TYPE_SPACE_OWNER {
+	case cs3User.UserType_USER_TYPE_GUEST:
+		return guestMailToIdentity(cs3UserID)
+	case cs3User.UserType_USER_TYPE_SPACE_OWNER:
+		return libregraph.Identity{Id: libregraph.PtrString(cs3UserID.GetOpaqueId())}, nil
+	default:
 		return userIdToIdentity(ctx, cache, cs3UserID.GetTenantId(), cs3UserID.GetOpaqueId())
 	}
-	return libregraph.Identity{Id: libregraph.PtrString(cs3UserID.GetOpaqueId())}, nil
 }
 
 // groupIdToIdentity looks up the group for the supplied cs3 groupid using the cache and returns it

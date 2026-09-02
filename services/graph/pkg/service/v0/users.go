@@ -405,7 +405,7 @@ func (g Graph) PostUser(w http.ResponseWriter, r *http.Request) {
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "userType is a read-only attribute")
 		return
 	}
-	u.SetUserType("Member")
+	u.SetUserType(identity.UserTypeMember)
 
 	logger.Debug().Interface("user", u).Msg("calling create user on backend")
 	if u, err = g.identityBackend.CreateUser(r.Context(), *u); err != nil {
