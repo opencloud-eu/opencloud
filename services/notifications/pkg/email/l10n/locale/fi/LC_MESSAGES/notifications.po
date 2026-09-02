@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-08-17 23:18+0000\n"
+"POT-Creation-Date: 2026-09-02 23:17+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Jiri Grönroos <jiri.gronroos@iki.fi>, 2026\n"
 "Language-Team: Finnish (https://app.transifex.com/opencloud-eu/teams/204053/fi/)\n"
@@ -22,17 +22,17 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. UnsharedSpace email template, resolves via {{ .CallToAction }}
-#: pkg/email/templates.go:65
+#: pkg/email/templates.go:78
 msgid "Click here to check it: {ShareLink}"
 msgstr "Napsauta tästä tarkistaaksesi sen: {ShareLink}"
 
 #. ShareCreated email template, resolves via {{ .CallToAction }}
 #. SharedSpace email template, resolves via {{ .CallToAction }}
-#: pkg/email/templates.go:23 pkg/email/templates.go:50
+#: pkg/email/templates.go:23 pkg/email/templates.go:63
 msgid "Click here to view it: {ShareLink}"
 msgstr "Napsauta tästä nähdäksesi sen: {ShareLink}"
 
-#: pkg/email/templates.go:126
+#: pkg/email/templates.go:139
 msgid "Hello {RecipientName},"
 msgstr "Hei {RecipientName}"
 
@@ -41,21 +41,22 @@ msgstr "Hei {RecipientName}"
 msgid "Hello {ShareGrantee}"
 msgstr "Hei {ShareGrantee}"
 
+#. ShareRemoved email template, resolves via {{ .Greeting }}
 #. ShareExpired email template, resolves via {{ .Greeting }}
-#: pkg/email/templates.go:32
+#: pkg/email/templates.go:32 pkg/email/templates.go:45
 msgid "Hello {ShareGrantee},"
 msgstr "Hei {ShareGrantee}"
 
 #. SharedSpace email template, resolves via {{ .Greeting }}
 #. UnsharedSpace email template, resolves via {{ .Greeting }}
 #. MembershipExpired email template, resolves via {{ .Greeting }}
-#: pkg/email/templates.go:46 pkg/email/templates.go:59
-#: pkg/email/templates.go:74
+#: pkg/email/templates.go:59 pkg/email/templates.go:72
+#: pkg/email/templates.go:87
 msgid "Hello {SpaceGrantee},"
 msgstr "Hei {SpaceGrantee}"
 
 #. Grouped email template, resolves via {{ .Greeting }}
-#: pkg/email/templates.go:118
+#: pkg/email/templates.go:131
 msgid "Hi {DisplayName},"
 msgstr "Hei {DisplayName}"
 
@@ -63,17 +64,17 @@ msgstr "Hei {DisplayName}"
 #. }}
 #. ScienceMeshInviteTokenGeneratedWithoutShareLink email template, resolves
 #. via {{ .Greeting }}
-#: pkg/email/templates.go:87 pkg/email/templates.go:104
+#: pkg/email/templates.go:100 pkg/email/templates.go:117
 msgid "Hi,"
 msgstr "Hei"
 
 #. MembershipExpired email template, Subject field (resolves directly)
-#: pkg/email/templates.go:72
+#: pkg/email/templates.go:85
 msgid "Membership of '{SpaceName}' expired at {ExpiredAt}"
 msgstr "Avaruuden '{SpaceName}' jäsenyys vanheni {ExpiredAt}"
 
 #. Grouped email template, Subject field (resolves directly)
-#: pkg/email/templates.go:116
+#: pkg/email/templates.go:129
 msgid "Report"
 msgstr "Ilmoita"
 
@@ -81,25 +82,25 @@ msgstr "Ilmoita"
 #. directly)
 #. ScienceMeshInviteTokenGeneratedWithoutShareLink email template, Subject
 #. field (resolves directly)
-#: pkg/email/templates.go:85 pkg/email/templates.go:102
+#: pkg/email/templates.go:98 pkg/email/templates.go:115
 msgid "ScienceMesh: {InitiatorName} wants to collaborate with you"
 msgstr "ScienceMesh: {InitiatorName} haluaa tehdä yhteistyötä kanssasi"
 
 #. ShareExpired email template, Subject field (resolves directly)
-#: pkg/email/templates.go:30
+#: pkg/email/templates.go:43
 msgid "Share to '{ShareFolder}' expired at {ExpiredAt}"
 msgstr "Jako kansioon '{ShareFolder}' vanheni {ExpiredAt}"
 
-#: pkg/email/templates.go:128
+#: pkg/email/templates.go:141
 msgid "You can view the mention here: {ResourceLink}"
 msgstr "Näet maininnan täältä: {ResourceLink}"
 
-#: pkg/email/templates.go:125
+#: pkg/email/templates.go:138
 msgid "You were mentioned in '{ResourceName}'"
 msgstr "Sinut mainittiin kohteessa '{ResourceName}'"
 
 #. MembershipExpired email template, resolves via {{ .MessageBody }}
-#: pkg/email/templates.go:76
+#: pkg/email/templates.go:89
 msgid ""
 "Your membership of space {SpaceName} has expired at {ExpiredAt}\n"
 "\n"
@@ -107,20 +108,20 @@ msgid ""
 msgstr ""
 
 #. ShareExpired email template, resolves via {{ .MessageBody }}
-#: pkg/email/templates.go:34
+#: pkg/email/templates.go:47
 msgid ""
 "Your share to {ShareFolder} has expired at {ExpiredAt}\n"
 "\n"
 "Even though this share has been revoked you still might have access through other shares and/or space memberships."
 msgstr ""
 
-#: pkg/email/templates.go:127
+#: pkg/email/templates.go:140
 msgid "{AuthorName} mentioned you in \"{ResourceName}\"."
 msgstr "{AuthorName} mainitsi sinut kohteessa \"{ResourceName}\"."
 
 #. ScienceMeshInviteTokenGeneratedWithoutShareLink email template, resolves
 #. via {{ .MessageBody }}
-#: pkg/email/templates.go:106
+#: pkg/email/templates.go:119
 msgid ""
 "{ShareSharer} ({ShareSharerMail}) wants to start sharing collaboration resources with you.\n"
 "Please visit your federation settings and use the following details:\n"
@@ -130,7 +131,7 @@ msgstr ""
 
 #. ScienceMeshInviteTokenGenerated email template, resolves via {{
 #. .MessageBody }}
-#: pkg/email/templates.go:89
+#: pkg/email/templates.go:102
 msgid ""
 "{ShareSharer} ({ShareSharerMail}) wants to start sharing collaboration resources with you.\n"
 "To accept the invite, please visit the following URL:\n"
@@ -146,18 +147,31 @@ msgstr ""
 msgid "{ShareSharer} has shared \"{ShareFolder}\" with you."
 msgstr "{ShareSharer} on jakanut kansion \"{ShareFolder}\" kanssasi."
 
+#. ShareRemoved email template, resolves via {{ .MessageBody }}
+#: pkg/email/templates.go:34
+msgid ""
+"{ShareSharer} has unshared '{ShareFolder}' with you.\n"
+"\n"
+"Even though this share has been revoked you still might have access through other shares and/or space memberships."
+msgstr ""
+
 #. ShareCreated email template, Subject field (resolves directly)
 #: pkg/email/templates.go:17
 msgid "{ShareSharer} shared '{ShareFolder}' with you"
 msgstr "{ShareSharer} jakoi '{ShareFolder}' kanssasi"
 
+#. ShareRemoved email template, Subject field (resolves directly)
+#: pkg/email/templates.go:30
+msgid "{ShareSharer} unshared '{ShareFolder}' with you"
+msgstr ""
+
 #. SharedSpace email template, resolves via {{ .MessageBody }}
-#: pkg/email/templates.go:48
+#: pkg/email/templates.go:61
 msgid "{SpaceSharer} has invited you to join \"{SpaceName}\"."
 msgstr "{SpaceSharer} kutsui sinut avaruuteen \"{SpaceName}\"."
 
 #. UnsharedSpace email template, resolves via {{ .MessageBody }}
-#: pkg/email/templates.go:61
+#: pkg/email/templates.go:74
 msgid ""
 "{SpaceSharer} has removed you from \"{SpaceName}\".\n"
 "\n"
@@ -168,11 +182,11 @@ msgstr ""
 "Sinulla saattaa silti olla pääsy muiden ryhmien tai suoran jäsenyyden kautta."
 
 #. SharedSpace email template, Subject field (resolves directly)
-#: pkg/email/templates.go:44
+#: pkg/email/templates.go:57
 msgid "{SpaceSharer} invited you to join {SpaceName}"
 msgstr "{SpaceSharer} kutsui sinut avaruuteen {SpaceName}"
 
 #. UnsharedSpace email template, Subject field (resolves directly)
-#: pkg/email/templates.go:57
+#: pkg/email/templates.go:70
 msgid "{SpaceSharer} removed you from {SpaceName}"
 msgstr "{SpaceSharer} poisti sinut avaruudesta {SpaceName}"
