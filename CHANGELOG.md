@@ -1,10 +1,16 @@
 # Changelog
 
-## [7.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.6.0) - 2026-09-01
+## [7.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.6.0) - 2026-09-02
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @dschmidt, @fredrikblau, @fschade, @maki5, @pbleser-oc, @v-scharf
+
+### 🐛 Bug Fixes
+
+- fix: notification handling for share removal and space membership expiry  [[#3257](https://github.com/opencloud-eu/opencloud/pull/3257)]
+- fix: posix cli commands [[#3348](https://github.com/opencloud-eu/opencloud/pull/3348)]
+- fix(search): make openSearch and bleve behave the same [[#3408](https://github.com/opencloud-eu/opencloud/pull/3408)]
 
 ### 📈 Enhancement
 
@@ -16,11 +22,6 @@
 - refactor: reflection-based search mapping + location geopoint [[#3345](https://github.com/opencloud-eu/opencloud/pull/3345)]
 - chore(policies): disable gRPC or event handlers by configuration + add metrics [[#3287](https://github.com/opencloud-eu/opencloud/pull/3287)]
 - moved ShareCreated event consumer from frontend to shared service [[#3389](https://github.com/opencloud-eu/opencloud/pull/3389)]
-
-### 🐛 Bug Fixes
-
-- fix: posix cli commands [[#3348](https://github.com/opencloud-eu/opencloud/pull/3348)]
-- fix(search): make openSearch and bleve behave the same [[#3408](https://github.com/opencloud-eu/opencloud/pull/3408)]
 
 ### ✅ Tests
 
