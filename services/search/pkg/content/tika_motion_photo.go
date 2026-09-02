@@ -90,8 +90,7 @@ func motionPhotoVideoSize(meta map[string][]string) (int64, bool) {
 // really there, so its presence is what confirms the facet: a shared motion
 // photo can keep the xmp and lose the appended video.
 func isMotionPhotoVideo(meta map[string][]string) bool {
-	// tika 4 renamed the meta prefix from X-TIKA: to tk:
-	name, err := getFirstValue(meta, "tk:resource-name", "X-TIKA:resource-name")
+	name, err := getFirstValue(meta, "tk:resource-name")
 	if err != nil {
 		return false
 	}

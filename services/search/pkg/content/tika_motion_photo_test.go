@@ -83,7 +83,6 @@ var _ = Describe("isMotionPhotoVideo", func() {
 			Expect(isMotionPhotoVideo(meta)).To(Equal(expected))
 		},
 		Entry("named attachment", map[string][]string{"tk:resource-name": {"motion-photo.mp4"}}, true),
-		Entry("legacy tika prefix", map[string][]string{"X-TIKA:resource-name": {"motion-photo.mp4"}}, true),
 		Entry("no extension, as for MicroVideo", map[string][]string{"tk:resource-name": {"motion-photo"}}, true),
 		Entry("another attachment", map[string][]string{"tk:resource-name": {"cover.jpg"}}, false),
 		Entry("a name that only starts alike", map[string][]string{"tk:resource-name": {"motion-photography.mp4"}}, false),
