@@ -23,6 +23,19 @@ var (
 		CallToAction: l10n.Template(`Click here to view it: {ShareLink}`),
 	}
 
+	ShareRemoved = MessageTemplate{
+		textTemplate: _textTemplate,
+		htmlTemplate: _htmlTemplate,
+		// ShareRemoved email template, Subject field (resolves directly)
+		Subject: l10n.Template(`{ShareSharer} unshared '{ShareFolder}' with you`),
+		// ShareRemoved email template, resolves via {{ .Greeting }}
+		Greeting: l10n.Template(`Hello {ShareGrantee},`),
+		// ShareRemoved email template, resolves via {{ .MessageBody }}
+		MessageBody: l10n.Template(`{ShareSharer} has unshared '{ShareFolder}' with you.
+
+Even though this share has been revoked you still might have access through other shares and/or space memberships.`),
+	}
+
 	ShareExpired = MessageTemplate{
 		textTemplate: _textTemplate,
 		htmlTemplate: _htmlTemplate,

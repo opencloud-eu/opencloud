@@ -63,10 +63,12 @@ func (t Tika) getPhoto(meta map[string][]string) *libregraph.Photo {
 	}
 
 	if v, err := getFirstValue(meta, "exif:ExposureTime"); err == nil {
-		if i, err := strconv.ParseFloat(v, 64); err == nil && i > 0 {
-			initPhoto()
-			photo.SetExposureNumerator(1)
-			photo.SetExposureDenominator(math.Round(1 / i))
+		if i, err := strconv.ParseFloat(v, 64); err == nil {
+			if d := math.Round(1 / i); !math.IsNaN(d) && !math.IsInf(d, 0) && d > 0 {
+				initPhoto()
+				photo.SetExposureNumerator(1)
+				photo.SetExposureDenominator(d)
+			}
 		}
 	}
 

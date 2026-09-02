@@ -65,8 +65,12 @@ var _ = Describe("Notifications", func() {
 			},
 		)
 
-		gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(&user.GetUserResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, User: sharer}, nil).Once()
-		gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(&user.GetUserResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, User: sharee}, nil).Once()
+		gatewayClient.On("GetUser", mock.Anything, mock.MatchedBy(func(req *user.GetUserRequest) bool {
+			return req.GetUserId().GetOpaqueId() == sharer.GetId().GetOpaqueId()
+		})).Return(&user.GetUserResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, User: sharer}, nil)
+		gatewayClient.On("GetUser", mock.Anything, mock.MatchedBy(func(req *user.GetUserRequest) bool {
+			return req.GetUserId().GetOpaqueId() == sharee.GetId().GetOpaqueId()
+		})).Return(&user.GetUserResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, User: sharee}, nil)
 		gatewayClient.On("Authenticate", mock.Anything, mock.Anything).Return(&gateway.AuthenticateResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, User: sharer}, nil)
 		gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&provider.StatResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, Info: &provider.ResourceInfo{Name: "secrets of the board", Space: &provider.StorageSpace{Name: "secret space"}}}, nil)
 		vs = &settingsmocks.ValueService{}
@@ -157,6 +161,30 @@ https://opencloud.eu
 			},
 		}),
 
+		Entry("Share Removed", testChannel{
+			expectedReceipients: []string{sharee.GetMail()},
+			expectedSubject:     "Dr. S. Harer unshared 'secrets of the board' with you",
+			expectedTextBody: `Hello Eric Expireling,
+
+Dr. S. Harer has unshared 'secrets of the board' with you.
+
+Even though this share has been revoked you still might have access through other shares and/or space memberships.
+
+
+---
+OpenCloud - a safe home for all your data
+https://opencloud.eu
+`,
+			expectedSender: sharer.GetDisplayName(),
+			done:           make(chan struct{}),
+		}, events.Event{
+			Event: events.ShareRemoved{
+				Executant:     sharer.GetId(),
+				GranteeUserID: sharee.GetId(),
+				ItemID:        resourceid,
+			},
+		}),
+
 		Entry("Added to Space", testChannel{
 			expectedReceipients: []string{sharee.GetMail()},
 			expectedSubject:     "Dr. S. Harer invited you to join secret space",
@@ -222,7 +250,7 @@ Even though this membership has expired you still might have access through othe
 OpenCloud - a safe home for all your data
 https://opencloud.eu
 `,
-			expectedSender: sharer.GetDisplayName(),
+			expectedSender: "",
 			done:           make(chan struct{}),
 		}, events.Event{
 			Event: events.SpaceMembershipExpired{
@@ -273,8 +301,12 @@ var _ = Describe("Notifications X-Site Scripting", func() {
 			},
 		)
 
-		gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(&user.GetUserResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, User: sharer}, nil).Once()
-		gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(&user.GetUserResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, User: sharee}, nil).Once()
+		gatewayClient.On("GetUser", mock.Anything, mock.MatchedBy(func(req *user.GetUserRequest) bool {
+			return req.GetUserId().GetOpaqueId() == sharer.GetId().GetOpaqueId()
+		})).Return(&user.GetUserResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, User: sharer}, nil)
+		gatewayClient.On("GetUser", mock.Anything, mock.MatchedBy(func(req *user.GetUserRequest) bool {
+			return req.GetUserId().GetOpaqueId() == sharee.GetId().GetOpaqueId()
+		})).Return(&user.GetUserResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, User: sharee}, nil)
 		gatewayClient.On("Authenticate", mock.Anything, mock.Anything).Return(&gateway.AuthenticateResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, User: sharer}, nil)
 		gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&provider.StatResponse{
 			Status: &rpc.Status{Code: rpc.Code_CODE_OK},

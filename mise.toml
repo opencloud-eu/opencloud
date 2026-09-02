@@ -1,5 +1,8 @@
+[env]
+GO_VERSION = "{{ exec(command='./.mise-go-version.sh') }}"
+
 [tools]
-go = "1.25.9"
+go = "{{ env.GO_VERSION }}"
 node = "24"
 pnpm = "11.1.3"
 "go:github.com/go-delve/delve/cmd/dlv" = "1.27.1"
