@@ -33,45 +33,37 @@ func newCS3Retriever(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], 
 	}
 }
 
-// initiateDownload resolves the download endpoint, transfer token and auth token
-// for rID through the cs3 gateway.
-func (s cs3) initiateDownload(ctx context.Context, rID *provider.ResourceId) (endpoint, transferToken, authToken string, err error) {
-	authToken, ok := contextGet(ctx, revactx.TokenHeader)
+// Retrieve downloads the file from a cs3 service
+// The caller MUST make sure to close the returned ReadCloser
+func (s cs3) Retrieve(ctx context.Context, rID *provider.ResourceId) (io.ReadCloser, error) {
+	at, ok := contextGet(ctx, revactx.TokenHeader)
 	if !ok {
-		return "", "", "", fmt.Errorf("context without %s", revactx.TokenHeader)
+		return nil, fmt.Errorf("context without %s", revactx.TokenHeader)
 	}
 
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
 		s.logger.Error().Err(err).Msg("could not get reva gatewayClient")
-		return "", "", "", err
+		return nil, err
 	}
 
 	res, err := gatewayClient.InitiateFileDownload(ctx, &provider.InitiateFileDownloadRequest{Ref: &provider.Reference{ResourceId: rID, Path: "."}})
 	if err != nil {
-		return "", "", "", err
+		return nil, err
 	}
 	if res.Status.Code != rpc.Code_CODE_OK {
-		return "", "", "", fmt.Errorf("could not load resoure: %s", res.Status.Message)
+		return nil, fmt.Errorf("could not load resoure: %s", res.Status.Message)
 	}
 
+	var ep, tt string
 	for _, p := range res.Protocols {
 		if p.Protocol == "spaces" {
-			return p.DownloadEndpoint, p.Token, authToken, nil
+			ep, tt = p.DownloadEndpoint, p.Token
+			break
 		}
 	}
-	if len(res.Protocols) > 0 {
-		return res.Protocols[0].DownloadEndpoint, res.Protocols[0].Token, authToken, nil
-	}
-	return "", "", "", fmt.Errorf("no download protocol found")
-}
-
-// Retrieve downloads the file from a cs3 service
-// The caller MUST make sure to close the returned ReadCloser
-func (s cs3) Retrieve(ctx context.Context, rID *provider.ResourceId) (io.ReadCloser, error) {
-	ep, tt, at, err := s.initiateDownload(ctx, rID)
-	if err != nil {
-		return nil, err
+	if (ep == "" || tt == "") && len(res.Protocols) > 0 {
+		ep, tt = res.Protocols[0].DownloadEndpoint, res.Protocols[0].Token
 	}
 
 	req, err := http.NewRequest(http.MethodGet, ep, nil)
