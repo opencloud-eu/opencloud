@@ -7,11 +7,6 @@ import (
 	"strings"
 )
 
-// motionPhotoVideoName is the resource name tika gives the appended video when
-// it emits it as an embedded attachment. The extension follows the detected
-// type and is absent for legacy MicroVideo, which declares no mime type.
-const motionPhotoVideoName = "motion-photo"
-
 // getMotionPhoto reads Google Motion Photo XMP, which Tika exposes under the
 // canonical Camera/Container prefixes. It covers both the current MotionPhoto
 // scheme and the legacy MicroVideo scheme. videoSize (the embedded video's byte
@@ -85,14 +80,11 @@ func motionPhotoVideoSize(meta map[string][]string) (int64, bool) {
 	return 0, false
 }
 
-// isMotionPhotoVideo reports whether meta describes the video tika extracted
-// from a motion photo. Tika only emits it when the bytes the xmp advertises are
-// really there, so its presence is what confirms the facet: a shared motion
-// photo can keep the xmp and lose the appended video.
-func isMotionPhotoVideo(meta map[string][]string) bool {
-	name, err := getFirstValue(meta, "tk:resource-name")
-	if err != nil {
-		return false
-	}
-	return name == motionPhotoVideoName || strings.HasPrefix(name, motionPhotoVideoName+".")
+// isVideo reports whether meta describes a video. Tika emits the video appended
+// to a motion photo as an embedded document, and it only does so when the bytes
+// the xmp advertises are really there: a shared motion photo can keep the xmp
+// and lose the video.
+func isVideo(meta map[string][]string) bool {
+	v, err := getFirstValue(meta, "Content-Type")
+	return err == nil && strings.HasPrefix(v, "video/")
 }

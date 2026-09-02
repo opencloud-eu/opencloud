@@ -218,7 +218,7 @@ var _ = Describe("Tika", func() {
 		})
 
 		It("keeps the motion photo facet when tika emits the video", func() {
-			fullResponse = `[{"Camera:MotionPhotoVersion": "1", "Container:Directory/Item[2]/Item:Semantic": "MotionPhoto", "Container:Directory/Item[2]/Item:Length": "40"}, {"tk:resource-name": "motion-photo.mp4", "Content-Type": "video/mp4"}]`
+			fullResponse = `[{"Camera:MotionPhotoVersion": "1", "Container:Directory/Item[2]/Item:Semantic": "MotionPhoto", "Container:Directory/Item[2]/Item:Length": "40"}, {"Content-Type": "video/mp4"}]`
 
 			doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
 				Type: provider.ResourceType_RESOURCE_TYPE_FILE,

@@ -82,7 +82,7 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		return doc, err
 	}
 
-	var motionPhotoVideo bool
+	var embeddedVideo bool
 	for _, meta := range metas {
 		title, err := getFirstValue(meta, "dc:title")
 		if err != nil {
@@ -119,14 +119,13 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		if v := t.getMotionPhoto(meta); v != nil {
 			doc.MotionPhoto = v
 		}
-		if isMotionPhotoVideo(meta) {
-			motionPhotoVideo = true
+		if isVideo(meta) {
+			embeddedVideo = true
 		}
 	}
 
-	// the xmp alone does not prove the video is there, tika emitting it as an
-	// embedded attachment does
-	if !motionPhotoVideo {
+	// the xmp alone does not prove the video is there, tika extracting it does
+	if !embeddedVideo {
 		doc.MotionPhoto = nil
 	}
 

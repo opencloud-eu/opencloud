@@ -77,15 +77,16 @@ var _ = Describe("getMotionPhoto", func() {
 	})
 })
 
-var _ = Describe("isMotionPhotoVideo", func() {
-	DescribeTable("recognizes the video tika emits as an embedded attachment",
+var _ = Describe("isVideo", func() {
+	DescribeTable("recognizes the video tika extracted from a motion photo",
 		func(meta map[string][]string, expected bool) {
-			Expect(isMotionPhotoVideo(meta)).To(Equal(expected))
+			Expect(isVideo(meta)).To(Equal(expected))
 		},
-		Entry("named attachment", map[string][]string{"tk:resource-name": {"motion-photo.mp4"}}, true),
-		Entry("no extension, as for MicroVideo", map[string][]string{"tk:resource-name": {"motion-photo"}}, true),
-		Entry("another attachment", map[string][]string{"tk:resource-name": {"cover.jpg"}}, false),
-		Entry("a name that only starts alike", map[string][]string{"tk:resource-name": {"motion-photography.mp4"}}, false),
-		Entry("the image itself", map[string][]string{"Camera:MotionPhoto": {"1"}}, false),
+		Entry("mp4", map[string][]string{"Content-Type": {"video/mp4"}}, true),
+		Entry("quicktime", map[string][]string{"Content-Type": {"video/quicktime"}}, true),
+		Entry("with parameters", map[string][]string{"Content-Type": {"video/mp4; codecs=avc1"}}, true),
+		Entry("the image itself", map[string][]string{"Content-Type": {"image/jpeg"}}, false),
+		Entry("another attachment", map[string][]string{"Content-Type": {"application/pdf"}}, false),
+		Entry("no content type", map[string][]string{"Camera:MotionPhoto": {"1"}}, false),
 	)
 })
