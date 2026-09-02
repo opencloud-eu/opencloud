@@ -147,6 +147,26 @@ var _ = Describe("libregraph", func() {
 				return driveRecipient, false
 			},
 		),
+		Entry("succeed: email recipient",
+			func() (libregraph.DriveRecipient, bool) {
+				driveRecipient.ObjectId = nil
+				driveRecipient.Email = conversions.ToPointer("guest@example.com")
+				return driveRecipient, true
+			},
+		),
+		Entry("fail: invalid email",
+			func() (libregraph.DriveRecipient, bool) {
+				driveRecipient.ObjectId = nil
+				driveRecipient.Email = conversions.ToPointer("invalid")
+				return driveRecipient, false
+			},
+		),
+		Entry("fail: objectId and email both set",
+			func() (libregraph.DriveRecipient, bool) {
+				driveRecipient.Email = conversions.ToPointer("guest@example.com")
+				return driveRecipient, false
+			},
+		),
 		Entry("succeed: valid role",
 			func() (libregraph.DriveRecipient, bool) {
 				driveRecipient.LibreGraphRecipientType = conversions.ToPointer("user")

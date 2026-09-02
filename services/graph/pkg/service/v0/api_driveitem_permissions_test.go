@@ -172,7 +172,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
 			gatewayClient.On("CreateShare", mock.Anything, mock.Anything).Return(createShareResponse, nil)
 			driveItemInvite.Recipients = []libregraph.DriveRecipient{
-				{ObjectId: libregraph.PtrString("Test User <guest@example.com>"), LibreGraphRecipientType: libregraph.PtrString("mail")},
+				{Email: libregraph.PtrString("Test User <guest@example.com>")},
 			}
 			createShareResponse.Share = &collaboration.Share{
 				Id: &collaboration.ShareId{OpaqueId: "guest123"},
@@ -188,7 +188,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		It("verifies that invalid email addresses are handled", func() {
 			cfg.EnableGuestInvites = true
 			driveItemInvite.Recipients = []libregraph.DriveRecipient{
-				{ObjectId: libregraph.PtrString("invalid"), LibreGraphRecipientType: libregraph.PtrString("mail")},
+				{Email: libregraph.PtrString("invalid")},
 			}
 
 			_, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
@@ -199,7 +199,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		It("verifies that empty email addresses are handled", func() {
 			cfg.EnableGuestInvites = true
 			driveItemInvite.Recipients = []libregraph.DriveRecipient{
-				{ObjectId: libregraph.PtrString(" "), LibreGraphRecipientType: libregraph.PtrString("mail")},
+				{Email: libregraph.PtrString(" ")},
 			}
 
 			_, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
@@ -209,7 +209,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 
 		It("rejects guest shares when guest invites are disabled by default", func() {
 			driveItemInvite.Recipients = []libregraph.DriveRecipient{
-				{ObjectId: libregraph.PtrString("guest@example.com"), LibreGraphRecipientType: libregraph.PtrString("mail")},
+				{Email: libregraph.PtrString("guest@example.com")},
 			}
 
 			_, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)

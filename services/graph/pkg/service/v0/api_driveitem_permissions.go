@@ -164,36 +164,11 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 	var shareid string
 	var expiration *types.Timestamp
 	var cTime *types.Timestamp
-	switch driveRecipient.GetLibreGraphRecipientType() {
-	case "group":
-		group, err := s.identityCache.GetGroup(ctx, objectID)
-		if err != nil {
-			s.logger.Debug().Err(err).Interface("groupId", objectID).Msg("failed group lookup")
-			return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, err.Error())
-		}
-		permission.GrantedToV2 = &libregraph.SharePointIdentitySet{
-			Group: &libregraph.Identity{
-				DisplayName: group.GetDisplayName(),
-				Id:          conversions.ToPointer(group.GetId()),
-			},
-		}
-		createShareRequest := createShareRequestToGroup(group, statResponse.GetInfo(), cs3ResourcePermissions)
-		if invite.ExpirationDateTime != nil {
-			createShareRequest.GetGrant().Expiration = utils.TimeToTS(*invite.ExpirationDateTime)
-		}
-		createShareResponse, err := gatewayClient.CreateShare(ctx, createShareRequest)
-		if err := errorcode.FromCS3Status(createShareResponse.GetStatus(), err); err != nil {
-			s.logger.Debug().Err(err).Msg("share creation failed")
-			return libregraph.Permission{}, err
-		}
-		shareid = createShareResponse.GetShare().GetId().GetOpaqueId()
-		cTime = createShareResponse.GetShare().GetCtime()
-		expiration = createShareResponse.GetShare().GetExpiration()
-	case "mail":
+	if email := driveRecipient.GetEmail(); email != "" {
 		if !s.config.EnableGuestInvites {
 			return libregraph.Permission{}, errorcode.New(errorcode.NotSupported, "sharing with mail recipients is not enabled")
 		}
-		email := strings.TrimSpace(objectID)
+		email = strings.TrimSpace(email)
 		if len(email) == 0 {
 			return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "invalid mail recipient")
 		}
@@ -214,6 +189,7 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 			createShareRequest.GetGrant().Expiration = utils.TimeToTS(*invite.ExpirationDateTime)
 		}
 		createShareResponse, err := gatewayClient.CreateShare(ctx, createShareRequest)
+
 		if err := errorcode.FromCS3Status(createShareResponse.GetStatus(), err); err != nil {
 			s.logger.Debug().Err(err).Msg("share creation failed")
 			return libregraph.Permission{}, err
@@ -232,60 +208,88 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 			User: identity,
 		}
 
-	default:
-		user, err := s.identityCache.GetCS3User(ctx, tenantId, objectID)
-		if errors.Is(err, identity.ErrNotFound) && s.config.IncludeOCMSharees {
-			user, err = s.identityCache.GetAcceptedCS3User(ctx, objectID)
-			if err == nil && IsSpaceRoot(statResponse.GetInfo().GetId()) {
-				return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "federated user can not become a space member")
+	} else {
+		switch driveRecipient.GetLibreGraphRecipientType() {
+		case "group":
+			group, err := s.identityCache.GetGroup(ctx, objectID)
+			if err != nil {
+				s.logger.Debug().Err(err).Interface("groupId", objectID).Msg("failed group lookup")
+				return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, err.Error())
 			}
-		}
-		if err != nil {
-			s.logger.Debug().Err(err).Interface("userId", objectID).Msg("failed user lookup")
-			return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, err.Error())
-		}
-		permission.GrantedToV2 = &libregraph.SharePointIdentitySet{
-			User: &libregraph.Identity{
-				DisplayName:        user.GetDisplayName(),
-				Id:                 conversions.ToPointer(user.GetId().GetOpaqueId()),
-				LibreGraphUserType: conversions.ToPointer(identity.CS3UserTypeToGraph(user.GetId().GetType())),
-			},
-		}
-
-		if user.GetId().GetType() == userpb.UserType_USER_TYPE_FEDERATED {
-			providerInfoResp, err := gatewayClient.GetInfoByDomain(ctx, &ocmprovider.GetInfoByDomainRequest{
-				Domain: user.GetId().GetIdp(),
-			})
-			if err = errorcode.FromCS3Status(providerInfoResp.GetStatus(), err); err != nil {
-				s.logger.Error().Err(err).Msg("getting provider info failed")
-				return libregraph.Permission{}, err
+			permission.GrantedToV2 = &libregraph.SharePointIdentitySet{
+				Group: &libregraph.Identity{
+					DisplayName: group.GetDisplayName(),
+					Id:          conversions.ToPointer(group.GetId()),
+				},
 			}
-
-			createShareRequest := createShareRequestToFederatedUser(user, statResponse.GetInfo().GetId(), providerInfoResp.ProviderInfo, cs3ResourcePermissions)
-			if invite.ExpirationDateTime != nil {
-				createShareRequest.Expiration = utils.TimeToTS(*invite.ExpirationDateTime)
-			}
-			createShareResponse, err := gatewayClient.CreateOCMShare(ctx, createShareRequest)
-			if err = errorcode.FromCS3Status(createShareResponse.GetStatus(), err); err != nil {
-				s.logger.Error().Err(err).Msg("share creation failed")
-				return libregraph.Permission{}, err
-			}
-			shareid = createShareResponse.GetShare().GetId().GetOpaqueId()
-			cTime = createShareResponse.GetShare().GetCtime()
-			expiration = createShareResponse.GetShare().GetExpiration()
-		} else {
-			createShareRequest := createShareRequestToUser(user, statResponse.GetInfo(), cs3ResourcePermissions)
+			createShareRequest := createShareRequestToGroup(group, statResponse.GetInfo(), cs3ResourcePermissions)
 			if invite.ExpirationDateTime != nil {
 				createShareRequest.GetGrant().Expiration = utils.TimeToTS(*invite.ExpirationDateTime)
 			}
 			createShareResponse, err := gatewayClient.CreateShare(ctx, createShareRequest)
-			if err = errorcode.FromCS3Status(createShareResponse.GetStatus(), err); err != nil {
-				s.logger.Error().Err(err).Msg("share creation failed")
+			if err := errorcode.FromCS3Status(createShareResponse.GetStatus(), err); err != nil {
+				s.logger.Debug().Err(err).Msg("share creation failed")
 				return libregraph.Permission{}, err
 			}
 			shareid = createShareResponse.GetShare().GetId().GetOpaqueId()
 			cTime = createShareResponse.GetShare().GetCtime()
 			expiration = createShareResponse.GetShare().GetExpiration()
+		default:
+			user, err := s.identityCache.GetCS3User(ctx, tenantId, objectID)
+			if errors.Is(err, identity.ErrNotFound) && s.config.IncludeOCMSharees {
+				user, err = s.identityCache.GetAcceptedCS3User(ctx, objectID)
+				if err == nil && IsSpaceRoot(statResponse.GetInfo().GetId()) {
+					return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "federated user can not become a space member")
+				}
+			}
+			if err != nil {
+				s.logger.Debug().Err(err).Interface("userId", objectID).Msg("failed user lookup")
+				return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, err.Error())
+			}
+			permission.GrantedToV2 = &libregraph.SharePointIdentitySet{
+				User: &libregraph.Identity{
+					DisplayName:        user.GetDisplayName(),
+					Id:                 conversions.ToPointer(user.GetId().GetOpaqueId()),
+					LibreGraphUserType: conversions.ToPointer(identity.CS3UserTypeToGraph(user.GetId().GetType())),
+				},
+			}
+
+			if user.GetId().GetType() == userpb.UserType_USER_TYPE_FEDERATED {
+				providerInfoResp, err := gatewayClient.GetInfoByDomain(ctx, &ocmprovider.GetInfoByDomainRequest{
+					Domain: user.GetId().GetIdp(),
+				})
+				if err = errorcode.FromCS3Status(providerInfoResp.GetStatus(), err); err != nil {
+					s.logger.Error().Err(err).Msg("getting provider info failed")
+					return libregraph.Permission{}, err
+				}
+
+				createShareRequest := createShareRequestToFederatedUser(user, statResponse.GetInfo().GetId(), providerInfoResp.ProviderInfo, cs3ResourcePermissions)
+				if invite.ExpirationDateTime != nil {
+					createShareRequest.Expiration = utils.TimeToTS(*invite.ExpirationDateTime)
+				}
+				createShareResponse, err := gatewayClient.CreateOCMShare(ctx, createShareRequest)
+				if err = errorcode.FromCS3Status(createShareResponse.GetStatus(), err); err != nil {
+					s.logger.Error().Err(err).Msg("share creation failed")
+					return libregraph.Permission{}, err
+				}
+				shareid = createShareResponse.GetShare().GetId().GetOpaqueId()
+				cTime = createShareResponse.GetShare().GetCtime()
+				expiration = createShareResponse.GetShare().GetExpiration()
+			} else {
+				createShareRequest := createShareRequestToUser(user, statResponse.GetInfo(), cs3ResourcePermissions)
+				if invite.ExpirationDateTime != nil {
+					createShareRequest.GetGrant().Expiration = utils.TimeToTS(*invite.ExpirationDateTime)
+				}
+				createShareResponse, err := gatewayClient.CreateShare(ctx, createShareRequest)
+				if err = errorcode.FromCS3Status(createShareResponse.GetStatus(), err); err != nil {
+					s.logger.Error().Err(err).Msg("share creation failed")
+					return libregraph.Permission{}, err
+				}
+				shareid = createShareResponse.GetShare().GetId().GetOpaqueId()
+				cTime = createShareResponse.GetShare().GetCtime()
+				expiration = createShareResponse.GetShare().GetExpiration()
+			}
+
 		}
 
 	}
