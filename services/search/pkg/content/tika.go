@@ -82,6 +82,7 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		return doc, err
 	}
 
+	var motionPhotoVideo bool
 	for _, meta := range metas {
 		title, err := getFirstValue(meta, "dc:title")
 		if err != nil {
@@ -118,11 +119,14 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		if v := t.getMotionPhoto(meta); v != nil {
 			doc.MotionPhoto = v
 		}
+		if isMotionPhotoVideo(meta) {
+			motionPhotoVideo = true
+		}
 	}
 
-	// verify against the file itself: a shared motion photo can keep the XMP but
-	// lose the appended video, which would leave an unplayable facet.
-	if doc.MotionPhoto != nil && !t.motionPhotoHasVideo(ctx, ri, doc.MotionPhoto.GetVideoSize()) {
+	// the xmp alone does not prove the video is there, tika emitting it as an
+	// embedded attachment does
+	if !motionPhotoVideo {
 		doc.MotionPhoto = nil
 	}
 

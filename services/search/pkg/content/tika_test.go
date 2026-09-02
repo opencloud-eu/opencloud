@@ -217,13 +217,8 @@ var _ = Describe("Tika", func() {
 			Expect(doc.Content).To(Equal("one two"))
 		})
 
-		It("verifies the motion photo video against the file", func() {
-			fullResponse = `[{"Camera:MotionPhotoVersion": "1", "Container:Directory/Item[2]/Item:Semantic": "MotionPhoto", "Container:Directory/Item[2]/Item:Length": "40"}]`
-			retriever := &contentMocks.Retriever{}
-			retriever.On("Retrieve", mock.Anything, mock.Anything).Return(io.NopCloser(strings.NewReader("")), nil)
-			retriever.On("RetrieveRange", mock.Anything, mock.Anything, int64(60), mock.Anything).
-				Return(io.NopCloser(strings.NewReader("\x00\x00\x00\x18ftypisom")), nil)
-			tika.Retriever = retriever
+		It("keeps the motion photo facet when tika emits the video", func() {
+			fullResponse = `[{"Camera:MotionPhotoVersion": "1", "Container:Directory/Item[2]/Item:Semantic": "MotionPhoto", "Container:Directory/Item[2]/Item:Length": "40"}, {"tk:resource-name": "motion-photo.mp4", "Content-Type": "video/mp4"}]`
 
 			doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
 				Type: provider.ResourceType_RESOURCE_TYPE_FILE,
@@ -236,11 +231,6 @@ var _ = Describe("Tika", func() {
 
 		It("drops the motion photo facet when the advertised video is gone", func() {
 			fullResponse = `[{"Camera:MotionPhotoVersion": "1", "Container:Directory/Item[2]/Item:Semantic": "MotionPhoto", "Container:Directory/Item[2]/Item:Length": "40"}]`
-			retriever := &contentMocks.Retriever{}
-			retriever.On("Retrieve", mock.Anything, mock.Anything).Return(io.NopCloser(strings.NewReader("")), nil)
-			retriever.On("RetrieveRange", mock.Anything, mock.Anything, int64(60), mock.Anything).
-				Return(io.NopCloser(strings.NewReader("JFIF leftovers")), nil)
-			tika.Retriever = retriever
 
 			doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
 				Type: provider.ResourceType_RESOURCE_TYPE_FILE,

@@ -1,17 +1,9 @@
 package content
 
 import (
-	"context"
-	"errors"
-	"io"
-	"strings"
-
-	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-
-	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
 var _ = Describe("getMotionPhoto", func() {
@@ -85,73 +77,16 @@ var _ = Describe("getMotionPhoto", func() {
 	})
 })
 
-var _ = Describe("looksLikeMP4", func() {
-	It("recognizes an ftyp box and rejects everything else", func() {
-		Expect(looksLikeMP4([]byte{0, 0, 0, 24, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm'})).To(BeTrue())
-		Expect(looksLikeMP4([]byte("JFIF garbage"))).To(BeFalse())
-		Expect(looksLikeMP4([]byte{0, 0, 0})).To(BeFalse())
-	})
-})
-
-// rangeStub serves RetrieveRange from a string and records the requested range.
-type rangeStub struct {
-	data      string
-	err       error
-	gotOffset int64
-	gotLength int64
-	calls     int
-}
-
-func (r *rangeStub) Retrieve(context.Context, *provider.ResourceId) (io.ReadCloser, error) {
-	return nil, errors.New("unused")
-}
-
-func (r *rangeStub) RetrieveRange(_ context.Context, _ *provider.ResourceId, offset, length int64) (io.ReadCloser, error) {
-	r.calls++
-	r.gotOffset, r.gotLength = offset, length
-	if r.err != nil {
-		return nil, r.err
-	}
-	return io.NopCloser(strings.NewReader(r.data)), nil
-}
-
-var _ = Describe("motionPhotoHasVideo", func() {
-	var (
-		retriever *rangeStub
-		tika      Tika
-		ri        *provider.ResourceInfo
+var _ = Describe("isMotionPhotoVideo", func() {
+	DescribeTable("recognizes the video tika emits as an embedded attachment",
+		func(meta map[string][]string, expected bool) {
+			Expect(isMotionPhotoVideo(meta)).To(Equal(expected))
+		},
+		Entry("named attachment", map[string][]string{"tk:resource-name": {"motion-photo.mp4"}}, true),
+		Entry("legacy tika prefix", map[string][]string{"X-TIKA:resource-name": {"motion-photo.mp4"}}, true),
+		Entry("no extension, as for MicroVideo", map[string][]string{"tk:resource-name": {"motion-photo"}}, true),
+		Entry("another attachment", map[string][]string{"tk:resource-name": {"cover.jpg"}}, false),
+		Entry("a name that only starts alike", map[string][]string{"tk:resource-name": {"motion-photography.mp4"}}, false),
+		Entry("the image itself", map[string][]string{"Camera:MotionPhoto": {"1"}}, false),
 	)
-
-	BeforeEach(func() {
-		retriever = &rangeStub{}
-		basic, err := NewBasicExtractor(log.NewLogger())
-		Expect(err).ToNot(HaveOccurred())
-		tika = Tika{Basic: basic, Retriever: retriever}
-		ri = &provider.ResourceInfo{Size: 100}
-	})
-
-	It("confirms a video that starts with an ftyp box", func() {
-		retriever.data = "\x00\x00\x00\x18ftypisom"
-		Expect(tika.motionPhotoHasVideo(context.Background(), ri, 40)).To(BeTrue())
-		Expect(retriever.gotOffset).To(Equal(int64(60)), "the video starts at size-videoSize")
-		Expect(retriever.gotLength).To(Equal(int64(motionPhotoVideoSignatureLen)))
-	})
-
-	It("rejects trailing bytes without an MP4 signature", func() {
-		retriever.data = "not a video "
-		Expect(tika.motionPhotoHasVideo(context.Background(), ri, 40)).To(BeFalse())
-	})
-
-	It("rejects degenerate video sizes without reading", func() {
-		Expect(tika.motionPhotoHasVideo(context.Background(), ri, 0)).To(BeFalse())
-		Expect(tika.motionPhotoHasVideo(context.Background(), ri, -1)).To(BeFalse())
-		Expect(tika.motionPhotoHasVideo(context.Background(), ri, 100)).To(BeFalse())
-		Expect(tika.motionPhotoHasVideo(context.Background(), ri, 101)).To(BeFalse())
-		Expect(retriever.calls).To(BeZero())
-	})
-
-	It("drops the facet when the range read fails", func() {
-		retriever.err = errors.New("nope")
-		Expect(tika.motionPhotoHasVideo(context.Background(), ri, 40)).To(BeFalse())
-	})
 })
