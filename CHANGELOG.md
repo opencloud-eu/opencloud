@@ -1,21 +1,27 @@
 # Changelog
 
-## [7.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.6.0) - 2026-09-03
+## [8.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.0) - 2026-09-03
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @dschmidt, @fredrikblau, @fschade, @maki5, @pbleser-oc, @v-scharf
 
+### 💥 Breaking changes
+
+- feat(search): check the index schema on startup and refuse breaking changes [[#3197](https://github.com/opencloud-eu/opencloud/pull/3197)]
+- refactor: reflection-based search mapping + location geopoint [[#3345](https://github.com/opencloud-eu/opencloud/pull/3345)]
+- fix(search): make openSearch and bleve behave the same [[#3408](https://github.com/opencloud-eu/opencloud/pull/3408)]
+
 ### 📈 Enhancement
 
+- feat(search): live photo facet [[#3202](https://github.com/opencloud-eu/opencloud/pull/3202)]
+- feat: support $expand=children on the driveItem endpoint [[#3445](https://github.com/opencloud-eu/opencloud/pull/3445)]
 - feat(search): motion photo facet [[#3200](https://github.com/opencloud-eu/opencloud/pull/3200)]
 - feat(search): video facet [[#3201](https://github.com/opencloud-eu/opencloud/pull/3201)]
 - graph: expose pendingOperations on driveItems [[#3437](https://github.com/opencloud-eu/opencloud/pull/3437)]
 - feat(search): extract more data from tika 4 (if available) [[#3198](https://github.com/opencloud-eu/opencloud/pull/3198)]
 - graph: expose following state, tags and allowed actions on driveItems [[#3113](https://github.com/opencloud-eu/opencloud/pull/3113)]
 - feat(search): scope searches to a drive via the driveId field [[#3424](https://github.com/opencloud-eu/opencloud/pull/3424)]
-- feat(search): check the index schema on startup and refuse breaking changes [[#3197](https://github.com/opencloud-eu/opencloud/pull/3197)]
-- refactor: reflection-based search mapping + location geopoint [[#3345](https://github.com/opencloud-eu/opencloud/pull/3345)]
 - chore(policies): disable gRPC or event handlers by configuration + add metrics [[#3287](https://github.com/opencloud-eu/opencloud/pull/3287)]
 - moved ShareCreated event consumer from frontend to shared service [[#3389](https://github.com/opencloud-eu/opencloud/pull/3389)]
 
@@ -23,7 +29,6 @@
 
 - fix: notification handling for share removal and space membership expiry  [[#3257](https://github.com/opencloud-eu/opencloud/pull/3257)]
 - fix: posix cli commands [[#3348](https://github.com/opencloud-eu/opencloud/pull/3348)]
-- fix(search): make openSearch and bleve behave the same [[#3408](https://github.com/opencloud-eu/opencloud/pull/3408)]
 
 ### ✅ Tests
 
