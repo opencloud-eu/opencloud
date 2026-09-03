@@ -35,16 +35,28 @@ import (
 // opt-in driveItem instance annotations, returned only when requested via $select
 const _selectAllowedValues = "@libre.graph.permissions.actions.allowedValues"
 
-// driveItemPropertySelected reports whether the given opt-in property was requested via $select
-func driveItemPropertySelected(r *http.Request, property string) bool {
-	for _, values := range r.URL.Query()["$select"] {
+// opt-in driveItem relations, returned only when requested via $expand
+const _expandChildren = "children"
+
+func odataListContains(r *http.Request, parameter, value string) bool {
+	for _, values := range r.URL.Query()[parameter] {
 		for _, v := range strings.Split(values, ",") {
-			if v == property {
+			if v == value {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// driveItemPropertySelected reports whether the given opt-in property was requested via $select
+func driveItemPropertySelected(r *http.Request, property string) bool {
+	return odataListContains(r, "$select", property)
+}
+
+// driveItemRelationExpanded reports whether the relation was requested via $expand
+func driveItemRelationExpanded(r *http.Request, relation string) bool {
+	return odataListContains(r, "$expand", relation)
 }
 
 // CreateUploadSession create an upload session to allow your app to upload files up to the maximum file size.
@@ -302,6 +314,15 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		driveItem.LibreGraphPermissionsActionsAllowedValues = unifiedrole.CS3ResourcePermissionsToLibregraphActions(res.GetInfo().GetPermissionSet())
 	}
 
+	// only containers have children
+	if res.GetInfo().GetType() == storageprovider.ResourceType_RESOURCE_TYPE_CONTAINER && driveItemRelationExpanded(r, _expandChildren) {
+		children, ok := g.listDriveItemChildren(w, r, &driveItemID)
+		if !ok {
+			return
+		}
+		driveItem.Children = children
+	}
+
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, &driveItem)
 }
@@ -309,7 +330,6 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 // GetDriveItemChildren lists the children of a driveItem
 func (g Graph) GetDriveItemChildren(w http.ResponseWriter, r *http.Request) {
 	g.logger.Info().Msg("Calling GetDriveItemChildren")
-	ctx := r.Context()
 
 	driveID, err := parseIDParam(r, "driveID")
 	if err != nil {
@@ -335,43 +355,52 @@ func (g Graph) GetDriveItemChildren(w http.ResponseWriter, r *http.Request) {
 		}
 	*/
 
-	gatewayClient, err := g.gatewaySelector.Next()
-	if err != nil {
-		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	res, err := gatewayClient.ListContainer(ctx, &storageprovider.ListContainerRequest{
-		Ref: &storageprovider.Reference{ResourceId: &driveItemID},
-	})
-	switch {
-	case err != nil:
-		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
-		return
-	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_OK:
-		// ok
-	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_NOT_FOUND:
-		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, res.GetStatus().GetMessage())
-		return
-	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_PERMISSION_DENIED:
-		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, res.GetStatus().GetMessage()) // do not leak existence? check what graph does
-		return
-	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_UNAUTHENTICATED:
-		errorcode.Unauthenticated.Render(w, r, http.StatusUnauthorized, res.GetStatus().GetMessage()) // do not leak existence? check what graph does
-		return
-	default:
-		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, res.GetStatus().GetMessage())
-		return
-	}
-
-	files, err := formatDriveItems(g.logger, g.publicBaseURL, res.GetInfos())
-	if err != nil {
-		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
+	files, ok := g.listDriveItemChildren(w, r, &driveItemID)
+	if !ok {
 		return
 	}
 
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, &ListResponse{Value: files})
+}
+
+func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, driveItemID *storageprovider.ResourceId) ([]libregraph.DriveItem, bool) {
+	gatewayClient, err := g.gatewaySelector.Next()
+	if err != nil {
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
+		return nil, false
+	}
+
+	res, err := gatewayClient.ListContainer(r.Context(), &storageprovider.ListContainerRequest{
+		Ref: &storageprovider.Reference{ResourceId: driveItemID},
+	})
+	switch {
+	case err != nil:
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
+		return nil, false
+	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_OK:
+		// ok
+	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_NOT_FOUND:
+		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, res.GetStatus().GetMessage())
+		return nil, false
+	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_PERMISSION_DENIED:
+		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, res.GetStatus().GetMessage()) // do not leak existence? check what graph does
+		return nil, false
+	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_UNAUTHENTICATED:
+		errorcode.Unauthenticated.Render(w, r, http.StatusUnauthorized, res.GetStatus().GetMessage()) // do not leak existence? check what graph does
+		return nil, false
+	default:
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, res.GetStatus().GetMessage())
+		return nil, false
+	}
+
+	files, err := formatDriveItems(g.logger, g.publicBaseURL, res.GetInfos())
+	if err != nil {
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
+		return nil, false
+	}
+
+	return files, true
 }
 
 func (g Graph) getRemoteItem(ctx context.Context, root *storageprovider.ResourceId, baseURL *url.URL) (*libregraph.RemoteItem, error) {
@@ -412,14 +441,14 @@ func (g Graph) getRemoteItem(ctx context.Context, root *storageprovider.Resource
 	return item, nil
 }
 
-func formatDriveItems(logger *log.Logger, publicBaseURL *url.URL, mds []*storageprovider.ResourceInfo) ([]*libregraph.DriveItem, error) {
-	responses := make([]*libregraph.DriveItem, 0, len(mds))
+func formatDriveItems(logger *log.Logger, publicBaseURL *url.URL, mds []*storageprovider.ResourceInfo) ([]libregraph.DriveItem, error) {
+	responses := make([]libregraph.DriveItem, 0, len(mds))
 	for i := range mds {
 		res, err := cs3ResourceToDriveItem(logger, publicBaseURL, mds[i])
 		if err != nil {
 			return nil, err
 		}
-		responses = append(responses, res)
+		responses = append(responses, *res)
 	}
 
 	return responses, nil
