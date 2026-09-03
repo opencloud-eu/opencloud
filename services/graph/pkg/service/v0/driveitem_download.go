@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 	"path"
-	"strings"
 	"time"
 
 	cs3rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
@@ -86,31 +85,31 @@ func (g BaseGraphService) signedDownloadURL(id *storageprovider.ResourceId, user
 	return g.downloadSigner.Sign(base.String(), userID, 30*time.Minute)
 }
 
-func shouldSelect(r *http.Request, property string) bool {
-	for _, v := range strings.Split(r.URL.Query().Get("$select"), ",") {
-		if strings.TrimSpace(v) == property {
-			return true
-		}
+func (g Graph) setDriveItemsDownloadURL(r *http.Request, items []libregraph.DriveItem, infos []*storageprovider.ResourceInfo) {
+	if !g.downloadURLRequested(r) {
+		return
 	}
-	return false
+	for i := range items {
+		g.setDriveItemDownloadURL(r, &items[i], infos[i])
+	}
 }
 
-func (g Graph) setDriveItemsDownloadURL(r *http.Request, items []*libregraph.DriveItem, infos []*storageprovider.ResourceInfo) {
-	if g.downloadSigner == nil || !shouldSelect(r, "@microsoft.graph.downloadUrl") {
+func (g Graph) setDriveItemDownloadURL(r *http.Request, item *libregraph.DriveItem, info *storageprovider.ResourceInfo) {
+	if item.File == nil || !g.downloadURLRequested(r) {
 		return
 	}
 	user, ok := revactx.ContextGetUser(r.Context())
 	if !ok {
 		return
 	}
-	for i := range items {
-		if items[i].File == nil {
-			continue
-		}
-		u, err := g.signedDownloadURL(infos[i].GetId(), user.GetId().GetOpaqueId())
-		if err != nil {
-			continue
-		}
-		items[i].MicrosoftGraphDownloadUrl = &u
+	u, err := g.signedDownloadURL(info.GetId(), user.GetId().GetOpaqueId())
+	if err != nil {
+		return
 	}
+	item.MicrosoftGraphDownloadUrl = &u
+}
+
+// downloadURLRequested reports whether a signed download url can and should be built
+func (g Graph) downloadURLRequested(r *http.Request) bool {
+	return g.downloadSigner != nil && driveItemPropertySelected(r, _selectDownloadURL)
 }
