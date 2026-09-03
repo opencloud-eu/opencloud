@@ -2,6 +2,7 @@ package bleve
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -24,45 +25,82 @@ import (
 
 const defaultBatchSize = 50
 
+// semanticK picks the number of nearest neighbors for a semantic clause: at
+// least a fusion-friendly window, at most a sane cap (huge page sizes stand
+// for "everything", but a similarity ranking beyond 1000 hits carries no
+// signal, see the KNNRequest semantics: k results per clause, no threshold).
+func semanticK(size int) int64 {
+	const minK, maxK = 200, 1000
+	switch {
+	case size >= maxK:
+		return maxK
+	case size < minK:
+		return minK
+	default:
+		return int64(size)
+	}
+}
+
 var _ search.Engine = (*Backend)(nil) // ensure Backend implements Engine
 
 type Backend struct {
 	index        bleve.Index
 	queryCreator searchQuery.Creator[query.Query]
+	vectorizer   search.TextVectorizer
 	log          log.Logger
 }
 
-func NewBackend(index bleve.Index, queryCreator searchQuery.Creator[query.Query], log log.Logger) *Backend {
-	return &Backend{
+// Option configures a Backend.
+type Option func(*Backend)
+
+// WithTextVectorizer enables semantic queries (`semantic:"..."`); without it
+// they are rejected.
+func WithTextVectorizer(v search.TextVectorizer) Option {
+	return func(b *Backend) {
+		b.vectorizer = v
+	}
+}
+
+func NewBackend(index bleve.Index, queryCreator searchQuery.Creator[query.Query], log log.Logger, opts ...Option) *Backend {
+	b := &Backend{
 		index:        index,
 		queryCreator: queryCreator,
 		log:          log,
 	}
+	for _, opt := range opts {
+		opt(b)
+	}
+	return b
 }
 
 // Search executes a search request operation within the index.
 // Returns a SearchIndexResponse object or an error.
-func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
-	createdQuery, err := b.queryCreator.Create(sir.Query)
+func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
+	// the semantic clause ranks, the remaining query filters: it scopes the
+	// vector search and stays the only source of totals. The creator splits
+	// the clause off the parsed KQL tree.
+	createdQuery, semanticText, err := b.queryCreator.CreateWithSemantic(sir.Query)
 	if err != nil {
 		if kql.IsValidationError(err) {
 			return nil, errtypes.BadRequest(err.Error())
 		}
 		return nil, err
 	}
+	pureSemantic := createdQuery == nil && semanticText != ""
 
-	q := bleve.NewConjunctionQuery(
+	// scope holds the restrictions every hit must satisfy; it also pre-filters
+	// the vector search
+	scope := bleve.NewConjunctionQuery(
 		// Skip documents that have been marked as deleted
 		&query.BoolFieldQuery{
 			Bool:     false,
 			FieldVal: "Deleted",
 		},
-		createdQuery,
 	)
 
 	if sir.Ref != nil {
-		q.Conjuncts = append(
-			q.Conjuncts,
+		scope.Conjuncts = append(
+			scope.Conjuncts,
 			&query.TermQuery{
 				FieldVal: "RootID",
 				Term: storagespace.FormatResourceID(
@@ -79,11 +117,23 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 		// (paths act as references, /Foo and /foo are distinct), so the exact
 		// folder or the folder prefix matches all of, and only, the scope.
 		if requestedPath := utils.MakeRelativePath(sir.Ref.Path); requestedPath != "." {
-			q.Conjuncts = append(q.Conjuncts, query.NewDisjunctionQuery([]query.Query{
+			scope.Conjuncts = append(scope.Conjuncts, query.NewDisjunctionQuery([]query.Query{
 				&query.TermQuery{FieldVal: "Path", Term: requestedPath},
 				&query.PrefixQuery{FieldVal: "Path", Prefix: requestedPath + "/"},
 			}))
 		}
+	}
+
+	// A purely semantic query has no filter part: the hits come exclusively
+	// from the KNN clause (base match_none), so the reported total is the
+	// number of semantic hits, not a library count (a similarity search has
+	// no result set, only a ranking). With a filter part the hits are the
+	// filter matches, re-ranked by the fusion.
+	var q query.Query
+	if pureSemantic {
+		q = query.NewMatchNoneQuery()
+	} else {
+		q = bleve.NewConjunctionQuery(append([]query.Query{}, append(scope.Conjuncts, createdQuery)...)...)
 	}
 
 	bleveReq := bleve.NewSearchRequest(q)
@@ -98,10 +148,41 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 		bleveReq.Size = int(sir.PageSize)
 	}
 
+	if semanticText != "" {
+		if b.vectorizer == nil {
+			return nil, errtypes.BadRequest("semantic search is not configured")
+		}
+		vector, err := b.vectorizer.VectorizeText(ctx, semanticText)
+		if err != nil {
+			return nil, fmt.Errorf("failed to vectorize the semantic query: %w", err)
+		}
+		// pre-filter the vector search: scope only for a purely semantic
+		// query, the full filter conjunction otherwise
+		knnFilter := query.Query(scope)
+		if !pureSemantic {
+			knnFilter = q
+		}
+		if err := addSemanticKNN(bleveReq, vector, knnFilter, semanticK(bleveReq.Size), !pureSemantic); err != nil {
+			return nil, err
+		}
+	}
+
 	bleveReq.Fields = []string{"*"}
 	res, err := b.index.Search(bleveReq)
 	if err != nil {
 		return nil, err
+	}
+
+	// hybrid semantic: the fusion reports the fused-hit count as Total, so the
+	// filter-part total (the only meaningful one) needs its own cheap count
+	if semanticText != "" && !pureSemantic {
+		countReq := bleve.NewSearchRequest(q)
+		countReq.Size = 0
+		countRes, err := b.index.Search(countReq)
+		if err != nil {
+			return nil, err
+		}
+		res.Total = countRes.Total
 	}
 
 	matches := make([]*searchMessage.Match, 0, len(res.Hits))

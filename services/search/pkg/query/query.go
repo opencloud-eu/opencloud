@@ -16,4 +16,9 @@ type Compiler[T any] interface {
 // Creator is the interface that wraps the basic Create method.
 type Creator[T any] interface {
 	Create(qs string) (T, error)
+
+	// CreateWithSemantic splits the semantic free-text clause off the parsed
+	// query (see ExtractSemantic). A purely semantic query yields the zero
+	// value for the compiled query.
+	CreateWithSemantic(qs string) (T, string, error)
 }

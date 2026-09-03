@@ -49,6 +49,10 @@ func (b *Batch) indexResource(id string, r search.Resource) error {
 	if err != nil {
 		return err
 	}
+	// vectors build: copy vector fields to their indexable _faiss sibling
+	// (the field itself is mapped stored-only, see VectorIndexSuffix);
+	// !vectors build: drop them
+	prepareVectorFields(doc, r.SearchFieldOverrides())
 	return b.batch.Index(id, doc)
 }
 

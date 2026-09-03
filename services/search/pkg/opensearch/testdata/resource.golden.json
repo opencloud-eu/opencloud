@@ -188,6 +188,16 @@
           }
         }
       },
+      "imageVector": {
+        "dimension": 512,
+        "method": {
+          "engine": "lucene",
+          "name": "hnsw",
+          "parameters": {},
+          "space_type": "cosinesimil"
+        },
+        "type": "knn_vector"
+      },
       "location": {
         "properties": {
           "altitude": {
@@ -348,6 +358,7 @@
         }
       }
     },
+    "knn": "true",
     "number_of_replicas": "1",
     "number_of_shards": "1"
   }

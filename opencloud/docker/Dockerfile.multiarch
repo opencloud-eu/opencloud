@@ -1,3 +1,24 @@
+FROM quay.io/opencloudeu/golang-ci:1.25 AS faiss
+# pinned to the last bleve-branch commit before the size-API change in
+# Index_c_ex.h, matching the vendored go-faiss v1.1.0
+ARG FAISS_REF=3ea23cd9bfdc9b0ca6d48beca0c85cb208a18119
+RUN apk add --no-cache cmake g++ make git openblas-dev && \
+    git clone https://github.com/blevesearch/faiss.git /faiss && \
+    git -C /faiss checkout --detach "$FAISS_REF" && \
+    cmake -S /faiss -B /faiss/build \
+      -DFAISS_ENABLE_GPU=OFF \
+      -DFAISS_ENABLE_PYTHON=OFF \
+      -DFAISS_ENABLE_C_API=ON \
+      -DBUILD_SHARED_LIBS=ON \
+      -DBUILD_TESTING=OFF \
+      -DFAISS_OPT_LEVEL=generic \
+      -DCMAKE_BUILD_TYPE=Release && \
+    make -C /faiss/build -j"$(nproc)" faiss faiss_c && \
+    make -C /faiss/build install && \
+    cp /faiss/build/c_api/libfaiss_c.so /usr/local/lib/ && \
+    mkdir -p /usr/local/include/faiss/c_api && \
+    cd /faiss/c_api && find . -name '*.h' -exec cp --parents {} /usr/local/include/faiss/c_api/ \;
+
 FROM quay.io/opencloudeu/golang-ci:1.25 AS build
 ARG TARGETOS
 ARG TARGETARCH
@@ -6,13 +27,18 @@ ARG STRING
 ARG EDITION="dev"
 ARG SRCDIR
 
+# openblas resolves the BLAS/LAPACK symbols libfaiss references at link time
+RUN apk add --no-cache openblas
+COPY --from=faiss /usr/local/lib/libfaiss.so /usr/local/lib/libfaiss_c.so /usr/local/lib/
+COPY --from=faiss /usr/local/include/faiss /usr/local/include/faiss
+
 WORKDIR /build
 RUN --mount=type=bind,target=/build,rw \
     --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache \
     GOOS="${TARGETOS:-linux}" GOARCH="${TARGETARCH:-amd64}" ; \
     make -C ${SRCDIR:-.}/opencloud release-linux-docker-${TARGETARCH} \
-        ENABLE_VIPS=true DIST=/dist \
+        ENABLE_VIPS=true ENABLE_VECTORS=true DIST=/dist \
         VERSION="${VERSION}" EDITION="${EDITION}" \
         ${STRING:+STRING="${STRING}"}
 
@@ -23,9 +49,11 @@ ARG TARGETOS
 ARG TARGETARCH
 
 RUN apk add --no-cache attr bash ca-certificates curl imagemagick \
-                       inotify-tools libc6-compat mailcap tree vips \
-		       vips-magick patch && \
+                       inotify-tools libc6-compat libgomp libstdc++ mailcap \
+                       openblas tree vips vips-magick patch && \
     echo 'hosts: files dns' >| /etc/nsswitch.conf
+
+COPY --from=faiss /usr/local/lib/libfaiss.so /usr/local/lib/libfaiss_c.so /usr/lib/
 
 LABEL maintainer="openCloud GmbH <devops@opencloud.eu>" \
   org.opencontainers.image.title="OpenCloud" \

@@ -52,6 +52,11 @@ func DefaultConfig() *config.Config {
 				TikaURL:        "http://127.0.0.1:9998",
 				CleanStopWords: false,
 			},
+			Clip: config.ExtractorClip{
+				Model:    "XLM-Roberta-Large-Vit-B-32",
+				MaxBytes: 50 * 1024 * 1024,
+				Timeout:  30,
+			},
 		},
 		Events: config.Events{
 			Endpoint:         "127.0.0.1:9233",
