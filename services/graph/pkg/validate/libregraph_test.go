@@ -137,27 +137,37 @@ var _ = Describe("libregraph", func() {
 				}
 			}
 		},
-		Entry("fail: invalid objectId",
+		Entry("succeed: user recipient",
 			func() (libregraph.DriveRecipient, bool) {
-				driveRecipient.ObjectId = nil
-				return driveRecipient, false
+				driveRecipient.LibreGraphRecipientType = conversions.ToPointer("user")
+				return driveRecipient, true
 			},
+		),
+		Entry("succeed: group recipient",
 			func() (libregraph.DriveRecipient, bool) {
-				driveRecipient.ObjectId = conversions.ToPointer("")
-				return driveRecipient, false
+				driveRecipient.LibreGraphRecipientType = conversions.ToPointer("group")
+				return driveRecipient, true
 			},
 		),
 		Entry("succeed: email recipient",
 			func() (libregraph.DriveRecipient, bool) {
 				driveRecipient.ObjectId = nil
 				driveRecipient.Email = conversions.ToPointer("guest@example.com")
+				driveRecipient.LibreGraphRecipientType = nil
 				return driveRecipient, true
 			},
 		),
-		Entry("fail: invalid email",
+		Entry("fail: no objectId and no email",
 			func() (libregraph.DriveRecipient, bool) {
 				driveRecipient.ObjectId = nil
-				driveRecipient.Email = conversions.ToPointer("invalid")
+				driveRecipient.Email = nil
+				driveRecipient.LibreGraphRecipientType = nil
+				return driveRecipient, false
+			},
+		),
+		Entry("fail: empty objectId",
+			func() (libregraph.DriveRecipient, bool) {
+				driveRecipient.ObjectId = conversions.ToPointer("")
 				return driveRecipient, false
 			},
 		),
@@ -167,22 +177,29 @@ var _ = Describe("libregraph", func() {
 				return driveRecipient, false
 			},
 		),
-		Entry("succeed: valid role",
+		Entry("fail: objectId without recipient type",
 			func() (libregraph.DriveRecipient, bool) {
-				driveRecipient.LibreGraphRecipientType = conversions.ToPointer("user")
-				return driveRecipient, true
-			},
-			func() (libregraph.DriveRecipient, bool) {
-				driveRecipient.LibreGraphRecipientType = conversions.ToPointer("group")
-				return driveRecipient, true
+				driveRecipient.LibreGraphRecipientType = nil
+				return driveRecipient, false
 			},
 		),
-		Entry("fail: invalid role",
+		Entry("fail: objectId with invalid recipient type",
 			func() (libregraph.DriveRecipient, bool) {
 				driveRecipient.LibreGraphRecipientType = conversions.ToPointer("foo")
 				return driveRecipient, false
 			},
+		),
+		Entry("fail: email recipient with recipient type set",
 			func() (libregraph.DriveRecipient, bool) {
+				driveRecipient.ObjectId = nil
+				driveRecipient.Email = conversions.ToPointer("guest@example.com")
+				return driveRecipient, false
+			},
+		),
+		Entry("fail: invalid email",
+			func() (libregraph.DriveRecipient, bool) {
+				driveRecipient.ObjectId = nil
+				driveRecipient.Email = conversions.ToPointer("invalid")
 				driveRecipient.LibreGraphRecipientType = nil
 				return driveRecipient, false
 			},

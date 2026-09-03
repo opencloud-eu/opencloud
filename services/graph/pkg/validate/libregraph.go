@@ -46,21 +46,9 @@ func libregraphDriveItemInvite(v *validator.Validate) {
 // libregraphDriveRecipient validates libregraph.DriveRecipient
 func libregraphDriveRecipient(v *validator.Validate) {
 	v.RegisterStructValidationMapRules(map[string]string{
-		"ObjectId":                "omitempty,ne=",
+		"ObjectId":                "required_without=Email,omitempty,ne=,excluded_with=Email",
 		"Email":                   "omitempty,email",
-		"LibreGraphRecipientType": "oneof=user group",
-	}, libregraph.DriveRecipient{})
-
-	v.RegisterStructValidationCtx(func(ctx context.Context, sl validator.StructLevel) {
-		driveRecipient := sl.Current().Interface().(libregraph.DriveRecipient)
-
-		if driveRecipient.GetObjectId() == "" && driveRecipient.GetEmail() == "" {
-			sl.ReportError(driveRecipient.ObjectId, "ObjectId", "objectId", "oneof", "either objectId or email is required")
-			return
-		}
-		if driveRecipient.GetObjectId() != "" && driveRecipient.GetEmail() != "" {
-			sl.ReportError(driveRecipient.ObjectId, "ObjectId", "objectId", "exclusive", "objectId and email are mutually exclusive")
-		}
+		"LibreGraphRecipientType": "required_with=ObjectId,excluded_with=Email,omitempty,oneof=user group",
 	}, libregraph.DriveRecipient{})
 }
 
