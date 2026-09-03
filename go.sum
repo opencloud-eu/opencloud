@@ -1104,8 +1104,8 @@ github.com/sethvargo/go-diceware v0.6.0 h1:B3nhMhbBP7KwtTQ7hHRIOmv5FqeD8bJs77RFr
 github.com/sethvargo/go-diceware v0.6.0/go.mod h1:lHmdB0xuWaJ06KCraW6bztRT+71Dp+lsXQvborhhsBc=
 github.com/sethvargo/go-password v0.4.0 h1:eSidVKQw5C7CmTDAtH3RipBTSjdU1ZRxQaynD2GWLVU=
 github.com/sethvargo/go-password v0.4.0/go.mod h1:PO3nYHwUpcHPR0F9woy7a4abZPvzRuqJr0GaeIYTm3k=
-github.com/shamaton/msgpack/v2 v2.4.1 h1:JtJ141QoQ3NqgPDsjq2v9VXlaON8SiQOwEaoNLEK/MQ=
-github.com/shamaton/msgpack/v2 v2.4.1/go.mod h1:6khjYnkx73f7VQU7wjcFS9DFjs+59naVWJv1TB7qdOI=
+github.com/shamaton/msgpack/v2 v2.4.2 h1:ukiqiwF8rIb8EG6hD8iPha3g85AC7EdCxFyobDj6oHk=
+github.com/shamaton/msgpack/v2 v2.4.2/go.mod h1:6khjYnkx73f7VQU7wjcFS9DFjs+59naVWJv1TB7qdOI=
 github.com/shirou/gopsutil v3.21.11+incompatible h1:+1+c1VGhc88SSonWP6foOcLhvnKlUeu/erjjvaPEYiI=
 github.com/shirou/gopsutil v3.21.11+incompatible/go.mod h1:5b4v6he4MtMOwMlS0TUMTu2PcXUg8+E1lC7eC3UO/RA=
 github.com/shirou/gopsutil/v4 v4.26.6 h1:Mzr/npDtQC/xpeEuQKHZt8Zo9CmPvhTj8nkR8w5TLDs=

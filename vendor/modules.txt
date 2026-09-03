@@ -1993,7 +1993,7 @@ github.com/sethvargo/go-diceware/diceware
 # github.com/sethvargo/go-password v0.4.0
 ## explicit; go 1.25
 github.com/sethvargo/go-password/password
-# github.com/shamaton/msgpack/v2 v2.4.1
+# github.com/shamaton/msgpack/v2 v2.4.2
 ## explicit; go 1.20
 github.com/shamaton/msgpack/v2
 github.com/shamaton/msgpack/v2/def
