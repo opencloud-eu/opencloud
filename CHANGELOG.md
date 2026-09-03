@@ -1,6 +1,6 @@
 # Changelog
 
-## [7.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.6.0) - 2026-09-02
+## [7.6.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.6.0) - 2026-09-03
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -8,6 +8,7 @@
 
 ### 📈 Enhancement
 
+- feat(search): motion photo facet [[#3200](https://github.com/opencloud-eu/opencloud/pull/3200)]
 - feat(search): video facet [[#3201](https://github.com/opencloud-eu/opencloud/pull/3201)]
 - graph: expose pendingOperations on driveItems [[#3437](https://github.com/opencloud-eu/opencloud/pull/3437)]
 - feat(search): extract more data from tika 4 (if available) [[#3198](https://github.com/opencloud-eu/opencloud/pull/3198)]
