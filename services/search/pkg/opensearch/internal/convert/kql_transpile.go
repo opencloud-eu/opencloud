@@ -20,7 +20,7 @@ import (
 func geoQueryField(key string) (string, error) {
 	field, ok := query.ResolveGeoField(key)
 	if !ok {
-		return "", fmt.Errorf("geo predicate on non-geo field %q", key)
+		return "", &kql.GeoFieldError{Key: key}
 	}
 	return field, nil
 }
