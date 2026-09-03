@@ -14,6 +14,7 @@
 
 ### 📈 Enhancement
 
+- graph: expose @libre.graph.shareTypes on driveItems [[#3438](https://github.com/opencloud-eu/opencloud/pull/3438)]
 - feat(search): live photo facet [[#3202](https://github.com/opencloud-eu/opencloud/pull/3202)]
 - feat: support $expand=children on the driveItem endpoint [[#3445](https://github.com/opencloud-eu/opencloud/pull/3445)]
 - feat(search): motion photo facet [[#3200](https://github.com/opencloud-eu/opencloud/pull/3200)]
