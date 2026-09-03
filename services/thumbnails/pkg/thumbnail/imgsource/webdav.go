@@ -9,7 +9,6 @@ import (
 	_ "image/png"  // Import the png package so that image.Decode can understand pngs
 	"io"
 	"net/http"
-	"strconv"
 
 	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/config"
 	thumbnailerErrors "github.com/opencloud-eu/opencloud/services/thumbnails/pkg/errors"
@@ -55,21 +54,15 @@ func (s WebDav) Get(ctx context.Context, url string) (io.ReadCloser, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
 		return nil, fmt.Errorf("could not get the image \"%s\". Request returned with statuscode %d ", url, resp.StatusCode)
 	}
 
-	contentLength := resp.Header.Get("Content-Length")
-	if contentLength == "" {
-		// no size information - let's assume it is too big
-		return nil, thumbnailerErrors.ErrImageTooLarge
-	}
-	c, err := strconv.ParseUint(contentLength, 10, 64)
-	if err != nil {
-		return nil, errors.Wrapf(err, `could not parse content length of webdav response "%s"`, url)
-	}
-	if c > s.maxImageFileSize {
+	// no size information - stop at maxImageFileSize
+	if resp.ContentLength >= 0 && uint64(resp.ContentLength) > s.maxImageFileSize {
+		resp.Body.Close()
 		return nil, thumbnailerErrors.ErrImageTooLarge
 	}
 
-	return resp.Body, nil
+	return http.MaxBytesReader(nil, resp.Body, int64(s.maxImageFileSize)), nil
 }
