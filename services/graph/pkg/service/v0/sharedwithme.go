@@ -13,7 +13,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/share"
 
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
-	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
 // ListSharedWithMe lists the files shared with the current user.

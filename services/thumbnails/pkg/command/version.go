@@ -24,7 +24,7 @@ func Version(cfg *config.Config) *cobra.Command {
 			fmt.Println("")
 
 			reg := registry.GetRegistry()
-			services, err := reg.GetService(cfg.GRPC.Namespace + "." + cfg.Service.Name)
+			services, err := reg.GetService(cfg.HTTP.Namespace + "." + cfg.Service.Name)
 			if err != nil {
 				fmt.Println(fmt.Errorf("could not get %s services from the registry: %v", cfg.Service.Name, err))
 				return err
