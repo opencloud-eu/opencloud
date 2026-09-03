@@ -35,6 +35,9 @@ func geoGroup() queryGroup {
 			{id: 7, query: `location:geo.distance(0, 0, 20000km)`, want: []string{"vienna.txt", "bruck.txt", "berlin.txt"}},
 			// geo predicates only apply to geopoint fields, both engines reject the rest
 			{id: 8, query: `name:geo.distance(48.2082, 16.3738, 5km)`, wantBadRequest: true},
+			// geo predicates compose with the rest of the query language
+			{id: 9, query: `location:geo.distance(48.2082, 16.3738, 50km) AND location:geo.bbox(47.9, 16.1, 48.3, 16.5)`, want: []string{"vienna.txt"}},
+			{id: 10, query: `location:geo.distance(48.2082, 16.3738, 5km) AND name:bruck*`},
 		},
 	}
 }
