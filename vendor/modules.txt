@@ -1367,7 +1367,7 @@ github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260901070651-08a5330ce57d
 ## explicit; go 1.23
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.49.0
+# github.com/opencloud-eu/reva/v2 v2.49.1-0.20260903122659-26f34ec05774
 ## explicit; go 1.25.8
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -1457,7 +1457,6 @@ github.com/opencloud-eu/reva/v2/internal/http/services/prometheus
 github.com/opencloud-eu/reva/v2/internal/http/services/reqres
 github.com/opencloud-eu/reva/v2/internal/http/services/reverseproxy
 github.com/opencloud-eu/reva/v2/internal/http/services/sciencemesh
-github.com/opencloud-eu/reva/v2/internal/http/services/siteacc
 github.com/opencloud-eu/reva/v2/internal/http/services/sysinfo
 github.com/opencloud-eu/reva/v2/internal/http/services/wellknown
 github.com/opencloud-eu/reva/v2/pkg/app
@@ -1613,26 +1612,6 @@ github.com/opencloud-eu/reva/v2/pkg/share/manager/memory
 github.com/opencloud-eu/reva/v2/pkg/share/manager/registry
 github.com/opencloud-eu/reva/v2/pkg/sharedconf
 github.com/opencloud-eu/reva/v2/pkg/signedurl
-github.com/opencloud-eu/reva/v2/pkg/siteacc
-github.com/opencloud-eu/reva/v2/pkg/siteacc/account
-github.com/opencloud-eu/reva/v2/pkg/siteacc/account/contact
-github.com/opencloud-eu/reva/v2/pkg/siteacc/account/edit
-github.com/opencloud-eu/reva/v2/pkg/siteacc/account/login
-github.com/opencloud-eu/reva/v2/pkg/siteacc/account/manage
-github.com/opencloud-eu/reva/v2/pkg/siteacc/account/registration
-github.com/opencloud-eu/reva/v2/pkg/siteacc/account/settings
-github.com/opencloud-eu/reva/v2/pkg/siteacc/account/site
-github.com/opencloud-eu/reva/v2/pkg/siteacc/admin
-github.com/opencloud-eu/reva/v2/pkg/siteacc/alerting
-github.com/opencloud-eu/reva/v2/pkg/siteacc/config
-github.com/opencloud-eu/reva/v2/pkg/siteacc/credentials
-github.com/opencloud-eu/reva/v2/pkg/siteacc/credentials/crypto
-github.com/opencloud-eu/reva/v2/pkg/siteacc/data
-github.com/opencloud-eu/reva/v2/pkg/siteacc/email
-github.com/opencloud-eu/reva/v2/pkg/siteacc/html
-github.com/opencloud-eu/reva/v2/pkg/siteacc/manager
-github.com/opencloud-eu/reva/v2/pkg/siteacc/manager/gocdb
-github.com/opencloud-eu/reva/v2/pkg/smtpclient
 github.com/opencloud-eu/reva/v2/pkg/storage
 github.com/opencloud-eu/reva/v2/pkg/storage/cache
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/cephfs
@@ -1823,15 +1802,6 @@ github.com/power-devops/perfstat
 ## explicit; go 1.16
 github.com/pquerna/cachecontrol
 github.com/pquerna/cachecontrol/cacheobject
-# github.com/prometheus/alertmanager v0.33.1
-## explicit; go 1.25.0
-github.com/prometheus/alertmanager/alert
-github.com/prometheus/alertmanager/featurecontrol
-github.com/prometheus/alertmanager/matcher/compat
-github.com/prometheus/alertmanager/matcher/parse
-github.com/prometheus/alertmanager/pkg/labels
-github.com/prometheus/alertmanager/template
-github.com/prometheus/alertmanager/types
 # github.com/prometheus/client_golang v1.24.1
 ## explicit; go 1.25.0
 github.com/prometheus/client_golang/internal/github.com/golang/gddo/httputil
@@ -1847,9 +1817,7 @@ github.com/prometheus/client_model/go
 # github.com/prometheus/common v0.70.1
 ## explicit; go 1.25.0
 github.com/prometheus/common/expfmt
-github.com/prometheus/common/helpers/templates
 github.com/prometheus/common/model
-github.com/prometheus/common/promslog
 # github.com/prometheus/procfs v0.21.1
 ## explicit; go 1.25.0
 github.com/prometheus/procfs

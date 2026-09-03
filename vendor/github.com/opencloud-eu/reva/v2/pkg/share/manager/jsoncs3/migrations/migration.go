@@ -139,6 +139,40 @@ func New(logger zerolog.Logger,
 	}
 }
 
+// LatestVersion returns the version of the most recent registered migration.
+func LatestVersion() int {
+	version := 0
+	for _, mig := range migrations {
+		if mig.Version() > version {
+			version = mig.Version()
+		}
+	}
+	return version
+}
+
+// MarkAllApplied records every registered migration as applied without running
+// any of them. It is meant for fresh deployments, where there is no data to
+// migrate and running the migrations would needlessly block write operations
+// while depending on services that may not be up yet.
+//
+// The state file is created atomically and an existing state file is never
+// overwritten, so instances starting in parallel converge on the same state.
+func MarkAllApplied(ctx context.Context, storage metadata.Storage) error {
+	data, err := json.Marshal(persistedState{Version: LatestVersion()})
+	if err != nil {
+		return err
+	}
+	_, err = storage.Upload(ctx, metadata.UploadRequest{
+		Path:        stateFile,
+		Content:     data,
+		IfNoneMatch: []string{"*"},
+	})
+	if err != nil && !isConflict(err) {
+		return err
+	}
+	return nil
+}
+
 // acquireLock tries to atomically create the lock file, blocking until the lock
 // is obtained. It returns the etag of the lock file on success. It retries
 // indefinitely until ctx is cancelled. A lock whose timestamp is older than

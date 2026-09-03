@@ -289,6 +289,34 @@ func (m *Manager) initialize(ctx context.Context) error {
 		return err
 	}
 
+	err = m.storage.MakeDirIfNotExist(ctx, "migrations")
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	// A missing "storages" directory means nobody has ever used this metadata
+	// tree, so there is nothing to migrate. Record all migrations as applied
+	// before creating "storages": any instance that observes "storages" is then
+	// guaranteed to also observe the state file, which keeps instances starting
+	// in parallel from disagreeing about whether migrations have to run.
+	_, err = m.storage.Stat(ctx, "storages")
+	switch err.(type) {
+	case nil:
+		// existing deployment, leave the migration state untouched
+	case errtypes.IsNotFound:
+		if err = migration.MarkAllApplied(ctx, m.storage); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+			return err
+		}
+	default:
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
 	err = m.storage.MakeDirIfNotExist(ctx, "storages")
 	if err != nil {
 		span.RecordError(err)
@@ -302,12 +330,6 @@ func (m *Manager) initialize(ctx context.Context) error {
 		return err
 	}
 	err = m.storage.MakeDirIfNotExist(ctx, "groups")
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
-	err = m.storage.MakeDirIfNotExist(ctx, "migrations")
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
@@ -566,7 +588,7 @@ func (m *Manager) GetShare(ctx context.Context, ref *collaboration.ShareReferenc
 		if s.ResourceId.SpaceId == s.ResourceId.OpaqueId {
 			if err := events.Publish(ctx, m.eventStream, events.SpaceMembershipExpired{
 				SpaceOwner:     s.GetOwner(),
-				SpaceID:        &provider.StorageSpaceId{OpaqueId: s.ResourceId.StorageId + "$" + s.ResourceId.SpaceId},
+				SpaceID:        &provider.StorageSpaceId{OpaqueId: storagespace.FormatStorageID(s.ResourceId.StorageId, s.ResourceId.SpaceId)},
 				ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
 				GranteeUserID:  s.GetGrantee().GetUserId(),
 				GranteeGroupID: s.GetGrantee().GetGroupId(),
@@ -780,7 +802,7 @@ func (m *Manager) listSharesByIDs(ctx context.Context, user *userv1beta1.User, f
 					if s.ResourceId.SpaceId == s.ResourceId.OpaqueId {
 						if err := events.Publish(ctx, m.eventStream, events.SpaceMembershipExpired{
 							SpaceOwner:     s.GetOwner(),
-							SpaceID:        &provider.StorageSpaceId{OpaqueId: s.ResourceId.StorageId + "$" + s.ResourceId.SpaceId},
+							SpaceID:        &provider.StorageSpaceId{OpaqueId: storagespace.FormatStorageID(s.ResourceId.StorageId, s.ResourceId.SpaceId)},
 							ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
 							GranteeUserID:  s.GetGrantee().GetUserId(),
 							GranteeGroupID: s.GetGrantee().GetGroupId(),
@@ -911,7 +933,7 @@ func (m *Manager) listCreatedShares(ctx context.Context, user *userv1beta1.User,
 						if s.ResourceId.SpaceId == s.ResourceId.OpaqueId {
 							if err := events.Publish(ctx, m.eventStream, events.SpaceMembershipExpired{
 								SpaceOwner:     s.GetOwner(),
-								SpaceID:        &provider.StorageSpaceId{OpaqueId: s.ResourceId.StorageId + "$" + s.ResourceId.SpaceId},
+								SpaceID:        &provider.StorageSpaceId{OpaqueId: storagespace.FormatStorageID(s.ResourceId.StorageId, s.ResourceId.SpaceId)},
 								ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
 								GranteeUserID:  s.GetGrantee().GetUserId(),
 								GranteeGroupID: s.GetGrantee().GetGroupId(),
@@ -1096,7 +1118,7 @@ func (m *Manager) ListReceivedShares(ctx context.Context, filters []*collaborati
 						if s.ResourceId.SpaceId == s.ResourceId.OpaqueId {
 							if err := events.Publish(ctx, m.eventStream, events.SpaceMembershipExpired{
 								SpaceOwner:     s.GetOwner(),
-								SpaceID:        &provider.StorageSpaceId{OpaqueId: s.ResourceId.StorageId + "$" + s.ResourceId.SpaceId},
+								SpaceID:        &provider.StorageSpaceId{OpaqueId: storagespace.FormatStorageID(s.ResourceId.StorageId, s.ResourceId.SpaceId)},
 								ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
 								GranteeUserID:  s.GetGrantee().GetUserId(),
 								GranteeGroupID: s.GetGrantee().GetGroupId(),
@@ -1212,7 +1234,7 @@ func (m *Manager) getReceived(ctx context.Context, ref *collaboration.ShareRefer
 		if s.ResourceId.SpaceId == s.ResourceId.OpaqueId {
 			if err := events.Publish(ctx, m.eventStream, events.SpaceMembershipExpired{
 				SpaceOwner:     s.GetOwner(),
-				SpaceID:        &provider.StorageSpaceId{OpaqueId: s.ResourceId.StorageId + "$" + s.ResourceId.SpaceId},
+				SpaceID:        &provider.StorageSpaceId{OpaqueId: storagespace.FormatStorageID(s.ResourceId.StorageId, s.ResourceId.SpaceId)},
 				ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
 				GranteeUserID:  s.GetGrantee().GetUserId(),
 				GranteeGroupID: s.GetGrantee().GetGroupId(),
