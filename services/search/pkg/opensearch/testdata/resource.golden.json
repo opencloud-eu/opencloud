@@ -204,6 +204,19 @@
       "location_geopoint": {
         "type": "geo_point"
       },
+      "motionPhoto": {
+        "properties": {
+          "presentationTimestampUs": {
+            "type": "long"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "videoSize": {
+            "type": "long"
+          }
+        }
+      },
       "photo": {
         "properties": {
           "cameraMake": {

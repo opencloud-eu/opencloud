@@ -79,11 +79,12 @@ func OpenSearchHitToMatch(hit opensearchgoAPI.SearchHit) (*searchMessage.Match, 
 
 				return strings.Join(contentHighlights[:], "; ")
 			}(),
-			Audio:    copyFacet[searchMessage.Audio](resource.Audio),
-			Image:    copyFacet[searchMessage.Image](resource.Image),
-			Location: copyFacet[searchMessage.GeoCoordinates](resource.Location),
-			Photo:    copyFacet[searchMessage.Photo](resource.Photo),
-			Video:    copyFacet[searchMessage.Video](resource.Video),
+			Audio:       copyFacet[searchMessage.Audio](resource.Audio),
+			Image:       copyFacet[searchMessage.Image](resource.Image),
+			Location:    copyFacet[searchMessage.GeoCoordinates](resource.Location),
+			Photo:       copyFacet[searchMessage.Photo](resource.Photo),
+			Video:       copyFacet[searchMessage.Video](resource.Video),
+			MotionPhoto: copyFacet[searchMessage.MotionPhoto](resource.MotionPhoto),
 		},
 	}
 
