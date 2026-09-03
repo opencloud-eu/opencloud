@@ -243,6 +243,100 @@ var _ = Describe("Driveitems", func() {
 		})
 	})
 
+	Describe("GetDriveItem", func() {
+		var (
+			folderInfo *provider.ResourceInfo
+			mtime      = time.Now()
+		)
+
+		newRequest := func(query string) *http.Request {
+			r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/drives/storageid$spaceid/items/storageid$spaceid!nodeid"+query, nil)
+			rctx := chi.NewRouteContext()
+			rctx.URLParams.Add("driveID", "storageid$spaceid")
+			rctx.URLParams.Add("driveItemID", "storageid$spaceid!nodeid")
+			return r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, currentUser), chi.RouteCtxKey, rctx))
+		}
+
+		getItem := func(r *http.Request) libregraph.DriveItem {
+			svc.GetDriveItem(rr, r)
+			Expect(rr.Code).To(Equal(http.StatusOK))
+			data, err := io.ReadAll(rr.Body)
+			Expect(err).ToNot(HaveOccurred())
+
+			item := libregraph.DriveItem{}
+			Expect(json.Unmarshal(data, &item)).To(Succeed())
+			return item
+		}
+
+		BeforeEach(func() {
+			folderInfo = &provider.ResourceInfo{
+				Type:  provider.ResourceType_RESOURCE_TYPE_CONTAINER,
+				Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "nodeid"},
+				Etag:  "etag",
+				Mtime: utils.TimeToTS(mtime),
+			}
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&provider.StatResponse{
+				Status: status.NewOK(ctx),
+				Info:   folderInfo,
+			}, nil)
+			gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+				Status: status.NewOK(ctx),
+				Infos: []*provider.ResourceInfo{
+					{
+						Type:  provider.ResourceType_RESOURCE_TYPE_FILE,
+						Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+						Etag:  "etag",
+						Mtime: utils.TimeToTS(mtime),
+					},
+				},
+			}, nil)
+		})
+
+		It("leaves children unset without $expand", func() {
+			Expect(getItem(newRequest("")).Children).To(BeNil())
+			gatewayClient.AssertNotCalled(GinkgoT(), "ListContainer", mock.Anything, mock.Anything)
+		})
+
+		It("returns the children when requested via $expand", func() {
+			item := getItem(newRequest("?$expand=children"))
+			Expect(item.Children).To(HaveLen(1))
+			Expect(item.Children[0].GetId()).To(Equal("storageid$spaceid!opaqueid"))
+			Expect(item.Children[0].GetETag()).To(Equal("etag"))
+		})
+
+		It("leaves children unset for a file", func() {
+			folderInfo.Type = provider.ResourceType_RESOURCE_TYPE_FILE
+
+			Expect(getItem(newRequest("?$expand=children")).Children).To(BeNil())
+			gatewayClient.AssertNotCalled(GinkgoT(), "ListContainer", mock.Anything, mock.Anything)
+		})
+	})
+
+	Describe("GetDriveItem $expand=children error", func() {
+		It("propagates a failing child listing", func() {
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&provider.StatResponse{
+				Status: status.NewOK(ctx),
+				Info: &provider.ResourceInfo{
+					Type:  provider.ResourceType_RESOURCE_TYPE_CONTAINER,
+					Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "nodeid"},
+					Mtime: utils.TimeToTS(time.Now()),
+				},
+			}, nil)
+			gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+				Status: status.NewNotFound(ctx, "not found"),
+			}, nil)
+
+			r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/drives/storageid$spaceid/items/storageid$spaceid!nodeid?$expand=children", nil)
+			rctx := chi.NewRouteContext()
+			rctx.URLParams.Add("driveID", "storageid$spaceid")
+			rctx.URLParams.Add("driveItemID", "storageid$spaceid!nodeid")
+			r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, currentUser), chi.RouteCtxKey, rctx))
+
+			svc.GetDriveItem(rr, r)
+			Expect(rr.Code).To(Equal(http.StatusNotFound))
+		})
+	})
+
 	Describe("GetDriveItemChildren", func() {
 		It("handles ListContainer not found", func() {
 			gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{

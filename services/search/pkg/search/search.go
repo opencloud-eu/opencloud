@@ -79,15 +79,16 @@ var resourceFieldOverrides = sync.OnceValue(func() map[string]mapping.FieldOpts 
 		// every keyword field searches case-insensitively and by word (name,
 		// title, the facets) unless opted out: ids are opaque, paths are POSIX,
 		// the mime type is normalized already, a tag is one label
-		"ID":        {CaseInsensitive: &False, NoWordBreaker: &True},
-		"RootID":    {CaseInsensitive: &False, NoWordBreaker: &True},
-		"ParentID":  {CaseInsensitive: &False, NoWordBreaker: &True},
-		"Path":      {Type: mapping.TypePath, CaseInsensitive: &False},
-		"MimeType":  {CaseInsensitive: &False, NoWordBreaker: &True},
-		"Content":   {Type: mapping.TypeFulltext},
-		"Tags":      {NoWordBreaker: &True, IncludeInAll: &False},
-		"Favorites": {NoWordBreaker: &True, IncludeInAll: &False, CaseInsensitive: &False}, // opaque user ids
-		"location":  {Type: mapping.TypeGeopoint},
+		"ID":                  {CaseInsensitive: &False, NoWordBreaker: &True},
+		"RootID":              {CaseInsensitive: &False, NoWordBreaker: &True},
+		"ParentID":            {CaseInsensitive: &False, NoWordBreaker: &True},
+		"Path":                {Type: mapping.TypePath, CaseInsensitive: &False},
+		"MimeType":            {CaseInsensitive: &False, NoWordBreaker: &True},
+		"Content":             {Type: mapping.TypeFulltext},
+		"Tags":                {NoWordBreaker: &True, IncludeInAll: &False},
+		"Favorites":           {NoWordBreaker: &True, IncludeInAll: &False, CaseInsensitive: &False}, // opaque user ids
+		"livePhoto.contentId": {NoWordBreaker: &True, CaseInsensitive: &False},                       // opaque pairing uuid
+		"location":            {Type: mapping.TypeGeopoint},
 	}
 })
 
