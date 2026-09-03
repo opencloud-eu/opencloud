@@ -760,6 +760,51 @@
           }
         ]
       },
+      "motionPhoto": {
+        "enabled": true,
+        "dynamic": true,
+        "properties": {
+          "presentationTimestampUs": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "number",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "version": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "number",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "videoSize": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "number",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          }
+        }
+      },
       "photo": {
         "enabled": true,
         "dynamic": true,

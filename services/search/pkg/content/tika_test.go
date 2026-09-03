@@ -217,6 +217,29 @@ var _ = Describe("Tika", func() {
 			Expect(doc.Content).To(Equal("one two"))
 		})
 
+		It("keeps the motion photo facet when tika emits the video", func() {
+			fullResponse = `[{"Camera:MotionPhoto": "1", "Camera:MotionPhotoVersion": "1"}, {"Content-Type": "video/mp4", "Content-Length": "40"}]`
+
+			doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+				Type: provider.ResourceType_RESOURCE_TYPE_FILE,
+				Size: 100,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(doc.MotionPhoto).ToNot(BeNil())
+			Expect(doc.MotionPhoto.VideoSize).To(Equal(libregraph.PtrInt64(40)))
+		})
+
+		It("drops the motion photo facet when the advertised video is gone", func() {
+			fullResponse = `[{"Camera:MotionPhoto": "1", "Camera:MotionPhotoVersion": "1"}]`
+
+			doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+				Type: provider.ResourceType_RESOURCE_TYPE_FILE,
+				Size: 100,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(doc.MotionPhoto).To(BeNil())
+		})
+
 		It("keeps stop words", func() {
 			body = "body to test stop words!!! against almost everyone"
 			language = "en"

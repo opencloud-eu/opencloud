@@ -72,6 +72,12 @@ message Video {
 	optional int32 width = 10;
 }
 
+message MotionPhoto {
+	optional int32 version = 1;
+	optional int64 presentationTimestampUs = 2;
+	optional int64 videoSize = 3;
+}
+
 message Entity {
 	Reference ref = 1;
 	ResourceID id = 2;
@@ -93,6 +99,7 @@ message Entity {
 	Image image = 18;
 	Photo photo = 19;
 	repeated string favorites = 20;
+	MotionPhoto motionPhoto = 21;
 	Video video = 22;
 }
 

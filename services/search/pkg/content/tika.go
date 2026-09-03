@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -112,8 +113,21 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		if v := t.getAudio(meta); v != nil {
 			doc.Audio = v
 		}
-		if v := t.getVideo(meta); v != nil {
-			doc.Video = v
+	}
+
+	if len(metas) > 0 {
+		// the video facet says the file is a video, so it comes from the file
+		// itself: the clip tika extracts from a motion photo must not make its
+		// image look like one
+		doc.Video = t.getVideo(metas[0])
+	}
+
+	// a motion photo is the xmp on the file itself plus the video tika extracted
+	// from it. The xmp alone proves nothing: a share can keep it and strip the
+	// appended video.
+	if len(metas) > 0 {
+		if i := slices.IndexFunc(metas[1:], isVideo); i >= 0 {
+			doc.MotionPhoto = t.getMotionPhoto(metas[0], metas[i+1])
 		}
 	}
 
