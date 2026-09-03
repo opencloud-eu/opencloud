@@ -11,6 +11,7 @@ import (
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	link "github.com/cs3org/go-cs3apis/cs3/sharing/link/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/go-chi/chi/v5"
 	. "github.com/onsi/ginkgo/v2"
@@ -434,6 +435,104 @@ var _ = Describe("Driveitems", func() {
 				Expect(res.Value[0].LibreGraphMeFollowing).To(BeNil())
 				Expect(res.Value[0].LibreGraphTags).To(BeNil())
 				Expect(res.Value[0].PendingOperations).To(BeNil())
+			})
+
+			It("omits share types unless they are selected", func() {
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:   provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:     &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:   "etag",
+							Mtime:  utils.TimeToTS(mtime),
+							Opaque: utils.AppendPlainToOpaque(nil, "share-types", "1,2"),
+						},
+					},
+				}, nil)
+
+				res := assertItemsList(1)
+				Expect(res.Value[0].LibreGraphShareTypes).To(BeNil())
+				gatewayClient.AssertNotCalled(GinkgoT(), "ListPublicShares", mock.Anything, mock.Anything)
+			})
+
+			It("returns the share types of an item when selected", func() {
+				r = r.WithContext(r.Context())
+				q := r.URL.Query()
+				q.Add("$select", "@libre.graph.shareTypes")
+				r.URL.RawQuery = q.Encode()
+
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:   provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:     &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:   "etag",
+							Mtime:  utils.TimeToTS(mtime),
+							Opaque: utils.AppendPlainToOpaque(nil, "share-types", "1,2"),
+						},
+					},
+				}, nil)
+				gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(&link.ListPublicSharesResponse{
+					Status: status.NewOK(ctx),
+					Share: []*link.PublicShare{
+						{ResourceId: &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"}},
+					},
+				}, nil)
+
+				res := assertItemsList(1)
+				Expect(res.Value[0].LibreGraphShareTypes).To(ConsistOf("user", "group", "link"))
+			})
+
+			It("reports only the link when the item has no grants", func() {
+				q := r.URL.Query()
+				q.Add("$select", "@libre.graph.shareTypes")
+				r.URL.RawQuery = q.Encode()
+
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:  provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:  "etag",
+							Mtime: utils.TimeToTS(mtime),
+						},
+					},
+				}, nil)
+				gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(&link.ListPublicSharesResponse{
+					Status: status.NewOK(ctx),
+					Share: []*link.PublicShare{
+						{ResourceId: &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"}},
+					},
+				}, nil)
+
+				res := assertItemsList(1)
+				Expect(res.Value[0].LibreGraphShareTypes).To(ConsistOf("link"))
+			})
+
+			It("keeps the grant types when the public share lookup fails", func() {
+				q := r.URL.Query()
+				q.Add("$select", "@libre.graph.shareTypes")
+				r.URL.RawQuery = q.Encode()
+
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:   provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:     &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:   "etag",
+							Mtime:  utils.TimeToTS(mtime),
+							Opaque: utils.AppendPlainToOpaque(nil, "share-types", "1"),
+						},
+					},
+				}, nil)
+				gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(nil, errors.New("nope"))
+
+				res := assertItemsList(1)
+				Expect(res.Value[0].LibreGraphShareTypes).To(ConsistOf("user"))
 			})
 
 			It("reports a pending content update while the item is being processed", func() {
