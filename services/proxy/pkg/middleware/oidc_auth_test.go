@@ -106,4 +106,29 @@ var _ = Describe("Authenticating requests", Label("OIDCAuthenticator"), func() {
 			Expect(req2).ToNot(BeNil())
 		})
 	})
+
+	When("the request contains an expired token", func() {
+		It("should reject the request", func() {
+			ocExpired := oidcmocks.OIDCClient{}
+			ocExpired.On("VerifyAccessToken", mock.Anything, mock.Anything).Return(
+				oidc.RegClaimsWithSID{}, jwt.MapClaims{}, jwt.ErrTokenExpired,
+			)
+
+			expiredAuthenticator := &OIDCAuthenticator{
+				OIDCIss:       "http://idp.example.com",
+				Logger:        log.NewLogger(),
+				oidcClient:    &ocExpired,
+				userInfoCache: store.NewMemoryStore(),
+				skipUserInfo:  true,
+			}
+
+			req := httptest.NewRequest(http.MethodGet, "http://example.com/example/path", http.NoBody)
+			req.Header.Set(_headerAuthorization, "Bearer jwt.token.sig")
+
+			req2, valid := expiredAuthenticator.Authenticate(req)
+
+			Expect(valid).To(Equal(false))
+			Expect(req2).To(BeNil())
+		})
+	})
 })
