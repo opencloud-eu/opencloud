@@ -14,6 +14,7 @@ import (
 	"golang.org/x/crypto/sha3"
 	"golang.org/x/oauth2"
 
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
@@ -217,7 +218,7 @@ func (m *OIDCAuthenticator) Authenticate(r *http.Request) (*http.Request, bool) 
 			Str("authenticator", "oidc").
 			Str("path", r.URL.Path).
 			Str("user_agent", r.UserAgent()).
-			Str("client.address", r.Header.Get("X-Forwarded-For")).
+			Str("client.address", middleware.GetClientIP(r.Context())).
 			Str("network.peer.address", host).
 			Str("network.peer.port", port).
 			Msg("failed to authenticate the request")
