@@ -78,17 +78,22 @@ Not all parts are supported, the following list gives an overview of parts that 
 *   NEAR operator
 *   Date intervals
 
-### Geo queries
+In [this ADR](https://github.com/owncloud/ocis/blob/docs/ocis/adr/0020-file-search-query-language.md) you can read why KQL was chosen.
 
-Geopoint fields (currently `location`) support geo predicates on top of KQL:
+### KQL Extensions
+
+OpenCloud extends KQL with predicates that are not part of Microsoft's
+[KQL](https://learn.microsoft.com/en-us/sharepoint/dev/general-development/keyword-query-language-kql-syntax-reference) specification.
+
+#### Geo queries
+
+KQL defines no geo operations; SharePoint only offers distance-based
+[result ranking via sort formulas](https://learn.microsoft.com/en-us/sharepoint/dev/general-development/sorting-search-results-in-sharepoint#examples).
+OpenCloud supports filtering on geopoint fields (currently `location`) with geo predicates:
 
 *   `location:geo.distance(lat, lon, radius)` within `radius` of a point (units `km`, `m`, `mi`), e.g. `location:geo.distance(48.2, 16.3, 5km)`
 *   `location:geo.bbox(minLat, minLon, maxLat, maxLon)` inside a bounding box
 *   `location:geo.polygon(lat lon, lat lon, ...)` inside a polygon (at least three vertices)
-
-They compose with other restrictions via `AND` / `OR` / `NOT`.
-
-In [this ADR](https://github.com/owncloud/ocis/blob/docs/ocis/adr/0020-file-search-query-language.md) you can read why KQL was chosen.
 
 ## Content analysis / Extraction
 
