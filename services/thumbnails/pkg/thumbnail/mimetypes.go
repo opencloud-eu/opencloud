@@ -20,3 +20,5 @@ var (
 		"application/vnd.geogebra.pinboard": {},
 	}
 )
+
+func initializeSupportedMimeTypes() {}

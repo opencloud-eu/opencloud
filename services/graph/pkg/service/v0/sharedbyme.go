@@ -49,8 +49,7 @@ func (g Graph) GetSharedByMe(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			_, match := thumbnail.SupportedMimeTypes[*mt]
-			if match {
+			if thumbnail.IsMimeTypeSupported(*mt) {
 				baseUrl := fmt.Sprintf("%s/dav/spaces/%s?scalingup=0&preview=1&processor=thumbnail",
 					g.config.Commons.OpenCloudURL,
 					item.GetId())

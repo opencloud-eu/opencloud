@@ -78,8 +78,7 @@ func (g Graph) listSharedWithMe(ctx context.Context, expandThumbnails bool) ([]l
 				continue
 			}
 
-			_, match := thumbnail.SupportedMimeTypes[*mt]
-			if match {
+			if thumbnail.IsMimeTypeSupported(*mt) {
 				baseUrl := fmt.Sprintf("%s/dav/spaces/%s?scalingup=0&preview=1&processor=thumbnail",
 					g.config.Commons.OpenCloudURL,
 					item.RemoteItem.GetId())
