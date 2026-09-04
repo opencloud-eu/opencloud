@@ -338,6 +338,35 @@ func TestPushEndpoint_Default_Upscales(t *testing.T) {
 	}
 }
 
+// TestPushEndpoint_Default_NoUpscaleFilter pins imagor's no_upscale() filter:
+// with it, the default resize must not enlarge a small source. A 50x50 source
+// requested at 200x200 comes back as 50x50 instead of 200x200.
+func TestPushEndpoint_Default_NoUpscaleFilter(t *testing.T) {
+	mux := newTestMux()
+
+	imgBytes := createTestImage(50, 50)
+	body, contentType := createMultipartBody(imgBytes)
+
+	req := httptest.NewRequest(http.MethodPost, "/unsafe/200x200/filters:no_upscale():format(png)/", body)
+	req.Header.Set("Content-Type", contentType)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	img, err := png.Decode(rec.Body)
+	if err != nil {
+		t.Fatalf("failed to decode response image: %v", err)
+	}
+	bounds := img.Bounds()
+	if bounds.Dx() != 50 || bounds.Dy() != 50 {
+		t.Errorf("no_upscale should keep the source at 50x50, got %dx%d", bounds.Dx(), bounds.Dy())
+	}
+}
+
 // TestPushEndpoint_FitIn_LetterboxOutcome pins the opt-in "fit" processor's
 // outcome: aspect-preserving fit with no upscaling. A 200x100 source requested
 // at 100x100 must come back as exactly 100x50 — centered/letterboxed in the box,
@@ -586,6 +615,26 @@ func TestPushEndpoint_MaxResolutionExceeded(t *testing.T) {
 	}
 }
 
+// TestPushEndpoint_MaxResolutionExceeded_OneAxis pins the per-axis check: a source
+// that exceeds only the max width (but is well under the max height) must still be
+// rejected with 422. This catches an inverted "both axes" condition.
+func TestPushEndpoint_MaxResolutionExceeded_OneAxis(t *testing.T) {
+	mux := newTestMuxWithLimits(100, 100)
+
+	imgBytes := createTestImage(500, 10)
+	body, contentType := createMultipartBody(imgBytes)
+
+	req := httptest.NewRequest(http.MethodPost, "/unsafe/64x64/filters:format(png)/", body)
+	req.Header.Set("Content-Type", contentType)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("expected status 422 for width-oversized input, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 // TestPushEndpoint_WithinMaxResolution confirms an input within the configured
 // limits still succeeds (the 422 check must not over-trigger).
 func TestPushEndpoint_WithinMaxResolution(t *testing.T) {
@@ -603,6 +652,63 @@ func TestPushEndpoint_WithinMaxResolution(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Errorf("expected status 200 for in-bounds input, got %d: %s", rec.Code, rec.Body.String())
 	}
+}
+
+// TestConcurrencyLimiter pins the THUMBNAILS_MAX_CONCURRENT_REQUESTS behavior:
+// up to N requests may proceed in parallel, the (N+1)th is rejected non-blocking
+// with a 429. A limit of 0 disables the limiter entirely.
+func TestConcurrencyLimiter(t *testing.T) {
+	t.Run("limit 2 rejects the third concurrent request", func(t *testing.T) {
+		l := newConcurrencyLimiter(2)
+
+		if ok, _ := l.acquire(); !ok {
+			t.Fatal("first acquire should succeed")
+		}
+		if ok, _ := l.acquire(); !ok {
+			t.Fatal("second acquire should succeed")
+		}
+		ok, retryAfter := l.acquire()
+		if ok {
+			t.Fatal("third acquire should fail while the limit is reached")
+		}
+		if retryAfter <= 0 {
+			t.Errorf("expected a positive Retry-After hint, got %d", retryAfter)
+		}
+
+		l.release()
+		if ok, _ := l.acquire(); !ok {
+			t.Fatal("acquire after release should succeed")
+		}
+	})
+
+	t.Run("zero limit is unlimited", func(t *testing.T) {
+		var l *concurrencyLimiter
+		for i := 0; i < 100; i++ {
+			if ok, _ := l.acquire(); !ok {
+				t.Fatalf("acquire %d should succeed without a limiter", i)
+			}
+		}
+		l.release()
+	})
+
+	t.Run("429 is returned when the handler is saturated", func(t *testing.T) {
+		s := Thumbnails{limiter: newConcurrencyLimiter(1)}
+		if ok, _ := s.limiter.acquire(); !ok {
+			t.Fatal("could not saturate the limiter")
+		}
+		defer s.limiter.release()
+
+		req := httptest.NewRequest(http.MethodPost, "/unsafe/64x64/filters:format(png)/", nil)
+		rec := httptest.NewRecorder()
+		s.pushHandler(rec, req)
+
+		if rec.Code != http.StatusTooManyRequests {
+			t.Errorf("expected 429 from a saturated limiter, got %d", rec.Code)
+		}
+		if rec.Header().Get("Retry-After") == "" {
+			t.Error("expected a Retry-After header on 429")
+		}
+	})
 }
 
 func createTestJPEG(width, height int) []byte {

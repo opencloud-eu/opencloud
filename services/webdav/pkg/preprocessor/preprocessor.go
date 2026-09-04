@@ -42,7 +42,13 @@ func (i GifDecoder) Convert(r io.Reader) (any, error) {
 // GgsDecoder is a converter for the geogebra slides file
 type GgsDecoder struct{ thumbnailpath string }
 
-// Convert reads the ggs file and returns the thumbnail image
+// Convert reads the ggs file and returns the thumbnail image.
+//
+// TODO: this parses user-provided bytes in-process (archive/zip streams the
+// embedded thumbnail out of the .ggs container, which is then decoded and
+// re-encoded here). Tika is the intended out-of-process extractor for embedded
+// images; reading/re-encoding user-supplied embedded images in webdav is a
+// separate attack vector not addressed by this architecture change.
 func (g GgsDecoder) Convert(r io.Reader) (any, error) {
 	var buf bytes.Buffer
 	_, err := io.Copy(&buf, r)
@@ -76,7 +82,13 @@ func (g GgsDecoder) Convert(r io.Reader) (any, error) {
 // AudioDecoder is a converter for the audio file
 type AudioDecoder struct{}
 
-// Convert reads the audio file and extracts the thumbnail image from the id3 tag
+// Convert reads the audio file and extracts the thumbnail image from the id3 tag.
+//
+// TODO: this parses user-provided bytes in-process (dhowden/tag reads the audio
+// metadata and pulls the embedded APIC picture, which is then decoded and
+// re-encoded here). Tika is the intended out-of-process extractor for embedded
+// images; reading/re-encoding user-supplied embedded images in webdav is a
+// separate attack vector not addressed by this architecture change.
 func (i AudioDecoder) Convert(r io.Reader) (any, error) {
 	b, err := io.ReadAll(r)
 	if err != nil {
@@ -200,7 +212,13 @@ type GGPStruct struct {
 // GgpDecoder is a converter for the geogebra pinboard file
 type GgpDecoder struct{}
 
-// Convert reads the ggp file and returns the first thumbnail image
+// Convert reads the ggp file and returns the first thumbnail image.
+//
+// TODO: this parses user-provided bytes in-process (JSON/base64 extraction of
+// the embedded image, which is then decoded here). Tika is the intended
+// out-of-process extractor for embedded images; reading/re-encoding user-supplied
+// embedded images in webdav is a separate attack vector not addressed by this
+// architecture change.
 func (j GgpDecoder) Convert(r io.Reader) (any, error) {
 	ggp := &GGPStruct{}
 	err := json.NewDecoder(r).Decode(ggp)

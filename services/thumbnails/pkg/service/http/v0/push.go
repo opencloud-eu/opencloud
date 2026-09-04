@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/kovidgoyal/imaging"
 )
 
 // gifMagic is the leading signature of a GIF file (GIF87a or GIF89a). It guards
@@ -40,6 +39,13 @@ var errInvalid = fmt.Errorf("invalid")
 // imagor. It returns only imagor's defined status codes: 400 for invalid requests or a
 // file exceeding the max size, 422 for an image exceeding the max resolution.
 func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
+	ok, retryAfter := s.limiter.acquire()
+	if !ok {
+		writeTooManyRequests(w, retryAfter)
+		return
+	}
+	defer s.limiter.release()
+
 	width, err := parseDim(r, "width")
 	if err != nil {
 		writeInvalid(w, "invalid width")
@@ -80,11 +86,13 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ext, hasFormat, err := outputFormatFromFilters(chi.URLParam(r, "filters"))
+	filtersSegment := chi.URLParam(r, "filters")
+	ext, hasFormat, err := outputFormatFromFilters(filtersSegment)
 	if err != nil {
 		writeInvalid(w, err.Error())
 		return
 	}
+	noUpscale := filterPresent(filtersSegment, "no_upscale")
 	if !hasFormat {
 		// No format filter: preserve the input's own format (imagor default),
 		// detected via imaging. Only runs on this path, so the common webdav
@@ -92,23 +100,27 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 		ext = inputFormatViaImaging(imgData)
 	}
 
+	// imagor ErrMaxResolutionExceeded: the declared input exceeds the configured
+	// maximum width or height. Checked against the image header BEFORE any
+	// decoding so a dimension bomb (a tiny file declaring huge dimensions) is
+	// rejected without allocating the pixel buffer. webdav translates the
+	// resulting 422 into its legacy 403 response.
+	if s.maxWidth > 0 || s.maxHeight > 0 {
+		cfg, _, err := image.DecodeConfig(bytes.NewReader(imgData))
+		if err == nil {
+			if (s.maxWidth > 0 && cfg.Width > s.maxWidth) || (s.maxHeight > 0 && cfg.Height > s.maxHeight) {
+				writeMaxResolution(w)
+				return
+			}
+		}
+	}
+
 	// The box and operation are chosen by webdav (the sizing brain); this service
 	// is a dumb, imagor-like executor that just fits within the given box.
-	processed, srcBounds, err := processImage(bytes.NewReader(imgData), width, height, operation)
+	processed, err := processImage(bytes.NewReader(imgData), width, height, operation, noUpscale)
 	if err != nil {
 		writeInvalid(w, "failed to process image")
 		return
-	}
-
-	// imagor ErrMaxResolutionExceeded: the decoded input exceeds the configured
-	// maximum width/height. Checked against the source (pre-resize) bounds because
-	// this service owns the image; webdav translates the resulting 422 into its
-	// legacy 403 response.
-	if s.maxWidth > 0 || s.maxHeight > 0 {
-		if (s.maxWidth == 0 || srcBounds.Dx() > s.maxWidth) && (s.maxHeight == 0 || srcBounds.Dy() > s.maxHeight) {
-			writeMaxResolution(w)
-			return
-		}
 	}
 
 	var (
@@ -165,6 +177,51 @@ func writeMaxResolution(w http.ResponseWriter) {
 	fmt.Fprintln(w, "maximum resolution exceeded")
 }
 
+// concurrencyLimiter bounds the number of requests processed in parallel. It is
+// nil when no limit is configured (THUMBNAILS_MAX_CONCURRENT_REQUESTS = 0).
+type concurrencyLimiter struct {
+	tokens chan struct{}
+}
+
+func newConcurrencyLimiter(limit int) *concurrencyLimiter {
+	if limit <= 0 {
+		return nil
+	}
+	tokens := make(chan struct{}, limit)
+	for i := 0; i < limit; i++ {
+		tokens <- struct{}{}
+	}
+	return &concurrencyLimiter{tokens: tokens}
+}
+
+// acquire tries to take a slot without blocking. It reports whether the request
+// may proceed and, when not, how many seconds to wait before retrying.
+func (l *concurrencyLimiter) acquire() (bool, int) {
+	if l == nil {
+		return true, 0
+	}
+	select {
+	case <-l.tokens:
+		return true, 0
+	default:
+		return false, 1
+	}
+}
+
+func (l *concurrencyLimiter) release() {
+	if l == nil {
+		return
+	}
+	l.tokens <- struct{}{}
+}
+
+// writeTooManyRequests responds with 429 and a short Retry-After header.
+func writeTooManyRequests(w http.ResponseWriter, retryAfter int) {
+	w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
+	w.WriteHeader(http.StatusTooManyRequests)
+	fmt.Fprintln(w, "too many concurrent requests")
+}
+
 // mapFormatToExt maps imagor format names to the internal extension used by encoders.
 func mapFormatToExt(format string) string {
 	switch strings.ToLower(format) {
@@ -198,20 +255,22 @@ func outputFormatFromFilters(segment string) (ext string, hasFormat bool, err er
 	return "", false, nil
 }
 
-// inputFormatViaImaging detects the uploaded image's format with imaging and maps it
-// to our output extension. jpeg/png/gif are kept; anything else (webp, tiff, bmp, or
-// an undecodable body) falls back to jpeg, mirroring imagor's unsavable-source default.
+// inputFormatViaImaging detects the uploaded image's format with the stdlib
+// decoder registry (image.DecodeConfig reads only the header) and maps it to our
+// output extension. jpeg/png/gif are kept; anything else (webp, tiff, bmp, or an
+// undecodable body) falls back to jpeg, mirroring imagor's unsavable-source
+// default.
 func inputFormatViaImaging(imgData []byte) string {
-	img, _, err := imaging.DecodeAll(bytes.NewReader(imgData))
-	if err != nil || img == nil || img.Metadata == nil {
+	_, format, err := image.DecodeConfig(bytes.NewReader(imgData))
+	if err != nil {
 		return "jpg"
 	}
-	switch img.Metadata.Format {
-	case imaging.PNG:
+	switch format {
+	case "png":
 		return "png"
-	case imaging.GIF:
+	case "gif":
 		return "gif"
-	default: // JPEG, WEBP, TIFF, BMP, UNKNOWN, ...
+	default: // jpeg, webp, tiff, bmp, ...
 		return "jpg"
 	}
 }
@@ -224,6 +283,17 @@ func splitFilter(token string) (name, args string, ok bool) {
 		return "", "", false
 	}
 	return token[:i], token[i+1 : len(token)-1], true
+}
+
+// filterPresent reports whether a named filter occurs in an imagor filters
+// segment (e.g. "no_upscale():format(jpeg)").
+func filterPresent(segment, name string) bool {
+	for _, token := range strings.Split(segment, ":") {
+		if n, _, ok := splitFilter(token); ok && n == name {
+			return true
+		}
+	}
+	return false
 }
 
 // isGifReader reports whether the reader holds GIF data, based on the GIF magic
@@ -252,11 +322,11 @@ func isGifReader(r io.Reader) bool {
 // Backend-specific function set in init() by push_imaging.go or push_vips.go.
 // For gif input it returns a *gif.GIF with every frame resized (preserving
 // animation); for other inputs it returns a single image.Image. The operation
-// selects the resize/crop mode (fill, fit-in, stretch). The
-// second return value is the decoded source's pixel bounds, reported before any
-// resize so the max-resolution limit can be enforced against the input rather
-// than the output.
-var processImage func(io.Reader, int, int, string) (any, image.Rectangle, error)
+// selects the resize/crop mode (fill, fit-in, stretch). noUpscale mirrors
+// imagor's no_upscale() filter: when set, the default fill resize must not
+// enlarge the source (fit-in already never upscales; stretch is exact and
+// ignores it).
+var processImage func(io.Reader, int, int, string, bool) (any, error)
 
 // encodeJPEG and encodePNG write the processed image to w in the requested
 // format. Set by init() in push_imaging.go / push_vips.go. The vips backend

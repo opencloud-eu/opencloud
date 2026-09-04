@@ -86,7 +86,7 @@ func TestContentType(t *testing.T) {
 	}
 }
 
-func TestGuessExtension(t *testing.T) {
+func TestMimeToExt(t *testing.T) {
 	tests := []struct {
 		mime string
 		want string
@@ -99,8 +99,8 @@ func TestGuessExtension(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.mime, func(t *testing.T) {
-			if got := GuessExtension(tt.mime); got != tt.want {
-				t.Errorf("GuessExtension(%q) = %q, want %q", tt.mime, got, tt.want)
+			if got := MimeToExt(tt.mime); got != tt.want {
+				t.Errorf("MimeToExt(%q) = %q, want %q", tt.mime, got, tt.want)
 			}
 		})
 	}
@@ -114,6 +114,7 @@ func TestBuildURL(t *testing.T) {
 		height    int32
 		operation string
 		ext       string
+		noUpscale bool
 		want      string
 	}{
 		{
@@ -124,6 +125,16 @@ func TestBuildURL(t *testing.T) {
 			operation: OpFill,
 			ext:       "jpeg",
 			want:      "http://generator/unsafe/128x128/filters:format(jpeg)/",
+		},
+		{
+			name:      "fill with no_upscale filter caps the resize at source size",
+			base:      "http://generator",
+			width:     128,
+			height:    128,
+			operation: OpFill,
+			ext:       "jpeg",
+			noUpscale: true,
+			want:      "http://generator/unsafe/128x128/filters:no_upscale():format(jpeg)/",
 		},
 		{
 			name:      "fit-in preserves aspect ratio within the box without upscaling",
@@ -147,7 +158,7 @@ func TestBuildURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := BuildURL(tt.base, tt.width, tt.height, tt.operation, tt.ext)
+			got := BuildURL(tt.base, tt.width, tt.height, tt.operation, tt.ext, tt.noUpscale)
 			if got != tt.want {
 				t.Errorf("BuildURL() = %q, want %q", got, tt.want)
 			}

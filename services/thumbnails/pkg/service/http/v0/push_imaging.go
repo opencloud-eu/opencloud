@@ -22,34 +22,39 @@ func init() {
 }
 
 // processImageImaging resizes the input using the imaging backend. The operation
-// selects the resize/crop mode: fill (center-crop to the box), fit-in (fit within
-// the box without cropping, never upscaling), or stretch (resize to the exact box).
-func processImageImaging(r io.Reader, width, height int, operation string) (any, image.Rectangle, error) {
+// selects the resize/crop mode: fill (center-crop to the box, upscaling by default
+// like real imagor's default resize), fit-in (fit within the box without cropping,
+// never upscaling), or stretch (resize to the exact box). noUpscale caps the
+// default fill at the source size, mirroring imagor's no_upscale() filter.
+func processImageImaging(r io.Reader, width, height int, operation string, noUpscale bool) (any, error) {
 	if isGifReader(r) {
 		g, err := gif.DecodeAll(r)
 		if err == nil && len(g.Image) > 0 {
-			srcBounds := g.Image[0].Bounds()
-			return resizeGIF(g, width, height, operation), srcBounds, nil
+			return resizeGIF(g, width, height, operation, noUpscale), nil
 		}
 	}
 
 	img, err := imaging.Decode(r, imaging.AutoOrientation(true))
 	if err != nil {
-		return nil, image.Rectangle{}, err
+		return nil, err
 	}
 
 	srcBounds := img.Bounds()
 
 	switch operation {
 	case OpStretch:
-		return imaging.Resize(img, width, height, imaging.Lanczos), srcBounds, nil
+		return imaging.Resize(img, width, height, imaging.Lanczos), nil
 	case OpFitIn:
 		if srcBounds.Dx() > width || srcBounds.Dy() > height {
-			return imaging.Fit(img, width, height, imaging.Lanczos), srcBounds, nil
+			return imaging.Fit(img, width, height, imaging.Lanczos), nil
 		}
-		return img, srcBounds, nil
+		return img, nil
 	default: // OpFill
-		return imaging.Thumbnail(img, width, height, imaging.Lanczos), srcBounds, nil
+		if noUpscale && srcBounds.Dx() <= width && srcBounds.Dy() <= height {
+			// imagor no_upscale(): never enlarge the source.
+			return img, nil
+		}
+		return imaging.Thumbnail(img, width, height, imaging.Lanczos), nil
 	}
 }
 
@@ -57,8 +62,9 @@ func processImageImaging(r io.Reader, width, height int, operation string) (any,
 // animation. It composites each frame onto a running canvas honoring the gif
 // disposal method, resizes with the requested processor, and re-pallettes the
 // result using Floyd-Steinberg dithering. Code adapted from
-// https://github.com/willnorris/gifresize.
-func resizeGIF(m *gif.GIF, width, height int, operation string) *gif.GIF {
+// https://github.com/willnorris/gifresize. noUpscale caps the default fill at
+// the source size, mirroring imagor's no_upscale() filter.
+func resizeGIF(m *gif.GIF, width, height int, operation string, noUpscale bool) *gif.GIF {
 	srcX, srcY := m.Config.Width, m.Config.Height
 	b := image.Rect(0, 0, srcX, srcY)
 	tmp := image.NewRGBA(b)
@@ -79,7 +85,11 @@ func resizeGIF(m *gif.GIF, width, height int, operation string) *gif.GIF {
 				processed = tmp
 			}
 		default: // OpFill
-			processed = imaging.Fill(tmp, width, height, imaging.Center, imaging.Lanczos)
+			if noUpscale && srcX <= width && srcY <= height {
+				processed = tmp
+			} else {
+				processed = imaging.Fill(tmp, width, height, imaging.Center, imaging.Lanczos)
+			}
 		}
 
 		m.Image[i] = imageToPaletted(processed, frame.Palette)
@@ -92,8 +102,10 @@ func resizeGIF(m *gif.GIF, width, height int, operation string) *gif.GIF {
 		}
 	}
 
-	m.Config.Width = width
-	m.Config.Height = height
+	if !noUpscale || srcX > width || srcY > height {
+		m.Config.Width = width
+		m.Config.Height = height
+	}
 
 	return m
 }

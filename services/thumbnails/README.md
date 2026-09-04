@@ -2,6 +2,8 @@
 
 The thumbnails service is a stateless image resizer. It exposes an imagor-compatible push endpoint that accepts an original image as a multipart upload and returns the resized thumbnail encoded in the requested format.
 
+> **Warning:** This service performs no authentication or authorization. By default it binds to `127.0.0.1:9186` so only local processes (the webdav service) can reach it. If you change `THUMBNAILS_HTTP_ADDR` to a non-loopback address, put it behind your reverse proxy's auth layer or an internal network boundary — anyone who can reach the endpoint can upload and retrieve arbitrary images through it.
+
 ## Push Endpoint
 
 The webdav service (which owns the complete thumbnail workflow) POSTs the source file to this endpoint and receives the processed image back.
@@ -12,7 +14,9 @@ The webdav service (which owns the complete thumbnail workflow) POSTs the source
 | `POST /unsafe/fit-in/{width}x{height}` (optionally `/filters:format({format})`) | Scale to fit within width x height, preserving aspect ratio and never upscaling (letterboxed) |
 | `POST /unsafe/stretch/{width}x{height}` (optionally `/filters:format({format})`) | Resize to the exact width x height without preserving aspect ratio (distorts) |
 
-The filters segment is captured whole and parsed; only the `format` filter is meaningful to this executor, other filters are ignored. The `format` filter is optional: when absent the input's own format is preserved (detected via the imaging library), matching imagor. Inputs we cannot re-encode (e.g. webp, tiff, bmp) fall back to JPEG, mirroring imagor's default for unsavable sources.
+The filters segment is captured whole and parsed; the `format` and `no_upscale` filters are meaningful to this executor, other filters are ignored. The `format` filter is optional: when absent the input's own format is preserved (detected from the image header), matching imagor. Inputs we cannot re-encode (e.g. webp, tiff, bmp) fall back to JPEG, mirroring imagor's default for unsavable sources.
+
+Like real imagor, the default fill resize **upscales** small sources to fill the box exactly (a 100x100 source requested at `320x320` returns a 320x320 image). Adding the `no_upscale()` filter caps the result at the source size instead (the same request returns 100x100). The `fit-in` route never upscales regardless of filters.
 
 The webdav service selects the route based on the requested processor. The full mapping is:
 
@@ -38,6 +42,7 @@ The request body is a `multipart/form-data` upload with a single file field name
 |---|---|
 | `THUMBNAILS_HTTP_ADDR` | Bind address of the HTTP service (default `127.0.0.1:9186`) |
 | `THUMBNAILS_LOG_LEVEL` | Log level (`panic`, `fatal`, `error`, `warn`, `info`, `debug`, `trace`) |
+| `THUMBNAILS_MAX_CONCURRENT_REQUESTS` | Maximum number of thumbnail requests decoded and resized in parallel. Default is 0 (unlimited). Requests arriving while the limit is reached get HTTP 429 with a `Retry-After` header |
 
 ## Using libvips for Image Processing
 

@@ -18,6 +18,7 @@ import (
 	rpcv1beta1 "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	providerv1beta1 "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
@@ -38,9 +39,11 @@ type Stater interface {
 	Stat(ctx context.Context, ref *providerv1beta1.Reference, auth string) (*providerv1beta1.StatResponse, error)
 }
 
-// FileDownloader downloads file bytes from storage.
+// FileDownloader opens a read stream on a file in storage. The returned reader
+// must be consumed (and closed by the caller) exactly once; it is the raw
+// response body and is never buffered or decoded here.
 type FileDownloader interface {
-	Download(ctx context.Context, ref *providerv1beta1.Reference, auth string) ([]byte, error)
+	DownloadStream(ctx context.Context, ref *providerv1beta1.Reference, auth string) (io.ReadCloser, error)
 }
 
 // SpaceLookup resolves a path-only reference (ResourceId == nil) into a full
@@ -50,6 +53,15 @@ type FileDownloader interface {
 // which carry an absolute path but no space root.
 type SpaceLookup interface {
 	Resolve(ctx context.Context, ref *providerv1beta1.Reference, auth string) (*providerv1beta1.Reference, error)
+}
+
+// UserResolver resolves users for path-only thumbnail requests. WhoAmI maps an
+// auth token to its user (used for /webdav/... where the URL carries no
+// username); GetUserByClaim maps a username from /dav/files/{user}/... to its
+// user, mirroring main's behavior.
+type UserResolver interface {
+	WhoAmI(ctx context.Context, auth string) (*userv1beta1.User, error)
+	GetUserByClaim(ctx context.Context, claim, value string) (*userv1beta1.User, error)
 }
 
 // ErrFileProcessing is returned when the file is still being processed by the
@@ -71,6 +83,11 @@ var ErrNotAFile = errors.New("thumbnails: resource is not a file")
 // permission on the resource (e.g. a Secure Viewer share). Callers should
 // surface this as HTTP 403 Forbidden, matching the legacy thumbnail service.
 var ErrPermissionDenied = errors.New("thumbnails: no download permission")
+
+// ErrNotFound is returned when the requested file could not be located or has no
+// usable checksum. Callers should surface this as HTTP 404 Not Found with a
+// "File could not be located" message, matching the legacy thumbnail service.
+var ErrNotFound = errors.New("thumbnails: file could not be located")
 
 // fileIsProcessing reports whether the resource carries the "processing" status
 // in its opaque map, as set by the storage backend while a file is being handled.
@@ -105,7 +122,6 @@ func thumbnailStorageKey(checksum string, w, h int, ext, processor string) strin
 // stat → validate → cache check → download → preprocess → generate → cache → respond.
 type ThumbnailWorkflow struct {
 	generatorURL   string
-	authHeader     string
 	cache          cache.ThumbnailCache
 	httpClient     *http.Client
 	maxInputSize   uint64
@@ -116,6 +132,7 @@ type ThumbnailWorkflow struct {
 	stater         Stater
 	fileDownloader FileDownloader
 	spaceLookup    SpaceLookup
+	userResolver   UserResolver
 }
 
 // NewWorkflow creates a ThumbnailWorkflow. generatorURL must be non-empty.
@@ -149,11 +166,6 @@ type Option func(*ThumbnailWorkflow)
 // WithGeneratorURL sets the base URL of the thumbnail generator service.
 func WithGeneratorURL(url string) Option {
 	return func(w *ThumbnailWorkflow) { w.generatorURL = url }
-}
-
-// WithAuthHeader sets an optional auth header value sent to the generator (for external generators behind a reverse proxy).
-func WithAuthHeader(header string) Option {
-	return func(w *ThumbnailWorkflow) { w.authHeader = header }
 }
 
 // WithCache sets the thumbnail cache.
@@ -207,6 +219,13 @@ func WithFileDownloader(d FileDownloader) Option {
 // a path-only reference. When unset, path-only references are passed through as-is.
 func WithSpaceLookup(l SpaceLookup) Option {
 	return func(w *ThumbnailWorkflow) { w.spaceLookup = l }
+}
+
+// WithUserResolver sets the resolver used to map an auth token to its user for
+// path-only requests (/dav/files/{user}/..., /webdav/...). When unset, such
+// requests cannot be absolutized and fall back to the raw path.
+func WithUserResolver(r UserResolver) Option {
+	return func(w *ThumbnailWorkflow) { w.userResolver = r }
 }
 
 // Execute handles a user thumbnail request (GET).
@@ -287,9 +306,11 @@ func (w *ThumbnailWorkflow) resolveReference(ctx context.Context, tr *requests.T
 		return ref, nil
 	}
 
-	// Path-only request: absolutize the path relative to the requesting user's
-	// home (the legacy webdav behavior) before resolving the owning space.
-	absPath := w.absolutizeUserPath(ctx, ref.GetPath(), auth)
+	// Path-only request: absolutize the path relative to a user's home (the
+	// legacy webdav behavior) before resolving the owning space. The user is the
+	// one named in the URL (/dav/files/{user}/...) when present, otherwise the
+	// token owner (/webdav/...).
+	absPath := w.absolutizeUserPath(ctx, ref.GetPath(), tr.Identifier, auth)
 
 	if w.spaceLookup == nil {
 		return &providerv1beta1.Reference{Path: absPath}, nil
@@ -302,16 +323,34 @@ func (w *ThumbnailWorkflow) resolveReference(ctx context.Context, tr *requests.T
 	return resolved, nil
 }
 
-// absolutizeUserPath maps a path-only reference to an absolute CS3 path under the
-// requesting user's home, matching the legacy webdav handler. Public link paths
-// (already absolute under /public) and any path that is not relative to the
-// caller are returned unchanged.
-func (w *ThumbnailWorkflow) absolutizeUserPath(ctx context.Context, p string, auth string) string {
+// absolutizeUserPath maps a path-only reference to an absolute CS3 path under a
+// user's home, matching the legacy webdav handler. The user is resolved from the
+// username in the URL (identifier, via GetUserByClaim) when present, otherwise
+// from the auth token (via WhoAmI). Public link paths (already absolute under
+// /public) and any path that is not relative to the caller are returned
+// unchanged.
+func (w *ThumbnailWorkflow) absolutizeUserPath(ctx context.Context, p, identifier, auth string) string {
 	if strings.HasPrefix(p, "/") {
 		return p
 	}
 
-	user, err := w.resolveUser(ctx, auth)
+	if w.userResolver == nil {
+		// No resolver configured: we cannot absolutize the path.
+		w.log.Warn().Msg("no user resolver configured, using raw path for thumbnail")
+		return p
+	}
+
+	var (
+		user *userv1beta1.User
+		err  error
+	)
+	if identifier != "" {
+		// /dav/files/{user}/...: honor the username from the URL.
+		user, err = w.userResolver.GetUserByClaim(ctx, "username", identifier)
+	} else {
+		// /webdav/...: resolve the token owner.
+		user, err = w.userResolver.WhoAmI(ctx, auth)
+	}
 	if err != nil {
 		// Without a resolved user we cannot absolutize; fall back to the raw path.
 		w.log.Warn().Err(err).Msg("could not resolve user for thumbnail path")
@@ -347,6 +386,12 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	}
 
 	checksum := info.GetChecksum().GetSum()
+	if checksum == "" {
+		// Without a checksum the cache key would be shared across all files, so
+		// the resource is treated as not found (matching main's grpc service).
+		logger.Debug().Msg("resource info is missing a checksum")
+		return nil, "", false, ErrNotFound
+	}
 	mimeType := info.GetMimeType()
 
 	// The output type follows the source mime (like main's GetExtForMime); when
@@ -374,27 +419,6 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 		}
 	}
 
-	fileBytes, err := w.fileDownloader.Download(ctx, ref, auth)
-	if err != nil {
-		logger.Error().Err(err).Msg("could not download file for thumbnail")
-		return nil, "", false, fmt.Errorf("download: %w", err)
-	}
-
-	// Direct image types are handed to the generator as-is; everything else is
-	// converted to an image first (audio cover art, geogebra, text, gif).
-	var toSend any = fileBytes
-	if !isDirectImageMime(mimeType) {
-		ppOpts := map[string]any{
-			"fontFileMap": w.fontMapFile,
-		}
-		img, err := preprocessor.ForType(mimeType, ppOpts).Convert(bytes.NewReader(fileBytes))
-		if img == nil || err != nil {
-			logger.Debug().Err(err).Msg("could not convert file to image")
-			return nil, "", false, fmt.Errorf("could not get image")
-		}
-		toSend = img
-	}
-
 	// webdav is the sizing brain: it snaps the requested size onto a configured
 	// resolution (orientation-aware). It never inspects the image bytes; the
 	// generator is a dumb executor that just fits within the given box.
@@ -403,8 +427,25 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	if w.resolutions != nil {
 		box = w.resolutions.Match(reqBox)
 	}
-	genURL := generator.BuildURL(w.generatorURL, int32(box.Dx()), int32(box.Dy()), operation, outputExt)
-	thumbBytes, err := w.postToGenerator(ctx, genURL, toSend, mimeType)
+
+	// webdav never asks the generator to upscale: it snaps onto a resolution at
+	// least as large as requested, so the box is always >= the source intent.
+	// The no_upscale() filter makes the generator behave like real imagor for
+	// any other client that posts smaller boxes.
+	genURL := generator.BuildURL(w.generatorURL, int32(box.Dx()), int32(box.Dy()), operation, outputExt, true)
+
+	// Produce the source image to send to the generator, never decoding an image
+	// in webdav: real images (incl. gif) are streamed straight through undecoded;
+	// non-image sources are converted to image bytes here so the generator always
+	// receives an image.
+	imgStream, cleanup, err := w.sourceImage(ctx, ref, auth, mimeType, tr.Filename, logger)
+	if err != nil {
+		logger.Error().Err(err).Msg("could not obtain source image for thumbnail")
+		return nil, "", false, err
+	}
+	defer cleanup()
+
+	thumbBytes, err := w.postToGenerator(ctx, genURL, imgStream, tr.Filename)
 	if err != nil {
 		logger.Error().Err(err).Msg("could not generate thumbnail")
 		return nil, "", false, fmt.Errorf("generate: %w", err)
@@ -417,6 +458,49 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	}
 
 	return thumbBytes, outputExt, aIgnored, nil
+}
+
+// sourceImage returns a reader over the source image to send to the generator,
+// plus a cleanup func to release any resources (download body, temp buffer). It
+// never decodes an image in webdav:
+//   - real images (image/*, incl. gif) are streamed straight through from storage
+//     undecoded; the generator handles decoding and multi-frame gifs itself.
+//   - text/plain is rendered to an image here (the only true conversion).
+//   - audio and geogebra sources have their embedded image extracted to bytes.
+func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta1.Reference, auth, mimeType, filename string, logger log.Logger) (io.Reader, func(), error) {
+	m, _, _ := mime.ParseMediaType(mimeType)
+
+	if strings.HasPrefix(m, "image/") {
+		body, err := w.fileDownloader.DownloadStream(ctx, ref, auth)
+		if err != nil {
+			return nil, nil, fmt.Errorf("download: %w", err)
+		}
+		return body, func() { _ = body.Close() }, nil
+	}
+
+	body, err := w.fileDownloader.DownloadStream(ctx, ref, auth)
+	if err != nil {
+		return nil, nil, fmt.Errorf("download: %w", err)
+	}
+	defer body.Close()
+
+	fileBytes, err := io.ReadAll(body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read source: %w", err)
+	}
+
+	ppOpts := map[string]any{"fontFileMap": w.fontMapFile}
+	img, err := preprocessor.ForType(mimeType, ppOpts).Convert(bytes.NewReader(fileBytes))
+	if img == nil || err != nil {
+		logger.Debug().Err(err).Msg("could not convert file to image")
+		return nil, nil, fmt.Errorf("could not get image")
+	}
+
+	data, _, err := encodeForUpload(img, mimeType)
+	if err != nil {
+		return nil, nil, fmt.Errorf("encode converted image: %w", err)
+	}
+	return bytes.NewReader(data), func() {}, nil
 }
 
 // matchOperation resolves the generator resize/crop operation for a request from
@@ -474,41 +558,59 @@ func (w *ThumbnailWorkflow) matchOperation(tr *requests.ThumbnailRequest, mimeTy
 	return operation, aIgnored
 }
 
-func (w *ThumbnailWorkflow) postToGenerator(ctx context.Context, url string, file any, mimeType string) ([]byte, error) {
-	data, ext, err := encodeForUpload(file, mimeType)
+// postToGenerator streams the source image to the generator as a multipart
+// POST. The body is produced by an io.Pipe so the (potentially large) image is
+// never fully buffered in webdav: the writer goroutine copies the reader into
+// the form part on demand. No Content-Length is set, so the request uses chunked
+// transfer-encoding; both imagor and the thumbnailer parse the multipart body
+// without needing it (imagor enforces its size limit after reading the part).
+func (w *ThumbnailWorkflow) postToGenerator(ctx context.Context, url string, img io.Reader, filename string) ([]byte, error) {
+	pr, pw := io.Pipe()
+	writer := multipart.NewWriter(pw)
+
+	errCh := make(chan error, 1)
+	go func() {
+		defer pw.Close()
+		part, err := writer.CreateFormFile("image", filename)
+		if err != nil {
+			errCh <- fmt.Errorf("create form file: %w", err)
+			return
+		}
+		if _, err := io.Copy(part, img); err != nil {
+			errCh <- fmt.Errorf("write form data: %w", err)
+			return
+		}
+		if err := writer.Close(); err != nil {
+			errCh <- fmt.Errorf("close multipart writer: %w", err)
+			return
+		}
+		errCh <- nil
+	}()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, pr)
 	if err != nil {
-		return nil, fmt.Errorf("encode for upload: %w", err)
-	}
-
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	part, err := writer.CreateFormFile("image", "file."+ext)
-	if err != nil {
-		return nil, fmt.Errorf("create form file: %w", err)
-	}
-	if _, err := part.Write(data); err != nil {
-		return nil, fmt.Errorf("write form data: %w", err)
-	}
-
-	if err := writer.Close(); err != nil {
-		return nil, fmt.Errorf("close multipart writer: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
-	if err != nil {
+		pr.Close()
 		return nil, fmt.Errorf("create generator request: %w", err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	if w.authHeader != "" {
-		req.Header.Set(revactx.TokenHeader, w.authHeader)
+	// Forward the request ID so the generator's logs can be correlated with this
+	// request. No auth token is sent: the generator is an unauthenticated
+	// internal service (bound to loopback by default).
+	if reqID := chimiddleware.GetReqID(ctx); reqID != "" {
+		req.Header.Set("X-Request-ID", reqID)
 	}
 
 	httpRsp, err := w.httpClient.Do(req)
 	if err != nil {
+		pr.Close()
 		return nil, fmt.Errorf("generator request: %w", err)
 	}
 	defer httpRsp.Body.Close()
+
+	if writeErr := <-errCh; writeErr != nil {
+		io.Copy(io.Discard, httpRsp.Body)
+		return nil, writeErr
+	}
 
 	if httpRsp.StatusCode < 200 || httpRsp.StatusCode >= 300 {
 		respBody, _ := io.ReadAll(httpRsp.Body)
@@ -530,32 +632,18 @@ func (w *ThumbnailWorkflow) postToGenerator(ctx context.Context, url string, fil
 	return rspData, nil
 }
 
-// directImageMimes are mime types the generator can decode directly; their
-// bytes are passed through without preprocessing.
-var directImageMimes = map[string]struct{}{
-	"image/png":      {},
-	"image/jpg":      {},
-	"image/jpeg":     {},
-	"image/tiff":     {},
-	"image/bmp":      {},
-	"image/x-ms-bmp": {},
-	"image/webp":     {},
-}
-
-func isDirectImageMime(mimeType string) bool {
-	m, _, _ := mime.ParseMediaType(mimeType)
-	_, ok := directImageMimes[m]
-	return ok
-}
-
 // gatewaySelector is the interface for selecting a gateway client.
 type gatewaySelector interface {
 	Next(...pool.Option) (gatewayv1beta1.GatewayAPIClient, error)
 }
 
-func (w *ThumbnailWorkflow) resolveUser(ctx context.Context, auth string) (*userv1beta1.User, error) {
-	gs := w.stater.(*gatewayStater)
-	client, err := gs.selector.Next()
+// gatewayUserResolver implements UserResolver using the CS3 gateway's WhoAmI.
+type gatewayUserResolver struct {
+	selector gatewaySelector
+}
+
+func (g *gatewayUserResolver) WhoAmI(ctx context.Context, auth string) (*userv1beta1.User, error) {
+	client, err := g.selector.Next()
 	if err != nil {
 		return nil, fmt.Errorf("get gateway client: %w", err)
 	}
@@ -569,6 +657,28 @@ func (w *ThumbnailWorkflow) resolveUser(ctx context.Context, auth string) (*user
 	}
 
 	return userRes.GetUser(), nil
+}
+
+func (g *gatewayUserResolver) GetUserByClaim(ctx context.Context, claim, value string) (*userv1beta1.User, error) {
+	client, err := g.selector.Next()
+	if err != nil {
+		return nil, fmt.Errorf("get gateway client: %w", err)
+	}
+
+	userRes, err := client.GetUserByClaim(ctx, &userv1beta1.GetUserByClaimRequest{Claim: claim, Value: value})
+	if err != nil {
+		return nil, fmt.Errorf("get user by claim: %w", err)
+	}
+	if userRes.GetStatus().GetCode() != rpcv1beta1.Code_CODE_OK {
+		return nil, fmt.Errorf("get user by claim: %s", userRes.GetStatus().GetMessage())
+	}
+
+	return userRes.GetUser(), nil
+}
+
+// NewGatewayUserResolver creates a UserResolver backed by the CS3 gateway.
+func NewGatewayUserResolver(selector gatewaySelector) UserResolver {
+	return &gatewayUserResolver{selector: selector}
 }
 
 // gatewayStater implements Stater using the CS3 gateway.
@@ -606,7 +716,7 @@ type gatewayFileDownloader struct {
 	httpClient *http.Client
 }
 
-func (g *gatewayFileDownloader) Download(ctx context.Context, ref *providerv1beta1.Reference, auth string) ([]byte, error) {
+func (g *gatewayFileDownloader) DownloadStream(ctx context.Context, ref *providerv1beta1.Reference, auth string) (io.ReadCloser, error) {
 	client, err := g.selector.Next()
 	if err != nil {
 		return nil, fmt.Errorf("get gateway client: %w", err)
@@ -636,18 +746,15 @@ func (g *gatewayFileDownloader) Download(ctx context.Context, ref *providerv1bet
 	if err != nil {
 		return nil, fmt.Errorf("download request: %w", err)
 	}
-	defer httpRsp.Body.Close()
 
 	if httpRsp.StatusCode != http.StatusOK {
+		httpRsp.Body.Close()
 		return nil, fmt.Errorf("download failed with status %d", httpRsp.StatusCode)
 	}
 
-	data, err := io.ReadAll(httpRsp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read download body: %w", err)
-	}
-
-	return data, nil
+	// Return the live response body; the caller owns and closes it. The bytes are
+	// never buffered or decoded in webdav.
+	return httpRsp.Body, nil
 }
 
 func extractProtocol(protocols []*gatewayv1beta1.FileDownloadProtocol) (endpoint, token string) {
@@ -738,7 +845,19 @@ func NewGatewaySpaceLookup(selector gatewaySelector) SpaceLookup {
 	return &gatewaySpaceLookup{selector: selector}
 }
 
-// ResolvePublicLinkAuth authenticates a public link token via the gateway.
+// ErrPublicLinkPasswordRequired is returned when a password-protected public
+// link is accessed without (or with the wrong) password. Callers should surface
+// this as HTTP 404 Not Found so the resource's existence is not revealed.
+var ErrPublicLinkPasswordRequired = errors.New("public link requires a password")
+
+// ErrPublicLinkExpired is returned when a public link token has expired.
+// Callers should surface this as HTTP 410 Gone.
+var ErrPublicLinkExpired = errors.New("public link has expired")
+
+// ResolvePublicLinkAuth authenticates a public link token via the gateway. It
+// returns ErrPublicLinkPasswordRequired or ErrPublicLinkExpired (wrapped) when
+// the gateway reports the corresponding gRPC status code, so callers can branch
+// on the error type instead of matching error text.
 func ResolvePublicLinkAuth(ctx context.Context, r *http.Request, publicLinkToken string, selector gatewaySelector) (string, error) {
 	gatewayClient, err := selector.Next()
 	if err != nil {
@@ -768,9 +887,14 @@ func ResolvePublicLinkAuth(ctx context.Context, r *http.Request, publicLinkToken
 		return "", fmt.Errorf("could not authenticate public link: %w", err)
 	}
 
-	if rsp.GetStatus().GetCode() != rpcv1beta1.Code_CODE_OK {
+	switch rsp.GetStatus().GetCode() {
+	case rpcv1beta1.Code_CODE_OK:
+		return rsp.GetToken(), nil
+	case rpcv1beta1.Code_CODE_PERMISSION_DENIED:
+		return "", fmt.Errorf("%w: %s", ErrPublicLinkPasswordRequired, rsp.GetStatus().GetMessage())
+	case rpcv1beta1.Code_CODE_FAILED_PRECONDITION:
+		return "", fmt.Errorf("%w: %s", ErrPublicLinkExpired, rsp.GetStatus().GetMessage())
+	default:
 		return "", fmt.Errorf("public link authentication failed: code=%s message=%s", rsp.GetStatus().GetCode(), rsp.GetStatus().GetMessage())
 	}
-
-	return rsp.GetToken(), nil
 }

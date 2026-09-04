@@ -19,7 +19,7 @@ import (
 func encodeForUpload(v any, mimeType string) ([]byte, string, error) {
 	switch data := v.(type) {
 	case []byte:
-		return data, generator.GuessExtension(mimeType), nil
+		return data, generator.MimeToExt(mimeType), nil
 	case image.Image:
 		var (
 			buf bytes.Buffer

@@ -38,20 +38,14 @@ func ContentType(ext string) string {
 	return GetExtensionInfo(ext).ContentType
 }
 
-// GuessExtension guesses a file extension from a MIME type.
-func GuessExtension(mimeType string) string {
-	exts := []string{".jpg", ".png", ".gif"}
-	for _, ext := range exts {
-		if strings.HasSuffix(mimeType, "/"+strings.TrimLeft(ext, ".")) ||
-			strings.Contains(mimeType, "jpeg") && ext == ".jpg" {
-			return ext[1:]
-		}
-	}
-
-	switch {
-	case strings.Contains(mimeType, "png"):
+// MimeToExt maps a resource mime type to the file extension used for the on-disk
+// thumbnail cache key. Unknown image types fall back to jpg, matching main's
+// behavior (only png/gif are treated specially).
+func MimeToExt(mimeType string) string {
+	switch mimeType {
+	case "image/png":
 		return "png"
-	case strings.Contains(mimeType, "gif"):
+	case "image/gif":
 		return "gif"
 	default:
 		return "jpg"

@@ -17,14 +17,14 @@ import (
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	providerv1beta1 "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/go-chi/chi/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
@@ -292,6 +292,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			WithStater(NewGatewayStater(gatewaySelector)),
 			WithFileDownloader(NewGatewayFileDownloader(gatewaySelector, &http.Client{})),
 			WithSpaceLookup(NewGatewaySpaceLookup(gatewaySelector)),
+			WithUserResolver(NewGatewayUserResolver(gatewaySelector)),
 		)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -395,6 +396,85 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			cached, err := testCache.Get("cb/56/752477cae6405f85b131872c60d21b967c6a/128x128-fill.jpg")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cached).To(Equal(thumbBytes))
+		})
+	})
+
+	Describe("path-only /webdav/ reference", func() {
+		It("resolves the token owner via WhoAmI when no username is in the URL", func() {
+			var statRef *providerv1beta1.Reference
+
+			gatewayClient.On("WhoAmI", mock.Anything, mock.MatchedBy(func(req *gatewayv1beta1.WhoAmIRequest) bool {
+				return req.GetToken() == testToken
+			})).Return(&gatewayv1beta1.WhoAmIResponse{
+				Status: status.NewOK(context.Background()),
+				User: &userv1beta1.User{
+					Id: &userv1beta1.UserId{
+						Idp:      "https://opencloud-server:9200",
+						OpaqueId: "test-opaque",
+						Type:     userv1beta1.UserType_USER_TYPE_PRIMARY,
+					},
+					Username: "test",
+				},
+			}, nil)
+
+			gatewayClient.On("Stat", mock.Anything, mock.MatchedBy(func(req *providerv1beta1.StatRequest) bool {
+				statRef = req.GetRef()
+				return strings.Contains(req.GetRef().GetPath(), "photo.jpeg")
+			})).Return(&providerv1beta1.StatResponse{
+				Status: status.NewOK(context.Background()),
+				Info: &providerv1beta1.ResourceInfo{
+					Type:          providerv1beta1.ResourceType_RESOURCE_TYPE_FILE,
+					PermissionSet: &providerv1beta1.ResourcePermissions{InitiateFileDownload: true},
+					MimeType:      "image/jpeg",
+					Size:          1024,
+					Checksum:      &providerv1beta1.ResourceChecksum{Sum: "webdavchecksum"},
+				},
+			}, nil)
+
+			downloadBody := testJPEG(800, 600)
+			var downloadRef *providerv1beta1.Reference
+
+			storageServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write(downloadBody)
+			}))
+			defer storageServer.Close()
+
+			gatewayClient.On("InitiateFileDownload", mock.Anything, mock.MatchedBy(func(req *providerv1beta1.InitiateFileDownloadRequest) bool {
+				downloadRef = req.GetRef()
+				return strings.Contains(req.GetRef().GetPath(), "photo.jpeg")
+			})).Return(&gatewayv1beta1.InitiateFileDownloadResponse{
+				Status: status.NewOK(context.Background()),
+				Protocols: []*gatewayv1beta1.FileDownloadProtocol{
+					{Protocol: "spaces", DownloadEndpoint: storageServer.URL, Token: "download-token"},
+				},
+			}, nil)
+
+			generatorSrv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte("webdav-thumbnail"))
+			}))
+			defer generatorSrv.Close()
+			wf.generatorURL = generatorSrv.URL
+
+			tr := &requests.ThumbnailRequest{
+				Ref:       &providerv1beta1.Reference{Path: "photo.jpeg"},
+				Filename:  "photo.jpeg",
+				Extension: ".jpeg",
+				Width:     36,
+				Height:    36,
+			}
+
+			data, ext, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ext).To(Equal("jpg"))
+			Expect(data).To(Equal([]byte("webdav-thumbnail")))
+
+			// No username in the URL: the token owner (test) is resolved via WhoAmI.
+			Expect(statRef.GetResourceId()).ToNot(BeNil())
+			Expect(statRef.GetPath()).To(Equal("./users/test-opaque/photo.jpeg"))
+			Expect(downloadRef.GetResourceId()).ToNot(BeNil())
+			Expect(downloadRef.GetPath()).To(Equal("./users/test-opaque/photo.jpeg"))
 		})
 	})
 
@@ -611,11 +691,12 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			wf.generatorURL = generatorSrv.URL
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       &providerv1beta1.Reference{Path: "photo.jpeg"},
-				Filename:  "photo.jpeg",
-				Extension: ".jpeg",
-				Width:     36,
-				Height:    36,
+				Ref:        &providerv1beta1.Reference{Path: "photo.jpeg"},
+				Filename:   "photo.jpeg",
+				Extension:  ".jpeg",
+				Width:      36,
+				Height:     36,
+				Identifier: "alice",
 			}
 
 			data, ext, _, err := wf.Execute(context.Background(), tr, testToken, logger)
@@ -623,12 +704,12 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			Expect(ext).To(Equal("jpg"))
 			Expect(data).To(Equal([]byte("user-thumbnail")))
 
-			// The path-only reference is resolved to a space-anchored reference by
-			// the space lookup (the users storage provider root from the mock).
+			// The username from the URL (alice) is resolved via GetUserByClaim and
+			// the path is absolutized under alice's home, not the token owner's.
 			Expect(statRef.GetResourceId()).ToNot(BeNil())
-			Expect(statRef.GetPath()).To(Equal("./users/test-opaque/photo.jpeg"))
+			Expect(statRef.GetPath()).To(Equal("./users/alice-opaque/photo.jpeg"))
 			Expect(downloadRef.GetResourceId()).ToNot(BeNil())
-			Expect(downloadRef.GetPath()).To(Equal("./users/test-opaque/photo.jpeg"))
+			Expect(downloadRef.GetPath()).To(Equal("./users/alice-opaque/photo.jpeg"))
 		})
 	})
 
@@ -711,7 +792,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			Expect(captured.data).ToNot(Equal(text))
 		})
 
-		It("re-encodes gif files to gif bytes before posting", func() {
+		It("passes gif files through to the generator undecoded", func() {
 			gifBytes, err := os.ReadFile(filepath.Join("..", "..", "preprocessor", "test_assets", "noise.gif"))
 			Expect(err).ToNot(HaveOccurred())
 
@@ -727,12 +808,9 @@ var _ = Describe("ThumbnailWorkflow", func() {
 
 			_, _, _, err = wf2.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(captured.data).ToNot(BeEmpty())
-			// The generator must receive valid gif bytes (GIF87a/GIF89a magic).
-			Expect(string(captured.data[:6])).To(SatisfyAny(
-				Equal("GIF89a"),
-				Equal("GIF87a"),
-			))
+			// Gifs are image/* and must reach the generator byte-for-byte; the
+			// generator (imagor or thumbnailer) handles multi-frame resizing.
+			Expect(captured.data).To(Equal(gifBytes))
 		})
 
 		It("returns an error when the file cannot be converted to an image", func() {

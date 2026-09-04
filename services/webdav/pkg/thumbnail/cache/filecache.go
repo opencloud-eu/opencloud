@@ -29,9 +29,7 @@ func (c *FileCache) Get(key string) ([]byte, error) {
 		return nil, err
 	}
 
-	result := make([]byte, len(data))
-	copy(result, data)
-	return result, nil
+	return data, nil
 }
 
 func (c *FileCache) Put(key string, data []byte) error {

@@ -38,6 +38,7 @@ func NewService(opts ...Option) Service {
 		mux:       m,
 		maxWidth:  limits.MaxInputWidth,
 		maxHeight: limits.MaxInputHeight,
+		limiter:   newConcurrencyLimiter(limits.MaxConcurrentRequests),
 	}
 
 	// Push-based thumbnail generation endpoint (imagor-compatible). The optional
@@ -64,6 +65,7 @@ type Thumbnails struct {
 	mux       *chi.Mux
 	maxWidth  int
 	maxHeight int
+	limiter   *concurrencyLimiter
 }
 
 // ServeHTTP implements the Service interface.

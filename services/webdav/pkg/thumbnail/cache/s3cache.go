@@ -99,14 +99,7 @@ func (c *S3Cache) Get(key string) ([]byte, error) {
 	}
 	defer obj.Close()
 
-	data, err := io.ReadAll(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]byte, len(data))
-	copy(result, data)
-	return result, nil
+	return io.ReadAll(obj)
 }
 
 func (c *S3Cache) Put(key string, data []byte) error {

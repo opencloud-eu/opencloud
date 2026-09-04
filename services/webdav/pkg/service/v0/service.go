@@ -113,7 +113,6 @@ func NewService(opts ...Option) (Service, error) {
 
 	wf, err := workflow.NewWorkflow(
 		workflow.WithGeneratorURL(conf.ThumbnailGeneratorURL),
-		workflow.WithAuthHeader(conf.ThumbnailGeneratorAuthHeader),
 		workflow.WithCache(c),
 		workflow.WithHTTPClient(httpClient),
 		workflow.WithMaxInputSize(maxInputSize),
@@ -124,6 +123,7 @@ func NewService(opts ...Option) (Service, error) {
 		workflow.WithStater(workflow.NewGatewayStater(gatewaySelector)),
 		workflow.WithFileDownloader(workflow.NewGatewayFileDownloader(gatewaySelector, httpClient)),
 		workflow.WithSpaceLookup(workflow.NewGatewaySpaceLookup(gatewaySelector)),
+		workflow.WithUserResolver(workflow.NewGatewayUserResolver(gatewaySelector)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create thumbnail workflow: %w", err)
@@ -395,8 +395,15 @@ func (g Webdav) handleWorkflowError(w http.ResponseWriter, r *http.Request, err 
 		renderError(w, r, errBadRequest("Unsupported file type"))
 		return
 	}
-	logger.Debug().Err(err).Msg("thumbnail workflow failed")
-	renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
+	if errors.Is(err, workflow.ErrNotFound) {
+		logger.Debug().Err(err).Msg("thumbnail source could not be located")
+		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
+		return
+	}
+	// Anything else (generator down, download failure, timeout, ...) is a server
+	// error: clients must not cache it as "no preview" the way they do 404s.
+	logger.Error().Err(err).Msg("thumbnail workflow failed")
+	renderError(w, r, errInternalError("could not generate thumbnail"))
 }
 
 func (g Webdav) handleHeadError(w http.ResponseWriter, r *http.Request, err error, tr *requests.ThumbnailRequest, logger log.Logger) {
@@ -420,13 +427,17 @@ func (g Webdav) handleHeadError(w http.ResponseWriter, r *http.Request, err erro
 		renderError(w, r, errBadRequest("Unsupported file type"))
 		return
 	}
-	logger.Debug().Err(err).Msg("thumbnail head check failed")
-	renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
+	if errors.Is(err, workflow.ErrNotFound) {
+		logger.Debug().Err(err).Msg("thumbnail source could not be located")
+		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
+		return
+	}
+	logger.Error().Err(err).Msg("thumbnail head check failed")
+	renderError(w, r, errInternalError("could not check thumbnail"))
 }
 
 func (g Webdav) handlePublicLinkAuthError(w http.ResponseWriter, r *http.Request, err error, filename string, logger log.Logger) {
-	errMsg := err.Error()
-	if strings.Contains(errMsg, "PERMISSION_DENIED") || strings.Contains(errMsg, "password required") {
+	if errors.Is(err, workflow.ErrPublicLinkPasswordRequired) {
 		// A password-protected public link accessed without (or with the wrong)
 		// password must not reveal that the resource exists, so it is hidden
 		// behind a 404 rather than a 403.
@@ -434,11 +445,12 @@ func (g Webdav) handlePublicLinkAuthError(w http.ResponseWriter, r *http.Request
 		renderError(w, r, errNotFound(notFoundMsg(filename)))
 		return
 	}
-	if strings.Contains(errMsg, "FAILED_PRECONDITION") || strings.Contains(errMsg, "expired") {
+	if errors.Is(err, workflow.ErrPublicLinkExpired) {
+		logger.Debug().Err(err).Msg("public link has expired")
 		renderError(w, r, newErrResponse(http.StatusGone, "public link has expired"))
 		return
 	}
-	logger.Debug().Err(err).Msg("could not authenticate public link")
+	logger.Error().Err(err).Msg("could not authenticate public link")
 	renderError(w, r, errInternalError("could not authenticate public link"))
 }
 

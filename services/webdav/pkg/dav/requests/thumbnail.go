@@ -48,6 +48,10 @@ type ThumbnailRequest struct {
 	// Aspect reports whether the client wants the aspect ratio preserved (the
 	// legacy ownCloud "a" flag: a=1/absent -> preserve, a=0 -> fill the box).
 	Aspect bool
+	// Identifier is the username from /dav/files/{user}/... when present. The
+	// workflow resolves it via GetUserByClaim so the file is looked up in that
+	// user's home; empty for space-ID, /webdav/ and public-link requests.
+	Identifier string
 }
 
 // ParseThumbnailRequest extracts all required parameters from a http request.
@@ -56,7 +60,10 @@ func ParseThumbnailRequest(r *http.Request) (*ThumbnailRequest, error) {
 
 	fp := ctx.Value(constants.ContextKeyPath).(string)
 
-	var ref *providerv1beta1.Reference
+	var (
+		ref        *providerv1beta1.Reference
+		identifier string
+	)
 	if v := ctx.Value(constants.ContextKeyID); v != nil {
 		id := v.(string)
 		if strings.Contains(id, "$") {
@@ -72,17 +79,18 @@ func ParseThumbnailRequest(r *http.Request) (*ThumbnailRequest, error) {
 			}
 		} else {
 			// The identifier is a username (dav/files/{username}/...); the workflow
-			// resolves it to the user's home path.
+			// resolves it to that user's home path via GetUserByClaim.
 			ref = &providerv1beta1.Reference{Path: fp}
+			identifier = id
 		}
-	} else {
-		if token := chi.URLParam(r, "token"); token != "" {
-			ref = &providerv1beta1.Reference{Path: path.Join("/public", token, strings.TrimLeft(fp, "/"))}
-		} else {
-			// Path-only request (/webdav/...): the absolute CS3 path is carried in
-			// ContextKeyPath; the workflow resolves the space root.
-			ref = &providerv1beta1.Reference{Path: fp}
-		}
+	}
+
+	if token := chi.URLParam(r, "token"); token != "" {
+		ref = &providerv1beta1.Reference{Path: path.Join("/public", token, strings.TrimLeft(fp, "/"))}
+	} else if ref == nil {
+		// Path-only request (/webdav/...): the absolute CS3 path is carried in
+		// ContextKeyPath; the workflow resolves the space root.
+		ref = &providerv1beta1.Reference{Path: fp}
 	}
 
 	q := r.URL.Query()
@@ -92,13 +100,14 @@ func ParseThumbnailRequest(r *http.Request) (*ThumbnailRequest, error) {
 	}
 
 	return &ThumbnailRequest{
-		Ref:       ref,
-		Filename:  filepath.Base(fp),
-		Extension: filepath.Ext(fp),
-		Width:     int32(width),
-		Height:    int32(height),
-		Processor: q.Get("processor"),
-		Aspect:    q.Get("a") != "0",
+		Ref:        ref,
+		Filename:   filepath.Base(fp),
+		Extension:  filepath.Ext(fp),
+		Width:      int32(width),
+		Height:     int32(height),
+		Processor:  q.Get("processor"),
+		Aspect:     q.Get("a") != "0",
+		Identifier: identifier,
 	}, nil
 }
 

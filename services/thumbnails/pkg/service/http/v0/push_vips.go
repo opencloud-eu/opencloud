@@ -21,25 +21,26 @@ func init() {
 }
 
 // processImageVips resizes the input using libvips. The operation selects the
-// resize/crop mode: fill (center-crop to the box), fit-in (fit within the box
-// without cropping, never upscaling), or stretch (resize to the exact box).
-func processImageVips(r io.Reader, width, height int, operation string) (any, image.Rectangle, error) {
+// resize/crop mode: fill (center-crop to the box, upscaling by default like real
+// imagor's default resize), fit-in (fit within the box without cropping, never
+// upscaling), or stretch (resize to the exact box). noUpscale caps the default
+// fill at the source size, mirroring imagor's no_upscale() filter.
+func processImageVips(r io.Reader, width, height int, operation string, noUpscale bool) (any, error) {
 	if isGifReader(r) {
 		g, err := gif.DecodeAll(r)
 		if err == nil && len(g.Image) > 0 {
-			srcBounds := g.Image[0].Bounds()
-			return resizeGIFVips(g, width, height, operation), srcBounds, nil
+			return resizeGIFVips(g, width, height, operation, noUpscale), nil
 		}
 	}
 
 	imgData, err := io.ReadAll(r)
 	if err != nil {
-		return nil, image.Rectangle{}, err
+		return nil, err
 	}
 
 	m, err := vips.NewImageFromBuffer(imgData)
 	if err != nil {
-		return nil, image.Rectangle{}, err
+		return nil, err
 	}
 
 	// Note: no defer m.Close() here. The ImageRef is returned to the caller and
@@ -47,42 +48,48 @@ func processImageVips(r io.Reader, width, height int, operation string) (any, im
 	// after exporting. Closing it here would free the underlying C image before the
 	// export runs (use-after-free).
 
-	srcBounds := image.Rect(0, 0, m.Width(), m.Height())
-
 	switch operation {
 	case OpStretch:
 		// Resize to the exact box without preserving aspect ratio.
 		hScale := float64(width) / float64(m.Width())
 		vScale := float64(height) / float64(m.Height())
 		if err := m.ResizeWithVScale(hScale, vScale, vips.KernelLanczos3); err != nil {
-			return nil, image.Rectangle{}, err
+			return nil, err
 		}
 	case OpFitIn:
 		// Fit within the box without cropping and never upscale (SizeDown).
 		if err := m.ThumbnailWithSize(width, height, vips.InterestingNone, vips.SizeDown); err != nil {
-			return nil, image.Rectangle{}, err
+			return nil, err
 		}
 	default: // OpFill
-		// Center-crop to fill the box exactly.
-		if err := m.ThumbnailWithSize(width, height, vips.InterestingAttention, vips.SizeBoth); err != nil {
-			return nil, image.Rectangle{}, err
+		// Center-crop to fill the box exactly. SizeBoth matches real imagor's
+		// default resize (which upscales small sources); no_upscale() caps it
+		// at the source size via SizeDown.
+		size := vips.SizeBoth
+		if noUpscale {
+			size = vips.SizeDown
+		}
+		if err := m.ThumbnailWithSize(width, height, vips.InterestingAttention, size); err != nil {
+			return nil, err
 		}
 	}
 
 	if err := m.RemoveMetadata(); err != nil {
-		return nil, image.Rectangle{}, err
+		return nil, err
 	}
 
 	// Keep the image in libvips form so the encode hooks can export it via
 	// ExportJpeg/ExportPng (matching the legacy pipeline's progressive JPEG and
 	// quality-80 output) instead of a lossy PNG round-trip + stdlib re-encode.
-	return m, srcBounds, nil
+	return m, nil
 }
 
 // resizeGIFVips resizes every frame of an animated gif while preserving the
 // animation, compositing each frame onto a running canvas honoring the gif
-// disposal method and re-palletting with Floyd-Steinberg dithering.
-func resizeGIFVips(m *gif.GIF, width, height int, operation string) *gif.GIF {
+// disposal method and re-palletting with Floyd-Steinberg dithering. noUpscale
+// caps the default fill at the source size, mirroring imagor's no_upscale()
+// filter.
+func resizeGIFVips(m *gif.GIF, width, height int, operation string, noUpscale bool) *gif.GIF {
 	srcX, srcY := m.Config.Width, m.Config.Height
 	b := image.Rect(0, 0, srcX, srcY)
 	tmp := image.NewRGBA(b)
@@ -103,7 +110,11 @@ func resizeGIFVips(m *gif.GIF, width, height int, operation string) *gif.GIF {
 				processed = tmp
 			}
 		default: // OpFill
-			processed = imaging.Fill(tmp, width, height, imaging.Center, imaging.Lanczos)
+			if noUpscale && srcX <= width && srcY <= height {
+				processed = tmp
+			} else {
+				processed = imaging.Fill(tmp, width, height, imaging.Center, imaging.Lanczos)
+			}
 		}
 
 		m.Image[i] = imageToPalettedVips(processed, frame.Palette)
@@ -116,8 +127,10 @@ func resizeGIFVips(m *gif.GIF, width, height int, operation string) *gif.GIF {
 		}
 	}
 
-	m.Config.Width = width
-	m.Config.Height = height
+	if !noUpscale || srcX > width || srcY > height {
+		m.Config.Width = width
+		m.Config.Height = height
+	}
 
 	return m
 }
