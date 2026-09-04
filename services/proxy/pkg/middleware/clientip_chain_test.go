@@ -1,7 +1,6 @@
 package middleware_test
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,10 +16,6 @@ import (
 // value when the header is present. This mirrors the alice chain configured in
 // services/proxy/pkg/command/server.go.
 func TestClientIPChain(t *testing.T) {
-	handler := chimiddleware.ClientIPFromRemoteAddr(chimiddleware.ClientIPFromXFF()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprint(w, chimiddleware.GetClientIP(r.Context()))
-	})))
-
 	tests := []struct {
 		name       string
 		remoteAddr string
@@ -54,16 +49,20 @@ func TestClientIPChain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rec := httptest.NewRecorder()
+			var got string
+			handler := chimiddleware.ClientIPFromRemoteAddr(chimiddleware.ClientIPFromXFF()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				got = chimiddleware.GetClientIP(r.Context())
+			})))
+
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
 			req.RemoteAddr = tt.remoteAddr
 			for _, f := range tt.forwarded {
 				req.Header.Add("X-Forwarded-For", f)
 			}
 
-			handler.ServeHTTP(rec, req)
+			handler.ServeHTTP(httptest.NewRecorder(), req)
 
-			assert.Equal(t, rec.Body.String(), tt.expected)
+			assert.Equal(t, got, tt.expected)
 		})
 	}
 }
