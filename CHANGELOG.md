@@ -1,6 +1,6 @@
 # Changelog
 
-## [8.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.0) - 2026-09-03
+## [8.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.0) - 2026-09-04
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -14,6 +14,7 @@
 
 ### 📈 Enhancement
 
+- graph: expose lockInfo on driveItems [[#3444](https://github.com/opencloud-eu/opencloud/pull/3444)]
 - graph: expose @libre.graph.shareTypes on driveItems [[#3438](https://github.com/opencloud-eu/opencloud/pull/3438)]
 - feat(search): live photo facet [[#3202](https://github.com/opencloud-eu/opencloud/pull/3202)]
 - feat: support $expand=children on the driveItem endpoint [[#3445](https://github.com/opencloud-eu/opencloud/pull/3445)]
