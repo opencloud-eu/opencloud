@@ -45,7 +45,7 @@ func Server(opts ...Option) (ohttp.Service, error) {
 
 	mux := chi.NewMux()
 
-	mux.Use(chimiddleware.RealIP)
+	mux.Use(chimiddleware.ClientIPFromRemoteAddr)
 	mux.Use(chimiddleware.RequestID)
 	mux.Use(middleware.TraceContext)
 	mux.Use(middleware.NoCache)
