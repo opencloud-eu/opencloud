@@ -5,7 +5,6 @@ package svc
 import (
 	"fmt"
 	"image"
-	"image/color"
 	"image/draw"
 	"image/gif"
 	"image/jpeg"
@@ -92,7 +91,7 @@ func resizeGIF(m *gif.GIF, width, height int, operation string, noUpscale bool) 
 			}
 		}
 
-		m.Image[i] = imageToPaletted(processed, frame.Palette)
+		m.Image[i] = palettedAtOrigin(processed, frame.Palette)
 
 		switch m.Disposal[i] {
 		case gif.DisposalBackground:
@@ -102,19 +101,18 @@ func resizeGIF(m *gif.GIF, width, height int, operation string, noUpscale bool) 
 		}
 	}
 
-	if !noUpscale || srcX > width || srcY > height {
+	// stretch resizes every frame to exactly width x height, so the logical
+	// screen must always match the box even when that is larger than the source
+	// (webdav sends no_upscale(), which would otherwise skip the update and leave
+	// frames extending past the screen, making gif.EncodeAll fail with "image
+	// block is out of bounds"). fill/fit-in keep the source size when noUpscale
+	// caps them at the source, so they only grow the screen when actually resized.
+	if operation == OpStretch || !noUpscale || srcX > width || srcY > height {
 		m.Config.Width = width
 		m.Config.Height = height
 	}
 
 	return m
-}
-
-func imageToPaletted(img image.Image, p color.Palette) *image.Paletted {
-	b := img.Bounds()
-	pm := image.NewPaletted(b, p)
-	draw.FloydSteinberg.Draw(pm, b, img, image.Point{})
-	return pm
 }
 
 // encodeJPEGImaging encodes the processed image as JPEG using the stdlib encoder.

@@ -400,6 +400,11 @@ func (g Webdav) handleWorkflowError(w http.ResponseWriter, r *http.Request, err 
 		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
 		return
 	}
+	if errors.Is(err, workflow.ErrUnsupportedFileType) {
+		logger.Debug().Err(err).Msg("thumbnail requested for unsupported file type")
+		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
+		return
+	}
 	// Anything else (generator down, download failure, timeout, ...) is a server
 	// error: clients must not cache it as "no preview" the way they do 404s.
 	logger.Error().Err(err).Msg("thumbnail workflow failed")
@@ -429,6 +434,11 @@ func (g Webdav) handleHeadError(w http.ResponseWriter, r *http.Request, err erro
 	}
 	if errors.Is(err, workflow.ErrNotFound) {
 		logger.Debug().Err(err).Msg("thumbnail source could not be located")
+		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
+		return
+	}
+	if errors.Is(err, workflow.ErrUnsupportedFileType) {
+		logger.Debug().Err(err).Msg("thumbnail head check requested for unsupported file type")
 		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
 		return
 	}

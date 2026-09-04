@@ -826,6 +826,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 
 			_, _, _, err := wf2.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, ErrNotFound)).To(BeTrue())
 			Expect(err.Error()).To(ContainSubstring("could not get image"))
 		})
 	})
@@ -879,7 +880,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 
 			_, _, _, err := wf.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("unsupported mime type"))
+			Expect(errors.Is(err, ErrUnsupportedFileType)).To(BeTrue())
 		})
 
 		It("should return ErrNotAFile when the resource is a folder", func() {
@@ -1342,7 +1343,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 
 			err = wf.Head(req.Context(), tr, auth, logger)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("unsupported mime type"))
+			Expect(errors.Is(err, ErrUnsupportedFileType)).To(BeTrue())
 		})
 	})
 
@@ -1487,6 +1488,27 @@ var _ = Describe("ThumbnailWorkflow", func() {
 
 			err = wf.Head(req.Context(), tr, auth, logger)
 			Expect(errors.Is(err, ErrFileProcessing)).To(BeTrue())
+		})
+	})
+
+	Describe("stat not found", func() {
+		It("returns ErrNotFound when the gateway reports the file as not found", func() {
+			gatewayClient.On("Stat", mock.Anything, mock.MatchedBy(func(req *providerv1beta1.StatRequest) bool {
+				return strings.Contains(req.Ref.Path, "otherusersfile.txt")
+			})).Return(&providerv1beta1.StatResponse{
+				Status: status.NewNotFound(context.Background(), "file not found"),
+			}, nil)
+
+			tr := &requests.ThumbnailRequest{
+				Ref:       spaceRef("storageid$spaceid!opaqueid", "otherusersfile.txt"),
+				Filename:  "otherusersfile.txt",
+				Extension: ".txt",
+				Width:     64,
+				Height:    64,
+			}
+
+			_, _, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			Expect(errors.Is(err, ErrNotFound)).To(BeTrue())
 		})
 	})
 })

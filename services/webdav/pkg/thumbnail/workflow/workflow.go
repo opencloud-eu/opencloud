@@ -89,6 +89,12 @@ var ErrPermissionDenied = errors.New("thumbnails: no download permission")
 // "File could not be located" message, matching the legacy thumbnail service.
 var ErrNotFound = errors.New("thumbnails: file could not be located")
 
+// ErrUnsupportedFileType is returned when the file's mime type is not in the
+// supported set (e.g. PDF, ODT, ZIP). Callers should surface this as HTTP 404
+// Not Found with an "Unsupported file type" message, matching the legacy
+// thumbnail service.
+var ErrUnsupportedFileType = errors.New("unsupported file type")
+
 // fileIsProcessing reports whether the resource carries the "processing" status
 // in its opaque map, as set by the storage backend while a file is being handled.
 func fileIsProcessing(info *providerv1beta1.ResourceInfo) bool {
@@ -275,7 +281,7 @@ func (w *ThumbnailWorkflow) Head(ctx context.Context, tr *requests.ThumbnailRequ
 	}
 
 	if !thumbnail.IsMimeTypeSupported(info.GetMimeType()) {
-		return fmt.Errorf("unsupported mime type: %s", info.GetMimeType())
+		return fmt.Errorf("%w: %s", ErrUnsupportedFileType, info.GetMimeType())
 	}
 
 	if w.maxInputSize > 0 && info.GetSize() > w.maxInputSize {
@@ -377,7 +383,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	}
 
 	if !thumbnail.IsMimeTypeSupported(info.GetMimeType()) {
-		return nil, "", false, fmt.Errorf("unsupported mime type: %s", info.GetMimeType())
+		return nil, "", false, fmt.Errorf("%w: %s", ErrUnsupportedFileType, info.GetMimeType())
 	}
 
 	if w.maxInputSize > 0 && info.GetSize() > w.maxInputSize {
@@ -493,7 +499,7 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 	img, err := preprocessor.ForType(mimeType, ppOpts).Convert(bytes.NewReader(fileBytes))
 	if img == nil || err != nil {
 		logger.Debug().Err(err).Msg("could not convert file to image")
-		return nil, nil, fmt.Errorf("could not get image")
+		return nil, nil, fmt.Errorf("%w: could not get image", ErrNotFound)
 	}
 
 	data, _, err := encodeForUpload(img, mimeType)
@@ -699,7 +705,15 @@ func (g *gatewayStater) Stat(ctx context.Context, ref *providerv1beta1.Reference
 		return nil, fmt.Errorf("stat request: %w", err)
 	}
 
-	if rsp.GetStatus().GetCode() != rpcv1beta1.Code_CODE_OK {
+	switch rsp.GetStatus().GetCode() {
+	case rpcv1beta1.Code_CODE_OK:
+		// fallthrough
+	case rpcv1beta1.Code_CODE_NOT_FOUND:
+		// The resource does not exist or is not visible to the caller (e.g. a
+		// file of another user). Surface it as 404, matching the legacy
+		// thumbnail service.
+		return nil, fmt.Errorf("%w: %s", ErrNotFound, rsp.GetStatus().GetMessage())
+	default:
 		return nil, fmt.Errorf("stat failed: %s", rsp.GetStatus().GetMessage())
 	}
 

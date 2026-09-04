@@ -20,25 +20,26 @@ Feature: sizing of previews of files downloaded through the webdav API
     # No processor is given, so the default behavior applies: fill. The source
     # preview of a text file is always 640x480 (landscape). The requested size is
     # snapped onto a configured resolution (the box) and the image is center-cropped
-    # to fill that box exactly (it may be upscaled or downscaled to cover it), so
-    # the output is always exactly the box dimensions.
+    # to fill that box, but webdav sends no_upscale() so the source is never
+    # enlarged: when the 640x480 source already fits inside the box it is returned
+    # at its native size, and only boxes smaller than the source are downscaled.
     Examples:
       | request-width | request-height | return-width | return-height | dav-path-version |
       | 1             | 1              | 16           | 16            | old              |
       | 32            | 32             | 32           | 32            | old              |
-      | 1024          | 1024           | 1024         | 1024          | old              |
-      | 1             | 1024           | 1080         | 1920          | old              |
-      | 1024          | 1              | 1024         | 1024          | old              |
+      | 1024          | 1024           | 640          | 480           | old              |
+      | 1             | 1024           | 640          | 480           | old              |
+      | 1024          | 1              | 640          | 480           | old              |
       | 1             | 1              | 16           | 16            | new              |
       | 32            | 32             | 32           | 32            | new              |
-      | 1024          | 1024           | 1024         | 1024          | new              |
-      | 1             | 1024           | 1080         | 1920          | new              |
-      | 1024          | 1              | 1024         | 1024          | new              |
+      | 1024          | 1024           | 640          | 480           | new              |
+      | 1             | 1024           | 640          | 480           | new              |
+      | 1024          | 1              | 640          | 480           | new              |
       | 1             | 1              | 16           | 16            | spaces           |
       | 32            | 32             | 32           | 32            | spaces           |
-      | 1024          | 1024           | 1024         | 1024          | spaces           |
-      | 1             | 1024           | 1080         | 1920          | spaces           |
-      | 1024          | 1              | 1024         | 1024          | spaces           |
+      | 1024          | 1024           | 640          | 480           | spaces           |
+      | 1             | 1024           | 640          | 480           | spaces           |
+      | 1024          | 1              | 640          | 480           | spaces           |
 
 
   Scenario Outline: download a preview with an explicit processor
