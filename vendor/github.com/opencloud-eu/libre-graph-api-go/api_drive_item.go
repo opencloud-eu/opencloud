@@ -350,11 +350,18 @@ type ApiGetDriveItemRequest struct {
 	driveId string
 	itemId string
 	select_ *[]string
+	expand *[]string
 }
 
 // Select additional properties to be returned.
 func (r ApiGetDriveItemRequest) Select_(select_ []string) ApiGetDriveItemRequest {
 	r.select_ = &select_
+	return r
+}
+
+// Expand related entities to be returned.
+func (r ApiGetDriveItemRequest) Expand(expand []string) ApiGetDriveItemRequest {
+	r.expand = &expand
 	return r
 }
 
@@ -407,6 +414,9 @@ func (a *DriveItemApiService) GetDriveItemExecute(r ApiGetDriveItemRequest) (*Dr
 
 	if r.select_ != nil {
 		parameterAddToHeaderOrQuery(localVarQueryParams, "$select", r.select_, "form", "csv")
+	}
+	if r.expand != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "$expand", r.expand, "form", "csv")
 	}
 	// to determine the Content-Type header
 	localVarHTTPContentTypes := []string{}
@@ -755,11 +765,18 @@ type ApiGetDriveItemV1Request struct {
 	driveId string
 	itemId string
 	select_ *[]string
+	expand *[]string
 }
 
 // Select additional properties to be returned.
 func (r ApiGetDriveItemV1Request) Select_(select_ []string) ApiGetDriveItemV1Request {
 	r.select_ = &select_
+	return r
+}
+
+// Expand related entities to be returned.
+func (r ApiGetDriveItemV1Request) Expand(expand []string) ApiGetDriveItemV1Request {
+	r.expand = &expand
 	return r
 }
 
@@ -815,6 +832,9 @@ func (a *DriveItemApiService) GetDriveItemV1Execute(r ApiGetDriveItemV1Request) 
 
 	if r.select_ != nil {
 		parameterAddToHeaderOrQuery(localVarQueryParams, "$select", r.select_, "form", "csv")
+	}
+	if r.expand != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "$expand", r.expand, "form", "csv")
 	}
 	// to determine the Content-Type header
 	localVarHTTPContentTypes := []string{}
