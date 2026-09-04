@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	oidcmocks "github.com/opencloud-eu/opencloud/pkg/oidc/mocks"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/mock"
 	"go-micro.dev/v4/store"
 )
@@ -108,20 +110,22 @@ var _ = Describe("Authenticating requests", Label("OIDCAuthenticator"), func() {
 	})
 
 	When("the request contains an expired token", func() {
-		It("should reject the request", func() {
-			ocExpired := oidcmocks.OIDCClient{}
-			ocExpired.On("VerifyAccessToken", mock.Anything, mock.Anything).Return(
+		var buf bytes.Buffer
+		expiredAuthenticator := &OIDCAuthenticator{
+			OIDCIss:       "http://idp.example.com",
+			Logger:        log.Logger{zerolog.New(&buf).Level(zerolog.DebugLevel)},
+			oidcClient: &oidcmocks.OIDCClient{},
+			userInfoCache: store.NewMemoryStore(),
+			skipUserInfo:  true,
+		}
+
+		BeforeEach(func() {
+			expiredAuthenticator.oidcClient.(*oidcmocks.OIDCClient).On("VerifyAccessToken", mock.Anything, mock.Anything).Return(
 				oidc.RegClaimsWithSID{}, jwt.MapClaims{}, jwt.ErrTokenExpired,
 			)
+		})
 
-			expiredAuthenticator := &OIDCAuthenticator{
-				OIDCIss:       "http://idp.example.com",
-				Logger:        log.NewLogger(),
-				oidcClient:    &ocExpired,
-				userInfoCache: store.NewMemoryStore(),
-				skipUserInfo:  true,
-			}
-
+		It("should reject the request", func() {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com/example/path", http.NoBody)
 			req.Header.Set(_headerAuthorization, "Bearer jwt.token.sig")
 
@@ -129,6 +133,44 @@ var _ = Describe("Authenticating requests", Label("OIDCAuthenticator"), func() {
 
 			Expect(valid).To(Equal(false))
 			Expect(req2).To(BeNil())
+		})
+
+		It("should log the authentication failure at debug level", func() {
+			req := httptest.NewRequest(http.MethodGet, "http://example.com/example/path", http.NoBody)
+			req.Header.Set(_headerAuthorization, "Bearer jwt.token.sig")
+
+			expiredAuthenticator.Authenticate(req)
+
+			Expect(buf.String()).To(ContainSubstring("failed to authenticate the request"))
+			Expect(buf.String()).To(ContainSubstring(`"level":"debug"`))
+			Expect(buf.String()).ToNot(ContainSubstring(`"level":"error"`))
+		})
+	})
+
+	When("the request contains a token that cannot be verified", func() {
+		var buf bytes.Buffer
+		failingAuthenticator := &OIDCAuthenticator{
+			OIDCIss:       "http://idp.example.com",
+			Logger:        log.Logger{zerolog.New(&buf).Level(zerolog.DebugLevel)},
+			oidcClient: &oidcmocks.OIDCClient{},
+			userInfoCache: store.NewMemoryStore(),
+			skipUserInfo:  true,
+		}
+
+		BeforeEach(func() {
+			failingAuthenticator.oidcClient.(*oidcmocks.OIDCClient).On("VerifyAccessToken", mock.Anything, mock.Anything).Return(
+				oidc.RegClaimsWithSID{}, jwt.MapClaims{}, jwt.ErrTokenMalformed,
+			)
+		})
+
+		It("should log the authentication failure at error level", func() {
+			req := httptest.NewRequest(http.MethodGet, "http://example.com/example/path", http.NoBody)
+			req.Header.Set(_headerAuthorization, "Bearer jwt.token.sig")
+
+			failingAuthenticator.Authenticate(req)
+
+			Expect(buf.String()).To(ContainSubstring("failed to authenticate the request"))
+			Expect(buf.String()).To(ContainSubstring(`"level":"error"`))
 		})
 	})
 })
