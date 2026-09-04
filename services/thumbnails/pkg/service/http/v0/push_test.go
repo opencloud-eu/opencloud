@@ -225,6 +225,44 @@ func TestPushEndpoint_Fill_GIF(t *testing.T) {
 	}
 }
 
+// TestPushEndpoint_Stretch_GIFUpscaleNoUpscaleFilter pins the fix for stretching a
+// gif to a box larger than the source while the no_upscale() filter is set (which
+// is exactly what webdav sends). The resized frames are larger than the original
+// logical screen, so without updating m.Config the frame rects extend past the
+// screen and gif.EncodeAll fails with "image block is out of bounds" (surfaced as
+// HTTP 500). The endpoint must return 200 with every frame exactly the requested
+// size.
+func TestPushEndpoint_Stretch_GIFUpscaleNoUpscaleFilter(t *testing.T) {
+	mux := newTestMux()
+
+	imgBytes := createTestGIF(100, 80, 3)
+	body, contentType := createMultipartBody(imgBytes)
+
+	req := httptest.NewRequest(http.MethodPost, "/unsafe/stretch/200x160/filters:no_upscale():format(gif)/", body)
+	req.Header.Set("Content-Type", contentType)
+	rec := httptest.NewRecorder()
+
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	out, err := gif.DecodeAll(rec.Body)
+	if err != nil {
+		t.Fatalf("failed to decode response gif: %v", err)
+	}
+	if len(out.Image) != 3 {
+		t.Fatalf("expected 3 frames preserved, got %d", len(out.Image))
+	}
+	for i, frame := range out.Image {
+		b := frame.Bounds()
+		if b.Dx() != 200 || b.Dy() != 160 {
+			t.Errorf("stretch should produce exactly 200x160, frame %d is %dx%d", i, b.Dx(), b.Dy())
+		}
+	}
+}
+
 func TestPushEndpoint_FitIn_AspectRatio(t *testing.T) {
 	mux := newTestMux()
 
