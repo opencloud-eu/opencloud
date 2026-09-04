@@ -39,7 +39,6 @@ import (
 	ocsconv "github.com/opencloud-eu/reva/v2/pkg/conversions"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	sdk "github.com/opencloud-eu/reva/v2/pkg/sdk/common"
@@ -848,10 +847,20 @@ func (fs *Decomposedfs) linkStorageSpaceType(ctx context.Context, spaceType, spa
 
 func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, checkPermissions bool) (*provider.StorageSpace, error) {
 	user := ctxpkg.ContextMustGetUser(ctx)
-	if checkPermissions && n.SpaceRoot.IsDisabled(ctx) {
+	if checkPermissions {
 		rp, err := fs.p.AssemblePermissions(ctx, n)
-		if err != nil || !permissions.IsManager(rp) {
-			return nil, errtypes.PermissionDenied(fmt.Sprintf("user %s is not allowed to list deleted spaces %s", user.Username, n.ID))
+		switch {
+		case err != nil:
+			return nil, err
+		case !rp.Stat:
+			return nil, errtypes.NotFound(fmt.Sprintf("space %s not found", n.ID))
+		}
+
+		if n.SpaceRoot.IsDisabled(ctx) {
+			rp, err := fs.p.AssemblePermissions(ctx, n)
+			if err != nil || !permissions.IsManager(rp) {
+				return nil, errtypes.PermissionDenied(fmt.Sprintf("user %s is not allowed to list deleted spaces %s", user.Username, n.ID))
+			}
 		}
 	}
 
@@ -897,10 +906,7 @@ func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, 
 			// This way we don't have to have a cron job checking the grants in regular intervals.
 			// The tradeof obviously is that this code is here.
 			if isGrantExpired(g) {
-				var errDeleteGrant, errIndexRemove error
-
-				errDeleteGrant = n.DeleteGrant(ctx, g, true)
-				if errDeleteGrant != nil {
+				if err := n.DeleteGrant(ctx, g, true); err != nil {
 					sublog.Error().Err(err).Str("grantee", id).
 						Msg("failed to delete expired space grant")
 				}
@@ -909,39 +915,15 @@ func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, 
 					switch g.Grantee.Type {
 					case provider.GranteeType_GRANTEE_TYPE_USER:
 						// remove from user index
-						errIndexRemove = fs.userSpaceIndex.Remove(g.Grantee.GetUserId().GetOpaqueId(), n.SpaceID)
-						if errIndexRemove != nil {
+						if err := fs.userSpaceIndex.Remove(g.Grantee.GetUserId().GetOpaqueId(), n.SpaceID); err != nil {
 							sublog.Error().Err(err).Str("grantee", id).
 								Msg("failed to delete expired user space index")
 						}
 					case provider.GranteeType_GRANTEE_TYPE_GROUP:
 						// remove from group index
-						errIndexRemove = fs.groupSpaceIndex.Remove(g.Grantee.GetGroupId().GetOpaqueId(), n.SpaceID)
-						if errIndexRemove != nil {
+						if err := fs.groupSpaceIndex.Remove(g.Grantee.GetGroupId().GetOpaqueId(), n.SpaceID); err != nil {
 							sublog.Error().Err(err).Str("grantee", id).
 								Msg("failed to delete expired group space index")
-						}
-					}
-				}
-
-				// publish SpaceMembershipExpired event
-				if errDeleteGrant == nil {
-					ev := events.SpaceMembershipExpired{
-						SpaceOwner: n.SpaceOwnerOrManager(ctx),
-						SpaceID:    &provider.StorageSpaceId{OpaqueId: n.SpaceID},
-						SpaceName:  sname,
-						ExpiredAt:  time.Unix(int64(g.Expiration.Seconds), int64(g.Expiration.Nanos)),
-						Timestamp:  utils.TSNow(),
-					}
-					switch g.Grantee.Type {
-					case provider.GranteeType_GRANTEE_TYPE_USER:
-						ev.GranteeUserID = g.Grantee.GetUserId()
-					case provider.GranteeType_GRANTEE_TYPE_GROUP:
-						ev.GranteeGroupID = g.Grantee.GetGroupId()
-					}
-					if fs.stream != nil {
-						if err := events.Publish(ctx, fs.stream, ev); err != nil {
-							sublog.Error().Err(err).Msg("error publishing SpaceMembershipExpired event")
 						}
 					}
 				}
@@ -951,17 +933,6 @@ func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, 
 			grantExpiration[id] = g.Expiration
 		}
 		grantMap[id] = g.Permissions
-	}
-
-	// check permissions after expired grants have been removed
-	if checkPermissions {
-		rp, err := fs.p.AssemblePermissions(ctx, n)
-		switch {
-		case err != nil:
-			return nil, err
-		case !rp.Stat:
-			return nil, errtypes.NotFound(fmt.Sprintf("space %s not found", n.ID))
-		}
 	}
 
 	grantMapJSON, err := json.Marshal(grantMap)
