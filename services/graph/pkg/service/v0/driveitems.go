@@ -554,6 +554,8 @@ func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *sto
 		}
 	}
 
+	driveItem.LockInfo = lockToFacet(res.GetLock())
+
 	if utils.IsProcessing(res) {
 		// queuedDateTime stays absent, we do not track when postprocessing started
 		driveItem.PendingOperations = &libregraph.PendingOperations{
@@ -562,6 +564,40 @@ func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *sto
 	}
 
 	return driveItem, nil
+}
+
+// lockToFacet maps a CS3 lock; WebDAV renders the same state as d:lockdiscovery.
+// Only exclusive locks are reported, that is all OpenCloud issues.
+func lockToFacet(lock *storageprovider.Lock) *libregraph.LockInfo {
+	switch lock.GetType() {
+	case storageprovider.LockType_LOCK_TYPE_EXCL, storageprovider.LockType_LOCK_TYPE_WRITE:
+	default:
+		return nil
+	}
+
+	info := libregraph.NewLockInfo()
+	info.SetLockType("exclusive")
+
+	if appName := lock.GetAppName(); appName != "" {
+		info.SetLibreGraphAppName(appName)
+	}
+
+	if user := lock.GetUser(); user != nil {
+		info.SetOwners([]libregraph.Identity{{
+			Id:          libregraph.PtrString(user.GetOpaqueId()),
+			DisplayName: utils.ReadPlainFromOpaque(lock.GetOpaque(), "lockownername"),
+		}})
+	}
+
+	if lockTime, err := time.Parse(time.RFC3339, utils.ReadPlainFromOpaque(lock.GetOpaque(), "locktime")); err == nil {
+		info.SetCreatedDateTime(lockTime.UTC())
+	}
+
+	if expiration := lock.GetExpiration(); expiration != nil {
+		info.SetExpirationDateTime(time.Unix(int64(expiration.GetSeconds()), 0).UTC())
+	}
+
+	return info
 }
 
 // addShareTypes reads user and group shares off the grants, links from the share

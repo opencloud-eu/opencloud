@@ -68,6 +68,7 @@ type DriveItem struct {
 	Video *Video `json:"video,omitempty"`
 	LibreGraphMotionPhoto *MotionPhoto `json:"@libre.graph.motionPhoto,omitempty"`
 	LibreGraphLivePhoto *LivePhoto `json:"@libre.graph.livePhoto,omitempty"`
+	LockInfo *LockInfo `json:"lockInfo,omitempty"`
 	// Indicates if the item is synchronized with the underlying storage provider. Read-only.
 	ClientSynchronize *bool `json:"@client.synchronize,omitempty"`
 	// A pre-authenticated URL that can be used to download the item's content without providing an Authorization header. The URL is short-lived and cannot be cached.  This annotation is only populated when explicitly requested via `$select`, and only for items that have a `file` facet. The returned URL is valid for a limited time and should be used promptly. 
@@ -1157,6 +1158,38 @@ func (o *DriveItem) SetLibreGraphLivePhoto(v LivePhoto) {
 	o.LibreGraphLivePhoto = &v
 }
 
+// GetLockInfo returns the LockInfo field value if set, zero value otherwise.
+func (o *DriveItem) GetLockInfo() LockInfo {
+	if o == nil || IsNil(o.LockInfo) {
+		var ret LockInfo
+		return ret
+	}
+	return *o.LockInfo
+}
+
+// GetLockInfoOk returns a tuple with the LockInfo field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *DriveItem) GetLockInfoOk() (*LockInfo, bool) {
+	if o == nil || IsNil(o.LockInfo) {
+		return nil, false
+	}
+	return o.LockInfo, true
+}
+
+// HasLockInfo returns a boolean if a field has been set.
+func (o *DriveItem) HasLockInfo() bool {
+	if o != nil && !IsNil(o.LockInfo) {
+		return true
+	}
+
+	return false
+}
+
+// SetLockInfo gets a reference to the given LockInfo and assigns it to the LockInfo field.
+func (o *DriveItem) SetLockInfo(v LockInfo) {
+	o.LockInfo = &v
+}
+
 // GetClientSynchronize returns the ClientSynchronize field value if set, zero value otherwise.
 func (o *DriveItem) GetClientSynchronize() bool {
 	if o == nil || IsNil(o.ClientSynchronize) {
@@ -1489,6 +1522,9 @@ func (o DriveItem) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.LibreGraphLivePhoto) {
 		toSerialize["@libre.graph.livePhoto"] = o.LibreGraphLivePhoto
+	}
+	if !IsNil(o.LockInfo) {
+		toSerialize["lockInfo"] = o.LockInfo
 	}
 	if !IsNil(o.ClientSynchronize) {
 		toSerialize["@client.synchronize"] = o.ClientSynchronize

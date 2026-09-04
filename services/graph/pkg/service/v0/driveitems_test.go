@@ -13,6 +13,7 @@ import (
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	link "github.com/cs3org/go-cs3apis/cs3/sharing/link/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/go-chi/chi/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -533,6 +534,60 @@ var _ = Describe("Driveitems", func() {
 
 				res := assertItemsList(1)
 				Expect(res.Value[0].LibreGraphShareTypes).To(ConsistOf("user"))
+			})
+
+			It("returns the lock info of a locked item", func() {
+				// a lock time with a non-UTC offset, the way reva writes it
+				lockTime := time.Now().Truncate(time.Second).In(time.FixedZone("CEST", 2*60*60))
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:  provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:  "etag",
+							Mtime: utils.TimeToTS(mtime),
+							Lock: &provider.Lock{
+								Type:       provider.LockType_LOCK_TYPE_EXCL,
+								AppName:    "Collabora",
+								User:       &userpb.UserId{OpaqueId: "user-id"},
+								Expiration: &typesv1beta1.Timestamp{Seconds: uint64(lockTime.Add(time.Hour).Unix())},
+								Opaque: utils.AppendPlainToOpaque(
+									utils.AppendPlainToOpaque(nil, "lockownername", "Alice Hansen"),
+									"locktime", lockTime.Format(time.RFC3339)),
+							},
+						},
+					},
+				}, nil)
+
+				res := assertItemsList(1)
+				lock := res.Value[0].LockInfo
+				Expect(lock).ToNot(BeNil())
+				Expect(lock.GetLockType()).To(Equal("exclusive"))
+				Expect(lock.GetLibreGraphAppName()).To(Equal("Collabora"))
+				Expect(lock.GetCreatedDateTime()).To(BeTemporally("==", lockTime))
+				Expect(lock.GetCreatedDateTime().Location()).To(Equal(time.UTC))
+				Expect(lock.GetExpirationDateTime().Location()).To(Equal(time.UTC))
+				Expect(lock.GetExpirationDateTime()).To(BeTemporally("==", lockTime.Add(time.Hour)))
+				Expect(lock.GetOwners()).To(HaveLen(1))
+				Expect(lock.GetOwners()[0].GetId()).To(Equal("user-id"))
+				Expect(lock.GetOwners()[0].GetDisplayName()).To(Equal("Alice Hansen"))
+			})
+
+			It("omits the lock info for an unlocked item", func() {
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:  provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:  "etag",
+							Mtime: utils.TimeToTS(mtime),
+						},
+					},
+				}, nil)
+
+				Expect(assertItemsList(1).Value[0].LockInfo).To(BeNil())
 			})
 
 			It("reports a pending content update while the item is being processed", func() {
