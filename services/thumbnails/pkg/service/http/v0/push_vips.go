@@ -1,0 +1,173 @@
+//go:build enable_vips
+
+package svc
+
+import (
+	"fmt"
+	"image"
+	"image/draw"
+	"image/gif"
+	"io"
+
+	"github.com/davidbyttow/govips/v2/vips"
+	"github.com/kovidgoyal/imaging"
+)
+
+func init() {
+	processImage = processImageVips
+	encodeJPEG   = encodeJPEGVips
+	encodePNG    = encodePNGVips
+}
+
+// processImageVips resizes the input using libvips. The operation selects the
+// resize/crop mode: fill (center-crop to the box, upscaling by default like real
+// imagor's default resize), fit-in (fit within the box without cropping, never
+// upscaling), or stretch (resize to the exact box). noUpscale caps the default
+// fill at the source size, mirroring imagor's no_upscale() filter.
+func processImageVips(r io.Reader, width, height int, operation string, noUpscale bool) (any, error) {
+	if isGifReader(r) {
+		g, err := gif.DecodeAll(r)
+		if err == nil && len(g.Image) > 0 {
+			return resizeGIFVips(g, width, height, operation, noUpscale), nil
+		}
+	}
+
+	imgData, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := vips.NewImageFromBuffer(imgData)
+	if err != nil {
+		return nil, err
+	}
+
+	// Note: no defer m.Close() here. The ImageRef is returned to the caller and
+	// encoded by encodeJPEGVips/encodePNGVips, which own its lifetime and close it
+	// after exporting. Closing it here would free the underlying C image before the
+	// export runs (use-after-free).
+
+	switch operation {
+	case OpStretch:
+		// Resize to the exact box without preserving aspect ratio.
+		hScale := float64(width) / float64(m.Width())
+		vScale := float64(height) / float64(m.Height())
+		if err := m.ResizeWithVScale(hScale, vScale, vips.KernelLanczos3); err != nil {
+			return nil, err
+		}
+	case OpFitIn:
+		// Fit within the box without cropping and never upscale (SizeDown).
+		if err := m.ThumbnailWithSize(width, height, vips.InterestingNone, vips.SizeDown); err != nil {
+			return nil, err
+		}
+	default: // OpFill
+		// Center-crop to fill the box exactly. SizeBoth matches real imagor's
+		// default resize (which upscales small sources); no_upscale() caps it
+		// at the source size via SizeDown.
+		size := vips.SizeBoth
+		if noUpscale {
+			size = vips.SizeDown
+		}
+		if err := m.ThumbnailWithSize(width, height, vips.InterestingAttention, size); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := m.RemoveMetadata(); err != nil {
+		return nil, err
+	}
+
+	// Keep the image in libvips form so the encode hooks can export it via
+	// ExportJpeg/ExportPng (matching the legacy pipeline's progressive JPEG and
+	// quality-80 output) instead of a lossy PNG round-trip + stdlib re-encode.
+	return m, nil
+}
+
+// resizeGIFVips resizes every frame of an animated gif while preserving the
+// animation, compositing each frame onto a running canvas honoring the gif
+// disposal method and re-palletting with Floyd-Steinberg dithering. noUpscale
+// caps the default fill at the source size, mirroring imagor's no_upscale()
+// filter.
+func resizeGIFVips(m *gif.GIF, width, height int, operation string, noUpscale bool) *gif.GIF {
+	srcX, srcY := m.Config.Width, m.Config.Height
+	b := image.Rect(0, 0, srcX, srcY)
+	tmp := image.NewRGBA(b)
+
+	for i, frame := range m.Image {
+		frameBounds := frame.Bounds()
+		prev := tmp
+		draw.Draw(tmp, frameBounds, frame, frameBounds.Min, draw.Over)
+
+		var processed image.Image
+		switch operation {
+		case OpStretch:
+			processed = imaging.Resize(tmp, width, height, imaging.Lanczos)
+		case OpFitIn:
+			if srcX > width || srcY > height {
+				processed = imaging.Fit(tmp, width, height, imaging.Lanczos)
+			} else {
+				processed = tmp
+			}
+		default: // OpFill
+			if noUpscale && srcX <= width && srcY <= height {
+				processed = tmp
+			} else {
+				processed = imaging.Fill(tmp, width, height, imaging.Center, imaging.Lanczos)
+			}
+		}
+
+		m.Image[i] = palettedAtOrigin(processed, frame.Palette)
+
+		switch m.Disposal[i] {
+		case gif.DisposalBackground:
+			tmp = image.NewRGBA(b)
+		case gif.DisposalPrevious:
+			tmp = prev
+		}
+	}
+
+	// stretch resizes every frame to exactly width x height, so the logical
+	// screen must always match the box even when that is larger than the source
+	// (webdav sends no_upscale(), which would otherwise skip the update and leave
+	// frames extending past the screen, making gif.EncodeAll fail with "image
+	// block is out of bounds"). fill/fit-in keep the source size when noUpscale
+	// caps them at the source, so they only grow the screen when actually resized.
+	if operation == OpStretch || !noUpscale || srcX > width || srcY > height {
+		m.Config.Width = width
+		m.Config.Height = height
+	}
+
+	return m
+}
+
+// encodeJPEGVips exports the processed libvips image as JPEG using libvips's
+// default export parameters (progressive/interlaced, quality 80), matching the
+// legacy pipeline's output byte-for-byte where the resize operation is unchanged.
+func encodeJPEGVips(w io.Writer, processed any) error {
+	m, ok := processed.(*vips.ImageRef)
+	if !ok {
+		return fmt.Errorf("cannot encode %T as jpeg", processed)
+	}
+	defer m.Close()
+	buf, _, err := m.ExportJpeg(vips.NewJpegExportParams())
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(buf)
+	return err
+}
+
+// encodePNGVips exports the processed libvips image as PNG via libvips.
+func encodePNGVips(w io.Writer, processed any) error {
+	m, ok := processed.(*vips.ImageRef)
+	if !ok {
+		return fmt.Errorf("cannot encode %T as png", processed)
+	}
+	defer m.Close()
+	buf, _, err := m.ExportPng(vips.NewPngExportParams())
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(buf)
+	return err
+}

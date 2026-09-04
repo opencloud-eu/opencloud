@@ -1,99 +1,53 @@
 # Thumbnails
 
-The thumbnails service provides methods to generate thumbnails for various files and resolutions based on requests. It retrieves the sources at the location where the user files are stored and saves the thumbnails where system files are stored. Those locations have defaults but can be manually defined via environment variables.
+The thumbnails service is a stateless image resizer. It exposes an imagor-compatible push endpoint that accepts an original image as a multipart upload and returns the resized thumbnail encoded in the requested format.
 
-## File Locations Overview
+> **Warning:** This service performs no authentication or authorization. By default it binds to `127.0.0.1:9186` so only local processes (the webdav service) can reach it. If you change `THUMBNAILS_HTTP_ADDR` to a non-loopback address, put it behind your reverse proxy's auth layer or an internal network boundary — anyone who can reach the endpoint can upload and retrieve arbitrary images through it.
 
-The relevant environment variables defining file locations are:
+## Push Endpoint
 
--   (1) `OC_BASE_DATA_PATH`
--   (2) `STORAGE_USERS_DECOMPOSED_ROOT`
--   (3) `THUMBNAILS_FILESYSTEMSTORAGE_ROOT`
+The webdav service (which owns the complete thumbnail workflow) POSTs the source file to this endpoint and receives the processed image back.
 
-(1) ... Having a default set by the OpenCloud code, but if defined, used as base path for other services.
-(2) ... Source files, defaults to (1) plus path component, but can be freely defined if required.
-(3) ... Target files, defaults to (1) plus path component, but can be freely defined if required.
+| Route | Description |
+|---|---|
+| `POST /unsafe/{width}x{height}` (optionally `/filters:format({format})`) | Fill the exact width x height (center crop, may upscale) — the default |
+| `POST /unsafe/fit-in/{width}x{height}` (optionally `/filters:format({format})`) | Scale to fit within width x height, preserving aspect ratio and never upscaling (letterboxed) |
+| `POST /unsafe/stretch/{width}x{height}` (optionally `/filters:format({format})`) | Resize to the exact width x height without preserving aspect ratio (distorts) |
 
-For details and defaults for these environment variables see the OpenCloud admin documentation.
+The filters segment is captured whole and parsed; the `format` and `no_upscale` filters are meaningful to this executor, other filters are ignored. The `format` filter is optional: when absent the input's own format is preserved (detected from the image header), matching imagor. Inputs we cannot re-encode (e.g. webp, tiff, bmp) fall back to JPEG, mirroring imagor's default for unsavable sources.
 
-## Thumbnail Location
+Like real imagor, the default fill resize **upscales** small sources to fill the box exactly (a 100x100 source requested at `320x320` returns a 320x320 image). Adding the `no_upscale()` filter caps the result at the source size instead (the same request returns 100x100). The `fit-in` route never upscales regardless of filters.
 
-It may be beneficial to define the location of the thumbnails to be other than the default (with system files). This is due the fact that storing thumbnails can consume a lot of space over time which not necessarily needs to reside on the same partition or mount or expensive drives.
+The webdav service selects the route based on the requested processor. The full mapping is:
 
-## Thumbnail Source File Types
+| Request | Operation |
+|---|---|
+| `processor=resize` | stretch (distort to the exact box) |
+| `processor=fill` or `processor=thumbnail` | fill (center-crop to the exact box, may upscale) |
+| `processor=fit` / `processor=fit-in` | fit-in (preserve aspect, fit in box, never upscale) |
+| no processor, gif source | stretch (resize for gifs) |
+| no processor, other sources | fill (default = thumbnail = fill) |
 
-Thumbnails can be generated from the following source file types:
+By default (no processor, non-gif) the fill form is used, which center-crops to the exact box and upscales small sources — this matches the legacy `thumbnail` processor behavior (e.g. a 200x100 image requested at 100x100 returns a square 100x100 image). Requesting `processor=fit` switches to the `fit-in` form, which preserves aspect ratio and never upscales, letterboxing a non-square source into the box (the same image returns 100x50).
 
--   png
--   jpg
--   gif
--   tiff
--   bmp
--   txt
+### Legacy `a` parameter
 
-The thumbnail service retrieves source files using the information provided by the backend. The Linux backend identifies source files usually based on the extension.
+The webdav preview endpoint also accepts a legacy `a` flag: `a=1` (or absent) means "preserve aspect" (fit-in), `a=0` means "fill". An explicit `processor` always wins over `a`. When an explicit processor overrides a contradictory `a`, the thumbnail response includes the header `X-OpenCloud-Thumbnail-Aspect-Ignored` so developers can tell their client to send a consistent request.
 
-If a file type was not properly assigned or the type identification failed, thumbnail generation will fail and an error will be logged.
+The request body is a `multipart/form-data` upload with a single file field named `image`. Supported output formats are `jpg`, `png`, and `gif`.
 
-## Thumbnail Target File Types
+## Configuration
 
-Thumbnails can either be generated as `png`, `jpg` or `gif` files. These types are hardcoded and no other types can be requested. A requestor, like another service or a client, can request one of the available types to be generated. If more than one type is required, each type must be requested individually.
+| Environment variable | Description |
+|---|---|
+| `THUMBNAILS_HTTP_ADDR` | Bind address of the HTTP service (default `127.0.0.1:9186`) |
+| `THUMBNAILS_LOG_LEVEL` | Log level (`panic`, `fatal`, `error`, `warn`, `info`, `debug`, `trace`) |
+| `THUMBNAILS_MAX_CONCURRENT_REQUESTS` | Maximum number of thumbnail requests decoded and resized in parallel. Default is 0 (unlimited). Requests arriving while the limit is reached get HTTP 429 with a `Retry-After` header |
 
-## Thumbnail Query String Parameters
+## Using libvips for Image Processing
 
-Clients can request thumbnail previews for files by adding `?preview=1` to the file URL. Requests for files with no thumbnail available respond with HTTP status `404`.
 
-The following query parameters are supported:
-
-| Parameter | Required | Default Value                                        | Description                                                                     |
-|-----------|----------|------------------------------------------------------|---------------------------------------------------------------------------------|
-| preview   | YES      | 1                                                    | generates preview                                                               |
-| x         | YES      | first x-value configured in `THUMBNAILS_RESOLUTIONS` | horizontal target size                                                          |
-| y         | YES      | first y-value configured in `THUMBNAILS_RESOLUTIONS` | vertical target size                                                            |
-| scalingup | NO       | 0                                                    | prevents up-scaling of small images                                             |
-| a         | NO       | 1                                                    | aspect ratio                                                                    |
-| c         | NO       | Caching string                                       | Clients should send the etag, so they get a fresh thumbnail after a file change |
-| processor | NO       | `resize` for gifs and `thumbnail` for all others     | preferred thumbnail processor                                                   |
-
-## Thumbnail Resolution
-
-Various resolutions can be defined via `THUMBNAILS_RESOLUTIONS`. A requestor can request any arbitrary resolution and the thumbnail service will use the one closest to the requested resolution. If more than one resolution is required, each resolution must be requested individually.
-
-Example:
-
-Requested: 18x12\
-Available: 30x20, 15x10, 9x6\
-Returned: 15x10
-
-## Thumbnail Processors
-
-Normally, an image might get cropped when creating a preview, depending on the aspect ratio of the original image. This can have negative
-impacts on previews as only a part of the image will be shown. When using an _optional_ processor in the request, cropping can be avoided by defining on how the preview image generation will be done. The following processors are available:
-
-*   `resize` resizes the image to the specified width and height and returns the transformed image. If one of width or height is 0, the image aspect ratio is preserved.
-*   `fit` scales down the image to fit the specified maximum width and height and returns the transformed image.
-*   `fill`: creates an image with the specified dimensions and fills it with the scaled source image. To achieve the correct aspect ratio without stretching, the source image will be cropped.
-*   `thumbnail` scales the image up or down, crops it to the specified width and height and returns the transformed image.
-
-To apply one of those, a query parameter has to be added to the request, like `?processor=fit`. If no query parameter or processor is added, the default behaviour applies which is `resize` for gifs and `thumbnail` for all others.
-
-## Deleting Thumbnails
-
-As of now, there is no automated thumbnail deletion. This is especially true when a source file gets deleted or moved. This situation will be solved at a later stage. For the time being, if you run short on physical thumbnails space, you have to manually delete the thumbnail store to free space. Thumbnails will then be recreated on request.
-
-## Memory Considerations
-
-Since source files need to be loaded into memory when generating thumbnails, large source files could potentially crash this service if there is insufficient memory available. For bigger instances when using container orchestration deployment methods, this service can be dedicated to its own server(s) with more memory.
-To have more control over memory (and CPU) consumption the maximum number of concurrent requests can be limited by setting the environment variable `THUMBNAILS_MAX_CONCURRENT_REQUESTS`. The default value is 0 which does not apply any restrictions to the number of concurrent requests. As soon as the number of concurrent requests is reached any further request will be responded with `429/Too Many Requests` and the client can retry at a later point in time.
-
-## Thumbnails and SecureView
-
-If a resource is shared using SecureView, the share reciever will get a 403 (forbidden) response when requesting a thumbnail. The requesting client needs to decide what to show and usually a placeholder thumbnail is used.
-
-## Using libvips for Thumbnail Generation
-
-To improve performance and to support a wider range of images formats, the thumbnails service is able to utilize the [libvips library](https://www.libvips.org/) for thumbnail generation. Support for libvips needs to be
-enabled at buildtime and has a couple of implications:
+To improve performance and to support a wider range of image formats, the thumbnails service is able to utilize the [libvips library](https://www.libvips.org/) for image processing. Support for libvips needs to be enabled at buildtime and has a couple of implications:
 
 *  With libvips support enabled, it is not possible to create a statically linked OpenCloud binary.
 *  Therefore, the libvips shared libraries need to be available at runtime in the same release that was used to build the OpenCloud binary.
@@ -120,4 +74,3 @@ go build -tags enable_vips -o opencloud -o bin/opencloud ./cmd/opencloud
 
 When building a docker image using the Dockerfile in the top-level directory of OpenCloud, libvips support is enabled and the libvips shared libraries are included
 in the resulting docker image.
-
