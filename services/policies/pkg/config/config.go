@@ -29,7 +29,7 @@ type Service struct {
 
 // GRPC defines the available grpc configuration.
 type GRPC struct {
-	Disabled  bool                   `yaml:"disabled" env:"POLICIES_GRPC_DISABLED" desc:"Disables listening for GRPC API calls. Set this to true if the service should only handle requests through events." introductionVersion:"%NEXT%"`
+	Disabled  bool                   `yaml:"disabled" env:"POLICIES_GRPC_DISABLED" desc:"Disables listening for GRPC API calls. Set this to true if the service should only handle requests through events." introductionVersion:"%%NEXT%%"`
 	Addr      string                 `yaml:"addr" env:"POLICIES_GRPC_ADDR" desc:"The bind address of the GRPC service." introductionVersion:"1.0.0"`
 	Namespace string                 `yaml:"-"`
 	TLS       *shared.GRPCServiceTLS `yaml:"tls"`
@@ -50,7 +50,7 @@ type Postprocessing struct {
 
 // Events combines the configuration options for the event bus.
 type Events struct {
-	Disabled             bool   `yaml:"disabled" env:"POLICIES_EVENTS_DISABLED" desc:"Disables listening for events. Set this to true if the service should only handle GRPC requests." introductionVersion:"%NEXT%"`
+	Disabled             bool   `yaml:"disabled" env:"POLICIES_EVENTS_DISABLED" desc:"Disables listening for events. Set this to true if the service should only handle GRPC requests." introductionVersion:"%%NEXT%%"`
 	Endpoint             string `yaml:"endpoint" env:"OC_EVENTS_ENDPOINT;POLICIES_EVENTS_ENDPOINT" desc:"The address of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture." introductionVersion:"1.0.0"`
 	Cluster              string `yaml:"cluster" env:"OC_EVENTS_CLUSTER;POLICIES_EVENTS_CLUSTER" desc:"The clusterID of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture. Mandatory when using NATS as event system." introductionVersion:"1.0.0"`
 	TLSInsecure          bool   `yaml:"tls_insecure" env:"OC_INSECURE;OC_EVENTS_TLS_INSECURE;POLICIES_EVENTS_TLS_INSECURE" desc:"Whether the server should skip the client certificate verification during the TLS handshake." introductionVersion:"1.0.0"`

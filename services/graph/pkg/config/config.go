@@ -61,7 +61,7 @@ type Spaces struct {
 }
 
 type LDAPMetrics struct {
-	Disabled bool `yaml:"disabled" env:"GRAPH_LDAP_METRICS_DISABLE" desc:"Disables the metrics for outbound LDAP operations." introductionVersion:"%NEXT%"`
+	Disabled bool `yaml:"disabled" env:"GRAPH_LDAP_METRICS_DISABLE" desc:"Disables the metrics for outbound LDAP operations." introductionVersion:"%%NEXT%%"`
 }
 
 type LDAP struct {
@@ -121,7 +121,7 @@ type LDAPEducationConfig struct {
 }
 
 type IdentityMetrics struct {
-	Disabled bool `yaml:"disabled" env:"GRAPH_IDENTITY_BACKEND_METRICS_DISABLE" desc:"Disables the metrics for inbound identity backend operations." introductionVersion:"%NEXT%"`
+	Disabled bool `yaml:"disabled" env:"GRAPH_IDENTITY_BACKEND_METRICS_DISABLE" desc:"Disables the metrics for inbound identity backend operations." introductionVersion:"%%NEXT%%"`
 }
 
 type Identity struct {
@@ -141,7 +141,7 @@ type API struct {
 
 // Events combines the configuration options for the event bus.
 type Events struct {
-	DisabledConsumer     bool   `yaml:"disabled_consumer" env:"GRAPH_EVENTS_DISABLE_CONSUMER" desc:"Disables consuming events. Set this to true if the service should only handle HTTP requests." introductionVersion:"%NEXT%"`
+	DisabledConsumer     bool   `yaml:"disabled_consumer" env:"GRAPH_EVENTS_DISABLE_CONSUMER" desc:"Disables consuming events. Set this to true if the service should only handle HTTP requests." introductionVersion:"%%NEXT%%"`
 	Endpoint             string `yaml:"endpoint" env:"OC_EVENTS_ENDPOINT;GRAPH_EVENTS_ENDPOINT" desc:"The address of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture. Set to a empty string to disable emitting events." introductionVersion:"1.0.0"`
 	Cluster              string `yaml:"cluster" env:"OC_EVENTS_CLUSTER;GRAPH_EVENTS_CLUSTER" desc:"The clusterID of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture." introductionVersion:"1.0.0"`
 	TLSInsecure          bool   `yaml:"tls_insecure" env:"OC_INSECURE;OC_EVENTS_TLS_INSECURE;GRAPH_EVENTS_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"1.0.0"`
