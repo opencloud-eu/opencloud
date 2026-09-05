@@ -65,6 +65,8 @@ type Options struct {
 	// AccessTokenVerifyMethod configures how access_tokens should be verified but the oidc_auth middleware.
 	// Possible values currently: "jwt" and "none"
 	AccessTokenVerifyMethod string
+	// ValidateAccessTokenOnCacheHit also verifies tokens before accepting cached userinfo.
+	ValidateAccessTokenOnCacheHit bool
 	// JWKS sets the options for fetching the JWKS from the IDP
 	JWKS config.JWKS
 	// RoleQuotas hold userid:quota mappings. These will be used when provisioning new users.
@@ -80,8 +82,8 @@ type Options struct {
 	// tenant ID in the OIDC claims via the gateway's TenantAPI before comparing it to the user's stored tenant ID.
 	TenantIDMappingEnabled bool
 	// ServiceAccount holds credentials used to authenticate internal service calls (e.g. TenantAPI lookups).
-	ServiceAccount         config.ServiceAccount
-	EventsPublisher        events.Publisher
+	ServiceAccount  config.ServiceAccount
+	EventsPublisher events.Publisher
 }
 
 // newOptions initializes the available default options.
@@ -232,6 +234,14 @@ func UserRoleAssigner(ra userroles.UserRoleAssigner) Option {
 func AccessTokenVerifyMethod(method string) Option {
 	return func(o *Options) {
 		o.AccessTokenVerifyMethod = method
+	}
+}
+
+// ValidateAccessTokenOnCacheHit verifies access tokens even when userinfo is cached.
+// Use this when cached claims may have been accepted under a different validation policy.
+func ValidateAccessTokenOnCacheHit(val bool) Option {
+	return func(o *Options) {
+		o.ValidateAccessTokenOnCacheHit = val
 	}
 }
 

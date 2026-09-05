@@ -30,32 +30,45 @@ func NewOIDCAuthenticator(opts ...Option) *OIDCAuthenticator {
 	options := newOptions(opts...)
 
 	return &OIDCAuthenticator{
-		Logger:                  options.Logger,
-		userInfoCache:           options.UserInfoCache,
-		HTTPClient:              options.HTTPClient,
-		OIDCIss:                 options.OIDCIss,
-		DefaultTokenCacheTTL:    options.DefaultAccessTokenTTL,
-		oidcClient:              options.OIDCClient,
-		AccessTokenVerifyMethod: options.AccessTokenVerifyMethod,
-		skipUserInfo:            options.SkipUserInfo,
-		TimeFunc:                time.Now,
+		Logger:                        options.Logger,
+		userInfoCache:                 options.UserInfoCache,
+		HTTPClient:                    options.HTTPClient,
+		OIDCIss:                       options.OIDCIss,
+		DefaultTokenCacheTTL:          options.DefaultAccessTokenTTL,
+		oidcClient:                    options.OIDCClient,
+		AccessTokenVerifyMethod:       options.AccessTokenVerifyMethod,
+		validateAccessTokenOnCacheHit: options.ValidateAccessTokenOnCacheHit,
+		skipUserInfo:                  options.SkipUserInfo,
+		TimeFunc:                      time.Now,
 	}
 }
 
 // OIDCAuthenticator is an authenticator responsible for OIDC authentication.
 type OIDCAuthenticator struct {
-	Logger                  log.Logger
-	HTTPClient              *http.Client
-	OIDCIss                 string
-	userInfoCache           store.Store
-	DefaultTokenCacheTTL    time.Duration
-	oidcClient              oidc.OIDCClient
-	AccessTokenVerifyMethod string
-	skipUserInfo            bool
-	TimeFunc                func() time.Time
+	Logger                        log.Logger
+	HTTPClient                    *http.Client
+	OIDCIss                       string
+	userInfoCache                 store.Store
+	DefaultTokenCacheTTL          time.Duration
+	oidcClient                    oidc.OIDCClient
+	AccessTokenVerifyMethod       string
+	validateAccessTokenOnCacheHit bool
+	skipUserInfo                  bool
+	TimeFunc                      func() time.Time
 }
 
 func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[string]any, bool, error) {
+	var aClaims oidc.RegClaimsWithSID
+	var tokenClaims map[string]any
+	var err error
+	if m.validateAccessTokenOnCacheHit {
+		// Cache entries may predate the current audience policy. Verify the signed
+		// access token, not the userinfo claims, before trusting a cached result.
+		aClaims, tokenClaims, err = m.oidcClient.VerifyAccessToken(req.Context(), token)
+		if err != nil {
+			return nil, false, errors.Wrap(err, "failed to verify access token")
+		}
+	}
 	var claims map[string]any
 
 	// use a 64 bytes long hash to have 256-bit collision resistance.
@@ -79,10 +92,13 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 		}
 	}
 
-	aClaims, claims, err := m.oidcClient.VerifyAccessToken(req.Context(), token)
-	if err != nil {
-		return nil, false, errors.Wrap(err, "failed to verify access token")
+	if !m.validateAccessTokenOnCacheHit {
+		aClaims, tokenClaims, err = m.oidcClient.VerifyAccessToken(req.Context(), token)
+		if err != nil {
+			return nil, false, errors.Wrap(err, "failed to verify access token")
+		}
 	}
+	claims = tokenClaims
 
 	if !m.skipUserInfo {
 		oauth2Token := &oauth2.Token{
