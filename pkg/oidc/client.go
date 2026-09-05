@@ -315,10 +315,22 @@ func (c *oidcClient) verifyAccessTokenJWT(token string) (RegClaimsWithSID, jwt.M
 	if err != nil {
 		return claims, mapClaims, err
 	}
-	_, _, err = new(jwt.Parser).ParseUnverified(token, mapClaims)
+	// The token's structure, encoding and signature have already been verified.
+	// Decode only the payload to retain arbitrary claims without parsing the
+	// header and signature again. Keep typed claims above for validation.
+	_, payloadAndSignature, _ := strings.Cut(token, ".")
+	payload, _, _ := strings.Cut(payloadAndSignature, ".")
+	claimBytes, err := new(jwt.Parser).DecodeSegment(payload)
+	if err != nil {
+		return claims, mapClaims, fmt.Errorf("%w: could not base64 decode claim: %w", jwt.ErrTokenMalformed, err)
+	}
+	// Match ParseUnverified's map value semantics, including a null payload.
+	decodedMapClaims := mapClaims
+	err = json.Unmarshal(claimBytes, &decodedMapClaims)
 	// TODO: decode mapClaims to sth readable
 	c.Logger.Debug().Interface("access token", &claims).Msg("parsed access token")
 	if err != nil {
+		err = fmt.Errorf("%w: could not JSON decode claim: %w", jwt.ErrTokenMalformed, err)
 		c.Logger.Info().Err(err).Msg("Failed to parse/verify the access token.")
 		return claims, mapClaims, err
 	}

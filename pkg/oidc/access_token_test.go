@@ -2,6 +2,7 @@ package oidc_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -173,6 +174,49 @@ func TestAccessTokenAudiencesDoNotApplyToLogoutTokens(t *testing.T) {
 	})
 	_, err := client.VerifyLogoutToken(context.Background(), token)
 	require.NoError(t, err)
+}
+
+func TestAccessTokenClaimExtraction(t *testing.T) {
+	key := newRSAKey(t)
+	client := newAccessTokenTestClient(key, []string{"opencloud"}, &oidc.ProviderMetadata{})
+	t.Run("preserves arbitrary claims and numeric types", func(t *testing.T) {
+		claims := jwt.MapClaims{
+			"iss": "https://issuer.example", "aud": "opencloud", "sub": "alice", "sid": "session",
+			"exp": 4102444800.75, "groups": []any{"users", "engineering"},
+			"profile": map[string]any{"enabled": true, "score": 1.25}, "custom": nil,
+		}
+		registered, all, err := client.VerifyAccessToken(context.Background(), signAccessToken(t, key, claims))
+		require.NoError(t, err)
+		require.Equal(t, "alice", registered.Subject)
+		require.Equal(t, "session", registered.SessionID)
+		require.EqualValues(t, 4102444800, registered.ExpiresAt.Unix())
+		require.Equal(t, claims, all)
+	})
+	t.Run("preserves malformed map claim errors", func(t *testing.T) {
+		// Typed claims ignore this custom field; decoding MapClaims must still
+		// reject its overflowing number and preserve the JWT and JSON errors.
+		_, _, err := client.VerifyAccessToken(context.Background(), signAccessToken(t, key, jwt.MapClaims{
+			"iss": "https://issuer.example", "aud": "opencloud", "custom": json.Number("1e1000"),
+		}))
+		require.ErrorIs(t, err, jwt.ErrTokenMalformed)
+		var jsonError *json.UnmarshalTypeError
+		require.ErrorAs(t, err, &jsonError)
+		require.Equal(t, "number 1e1000", jsonError.Value)
+	})
+	t.Run("retains empty map for null payload", func(t *testing.T) {
+		// With issuer/audience checks omitted, the client API previously accepted
+		// a signed null payload and returned an initialized, non-nil empty map.
+		client := oidc.NewOIDCClient(
+			oidc.WithLogger(log.NopLogger()), oidc.WithJWKS(key.jwks),
+			oidc.WithProviderMetadata(&oidc.ProviderMetadata{}),
+			oidc.WithAccessTokenVerifyMethod(config.AccessTokenVerificationJWT),
+		)
+		registered, all, err := client.VerifyAccessToken(context.Background(), signAccessToken(t, key, nil))
+		require.NoError(t, err)
+		require.Equal(t, oidc.RegClaimsWithSID{}, registered)
+		require.NotNil(t, all)
+		require.Empty(t, all)
+	})
 }
 
 func newAccessTokenTestClient(key *signingKey, audiences []string, provider *oidc.ProviderMetadata) oidc.OIDCClient {
