@@ -139,6 +139,11 @@ func (c *oidcClient) lookupWellKnownOpenidConfiguration(ctx context.Context) err
 				algs = append(algs, a)
 			}
 		}
+
+		if c.JWKSOptions.Uri != "" {
+			p.JwksURI = c.JWKSOptions.Uri
+		}
+
 		c.provider = &p
 		c.algorithms = algs
 		c.remoteKeySet = goidc.NewRemoteKeySet(goidc.ClientContext(ctx, c.httpClient), p.JwksURI)
