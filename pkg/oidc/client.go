@@ -57,6 +57,7 @@ type oidcClient struct {
 	providerLock            *sync.Mutex
 	skipIssuerValidation    bool
 	accessTokenVerifyMethod string
+	accessTokenAudiences    []string
 	remoteKeySet            KeySet
 	algorithms              []string
 
@@ -91,6 +92,7 @@ func NewOIDCClient(opts ...Option) OIDCClient {
 		issuer:                  options.OIDCIssuer,
 		httpClient:              options.HTTPClient,
 		accessTokenVerifyMethod: options.AccessTokenVerifyMethod,
+		accessTokenAudiences:    options.AccessTokenAudiences,
 		JWKSOptions:             options.JWKSOptions, // TODO I don't like that we pass down config options ...
 		JWKS:                    options.JWKS,
 		providerLock:            &sync.Mutex{},
@@ -270,6 +272,14 @@ func (c *oidcClient) UserInfo(ctx context.Context, tokenSource oauth2.TokenSourc
 }
 
 func (c *oidcClient) VerifyAccessToken(ctx context.Context, token string) (RegClaimsWithSID, jwt.MapClaims, error) {
+	if len(c.accessTokenAudiences) > 0 && c.accessTokenVerifyMethod != config.AccessTokenVerificationJWT {
+		return RegClaimsWithSID{}, jwt.MapClaims{}, errors.New("access token audience validation requires the jwt verification method")
+	}
+	for _, audience := range c.accessTokenAudiences {
+		if strings.TrimSpace(audience) == "" {
+			return RegClaimsWithSID{}, jwt.MapClaims{}, errors.New("access token audiences must not contain empty or whitespace-only entries")
+		}
+	}
 	if err := c.lookupWellKnownOpenidConfiguration(ctx); err != nil {
 		return RegClaimsWithSID{}, jwt.MapClaims{}, err
 	}
@@ -301,7 +311,7 @@ func (c *oidcClient) verifyAccessTokenJWT(token string) (RegClaimsWithSID, jwt.M
 		issuer = c.provider.AccessTokenIssuer
 	}
 
-	_, err := jwt.ParseWithClaims(token, &claims, jwks.Keyfunc, jwt.WithIssuer(issuer))
+	_, err := jwt.ParseWithClaims(token, &claims, jwks.Keyfunc, jwt.WithIssuer(issuer), jwt.WithAudience(c.accessTokenAudiences...))
 	if err != nil {
 		return claims, mapClaims, err
 	}
