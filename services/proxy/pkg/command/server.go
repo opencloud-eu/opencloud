@@ -299,22 +299,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 			UserRoleAssigner:    roleAssigner,
 		})
 	}
-	authenticators = append(authenticators, middleware.NewOIDCAuthenticator(
-		middleware.Logger(logger),
-		middleware.UserInfoCache(userInfoCache),
-		middleware.DefaultAccessTokenTTL(cfg.OIDC.UserinfoCache.TTL),
-		middleware.HTTPClient(oidcHTTPClient),
-		middleware.OIDCIss(cfg.OIDC.Issuer),
-		middleware.AccessTokenVerifyMethod(cfg.OIDC.AccessTokenVerifyMethod),
-		middleware.OIDCClient(oidc.NewOIDCClient(
-			oidc.WithAccessTokenVerifyMethod(cfg.OIDC.AccessTokenVerifyMethod),
-			oidc.WithLogger(logger),
-			oidc.WithHTTPClient(oidcHTTPClient),
-			oidc.WithOidcIssuer(cfg.OIDC.Issuer),
-			oidc.WithJWKSOptions(cfg.OIDC.JWKS),
-		)),
-		middleware.SkipUserInfo(cfg.OIDC.SkipUserInfo),
-	))
+	authenticators = append(authenticators, newOIDCAuthenticator(logger, cfg, userInfoCache, oidcHTTPClient))
 	authenticators = append(authenticators, middleware.PublicShareAuthenticator{
 		Logger:              logger,
 		RevaGatewaySelector: gatewaySelector,
