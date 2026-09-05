@@ -1,5 +1,55 @@
 # Changelog
 
+## [8.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.0) - 2026-09-05
+
+### ❤️ Thanks to all contributors! ❤️
+
+@dschmidt, @fredrikblau, @fschade, @maki5, @pbleser-oc, @v-scharf
+
+### 💥 Breaking changes
+
+- feat(search): check the index schema on startup and refuse breaking changes [[#3197](https://github.com/opencloud-eu/opencloud/pull/3197)]
+- refactor: reflection-based search mapping + location geopoint [[#3345](https://github.com/opencloud-eu/opencloud/pull/3345)]
+- fix(search): make openSearch and bleve behave the same [[#3408](https://github.com/opencloud-eu/opencloud/pull/3408)]
+
+### 📈 Enhancement
+
+- graph: expose lockInfo on driveItems [[#3444](https://github.com/opencloud-eu/opencloud/pull/3444)]
+- graph: expose @libre.graph.shareTypes on driveItems [[#3438](https://github.com/opencloud-eu/opencloud/pull/3438)]
+- feat(search): live photo facet [[#3202](https://github.com/opencloud-eu/opencloud/pull/3202)]
+- feat: support $expand=children on the driveItem endpoint [[#3445](https://github.com/opencloud-eu/opencloud/pull/3445)]
+- feat(search): motion photo facet [[#3200](https://github.com/opencloud-eu/opencloud/pull/3200)]
+- feat(search): video facet [[#3201](https://github.com/opencloud-eu/opencloud/pull/3201)]
+- graph: expose pendingOperations on driveItems [[#3437](https://github.com/opencloud-eu/opencloud/pull/3437)]
+- feat(search): extract more data from tika 4 (if available) [[#3198](https://github.com/opencloud-eu/opencloud/pull/3198)]
+- graph: expose following state, tags and allowed actions on driveItems [[#3113](https://github.com/opencloud-eu/opencloud/pull/3113)]
+- feat(search): scope searches to a drive via the driveId field [[#3424](https://github.com/opencloud-eu/opencloud/pull/3424)]
+- chore(policies): disable gRPC or event handlers by configuration + add metrics [[#3287](https://github.com/opencloud-eu/opencloud/pull/3287)]
+- moved ShareCreated event consumer from frontend to shared service [[#3389](https://github.com/opencloud-eu/opencloud/pull/3389)]
+
+### 🐛 Bug Fixes
+
+- fix: notification handling for share removal and space membership expiry  [[#3257](https://github.com/opencloud-eu/opencloud/pull/3257)]
+- fix: posix cli commands [[#3348](https://github.com/opencloud-eu/opencloud/pull/3348)]
+
+### ✅ Tests
+
+- test(search): fail the parity suite when the committed matrix is stale [[#3423](https://github.com/opencloud-eu/opencloud/pull/3423)]
+- ci: run search API and e2e suites against OpenSearch [[#3379](https://github.com/opencloud-eu/opencloud/pull/3379)]
+- test(search): engine parity suite for bleve and opensearch [[#3418](https://github.com/opencloud-eu/opencloud/pull/3418)]
+
+### 📦️ Dependencies
+
+- build(deps): bump go.opentelemetry.io/contrib/zpages from 0.70.0 to 0.71.0 [[#3442](https://github.com/opencloud-eu/opencloud/pull/3442)]
+- build(deps): bump go.opentelemetry.io/otel from 1.45.0 to 1.46.0 [[#3426](https://github.com/opencloud-eu/opencloud/pull/3426)]
+- build(deps): bump google.golang.org/grpc from 1.83.1 to 1.83.2 [[#3429](https://github.com/opencloud-eu/opencloud/pull/3429)]
+- build(deps): bump github.com/blevesearch/bleve/v2 from 2.6.0 to 2.6.1 [[#3417](https://github.com/opencloud-eu/opencloud/pull/3417)]
+- build(deps): bump github.com/sirupsen/logrus from 1.10.0 to 1.10.1 [[#3409](https://github.com/opencloud-eu/opencloud/pull/3409)]
+- build(deps): bump github.com/opensearch-project/opensearch-go/v4 from 4.6.0 to 4.7.3 [[#3216](https://github.com/opencloud-eu/opencloud/pull/3216)]
+- build(deps): bump github.com/KimMachineGun/automemlimit from 0.7.5 to 1.0.0 [[#3404](https://github.com/opencloud-eu/opencloud/pull/3404)]
+- build(deps): bump github.com/nats-io/nats.go from 1.52.0 to 1.53.1 [[#3403](https://github.com/opencloud-eu/opencloud/pull/3403)]
+- build(deps): bump github.com/open-policy-agent/opa from 1.19.0 to 1.19.1 [[#3402](https://github.com/opencloud-eu/opencloud/pull/3402)]
+
 ## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-25
 
 ### ❤️ Thanks to all contributors! ❤️
