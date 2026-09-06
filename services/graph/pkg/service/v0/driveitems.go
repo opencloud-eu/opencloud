@@ -59,7 +59,8 @@ func odataListContains(r *http.Request, parameter, value string) bool {
 }
 
 // driveItemInDrive reports whether an item id may be addressed below a drive.
-// The public share drive accepts any id; the token scope enforces access.
+// Below the public share drive items keep their real storage ids, so the
+// prefix can never match; the token scope checks containment instead.
 func driveItemInDrive(driveID, driveItemID *storageprovider.ResourceId) bool {
 	if driveID.GetStorageId() == utils.PublicStorageProviderID && driveID.GetSpaceId() == utils.PublicStorageSpaceID {
 		return true
