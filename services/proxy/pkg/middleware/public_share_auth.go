@@ -68,6 +68,14 @@ func hasShareToken(r *http.Request) bool {
 	return r.URL.Query().Get(headerShareToken) != "" || r.Header.Get(headerShareToken) != ""
 }
 
+// shareTokenHint identifies a token in logs without spelling it out.
+func shareTokenHint(token string) string {
+	if len(token) <= 4 {
+		return token
+	}
+	return token[:4] + "..."
+}
+
 // Authenticate implements the authenticator interface to authenticate requests via public share auth.
 func (a PublicShareAuthenticator) Authenticate(r *http.Request) (*http.Request, bool) {
 	if !isPublicPath(r.URL.Path) && !isPublicShareArchive(r) && !isPublicShareAppOpen(r) && !isPublicShareGraphRequest(r) {
@@ -109,7 +117,7 @@ func (a PublicShareAuthenticator) Authenticate(r *http.Request) (*http.Request, 
 		a.Logger.Error().
 			Err(err).
 			Str("authenticator", "public_share").
-			Str("public_share_token", shareToken).
+			Str("public_share_token", shareTokenHint(shareToken)).
 			Str("path", r.URL.Path).
 			Msg("could not select next gateway client")
 		return nil, false
@@ -125,7 +133,7 @@ func (a PublicShareAuthenticator) Authenticate(r *http.Request) (*http.Request, 
 		a.Logger.Error().
 			Err(err).
 			Str("authenticator", "public_share").
-			Str("public_share_token", shareToken).
+			Str("public_share_token", shareTokenHint(shareToken)).
 			Str("path", r.URL.Path).
 			Msg("failed to authenticate request")
 		return nil, false
