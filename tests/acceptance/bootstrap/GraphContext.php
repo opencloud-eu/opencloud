@@ -3588,6 +3588,44 @@ class GraphContext implements Context {
 	}
 
 	/**
+	 * Item anchored colon path: the anchor id is resolved through the public
+	 * children listing, so the step stays within the public API.
+	 *
+	 * @param string $path
+	 * @param string $child
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public gets the drive item :path below the child :child of the last created public link with password :password using the Graph API')]
+	public function thePublicGetsTheDriveItemBelowTheChildOfTheLastCreatedPublicLink(
+		string $path,
+		string $child,
+		?string $password = null
+	): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$rootId = $this->publicLinkDriveId($token);
+		$url = $this->featureContext->getBaseUrl()
+			. "/graph/v1.0/drives/$rootId/items/$rootId/children?public-token=$token";
+		$response = HttpRequestHelper::get(
+			$url,
+			$this->featureContext->getStepLineRef(),
+			$password === null ? null : "public",
+			$this->featureContext->getActualPassword($password)
+		);
+		$children = \json_decode($response->getBody()->getContents(), true)["value"] ?? [];
+		$childId = null;
+		foreach ($children as $entry) {
+			if ($entry["name"] === $child) {
+				$childId = $entry["id"];
+			}
+		}
+		Assert::assertNotNull($childId, "child '$child' not found in the public link listing");
+		$encoded = $this->encodeColonPathSegment($path);
+		$this->publicSendsGraphDriveRequest("/items/$childId:/$encoded", $password);
+	}
+
+	/**
 	 * The security probe: an id of a resource that is NOT inside the public
 	 * link must not be readable through the link's token.
 	 *
