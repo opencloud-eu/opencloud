@@ -208,6 +208,40 @@ var _ = Describe("Driveitems", func() {
 			Expect(res.Value[0].LibreGraphPermissionsActionsAllowedValues).To(BeNil())
 		})
 
+		It("returns the thumbnails when requested via $expand", func() {
+			cfg.Commons.OpenCloudURL = "https://cloud.test"
+			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+				Status:        status.NewOK(ctx),
+				StorageSpaces: []*provider.StorageSpace{{Owner: currentUser, Root: &provider.ResourceId{}}},
+			}, nil)
+			gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+				Status: status.NewOK(ctx),
+				Infos: []*provider.ResourceInfo{
+					{
+						Type:     provider.ResourceType_RESOURCE_TYPE_FILE,
+						Id:       &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+						MimeType: "image/jpeg",
+						Mtime:    utils.TimeToTS(time.Now()),
+					},
+				},
+			}, nil)
+			r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/me/drive/root/children?$expand=thumbnails", nil)
+			r = r.WithContext(revactx.ContextSetUser(ctx, currentUser))
+			svc.GetRootDriveChildren(rr, r)
+			Expect(rr.Code).To(Equal(http.StatusOK))
+			data, err := io.ReadAll(rr.Body)
+			Expect(err).ToNot(HaveOccurred())
+
+			res := itemsList{}
+			Expect(json.Unmarshal(data, &res)).To(Succeed())
+			Expect(len(res.Value)).To(Equal(1))
+			Expect(res.Value[0].Thumbnails).To(HaveLen(1))
+			Expect(res.Value[0].Thumbnails[0].Small.GetUrl()).To(Equal(
+				"https://cloud.test/dav/spaces/storageid$spaceid!opaqueid" +
+					"?scalingup=0&preview=1&processor=thumbnail&x=36&y=36",
+			))
+		})
+
 		It("returns the allowed actions when requested via $select", func() {
 			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
 				Status:        status.NewOK(ctx),
@@ -248,6 +282,7 @@ var _ = Describe("Driveitems", func() {
 	Describe("GetDriveItem", func() {
 		var (
 			folderInfo *provider.ResourceInfo
+			childInfo  *provider.ResourceInfo
 			mtime      = time.Now()
 		)
 
@@ -281,16 +316,15 @@ var _ = Describe("Driveitems", func() {
 				Status: status.NewOK(ctx),
 				Info:   folderInfo,
 			}, nil)
+			childInfo = &provider.ResourceInfo{
+				Type:  provider.ResourceType_RESOURCE_TYPE_FILE,
+				Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+				Etag:  "etag",
+				Mtime: utils.TimeToTS(mtime),
+			}
 			gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
 				Status: status.NewOK(ctx),
-				Infos: []*provider.ResourceInfo{
-					{
-						Type:  provider.ResourceType_RESOURCE_TYPE_FILE,
-						Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
-						Etag:  "etag",
-						Mtime: utils.TimeToTS(mtime),
-					},
-				},
+				Infos:  []*provider.ResourceInfo{childInfo},
 			}, nil)
 		})
 
@@ -311,6 +345,49 @@ var _ = Describe("Driveitems", func() {
 
 			Expect(getItem(newRequest("?$expand=children")).Children).To(BeNil())
 			gatewayClient.AssertNotCalled(GinkgoT(), "ListContainer", mock.Anything, mock.Anything)
+		})
+
+		Context("$expand=thumbnails", func() {
+			const previewURL = "https://cloud.test/dav/spaces/storageid$spaceid!nodeid" +
+				"?scalingup=0&preview=1&processor=thumbnail"
+
+			BeforeEach(func() {
+				cfg.Commons.OpenCloudURL = "https://cloud.test"
+				folderInfo.Type = provider.ResourceType_RESOURCE_TYPE_FILE
+				folderInfo.MimeType = "image/jpeg"
+			})
+
+			It("leaves thumbnails unset without $expand", func() {
+				Expect(getItem(newRequest("")).Thumbnails).To(BeNil())
+			})
+
+			It("returns the thumbnail urls when requested", func() {
+				thumbnails := getItem(newRequest("?$expand=thumbnails")).Thumbnails
+
+				Expect(thumbnails).To(HaveLen(1))
+				Expect(thumbnails[0].Small.GetUrl()).To(Equal(previewURL + "&x=36&y=36"))
+				Expect(thumbnails[0].Medium.GetUrl()).To(Equal(previewURL + "&x=48&y=48"))
+				Expect(thumbnails[0].Large.GetUrl()).To(Equal(previewURL + "&x=96&y=96"))
+			})
+
+			It("leaves thumbnails unset for a mime type the thumbnailer cannot render", func() {
+				folderInfo.MimeType = "application/zip"
+
+				Expect(getItem(newRequest("?$expand=thumbnails")).Thumbnails).To(BeNil())
+			})
+
+			It("adds them to expanded children as well", func() {
+				folderInfo.Type = provider.ResourceType_RESOURCE_TYPE_CONTAINER
+				folderInfo.MimeType = ""
+				childInfo.MimeType = "image/jpeg"
+
+				item := getItem(newRequest("?$expand=children,thumbnails"))
+
+				// a folder has no preview of its own
+				Expect(item.Thumbnails).To(BeNil())
+				Expect(item.Children).To(HaveLen(1))
+				Expect(item.Children[0].Thumbnails).To(HaveLen(1))
+			})
 		})
 	})
 
