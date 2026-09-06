@@ -59,11 +59,8 @@ func odataListContains(r *http.Request, parameter, value string) bool {
 }
 
 // driveItemInDrive reports whether an item id may be addressed below a drive.
-// Normally the item must carry the drive's storage and space id. The public
-// share drive is the exception: its root is the virtual public space, but the
-// items inside keep their real ids (the publicstorageprovider does not rewrite
-// them), so any item id is acceptable there. Access is enforced by the public
-// share scope on the token, not by this routing check.
+// Items below the public share drive keep their real ids, so any id is
+// acceptable there; the token scope enforces access, not this routing check.
 func driveItemInDrive(driveID, driveItemID *storageprovider.ResourceId) bool {
 	if driveID.GetStorageId() == utils.PublicStorageProviderID && driveID.GetSpaceId() == utils.PublicStorageSpaceID {
 		return true
@@ -71,8 +68,7 @@ func driveItemInDrive(driveID, driveItemID *storageprovider.ResourceId) bool {
 	return driveID.GetStorageId() == driveItemID.GetStorageId() && driveID.GetSpaceId() == driveItemID.GetSpaceId()
 }
 
-// publicDriveRequest reports whether the request addresses the public share
-// drive, i.e. runs in a public link context.
+// publicDriveRequest reports whether the request addresses the public share drive.
 func publicDriveRequest(r *http.Request) bool {
 	driveID, err := parseIDParam(r, "driveID")
 	return err == nil &&
@@ -80,11 +76,9 @@ func publicDriveRequest(r *http.Request) bool {
 		driveID.GetSpaceId() == utils.PublicStorageSpaceID
 }
 
-// sanitizePublicDriveInfos prepares resource infos for a public link
-// response. Navigating by id bypasses the publicstorageprovider, so the infos
-// are the owner's; publicshare.ReduceResourceInfo is the provider's own
-// reduction: paths relative to the share root, permissions cut to the link
-// grant. When the link cannot be resolved nothing is advertised.
+// sanitizePublicDriveInfos applies the publicstorageprovider's reduction to
+// infos that bypassed it (navigation by id): paths relative to the share root,
+// permissions cut to the link grant. An unresolvable link advertises nothing.
 func (g Graph) sanitizePublicDriveInfos(ctx context.Context, r *http.Request, infos ...*storageprovider.ResourceInfo) {
 	shareRoot, grant := g.publicLinkOfRequest(ctx, r)
 	for _, info := range infos {
@@ -100,9 +94,8 @@ func (g Graph) sanitizePublicDriveInfos(ctx context.Context, r *http.Request, in
 	}
 }
 
-// publicLinkOfRequest resolves the public link the request runs in: the share
-// root info and the granted permissions. The link token is the opaque id of
-// the public drive; the token scope permits reading exactly this one share.
+// publicLinkOfRequest resolves the request's public link into the share root
+// info and the granted permissions; the token is the public drive's opaque id.
 func (g Graph) publicLinkOfRequest(ctx context.Context, r *http.Request) (*storageprovider.ResourceInfo, *storageprovider.ResourcePermissions) {
 	driveID, err := parseIDParam(r, "driveID")
 	if err != nil {

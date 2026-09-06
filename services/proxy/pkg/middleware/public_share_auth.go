@@ -58,9 +58,8 @@ func isPublicWithShareToken(r *http.Request) bool {
 		hasShareToken(r)
 }
 
-// Graph requests are authenticated requests, except when they carry a share
-// token: then they run in the public share context, like public-files. A graph
-// request without a token stays with the other authenticators.
+// Graph requests carrying a share token run in the public share context, like
+// public-files; without a token they stay with the other authenticators.
 func isPublicShareGraphRequest(r *http.Request) bool {
 	return strings.HasPrefix(r.URL.Path, "/graph/") && hasShareToken(r)
 }
