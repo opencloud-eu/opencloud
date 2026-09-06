@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/url"
 	"path/filepath"
+	"strings"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	collaboration "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
@@ -20,6 +22,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	graphm "github.com/opencloud-eu/opencloud/services/graph/pkg/middleware"
 )
 
 const (
@@ -72,6 +75,24 @@ var (
 
 	// ErrAlreadyUnmounted is returned when all shares are already unmounted
 	ErrAlreadyUnmounted = errorcode.New(errorcode.NameAlreadyExists, "shares already unmounted")
+
+	// ErrInvalidItemName is returned when the name for a new drive item is invalid
+	ErrInvalidItemName = errorcode.New(errorcode.InvalidRequest, "invalid item name")
+
+	// ErrExactlyOneFacet is returned when not exactly one of the create facets is set
+	ErrExactlyOneFacet = errorcode.New(errorcode.InvalidRequest, "exactly one of folder, file or remoteItem must be set")
+
+	// ErrExactlyOneChildFacet is returned when not exactly one of the child create facets is set
+	ErrExactlyOneChildFacet = errorcode.New(errorcode.InvalidRequest, "exactly one of folder or file must be set")
+
+	// ErrInvalidConflictBehavior is returned when the conflictBehavior query parameter is invalid
+	ErrInvalidConflictBehavior = errorcode.New(errorcode.InvalidRequest, "invalid @libre.graph.conflictBehavior")
+
+	// ErrInvalidMissingParentsBehavior is returned when the missingParentsBehavior query parameter is invalid
+	ErrInvalidMissingParentsBehavior = errorcode.New(errorcode.InvalidRequest, "invalid @libre.graph.missingParentsBehavior")
+
+	// ErrPathNotFound is returned when a parent path cannot be resolved
+	ErrPathNotFound = errorcode.New(errorcode.ItemNotFound, "path not found")
 )
 
 type (
@@ -80,6 +101,12 @@ type (
 
 	// DrivesDriveItemProvider is the interface that needs to be implemented by the individual space service
 	DrivesDriveItemProvider interface {
+		// CreateChild creates a folder or an empty file below the given parent
+		CreateChild(ctx context.Context, parentID *storageprovider.ResourceId, name string, isFolder, replace bool) (*storageprovider.ResourceInfo, error)
+
+		// ResolvePath resolves relPath below parentID to its id, creating missing folders when createMissing is set
+		ResolvePath(ctx context.Context, parentID *storageprovider.ResourceId, relPath string, createMissing bool) (*storageprovider.ResourceId, error)
+
 		// MountShare mounts a share
 		MountShare(ctx context.Context, resourceID *storageprovider.ResourceId, name string) ([]*collaboration.ReceivedShare, error)
 
@@ -330,20 +357,139 @@ func (s DrivesDriveItemService) MountShare(ctx context.Context, resourceID *stor
 	return updatedShares, nil
 }
 
+// CreateChild creates a folder or empty file below parent; with replace, an existing same-named child is deleted first.
+func (s DrivesDriveItemService) CreateChild(ctx context.Context, parentID *storageprovider.ResourceId, name string, isFolder, replace bool) (*storageprovider.ResourceInfo, error) {
+	if name == "" || name == "." || name == ".." || strings.ContainsRune(name, '/') {
+		return nil, ErrInvalidItemName
+	}
+
+	gatewayClient, err := s.gatewaySelector.Next()
+	if err != nil {
+		return nil, err
+	}
+
+	ref := &storageprovider.Reference{
+		ResourceId: parentID,
+		Path:       utils.MakeRelativePath(name),
+	}
+
+	create := func() error {
+		if isFolder {
+			res, err := gatewayClient.CreateContainer(ctx, &storageprovider.CreateContainerRequest{Ref: ref})
+			return errorcode.FromCS3Status(res.GetStatus(), err)
+		}
+		res, err := gatewayClient.TouchFile(ctx, &storageprovider.TouchFileRequest{Ref: ref})
+		return errorcode.FromCS3Status(res.GetStatus(), err)
+	}
+
+	err = create()
+	if replace && hasErrorCode(err, errorcode.NameAlreadyExists) {
+		delRes, delErr := gatewayClient.Delete(ctx, &storageprovider.DeleteRequest{Ref: ref})
+		if err := errorcode.FromCS3Status(delRes.GetStatus(), delErr); err != nil {
+			return nil, err
+		}
+		err = create()
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	statRes, err := gatewayClient.Stat(ctx, &storageprovider.StatRequest{Ref: ref})
+	if err := errorcode.FromCS3Status(statRes.GetStatus(), err); err != nil {
+		return nil, err
+	}
+
+	// the path based stat above returns the path relative to ref, stat again by id to get the space relative path
+	idRes, err := gatewayClient.Stat(ctx, &storageprovider.StatRequest{
+		Ref: &storageprovider.Reference{ResourceId: statRes.GetInfo().GetId()},
+	})
+	if err := errorcode.FromCS3Status(idRes.GetStatus(), err); err != nil {
+		return nil, err
+	}
+	return idRes.GetInfo(), nil
+}
+
+// ResolvePath resolves relPath below parentID to its id; with createMissing the
+// missing folders along the path are created first. It backs colon-path POST
+// .../children requests and @libre.graph.missingParentsBehavior.
+func (s DrivesDriveItemService) ResolvePath(ctx context.Context, parentID *storageprovider.ResourceId, relPath string, createMissing bool) (*storageprovider.ResourceId, error) {
+	segments := strings.Split(strings.Trim(relPath, "/"), "/")
+	for _, segment := range segments {
+		if segment == "" || segment == "." || segment == ".." {
+			return nil, ErrInvalidItemName
+		}
+	}
+
+	gatewayClient, err := s.gatewaySelector.Next()
+	if err != nil {
+		return nil, err
+	}
+
+	stat := func() (*storageprovider.ResourceId, error) {
+		res, err := gatewayClient.Stat(ctx, &storageprovider.StatRequest{
+			Ref: &storageprovider.Reference{
+				ResourceId: parentID,
+				Path:       utils.MakeRelativePath(relPath),
+			},
+		})
+		if err := errorcode.FromCS3Status(res.GetStatus(), err); err != nil {
+			return nil, err
+		}
+		return res.GetInfo().GetId(), nil
+	}
+
+	// common case: the full path exists already
+	id, err := stat()
+	switch {
+	case err == nil:
+		return id, nil
+	case !hasErrorCode(err, errorcode.ItemNotFound) && !hasErrorCode(err, errorcode.AccessDenied):
+		return nil, err
+	case !createMissing:
+		// denied collapses to not-found, matching the middleware's colon
+		// lookups (no existence disclosure)
+		return nil, ErrPathNotFound
+	}
+
+	var walked string
+	for _, segment := range segments {
+		walked += "/" + segment
+		res, err := gatewayClient.CreateContainer(ctx, &storageprovider.CreateContainerRequest{
+			Ref: &storageprovider.Reference{
+				ResourceId: parentID,
+				Path:       utils.MakeRelativePath(walked),
+			},
+		})
+		// existing folders along the path (or a lost creation race) are fine, they are reused
+		if err := errorcode.FromCS3Status(res.GetStatus(), err); err != nil && !hasErrorCode(err, errorcode.NameAlreadyExists) {
+			return nil, err
+		}
+	}
+	return stat()
+}
+
+// hasErrorCode reports whether err is an errorcode.Error carrying the given code
+func hasErrorCode(err error, code errorcode.ErrorCode) bool {
+	var lgErr errorcode.Error
+	return errors.As(err, &lgErr) && lgErr.GetCode() == code
+}
+
 // DrivesDriveItemApi is the api that registers the http endpoints which expose needed operation to the graph api.
 // the business logic is delegated to the space service and further down to the cs3 client.
 type DrivesDriveItemApi struct {
 	logger                 log.Logger
 	drivesDriveItemService DrivesDriveItemProvider
 	baseGraphService       BaseGraphProvider
+	publicBaseURL          *url.URL
 }
 
 // NewDrivesDriveItemApi creates a new DrivesDriveItemApi
-func NewDrivesDriveItemApi(drivesDriveItemService DrivesDriveItemProvider, baseGraphService BaseGraphProvider, logger log.Logger) (DrivesDriveItemApi, error) {
+func NewDrivesDriveItemApi(drivesDriveItemService DrivesDriveItemProvider, baseGraphService BaseGraphProvider, publicBaseURL *url.URL, logger log.Logger) (DrivesDriveItemApi, error) {
 	return DrivesDriveItemApi{
 		logger:                 log.Logger{Logger: logger.With().Str("graph api", "DrivesDriveItemApi").Logger()},
 		drivesDriveItemService: drivesDriveItemService,
 		baseGraphService:       baseGraphService,
+		publicBaseURL:          publicBaseURL,
 	}, nil
 }
 
@@ -489,19 +635,12 @@ func (api DrivesDriveItemApi) UpdateDriveItem(w http.ResponseWriter, r *http.Req
 	render.JSON(w, r, driveItems[0])
 }
 
-// CreateDriveItem creates a drive item
+// CreateDriveItem creates a driveItem at the drive root: a folder, empty file or mounted share (remoteItem).
 func (api DrivesDriveItemApi) CreateDriveItem(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
 	driveID, err := parseIDParam(r, "driveID")
 	if err != nil {
 		api.logger.Debug().Err(err).Msg(ErrInvalidDriveIDOrItemID.Error())
 		ErrInvalidDriveIDOrItemID.Render(w, r)
-		return
-	}
-
-	if !IsShareJail(&driveID) {
-		api.logger.Debug().Interface("driveID", driveID).Msg(ErrNotAShareJail.Error())
-		ErrNotAShareJail.Render(w, r)
 		return
 	}
 
@@ -510,7 +649,131 @@ func (api DrivesDriveItemApi) CreateDriveItem(w http.ResponseWriter, r *http.Req
 		api.logger.Debug().Err(err).Msg(ErrInvalidRequestBody.Error())
 		ErrInvalidRequestBody.Render(w, r)
 		return
+	}
 
+	if !exactlyOne(requestDriveItem.Folder != nil, requestDriveItem.File != nil, requestDriveItem.RemoteItem != nil) {
+		api.logger.Debug().Msg(ErrExactlyOneFacet.Error())
+		ErrExactlyOneFacet.Render(w, r)
+		return
+	}
+
+	if requestDriveItem.RemoteItem != nil {
+		api.mountShare(w, r, &driveID, requestDriveItem)
+		return
+	}
+
+	if IsShareJail(&driveID) {
+		api.logger.Debug().Interface("driveID", &driveID).Msg("cannot create items in the share jail")
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "cannot create items in the share jail")
+		return
+	}
+
+	root := &storageprovider.ResourceId{
+		StorageId: driveID.GetStorageId(),
+		SpaceId:   driveID.GetSpaceId(),
+		OpaqueId:  driveID.GetSpaceId(),
+	}
+	api.createChild(w, r, root, requestDriveItem)
+}
+
+// CreateChildDriveItem creates a new driveItem (folder or empty file) below an existing parent item
+func (api DrivesDriveItemApi) CreateChildDriveItem(w http.ResponseWriter, r *http.Request) {
+	_, itemID, err := GetDriveAndItemIDParam(r, &api.logger)
+	if err != nil {
+		api.logger.Debug().Err(err).Msg(ErrInvalidDriveIDOrItemID.Error())
+		ErrInvalidDriveIDOrItemID.Render(w, r)
+		return
+	}
+
+	requestDriveItem := libregraph.DriveItem{}
+	if err := StrictJSONUnmarshal(r.Body, &requestDriveItem); err != nil {
+		api.logger.Debug().Err(err).Msg(ErrInvalidRequestBody.Error())
+		ErrInvalidRequestBody.Render(w, r)
+		return
+	}
+
+	if requestDriveItem.RemoteItem != nil || !exactlyOne(requestDriveItem.Folder != nil, requestDriveItem.File != nil) {
+		api.logger.Debug().Msg(ErrExactlyOneChildFacet.Error())
+		ErrExactlyOneChildFacet.Render(w, r)
+		return
+	}
+
+	api.createChild(w, r, itemID, requestDriveItem)
+}
+
+// exactlyOne reports whether exactly one of the given flags is set
+func exactlyOne(flags ...bool) bool {
+	set := 0
+	for _, flag := range flags {
+		if flag {
+			set++
+		}
+	}
+	return set == 1
+}
+
+// createChild creates a folder or an empty file below the given parent and renders the result
+func (api DrivesDriveItemApi) createChild(w http.ResponseWriter, r *http.Request, parentID *storageprovider.ResourceId, requestDriveItem libregraph.DriveItem) {
+	var replace bool
+	switch r.URL.Query().Get("@libre.graph.conflictBehavior") {
+	case "", "fail":
+	case "replace":
+		replace = true
+	default:
+		api.logger.Debug().Msg(ErrInvalidConflictBehavior.Error())
+		ErrInvalidConflictBehavior.Render(w, r)
+		return
+	}
+
+	// colon-path POST children requests arrive unresolved: parentID is the anchor
+	// item, the parent path below it is resolved (or created) here, after validation
+	if parentPath := graphm.ParentPath(r.Context()); parentPath != "" {
+		var createMissing bool
+		switch r.URL.Query().Get("@libre.graph.missingParentsBehavior") {
+		case "", "fail":
+		case "create":
+			createMissing = true
+		default:
+			api.logger.Debug().Msg(ErrInvalidMissingParentsBehavior.Error())
+			ErrInvalidMissingParentsBehavior.Render(w, r)
+			return
+		}
+
+		var err error
+		parentID, err = api.drivesDriveItemService.ResolvePath(r.Context(), parentID, parentPath, createMissing)
+		if err != nil {
+			api.logger.Debug().Err(err).Msg("resolving the parent path failed")
+			errorcode.RenderError(w, r, err)
+			return
+		}
+	}
+
+	info, err := api.drivesDriveItemService.CreateChild(r.Context(), parentID, requestDriveItem.GetName(), requestDriveItem.Folder != nil, replace)
+	if err != nil {
+		api.logger.Debug().Err(err).Msg("creating drive item failed")
+		errorcode.RenderError(w, r, err)
+		return
+	}
+
+	driveItem, err := cs3ResourceToDriveItem(&api.logger, api.publicBaseURL, info)
+	if err != nil {
+		api.logger.Debug().Err(err).Msg(ErrDriveItemConversion.Error())
+		ErrDriveItemConversion.Render(w, r)
+		return
+	}
+
+	render.Status(r, http.StatusCreated)
+	render.JSON(w, r, driveItem)
+}
+
+// mountShare mounts a share into the share jail
+func (api DrivesDriveItemApi) mountShare(w http.ResponseWriter, r *http.Request, driveID *storageprovider.ResourceId, requestDriveItem libregraph.DriveItem) {
+	ctx := r.Context()
+
+	if !IsShareJail(driveID) {
+		api.logger.Debug().Interface("driveID", driveID).Msg(ErrNotAShareJail.Error())
+		ErrNotAShareJail.Render(w, r)
+		return
 	}
 
 	remoteItem := requestDriveItem.GetRemoteItem()
