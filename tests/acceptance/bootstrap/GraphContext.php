@@ -3687,6 +3687,78 @@ class GraphContext implements Context {
 	}
 
 	/**
+	 * Mutation probes: the public link surface is read only, every write on the
+	 * beta routes has to be rejected.
+	 *
+	 * @param string $action
+	 * @param string $child
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('/^the public tries to (create a link for|delete|rename|list the permissions of) the child "([^"]*)" of the last created public link with password "([^"]*)" using the Graph API$/')]
+	public function thePublicTriesToMutateTheChildOfTheLastCreatedPublicLink(
+		string $action,
+		string $child,
+		?string $password = null
+	): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$rootId = $this->publicLinkDriveId($token);
+		$listing = HttpRequestHelper::get(
+			$this->featureContext->getBaseUrl()
+			. "/graph/v1.0/drives/$rootId/items/$rootId/children?public-token=$token",
+			$this->featureContext->getStepLineRef(),
+			"public",
+			$this->featureContext->getActualPassword($password)
+		);
+		$children = \json_decode($listing->getBody()->getContents(), true)["value"] ?? [];
+		$childId = null;
+		foreach ($children as $entry) {
+			if ($entry["name"] === $child) {
+				$childId = $entry["id"];
+			}
+		}
+		Assert::assertNotNull($childId, "child '$child' not found in the public link listing");
+
+		$base = "/graph/v1beta1/drives/$rootId/items/$childId";
+		switch ($action) {
+			case "create a link for":
+				$method = "POST";
+				$url = "$base/createLink";
+				$body = \json_encode(["type" => "view", "password" => "Sup3rS3cret!x"]);
+				break;
+			case "delete":
+				$method = "DELETE";
+				$url = $base;
+				$body = null;
+				break;
+			case "rename":
+				$method = "PATCH";
+				$url = $base;
+				$body = \json_encode(["name" => "renamed.txt"]);
+				break;
+			case "list the permissions of":
+				$method = "GET";
+				$url = "$base/permissions";
+				$body = null;
+				break;
+			default:
+				throw new \Exception("unknown mutation action '$action'");
+		}
+		$response = HttpRequestHelper::sendRequest(
+			$this->featureContext->getBaseUrl() . $url
+			. (\str_contains($url, "?") ? "&" : "?") . "public-token=$token",
+			$this->featureContext->getStepLineRef(),
+			$method,
+			"public",
+			$this->featureContext->getActualPassword($password),
+			["Content-Type" => "application/json"],
+			$body
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
 	 * Item anchored colon path: the anchor id is resolved through the public
 	 * children listing, so the step stays within the public API.
 	 *

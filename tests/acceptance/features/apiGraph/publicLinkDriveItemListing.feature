@@ -285,3 +285,21 @@ Feature: listing the content of a public link via the Graph API
         }
       }
       """
+
+
+  Scenario Outline: writes through the public link surface are rejected
+    Given user "Alice" has created the following resource link share:
+      | resource        | publicfolder |
+      | space           | Personal     |
+      | permissionsRole | edit         |
+      | password        | %public%     |
+    When the public tries to <action> the child "a.txt" of the last created public link with password "%public%" using the Graph API
+    Then the HTTP status code should be "<code>"
+    And as "Alice" file "publicfolder/a.txt" should exist
+
+    Examples:
+      | action                  | code |
+      | create a link for       | 404  |
+      | delete                  | 400  |
+      | rename                  | 400  |
+      | list the permissions of | 404  |
