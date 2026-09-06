@@ -118,7 +118,7 @@ func Server(opts ...Option) (http.Service, error) {
 		svc.Config(options.Config),
 		svc.GatewaySelector(gatewaySelector),
 		svc.Middleware(
-			chimiddleware.RealIP,
+			chimiddleware.ClientIPFromRemoteAddr,
 			chimiddleware.RequestID,
 			chimiddleware.Compress(5),
 			middleware.NoCache,

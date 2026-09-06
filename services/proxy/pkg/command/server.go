@@ -341,7 +341,8 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 	}
 
 	return alice.New(
-		chimiddleware.RealIP,
+		chimiddleware.ClientIPFromRemoteAddr,
+		chimiddleware.ClientIPFromXFF(),
 		chimiddleware.RequestID,
 
 		// 1. Logging & Tracing first
