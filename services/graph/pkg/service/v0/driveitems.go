@@ -87,8 +87,15 @@ func (g Graph) sanitizePublicDriveInfos(ctx context.Context, r *http.Request, in
 		return err
 	}
 	for _, info := range infos {
-		if info != nil {
-			publicshare.FilterResourceInfo(info, shareRoot, grant)
+		if info == nil {
+			continue
+		}
+		publicshare.FilterResourceInfo(info, shareRoot, grant)
+		// the favorite flag is the owner's, not the visitor's
+		delete(info.GetArbitraryMetadata().GetMetadata(), _favoriteMetadataKey)
+		// the share root's parent lies outside the share
+		if utils.ResourceIDEqual(info.GetId(), shareRoot.GetId()) {
+			info.ParentId = nil
 		}
 	}
 	return nil
@@ -413,7 +420,7 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		driveItem.Children = children
 	}
 
-	if driveItemPropertySelected(r, _selectShareTypes) {
+	if driveItemPropertySelected(r, _selectShareTypes) && !publicDriveRequest(r) {
 		infos := []*storageprovider.ResourceInfo{res.GetInfo()}
 		driveItem.LibreGraphShareTypes = shareTypesOf(res.GetInfo(), g.listLinkShares(ctx, infos))
 	}
@@ -473,7 +480,7 @@ func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, dri
 	childrenRequest := &storageprovider.ListContainerRequest{
 		Ref: &storageprovider.Reference{ResourceId: driveItemID},
 	}
-	if driveItemPropertySelected(r, _selectShareTypes) {
+	if driveItemPropertySelected(r, _selectShareTypes) && !publicDriveRequest(r) {
 		childrenRequest.FieldMask = shareTypesFieldMask
 	}
 
@@ -511,7 +518,8 @@ func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, dri
 		return nil, false
 	}
 
-	if driveItemPropertySelected(r, _selectShareTypes) {
+	// collaborative grants are not for public link visitors
+	if driveItemPropertySelected(r, _selectShareTypes) && !publicDriveRequest(r) {
 		g.addShareTypes(r.Context(), files, res.GetInfos())
 	}
 
