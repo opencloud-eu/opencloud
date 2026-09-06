@@ -234,3 +234,54 @@ Feature: listing the content of a public link via the Graph API
   Scenario: a resource outside the public link is not readable through its token
     When the public tries to get the resource "private.txt" of user "Alice" through the last created public link with password "%public%" using the Graph API
     Then the HTTP status code should be "404"
+
+
+  Scenario: a public token cannot list drives
+    When the public tries to list the drives using the token of the last created public link with password "%public%" using the Graph API
+    Then the HTTP status code should be "401"
+
+
+  Scenario: a public token cannot read the owner's personal drive
+    When the public tries to get the personal drive of user "Alice" through the last created public link with password "%public%" using the Graph API
+    Then the HTTP status code should be "401"
+
+
+  Scenario: an in-share item is not addressable through its real drive id
+    When the public tries to get the child "sub" of the last created public link through its real drive id with password "%public%" using the Graph API
+    Then the HTTP status code should be "401"
+
+
+  Scenario: a token does not open another link's drive
+    When the public tries to list the children of a foreign public link drive using the last created token with password "%public%" using the Graph API
+    Then the HTTP status code should be "401"
+
+
+  Scenario: collaborative share types are not disclosed to the public
+    Given user "Brian" has been created with default attributes
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | publicfolder/sub |
+      | space           | Personal         |
+      | sharee          | Brian            |
+      | shareType       | user             |
+      | permissionsRole | Viewer           |
+    When the public lists the children of the last created public link selecting the share types with password "%public%" using the Graph API
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": ["value"],
+        "properties": {
+          "value": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "not": { "required": ["@libre.graph.shareTypes"] }
+            }
+          }
+        }
+      }
+      """

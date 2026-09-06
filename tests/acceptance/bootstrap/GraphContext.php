@@ -3588,6 +3588,105 @@ class GraphContext implements Context {
 	}
 
 	/**
+	 * @param string $urlSuffix raw suffix below /graph/v1.0, may contain :spaceOfUser
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	private function publicSendsRawGraphRequest(string $urlSuffix, ?string $password = null): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$url = $this->featureContext->getBaseUrl() . "/graph/v1.0" . $urlSuffix
+			. (\str_contains($urlSuffix, "?") ? "&" : "?") . "public-token=$token";
+		$response = HttpRequestHelper::get(
+			$url,
+			$this->featureContext->getStepLineRef(),
+			$password === null ? null : "public",
+			$this->featureContext->getActualPassword($password)
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public lists the children of the last created public link selecting the share types with password :password using the Graph API')]
+	public function thePublicListsTheChildrenSelectingTheShareTypes(?string $password = null): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$rootId = $this->publicLinkDriveId($token);
+		$select = "%24select=%40libre.graph.shareTypes";
+		$this->publicSendsGraphDriveRequest("/items/$rootId/children?$select", $password);
+	}
+
+	/**
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public tries to list the drives using the token of the last created public link with password :password using the Graph API')]
+	public function thePublicTriesToListTheDrives(?string $password = null): void {
+		$this->publicSendsRawGraphRequest("/drives/", $password);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public tries to get the personal drive of user :user through the last created public link with password :password using the Graph API')]
+	public function thePublicTriesToGetThePersonalDriveOfUser(string $user, ?string $password = null): void {
+		$user = $this->featureContext->getActualUsername($user);
+		$driveId = $this->spacesContext->getSpaceIdByName($user, "Personal");
+		$this->publicSendsRawGraphRequest("/drives/$driveId", $password);
+	}
+
+	/**
+	 * Addressing an in-share item through its REAL drive id must be rejected:
+	 * only the token's public drive is authorized.
+	 *
+	 * @param string $child
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public tries to get the child :child of the last created public link through its real drive id with password :password using the Graph API')]
+	public function thePublicTriesToGetTheChildThroughItsRealDriveId(string $child, ?string $password = null): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$rootId = $this->publicLinkDriveId($token);
+		$url = $this->featureContext->getBaseUrl()
+			. "/graph/v1.0/drives/$rootId/items/$rootId/children?public-token=$token";
+		$listing = HttpRequestHelper::get(
+			$url,
+			$this->featureContext->getStepLineRef(),
+			$password === null ? null : "public",
+			$this->featureContext->getActualPassword($password)
+		);
+		$children = \json_decode($listing->getBody()->getContents(), true)["value"] ?? [];
+		$childId = null;
+		foreach ($children as $entry) {
+			if ($entry["name"] === $child) {
+				$childId = $entry["id"];
+			}
+		}
+		Assert::assertNotNull($childId, "child '$child' not found in the public link listing");
+		$realDriveId = \explode("!", $childId)[0];
+		$this->publicSendsRawGraphRequest("/drives/$realDriveId/items/$childId", $password);
+	}
+
+	/**
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public tries to list the children of a foreign public link drive using the last created token with password :password using the Graph API')]
+	public function thePublicTriesToListAForeignPublicLinkDrive(?string $password = null): void {
+		$foreign = $this->publicLinkDriveId("notthetokenofthislink");
+		$this->publicSendsRawGraphRequest("/drives/$foreign/items/$foreign/children", $password);
+	}
+
+	/**
 	 * Item anchored colon path: the anchor id is resolved through the public
 	 * children listing, so the step stays within the public API.
 	 *
