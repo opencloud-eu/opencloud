@@ -59,8 +59,7 @@ func odataListContains(r *http.Request, parameter, value string) bool {
 }
 
 // driveItemInDrive reports whether an item id may be addressed below a drive.
-// Items below the public share drive keep their real ids, so any id is
-// acceptable there; the token scope enforces access, not this routing check.
+// The public share drive accepts any id; the token scope enforces access.
 func driveItemInDrive(driveID, driveItemID *storageprovider.ResourceId) bool {
 	if driveID.GetStorageId() == utils.PublicStorageProviderID && driveID.GetSpaceId() == utils.PublicStorageSpaceID {
 		return true
@@ -77,8 +76,7 @@ func publicDriveRequest(r *http.Request) bool {
 }
 
 // sanitizePublicDriveInfos applies the publicstorageprovider's reduction to
-// infos that bypassed it (navigation by id): paths relative to the share root,
-// permissions cut to the link grant.
+// infos that bypassed it (navigation by id).
 func (g Graph) sanitizePublicDriveInfos(ctx context.Context, r *http.Request, infos ...*storageprovider.ResourceInfo) error {
 	shareRoot, grant, err := g.publicLinkOfRequest(ctx, r)
 	if err != nil {
@@ -92,8 +90,8 @@ func (g Graph) sanitizePublicDriveInfos(ctx context.Context, r *http.Request, in
 	return nil
 }
 
-// publicLinkOfRequest resolves the request's public link into the share root
-// info and the granted permissions; the token is the public drive's opaque id.
+// publicLinkOfRequest resolves the link the request runs in; the token is the
+// public drive's opaque id.
 func (g Graph) publicLinkOfRequest(ctx context.Context, r *http.Request) (*storageprovider.ResourceInfo, *storageprovider.ResourcePermissions, error) {
 	driveID, err := parseIDParam(r, "driveID")
 	if err != nil {
