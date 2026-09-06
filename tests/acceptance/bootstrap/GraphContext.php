@@ -3626,6 +3626,33 @@ class GraphContext implements Context {
 	}
 
 	/**
+	 * @param string $name
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public creates an upload session for :name in the last created public link using the Graph API')]
+	#[When('the public creates an upload session for :name in the last created public link with password :password using the Graph API')]
+	public function thePublicCreatesAnUploadSessionForInTheLastCreatedPublicLink(
+		string $name,
+		?string $password = null
+	): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$rootId = $this->publicLinkDriveId($token);
+		$url = $this->featureContext->getBaseUrl()
+			. "/graph/v1.0/drives/$rootId/items/$rootId/createUploadSession?public-token=$token";
+		$response = HttpRequestHelper::post(
+			$url,
+			$this->featureContext->getStepLineRef(),
+			$password === null ? null : "public",
+			$this->featureContext->getActualPassword($password),
+			["Content-Type" => "application/json"],
+			\json_encode(["item" => ["name" => $name, "fileSize" => 6]])
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
 	 * The security probe: an id of a resource that is NOT inside the public
 	 * link must not be readable through the link's token.
 	 *

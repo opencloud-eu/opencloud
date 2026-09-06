@@ -203,6 +203,34 @@ Feature: listing the content of a public link via the Graph API
     Then the HTTP status code should be "401"
 
 
+  Scenario: an editable public link grants an upload session
+    Given user "Alice" has created the following resource link share:
+      | resource        | publicfolder |
+      | space           | Personal     |
+      | permissionsRole | edit         |
+      | password        | %public%     |
+    When the public creates an upload session for "up.txt" in the last created public link with password "%public%" using the Graph API
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": ["UploadURL"],
+        "properties": {
+          "UploadURL": {
+            "type": "string",
+            "pattern": "/data/"
+          }
+        }
+      }
+      """
+
+
+  Scenario: a view only public link does not grant an upload session
+    When the public creates an upload session for "up.txt" in the last created public link with password "%public%" using the Graph API
+    Then the HTTP status code should be "404"
+
+
   Scenario: a resource outside the public link is not readable through its token
     When the public tries to get the resource "private.txt" of user "Alice" through the last created public link with password "%public%" using the Graph API
     Then the HTTP status code should be "404"
