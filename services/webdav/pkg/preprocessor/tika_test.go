@@ -1,8 +1,8 @@
 package preprocessor
 
 import (
+	"archive/zip"
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"image"
 	"image/color"
@@ -15,6 +15,25 @@ import (
 
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
+
+// unpackZip builds what /unpack/all returns: the entries and their metadata
+// side by side, "1.png" next to "1.png.metadata.json".
+func unpackZip(entries map[string][]byte, meta map[string]map[string]any) []byte {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for name, data := range entries {
+		w, err := zw.Create(name)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = w.Write(data)
+		Expect(err).ToNot(HaveOccurred())
+
+		w, err = zw.Create(name + ".metadata.json")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(json.NewEncoder(w).Encode(meta[name])).To(Succeed())
+	}
+	Expect(zw.Close()).To(Succeed())
+	return buf.Bytes()
+}
 
 func pngBytes() []byte {
 	img := image.NewRGBA(image.Rect(0, 0, 4, 3))
@@ -36,7 +55,7 @@ var _ = Describe("TikaThumbnail", func() {
 		thumbnail = func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }
 		server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			requests = append(requests, r)
-			if r.URL.Path != "/unpack/thumbnail" {
+			if r.URL.Path != "/unpack/all" {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
@@ -48,23 +67,102 @@ var _ = Describe("TikaThumbnail", func() {
 		server.Close()
 	})
 
-	It("takes the thumbnail Tika picks, with its metadata, from one request", func() {
+	It("takes the entry Tika marked as the thumbnail, in one request", func() {
 		thumbnail = func(w http.ResponseWriter, r *http.Request) {
 			Expect(r.Method).To(Equal(http.MethodPut))
-			Expect(r.URL.Query().Get("renderThumbnails")).To(Equal("true"))
 			Expect(r.Header.Get("Content-Disposition")).To(ContainSubstring(`filename="shot.nef"`))
 			Expect(r.Header.Get("Content-Type")).To(Equal("image/x-nikon-nef"), "the file's type travels as the detection hint")
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"metadata": map[string]any{"Content-Type": "image/png", "tk:embedded-resource-type": "THUMBNAIL"},
-				"image":    base64.StdEncoding.EncodeToString(pngBytes()),
-			})
+			w.Header().Set("Content-Type", "application/zip")
+			_, _ = w.Write(unpackZip(
+				map[string][]byte{"0.nef": []byte("the raw itself"), "1.png": pngBytes()},
+				map[string]map[string]any{
+					"0.nef": {"Content-Type": "image/x-nikon-nef"},
+					"1.png": {"Content-Type": "image/png", "tk:embedded-resource-type": "THUMBNAIL"},
+				},
+			))
 		}
 
 		img, err := TikaThumbnail{tikaURL: server.URL, filename: "shot.nef", contentType: "image/x-nikon-nef"}.Convert(bytes.NewReader([]byte("raw")))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(img).ToNot(BeNil())
 		Expect(requests).To(HaveLen(1))
+	})
+
+	It("ignores embedded images that are not the thumbnail", func() {
+		thumbnail = func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/zip")
+			_, _ = w.Write(unpackZip(
+				map[string][]byte{"1.png": pngBytes()},
+				map[string]map[string]any{"1.png": {"Content-Type": "image/png", "tk:embedded-resource-type": "INLINE"}},
+			))
+		}
+
+		_, err := TikaThumbnail{tikaURL: server.URL}.Convert(bytes.NewReader([]byte("raw")))
+		Expect(err).To(MatchError(ErrNoThumbnail), "an inline image is not a thumbnail, tika 4.0 marks cover art that way")
+	})
+
+	It("takes the rendering when the thumbnail is a metafile", func() {
+		thumbnail = func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/zip")
+			_, _ = w.Write(unpackZip(
+				map[string][]byte{"1.wmf": []byte("vector"), "2.png": pngBytes()},
+				map[string]map[string]any{
+					"1.wmf": {"Content-Type": "image/wmf", "tk:embedded-resource-type": "THUMBNAIL", "tk:embedded-id-path": "/1"},
+					"2.png": {"Content-Type": "image/png", "tk:embedded-resource-type": "RENDERING", "tk:embedded-id-path": "/1/2"},
+				},
+			))
+		}
+
+		img, err := TikaThumbnail{tikaURL: server.URL, filename: "report.doc"}.Convert(bytes.NewReader([]byte("ole2")))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(img).ToNot(BeNil(), "office documents carry a metafile preview, the raster is its rendering")
+	})
+
+	It("reports no thumbnail when the metafile was not rendered", func() {
+		thumbnail = func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/zip")
+			_, _ = w.Write(unpackZip(
+				map[string][]byte{"1.wmf": []byte("vector")},
+				map[string]map[string]any{
+					"1.wmf": {"Content-Type": "image/wmf", "tk:embedded-resource-type": "THUMBNAIL", "tk:embedded-id-path": "/1"},
+				},
+			))
+		}
+
+		_, err := TikaThumbnail{tikaURL: server.URL}.Convert(bytes.NewReader([]byte("ole2")))
+		Expect(err).To(MatchError(ErrNoThumbnail), "rendering is off in tika by default")
+	})
+
+	It("does not take a rendering that belongs to another image", func() {
+		thumbnail = func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/zip")
+			_, _ = w.Write(unpackZip(
+				map[string][]byte{"1.wmf": []byte("vector"), "3.png": pngBytes()},
+				map[string]map[string]any{
+					"1.wmf": {"Content-Type": "image/wmf", "tk:embedded-resource-type": "THUMBNAIL", "tk:embedded-id-path": "/1"},
+					"3.png": {"Content-Type": "image/png", "tk:embedded-resource-type": "RENDERING", "tk:embedded-id-path": "/2/3"},
+				},
+			))
+		}
+
+		_, err := TikaThumbnail{tikaURL: server.URL}.Convert(bytes.NewReader([]byte("ole2")))
+		Expect(err).To(MatchError(ErrNoThumbnail))
+	})
+
+	It("takes a rendering of the document itself", func() {
+		thumbnail = func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/zip")
+			_, _ = w.Write(unpackZip(
+				map[string][]byte{"1.png": pngBytes()},
+				map[string]map[string]any{
+					"1.png": {"Content-Type": "image/png", "tk:embedded-resource-type": "RENDERING", "tk:embedded-id-path": "/1"},
+				},
+			))
+		}
+
+		img, err := TikaThumbnail{tikaURL: server.URL, filename: "report.pdf"}.Convert(bytes.NewReader([]byte("pdf")))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(img).ToNot(BeNil(), "a pdf has no preview of its own, a rendered page is one")
 	})
 
 	It("reports a document without a thumbnail", func() {
@@ -81,7 +179,7 @@ var _ = Describe("TikaThumbnail", func() {
 		Expect(err).To(MatchError(ContainSubstring("500")))
 	})
 
-	It("reports a Tika without the endpoint", func() {
+	It("reports a Tika that does not know the route", func() {
 		thumbnail = func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) }
 
 		_, err := TikaThumbnail{tikaURL: server.URL}.Convert(bytes.NewReader([]byte("raw")))
