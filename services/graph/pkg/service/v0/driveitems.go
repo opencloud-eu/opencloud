@@ -78,50 +78,48 @@ func publicDriveRequest(r *http.Request) bool {
 
 // sanitizePublicDriveInfos applies the publicstorageprovider's reduction to
 // infos that bypassed it (navigation by id): paths relative to the share root,
-// permissions cut to the link grant. An unresolvable link advertises nothing.
-func (g Graph) sanitizePublicDriveInfos(ctx context.Context, r *http.Request, infos ...*storageprovider.ResourceInfo) {
-	shareRoot, grant := g.publicLinkOfRequest(ctx, r)
-	for _, info := range infos {
-		if info == nil {
-			continue
-		}
-		if shareRoot == nil {
-			info.Path = path.Base(info.GetPath())
-			info.PermissionSet = &storageprovider.ResourcePermissions{}
-			continue
-		}
-		publicshare.ReduceResourceInfo(info, shareRoot, grant)
+// permissions cut to the link grant.
+func (g Graph) sanitizePublicDriveInfos(ctx context.Context, r *http.Request, infos ...*storageprovider.ResourceInfo) error {
+	shareRoot, grant, err := g.publicLinkOfRequest(ctx, r)
+	if err != nil {
+		return err
 	}
+	for _, info := range infos {
+		if info != nil {
+			publicshare.ReduceResourceInfo(info, shareRoot, grant)
+		}
+	}
+	return nil
 }
 
 // publicLinkOfRequest resolves the request's public link into the share root
 // info and the granted permissions; the token is the public drive's opaque id.
-func (g Graph) publicLinkOfRequest(ctx context.Context, r *http.Request) (*storageprovider.ResourceInfo, *storageprovider.ResourcePermissions) {
+func (g Graph) publicLinkOfRequest(ctx context.Context, r *http.Request) (*storageprovider.ResourceInfo, *storageprovider.ResourcePermissions, error) {
 	driveID, err := parseIDParam(r, "driveID")
 	if err != nil {
-		return nil, nil
+		return nil, nil, err
 	}
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
-		return nil, nil
+		return nil, nil, err
 	}
 	shareResp, err := gatewayClient.GetPublicShare(ctx, &link.GetPublicShareRequest{
 		Ref: &link.PublicShareReference{
 			Spec: &link.PublicShareReference_Token{Token: driveID.GetOpaqueId()},
 		},
 	})
-	if err != nil || shareResp.GetStatus().GetCode() != cs3rpc.Code_CODE_OK {
-		g.logger.Error().Err(err).Str("status", shareResp.GetStatus().GetCode().String()).Msg("could not resolve the public link of the request")
-		return nil, nil
+	if err := errorcode.FromCS3Status(shareResp.GetStatus(), err); err != nil {
+		g.logger.Error().Err(err).Msg("could not resolve the public link of the request")
+		return nil, nil, err
 	}
 	statResp, err := gatewayClient.Stat(ctx, &storageprovider.StatRequest{
 		Ref: &storageprovider.Reference{ResourceId: shareResp.GetShare().GetResourceId()},
 	})
-	if err != nil || statResp.GetStatus().GetCode() != cs3rpc.Code_CODE_OK {
-		g.logger.Error().Err(err).Str("status", statResp.GetStatus().GetCode().String()).Msg("could not stat the public link root")
-		return nil, nil
+	if err := errorcode.FromCS3Status(statResp.GetStatus(), err); err != nil {
+		g.logger.Error().Err(err).Msg("could not stat the public link root")
+		return nil, nil, err
 	}
-	return statResp.GetInfo(), shareResp.GetShare().GetPermissions().GetPermissions()
+	return statResp.GetInfo(), shareResp.GetShare().GetPermissions().GetPermissions(), nil
 }
 
 // driveItemPropertySelected reports whether the given opt-in property was requested via $select
@@ -375,7 +373,10 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		return
 	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_OK:
 		if publicDriveRequest(r) {
-			g.sanitizePublicDriveInfos(ctx, r, res.GetInfo())
+			if err := g.sanitizePublicDriveInfos(ctx, r, res.GetInfo()); err != nil {
+				errorcode.RenderError(w, r, err)
+				return
+			}
 		}
 	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_NOT_FOUND:
 		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, res.GetStatus().GetMessage())
@@ -491,7 +492,10 @@ func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, dri
 	}
 
 	if publicDriveRequest(r) {
-		g.sanitizePublicDriveInfos(r.Context(), r, res.GetInfos()...)
+		if err := g.sanitizePublicDriveInfos(r.Context(), r, res.GetInfos()...); err != nil {
+			errorcode.RenderError(w, r, err)
+			return nil, false
+		}
 	}
 
 	files, err := formatDriveItems(g.logger, g.publicBaseURL, res.GetInfos())
