@@ -16,6 +16,7 @@ Feature: listing the content of a public link via the Graph API
       | permissionsRole | view         |
       | password        | %public%     |
 
+
   Scenario: the public lists the children of a public link
     When the public lists the children of the last created public link with password "%public%" using the Graph API
     Then the HTTP status code should be "200"
@@ -54,6 +55,7 @@ Feature: listing the content of a public link via the Graph API
       }
       """
 
+
   Scenario: the public lists a subfolder of a public link by path
     When the public lists the children of path "sub" of the last created public link with password "%public%" using the Graph API
     Then the HTTP status code should be "200"
@@ -79,6 +81,7 @@ Feature: listing the content of a public link via the Graph API
       }
       """
 
+
   Scenario: the public expands the children of the public link root
     When the public gets the root of the last created public link expanding its children with password "%public%" using the Graph API
     Then the HTTP status code should be "200"
@@ -102,6 +105,7 @@ Feature: listing the content of a public link via the Graph API
       }
       """
 
+
   Scenario: the public gets a file through an item anchored colon path
     When the public gets the drive item "b.txt" below the child "sub" of the last created public link with password "%public%" using the Graph API
     Then the HTTP status code should be "200"
@@ -122,6 +126,7 @@ Feature: listing the content of a public link via the Graph API
         }
       }
       """
+
 
   Scenario: the public must not see the owner's paths above the share
     Given user "Alice" has created folder "deep"
@@ -163,6 +168,7 @@ Feature: listing the content of a public link via the Graph API
       }
       """
 
+
   Scenario: advertised permissions inside a public link stay within the link role
     When the public gets the drive item of path "sub" of the last created public link selecting the allowed actions with password "%public%" using the Graph API
     Then the HTTP status code should be "200"
@@ -186,13 +192,16 @@ Feature: listing the content of a public link via the Graph API
       }
       """
 
+
   Scenario: listing a password protected public link without the password fails
     When the public lists the children of the last created public link using the Graph API
     Then the HTTP status code should be "401"
 
+
   Scenario: listing a password protected public link with a wrong password fails
     When the public lists the children of the last created public link with password "wrong" using the Graph API
     Then the HTTP status code should be "401"
+
 
   Scenario: a resource outside the public link is not readable through its token
     When the public tries to get the resource "private.txt" of user "Alice" through the last created public link with password "%public%" using the Graph API

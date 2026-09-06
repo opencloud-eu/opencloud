@@ -3631,6 +3631,7 @@ class GraphContext implements Context {
 	 *
 	 * @param string $path
 	 * @param string $user
+	 * @param string|null $password
 	 *
 	 * @return void
 	 */
