@@ -102,6 +102,27 @@ Feature: listing the content of a public link via the Graph API
       }
       """
 
+  Scenario: the public gets a file through an item anchored colon path
+    When the public gets the drive item "b.txt" below the child "sub" of the last created public link with password "%public%" using the Graph API
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": ["name", "file", "parentReference"],
+        "properties": {
+          "name": { "const": "b.txt" },
+          "parentReference": {
+            "type": "object",
+            "required": ["path"],
+            "properties": {
+              "path": { "const": "/sub" }
+            }
+          }
+        }
+      }
+      """
+
   Scenario: the public must not see the owner's paths above the share
     Given user "Alice" has created folder "deep"
     And user "Alice" has created folder "deep/shared"
