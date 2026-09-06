@@ -159,9 +159,7 @@ func (g Graph) CreateUploadSession(w http.ResponseWriter, r *http.Request) {
 		errorcode.RenderError(w, r, err)
 		return
 	}
-	// strict on purpose: uploading through the public drive addressing is not
-	// part of the listing surface and stays untested for now
-	if driveID.GetStorageId() != driveItemID.GetStorageId() || driveID.GetSpaceId() != driveItemID.GetSpaceId() {
+	if !driveItemInDrive(&driveID, &driveItemID) {
 		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "Item does not exist")
 		return
 	}
