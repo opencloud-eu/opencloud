@@ -151,9 +151,8 @@ func publicshareScope(ctx context.Context, scope *authpb.Scope, resource interfa
 	return false, errtypes.InternalError(msg)
 }
 
-// checkGraphDrivesPath allows the graph drive item surface. Which items a
-// public token may actually read is enforced per CS3 request (checkStorageRef);
-// this only opens the HTTP route, like /archiver or /app/open in checkResourcePath.
+// checkGraphDrivesPath opens the graph drive item routes, like /archiver in
+// checkResourcePath; what a token may read is enforced per CS3 request.
 func checkGraphDrivesPath(path string) bool {
 	return strings.HasPrefix(path, "/graph/v1.0/drives/") || strings.HasPrefix(path, "/graph/v1beta1/drives/")
 }

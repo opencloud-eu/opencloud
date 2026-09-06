@@ -203,8 +203,7 @@ func rewriteColonPath(
 			logger.Debug().Err(err).Str("driveID", driveID).Msg("invalid drive id in colon path")
 			return "", errInvalidRequest
 		}
-		// items below the public share drive keep their real ids, so the
-		// storage/space prefix cannot match there; the token scope guards access
+		// items below the public share drive keep their real ids; the scope guards access
 		isPublicDrive := drive.GetStorageId() == utils.PublicStorageProviderID && drive.GetSpaceId() == utils.PublicStorageSpaceID
 		if !isPublicDrive && (drive.GetStorageId() != anchor.GetStorageId() || drive.GetSpaceId() != anchor.GetSpaceId()) {
 			logger.Debug().

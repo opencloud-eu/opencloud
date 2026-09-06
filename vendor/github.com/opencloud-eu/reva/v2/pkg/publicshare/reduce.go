@@ -25,12 +25,10 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 )
 
-// ReduceResourceInfo rewrites a resource info for a public link consumer. The
-// path becomes relative to the share root, so the owner's directory structure
-// above the share does not leak, and the permissions are cut to what the link
-// grants. The publicstorageprovider applies it to everything it serves;
-// consumers that reach resources inside a link by id bypass that provider and
-// apply it themselves.
+// ReduceResourceInfo rewrites a resource info for a public link consumer: the
+// path becomes share-root relative (the structure above must not leak), the
+// permissions are cut to the link grant. Consumers that reach link content by
+// id bypass the publicstorageprovider and apply it themselves.
 func ReduceResourceInfo(info, shareRoot *provider.ResourceInfo, grant *provider.ResourcePermissions) {
 	if info == nil {
 		return
