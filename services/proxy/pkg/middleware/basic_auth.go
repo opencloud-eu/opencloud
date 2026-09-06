@@ -18,7 +18,7 @@ type BasicAuthenticator struct {
 
 // Authenticate implements the authenticator interface to authenticate requests via basic auth.
 func (m BasicAuthenticator) Authenticate(r *http.Request) (*http.Request, bool) {
-	if isPublicPath(r.URL.Path) && isPublicWithShareToken(r) {
+	if (isPublicPath(r.URL.Path) && isPublicWithShareToken(r)) || isPublicShareGraphRequest(r) {
 		// The authentication of public path requests is handled by another authenticator.
 		// Since we can't guarantee the order of execution of the authenticators, we better
 		// implement an early return here for paths we can't authenticate in this authenticator.
