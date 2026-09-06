@@ -2,7 +2,6 @@ package svc
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -13,7 +12,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/share"
 
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
-	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail"
 )
 
 // ListSharedWithMe lists the files shared with the current user.
@@ -73,30 +71,8 @@ func (g Graph) listSharedWithMe(ctx context.Context, expandThumbnails bool) ([]l
 
 	if expandThumbnails {
 		for k, item := range driveItems {
-			mt := item.GetFile().MimeType
-			if mt == nil {
-				continue
-			}
-
-			_, match := thumbnail.SupportedMimeTypes[*mt]
-			if match {
-				baseUrl := fmt.Sprintf("%s/dav/spaces/%s?scalingup=0&preview=1&processor=thumbnail",
-					g.config.Commons.OpenCloudURL,
-					item.RemoteItem.GetId())
-				smallUrl := baseUrl + "&x=36&y=36"
-				mediumUrl := baseUrl + "&x=48&y=48"
-				largeUrl := baseUrl + "&x=96&y=96"
-
-				item.SetThumbnails([]libregraph.ThumbnailSet{
-					{
-						Small:  &libregraph.Thumbnail{Url: &smallUrl},
-						Medium: &libregraph.Thumbnail{Url: &mediumUrl},
-						Large:  &libregraph.Thumbnail{Url: &largeUrl},
-					},
-				})
-
-				driveItems[k] = item // assign modified item back to the map
-			}
+			setShareThumbnails(&item, item.RemoteItem.GetId(), g.config.Commons.OpenCloudURL)
+			driveItems[k] = item
 		}
 	}
 

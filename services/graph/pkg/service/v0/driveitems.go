@@ -45,7 +45,10 @@ const (
 var shareTypesFieldMask = &fieldmaskpb.FieldMask{Paths: []string{"share-types"}}
 
 // opt-in driveItem relations, returned only when requested via $expand
-const _expandChildren = "children"
+const (
+	_expandChildren   = "children"
+	_expandThumbnails = "thumbnails"
+)
 
 func odataListContains(r *http.Request, parameter, value string) bool {
 	for _, values := range r.URL.Query()[parameter] {
@@ -253,6 +256,7 @@ func (g Graph) GetRootDriveChildren(w http.ResponseWriter, r *http.Request) {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
+	g.setDriveItemsThumbnails(r, files, lRes.GetInfos())
 
 	if driveItemPropertySelected(r, _selectAllowedValues) {
 		for i, info := range lRes.GetInfos() {
@@ -346,6 +350,10 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		driveItem.LibreGraphShareTypes = shareTypesOf(res.GetInfo(), g.listLinkShares(ctx, infos))
 	}
 
+	if driveItemRelationExpanded(r, _expandThumbnails) {
+		setDriveItemThumbnails(driveItem, res.GetInfo(), g.config.Commons.OpenCloudURL)
+	}
+
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, &driveItem)
 }
@@ -431,6 +439,8 @@ func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, dri
 	if driveItemPropertySelected(r, _selectShareTypes) {
 		g.addShareTypes(r.Context(), files, res.GetInfos())
 	}
+
+	g.setDriveItemsThumbnails(r, files, res.GetInfos())
 
 	return files, true
 }
