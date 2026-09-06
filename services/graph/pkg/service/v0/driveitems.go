@@ -58,6 +58,40 @@ func odataListContains(r *http.Request, parameter, value string) bool {
 	return false
 }
 
+// driveItemInDrive reports whether an item id may be addressed below a drive.
+// Normally the item must carry the drive's storage and space id. The public
+// share drive is the exception: its root is the virtual public space, but the
+// items inside keep their real ids (the publicstorageprovider does not rewrite
+// them), so any item id is acceptable there. Access is enforced by the public
+// share scope on the token, not by this routing check.
+func driveItemInDrive(driveID, driveItemID *storageprovider.ResourceId) bool {
+	if driveID.GetStorageId() == utils.PublicStorageProviderID && driveID.GetSpaceId() == utils.PublicStorageSpaceID {
+		return true
+	}
+	return driveID.GetStorageId() == driveItemID.GetStorageId() && driveID.GetSpaceId() == driveItemID.GetSpaceId()
+}
+
+// publicDriveRequest reports whether the request addresses the public share
+// drive, i.e. runs in a public link context.
+func publicDriveRequest(r *http.Request) bool {
+	driveID, err := parseIDParam(r, "driveID")
+	return err == nil &&
+		driveID.GetStorageId() == utils.PublicStorageProviderID &&
+		driveID.GetSpaceId() == utils.PublicStorageSpaceID
+}
+
+// stripSpacePaths cuts resource paths down to their base name. A public link
+// visitor gets real resource infos when navigating by id, and their paths are
+// anchored at the owner's space root: everything above the share root is the
+// owner's directory structure and must not leak.
+func stripSpacePaths(infos ...*storageprovider.ResourceInfo) {
+	for _, info := range infos {
+		if info != nil && info.Path != "" {
+			info.Path = path.Base(info.Path)
+		}
+	}
+}
+
 // driveItemPropertySelected reports whether the given opt-in property was requested via $select
 func driveItemPropertySelected(r *http.Request, property string) bool {
 	return odataListContains(r, "$select", property)
@@ -95,7 +129,7 @@ func (g Graph) CreateUploadSession(w http.ResponseWriter, r *http.Request) {
 		errorcode.RenderError(w, r, err)
 		return
 	}
-	if driveID.GetStorageId() != driveItemID.GetStorageId() || driveID.GetSpaceId() != driveItemID.GetSpaceId() {
+	if !driveItemInDrive(&driveID, &driveItemID) {
 		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "Item does not exist")
 		return
 	}
@@ -283,7 +317,7 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		errorcode.RenderError(w, r, err)
 		return
 	}
-	if driveID.GetStorageId() != driveItemID.GetStorageId() || driveID.GetSpaceId() != driveItemID.GetSpaceId() {
+	if !driveItemInDrive(&driveID, &driveItemID) {
 		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "Item does not exist")
 		return
 	}
@@ -308,7 +342,9 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
 	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_OK:
-		// ok
+		if publicDriveRequest(r) {
+			stripSpacePaths(res.GetInfo())
+		}
 	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_NOT_FOUND:
 		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, res.GetStatus().GetMessage())
 		return
@@ -364,7 +400,7 @@ func (g Graph) GetDriveItemChildren(w http.ResponseWriter, r *http.Request) {
 		errorcode.RenderError(w, r, err)
 		return
 	}
-	if driveID.GetStorageId() != driveItemID.GetStorageId() || driveID.GetSpaceId() != driveItemID.GetSpaceId() {
+	if !driveItemInDrive(&driveID, &driveItemID) {
 		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "Item does not exist")
 		return
 	}
@@ -420,6 +456,10 @@ func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, dri
 	default:
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, res.GetStatus().GetMessage())
 		return nil, false
+	}
+
+	if publicDriveRequest(r) {
+		stripSpacePaths(res.GetInfos()...)
 	}
 
 	files, err := formatDriveItems(g.logger, g.publicBaseURL, res.GetInfos())
