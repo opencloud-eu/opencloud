@@ -1,0 +1,4 @@
+services:
+  opencloud-server:
+    ports: !override
+      - "9402:9200"
