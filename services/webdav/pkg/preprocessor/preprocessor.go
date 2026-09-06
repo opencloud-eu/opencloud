@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 	"image"
 	"image/draw"
 	"image/gif"
@@ -39,7 +40,9 @@ func (i GifDecoder) Convert(r io.Reader) (any, error) {
 	return img, nil
 }
 
-// GgsDecoder is a converter for the geogebra slides file
+// GgsDecoder is a converter for the geogebra slides file.
+//
+// Deprecated: Tika provides the thumbnail; kept for setups without Tika.
 type GgsDecoder struct{ thumbnailpath string }
 
 // Convert reads the ggs file and returns the thumbnail image.
@@ -79,7 +82,9 @@ func (g GgsDecoder) Convert(r io.Reader) (any, error) {
 	return nil, errors.Errorf("%s not found", g.thumbnailpath)
 }
 
-// AudioDecoder is a converter for the audio file
+// AudioDecoder is a converter for the audio file.
+//
+// Deprecated: Tika provides the cover art; kept for setups without Tika.
 type AudioDecoder struct{}
 
 // Convert reads the audio file and extracts the thumbnail image from the id3 tag.
@@ -209,7 +214,9 @@ type GGPStruct struct {
 	}
 }
 
-// GgpDecoder is a converter for the geogebra pinboard file
+// GgpDecoder is a converter for the geogebra pinboard file.
+//
+// Deprecated: see GgsDecoder.
 type GgpDecoder struct{}
 
 // Convert reads the ggp file and returns the first thumbnail image.
@@ -313,6 +320,16 @@ func drawWord(canvas *font.Drawer, word string, minX, maxX, incY, maxY fixed.Int
 	}
 }
 
+// tikaOr prefers a configured Tika server, else the fallback
+func tikaOr(opts map[string]any, mimeType string, fallback FileConverter) FileConverter {
+	tika, _ := opts["tika"].(thumbnail.Tika)
+	if !tika.Supports(mimeType) {
+		return fallback
+	}
+	filename, _ := opts["filename"].(string)
+	return TikaThumbnail{tikaURL: tika.URL, filename: filename, contentType: tika.ContentType(mimeType)}
+}
+
 // ForType returns the converter for the specified mimeType
 func ForType(mimeType string, opts map[string]any) FileConverter {
 	// We can ignore the error here because we parse it in IsMimeTypeSupported before and if it fails
@@ -348,19 +365,15 @@ func ForType(mimeType string, opts map[string]any) FileConverter {
 		return TxtToImageConverter{
 			fontLoader: fontLoader,
 		}
-	case "application/vnd.geogebra.slides":
-		return GgsDecoder{"_slide0/geogebra_thumbnail.png"}
-	case "application/vnd.geogebra.pinboard":
-		return GgpDecoder{}
 	case "image/gif":
 		return GifDecoder{}
-	case "audio/flac":
-		fallthrough
-	case "audio/mpeg":
-		fallthrough
-	case "audio/ogg":
-		return AudioDecoder{}
+	case "application/vnd.geogebra.slides":
+		return tikaOr(opts, mimeType, GgsDecoder{"_slide0/geogebra_thumbnail.png"})
+	case "application/vnd.geogebra.pinboard":
+		return tikaOr(opts, mimeType, GgpDecoder{})
+	case "audio/flac", "audio/mpeg", "audio/ogg":
+		return tikaOr(opts, mimeType, AudioDecoder{})
 	default:
-		return ImageDecoder{}
+		return tikaOr(opts, mimeType, ImageDecoder{})
 	}
 }
