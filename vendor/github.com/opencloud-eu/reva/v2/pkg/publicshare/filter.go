@@ -25,11 +25,11 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 )
 
-// ReduceResourceInfo rewrites a resource info for a public link consumer: the
+// FilterResourceInfo rewrites a resource info for a public link consumer: the
 // path becomes share-root relative (the structure above must not leak), the
 // permissions are cut to the link grant. Consumers that reach link content by
 // id bypass the publicstorageprovider and apply it themselves.
-func ReduceResourceInfo(info, shareRoot *provider.ResourceInfo, grant *provider.ResourcePermissions) {
+func FilterResourceInfo(info, shareRoot *provider.ResourceInfo, grant *provider.ResourcePermissions) {
 	if info == nil {
 		return
 	}
@@ -43,12 +43,12 @@ func ReduceResourceInfo(info, shareRoot *provider.ResourceInfo, grant *provider.
 	info.Path = path.Join("/", sharePath)
 
 	if info.PermissionSet != nil {
-		ReducePermissions(info.PermissionSet, grant)
+		FilterPermissions(info.PermissionSet, grant)
 	}
 }
 
-// ReducePermissions reduces l to what r also grants. A nil r clears l.
-func ReducePermissions(l, r *provider.ResourcePermissions) {
+// FilterPermissions reduces l to what r also grants. A nil r clears l.
+func FilterPermissions(l, r *provider.ResourcePermissions) {
 	l.AddGrant = l.AddGrant && r.GetAddGrant()
 	l.CreateContainer = l.CreateContainer && r.GetCreateContainer()
 	l.Delete = l.Delete && r.GetDelete()

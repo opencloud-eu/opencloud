@@ -89,7 +89,7 @@ func (g Graph) sanitizePublicDriveInfos(ctx context.Context, r *http.Request, in
 	}
 	for _, info := range infos {
 		if info != nil {
-			publicshare.ReduceResourceInfo(info, shareRoot, grant)
+			publicshare.FilterResourceInfo(info, shareRoot, grant)
 		}
 	}
 	return nil

@@ -769,7 +769,7 @@ func (s *service) augmentStatResponse(ctx context.Context, statInfo *provider.Re
 			appctx.GetLogger(ctx).Error().Err(err).Interface("share", share).Interface("info", statInfo).Msg("error when adding share")
 		}
 
-		publicshare.ReduceResourceInfo(statInfo, shareInfo, shareInfo.GetPermissionSet())
+		publicshare.FilterResourceInfo(statInfo, shareInfo, shareInfo.GetPermissionSet())
 	}
 }
 
@@ -835,7 +835,7 @@ func (s *service) ListContainer(ctx context.Context, req *provider.ListContainer
 	for i := range listContainerR.Infos {
 		// FIXME how do we reduce permissions to what is granted by the public link?
 		// only a problem for id based access -> middleware
-		publicshare.ReducePermissions(listContainerR.Infos[i].PermissionSet, info.PermissionSet)
+		publicshare.FilterPermissions(listContainerR.Infos[i].PermissionSet, info.PermissionSet)
 		if err := addShare(listContainerR.Infos[i], share); err != nil {
 			appctx.GetLogger(ctx).Error().Err(err).Interface("share", share).Interface("info", listContainerR.Infos[i]).Msg("error when adding share")
 		}
