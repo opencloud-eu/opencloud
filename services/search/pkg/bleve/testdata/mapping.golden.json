@@ -1053,6 +1053,38 @@
           }
         }
       },
+      "preview": {
+        "enabled": true,
+        "dynamic": true,
+        "properties": {
+          "height": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "number",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "width": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "number",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          }
+        }
+      },
       "video": {
         "enabled": true,
         "dynamic": true,

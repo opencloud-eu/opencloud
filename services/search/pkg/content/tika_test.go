@@ -170,17 +170,22 @@ var _ = Describe("Tika", func() {
 			Expect(doc.Content).To(Equal("body test stop words!!!"))
 		})
 
-		It("keeps the audio facet when an embedded resource follows", func() {
-			fullResponse = `[{"Content-Type": "audio/mpeg", "dc:title": "Sucker", "tk:content": "lyrics"}, {"Content-Type": "image/jpeg", "tiff:ImageWidth": "500"}]`
+		It("keeps the audio facet and captures the cover as preview", func() {
+			fullResponse = `[{"Content-Type": "audio/mpeg", "dc:title": "Sucker", "tk:content": "lyrics"}, {"Content-Type": "image/jpeg", "tiff:ImageWidth": "500", "tiff:ImageLength": "400"}]`
 
 			doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
-				Type: provider.ResourceType_RESOURCE_TYPE_FILE,
-				Size: 1,
+				Type:     provider.ResourceType_RESOURCE_TYPE_FILE,
+				Size:     1,
+				MimeType: "audio/mpeg",
 			})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(doc.Audio).ToNot(BeNil())
 			Expect(doc.Audio.Title).To(Equal(libregraph.PtrString("Sucker")))
-			Expect(doc.Image).ToNot(BeNil())
+			// facets describe the container only, the cover surfaces as preview
+			Expect(doc.Image).To(BeNil())
+			Expect(doc.Preview).ToNot(BeNil())
+			Expect(doc.Preview.Width).To(Equal(int32(500)))
+			Expect(doc.Preview.Height).To(Equal(int32(400)))
 		})
 
 		It("adds no audio facet to non-audio documents", func() {
