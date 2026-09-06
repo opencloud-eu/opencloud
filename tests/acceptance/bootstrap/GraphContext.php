@@ -3572,6 +3572,22 @@ class GraphContext implements Context {
 	}
 
 	/**
+	 * @param string $path
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public gets the drive item of path :path of the last created public link selecting the allowed actions with password :password using the Graph API')]
+	public function thePublicGetsTheDriveItemOfPathSelectingTheAllowedActions(
+		string $path,
+		?string $password = null
+	): void {
+		$encoded = $this->encodeColonPathSegment($path);
+		$select = "%24select=%40libre.graph.permissions.actions.allowedValues";
+		$this->publicSendsGraphDriveRequest("/root:/$encoded?$select", $password);
+	}
+
+	/**
 	 * The security probe: an id of a resource that is NOT inside the public
 	 * link must not be readable through the link's token.
 	 *
