@@ -9,6 +9,7 @@ import (
 
 	"github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	"github.com/cs3org/go-cs3apis/cs3/sharing/ocm/v1beta1"
+	"github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/libre-graph-api-go"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -172,6 +173,68 @@ func (_c *BaseGraphProvider_CS3ReceivedSharesToDriveItems_Call) Return(driveItem
 }
 
 func (_c *BaseGraphProvider_CS3ReceivedSharesToDriveItems_Call) RunAndReturn(run func(ctx context.Context, receivedShares []*collaborationv1beta1.ReceivedShare) ([]libregraph.DriveItem, error)) *BaseGraphProvider_CS3ReceivedSharesToDriveItems_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CS3ResourceToDriveItem provides a mock function for the type BaseGraphProvider
+func (_mock *BaseGraphProvider) CS3ResourceToDriveItem(res *providerv1beta1.ResourceInfo) (*libregraph.DriveItem, error) {
+	ret := _mock.Called(res)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CS3ResourceToDriveItem")
+	}
+
+	var r0 *libregraph.DriveItem
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(*providerv1beta1.ResourceInfo) (*libregraph.DriveItem, error)); ok {
+		return returnFunc(res)
+	}
+	if returnFunc, ok := ret.Get(0).(func(*providerv1beta1.ResourceInfo) *libregraph.DriveItem); ok {
+		r0 = returnFunc(res)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*libregraph.DriveItem)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(*providerv1beta1.ResourceInfo) error); ok {
+		r1 = returnFunc(res)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// BaseGraphProvider_CS3ResourceToDriveItem_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CS3ResourceToDriveItem'
+type BaseGraphProvider_CS3ResourceToDriveItem_Call struct {
+	*mock.Call
+}
+
+// CS3ResourceToDriveItem is a helper method to define mock.On call
+//   - res *providerv1beta1.ResourceInfo
+func (_e *BaseGraphProvider_Expecter) CS3ResourceToDriveItem(res interface{}) *BaseGraphProvider_CS3ResourceToDriveItem_Call {
+	return &BaseGraphProvider_CS3ResourceToDriveItem_Call{Call: _e.mock.On("CS3ResourceToDriveItem", res)}
+}
+
+func (_c *BaseGraphProvider_CS3ResourceToDriveItem_Call) Run(run func(res *providerv1beta1.ResourceInfo)) *BaseGraphProvider_CS3ResourceToDriveItem_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *providerv1beta1.ResourceInfo
+		if args[0] != nil {
+			arg0 = args[0].(*providerv1beta1.ResourceInfo)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *BaseGraphProvider_CS3ResourceToDriveItem_Call) Return(driveItem *libregraph.DriveItem, err error) *BaseGraphProvider_CS3ResourceToDriveItem_Call {
+	_c.Call.Return(driveItem, err)
+	return _c
+}
+
+func (_c *BaseGraphProvider_CS3ResourceToDriveItem_Call) RunAndReturn(run func(res *providerv1beta1.ResourceInfo) (*libregraph.DriveItem, error)) *BaseGraphProvider_CS3ResourceToDriveItem_Call {
 	_c.Call.Return(run)
 	return _c
 }
