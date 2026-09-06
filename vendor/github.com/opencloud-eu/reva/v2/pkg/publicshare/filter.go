@@ -26,9 +26,7 @@ import (
 )
 
 // FilterResourceInfo rewrites a resource info for a public link consumer: the
-// path becomes share-root relative (the structure above must not leak), the
-// permissions are cut to the link grant. Consumers that reach link content by
-// id bypass the publicstorageprovider and apply it themselves.
+// path becomes share-root relative, the permissions are cut to the grant.
 func FilterResourceInfo(info, shareRoot *provider.ResourceInfo, grant *provider.ResourcePermissions) {
 	if info == nil {
 		return
