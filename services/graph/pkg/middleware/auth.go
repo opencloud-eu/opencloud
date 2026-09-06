@@ -67,7 +67,10 @@ func Auth(opts ...account.Option) func(http.Handler) http.Handler {
 				errorcode.InvalidAuthenticationToken.Render(w, r, http.StatusUnauthorized, "invalid token")
 				return
 			}
-			if ok, err := scope.VerifyScope(ctx, tokenScope, r); err != nil || !ok {
+			// scope handlers know CS3 request types and URL paths; a restricted
+			// scope (a public share token, say) cannot judge an *http.Request.
+			// Pass the path, exactly like reva's own http auth interceptor.
+			if ok, err := scope.VerifyScope(ctx, tokenScope, r.URL.Path); err != nil || !ok {
 				opt.Logger.Error().Str(log.RequestIDString, r.Header.Get("X-Request-ID")).Err(err).Msg("verifying scope failed")
 				errorcode.InvalidAuthenticationToken.Render(w, r, http.StatusUnauthorized, "verifying scope failed")
 				return
