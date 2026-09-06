@@ -80,16 +80,73 @@ func publicDriveRequest(r *http.Request) bool {
 		driveID.GetSpaceId() == utils.PublicStorageSpaceID
 }
 
-// stripSpacePaths cuts resource paths down to their base name. A public link
-// visitor gets real resource infos when navigating by id, and their paths are
-// anchored at the owner's space root: everything above the share root is the
-// owner's directory structure and must not leak.
-func stripSpacePaths(infos ...*storageprovider.ResourceInfo) {
+// sanitizePublicDriveInfos prepares resource infos for a public link response.
+// Navigating by id bypasses the publicstorageprovider, so the infos are the
+// owner's: paths are anchored at the owner's space root (everything above the
+// share root must not leak) and the permission sets are the owner's, not the
+// link's. Paths are cut to their base name and permissions intersected with
+// what the link grants; when the link cannot be resolved nothing is advertised.
+func (g Graph) sanitizePublicDriveInfos(ctx context.Context, r *http.Request, infos ...*storageprovider.ResourceInfo) {
+	linkPermissions := g.publicLinkPermissions(ctx, r)
 	for _, info := range infos {
-		if info != nil && info.Path != "" {
+		if info == nil {
+			continue
+		}
+		if info.Path != "" {
 			info.Path = path.Base(info.Path)
 		}
+		if info.PermissionSet != nil {
+			intersectPermissions(info.PermissionSet, linkPermissions)
+		}
 	}
+}
+
+// publicLinkPermissions resolves the permissions the public link grants. The
+// link token is the opaque id of the public drive; the token scope permits
+// reading exactly this one share.
+func (g Graph) publicLinkPermissions(ctx context.Context, r *http.Request) *storageprovider.ResourcePermissions {
+	driveID, err := parseIDParam(r, "driveID")
+	if err != nil {
+		return nil
+	}
+	gatewayClient, err := g.gatewaySelector.Next()
+	if err != nil {
+		return nil
+	}
+	resp, err := gatewayClient.GetPublicShare(ctx, &link.GetPublicShareRequest{
+		Ref: &link.PublicShareReference{
+			Spec: &link.PublicShareReference_Token{Token: driveID.GetOpaqueId()},
+		},
+	})
+	if err != nil || resp.GetStatus().GetCode() != cs3rpc.Code_CODE_OK {
+		g.logger.Error().Err(err).Str("status", resp.GetStatus().GetCode().String()).Msg("could not resolve the public link of the request")
+		return nil
+	}
+	return resp.GetShare().GetPermissions().GetPermissions()
+}
+
+// intersectPermissions reduces l to what r also grants, the same reduction the
+// publicstorageprovider applies on its own responses. A nil r clears l.
+func intersectPermissions(l, r *storageprovider.ResourcePermissions) {
+	l.AddGrant = l.AddGrant && r.GetAddGrant()
+	l.CreateContainer = l.CreateContainer && r.GetCreateContainer()
+	l.Delete = l.Delete && r.GetDelete()
+	l.GetPath = l.GetPath && r.GetGetPath()
+	l.GetQuota = l.GetQuota && r.GetGetQuota()
+	l.InitiateFileDownload = l.InitiateFileDownload && r.GetInitiateFileDownload()
+	l.InitiateFileUpload = l.InitiateFileUpload && r.GetInitiateFileUpload()
+	l.ListContainer = l.ListContainer && r.GetListContainer()
+	l.ListFileVersions = l.ListFileVersions && r.GetListFileVersions()
+	l.ListGrants = l.ListGrants && r.GetListGrants()
+	l.ListRecycle = l.ListRecycle && r.GetListRecycle()
+	l.Move = l.Move && r.GetMove()
+	l.PurgeRecycle = l.PurgeRecycle && r.GetPurgeRecycle()
+	l.RemoveGrant = l.RemoveGrant && r.GetRemoveGrant()
+	l.RestoreFileVersion = l.RestoreFileVersion && r.GetRestoreFileVersion()
+	l.RestoreRecycleItem = l.RestoreRecycleItem && r.GetRestoreRecycleItem()
+	l.Stat = l.Stat && r.GetStat()
+	l.UpdateGrant = l.UpdateGrant && r.GetUpdateGrant()
+	l.DenyGrant = l.DenyGrant && r.GetDenyGrant()
 }
 
 // driveItemPropertySelected reports whether the given opt-in property was requested via $select
@@ -343,7 +400,7 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		return
 	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_OK:
 		if publicDriveRequest(r) {
-			stripSpacePaths(res.GetInfo())
+			g.sanitizePublicDriveInfos(ctx, r, res.GetInfo())
 		}
 	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_NOT_FOUND:
 		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, res.GetStatus().GetMessage())
@@ -459,7 +516,7 @@ func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, dri
 	}
 
 	if publicDriveRequest(r) {
-		stripSpacePaths(res.GetInfos()...)
+		g.sanitizePublicDriveInfos(r.Context(), r, res.GetInfos()...)
 	}
 
 	files, err := formatDriveItems(g.logger, g.publicBaseURL, res.GetInfos())

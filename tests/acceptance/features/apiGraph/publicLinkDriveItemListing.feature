@@ -142,6 +142,29 @@ Feature: listing the content of a public link via the Graph API
       }
       """
 
+  Scenario: advertised permissions inside a public link stay within the link role
+    When the public gets the drive item of path "sub" of the last created public link selecting the allowed actions with password "%public%" using the Graph API
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": ["@libre.graph.permissions.actions.allowedValues"],
+        "properties": {
+          "@libre.graph.permissions.actions.allowedValues": {
+            "type": "array",
+            "minItems": 6,
+            "maxItems": 6,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "not": { "pattern": "/(delete|create|update|deny)$" }
+            }
+          }
+        }
+      }
+      """
+
   Scenario: listing a password protected public link without the password fails
     When the public lists the children of the last created public link using the Graph API
     Then the HTTP status code should be "401"
