@@ -102,3 +102,24 @@ func FieldIsFulltext(field string) bool {
 func FieldIsWordBroken(field string) bool {
 	return siblingFields()[field].Words
 }
+
+// geopointFields maps a lowercased KQL key to its indexed geopoint sibling field,
+// derived from the TypeGeopoint entries in the resource field overrides (e.g.
+// "location" -> "location_geopoint", "journey.start" -> "journey.start_geopoint").
+var geopointFields = sync.OnceValue(func() map[string]string {
+	out := map[string]string{}
+	for key, opts := range (search.Resource{}).SearchFieldOverrides() {
+		if opts.Type == mapping.TypeGeopoint {
+			out[strings.ToLower(key)] = key + mapping.GeopointSuffix
+		}
+	}
+	return out
+})
+
+// ResolveGeoField maps a KQL key to its indexed geopoint field name. ok is false
+// when the key is not a geopoint field, so callers can reject geo predicates on
+// non-geo fields.
+func ResolveGeoField(name string) (string, bool) {
+	f, ok := geopointFields()[strings.ToLower(name)]
+	return f, ok
+}
