@@ -55,12 +55,22 @@ func isPublicShareAppOpen(r *http.Request) bool {
 // the BasicAuthenticator needs to ignore the request when the headerShareToken exist.
 func isPublicWithShareToken(r *http.Request) bool {
 	return (strings.HasPrefix(r.URL.Path, "/dav/public-files") || strings.HasPrefix(r.URL.Path, "/remote.php/dav/public-files")) &&
-		(r.URL.Query().Get(headerShareToken) != "" || r.Header.Get(headerShareToken) != "")
+		hasShareToken(r)
+}
+
+// A graph request carrying a share token runs in the public share context,
+// like public-files.
+func isPublicShareGraphRequest(r *http.Request) bool {
+	return strings.HasPrefix(r.URL.Path, "/graph/") && hasShareToken(r)
+}
+
+func hasShareToken(r *http.Request) bool {
+	return r.URL.Query().Get(headerShareToken) != "" || r.Header.Get(headerShareToken) != ""
 }
 
 // Authenticate implements the authenticator interface to authenticate requests via public share auth.
 func (a PublicShareAuthenticator) Authenticate(r *http.Request) (*http.Request, bool) {
-	if !isPublicPath(r.URL.Path) && !isPublicShareArchive(r) && !isPublicShareAppOpen(r) {
+	if !isPublicPath(r.URL.Path) && !isPublicShareArchive(r) && !isPublicShareAppOpen(r) && !isPublicShareGraphRequest(r) {
 		return nil, false
 	}
 

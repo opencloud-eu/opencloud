@@ -58,6 +58,69 @@ func odataListContains(r *http.Request, parameter, value string) bool {
 	return false
 }
 
+// driveItemInDrive reports whether an item id may be addressed below a drive.
+// Below the public share drive items keep their real storage ids, so the
+// prefix can never match; the token scope checks containment instead.
+func driveItemInDrive(driveID, driveItemID *storageprovider.ResourceId) bool {
+	if driveID.GetStorageId() == utils.PublicStorageProviderID && driveID.GetSpaceId() == utils.PublicStorageSpaceID {
+		return true
+	}
+	return driveID.GetStorageId() == driveItemID.GetStorageId() && driveID.GetSpaceId() == driveItemID.GetSpaceId()
+}
+
+// publicDriveRequest reports whether the request addresses the public share drive.
+func publicDriveRequest(r *http.Request) bool {
+	driveID, err := parseIDParam(r, "driveID")
+	return err == nil &&
+		driveID.GetStorageId() == utils.PublicStorageProviderID &&
+		driveID.GetSpaceId() == utils.PublicStorageSpaceID
+}
+
+// sanitizePublicDriveInfos applies the publicstorageprovider's reduction to
+// infos that bypassed it (navigation by id).
+func (g Graph) sanitizePublicDriveInfos(ctx context.Context, r *http.Request, infos ...*storageprovider.ResourceInfo) error {
+	shareRoot, grant, err := g.publicLinkOfRequest(ctx, r)
+	if err != nil {
+		return err
+	}
+	for _, info := range infos {
+		if info != nil {
+			publicshare.FilterResourceInfo(info, shareRoot, grant)
+		}
+	}
+	return nil
+}
+
+// publicLinkOfRequest resolves the link the request runs in; the token is the
+// public drive's opaque id.
+func (g Graph) publicLinkOfRequest(ctx context.Context, r *http.Request) (*storageprovider.ResourceInfo, *storageprovider.ResourcePermissions, error) {
+	driveID, err := parseIDParam(r, "driveID")
+	if err != nil {
+		return nil, nil, err
+	}
+	gatewayClient, err := g.gatewaySelector.Next()
+	if err != nil {
+		return nil, nil, err
+	}
+	shareResp, err := gatewayClient.GetPublicShare(ctx, &link.GetPublicShareRequest{
+		Ref: &link.PublicShareReference{
+			Spec: &link.PublicShareReference_Token{Token: driveID.GetOpaqueId()},
+		},
+	})
+	if err := errorcode.FromCS3Status(shareResp.GetStatus(), err); err != nil {
+		g.logger.Error().Err(err).Msg("could not resolve the public link of the request")
+		return nil, nil, err
+	}
+	statResp, err := gatewayClient.Stat(ctx, &storageprovider.StatRequest{
+		Ref: &storageprovider.Reference{ResourceId: shareResp.GetShare().GetResourceId()},
+	})
+	if err := errorcode.FromCS3Status(statResp.GetStatus(), err); err != nil {
+		g.logger.Error().Err(err).Msg("could not stat the public link root")
+		return nil, nil, err
+	}
+	return statResp.GetInfo(), shareResp.GetShare().GetPermissions().GetPermissions(), nil
+}
+
 // driveItemPropertySelected reports whether the given opt-in property was requested via $select
 func driveItemPropertySelected(r *http.Request, property string) bool {
 	return odataListContains(r, "$select", property)
@@ -95,7 +158,7 @@ func (g Graph) CreateUploadSession(w http.ResponseWriter, r *http.Request) {
 		errorcode.RenderError(w, r, err)
 		return
 	}
-	if driveID.GetStorageId() != driveItemID.GetStorageId() || driveID.GetSpaceId() != driveItemID.GetSpaceId() {
+	if !driveItemInDrive(&driveID, &driveItemID) {
 		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "Item does not exist")
 		return
 	}
@@ -283,7 +346,7 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		errorcode.RenderError(w, r, err)
 		return
 	}
-	if driveID.GetStorageId() != driveItemID.GetStorageId() || driveID.GetSpaceId() != driveItemID.GetSpaceId() {
+	if !driveItemInDrive(&driveID, &driveItemID) {
 		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "Item does not exist")
 		return
 	}
@@ -308,7 +371,12 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
 	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_OK:
-		// ok
+		if publicDriveRequest(r) {
+			if err := g.sanitizePublicDriveInfos(ctx, r, res.GetInfo()); err != nil {
+				errorcode.RenderError(w, r, err)
+				return
+			}
+		}
 	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_NOT_FOUND:
 		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, res.GetStatus().GetMessage())
 		return
@@ -364,7 +432,7 @@ func (g Graph) GetDriveItemChildren(w http.ResponseWriter, r *http.Request) {
 		errorcode.RenderError(w, r, err)
 		return
 	}
-	if driveID.GetStorageId() != driveItemID.GetStorageId() || driveID.GetSpaceId() != driveItemID.GetSpaceId() {
+	if !driveItemInDrive(&driveID, &driveItemID) {
 		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "Item does not exist")
 		return
 	}
@@ -420,6 +488,13 @@ func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, dri
 	default:
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, res.GetStatus().GetMessage())
 		return nil, false
+	}
+
+	if publicDriveRequest(r) {
+		if err := g.sanitizePublicDriveInfos(r.Context(), r, res.GetInfos()...); err != nil {
+			errorcode.RenderError(w, r, err)
+			return nil, false
+		}
 	}
 
 	files, err := formatDriveItems(g.logger, g.publicBaseURL, res.GetInfos())

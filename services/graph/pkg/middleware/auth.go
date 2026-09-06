@@ -67,7 +67,8 @@ func Auth(opts ...account.Option) func(http.Handler) http.Handler {
 				errorcode.InvalidAuthenticationToken.Render(w, r, http.StatusUnauthorized, "invalid token")
 				return
 			}
-			if ok, err := scope.VerifyScope(ctx, tokenScope, r); err != nil || !ok {
+			// scope handlers judge CS3 requests and url paths, not *http.Request
+			if ok, err := scope.VerifyScope(ctx, tokenScope, r.URL.Path); err != nil || !ok {
 				opt.Logger.Error().Str(log.RequestIDString, r.Header.Get("X-Request-ID")).Err(err).Msg("verifying scope failed")
 				errorcode.InvalidAuthenticationToken.Render(w, r, http.StatusUnauthorized, "verifying scope failed")
 				return

@@ -143,12 +143,18 @@ func publicshareScope(ctx context.Context, scope *authpb.Scope, resource interfa
 		// public links must not leak info about collaborative shares
 		return false, nil
 	case string:
-		return checkResourcePath(v), nil
+		return checkResourcePath(v) || checkGraphDrivesPath(v), nil
 	}
 
 	msg := "public resource type assertion failed"
 	logger.Debug().Str("scope", "publicshareScope").Interface("resource", resource).Msg(msg)
 	return false, errtypes.InternalError(msg)
+}
+
+// checkGraphDrivesPath opens the graph drive routes; what a token may read is
+// enforced per CS3 request.
+func checkGraphDrivesPath(path string) bool {
+	return strings.HasPrefix(path, "/graph/v1.0/drives/") || strings.HasPrefix(path, "/graph/v1beta1/drives/")
 }
 
 func checkStorageRef(ctx context.Context, s *link.PublicShare, r *provider.Reference) bool {
