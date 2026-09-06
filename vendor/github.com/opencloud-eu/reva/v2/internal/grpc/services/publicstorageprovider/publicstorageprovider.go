@@ -871,6 +871,7 @@ func filterPermissions(l *provider.ResourcePermissions, r *provider.ResourcePerm
 	l.RestoreRecycleItem = l.RestoreRecycleItem && r.RestoreRecycleItem
 	l.Stat = l.Stat && r.Stat
 	l.UpdateGrant = l.UpdateGrant && r.UpdateGrant
+	l.DenyGrant = l.DenyGrant && r.DenyGrant
 }
 
 func (s *service) ListFileVersions(ctx context.Context, req *provider.ListFileVersionsRequest) (*provider.ListFileVersionsResponse, error) {
