@@ -92,6 +92,7 @@ type Service interface { //nolint:interfacebloat
 	GetDrivesV1(w http.ResponseWriter, r *http.Request)
 	GetDrivesV1Beta1(w http.ResponseWriter, r *http.Request)
 	GetSingleDrive(w http.ResponseWriter, r *http.Request)
+	GetUserDrive(w http.ResponseWriter, r *http.Request)
 	GetAllDrivesV1(w http.ResponseWriter, r *http.Request)
 	GetAllDrivesV1Beta1(w http.ResponseWriter, r *http.Request)
 	CreateDrive(w http.ResponseWriter, r *http.Request)
