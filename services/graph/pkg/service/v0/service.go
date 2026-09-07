@@ -106,6 +106,10 @@ type Service interface { //nolint:interfacebloat
 	GetDriveItem(w http.ResponseWriter, r *http.Request)
 	GetDriveItemChildren(w http.ResponseWriter, r *http.Request)
 	GetDriveItemContent(w http.ResponseWriter, r *http.Request)
+	ListDriveItemVersions(w http.ResponseWriter, r *http.Request)
+	GetDriveItemVersion(w http.ResponseWriter, r *http.Request)
+	GetDriveItemVersionContent(w http.ResponseWriter, r *http.Request)
+	RestoreDriveItemVersion(w http.ResponseWriter, r *http.Request)
 
 	CreateUploadSession(w http.ResponseWriter, r *http.Request)
 
@@ -384,6 +388,14 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 						r.Get("/", svc.GetDriveItem)
 						r.Get("/children", svc.GetDriveItemChildren)
 						r.Post("/createUploadSession", svc.CreateUploadSession)
+						r.Route("/versions", func(r chi.Router) {
+							r.Get("/", svc.ListDriveItemVersions)
+							r.Route("/{versionID}", func(r chi.Router) {
+								r.Get("/", svc.GetDriveItemVersion)
+								r.Get("/content", svc.GetDriveItemVersionContent)
+								r.Post("/restoreVersion", svc.RestoreDriveItemVersion)
+							})
+						})
 					})
 				})
 			})
