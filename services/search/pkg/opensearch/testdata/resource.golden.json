@@ -188,6 +188,25 @@
           }
         }
       },
+      "livePhoto": {
+        "properties": {
+          "auto": {
+            "type": "boolean"
+          },
+          "contentId": {
+            "type": "keyword"
+          },
+          "stillImageTimeUs": {
+            "type": "long"
+          },
+          "vitalityScore": {
+            "type": "double"
+          },
+          "vitalityScoringVersion": {
+            "type": "long"
+          }
+        }
+      },
       "location": {
         "properties": {
           "altitude": {

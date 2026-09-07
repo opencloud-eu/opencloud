@@ -29,6 +29,7 @@ type Document struct {
 	Photo       *libregraph.Photo          `json:"photo,omitempty"`
 	Video       *libregraph.Video          `json:"video,omitempty"`
 	MotionPhoto *libregraph.MotionPhoto    `json:"motionPhoto,omitempty"`
+	LivePhoto   *libregraph.LivePhoto      `json:"livePhoto,omitempty"`
 }
 
 func CleanString(content, langCode string) string {

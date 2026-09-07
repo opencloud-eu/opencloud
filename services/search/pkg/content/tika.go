@@ -113,6 +113,9 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		if v := t.getAudio(meta); v != nil {
 			doc.Audio = v
 		}
+		if v := t.getLivePhoto(meta); v != nil {
+			doc.LivePhoto = v
+		}
 	}
 
 	if len(metas) > 0 {

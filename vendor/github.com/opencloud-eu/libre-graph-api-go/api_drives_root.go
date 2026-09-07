@@ -548,11 +548,18 @@ type ApiGetRootRequest struct {
 	ApiService *DrivesRootApiService
 	driveId string
 	select_ *[]string
+	expand *[]string
 }
 
 // Select additional properties to be returned.
 func (r ApiGetRootRequest) Select_(select_ []string) ApiGetRootRequest {
 	r.select_ = &select_
+	return r
+}
+
+// Expand related entities to be returned.
+func (r ApiGetRootRequest) Expand(expand []string) ApiGetRootRequest {
+	r.expand = &expand
 	return r
 }
 
@@ -599,6 +606,9 @@ func (a *DrivesRootApiService) GetRootExecute(r ApiGetRootRequest) (*DriveItem, 
 
 	if r.select_ != nil {
 		parameterAddToHeaderOrQuery(localVarQueryParams, "$select", r.select_, "form", "csv")
+	}
+	if r.expand != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "$expand", r.expand, "form", "csv")
 	}
 	// to determine the Content-Type header
 	localVarHTTPContentTypes := []string{}

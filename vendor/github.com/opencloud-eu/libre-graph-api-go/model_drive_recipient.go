@@ -19,6 +19,8 @@ var _ MappedNullable = &DriveRecipient{}
 
 // DriveRecipient Represents a person, group, or other recipient to share a drive item with using the invite action.  When using invite to add permissions, the `driveRecipient` object would specify the `email`, `alias`, or `objectId` of the recipient. Only one of these values is required; multiple values are not accepted. 
 type DriveRecipient struct {
+	// The email address for the recipient, if the recipient has an associated email address.
+	Email *string `json:"email,omitempty"`
 	// The unique identifier for the recipient in the directory.
 	ObjectId *string `json:"objectId,omitempty"`
 	// When the recipient is referenced by objectId this annotation is used to differentiate `user` and `group` recipients.
@@ -44,6 +46,38 @@ func NewDriveRecipientWithDefaults() *DriveRecipient {
 	var libreGraphRecipientType string = "user"
 	this.LibreGraphRecipientType = &libreGraphRecipientType
 	return &this
+}
+
+// GetEmail returns the Email field value if set, zero value otherwise.
+func (o *DriveRecipient) GetEmail() string {
+	if o == nil || IsNil(o.Email) {
+		var ret string
+		return ret
+	}
+	return *o.Email
+}
+
+// GetEmailOk returns a tuple with the Email field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *DriveRecipient) GetEmailOk() (*string, bool) {
+	if o == nil || IsNil(o.Email) {
+		return nil, false
+	}
+	return o.Email, true
+}
+
+// HasEmail returns a boolean if a field has been set.
+func (o *DriveRecipient) HasEmail() bool {
+	if o != nil && !IsNil(o.Email) {
+		return true
+	}
+
+	return false
+}
+
+// SetEmail gets a reference to the given string and assigns it to the Email field.
+func (o *DriveRecipient) SetEmail(v string) {
+	o.Email = &v
 }
 
 // GetObjectId returns the ObjectId field value if set, zero value otherwise.
@@ -120,6 +154,9 @@ func (o DriveRecipient) MarshalJSON() ([]byte, error) {
 
 func (o DriveRecipient) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
+	if !IsNil(o.Email) {
+		toSerialize["email"] = o.Email
+	}
 	if !IsNil(o.ObjectId) {
 		toSerialize["objectId"] = o.ObjectId
 	}

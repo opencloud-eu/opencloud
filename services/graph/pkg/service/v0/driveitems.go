@@ -15,13 +15,16 @@ import (
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	cs3rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
+	link "github.com/cs3org/go-cs3apis/cs3/sharing/link/v1beta1"
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/go-chi/render"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"golang.org/x/crypto/sha3"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	"github.com/opencloud-eu/reva/v2/pkg/publicshare"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/tags"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
@@ -33,10 +36,19 @@ import (
 )
 
 // opt-in driveItem instance annotations, returned only when requested via $select
-const _selectAllowedValues = "@libre.graph.permissions.actions.allowedValues"
+const (
+	_selectAllowedValues = "@libre.graph.permissions.actions.allowedValues"
+	_selectShareTypes    = "@libre.graph.shareTypes"
+)
+
+// without it the provider leaves the share-types opaque empty
+var shareTypesFieldMask = &fieldmaskpb.FieldMask{Paths: []string{"share-types"}}
 
 // opt-in driveItem relations, returned only when requested via $expand
-const _expandChildren = "children"
+const (
+	_expandChildren   = "children"
+	_expandThumbnails = "thumbnails"
+)
 
 func odataListContains(r *http.Request, parameter, value string) bool {
 	for _, values := range r.URL.Query()[parameter] {
@@ -210,9 +222,14 @@ func (g Graph) GetRootDriveChildren(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	lRes, err := gatewayClient.ListContainer(ctx, &storageprovider.ListContainerRequest{
+	listRequest := &storageprovider.ListContainerRequest{
 		Ref: &storageprovider.Reference{ResourceId: space.GetRoot()},
-	})
+	}
+	if driveItemPropertySelected(r, _selectShareTypes) {
+		listRequest.FieldMask = shareTypesFieldMask
+	}
+
+	lRes, err := gatewayClient.ListContainer(ctx, listRequest)
 	switch {
 	case err != nil:
 		g.logger.Error().Err(err).Msg("error making ListContainer grpc call")
@@ -239,11 +256,16 @@ func (g Graph) GetRootDriveChildren(w http.ResponseWriter, r *http.Request) {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
+	g.setDriveItemsThumbnails(r, files, lRes.GetInfos())
 
 	if driveItemPropertySelected(r, _selectAllowedValues) {
 		for i, info := range lRes.GetInfos() {
 			files[i].LibreGraphPermissionsActionsAllowedValues = unifiedrole.CS3ResourcePermissionsToLibregraphActions(info.GetPermissionSet())
 		}
+	}
+
+	if driveItemPropertySelected(r, _selectShareTypes) {
+		g.addShareTypes(ctx, files, lRes.GetInfos())
 	}
 
 	render.Status(r, http.StatusOK)
@@ -323,6 +345,15 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		driveItem.Children = children
 	}
 
+	if driveItemPropertySelected(r, _selectShareTypes) {
+		infos := []*storageprovider.ResourceInfo{res.GetInfo()}
+		driveItem.LibreGraphShareTypes = shareTypesOf(res.GetInfo(), g.listLinkShares(ctx, infos))
+	}
+
+	if driveItemRelationExpanded(r, _expandThumbnails) {
+		setDriveItemThumbnails(driveItem, res.GetInfo(), g.config.Commons.OpenCloudURL)
+	}
+
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, &driveItem)
 }
@@ -371,9 +402,14 @@ func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, dri
 		return nil, false
 	}
 
-	res, err := gatewayClient.ListContainer(r.Context(), &storageprovider.ListContainerRequest{
+	childrenRequest := &storageprovider.ListContainerRequest{
 		Ref: &storageprovider.Reference{ResourceId: driveItemID},
-	})
+	}
+	if driveItemPropertySelected(r, _selectShareTypes) {
+		childrenRequest.FieldMask = shareTypesFieldMask
+	}
+
+	res, err := gatewayClient.ListContainer(r.Context(), childrenRequest)
 	switch {
 	case err != nil:
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
@@ -399,6 +435,12 @@ func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, dri
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return nil, false
 	}
+
+	if driveItemPropertySelected(r, _selectShareTypes) {
+		g.addShareTypes(r.Context(), files, res.GetInfos())
+	}
+
+	g.setDriveItemsThumbnails(r, files, res.GetInfos())
 
 	return files, true
 }
@@ -515,11 +557,14 @@ func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *sto
 		driveItem.Photo = metadataToFacet[libregraph.Photo](metadata, "photo")
 		driveItem.Video = metadataToFacet[libregraph.Video](metadata, "video")
 		driveItem.LibreGraphMotionPhoto = metadataToFacet[libregraph.MotionPhoto](metadata, "motionPhoto")
+		driveItem.LibreGraphLivePhoto = metadataToFacet[libregraph.LivePhoto](metadata, "livePhoto")
 		driveItem.LibreGraphMeFollowing = libregraph.PtrBool(metadata[_favoriteMetadataKey] == "1")
 		if t := metadata["tags"]; t != "" {
 			driveItem.LibreGraphTags = tags.New(t).AsSlice()
 		}
 	}
+
+	driveItem.LockInfo = lockToFacet(res.GetLock())
 
 	if utils.IsProcessing(res) {
 		// queuedDateTime stays absent, we do not track when postprocessing started
@@ -529,6 +574,103 @@ func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *sto
 	}
 
 	return driveItem, nil
+}
+
+// lockToFacet maps a CS3 lock; WebDAV renders the same state as d:lockdiscovery.
+// Only exclusive locks are reported, that is all OpenCloud issues.
+func lockToFacet(lock *storageprovider.Lock) *libregraph.LockInfo {
+	switch lock.GetType() {
+	case storageprovider.LockType_LOCK_TYPE_EXCL, storageprovider.LockType_LOCK_TYPE_WRITE:
+	default:
+		return nil
+	}
+
+	info := libregraph.NewLockInfo()
+	info.SetLockType("exclusive")
+
+	if appName := lock.GetAppName(); appName != "" {
+		info.SetLibreGraphAppName(appName)
+	}
+
+	if user := lock.GetUser(); user != nil {
+		info.SetOwners([]libregraph.Identity{{
+			Id:          libregraph.PtrString(user.GetOpaqueId()),
+			DisplayName: utils.ReadPlainFromOpaque(lock.GetOpaque(), "lockownername"),
+		}})
+	}
+
+	if lockTime, err := time.Parse(time.RFC3339, utils.ReadPlainFromOpaque(lock.GetOpaque(), "locktime")); err == nil {
+		info.SetCreatedDateTime(lockTime.UTC())
+	}
+
+	if expiration := lock.GetExpiration(); expiration != nil {
+		info.SetExpirationDateTime(time.Unix(int64(expiration.GetSeconds()), 0).UTC())
+	}
+
+	return info
+}
+
+// addShareTypes reads user and group shares off the grants, links from the share
+// manager. Links are not stored as grants, so they need one filter per item,
+// which is why the whole annotation is only built when it is selected.
+func (g Graph) addShareTypes(ctx context.Context, items []libregraph.DriveItem, infos []*storageprovider.ResourceInfo) {
+	linkShares := g.listLinkShares(ctx, infos)
+
+	for i, info := range infos {
+		if i >= len(items) {
+			break
+		}
+
+		items[i].LibreGraphShareTypes = shareTypesOf(info, linkShares)
+	}
+}
+
+// shareTypesOf maps the grants on a resource, plus a hit in the link lookup, to
+// the annotation values.
+func shareTypesOf(info *storageprovider.ResourceInfo, linkShares map[string]struct{}) []string {
+	var types []string
+	for _, grant := range strings.Split(utils.ReadPlainFromOpaque(info.GetOpaque(), "share-types"), ",") {
+		switch grant {
+		case strconv.Itoa(int(storageprovider.GranteeType_GRANTEE_TYPE_USER)):
+			types = append(types, "user")
+		case strconv.Itoa(int(storageprovider.GranteeType_GRANTEE_TYPE_GROUP)):
+			types = append(types, "group")
+		}
+	}
+
+	if _, ok := linkShares[info.GetId().GetOpaqueId()]; ok {
+		types = append(types, "link")
+	}
+
+	return types
+}
+
+// listLinkShares returns the resource ids that carry a public link. A failed
+// lookup is logged and treated as "no links", same as the WebDAV PROPFIND.
+func (g Graph) listLinkShares(ctx context.Context, infos []*storageprovider.ResourceInfo) map[string]struct{} {
+	gatewayClient, err := g.gatewaySelector.Next()
+	if err != nil {
+		g.logger.Error().Err(err).Msg("could not select gateway client for public shares")
+		return nil
+	}
+
+	filters := make([]*link.ListPublicSharesRequest_Filter, 0, len(infos))
+	for _, info := range infos {
+		filters = append(filters, publicshare.ResourceIDFilter(info.GetId()))
+	}
+
+	res, err := gatewayClient.ListPublicShares(ctx, &link.ListPublicSharesRequest{Filters: filters})
+	if err != nil || res.GetStatus().GetCode() != cs3rpc.Code_CODE_OK {
+		g.logger.Error().Err(err).Msg("could not list public shares")
+		return nil
+	}
+
+	linkShares := make(map[string]struct{}, len(res.GetShare()))
+	for _, share := range res.GetShare() {
+		linkShares[share.GetResourceId().GetOpaqueId()] = struct{}{}
+	}
+
+	return linkShares
 }
 
 // metadataToFacet builds a DriveItem facet *T from CS3 arbitrary metadata under

@@ -78,6 +78,14 @@ message MotionPhoto {
 	optional int64 videoSize = 3;
 }
 
+message LivePhoto {
+	optional string contentId = 1;
+	optional int64 stillImageTimeUs = 2;
+	optional bool auto = 3;
+	optional double vitalityScore = 4;
+	optional int64 vitalityScoringVersion = 5;
+}
+
 message Entity {
 	Reference ref = 1;
 	ResourceID id = 2;
@@ -101,6 +109,7 @@ message Entity {
 	repeated string favorites = 20;
 	MotionPhoto motionPhoto = 21;
 	Video video = 22;
+	LivePhoto livePhoto = 23;
 }
 
 message Match {

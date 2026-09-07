@@ -11,7 +11,9 @@ import (
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	link "github.com/cs3org/go-cs3apis/cs3/sharing/link/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/go-chi/chi/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -206,6 +208,40 @@ var _ = Describe("Driveitems", func() {
 			Expect(res.Value[0].LibreGraphPermissionsActionsAllowedValues).To(BeNil())
 		})
 
+		It("returns the thumbnails when requested via $expand", func() {
+			cfg.Commons.OpenCloudURL = "https://cloud.test"
+			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+				Status:        status.NewOK(ctx),
+				StorageSpaces: []*provider.StorageSpace{{Owner: currentUser, Root: &provider.ResourceId{}}},
+			}, nil)
+			gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+				Status: status.NewOK(ctx),
+				Infos: []*provider.ResourceInfo{
+					{
+						Type:     provider.ResourceType_RESOURCE_TYPE_FILE,
+						Id:       &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+						MimeType: "image/jpeg",
+						Mtime:    utils.TimeToTS(time.Now()),
+					},
+				},
+			}, nil)
+			r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/me/drive/root/children?$expand=thumbnails", nil)
+			r = r.WithContext(revactx.ContextSetUser(ctx, currentUser))
+			svc.GetRootDriveChildren(rr, r)
+			Expect(rr.Code).To(Equal(http.StatusOK))
+			data, err := io.ReadAll(rr.Body)
+			Expect(err).ToNot(HaveOccurred())
+
+			res := itemsList{}
+			Expect(json.Unmarshal(data, &res)).To(Succeed())
+			Expect(len(res.Value)).To(Equal(1))
+			Expect(res.Value[0].Thumbnails).To(HaveLen(1))
+			Expect(res.Value[0].Thumbnails[0].Small.GetUrl()).To(Equal(
+				"https://cloud.test/dav/spaces/storageid$spaceid!opaqueid" +
+					"?scalingup=0&preview=1&processor=thumbnail&x=36&y=36",
+			))
+		})
+
 		It("returns the allowed actions when requested via $select", func() {
 			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
 				Status:        status.NewOK(ctx),
@@ -246,6 +282,7 @@ var _ = Describe("Driveitems", func() {
 	Describe("GetDriveItem", func() {
 		var (
 			folderInfo *provider.ResourceInfo
+			childInfo  *provider.ResourceInfo
 			mtime      = time.Now()
 		)
 
@@ -279,16 +316,15 @@ var _ = Describe("Driveitems", func() {
 				Status: status.NewOK(ctx),
 				Info:   folderInfo,
 			}, nil)
+			childInfo = &provider.ResourceInfo{
+				Type:  provider.ResourceType_RESOURCE_TYPE_FILE,
+				Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+				Etag:  "etag",
+				Mtime: utils.TimeToTS(mtime),
+			}
 			gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
 				Status: status.NewOK(ctx),
-				Infos: []*provider.ResourceInfo{
-					{
-						Type:  provider.ResourceType_RESOURCE_TYPE_FILE,
-						Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
-						Etag:  "etag",
-						Mtime: utils.TimeToTS(mtime),
-					},
-				},
+				Infos:  []*provider.ResourceInfo{childInfo},
 			}, nil)
 		})
 
@@ -309,6 +345,49 @@ var _ = Describe("Driveitems", func() {
 
 			Expect(getItem(newRequest("?$expand=children")).Children).To(BeNil())
 			gatewayClient.AssertNotCalled(GinkgoT(), "ListContainer", mock.Anything, mock.Anything)
+		})
+
+		Context("$expand=thumbnails", func() {
+			const previewURL = "https://cloud.test/dav/spaces/storageid$spaceid!nodeid" +
+				"?scalingup=0&preview=1&processor=thumbnail"
+
+			BeforeEach(func() {
+				cfg.Commons.OpenCloudURL = "https://cloud.test"
+				folderInfo.Type = provider.ResourceType_RESOURCE_TYPE_FILE
+				folderInfo.MimeType = "image/jpeg"
+			})
+
+			It("leaves thumbnails unset without $expand", func() {
+				Expect(getItem(newRequest("")).Thumbnails).To(BeNil())
+			})
+
+			It("returns the thumbnail urls when requested", func() {
+				thumbnails := getItem(newRequest("?$expand=thumbnails")).Thumbnails
+
+				Expect(thumbnails).To(HaveLen(1))
+				Expect(thumbnails[0].Small.GetUrl()).To(Equal(previewURL + "&x=36&y=36"))
+				Expect(thumbnails[0].Medium.GetUrl()).To(Equal(previewURL + "&x=48&y=48"))
+				Expect(thumbnails[0].Large.GetUrl()).To(Equal(previewURL + "&x=96&y=96"))
+			})
+
+			It("leaves thumbnails unset for a mime type the thumbnailer cannot render", func() {
+				folderInfo.MimeType = "application/zip"
+
+				Expect(getItem(newRequest("?$expand=thumbnails")).Thumbnails).To(BeNil())
+			})
+
+			It("adds them to expanded children as well", func() {
+				folderInfo.Type = provider.ResourceType_RESOURCE_TYPE_CONTAINER
+				folderInfo.MimeType = ""
+				childInfo.MimeType = "image/jpeg"
+
+				item := getItem(newRequest("?$expand=children,thumbnails"))
+
+				// a folder has no preview of its own
+				Expect(item.Thumbnails).To(BeNil())
+				Expect(item.Children).To(HaveLen(1))
+				Expect(item.Children[0].Thumbnails).To(HaveLen(1))
+			})
 		})
 	})
 
@@ -434,6 +513,158 @@ var _ = Describe("Driveitems", func() {
 				Expect(res.Value[0].LibreGraphMeFollowing).To(BeNil())
 				Expect(res.Value[0].LibreGraphTags).To(BeNil())
 				Expect(res.Value[0].PendingOperations).To(BeNil())
+			})
+
+			It("omits share types unless they are selected", func() {
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:   provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:     &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:   "etag",
+							Mtime:  utils.TimeToTS(mtime),
+							Opaque: utils.AppendPlainToOpaque(nil, "share-types", "1,2"),
+						},
+					},
+				}, nil)
+
+				res := assertItemsList(1)
+				Expect(res.Value[0].LibreGraphShareTypes).To(BeNil())
+				gatewayClient.AssertNotCalled(GinkgoT(), "ListPublicShares", mock.Anything, mock.Anything)
+			})
+
+			It("returns the share types of an item when selected", func() {
+				r = r.WithContext(r.Context())
+				q := r.URL.Query()
+				q.Add("$select", "@libre.graph.shareTypes")
+				r.URL.RawQuery = q.Encode()
+
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:   provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:     &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:   "etag",
+							Mtime:  utils.TimeToTS(mtime),
+							Opaque: utils.AppendPlainToOpaque(nil, "share-types", "1,2"),
+						},
+					},
+				}, nil)
+				gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(&link.ListPublicSharesResponse{
+					Status: status.NewOK(ctx),
+					Share: []*link.PublicShare{
+						{ResourceId: &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"}},
+					},
+				}, nil)
+
+				res := assertItemsList(1)
+				Expect(res.Value[0].LibreGraphShareTypes).To(ConsistOf("user", "group", "link"))
+			})
+
+			It("reports only the link when the item has no grants", func() {
+				q := r.URL.Query()
+				q.Add("$select", "@libre.graph.shareTypes")
+				r.URL.RawQuery = q.Encode()
+
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:  provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:  "etag",
+							Mtime: utils.TimeToTS(mtime),
+						},
+					},
+				}, nil)
+				gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(&link.ListPublicSharesResponse{
+					Status: status.NewOK(ctx),
+					Share: []*link.PublicShare{
+						{ResourceId: &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"}},
+					},
+				}, nil)
+
+				res := assertItemsList(1)
+				Expect(res.Value[0].LibreGraphShareTypes).To(ConsistOf("link"))
+			})
+
+			It("keeps the grant types when the public share lookup fails", func() {
+				q := r.URL.Query()
+				q.Add("$select", "@libre.graph.shareTypes")
+				r.URL.RawQuery = q.Encode()
+
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:   provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:     &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:   "etag",
+							Mtime:  utils.TimeToTS(mtime),
+							Opaque: utils.AppendPlainToOpaque(nil, "share-types", "1"),
+						},
+					},
+				}, nil)
+				gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(nil, errors.New("nope"))
+
+				res := assertItemsList(1)
+				Expect(res.Value[0].LibreGraphShareTypes).To(ConsistOf("user"))
+			})
+
+			It("returns the lock info of a locked item", func() {
+				// a lock time with a non-UTC offset, the way reva writes it
+				lockTime := time.Now().Truncate(time.Second).In(time.FixedZone("CEST", 2*60*60))
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:  provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:  "etag",
+							Mtime: utils.TimeToTS(mtime),
+							Lock: &provider.Lock{
+								Type:       provider.LockType_LOCK_TYPE_EXCL,
+								AppName:    "Collabora",
+								User:       &userpb.UserId{OpaqueId: "user-id"},
+								Expiration: &typesv1beta1.Timestamp{Seconds: uint64(lockTime.Add(time.Hour).Unix())},
+								Opaque: utils.AppendPlainToOpaque(
+									utils.AppendPlainToOpaque(nil, "lockownername", "Alice Hansen"),
+									"locktime", lockTime.Format(time.RFC3339)),
+							},
+						},
+					},
+				}, nil)
+
+				res := assertItemsList(1)
+				lock := res.Value[0].LockInfo
+				Expect(lock).ToNot(BeNil())
+				Expect(lock.GetLockType()).To(Equal("exclusive"))
+				Expect(lock.GetLibreGraphAppName()).To(Equal("Collabora"))
+				Expect(lock.GetCreatedDateTime()).To(BeTemporally("==", lockTime))
+				Expect(lock.GetCreatedDateTime().Location()).To(Equal(time.UTC))
+				Expect(lock.GetExpirationDateTime().Location()).To(Equal(time.UTC))
+				Expect(lock.GetExpirationDateTime()).To(BeTemporally("==", lockTime.Add(time.Hour)))
+				Expect(lock.GetOwners()).To(HaveLen(1))
+				Expect(lock.GetOwners()[0].GetId()).To(Equal("user-id"))
+				Expect(lock.GetOwners()[0].GetDisplayName()).To(Equal("Alice Hansen"))
+			})
+
+			It("omits the lock info for an unlocked item", func() {
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:  provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:  "etag",
+							Mtime: utils.TimeToTS(mtime),
+						},
+					},
+				}, nil)
+
+				Expect(assertItemsList(1).Value[0].LockInfo).To(BeNil())
 			})
 
 			It("reports a pending content update while the item is being processed", func() {

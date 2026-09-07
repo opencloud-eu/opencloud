@@ -12,7 +12,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-09-02 23:17+0000\n"
+"POT-Creation-Date: 2026-09-03 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Daniel Nylander <po@danielnylander.se>, 2026\n"
 "Language-Team: Swedish (https://app.transifex.com/opencloud-eu/teams/204053/sv/)\n"
@@ -172,6 +172,9 @@ msgid ""
 "\n"
 "Even though this share has been revoked you still might have access through other shares and/or space memberships."
 msgstr ""
+"{ShareSharer} har slutat dela ”{ShareFolder}” med dig.\\n\\nÄven om denna "
+"delning har återkallats kan du fortfarande ha åtkomst genom andra delningar "
+"och/eller medlemskap i utrymmen."
 
 #. ShareCreated email template, Subject field (resolves directly)
 #: pkg/email/templates.go:17
@@ -181,7 +184,7 @@ msgstr "{ShareSharer} delade '{ShareFolder}' med dig"
 #. ShareRemoved email template, Subject field (resolves directly)
 #: pkg/email/templates.go:30
 msgid "{ShareSharer} unshared '{ShareFolder}' with you"
-msgstr ""
+msgstr "{ShareSharer} har slutat dela ”{ShareFolder}” med dig"
 
 #. SharedSpace email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:61

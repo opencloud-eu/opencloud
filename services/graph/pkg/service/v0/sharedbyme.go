@@ -1,14 +1,12 @@
 package svc
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	"github.com/go-chi/render"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
-	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail"
 
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 )
@@ -44,30 +42,8 @@ func (g Graph) GetSharedByMe(w http.ResponseWriter, r *http.Request) {
 	expandThumbnails := strings.Contains(expand, "thumbnails")
 	if expandThumbnails {
 		for k, item := range driveItems {
-			mt := item.GetFile().MimeType
-			if mt == nil {
-				continue
-			}
-
-			_, match := thumbnail.SupportedMimeTypes[*mt]
-			if match {
-				baseUrl := fmt.Sprintf("%s/dav/spaces/%s?scalingup=0&preview=1&processor=thumbnail",
-					g.config.Commons.OpenCloudURL,
-					item.GetId())
-				smallUrl := baseUrl + "&x=36&y=36"
-				mediumUrl := baseUrl + "&x=48&y=48"
-				largeUrl := baseUrl + "&x=96&y=96"
-
-				item.SetThumbnails([]libregraph.ThumbnailSet{
-					{
-						Small:  &libregraph.Thumbnail{Url: &smallUrl},
-						Medium: &libregraph.Thumbnail{Url: &mediumUrl},
-						Large:  &libregraph.Thumbnail{Url: &largeUrl},
-					},
-				})
-
-				driveItems[k] = item // assign modified item back to the map
-			}
+			setShareThumbnails(&item, item.GetId(), g.config.Commons.OpenCloudURL)
+			driveItems[k] = item
 		}
 	}
 

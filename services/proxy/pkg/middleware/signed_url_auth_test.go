@@ -2,11 +2,13 @@ package middleware
 
 import (
 	"context"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
@@ -67,6 +69,27 @@ func TestSignedURLAuth_shouldServe(t *testing.T) {
 
 		if result != tt.expected {
 			t.Errorf("with %s expected %t got %t", tt.url, tt.expected, result)
+		}
+	}
+}
+
+func TestSignedURLAuth_authenticateRejectsDisallowedMethods(t *testing.T) {
+	signer, err := signedurl.NewJWTSignedURL(signedurl.WithSecret("secret"))
+	if err != nil {
+		t.Fatalf("failed to create signer: %v", err)
+	}
+	signed, err := signer.Sign("https://example.com/dav/spaces/file.txt", "userid", time.Minute)
+	if err != nil {
+		t.Fatalf("failed to sign url: %v", err)
+	}
+
+	pua := SignedURLAuthenticator{Logger: log.NewLogger(), URLVerifier: signer}
+	pua.PreSignedURLConfig.AllowedHTTPMethods = []string{"GET"}
+
+	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete, "PROPFIND", "MOVE"} {
+		r := httptest.NewRequest(method, signed, nil)
+		if _, ok := pua.authenticate(r); ok {
+			t.Errorf("expected %s with a signed url to be rejected", method)
 		}
 	}
 }

@@ -68,6 +68,7 @@ type DriveItem struct {
 	Video *Video `json:"video,omitempty"`
 	LibreGraphMotionPhoto *MotionPhoto `json:"@libre.graph.motionPhoto,omitempty"`
 	LibreGraphLivePhoto *LivePhoto `json:"@libre.graph.livePhoto,omitempty"`
+	LockInfo *LockInfo `json:"lockInfo,omitempty"`
 	// Indicates if the item is synchronized with the underlying storage provider. Read-only.
 	ClientSynchronize *bool `json:"@client.synchronize,omitempty"`
 	// A pre-authenticated URL that can be used to download the item's content without providing an Authorization header. The URL is short-lived and cannot be cached.  This annotation is only populated when explicitly requested via `$select`, and only for items that have a `file` facet. The returned URL is valid for a limited time and should be used promptly. 
@@ -80,6 +81,8 @@ type DriveItem struct {
 	LibreGraphTags []string `json:"@libre.graph.tags,omitempty"`
 	// A list of actions the caller is allowed to perform on this item.  Only returned when explicitly requested via `$select` on endpoints that support it. Mirrors the annotation of the same name on the `/permissions` endpoint, allowing clients to learn a caller's effective actions on an item without a separate round-trip. 
 	LibreGraphPermissionsActionsAllowedValues []string `json:"@libre.graph.permissions.actions.allowedValues,omitempty"`
+	// The types of shares existing on this item, aggregated over all of its grants. Absent or empty if the item is not shared.  This is a summary of the item's `permissions` collection. For the full grants use the permissions endpoints, for the caller's own capabilities use `@libre.graph.permissions.actions.allowedValues`.  Only returned when explicitly requested via `$select`. 
+	LibreGraphShareTypes []string `json:"@libre.graph.shareTypes,omitempty"`
 }
 
 // NewDriveItem instantiates a new DriveItem object
@@ -1155,6 +1158,38 @@ func (o *DriveItem) SetLibreGraphLivePhoto(v LivePhoto) {
 	o.LibreGraphLivePhoto = &v
 }
 
+// GetLockInfo returns the LockInfo field value if set, zero value otherwise.
+func (o *DriveItem) GetLockInfo() LockInfo {
+	if o == nil || IsNil(o.LockInfo) {
+		var ret LockInfo
+		return ret
+	}
+	return *o.LockInfo
+}
+
+// GetLockInfoOk returns a tuple with the LockInfo field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *DriveItem) GetLockInfoOk() (*LockInfo, bool) {
+	if o == nil || IsNil(o.LockInfo) {
+		return nil, false
+	}
+	return o.LockInfo, true
+}
+
+// HasLockInfo returns a boolean if a field has been set.
+func (o *DriveItem) HasLockInfo() bool {
+	if o != nil && !IsNil(o.LockInfo) {
+		return true
+	}
+
+	return false
+}
+
+// SetLockInfo gets a reference to the given LockInfo and assigns it to the LockInfo field.
+func (o *DriveItem) SetLockInfo(v LockInfo) {
+	o.LockInfo = &v
+}
+
 // GetClientSynchronize returns the ClientSynchronize field value if set, zero value otherwise.
 func (o *DriveItem) GetClientSynchronize() bool {
 	if o == nil || IsNil(o.ClientSynchronize) {
@@ -1347,6 +1382,38 @@ func (o *DriveItem) SetLibreGraphPermissionsActionsAllowedValues(v []string) {
 	o.LibreGraphPermissionsActionsAllowedValues = v
 }
 
+// GetLibreGraphShareTypes returns the LibreGraphShareTypes field value if set, zero value otherwise.
+func (o *DriveItem) GetLibreGraphShareTypes() []string {
+	if o == nil || IsNil(o.LibreGraphShareTypes) {
+		var ret []string
+		return ret
+	}
+	return o.LibreGraphShareTypes
+}
+
+// GetLibreGraphShareTypesOk returns a tuple with the LibreGraphShareTypes field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *DriveItem) GetLibreGraphShareTypesOk() ([]string, bool) {
+	if o == nil || IsNil(o.LibreGraphShareTypes) {
+		return nil, false
+	}
+	return o.LibreGraphShareTypes, true
+}
+
+// HasLibreGraphShareTypes returns a boolean if a field has been set.
+func (o *DriveItem) HasLibreGraphShareTypes() bool {
+	if o != nil && !IsNil(o.LibreGraphShareTypes) {
+		return true
+	}
+
+	return false
+}
+
+// SetLibreGraphShareTypes gets a reference to the given []string and assigns it to the LibreGraphShareTypes field.
+func (o *DriveItem) SetLibreGraphShareTypes(v []string) {
+	o.LibreGraphShareTypes = v
+}
+
 func (o DriveItem) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -1456,6 +1523,9 @@ func (o DriveItem) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.LibreGraphLivePhoto) {
 		toSerialize["@libre.graph.livePhoto"] = o.LibreGraphLivePhoto
 	}
+	if !IsNil(o.LockInfo) {
+		toSerialize["lockInfo"] = o.LockInfo
+	}
 	if !IsNil(o.ClientSynchronize) {
 		toSerialize["@client.synchronize"] = o.ClientSynchronize
 	}
@@ -1473,6 +1543,9 @@ func (o DriveItem) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.LibreGraphPermissionsActionsAllowedValues) {
 		toSerialize["@libre.graph.permissions.actions.allowedValues"] = o.LibreGraphPermissionsActionsAllowedValues
+	}
+	if !IsNil(o.LibreGraphShareTypes) {
+		toSerialize["@libre.graph.shareTypes"] = o.LibreGraphShareTypes
 	}
 	return toSerialize, nil
 }

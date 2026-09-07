@@ -26,11 +26,18 @@ type ApiHomeGetRootRequest struct {
 	ctx context.Context
 	ApiService *MeDriveRootApiService
 	select_ *[]string
+	expand *[]string
 }
 
 // Select additional properties to be returned.
 func (r ApiHomeGetRootRequest) Select_(select_ []string) ApiHomeGetRootRequest {
 	r.select_ = &select_
+	return r
+}
+
+// Expand related entities to be returned.
+func (r ApiHomeGetRootRequest) Expand(expand []string) ApiHomeGetRootRequest {
+	r.expand = &expand
 	return r
 }
 
@@ -74,6 +81,9 @@ func (a *MeDriveRootApiService) HomeGetRootExecute(r ApiHomeGetRootRequest) (*Dr
 
 	if r.select_ != nil {
 		parameterAddToHeaderOrQuery(localVarQueryParams, "$select", r.select_, "form", "csv")
+	}
+	if r.expand != nil {
+		parameterAddToHeaderOrQuery(localVarQueryParams, "$expand", r.expand, "form", "csv")
 	}
 	// to determine the Content-Type header
 	localVarHTTPContentTypes := []string{}
