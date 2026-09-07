@@ -16,7 +16,6 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
-	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
 	bcl "github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/backchannellogout"
 )
 
@@ -62,6 +61,9 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 	hash := make([]byte, 64)
 	sha3.ShakeSum256(hash, []byte(token))
 	encodedHash := base64.URLEncoding.EncodeToString(hash)
+	if err := m.checkRevocation(encodedHash); err != nil {
+		return nil, false, err
+	}
 
 	record, err := m.userInfoCache.Read(encodedHash)
 	if err != nil && err != store.ErrNotFound {
@@ -112,46 +114,46 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 		return claims, true, nil
 	}
 
-	go func() {
-		err = m.userInfoCache.Write(&store.Record{
-			Key:    encodedHash,
-			Value:  d,
-			Expiry: time.Until(expiration),
-		})
-		if err != nil {
-			m.Logger.Error().Err(err).Msg("failed to write to userinfo cache")
+	// Register the token before making the claims reusable. Every token needs its
+	// own entry, including tokens issued by a refresh of an existing session.
+	subject := aClaims.Subject
+	if subject == "" {
+		subject, _ = claims["sub"].(string)
+	}
+	subjectSessionKey, err := bcl.NewTokenKey(subject, aClaims.SessionID, encodedHash)
+	if err != nil {
+		// Providers without a subject or session cannot support backchannel
+		// logout, but their existing authentication behavior remains unchanged.
+		m.Logger.Debug().Err(err).Msg("could not build session lookup key")
+	}
+	if err == nil {
+		var tokenTTL time.Duration
+		var writeOptions []store.WriteOption
+		if aClaims.ExpiresAt != nil {
+			tokenTTL = time.Until(aClaims.ExpiresAt.Time)
+			writeOptions = append(writeOptions, store.WriteExpiry(aClaims.ExpiresAt.Time))
 		}
-
-		// fail if creating the storage key fails,
-		// it means there is no subject and no session.
-		//
-		// ok: {key: ".sessionId"}
-		// ok: {key: "subject."}
-		// ok: {key: "subject.sessionId"}
-		// fail: {key: "."}
-		subjectSessionKey, err := bcl.NewKey(aClaims.Subject, aClaims.SessionID)
-		switch {
-		// fails if the verify method is set to `none`, in that case the oidc client verification returns
-		// an empty oidcclient.RegClaimsWithSID but no err.
-		//
-		// revisit once:
-		//   - Authelia OpenID Connect Back-Channel Logout 1.0 is implemented,
-		//     e.g. https://www.authelia.com/roadmap/active/openid-connect-1.0-provider/#beta-9
-		case m.AccessTokenVerifyMethod == config.AccessTokenVerificationNone && errors.Is(err, bcl.ErrInvalidKey):
-			return
-		case err != nil:
-			m.Logger.Error().Err(err).Msg("failed to build subject.session")
-			return
-		}
-
+		// A token with no trusted expiration can outlive the claims cache.
+		// Its logout record must therefore not use the claims-cache TTL.
 		if err := m.userInfoCache.Write(&store.Record{
 			Key:    subjectSessionKey,
 			Value:  []byte(encodedHash),
-			Expiry: time.Until(expiration),
-		}); err != nil {
-			m.Logger.Error().Err(err).Msg("failed to write session lookup cache")
+			Expiry: tokenTTL,
+		}, writeOptions...); err != nil {
+			return nil, false, errors.Wrap(err, "failed to write session lookup cache")
 		}
-	}()
+	}
+	if err := m.userInfoCache.Write(&store.Record{
+		Key:    encodedHash,
+		Value:  d,
+		Expiry: time.Until(expiration),
+	}, store.WriteExpiry(expiration)); err != nil {
+		m.Logger.Error().Err(err).Msg("failed to write to userinfo cache")
+	}
+	// A logout may have arrived while the token was being verified or cached.
+	if err := m.checkRevocation(encodedHash); err != nil {
+		return nil, false, err
+	}
 
 	// If we get here this was a new login (or a renewal of the token)
 	// add a flag about that to the claims, to be able to distinguish
@@ -159,6 +161,17 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 
 	m.Logger.Debug().Interface("claims", claims).Msg("extracted claims")
 	return claims, true, nil
+}
+
+func (m *OIDCAuthenticator) checkRevocation(tokenKey string) error {
+	revoked, err := bcl.IsTokenRevoked(tokenKey, m.userInfoCache)
+	if err != nil {
+		return errors.Wrap(err, "failed to read token revocation")
+	}
+	if revoked {
+		return errors.New("access token has been logged out")
+	}
+	return nil
 }
 
 // extractExpiration tries to extract the expriration time from the access token
