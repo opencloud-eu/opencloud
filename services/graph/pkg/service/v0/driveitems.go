@@ -39,6 +39,7 @@ import (
 const (
 	_selectAllowedValues = "@libre.graph.permissions.actions.allowedValues"
 	_selectShareTypes    = "@libre.graph.shareTypes"
+	_selectDownloadURL   = "@microsoft.graph.downloadUrl"
 )
 
 // without it the provider leaves the share-types opaque empty
@@ -290,7 +291,6 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
-
 	if driveItemPropertySelected(r, _selectAllowedValues) {
 		setDriveItemAllowedValues(driveItem, res.GetInfo())
 	}
@@ -308,6 +308,7 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		infos := []*storageprovider.ResourceInfo{res.GetInfo()}
 		driveItem.LibreGraphShareTypes = shareTypesOf(res.GetInfo(), g.listLinkShares(ctx, infos))
 	}
+	g.setDriveItemDownloadURL(r, driveItem)
 
 	if driveItemRelationExpanded(r, _expandThumbnails) {
 		setDriveItemThumbnails(driveItem, res.GetInfo(), g.config.Commons.OpenCloudURL, g.sourceTypes)
@@ -400,6 +401,7 @@ func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, dri
 	if driveItemPropertySelected(r, _selectShareTypes) {
 		g.addShareTypes(r.Context(), files, res.GetInfos())
 	}
+	g.SetDriveItemsDownloadURL(r, files)
 
 	g.setDriveItemsThumbnails(r, files, res.GetInfos())
 

@@ -980,6 +980,27 @@ var _ = Describe("DrivesDriveItemApi", func() {
 				jsonData := gjson.Get(w.Body.String(), "error")
 				Expect(jsonData.Get("code").String() + ": " + jsonData.Get("message").String()).To(Equal(svc.ErrDriveItemConversion.Error()))
 			})
+
+			It("adds the download url when selected via $select", func() {
+				baseGraphProvider.
+					EXPECT().
+					CS3ReceivedSharesToDriveItems(mock.Anything, mock.Anything).
+					Return([]libregraph.DriveItem{{}}, nil).
+					Once()
+				baseGraphProvider.
+					EXPECT().
+					SetDriveItemsDownloadURL(mock.Anything, mock.Anything).
+					Return().
+					Once()
+
+				r = httptest.NewRequest(http.MethodGet, "/?$select=@microsoft.graph.downloadUrl", nil).
+					WithContext(
+						context.WithValue(context.Background(), chi.RouteCtxKey, rCTX),
+					)
+
+				drivesDriveItemApi.GetDriveItem(w, r)
+				Expect(w.Code).To(Equal(http.StatusOK))
+			})
 		})
 
 		It("successfully returns the share", func() {
