@@ -43,18 +43,8 @@ func (g Graph) RestoreDriveItem(w http.ResponseWriter, r *http.Request) {
 
 	// the listing gives us the original location, needed for the default target and the response
 	key := itemID.GetOpaqueId()
-	items, ok := g.listRecycle(w, r, itemID, key)
+	trashed, ok := g.findRecycleItem(w, r, itemID, key)
 	if !ok {
-		return
-	}
-	var trashed *storageprovider.RecycleItem
-	for _, item := range items {
-		if item.GetKey() == key {
-			trashed = item
-		}
-	}
-	if trashed == nil {
-		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "item not found")
 		return
 	}
 
@@ -76,7 +66,7 @@ func (g Graph) RestoreDriveItem(w http.ResponseWriter, r *http.Request) {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if !renderTrashStatus(w, r, res.GetStatus()) {
+	if !renderTrashStatus(w, r, res.GetStatus(), false) {
 		return
 	}
 
@@ -173,7 +163,7 @@ func (g Graph) PermanentDeleteDriveItem(w http.ResponseWriter, r *http.Request) 
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if !renderTrashStatus(w, r, delRes.GetStatus()) {
+	if !renderTrashStatus(w, r, delRes.GetStatus(), false) {
 		return
 	}
 
@@ -237,7 +227,7 @@ func (g Graph) purgeRecycle(w http.ResponseWriter, r *http.Request, driveID *sto
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if !renderTrashStatus(w, r, res.GetStatus()) {
+	if !renderTrashStatus(w, r, res.GetStatus(), false) {
 		return
 	}
 
@@ -276,16 +266,21 @@ func parseTrashItemID(w http.ResponseWriter, r *http.Request) (*storageprovider.
 	return &itemID, true
 }
 
-// renderTrashStatus maps a mutating trash call's status; true means OK. Unlike the listing,
-// PERMISSION_DENIED is a 403 here: the caller could already see the item.
-func renderTrashStatus(w http.ResponseWriter, r *http.Request, st *cs3rpc.Status) bool {
+// renderTrashStatus maps a trash call's status; true means OK. hideExistence turns
+// PERMISSION_DENIED into a 404, for listings; mutations answer 403 because the caller
+// could already see the item.
+func renderTrashStatus(w http.ResponseWriter, r *http.Request, st *cs3rpc.Status, hideExistence bool) bool {
 	switch st.GetCode() {
 	case cs3rpc.Code_CODE_OK:
 		return true
 	case cs3rpc.Code_CODE_NOT_FOUND:
 		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, st.GetMessage())
 	case cs3rpc.Code_CODE_PERMISSION_DENIED:
-		errorcode.AccessDenied.Render(w, r, http.StatusForbidden, st.GetMessage())
+		if hideExistence {
+			errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, st.GetMessage())
+		} else {
+			errorcode.AccessDenied.Render(w, r, http.StatusForbidden, st.GetMessage())
+		}
 	case cs3rpc.Code_CODE_UNAUTHENTICATED:
 		errorcode.Unauthenticated.Render(w, r, http.StatusUnauthorized, st.GetMessage())
 	case cs3rpc.Code_CODE_ALREADY_EXISTS:

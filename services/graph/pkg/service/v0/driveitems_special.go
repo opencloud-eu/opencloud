@@ -6,7 +6,6 @@ import (
 	"path"
 	"strings"
 
-	cs3rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -56,8 +55,16 @@ func (g Graph) getSpecialDriveItemForKey(w http.ResponseWriter, r *http.Request,
 	if key == "" {
 		return recycleBinDriveItem(driveID), true
 	}
+	item, ok := g.findRecycleItem(w, r, driveID, key)
+	if !ok {
+		return nil, false
+	}
+	return recycleItemToDriveItem(driveID, item), true
+}
 
-	// A top-level key lists itself, a nested key only shows up in its parent's listing.
+// findRecycleItem returns the trashed item with the given key. A top-level key lists itself,
+// a nested key (key/rel/path) only shows up in its parent's listing.
+func (g Graph) findRecycleItem(w http.ResponseWriter, r *http.Request, driveID *storageprovider.ResourceId, key string) (*storageprovider.RecycleItem, bool) {
 	listKey := key
 	if strings.Contains(key, "/") {
 		listKey = path.Dir(key) + "/"
@@ -68,7 +75,7 @@ func (g Graph) getSpecialDriveItemForKey(w http.ResponseWriter, r *http.Request,
 	}
 	for _, item := range items {
 		if item.GetKey() == key {
-			return recycleItemToDriveItem(driveID, item), true
+			return item, true
 		}
 	}
 	errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "item not found")
@@ -144,26 +151,14 @@ func (g Graph) listRecycle(w http.ResponseWriter, r *http.Request, driveID *stor
 		Ref: &storageprovider.Reference{ResourceId: spaceRootID(driveID)},
 		Key: key,
 	})
-	switch {
-	case err != nil:
+	if err != nil {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return nil, false
-	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_OK:
-		// ok
-	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_NOT_FOUND:
-		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, res.GetStatus().GetMessage())
-		return nil, false
-	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_PERMISSION_DENIED:
-		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, res.GetStatus().GetMessage()) // do not leak existence, like listDriveItemChildren
-		return nil, false
-	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_UNAUTHENTICATED:
-		errorcode.Unauthenticated.Render(w, r, http.StatusUnauthorized, res.GetStatus().GetMessage())
-		return nil, false
-	default:
-		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, res.GetStatus().GetMessage())
+	}
+	// like listDriveItemChildren, a denied listing does not disclose existence
+	if !renderTrashStatus(w, r, res.GetStatus(), true) {
 		return nil, false
 	}
-
 	return res.GetRecycleItems(), true
 }
 
