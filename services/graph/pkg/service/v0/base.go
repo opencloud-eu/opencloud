@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"path"
 	"time"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/share"
+	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
@@ -39,6 +41,7 @@ import (
 type BaseGraphProvider interface {
 	CS3ReceivedSharesToDriveItems(ctx context.Context, receivedShares []*collaboration.ReceivedShare) ([]libregraph.DriveItem, error)
 	CS3ReceivedOCMSharesToDriveItems(ctx context.Context, receivedOCMShares []*ocm.ReceivedShare) ([]libregraph.DriveItem, error)
+	SetDriveItemsDownloadURL(r *http.Request, items []libregraph.DriveItem)
 }
 
 // BaseGraphService implements a couple of helper functions that are
@@ -50,6 +53,7 @@ type BaseGraphService struct {
 	config          *config.Config
 	availableRoles  []*libregraph.UnifiedRoleDefinition
 	publicBaseURL   *url.URL
+	downloadSigner  signedurl.Signer
 }
 
 // webURLForResource returns the public web URL pointing at the given resource
