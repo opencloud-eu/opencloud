@@ -3759,6 +3759,28 @@ class GraphContext implements Context {
 	}
 
 	/**
+	 * The public link drive endpoint rejects the token as a query parameter,
+	 * so it rides in the header here.
+	 *
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public gets the drive of the last created public link with password :password using the Graph API')]
+	public function thePublicGetsTheDriveOfTheLastCreatedPublicLink(?string $password = null): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$driveId = $this->publicLinkDriveId($token);
+		$response = HttpRequestHelper::get(
+			$this->featureContext->getBaseUrl() . "/graph/v1.0/drives/$driveId",
+			$this->featureContext->getStepLineRef(),
+			$password === null ? null : "public",
+			$this->featureContext->getActualPassword($password),
+			["public-token" => $token]
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
 	 * Item anchored colon path: the anchor id is resolved through the public
 	 * children listing, so the step stays within the public API.
 	 *

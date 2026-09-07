@@ -335,3 +335,31 @@ Feature: listing the content of a public link via the Graph API
       | delete                  | 400  |
       | rename                  | 400  |
       | list the permissions of | 404  |
+
+
+  Scenario: the public sees who shared the link on the drive
+    When the public gets the drive of the last created public link with password "%public%" using the Graph API
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": ["driveType", "owner"],
+        "properties": {
+          "driveType": { "const": "mountpoint" },
+          "owner": {
+            "type": "object",
+            "required": ["user"],
+            "properties": {
+              "user": {
+                "type": "object",
+                "required": ["id", "displayName"],
+                "properties": {
+                  "displayName": { "const": "Alice Hansen" }
+                }
+              }
+            }
+          }
+        }
+      }
+      """
