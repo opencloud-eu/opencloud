@@ -58,18 +58,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			userInfoCache := store.Create(
-				store.Store(cfg.OIDC.UserinfoCache.Store),
-				store.TTL(cfg.OIDC.UserinfoCache.TTL),
-				microstore.Nodes(cfg.OIDC.UserinfoCache.Nodes...),
-				microstore.Database(cfg.OIDC.UserinfoCache.Database),
-				microstore.Table(cfg.OIDC.UserinfoCache.Table),
-				store.DisablePersistence(cfg.OIDC.UserinfoCache.DisablePersistence),
-				store.Authentication(cfg.OIDC.UserinfoCache.AuthUsername, cfg.OIDC.UserinfoCache.AuthPassword),
-				store.TLSEnabled(cfg.OIDC.UserinfoCache.EnableTLS),
-				store.TLSInsecure(cfg.OIDC.UserinfoCache.TLSInsecure),
-				store.TLSRootCA(cfg.OIDC.UserinfoCache.TLSRootCACertificate),
-			)
+			userInfoCache := newUserInfoCache(cfg.OIDC.UserinfoCache)
 
 			signingKeyStore := store.Create(
 				store.Store(cfg.PreSignedURL.SigningKeys.Store),
@@ -121,6 +110,12 @@ func Server(cfg *config.Config) *cobra.Command {
 				cfg.Context, cancel = signal.NotifyContext(context.Background(), runner.StopSignals...)
 				defer cancel()
 			}
+			if err := migrateUserInfoCache(cfg.Context, userInfoCache, cfg.OIDC.UserinfoCache); err != nil {
+				return fmt.Errorf("failed to migrate OIDC cache: %w", err)
+			}
+			cacheContext, stopCacheCleanup := context.WithCancel(cfg.Context)
+			defer stopCacheCleanup()
+			go userInfoCache.CollectExpired(cacheContext, logger)
 
 			m := metrics.New()
 			m.BuildInfo.WithLabelValues(version.GetString()).Set(1)
