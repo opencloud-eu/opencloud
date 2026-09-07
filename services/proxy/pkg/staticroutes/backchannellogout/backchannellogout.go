@@ -6,6 +6,7 @@ package backchannellogout
 import (
 	"encoding/base64"
 	"errors"
+	"math"
 	"strings"
 
 	microstore "go-micro.dev/v4/store"
@@ -29,6 +30,38 @@ func NewKey(subject, session string) (string, error) {
 	}
 
 	return subjectSession, nil
+}
+
+// NewTokenKey associates a token with a subject and session without replacing
+// tokens that were previously issued for the same session.
+func NewTokenKey(subject, session, tokenKey string) (string, error) {
+	key, err := NewKey(subject, session)
+	if err != nil {
+		return "", err
+	}
+	if tokenKey == "" || strings.Contains(tokenKey, ".") {
+		return "", ErrInvalidKey
+	}
+	parts := strings.Split(key, ".")
+	return strings.Join([]string{parts[0], tokenKey, parts[1]}, "."), nil
+}
+
+// RevokedTokenKey is separate from the claims key so that a concurrent cache
+// write cannot overwrite a logout decision.
+func RevokedTokenKey(tokenKey string) string {
+	return "revoked/" + tokenKey
+}
+
+// IsTokenRevoked checks whether a token was invalidated by backchannel logout.
+func IsTokenRevoked(tokenKey string, cache microstore.Store) (bool, error) {
+	records, err := cache.Read(RevokedTokenKey(tokenKey))
+	if errors.Is(err, microstore.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return len(records) > 0, nil
 }
 
 // LogoutMode defines the mode of backchannel logout, either by session or by subject
@@ -99,6 +132,12 @@ func NewSuSe(key string) (SuSe, error) {
 	case 2:
 		suse.encodedSubject = keys[0]
 		suse.encodedSession = keys[1]
+	case 3:
+		if keys[1] == "" {
+			return suse, ErrInvalidSubjectOrSession
+		}
+		suse.encodedSubject = keys[0]
+		suse.encodedSession = keys[2]
 	default:
 		return suse, ErrInvalidSubjectOrSession
 	}
@@ -148,17 +187,13 @@ func GetLogoutRecords(suse SuSe, store microstore.Store) ([]*microstore.Record, 
 	}
 
 	// the go micro memory store requires a limit to work, why???
-	records, err := store.Read(key, append(opts, microstore.ReadLimit(1000))...)
+	records, err := store.Read(key, append(opts, microstore.ReadLimit(math.MaxInt))...)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(records) == 0 {
 		return nil, microstore.ErrNotFound
-	}
-
-	if suse.Mode() == LogoutModeSession && len(records) > 1 {
-		return nil, errors.Join(errors.New("multiple session records found"), ErrSuspiciousCacheResult)
 	}
 
 	// double-check if the found records match the requested subject and or session id as well,
@@ -174,8 +209,9 @@ func GetLogoutRecords(suse SuSe, store microstore.Store) ([]*microstore.Record, 
 		// in subject mode, the subject must match, but the session id can be different
 		case suse.Mode() == LogoutModeSubject && suse.encodedSubject == recordSuSe.encodedSubject:
 			continue
-		// in session mode, the session id must match, but the subject can be different
-		case suse.Mode() == LogoutModeSession && suse.encodedSession == recordSuSe.encodedSession:
+		// In session mode, match the subject too when it was supplied.
+		case suse.Mode() == LogoutModeSession && suse.encodedSession == recordSuSe.encodedSession &&
+			(suse.encodedSubject == "" || suse.encodedSubject == recordSuSe.encodedSubject):
 			continue
 		}
 

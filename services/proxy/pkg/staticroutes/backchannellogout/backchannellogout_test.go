@@ -1,6 +1,7 @@
 package backchannellogout
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -16,6 +17,68 @@ func mustNewKey(t *testing.T, subject, session string) string {
 	key, err := NewKey(subject, session)
 	require.NoError(t, err)
 	return key
+}
+
+func TestTokenLookupKeys(t *testing.T) {
+	for _, tt := range []struct{ subject, session string }{
+		{"alice", "session"}, {"alice", ""}, {"", "session"},
+	} {
+		t.Run(tt.subject+"/"+tt.session, func(t *testing.T) {
+			key, err := NewTokenKey(tt.subject, tt.session, "token-key")
+			require.NoError(t, err)
+			suse, err := NewSuSe(key)
+			require.NoError(t, err)
+			subject, err := suse.Subject()
+			require.NoError(t, err)
+			session, err := suse.Session()
+			require.NoError(t, err)
+			require.Equal(t, tt.subject, subject)
+			require.Equal(t, tt.session, session)
+		})
+	}
+	_, err := NewTokenKey("", "", "token-key")
+	require.ErrorIs(t, err, ErrInvalidKey)
+	_, err = NewTokenKey("alice", "session", "")
+	require.ErrorIs(t, err, ErrInvalidKey)
+	_, err = NewTokenKey("alice", "session", "invalid.key")
+	require.ErrorIs(t, err, ErrInvalidKey)
+}
+
+func TestGetLogoutRecordsIncludesAllTokens(t *testing.T) {
+	cache := store.NewMemoryStore()
+	// Unrelated entries must not make the lookup truncate before finding the
+	// session. The memory store applies its read limit before filtering keys.
+	for i := range 1100 {
+		require.NoError(t, cache.Write(&store.Record{Key: fmt.Sprintf("unrelated-%d", i)}))
+	}
+	want := []string{}
+	for _, token := range []string{"first", "second"} {
+		key, err := NewTokenKey("alice", "session", token)
+		require.NoError(t, err)
+		require.NoError(t, cache.Write(&store.Record{Key: key, Value: []byte(token)}))
+		want = append(want, key)
+	}
+	legacy := mustNewKey(t, "alice", "session")
+	require.NoError(t, cache.Write(&store.Record{Key: legacy, Value: []byte("legacy")}))
+	want = append(want, legacy)
+	for _, request := range []SuSe{mustNewSuSe(t, "alice", ""), mustNewSuSe(t, "", "session"), mustNewSuSe(t, "alice", "session")} {
+		records, err := GetLogoutRecords(request, cache)
+		require.NoError(t, err)
+		keys := make([]string, 0, len(records))
+		for _, record := range records {
+			keys = append(keys, record.Key)
+		}
+		require.ElementsMatch(t, want, keys)
+	}
+}
+
+func TestGetLogoutRecordsRejectsMismatchedSubject(t *testing.T) {
+	cache := store.NewMemoryStore()
+	key, err := NewTokenKey("bob", "session", "token")
+	require.NoError(t, err)
+	require.NoError(t, cache.Write(&store.Record{Key: key}))
+	_, err = GetLogoutRecords(mustNewSuSe(t, "alice", "session"), cache)
+	require.ErrorIs(t, err, ErrSuspiciousCacheResult)
 }
 
 func mustNewSuSe(t *testing.T, subject, session string) SuSe {
