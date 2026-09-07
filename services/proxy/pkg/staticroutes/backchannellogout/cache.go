@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nats-io/nats.go"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/vmihailenco/msgpack/v5"
 	"go-micro.dev/v4/store"
@@ -27,6 +28,20 @@ type Cache struct {
 // the session index and revocations needed to process logout requests.
 func NewCache(underlying store.Store, cacheClaims bool) *Cache {
 	return &Cache{Store: underlying, cacheClaims: cacheClaims, now: time.Now}
+}
+
+// List treats an empty NATS bucket like an empty store. The NATS adapter wraps
+// ErrNoKeysFound when the bucket is new, expired, or contains only delete markers.
+func (c *Cache) List(opts ...store.ListOption) ([]string, error) {
+	return listCacheKeys(c.Store, opts...)
+}
+
+func listCacheKeys(cache store.Store, opts ...store.ListOption) ([]string, error) {
+	keys, err := cache.List(opts...)
+	if errors.Is(err, nats.ErrNoKeysFound) {
+		return nil, nil
+	}
+	return keys, err
 }
 
 func isClaimsKey(key string) bool {
@@ -139,7 +154,7 @@ func (c *Cache) readRecords(key string, opts ...store.ReadOption) ([]*store.Reco
 	if options.Table != "" {
 		from.Table = options.Table
 	}
-	keys, err := c.Store.List(store.ListFrom(from.Database, from.Table))
+	keys, err := c.List(store.ListFrom(from.Database, from.Table))
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +209,7 @@ func (c *Cache) expiry(record *store.Record) (time.Time, error) {
 // requests. A legacy session lookup contains only the last token's hash, so it
 // is not sufficient to invalidate every token already present in the cache.
 func (c *Cache) IndexLegacyTokens(ctx context.Context, legacy store.Store) error {
-	keys, err := legacy.List()
+	keys, err := listCacheKeys(legacy)
 	if err != nil {
 		return err
 	}
@@ -278,7 +293,7 @@ func (c *Cache) CollectExpired(ctx context.Context, logger log.Logger) {
 }
 
 func (c *Cache) collectExpired(ctx context.Context) error {
-	keys, err := c.Store.List()
+	keys, err := c.List()
 	if err != nil {
 		return err
 	}

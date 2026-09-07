@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/nats-io/nats.go"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/stretchr/testify/require"
 	"github.com/vmihailenco/msgpack/v5"
@@ -177,3 +179,35 @@ func TestRevocationRejectsMalformedExpiry(t *testing.T) {
 	err := RevokeToken(&store.Record{Value: []byte("token"), Metadata: map[string]any{expiryMetadataKey: strconv.Itoa(1) + "x"}}, cache)
 	require.Error(t, err)
 }
+
+func TestCacheListErrors(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		err  error
+	}{
+		{"empty NATS bucket", nats.ErrNoKeysFound},
+		{"connection failure", errors.New("connection unavailable")},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			backing := cacheListFailure{Store: store.NewMemoryStore(), err: fmt.Errorf("list failed: %w", tt.err)}
+			cache := NewCache(backing, true)
+			_, listErr := cache.List()
+			migrationErr := cache.IndexLegacyTokens(context.Background(), backing)
+			cleanupErr := cache.collectExpired(context.Background())
+			for _, err := range []error{listErr, migrationErr, cleanupErr} {
+				if tt.err == nats.ErrNoKeysFound {
+					require.NoError(t, err)
+				} else {
+					require.ErrorIs(t, err, tt.err, "real storage failures must remain visible")
+				}
+			}
+		})
+	}
+}
+
+type cacheListFailure struct {
+	store.Store
+	err error
+}
+
+func (s cacheListFailure) List(...store.ListOption) ([]string, error) { return nil, s.err }
