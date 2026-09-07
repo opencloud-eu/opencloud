@@ -191,6 +191,10 @@ To specialize `graph` service instances in order to scale them independently, it
 * `GRAPH_HTTP_DISABLE`: when set to `true`, the service does not listen on HTTP and only consumes events (defaults to `false`)
 * `GRAPH_EVENTS_DISABLE_CONSUMER`: when set to `true`, the service does not consome events and only listens on HTTP (defaults to `false`)
 
+## Download URLs
+
+`GET /drives/{drive-id}/items/{item-id}/content` and the `@microsoft.graph.downloadUrl` annotation (requested via `$select`) hand out WebDAV URLs signed with `OC_URL_SIGNING_SECRET`. The proxy verifies the signature, so the URLs work without an `Authorization` header. They expire after 30 minutes. Without the secret the annotation is omitted and the `content` endpoint answers with an error.
+
 ## Metrics
 
 Metrics are disabled by default, and must be enabled using the following environment variables:
