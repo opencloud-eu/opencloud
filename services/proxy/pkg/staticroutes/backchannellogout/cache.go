@@ -328,5 +328,8 @@ func (c *Cache) collectExpired(ctx context.Context) error {
 			}
 		}
 	}
+	if cleaner, ok := c.Store.(interface{ PurgeDeleted(context.Context) error }); ok {
+		cleanupErr = errors.Join(cleanupErr, cleaner.PurgeDeleted(ctx))
+	}
 	return cleanupErr
 }

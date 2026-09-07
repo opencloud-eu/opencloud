@@ -264,7 +264,7 @@ Backchannel logout tracks each accepted access token separately and rejects revo
 
 OIDC records use the configured database with the suffix `-oidc-v2` and the configured table with the suffix `/oidc-v2/`. This separates logout state from legacy caches and their bucket-wide TTL. On startup, persistent stores import unexpired legacy claims into the new session index. All proxy instances must use the updated code and the same persistent store to share logout decisions; memory-backed logout state is lost when the process stops. Keep the persistent OIDC namespace when clearing ordinary caches.
 
-For NATS, the new bucket has no bucket-wide TTL. The proxy enforces each record's expiry and removes expired records every minute. The deprecated `ocmem` option uses a dedicated memory store for OIDC state to prevent capacity eviction of revocations.
+For NATS, the new bucket has no bucket-wide TTL. The proxy enforces each record's expiry and removes expired records and their delete markers every minute. Marker cleanup is limited to the proxy's table and the observed revisions, preserving concurrent writes. An empty legacy bucket requires no migration. The deprecated `ocmem` option uses a dedicated memory store for OIDC state to prevent capacity eviction of revocations.
 
 
 ## Presigned Urls

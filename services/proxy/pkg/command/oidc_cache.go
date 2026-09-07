@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/nats-io/nats.go"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
 	bcl "github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/backchannellogout"
 	"github.com/opencloud-eu/reva/v2/pkg/store"
@@ -25,7 +26,15 @@ func newUserInfoCache(cfg *config.Cache) *bcl.Cache {
 	// Keep the no-TTL bucket separate from other services and older proxies
 	// which may use the configured database with a bucket-wide TTL.
 	// Redis ignores Database, so give its table a dedicated prefix as well.
-	return bcl.NewCache(newUserInfoStore(cfg, storeType, database+"-oidc-v2", cfg.Table+"/oidc-v2/", 0), cacheClaims)
+	backend := newUserInfoStore(cfg, storeType, database+"-oidc-v2", cfg.Table+"/oidc-v2/", 0)
+	if storeType == store.TypeNatsJSKV {
+		cleanupConfig := *cfg
+		cleanupConfig.Nodes = append([]string(nil), cfg.Nodes...)
+		backend = bcl.WithNATSCleanup(backend, func() (*nats.Conn, error) {
+			return connectOIDCNATSCache(&cleanupConfig)
+		})
+	}
+	return bcl.NewCache(backend, cacheClaims)
 }
 
 func migrateUserInfoCache(ctx context.Context, cache *bcl.Cache, cfg *config.Cache) error {
