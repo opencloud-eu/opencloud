@@ -21,6 +21,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes"
+	bcl "github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/backchannellogout"
 	"github.com/stretchr/testify/require"
 	"go-micro.dev/v4/store"
 )
@@ -66,6 +67,28 @@ func TestBackchannelLogoutInvalidatesEveryCachedToken(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestBackchannelLogoutWithSubjectForSessionOnlyAccessToken(t *testing.T) {
+	idp := newLogoutTestIDP(t)
+	cache := bcl.NewCache(store.NewMemoryStore(), true)
+	auth, routes := idp.handlers(cache, true)
+	token := idp.sign(t, jwt.MapClaims{
+		"iss": idp.server.URL, "sid": "session", "aud": "opencloud", "preferred_username": "alice",
+		"iat": time.Now().Unix(), "exp": time.Now().Add(time.Hour).Unix(),
+	})
+	unrelated := idp.sign(t, jwt.MapClaims{
+		"iss": idp.server.URL, "sid": "other-session", "aud": "opencloud", "preferred_username": "alice",
+		"iat": time.Now().Unix(), "exp": time.Now().Add(time.Hour).Unix(),
+	})
+	for _, token := range []string{token, unrelated} {
+		require.Equal(t, http.StatusOK, logoutTestRequest(auth, token))
+	}
+
+	response := logoutTestLogout(routes, idp.logoutToken(t, "alice", "session"))
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Equal(t, http.StatusUnauthorized, logoutTestRequest(auth, token))
+	require.Equal(t, http.StatusOK, logoutTestRequest(auth, unrelated))
 }
 
 type logoutTestIDP struct {

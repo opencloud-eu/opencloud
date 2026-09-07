@@ -81,6 +81,32 @@ func TestGetLogoutRecordsRejectsMismatchedSubject(t *testing.T) {
 	require.ErrorIs(t, err, ErrSuspiciousCacheResult)
 }
 
+func TestGetLogoutRecordsMatchesSessionWithoutSubject(t *testing.T) {
+	cache := store.NewMemoryStore()
+	legacy := mustNewKey(t, "", "session")
+	token, err := NewTokenKey("", "session", "token")
+	require.NoError(t, err)
+	knownSubject, err := NewTokenKey("alice", "session", "known-subject")
+	require.NoError(t, err)
+	for _, key := range []string{legacy, token, knownSubject} {
+		require.NoError(t, cache.Write(&store.Record{Key: key}))
+	}
+
+	records, err := GetLogoutRecords(mustNewSuSe(t, "alice", "session"), cache)
+	require.NoError(t, err)
+	keys := make([]string, 0, len(records))
+	for _, record := range records {
+		keys = append(keys, record.Key)
+	}
+	require.ElementsMatch(t, []string{legacy, token, knownSubject}, keys)
+
+	// Without a session ID, a logout must still match the stored subject.
+	records, err = GetLogoutRecords(mustNewSuSe(t, "alice", ""), cache)
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	require.Equal(t, knownSubject, records[0].Key)
+}
+
 func mustNewSuSe(t *testing.T, subject, session string) SuSe {
 	suse, err := NewSuSe(mustNewKey(t, subject, session))
 	require.NoError(t, err)

@@ -209,9 +209,10 @@ func GetLogoutRecords(suse SuSe, store microstore.Store) ([]*microstore.Record, 
 		// in subject mode, the subject must match, but the session id can be different
 		case suse.Mode() == LogoutModeSubject && suse.encodedSubject == recordSuSe.encodedSubject:
 			continue
-		// In session mode, match the subject too when it was supplied.
+		// In session mode, compare subjects only when both are known. Access
+		// tokens without a subject can still be identified by their session ID.
 		case suse.Mode() == LogoutModeSession && suse.encodedSession == recordSuSe.encodedSession &&
-			(suse.encodedSubject == "" || suse.encodedSubject == recordSuSe.encodedSubject):
+			(suse.encodedSubject == "" || recordSuSe.encodedSubject == "" || suse.encodedSubject == recordSuSe.encodedSubject):
 			continue
 		}
 
