@@ -193,14 +193,46 @@ Feature: listing the content of a public link via the Graph API
       """
 
 
-  Scenario: listing a password protected public link without the password fails
+  Scenario: listing a password protected public link without the password reports that a password is required
     When the public lists the children of the last created public link using the Graph API
     Then the HTTP status code should be "401"
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code"],
+            "properties": {
+              "code": { "const": "publicLinkPasswordRequired" }
+            }
+          }
+        }
+      }
+      """
 
 
-  Scenario: listing a password protected public link with a wrong password fails
+  Scenario: listing a password protected public link with a wrong password reports an invalid password
     When the public lists the children of the last created public link with password "wrong" using the Graph API
     Then the HTTP status code should be "401"
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code"],
+            "properties": {
+              "code": { "const": "publicLinkPasswordInvalid" }
+            }
+          }
+        }
+      }
+      """
 
 
   Scenario: an editable public link grants an upload session

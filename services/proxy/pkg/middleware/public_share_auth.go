@@ -5,7 +5,9 @@ import (
 	"strings"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
+	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	ocmw "github.com/opencloud-eu/opencloud/pkg/middleware"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"go.opentelemetry.io/otel/attribute"
@@ -14,7 +16,7 @@ import (
 
 const (
 	headerRevaAccessToken   = revactx.TokenHeader
-	headerShareToken        = "public-token"
+	headerShareToken        = ocmw.PublicLinkTokenName
 	basicAuthPasswordPrefix = "password|"
 	authenticationType      = "publicshares"
 
@@ -136,6 +138,23 @@ func (a PublicShareAuthenticator) Authenticate(r *http.Request) (*http.Request, 
 			Str("public_share_token", shareTokenHint(shareToken)).
 			Str("path", r.URL.Path).
 			Msg("failed to authenticate request")
+		return nil, false
+	}
+
+	if authResp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+		// A graph request cannot render its own 401 from here (no writer), and
+		// the generic one cannot tell the two password cases apart. Mark the
+		// outcome and let the graph auth middleware render it. Other surfaces
+		// (webdav) are handled by their own backend, so they just fail here.
+		if isPublicShareGraphRequest(r) {
+			_, password, ok := r.BasicAuth()
+			if ok && password != "" {
+				r.Header.Set(ocmw.PublicLinkAuthHeader, ocmw.PublicLinkInvalidPassword)
+			} else {
+				r.Header.Set(ocmw.PublicLinkAuthHeader, ocmw.PublicLinkPasswordRequired)
+			}
+			return r, true
+		}
 		return nil, false
 	}
 
