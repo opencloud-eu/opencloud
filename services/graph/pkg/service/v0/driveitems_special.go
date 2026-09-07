@@ -27,8 +27,13 @@ const RecycleBinSpecialFolderName = "recyclebin"
 func (g Graph) GetDriveSpecial(w http.ResponseWriter, r *http.Request) {
 	g.logger.Debug().Msg("Calling GetDriveSpecial")
 
-	driveID, ok := parseSpecialParams(w, r)
-	if !ok {
+	driveID, err := parseIDParam(r, "driveID")
+	if err != nil {
+		errorcode.RenderError(w, r, err)
+		return
+	}
+	if chi.URLParam(r, "specialName") != RecycleBinSpecialFolderName {
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "unknown special folder")
 		return
 	}
 
@@ -88,8 +93,13 @@ func (g Graph) findRecycleItem(w http.ResponseWriter, r *http.Request, driveID *
 func (g Graph) ListDriveSpecialChildren(w http.ResponseWriter, r *http.Request) {
 	g.logger.Debug().Msg("Calling ListDriveSpecialChildren")
 
-	driveID, ok := parseSpecialParams(w, r)
-	if !ok {
+	driveID, err := parseIDParam(r, "driveID")
+	if err != nil {
+		errorcode.RenderError(w, r, err)
+		return
+	}
+	if chi.URLParam(r, "specialName") != RecycleBinSpecialFolderName {
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "unknown special folder")
 		return
 	}
 
@@ -119,19 +129,6 @@ func (g Graph) listRecycleChildren(w http.ResponseWriter, r *http.Request, drive
 		files = append(files, *recycleItemToDriveItem(driveID, item))
 	}
 	return files, true
-}
-
-func parseSpecialParams(w http.ResponseWriter, r *http.Request) (storageprovider.ResourceId, bool) {
-	driveID, err := parseIDParam(r, "driveID")
-	if err != nil {
-		errorcode.RenderError(w, r, err)
-		return storageprovider.ResourceId{}, false
-	}
-	if chi.URLParam(r, "specialName") != RecycleBinSpecialFolderName {
-		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "unknown special folder")
-		return storageprovider.ResourceId{}, false
-	}
-	return driveID, true
 }
 
 // specialFolderKey returns the recycle key addressed by the colon path form, "" for the trash root
