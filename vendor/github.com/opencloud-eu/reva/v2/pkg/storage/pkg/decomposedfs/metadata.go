@@ -85,10 +85,15 @@ func (fs *Decomposedfs) SetArbitraryMetadata(ctx context.Context, ref *provider.
 			}
 		}
 	}
-	for k, v := range md.Metadata {
-		attrName := prefixes.MetadataPrefix + k
-		if err = n.SetXattrString(ctx, attrName, v); err != nil {
-			errs = append(errs, errors.Wrap(err, "Decomposedfs: could not set metadata attribute "+attrName+" to "+k))
+	// one write for the whole set: a per key write publishes every intermediate
+	// state to the unlocked, cache first readers
+	if len(md.Metadata) > 0 {
+		attribs := make(map[string][]byte, len(md.Metadata))
+		for k, v := range md.Metadata {
+			attribs[prefixes.MetadataPrefix+k] = []byte(v)
+		}
+		if err = n.SetXattrsWithContext(ctx, attribs); err != nil {
+			errs = append(errs, errors.Wrap(err, "Decomposedfs: could not set metadata attributes"))
 		}
 	}
 

@@ -24,7 +24,6 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/user"
 	"path"
@@ -47,7 +46,6 @@ import (
 var (
 	matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
 	matchAllCap   = regexp.MustCompile("([a-z0-9])([A-Z])")
-	matchEmail    = regexp.MustCompile(`^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$`)
 
 	// ShareStorageProviderID is the provider id used by the sharestorageprovider
 	ShareStorageProviderID = "a0ca6a90-a365-4782-871e-d44447bbc668"
@@ -251,32 +249,6 @@ func GranteeEqual(u, v *provider.Grantee) bool {
 	uu, ug := ExtractGranteeID(u)
 	vu, vg := ExtractGranteeID(v)
 	return u.Type == v.Type && (UserEqual(uu, vu) || GroupEqual(ug, vg))
-}
-
-// IsEmailValid checks whether the provided email has a valid format.
-func IsEmailValid(e string) bool {
-	if len(e) < 3 || len(e) > 254 {
-		return false
-	}
-	return matchEmail.MatchString(e)
-}
-
-// IsValidWebAddress checks whether the provided address is a valid URL.
-func IsValidWebAddress(address string) bool {
-	_, err := url.ParseRequestURI(address)
-	return err == nil
-}
-
-// IsValidPhoneNumber checks whether the provided phone number has a valid format.
-func IsValidPhoneNumber(number string) bool {
-	re := regexp.MustCompile(`^(?:(?:\(?(?:00|\+)([1-4]\d\d|[1-9]\d?)\)?)?[\-\.\ \\\/]?)?((?:\(?\d{1,}\)?[\-\.\ \\\/]?){0,})(?:[\-\.\ \\\/]?(?:#|ext\.?|extension|x)[\-\.\ \\\/]?(\d+))?$`)
-	return re.MatchString(number)
-}
-
-// IsValidName cheks if the given name doesn't contain any non-alpha, space or dash characters.
-func IsValidName(name string) bool {
-	re := regexp.MustCompile(`^[A-Za-z\s\-]*$`)
-	return re.MatchString(name)
 }
 
 // MarshalProtoV1ToJSON marshals a proto V1 message to a JSON byte array

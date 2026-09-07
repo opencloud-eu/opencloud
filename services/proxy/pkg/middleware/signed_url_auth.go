@@ -236,6 +236,16 @@ func (m SignedURLAuthenticator) Authenticate(r *http.Request) (*http.Request, bo
 }
 
 func (m SignedURLAuthenticator) authenticate(r *http.Request) (*http.Request, bool) {
+	if err := m.requestMethodIsAllowed(r.Method); err != nil {
+		m.Logger.Error().
+			Err(err).
+			Str("authenticator", "signed_url_jwt").
+			Str("path", r.URL.Path).
+			Str("method", r.Method).
+			Msg("Request method not allowed for signed urls")
+		return nil, false
+	}
+
 	u := r.URL.String()
 	if !r.URL.IsAbs() {
 		u = "https://" + r.Host + u

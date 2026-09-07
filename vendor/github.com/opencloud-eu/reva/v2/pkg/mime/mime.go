@@ -602,6 +602,7 @@ var mimeTypes = map[string]string{
 	"nc":                       "application/x-netcdf",
 	"ncx":                      "application/x-dtbncx+xml",
 	"nef":                      "image/x-nikon-nef",
+	"nrw":                      "image/x-nikon-nrw",
 	"nfo":                      "text/x-nfo",
 	"ngdat":                    "application/vnd.nokia.n-gage.data",
 	"nitf":                     "application/vnd.nitf",

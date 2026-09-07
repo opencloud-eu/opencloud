@@ -34,7 +34,6 @@ import (
 	_ "github.com/opencloud-eu/reva/v2/internal/http/services/prometheus"
 	_ "github.com/opencloud-eu/reva/v2/internal/http/services/reverseproxy"
 	_ "github.com/opencloud-eu/reva/v2/internal/http/services/sciencemesh"
-	_ "github.com/opencloud-eu/reva/v2/internal/http/services/siteacc"
 	_ "github.com/opencloud-eu/reva/v2/internal/http/services/sysinfo"
 	_ "github.com/opencloud-eu/reva/v2/internal/http/services/wellknown"
 	// Add your own service here
