@@ -188,8 +188,13 @@ func (g Graph) PermanentDeleteDriveItem(w http.ResponseWriter, r *http.Request) 
 func (g Graph) DeleteDriveSpecialItem(w http.ResponseWriter, r *http.Request) {
 	g.logger.Debug().Msg("Calling DeleteDriveSpecialItem")
 
-	driveID, ok := parseSpecialParams(w, r)
-	if !ok {
+	driveID, err := parseIDParam(r, "driveID")
+	if err != nil {
+		errorcode.RenderError(w, r, err)
+		return
+	}
+	if chi.URLParam(r, "specialName") != RecycleBinSpecialFolderName {
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "unknown special folder")
 		return
 	}
 	itemID, ok := parseTrashItemID(w, r)
@@ -205,8 +210,13 @@ func (g Graph) DeleteDriveSpecialItem(w http.ResponseWriter, r *http.Request) {
 func (g Graph) EmptyDriveSpecial(w http.ResponseWriter, r *http.Request) {
 	g.logger.Debug().Msg("Calling EmptyDriveSpecial")
 
-	driveID, ok := parseSpecialParams(w, r)
-	if !ok {
+	driveID, err := parseIDParam(r, "driveID")
+	if err != nil {
+		errorcode.RenderError(w, r, err)
+		return
+	}
+	if chi.URLParam(r, "specialName") != RecycleBinSpecialFolderName {
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "unknown special folder")
 		return
 	}
 
