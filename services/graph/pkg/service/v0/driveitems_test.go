@@ -515,6 +515,35 @@ var _ = Describe("Driveitems", func() {
 				Expect(res.Value[0].PendingOperations).To(BeNil())
 			})
 
+			It("returns the allowed actions when selected", func() {
+				r = r.WithContext(r.Context())
+				q := r.URL.Query()
+				q.Add("$select", "@libre.graph.permissions.actions.allowedValues")
+				r.URL.RawQuery = q.Encode()
+
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:  provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:  "etag",
+							Mtime: utils.TimeToTS(mtime),
+							PermissionSet: &provider.ResourcePermissions{
+								GetPath:              true,
+								InitiateFileDownload: true,
+							},
+						},
+					},
+				}, nil)
+
+				res := assertItemsList(1)
+				Expect(res.Value[0].GetLibreGraphPermissionsActionsAllowedValues()).To(ConsistOf(
+					unifiedrole.DriveItemPathRead,
+					unifiedrole.DriveItemContentRead,
+				))
+			})
+
 			It("omits share types unless they are selected", func() {
 				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
 					Status: status.NewOK(ctx),
