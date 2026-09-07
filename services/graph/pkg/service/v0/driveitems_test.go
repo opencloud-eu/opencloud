@@ -142,7 +142,7 @@ var _ = Describe("Driveitems", func() {
 			Expect(rr.Code).To(Equal(http.StatusNotFound))
 		})
 
-		It("handles ListContainer permission denied", func() {
+		It("handles ListContainer permission denied as not found", func() {
 			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
 				Status:        status.NewOK(ctx),
 				StorageSpaces: []*provider.StorageSpace{{Owner: currentUser, Root: &provider.ResourceId{}}},
@@ -154,7 +154,7 @@ var _ = Describe("Driveitems", func() {
 			r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/me/drive/root/children", nil)
 			r = r.WithContext(revactx.ContextSetUser(ctx, currentUser))
 			svc.GetRootDriveChildren(rr, r)
-			Expect(rr.Code).To(Equal(http.StatusForbidden))
+			Expect(rr.Code).To(Equal(http.StatusNotFound))
 		})
 
 		It("handles ListContainer error", func() {
