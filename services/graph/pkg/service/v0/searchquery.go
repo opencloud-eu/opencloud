@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"path"
-	"strings"
+	"slices"
 	"time"
 
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -19,6 +19,7 @@ import (
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -48,9 +49,11 @@ func (g Graph) SearchQuery(w http.ResponseWriter, r *http.Request) {
 	ctx := revaCtx.ContextSetToken(r.Context(), th)
 	ctx = metadata.Set(ctx, revaCtx.TokenHeader, th)
 
+	expandThumbnails := driveItemRelationExpanded(r, _expandThumbnails)
+
 	responses := make([]libregraph.SearchResponse, 0, len(req.Requests))
 	for _, sr := range req.Requests {
-		sresp, err := g.runSingleSearch(ctx, sr)
+		sresp, err := g.runSingleSearch(ctx, sr, expandThumbnails)
 		if err != nil {
 			g.renderSearchError(w, r, err)
 			return
@@ -62,7 +65,7 @@ func (g Graph) SearchQuery(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, libregraph.SearchQuery200Response{Value: responses})
 }
 
-func (g Graph) runSingleSearch(ctx context.Context, sr libregraph.SearchRequest) (libregraph.SearchResponse, error) {
+func (g Graph) runSingleSearch(ctx context.Context, sr libregraph.SearchRequest, expandThumbnails bool) (libregraph.SearchResponse, error) {
 	from, size := clampPagination(sr.From, sr.Size)
 
 	// The gRPC layer has no from field: request from+size matches and slice
@@ -73,12 +76,20 @@ func (g Graph) runSingleSearch(ctx context.Context, sr libregraph.SearchRequest)
 	}
 
 	rsp, err := g.searchService.Search(ctx, &searchsvc.SearchRequest{
-		Query:        applyAggregationFilters(sr.Query.QueryString, sr.AggregationFilters),
-		PageSize:     pageSize,
-		Aggregations: libregraphAggregationsToSearch(sr.Aggregations),
+		Query:              sr.Query.QueryString,
+		PageSize:           pageSize,
+		Aggregations:       libregraphAggregationsToSearch(sr.Aggregations),
+		AggregationFilters: sr.AggregationFilters,
 	})
 	if err != nil {
 		return libregraph.SearchResponse{}, err
+	}
+
+	// the current user id decides the @libre.graph.me.following (favorite) flag,
+	// mirroring the WebDAV report's oc:favorite (favorited by the caller).
+	uid := ""
+	if u, ok := revaCtx.ContextGetUser(ctx); ok {
+		uid = u.GetId().GetOpaqueId()
 	}
 
 	hits := make([]libregraph.SearchHit, 0)
@@ -86,7 +97,12 @@ func (g Graph) runSingleSearch(ctx context.Context, sr libregraph.SearchRequest)
 		start := min(int(from), len(rsp.Matches))
 		end := min(start+int(size), len(rsp.Matches))
 		for i := start; i < end; i++ {
-			hits = append(hits, matchToSearchHit(rsp.Matches[i], int32(i+1)))
+			hit := matchToSearchHit(rsp.Matches[i], int32(i+1), uid)
+			hit.Resource.WebUrl = webURLForID(g.publicBaseURL, hit.Resource.GetId())
+			if expandThumbnails {
+				setDriveItemThumbnailsByID(hit.Resource, hit.Resource.GetId(), g.config.Commons.OpenCloudURL)
+			}
+			hits = append(hits, hit)
 		}
 	}
 
@@ -98,7 +114,7 @@ func (g Graph) runSingleSearch(ctx context.Context, sr libregraph.SearchRequest)
 			Hits:                 hits,
 			Total:                &total,
 			MoreResultsAvailable: &more,
-			Aggregations:         searchAggregationsToLibregraph(rsp.Aggregations),
+			Aggregations:         searchAggregationsToLibregraph(rsp.Aggregations, sr.Aggregations),
 		}},
 	}, nil
 }
@@ -141,7 +157,7 @@ func validateAggregations(aggs []libregraph.AggregationOption) error {
 		if !search.IsNumericField(a.Field) {
 			continue
 		}
-		if a.MetricKind != nil && *a.MetricKind != "" {
+		if a.LibreGraphMetricDefinition != nil {
 			// metrics reduce numeric values, no term buckets involved
 			continue
 		}
@@ -152,25 +168,6 @@ func validateAggregations(aggs []libregraph.AggregationOption) error {
 		return fmt.Errorf("terms aggregation is not supported on numeric field %q; use bucketDefinition.ranges", a.Field)
 	}
 	return nil
-}
-
-// applyAggregationFilters AND-combines the query string with prior-response KQL
-// filter snippets like `audio.artist:"Pink Floyd"`.
-func applyAggregationFilters(q string, filters []string) string {
-	if len(filters) == 0 {
-		return q
-	}
-	parts := make([]string, 0, len(filters)+1)
-	if q != "" {
-		parts = append(parts, "("+q+")")
-	}
-	for _, f := range filters {
-		if f == "" {
-			continue
-		}
-		parts = append(parts, "("+f+")")
-	}
-	return strings.Join(parts, " AND ")
 }
 
 func libregraphAggregationsToSearch(in []libregraph.AggregationOption) []*searchsvc.AggregationOption {
@@ -186,11 +183,11 @@ func libregraphAggregationsToSearch(in []libregraph.AggregationOption) []*search
 		if a.BucketDefinition != nil {
 			agg.BucketDefinition = libregraphBucketDefinitionToSearch(*a.BucketDefinition)
 		}
-		if len(a.SubAggregations) > 0 {
-			agg.SubAggregations = libregraphAggregationsToSearch(a.SubAggregations)
+		if len(a.LibreGraphSubAggregations) > 0 {
+			agg.SubAggregations = libregraphAggregationsToSearch(a.LibreGraphSubAggregations)
 		}
-		if a.MetricKind != nil {
-			agg.MetricKind = metricKindFromLibregraph(*a.MetricKind)
+		if a.LibreGraphMetricDefinition != nil {
+			agg.MetricKind = metricKindFromLibregraph(a.LibreGraphMetricDefinition.Kind)
 		}
 		out = append(out, agg)
 	}
@@ -255,13 +252,18 @@ func libregraphBucketDefinitionToSearch(in libregraph.BucketDefinition) *searchs
 	return bd
 }
 
-func searchAggregationsToLibregraph(in []*searchsvc.AggregationResult) []libregraph.SearchAggregation {
+func searchAggregationsToLibregraph(in []*searchsvc.AggregationResult, defs []libregraph.AggregationOption) []libregraph.SearchAggregation {
 	if len(in) == 0 {
 		return nil
+	}
+	defsByField := make(map[string]libregraph.AggregationOption, len(defs))
+	for _, d := range defs {
+		defsByField[d.Field] = d
 	}
 	out := make([]libregraph.SearchAggregation, 0, len(in))
 	for _, a := range in {
 		field := a.GetField()
+		def := defsByField[field]
 		// Metric result: a scalar, no buckets. For AVG the backend
 		// transported (sum, count); collapse to the average here.
 		if kind := a.GetMetricKind(); kind != searchsvc.MetricKind_METRIC_KIND_UNSPECIFIED {
@@ -270,9 +272,8 @@ func searchAggregationsToLibregraph(in []*searchsvc.AggregationResult) []libregr
 				value = a.GetSum() / float64(a.GetCount())
 			}
 			out = append(out, libregraph.SearchAggregation{
-				Field:      &field,
-				Value:      &value,
-				MetricKind: metricKindToLibregraph(kind),
+				Field:            &field,
+				LibreGraphMetric: &libregraph.SearchMetric{Kind: metricKindToLibregraph(kind), Value: &value},
 			})
 			continue
 		}
@@ -280,13 +281,15 @@ func searchAggregationsToLibregraph(in []*searchsvc.AggregationResult) []libregr
 		for _, b := range a.GetBuckets() {
 			key := b.GetKey()
 			count := b.GetCount()
-			// aggregationFilterToken left empty until opaque token encoding is wired up.
 			lb := libregraph.SearchBucket{
 				Key:   &key,
 				Count: &count,
 			}
+			if token := aggregationTokenForBucket(key, def); token != "" {
+				lb.AggregationFilterToken = &token
+			}
 			if subs := b.GetSubAggregations(); len(subs) > 0 {
-				lb.SubAggregations = searchAggregationsToLibregraph(subs)
+				lb.LibreGraphSubAggregations = searchAggregationsToLibregraph(subs, def.LibreGraphSubAggregations)
 			}
 			buckets = append(buckets, lb)
 		}
@@ -296,6 +299,29 @@ func searchAggregationsToLibregraph(in []*searchsvc.AggregationResult) []libregr
 		})
 	}
 	return out
+}
+
+// aggregationTokenForBucket returns the aggregationFilterToken for a bucket: a
+// range token when the aggregation defines ranges (matched to the range whose
+// from-to key produced this bucket), otherwise a terms token for the key.
+func aggregationTokenForBucket(key string, def libregraph.AggregationOption) string {
+	if def.BucketDefinition != nil && len(def.BucketDefinition.Ranges) > 0 {
+		for _, r := range def.BucketDefinition.Ranges {
+			from, to := ptrStr(r.From), ptrStr(r.To)
+			if from+"-"+to == key {
+				return aggregation.EncodeRangeToken(from, to)
+			}
+		}
+		return ""
+	}
+	return aggregation.EncodeTermsToken(key)
+}
+
+func ptrStr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func (g Graph) renderSearchError(w http.ResponseWriter, r *http.Request, err error) {
@@ -309,7 +335,7 @@ func (g Graph) renderSearchError(w http.ResponseWriter, r *http.Request, err err
 	}
 }
 
-func matchToSearchHit(m *searchmsg.Match, rank int32) libregraph.SearchHit {
+func matchToSearchHit(m *searchmsg.Match, rank int32, uid string) libregraph.SearchHit {
 	hit := libregraph.SearchHit{
 		HitId: libregraph.PtrString(searchEntityHitID(m.GetEntity())),
 		Rank:  &rank,
@@ -317,7 +343,7 @@ func matchToSearchHit(m *searchmsg.Match, rank int32) libregraph.SearchHit {
 	if h := m.GetEntity().GetHighlights(); h != "" {
 		hit.Summary = libregraph.PtrString(h)
 	}
-	di := searchEntityToDriveItem(m.GetEntity())
+	di := searchEntityToDriveItem(m.GetEntity(), uid)
 	hit.Resource = di
 	return hit
 }
@@ -330,7 +356,7 @@ func searchEntityHitID(e *searchmsg.Entity) string {
 	})
 }
 
-func searchEntityToDriveItem(e *searchmsg.Entity) *libregraph.DriveItem {
+func searchEntityToDriveItem(e *searchmsg.Entity, uid string) *libregraph.DriveItem {
 	size := int64(e.GetSize())
 	di := &libregraph.DriveItem{
 		Id:   libregraph.PtrString(searchEntityHitID(e)),
@@ -370,6 +396,21 @@ func searchEntityToDriveItem(e *searchmsg.Entity) *libregraph.DriveItem {
 	di.Image = searchImageToLibregraph(e.GetImage())
 	di.Photo = searchPhotoToLibregraph(e.GetPhoto())
 	di.Location = searchLocationToLibregraph(e.GetLocation())
+	di.Video = searchVideoToLibregraph(e.GetVideo())
+	di.LibreGraphMotionPhoto = searchMotionPhotoToLibregraph(e.GetMotionPhoto())
+	di.LibreGraphLivePhoto = searchLivePhotoToLibregraph(e.GetLivePhoto())
+	if tags := e.GetTags(); len(tags) > 0 {
+		di.LibreGraphTags = tags
+	}
+	if av := e.GetPermissionsActionsAllowedValues(); len(av) > 0 {
+		di.LibreGraphPermissionsActionsAllowedValues = av
+	}
+	// @libre.graph.me.following mirrors the WebDAV report's oc:favorite: the
+	// report emits it only when the current user has favorited the item, so set
+	// it to true only in that case and leave it unset otherwise.
+	if uid != "" && slices.Contains(e.GetFavorites(), uid) {
+		di.LibreGraphMeFollowing = libregraph.PtrBool(true)
+	}
 	return di
 }
 
@@ -458,6 +499,48 @@ func searchLocationToLibregraph(l *searchmsg.GeoCoordinates) *libregraph.GeoCoor
 		Altitude:  l.Altitude,
 		Latitude:  l.Latitude,
 		Longitude: l.Longitude,
+	}
+}
+
+func searchVideoToLibregraph(v *searchmsg.Video) *libregraph.Video {
+	if v == nil {
+		return nil
+	}
+	return &libregraph.Video{
+		AudioBitsPerSample:    v.AudioBitsPerSample,
+		AudioChannels:         v.AudioChannels,
+		AudioFormat:           v.AudioFormat,
+		AudioSamplesPerSecond: v.AudioSamplesPerSecond,
+		Bitrate:               v.Bitrate,
+		Duration:              v.Duration,
+		FourCC:                v.FourCC,
+		FrameRate:             v.FrameRate,
+		Height:                v.Height,
+		Width:                 v.Width,
+	}
+}
+
+func searchMotionPhotoToLibregraph(m *searchmsg.MotionPhoto) *libregraph.MotionPhoto {
+	if m == nil {
+		return nil
+	}
+	return &libregraph.MotionPhoto{
+		Version:                 m.Version,
+		PresentationTimestampUs: m.PresentationTimestampUs,
+		VideoSize:               m.VideoSize,
+	}
+}
+
+func searchLivePhotoToLibregraph(l *searchmsg.LivePhoto) *libregraph.LivePhoto {
+	if l == nil {
+		return nil
+	}
+	return &libregraph.LivePhoto{
+		ContentId:              l.GetContentId(),
+		StillImageTimeUs:       l.StillImageTimeUs,
+		Auto:                   l.Auto,
+		VitalityScore:          l.VitalityScore,
+		VitalityScoringVersion: l.VitalityScoringVersion,
 	}
 }
 

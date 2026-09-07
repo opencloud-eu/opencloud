@@ -46,7 +46,7 @@ func NewBackend(index bleve.Index, queryCreator searchQuery.Creator[query.Query]
 // Search executes a search request operation within the index.
 // Returns a SearchIndexResponse object or an error.
 func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
-	createdQuery, err := b.queryCreator.Create(sir.Query)
+	createdQuery, err := b.queryCreator.CreateWithFilters(sir.Query, sir.GetAggregationFilters())
 	if err != nil {
 		if kql.IsValidationError(err) {
 			return nil, errtypes.BadRequest(err.Error())
