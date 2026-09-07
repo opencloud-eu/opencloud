@@ -24,6 +24,7 @@ const RecycleBinSpecialFolderName = "recyclebin"
 
 // GetDriveSpecial returns the driveItem of a special folder. In the colon path
 // form (special/recyclebin:/{key}) it returns the trashed item with that key.
+// $expand=children embeds the listing for folders.
 func (g Graph) GetDriveSpecial(w http.ResponseWriter, r *http.Request) {
 	g.logger.Debug().Msg("Calling GetDriveSpecial")
 
@@ -33,10 +34,27 @@ func (g Graph) GetDriveSpecial(w http.ResponseWriter, r *http.Request) {
 	}
 
 	key := specialFolderKey(r)
-	if key == "" {
-		render.Status(r, http.StatusOK)
-		render.JSON(w, r, recycleBinDriveItem(&driveID))
+	driveItem, ok := g.getSpecialDriveItemForKey(w, r, &driveID, key)
+	if !ok {
 		return
+	}
+
+	if driveItem.Folder != nil && driveItemRelationExpanded(r, _expandChildren) {
+		children, ok := g.listRecycleChildren(w, r, &driveID, key)
+		if !ok {
+			return
+		}
+		driveItem.Children = children
+	}
+
+	render.Status(r, http.StatusOK)
+	render.JSON(w, r, driveItem)
+}
+
+// getSpecialDriveItemForKey returns the trash root for an empty key, else the trashed item with that key
+func (g Graph) getSpecialDriveItemForKey(w http.ResponseWriter, r *http.Request, driveID *storageprovider.ResourceId, key string) (*libregraph.DriveItem, bool) {
+	if key == "" {
+		return recycleBinDriveItem(driveID), true
 	}
 
 	// A top-level key lists itself, a nested key only shows up in its parent's listing.
@@ -44,18 +62,17 @@ func (g Graph) GetDriveSpecial(w http.ResponseWriter, r *http.Request) {
 	if strings.Contains(key, "/") {
 		listKey = path.Dir(key) + "/"
 	}
-	items, ok := g.listRecycle(w, r, &driveID, listKey)
+	items, ok := g.listRecycle(w, r, driveID, listKey)
 	if !ok {
-		return
+		return nil, false
 	}
 	for _, item := range items {
 		if item.GetKey() == key {
-			render.Status(r, http.StatusOK)
-			render.JSON(w, r, recycleItemToDriveItem(&driveID, item))
-			return
+			return recycleItemToDriveItem(driveID, item), true
 		}
 	}
 	errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "item not found")
+	return nil, false
 }
 
 // ListDriveSpecialChildren lists the children of a special folder. For the
@@ -69,23 +86,32 @@ func (g Graph) ListDriveSpecialChildren(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// the trailing slash asks reva for the children of the key instead of the key itself
-	listKey := ""
-	if key := specialFolderKey(r); key != "" {
-		listKey = key + "/"
-	}
-	items, ok := g.listRecycle(w, r, &driveID, listKey)
+	files, ok := g.listRecycleChildren(w, r, &driveID, specialFolderKey(r))
 	if !ok {
 		return
 	}
 
-	files := make([]libregraph.DriveItem, 0, len(items))
-	for _, item := range items {
-		files = append(files, *recycleItemToDriveItem(&driveID, item))
-	}
-
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, &ListResponse{Value: files})
+}
+
+// listRecycleChildren lists the trash root for an empty key, else the children of the trashed folder with that key
+func (g Graph) listRecycleChildren(w http.ResponseWriter, r *http.Request, driveID *storageprovider.ResourceId, key string) ([]libregraph.DriveItem, bool) {
+	// the trailing slash asks reva for the children of the key instead of the key itself
+	listKey := ""
+	if key != "" {
+		listKey = key + "/"
+	}
+	items, ok := g.listRecycle(w, r, driveID, listKey)
+	if !ok {
+		return nil, false
+	}
+
+	files := make([]libregraph.DriveItem, 0, len(items))
+	for _, item := range items {
+		files = append(files, *recycleItemToDriveItem(driveID, item))
+	}
+	return files, true
 }
 
 func parseSpecialParams(w http.ResponseWriter, r *http.Request) (storageprovider.ResourceId, bool) {

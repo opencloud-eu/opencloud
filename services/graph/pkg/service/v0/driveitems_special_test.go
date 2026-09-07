@@ -57,10 +57,10 @@ var _ = Describe("Drive special folders", func() {
 		deletedAt = time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
 	)
 
-	// newRequest builds a request for /drives/{driveID}/special/{specialName}[/children];
+	// newRequestWithQuery builds a request for /drives/{driveID}/special/{specialName}[/children];
 	// specialPath mimics what the colon-path middleware puts into the context.
-	newRequest := func(specialName, specialPath string) *http.Request {
-		r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/drives/storageid$spaceid/special/"+specialName, nil)
+	newRequestWithQuery := func(specialName, specialPath, query string) *http.Request {
+		r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/drives/storageid$spaceid/special/"+specialName+query, nil)
 		rctx := chi.NewRouteContext()
 		rctx.URLParams.Add("driveID", "storageid$spaceid")
 		rctx.URLParams.Add("specialName", specialName)
@@ -69,6 +69,9 @@ var _ = Describe("Drive special folders", func() {
 			c = graphm.WithSpecialFolderPath(c, specialPath)
 		}
 		return r.WithContext(c)
+	}
+	newRequest := func(specialName, specialPath string) *http.Request {
+		return newRequestWithQuery(specialName, specialPath, "")
 	}
 
 	decodeItem := func() libregraph.DriveItem {
@@ -198,6 +201,71 @@ var _ = Describe("Drive special folders", func() {
 			Expect(item.GetName()).To(Equal("inner"))
 			Expect(item.Folder).ToNot(BeNil())
 			Expect(item.File).To(BeNil())
+		})
+
+		It("embeds the trash listing with $expand=children", func() {
+			var keys []string
+			gatewayClient.On("ListRecycle", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+				keys = append(keys, args.Get(1).(*provider.ListRecycleRequest).GetKey())
+			}).Return(&provider.ListRecycleResponse{
+				Status: status.NewOK(ctx),
+				RecycleItems: []*provider.RecycleItem{
+					{Type: provider.ResourceType_RESOURCE_TYPE_FILE, Key: "nodeid", Ref: &provider.Reference{Path: "/a.txt"}},
+				},
+			}, nil)
+
+			svc.GetDriveSpecial(rr, newRequestWithQuery("recyclebin", "", "?$expand=children"))
+			Expect(rr.Code).To(Equal(http.StatusOK))
+			Expect(keys).To(Equal([]string{""}))
+
+			item := decodeItem()
+			Expect(item.GetId()).To(Equal("storageid$spaceid!recyclebin"))
+			Expect(item.Children).To(HaveLen(1))
+			Expect(item.Children[0].GetId()).To(Equal("storageid$spaceid!nodeid"))
+			Expect(item.Children[0].Trash).ToNot(BeNil())
+		})
+
+		It("embeds the children of a trashed folder with $expand=children", func() {
+			var keys []string
+			gatewayClient.On("ListRecycle", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+				keys = append(keys, args.Get(1).(*provider.ListRecycleRequest).GetKey())
+			}).Return(&provider.ListRecycleResponse{
+				Status: status.NewOK(ctx),
+				RecycleItems: []*provider.RecycleItem{
+					{Type: provider.ResourceType_RESOURCE_TYPE_CONTAINER, Key: "nodeid", Ref: &provider.Reference{Path: "/folder"}},
+				},
+			}, nil).Once()
+			gatewayClient.On("ListRecycle", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+				keys = append(keys, args.Get(1).(*provider.ListRecycleRequest).GetKey())
+			}).Return(&provider.ListRecycleResponse{
+				Status: status.NewOK(ctx),
+				RecycleItems: []*provider.RecycleItem{
+					{Type: provider.ResourceType_RESOURCE_TYPE_FILE, Key: "nodeid/a.txt", Ref: &provider.Reference{Path: "/folder/a.txt"}},
+				},
+			}, nil).Once()
+
+			svc.GetDriveSpecial(rr, newRequestWithQuery("recyclebin", "/nodeid", "?$expand=children"))
+			Expect(rr.Code).To(Equal(http.StatusOK))
+			Expect(keys).To(Equal([]string{"nodeid", "nodeid/"}))
+
+			item := decodeItem()
+			Expect(item.GetId()).To(Equal("storageid$spaceid!nodeid"))
+			Expect(item.Children).To(HaveLen(1))
+			Expect(item.Children[0].GetId()).To(Equal("storageid$spaceid!nodeid/a.txt"))
+		})
+
+		It("does not expand children of a trashed file", func() {
+			gatewayClient.On("ListRecycle", mock.Anything, mock.Anything).Return(&provider.ListRecycleResponse{
+				Status: status.NewOK(ctx),
+				RecycleItems: []*provider.RecycleItem{
+					{Type: provider.ResourceType_RESOURCE_TYPE_FILE, Key: "nodeid", Ref: &provider.Reference{Path: "/a.txt"}},
+				},
+			}, nil)
+
+			svc.GetDriveSpecial(rr, newRequestWithQuery("recyclebin", "/nodeid", "?$expand=children"))
+			Expect(rr.Code).To(Equal(http.StatusOK))
+			gatewayClient.AssertNumberOfCalls(GinkgoT(), "ListRecycle", 1)
+			Expect(decodeItem().Children).To(BeNil())
 		})
 
 		It("returns not found when the key is not in the listing", func() {
