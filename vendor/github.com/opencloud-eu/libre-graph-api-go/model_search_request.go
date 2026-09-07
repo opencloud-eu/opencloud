@@ -30,7 +30,7 @@ type SearchRequest struct {
 	Size *int32 `json:"size,omitempty"`
 	// Specifies aggregations (also known as refiners or facets) to be returned alongside the search results. Optional. 
 	Aggregations []AggregationOption `json:"aggregations,omitempty"`
-	// Contains one or more filters to obtain search results narrowed down to a specific value of a field. Build this filter based on a prior search that aggregates by the same field. From the response of the prior search, identify the `searchBucket` that filters results to the specific value of the field, use the string in its `aggregationFilterToken` property, and build an aggregation filter string in the format `\"{field}:\\\"{aggregationFilterToken}\\\"\"`.  Multiple filters can be provided as separate array items. This results in a logical AND between the filters. 
+	// Contains one or more filters to narrow search results to specific buckets of a prior aggregation. Build each filter from the response of a prior search that aggregated on the same field: take the `aggregationFilterToken` of the wanted `searchBucket` and combine it with the field as `{field}:{aggregationFilterToken}`, e.g. `audio.artist:\"ǂǂ50696e6b20466c6f7964\"` for a terms bucket or `audio.year:range(1980, 1990)` for a range bucket. Several buckets of the same field are combined with `{field}:or({aggregationFilterToken},{aggregationFilterToken})`. Whitespace after the commas of `range(...)` and `or(...)` is optional.  Multiple filters can be provided as separate array items. This results in a logical AND between the filters. Filters that are not built from server-issued tokens are rejected with `invalidRequest`. 
 	AggregationFilters []string `json:"aggregationFilters,omitempty"`
 }
 

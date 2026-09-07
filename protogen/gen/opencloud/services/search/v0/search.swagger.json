@@ -425,6 +425,13 @@
         },
         "livePhoto": {
           "$ref": "#/definitions/v0LivePhoto"
+        },
+        "permissionsActionsAllowedValues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The effective permission actions of the caller, projected from the space\nroot permission set at query time (the same source as `permissions`), for\nthe driveItem `@libre.graph.permissions.actions.allowedValues` facet."
         }
       }
     },
@@ -656,6 +663,13 @@
             "$ref": "#/definitions/v0AggregationOption"
           },
           "description": "Optional. Per-space aggregations (facets) to compute alongside the matches."
+        },
+        "aggregationFilters": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional. Decoded aggregation filters as KQL fragments; the engine parses\neach, forces exact/case-sensitive matching, and ANDs them with `query`."
         }
       }
     },
@@ -709,6 +723,13 @@
             "$ref": "#/definitions/v0AggregationOption"
           },
           "description": "Optional. Aggregations (facets) to compute alongside the matches."
+        },
+        "aggregationFilters": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional. Decoded aggregation filters, one per selected bucket, as KQL\nfragments (e.g. `audio.artist:\"Pink Floyd\"`). Combined with `query` via AND\nand matched case-sensitively/exactly. Passed through from the graph layer."
         }
       }
     },

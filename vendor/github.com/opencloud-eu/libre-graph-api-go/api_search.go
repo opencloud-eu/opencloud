@@ -52,9 +52,10 @@ search UIs or computing statistics about the result set.
 
 The query string uses KQL (Keyword Query Language) syntax for filtering.
 
-This endpoint is inspired by the
-[MS Graph Search API](https://learn.microsoft.com/en-us/graph/api/search-query)
-and follows the same request/response structure for compatibility.
+Modeled on the MS Graph search query endpoint
+(https://learn.microsoft.com/en-us/graph/api/search-query). Request and
+response follow the MS Graph resource types; libregraph additions carry
+the `@libre.graph.` prefix.
 
 
  @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().

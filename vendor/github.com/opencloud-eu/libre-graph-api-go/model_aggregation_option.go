@@ -27,9 +27,8 @@ type AggregationOption struct {
 	Size *int32 `json:"size,omitempty"`
 	BucketDefinition *BucketDefinition `json:"bucketDefinition,omitempty"`
 	// Nested aggregations computed within each bucket of this aggregation. Libregraph extension not present in MS Graph.  Backends that don't support native composite aggregations (e.g. bleve) emulate them by walking the matched result set; OpenSearch translates them to native composite aggregations. 
-	SubAggregations []AggregationOption `json:"subAggregations,omitempty"`
-	// When set, this aggregation is a scalar metric over `field` rather than a bucket aggregation: `size` and `bucketDefinition` are ignored, and the corresponding `searchAggregation` in the response carries a `value` rather than `buckets`. Libregraph extension not present in MS Graph.  `avg` is not a simple reducer (averages of averages are not averages) — the backend carries `(sum, count)` internally and emits only `value` on the outermost merge. 
-	MetricKind *string `json:"metricKind,omitempty"`
+	LibreGraphSubAggregations []AggregationOption `json:"@libre.graph.subAggregations,omitempty"`
+	LibreGraphMetricDefinition *MetricDefinition `json:"@libre.graph.metricDefinition,omitempty"`
 }
 
 type _AggregationOption AggregationOption
@@ -140,68 +139,68 @@ func (o *AggregationOption) SetBucketDefinition(v BucketDefinition) {
 	o.BucketDefinition = &v
 }
 
-// GetSubAggregations returns the SubAggregations field value if set, zero value otherwise.
-func (o *AggregationOption) GetSubAggregations() []AggregationOption {
-	if o == nil || IsNil(o.SubAggregations) {
+// GetLibreGraphSubAggregations returns the LibreGraphSubAggregations field value if set, zero value otherwise.
+func (o *AggregationOption) GetLibreGraphSubAggregations() []AggregationOption {
+	if o == nil || IsNil(o.LibreGraphSubAggregations) {
 		var ret []AggregationOption
 		return ret
 	}
-	return o.SubAggregations
+	return o.LibreGraphSubAggregations
 }
 
-// GetSubAggregationsOk returns a tuple with the SubAggregations field value if set, nil otherwise
+// GetLibreGraphSubAggregationsOk returns a tuple with the LibreGraphSubAggregations field value if set, nil otherwise
 // and a boolean to check if the value has been set.
-func (o *AggregationOption) GetSubAggregationsOk() ([]AggregationOption, bool) {
-	if o == nil || IsNil(o.SubAggregations) {
+func (o *AggregationOption) GetLibreGraphSubAggregationsOk() ([]AggregationOption, bool) {
+	if o == nil || IsNil(o.LibreGraphSubAggregations) {
 		return nil, false
 	}
-	return o.SubAggregations, true
+	return o.LibreGraphSubAggregations, true
 }
 
-// HasSubAggregations returns a boolean if a field has been set.
-func (o *AggregationOption) HasSubAggregations() bool {
-	if o != nil && !IsNil(o.SubAggregations) {
+// HasLibreGraphSubAggregations returns a boolean if a field has been set.
+func (o *AggregationOption) HasLibreGraphSubAggregations() bool {
+	if o != nil && !IsNil(o.LibreGraphSubAggregations) {
 		return true
 	}
 
 	return false
 }
 
-// SetSubAggregations gets a reference to the given []AggregationOption and assigns it to the SubAggregations field.
-func (o *AggregationOption) SetSubAggregations(v []AggregationOption) {
-	o.SubAggregations = v
+// SetLibreGraphSubAggregations gets a reference to the given []AggregationOption and assigns it to the LibreGraphSubAggregations field.
+func (o *AggregationOption) SetLibreGraphSubAggregations(v []AggregationOption) {
+	o.LibreGraphSubAggregations = v
 }
 
-// GetMetricKind returns the MetricKind field value if set, zero value otherwise.
-func (o *AggregationOption) GetMetricKind() string {
-	if o == nil || IsNil(o.MetricKind) {
-		var ret string
+// GetLibreGraphMetricDefinition returns the LibreGraphMetricDefinition field value if set, zero value otherwise.
+func (o *AggregationOption) GetLibreGraphMetricDefinition() MetricDefinition {
+	if o == nil || IsNil(o.LibreGraphMetricDefinition) {
+		var ret MetricDefinition
 		return ret
 	}
-	return *o.MetricKind
+	return *o.LibreGraphMetricDefinition
 }
 
-// GetMetricKindOk returns a tuple with the MetricKind field value if set, nil otherwise
+// GetLibreGraphMetricDefinitionOk returns a tuple with the LibreGraphMetricDefinition field value if set, nil otherwise
 // and a boolean to check if the value has been set.
-func (o *AggregationOption) GetMetricKindOk() (*string, bool) {
-	if o == nil || IsNil(o.MetricKind) {
+func (o *AggregationOption) GetLibreGraphMetricDefinitionOk() (*MetricDefinition, bool) {
+	if o == nil || IsNil(o.LibreGraphMetricDefinition) {
 		return nil, false
 	}
-	return o.MetricKind, true
+	return o.LibreGraphMetricDefinition, true
 }
 
-// HasMetricKind returns a boolean if a field has been set.
-func (o *AggregationOption) HasMetricKind() bool {
-	if o != nil && !IsNil(o.MetricKind) {
+// HasLibreGraphMetricDefinition returns a boolean if a field has been set.
+func (o *AggregationOption) HasLibreGraphMetricDefinition() bool {
+	if o != nil && !IsNil(o.LibreGraphMetricDefinition) {
 		return true
 	}
 
 	return false
 }
 
-// SetMetricKind gets a reference to the given string and assigns it to the MetricKind field.
-func (o *AggregationOption) SetMetricKind(v string) {
-	o.MetricKind = &v
+// SetLibreGraphMetricDefinition gets a reference to the given MetricDefinition and assigns it to the LibreGraphMetricDefinition field.
+func (o *AggregationOption) SetLibreGraphMetricDefinition(v MetricDefinition) {
+	o.LibreGraphMetricDefinition = &v
 }
 
 func (o AggregationOption) MarshalJSON() ([]byte, error) {
@@ -221,11 +220,11 @@ func (o AggregationOption) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.BucketDefinition) {
 		toSerialize["bucketDefinition"] = o.BucketDefinition
 	}
-	if !IsNil(o.SubAggregations) {
-		toSerialize["subAggregations"] = o.SubAggregations
+	if !IsNil(o.LibreGraphSubAggregations) {
+		toSerialize["@libre.graph.subAggregations"] = o.LibreGraphSubAggregations
 	}
-	if !IsNil(o.MetricKind) {
-		toSerialize["metricKind"] = o.MetricKind
+	if !IsNil(o.LibreGraphMetricDefinition) {
+		toSerialize["@libre.graph.metricDefinition"] = o.LibreGraphMetricDefinition
 	}
 	return toSerialize, nil
 }

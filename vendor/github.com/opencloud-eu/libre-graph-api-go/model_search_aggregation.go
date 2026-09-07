@@ -23,10 +23,7 @@ type SearchAggregation struct {
 	Field *string `json:"field,omitempty"`
 	// Defines the computed buckets for this aggregation. Buckets are sorted according to the `sortBy` and `isDescending` specified in the `bucketDefinition` of the corresponding `aggregationOption`. 
 	Buckets []SearchBucket `json:"buckets,omitempty"`
-	// Scalar result for metric aggregations (`metricKind` set on the corresponding `aggregationOption`). Undefined for terms or range aggregations. Libregraph extension not present in MS Graph. 
-	Value *float64 `json:"value,omitempty"`
-	// Echoes the `metricKind` of the corresponding `aggregationOption`, allowing consumers (and the search service's cross-space merge layer) to pick the right reducer when combining results. Libregraph extension. 
-	MetricKind *string `json:"metricKind,omitempty"`
+	LibreGraphMetric *SearchMetric `json:"@libre.graph.metric,omitempty"`
 }
 
 // NewSearchAggregation instantiates a new SearchAggregation object
@@ -110,68 +107,36 @@ func (o *SearchAggregation) SetBuckets(v []SearchBucket) {
 	o.Buckets = v
 }
 
-// GetValue returns the Value field value if set, zero value otherwise.
-func (o *SearchAggregation) GetValue() float64 {
-	if o == nil || IsNil(o.Value) {
-		var ret float64
+// GetLibreGraphMetric returns the LibreGraphMetric field value if set, zero value otherwise.
+func (o *SearchAggregation) GetLibreGraphMetric() SearchMetric {
+	if o == nil || IsNil(o.LibreGraphMetric) {
+		var ret SearchMetric
 		return ret
 	}
-	return *o.Value
+	return *o.LibreGraphMetric
 }
 
-// GetValueOk returns a tuple with the Value field value if set, nil otherwise
+// GetLibreGraphMetricOk returns a tuple with the LibreGraphMetric field value if set, nil otherwise
 // and a boolean to check if the value has been set.
-func (o *SearchAggregation) GetValueOk() (*float64, bool) {
-	if o == nil || IsNil(o.Value) {
+func (o *SearchAggregation) GetLibreGraphMetricOk() (*SearchMetric, bool) {
+	if o == nil || IsNil(o.LibreGraphMetric) {
 		return nil, false
 	}
-	return o.Value, true
+	return o.LibreGraphMetric, true
 }
 
-// HasValue returns a boolean if a field has been set.
-func (o *SearchAggregation) HasValue() bool {
-	if o != nil && !IsNil(o.Value) {
+// HasLibreGraphMetric returns a boolean if a field has been set.
+func (o *SearchAggregation) HasLibreGraphMetric() bool {
+	if o != nil && !IsNil(o.LibreGraphMetric) {
 		return true
 	}
 
 	return false
 }
 
-// SetValue gets a reference to the given float64 and assigns it to the Value field.
-func (o *SearchAggregation) SetValue(v float64) {
-	o.Value = &v
-}
-
-// GetMetricKind returns the MetricKind field value if set, zero value otherwise.
-func (o *SearchAggregation) GetMetricKind() string {
-	if o == nil || IsNil(o.MetricKind) {
-		var ret string
-		return ret
-	}
-	return *o.MetricKind
-}
-
-// GetMetricKindOk returns a tuple with the MetricKind field value if set, nil otherwise
-// and a boolean to check if the value has been set.
-func (o *SearchAggregation) GetMetricKindOk() (*string, bool) {
-	if o == nil || IsNil(o.MetricKind) {
-		return nil, false
-	}
-	return o.MetricKind, true
-}
-
-// HasMetricKind returns a boolean if a field has been set.
-func (o *SearchAggregation) HasMetricKind() bool {
-	if o != nil && !IsNil(o.MetricKind) {
-		return true
-	}
-
-	return false
-}
-
-// SetMetricKind gets a reference to the given string and assigns it to the MetricKind field.
-func (o *SearchAggregation) SetMetricKind(v string) {
-	o.MetricKind = &v
+// SetLibreGraphMetric gets a reference to the given SearchMetric and assigns it to the LibreGraphMetric field.
+func (o *SearchAggregation) SetLibreGraphMetric(v SearchMetric) {
+	o.LibreGraphMetric = &v
 }
 
 func (o SearchAggregation) MarshalJSON() ([]byte, error) {
@@ -190,11 +155,8 @@ func (o SearchAggregation) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.Buckets) {
 		toSerialize["buckets"] = o.Buckets
 	}
-	if !IsNil(o.Value) {
-		toSerialize["value"] = o.Value
-	}
-	if !IsNil(o.MetricKind) {
-		toSerialize["metricKind"] = o.MetricKind
+	if !IsNil(o.LibreGraphMetric) {
+		toSerialize["@libre.graph.metric"] = o.LibreGraphMetric
 	}
 	return toSerialize, nil
 }

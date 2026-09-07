@@ -75,6 +75,11 @@ message SearchRequest {
 
   // Optional. Aggregations (facets) to compute alongside the matches.
   repeated AggregationOption aggregations = 5 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional. Decoded aggregation filters, one per selected bucket, as KQL
+  // fragments (e.g. `audio.artist:"Pink Floyd"`). Combined with `query` via AND
+  // and matched case-sensitively/exactly. Passed through from the graph layer.
+  repeated string aggregation_filters = 6 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message SearchResponse {
@@ -102,6 +107,10 @@ message SearchIndexRequest {
 
   // Optional. Per-space aggregations (facets) to compute alongside the matches.
   repeated AggregationOption aggregations = 5 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional. Decoded aggregation filters as KQL fragments; the engine parses
+  // each, forces exact/case-sensitive matching, and ANDs them with `query`.
+  repeated string aggregation_filters = 6 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message SearchIndexResponse {

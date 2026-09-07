@@ -21,7 +21,7 @@ var _ MappedNullable = &SearchQuery{}
 
 // SearchQuery Represents the search query. Follows the [MS Graph searchQuery](https://learn.microsoft.com/en-us/graph/api/resources/searchquery) resource type. 
 type SearchQuery struct {
-	// The search query string in KQL (Keyword Query Language) format. The query string can contain free-text keywords and property filters.  Examples: - `budget report` — free text search - `mediatype:audio` — filter by media type - `audio.artist:\"Pink Floyd\"` — filter by audio metadata - `audio.genre:Rock AND audio.year:1979` — combined filters 
+	// The search query string in KQL (Keyword Query Language) format. The query string can contain free-text keywords and property filters.  Examples: - `budget report`: free text search - `mediatype:audio`: filter by media type - `audio.artist:\"Pink Floyd\"`: filter by audio metadata - `audio.genre:Rock AND audio.year:1979`: combined filters 
 	QueryString string `json:"queryString"`
 }
 

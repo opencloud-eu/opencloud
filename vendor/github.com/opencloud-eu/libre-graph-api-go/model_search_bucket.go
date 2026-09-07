@@ -23,10 +23,10 @@ type SearchBucket struct {
 	Key *string `json:"key,omitempty"`
 	// The approximate number of search matches that share the same value specified in the `key` property. 
 	Count *int64 `json:"count,omitempty"`
-	// A token containing the encoded filter to aggregate search matches to the specific key value. To use the filter, pass the token as part of the `aggregationFilters` property in a subsequent `searchRequest`, in the format `\"{field}:\\\"{aggregationFilterToken}\\\"\"`. 
+	// A token containing the encoded filter that narrows search matches to this bucket. To use it, pass it as part of the `aggregationFilters` property of a subsequent `searchRequest` in the format `{field}:{aggregationFilterToken}`. The filter matches the bucket `key` exactly and case-sensitively, so the narrowed result set is the set of matches counted in this bucket.  For terms buckets the token is the key encoded as lowercase hex of its UTF-8 bytes, prefixed with `ǂǂ` (U+01C2 twice) and wrapped in double quotes, e.g. `\"ǂǂ50696e6b20466c6f7964\"` for the key `Pink Floyd`. For range buckets the token is `range({from}, {to})` with the bounds of the matching `bucketAggregationRange`; an open lower bound is written as `min`, an open upper bound as `max` followed by `to=\"le\"`, e.g. `range(min, 1980)`, `range(1980, 1990)` and `range(2010, max, to=\"le\")`. This is the same encoding MS Graph uses. 
 	AggregationFilterToken *string `json:"aggregationFilterToken,omitempty"`
 	// Nested aggregation results, one per sub-aggregation requested on the parent `aggregationOption`. Libregraph extension not present in MS Graph. 
-	SubAggregations []SearchAggregation `json:"subAggregations,omitempty"`
+	LibreGraphSubAggregations []SearchAggregation `json:"@libre.graph.subAggregations,omitempty"`
 }
 
 // NewSearchBucket instantiates a new SearchBucket object
@@ -142,36 +142,36 @@ func (o *SearchBucket) SetAggregationFilterToken(v string) {
 	o.AggregationFilterToken = &v
 }
 
-// GetSubAggregations returns the SubAggregations field value if set, zero value otherwise.
-func (o *SearchBucket) GetSubAggregations() []SearchAggregation {
-	if o == nil || IsNil(o.SubAggregations) {
+// GetLibreGraphSubAggregations returns the LibreGraphSubAggregations field value if set, zero value otherwise.
+func (o *SearchBucket) GetLibreGraphSubAggregations() []SearchAggregation {
+	if o == nil || IsNil(o.LibreGraphSubAggregations) {
 		var ret []SearchAggregation
 		return ret
 	}
-	return o.SubAggregations
+	return o.LibreGraphSubAggregations
 }
 
-// GetSubAggregationsOk returns a tuple with the SubAggregations field value if set, nil otherwise
+// GetLibreGraphSubAggregationsOk returns a tuple with the LibreGraphSubAggregations field value if set, nil otherwise
 // and a boolean to check if the value has been set.
-func (o *SearchBucket) GetSubAggregationsOk() ([]SearchAggregation, bool) {
-	if o == nil || IsNil(o.SubAggregations) {
+func (o *SearchBucket) GetLibreGraphSubAggregationsOk() ([]SearchAggregation, bool) {
+	if o == nil || IsNil(o.LibreGraphSubAggregations) {
 		return nil, false
 	}
-	return o.SubAggregations, true
+	return o.LibreGraphSubAggregations, true
 }
 
-// HasSubAggregations returns a boolean if a field has been set.
-func (o *SearchBucket) HasSubAggregations() bool {
-	if o != nil && !IsNil(o.SubAggregations) {
+// HasLibreGraphSubAggregations returns a boolean if a field has been set.
+func (o *SearchBucket) HasLibreGraphSubAggregations() bool {
+	if o != nil && !IsNil(o.LibreGraphSubAggregations) {
 		return true
 	}
 
 	return false
 }
 
-// SetSubAggregations gets a reference to the given []SearchAggregation and assigns it to the SubAggregations field.
-func (o *SearchBucket) SetSubAggregations(v []SearchAggregation) {
-	o.SubAggregations = v
+// SetLibreGraphSubAggregations gets a reference to the given []SearchAggregation and assigns it to the LibreGraphSubAggregations field.
+func (o *SearchBucket) SetLibreGraphSubAggregations(v []SearchAggregation) {
+	o.LibreGraphSubAggregations = v
 }
 
 func (o SearchBucket) MarshalJSON() ([]byte, error) {
@@ -193,8 +193,8 @@ func (o SearchBucket) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.AggregationFilterToken) {
 		toSerialize["aggregationFilterToken"] = o.AggregationFilterToken
 	}
-	if !IsNil(o.SubAggregations) {
-		toSerialize["subAggregations"] = o.SubAggregations
+	if !IsNil(o.LibreGraphSubAggregations) {
+		toSerialize["@libre.graph.subAggregations"] = o.LibreGraphSubAggregations
 	}
 	return toSerialize, nil
 }
