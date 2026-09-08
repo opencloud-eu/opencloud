@@ -73,7 +73,7 @@ func NewService(opts ...Option) *http.Server {
 			return baseCtx
 		},
 		Handler: alice.New(
-			chimiddleware.ClientIPFromRemoteAddr,
+			chimiddleware.ClientIPFromHeader(middleware.DefaultClientIPHeader),
 			chimiddleware.RequestID,
 			middleware.NoCache,
 			middleware.Cors(
