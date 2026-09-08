@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@butonic, @dschmidt, @fredrikblau, @fschade, @maki5, @pbleser-oc, @v-scharf
+@butonic, @dschmidt, @fredrikblau, @fschade, @maki5, @pbleser-oc, @v-scharf, @zerox80
 
 ### 💥 Breaking changes
 
@@ -14,6 +14,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(config): correct pending version annotations [[#3487](https://github.com/opencloud-eu/opencloud/pull/3487)]
 - Activitylog event handler split [[#3241](https://github.com/opencloud-eu/opencloud/pull/3241)]
 - test(search): wait for expected properties and documents [[#3486](https://github.com/opencloud-eu/opencloud/pull/3486)]
 - fix: log jwt expired on debug level instead of error [[#3463](https://github.com/opencloud-eu/opencloud/pull/3463)]
