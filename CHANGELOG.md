@@ -14,6 +14,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(thumbnails): bound declared image dimensions before decoding [[#3457](https://github.com/opencloud-eu/opencloud/pull/3457)]
 - test(search): re-search until the expected files are in the result [[#3488](https://github.com/opencloud-eu/opencloud/pull/3488)]
 - fix(config): correct pending version annotations [[#3487](https://github.com/opencloud-eu/opencloud/pull/3487)]
 - Activitylog event handler split [[#3241](https://github.com/opencloud-eu/opencloud/pull/3241)]
