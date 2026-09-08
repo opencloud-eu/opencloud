@@ -46,4 +46,9 @@ type Thumbnail struct {
 	MaxInputWidth         int               `yaml:"max_input_width" env:"THUMBNAILS_MAX_INPUT_WIDTH" desc:"The maximum width of an input image which is being processed." introductionVersion:"1.0.0"`
 	MaxInputHeight        int               `yaml:"max_input_height" env:"THUMBNAILS_MAX_INPUT_HEIGHT" desc:"The maximum height of an input image which is being processed." introductionVersion:"1.0.0"`
 	MaxInputImageFileSize string            `yaml:"max_input_image_file_size" env:"THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE" desc:"The maximum file size of an input image which is being processed. Usable common abbreviations: [KB, KiB, MB, MiB, GB, GiB, TB, TiB, PB, PiB, EB, EiB], example: 2GB." introductionVersion:"1.0.0"`
+	// MaxConcurrentRequests limits the number of thumbnail requests that are
+	// decoded and resized in parallel. 0 (the default) means unlimited, matching
+	// main's THUMBNAILS_MAX_CONCURRENT_REQUESTS. Requests arriving while the limit
+	// is reached get HTTP 429 Too Many Requests.
+	MaxConcurrentRequests int `yaml:"max_concurrent_requests" env:"THUMBNAILS_MAX_CONCURRENT_REQUESTS" desc:"Maximum number of concurrent thumbnail generation requests. Default is 0 which is unlimited." introductionVersion:"1.0.0"`
 }
