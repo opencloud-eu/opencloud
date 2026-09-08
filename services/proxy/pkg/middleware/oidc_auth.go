@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack/v5"
 	"go-micro.dev/v4/store"
@@ -186,6 +187,13 @@ func verifyExpiresAt(claims map[string]any, cmp time.Time) bool {
 	return cmp.Before(expiry)
 }
 
+// isExpectedTokenTimeError reports whether the error is caused by a token that
+// failed its expiry (or not-before) validation. These are expected as part of
+// the normal token renewal cycle and should not be logged at error level.
+func isExpectedTokenTimeError(err error) bool {
+	return errors.Is(err, jwt.ErrTokenExpired) || errors.Is(err, jwt.ErrTokenNotValidYet)
+}
+
 func (m OIDCAuthenticator) shouldServe(req *http.Request) bool {
 	if m.OIDCIss == "" {
 		return false
@@ -212,7 +220,17 @@ func (m *OIDCAuthenticator) Authenticate(r *http.Request) (*http.Request, bool) 
 	claims, newSession, err := m.getClaims(token, r)
 	if err != nil {
 		host, port, _ := net.SplitHostPort(r.RemoteAddr)
-		m.Logger.Error().
+
+		// Expired (or not yet valid) tokens are a normal part of the token
+		// renewal cycle: the client hits the proxy with a token that is just
+		// past its expiry, receives a 401 challenge and refreshes. This is not
+		// a failure of the proxy, so we log it at debug level to avoid noise.
+		logEvent := m.Logger.Debug()
+		if !isExpectedTokenTimeError(err) {
+			logEvent = m.Logger.Error()
+		}
+
+		logEvent.
 			Err(err).
 			Str("authenticator", "oidc").
 			Str("path", r.URL.Path).

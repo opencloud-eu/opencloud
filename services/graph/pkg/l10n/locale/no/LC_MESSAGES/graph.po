@@ -1,0 +1,157 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
+# Translators:
+# Roy-Magne Mo, 2026
+# 
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: EMAIL\n"
+"POT-Creation-Date: 2026-09-07 23:16+0000\n"
+"PO-Revision-Date: 2025-01-27 10:17+0000\n"
+"Last-Translator: Roy-Magne Mo, 2026\n"
+"Language-Team: Norwegian (https://app.transifex.com/opencloud-eu/teams/204053/no/)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: no\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. UnifiedRole Editor, Role DisplayName (resolves directly)
+#. UnifiedRole Editor, Role DisplayName (resolves directly)
+#. UnifiedRole EditorListGrants, Role DisplayName (resolves directly)
+#. UnifiedRole SpaseEditor, Role DisplayName (resolves directly)
+#. UnifiedRole FileEditor, Role DisplayName (resolves directly)
+#. UnifiedRole FileEditorWithVersions, Role DisplayName (resolves directly)
+#. UnifiedRole FileEditorListGrants, Role DisplayName (resolves directly)
+#: pkg/unifiedrole/roles.go:137 pkg/unifiedrole/roles.go:143
+#: pkg/unifiedrole/roles.go:149 pkg/unifiedrole/roles.go:155
+#: pkg/unifiedrole/roles.go:167 pkg/unifiedrole/roles.go:173
+#: pkg/unifiedrole/roles.go:179
+msgid "Can edit"
+msgstr "Kan redigere"
+
+#. UnifiedRole SpaseEditorWithoutVersions, Role DisplayName (resolves
+#. directly)
+#: pkg/unifiedrole/roles.go:161
+msgid "Can edit without versions"
+msgstr "Kan redigere uten versjoner"
+
+#. UnifiedRole Manager, Role DisplayName (resolves directly)
+#: pkg/unifiedrole/roles.go:191
+msgid "Can manage"
+msgstr "Kan håndtere"
+
+#. UnifiedRole EditorLite, Role DisplayName (resolves directly)
+#: pkg/unifiedrole/roles.go:185
+msgid "Can upload"
+msgstr "Kan laste opp"
+
+#. UnifiedRole Viewer, Role DisplayName (resolves directly)
+#. UnifiedRole ViewerWithVersions, Role DisplayName (resolves directly)
+#. UnifiedRole Viewer, Role DisplayName (resolves directly)
+#. UnifiedRole SpaseViewer, Role DisplayName (resolves directly)
+#. UnifiedRole SpaseViewer, Role DisplayName (resolves directly)
+#: pkg/unifiedrole/roles.go:107 pkg/unifiedrole/roles.go:113
+#: pkg/unifiedrole/roles.go:119 pkg/unifiedrole/roles.go:125
+#: pkg/unifiedrole/roles.go:131
+msgid "Can view"
+msgstr "Kan se"
+
+#. UnifiedRole SecureViewer, Role DisplayName (resolves directly)
+#: pkg/unifiedrole/roles.go:197
+msgid "Can view (secure)"
+msgstr "Kan vise (sikker)"
+
+#. UnifiedRole FullDenial, Role DisplayName (resolves directly)
+#: pkg/unifiedrole/roles.go:203
+msgid "Cannot access"
+msgstr "Kan ikke få tilgang"
+
+#. UnifiedRole FullDenial, Role Description (resolves directly)
+#: pkg/unifiedrole/roles.go:200
+msgid "Deny all access."
+msgstr "Avvis all tilgang."
+
+#. default description for new spaces
+#: pkg/service/v0/spacetemplates.go:32
+msgid "Here you can add a description for this Space."
+msgstr "Her kan du legge til en beskrivelse for dette rommet."
+
+#. UnifiedRole ViewerWithVersions, Role Description (resolves directly)
+#. UnifiedRole SpaceViewer, Role Description (resolves directly)
+#: pkg/unifiedrole/roles.go:110 pkg/unifiedrole/roles.go:128
+msgid "View and download including the history."
+msgstr "Vis og last ned, inkludert historikken."
+
+#. UnifiedRole Viewer, Role Description (resolves directly)
+#. UnifiedRole SpaceViewer, Role Description (resolves directly)
+#: pkg/unifiedrole/roles.go:104 pkg/unifiedrole/roles.go:122
+msgid "View and download."
+msgstr "Vis og last ned."
+
+#. UnifiedRole SecureViewer, Role Description (resolves directly)
+#: pkg/unifiedrole/roles.go:194
+msgid "View only documents, images and PDFs. Watermarks will be applied."
+msgstr "Vis kun dokumenter, bilder og PDF-er. Vannmerker vil bli brukt."
+
+#. UnifiedRole FileEditorWithVErsions, Role Description (resolves directly)
+#: pkg/unifiedrole/roles.go:176
+msgid "View, download and edit including the history."
+msgstr "Vis, last ned og rediger, inkludert historikken."
+
+#. UnifiedRole FileEditor, Role Description (resolves directly)
+#: pkg/unifiedrole/roles.go:164
+msgid "View, download and edit."
+msgstr "Vis, last ned og rediger."
+
+#. UnifiedRole ViewerListGrants, Role Description (resolves directly)
+#: pkg/unifiedrole/roles.go:116
+msgid "View, download and show all invited people."
+msgstr "Vis, last ned og vis alle inviterte personer."
+
+#. UnifiedRole EditorLite, Role Description (resolves directly)
+#: pkg/unifiedrole/roles.go:182
+msgid "View, download and upload."
+msgstr "Vis, last ned og last opp."
+
+#. UnifiedRole FileEditorListGrants, Role Description (resolves directly)
+#: pkg/unifiedrole/roles.go:170
+msgid "View, download, edit and show all invited people."
+msgstr "Vis, last ned, rediger og vis alle inviterte personer."
+
+#. UnifiedRole Editor, Role Description (resolves directly)
+#: pkg/unifiedrole/roles.go:140
+msgid "View, download, upload, edit, add and delete including the history."
+msgstr ""
+"Vis, last ned, last opp, rediger, legg til og slett, inkludert historikken."
+
+#. UnifiedRole Editor, Role Description (resolves directly)
+#. UnifiedRole SpaseEditorWithoutVersions, Role Description (resolves
+#. directly)
+#: pkg/unifiedrole/roles.go:134 pkg/unifiedrole/roles.go:158
+msgid "View, download, upload, edit, add and delete."
+msgstr "Vis, last ned, last opp, rediger, legg til og slett."
+
+#. UnifiedRole Manager, Role Description (resolves directly)
+#: pkg/unifiedrole/roles.go:188
+msgid "View, download, upload, edit, add, delete and manage members."
+msgstr ""
+"Vis, last ned, last opp, rediger, legg til, slett og administrer medlemmer."
+
+#. UnifiedRoleListGrants Editor, Role Description (resolves directly)
+#: pkg/unifiedrole/roles.go:146
+msgid "View, download, upload, edit, add, delete and show all invited people."
+msgstr ""
+"Se, last ned, last opp, rediger, legg til, slett og vis alle inviterte "
+"personer."
+
+#. UnifiedRole SpaseEditor, Role Description (resolves directly)
+#: pkg/unifiedrole/roles.go:152
+msgid "View, download, upload, edit, add, delete including the history."
+msgstr ""
+"Vis, last ned, last opp, rediger, legg til, slett inkludert historikken."
