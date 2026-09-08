@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/opencloud-eu/opencloud/opencloud/pkg/register"
@@ -19,6 +20,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/spaceidindex"
 
 	"github.com/pkg/xattr"
 	"github.com/spf13/cobra"
@@ -44,6 +46,7 @@ func PosixfsCommand(cfg *config.Config) *cobra.Command {
 	}
 
 	posixCmd.AddCommand(consistencyCmd(cfg))
+	posixCmd.AddCommand(indexCmd(cfg))
 	posixCmd.AddCommand(scanCmd(cfg))
 
 	return posixCmd
@@ -192,6 +195,148 @@ the command is aborted with an error before performing any scanning.`,
 	}
 	scanCmd.Flags().BoolP("halt-on-error", "E", false, "Halt at once when an error occurs when processing one of the paths (default behaviour is to keep going and attempt to process all paths).")
 	return scanCmd
+}
+
+func indexCmd(ocCfg *config.Config) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "index",
+		Short: "Add spaces from the filesystem to the index",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return rebuildIndexes(cmd)
+		},
+	}
+	cmd.Flags().StringP("root", "r", "", "Path to the root directory of the posixfs storage")
+	cmd.Flags().StringSliceP("dirs", "d", []string{"users", "projects"}, "Subdirectories to scan for spaces")
+	cmd.Flags().StringP("space", "s", "", "Only index a specific space, matched by directory name or space ID")
+	_ = cmd.MarkFlagRequired("root")
+	return cmd
+}
+
+func rebuildIndexes(cmd *cobra.Command) error {
+	rootPath, _ := cmd.Flags().GetString("root")
+	spaceFilter, _ := cmd.Flags().GetString("space")
+	indexesDir := filepath.Join(rootPath, "indexes")
+
+	if _, err := os.Stat(indexesDir); err != nil {
+		return fmt.Errorf("'%s' is not a posixfs root: %w", rootPath, err)
+	}
+
+	userIndex := spaceidindex.New(indexesDir, "by-user-id")
+	if err := userIndex.Init(); err != nil {
+		return fmt.Errorf("failed to init by-user-id index: %w", err)
+	}
+	groupIndex := spaceidindex.New(indexesDir, "by-group-id")
+	if err := groupIndex.Init(); err != nil {
+		return fmt.Errorf("failed to init by-group-id index: %w", err)
+	}
+	typeIndex := spaceidindex.New(indexesDir, "by-type")
+	if err := typeIndex.Init(); err != nil {
+		return fmt.Errorf("failed to init by-type index: %w", err)
+	}
+
+	userEntries := map[string]map[string]string{}
+	groupEntries := map[string]map[string]string{}
+	typeEntries := map[string]map[string]string{}
+
+	dirs, _ := cmd.Flags().GetStringSlice("dirs")
+	for _, dir := range dirs {
+		basePath := filepath.Join(rootPath, dir)
+		entries, err := os.ReadDir(basePath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return fmt.Errorf("failed to read '%s': %w", basePath, err)
+		}
+
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+
+			spacePath := filepath.Join(basePath, entry.Name())
+
+			spaceID, err := xattr.Get(spacePath, prefixes.SpaceIDAttr)
+			if err != nil || len(spaceID) == 0 {
+				fmt.Fprintf(os.Stderr, "  - Skipping '%s': missing space ID\n", spacePath)
+				continue
+			}
+
+			sid := string(spaceID)
+			if spaceFilter != "" && entry.Name() != spaceFilter && sid != spaceFilter {
+				continue
+			}
+
+			spaceType, err := xattr.Get(spacePath, prefixes.SpaceTypeAttr)
+			if err != nil || len(spaceType) == 0 {
+				fmt.Fprintf(os.Stderr, "  - Skipping '%s': missing space type\n", spacePath)
+				continue
+			}
+
+			stype := string(spaceType)
+			fmt.Printf("Collecting space '%s' (%s)\n", sid, stype)
+
+			if typeEntries[stype] == nil {
+				typeEntries[stype] = map[string]string{}
+			}
+			typeEntries[stype][sid] = sid
+
+			ownerType, _ := xattr.Get(spacePath, prefixes.OwnerTypeAttr)
+			if string(ownerType) != "spaceowner" {
+				ownerID, err := xattr.Get(spacePath, prefixes.OwnerIDAttr)
+				if err == nil && len(ownerID) > 0 {
+					oid := string(ownerID)
+					if userEntries[oid] == nil {
+						userEntries[oid] = map[string]string{}
+					}
+					userEntries[oid][sid] = sid
+				}
+			}
+
+			attrs, err := xattr.List(spacePath)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "  - Failed to list xattrs for '%s': %v\n", spacePath, err)
+				continue
+			}
+			for _, attr := range attrs {
+				switch {
+				case strings.HasPrefix(attr, "user.oc.grant.u:"):
+					grantee := strings.TrimPrefix(attr, "user.oc.grant.u:")
+					if userEntries[grantee] == nil {
+						userEntries[grantee] = map[string]string{}
+					}
+					userEntries[grantee][sid] = sid
+				case strings.HasPrefix(attr, "user.oc.grant.g:"):
+					grantee := strings.TrimPrefix(attr, "user.oc.grant.g:")
+					if groupEntries[grantee] == nil {
+						groupEntries[grantee] = map[string]string{}
+					}
+					groupEntries[grantee][sid] = sid
+				}
+			}
+		}
+	}
+
+	fmt.Println("Writing indexes...")
+
+	for spaceType, entries := range typeEntries {
+		if err := typeIndex.AddAll(spaceType, entries); err != nil {
+			fmt.Fprintf(os.Stderr, "  - Failed to write type index '%s': %v\n", spaceType, err)
+		}
+	}
+	for userID, entries := range userEntries {
+		if err := userIndex.AddAll(userID, entries); err != nil {
+			fmt.Fprintf(os.Stderr, "  - Failed to write user index '%s': %v\n", userID, err)
+		}
+	}
+	for groupID, entries := range groupEntries {
+		if err := groupIndex.AddAll(groupID, entries); err != nil {
+			fmt.Fprintf(os.Stderr, "  - Failed to write group index '%s': %v\n", groupID, err)
+		}
+	}
+
+	fmt.Println("Done.")
+	return nil
 }
 
 // consistencyCmd returns a command to check the consistency of the posixfs storage.
