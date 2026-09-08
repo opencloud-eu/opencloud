@@ -30,10 +30,14 @@ type FileConverter interface {
 }
 
 // GifDecoder is a converter for the gif file
-type GifDecoder struct{}
+type GifDecoder struct{ limit decodeLimit }
 
 // Convert reads the gif file and returns the thumbnail image
 func (i GifDecoder) Convert(r io.Reader) (any, error) {
+	r, err := i.limit.guardDimensions(r, gif.DecodeConfig)
+	if err != nil {
+		return nil, err
+	}
 	img, err := gif.DecodeAll(r)
 	if err != nil {
 		return nil, errors.Wrap(err, `could not decode the image`)
@@ -42,7 +46,10 @@ func (i GifDecoder) Convert(r io.Reader) (any, error) {
 }
 
 // GgsDecoder is a converter for the geogebra slides file
-type GgsDecoder struct{ thumbnailpath string }
+type GgsDecoder struct {
+	thumbnailpath string
+	limit         decodeLimit
+}
 
 // Convert reads the ggs file and returns the thumbnail image
 func (g GgsDecoder) Convert(r io.Reader) (any, error) {
@@ -61,7 +68,7 @@ func (g GgsDecoder) Convert(r io.Reader) (any, error) {
 			if err != nil {
 				return nil, err
 			}
-			converter := ForType("image/png", nil)
+			converter := ForType("image/png", g.limit.opts())
 			if converter == nil {
 				return nil, thumbnailerErrors.ErrNoConverterForExtractedImageFromGgsFile
 			}
@@ -76,7 +83,7 @@ func (g GgsDecoder) Convert(r io.Reader) (any, error) {
 }
 
 // AudioDecoder is a converter for the audio file
-type AudioDecoder struct{}
+type AudioDecoder struct{ limit decodeLimit }
 
 // Convert reads the audio file and extracts the thumbnail image from the id3 tag
 func (i AudioDecoder) Convert(r io.Reader) (any, error) {
@@ -94,7 +101,7 @@ func (i AudioDecoder) Convert(r io.Reader) (any, error) {
 		return nil, thumbnailerErrors.ErrNoImageFromAudioFile
 	}
 
-	converter := ForType(picture.MIMEType, nil)
+	converter := ForType(picture.MIMEType, i.limit.opts())
 	if converter == nil {
 		return nil, thumbnailerErrors.ErrNoConverterForExtractedImageFromAudioFile
 	}
@@ -200,7 +207,7 @@ type GGPStruct struct {
 }
 
 // GgpDecoder is a converter for the geogebra pinboard file
-type GgpDecoder struct{}
+type GgpDecoder struct{ limit decodeLimit }
 
 // Convert reads the ggp file and returns the first thumbnail image
 func (j GgpDecoder) Convert(r io.Reader) (any, error) {
@@ -220,7 +227,14 @@ func (j GgpDecoder) Convert(r io.Reader) (any, error) {
 		return nil, err
 	}
 
-	img, _, err := image.Decode(bytes.NewReader(b))
+	r2, err := j.limit.guardDimensions(bytes.NewReader(b), func(rr io.Reader) (image.Config, error) {
+		cfg, _, err := image.DecodeConfig(rr)
+		return cfg, err
+	})
+	if err != nil {
+		return nil, err
+	}
+	img, _, err := image.Decode(r2)
 	return img, err
 }
 
@@ -297,11 +311,61 @@ func drawWord(canvas *font.Drawer, word string, minX, maxX, incY, maxY fixed.Int
 	}
 }
 
+// decodeLimit bounds the source image dimensions a decoder accepts. A zero
+// value on an axis disables the limit for that axis.
+type decodeLimit struct {
+	maxWidth  int
+	maxHeight int
+}
+
+func decodeLimitFromOpts(opts map[string]any) decodeLimit {
+	l := decodeLimit{}
+	if v, ok := opts["maxInputWidth"].(int); ok {
+		l.maxWidth = v
+	}
+	if v, ok := opts["maxInputHeight"].(int); ok {
+		l.maxHeight = v
+	}
+	return l
+}
+
+func (l decodeLimit) exceeded(width, height int) bool {
+	return (l.maxWidth > 0 && width > l.maxWidth) || (l.maxHeight > 0 && height > l.maxHeight)
+}
+
+// opts renders the limit back into an options map so decoders that recurse
+// into ForType can forward it to the nested image decoder.
+func (l decodeLimit) opts() map[string]any {
+	return map[string]any{"maxInputWidth": l.maxWidth, "maxInputHeight": l.maxHeight}
+}
+
+// guardDimensions reads only the image header (no pixel allocation) and
+// rejects a source whose declared dimensions exceed the limit, before the
+// full bitmap is decoded. It returns a reader that replays the consumed
+// header so the caller can still decode from the start. A header that cannot
+// be parsed is passed through unchecked, letting the real decoder report it.
+func (l decodeLimit) guardDimensions(r io.Reader, config func(io.Reader) (image.Config, error)) (io.Reader, error) {
+	if l.maxWidth <= 0 && l.maxHeight <= 0 {
+		return r, nil
+	}
+	var head bytes.Buffer
+	cfg, err := config(io.TeeReader(r, &head))
+	replay := io.MultiReader(&head, r)
+	if err != nil {
+		return replay, nil
+	}
+	if l.exceeded(cfg.Width, cfg.Height) {
+		return nil, thumbnailerErrors.ErrImageTooLarge
+	}
+	return replay, nil
+}
+
 // ForType returns the converter for the specified mimeType
 func ForType(mimeType string, opts map[string]any) FileConverter {
 	// We can ignore the error here because we parse it in IsMimeTypeSupported before and if it fails
 	// return the service call. So we should only get here when the mimeType parses fine.
 	mimeType, _, _ = mime.ParseMediaType(mimeType)
+	limit := decodeLimitFromOpts(opts)
 	switch mimeType {
 	case "text/plain":
 		fontFileMap := ""
@@ -333,18 +397,18 @@ func ForType(mimeType string, opts map[string]any) FileConverter {
 			fontLoader: fontLoader,
 		}
 	case "application/vnd.geogebra.slides":
-		return GgsDecoder{"_slide0/geogebra_thumbnail.png"}
+		return GgsDecoder{thumbnailpath: "_slide0/geogebra_thumbnail.png", limit: limit}
 	case "application/vnd.geogebra.pinboard":
-		return GgpDecoder{}
+		return GgpDecoder{limit: limit}
 	case "image/gif":
-		return GifDecoder{}
+		return GifDecoder{limit: limit}
 	case "audio/flac":
 		fallthrough
 	case "audio/mpeg":
 		fallthrough
 	case "audio/ogg":
-		return AudioDecoder{}
+		return AudioDecoder{limit: limit}
 	default:
-		return ImageDecoder{}
+		return ImageDecoder{limit: limit}
 	}
 }
