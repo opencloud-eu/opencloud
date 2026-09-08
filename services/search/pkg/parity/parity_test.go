@@ -109,6 +109,7 @@ func queryGroups() []queryGroup {
 		stressGroup(),
 		everythingGroup(),
 		rangeGroup(),
+		geoGroup(),
 		scopeGroup(),
 		invalidGroup(),
 	}
