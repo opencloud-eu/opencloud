@@ -55,6 +55,9 @@ class SpacesContext implements Context {
 	 * key is space name and value is the username that created the space
 	 */
 	private array $createdSpaces = [];
+	// the request of the last driveItem GET, so a later "should eventually
+	// match" step can re-run it (the counterpart of the stored response)
+	private array $lastDriveItemRequest = [];
 	private string $ocsApiUrl = '/ocs/v2.php/apps/files_sharing/api/v1/shares';
 
 	/**
@@ -4533,17 +4536,16 @@ class SpacesContext implements Context {
 	}
 
 	/**
+	 * resolve the Graph URL of a file in a space
 	 *
 	 * @param string $user
 	 * @param string $file
 	 * @param string $space
 	 *
-	 * @return void
+	 * @return string
 	 */
-	#[When('user :user gets the file :file from space :space using the Graph API')]
-	public function userGetsTheDriveItemInSpace(string $user, string $file, string $space): void {
+	private function getDriveItemUrl(string $user, string $file, string $space): string {
 		$spaceId = ($this->getSpaceByName($user, $space))["id"];
-		$itemId = '';
 		if ($space === "Shares") {
 			$itemId = GraphHelper::getShareMountId(
 				$this->featureContext->getBaseUrl(),
@@ -4555,10 +4557,51 @@ class SpacesContext implements Context {
 		} else {
 			$itemId = $this->getFileId($user, $space, $file);
 		}
-		$url = $this->featureContext->getBaseUrl() . "/graph/v1.0/drives/$spaceId/items/$itemId";
+		return $this->featureContext->getBaseUrl() . "/graph/v1.0/drives/$spaceId/items/$itemId";
+	}
 
-		// NOTE: extracting properties occurs asynchronously after upload, so we need to wait until the properties are available
-		$extractionFacets = ["image", "photo", "location", "audio", "video"];
+	/**
+	 *
+	 * @param string $user
+	 * @param string $file
+	 * @param string $space
+	 *
+	 * @return void
+	 */
+	#[When('user :user gets the file :file from space :space using the Graph API')]
+	public function userGetsTheDriveItemInSpace(string $user, string $file, string $space): void {
+		$this->lastDriveItemRequest = [
+			"url" => $this->getDriveItemUrl($user, $file, $space),
+			"user" => $user,
+		];
+		$response = HttpRequestHelper::get(
+			$this->lastDriveItemRequest["url"],
+			$this->featureContext->getStepLineRef(),
+			$user,
+			$this->featureContext->getPasswordForUser($user),
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 *
+	 * @param PyStringNode $schemaString
+	 *
+	 * @return void
+	 */
+	#[Then('the JSON data of the response should eventually match')]
+	public function theJsonDataOfTheResponseShouldEventuallyMatch(PyStringNode $schemaString): void {
+		Assert::assertNotEmpty(
+			$this->lastDriveItemRequest,
+			'no driveItem request to repeat, get the file using the Graph API first'
+		);
+		$url = $this->lastDriveItemRequest["url"];
+		$user = $this->lastDriveItemRequest["user"];
+		$schema = $this->featureContext->getJSONSchema($schemaString);
+
+		// Extraction is asynchronous, so re-fetch until the response satisfies the
+		// expected schema (a partial payload never matches) or the WaitHelper
+		// timeout elapses.
 		$response = WaitHelper::waitUntil(
 			fn () => HttpRequestHelper::get(
 				$url,
@@ -4566,16 +4609,24 @@ class SpacesContext implements Context {
 				$user,
 				$this->featureContext->getPasswordForUser($user),
 			),
-			function ($response) use ($extractionFacets) {
+			function ($response) use ($schema) {
 				if ($response->getStatusCode() !== 200) {
-					return true;
+					return false;
 				}
-				$body = $this->featureContext->getJsonDecodedResponseBodyContent($response);
-				return \is_object($body)
-					&& !empty(\array_intersect($extractionFacets, \array_keys((array) $body)));
+				try {
+					$body = $this->featureContext->getJsonDecodedResponseBodyContent($response);
+					$this->featureContext->assertJsonDocumentMatchesSchema($body, $schema);
+					return true;
+				} catch (\Throwable $e) {
+					return false;
+				}
 			}
 		);
 
 		$this->featureContext->setResponse($response);
+		$this->featureContext->assertJsonDocumentMatchesSchema(
+			$this->featureContext->getJsonDecodedResponseBodyContent($response),
+			$schema
+		);
 	}
 }
