@@ -19,6 +19,8 @@ type Config struct {
 
 	HTTP HTTP `yaml:"http"`
 
+	ClientIP ClientIP `yaml:"client_ip"`
+
 	Reva          *shared.Reva          `yaml:"reva"`
 	GRPCClientTLS *shared.GRPCClientTLS `yaml:"grpc_client_tls"`
 	GrpcClient    client.Client         `yaml:"-"`
@@ -95,6 +97,14 @@ var (
 	RouteTypes = []RouteType{QueryRoute, RegexRoute, PrefixRoute}
 )
 
+// ClientIP configures how the proxy resolves the real client IP address.
+type ClientIP struct {
+	Strategy        string   `yaml:"strategy" env:"PROXY_CLIENT_IP_STRATEGY" desc:"Determines how the proxy resolves the real client IP. Supported values: remote_addr, header, xff, xff_trusted_hops." introductionVersion:"%NEXT%"`
+	Header          string   `yaml:"header" env:"PROXY_CLIENT_IP_HEADER" desc:"The header name to use for the 'header' strategy, e.g. X-Real-IP or CF-Connecting-IP." introductionVersion:"%NEXT%"`
+	TrustedPrefixes []string `yaml:"trusted_prefixes" env:"PROXY_CLIENT_IP_TRUSTED_PREFIXES" desc:"CIDRs of trusted proxies used by the 'xff' strategy." introductionVersion:"%NEXT%"`
+	TrustedHops     int      `yaml:"trusted_hops" env:"PROXY_CLIENT_IP_TRUSTED_HOPS" desc:"Number of trusted proxy hops used by the 'xff_trusted_hops' strategy." introductionVersion:"%NEXT%"`
+}
+
 // AuthMiddleware configures the proxy http auth middleware.
 type AuthMiddleware struct {
 	CredentialsByUserAgent map[string]string `yaml:"credentials_by_user_agent"`
@@ -111,6 +121,11 @@ const (
 	AccessTokenVerificationJWT  = "jwt"
 	// tdb:
 	// AccessTokenVerificationIntrospect = "introspect"
+
+	ClientIPStrategyRemoteAddr     = "remote_addr"
+	ClientIPStrategyHeader         = "header"
+	ClientIPStrategyXFF            = "xff"
+	ClientIPStrategyXFFTrustedHops = "xff_trusted_hops"
 )
 
 // OIDC is the config for the OpenID-Connect middleware. If set the proxy will try to authenticate every request
