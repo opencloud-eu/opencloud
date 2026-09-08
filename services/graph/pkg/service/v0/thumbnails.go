@@ -8,7 +8,7 @@ import (
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 
-	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
 const (

@@ -5,7 +5,6 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/config"
-	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail/storage"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -14,11 +13,10 @@ type Option func(o *Options)
 
 // Options defines the available options for this package.
 type Options struct {
-	Logger           log.Logger
-	Config           *config.Config
-	Middleware       []func(http.Handler) http.Handler
-	ThumbnailStorage storage.Storage
-	TraceProvider    trace.TracerProvider
+	Logger        log.Logger
+	Config        *config.Config
+	Middleware    []func(http.Handler) http.Handler
+	TraceProvider trace.TracerProvider
 }
 
 // newOptions initializes the available default options.
@@ -50,12 +48,5 @@ func Config(val *config.Config) Option {
 func Middleware(val ...func(http.Handler) http.Handler) Option {
 	return func(o *Options) {
 		o.Middleware = val
-	}
-}
-
-// ThumbnailStorage provides a function to set the ThumbnailStorage option.
-func ThumbnailStorage(storage storage.Storage) Option {
-	return func(o *Options) {
-		o.ThumbnailStorage = storage
 	}
 }
