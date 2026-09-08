@@ -44,6 +44,23 @@ func Auth(opts ...account.Option) func(http.Handler) http.Handler {
 			ctx := r.Context()
 			t := r.Header.Get(revactx.TokenHeader)
 			if t == "" {
+				// a public link request that failed the share auth carries a
+				// hint (set by the proxy) so we can tell the two cases apart;
+				// only trust it when a share token is actually on the request
+				if hint := r.Header.Get(opkgm.PublicLinkAuthHeader); hint != "" && opkgm.HasPublicLinkToken(r) {
+					switch hint {
+					// distinguish via the body only, never WWW-Authenticate: a
+					// Basic challenge would pop the browser's native auth dialog
+					// instead of the app's password field (the proxy strips it
+					// on public paths for the same reason)
+					case opkgm.PublicLinkPasswordRequired:
+						errorcode.PublicLinkPasswordRequired.Render(w, r, http.StatusUnauthorized, "This public link is password protected.")
+						return
+					case opkgm.PublicLinkInvalidPassword:
+						errorcode.PublicLinkPasswordInvalid.Render(w, r, http.StatusUnauthorized, "The password is incorrect.")
+						return
+					}
+				}
 				errorcode.InvalidAuthenticationToken.Render(w, r, http.StatusUnauthorized, "Access token is empty.")
 				/* msgraph error for GET https://graph.microsoft.com/v1.0/me
 				{
@@ -67,7 +84,8 @@ func Auth(opts ...account.Option) func(http.Handler) http.Handler {
 				errorcode.InvalidAuthenticationToken.Render(w, r, http.StatusUnauthorized, "invalid token")
 				return
 			}
-			if ok, err := scope.VerifyScope(ctx, tokenScope, r); err != nil || !ok {
+			// scope handlers judge CS3 requests and url paths, not *http.Request
+			if ok, err := scope.VerifyScope(ctx, tokenScope, r.URL.Path); err != nil || !ok {
 				opt.Logger.Error().Str(log.RequestIDString, r.Header.Get("X-Request-ID")).Err(err).Msg("verifying scope failed")
 				errorcode.InvalidAuthenticationToken.Render(w, r, http.StatusUnauthorized, "verifying scope failed")
 				return
