@@ -16,6 +16,9 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/proxy/policy"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
 	"github.com/rs/zerolog"
+
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	pkgmiddleware "github.com/opencloud-eu/opencloud/pkg/middleware"
 )
 
 // MultiHostReverseProxy extends "httputil" to support multiple hosts with different policies
@@ -42,6 +45,11 @@ func NewMultiHostReverseProxy(opts ...Option) (*MultiHostReverseProxy, error) {
 	}
 
 	rp.Rewrite = func(r *httputil.ProxyRequest) {
+		// Set the resolved client IP to header so the downstream services can use it
+		if clientIP := chimiddleware.GetClientIP(r.In.Context()); clientIP != "" {
+			r.Out.Header.Set(pkgmiddleware.DefaultClientIPHeader, clientIP)
+		}
+
 		// Check if datagateway middleware already handled this request
 		if skip, _ := r.In.Context().Value(middleware.DatagatewaySkipRoutingKey).(bool); skip {
 			r.SetXForwarded()
