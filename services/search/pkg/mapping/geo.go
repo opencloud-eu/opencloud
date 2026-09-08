@@ -47,5 +47,10 @@ func addGeopointSibling(m map[string]any, dottedPath string) {
 	if !hasLon || !hasLat {
 		return
 	}
+	// corrupt EXIF: OpenSearch rejects the whole document on an out-of-range
+	// geo_point, bleve would index it at the pole; both index it without one
+	if lat < -90 || lat > 90 || lon < -180 || lon > 180 {
+		return
+	}
 	parent[leaf+GeopointSuffix] = map[string]any{"lat": lat, "lon": lon}
 }

@@ -687,9 +687,11 @@ Fixtures:
 
 - `some_song.mp3`, ID = 1$1!5, MimeType = audio/mpeg
 - `team.jpg`, ID = 1$1!6, MimeType = image/jpeg
+- `lost.jpg`, ID = 1$1!7, MimeType = image/jpeg
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
 | METADATA-01 | `*song*` reads `Audio` | all 16 fields unchanged | all 16 fields unchanged | all 16 fields unchanged | ✅ |
 | METADATA-02 | `*team*` reads `Location` | all 3 fields unchanged | all 3 fields unchanged | all 3 fields unchanged | ✅ |
+| METADATA-04 | `*lost*` reads `Location` | Latitude=100, Longitude=11.1 | Latitude=100, Longitude=11.1 | Latitude=100, Longitude=11.1 | ✅ |
 | METADATA-03 | `*team*` reads `Audio` | none | none | none | ✅ |
