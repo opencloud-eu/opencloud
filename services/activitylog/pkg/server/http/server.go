@@ -1,49 +1,63 @@
 package http
 
 import (
-	"fmt"
-
-	stdhttp "net/http"
+	"context"
+	"embed"
+	"encoding/json"
+	"errors"
+	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/pkg/account"
 	"github.com/opencloud-eu/opencloud/pkg/cors"
+	"github.com/opencloud-eu/opencloud/pkg/l10n"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/middleware"
-	"github.com/opencloud-eu/opencloud/pkg/service/http"
-	"github.com/opencloud-eu/opencloud/pkg/tracing"
+	ohttp "github.com/opencloud-eu/opencloud/pkg/service/http"
 	"github.com/opencloud-eu/opencloud/pkg/version"
-	svc "github.com/opencloud-eu/opencloud/services/activitylog/pkg/service"
-	"github.com/riandyrn/otelchi"
+	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
+	activityloghttp "github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/http"
+	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"go-micro.dev/v4"
+	"google.golang.org/grpc/metadata"
 )
 
-// Service is the service interface
-type Service any
+var (
+	//go:embed l10n/locale
+	_localeFS embed.FS
+
+	// subfolder where the translation files are stored
+	_localeSubPath = "l10n/locale"
+
+	// domain of the activitylog service (transifex)
+	_domain = "activitylog"
+)
 
 // Server initializes the http service and server.
-func Server(opts ...Option) (http.Service, error) {
+func Server(opts ...Option) (ohttp.Service, error) {
 	options := newOptions(opts...)
+	service := options.Service
 
-	service, err := http.NewService(
-		http.TLSConfig(options.Config.HTTP.TLS),
-		http.Logger(options.Logger),
-		http.Namespace(options.Config.HTTP.Namespace),
-		http.Name(options.Config.Service.Name),
-		http.Version(version.GetString()),
-		http.Address(options.Config.HTTP.Addr),
-		http.Context(options.Context),
-		http.Flags(options.Flags...),
-		http.TraceProvider(options.TraceProvider),
+	newService, err := ohttp.NewService(
+		ohttp.TLSConfig(options.Config.HTTP.TLS),
+		ohttp.Logger(options.Logger),
+		ohttp.Namespace(options.Config.HTTP.Namespace),
+		ohttp.Name(options.Config.Service.Name),
+		ohttp.Version(version.GetString()),
+		ohttp.Address(options.Config.HTTP.Addr),
+		ohttp.Context(options.Context),
+		ohttp.Flags(options.Flags...),
 	)
 	if err != nil {
 		options.Logger.Error().
 			Err(err).
 			Msg("Error initializing http service")
-		return http.Service{}, fmt.Errorf("could not initialize http service: %w", err)
+		return ohttp.Service{}, err
 	}
 
-	middlewares := []func(stdhttp.Handler) stdhttp.Handler{
+	middlewares := []func(http.Handler) http.Handler{
 		chimiddleware.RequestID,
 		middleware.Version(
 			options.Config.Service.Name,
@@ -52,6 +66,7 @@ func Server(opts ...Option) (http.Service, error) {
 		middleware.Logger(
 			options.Logger,
 		),
+		middleware.TraceContext,
 		middleware.ExtractAccountUUID(
 			account.Logger(options.Logger),
 			account.JWTSecret(options.Config.TokenManager.JWTSecret),
@@ -68,33 +83,75 @@ func Server(opts ...Option) (http.Service, error) {
 	mux := chi.NewMux()
 	mux.Use(middlewares...)
 
-	mux.Use(
-		otelchi.Middleware(
-			"actitivylog",
-			otelchi.WithChiRoutes(mux),
-			otelchi.WithTracerProvider(options.TraceProvider),
-			otelchi.WithPropagators(tracing.GetPropagator()),
-		),
-	)
+	t := l10n.NewTranslatorFromCommonConfig(options.Config.DefaultLanguage, _domain, options.Config.TranslationPath, _localeFS, _localeSubPath)
+	mux.Route(options.Config.HTTP.Root, func(r chi.Router) {
+		r.Get("/graph/v1beta1/extensions/org.libregraph/activities", GetItemActivitiesHandler(options.Logger, service, options.ValueClient, t))
+	})
 
-	handle, err := svc.New(
-		svc.Logger(options.Logger),
-		svc.Stream(options.Stream),
-		svc.Mux(mux),
-		svc.Config(options.Config),
-		svc.GatewaySelector(options.GatewaySelector),
-		svc.TraceProvider(options.TraceProvider),
-		svc.HistoryClient(options.HistoryClient),
-		svc.ValueClient(options.ValueClient),
-		svc.RegisteredEvents(options.RegisteredEvents),
-	)
+	err = micro.RegisterHandler(newService.Server(), mux)
 	if err != nil {
-		return http.Service{}, err
+		options.Logger.Fatal().Err(err).Msg("failed to register the handler")
 	}
 
-	if err := micro.RegisterHandler(service.Server(), handle); err != nil {
-		return http.Service{}, err
-	}
+	newService.Init()
+	return newService, nil
 
-	return service, nil
+}
+
+// Service defines the business logic implementations need to provide.
+type ActivityLogService interface {
+	GetItemActivities(ctx context.Context, query, loc string, t l10n.Translator) ([]libregraph.Activity, error)
+}
+
+// GetActivitiesResponse is the response on GET activities requests
+type GetActivitiesResponse struct {
+	Activities []libregraph.Activity `json:"value"`
+}
+
+func GetItemActivitiesHandler(log log.Logger, s ActivityLogService, vc settingssvc.ValueService, t l10n.Translator) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		ctx = metadata.AppendToOutgoingContext(ctx, revactx.TokenHeader, r.Header.Get(revactx.TokenHeader))
+
+		activeUser, ok := revactx.ContextGetUser(ctx)
+		if !ok {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		loc := l10n.MustGetUserLocale(ctx, activeUser.GetId().GetOpaqueId(), r.Header.Get(l10n.HeaderAcceptLanguage), vc)
+
+		activities, err := s.GetItemActivities(ctx, r.URL.Query().Get("kql"), loc, t)
+		if err != nil {
+			switch {
+			case errors.Is(err, activityloghttp.ErrBadRequest):
+				log.Debug().Str("query", r.URL.Query().Get("kql")).Err(err).Msg("error getting activities")
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			case errors.Is(err, activityloghttp.ErrForbidden):
+				log.Debug().Err(err).Msg("error getting activities")
+				w.WriteHeader(http.StatusForbidden)
+				return
+			default:
+				log.Error().Err(err).Msg("error getting activities")
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+		}
+		res := GetActivitiesResponse{
+			Activities: activities,
+		}
+
+		w.Header().Set("Content-Type", "application/json; odata.metadata=minimal")
+		w.Header().Set("OData-Version", "4.0")
+		if reqID := chimiddleware.GetReqID(ctx); reqID != "" {
+			w.Header().Set("request-id", reqID)
+		}
+		w.Header().Set("Cache-Control", "no-cache")
+		if err := json.NewEncoder(w).Encode(res); err != nil {
+			log.Error().Err(err).Msg("error encoding activities")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}
 }

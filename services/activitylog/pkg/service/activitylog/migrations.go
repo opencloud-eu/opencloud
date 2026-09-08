@@ -1,4 +1,4 @@
-package service
+package activitylog
 
 import (
 	"context"
@@ -15,7 +15,7 @@ const currentMigrationVersion = "1"
 
 // RunMigrations checks the activitylog data version and runs migrations if necessary.
 // It should be called during service startup, after the NATS KeyValue store is initialized.
-func (a *ActivitylogService) runMigrations(ctx context.Context, kv nats.KeyValue) error {
+func (a *ActivityLog) runMigrations(ctx context.Context, kv nats.KeyValue) error {
 	entry, err := kv.Get(activitylogVersionKey)
 	if err == nats.ErrKeyNotFound {
 		a.log.Info().Msg("activitylog version key not found. Running migration to V1...")
@@ -40,7 +40,7 @@ func (a *ActivitylogService) runMigrations(ctx context.Context, kv nats.KeyValue
 // For each such key, it creates a new key in the format "originalKey.count.timestamp"
 // and stores the original list of strings (re-marshalled to messagepack) as its value.
 // Finally, it sets the activitylog.version key to "1".
-func (a *ActivitylogService) migrateToV1(_ context.Context, kv nats.KeyValue) error {
+func (a *ActivityLog) migrateToV1(_ context.Context, kv nats.KeyValue) error {
 	lister, err := kv.ListKeys()
 	if err != nil {
 		return fmt.Errorf("migrateToV1: failed to list keys from NATS KV store: %w", err)

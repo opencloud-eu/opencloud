@@ -1,89 +1,97 @@
-package service
+package http
 
 import (
-	"embed"
-	"encoding/json"
-	"errors"
-	"net/http"
+	"context"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	"google.golang.org/grpc/metadata"
-
+	"github.com/olekukonko/errors"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/l10n"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	ehmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/eventhistory/v0"
 	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
+	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/activitylog"
+	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace"
 )
 
-var (
-	//go:embed l10n/locale
-	_localeFS embed.FS
+var tracer trace.Tracer
 
-	// subfolder where the translation files are stored
-	_localeSubPath = "l10n/locale"
-
-	// domain of the activitylog service (transifex)
-	_domain = "activitylog"
-)
-
-// ServeHTTP implements the http.Handler interface.
-func (s *ActivitylogService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.mux.ServeHTTP(w, r)
+func init() {
+	tracer = otel.Tracer("github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/http")
 }
 
-// HandleGetItemActivities handles the request to get the activities of an item.
-func (s *ActivitylogService) HandleGetItemActivities(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	ctx = metadata.AppendToOutgoingContext(ctx, revactx.TokenHeader, r.Header.Get(revactx.TokenHeader))
+// New returns a new instance of Service
+func New(al *activitylog.ActivityLog, opts ...Option) (*svc, error) {
+	o := newOptions(opts...)
 
-	activeUser, ok := revactx.ContextGetUser(ctx)
-	if !ok {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
+	registeredEvents := make(map[string]events.Unmarshaller)
+	for _, e := range o.RegisteredEvents {
+		typ := reflect.TypeOf(e)
+		registeredEvents[typ.String()] = e
 	}
 
+	return &svc{
+		log:              o.Logger,
+		evHistory:        o.HistoryClient,
+		al:               al,
+		registeredEvents: registeredEvents,
+		gws:              o.GatewaySelector,
+	}, nil
+}
+
+type svc struct {
+	log              log.Logger
+	evHistory        ehsvc.EventHistoryService
+	gws              pool.Selectable[gateway.GatewayAPIClient]
+	al               *activitylog.ActivityLog
+	registeredEvents map[string]events.Unmarshaller
+}
+
+var (
+	ErrBadRequest = errors.New("bad request")
+	ErrForbidden  = errors.New("forbidden")
+)
+
+func (s *svc) GetItemActivities(ctx context.Context, query, loc string, t l10n.Translator) ([]libregraph.Activity, error) {
 	gwc, err := s.gws.Next()
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
-	rid, limit, rawActivityAccepted, activityAccepted, sort, err := s.getFilters(r.URL.Query().Get("kql"))
+	rid, limit, rawActivityAccepted, activityAccepted, sort, err := s.getFilters(query)
 	if err != nil {
-		s.log.Info().Str("query", r.URL.Query().Get("kql")).Err(err).Msg("error getting filters")
-		_, _ = w.Write([]byte(err.Error()))
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		s.log.Info().Str("query", query).Err(err).Msg("error getting filters")
+		return nil, ErrBadRequest
 	}
 
 	info, err := utils.GetResourceByID(ctx, rid, gwc)
 	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
-		return
+		return nil, ErrForbidden
 	}
 
 	// you need ListGrants to see activities
 	if !info.GetPermissionSet().GetListGrants() {
-		w.WriteHeader(http.StatusForbidden)
-		return
+		return nil, ErrForbidden
 	}
 
-	raw, err := s.Activities(rid)
+	raw, err := s.al.Activities(rid)
 	if err != nil {
 		s.log.Error().Err(err).Msg("error getting activities")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
 	ids := make([]string, 0, len(raw))
@@ -96,21 +104,21 @@ func (s *ActivitylogService) HandleGetItemActivities(w http.ResponseWriter, r *h
 		toDelete[a.EventID] = struct{}{}
 	}
 
-	evRes, err := s.evHistory.GetEvents(r.Context(), &ehsvc.GetEventsRequest{Ids: ids})
+	evRes, err := s.evHistory.GetEvents(ctx, &ehsvc.GetEventsRequest{Ids: ids})
 	if err != nil {
 		s.log.Error().Err(err).Msg("error getting events")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
 	evs := evRes.GetEvents()
 	sort(evs)
 
-	resp := GetActivitiesResponse{Activities: make([]libregraph.Activity, 0, len(evRes.GetEvents()))}
+	// TODO cut the interface here?
+	activities := make([]libregraph.Activity, 0, len(evRes.GetEvents()))
 	for _, e := range evs {
 		delete(toDelete, e.GetId())
 
-		if limit > 0 && limit <= len(resp.Activities) {
+		if limit > 0 && limit <= len(activities) {
 			continue
 		}
 
@@ -123,9 +131,6 @@ func (s *ActivitylogService) HandleGetItemActivities(w http.ResponseWriter, r *h
 			ts      time.Time
 			vars    map[string]any
 		)
-
-		loc := l10n.MustGetUserLocale(r.Context(), activeUser.GetId().GetOpaqueId(), r.Header.Get(l10n.HeaderAcceptLanguage), s.valService)
-		t := l10n.NewTranslatorFromCommonConfig(s.cfg.DefaultLanguage, _domain, s.cfg.TranslationPath, _localeFS, _localeSubPath)
 
 		switch ev := s.unwrapEvent(e).(type) {
 		case nil:
@@ -224,35 +229,29 @@ func (s *ActivitylogService) HandleGetItemActivities(w http.ResponseWriter, r *h
 			continue
 		}
 
-		resp.Activities = append(resp.Activities, NewActivity(t.Translate(message, loc), ts, e.GetId(), vars))
+		activities = append(activities, NewActivity(t.Translate(message, loc), ts, e.GetId(), vars))
 	}
 
 	// delete activities in separate go routine
 	if len(toDelete) > 0 {
 		go func() {
-			err := s.RemoveActivities(rid, toDelete)
+			err := s.al.RemoveActivities(rid, toDelete)
 			if err != nil {
 				s.log.Error().Err(err).Msg("error removing activities")
 			}
 		}()
 	}
+	return activities, nil
 
-	b, err := json.Marshal(resp)
-	if err != nil {
-		s.log.Error().Err(err).Msg("error marshalling activities")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	if _, err := w.Write(b); err != nil {
-		s.log.Error().Err(err).Msg("error writing response")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
 }
 
-func (s *ActivitylogService) unwrapEvent(e *ehmsg.Event) any {
+func toRef(r *provider.ResourceId) *provider.Reference {
+	return &provider.Reference{
+		ResourceId: r,
+	}
+}
+
+func (s *svc) unwrapEvent(e *ehmsg.Event) any {
 	etype, ok := s.registeredEvents[e.GetType()]
 	if !ok {
 		s.log.Error().Str("eventid", e.GetId()).Str("eventtype", e.GetType()).Msg("event not registered")
@@ -268,13 +267,13 @@ func (s *ActivitylogService) unwrapEvent(e *ehmsg.Event) any {
 	return einterface
 }
 
-func (s *ActivitylogService) getFilters(query string) (*provider.ResourceId, int, func(RawActivity) bool, func(*ehmsg.Event) bool, func([]*ehmsg.Event), error) {
+func (s *svc) getFilters(query string) (*provider.ResourceId, int, func(activitylog.RawActivity) bool, func(*ehmsg.Event) bool, func([]*ehmsg.Event), error) {
 	qast, err := kql.Builder{}.Build(query)
 	if err != nil {
 		return nil, 0, nil, nil, nil, err
 	}
 
-	prefilters := make([]func(RawActivity) bool, 0)
+	prefilters := make([]func(activitylog.RawActivity) bool, 0)
 	postfilters := make([]func(*ehmsg.Event) bool, 0)
 
 	sortby := func(_ []*ehmsg.Event) {}
@@ -299,7 +298,7 @@ func (s *ActivitylogService) getFilters(query string) (*provider.ResourceId, int
 					break
 				}
 
-				prefilters = append(prefilters, func(a RawActivity) bool {
+				prefilters = append(prefilters, func(a activitylog.RawActivity) bool {
 					return a.Depth <= depth
 				})
 			case "limit":
@@ -322,11 +321,11 @@ func (s *ActivitylogService) getFilters(query string) (*provider.ResourceId, int
 		case *ast.DateTimeNode:
 			switch v.Operator.Value {
 			case "<", "<=":
-				prefilters = append(prefilters, func(a RawActivity) bool {
+				prefilters = append(prefilters, func(a activitylog.RawActivity) bool {
 					return a.Timestamp.Before(v.Value)
 				})
 			case ">", ">=":
-				prefilters = append(prefilters, func(a RawActivity) bool {
+				prefilters = append(prefilters, func(a activitylog.RawActivity) bool {
 					return a.Timestamp.After(v.Value)
 				})
 			}
@@ -345,7 +344,7 @@ func (s *ActivitylogService) getFilters(query string) (*provider.ResourceId, int
 		// space root requested - fix format
 		rid.OpaqueId = rid.GetSpaceId()
 	}
-	pref := func(a RawActivity) bool {
+	pref := func(a activitylog.RawActivity) bool {
 		for _, f := range prefilters {
 			if !f(a) {
 				return false

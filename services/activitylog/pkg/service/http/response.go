@@ -1,4 +1,4 @@
-package service
+package http
 
 import (
 	"context"
@@ -43,11 +43,6 @@ var (
 	StrDisplayName    = l10n.Template("display name")
 	StrDescription    = l10n.Template("description")
 )
-
-// GetActivitiesResponse is the response on GET activities requests
-type GetActivitiesResponse struct {
-	Activities []libregraph.Activity `json:"value"`
-}
 
 // Resource represents an item such as a file or folder
 type Resource struct {
@@ -311,7 +306,7 @@ func NewActivity(message string, ts time.Time, eventID string, vars map[string]a
 }
 
 // GetVars calls other service to gather the required data for the activity variables
-func (s *ActivitylogService) GetVars(ctx context.Context, opts ...ActivityOption) (map[string]any, error) {
+func (s *svc) GetVars(ctx context.Context, opts ...ActivityOption) (map[string]any, error) {
 	gwc, err := s.gws.Next()
 	if err != nil {
 		return nil, err
@@ -325,6 +320,12 @@ func (s *ActivitylogService) GetVars(ctx context.Context, opts ...ActivityOption
 	}
 
 	return vars, nil
+}
+
+func toSpace(r *provider.Reference) *provider.StorageSpaceId {
+	return &provider.StorageSpaceId{
+		OpaqueId: storagespace.FormatStorageID(r.GetResourceId().GetStorageId(), r.GetResourceId().GetSpaceId()),
+	}
 }
 
 func getFolderName(ctx context.Context, gwc gateway.GatewayAPIClient, ref *provider.Reference) string {
