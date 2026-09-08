@@ -176,6 +176,9 @@ func (g Thumbnail) handleCS3Source(ctx context.Context, req *thumbnailssvc.GetTh
 	}
 	pp := preprocessor.ForType(sRes.GetInfo().GetMimeType(), ppOpts)
 	img, err := pp.Convert(r)
+	if errors.Is(err, terrors.ErrImageTooLarge) {
+		return "", merrors.Forbidden(g.serviceID, "%s", err.Error())
+	}
 	if err != nil {
 		g.logger.Error().Err(err).Msg("failed to convert image")
 	}
@@ -274,6 +277,9 @@ func (g Thumbnail) handleWebdavSource(ctx context.Context, req *thumbnailssvc.Ge
 	}
 	pp := preprocessor.ForType(sRes.GetInfo().GetMimeType(), ppOpts)
 	img, err := pp.Convert(r)
+	if errors.Is(err, terrors.ErrImageTooLarge) {
+		return "", merrors.Forbidden(g.serviceID, "%s", err.Error())
+	}
 	if img == nil || err != nil {
 		return "", merrors.NotFound(g.serviceID, "could not get image")
 	}

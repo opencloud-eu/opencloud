@@ -24,6 +24,7 @@ func (v ImageDecoder) Convert(r io.Reader) (interface{}, error) {
 		return nil, err
 	}
 	if v.limit.exceeded(img.Width(), img.Height()) {
+		img.Close()
 		return nil, thumbnailerErrors.ErrImageTooLarge
 	}
 	return img, nil
