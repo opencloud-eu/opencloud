@@ -34,6 +34,10 @@ func ParseConfig(cfg *config.Config) error {
 }
 
 func Validate(cfg *config.Config) error {
+	if cfg.Events.Disabled && cfg.GRPC.Disabled {
+		return shared.AllComponentsDisabledError(cfg.Service.Name)
+	}
+
 	if cfg.TokenManager.JWTSecret == "" {
 		return shared.MissingJWTTokenError(cfg.Service.Name)
 	}
