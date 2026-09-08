@@ -1504,7 +1504,6 @@ github.com/opencloud-eu/reva/v2/pkg/eosclient/eosgrpc
 github.com/opencloud-eu/reva/v2/pkg/eosclient/eosgrpc/eos_grpc
 github.com/opencloud-eu/reva/v2/pkg/errtypes
 github.com/opencloud-eu/reva/v2/pkg/events
-github.com/opencloud-eu/reva/v2/pkg/events/mocks
 github.com/opencloud-eu/reva/v2/pkg/events/raw
 github.com/opencloud-eu/reva/v2/pkg/events/raw/mocks
 github.com/opencloud-eu/reva/v2/pkg/events/stream
@@ -1980,7 +1979,7 @@ github.com/shirou/gopsutil/v4/internal/common
 github.com/shirou/gopsutil/v4/mem
 github.com/shirou/gopsutil/v4/net
 github.com/shirou/gopsutil/v4/process
-# github.com/sirupsen/logrus v1.10.1
+# github.com/sirupsen/logrus v1.10.2
 ## explicit; go 1.23
 github.com/sirupsen/logrus
 # github.com/skeema/knownhosts v1.3.1
