@@ -82,6 +82,9 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 	if err != nil {
 		return doc, err
 	}
+	if len(metas) == 0 {
+		return doc, nil
+	}
 
 	for _, meta := range metas {
 		title, err := getFirstValue(meta, "dc:title")
@@ -98,40 +101,21 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		} else if content, err := getFirstValue(meta, "X-TIKA:content"); err == nil {
 			doc.Content = strings.TrimSpace(fmt.Sprintf("%s %s", doc.Content, content))
 		}
-
-		// keep facets from earlier entries, an embedded resource's meta
-		// (e.g. cover art) must not reset them
-		if v := t.getLocation(meta); v != nil {
-			doc.Location = v
-		}
-		if v := t.getImage(meta); v != nil {
-			doc.Image = v
-		}
-		if v := t.getPhoto(meta); v != nil {
-			doc.Photo = v
-		}
-		if v := t.getAudio(meta); v != nil {
-			doc.Audio = v
-		}
-		if v := t.getLivePhoto(meta); v != nil {
-			doc.LivePhoto = v
-		}
 	}
 
-	if len(metas) > 0 {
-		// the video facet says the file is a video, so it comes from the file
-		// itself: the clip tika extracts from a motion photo must not make its
-		// image look like one
-		doc.Video = t.getVideo(metas[0])
-	}
+	// facets describe the file itself, not its embedded parts (cover art, clips)
+	m0 := metas[0]
+	doc.Location = t.getLocation(m0)
+	doc.Image = t.getImage(m0)
+	doc.Photo = t.getPhoto(m0)
+	doc.Audio = t.getAudio(m0)
+	doc.LivePhoto = t.getLivePhoto(m0)
+	doc.Video = t.getVideo(m0)
 
-	// a motion photo is the xmp on the file itself plus the video tika extracted
-	// from it. The xmp alone proves nothing: a share can keep it and strip the
-	// appended video.
-	if len(metas) > 0 {
-		if i := slices.IndexFunc(metas[1:], isVideo); i >= 0 {
-			doc.MotionPhoto = t.getMotionPhoto(metas[0], metas[i+1])
-		}
+	// a motion photo is the file's own xmp plus the video tika extracted from
+	// it; the xmp alone proves nothing, a share can strip the appended clip
+	if i := slices.IndexFunc(metas[1:], isVideo); i >= 0 {
+		doc.MotionPhoto = t.getMotionPhoto(m0, metas[i+1])
 	}
 
 	if langCode := t.detectLanguage(ctx, doc.Content); langCode != "" && t.CleanStopWords {

@@ -170,7 +170,9 @@ var _ = Describe("Tika", func() {
 			Expect(doc.Content).To(Equal("body test stop words!!!"))
 		})
 
-		It("keeps the audio facet when an embedded resource follows", func() {
+		It("takes facets from the main document, not from an embedded resource", func() {
+			// metas[0] is the file (audio), metas[1] its embedded cover art. The
+			// cover must not give the track an image facet.
 			fullResponse = `[{"Content-Type": "audio/mpeg", "dc:title": "Sucker", "tk:content": "lyrics"}, {"Content-Type": "image/jpeg", "tiff:ImageWidth": "500"}]`
 
 			doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
@@ -180,7 +182,7 @@ var _ = Describe("Tika", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(doc.Audio).ToNot(BeNil())
 			Expect(doc.Audio.Title).To(Equal(libregraph.PtrString("Sucker")))
-			Expect(doc.Image).ToNot(BeNil())
+			Expect(doc.Image).To(BeNil())
 		})
 
 		It("adds no audio facet to non-audio documents", func() {
