@@ -25,6 +25,7 @@ use GuzzleHttp\Exception\GuzzleException;
 use PHPUnit\Framework\Assert;
 use Psr\Http\Message\ResponseInterface;
 use TestHelpers\WebDavHelper;
+use TestHelpers\WaitHelper;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\BehatHelper;
 use Behat\Step\Then;
@@ -37,6 +38,7 @@ require_once 'bootstrap.php';
  */
 class SearchContext implements Context {
 	private FeatureContext $featureContext;
+	private array $lastSearchQuery = [];
 
 	/**
 	 * @param string $user
@@ -149,6 +151,13 @@ class SearchContext implements Context {
 		// NOTE: because indexing of newly uploaded files or directories with OpenCloud is decoupled and occurs asynchronously
 		// short wait is necessary before searching
 		sleep(10);
+		// remember the query so "should eventually contain" steps can re-search
+		$this->lastSearchQuery = [
+			"user" => $user,
+			"pattern" => $pattern,
+			"limit" => $limit,
+			"properties" => $properties,
+		];
 		$response = $this->searchFiles($user, $pattern, $limit, null, null, null, $properties);
 		$this->featureContext->setResponse($response);
 	}
@@ -278,5 +287,84 @@ class SearchContext implements Context {
 		sleep(5);
 		$response = $this-> searchFiles($user, $pattern, null, $scopeType, $scope, $spaceName);
 		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 * re-run the last WebDAV search until the assertion passes or the WaitHelper
+	 * timeout elapses, leaving the last response set for a final assertion by the
+	 * caller. Indexing of newly uploaded resources is asynchronous, so a wanted
+	 * file can be missing from an early search; OpenSearch never returns a partial
+	 * document, so once the expected entries are present the result is complete.
+	 *
+	 * @param callable $assert
+	 *
+	 * @return void
+	 */
+	private function retrySearchUntilSatisfied(callable $assert): void {
+		Assert::assertNotEmpty(
+			$this->lastSearchQuery,
+			'No search to retry. Use a "searches for ... using the WebDAV API" step first.'
+		);
+		$query = $this->lastSearchQuery;
+		$response = WaitHelper::waitUntil(
+			fn () => $this->searchFiles(
+				$query["user"],
+				$query["pattern"],
+				$query["limit"],
+				null,
+				null,
+				null,
+				$query["properties"]
+			),
+			function ($response) use ($assert) {
+				$this->featureContext->setResponse($response);
+				try {
+					$assert();
+					return true;
+				} catch (\Throwable $e) {
+					return false;
+				}
+			}
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 * @param string $user
+	 * @param TableNode $expectedFiles
+	 *
+	 * @return void
+	 */
+	#[Then('/^the search result of user "([^"]*)" should eventually contain only these (?:files|entries):$/')]
+	public function theSearchResultShouldEventuallyContainOnlyEntries(string $user, TableNode $expectedFiles): void {
+		$assert = fn () => $this->featureContext->thePropfindResultShouldContainOnlyEntries($user, $expectedFiles);
+		$this->retrySearchUntilSatisfied($assert);
+		$assert();
+	}
+
+	/**
+	 * @param string $user
+	 * @param TableNode $expectedFiles
+	 *
+	 * @return void
+	 */
+	#[Then('/^the search result of user "([^"]*)" should eventually contain these (?:files|entries):$/')]
+	public function theSearchResultShouldEventuallyContainEntries(string $user, TableNode $expectedFiles): void {
+		$assert = fn () => $this->featureContext->thePropfindResultShouldContainEntries($user, '', $expectedFiles);
+		$this->retrySearchUntilSatisfied($assert);
+		$assert();
+	}
+
+	/**
+	 * @param TableNode $expectedFiles
+	 * @param string $expectedContent
+	 *
+	 * @return void
+	 */
+	#[Then('/^the search result should eventually contain these (?:files|entries) with highlight on keyword "([^"]*)"$/')]
+	public function theSearchResultShouldEventuallyContainEntriesWithHighlight(TableNode $expectedFiles, string $expectedContent): void {
+		$assert = fn () => $this->theSearchResultShouldContainEntriesWithHighlight($expectedFiles, $expectedContent);
+		$this->retrySearchUntilSatisfied($assert);
+		$assert();
 	}
 }
