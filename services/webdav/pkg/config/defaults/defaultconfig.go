@@ -1,8 +1,10 @@
 package defaults
 
 import (
+	"path"
 	"strings"
 
+	cored "github.com/opencloud-eu/opencloud/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/config"
@@ -42,6 +44,17 @@ func DefaultConfig() *config.Config {
 		OpenCloudPublicURL: "https://localhost:9200",
 		WebdavNamespace:    "/users/{{.Id.OpaqueId}}",
 		RevaGateway:        shared.DefaultRevaConfig().Address,
+
+		ThumbnailGeneratorURL:     "http://127.0.0.1:9186",
+		ThumbnailGeneratorTimeout: "30s",
+		MaxInputFileSize:          "50MB",
+		ThumbnailCacheBackend:     "file",
+		ThumbnailCacheDir:         path.Join(cored.BaseDataPath(), "thumbnails", "files"),
+		ThumbnailResolutions: []string{
+			"16x16", "32x32", "64x64", "128x128", "320x320", "1024x1024", // square
+			"280x500", "560x1000", "1080x1920", "2160x3840", "4320x7680", // portrait
+			"500x280", "1000x560", "1920x1080", "3840x2160", "7680x4320", // landscape
+		},
 	}
 }
 
@@ -66,5 +79,4 @@ func Sanitize(cfg *config.Config) {
 	if cfg.HTTP.Root != "/" {
 		cfg.HTTP.Root = strings.TrimSuffix(cfg.HTTP.Root, "/")
 	}
-
 }
