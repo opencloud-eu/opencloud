@@ -14,6 +14,7 @@
 
 ### 🐛 Bug Fixes
 
+- test(search): wait for expected properties and documents [[#3486](https://github.com/opencloud-eu/opencloud/pull/3486)]
 - fix: log jwt expired on debug level instead of error [[#3463](https://github.com/opencloud-eu/opencloud/pull/3463)]
 - fix(proxy): restrict JWT signed urls to the allowed HTTP methods [[#3481](https://github.com/opencloud-eu/opencloud/pull/3481)]
 - fix: notification handling for share removal and space membership expiry  [[#3257](https://github.com/opencloud-eu/opencloud/pull/3257)]
