@@ -222,50 +222,9 @@ func (g Graph) GetRootDriveChildren(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	listRequest := &storageprovider.ListContainerRequest{
-		Ref: &storageprovider.Reference{ResourceId: space.GetRoot()},
-	}
-	if driveItemPropertySelected(r, _selectShareTypes) {
-		listRequest.FieldMask = shareTypesFieldMask
-	}
-
-	lRes, err := gatewayClient.ListContainer(ctx, listRequest)
-	switch {
-	case err != nil:
-		g.logger.Error().Err(err).Msg("error making ListContainer grpc call")
-		errorcode.ServiceNotAvailable.Render(w, r, http.StatusInternalServerError, err.Error())
+	files, ok := g.listDriveItemChildren(w, r, space.GetRoot())
+	if !ok {
 		return
-	case lRes.GetStatus().GetCode() != cs3rpc.Code_CODE_OK:
-		if lRes.GetStatus().GetCode() == cs3rpc.Code_CODE_NOT_FOUND {
-			errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, lRes.GetStatus().GetMessage())
-			return
-		}
-		if lRes.GetStatus().GetCode() == cs3rpc.Code_CODE_PERMISSION_DENIED {
-			// TODO check if we should return 404 to not disclose existing items
-			errorcode.AccessDenied.Render(w, r, http.StatusForbidden, lRes.GetStatus().GetMessage())
-			return
-		}
-		g.logger.Error().Err(err).Msg("error sending list container grpc request")
-		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, res.GetStatus().GetMessage())
-		return
-	}
-
-	files, err := formatDriveItems(g.logger, g.publicBaseURL, lRes.GetInfos())
-	if err != nil {
-		g.logger.Error().Err(err).Msg("error encoding response as json")
-		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
-		return
-	}
-	g.setDriveItemsThumbnails(r, files, lRes.GetInfos())
-
-	if driveItemPropertySelected(r, _selectAllowedValues) {
-		for i, info := range lRes.GetInfos() {
-			files[i].LibreGraphPermissionsActionsAllowedValues = unifiedrole.CS3ResourcePermissionsToLibregraphActions(info.GetPermissionSet())
-		}
-	}
-
-	if driveItemPropertySelected(r, _selectShareTypes) {
-		g.addShareTypes(ctx, files, lRes.GetInfos())
 	}
 
 	render.Status(r, http.StatusOK)
@@ -333,7 +292,7 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if driveItemPropertySelected(r, _selectAllowedValues) {
-		driveItem.LibreGraphPermissionsActionsAllowedValues = unifiedrole.CS3ResourcePermissionsToLibregraphActions(res.GetInfo().GetPermissionSet())
+		setDriveItemAllowedValues(driveItem, res.GetInfo())
 	}
 
 	// only containers have children
@@ -436,6 +395,8 @@ func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, dri
 		return nil, false
 	}
 
+	setDriveItemsAllowedValues(r, files, res.GetInfos())
+
 	if driveItemPropertySelected(r, _selectShareTypes) {
 		g.addShareTypes(r.Context(), files, res.GetInfos())
 	}
@@ -443,6 +404,25 @@ func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, dri
 	g.setDriveItemsThumbnails(r, files, res.GetInfos())
 
 	return files, true
+}
+
+// setDriveItemAllowedValues fills @libre.graph.permissions.actions.allowedValues
+// from the item's permission set.
+func setDriveItemAllowedValues(item *libregraph.DriveItem, info *storageprovider.ResourceInfo) {
+	item.LibreGraphPermissionsActionsAllowedValues = unifiedrole.CS3ResourcePermissionsToLibregraphActions(info.GetPermissionSet())
+}
+
+// setDriveItemsAllowedValues does the same across a listing, when the property
+// was selected.
+func setDriveItemsAllowedValues(r *http.Request, items []libregraph.DriveItem, infos []*storageprovider.ResourceInfo) {
+	if !driveItemPropertySelected(r, _selectAllowedValues) {
+		return
+	}
+	for i := range items {
+		if i < len(infos) {
+			setDriveItemAllowedValues(&items[i], infos[i])
+		}
+	}
 }
 
 func (g Graph) getRemoteItem(ctx context.Context, root *storageprovider.ResourceId, baseURL *url.URL) (*libregraph.RemoteItem, error) {
