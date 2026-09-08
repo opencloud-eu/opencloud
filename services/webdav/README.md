@@ -18,15 +18,15 @@ Clients can request thumbnail previews for files by adding `?preview=1` to the f
 
 The following query parameters are supported:
 
-| Parameter | Required | Default Value                                        | Description                                                                     |
-|-----------|----------|------------------------------------------------------|---------------------------------------------------------------------------------|
-| preview   | YES      | 1                                                    | generates preview                                                               |
-| x         | YES      | first x-value configured in `WEBDAV_THUMBNAIL_RESOLUTIONS` | horizontal target size                                                  |
-| y         | YES      | first y-value configured in `WEBDAV_THUMBNAIL_RESOLUTIONS` | vertical target size                                                  |
-| scalingup | NO       | 0                                                    | accepted for compatibility but ignored; not forwarded to the generator            |
-| a         | NO       | 1                                                    | aspect ratio (legacy; only honored when no explicit `processor` is given)      |
-| c         | NO       | Caching string                                       | Clients should send the etag, so they get a fresh thumbnail after a file change |
-| processor | NO       | `resize` for gifs and `thumbnail` for all others     | preferred thumbnail processor                                                   |
+| Parameter | Required | Default Value                                              | Description                                                                     |
+| --------- | -------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| preview   | YES      | 1                                                          | generates preview                                                               |
+| x         | YES      | first x-value configured in `WEBDAV_THUMBNAIL_RESOLUTIONS` | horizontal target size                                                          |
+| y         | YES      | first y-value configured in `WEBDAV_THUMBNAIL_RESOLUTIONS` | vertical target size                                                            |
+| scalingup | NO       | 0                                                          | accepted for compatibility but ignored; not forwarded to the generator          |
+| a         | NO       | 1                                                          | aspect ratio (legacy; only honored when no explicit `processor` is given)       |
+| c         | NO       | Caching string                                             | Clients should send the etag, so they get a fresh thumbnail after a file change |
+| processor | NO       | `resize` for gifs and `thumbnail` for all others           | preferred thumbnail processor                                                   |
 
 #### Thumbnail Resolution
 
