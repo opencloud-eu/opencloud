@@ -1,6 +1,6 @@
 # Changelog
 
-## [8.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.0) - 2026-09-07
+## [8.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.0) - 2026-09-08
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -14,6 +14,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix: log jwt expired on debug level instead of error [[#3463](https://github.com/opencloud-eu/opencloud/pull/3463)]
 - fix(proxy): restrict JWT signed urls to the allowed HTTP methods [[#3481](https://github.com/opencloud-eu/opencloud/pull/3481)]
 - fix: notification handling for share removal and space membership expiry  [[#3257](https://github.com/opencloud-eu/opencloud/pull/3257)]
 - fix: posix cli commands [[#3348](https://github.com/opencloud-eu/opencloud/pull/3348)]
