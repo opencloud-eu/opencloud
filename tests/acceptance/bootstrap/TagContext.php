@@ -25,6 +25,7 @@ use Behat\Gherkin\Node\TableNode;
 use PHPUnit\Framework\Assert;
 use Psr\Http\Message\ResponseInterface;
 use TestHelpers\GraphHelper;
+use TestHelpers\WaitHelper;
 use TestHelpers\BehatHelper;
 use Behat\Step\Given;
 use Behat\Step\Then;
@@ -38,6 +39,7 @@ require_once 'bootstrap.php';
 class TagContext implements Context {
 	private FeatureContext $featureContext;
 	private SpacesContext $spacesContext;
+	private array $lastTagsQuery = [];
 
 	/**
 	 * This will run before EVERY scenario.
@@ -175,17 +177,77 @@ class TagContext implements Context {
 	 */
 	#[When('user :user lists all available tag(s) via the Graph API')]
 	public function theUserGetsAllAvailableTags(string $user): void {
-		// Note: after creating or deleting tags, in some cases tags do not appear or disappear immediately,
-		// So wait is necessary before listing tags
-		sleep(5);
-		$this->featureContext->setResponse(
-			GraphHelper::getTags(
-				$this->featureContext->getBaseUrl(),
-				$user,
-				$this->featureContext->getPasswordForUser($user),
-				$this->featureContext->getStepLineRef()
-			)
+		// Note: after creating or deleting tags, in some cases tags do not appear or disappear immediately
+		sleep(2);
+		$this->lastTagsQuery = ["user" => $user];
+		$this->featureContext->setResponse($this->fetchTags($user));
+	}
+
+	/**
+	 * @param string $user
+	 *
+	 * @return ResponseInterface
+	 * @throws Exception
+	 */
+	private function fetchTags(string $user): ResponseInterface {
+		return GraphHelper::getTags(
+			$this->featureContext->getBaseUrl(),
+			$user,
+			$this->featureContext->getPasswordForUser($user),
+			$this->featureContext->getStepLineRef()
 		);
+	}
+
+	/**
+	 * re-run the last tag listing until the assertion passes or the WaitHelper
+	 *
+	 * @param callable $assert
+	 *
+	 * @return void
+	 */
+	private function retryTagsUntilSatisfied(callable $assert): void {
+		Assert::assertNotEmpty(
+			$this->lastTagsQuery,
+			'No tag listing to retry. Use a "lists all available tags via the Graph API" step first.'
+		);
+		$query = $this->lastTagsQuery;
+		$response = WaitHelper::waitUntil(
+			fn () => $this->fetchTags($query["user"]),
+			function ($response) use ($assert) {
+				$this->featureContext->setResponse($response);
+				try {
+					$assert();
+					return true;
+				} catch (\Throwable) {
+					return false;
+				}
+			}
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 *
+	 * @param TableNode $table
+	 *
+	 * @return void
+	 * @throws Exception
+	 */
+	#[Then('/^the response should contain following tags:$/')]
+	public function theResponseShouldContainFollowingTags(TableNode $table): void {
+		$this->assertResponseContainsFollowingTags("", $table);
+	}
+
+	/**
+	 *
+	 * @param TableNode $table
+	 *
+	 * @return void
+	 * @throws Exception
+	 */
+	#[Then('/^the response should not contain following tags:$/')]
+	public function theResponseShouldNotContainFollowingTags(TableNode $table): void {
+		$this->assertResponseContainsFollowingTags("not", $table);
 	}
 
 	/**
@@ -196,27 +258,29 @@ class TagContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
-	#[Then('/^the response should (not|)\\s?contain following tag(s):$/')]
-	public function theFollowingTagsShouldExistForUser(string $shouldOrNot, TableNode $table): void {
-		$rows = $table->getRows();
-		foreach ($rows as $row) {
+	private function assertResponseContainsFollowingTags(string $shouldOrNot, TableNode $table): void {
+		$assert = function () use ($shouldOrNot, $table): void {
 			$responseArray = $this->featureContext->getJsonDecodedResponse(
 				$this->featureContext->getResponse()
 			)['value'];
-			if ($shouldOrNot === "not") {
-				Assert::assertFalse(
-					\in_array($row[0], $responseArray),
-					"the response should not contain the tag $row[0].\nResponse\n"
-					. print_r($responseArray, true)
-				);
-			} else {
-				Assert::assertTrue(
-					\in_array($row[0], $responseArray),
-					"the response does not contain the tag $row[0].\nResponse\n"
-					. print_r($responseArray, true)
-				);
+			foreach ($table->getRows() as $row) {
+				if ($shouldOrNot === "not") {
+					Assert::assertFalse(
+						\in_array($row[0], $responseArray),
+						"the response should not contain the tag $row[0].\nResponse\n"
+						. print_r($responseArray, true)
+					);
+				} else {
+					Assert::assertTrue(
+						\in_array($row[0], $responseArray),
+						"the response does not contain the tag $row[0].\nResponse\n"
+						. print_r($responseArray, true)
+					);
+				}
 			}
-		}
+		};
+		$this->retryTagsUntilSatisfied($assert);
+		$assert();
 	}
 
 	/**

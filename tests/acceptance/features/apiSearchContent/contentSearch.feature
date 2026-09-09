@@ -16,7 +16,7 @@ Feature: content search
     And user "Alice" has uploaded file with content "namaste from nepal" to "hello.txt"
     When user "Alice" searches for "Content:hello" using the WebDAV API
     Then the HTTP status code should be "207"
-    And the search result of user "Alice" should eventually contain only these files:
+    And the search result of user "Alice" should contain only these files:
       | keywordAtStart.txt  |
       | keywordAtMiddle.txt |
       | keywordAtLast.txt   |
@@ -34,15 +34,15 @@ Feature: content search
     And user "Alice" has uploaded file with content "alan@example.org want to say hello" to "findByEmail.docs"
     When user "Alice" searches for "Content:k6" using the WebDAV API
     Then the HTTP status code should be "207"
-    And the search result of user "Alice" should eventually contain only these files:
+    And the search result of user "Alice" should contain only these files:
       | wordWithNumber.md |
     When user "Alice" searches for "Content:https://opencloud.eu/" using the WebDAV API
     Then the HTTP status code should be "207"
-    And the search result of user "Alice" should eventually contain only these files:
+    And the search result of user "Alice" should contain only these files:
       | findByWebSite.txt |
     When user "Alice" searches for "Content:alan@" using the WebDAV API
     Then the HTTP status code should be "207"
-    And the search result of user "Alice" should eventually contain only these files:
+    And the search result of user "Alice" should contain only these files:
       | findByEmail.docs |
     Examples:
       | dav-path-version |
@@ -71,11 +71,11 @@ Feature: content search
     And user "Alice" has uploaded file with content "He has expirience, we must to have, I have to find ...." to "fileWithStopWords.txt"
     When user "Alice" searches for 'Content:"he has"' using the WebDAV API
     Then the HTTP status code should be "207"
-    And the search result of user "Alice" should eventually contain only these files:
+    And the search result of user "Alice" should contain only these files:
       | fileWithStopWords.txt |
     When user "Alice" searches for 'Content:"I have"' using the WebDAV API
     Then the HTTP status code should be "207"
-    And the search result of user "Alice" should eventually contain only these files:
+    And the search result of user "Alice" should contain only these files:
       | fileWithStopWords.txt |
     Examples:
       | dav-path-version |
@@ -101,7 +101,7 @@ Feature: content search
     And user "Brian" has a share "uploadFolder" synced
     When user "Brian" searches for "Content:hello" using the WebDAV API
     Then the HTTP status code should be "207"
-    And the search result of user "Brian" should eventually contain only these files:
+    And the search result of user "Brian" should contain only these files:
       | keywordAtStart.txt  |
       | keywordAtMiddle.txt |
       | keywordAtLast.txt   |
@@ -121,7 +121,7 @@ Feature: content search
     And user "Alice" has deleted file "keywordAtLast.txt"
     When user "Alice" searches for "Content:hello" using the WebDAV API
     Then the HTTP status code should be "207"
-    And the search result of user "Alice" should eventually contain only these files:
+    And the search result of user "Alice" should contain only these files:
       | keywordAtStart.txt  |
       | keywordAtMiddle.txt |
     Examples:
@@ -139,7 +139,7 @@ Feature: content search
     And user "Alice" has restored the file with original path "keywordAtStart.txt"
     When user "Alice" searches for "Content:hello" using the WebDAV API
     Then the HTTP status code should be "207"
-    And the search result of user "Alice" should eventually contain only these files:
+    And the search result of user "Alice" should contain only these files:
       | keywordAtStart.txt |
     Examples:
       | dav-path-version |
@@ -154,7 +154,7 @@ Feature: content search
     And user "Alice" has restored version index "1" of file "test.txt"
     When user "Alice" searches for "Content:hello" using the WebDAV API
     Then the HTTP status code should be "207"
-    And the search result of user "Alice" should eventually contain only these files:
+    And the search result of user "Alice" should contain only these files:
       | test.txt |
     Examples:
       | dav-path-version |
@@ -175,7 +175,7 @@ Feature: content search
     And using <dav-path-version> DAV path
     When user "Alice" searches for "Content:hello" using the WebDAV API
     Then the HTTP status code should be "207"
-    And the search result of user "Alice" should eventually contain only these files:
+    And the search result of user "Alice" should contain only these files:
       | keywordAtStart.txt  |
       | keywordAtMiddle.txt |
       | keywordAtLast.txt   |
@@ -204,7 +204,7 @@ Feature: content search
     And using <dav-path-version> DAV path
     When user "Brian" searches for "Content:hello" using the WebDAV API
     Then the HTTP status code should be "207"
-    And the search result of user "Alice" should eventually contain only these files:
+    And the search result of user "Alice" should contain only these files:
       | keywordAtStart.txt  |
       | keywordAtMiddle.txt |
       | keywordAtLast.txt   |
@@ -224,7 +224,7 @@ Feature: content search
       | technical task.txt | test    |
     When user "Alice" searches for '<pattern>' using the WebDAV API
     Then the HTTP status code should be "207"
-    And the search result of user "Alice" should eventually contain these entries:
+    And the search result of user "Alice" should contain these entries:
       | <search-result-1> |
       | <search-result-2> |
     And the search result should contain "<result-count>" entries
@@ -251,7 +251,7 @@ Feature: content search
     And user "Alice" has uploaded a file inside space "project-space" with content "this is a simple odt file" to "test-odt-file.odt"
     When user "Alice" searches for "Content:simple" using the WebDAV API
     Then the HTTP status code should be "207"
-    And the search result should eventually contain these entries with highlight on keyword "simple"
+    And the search result should contain these entries with highlight on keyword "simple"
       | test-text-file.txt |
       | test-pdf-file.pdf  |
       | test-cpp-file.cpp  |

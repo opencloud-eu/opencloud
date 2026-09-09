@@ -150,7 +150,7 @@ class SearchContext implements Context {
 	): void {
 		// NOTE: because indexing of newly uploaded files or directories with OpenCloud is decoupled and occurs asynchronously
 		// short wait is necessary before searching
-		sleep(10);
+		sleep(2);
 		// remember the query so "should eventually contain" steps can re-search
 		$this->lastSearchQuery = [
 			"user" => $user,
@@ -173,6 +173,25 @@ class SearchContext implements Context {
 	 */
 	#[Then('file/folder :path in the search result of user :user should contain these properties:')]
 	public function fileOrFolderInTheSearchResultShouldContainProperties(
+		string    $path,
+		string    $user,
+		TableNode $properties
+	): void {
+		$assert = fn () => $this->assertFileOrFolderInSearchResultContainsProperties($path, $user, $properties);
+		$this->retrySearchUntilSatisfied($assert);
+		$assert();
+	}
+
+	/**
+	 *
+	 * @param string $path
+	 * @param string $user
+	 * @param TableNode $properties
+	 *
+	 * @return void
+	 * @throws Exception
+	 */
+	private function assertFileOrFolderInSearchResultContainsProperties(
 		string    $path,
 		string    $user,
 		TableNode $properties
@@ -234,8 +253,7 @@ class SearchContext implements Context {
 	 *
 	 * @throws Exception
 	 */
-	#[Then('/^the search result should contain these (?:files|entries) with highlight on keyword "([^"]*)"/')]
-	public function theSearchResultShouldContainEntriesWithHighlight(
+	private function assertSearchResultContainsEntriesWithHighlight(
 		TableNode $expectedFiles,
 		string    $expectedContent
 	): void {
@@ -284,8 +302,15 @@ class SearchContext implements Context {
 	): void {
 		// NOTE: since indexing of newly uploaded files or directories with OpenCloud is decoupled and occurs asynchronously,
 		// a short wait is necessary before searching
-		sleep(5);
-		$response = $this-> searchFiles($user, $pattern, null, $scopeType, $scope, $spaceName);
+		sleep(2);
+		$this->lastSearchQuery = [
+			"user" => $user,
+			"pattern" => $pattern,
+			"scopeType" => $scopeType,
+			"scope" => $scope,
+			"spaceName" => $spaceName,
+		];
+		$response = $this->searchFiles($user, $pattern, null, $scopeType, $scope, $spaceName);
 		$this->featureContext->setResponse($response);
 	}
 
@@ -300,7 +325,7 @@ class SearchContext implements Context {
 	 *
 	 * @return void
 	 */
-	private function retrySearchUntilSatisfied(callable $assert): void {
+	public function retrySearchUntilSatisfied(callable $assert): void {
 		Assert::assertNotEmpty(
 			$this->lastSearchQuery,
 			'No search to retry. Use a "searches for ... using the WebDAV API" step first.'
@@ -310,23 +335,57 @@ class SearchContext implements Context {
 			fn () => $this->searchFiles(
 				$query["user"],
 				$query["pattern"],
-				$query["limit"],
-				null,
-				null,
-				null,
-				$query["properties"]
+				$query["limit"] ?? null,
+				$query["scopeType"] ?? null,
+				$query["scope"] ?? null,
+				$query["spaceName"] ?? null,
+				$query["properties"] ?? null
 			),
 			function ($response) use ($assert) {
 				$this->featureContext->setResponse($response);
 				try {
 					$assert();
 					return true;
-				} catch (\Throwable $e) {
+				} catch (\Throwable) {
 					return false;
 				}
-			}
+			},
+			2000,
+			20
 		);
 		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 *
+	 * @param int $numFiles
+	 *
+	 * @return void
+	 */
+	#[Then('the search result should contain :numFiles files/entries')]
+	public function theSearchResultShouldContainNumEntries(int $numFiles): void {
+		$assert = fn () => $this->featureContext->checkIFResponseContainsNumberEntries($numFiles);
+		$this->retrySearchUntilSatisfied($assert);
+		$assert();
+	}
+
+	/**
+	 *
+	 * @param string $user
+	 * @param int $expectedNumber
+	 * @param TableNode $expectedFiles
+	 *
+	 * @return void
+	 */
+	#[Then('the search result of user :user should contain any :expectedNumber of these files/entries:')]
+	public function theSearchResultShouldContainAnyOfTheseEntries(
+		string $user,
+		int $expectedNumber,
+		TableNode $expectedFiles
+	): void {
+		$assert = fn () => $this->featureContext->checkIfSearchResultContainsFiles($user, $expectedNumber, $expectedFiles);
+		$this->retrySearchUntilSatisfied($assert);
+		$assert();
 	}
 
 	/**
@@ -335,8 +394,8 @@ class SearchContext implements Context {
 	 *
 	 * @return void
 	 */
-	#[Then('/^the search result of user "([^"]*)" should eventually contain only these (?:files|entries):$/')]
-	public function theSearchResultShouldEventuallyContainOnlyEntries(string $user, TableNode $expectedFiles): void {
+	#[Then('/^the search result of user "([^"]*)" should contain only these (?:files|entries):$/')]
+	public function theSearchResultShouldContainOnlyEntries(string $user, TableNode $expectedFiles): void {
 		$assert = fn () => $this->featureContext->thePropfindResultShouldContainOnlyEntries($user, $expectedFiles);
 		$this->retrySearchUntilSatisfied($assert);
 		$assert();
@@ -348,9 +407,31 @@ class SearchContext implements Context {
 	 *
 	 * @return void
 	 */
-	#[Then('/^the search result of user "([^"]*)" should eventually contain these (?:files|entries):$/')]
-	public function theSearchResultShouldEventuallyContainEntries(string $user, TableNode $expectedFiles): void {
-		$assert = fn () => $this->featureContext->thePropfindResultShouldContainEntries($user, '', $expectedFiles);
+	#[Then('/^the search result of user "([^"]*)" should contain these (?:files|entries):$/')]
+	public function theSearchResultShouldContainEntries(string $user, TableNode $expectedFiles): void {
+		$this->assertSearchResultContainsEntries($user, "", $expectedFiles);
+	}
+
+	/**
+	 * @param string $user
+	 * @param TableNode $expectedFiles
+	 *
+	 * @return void
+	 */
+	#[Then('/^the search result of user "([^"]*)" should not contain these (?:files|entries):$/')]
+	public function theSearchResultShouldNotContainEntries(string $user, TableNode $expectedFiles): void {
+		$this->assertSearchResultContainsEntries($user, "not", $expectedFiles);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $shouldOrNot (not|)
+	 * @param TableNode $expectedFiles
+	 *
+	 * @return void
+	 */
+	private function assertSearchResultContainsEntries(string $user, string $shouldOrNot, TableNode $expectedFiles): void {
+		$assert = fn () => $this->featureContext->thePropfindResultShouldContainEntries($user, $shouldOrNot, $expectedFiles);
 		$this->retrySearchUntilSatisfied($assert);
 		$assert();
 	}
@@ -361,9 +442,12 @@ class SearchContext implements Context {
 	 *
 	 * @return void
 	 */
-	#[Then('/^the search result should eventually contain these (?:files|entries) with highlight on keyword "([^"]*)"$/')]
-	public function theSearchResultShouldEventuallyContainEntriesWithHighlight(TableNode $expectedFiles, string $expectedContent): void {
-		$assert = fn () => $this->theSearchResultShouldContainEntriesWithHighlight($expectedFiles, $expectedContent);
+	#[Then('/^the search result should contain these (?:files|entries) with highlight on keyword "([^"]*)"$/')]
+	public function theSearchResultShouldContainEntriesWithHighlight(
+		TableNode $expectedFiles,
+		string    $expectedContent
+	): void {
+		$assert = fn () => $this->assertSearchResultContainsEntriesWithHighlight($expectedFiles, $expectedContent);
 		$this->retrySearchUntilSatisfied($assert);
 		$assert();
 	}
