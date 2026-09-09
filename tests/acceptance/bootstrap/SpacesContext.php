@@ -50,6 +50,7 @@ class SpacesContext implements Context {
 	private ChecksumContext $checksumContext;
 	private FilesVersionsContext $filesVersionsContext;
 	private ArchiverContext $archiverContext;
+	private SearchContext $searchContext;
 
 	/**
 	 * key is space name and value is the username that created the space
@@ -512,6 +513,7 @@ class SpacesContext implements Context {
 		$this->checksumContext = BehatHelper::getContext($scope, $environment, 'ChecksumContext');
 		$this->filesVersionsContext = BehatHelper::getContext($scope, $environment, 'FilesVersionsContext');
 		$this->archiverContext = BehatHelper::getContext($scope, $environment, 'ArchiverContext');
+		$this->searchContext = BehatHelper::getContext($scope, $environment, 'SearchContext');
 	}
 
 	/**
@@ -3925,41 +3927,47 @@ class SpacesContext implements Context {
 	 */
 	#[Then('for user :user the search result should contain space :spaceName')]
 	public function searchResultShouldContainSpace(string $user, string $spaceName): void {
-		$responseArray = json_decode(
-			json_encode(
-				HttpRequestHelper::getResponseXml($this->featureContext->getResponse())->xpath("//d:response/d:href")
-			),
-			true,
-			512,
-			JSON_THROW_ON_ERROR
-		);
-		Assert::assertNotEmpty($responseArray, "search result is empty");
+		// searching a space by name goes through the asynchronous file index, so
+		// re-run the search until the space shows up (or the timeout elapses).
+		$assert = function () use ($user, $spaceName): void {
+			$responseArray = json_decode(
+				json_encode(
+					HttpRequestHelper::getResponseXml($this->featureContext->getResponse())->xpath("//d:response/d:href")
+				),
+				true,
+				512,
+				JSON_THROW_ON_ERROR
+			);
+			Assert::assertNotEmpty($responseArray, "search result is empty");
 
-		// for mountpoint, id looks a little different than for project space
-		if (str_contains($spaceName, 'mountpoint')) {
-			$splitSpaceName = explode("/", $spaceName);
-			$space = $this->getSpaceByName($user, $splitSpaceName[1]);
-			$splitSpaceId = explode("$", $space['id']);
-			$spaceId = str_replace('!', '%21', $splitSpaceId[1]);
-		} else {
-			$space = $this->getSpaceByName($user, $spaceName);
-			$spaceId = $space['id'];
-		}
-		$suffixPath = $user;
-		$davPathVersion = $this->featureContext->getDavPathVersion();
-		if ($davPathVersion === WebDavHelper::DAV_VERSION_SPACES) {
-			$suffixPath = $spaceId;
-		}
-
-		$topWebDavPath = "/" . WebDavHelper::getDavPath($davPathVersion, $suffixPath);
-
-		$spaceFound = false;
-		foreach ($responseArray as $value) {
-			if ($topWebDavPath === $value[0]) {
-				$spaceFound = true;
+			// for mountpoint, id looks a little different than for project space
+			if (str_contains($spaceName, 'mountpoint')) {
+				$splitSpaceName = explode("/", $spaceName);
+				$space = $this->getSpaceByName($user, $splitSpaceName[1]);
+				$splitSpaceId = explode("$", $space['id']);
+				$spaceId = str_replace('!', '%21', $splitSpaceId[1]);
+			} else {
+				$space = $this->getSpaceByName($user, $spaceName);
+				$spaceId = $space['id'];
 			}
-		}
-		Assert::assertTrue($spaceFound, "response does not contain the space '$spaceName'");
+			$suffixPath = $user;
+			$davPathVersion = $this->featureContext->getDavPathVersion();
+			if ($davPathVersion === WebDavHelper::DAV_VERSION_SPACES) {
+				$suffixPath = $spaceId;
+			}
+
+			$topWebDavPath = "/" . WebDavHelper::getDavPath($davPathVersion, $suffixPath);
+
+			$spaceFound = false;
+			foreach ($responseArray as $value) {
+				if ($topWebDavPath === $value[0]) {
+					$spaceFound = true;
+				}
+			}
+			Assert::assertTrue($spaceFound, "response does not contain the space '$spaceName'");
+		};
+		$this->searchContext->retrySearchUntilSatisfied($assert);
+		$assert();
 	}
 
 	/**

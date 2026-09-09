@@ -39,16 +39,25 @@ class WaitHelper {
 	/**
 	 * Repeat $makeAttempt until $shouldStop returns true or the timeout elapses.
 	 *
-	 * @param callable $makeAttempt  makes one attempt (e.g. sends a request) and returns its result
-	 * @param callable $shouldStop   receives that result, returns true to stop polling
+	 * @param callable $makeAttempt      makes one attempt (e.g. sends a request) and returns its result
+	 * @param callable $shouldStop       receives that result, returns true to stop polling
+	 * @param int|null $intervalMs       pause between attempts in ms; defaults to self::INTERVAL_MS
+	 * @param int|null $timeoutSeconds   overall time to keep polling; defaults to self::TIMEOUT_SECONDS
 	 *
 	 * @return mixed the last result from $makeAttempt
 	 */
-	public static function waitUntil(callable $makeAttempt, callable $shouldStop): mixed {
-		$deadline = \microtime(true) + self::TIMEOUT_SECONDS;
+	public static function waitUntil(
+		callable $makeAttempt,
+		callable $shouldStop,
+		?int $intervalMs = null,
+		?int $timeoutSeconds = null
+	): mixed {
+		$intervalMs ??= self::INTERVAL_MS;
+		$timeoutSeconds ??= self::TIMEOUT_SECONDS;
+		$deadline = \microtime(true) + $timeoutSeconds;
 		$result = $makeAttempt();
 		while (!$shouldStop($result) && \microtime(true) < $deadline) {
-			\usleep(self::INTERVAL_MS * 1000);
+			\usleep($intervalMs * 1000);
 			$result = $makeAttempt();
 		}
 		return $result;

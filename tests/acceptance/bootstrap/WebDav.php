@@ -4014,7 +4014,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
-	#[Then('/^the (?:propfind|search) result of user "([^"]*)" should (not|)\\s?contain these (?:files|entries):$/')]
+	#[Then('/^the propfind result of user "([^"]*)" should (not|)\\s?contain these (?:files|entries):$/')]
 	public function thePropfindResultShouldContainEntries(
 		string $user,
 		string $shouldOrNot,
@@ -4036,7 +4036,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
-	#[Then('/^the (?:propfind|search) result of user "([^"]*)" should contain only these (?:files|entries):$/')]
+	#[Then('/^the propfind result of user "([^"]*)" should contain only these (?:files|entries):$/')]
 	public function thePropfindResultShouldContainOnlyEntries(
 		string $user,
 		TableNode $expectedFiles
@@ -4063,7 +4063,7 @@ trait WebDav {
 	 *
 	 * @return void
 	 */
-	#[Then('the propfind/search result should contain :numFiles files/entries')]
+	#[Then('the propfind result should contain :numFiles files/entries')]
 	public function propfindResultShouldContainNumEntries(int $numFiles): void {
 		$this->checkIFResponseContainsNumberEntries($numFiles);
 	}
@@ -4110,7 +4110,7 @@ trait WebDav {
 	 * @return void
 	 * @throws Exception
 	 */
-	#[Then('the propfind/search result of user :user should contain any :expectedNumber of these files/entries:')]
+	#[Then('the propfind result of user :user should contain any :expectedNumber of these files/entries:')]
 	public function theSearchResultOfUserShouldContainAnyOfTheseEntries(
 		string $user,
 		int $expectedNumber,

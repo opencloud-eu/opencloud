@@ -186,15 +186,6 @@
 
 - [apiServiceAvailability/serviceAvailabilityCheck.feature:123](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiServiceAvailability/serviceAvailabilityCheck.feature#L123)
 
-#### [Missing properties in REPORT response](https://github.com/owncloud/ocis/issues/9780), [d:getetag property has empty value in REPORT response](https://github.com/owncloud/ocis/issues/9783)
-
-- [apiSearch1/search.feature:437](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L437)
-- [apiSearch1/search.feature:438](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L438)
-- [apiSearch1/search.feature:439](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L439)
-- [apiSearch1/search.feature:465](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L465)
-- [apiSearch1/search.feature:466](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L466)
-- [apiSearch1/search.feature:467](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L467)
-
 ## Scenarios from core API tests that are expected to fail with decomposed storage
 
 ### File
