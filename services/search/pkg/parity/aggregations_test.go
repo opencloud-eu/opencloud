@@ -25,6 +25,8 @@ type aggCase struct {
 	want            []string
 	wantError       bool
 	engineOverrides map[string]override
+	// pageSize, when set, prefixes the answer with "<returned> of <total> matches"
+	pageSize int32
 }
 
 func (c aggCase) label() string { return fmt.Sprintf("AGG-%02d", c.id) }
@@ -127,11 +129,77 @@ func aggregationCases() []aggCase {
 				&searchService.BucketRange{From: "2018-08-11T00:00:00Z", To: "not-a-date"},
 			)}},
 			wantError: true, want: []string{"error"}},
+		{id: 10, query: "mediatype:audio", reads: "album buckets nested in artist buckets",
+			aggs: []*searchService.AggregationOption{{Field: "audio.artist", SubAggregations: []*searchService.AggregationOption{{Field: "audio.album"}}}},
+			want: []string{
+				"audio.artist Pink Floyd=2", "audio.artist Pink Floyd=2 / audio.album The Wall=2",
+				"audio.artist Motörhead=3", "audio.artist Motörhead=3 / audio.album Bomber=2", "audio.artist Motörhead=3 / audio.album Ace of Spades=1",
+			}},
+		{id: 11, query: "mediatype:audio", reads: "sum and avg of audio.year per artist",
+			aggs: []*searchService.AggregationOption{{Field: "audio.artist", SubAggregations: []*searchService.AggregationOption{
+				{Field: "audio.year", MetricKind: searchService.MetricKind_METRIC_KIND_SUM},
+				{Field: "audio.year", MetricKind: searchService.MetricKind_METRIC_KIND_AVG},
+			}}},
+			want: []string{
+				"audio.artist Pink Floyd=2", "audio.artist Pink Floyd=2 / audio.year sum=3946", "audio.artist Pink Floyd=2 / audio.year avg sum=3946 count=2",
+				"audio.artist Motörhead=3", "audio.artist Motörhead=3 / audio.year sum=5982", "audio.artist Motörhead=3 / audio.year avg sum=5982 count=3",
+			}},
+		{id: 12, query: "mediatype:audio", reads: "artist buckets nested in audio.year decades",
+			aggs: []*searchService.AggregationOption{{Field: "audio.year", BucketDefinition: ranges(
+				&searchService.BucketRange{From: "1970", To: "1980"},
+				&searchService.BucketRange{From: "1980", To: "1990"},
+				&searchService.BucketRange{From: "1990", To: "2000"},
+				&searchService.BucketRange{From: "2000", To: "2010"},
+			), SubAggregations: []*searchService.AggregationOption{{Field: "audio.artist"}}}},
+			want: []string{
+				"audio.year 1970-1980=2", "audio.year 1970-1980=2 / audio.artist Pink Floyd=2",
+				"audio.year 1980-1990=1", "audio.year 1980-1990=1 / audio.artist Motörhead=1",
+				"audio.year 1990-2000=1", "audio.year 1990-2000=1 / audio.artist Motörhead=1",
+				"audio.year 2000-2010=3", "audio.year 2000-2010=3 / audio.artist Motörhead=1",
+			}},
+		{id: 13, query: "mediatype:audio", reads: "max audio.year per album per artist, three levels",
+			aggs: []*searchService.AggregationOption{{Field: "audio.artist", SubAggregations: []*searchService.AggregationOption{
+				{Field: "audio.album", SubAggregations: []*searchService.AggregationOption{
+					{Field: "audio.year", MetricKind: searchService.MetricKind_METRIC_KIND_MAX},
+				}},
+			}}},
+			want: []string{
+				"audio.artist Pink Floyd=2", "audio.artist Pink Floyd=2 / audio.album The Wall=2", "audio.artist Pink Floyd=2 / audio.album The Wall=2 / audio.year max=1975",
+				"audio.artist Motörhead=3", "audio.artist Motörhead=3 / audio.album Bomber=2", "audio.artist Motörhead=3 / audio.album Bomber=2 / audio.year max=1999",
+				"audio.artist Motörhead=3 / audio.album Ace of Spades=1", "audio.artist Motörhead=3 / audio.album Ace of Spades=1 / audio.year max=2001",
+			}},
+		{id: 14, query: "mediatype:image", reads: "MimeType buckets nested in open-ended date ranges",
+			aggs: []*searchService.AggregationOption{{Field: "photo.takenDateTime", BucketDefinition: ranges(
+				&searchService.BucketRange{To: "2019-01-01"},
+				&searchService.BucketRange{From: "2019-01-01"},
+			), SubAggregations: []*searchService.AggregationOption{{Field: "MimeType"}}}},
+			want: []string{
+				"photo.takenDateTime -2019-01-01=3", "photo.takenDateTime -2019-01-01=3 / MimeType image/jpeg=3",
+				"photo.takenDateTime 2019-01-01-=1", "photo.takenDateTime 2019-01-01-=1 / MimeType image/jpeg=1",
+			}},
+		{id: 15, query: "mediatype:audio", reads: "nested aggregations cover every match on a page of one",
+			pageSize: 1,
+			aggs: []*searchService.AggregationOption{
+				{Field: "audio.artist", SubAggregations: []*searchService.AggregationOption{{Field: "audio.album"}}},
+				{Field: "audio.year", MetricKind: searchService.MetricKind_METRIC_KIND_SUM},
+			},
+			want: []string{
+				"1 of 7 matches",
+				"audio.artist Pink Floyd=2", "audio.artist Pink Floyd=2 / audio.album The Wall=2",
+				"audio.artist Motörhead=3", "audio.artist Motörhead=3 / audio.album Bomber=2", "audio.artist Motörhead=3 / audio.album Ace of Spades=1",
+				"audio.year sum=13942",
+			}},
+		{id: 16, query: "mediatype:audio", reads: "malformed date range bound in a nested aggregation",
+			aggs: []*searchService.AggregationOption{{Field: "audio.artist", SubAggregations: []*searchService.AggregationOption{
+				{Field: "photo.takenDateTime", BucketDefinition: ranges(&searchService.BucketRange{From: "2018-08-11T00:00:00Z", To: "not-a-date"})},
+			}}},
+			wantError: true, want: []string{"error"}},
 	}
 }
 
 // renderAggregations flattens an answer into comparable strings; buckets with
 // no hits are dropped, the engines differ in whether they emit them at all.
+// A nested result renders under its bucket, joined by " / ".
 func renderAggregations(resp *searchService.SearchIndexResponse, err error) []string {
 	if err != nil {
 		return []string{"error"}
@@ -139,21 +207,30 @@ func renderAggregations(resp *searchService.SearchIndexResponse, err error) []st
 
 	out := []string{}
 	for _, a := range resp.Aggregations {
-		if a.MetricKind != searchService.MetricKind_METRIC_KIND_UNSPECIFIED {
-			kind := strings.ToLower(strings.TrimPrefix(a.MetricKind.String(), "METRIC_KIND_"))
-			if a.MetricKind == searchService.MetricKind_METRIC_KIND_AVG {
-				out = append(out, fmt.Sprintf("%s avg sum=%v count=%d", a.Field, a.Sum, a.Count))
-				continue
-			}
-			out = append(out, fmt.Sprintf("%s %s=%v", a.Field, kind, a.Value))
+		out = append(out, renderAggregation("", a)...)
+	}
+
+	return out
+}
+
+func renderAggregation(prefix string, a *searchService.AggregationResult) []string {
+	if a.MetricKind != searchService.MetricKind_METRIC_KIND_UNSPECIFIED {
+		kind := strings.ToLower(strings.TrimPrefix(a.MetricKind.String(), "METRIC_KIND_"))
+		if a.MetricKind == searchService.MetricKind_METRIC_KIND_AVG {
+			return []string{prefix + fmt.Sprintf("%s avg sum=%v count=%d", a.Field, a.Sum, a.Count)}
+		}
+		return []string{prefix + fmt.Sprintf("%s %s=%v", a.Field, kind, a.Value)}
+	}
+
+	out := []string{}
+	for _, b := range a.Buckets {
+		if b.Count == 0 {
 			continue
 		}
-
-		for _, b := range a.Buckets {
-			if b.Count == 0 {
-				continue
-			}
-			out = append(out, fmt.Sprintf("%s %s=%d", a.Field, b.Key, b.Count))
+		line := prefix + fmt.Sprintf("%s %s=%d", a.Field, b.Key, b.Count)
+		out = append(out, line)
+		for _, sub := range b.SubAggregations {
+			out = append(out, renderAggregation(line+" / ", sub)...)
 		}
 	}
 
@@ -188,9 +265,13 @@ var _ = Describe("Aggregations", func() {
 
 						resp, err := e.backend.Search(context.Background(), &searchService.SearchIndexRequest{
 							Query:        c.query,
+							PageSize:     c.pageSize,
 							Aggregations: c.aggs,
 						})
 						answer := renderAggregations(resp, err)
+						if c.pageSize > 0 && err == nil {
+							answer = append([]string{fmt.Sprintf("%d of %d matches", len(resp.Matches), resp.TotalMatches)}, answer...)
+						}
 						recordAnswer(row, name, answer)
 
 						_, overridden := c.engineOverrides[name]
