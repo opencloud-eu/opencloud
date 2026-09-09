@@ -38,7 +38,11 @@ func InitCommand(_ *config.Config) *cobra.Command {
 			quietFlag, _ := cmd.Flags().GetBool("quiet")
 			configPathFlag := viper.GetString("config-path")
 			adminPasswordFlag := viper.GetString("admin-password")
-			err := ocinit.CreateConfig(insecure, forceOverwriteFlag, diffFlag, configPathFlag, adminPasswordFlag, quietFlag)
+			adminPasswordFlag, _, err := config.ReadFileEnv(adminPasswordFlag, "ADMIN_PASSWORD_FILE", "IDM_ADMIN_PASSWORD_FILE")
+			if err != nil {
+				return err
+			}
+			err = ocinit.CreateConfig(insecure, forceOverwriteFlag, diffFlag, configPathFlag, adminPasswordFlag, quietFlag)
 			if err != nil {
 				log.Fatalf("Could not create config: %s", err)
 			}

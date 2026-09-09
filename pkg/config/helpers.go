@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path"
@@ -49,6 +50,29 @@ func bindSourcesToStructs(fileSystem fs.FS, filePath, service string, dst any) e
 	}
 
 	return nil
+}
+
+// ReadFileEnv returns value or the trimmed contents of the first set file env var.
+func ReadFileEnv(value string, fileEnvNames ...string) (string, bool, error) {
+	for _, name := range fileEnvNames {
+		file, ok := os.LookupEnv(name)
+		if !ok {
+			continue
+		}
+
+		if value != "" {
+			return "", true, fmt.Errorf("%s cannot be used together with direct value", name)
+		}
+
+		content, err := os.ReadFile(file)
+		if err != nil {
+			return "", true, fmt.Errorf("read %s: %w", name, err)
+		}
+
+		return strings.TrimRight(string(content), "\r\n"), true, nil
+	}
+
+	return value, false, nil
 }
 
 // LocalEndpoint returns the local endpoint for a given protocol and address.
