@@ -16,6 +16,7 @@ import (
 	"github.com/blevesearch/bleve/v2/analysis/token/lowercase"
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/unicode"
 	"github.com/blevesearch/bleve/v2/mapping"
+	"github.com/blevesearch/bleve/v2/search/query"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -227,21 +228,58 @@ func searchResourceByID(id string, index bleve.Index) (*search.Resource, error) 
 }
 
 func searchResourcesByPath(rootID string, lookupPath string, index bleve.Index) ([]*search.Resource, error) {
-	q := bleve.NewConjunctionQuery(
-		bleve.NewQueryStringQuery("RootID:"+rootID),
-		bleve.NewQueryStringQuery("Path:"+escapeQuery(lookupPath+"/*")),
-	)
-	bleveReq := bleve.NewSearchRequest(q)
-	bleveReq.Size = math.MaxInt
-	bleveReq.Fields = []string{"*"}
-	res, err := index.Search(bleveReq)
+	// Path is a keyword field: one term per document, the full path. A wildcard
+	// query ("Path:<lookupPath>/*") materialises one term searcher per
+	// descendant, all alive at once, each holding segment dictionary and FST
+	// readers -- gigabytes for a big folder, OOM-killing the server on any
+	// folder delete/move/restore/purge. Enumerate the matching terms from the
+	// field dictionary instead and fetch the documents in bounded batches of
+	// exact term queries.
+	dict, err := index.FieldDictPrefix("Path", []byte(lookupPath+"/"))
 	if err != nil {
 		return nil, err
 	}
+	var paths []string
+	for {
+		entry, err := dict.Next()
+		if err != nil {
+			_ = dict.Close()
+			return nil, err
+		}
+		if entry == nil {
+			break
+		}
+		paths = append(paths, entry.Term)
+	}
+	if err := dict.Close(); err != nil {
+		return nil, err
+	}
 
-	resources := make([]*search.Resource, 0, res.Hits.Len())
-	for _, match := range res.Hits {
-		resources = append(resources, matchToResource(match))
+	rootQuery := bleve.NewTermQuery(rootID)
+	rootQuery.SetField("RootID")
+
+	const termBatchSize = 500 // bounds the number of term searchers alive at once
+	resources := make([]*search.Resource, 0, len(paths))
+	for start := 0; start < len(paths); start += termBatchSize {
+		pathQueries := make([]query.Query, 0, termBatchSize)
+		for _, p := range paths[start:min(start+termBatchSize, len(paths))] {
+			pq := bleve.NewTermQuery(p)
+			pq.SetField("Path")
+			pathQueries = append(pathQueries, pq)
+		}
+		bleveReq := bleve.NewSearchRequest(bleve.NewConjunctionQuery(
+			rootQuery,
+			bleve.NewDisjunctionQuery(pathQueries...),
+		))
+		bleveReq.Size = math.MaxInt
+		bleveReq.Fields = []string{"*"}
+		res, err := index.Search(bleveReq)
+		if err != nil {
+			return nil, err
+		}
+		for _, match := range res.Hits {
+			resources = append(resources, matchToResource(match))
+		}
 	}
 
 	return resources, nil
