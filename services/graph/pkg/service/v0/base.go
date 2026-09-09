@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"path"
 	"time"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/share"
+	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
@@ -39,6 +41,7 @@ import (
 type BaseGraphProvider interface {
 	CS3ReceivedSharesToDriveItems(ctx context.Context, receivedShares []*collaboration.ReceivedShare) ([]libregraph.DriveItem, error)
 	CS3ReceivedOCMSharesToDriveItems(ctx context.Context, receivedOCMShares []*ocm.ReceivedShare) ([]libregraph.DriveItem, error)
+	SetDriveItemsDownloadURL(r *http.Request, items []libregraph.DriveItem)
 }
 
 // BaseGraphService implements a couple of helper functions that are
@@ -50,6 +53,16 @@ type BaseGraphService struct {
 	config          *config.Config
 	availableRoles  []*libregraph.UnifiedRoleDefinition
 	publicBaseURL   *url.URL
+	downloadSigner  signedurl.Signer
+}
+
+// webURLForResource returns the public web URL pointing at the given resource
+// (e.g. https://cloud.example.com/f/<resource-id>), using the pre-parsed
+// publicBaseURL held by the service.
+func (g BaseGraphService) webURLForResource(rid *storageprovider.ResourceId) *string {
+	u := *g.publicBaseURL
+	u.Path = path.Join(u.Path, "f", storagespace.FormatResourceID(rid))
+	return libregraph.PtrString(u.String())
 }
 
 func (g BaseGraphService) getDriveItem(ctx context.Context, ref *storageprovider.Reference) (*libregraph.DriveItem, error) {
@@ -66,7 +79,7 @@ func (g BaseGraphService) getDriveItem(ctx context.Context, ref *storageprovider
 		refStr, _ := storagespace.FormatReference(ref)
 		return nil, fmt.Errorf("could not stat %s: %s", refStr, res.GetStatus().GetMessage())
 	}
-	return cs3ResourceToDriveItem(g.logger, g.publicBaseURL, res.GetInfo())
+	return g.cs3ResourceToDriveItem(res.GetInfo())
 }
 
 func (g BaseGraphService) CS3ReceivedSharesToDriveItems(ctx context.Context, receivedShares []*collaboration.ReceivedShare) ([]libregraph.DriveItem, error) {
@@ -217,14 +230,6 @@ func (g BaseGraphService) cs3SpacePermissionsToLibreGraph(ctx context.Context, s
 }
 
 func (g BaseGraphService) libreGraphPermissionFromCS3PublicShare(createdLink *link.PublicShare) (*libregraph.Permission, error) {
-	webURL, err := url.Parse(g.config.Spaces.WebDavBase)
-	if err != nil {
-		g.logger.Error().
-			Err(err).
-			Str("url", g.config.Spaces.WebDavBase).
-			Msg("failed to parse webURL base url")
-		return nil, err
-	}
 	lt, actions := linktype.SharingLinkTypeFromCS3Permissions(createdLink.GetPermissions())
 	perm := libregraph.NewPermission()
 	perm.Id = libregraph.PtrString(createdLink.GetId().GetOpaqueId())
@@ -235,6 +240,7 @@ func (g BaseGraphService) libreGraphPermissionFromCS3PublicShare(createdLink *li
 		LibreGraphQuickLink:   libregraph.PtrBool(createdLink.GetQuicklink()),
 	}
 	perm.LibreGraphPermissionsActions = actions
+	webURL := *g.publicBaseURL
 	webURL.Path = path.Join(webURL.Path, "s", createdLink.GetToken())
 	perm.Link.SetWebUrl(webURL.String())
 
