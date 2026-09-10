@@ -32,9 +32,35 @@ class TokenHelper {
 	private const LOGON_URL = '/signin/v1/identifier/_/logon';
 	private const REDIRECT_URL = '/oidc-callback.html';
 	private const TOKEN_URL = '/konnect/v1/token';
+	private const TRANSPORT_RETRY_LIMIT = 3;
 
 	// Static cache [username => token_data]
 	private static array $tokenCache = [];
+
+	/**
+	 * Run a token exchange and retry it a few times if it fails with a transport error
+	 *
+	 * @param callable $exchange returns the token data array
+	 *
+	 * @return array
+	 * @throws GuzzleException the last error if every attempt fails
+	 */
+	private static function retryOnTransportError(callable $exchange): array {
+		$attempt = 0;
+		while (true) {
+			try {
+				return $exchange();
+			} catch (GuzzleException $e) {
+				if ($attempt >= self::TRANSPORT_RETRY_LIMIT) {
+					throw $e;
+				}
+				$attempt++;
+				echo "[INFO] token exchange failed with '" . $e->getMessage() .
+					"', retrying ($attempt)...\n";
+				\sleep(1);
+			}
+		}
+	}
 
 	/**
 	 * @return bool
@@ -80,24 +106,35 @@ class TokenHelper {
 				return $cachedToken;
 			}
 
-			$refreshedToken = self::refreshToken($cachedToken['refresh_token'], $baseUrl);
-			$tokenData = [
-				'access_token' => $refreshedToken['access_token'],
-				'refresh_token' => $refreshedToken['refresh_token'],
-				// set expiry to 240 (4 minutes) seconds to allow for some buffer
-				// token actually expires in 300 seconds (5 minutes)
-				'expires_at' => time() + 240
-			];
-			self::$tokenCache[$cacheKey] = $tokenData;
-			return $tokenData;
+			try {
+				$refreshedToken = self::retryOnTransportError(
+					fn () => self::refreshToken($cachedToken['refresh_token'], $baseUrl)
+				);
+				$tokenData = [
+					'access_token' => $refreshedToken['access_token'],
+					'refresh_token' => $refreshedToken['refresh_token'],
+					// set expiry to 240 (4 minutes) seconds to allow for some buffer
+					// token actually expires in 300 seconds (5 minutes)
+					'expires_at' => time() + 240
+				];
+				self::$tokenCache[$cacheKey] = $tokenData;
+				return $tokenData;
+			} catch (\Throwable $e) {
+				echo "[INFO] token refresh failed with '" . $e->getMessage() .
+					"', falling back to a full login...\n";
+				unset(self::$tokenCache[$cacheKey]);
+			}
 		}
 
 		// Get new tokens
-		$cookieJar = new CookieJar();
-
-		$continueUrl = self::getAuthorizedEndPoint($username, $password, $baseUrl, $cookieJar);
-		$code = self::getCode($continueUrl, $baseUrl, $cookieJar);
-		$tokens = self::getToken($code, $baseUrl, $cookieJar);
+		$tokens = self::retryOnTransportError(
+			function () use ($username, $password, $baseUrl) {
+				$cookieJar = new CookieJar();
+				$continueUrl = self::getAuthorizedEndPoint($username, $password, $baseUrl, $cookieJar);
+				$code = self::getCode($continueUrl, $baseUrl, $cookieJar);
+				return self::getToken($code, $baseUrl, $cookieJar);
+			}
+		);
 
 		$tokenData = [
 			'access_token' => $tokens['access_token'],
