@@ -72,15 +72,19 @@ func Server(opts ...Option) (ohttp.Service, error) {
 		),
 	)
 
+	// Clone the default transport so that the proxy configuration from the
+	// environment (HTTP_PROXY, HTTPS_PROXY, NO_PROXY) is honored when talking
+	// to the IDP. A bare &http.Transport{} leaves Proxy nil and never proxies.
+	oidcTransport := http.DefaultTransport.(*http.Transport).Clone()
+	oidcTransport.TLSClientConfig = &tls.Config{
+		MinVersion:         tls.VersionTLS12,
+		InsecureSkipVerify: options.Config.Insecure, //nolint:gosec
+	}
+	oidcTransport.DisableKeepAlives = true
+
 	var oidcHTTPClient = &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				MinVersion:         tls.VersionTLS12,
-				InsecureSkipVerify: options.Config.Insecure, //nolint:gosec
-			},
-			DisableKeepAlives: true,
-		},
-		Timeout: time.Second * 10,
+		Transport: oidcTransport,
+		Timeout:   time.Second * 10,
 	}
 
 	mux.Use(middleware.OidcAuth(

@@ -97,15 +97,19 @@ func Server(cfg *config.Config) *cobra.Command {
 				return err
 			}
 
+			// Clone the default transport so that the proxy configuration from the
+			// environment (HTTP_PROXY, HTTPS_PROXY, NO_PROXY) is honored when talking
+			// to the IDP. A bare &http.Transport{} leaves Proxy nil and never proxies.
+			oidcTransport := http.DefaultTransport.(*http.Transport).Clone()
+			oidcTransport.TLSClientConfig = &tls.Config{
+				MinVersion:         tls.VersionTLS12,
+				InsecureSkipVerify: cfg.OIDC.Insecure, //nolint:gosec
+			}
+			oidcTransport.DisableKeepAlives = true
+
 			oidcHTTPClient := &http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{
-						MinVersion:         tls.VersionTLS12,
-						InsecureSkipVerify: cfg.OIDC.Insecure, //nolint:gosec
-					},
-					DisableKeepAlives: true,
-				},
-				Timeout: time.Second * 10,
+				Transport: oidcTransport,
+				Timeout:   time.Second * 10,
 			}
 
 			oidcClient := oidc.NewOIDCClient(
@@ -272,15 +276,19 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		logger.Fatal().Msgf("Invalid role assignment driver '%s'", cfg.RoleAssignment.Driver)
 	}
 
+	// Clone the default transport so that the proxy configuration from the
+	// environment (HTTP_PROXY, HTTPS_PROXY, NO_PROXY) is honored when talking
+	// to the IDP. A bare &http.Transport{} leaves Proxy nil and never proxies.
+	oidcTransport := http.DefaultTransport.(*http.Transport).Clone()
+	oidcTransport.TLSClientConfig = &tls.Config{
+		MinVersion:         tls.VersionTLS12,
+		InsecureSkipVerify: cfg.OIDC.Insecure, //nolint:gosec
+	}
+	oidcTransport.DisableKeepAlives = true
+
 	oidcHTTPClient := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				MinVersion:         tls.VersionTLS12,
-				InsecureSkipVerify: cfg.OIDC.Insecure, //nolint:gosec
-			},
-			DisableKeepAlives: true,
-		},
-		Timeout: time.Second * 10,
+		Transport: oidcTransport,
+		Timeout:   time.Second * 10,
 	}
 
 	var authenticators []middleware.Authenticator
