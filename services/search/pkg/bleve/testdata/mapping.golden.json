@@ -160,7 +160,7 @@
         "fields": [
           {
             "type": "text",
-            "analyzer": "keyword",
+            "analyzer": "path_hierarchy",
             "store": true,
             "index": true,
             "include_term_vectors": true,
@@ -1259,7 +1259,25 @@
         "type": "regexp"
       }
     },
+    "tokenizers": {
+      "geohash_hierarchy": {
+        "tag_depth": true,
+        "type": "hierarchy"
+      },
+      "path_hierarchy": {
+        "delimiter": "/",
+        "type": "hierarchy"
+      }
+    },
     "analyzers": {
+      "geohash": {
+        "tokenizer": "geohash_hierarchy",
+        "type": "custom"
+      },
+      "path_hierarchy": {
+        "tokenizer": "path_hierarchy",
+        "type": "custom"
+      },
       "words": {
         "char_filters": [
           "dot_to_space"

@@ -100,8 +100,8 @@ var _ = Describe("OpenSearchBuildMapping", func() {
 		Expect(content["term_vector"]).To(Equal("with_positions_offsets"), "Content: %#v", content)
 		Expect(content["analyzer"]).To(Equal(WordsAnalyzer), "Content uses the words analyzer, like bleve")
 		// Path: path_hierarchy base + lowercased sibling, both case-preserving.
-		Expect(props["Path"]).To(Equal(map[string]any{"type": "text", "analyzer": "path_hierarchy"}))
-		Expect(props["Path_lowercase"]).To(Equal(map[string]any{"type": "text", "analyzer": "path_hierarchy"}))
+		Expect(props["Path"]).To(Equal(map[string]any{"type": "text", "analyzer": PathAnalyzer}))
+		Expect(props["Path_lowercase"]).To(Equal(map[string]any{"type": "text", "analyzer": PathAnalyzer}))
 		mime := props["MimeType"].(map[string]any)
 		Expect(mime["type"]).To(Equal("wildcard"), "MimeType: %#v", mime)
 	})

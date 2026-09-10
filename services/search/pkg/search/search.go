@@ -29,7 +29,7 @@ import (
 // on a breaking mapping change: each version gets its own index (OpenSearch name
 // suffix, bleve path suffix), so the service builds a fresh index instead of
 // colliding with the old one. No migration; reindex to populate.
-const SchemaVersion = 4
+const SchemaVersion = 5
 
 var scopeRegex = regexp.MustCompile(`scope:\s*([^" "\n\r]*)`)
 

@@ -530,12 +530,22 @@ Fixtures:
 
 - `parent`, ID = 1$1!2, folder
 - `child.pdf`, ID = 1$1!3, Path = ./parent/child.pdf
+- `big`, ID = 1$1!4, folder
+- `f1.txt`, ID = 1$1!5, Path = ./big/f1.txt
+- `x.txt`, ID = 1$1!6, Path = ./big2/x.txt
+- `odd name (1)`, ID = 1$1!7, folder
+- `f:x+y.txt`, ID = 1$1!8, Path = ./odd name (1)/f:x+y.txt
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
 | MOVE-01 | carries the descendants to the new path, then `path:"./my/newname/child.pdf"` | child.pdf | child.pdf | child.pdf | ✅ |
 | MOVE-01 | carries the descendants to the new path, then `path:"./parent/child.pdf"` | no match | no match | no match | ✅ |
 | MOVE-02 | through the trash and back leaves the flag behind, then `hidden:true` | no match | no match | no match | ✅ |
+| MOVE-03 | leaves a sibling folder that shares the prefix alone, then `path:"./moved"` | f1.txt, moved | f1.txt, moved | f1.txt, moved | ✅ |
+| MOVE-03 | leaves a sibling folder that shares the prefix alone, then `path:"./big"` | no match | no match | no match | ✅ |
+| MOVE-03 | leaves a sibling folder that shares the prefix alone, then `path:"./big2"` | x.txt | x.txt | x.txt | ✅ |
+| MOVE-04 | carries the descendants of a path with special characters, then `path:"./odd name (2)"` | f:x+y.txt, odd name (2) | f:x+y.txt, odd name (2) | f:x+y.txt, odd name (2) | ✅ |
+| MOVE-04 | carries the descendants of a path with special characters, then `path:"./odd name (1)"` | no match | no match | no match | ✅ |
 
 ### rootscope
 

@@ -75,14 +75,10 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 			},
 		)
 		// Scope below the space root: restrict at query level so totals and
-		// paging respect the path too. Path is a case-preserving keyword
-		// (paths act as references, /Foo and /foo are distinct), so the exact
-		// folder or the folder prefix matches all of, and only, the scope.
+		// paging respect the path too. The folder term matches the folder and
+		// its descendants (see PathAnalyzer).
 		if requestedPath := utils.MakeRelativePath(sir.Ref.Path); requestedPath != "." {
-			q.Conjuncts = append(q.Conjuncts, query.NewDisjunctionQuery([]query.Query{
-				&query.TermQuery{FieldVal: "Path", Term: requestedPath},
-				&query.PrefixQuery{FieldVal: "Path", Prefix: requestedPath + "/"},
-			}))
+			q.Conjuncts = append(q.Conjuncts, &query.TermQuery{FieldVal: "Path", Term: requestedPath})
 		}
 	}
 
