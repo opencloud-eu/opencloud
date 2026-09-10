@@ -51,7 +51,7 @@ class TokenHelper {
 			try {
 				return $exchange();
 			} catch (GuzzleException $e) {
-				if ($attempt >= self::TRANSPORT_RETRY_LIMIT) {
+				if ($attempt == self::TRANSPORT_RETRY_LIMIT) {
 					throw $e;
 				}
 				$attempt++;
