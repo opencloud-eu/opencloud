@@ -13,7 +13,7 @@ Fill the new index by indexing all spaces again:
 
 ```shell
 # the service keeps running while it happens
-opencloud search index --all-spaces
+opencloud search index --all-spaces --insecure
 ```
 
 Once the new index is filled, every index but the one with the highest
@@ -31,7 +31,7 @@ The new index is a directory next to the old `bleve` one, both in
 bleve index cannot be copied, index all spaces again:
 
 ```shell
-opencloud search index --all-spaces
+opencloud search index --all-spaces --insecure
 ```
 
 Once the new index is filled, every directory but the one with the highest
