@@ -184,6 +184,7 @@ func NewMapping() (mapping.IndexMapping, error) {
 	if err != nil {
 		return nil, err
 	}
+	addGeohashFields(docMapping, overrides)
 
 	indexMapping := bleve.NewIndexMapping()
 	indexMapping.DefaultAnalyzer = keyword.Name
@@ -225,12 +226,8 @@ func NewMapping() (mapping.IndexMapping, error) {
 	if err != nil {
 		return nil, err
 	}
-	// geohash: every prefix is a depth-tagged term (1/u, 2/u4, ...), so a terms
-	// facet with TermPrefix "<precision>/" is a geohash grid at that precision.
-	// No field uses it yet. It is part of the v5 schema so that #3272 can add
-	// its geohash field additively: new fields reconcile at startup, a changed
-	// analysis block does not (classifyStoredMapping), so the names and the
-	// config below must not change.
+	// geohash: every prefix is a depth-tagged term (1/u, 2/u4, ...), one per
+	// precision (see geohash.go)
 	err = indexMapping.AddCustomTokenizer("geohash_hierarchy", map[string]any{
 		"type":      hierarchy.Name,
 		"tag_depth": true,
@@ -238,7 +235,7 @@ func NewMapping() (mapping.IndexMapping, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = indexMapping.AddCustomAnalyzer("geohash", map[string]any{
+	err = indexMapping.AddCustomAnalyzer(geohashAnalyzer, map[string]any{
 		"type":      custom.Name,
 		"tokenizer": "geohash_hierarchy",
 	})

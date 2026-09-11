@@ -45,10 +45,12 @@ func (b *Batch) Upsert(id string, r search.Resource) error {
 // type-specific adaptations via the mapping package) and appends it to the
 // batch under id.
 func (b *Batch) indexResource(id string, r search.Resource) error {
-	doc, err := mapping.PrepareForIndex(r, r.SearchFieldOverrides())
+	overrides := r.SearchFieldOverrides()
+	doc, err := mapping.PrepareForIndex(r, overrides)
 	if err != nil {
 		return err
 	}
+	addGeohashValues(doc, overrides)
 	return b.batch.Index(id, doc)
 }
 
