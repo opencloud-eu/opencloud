@@ -300,12 +300,14 @@ In this mode, the proxy service only exposes its own metrics. The metrics of the
 ### Available Metrics
 The following metrics are exposed by the proxy service:
 
-| Metric Name                      | Description                                                                                                                                                                                                                   | Labels                                |
-|----------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------|
-| `opencloud_proxy_requests_total`      | [Counter](https://prometheus.io/docs/tutorials/understanding_metric_types/#counter) metric which reports the total number of HTTP requests.                                                                                   | `method`: HTTP method of the request  |
-| `opencloud_proxy_errors_total`        | [Counter](https://prometheus.io/docs/tutorials/understanding_metric_types/#counter) metric which reports the total number of HTTP requests which have failed. That counts all response codes >= 500                           | `method`: HTTP method of the request  |
-| `opencloud_proxy_duration_seconds`    | [Histogram](https://prometheus.io/docs/tutorials/understanding_metric_types/#histogram) of the time (in seconds) each request took. A histogram metric uses buckets to count the number of events that fall into each bucket. | `method`: HTTP method of the request  |
-| `opencloud_proxy_build_info{version}` | A metric with a constant `1` value labeled by version, exposing the version of the OpenCloud proxy service.                                                                                                                        | `version`: Build version of the proxy |
+| Name | Labels | Description |
+| ---- | ------ | ----------- |
+| `opencloud_proxy_concurrent_service_requests{service}` | `service`: identifier of the service the request is proxied to | Counts the number of in-flight requests that are being processed at a given time |
+| `opencloud_proxy_routing_failure_count` | | Counts the number of inbound requests that cannot be proxied due to a failure of determining how to route it |
+| `opencloud_proxy_duration_seconds{service}` | `service`: identifier of the service the request is proxied to | Classic histogram that measures the duration of proxied HTTP requests, per service |
+| `opencloud_proxy_request_total{method,result,service}` | `method`: the HTTP method<br>`result`: one of `success`, `client-error`, `server-error`, depending on the status code in the response of the proxied HTTP request<br>`services`: identifier of the service the request is proxied to | Counts the number of proxied requests |
+| `opencloud_proxy_request_duration_seconds_bucket{method,result,service=}` | `method`: the HTTP method<br>`result`: one of `success`, `client-error`, `server-error`, depending on the status code in the response of the proxied HTTP request<br>`services`: identifier of the service the request is proxied to | Native histogram that measures the duration of proxied HTTP requests, per service |
+| `opencloud_proxy_build_info{version}` | `version`: build version of the proxy | A gauge with a constant value of `1` |
 
 ### Prometheus Configuration
 The following is an example prometheus configuration for the single process mode. It assumes that the proxy debug address is configured to bind on all interfaces `PROXY_DEBUG_ADDR=0.0.0.0:9205` and that the proxy is available via the `opencloud` service name (typically in docker-compose). The prometheus service detects the `/metrics` endpoint automatically and scrapes it every 15 seconds.
@@ -318,3 +320,17 @@ scrape_configs:
     static_configs:
     - targets: ["opencloud:9205"]
 ```
+
+In order to process native histograms, use this configuration instead:
+
+```yaml
+global:
+  scrape_interval: 15s
+  scrape_native_histograms: true
+  scrape_protocols: ['PrometheusProto', 'OpenMetricsText1.0.0']
+scrape_configs:
+  - job_name: opencloud_proxy
+    static_configs:
+    - targets: ["opencloud:9205"]
+```
+
