@@ -38,7 +38,8 @@ class TokenHelper {
 	private static array $tokenCache = [];
 
 	/**
-	 * Run a token exchange and retry it a few times if it fails with a transport error
+	 * Run a token exchange and retry it if it fails with a transport error. The
+	 * limit counts retries, the exchange runs at most one time more than that.
 	 *
 	 * @param callable $exchange returns the token data array
 	 *
@@ -51,7 +52,7 @@ class TokenHelper {
 			try {
 				return $exchange();
 			} catch (GuzzleException $e) {
-				if ($attempt == self::TRANSPORT_RETRY_LIMIT) {
+				if ($attempt >= self::TRANSPORT_RETRY_LIMIT) {
 					throw $e;
 				}
 				$attempt++;
@@ -119,7 +120,7 @@ class TokenHelper {
 				];
 				self::$tokenCache[$cacheKey] = $tokenData;
 				return $tokenData;
-			} catch (\Throwable $e) {
+			} catch (\Exception $e) {
 				echo "[INFO] token refresh failed with '" . $e->getMessage() .
 					"', falling back to a full login...\n";
 				unset(self::$tokenCache[$cacheKey]);
