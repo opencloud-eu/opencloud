@@ -13,6 +13,14 @@
 - refactor: reflection-based search mapping + location geopoint [[#3345](https://github.com/opencloud-eu/opencloud/pull/3345)]
 - fix(search): make openSearch and bleve behave the same [[#3408](https://github.com/opencloud-eu/opencloud/pull/3408)]
 
+### ✅ Tests
+
+- fix(test): removeAccessToSpace test helper [[#3511](https://github.com/opencloud-eu/opencloud/pull/3511)]
+- api-tests: add search retry to all search tests [[#3500](https://github.com/opencloud-eu/opencloud/pull/3500)]
+- test(search): fail the parity suite when the committed matrix is stale [[#3423](https://github.com/opencloud-eu/opencloud/pull/3423)]
+- ci: run search API and e2e suites against OpenSearch [[#3379](https://github.com/opencloud-eu/opencloud/pull/3379)]
+- test(search): engine parity suite for bleve and opensearch [[#3418](https://github.com/opencloud-eu/opencloud/pull/3418)]
+
 ### 📈 Enhancement
 
 - add insecure to search reindex [[#3505](https://github.com/opencloud-eu/opencloud/pull/3505)]
@@ -29,13 +37,6 @@
 - feat(search): scope searches to a drive via the driveId field [[#3424](https://github.com/opencloud-eu/opencloud/pull/3424)]
 - chore(policies): disable gRPC or event handlers by configuration + add metrics [[#3287](https://github.com/opencloud-eu/opencloud/pull/3287)]
 - moved ShareCreated event consumer from frontend to shared service [[#3389](https://github.com/opencloud-eu/opencloud/pull/3389)]
-
-### ✅ Tests
-
-- api-tests: add search retry to all search tests [[#3500](https://github.com/opencloud-eu/opencloud/pull/3500)]
-- test(search): fail the parity suite when the committed matrix is stale [[#3423](https://github.com/opencloud-eu/opencloud/pull/3423)]
-- ci: run search API and e2e suites against OpenSearch [[#3379](https://github.com/opencloud-eu/opencloud/pull/3379)]
-- test(search): engine parity suite for bleve and opensearch [[#3418](https://github.com/opencloud-eu/opencloud/pull/3418)]
 
 ### 🐛 Bug Fixes
 
