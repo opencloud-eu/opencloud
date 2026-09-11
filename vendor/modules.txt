@@ -1504,7 +1504,6 @@ github.com/opencloud-eu/reva/v2/pkg/eosclient/eosgrpc
 github.com/opencloud-eu/reva/v2/pkg/eosclient/eosgrpc/eos_grpc
 github.com/opencloud-eu/reva/v2/pkg/errtypes
 github.com/opencloud-eu/reva/v2/pkg/events
-github.com/opencloud-eu/reva/v2/pkg/events/mocks
 github.com/opencloud-eu/reva/v2/pkg/events/raw
 github.com/opencloud-eu/reva/v2/pkg/events/raw/mocks
 github.com/opencloud-eu/reva/v2/pkg/events/stream
@@ -2327,7 +2326,7 @@ go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc/internal/observ
 go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc/internal/otlpconfig
 go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc/internal/retry
 go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc/internal/x
-# go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.45.0
+# go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.46.0
 ## explicit; go 1.25.0
 go.opentelemetry.io/otel/exporters/stdout/stdouttrace
 go.opentelemetry.io/otel/exporters/stdout/stdouttrace/internal
