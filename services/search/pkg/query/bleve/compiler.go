@@ -95,9 +95,6 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 			// bleve treats `/` and `+` as literals mid-term, so a literal MIME like
 			// image/svg+xml still matches exactly.
 			val := n.Value
-			if searchQuery.FieldIsPath(n.Key) {
-				val = strings.TrimSuffix(val, "/")
-			}
 			k := n.Key
 			v := val
 			if k != "ID" && k != "Size" && k != "MimeType" {
