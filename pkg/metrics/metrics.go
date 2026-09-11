@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -48,6 +49,21 @@ func describe(metric prometheus.Collector, initialize func() error) (string, err
 	return fams[0].GetName(), nil
 }
 
+func postProcess(c prometheus.Collector) error {
+	// special post-treatment for the BuildInfo metric, as we have that one pretty much
+	// everywhere: set its value with the current version so we don't need to do that every time
+	switch buildInfo := c.(type) {
+	case BuildInfoMetric:
+		if name, err := describe(buildInfo, func() error { buildInfo.WithLabelValues("0").Set(0.0); return nil }); err != nil {
+			return err
+		} else if strings.HasSuffix(name, "_build_info") {
+			buildInfo.Reset()
+			buildInfo.WithLabelValues(version.GetString()).Set(1)
+		}
+	}
+	return nil
+}
+
 // Take a struct that contains metrics as attributes and register all of them
 // with the specified Registerer.
 func RegisterAll(registerer prometheus.Registerer, m any, logger *log.Logger) error {
@@ -85,17 +101,8 @@ func RegisterAll(registerer prometheus.Registerer, m any, logger *log.Logger) er
 				}
 			} else {
 				succeeded = append(succeeded, n)
-
-				// special post-treatment for the BuildInfo metric, as we have that one pretty much
-				// everywhere: set its value with the current version so we don't need to do that every time
-				switch buildInfo := c.(type) {
-				case BuildInfoMetric:
-					if name, err := describe(buildInfo, func() error { buildInfo.WithLabelValues("0").Set(0.0); return nil }); err != nil {
-						failed[n] = err
-					} else if strings.HasSuffix(name, "_build_info") {
-						buildInfo.Reset()
-						buildInfo.WithLabelValues(version.GetString()).Set(1)
-					}
+				if err := postProcess(c); err != nil {
+					failed[n] = err
 				}
 			}
 		case *prometheus.Desc,
@@ -135,9 +142,18 @@ func Register[M any](reg prometheus.Registerer, m M, logger *log.Logger) (M, err
 	return m, err
 }
 
-// Register a single metric.
-func RegisterMetric[M prometheus.Collector](reg prometheus.Registerer, m M, logger *log.Logger) error {
-	return NewLoggingPrometheusRegisterer(reg, logger).Register(m)
+// Register individual metrics.
+func RegisterMetrics(reg prometheus.Registerer, logger *log.Logger, metrics ...prometheus.Collector) error {
+	lreg := NewLoggingPrometheusRegisterer(reg, logger)
+	errs := []error{}
+	for _, c := range metrics {
+		if err := lreg.Register(c); err != nil {
+			errs = append(errs, err)
+		} else {
+			errs = append(errs, postProcess(c))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // Prometheus Registerer wrapper that logs every error that occurs when registering

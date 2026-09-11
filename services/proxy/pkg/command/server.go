@@ -26,7 +26,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
-	"github.com/opencloud-eu/opencloud/pkg/version"
 	policiessvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/policies/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
@@ -123,8 +122,20 @@ func Server(cfg *config.Config) *cobra.Command {
 				defer cancel()
 			}
 
-			m := metrics.New()
-			m.BuildInfo.WithLabelValues(version.GetString()).Set(1)
+			m, err := metrics.New(func(yield func(config.Route) bool) {
+				// provide the metrics with an iterator that gives a list of the routes,
+				// to allow the metrics to initialize empty collectors accordingly
+				for _, pol := range cfg.Policies {
+					for _, r := range pol.Routes {
+						if !yield(r) {
+							return
+						}
+					}
+				}
+			}, &logger)
+			if err != nil {
+				return fmt.Errorf("failed to initialize metrics in reverse proxy: %w", err)
+			}
 
 			rp, err := proxy.NewMultiHostReverseProxy(
 				proxy.Logger(logger),
@@ -202,7 +213,7 @@ func Server(cfg *config.Config) *cobra.Command {
 					proxyHTTP.Logger(logger),
 					proxyHTTP.Context(cfg.Context),
 					proxyHTTP.Config(cfg),
-					proxyHTTP.Metrics(metrics.New()),
+					proxyHTTP.Metrics(m),
 					proxyHTTP.Middlewares(middlewares),
 				)
 				if err != nil {
@@ -355,7 +366,6 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		),
 		middleware.Tracer(traceProvider),
 		pkgmiddleware.TraceContext,
-		middleware.Instrumenter(metrics),
 		middleware.AccessLog(logger),
 		middleware.ContextLogger(logger),
 		middleware.HTTPSRedirect, // redirect to https if enabled
@@ -367,7 +377,8 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		middleware.Security(cspConfig),
 
 		// 3. Routing & Authentication
-		router.Middleware(serviceSelector, cfg.PolicySelector, cfg.Policies, logger),
+		router.Middleware(serviceSelector, cfg.PolicySelector, cfg.Policies, metrics.RoutingFailed, logger),
+		middleware.Instrumenter(metrics), // must come after the router middleware as it needs to know the routeInfo for detailed metrics
 		middleware.Authentication(
 			authenticators,
 			middleware.CredentialsByUserAgent(cfg.AuthMiddleware.CredentialsByUserAgent),
