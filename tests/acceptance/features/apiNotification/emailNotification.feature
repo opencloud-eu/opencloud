@@ -29,6 +29,113 @@ Feature: Email notification
       Click here to view it: %base_url%/f/%space_id%
       """
 
+  @issue-3513
+  Scenario: disabled user does not get an email notification when someone shares a project space
+    Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
+    And user "Alice" has created a space "new-space" with the default quota using the Graph API
+    And user "Carol" has been created with default attributes
+    And user "Alice" sends the following space share invitation using root endpoint of the Graph API:
+      | space           | new-space    |
+      | sharee          | Carol        |
+      | shareType       | user         |
+      | permissionsRole | Space Viewer |
+    And user "Carol" should have received the following email from user "Alice" about the share of project space "new-space"
+      """
+      Hello Carol King,
+
+      %displayname% has invited you to join "new-space".
+
+      Click here to view it: %base_url%/f/%space_id%
+      """
+    And the user "Admin" has disabled user "Brian"
+    When user "Alice" sends the following space share invitation using root endpoint of the Graph API:
+      | space           | new-space    |
+      | sharee          | Brian        |
+      | shareType       | user         |
+      | permissionsRole | Space Editor |
+    Then the HTTP status code should be "200"
+    And user "Brian" should keep "0" emails for "5" seconds
+
+  @issue-3513
+  Scenario: disabled group members do not get an email notification when someone shares a project space with the group
+    Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
+    And user "Alice" has created a space "new-space" with the default quota using the Graph API
+    And user "Carol" has been created with default attributes
+    And group "group1" has been created
+    And user "Brian" has been added to group "group1"
+    And user "Carol" has been added to group "group1"
+    And the user "Admin" has disabled user "Brian"
+    When user "Alice" sends the following space share invitation using root endpoint of the Graph API:
+      | space           | new-space    |
+      | sharee          | group1       |
+      | shareType       | group        |
+      | permissionsRole | Space Viewer |
+    Then the HTTP status code should be "200"
+    And user "Carol" should have received the following email from user "Alice" about the share of project space "new-space"
+      """
+      Hello Carol King,
+
+      %displayname% has invited you to join "new-space".
+
+      Click here to view it: %base_url%/f/%space_id%
+      """
+    And user "Brian" should keep "0" emails for "5" seconds
+
+  @issue-3513
+  Scenario Outline: a previously notified user does not receive another share email after being disabled and the LDAP lookup cache expires
+    Given these users have been created with default attributes:
+      | username    | displayname  | email                   |
+      | <author>    | Alice Hansen | <author>@example.org    |
+      | <recipient> | Brian Murphy | <recipient>@example.org |
+      | <control>   | Carol King   | <control>@example.org   |
+    And the administrator has assigned the role "Space Admin" to user "<author>" using the Graph API
+    And user "<author>" has created a space "warm-up-space" with the default quota using the Graph API
+    And user "<author>" has created a space "new-space" with the default quota using the Graph API
+    And group "<group>" has been created
+    And user "<recipient>" has been added to group "<group>"
+    And user "<author>" sends the following space share invitation using root endpoint of the Graph API:
+      | space           | warm-up-space |
+      | sharee          | <recipient>   |
+      | shareType       | user          |
+      | permissionsRole | Space Viewer  |
+    And user "<recipient>" should have received the following email from user "<author>" about the share of project space "warm-up-space"
+      """
+      Hello Brian Murphy,
+
+      %displayname% has invited you to join "warm-up-space".
+
+      Click here to view it: %base_url%/f/%space_id%
+      """
+    And user "<recipient>" should have "1" emails
+    And the user "Admin" has disabled user "<recipient>"
+    And the user waits for "12" seconds
+    When user "<author>" sends the following space share invitation using root endpoint of the Graph API:
+      | space           | new-space    |
+      | sharee          | <sharee>     |
+      | shareType       | <shareType>  |
+      | permissionsRole | Space Viewer |
+    Then the HTTP status code should be "200"
+    When user "<author>" sends the following space share invitation using root endpoint of the Graph API:
+      | space           | new-space    |
+      | sharee          | <control>    |
+      | shareType       | user         |
+      | permissionsRole | Space Viewer |
+    Then the HTTP status code should be "200"
+    And user "<control>" should have received the following email from user "<author>" about the share of project space "new-space"
+      """
+      Hello Carol King,
+
+      %displayname% has invited you to join "new-space".
+
+      Click here to view it: %base_url%/f/%space_id%
+      """
+    And user "<recipient>" should keep "1" emails for "5" seconds
+
+    Examples:
+      | author              | recipient              | control              | group        | sharee                 | shareType |
+      | cache-author-direct | cache-recipient-direct | cache-control-direct | cache-direct | cache-recipient-direct | user      |
+      | cache-author-group  | cache-recipient-group  | cache-control-group  | cache-group  | cache-group            | group     |
+
 
   Scenario: user gets an email notification when someone shares a file
     Given user "Alice" has uploaded file with content "sample text" to "lorem.txt"
@@ -364,3 +471,116 @@ Feature: Email notification
       | interval |
       | daily    |
       | weekly   |
+
+  @issue-3513
+  Scenario Outline: a disabled user does not receive the <interval> grouped email
+    Given these users have been created with default attributes:
+      | username                 |
+      | digest-author-<interval> |
+      | digest-target-<interval> |
+      | digest-active-<interval> |
+    And user "digest-target-<interval>" has set the email sending interval to "<interval>" using the settings API
+    And user "digest-active-<interval>" has set the email sending interval to "<interval>" using the settings API
+    And user "digest-author-<interval>" has uploaded file with content "digest content" to "digest.txt"
+    And user "digest-author-<interval>" has sent the following resource share invitation:
+      | resource        | digest.txt               |
+      | space           | Personal                 |
+      | sharee          | digest-target-<interval> |
+      | shareType       | user                     |
+      | permissionsRole | Viewer                   |
+    And user "digest-author-<interval>" has sent the following resource share invitation:
+      | resource        | digest.txt               |
+      | space           | Personal                 |
+      | sharee          | digest-active-<interval> |
+      | shareType       | user                     |
+      | permissionsRole | Viewer                   |
+    And user "digest-target-<interval>" should keep "0" emails for "5" seconds
+    And user "digest-active-<interval>" should have "0" emails
+    And the user "Admin" has disabled user "digest-target-<interval>"
+    And the user waits for "12" seconds
+    When the administrator sends the grouped "<interval>" email notifications using the CLI
+    Then user "digest-active-<interval>" should have received the following email from user "digest-author-<interval>"
+      """
+      %displayname% has shared "digest.txt" with you.
+      """
+    And user "digest-active-<interval>" should have "1" emails
+    And user "digest-target-<interval>" should keep "0" emails for "5" seconds
+    Examples:
+      | interval |
+      | daily    |
+      | weekly   |
+
+  @issue-3513
+  Scenario: a disabled user does not receive an email when a file share is removed
+    Given these users have been created with default attributes:
+      | username      | displayname  |
+      | revoke-author | Alice Hansen |
+      | revoke-target | Brian Murphy |
+      | revoke-active | Carol King   |
+    And user "revoke-author" has uploaded file with content "shared content" to "revoked.txt"
+    And user "revoke-author" has sent the following resource share invitation:
+      | resource        | revoked.txt   |
+      | space           | Personal      |
+      | sharee          | revoke-target |
+      | shareType       | user          |
+      | permissionsRole | Viewer        |
+    And user "revoke-target" should have "1" emails
+    And the user "Admin" has disabled user "revoke-target"
+    And the user waits for "12" seconds
+    When user "revoke-author" has removed the access of user "revoke-target" from resource "revoked.txt" of space "Personal"
+    And user "revoke-author" has sent the following resource share invitation:
+      | resource        | revoked.txt   |
+      | space           | Personal      |
+      | sharee          | revoke-active |
+      | shareType       | user          |
+      | permissionsRole | Viewer        |
+    And user "revoke-active" should have "1" emails
+    And user "revoke-author" has removed the access of user "revoke-active" from resource "revoked.txt" of space "Personal"
+    Then user "revoke-active" should have received the following email from user "revoke-author"
+      """
+      %displayname% has unshared 'revoked.txt' with you.
+      """
+    And user "revoke-active" should have "2" emails
+    And user "revoke-target" should keep "1" emails for "5" seconds
+
+  @issue-3513
+  Scenario: mention emails reach active users but the API rejects a disabled recipient
+    Given these users have been created with default attributes:
+      | username       |
+      | mention-author |
+      | mention-target |
+      | mention-active |
+    And user "mention-author" has uploaded file with content "mention content" to "mentioned.txt"
+    And user "mention-author" has sent the following resource share invitation:
+      | resource        | mentioned.txt  |
+      | space           | Personal       |
+      | sharee          | mention-target |
+      | shareType       | user           |
+      | permissionsRole | Viewer         |
+    And user "mention-author" has sent the following resource share invitation:
+      | resource        | mentioned.txt  |
+      | space           | Personal       |
+      | sharee          | mention-active |
+      | shareType       | user           |
+      | permissionsRole | Viewer         |
+    And user "mention-target" should have "1" emails
+    And user "mention-active" should have "1" emails
+    When user "mention-author" mentions user "mention-target" on file "mentioned.txt" in space "Personal" using the Graph API
+    Then the HTTP status code should be "202"
+    And user "mention-target" should have received the following email from user "mention-author"
+      """
+      %displayname% mentioned you in "mentioned.txt".
+      """
+    And user "mention-target" should have "2" emails
+    Given the user "Admin" has disabled user "mention-target"
+    And the user waits for "12" seconds
+    When user "mention-author" mentions user "mention-target" on file "mentioned.txt" in space "Personal" using the Graph API
+    Then the HTTP status code should be "404"
+    When user "mention-author" mentions user "mention-active" on file "mentioned.txt" in space "Personal" using the Graph API
+    Then the HTTP status code should be "202"
+    And user "mention-active" should have received the following email from user "mention-author"
+      """
+      %displayname% mentioned you in "mentioned.txt".
+      """
+    And user "mention-active" should have "2" emails
+    And user "mention-target" should keep "2" emails for "5" seconds

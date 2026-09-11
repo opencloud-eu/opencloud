@@ -14,6 +14,7 @@ use Psr\Http\Message\ResponseInterface;
 use TestHelpers\EmailHelper;
 use TestHelpers\OcsApiHelper;
 use TestHelpers\GraphHelper;
+use TestHelpers\HttpRequestHelper;
 use TestHelpers\SettingsHelper;
 use TestHelpers\BehatHelper;
 use Behat\Step\Given;
@@ -865,6 +866,40 @@ class NotificationContext implements Context {
 			$mailBoxInfo,
 			"Expected '$expectedCount' emails for user '$user' but found '" . \count($mailBoxInfo) . "'"
 		);
+	}
+
+	/**
+	 * @param string $author
+	 * @param string $recipient
+	 * @param string $file
+	 * @param string $space
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :author mentions user :recipient on file :file in space :space using the Graph API')]
+	public function userMentionsUserOnFile(string $author, string $recipient, string $file, string $space): void {
+		$author = $this->featureContext->getActualUsername($author);
+		$recipientId = $this->featureContext->getAttributeOfCreatedUser($recipient, 'id');
+		$url = GraphHelper::getFullUrl(
+			$this->featureContext->getBaseUrl(),
+			'users/' . \rawurlencode($recipientId) . '/teamwork/sendActivityNotification'
+		);
+		$body = [
+			'topic' => ['source' => 'text', 'value' => $this->spacesContext->getFileId($author, $space, $file)],
+			'activityType' => 'mentioned',
+			'teamsAppId' => '8d1c9c88-9e2c-4d0b-9a1e-6a9de1cb9d3c',
+		];
+		$response = HttpRequestHelper::sendRequest(
+			$url,
+			$this->featureContext->getStepLineRef(),
+			'POST',
+			$author,
+			$this->featureContext->getPasswordForUser($author),
+			['Content-Type' => 'application/json'],
+			\json_encode($body)
+		);
+		$this->featureContext->setResponse($response);
 	}
 
 	/**
