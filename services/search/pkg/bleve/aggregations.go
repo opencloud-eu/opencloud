@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/blevesearch/bleve/v2"
@@ -15,6 +16,7 @@ import (
 	index "github.com/blevesearch/bleve_index_api"
 
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	searchQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query"
 )
 
 // Bleve facets count one field and cannot nest, so metrics and
@@ -30,10 +32,35 @@ func collected(agg *searchService.AggregationOption) bool {
 	return agg.GetMetricKind() != searchService.MetricKind_METRIC_KIND_UNSPECIFIED || len(agg.GetSubAggregations()) > 0
 }
 
+// geohashLevel resolves a geohash aggregation to the geohash sibling field of
+// its geopoint and the term prefix of the requested precision: the sibling
+// holds one depth-tagged term per precision (see geohash.go), so the terms
+// with the prefix "<precision>/" are the cells of that precision.
+func geohashLevel(agg *searchService.AggregationOption) (field, prefix string, err error) {
+	p := int(agg.GetGeohashPrecision())
+	if p < 1 || p > geohashPrecision {
+		return "", "", fmt.Errorf("geohash precision %d out of range 1-%d", p, geohashPrecision)
+	}
+	base, ok := searchQuery.ResolveGeopointField(agg.GetField())
+	if !ok {
+		return "", "", fmt.Errorf("geohash aggregation on non-geo field %q", agg.GetField())
+	}
+	return base + geohashSuffix, strconv.Itoa(p) + "/", nil
+}
+
 func newBleveFacetRequest(agg *searchService.AggregationOption) (*bleve.FacetRequest, error) {
 	size := int(agg.GetSize())
 	if size <= 0 {
 		size = defaultFacetSize
+	}
+	if agg.GetGeohashPrecision() != 0 {
+		field, prefix, err := geohashLevel(agg)
+		if err != nil {
+			return nil, err
+		}
+		fr := bleve.NewFacetRequest(field, size)
+		fr.TermPrefix = prefix
+		return fr, nil
 	}
 	fr := bleve.NewFacetRequest(agg.GetField(), size)
 	ranges := aggregationRanges(agg)
@@ -137,8 +164,13 @@ func facetBuckets(fr *bleveSearch.FacetResult, agg *searchService.AggregationOpt
 		}
 		return buckets
 	}
+	// a geohash facet carries the depth tag in every term, the cell is the rest
+	var prefix string
+	if agg.GetGeohashPrecision() != 0 {
+		prefix = strconv.Itoa(int(agg.GetGeohashPrecision())) + "/"
+	}
 	for _, t := range fr.Terms.Terms() {
-		buckets = append(buckets, &searchService.Bucket{Key: t.Term, Count: int64(t.Count)})
+		buckets = append(buckets, &searchService.Bucket{Key: strings.TrimPrefix(t.Term, prefix), Count: int64(t.Count)})
 	}
 	return buckets
 }
@@ -147,6 +179,7 @@ type levelKind int
 
 const (
 	levelTerms levelKind = iota
+	levelGeohash
 	levelNumericRange
 	levelDateRange
 	levelMetric
@@ -164,17 +197,25 @@ type dateRange struct {
 
 type aggLevel struct {
 	opt      *searchService.AggregationOption
+	field    string // the indexed field the doc values are read from
 	kind     levelKind
+	prefix   string // geohash: the depth tag of the requested precision
 	numeric  []numericRange
 	dates    []dateRange
 	children []*aggLevel
 }
 
 func newAggLevel(opt *searchService.AggregationOption) (*aggLevel, error) {
-	l := &aggLevel{opt: opt}
+	l := &aggLevel{opt: opt, field: opt.GetField()}
 	switch {
 	case opt.GetMetricKind() != searchService.MetricKind_METRIC_KIND_UNSPECIFIED:
 		l.kind = levelMetric
+	case opt.GetGeohashPrecision() != 0:
+		field, prefix, err := geohashLevel(opt)
+		if err != nil {
+			return nil, err
+		}
+		l.kind, l.field, l.prefix = levelGeohash, field, prefix
 	case len(aggregationRanges(opt)) > 0:
 		ranges := aggregationRanges(opt)
 		if rangesAreDates(ranges) {
@@ -266,13 +307,13 @@ func newAggCollector(aggs []*searchService.AggregationOption) (*aggCollector, er
 }
 
 func (c *aggCollector) register(l *aggLevel) {
-	fv, ok := c.fields[l.opt.GetField()]
+	fv, ok := c.fields[l.field]
 	if !ok {
 		fv = &fieldValues{}
-		c.fields[l.opt.GetField()] = fv
-		c.fieldNames = append(c.fieldNames, l.opt.GetField())
+		c.fields[l.field] = fv
+		c.fieldNames = append(c.fieldNames, l.field)
 	}
-	if l.kind == levelTerms {
+	if l.kind == levelTerms || l.kind == levelGeohash {
 		fv.asTerms = true
 	} else {
 		fv.asNumbers = true
@@ -350,7 +391,7 @@ func (c *aggCollector) visit(field string, term []byte) {
 }
 
 func (c *aggCollector) fold(a *bucketAcc, l *aggLevel) {
-	fv := c.fields[l.opt.GetField()]
+	fv := c.fields[l.field]
 	switch l.kind {
 	case levelMetric:
 		for _, raw := range fv.numbers {
@@ -360,6 +401,12 @@ func (c *aggCollector) fold(a *bucketAcc, l *aggLevel) {
 		for _, term := range fv.terms {
 			if term != "" {
 				c.foldBucket(a, l, term)
+			}
+		}
+	case levelGeohash:
+		for _, term := range fv.terms {
+			if cell, ok := strings.CutPrefix(term, l.prefix); ok {
+				c.foldBucket(a, l, cell)
 			}
 		}
 	case levelNumericRange:

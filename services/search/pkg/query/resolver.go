@@ -103,23 +103,31 @@ func FieldIsWordBroken(field string) bool {
 	return siblingFields()[field].Words
 }
 
-// geopointFields maps a lowercased KQL key to its indexed geopoint sibling field,
-// derived from the TypeGeopoint entries in the resource field overrides (e.g.
-// "location" -> "location_geopoint", "journey.start" -> "journey.start_geopoint").
+// geopointFields maps a lowercased KQL key to the field name of every
+// TypeGeopoint entry in the resource field overrides (e.g. "location" ->
+// "location", "journey.start" -> "journey.start"); the engines derive their
+// sibling fields from it.
 var geopointFields = sync.OnceValue(func() map[string]string {
 	out := map[string]string{}
 	for key, opts := range (search.Resource{}).SearchFieldOverrides() {
 		if opts.Type == mapping.TypeGeopoint {
-			out[strings.ToLower(key)] = key + mapping.GeopointSuffix
+			out[strings.ToLower(key)] = key
 		}
 	}
 	return out
 })
 
-// ResolveGeoField maps a KQL key to its indexed geopoint field name. ok is false
-// when the key is not a geopoint field, so callers can reject geo predicates on
-// non-geo fields.
-func ResolveGeoField(name string) (string, bool) {
+// ResolveGeopointField maps a KQL key to the name of the geopoint field it
+// addresses. ok is false when the key is not a geopoint field, so callers can
+// reject geo predicates on non-geo fields.
+func ResolveGeopointField(name string) (string, bool) {
 	f, ok := geopointFields()[strings.ToLower(name)]
 	return f, ok
+}
+
+// ResolveGeoField maps a KQL key to its indexed geopoint sibling field name
+// (e.g. "location" -> "location_geopoint").
+func ResolveGeoField(name string) (string, bool) {
+	f, ok := ResolveGeopointField(name)
+	return f + mapping.GeopointSuffix, ok
 }
