@@ -15,6 +15,7 @@
 
 ### ✅ Tests
 
+- api-test: retry token refresh on transient IDP failures [[#3507](https://github.com/opencloud-eu/opencloud/pull/3507)]
 - fix(test): removeAccessToSpace test helper [[#3511](https://github.com/opencloud-eu/opencloud/pull/3511)]
 - api-tests: add search retry to all search tests [[#3500](https://github.com/opencloud-eu/opencloud/pull/3500)]
 - test(search): fail the parity suite when the committed matrix is stale [[#3423](https://github.com/opencloud-eu/opencloud/pull/3423)]
