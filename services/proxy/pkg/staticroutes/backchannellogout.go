@@ -74,7 +74,7 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 	}
 
 	lookupRecords, err := bcl.GetLogoutRecords(requestSubjectAndSession, s.UserInfoCache)
-	if errors.Is(err, microstore.ErrNotFound) || len(lookupRecords) == 0 {
+	if errors.Is(err, microstore.ErrNotFound) {
 		render.Status(r, http.StatusOK)
 		render.JSON(w, r, nil)
 		return
@@ -87,9 +87,28 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// A legacy lookup and a token-specific lookup can refer to the same token.
+	// Preserve the longest lifetime; zero means that no expiration is known.
+	tokens := make(map[string]*microstore.Record, len(lookupRecords))
 	for _, record := range lookupRecords {
-		// the record key is in the format "subject.session" or ".session"
-		// the record value is the key of the record that contains the claim in its value
+		previous := tokens[string(record.Value)]
+		if previous == nil || record.Expiry == 0 || (previous.Expiry != 0 && record.Expiry > previous.Expiry) {
+			tokens[string(record.Value)] = record
+		}
+	}
+	// Establish all revocations before sending notifications or clearing claims.
+	for _, record := range tokens {
+		if err := bcl.RevokeToken(record, s.UserInfoCache); err != nil {
+			msg := "failed to revoke token"
+			logger.Error().Err(err).Msg(msg)
+			render.Status(r, http.StatusBadRequest)
+			render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: msg})
+			return
+		}
+	}
+	logoutEventPublished := false
+	for _, record := range lookupRecords {
+		// The lookup value refers to the claims cache record.
 		key, value := record.Key, string(record.Value)
 
 		subjectSession, err := bcl.NewSuSe(key)
@@ -105,10 +124,11 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 			continue
 		}
 
-		if requestSubjectAndSession.Mode() == bcl.LogoutModeSession {
+		if requestSubjectAndSession.Mode() == bcl.LogoutModeSession && !logoutEventPublished {
 			if err := s.publishBackchannelLogoutEvent(r.Context(), session, value); err != nil {
 				s.Logger.Warn().Err(err).Msgf("failed to publish backchannel logout event for: %s", key)
-				continue
+			} else {
+				logoutEventPublished = true
 			}
 		}
 
