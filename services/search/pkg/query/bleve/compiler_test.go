@@ -51,23 +51,17 @@ func Test_compile(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			// path fields expand to match the folder itself and its descendants,
-			// since bleve has no path hierarchy analyzer.
+			// one term matches the folder itself and its descendants
 			name: `path:/Foo`,
 			args: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "path", Value: "/Foo"},
 				},
 			},
-			// a BooleanQuery (should: exact OR descendants), not a DisjunctionQuery,
-			// so an enclosing AND does not redistribute the folder-itself clause.
 			want: func() query.Query {
-				bq := query.NewBooleanQuery(nil, []query.Query{
-					query.NewQueryStringQuery(`Path:\/Foo`),
-					query.NewQueryStringQuery(`Path:\/Foo\/*`),
-				}, nil)
-				bq.SetMinShould(1)
-				return query.NewConjunctionQuery([]query.Query{bq})
+				tq := query.NewTermQuery("/Foo")
+				tq.SetField("Path")
+				return query.NewConjunctionQuery([]query.Query{tq})
 			}(),
 			wantErr: false,
 		},

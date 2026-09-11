@@ -123,6 +123,13 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 
 			var q bleveQuery.Query = bleveQuery.NewQueryStringQuery(k + ":" + v)
 			switch {
+			case searchQuery.FieldIsPath(n.Key) && !isWildcard:
+				// the folder term matches the folder itself and its descendants
+				// (see PathAnalyzer); a query string would analyze the value into
+				// its prefixes and match everything under the root
+				tq := bleveQuery.NewTermQuery(val)
+				tq.SetField(k)
+				q = tq
 			case n.Exact && !isWildcard:
 				// = matches the whole value, on the lowercased sibling for
 				// case-insensitive fields
@@ -140,17 +147,6 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 				bq.SetMinShould(1)
 				q = bq
 			}
-			if searchQuery.FieldIsPath(n.Key) {
-				// bleve has no path hierarchy analyzer, unlike OpenSearch: match the
-				// folder itself and its descendants (`\/*`). A BooleanQuery keeps
-				// this atomic; a DisjunctionQuery would be redistributed by an
-				// enclosing AND (mapBinary treats a left disjunction as an OR-chain).
-				bq := bleve.NewBooleanQuery()
-				bq.AddShould(q, bleveQuery.NewQueryStringQuery(k+":"+v+`\/*`))
-				bq.SetMinShould(1)
-				q = bq
-			}
-
 			if prev == nil {
 				prev = q
 			} else {

@@ -61,7 +61,7 @@ func buildOpenSearchProperties(t reflect.Type, overrides map[string]FieldOpts, p
 			// path_hierarchy is case-preserving here; casing lives in the value.
 			m := map[string]any{"type": "keyword"}
 			if fieldType == TypePath {
-				m = map[string]any{"type": "text", "analyzer": "path_hierarchy"}
+				m = map[string]any{"type": "text", "analyzer": PathAnalyzer}
 			}
 			props[fi.Name] = m
 			if opts.caseInsensitive() {

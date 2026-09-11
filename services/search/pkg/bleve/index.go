@@ -19,6 +19,7 @@ import (
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve/hierarchy"
 	searchmapping "github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
@@ -208,6 +209,42 @@ func NewMapping() (mapping.IndexMapping, error) {
 	if err != nil {
 		return nil, err
 	}
+	// path: every ancestor prefix is a term, so one term query matches a folder
+	// and all of its descendants
+	err = indexMapping.AddCustomTokenizer("path_hierarchy", map[string]any{
+		"type":      hierarchy.Name,
+		"delimiter": "/",
+	})
+	if err != nil {
+		return nil, err
+	}
+	err = indexMapping.AddCustomAnalyzer(searchmapping.PathAnalyzer, map[string]any{
+		"type":      custom.Name,
+		"tokenizer": "path_hierarchy",
+	})
+	if err != nil {
+		return nil, err
+	}
+	// geohash: every prefix is a depth-tagged term (1/u, 2/u4, ...), so a terms
+	// facet with TermPrefix "<precision>/" is a geohash grid at that precision.
+	// No field uses it yet. It is part of the v5 schema so that #3272 can add
+	// its geohash field additively: new fields reconcile at startup, a changed
+	// analysis block does not (classifyStoredMapping), so the names and the
+	// config below must not change.
+	err = indexMapping.AddCustomTokenizer("geohash_hierarchy", map[string]any{
+		"type":      hierarchy.Name,
+		"tag_depth": true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	err = indexMapping.AddCustomAnalyzer("geohash", map[string]any{
+		"type":      custom.Name,
+		"tokenizer": "geohash_hierarchy",
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	return indexMapping, nil
 }
@@ -226,11 +263,15 @@ func searchResourceByID(id string, index bleve.Index) (*search.Resource, error) 
 	return matchToResource(res.Hits[0]), nil
 }
 
+// searchResourcesByPath returns the descendants of the folder at lookupPath.
+// The folder term matches the folder and everything below it in one term
+// query (see PathAnalyzer); the folder itself is dropped from the result.
 func searchResourcesByPath(rootID string, lookupPath string, index bleve.Index) ([]*search.Resource, error) {
-	q := bleve.NewConjunctionQuery(
-		bleve.NewQueryStringQuery("RootID:"+rootID),
-		bleve.NewQueryStringQuery("Path:"+escapeQuery(lookupPath+"/*")),
-	)
+	rootQuery := bleve.NewTermQuery(rootID)
+	rootQuery.SetField("RootID")
+	pathQuery := bleve.NewTermQuery(lookupPath)
+	pathQuery.SetField("Path")
+	q := bleve.NewConjunctionQuery(rootQuery, pathQuery)
 	bleveReq := bleve.NewSearchRequest(q)
 	bleveReq.Size = math.MaxInt
 	bleveReq.Fields = []string{"*"}
@@ -241,7 +282,11 @@ func searchResourcesByPath(rootID string, lookupPath string, index bleve.Index) 
 
 	resources := make([]*search.Resource, 0, res.Hits.Len())
 	for _, match := range res.Hits {
-		resources = append(resources, matchToResource(match))
+		resource := matchToResource(match)
+		if resource.Path == lookupPath {
+			continue
+		}
+		resources = append(resources, resource)
 	}
 
 	return resources, nil

@@ -60,7 +60,6 @@ func buildBleveDocMapping(t reflect.Type, overrides map[string]FieldOpts, prefix
 		}
 
 		if fieldType == TypeKeyword || fieldType == TypePath {
-			// bleve has no path tokenizer, so a path is a plain keyword here.
 			base := bleveKeywordMapping(fieldType, opts)
 			doc.AddFieldMappingsAt(fi.Name, base)
 			if opts.caseInsensitive() {
@@ -84,8 +83,9 @@ func buildBleveDocMapping(t reflect.Type, overrides map[string]FieldOpts, prefix
 	return doc, err
 }
 
-// bleveKeywordMapping is a case-preserving keyword field; path fields stay out
-// of _all by default.
+// bleveKeywordMapping is a case-preserving keyword field; path fields are
+// analyzed into their ancestor prefixes (see PathAnalyzer) and stay out of
+// _all by default.
 func bleveKeywordMapping(fieldType string, opts FieldOpts) *bleveMapping.FieldMapping {
 	fm := bleve.NewKeywordFieldMapping()
 	switch {
@@ -93,6 +93,9 @@ func bleveKeywordMapping(fieldType string, opts FieldOpts) *bleveMapping.FieldMa
 		fm.IncludeInAll = *opts.IncludeInAll
 	case fieldType == TypePath:
 		fm.IncludeInAll = false
+	}
+	if fieldType == TypePath {
+		fm.Analyzer = PathAnalyzer
 	}
 	return fm
 }
