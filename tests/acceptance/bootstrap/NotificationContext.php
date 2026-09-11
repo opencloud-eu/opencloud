@@ -14,6 +14,7 @@ use Psr\Http\Message\ResponseInterface;
 use TestHelpers\EmailHelper;
 use TestHelpers\OcsApiHelper;
 use TestHelpers\GraphHelper;
+use TestHelpers\HttpRequestHelper;
 use TestHelpers\SettingsHelper;
 use TestHelpers\BehatHelper;
 use Behat\Step\Given;
@@ -865,5 +866,73 @@ class NotificationContext implements Context {
 			$mailBoxInfo,
 			"Expected '$expectedCount' emails for user '$user' but found '" . \count($mailBoxInfo) . "'"
 		);
+	}
+
+	/**
+	 * @param string $author
+	 * @param string $recipient
+	 * @param string $file
+	 * @param string $space
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :author mentions user :recipient on file :file in space :space using the Graph API')]
+	public function userMentionsUserOnFile(string $author, string $recipient, string $file, string $space): void {
+		$author = $this->featureContext->getActualUsername($author);
+		$recipientId = $this->featureContext->getAttributeOfCreatedUser($recipient, 'id');
+		$url = GraphHelper::getFullUrl(
+			$this->featureContext->getBaseUrl(),
+			'users/' . \rawurlencode($recipientId) . '/teamwork/sendActivityNotification'
+		);
+		$body = [
+			'topic' => ['source' => 'text', 'value' => $this->spacesContext->getFileId($author, $space, $file)],
+			'activityType' => 'mentioned',
+			'teamsAppId' => '8d1c9c88-9e2c-4d0b-9a1e-6a9de1cb9d3c',
+		];
+		$response = HttpRequestHelper::sendRequest(
+			$url,
+			$this->featureContext->getStepLineRef(),
+			'POST',
+			$author,
+			$this->featureContext->getPasswordForUser($author),
+			['Content-Type' => 'application/json'],
+			\json_encode($body)
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 * Check the mailbox count for the full observation period to detect
+	 * unexpected email that arrives asynchronously.
+	 *
+	 * @param string $user
+	 * @param string $count
+	 * @param string $seconds
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[Then('user :user should keep :count emails for :seconds seconds')]
+	public function userShouldKeepEmailsForSeconds(string $user, string $count, string $seconds): void {
+		$duration = (int)$seconds;
+		Assert::assertGreaterThan(0, $duration, 'The mailbox observation duration must be positive');
+		$address = $this->featureContext->getEmailAddressForUser($user);
+		$this->featureContext->pushEmailRecipientAsMailBox($address);
+		$mailBox = EmailHelper::getMailBoxFromEmail($address);
+		$deadline = \hrtime(true) + $duration * 1_000_000_000;
+
+		do {
+			$mailBoxInfo = EmailHelper::getMailBoxInformation($mailBox, $this->featureContext->getStepLineRef());
+			Assert::assertCount(
+				(int)$count,
+				$mailBoxInfo,
+				"Expected '$count' emails for user '$user' throughout '$seconds' seconds but found '" . \count($mailBoxInfo) . "'"
+			);
+			$remaining = $deadline - \hrtime(true);
+			if ($remaining > 0) {
+				\usleep((int)\min(250_000, \ceil($remaining / 1_000)));
+			}
+		} while ($remaining > 0);
 	}
 }

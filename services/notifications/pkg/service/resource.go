@@ -9,7 +9,6 @@ import (
 
 	ocEvents "github.com/opencloud-eu/opencloud/pkg/events"
 	"github.com/opencloud-eu/opencloud/pkg/l10n"
-	"github.com/opencloud-eu/opencloud/services/notifications/pkg/channels"
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/email"
 	"github.com/opencloud-eu/opencloud/services/settings/pkg/store/defaults"
 )
@@ -17,6 +16,7 @@ import (
 func (s eventsNotifier) handleResourceMention(e ocEvents.ResourceMention, eventId string) {
 	logger := s.logger.With().
 		Str("event", "Mention").
+		Str("eventId", eventId).
 		Str("resourceid", e.Ref.GetResourceId().GetOpaqueId()).
 		Logger()
 	gatewayClient, err := s.gatewaySelector.Next()
@@ -82,7 +82,7 @@ func (s eventsNotifier) handleResourceMention(e ocEvents.ResourceMention, eventI
 		return
 	}
 
-	messages := make([]*channels.Message, len(data.recipients))
+	messages := make([]recipientMessage, len(data.recipients))
 	for i, recipient := range data.recipients {
 		locale := l10n.MustGetUserLocale(ctx, recipient.GetId().GetOpaqueId(), "", s.valueService)
 		message, err := email.RenderEmailTemplate(email.Mention, locale, s.defaultLanguage, s.emailTemplatePath, s.translationPath, map[string]string{
@@ -97,9 +97,8 @@ func (s eventsNotifier) handleResourceMention(e ocEvents.ResourceMention, eventI
 		}
 
 		message.Sender = data.author.GetDisplayName()
-		message.Recipient = []string{recipient.GetMail()}
-		messages[i] = message
+		messages[i] = recipientMessage{message: message, recipient: recipient.GetId()}
 	}
 
-	s.send(ctx, messages)
+	s.send(ctx, logger, messages)
 }

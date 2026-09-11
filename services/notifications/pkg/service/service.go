@@ -26,6 +26,7 @@ import (
 
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/rs/zerolog"
 
 	"github.com/opencloud-eu/opencloud/pkg/l10n"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -160,10 +161,17 @@ func (s eventsNotifier) Close() {
 	}
 }
 
+// recipientMessage keeps the recipient's user ID with the rendered message.
+// send resolves the email address before passing the message to the channel.
+type recipientMessage struct {
+	message   *channels.Message
+	recipient *user.UserId
+}
+
 func (s eventsNotifier) render(ctx context.Context, template email.MessageTemplate,
-	granteeFieldName string, fields map[string]string, granteeList []*user.User, sender string) ([]*channels.Message, error) {
+	granteeFieldName string, fields map[string]string, granteeList []*user.User, sender string) ([]recipientMessage, error) {
 	// Render the Email Template for each user
-	messageList := make([]*channels.Message, len(granteeList))
+	messageList := make([]recipientMessage, len(granteeList))
 	for i, usr := range granteeList {
 		locale := l10n.MustGetUserLocale(ctx, usr.GetId().GetOpaqueId(), "", s.valueService)
 		fields[granteeFieldName] = usr.GetDisplayName()
@@ -173,18 +181,70 @@ func (s eventsNotifier) render(ctx context.Context, template email.MessageTempla
 			return nil, err
 		}
 		rendered.Sender = sender
-		rendered.Recipient = []string{usr.GetMail()}
-		messageList[i] = rendered
+		messageList[i] = recipientMessage{message: rendered, recipient: usr.GetId()}
 	}
 	return messageList, nil
 }
 
-func (s eventsNotifier) send(ctx context.Context, emails []*channels.Message) {
+func (s eventsNotifier) send(ctx context.Context, logger zerolog.Logger, emails []recipientMessage) {
 	for _, r := range emails {
-		err := s.channel.SendMessage(ctx, r)
-		if err != nil {
-			s.logger.Error().Err(err).Str("event", "SendEmail").Msg("failed to send a message")
+		logger := logger.With().Str("userId", r.recipient.GetOpaqueId()).Logger()
+		usr, err := s.getDeliveryRecipient(ctx, r.recipient)
+		if errors.Is(err, errDeliveryRecipientUnavailable) {
+			continue
 		}
+		if err != nil {
+			logger.Error().Err(err).Msg("could not resolve notification recipient")
+			continue
+		}
+		r.message.Recipient = []string{usr.GetMail()}
+		s.sendMessage(ctx, logger, r.message)
+	}
+}
+
+var errDeliveryRecipientUnavailable = errors.New("notification recipient unavailable")
+
+func (s eventsNotifier) getDeliveryRecipient(ctx context.Context, id *user.UserId) (*user.User, error) {
+	if id.GetOpaqueId() == "" {
+		return nil, errors.New("notification recipient ID is missing")
+	}
+	gw, err := s.gatewaySelector.Next()
+	if err != nil {
+		return nil, err
+	}
+	// Unlike GetUser, GetUserByClaim applies the configured LDAP filter for
+	// disabled users. The lookup can return an earlier user state until its
+	// cache entry expires.
+	r, err := gw.GetUserByClaim(ctx, &user.GetUserByClaimRequest{Claim: "userid", Value: id.GetOpaqueId(), SkipFetchingUserGroups: true})
+	if err != nil {
+		return nil, err
+	}
+	if r.GetStatus() == nil {
+		return nil, errors.New("recipient lookup returned no status")
+	}
+	if r.GetStatus().GetCode() == rpc.Code_CODE_NOT_FOUND {
+		return nil, errDeliveryRecipientUnavailable
+	}
+	if r.GetStatus().GetCode() != rpc.Code_CODE_OK {
+		return nil, fmt.Errorf("recipient lookup failed: %d: %s", r.GetStatus().GetCode(), r.GetStatus().GetMessage())
+	}
+	u := r.GetUser()
+	if u.GetId().GetOpaqueId() != id.GetOpaqueId() ||
+		(id.GetIdp() != "" && u.GetId().GetIdp() != id.GetIdp()) ||
+		(id.GetTenantId() != "" && u.GetId().GetTenantId() != id.GetTenantId()) {
+		return nil, errors.New("recipient lookup returned a missing or mismatched identity")
+	}
+	if u.GetStatus() == user.UserStatus_USER_STATUS_BLOCKED || strings.TrimSpace(u.GetMail()) == "" || s.disableEmails(ctx, id) {
+		return nil, errDeliveryRecipientUnavailable
+	}
+	return u, nil
+}
+
+// sendMessage sends a rendered message without looking up the recipient.
+// Callers must check the recipient first, except for ScienceMesh invitations.
+func (s eventsNotifier) sendMessage(ctx context.Context, logger zerolog.Logger, message *channels.Message) {
+	if err := s.channel.SendMessage(ctx, message); err != nil {
+		logger.Error().Err(err).Msg("failed to send a message")
 	}
 }
 
