@@ -866,4 +866,38 @@ class NotificationContext implements Context {
 			"Expected '$expectedCount' emails for user '$user' but found '" . \count($mailBoxInfo) . "'"
 		);
 	}
+
+	/**
+	 * Check the mailbox count for the full observation period to detect
+	 * unexpected email that arrives asynchronously.
+	 *
+	 * @param string $user
+	 * @param string $count
+	 * @param string $seconds
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[Then('user :user should keep :count emails for :seconds seconds')]
+	public function userShouldKeepEmailsForSeconds(string $user, string $count, string $seconds): void {
+		$duration = (int)$seconds;
+		Assert::assertGreaterThan(0, $duration, 'The mailbox observation duration must be positive');
+		$address = $this->featureContext->getEmailAddressForUser($user);
+		$this->featureContext->pushEmailRecipientAsMailBox($address);
+		$mailBox = EmailHelper::getMailBoxFromEmail($address);
+		$deadline = \hrtime(true) + $duration * 1_000_000_000;
+
+		do {
+			$mailBoxInfo = EmailHelper::getMailBoxInformation($mailBox, $this->featureContext->getStepLineRef());
+			Assert::assertCount(
+				(int)$count,
+				$mailBoxInfo,
+				"Expected '$count' emails for user '$user' throughout '$seconds' seconds but found '" . \count($mailBoxInfo) . "'"
+			);
+			$remaining = $deadline - \hrtime(true);
+			if ($remaining > 0) {
+				\usleep((int)\min(250_000, \ceil($remaining / 1_000)));
+			}
+		} while ($remaining > 0);
+	}
 }
