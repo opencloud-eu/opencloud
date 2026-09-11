@@ -1,5 +1,70 @@
 # Changelog
 
+## [8.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.0) - 2026-09-11
+
+### ❤️ Thanks to all contributors! ❤️
+
+@butonic, @dschmidt, @fredrikblau, @fschade, @maki5, @pbleser-oc, @rhafer, @sigurdvaa, @v-scharf, @zerox80
+
+### 💥 Breaking changes
+
+- fix(search): hierarchy tokenizer for bleve path fields [[#3510](https://github.com/opencloud-eu/opencloud/pull/3510)]
+- feat(search): check the index schema on startup and refuse breaking changes [[#3197](https://github.com/opencloud-eu/opencloud/pull/3197)]
+- refactor: reflection-based search mapping + location geopoint [[#3345](https://github.com/opencloud-eu/opencloud/pull/3345)]
+- fix(search): make openSearch and bleve behave the same [[#3408](https://github.com/opencloud-eu/opencloud/pull/3408)]
+
+### ✅ Tests
+
+- api-test: retry token refresh on transient IDP failures [[#3507](https://github.com/opencloud-eu/opencloud/pull/3507)]
+- fix(test): removeAccessToSpace test helper [[#3511](https://github.com/opencloud-eu/opencloud/pull/3511)]
+- api-tests: add search retry to all search tests [[#3500](https://github.com/opencloud-eu/opencloud/pull/3500)]
+- test(search): fail the parity suite when the committed matrix is stale [[#3423](https://github.com/opencloud-eu/opencloud/pull/3423)]
+- ci: run search API and e2e suites against OpenSearch [[#3379](https://github.com/opencloud-eu/opencloud/pull/3379)]
+- test(search): engine parity suite for bleve and opensearch [[#3418](https://github.com/opencloud-eu/opencloud/pull/3418)]
+
+### 📈 Enhancement
+
+- add insecure to search reindex [[#3505](https://github.com/opencloud-eu/opencloud/pull/3505)]
+- feat(graph): expand thumbnails on driveItems [[#3471](https://github.com/opencloud-eu/opencloud/pull/3471)]
+- graph: expose lockInfo on driveItems [[#3444](https://github.com/opencloud-eu/opencloud/pull/3444)]
+- graph: expose @libre.graph.shareTypes on driveItems [[#3438](https://github.com/opencloud-eu/opencloud/pull/3438)]
+- feat(search): live photo facet [[#3202](https://github.com/opencloud-eu/opencloud/pull/3202)]
+- feat: support $expand=children on the driveItem endpoint [[#3445](https://github.com/opencloud-eu/opencloud/pull/3445)]
+- feat(search): motion photo facet [[#3200](https://github.com/opencloud-eu/opencloud/pull/3200)]
+- feat(search): video facet [[#3201](https://github.com/opencloud-eu/opencloud/pull/3201)]
+- graph: expose pendingOperations on driveItems [[#3437](https://github.com/opencloud-eu/opencloud/pull/3437)]
+- feat(search): extract more data from tika 4 (if available) [[#3198](https://github.com/opencloud-eu/opencloud/pull/3198)]
+- graph: expose following state, tags and allowed actions on driveItems [[#3113](https://github.com/opencloud-eu/opencloud/pull/3113)]
+- feat(search): scope searches to a drive via the driveId field [[#3424](https://github.com/opencloud-eu/opencloud/pull/3424)]
+- chore(policies): disable gRPC or event handlers by configuration + add metrics [[#3287](https://github.com/opencloud-eu/opencloud/pull/3287)]
+- moved ShareCreated event consumer from frontend to shared service [[#3389](https://github.com/opencloud-eu/opencloud/pull/3389)]
+
+### 🐛 Bug Fixes
+
+- fix(search): extract facets from the main tika document only [[#3484](https://github.com/opencloud-eu/opencloud/pull/3484)]
+- fix(thumbnails): bound declared image dimensions before decoding [[#3457](https://github.com/opencloud-eu/opencloud/pull/3457)]
+- test(search): re-search until the expected files are in the result [[#3488](https://github.com/opencloud-eu/opencloud/pull/3488)]
+- fix(config): correct pending version annotations [[#3487](https://github.com/opencloud-eu/opencloud/pull/3487)]
+- Activitylog event handler split [[#3241](https://github.com/opencloud-eu/opencloud/pull/3241)]
+- test(search): wait for expected properties and documents [[#3486](https://github.com/opencloud-eu/opencloud/pull/3486)]
+- fix: log jwt expired on debug level instead of error [[#3463](https://github.com/opencloud-eu/opencloud/pull/3463)]
+- fix(proxy): restrict JWT signed urls to the allowed HTTP methods [[#3481](https://github.com/opencloud-eu/opencloud/pull/3481)]
+- fix: notification handling for share removal and space membership expiry  [[#3257](https://github.com/opencloud-eu/opencloud/pull/3257)]
+- fix: posix cli commands [[#3348](https://github.com/opencloud-eu/opencloud/pull/3348)]
+
+### 📦️ Dependencies
+
+- build(deps): bump go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp from 0.70.0 to 0.71.0 [[#3441](https://github.com/opencloud-eu/opencloud/pull/3441)]
+- build(deps): bump go.opentelemetry.io/contrib/zpages from 0.70.0 to 0.71.0 [[#3442](https://github.com/opencloud-eu/opencloud/pull/3442)]
+- build(deps): bump go.opentelemetry.io/otel from 1.45.0 to 1.46.0 [[#3426](https://github.com/opencloud-eu/opencloud/pull/3426)]
+- build(deps): bump google.golang.org/grpc from 1.83.1 to 1.83.2 [[#3429](https://github.com/opencloud-eu/opencloud/pull/3429)]
+- build(deps): bump github.com/blevesearch/bleve/v2 from 2.6.0 to 2.6.1 [[#3417](https://github.com/opencloud-eu/opencloud/pull/3417)]
+- build(deps): bump github.com/sirupsen/logrus from 1.10.0 to 1.10.1 [[#3409](https://github.com/opencloud-eu/opencloud/pull/3409)]
+- build(deps): bump github.com/opensearch-project/opensearch-go/v4 from 4.6.0 to 4.7.3 [[#3216](https://github.com/opencloud-eu/opencloud/pull/3216)]
+- build(deps): bump github.com/KimMachineGun/automemlimit from 0.7.5 to 1.0.0 [[#3404](https://github.com/opencloud-eu/opencloud/pull/3404)]
+- build(deps): bump github.com/nats-io/nats.go from 1.52.0 to 1.53.1 [[#3403](https://github.com/opencloud-eu/opencloud/pull/3403)]
+- build(deps): bump github.com/open-policy-agent/opa from 1.19.0 to 1.19.1 [[#3402](https://github.com/opencloud-eu/opencloud/pull/3402)]
+
 ## [7.5.0](https://github.com/opencloud-eu/opencloud/releases/tag/v7.5.0) - 2026-08-25
 
 ### ❤️ Thanks to all contributors! ❤️
