@@ -13,6 +13,7 @@ import (
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpcv1beta1 "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	providerv1beta1 "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
@@ -106,7 +107,7 @@ func (s *Service) OpenInApp(
 	fileExt := path.Ext(req.GetResourceInfo().GetPath())
 
 	// get the appURL we need to use
-	appURL := s.getAppUrl(fileExt, req.GetViewMode())
+	appURL := s.getAppUrl(ctx, fileExt, req.GetViewMode())
 	if appURL == "" {
 		logger.Error().Msg("OpenInApp: neither edit nor view app URL found")
 		return nil, errors.New("neither edit nor view app URL found")
@@ -177,12 +178,28 @@ func (s *Service) OpenInApp(
 	}, nil
 }
 
+// isMobileUserAgent tells whether the request was issued by a mobile browser.
+// Clients that are not browsers, such as the desktop app or other services, do
+// not send a user agent along. That is the regular case and simply means that
+// the request is not treated as mobile.
+// Known limitation: iPadOS Safari pretends to be desktop macOS and is
+// therefore not detected as mobile.
+func isMobileUserAgent(ctx context.Context) bool {
+	agent, ok := ctxpkg.ContextGetUserAgent(ctx)
+	if !ok {
+		return false
+	}
+	return agent.Mobile || agent.Tablet
+}
+
 // getAppUrl will get the appURL that should be used based on the extension
 // and the provided view mode.
 // "view" urls will be chosen first, then if the view mode is "read/write",
 // "edit" urls will be prioritized. Note that "view" url might be returned for
 // "read/write" view mode if no "edit" url is found.
-func (s *Service) getAppUrl(fileExt string, viewMode appproviderv1beta1.ViewMode) string {
+// For mobile browsers the "mobileView" and "mobileEdit" actions are preferred
+// over their desktop counterparts, if the app announces them.
+func (s *Service) getAppUrl(ctx context.Context, fileExt string, viewMode appproviderv1beta1.ViewMode) string {
 	// prioritize view action if possible
 	appURL := s.appURLs.GetAppURLFor("view", fileExt)
 
@@ -199,6 +216,22 @@ func (s *Service) getAppUrl(fileExt string, viewMode appproviderv1beta1.ViewMode
 			}
 		}
 	} else {
+		// Collabora serves one url per extension and adapts its UI to the
+		// browser on its own, so mobile actions only apply to the other apps.
+		if s.config.Wopi.EnableMobile && isMobileUserAgent(ctx) {
+			mobileAction := "mobileView"
+			if viewMode == appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE {
+				mobileAction = "mobileEdit"
+			}
+			// Not every app announces the mobile actions, OnlyOffice Community
+			// Edition for instance often lacks "mobileEdit". In that case we
+			// fall through to the desktop url below rather than serving
+			// nothing or downgrading a read/write request to a viewer.
+			if mobileAppURL := s.appURLs.GetAppURLFor(mobileAction, fileExt); mobileAppURL != "" {
+				return mobileAppURL
+			}
+		}
+
 		// If not collabora, there might be an edit action for the extension.
 		// If read/write mode has been requested, prioritize edit action.
 		if viewMode == appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE {

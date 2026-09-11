@@ -15,16 +15,27 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
 	"github.com/stretchr/testify/mock"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/collaboration/mocks"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/helpers"
 	service "github.com/opencloud-eu/opencloud/services/collaboration/pkg/service/grpc/v0"
+)
+
+const (
+	mobileUserAgent  = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36"
+	tabletUserAgent  = "Mozilla/5.0 (Linux; Android 13; SM-X710) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+	desktopUserAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+
+	// WOPISrc as generated for the resource id used throughout these tests
+	wopiSrc = "https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e"
 )
 
 // Based on https://github.com/cs3org/reva/blob/b99ad4865401144a981d4cfd1ae28b5a018ea51d/pkg/token/manager/jwt/jwt.go#L82
@@ -92,7 +103,18 @@ var _ = Describe("Discovery", func() {
 			},
 			"edit": {
 				".docx":    "https://cloud.opencloud.test/hosting/wopi/word/edit",
+				".xls":     "https://cloud.opencloud.test/hosting/wopi/cell/edit",
 				".invalid": "://cloud.opencloud.test/hosting/wopi/cell/edit",
+			},
+			// .docx offers both mobile actions, .xls only mobileView (like
+			// OnlyOffice Community Edition) and .pdf none at all, so both
+			// desktop fallbacks stay covered
+			"mobileView": {
+				".docx": "https://cloud.opencloud.test/hosting/wopi/word/mobileview",
+				".xls":  "https://cloud.opencloud.test/hosting/wopi/cell/mobileview",
+			},
+			"mobileEdit": {
+				".docx": "https://cloud.opencloud.test/hosting/wopi/word/mobileedit",
 			},
 		})
 
@@ -206,6 +228,90 @@ var _ = Describe("Discovery", func() {
 			Entry("Collabora no chat lang", "Collabora", "de", true, "https://cloud.opencloud.test/hosting/wopi/word/view?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&closebutton=false&dchat=1&lang=de-DE"),
 			Entry("OnlyOffice no chat lang", "OnlyOffice", "de", true, "https://cloud.opencloud.test/hosting/wopi/word/edit?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&dchat=1&ui=de-DE"),
 		)
+		DescribeTable(
+			"Mobile actions",
+			func(appName, userAgent, filePath string, enableMobile bool, viewMode appproviderv1beta1.ViewMode, expectedAppUrl string) {
+				ctx := context.Background()
+				if userAgent != "" {
+					ctx = metadata.NewIncomingContext(ctx, metadata.Pairs(ctxpkg.UserAgentHeader, userAgent))
+				}
+				nowTime := time.Now()
+
+				cfg.Wopi.WopiSrc = "https://wopi.opencloud.test"
+				cfg.Wopi.Secret = "my_supa_secret"
+				cfg.Wopi.EnableMobile = enableMobile
+				cfg.App.Name = appName
+				cfg.App.Product = appName
+
+				myself := &userv1beta1.User{
+					Id: &userv1beta1.UserId{
+						Idp:      "myIdp",
+						OpaqueId: "opaque001",
+						Type:     userv1beta1.UserType_USER_TYPE_PRIMARY,
+					},
+					Username: "username",
+				}
+
+				req := &appproviderv1beta1.OpenInAppRequest{
+					ResourceInfo: &providerv1beta1.ResourceInfo{
+						Id: &providerv1beta1.ResourceId{
+							StorageId: "myStorage",
+							OpaqueId:  "storageOpaque001",
+							SpaceId:   "SpaceA",
+						},
+						Path: filePath,
+					},
+					ViewMode:    viewMode,
+					AccessToken: MintToken(myself, cfg.Wopi.Secret, nowTime),
+				}
+
+				gatewayClient.On("WhoAmI", mock.Anything, mock.Anything).Times(1).Return(&gatewayv1beta1.WhoAmIResponse{
+					Status: status.NewOK(ctx),
+					User:   myself,
+				}, nil)
+
+				resp, err := srv.OpenInApp(ctx, req)
+				Expect(err).To(Succeed())
+				Expect(resp.GetStatus().GetCode()).To(Equal(rpcv1beta1.Code_CODE_OK))
+				Expect(resp.GetAppUrl().GetAppUrl()).To(Equal(expectedAppUrl))
+			},
+			// --- mobile user agent picks the mobile actions ---
+			Entry("OnlyOffice mobile read/write", "OnlyOffice", mobileUserAgent, "/path/to/file.docx", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE,
+				"https://cloud.opencloud.test/hosting/wopi/word/mobileedit?WOPISrc="+wopiSrc),
+			Entry("OnlyOffice mobile read only", "OnlyOffice", mobileUserAgent, "/path/to/file.docx", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_ONLY,
+				"https://cloud.opencloud.test/hosting/wopi/word/mobileview?WOPISrc="+wopiSrc),
+			Entry("OnlyOffice tablet read/write", "OnlyOffice", tabletUserAgent, "/path/to/file.docx", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE,
+				"https://cloud.opencloud.test/hosting/wopi/word/mobileedit?WOPISrc="+wopiSrc),
+
+			// --- desktop user agent keeps the desktop actions ---
+			Entry("OnlyOffice desktop read/write", "OnlyOffice", desktopUserAgent, "/path/to/file.docx", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE,
+				"https://cloud.opencloud.test/hosting/wopi/word/edit?WOPISrc="+wopiSrc),
+			Entry("OnlyOffice desktop read only", "OnlyOffice", desktopUserAgent, "/path/to/file.docx", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_ONLY,
+				"https://cloud.opencloud.test/hosting/wopi/word/view?WOPISrc="+wopiSrc),
+
+			// --- fallbacks ---
+			Entry("no user agent in context falls back to desktop", "OnlyOffice", "", "/path/to/file.docx", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE,
+				"https://cloud.opencloud.test/hosting/wopi/word/edit?WOPISrc="+wopiSrc),
+			Entry("missing mobileEdit falls back to desktop view", "OnlyOffice", mobileUserAgent, "/path/to/file.pdf", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE,
+				"https://cloud.opencloud.test/hosting/wopi/word/view?WOPISrc="+wopiSrc),
+			Entry("missing mobileView falls back to desktop view", "OnlyOffice", mobileUserAgent, "/path/to/file.pdf", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_ONLY,
+				"https://cloud.opencloud.test/hosting/wopi/word/view?WOPISrc="+wopiSrc),
+			// a read/write request must never be downgraded to the mobile
+			// viewer just because mobileEdit is missing
+			Entry("missing mobileEdit falls back to desktop edit, not mobileView", "OnlyOffice", mobileUserAgent, "/path/to/file.xls", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE,
+				"https://cloud.opencloud.test/hosting/wopi/cell/edit?WOPISrc="+wopiSrc),
+			Entry("mobileView is still used for read only", "OnlyOffice", mobileUserAgent, "/path/to/file.xls", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_ONLY,
+				"https://cloud.opencloud.test/hosting/wopi/cell/mobileview?WOPISrc="+wopiSrc),
+			Entry("disabled by config falls back to desktop", "OnlyOffice", mobileUserAgent, "/path/to/file.docx", false, appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE,
+				"https://cloud.opencloud.test/hosting/wopi/word/edit?WOPISrc="+wopiSrc),
+
+			// --- collabora is unaffected, it handles mobile itself ---
+			Entry("Collabora mobile read/write is unchanged", "Collabora", mobileUserAgent, "/path/to/file.docx", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE,
+				"https://cloud.opencloud.test/hosting/wopi/word/view?WOPISrc="+wopiSrc+"&closebutton=false"),
+			Entry("Collabora mobile read only is unchanged", "Collabora", mobileUserAgent, "/path/to/file.docx", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_ONLY,
+				"https://cloud.opencloud.test/hosting/wopi/word/view?WOPISrc="+wopiSrc+"&closebutton=false"),
+		)
+
 		It("Success with Wopi Proxy", func() {
 			ctx := context.Background()
 			nowTime := time.Now()
