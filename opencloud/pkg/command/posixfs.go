@@ -1,6 +1,7 @@
 package command
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -84,8 +85,7 @@ the command is aborted with an error before performing any scanning.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := ocCfg.StorageUsers
 			if cfg.Driver != "posix" {
-				fmt.Fprintf(os.Stderr, "This command is only available when using the 'posix' driver. Current driver: '%s'\n", cfg.Driver)
-				os.Exit(1)
+				return fmt.Errorf("this command is only available when using the 'posix' driver. Current driver: '%s'", cfg.Driver)
 			}
 
 			haltOnError, err := cmd.Flags().GetBool("halt-on-error")
@@ -100,12 +100,11 @@ the command is aborted with an error before performing any scanning.`,
 				for _, v := range args {
 					path := v
 					if !filepath.IsAbs(path) {
-						if v, err := filepath.Abs(path); err != nil {
-							fmt.Fprintf(os.Stderr, "Failed to make the specified path %q absolute: %v\n", v, err)
-							os.Exit(1)
-						} else {
-							path = v
+						abs, err := filepath.Abs(path)
+						if err != nil {
+							return fmt.Errorf("failed to make the specified path %q absolute: %w", path, err)
 						}
+						path = abs
 					}
 					// not ensuring whether the path is under the storage root here, will be done when iterating over them
 					path = filepath.Clean(path)
@@ -123,15 +122,13 @@ the command is aborted with an error before performing any scanning.`,
 				var err error
 				fsStream, err = event.NewStream(cfg)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Failed to create event stream for posix driver: %v\n", err)
-					os.Exit(1)
+					return fmt.Errorf("failed to create event stream for posix driver: %w", err)
 				}
 				log := logger("posixfs")
 
 				f, ok := registry.NewFuncs["posix"]
 				if !ok {
-					fmt.Fprintf(os.Stderr, "posix driver not found in registry\n")
-					os.Exit(1)
+					return errors.New("posix driver not found in registry")
 				}
 
 				fs, err := f(drivers["posix"].(map[string]any), fsStream, &log)
@@ -142,8 +139,7 @@ the command is aborted with an error before performing any scanning.`,
 
 				cacher, ok := fs.(IDCacher)
 				if !ok {
-					fmt.Fprintf(os.Stderr, "The posix driver does not expose WarmupIDCache.\n")
-					os.Exit(1)
+					return errors.New("the posix driver does not expose WarmupIDCache")
 				}
 
 				scan = func(path string) error {
@@ -155,7 +151,7 @@ the command is aborted with an error before performing any scanning.`,
 				}
 			}
 
-			errors := processPosixFsResources(paths, !haltOnError,
+			errs := processPosixFsResources(paths, !haltOnError,
 				func(path string) error {
 					fmt.Println("Scanning personal spaces...")
 					return scan(path)
@@ -174,19 +170,19 @@ the command is aborted with an error before performing any scanning.`,
 				},
 			)
 
-			if len(errors) == 0 {
+			if len(errs) == 0 {
 				fmt.Println("Scan completed successfully.")
 				return nil
 			} else {
 				plural := "s"
-				if len(errors) == 1 {
+				if len(errs) == 1 {
 					plural = ""
 				}
 				verb := "completed"
 				if haltOnError {
 					verb = "aborted"
 				}
-				return fmt.Errorf("scan %s with %d error%s", verb, len(errors), plural)
+				return fmt.Errorf("scan %s with %d error%s", verb, len(errs), plural)
 			}
 		},
 	}

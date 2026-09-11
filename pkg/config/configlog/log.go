@@ -2,7 +2,6 @@ package configlog
 
 import (
 	"fmt"
-	"os"
 )
 
 // Error logs the error
@@ -20,11 +19,12 @@ func ReturnError(err error) error {
 	return err
 }
 
-// ReturnFatal logs the error and calls os.Exit(1) and returns nil if no error is passed
+// ReturnFatal logs the error and returns it unchanged.
+//
+// Deprecated: ReturnFatal used to call os.Exit(1). Every caller runs it from a
+// cobra PreRunE and returns its result, so the error is reported either way,
+// but exiting also tore down the services and workers sharing the process when
+// a service was started in supervised mode. Use ReturnError instead.
 func ReturnFatal(err error) error {
-	if err != nil {
-		fmt.Printf("%v\n", err)
-		os.Exit(1)
-	}
-	return nil
+	return ReturnError(err)
 }
