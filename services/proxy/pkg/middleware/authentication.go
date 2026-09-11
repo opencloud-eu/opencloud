@@ -50,6 +50,10 @@ type Authenticator interface {
 	Authenticate(*http.Request) (*http.Request, bool)
 }
 
+type authenticationChallengeSuppressor interface {
+	SuppressAuthenticationChallenge(*http.Request) bool
+}
+
 // Authentication is a higher order authentication middleware.
 func Authentication(auths []Authenticator, opts ...Option) func(next http.Handler) http.Handler {
 	options := newOptions(opts...)
@@ -76,15 +80,19 @@ func Authentication(auths []Authenticator, opts ...Option) func(next http.Handle
 				return
 			}
 
+			suppressAuthenticationChallenge := false
 			for _, a := range auths {
 				if req, ok := a.Authenticate(r); ok {
 					span.End()
 					next.ServeHTTP(w, req)
 					return
 				}
+				if suppressor, ok := a.(authenticationChallengeSuppressor); ok && suppressor.SuppressAuthenticationChallenge(r) {
+					suppressAuthenticationChallenge = true
+				}
 			}
 
-			if !isPublicPath(r.URL.Path) {
+			if !suppressAuthenticationChallenge && !isPublicPath(r.URL.Path) {
 				// Failed basic authentication attempts receive the Www-Authenticate header in the response
 				var touch bool
 				caser := cases.Title(language.Und)
@@ -103,8 +111,10 @@ func Authentication(auths []Authenticator, opts ...Option) func(next http.Handle
 				}
 			}
 
-			for _, s := range SupportedAuthStrategies {
-				userAgentAuthenticateLockIn(w, r, options.CredentialsByUserAgent, s)
+			if !suppressAuthenticationChallenge {
+				for _, s := range SupportedAuthStrategies {
+					userAgentAuthenticateLockIn(w, r, options.CredentialsByUserAgent, s)
+				}
 			}
 			w.WriteHeader(http.StatusUnauthorized)
 			// if the request is a PROPFIND return a WebDAV error code.

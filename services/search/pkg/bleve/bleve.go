@@ -1,8 +1,6 @@
 package bleve
 
 import (
-	"regexp"
-
 	bleveSearch "github.com/blevesearch/bleve/v2/search"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
@@ -10,8 +8,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
-
-var queryEscape = regexp.MustCompile(`([` + regexp.QuoteMeta(`+=&|><!(){}[]^\"~*?:\/`) + `\-\s])`)
 
 func getFieldValue[T any](m map[string]any, key string) (out T) {
 	val, ok := m[key]
@@ -83,8 +79,4 @@ func hitToFacet[T any](fields map[string]any, prefix string) *T {
 // values on individual fields instead of dropping the whole record.
 func matchToResource(match *bleveSearch.DocumentMatch) *search.Resource {
 	return mapping.Deserialize[search.Resource](match.Fields)
-}
-
-func escapeQuery(s string) string {
-	return queryEscape.ReplaceAllString(s, "\\$1")
 }

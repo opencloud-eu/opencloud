@@ -26,6 +26,11 @@ const WordsSuffix = "_words"
 // WordsAnalyzer names the analyzer both engines register for the words sibling.
 const WordsAnalyzer = "words"
 
+// PathAnalyzer names the analyzer both engines register for TypePath fields:
+// every ancestor prefix of a path is a term, so one term query matches a
+// folder and its descendants.
+const PathAnalyzer = "path_hierarchy"
+
 // FieldOpts overrides the default type inference for a struct field. Keys in
 // the override map are json-tag names (e.g. "Name", "location", "audio.artist"),
 // not Go field names.

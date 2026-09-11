@@ -65,6 +65,16 @@ func (m SignedURLAuthenticator) shouldServe(req *http.Request) bool {
 	return req.URL.Query().Get(_paramOCJWTSig) != ""
 }
 
+// SuppressAuthenticationChallenge prevents other authentication mechanisms from challenging signed URL clients.
+// Requests that carry an Authorization header are not suppressed, so clients that additionally sent
+// (possibly stale) credentials still receive a challenge and can re-authenticate.
+func (m SignedURLAuthenticator) SuppressAuthenticationChallenge(req *http.Request) bool {
+	if req.Header.Get("Authorization") != "" {
+		return false
+	}
+	return m.shouldServeLegacy(req) || m.shouldServe(req)
+}
+
 func (m SignedURLAuthenticator) validate(req *http.Request) (err error) {
 	query := req.URL.Query()
 

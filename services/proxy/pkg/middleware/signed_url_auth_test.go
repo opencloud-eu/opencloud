@@ -10,9 +10,13 @@ import (
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
+	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
+	backendmocks "github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend/mocks"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"go-micro.dev/v4/store"
 )
 
@@ -91,6 +95,88 @@ func TestSignedURLAuth_authenticateRejectsDisallowedMethods(t *testing.T) {
 		if _, ok := pua.authenticate(r); ok {
 			t.Errorf("expected %s with a signed url to be rejected", method)
 		}
+	}
+}
+
+func TestSignedURLAuthFailureSuppressesAuthenticationChallenge(t *testing.T) {
+	oldStrategies := SupportedAuthStrategies
+	SupportedAuthStrategies = nil
+	t.Cleanup(func() { SupportedAuthStrategies = oldStrategies })
+
+	verifier, err := signedurl.NewJWTSignedURL(signedurl.WithSecret("secret"))
+	if err != nil {
+		t.Fatalf("failed to create signed URL verifier: %v", err)
+	}
+	userProvider := &backendmocks.UserBackend{}
+	userProvider.On("GetUserByClaims", mock.Anything, "username", "").Return(nil, "", backend.ErrAccountNotFound)
+
+	tests := []struct {
+		name              string
+		url               string
+		authenticator     SignedURLAuthenticator
+		expectedChallenge bool
+	}{
+		{
+			name: "invalid signed URL",
+			url:  "https://example.com/file?oc-jwt-sig=invalid",
+			authenticator: SignedURLAuthenticator{
+				Logger:             log.NewLogger(),
+				PreSignedURLConfig: config.PreSignedURL{AllowedHTTPMethods: []string{http.MethodGet}},
+				URLVerifier:        verifier,
+			},
+			expectedChallenge: false,
+		},
+		{
+			name: "invalid legacy signed URL",
+			url:  "https://example.com/file?OC-Signature=invalid",
+			authenticator: SignedURLAuthenticator{
+				Logger:             log.NewLogger(),
+				PreSignedURLConfig: config.PreSignedURL{Enabled: true},
+				UserProvider:       userProvider,
+			},
+			expectedChallenge: false,
+		},
+		{
+			name:              "legacy signed URLs disabled",
+			url:               "https://example.com/file?OC-Signature=invalid",
+			authenticator:     SignedURLAuthenticator{},
+			expectedChallenge: true,
+		},
+		{
+			name:              "signed URL verifier disabled",
+			url:               "https://example.com/file?oc-jwt-sig=invalid",
+			authenticator:     SignedURLAuthenticator{},
+			expectedChallenge: true,
+		},
+		{
+			name:              "unsigned URL",
+			url:               "https://example.com/file",
+			authenticator:     SignedURLAuthenticator{URLVerifier: verifier},
+			expectedChallenge: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			SupportedAuthStrategies = nil
+			req := httptest.NewRequest(http.MethodGet, tt.url, nil)
+			req = req.WithContext(router.SetRoutingInfo(req.Context(), router.RoutingInfo{}))
+			rr := httptest.NewRecorder()
+			nextCalled := false
+			handler := Authentication([]Authenticator{tt.authenticator}, EnableBasicAuth(true))(
+				http.HandlerFunc(func(http.ResponseWriter, *http.Request) { nextCalled = true }),
+			)
+
+			handler.ServeHTTP(rr, req)
+
+			assert.Equal(t, http.StatusUnauthorized, rr.Code)
+			assert.False(t, nextCalled)
+			if tt.expectedChallenge {
+				assert.NotEmpty(t, rr.Header().Values(WwwAuthenticate))
+			} else {
+				assert.Empty(t, rr.Header().Values(WwwAuthenticate))
+			}
+		})
 	}
 }
 

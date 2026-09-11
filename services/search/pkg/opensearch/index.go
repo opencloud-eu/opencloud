@@ -82,7 +82,7 @@ func buildResourceMapping() ([]byte, error) {
 			"analysis": map[string]any{
 				// path_hierarchy is case-preserving; casing lives in the value.
 				"analyzer": map[string]any{
-					"path_hierarchy": map[string]any{
+					searchmapping.PathAnalyzer: map[string]any{
 						"type":      "custom",
 						"tokenizer": "path_hierarchy",
 					},

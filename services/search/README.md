@@ -124,14 +124,14 @@ opencloud search index --space $SPACE_ID
 It can also be used to re-index all spaces:
 
 ```shell
-opencloud search index --all-spaces
+opencloud search index --all-spaces --insecure
 ```
 
 Please note that a reindex only picks up new or changed files. Files that have already been indexed are not scanned again, even if the configuration or the whole extractor has been changed. To force a full rescan (re-running the extractor on every file) you need to use the `force-rescan` flag:
 
 
 ```shell
-opencloud search index --all-spaces --force-rescan
+opencloud search index --all-spaces --force-rescan --insecure
 ```
 
 ## Metrics

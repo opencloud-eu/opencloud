@@ -1028,8 +1028,11 @@ class SharingNgContext implements Context {
 
 		// if recipient is not provided, it means user tries to remove own access, then we need to get the user permission id
 		if ($shareType == 'user' && !isset($recipient)) {
-			$this->featureContext->shareNgAddToCreatedUserGroupShares($this->getDrivePermissionsList($sharer, $space));
-			$permissionID = $this->featureContext->shareNgGetLastCreatedUserGroupShareID();
+			$response = $this->getDrivePermissionsList($sharer, $space);
+			$permissionID = $this->getPermissionIdForUser(
+				$response,
+				$this->featureContext->getAttributeOfCreatedUser($sharer, 'id')
+			);
 		} elseif ($shareType == 'group' && !isset($recipient)) {
 			$response = $this->getDrivePermissionsList($sharer, $space);
 			$permissionID = $this->featureContext->getJsonDecodedResponse($response)['value'][0]['id'];
@@ -2172,6 +2175,22 @@ class SharingNgContext implements Context {
 			}
 		}
 		return $grantees;
+	}
+
+	/**
+	 * @param ResponseInterface $response
+	 * @param string $userId
+	 *
+	 * @return string
+	 * @throws Exception
+	 */
+	private function getPermissionIdForUser(ResponseInterface $response, string $userId): string {
+		foreach ($this->featureContext->getJsonDecodedResponse($response)['value'] as $permission) {
+			if (($permission['grantedToV2']['user']['id'] ?? null) === $userId) {
+				return $permission['id'];
+			}
+		}
+		throw new Exception("No permission found for user '$userId'");
 	}
 
 	/**
