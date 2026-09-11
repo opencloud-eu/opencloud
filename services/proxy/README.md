@@ -13,6 +13,60 @@ The following request authentication schemes are implemented:
 -   Signed URL
 -   Public Share Token
 
+### OIDC Access Token Audiences
+
+For production deployments, **enable audience validation** so that OpenCloud only
+accepts access tokens intended for it. This is especially relevant when the same
+identity provider serves several applications: without this check, an otherwise
+valid token issued for another application can also be accepted by OpenCloud.
+
+Set the allowed audiences as a comma-separated environment variable:
+
+```console
+PROXY_OIDC_AUDIENCES=opencloud,opencloud-api
+PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD=jwt
+```
+
+Alternatively, configure the list in `proxy.yaml`:
+
+```yaml
+oidc:
+  audiences:
+    - opencloud
+    - opencloud-api
+  access_token_verify_method: jwt
+```
+
+These audience values are examples. Configure your identity provider to include
+the intended OpenCloud resource audience in the **access tokens** issued to all
+relevant clients, including web, desktop and mobile clients. Adding an audience
+only to an ID token or a Userinfo response does not satisfy this check.
+
+An access token must contain at least one exactly matching, case-sensitive value
+in its `aud` claim. Both strings, such as `"aud": "opencloud"`, and arrays, such as
+`"aud": ["another-api", "opencloud"]`, are supported. Tokens with missing, empty,
+malformed or exclusively nonmatching audiences receive HTTP 401 on protected
+routes. Configured audiences require JWT verification; combining a nonempty list
+with `access_token_verify_method: none` prevents startup. List entries must not be
+empty or consist only of whitespace.
+
+The default list is empty, which disables audience validation to preserve
+compatibility with existing identity provider configurations. An explicitly empty
+`PROXY_OIDC_AUDIENCES` overrides any YAML list and disables the check; `audiences: []`
+does the same in YAML. When OIDC is active and the check is disabled, the proxy
+logs one startup warning, subject to the configured log level.
+
+Restart the proxy after changing the configuration and apply the same policy to
+all proxy instances. When enabled, the signed access token is verified before
+every cache lookup, so the current policy also applies to existing cache entries.
+Userinfo remains cached, and successful cache hits do not require an additional
+Userinfo request.
+
+The disabled default is a compatibility decision. It does not relax the
+[audience validation requirement in RFC 9068, Section 4](https://www.rfc-editor.org/rfc/rfc9068.html#name-validating-jwt-access-token):
+a resource server following that JWT access token profile must reject tokens
+whose audience does not identify the resource server.
+
 ## Configuring Routes
 
 The proxy handles routing to all endpoints that OpenCloud offers. The currently availabe default routes can be found [in the code](https://github.com/opencloud-eu/opencloud/blob/main/services/proxy/pkg/config/defaults/defaultconfig.go). Changing or adding routes can be necessary when writing own OpenCloud extensions.
@@ -230,6 +284,9 @@ The default `role_claim` (or `PROXY_ROLE_ASSIGNMENT_OIDC_CLAIM`) is `roles`. The
 ## Recommendations for Production Deployments
 
 In a production deployment, you want to have basic authentication (`PROXY_ENABLE_BASIC_AUTH`) disabled which is the default state. You also want to setup a firewall to only allow requests to the proxy service or the reverse proxy if you have one. Requests to the other services should be blocked by the firewall.
+
+Configure `PROXY_OIDC_AUDIENCES` as described in [OIDC Access Token Audiences](#oidc-access-token-audiences).
+Enabling this check is strongly recommended for production deployments.
 
 ### Content Security Policy
 

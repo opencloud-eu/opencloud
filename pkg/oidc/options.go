@@ -35,6 +35,9 @@ type Options struct {
 	// AccessTokenVerifyMethod to use when verifying access tokens
 	// TODO pass a function or interface to verify? an AccessTokenVerifier?
 	AccessTokenVerifyMethod string
+	// AccessTokenAudiences requires at least one matching audience in access tokens.
+	// An empty list disables audience validation.
+	AccessTokenAudiences []string
 	// Config to use
 	Config *goidc.Config
 
@@ -71,6 +74,14 @@ func WithLogger(val log.Logger) Option {
 func WithAccessTokenVerifyMethod(val string) Option {
 	return func(o *Options) {
 		o.AccessTokenVerifyMethod = val
+	}
+}
+
+// WithAccessTokenAudiences sets the allowed audiences for access tokens only.
+// An empty list disables audience validation.
+func WithAccessTokenAudiences(val []string) Option {
+	return func(o *Options) {
+		o.AccessTokenAudiences = append([]string(nil), val...)
 	}
 }
 
