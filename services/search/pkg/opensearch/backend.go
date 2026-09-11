@@ -127,6 +127,26 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 	if err != nil {
 		return nil, err
 	}
+	// Sort natively in the index; the service layer re-establishes this order
+	// when merging matches across spaces. Score sorting (the default) stays in
+	// place when no order_by is given. Missing values sort last in both
+	// directions, matching the cross-space merge.
+	var sortClause []map[string]any
+	if orderBy := sir.GetOrderBy(); len(orderBy) > 0 {
+		sortClause = make([]map[string]any, 0, len(orderBy)+1)
+		for _, sp := range orderBy {
+			field, ok := search.SortIndexField(sp.GetName())
+			if !ok {
+				return nil, errtypes.BadRequest(fmt.Sprintf("field %q is not sortable", sp.GetName()))
+			}
+			order := "asc"
+			if sp.GetIsDescending() {
+				order = "desc"
+			}
+			sortClause = append(sortClause, map[string]any{field: map[string]any{"order": order, "missing": "_last"}})
+		}
+		sortClause = append(sortClause, map[string]any{"_score": map[string]any{"order": "desc"}})
+	}
 
 	req, err := osu.BuildSearchReq(&opensearchgoAPI.SearchReq{
 		Indices: []string{b.index},
@@ -147,6 +167,7 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 				},
 			},
 			Aggs: builtAggs,
+			Sort: sortClause,
 		},
 	)
 	if err != nil {
