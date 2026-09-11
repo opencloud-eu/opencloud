@@ -1,16 +1,34 @@
 # Changelog
 
-## [8.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.0) - 2026-09-09
+## [8.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.0) - 2026-09-11
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@butonic, @dschmidt, @fredrikblau, @fschade, @maki5, @pbleser-oc, @v-scharf, @zerox80
+@butonic, @dschmidt, @fredrikblau, @fschade, @maki5, @pbleser-oc, @rhafer, @sigurdvaa, @v-scharf, @zerox80
 
 ### 💥 Breaking changes
 
+- fix(search): hierarchy tokenizer for bleve path fields [[#3510](https://github.com/opencloud-eu/opencloud/pull/3510)]
 - feat(search): check the index schema on startup and refuse breaking changes [[#3197](https://github.com/opencloud-eu/opencloud/pull/3197)]
 - refactor: reflection-based search mapping + location geopoint [[#3345](https://github.com/opencloud-eu/opencloud/pull/3345)]
 - fix(search): make openSearch and bleve behave the same [[#3408](https://github.com/opencloud-eu/opencloud/pull/3408)]
+
+### 📈 Enhancement
+
+- add insecure to search reindex [[#3505](https://github.com/opencloud-eu/opencloud/pull/3505)]
+- feat(graph): expand thumbnails on driveItems [[#3471](https://github.com/opencloud-eu/opencloud/pull/3471)]
+- graph: expose lockInfo on driveItems [[#3444](https://github.com/opencloud-eu/opencloud/pull/3444)]
+- graph: expose @libre.graph.shareTypes on driveItems [[#3438](https://github.com/opencloud-eu/opencloud/pull/3438)]
+- feat(search): live photo facet [[#3202](https://github.com/opencloud-eu/opencloud/pull/3202)]
+- feat: support $expand=children on the driveItem endpoint [[#3445](https://github.com/opencloud-eu/opencloud/pull/3445)]
+- feat(search): motion photo facet [[#3200](https://github.com/opencloud-eu/opencloud/pull/3200)]
+- feat(search): video facet [[#3201](https://github.com/opencloud-eu/opencloud/pull/3201)]
+- graph: expose pendingOperations on driveItems [[#3437](https://github.com/opencloud-eu/opencloud/pull/3437)]
+- feat(search): extract more data from tika 4 (if available) [[#3198](https://github.com/opencloud-eu/opencloud/pull/3198)]
+- graph: expose following state, tags and allowed actions on driveItems [[#3113](https://github.com/opencloud-eu/opencloud/pull/3113)]
+- feat(search): scope searches to a drive via the driveId field [[#3424](https://github.com/opencloud-eu/opencloud/pull/3424)]
+- chore(policies): disable gRPC or event handlers by configuration + add metrics [[#3287](https://github.com/opencloud-eu/opencloud/pull/3287)]
+- moved ShareCreated event consumer from frontend to shared service [[#3389](https://github.com/opencloud-eu/opencloud/pull/3389)]
 
 ### ✅ Tests
 
@@ -31,22 +49,6 @@
 - fix(proxy): restrict JWT signed urls to the allowed HTTP methods [[#3481](https://github.com/opencloud-eu/opencloud/pull/3481)]
 - fix: notification handling for share removal and space membership expiry  [[#3257](https://github.com/opencloud-eu/opencloud/pull/3257)]
 - fix: posix cli commands [[#3348](https://github.com/opencloud-eu/opencloud/pull/3348)]
-
-### 📈 Enhancement
-
-- feat(graph): expand thumbnails on driveItems [[#3471](https://github.com/opencloud-eu/opencloud/pull/3471)]
-- graph: expose lockInfo on driveItems [[#3444](https://github.com/opencloud-eu/opencloud/pull/3444)]
-- graph: expose @libre.graph.shareTypes on driveItems [[#3438](https://github.com/opencloud-eu/opencloud/pull/3438)]
-- feat(search): live photo facet [[#3202](https://github.com/opencloud-eu/opencloud/pull/3202)]
-- feat: support $expand=children on the driveItem endpoint [[#3445](https://github.com/opencloud-eu/opencloud/pull/3445)]
-- feat(search): motion photo facet [[#3200](https://github.com/opencloud-eu/opencloud/pull/3200)]
-- feat(search): video facet [[#3201](https://github.com/opencloud-eu/opencloud/pull/3201)]
-- graph: expose pendingOperations on driveItems [[#3437](https://github.com/opencloud-eu/opencloud/pull/3437)]
-- feat(search): extract more data from tika 4 (if available) [[#3198](https://github.com/opencloud-eu/opencloud/pull/3198)]
-- graph: expose following state, tags and allowed actions on driveItems [[#3113](https://github.com/opencloud-eu/opencloud/pull/3113)]
-- feat(search): scope searches to a drive via the driveId field [[#3424](https://github.com/opencloud-eu/opencloud/pull/3424)]
-- chore(policies): disable gRPC or event handlers by configuration + add metrics [[#3287](https://github.com/opencloud-eu/opencloud/pull/3287)]
-- moved ShareCreated event consumer from frontend to shared service [[#3389](https://github.com/opencloud-eu/opencloud/pull/3389)]
 
 ### 📦️ Dependencies
 
