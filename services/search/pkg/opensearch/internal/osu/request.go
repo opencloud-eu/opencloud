@@ -95,6 +95,7 @@ func BuildSearchReq(req *opensearchgoAPI.SearchReq, q Builder, p ...SearchBodyPa
 
 type SearchBodyParams struct {
 	Highlight *BodyParamHighlight `json:"highlight,omitempty"`
+	Aggs      map[string]any      `json:"aggs,omitempty"`
 }
 
 //----------------------------------------------------------------------------//
