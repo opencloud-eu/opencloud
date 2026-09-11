@@ -15,6 +15,7 @@ import (
 func (s eventsNotifier) handleShareCreated(e events.ShareCreated, eventId string) {
 	logger := s.logger.With().
 		Str("event", "ShareCreated").
+		Str("eventId", eventId).
 		Str("itemid", e.ItemID.OpaqueId).
 		Logger()
 
@@ -46,7 +47,7 @@ func (s eventsNotifier) handleShareCreated(e events.ShareCreated, eventId string
 		logger.Error().Err(err).Msg("could not get render the email")
 		return
 	}
-	s.send(ctx, emails)
+	s.send(ctx, logger, emails)
 }
 
 func (s eventsNotifier) prepareShareCreated(logger zerolog.Logger, e events.ShareCreated) (owner *user.User, shareFolder, shareLink string, ctx context.Context, err error) {
@@ -93,6 +94,7 @@ func (s eventsNotifier) prepareShareCreated(logger zerolog.Logger, e events.Shar
 func (s eventsNotifier) handleShareExpired(e events.ShareExpired, eventId string) {
 	logger := s.logger.With().
 		Str("event", "ShareExpired").
+		Str("eventId", eventId).
 		Str("itemid", e.ItemID.GetOpaqueId()).
 		Logger()
 
@@ -134,7 +136,7 @@ func (s eventsNotifier) handleShareExpired(e events.ShareExpired, eventId string
 		logger.Error().Err(err).Msg("could not get render the email")
 		return
 	}
-	s.send(ctx, emails)
+	s.send(ctx, logger, emails)
 }
 
 func (s eventsNotifier) prepareShareExpired(logger zerolog.Logger, e events.ShareExpired) (shareFolder string, ctx context.Context, err error) {
@@ -165,6 +167,7 @@ func (s eventsNotifier) prepareShareExpired(logger zerolog.Logger, e events.Shar
 func (s eventsNotifier) handleShareRemoved(e events.ShareRemoved, eventId string) {
 	logger := s.logger.With().
 		Str("event", "ShareRemoved").
+		Str("eventId", eventId).
 		Str("itemid", e.ItemID.OpaqueId).
 		Logger()
 
@@ -196,7 +199,7 @@ func (s eventsNotifier) handleShareRemoved(e events.ShareRemoved, eventId string
 		logger.Error().Err(err).Msg("could not get render the email")
 		return
 	}
-	s.send(ctx, emails)
+	s.send(ctx, logger, emails)
 }
 
 func (s eventsNotifier) prepareShareRemoved(logger zerolog.Logger, e events.ShareRemoved) (executant *user.User, shareFolder string, ctx context.Context, err error) {

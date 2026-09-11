@@ -15,6 +15,7 @@ import (
 func (s eventsNotifier) handleSpaceShared(e events.SpaceShared, eventId string) {
 	logger := s.logger.With().
 		Str("event", "SpaceShared").
+		Str("eventId", eventId).
 		Str("itemid", e.ID.OpaqueId).
 		Logger()
 	executant, spaceName, shareLink, ctx, err := s.prepareSpaceShared(logger, e)
@@ -45,7 +46,7 @@ func (s eventsNotifier) handleSpaceShared(e events.SpaceShared, eventId string) 
 		logger.Error().Err(err).Msg("could not get render the email")
 		return
 	}
-	s.send(ctx, emails)
+	s.send(ctx, logger, emails)
 }
 
 func (s eventsNotifier) prepareSpaceShared(logger zerolog.Logger, e events.SpaceShared) (executant *user.User, spaceName, shareLink string, ctx context.Context, err error) {
@@ -99,6 +100,7 @@ func (s eventsNotifier) prepareSpaceShared(logger zerolog.Logger, e events.Space
 func (s eventsNotifier) handleSpaceUnshared(e events.SpaceUnshared, eventId string) {
 	logger := s.logger.With().
 		Str("event", "SpaceUnshared").
+		Str("eventId", eventId).
 		Str("itemid", e.ID.OpaqueId).
 		Logger()
 
@@ -130,7 +132,7 @@ func (s eventsNotifier) handleSpaceUnshared(e events.SpaceUnshared, eventId stri
 		logger.Error().Err(err).Msg("Could not get render the email")
 		return
 	}
-	s.send(ctx, emails)
+	s.send(ctx, logger, emails)
 }
 
 func (s eventsNotifier) prepareSpaceUnshared(logger zerolog.Logger, e events.SpaceUnshared) (executant *user.User, spaceName, shareLink string, ctx context.Context, err error) {
@@ -184,6 +186,7 @@ func (s eventsNotifier) prepareSpaceUnshared(logger zerolog.Logger, e events.Spa
 func (s eventsNotifier) handleSpaceMembershipExpired(e events.SpaceMembershipExpired, eventId string) {
 	logger := s.logger.With().
 		Str("event", "SpaceMembershipExpired").
+		Str("eventId", eventId).
 		Str("itemid", e.SpaceID.GetOpaqueId()).
 		Logger()
 
@@ -213,7 +216,7 @@ func (s eventsNotifier) handleSpaceMembershipExpired(e events.SpaceMembershipExp
 		logger.Error().Err(err).Msg("could not get render the email")
 		return
 	}
-	s.send(ctx, emails)
+	s.send(ctx, logger, emails)
 }
 
 func (s eventsNotifier) prepareSpaceMembershipExpired(logger zerolog.Logger, e events.SpaceMembershipExpired) (spaceName string, ctx context.Context, err error) {

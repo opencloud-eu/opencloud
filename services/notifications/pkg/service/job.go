@@ -5,9 +5,9 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/l10n"
 	ehmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/eventhistory/v0"
-	"github.com/opencloud-eu/opencloud/services/notifications/pkg/channels"
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/email"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/rs/zerolog"
 )
 
@@ -44,9 +44,20 @@ func (s eventsNotifier) sendGroupedEmailsJob(sendEmailsEvent events.SendEmailsEv
 }
 
 func (s eventsNotifier) createGroupedMail(ctx context.Context, logger zerolog.Logger, key string) {
+	logger = logger.With().Str("key", key).Logger()
+	gw, err := s.gatewaySelector.Next()
+	if err != nil {
+		logger.Error().Err(err).Msg("could not select gateway for grouped email")
+		return
+	}
+	ctx, err = utils.GetServiceUserContextWithContext(ctx, gw, s.serviceAccountID, s.serviceAccountSecret)
+	if err != nil {
+		logger.Error().Err(err).Msg("could not authenticate grouped email job")
+		return
+	}
 	userEvents, err := s.userEventStore.pop(ctx, key)
 	if err != nil {
-		logger.Error().Err(err).Str("key", key).Msg("could not pop user events")
+		logger.Error().Err(err).Msg("could not pop user events")
 		return
 	}
 
@@ -160,8 +171,7 @@ func (s eventsNotifier) createGroupedMail(ctx context.Context, logger zerolog.Lo
 		return
 	}
 	rendered.Sender = s.defaultEmailSender
-	rendered.Recipient = []string{userEvents.User.GetMail()}
-	s.send(ctx, []*channels.Message{rendered})
+	s.send(ctx, logger, []recipientMessage{{message: rendered, recipient: userEvents.User.GetId()}})
 }
 
 func (s eventsNotifier) unwrapEvent(logger zerolog.Logger, e *ehmsg.Event) any {
