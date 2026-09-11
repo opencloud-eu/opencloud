@@ -198,7 +198,7 @@ func Server(cfg *config.Config) *cobra.Command {
 
 			gr := runner.NewGroup()
 			{
-				middlewares := loadMiddlewares(logger, cfg, userInfoCache, signingKeyStore, traceProvider, *m, userProvider, publisher, gatewaySelector, serviceSelector)
+				middlewares := loadMiddlewares(logger, cfg, userInfoCache, signingKeyStore, traceProvider, *m, userProvider, publisher, gatewaySelector, serviceSelector, oidcClient, oidcHTTPClient)
 
 				server, err := proxyHTTP.Server(
 					proxyHTTP.Handler(lh.Handler()),
@@ -251,7 +251,8 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 	userInfoCache, signingKeyStore microstore.Store,
 	traceProvider trace.TracerProvider, metrics metrics.Metrics,
 	userProvider backend.UserBackend, publisher events.Publisher,
-	gatewaySelector pool.Selectable[gateway.GatewayAPIClient], serviceSelector selector.Selector) alice.Chain {
+	gatewaySelector pool.Selectable[gateway.GatewayAPIClient], serviceSelector selector.Selector,
+	oidcClient oidc.OIDCClient, oidcHTTPClient *http.Client) alice.Chain {
 
 	rolesClient := settingssvc.NewRoleService("eu.opencloud.api.settings", cfg.GrpcClient)
 	policiesProviderClient := policiessvc.NewPoliciesProviderService("eu.opencloud.api.policies", cfg.GrpcClient)
@@ -274,21 +275,6 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		)
 	default:
 		logger.Fatal().Msgf("Invalid role assignment driver '%s'", cfg.RoleAssignment.Driver)
-	}
-
-	// Clone the default transport so that the proxy configuration from the
-	// environment (HTTP_PROXY, HTTPS_PROXY, NO_PROXY) is honored when talking
-	// to the IDP. A bare &http.Transport{} leaves Proxy nil and never proxies.
-	oidcTransport := http.DefaultTransport.(*http.Transport).Clone()
-	oidcTransport.TLSClientConfig = &tls.Config{
-		MinVersion:         tls.VersionTLS12,
-		InsecureSkipVerify: cfg.OIDC.Insecure, //nolint:gosec
-	}
-	oidcTransport.DisableKeepAlives = true
-
-	oidcHTTPClient := &http.Client{
-		Transport: oidcTransport,
-		Timeout:   time.Second * 10,
 	}
 
 	var authenticators []middleware.Authenticator
@@ -314,13 +300,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		middleware.HTTPClient(oidcHTTPClient),
 		middleware.OIDCIss(cfg.OIDC.Issuer),
 		middleware.AccessTokenVerifyMethod(cfg.OIDC.AccessTokenVerifyMethod),
-		middleware.OIDCClient(oidc.NewOIDCClient(
-			oidc.WithAccessTokenVerifyMethod(cfg.OIDC.AccessTokenVerifyMethod),
-			oidc.WithLogger(logger),
-			oidc.WithHTTPClient(oidcHTTPClient),
-			oidc.WithOidcIssuer(cfg.OIDC.Issuer),
-			oidc.WithJWKSOptions(cfg.OIDC.JWKS),
-		)),
+		middleware.OIDCClient(oidcClient),
 		middleware.SkipUserInfo(cfg.OIDC.SkipUserInfo),
 	))
 	authenticators = append(authenticators, middleware.PublicShareAuthenticator{
