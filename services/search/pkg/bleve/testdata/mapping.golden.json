@@ -820,6 +820,18 @@
           }
         }
       },
+      "location_geohash": {
+        "enabled": true,
+        "dynamic": true,
+        "fields": [
+          {
+            "type": "text",
+            "analyzer": "geohash",
+            "index": true,
+            "docvalues": true
+          }
+        ]
+      },
       "location_geopoint": {
         "enabled": true,
         "dynamic": true,
