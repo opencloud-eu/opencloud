@@ -67,4 +67,12 @@ var _ = Describe("ValidateOptions and ValidateFilters", func() {
 			{Field: "audio.album", SubAggregations: []*searchsvc.AggregationOption{{Field: "photo.takenDateTime"}}},
 		}}),
 	)
+
+	It("rejects a filter the index cannot answer", func() {
+		err := aggregation.ValidateFilters([]*searchsvc.AggregationFilter{
+			{Field: "audio.artist", Terms: []string{"Saxon"}},
+			{Field: "audio.nonexistent", Terms: []string{"Saxon"}},
+		}, fieldTypes)
+		Expect(err).To(HaveOccurred())
+	})
 })

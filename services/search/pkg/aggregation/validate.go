@@ -65,3 +65,13 @@ func validateRangeField(field, fieldType string, ranges Ranges) error {
 	}
 	return nil
 }
+
+// ValidateFilters holds filters to the same rules as ValidateOptions.
+func ValidateFilters(filters []*searchsvc.AggregationFilter, fieldType func(string) string) error {
+	for _, f := range filters {
+		if _, err := ParseFilter(f, fieldType(f.GetField())); err != nil {
+			return err
+		}
+	}
+	return nil
+}

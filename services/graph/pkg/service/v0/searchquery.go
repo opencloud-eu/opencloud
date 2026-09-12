@@ -118,18 +118,29 @@ func searchRequestOf(sr libregraph.SearchRequest) (*searchsvc.SearchRequest, err
 		return nil, err
 	}
 	aggregations := libregraphAggregationsToSearch(sr.Aggregations)
+	filters, err := aggregationFiltersToSearch(sr.AggregationFilters)
+	if err != nil {
+		return nil, err
+	}
 	requestFieldType := func(field string) string { return search.AggregatableFieldType(indexField(field)) }
 	if err := aggregation.ValidateOptions(aggregations, requestFieldType); err != nil {
 		return nil, err
 	}
+	if err := aggregation.ValidateFilters(filters, requestFieldType); err != nil {
+		return nil, err
+	}
 	resolveFields(aggregations)
+	for _, f := range filters {
+		f.Field = indexField(f.Field)
+	}
 
 	from, size := pagination(sr.From, sr.Size)
 	return &searchsvc.SearchRequest{
-		Query:        sr.Query.QueryString,
-		From:         from,
-		PageSize:     &size,
-		Aggregations: aggregations,
+		Query:              sr.Query.QueryString,
+		From:               from,
+		PageSize:           &size,
+		Aggregations:       aggregations,
+		AggregationFilters: filters,
 	}, nil
 }
 

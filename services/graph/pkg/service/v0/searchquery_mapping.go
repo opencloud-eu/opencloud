@@ -12,6 +12,8 @@ import (
 
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/filtertoken"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 )
 
@@ -57,6 +59,27 @@ func resolveFields(opts []*searchsvc.AggregationOption) {
 		opt.Field = indexField(opt.Field)
 		resolveFields(opt.SubAggregations)
 	}
+}
+
+// the token format is graph API surface: decode here, the search service only
+// sees the selected buckets
+func aggregationFiltersToSearch(filters []string) ([]*searchsvc.AggregationFilter, error) {
+	if len(filters) == 0 {
+		return nil, nil
+	}
+	out := make([]*searchsvc.AggregationFilter, 0, len(filters))
+	for _, f := range filters {
+		decoded, err := filtertoken.DecodeFilter(f)
+		if err != nil {
+			return nil, err
+		}
+		filter := &searchsvc.AggregationFilter{Field: decoded.Field, Terms: decoded.Terms}
+		for _, r := range decoded.Ranges {
+			filter.Ranges = append(filter.Ranges, &searchsvc.BucketRange{From: r.From, To: r.To})
+		}
+		out = append(out, filter)
+	}
+	return out, nil
 }
 
 func libregraphAggregationsToSearch(in []libregraph.AggregationOption) []*searchsvc.AggregationOption {
@@ -130,17 +153,30 @@ func searchAggregationsToLibregraph(in []*searchsvc.AggregationResult, defs []li
 			out = append(out, agg)
 			continue
 		}
+		ranges := libregraphRangesToSearch(def.BucketDefinition.GetRanges())
 		agg.Buckets = make([]libregraph.SearchBucket, 0, len(in[i].GetBuckets()))
 		for _, b := range in[i].GetBuckets() {
 			agg.Buckets = append(agg.Buckets, libregraph.SearchBucket{
 				Key:                       libregraph.PtrString(b.GetKey()),
 				Count:                     libregraph.PtrInt64(b.GetCount()),
+				AggregationFilterToken:    libregraph.PtrString(aggregationFilterToken(b.GetKey(), ranges)),
 				LibreGraphSubAggregations: searchAggregationsToLibregraph(b.GetSubAggregations(), def.LibreGraphSubAggregations),
 			})
 		}
 		out = append(out, agg)
 	}
 	return out
+}
+
+// aggregationFilterToken issues a range token for the bucket of a range
+// aggregation, found by its key, and a terms token otherwise.
+func aggregationFilterToken(key string, ranges []*searchsvc.BucketRange) string {
+	for _, r := range ranges {
+		if aggregation.RangeKey(r) == key {
+			return filtertoken.EncodeRangeToken(r.GetFrom(), r.GetTo())
+		}
+	}
+	return filtertoken.EncodeTermsToken(key)
 }
 
 func searchResourceID(id *searchmsg.ResourceID) string {

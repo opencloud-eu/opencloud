@@ -733,6 +733,7 @@ Fixtures:
 - `b.jpg`, MimeType = image/jpeg
 - `c.jpg`, MimeType = image/jpeg
 - `d.jpg`, MimeType = image/jpeg
+- `live.txt`
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
@@ -754,12 +755,27 @@ Fixtures:
 | AGG-18 | `mediatype:audio` reads `two range aggregations and a metric on audio.year stay apart` | audio.year ..1980=2, audio.year ..2000=4, audio.year 1980..=5, audio.year 2000..=3, audio.year max=2009 | audio.year ..1980=2, audio.year ..2000=4, audio.year 1980..=5, audio.year 2000..=3, audio.year max=2009 | audio.year ..1980=2, audio.year ..2000=4, audio.year 1980..=5, audio.year 2000..=3, audio.year max=2009 | ✅ |
 | AGG-20 | `mediatype:audio` reads `album buckets in audio.year ranges in artist buckets` | audio.arti... Steel=2, audio.arti.....1980=0, audio.arti.....1980=2, audio.arti...1980..=0, audio.arti...1980..=3, audio.arti...Bomber=2, audio.arti...Spades=1, audio.artist Motörhead=3, … +1 more | audio.arti... Steel=2, audio.arti.....1980=0, audio.arti.....1980=2, audio.arti...1980..=0, audio.arti...1980..=3, audio.arti...Bomber=2, audio.arti...Spades=1, audio.artist Motörhead=3, … +1 more | audio.arti... Steel=2, audio.arti.....1980=0, audio.arti.....1980=2, audio.arti...1980..=0, audio.arti...1980..=3, audio.arti...Bomber=2, audio.arti...Spades=1, audio.artist Motörhead=3, … +1 more | ✅ |
 | AGG-21 | `mediatype:image` reads `a metric without a single value has none` | audio.year avg none, audio.year min none, audio.year sum none | audio.year avg none, audio.year min none, audio.year sum none | audio.year avg none, audio.year min none, audio.year sum none | ✅ |
+| AGG-22 | `mediatype:audio` reads `filtered to the Saxon bucket, as many matches as the bucket counted` | a.mp3, audio.artist Saxon=2, b.mp3 | a.mp3, audio.artist Saxon=2, b.mp3 | a.mp3, audio.artist Saxon=2, b.mp3 | ✅ |
+| AGG-23 | `mediatype:audio` reads `filtered to saxon, a bucket key matches case-sensitively` | no match | no match | no match | ✅ |
+| AGG-24 | `mediatype:audio` reads `filtered to the Saxon or the Motörhead bucket` | a.mp3, b.mp3, c.mp3, d.mp3, e.mp3 | a.mp3, b.mp3, c.mp3, d.mp3, e.mp3 | a.mp3, b.mp3, c.mp3, d.mp3, e.mp3 | ✅ |
+| AGG-25 | `mediatype:audio` reads `filtered to audio.year 1980-1990` | c.mp3 | c.mp3 | c.mp3 | ✅ |
+| AGG-26 | `mediatype:audio` reads `filtered to audio.year 1982-1999, from-inclusive and to-exclusive` | c.mp3 | c.mp3 | c.mp3 | ✅ |
+| AGG-27 | `mediatype:audio` reads `filtered to audio.year 2000-` | e.mp3, f.mp3, g.mp3 | e.mp3, f.mp3, g.mp3 | e.mp3, f.mp3, g.mp3 | ✅ |
+| AGG-28 | `mediatype:audio` reads `filtered to audio.year -1980 or 2005-` | a.mp3, b.mp3, f.mp3, g.mp3 | a.mp3, b.mp3, f.mp3, g.mp3 | a.mp3, b.mp3, f.mp3, g.mp3 | ✅ |
+| AGG-29 | `mediatype:image` reads `filtered to photo.takenDateTime on 2018-08-11` | a.jpg, b.jpg | a.jpg, b.jpg | a.jpg, b.jpg | ✅ |
+| AGG-30 | `mediatype:audio` reads `filtered to the Motörhead bucket and to audio.year 1990-2010` | d.mp3, e.mp3 | d.mp3, e.mp3 | d.mp3, e.mp3 | ✅ |
+| AGG-31 | `*` reads `filtered to the bucket Wh*t? "Live", a key is data` | live.txt | live.txt | live.txt | ✅ |
+| AGG-32 | `mediatype:audio` reads `filtered to Sax*, a key is no wildcard pattern` | no match | no match | no match | ✅ |
+| AGG-33 | `mediatype:audio` reads `filtered to a malformed range` | bad request | bad request | bad request | ✅ |
 | AGG-34 | `mediatype:audio` reads `term buckets on the numeric audio.year` | audio.year 1971=1, audio.year 1975=1, audio.year 1982=1, audio.year 1999=1, audio.year 2001=1, audio.year 2005=1, audio.year 2009=1 | audio.year 1971=1, audio.year 1975=1, audio.year 1982=1, audio.year 1999=1, audio.year 2001=1, audio.year 2005=1, audio.year 2009=1 | audio.year 1971=1, audio.year 1975=1, audio.year 1982=1, audio.year 1999=1, audio.year 2001=1, audio.year 2005=1, audio.year 2009=1 | ✅ |
 | AGG-35 | `mediatype:audio` reads `audio.year buckets nested in artist buckets` | audio.arti...r 1971=1, audio.arti...r 1975=1, audio.arti...r 1982=1, audio.arti...r 1999=1, audio.arti...r 2001=1, audio.artist Motörhead=3, audio.artist Saxon=2 | audio.arti...r 1971=1, audio.arti...r 1975=1, audio.arti...r 1982=1, audio.arti...r 1999=1, audio.arti...r 2001=1, audio.artist Motörhead=3, audio.artist Saxon=2 | audio.arti...r 1971=1, audio.arti...r 1975=1, audio.arti...r 1982=1, audio.arti...r 1999=1, audio.arti...r 2001=1, audio.artist Motörhead=3, audio.artist Saxon=2 | ✅ |
+| AGG-36 | `mediatype:audio` reads `filtered to the audio.year bucket 1982` | c.mp3 | c.mp3 | c.mp3 | ✅ |
 | AGG-37 | `mediatype:audio` reads `term buckets on the bool audio.hasDrm, spelled true and false` | audio.hasDrm false=1, audio.hasDrm true=1 | audio.hasDrm false=1, audio.hasDrm true=1 | audio.hasDrm false=1, audio.hasDrm true=1 | ✅ |
+| AGG-38 | `mediatype:audio` reads `filtered to the audio.hasDrm bucket true` | a.mp3 | a.mp3 | a.mp3 | ✅ |
 | AGG-39 | `mediatype:audio` reads `no bucket for the empty Title of every match` | no match | no match | no match | ✅ |
 | AGG-40 | `mediatype:audio` reads `no bucket for the empty Title, with sub-aggregations neither` | no match | no match | no match | ✅ |
 | AGG-41 | `mediatype:audio` reads `matches of the same score in the order of their ids, page after page` | 3 of 7 matches, a.mp3, b.mp3, c.mp3 | 3 of 7 matches, a.mp3, b.mp3, c.mp3 | 3 of 7 matches, a.mp3, b.mp3, c.mp3 | ✅ |
+| AGG-45 | `mediatype:audio` reads `filtered to the Tags bucket live, a filter narrows and does not rank` | a.mp3, b.mp3 | a.mp3, b.mp3 | a.mp3, b.mp3 | ✅ |
 
 ### cardinality
 

@@ -288,6 +288,8 @@ var _ = Describe("Searchprovider", func() {
 			// the rules are pinned in the aggregation package
 			Entry("an aggregation on an internal field", &searchsvc.SearchRequest{Query: "foo",
 				Aggregations: []*searchsvc.AggregationOption{{Field: "Favorites"}}}),
+			Entry("a filter on an internal field", &searchsvc.SearchRequest{Query: "foo",
+				AggregationFilters: []*searchsvc.AggregationFilter{{Field: "Favorites", Terms: []string{"user-a"}}}}),
 		)
 
 		// two personal spaces, the engine answers each by its space id

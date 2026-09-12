@@ -61,6 +61,12 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 		createdQuery,
 	)
 
+	filters, err := aggregationFilterQueries(sir.GetAggregationFilters())
+	if err != nil {
+		return nil, errtypes.BadRequest(err.Error())
+	}
+	q.Conjuncts = append(q.Conjuncts, filters...)
+
 	if sir.Ref != nil {
 		q.Conjuncts = append(
 			q.Conjuncts,

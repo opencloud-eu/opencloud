@@ -21,9 +21,12 @@ import (
 // answer is rendered to strings (one per non-empty bucket or metric), so the
 // matrix machinery can carry it like any query answer.
 type aggCase struct {
-	id              int
-	query           string
-	aggs            []*searchService.AggregationOption
+	id    int
+	query string
+	aggs  []*searchService.AggregationOption
+	// filters narrow the matches to buckets; the answer then starts with the
+	// names of the matches
+	filters         []*searchService.AggregationFilter
 	reads           string
 	want            []string
 	wantCount       *int
@@ -91,6 +94,8 @@ func aggregationFixtures() []search.Resource {
 		photo("b.jpg", "2018-08-11T19:42:00Z"),
 		photo("c.jpg", "2018-09-01T12:00:00Z"),
 		photo("d.jpg", "2021-08-11T08:00:00Z"),
+		// no audio mime type: stays out of the mediatype:audio cases
+		fixtureDoc("live.txt", withAudio(&libregraph.Audio{Artist: libregraph.PtrString(`Wh*t? "Live"`)})),
 	}
 }
 
@@ -100,6 +105,12 @@ func aggregationCases() []aggCase {
 	}
 	metric := func(field string, kind searchService.MetricKind) *searchService.AggregationOption {
 		return &searchService.AggregationOption{Field: field, MetricDefinition: &searchService.MetricDefinition{Kind: kind}}
+	}
+	terms := func(field string, keys ...string) *searchService.AggregationFilter {
+		return &searchService.AggregationFilter{Field: field, Terms: keys}
+	}
+	within := func(field string, rs ...*searchService.BucketRange) *searchService.AggregationFilter {
+		return &searchService.AggregationFilter{Field: field, Ranges: rs}
 	}
 
 	return []aggCase{
@@ -256,6 +267,44 @@ func aggregationCases() []aggCase {
 				metric("audio.year", searchService.MetricKind_METRIC_KIND_AVG),
 			},
 			want: []string{"audio.year sum none", "audio.year min none", "audio.year avg none"}},
+		{id: 22, query: "mediatype:audio", reads: "filtered to the Saxon bucket, as many matches as the bucket counted",
+			filters: []*searchService.AggregationFilter{terms("audio.artist", "Saxon")},
+			aggs:    []*searchService.AggregationOption{{Field: "audio.artist"}},
+			want:    []string{"a.mp3", "b.mp3", "audio.artist Saxon=2"}},
+		{id: 23, query: "mediatype:audio", reads: "filtered to saxon, a bucket key matches case-sensitively",
+			filters: []*searchService.AggregationFilter{terms("audio.artist", "saxon")}},
+		{id: 24, query: "mediatype:audio", reads: "filtered to the Saxon or the Motörhead bucket",
+			filters: []*searchService.AggregationFilter{terms("audio.artist", "Saxon", "Motörhead")},
+			want:    []string{"a.mp3", "b.mp3", "c.mp3", "d.mp3", "e.mp3"}},
+		{id: 25, query: "mediatype:audio", reads: "filtered to audio.year 1980-1990",
+			filters: []*searchService.AggregationFilter{within("audio.year", &searchService.BucketRange{From: "1980", To: "1990"})},
+			want:    []string{"c.mp3"}},
+		{id: 26, query: "mediatype:audio", reads: "filtered to audio.year 1982-1999, from-inclusive and to-exclusive",
+			filters: []*searchService.AggregationFilter{within("audio.year", &searchService.BucketRange{From: "1982", To: "1999"})},
+			want:    []string{"c.mp3"}},
+		{id: 27, query: "mediatype:audio", reads: "filtered to audio.year 2000-",
+			filters: []*searchService.AggregationFilter{within("audio.year", &searchService.BucketRange{From: "2000"})},
+			want:    []string{"e.mp3", "f.mp3", "g.mp3"}},
+		{id: 28, query: "mediatype:audio", reads: "filtered to audio.year -1980 or 2005-",
+			filters: []*searchService.AggregationFilter{within("audio.year", &searchService.BucketRange{To: "1980"}, &searchService.BucketRange{From: "2005"})},
+			want:    []string{"a.mp3", "b.mp3", "f.mp3", "g.mp3"}},
+		{id: 29, query: "mediatype:image", reads: "filtered to photo.takenDateTime on 2018-08-11",
+			filters: []*searchService.AggregationFilter{within("photo.takenDateTime", &searchService.BucketRange{From: "2018-08-11T00:00:00Z", To: "2018-08-12T00:00:00Z"})},
+			want:    []string{"a.jpg", "b.jpg"}},
+		{id: 30, query: "mediatype:audio", reads: "filtered to the Motörhead bucket and to audio.year 1990-2010",
+			filters: []*searchService.AggregationFilter{
+				terms("audio.artist", "Motörhead"),
+				within("audio.year", &searchService.BucketRange{From: "1990", To: "2010"}),
+			},
+			want: []string{"d.mp3", "e.mp3"}},
+		{id: 31, query: "*", reads: `filtered to the bucket Wh*t? "Live", a key is data`,
+			filters: []*searchService.AggregationFilter{terms("audio.artist", `Wh*t? "Live"`)},
+			want:    []string{"live.txt"}},
+		{id: 32, query: "mediatype:audio", reads: "filtered to Sax*, a key is no wildcard pattern",
+			filters: []*searchService.AggregationFilter{terms("audio.artist", "Sax*")}},
+		{id: 33, query: "mediatype:audio", reads: "filtered to a malformed range",
+			filters:        []*searchService.AggregationFilter{within("audio.year", &searchService.BucketRange{From: "1980 OR Name:*", To: "1990"})},
+			wantBadRequest: true},
 		{id: 34, query: "mediatype:audio", reads: "term buckets on the numeric audio.year",
 			aggs: []*searchService.AggregationOption{{Field: "audio.year"}},
 			want: []string{
@@ -269,9 +318,15 @@ func aggregationCases() []aggCase {
 				"audio.artist Motörhead=3", "audio.artist Motörhead=3 / audio.year 1982=1",
 				"audio.artist Motörhead=3 / audio.year 1999=1", "audio.artist Motörhead=3 / audio.year 2001=1",
 			}},
+		{id: 36, query: "mediatype:audio", reads: "filtered to the audio.year bucket 1982",
+			filters: []*searchService.AggregationFilter{terms("audio.year", "1982")},
+			want:    []string{"c.mp3"}},
 		{id: 37, query: "mediatype:audio", reads: "term buckets on the bool audio.hasDrm, spelled true and false",
 			aggs: []*searchService.AggregationOption{{Field: "audio.hasDrm"}},
 			want: []string{"audio.hasDrm true=1", "audio.hasDrm false=1"}},
+		{id: 38, query: "mediatype:audio", reads: "filtered to the audio.hasDrm bucket true",
+			filters: []*searchService.AggregationFilter{terms("audio.hasDrm", "true")},
+			want:    []string{"a.mp3"}},
 		{id: 39, query: "mediatype:audio", reads: "no bucket for the empty Title of every match",
 			aggs: []*searchService.AggregationOption{{Field: "Title"}}},
 		{id: 40, query: "mediatype:audio", reads: "no bucket for the empty Title, with sub-aggregations neither",
@@ -279,6 +334,9 @@ func aggregationCases() []aggCase {
 		{id: 41, query: "mediatype:audio", reads: "matches of the same score in the order of their ids, page after page",
 			pageSize: 3, listMatches: true,
 			want: []string{"3 of 7 matches", "a.mp3", "b.mp3", "c.mp3"}},
+		{id: 45, query: "mediatype:audio", reads: "filtered to the Tags bucket live, a filter narrows and does not rank",
+			filters: []*searchService.AggregationFilter{terms("Tags", "live")}, listMatches: true,
+			want: []string{"a.mp3", "b.mp3"}},
 	}
 }
 
@@ -390,15 +448,16 @@ var _ = Describe("Aggregations", func() {
 							}
 
 							request := &searchService.SearchIndexRequest{
-								Query:        c.query,
-								Aggregations: c.aggs,
+								Query:              c.query,
+								Aggregations:       c.aggs,
+								AggregationFilters: c.filters,
 							}
 							if c.pageSize != 0 {
 								request.PageSize = conversions.ToPointer(c.pageSize)
 							}
 							resp, err := e.backend.Search(context.Background(), request)
 							answer := renderAggregations(resp, err)
-							if err == nil && c.listMatches {
+							if err == nil && (len(c.filters) > 0 || c.listMatches) {
 								names := make([]string, 0, len(resp.Matches))
 								for _, m := range resp.Matches {
 									names = append(names, m.GetEntity().GetName())
