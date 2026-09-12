@@ -19,6 +19,7 @@ import (
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -75,9 +76,10 @@ func (g Graph) runSingleSearch(ctx context.Context, sr libregraph.SearchRequest,
 	}
 
 	rsp, err := g.searchService.Search(ctx, &searchsvc.SearchRequest{
-		Query:        sr.Query.QueryString,
-		PageSize:     pageSize,
-		Aggregations: libregraphAggregationsToSearch(sr.Aggregations),
+		Query:              sr.Query.QueryString,
+		PageSize:           pageSize,
+		Aggregations:       libregraphAggregationsToSearch(sr.Aggregations),
+		AggregationFilters: sr.AggregationFilters,
 	})
 	if err != nil {
 		return libregraph.SearchResponse{}, err
@@ -283,6 +285,9 @@ func searchAggregationsToLibregraph(in []*searchsvc.AggregationResult, defs []li
 				Key:   &key,
 				Count: &count,
 			}
+			if token := aggregationTokenForBucket(key, def); token != "" {
+				lb.AggregationFilterToken = &token
+			}
 			if subs := b.GetSubAggregations(); len(subs) > 0 {
 				lb.LibreGraphSubAggregations = searchAggregationsToLibregraph(subs, def.LibreGraphSubAggregations)
 			}
@@ -294,6 +299,29 @@ func searchAggregationsToLibregraph(in []*searchsvc.AggregationResult, defs []li
 		})
 	}
 	return out
+}
+
+// aggregationTokenForBucket returns the aggregationFilterToken for a bucket: a
+// range token when the aggregation defines ranges (matched to the range whose
+// from-to key produced this bucket), otherwise a terms token for the key.
+func aggregationTokenForBucket(key string, def libregraph.AggregationOption) string {
+	if def.BucketDefinition != nil && len(def.BucketDefinition.Ranges) > 0 {
+		for _, r := range def.BucketDefinition.Ranges {
+			from, to := ptrStr(r.From), ptrStr(r.To)
+			if from+"-"+to == key {
+				return aggregation.EncodeRangeToken(from, to)
+			}
+		}
+		return ""
+	}
+	return aggregation.EncodeTermsToken(key)
+}
+
+func ptrStr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func (g Graph) renderSearchError(w http.ResponseWriter, r *http.Request, err error) {

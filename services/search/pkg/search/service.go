@@ -31,6 +31,7 @@ import (
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/metrics"
@@ -135,6 +136,21 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		return nil, errtypes.BadRequest("empty query provided")
 	}
 	req.Query = query
+
+	// Decode the aggregation filters (opaque bucket tokens) into KQL fragments
+	// once, up front, so a malformed token fails the whole request rather than
+	// silently dropping. The engines force these to exact case-sensitive matches.
+	if raw := req.GetAggregationFilters(); len(raw) > 0 {
+		decoded := make([]string, 0, len(raw))
+		for _, f := range raw {
+			frag, err := aggregation.DecodeAggregationFilter(f)
+			if err != nil {
+				return nil, errtypes.BadRequest(err.Error())
+			}
+			decoded = append(decoded, frag)
+		}
+		req.AggregationFilters = decoded
+	}
 
 	if len(scope) > 0 {
 		scopedID, err := storagespace.ParseID(scope)
@@ -601,8 +617,9 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 	}
 
 	searchRequest := &searchsvc.SearchIndexRequest{
-		Query:        req.Query,
-		Aggregations: req.GetAggregations(),
+		Query:              req.Query,
+		Aggregations:       req.GetAggregations(),
+		AggregationFilters: req.GetAggregationFilters(),
 		Ref: &searchmsg.Reference{
 			ResourceId: searchRootID,
 			Path:       searchPathPrefix,

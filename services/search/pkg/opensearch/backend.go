@@ -73,7 +73,7 @@ func NewBackend(ctx context.Context, name string, client *opensearchgoAPI.Client
 }
 
 func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
-	boolQuery, err := convert.KQLToOpenSearchBoolQuery(sir.Query)
+	boolQuery, err := convert.KQLToOpenSearchBoolQueryWithFilters(sir.Query, sir.GetAggregationFilters())
 	switch {
 	case kql.IsValidationError(err):
 		return nil, errtypes.BadRequest(err.Error())
