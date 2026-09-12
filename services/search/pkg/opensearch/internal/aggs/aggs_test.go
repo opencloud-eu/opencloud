@@ -91,6 +91,59 @@ var _ = Describe("Aggregations", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
+	It("builds a date_range aggregation for date bounds", func() {
+		r := build(&searchsvc.AggregationOption{
+			Field: "photo.takenDateTime",
+			BucketDefinition: &searchsvc.BucketDefinition{
+				Ranges: []*searchsvc.BucketRange{
+					{From: "2018-08-01T00:00:00Z", To: "2018-09-01T00:00:00Z"},
+					{From: "2018-08-11T00:00:00Z"},
+				},
+			},
+		})["a_0"].(map[string]any)["date_range"].(map[string]any)
+		Expect(r["field"]).To(Equal("photo.takenDateTime"))
+		Expect(r["ranges"]).To(Equal([]map[string]any{
+			{"key": "2018-08-01T00:00:00Z..2018-09-01T00:00:00Z", "from": "2018-08-01T00:00:00Z", "to": "2018-09-01T00:00:00Z"},
+			{"key": "2018-08-11T00:00:00Z..", "from": "2018-08-11T00:00:00Z"},
+		}))
+	})
+
+	It("builds a range aggregation with open-ended bounds", func() {
+		r := build(&searchsvc.AggregationOption{
+			Field: "audio.year",
+			BucketDefinition: &searchsvc.BucketDefinition{
+				Ranges: []*searchsvc.BucketRange{{From: "1970", To: "1980"}, {To: "1970"}, {From: "2020"}},
+			},
+		})["a_0"].(map[string]any)["range"].(map[string]any)
+		Expect(r["field"]).To(Equal("audio.year"))
+		Expect(r["ranges"]).To(Equal([]map[string]any{
+			{"key": "1970..1980", "from": 1970.0, "to": 1980.0},
+			{"key": "..1970", "to": 1970.0},
+			{"key": "2020..", "from": 2020.0},
+		}))
+	})
+
+	It("rejects a malformed range", func() {
+		_, err := aggs.Build([]*searchsvc.AggregationOption{{
+			Field:            "photo.takenDateTime",
+			BucketDefinition: &searchsvc.BucketDefinition{Ranges: []*searchsvc.BucketRange{{From: "2018-08-11T00:00:00Z", To: "not-a-date"}}},
+		}})
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("lists every requested range in request order, empty ones included", func() {
+		out := parse(`{"a_0": {"buckets": [
+			{"key": "1970..1980", "doc_count": 4},
+			{"key": "1980..1990", "doc_count": 0}
+		]}}`, &searchsvc.AggregationOption{
+			Field: "audio.year",
+			BucketDefinition: &searchsvc.BucketDefinition{
+				Ranges: []*searchsvc.BucketRange{{From: "1980", To: "1990"}, {From: "1970", To: "1980"}, {From: "1990"}},
+			},
+		})
+		Expect(keys(out[0])).To(Equal([]string{"1980..1990=0", "1970..1980=4", "1990..=0"}))
+	})
+
 	DescribeTable("reports a result it cannot decode instead of dropping it",
 		func(opt *searchsvc.AggregationOption, response string) {
 			_, err := aggs.Parse([]*searchsvc.AggregationOption{opt}, json.RawMessage(response))

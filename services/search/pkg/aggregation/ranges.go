@@ -28,6 +28,16 @@ type DateRange struct {
 	From, To time.Time
 }
 
+// Contains is from-inclusive and to-exclusive.
+func (r NumericRange) Contains(v float64) bool {
+	return (r.From == nil || v >= *r.From) && (r.To == nil || v < *r.To)
+}
+
+// Contains is from-inclusive and to-exclusive.
+func (r DateRange) Contains(t time.Time) bool {
+	return (r.From.IsZero() || !t.Before(r.From)) && (r.To.IsZero() || t.Before(r.To))
+}
+
 // RangeKey is the bucket key of a range, "from..to" with an open side left
 // empty; the dots keep a negative bound readable.
 func RangeKey(r *searchsvc.BucketRange) string {

@@ -36,6 +36,16 @@ var _ = Describe("ParseRanges", func() {
 		Expect(got.Dates[1].To.IsZero()).To(BeTrue())
 	})
 
+	It("is from-inclusive and to-exclusive", func() {
+		got, err := aggregation.ParseRanges("audio.year", []*searchsvc.BucketRange{{From: "1980", To: "1990"}})
+		Expect(err).ToNot(HaveOccurred())
+		r := got.Numeric[0]
+		Expect(r.Contains(1979.9)).To(BeFalse())
+		Expect(r.Contains(1980)).To(BeTrue())
+		Expect(r.Contains(1989.9)).To(BeTrue())
+		Expect(r.Contains(1990)).To(BeFalse())
+	})
+
 	DescribeTable("rejects",
 		func(ranges ...*searchsvc.BucketRange) {
 			_, err := aggregation.ParseRanges("field", ranges)

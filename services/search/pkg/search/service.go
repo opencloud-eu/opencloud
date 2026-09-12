@@ -106,13 +106,10 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	if err := aggregation.ValidateOptions(req.GetAggregations(), AggregatableFieldType); err != nil {
 		return nil, errtypes.BadRequest(err.Error())
 	}
-	// terms aggregations only for now: the engines do not evaluate ranges,
-	// metrics and sub-aggregations yet
+	// bucket aggregations only for now: the engines do not evaluate metrics
+	// and sub-aggregations yet
 	for _, opt := range req.GetAggregations() {
-		switch {
-		case len(opt.GetBucketDefinition().GetRanges()) > 0:
-			return nil, errtypes.BadRequest("range aggregations are not supported yet")
-		case opt.GetMetricDefinition() != nil || len(opt.GetSubAggregations()) > 0:
+		if opt.GetMetricDefinition() != nil || len(opt.GetSubAggregations()) > 0 {
 			return nil, errtypes.BadRequest("metric and nested aggregations are not supported yet")
 		}
 	}

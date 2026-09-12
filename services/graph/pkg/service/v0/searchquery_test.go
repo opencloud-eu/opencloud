@@ -303,6 +303,7 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		ginkgo.Entry("a size below one", `[{"field": "audio.artist", "size": 0}]`),
 		ginkgo.Entry("a negative minimumCount", `[{"field": "audio.artist", "bucketDefinition": {"sortBy": "count", "minimumCount": -1}}]`),
 		ginkgo.Entry("a field the index does not know", `[{"field": "audio.nonexistent"}]`),
+		ginkgo.Entry("a range bound that is no number", `[{"field": "audio.year", "bucketDefinition": {"sortBy": "count", "ranges": [{"from": "1970", "to": "198o"}]}}]`),
 	)
 
 	ginkgo.It("translates the bucket definition for the search service", func() {
@@ -360,6 +361,18 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		ginkgo.Entry("the nested driveItem path of the mime type", "file.mimeType"),
 		ginkgo.Entry("a property the index rules refuse for terms", "lastModifiedDateTime"),
 	)
+
+	ginkgo.It("resolves lastModifiedDateTime to the modification time of the index", func() {
+		g, captured := graphWithAggregations(&searchsvc.AggregationResult{
+			Field:   "Mtime",
+			Buckets: []*searchsvc.Bucket{{Key: "2026-01-01T00:00:00Z..", Count: 3}},
+		})
+		rr := postSearchQuery(g, searchQueryBody(`"aggregations": [{"field": "lastModifiedDateTime", "bucketDefinition": {"sortBy": "count", "ranges": [{"from": "2026-01-01T00:00:00Z"}]}}]`))
+		Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+
+		Expect(captured().GetAggregations()[0].GetField()).To(Equal("Mtime"))
+		Expect(hitsContainer(rr).Aggregations[0].Field).To(Equal("lastModifiedDateTime"))
+	})
 
 	ginkgo.DescribeTable("answers a property it does not evaluate with 501 instead of ignoring it",
 		func(fragment, property string) {

@@ -3,6 +3,7 @@ package bleve
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/blevesearch/bleve/v2/numeric"
 	bleveSearch "github.com/blevesearch/bleve/v2/search"
@@ -37,6 +38,7 @@ type aggLevel struct {
 	opt       *searchService.AggregationOption
 	kind      aggregation.Kind
 	fieldType string
+	ranges    aggregation.Ranges
 }
 
 // numeric values are prefix-coded in the index, their terms come from the
@@ -46,7 +48,15 @@ func (l *aggLevel) numericTerms() bool {
 }
 
 func newAggLevel(opt *searchService.AggregationOption) (*aggLevel, error) {
-	return &aggLevel{opt: opt, kind: aggregation.KindOf(opt), fieldType: search.FieldType(opt.GetField())}, nil
+	l := &aggLevel{opt: opt, kind: aggregation.KindOf(opt), fieldType: search.FieldType(opt.GetField())}
+	if l.kind == aggregation.KindRange {
+		ranges, err := aggregation.ParseRanges(opt.GetField(), opt.GetBucketDefinition().GetRanges())
+		if err != nil {
+			return nil, err
+		}
+		l.ranges = ranges
+	}
+	return l, nil
 }
 
 // fieldValues is per-document scratch, reused across documents.
@@ -182,6 +192,19 @@ func (c *aggCollector) fold(a *bucketAcc, l *aggLevel) {
 				c.foldBucket(a, l, key)
 			}
 		}
+	case aggregation.KindRange:
+		for _, raw := range fv.numbers {
+			for _, r := range l.ranges.Numeric {
+				if r.Contains(numeric.Int64ToFloat64(raw)) {
+					c.foldBucket(a, l, r.Key)
+				}
+			}
+			for _, r := range l.ranges.Dates {
+				if r.Contains(time.Unix(0, raw)) {
+					c.foldBucket(a, l, r.Key)
+				}
+			}
+		}
 	}
 }
 
@@ -204,6 +227,10 @@ func (a *bucketAcc) result(l *aggLevel) *searchService.AggregationResult {
 	counted := make(map[string]*searchService.Bucket, len(a.counts))
 	for key, count := range a.counts {
 		counted[key] = &searchService.Bucket{Key: key, Count: count}
+	}
+	if l.kind == aggregation.KindRange {
+		r.Buckets = aggregation.RangeBuckets(l.opt, counted)
+		return r
 	}
 	r.Buckets = make([]*searchService.Bucket, 0, len(counted))
 	for _, b := range counted {
