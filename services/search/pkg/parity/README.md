@@ -715,3 +715,53 @@ Fixtures:
 | METADATA-01 | `*song*` reads `Audio` | all 16 fields unchanged | all 16 fields unchanged | all 16 fields unchanged | ✅ |
 | METADATA-02 | `*team*` reads `Location` | all 3 fields unchanged | all 3 fields unchanged | all 3 fields unchanged | ✅ |
 | METADATA-03 | `*team*` reads `Audio` | none | none | none | ✅ |
+
+## Aggregations
+
+### aggregations
+
+Fixtures:
+
+- `a.mp3`, MimeType = audio/mpeg, Tags = live, remaster
+- `b.mp3`, MimeType = audio/mpeg, Tags = live
+- `c.mp3`, MimeType = audio/mpeg
+- `d.mp3`, MimeType = audio/mpeg
+- `e.mp3`, MimeType = audio/mpeg
+- `f.mp3`, MimeType = audio/mpeg
+- `g.mp3`, MimeType = audio/mpeg
+- `a.jpg`, MimeType = image/jpeg
+- `b.jpg`, MimeType = image/jpeg
+- `c.jpg`, MimeType = image/jpeg
+- `d.jpg`, MimeType = image/jpeg
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| AGG-01 | `mediatype:audio` reads `term buckets on audio.artist` | audio.artist Motörhead=3, audio.artist Saxon=2 | audio.artist Motörhead=3, audio.artist Saxon=2 | audio.artist Motörhead=3, audio.artist Saxon=2 | ✅ |
+| AGG-02 | `mediatype:audio` reads `no aggregations requested` | no match | no match | no match | ✅ |
+| AGG-03 | `mediatype:audio` reads `artist and album buckets in one request` | audio.albu... Steel=2, audio.albu...Spades=1, audio.album Bomber=2, audio.artist Motörhead=3, audio.artist Saxon=2 | audio.albu... Steel=2, audio.albu...Spades=1, audio.album Bomber=2, audio.artist Motörhead=3, audio.artist Saxon=2 | audio.albu... Steel=2, audio.albu...Spades=1, audio.album Bomber=2, audio.artist Motörhead=3, audio.artist Saxon=2 | ✅ |
+| AGG-34 | `mediatype:audio` reads `term buckets on the numeric audio.year` | audio.year 1971=1, audio.year 1975=1, audio.year 1982=1, audio.year 1999=1, audio.year 2001=1, audio.year 2005=1, audio.year 2009=1 | audio.year 1971=1, audio.year 1975=1, audio.year 1982=1, audio.year 1999=1, audio.year 2001=1, audio.year 2005=1, audio.year 2009=1 | audio.year 1971=1, audio.year 1975=1, audio.year 1982=1, audio.year 1999=1, audio.year 2001=1, audio.year 2005=1, audio.year 2009=1 | ✅ |
+| AGG-37 | `mediatype:audio` reads `term buckets on the bool audio.hasDrm, spelled true and false` | audio.hasDrm false=1, audio.hasDrm true=1 | audio.hasDrm false=1, audio.hasDrm true=1 | audio.hasDrm false=1, audio.hasDrm true=1 | ✅ |
+| AGG-39 | `mediatype:audio` reads `no bucket for the empty Title of every match` | no match | no match | no match | ✅ |
+| AGG-41 | `mediatype:audio` reads `matches of the same score in the order of their ids, page after page` | 3 of 7 matches, a.mp3, b.mp3, c.mp3 | 3 of 7 matches, a.mp3, b.mp3, c.mp3 | 3 of 7 matches, a.mp3, b.mp3, c.mp3 | ✅ |
+
+### cardinality
+
+Fixtures:
+
+- `card-00000.mp3`, MimeType = audio/mpeg
+- `card-00001.mp3`, MimeType = audio/mpeg
+- `card-00002.mp3`, MimeType = audio/mpeg
+- `card-00003.mp3`, MimeType = audio/mpeg
+- `card-00004.mp3`, MimeType = audio/mpeg
+- `card-00005.mp3`, MimeType = audio/mpeg
+- `card-00006.mp3`, MimeType = audio/mpeg
+- `card-00007.mp3`, MimeType = audio/mpeg
+- `card-00008.mp3`, MimeType = audio/mpeg
+- `card-00009.mp3`, MimeType = audio/mpeg
+- ... and 10040 more of the same
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| AGG-17 | `mediatype:audio` reads `one bucket per artist, cardinality above the page size` | 10050 items | audio.arti...-00000=1, audio.arti...-00001=1, audio.arti...-00002=1, audio.arti...-00003=1, audio.arti...-00004=1, audio.arti...-00005=1, audio.arti...-00006=1, audio.arti...-00007=1, … +10042 more | audio.arti...-00000=1, audio.arti...-00001=1, audio.arti...-00002=1, audio.arti...-00003=1, audio.arti...-00004=1, audio.arti...-00005=1, audio.arti...-00006=1, audio.arti...-00007=1, … +10042 more | ✅ |
+| AGG-42 | `mediatype:audio` reads `the total counts every match` | 1 of 10050 matches | 1 of 10050 matches | 1 of 10050 matches | ✅ |
+| AGG-43 | `mediatype:audio` reads `a page reaching beyond the first 10000 matches is refused` | bad request | bad request | bad request | ✅ |

@@ -290,6 +290,21 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		Expect(hc.Hits).To(BeEmpty())
 	})
 
+	// the rules of the index are pinned in the aggregation package; one entry
+	// per kind proves the handler asks them before the search service
+	ginkgo.DescribeTable("rejects an aggregation the spec or the index does not allow with 400",
+		func(aggregations string) {
+			rr := postSearchQuery(graphWithoutSearch(), searchQueryBody(`"aggregations": `+aggregations))
+			Expect(rr.Code).To(Equal(http.StatusBadRequest), rr.Body.String())
+			Expect(rr.Body.String()).To(ContainSubstring("invalidRequest"))
+		},
+		ginkgo.Entry("an empty field", `[{"field": ""}]`),
+		ginkgo.Entry("an unknown sortBy", `[{"field": "audio.artist", "bucketDefinition": {"sortBy": "relevance"}}]`),
+		ginkgo.Entry("a size below one", `[{"field": "audio.artist", "size": 0}]`),
+		ginkgo.Entry("a negative minimumCount", `[{"field": "audio.artist", "bucketDefinition": {"sortBy": "count", "minimumCount": -1}}]`),
+		ginkgo.Entry("a field the index does not know", `[{"field": "audio.nonexistent"}]`),
+	)
+
 	ginkgo.It("translates the bucket definition for the search service", func() {
 		g, captured := graphWithAggregations()
 		rr := postSearchQuery(g, searchQueryBody(`"aggregations": [
@@ -328,6 +343,22 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		ginkgo.Entry("name", "name", "Name"),
 		ginkgo.Entry("tags", "@libre.graph.tags", "Tags"),
 		ginkgo.Entry("a facet property", "audio.artist", "audio.artist"),
+	)
+
+	ginkgo.DescribeTable("rejects a field not spelled like the driveItem property with 400, naming it as the request did",
+		func(field string) {
+			rr := postSearchQuery(graphWithoutSearch(), searchQueryBody(fmt.Sprintf(`"aggregations": [{"field": %q}]`, field)))
+			Expect(rr.Code).To(Equal(http.StatusBadRequest), rr.Body.String())
+			Expect(rr.Body.String()).To(ContainSubstring(field))
+			Expect(rr.Body.String()).ToNot(ContainSubstring("Mtime"), "no index names")
+		},
+		ginkgo.Entry("the index spelling of a property", "MimeType"),
+		ginkgo.Entry("another case", "MIMETYPE"),
+		ginkgo.Entry("the index spelling of the modification time", "mtime"),
+		ginkgo.Entry("a KQL alias", "tag"),
+		ginkgo.Entry("a facet in another case", "Audio.Artist"),
+		ginkgo.Entry("the nested driveItem path of the mime type", "file.mimeType"),
+		ginkgo.Entry("a property the index rules refuse for terms", "lastModifiedDateTime"),
 	)
 
 	ginkgo.DescribeTable("answers a property it does not evaluate with 501 instead of ignoring it",

@@ -14,6 +14,7 @@ import (
 
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -103,7 +104,9 @@ func unsupportedProperty(sr libregraph.SearchRequest) string {
 	return ""
 }
 
-// searchRequestOf validates one request against the spec and translates it.
+// searchRequestOf validates one request against the spec and the index rules
+// (the search service checks them again) and translates it. Fields are
+// validated under the request's names so an error reads like the request.
 func searchRequestOf(sr libregraph.SearchRequest) (*searchsvc.SearchRequest, error) {
 	if err := validateEntityTypes(sr.EntityTypes); err != nil {
 		return nil, err
@@ -111,7 +114,14 @@ func searchRequestOf(sr libregraph.SearchRequest) (*searchsvc.SearchRequest, err
 	if err := validatePagination(sr.From, sr.Size); err != nil {
 		return nil, err
 	}
+	if err := validateAggregations(sr.Aggregations); err != nil {
+		return nil, err
+	}
 	aggregations := libregraphAggregationsToSearch(sr.Aggregations)
+	requestFieldType := func(field string) string { return search.AggregatableFieldType(indexField(field)) }
+	if err := aggregation.ValidateOptions(aggregations, requestFieldType); err != nil {
+		return nil, err
+	}
 	resolveFields(aggregations)
 
 	from, size := pagination(sr.From, sr.Size)
@@ -205,6 +215,40 @@ func validatePagination(fromP, sizeP *int32) error {
 		return fmt.Errorf("size must be between 0 and %d", maxPageSize)
 	}
 	return search.CheckResultWindow(from, size)
+}
+
+// openapi-generator enforces neither the enums and bounds of the spec nor its
+// at-most-one definition rule. Whether an aggregation fits its field is for
+// aggregation.ValidateOptions to say.
+func validateAggregations(aggs []libregraph.AggregationOption) error {
+	for _, a := range aggs {
+		if a.Field == "" {
+			return fmt.Errorf("aggregation field must not be empty")
+		}
+		if a.BucketDefinition != nil && a.LibreGraphMetricDefinition != nil {
+			return fmt.Errorf("aggregation on %q sets more than one of bucketDefinition and @libre.graph.metricDefinition", a.Field)
+		}
+		if a.Size != nil && *a.Size < 1 {
+			return fmt.Errorf("size of the aggregation on %q must be at least 1", a.Field)
+		}
+		if md := a.LibreGraphMetricDefinition; md != nil {
+			if _, ok := metricKinds[md.Kind]; !ok {
+				return fmt.Errorf("unsupported metric kind %q on field %q", md.Kind, a.Field)
+			}
+		}
+		if bd := a.BucketDefinition; bd != nil {
+			if _, ok := bucketSortBy[bd.SortBy]; !ok {
+				return fmt.Errorf("unsupported sortBy %q on field %q", bd.SortBy, a.Field)
+			}
+			if bd.MinimumCount != nil && *bd.MinimumCount < 0 {
+				return fmt.Errorf("minimumCount of the aggregation on %q must not be negative", a.Field)
+			}
+		}
+		if err := validateAggregations(a.LibreGraphSubAggregations); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // renderSearchError answers with the status the search service failed with.

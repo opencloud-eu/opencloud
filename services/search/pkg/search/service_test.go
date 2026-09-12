@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
@@ -260,22 +261,96 @@ var _ = Describe("Searchprovider", func() {
 				Expect(match.Entity.Ref.ResourceId.OpaqueId).To(Equal(personalSpace.Root.OpaqueId))
 				Expect(match.Entity.Ref.Path).To(Equal("./path/to/Foo.pdf"))
 			})
+
+			It("forwards aggregations to the engine", func() {
+				_, err := s.Search(ctx, &searchsvc.SearchRequest{
+					Query: "foo",
+					Aggregations: []*searchsvc.AggregationOption{
+						{Field: "audio.artist", Size: 10},
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
+					return len(req.Aggregations) == 1 &&
+						req.Aggregations[0].Field == "audio.artist" &&
+						req.Aggregations[0].Size == 10
+				}))
+			})
+		})
+
+		DescribeTable("rejects a request the index cannot answer without asking the engine",
+			func(req *searchsvc.SearchRequest) {
+				_, err := s.Search(ctx, req)
+				Expect(err).To(BeAssignableToTypeOf(errtypes.BadRequest("")))
+				indexClient.AssertNotCalled(GinkgoT(), "Search", mock.Anything, mock.Anything)
+				gatewayClient.AssertNotCalled(GinkgoT(), "ListStorageSpaces", mock.Anything, mock.Anything)
+			},
+			// the rules are pinned in the aggregation package
+			Entry("an aggregation on an internal field", &searchsvc.SearchRequest{Query: "foo",
+				Aggregations: []*searchsvc.AggregationOption{{Field: "Favorites"}}}),
+		)
+
+		// two personal spaces, the engine answers each by its space id
+		var (
+			spaceA = &sprovider.StorageSpace{
+				Id:        &sprovider.StorageSpaceId{OpaqueId: "storageid$a!a"},
+				Root:      &sprovider.ResourceId{StorageId: "storageid", SpaceId: "a", OpaqueId: "a"},
+				SpaceType: "personal",
+			}
+			spaceB = &sprovider.StorageSpace{
+				Id:        &sprovider.StorageSpaceId{OpaqueId: "storageid$b!b"},
+				Root:      &sprovider.ResourceId{StorageId: "storageid", SpaceId: "b", OpaqueId: "b"},
+				SpaceType: "personal",
+			}
+		)
+		listsSpacesAB := func() {
+			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&sprovider.ListStorageSpacesResponse{
+				Status:        status.NewOK(ctx),
+				StorageSpaces: []*sprovider.StorageSpace{spaceA, spaceB},
+			}, nil)
+		}
+		searchOfSpace := func(id string) *mock.Call {
+			return indexClient.On("Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
+				return req.GetRef().GetResourceId().GetSpaceId() == id
+			}))
+		}
+
+		Context("with two personal spaces returning aggregations", func() {
+			BeforeEach(func() {
+				listsSpacesAB()
+				searchOfSpace("a").Return(&searchsvc.SearchIndexResponse{
+					TotalMatches: 2,
+					Aggregations: []*searchsvc.AggregationResult{{Field: "audio.artist", Buckets: []*searchsvc.Bucket{{Key: "Saxon", Count: 2}, {Key: "Motörhead", Count: 1}}}},
+				}, nil)
+				searchOfSpace("b").Return(&searchsvc.SearchIndexResponse{
+					TotalMatches: 3,
+					Aggregations: []*searchsvc.AggregationResult{{Field: "audio.artist", Buckets: []*searchsvc.Bucket{{Key: "Saxon", Count: 3}, {Key: "Led Zeppelin", Count: 1}}}},
+				}, nil)
+			})
+
+			It("merges bucket counts across spaces", func() {
+				res, err := s.Search(ctx, &searchsvc.SearchRequest{
+					Query: "mediatype:audio",
+					Aggregations: []*searchsvc.AggregationOption{
+						{Field: "audio.artist", Size: 10},
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res.Aggregations).To(HaveLen(1))
+				agg := res.Aggregations[0]
+				Expect(agg.Field).To(Equal("audio.artist"))
+
+				counts := map[string]int64{}
+				for _, b := range agg.Buckets {
+					counts[b.Key] = b.Count
+				}
+				Expect(counts).To(HaveKeyWithValue("Saxon", int64(5)))
+				Expect(counts).To(HaveKeyWithValue("Motörhead", int64(1)))
+				Expect(counts).To(HaveKeyWithValue("Led Zeppelin", int64(1)))
+			})
 		})
 
 		Context("with two personal spaces returning matches of the same score", func() {
-			var (
-				spaceA = &sprovider.StorageSpace{
-					Id:        &sprovider.StorageSpaceId{OpaqueId: "storageid$a!a"},
-					Root:      &sprovider.ResourceId{StorageId: "storageid", SpaceId: "a", OpaqueId: "a"},
-					SpaceType: "personal",
-				}
-				spaceB = &sprovider.StorageSpace{
-					Id:        &sprovider.StorageSpaceId{OpaqueId: "storageid$b!b"},
-					Root:      &sprovider.ResourceId{StorageId: "storageid", SpaceId: "b", OpaqueId: "b"},
-					SpaceType: "personal",
-				}
-			)
-
 			match := func(space, name string) *searchmsg.Match {
 				return &searchmsg.Match{Score: 1, Entity: &searchmsg.Entity{
 					Id:   &searchmsg.ResourceID{StorageId: "storageid", SpaceId: space, OpaqueId: name},
@@ -286,18 +361,11 @@ var _ = Describe("Searchprovider", func() {
 
 			// answers of the spaces arrive in the order of their delays
 			searchWith := func(delayA, delayB time.Duration) {
-				gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&sprovider.ListStorageSpacesResponse{
-					Status:        status.NewOK(ctx),
-					StorageSpaces: []*sprovider.StorageSpace{spaceA, spaceB},
-				}, nil)
-				indexClient.On("Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
-					return req.Ref.ResourceId.SpaceId == "a"
-				})).After(delayA).Return(func(context.Context, *searchsvc.SearchIndexRequest) (*searchsvc.SearchIndexResponse, error) {
+				listsSpacesAB()
+				searchOfSpace("a").After(delayA).Return(func(context.Context, *searchsvc.SearchIndexRequest) (*searchsvc.SearchIndexResponse, error) {
 					return &searchsvc.SearchIndexResponse{TotalMatches: 2, Matches: []*searchmsg.Match{match("a", "a1"), match("a", "a2")}}, nil
 				})
-				indexClient.On("Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
-					return req.Ref.ResourceId.SpaceId == "b"
-				})).After(delayB).Return(func(context.Context, *searchsvc.SearchIndexRequest) (*searchsvc.SearchIndexResponse, error) {
+				searchOfSpace("b").After(delayB).Return(func(context.Context, *searchsvc.SearchIndexRequest) (*searchsvc.SearchIndexResponse, error) {
 					return &searchsvc.SearchIndexResponse{TotalMatches: 2, Matches: []*searchmsg.Match{match("b", "b1"), match("b", "b2")}}, nil
 				})
 			}

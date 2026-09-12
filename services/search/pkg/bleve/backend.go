@@ -15,6 +15,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
@@ -42,7 +43,7 @@ func NewBackend(index bleve.Index, queryCreator searchQuery.Creator[query.Query]
 
 // Search executes a search request operation within the index.
 // Returns a SearchIndexResponse object or an error.
-func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
+func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
 	createdQuery, err := b.queryCreator.Create(sir.Query)
 	if err != nil {
 		if kql.IsValidationError(err) {
@@ -93,8 +94,16 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 	bleveReq.SortBy([]string{"-_score", "_id"})
 	bleveReq.Size = size
 
+	collector, err := newAggCollector(sir.GetAggregations())
+	if err != nil {
+		return nil, errtypes.BadRequest(err.Error())
+	}
+	if collector != nil {
+		ctx = collector.withContext(ctx)
+	}
+
 	bleveReq.Fields = []string{"*"}
-	res, err := b.index.Search(bleveReq)
+	res, err := b.index.SearchInContext(ctx, bleveReq)
 	if err != nil {
 		return nil, err
 	}
@@ -147,9 +156,18 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 		matches = append(matches, match)
 	}
 
+	var aggregations []*searchService.AggregationResult
+	if collector != nil {
+		aggregations = collector.results()
+		if err := aggregation.CheckBuckets(aggregations); err != nil {
+			return nil, errtypes.BadRequest(err.Error())
+		}
+	}
+
 	return &searchService.SearchIndexResponse{
 		Matches:      matches,
 		TotalMatches: int32(totalMatches),
+		Aggregations: aggregations,
 	}, nil
 }
 
