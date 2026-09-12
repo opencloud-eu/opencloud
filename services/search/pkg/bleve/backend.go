@@ -2,7 +2,6 @@ package bleve
 
 import (
 	"context"
-	"errors"
 	"math"
 	"time"
 
@@ -43,7 +42,7 @@ func NewBackend(index bleve.Index, queryCreator searchQuery.Creator[query.Query]
 
 // Search executes a search request operation within the index.
 // Returns a SearchIndexResponse object or an error.
-func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
+func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
 	createdQuery, err := b.queryCreator.Create(sir.Query)
 	if err != nil {
 		if kql.IsValidationError(err) {
@@ -97,7 +96,7 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 
 	for _, agg := range sir.GetAggregations() {
 		if collected(agg) {
-			return nil, errors.New("metric and nested aggregations are not supported by bleve yet")
+			continue
 		}
 		fr, err := newBleveFacetRequest(agg)
 		if err != nil {
@@ -105,9 +104,16 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 		}
 		bleveReq.AddFacet(agg.GetField(), fr)
 	}
+	aggs, err := newAggCollector(sir.GetAggregations())
+	if err != nil {
+		return nil, err
+	}
+	if aggs != nil {
+		ctx = aggs.withContext(ctx)
+	}
 
 	bleveReq.Fields = []string{"*"}
-	res, err := b.index.Search(bleveReq)
+	res, err := b.index.SearchInContext(ctx, bleveReq)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +169,7 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 	return &searchService.SearchIndexResponse{
 		Matches:      matches,
 		TotalMatches: int32(totalMatches),
-		Aggregations: extractBleveAggregations(res, sir.GetAggregations()),
+		Aggregations: extractBleveAggregations(res, sir.GetAggregations(), aggs),
 	}, nil
 }
 

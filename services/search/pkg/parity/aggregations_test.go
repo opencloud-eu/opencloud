@@ -96,6 +96,14 @@ func aggregationCases() []aggCase {
 				&searchService.BucketRange{From: "2000"},
 			)}},
 			want: []string{"audio.year -1990=3", "audio.year 2000-=3"}},
+		{id: 6, query: "mediatype:audio", reads: "top-level metrics on audio.year",
+			aggs: []*searchService.AggregationOption{
+				{Field: "audio.year", MetricKind: searchService.MetricKind_METRIC_KIND_SUM},
+				{Field: "audio.year", MetricKind: searchService.MetricKind_METRIC_KIND_MIN},
+				{Field: "audio.year", MetricKind: searchService.MetricKind_METRIC_KIND_MAX},
+				{Field: "audio.year", MetricKind: searchService.MetricKind_METRIC_KIND_AVG},
+			},
+			want: []string{"audio.year sum=13942", "audio.year min=1971", "audio.year max=2009", "audio.year avg sum=13942 count=7"}},
 		{id: 7, query: "mediatype:image", reads: "photo.takenDateTime buckets per date range",
 			aggs: []*searchService.AggregationOption{{Field: "photo.takenDateTime", BucketDefinition: ranges(
 				&searchService.BucketRange{From: "2018-08-11T00:00:00Z", To: "2018-08-12T00:00:00Z"},

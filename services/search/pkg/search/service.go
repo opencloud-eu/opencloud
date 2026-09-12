@@ -97,11 +97,10 @@ func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng E
 
 // Search processes a search request and passes it down to the engine.
 func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {
-	// bucket aggregations only for now: the engines do not evaluate metrics
-	// and sub-aggregations yet
+	// the engines do not evaluate sub-aggregations yet
 	for _, opt := range req.GetAggregations() {
-		if opt.GetMetricKind() != searchsvc.MetricKind_METRIC_KIND_UNSPECIFIED || len(opt.GetSubAggregations()) > 0 {
-			return nil, errtypes.BadRequest("metric and nested aggregations are not supported yet")
+		if len(opt.GetSubAggregations()) > 0 {
+			return nil, errtypes.BadRequest("nested aggregations are not supported yet")
 		}
 	}
 	s.logger.Debug().Str("query", req.Query).Msg("performing a search")
@@ -142,6 +141,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		return nil, errtypes.BadRequest("empty query provided")
 	}
 	req.Query = query
+
 	if len(scope) > 0 {
 		scopedID, err := storagespace.ParseID(scope)
 		if err != nil {
@@ -295,6 +295,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	}
 
 	mergedAggregations := map[string]map[string]*searchmsgBucket{}
+	mergedMetrics := map[string]*searchsvc.AggregationResult{}
 	for _, res := range responses {
 		if res == nil {
 			continue
@@ -304,6 +305,23 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 			matches = append(matches, match)
 		}
 		for _, agg := range res.GetAggregations() {
+			// Top-level metric: reduce across spaces; keyed by field+kind so
+			// several metrics on the same field stay separate.
+			if kind := agg.GetMetricKind(); kind != searchsvc.MetricKind_METRIC_KIND_UNSPECIFIED {
+				key := agg.GetField() + "|" + kind.String()
+				existing, ok := mergedMetrics[key]
+				if !ok {
+					mergedMetrics[key] = agg
+					continue
+				}
+				if kind == searchsvc.MetricKind_METRIC_KIND_AVG {
+					existing.Sum += agg.GetSum()
+					existing.Count += agg.GetCount()
+				} else {
+					existing.Value = reduceMetric(kind, existing.GetValue(), agg.GetValue())
+				}
+				continue
+			}
 			field := agg.GetField()
 			if _, ok := mergedAggregations[field]; !ok {
 				mergedAggregations[field] = map[string]*searchmsgBucket{}
@@ -334,6 +352,12 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	aggregations := make([]*searchsvc.AggregationResult, 0, len(req.GetAggregations()))
 	for _, opt := range req.GetAggregations() {
 		field := opt.GetField()
+		if kind := opt.GetMetricKind(); kind != searchsvc.MetricKind_METRIC_KIND_UNSPECIFIED {
+			if m, ok := mergedMetrics[field+"|"+kind.String()]; ok {
+				aggregations = append(aggregations, m)
+			}
+			continue
+		}
 		bucketMap := mergedAggregations[field]
 		buckets := make([]*searchsvc.Bucket, 0, len(bucketMap))
 		for _, b := range bucketMap {
@@ -355,6 +379,26 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 
 // searchmsgBucket aliases the bucket type for the map-of-maps below.
 type searchmsgBucket = searchsvc.Bucket
+
+// reduceMetric applies the metric's cross-shard reducer; only called when both
+// sides carry a value.
+func reduceMetric(kind searchsvc.MetricKind, a, b float64) float64 {
+	switch kind {
+	case searchsvc.MetricKind_METRIC_KIND_SUM:
+		return a + b
+	case searchsvc.MetricKind_METRIC_KIND_MIN:
+		if b < a {
+			return b
+		}
+		return a
+	case searchsvc.MetricKind_METRIC_KIND_MAX:
+		if b > a {
+			return b
+		}
+		return a
+	}
+	return a
+}
 
 // postProcessBuckets applies the BucketDefinition (minimumCount filter, sort by
 // count/keyAsString/keyAsNumber, trim to Size). Defaults to count-descending.

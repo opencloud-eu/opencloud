@@ -2,6 +2,7 @@ package aggs_test
 
 import (
 	"encoding/json"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -89,6 +90,29 @@ var _ = Describe("Build", func() {
 		Expect(ranges[2]).ToNot(HaveKey("to"))   // open upper bound
 	})
 
+	DescribeTable("builds single-value metric aggregations",
+		func(kind searchsvc.MetricKind, esKind string) {
+			res := build([]*searchsvc.AggregationOption{
+				{Field: "audio.duration", MetricKind: kind},
+			})
+			body, ok := res["a_0"].(map[string]any)[esKind].(map[string]any)
+			Expect(ok).To(BeTrue())
+			Expect(body["field"]).To(Equal("audio.duration"))
+		},
+		Entry("sum", searchsvc.MetricKind_METRIC_KIND_SUM, "sum"),
+		Entry("min", searchsvc.MetricKind_METRIC_KIND_MIN, "min"),
+		Entry("max", searchsvc.MetricKind_METRIC_KIND_MAX, "max"),
+	)
+
+	It("uses a stats aggregation for AVG", func() {
+		res := build([]*searchsvc.AggregationOption{
+			{Field: "audio.duration", MetricKind: searchsvc.MetricKind_METRIC_KIND_AVG},
+		})
+		stats, ok := res["a_0"].(map[string]any)["stats"].(map[string]any)
+		Expect(ok).To(BeTrue())
+		Expect(stats["field"]).To(Equal("audio.duration"))
+	})
+
 })
 
 var _ = Describe("Parse", func() {
@@ -123,5 +147,61 @@ var _ = Describe("Parse", func() {
 
 		// numeric term key stringified without trailing zeros
 		Expect(out[2].Buckets[0].Key).To(Equal("9"))
+	})
+
+	DescribeTable("parses single-value metrics",
+		func(kind searchsvc.MetricKind, value float64) {
+			raw := json.RawMessage(fmt.Sprintf(`{"a_0": {"value": %g}}`, value))
+			out, err := aggs.Parse(raw, []*searchsvc.AggregationOption{
+				{Field: "audio.duration", MetricKind: kind},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(HaveLen(1))
+			Expect(out[0].MetricKind).To(Equal(kind))
+			Expect(out[0].Value).To(Equal(value))
+		},
+		Entry("sum", searchsvc.MetricKind_METRIC_KIND_SUM, 1234.5),
+		Entry("min", searchsvc.MetricKind_METRIC_KIND_MIN, 10.0),
+		Entry("max", searchsvc.MetricKind_METRIC_KIND_MAX, 99.0),
+	)
+
+	It("decodes a null metric value to zero", func() {
+		// OpenSearch returns value: null when a metric has no matching docs.
+		out, err := aggs.Parse(json.RawMessage(`{"a_0": {"value": null}}`),
+			[]*searchsvc.AggregationOption{{Field: "audio.duration", MetricKind: searchsvc.MetricKind_METRIC_KIND_SUM}})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).To(HaveLen(1))
+		Expect(out[0].Value).To(BeZero())
+		Expect(out[0].MetricKind).To(Equal(searchsvc.MetricKind_METRIC_KIND_SUM))
+	})
+
+	It("carries avg transport (sum + count) from a stats response", func() {
+		raw := json.RawMessage(`{
+			"a_0": {"count": 100, "min": 30000.0, "max": 500000.0, "avg": 245000.0, "sum": 24500000.0}
+		}`)
+		out, err := aggs.Parse(raw, []*searchsvc.AggregationOption{
+			{Field: "audio.duration", MetricKind: searchsvc.MetricKind_METRIC_KIND_AVG},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).To(HaveLen(1))
+		Expect(out[0].MetricKind).To(Equal(searchsvc.MetricKind_METRIC_KIND_AVG))
+		Expect(out[0].Sum).To(Equal(24500000.0))
+		Expect(out[0].Count).To(Equal(int64(100)))
+	})
+
+	It("returns nil for empty raw or empty options", func() {
+		got, err := aggs.Parse(nil, []*searchsvc.AggregationOption{{Field: "x"}})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(BeNil())
+
+		got, err = aggs.Parse(json.RawMessage(`{}`), nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(got).To(BeNil())
+	})
+
+	It("errors on malformed json and returns no result", func() {
+		got, err := aggs.Parse(json.RawMessage(`not-json`), []*searchsvc.AggregationOption{{Field: "x"}})
+		Expect(err).To(HaveOccurred())
+		Expect(got).To(BeNil())
 	})
 })

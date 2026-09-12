@@ -17,7 +17,7 @@ import (
 const DefaultFacetSize = 1000
 
 // Build translates AggregationOptions into the OpenSearch aggregation DSL
-// (terms, range, date_range). Entries get an index-derived
+// (terms, range, date_range, metric). Entries get an index-derived
 // name so repeated aggs on one field don't collide. A range bound that is
 // neither a number nor a date is an error.
 func Build(opts []*searchsvc.AggregationOption) (map[string]any, error) {
@@ -47,6 +47,9 @@ func buildLevel(opts []*searchsvc.AggregationOption, prefix string) (map[string]
 
 func buildOne(opt *searchsvc.AggregationOption) (map[string]any, error) {
 	field := opt.GetField()
+	if mk := opt.GetMetricKind(); mk != searchsvc.MetricKind_METRIC_KIND_UNSPECIFIED {
+		return buildMetric(field, mk), nil
+	}
 	var entry map[string]any
 	if ranges := rangesOf(opt); len(ranges) > 0 {
 		built, kind, err := buildRanges(field, ranges)
@@ -72,6 +75,22 @@ func buildOne(opt *searchsvc.AggregationOption) (map[string]any, error) {
 		}
 	}
 	return entry, nil
+}
+
+// buildMetric emits the sum/min/max metric. AVG uses a stats agg to transport
+// (sum, count) for the cross-space merge; the service layer collapses to the average.
+func buildMetric(field string, kind searchsvc.MetricKind) map[string]any {
+	switch kind {
+	case searchsvc.MetricKind_METRIC_KIND_SUM:
+		return map[string]any{"sum": map[string]any{"field": field}}
+	case searchsvc.MetricKind_METRIC_KIND_MIN:
+		return map[string]any{"min": map[string]any{"field": field}}
+	case searchsvc.MetricKind_METRIC_KIND_MAX:
+		return map[string]any{"max": map[string]any{"field": field}}
+	case searchsvc.MetricKind_METRIC_KIND_AVG:
+		return map[string]any{"stats": map[string]any{"field": field}}
+	}
+	return nil
 }
 
 func rangesOf(opt *searchsvc.AggregationOption) []*searchsvc.BucketRange {
@@ -189,6 +208,9 @@ func parseLevel(node aggNode, opts []*searchsvc.AggregationOption, prefix string
 
 func parseOne(raw json.RawMessage, opt *searchsvc.AggregationOption) *searchsvc.AggregationResult {
 	field := opt.GetField()
+	if mk := opt.GetMetricKind(); mk != searchsvc.MetricKind_METRIC_KIND_UNSPECIFIED {
+		return parseMetric(raw, field, mk)
+	}
 	var body struct {
 		Buckets []json.RawMessage `json:"buckets"`
 	}
@@ -222,6 +244,45 @@ func parseBucket(raw json.RawMessage) *searchsvc.Bucket {
 	return b
 }
 
+func parseMetric(raw json.RawMessage, field string, kind searchsvc.MetricKind) *searchsvc.AggregationResult {
+	switch kind {
+	case searchsvc.MetricKind_METRIC_KIND_SUM,
+		searchsvc.MetricKind_METRIC_KIND_MIN,
+		searchsvc.MetricKind_METRIC_KIND_MAX:
+		var body struct {
+			Value *float64 `json:"value"`
+		}
+		if err := json.Unmarshal(raw, &body); err != nil {
+			return nil
+		}
+		res := &searchsvc.AggregationResult{
+			Field:      field,
+			MetricKind: kind,
+		}
+		if body.Value != nil {
+			res.Value = *body.Value
+		}
+		return res
+	case searchsvc.MetricKind_METRIC_KIND_AVG:
+		var body struct {
+			Sum   float64 `json:"sum"`
+			Count int64   `json:"count"`
+		}
+		if err := json.Unmarshal(raw, &body); err != nil {
+			return nil
+		}
+		return &searchsvc.AggregationResult{
+			Field:      field,
+			Sum:        body.Sum,
+			Count:      body.Count,
+			MetricKind: kind,
+		}
+	}
+	return nil
+}
+
+// bucketKeyToString normalises a response key to a string (terms are strings,
+// ranges use our "from-to" key, numeric terms come back as JSON numbers).
 func bucketKeyToString(v any) string {
 	switch x := v.(type) {
 	case string:
