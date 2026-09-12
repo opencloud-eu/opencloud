@@ -10,6 +10,7 @@ import (
 	"time"
 
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/query"
 )
 
 // DefaultFacetSize matches the bleve backend: pull a generous bucket count per
@@ -17,9 +18,9 @@ import (
 const DefaultFacetSize = 1000
 
 // Build translates AggregationOptions into the OpenSearch aggregation DSL
-// (terms, range, date_range, metric, nested). Entries get an index-derived
-// name so repeated aggs on one field don't collide. A range bound that is
-// neither a number nor a date is an error.
+// (terms, range, date_range, geohash, metric, nested). Entries get an
+// index-derived name so repeated aggs on one field don't collide. A range bound
+// that is neither a number nor a date is an error.
 func Build(opts []*searchsvc.AggregationOption) (map[string]any, error) {
 	return buildLevel(opts, "a")
 }
@@ -51,8 +52,20 @@ func buildOne(opt *searchsvc.AggregationOption, name string) (map[string]any, er
 		return buildMetric(field, mk), nil
 	}
 	var entry map[string]any
-	if ranges := rangesOf(opt); len(ranges) > 0 {
-		built, kind, err := buildRanges(field, ranges)
+	switch {
+	case opt.GetGeohashPrecision() > 0:
+		geoField, ok := query.ResolveGeoField(field)
+		if !ok {
+			return nil, fmt.Errorf("geohash aggregation on non-geo field %q", field)
+		}
+		entry = map[string]any{
+			"geohash_grid": map[string]any{
+				"field":     geoField,
+				"precision": int(opt.GetGeohashPrecision()),
+			},
+		}
+	case len(rangesOf(opt)) > 0:
+		built, kind, err := buildRanges(field, rangesOf(opt))
 		if err != nil {
 			return nil, err
 		}
@@ -62,7 +75,7 @@ func buildOne(opt *searchsvc.AggregationOption, name string) (map[string]any, er
 				"ranges": built,
 			},
 		}
-	} else {
+	default:
 		size := int(opt.GetSize())
 		if size <= 0 {
 			size = DefaultFacetSize

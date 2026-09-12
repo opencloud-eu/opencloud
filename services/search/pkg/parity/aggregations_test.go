@@ -65,7 +65,15 @@ func aggregationFixtures() []search.Resource {
 		withTaken("b.jpg", "2018-08-11T19:42:00Z"),
 		withTaken("c.jpg", "2018-09-01T12:00:00Z"),
 		withTaken("d.jpg", "2021-08-11T08:00:00Z"),
+		// two in one precision-5 cell (u4pru), one in another (u33dc)
+		withGeo("skagen-a.jpg", 57.64911, 10.40744),
+		withGeo("skagen-b.jpg", 57.6495, 10.4090),
+		withGeo("berlin.jpg", 52.52, 13.405),
 	}
+}
+
+func withGeo(name string, lat, lon float64) search.Resource {
+	return fixtureDoc(name, withMime("image/jpeg"), withLocation(&libregraph.GeoCoordinates{Latitude: &lat, Longitude: &lon}))
 }
 
 func aggregationCases() []aggCase {
@@ -193,6 +201,21 @@ func aggregationCases() []aggCase {
 			aggs: []*searchService.AggregationOption{{Field: "audio.artist", SubAggregations: []*searchService.AggregationOption{
 				{Field: "photo.takenDateTime", BucketDefinition: ranges(&searchService.BucketRange{From: "2018-08-11T00:00:00Z", To: "not-a-date"})},
 			}}},
+			wantError: true, want: []string{"error"}},
+		{id: 17, query: "mediatype:image", reads: "geohash cells at precision 5",
+			aggs: []*searchService.AggregationOption{{Field: "location", GeohashPrecision: 5}},
+			want: []string{"location u4pru=2", "location u33dc=1"}},
+		{id: 18, query: "mediatype:image", reads: "MimeType buckets nested in geohash cells at precision 3",
+			aggs: []*searchService.AggregationOption{{Field: "location", GeohashPrecision: 3, SubAggregations: []*searchService.AggregationOption{{Field: "MimeType"}}}},
+			want: []string{
+				"location u4p=2", "location u4p=2 / MimeType image/jpeg=2",
+				"location u33=1", "location u33=1 / MimeType image/jpeg=1",
+			}},
+		{id: 19, query: "mediatype:image", reads: "geohash aggregation on a field that is no geopoint",
+			aggs:      []*searchService.AggregationOption{{Field: "MimeType", GeohashPrecision: 5}},
+			wantError: true, want: []string{"error"}},
+		{id: 20, query: "mediatype:image", reads: "geohash precision beyond 12",
+			aggs:      []*searchService.AggregationOption{{Field: "location", GeohashPrecision: 13}},
 			wantError: true, want: []string{"error"}},
 	}
 }

@@ -720,7 +720,7 @@ Fixtures:
 - `a.jpg`, MimeType = image/jpeg
 - `b.jpg`, MimeType = image/jpeg
 - `c.jpg`, MimeType = image/jpeg
-- `d.jpg`, MimeType = image/jpeg
+- ... and 4 more of the same
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
@@ -740,3 +740,7 @@ Fixtures:
 | AGG-14 | `mediatype:image` reads `MimeType buckets nested in open-ended date ranges` | photo.take...-01-01=3, photo.take...01-01-=1, photo.take...e/jpeg=1, photo.take...e/jpeg=3 | photo.take...-01-01=3, photo.take...01-01-=1, photo.take...e/jpeg=1, photo.take...e/jpeg=3 | photo.take...-01-01=3, photo.take...01-01-=1, photo.take...e/jpeg=1, photo.take...e/jpeg=3 | ✅ |
 | AGG-15 | `mediatype:audio` reads `nested aggregations cover every match on a page of one` | 1 of 7 matches, audio.arti... Floyd=2, audio.arti...Bomber=2, audio.arti...Spades=1, audio.arti...e Wall=2, audio.arti...�rhead=3, audio.year sum=13942 | 1 of 7 matches, audio.arti... Floyd=2, audio.arti...Bomber=2, audio.arti...Spades=1, audio.arti...e Wall=2, audio.arti...�rhead=3, audio.year sum=13942 | 1 of 7 matches, audio.arti... Floyd=2, audio.arti...Bomber=2, audio.arti...Spades=1, audio.arti...e Wall=2, audio.arti...�rhead=3, audio.year sum=13942 | ✅ |
 | AGG-16 | `mediatype:audio` reads `malformed date range bound in a nested aggregation` | error | error | error | ✅ |
+| AGG-17 | `mediatype:image` reads `geohash cells at precision 5` | location u33dc=1, location u4pru=2 | location u33dc=1, location u4pru=2 | location u33dc=1, location u4pru=2 | ✅ |
+| AGG-18 | `mediatype:image` reads `MimeType buckets nested in geohash cells at precision 3` | location u...e/jpeg=1, location u...e/jpeg=2, location u33=1, location u4p=2 | location u...e/jpeg=1, location u...e/jpeg=2, location u33=1, location u4p=2 | location u...e/jpeg=1, location u...e/jpeg=2, location u33=1, location u4p=2 | ✅ |
+| AGG-19 | `mediatype:image` reads `geohash aggregation on a field that is no geopoint` | error | error | error | ✅ |
+| AGG-20 | `mediatype:image` reads `geohash precision beyond 12` | error | error | error | ✅ |
