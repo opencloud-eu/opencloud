@@ -7,11 +7,43 @@ import (
 	. "github.com/onsi/gomega"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
+	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
+
+var _ = Describe("Location geohash sibling", func() {
+	It("indexes one depth-tagged term per precision", func() {
+		idxMapping, err := bleve.NewMapping()
+		Expect(err).ToNot(HaveOccurred())
+		idx, err := bleveSearch.NewMemOnly(idxMapping)
+		Expect(err).ToNot(HaveOccurred())
+		eng := bleve.NewBackend(idx, bleveQuery.DefaultCreator, log.Logger{})
+
+		// the geohash is written by the batch, not by PrepareForIndex
+		lon, lat := 10.40744, 57.64911
+		r := search.Resource{
+			ID:       "x",
+			Document: content.Document{Name: "team.jpg", Location: &libregraph.GeoCoordinates{Longitude: &lon, Latitude: &lat}},
+		}
+		Expect(eng.Upsert(r.ID, r)).To(Succeed())
+
+		req := bleveSearch.NewSearchRequest(bleveSearch.NewMatchAllQuery())
+		req.Size = 0
+		fr := bleveSearch.NewFacetRequest("location_geohash", 10)
+		fr.TermPrefix = "5/"
+		req.AddFacet("cells", fr)
+		res, err := idx.Search(req)
+		Expect(err).ToNot(HaveOccurred())
+		terms := res.Facets["cells"].Terms.Terms()
+		Expect(terms).To(HaveLen(1))
+		Expect(terms[0].Term).To(Equal("5/u4pru"))
+		Expect(terms[0].Count).To(Equal(1))
+	})
+})
 
 // geoFixture builds an in-memory bleve index with a single resource carrying
 // the given lon/lat/alt, indexed through the full bleve pipeline.
