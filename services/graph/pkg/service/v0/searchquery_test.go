@@ -215,4 +215,30 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		}`)
 		Expect(rr.Code).To(Equal(http.StatusBadRequest), rr.Body.String())
 	})
+
+	ginkgo.It("allows a range aggregation on a numeric field", func() {
+		called := false
+		g := graphWithSearch(stubSearchService{
+			search: func(*searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {
+				called = true
+				return &searchsvc.SearchResponse{}, nil
+			},
+		})
+		rr := postSearchQuery(g, `{
+			"requests": [{
+				"entityTypes": ["driveItem"],
+				"query": {"queryString": "mediatype:audio"},
+				"size": 0,
+				"aggregations": [{
+					"field": "audio.year",
+					"bucketDefinition": {
+						"sortBy": "keyAsString",
+						"ranges": [{"from": "1970", "to": "1980"}]
+					}
+				}]
+			}]
+		}`)
+		Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+		Expect(called).To(BeTrue())
+	})
 })

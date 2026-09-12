@@ -148,8 +148,8 @@ func clampPagination(fromP, sizeP *int32) (int32, int32) {
 }
 
 // validateAggregations rejects terms aggregations on numeric/time fields: bleve
-// indexes them as prefix-coded binary, so term buckets are meaningless.
-// Classification via search.IsNumericField.
+// indexes them as prefix-coded binary, so term buckets are meaningless. Ranges
+// are the supported alternative. Classification via search.IsNumericField.
 func validateAggregations(aggs []libregraph.AggregationOption) error {
 	for _, a := range aggs {
 		if !search.IsNumericField(a.Field) {
@@ -159,7 +159,11 @@ func validateAggregations(aggs []libregraph.AggregationOption) error {
 			// metrics reduce numeric values, no term buckets involved
 			continue
 		}
-		return fmt.Errorf("terms aggregation is not supported on numeric field %q", a.Field)
+		hasRanges := a.BucketDefinition != nil && len(a.BucketDefinition.Ranges) > 0
+		if hasRanges {
+			continue
+		}
+		return fmt.Errorf("terms aggregation is not supported on numeric field %q; use bucketDefinition.ranges", a.Field)
 	}
 	return nil
 }

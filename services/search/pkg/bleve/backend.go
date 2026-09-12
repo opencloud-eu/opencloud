@@ -99,7 +99,11 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 		if collected(agg) {
 			return nil, errors.New("metric and nested aggregations are not supported by bleve yet")
 		}
-		bleveReq.AddFacet(agg.GetField(), newBleveFacetRequest(agg))
+		fr, err := newBleveFacetRequest(agg)
+		if err != nil {
+			return nil, err
+		}
+		bleveReq.AddFacet(agg.GetField(), fr)
 	}
 
 	bleveReq.Fields = []string{"*"}

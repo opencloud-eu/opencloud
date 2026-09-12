@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 )
@@ -16,7 +17,7 @@ import (
 const DefaultFacetSize = 1000
 
 // Build translates AggregationOptions into the OpenSearch aggregation DSL
-// (terms). Entries get an index-derived
+// (terms, range, date_range). Entries get an index-derived
 // name so repeated aggs on one field don't collide. A range bound that is
 // neither a number nor a date is an error.
 func Build(opts []*searchsvc.AggregationOption) (map[string]any, error) {
@@ -46,18 +47,109 @@ func buildLevel(opts []*searchsvc.AggregationOption, prefix string) (map[string]
 
 func buildOne(opt *searchsvc.AggregationOption) (map[string]any, error) {
 	field := opt.GetField()
-	size := int(opt.GetSize())
-	if size <= 0 {
-		size = DefaultFacetSize
+	var entry map[string]any
+	if ranges := rangesOf(opt); len(ranges) > 0 {
+		built, kind, err := buildRanges(field, ranges)
+		if err != nil {
+			return nil, err
+		}
+		entry = map[string]any{
+			kind: map[string]any{
+				"field":  field,
+				"ranges": built,
+			},
+		}
+	} else {
+		size := int(opt.GetSize())
+		if size <= 0 {
+			size = DefaultFacetSize
+		}
+		entry = map[string]any{
+			"terms": map[string]any{
+				"field": field,
+				"size":  size,
+			},
+		}
 	}
-	return map[string]any{
-		"terms": map[string]any{
-			"field": field,
-			"size":  size,
-		},
-	}, nil
+	return entry, nil
 }
 
+func rangesOf(opt *searchsvc.AggregationOption) []*searchsvc.BucketRange {
+	bd := opt.GetBucketDefinition()
+	if bd == nil {
+		return nil
+	}
+	return bd.GetRanges()
+}
+
+// rangeTimeLayouts mirrors the bleve backend's accepted date bound formats.
+var rangeTimeLayouts = []string{time.RFC3339, "2006-01-02"}
+
+func boundIsDate(s string) bool {
+	for _, layout := range rangeTimeLayouts {
+		if _, err := time.Parse(layout, s); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// buildRanges renders the ranges and decides between the numeric "range" and
+// the "date_range" aggregation: one date-looking bound switches the whole
+// aggregation to date mode, exactly like the bleve backend.
+func buildRanges(field string, ranges []*searchsvc.BucketRange) ([]map[string]any, string, error) {
+	dates := false
+	for _, r := range ranges {
+		for _, s := range []string{r.GetFrom(), r.GetTo()} {
+			if s == "" {
+				continue
+			}
+			if _, err := strconv.ParseFloat(s, 64); err != nil {
+				dates = true
+			}
+		}
+	}
+
+	out := make([]map[string]any, 0, len(ranges))
+	for _, r := range ranges {
+		entry := map[string]any{
+			"key": RangeKey(r),
+		}
+		for side, s := range map[string]string{"from": r.GetFrom(), "to": r.GetTo()} {
+			if s == "" {
+				continue
+			}
+			if dates {
+				if !boundIsDate(s) {
+					return nil, "", fmt.Errorf("invalid date range bound %q on field %q", s, field)
+				}
+				entry[side] = s
+				continue
+			}
+			v, err := strconv.ParseFloat(s, 64)
+			if err != nil {
+				return nil, "", fmt.Errorf("invalid range bound %q on field %q", s, field)
+			}
+			entry[side] = v
+		}
+		out = append(out, entry)
+	}
+
+	kind := "range"
+	if dates {
+		kind = "date_range"
+	}
+	return out, kind, nil
+}
+
+// RangeKey mirrors the bleve backend so cross-space merging keys match.
+func RangeKey(r *searchsvc.BucketRange) string {
+	return r.GetFrom() + "-" + r.GetTo()
+}
+
+// Parse converts the response aggregations block into proto results, preserving
+// request order and recursing into sub-aggregations. Empty input yields
+// (nil, nil); invalid JSON yields an error.
 func Parse(raw json.RawMessage, opts []*searchsvc.AggregationOption) ([]*searchsvc.AggregationResult, error) {
 	if len(raw) == 0 || len(opts) == 0 {
 		return nil, nil
