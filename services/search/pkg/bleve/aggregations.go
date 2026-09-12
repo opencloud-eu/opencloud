@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"time"
 
@@ -16,10 +17,10 @@ import (
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 )
 
-// Bleve facets count one field, so metrics are folded from doc values by
-// aggCollector, hooked into the collector walk through bleve's
-// document-match-handler context key. Loading hits for them instead costs a
-// stored-document decode per match.
+// Bleve facets count one field and cannot nest, so metrics and
+// sub-aggregations are folded from doc values by aggCollector, hooked into
+// the collector walk through bleve's document-match-handler context key.
+// Loading hits for them instead costs a stored-document decode per match.
 
 // defaultFacetSize is used when no size is requested; the service layer trims
 // after cross-space merge.
@@ -142,31 +143,95 @@ func facetBuckets(fr *bleveSearch.FacetResult, agg *searchService.AggregationOpt
 	return buckets
 }
 
+type levelKind int
+
+const (
+	levelTerms levelKind = iota
+	levelNumericRange
+	levelDateRange
+	levelMetric
+)
+
+type numericRange struct {
+	name     string
+	min, max *float64
+}
+
+type dateRange struct {
+	name       string
+	start, end time.Time
+}
+
 type aggLevel struct {
-	opt *searchService.AggregationOption
+	opt      *searchService.AggregationOption
+	kind     levelKind
+	numeric  []numericRange
+	dates    []dateRange
+	children []*aggLevel
 }
 
 func newAggLevel(opt *searchService.AggregationOption) (*aggLevel, error) {
-	if opt.GetMetricKind() == searchService.MetricKind_METRIC_KIND_UNSPECIFIED {
-		return nil, fmt.Errorf("sub-aggregations are not supported by bleve yet")
+	l := &aggLevel{opt: opt}
+	switch {
+	case opt.GetMetricKind() != searchService.MetricKind_METRIC_KIND_UNSPECIFIED:
+		l.kind = levelMetric
+	case len(aggregationRanges(opt)) > 0:
+		ranges := aggregationRanges(opt)
+		if rangesAreDates(ranges) {
+			l.kind = levelDateRange
+			for _, r := range ranges {
+				start, end, err := parseDateRange(opt.GetField(), r)
+				if err != nil {
+					return nil, err
+				}
+				l.dates = append(l.dates, dateRange{name: rangeBucketKey(r), start: start, end: end})
+			}
+		} else {
+			l.kind = levelNumericRange
+			for _, r := range ranges {
+				l.numeric = append(l.numeric, numericRange{name: rangeBucketKey(r), min: parseFloatPtr(r.GetFrom()), max: parseFloatPtr(r.GetTo())})
+			}
+		}
+	default:
+		l.kind = levelTerms
 	}
-	return &aggLevel{opt: opt}, nil
+	for _, sub := range opt.GetSubAggregations() {
+		child, err := newAggLevel(sub)
+		if err != nil {
+			return nil, err
+		}
+		l.children = append(l.children, child)
+	}
+	return l, nil
 }
 
 // fieldValues is per-document scratch, reused across documents.
 type fieldValues struct {
-	numbers []int64
+	asTerms   bool
+	asNumbers bool
+	terms     []string
+	numbers   []int64
 }
 
 type bucketAcc struct {
+	counts map[string]int64
+	subs   map[string][]*bucketAcc
+
 	value float64 // SUM/MIN/MAX
 	sum   float64 // AVG numerator
 	count int64   // AVG denominator
 	seen  bool
 }
 
-func newBucketAcc(*aggLevel) *bucketAcc {
-	return &bucketAcc{}
+func newBucketAcc(l *aggLevel) *bucketAcc {
+	a := &bucketAcc{}
+	if l.kind != levelMetric {
+		a.counts = map[string]int64{}
+		if len(l.children) > 0 {
+			a.subs = map[string][]*bucketAcc{}
+		}
+	}
+	return a
 }
 
 // aggCollector serves one search; bleve's collector is single-threaded.
@@ -201,9 +266,19 @@ func newAggCollector(aggs []*searchService.AggregationOption) (*aggCollector, er
 }
 
 func (c *aggCollector) register(l *aggLevel) {
-	if _, ok := c.fields[l.opt.GetField()]; !ok {
-		c.fields[l.opt.GetField()] = &fieldValues{}
+	fv, ok := c.fields[l.opt.GetField()]
+	if !ok {
+		fv = &fieldValues{}
+		c.fields[l.opt.GetField()] = fv
 		c.fieldNames = append(c.fieldNames, l.opt.GetField())
+	}
+	if l.kind == levelTerms {
+		fv.asTerms = true
+	} else {
+		fv.asNumbers = true
+	}
+	for _, child := range l.children {
+		c.register(child)
 	}
 }
 
@@ -242,6 +317,7 @@ func (c *aggCollector) collect(reader index.IndexReader, dvr index.DocValueReade
 		d.IndexInternalID = id
 	}
 	for _, fv := range c.fields {
+		fv.terms = fv.terms[:0]
 		fv.numbers = fv.numbers[:0]
 	}
 	if err := dvr.VisitDocValues(d.IndexInternalID, c.visit); err != nil {
@@ -260,17 +336,69 @@ func (c *aggCollector) visit(field string, term []byte) {
 	if !ok {
 		return
 	}
-	pc := numeric.PrefixCoded(term)
-	if shift, err := pc.Shift(); err == nil && shift == 0 {
-		if v, err := pc.Int64(); err == nil {
-			fv.numbers = append(fv.numbers, v)
+	if fv.asTerms {
+		fv.terms = append(fv.terms, string(term))
+	}
+	if fv.asNumbers {
+		pc := numeric.PrefixCoded(term)
+		if shift, err := pc.Shift(); err == nil && shift == 0 {
+			if v, err := pc.Int64(); err == nil {
+				fv.numbers = append(fv.numbers, v)
+			}
 		}
 	}
 }
 
 func (c *aggCollector) fold(a *bucketAcc, l *aggLevel) {
-	for _, raw := range c.fields[l.opt.GetField()].numbers {
-		a.addMetric(l.opt.GetMetricKind(), numeric.Int64ToFloat64(raw))
+	fv := c.fields[l.opt.GetField()]
+	switch l.kind {
+	case levelMetric:
+		for _, raw := range fv.numbers {
+			a.addMetric(l.opt.GetMetricKind(), numeric.Int64ToFloat64(raw))
+		}
+	case levelTerms:
+		for _, term := range fv.terms {
+			if term != "" {
+				c.foldBucket(a, l, term)
+			}
+		}
+	case levelNumericRange:
+		for _, raw := range fv.numbers {
+			v := numeric.Int64ToFloat64(raw)
+			for _, r := range l.numeric {
+				if (r.min == nil || v >= *r.min) && (r.max == nil || v < *r.max) {
+					c.foldBucket(a, l, r.name)
+				}
+			}
+		}
+	case levelDateRange:
+		for _, raw := range fv.numbers {
+			t := time.Unix(0, raw)
+			for _, r := range l.dates {
+				if (r.start.IsZero() || !t.Before(r.start)) && (r.end.IsZero() || t.Before(r.end)) {
+					c.foldBucket(a, l, r.name)
+				}
+			}
+		}
+	}
+}
+
+func (c *aggCollector) foldBucket(a *bucketAcc, l *aggLevel, key string) {
+	a.counts[key]++
+	a.seen = true
+	if len(l.children) == 0 {
+		return
+	}
+	subs, ok := a.subs[key]
+	if !ok {
+		subs = make([]*bucketAcc, len(l.children))
+		for i, child := range l.children {
+			subs[i] = newBucketAcc(child)
+		}
+		a.subs[key] = subs
+	}
+	for i, child := range l.children {
+		c.fold(subs[i], child)
 	}
 }
 
@@ -294,17 +422,41 @@ func (a *bucketAcc) addMetric(kind searchService.MetricKind, v float64) {
 }
 
 func (a *bucketAcc) result(l *aggLevel) *searchService.AggregationResult {
-	if !a.seen {
-		return nil
+	if l.kind == levelMetric {
+		if !a.seen {
+			return nil
+		}
+		r := &searchService.AggregationResult{Field: l.opt.GetField(), MetricKind: l.opt.GetMetricKind()}
+		if l.opt.GetMetricKind() == searchService.MetricKind_METRIC_KIND_AVG {
+			r.Sum = a.sum
+			r.Count = a.count
+		} else {
+			r.Value = a.value
+		}
+		return r
 	}
-	r := &searchService.AggregationResult{Field: l.opt.GetField(), MetricKind: l.opt.GetMetricKind()}
-	if l.opt.GetMetricKind() == searchService.MetricKind_METRIC_KIND_AVG {
-		r.Sum = a.sum
-		r.Count = a.count
-	} else {
-		r.Value = a.value
+
+	buckets := make([]*searchService.Bucket, 0, len(a.counts))
+	for key, count := range a.counts {
+		b := &searchService.Bucket{Key: key, Count: count}
+		for i, child := range l.children {
+			if sub := a.subs[key][i].result(child); sub != nil {
+				b.SubAggregations = append(b.SubAggregations, sub)
+			}
+		}
+		buckets = append(buckets, b)
 	}
-	return r
+	// same order as a bleve terms facet
+	sort.Slice(buckets, func(i, j int) bool {
+		if buckets[i].Count == buckets[j].Count {
+			return buckets[i].Key < buckets[j].Key
+		}
+		return buckets[i].Count > buckets[j].Count
+	})
+	if size := int(l.opt.GetSize()); size > 0 && len(buckets) > size {
+		buckets = buckets[:size]
+	}
+	return &searchService.AggregationResult{Field: l.opt.GetField(), Buckets: buckets}
 }
 
 func extractBleveAggregations(res *bleve.SearchResult, aggs []*searchService.AggregationOption, c *aggCollector) []*searchService.AggregationResult {

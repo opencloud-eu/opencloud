@@ -17,7 +17,7 @@ import (
 const DefaultFacetSize = 1000
 
 // Build translates AggregationOptions into the OpenSearch aggregation DSL
-// (terms, range, date_range, metric). Entries get an index-derived
+// (terms, range, date_range, metric, nested). Entries get an index-derived
 // name so repeated aggs on one field don't collide. A range bound that is
 // neither a number nor a date is an error.
 func Build(opts []*searchsvc.AggregationOption) (map[string]any, error) {
@@ -31,7 +31,7 @@ func buildLevel(opts []*searchsvc.AggregationOption, prefix string) (map[string]
 	aggs := map[string]any{}
 	for i, opt := range opts {
 		name := fmt.Sprintf("%s_%d", prefix, i)
-		entry, err := buildOne(opt)
+		entry, err := buildOne(opt, name)
 		if err != nil {
 			return nil, err
 		}
@@ -45,7 +45,7 @@ func buildLevel(opts []*searchsvc.AggregationOption, prefix string) (map[string]
 	return aggs, nil
 }
 
-func buildOne(opt *searchsvc.AggregationOption) (map[string]any, error) {
+func buildOne(opt *searchsvc.AggregationOption, name string) (map[string]any, error) {
 	field := opt.GetField()
 	if mk := opt.GetMetricKind(); mk != searchsvc.MetricKind_METRIC_KIND_UNSPECIFIED {
 		return buildMetric(field, mk), nil
@@ -72,6 +72,15 @@ func buildOne(opt *searchsvc.AggregationOption) (map[string]any, error) {
 				"field": field,
 				"size":  size,
 			},
+		}
+	}
+	if subs := opt.GetSubAggregations(); len(subs) > 0 {
+		nested, err := buildLevel(subs, name)
+		if err != nil {
+			return nil, err
+		}
+		if nested != nil {
+			entry["aggs"] = nested
 		}
 	}
 	return entry, nil
@@ -199,14 +208,14 @@ func parseLevel(node aggNode, opts []*searchsvc.AggregationOption, prefix string
 		if !ok {
 			continue
 		}
-		if res := parseOne(raw, opt); res != nil {
+		if res := parseOne(raw, opt, name); res != nil {
 			out = append(out, res)
 		}
 	}
 	return out
 }
 
-func parseOne(raw json.RawMessage, opt *searchsvc.AggregationOption) *searchsvc.AggregationResult {
+func parseOne(raw json.RawMessage, opt *searchsvc.AggregationOption, name string) *searchsvc.AggregationResult {
 	field := opt.GetField()
 	if mk := opt.GetMetricKind(); mk != searchsvc.MetricKind_METRIC_KIND_UNSPECIFIED {
 		return parseMetric(raw, field, mk)
@@ -219,7 +228,7 @@ func parseOne(raw json.RawMessage, opt *searchsvc.AggregationOption) *searchsvc.
 	}
 	buckets := make([]*searchsvc.Bucket, 0, len(body.Buckets))
 	for _, b := range body.Buckets {
-		if bucket := parseBucket(b); bucket != nil {
+		if bucket := parseBucket(b, opt.GetSubAggregations(), name); bucket != nil {
 			buckets = append(buckets, bucket)
 		}
 	}
@@ -229,7 +238,7 @@ func parseOne(raw json.RawMessage, opt *searchsvc.AggregationOption) *searchsvc.
 	}
 }
 
-func parseBucket(raw json.RawMessage) *searchsvc.Bucket {
+func parseBucket(raw json.RawMessage, subs []*searchsvc.AggregationOption, prefix string) *searchsvc.Bucket {
 	var head struct {
 		Key      any   `json:"key"`
 		DocCount int64 `json:"doc_count"`
@@ -240,6 +249,12 @@ func parseBucket(raw json.RawMessage) *searchsvc.Bucket {
 	b := &searchsvc.Bucket{
 		Key:   bucketKeyToString(head.Key),
 		Count: head.DocCount,
+	}
+	if len(subs) > 0 {
+		node, err := parseNode(raw)
+		if err == nil {
+			b.SubAggregations = parseLevel(node, subs, prefix)
+		}
 	}
 	return b
 }

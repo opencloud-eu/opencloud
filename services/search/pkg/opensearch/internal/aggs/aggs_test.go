@@ -113,6 +113,23 @@ var _ = Describe("Build", func() {
 		Expect(stats["field"]).To(Equal("audio.duration"))
 	})
 
+	It("nests sub-aggregations under their parent bucket", func() {
+		res := build([]*searchsvc.AggregationOption{{
+			Field: "audio.artist", Size: 5,
+			SubAggregations: []*searchsvc.AggregationOption{{
+				Field: "audio.album", Size: 7,
+				SubAggregations: []*searchsvc.AggregationOption{
+					{Field: "audio.duration", MetricKind: searchsvc.MetricKind_METRIC_KIND_SUM},
+				},
+			}},
+		}})
+		album := res["a_0"].(map[string]any)["aggs"].(map[string]any)["a_0_0"].(map[string]any)
+		albumTerms := album["terms"].(map[string]any)
+		Expect(albumTerms["field"]).To(Equal("audio.album"))
+		Expect(albumTerms["size"]).To(Equal(7))
+		metric := album["aggs"].(map[string]any)["a_0_0_0"].(map[string]any)
+		Expect(metric["sum"].(map[string]any)["field"]).To(Equal("audio.duration"))
+	})
 })
 
 var _ = Describe("Parse", func() {
@@ -147,6 +164,50 @@ var _ = Describe("Parse", func() {
 
 		// numeric term key stringified without trailing zeros
 		Expect(out[2].Buckets[0].Key).To(Equal("9"))
+	})
+
+	It("parses nested buckets carrying a metric", func() {
+		raw := json.RawMessage(`{
+			"a_0": {"buckets": [{
+				"key": "Iron Maiden", "doc_count": 300,
+				"a_0_0": {"buckets": [
+					{"key": "The Number of the Beast", "doc_count": 8, "a_0_0_0": {"value": 2756000.0}},
+					{"key": "Powerslave", "doc_count": 8, "a_0_0_0": {"value": 3061000.0}}
+				]}
+			}]}
+		}`)
+		out, err := aggs.Parse(raw, []*searchsvc.AggregationOption{{
+			Field: "audio.artist",
+			SubAggregations: []*searchsvc.AggregationOption{{
+				Field: "audio.album",
+				SubAggregations: []*searchsvc.AggregationOption{
+					{Field: "audio.duration", MetricKind: searchsvc.MetricKind_METRIC_KIND_SUM},
+				},
+			}},
+		}})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).To(HaveLen(1))
+		Expect(out[0].Field).To(Equal("audio.artist"))
+		Expect(out[0].Buckets).To(HaveLen(1))
+
+		artistBucket := out[0].Buckets[0]
+		Expect(artistBucket.Key).To(Equal("Iron Maiden"))
+		Expect(artistBucket.Count).To(Equal(int64(300)))
+		Expect(artistBucket.SubAggregations).To(HaveLen(1))
+
+		albumAgg := artistBucket.SubAggregations[0]
+		Expect(albumAgg.Field).To(Equal("audio.album"))
+		Expect(albumAgg.Buckets).To(HaveLen(2))
+
+		nob := albumAgg.Buckets[0]
+		Expect(nob.Key).To(Equal("The Number of the Beast"))
+		Expect(nob.Count).To(Equal(int64(8)))
+		Expect(nob.SubAggregations).To(HaveLen(1))
+
+		metric := nob.SubAggregations[0]
+		Expect(metric.Field).To(Equal("audio.duration"))
+		Expect(metric.MetricKind).To(Equal(searchsvc.MetricKind_METRIC_KIND_SUM))
+		Expect(metric.Value).To(Equal(2756000.0))
 	})
 
 	DescribeTable("parses single-value metrics",
