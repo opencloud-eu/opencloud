@@ -159,6 +159,70 @@ func aggregationCases() []aggCase {
 				&searchService.BucketRange{From: "2018-08-11T00:00:00Z", To: "not-a-date"},
 			)}},
 			wantBadRequest: true},
+		{id: 10, query: "mediatype:audio", reads: "album buckets nested in artist buckets",
+			aggs: []*searchService.AggregationOption{{Field: "audio.artist", SubAggregations: []*searchService.AggregationOption{{Field: "audio.album"}}}},
+			want: []string{
+				"audio.artist Saxon=2", "audio.artist Saxon=2 / audio.album Wheels of Steel=2",
+				"audio.artist Motörhead=3", "audio.artist Motörhead=3 / audio.album Bomber=2", "audio.artist Motörhead=3 / audio.album Ace of Spades=1",
+			}},
+		{id: 11, query: "mediatype:audio", reads: "sum and avg of audio.year per artist",
+			aggs: []*searchService.AggregationOption{{Field: "audio.artist", SubAggregations: []*searchService.AggregationOption{
+				metric("audio.year", searchService.MetricKind_METRIC_KIND_SUM),
+				metric("audio.year", searchService.MetricKind_METRIC_KIND_AVG),
+			}}},
+			want: []string{
+				"audio.artist Saxon=2", "audio.artist Saxon=2 / audio.year sum=3946", "audio.artist Saxon=2 / audio.year avg sum=3946 count=2",
+				"audio.artist Motörhead=3", "audio.artist Motörhead=3 / audio.year sum=5982", "audio.artist Motörhead=3 / audio.year avg sum=5982 count=3",
+			}},
+		{id: 12, query: "mediatype:audio", reads: "artist buckets nested in audio.year decades",
+			aggs: []*searchService.AggregationOption{{Field: "audio.year", BucketDefinition: ranges(
+				&searchService.BucketRange{From: "1970", To: "1980"},
+				&searchService.BucketRange{From: "1980", To: "1990"},
+				&searchService.BucketRange{From: "1990", To: "2000"},
+				&searchService.BucketRange{From: "2000", To: "2010"},
+			), SubAggregations: []*searchService.AggregationOption{{Field: "audio.artist"}}}},
+			want: []string{
+				"audio.year 1970..1980=2", "audio.year 1970..1980=2 / audio.artist Saxon=2",
+				"audio.year 1980..1990=1", "audio.year 1980..1990=1 / audio.artist Motörhead=1",
+				"audio.year 1990..2000=1", "audio.year 1990..2000=1 / audio.artist Motörhead=1",
+				"audio.year 2000..2010=3", "audio.year 2000..2010=3 / audio.artist Motörhead=1",
+			}},
+		{id: 13, query: "mediatype:audio", reads: "max audio.year per album per artist, three levels",
+			aggs: []*searchService.AggregationOption{{Field: "audio.artist", SubAggregations: []*searchService.AggregationOption{
+				{Field: "audio.album", SubAggregations: []*searchService.AggregationOption{
+					metric("audio.year", searchService.MetricKind_METRIC_KIND_MAX),
+				}},
+			}}},
+			want: []string{
+				"audio.artist Saxon=2", "audio.artist Saxon=2 / audio.album Wheels of Steel=2", "audio.artist Saxon=2 / audio.album Wheels of Steel=2 / audio.year max=1975",
+				"audio.artist Motörhead=3", "audio.artist Motörhead=3 / audio.album Bomber=2", "audio.artist Motörhead=3 / audio.album Bomber=2 / audio.year max=1999",
+				"audio.artist Motörhead=3 / audio.album Ace of Spades=1", "audio.artist Motörhead=3 / audio.album Ace of Spades=1 / audio.year max=2001",
+			}},
+		{id: 14, query: "mediatype:image", reads: "MimeType buckets nested in open-ended date ranges",
+			aggs: []*searchService.AggregationOption{{Field: "photo.takenDateTime", BucketDefinition: ranges(
+				&searchService.BucketRange{To: "2019-01-01T00:00:00Z"},
+				&searchService.BucketRange{From: "2019-01-01T00:00:00Z"},
+			), SubAggregations: []*searchService.AggregationOption{{Field: "MimeType"}}}},
+			want: []string{
+				"photo.takenDateTime ..2019-01-01T00:00:00Z=3", "photo.takenDateTime ..2019-01-01T00:00:00Z=3 / MimeType image/jpeg=3",
+				"photo.takenDateTime 2019-01-01T00:00:00Z..=1", "photo.takenDateTime 2019-01-01T00:00:00Z..=1 / MimeType image/jpeg=1",
+			},
+			// OpenSearch maps MimeType as wildcard, which serves no doc values to
+			// aggregate on; the follow-up is an aggregatable keyword sibling
+			engineOverrides: map[string]override{"opensearch": {want: []string{"error"}}}},
+		{id: 15, query: "mediatype:audio", reads: "nested aggregations cover every match on a page of one",
+			pageSize: 1,
+			aggs: []*searchService.AggregationOption{
+				{Field: "audio.artist", SubAggregations: []*searchService.AggregationOption{{Field: "audio.album"}}},
+				metric("audio.year", searchService.MetricKind_METRIC_KIND_SUM),
+			},
+			want: []string{
+				"1 of 7 matches",
+				"audio.artist Saxon=2", "audio.artist Saxon=2 / audio.album Wheels of Steel=2",
+				"audio.artist Motörhead=3", "audio.artist Motörhead=3 / audio.album Bomber=2", "audio.artist Motörhead=3 / audio.album Ace of Spades=1",
+				"audio.year sum=13942",
+			}},
+		// 16 and 19 pinned malformed bounds twice over, 17 is the cardinality case below
 		{id: 18, query: "mediatype:audio", reads: "two range aggregations and a metric on audio.year stay apart",
 			aggs: []*searchService.AggregationOption{
 				{Field: "audio.year", BucketDefinition: ranges(&searchService.BucketRange{To: "1980"}, &searchService.BucketRange{From: "1980"})},
@@ -169,6 +233,21 @@ func aggregationCases() []aggCase {
 				"audio.year ..1980=2", "audio.year 1980..=5",
 				"audio.year ..2000=4", "audio.year 2000..=3",
 				"audio.year max=2009",
+			}},
+		{id: 20, query: "mediatype:audio", reads: "album buckets in audio.year ranges in artist buckets",
+			aggs: []*searchService.AggregationOption{{Field: "audio.artist", SubAggregations: []*searchService.AggregationOption{{
+				Field:            "audio.year",
+				BucketDefinition: ranges(&searchService.BucketRange{To: "1980"}, &searchService.BucketRange{From: "1980"}),
+				SubAggregations:  []*searchService.AggregationOption{{Field: "audio.album"}},
+			}}}},
+			want: []string{
+				"audio.artist Saxon=2",
+				"audio.artist Saxon=2 / audio.year ..1980=2", "audio.artist Saxon=2 / audio.year ..1980=2 / audio.album Wheels of Steel=2",
+				"audio.artist Saxon=2 / audio.year 1980..=0",
+				"audio.artist Motörhead=3",
+				"audio.artist Motörhead=3 / audio.year ..1980=0",
+				"audio.artist Motörhead=3 / audio.year 1980..=3",
+				"audio.artist Motörhead=3 / audio.year 1980..=3 / audio.album Bomber=2", "audio.artist Motörhead=3 / audio.year 1980..=3 / audio.album Ace of Spades=1",
 			}},
 		{id: 21, query: "mediatype:image", reads: "a metric without a single value has none",
 			aggs: []*searchService.AggregationOption{
@@ -183,11 +262,20 @@ func aggregationCases() []aggCase {
 				"audio.year 1971=1", "audio.year 1975=1", "audio.year 1982=1", "audio.year 1999=1",
 				"audio.year 2001=1", "audio.year 2005=1", "audio.year 2009=1",
 			}},
+		{id: 35, query: "mediatype:audio", reads: "audio.year buckets nested in artist buckets",
+			aggs: []*searchService.AggregationOption{{Field: "audio.artist", SubAggregations: []*searchService.AggregationOption{{Field: "audio.year"}}}},
+			want: []string{
+				"audio.artist Saxon=2", "audio.artist Saxon=2 / audio.year 1971=1", "audio.artist Saxon=2 / audio.year 1975=1",
+				"audio.artist Motörhead=3", "audio.artist Motörhead=3 / audio.year 1982=1",
+				"audio.artist Motörhead=3 / audio.year 1999=1", "audio.artist Motörhead=3 / audio.year 2001=1",
+			}},
 		{id: 37, query: "mediatype:audio", reads: "term buckets on the bool audio.hasDrm, spelled true and false",
 			aggs: []*searchService.AggregationOption{{Field: "audio.hasDrm"}},
 			want: []string{"audio.hasDrm true=1", "audio.hasDrm false=1"}},
 		{id: 39, query: "mediatype:audio", reads: "no bucket for the empty Title of every match",
 			aggs: []*searchService.AggregationOption{{Field: "Title"}}},
+		{id: 40, query: "mediatype:audio", reads: "no bucket for the empty Title, with sub-aggregations neither",
+			aggs: []*searchService.AggregationOption{{Field: "Title", SubAggregations: []*searchService.AggregationOption{{Field: "audio.artist"}}}}},
 		{id: 41, query: "mediatype:audio", reads: "matches of the same score in the order of their ids, page after page",
 			pageSize: 3, listMatches: true,
 			want: []string{"3 of 7 matches", "a.mp3", "b.mp3", "c.mp3"}},
@@ -247,6 +335,15 @@ func cardinalityFixtures() []search.Resource {
 	return docs
 }
 
+// nested puts a terms aggregation on each field into the one before it.
+func nested(fields ...string) *searchService.AggregationOption {
+	opt := &searchService.AggregationOption{Field: fields[0]}
+	if len(fields) > 1 {
+		opt.SubAggregations = []*searchService.AggregationOption{nested(fields[1:]...)}
+	}
+	return opt
+}
+
 func cardinalityCases() []aggCase {
 	count := 10050
 	return []aggCase{
@@ -258,6 +355,9 @@ func cardinalityCases() []aggCase {
 			want:     []string{"1 of 10050 matches"}},
 		{id: 43, query: "mediatype:audio", reads: "a page reaching beyond the first 10000 matches is refused",
 			pageSize:       10001,
+			wantBadRequest: true},
+		{id: 44, query: "mediatype:audio", reads: "more than 65535 buckets in one request are refused",
+			aggs:           []*searchService.AggregationOption{nested("audio.artist", "Name", "ID", "RootID", "ParentID", "audio.album", "audio.year")},
 			wantBadRequest: true},
 	}
 }

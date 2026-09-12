@@ -12,8 +12,8 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
 )
 
-// Build renders the aggregations as native OpenSearch aggregations, each
-// named by its position. A terms aggregation asks for
+// Build renders the aggregation tree as native OpenSearch aggregations, each
+// named by its position among its siblings. A terms aggregation asks for
 // every bucket up to the limit: the service layer cuts to the requested size
 // after the cross-space merge, a cut here would make that merge inexact.
 func Build(opts []*searchsvc.AggregationOption) (map[string]any, error) {
@@ -50,6 +50,13 @@ func build(opt *searchsvc.AggregationOption) (map[string]any, error) {
 		entry = ranges
 	default:
 		entry = map[string]any{"terms": map[string]any{"field": opt.GetField(), "size": aggregation.MaxBuckets}}
+	}
+	children, err := Build(opt.GetSubAggregations())
+	if err != nil {
+		return nil, err
+	}
+	if children != nil {
+		entry["aggs"] = children
 	}
 	return entry, nil
 }
@@ -161,10 +168,18 @@ func parseBucket(opt *searchsvc.AggregationOption, raw json.RawMessage) (*search
 		KeyAsString *string `json:"key_as_string"`
 		DocCount    int64   `json:"doc_count"`
 	}
+	children := aggNode{}
 	if err := json.Unmarshal(raw, &head); err != nil {
 		return nil, fmt.Errorf("decode bucket of %s: %w", opt.GetField(), err)
 	}
-	return &searchsvc.Bucket{Key: bucketKey(head.Key, head.KeyAsString), Count: head.DocCount}, nil
+	if err := json.Unmarshal(raw, &children); err != nil {
+		return nil, fmt.Errorf("decode bucket of %s: %w", opt.GetField(), err)
+	}
+	subs, err := parse(opt.GetSubAggregations(), children)
+	if err != nil {
+		return nil, err
+	}
+	return &searchsvc.Bucket{Key: bucketKey(head.Key, head.KeyAsString), Count: head.DocCount, SubAggregations: subs}, nil
 }
 
 // bucketKey spells a response key like the bleve backend does: a number
