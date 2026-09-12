@@ -30,6 +30,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/metrics"
@@ -410,7 +411,8 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 	}
 
 	searchRequest := &searchsvc.SearchIndexRequest{
-		Query: req.Query,
+		Query:        req.Query,
+		Aggregations: req.GetAggregations(),
 		Ref: &searchmsg.Reference{
 			ResourceId: searchRootID,
 			Path:       searchPathPrefix,
@@ -446,6 +448,9 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 		isMountpoint := isShared && match.GetEntity().GetRef().GetPath() == "."
 		isDir := match.GetEntity().GetMimeType() == "httpd/unix-directory"
 		match.Entity.Permissions = convertToWebDAVPermissions(isShared, isMountpoint, isDir, permissions)
+		// allowedValues is the same effective permission set the WebDAV report's
+		// oc:permissions string projects, in libregraph action notation.
+		match.Entity.PermissionsActionsAllowedValues = unifiedrole.CS3ResourcePermissionsToLibregraphActions(permissions)
 
 		if req.Ref != nil && searchPathPrefix == "/"+match.Entity.Name {
 			continue
