@@ -144,6 +144,48 @@ var _ = Describe("Aggregations", func() {
 		Expect(keys(out[0])).To(Equal([]string{"1980..1990=0", "1970..1980=4", "1990..=0"}))
 	})
 
+	DescribeTable("asks for all accumulators of a metric, whatever its kind",
+		func(kind searchsvc.MetricKind) {
+			opt := &searchsvc.AggregationOption{Field: "audio.duration", MetricDefinition: &searchsvc.MetricDefinition{Kind: kind}}
+			stats := build(opt)["a_0"].(map[string]any)["stats"].(map[string]any)
+			Expect(stats["field"]).To(Equal("audio.duration"))
+
+			m := parse(`{"a_0": {"count": 100, "min": 30000.0, "max": 500000.0, "avg": 245000.0, "sum": 24500000.0}}`, opt)[0].GetMetric()
+			Expect(m.GetKind()).To(Equal(kind))
+			Expect(m.GetCount()).To(Equal(int64(100)))
+			Expect(m.GetSum()).To(Equal(24500000.0))
+			Expect(m.GetMin()).To(Equal(30000.0))
+			Expect(m.GetMax()).To(Equal(500000.0))
+			Expect(m.Value).To(BeNil(), "the service layer reduces to the value after the merge")
+		},
+		Entry("sum", searchsvc.MetricKind_METRIC_KIND_SUM),
+		Entry("min", searchsvc.MetricKind_METRIC_KIND_MIN),
+		Entry("max", searchsvc.MetricKind_METRIC_KIND_MAX),
+		Entry("avg", searchsvc.MetricKind_METRIC_KIND_AVG),
+	)
+
+	It("leaves a metric without a single value empty instead of reading null as zero", func() {
+		m := parse(`{"a_0": {"count": 0, "min": null, "max": null, "avg": null, "sum": 0.0}}`,
+			&searchsvc.AggregationOption{Field: "audio.duration", MetricDefinition: &searchsvc.MetricDefinition{Kind: searchsvc.MetricKind_METRIC_KIND_MIN}})[0].GetMetric()
+		Expect(m.GetKind()).To(Equal(searchsvc.MetricKind_METRIC_KIND_MIN))
+		Expect(m.GetCount()).To(BeZero())
+	})
+
+	It("answers one result per aggregation, in request order", func() {
+		out := parse(`{}`,
+			&searchsvc.AggregationOption{Field: "audio.year", MetricDefinition: &searchsvc.MetricDefinition{Kind: searchsvc.MetricKind_METRIC_KIND_SUM}},
+			&searchsvc.AggregationOption{Field: "audio.artist"},
+			&searchsvc.AggregationOption{Field: "audio.year", BucketDefinition: &searchsvc.BucketDefinition{Ranges: []*searchsvc.BucketRange{{To: "1980"}}}},
+			&searchsvc.AggregationOption{Field: "audio.year", MetricDefinition: &searchsvc.MetricDefinition{Kind: searchsvc.MetricKind_METRIC_KIND_MAX}},
+		)
+		Expect(out).To(HaveLen(4))
+		Expect(out[0].GetMetric().GetKind()).To(Equal(searchsvc.MetricKind_METRIC_KIND_SUM))
+		Expect(out[1].GetMetric()).To(BeNil())
+		Expect(out[1].GetBuckets()).To(BeEmpty())
+		Expect(keys(out[2])).To(Equal([]string{"..1980=0"}))
+		Expect(out[3].GetMetric().GetKind()).To(Equal(searchsvc.MetricKind_METRIC_KIND_MAX))
+	})
+
 	DescribeTable("reports a result it cannot decode instead of dropping it",
 		func(opt *searchsvc.AggregationOption, response string) {
 			_, err := aggs.Parse([]*searchsvc.AggregationOption{opt}, json.RawMessage(response))
@@ -151,5 +193,8 @@ var _ = Describe("Aggregations", func() {
 		},
 		Entry("a terms aggregation", &searchsvc.AggregationOption{Field: "audio.artist"}, `{"a_0": {"buckets": "none"}}`),
 		Entry("a bucket", &searchsvc.AggregationOption{Field: "audio.artist"}, `{"a_0": {"buckets": [{"key": "Saxon", "doc_count": "many"}]}}`),
+		Entry("a metric",
+			&searchsvc.AggregationOption{Field: "audio.year", MetricDefinition: &searchsvc.MetricDefinition{Kind: searchsvc.MetricKind_METRIC_KIND_SUM}},
+			`{"a_0": {"count": "many"}}`),
 	)
 })

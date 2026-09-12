@@ -4,6 +4,11 @@ import (
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 )
 
+// Observe adds a field value to the accumulators of m.
+func Observe(m *searchsvc.Metric, v float64) {
+	add(m, &searchsvc.Metric{Sum: v, Count: 1, Min: v, Max: v})
+}
+
 func add(into, from *searchsvc.Metric) {
 	if from.GetCount() == 0 {
 		return

@@ -85,7 +85,11 @@ func oneMatch(entity *searchmsg.Entity) *searchsvc.SearchResponse {
 }
 
 type searchAggregationJSON struct {
-	Field   string `json:"field"`
+	Field  string `json:"field"`
+	Metric *struct {
+		Kind  string   `json:"kind"`
+		Value *float64 `json:"value"`
+	} `json:"@libre.graph.metric"`
 	Buckets []struct {
 		Key             string                  `json:"key"`
 		Count           int64                   `json:"count"`
@@ -299,9 +303,14 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 			Expect(rr.Body.String()).To(ContainSubstring("invalidRequest"))
 		},
 		ginkgo.Entry("an empty field", `[{"field": ""}]`),
+		ginkgo.Entry("a bucket and a metric definition at once",
+			`[{"field": "audio.year", "bucketDefinition": {"sortBy": "count", "ranges": [{"from": "1980"}]}, "@libre.graph.metricDefinition": {"kind": "sum"}}]`),
+		ginkgo.Entry("an unknown metric kind", `[{"field": "audio.year", "@libre.graph.metricDefinition": {"kind": "median"}}]`),
 		ginkgo.Entry("an unknown sortBy", `[{"field": "audio.artist", "bucketDefinition": {"sortBy": "relevance"}}]`),
 		ginkgo.Entry("a size below one", `[{"field": "audio.artist", "size": 0}]`),
 		ginkgo.Entry("a negative minimumCount", `[{"field": "audio.artist", "bucketDefinition": {"sortBy": "count", "minimumCount": -1}}]`),
+		ginkgo.Entry("an unknown metric kind two levels down",
+			`[{"field": "audio.artist", "@libre.graph.subAggregations": [{"field": "audio.album", "@libre.graph.subAggregations": [{"field": "audio.year", "@libre.graph.metricDefinition": {"kind": "median"}}]}]}]`),
 		ginkgo.Entry("a field the index does not know", `[{"field": "audio.nonexistent"}]`),
 		ginkgo.Entry("a range bound that is no number", `[{"field": "audio.year", "bucketDefinition": {"sortBy": "count", "ranges": [{"from": "1970", "to": "198o"}]}}]`),
 	)
@@ -372,6 +381,27 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 
 		Expect(captured().GetAggregations()[0].GetField()).To(Equal("Mtime"))
 		Expect(hitsContainer(rr).Aggregations[0].Field).To(Equal("lastModifiedDateTime"))
+	})
+
+	ginkgo.It("maps a metric result, without a value when the metric has none", func() {
+		value := 1986.5
+		g, captured := graphWithAggregations(
+			&searchsvc.AggregationResult{Field: "audio.year", Metric: &searchsvc.Metric{Kind: searchsvc.MetricKind_METRIC_KIND_AVG, Value: &value, Sum: 3973, Count: 2}},
+			&searchsvc.AggregationResult{Field: "audio.year", Metric: &searchsvc.Metric{Kind: searchsvc.MetricKind_METRIC_KIND_MIN}},
+		)
+		rr := postSearchQuery(g, searchQueryBody(`"aggregations": [
+			{"field": "audio.year", "@libre.graph.metricDefinition": {"kind": "avg"}},
+			{"field": "audio.year", "@libre.graph.metricDefinition": {"kind": "min"}}
+		]`))
+		Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+		Expect(captured().GetAggregations()[0].GetMetricDefinition().GetKind()).To(Equal(searchsvc.MetricKind_METRIC_KIND_AVG))
+
+		aggs := hitsContainer(rr).Aggregations
+		Expect(aggs).To(HaveLen(2))
+		Expect(aggs[0].Metric.Kind).To(Equal("avg"))
+		Expect(aggs[0].Metric.Value).To(HaveValue(Equal(1986.5)))
+		Expect(aggs[1].Metric.Kind).To(Equal("min"))
+		Expect(aggs[1].Metric.Value).To(BeNil(), "no value, not zero")
 	})
 
 	ginkgo.DescribeTable("answers a property it does not evaluate with 501 instead of ignoring it",

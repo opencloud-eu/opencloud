@@ -38,6 +38,10 @@ func aggName(position int) string {
 func build(opt *searchsvc.AggregationOption) (map[string]any, error) {
 	var entry map[string]any
 	switch aggregation.KindOf(opt) {
+	case aggregation.KindMetric:
+		// all accumulators, whatever the kind: the service layer merges them
+		// across spaces and reduces to the kind's value
+		return map[string]any{"stats": map[string]any{"field": opt.GetField()}}, nil
 	case aggregation.KindRange:
 		ranges, err := buildRanges(opt.GetField(), opt.GetBucketDefinition().GetRanges())
 		if err != nil {
@@ -113,6 +117,9 @@ func parse(opts []*searchsvc.AggregationOption, node aggNode) ([]*searchsvc.Aggr
 }
 
 func result(opt *searchsvc.AggregationOption, raw json.RawMessage) (*searchsvc.AggregationResult, error) {
+	if aggregation.KindOf(opt) == aggregation.KindMetric {
+		return metricResult(opt, raw)
+	}
 	var body struct {
 		Buckets          []json.RawMessage `json:"buckets"`
 		SumOtherDocCount int64             `json:"sum_other_doc_count"`
@@ -174,4 +181,30 @@ func bucketKey(key any, asString *string) string {
 		return aggregation.NumberKey(k)
 	}
 	return ""
+}
+
+// metricResult reads a stats aggregation; min and max are null without a
+// single value.
+func metricResult(opt *searchsvc.AggregationOption, raw json.RawMessage) (*searchsvc.AggregationResult, error) {
+	res := &searchsvc.AggregationResult{
+		Field:  opt.GetField(),
+		Metric: &searchsvc.Metric{Kind: opt.GetMetricDefinition().GetKind()},
+	}
+	if len(raw) == 0 {
+		return res, nil
+	}
+	var body struct {
+		Count int64    `json:"count"`
+		Sum   float64  `json:"sum"`
+		Min   *float64 `json:"min"`
+		Max   *float64 `json:"max"`
+	}
+	if err := json.Unmarshal(raw, &body); err != nil {
+		return nil, fmt.Errorf("decode metric aggregation on %s: %w", opt.GetField(), err)
+	}
+	if body.Count == 0 || body.Min == nil || body.Max == nil {
+		return res, nil
+	}
+	res.Metric.Count, res.Metric.Sum, res.Metric.Min, res.Metric.Max = body.Count, body.Sum, *body.Min, *body.Max
+	return res, nil
 }
