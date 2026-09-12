@@ -82,17 +82,16 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 		}
 	}
 
+	size, err := search.EnginePageSize(sir.PageSize, math.MaxInt)
+	if err != nil {
+		return nil, err
+	}
+
 	bleveReq := bleve.NewSearchRequest(q)
 	bleveReq.Highlight = bleve.NewHighlight()
-
-	switch {
-	case sir.PageSize == -1:
-		bleveReq.Size = math.MaxInt
-	case sir.PageSize == 0:
-		bleveReq.Size = 200
-	default:
-		bleveReq.Size = int(sir.PageSize)
-	}
+	// ties by id, like the cross-space merge
+	bleveReq.SortBy([]string{"-_score", "_id"})
+	bleveReq.Size = size
 
 	bleveReq.Fields = []string{"*"}
 	res, err := b.index.Search(bleveReq)

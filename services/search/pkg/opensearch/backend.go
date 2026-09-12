@@ -109,17 +109,19 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 		}
 	}
 
-	searchParams := opensearchgoAPI.SearchParams{
-		SourceExcludes: []string{"Content"}, // Do not send back the full content in the search response, as it is only needed for highlighting and can be large. The highlighted snippets will be sent back in the response instead.
+	size, err := search.EnginePageSize(sir.PageSize, 1000)
+	if err != nil {
+		return nil, err
 	}
 
-	switch {
-	case sir.PageSize == -1:
-		searchParams.Size = conversions.ToPointer(1000)
-	case sir.PageSize == 0:
-		searchParams.Size = conversions.ToPointer(200)
-	default:
-		searchParams.Size = conversions.ToPointer(int(sir.PageSize))
+	searchParams := opensearchgoAPI.SearchParams{
+		SourceExcludes: []string{"Content"}, // Do not send back the full content in the search response, as it is only needed for highlighting and can be large. The highlighted snippets will be sent back in the response instead.
+		// ties by id, like the cross-space merge
+		Sort:        []string{"_score:desc", "ID:asc"},
+		TrackScores: conversions.ToPointer(true),
+		// count every match, the default stops at 10000
+		TrackTotalHits: true,
+		Size:           conversions.ToPointer(size),
 	}
 
 	req, err := osu.BuildSearchReq(&opensearchgoAPI.SearchReq{

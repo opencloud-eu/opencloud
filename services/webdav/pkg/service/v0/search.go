@@ -23,6 +23,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/tags"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail"
@@ -75,8 +76,11 @@ func (g Webdav) Search(w http.ResponseWriter, r *http.Request) {
 	ctx = metadata.Set(ctx, revactx.TokenHeader, t)
 
 	req := &searchsvc.SearchRequest{
-		Query:    rep.SearchFiles.Search.Pattern,
-		PageSize: int32(rep.SearchFiles.Search.Limit),
+		Query: rep.SearchFiles.Search.Pattern,
+	}
+	// -1 is no limit, 0 the default
+	if limit := rep.SearchFiles.Search.Limit; limit != 0 {
+		req.PageSize = conversions.ToPointer(int32(limit))
 	}
 
 	// Limit search to the according space when searching /dav/spaces/<spaceid>
