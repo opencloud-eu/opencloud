@@ -703,3 +703,40 @@ Fixtures:
 | METADATA-01 | `*song*` reads `Audio` | all 16 fields unchanged | all 16 fields unchanged | all 16 fields unchanged | âœ… |
 | METADATA-02 | `*team*` reads `Location` | all 3 fields unchanged | all 3 fields unchanged | all 3 fields unchanged | âœ… |
 | METADATA-03 | `*team*` reads `Audio` | none | none | none | âœ… |
+
+## Aggregations
+
+### aggregations
+
+Fixtures:
+
+- `a.mp3`, MimeType = audio/mpeg
+- `b.mp3`, MimeType = audio/mpeg
+- `c.mp3`, MimeType = audio/mpeg
+- `d.mp3`, MimeType = audio/mpeg
+- `e.mp3`, MimeType = audio/mpeg
+- `f.mp3`, MimeType = audio/mpeg
+- `g.mp3`, MimeType = audio/mpeg
+- `a.jpg`, MimeType = image/jpeg
+- `b.jpg`, MimeType = image/jpeg
+- `c.jpg`, MimeType = image/jpeg
+- `d.jpg`, MimeType = image/jpeg
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| AGG-01 | `mediatype:audio` reads `term buckets on audio.artist` | audio.arti... Floyd=2, audio.arti...¶rhead=3 | audio.arti... Floyd=2, audio.arti...¶rhead=3 | audio.arti... Floyd=2, audio.arti...¶rhead=3 | âœ… |
+| AGG-02 | `mediatype:audio` reads `no aggregations requested` | no match | no match | no match | âœ… |
+| AGG-03 | `mediatype:audio` reads `artist and album buckets in one request` | audio.albu...Spades=1, audio.album Bomber=2, audio.album The Wall=2, audio.arti... Floyd=2, audio.arti...¶rhead=3 | audio.albu...Spades=1, audio.album Bomber=2, audio.album The Wall=2, audio.arti... Floyd=2, audio.arti...¶rhead=3 | audio.albu...Spades=1, audio.album Bomber=2, audio.album The Wall=2, audio.arti... Floyd=2, audio.arti...¶rhead=3 | âœ… |
+| AGG-04 | `mediatype:audio` reads `audio.year buckets per decade` | audio.year 1970-1980=2, audio.year 1980-1990=1, audio.year 1990-2000=1, audio.year 2000-2010=3 | audio.year 1970-1980=2, audio.year 1980-1990=1, audio.year 1990-2000=1, audio.year 2000-2010=3 | audio.year 1970-1980=2, audio.year 1980-1990=1, audio.year 1990-2000=1, audio.year 2000-2010=3 | âœ… |
+| AGG-05 | `mediatype:audio` reads `open-ended audio.year ranges` | audio.year -1990=3, audio.year 2000-=3 | audio.year -1990=3, audio.year 2000-=3 | audio.year -1990=3, audio.year 2000-=3 | âœ… |
+| AGG-06 | `mediatype:audio` reads `top-level metrics on audio.year` | audio.year max=2009, audio.year min=1971, audio.year sum=13942, audio.year... count=7 | audio.year max=2009, audio.year min=1971, audio.year sum=13942, audio.year... count=7 | audio.year max=2009, audio.year min=1971, audio.year sum=13942, audio.year... count=7 | âœ… |
+| AGG-07 | `mediatype:image` reads `photo.takenDateTime buckets per date range` | photo.take...-01-01=1, photo.take...-09-01=2, photo.take...00:00Z=2 | photo.take...-01-01=1, photo.take...-09-01=2, photo.take...00:00Z=2 | photo.take...-01-01=1, photo.take...-09-01=2, photo.take...00:00Z=2 | âœ… |
+| AGG-08 | `mediatype:image` reads `open-ended date ranges` | photo.take...-01-01=3, photo.take...01-01-=1 | photo.take...-01-01=3, photo.take...01-01-=1 | photo.take...-01-01=3, photo.take...01-01-=1 | âœ… |
+| AGG-09 | `mediatype:image` reads `malformed date range bound` | error | error | error | âœ… |
+| AGG-10 | `mediatype:audio` reads `album buckets nested in artist buckets` | audio.arti... Floyd=2, audio.arti...Bomber=2, audio.arti...Spades=1, audio.arti...e Wall=2, audio.arti...¶rhead=3 | audio.arti... Floyd=2, audio.arti...Bomber=2, audio.arti...Spades=1, audio.arti...e Wall=2, audio.arti...¶rhead=3 | audio.arti... Floyd=2, audio.arti...Bomber=2, audio.arti...Spades=1, audio.arti...e Wall=2, audio.arti...¶rhead=3 | âœ… |
+| AGG-11 | `mediatype:audio` reads `sum and avg of audio.year per artist` | audio.arti... Floyd=2, audio.arti... count=2, audio.arti... count=3, audio.arti...sum=3946, audio.arti...sum=5982, audio.arti...¶rhead=3 | audio.arti... Floyd=2, audio.arti... count=2, audio.arti... count=3, audio.arti...sum=3946, audio.arti...sum=5982, audio.arti...¶rhead=3 | audio.arti... Floyd=2, audio.arti... count=2, audio.arti... count=3, audio.arti...sum=3946, audio.arti...sum=5982, audio.arti...¶rhead=3 | âœ… |
+| AGG-12 | `mediatype:audio` reads `artist buckets nested in audio.year decades` | audio.year 1970-1980=2, audio.year 1980-1990=1, audio.year 1990-2000=1, audio.year 2000-2010=3, audio.year... Floyd=2, audio.year...¶rhead=1, audio.year...¶rhead=1, audio.year...¶rhead=1 | audio.year 1970-1980=2, audio.year 1980-1990=1, audio.year 1990-2000=1, audio.year 2000-2010=3, audio.year... Floyd=2, audio.year...¶rhead=1, audio.year...¶rhead=1, audio.year...¶rhead=1 | audio.year 1970-1980=2, audio.year 1980-1990=1, audio.year 1990-2000=1, audio.year 2000-2010=3, audio.year... Floyd=2, audio.year...¶rhead=1, audio.year...¶rhead=1, audio.year...¶rhead=1 | âœ… |
+| AGG-13 | `mediatype:audio` reads `max audio.year per album per artist, three levels` | audio.arti... Floyd=2, audio.arti...Bomber=2, audio.arti...Spades=1, audio.arti...e Wall=2, audio.arti...max=1975, audio.arti...max=1999, audio.arti...max=2001, audio.arti...¶rhead=3 | audio.arti... Floyd=2, audio.arti...Bomber=2, audio.arti...Spades=1, audio.arti...e Wall=2, audio.arti...max=1975, audio.arti...max=1999, audio.arti...max=2001, audio.arti...¶rhead=3 | audio.arti... Floyd=2, audio.arti...Bomber=2, audio.arti...Spades=1, audio.arti...e Wall=2, audio.arti...max=1975, audio.arti...max=1999, audio.arti...max=2001, audio.arti...¶rhead=3 | âœ… |
+| AGG-14 | `mediatype:image` reads `MimeType buckets nested in open-ended date ranges` | photo.take...-01-01=3, photo.take...01-01-=1, photo.take...e/jpeg=1, photo.take...e/jpeg=3 | photo.take...-01-01=3, photo.take...01-01-=1, photo.take...e/jpeg=1, photo.take...e/jpeg=3 | photo.take...-01-01=3, photo.take...01-01-=1, photo.take...e/jpeg=1, photo.take...e/jpeg=3 | âœ… |
+| AGG-15 | `mediatype:audio` reads `nested aggregations cover every match on a page of one` | 1 of 7 matches, audio.arti... Floyd=2, audio.arti...Bomber=2, audio.arti...Spades=1, audio.arti...e Wall=2, audio.arti...¶rhead=3, audio.year sum=13942 | 1 of 7 matches, audio.arti... Floyd=2, audio.arti...Bomber=2, audio.arti...Spades=1, audio.arti...e Wall=2, audio.arti...¶rhead=3, audio.year sum=13942 | 1 of 7 matches, audio.arti... Floyd=2, audio.arti...Bomber=2, audio.arti...Spades=1, audio.arti...e Wall=2, audio.arti...¶rhead=3, audio.year sum=13942 | âœ… |
+| AGG-16 | `mediatype:audio` reads `malformed date range bound in a nested aggregation` | error | error | error | âœ… |
