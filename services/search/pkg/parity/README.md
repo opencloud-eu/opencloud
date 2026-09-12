@@ -703,3 +703,27 @@ Fixtures:
 | METADATA-01 | `*song*` reads `Audio` | all 16 fields unchanged | all 16 fields unchanged | all 16 fields unchanged | âœ… |
 | METADATA-02 | `*team*` reads `Location` | all 3 fields unchanged | all 3 fields unchanged | all 3 fields unchanged | âœ… |
 | METADATA-03 | `*team*` reads `Audio` | none | none | none | âœ… |
+
+## Aggregations
+
+### aggregations
+
+Fixtures:
+
+- `a.mp3`, MimeType = audio/mpeg
+- `b.mp3`, MimeType = audio/mpeg
+- `c.mp3`, MimeType = audio/mpeg
+- `d.mp3`, MimeType = audio/mpeg
+- `e.mp3`, MimeType = audio/mpeg
+- `f.mp3`, MimeType = audio/mpeg
+- `g.mp3`, MimeType = audio/mpeg
+- `a.jpg`, MimeType = image/jpeg
+- `b.jpg`, MimeType = image/jpeg
+- `c.jpg`, MimeType = image/jpeg
+- `d.jpg`, MimeType = image/jpeg
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| AGG-01 | `mediatype:audio` reads `term buckets on audio.artist` | audio.arti... Floyd=2, audio.arti...¶rhead=3 | audio.arti... Floyd=2, audio.arti...¶rhead=3 | audio.arti... Floyd=2, audio.arti...¶rhead=3 | âœ… |
+| AGG-02 | `mediatype:audio` reads `no aggregations requested` | no match | no match | no match | âœ… |
+| AGG-03 | `mediatype:audio` reads `artist and album buckets in one request` | audio.albu...Spades=1, audio.album Bomber=2, audio.album The Wall=2, audio.arti... Floyd=2, audio.arti...¶rhead=3 | audio.albu...Spades=1, audio.album Bomber=2, audio.album The Wall=2, audio.arti... Floyd=2, audio.arti...¶rhead=3 | audio.albu...Spades=1, audio.album Bomber=2, audio.album The Wall=2, audio.arti... Floyd=2, audio.arti...¶rhead=3 | âœ… |

@@ -2,6 +2,7 @@ package bleve
 
 import (
 	"context"
+	"errors"
 	"math"
 	"time"
 
@@ -94,6 +95,13 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 		bleveReq.Size = int(sir.PageSize)
 	}
 
+	for _, agg := range sir.GetAggregations() {
+		if collected(agg) {
+			return nil, errors.New("metric and nested aggregations are not supported by bleve yet")
+		}
+		bleveReq.AddFacet(agg.GetField(), newBleveFacetRequest(agg))
+	}
+
 	bleveReq.Fields = []string{"*"}
 	res, err := b.index.Search(bleveReq)
 	if err != nil {
@@ -151,6 +159,7 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 	return &searchService.SearchIndexResponse{
 		Matches:      matches,
 		TotalMatches: int32(totalMatches),
+		Aggregations: extractBleveAggregations(res, sir.GetAggregations()),
 	}, nil
 }
 

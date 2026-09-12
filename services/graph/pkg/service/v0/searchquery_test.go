@@ -197,4 +197,22 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		ginkgo.Entry("oversized size clamps to max", int32Ptr(0), int32Ptr(1000), int32(0), int32(500)),
 		ginkgo.Entry("from+size overflow collapses", int32Ptr(1<<31-1), int32Ptr(500), int32(1<<31-1-500), int32(500)),
 	)
+
+	ginkgo.It("rejects a terms aggregation on a numeric field with 400", func() {
+		g := graphWithSearch(stubSearchService{
+			search: func(*searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {
+				ginkgo.Fail("search service must not be called when validation fails")
+				return nil, nil
+			},
+		})
+		rr := postSearchQuery(g, `{
+			"requests": [{
+				"entityTypes": ["driveItem"],
+				"query": {"queryString": "mediatype:audio"},
+				"size": 0,
+				"aggregations": [{"field": "audio.year"}]
+			}]
+		}`)
+		Expect(rr.Code).To(Equal(http.StatusBadRequest), rr.Body.String())
+	})
 })

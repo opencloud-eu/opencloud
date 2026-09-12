@@ -2,6 +2,7 @@ package svc
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"path"
 	"slices"
@@ -18,6 +19,7 @@ import (
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
 // SearchQuery runs the search requests and returns results grouped by request
@@ -33,6 +35,13 @@ func (g Graph) SearchQuery(w http.ResponseWriter, r *http.Request) {
 	if len(req.Requests) == 0 {
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "requests array must not be empty")
 		return
+	}
+
+	for _, sr := range req.Requests {
+		if err := validateAggregations(sr.Aggregations); err != nil {
+			errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	th := r.Header.Get(revaCtx.TokenHeader)
@@ -136,6 +145,23 @@ func clampPagination(fromP, sizeP *int32) (int32, int32) {
 		}
 	}
 	return from, size
+}
+
+// validateAggregations rejects terms aggregations on numeric/time fields: bleve
+// indexes them as prefix-coded binary, so term buckets are meaningless.
+// Classification via search.IsNumericField.
+func validateAggregations(aggs []libregraph.AggregationOption) error {
+	for _, a := range aggs {
+		if !search.IsNumericField(a.Field) {
+			continue
+		}
+		if a.LibreGraphMetricDefinition != nil {
+			// metrics reduce numeric values, no term buckets involved
+			continue
+		}
+		return fmt.Errorf("terms aggregation is not supported on numeric field %q", a.Field)
+	}
+	return nil
 }
 
 func libregraphAggregationsToSearch(in []libregraph.AggregationOption) []*searchsvc.AggregationOption {

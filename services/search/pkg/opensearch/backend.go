@@ -17,6 +17,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/aggs"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/convert"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
@@ -122,6 +123,11 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 		searchParams.Size = conversions.ToPointer(int(sir.PageSize))
 	}
 
+	builtAggs, err := aggs.Build(sir.GetAggregations())
+	if err != nil {
+		return nil, err
+	}
+
 	req, err := osu.BuildSearchReq(&opensearchgoAPI.SearchReq{
 		Indices: []string{b.index},
 		Params:  searchParams,
@@ -140,6 +146,7 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 					},
 				},
 			},
+			Aggs: builtAggs,
 		},
 	)
 	if err != nil {
@@ -162,9 +169,15 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 		matches = append(matches, match)
 	}
 
+	aggResults, err := aggs.Parse(resp.Aggregations, sir.GetAggregations())
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse aggregations: %w", err)
+	}
+
 	return &searchService.SearchIndexResponse{
 		Matches:      matches,
 		TotalMatches: int32(totalMatches),
+		Aggregations: aggResults,
 	}, nil
 }
 
