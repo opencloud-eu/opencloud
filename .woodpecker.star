@@ -14,7 +14,7 @@ CODACY_COVERAGE_REPORTER = "codacy/codacy-coverage-reporter:14.1.3"
 COLLABORA_CODE = "collabora/code:24.04.5.1.1"
 OPEN_SEARCH = "opensearchproject/opensearch:2"
 INBUCKET_INBUCKET = "inbucket/inbucket"
-MINIO_MC = "minio/mc:RELEASE.2021-10-07T04-19-58Z"
+MINIO_MC = "quay.io/opencloudeu/minio-mc-ci:1.0"
 OC_CI_ALPINE = "owncloudci/alpine:latest"
 OC_CI_BAZEL_BUILDIFIER = "quay.io/opencloudeu/bazel-buildifier-ci:latest"
 OC_CI_CLAMAVD = "quay.io/opencloudeu/clamav-ci:latest"
@@ -1809,7 +1809,6 @@ def uploadTestArtifacts(pipeline_name):
         "image": MINIO_MC,
         "environment": MINIO_MC_ENV,
         "commands": [
-            "microdnf install -y zip",
             "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
             "cd %s/tests/e2e/playwright-report && zip -r /tmp/playwright-report.zip ." % dirs["web"],
             "mc cp /tmp/playwright-report.zip s3/$PUBLIC_BUCKET/web/artifacts/$CI_REPO_NAME/$CI_PIPELINE_NUMBER/%s/playwright-report.zip" % pipeline_name,
@@ -2843,7 +2842,7 @@ def purgeCache(name, flush_path, flush_age):
                 "environment": MINIO_MC_ENV,
                 "commands": [
                     "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
-                    "to_delete=$(mc find s3/%s/ --older-than %sd)" % (flush_path, flush_age),
+                    "to_delete=$(mc find s3/%s/ --older-than %sd || true)" % (flush_path, flush_age),
                     'if [ -z "$to_delete" ]; then exit 0; fi',
                     "mc rm $to_delete",
                 ],
