@@ -5,7 +5,7 @@ leaves the old one untouched. The service starts normally, but the new index is
 empty: search finds nothing until it is filled. The old index stays around
 until you remove it.
 
-## v7.x.x to %%NEXT%%
+## v7.x.x to v8.0.0
 
 ### OpenSearch
 
