@@ -18,6 +18,8 @@
 
 package prefixes
 
+import "github.com/opencloud-eu/reva/v2/pkg/storage/utils/ace"
+
 // Declare a list of xattr keys
 // TODO the below comment is currently copied from the owncloud driver, revisit
 // Currently,extended file attributes have four separated
@@ -49,8 +51,8 @@ const (
 
 	// grantPrefix is the prefix for sharing related extended attributes
 	GrantPrefix         string = OcisPrefix + "grant."
-	GrantUserAcePrefix  string = OcisPrefix + "grant." + UserAcePrefix
-	GrantGroupAcePrefix string = OcisPrefix + "grant." + GroupAcePrefix
+	GrantUserAcePrefix  string = OcisPrefix + "grant." + ace.UserAcePrefix
+	GrantGroupAcePrefix string = OcisPrefix + "grant." + ace.GroupAcePrefix
 	MetadataPrefix      string = OcisPrefix + "md."
 
 	// favorite flag, per user
@@ -97,7 +99,4 @@ const (
 	SpaceReadmeAttr      string = OcisPrefix + "space.readme"
 	SpaceImageAttr       string = OcisPrefix + "space.image"
 	SpaceAliasAttr       string = OcisPrefix + "space.alias"
-
-	UserAcePrefix  string = "u:"
-	GroupAcePrefix string = "g:"
 )

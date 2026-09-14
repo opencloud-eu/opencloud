@@ -20,6 +20,7 @@ package prefixes
 
 import (
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/ace"
 )
 
 // Declare a list of xattr keys
@@ -53,8 +54,9 @@ const (
 
 	// grantPrefix is the prefix for sharing related extended attributes
 	GrantPrefix         string = OcPrefix + "grant."
-	GrantUserAcePrefix  string = OcPrefix + "grant." + UserAcePrefix
-	GrantGroupAcePrefix string = OcPrefix + "grant." + GroupAcePrefix
+	GrantUserAcePrefix  string = OcPrefix + "grant." + ace.UserAcePrefix
+	GrantGroupAcePrefix string = OcPrefix + "grant." + ace.GroupAcePrefix
+	GrantMailAcePrefix  string = OcPrefix + "grant." + ace.MailAcePrefix
 	MetadataPrefix      string = OcPrefix + "md."
 
 	// favorite flag, per user
@@ -103,9 +105,6 @@ const (
 	SpaceAliasAttr       string = OcPrefix + "space.alias"
 	SpaceTenantIDAttr    string = OcPrefix + "space.tenantid"
 	SpaceContentTypeAttr string = OcPrefix + "space.contenttype"
-
-	UserAcePrefix  string = "u:"
-	GroupAcePrefix string = "g:"
 )
 
 func FavoriteKey(uid *userpb.UserId) string {
