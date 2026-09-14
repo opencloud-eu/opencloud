@@ -3881,7 +3881,9 @@ class SpacesContext implements Context {
 					}
 				}
 				return false;
-			}
+			},
+			2000,
+			30
 		);
 		$this->featureContext->setResponse($response);
 	}
