@@ -6,17 +6,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
-
-type statusResponseWriter struct {
-	http.ResponseWriter
-	statusCode int
-}
-
-func (rw *statusResponseWriter) WriteHeader(code int) {
-	rw.statusCode = code
-	rw.ResponseWriter.WriteHeader(code)
-}
 
 // A middleware that tracks the duration of every inbound Graph API HTTP call
 // and calls a function to delegate the storage of that duration into a
@@ -34,11 +25,11 @@ func HTTPMetrics(inFlight *atomic.Int64, observe func(method, pattern string, st
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
-			responseWrapper := &statusResponseWriter{ResponseWriter: w, statusCode: 200} // 200 OK is the default when it's not set
 			inFlight.Add(1)
 			defer inFlight.Add(-1)
 
-			next.ServeHTTP(responseWrapper, r)
+			wrapper := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			next.ServeHTTP(wrapper, r)
 
 			duration := time.Since(start)
 
@@ -53,7 +44,7 @@ func HTTPMetrics(inFlight *atomic.Int64, observe func(method, pattern string, st
 				}
 			}
 
-			observe(r.Method, routePattern, responseWrapper.statusCode, duration)
+			observe(r.Method, routePattern, wrapper.Status(), duration)
 		})
 	}
 }
