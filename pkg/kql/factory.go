@@ -238,3 +238,71 @@ func buildGroupNode(k, n any, text []byte, pos position) (*ast.GroupNode, error)
 
 	return gn, nil
 }
+
+func buildGeoDistanceNode(k, a any, text []byte, pos position) (*ast.GeoDistanceNode, error) {
+	b, err := base(text, pos)
+	if err != nil {
+		return nil, err
+	}
+	key, err := toString(k)
+	if err != nil {
+		return nil, err
+	}
+	args, err := toString(a)
+	if err != nil {
+		return nil, err
+	}
+	lat, lon, radius, err := parseGeoDistanceArgs(args)
+	if err != nil {
+		return nil, err
+	}
+	return &ast.GeoDistanceNode{Base: b, Key: key, Lat: lat, Lon: lon, Radius: radius}, nil
+}
+
+func buildGeoBoundingBoxNode(k, a any, text []byte, pos position) (*ast.GeoBoundingBoxNode, error) {
+	b, err := base(text, pos)
+	if err != nil {
+		return nil, err
+	}
+	key, err := toString(k)
+	if err != nil {
+		return nil, err
+	}
+	args, err := toString(a)
+	if err != nil {
+		return nil, err
+	}
+	minLat, minLon, maxLat, maxLon, err := parseGeoBoundingBoxArgs(args)
+	if err != nil {
+		return nil, err
+	}
+	// Latitude does not wrap, so the two values just delimit the box. Only bleve
+	// strictly requires MinLat <= MaxLat (OpenSearch tolerates the inverted
+	// order), but we normalise centrally here for consistency and easier
+	// debugging. Longitude order is kept: minLon > maxLon denotes a box crossing
+	// the antimeridian, which both backends interpret the same way.
+	if minLat > maxLat {
+		minLat, maxLat = maxLat, minLat
+	}
+	return &ast.GeoBoundingBoxNode{Base: b, Key: key, MinLat: minLat, MinLon: minLon, MaxLat: maxLat, MaxLon: maxLon}, nil
+}
+
+func buildGeoPolygonNode(k, a any, text []byte, pos position) (*ast.GeoPolygonNode, error) {
+	b, err := base(text, pos)
+	if err != nil {
+		return nil, err
+	}
+	key, err := toString(k)
+	if err != nil {
+		return nil, err
+	}
+	args, err := toString(a)
+	if err != nil {
+		return nil, err
+	}
+	points, err := parseGeoPolygonArgs(args)
+	if err != nil {
+		return nil, err
+	}
+	return &ast.GeoPolygonNode{Base: b, Key: key, Points: points}, nil
+}

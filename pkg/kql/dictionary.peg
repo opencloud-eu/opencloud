@@ -41,6 +41,7 @@ PropertyRestrictionNodes <-
     YesNoPropertyRestrictionNode /
     DateTimeRestrictionNode /
     NumberRestrictionNode /
+    GeoPropertyRestrictionNode /
     TextPropertyRestrictionNode
 
 YesNoPropertyRestrictionNode <-
@@ -86,6 +87,26 @@ TextPropertyRestrictionNode <-
     } /
     k:Key OperatorColonNode v:(String / [^ ()]+) {
         return buildStringNode(k, v, false, c.text, c.pos)
+    }
+
+////////////////////////////////////////////////////////
+// geo property restrictions
+////////////////////////////////////////////////////////
+
+GeoPropertyRestrictionNode <-
+    k:Key (OperatorColonNode / OperatorEqualNode) "geo.distance(" a:GeoArgs ")" {
+        return buildGeoDistanceNode(k, a, c.text, c.pos)
+    } /
+    k:Key (OperatorColonNode / OperatorEqualNode) "geo.bbox(" a:GeoArgs ")" {
+        return buildGeoBoundingBoxNode(k, a, c.text, c.pos)
+    } /
+    k:Key (OperatorColonNode / OperatorEqualNode) "geo.polygon(" a:GeoArgs ")" {
+        return buildGeoPolygonNode(k, a, c.text, c.pos)
+    }
+
+GeoArgs <-
+    [^)]* {
+        return string(c.text), nil
     }
 
 ////////////////////////////////////////////////////////

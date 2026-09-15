@@ -437,6 +437,27 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 				osu.NewTermQuery[string]("d").Value("d"),
 			),
 		},
+		{
+			Name: "geo_distance - geo distance node",
+			Got: &ast.Ast{Nodes: []ast.Node{
+				&ast.GeoDistanceNode{Key: "location", Lat: 48.2, Lon: 16.3, Radius: 5000},
+			}},
+			Want: osu.NewGeoDistanceQuery("location_geopoint").Distance("5000m").Point(48.2, 16.3),
+		},
+		{
+			Name: "geo_bounding_box - geo bbox node",
+			Got: &ast.Ast{Nodes: []ast.Node{
+				&ast.GeoBoundingBoxNode{Key: "location", MinLat: 47.9, MinLon: 16.1, MaxLat: 48.3, MaxLon: 16.5},
+			}},
+			Want: osu.NewGeoBoundingBoxQuery("location_geopoint").Box(47.9, 16.1, 48.3, 16.5),
+		},
+		{
+			Name: "geo_polygon - geo polygon node",
+			Got: &ast.Ast{Nodes: []ast.Node{
+				&ast.GeoPolygonNode{Key: "location", Points: []ast.GeoPoint{{Lat: 48.3, Lon: 16.1}, {Lat: 48.3, Lon: 16.5}, {Lat: 47.9, Lon: 16.5}}},
+			}},
+			Want: osu.NewGeoPolygonQuery("location_geopoint").Point(48.3, 16.1).Point(48.3, 16.5).Point(47.9, 16.5),
+		},
 	}
 
 	for _, test := range tests {
@@ -451,4 +472,11 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 			assert.JSONEq(t, opensearchtest.JSONMustMarshal(t, test.Want), opensearchtest.JSONMustMarshal(t, dsl))
 		})
 	}
+}
+
+func TestTranspileRejectsGeoOnNonGeoField(t *testing.T) {
+	_, err := convert.TranspileKQLToOpenSearch([]ast.Node{
+		&ast.GeoDistanceNode{Key: "name", Lat: 48.2, Lon: 16.3, Radius: 5000},
+	})
+	assert.Error(t, err)
 }
