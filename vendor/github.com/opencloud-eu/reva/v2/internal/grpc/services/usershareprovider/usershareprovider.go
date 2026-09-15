@@ -20,6 +20,7 @@ package usershareprovider
 
 import (
 	"context"
+	"net/mail"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -180,8 +181,18 @@ func (s *service) CreateShare(ctx context.Context, req *collaboration.CreateShar
 				Status: status.NewPermissionDenied(ctx, nil, "user tenantId does not match the target user tenantId"),
 			}, nil
 		}
-	}
 
+		if req.GetGrant().GetGrantee().GetUserId().GetType() == userpb.UserType_USER_TYPE_GUEST {
+			// guests are identified by their mail address, lets be strict here and only accept bare mail addresses
+			// and reject the "Mailbox"-Format that also contains a Display name
+			addr, err := mail.ParseAddress(req.GetGrant().GetGrantee().GetUserId().GetOpaqueId())
+			if err != nil || addr.Name != "" {
+				return &collaboration.CreateShareResponse{
+					Status: status.NewInvalidArg(ctx, "invalid mail address for guest grantee"),
+				}, nil
+			}
+		}
+	}
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
 		return nil, err
@@ -206,7 +217,7 @@ func (s *service) CreateShare(ctx context.Context, req *collaboration.CreateShar
 			UserId: &userpb.UserId{
 				OpaqueId: req.GetGrant().GetGrantee().GetUserId().GetOpaqueId(),
 				Idp:      user.GetId().GetIdp(),
-				Type:     userpb.UserType_USER_TYPE_PRIMARY},
+				Type:     req.GetGrant().GetGrantee().GetUserId().GetType()},
 		}
 	}
 	// some for group grantees

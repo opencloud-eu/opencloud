@@ -218,12 +218,31 @@ func ExtractGranteeID(grantee *provider.Grantee) (*userpb.UserId, *grouppb.Group
 
 // UserEqual returns whether two users have the same field values.
 func UserEqual(u, v *userpb.UserId) bool {
-	return u != nil && v != nil && u.Idp == v.Idp && u.OpaqueId == v.OpaqueId
+	return u != nil && v != nil && u.Idp == v.Idp && UserIDEqual(u, v)
 }
 
 // UserIDEqual returns whether two users have the same opaqueid values. The idp is ignored
 func UserIDEqual(u, v *userpb.UserId) bool {
-	return u != nil && v != nil && u.OpaqueId == v.OpaqueId
+	if u == nil || v == nil {
+		return false
+	}
+	return CanonicalUserID(u) == CanonicalUserID(v)
+}
+
+// CanonicalUserID returns the stable representation of a UserId as e.g. used for user storage keys.
+// Currently this is only relevant for UserId of the USER_TYPE_GUEST, which are matched case-insensitively.
+func CanonicalUserID(id *userpb.UserId) string {
+	if id == nil {
+		return ""
+	}
+	if id.GetType() == userpb.UserType_USER_TYPE_GUEST {
+		// Guest user IDs are lowercased to enable case insensitive
+		// comparisons: those are email addresses, and while RFC 5321 states
+		// that the local-part is case sensitive, in practice, it's a de facto
+		// standard that email providers consider them to be case insensitive.
+		return strings.ToLower(id.GetOpaqueId())
+	}
+	return id.GetOpaqueId()
 }
 
 // GroupEqual returns whether two groups have the same field values.

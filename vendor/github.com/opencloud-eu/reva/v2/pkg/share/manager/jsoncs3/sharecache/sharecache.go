@@ -37,6 +37,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/share/manager/jsoncs3/shareid"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/mtimesyncedcache"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/metadata"
+	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
 // name is the Tracer name used to identify this instrumentation library.
@@ -89,15 +90,17 @@ func New(s metadata.Storage, namespace, filename string, ttl time.Duration) Cach
 }
 
 // Add adds a share to the cache
-func (c *Cache) Add(ctx context.Context, userid, shareID string) error {
+func (c *Cache) Add(ctx context.Context, id utils.FilenameEncoder, shareID string) error {
+	key := id.SafeFilename()
+
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "Grab lock")
-	unlock := c.lockUser(userid)
+	unlock := c.lockUser(key)
 	span.End()
-	span.SetAttributes(attribute.String("cs3.userid", userid))
+	span.SetAttributes(attribute.String("cs3.userid", key))
 	defer unlock()
 
-	if _, ok := c.UserShares.Load(userid); !ok {
-		err := c.syncWithLock(ctx, userid)
+	if _, ok := c.UserShares.Load(key); !ok {
+		err := c.syncWithLock(ctx, key)
 		if err != nil {
 			return err
 		}
@@ -105,23 +108,23 @@ func (c *Cache) Add(ctx context.Context, userid, shareID string) error {
 
 	ctx, span = appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "Add")
 	defer span.End()
-	span.SetAttributes(attribute.String("cs3.userid", userid), attribute.String("cs3.shareid", shareID))
+	span.SetAttributes(attribute.String("cs3.userid", key), attribute.String("cs3.shareid", shareID))
 
 	storageid, spaceid, _ := shareid.Decode(shareID)
 	ssid := storageid + shareid.IDDelimiter + spaceid
 
 	persistFunc := func() error {
-		c.initializeIfNeeded(userid, ssid)
+		c.initializeIfNeeded(key, ssid)
 
 		// add share id
-		us, _ := c.UserShares.Load(userid)
+		us, _ := c.UserShares.Load(key)
 		us.UserShares[ssid].IDs[shareID] = struct{}{}
-		return c.Persist(ctx, userid)
+		return c.Persist(ctx, key)
 	}
 
 	log := appctx.GetLogger(ctx).With().
 		Str("hostname", os.Getenv("HOSTNAME")).
-		Str("userID", userid).
+		Str("userID", key).
 		Str("shareID", shareID).Logger()
 
 	var err error
@@ -149,7 +152,7 @@ func (c *Cache) Add(ctx context.Context, userid, shareID string) error {
 			log.Error().Err(err).Msg("persisting added share failed")
 			return err
 		}
-		if err := c.syncWithLock(ctx, userid); err != nil {
+		if err := c.syncWithLock(ctx, key); err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
 			log.Error().Err(err).Msg("persisting added share failed. giving up.")
@@ -160,15 +163,16 @@ func (c *Cache) Add(ctx context.Context, userid, shareID string) error {
 }
 
 // Remove removes a share for the given user
-func (c *Cache) Remove(ctx context.Context, userid, shareID string) error {
+func (c *Cache) Remove(ctx context.Context, id utils.FilenameEncoder, shareID string) error {
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "Grab lock")
-	unlock := c.lockUser(userid)
+	key := id.SafeFilename()
+	unlock := c.lockUser(key)
 	span.End()
-	span.SetAttributes(attribute.String("cs3.userid", userid))
+	span.SetAttributes(attribute.String("cs3.userid", key))
 	defer unlock()
 
-	if _, ok := c.UserShares.Load(userid); ok {
-		err := c.syncWithLock(ctx, userid)
+	if _, ok := c.UserShares.Load(key); ok {
+		err := c.syncWithLock(ctx, key)
 		if err != nil {
 			return err
 		}
@@ -176,13 +180,13 @@ func (c *Cache) Remove(ctx context.Context, userid, shareID string) error {
 
 	ctx, span = appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "Remove")
 	defer span.End()
-	span.SetAttributes(attribute.String("cs3.userid", userid), attribute.String("cs3.shareid", shareID))
+	span.SetAttributes(attribute.String("cs3.userid", key), attribute.String("cs3.shareid", shareID))
 
 	storageid, spaceid, _ := shareid.Decode(shareID)
 	ssid := storageid + shareid.IDDelimiter + spaceid
 
 	persistFunc := func() error {
-		us, loaded := c.UserShares.LoadOrStore(userid, &UserShareCache{
+		us, loaded := c.UserShares.LoadOrStore(key, &UserShareCache{
 			UserShares: map[string]*SpaceShareIDs{},
 		})
 
@@ -191,12 +195,12 @@ func (c *Cache) Remove(ctx context.Context, userid, shareID string) error {
 			delete(us.UserShares[ssid].IDs, shareID)
 		}
 
-		return c.Persist(ctx, userid)
+		return c.Persist(ctx, key)
 	}
 
 	log := appctx.GetLogger(ctx).With().
 		Str("hostname", os.Getenv("HOSTNAME")).
-		Str("userID", userid).
+		Str("userID", key).
 		Str("shareID", shareID).Logger()
 
 	var err error
@@ -224,7 +228,7 @@ func (c *Cache) Remove(ctx context.Context, userid, shareID string) error {
 			log.Error().Err(err).Msg("persisting removed share failed")
 			return err
 		}
-		if err := c.syncWithLock(ctx, userid); err != nil {
+		if err := c.syncWithLock(ctx, key); err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
 			return err
@@ -235,18 +239,19 @@ func (c *Cache) Remove(ctx context.Context, userid, shareID string) error {
 }
 
 // List return the list of spaces/shares for the given user/group
-func (c *Cache) List(ctx context.Context, userid string) (map[string]SpaceShareIDs, error) {
+func (c *Cache) List(ctx context.Context, id utils.FilenameEncoder) (map[string]SpaceShareIDs, error) {
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "Grab lock")
-	unlock := c.lockUser(userid)
+	key := id.SafeFilename()
+	unlock := c.lockUser(key)
 	span.End()
-	span.SetAttributes(attribute.String("cs3.userid", userid))
+	span.SetAttributes(attribute.String("cs3.userid", key))
 	defer unlock()
-	if err := c.syncWithLock(ctx, userid); err != nil {
+	if err := c.syncWithLock(ctx, key); err != nil {
 		return nil, err
 	}
 
 	r := map[string]SpaceShareIDs{}
-	us, ok := c.UserShares.Load(userid)
+	us, ok := c.UserShares.Load(key)
 	if !ok {
 		return r, nil
 	}
@@ -309,12 +314,12 @@ func (c *Cache) syncWithLock(ctx context.Context, userID string) error {
 }
 
 // Persist persists the data for one user/group to the storage
-func (c *Cache) Persist(ctx context.Context, userid string) error {
+func (c *Cache) Persist(ctx context.Context, key string) error {
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "Persist")
 	defer span.End()
-	span.SetAttributes(attribute.String("cs3.userid", userid))
+	span.SetAttributes(attribute.String("cs3.userid", key))
 
-	us, ok := c.UserShares.Load(userid)
+	us, ok := c.UserShares.Load(key)
 	if !ok {
 		span.SetStatus(codes.Ok, "no user shares")
 		return nil
@@ -325,7 +330,7 @@ func (c *Cache) Persist(ctx context.Context, userid string) error {
 		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
-	jsonPath := c.userCreatedPath(userid)
+	jsonPath := c.userCreatedPath(key)
 	if err := c.storage.MakeDirIfNotExist(ctx, path.Dir(jsonPath)); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
@@ -355,8 +360,8 @@ func (c *Cache) Persist(ctx context.Context, userid string) error {
 	return nil
 }
 
-func (c *Cache) userCreatedPath(userid string) string {
-	return filepath.Join("/", c.namespace, userid, c.filename)
+func (c *Cache) userCreatedPath(key string) string {
+	return filepath.Join("/", c.namespace, key, c.filename)
 }
 
 func (c *Cache) initializeIfNeeded(userid, ssid string) {

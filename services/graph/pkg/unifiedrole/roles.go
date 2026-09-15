@@ -11,6 +11,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/conversions"
 
 	"github.com/opencloud-eu/opencloud/pkg/l10n"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
 	graphl10n "github.com/opencloud-eu/opencloud/services/graph/pkg/l10n"
 )
 
@@ -70,7 +71,7 @@ const (
 	// .UserType is the type of the user: 'Member' for a member of the organization, 'Guest' for a guest user, 'Federated' for a federated user.
 
 	// UnifiedRoleConditionFederatedUser defines a constraint that matches a federated user
-	UnifiedRoleConditionFederatedUser = "@Subject.UserType==\"Federated\""
+	UnifiedRoleConditionFederatedUser = "@Subject.UserType==\"" + identity.UserTypeFederated + "\""
 
 	// For federated sharing we need roles that combine the constraints for the resource and the user.
 	// UnifiedRoleConditionFileFederatedUser defines a constraint that matches a File and a federated user

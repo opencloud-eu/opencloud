@@ -162,6 +162,25 @@ func CreateSharePermission(c settingsmsg.Permission_Constraint) *settingsmsg.Set
 	}
 }
 
+// CreateGuestInvitePermission is the permission to create guest (mail) invites.
+func CreateGuestInvitePermission(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
+	return &settingsmsg.Setting{
+		Id:          "54ca22e9-8b30-4826-b9b6-284b62b69289",
+		Name:        "GuestInvites.Create",
+		DisplayName: "Invite guests by email",
+		Description: "This permission allows creating guest (mail) invites.",
+		Resource: &settingsmsg.Resource{
+			Type: settingsmsg.Resource_TYPE_SHARE,
+		},
+		Value: &settingsmsg.Setting_PermissionValue{
+			PermissionValue: &settingsmsg.Permission{
+				Operation:  settingsmsg.Permission_OPERATION_WRITE,
+				Constraint: c,
+			},
+		},
+	}
+}
+
 // CreateSpacesPermission is the permission to create spaces
 func CreateSpacesPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
 	return &settingsmsg.Setting{
