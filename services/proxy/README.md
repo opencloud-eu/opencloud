@@ -247,7 +247,7 @@ The `proxy` service can use a configured store via `PROXY_OIDC_USERINFO_CACHE_ST
   -   `memory`: Basic in-memory store and the default.
   -   `redis-sentinel`: Stores data in a configured Redis Sentinel cluster.
   -   `nats-js-kv`: Stores data using key-value-store feature of [nats jetstream](https://docs.nats.io/nats-concepts/jetstream/key-value-store)
-  -   `noop`: Stores nothing. Useful for testing. Not recommended in production environments.
+  -   `noop`: Disables claims caching. Logout state is kept in memory. Useful for testing. Not recommended in production environments.
 
 Other store types may work but are not supported currently.
 
@@ -259,6 +259,12 @@ Store specific notes:
   -   When using `redis-sentinel`, the Redis master to use is configured via e.g. `OC_CACHE_STORE_NODES` in the form of `<sentinel-host>:<sentinel-port>/<redis-master>` like `10.10.0.200:26379/mymaster`.
   -   When using `nats-js-kv` it is recommended to set `OC_CACHE_STORE_NODES` to the same value as `OC_EVENTS_ENDPOINT`. That way the cache uses the same nats instance as the event bus.
   -   When using the `nats-js-kv` store, it is possible to set `OC_CACHE_DISABLE_PERSISTENCE` to instruct nats to not persist cache data on disc.
+
+Backchannel logout tracks each accepted access token separately and rejects revoked tokens even when `PROXY_OIDC_SKIP_USER_INFO` is enabled. Revocations are kept until the verified token expiry. Tokens without a verified expiry, including tokens imported from the legacy claims cache, require logout state with no automatic expiry. The claims cache continues to use the configured TTL when the token has no expiry.
+
+OIDC records use the configured database with the suffix `-oidc-v2` and the configured table with the suffix `/oidc-v2/`. This separates logout state from legacy caches and their bucket-wide TTL. On startup, persistent stores import unexpired legacy claims into the new session index. All proxy instances must use the updated code and the same persistent store to share logout decisions; memory-backed logout state is lost when the process stops. Keep the persistent OIDC namespace when clearing ordinary caches.
+
+For NATS, the new bucket has no bucket-wide TTL. The proxy enforces each record's expiry and removes expired records and their delete markers every minute. Marker cleanup is limited to the proxy's table and the observed revisions, preserving concurrent writes. An empty legacy bucket requires no migration. The deprecated `ocmem` option uses a dedicated memory store for OIDC state to prevent capacity eviction of revocations.
 
 
 ## Presigned Urls
