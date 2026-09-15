@@ -64,6 +64,27 @@ var _ = Describe("PrepareForIndex geopoint", func() {
 		Expect(gp["lon"]).To(Equal(lon))
 	})
 
+	It("skips out-of-range geopoints but keeps the object", func() {
+		type geoDoc struct {
+			Location *struct {
+				Longitude *float64 `json:"longitude,omitempty"`
+				Latitude  *float64 `json:"latitude,omitempty"`
+			} `json:"location,omitempty"`
+		}
+		for _, c := range [][2]float64{{11.1, 100}, {11.1, -90.5}, {180.5, 49.4}, {-181, 49.4}} {
+			lon, lat := c[0], c[1]
+			doc := geoDoc{Location: &struct {
+				Longitude *float64 `json:"longitude,omitempty"`
+				Latitude  *float64 `json:"latitude,omitempty"`
+			}{Longitude: &lon, Latitude: &lat}}
+
+			m, err := PrepareForIndex(doc, map[string]FieldOpts{"location": {Type: TypeGeopoint}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(m).To(HaveKey("location"), "lon=%v lat=%v", lon, lat)
+			Expect(m).ToNot(HaveKey("location"+GeopointSuffix), "lon=%v lat=%v", lon, lat)
+		}
+	})
+
 	It("skips incomplete geopoints", func() {
 		type geoDoc struct {
 			Location *struct {
