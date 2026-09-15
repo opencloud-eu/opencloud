@@ -1,10 +1,10 @@
 # Changelog
 
-## [8.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.0) - 2026-09-14
+## [8.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.0) - 2026-09-15
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@butonic, @dschmidt, @fredrikblau, @fschade, @maki5, @pbleser-oc, @rhafer, @sigurdvaa, @v-scharf, @zerox80
+@butonic, @dschmidt, @fredrikblau, @fschade, @maki5, @pbleser-oc, @rhafer, @saw-jan, @sigurdvaa, @v-scharf, @zerox80
 
 ### 💥 Breaking changes
 
