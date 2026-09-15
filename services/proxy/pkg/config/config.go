@@ -126,6 +126,7 @@ type OIDC struct {
 }
 
 type JWKS struct {
+	Uri               string `yaml:"uri" env:"PROXY_OIDC_JWKS_URI" desc:"An override for the JWKS URI endpoint of the IDP. This is used to fetch the public keys needed to verify JWT access tokens." introductionVersion:"6.2.0"`
 	RefreshInterval   uint64 `yaml:"refresh_interval" env:"PROXY_OIDC_JWKS_REFRESH_INTERVAL" desc:"The interval for refreshing the JWKS (JSON Web Key Set) in minutes in the background via a new HTTP request to the IDP." introductionVersion:"1.0.0"`
 	RefreshTimeout    uint64 `yaml:"refresh_timeout" env:"PROXY_OIDC_JWKS_REFRESH_TIMEOUT" desc:"The timeout in seconds for an outgoing JWKS request." introductionVersion:"1.0.0"`
 	RefreshRateLimit  uint64 `yaml:"refresh_limit" env:"PROXY_OIDC_JWKS_REFRESH_RATE_LIMIT" desc:"Limits the rate in seconds at which refresh requests are performed for unknown keys. This is used to prevent malicious clients from imposing high network load on the IDP via OpenCloud." introductionVersion:"1.0.0"`
