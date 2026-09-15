@@ -48,14 +48,7 @@ audience. When using this IDP, list the client IDs of all OpenCloud clients you
 use in `PROXY_OIDC_AUDIENCES`, including web, desktop and mobile clients. Setting
 this proxy option does not change the tokens issued by the IDP.
 
-For Keycloak, add an **Audience** protocol mapper to a client scope. Set
-**Included Client Audience** to the OpenCloud resource client, or use
-**Included Custom Audience** for a value such as `opencloud-api`, and enable
-**Add to access token**. Assign the scope as a default scope to each client
-accessing OpenCloud so the audience is included without an extra `scope`
-parameter. Use that same audience in `PROXY_OIDC_AUDIENCES`. See
-[Keycloak's audience support documentation](https://www.keycloak.org/docs/latest/server_admin/#audience-support)
-for details and the alternative based on client roles.
+For other IDPs, please refer to their documentation for proper support for the `aud` claim. For Keycloak see e.g.: [Keycloak's audience support documentation](https://www.keycloak.org/docs/latest/server_admin/#audience-support)
 
 An access token must contain at least one exactly matching, case-sensitive value
 in its `aud` claim. Both strings, such as `"aud": "opencloud"`, and arrays, such as
