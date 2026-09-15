@@ -5,6 +5,7 @@ filename: "{{.InterfaceName | snakecase }}.go"
 pkgname: mocks
 
 template: testify
+include-auto-generated: true
 packages:
   github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0:
     interfaces:
