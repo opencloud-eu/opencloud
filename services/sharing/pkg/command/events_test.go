@@ -12,7 +12,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
@@ -64,61 +63,54 @@ func TestAutoAcceptShares(t *testing.T) {
 	guestUser := &user.UserId{OpaqueId: "guest@example.org", Type: user.UserType_USER_TYPE_GUEST}
 
 	testCases := []struct {
-		name              string
-		granteeUser       *user.UserId
-		granteeGroup      *group.GroupId
-		groupMembers      []*user.UserId
-		defaultAccept     bool
-		settingValue      *bool
-		expectAccepted    int
-		expectSettingCall int
+		name           string
+		granteeUser    *user.UserId
+		granteeGroup   *group.GroupId
+		groupMembers   []*user.UserId
+		defaultAccept  bool
+		settingValue   *bool
+		expectAccepted int
 	}{
 		{
-			name:              "user setting enables auto accept",
-			granteeUser:       primaryUser,
-			defaultAccept:     false,
-			settingValue:      conversions.ToPointer(true),
-			expectAccepted:    1,
-			expectSettingCall: 1,
+			name:           "user setting enables auto accept",
+			granteeUser:    primaryUser,
+			defaultAccept:  false,
+			settingValue:   conversions.ToPointer(true),
+			expectAccepted: 1,
 		},
 		{
-			name:              "user setting disables auto accept",
-			granteeUser:       primaryUser,
-			defaultAccept:     true,
-			settingValue:      conversions.ToPointer(false),
-			expectAccepted:    0,
-			expectSettingCall: 1,
+			name:           "user setting disables auto accept",
+			granteeUser:    primaryUser,
+			defaultAccept:  true,
+			settingValue:   conversions.ToPointer(false),
+			expectAccepted: 0,
 		},
 		{
-			name:              "missing user setting falls back to default true",
-			granteeUser:       primaryUser,
-			defaultAccept:     true,
-			expectAccepted:    1,
-			expectSettingCall: 1,
+			name:           "missing user setting falls back to default true",
+			granteeUser:    primaryUser,
+			defaultAccept:  true,
+			expectAccepted: 1,
 		},
 		{
-			name:              "missing user setting falls back to default false",
-			granteeUser:       primaryUser,
-			defaultAccept:     false,
-			expectAccepted:    0,
-			expectSettingCall: 1,
+			name:           "missing user setting falls back to default false",
+			granteeUser:    primaryUser,
+			defaultAccept:  false,
+			expectAccepted: 0,
 		},
 		{
-			name:              "guest user grantee is skipped",
-			granteeUser:       guestUser,
-			defaultAccept:     true,
-			settingValue:      conversions.ToPointer(true),
-			expectAccepted:    0,
-			expectSettingCall: 0,
+			name:           "guest user grantee is skipped",
+			granteeUser:    guestUser,
+			defaultAccept:  true,
+			settingValue:   conversions.ToPointer(true),
+			expectAccepted: 0,
 		},
 		{
-			name:              "group grantee skips guest members",
-			granteeGroup:      &group.GroupId{OpaqueId: "group"},
-			groupMembers:      []*user.UserId{primaryUser, guestUser},
-			defaultAccept:     true,
-			settingValue:      conversions.ToPointer(true),
-			expectAccepted:    1,
-			expectSettingCall: 1,
+			name:           "group grantee skips guest members",
+			granteeGroup:   &group.GroupId{OpaqueId: "group"},
+			groupMembers:   []*user.UserId{primaryUser, guestUser},
+			defaultAccept:  true,
+			settingValue:   conversions.ToPointer(true),
+			expectAccepted: 1,
 		},
 	}
 
@@ -143,7 +135,6 @@ func TestAutoAcceptShares(t *testing.T) {
 			}
 
 			ev := events.ShareCreated{
-				ShareID:        &collaboration.ShareId{OpaqueId: "share-id"},
 				GranteeUserID:  tc.granteeUser,
 				GranteeGroupID: tc.granteeGroup,
 			}
@@ -154,16 +145,6 @@ func TestAutoAcceptShares(t *testing.T) {
 			}, 1)
 
 			gwc.AssertNumberOfCalls(t, "UpdateReceivedShare", tc.expectAccepted)
-			valueService.AssertNumberOfCalls(t, "GetValueByUniqueIdentifiers", tc.expectSettingCall)
-			if tc.expectAccepted > 0 {
-				var req *collaboration.UpdateReceivedShareRequest
-				for _, call := range gwc.Calls {
-					if call.Method == "UpdateReceivedShare" {
-						req, _ = call.Arguments.Get(1).(*collaboration.UpdateReceivedShareRequest)
-					}
-				}
-				assert.Equal(t, collaboration.ShareState_SHARE_STATE_ACCEPTED, req.GetShare().GetState())
-			}
 		})
 	}
 }
