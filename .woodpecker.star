@@ -1330,7 +1330,7 @@ def localApiTestPipeline(ctx):
                         if run_with_remote_php:
                             pipeline_name += "-withRemotePhp"
                         if run_with_watch_fs:
-                            pipeline_name += "-watchfs"
+                            pipeline_name = "watchfs-" + pipeline_name
                         if run_with_open_search:
                             pipeline_name += "-opensearch"
 
@@ -1465,7 +1465,7 @@ def coreApiTestPipeline(ctx):
                         if run_with_remote_php:
                             pipeline_name += "-withRemotePhp"
                         if run_with_watch_fs:
-                            pipeline_name += "-watchfs"
+                            pipeline_name = "watchfs-" + pipeline_name
 
                         pipeline = {
                             "name": pipeline_name,
@@ -1597,12 +1597,13 @@ def e2eTestPipeline(ctx):
 
         for storage in params["storages"]:
             for watch_fs_enabled in params["enableWatchFs"]:
-                pipeline_name = "test-e2e-%s-%s%s%s" % (
+                pipeline_name = "test-e2e-%s-%s%s" % (
                     name,
                     storage,
-                    "-watchfs" if watch_fs_enabled else "",
                     "-opensearch" if run_with_open_search else "",
                 )
+                if watch_fs_enabled:
+                    pipeline_name = "watchfs-" + pipeline_name
 
                 server_environment = dict(extra_server_environment)
                 if run_with_open_search:
@@ -1759,10 +1760,10 @@ def multiServiceE2ePipeline(ctx):
 
         for storage in params["storages"]:
             for watch_fs_enabled in params["enableWatchFs"]:
+                pipeline_name = "test-e2e-multi-service"
                 if watch_fs_enabled:
+                    pipeline_name = "watchfs-" + pipeline_name
                     extra_server_environment["STORAGE_USERS_POSIX_WATCH_FS"] = True
-
-                pipeline_name = "test-e2e-multi-service%s" % ("-watchfs" if watch_fs_enabled else "")
 
                 steps = \
                     evaluateWorkflowStep() + \
