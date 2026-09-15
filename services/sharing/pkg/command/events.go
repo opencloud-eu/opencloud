@@ -156,6 +156,10 @@ func AutoAcceptShares(ev events.ShareCreated, autoAcceptDefault bool, l log.Logg
 	for i := 0; i < maxConcurrency; i++ {
 		wg.Go(func() {
 			for userID := range work {
+				if userID.GetType() == user.UserType_USER_TYPE_GUEST {
+					l.Debug().Str("userid", userID.GetOpaqueId()).Msg("skipping auto-accept for guest user")
+					continue
+				}
 
 				if !autoAcceptShares(ctx, userID, autoAcceptDefault, vs) {
 					continue
