@@ -8,14 +8,12 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
-	ogrpc "github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/server/debug"
-	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/server/grpc"
 	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/server/http"
 
 	"github.com/spf13/cobra"
@@ -36,10 +34,6 @@ func Server(cfg *config.Config) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cfg.GrpcClient, err = ogrpc.NewClient(ogrpc.GetClientOptions(cfg.GRPCClientTLS)...)
-			if err != nil {
-				return err
-			}
 
 			var cancel context.CancelFunc
 			if cfg.Context == nil {
@@ -52,19 +46,6 @@ func Server(cfg *config.Config) *cobra.Command {
 			m.BuildInfo.WithLabelValues(version.GetString()).Set(1)
 
 			gr := runner.NewGroup()
-
-			service := grpc.NewService(
-				grpc.Logger(logger),
-				grpc.Context(ctx),
-				grpc.Config(cfg),
-				grpc.Name(cfg.Service.Name),
-				grpc.Namespace(cfg.GRPC.Namespace),
-				grpc.Address(cfg.GRPC.Addr),
-				grpc.Metrics(m),
-				grpc.TraceProvider(traceProvider),
-				grpc.MaxConcurrentRequests(cfg.GRPC.MaxConcurrentRequests),
-			)
-			gr.Add(runner.NewGoMicroGrpcServerRunner(cfg.Service.Name+".grpc", service))
 
 			server, err := debug.Server(
 				debug.Logger(logger),

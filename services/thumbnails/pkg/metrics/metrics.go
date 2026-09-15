@@ -12,33 +12,12 @@ var (
 
 // Metrics defines the available metrics of this service.
 type Metrics struct {
-	Counter   *prometheus.CounterVec
-	Latency   *prometheus.SummaryVec
-	Duration  *prometheus.HistogramVec
 	BuildInfo *prometheus.GaugeVec
 }
 
 // New initializes the available metrics.
 func New() *Metrics {
 	m := &Metrics{
-		Counter: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: Namespace,
-			Subsystem: Subsystem,
-			Name:      "getthumbnail_total",
-			Help:      "How many GetThumbnail requests processed",
-		}, []string{}),
-		Latency: prometheus.NewSummaryVec(prometheus.SummaryOpts{
-			Namespace: Namespace,
-			Subsystem: Subsystem,
-			Name:      "getthumbnail_latency_microseconds",
-			Help:      "GetThumbnail request latencies in microseconds",
-		}, []string{}),
-		Duration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Namespace: Namespace,
-			Subsystem: Subsystem,
-			Name:      "getthumbnail_duration_seconds",
-			Help:      "GetThumbnail method requests time in seconds",
-		}, []string{}),
 		BuildInfo: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: Namespace,
 			Subsystem: Subsystem,
@@ -46,18 +25,6 @@ func New() *Metrics {
 			Help:      "Build information",
 		}, []string{"version"}),
 	}
-
-	_ = prometheus.Register(
-		m.Counter,
-	)
-
-	_ = prometheus.Register(
-		m.Latency,
-	)
-
-	_ = prometheus.Register(
-		m.Duration,
-	)
 
 	_ = prometheus.Register(
 		m.BuildInfo,

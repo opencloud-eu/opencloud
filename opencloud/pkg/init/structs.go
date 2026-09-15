@@ -33,7 +33,6 @@ type OpenCloudConfig struct {
 	Users             UsersAndGroupsService `yaml:"users"`
 	Groups            UsersAndGroupsService `yaml:"groups"`
 	Ocm               OcmService            `yaml:"ocm"`
-	Thumbnails        ThumbnailService      `yaml:"thumbnails"`
 	Search            Search                `yaml:"search"`
 	Audit             Audit                 `yaml:"audit"`
 	Settings          SettingsService       `yaml:"settings"`
@@ -218,18 +217,6 @@ type StorageUsers struct {
 	Events         Events
 	MountID        string         `yaml:"mount_id"`
 	ServiceAccount ServiceAccount `yaml:"service_account"`
-}
-
-// ThumbnailSettings is the configuration for the thumbnail settings
-type ThumbnailSettings struct {
-	TransferSecret      string `yaml:"transfer_secret"`
-	WebdavAllowInsecure bool   `yaml:"webdav_allow_insecure"`
-	Cs3AllowInsecure    bool   `yaml:"cs3_allow_insecure"`
-}
-
-// ThumbnailService is the configuration for the thumbnail service
-type ThumbnailService struct {
-	Thumbnail ThumbnailSettings
 }
 
 // TokenManager is the configuration for the token manager

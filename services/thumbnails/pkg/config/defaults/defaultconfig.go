@@ -1,12 +1,6 @@
 package defaults
 
 import (
-	"path"
-	"strings"
-
-	"github.com/opencloud-eu/opencloud/pkg/config/defaults"
-	"github.com/opencloud-eu/opencloud/pkg/shared"
-	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/config"
 )
 
@@ -27,14 +21,8 @@ func DefaultConfig() *config.Config {
 			Pprof:  false,
 			Zpages: false,
 		},
-		GRPC: config.GRPCConfig{
-			Addr:                  "127.0.0.1:9185",
-			Namespace:             "eu.opencloud.api",
-			MaxConcurrentRequests: 0,
-		},
 		HTTP: config.HTTP{
 			Addr:      "127.0.0.1:9186",
-			Root:      "/thumbnails",
 			Namespace: "eu.opencloud.web",
 			CORS: config.CORS{
 				AllowedOrigins:   []string{"*"},
@@ -47,17 +35,8 @@ func DefaultConfig() *config.Config {
 			Name: "thumbnails",
 		},
 		Thumbnail: config.Thumbnail{
-			Resolutions: []string{"16x16", "32x32", "64x64", "128x128", "500x280", "280x500", "1000x560", "560x1000", "512x2048", "1080x1920", "1920x1080", "2160x3840", "3840x2160", "4320x7680", "7680x4320"},
-			FileSystemStorage: config.FileSystemStorage{
-				RootDirectory: path.Join(defaults.BaseDataPath(), "thumbnails"),
-			},
-			WebdavAllowInsecure:   false,
-			RevaGateway:           shared.DefaultRevaConfig().Address,
-			CS3AllowInsecure:      false,
-			DataEndpoint:          "http://127.0.0.1:9186/thumbnails/data",
-			MaxInputWidth:         7680,
-			MaxInputHeight:        7680,
-			MaxInputImageFileSize: "50MB",
+			MaxInputWidth:  7680,
+			MaxInputHeight: 7680,
 		},
 	}
 }
@@ -68,13 +47,6 @@ func EnsureDefaults(cfg *config.Config) {
 		cfg.LogLevel = "error"
 	}
 
-	if cfg.GRPCClientTLS == nil && cfg.Commons != nil {
-		cfg.GRPCClientTLS = structs.CopyOrZeroValue(cfg.Commons.GRPCClientTLS)
-	}
-	if cfg.GRPC.TLS == nil && cfg.Commons != nil {
-		cfg.GRPC.TLS = structs.CopyOrZeroValue(cfg.Commons.GRPCServiceTLS)
-	}
-
 	if cfg.Commons != nil {
 		cfg.HTTP.TLS = cfg.Commons.HTTPServiceTLS
 	}
@@ -82,8 +54,4 @@ func EnsureDefaults(cfg *config.Config) {
 
 // Sanitize sanitized the configuration
 func Sanitize(cfg *config.Config) {
-	// nothing to sanitize here atm
-	if len(cfg.Thumbnail.Resolutions) == 1 && strings.Contains(cfg.Thumbnail.Resolutions[0], ",") {
-		cfg.Thumbnail.Resolutions = strings.Split(cfg.Thumbnail.Resolutions[0], ",")
-	}
 }
