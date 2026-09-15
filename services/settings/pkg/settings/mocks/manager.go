@@ -72,7 +72,7 @@ type Manager_AddSettingToBundle_Call struct {
 // AddSettingToBundle is a helper method to define mock.On call
 //   - bundleID string
 //   - setting *v0.Setting
-func (_e *Manager_Expecter) AddSettingToBundle(bundleID interface{}, setting interface{}) *Manager_AddSettingToBundle_Call {
+func (_e *Manager_Expecter) AddSettingToBundle(bundleID any, setting any) *Manager_AddSettingToBundle_Call {
 	return &Manager_AddSettingToBundle_Call{Call: _e.mock.On("AddSettingToBundle", bundleID, setting)}
 }
 
@@ -140,7 +140,7 @@ type Manager_ListBundles_Call struct {
 // ListBundles is a helper method to define mock.On call
 //   - bundleType v0.Bundle_Type
 //   - bundleIDs []string
-func (_e *Manager_Expecter) ListBundles(bundleType interface{}, bundleIDs interface{}) *Manager_ListBundles_Call {
+func (_e *Manager_Expecter) ListBundles(bundleType any, bundleIDs any) *Manager_ListBundles_Call {
 	return &Manager_ListBundles_Call{Call: _e.mock.On("ListBundles", bundleType, bundleIDs)}
 }
 
@@ -208,7 +208,7 @@ type Manager_ListPermissionsByResource_Call struct {
 // ListPermissionsByResource is a helper method to define mock.On call
 //   - resource *v0.Resource
 //   - roleIDs []string
-func (_e *Manager_Expecter) ListPermissionsByResource(resource interface{}, roleIDs interface{}) *Manager_ListPermissionsByResource_Call {
+func (_e *Manager_Expecter) ListPermissionsByResource(resource any, roleIDs any) *Manager_ListPermissionsByResource_Call {
 	return &Manager_ListPermissionsByResource_Call{Call: _e.mock.On("ListPermissionsByResource", resource, roleIDs)}
 }
 
@@ -275,7 +275,7 @@ type Manager_ListRoleAssignments_Call struct {
 
 // ListRoleAssignments is a helper method to define mock.On call
 //   - accountUUID string
-func (_e *Manager_Expecter) ListRoleAssignments(accountUUID interface{}) *Manager_ListRoleAssignments_Call {
+func (_e *Manager_Expecter) ListRoleAssignments(accountUUID any) *Manager_ListRoleAssignments_Call {
 	return &Manager_ListRoleAssignments_Call{Call: _e.mock.On("ListRoleAssignments", accountUUID)}
 }
 
@@ -337,7 +337,7 @@ type Manager_ListRoleAssignmentsByRole_Call struct {
 
 // ListRoleAssignmentsByRole is a helper method to define mock.On call
 //   - roleID string
-func (_e *Manager_Expecter) ListRoleAssignmentsByRole(roleID interface{}) *Manager_ListRoleAssignmentsByRole_Call {
+func (_e *Manager_Expecter) ListRoleAssignmentsByRole(roleID any) *Manager_ListRoleAssignmentsByRole_Call {
 	return &Manager_ListRoleAssignmentsByRole_Call{Call: _e.mock.On("ListRoleAssignmentsByRole", roleID)}
 }
 
@@ -400,7 +400,7 @@ type Manager_ListValues_Call struct {
 // ListValues is a helper method to define mock.On call
 //   - bundleID string
 //   - accountUUID string
-func (_e *Manager_Expecter) ListValues(bundleID interface{}, accountUUID interface{}) *Manager_ListValues_Call {
+func (_e *Manager_Expecter) ListValues(bundleID any, accountUUID any) *Manager_ListValues_Call {
 	return &Manager_ListValues_Call{Call: _e.mock.On("ListValues", bundleID, accountUUID)}
 }
 
@@ -467,7 +467,7 @@ type Manager_ReadBundle_Call struct {
 
 // ReadBundle is a helper method to define mock.On call
 //   - bundleID string
-func (_e *Manager_Expecter) ReadBundle(bundleID interface{}) *Manager_ReadBundle_Call {
+func (_e *Manager_Expecter) ReadBundle(bundleID any) *Manager_ReadBundle_Call {
 	return &Manager_ReadBundle_Call{Call: _e.mock.On("ReadBundle", bundleID)}
 }
 
@@ -530,7 +530,7 @@ type Manager_ReadPermissionByID_Call struct {
 // ReadPermissionByID is a helper method to define mock.On call
 //   - permissionID string
 //   - roleIDs []string
-func (_e *Manager_Expecter) ReadPermissionByID(permissionID interface{}, roleIDs interface{}) *Manager_ReadPermissionByID_Call {
+func (_e *Manager_Expecter) ReadPermissionByID(permissionID any, roleIDs any) *Manager_ReadPermissionByID_Call {
 	return &Manager_ReadPermissionByID_Call{Call: _e.mock.On("ReadPermissionByID", permissionID, roleIDs)}
 }
 
@@ -598,7 +598,7 @@ type Manager_ReadPermissionByName_Call struct {
 // ReadPermissionByName is a helper method to define mock.On call
 //   - name string
 //   - roleIDs []string
-func (_e *Manager_Expecter) ReadPermissionByName(name interface{}, roleIDs interface{}) *Manager_ReadPermissionByName_Call {
+func (_e *Manager_Expecter) ReadPermissionByName(name any, roleIDs any) *Manager_ReadPermissionByName_Call {
 	return &Manager_ReadPermissionByName_Call{Call: _e.mock.On("ReadPermissionByName", name, roleIDs)}
 }
 
@@ -665,7 +665,7 @@ type Manager_ReadSetting_Call struct {
 
 // ReadSetting is a helper method to define mock.On call
 //   - settingID string
-func (_e *Manager_Expecter) ReadSetting(settingID interface{}) *Manager_ReadSetting_Call {
+func (_e *Manager_Expecter) ReadSetting(settingID any) *Manager_ReadSetting_Call {
 	return &Manager_ReadSetting_Call{Call: _e.mock.On("ReadSetting", settingID)}
 }
 
@@ -727,7 +727,7 @@ type Manager_ReadValue_Call struct {
 
 // ReadValue is a helper method to define mock.On call
 //   - valueID string
-func (_e *Manager_Expecter) ReadValue(valueID interface{}) *Manager_ReadValue_Call {
+func (_e *Manager_Expecter) ReadValue(valueID any) *Manager_ReadValue_Call {
 	return &Manager_ReadValue_Call{Call: _e.mock.On("ReadValue", valueID)}
 }
 
@@ -790,7 +790,7 @@ type Manager_ReadValueByUniqueIdentifiers_Call struct {
 // ReadValueByUniqueIdentifiers is a helper method to define mock.On call
 //   - accountUUID string
 //   - settingID string
-func (_e *Manager_Expecter) ReadValueByUniqueIdentifiers(accountUUID interface{}, settingID interface{}) *Manager_ReadValueByUniqueIdentifiers_Call {
+func (_e *Manager_Expecter) ReadValueByUniqueIdentifiers(accountUUID any, settingID any) *Manager_ReadValueByUniqueIdentifiers_Call {
 	return &Manager_ReadValueByUniqueIdentifiers_Call{Call: _e.mock.On("ReadValueByUniqueIdentifiers", accountUUID, settingID)}
 }
 
@@ -846,7 +846,7 @@ type Manager_RemoveRoleAssignment_Call struct {
 
 // RemoveRoleAssignment is a helper method to define mock.On call
 //   - assignmentID string
-func (_e *Manager_Expecter) RemoveRoleAssignment(assignmentID interface{}) *Manager_RemoveRoleAssignment_Call {
+func (_e *Manager_Expecter) RemoveRoleAssignment(assignmentID any) *Manager_RemoveRoleAssignment_Call {
 	return &Manager_RemoveRoleAssignment_Call{Call: _e.mock.On("RemoveRoleAssignment", assignmentID)}
 }
 
@@ -898,7 +898,7 @@ type Manager_RemoveSettingFromBundle_Call struct {
 // RemoveSettingFromBundle is a helper method to define mock.On call
 //   - bundleID string
 //   - settingID string
-func (_e *Manager_Expecter) RemoveSettingFromBundle(bundleID interface{}, settingID interface{}) *Manager_RemoveSettingFromBundle_Call {
+func (_e *Manager_Expecter) RemoveSettingFromBundle(bundleID any, settingID any) *Manager_RemoveSettingFromBundle_Call {
 	return &Manager_RemoveSettingFromBundle_Call{Call: _e.mock.On("RemoveSettingFromBundle", bundleID, settingID)}
 }
 
@@ -965,7 +965,7 @@ type Manager_WriteBundle_Call struct {
 
 // WriteBundle is a helper method to define mock.On call
 //   - bundle *v0.Bundle
-func (_e *Manager_Expecter) WriteBundle(bundle interface{}) *Manager_WriteBundle_Call {
+func (_e *Manager_Expecter) WriteBundle(bundle any) *Manager_WriteBundle_Call {
 	return &Manager_WriteBundle_Call{Call: _e.mock.On("WriteBundle", bundle)}
 }
 
@@ -1028,7 +1028,7 @@ type Manager_WriteRoleAssignment_Call struct {
 // WriteRoleAssignment is a helper method to define mock.On call
 //   - accountUUID string
 //   - roleID string
-func (_e *Manager_Expecter) WriteRoleAssignment(accountUUID interface{}, roleID interface{}) *Manager_WriteRoleAssignment_Call {
+func (_e *Manager_Expecter) WriteRoleAssignment(accountUUID any, roleID any) *Manager_WriteRoleAssignment_Call {
 	return &Manager_WriteRoleAssignment_Call{Call: _e.mock.On("WriteRoleAssignment", accountUUID, roleID)}
 }
 
@@ -1095,7 +1095,7 @@ type Manager_WriteValue_Call struct {
 
 // WriteValue is a helper method to define mock.On call
 //   - value *v0.Value
-func (_e *Manager_Expecter) WriteValue(value interface{}) *Manager_WriteValue_Call {
+func (_e *Manager_Expecter) WriteValue(value any) *Manager_WriteValue_Call {
 	return &Manager_WriteValue_Call{Call: _e.mock.On("WriteValue", value)}
 }
 

@@ -82,9 +82,9 @@ type SearchProviderService_IndexSpace_Call struct {
 //   - ctx context.Context
 //   - in *v0.IndexSpaceRequest
 //   - opts ...client.CallOption
-func (_e *SearchProviderService_Expecter) IndexSpace(ctx interface{}, in interface{}, opts ...interface{}) *SearchProviderService_IndexSpace_Call {
+func (_e *SearchProviderService_Expecter) IndexSpace(ctx any, in any, opts ...any) *SearchProviderService_IndexSpace_Call {
 	return &SearchProviderService_IndexSpace_Call{Call: _e.mock.On("IndexSpace",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *SearchProviderService_IndexSpace_Call) Run(run func(ctx context.Context, in *v0.IndexSpaceRequest, opts ...client.CallOption)) *SearchProviderService_IndexSpace_Call {
@@ -165,9 +165,9 @@ type SearchProviderService_Search_Call struct {
 //   - ctx context.Context
 //   - in *v0.SearchRequest
 //   - opts ...client.CallOption
-func (_e *SearchProviderService_Expecter) Search(ctx interface{}, in interface{}, opts ...interface{}) *SearchProviderService_Search_Call {
+func (_e *SearchProviderService_Expecter) Search(ctx any, in any, opts ...any) *SearchProviderService_Search_Call {
 	return &SearchProviderService_Search_Call{Call: _e.mock.On("Search",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *SearchProviderService_Search_Call) Run(run func(ctx context.Context, in *v0.SearchRequest, opts ...client.CallOption)) *SearchProviderService_Search_Call {

@@ -77,7 +77,7 @@ type DrivesDriveItemProvider_GetShare_Call struct {
 // GetShare is a helper method to define mock.On call
 //   - ctx context.Context
 //   - shareID *collaborationv1beta1.ShareId
-func (_e *DrivesDriveItemProvider_Expecter) GetShare(ctx interface{}, shareID interface{}) *DrivesDriveItemProvider_GetShare_Call {
+func (_e *DrivesDriveItemProvider_Expecter) GetShare(ctx any, shareID any) *DrivesDriveItemProvider_GetShare_Call {
 	return &DrivesDriveItemProvider_GetShare_Call{Call: _e.mock.On("GetShare", ctx, shareID)}
 }
 
@@ -146,7 +146,7 @@ type DrivesDriveItemProvider_GetSharesForResource_Call struct {
 //   - ctx context.Context
 //   - resourceID *providerv1beta1.ResourceId
 //   - filters []*collaborationv1beta1.Filter
-func (_e *DrivesDriveItemProvider_Expecter) GetSharesForResource(ctx interface{}, resourceID interface{}, filters interface{}) *DrivesDriveItemProvider_GetSharesForResource_Call {
+func (_e *DrivesDriveItemProvider_Expecter) GetSharesForResource(ctx any, resourceID any, filters any) *DrivesDriveItemProvider_GetSharesForResource_Call {
 	return &DrivesDriveItemProvider_GetSharesForResource_Call{Call: _e.mock.On("GetSharesForResource", ctx, resourceID, filters)}
 }
 
@@ -219,7 +219,7 @@ type DrivesDriveItemProvider_MountOCMShare_Call struct {
 // MountOCMShare is a helper method to define mock.On call
 //   - ctx context.Context
 //   - resourceID *providerv1beta1.ResourceId
-func (_e *DrivesDriveItemProvider_Expecter) MountOCMShare(ctx interface{}, resourceID interface{}) *DrivesDriveItemProvider_MountOCMShare_Call {
+func (_e *DrivesDriveItemProvider_Expecter) MountOCMShare(ctx any, resourceID any) *DrivesDriveItemProvider_MountOCMShare_Call {
 	return &DrivesDriveItemProvider_MountOCMShare_Call{Call: _e.mock.On("MountOCMShare", ctx, resourceID)}
 }
 
@@ -288,7 +288,7 @@ type DrivesDriveItemProvider_MountShare_Call struct {
 //   - ctx context.Context
 //   - resourceID *providerv1beta1.ResourceId
 //   - name string
-func (_e *DrivesDriveItemProvider_Expecter) MountShare(ctx interface{}, resourceID interface{}, name interface{}) *DrivesDriveItemProvider_MountShare_Call {
+func (_e *DrivesDriveItemProvider_Expecter) MountShare(ctx any, resourceID any, name any) *DrivesDriveItemProvider_MountShare_Call {
 	return &DrivesDriveItemProvider_MountShare_Call{Call: _e.mock.On("MountShare", ctx, resourceID, name)}
 }
 
@@ -350,7 +350,7 @@ type DrivesDriveItemProvider_UnmountShare_Call struct {
 // UnmountShare is a helper method to define mock.On call
 //   - ctx context.Context
 //   - shareID *collaborationv1beta1.ShareId
-func (_e *DrivesDriveItemProvider_Expecter) UnmountShare(ctx interface{}, shareID interface{}) *DrivesDriveItemProvider_UnmountShare_Call {
+func (_e *DrivesDriveItemProvider_Expecter) UnmountShare(ctx any, shareID any) *DrivesDriveItemProvider_UnmountShare_Call {
 	return &DrivesDriveItemProvider_UnmountShare_Call{Call: _e.mock.On("UnmountShare", ctx, shareID)}
 }
 
@@ -419,7 +419,7 @@ type DrivesDriveItemProvider_UpdateShares_Call struct {
 //   - ctx context.Context
 //   - shares []*collaborationv1beta1.ReceivedShare
 //   - updater svc.UpdateShareClosure
-func (_e *DrivesDriveItemProvider_Expecter) UpdateShares(ctx interface{}, shares interface{}, updater interface{}) *DrivesDriveItemProvider_UpdateShares_Call {
+func (_e *DrivesDriveItemProvider_Expecter) UpdateShares(ctx any, shares any, updater any) *DrivesDriveItemProvider_UpdateShares_Call {
 	return &DrivesDriveItemProvider_UpdateShares_Call{Call: _e.mock.On("UpdateShares", ctx, shares, updater)}
 }
 
