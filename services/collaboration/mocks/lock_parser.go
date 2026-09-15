@@ -59,7 +59,7 @@ type LockParser_ParseLock_Call struct {
 
 // ParseLock is a helper method to define mock.On call
 //   - id string
-func (_e *LockParser_Expecter) ParseLock(id interface{}) *LockParser_ParseLock_Call {
+func (_e *LockParser_Expecter) ParseLock(id any) *LockParser_ParseLock_Call {
 	return &LockParser_ParseLock_Call{Call: _e.mock.On("ParseLock", id)}
 }
 

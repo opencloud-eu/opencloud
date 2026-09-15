@@ -109,7 +109,7 @@ type Storage_CreateSymlink_Call struct {
 //   - ctx context.Context
 //   - oldname string
 //   - newname string
-func (_e *Storage_Expecter) CreateSymlink(ctx interface{}, oldname interface{}, newname interface{}) *Storage_CreateSymlink_Call {
+func (_e *Storage_Expecter) CreateSymlink(ctx any, oldname any, newname any) *Storage_CreateSymlink_Call {
 	return &Storage_CreateSymlink_Call{Call: _e.mock.On("CreateSymlink", ctx, oldname, newname)}
 }
 
@@ -171,7 +171,7 @@ type Storage_Delete_Call struct {
 // Delete is a helper method to define mock.On call
 //   - ctx context.Context
 //   - path string
-func (_e *Storage_Expecter) Delete(ctx interface{}, path interface{}) *Storage_Delete_Call {
+func (_e *Storage_Expecter) Delete(ctx any, path any) *Storage_Delete_Call {
 	return &Storage_Delete_Call{Call: _e.mock.On("Delete", ctx, path)}
 }
 
@@ -239,7 +239,7 @@ type Storage_Download_Call struct {
 // Download is a helper method to define mock.On call
 //   - ctx context.Context
 //   - req metadata.DownloadRequest
-func (_e *Storage_Expecter) Download(ctx interface{}, req interface{}) *Storage_Download_Call {
+func (_e *Storage_Expecter) Download(ctx any, req any) *Storage_Download_Call {
 	return &Storage_Download_Call{Call: _e.mock.On("Download", ctx, req)}
 }
 
@@ -296,7 +296,7 @@ type Storage_Init_Call struct {
 // Init is a helper method to define mock.On call
 //   - ctx context.Context
 //   - name string
-func (_e *Storage_Expecter) Init(ctx interface{}, name interface{}) *Storage_Init_Call {
+func (_e *Storage_Expecter) Init(ctx any, name any) *Storage_Init_Call {
 	return &Storage_Init_Call{Call: _e.mock.On("Init", ctx, name)}
 }
 
@@ -364,7 +364,7 @@ type Storage_ListDir_Call struct {
 // ListDir is a helper method to define mock.On call
 //   - ctx context.Context
 //   - path string
-func (_e *Storage_Expecter) ListDir(ctx interface{}, path interface{}) *Storage_ListDir_Call {
+func (_e *Storage_Expecter) ListDir(ctx any, path any) *Storage_ListDir_Call {
 	return &Storage_ListDir_Call{Call: _e.mock.On("ListDir", ctx, path)}
 }
 
@@ -421,7 +421,7 @@ type Storage_MakeDirIfNotExist_Call struct {
 // MakeDirIfNotExist is a helper method to define mock.On call
 //   - ctx context.Context
 //   - name string
-func (_e *Storage_Expecter) MakeDirIfNotExist(ctx interface{}, name interface{}) *Storage_MakeDirIfNotExist_Call {
+func (_e *Storage_Expecter) MakeDirIfNotExist(ctx any, name any) *Storage_MakeDirIfNotExist_Call {
 	return &Storage_MakeDirIfNotExist_Call{Call: _e.mock.On("MakeDirIfNotExist", ctx, name)}
 }
 
@@ -489,7 +489,7 @@ type Storage_ReadDir_Call struct {
 // ReadDir is a helper method to define mock.On call
 //   - ctx context.Context
 //   - path string
-func (_e *Storage_Expecter) ReadDir(ctx interface{}, path interface{}) *Storage_ReadDir_Call {
+func (_e *Storage_Expecter) ReadDir(ctx any, path any) *Storage_ReadDir_Call {
 	return &Storage_ReadDir_Call{Call: _e.mock.On("ReadDir", ctx, path)}
 }
 
@@ -555,7 +555,7 @@ type Storage_ResolveSymlink_Call struct {
 // ResolveSymlink is a helper method to define mock.On call
 //   - ctx context.Context
 //   - name string
-func (_e *Storage_Expecter) ResolveSymlink(ctx interface{}, name interface{}) *Storage_ResolveSymlink_Call {
+func (_e *Storage_Expecter) ResolveSymlink(ctx any, name any) *Storage_ResolveSymlink_Call {
 	return &Storage_ResolveSymlink_Call{Call: _e.mock.On("ResolveSymlink", ctx, name)}
 }
 
@@ -623,7 +623,7 @@ type Storage_SimpleDownload_Call struct {
 // SimpleDownload is a helper method to define mock.On call
 //   - ctx context.Context
 //   - path string
-func (_e *Storage_Expecter) SimpleDownload(ctx interface{}, path interface{}) *Storage_SimpleDownload_Call {
+func (_e *Storage_Expecter) SimpleDownload(ctx any, path any) *Storage_SimpleDownload_Call {
 	return &Storage_SimpleDownload_Call{Call: _e.mock.On("SimpleDownload", ctx, path)}
 }
 
@@ -681,7 +681,7 @@ type Storage_SimpleUpload_Call struct {
 //   - ctx context.Context
 //   - uploadpath string
 //   - content []byte
-func (_e *Storage_Expecter) SimpleUpload(ctx interface{}, uploadpath interface{}, content interface{}) *Storage_SimpleUpload_Call {
+func (_e *Storage_Expecter) SimpleUpload(ctx any, uploadpath any, content any) *Storage_SimpleUpload_Call {
 	return &Storage_SimpleUpload_Call{Call: _e.mock.On("SimpleUpload", ctx, uploadpath, content)}
 }
 
@@ -754,7 +754,7 @@ type Storage_Stat_Call struct {
 // Stat is a helper method to define mock.On call
 //   - ctx context.Context
 //   - path string
-func (_e *Storage_Expecter) Stat(ctx interface{}, path interface{}) *Storage_Stat_Call {
+func (_e *Storage_Expecter) Stat(ctx any, path any) *Storage_Stat_Call {
 	return &Storage_Stat_Call{Call: _e.mock.On("Stat", ctx, path)}
 }
 
@@ -822,7 +822,7 @@ type Storage_Upload_Call struct {
 // Upload is a helper method to define mock.On call
 //   - ctx context.Context
 //   - req metadata.UploadRequest
-func (_e *Storage_Expecter) Upload(ctx interface{}, req interface{}) *Storage_Upload_Call {
+func (_e *Storage_Expecter) Upload(ctx any, req any) *Storage_Upload_Call {
 	return &Storage_Upload_Call{Call: _e.mock.On("Upload", ctx, req)}
 }
 

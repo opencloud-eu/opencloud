@@ -64,7 +64,7 @@ type Client_Add_Call struct {
 
 // Add is a helper method to define mock.On call
 //   - addRequest *ldap.AddRequest
-func (_e *Client_Expecter) Add(addRequest interface{}) *Client_Add_Call {
+func (_e *Client_Expecter) Add(addRequest any) *Client_Add_Call {
 	return &Client_Add_Call{Call: _e.mock.On("Add", addRequest)}
 }
 
@@ -116,7 +116,7 @@ type Client_Bind_Call struct {
 // Bind is a helper method to define mock.On call
 //   - username string
 //   - password string
-func (_e *Client_Expecter) Bind(username interface{}, password interface{}) *Client_Bind_Call {
+func (_e *Client_Expecter) Bind(username any, password any) *Client_Bind_Call {
 	return &Client_Bind_Call{Call: _e.mock.On("Bind", username, password)}
 }
 
@@ -227,7 +227,7 @@ type Client_Compare_Call struct {
 //   - dn string
 //   - attribute string
 //   - value string
-func (_e *Client_Expecter) Compare(dn interface{}, attribute interface{}, value interface{}) *Client_Compare_Call {
+func (_e *Client_Expecter) Compare(dn any, attribute any, value any) *Client_Compare_Call {
 	return &Client_Compare_Call{Call: _e.mock.On("Compare", dn, attribute, value)}
 }
 
@@ -288,7 +288,7 @@ type Client_Del_Call struct {
 
 // Del is a helper method to define mock.On call
 //   - delRequest *ldap.DelRequest
-func (_e *Client_Expecter) Del(delRequest interface{}) *Client_Del_Call {
+func (_e *Client_Expecter) Del(delRequest any) *Client_Del_Call {
 	return &Client_Del_Call{Call: _e.mock.On("Del", delRequest)}
 }
 
@@ -353,7 +353,7 @@ type Client_DirSync_Call struct {
 //   - flags int64
 //   - maxAttrCount int64
 //   - cookie []byte
-func (_e *Client_Expecter) DirSync(searchRequest interface{}, flags interface{}, maxAttrCount interface{}, cookie interface{}) *Client_DirSync_Call {
+func (_e *Client_Expecter) DirSync(searchRequest any, flags any, maxAttrCount any, cookie any) *Client_DirSync_Call {
 	return &Client_DirSync_Call{Call: _e.mock.On("DirSync", searchRequest, flags, maxAttrCount, cookie)}
 }
 
@@ -426,7 +426,7 @@ type Client_DirSyncAsync_Call struct {
 //   - flags int64
 //   - maxAttrCount int64
 //   - cookie []byte
-func (_e *Client_Expecter) DirSyncAsync(ctx interface{}, searchRequest interface{}, bufferSize interface{}, flags interface{}, maxAttrCount interface{}, cookie interface{}) *Client_DirSyncAsync_Call {
+func (_e *Client_Expecter) DirSyncAsync(ctx any, searchRequest any, bufferSize any, flags any, maxAttrCount any, cookie any) *Client_DirSyncAsync_Call {
 	return &Client_DirSyncAsync_Call{Call: _e.mock.On("DirSyncAsync", ctx, searchRequest, bufferSize, flags, maxAttrCount, cookie)}
 }
 
@@ -513,7 +513,7 @@ type Client_Extended_Call struct {
 
 // Extended is a helper method to define mock.On call
 //   - extendedRequest *ldap.ExtendedRequest
-func (_e *Client_Expecter) Extended(extendedRequest interface{}) *Client_Extended_Call {
+func (_e *Client_Expecter) Extended(extendedRequest any) *Client_Extended_Call {
 	return &Client_Extended_Call{Call: _e.mock.On("Extended", extendedRequest)}
 }
 
@@ -696,7 +696,7 @@ type Client_Modify_Call struct {
 
 // Modify is a helper method to define mock.On call
 //   - modifyRequest *ldap.ModifyRequest
-func (_e *Client_Expecter) Modify(modifyRequest interface{}) *Client_Modify_Call {
+func (_e *Client_Expecter) Modify(modifyRequest any) *Client_Modify_Call {
 	return &Client_Modify_Call{Call: _e.mock.On("Modify", modifyRequest)}
 }
 
@@ -747,7 +747,7 @@ type Client_ModifyDN_Call struct {
 
 // ModifyDN is a helper method to define mock.On call
 //   - modifyDNRequest *ldap.ModifyDNRequest
-func (_e *Client_Expecter) ModifyDN(modifyDNRequest interface{}) *Client_ModifyDN_Call {
+func (_e *Client_Expecter) ModifyDN(modifyDNRequest any) *Client_ModifyDN_Call {
 	return &Client_ModifyDN_Call{Call: _e.mock.On("ModifyDN", modifyDNRequest)}
 }
 
@@ -809,7 +809,7 @@ type Client_ModifyWithResult_Call struct {
 
 // ModifyWithResult is a helper method to define mock.On call
 //   - modifyRequest *ldap.ModifyRequest
-func (_e *Client_Expecter) ModifyWithResult(modifyRequest interface{}) *Client_ModifyWithResult_Call {
+func (_e *Client_Expecter) ModifyWithResult(modifyRequest any) *Client_ModifyWithResult_Call {
 	return &Client_ModifyWithResult_Call{Call: _e.mock.On("ModifyWithResult", modifyRequest)}
 }
 
@@ -861,7 +861,7 @@ type Client_NTLMUnauthenticatedBind_Call struct {
 // NTLMUnauthenticatedBind is a helper method to define mock.On call
 //   - domain string
 //   - username string
-func (_e *Client_Expecter) NTLMUnauthenticatedBind(domain interface{}, username interface{}) *Client_NTLMUnauthenticatedBind_Call {
+func (_e *Client_Expecter) NTLMUnauthenticatedBind(domain any, username any) *Client_NTLMUnauthenticatedBind_Call {
 	return &Client_NTLMUnauthenticatedBind_Call{Call: _e.mock.On("NTLMUnauthenticatedBind", domain, username)}
 }
 
@@ -928,7 +928,7 @@ type Client_PasswordModify_Call struct {
 
 // PasswordModify is a helper method to define mock.On call
 //   - passwordModifyRequest *ldap.PasswordModifyRequest
-func (_e *Client_Expecter) PasswordModify(passwordModifyRequest interface{}) *Client_PasswordModify_Call {
+func (_e *Client_Expecter) PasswordModify(passwordModifyRequest any) *Client_PasswordModify_Call {
 	return &Client_PasswordModify_Call{Call: _e.mock.On("PasswordModify", passwordModifyRequest)}
 }
 
@@ -990,7 +990,7 @@ type Client_Search_Call struct {
 
 // Search is a helper method to define mock.On call
 //   - searchRequest *ldap.SearchRequest
-func (_e *Client_Expecter) Search(searchRequest interface{}) *Client_Search_Call {
+func (_e *Client_Expecter) Search(searchRequest any) *Client_Search_Call {
 	return &Client_Search_Call{Call: _e.mock.On("Search", searchRequest)}
 }
 
@@ -1045,7 +1045,7 @@ type Client_SearchAsync_Call struct {
 //   - ctx context.Context
 //   - searchRequest *ldap.SearchRequest
 //   - bufferSize int
-func (_e *Client_Expecter) SearchAsync(ctx interface{}, searchRequest interface{}, bufferSize interface{}) *Client_SearchAsync_Call {
+func (_e *Client_Expecter) SearchAsync(ctx any, searchRequest any, bufferSize any) *Client_SearchAsync_Call {
 	return &Client_SearchAsync_Call{Call: _e.mock.On("SearchAsync", ctx, searchRequest, bufferSize)}
 }
 
@@ -1118,7 +1118,7 @@ type Client_SearchWithPaging_Call struct {
 // SearchWithPaging is a helper method to define mock.On call
 //   - searchRequest *ldap.SearchRequest
 //   - pagingSize uint32
-func (_e *Client_Expecter) SearchWithPaging(searchRequest interface{}, pagingSize interface{}) *Client_SearchWithPaging_Call {
+func (_e *Client_Expecter) SearchWithPaging(searchRequest any, pagingSize any) *Client_SearchWithPaging_Call {
 	return &Client_SearchWithPaging_Call{Call: _e.mock.On("SearchWithPaging", searchRequest, pagingSize)}
 }
 
@@ -1163,7 +1163,7 @@ type Client_SetTimeout_Call struct {
 
 // SetTimeout is a helper method to define mock.On call
 //   - duration time.Duration
-func (_e *Client_Expecter) SetTimeout(duration interface{}) *Client_SetTimeout_Call {
+func (_e *Client_Expecter) SetTimeout(duration any) *Client_SetTimeout_Call {
 	return &Client_SetTimeout_Call{Call: _e.mock.On("SetTimeout", duration)}
 }
 
@@ -1225,7 +1225,7 @@ type Client_SimpleBind_Call struct {
 
 // SimpleBind is a helper method to define mock.On call
 //   - simpleBindRequest *ldap.SimpleBindRequest
-func (_e *Client_Expecter) SimpleBind(simpleBindRequest interface{}) *Client_SimpleBind_Call {
+func (_e *Client_Expecter) SimpleBind(simpleBindRequest any) *Client_SimpleBind_Call {
 	return &Client_SimpleBind_Call{Call: _e.mock.On("SimpleBind", simpleBindRequest)}
 }
 
@@ -1309,7 +1309,7 @@ type Client_StartTLS_Call struct {
 
 // StartTLS is a helper method to define mock.On call
 //   - config *tls.Config
-func (_e *Client_Expecter) StartTLS(config interface{}) *Client_StartTLS_Call {
+func (_e *Client_Expecter) StartTLS(config any) *Client_StartTLS_Call {
 	return &Client_StartTLS_Call{Call: _e.mock.On("StartTLS", config)}
 }
 
@@ -1367,7 +1367,7 @@ type Client_Syncrepl_Call struct {
 //   - mode ldap.ControlSyncRequestMode
 //   - cookie []byte
 //   - reloadHint bool
-func (_e *Client_Expecter) Syncrepl(ctx interface{}, searchRequest interface{}, bufferSize interface{}, mode interface{}, cookie interface{}, reloadHint interface{}) *Client_Syncrepl_Call {
+func (_e *Client_Expecter) Syncrepl(ctx any, searchRequest any, bufferSize any, mode any, cookie any, reloadHint any) *Client_Syncrepl_Call {
 	return &Client_Syncrepl_Call{Call: _e.mock.On("Syncrepl", ctx, searchRequest, bufferSize, mode, cookie, reloadHint)}
 }
 
@@ -1496,7 +1496,7 @@ type Client_UnauthenticatedBind_Call struct {
 
 // UnauthenticatedBind is a helper method to define mock.On call
 //   - username string
-func (_e *Client_Expecter) UnauthenticatedBind(username interface{}) *Client_UnauthenticatedBind_Call {
+func (_e *Client_Expecter) UnauthenticatedBind(username any) *Client_UnauthenticatedBind_Call {
 	return &Client_UnauthenticatedBind_Call{Call: _e.mock.On("UnauthenticatedBind", username)}
 }
 

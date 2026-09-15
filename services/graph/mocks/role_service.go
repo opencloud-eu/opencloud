@@ -83,9 +83,9 @@ type RoleService_AssignRoleToUser_Call struct {
 //   - ctx context.Context
 //   - in *v0.AssignRoleToUserRequest
 //   - opts ...client.CallOption
-func (_e *RoleService_Expecter) AssignRoleToUser(ctx interface{}, in interface{}, opts ...interface{}) *RoleService_AssignRoleToUser_Call {
+func (_e *RoleService_Expecter) AssignRoleToUser(ctx any, in any, opts ...any) *RoleService_AssignRoleToUser_Call {
 	return &RoleService_AssignRoleToUser_Call{Call: _e.mock.On("AssignRoleToUser",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *RoleService_AssignRoleToUser_Call) Run(run func(ctx context.Context, in *v0.AssignRoleToUserRequest, opts ...client.CallOption)) *RoleService_AssignRoleToUser_Call {
@@ -166,9 +166,9 @@ type RoleService_ListRoleAssignments_Call struct {
 //   - ctx context.Context
 //   - in *v0.ListRoleAssignmentsRequest
 //   - opts ...client.CallOption
-func (_e *RoleService_Expecter) ListRoleAssignments(ctx interface{}, in interface{}, opts ...interface{}) *RoleService_ListRoleAssignments_Call {
+func (_e *RoleService_Expecter) ListRoleAssignments(ctx any, in any, opts ...any) *RoleService_ListRoleAssignments_Call {
 	return &RoleService_ListRoleAssignments_Call{Call: _e.mock.On("ListRoleAssignments",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *RoleService_ListRoleAssignments_Call) Run(run func(ctx context.Context, in *v0.ListRoleAssignmentsRequest, opts ...client.CallOption)) *RoleService_ListRoleAssignments_Call {
@@ -249,9 +249,9 @@ type RoleService_ListRoleAssignmentsFiltered_Call struct {
 //   - ctx context.Context
 //   - in *v0.ListRoleAssignmentsFilteredRequest
 //   - opts ...client.CallOption
-func (_e *RoleService_Expecter) ListRoleAssignmentsFiltered(ctx interface{}, in interface{}, opts ...interface{}) *RoleService_ListRoleAssignmentsFiltered_Call {
+func (_e *RoleService_Expecter) ListRoleAssignmentsFiltered(ctx any, in any, opts ...any) *RoleService_ListRoleAssignmentsFiltered_Call {
 	return &RoleService_ListRoleAssignmentsFiltered_Call{Call: _e.mock.On("ListRoleAssignmentsFiltered",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *RoleService_ListRoleAssignmentsFiltered_Call) Run(run func(ctx context.Context, in *v0.ListRoleAssignmentsFilteredRequest, opts ...client.CallOption)) *RoleService_ListRoleAssignmentsFiltered_Call {
@@ -332,9 +332,9 @@ type RoleService_ListRoles_Call struct {
 //   - ctx context.Context
 //   - in *v0.ListBundlesRequest
 //   - opts ...client.CallOption
-func (_e *RoleService_Expecter) ListRoles(ctx interface{}, in interface{}, opts ...interface{}) *RoleService_ListRoles_Call {
+func (_e *RoleService_Expecter) ListRoles(ctx any, in any, opts ...any) *RoleService_ListRoles_Call {
 	return &RoleService_ListRoles_Call{Call: _e.mock.On("ListRoles",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *RoleService_ListRoles_Call) Run(run func(ctx context.Context, in *v0.ListBundlesRequest, opts ...client.CallOption)) *RoleService_ListRoles_Call {
@@ -415,9 +415,9 @@ type RoleService_RemoveRoleFromUser_Call struct {
 //   - ctx context.Context
 //   - in *v0.RemoveRoleFromUserRequest
 //   - opts ...client.CallOption
-func (_e *RoleService_Expecter) RemoveRoleFromUser(ctx interface{}, in interface{}, opts ...interface{}) *RoleService_RemoveRoleFromUser_Call {
+func (_e *RoleService_Expecter) RemoveRoleFromUser(ctx any, in any, opts ...any) *RoleService_RemoveRoleFromUser_Call {
 	return &RoleService_RemoveRoleFromUser_Call{Call: _e.mock.On("RemoveRoleFromUser",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *RoleService_RemoveRoleFromUser_Call) Run(run func(ctx context.Context, in *v0.RemoveRoleFromUserRequest, opts ...client.CallOption)) *RoleService_RemoveRoleFromUser_Call {

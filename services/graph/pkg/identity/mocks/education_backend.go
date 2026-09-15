@@ -64,7 +64,7 @@ type EducationBackend_AddClassesToEducationSchool_Call struct {
 //   - ctx context.Context
 //   - schoolNumberOrID string
 //   - memberIDs []string
-func (_e *EducationBackend_Expecter) AddClassesToEducationSchool(ctx interface{}, schoolNumberOrID interface{}, memberIDs interface{}) *EducationBackend_AddClassesToEducationSchool_Call {
+func (_e *EducationBackend_Expecter) AddClassesToEducationSchool(ctx any, schoolNumberOrID any, memberIDs any) *EducationBackend_AddClassesToEducationSchool_Call {
 	return &EducationBackend_AddClassesToEducationSchool_Call{Call: _e.mock.On("AddClassesToEducationSchool", ctx, schoolNumberOrID, memberIDs)}
 }
 
@@ -127,7 +127,7 @@ type EducationBackend_AddTeacherToEducationClass_Call struct {
 //   - ctx context.Context
 //   - classID string
 //   - teacherID string
-func (_e *EducationBackend_Expecter) AddTeacherToEducationClass(ctx interface{}, classID interface{}, teacherID interface{}) *EducationBackend_AddTeacherToEducationClass_Call {
+func (_e *EducationBackend_Expecter) AddTeacherToEducationClass(ctx any, classID any, teacherID any) *EducationBackend_AddTeacherToEducationClass_Call {
 	return &EducationBackend_AddTeacherToEducationClass_Call{Call: _e.mock.On("AddTeacherToEducationClass", ctx, classID, teacherID)}
 }
 
@@ -190,7 +190,7 @@ type EducationBackend_AddUsersToEducationSchool_Call struct {
 //   - ctx context.Context
 //   - schoolID string
 //   - memberID []string
-func (_e *EducationBackend_Expecter) AddUsersToEducationSchool(ctx interface{}, schoolID interface{}, memberID interface{}) *EducationBackend_AddUsersToEducationSchool_Call {
+func (_e *EducationBackend_Expecter) AddUsersToEducationSchool(ctx any, schoolID any, memberID any) *EducationBackend_AddUsersToEducationSchool_Call {
 	return &EducationBackend_AddUsersToEducationSchool_Call{Call: _e.mock.On("AddUsersToEducationSchool", ctx, schoolID, memberID)}
 }
 
@@ -263,7 +263,7 @@ type EducationBackend_CreateEducationClass_Call struct {
 // CreateEducationClass is a helper method to define mock.On call
 //   - ctx context.Context
 //   - class libregraph.EducationClass
-func (_e *EducationBackend_Expecter) CreateEducationClass(ctx interface{}, class interface{}) *EducationBackend_CreateEducationClass_Call {
+func (_e *EducationBackend_Expecter) CreateEducationClass(ctx any, class any) *EducationBackend_CreateEducationClass_Call {
 	return &EducationBackend_CreateEducationClass_Call{Call: _e.mock.On("CreateEducationClass", ctx, class)}
 }
 
@@ -331,7 +331,7 @@ type EducationBackend_CreateEducationSchool_Call struct {
 // CreateEducationSchool is a helper method to define mock.On call
 //   - ctx context.Context
 //   - group libregraph.EducationSchool
-func (_e *EducationBackend_Expecter) CreateEducationSchool(ctx interface{}, group interface{}) *EducationBackend_CreateEducationSchool_Call {
+func (_e *EducationBackend_Expecter) CreateEducationSchool(ctx any, group any) *EducationBackend_CreateEducationSchool_Call {
 	return &EducationBackend_CreateEducationSchool_Call{Call: _e.mock.On("CreateEducationSchool", ctx, group)}
 }
 
@@ -399,7 +399,7 @@ type EducationBackend_CreateEducationUser_Call struct {
 // CreateEducationUser is a helper method to define mock.On call
 //   - ctx context.Context
 //   - user libregraph.EducationUser
-func (_e *EducationBackend_Expecter) CreateEducationUser(ctx interface{}, user interface{}) *EducationBackend_CreateEducationUser_Call {
+func (_e *EducationBackend_Expecter) CreateEducationUser(ctx any, user any) *EducationBackend_CreateEducationUser_Call {
 	return &EducationBackend_CreateEducationUser_Call{Call: _e.mock.On("CreateEducationUser", ctx, user)}
 }
 
@@ -456,7 +456,7 @@ type EducationBackend_DeleteEducationClass_Call struct {
 // DeleteEducationClass is a helper method to define mock.On call
 //   - ctx context.Context
 //   - nameOrID string
-func (_e *EducationBackend_Expecter) DeleteEducationClass(ctx interface{}, nameOrID interface{}) *EducationBackend_DeleteEducationClass_Call {
+func (_e *EducationBackend_Expecter) DeleteEducationClass(ctx any, nameOrID any) *EducationBackend_DeleteEducationClass_Call {
 	return &EducationBackend_DeleteEducationClass_Call{Call: _e.mock.On("DeleteEducationClass", ctx, nameOrID)}
 }
 
@@ -513,7 +513,7 @@ type EducationBackend_DeleteEducationSchool_Call struct {
 // DeleteEducationSchool is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id string
-func (_e *EducationBackend_Expecter) DeleteEducationSchool(ctx interface{}, id interface{}) *EducationBackend_DeleteEducationSchool_Call {
+func (_e *EducationBackend_Expecter) DeleteEducationSchool(ctx any, id any) *EducationBackend_DeleteEducationSchool_Call {
 	return &EducationBackend_DeleteEducationSchool_Call{Call: _e.mock.On("DeleteEducationSchool", ctx, id)}
 }
 
@@ -570,7 +570,7 @@ type EducationBackend_DeleteEducationUser_Call struct {
 // DeleteEducationUser is a helper method to define mock.On call
 //   - ctx context.Context
 //   - nameOrID string
-func (_e *EducationBackend_Expecter) DeleteEducationUser(ctx interface{}, nameOrID interface{}) *EducationBackend_DeleteEducationUser_Call {
+func (_e *EducationBackend_Expecter) DeleteEducationUser(ctx any, nameOrID any) *EducationBackend_DeleteEducationUser_Call {
 	return &EducationBackend_DeleteEducationUser_Call{Call: _e.mock.On("DeleteEducationUser", ctx, nameOrID)}
 }
 
@@ -639,7 +639,7 @@ type EducationBackend_FilterEducationSchoolsByAttribute_Call struct {
 //   - ctx context.Context
 //   - attr string
 //   - value string
-func (_e *EducationBackend_Expecter) FilterEducationSchoolsByAttribute(ctx interface{}, attr interface{}, value interface{}) *EducationBackend_FilterEducationSchoolsByAttribute_Call {
+func (_e *EducationBackend_Expecter) FilterEducationSchoolsByAttribute(ctx any, attr any, value any) *EducationBackend_FilterEducationSchoolsByAttribute_Call {
 	return &EducationBackend_FilterEducationSchoolsByAttribute_Call{Call: _e.mock.On("FilterEducationSchoolsByAttribute", ctx, attr, value)}
 }
 
@@ -713,7 +713,7 @@ type EducationBackend_FilterEducationUsersByAttribute_Call struct {
 //   - ctx context.Context
 //   - attr string
 //   - value string
-func (_e *EducationBackend_Expecter) FilterEducationUsersByAttribute(ctx interface{}, attr interface{}, value interface{}) *EducationBackend_FilterEducationUsersByAttribute_Call {
+func (_e *EducationBackend_Expecter) FilterEducationUsersByAttribute(ctx any, attr any, value any) *EducationBackend_FilterEducationUsersByAttribute_Call {
 	return &EducationBackend_FilterEducationUsersByAttribute_Call{Call: _e.mock.On("FilterEducationUsersByAttribute", ctx, attr, value)}
 }
 
@@ -786,7 +786,7 @@ type EducationBackend_GetEducationClass_Call struct {
 // GetEducationClass is a helper method to define mock.On call
 //   - ctx context.Context
 //   - namedOrID string
-func (_e *EducationBackend_Expecter) GetEducationClass(ctx interface{}, namedOrID interface{}) *EducationBackend_GetEducationClass_Call {
+func (_e *EducationBackend_Expecter) GetEducationClass(ctx any, namedOrID any) *EducationBackend_GetEducationClass_Call {
 	return &EducationBackend_GetEducationClass_Call{Call: _e.mock.On("GetEducationClass", ctx, namedOrID)}
 }
 
@@ -854,7 +854,7 @@ type EducationBackend_GetEducationClassMembers_Call struct {
 // GetEducationClassMembers is a helper method to define mock.On call
 //   - ctx context.Context
 //   - nameOrID string
-func (_e *EducationBackend_Expecter) GetEducationClassMembers(ctx interface{}, nameOrID interface{}) *EducationBackend_GetEducationClassMembers_Call {
+func (_e *EducationBackend_Expecter) GetEducationClassMembers(ctx any, nameOrID any) *EducationBackend_GetEducationClassMembers_Call {
 	return &EducationBackend_GetEducationClassMembers_Call{Call: _e.mock.On("GetEducationClassMembers", ctx, nameOrID)}
 }
 
@@ -922,7 +922,7 @@ type EducationBackend_GetEducationClassTeachers_Call struct {
 // GetEducationClassTeachers is a helper method to define mock.On call
 //   - ctx context.Context
 //   - classID string
-func (_e *EducationBackend_Expecter) GetEducationClassTeachers(ctx interface{}, classID interface{}) *EducationBackend_GetEducationClassTeachers_Call {
+func (_e *EducationBackend_Expecter) GetEducationClassTeachers(ctx any, classID any) *EducationBackend_GetEducationClassTeachers_Call {
 	return &EducationBackend_GetEducationClassTeachers_Call{Call: _e.mock.On("GetEducationClassTeachers", ctx, classID)}
 }
 
@@ -989,7 +989,7 @@ type EducationBackend_GetEducationClasses_Call struct {
 
 // GetEducationClasses is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *EducationBackend_Expecter) GetEducationClasses(ctx interface{}) *EducationBackend_GetEducationClasses_Call {
+func (_e *EducationBackend_Expecter) GetEducationClasses(ctx any) *EducationBackend_GetEducationClasses_Call {
 	return &EducationBackend_GetEducationClasses_Call{Call: _e.mock.On("GetEducationClasses", ctx)}
 }
 
@@ -1052,7 +1052,7 @@ type EducationBackend_GetEducationSchool_Call struct {
 // GetEducationSchool is a helper method to define mock.On call
 //   - ctx context.Context
 //   - nameOrID string
-func (_e *EducationBackend_Expecter) GetEducationSchool(ctx interface{}, nameOrID interface{}) *EducationBackend_GetEducationSchool_Call {
+func (_e *EducationBackend_Expecter) GetEducationSchool(ctx any, nameOrID any) *EducationBackend_GetEducationSchool_Call {
 	return &EducationBackend_GetEducationSchool_Call{Call: _e.mock.On("GetEducationSchool", ctx, nameOrID)}
 }
 
@@ -1120,7 +1120,7 @@ type EducationBackend_GetEducationSchoolClasses_Call struct {
 // GetEducationSchoolClasses is a helper method to define mock.On call
 //   - ctx context.Context
 //   - schoolNumberOrID string
-func (_e *EducationBackend_Expecter) GetEducationSchoolClasses(ctx interface{}, schoolNumberOrID interface{}) *EducationBackend_GetEducationSchoolClasses_Call {
+func (_e *EducationBackend_Expecter) GetEducationSchoolClasses(ctx any, schoolNumberOrID any) *EducationBackend_GetEducationSchoolClasses_Call {
 	return &EducationBackend_GetEducationSchoolClasses_Call{Call: _e.mock.On("GetEducationSchoolClasses", ctx, schoolNumberOrID)}
 }
 
@@ -1188,7 +1188,7 @@ type EducationBackend_GetEducationSchoolUsers_Call struct {
 // GetEducationSchoolUsers is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id string
-func (_e *EducationBackend_Expecter) GetEducationSchoolUsers(ctx interface{}, id interface{}) *EducationBackend_GetEducationSchoolUsers_Call {
+func (_e *EducationBackend_Expecter) GetEducationSchoolUsers(ctx any, id any) *EducationBackend_GetEducationSchoolUsers_Call {
 	return &EducationBackend_GetEducationSchoolUsers_Call{Call: _e.mock.On("GetEducationSchoolUsers", ctx, id)}
 }
 
@@ -1255,7 +1255,7 @@ type EducationBackend_GetEducationSchools_Call struct {
 
 // GetEducationSchools is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *EducationBackend_Expecter) GetEducationSchools(ctx interface{}) *EducationBackend_GetEducationSchools_Call {
+func (_e *EducationBackend_Expecter) GetEducationSchools(ctx any) *EducationBackend_GetEducationSchools_Call {
 	return &EducationBackend_GetEducationSchools_Call{Call: _e.mock.On("GetEducationSchools", ctx)}
 }
 
@@ -1318,7 +1318,7 @@ type EducationBackend_GetEducationUser_Call struct {
 // GetEducationUser is a helper method to define mock.On call
 //   - ctx context.Context
 //   - nameOrID string
-func (_e *EducationBackend_Expecter) GetEducationUser(ctx interface{}, nameOrID interface{}) *EducationBackend_GetEducationUser_Call {
+func (_e *EducationBackend_Expecter) GetEducationUser(ctx any, nameOrID any) *EducationBackend_GetEducationUser_Call {
 	return &EducationBackend_GetEducationUser_Call{Call: _e.mock.On("GetEducationUser", ctx, nameOrID)}
 }
 
@@ -1385,7 +1385,7 @@ type EducationBackend_GetEducationUsers_Call struct {
 
 // GetEducationUsers is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *EducationBackend_Expecter) GetEducationUsers(ctx interface{}) *EducationBackend_GetEducationUsers_Call {
+func (_e *EducationBackend_Expecter) GetEducationUsers(ctx any) *EducationBackend_GetEducationUsers_Call {
 	return &EducationBackend_GetEducationUsers_Call{Call: _e.mock.On("GetEducationUsers", ctx)}
 }
 
@@ -1438,7 +1438,7 @@ type EducationBackend_RemoveClassFromEducationSchool_Call struct {
 //   - ctx context.Context
 //   - schoolNumberOrID string
 //   - memberID string
-func (_e *EducationBackend_Expecter) RemoveClassFromEducationSchool(ctx interface{}, schoolNumberOrID interface{}, memberID interface{}) *EducationBackend_RemoveClassFromEducationSchool_Call {
+func (_e *EducationBackend_Expecter) RemoveClassFromEducationSchool(ctx any, schoolNumberOrID any, memberID any) *EducationBackend_RemoveClassFromEducationSchool_Call {
 	return &EducationBackend_RemoveClassFromEducationSchool_Call{Call: _e.mock.On("RemoveClassFromEducationSchool", ctx, schoolNumberOrID, memberID)}
 }
 
@@ -1501,7 +1501,7 @@ type EducationBackend_RemoveTeacherFromEducationClass_Call struct {
 //   - ctx context.Context
 //   - classID string
 //   - teacherID string
-func (_e *EducationBackend_Expecter) RemoveTeacherFromEducationClass(ctx interface{}, classID interface{}, teacherID interface{}) *EducationBackend_RemoveTeacherFromEducationClass_Call {
+func (_e *EducationBackend_Expecter) RemoveTeacherFromEducationClass(ctx any, classID any, teacherID any) *EducationBackend_RemoveTeacherFromEducationClass_Call {
 	return &EducationBackend_RemoveTeacherFromEducationClass_Call{Call: _e.mock.On("RemoveTeacherFromEducationClass", ctx, classID, teacherID)}
 }
 
@@ -1564,7 +1564,7 @@ type EducationBackend_RemoveUserFromEducationSchool_Call struct {
 //   - ctx context.Context
 //   - schoolID string
 //   - memberID string
-func (_e *EducationBackend_Expecter) RemoveUserFromEducationSchool(ctx interface{}, schoolID interface{}, memberID interface{}) *EducationBackend_RemoveUserFromEducationSchool_Call {
+func (_e *EducationBackend_Expecter) RemoveUserFromEducationSchool(ctx any, schoolID any, memberID any) *EducationBackend_RemoveUserFromEducationSchool_Call {
 	return &EducationBackend_RemoveUserFromEducationSchool_Call{Call: _e.mock.On("RemoveUserFromEducationSchool", ctx, schoolID, memberID)}
 }
 
@@ -1638,7 +1638,7 @@ type EducationBackend_UpdateEducationClass_Call struct {
 //   - ctx context.Context
 //   - id string
 //   - class libregraph.EducationClass
-func (_e *EducationBackend_Expecter) UpdateEducationClass(ctx interface{}, id interface{}, class interface{}) *EducationBackend_UpdateEducationClass_Call {
+func (_e *EducationBackend_Expecter) UpdateEducationClass(ctx any, id any, class any) *EducationBackend_UpdateEducationClass_Call {
 	return &EducationBackend_UpdateEducationClass_Call{Call: _e.mock.On("UpdateEducationClass", ctx, id, class)}
 }
 
@@ -1712,7 +1712,7 @@ type EducationBackend_UpdateEducationSchool_Call struct {
 //   - ctx context.Context
 //   - numberOrID string
 //   - school libregraph.EducationSchool
-func (_e *EducationBackend_Expecter) UpdateEducationSchool(ctx interface{}, numberOrID interface{}, school interface{}) *EducationBackend_UpdateEducationSchool_Call {
+func (_e *EducationBackend_Expecter) UpdateEducationSchool(ctx any, numberOrID any, school any) *EducationBackend_UpdateEducationSchool_Call {
 	return &EducationBackend_UpdateEducationSchool_Call{Call: _e.mock.On("UpdateEducationSchool", ctx, numberOrID, school)}
 }
 
@@ -1786,7 +1786,7 @@ type EducationBackend_UpdateEducationUser_Call struct {
 //   - ctx context.Context
 //   - nameOrID string
 //   - user libregraph.EducationUser
-func (_e *EducationBackend_Expecter) UpdateEducationUser(ctx interface{}, nameOrID interface{}, user interface{}) *EducationBackend_UpdateEducationUser_Call {
+func (_e *EducationBackend_Expecter) UpdateEducationUser(ctx any, nameOrID any, user any) *EducationBackend_UpdateEducationUser_Call {
 	return &EducationBackend_UpdateEducationUser_Call{Call: _e.mock.On("UpdateEducationUser", ctx, nameOrID, user)}
 }
 

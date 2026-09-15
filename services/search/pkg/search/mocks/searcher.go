@@ -64,7 +64,7 @@ type Searcher_IndexSpace_Call struct {
 // IndexSpace is a helper method to define mock.On call
 //   - spaceID *providerv1beta1.StorageSpaceId
 //   - forceRescan bool
-func (_e *Searcher_Expecter) IndexSpace(spaceID interface{}, forceRescan interface{}) *Searcher_IndexSpace_Call {
+func (_e *Searcher_Expecter) IndexSpace(spaceID any, forceRescan any) *Searcher_IndexSpace_Call {
 	return &Searcher_IndexSpace_Call{Call: _e.mock.On("IndexSpace", spaceID, forceRescan)}
 }
 
@@ -109,7 +109,7 @@ type Searcher_MoveItem_Call struct {
 
 // MoveItem is a helper method to define mock.On call
 //   - ref *providerv1beta1.Reference
-func (_e *Searcher_Expecter) MoveItem(ref interface{}) *Searcher_MoveItem_Call {
+func (_e *Searcher_Expecter) MoveItem(ref any) *Searcher_MoveItem_Call {
 	return &Searcher_MoveItem_Call{Call: _e.mock.On("MoveItem", ref)}
 }
 
@@ -160,7 +160,7 @@ type Searcher_PurgeDeleted_Call struct {
 
 // PurgeDeleted is a helper method to define mock.On call
 //   - spaceID *providerv1beta1.StorageSpaceId
-func (_e *Searcher_Expecter) PurgeDeleted(spaceID interface{}) *Searcher_PurgeDeleted_Call {
+func (_e *Searcher_Expecter) PurgeDeleted(spaceID any) *Searcher_PurgeDeleted_Call {
 	return &Searcher_PurgeDeleted_Call{Call: _e.mock.On("PurgeDeleted", spaceID)}
 }
 
@@ -200,7 +200,7 @@ type Searcher_PurgeItem_Call struct {
 
 // PurgeItem is a helper method to define mock.On call
 //   - ref *providerv1beta1.Reference
-func (_e *Searcher_Expecter) PurgeItem(ref interface{}) *Searcher_PurgeItem_Call {
+func (_e *Searcher_Expecter) PurgeItem(ref any) *Searcher_PurgeItem_Call {
 	return &Searcher_PurgeItem_Call{Call: _e.mock.On("PurgeItem", ref)}
 }
 
@@ -251,7 +251,7 @@ type Searcher_PurgeSpace_Call struct {
 
 // PurgeSpace is a helper method to define mock.On call
 //   - spaceID *providerv1beta1.StorageSpaceId
-func (_e *Searcher_Expecter) PurgeSpace(spaceID interface{}) *Searcher_PurgeSpace_Call {
+func (_e *Searcher_Expecter) PurgeSpace(spaceID any) *Searcher_PurgeSpace_Call {
 	return &Searcher_PurgeSpace_Call{Call: _e.mock.On("PurgeSpace", spaceID)}
 }
 
@@ -291,7 +291,7 @@ type Searcher_RestoreItem_Call struct {
 
 // RestoreItem is a helper method to define mock.On call
 //   - ref *providerv1beta1.Reference
-func (_e *Searcher_Expecter) RestoreItem(ref interface{}) *Searcher_RestoreItem_Call {
+func (_e *Searcher_Expecter) RestoreItem(ref any) *Searcher_RestoreItem_Call {
 	return &Searcher_RestoreItem_Call{Call: _e.mock.On("RestoreItem", ref)}
 }
 
@@ -354,7 +354,7 @@ type Searcher_Search_Call struct {
 // Search is a helper method to define mock.On call
 //   - ctx context.Context
 //   - req *v0.SearchRequest
-func (_e *Searcher_Expecter) Search(ctx interface{}, req interface{}) *Searcher_Search_Call {
+func (_e *Searcher_Expecter) Search(ctx any, req any) *Searcher_Search_Call {
 	return &Searcher_Search_Call{Call: _e.mock.On("Search", ctx, req)}
 }
 
@@ -399,7 +399,7 @@ type Searcher_TrashItem_Call struct {
 
 // TrashItem is a helper method to define mock.On call
 //   - resourceID *providerv1beta1.ResourceId
-func (_e *Searcher_Expecter) TrashItem(resourceID interface{}) *Searcher_TrashItem_Call {
+func (_e *Searcher_Expecter) TrashItem(resourceID any) *Searcher_TrashItem_Call {
 	return &Searcher_TrashItem_Call{Call: _e.mock.On("TrashItem", resourceID)}
 }
 
@@ -439,7 +439,7 @@ type Searcher_UpsertItem_Call struct {
 
 // UpsertItem is a helper method to define mock.On call
 //   - ref *providerv1beta1.Reference
-func (_e *Searcher_Expecter) UpsertItem(ref interface{}) *Searcher_UpsertItem_Call {
+func (_e *Searcher_Expecter) UpsertItem(ref any) *Searcher_UpsertItem_Call {
 	return &Searcher_UpsertItem_Call{Call: _e.mock.On("UpsertItem", ref)}
 }
 

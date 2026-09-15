@@ -63,7 +63,7 @@ type Engine_Delete_Call struct {
 
 // Delete is a helper method to define mock.On call
 //   - id string
-func (_e *Engine_Expecter) Delete(id interface{}) *Engine_Delete_Call {
+func (_e *Engine_Expecter) Delete(id any) *Engine_Delete_Call {
 	return &Engine_Delete_Call{Call: _e.mock.On("Delete", id)}
 }
 
@@ -169,7 +169,7 @@ type Engine_Move_Call struct {
 //   - id string
 //   - parentID string
 //   - targetPath string
-func (_e *Engine_Expecter) Move(id interface{}, parentID interface{}, targetPath interface{}) *Engine_Move_Call {
+func (_e *Engine_Expecter) Move(id any, parentID any, targetPath any) *Engine_Move_Call {
 	return &Engine_Move_Call{Call: _e.mock.On("Move", id, parentID, targetPath)}
 }
 
@@ -241,7 +241,7 @@ type Engine_NewBatch_Call struct {
 
 // NewBatch is a helper method to define mock.On call
 //   - batchSize int
-func (_e *Engine_Expecter) NewBatch(batchSize interface{}) *Engine_NewBatch_Call {
+func (_e *Engine_Expecter) NewBatch(batchSize any) *Engine_NewBatch_Call {
 	return &Engine_NewBatch_Call{Call: _e.mock.On("NewBatch", batchSize)}
 }
 
@@ -293,7 +293,7 @@ type Engine_Purge_Call struct {
 // Purge is a helper method to define mock.On call
 //   - id string
 //   - onlyDeleted bool
-func (_e *Engine_Expecter) Purge(id interface{}, onlyDeleted interface{}) *Engine_Purge_Call {
+func (_e *Engine_Expecter) Purge(id any, onlyDeleted any) *Engine_Purge_Call {
 	return &Engine_Purge_Call{Call: _e.mock.On("Purge", id, onlyDeleted)}
 }
 
@@ -349,7 +349,7 @@ type Engine_PurgeSpace_Call struct {
 
 // PurgeSpace is a helper method to define mock.On call
 //   - rootID string
-func (_e *Engine_Expecter) PurgeSpace(rootID interface{}) *Engine_PurgeSpace_Call {
+func (_e *Engine_Expecter) PurgeSpace(rootID any) *Engine_PurgeSpace_Call {
 	return &Engine_PurgeSpace_Call{Call: _e.mock.On("PurgeSpace", rootID)}
 }
 
@@ -400,7 +400,7 @@ type Engine_Restore_Call struct {
 
 // Restore is a helper method to define mock.On call
 //   - id string
-func (_e *Engine_Expecter) Restore(id interface{}) *Engine_Restore_Call {
+func (_e *Engine_Expecter) Restore(id any) *Engine_Restore_Call {
 	return &Engine_Restore_Call{Call: _e.mock.On("Restore", id)}
 }
 
@@ -463,7 +463,7 @@ type Engine_Search_Call struct {
 // Search is a helper method to define mock.On call
 //   - ctx context.Context
 //   - req *v0.SearchIndexRequest
-func (_e *Engine_Expecter) Search(ctx interface{}, req interface{}) *Engine_Search_Call {
+func (_e *Engine_Expecter) Search(ctx any, req any) *Engine_Search_Call {
 	return &Engine_Search_Call{Call: _e.mock.On("Search", ctx, req)}
 }
 
@@ -520,7 +520,7 @@ type Engine_Upsert_Call struct {
 // Upsert is a helper method to define mock.On call
 //   - id string
 //   - r search.Resource
-func (_e *Engine_Expecter) Upsert(id interface{}, r interface{}) *Engine_Upsert_Call {
+func (_e *Engine_Expecter) Upsert(id any, r any) *Engine_Upsert_Call {
 	return &Engine_Upsert_Call{Call: _e.mock.On("Upsert", id, r)}
 }
 

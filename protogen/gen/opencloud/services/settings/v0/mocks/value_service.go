@@ -82,9 +82,9 @@ type ValueService_GetValue_Call struct {
 //   - ctx context.Context
 //   - in *v0.GetValueRequest
 //   - opts ...client.CallOption
-func (_e *ValueService_Expecter) GetValue(ctx interface{}, in interface{}, opts ...interface{}) *ValueService_GetValue_Call {
+func (_e *ValueService_Expecter) GetValue(ctx any, in any, opts ...any) *ValueService_GetValue_Call {
 	return &ValueService_GetValue_Call{Call: _e.mock.On("GetValue",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *ValueService_GetValue_Call) Run(run func(ctx context.Context, in *v0.GetValueRequest, opts ...client.CallOption)) *ValueService_GetValue_Call {
@@ -165,9 +165,9 @@ type ValueService_GetValueByUniqueIdentifiers_Call struct {
 //   - ctx context.Context
 //   - in *v0.GetValueByUniqueIdentifiersRequest
 //   - opts ...client.CallOption
-func (_e *ValueService_Expecter) GetValueByUniqueIdentifiers(ctx interface{}, in interface{}, opts ...interface{}) *ValueService_GetValueByUniqueIdentifiers_Call {
+func (_e *ValueService_Expecter) GetValueByUniqueIdentifiers(ctx any, in any, opts ...any) *ValueService_GetValueByUniqueIdentifiers_Call {
 	return &ValueService_GetValueByUniqueIdentifiers_Call{Call: _e.mock.On("GetValueByUniqueIdentifiers",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *ValueService_GetValueByUniqueIdentifiers_Call) Run(run func(ctx context.Context, in *v0.GetValueByUniqueIdentifiersRequest, opts ...client.CallOption)) *ValueService_GetValueByUniqueIdentifiers_Call {
@@ -248,9 +248,9 @@ type ValueService_ListValues_Call struct {
 //   - ctx context.Context
 //   - in *v0.ListValuesRequest
 //   - opts ...client.CallOption
-func (_e *ValueService_Expecter) ListValues(ctx interface{}, in interface{}, opts ...interface{}) *ValueService_ListValues_Call {
+func (_e *ValueService_Expecter) ListValues(ctx any, in any, opts ...any) *ValueService_ListValues_Call {
 	return &ValueService_ListValues_Call{Call: _e.mock.On("ListValues",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *ValueService_ListValues_Call) Run(run func(ctx context.Context, in *v0.ListValuesRequest, opts ...client.CallOption)) *ValueService_ListValues_Call {
@@ -331,9 +331,9 @@ type ValueService_SaveValue_Call struct {
 //   - ctx context.Context
 //   - in *v0.SaveValueRequest
 //   - opts ...client.CallOption
-func (_e *ValueService_Expecter) SaveValue(ctx interface{}, in interface{}, opts ...interface{}) *ValueService_SaveValue_Call {
+func (_e *ValueService_Expecter) SaveValue(ctx any, in any, opts ...any) *ValueService_SaveValue_Call {
 	return &ValueService_SaveValue_Call{Call: _e.mock.On("SaveValue",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *ValueService_SaveValue_Call) Run(run func(ctx context.Context, in *v0.SaveValueRequest, opts ...client.CallOption)) *ValueService_SaveValue_Call {

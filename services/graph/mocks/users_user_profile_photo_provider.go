@@ -63,7 +63,7 @@ type UsersUserProfilePhotoProvider_DeletePhoto_Call struct {
 // DeletePhoto is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id string
-func (_e *UsersUserProfilePhotoProvider_Expecter) DeletePhoto(ctx interface{}, id interface{}) *UsersUserProfilePhotoProvider_DeletePhoto_Call {
+func (_e *UsersUserProfilePhotoProvider_Expecter) DeletePhoto(ctx any, id any) *UsersUserProfilePhotoProvider_DeletePhoto_Call {
 	return &UsersUserProfilePhotoProvider_DeletePhoto_Call{Call: _e.mock.On("DeletePhoto", ctx, id)}
 }
 
@@ -131,7 +131,7 @@ type UsersUserProfilePhotoProvider_GetPhoto_Call struct {
 // GetPhoto is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id string
-func (_e *UsersUserProfilePhotoProvider_Expecter) GetPhoto(ctx interface{}, id interface{}) *UsersUserProfilePhotoProvider_GetPhoto_Call {
+func (_e *UsersUserProfilePhotoProvider_Expecter) GetPhoto(ctx any, id any) *UsersUserProfilePhotoProvider_GetPhoto_Call {
 	return &UsersUserProfilePhotoProvider_GetPhoto_Call{Call: _e.mock.On("GetPhoto", ctx, id)}
 }
 
@@ -189,7 +189,7 @@ type UsersUserProfilePhotoProvider_UpdatePhoto_Call struct {
 //   - ctx context.Context
 //   - id string
 //   - r io.Reader
-func (_e *UsersUserProfilePhotoProvider_Expecter) UpdatePhoto(ctx interface{}, id interface{}, r interface{}) *UsersUserProfilePhotoProvider_UpdatePhoto_Call {
+func (_e *UsersUserProfilePhotoProvider_Expecter) UpdatePhoto(ctx any, id any, r any) *UsersUserProfilePhotoProvider_UpdatePhoto_Call {
 	return &UsersUserProfilePhotoProvider_UpdatePhoto_Call{Call: _e.mock.On("UpdatePhoto", ctx, id, r)}
 }
 
