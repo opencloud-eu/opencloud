@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"sync"
@@ -23,7 +24,17 @@ type staticGatewaySelector struct {
 	client gateway.GatewayAPIClient
 }
 
+func indexTestSigningKey(t *testing.T) []byte {
+	t.Helper()
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		t.Fatalf("generate test signing key: %v", err)
+	}
+	return key
+}
+
 func TestIndexAuthRefreshUsesTokenExpiry(t *testing.T) {
+	signingKey := indexTestSigningKey(t)
 	now := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
 	calls := 0
 	auth := &refreshingAuthContext{
@@ -33,7 +44,7 @@ func TestIndexAuthRefreshUsesTokenExpiry(t *testing.T) {
 			calls++
 			token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
 				ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
-			}).SignedString([]byte("test-only-signing-key"))
+			}).SignedString(signingKey)
 			if err != nil {
 				return nil, err
 			}
@@ -125,12 +136,13 @@ func TestIndexAuthRefreshFailureIsPropagated(t *testing.T) {
 func TestIndexAuthRejectsMissingOrExpiredToken(t *testing.T) {
 	for _, expired := range []bool{false, true} {
 		t.Run(fmt.Sprintf("expired=%v", expired), func(t *testing.T) {
+			signingKey := indexTestSigningKey(t)
 			auth := &refreshingAuthContext{refreshInterval: time.Hour, now: time.Now,
 				authenticate: func(ctx context.Context) (context.Context, error) {
 					if !expired {
 						return ctx, nil
 					}
-					token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(-time.Hour))}).SignedString([]byte("test-only-signing-key"))
+					token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(-time.Hour))}).SignedString(signingKey)
 					if err != nil {
 						return nil, err
 					}
