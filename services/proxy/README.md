@@ -42,6 +42,21 @@ the intended OpenCloud resource audience in the **access tokens** issued to all
 relevant clients, including web, desktop and mobile clients. Adding an audience
 only to an ID token or a Userinfo response does not satisfy this check.
 
+The built-in IDP sets the access token's `aud` to the client ID of the
+authenticated client. It does not support configuring a separate resource
+audience. When using this IDP, list the client IDs of all OpenCloud clients you
+use in `PROXY_OIDC_AUDIENCES`, including web, desktop and mobile clients. Setting
+this proxy option does not change the tokens issued by the IDP.
+
+For Keycloak, add an **Audience** protocol mapper to a client scope. Set
+**Included Client Audience** to the OpenCloud resource client, or use
+**Included Custom Audience** for a value such as `opencloud-api`, and enable
+**Add to access token**. Assign the scope as a default scope to each client
+accessing OpenCloud so the audience is included without an extra `scope`
+parameter. Use that same audience in `PROXY_OIDC_AUDIENCES`. See
+[Keycloak's audience support documentation](https://www.keycloak.org/docs/latest/server_admin/#audience-support)
+for details and the alternative based on client roles.
+
 An access token must contain at least one exactly matching, case-sensitive value
 in its `aud` claim. Both strings, such as `"aud": "opencloud"`, and arrays, such as
 `"aud": ["another-api", "opencloud"]`, are supported. Tokens with missing, empty,
@@ -53,8 +68,10 @@ empty or consist only of whitespace.
 The default list is empty, which disables audience validation to preserve
 compatibility with existing identity provider configurations. An explicitly empty
 `PROXY_OIDC_AUDIENCES` overrides any YAML list and disables the check; `audiences: []`
-does the same in YAML. When OIDC is active and the check is disabled, the proxy
-logs one startup warning, subject to the configured log level.
+does the same in YAML. When OIDC is active, JWT verification is enabled and the
+audience check is disabled, the proxy logs one startup warning, subject to the
+configured log level. No audience warning is logged when
+`access_token_verify_method` is `none`.
 
 Restart the proxy after changing the configuration and apply the same policy to
 all proxy instances. The signed access token, including its audience when
