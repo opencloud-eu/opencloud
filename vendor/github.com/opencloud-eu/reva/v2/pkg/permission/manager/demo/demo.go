@@ -50,6 +50,8 @@ func (m manager) CheckPermission(perm string, subject string, ref *provider.Refe
 	case permission.WriteShare:
 		// TODO guest accounts cannot share
 		return true
+	case permission.GuestMailWrite:
+		return true
 	case permission.ListFavorites:
 		// TODO guest accounts cannot list favorites
 		return true

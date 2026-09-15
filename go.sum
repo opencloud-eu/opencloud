@@ -787,6 +787,8 @@ github.com/magiconair/properties v1.8.1/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czP
 github.com/magiconair/properties v1.8.4/go.mod h1:y3VJvCyxH9uVvJTWEGAELF3aiYNyPKd5NZ3oSwXrF60=
 github.com/magiconair/properties v1.8.10 h1:s31yESBquKXCV9a/ScB3ESkOjUYYv+X0rg8SYxI99mE=
 github.com/magiconair/properties v1.8.10/go.mod h1:Dhd985XPs7jluiymwWYZ0G4Z61jb3vdS329zhj2hYo0=
+github.com/maki5/reva/v2 v2.49.1-0.20260915184023-e6f3c873a360 h1:NdCyfLDs1ilOX3wLIl/jf16A5lQW2gbUOHtneD3AOFA=
+github.com/maki5/reva/v2 v2.49.1-0.20260915184023-e6f3c873a360/go.mod h1:PZFZK90dVfh+pkelCbgtGjmUQots9x7JOd1I2tt2aIQ=
 github.com/maruel/natural v1.1.1 h1:Hja7XhhmvEFhcByqDoHz9QZbkWey+COd9xWfCfn1ioo=
 github.com/maruel/natural v1.1.1/go.mod h1:v+Rfd79xlw1AgVBjbO0BEQmptqb5HvL/k9GRHB7ZKEg=
 github.com/matryer/moq v0.0.0-20190312154309-6cfb0558e1bd/go.mod h1:9ELz6aaclSIGnZBoaSLZ3NAl1VTufbOrXBPvtcy6WiQ=
@@ -942,8 +944,6 @@ github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89 h1:W1ms+l
 github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89/go.mod h1:vigJkNss1N2QEceCuNw/ullDehncuJNFB6mEnzfq9UI=
 github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260908131234-71ed393d5010 h1:DOQa8d1MFZ2vxDoJ4TQKf9gV5ivyCT/LGEe1BzkITNc=
 github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260908131234-71ed393d5010/go.mod h1:lTM8JeGblNpoMySTW7Lui2+c5TTLI95mwxtdUIHHrhU=
-github.com/opencloud-eu/reva/v2 v2.50.0 h1:N5e0AuqACiZdQZAlEk7JqrSQfqwQVt26xAsCGzzOxOo=
-github.com/opencloud-eu/reva/v2 v2.50.0/go.mod h1:PZFZK90dVfh+pkelCbgtGjmUQots9x7JOd1I2tt2aIQ=
 github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4 h1:l2oB/RctH+t8r7QBj5p8thfEHCM/jF35aAY3WQ3hADI=
 github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4/go.mod h1:BmF5hyM6tXczk3MpQkFf1hpKSRqCyhqcbiQtiAF7+40=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
