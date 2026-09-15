@@ -187,6 +187,18 @@ func DefaultPolicies() []config.Policy {
 					Service:     "eu.opencloud.web.frontend",
 					Unprotected: true,
 				},
+				{
+					// Capabilities must be readable by anonymous/unauthenticated
+					// clients: it's how a client discovers server capabilities
+					// (including auth-related ones) before it has ever
+					// authenticated. Without this, the general /ocs/ route below
+					// requires auth, and anonymous capabilities requests 401
+					// instead of returning the (public-safe) capabilities payload.
+					Type:        config.RegexRoute,
+					Endpoint:    "/ocs/v[12].php/cloud/capabilities",
+					Service:     "eu.opencloud.web.frontend",
+					Unprotected: true,
+				},
 				// OCM WAYF public endpoints
 				{
 					Endpoint:    "/sciencemesh/federations",
