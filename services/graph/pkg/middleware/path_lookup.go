@@ -36,6 +36,17 @@ type contextKey string
 // tracing/logging consumers.
 const OriginalPathContextKey contextKey = "graph.original_path"
 
+// ParentPathContextKey holds the unresolved parent path of a POST .../children
+// colon request; the handler resolves (or creates) it after validation.
+const ParentPathContextKey contextKey = "graph.parent_path"
+
+// ParentPath returns the parent path stored by ResolveGraphPath, or "" for all
+// other requests.
+func ParentPath(ctx context.Context) string {
+	path, _ := ctx.Value(ParentPathContextKey).(string)
+	return path
+}
+
 // Sentinels distinguishing the resolution outcomes that map to specific HTTP
 // statuses. Anything else surfaces as 500.
 //
@@ -74,6 +85,10 @@ var (
 // failures (gateway selection, RPC transport, unexpected status) surface
 // as 5xx so outages aren't masked.
 //
+// POST .../children colon requests are never resolved here: the rewrite targets
+// the anchor item and the parent path reaches the handler via
+// ParentPathContextKey (see createChild).
+//
 // Requests whose RoutePath contains no colon fast-path through untouched.
 func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.Logger) func(http.Handler) http.Handler {
 	l := logger.With().Str("middleware", "graphPathLookup").Logger()
@@ -91,7 +106,7 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 
 			driveID := chi.URLParam(r, "driveID")
 			original := r.URL.Path
-			rewritten, err := rewriteColonPath(r.Context(), gws, l, driveID, rctx.RoutePath)
+			rewritten, parentPath, err := rewriteColonPath(r.Context(), gws, l, driveID, rctx.RoutePath, r.Method)
 			switch {
 			case errors.Is(err, errPathNotFound):
 				l.Debug().Str("original", original).Msg("colon-path resolution: not found")
@@ -126,6 +141,9 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 			// tracing/logging. r.URL.Path itself stays untouched; only chi's
 			// internal RoutePath is rewritten.
 			r = r.WithContext(context.WithValue(r.Context(), OriginalPathContextKey, original))
+			if parentPath != "" {
+				r = r.WithContext(context.WithValue(r.Context(), ParentPathContextKey, parentPath))
+			}
 			rctx.RoutePath = rewritten
 			next.ServeHTTP(w, r)
 		})
@@ -145,13 +163,17 @@ type colonMatch struct {
 	suffix         string // suffix with leading slash (e.g. "/children"); may be empty
 }
 
-// rewriteColonPath returns:
+// rewriteColonPath returns (rewritten, parentPath, err):
 //   - ""        + nil                - no colon-syntax pattern matched (passthrough)
 //   - rewritten + nil                - matched and resolved to a canonical RoutePath
 //   - ""        + errPathNotFound    - path doesn't exist or user lacks permission (404)
 //   - ""        + errInvalidRequest  - malformed input (400)
 //   - ""        + errUnauthenticated - gateway said caller isn't authenticated (401)
 //   - ""        + other error        - operational / internal failure (5xx)
+//
+// parentPath is non-empty for POST .../children requests: their colon path is
+// never resolved here, the rewrite targets the anchor item and the handler
+// resolves (or creates) the parent path (see ParentPathContextKey).
 //
 // driveIDParam is the {driveID} route param (raw chi.URLParam value); routePath
 // is chi.RouteContext().RoutePath (the part below /drives/{driveID}).
@@ -161,10 +183,11 @@ func rewriteColonPath(
 	logger zerolog.Logger,
 	driveIDParam string,
 	routePath string,
-) (string, error) {
+	method string,
+) (string, string, error) {
 	match, ok := parseColonPath(routePath)
 	if !ok {
-		return "", nil
+		return "", "", nil
 	}
 
 	// RoutePath follows chi's RawPath, i.e. the percent-encoded wire form
@@ -174,7 +197,7 @@ func rewriteColonPath(
 	driveID, err := url.PathUnescape(driveIDParam)
 	if err != nil {
 		logger.Debug().Err(err).Str("driveID", driveIDParam).Msg("undecodable drive id in colon path")
-		return "", errInvalidRequest
+		return "", "", errInvalidRequest
 	}
 
 	anchorIDStr := driveID
@@ -182,7 +205,7 @@ func rewriteColonPath(
 		anchorIDStr, err = url.PathUnescape(match.itemAnchorID)
 		if err != nil {
 			logger.Debug().Err(err).Str("itemID", match.itemAnchorID).Msg("undecodable item id in colon path")
-			return "", errInvalidRequest
+			return "", "", errInvalidRequest
 		}
 	}
 
@@ -190,7 +213,7 @@ func rewriteColonPath(
 	if err != nil {
 		// Unparseable input is malformed by the client, not "not found".
 		logger.Debug().Err(err).Str("anchor", anchorIDStr).Msg("invalid anchor id in colon path")
-		return "", errInvalidRequest
+		return "", "", errInvalidRequest
 	}
 
 	// Item-anchored form: the itemID comes from the path, driveID from the
@@ -201,28 +224,38 @@ func rewriteColonPath(
 		drive, err := storagespace.ParseID(driveID)
 		if err != nil {
 			logger.Debug().Err(err).Str("driveID", driveID).Msg("invalid drive id in colon path")
-			return "", errInvalidRequest
+			return "", "", errInvalidRequest
 		}
 		if drive.GetStorageId() != anchor.GetStorageId() || drive.GetSpaceId() != anchor.GetSpaceId() {
 			logger.Debug().
 				Str("driveID", driveID).
 				Str("itemID", anchorIDStr).
 				Msg("drive id does not match item id storage/space")
-			return "", errInvalidRequest
+			return "", "", errInvalidRequest
 		}
 	}
 
 	relPath, err := url.PathUnescape(match.relPath)
 	if err != nil {
 		logger.Debug().Err(err).Str("relPath", match.relPath).Msg("undecodable path in colon path")
-		return "", errInvalidRequest
+		return "", "", errInvalidRequest
+	}
+
+	if method == http.MethodPost && match.suffix == "/children" {
+		// the colon path addresses the parent of the item to create: rewrite
+		// to the anchor item, the handler resolves the parent path
+		if anchor.GetOpaqueId() == "" {
+			// the space root item id is storage$space!space
+			anchor.OpaqueId = anchor.GetSpaceId()
+		}
+		return buildCanonicalRoutePath(storagespace.FormatResourceID(&anchor), match.suffix), relPath, nil
 	}
 
 	itemID, err := resolvePath(ctx, gws, &anchor, relPath)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return buildCanonicalRoutePath(itemID, match.suffix), nil
+	return buildCanonicalRoutePath(itemID, match.suffix), "", nil
 }
 
 // parseColonPath splits a colon-syntax RoutePath (the part below
