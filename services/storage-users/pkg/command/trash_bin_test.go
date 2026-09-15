@@ -2,7 +2,31 @@ package command
 
 import (
 	"testing"
+
+	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
+
+	"github.com/spf13/cobra"
 )
+
+func Test_trashBinCommandUse(t *testing.T) {
+	cfg := &config.Config{}
+	tests := []struct {
+		name string
+		cmd  *cobra.Command
+		want string
+	}{
+		{"list", listTrashBinItems(cfg), "list space"},
+		{"restore-all", restoreAllTrashBinItems(cfg), "restore-all space"},
+		{"restore", restoreTrashBinItem(cfg), "restore space item"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cmd.Use; got != tt.want {
+				t.Errorf("Use = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
 
 func Test_modifyFilename(t *testing.T) {
 	type args struct {
