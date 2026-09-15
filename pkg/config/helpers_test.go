@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"testing"
 	"testing/fstest"
 
@@ -11,6 +12,64 @@ type TestConfig struct {
 	A string `yaml:"a"`
 	B string `yaml:"b"`
 	C string `yaml:"c"`
+}
+
+func TestReadFileEnv(t *testing.T) {
+	t.Run("no file env", func(t *testing.T) {
+		value, ok, err := ReadFileEnv("direct", "MISSING_FILE")
+		assert.NilError(t, err)
+		assert.Equal(t, ok, false)
+		assert.Equal(t, value, "direct")
+	})
+
+	t.Run("reads file", func(t *testing.T) {
+		file := writeTempSecret(t, "secret")
+		t.Setenv("SECRET_FILE", file)
+
+		value, ok, err := ReadFileEnv("", "SECRET_FILE")
+		assert.NilError(t, err)
+		assert.Equal(t, ok, true)
+		assert.Equal(t, value, "secret")
+	})
+
+	t.Run("trims trailing newlines", func(t *testing.T) {
+		file := writeTempSecret(t, "secret\r\n\n")
+		t.Setenv("SECRET_FILE", file)
+
+		value, ok, err := ReadFileEnv("", "SECRET_FILE")
+		assert.NilError(t, err)
+		assert.Equal(t, ok, true)
+		assert.Equal(t, value, "secret")
+	})
+
+	t.Run("conflicts with direct value", func(t *testing.T) {
+		file := writeTempSecret(t, "secret")
+		t.Setenv("SECRET_FILE", file)
+
+		_, ok, err := ReadFileEnv("direct", "SECRET_FILE")
+		assert.Equal(t, ok, true)
+		assert.ErrorContains(t, err, "SECRET_FILE cannot be used together with direct value")
+	})
+
+	t.Run("missing file", func(t *testing.T) {
+		t.Setenv("SECRET_FILE", t.TempDir()+"/missing")
+
+		_, ok, err := ReadFileEnv("", "SECRET_FILE")
+		assert.Equal(t, ok, true)
+		assert.ErrorContains(t, err, "read SECRET_FILE")
+	})
+}
+
+func writeTempSecret(t *testing.T, content string) string {
+	t.Helper()
+
+	file, err := os.CreateTemp(t.TempDir(), "secret")
+	assert.NilError(t, err)
+	_, err = file.WriteString(content)
+	assert.NilError(t, err)
+	assert.NilError(t, file.Close())
+
+	return file.Name()
 }
 
 func TestBindSourcesToStructs(t *testing.T) {
