@@ -57,6 +57,16 @@ func Validate(cfg *config.Config) error {
 		)
 	}
 
+	if cfg.ClientIP.Strategy != config.ClientIPStrategyRemoteAddr && cfg.ClientIP.Strategy != config.ClientIPStrategyHeader &&
+		cfg.ClientIP.Strategy != config.ClientIPStrategyXFF && cfg.ClientIP.Strategy != config.ClientIPStrategyXFFTrustedHops {
+		return fmt.Errorf(
+			"Invalid value '%s' for 'client_ip.strategy' in service %s. Possible values are: '%s', '%s', '%s' or '%s'.",
+			cfg.ClientIP.Strategy, cfg.Service.Name,
+			config.ClientIPStrategyRemoteAddr, config.ClientIPStrategyHeader,
+			config.ClientIPStrategyXFF, config.ClientIPStrategyXFFTrustedHops,
+		)
+	}
+
 	if cfg.ServiceAccount.ServiceAccountID == "" {
 		return shared.MissingServiceAccountID(cfg.Service.Name)
 	}

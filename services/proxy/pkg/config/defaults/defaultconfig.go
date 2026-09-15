@@ -46,6 +46,11 @@ func DefaultConfig() *config.Config {
 				ExpectContinueTimeout: 1 * time.Second,
 			},
 		},
+		ClientIP: config.ClientIP{
+			Strategy:    config.ClientIPStrategyRemoteAddr,
+			Header:      "X-Real-IP",
+			TrustedHops: 1, // this might need to be adjusted
+		},
 		Service: config.Service{
 			Name: "proxy",
 		},
