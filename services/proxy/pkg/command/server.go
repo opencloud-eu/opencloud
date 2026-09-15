@@ -104,18 +104,21 @@ func Server(cfg *config.Config) *cobra.Command {
 						InsecureSkipVerify: cfg.OIDC.Insecure, //nolint:gosec
 					},
 					DisableKeepAlives: true,
-					Proxy: http.ProxyFromEnvironment,
+					Proxy:             http.ProxyFromEnvironment,
 				},
 				Timeout: time.Second * 10,
 			}
 
-			oidcClient := oidc.NewOIDCClient(
+			oidcClient, err := oidc.NewOIDCClient(
 				oidc.WithAccessTokenVerifyMethod(cfg.OIDC.AccessTokenVerifyMethod),
 				oidc.WithLogger(logger),
 				oidc.WithHTTPClient(oidcHTTPClient),
 				oidc.WithOidcIssuer(cfg.OIDC.Issuer),
 				oidc.WithJWKSOptions(cfg.OIDC.JWKS),
 			)
+			if err != nil {
+				return fmt.Errorf("failed to initialize OIDC client: %w", err)
+			}
 
 			var cancel context.CancelFunc
 			if cfg.Context == nil {
@@ -195,7 +198,10 @@ func Server(cfg *config.Config) *cobra.Command {
 
 			gr := runner.NewGroup()
 			{
-				middlewares := loadMiddlewares(logger, cfg, userInfoCache, signingKeyStore, traceProvider, *m, userProvider, publisher, gatewaySelector, serviceSelector)
+				middlewares, err := loadMiddlewares(logger, cfg, userInfoCache, signingKeyStore, traceProvider, *m, userProvider, publisher, gatewaySelector, serviceSelector)
+				if err != nil {
+					return err
+				}
 
 				server, err := proxyHTTP.Server(
 					proxyHTTP.Handler(lh.Handler()),
@@ -244,11 +250,40 @@ func Server(cfg *config.Config) *cobra.Command {
 	}
 }
 
+func newOIDCAuthenticator(logger log.Logger, cfg *config.Config, userInfoCache microstore.Store, httpClient *http.Client) (*middleware.OIDCAuthenticator, error) {
+	oidcClient, err := oidc.NewOIDCClient(
+		oidc.WithAccessTokenVerifyMethod(cfg.OIDC.AccessTokenVerifyMethod),
+		oidc.WithAccessTokenAudiences(cfg.OIDC.Audiences),
+		oidc.WithLogger(logger),
+		oidc.WithHTTPClient(httpClient),
+		oidc.WithOidcIssuer(cfg.OIDC.Issuer),
+		oidc.WithJWKSOptions(cfg.OIDC.JWKS),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize OIDC authenticator: %w", err)
+	}
+
+	if cfg.OIDC.Issuer != "" && cfg.OIDC.AccessTokenVerifyMethod != config.AccessTokenVerificationNone && len(cfg.OIDC.Audiences) == 0 {
+		logger.Warn().Msg("OIDC access token audience validation is disabled. Configure PROXY_OIDC_AUDIENCES to enable it; this is recommended for production.")
+	}
+
+	return middleware.NewOIDCAuthenticator(
+		middleware.Logger(logger),
+		middleware.UserInfoCache(userInfoCache),
+		middleware.DefaultAccessTokenTTL(cfg.OIDC.UserinfoCache.TTL),
+		middleware.HTTPClient(httpClient),
+		middleware.OIDCIss(cfg.OIDC.Issuer),
+		middleware.AccessTokenVerifyMethod(cfg.OIDC.AccessTokenVerifyMethod),
+		middleware.OIDCClient(oidcClient),
+		middleware.SkipUserInfo(cfg.OIDC.SkipUserInfo),
+	), nil
+}
+
 func loadMiddlewares(logger log.Logger, cfg *config.Config,
 	userInfoCache, signingKeyStore microstore.Store,
 	traceProvider trace.TracerProvider, metrics metrics.Metrics,
 	userProvider backend.UserBackend, publisher events.Publisher,
-	gatewaySelector pool.Selectable[gateway.GatewayAPIClient], serviceSelector selector.Selector) alice.Chain {
+	gatewaySelector pool.Selectable[gateway.GatewayAPIClient], serviceSelector selector.Selector) (alice.Chain, error) {
 
 	rolesClient := settingssvc.NewRoleService("eu.opencloud.api.settings", cfg.GrpcClient)
 	policiesProviderClient := policiessvc.NewPoliciesProviderService("eu.opencloud.api.policies", cfg.GrpcClient)
@@ -280,7 +315,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 				InsecureSkipVerify: cfg.OIDC.Insecure, //nolint:gosec
 			},
 			DisableKeepAlives: true,
-			Proxy: http.ProxyFromEnvironment,
+			Proxy:             http.ProxyFromEnvironment,
 		},
 		Timeout: time.Second * 10,
 	}
@@ -301,7 +336,11 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 			UserRoleAssigner:    roleAssigner,
 		})
 	}
-	authenticators = append(authenticators, newOIDCAuthenticator(logger, cfg, userInfoCache, oidcHTTPClient))
+	oidcAuthenticator, err := newOIDCAuthenticator(logger, cfg, userInfoCache, oidcHTTPClient)
+	if err != nil {
+		return alice.Chain{}, err
+	}
+	authenticators = append(authenticators, oidcAuthenticator)
 	authenticators = append(authenticators, middleware.PublicShareAuthenticator{
 		Logger:              logger,
 		RevaGatewaySelector: gatewaySelector,
@@ -396,5 +435,5 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 			middleware.WithRevaGatewaySelector(gatewaySelector),
 			middleware.RoleQuotas(cfg.RoleQuotas),
 		),
-	)
+	), nil
 }

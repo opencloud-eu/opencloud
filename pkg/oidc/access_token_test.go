@@ -62,7 +62,7 @@ func TestAccessTokenAudiences(t *testing.T) {
 			if !tt.missing {
 				claims["aud"] = tt.aud
 			}
-			client := newAccessTokenTestClient(key, tt.audiences, &oidc.ProviderMetadata{})
+			client := newAccessTokenTestClient(t, key, tt.audiences, &oidc.ProviderMetadata{})
 			registered, all, err := client.VerifyAccessToken(context.Background(), signAccessToken(t, key, claims))
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
@@ -113,7 +113,7 @@ func TestAccessTokenValidationWithAudiences(t *testing.T) {
 			if !tt.nbf.IsZero() {
 				claims["nbf"] = tt.nbf.Unix()
 			}
-			client := newAccessTokenTestClient(key, []string{"opencloud"}, tt.provider)
+			client := newAccessTokenTestClient(t, key, []string{"opencloud"}, tt.provider)
 			_, _, err := client.VerifyAccessToken(context.Background(), signAccessToken(t, tt.signingKey, claims))
 			require.ErrorIs(t, err, tt.wantErr)
 		})
@@ -124,35 +124,36 @@ func TestAccessTokenAudienceConfiguration(t *testing.T) {
 	for _, method := range []string{config.AccessTokenVerificationNone, ""} {
 		t.Run("incompatible method "+method, func(t *testing.T) {
 			// No HTTP client is supplied: invalid configuration must fail before discovery.
-			client := oidc.NewOIDCClient(
+			client, err := oidc.NewOIDCClient(
 				oidc.WithAccessTokenVerifyMethod(method),
 				oidc.WithAccessTokenAudiences([]string{"opencloud"}),
 			)
-			_, _, err := client.VerifyAccessToken(context.Background(), "opaque-token")
 			require.ErrorContains(t, err, "requires the jwt verification method")
+			require.Nil(t, client)
 		})
 	}
 	for _, audiences := range [][]string{{""}, {" \t"}, {"opencloud", ""}} {
-		client := oidc.NewOIDCClient(
+		client, err := oidc.NewOIDCClient(
 			oidc.WithAccessTokenVerifyMethod(config.AccessTokenVerificationJWT),
 			oidc.WithAccessTokenAudiences(audiences),
 		)
-		_, _, err := client.VerifyAccessToken(context.Background(), "token")
 		require.ErrorContains(t, err, "empty or whitespace-only")
+		require.Nil(t, client)
 	}
 	t.Run("none remains compatible when disabled", func(t *testing.T) {
-		client := oidc.NewOIDCClient(
+		client, err := oidc.NewOIDCClient(
 			oidc.WithLogger(log.NopLogger()),
 			oidc.WithAccessTokenVerifyMethod(config.AccessTokenVerificationNone),
 			oidc.WithProviderMetadata(&oidc.ProviderMetadata{}),
 		)
-		_, _, err := client.VerifyAccessToken(context.Background(), "opaque-token")
+		require.NoError(t, err)
+		_, _, err = client.VerifyAccessToken(context.Background(), "opaque-token")
 		require.NoError(t, err)
 	})
 	t.Run("caller cannot mutate the policy", func(t *testing.T) {
 		key := newRSAKey(t)
 		audiences := []string{"opencloud"}
-		client := newAccessTokenTestClient(key, audiences, &oidc.ProviderMetadata{})
+		client := newAccessTokenTestClient(t, key, audiences, &oidc.ProviderMetadata{})
 		audiences[0] = "immich"
 		_, _, err := client.VerifyAccessToken(context.Background(), signAccessToken(t, key,
 			jwt.MapClaims{"iss": "https://issuer.example", "aud": "immich"}))
@@ -162,7 +163,7 @@ func TestAccessTokenAudienceConfiguration(t *testing.T) {
 
 func TestAccessTokenAudiencesDoNotApplyToLogoutTokens(t *testing.T) {
 	key := newRSAKey(t)
-	client := newAccessTokenTestClient(key, []string{"opencloud"}, &oidc.ProviderMetadata{})
+	client := newAccessTokenTestClient(t, key, []string{"opencloud"}, &oidc.ProviderMetadata{})
 	token := signAccessToken(t, key, jwt.MapClaims{
 		"iss": "https://issuer.example",
 		"sub": "alice",
@@ -175,8 +176,9 @@ func TestAccessTokenAudiencesDoNotApplyToLogoutTokens(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func newAccessTokenTestClient(key *signingKey, audiences []string, provider *oidc.ProviderMetadata) oidc.OIDCClient {
-	return oidc.NewOIDCClient(
+func newAccessTokenTestClient(t *testing.T, key *signingKey, audiences []string, provider *oidc.ProviderMetadata) oidc.OIDCClient {
+	t.Helper()
+	client, err := oidc.NewOIDCClient(
 		oidc.WithLogger(log.NopLogger()),
 		oidc.WithOidcIssuer("https://issuer.example"),
 		oidc.WithAccessTokenVerifyMethod(config.AccessTokenVerificationJWT),
@@ -184,6 +186,8 @@ func newAccessTokenTestClient(key *signingKey, audiences []string, provider *oid
 		oidc.WithJWKS(key.jwks),
 		oidc.WithProviderMetadata(provider),
 	)
+	require.NoError(t, err)
+	return client
 }
 
 func signAccessToken(t *testing.T, key *signingKey, claims jwt.MapClaims) string {

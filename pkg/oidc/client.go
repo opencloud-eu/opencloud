@@ -83,9 +83,18 @@ var _supportedAlgorithms = map[string]bool{
 	PS512: true,
 }
 
-// NewOIDCClient returns an OIDClient instance for the given issuer
-func NewOIDCClient(opts ...Option) OIDCClient {
+// NewOIDCClient returns an OIDCClient instance for the given issuer.
+// Invalid access token audience configuration is rejected before creating the client.
+func NewOIDCClient(opts ...Option) (OIDCClient, error) {
 	options := newOptions(opts...)
+	if len(options.AccessTokenAudiences) > 0 && options.AccessTokenVerifyMethod != config.AccessTokenVerificationJWT {
+		return nil, errors.New("access token audience validation requires the jwt verification method")
+	}
+	for _, audience := range options.AccessTokenAudiences {
+		if strings.TrimSpace(audience) == "" {
+			return nil, errors.New("access token audiences must not contain empty or whitespace-only entries")
+		}
+	}
 
 	return &oidcClient{
 		Logger:                  options.Logger,
@@ -99,7 +108,7 @@ func NewOIDCClient(opts ...Option) OIDCClient {
 		jwksLock:                &sync.Mutex{},
 		remoteKeySet:            options.KeySet,
 		provider:                options.ProviderMetadata,
-	}
+	}, nil
 }
 
 func (c *oidcClient) lookupWellKnownOpenidConfiguration(ctx context.Context) error {
@@ -272,14 +281,6 @@ func (c *oidcClient) UserInfo(ctx context.Context, tokenSource oauth2.TokenSourc
 }
 
 func (c *oidcClient) VerifyAccessToken(ctx context.Context, token string) (RegClaimsWithSID, jwt.MapClaims, error) {
-	if len(c.accessTokenAudiences) > 0 && c.accessTokenVerifyMethod != config.AccessTokenVerificationJWT {
-		return RegClaimsWithSID{}, jwt.MapClaims{}, errors.New("access token audience validation requires the jwt verification method")
-	}
-	for _, audience := range c.accessTokenAudiences {
-		if strings.TrimSpace(audience) == "" {
-			return RegClaimsWithSID{}, jwt.MapClaims{}, errors.New("access token audiences must not contain empty or whitespace-only entries")
-		}
-	}
 	if err := c.lookupWellKnownOpenidConfiguration(ctx); err != nil {
 		return RegClaimsWithSID{}, jwt.MapClaims{}, err
 	}
