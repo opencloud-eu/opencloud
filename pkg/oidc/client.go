@@ -57,6 +57,7 @@ type oidcClient struct {
 	providerLock            *sync.Mutex
 	skipIssuerValidation    bool
 	accessTokenVerifyMethod string
+	accessTokenAudiences    []string
 	remoteKeySet            KeySet
 	algorithms              []string
 
@@ -82,22 +83,32 @@ var _supportedAlgorithms = map[string]bool{
 	PS512: true,
 }
 
-// NewOIDCClient returns an OIDClient instance for the given issuer
-func NewOIDCClient(opts ...Option) OIDCClient {
+// NewOIDCClient returns an OIDCClient instance for the given issuer.
+// Invalid access token audience configuration is rejected before creating the client.
+func NewOIDCClient(opts ...Option) (OIDCClient, error) {
 	options := newOptions(opts...)
+	if len(options.AccessTokenAudiences) > 0 && options.AccessTokenVerifyMethod != config.AccessTokenVerificationJWT {
+		return nil, errors.New("access token audience validation requires the jwt verification method")
+	}
+	for _, audience := range options.AccessTokenAudiences {
+		if strings.TrimSpace(audience) == "" {
+			return nil, errors.New("access token audiences must not contain empty or whitespace-only entries")
+		}
+	}
 
 	return &oidcClient{
 		Logger:                  options.Logger,
 		issuer:                  options.OIDCIssuer,
 		httpClient:              options.HTTPClient,
 		accessTokenVerifyMethod: options.AccessTokenVerifyMethod,
+		accessTokenAudiences:    options.AccessTokenAudiences,
 		JWKSOptions:             options.JWKSOptions, // TODO I don't like that we pass down config options ...
 		JWKS:                    options.JWKS,
 		providerLock:            &sync.Mutex{},
 		jwksLock:                &sync.Mutex{},
 		remoteKeySet:            options.KeySet,
 		provider:                options.ProviderMetadata,
-	}
+	}, nil
 }
 
 func (c *oidcClient) lookupWellKnownOpenidConfiguration(ctx context.Context) error {
@@ -301,7 +312,7 @@ func (c *oidcClient) verifyAccessTokenJWT(token string) (RegClaimsWithSID, jwt.M
 		issuer = c.provider.AccessTokenIssuer
 	}
 
-	_, err := jwt.ParseWithClaims(token, &claims, jwks.Keyfunc, jwt.WithIssuer(issuer))
+	_, err := jwt.ParseWithClaims(token, &claims, jwks.Keyfunc, jwt.WithIssuer(issuer), jwt.WithAudience(c.accessTokenAudiences...))
 	if err != nil {
 		return claims, mapClaims, err
 	}

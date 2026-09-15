@@ -3,6 +3,7 @@ package parser
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
@@ -55,6 +56,14 @@ func Validate(cfg *config.Config) error {
 			"Incompatible value '%t' for 'skip_user_info' in service %s. Must be false when 'access_token_verify_method' is 'none'.",
 			cfg.OIDC.SkipUserInfo, cfg.Service.Name,
 		)
+	}
+	if len(cfg.OIDC.Audiences) > 0 && cfg.OIDC.AccessTokenVerifyMethod != config.AccessTokenVerificationJWT {
+		return fmt.Errorf("OIDC audiences (PROXY_OIDC_AUDIENCES) in service %s require access_token_verify_method to be 'jwt'", cfg.Service.Name)
+	}
+	for _, audience := range cfg.OIDC.Audiences {
+		if strings.TrimSpace(audience) == "" {
+			return fmt.Errorf("OIDC audiences (PROXY_OIDC_AUDIENCES) in service %s must not contain empty or whitespace-only entries", cfg.Service.Name)
+		}
 	}
 
 	if cfg.ServiceAccount.ServiceAccountID == "" {
