@@ -15,6 +15,10 @@
 - fix(shares): not auto accepting shares created by guest users [[#3533](https://github.com/opencloud-eu/opencloud/pull/3533)]
 - fix(graph): fix PatchMe method to prevent password change [[#3526](https://github.com/opencloud-eu/opencloud/pull/3526)]
 
+### 📦️ Dependencies
+
+- build(deps): bump github.com/sirupsen/logrus from 1.10.1 to 1.10.2 [[#3492](https://github.com/opencloud-eu/opencloud/pull/3492)]
+
 ## [8.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.0) - 2026-09-15
 
 ### ❤️ Thanks to all contributors! ❤️
