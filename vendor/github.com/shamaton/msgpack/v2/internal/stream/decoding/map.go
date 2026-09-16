@@ -73,7 +73,7 @@ func (d *decoder) mapLength(code byte, k reflect.Kind) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		return int(binary.BigEndian.Uint32(bs)), nil
+		return lengthFromUint32(binary.BigEndian.Uint32(bs))
 	}
 
 	return 0, d.errorTemplate(code, k)
@@ -87,7 +87,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 
 	switch t {
 	case typeMapStringInt:
-		m := make(map[string]int, l)
+		m := make(map[string]int, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asString(keyKind)
 			if err != nil {
@@ -103,7 +103,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapStringUint:
-		m := make(map[string]uint, l)
+		m := make(map[string]uint, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asString(keyKind)
 			if err != nil {
@@ -119,7 +119,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapStringFloat32:
-		m := make(map[string]float32, l)
+		m := make(map[string]float32, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asString(keyKind)
 			if err != nil {
@@ -135,7 +135,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapStringFloat64:
-		m := make(map[string]float64, l)
+		m := make(map[string]float64, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asString(keyKind)
 			if err != nil {
@@ -151,7 +151,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapStringBool:
-		m := make(map[string]bool, l)
+		m := make(map[string]bool, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asString(keyKind)
 			if err != nil {
@@ -167,7 +167,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapStringString:
-		m := make(map[string]string, l)
+		m := make(map[string]string, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asString(keyKind)
 			if err != nil {
@@ -183,7 +183,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapStringInt8:
-		m := make(map[string]int8, l)
+		m := make(map[string]int8, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asString(keyKind)
 			if err != nil {
@@ -199,7 +199,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapStringInt16:
-		m := make(map[string]int16, l)
+		m := make(map[string]int16, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asString(keyKind)
 			if err != nil {
@@ -215,7 +215,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapStringInt32:
-		m := make(map[string]int32, l)
+		m := make(map[string]int32, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asString(keyKind)
 			if err != nil {
@@ -231,7 +231,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapStringInt64:
-		m := make(map[string]int64, l)
+		m := make(map[string]int64, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asString(keyKind)
 			if err != nil {
@@ -247,7 +247,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapStringUint8:
-		m := make(map[string]uint8, l)
+		m := make(map[string]uint8, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asString(keyKind)
 			if err != nil {
@@ -262,7 +262,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		rv.Set(reflect.ValueOf(m))
 		return true, nil
 	case typeMapStringUint16:
-		m := make(map[string]uint16, l)
+		m := make(map[string]uint16, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asString(keyKind)
 			if err != nil {
@@ -278,7 +278,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapStringUint32:
-		m := make(map[string]uint32, l)
+		m := make(map[string]uint32, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asString(keyKind)
 			if err != nil {
@@ -294,7 +294,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapStringUint64:
-		m := make(map[string]uint64, l)
+		m := make(map[string]uint64, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asString(keyKind)
 			if err != nil {
@@ -310,7 +310,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapIntString:
-		m := make(map[int]string, l)
+		m := make(map[int]string, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asInt(keyKind)
 			if err != nil {
@@ -326,7 +326,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapInt8String:
-		m := make(map[int8]string, l)
+		m := make(map[int8]string, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asInt(keyKind)
 			if err != nil {
@@ -342,7 +342,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapInt16String:
-		m := make(map[int16]string, l)
+		m := make(map[int16]string, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asInt(keyKind)
 			if err != nil {
@@ -358,7 +358,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapInt32String:
-		m := make(map[int32]string, l)
+		m := make(map[int32]string, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asInt(keyKind)
 			if err != nil {
@@ -374,7 +374,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapInt64String:
-		m := make(map[int64]string, l)
+		m := make(map[int64]string, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asInt(keyKind)
 			if err != nil {
@@ -390,7 +390,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapIntBool:
-		m := make(map[int]bool, l)
+		m := make(map[int]bool, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asInt(keyKind)
 			if err != nil {
@@ -406,7 +406,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapInt8Bool:
-		m := make(map[int8]bool, l)
+		m := make(map[int8]bool, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asInt(keyKind)
 			if err != nil {
@@ -422,7 +422,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapInt16Bool:
-		m := make(map[int16]bool, l)
+		m := make(map[int16]bool, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asInt(keyKind)
 			if err != nil {
@@ -438,7 +438,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapInt32Bool:
-		m := make(map[int32]bool, l)
+		m := make(map[int32]bool, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asInt(keyKind)
 			if err != nil {
@@ -454,7 +454,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapInt64Bool:
-		m := make(map[int64]bool, l)
+		m := make(map[int64]bool, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asInt(keyKind)
 			if err != nil {
@@ -470,7 +470,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapUintString:
-		m := make(map[uint]string, l)
+		m := make(map[uint]string, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asUint(keyKind)
 			if err != nil {
@@ -486,7 +486,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapUint8String:
-		m := make(map[uint8]string, l)
+		m := make(map[uint8]string, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asUint(keyKind)
 			if err != nil {
@@ -502,7 +502,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapUint16String:
-		m := make(map[uint16]string, l)
+		m := make(map[uint16]string, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asUint(keyKind)
 			if err != nil {
@@ -518,7 +518,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapUint32String:
-		m := make(map[uint32]string, l)
+		m := make(map[uint32]string, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asUint(keyKind)
 			if err != nil {
@@ -534,7 +534,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapUint64String:
-		m := make(map[uint64]string, l)
+		m := make(map[uint64]string, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asUint(keyKind)
 			if err != nil {
@@ -550,7 +550,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapUintBool:
-		m := make(map[uint]bool, l)
+		m := make(map[uint]bool, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asUint(keyKind)
 			if err != nil {
@@ -566,7 +566,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapUint8Bool:
-		m := make(map[uint8]bool, l)
+		m := make(map[uint8]bool, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asUint(keyKind)
 			if err != nil {
@@ -582,7 +582,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapUint16Bool:
-		m := make(map[uint16]bool, l)
+		m := make(map[uint16]bool, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asUint(keyKind)
 			if err != nil {
@@ -598,7 +598,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapUint32Bool:
-		m := make(map[uint32]bool, l)
+		m := make(map[uint32]bool, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asUint(keyKind)
 			if err != nil {
@@ -614,7 +614,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapUint64Bool:
-		m := make(map[uint64]bool, l)
+		m := make(map[uint64]bool, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asUint(keyKind)
 			if err != nil {
@@ -630,7 +630,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapFloat32String:
-		m := make(map[float32]string, l)
+		m := make(map[float32]string, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asFloat32(keyKind)
 			if err != nil {
@@ -646,7 +646,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapFloat64String:
-		m := make(map[float64]string, l)
+		m := make(map[float64]string, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asFloat64(keyKind)
 			if err != nil {
@@ -662,7 +662,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapFloat32Bool:
-		m := make(map[float32]bool, l)
+		m := make(map[float32]bool, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asFloat32(keyKind)
 			if err != nil {
@@ -678,7 +678,7 @@ func (d *decoder) asFixedMap(rv reflect.Value, l int) (bool, error) {
 		return true, nil
 
 	case typeMapFloat64Bool:
-		m := make(map[float64]bool, l)
+		m := make(map[float64]bool, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			k, err := d.asFloat64(keyKind)
 			if err != nil {
