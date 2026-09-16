@@ -39,6 +39,16 @@ func (e UnsupportedTimeRangeError) Error() string {
 	return fmt.Sprintf("unable to convert '%v' to a time range", e.Value)
 }
 
+// GeoFieldError records a geo predicate that was used on a field that is not
+// indexed as a geopoint.
+type GeoFieldError struct {
+	Key string
+}
+
+func (e GeoFieldError) Error() string {
+	return fmt.Sprintf("geo predicate on non-geo field %q", e.Key)
+}
+
 // IsValidationError reports whether err is one of the KQL parse/validation
 // errors produced by this package, i.e. the query itself is at fault and the
 // caller should treat it as a bad request.
@@ -47,9 +57,11 @@ func IsValidationError(err error) bool {
 		startsWithBinaryOperator *StartsWithBinaryOperatorError
 		namedGroupInvalidNodes   *NamedGroupInvalidNodesError
 		unsupportedTimeRange     *UnsupportedTimeRangeError
+		geoField                 *GeoFieldError
 	)
 
 	return errors.As(err, &startsWithBinaryOperator) ||
 		errors.As(err, &namedGroupInvalidNodes) ||
-		errors.As(err, &unsupportedTimeRange)
+		errors.As(err, &unsupportedTimeRange) ||
+		errors.As(err, &geoField)
 }
