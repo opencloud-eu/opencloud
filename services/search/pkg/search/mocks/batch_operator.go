@@ -60,7 +60,7 @@ type BatchOperator_Delete_Call struct {
 
 // Delete is a helper method to define mock.On call
 //   - id string
-func (_e *BatchOperator_Expecter) Delete(id interface{}) *BatchOperator_Delete_Call {
+func (_e *BatchOperator_Expecter) Delete(id any) *BatchOperator_Delete_Call {
 	return &BatchOperator_Delete_Call{Call: _e.mock.On("Delete", id)}
 }
 
@@ -113,7 +113,7 @@ type BatchOperator_Move_Call struct {
 //   - id string
 //   - parentID string
 //   - targetPath string
-func (_e *BatchOperator_Expecter) Move(id interface{}, parentID interface{}, targetPath interface{}) *BatchOperator_Move_Call {
+func (_e *BatchOperator_Expecter) Move(id any, parentID any, targetPath any) *BatchOperator_Move_Call {
 	return &BatchOperator_Move_Call{Call: _e.mock.On("Move", id, parentID, targetPath)}
 }
 
@@ -175,7 +175,7 @@ type BatchOperator_Purge_Call struct {
 // Purge is a helper method to define mock.On call
 //   - id string
 //   - onlyDeleted bool
-func (_e *BatchOperator_Expecter) Purge(id interface{}, onlyDeleted interface{}) *BatchOperator_Purge_Call {
+func (_e *BatchOperator_Expecter) Purge(id any, onlyDeleted any) *BatchOperator_Purge_Call {
 	return &BatchOperator_Purge_Call{Call: _e.mock.On("Purge", id, onlyDeleted)}
 }
 
@@ -275,7 +275,7 @@ type BatchOperator_Restore_Call struct {
 
 // Restore is a helper method to define mock.On call
 //   - id string
-func (_e *BatchOperator_Expecter) Restore(id interface{}) *BatchOperator_Restore_Call {
+func (_e *BatchOperator_Expecter) Restore(id any) *BatchOperator_Restore_Call {
 	return &BatchOperator_Restore_Call{Call: _e.mock.On("Restore", id)}
 }
 
@@ -327,7 +327,7 @@ type BatchOperator_Upsert_Call struct {
 // Upsert is a helper method to define mock.On call
 //   - id string
 //   - r search.Resource
-func (_e *BatchOperator_Expecter) Upsert(id interface{}, r interface{}) *BatchOperator_Upsert_Call {
+func (_e *BatchOperator_Expecter) Upsert(id any, r any) *BatchOperator_Upsert_Call {
 	return &BatchOperator_Upsert_Call{Call: _e.mock.On("Upsert", id, r)}
 }
 

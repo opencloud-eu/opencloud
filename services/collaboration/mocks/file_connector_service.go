@@ -74,7 +74,7 @@ type FileConnectorService_CheckFileInfo_Call struct {
 
 // CheckFileInfo is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *FileConnectorService_Expecter) CheckFileInfo(ctx interface{}) *FileConnectorService_CheckFileInfo_Call {
+func (_e *FileConnectorService_Expecter) CheckFileInfo(ctx any) *FileConnectorService_CheckFileInfo_Call {
 	return &FileConnectorService_CheckFileInfo_Call{Call: _e.mock.On("CheckFileInfo", ctx)}
 }
 
@@ -137,7 +137,7 @@ type FileConnectorService_DeleteFile_Call struct {
 // DeleteFile is a helper method to define mock.On call
 //   - ctx context.Context
 //   - lockID string
-func (_e *FileConnectorService_Expecter) DeleteFile(ctx interface{}, lockID interface{}) *FileConnectorService_DeleteFile_Call {
+func (_e *FileConnectorService_Expecter) DeleteFile(ctx any, lockID any) *FileConnectorService_DeleteFile_Call {
 	return &FileConnectorService_DeleteFile_Call{Call: _e.mock.On("DeleteFile", ctx, lockID)}
 }
 
@@ -205,7 +205,7 @@ type FileConnectorService_GetAvatar_Call struct {
 // GetAvatar is a helper method to define mock.On call
 //   - ctx context.Context
 //   - userID string
-func (_e *FileConnectorService_Expecter) GetAvatar(ctx interface{}, userID interface{}) *FileConnectorService_GetAvatar_Call {
+func (_e *FileConnectorService_Expecter) GetAvatar(ctx any, userID any) *FileConnectorService_GetAvatar_Call {
 	return &FileConnectorService_GetAvatar_Call{Call: _e.mock.On("GetAvatar", ctx, userID)}
 }
 
@@ -272,7 +272,7 @@ type FileConnectorService_GetLock_Call struct {
 
 // GetLock is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *FileConnectorService_Expecter) GetLock(ctx interface{}) *FileConnectorService_GetLock_Call {
+func (_e *FileConnectorService_Expecter) GetLock(ctx any) *FileConnectorService_GetLock_Call {
 	return &FileConnectorService_GetLock_Call{Call: _e.mock.On("GetLock", ctx)}
 }
 
@@ -336,7 +336,7 @@ type FileConnectorService_Lock_Call struct {
 //   - ctx context.Context
 //   - lockID string
 //   - oldLockID string
-func (_e *FileConnectorService_Expecter) Lock(ctx interface{}, lockID interface{}, oldLockID interface{}) *FileConnectorService_Lock_Call {
+func (_e *FileConnectorService_Expecter) Lock(ctx any, lockID any, oldLockID any) *FileConnectorService_Lock_Call {
 	return &FileConnectorService_Lock_Call{Call: _e.mock.On("Lock", ctx, lockID, oldLockID)}
 }
 
@@ -412,7 +412,7 @@ type FileConnectorService_PutRelativeFileRelative_Call struct {
 //   - stream io.Reader
 //   - streamLength int64
 //   - target string
-func (_e *FileConnectorService_Expecter) PutRelativeFileRelative(ctx interface{}, ccs interface{}, stream interface{}, streamLength interface{}, target interface{}) *FileConnectorService_PutRelativeFileRelative_Call {
+func (_e *FileConnectorService_Expecter) PutRelativeFileRelative(ctx any, ccs any, stream any, streamLength any, target any) *FileConnectorService_PutRelativeFileRelative_Call {
 	return &FileConnectorService_PutRelativeFileRelative_Call{Call: _e.mock.On("PutRelativeFileRelative", ctx, ccs, stream, streamLength, target)}
 }
 
@@ -498,7 +498,7 @@ type FileConnectorService_PutRelativeFileSuggested_Call struct {
 //   - stream io.Reader
 //   - streamLength int64
 //   - target string
-func (_e *FileConnectorService_Expecter) PutRelativeFileSuggested(ctx interface{}, ccs interface{}, stream interface{}, streamLength interface{}, target interface{}) *FileConnectorService_PutRelativeFileSuggested_Call {
+func (_e *FileConnectorService_Expecter) PutRelativeFileSuggested(ctx any, ccs any, stream any, streamLength any, target any) *FileConnectorService_PutRelativeFileSuggested_Call {
 	return &FileConnectorService_PutRelativeFileSuggested_Call{Call: _e.mock.On("PutRelativeFileSuggested", ctx, ccs, stream, streamLength, target)}
 }
 
@@ -581,7 +581,7 @@ type FileConnectorService_RefreshLock_Call struct {
 // RefreshLock is a helper method to define mock.On call
 //   - ctx context.Context
 //   - lockID string
-func (_e *FileConnectorService_Expecter) RefreshLock(ctx interface{}, lockID interface{}) *FileConnectorService_RefreshLock_Call {
+func (_e *FileConnectorService_Expecter) RefreshLock(ctx any, lockID any) *FileConnectorService_RefreshLock_Call {
 	return &FileConnectorService_RefreshLock_Call{Call: _e.mock.On("RefreshLock", ctx, lockID)}
 }
 
@@ -650,7 +650,7 @@ type FileConnectorService_RenameFile_Call struct {
 //   - ctx context.Context
 //   - lockID string
 //   - target string
-func (_e *FileConnectorService_Expecter) RenameFile(ctx interface{}, lockID interface{}, target interface{}) *FileConnectorService_RenameFile_Call {
+func (_e *FileConnectorService_Expecter) RenameFile(ctx any, lockID any, target any) *FileConnectorService_RenameFile_Call {
 	return &FileConnectorService_RenameFile_Call{Call: _e.mock.On("RenameFile", ctx, lockID, target)}
 }
 
@@ -723,7 +723,7 @@ type FileConnectorService_UnLock_Call struct {
 // UnLock is a helper method to define mock.On call
 //   - ctx context.Context
 //   - lockID string
-func (_e *FileConnectorService_Expecter) UnLock(ctx interface{}, lockID interface{}) *FileConnectorService_UnLock_Call {
+func (_e *FileConnectorService_Expecter) UnLock(ctx any, lockID any) *FileConnectorService_UnLock_Call {
 	return &FileConnectorService_UnLock_Call{Call: _e.mock.On("UnLock", ctx, lockID)}
 }
 

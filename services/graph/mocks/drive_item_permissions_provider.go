@@ -75,7 +75,7 @@ type DriveItemPermissionsProvider_CreateLink_Call struct {
 //   - ctx context.Context
 //   - driveItemID *providerv1beta1.ResourceId
 //   - createLink libregraph.DriveItemCreateLink
-func (_e *DriveItemPermissionsProvider_Expecter) CreateLink(ctx interface{}, driveItemID interface{}, createLink interface{}) *DriveItemPermissionsProvider_CreateLink_Call {
+func (_e *DriveItemPermissionsProvider_Expecter) CreateLink(ctx any, driveItemID any, createLink any) *DriveItemPermissionsProvider_CreateLink_Call {
 	return &DriveItemPermissionsProvider_CreateLink_Call{Call: _e.mock.On("CreateLink", ctx, driveItemID, createLink)}
 }
 
@@ -147,7 +147,7 @@ type DriveItemPermissionsProvider_CreateSpaceRootLink_Call struct {
 //   - ctx context.Context
 //   - driveID *providerv1beta1.ResourceId
 //   - createLink libregraph.DriveItemCreateLink
-func (_e *DriveItemPermissionsProvider_Expecter) CreateSpaceRootLink(ctx interface{}, driveID interface{}, createLink interface{}) *DriveItemPermissionsProvider_CreateSpaceRootLink_Call {
+func (_e *DriveItemPermissionsProvider_Expecter) CreateSpaceRootLink(ctx any, driveID any, createLink any) *DriveItemPermissionsProvider_CreateSpaceRootLink_Call {
 	return &DriveItemPermissionsProvider_CreateSpaceRootLink_Call{Call: _e.mock.On("CreateSpaceRootLink", ctx, driveID, createLink)}
 }
 
@@ -210,7 +210,7 @@ type DriveItemPermissionsProvider_DeletePermission_Call struct {
 //   - ctx context.Context
 //   - itemID *providerv1beta1.ResourceId
 //   - permissionID string
-func (_e *DriveItemPermissionsProvider_Expecter) DeletePermission(ctx interface{}, itemID interface{}, permissionID interface{}) *DriveItemPermissionsProvider_DeletePermission_Call {
+func (_e *DriveItemPermissionsProvider_Expecter) DeletePermission(ctx any, itemID any, permissionID any) *DriveItemPermissionsProvider_DeletePermission_Call {
 	return &DriveItemPermissionsProvider_DeletePermission_Call{Call: _e.mock.On("DeletePermission", ctx, itemID, permissionID)}
 }
 
@@ -273,7 +273,7 @@ type DriveItemPermissionsProvider_DeleteSpaceRootPermission_Call struct {
 //   - ctx context.Context
 //   - driveID *providerv1beta1.ResourceId
 //   - permissionID string
-func (_e *DriveItemPermissionsProvider_Expecter) DeleteSpaceRootPermission(ctx interface{}, driveID interface{}, permissionID interface{}) *DriveItemPermissionsProvider_DeleteSpaceRootPermission_Call {
+func (_e *DriveItemPermissionsProvider_Expecter) DeleteSpaceRootPermission(ctx any, driveID any, permissionID any) *DriveItemPermissionsProvider_DeleteSpaceRootPermission_Call {
 	return &DriveItemPermissionsProvider_DeleteSpaceRootPermission_Call{Call: _e.mock.On("DeleteSpaceRootPermission", ctx, driveID, permissionID)}
 }
 
@@ -345,7 +345,7 @@ type DriveItemPermissionsProvider_Invite_Call struct {
 //   - ctx context.Context
 //   - resourceId *providerv1beta1.ResourceId
 //   - invite libregraph.DriveItemInvite
-func (_e *DriveItemPermissionsProvider_Expecter) Invite(ctx interface{}, resourceId interface{}, invite interface{}) *DriveItemPermissionsProvider_Invite_Call {
+func (_e *DriveItemPermissionsProvider_Expecter) Invite(ctx any, resourceId any, invite any) *DriveItemPermissionsProvider_Invite_Call {
 	return &DriveItemPermissionsProvider_Invite_Call{Call: _e.mock.On("Invite", ctx, resourceId, invite)}
 }
 
@@ -417,7 +417,7 @@ type DriveItemPermissionsProvider_ListPermissions_Call struct {
 //   - ctx context.Context
 //   - itemID *providerv1beta1.ResourceId
 //   - queryOptions svc.ListPermissionsQueryOptions
-func (_e *DriveItemPermissionsProvider_Expecter) ListPermissions(ctx interface{}, itemID interface{}, queryOptions interface{}) *DriveItemPermissionsProvider_ListPermissions_Call {
+func (_e *DriveItemPermissionsProvider_Expecter) ListPermissions(ctx any, itemID any, queryOptions any) *DriveItemPermissionsProvider_ListPermissions_Call {
 	return &DriveItemPermissionsProvider_ListPermissions_Call{Call: _e.mock.On("ListPermissions", ctx, itemID, queryOptions)}
 }
 
@@ -489,7 +489,7 @@ type DriveItemPermissionsProvider_ListSpaceRootPermissions_Call struct {
 //   - ctx context.Context
 //   - driveID *providerv1beta1.ResourceId
 //   - queryOptions svc.ListPermissionsQueryOptions
-func (_e *DriveItemPermissionsProvider_Expecter) ListSpaceRootPermissions(ctx interface{}, driveID interface{}, queryOptions interface{}) *DriveItemPermissionsProvider_ListSpaceRootPermissions_Call {
+func (_e *DriveItemPermissionsProvider_Expecter) ListSpaceRootPermissions(ctx any, driveID any, queryOptions any) *DriveItemPermissionsProvider_ListSpaceRootPermissions_Call {
 	return &DriveItemPermissionsProvider_ListSpaceRootPermissions_Call{Call: _e.mock.On("ListSpaceRootPermissions", ctx, driveID, queryOptions)}
 }
 
@@ -562,7 +562,7 @@ type DriveItemPermissionsProvider_SetPublicLinkPassword_Call struct {
 //   - driveItemID *providerv1beta1.ResourceId
 //   - permissionID string
 //   - password string
-func (_e *DriveItemPermissionsProvider_Expecter) SetPublicLinkPassword(ctx interface{}, driveItemID interface{}, permissionID interface{}, password interface{}) *DriveItemPermissionsProvider_SetPublicLinkPassword_Call {
+func (_e *DriveItemPermissionsProvider_Expecter) SetPublicLinkPassword(ctx any, driveItemID any, permissionID any, password any) *DriveItemPermissionsProvider_SetPublicLinkPassword_Call {
 	return &DriveItemPermissionsProvider_SetPublicLinkPassword_Call{Call: _e.mock.On("SetPublicLinkPassword", ctx, driveItemID, permissionID, password)}
 }
 
@@ -640,7 +640,7 @@ type DriveItemPermissionsProvider_SetPublicLinkPasswordOnSpaceRoot_Call struct {
 //   - driveID *providerv1beta1.ResourceId
 //   - permissionID string
 //   - password string
-func (_e *DriveItemPermissionsProvider_Expecter) SetPublicLinkPasswordOnSpaceRoot(ctx interface{}, driveID interface{}, permissionID interface{}, password interface{}) *DriveItemPermissionsProvider_SetPublicLinkPasswordOnSpaceRoot_Call {
+func (_e *DriveItemPermissionsProvider_Expecter) SetPublicLinkPasswordOnSpaceRoot(ctx any, driveID any, permissionID any, password any) *DriveItemPermissionsProvider_SetPublicLinkPasswordOnSpaceRoot_Call {
 	return &DriveItemPermissionsProvider_SetPublicLinkPasswordOnSpaceRoot_Call{Call: _e.mock.On("SetPublicLinkPasswordOnSpaceRoot", ctx, driveID, permissionID, password)}
 }
 
@@ -717,7 +717,7 @@ type DriveItemPermissionsProvider_SpaceRootInvite_Call struct {
 //   - ctx context.Context
 //   - driveID *providerv1beta1.ResourceId
 //   - invite libregraph.DriveItemInvite
-func (_e *DriveItemPermissionsProvider_Expecter) SpaceRootInvite(ctx interface{}, driveID interface{}, invite interface{}) *DriveItemPermissionsProvider_SpaceRootInvite_Call {
+func (_e *DriveItemPermissionsProvider_Expecter) SpaceRootInvite(ctx any, driveID any, invite any) *DriveItemPermissionsProvider_SpaceRootInvite_Call {
 	return &DriveItemPermissionsProvider_SpaceRootInvite_Call{Call: _e.mock.On("SpaceRootInvite", ctx, driveID, invite)}
 }
 
@@ -790,7 +790,7 @@ type DriveItemPermissionsProvider_UpdatePermission_Call struct {
 //   - itemID *providerv1beta1.ResourceId
 //   - permissionID string
 //   - newPermission libregraph.Permission
-func (_e *DriveItemPermissionsProvider_Expecter) UpdatePermission(ctx interface{}, itemID interface{}, permissionID interface{}, newPermission interface{}) *DriveItemPermissionsProvider_UpdatePermission_Call {
+func (_e *DriveItemPermissionsProvider_Expecter) UpdatePermission(ctx any, itemID any, permissionID any, newPermission any) *DriveItemPermissionsProvider_UpdatePermission_Call {
 	return &DriveItemPermissionsProvider_UpdatePermission_Call{Call: _e.mock.On("UpdatePermission", ctx, itemID, permissionID, newPermission)}
 }
 
@@ -868,7 +868,7 @@ type DriveItemPermissionsProvider_UpdateSpaceRootPermission_Call struct {
 //   - driveID *providerv1beta1.ResourceId
 //   - permissionID string
 //   - newPermission libregraph.Permission
-func (_e *DriveItemPermissionsProvider_Expecter) UpdateSpaceRootPermission(ctx interface{}, driveID interface{}, permissionID interface{}, newPermission interface{}) *DriveItemPermissionsProvider_UpdateSpaceRootPermission_Call {
+func (_e *DriveItemPermissionsProvider_Expecter) UpdateSpaceRootPermission(ctx any, driveID any, permissionID any, newPermission any) *DriveItemPermissionsProvider_UpdateSpaceRootPermission_Call {
 	return &DriveItemPermissionsProvider_UpdateSpaceRootPermission_Call{Call: _e.mock.On("UpdateSpaceRootPermission", ctx, driveID, permissionID, newPermission)}
 }
 

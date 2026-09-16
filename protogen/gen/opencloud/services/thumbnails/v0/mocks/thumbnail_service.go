@@ -82,9 +82,9 @@ type ThumbnailService_GetThumbnail_Call struct {
 //   - ctx context.Context
 //   - in *v0.GetThumbnailRequest
 //   - opts ...client.CallOption
-func (_e *ThumbnailService_Expecter) GetThumbnail(ctx interface{}, in interface{}, opts ...interface{}) *ThumbnailService_GetThumbnail_Call {
+func (_e *ThumbnailService_Expecter) GetThumbnail(ctx any, in any, opts ...any) *ThumbnailService_GetThumbnail_Call {
 	return &ThumbnailService_GetThumbnail_Call{Call: _e.mock.On("GetThumbnail",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *ThumbnailService_GetThumbnail_Call) Run(run func(ctx context.Context, in *v0.GetThumbnailRequest, opts ...client.CallOption)) *ThumbnailService_GetThumbnail_Call {

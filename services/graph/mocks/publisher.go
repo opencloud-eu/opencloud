@@ -68,9 +68,9 @@ type Publisher_Publish_Call struct {
 //   - s string
 //   - ifaceVal interface{}
 //   - publishOptions ...events.PublishOption
-func (_e *Publisher_Expecter) Publish(s interface{}, ifaceVal interface{}, publishOptions ...interface{}) *Publisher_Publish_Call {
+func (_e *Publisher_Expecter) Publish(s any, ifaceVal any, publishOptions ...any) *Publisher_Publish_Call {
 	return &Publisher_Publish_Call{Call: _e.mock.On("Publish",
-		append([]interface{}{s, ifaceVal}, publishOptions...)...)}
+		append([]any{s, ifaceVal}, publishOptions...)...)}
 }
 
 func (_c *Publisher_Publish_Call) Run(run func(s string, ifaceVal interface{}, publishOptions ...events.PublishOption)) *Publisher_Publish_Call {

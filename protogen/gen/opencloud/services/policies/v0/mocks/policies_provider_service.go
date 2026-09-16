@@ -82,9 +82,9 @@ type PoliciesProviderService_Evaluate_Call struct {
 //   - ctx context.Context
 //   - in *v0.EvaluateRequest
 //   - opts ...client.CallOption
-func (_e *PoliciesProviderService_Expecter) Evaluate(ctx interface{}, in interface{}, opts ...interface{}) *PoliciesProviderService_Evaluate_Call {
+func (_e *PoliciesProviderService_Expecter) Evaluate(ctx any, in any, opts ...any) *PoliciesProviderService_Evaluate_Call {
 	return &PoliciesProviderService_Evaluate_Call{Call: _e.mock.On("Evaluate",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *PoliciesProviderService_Evaluate_Call) Run(run func(ctx context.Context, in *v0.EvaluateRequest, opts ...client.CallOption)) *PoliciesProviderService_Evaluate_Call {

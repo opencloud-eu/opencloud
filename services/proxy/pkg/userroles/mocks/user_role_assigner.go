@@ -74,7 +74,7 @@ type UserRoleAssigner_ApplyUserRole_Call struct {
 // ApplyUserRole is a helper method to define mock.On call
 //   - ctx context.Context
 //   - user *userv1beta1.User
-func (_e *UserRoleAssigner_Expecter) ApplyUserRole(ctx interface{}, user interface{}) *UserRoleAssigner_ApplyUserRole_Call {
+func (_e *UserRoleAssigner_Expecter) ApplyUserRole(ctx any, user any) *UserRoleAssigner_ApplyUserRole_Call {
 	return &UserRoleAssigner_ApplyUserRole_Call{Call: _e.mock.On("ApplyUserRole", ctx, user)}
 }
 
@@ -143,7 +143,7 @@ type UserRoleAssigner_UpdateUserRoleAssignment_Call struct {
 //   - ctx context.Context
 //   - user *userv1beta1.User
 //   - claims map[string]any
-func (_e *UserRoleAssigner_Expecter) UpdateUserRoleAssignment(ctx interface{}, user interface{}, claims interface{}) *UserRoleAssigner_UpdateUserRoleAssignment_Call {
+func (_e *UserRoleAssigner_Expecter) UpdateUserRoleAssignment(ctx any, user any, claims any) *UserRoleAssigner_UpdateUserRoleAssignment_Call {
 	return &UserRoleAssigner_UpdateUserRoleAssignment_Call{Call: _e.mock.On("UpdateUserRoleAssignment", ctx, user, claims)}
 }
 

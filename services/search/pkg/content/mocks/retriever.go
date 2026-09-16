@@ -75,7 +75,7 @@ type Retriever_Retrieve_Call struct {
 // Retrieve is a helper method to define mock.On call
 //   - ctx context.Context
 //   - rID *providerv1beta1.ResourceId
-func (_e *Retriever_Expecter) Retrieve(ctx interface{}, rID interface{}) *Retriever_Retrieve_Call {
+func (_e *Retriever_Expecter) Retrieve(ctx any, rID any) *Retriever_Retrieve_Call {
 	return &Retriever_Retrieve_Call{Call: _e.mock.On("Retrieve", ctx, rID)}
 }
 
