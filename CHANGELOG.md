@@ -18,6 +18,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/prometheus/client_model from 0.6.2 to 0.6.3 [[#3550](https://github.com/opencloud-eu/opencloud/pull/3550)]
 - build(deps): bump github.com/shamaton/msgpack/v2 from 2.4.1 to 2.4.2 [[#3459](https://github.com/opencloud-eu/opencloud/pull/3459)]
 - build(deps): bump go.opentelemetry.io/otel/exporters/stdout/stdouttrace from 1.45.0 to 1.46.0 [[#3428](https://github.com/opencloud-eu/opencloud/pull/3428)]
 - build(deps): bump github.com/sirupsen/logrus from 1.10.1 to 1.10.2 [[#3492](https://github.com/opencloud-eu/opencloud/pull/3492)]
