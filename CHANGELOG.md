@@ -4,11 +4,15 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@rhafer, @zerox80
+@maki5, @rhafer, @zerox80
 
 ### 🔒 Security
 
 - feat(proxy): add optional OIDC access token audience validation [[#3466](https://github.com/opencloud-eu/opencloud/pull/3466)]
+
+### 🐛 Bug Fixes
+
+- fix(graph): fix PatchMe method to prevent password change [[#3526](https://github.com/opencloud-eu/opencloud/pull/3526)]
 
 ## [8.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.0) - 2026-09-15
 
