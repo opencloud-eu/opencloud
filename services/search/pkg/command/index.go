@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
@@ -68,8 +67,6 @@ func Index(cfg *config.Config) *cobra.Command {
 			// gRPC stream so the server stops indexing.
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
-			ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-			defer cancel()
 
 			stream, err := c.IndexSpace(ctx, &searchsvc.IndexSpaceRequest{
 				SpaceId:      spaceFlag,
