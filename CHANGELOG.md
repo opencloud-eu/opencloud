@@ -1,12 +1,14 @@
 # Changelog
 
-## [8.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.1) - 2026-09-15
+## [8.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.1) - 2026-09-16
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@rhafer
+@rhafer, @zerox80
 
+### 🔒 Security
 
+- feat(proxy): add optional OIDC access token audience validation [[#3466](https://github.com/opencloud-eu/opencloud/pull/3466)]
 
 ## [8.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.0) - 2026-09-15
 
