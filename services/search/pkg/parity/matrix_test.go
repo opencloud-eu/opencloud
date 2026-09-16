@@ -3,7 +3,10 @@ package parity
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/opencloud-eu/reva/v2/pkg/openextension"
+	"maps"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -340,6 +343,10 @@ func fixtureFields(f search.Resource, withID bool) string {
 
 	if len(f.Favorites) > 0 {
 		add("Favorites = %s", strings.Join(f.Favorites, ", "))
+	}
+
+	for _, key := range slices.Sorted(maps.Keys(f.OpenExtensions)) {
+		add("%s = `%s`", strings.TrimPrefix(key, openextension.NamespacePrefix), f.OpenExtensions[key])
 	}
 
 	if f.Size != 1000 {

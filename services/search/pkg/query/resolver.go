@@ -61,6 +61,9 @@ func ResolveField(name string) string {
 	if v, ok := fieldIndex()[strings.ToLower(name)]; ok {
 		return v
 	}
+	if mapping.IsOpenExtensionQueryField(name) {
+		return mapping.OpenExtensionsQueryPrefix + name[len(mapping.OpenExtensionsQueryPrefix):]
+	}
 	return name
 }
 

@@ -72,6 +72,16 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 	for i := offset; i < len(nodes); i++ {
 		switch n := nodes[i].(type) {
 		case *ast.StringNode:
+			if searchQuery.IsOpenExtensionField(n.Key) {
+				q := openExtensionStringQuery(n)
+				if prev == nil {
+					prev = q
+				} else {
+					next = q
+				}
+				break
+			}
+
 			// hidden takes bool words only; anything else matches nothing
 			if n.Key == "Hidden" {
 				var q bleveQuery.Query
@@ -153,16 +163,25 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 				next = q
 			}
 		case *ast.DateTimeNode:
+			if n.Operator == nil {
+				continue
+			}
+			if searchQuery.IsOpenExtensionField(n.Key) {
+				q := openExtensionDateQuery(n)
+				if prev == nil {
+					prev = q
+				} else {
+					next = q
+				}
+				break
+			}
+
 			q := &bleveQuery.DateRangeQuery{
 				Start:          bleveQuery.BleveQueryTime{},
 				End:            bleveQuery.BleveQueryTime{},
 				InclusiveStart: nil,
 				InclusiveEnd:   nil,
 				FieldVal:       n.Key,
-			}
-
-			if n.Operator == nil {
-				continue
 			}
 
 			switch n.Operator.Value {
@@ -191,6 +210,8 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 			var q bleveQuery.Query
 			if field := n.Key; slices.Contains([]string{"Size", "Type"}, field) {
 				q = numberRange(field, n.Operator, n.Value)
+			} else if searchQuery.IsOpenExtensionField(n.Key) {
+				q = numberRange(searchQuery.OpenExtensionField(n.Key, mapping.SiblingNumber), n.Operator, n.Value)
 			} else {
 				// same answer as the OpenSearch backend: unknown numeric keys
 				// match nothing instead of querying an arbitrary field
@@ -208,6 +229,9 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 		case *ast.BooleanNode:
 			q := bleveQuery.NewBoolFieldQuery(n.Value)
 			q.SetField(n.Key)
+			if searchQuery.IsOpenExtensionField(n.Key) {
+				q.SetField(searchQuery.OpenExtensionField(n.Key, mapping.SiblingBool))
+			}
 			if prev == nil {
 				prev = q
 			} else {

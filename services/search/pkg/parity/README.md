@@ -450,6 +450,39 @@ Fixtures:
 | INVALID-01 | `AND mediatype:document` | bad request | bad request | bad request | ✅ |
 | INVALID-02 | `mediatype:document AND` | alpha.txt | alpha.txt | alpha.txt | ✅ |
 
+### openext
+
+Fixtures:
+
+- `plan.txt`, com.example.project/done = `b:false`, com.example.project/due = `d:2026-10-01T00:00:00Z`, com.example.project/priority = `n:3`, com.example.project/site = `g:52.5,13.4`, com.example.project/state = `s:Open`, com.example.project/tags = `S:["Urgent","customer"]`
+- `draft.txt`, com.example.project/done = `b:true`, com.example.project/due = `d:2026-12-24T00:00:00Z`, com.example.project/priority = `n:1.5`, com.example.project/state = `s:open`
+- `legacy.txt`, com.example.project/due = `s:2026-10-01T00:00:00Z`, com.example.project/priority = `s:3`, com.example.project/state = `s:closed`
+- `other.txt`, com.example.other/state = `s:open`
+- `plain.txt`
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| OPENEXT-01 | `extensions.com.example.project.state:open` | draft.txt, plan.txt | draft.txt, plan.txt | draft.txt, plan.txt | ✅ |
+| OPENEXT-02 | `extensions.com.example.project.state=Open` | plan.txt | plan.txt | plan.txt | ✅ |
+| OPENEXT-03 | `extensions.com.example.project.state=open` | draft.txt | draft.txt | draft.txt | ✅ |
+| OPENEXT-04 | `extensions.com.example.project.state:op*` | draft.txt, plan.txt | draft.txt, plan.txt | draft.txt, plan.txt | ✅ |
+| OPENEXT-05 | `Extensions.com.example.project.state:closed` | legacy.txt | legacy.txt | legacy.txt | ✅ |
+| OPENEXT-06 | `extensions.com.example.project.priority>2` | plan.txt | plan.txt | plan.txt | ✅ |
+| OPENEXT-07 | `extensions.com.example.project.priority<2` | draft.txt | draft.txt | draft.txt | ✅ |
+| OPENEXT-08 | `extensions.com.example.project.priority:3` | legacy.txt, plan.txt | legacy.txt, plan.txt | legacy.txt, plan.txt | ✅ |
+| OPENEXT-09 | `extensions.com.example.project.priority:"3"` | legacy.txt, plan.txt | legacy.txt, plan.txt | legacy.txt, plan.txt | ✅ |
+| OPENEXT-10 | `extensions.com.example.project.done:true` | draft.txt | draft.txt | draft.txt | ✅ |
+| OPENEXT-11 | `extensions.com.example.project.done:false` | plan.txt | plan.txt | plan.txt | ✅ |
+| OPENEXT-12 | `extensions.com.example.project.due>2026-11-01T00:00:00Z` | draft.txt | draft.txt | draft.txt | ✅ |
+| OPENEXT-13 | `extensions.com.example.project.due<2026-11-01T00:00:00Z` | plan.txt | plan.txt | plan.txt | ✅ |
+| OPENEXT-14 | `extensions.com.example.project.due:2026-10-01T00:00:00Z` | plan.txt | plan.txt | plan.txt | ✅ |
+| OPENEXT-15 | `extensions.com.example.project.tags:urgent` | plan.txt | plan.txt | plan.txt | ✅ |
+| OPENEXT-16 | `extensions.com.example.project.t...ample.project.state:open` | plan.txt | plan.txt | plan.txt | ✅ |
+| OPENEXT-17 | `extensions.com.example.project.s...example.other.state:open` | draft.txt, other.txt, plan.txt | draft.txt, other.txt, plan.txt | draft.txt, other.txt, plan.txt | ✅ |
+| OPENEXT-18 | `NOT extensions.com.example.project.state:open` | legacy.txt, other.txt, plain.txt | legacy.txt, other.txt, plain.txt | legacy.txt, other.txt, plain.txt | ✅ |
+| OPENEXT-19 | `extensions.com.example.project.missing:x` | no match | no match | no match | ✅ |
+| OPENEXT-20 | `extensions.com.example.unknown.state:open` | no match | no match | no match | ✅ |
+
 ## Operations
 
 ### delete
@@ -661,6 +694,24 @@ Fixtures:
 | BATCH-04 | moves a resource the same way a move does, then `path:"./parent/child.pdf"` | no match | no match | no match | ✅ |
 | BATCH-05 | keeps what another batch holds out of its push, then `name:"*added*"` | added.pdf | added.pdf | added.pdf | ✅ |
 | BATCH-05 | keeps what another batch holds out of its push, then `name:"*other*"` | no match | no match | no match | ✅ |
+
+### openextops
+
+Fixtures:
+
+- `parent`, ID = 1$1!2, folder
+- `child.pdf`, ID = 1$1!3, Path = ./parent/child.pdf, com.example.project/priority = `n:3`, com.example.project/state = `s:open`
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| OPENEXTOPS-01 | re-types a property on upsert, then `extensions.com.example.project.priority:high` | child.pdf | child.pdf | child.pdf | ✅ |
+| OPENEXTOPS-01 | re-types a property on upsert, then `extensions.com.example.project.priority>2` | no match | no match | no match | ✅ |
+| OPENEXTOPS-01 | re-types a property on upsert, then `extensions.com.example.project.state:open` | child.pdf | child.pdf | child.pdf | ✅ |
+| OPENEXTOPS-02 | forgets a removed extension on upsert, then `extensions.com.example.project.state:open` | no match | no match | no match | ✅ |
+| OPENEXTOPS-02 | forgets a removed extension on upsert, then `name:child.pdf` | child.pdf | child.pdf | child.pdf | ✅ |
+| OPENEXTOPS-03 | keeps the extensions through a move, then `extensions.com.example.project.priority>2` | child.pdf | child.pdf | child.pdf | ✅ |
+| OPENEXTOPS-03 | keeps the extensions through a move, then `path:"./renamed/child.pdf"` | child.pdf | child.pdf | child.pdf | ✅ |
+| OPENEXTOPS-04 | keeps the extensions through the trash and back, then `extensions.com.example.project.state:open` | child.pdf | child.pdf | child.pdf | ✅ |
 
 ## Response
 

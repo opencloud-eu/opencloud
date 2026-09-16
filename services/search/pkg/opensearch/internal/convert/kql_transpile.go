@@ -107,8 +107,15 @@ func (t kqlOpensearchTranspiler) getOperatorValueAt(nodes []ast.Node, i int) str
 func (t kqlOpensearchTranspiler) toBuilder(node ast.Node) (osu.Builder, error) {
 	switch node := node.(type) {
 	case *ast.BooleanNode:
+		if query.IsOpenExtensionField(node.Key) {
+			return osu.NewTermQuery[bool](query.OpenExtensionField(node.Key, mapping.SiblingBool)).Value(node.Value), nil
+		}
 		return osu.NewTermQuery[bool](node.Key).Value(node.Value), nil
 	case *ast.StringNode:
+		if query.IsOpenExtensionField(node.Key) {
+			return openExtensionStringQuery(node), nil
+		}
+
 		// hidden takes bool words only; anything else matches nothing
 		if node.Key == "Hidden" {
 			b, err := strconv.ParseBool(node.Value)
@@ -176,6 +183,9 @@ func (t kqlOpensearchTranspiler) toBuilder(node ast.Node) (osu.Builder, error) {
 
 		return nil, fmt.Errorf("unsupported string node value: %s", value)
 	case *ast.DateTimeNode:
+		if query.IsOpenExtensionField(node.Key) {
+			return openExtensionDateQuery(node)
+		}
 		return dateTimeNodeQuery(node)
 	case *ast.NumberNode:
 		return numberNodeQuery(node)
@@ -218,11 +228,15 @@ func numberNodeQuery(node *ast.NumberNode) (osu.Builder, error) {
 		return nil, fmt.Errorf("number node without operator: %w", ErrUnsupportedNodeType)
 	}
 
-	if !slices.Contains([]string{"Size", "Type"}, node.Key) {
+	field := node.Key
+	switch {
+	case query.IsOpenExtensionField(node.Key):
+		field = query.OpenExtensionField(node.Key, mapping.SiblingNumber)
+	case !slices.Contains([]string{"Size", "Type"}, node.Key):
 		return osu.NewMatchNoneQuery(), nil
 	}
 
-	query := osu.NewRangeQuery[float64](node.Key)
+	query := osu.NewRangeQuery[float64](field)
 
 	switch node.Operator.Value {
 	case ">":

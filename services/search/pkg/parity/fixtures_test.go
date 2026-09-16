@@ -8,6 +8,7 @@ import (
 
 	sprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"github.com/opencloud-eu/reva/v2/pkg/openextension"
 
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
@@ -52,6 +53,24 @@ func withAudio(audio *libregraph.Audio) fixtureOption {
 
 func withLocation(location *libregraph.GeoCoordinates) fixtureOption {
 	return func(r *search.Resource) { r.Location = location }
+}
+
+// withOpenExtension stores the properties of a libregraph openTypeExtension
+// body as the codec would, one typed metadata value per property.
+func withOpenExtension(name, body string) fixtureOption {
+	patch, err := openextension.Parse([]byte(body))
+	if err != nil {
+		panic(err)
+	}
+	set, _ := patch.Metadata(name)
+	return func(r *search.Resource) {
+		if r.OpenExtensions == nil {
+			r.OpenExtensions = map[string]string{}
+		}
+		for key, value := range set {
+			r.OpenExtensions[key] = value
+		}
+	}
 }
 
 func fixtureDoc(name string, opts ...fixtureOption) search.Resource {

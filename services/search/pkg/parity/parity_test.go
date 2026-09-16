@@ -111,6 +111,7 @@ func queryGroups() []queryGroup {
 		rangeGroup(),
 		scopeGroup(),
 		invalidGroup(),
+		openextGroup(),
 	}
 }
 
@@ -233,6 +234,7 @@ func lifecycleGroups() []lifecycleGroup {
 		upsertLifecycle(),
 		idempotencyLifecycle(),
 		batchLifecycle(),
+		openextLifecycle(),
 	}
 }
 
