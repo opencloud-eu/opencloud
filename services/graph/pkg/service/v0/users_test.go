@@ -1330,7 +1330,7 @@ var _ = Describe("Users", func() {
 					r = r.WithContext(revactx.ContextSetUser(ctx, currentUser))
 					svc.PatchMe(rr, r)
 
-					Expect(rr.Code).To(Equal(http.StatusBadRequest))
+					Expect(rr.Code).To(Equal(http.StatusForbidden))
 					Expect(rr.Body.String()).To(ContainSubstring(msg))
 					identityBackend.AssertNumberOfCalls(GinkgoT(), "UpdateUser", 0)
 				}
