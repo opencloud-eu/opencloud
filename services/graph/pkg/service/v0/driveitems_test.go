@@ -142,7 +142,7 @@ var _ = Describe("Driveitems", func() {
 			Expect(rr.Code).To(Equal(http.StatusNotFound))
 		})
 
-		It("handles ListContainer permission denied", func() {
+		It("handles ListContainer permission denied as not found", func() {
 			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
 				Status:        status.NewOK(ctx),
 				StorageSpaces: []*provider.StorageSpace{{Owner: currentUser, Root: &provider.ResourceId{}}},
@@ -154,7 +154,7 @@ var _ = Describe("Driveitems", func() {
 			r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/me/drive/root/children", nil)
 			r = r.WithContext(revactx.ContextSetUser(ctx, currentUser))
 			svc.GetRootDriveChildren(rr, r)
-			Expect(rr.Code).To(Equal(http.StatusForbidden))
+			Expect(rr.Code).To(Equal(http.StatusNotFound))
 		})
 
 		It("handles ListContainer error", func() {
@@ -513,6 +513,35 @@ var _ = Describe("Driveitems", func() {
 				Expect(res.Value[0].LibreGraphMeFollowing).To(BeNil())
 				Expect(res.Value[0].LibreGraphTags).To(BeNil())
 				Expect(res.Value[0].PendingOperations).To(BeNil())
+			})
+
+			It("returns the allowed actions when selected", func() {
+				r = r.WithContext(r.Context())
+				q := r.URL.Query()
+				q.Add("$select", "@libre.graph.permissions.actions.allowedValues")
+				r.URL.RawQuery = q.Encode()
+
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:  provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:  "etag",
+							Mtime: utils.TimeToTS(mtime),
+							PermissionSet: &provider.ResourcePermissions{
+								GetPath:              true,
+								InitiateFileDownload: true,
+							},
+						},
+					},
+				}, nil)
+
+				res := assertItemsList(1)
+				Expect(res.Value[0].GetLibreGraphPermissionsActionsAllowedValues()).To(ConsistOf(
+					unifiedrole.DriveItemPathRead,
+					unifiedrole.DriveItemContentRead,
+				))
 			})
 
 			It("omits share types unless they are selected", func() {
