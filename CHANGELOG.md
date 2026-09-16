@@ -17,6 +17,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump go.opentelemetry.io/otel/exporters/stdout/stdouttrace from 1.45.0 to 1.46.0 [[#3428](https://github.com/opencloud-eu/opencloud/pull/3428)]
 - build(deps): bump github.com/sirupsen/logrus from 1.10.1 to 1.10.2 [[#3492](https://github.com/opencloud-eu/opencloud/pull/3492)]
 
 ## [8.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.0) - 2026-09-15
