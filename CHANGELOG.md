@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @maki5, @rhafer, @zerox80
+@aduffeck, @maki5, @pbleser-oc, @rhafer, @zerox80
 
 ### 🔒 Security
 
