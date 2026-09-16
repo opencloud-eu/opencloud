@@ -48,6 +48,7 @@ func (b *Batch) Upsert(id string, r search.Resource) error {
 		if err != nil {
 			return fmt.Errorf("failed to marshal resource: %w", err)
 		}
+		addOpenExtensionSource(body, r.OpenExtensions)
 
 		op := func() []map[string]any {
 			return []map[string]any{

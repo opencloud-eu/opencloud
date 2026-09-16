@@ -10,6 +10,7 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
+	"github.com/opencloud-eu/reva/v2/pkg/openextension"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -62,6 +63,7 @@ func New(ctx context.Context, stream raw.Stream, logger log.Logger, tp trace.Tra
 			events.FileVersionRestored{},
 			events.TagsAdded{},
 			events.TagsRemoved{},
+			events.ArbitraryMetadataUpdated{},
 			events.SpaceRenamed{},
 			events.SpaceDeleted{},
 			events.LabelAdded{},
@@ -207,6 +209,12 @@ func (s Service) processEvent(e raw.Event) error {
 	case events.TagsRemoved:
 		s.index.UpsertItem(ev.Ref)
 		debounce(getSpaceID(ev.Ref))
+	case events.ArbitraryMetadataUpdated:
+		// tags and favorites come with their own events
+		if touchesOpenExtensions(ev.Keys) {
+			s.index.UpsertItem(ev.Ref)
+			debounce(getSpaceID(ev.Ref))
+		}
 	case events.FileUploaded:
 		debounce(getSpaceID(ev.Ref))
 	case events.UploadReady:
@@ -252,4 +260,13 @@ func monitorMetrics(ctx context.Context, stream raw.Stream, name string, m *metr
 			}
 		}
 	}()
+}
+
+func touchesOpenExtensions(keys []string) bool {
+	for _, key := range keys {
+		if _, _, ok := openextension.SplitKey(key); ok {
+			return true
+		}
+	}
+	return false
 }

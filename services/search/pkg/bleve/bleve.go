@@ -78,5 +78,7 @@ func hitToFacet[T any](fields map[string]any, prefix string) *T {
 // for per-field parse errors, so corrupted hit values surface as zero
 // values on individual fields instead of dropping the whole record.
 func matchToResource(match *bleveSearch.DocumentMatch) *search.Resource {
-	return mapping.Deserialize[search.Resource](match.Fields)
+	r := mapping.Deserialize[search.Resource](match.Fields)
+	r.OpenExtensions = openExtensionsFromHit(match.Fields)
+	return r
 }

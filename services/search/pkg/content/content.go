@@ -30,6 +30,10 @@ type Document struct {
 	Video       *libregraph.Video          `json:"video,omitempty"`
 	MotionPhoto *libregraph.MotionPhoto    `json:"motionPhoto,omitempty"`
 	LivePhoto   *libregraph.LivePhoto      `json:"livePhoto,omitempty"`
+
+	// OpenExtensions are the stored open extension properties by metadata key;
+	// the engines index them as typed siblings, see mapping.OpenExtensionLeaves.
+	OpenExtensions map[string]string `json:"-"`
 }
 
 func CleanString(content, langCode string) string {

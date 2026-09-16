@@ -74,6 +74,7 @@ func buildResourceMapping() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	maps.Copy(props, openExtensionProperties())
 
 	index := map[string]any{
 		"settings": map[string]any{
@@ -108,7 +109,8 @@ func buildResourceMapping() ([]byte, error) {
 			},
 		},
 		"mappings": map[string]any{
-			"properties": props,
+			"dynamic_templates": openExtensionTemplates(),
+			"properties":        props,
 		},
 	}
 	return json.Marshal(index)
@@ -198,13 +200,36 @@ func (r *osReconciler) Classify() (searchmapping.Classification, error) {
 		reasons = append(reasons, fmt.Sprintf("settings.analysis changed: index %s, code %s", rawOrUnset(rv), rawOrUnset(lv)))
 	}
 
-	classification := searchmapping.Classify(
-		propertiesMap(r.remote.Get("mappings.properties").Raw),
-		propertiesMap(r.local.Get("mappings.properties").Raw),
-		nil,
-	)
+	remoteProps := propertiesMap(r.remote.Get("mappings.properties").Raw)
+	localProps := propertiesMap(r.local.Get("mappings.properties").Raw)
+	reasons = append(reasons, classifyOpenExtensionMapping(localProps, remoteProps,
+		r.local.Get("mappings.dynamic_templates").Raw, r.remote.Get("mappings.dynamic_templates").Raw)...)
+
+	classification := searchmapping.Classify(remoteProps, localProps, nil)
 	classification.AddBreaking(reasons...)
 	return classification, nil
+}
+
+// classifyOpenExtensionMapping takes the ext tree out of the property comparison:
+// the index grows concrete properties under it that the code never declares.
+// Its dynamic flag and the templates are the rule, a changed rule is breaking.
+func classifyOpenExtensionMapping(local, remote map[string]any, localTemplates, remoteTemplates string) []string {
+	var reasons []string
+	localExt, _ := local[searchmapping.OpenExtensionsRoot].(map[string]any)
+	remoteExt, _ := remote[searchmapping.OpenExtensionsRoot].(map[string]any)
+	if localExt == nil || remoteExt == nil {
+		return nil // an addition or a removal, Classify reports either
+	}
+	delete(local, searchmapping.OpenExtensionsRoot)
+	delete(remote, searchmapping.OpenExtensionsRoot)
+	// the flag comes back as a string
+	if lv, rv := fmt.Sprint(localExt["dynamic"]), fmt.Sprint(remoteExt["dynamic"]); lv != rv {
+		reasons = append(reasons, fmt.Sprintf("field %s: dynamic changed: index %s, code %s", searchmapping.OpenExtensionsRoot, rv, lv))
+	}
+	if !jsonEqual(localTemplates, remoteTemplates) {
+		reasons = append(reasons, fmt.Sprintf("mappings.dynamic_templates changed: index %s, code %s", rawOrUnset(remoteTemplates), rawOrUnset(localTemplates)))
+	}
+	return reasons
 }
 
 // ApplyAdditive puts the full code properties (only additions, per the

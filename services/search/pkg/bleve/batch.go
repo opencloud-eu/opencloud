@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/blevesearch/bleve/v2"
+	"github.com/blevesearch/bleve/v2/document"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
@@ -45,11 +46,18 @@ func (b *Batch) Upsert(id string, r search.Resource) error {
 // type-specific adaptations via the mapping package) and appends it to the
 // batch under id.
 func (b *Batch) indexResource(id string, r search.Resource) error {
-	doc, err := mapping.PrepareForIndex(r, r.SearchFieldOverrides())
+	data, err := mapping.PrepareForIndex(r, r.SearchFieldOverrides())
 	if err != nil {
 		return err
 	}
-	return b.batch.Index(id, doc)
+	doc := document.NewDocument(id)
+	if err := b.index.Mapping().MapDocument(doc, data); err != nil {
+		return err
+	}
+	if err := addOpenExtensionFields(doc, b.index.Mapping(), r.OpenExtensions); err != nil {
+		return err
+	}
+	return b.batch.IndexAdvanced(doc)
 }
 
 func (b *Batch) Move(id, parentID, location string) error {

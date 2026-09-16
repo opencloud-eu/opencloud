@@ -1,5 +1,62 @@
 {
   "mappings": {
+    "dynamic_templates": [
+      {
+        "ext_keyword": {
+          "mapping": {
+            "type": "keyword"
+          },
+          "match": "@keyword",
+          "path_match": "ext.*"
+        }
+      },
+      {
+        "ext_lower": {
+          "mapping": {
+            "doc_values": false,
+            "type": "keyword"
+          },
+          "match": "@lower",
+          "path_match": "ext.*"
+        }
+      },
+      {
+        "ext_number": {
+          "mapping": {
+            "type": "double"
+          },
+          "match": "@number",
+          "path_match": "ext.*"
+        }
+      },
+      {
+        "ext_bool": {
+          "mapping": {
+            "type": "boolean"
+          },
+          "match": "@bool",
+          "path_match": "ext.*"
+        }
+      },
+      {
+        "ext_date": {
+          "mapping": {
+            "type": "date"
+          },
+          "match": "@date",
+          "path_match": "ext.*"
+        }
+      },
+      {
+        "ext_geo": {
+          "mapping": {
+            "type": "geo_point"
+          },
+          "match": "@geo",
+          "path_match": "ext.*"
+        }
+      }
+    ],
     "properties": {
       "Content": {
         "analyzer": "words",
@@ -8,6 +65,10 @@
       },
       "Deleted": {
         "type": "boolean"
+      },
+      "OpenExtensions": {
+        "enabled": false,
+        "type": "object"
       },
       "Favorites": {
         "type": "keyword"
@@ -177,6 +238,10 @@
             "type": "integer"
           }
         }
+      },
+      "ext": {
+        "dynamic": true,
+        "type": "object"
       },
       "image": {
         "properties": {

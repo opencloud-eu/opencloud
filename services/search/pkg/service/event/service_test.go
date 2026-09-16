@@ -63,6 +63,7 @@ var _ = DescribeTable("event",
 	Entry("FileVersionRestored", []string{"IndexSpace"}, events.FileVersionRestored{}, false),
 	Entry("TagsAdded", []string{"UpsertItem", "IndexSpace"}, events.TagsAdded{}, false),
 	Entry("TagsRemoved", []string{"UpsertItem", "IndexSpace"}, events.TagsRemoved{}, false),
+	Entry("ArbitraryMetadataUpdated on an extension", []string{"UpsertItem", "IndexSpace"}, events.ArbitraryMetadataUpdated{Keys: []string{"http://opencloud.eu/ns/extensions/com.example.project/state"}}, false),
 	Entry("FileUploaded", []string{"IndexSpace"}, events.FileUploaded{}, false),
 	Entry("UploadReady", []string{"IndexSpace"}, events.UploadReady{ExecutingUser: &userv1beta1.User{}}, true),
 )
