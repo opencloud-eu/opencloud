@@ -3,10 +3,11 @@ package preprocessor
 import (
 	"archive/zip"
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -39,14 +40,17 @@ func (t TikaThumbnail) Convert(r io.Reader) (any, error) {
 	return ForType(contentType, nil).Convert(bytes.NewReader(img))
 }
 
-// tikaThumbnail returns the thumbnail Tika found in the document and its content
-// type. Tika 4.1 marks it as a THUMBNAIL embedded document, so /unpack/all is
-// enough: no preset, no endpoint of our own.
+// tikaThumbnail returns the thumbnail Tika found in the document and its
+// content type. The thumbnail catalog preset (Tika 4.1, TIKA-4856) unpacks
+// exactly the raster image a client would show for the document — a stored
+// thumbnail such as a raw photo's embedded preview or an audio file's cover,
+// the rendering of an office document's metafile thumbnail, or the rendered
+// first page of a PDF — so the zip carries that one image and nothing else.
 func tikaThumbnail(tikaURL, filename, contentType string, data []byte) (string, []byte, error) {
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
-	req, err := http.NewRequest(http.MethodPut, strings.TrimRight(tikaURL, "/")+"/unpack/all", bytes.NewReader(data))
+	req, err := http.NewRequest(http.MethodPut, strings.TrimRight(tikaURL, "/")+"/unpack/preset/thumbnail", bytes.NewReader(data))
 	if err != nil {
 		return "", nil, err
 	}
@@ -67,6 +71,9 @@ func tikaThumbnail(tikaURL, filename, contentType string, data []byte) (string, 
 	case http.StatusOK:
 	case http.StatusNoContent:
 		return "", nil, ErrNoThumbnail
+	case http.StatusNotFound:
+		// the route exists once the catalog preset is active
+		return "", nil, fmt.Errorf(`tika unpack returned %s: the "thumbnail" preset needs Tika >= 4.1 and "presets": {"thumbnail": true} in its config`, resp.Status)
 	default:
 		return "", nil, fmt.Errorf("tika unpack returned %s", resp.Status)
 	}
@@ -79,115 +86,32 @@ func tikaThumbnail(tikaURL, filename, contentType string, data []byte) (string, 
 	if err != nil {
 		return "", nil, fmt.Errorf("tika unpack response: %w", err)
 	}
-	return thumbnailFromUnpack(zr)
+	return thumbnailFromZip(zr)
 }
 
-// vectorThumbnailTypes are thumbnail types nothing here can decode. Office
-// documents carry their preview as a metafile, so the THUMBNAIL entry is a
-// vector and the usable image is its rendering.
-var vectorThumbnailTypes = map[string]struct{}{
-	"image/emf":     {},
-	"image/wmf":     {},
-	"image/x-emf":   {},
-	"image/x-wmf":   {},
-	"image/svg+xml": {},
-}
-
-// unpacked is one entry of an /unpack/all response: the bytes and the metadata
-// are separate zip entries, "1.jpg" alongside "1.jpg.metadata.json".
-type unpacked struct {
-	name     string
-	kind     string
-	mimeType string
-	idPath   string
-}
-
-// thumbnailFromUnpack picks the image to use out of an unpack response. Tika
-// marks the document's preview as THUMBNAIL. For office documents that preview
-// is a metafile, and the raster we want is the RENDERING nested under it, which
-// tika only emits when its emf/wmf parser has renderImage turned on.
-func thumbnailFromUnpack(zr *zip.Reader) (string, []byte, error) {
-	var entries []unpacked
+// thumbnailFromZip takes the one image the preset unpacked. Lenient about the
+// shape: the first regular file that is not a metadata sidecar wins.
+func thumbnailFromZip(zr *zip.Reader) (string, []byte, error) {
 	for _, f := range zr.File {
-		if !strings.HasSuffix(f.Name, ".metadata.json") {
+		if f.FileInfo().IsDir() || strings.HasSuffix(f.Name, ".metadata.json") {
 			continue
 		}
-		meta, err := readZipJSON(f)
-		if err != nil {
-			continue
+		img, err := readZipEntry(zr, f.Name)
+		if err != nil || len(img) == 0 {
+			return "", nil, ErrNoThumbnail
 		}
-		entries = append(entries, unpacked{
-			name:     strings.TrimSuffix(f.Name, ".metadata.json"),
-			kind:     metadataString(meta, "tk:embedded-resource-type"),
-			mimeType: metadataString(meta, "Content-Type"),
-			idPath:   metadataString(meta, "tk:embedded-id-path"),
-		})
-	}
-
-	for _, e := range entries {
-		if e.kind != "THUMBNAIL" {
-			continue
-		}
-		if _, vector := vectorThumbnailTypes[e.mimeType]; !vector {
-			return readThumbnail(zr, e)
-		}
-		if r, ok := renderingOf(entries, e); ok {
-			return readThumbnail(zr, r)
-		}
-		return "", nil, ErrNoThumbnail
-	}
-
-	// a document without a preview of its own can still have been rendered,
-	// a pdf page for instance
-	for _, e := range entries {
-		if e.kind == "RENDERING" {
-			return readThumbnail(zr, e)
-		}
+		return entryContentType(f.Name, img), img, nil
 	}
 	return "", nil, ErrNoThumbnail
 }
 
-// renderingOf finds the rendering tika nested under a thumbnail. The rendering
-// is a child of the image it renders, so its id path extends the thumbnail's.
-func renderingOf(entries []unpacked, thumbnail unpacked) (unpacked, bool) {
-	for _, e := range entries {
-		if e.kind == "RENDERING" && thumbnail.idPath != "" && strings.HasPrefix(e.idPath, thumbnail.idPath+"/") {
-			return e, true
-		}
+// entryContentType names the image's type. The preset zip carries no metadata
+// entries, so the extension decides and the bytes break the tie.
+func entryContentType(name string, data []byte) string {
+	if byExt := mime.TypeByExtension(filepath.Ext(name)); byExt != "" {
+		return byExt
 	}
-	return unpacked{}, false
-}
-
-func readThumbnail(zr *zip.Reader, e unpacked) (string, []byte, error) {
-	img, err := readZipEntry(zr, e.name)
-	if err != nil || len(img) == 0 {
-		return "", nil, ErrNoThumbnail
-	}
-	return e.mimeType, img, nil
-}
-
-// readZipJSON decodes a metadata entry. Tika writes either an object or a
-// single element list.
-func readZipJSON(f *zip.File) (map[string]any, error) {
-	rc, err := f.Open()
-	if err != nil {
-		return nil, err
-	}
-	defer rc.Close()
-
-	var raw json.RawMessage
-	if err := json.NewDecoder(io.LimitReader(rc, maxTikaResponse)).Decode(&raw); err != nil {
-		return nil, err
-	}
-	var meta map[string]any
-	if err := json.Unmarshal(raw, &meta); err == nil {
-		return meta, nil
-	}
-	var list []map[string]any
-	if err := json.Unmarshal(raw, &list); err != nil || len(list) == 0 {
-		return nil, fmt.Errorf("unexpected metadata shape")
-	}
-	return list[0], nil
+	return http.DetectContentType(data)
 }
 
 func readZipEntry(zr *zip.Reader, name string) ([]byte, error) {
@@ -197,19 +121,4 @@ func readZipEntry(zr *zip.Reader, name string) ([]byte, error) {
 	}
 	defer rc.Close()
 	return io.ReadAll(io.LimitReader(rc, maxTikaResponse))
-}
-
-// metadataString reads a key; values are strings or lists.
-func metadataString(meta map[string]any, key string) string {
-	switch v := meta[key].(type) {
-	case string:
-		return v
-	case []any:
-		if len(v) > 0 {
-			if s, ok := v[0].(string); ok {
-				return s
-			}
-		}
-	}
-	return ""
 }
