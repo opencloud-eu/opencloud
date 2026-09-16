@@ -85,7 +85,7 @@ func PurgeExpiredResources(cfg *config.Config) *cobra.Command {
 
 func listTrashBinItems(cfg *config.Config) *cobra.Command {
 	listTrashBinItemsCmd := &cobra.Command{
-		Use:   "list space",
+		Use:   "list <space-id>",
 		Short: "Print a list of all trash-bin items of a space.",
 		// TODO: n might need to equal 2 not sure.
 		Args: cobra.ExactArgs(1),
@@ -143,7 +143,7 @@ func listTrashBinItems(cfg *config.Config) *cobra.Command {
 func restoreAllTrashBinItems(cfg *config.Config) *cobra.Command {
 	var overwriteOption int
 	restoreAllTrashBinItemsCmd := &cobra.Command{
-		Use:   "restore-all space",
+		Use:   "restore-all <space-id>",
 		Short: "Restore all trash-bin items for a space.",
 		// TODO: not sure this could also be 2
 		Args: cobra.ExactArgs(1),
@@ -253,7 +253,7 @@ func restoreAllTrashBinItems(cfg *config.Config) *cobra.Command {
 func restoreTrashBinItem(cfg *config.Config) *cobra.Command {
 	var overwriteOption int
 	restoreTrashBinItemCmd := &cobra.Command{
-		Use:   "restore space item",
+		Use:   "restore <space-id> <item-id>",
 		Short: "Restore a trash-bin item by ID.",
 		Args:  cobra.ExactArgs(2),
 		PreRunE: func(cmd *cobra.Command, args []string) error {

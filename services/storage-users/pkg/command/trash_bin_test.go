@@ -15,9 +15,9 @@ func Test_trashBinCommandUse(t *testing.T) {
 		cmd  *cobra.Command
 		want string
 	}{
-		{"list", listTrashBinItems(cfg), "list space"},
-		{"restore-all", restoreAllTrashBinItems(cfg), "restore-all space"},
-		{"restore", restoreTrashBinItem(cfg), "restore space item"},
+		{"list", listTrashBinItems(cfg), "list <space-id>"},
+		{"restore-all", restoreAllTrashBinItems(cfg), "restore-all <space-id>"},
+		{"restore", restoreTrashBinItem(cfg), "restore <space-id> <item-id>"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
