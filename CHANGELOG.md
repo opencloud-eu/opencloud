@@ -1,5 +1,27 @@
 # Changelog
 
+## [8.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.2) - 2026-09-16
+
+### ❤️ Thanks to all contributors! ❤️
+
+@aduffeck, @maki5, @pascalwengerter, @pbleser-oc, @rhafer, @zerox80
+
+### 🔒 Security
+
+- feat(proxy): add optional OIDC access token audience validation [[#3466](https://github.com/opencloud-eu/opencloud/pull/3466)]
+
+### 🐛 Bug Fixes
+
+- Remove the timeout when reindexing spaces [[#3543](https://github.com/opencloud-eu/opencloud/pull/3543)]
+- fix(shares): not auto accepting shares created by guest users [[#3533](https://github.com/opencloud-eu/opencloud/pull/3533)]
+- fix(graph): fix PatchMe method to prevent password change [[#3526](https://github.com/opencloud-eu/opencloud/pull/3526)]
+
+### 📦️ Dependencies
+
+- build(deps): bump github.com/shamaton/msgpack/v2 from 2.4.1 to 2.4.2 [[#3459](https://github.com/opencloud-eu/opencloud/pull/3459)]
+- build(deps): bump go.opentelemetry.io/otel/exporters/stdout/stdouttrace from 1.45.0 to 1.46.0 [[#3428](https://github.com/opencloud-eu/opencloud/pull/3428)]
+- build(deps): bump github.com/sirupsen/logrus from 1.10.1 to 1.10.2 [[#3492](https://github.com/opencloud-eu/opencloud/pull/3492)]
+
 ## [8.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.1) - 2026-09-16
 
 ### ❤️ Thanks to all contributors! ❤️
