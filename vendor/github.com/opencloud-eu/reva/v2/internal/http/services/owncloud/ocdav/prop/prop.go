@@ -33,6 +33,10 @@ type PropertyXML struct {
 	// Lang is an optional xml:lang attribute.
 	Lang string `xml:"xml:lang,attr,omitempty"`
 
+	// Attrs are further attributes, e.g. an RFC 4316 xsi:type with the
+	// namespace declarations its value relies on.
+	Attrs []xml.Attr `xml:",any,attr"`
+
 	// InnerXML contains the XML representation of the property value.
 	// See http://www.webdav.org/specs/rfc4918.html#property_values
 	//

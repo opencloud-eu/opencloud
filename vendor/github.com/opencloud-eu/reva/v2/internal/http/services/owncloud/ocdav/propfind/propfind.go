@@ -48,6 +48,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/conversions"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	"github.com/opencloud-eu/reva/v2/pkg/openextension"
 	"github.com/opencloud-eu/reva/v2/pkg/publicshare"
 	rstatus "github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -1745,7 +1746,13 @@ func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, p
 				} else if amd := k.GetMetadata(); amd == nil {
 					appendToNotFound(prop.NotFoundNS(pf.Prop[i].Space, pf.Prop[i].Local))
 				} else if v, ok := amd[metadataKeyOf(&pf.Prop[i])]; ok && v != "" {
-					appendToOK(prop.EscapedNS(pf.Prop[i].Space, pf.Prop[i].Local, v))
+					if name, isOpenExtension := openextension.NameFromNamespace(pf.Prop[i].Space); !isOpenExtension {
+						appendToOK(prop.EscapedNS(pf.Prop[i].Space, pf.Prop[i].Local, v))
+					} else if p, readable := openExtensionProp(name, pf.Prop[i].Local, v); readable {
+						appendToOK(p)
+					} else {
+						appendToNotFound(prop.NotFoundNS(pf.Prop[i].Space, pf.Prop[i].Local))
+					}
 				} else {
 					appendToNotFound(prop.NotFoundNS(pf.Prop[i].Space, pf.Prop[i].Local))
 				}

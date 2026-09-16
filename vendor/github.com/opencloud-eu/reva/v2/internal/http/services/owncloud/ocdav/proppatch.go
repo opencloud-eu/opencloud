@@ -37,6 +37,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/spacelookup"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v2/pkg/openextension"
 	rstatus "github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/rs/zerolog"
 )
@@ -149,15 +150,17 @@ func (s *svc) handleProppatch(ctx context.Context, w http.ResponseWriter, r *htt
 		w.WriteHeader(http.StatusInternalServerError)
 		return nil, nil, false
 	}
+
 	for i := range patches {
 		if len(patches[i].Props) < 1 {
 			continue
 		}
 		for j := range patches[i].Props {
 			propNameXML := patches[i].Props[j].XMLName
+			extensionName, isOpenExtension := openextension.NameFromNamespace(propNameXML.Space)
 
 			// favorites are now managed by the Graph API and can no longer be set using PROPPATCH. To avoid confusion, we return a 403 Forbidden when clients try to set the oc:favorites property
-			if propNameXML.Local == "favorite" {
+			if !isOpenExtension && propNameXML.Local == "favorite" {
 				w.WriteHeader(http.StatusForbidden)
 				return nil, nil, false
 			}
@@ -166,6 +169,18 @@ func (s *svc) handleProppatch(ctx context.Context, w http.ResponseWriter, r *htt
 			key := fmt.Sprintf("%s/%s", patches[i].Props[j].XMLName.Space, patches[i].Props[j].XMLName.Local)
 			value := string(patches[i].Props[j].InnerXML)
 			remove := patches[i].Remove
+			if isOpenExtension {
+				// an open extension property is stored typed, see openextension.EncodeValue
+				encoded, err := openExtensionValue(extensionName, patches[i].Props[j], remove)
+				if err != nil {
+					log.Debug().Err(err).Msg("invalid open extension property")
+					w.WriteHeader(http.StatusBadRequest)
+					b, err := errors.Marshal(http.StatusBadRequest, err.Error(), "", "")
+					errors.HandleWebdavError(&log, w, b, err)
+					return nil, nil, false
+				}
+				value = encoded
+			}
 			// boolean flags may be "set" to false as well
 			if s.isBooleanProperty(key) {
 				// Make boolean properties either "0" or "1"

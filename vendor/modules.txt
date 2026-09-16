@@ -1507,6 +1507,7 @@ github.com/opencloud-eu/reva/v2/pkg/events
 github.com/opencloud-eu/reva/v2/pkg/events/raw
 github.com/opencloud-eu/reva/v2/pkg/events/raw/mocks
 github.com/opencloud-eu/reva/v2/pkg/events/stream
+github.com/opencloud-eu/reva/v2/pkg/openextension
 github.com/opencloud-eu/reva/v2/pkg/group
 github.com/opencloud-eu/reva/v2/pkg/group/manager/json
 github.com/opencloud-eu/reva/v2/pkg/group/manager/ldap
