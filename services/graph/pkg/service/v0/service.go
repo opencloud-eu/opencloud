@@ -103,6 +103,10 @@ type Service interface { //nolint:interfacebloat
 
 	GetRootDriveChildren(w http.ResponseWriter, r *http.Request)
 	GetDriveItem(w http.ResponseWriter, r *http.Request)
+	ListOpenExtensions(w http.ResponseWriter, r *http.Request)
+	GetOpenExtension(w http.ResponseWriter, r *http.Request)
+	UpsertOpenExtension(w http.ResponseWriter, r *http.Request)
+	DeleteOpenExtension(w http.ResponseWriter, r *http.Request)
 	GetDriveItemChildren(w http.ResponseWriter, r *http.Request)
 
 	CreateUploadSession(w http.ResponseWriter, r *http.Request)
@@ -273,6 +277,14 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 						r.Delete("/", drivesDriveItemApi.DeleteDriveItem)
 						r.Post("/invite", driveItemPermissionsApi.Invite)
 						r.Post("/createLink", driveItemPermissionsApi.CreateLink)
+						r.Route("/extensions", func(r chi.Router) {
+							r.Get("/", svc.ListOpenExtensions)
+							r.Route("/{extensionName}", func(r chi.Router) {
+								r.Get("/", svc.GetOpenExtension)
+								r.Put("/", svc.UpsertOpenExtension)
+								r.Delete("/", svc.DeleteOpenExtension)
+							})
+						})
 						r.Route("/permissions", func(r chi.Router) {
 							r.Get("/", driveItemPermissionsApi.ListPermissions)
 							r.Route("/{permissionID}", func(r chi.Router) {

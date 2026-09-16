@@ -355,6 +355,15 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	render.Status(r, http.StatusOK)
+	if driveItemRelationExpanded(r, _expandOpenExtensions) {
+		expanded, err := driveItemWithOpenExtensions(driveItem, res.GetInfo())
+		if err != nil {
+			errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
+			return
+		}
+		render.JSON(w, r, expanded)
+		return
+	}
 	render.JSON(w, r, &driveItem)
 }
 
