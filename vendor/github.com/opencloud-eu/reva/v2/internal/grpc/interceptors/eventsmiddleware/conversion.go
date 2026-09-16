@@ -19,6 +19,7 @@
 package eventsmiddleware
 
 import (
+	"sort"
 	"strings"
 	"time"
 
@@ -222,6 +223,35 @@ func FileTouched(r *provider.TouchFileResponse, req *provider.TouchFileRequest, 
 		Ref:               req.Ref,
 		Timestamp:         utils.TSNow(),
 		ImpersonatingUser: extractImpersonator(executant),
+	}
+}
+
+// ArbitraryMetadataSet converts the response to an event
+func ArbitraryMetadataSet(r *provider.SetArbitraryMetadataResponse, req *provider.SetArbitraryMetadataRequest, spaceOwner *user.UserId, executant *user.User) events.ArbitraryMetadataUpdated {
+	keys := make([]string, 0, len(req.GetArbitraryMetadata().GetMetadata()))
+	for k := range req.GetArbitraryMetadata().GetMetadata() {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return events.ArbitraryMetadataUpdated{
+		SpaceOwner: spaceOwner,
+		Executant:  executant.GetId(),
+		Ref:        req.Ref,
+		Keys:       keys,
+		Timestamp:  utils.TSNow(),
+	}
+}
+
+// ArbitraryMetadataUnset converts the response to an event
+func ArbitraryMetadataUnset(r *provider.UnsetArbitraryMetadataResponse, req *provider.UnsetArbitraryMetadataRequest, spaceOwner *user.UserId, executant *user.User) events.ArbitraryMetadataUpdated {
+	keys := append([]string(nil), req.GetArbitraryMetadataKeys()...)
+	sort.Strings(keys)
+	return events.ArbitraryMetadataUpdated{
+		SpaceOwner: spaceOwner,
+		Executant:  executant.GetId(),
+		Ref:        req.Ref,
+		Keys:       keys,
+		Timestamp:  utils.TSNow(),
 	}
 }
 

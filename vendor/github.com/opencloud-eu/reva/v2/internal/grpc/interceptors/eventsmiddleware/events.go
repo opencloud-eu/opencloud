@@ -191,6 +191,14 @@ func NewUnary(m map[string]interface{}) (grpc.UnaryServerInterceptor, int, error
 			if isSuccess(v) {
 				ev = FileTouched(v, req.(*provider.TouchFileRequest), ownerID, executant)
 			}
+		case *provider.SetArbitraryMetadataResponse:
+			if isSuccess(v) {
+				ev = ArbitraryMetadataSet(v, req.(*provider.SetArbitraryMetadataRequest), ownerID, executant)
+			}
+		case *provider.UnsetArbitraryMetadataResponse:
+			if isSuccess(v) {
+				ev = ArbitraryMetadataUnset(v, req.(*provider.UnsetArbitraryMetadataRequest), ownerID, executant)
+			}
 		case *provider.SetLockResponse:
 			if isSuccess(v) {
 				ev = FileLocked(v, req.(*provider.SetLockRequest), ownerID, executant)
