@@ -3,14 +3,12 @@ package consumer_test
 import (
 	"context"
 	"encoding/json"
-	"reflect"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
@@ -19,11 +17,11 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
 	"github.com/stretchr/testify/mock"
-	microevents "go-micro.dev/v4/events"
 	microstore "go-micro.dev/v4/store"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 
+	"github.com/opencloud-eu/opencloud/internal/eventstest"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
@@ -44,7 +42,7 @@ var _ = Describe("Userlog consumer", func() {
 		}
 
 		cs  *consumersvc.Service
-		bus testBus
+		bus eventstest.TestBus
 		sto microstore.Store
 
 		gatewayClient   *cs3mocks.GatewayAPIClient
@@ -56,7 +54,7 @@ var _ = Describe("Userlog consumer", func() {
 	BeforeEach(func() {
 		var err error
 		sto = store.Create()
-		bus = testBus(make(chan events.Event))
+		bus = eventstest.NewTestBus()
 
 		pool.RemoveSelector("GatewaySelector" + "eu.opencloud.api.gateway")
 		gatewayClient = &cs3mocks.GatewayAPIClient{}
@@ -122,7 +120,7 @@ var _ = Describe("Userlog consumer", func() {
 		}()
 
 		ids := make(map[string]struct{})
-		ids[bus.publish(events.SpaceDisabled{Executant: &user.UserId{OpaqueId: "executinguserid"}, ID: &provider.StorageSpaceId{OpaqueId: "spaceid"}})] = struct{}{}
+		ids[bus.Push(events.SpaceDisabled{Executant: &user.UserId{OpaqueId: "executinguserid"}, ID: &provider.StorageSpaceId{OpaqueId: "spaceid"}})] = struct{}{}
 
 		time.Sleep(500 * time.Millisecond)
 
@@ -144,37 +142,3 @@ var _ = Describe("Userlog consumer", func() {
 		close(bus)
 	})
 })
-
-type testBus chan events.Event
-
-func (tb testBus) Consume(_ string, _ ...microevents.ConsumeOption) (<-chan microevents.Event, error) {
-	ch := make(chan microevents.Event)
-	go func() {
-		for ev := range tb {
-			b, _ := json.Marshal(ev.Event)
-			ch <- microevents.Event{
-				Payload: b,
-				Metadata: map[string]string{
-					events.MetadatakeyEventID:   ev.ID,
-					events.MetadatakeyEventType: ev.Type,
-				},
-			}
-		}
-	}()
-	return ch, nil
-}
-
-func (tb testBus) Publish(_ string, _ any, _ ...microevents.PublishOption) error {
-	return nil
-}
-
-func (tb testBus) publish(e any) string {
-	ev := events.Event{
-		ID:    uuid.New().String(),
-		Type:  reflect.TypeOf(e).String(),
-		Event: e,
-	}
-
-	tb <- ev
-	return ev.ID
-}

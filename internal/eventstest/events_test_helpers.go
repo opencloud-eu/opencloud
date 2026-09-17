@@ -16,6 +16,8 @@ func NewTestBus() TestBus {
 
 type TestBus chan rev.Event
 
+var _ rev.Stream = NewTestBus()
+
 func (tb TestBus) Consume(_ string, _ ...microevents.ConsumeOption) (<-chan microevents.Event, error) {
 	ch := make(chan microevents.Event)
 	go func() {
@@ -33,7 +35,11 @@ func (tb TestBus) Consume(_ string, _ ...microevents.ConsumeOption) (<-chan micr
 	return ch, nil
 }
 
-func (tb TestBus) Publish(e any) string {
+func (tb TestBus) Publish(_ string, _ any, _ ...microevents.PublishOption) error {
+	return nil
+}
+
+func (tb TestBus) Push(e any) string {
 	ev := rev.Event{
 		ID:    uuid.New().String(),
 		Type:  reflect.TypeOf(e).String(),
