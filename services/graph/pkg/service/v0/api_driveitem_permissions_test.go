@@ -167,6 +167,36 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Expect(permission.GrantedToV2.Group.GetId()).To(Equal("2"))
 		})
 
+		It("creates guest share using an email address", func() {
+			cfg.EnableGuestInvites = true
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
+			gatewayClient.On("CreateShare", mock.Anything, mock.Anything).Return(createShareResponse, nil)
+			driveItemInvite.Recipients = []libregraph.DriveRecipient{
+				{Email: libregraph.PtrString("guest@example.com")},
+			}
+			createShareResponse.Share = &collaboration.Share{
+				Id: &collaboration.ShareId{OpaqueId: "guest123"},
+			}
+
+			permission, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(permission.GetId()).To(Equal("guest123"))
+			Expect(permission.GrantedToV2.User.GetDisplayName()).To(Equal("guest@example.com"))
+			Expect(permission.GrantedToV2.User.GetId()).To(Equal("guest@example.com"))
+			Expect(permission.GrantedToV2.User.GetLibreGraphUserType()).To(Equal("Guest"))
+		})
+
+		It("rejects guest shares when guest invites are disabled by default", func() {
+			driveItemInvite.Recipients = []libregraph.DriveRecipient{
+				{Email: libregraph.PtrString("guest@example.com")},
+			}
+
+			_, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
+
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("not enabled"))
+		})
+
 		It("succeeds with file roles (happy path)", func() {
 			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
 			gatewayClient.On("CreateShare", mock.Anything, mock.Anything).Return(createShareResponse, nil)
@@ -326,6 +356,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(listSpacesResponse, nil)
 			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
 			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
 			gatewayClient.On("CreateShare", mock.Anything, mock.Anything).Return(createShareResponse, nil)
 			driveItemInvite.Recipients = []libregraph.DriveRecipient{
 				{ObjectId: libregraph.PtrString("1"), LibreGraphRecipientType: libregraph.PtrString("user")},
