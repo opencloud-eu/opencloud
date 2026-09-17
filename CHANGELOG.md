@@ -1,14 +1,18 @@
 # Changelog
 
-## [8.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.2) - 2026-09-16
+## [8.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.2) - 2026-09-17
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @maki5, @pascalwengerter, @pbleser-oc, @rhafer, @zerox80
+@aduffeck, @maki5, @pascalwengerter, @pbleser-oc, @rhafer, @schweigisito, @zerox80
 
 ### 🔒 Security
 
 - feat(proxy): add optional OIDC access token audience validation [[#3466](https://github.com/opencloud-eu/opencloud/pull/3466)]
+
+### 📚 Documentation
+
+- [SKIP CI] fix: add file_read documentation to audit log docu [[#3503](https://github.com/opencloud-eu/opencloud/pull/3503)]
 
 ### 🐛 Bug Fixes
 
