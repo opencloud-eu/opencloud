@@ -49,6 +49,23 @@ var _ = Describe("AppURLs", func() {
 			Expect(appURLs.GetAppURLFor("edit", ".docx")).To(Equal("https://example.com/edit/docx"))
 		})
 
+		It("should store and retrieve mobile app URLs correctly", func() {
+			testURLs := map[string]map[string]string{
+				"mobileView": {
+					".docx": "https://example.com/mobileview/docx",
+				},
+				"mobileEdit": {
+					".docx": "https://example.com/mobileedit/docx",
+				},
+			}
+
+			appURLs.Store(testURLs)
+
+			Expect(appURLs.GetAppURLFor("mobileView", ".docx")).To(Equal("https://example.com/mobileview/docx"))
+			Expect(appURLs.GetAppURLFor("mobileEdit", ".docx")).To(Equal("https://example.com/mobileedit/docx"))
+			Expect(appURLs.GetAppURLFor("mobileEdit", ".xlsx")).To(BeEmpty())
+		})
+
 		It("should return empty string for non-existent action", func() {
 			testURLs := map[string]map[string]string{
 				"view": {".pdf": "https://example.com/view/pdf"},
@@ -291,6 +308,8 @@ var _ = Describe("Discovery", func() {
       <action name="embedview" ext="docx" urlsrc="https://cloud.opencloud.test/hosting/wopi/word/view?embed=1&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;embed=EMBEDDED&amp;&gt;&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;&lt;wopisrc=WOPI_SOURCE&amp;&gt;&amp;"/>
       <action name="editnew" ext="docx" requires="locks,update" urlsrc="https://cloud.opencloud.test/hosting/wopi/word/edit?&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;embed=EMBEDDED&amp;&gt;&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;&lt;wopisrc=WOPI_SOURCE&amp;&gt;&amp;"/>
       <action name="edit" ext="docx" default="true" requires="locks,update" urlsrc="https://cloud.opencloud.test/hosting/wopi/word/edit?&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;embed=EMBEDDED&amp;&gt;&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;&lt;wopisrc=WOPI_SOURCE&amp;&gt;&amp;"/>
+      <action name="mobileView" ext="docx" urlsrc="https://cloud.opencloud.test/hosting/wopi/word/mobileview?&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;embed=EMBEDDED&amp;&gt;&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;&lt;wopisrc=WOPI_SOURCE&amp;&gt;&amp;"/>
+      <action name="mobileEdit" ext="docx" requires="locks,update" urlsrc="https://cloud.opencloud.test/hosting/wopi/word/mobileedit?&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;embed=EMBEDDED&amp;&gt;&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;&lt;wopisrc=WOPI_SOURCE&amp;&gt;&amp;"/>
     </app>
     <app name="Excel" favIconUrl="https://cloud.opencloud.test/web-apps/apps/spreadsheeteditor/main/resources/img/favicon.ico">
       <action name="view" ext="xls" urlsrc="https://cloud.opencloud.test/hosting/wopi/cell/view?&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;embed=EMBEDDED&amp;&gt;&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;&lt;wopisrc=WOPI_SOURCE&amp;&gt;&amp;"/>
@@ -345,6 +364,12 @@ var _ = Describe("Discovery", func() {
 				},
 				"edit": map[string]string{
 					".docx": "https://cloud.opencloud.test/hosting/wopi/word/edit",
+				},
+				"mobileView": map[string]string{
+					".docx": "https://cloud.opencloud.test/hosting/wopi/word/mobileview",
+				},
+				"mobileEdit": map[string]string{
+					".docx": "https://cloud.opencloud.test/hosting/wopi/word/mobileedit",
 				},
 			}
 
