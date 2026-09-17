@@ -435,3 +435,30 @@ func Wrapf(err error, format string, args ...interface{}) *Error {
 func Err(msg string, err error) *Error {
 	return New(msg).Wrap(err)
 }
+
+// Join returns an error that wraps the given errors.
+// Any nil error values are discarded.
+// Join returns nil if every error is nil.
+// The error formats as the concatenation of the errors' strings, separated by newlines.
+// The resulting error implements Unwrap() []error if multiple non-nil errors are present.
+func Join(errs ...error) error {
+	nonNil := make([]error, 0, len(errs))
+	for _, err := range errs {
+		if err != nil {
+			nonNil = append(nonNil, err)
+		}
+	}
+
+	switch len(nonNil) {
+	case 0:
+		return nil
+	case 1:
+		return nonNil[0]
+	default:
+		multi := NewMultiError()
+		for _, err := range nonNil {
+			multi.Add(err)
+		}
+		return multi
+	}
+}

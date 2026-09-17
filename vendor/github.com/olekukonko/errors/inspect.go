@@ -1,225 +1,215 @@
-// File: inspect.go
-// Updated to support both error and *Error with delegation for cleaner *Error handling
+// Human-readable error inspection. Output is written to caller-supplied
+// io.Writer values; this library never owns stdout or stderr.
 
 package errors
 
 import (
 	stderrs "errors"
 	"fmt"
+	"io"
+	"os"
 	"strings"
-	"time"
 )
 
-// Inspect provides detailed examination of an error, handling both single errors and MultiError
-func Inspect(err error) {
-	if err == nil {
-		fmt.Println("No error occurred")
-		return
+// inspectConfig holds resolved options for a single Inspect call.
+type inspectConfig struct {
+	w           io.Writer
+	stackFrames int
+	maxDepth    int
+}
+
+// InspectOption configures an Inspect call.
+type InspectOption func(*inspectConfig)
+
+// WithStackFrames sets the maximum number of stack frames printed per error node.
+// Default is 3.
+func WithStackFrames(n int) InspectOption {
+	return func(c *inspectConfig) { c.stackFrames = n }
+}
+
+// WithMaxDepth sets the maximum chain depth traversed before output is truncated.
+// Default is 10.
+func WithMaxDepth(n int) InspectOption {
+	return func(c *inspectConfig) { c.maxDepth = n }
+}
+
+// Inspect writes a human-readable description of err to each writer in ws.
+// If no writers are supplied it defaults to os.Stderr.
+// Multiple writers are combined with io.MultiWriter so a single call can
+// write to a log file and a buffer simultaneously.
+//
+// Example — default (stderr):
+//
+//	errors.Inspect(err)
+//
+// Example — write to a buffer for testing:
+//
+//	var buf bytes.Buffer
+//	errors.Inspect(err, &buf)
+//
+// Example — write to both stderr and a file:
+//
+//	errors.Inspect(err, os.Stderr, logFile)
+//
+// Example — customise stack depth:
+//
+//	errors.Inspect(err, os.Stderr, errors.WithStackFrames(5))
+//
+// Note: InspectOption values must come after all io.Writer values. Any value
+// that is neither an io.Writer nor an InspectOption is silently ignored.
+func Inspect(err error, targets ...interface{}) {
+	cfg := &inspectConfig{
+		stackFrames: 3,
+		maxDepth:    10,
 	}
 
-	fmt.Printf("\n=== Error Inspection ===\n")
-	fmt.Printf("Top-level error: %v\n", err)
-	fmt.Printf("Top-level error type: %T\n", err)
-
-	// Handle *Error directly
-	if e, ok := err.(*Error); ok {
-		InspectError(e)
-		return
-	}
-
-	// Handle MultiError
-	if multi, ok := err.(*MultiError); ok {
-		allErrors := multi.Errors()
-		fmt.Printf("\nContains %d errors:\n", len(allErrors))
-		for i, e := range allErrors {
-			fmt.Printf("\n--- Error %d ---\n", i+1)
-			inspectSingleError(e)
+	var writers []io.Writer
+	for _, t := range targets {
+		switch v := t.(type) {
+		case InspectOption:
+			v(cfg)
+		case io.Writer:
+			writers = append(writers, v)
 		}
+	}
+	if len(writers) == 0 {
+		writers = []io.Writer{os.Stderr}
+	}
+	if len(writers) == 1 {
+		cfg.w = writers[0]
 	} else {
-		// Inspect single error if not MultiError or *Error
-		fmt.Println("\n--- Details ---")
-		inspectSingleError(err)
+		cfg.w = io.MultiWriter(writers...)
 	}
 
-	// Additional diagnostics
-	fmt.Println("\n--- Diagnostics ---")
+	writeInspect(cfg, err)
+}
+
+// InspectError is a convenience wrapper for *Error that calls Inspect.
+// Kept for backwards compatibility; prefer Inspect for new code.
+func InspectError(err *Error, targets ...interface{}) {
+	Inspect(err, targets...)
+}
+
+// writeInspect does the actual formatting.
+func writeInspect(cfg *inspectConfig, err error) {
+	w := cfg.w
+	if err == nil {
+		fmt.Fprintln(w, "no error")
+		return
+	}
+
+	fmt.Fprintf(w, "\n=== error inspection ===\n")
+	fmt.Fprintf(w, "type:    %T\n", err)
+	fmt.Fprintf(w, "message: %v\n", err)
+
+	switch e := err.(type) {
+	case *Error:
+		writeChain(cfg, e)
+		writeDiagnostics(cfg, err)
+	case *MultiError:
+		errs := e.Errors()
+		fmt.Fprintf(w, "errors:  %d\n", len(errs))
+		for i, sub := range errs {
+			fmt.Fprintf(w, "\n--- error %d ---\n", i+1)
+			writeSingle(cfg, sub, 0)
+		}
+		writeDiagnostics(cfg, err)
+	default:
+		writeSingle(cfg, err, 0)
+		writeDiagnostics(cfg, err)
+	}
+	fmt.Fprintf(w, "========================\n\n")
+}
+
+// writeChain walks an *Error chain printing each node.
+func writeChain(cfg *inspectConfig, e *Error) {
+	var current error = e
+	depth := 0
+	for current != nil && depth <= cfg.maxDepth {
+		writeSingle(cfg, current, depth)
+		next := stderrs.Unwrap(current)
+		if next == current || next == nil {
+			break
+		}
+		current = next
+		depth++
+	}
+	if depth > cfg.maxDepth {
+		fmt.Fprintf(cfg.w, "  ... (chain truncated at depth %d)\n", cfg.maxDepth)
+	}
+}
+
+// writeSingle prints one error node at the given indent depth.
+func writeSingle(cfg *inspectConfig, err error, depth int) {
+	if err == nil {
+		return
+	}
+	w := cfg.w
+	pad := strings.Repeat("  ", depth)
+	if depth > 0 {
+		fmt.Fprintf(w, "%scause (%T): %v\n", pad, err, err)
+	}
+	e, ok := err.(*Error)
+	if !ok {
+		return
+	}
+	if n := e.Name(); n != "" {
+		fmt.Fprintf(w, "%s  name:     %s\n", pad, n)
+	}
+	if cat := e.Category(); cat != "" {
+		fmt.Fprintf(w, "%s  category: %s\n", pad, cat)
+	}
+	if code := e.Code(); code != 0 {
+		fmt.Fprintf(w, "%s  code:     %d\n", pad, code)
+	}
+	if ctx := e.Context(); len(ctx) > 0 {
+		fmt.Fprintf(w, "%s  context:\n", pad)
+		for k, v := range ctx {
+			fmt.Fprintf(w, "%s    %s: %v\n", pad, k, v)
+		}
+	}
+	if stack := e.Stack(); len(stack) > 0 {
+		limit := cfg.stackFrames
+		if len(stack) < limit {
+			limit = len(stack)
+		}
+		fmt.Fprintf(w, "%s  stack (top %d):\n", pad, limit)
+		for i := 0; i < limit; i++ {
+			fmt.Fprintf(w, "%s    %s\n", pad, stack[i])
+		}
+		if len(stack) > limit {
+			fmt.Fprintf(w, "%s    ... (%d more frames)\n", pad, len(stack)-limit)
+		}
+	}
+}
+
+// writeDiagnostics appends a short diagnostic summary.
+func writeDiagnostics(cfg *inspectConfig, err error) {
+	var parts []string
 	if IsRetryable(err) {
-		fmt.Println("- Error chain contains retryable errors")
+		parts = append(parts, "retryable")
 	}
 	if IsTimeout(err) {
-		fmt.Println("- Error chain contains timeout errors")
+		parts = append(parts, "timeout")
 	}
 	if code := getErrorCode(err); code != 0 {
-		fmt.Printf("- Highest priority error code: %d\n", code)
+		parts = append(parts, fmt.Sprintf("code=%d", code))
 	}
-	fmt.Printf("========================\n\n")
-}
-
-// InspectError provides detailed inspection of a specific *Error instance
-func InspectError(err *Error) {
-	if err == nil {
-		fmt.Println("No error occurred")
-		return
-	}
-
-	fmt.Printf("\n=== Error Inspection (*Error) ===\n")
-	fmt.Printf("Top-level error: %v\n", err)
-	fmt.Printf("Top-level error type: %T\n", err)
-
-	fmt.Println("\n--- Details ---")
-	inspectSingleError(err) // Delegate to handle unwrapping and details
-
-	// Additional diagnostics specific to *Error
-	fmt.Println("\n--- Diagnostics ---")
-	if IsRetryable(err) {
-		fmt.Println("- Error is retryable")
-	}
-	if IsTimeout(err) {
-		fmt.Println("- Error chain contains timeout errors")
-	}
-	if code := err.Code(); code != 0 {
-		fmt.Printf("- Error code: %d\n", code)
-	}
-	fmt.Printf("========================\n\n")
-}
-
-// inspectSingleError handles inspection of a single error (may be part of a chain)
-func inspectSingleError(err error) {
-	if err == nil {
-		fmt.Println("  (nil error)")
-		return
-	}
-
-	fmt.Printf("  Error: %v\n", err)
-	fmt.Printf("  Type: %T\n", err)
-
-	// Handle wrapped errors, including *Error type
-	var currentErr error = err
-	depth := 0
-	for currentErr != nil {
-		prefix := strings.Repeat("  ", depth+1)
-		if depth > 0 {
-			fmt.Printf("%sWrapped Cause (%T): %v\n", prefix, currentErr, currentErr)
-		}
-
-		// Check if it's our specific *Error type
-		if e, ok := currentErr.(*Error); ok {
-			if name := e.Name(); name != "" {
-				fmt.Printf("%sName: %s\n", prefix, name)
-			}
-			if cat := e.Category(); cat != "" {
-				fmt.Printf("%sCategory: %s\n", prefix, cat)
-			}
-			if code := e.Code(); code != 0 {
-				fmt.Printf("%sCode: %d\n", prefix, code)
-			}
-			if ctx := e.Context(); len(ctx) > 0 {
-				fmt.Printf("%sContext:\n", prefix)
-				for k, v := range ctx {
-					fmt.Printf("%s  %s: %v\n", prefix, k, v)
-				}
-			}
-			if stack := e.Stack(); len(stack) > 0 {
-				fmt.Printf("%sStack (Top 3):\n", prefix)
-				limit := 3
-				if len(stack) < limit {
-					limit = len(stack)
-				}
-				for i := 0; i < limit; i++ {
-					fmt.Printf("%s  %s\n", prefix, stack[i])
-				}
-				if len(stack) > limit {
-					fmt.Printf("%s  ... (%d more frames)\n", prefix, len(stack)-limit)
-				}
-			}
-		}
-
-		// Unwrap using standard errors.Unwrap and handle *Error Unwrap
-		var nextErr error
-		// Prioritize *Error's Unwrap if available AND it returns non-nil
-		if e, ok := currentErr.(*Error); ok {
-			unwrapped := e.Unwrap()
-			if unwrapped != nil {
-				nextErr = unwrapped
-			} else {
-				// If *Error.Unwrap returns nil, fall back to standard unwrap
-				// This handles cases where *Error might wrap a non-standard error
-				// or where its internal cause is deliberately nil.
-				nextErr = stderrs.Unwrap(currentErr)
-			}
-		} else {
-			nextErr = stderrs.Unwrap(currentErr) // Fall back to standard unwrap for non-*Error types
-		}
-
-		// Prevent infinite loops if Unwrap returns the same error, or stop if no more unwrapping
-		if nextErr == currentErr || nextErr == nil {
-			break
-		}
-		currentErr = nextErr
-		depth++
-		if depth > 10 { // Safety break for very deep or potentially cyclic chains
-			fmt.Printf("%s... (chain too deep or potential cycle)\n", strings.Repeat("  ", depth+1))
-			break
-		}
+	if len(parts) > 0 {
+		fmt.Fprintf(cfg.w, "diagnostics: %s\n", strings.Join(parts, ", "))
 	}
 }
 
-// getErrorCode traverses the error chain to find the highest priority code.
-// It uses errors.As to find the first *Error in the chain.
+// getErrorCode traverses the error chain to find the first non-zero code.
 func getErrorCode(err error) int {
-	var code int = 0 // Default code
+	if e, ok := err.(*Error); ok {
+		if c := e.Code(); c != 0 {
+			return c
+		}
+	}
 	var target *Error
-	if As(err, &target) { // Use the package's As helper
-		if target != nil { // Add nil check for safety
-			code = target.Code()
-		}
+	if As(err, &target) && target != nil {
+		return target.Code()
 	}
-	// If the top-level error is *Error and has a code, it might take precedence.
-	// This depends on desired logic. Let's keep it simple for now: first code found by As.
-	if code == 0 { // Only check top-level if As didn't find one with a code
-		if e, ok := err.(*Error); ok {
-			code = e.Code()
-		}
-	}
-	return code
-}
-
-// handleError demonstrates using Inspect with additional handling logic
-func handleError(err error) {
-	fmt.Println("\n=== Processing Failure ===")
-	Inspect(err) // Use the primary Inspect function
-
-	// Additional handling based on inspection
-	code := getErrorCode(err) // Use the helper
-
-	switch {
-	case IsTimeout(err):
-		fmt.Println("\nAction: Check connectivity or increase timeout")
-	case code == 402: // Check code obtained via helper
-		fmt.Println("\nAction: Payment processing failed - notify billing")
-	default:
-		fmt.Println("\nAction: Generic failure handling")
-	}
-}
-
-// processOrder demonstrates Chain usage with Inspect
-func processOrder() error {
-	validateInput := func() error { return nil }
-	processPayment := func() error { return stderrs.New("credit card declined") }
-	sendNotification := func() error { fmt.Println("Notification sent."); return nil }
-	logOrder := func() error { fmt.Println("Order logged."); return nil }
-
-	chain := NewChain(ChainWithTimeout(2*time.Second)).
-		Step(validateInput).Tag("validation").
-		Step(processPayment).Tag("billing").Code(402).Retry(3, 100*time.Millisecond, WithRetryIf(IsRetryable)).
-		Step(sendNotification).Optional().
-		Step(logOrder)
-
-	err := chain.Run()
-	if err != nil {
-		handleError(err) // Call the unified error handler
-		return err       // Propagate the error if needed
-	}
-	fmt.Println("Order processed successfully!")
-	return nil
+	return 0
 }
