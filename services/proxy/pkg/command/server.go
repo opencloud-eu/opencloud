@@ -367,7 +367,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 	}
 
 	return alice.New(
-		chimiddleware.RealIP,
+		clientIPMiddleware(cfg),
 		chimiddleware.RequestID,
 
 		// 1. Logging & Tracing first
@@ -436,4 +436,21 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 			middleware.RoleQuotas(cfg.RoleQuotas),
 		),
 	), nil
+}
+
+// clientIPMiddleware returns the chi ClientIPFrom* middleware matching the
+// configured client IP strategy.
+func clientIPMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
+	switch cfg.ClientIP.Strategy {
+	case config.ClientIPStrategyHeader:
+		return chimiddleware.ClientIPFromHeader(cfg.ClientIP.Header)
+	case config.ClientIPStrategyXFF:
+		return chimiddleware.ClientIPFromXFF(cfg.ClientIP.TrustedPrefixes...)
+	case config.ClientIPStrategyXFFTrustedHops:
+		return chimiddleware.ClientIPFromXFFTrustedProxies(cfg.ClientIP.TrustedHops)
+	case config.ClientIPStrategyRemoteAddr:
+		fallthrough
+	default:
+		return chimiddleware.ClientIPFromRemoteAddr
+	}
 }
