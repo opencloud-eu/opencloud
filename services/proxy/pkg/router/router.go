@@ -20,12 +20,13 @@ type routingInfoCtxKey struct{}
 var noInfo = RoutingInfo{}
 
 // Middleware returns a HTTP middleware containing the router.
-func Middleware(serviceSelector selector.Selector, policySelectorCfg *config.PolicySelector, policies []config.Policy, logger log.Logger) func(http.Handler) http.Handler {
+func Middleware(serviceSelector selector.Selector, policySelectorCfg *config.PolicySelector, policies []config.Policy, onFailedRouting func(r *http.Request), logger log.Logger) func(http.Handler) http.Handler {
 	router := New(serviceSelector, policySelectorCfg, policies, logger)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ri, ok := router.Route(r)
 			if !ok {
+				onFailedRouting(r)
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
@@ -88,6 +89,7 @@ func New(serviceSelector selector.Selector, policySelectorCfg *config.PolicySele
 // RoutingInfo contains the proxy rewrite hook and some information about the route.
 type RoutingInfo struct {
 	rewrite          func(*httputil.ProxyRequest)
+	service          string
 	endpoint         string
 	unprotected      bool
 	remoteUserHeader string
@@ -113,6 +115,11 @@ func (r RoutingInfo) RemoteUserHeader() string {
 // outgoing request
 func (r RoutingInfo) SkipXAccessToken() bool {
 	return r.skipXAccessToken
+}
+
+// Returns the identifier of the service the request ought to be routed to
+func (r RoutingInfo) Service() string {
+	return r.service
 }
 
 // Router handles the routing of HTTP requests according to the given policies.
@@ -141,6 +148,7 @@ func (rt Router) addHost(policy string, target *url.URL, route config.Route) {
 
 	rt.rewriters[policy][routeType][route.Method] = append(rt.rewriters[policy][routeType][route.Method], RoutingInfo{
 		endpoint:         route.Endpoint,
+		service:          route.Service,
 		unprotected:      route.Unprotected,
 		remoteUserHeader: route.RemoteUserHeader,
 		skipXAccessToken: route.SkipXAccessToken,
