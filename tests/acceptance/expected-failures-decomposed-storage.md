@@ -325,12 +325,6 @@ _ocdav: api compatibility, return correct status code_
 - [coreApiWebdavPreviews/previews.feature:264](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L264)
 - [coreApiWebdavPreviews/previews.feature:265](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L265)
 
-
-### notification issue #323
-- [apiNotification/emailNotification.feature:280](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiNotification/emailNotification.feature#L280)
-- [apiNotification/emailNotification.feature:298](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiNotification/emailNotification.feature#L298)
-- [apiNotification/spaceNotification.feature:463](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiNotification/spaceNotification.feature#L463)
-
 ### Won't fix
 
 Not everything needs to be implemented for opencloud.
