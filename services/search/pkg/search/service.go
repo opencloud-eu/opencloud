@@ -16,7 +16,9 @@ import (
 	rpcv1beta1 "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	collaborationv1beta1 "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/golang-jwt/jwt/v5"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"github.com/opencloud-eu/reva/v2/pkg/auth"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -25,6 +27,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -461,10 +464,14 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 
 // IndexSpace (re)indexes all resources of a given space.
 func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool) error {
-	ownerCtx, err := getAuthContext(s.serviceAccountID, s.gatewaySelector, s.serviceAccountSecret, s.logger)
+	// Indexing a space can take longer than the lifetime of a single auth token,
+	// so use an AuthSession that authenticates up front and refreshes the token in
+	// the background before it expires. Its Ctx() always returns a valid context.
+	session, err := s.newAuthSession()
 	if err != nil {
 		return err
 	}
+	defer session.Close()
 
 	rootID, err := storagespace.ParseID(spaceID.OpaqueId)
 	if err != nil {
@@ -502,7 +509,8 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 		}
 		logDocCount(s.engine, s.logger)
 	}()
-	err = w.Walk(ownerCtx, &rootID, func(wd string, info *provider.ResourceInfo, err error) error {
+
+	err = w.Walk(session, &rootID, func(wd string, info *provider.ResourceInfo, err error) error {
 		if err != nil {
 			var notFoundErr errtypes.IsNotFound
 			if errors.As(err, &notFoundErr) {
@@ -525,11 +533,11 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 		s.logger.Debug().Str("path", ref.Path).Msg("Walking tree")
 
 		if forceRescan {
-			s.doUpsertItem(ref, batch)
+			s.doUpsertItem(session.Ctx(), ref, batch)
 			return nil
 		}
 
-		searchRes, err := s.engine.Search(ownerCtx, &searchsvc.SearchIndexRequest{
+		searchRes, err := s.engine.Search(session.Ctx(), &searchsvc.SearchIndexRequest{
 			Query: "id:" + storagespace.FormatResourceID(info.Id) + ` mtime>=` + utils.TSToTime(info.Mtime).Format(time.RFC3339Nano),
 		})
 
@@ -542,7 +550,7 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 			return nil
 		}
 
-		s.doUpsertItem(ref, batch)
+		s.doUpsertItem(session.Ctx(), ref, batch)
 
 		return nil
 	})
@@ -630,13 +638,18 @@ func (s *Service) PurgeDeleted(spaceID *provider.StorageSpaceId) error {
 
 // UpsertItem indexes or stores Resource data fields.
 func (s *Service) UpsertItem(ref *provider.Reference) {
-	s.doUpsertItem(ref, nil)
+	ctx, err := getAuthContext(s.serviceAccountID, s.gatewaySelector, s.serviceAccountSecret, s.logger)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to get auth context")
+		return
+	}
+	s.doUpsertItem(ctx, ref, nil)
 }
 
 // doUpsertItem indexes or stores Resource data fields.
-func (s *Service) doUpsertItem(ref *provider.Reference, batch BatchOperator) {
-	ctx, stat, path := s.resInfo(ref)
-	if ctx == nil || stat == nil || path == "" {
+func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, batch BatchOperator) {
+	stat, path := s.resInfo(ctx, ref)
+	if stat == nil || path == "" {
 		return
 	}
 
@@ -772,8 +785,13 @@ func valueToString(value any) string {
 
 // RestoreItem makes the item available again.
 func (s *Service) RestoreItem(ref *provider.Reference) {
-	ctx, stat, path := s.resInfo(ref)
-	if ctx == nil || stat == nil || path == "" {
+	ctx, err := getAuthContext(s.serviceAccountID, s.gatewaySelector, s.serviceAccountSecret, s.logger)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to get auth context")
+		return
+	}
+	stat, path := s.resInfo(ctx, ref)
+	if stat == nil || path == "" {
 		return
 	}
 
@@ -784,8 +802,13 @@ func (s *Service) RestoreItem(ref *provider.Reference) {
 
 // MoveItem updates the resource location and all of its necessary fields.
 func (s *Service) MoveItem(ref *provider.Reference) {
-	ctx, stat, path := s.resInfo(ref)
-	if ctx == nil || stat == nil || path == "" {
+	ctx, err := getAuthContext(s.serviceAccountID, s.gatewaySelector, s.serviceAccountSecret, s.logger)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to get auth context")
+		return
+	}
+	stat, path := s.resInfo(ctx, ref)
+	if stat == nil || path == "" {
 		return
 	}
 
@@ -794,21 +817,57 @@ func (s *Service) MoveItem(ref *provider.Reference) {
 	}
 }
 
-func (s *Service) resInfo(ref *provider.Reference) (context.Context, *provider.StatResponse, string) {
-	ownerCtx, err := getAuthContext(s.serviceAccountID, s.gatewaySelector, s.serviceAccountSecret, s.logger)
+func (s *Service) resInfo(ctx context.Context, ref *provider.Reference) (*provider.StatResponse, string) {
+	statRes, err := statResource(ctx, ref, s.gatewaySelector, s.logger)
 	if err != nil {
-		return nil, nil, ""
+		return nil, ""
 	}
 
-	statRes, err := statResource(ownerCtx, ref, s.gatewaySelector, s.logger)
+	r, err := ResolveReference(ctx, ref, statRes.GetInfo(), s.gatewaySelector)
 	if err != nil {
-		return nil, nil, ""
+		return nil, ""
 	}
 
-	r, err := ResolveReference(ownerCtx, ref, statRes.GetInfo(), s.gatewaySelector)
-	if err != nil {
-		return nil, nil, ""
-	}
+	return statRes, r.GetPath()
+}
 
-	return ownerCtx, statRes, r.GetPath()
+func (s *Service) newAuthSession() (*auth.Session, error) {
+	return auth.NewSession(context.Background(), func(ctx context.Context) (context.Context, time.Time, error) {
+		newCtx, err := getAuthContext(s.serviceAccountID, s.gatewaySelector, s.serviceAccountSecret, s.logger)
+		if err != nil {
+			return nil, time.Time{}, err
+		}
+		expiry, err := tokenExpiry(newCtx)
+		if err != nil {
+			return nil, time.Time{}, err
+		}
+		return newCtx, expiry, nil
+	})
+}
+
+func tokenFromContext(ctx context.Context) string {
+	if tkn, ok := revactx.ContextGetToken(ctx); ok && tkn != "" {
+		return tkn
+	}
+	if md, ok := metadata.FromOutgoingContext(ctx); ok {
+		if vals := md.Get(revactx.TokenHeader); len(vals) > 0 {
+			return vals[0]
+		}
+	}
+	return ""
+}
+
+func tokenExpiry(ctx context.Context) (time.Time, error) {
+	tkn := tokenFromContext(ctx)
+	if tkn == "" {
+		return time.Time{}, errors.New("no auth token in context")
+	}
+	var claims jwt.RegisteredClaims
+	if _, _, err := jwt.NewParser().ParseUnverified(tkn, &claims); err != nil {
+		return time.Time{}, err
+	}
+	if claims.ExpiresAt == nil {
+		return time.Time{}, errors.New("token has no expiry")
+	}
+	return claims.ExpiresAt.Time, nil
 }
