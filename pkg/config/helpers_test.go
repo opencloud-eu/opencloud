@@ -16,9 +16,8 @@ type TestConfig struct {
 
 func TestReadFileEnv(t *testing.T) {
 	t.Run("no file env", func(t *testing.T) {
-		value, ok, err := ReadFileEnv("direct", "MISSING_FILE")
+		value, err := ReadFileEnv("direct", "MISSING_FILE")
 		assert.NilError(t, err)
-		assert.Equal(t, ok, false)
 		assert.Equal(t, value, "direct")
 	})
 
@@ -26,19 +25,37 @@ func TestReadFileEnv(t *testing.T) {
 		file := writeTempSecret(t, "secret")
 		t.Setenv("SECRET_FILE", file)
 
-		value, ok, err := ReadFileEnv("", "SECRET_FILE")
+		value, err := ReadFileEnv("", "SECRET_FILE")
 		assert.NilError(t, err)
-		assert.Equal(t, ok, true)
 		assert.Equal(t, value, "secret")
+	})
+
+	t.Run("reads first set file env", func(t *testing.T) {
+		first := writeTempSecret(t, "first")
+		second := writeTempSecret(t, "second")
+		t.Setenv("FIRST_SECRET_FILE", first)
+		t.Setenv("SECOND_SECRET_FILE", second)
+
+		value, err := ReadFileEnv("", "FIRST_SECRET_FILE", "SECOND_SECRET_FILE")
+		assert.NilError(t, err)
+		assert.Equal(t, value, "first")
+	})
+
+	t.Run("reads second set file env", func(t *testing.T) {
+		second := writeTempSecret(t, "second")
+		t.Setenv("SECOND_SECRET_FILE", second)
+
+		value, err := ReadFileEnv("", "MISSING_FILE", "SECOND_SECRET_FILE")
+		assert.NilError(t, err)
+		assert.Equal(t, value, "second")
 	})
 
 	t.Run("trims trailing newlines", func(t *testing.T) {
 		file := writeTempSecret(t, "secret\r\n\n")
 		t.Setenv("SECRET_FILE", file)
 
-		value, ok, err := ReadFileEnv("", "SECRET_FILE")
+		value, err := ReadFileEnv("", "SECRET_FILE")
 		assert.NilError(t, err)
-		assert.Equal(t, ok, true)
 		assert.Equal(t, value, "secret")
 	})
 
@@ -46,16 +63,14 @@ func TestReadFileEnv(t *testing.T) {
 		file := writeTempSecret(t, "secret")
 		t.Setenv("SECRET_FILE", file)
 
-		_, ok, err := ReadFileEnv("direct", "SECRET_FILE")
-		assert.Equal(t, ok, true)
+		_, err := ReadFileEnv("direct", "SECRET_FILE")
 		assert.ErrorContains(t, err, "SECRET_FILE cannot be used together with direct value")
 	})
 
 	t.Run("missing file", func(t *testing.T) {
 		t.Setenv("SECRET_FILE", t.TempDir()+"/missing")
 
-		_, ok, err := ReadFileEnv("", "SECRET_FILE")
-		assert.Equal(t, ok, true)
+		_, err := ReadFileEnv("", "SECRET_FILE")
 		assert.ErrorContains(t, err, "read SECRET_FILE")
 	})
 }

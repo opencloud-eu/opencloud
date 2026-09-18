@@ -28,7 +28,7 @@ func ParseConfig(cfg *config.Config) error {
 		}
 	}
 
-	adminPassword, _, err := occfg.ReadFileEnv(cfg.ServiceUserPasswords.OCAdmin, "IDM_ADMIN_PASSWORD_FILE")
+	adminPassword, err := occfg.ReadFileEnv(cfg.ServiceUserPasswords.OCAdmin, "IDM_ADMIN_PASSWORD_FILE")
 	if err != nil {
 		return err
 	}

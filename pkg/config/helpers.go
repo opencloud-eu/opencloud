@@ -53,7 +53,7 @@ func bindSourcesToStructs(fileSystem fs.FS, filePath, service string, dst any) e
 }
 
 // ReadFileEnv returns value or the trimmed contents of the first set file env var.
-func ReadFileEnv(value string, fileEnvNames ...string) (string, bool, error) {
+func ReadFileEnv(value string, fileEnvNames ...string) (string, error) {
 	for _, name := range fileEnvNames {
 		file, ok := os.LookupEnv(name)
 		if !ok {
@@ -61,18 +61,18 @@ func ReadFileEnv(value string, fileEnvNames ...string) (string, bool, error) {
 		}
 
 		if value != "" {
-			return "", true, fmt.Errorf("%s cannot be used together with direct value", name)
+			return "", fmt.Errorf("%s cannot be used together with direct value", name)
 		}
 
 		content, err := os.ReadFile(file)
 		if err != nil {
-			return "", true, fmt.Errorf("read %s: %w", name, err)
+			return "", fmt.Errorf("read %s: %w", name, err)
 		}
 
-		return strings.TrimRight(string(content), "\r\n"), true, nil
+		return strings.TrimRight(string(content), "\r\n"), nil
 	}
 
-	return value, false, nil
+	return value, nil
 }
 
 // LocalEndpoint returns the local endpoint for a given protocol and address.
