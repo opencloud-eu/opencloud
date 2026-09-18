@@ -53,6 +53,7 @@ type Persistence struct {
 
 // Events combines the configuration options for the event bus.
 type Events struct {
+	Disabled             bool   `yaml:"disabled" env:"USERLOG_EVENTS_DISABLED" desc:"Disables listening for events. Set this to true if the service should only handle HTTP requests." introductionVersion:"%NEXT%"`
 	Endpoint             string `yaml:"endpoint" env:"OC_EVENTS_ENDPOINT;USERLOG_EVENTS_ENDPOINT" desc:"The address of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture." introductionVersion:"1.0.0"`
 	Cluster              string `yaml:"cluster" env:"OC_EVENTS_CLUSTER;USERLOG_EVENTS_CLUSTER" desc:"The clusterID of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture. Mandatory when using NATS as event system." introductionVersion:"1.0.0"`
 	TLSInsecure          bool   `yaml:"tls_insecure" env:"OC_INSECURE;OC_EVENTS_TLS_INSECURE;USERLOG_EVENTS_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"1.0.0"`
@@ -72,6 +73,7 @@ type CORS struct {
 
 // HTTP defines the available http configuration.
 type HTTP struct {
+	Disabled  bool                  `yaml:"disabled" env:"USERLOG_HTTP_DISABLED" desc:"Disables the HTTP service. Set this to true if the service should only handle events." introductionVersion:"%NEXT%"`
 	Addr      string                `yaml:"addr" env:"USERLOG_HTTP_ADDR" desc:"The bind address of the HTTP service." introductionVersion:"1.0.0"`
 	Namespace string                `yaml:"-"`
 	Root      string                `yaml:"root" env:"USERLOG_HTTP_ROOT" desc:"Subdirectory that serves as the root for this HTTP service." introductionVersion:"1.0.0"`
