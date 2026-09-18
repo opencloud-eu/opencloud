@@ -1,14 +1,18 @@
 # Changelog
 
-## [8.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.2) - 2026-09-17
+## [8.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.2) - 2026-09-18
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @maki5, @pascalwengerter, @pbleser-oc, @rhafer, @schweigisito, @zerox80
+@aduffeck, @maki5, @pascalwengerter, @pbleser-oc, @rhafer, @schweigisito, @v-scharf, @zerox80
 
 ### 🔒 Security
 
 - feat(proxy): add optional OIDC access token audience validation [[#3466](https://github.com/opencloud-eu/opencloud/pull/3466)]
+
+### ✅ Tests
+
+- api-test: add CLI test for reindexing all spaces including disabled [[#3560](https://github.com/opencloud-eu/opencloud/pull/3560)]
 
 ### 📚 Documentation
 
