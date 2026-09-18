@@ -28,6 +28,10 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
+// _spaceStateTrashed is the value of the "trashed" opaque entry that the storage
+// provider sets on disabled spaces.
+const _spaceStateTrashed = "trashed"
+
 // NewHandler returns a service implementation for Service.
 func NewHandler(opts ...Option) (searchsvc.SearchProviderHandler, error) {
 	options := newOptions(opts...)
@@ -144,10 +148,28 @@ func (s Service) IndexSpace(_ context.Context, in *searchsvc.IndexSpaceRequest, 
 		return errors.New(resp.GetStatus().GetMessage())
 	}
 
+	var skipped int
 	for _, space := range resp.GetStorageSpaces() {
+		if utils.ReadPlainFromOpaque(space.GetOpaque(), _spaceStateTrashed) == _spaceStateTrashed {
+			// A disabled space cannot be traversed, the storage provider answers with
+			// "not found" for its root. Skip it instead of failing the whole run, it
+			// has to be indexed again once it has been enabled.
+			skipped++
+			s.log.Warn().
+				Str("space_id", space.GetId().GetOpaqueId()).
+				Msg("skipping disabled space, run the index command again after enabling it")
+			continue
+		}
+
 		if err := s.searcher.IndexSpace(space.GetId(), in.GetForceReindex()); err != nil {
 			return err
 		}
+	}
+
+	if skipped > 0 {
+		s.log.Warn().
+			Int("skipped_spaces", skipped).
+			Msg("skipped disabled spaces, they have to be indexed again after they have been enabled")
 	}
 
 	return nil
