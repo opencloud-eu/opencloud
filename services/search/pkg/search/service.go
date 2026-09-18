@@ -21,7 +21,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	sdk "github.com/opencloud-eu/reva/v2/pkg/sdk/common"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/walker"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"golang.org/x/sync/errgroup"
@@ -42,6 +41,7 @@ const (
 	_spaceTypeProject    = "project"
 	_spaceTypeGrant      = "grant"
 	_slowQueryDuration   = 500 * time.Millisecond
+	_indexAuthRefresh    = 12 * time.Hour
 )
 
 // Searcher is the interface to the SearchService
@@ -461,11 +461,6 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 
 // IndexSpace (re)indexes all resources of a given space.
 func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool) error {
-	ownerCtx, err := getAuthContext(s.serviceAccountID, s.gatewaySelector, s.serviceAccountSecret, s.logger)
-	if err != nil {
-		return err
-	}
-
 	rootID, err := storagespace.ParseID(spaceID.OpaqueId)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("invalid space id")
@@ -491,7 +486,18 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 		s.metrics.IndexDuration.WithLabelValues(status).Observe(time.Since(startTime).Seconds())
 	}()
 
-	w := walker.NewWalker(s.gatewaySelector)
+	w, authContext := newIndexSpaceWalker(
+		s.gatewaySelector,
+		_indexAuthRefresh,
+		time.Now,
+		func(ctx context.Context) (context.Context, error) {
+			client, err := s.gatewaySelector.Next()
+			if err != nil {
+				return nil, err
+			}
+			return utils.GetServiceUserContextWithContext(ctx, client, s.serviceAccountID, s.serviceAccountSecret)
+		},
+	)
 	batch, err := s.engine.NewBatch(s.batchSize)
 	if err != nil {
 		return err
@@ -502,7 +508,7 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 		}
 		logDocCount(s.engine, s.logger)
 	}()
-	err = w.Walk(ownerCtx, &rootID, func(wd string, info *provider.ResourceInfo, err error) error {
+	err = w.Walk(context.Background(), &rootID, func(wd string, info *provider.ResourceInfo, err error) error {
 		if err != nil {
 			var notFoundErr errtypes.IsNotFound
 			if errors.As(err, &notFoundErr) {
@@ -529,6 +535,10 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 			return nil
 		}
 
+		ownerCtx, err := authContext.current(context.Background())
+		if err != nil {
+			return err
+		}
 		searchRes, err := s.engine.Search(ownerCtx, &searchsvc.SearchIndexRequest{
 			Query: "id:" + storagespace.FormatResourceID(info.Id) + ` mtime>=` + utils.TSToTime(info.Mtime).Format(time.RFC3339Nano),
 		})
