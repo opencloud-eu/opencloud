@@ -41,10 +41,14 @@ var (
 	//Date = time.Now().Format("20060102")
 	Date = Dev
 
-	// Legacy defines the old long 4 number OpenCloud version needed for some clients
-	Legacy = "0.1.0.0"
+	// Legacy defines the old long 4 number ownCloud/Nextcloud version.
+	// Apparently the OCM implementaions in Nextcloud/ownCloud checks against this string when setting
+	// up federation via OCM. This is not exactly by the specs, but we have to live with it if we want
+	// federation with these implementations to work.
+	Legacy = "10.11.0.0"
+
 	// LegacyString defines the old OpenCloud version needed for some clients
-	LegacyString = "0.1.0"
+	LegacyString = "10.11.0"
 
 	// Edition describes the build channel (stable, rolling, nightly, daily, dev)
 	Edition = Dev // default for self-compiled builds
