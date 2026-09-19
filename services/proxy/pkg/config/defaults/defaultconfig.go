@@ -61,6 +61,7 @@ func DefaultConfig() *config.Config {
 				TTL:      time.Second * 10,
 			},
 			JWKS: config.JWKS{
+				Uri:               "",
 				RefreshInterval:   60, // minutes
 				RefreshRateLimit:  60, // seconds
 				RefreshTimeout:    10, // seconds
