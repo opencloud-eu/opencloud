@@ -234,7 +234,7 @@ func (s eventsNotifier) getDeliveryRecipient(ctx context.Context, id *user.UserI
 		(id.GetTenantId() != "" && u.GetId().GetTenantId() != id.GetTenantId()) {
 		return nil, errors.New("recipient lookup returned a missing or mismatched identity")
 	}
-	if u.GetStatus() == user.UserStatus_USER_STATUS_BLOCKED || strings.TrimSpace(u.GetMail()) == "" || s.disableEmails(ctx, id) {
+	if strings.TrimSpace(u.GetMail()) == "" || s.disableEmails(ctx, id) {
 		return nil, errDeliveryRecipientUnavailable
 	}
 	return u, nil

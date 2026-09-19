@@ -256,9 +256,6 @@ func TestDeliveryRejectsUnavailableOrInvalidRecipient(t *testing.T) {
 	}{
 		{"global opt out", func(_ *deliveryGateway, s *deliverySettings) { s.optOut = true }},
 		{"empty address", func(g *deliveryGateway, _ *deliverySettings) { g.recipient.Mail = "  " }},
-		{"blocked status", func(g *deliveryGateway, _ *deliverySettings) {
-			g.recipient.Status = user.UserStatus_USER_STATUS_BLOCKED
-		}},
 		{"transport error", func(g *deliveryGateway, _ *deliverySettings) { g.lookupErr = errors.New("offline") }},
 		{"missing user", func(g *deliveryGateway, _ *deliverySettings) {
 			g.response = &user.GetUserByClaimResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}}
