@@ -96,13 +96,10 @@ func (g Graph) publishEvent(ctx context.Context, ev any) {
 	}
 }
 
-func (g Graph) getWebDavBaseURL() (*url.URL, error) {
-	webDavBaseURL, err := url.Parse(g.config.Spaces.WebDavBase)
-	if err != nil {
-		return nil, err
-	}
+func (g BaseGraphService) getWebDavBaseURL() (*url.URL, error) {
+	webDavBaseURL := *g.publicBaseURL
 	webDavBaseURL.Path = path.Join(webDavBaseURL.Path, g.config.Spaces.WebDavPath)
-	return webDavBaseURL, nil
+	return &webDavBaseURL, nil
 }
 
 // ListResponse is used for proper marshalling of Graph list responses
