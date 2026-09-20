@@ -146,16 +146,6 @@ func decode(target any, strict bool) (int, error) {
 		}
 
 		parts := strings.Split(tag, ",")
-		overrides := strings.Split(parts[0], `;`)
-
-		var env string
-		var envSet bool
-		for _, override := range overrides {
-			if v, set := os.LookupEnv(override); set {
-				env = v
-				envSet = true
-			}
-		}
 
 		required := false
 		hasDefault := false
@@ -171,6 +161,17 @@ func decode(target any, strict bool) (int, error) {
 			}
 			if !strict {
 				strict = strings.HasPrefix(o, "strict")
+			}
+		}
+
+		overrides := strings.Split(parts[0], `;`)
+
+		var env string
+		var envSet bool
+		for _, override := range overrides {
+			if v, set := os.LookupEnv(override); set {
+				env = v
+				envSet = true
 			}
 		}
 
