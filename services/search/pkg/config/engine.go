@@ -32,7 +32,7 @@ type EngineOpenSearchResourceIndex struct {
 type EngineOpenSearchClient struct {
 	Addresses             []string      `yaml:"addresses" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_ADDRESSES" desc:"The addresses of the OpenSearch nodes.." introductionVersion:"4.0.0"`
 	Username              string        `yaml:"username" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_USERNAME" desc:"Username for HTTP Basic Authentication." introductionVersion:"4.0.0"`
-	Password              string        `yaml:"password" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_PASSWORD" desc:"Password for HTTP Basic Authentication." introductionVersion:"4.0.0"`
+	Password              string        `yaml:"password" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_PASSWORD,file" desc:"Password for HTTP Basic Authentication." introductionVersion:"4.0.0"`
 	Header                http.Header   `yaml:"header" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_HEADER" desc:"HTTP headers to include in requests." introductionVersion:"4.0.0"`
 	CACert                string        `yaml:"ca_cert" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_CA_CERT" desc:"Path/File name for the root CA certificate (in PEM format) used to validate TLS server certificates of the opensearch server." introductionVersion:"4.0.0"`
 	RetryOnStatus         []int         `yaml:"retry_on_status" env:"SEARCH_ENGINE_OPEN_SEARCH_CLIENT_RETRY_ON_STATUS" desc:"HTTP status codes that trigger a retry." introductionVersion:"4.0.0"`

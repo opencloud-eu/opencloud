@@ -32,7 +32,7 @@ type Service struct {
 
 type Debug struct {
 	Addr   string `yaml:"addr" env:"USERS_DEBUG_ADDR" desc:"Bind address of the debug server, where metrics, health, config and debug endpoints will be exposed." introductionVersion:"1.0.0"`
-	Token  string `yaml:"token" env:"USERS_DEBUG_TOKEN" desc:"Token to secure the metrics endpoint." introductionVersion:"1.0.0"`
+	Token  string `yaml:"token" env:"USERS_DEBUG_TOKEN,file" desc:"Token to secure the metrics endpoint." introductionVersion:"1.0.0"`
 	Pprof  bool   `yaml:"pprof" env:"USERS_DEBUG_PPROF" desc:"Enables pprof, which can be used for profiling." introductionVersion:"1.0.0"`
 	Zpages bool   `yaml:"zpages" env:"USERS_DEBUG_ZPAGES" desc:"Enables zpages, which can be used for collecting and viewing in-memory traces." introductionVersion:"1.0.0"`
 }
@@ -60,7 +60,7 @@ type LDAPDriver struct {
 	CACert                   string           `yaml:"ca_cert" env:"OC_LDAP_CACERT;USERS_LDAP_CACERT" desc:"Path/File name for the root CA certificate (in PEM format) used to validate TLS server certificates of the LDAP service. If not defined, the root directory derives from $OC_BASE_DATA_PATH/idm." introductionVersion:"1.0.0"`
 	Insecure                 bool             `yaml:"insecure" env:"OC_LDAP_INSECURE;USERS_LDAP_INSECURE" desc:"Disable TLS certificate validation for the LDAP connections. Do not set this in production environments." introductionVersion:"1.0.0"`
 	BindDN                   string           `yaml:"bind_dn" env:"OC_LDAP_BIND_DN;USERS_LDAP_BIND_DN" desc:"LDAP DN to use for simple bind authentication with the target LDAP server." introductionVersion:"1.0.0"`
-	BindPassword             string           `yaml:"bind_password" env:"OC_LDAP_BIND_PASSWORD;USERS_LDAP_BIND_PASSWORD" desc:"Password to use for authenticating the 'bind_dn'." introductionVersion:"1.0.0"`
+	BindPassword             string           `yaml:"bind_password" env:"OC_LDAP_BIND_PASSWORD;USERS_LDAP_BIND_PASSWORD,file" desc:"Password to use for authenticating the 'bind_dn'." introductionVersion:"1.0.0"`
 	UserBaseDN               string           `yaml:"user_base_dn" env:"OC_LDAP_USER_BASE_DN;USERS_LDAP_USER_BASE_DN" desc:"Search base DN for looking up LDAP users." introductionVersion:"1.0.0"`
 	GroupBaseDN              string           `yaml:"group_base_dn" env:"OC_LDAP_GROUP_BASE_DN;USERS_LDAP_GROUP_BASE_DN" desc:"Search base DN for looking up LDAP groups." introductionVersion:"1.0.0"`
 	TenantBaseDN             string           `yaml:"tenant_base_dn" env:"OC_LDAP_TENANT_BASE_DN;USERS_LDAP_TENANT_BASE_DN" desc:"Search base DN for looking up LDAP tenants. Only relevant in multi-tenant setups." introductionVersion:"6.1.0"`
@@ -111,7 +111,7 @@ type LDAPTenantSchema struct {
 
 type OwnCloudSQLDriver struct {
 	DBUsername         string `yaml:"db_username" env:"USERS_OWNCLOUDSQL_DB_USERNAME" desc:"Database user to use for authenticating with the owncloud database." introductionVersion:"1.0.0"`
-	DBPassword         string `yaml:"db_password" env:"USERS_OWNCLOUDSQL_DB_PASSWORD" desc:"Password for the database user." introductionVersion:"1.0.0"`
+	DBPassword         string `yaml:"db_password" env:"USERS_OWNCLOUDSQL_DB_PASSWORD,file" desc:"Password for the database user." introductionVersion:"1.0.0"`
 	DBHost             string `yaml:"db_host" env:"USERS_OWNCLOUDSQL_DB_HOST" desc:"Hostname of the database server." introductionVersion:"1.0.0"`
 	DBPort             int    `yaml:"db_port" env:"USERS_OWNCLOUDSQL_DB_PORT" desc:"Network port to use for the database connection." introductionVersion:"1.0.0"`
 	DBName             string `yaml:"db_name" env:"USERS_OWNCLOUDSQL_DB_NAME" desc:"Name of the owncloud database." introductionVersion:"1.0.0"`

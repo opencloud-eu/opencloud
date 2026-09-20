@@ -41,7 +41,7 @@ type Service struct {
 
 type Debug struct {
 	Addr   string `yaml:"addr" env:"SHARING_DEBUG_ADDR" desc:"Bind address of the debug server, where metrics, health, config and debug endpoints will be exposed." introductionVersion:"1.0.0"`
-	Token  string `yaml:"token" env:"SHARING_DEBUG_TOKEN" desc:"Token to secure the metrics endpoint." introductionVersion:"1.0.0"`
+	Token  string `yaml:"token" env:"SHARING_DEBUG_TOKEN,file" desc:"Token to secure the metrics endpoint." introductionVersion:"1.0.0"`
 	Pprof  bool   `yaml:"pprof" env:"SHARING_DEBUG_PPROF" desc:"Enables pprof, which can be used for profiling." introductionVersion:"1.0.0"`
 	Zpages bool   `yaml:"zpages" env:"SHARING_DEBUG_ZPAGES" desc:"Enables zpages, which can be used for collecting and viewing in-memory traces." introductionVersion:"1.0.0"`
 }
@@ -80,7 +80,7 @@ type UserSharingSQLDriver struct {
 
 type UserSharingOwnCloudSQLDriver struct {
 	DBUsername         string `yaml:"db_username" env:"SHARING_USER_OWNCLOUDSQL_DB_USERNAME" desc:"Username for the database." introductionVersion:"1.0.0"`
-	DBPassword         string `yaml:"db_password" env:"SHARING_USER_OWNCLOUDSQL_DB_PASSWORD" desc:"Password for the database." introductionVersion:"1.0.0"`
+	DBPassword         string `yaml:"db_password" env:"SHARING_USER_OWNCLOUDSQL_DB_PASSWORD,file" desc:"Password for the database." introductionVersion:"1.0.0"`
 	DBHost             string `yaml:"db_host" env:"SHARING_USER_OWNCLOUDSQL_DB_HOST" desc:"Hostname or IP of the database server." introductionVersion:"1.0.0"`
 	DBPort             int    `yaml:"db_port" env:"SHARING_USER_OWNCLOUDSQL_DB_PORT" desc:"Port that the database server is listening on." introductionVersion:"1.0.0"`
 	DBName             string `yaml:"db_name" env:"SHARING_USER_OWNCLOUDSQL_DB_NAME" desc:"Name of the database to be used." introductionVersion:"1.0.0"`
@@ -91,7 +91,7 @@ type UserSharingCS3Driver struct {
 	ProviderAddr     string `yaml:"provider_addr" env:"SHARING_USER_CS3_PROVIDER_ADDR" desc:"GRPC address of the STORAGE-SYSTEM service." introductionVersion:"1.0.0"`
 	SystemUserID     string `yaml:"system_user_id" env:"OC_SYSTEM_USER_ID;SHARING_USER_CS3_SYSTEM_USER_ID" desc:"ID of the OpenCloud STORAGE-SYSTEM system user. Admins need to set the ID for the STORAGE-SYSTEM system user in this config option which is then used to reference the user. Any reasonable long string is possible, preferably this would be an UUIDv4 format." introductionVersion:"1.0.0"`
 	SystemUserIDP    string `yaml:"system_user_idp" env:"OC_SYSTEM_USER_IDP;SHARING_USER_CS3_SYSTEM_USER_IDP" desc:"IDP of the OpenCloud STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
-	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY;SHARING_USER_CS3_SYSTEM_USER_API_KEY" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
+	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY;SHARING_USER_CS3_SYSTEM_USER_API_KEY,file" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
 }
 
 // UserSharingJSONCS3Driver holds the jsoncs3 driver config
@@ -99,7 +99,7 @@ type UserSharingJSONCS3Driver struct {
 	ProviderAddr     string `yaml:"provider_addr" env:"SHARING_USER_JSONCS3_PROVIDER_ADDR" desc:"GRPC address of the STORAGE-SYSTEM service." introductionVersion:"1.0.0"`
 	SystemUserID     string `yaml:"system_user_id" env:"OC_SYSTEM_USER_ID;SHARING_USER_JSONCS3_SYSTEM_USER_ID" desc:"ID of the OpenCloud STORAGE-SYSTEM system user. Admins need to set the ID for the STORAGE-SYSTEM system user in this config option which is then used to reference the user. Any reasonable long string is possible, preferably this would be an UUIDv4 format." introductionVersion:"1.0.0"`
 	SystemUserIDP    string `yaml:"system_user_idp" env:"OC_SYSTEM_USER_IDP;SHARING_USER_JSONCS3_SYSTEM_USER_IDP" desc:"IDP of the OpenCloud STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
-	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY;SHARING_USER_JSONCS3_SYSTEM_USER_API_KEY" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
+	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY;SHARING_USER_JSONCS3_SYSTEM_USER_API_KEY,file" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
 	CacheTTL         int    `yaml:"cache_ttl" env:"SHARING_USER_JSONCS3_CACHE_TTL" desc:"TTL for the internal caches in seconds." introductionVersion:"1.0.0"`
 	MaxConcurrency   int    `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;SHARING_USER_JSONCS3_MAX_CONCURRENCY" desc:"Maximum number of concurrent go-routines. Higher values can potentially get work done faster but will also cause more load on the system. Values of 0 or below will be ignored and the default value will be used." introductionVersion:"1.0.0"`
 }
@@ -107,7 +107,7 @@ type UserSharingJSONCS3Driver struct {
 // ServiceAccount is the configuration for the used service account
 type ServiceAccount struct {
 	ServiceAccountID     string `yaml:"service_account_id" env:"OC_SERVICE_ACCOUNT_ID;SHARING_SERVICE_ACCOUNT" desc:"The ID of the service account the service should use. See the 'auth-service' service description for more details." introductionVersion:"7.0.0"`
-	ServiceAccountSecret string `yaml:"service_account_secret" env:"OC_SERVICE_ACCOUNT_SECRET;SHARING_SERVICE_ACCOUNT_SECRET" desc:"The service account secret." introductionVersion:"7.0.0"`
+	ServiceAccountSecret string `yaml:"service_account_secret" env:"OC_SERVICE_ACCOUNT_SECRET;SHARING_SERVICE_ACCOUNT_SECRET,file" desc:"The service account secret." introductionVersion:"7.0.0"`
 }
 
 type PublicSharingDrivers struct {
@@ -138,7 +138,7 @@ type PublicSharingCS3Driver struct {
 	ProviderAddr     string `yaml:"provider_addr" env:"SHARING_PUBLIC_CS3_PROVIDER_ADDR" desc:"GRPC address of the STORAGE-SYSTEM service." introductionVersion:"1.0.0"`
 	SystemUserID     string `yaml:"system_user_id" env:"OC_SYSTEM_USER_ID;SHARING_PUBLIC_CS3_SYSTEM_USER_ID" desc:"ID of the OpenCloud STORAGE-SYSTEM system user. Admins need to set the ID for the STORAGE-SYSTEM system user in this config option which is then used to reference the user. Any reasonable long string is possible, preferably this would be an UUIDv4 format." introductionVersion:"1.0.0"`
 	SystemUserIDP    string `yaml:"system_user_idp" env:"OC_SYSTEM_USER_IDP;SHARING_PUBLIC_CS3_SYSTEM_USER_IDP" desc:"IDP of the OpenCloud STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
-	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY;SHARING_PUBLIC_CS3_SYSTEM_USER_API_KEY" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
+	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY;SHARING_PUBLIC_CS3_SYSTEM_USER_API_KEY,file" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
 }
 
 // PublicSharingJSONCS3Driver holds the jsoncs3 driver config
@@ -146,7 +146,7 @@ type PublicSharingJSONCS3Driver struct {
 	ProviderAddr     string `yaml:"provider_addr" env:"SHARING_PUBLIC_JSONCS3_PROVIDER_ADDR" desc:"GRPC address of the STORAGE-SYSTEM service." introductionVersion:"1.0.0"`
 	SystemUserID     string `yaml:"system_user_id" env:"OC_SYSTEM_USER_ID;SHARING_PUBLIC_JSONCS3_SYSTEM_USER_ID" desc:"ID of the OpenCloud STORAGE-SYSTEM system user. Admins need to set the ID for the STORAGE-SYSTEM system user in this config option which is then used to reference the user. Any reasonable long string is possible, preferably this would be an UUIDv4 format." introductionVersion:"1.0.0"`
 	SystemUserIDP    string `yaml:"system_user_idp" env:"OC_SYSTEM_USER_IDP;SHARING_PUBLIC_JSONCS3_SYSTEM_USER_IDP" desc:"IDP of the OpenCloud STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
-	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY;SHARING_PUBLIC_JSONCS3_SYSTEM_USER_API_KEY" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
+	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY;SHARING_PUBLIC_JSONCS3_SYSTEM_USER_API_KEY,file" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
 }
 
 type Events struct {
@@ -156,7 +156,7 @@ type Events struct {
 	TLSRootCaCertPath string `yaml:"tls_root_ca_cert_path" env:"OC_EVENTS_TLS_ROOT_CA_CERTIFICATE;SHARING_EVENTS_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided SHARING_EVENTS_TLS_INSECURE will be seen as false." introductionVersion:"1.0.0"`
 	EnableTLS         bool   `yaml:"enable_tls" env:"OC_EVENTS_ENABLE_TLS;SHARING_EVENTS_ENABLE_TLS" desc:"Enable TLS for the connection to the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	AuthUsername      string `yaml:"auth_username" env:"OC_EVENTS_AUTH_USERNAME;SHARING_EVENTS_AUTH_USERNAME" desc:"Username for the events broker." introductionVersion:"1.0.0"`
-	AuthPassword      string `yaml:"auth_password" env:"OC_EVENTS_AUTH_PASSWORD;SHARING_EVENTS_AUTH_PASSWORD" desc:"Password for the events broker." introductionVersion:"1.0.0"`
+	AuthPassword      string `yaml:"auth_password" env:"OC_EVENTS_AUTH_PASSWORD;SHARING_EVENTS_AUTH_PASSWORD,file" desc:"Password for the events broker." introductionVersion:"1.0.0"`
 	// TODO use TLSRootCACertificate string `yaml:"tls_root_ca_certificate" env:"OC_EVENTS_TLS_ROOT_CA_CERTIFICATE;SHARING_EVENTS_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided SHARING_EVENTS_TLS_INSECURE will be seen as false." introductionVersion:"1.0.0"`
 }
 

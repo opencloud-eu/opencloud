@@ -20,7 +20,7 @@ type Log struct {
 
 // TokenManager is the config for using the reva token manager
 type TokenManager struct {
-	JWTSecret string `mask:"password" yaml:"jwt_secret" env:"OC_JWT_SECRET" desc:"The secret to mint and validate jwt tokens." introductionVersion:"1.0.0"`
+	JWTSecret string `mask:"password" yaml:"jwt_secret" env:"OC_JWT_SECRET,file" desc:"The secret to mint and validate jwt tokens." introductionVersion:"1.0.0"`
 }
 
 // Reva defines all available REVA client configuration.
@@ -55,7 +55,7 @@ type Cache struct {
 	TTL                  time.Duration `yaml:"ttl" env:"OC_CACHE_TTL" desc:"Time to live for events in the store. The duration can be set as number followed by a unit identifier like s, m or h." introductionVersion:"1.0.0"`
 	DisablePersistence   bool          `yaml:"disable_persistence" env:"OC_CACHE_DISABLE_PERSISTENCE" desc:"Disables persistence of the cache. Only applies when store type 'nats-js-kv' is configured. Defaults to false." introductionVersion:"1.0.0"`
 	AuthUsername         string        `yaml:"auth_username" env:"OC_CACHE_AUTH_USERNAME" desc:"The username to use for authentication. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
-	AuthPassword         string        `yaml:"auth_password" env:"OC_CACHE_AUTH_PASSWORD" desc:"The password to use for authentication. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
+	AuthPassword         string        `yaml:"auth_password" env:"OC_CACHE_AUTH_PASSWORD,file" desc:"The password to use for authentication. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
 	EnableTLS            bool          `yaml:"enable_tls" env:"OC_CACHE_ENABLE_TLS" desc:"Enable TLS for the connection to file metadata cache." introductionVersion:"7.3.0"`
 	TLSInsecure          bool          `yaml:"tls_insecure" env:"OC_INSECURE;OC_CACHE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"7.3.0"`
 	TLSRootCACertificate string        `yaml:"tls_root_ca_certificate" env:"OC_CACHE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided OC_CACHE_TLS_INSECURE will be seen as false." introductionVersion:"7.3.0"`
@@ -73,11 +73,11 @@ type Commons struct {
 	OpenCloudURL       string          `yaml:"opencloud_url" env:"OC_URL" desc:"URL, where OpenCloud is reachable for users." introductionVersion:"1.0.0"`
 	TokenManager       *TokenManager   `mask:"struct" yaml:"token_manager"`
 	Reva               *Reva           `yaml:"reva"`
-	MachineAuthAPIKey  string          `mask:"password" yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY" desc:"Machine auth API key used to validate internal requests necessary for the access to resources from other services." introductionVersion:"1.0.0"`
-	TransferSecret     string          `mask:"password" yaml:"transfer_secret,omitempty" env:"REVA_TRANSFER_SECRET" desc:"The secret used for signing the requests towards the data gateway for up- and downloads." introductionVersion:"1.0.0"`
-	URLSigningSecret   string          `yaml:"url_signing_secret" env:"OC_URL_SIGNING_SECRET" desc:"The shared secret used to sign URLs e.g. for image downloads by the web office suite." introductionVersion:"4.0.0"`
+	MachineAuthAPIKey  string          `mask:"password" yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY,file" desc:"Machine auth API key used to validate internal requests necessary for the access to resources from other services." introductionVersion:"1.0.0"`
+	TransferSecret     string          `mask:"password" yaml:"transfer_secret,omitempty" env:"REVA_TRANSFER_SECRET,file" desc:"The secret used for signing the requests towards the data gateway for up- and downloads." introductionVersion:"1.0.0"`
+	URLSigningSecret   string          `yaml:"url_signing_secret" env:"OC_URL_SIGNING_SECRET,file" desc:"The shared secret used to sign URLs e.g. for image downloads by the web office suite." introductionVersion:"4.0.0"`
 	SystemUserID       string          `yaml:"system_user_id" env:"OC_SYSTEM_USER_ID" desc:"ID of the OpenCloud storage-system system user. Admins need to set the ID for the storage-system system user in this config option which is then used to reference the user. Any reasonable long string is possible, preferably this would be an UUIDv4 format." introductionVersion:"1.0.0"`
-	SystemUserAPIKey   string          `mask:"password" yaml:"system_user_api_key" env:"SYSTEM_USER_API_KEY" desc:"API key for all system users." introductionVersion:"1.0.0"`
+	SystemUserAPIKey   string          `mask:"password" yaml:"system_user_api_key" env:"SYSTEM_USER_API_KEY,file" desc:"API key for all system users." introductionVersion:"1.0.0"`
 	AdminUserID        string          `yaml:"admin_user_id" env:"OC_ADMIN_USER_ID" desc:"ID of a user, that should receive admin privileges. Consider that the UUID can be encoded in some LDAP deployment configurations like in .ldif files. These need to be decoded beforehand." introductionVersion:"1.0.0"`
 	MultiTenantEnabled bool            `yaml:"multi_tenant_enabled" env:"OC_MULTI_TENANT_ENABLED" desc:"Set this to true to enable multi-tenant support." introductionVersion:"4.0.0"`
 

@@ -20,7 +20,7 @@ type Config struct {
 
 	Reva *shared.Reva `yaml:"reva"`
 
-	MachineAuthAPIKey string `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY;IDP_MACHINE_AUTH_API_KEY" desc:"Machine auth API key used to validate internal requests necessary for the access to resources from other services." introductionVersion:"1.0.0"`
+	MachineAuthAPIKey string `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY;IDP_MACHINE_AUTH_API_KEY,file" desc:"Machine auth API key used to validate internal requests necessary for the access to resources from other services." introductionVersion:"1.0.0"`
 
 	Asset   Asset    `yaml:"asset"`
 	IDP     Settings `yaml:"idp"`
@@ -36,7 +36,7 @@ type Ldap struct {
 	TLSCACert string `yaml:"cacert" env:"OC_LDAP_CACERT;IDP_LDAP_TLS_CACERT" desc:"Path/File name for the root CA certificate (in PEM format) used to validate TLS server certificates of the LDAP service. If not defined, the root directory derives from $OC_BASE_DATA_PATH/idp." introductionVersion:"1.0.0"`
 
 	BindDN       string `yaml:"bind_dn" env:"OC_LDAP_BIND_DN;IDP_LDAP_BIND_DN" desc:"LDAP DN to use for simple bind authentication with the target LDAP server." introductionVersion:"1.0.0"`
-	BindPassword string `yaml:"bind_password" env:"OC_LDAP_BIND_PASSWORD;IDP_LDAP_BIND_PASSWORD" desc:"Password to use for authenticating the 'bind_dn'." introductionVersion:"1.0.0"`
+	BindPassword string `yaml:"bind_password" env:"OC_LDAP_BIND_PASSWORD;IDP_LDAP_BIND_PASSWORD,file" desc:"Password to use for authenticating the 'bind_dn'." introductionVersion:"1.0.0"`
 
 	BaseDN string `yaml:"base_dn" env:"OC_LDAP_USER_BASE_DN;IDP_LDAP_BASE_DN" desc:"Search base DN for looking up LDAP users." introductionVersion:"1.0.0"`
 	Scope  string `yaml:"scope" env:"OC_LDAP_USER_SCOPE;IDP_LDAP_SCOPE" desc:"LDAP search scope to use when looking up users. Supported scopes are 'base', 'one' and 'sub'." introductionVersion:"1.0.0"`
