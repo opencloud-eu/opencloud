@@ -302,14 +302,8 @@ func DefaultPolicies() []config.Policy {
 					SkipXAccessToken: true,
 				},
 				{
-					Endpoint: "/collaboration/fonts/manage",
+					Endpoint: "/collaboration",
 					Service:  "eu.opencloud.web.collaboration",
-					// Method: "POST" // toDo: fails with method, WHY???
-				},
-				{
-					Endpoint:    "/collaboration",
-					Service:     "eu.opencloud.web.collaboration",
-					Unprotected: true,
 				},
 			},
 		},
