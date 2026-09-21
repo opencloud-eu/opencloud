@@ -19,13 +19,13 @@
 package walker
 
 import (
-	"context"
 	"path/filepath"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
+	"github.com/opencloud-eu/reva/v2/pkg/auth"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 )
@@ -43,7 +43,7 @@ type WalkFunc func(wd string, info *provider.ResourceInfo, err error) error
 // Walker is an interface implemented by objects that are able to walk from a dir rooted into the passed path
 type Walker interface {
 	// Walk walks the file tree rooted at root, calling fn for each file or folder in the tree, including the root.
-	Walk(ctx context.Context, root *provider.ResourceId, fn WalkFunc) error
+	Walk(session *auth.Session, root *provider.ResourceId, fn WalkFunc) error
 }
 
 type revaWalker struct {
@@ -56,14 +56,14 @@ func NewWalker(gatewaySelector pool.Selectable[gateway.GatewayAPIClient]) Walker
 }
 
 // Walk walks the file tree rooted at root, calling fn for each file or folder in the tree, including the root.
-func (r *revaWalker) Walk(ctx context.Context, root *provider.ResourceId, fn WalkFunc) error {
-	info, err := r.stat(ctx, root)
+func (r *revaWalker) Walk(session *auth.Session, root *provider.ResourceId, fn WalkFunc) error {
+	info, err := r.stat(session, root)
 
 	if err != nil {
 		return fn("", nil, err)
 	}
 
-	err = r.walkRecursively(ctx, "", info, fn)
+	err = r.walkRecursively(session, "", info, fn)
 
 	if err == filepath.SkipDir {
 		return nil
@@ -72,7 +72,7 @@ func (r *revaWalker) Walk(ctx context.Context, root *provider.ResourceId, fn Wal
 	return err
 }
 
-func (r *revaWalker) walkRecursively(ctx context.Context, wd string, info *provider.ResourceInfo, fn WalkFunc) error {
+func (r *revaWalker) walkRecursively(session *auth.Session, wd string, info *provider.ResourceInfo, fn WalkFunc) error {
 
 	if info.Type != provider.ResourceType_RESOURCE_TYPE_CONTAINER {
 		return fn(wd, info, nil)
@@ -83,12 +83,12 @@ func (r *revaWalker) walkRecursively(ctx context.Context, wd string, info *provi
 		return err
 	}
 
-	list, err := r.readDir(ctx, info.Id)
+	list, err := r.readDir(session, info.Id)
 	if err != nil {
 		return err
 	}
 	for _, file := range list {
-		err = r.walkRecursively(ctx, filepath.Join(wd, info.Path), file, fn)
+		err = r.walkRecursively(session, filepath.Join(wd, info.Path), file, fn)
 		if err != nil && (file.Type != provider.ResourceType_RESOURCE_TYPE_CONTAINER || err != filepath.SkipDir) {
 			return err
 		}
@@ -97,7 +97,8 @@ func (r *revaWalker) walkRecursively(ctx context.Context, wd string, info *provi
 	return nil
 }
 
-func (r *revaWalker) readDir(ctx context.Context, id *provider.ResourceId) ([]*provider.ResourceInfo, error) {
+func (r *revaWalker) readDir(session *auth.Session, id *provider.ResourceId) ([]*provider.ResourceInfo, error) {
+	ctx := session.Ctx()
 	gatewayClient, err := r.gatewaySelector.Next()
 	if err != nil {
 		return nil, err
@@ -114,7 +115,8 @@ func (r *revaWalker) readDir(ctx context.Context, id *provider.ResourceId) ([]*p
 	return resp.Infos, nil
 }
 
-func (r *revaWalker) stat(ctx context.Context, id *provider.ResourceId) (*provider.ResourceInfo, error) {
+func (r *revaWalker) stat(session *auth.Session, id *provider.ResourceId) (*provider.ResourceInfo, error) {
+	ctx := session.Ctx()
 	gatewayClient, err := r.gatewaySelector.Next()
 	if err != nil {
 		return nil, err

@@ -245,7 +245,9 @@ func authenticateUser(w http.ResponseWriter, r *http.Request, conf *config, toke
 		}
 	}
 
-	log.Warn().Msg("core access token not set")
+	if !isUnprotectedEndpoint {
+		log.Debug().Msg("core access token not set")
+	}
 
 	userAgentCredKeys := getCredsForUserAgent(r.UserAgent(), conf.CredentialsByUserAgent, conf.CredentialChain)
 
@@ -300,7 +302,7 @@ func authenticateUser(w http.ResponseWriter, r *http.Request, conf *config, toke
 		return nil, err
 	}
 
-	log.Info().Msg("core access token generated") // write token to response
+	log.Debug().Msg("core access token generated") // write token to response
 
 	// write token to response
 	token := res.Token

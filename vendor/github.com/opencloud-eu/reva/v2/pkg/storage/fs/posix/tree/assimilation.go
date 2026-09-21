@@ -767,6 +767,14 @@ assimilate:
 		}
 		n = node.New(spaceID, id, parentID, filepath.Base(path), treeSize, "", provider.ResourceType_RESOURCE_TYPE_CONTAINER, nil, t.lookup)
 	} else {
+		// CalculateChecksums reads the whole file, so skip an unchanged file that recently failed after
+		// this point, e.g. because the service user can't set its xattrs
+		if err := t.assimilationFailures.Recent(path, fi); err != nil {
+			return nil, nil, err
+		}
+		// Record sees err because every failure below assigns it before returning
+		defer func() { t.assimilationFailures.Record(path, fi, err) }()
+
 		sha1h, md5h, adler32h, err := node.CalculateChecksums(context.Background(), path)
 		if err == nil {
 			attributes[prefixes.ChecksumPrefix+"sha1"] = sha1h.Sum(nil)
@@ -859,15 +867,17 @@ assimilate:
 		}()
 	}
 
-	err = t.Propagate(context.Background(), n, sizeDiff)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to propagate")
-	}
-
 	t.log.Debug().Str("path", path).Interface("attributes", attributes).Msg("setting attributes")
 	err = t.lookup.MetadataBackend().SetMultiple(context.Background(), bn, attributes)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to set attributes")
+	}
+
+	// only propagate once the attributes are stored. If storing them failed after propagating, the file
+	// would still have no blobsize and the next attempt would propagate its whole size again.
+	err = t.Propagate(context.Background(), n, sizeDiff)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to propagate")
 	}
 
 	// clear the status attribute if it was set before, if there was any upload to this file in progress

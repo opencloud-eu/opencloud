@@ -76,6 +76,7 @@ var mimeTypes = map[string]string{
 	"atx":                      "application/vnd.antix.game-component",
 	"au":                       "audio/basic",
 	"avi":                      "video/x-msvideo",
+	"avif":                     "image/avif",
 	"aw":                       "application/applixware",
 	"azf":                      "application/vnd.airzip.filesecure.azf",
 	"azs":                      "application/vnd.airzip.filesecure.azs",

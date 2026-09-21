@@ -1194,7 +1194,7 @@ github.com/oklog/run
 # github.com/olekukonko/cat v0.0.0-20250911104152-50322a0618f6
 ## explicit; go 1.21
 github.com/olekukonko/cat
-# github.com/olekukonko/errors v1.2.0
+# github.com/olekukonko/errors v1.3.0
 ## explicit; go 1.21
 github.com/olekukonko/errors
 # github.com/olekukonko/ll v0.1.6
@@ -1367,7 +1367,7 @@ github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.8-0.20260902170011-45af3945a067
 ## explicit; go 1.23
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.50.0
+# github.com/opencloud-eu/reva/v2 v2.50.1-0.20260921072732-1796c81fa9f2
 ## explicit; go 1.25.8
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -1640,6 +1640,7 @@ github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/timemanager
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/trashbin
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/tree
+github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/tree/assimilation
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher/natswatcher
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/registry

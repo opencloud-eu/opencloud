@@ -27,6 +27,7 @@ import (
 	"time"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/opencloud-eu/reva/v2/pkg/auth"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/downloader"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/walker"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
@@ -72,7 +73,7 @@ func (a *Archiver) CreateTar(ctx context.Context, dst io.Writer) (func(), error)
 
 	for _, root := range a.resources {
 
-		err := a.walker.Walk(ctx, root, func(wd string, info *provider.ResourceInfo, err error) error {
+		err := a.walker.Walk(auth.NewStaticSession(ctx), root, func(wd string, info *provider.ResourceInfo, err error) error {
 			if err != nil {
 				return err
 			}
@@ -147,7 +148,7 @@ func (a *Archiver) CreateZip(ctx context.Context, dst io.Writer) (func(), error)
 
 	for _, root := range a.resources {
 
-		err := a.walker.Walk(ctx, root, func(wd string, info *provider.ResourceInfo, err error) error {
+		err := a.walker.Walk(auth.NewStaticSession(ctx), root, func(wd string, info *provider.ResourceInfo, err error) error {
 			if err != nil {
 				return err
 			}

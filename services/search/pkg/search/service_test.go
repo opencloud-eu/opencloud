@@ -95,7 +95,7 @@ var _ = Describe("Searchprovider", func() {
 
 		gatewayClient.On("Authenticate", mock.Anything, mock.Anything).Return(&gateway.AuthenticateResponse{
 			Status: status.NewOK(ctx),
-			Token:  "authtoken",
+			Token:  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjQxMDI0NDQ4MDB9.c2lnbmF0dXJl",
 		}, nil)
 		gatewayClient.On("GetPath", mock.Anything, mock.MatchedBy(func(req *sprovider.GetPathRequest) bool {
 			return req.ResourceId.OpaqueId == ri.Id.OpaqueId
