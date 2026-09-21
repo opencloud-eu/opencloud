@@ -59,13 +59,16 @@ func (a *AppURLs) GetMimeTypes() []string {
 }
 
 // GetAppURLFor gets the appURL from the list of appURLs based on the
-// action and file extension provided. If there is no match, an empty
-// string will be returned.
+// action and file extension provided. The extension is matched without
+// case, so a "report.DOCX" opens in the same app as a "report.docx".
+// If there is no match, an empty string will be returned.
 func (a *AppURLs) GetAppURLFor(action, fileExt string) string {
 	currentURLs := a.urls.Load()
 	if currentURLs == nil {
 		return ""
 	}
+
+	fileExt = strings.ToLower(fileExt)
 
 	if actionURL, ok := (*currentURLs)[action]; ok {
 		if actionExtensionURL, ok := actionURL[fileExt]; ok {
@@ -162,7 +165,8 @@ func parseWopiDiscovery(body io.Reader) (map[string]map[string]string, error) {
 						if _, ok := appURLs[access]; !ok {
 							appURLs[access] = make(map[string]string)
 						}
-						appURLs[access]["."+ext] = u.String()
+						// the extensions are stored in lower case, GetAppURLFor looks them up that way
+						appURLs[access]["."+strings.ToLower(ext)] = u.String()
 					}
 				}
 			}

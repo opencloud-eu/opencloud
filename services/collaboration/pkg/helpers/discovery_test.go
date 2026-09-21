@@ -49,6 +49,18 @@ var _ = Describe("AppURLs", func() {
 			Expect(appURLs.GetAppURLFor("edit", ".docx")).To(Equal("https://example.com/edit/docx"))
 		})
 
+		It("should find the app URL whatever case the extension has", func() {
+			testURLs := map[string]map[string]string{
+				"view": {".docx": "https://example.com/view/docx"},
+				"edit": {".docx": "https://example.com/edit/docx"},
+			}
+
+			appURLs.Store(testURLs)
+
+			Expect(appURLs.GetAppURLFor("view", ".DOCX")).To(Equal("https://example.com/view/docx"))
+			Expect(appURLs.GetAppURLFor("edit", ".DocX")).To(Equal("https://example.com/edit/docx"))
+		})
+
 		It("should return empty string for non-existent action", func() {
 			testURLs := map[string]map[string]string{
 				"view": {".pdf": "https://example.com/view/pdf"},
@@ -285,6 +297,7 @@ var _ = Describe("Discovery", func() {
     <app name="Word" favIconUrl="https://cloud.opencloud.test/web-apps/apps/documenteditor/main/resources/img/favicon.ico">
       <action name="view" ext="pdf" urlsrc="https://cloud.opencloud.test/hosting/wopi/word/view?&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;embed=EMBEDDED&amp;&gt;&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;&lt;wopisrc=WOPI_SOURCE&amp;&gt;&amp;"/>
       <action name="embedview" ext="pdf" urlsrc="https://cloud.opencloud.test/hosting/wopi/word/view?embed=1&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;embed=EMBEDDED&amp;&gt;&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;&lt;wopisrc=WOPI_SOURCE&amp;&gt;&amp;"/>
+      <action name="view" ext="ODT" urlsrc="https://cloud.opencloud.test/hosting/wopi/word/view"/>
       <action name="view" ext="djvu" urlsrc="https://cloud.opencloud.test/hosting/wopi/word/view?&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;embed=EMBEDDED&amp;&gt;&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;&lt;wopisrc=WOPI_SOURCE&amp;&gt;&amp;"/>
       <action name="embedview" ext="djvu" urlsrc="https://cloud.opencloud.test/hosting/wopi/word/view?embed=1&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;embed=EMBEDDED&amp;&gt;&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;&lt;wopisrc=WOPI_SOURCE&amp;&gt;&amp;"/>
       <action name="view" ext="docx" urlsrc="https://cloud.opencloud.test/hosting/wopi/word/view?&amp;&lt;rs=DC_LLCC&amp;&gt;&lt;dchat=DISABLE_CHAT&amp;&gt;&lt;embed=EMBEDDED&amp;&gt;&lt;fs=FULLSCREEN&amp;&gt;&lt;hid=HOST_SESSION_ID&amp;&gt;&lt;rec=RECORDING&amp;&gt;&lt;sc=SESSION_CONTEXT&amp;&gt;&lt;thm=THEME_ID&amp;&gt;&lt;ui=UI_LLCC&amp;&gt;&lt;wopisrc=WOPI_SOURCE&amp;&gt;&amp;"/>
@@ -339,6 +352,7 @@ var _ = Describe("Discovery", func() {
 				"view": map[string]string{
 					".pdf":  "https://cloud.opencloud.test/hosting/wopi/word/view",
 					".djvu": "https://cloud.opencloud.test/hosting/wopi/word/view",
+					".odt":  "https://cloud.opencloud.test/hosting/wopi/word/view",
 					".docx": "https://cloud.opencloud.test/hosting/wopi/word/view",
 					".xls":  "https://cloud.opencloud.test/hosting/wopi/cell/view",
 					".xlsb": "https://cloud.opencloud.test/hosting/wopi/cell/view",

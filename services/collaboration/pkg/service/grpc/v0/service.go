@@ -108,8 +108,8 @@ func (s *Service) OpenInApp(
 	// get the appURL we need to use
 	appURL := s.getAppUrl(fileExt, req.GetViewMode())
 	if appURL == "" {
-		logger.Error().Msg("OpenInApp: neither edit nor view app URL found")
-		return nil, errors.New("neither edit nor view app URL found")
+		logger.Error().Str("FileExtension", fileExt).Msg("OpenInApp: neither edit nor view app URL found")
+		return nil, errors.New("neither edit nor view app URL found for " + fileExt)
 	}
 
 	// append the parameters we need
