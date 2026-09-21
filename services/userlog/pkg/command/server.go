@@ -142,7 +142,7 @@ func Server(cfg *config.Config) *cobra.Command {
 					httpSvc.TraceProvider(tracerProvider),
 				)
 				if err != nil {
-					logger.Info().Err(err).Str("transport", "http").Msg("Failed to initialize server")
+					logger.Error().Err(err).Str("transport", "http").Msg("Failed to initialize server")
 					return err
 				}
 
@@ -157,7 +157,7 @@ func Server(cfg *config.Config) *cobra.Command {
 				)
 
 				if err != nil {
-					logger.Info().Err(err).Str("transport", "http").Msg("Failed to initialize server")
+					logger.Error().Err(err).Str("transport", "http").Msg("Failed to initialize server")
 					return err
 				}
 
@@ -206,7 +206,7 @@ func Server(cfg *config.Config) *cobra.Command {
 					debug.Config(cfg),
 				)
 				if err != nil {
-					logger.Info().Err(err).Str("transport", "debug").Msg("Failed to initialize server")
+					logger.Error().Err(err).Str("transport", "debug").Msg("Failed to initialize server")
 					return err
 				}
 
