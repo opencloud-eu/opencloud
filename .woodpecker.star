@@ -19,7 +19,7 @@ OC_CI_ALPINE = "owncloudci/alpine:latest"
 OC_CI_BAZEL_BUILDIFIER = "quay.io/opencloudeu/bazel-buildifier-ci:latest"
 OC_CI_CLAMAVD = "quay.io/opencloudeu/clamav-ci:latest"
 OC_CI_DRONE_ANSIBLE = "owncloudci/drone-ansible:latest"
-OC_CI_GOLANG = "quay.io/opencloudeu/golang-ci:1.25"
+OC_CI_GOLANG = "quay.io/opencloudeu/golang-ci:1.26"
 OC_CI_NODEJS = "quay.io/opencloudeu/nodejs-ci:24"
 OC_CI_NODEJS_ALPINE = "quay.io/opencloudeu/nodejs-alpine-ci:24"
 OC_CI_PHP = "quay.io/opencloudeu/php-alpine-ci:%s"
@@ -2310,7 +2310,7 @@ def genDocsPr(ctx):
         "steps": [
             {
                 "name": "make-docs-pr",
-                "image": "quay.io/opencloudeu/golang-ci",
+                "image": OC_CI_GOLANG,
                 "pull": True,
                 "environment": {
                     "GH_TOKEN": {

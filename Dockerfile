@@ -21,7 +21,7 @@ COPY ./ /opencloud/
 WORKDIR /opencloud/opencloud
 RUN make node-generate-prod
 
-FROM quay.io/opencloudeu/golang-ci:1.25 AS build
+FROM quay.io/opencloudeu/golang-ci:1.26 AS build
 
 COPY --from=generate /opencloud /opencloud
 

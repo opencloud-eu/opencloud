@@ -208,15 +208,15 @@ protobuf:
 
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT)
-	$(GOLANGCI_LINT) run --modules-download-mode vendor --timeout 15m0s --issues-exit-code 0 --out-format checkstyle > checkstyle.xml
+	$(GOLANGCI_LINT) run --modules-download-mode vendor --timeout 15m0s --issues-exit-code 0 --output.checkstyle.path checkstyle.xml
 
 .PHONY: ci-golangci-lint
 ci-golangci-lint:
-	$(GOLANGCI_LINT) run --modules-download-mode vendor --timeout 15m0s --issues-exit-code 0 --out-format checkstyle > checkstyle.xml
+	$(GOLANGCI_LINT) run --modules-download-mode vendor --timeout 15m0s --issues-exit-code 0 --output.checkstyle.path checkstyle.xml
 
 .PHONY: golangci-lint-fix
 golangci-lint-fix: $(GOLANGCI_LINT)
-	$(GOLANGCI_LINT) run --fix --modules-download-mode vendor --timeout 15m0s --issues-exit-code 0 --out-format checkstyle > checkstyle.xml
+	$(GOLANGCI_LINT) run --fix --modules-download-mode vendor --timeout 15m0s --issues-exit-code 0 --output.checkstyle.path checkstyle.xml
 
 .PHONY: test-gherkin-lint
 test-gherkin-lint:
