@@ -71,6 +71,9 @@ var _ = Describe("Notifications", func() {
 		gatewayClient.On("GetUser", mock.Anything, mock.MatchedBy(func(req *user.GetUserRequest) bool {
 			return req.GetUserId().GetOpaqueId() == sharee.GetId().GetOpaqueId()
 		})).Return(&user.GetUserResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, User: sharee}, nil)
+		gatewayClient.On("GetUserByClaim", mock.Anything, mock.MatchedBy(func(req *user.GetUserByClaimRequest) bool {
+			return req.GetClaim() == "userid" && req.GetValue() == sharee.GetId().GetOpaqueId()
+		})).Return(&user.GetUserByClaimResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, User: sharee}, nil)
 		gatewayClient.On("Authenticate", mock.Anything, mock.Anything).Return(&gateway.AuthenticateResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, User: sharer}, nil)
 		gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&provider.StatResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, Info: &provider.ResourceInfo{Name: "secrets of the board", Space: &provider.StorageSpace{Name: "secret space"}}}, nil)
 		vs = &settingsmocks.ValueService{}
@@ -307,6 +310,9 @@ var _ = Describe("Notifications X-Site Scripting", func() {
 		gatewayClient.On("GetUser", mock.Anything, mock.MatchedBy(func(req *user.GetUserRequest) bool {
 			return req.GetUserId().GetOpaqueId() == sharee.GetId().GetOpaqueId()
 		})).Return(&user.GetUserResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, User: sharee}, nil)
+		gatewayClient.On("GetUserByClaim", mock.Anything, mock.MatchedBy(func(req *user.GetUserByClaimRequest) bool {
+			return req.GetClaim() == "userid" && req.GetValue() == sharee.GetId().GetOpaqueId()
+		})).Return(&user.GetUserByClaimResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, User: sharee}, nil)
 		gatewayClient.On("Authenticate", mock.Anything, mock.Anything).Return(&gateway.AuthenticateResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, User: sharer}, nil)
 		gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&provider.StatResponse{
 			Status: &rpc.Status{Code: rpc.Code_CODE_OK},
