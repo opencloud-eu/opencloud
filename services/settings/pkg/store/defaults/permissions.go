@@ -89,7 +89,7 @@ func ChangeLogoPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Sett
 // CollaborationManageFontsPermission is the permission to manage fonts
 func CollaborationManageFontsPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
 	return &settingsmsg.Setting{
-		Id:          "ed83fc10-1f54-4a9e-b5a7-fb517f5f3e01",
+		Id:          "0cbb6276-fbcd-4594-a2b7-ea96812f2968",
 		Name:        "Collaboration.Fonts.Manage",
 		DisplayName: "Manage fonts",
 		Description: "This permission permits to manage the collaboration fonts.",

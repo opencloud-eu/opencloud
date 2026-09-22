@@ -17,6 +17,7 @@ import (
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/go-playground/validator/v10"
+	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
@@ -144,6 +145,11 @@ func (s Service) GetFont(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s Service) PreviewFont(w http.ResponseWriter, r *http.Request) {
+	if _, ok := revactx.ContextGetUser(r.Context()); !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	fontName := r.PathValue("id")
 	if fontName == "" {
 		w.WriteHeader(http.StatusInternalServerError)

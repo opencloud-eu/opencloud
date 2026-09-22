@@ -73,11 +73,26 @@ func TestService_PreviewFont(t *testing.T) {
 		require.NoError(t, testFS.Remove("arimo-regular.ttf"))
 	}()
 
-	req, _ := http.NewRequest(http.MethodGet, "/", nil)
-	req.SetPathValue("id", "arimo-regular.ttf")
-	resp := httptest.NewRecorder()
-	svc.PreviewFont(resp, req)
-	require.Equal(t, resp.Body.Bytes(), testDataFontPNG)
+	t.Run("unauthenticated", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "/", nil)
+		req.SetPathValue("id", "arimo-regular.ttf")
+		resp := httptest.NewRecorder()
+		svc.PreviewFont(resp, req)
+		require.Equal(t, http.StatusUnauthorized, resp.Code)
+	})
+
+	t.Run("authenticated", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "/", nil)
+		req.SetPathValue("id", "arimo-regular.ttf")
+		req = req.WithContext(revaCtx.ContextSetUser(req.Context(), &userpb.User{
+			Id: &userpb.UserId{
+				OpaqueId: "user",
+			},
+		}))
+		resp := httptest.NewRecorder()
+		svc.PreviewFont(resp, req)
+		require.Equal(t, testDataFontPNG, resp.Body.Bytes())
+	})
 }
 
 func TestService_DeleteFont(t *testing.T) {
