@@ -1,6 +1,6 @@
 # Changelog
 
-## [8.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.2) - 2026-09-21
+## [8.0.2](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.2) - 2026-09-22
 
 ### ❤️ Thanks to all contributors! ❤️
 
