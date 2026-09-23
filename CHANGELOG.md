@@ -33,6 +33,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/beevik/etree from 1.7.1 to 1.8.0 [[#3583](https://github.com/opencloud-eu/opencloud/pull/3583)]
 - build(deps): bump golang.org/x/image from 0.45.0 to 0.46.0 [[#3573](https://github.com/opencloud-eu/opencloud/pull/3573)]
 - build(deps): bump github.com/nats-io/nats-server/v2 from 2.14.5 to 2.15.0 [[#3576](https://github.com/opencloud-eu/opencloud/pull/3576)]
 - build(deps): bump golang.org/x/text from 0.41.0 to 0.42.0 [[#3552](https://github.com/opencloud-eu/opencloud/pull/3552)]
