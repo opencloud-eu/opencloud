@@ -1,10 +1,10 @@
 # Changelog
 
-## [8.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.1.0) - 2026-09-22
+## [8.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.1.0) - 2026-09-23
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@NickWalters, @aduffeck, @maki5, @pascalwengerter, @pbleser-oc, @rhafer, @schweigisito, @v-scharf, @zerox80
+@NickWalters, @aduffeck, @butonic, @maki5, @pascalwengerter, @pbleser-oc, @rhafer, @schweigisito, @v-scharf, @zerox80
 
 ### 🔒 Security
 
@@ -12,6 +12,7 @@
 
 ### 📈 Enhancement
 
+- add posixfs index command [[#3068](https://github.com/opencloud-eu/opencloud/pull/3068)]
 - feat(proxy): add per-service metrics to the proxy service [[#3521](https://github.com/opencloud-eu/opencloud/pull/3521)]
 
 ### ✅ Tests
@@ -30,6 +31,8 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/nats-io/nats-server/v2 from 2.14.5 to 2.15.0 [[#3576](https://github.com/opencloud-eu/opencloud/pull/3576)]
+- build(deps): bump golang.org/x/text from 0.41.0 to 0.42.0 [[#3552](https://github.com/opencloud-eu/opencloud/pull/3552)]
 - build(deps): bump golang.org/x/sync from 0.22.0 to 0.23.0 [[#3551](https://github.com/opencloud-eu/opencloud/pull/3551)]
 - build(deps): bump go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc from 0.70.0 to 0.71.0 [[#3427](https://github.com/opencloud-eu/opencloud/pull/3427)]
 - build(deps): bump github.com/olekukonko/errors from 1.2.0 to 1.3.0 [[#3557](https://github.com/opencloud-eu/opencloud/pull/3557)]
