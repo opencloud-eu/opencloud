@@ -4,20 +4,21 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@NickWalters, @aduffeck, @butonic, @maki5, @pascalwengerter, @pbleser-oc, @rhafer, @schweigisito, @v-scharf, @zerox80
+@NickWalters, @aduffeck, @butonic, @maki5, @pascalwengerter, @pbleser-oc, @rhafer, @saw-jan, @schweigisito, @v-scharf, @zerox80
 
 ### 🔒 Security
 
 - feat(proxy): add optional OIDC access token audience validation [[#3466](https://github.com/opencloud-eu/opencloud/pull/3466)]
 
+### ✅ Tests
+
+-  [decomposed] test(api): remove passing notification tests from expected failure [[#3555](https://github.com/opencloud-eu/opencloud/pull/3555)]
+- api-test: add CLI test for reindexing all spaces including disabled [[#3560](https://github.com/opencloud-eu/opencloud/pull/3560)]
+
 ### 📈 Enhancement
 
 - add posixfs index command [[#3068](https://github.com/opencloud-eu/opencloud/pull/3068)]
 - feat(proxy): add per-service metrics to the proxy service [[#3521](https://github.com/opencloud-eu/opencloud/pull/3521)]
-
-### ✅ Tests
-
-- api-test: add CLI test for reindexing all spaces including disabled [[#3560](https://github.com/opencloud-eu/opencloud/pull/3560)]
 
 ### 📚 Documentation
 
