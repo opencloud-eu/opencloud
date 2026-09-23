@@ -31,6 +31,10 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
+// _spaceStateTrashed is the value the storage provider sets in the space's
+// opaque "trashed" field when the space is disabled.
+const _spaceStateTrashed = "trashed"
+
 // NewHandler returns a service implementation for Service.
 func NewHandler(opts ...Option) (searchsvc.SearchProviderHandler, error) {
 	options := newOptions(opts...)
@@ -56,25 +60,27 @@ func NewHandler(opts ...Option) (searchsvc.SearchProviderHandler, error) {
 	}
 
 	return &Service{
-		id:           cfg.GRPC.Namespace + "." + cfg.Service.Name,
-		log:          &options.Logger,
-		searcher:     options.Searcher,
-		cache:        cache,
-		tokenManager: tokenManager,
-		gws:          options.GatewaySelector,
-		cfg:          cfg,
+		id:            cfg.GRPC.Namespace + "." + cfg.Service.Name,
+		log:           &options.Logger,
+		searcher:      options.Searcher,
+		skippedSpaces: options.SkippedSpaces,
+		cache:         cache,
+		tokenManager:  tokenManager,
+		gws:           options.GatewaySelector,
+		cfg:           cfg,
 	}, nil
 }
 
 // Service implements the searchServiceHandler interface
 type Service struct {
-	id           string
-	log          *log.Logger
-	searcher     search.Searcher
-	cache        *ttlcache.Cache
-	tokenManager token.Manager
-	gws          *pool.Selector[gateway.GatewayAPIClient]
-	cfg          *config.Config
+	id            string
+	log           *log.Logger
+	searcher      search.Searcher
+	skippedSpaces *search.SkippedSpaces
+	cache         *ttlcache.Cache
+	tokenManager  token.Manager
+	gws           *pool.Selector[gateway.GatewayAPIClient]
+	cfg           *config.Config
 }
 
 // Search handles the search
@@ -134,9 +140,11 @@ func (s Service) IndexSpace(_ context.Context, in *searchsvc.IndexSpaceRequest, 
 			SpaceId:       in.GetSpaceId(),
 			IndexedSpaces: 1,
 			TotalSpaces:   1,
+			Status:        searchsvc.IndexSpaceResponse_STATUS_SUCCESS,
 		}
 		if err != nil {
 			resp.Error = err.Error()
+			resp.Status = searchsvc.IndexSpaceResponse_STATUS_ERROR
 		}
 		if sendErr := stream.Send(resp); sendErr != nil {
 			return sendErr
@@ -193,11 +201,24 @@ func (s Service) IndexSpace(_ context.Context, in *searchsvc.IndexSpaceRequest, 
 			s.log.Info().Str("space_id", space.GetId().GetOpaqueId()).Msg("indexing space")
 			t := time.Now()
 
-			indexErr := s.searcher.IndexSpace(space.GetId(), in.GetForceReindex())
-			if indexErr != nil {
-				s.log.Error().Err(indexErr).Str("space_id", space.GetId().GetOpaqueId()).Msg("failed to index space")
+			var indexErr error
+			status := searchsvc.IndexSpaceResponse_STATUS_SUCCESS
+			if utils.ReadPlainFromOpaque(space.GetOpaque(), "trashed") == _spaceStateTrashed {
+				status = searchsvc.IndexSpaceResponse_STATUS_SKIPPED
+				// The space is disabled and cannot be indexed right now. Remember it
+				// so it gets reindexed once it is enabled again (see the SpaceEnabled
+				// event handler in the event service).
+				s.log.Info().Str("space_id", space.GetId().GetOpaqueId()).Msg("space is disabled, skipping and marking it for reindexing")
+				if markErr := s.skippedSpaces.Mark(space.GetId(), in.GetForceReindex()); markErr != nil {
+					s.log.Error().Err(markErr).Str("space_id", space.GetId().GetOpaqueId()).Msg("failed to mark disabled space for reindexing")
+				}
 			} else {
-				s.log.Info().Str("space_id", space.GetId().GetOpaqueId()).Msg("finished indexing space")
+				indexErr = s.searcher.IndexSpace(space.GetId(), in.GetForceReindex())
+				if indexErr != nil {
+					s.log.Error().Err(indexErr).Str("space_id", space.GetId().GetOpaqueId()).Msg("failed to index space")
+				} else {
+					s.log.Info().Str("space_id", space.GetId().GetOpaqueId()).Msg("finished indexing space")
+				}
 			}
 
 			mu.Lock()
@@ -214,9 +235,11 @@ func (s Service) IndexSpace(_ context.Context, in *searchsvc.IndexSpaceRequest, 
 				IndexedSpaces: indexedCount,
 				TotalSpaces:   totalSpaces,
 				SpaceDuration: durationpb.New(time.Since(t)),
+				Status:        status,
 			}
 			if indexErr != nil {
 				progress.Error = indexErr.Error()
+				progress.Status = searchsvc.IndexSpaceResponse_STATUS_ERROR
 			}
 			return stream.Send(progress)
 		})

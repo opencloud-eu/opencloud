@@ -46,7 +46,7 @@
                   "$ref": "#/definitions/v0IndexSpaceResponse"
                 },
                 "error": {
-                  "$ref": "#/definitions/rpcStatus"
+                  "$ref": "#/definitions/googlerpcStatus"
                 }
               },
               "title": "Stream result of v0IndexSpaceResponse"
@@ -55,7 +55,7 @@
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/rpcStatus"
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -87,7 +87,7 @@
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/rpcStatus"
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -119,7 +119,7 @@
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/rpcStatus"
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -140,16 +140,7 @@
     }
   },
   "definitions": {
-    "protobufAny": {
-      "type": "object",
-      "properties": {
-        "@type": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": {}
-    },
-    "rpcStatus": {
+    "googlerpcStatus": {
       "type": "object",
       "properties": {
         "code": {
@@ -166,6 +157,15 @@
           }
         }
       }
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
     },
     "v0Audio": {
       "type": "object",
@@ -382,8 +382,23 @@
         "error": {
           "type": "string",
           "description": "Contains an error message in case indexing this particular space failed."
+        },
+        "status": {
+          "$ref": "#/definitions/v0IndexSpaceResponseStatus",
+          "description": "The outcome of indexing this particular space."
         }
       }
+    },
+    "v0IndexSpaceResponseStatus": {
+      "type": "string",
+      "enum": [
+        "STATUS_UNKNOWN",
+        "STATUS_SUCCESS",
+        "STATUS_SKIPPED",
+        "STATUS_ERROR"
+      ],
+      "default": "STATUS_UNKNOWN",
+      "description": " - STATUS_SUCCESS: The space has been indexed successfully.\n - STATUS_SKIPPED: The space has been skipped because it is disabled. It will be indexed\nonce it gets enabled again.\n - STATUS_ERROR: Indexing the space failed, see the error field for details."
     },
     "v0LivePhoto": {
       "type": "object",
