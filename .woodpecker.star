@@ -1307,9 +1307,9 @@ def localApiTestPipeline(ctx):
                 if ctx.build.event == "cron":
                     params["storages"] = OPENCLOUD_STORAGES
 
-                    # skip CLI tests in nightly pipeline
+                    # run CLI tests only with decomposed storage in the nightly
                     if name.startswith("cli"):
-                        continue
+                        params["storages"] = ["decomposed"]
 
                 # use decomposed storage if specified in the PR title
                 if "[decomposed]" in ctx.build.title.lower():
