@@ -214,6 +214,7 @@ type Writer interface {
 type Token interface {
 	Parent() *Element
 	Index() int
+	Remove() bool
 	WriteTo(w Writer, s *WriteSettings)
 	dup(parent *Element) Token
 	setParent(parent *Element)
@@ -1390,17 +1391,22 @@ func (e *Element) PrevSibling() *Element {
 	return nil
 }
 
-// Parent returns this element's parent element. It returns nil if this
-// element has no parent.
+// Parent returns the element's parent element, or nil if the element has no
+// parent.
 func (e *Element) Parent() *Element {
 	return e.parent
 }
 
-// Index returns the index of this element within its parent element's
-// list of child tokens. If this element has no parent, then the function
-// returns -1.
+// Index returns the index of the element within its parent element's list of
+// child tokens. If the element has no parent, the function returns -1.
 func (e *Element) Index() int {
 	return e.index
+}
+
+// Remove attempts to remove the element from the parent element that contains
+// it. If the element has no parent, the function returns false.
+func (e *Element) Remove() bool {
+	return e.Parent().RemoveChild(e) != nil
 }
 
 // WriteTo serializes the element to the writer w.
@@ -1624,7 +1630,7 @@ func (c *CharData) SetData(text string) {
 	}
 }
 
-// IsCData returns true if this CharData token is contains a CDATA section. It
+// IsCData returns true if this CharData token contains a CDATA section. It
 // returns false if the CharData token contains simple text.
 func (c *CharData) IsCData() bool {
 	return (c.flags & cdataFlag) != 0
@@ -1635,20 +1641,27 @@ func (c *CharData) IsWhitespace() bool {
 	return (c.flags & whitespaceFlag) != 0
 }
 
-// Parent returns this CharData token's parent element, or nil if it has no
-// parent.
+// Parent returns the CharData token's parent element, or nil if the token has
+// no parent.
 func (c *CharData) Parent() *Element {
 	return c.parent
 }
 
-// Index returns the index of this CharData token within its parent element's
-// list of child tokens. If this CharData token has no parent, then the
-// function returns -1.
+// Index returns the index of the CharData token within its parent element's
+// list of child tokens. If the CharData token has no parent, the function
+// returns -1.
 func (c *CharData) Index() int {
 	return c.index
 }
 
-// WriteTo serializes character data to the writer.
+// Remove attempts to remove the CharData token from the parent element that
+// contains it. If the CharData token has no parent, the function returns
+// false.
+func (c *CharData) Remove() bool {
+	return c.Parent().RemoveChild(c) != nil
+}
+
+// WriteTo serializes CharData token to the writer.
 func (c *CharData) WriteTo(w Writer, s *WriteSettings) {
 	if c.IsCData() {
 		w.WriteString(`<![CDATA[`)
@@ -1719,19 +1732,25 @@ func (c *Comment) dup(parent *Element) Token {
 	}
 }
 
-// Parent returns comment token's parent element, or nil if it has no parent.
+// Parent returns the comment's parent element, or nil if the comment has no
+// parent.
 func (c *Comment) Parent() *Element {
 	return c.parent
 }
 
-// Index returns the index of this Comment token within its parent element's
-// list of child tokens. If this Comment token has no parent, then the
-// function returns -1.
+// Index returns the index of the comment within its parent element's list of
+// child tokens. If the comment has no parent, the function returns -1.
 func (c *Comment) Index() int {
 	return c.index
 }
 
-// WriteTo serialies the comment to the writer.
+// Remove attempts to remove the comment from the parent element that contains
+// it. If the comment has no parent, the function returns false.
+func (c *Comment) Remove() bool {
+	return c.Parent().RemoveChild(c) != nil
+}
+
+// WriteTo serializes the comment to the writer.
 func (c *Comment) WriteTo(w Writer, s *WriteSettings) {
 	w.WriteString("<!--")
 	sanitizeComment(w, c.Data)
@@ -1783,17 +1802,23 @@ func (d *Directive) dup(parent *Element) Token {
 	}
 }
 
-// Parent returns directive token's parent element, or nil if it has no
+// Parent returns the XML directive's parent element, or nil if it has no
 // parent.
 func (d *Directive) Parent() *Element {
 	return d.parent
 }
 
-// Index returns the index of this Directive token within its parent element's
-// list of child tokens. If this Directive token has no parent, then the
-// function returns -1.
+// Index returns the index of the XML directive within its parent element's
+// list of child tokens. If the directive has no parent, the function returns
+// -1.
 func (d *Directive) Index() int {
 	return d.index
+}
+
+// Remove attempts to remove the XML directive from the parent element that
+// contains it. If the directive has no parent, the function returns false.
+func (d *Directive) Remove() bool {
+	return d.Parent().RemoveChild(d) != nil
 }
 
 // WriteTo serializes the XML directive to the writer.
@@ -1851,20 +1876,27 @@ func (p *ProcInst) dup(parent *Element) Token {
 	}
 }
 
-// Parent returns processing instruction token's parent element, or nil if it
+// Parent returns XML processing instruction's parent element, or nil if it
 // has no parent.
 func (p *ProcInst) Parent() *Element {
 	return p.parent
 }
 
-// Index returns the index of this ProcInst token within its parent element's
-// list of child tokens. If this ProcInst token has no parent, then the
-// function returns -1.
+// Index returns the index of the XML processing instruction within its parent
+// element's list of child tokens. If the processing instruction has no
+// parent, the function returns -1.
 func (p *ProcInst) Index() int {
 	return p.index
 }
 
-// WriteTo serializes the processing instruction to the writer.
+// Remove attempts to remove the XML processing instruction from the parent
+// element that contains it. If the processing instruction has no parent, the
+// function returns false.
+func (p *ProcInst) Remove() bool {
+	return p.Parent().RemoveChild(p) != nil
+}
+
+// WriteTo serializes the XML processing instruction to the writer.
 func (p *ProcInst) WriteTo(w Writer, s *WriteSettings) {
 	w.WriteString("<?")
 	sanitizeProcInst(w, p.Target)
