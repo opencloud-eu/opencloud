@@ -16,7 +16,7 @@ func TrashCommand(cfg *config.Config) *cobra.Command {
 	trashCmd := &cobra.Command{
 		Use:   "trash",
 		Short: "OpenCloud trash functionality",
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			return configlog.ReturnError(parser.ParseConfig(cfg, true))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
