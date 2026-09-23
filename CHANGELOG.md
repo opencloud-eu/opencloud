@@ -12,6 +12,7 @@
 
 ### ✅ Tests
 
+- run cli tests with decomposed nightly [[#3580](https://github.com/opencloud-eu/opencloud/pull/3580)]
 -  [decomposed] test(api): remove passing notification tests from expected failure [[#3555](https://github.com/opencloud-eu/opencloud/pull/3555)]
 - api-test: add CLI test for reindexing all spaces including disabled [[#3560](https://github.com/opencloud-eu/opencloud/pull/3560)]
 
