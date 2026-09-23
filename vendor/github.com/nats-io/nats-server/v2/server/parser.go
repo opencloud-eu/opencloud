@@ -1,4 +1,4 @@
-// Copyright 2012-2025 The NATS Authors
+// Copyright 2012-2026 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -691,12 +691,12 @@ func (c *client) parse(buf []byte) error {
 						if trace {
 							c.traceInOp("RS+", arg)
 						}
-						err = c.processRemoteSub(arg, false)
+						err = c.processRemoteSub(arg, false, false)
 					case 'L', 'l':
 						if trace {
 							c.traceInOp("LS+", arg)
 						}
-						err = c.processRemoteSub(arg, true)
+						err = c.processRemoteSub(arg, true, true)
 					}
 				case GATEWAY:
 					if trace {

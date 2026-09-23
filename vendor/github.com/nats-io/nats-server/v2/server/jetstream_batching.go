@@ -1,4 +1,4 @@
-// Copyright 2025 The NATS Authors
+// Copyright 2025-2026 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -131,7 +131,13 @@ func newBatchStore(mset *stream, batchId string, replicas int, storage StorageTy
 	if replicas == 1 && storage == FileStorage {
 		bname, storeDir := getBatchStoreDir(storeDir, streamName, batchId)
 		s := mset.srv
-		fcfg := FileStoreConfig{AsyncFlush: true, BlockSize: defaultLargeBlockSize, StoreDir: storeDir, srv: s}
+		fcfg := FileStoreConfig{
+			AsyncFlush:  true,
+			SyncOnFlush: true,
+			BlockSize:   defaultLargeBlockSize,
+			StoreDir:    storeDir,
+			srv:         s,
+		}
 		prf := s.jsKeyGen(s.getOpts().JetStreamKey, mset.acc.Name)
 		if prf != nil {
 			// We are encrypted here, fill in correct cipher selection.
@@ -497,7 +503,6 @@ func (diff *batchStagedDiff) commit(mset *stream) {
 }
 
 type batchApply struct {
-	mu         sync.Mutex
 	id         string            // ID of the current batch.
 	count      uint64            // Number of entries in the batch, for consistency checks.
 	entries    []*CommittedEntry // Previous entries that are part of this batch.
@@ -505,9 +510,8 @@ type batchApply struct {
 	maxApplied uint64            // Applied value before the entry containing the first message of the batch.
 }
 
-// clearBatchStateLocked clears in-memory apply-batch-related state.
-// batch.mu lock should be held.
-func (batch *batchApply) clearBatchStateLocked() {
+// clearBatchState clears in-memory apply-batch-related state.
+func (batch *batchApply) clearBatchState() {
 	batch.id = _EMPTY_
 	batch.count = 0
 	batch.entries = nil
@@ -517,8 +521,7 @@ func (batch *batchApply) clearBatchStateLocked() {
 
 // rejectBatchStateLocked rejects the batch and clears in-memory apply-batch-related state.
 // Corrects mset.clfs to take the failed batch into account.
-// batch.mu lock should be held.
-func (batch *batchApply) rejectBatchStateLocked(mset *stream) {
+func (batch *batchApply) rejectBatchState(mset *stream) {
 	mset.clMu.Lock()
 	mset.clfs += batch.count
 	mset.clMu.Unlock()
@@ -526,13 +529,7 @@ func (batch *batchApply) rejectBatchStateLocked(mset *stream) {
 	for _, bce := range batch.entries {
 		bce.ReturnToPool()
 	}
-	batch.clearBatchStateLocked()
-}
-
-func (batch *batchApply) rejectBatchState(mset *stream) {
-	batch.mu.Lock()
-	defer batch.mu.Unlock()
-	batch.rejectBatchStateLocked(mset)
+	batch.clearBatchState()
 }
 
 // checkMsgHeadersPreClusteredProposal checks the message for expected/consistency headers.
@@ -630,6 +627,12 @@ func checkMsgHeadersPreClusteredProposal(
 				diff.msgIds[msgId] = struct{}{}
 			}
 			mset.ddMu.Unlock()
+		}
+
+		// Non-sourced messages aren't allowed to have the stream source header.
+		if !sourced && len(sliceHeader(JSStreamSource, hdr)) > 0 {
+			apiErr := NewJSMessageSourceHdrNotAllowedError()
+			return hdr, msg, 0, apiErr, apiErr
 		}
 	}
 
@@ -1047,25 +1050,16 @@ func checkMsgHeadersPreClusteredProposal(
 // mset.clMu lock must be held.
 func recalculateClusteredSeq(mset *stream, needStreamLock bool) (lseq uint64) {
 	// Need to unlock and re-acquire the locks in the proper order.
-	mset.clMu.Unlock()
-	// Locking order is stream -> batchMu -> clMu
+	// Locking order is stream -> clMu
 	if needStreamLock {
+		mset.clMu.Unlock()
 		mset.mu.RLock()
+		mset.clMu.Lock()
 	}
-	batch := mset.batchApply
-	var batchCount uint64
-	if batch != nil {
-		batch.mu.Lock()
-		batchCount = batch.count
-	}
-	mset.clMu.Lock()
 	// Re-capture
 	lseq = mset.lseq
-	mset.clseq = lseq + mset.clfs + batchCount
+	mset.clseq = lseq + mset.clfs
 	// Keep hold of the mset.clMu, but unlock the others.
-	if batch != nil {
-		batch.mu.Unlock()
-	}
 	if needStreamLock {
 		mset.mu.RUnlock()
 	}
