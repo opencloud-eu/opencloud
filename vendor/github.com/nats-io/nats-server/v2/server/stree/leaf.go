@@ -1,4 +1,4 @@
-// Copyright 2023-2024 The NATS Authors
+// Copyright 2023-2026 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -32,13 +32,10 @@ func (n *leaf[T]) base() *meta               { return nil }
 func (n *leaf[T]) match(subject []byte) bool { return string(subject) == n.suffix }
 func (n *leaf[T]) setSuffix(suffix []byte)   { n.suffix = string(suffix) }
 func (n *leaf[T]) isFull() bool              { return true }
-func (n *leaf[T]) matchParts(parts [][]byte) ([][]byte, bool) {
-	return matchParts(parts, n.suffix)
-}
-func (n *leaf[T]) iter(f func(node) bool) {}
-func (n *leaf[T]) children() []node       { return nil }
-func (n *leaf[T]) numChildren() uint16    { return 0 }
-func (n *leaf[T]) path() string           { return n.suffix }
+func (n *leaf[T]) iter(f func(node) bool)    {}
+func (n *leaf[T]) children() []node          { return nil }
+func (n *leaf[T]) numChildren() uint16       { return 0 }
+func (n *leaf[T]) path() string              { return n.suffix }
 
 // Not applicable to leafs and should not be called, so panic if we do.
 func (n *leaf[T]) setPrefix(pre []byte)    { panic("setPrefix called on leaf") }

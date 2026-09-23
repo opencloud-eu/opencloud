@@ -1,4 +1,4 @@
-// Copyright 2012-2025 The NATS Authors
+// Copyright 2012-2026 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -196,6 +196,9 @@ var (
 
 	// ErrClusterNameHasSpaces signals that the cluster name contains spaces, which is not allowed.
 	ErrClusterNameHasSpaces = errors.New("cluster name cannot contain spaces")
+
+	// ErrClusterNameReserved signals that the cluster name is reserved for internal protocol use.
+	ErrClusterNameReserved = errors.New("cluster name is reserved")
 
 	// ErrMalformedSubject is returned when a subscription is made with a subject that does not conform to subject rules.
 	ErrMalformedSubject = errors.New("malformed subject")

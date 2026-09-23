@@ -1,4 +1,4 @@
-// Copyright 2023-2025 The NATS Authors
+// Copyright 2023-2026 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"regexp"
 	"slices"
 	"strconv"
@@ -463,7 +463,7 @@ func (tr *subjectTransform) getRandomPartition(ceiling int) string {
 		return "0"
 	}
 
-	return strconv.Itoa(int(rand.Int31()) % ceiling)
+	return strconv.Itoa(int(rand.Int32()) % ceiling)
 }
 
 func (tr *subjectTransform) getHashPartition(key []byte, numBuckets int) string {

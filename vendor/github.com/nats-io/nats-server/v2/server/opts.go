@@ -1,4 +1,4 @@
-// Copyright 2012-2025 The NATS Authors
+// Copyright 2012-2026 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -381,6 +381,9 @@ type JSLimitOpts struct {
 	MaxBatchInflightTotal     int           `json:"max_batch_inflight_total,omitempty"`      // MaxBatchInflightTotal is the maximum amount of total open batches per server
 	MaxBatchSize              int           `json:"max_batch_size,omitempty"`                // MaxBatchSize is the maximum amount of messages allowed in a batch publish to a Stream
 	MaxBatchTimeout           time.Duration `json:"max_batch_timeout,omitempty"`             // MaxBatchTimeout is the maximum time to receive the commit message after receiving the first message of a batch
+
+	// Max asset limits
+	DefaultMaxConsumers int `json:"default_max_consumers,omitempty"` // DefaultMaxConsumers is the maximum number of consumers per stream (unless overwritten on the stream or the account) (-1=unlimited)
 }
 
 type JSTpmOpts struct {
@@ -2036,6 +2039,11 @@ func parseCluster(v any, opts *Options, errors *[]error, warnings *[]error) erro
 				*errors = append(*errors, err)
 				continue
 			}
+			if cn == leafNoOriginCluster {
+				err := &configErr{tk, ErrClusterNameReserved.Error()}
+				*errors = append(*errors, err)
+				continue
+			}
 			opts.Cluster.Name = cn
 		case "listen":
 			hp, err := parseListen(mv)
@@ -2283,6 +2291,11 @@ func parseGateway(v any, o *Options, errors *[]error, warnings *[]error) error {
 			gn := mv.(string)
 			if strings.Contains(gn, " ") {
 				err := &configErr{tk, ErrGatewayNameHasSpaces.Error()}
+				*errors = append(*errors, err)
+				continue
+			}
+			if gn == leafNoOriginCluster {
+				err := &configErr{tk, ErrClusterNameReserved.Error()}
 				*errors = append(*errors, err)
 				continue
 			}
@@ -2535,6 +2548,8 @@ func parseJetStreamLimits(v any, opts *Options, errors *[]error) error {
 			opts.JetStreamLimits.MaxHAAssets = int(mv.(int64))
 		case "max_request_batch":
 			opts.JetStreamLimits.MaxRequestBatch = int(mv.(int64))
+		case "default_max_consumers":
+			opts.JetStreamLimits.DefaultMaxConsumers = int(mv.(int64))
 		case "duplicate_window":
 			var err error
 			opts.JetStreamLimits.Duplicates, err = time.ParseDuration(mv.(string))
@@ -5812,11 +5827,10 @@ func GenTLSConfig(tc *TLSConfigOpts) (*tls.Config, error) {
 	// It will determine the cipher suites that we prefer.
 	// FIXME(dlc) change if ARM based.
 	config := tls.Config{
-		MinVersion:               tls.VersionTLS12,
-		CipherSuites:             tc.Ciphers,
-		PreferServerCipherSuites: true,
-		CurvePreferences:         tc.CurvePreferences,
-		InsecureSkipVerify:       tc.Insecure,
+		MinVersion:         tls.VersionTLS12,
+		CipherSuites:       tc.Ciphers,
+		CurvePreferences:   tc.CurvePreferences,
+		InsecureSkipVerify: tc.Insecure,
 	}
 
 	switch {
@@ -6187,6 +6201,9 @@ func setBaselineOptions(opts *Options) {
 	if opts.JetStreamConcurrentIOs <= 0 {
 		opts.JetStreamConcurrentIOs = defaultConcurrentIOs
 	}
+	if opts.JetStreamLimits.DefaultMaxConsumers == 0 {
+		opts.JetStreamLimits.DefaultMaxConsumers = JSDefaultMaxConsumersPerStream
+	}
 }
 
 func getDefaultAuthTimeout(tls *tls.Config, tlsTimeout float64) float64 {
@@ -6267,7 +6284,7 @@ func ConfigureOptions(fs *flag.FlagSet, args []string, printVersion, printHelp, 
 	fs.StringVar(&opts.Cluster.ListenStr, "cluster", _EMPTY_, "Cluster url from which members can solicit routes.")
 	fs.StringVar(&opts.Cluster.ListenStr, "cluster_listen", _EMPTY_, "Cluster url from which members can solicit routes.")
 	fs.StringVar(&opts.Cluster.Advertise, "cluster_advertise", _EMPTY_, "Cluster URL to advertise to other servers.")
-	fs.BoolVar(&opts.Cluster.NoAdvertise, "no_advertise", false, "Advertise known cluster IPs to clients.")
+	fs.BoolVar(&opts.Cluster.NoAdvertise, "no_advertise", false, "Do not advertise known cluster IPs to clients.")
 	fs.IntVar(&opts.Cluster.ConnectRetries, "connect_retries", 0, "For implicit routes, number of connect retries.")
 	fs.StringVar(&opts.Cluster.Name, "cluster_name", _EMPTY_, "Cluster Name, if not set one will be dynamically generated.")
 	fs.BoolVar(&showTLSHelp, "help_tls", false, "TLS help.")
@@ -6363,9 +6380,8 @@ func ConfigureOptions(fs *flag.FlagSet, args []string, printVersion, printHelp, 
 
 	// Process signal control.
 	if signal != _EMPTY_ {
-		if err := processSignal(signal); err != nil {
-			return nil, err
-		}
+		// processSignal always either returns an error or calls os.Exit(0).
+		return nil, processSignal(signal)
 	}
 
 	// Parse config if given

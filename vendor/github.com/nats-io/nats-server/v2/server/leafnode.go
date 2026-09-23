@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/url"
@@ -308,13 +308,6 @@ func validateLeafNode(o *Options) error {
 			}
 			if !ok {
 				return fmt.Errorf("remote leaf node configuration cannot have a mix of websocket and non-websocket urls: %q", redactURLList(rcfg.URLs))
-			}
-		}
-		if !wsAllowedFIPS() {
-			for _, u := range rcfg.URLs {
-				if isWSURL(u) {
-					return fmt.Errorf("remote leaf node URL %q cannot be used in FIPS-140 mode when built with this Go version, use Go 1.26 or later", redactURLString(u.String()))
-				}
 			}
 		}
 		// Validate compression settings
@@ -818,7 +811,7 @@ func connectToRemoteLeafNode(s *Server, remote *leafNodeCfg, firstConnect bool) 
 			}
 		}
 		if err != nil {
-			jitter := time.Duration(rand.Int63n(int64(reconnectDelay)))
+			jitter := time.Duration(rand.Int64N(int64(reconnectDelay)))
 			delay := reconnectDelay + jitter
 			attempts++
 			if s.shouldReportConnectErr(firstConnect, attempts) {
@@ -1049,7 +1042,9 @@ func (s *Server) startLeafNodeAcceptLoop() {
 		s.mu.Unlock()
 		return
 	}
-	s.leafURLsMap[s.leafNodeInfo.IP]++
+	if !opts.LeafNode.NoAdvertise {
+		s.leafURLsMap[s.leafNodeInfo.IP]++
+	}
 	s.generateLeafNodeInfoJSON()
 
 	// Setup state that can enable shutdown
@@ -1581,7 +1576,7 @@ func (c *client) processLeafnodeInfo(info *Info) {
 	if firstINFO && !c.flags.isSet(compressionNegotiated) {
 		// A solicited leafnode connection must first receive a leafnode INFO.
 		// Classify wrong-port connections before any leaf-specific negotiation.
-		if didSolicit && (info.CID == 0 || info.LeafNodeURLs == nil) {
+		if didSolicit && (info.CID == 0 || (info.LeafNodeURLs == nil && !info.InfoOnConnect)) {
 			c.mu.Unlock()
 			c.Errorf(ErrConnectedToWrongPort.Error())
 			c.closeConnection(WrongPort)
@@ -1669,6 +1664,12 @@ func (c *client) processLeafnodeInfo(info *Info) {
 		if info.Cluster != _EMPTY_ && strings.Contains(info.Cluster, " ") {
 			c.mu.Unlock()
 			c.sendErrAndErr(ErrClusterNameHasSpaces.Error())
+			c.closeConnection(ProtocolViolation)
+			return
+		}
+		if info.Cluster == leafNoOriginCluster {
+			c.mu.Unlock()
+			c.sendErrAndErr(ErrClusterNameReserved.Error())
 			c.closeConnection(ProtocolViolation)
 			return
 		}
@@ -2110,13 +2111,16 @@ func (s *Server) addLeafNodeConnection(c *client, srvName, clusterName string, c
 		c.mergeDenyPermissionsLocked(both, denyAllClientJs)
 	}
 	// If we have a specified JetStream domain we will want to add a mapping to
-	// allow access cross domain for each non-system account.
-	if opts.JetStreamDomain != _EMPTY_ && opts.JetStream && acc != nil && acc != sysAcc {
-		for src, dest := range generateJSMappingTable(opts.JetStreamDomain) {
-			if err := acc.AddMapping(src, dest); err != nil {
-				c.Debugf("Error adding JetStream domain mapping: %s", err.Error())
-			} else {
-				c.Debugf("Adding JetStream Domain Mapping %q -> %s to account %q", src, dest, accName)
+	// allow access cross domain for each non-system account. The system account
+	// is mapped in setupJetStreamExports, it only needs the outgoing block here.
+	if opts.JetStreamDomain != _EMPTY_ && opts.JetStream && acc != nil {
+		if acc != sysAcc {
+			for src, dest := range generateJSMappingTable(opts.JetStreamDomain) {
+				if err := acc.AddMapping(src, dest); err != nil {
+					c.Debugf("Error adding JetStream domain mapping: %s", err.Error())
+				} else {
+					c.Debugf("Adding JetStream Domain Mapping %q -> %s to account %q", src, dest, accName)
+				}
 			}
 		}
 		if blockMappingOutgoing {
@@ -2230,6 +2234,11 @@ func (c *client) processLeafNodeConnect(s *Server, arg []byte, lang string) erro
 		c.sendErrAndErr(ErrClusterNameHasSpaces.Error())
 		c.closeConnection(ProtocolViolation)
 		return ErrClusterNameHasSpaces
+	}
+	if proto.Cluster == leafNoOriginCluster {
+		c.sendErrAndErr(ErrClusterNameReserved.Error())
+		c.closeConnection(ProtocolViolation)
+		return ErrClusterNameReserved
 	}
 
 	// Check for cluster name collisions.
@@ -2535,7 +2544,7 @@ func (s *Server) initLeafNodeSmapAndSendSubs(c *client) {
 			continue
 		}
 		// Don't advertise interest from leafnodes to other isolated leafnodes.
-		if sub.client.kind == LEAF && c.isIsolatedLeafNode() {
+		if (sub.client.kind == LEAF || sub.leaf) && c.isIsolatedLeafNode() {
 			continue
 		}
 		// We ignore ourselves here.
@@ -2659,7 +2668,7 @@ func (acc *Account) updateLeafNodesEx(sub *subscription, delta int32, hubOnly bo
 	nleafs := len(acc.lleafs)
 	start := 0
 	if nleafs > 1 {
-		start = rand.Intn(nleafs)
+		start = rand.IntN(nleafs)
 	}
 	for i := 0; i < nleafs; i++ {
 		ln := acc.lleafs[(start+i)%nleafs]
@@ -2668,7 +2677,7 @@ func (acc *Account) updateLeafNodesEx(sub *subscription, delta int32, hubOnly bo
 		}
 		ln.mu.RLock()
 		// Don't advertise interest from leafnodes to other isolated leafnodes.
-		if sub.client.kind == LEAF && ln.isIsolatedLeafNode() {
+		if (sub.client.kind == LEAF || sub.leaf) && ln.isIsolatedLeafNode() {
 			ln.mu.RUnlock()
 			continue
 		}
@@ -2837,10 +2846,12 @@ func keyFromSub(sub *subscription) string {
 }
 
 const (
-	keyRoutedSub         = "R"
-	keyRoutedSubByte     = 'R'
-	keyRoutedLeafSub     = "L"
-	keyRoutedLeafSubByte = 'L'
+	keyRoutedSub                 = "R"
+	keyRoutedSubByte             = 'R'
+	keyRoutedLeafSub             = "L"
+	keyRoutedLeafSubByte         = 'L'
+	keyRoutedLeafNoOriginSub     = "N"
+	keyRoutedLeafNoOriginSubByte = 'N'
 )
 
 // Helper function to build the key that prevents collisions between normal
@@ -2848,14 +2859,18 @@ const (
 // Keys will look like this:
 // "R foo"          -> plain routed sub on "foo"
 // "R foo bar"      -> queue routed sub on "foo", queue "bar"
+// "N foo"          -> plain routed leaf sub on "foo" without an origin
+// "N foo bar"      -> queue routed leaf sub on "foo", queue "bar", without an origin
 // "L foo bar"      -> plain routed leaf sub on "foo", leaf "bar"
 // "L foo bar baz"  -> queue routed sub on "foo", queue "bar", leaf "baz"
 func keyFromSubWithOrigin(sub *subscription) string {
 	var sb strings.Builder
 	sb.Grow(2 + len(sub.origin) + 1 + len(sub.subject) + 1 + len(sub.queue))
-	leaf := len(sub.origin) > 0
-	if leaf {
+	hasOrigin := len(sub.origin) > 0
+	if hasOrigin {
 		sb.WriteByte(keyRoutedLeafSubByte)
+	} else if sub.leaf {
+		sb.WriteByte(keyRoutedLeafNoOriginSubByte)
 	} else {
 		sb.WriteByte(keyRoutedSubByte)
 	}
@@ -2865,7 +2880,7 @@ func keyFromSubWithOrigin(sub *subscription) string {
 		sb.WriteByte(' ')
 		sb.Write(sub.queue)
 	}
-	if leaf {
+	if hasOrigin {
 		sb.WriteByte(' ')
 		sb.Write(sub.origin)
 	}
@@ -2920,7 +2935,7 @@ func (c *client) processLeafSub(argo []byte) (err error) {
 	copy(arg, argo)
 
 	args := splitArg(arg)
-	sub := &subscription{client: c}
+	sub := &subscription{client: c, leaf: true}
 
 	delta := int32(1)
 	switch len(args) {
