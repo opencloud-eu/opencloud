@@ -28,13 +28,12 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/lookup"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
 const (
-	MSGPACK_KEY_USER_OCIS_NODESTATUS = "user.ocis.nodestatus"
-
 	// Log indentation levels
 	LOG_INDENT_L1 = "  " // 2 spaces
 	LOG_INDENT_L2 = LOG_INDENT_L1 + LOG_INDENT_L1
@@ -517,7 +516,7 @@ func extractProcessingID(mpkData map[string]any) string {
 	processingID := ""
 	for k, v := range mpkData {
 		vStr := string(v.([]byte))
-		if k == MSGPACK_KEY_USER_OCIS_NODESTATUS && strings.Contains(vStr, node.ProcessingStatus) {
+		if k == prefixes.StatusPrefix && strings.Contains(vStr, node.ProcessingStatus) {
 			processingID = strings.Split(vStr, ":")[1]
 			break
 		}
