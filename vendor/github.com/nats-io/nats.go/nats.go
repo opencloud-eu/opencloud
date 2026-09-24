@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math/rand"
 	"net"
 	"net/http"
@@ -49,7 +50,7 @@ import (
 
 // Default Constants
 const (
-	Version                   = "1.53.1"
+	Version                   = "1.54.0"
 	DefaultURL                = "nats://127.0.0.1:4222"
 	DefaultPort               = 4222
 	DefaultMaxReconnect       = 60
@@ -537,6 +538,11 @@ type Options struct {
 	// Deprecated: should use CustomDialer instead.
 	Dialer *net.Dialer
 
+	// AllowMultipathTCP controls MPTCP for connections made with Dialer.
+	// A nil value leaves Go's default unchanged. If MPTCP is unavailable,
+	// the dialer falls back to TCP. This option does not affect CustomDialer.
+	AllowMultipathTCP *bool
+
 	// CustomDialer allows to specify a custom dialer (not necessarily
 	// a *net.Dialer).
 	CustomDialer CustomDialer
@@ -647,16 +653,24 @@ type Conn struct {
 	mu sync.RWMutex
 	// Opts holds the configuration of the Conn.
 	// Modifying the configuration of a running Conn is a race.
-	Opts          Options
-	wg            sync.WaitGroup
-	srvPool       []*Server
-	current       *Server
-	urls          map[string]struct{} // Keep track of all known URLs (used by processInfo)
-	conn          net.Conn
-	bw            *natsWriter
-	br            *natsReader
-	fch           chan struct{}
-	info          ServerInfo
+	Opts    Options
+	wg      sync.WaitGroup
+	srvPool []*Server
+	current *Server
+	urls    map[string]struct{} // Keep track of all known URLs (used by processInfo)
+	conn    net.Conn
+	bw      *natsWriter
+	br      *natsReader
+	fch     chan struct{}
+	info    ServerInfo
+	// subsMu protects subs, ssid and the sid of every Subscription in subs,
+	// so that a subscription and the id it is registered under always stay
+	// in sync.
+	//
+	// The lock ordering for a connection is nc.mu -> nc.subsMu -> sub.mu:
+	// each of these may be acquired while holding any of the ones to its
+	// left, and none of them may be acquired while holding one to its
+	// right.
 	ssid          int64
 	subsMu        sync.RWMutex
 	subs          map[int64]*Subscription
@@ -704,7 +718,10 @@ type natsWriter struct {
 
 // Subscription represents interest in a given subject.
 type Subscription struct {
-	mu  sync.Mutex
+	mu sync.Mutex
+
+	// Key under which this subscription is registered in conn.subs.
+	// Protected by conn.subsMu, not by the mutex above.
 	sid int64
 
 	// Subject that represents this subscription. This can be different
@@ -1053,7 +1070,8 @@ type ServerInfo struct {
 	IsSystemAccount bool `json:"acc_is_sys,omitempty"`
 	// JSApiLevel is the JetStream API level advertised by the server.
 	// Requires nats-server v2.12.0 or later; older servers will report 0.
-	JSApiLevel int `json:"api_lvl,omitempty"`
+	JSApiLevel int    `json:"api_lvl,omitempty"`
+	Domain     string `json:"domain,omitempty"`
 }
 
 const (
@@ -1617,6 +1635,18 @@ func SyncQueueLen(max int) Option {
 func Dialer(dialer *net.Dialer) Option {
 	return func(o *Options) error {
 		o.Dialer = dialer
+		return nil
+	}
+}
+
+// MultipathTCP is an Option to enable or disable MPTCP for connections made
+// with the default dialer or a net.Dialer supplied through Dialer. If the
+// option is not specified, the dialer's existing setting or Go's default is
+// used. If MPTCP is unavailable, the dialer falls back to TCP. CustomDialer
+// takes precedence.
+func MultipathTCP(enabled bool) Option {
+	return func(o *Options) error {
+		o.AllowMultipathTCP = &enabled
 		return nil
 	}
 }
@@ -2470,6 +2500,9 @@ func (nc *Conn) createConn() (err error) {
 		// We will copy and shorten the timeout if we have multiple hosts to try.
 		copyDialer := *nc.Opts.Dialer
 		copyDialer.Timeout = copyDialer.Timeout / time.Duration(len(hosts))
+		if nc.Opts.AllowMultipathTCP != nil {
+			copyDialer.SetMultipathTCP(*nc.Opts.AllowMultipathTCP)
+		}
 		dialer = &copyDialer
 	}
 
@@ -2711,6 +2744,21 @@ func (nc *Conn) ConnectedServerName() string {
 		return _EMPTY_
 	}
 	return nc.info.Name
+}
+
+// ConnectedDomain reports the connected server's domain
+func (nc *Conn) ConnectedDomain() string {
+	if nc == nil {
+		return _EMPTY_
+	}
+
+	nc.mu.RLock()
+	defer nc.mu.RUnlock()
+
+	if nc.status != CONNECTED {
+		return _EMPTY_
+	}
+	return nc.info.Domain
 }
 
 var semVerRe = regexp.MustCompile(`\Av?([0-9]+)\.?([0-9]+)?\.?([0-9]+)?`)
@@ -3708,6 +3756,9 @@ func (nc *Conn) waitForMsgs(s *Subscription) {
 			s.pMsgs--
 			s.pBytes -= msgLen
 			msgLen = -1
+			if s.jsi != nil && s.jsi.resetPending {
+				s.tryResetOrderedConsumer()
+			}
 		}
 
 		if s.pHead == nil && !s.closed {
@@ -3832,6 +3883,7 @@ func (nc *Conn) processMsg(data []byte) {
 	var ctrlMsg bool
 	var ctrlType int
 	var fcReply string
+	var ordSeqs orderedSeqs
 
 	if nc.ps.ma.hdr > 0 {
 		hbuf := msgPayload[:nc.ps.ma.hdr]
@@ -3887,11 +3939,6 @@ func (nc *Conn) processMsg(data []byte) {
 				fcReply = m.Header.Get(consumerStalledHdr)
 			}
 		}
-		// Check for ordered consumer here. If checkOrderedMsgs returns true that means it detected a gap.
-		if !ctrlMsg && jsi.ordered && sub.checkOrderedMsgs(m) {
-			sub.mu.Unlock()
-			return
-		}
 	}
 
 	// Skip processing if this is a control message and
@@ -3917,6 +3964,20 @@ func (nc *Conn) processMsg(data []byte) {
 			}
 		} else if jsi != nil {
 			chanSubCheckFC = true
+		}
+
+		// Must run here, between the reservation above and the delivery below.
+		// See checkOrderedDelivery.
+		if jsi != nil && jsi.ordered {
+			var action jsMsgAction
+			action, ordSeqs = sub.checkOrderedDelivery(m)
+			switch action {
+			case jsMsgDrop:
+				goto slowConsumer
+			case jsMsgDropGap:
+				sub.mu.Unlock()
+				return
+			}
 		}
 
 		// We have two modes of delivery. One is the channel, used by channel
@@ -3945,6 +4006,7 @@ func (nc *Conn) processMsg(data []byte) {
 			}
 		}
 		if jsi != nil {
+			sub.commitOrderedMsg(ordSeqs)
 			// Store the ACK metadata from the message to
 			// compare later on with the received heartbeat.
 			sub.trackSequences(m.Reply)
@@ -4003,14 +4065,19 @@ func (nc *Conn) processMsg(data []byte) {
 	return
 
 slowConsumer:
+	// ordSeqs is deliberately not committed here: leaving the tracker behind is
+	// what makes the next message register as a gap and get refetched.
+	// Except for the consumer's first message: with nothing delivered yet the
+	// tracker has no position, and a reset would resume from the start of the
+	// stream rather than from where the consumer was told to start.
+	if jsi != nil && jsi.ordered && jsi.sseq == 0 && ordSeqs.dseq == 1 {
+		jsi.sseq = ordSeqs.sseq - 1
+	}
 	sub.dropped++
 	sc := !sub.sc
 	sub.sc = true
 	// Undo stats from above
-	if sub.typ != ChanSubscription {
-		sub.pMsgs--
-		sub.pBytes -= len(m.Data)
-	}
+	sub.releaseReserved(m)
 	if sc {
 		sub.changeSubStatus(SubscriptionSlowConsumer)
 		sub.mu.Unlock()
@@ -4025,6 +4092,16 @@ slowConsumer:
 		nc.mu.Unlock()
 	} else {
 		sub.mu.Unlock()
+	}
+}
+
+// releaseReserved undoes the pending accounting reserved for m earlier in
+// processMsg. pMsgsMax/pBytesMax are deliberately left alone: they are
+// high-water marks of what was reserved. Lock must be held.
+func (sub *Subscription) releaseReserved(m *Msg) {
+	if sub.typ != ChanSubscription {
+		sub.pMsgs--
+		sub.pBytes -= len(m.Data)
 	}
 }
 
@@ -4051,6 +4128,7 @@ func (nc *Conn) processTransientError(err error) {
 				q = queueMatches[1]
 			}
 			subject := matches[1]
+			nc.subsMu.RLock()
 			for _, sub := range nc.subs {
 				if sub.Subject == subject && sub.Queue == q && sub.permissionsErr == nil {
 					sub.mu.Lock()
@@ -4061,6 +4139,7 @@ func (nc *Conn) processTransientError(err error) {
 					sub.mu.Unlock()
 				}
 			}
+			nc.subsMu.RUnlock()
 		}
 	}
 	if asyncErrorCB := nc.Opts.AsyncErrorCB; asyncErrorCB != nil {
@@ -4439,7 +4518,10 @@ func DecodeHeadersMsg(data []byte) (Header, error) {
 	if len(l) > hdrPreEnd {
 		var description string
 		status := strings.TrimSpace(l[hdrPreEnd:])
-		if len(status) != statusLen {
+		if len(status) < statusLen {
+			return nil, ErrBadHeaderMsg
+		}
+		if len(status) > statusLen {
 			description = strings.TrimSpace(status[statusLen:])
 			status = status[:statusLen]
 		}
@@ -4857,6 +4939,7 @@ func (nc *Conn) NewInbox() string {
 	}
 
 	var sb strings.Builder
+	sb.Grow(len(nc.Opts.InboxPrefix) + 1 + nuidSize)
 	sb.WriteString(nc.Opts.InboxPrefix)
 	sb.WriteByte('.')
 	sb.WriteString(nuid.Next())
@@ -4881,6 +4964,7 @@ func (nc *Conn) newRespInbox() string {
 	}
 
 	var sb strings.Builder
+	sb.Grow(nc.respSubLen + replySuffixLen)
 	sb.WriteString(nc.respSubPrefix)
 
 	rn := nc.respRand.Int63()
@@ -5071,8 +5155,9 @@ func (nc *Conn) subscribeLocked(subj, queue string, cb MsgHandler, ch chan *Msg,
 
 	nc.subsMu.Lock()
 	nc.ssid++
-	sub.sid = nc.ssid
-	nc.subs[sub.sid] = sub
+	sid := nc.ssid
+	sub.sid = sid
+	nc.subs[sid] = sub
 	nc.subsMu.Unlock()
 
 	// Let's start the go routine now that it is fully setup and registered.
@@ -5083,7 +5168,7 @@ func (nc *Conn) subscribeLocked(subj, queue string, cb MsgHandler, ch chan *Msg,
 	// We will send these for all subs when we reconnect
 	// so that we can suppress here if reconnecting.
 	if !nc.isReconnecting() {
-		nc.bw.appendString(fmt.Sprintf(subProto, subj, queue, sub.sid))
+		nc.bw.appendString(fmt.Sprintf(subProto, subj, queue, sid))
 		nc.kickFlusher()
 	}
 
@@ -5093,8 +5178,8 @@ func (nc *Conn) subscribeLocked(subj, queue string, cb MsgHandler, ch chan *Msg,
 
 // NumSubscriptions returns active number of subscriptions.
 func (nc *Conn) NumSubscriptions() int {
-	nc.mu.RLock()
-	defer nc.mu.RUnlock()
+	nc.subsMu.RLock()
+	defer nc.subsMu.RUnlock()
 	return len(nc.subs)
 }
 
@@ -5455,7 +5540,13 @@ func (nc *Conn) unsubscribe(sub *Subscription, max int, drainMode bool) error {
 	// We will send these for all subs when we reconnect
 	// so that we can suppress here.
 	if !nc.isReconnecting() {
-		nc.bw.appendString(fmt.Sprintf(unsubProto, s.sid, maxStr))
+		// Deliberately re-read the sid: in the AutoUnsubscribe case removeSub
+		// is skipped, so an ordered consumer reset may have swapped it since
+		// the lookup above and the max has to apply to what the server knows.
+		nc.subsMu.RLock()
+		sid := s.sid
+		nc.subsMu.RUnlock()
+		nc.bw.appendString(fmt.Sprintf(unsubProto, sid, maxStr))
 		nc.kickFlusher()
 	}
 
@@ -5677,6 +5768,9 @@ func (s *Subscription) processNextMsgDelivered(msg *Msg) error {
 	if s.typ == SyncSubscription {
 		s.pMsgs--
 		s.pBytes -= len(msg.Data)
+	}
+	if s.jsi != nil && s.jsi.resetPending {
+		s.tryResetOrderedConsumer()
 	}
 	s.mu.Unlock()
 
@@ -5997,14 +6091,11 @@ func (nc *Conn) Buffered() (int, error) {
 func (nc *Conn) resendSubscriptions() {
 	// Since we are going to send protocols to the server, we don't want to
 	// be holding the subsMu lock (which is used in processMsg). So copy
-	// the subscriptions in a temporary array.
+	// the subscriptions in a temporary map, keyed by sid as nc.subs is.
 	nc.subsMu.RLock()
-	subs := make([]*Subscription, 0, len(nc.subs))
-	for _, s := range nc.subs {
-		subs = append(subs, s)
-	}
+	subs := maps.Clone(nc.subs)
 	nc.subsMu.RUnlock()
-	for _, s := range subs {
+	for sid, s := range subs {
 		adjustedMax := uint64(0)
 		s.mu.Lock()
 		// when resending subscriptions, the permissions error should be cleared
@@ -6018,11 +6109,11 @@ func (nc *Conn) resendSubscriptions() {
 			// reached the max, if so unsubscribe.
 			if adjustedMax == 0 {
 				s.mu.Unlock()
-				nc.bw.writeDirect(fmt.Sprintf(unsubProto, s.sid, _EMPTY_))
+				nc.bw.writeDirect(fmt.Sprintf(unsubProto, sid, _EMPTY_))
 				continue
 			}
 		}
-		subj, queue, sid := s.Subject, s.Queue, s.sid
+		subj, queue := s.Subject, s.Queue
 		s.mu.Unlock()
 
 		nc.bw.writeDirect(fmt.Sprintf(subProto, subj, queue, sid))
@@ -6215,6 +6306,7 @@ func (nc *Conn) drainConnection() {
 		return
 	}
 
+	nc.subsMu.RLock()
 	subs := make([]*Subscription, 0, len(nc.subs))
 	for _, s := range nc.subs {
 		if s == nc.respMux {
@@ -6224,6 +6316,7 @@ func (nc *Conn) drainConnection() {
 		}
 		subs = append(subs, s)
 	}
+	nc.subsMu.RUnlock()
 	errCB := nc.Opts.AsyncErrorCB
 	drainWait := nc.Opts.DrainTimeout
 	respMux := nc.respMux
