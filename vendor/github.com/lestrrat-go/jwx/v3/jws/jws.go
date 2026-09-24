@@ -731,7 +731,20 @@ func isRegisteredUnderAnyCurve(alg jwa.SignatureAlgorithm) bool {
 	return false
 }
 
+// unsupportedKeyError builds the rejection error for a jwk.UnsupportedKey
+// placeholder that reached a cryptographic entry point. op names the
+// operation the placeholder cannot perform (e.g. "signature verification").
+// The error names the placeholder's kid and kty, and wraps the retained
+// parse error from Reason().
+func unsupportedKeyError(uk jwk.UnsupportedKey, op string) error {
+	kid, _ := uk.KeyID()
+	return fmt.Errorf(`key with kid %q has unsupported key type %q and cannot be used for %s; an extension module may be required to parse it: %w`, kid, uk.KeyType().String(), op, uk.Reason())
+}
+
 // validateAlgorithmForKey checks that alg is compatible with key.
+// A jwk.UnsupportedKey placeholder is rejected up front — before any of
+// the carve-outs below — because it carries no usable key material for
+// any algorithm, custom or built-in.
 // Three classification failures are intentionally allowed through:
 // (a) a nil key, used by keyless algorithms (see GH910);
 // (b) any key handed to an algorithm with a user-registered custom
@@ -742,6 +755,9 @@ func isRegisteredUnderAnyCurve(alg jwa.SignatureAlgorithm) bool {
 // Every other classification failure is surfaced so callers get a crisp
 // option-boundary rejection instead of a deep-stack error.
 func validateAlgorithmForKey(alg jwa.SignatureAlgorithm, key any) error {
+	if uk, ok := key.(jwk.UnsupportedKey); ok {
+		return fmt.Errorf(`jws.WithKey: %w`, unsupportedKeyError(uk, `signing or signature verification`))
+	}
 	if key == nil {
 		return nil
 	}

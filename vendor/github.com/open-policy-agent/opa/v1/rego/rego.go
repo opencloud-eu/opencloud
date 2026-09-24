@@ -122,6 +122,7 @@ type EvalContext struct {
 	printHook                   print.Hook
 	capabilities                *ast.Capabilities
 	strictBuiltinErrors         bool
+	builtinErrorList            *[]topdown.Error
 	virtualCache                topdown.VirtualCache
 	baseCache                   topdown.BaseCache
 	tracing                     tracing.Options
@@ -388,6 +389,15 @@ func EvalPrintHook(ph print.Hook) EvalOption {
 	}
 }
 
+// EvalBuiltinErrorList overrides, for this Eval call only, the list
+// built-in errors are appended to — letting a caller that evaluates the
+// same PreparedEvalQuery multiple times keep each call's errors separate.
+func EvalBuiltinErrorList(list *[]topdown.Error) EvalOption {
+	return func(e *EvalContext) {
+		e.builtinErrorList = list
+	}
+}
+
 // EvalVirtualCache sets the topdown.VirtualCache to use for evaluation.
 // This is optional, and if not set, the default cache is used.
 func EvalVirtualCache(vc topdown.VirtualCache) EvalOption {
@@ -447,8 +457,12 @@ func EvalEvaluatedRuleTracker(t *topdown.EvaluatedRuleTracker) EvalOption {
 }
 
 func (pq preparedQuery) Modules() map[string]*ast.Module {
-	mods := make(map[string]*ast.Module)
+	size := len(pq.r.parsedModules)
+	for _, b := range pq.r.bundles {
+		size += len(b.Modules)
+	}
 
+	mods := make(map[string]*ast.Module, size)
 	maps.Copy(mods, pq.r.parsedModules)
 
 	for _, b := range pq.r.bundles {
@@ -485,6 +499,7 @@ func (pq preparedQuery) newEvalContext(ctx context.Context, options []EvalOption
 		printHook:                pq.r.printHook,
 		capabilities:             pq.r.capabilities,
 		strictBuiltinErrors:      pq.r.strictBuiltinErrors,
+		builtinErrorList:         pq.r.builtinErrorList,
 		tracing:                  pq.r.distributedTracingOpts,
 	}
 
@@ -492,9 +507,7 @@ func (pq preparedQuery) newEvalContext(ctx context.Context, options []EvalOption
 		o(ectx)
 	}
 
-	if ectx.metrics == nil {
-		ectx.metrics = metrics.New()
-	}
+	ectx.metrics = util.Or(ectx.metrics, metrics.New)
 
 	if ectx.instrument {
 		ectx.instrumentation = topdown.NewInstrumentation(ectx.metrics)
@@ -527,11 +540,9 @@ func (pq preparedQuery) newEvalContext(ctx context.Context, options []EvalOption
 	}
 
 	if ectx.parsedInput == nil {
-		if ectx.rawInput == nil {
-			// Fall back to the original Rego objects input if none was specified
-			// Note that it could still be nil
-			ectx.rawInput = pq.r.rawInput
-		}
+		// Fall back to the original Rego objects input if none was specified
+		// Note that it could still be nil
+		ectx.rawInput = util.NilOr(ectx.rawInput, pq.r.rawInput)
 
 		if pq.r.targetPlugin(pq.r.target) == nil && // no plugin claims this target
 			pq.r.target != targetWasm {
@@ -597,13 +608,16 @@ func (errs Errors) Error() string {
 		return "no error"
 	}
 	if len(errs) == 1 {
-		return fmt.Sprintf("1 error occurred: %v", errs[0].Error())
+		return "1 error occurred: " + errs[0].Error()
 	}
-	buf := []string{fmt.Sprintf("%v errors occurred", len(errs))}
+	bb := new(bytes.Buffer)
+	util.WriteInt(bb, len(errs))
+	bb.WriteString(" errors occurred")
 	for _, err := range errs {
-		buf = append(buf, err.Error())
+		bb.WriteByte('\n')
+		bb.WriteString(err.Error())
 	}
-	return strings.Join(buf, "\n")
+	return bb.String()
 }
 
 var errPartialEvaluationNotEffective = errors.New("partial evaluation not effective")
@@ -1461,9 +1475,7 @@ func New(options ...func(r *Rego)) *Rego {
 		r.ownStore = false
 	}
 
-	if r.metrics == nil {
-		r.metrics = metrics.New()
-	}
+	r.metrics = util.Or(r.metrics, metrics.New)
 
 	if r.instrument {
 		r.instrumentation = topdown.NewInstrumentation(r.metrics)
@@ -1639,7 +1651,6 @@ func CompilePartial(yes bool) CompileOption {
 // Compile returns a compiled policy query.
 func (r *Rego) Compile(ctx context.Context, opts ...CompileOption) (*CompileResult, error) {
 	var cfg CompileContext
-
 	for _, opt := range opts {
 		opt(&cfg)
 	}
@@ -1648,7 +1659,6 @@ func (r *Rego) Compile(ctx context.Context, opts ...CompileOption) (*CompileResu
 	modules := make([]*ast.Module, 0, len(r.compiler.Modules))
 
 	if cfg.partial {
-
 		pq, err := r.Partial(ctx)
 		if err != nil {
 			return nil, err
@@ -1856,14 +1866,12 @@ func (r *Rego) PrepareForEval(ctx context.Context, opts ...PrepareOption) (Prepa
 			return PreparedEvalQuery{}, err
 		}
 
-		// nolint: staticcheck // SA4006 false positive
 		cr, err := r.compileWasm(modules, queries, evalQueryType)
 		if err != nil {
 			_ = txnClose(ctx, err) // Ignore error
 			return PreparedEvalQuery{}, err
 		}
 
-		// nolint: staticcheck // SA4006 false positive
 		data, err := r.store.Read(ctx, r.txn, storage.RootPath)
 		if err != nil {
 			_ = txnClose(ctx, err) // Ignore error
@@ -1942,33 +1950,27 @@ func (r *Rego) PrepareForPartial(ctx context.Context, opts ...PrepareOption) (Pr
 	return PreparedPartialQuery{preparedQuery{r, pCfg}}, err
 }
 
-func (r *Rego) prepare(ctx context.Context, qType queryType, extras []extraStage) error {
-	var err error
-
+func (r *Rego) prepare(ctx context.Context, qType queryType, extras []extraStage) (err error) {
 	r.parsedInput, err = r.parseInput()
 	if err != nil {
 		return err
 	}
 
-	err = r.loadFiles(ctx, r.txn, r.metrics)
-	if err != nil {
+	if err := r.loadFiles(ctx, r.txn, r.metrics); err != nil {
 		return err
 	}
 
-	err = r.loadBundles(ctx, r.txn, r.metrics)
-	if err != nil {
+	if err := r.loadBundles(ctx, r.txn, r.metrics); err != nil {
 		return err
 	}
 
-	err = r.parseModules(ctx, r.txn, r.metrics)
-	if err != nil {
+	if err := r.parseModules(ctx, r.txn, r.metrics); err != nil {
 		return err
 	}
 
 	// Compile the modules *before* the query, else functions
 	// defined in the module won't be found...
-	err = r.compileModules(ctx, r.txn, r.metrics)
-	if err != nil {
+	if err := r.compileModules(ctx, r.txn, r.metrics); err != nil {
 		return err
 	}
 
@@ -1977,7 +1979,7 @@ func (r *Rego) prepare(ctx context.Context, qType queryType, extras []extraStage
 		return err
 	}
 
-	queryImports := []*ast.Import{}
+	var queryImports []*ast.Import
 	for _, imp := range imports {
 		path := imp.Path.Value.(ast.Ref)
 		if path.HasPrefix([]*ast.Term{ast.FutureRootDocument}) || path.HasPrefix([]*ast.Term{ast.RegoRootDocument}) {
@@ -1985,17 +1987,11 @@ func (r *Rego) prepare(ctx context.Context, qType queryType, extras []extraStage
 		}
 	}
 
-	r.parsedQuery, err = r.parseQuery(queryImports, r.metrics)
-	if err != nil {
+	if r.parsedQuery, err = r.parseQuery(queryImports, r.metrics); err != nil {
 		return err
 	}
 
-	err = r.compileAndCacheQuery(qType, r.parsedQuery, imports, r.metrics, extras)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return r.compileAndCacheQuery(qType, r.parsedQuery, imports, r.metrics, extras)
 }
 
 func (r *Rego) parseModules(ctx context.Context, txn storage.Transaction, m metrics.Metrics) error {
@@ -2196,7 +2192,6 @@ func (r *Rego) compileModules(ctx context.Context, txn storage.Transaction, m me
 
 	// Only compile again if there are new modules.
 	if len(r.bundles) > 0 || len(r.parsedModules) > 0 {
-
 		// The bundle.Activate call will activate any bundles passed in
 		// (ie compile + handle data store changes), and include any of
 		// the additional modules passed in. If no bundles are provided
@@ -2204,18 +2199,20 @@ func (r *Rego) compileModules(ctx context.Context, txn storage.Transaction, m me
 		// Use this as the single-point of compiling everything only a
 		// single time.
 		opts := &bundle.ActivateOpts{
-			Ctx:           ctx,
-			Store:         r.store,
-			Txn:           txn,
-			Compiler:      r.compilerForTxn(ctx, r.store, txn),
-			Metrics:       m,
-			Bundles:       r.bundles,
-			ExtraModules:  r.parsedModules,
-			ParserOptions: ast.ParserOptions{RegoVersion: r.regoVersion},
+			Ctx:          ctx,
+			Store:        r.store,
+			Txn:          txn,
+			Compiler:     r.compilerForTxn(ctx, r.store, txn),
+			Metrics:      m,
+			Bundles:      r.bundles,
+			ExtraModules: r.parsedModules,
+			ParserOptions: ast.ParserOptions{
+				RegoVersion:  r.regoVersion,
+				Capabilities: r.capabilities,
+			},
 		}
-		err := bundle.Activate(opts)
-		if err != nil {
-			return err
+		if err := bundle.Activate(opts); err != nil {
+			return fmt.Errorf("bundle activation failed: %w", err)
 		}
 	}
 
@@ -2261,11 +2258,13 @@ func (r *Rego) prepareImports() ([]*ast.Import, error) {
 	imports := r.parsedImports
 
 	if len(r.imports) > 0 {
-		s := make([]string, len(r.imports))
+		var sb strings.Builder
 		for i := range r.imports {
-			s[i] = fmt.Sprintf("import %v", r.imports[i])
+			sb.WriteString("import ")
+			sb.WriteString(r.imports[i])
+			sb.WriteByte('\n')
 		}
-		parsed, err := ast.ParseImports(strings.Join(s, "\n"))
+		parsed, err := ast.ParseImports(sb.String())
 		if err != nil {
 			return nil, err
 		}
@@ -2337,7 +2336,7 @@ func (r *Rego) eval(ctx context.Context, ectx *EvalContext) (ResultSet, error) {
 		WithInterQueryBuiltinCache(ectx.interQueryBuiltinCache).
 		WithInterQueryBuiltinValueCache(ectx.interQueryBuiltinValueCache).
 		WithStrictBuiltinErrors(r.strictBuiltinErrors).
-		WithBuiltinErrorList(r.builtinErrorList).
+		WithBuiltinErrorList(ectx.builtinErrorList).
 		WithSeed(ectx.seed).
 		WithPrintHook(ectx.printHook).
 		WithDistributedTracingOpts(r.distributedTracingOpts).
@@ -2818,12 +2817,11 @@ func (*Rego) rewriteQueryForPartialEval(_ ast.QueryCompiler, query ast.Body) (as
 // where rewriting them can substantially simplify the result, and it is unlikely
 // that the caller would need expression values.
 func (*Rego) rewriteEqualsForPartialQueryCompile(_ ast.QueryCompiler, query ast.Body) (ast.Body, error) {
-	doubleEq := ast.Equal.Ref()
 	unifyOp := ast.Equality.Ref()
 	ast.WalkExprs(query, func(x *ast.Expr) bool {
 		if x.IsCall() {
 			operator := x.Operator()
-			if operator.Equal(doubleEq) && len(x.Operands()) == 2 {
+			if operator.Equal(ast.Interned.Refs.Equal) && len(x.Operands()) == 2 {
 				x.SetOperator(ast.NewTerm(unifyOp))
 			}
 		}
@@ -3026,9 +3024,8 @@ func parseStringsToRefs(s []string) ([]ast.Ref, error) {
 // was defined.
 func finishFunction(name string, bctx topdown.BuiltinContext, result *ast.Term, err error, iter func(*ast.Term) error) error {
 	if err != nil {
-		var e *HaltError
 		sb := strings.Builder{}
-		if errors.As(err, &e) {
+		if e, ok := errors.AsType[*HaltError](err); ok {
 			sb.Grow(len(name) + len(e.Error()) + 2)
 			sb.WriteString(name)
 			sb.WriteString(": ")

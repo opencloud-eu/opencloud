@@ -517,7 +517,7 @@ OUTER:
 // the token.
 //
 // For well-known algorithms with no special considerations (e.g. detached
-// payloads, extra protected heders, etc), this function will automatically
+// payloads, extra protected headers, etc), this function will automatically
 // take the fast path and bypass the jws.Sign() machinery, which improves
 // performance significantly.
 //

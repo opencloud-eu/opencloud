@@ -55,6 +55,7 @@ go_test(
         "options_gen_test.go",
         "signer_test.go",
         "streaming_detached_test.go",
+        "unsupported_key_test.go",
     ],
     embed = [":jws"],
     deps = [

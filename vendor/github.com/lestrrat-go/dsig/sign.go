@@ -14,10 +14,34 @@ import (
 // rr is an io.Reader that provides randomness for signing. If rr is nil, it defaults to rand.Reader.
 // Not all algorithms require this parameter, but it is included for consistency.
 // 99% of the time, you can pass nil for rr, and it will work fine.
+//
+// Deprecated in spirit: in the next major release of dsig (v2), the
+// signature of Sign will change to match [SignWithOpts], i.e. it will
+// accept an additional [crypto.SignerOpts] parameter immediately before
+// rr. Callers that need to pass per-call options today should use
+// [SignWithOpts]; callers that do not can keep using Sign and migrate
+// when v2 ships by threading a nil opts argument through at the call
+// site.
 func Sign(key any, alg string, payload []byte, rr io.Reader) ([]byte, error) {
+	return SignWithOpts(key, alg, payload, nil, rr)
+}
+
+// SignWithOpts is like [Sign] but threads an optional [crypto.SignerOpts]
+// through to the underlying signer. For built-in families (HMAC, RSA,
+// ECDSA, EdDSA) the opts argument is ignored — those algorithms have no
+// per-call options the dsig layer understands. For Custom-family
+// algorithms whose Meta implements [SignerWithOpts], the opts are
+// forwarded; otherwise the plain [Signer.Sign] method is called and
+// opts are dropped.
+//
+// This function exists as a transitional API. In the next major release
+// of dsig (v2) it will be removed and its signature will become the
+// canonical shape of [Sign]. Code that uses SignWithOpts today will need
+// a mechanical rename to Sign (and nothing else) when v2 ships.
+func SignWithOpts(key any, alg string, payload []byte, opts crypto.SignerOpts, rr io.Reader) ([]byte, error) {
 	info, ok := GetAlgorithmInfo(alg)
 	if !ok {
-		return nil, fmt.Errorf(`dsig.Sign: unsupported signature algorithm %q`, alg)
+		return nil, fmt.Errorf(`dsig.SignWithOpts: unsupported signature algorithm %q`, alg)
 	}
 
 	switch info.Family {
@@ -30,9 +54,9 @@ func Sign(key any, alg string, payload []byte, rr io.Reader) ([]byte, error) {
 	case EdDSAFamily:
 		return dispatchEdDSASign(key, info, payload, rr)
 	case Custom:
-		return dispatchCustomSign(key, info, payload, rr)
+		return dispatchCustomSign(key, info, payload, opts, rr)
 	default:
-		return nil, fmt.Errorf(`dsig.Sign: unsupported signature family %q`, info.Family)
+		return nil, fmt.Errorf(`dsig.SignWithOpts: unsupported signature family %q`, info.Family)
 	}
 }
 
@@ -100,7 +124,10 @@ func dispatchECDSASign(key any, info AlgorithmInfo, payload []byte, rr io.Reader
 	return SignECDSA(privkey, payload, meta.Hash, rr)
 }
 
-func dispatchCustomSign(key any, info AlgorithmInfo, payload []byte, rr io.Reader) ([]byte, error) {
+func dispatchCustomSign(key any, info AlgorithmInfo, payload []byte, opts crypto.SignerOpts, rr io.Reader) ([]byte, error) {
+	if signer, ok := info.Meta.(SignerWithOpts); ok {
+		return signer.SignWithOpts(key, payload, opts, rr)
+	}
 	signer, ok := info.Meta.(Signer)
 	if !ok {
 		return nil, fmt.Errorf(`dsig.Sign: algorithm has no signer registered`)
@@ -121,6 +148,14 @@ func dispatchCustomSign(key any, info AlgorithmInfo, payload []byte, rr io.Reade
 //
 // rr is an io.Reader that provides randomness for signing. If rr is nil,
 // it defaults to rand.Reader.
+//
+// Deprecated in spirit: in the next major release of dsig (v2), the
+// signature of SignDigest will gain a [crypto.SignerOpts] parameter to
+// align with [Sign]. No SignDigestWithOpts shim exists in v1 because
+// Custom-family algorithms (the only ones that would benefit from
+// per-call opts) are rejected outright today; once a DigestSigner
+// interface for the Custom family is added, the opts parameter will
+// appear at the same time.
 func SignDigest(key any, alg string, digest []byte, rr io.Reader) ([]byte, error) {
 	info, ok := GetAlgorithmInfo(alg)
 	if !ok {

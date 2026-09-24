@@ -4,6 +4,32 @@ Changes
 v3 has many incompatibilities with v2. To see the full list of differences between
 v2 and v3, please read the Changes-v3.md file (https://github.com/lestrrat-go/jwx/blob/develop/v3/Changes-v3.md)
 
+v3.2.0 27 Jul 2026
+  * [jwe] Correct the JSON `"aad"` member so it contains only
+    BASE64URL of the external Additional Authenticated Data, rather than the
+    combined value used as the content-encryption AAD. Add
+    `jwe.WithAuthenticateData` for encrypting JSON JWEs with external AAD;
+    the value is included in the shared AEAD input for all recipients, and
+    compact serialization rejects non-empty external AAD. (#2276, #2278)
+
+  * [jwk] Added opt-in retention of unparseable JWK Set entries. Passing
+    `jwk.WithStrictKeySetParsing(false)` to `jwk.Parse` (or setting it
+    globally via `jwk.Configure`) keeps an entry whose key type is not
+    understood — for example a post-quantum key published alongside
+    classical keys — as a `jwk.UnsupportedKey` placeholder instead of
+    failing the whole set (RFC 7517 §5). The placeholder preserves the
+    entry's original JSON (marshaling round-trips losslessly) and the
+    parse error via `Reason()`; use `jwk.IsUnsupportedKey` to detect one.
+    The default is unchanged: v3 still fails the whole set on the first
+    unparseable entry, so existing callers see no difference. The same
+    option exists in v4 with the opposite default (v4 retains by
+    default, v3 stays strict by default); call sites that pass the
+    option explicitly keep the same meaning across the v3→v4 migration.
+    Placeholders
+    are rejected by `jws`/`jwe` key selection, `jwk.Export`,
+    `jwk.AssignKeyID`, and `jwk.PublicSetOf` (which accepts a new
+    `jwk.WithOmitUnsupportedKeys(true)` to drop them). (#2263)
+
 v3.1.1 7 May 2026
   * [jws] Coordinated RFC 7797 `b64=false` handling pass: `jws.Verify`
     rejects payloads with `b64=false` unless `b64` is also listed in

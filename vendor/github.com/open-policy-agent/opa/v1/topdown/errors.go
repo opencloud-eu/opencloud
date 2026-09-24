@@ -6,6 +6,7 @@ package topdown
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/open-policy-agent/opa/v1/ast"
 	"github.com/open-policy-agent/opa/v1/util"
@@ -72,8 +73,7 @@ func IsCancel(err error) bool {
 
 // Is allows matching topdown errors using errors.Is (see IsCancel).
 func (e *Error) Is(target error) bool {
-	var t *Error
-	if errors.As(target, &t) {
+	if t, ok := errors.AsType[*Error](target); ok {
 		return (t.Code == "" || e.Code == t.Code) &&
 			(t.Message == "" || e.Message == t.Message) &&
 			(t.Location == nil || t.Location.Compare(e.Location) == 0)
@@ -151,6 +151,18 @@ func mergeConflictErr(loc *ast.Location) error {
 		Code:     WithMergeErr,
 		Location: loc,
 		Message:  "real and replacement data could not be merged",
+	}
+}
+
+// unevaluatedOperandErr is returned when a built-in function would have been
+// called with an operand that requires evaluation, which indicates a bug in OPA
+// rather than in the policy being evaluated.
+func unevaluatedOperandErr(loc *ast.Location, name string, pos int, operand *ast.Term) error {
+	return &Error{
+		Code:     InternalErr,
+		Location: loc,
+		Message: "built-in function " + name + " called with operand " + strconv.Itoa(pos) +
+			" that requires evaluation: " + operand.String(),
 	}
 }
 
