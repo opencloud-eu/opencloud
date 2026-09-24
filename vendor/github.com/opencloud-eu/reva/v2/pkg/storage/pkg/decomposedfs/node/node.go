@@ -1572,7 +1572,7 @@ func (n *Node) RevertCurrentRevision(ctx context.Context) error {
 		return nil
 	}
 
-	revisionID := strings.TrimPrefix(versionPath, n.InternalPath()+RevisionIDDelimiter)
+	revisionID := strings.TrimPrefix(versionPath, n.lu.VersionPath(n.SpaceID, n.ID, ""))
 	versionNode := NewBaseNode(n.SpaceID, n.ID+RevisionIDDelimiter+revisionID, n.lu)
 	if err := n.lu.CopyMetadata(ctx, versionNode, n, func(attributeName string, value []byte) (newValue []byte, copy bool) {
 		return value, strings.HasPrefix(attributeName, prefixes.ChecksumPrefix) ||
@@ -1601,8 +1601,8 @@ func (n *Node) RevertCurrentRevision(ctx context.Context) error {
 }
 
 func (n *Node) getLatestRevision(ctx context.Context) (string, error) {
-	revPrefix := n.InternalPath() + RevisionIDDelimiter
-	revisions, err := filepath.Glob(revPrefix + "*")
+	revPrefix := n.lu.VersionPath(n.SpaceID, n.ID, "")
+	revisions, err := filepath.Glob(n.lu.VersionPath(n.SpaceID, n.ID, "*"))
 	if err != nil {
 		appctx.GetLogger(ctx).Error().Str("nodepath", n.InternalPath()).Err(err).Msg("error reading revisions")
 		return "", err
