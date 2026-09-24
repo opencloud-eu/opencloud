@@ -758,8 +758,8 @@ github.com/lestrrat-go/option/v2 v2.0.0 h1:XxrcaJESE1fokHy3FpaQ/cXW8ZsIdWcdFzzLO
 github.com/lestrrat-go/option/v2 v2.0.0/go.mod h1:oSySsmzMoR0iRzCDCaUfsCzxQHUEuhOViQObyy7S6Vg=
 github.com/libregraph/idm v0.5.0 h1:tDMwKbAOZzdeDYMxVlY5PbSqRKO7dbAW9KT42A51WSk=
 github.com/libregraph/idm v0.5.0/go.mod h1:BGMwIQ/6orJSPVzJ1x6kgG2JyG9GY05YFmbsnaD80k0=
-github.com/libregraph/lico v0.67.0 h1:qsVjDVHyEGZxrKU9PEsdim7aKnEz5CVtG3VAbZ77hFU=
-github.com/libregraph/lico v0.67.0/go.mod h1:kvfaHXyIlualEubTKszOizY65oGasC1oHmFpfQt4ugQ=
+github.com/libregraph/lico v0.68.0 h1:vzyxmawdWNEtLYV1GRhudZ4Kd78Hn9sZYdOpfyouFfk=
+github.com/libregraph/lico v0.68.0/go.mod h1:QTteGTUpRjYdOyVatgF1NhOItrLbm5whJwm90ddy4UE=
 github.com/libregraph/oidc-go v1.1.0 h1:RyudjL3UyQblqeBQI06W53PniWobqODeeyAy6v/HumA=
 github.com/libregraph/oidc-go v1.1.0/go.mod h1:qW9ubcXvZrfbbWZBaLMuk7bt5qAUMYyt9/NtXQt07Cw=
 github.com/linode/linodego v0.25.3/go.mod h1:GSBKPpjoQfxEfryoCRcgkuUOCuVtGHWhzI8OMdycNTE=
