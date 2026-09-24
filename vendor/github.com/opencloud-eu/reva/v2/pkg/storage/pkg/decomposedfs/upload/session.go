@@ -80,17 +80,10 @@ func (session *DecomposedFsSession) executantUser() *userpb.User {
 }
 
 // Purge deletes the upload session metadata and written binary data
-func (session *DecomposedFsSession) Purge(ctx context.Context) error {
+func (session *DecomposedFsSession) Purge(ctx context.Context) {
 	_, span := tracer.Start(ctx, "Purge")
 	defer span.End()
-	sessionPath := sessionPath(session.store.root, session.info.ID)
-	if err := os.Remove(sessionPath); err != nil {
-		return err
-	}
-	if err := os.Remove(session.binPath()); err != nil {
-		return err
-	}
-	return nil
+	session.Cleanup(true, true, true, true)
 }
 
 // TouchBin creates a file to contain the binary data. It's size will be used to keep track of the tus upload offset.
@@ -108,9 +101,9 @@ func (session *DecomposedFsSession) TouchBin() error {
 func (session *DecomposedFsSession) Persist(ctx context.Context) error {
 	_, span := tracer.Start(ctx, "Persist")
 	defer span.End()
-	sessionPath := sessionPath(session.store.root, session.info.ID)
+	infoPath := session.infoPath()
 	// create folder structure (if needed)
-	if err := os.MkdirAll(filepath.Dir(sessionPath), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(infoPath), 0700); err != nil {
 		return err
 	}
 
@@ -119,7 +112,7 @@ func (session *DecomposedFsSession) Persist(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return renameio.WriteFile(sessionPath, d, 0600)
+	return renameio.WriteFile(infoPath, d, 0600)
 }
 
 // ToFileInfo returns tus compatible FileInfo so the tus handler can access the upload offset
@@ -321,6 +314,11 @@ func (session *DecomposedFsSession) IsProcessing() bool {
 // binPath returns the path to the file storing the binary data.
 func (session *DecomposedFsSession) binPath() string {
 	return filepath.Join(session.store.root, "uploads", session.info.ID)
+}
+
+// infoPath returns the path to the .info file storing the file's info.
+func (session *DecomposedFsSession) infoPath() string {
+	return sessionPath(session.store.root, session.info.ID)
 }
 
 // InitiatorID returns the id of the initiating client

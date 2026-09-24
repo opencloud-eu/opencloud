@@ -21,7 +21,6 @@ package loader
 import (
 	// Load core storage filesystem backends.
 	_ "github.com/opencloud-eu/reva/v2/pkg/ocm/storage/received"
-	_ "github.com/opencloud-eu/reva/v2/pkg/storage/fs/cephfs"
 	_ "github.com/opencloud-eu/reva/v2/pkg/storage/fs/decomposed"
 	_ "github.com/opencloud-eu/reva/v2/pkg/storage/fs/decomposeds3"
 	_ "github.com/opencloud-eu/reva/v2/pkg/storage/fs/eos"

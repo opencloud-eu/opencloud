@@ -102,7 +102,7 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 			renderJson, _ := cmd.Flags().GetBool("json")
 
 			var stream events.Stream
-			if restart || resume {
+			if restart || resume || clean {
 				stream, err = event.NewStream(cfg)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "Failed to create event stream: %v\n", err)
@@ -118,7 +118,7 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 
 			var (
 				table *tablewriter.Table
-				raw   []Session
+				raw   []*Session
 			)
 
 			if !renderJson {
@@ -148,7 +148,7 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 				}
 
 				if renderJson {
-					raw = append(raw, session)
+					raw = append(raw, &session)
 				} else {
 					table.Append([]string{
 						session.Space,
@@ -188,8 +188,13 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 					}
 
 				case clean:
-					if err := u.Purge(cmd.Context()); err != nil {
-						fmt.Fprintf(os.Stderr, "Failed to clean upload session '%s'\n", u.ID())
+					if err := events.Publish(context.Background(), stream, events.CleanUpload{
+						UploadID:  u.ID(),
+						Timestamp: utils.TSNow(),
+					}); err != nil {
+						fmt.Fprintf(os.Stderr, "Failed to send clean upload event for upload session '%s'\n", u.ID())
+						// if publishing fails there is no need to try publishing other events - they will fail too.
+						os.Exit(1)
 					}
 				}
 

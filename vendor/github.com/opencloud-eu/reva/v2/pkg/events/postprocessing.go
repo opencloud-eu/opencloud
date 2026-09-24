@@ -224,3 +224,17 @@ func (RestartPostprocessing) Unmarshal(v []byte) (interface{}, error) {
 	err := json.Unmarshal(v, &e)
 	return e, err
 }
+
+// CleanUpload can be emitted to clean a specific upload
+type CleanUpload struct {
+	UploadID   string
+	KeepUpload bool
+	Timestamp  *types.Timestamp
+}
+
+// Unmarshal to fulfill umarshaller interface
+func (CleanUpload) Unmarshal(v []byte) (interface{}, error) {
+	e := CleanUpload{}
+	err := json.Unmarshal(v, &e)
+	return e, err
+}

@@ -375,17 +375,20 @@ func (t *Tree) ListFolder(ctx context.Context, n *node.Node) ([]*node.Node, erro
 				if nodeID == "" {
 					nodeID, err = node.ReadChildNodeFromLink(ctx, path)
 					if err != nil {
-						return err
+						appctx.GetLogger(ctx).Error().Err(err).Str("path", path).Msg("cannot read node from link")
+						continue
 					}
 					err = storeNodeIDInCache(ctx, path, nodeID, t.idCache)
 					if err != nil {
-						return err
+						appctx.GetLogger(ctx).Warn().Err(err).Str("node", nodeID).Msg("cannot store node in the cache")
+						// failing to write in the cache is fine because we can keep going
 					}
 				}
 
 				child, err := node.ReadNode(ctx, t.lookup, n.SpaceID, nodeID, "", false, n.SpaceRoot, true)
 				if err != nil {
-					return err
+					appctx.GetLogger(ctx).Error().Err(err).Str("node", nodeID).Msg("cannot read node")
+					continue
 				}
 
 				// prevent listing denied resources

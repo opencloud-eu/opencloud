@@ -211,6 +211,21 @@ func (s *service) CreateShare(ctx context.Context, req *collaboration.CreateShar
 		}, nil
 	}
 
+	// guest shares (shares to a mail address) require an additional permission
+	if req.GetGrant().GetGrantee().GetUserId().GetType() == userpb.UserType_USER_TYPE_GUEST {
+		ok, err := utils.CheckPermission(ctx, permission.GuestMailWrite, gatewayClient)
+		if err != nil {
+			return &collaboration.CreateShareResponse{
+				Status: status.NewInternal(ctx, "failed check user permission to invite guests"),
+			}, err
+		}
+		if !ok {
+			return &collaboration.CreateShareResponse{
+				Status: status.NewPermissionDenied(ctx, nil, "no permission to invite guests"),
+			}, nil
+		}
+	}
+
 	// use logged in user Idp as default, if the Grantee does not have an IDP set.
 	if req.GetGrant().GetGrantee().GetType() == provider.GranteeType_GRANTEE_TYPE_USER && req.GetGrant().GetGrantee().GetUserId().GetIdp() == "" {
 		req.GetGrant().GetGrantee().Id = &provider.Grantee_UserId{
@@ -521,6 +536,21 @@ func (s *service) UpdateShare(ctx context.Context, req *collaboration.UpdateShar
 		return &collaboration.UpdateShareResponse{
 			Status: st,
 		}, nil
+	}
+
+	// guest shares (shares to a mail address) require an additional permission
+	if currentShare.GetGrantee().GetUserId().GetType() == userpb.UserType_USER_TYPE_GUEST {
+		ok, err := utils.CheckPermission(ctx, permission.GuestMailWrite, gatewayClient)
+		if err != nil {
+			return &collaboration.UpdateShareResponse{
+				Status: status.NewInternal(ctx, "failed check user permission to invite guests"),
+			}, err
+		}
+		if !ok {
+			return &collaboration.UpdateShareResponse{
+				Status: status.NewPermissionDenied(ctx, nil, "no permission to invite guests"),
+			}, nil
+		}
 	}
 
 	sRes, err := gatewayClient.Stat(ctx, &provider.StatRequest{Ref: &provider.Reference{ResourceId: currentShare.GetResourceId()}})

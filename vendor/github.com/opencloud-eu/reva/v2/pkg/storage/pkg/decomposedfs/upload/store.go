@@ -185,28 +185,6 @@ type Session interface {
 	Cleanup(revertNodeMetadata, cleanBin, cleanInfo bool)
 }
 
-// Cleanup cleans upload metadata, binary data and processing status as necessary
-func (store DecomposedFsStore) Cleanup(ctx context.Context, session Session, revertNodeMetadata, keepUpload, unmarkPostprocessing bool) {
-	ctx, span := tracer.Start(session.Context(ctx), "Cleanup")
-	defer span.End()
-	session.Cleanup(revertNodeMetadata, !keepUpload, !keepUpload)
-
-	// unset processing status
-	if unmarkPostprocessing {
-		n, err := session.Node(ctx)
-		if err != nil {
-			appctx.GetLogger(ctx).Info().Str("session", session.ID()).Err(err).Msg("could not read node")
-			return
-		}
-		// FIXME: after cleanup the node might already be deleted ...
-		if n != nil { // node can be nil when there was an error before it was created (eg. checksum-mismatch)
-			if err := n.UnmarkProcessing(ctx, session.ID()); err != nil {
-				appctx.GetLogger(ctx).Info().Str("path", n.InternalPath()).Err(err).Msg("unmarking processing failed")
-			}
-		}
-	}
-}
-
 // CreateNodeForUpload will create the target node for the Upload
 // TODO move this to the node package as NodeFromUpload?
 // should we in InitiateUpload create the node first? and then the upload?

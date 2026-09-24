@@ -83,6 +83,7 @@ var (
 		events.PostprocessingStepFinished{},
 		events.RestartPostprocessing{},
 		events.StartPostprocessingStep{},
+		events.CleanUpload{},
 	}
 )
 
@@ -112,7 +113,6 @@ type SessionStore interface {
 	SessionFromInfo(info tusd.FileInfo) *upload.DecomposedFsSession
 	List(ctx context.Context) ([]*upload.DecomposedFsSession, error)
 	Get(ctx context.Context, id string) (*upload.DecomposedFsSession, error)
-	Cleanup(ctx context.Context, session upload.Session, revertNodeMetadata, keepUpload, unmarkPostprocessing bool)
 }
 
 // Decomposedfs provides the base for decomposed filesystem implementations
@@ -308,7 +308,7 @@ func (fs *Decomposedfs) Postprocessing(ch <-chan events.Event) {
 			sublog = log.With().Str("spaceid", session.SpaceID()).Str("nodeid", session.NodeID()).Logger()
 			if !n.Exists {
 				sublog.Debug().Msg("node no longer exists")
-				fs.sessionStore.Cleanup(ctx, session, false, false, false)
+				session.Cleanup(false, true, true, false)
 				continue
 			}
 
@@ -381,7 +381,7 @@ func (fs *Decomposedfs) Postprocessing(ch <-chan events.Event) {
 				}
 			}
 
-			fs.sessionStore.Cleanup(ctx, session, revertNodeMetadata, keepUpload, unmarkPostprocessing)
+			session.Cleanup(revertNodeMetadata, !keepUpload, !keepUpload, unmarkPostprocessing)
 
 			var isVersion bool
 			if session.NodeExists() {
@@ -449,6 +449,14 @@ func (fs *Decomposedfs) Postprocessing(ch <-chan events.Event) {
 			}); err != nil {
 				sublog.Error().Err(err).Msg("Failed to publish BytesReceived event")
 			}
+		case events.CleanUpload:
+			sublog := log.With().Str("event", "CleanUpload").Str("uploadid", ev.UploadID).Logger()
+			session, err := fs.sessionStore.Get(ctx, ev.UploadID)
+			if err != nil {
+				sublog.Error().Err(err).Msg("Failed to get upload")
+				continue // NOTE: since we can't get the upload, we can't delete the blob
+			}
+			session.Cleanup(true, !ev.KeepUpload, !ev.KeepUpload, true)
 		case events.StartPostprocessingStep:
 			sublog := log.With().Str("event", "StartPostprocessingStep").Str("uploadid", ev.UploadID).Logger()
 			if ev.UploadID == "" {
