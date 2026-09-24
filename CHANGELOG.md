@@ -33,6 +33,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/nats-io/nats.go from 1.53.1 to 1.54.0 [[#3584](https://github.com/opencloud-eu/opencloud/pull/3584)]
 - build(deps): bump github.com/onsi/gomega from 1.42.1 to 1.43.1 [[#3582](https://github.com/opencloud-eu/opencloud/pull/3582)]
 - build(deps): bump google.golang.org/grpc from 1.83.2 to 1.84.0 [[#3581](https://github.com/opencloud-eu/opencloud/pull/3581)]
 - build(deps): bump github.com/beevik/etree from 1.7.1 to 1.8.0 [[#3583](https://github.com/opencloud-eu/opencloud/pull/3583)]
