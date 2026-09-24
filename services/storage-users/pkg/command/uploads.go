@@ -333,7 +333,7 @@ func buildInfo(filter storage.UploadSessionFilter) string {
 func DeleteStaleProcessingNodes(cfg *config.Config) *cobra.Command {
 	deleteStaleNodesCmd := &cobra.Command{
 		Use:   "delete-stale-nodes",
-		Short: "Delete all nodes in processing state that are not referenced by any upload session",
+		Short: "Delete (or revert) all nodes in processing state that are not referenced by any upload session",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
