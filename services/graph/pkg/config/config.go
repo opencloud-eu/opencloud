@@ -38,7 +38,7 @@ type Config struct {
 	Keycloak       Keycloak       `yaml:"keycloak"`
 	ServiceAccount ServiceAccount `yaml:"service_account"`
 
-	MachineAuthAPIKey string `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY;GRAPH_MACHINE_AUTH_API_KEY" desc:"Machine auth API key used to validate internal requests necessary for the access to resources from other services." introductionVersion:"7.5.0" mask:"password"`
+	MachineAuthAPIKey string `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY;GRAPH_MACHINE_AUTH_API_KEY,file" desc:"Machine auth API key used to validate internal requests necessary for the access to resources from other services." introductionVersion:"7.5.0" mask:"password"`
 
 	Context context.Context `yaml:"-"`
 
@@ -70,7 +70,7 @@ type LDAP struct {
 	CACert             string `yaml:"cacert" env:"OC_LDAP_CACERT;GRAPH_LDAP_CACERT" desc:"Path/File name for the root CA certificate (in PEM format) used to validate TLS server certificates of the LDAP service. If not defined, the root directory derives from $OC_BASE_DATA_PATH/idm." introductionVersion:"1.0.0"`
 	Insecure           bool   `yaml:"insecure" env:"OC_LDAP_INSECURE;GRAPH_LDAP_INSECURE" desc:"Disable TLS certificate validation for the LDAP connections. Do not set this in production environments." introductionVersion:"1.0.0"`
 	BindDN             string `yaml:"bind_dn" env:"OC_LDAP_BIND_DN;GRAPH_LDAP_BIND_DN" desc:"LDAP DN to use for simple bind authentication with the target LDAP server." introductionVersion:"1.0.0"`
-	BindPassword       string `yaml:"bind_password" env:"OC_LDAP_BIND_PASSWORD;GRAPH_LDAP_BIND_PASSWORD" desc:"Password to use for authenticating the 'bind_dn'." introductionVersion:"1.0.0"`
+	BindPassword       string `yaml:"bind_password" env:"OC_LDAP_BIND_PASSWORD;GRAPH_LDAP_BIND_PASSWORD,file" desc:"Password to use for authenticating the 'bind_dn'." introductionVersion:"1.0.0"`
 	UseServerUUID      bool   `yaml:"use_server_uuid" env:"GRAPH_LDAP_SERVER_UUID" desc:"If set to true, rely on the LDAP Server to generate a unique ID for users and groups, like when using 'entryUUID' as the user ID attribute." introductionVersion:"1.0.0"`
 	UsePasswordModExOp bool   `yaml:"use_password_modify_exop" env:"GRAPH_LDAP_SERVER_USE_PASSWORD_MODIFY_EXOP" desc:"Use the 'Password Modify Extended Operation' for updating user passwords." introductionVersion:"1.0.0"`
 	WriteEnabled       bool   `yaml:"write_enabled" env:"OC_LDAP_SERVER_WRITE_ENABLED;GRAPH_LDAP_SERVER_WRITE_ENABLED" desc:"Allow creating, modifying and deleting LDAP users via the GRAPH API. This can only be set to 'true' when keeping default settings for the LDAP user and group attribute types (the 'OC_LDAP_USER_SCHEMA_* and 'OC_LDAP_GROUP_SCHEMA_* variables)." introductionVersion:"1.0.0"`
@@ -149,7 +149,7 @@ type Events struct {
 	TLSRootCACertificate string `yaml:"tls_root_ca_certificate" env:"OC_EVENTS_TLS_ROOT_CA_CERTIFICATE;GRAPH_EVENTS_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided GRAPH_EVENTS_TLS_INSECURE will be seen as false." introductionVersion:"1.0.0"`
 	EnableTLS            bool   `yaml:"enable_tls" env:"OC_EVENTS_ENABLE_TLS;GRAPH_EVENTS_ENABLE_TLS" desc:"Enable TLS for the connection to the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	AuthUsername         string `yaml:"username" env:"OC_EVENTS_AUTH_USERNAME;GRAPH_EVENTS_AUTH_USERNAME" desc:"The username to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
-	AuthPassword         string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD;GRAPH_EVENTS_AUTH_PASSWORD" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
+	AuthPassword         string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD;GRAPH_EVENTS_AUTH_PASSWORD,file" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 }
 
 func (e Events) ToNatsConfig() stream.NatsConfig {
@@ -176,7 +176,7 @@ type CORS struct {
 type Keycloak struct {
 	BasePath           string `yaml:"base_path" env:"OC_KEYCLOAK_BASE_PATH;GRAPH_KEYCLOAK_BASE_PATH" desc:"The URL to access keycloak." introductionVersion:"1.0.0"`
 	ClientID           string `yaml:"client_id" env:"OC_KEYCLOAK_CLIENT_ID;GRAPH_KEYCLOAK_CLIENT_ID" desc:"The client id to authenticate with keycloak." introductionVersion:"1.0.0"`
-	ClientSecret       string `yaml:"client_secret" env:"OC_KEYCLOAK_CLIENT_SECRET;GRAPH_KEYCLOAK_CLIENT_SECRET" desc:"The client secret to use in authentication." introductionVersion:"1.0.0"`
+	ClientSecret       string `yaml:"client_secret" env:"OC_KEYCLOAK_CLIENT_SECRET;GRAPH_KEYCLOAK_CLIENT_SECRET,file" desc:"The client secret to use in authentication." introductionVersion:"1.0.0"`
 	ClientRealm        string `yaml:"client_realm" env:"OC_KEYCLOAK_CLIENT_REALM;GRAPH_KEYCLOAK_CLIENT_REALM" desc:"The realm the client is defined in." introductionVersion:"1.0.0"`
 	UserRealm          string `yaml:"user_realm" env:"OC_KEYCLOAK_USER_REALM;GRAPH_KEYCLOAK_USER_REALM" desc:"The realm users are defined." introductionVersion:"1.0.0"`
 	InsecureSkipVerify bool   `yaml:"insecure_skip_verify" env:"OC_KEYCLOAK_INSECURE_SKIP_VERIFY;GRAPH_KEYCLOAK_INSECURE_SKIP_VERIFY" desc:"Disable TLS certificate validation for Keycloak connections. Do not set this in production environments." introductionVersion:"1.0.0"`
@@ -185,7 +185,7 @@ type Keycloak struct {
 // ServiceAccount is the configuration for the used service account
 type ServiceAccount struct {
 	ServiceAccountID     string `yaml:"service_account_id" env:"OC_SERVICE_ACCOUNT_ID;GRAPH_SERVICE_ACCOUNT_ID" desc:"The ID of the service account the service should use. See the 'auth-service' service description for more details." introductionVersion:"1.0.0"`
-	ServiceAccountSecret string `yaml:"service_account_secret" env:"OC_SERVICE_ACCOUNT_SECRET;GRAPH_SERVICE_ACCOUNT_SECRET" desc:"The service account secret." introductionVersion:"1.0.0"`
+	ServiceAccountSecret string `yaml:"service_account_secret" env:"OC_SERVICE_ACCOUNT_SECRET;GRAPH_SERVICE_ACCOUNT_SECRET,file" desc:"The service account secret." introductionVersion:"1.0.0"`
 }
 
 // Metadata configures the metadata store to use
@@ -195,7 +195,7 @@ type Metadata struct {
 
 	SystemUserID     string `yaml:"system_user_id" env:"OC_SYSTEM_USER_ID;GRAPH_SYSTEM_USER_ID" desc:"ID of the OpenCloud STORAGE-SYSTEM system user. Admins need to set the ID for the STORAGE-SYSTEM system user in this config option which is then used to reference the user. Any reasonable long string is possible, preferably this would be an UUIDv4 format." introductionVersion:"4.0.0"`
 	SystemUserIDP    string `yaml:"system_user_idp" env:"OC_SYSTEM_USER_IDP;GRAPH_SYSTEM_USER_IDP" desc:"IDP of the OpenCloud STORAGE-SYSTEM system user." introductionVersion:"4.0.0"`
-	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"4.0.0"`
+	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY,file" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"4.0.0"`
 }
 
 // Store configures the store to use
@@ -203,7 +203,7 @@ type Store struct {
 	Nodes                []string `yaml:"nodes" env:"OC_PERSISTENT_STORE_NODES;GRAPH_STORE_NODES" desc:"A list of nodes to access the configured store. This has no effect when 'memory' store is configured. Note that the behaviour how nodes are used is dependent on the library of the configured store. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
 	Database             string   `yaml:"database" env:"GRAPH_STORE_DATABASE" desc:"The database name the configured store should use." introductionVersion:"1.0.0"`
 	AuthUsername         string   `yaml:"username" env:"OC_PERSISTENT_STORE_AUTH_USERNAME;GRAPH_STORE_AUTH_USERNAME" desc:"The username to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
-	AuthPassword         string   `yaml:"password" env:"OC_PERSISTENT_STORE_AUTH_PASSWORD;GRAPH_STORE_AUTH_PASSWORD" desc:"The password to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
+	AuthPassword         string   `yaml:"password" env:"OC_PERSISTENT_STORE_AUTH_PASSWORD;GRAPH_STORE_AUTH_PASSWORD,file" desc:"The password to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
 	EnableTLS            bool     `yaml:"enable_tls" env:"OC_PERSISTENT_STORE_ENABLE_TLS;GRAPH_STORE_ENABLE_TLS" desc:"Enable TLS for the connection to the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"7.3.0"`
 	TLSInsecure          bool     `yaml:"tls_insecure" env:"OC_INSECURE;OC_PERSISTENT_STORE_TLS_INSECURE;GRAPH_STORE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"7.3.0"`
 	TLSRootCACertificate string   `yaml:"tls_root_ca_certificate" env:"OC_PERSISTENT_STORE_TLS_ROOT_CA_CERTIFICATE;GRAPH_STORE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided GRAPH_STORE_TLS_INSECURE will be seen as false." introductionVersion:"7.3.0"`

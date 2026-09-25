@@ -13,7 +13,7 @@ type HTTP struct {
 	Namespace string                `yaml:"-"`
 	Root      string                `yaml:"root" env:"GRAPH_HTTP_ROOT" desc:"Subdirectory that serves as the root for this HTTP service." introductionVersion:"1.0.0"`
 	TLS       shared.HTTPServiceTLS `yaml:"tls"`
-	APIToken  string                `yaml:"apitoken" env:"GRAPH_HTTP_API_TOKEN" desc:"An optional API bearer token" introductionVersion:"1.0.0"`
+	APIToken  string                `yaml:"apitoken" env:"GRAPH_HTTP_API_TOKEN,file" desc:"An optional API bearer token" introductionVersion:"1.0.0"`
 	CORS      CORS                  `yaml:"cors"`
 	Metrics   HTTPMetrics           `yaml:"metrics"`
 }

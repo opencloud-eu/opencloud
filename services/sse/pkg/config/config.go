@@ -31,7 +31,7 @@ type Service struct {
 // Debug defines the available debug configuration.
 type Debug struct {
 	Addr   string `yaml:"addr" env:"SSE_DEBUG_ADDR" desc:"Bind address of the debug server, where metrics, health, config and debug endpoints will be exposed." introductionVersion:"1.0.0"`
-	Token  string `yaml:"token" env:"SSE_DEBUG_TOKEN" desc:"Token to secure the metrics endpoint." introductionVersion:"1.0.0"`
+	Token  string `yaml:"token" env:"SSE_DEBUG_TOKEN,file" desc:"Token to secure the metrics endpoint." introductionVersion:"1.0.0"`
 	Pprof  bool   `yaml:"pprof" env:"SSE_DEBUG_PPROF" desc:"Enables pprof, which can be used for profiling." introductionVersion:"1.0.0"`
 	Zpages bool   `yaml:"zpages" env:"SSE_DEBUG_ZPAGES" desc:"Enables zpages, which can be used for collecting and viewing in-memory traces." introductionVersion:"1.0.0"`
 }
@@ -44,7 +44,7 @@ type Events struct {
 	TLSRootCACertificate string `yaml:"tls_root_ca_certificate" env:"OC_EVENTS_TLS_ROOT_CA_CERTIFICATE;SSE_EVENTS_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided SSE_EVENTS_TLS_INSECURE will be seen as false." introductionVersion:"1.0.0"`
 	EnableTLS            bool   `yaml:"enable_tls" env:"OC_EVENTS_ENABLE_TLS;SSE_EVENTS_ENABLE_TLS" desc:"Enable TLS for the connection to the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	AuthUsername         string `yaml:"username" env:"OC_EVENTS_AUTH_USERNAME;SSE_EVENTS_AUTH_USERNAME" desc:"The username to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
-	AuthPassword         string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD;SSE_EVENTS_AUTH_PASSWORD" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
+	AuthPassword         string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD;SSE_EVENTS_AUTH_PASSWORD,file" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 }
 
 // CORS defines the available cors configuration.
@@ -66,5 +66,5 @@ type HTTP struct {
 
 // TokenManager is the config for using the reva token manager
 type TokenManager struct {
-	JWTSecret string `yaml:"jwt_secret" env:"OC_JWT_SECRET;SSE_JWT_SECRET" desc:"The secret to mint and validate jwt tokens." introductionVersion:"1.0.0"`
+	JWTSecret string `yaml:"jwt_secret" env:"OC_JWT_SECRET;SSE_JWT_SECRET,file" desc:"The secret to mint and validate jwt tokens." introductionVersion:"1.0.0"`
 }

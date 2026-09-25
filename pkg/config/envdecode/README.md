@@ -21,7 +21,7 @@ type Config struct {
 
     AWS struct {
         ID        string   `env:"AWS_ACCESS_KEY_ID"`
-        Secret    string   `env:"AWS_SECRET_ACCESS_KEY,required"`
+        Secret    string   `env:"AWS_SECRET_ACCESS_KEY,file,required"`
         SnsTopics []string `env:"AWS_SNS_TOPICS"`
     }
 
@@ -33,6 +33,14 @@ Fields _must be exported_ (i.e. begin with a capital letter) in order
 for `envdecode` to work with them. An error will be returned if a
 struct with no exported fields is decoded (including one that contains
 no `env` tags at all).
+By appending `,file` the defined environment variable(s) may be provided
+suffixed with `_FILE` which will be interpreted as a path to a file whose
+content (ignoring trailing newlines) is then decoded into the struct field. This
+is useful for sensitive values that should not be leaked into the environment.
+E.g. instead of setting the access key directly in `AWS_SECRET_ACCESS_KEY`
+securely store the access key in a file and provide the path to the file with
+`AWS_SECRET_ACCESS_KEY_FILE`. Note: the environment variable(s) not suffixed with
+`_FILE` will have precendence.
 Default values may be provided by appending ",default=value" to the
 struct tag. Required values may be marked by appending ",required" to the
 struct tag. Strict values may be marked by appending ",strict" which will

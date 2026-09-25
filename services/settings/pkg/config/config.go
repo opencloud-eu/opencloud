@@ -49,7 +49,7 @@ type Metadata struct {
 
 	SystemUserID     string `yaml:"system_user_id" env:"OC_SYSTEM_USER_ID;SETTINGS_SYSTEM_USER_ID" desc:"ID of the OpenCloud STORAGE-SYSTEM system user. Admins need to set the ID for the STORAGE-SYSTEM system user in this config option which is then used to reference the user. Any reasonable long string is possible, preferably this would be an UUIDv4 format." introductionVersion:"1.0.0"`
 	SystemUserIDP    string `yaml:"system_user_idp" env:"OC_SYSTEM_USER_IDP;SETTINGS_SYSTEM_USER_IDP" desc:"IDP of the OpenCloud STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
-	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
+	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY,file" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
 	Cache            *Cache `yaml:"cache"`
 }
 
@@ -63,7 +63,7 @@ type Cache struct {
 	TTL                  time.Duration `yaml:"ttl" env:"OC_CACHE_TTL;SETTINGS_CACHE_TTL" desc:"Default time to live for entries in the cache. Only applied when access tokens has no expiration. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
 	DisablePersistence   bool          `yaml:"disable_persistence" env:"OC_CACHE_DISABLE_PERSISTENCE;SETTINGS_CACHE_DISABLE_PERSISTENCE" desc:"Disables persistence of the cache. Only applies when store type 'nats-js-kv' is configured. Defaults to false." introductionVersion:"1.0.0"`
 	AuthUsername         string        `yaml:"username" env:"OC_CACHE_AUTH_USERNAME;SETTINGS_CACHE_AUTH_USERNAME" desc:"The username to authenticate with the cache. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
-	AuthPassword         string        `yaml:"password" env:"OC_CACHE_AUTH_PASSWORD;SETTINGS_CACHE_AUTH_PASSWORD" desc:"The password to authenticate with the cache. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
+	AuthPassword         string        `yaml:"password" env:"OC_CACHE_AUTH_PASSWORD;SETTINGS_CACHE_AUTH_PASSWORD,file" desc:"The password to authenticate with the cache. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
 	EnableTLS            bool          `yaml:"enable_tls" env:"OC_CACHE_ENABLE_TLS;SETTINGS_CACHE_ENABLE_TLS" desc:"Enable TLS for the connection to file metadata cache." introductionVersion:"7.3.0"`
 	TLSInsecure          bool          `yaml:"tls_insecure" env:"OC_INSECURE;OC_CACHE_TLS_INSECURE;SETTINGS_CACHE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"7.3.0"`
 	TLSRootCACertificate string        `yaml:"tls_root_ca_certificate" env:"OC_CACHE_TLS_ROOT_CA_CERTIFICATE;SETTINGS_CACHE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided SETTINGS_CACHE_TLS_INSECURE will be seen as false." introductionVersion:"7.3.0"`

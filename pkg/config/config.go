@@ -74,11 +74,11 @@ type Config struct {
 
 	Registry          string               `yaml:"registry"`
 	TokenManager      *shared.TokenManager `yaml:"token_manager"`
-	MachineAuthAPIKey string               `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY" desc:"Machine auth API key used to validate internal requests necessary for the access to resources from other services." introductionVersion:"1.0.0"`
-	TransferSecret    string               `yaml:"transfer_secret" env:"OC_TRANSFER_SECRET" desc:"Transfer secret for signing file up- and download requests." introductionVersion:"1.0.0"`
-	URLSigningSecret  string               `yaml:"url_signing_secret" env:"OC_URL_SIGNING_SECRET" desc:"The shared secret used to sign URLs e.g. for image downloads by the web office suite." introductionVersion:"4.0.0"`
+	MachineAuthAPIKey string               `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY,file" desc:"Machine auth API key used to validate internal requests necessary for the access to resources from other services." introductionVersion:"1.0.0"`
+	TransferSecret    string               `yaml:"transfer_secret" env:"OC_TRANSFER_SECRET,file" desc:"Transfer secret for signing file up- and download requests." introductionVersion:"1.0.0"`
+	URLSigningSecret  string               `yaml:"url_signing_secret" env:"OC_URL_SIGNING_SECRET,file" desc:"The shared secret used to sign URLs e.g. for image downloads by the web office suite." introductionVersion:"4.0.0"`
 	SystemUserID      string               `yaml:"system_user_id" env:"OC_SYSTEM_USER_ID" desc:"ID of the OpenCloud storage-system system user. Admins need to set the ID for the storage-system system user in this config option which is then used to reference the user. Any reasonable long string is possible, preferably this would be an UUIDv4 format." introductionVersion:"1.0.0"`
-	SystemUserAPIKey  string               `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY" desc:"API key for the storage-system system user." introductionVersion:"1.0.0"`
+	SystemUserAPIKey  string               `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY,file" desc:"API key for the storage-system system user." introductionVersion:"1.0.0"`
 	AdminUserID       string               `yaml:"admin_user_id" env:"OC_ADMIN_USER_ID" desc:"ID of a user, that should receive admin privileges. Consider that the UUID can be encoded in some LDAP deployment configurations like in .ldif files. These need to be decoded beforehand." introductionVersion:"1.0.0"`
 	Runtime           Runtime              `yaml:"runtime"`
 

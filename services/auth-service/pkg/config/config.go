@@ -29,7 +29,7 @@ type Service struct {
 
 type Debug struct {
 	Addr   string `yaml:"addr" env:"AUTH_SERVICE_DEBUG_ADDR" desc:"Bind address of the debug server, where metrics, health, config and debug endpoints will be exposed." introductionVersion:"1.0.0"`
-	Token  string `yaml:"token" env:"AUTH_SERVICE_DEBUG_TOKEN" desc:"Token to secure the metrics endpoint." introductionVersion:"1.0.0"`
+	Token  string `yaml:"token" env:"AUTH_SERVICE_DEBUG_TOKEN,file" desc:"Token to secure the metrics endpoint." introductionVersion:"1.0.0"`
 	Pprof  bool   `yaml:"pprof" env:"AUTH_SERVICE_DEBUG_PPROF" desc:"Enables pprof, which can be used for profiling." introductionVersion:"1.0.0"`
 	Zpages bool   `yaml:"zpages" env:"AUTH_SERVICE_DEBUG_ZPAGES" desc:"Enables zpages, which can be used for collecting and viewing in-memory traces." introductionVersion:"1.0.0"`
 }
@@ -44,5 +44,5 @@ type GRPCConfig struct {
 // ServiceAccount is the configuration for the used service account
 type ServiceAccount struct {
 	ServiceAccountID     string `yaml:"service_account_id" env:"OC_SERVICE_ACCOUNT_ID;AUTH_SERVICE_SERVICE_ACCOUNT_ID" desc:"The ID of the service account the service should use. See the 'auth-service' service description for more details." introductionVersion:"1.0.0"`
-	ServiceAccountSecret string `yaml:"service_account_secret" env:"OC_SERVICE_ACCOUNT_SECRET;AUTH_SERVICE_SERVICE_ACCOUNT_SECRET" desc:"The service account secret." introductionVersion:"1.0.0"`
+	ServiceAccountSecret string `yaml:"service_account_secret" env:OC_SERVICE_ACCOUNT_SECRET;AUTH_SERVICE_SERVICE_ACCOUNT_SECRET,file" desc:"The service account secret." introductionVersion:"1.0.0"`
 }

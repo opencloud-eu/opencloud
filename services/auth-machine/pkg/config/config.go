@@ -19,7 +19,7 @@ type Config struct {
 
 	SkipUserGroupsInToken bool `yaml:"skip_user_groups_in_token" env:"AUTH_MACHINE_SKIP_USER_GROUPS_IN_TOKEN" desc:"Disables the encoding of the user's group memberships in the reva access token. This reduces the token size, especially when users are members of a large number of groups." introductionVersion:"1.0.0"`
 
-	MachineAuthAPIKey string `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY;AUTH_MACHINE_API_KEY" desc:"Machine auth API key used to validate internal requests necessary for the access to resources from other services." introductionVersion:"1.0.0"`
+	MachineAuthAPIKey string `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY;AUTH_MACHINE_API_KEY,file" desc:"Machine auth API key used to validate internal requests necessary for the access to resources from other services." introductionVersion:"1.0.0"`
 
 	Context context.Context `yaml:"-"`
 }
@@ -30,7 +30,7 @@ type Service struct {
 
 type Debug struct {
 	Addr   string `yaml:"addr" env:"AUTH_MACHINE_DEBUG_ADDR" desc:"Bind address of the debug server, where metrics, health, config and debug endpoints will be exposed." introductionVersion:"1.0.0"`
-	Token  string `yaml:"token" env:"AUTH_MACHINE_DEBUG_TOKEN" desc:"Token to secure the metrics endpoint." introductionVersion:"1.0.0"`
+	Token  string `yaml:"token" env:"AUTH_MACHINE_DEBUG_TOKEN,file" desc:"Token to secure the metrics endpoint." introductionVersion:"1.0.0"`
 	Pprof  bool   `yaml:"pprof" env:"AUTH_MACHINE_DEBUG_PPROF" desc:"Enables pprof, which can be used for profiling." introductionVersion:"1.0.0"`
 	Zpages bool   `yaml:"zpages" env:"AUTH_MACHINE_DEBUG_ZPAGES" desc:"Enables zpages, which can be used for collecting and viewing in-memory traces." introductionVersion:"1.0.0"`
 }

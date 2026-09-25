@@ -47,7 +47,7 @@ type Events struct {
 	TLSRootCACertificate string `yaml:"tls_root_ca_certificate" env:"OC_EVENTS_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided NOTIFICATIONS_EVENTS_TLS_INSECURE will be seen as false." introductionVersion:"1.0.0"`
 	EnableTLS            bool   `yaml:"enable_tls" env:"OC_EVENTS_ENABLE_TLS" desc:"Enable TLS for the connection to the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	AuthUsername         string `yaml:"username" env:"OC_EVENTS_AUTH_USERNAME" desc:"The username to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
-	AuthPassword         string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
+	AuthPassword         string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD,file" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 }
 
 // Store configures the store to use
@@ -57,7 +57,7 @@ type Store struct {
 	Database             string        `yaml:"database" env:"ACTIVITYLOG_STORE_DATABASE" desc:"The database name the configured store should use." introductionVersion:"1.0.0"`
 	TTL                  time.Duration `yaml:"ttl" env:"OC_PERSISTENT_STORE_TTL;ACTIVITYLOG_STORE_TTL" desc:"Time to live for events in the store. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
 	AuthUsername         string        `yaml:"username" env:"OC_PERSISTENT_STORE_AUTH_USERNAME;ACTIVITYLOG_STORE_AUTH_USERNAME" desc:"The username to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
-	AuthPassword         string        `yaml:"password" env:"OC_PERSISTENT_STORE_AUTH_PASSWORD;ACTIVITYLOG_STORE_AUTH_PASSWORD" desc:"The password to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
+	AuthPassword         string        `yaml:"password" env:"OC_PERSISTENT_STORE_AUTH_PASSWORD;ACTIVITYLOG_STORE_AUTH_PASSWORD,file" desc:"The password to authenticate with the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
 	EnableTLS            bool          `yaml:"enable_tls" env:"OC_PERSISTENT_STORE_ENABLE_TLS;ACTIVITYLOG_STORE_ENABLE_TLS" desc:"Enable TLS for the connection to the store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"7.3.0"`
 	TLSInsecure          bool          `yaml:"tls_insecure" env:"OC_INSECURE;OC_PERSISTENT_STORE_TLS_INSECURE;ACTIVITYLOG_STORE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"7.3.0"`
 	TLSRootCACertificate string        `yaml:"tls_root_ca_certificate" env:"OC_PERSISTENT_STORE_TLS_ROOT_CA_CERTIFICATE;ACTIVITYLOG_STORE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided ACTIVITYLOG_STORE_TLS_INSECURE will be seen as false." introductionVersion:"7.3.0"`
@@ -66,7 +66,7 @@ type Store struct {
 // ServiceAccount is the configuration for the used service account
 type ServiceAccount struct {
 	ServiceAccountID     string `yaml:"service_account_id" env:"OC_SERVICE_ACCOUNT_ID;ACTIVITYLOG_SERVICE_ACCOUNT_ID" desc:"The ID of the service account the service should use. See the 'auth-service' service description for more details." introductionVersion:"1.0.0"`
-	ServiceAccountSecret string `yaml:"service_account_secret" env:"OC_SERVICE_ACCOUNT_SECRET;ACTIVITYLOG_SERVICE_ACCOUNT_SECRET" desc:"The service account secret." introductionVersion:"1.0.0"`
+	ServiceAccountSecret string `yaml:"service_account_secret" env:"OC_SERVICE_ACCOUNT_SECRET;ACTIVITYLOG_SERVICE_ACCOUNT_SECRET,file" desc:"The service account secret." introductionVersion:"1.0.0"`
 }
 
 // CORS defines the available cors configuration.
@@ -89,5 +89,5 @@ type HTTP struct {
 
 // TokenManager is the config for using the reva token manager
 type TokenManager struct {
-	JWTSecret string `yaml:"jwt_secret" env:"OC_JWT_SECRET;ACTIVITYLOG_JWT_SECRET" desc:"The secret to mint and validate jwt tokens." introductionVersion:"1.0.0"`
+	JWTSecret string `yaml:"jwt_secret" env:"OC_JWT_SECRET;ACTIVITYLOG_JWT_SECRET,file" desc:"The secret to mint and validate jwt tokens." introductionVersion:"1.0.0"`
 }

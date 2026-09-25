@@ -43,6 +43,15 @@ type Decoder interface {
 // containing the name of the environment variable.  An error is
 // returned if there are no exported members tagged.
 //
+// By appending `,file` the defined environment variable(s) may be provided
+// suffixed with `_FILE` which will be interpreted as a path to a file whose
+// content (ignoring trailing newlines) is then decoded into the struct field.
+// This is useful for sensitive values that should not be leaked into the
+// environment. E.g. instead of setting the access key directly in
+// `AWS_SECRET_ACCESS_KEY` securely store the access key in a file and provide
+// the path to the file with `AWS_SECRET_ACCESS_KEY_FILE`. Note: the
+// environment variable(s) not suffixed with `_FILE` will have precendence.
+//
 // Default values may be provided by appending ",default=value" to the
 // struct tag.  Required values may be marked by appending ",required"
 // to the struct tag.  It is an error to provide both "default" and
@@ -146,20 +155,11 @@ func decode(target any, strict bool) (int, error) {
 		}
 
 		parts := strings.Split(tag, ",")
-		overrides := strings.Split(parts[0], `;`)
-
-		var env string
-		var envSet bool
-		for _, override := range overrides {
-			if v, set := os.LookupEnv(override); set {
-				env = v
-				envSet = true
-			}
-		}
 
 		required := false
 		hasDefault := false
 		defaultValue := ""
+		fileEnv := false
 
 		for _, o := range parts[1:] {
 			if !required {
@@ -171,6 +171,33 @@ func decode(target any, strict bool) (int, error) {
 			}
 			if !strict {
 				strict = strings.HasPrefix(o, "strict")
+			}
+			if o == "file" {
+				fileEnv = true
+			}
+		}
+
+		overrides := strings.Split(parts[0], `;`)
+
+		var env string
+		var envSet bool
+		for _, override := range overrides {
+			if fileEnv {
+				// try environment variable suffixed with `_FILE`
+				envVariable := override + "_FILE"
+				value, set, err := readFileEnv(envVariable)
+				if err != nil {
+					return 0, err
+				}
+				if set {
+					env = value
+					envSet = true
+				}
+			}
+			// value directly in the environment has precedence over reading from file
+			if v, set := os.LookupEnv(override); set {
+				env = v
+				envSet = true
 			}
 		}
 
@@ -211,6 +238,20 @@ func decode(target any, strict bool) (int, error) {
 	}
 
 	return setFieldCount, nil
+}
+
+func readFileEnv(envVariable string) (string, bool, error) {
+	if file, set := os.LookupEnv(envVariable); set {
+		if file == "" {
+			return "", true, fmt.Errorf("no file provided: %s=", envVariable)
+		}
+		content, err := os.ReadFile(file)
+		if err != nil {
+			return "", true, fmt.Errorf("failed to read file: %s=\"%s\"", envVariable, file)
+		}
+		return strings.TrimRight(string(content), "\r\n"), true, nil
+	}
+	return "", false, nil
 }
 
 func decodeSlice(f *reflect.Value, env string) error {

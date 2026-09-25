@@ -23,7 +23,7 @@ type Config struct {
 
 	SkipUserGroupsInToken bool `yaml:"skip_user_groups_in_token" env:"AUTH_APP_SKIP_USER_GROUPS_IN_TOKEN" desc:"Disables the encoding of the user's group memberships in the access token. This reduces the token size, especially when users are members of a large number of groups." introductionVersion:"1.0.0"`
 
-	MachineAuthAPIKey string `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY;AUTH_APP_MACHINE_AUTH_API_KEY" desc:"The machine auth API key used to validate internal requests necessary to access resources from other services." introductionVersion:"1.0.0"`
+	MachineAuthAPIKey string `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY;AUTH_APP_MACHINE_AUTH_API_KEY,file" desc:"The machine auth API key used to validate internal requests necessary to access resources from other services." introductionVersion:"1.0.0"`
 
 	AllowImpersonation bool `yaml:"allow_impersonation" env:"AUTH_APP_ENABLE_IMPERSONATION" desc:"Allows admins to create app tokens for other users. Used for migration. Do NOT use in productive deployments." introductionVersion:"1.0.0"`
 
@@ -41,7 +41,7 @@ type JSONCS3Driver struct {
 	ProviderAddr             string                   `yaml:"provider_addr" env:"AUTH_APP_JSONCS3_PROVIDER_ADDR" desc:"GRPC address of the STORAGE-SYSTEM service." introductionVersion:"4.0.0"`
 	SystemUserID             string                   `yaml:"system_user_id" env:"OC_SYSTEM_USER_ID;AUTH_APP_JSONCS3_SYSTEM_USER_ID" desc:"ID of the OpenCloud STORAGE-SYSTEM system user. Admins need to set the ID for the STORAGE-SYSTEM system user in this config option which is then used to reference the user. Any reasonable long string is possible, preferably this would be an UUIDv4 format." introductionVersion:"4.0.0"`
 	SystemUserIDP            string                   `yaml:"system_user_idp" env:"OC_SYSTEM_USER_IDP;AUTH_APP_JSONCS3_SYSTEM_USER_IDP" desc:"IDP of the OpenCloud STORAGE-SYSTEM system user." introductionVersion:"4.0.0"`
-	SystemUserAPIKey         string                   `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY;AUTH_APP_JSONCS3_SYSTEM_USER_API_KEY" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"4.0.0"`
+	SystemUserAPIKey         string                   `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY;AUTH_APP_JSONCS3_SYSTEM_USER_API_KEY,file" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"4.0.0"`
 	PasswordGenerator        string                   `yaml:"password_generator" env:"AUTH_APP_JSONCS3_PASSWORD_GENERATOR" desc:"The password generator that should be used for generating app tokens. Supported values are: 'diceware' and 'random'." introductionVersion:"4.0.0"`
 	PasswordGeneratorOptions PasswordGeneratorOptions `yaml:"password_generator_options"`
 }
@@ -69,7 +69,7 @@ type Service struct {
 // Debug defines the debug configuration
 type Debug struct {
 	Addr   string `yaml:"addr" env:"AUTH_APP_DEBUG_ADDR" desc:"Bind address of the debug server, where metrics, health, config and debug endpoints will be exposed." introductionVersion:"1.0.0"`
-	Token  string `yaml:"token" env:"AUTH_APP_DEBUG_TOKEN" desc:"Token to secure the metrics endpoint." introductionVersion:"1.0.0"`
+	Token  string `yaml:"token" env:"AUTH_APP_DEBUG_TOKEN,file" desc:"Token to secure the metrics endpoint." introductionVersion:"1.0.0"`
 	Pprof  bool   `yaml:"pprof" env:"AUTH_APP_DEBUG_PPROF" desc:"Enables pprof, which can be used for profiling." introductionVersion:"1.0.0"`
 	Zpages bool   `yaml:"zpages" env:"AUTH_APP_DEBUG_ZPAGES" desc:"Enables zpages, which can  be used for collecting and viewing traces in-memory." introductionVersion:"1.0.0"`
 }

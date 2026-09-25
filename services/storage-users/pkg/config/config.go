@@ -38,7 +38,7 @@ type Config struct {
 
 	// CLI
 	RevaGatewayGRPCAddr      string `yaml:"gateway_addr" env:"OC_GATEWAY_GRPC_ADDR;STORAGE_USERS_GATEWAY_GRPC_ADDR" desc:"The bind address of the gateway GRPC address." introductionVersion:"1.0.0"`
-	MachineAuthAPIKey        string `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY;STORAGE_USERS_MACHINE_AUTH_API_KEY" desc:"Machine auth API key used to validate internal requests necessary for the access to resources from other services." introductionVersion:"1.0.0"`
+	MachineAuthAPIKey        string `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY;STORAGE_USERS_MACHINE_AUTH_API_KEY,file" desc:"Machine auth API key used to validate internal requests necessary for the access to resources from other services." introductionVersion:"1.0.0"`
 	CliMaxAttemptsRenameFile int    `yaml:"max_attempts_rename_file" env:"STORAGE_USERS_CLI_MAX_ATTEMPTS_RENAME_FILE" desc:"The maximum number of attempts to rename a file when a user restores a file to an existing destination with the same name. The minimum value is 100." introductionVersion:"1.0.0"`
 
 	Context context.Context `yaml:"-"`
@@ -52,7 +52,7 @@ type Service struct {
 // Debug is the configuration for the debug server
 type Debug struct {
 	Addr   string `yaml:"addr" env:"STORAGE_USERS_DEBUG_ADDR" desc:"Bind address of the debug server, where metrics, health, config and debug endpoints will be exposed." introductionVersion:"1.0.0"`
-	Token  string `yaml:"token" env:"STORAGE_USERS_DEBUG_TOKEN" desc:"Token to secure the metrics endpoint." introductionVersion:"1.0.0"`
+	Token  string `yaml:"token" env:"STORAGE_USERS_DEBUG_TOKEN,file" desc:"Token to secure the metrics endpoint." introductionVersion:"1.0.0"`
 	Pprof  bool   `yaml:"pprof" env:"STORAGE_USERS_DEBUG_PPROF" desc:"Enables pprof, which can be used for profiling." introductionVersion:"1.0.0"`
 	Zpages bool   `yaml:"zpages" env:"STORAGE_USERS_DEBUG_ZPAGES" desc:"Enables zpages, which can be used for collecting and viewing in-memory traces." introductionVersion:"1.0.0"`
 }
@@ -135,8 +135,8 @@ type DecomposedS3Driver struct {
 	UserLayout            string `yaml:"user_layout" env:"STORAGE_USERS_DECOMPOSEDS3_USER_LAYOUT" desc:"Template string for the user storage layout in the user directory." introductionVersion:"1.0.0"`
 	PermissionsEndpoint   string `yaml:"permissions_endpoint" env:"STORAGE_USERS_PERMISSION_ENDPOINT;STORAGE_USERS_DECOMPOSEDS3_PERMISSIONS_ENDPOINT" desc:"Endpoint of the permissions service. The endpoints can differ for 'decomposed' and 'decomposeds3'." introductionVersion:"1.0.0"`
 	Region                string `yaml:"region" env:"STORAGE_USERS_DECOMPOSEDS3_REGION" desc:"Region of the S3 bucket." introductionVersion:"1.0.0"`
-	AccessKey             string `yaml:"access_key" env:"STORAGE_USERS_DECOMPOSEDS3_ACCESS_KEY" desc:"Access key for the S3 bucket." introductionVersion:"1.0.0"`
-	SecretKey             string `yaml:"secret_key" env:"STORAGE_USERS_DECOMPOSEDS3_SECRET_KEY" desc:"Secret key for the S3 bucket." introductionVersion:"1.0.0"`
+	AccessKey             string `yaml:"access_key" env:"STORAGE_USERS_DECOMPOSEDS3_ACCESS_KEY,file" desc:"Access key for the S3 bucket." introductionVersion:"1.0.0"`
+	SecretKey             string `yaml:"secret_key" env:"STORAGE_USERS_DECOMPOSEDS3_SECRET_KEY,file" desc:"Secret key for the S3 bucket." introductionVersion:"1.0.0"`
 	Endpoint              string `yaml:"endpoint" env:"STORAGE_USERS_DECOMPOSEDS3_ENDPOINT" desc:"Endpoint for the S3 bucket." introductionVersion:"1.0.0"`
 	Bucket                string `yaml:"bucket" env:"STORAGE_USERS_DECOMPOSEDS3_BUCKET" desc:"Name of the S3 bucket." introductionVersion:"1.0.0"`
 	DisableContentSha256  bool   `yaml:"put_object_disable_content_sha254" env:"STORAGE_USERS_DECOMPOSEDS3_PUT_OBJECT_DISABLE_CONTENT_SHA256" desc:"Disable sending content sha256 when copying objects to S3." introductionVersion:"1.0.0"`
@@ -171,7 +171,7 @@ type OwnCloudSQLDriver struct {
 	UserLayout            string `yaml:"user_layout" env:"STORAGE_USERS_OWNCLOUDSQL_LAYOUT" desc:"Path layout to use to navigate into a users folder in an owncloud data directory" introductionVersion:"1.0.0"`
 	UploadInfoDir         string `yaml:"upload_info_dir" env:"STORAGE_USERS_OWNCLOUDSQL_UPLOADINFO_DIR" desc:"The directory where the filesystem will store uploads temporarily. If not defined, the root directory derives from $OC_BASE_DATA_PATH/storage/uploadinfo." introductionVersion:"1.0.0"`
 	DBUsername            string `yaml:"db_username" env:"STORAGE_USERS_OWNCLOUDSQL_DB_USERNAME" desc:"Username for the database." introductionVersion:"1.0.0"`
-	DBPassword            string `yaml:"db_password" env:"STORAGE_USERS_OWNCLOUDSQL_DB_PASSWORD" desc:"Password for the database." introductionVersion:"1.0.0"`
+	DBPassword            string `yaml:"db_password" env:"STORAGE_USERS_OWNCLOUDSQL_DB_PASSWORD,file" desc:"Password for the database." introductionVersion:"1.0.0"`
 	DBHost                string `yaml:"db_host" env:"STORAGE_USERS_OWNCLOUDSQL_DB_HOST" desc:"Hostname or IP of the database server." introductionVersion:"1.0.0"`
 	DBPort                int    `yaml:"db_port" env:"STORAGE_USERS_OWNCLOUDSQL_DB_PORT" desc:"Port that the database server is listening on." introductionVersion:"1.0.0"`
 	DBName                string `yaml:"db_name" env:"STORAGE_USERS_OWNCLOUDSQL_DB_NAME" desc:"Name of the database to be used." introductionVersion:"1.0.0"`
@@ -219,7 +219,7 @@ type Events struct {
 	EnableTLS         bool   `yaml:"enable_tls" env:"OC_EVENTS_ENABLE_TLS;STORAGE_USERS_EVENTS_ENABLE_TLS" desc:"Enable TLS for the connection to the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	NumConsumers      int    `yaml:"num_consumers" env:"STORAGE_USERS_EVENTS_NUM_CONSUMERS" desc:"The amount of concurrent event consumers to start. Event consumers are used for post-processing files. Multiple consumers increase parallelisation, but will also increase CPU and memory demands. The setting has no effect when the OC_ASYNC_UPLOADS is set to false. The default and minimum value is 1." introductionVersion:"1.0.0"`
 	AuthUsername      string `yaml:"username" env:"OC_EVENTS_AUTH_USERNAME;STORAGE_USERS_EVENTS_AUTH_USERNAME" desc:"The username to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
-	AuthPassword      string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD;STORAGE_USERS_EVENTS_AUTH_PASSWORD" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
+	AuthPassword      string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD;STORAGE_USERS_EVENTS_AUTH_PASSWORD,file" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	// TODO use TLSRootCACertificate string `yaml:"tls_root_ca_certificate" env:"OC_EVENTS_TLS_ROOT_CA_CERTIFICATE;STORAGE_USERS_EVENTS_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided STORAGE_USERS_EVENTS_TLS_INSECURE will be seen as false." introductionVersion:"1.0.0"`
 }
 
@@ -231,7 +231,7 @@ type FilemetadataCache struct {
 	TTL                  time.Duration `yaml:"ttl" env:"OC_CACHE_TTL;STORAGE_USERS_FILEMETADATA_CACHE_TTL" desc:"Default time to live for user info in the user info cache. Only applied when access tokens has no expiration. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
 	DisablePersistence   bool          `yaml:"disable_persistence" env:"OC_CACHE_DISABLE_PERSISTENCE;STORAGE_USERS_FILEMETADATA_CACHE_DISABLE_PERSISTENCE" desc:"Disables persistence of the cache. Only applies when store type 'nats-js-kv' is configured. Defaults to false." introductionVersion:"1.0.0"`
 	AuthUsername         string        `yaml:"username" env:"OC_CACHE_AUTH_USERNAME;STORAGE_USERS_FILEMETADATA_CACHE_AUTH_USERNAME" desc:"The username to authenticate with the cache store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
-	AuthPassword         string        `yaml:"password" env:"OC_CACHE_AUTH_PASSWORD;STORAGE_USERS_FILEMETADATA_CACHE_AUTH_PASSWORD" desc:"The password to authenticate with the cache store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
+	AuthPassword         string        `yaml:"password" env:"OC_CACHE_AUTH_PASSWORD;STORAGE_USERS_FILEMETADATA_CACHE_AUTH_PASSWORD,file" desc:"The password to authenticate with the cache store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
 	EnableTLS            bool          `yaml:"enable_tls" env:"OC_CACHE_ENABLE_TLS;STORAGE_USERS_FILEMETADATA_CACHE_ENABLE_TLS" desc:"Enable TLS for the connection to file metadata cache." introductionVersion:"7.3.0"`
 	TLSInsecure          bool          `yaml:"tls_insecure" env:"OC_INSECURE;OC_CACHE_TLS_INSECURE;STORAGE_USERS_FILEMETADATA_CACHE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"7.3.0"`
 	TLSRootCACertificate string        `yaml:"tls_root_ca_certificate" env:"OC_CACHE_TLS_ROOT_CA_CERTIFICATE;STORAGE_USERS_FILEMETADATA_CACHE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided STORAGE_USERS_FILEMETADATA_CACHE_TLS_INSECURE will be seen as false." introductionVersion:"7.3.0"`
@@ -245,7 +245,7 @@ type IDCache struct {
 	TTL                  time.Duration `yaml:"ttl" env:"OC_CACHE_TTL;STORAGE_USERS_ID_CACHE_TTL" desc:"Default time to live for user info in the user info cache. Only applied when access tokens have no expiration. Defaults to 300s which is derived from the underlaying package though not explicitly set as default. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
 	DisablePersistence   bool          `yaml:"disable_persistence" env:"OC_CACHE_DISABLE_PERSISTENCE;STORAGE_USERS_ID_CACHE_DISABLE_PERSISTENCE" desc:"Disables persistence of the cache. Only applies when store type 'nats-js-kv' is configured. Defaults to false." introductionVersion:"1.0.0"`
 	AuthUsername         string        `yaml:"username" env:"OC_CACHE_AUTH_USERNAME;STORAGE_USERS_ID_CACHE_AUTH_USERNAME" desc:"The username to authenticate with the cache store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
-	AuthPassword         string        `yaml:"password" env:"OC_CACHE_AUTH_PASSWORD;STORAGE_USERS_ID_CACHE_AUTH_PASSWORD" desc:"The password to authenticate with the cache store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
+	AuthPassword         string        `yaml:"password" env:"OC_CACHE_AUTH_PASSWORD;STORAGE_USERS_ID_CACHE_AUTH_PASSWORD,file" desc:"The password to authenticate with the cache store. Only applies when store type 'nats-js-kv' is configured." introductionVersion:"1.0.0"`
 	EnableTLS            bool          `yaml:"enable_tls" env:"OC_CACHE_ENABLE_TLS;STORAGE_USERS_ID_CACHE_ENABLE_TLS" desc:"Enable TLS for the connection to file metadata cache." introductionVersion:"7.3.0"`
 	TLSInsecure          bool          `yaml:"tls_insecure" env:"OC_INSECURE;OC_CACHE_TLS_INSECURE;STORAGE_USERS_ID_CACHE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"7.3.0"`
 	TLSRootCACertificate string        `yaml:"tls_root_ca_certificate" env:"OC_CACHE_TLS_ROOT_CA_CERTIFICATE;STORAGE_USERS_ID_CACHE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided STORAGE_USERS_ID_CACHE_TLS_INSECURE will be seen as false." introductionVersion:"7.3.0"`
@@ -322,5 +322,5 @@ type PurgeTrashBin struct {
 // ServiceAccount is the configuration for the used service account
 type ServiceAccount struct {
 	ServiceAccountID     string `yaml:"service_account_id" env:"OC_SERVICE_ACCOUNT_ID;STORAGE_USERS_SERVICE_ACCOUNT_ID" desc:"The ID of the service account the service should use. See the 'auth-service' service description for more details." introductionVersion:"1.0.0"`
-	ServiceAccountSecret string `yaml:"service_account_secret" env:"OC_SERVICE_ACCOUNT_SECRET;STORAGE_USERS_SERVICE_ACCOUNT_SECRET" desc:"The service account secret." introductionVersion:"1.0.0"`
+	ServiceAccountSecret string `yaml:"service_account_secret" env:"OC_SERVICE_ACCOUNT_SECRET;STORAGE_USERS_SERVICE_ACCOUNT_SECRET,file" desc:"The service account secret." introductionVersion:"1.0.0"`
 }
