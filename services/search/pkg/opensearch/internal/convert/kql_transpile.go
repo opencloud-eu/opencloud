@@ -119,9 +119,6 @@ func (t kqlOpensearchTranspiler) toBuilder(node ast.Node) (osu.Builder, error) {
 		}
 
 		field, value := node.Key, node.Value
-		if query.FieldIsPath(node.Key) {
-			value = strings.TrimSuffix(value, "/")
-		}
 		if node.CaseInsensitive {
 			field += mapping.LowercaseSuffix
 			value = strings.ToLower(value)

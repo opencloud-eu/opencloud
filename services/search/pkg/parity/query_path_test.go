@@ -23,6 +23,8 @@ func pathGroup() queryGroup {
 			{id: 6, query: `path:"./DOCUMENTS"`, want: []string{"docs-upper"}},
 			{id: 7, query: `path:"./Documents"`, want: []string{"docs-mixed"}},
 			{id: 8, query: `path:"./parent/"`, want: []string{"parent", "child.jpg"}},
+			{id: 9, query: `path:"/"`, want: []string{"parent", "child.jpg", "docs-lower", "docs-upper", "docs-mixed"}},
+			{id: 10, query: `path:""`, want: []string{"parent", "child.jpg", "docs-lower", "docs-upper", "docs-mixed"}},
 		},
 	}
 }
