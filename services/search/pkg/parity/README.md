@@ -488,6 +488,10 @@ Fixtures:
 
 - `parent`, ID = 1$1!2, folder
 - `child.pdf`, ID = 1$1!3, Path = ./parent/child.pdf
+- `a`, ID = 1$1!trashed, folder, deleted
+- `x.txt`, ID = 1$1!trashed-x, Path = ./a/x.txt, deleted
+- `a`, ID = 1$1!live, folder
+- `y.txt`, ID = 1$1!live-y, Path = ./a/y.txt
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
@@ -499,6 +503,8 @@ Fixtures:
 | PURGE-02 | removes the tree, then `DocCount()` | 0 | 0 | 0 | ✅ |
 | PURGE-03 | takes only the deleted ones when it is told to, then `name:"*parent*"` | parent | parent | parent | ✅ |
 | PURGE-03 | takes only the deleted ones when it is told to, then `name:"*child*"` | no match | no match | no match | ✅ |
+| PURGE-04 | leaves the live folder that took the trashed one's path alone, then `path:"./a"` | a, y.txt | a, y.txt | a, y.txt | ✅ |
+| PURGE-04 | leaves the live folder that took the trashed one's path alone, then `DocCount()` | 2 | 2 | 2 | ✅ |
 
 ### purgespace
 
@@ -535,6 +541,10 @@ Fixtures:
 - `x.txt`, ID = 1$1!6, Path = ./big2/x.txt
 - `odd name (1)`, ID = 1$1!7, folder
 - `f:x+y.txt`, ID = 1$1!8, Path = ./odd name (1)/f:x+y.txt
+- `a`, ID = 1$1!trashed, folder, deleted
+- `x.txt`, ID = 1$1!trashed-x, Path = ./a/x.txt, deleted
+- `a`, ID = 1$1!live, folder
+- `y.txt`, ID = 1$1!live-y, Path = ./a/y.txt
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
@@ -546,6 +556,8 @@ Fixtures:
 | MOVE-03 | leaves a sibling folder that shares the prefix alone, then `path:"./big2"` | x.txt | x.txt | x.txt | ✅ |
 | MOVE-04 | carries the descendants of a path with special characters, then `path:"./odd name (2)"` | f:x+y.txt, odd name (2) | f:x+y.txt, odd name (2) | f:x+y.txt, odd name (2) | ✅ |
 | MOVE-04 | carries the descendants of a path with special characters, then `path:"./odd name (1)"` | no match | no match | no match | ✅ |
+| MOVE-05 | leaves a trashed folder that shares the path where it is, then `path:"./a"` | a, x.txt | a, x.txt | a, x.txt | ✅ |
+| MOVE-05 | leaves a trashed folder that shares the path where it is, then `path:"./b"` | b, y.txt | b, y.txt | b, y.txt | ✅ |
 
 ### rootscope
 

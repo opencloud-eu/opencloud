@@ -11,6 +11,7 @@ func moveLifecycle() lifecycleGroup {
 	inSibling := fixtureDoc("x.txt", withID("1$1!6"), withParent("1$1!big2"), withPath("./big2/x.txt"))
 	odd := fixtureFolder("odd name (1)", withID("1$1!7"))
 	inOdd := fixtureDoc("f:x+y.txt", withID("1$1!8"), withParent(odd.ID), withPath("./odd name (1)/f:x+y.txt"))
+	trashed, live, samePath := fixtureSamePath()
 
 	return lifecycleGroup{
 		name:     "move",
@@ -54,6 +55,22 @@ func moveLifecycle() lifecycleGroup {
 				expect: []expectation{
 					{`path:"./odd name (2)"`, []string{"odd name (2)", "f:x+y.txt"}},
 					{`path:"./odd name (1)"`, nil},
+				},
+			},
+			{
+				id: 5, title: "leaves a trashed folder that shares the path where it is",
+				fixtures: samePath,
+				do: func(e search.Engine) error {
+					if err := e.Move(live.ID, live.ParentID, "./b"); err != nil {
+						return err
+					}
+
+					// results only show the trashed folder once it is back
+					return e.Restore(trashed.ID)
+				},
+				expect: []expectation{
+					{`path:"./a"`, []string{"a", "x.txt"}},
+					{`path:"./b"`, []string{"b", "y.txt"}},
 				},
 			},
 		},

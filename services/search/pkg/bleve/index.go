@@ -266,16 +266,19 @@ func searchResourceByID(id string, index bleve.Index) (*search.Resource, error) 
 var descendantPageSize = 20_000
 
 // forEachResourceByPath streams the folder at lookupPath and its descendants
-// (the folder term matches both, see PathAnalyzer); paged by id so memory is
-// bounded by the page and fn may write to the index between pages
-func forEachResourceByPath(rootID string, lookupPath string, index bleve.Index, fn func(*search.Resource) error) error {
+// (the folder term matches both, see PathAnalyzer) whose Deleted flag equals
+// deleted; paged by id so memory is bounded by the page and fn may write to the
+// index between pages
+func forEachResourceByPath(rootID string, lookupPath string, deleted bool, index bleve.Index, fn func(*search.Resource) error) error {
 	rootQuery := bleve.NewTermQuery(rootID)
 	rootQuery.SetField("RootID")
 	pathQuery := bleve.NewTermQuery(lookupPath)
 	pathQuery.SetField("Path")
+	deletedQuery := bleve.NewBoolFieldQuery(deleted)
+	deletedQuery.SetField("Deleted")
 
 	pageSize := descendantPageSize
-	bleveReq := bleve.NewSearchRequest(bleve.NewConjunctionQuery(rootQuery, pathQuery))
+	bleveReq := bleve.NewSearchRequest(bleve.NewConjunctionQuery(rootQuery, pathQuery, deletedQuery))
 	bleveReq.Size = pageSize
 	bleveReq.Fields = []string{"*"}
 	bleveReq.SortBy([]string{"_id"})
