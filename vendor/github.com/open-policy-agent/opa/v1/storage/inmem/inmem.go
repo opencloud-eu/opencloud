@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -116,7 +115,7 @@ func NewFromASTObject(data ast.Object) storage.Store {
 type store struct {
 	rmu      sync.RWMutex                      // reader-writer lock
 	wmu      sync.Mutex                        // writer lock
-	xid      uint64                            // last generated transaction id
+	xid      atomic.Uint64                     // last generated transaction id
 	data     any                               // raw or AST data
 	policies map[string][]byte                 // raw policies
 	triggers map[*handle]storage.TriggerConfig // registered triggers
@@ -137,7 +136,7 @@ type handle struct {
 
 func (db *store) NewTransaction(_ context.Context, params ...storage.TransactionParams) (storage.Transaction, error) {
 	txn := &transaction{
-		xid: atomic.AddUint64(&db.xid, uint64(1)),
+		xid: db.xid.Add(1),
 		db:  db,
 	}
 
@@ -173,7 +172,7 @@ func (db *store) Truncate(ctx context.Context, txn storage.Transaction, params s
 		}
 
 		if update.IsPolicy {
-			err = underlying.UpsertPolicy(strings.TrimLeft(update.Path.String(), "/"), update.Value)
+			err = underlying.UpsertPolicy(update.Path.PolicyID(), update.Value)
 			if err != nil {
 				return err
 			}
@@ -183,11 +182,8 @@ func (db *store) Truncate(ctx context.Context, txn storage.Transaction, params s
 				return err
 			}
 
-			var key []string
-			dirpath := strings.TrimLeft(update.Path.String(), "/")
-			if len(dirpath) > 0 {
-				key = strings.Split(dirpath, "/")
-			}
+			// Do not round trip via String() to avoid URL encoding.
+			key := []string(update.Path)
 
 			if value != nil {
 				obj, err := mktree(key, value)

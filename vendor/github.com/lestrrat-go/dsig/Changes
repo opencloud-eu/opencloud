@@ -1,6 +1,39 @@
 Changes
 =======
 
+v1.3.0 13 Apr 2026
+  * Add `SignWithOpts()` and `VerifyWithOpts()`, which thread an optional
+    `crypto.SignerOpts` through to the underlying signer. For built-in
+    families (HMAC, RSA, ECDSA, EdDSA) the opts argument is ignored. For
+    the `Custom` family, opts are forwarded to the algorithm's Meta when
+    it implements the new `SignerWithOpts` / `VerifierWithOpts` interfaces;
+    otherwise the dispatcher falls back to the plain `Signer` / `Verifier`
+    methods and the opts are dropped. The canonical use case is composite
+    ML-DSA signatures, where a per-call domain-separation context
+    (`*mldsa.Options`) must reach `filippo.io/mldsa`.
+
+  * `Sign()` is now a one-line wrapper around `SignWithOpts()` (and
+    `Verify()` likewise wraps `VerifyWithOpts()`). The public signatures
+    of `Sign` and `Verify` are unchanged; the only observable difference
+    for existing callers is one extra call frame.
+
+  * `RegisterAlgorithm()` for the `Custom` family now accepts a Meta that
+    implements only `SignerWithOpts` / `VerifierWithOpts` (in addition to
+    the existing `Signer` / `Verifier` paths).
+
+  * In dsig v2, `Sign` / `Verify` will absorb the opts parameter and
+    `SignWithOpts` / `VerifyWithOpts` will be removed. The same migration
+    is planned for `SignDigest` / `VerifyDigest` once a `DigestSigner`
+    interface for the `Custom` family lands. Doc comments on all four
+    entry points flag the upcoming change.
+
+v1.2.2 13 Apr 2026
+  * Add `SignECDSADER()` and `VerifyECDSADER()` primitive helpers for ECDSA
+    signatures in ASN.1 DER-encoded `Ecdsa-Sig-Value` form (RFC 3279 §2.2.3),
+    as used by X.509/PKIX and composite signature schemes. The existing
+    `SignECDSA()`/`VerifyECDSA()` functions remain the canonical entry points
+    for the JWS-native fixed-length r||s format (RFC 7515 §3.4).
+
 v1.2.1 7 Apr 2026
   * Add `SignDigest()` for signing pre-computed digests. Supported for HMAC,
     RSA (PKCS1v15 and PSS), and ECDSA families. EdDSA and Custom return an error.

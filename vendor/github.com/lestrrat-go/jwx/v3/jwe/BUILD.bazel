@@ -51,6 +51,7 @@ go_test(
         "message_test.go",
         "options_gen_test.go",
         "speed_test.go",
+        "unsupported_key_test.go",
     ],
     embed = [":jwe"],
     deps = [

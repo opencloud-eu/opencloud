@@ -9,10 +9,33 @@ import (
 )
 
 // Verify verifies a digital signature using the specified key and algorithm.
+//
+// Deprecated in spirit: in the next major release of dsig (v2), the
+// signature of Verify will change to match [VerifyWithOpts], i.e. it
+// will accept an additional [crypto.SignerOpts] parameter at the end.
+// Callers that need to pass per-call options today should use
+// [VerifyWithOpts]; callers that do not can keep using Verify and
+// migrate when v2 ships by threading a nil opts argument through at
+// the call site.
 func Verify(key any, alg string, payload, signature []byte) error {
+	return VerifyWithOpts(key, alg, payload, signature, nil)
+}
+
+// VerifyWithOpts is like [Verify] but threads an optional
+// [crypto.SignerOpts] through to the underlying verifier. For built-in
+// families (HMAC, RSA, ECDSA, EdDSA) the opts argument is ignored. For
+// Custom-family algorithms whose Meta implements [VerifierWithOpts],
+// the opts are forwarded; otherwise the plain [Verifier.Verify] method
+// is called and opts are dropped.
+//
+// This function exists as a transitional API. In the next major release
+// of dsig (v2) it will be removed and its signature will become the
+// canonical shape of [Verify]. Code that uses VerifyWithOpts today will
+// need a mechanical rename to Verify (and nothing else) when v2 ships.
+func VerifyWithOpts(key any, alg string, payload, signature []byte, opts crypto.SignerOpts) error {
 	info, ok := GetAlgorithmInfo(alg)
 	if !ok {
-		return fmt.Errorf(`dsig.Verify: unsupported signature algorithm %q`, alg)
+		return fmt.Errorf(`dsig.VerifyWithOpts: unsupported signature algorithm %q`, alg)
 	}
 
 	switch info.Family {
@@ -25,9 +48,9 @@ func Verify(key any, alg string, payload, signature []byte) error {
 	case EdDSAFamily:
 		return dispatchEdDSAVerify(key, info, payload, signature)
 	case Custom:
-		return dispatchCustomVerify(key, info, payload, signature)
+		return dispatchCustomVerify(key, info, payload, signature, opts)
 	default:
-		return fmt.Errorf(`dsig.Verify: unsupported signature family %q`, info.Family)
+		return fmt.Errorf(`dsig.VerifyWithOpts: unsupported signature family %q`, info.Family)
 	}
 }
 
@@ -41,6 +64,14 @@ func Verify(key any, alg string, payload, signature []byte) error {
 // parameter is not used because it is already incorporated into the MAC.
 //
 // EdDSA and Custom families are not supported and return an error.
+//
+// Deprecated in spirit: in the next major release of dsig (v2), the
+// signature of VerifyDigest will gain a [crypto.SignerOpts] parameter
+// to align with [Verify]. No VerifyDigestWithOpts shim exists in v1
+// because Custom-family algorithms (the only ones that would benefit
+// from per-call opts) are rejected outright today; once a
+// DigestVerifier interface for the Custom family is added, the opts
+// parameter will appear at the same time.
 func VerifyDigest(key any, alg string, digest, signature []byte) error {
 	info, ok := GetAlgorithmInfo(alg)
 	if !ok {
@@ -196,7 +227,10 @@ func dispatchEdDSAVerify(key any, _ AlgorithmInfo, payload, signature []byte) er
 	return VerifyEdDSA(pubkey, payload, signature)
 }
 
-func dispatchCustomVerify(key any, info AlgorithmInfo, payload, signature []byte) error {
+func dispatchCustomVerify(key any, info AlgorithmInfo, payload, signature []byte, opts crypto.SignerOpts) error {
+	if verifier, ok := info.Meta.(VerifierWithOpts); ok {
+		return verifier.VerifyWithOpts(key, payload, signature, opts)
+	}
 	verifier, ok := info.Meta.(Verifier)
 	if !ok {
 		return fmt.Errorf(`dsig.Verify: algorithm has no verifier registered`)

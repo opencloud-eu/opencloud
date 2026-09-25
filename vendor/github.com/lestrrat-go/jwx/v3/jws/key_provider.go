@@ -116,6 +116,10 @@ type keySetProvider struct {
 // It returns true if at least one pair was added, false if the key was
 // filtered out (e.g. wrong usage, no matching algorithm).
 func (kp *keySetProvider) selectKey(sink KeySink, key jwk.Key, sig *Signature, _ *Message) (bool, error) {
+	if uk, ok := key.(jwk.UnsupportedKey); ok {
+		return false, unsupportedKeyError(uk, `signature verification`)
+	}
+
 	if usage, ok := key.KeyUsage(); ok {
 		// it's okay if use: "". we'll assume it's "sig"
 		if usage != "" && usage != jwk.ForSignature.String() {
@@ -233,12 +237,13 @@ func (kp *keySetProvider) fetchKeysByKid(sink KeySink, sig *Signature, msg *Mess
 // fetchAllKeys iterates all keys in the set and adds suitable ones to the sink.
 //
 // When the protected header advertises an `alg`, keys whose type cannot
-// produce that algorithm are skipped before reaching selectKey. This
-// bounds verification fan-out to N_keys_of_matching_type instead of
-// N_keys when `WithRequireKid(false)` is used against a heterogeneous
-// JWKS. The skip is semantics-preserving: validateAlgorithmForKey in
-// verify_context would reject the incompatible (alg, key) pair before
-// running any verifier anyway.
+// produce that algorithm are skipped before reaching selectKey
+// (unsupported-key placeholders excepted — see the comment at the check
+// below). This bounds verification fan-out to N_keys_of_matching_type
+// instead of N_keys when `WithRequireKid(false)` is used against a
+// heterogeneous JWKS. The skip is semantics-preserving:
+// validateAlgorithmForKey in verify_context would reject the
+// incompatible (alg, key) pair before running any verifier anyway.
 //
 // The allowed-KeyType set is looked up once per FetchKeys call via the
 // precomputed algorithmToKeyTypes inverse map, so the per-key check is
@@ -257,7 +262,13 @@ func (kp *keySetProvider) fetchAllKeys(sink KeySink, sig *Signature, msg *Messag
 		if !ok {
 			return fmt.Errorf(`failed to get key at index %d`, i)
 		}
-		if allowedKtys != nil && !slices.Contains(allowedKtys, key.KeyType()) {
+		// Unsupported-key placeholders are exempt from the prefilter:
+		// their raw kty is never a registered KeyType, so the filter
+		// would silently skip them and the caller would only see a
+		// generic "no keys worked" error. Letting them reach selectKey
+		// records the per-key rejection (kid, kty, retained parse
+		// reason) in errs instead.
+		if allowedKtys != nil && !slices.Contains(allowedKtys, key.KeyType()) && !jwk.IsUnsupportedKey(key) {
 			continue
 		}
 		added, err := kp.selectKey(sink, key, sig, msg)
@@ -269,6 +280,10 @@ func (kp *keySetProvider) fetchAllKeys(sink KeySink, sig *Signature, msg *Messag
 			found = true
 		}
 	}
+	// Only when no candidate reached the sink do the collected per-key
+	// errors become the outcome: a key that was skipped without error
+	// (e.g. no "alg" member and inference disabled) must not mask the
+	// named rejections of the keys that did fail.
 	if !found && len(errs) > 0 {
 		return fmt.Errorf(`no key in the key set was usable: %w`, errors.Join(errs...))
 	}
@@ -327,6 +342,10 @@ func (kp jkuProvider) FetchKeys(ctx context.Context, sink KeySink, sig *Signatur
 	key, ok := set.LookupKeyID(kid)
 	if !ok {
 		return fmt.Errorf(`jku: key with "kid" %q not found in JWKS fetched from %q`, kid, u)
+	}
+
+	if uk, ok := key.(jwk.UnsupportedKey); ok {
+		return fmt.Errorf(`jku: key with "kid" %q from %q has unsupported key type %q and cannot be used for signature verification; an extension module may be required to parse it: %w`, kid, u, uk.KeyType().String(), uk.Reason())
 	}
 
 	if usage, ok := key.KeyUsage(); ok {

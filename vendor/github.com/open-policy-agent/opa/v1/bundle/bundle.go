@@ -361,8 +361,8 @@ func (m *Manifest) validateAndInjectDefaults(b Bundle) error {
 	// Validate modules in bundle.
 	for _, module := range b.Modules {
 		found := false
-		if path, err := module.Parsed.Package.Path.Ptr(); err == nil {
-			found = RootPathsContain(roots, path)
+		if path, err := storage.NewPathForRef(module.Parsed.Package.Path); err == nil {
+			found = rootPathsContainSegments(roots, path)
 		}
 		if !found {
 			return fmt.Errorf("manifest roots %v do not permit '%v' in module '%s'", roots, module.Parsed.Package, module.Path)
@@ -1695,7 +1695,14 @@ func RootPathsOverlap(pathA string, pathB string) bool {
 
 // RootPathsContain takes a set of bundle root paths and returns true if the path is contained.
 func RootPathsContain(roots []string, path string) bool {
-	segments := rootPathSegments(path)
+	return rootPathsContainSegments(roots, rootPathSegments(path))
+}
+
+// rootPathsContainSegments is RootPathsContain for a path that's already split
+// into segments. Manifest roots are raw, unescaped strings, so callers holding
+// a ref or storage path must pass its unescaped segments rather than the
+// percent-encoded form produced by ast.Ref.Ptr or storage.Path.String.
+func rootPathsContainSegments(roots []string, segments []string) bool {
 	for i := range roots {
 		if rootContains(rootPathSegments(roots[i]), segments) {
 			return true
@@ -1815,10 +1822,8 @@ func preProcessBundle(loader DirectoryLoader, skipVerify bool, sizeLimitBytes in
 			base := filepath.Base(f.Path())
 
 			if base == patchFile {
-
-				var b bytes.Buffer
-				tee := io.TeeReader(f.reader, &b)
-				f.reader = tee
+				b := new(bytes.Buffer)
+				f.reader = io.TeeReader(f.reader, b)
 
 				buf, err := readFile(f, sizeLimitBytes)
 				if err != nil {
@@ -1829,7 +1834,7 @@ func preProcessBundle(loader DirectoryLoader, skipVerify bool, sizeLimitBytes in
 					return bundle, nil, fmt.Errorf("bundle load failed on patch decode: %w", err)
 				}
 
-				f.reader = &b
+				f.reader = b
 			}
 		}
 	}
