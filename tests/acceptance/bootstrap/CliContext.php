@@ -655,6 +655,7 @@ class CliContext implements Context {
 	 * @AfterScenario @cli-uploads-sessions
 	 *
 	 * @return void
+	 * @throws JsonException
 	 */
 	public function cleanUploadsSessions(): void {
 		$command = "storage-users uploads sessions --clean";
@@ -663,6 +664,37 @@ class CliContext implements Context {
 		];
 		$response = CliHelper::runCommand($body);
 		Assert::assertEquals("200", $response->getStatusCode(), "Failed to clean upload sessions");
+
+		// Cleaning upload sessions happens asynchronously in the daemon, so wait
+		// until all sessions are actually gone. Otherwise leftover sessions would
+		// leak into the next scenario.
+		$deadline = \time() + 60;
+		$sessions = $this->listUploadSessions();
+		while (count($sessions) > 0 && \time() < $deadline) {
+			\sleep(1);
+			$sessions = $this->listUploadSessions();
+		}
+		$sessionNames = \array_map(
+			static fn ($session) => $session->filename ?? "?",
+			$sessions
+		);
+		Assert::assertCount(
+			0,
+			$sessions,
+			"Upload sessions were not cleaned up in time: " . \json_encode($sessionNames)
+		);
+	}
+
+	/**
+	 * Lists all upload sessions via the CLI.
+	 *
+	 * @return array
+	 * @throws JsonException
+	 */
+	private function listUploadSessions(): array {
+		$response = CliHelper::runCommand(["command" => "storage-users uploads sessions --json"]);
+		Assert::assertEquals("200", $response->getStatusCode(), "Failed to list upload sessions");
+		return $this->getJSONDecodedCliMessage($response);
 	}
 
 	/**
