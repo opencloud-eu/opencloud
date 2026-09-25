@@ -1,5 +1,75 @@
 # Changelog
 
+## [8.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.1.0) - 2026-09-25
+
+### ❤️ Thanks to all contributors! ❤️
+
+@NickWalters, @aduffeck, @butonic, @dschmidt, @maki5, @pascalwengerter, @pbleser-oc, @rhafer, @saw-jan, @schweigisito, @v-scharf, @zerox80
+
+### 🔒 Security
+
+- feat(proxy): add optional OIDC access token audience validation [[#3466](https://github.com/opencloud-eu/opencloud/pull/3466)]
+
+### ✅ Tests
+
+- run cli tests with decomposed nightly [[#3580](https://github.com/opencloud-eu/opencloud/pull/3580)]
+-  [decomposed] test(api): remove passing notification tests from expected failure [[#3555](https://github.com/opencloud-eu/opencloud/pull/3555)]
+- api-test: add CLI test for reindexing all spaces including disabled [[#3560](https://github.com/opencloud-eu/opencloud/pull/3560)]
+
+### 📈 Enhancement
+
+- add posixfs index command [[#3068](https://github.com/opencloud-eu/opencloud/pull/3068)]
+- feat(proxy): add per-service metrics to the proxy service [[#3521](https://github.com/opencloud-eu/opencloud/pull/3521)]
+
+### 📚 Documentation
+
+- [SKIP CI] fix: add file_read documentation to audit log docu [[#3503](https://github.com/opencloud-eu/opencloud/pull/3503)]
+
+### 🐛 Bug Fixes
+
+- Remove the timeout when reindexing spaces [[#3543](https://github.com/opencloud-eu/opencloud/pull/3543)]
+- fix(shares): not auto accepting shares created by guest users [[#3533](https://github.com/opencloud-eu/opencloud/pull/3533)]
+- fix(graph): fix PatchMe method to prevent password change [[#3526](https://github.com/opencloud-eu/opencloud/pull/3526)]
+
+### 📦️ Dependencies
+
+- build(deps): bump github.com/nats-io/nats.go from 1.53.1 to 1.54.0 [[#3584](https://github.com/opencloud-eu/opencloud/pull/3584)]
+- build(deps): bump github.com/onsi/gomega from 1.42.1 to 1.43.1 [[#3582](https://github.com/opencloud-eu/opencloud/pull/3582)]
+- build(deps): bump google.golang.org/grpc from 1.83.2 to 1.84.0 [[#3581](https://github.com/opencloud-eu/opencloud/pull/3581)]
+- build(deps): bump github.com/beevik/etree from 1.7.1 to 1.8.0 [[#3583](https://github.com/opencloud-eu/opencloud/pull/3583)]
+- build(deps): bump golang.org/x/image from 0.45.0 to 0.46.0 [[#3573](https://github.com/opencloud-eu/opencloud/pull/3573)]
+- build(deps): bump github.com/nats-io/nats-server/v2 from 2.14.5 to 2.15.0 [[#3576](https://github.com/opencloud-eu/opencloud/pull/3576)]
+- build(deps): bump golang.org/x/text from 0.41.0 to 0.42.0 [[#3552](https://github.com/opencloud-eu/opencloud/pull/3552)]
+- build(deps): bump golang.org/x/sync from 0.22.0 to 0.23.0 [[#3551](https://github.com/opencloud-eu/opencloud/pull/3551)]
+- build(deps): bump go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc from 0.70.0 to 0.71.0 [[#3427](https://github.com/opencloud-eu/opencloud/pull/3427)]
+- build(deps): bump github.com/olekukonko/errors from 1.2.0 to 1.3.0 [[#3557](https://github.com/opencloud-eu/opencloud/pull/3557)]
+- build(deps): bump github.com/prometheus/client_model from 0.6.2 to 0.6.3 [[#3550](https://github.com/opencloud-eu/opencloud/pull/3550)]
+- build(deps): bump github.com/shamaton/msgpack/v2 from 2.4.1 to 2.4.2 [[#3459](https://github.com/opencloud-eu/opencloud/pull/3459)]
+- build(deps): bump go.opentelemetry.io/otel/exporters/stdout/stdouttrace from 1.45.0 to 1.46.0 [[#3428](https://github.com/opencloud-eu/opencloud/pull/3428)]
+- build(deps): bump github.com/sirupsen/logrus from 1.10.1 to 1.10.2 [[#3492](https://github.com/opencloud-eu/opencloud/pull/3492)]
+
+## [8.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.1) - 2026-09-16
+
+### ❤️ Thanks to all contributors! ❤️
+
+@aduffeck, @maki5, @pascalwengerter, @pbleser-oc, @rhafer, @zerox80
+
+### 🔒 Security
+
+- feat(proxy): add optional OIDC access token audience validation [[#3466](https://github.com/opencloud-eu/opencloud/pull/3466)]
+
+### 🐛 Bug Fixes
+
+- Remove the timeout when reindexing spaces [[#3543](https://github.com/opencloud-eu/opencloud/pull/3543)]
+- fix(shares): not auto accepting shares created by guest users [[#3533](https://github.com/opencloud-eu/opencloud/pull/3533)]
+- fix(graph): fix PatchMe method to prevent password change [[#3526](https://github.com/opencloud-eu/opencloud/pull/3526)]
+
+### 📦️ Dependencies
+
+- build(deps): bump github.com/shamaton/msgpack/v2 from 2.4.1 to 2.4.2 [[#3459](https://github.com/opencloud-eu/opencloud/pull/3459)]
+- build(deps): bump go.opentelemetry.io/otel/exporters/stdout/stdouttrace from 1.45.0 to 1.46.0 [[#3428](https://github.com/opencloud-eu/opencloud/pull/3428)]
+- build(deps): bump github.com/sirupsen/logrus from 1.10.1 to 1.10.2 [[#3492](https://github.com/opencloud-eu/opencloud/pull/3492)]
+
 ## [8.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.0.0) - 2026-09-15
 
 ### ❤️ Thanks to all contributors! ❤️
