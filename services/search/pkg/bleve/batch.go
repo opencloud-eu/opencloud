@@ -56,7 +56,7 @@ func (b *Batch) Move(id, parentID, location string) error {
 	return b.withSizeLimit(func() error {
 		nextPath := utils.MakeRelativePath(location)
 		var currentPath string
-		return b.forSelfAndDescendants(id, func(resource *search.Resource) error {
+		return b.forSelfAndDescendants(id, false, func(resource *search.Resource) error {
 			if resource.ID == id {
 				currentPath = resource.Path
 				resource.Path = nextPath
@@ -84,7 +84,7 @@ func (b *Batch) Restore(id string) error {
 }
 
 func (b *Batch) setDeleted(id string, deleted bool) error {
-	return b.forSelfAndDescendants(id, func(resource *search.Resource) error {
+	return b.forSelfAndDescendants(id, false, func(resource *search.Resource) error {
 		resource.Deleted = deleted
 		return b.indexResource(resource.ID, *resource)
 	})
@@ -92,23 +92,23 @@ func (b *Batch) setDeleted(id string, deleted bool) error {
 
 func (b *Batch) Purge(id string, onlyDeleted bool) error {
 	return b.withSizeLimit(func() error {
-		return b.forSelfAndDescendants(id, func(resource *search.Resource) error {
-			if onlyDeleted && !resource.Deleted {
-				return nil
-			}
+		return b.forSelfAndDescendants(id, onlyDeleted, func(resource *search.Resource) error {
 			b.batch.Delete(resource.ID)
 			return nil
 		})
 	})
 }
 
-// fn sees the root first; the root's original path drives the descendant lookup
-func (b *Batch) forSelfAndDescendants(id string, fn func(*search.Resource) error) error {
+// fn sees the root first; the root's original path and trash state drive the
+// descendant lookup. A trashed folder keeps its path, so a live folder can take
+// the same one: the descendants are the ones in the root's trash state, or the
+// trashed ones with onlyDeleted, which skips a live root as well.
+func (b *Batch) forSelfAndDescendants(id string, onlyDeleted bool, fn func(*search.Resource) error) error {
 	root, err := searchResourceByID(id, b.index)
 	if err != nil {
 		return err
 	}
-	rootID, rootPath := root.RootID, root.Path
+	rootID, rootPath, deleted := root.RootID, root.Path, root.Deleted || onlyDeleted
 	isContainer := root.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER)
 
 	apply := func(resource *search.Resource) error {
@@ -121,13 +121,15 @@ func (b *Batch) forSelfAndDescendants(id string, fn func(*search.Resource) error
 		return nil
 	}
 
-	if err := apply(root); err != nil {
-		return err
+	if root.Deleted || !onlyDeleted {
+		if err := apply(root); err != nil {
+			return err
+		}
 	}
 	if !isContainer {
 		return nil
 	}
-	return forEachResourceByPath(rootID, rootPath, b.index, func(resource *search.Resource) error {
+	return forEachResourceByPath(rootID, rootPath, deleted, b.index, func(resource *search.Resource) error {
 		if resource.ID == id {
 			return nil
 		}

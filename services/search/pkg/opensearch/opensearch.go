@@ -57,9 +57,12 @@ func updateSelfAndDescendants(ctx context.Context, client *opensearchgoAPI.Clien
 				Refresh:           conversions.ToPointer(true),
 			},
 		},
+		// a trashed folder keeps its path, so a live folder can take the same one:
+		// the descendants are the ones in the resource's trash state
 		osu.NewBoolQuery().
 			Must(osu.NewTermQuery[string]("RootID").Value(resource.RootID)).
-			Must(osu.NewTermQuery[string]("Path").Value(resource.Path)),
+			Must(osu.NewTermQuery[string]("Path").Value(resource.Path)).
+			Must(osu.NewTermQuery[bool]("Deleted").Value(resource.Deleted)),
 		osu.UpdateByQueryBodyParams{
 			Script: scriptProvider(resource),
 		},
