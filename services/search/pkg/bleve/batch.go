@@ -54,131 +54,84 @@ func (b *Batch) indexResource(id string, r search.Resource) error {
 
 func (b *Batch) Move(id, parentID, location string) error {
 	return b.withSizeLimit(func() error {
-		rootResource, err := searchResourceByID(id, b.index)
-		if err != nil {
-			return err
-		}
-		currentPath := rootResource.Path
 		nextPath := utils.MakeRelativePath(location)
-
-		rootResource.Path = nextPath
-		rootResource.Name = path.Base(nextPath)
-		rootResource.ParentID = parentID
-
-		resources := []*search.Resource{rootResource}
-
-		if rootResource.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER) {
-			descendantResources, err := searchResourcesByPath(rootResource.RootID, currentPath, b.index)
-			if err != nil {
-				return err
+		var currentPath string
+		return b.forSelfAndDescendants(id, func(resource *search.Resource) error {
+			if resource.ID == id {
+				currentPath = resource.Path
+				resource.Path = nextPath
+				resource.Name = path.Base(nextPath)
+				resource.ParentID = parentID
+			} else {
+				resource.Path = strings.Replace(resource.Path, currentPath, nextPath, 1)
 			}
-
-			for _, descendantResource := range descendantResources {
-				descendantResource.Path = strings.Replace(descendantResource.Path, currentPath, nextPath, 1)
-				resources = append(resources, descendantResource)
-			}
-		}
-
-		for _, resource := range resources {
 			resource.Hidden = search.IsHidden(resource.Path)
-
-			if err := b.indexResource(resource.ID, *resource); err != nil {
-				return err
-			}
-			if b.batch.Size() >= b.size {
-				if err := b.Push(); err != nil {
-					return err
-				}
-			}
-		}
-
-		return nil
+			return b.indexResource(resource.ID, *resource)
+		})
 	})
 }
 
 func (b *Batch) Delete(id string) error {
 	return b.withSizeLimit(func() error {
-		affectedResources, err := searchAndUpdateResourcesDeletionState(id, true, b.index)
-		if err != nil {
-			return err
-		}
-
-		for _, resource := range affectedResources {
-			if err := b.indexResource(resource.ID, *resource); err != nil {
-				return err
-			}
-			if b.batch.Size() >= b.size {
-				if err := b.Push(); err != nil {
-					return err
-				}
-			}
-		}
-
-		return nil
+		return b.setDeleted(id, true)
 	})
 }
 
 func (b *Batch) Restore(id string) error {
 	return b.withSizeLimit(func() error {
-		affectedResources, err := searchAndUpdateResourcesDeletionState(id, false, b.index)
-		if err != nil {
-			return err
-		}
+		return b.setDeleted(id, false)
+	})
+}
 
-		for _, resource := range affectedResources {
-			if err := b.indexResource(resource.ID, *resource); err != nil {
-				return err
-			}
-			if b.batch.Size() >= b.size {
-				if err := b.Push(); err != nil {
-					return err
-				}
-			}
-		}
-
-		return nil
+func (b *Batch) setDeleted(id string, deleted bool) error {
+	return b.forSelfAndDescendants(id, func(resource *search.Resource) error {
+		resource.Deleted = deleted
+		return b.indexResource(resource.ID, *resource)
 	})
 }
 
 func (b *Batch) Purge(id string, onlyDeleted bool) error {
 	return b.withSizeLimit(func() error {
-		rootResource, err := searchResourceByID(id, b.index)
-		if err != nil {
+		return b.forSelfAndDescendants(id, func(resource *search.Resource) error {
+			if onlyDeleted && !resource.Deleted {
+				return nil
+			}
+			b.batch.Delete(resource.ID)
+			return nil
+		})
+	})
+}
+
+// fn sees the root first; the root's original path drives the descendant lookup
+func (b *Batch) forSelfAndDescendants(id string, fn func(*search.Resource) error) error {
+	root, err := searchResourceByID(id, b.index)
+	if err != nil {
+		return err
+	}
+	rootID, rootPath := root.RootID, root.Path
+	isContainer := root.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER)
+
+	apply := func(resource *search.Resource) error {
+		if err := fn(resource); err != nil {
 			return err
 		}
-
-		var affectResources []*search.Resource
-		add := func(resource *search.Resource) {
-			if onlyDeleted && !resource.Deleted {
-				return
-			}
-
-			affectResources = append(affectResources, resource)
+		if b.batch.Size() >= b.size {
+			return b.Push()
 		}
-
-		add(rootResource)
-
-		if rootResource.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER) {
-			descendantResources, err := searchResourcesByPath(rootResource.RootID, rootResource.Path, b.index)
-			if err != nil {
-				return err
-			}
-
-			for _, descendantResource := range descendantResources {
-				add(descendantResource)
-			}
-		}
-
-		for _, resource := range affectResources {
-			b.batch.Delete(resource.ID)
-			if b.batch.Size() >= b.size {
-				if err := b.Push(); err != nil {
-					return err
-				}
-			}
-		}
-
 		return nil
+	}
+
+	if err := apply(root); err != nil {
+		return err
+	}
+	if !isContainer {
+		return nil
+	}
+	return forEachResourceByPath(rootID, rootPath, b.index, func(resource *search.Resource) error {
+		if resource.ID == id {
+			return nil
+		}
+		return apply(resource)
 	})
 }
 
