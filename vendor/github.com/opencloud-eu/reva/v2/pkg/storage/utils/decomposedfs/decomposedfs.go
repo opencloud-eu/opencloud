@@ -84,6 +84,7 @@ var (
 		events.PostprocessingStepFinished{},
 		events.RestartPostprocessing{},
 		events.CleanUpload{},
+		events.RevertRevision{},
 	}
 )
 
@@ -445,6 +446,18 @@ func (fs *Decomposedfs) Postprocessing(ch <-chan events.Event) {
 				continue // NOTE: since we can't get the upload, we can't delete the blob
 			}
 			session.Cleanup(true, !ev.KeepUpload, !ev.KeepUpload, true)
+		case events.RevertRevision:
+			sublog := log.With().Str("event", "RevertRevision").Interface("nodeid", ev.ResourceID).Logger()
+			n, err := fs.lu.NodeFromID(ctx, ev.ResourceID)
+			if err != nil {
+				sublog.Error().Err(err).Msg("Failed to get node")
+				continue
+			}
+
+			if err := n.RevertCurrentRevision(ctx); err != nil {
+				sublog.Error().Err(err).Msg("Failed to revert revision")
+				continue
+			}
 		case events.PostprocessingStepFinished:
 			sublog := log.With().Str("event", "PostprocessingStepFinished").Str("uploadid", ev.UploadID).Logger()
 			if ev.FinishedStep != events.PPStepAntivirus {

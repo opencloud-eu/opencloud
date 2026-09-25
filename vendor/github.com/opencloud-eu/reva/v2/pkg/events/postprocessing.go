@@ -238,3 +238,16 @@ func (CleanUpload) Unmarshal(v []byte) (interface{}, error) {
 	err := json.Unmarshal(v, &e)
 	return e, err
 }
+
+// RevertRevision can be emitted to revert a revision
+type RevertRevision struct {
+	ResourceID *provider.ResourceId
+	Timestamp  *types.Timestamp
+}
+
+// Unmarshal to fulfill umarshaller interface
+func (RevertRevision) Unmarshal(v []byte) (interface{}, error) {
+	e := RevertRevision{}
+	err := json.Unmarshal(v, &e)
+	return e, err
+}

@@ -4,16 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
+	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/tw"
+	"github.com/shamaton/msgpack/v2"
 	"github.com/spf13/cobra"
 
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config/parser"
@@ -22,7 +27,16 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/registry"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/lookup"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
+)
+
+const (
+	// Log indentation levels
+	LOG_INDENT_L1 = "  " // 2 spaces
+	LOG_INDENT_L2 = LOG_INDENT_L1 + LOG_INDENT_L1
 )
 
 // Session contains the information of an upload session
@@ -50,6 +64,7 @@ func Uploads(cfg *config.Config) *cobra.Command {
 	}
 	uploadsCmd.AddCommand([]*cobra.Command{
 		ListUploadSessions(cfg),
+		DeleteStaleProcessingNodes(cfg),
 	}...)
 
 	return uploadsCmd
@@ -312,4 +327,217 @@ func buildInfo(filter storage.UploadSessionFilter) string {
 
 	b.WriteString(":")
 	return b.String()
+}
+
+// DeleteStaleProcessingNodes is the entry point for the delete-stale-nodes command
+func DeleteStaleProcessingNodes(cfg *config.Config) *cobra.Command {
+	deleteStaleNodesCmd := &cobra.Command{
+		Use:   "delete-stale-nodes",
+		Short: "Delete (or revert) all nodes in processing state that are not referenced by any upload session",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			return configlog.ReturnFatal(parser.ParseConfig(cfg))
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			spaceIDs := []string{}
+			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			verbose, _ := cmd.Flags().GetBool("verbose")
+			start := time.Now()
+
+			// Check if specific space ID provided
+			if cmd.Flags().Changed("spaceid") {
+				spaceID, _ := cmd.Flags().GetString("spaceid")
+				spaceIDs = append(spaceIDs, spaceID)
+			} else {
+				fmt.Println("Scanning all spaces for stale processing nodes...")
+				spaceIDs = globSpaceIDs(cfg)
+			}
+
+			if verbose {
+				fmt.Printf("Spaces to cleanup: %d\n", len(spaceIDs))
+				for _, spaceID := range spaceIDs {
+					fmt.Printf("  - %s\n", spaceID)
+				}
+			}
+
+			var stream events.Stream
+			if !dryRun {
+				s, err := event.NewStream(cfg)
+				if err != nil {
+					log.Fatalf("Failed to create event stream: %v", err)
+				}
+				stream = s
+			}
+
+			staleCount := 0
+			for _, spaceID := range spaceIDs {
+				staleCount += deleteStaleUploads(cfg, spaceID, dryRun, verbose, stream)
+			}
+
+			if verbose {
+				fmt.Printf("Took %ds\n", int(time.Since(start).Seconds()))
+			}
+			fmt.Printf("Total stale nodes: %d\n", staleCount)
+
+			return nil
+		},
+	}
+	deleteStaleNodesCmd.Flags().String("spaceid", "", "Space ID to check for processing nodes (omit to check all spaces)")
+	deleteStaleNodesCmd.Flags().Bool("dry-run", true, "Only show what would be deleted without actually deleting")
+	deleteStaleNodesCmd.Flags().Bool("verbose", false, "Enable verbose logging")
+	return deleteStaleNodesCmd
+}
+
+// globSpaceIDs returns a list of all space IDs in the storage root
+func globSpaceIDs(cfg *config.Config) []string {
+	fsys := os.DirFS(cfg.Drivers.Decomposed.Root)
+	dirs, err := fs.Glob(fsys, "spaces/*/*/nodes")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error globbing spaces root directory %s: %v\n", cfg.Drivers.Decomposed.Root, err)
+		return []string{}
+	}
+
+	spaceIDs := []string{}
+	for _, dir := range dirs {
+		// For dir i.e. spaces/9d/408cec-8f0a-4d33-8715-89df1217a10c/nodes
+		// spaceID is 9d408cec-8f0a-4d33-8715-89df1217a10c
+		spaceIDs = append(spaceIDs, strings.ReplaceAll(strings.TrimSuffix(strings.TrimPrefix(dir, "spaces/"), "/nodes"), "/", ""))
+	}
+	return spaceIDs
+}
+
+// delete stale processing nodes for a given spaceID
+func deleteStaleUploads(cfg *config.Config, spaceID string, dryRun bool, verbose bool, stream events.Stream) int {
+	if verbose {
+		fmt.Printf("\nDeleting stale processing nodes for space: %s\n", spaceID)
+	}
+
+	// Find .mpk files in space directory
+	spaceRoot := filepath.Join(cfg.Drivers.Decomposed.Root, "spaces", lookup.Pathify(spaceID, 1, 2))
+	mpkFiles := []string{}
+	err := filepath.Walk(spaceRoot, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error accessing path %s: %s\n", path, err)
+			return filepath.SkipDir
+		}
+		if !info.IsDir() && strings.HasSuffix(path, ".mpk") {
+			mpkFiles = append(mpkFiles, path)
+		}
+		return nil
+	})
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error walking space directory %s: %s\n", spaceRoot, err)
+		return 0
+	}
+
+	if verbose {
+		fmt.Printf("%sFound total %d .mpk files\n", LOG_INDENT_L1, len(mpkFiles))
+	}
+
+	staleCount := 0
+	for _, path := range mpkFiles {
+		staleCount += deleteStaleNode(cfg, path, dryRun, verbose, stream)
+	}
+
+	if verbose {
+		fmt.Printf("%sFound total %d stale nodes\n", LOG_INDENT_L1, staleCount)
+	}
+
+	return staleCount
+}
+
+// deleteStaleNode deletes a stale node: if it is not referenced by any upload session
+// returns 1 if the node stale node was detected for deletion, 0 otherwise, for counting purposes
+func deleteStaleNode(cfg *config.Config, path string, dryRun bool, verbose bool, stream events.Stream) int {
+	nodeDir := filepath.Dir(path)
+
+	// Read .mpk file to get processing info
+	b, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading file %s: %s\n", path, err)
+		return 0
+	}
+	var mpkData map[string]any
+	if err := msgpack.Unmarshal(b, &mpkData); err != nil {
+		fmt.Fprintf(os.Stderr, "Error unmarshaling file %s: %s\n", path, err)
+		return 0
+	}
+
+	processingID := extractProcessingID(mpkData)
+	if processingID == "" {
+		return 0
+	}
+
+	// Construct path to upload info file:
+	// i.e. ~/.ocis/storage/users/uploads/5329c14b-b786-4b27-8f7d-7429f03009d7.info
+	// And pass only the .info file not exists: err is ErrNotExist
+	pathUploadInfo := filepath.Join(cfg.Drivers.Decomposed.Root, "uploads", processingID) + ".info"
+	_, infoStatErr := os.Stat(pathUploadInfo)
+	if infoStatErr == nil {
+		return 0
+	}
+	if !os.IsNotExist(infoStatErr) {
+		// Tere was an error other than file not existing, log and return
+		fmt.Fprintf(os.Stderr, "Error checking upload info %s: %s\n", pathUploadInfo, infoStatErr)
+		return 0
+	}
+
+	if verbose {
+		fmt.Printf("%sFound stale upload at %s (Processing ID: %s)\n", LOG_INDENT_L1, path, processingID)
+		fmt.Printf("%sUpload info missing at: %s\n", LOG_INDENT_L2, pathUploadInfo)
+	}
+
+	if dryRun {
+		return 1
+	}
+
+	rid := extractResourceID(strings.TrimSuffix(path, ".mpk"))
+	if rid == nil {
+		fmt.Fprintf(os.Stderr, "Failed to extract resource ID from path %s\n", path)
+		return 0
+	}
+
+	if err := events.Publish(context.Background(), stream, events.RevertRevision{
+		ResourceID: rid,
+		Timestamp:  utils.TSNow(),
+	}); err != nil {
+		// if publishing fails there is no need to try publishing other events - they will fail too.
+		log.Fatalf("Failed to send revert revision event for node '%s'\n", path)
+	}
+
+	if verbose {
+		fmt.Printf("%sDeleted stale node: %s\n", LOG_INDENT_L2, nodeDir)
+	}
+
+	return 1
+}
+
+func extractProcessingID(mpkData map[string]any) string {
+	processingID := ""
+	for k, v := range mpkData {
+		vStr := string(v.([]byte))
+		if k == prefixes.StatusPrefix && strings.Contains(vStr, node.ProcessingStatus) {
+			processingID = strings.Split(vStr, ":")[1]
+			break
+		}
+	}
+	return processingID
+}
+
+func extractResourceID(path string) *provider.ResourceId {
+	// path looks like /.../storage/users/spaces/f2/06bccf-0f10-4070-9e63-40943f060667/nodes/5b/ba/1e/a7/-f185-4f31-8342-ed4b5743f096
+	parts := strings.Split(path, "spaces")
+	if len(parts) < 2 {
+		return nil
+	}
+
+	spaceParts := strings.Split(parts[1], "nodes")
+	if len(spaceParts) < 2 {
+		return nil
+	}
+
+	return &provider.ResourceId{
+		SpaceId:  strings.ReplaceAll(spaceParts[0], "/", ""),
+		OpaqueId: strings.ReplaceAll(spaceParts[1], "/", ""),
+	}
 }

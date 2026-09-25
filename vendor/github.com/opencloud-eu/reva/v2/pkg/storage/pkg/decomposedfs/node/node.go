@@ -1324,7 +1324,12 @@ func (n *Node) DeleteGrant(ctx context.Context, g *provider.Grant) (err error) {
 
 // Purge removes a node from disk. It does not move it to the trash
 func (n *Node) Purge(ctx context.Context) error {
-	return n.lu.PurgeNode(n)
+	if err := n.lu.PurgeNode(n); err != nil {
+		return err
+	}
+
+	// remove .mpk and .mlock files
+	return n.lu.MetadataBackend().Purge(ctx, n)
 }
 
 // ListGrants lists all grants of the current node.
@@ -1549,6 +1554,77 @@ func (n *Node) GetDTime(ctx context.Context) (time.Time, error) {
 // SetDTime writes the UTC dmtime to the extended attributes or removes the attribute if nil is passed
 func (n *Node) SetDTime(ctx context.Context, t *time.Time) (err error) {
 	return n.lu.TimeManager().SetDTime(ctx, n, t)
+}
+
+// RevertCurrentRevision reverts an upload by either deleting the node or restoring the latest version
+func (n *Node) RevertCurrentRevision(ctx context.Context) error {
+	versionPath, err := n.getLatestRevision(ctx)
+	if err != nil {
+		return err
+	}
+
+	if versionPath == "" {
+		// there is no revision - delete the node
+		if err := n.Purge(ctx); err != nil {
+			appctx.GetLogger(ctx).Info().Str("nodepath", n.InternalPath()).Err(err).Msg("error purging node")
+			return err
+		}
+		return nil
+	}
+
+	revisionID := strings.TrimPrefix(versionPath, n.lu.VersionPath(n.SpaceID, n.ID, ""))
+	versionNode := NewBaseNode(n.SpaceID, n.ID+RevisionIDDelimiter+revisionID, n.lu)
+	if err := n.lu.CopyMetadata(ctx, versionNode, n, func(attributeName string, value []byte) (newValue []byte, copy bool) {
+		return value, strings.HasPrefix(attributeName, prefixes.ChecksumPrefix) ||
+			attributeName == prefixes.TypeAttr ||
+			attributeName == prefixes.BlobIDAttr ||
+			attributeName == prefixes.BlobsizeAttr ||
+			attributeName == prefixes.MTimeAttr
+	}); err != nil {
+		appctx.GetLogger(ctx).Info().Str("versionpath", versionPath).Str("nodepath", n.InternalPath()).Err(err).Msg("renaming version node failed")
+		return err
+	}
+
+	if err := os.RemoveAll(versionPath); err != nil {
+		appctx.GetLogger(ctx).Info().Str("versionpath", versionPath).Str("nodepath", n.InternalPath()).Err(err).Msg("error removing version")
+		return err
+	}
+
+	// we just reverted an upload - remove processing flag if set
+	if uploadid, err := n.ProcessingID(ctx); err == nil {
+		if err := n.UnmarkProcessing(ctx, uploadid); err != nil {
+			appctx.GetLogger(ctx).Info().Str("path", n.InternalPath()).Err(err).Msg("unmarking processing failed")
+			return err
+		}
+	}
+	return nil
+}
+
+func (n *Node) getLatestRevision(ctx context.Context) (string, error) {
+	revPrefix := n.lu.VersionPath(n.SpaceID, n.ID, "")
+	revisions, err := filepath.Glob(n.lu.VersionPath(n.SpaceID, n.ID, "*"))
+	if err != nil {
+		appctx.GetLogger(ctx).Error().Str("nodepath", n.InternalPath()).Err(err).Msg("error reading revisions")
+		return "", err
+	}
+
+	revPath, latest := "", time.Time{}
+	for _, rev := range revisions {
+		if strings.HasSuffix(rev, ".mpk") || strings.HasSuffix(rev, ".mlock") {
+			continue
+		}
+		revDate, err := time.Parse(time.RFC3339Nano, strings.TrimPrefix(rev, revPrefix))
+		if err != nil {
+			appctx.GetLogger(ctx).Error().Str("nodepath", n.InternalPath()).Err(err).Msg("error parsing revision date")
+			continue
+		}
+
+		if revDate.After(latest) {
+			latest = revDate
+			revPath = rev
+		}
+	}
+	return revPath, nil
 }
 
 // ReadChildNodeFromLink reads the child node id from a link
