@@ -30,37 +30,15 @@ func (r *ImageRef) Export(params *ExportParams) ([]byte, *ImageMetadata, error) 
 
 	switch format {
 	case ImageTypeGIF:
-		return r.ExportGIF(&GifExportParams{
-			Quality: params.Quality,
-		})
+		return r.ExportGIF(gifParamsFromExport(params))
 	case ImageTypeWEBP:
-		return r.ExportWebp(&WebpExportParams{
-			StripMetadata:   params.StripMetadata,
-			Quality:         params.Quality,
-			Lossless:        params.Lossless,
-			ReductionEffort: params.Effort,
-		})
+		return r.ExportWebp(webpParamsFromExport(params))
 	case ImageTypePNG:
-		return r.ExportPng(&PngExportParams{
-			StripMetadata: params.StripMetadata,
-			Compression:   params.Compression,
-			Interlace:     params.Interlaced,
-		})
+		return r.ExportPng(pngParamsFromExport(params))
 	case ImageTypeTIFF:
-		compression := TiffCompressionLzw
-		if params.Lossless {
-			compression = TiffCompressionNone
-		}
-		return r.ExportTiff(&TiffExportParams{
-			StripMetadata: params.StripMetadata,
-			Quality:       params.Quality,
-			Compression:   compression,
-		})
+		return r.ExportTiff(tiffParamsFromExport(params))
 	case ImageTypeHEIF:
-		return r.ExportHeif(&HeifExportParams{
-			Quality:  params.Quality,
-			Lossless: params.Lossless,
-		})
+		return r.ExportHeif(heifParamsFromExport(params))
 	case ImageTypeAVIF:
 		return r.ExportAvif(&AvifExportParams{
 			StripMetadata: params.StripMetadata,
@@ -76,17 +54,86 @@ func (r *ImageRef) Export(params *ExportParams) ([]byte, *ImageMetadata, error) 
 		})
 	default:
 		format = ImageTypeJPEG
-		return r.ExportJpeg(&JpegExportParams{
-			Quality:            params.Quality,
-			StripMetadata:      params.StripMetadata,
-			Interlace:          params.Interlaced,
-			OptimizeCoding:     params.OptimizeCoding,
-			SubsampleMode:      params.SubsampleMode,
-			TrellisQuant:       params.TrellisQuant,
-			OvershootDeringing: params.OvershootDeringing,
-			OptimizeScans:      params.OptimizeScans,
-			QuantTable:         params.QuantTable,
-		})
+		return r.ExportJpeg(jpegParamsFromExport(params))
+	}
+}
+
+// The *ParamsFromExport helpers map the generic (deprecated) ExportParams
+// onto format-specific params. They are shared between Export and the
+// streaming SaveToWriter so the two paths cannot drift. A nil params
+// yields the format's defaults.
+
+func jpegParamsFromExport(params *ExportParams) *JpegExportParams {
+	if params == nil {
+		return NewJpegExportParams()
+	}
+	return &JpegExportParams{
+		Quality:            params.Quality,
+		StripMetadata:      params.StripMetadata,
+		Interlace:          params.Interlaced,
+		OptimizeCoding:     params.OptimizeCoding,
+		SubsampleMode:      params.SubsampleMode,
+		TrellisQuant:       params.TrellisQuant,
+		OvershootDeringing: params.OvershootDeringing,
+		OptimizeScans:      params.OptimizeScans,
+		QuantTable:         params.QuantTable,
+	}
+}
+
+func pngParamsFromExport(params *ExportParams) *PngExportParams {
+	if params == nil {
+		return NewPngExportParams()
+	}
+	return &PngExportParams{
+		StripMetadata: params.StripMetadata,
+		Compression:   params.Compression,
+		Interlace:     params.Interlaced,
+	}
+}
+
+func webpParamsFromExport(params *ExportParams) *WebpExportParams {
+	if params == nil {
+		return NewWebpExportParams()
+	}
+	return &WebpExportParams{
+		StripMetadata:   params.StripMetadata,
+		Quality:         params.Quality,
+		Lossless:        params.Lossless,
+		ReductionEffort: params.Effort,
+	}
+}
+
+func tiffParamsFromExport(params *ExportParams) *TiffExportParams {
+	if params == nil {
+		return NewTiffExportParams()
+	}
+	compression := TiffCompressionLzw
+	if params.Lossless {
+		compression = TiffCompressionNone
+	}
+	return &TiffExportParams{
+		StripMetadata: params.StripMetadata,
+		Quality:       params.Quality,
+		Compression:   compression,
+	}
+}
+
+func heifParamsFromExport(params *ExportParams) *HeifExportParams {
+	if params == nil {
+		return NewHeifExportParams()
+	}
+	return &HeifExportParams{
+		Quality:  params.Quality,
+		Lossless: params.Lossless,
+	}
+}
+
+func gifParamsFromExport(params *ExportParams) *GifExportParams {
+	if params == nil {
+		return NewGifExportParams()
+	}
+	return &GifExportParams{
+		Quality: params.Quality,
 	}
 }
 
