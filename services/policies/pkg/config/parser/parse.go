@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
+	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/policies/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/policies/pkg/config/defaults"
 
@@ -33,12 +34,8 @@ func ParseConfig(cfg *config.Config) error {
 }
 
 func Validate(cfg *config.Config) error {
-	if cfg.GRPC.Disabled && cfg.Events.Disabled {
-		// might be debatable, but this situation should be treated as an error,
-		// as the process wouldn't be able to serve either API and would thus be
-		// completely useless -- in that case, just don't start this service
-		// in the first place (especially since it's optional)
-		return errors.New("both gRPC and events APIs are disabled by configuration; at least one must be enabled")
+	if cfg.Events.Disabled && cfg.GRPC.Disabled {
+		return shared.AllComponentsDisabledError(cfg.Service.Name)
 	}
 	return nil
 }
