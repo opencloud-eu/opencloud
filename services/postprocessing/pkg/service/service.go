@@ -267,6 +267,10 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 		})
 	case events.UploadReady:
 		pps.log.Debug().Str("UploadID", e.ID).Str("filename", ev.Filename).Msg("processing UploadReady")
+		if ev.UploadID == "" {
+			// no upload session, the posix driver assimilated a file that was written to disk directly
+			return nil
+		}
 		// the upload failed - let's keep it around for a while - but mark it as finished
 		pp, err = pps.getPP(pps.store, ev.UploadID)
 		if err != nil {
