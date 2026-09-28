@@ -12,6 +12,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(search): keep trashed and live folders at the same path apart [[#3602](https://github.com/opencloud-eu/opencloud/pull/3602)]
 - Fix/uploads cli no async consumer [[#3603](https://github.com/opencloud-eu/opencloud/pull/3603)]
 - Remove the timeout when reindexing spaces [[#3543](https://github.com/opencloud-eu/opencloud/pull/3543)]
 - fix(shares): not auto accepting shares created by guest users [[#3533](https://github.com/opencloud-eu/opencloud/pull/3533)]
