@@ -1,6 +1,6 @@
 # Changelog
 
-## [8.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.1.0) - 2026-09-25
+## [8.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.1.0) - 2026-09-28
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -9,6 +9,13 @@
 ### 🔒 Security
 
 - feat(proxy): add optional OIDC access token audience validation [[#3466](https://github.com/opencloud-eu/opencloud/pull/3466)]
+
+### 🐛 Bug Fixes
+
+- Fix/uploads cli no async consumer [[#3603](https://github.com/opencloud-eu/opencloud/pull/3603)]
+- Remove the timeout when reindexing spaces [[#3543](https://github.com/opencloud-eu/opencloud/pull/3543)]
+- fix(shares): not auto accepting shares created by guest users [[#3533](https://github.com/opencloud-eu/opencloud/pull/3533)]
+- fix(graph): fix PatchMe method to prevent password change [[#3526](https://github.com/opencloud-eu/opencloud/pull/3526)]
 
 ### ✅ Tests
 
@@ -24,12 +31,6 @@
 ### 📚 Documentation
 
 - [SKIP CI] fix: add file_read documentation to audit log docu [[#3503](https://github.com/opencloud-eu/opencloud/pull/3503)]
-
-### 🐛 Bug Fixes
-
-- Remove the timeout when reindexing spaces [[#3543](https://github.com/opencloud-eu/opencloud/pull/3543)]
-- fix(shares): not auto accepting shares created by guest users [[#3533](https://github.com/opencloud-eu/opencloud/pull/3533)]
-- fix(graph): fix PatchMe method to prevent password change [[#3526](https://github.com/opencloud-eu/opencloud/pull/3526)]
 
 ### 📦️ Dependencies
 
