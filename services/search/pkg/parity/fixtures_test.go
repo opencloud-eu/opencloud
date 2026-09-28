@@ -101,6 +101,20 @@ func fixtureTree() (parent, child search.Resource) {
 	return parent, child
 }
 
+// fixtureSamePath is a trashed folder and the live folder that took its path,
+// with a file in each.
+func fixtureSamePath() (trashed, live search.Resource, all []search.Resource) {
+	trashed = fixtureFolder("a", withID("1$1!trashed"), isDeleted())
+	live = fixtureFolder("a", withID("1$1!live"))
+
+	return trashed, live, []search.Resource{
+		trashed,
+		fixtureDoc("x.txt", withID("1$1!trashed-x"), withParent(trashed.ID), withPath("./a/x.txt"), isDeleted()),
+		live,
+		fixtureDoc("y.txt", withID("1$1!live-y"), withParent(live.ID), withPath("./a/y.txt")),
+	}
+}
+
 func treeIsLeft(names ...string) []expectation {
 	left := func(name string) []string {
 		if slices.Contains(names, name) {

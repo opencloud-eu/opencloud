@@ -15,6 +15,7 @@ import (
 	"github.com/blevesearch/bleve/v2/analysis/token/lowercase"
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/unicode"
 	"github.com/blevesearch/bleve/v2/mapping"
+	"github.com/blevesearch/bleve/v2/search/query"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve/hierarchy"
@@ -265,17 +266,31 @@ func searchResourceByID(id string, index bleve.Index) (*search.Resource, error) 
 // memory (about 7 MB per 5k hits) for fewer rescans
 var descendantPageSize = 20_000
 
-// forEachResourceByPath streams the folder at lookupPath and its descendants
-// (the folder term matches both, see PathAnalyzer); paged by id so memory is
-// bounded by the page and fn may write to the index between pages
-func forEachResourceByPath(rootID string, lookupPath string, index bleve.Index, fn func(*search.Resource) error) error {
-	rootQuery := bleve.NewTermQuery(rootID)
-	rootQuery.SetField("RootID")
-	pathQuery := bleve.NewTermQuery(lookupPath)
-	pathQuery.SetField("Path")
+// treeQuery matches root and its descendants that share root's trash state: a
+// trashed folder keeps its path, so a live folder can take the same one
+func treeQuery(root *search.Resource) query.Query {
+	return bleve.NewConjunctionQuery(
+		&query.TermQuery{FieldVal: "RootID", Term: root.RootID},
+		&query.TermQuery{FieldVal: "Path", Term: root.Path},
+		&query.BoolFieldQuery{FieldVal: "Deleted", Bool: root.Deleted},
+	)
+}
 
+// trashedTreeQuery matches the trashed resources at and below root's path, even
+// if root itself is live
+func trashedTreeQuery(root *search.Resource) query.Query {
+	return bleve.NewConjunctionQuery(
+		&query.TermQuery{FieldVal: "RootID", Term: root.RootID},
+		&query.TermQuery{FieldVal: "Path", Term: root.Path},
+		&query.BoolFieldQuery{FieldVal: "Deleted", Bool: true},
+	)
+}
+
+// forEachMatch streams the resources matching q; paged by id so memory is
+// bounded by the page and fn may write to the index between pages
+func forEachMatch(q query.Query, index bleve.Index, fn func(*search.Resource) error) error {
 	pageSize := descendantPageSize
-	bleveReq := bleve.NewSearchRequest(bleve.NewConjunctionQuery(rootQuery, pathQuery))
+	bleveReq := bleve.NewSearchRequest(q)
 	bleveReq.Size = pageSize
 	bleveReq.Fields = []string{"*"}
 	bleveReq.SortBy([]string{"_id"})

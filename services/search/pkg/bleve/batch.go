@@ -92,26 +92,53 @@ func (b *Batch) setDeleted(id string, deleted bool) error {
 
 func (b *Batch) Purge(id string, onlyDeleted bool) error {
 	return b.withSizeLimit(func() error {
-		return b.forSelfAndDescendants(id, func(resource *search.Resource) error {
-			if onlyDeleted && !resource.Deleted {
-				return nil
-			}
+		purge := func(resource *search.Resource) error {
 			b.batch.Delete(resource.ID)
 			return nil
-		})
+		}
+		if !onlyDeleted {
+			return b.forSelfAndDescendants(id, purge)
+		}
+
+		root, err := searchResourceByID(id, b.index)
+		if err != nil {
+			return err
+		}
+		// the Path term matches the root too: a trashed root is purged, a live one kept
+		return forEachMatch(trashedTreeQuery(root), b.index, b.pushing(purge))
 	})
 }
 
-// fn sees the root first; the root's original path drives the descendant lookup
+// fn sees the root first; the root's original path and trash state drive the
+// descendant lookup. A trashed folder keeps its path, so a live folder can take
+// the same one: the descendants are the ones in the root's trash state.
 func (b *Batch) forSelfAndDescendants(id string, fn func(*search.Resource) error) error {
 	root, err := searchResourceByID(id, b.index)
 	if err != nil {
 		return err
 	}
-	rootID, rootPath := root.RootID, root.Path
+	// built before fn changes the root's path or trash state
+	q := treeQuery(root)
 	isContainer := root.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER)
 
-	apply := func(resource *search.Resource) error {
+	apply := b.pushing(fn)
+	if err := apply(root); err != nil {
+		return err
+	}
+	if !isContainer {
+		return nil
+	}
+	return forEachMatch(q, b.index, func(resource *search.Resource) error {
+		if resource.ID == id {
+			return nil
+		}
+		return apply(resource)
+	})
+}
+
+// pushing wraps fn to push the batch whenever it is full
+func (b *Batch) pushing(fn func(*search.Resource) error) func(*search.Resource) error {
+	return func(resource *search.Resource) error {
 		if err := fn(resource); err != nil {
 			return err
 		}
@@ -120,19 +147,6 @@ func (b *Batch) forSelfAndDescendants(id string, fn func(*search.Resource) error
 		}
 		return nil
 	}
-
-	if err := apply(root); err != nil {
-		return err
-	}
-	if !isContainer {
-		return nil
-	}
-	return forEachResourceByPath(rootID, rootPath, b.index, func(resource *search.Resource) error {
-		if resource.ID == id {
-			return nil
-		}
-		return apply(resource)
-	})
 }
 
 func (b *Batch) Push() error {

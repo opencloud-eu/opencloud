@@ -23,7 +23,7 @@ func indexResources(idx bleve.Index, resources ...search.Resource) {
 	Expect(idx.Batch(batch)).To(Succeed())
 }
 
-var _ = Describe("forEachResourceByPath", func() {
+var _ = Describe("forEachMatch", func() {
 	var idx bleve.Index
 
 	BeforeEach(func() {
