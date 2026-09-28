@@ -32,7 +32,7 @@ type httpMetrics struct {
 
 func WithHTTPMetrics() Option {
 	return func(m *Metrics) {
-		if m.http != nil {
+		if m.HTTP != nil {
 			return
 		}
 		h := &httpMetrics{
@@ -51,7 +51,7 @@ func WithHTTPMetrics() Option {
 			}, []string{LabelMethod, LabelPath, LabelCode, LabelResult}),
 			requestsInFlight: new(atomic.Int64),
 		}
-		m.http = h
+		m.HTTP = h
 		m.collectors = append(m.collectors, h.duration, h.requests)
 		m.collectors = append(m.collectors, prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 			Namespace: m.namespace,
@@ -65,8 +65,8 @@ func WithHTTPMetrics() Option {
 	}
 }
 
-func (m *Metrics) RecordHTTPDuration(method, pattern string, statusCode int, duration time.Duration) {
-	if m.http == nil {
+func (h *httpMetrics) RecordDuration(method, pattern string, statusCode int, duration time.Duration) {
+	if h == nil {
 		return
 	}
 	result := ResultSuccess
@@ -77,20 +77,20 @@ func (m *Metrics) RecordHTTPDuration(method, pattern string, statusCode int, dur
 		result = ResultClientError
 	}
 	code := strconv.Itoa(statusCode)
-	m.http.duration.WithLabelValues(method, pattern, code, result).Observe(duration.Seconds())
-	m.http.requests.WithLabelValues(method, pattern, code, result).Inc()
+	h.duration.WithLabelValues(method, pattern, code, result).Observe(duration.Seconds())
+	h.requests.WithLabelValues(method, pattern, code, result).Inc()
 }
 
-func (m *Metrics) HTTPMiddleware(next http.Handler) http.Handler {
+func (h *httpMetrics) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if m.http == nil {
+		if h == nil {
 			next.ServeHTTP(w, r)
 			return
 		}
 
 		start := time.Now()
-		m.http.requestsInFlight.Add(1)
-		defer m.http.requestsInFlight.Add(-1)
+		h.requestsInFlight.Add(1)
+		defer h.requestsInFlight.Add(-1)
 
 		wrapper := chimiddleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		next.ServeHTTP(wrapper, r)
@@ -101,6 +101,6 @@ func (m *Metrics) HTTPMiddleware(next http.Handler) http.Handler {
 				pattern = p
 			}
 		}
-		m.RecordHTTPDuration(r.Method, pattern, wrapper.Status(), time.Since(start))
+		h.RecordDuration(r.Method, pattern, wrapper.Status(), time.Since(start))
 	})
 }

@@ -223,9 +223,9 @@ func TestServiceMetrics(t *testing.T) {
 
 	// the events counter is only present once there is a series
 	require.Nil(gatherByName(t, reg)[eventsName])
-	m.RecordSuccess("Foo")
-	m.RecordFailure("Bar")
-	m.RecordSuccess("Baz")
+	m.Events.RecordSuccess("Foo")
+	m.Events.RecordFailure("Bar")
+	m.Events.RecordSuccess("Baz")
 	{
 		mf := gatherByName(t, reg)[eventsName]
 		require.NotNil(mf, "expected metric %q", eventsName)
@@ -254,8 +254,8 @@ func TestServiceMetricsNoEventsCounter(t *testing.T) {
 	require.NoError(err)
 
 	// recording is a no-op without the events counter
-	require.NotPanics(func() { m.RecordSuccess("Foo") })
-	require.NotPanics(func() { m.RecordFailure("Foo") })
+	require.NotPanics(func() { m.Events.RecordSuccess("Foo") })
+	require.NotPanics(func() { m.Events.RecordFailure("Foo") })
 
 	eventsName := namespace + "_" + subsystem + "_events"
 	require.Nil(gatherByName(t, reg)[eventsName])
@@ -308,7 +308,7 @@ func TestHTTPMetrics(t *testing.T) {
 	}
 
 	router := chi.NewRouter()
-	router.Use(m.HTTPMiddleware)
+	router.Use(m.HTTP.Middleware)
 	router.Get("/foo/{id}", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
@@ -359,7 +359,7 @@ func TestHTTPMetricsMiddlewareWithoutMetrics(t *testing.T) {
 
 	// without WithHTTPMetrics the middleware must be a pass-through
 	router := chi.NewRouter()
-	router.Use(m.HTTPMiddleware)
+	router.Use(m.HTTP.Middleware)
 	router.Get("/foo", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})

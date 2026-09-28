@@ -32,10 +32,11 @@ type Metrics struct {
 
 	BuildInfo *prometheus.GaugeVec
 
+	Events *eventsMetrics
+	HTTP   *httpMetrics
+
 	enabled    map[APIType]prometheus.Gauge
 	collectors []prometheus.Collector
-	events     *eventsMetrics
-	http       *httpMetrics
 }
 
 type Option func(*Metrics)

@@ -118,9 +118,9 @@ func (s *ActivitylogService) Run() error {
 
 					if s.metrics != nil {
 						if err != nil {
-							s.metrics.RecordFailure(eventName(e))
+							s.metrics.Events.RecordFailure(eventName(e))
 						} else {
-							s.metrics.RecordSuccess(eventName(e))
+							s.metrics.Events.RecordSuccess(eventName(e))
 						}
 					}
 

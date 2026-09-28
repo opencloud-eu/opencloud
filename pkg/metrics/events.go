@@ -14,10 +14,10 @@ type eventsMetrics struct {
 
 func WithEventsProcessed() Option {
 	return func(m *Metrics) {
-		if m.events != nil {
+		if m.Events != nil {
 			return
 		}
-		m.events = &eventsMetrics{
+		m.Events = &eventsMetrics{
 			processed: prometheus.NewCounterVec(prometheus.CounterOpts{
 				Namespace: m.namespace,
 				Subsystem: m.subsystem,
@@ -25,20 +25,20 @@ func WithEventsProcessed() Option {
 				Help:      "Number of consumed events",
 			}, []string{LabelEvent, LabelResult}),
 		}
-		m.collectors = append(m.collectors, m.events.processed)
+		m.collectors = append(m.collectors, m.Events.processed)
 	}
 }
 
-func (m *Metrics) RecordSuccess(event string) {
-	if m.events == nil {
+func (e *eventsMetrics) RecordSuccess(event string) {
+	if e == nil {
 		return
 	}
-	m.events.processed.WithLabelValues(event, ResultSuccess).Inc()
+	e.processed.WithLabelValues(event, ResultSuccess).Inc()
 }
 
-func (m *Metrics) RecordFailure(event string) {
-	if m.events == nil {
+func (e *eventsMetrics) RecordFailure(event string) {
+	if e == nil {
 		return
 	}
-	m.events.processed.WithLabelValues(event, ResultFailure).Inc()
+	e.processed.WithLabelValues(event, ResultFailure).Inc()
 }
