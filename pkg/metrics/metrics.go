@@ -13,6 +13,33 @@ import (
 
 type BuildInfoMetric = *prometheus.GaugeVec
 
+// APIType identifies an API that a service instance can serve.
+type APIType string
+
+const (
+	ResultSuccess = "success"
+
+	LabelResult = "result"
+
+	APIHTTP   APIType = "http"
+	APIGRPC   APIType = "grpc"
+	APIEvents APIType = "events"
+)
+
+type Metrics struct {
+	namespace string
+	subsystem string
+
+	BuildInfo *prometheus.GaugeVec
+
+	enabled    map[APIType]prometheus.Gauge
+	collectors []prometheus.Collector
+	events     *eventsMetrics
+	http       *httpMetrics
+}
+
+type Option func(*Metrics)
+
 // Create a BuildInfo metric for the specified namespace and subsystem.
 func BuildInfo(namespace, subsystem string) BuildInfoMetric {
 	return prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -203,3 +230,67 @@ func (r *LoggingPrometheusRegisterer) Unregister(c prometheus.Collector) bool {
 }
 
 var _ prometheus.Registerer = &LoggingPrometheusRegisterer{}
+
+func WithEnabled(apis ...APIType) Option {
+	return func(m *Metrics) {
+		for _, api := range apis {
+			if _, ok := m.enabled[api]; ok {
+				continue
+			}
+			g := newEnabledGauge(m.namespace, m.subsystem, api)
+			g.Set(1)
+			m.enabled[api] = g
+			m.collectors = append(m.collectors, g)
+		}
+	}
+}
+
+func New(reg prometheus.Registerer, logger *log.Logger, namespace, subsystem string, opts ...Option) (*Metrics, error) {
+	m := &Metrics{
+		namespace: namespace,
+		subsystem: subsystem,
+		BuildInfo: BuildInfo(namespace, subsystem),
+		enabled:   map[APIType]prometheus.Gauge{},
+	}
+	m.collectors = append(m.collectors, m.BuildInfo)
+
+	for _, o := range opts {
+		o(m)
+	}
+
+	m.BuildInfo.WithLabelValues(version.GetString()).Set(1)
+
+	lr := NewLoggingPrometheusRegisterer(reg, logger)
+	var errs []error
+	for _, c := range m.collectors {
+		if err := lr.Register(c); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return m, errors.Join(errs...)
+}
+
+func (m *Metrics) SetDisabled(api APIType) {
+	g, ok := m.enabled[api]
+	if !ok {
+		return
+	}
+	g.Set(0)
+}
+
+func newEnabledGauge(namespace, subsystem string, api APIType) prometheus.Gauge {
+	name := string(api) + "_enabled"
+	display := string(api)
+	switch api {
+	case APIHTTP:
+		display = "HTTP"
+	case APIGRPC:
+		display = "gRPC"
+	}
+	return prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      name,
+		Help:      "Whether this instance processes " + display + " API calls (1) or not (0)",
+	})
+}

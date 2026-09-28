@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,6 +12,7 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	ocmetrics "github.com/opencloud-eu/opencloud/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/activitylog"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
@@ -44,6 +46,8 @@ type ActivitylogService struct {
 
 	events []events.Unmarshaller
 
+	metrics *ocmetrics.Metrics
+
 	stopCh  chan struct{}
 	stopped *atomic.Bool
 }
@@ -66,6 +70,7 @@ func New(al *activitylog.ActivityLog, stream events.Stream, opts ...Option) (*Ac
 		events:       o.RegisteredEvents,
 		numConsumers: o.NumConsumers,
 		al:           al,
+		metrics:      o.Metrics,
 		stopCh:       make(chan struct{}, 1),
 		stopped:      new(atomic.Bool),
 	}
@@ -103,12 +108,22 @@ func (s *ActivitylogService) Run() error {
 					if !ok {
 						return
 					}
-					if err := s.processEvent(e); err != nil {
+					err := s.processEvent(e)
+					if err != nil {
 						s.log.Error().Err(err).
 							Int("worker", workerID).
 							Interface("event", e).
 							Msg("failed to process event")
 					}
+
+					if s.metrics != nil {
+						if err != nil {
+							s.metrics.RecordFailure(eventName(e))
+						} else {
+							s.metrics.RecordSuccess(eventName(e))
+						}
+					}
+
 				}
 			}
 		}(i)
@@ -299,4 +314,11 @@ func (a *ActivitylogService) removeCachedParentID(ctx context.Context, ref *prov
 		purgeId = info.GetId()
 	}
 	a.al.InvalidateCachedParentID(purgeId)
+}
+
+func eventName(e events.Event) string {
+	if i := strings.LastIndex(e.Type, "."); i >= 0 {
+		return e.Type[i+1:]
+	}
+	return e.Type
 }
