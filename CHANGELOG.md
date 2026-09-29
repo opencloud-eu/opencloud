@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.2.5](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.5) - 2026-09-29
+
+### ❤️ Thanks to all contributors! ❤️
+
+@rhafer
+
+
+
 ## [7.2.4](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.4) - 2026-08-20
 
 ### ❤️ Thanks to all contributors! ❤️
