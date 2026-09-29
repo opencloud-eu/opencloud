@@ -22,7 +22,7 @@ l10n-push:
 
 .PHONY: l10n-read
 l10n-read: $(GO_XGETTEXT)
-	$(GO_XGETTEXT) -o $(OUTPUT_DIR)/activitylog.pot --keyword=l10n.Template -s pkg/service/response.go
+	$(GO_XGETTEXT) -o $(OUTPUT_DIR)/activitylog.pot --keyword=l10n.Template -s pkg/service/http/response.go
 
 .PHONY: l10n-clean
 l10n-clean:
