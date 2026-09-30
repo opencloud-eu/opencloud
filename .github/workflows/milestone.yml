@@ -1,0 +1,16 @@
+name: Set next-stable milestone
+on:
+  pull_request_target:
+    types: [opened, reopened]
+    branches:
+      - 'stable-7.2'
+jobs:
+  milestone:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - run: gh pr edit ${{ github.event.pull_request.number }} -R ${{ github.repository }} --milestone next-stable
+        env:
+          GH_TOKEN: ${{ github.token }}
