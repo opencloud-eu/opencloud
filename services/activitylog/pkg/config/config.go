@@ -79,7 +79,7 @@ type CORS struct {
 
 // HTTPMetrics defines the available http metrics configuration.
 type HTTPMetrics struct {
-	Disabled bool `yaml:"disabled" env:"ACTIVITYLOG_HTTP_METRICS_DISABLE" desc:"Disables the metrics for the HTTP service." introductionVersion:"%NEXT%"`
+	Disabled bool `yaml:"disabled" env:"ACTIVITYLOG_HTTP_METRICS_DISABLE" desc:"Disables the metrics for the HTTP service." introductionVersion:"%%NEXT%%"`
 }
 
 // HTTP defines the available http configuration.

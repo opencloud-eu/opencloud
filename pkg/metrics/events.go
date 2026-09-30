@@ -2,16 +2,11 @@ package metrics
 
 import "github.com/prometheus/client_golang/prometheus"
 
-const (
-	ResultFailure = "failure"
-
-	LabelEvent = "event"
-)
-
 type eventsMetrics struct {
 	processed *prometheus.CounterVec
 }
 
+// WithEventsProcessed enables the events processed metric.
 func WithEventsProcessed() Option {
 	return func(m *Metrics) {
 		if m.Events != nil {

@@ -12,17 +12,14 @@ import (
 )
 
 const (
-	LabelMethod = "method"
-	LabelPath   = "path"
-	LabelCode   = "code"
-)
+	LabelMethod       = "method"
+	LabelPath         = "path"
+	LabelCode         = "code"
+	ResultClientError = "clientError"
+	ResultServerError = "serverError"
 
-const (
-	ResultClientError = "client-error"
-	ResultServerError = "server-error"
+	unmatchedRoutePattern = "unknown"
 )
-
-const unmatchedRoutePattern = "unknown"
 
 type httpMetrics struct {
 	duration         *prometheus.HistogramVec
@@ -30,6 +27,7 @@ type httpMetrics struct {
 	requestsInFlight *atomic.Int64
 }
 
+// WithHTTPMetrics enables the inbound HTTP request metrics.
 func WithHTTPMetrics() Option {
 	return func(m *Metrics) {
 		if m.HTTP != nil {
