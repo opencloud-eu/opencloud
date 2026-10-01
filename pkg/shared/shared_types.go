@@ -80,7 +80,7 @@ type Commons struct {
 	SystemUserAPIKey   string          `mask:"password" yaml:"system_user_api_key" env:"SYSTEM_USER_API_KEY" desc:"API key for all system users." introductionVersion:"1.0.0"`
 	AdminUserID        string          `yaml:"admin_user_id" env:"OC_ADMIN_USER_ID" desc:"ID of a user, that should receive admin privileges. Consider that the UUID can be encoded in some LDAP deployment configurations like in .ldif files. These need to be decoded beforehand." introductionVersion:"1.0.0"`
 	MultiTenantEnabled bool            `yaml:"multi_tenant_enabled" env:"OC_MULTI_TENANT_ENABLED" desc:"Set this to true to enable multi-tenant support." introductionVersion:"4.0.0"`
-	EnableGuestLinks   bool            `yaml:"enable_guest_links" env:"OC_ENABLE_GUEST_LINKS" desc:"Enables the guest links feature: creating shares to mail addresses and redeeming guest links. Disabled by default." introductionVersion:"%%NEXT%%"`
+	EnableGuestLinks   bool            `yaml:"enable_guest_links" env:"OC_ENABLE_GUEST_LINKS" desc:"Enables the guest links feature: creating shares to mail addresses and redeeming guest link invitations. Disabled by default." introductionVersion:"%%NEXT%%"`
 
 	// NOTE: you will not fing GRPCMaxReceivedMessageSize size being used in the code. The envvar is actually extracted in revas `pool` package: https://github.com/cs3org/reva/blob/edge/pkg/rgrpc/todo/pool/connection.go
 	// It is mentioned here again so it is documented
