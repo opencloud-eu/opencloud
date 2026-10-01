@@ -45,7 +45,6 @@ import (
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/logger"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx/metrics"
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
@@ -279,297 +278,304 @@ func New(o *options.Options, aspects aspects.Aspects, log *zerolog.Logger) (stor
 
 // Postprocessing starts the postprocessing result collector
 func (fs *Decomposedfs) Postprocessing(ch <-chan events.Event) {
-	ctx := context.TODO() // we should pass the trace id in the event and initialize the trace provider here
-	ctx, span := tracer.Start(ctx, "Postprocessing")
-	defer span.End()
-	log := logger.New()
 	for event := range ch {
-		switch ev := event.Event.(type) {
-		case events.PostprocessingFinished:
-			sublog := log.With().Str("event", "PostprocessingFinished").Str("uploadid", ev.UploadID).Logger()
-			session, err := fs.sessionStore.Get(ctx, ev.UploadID)
-			if err != nil {
-				sublog.Error().Err(err).Msg("Failed to get upload")
-				continue // NOTE: since we can't get the upload, we can't delete the blob
-			}
+		// derive a per-event context from the event's W3C trace context so the
+		// postprocessing work is linked to the originating request
+		ctx := event.GetTraceContext(context.Background())
+		ctx = ctxpkg.ContextSetInitiator(ctx, event.InitiatorID)
+		fs.handlePostprocessingEvent(ctx, event)
+	}
+}
 
-			ctx = session.Context(ctx)
+// handlePostprocessingEvent processes a single postprocessing event under a span
+// scoped to that event's trace context.
+func (fs *Decomposedfs) handlePostprocessingEvent(ctx context.Context, event events.Event) {
+	ctx, span := tracer.Start(ctx, "Postprocessing/"+event.Type)
+	defer span.End()
+	log := fs.log
+	switch ev := event.Event.(type) {
+	case events.PostprocessingFinished:
+		sublog := log.With().Str("event", "PostprocessingFinished").Str("uploadid", ev.UploadID).Logger()
+		session, err := fs.sessionStore.Get(ctx, ev.UploadID)
+		if err != nil {
+			sublog.Error().Err(err).Msg("Failed to get upload")
+			return // NOTE: since we can't get the upload, we can't delete the blob
+		}
 
-			n, err := session.Node(ctx)
-			if err != nil {
-				sublog.Error().Err(err).Msg("could not read node")
-				continue
-			}
-			sublog = log.With().Str("spaceid", session.SpaceID()).Str("nodeid", session.NodeID()).Logger()
-			if !n.Exists {
-				sublog.Debug().Msg("node no longer exists")
-				session.Cleanup(false, true, true, false)
-				continue
-			}
+		n, err := session.Node(ctx)
+		if err != nil {
+			sublog.Error().Err(err).Msg("could not read node")
+			return
+		}
+		sublog = log.With().Str("spaceid", session.SpaceID()).Str("nodeid", session.NodeID()).Logger()
+		if !n.Exists {
+			sublog.Debug().Msg("node no longer exists")
+			session.Cleanup(false, true, true, false)
+			return
+		}
 
-			var (
-				failed             bool
-				revertNodeMetadata bool
-				keepUpload         bool
-			)
-			unmarkPostprocessing := true
+		var (
+			failed             bool
+			revertNodeMetadata bool
+			keepUpload         bool
+		)
+		unmarkPostprocessing := true
 
-			switch ev.Outcome {
-			default:
-				sublog.Error().Str("outcome", string(ev.Outcome)).Msg("unknown postprocessing outcome - aborting")
-				fallthrough
-			case events.PPOutcomeAbort:
+		switch ev.Outcome {
+		default:
+			sublog.Error().Str("outcome", string(ev.Outcome)).Msg("unknown postprocessing outcome - aborting")
+			fallthrough
+		case events.PPOutcomeAbort:
+			failed = true
+			revertNodeMetadata = true
+			keepUpload = true
+			metrics.UploadSessionsAborted.Inc()
+		case events.PPOutcomeContinue:
+			if err := session.Finalize(ctx); err != nil {
+				sublog.Error().Err(err).Msg("could not finalize upload")
 				failed = true
-				revertNodeMetadata = true
+				revertNodeMetadata = false
 				keepUpload = true
-				metrics.UploadSessionsAborted.Inc()
-			case events.PPOutcomeContinue:
-				if err := session.Finalize(ctx); err != nil {
-					sublog.Error().Err(err).Msg("could not finalize upload")
-					failed = true
-					revertNodeMetadata = false
-					keepUpload = true
-					// keep postprocessing status so the upload is not deleted during housekeeping
-					unmarkPostprocessing = false
-				} else {
-					metrics.UploadSessionsFinalized.Inc()
-				}
-			case events.PPOutcomeDelete:
-				failed = true
-				revertNodeMetadata = true
-				metrics.UploadSessionsDeleted.Inc()
+				// keep postprocessing status so the upload is not deleted during housekeeping
+				unmarkPostprocessing = false
+			} else {
+				metrics.UploadSessionsFinalized.Inc()
 			}
+		case events.PPOutcomeDelete:
+			failed = true
+			revertNodeMetadata = true
+			metrics.UploadSessionsDeleted.Inc()
+		}
 
-			getParent := func() *node.Node {
-				p, err := n.Parent(ctx)
-				if err != nil {
-					sublog.Error().Err(err).Msg("could not read parent")
-					return nil
-				}
-				return p
+		getParent := func() *node.Node {
+			p, err := n.Parent(ctx)
+			if err != nil {
+				sublog.Error().Err(err).Msg("could not read parent")
+				return nil
 			}
+			return p
+		}
 
-			now := time.Now()
-			if failed {
-				// if no other upload session is in progress (processing id != session id) or has finished (processing id == "")
-				latestSession, err := n.ProcessingID(ctx)
-				if err != nil {
-					sublog.Error().Err(err).Msg("reading node for session failed")
-				}
-				if latestSession == session.ID() {
-					// propagate reverted sizeDiff after failed postprocessing
-					if err := fs.tp.Propagate(ctx, n, -session.SizeDiff()); err != nil {
-						sublog.Error().Err(err).Msg("could not propagate tree size change")
-					}
-				}
-			} else if p := getParent(); p != nil {
-				// update parent tmtime to propagate etag change after successful postprocessing
-				_ = p.SetTMTime(ctx, &now)
-				if err := fs.tp.Propagate(ctx, p, 0); err != nil {
-					sublog.Error().Err(err).Msg("could not propagate etag change")
+		now := time.Now()
+		if failed {
+			// if no other upload session is in progress (processing id != session id) or has finished (processing id == "")
+			latestSession, err := n.ProcessingID(ctx)
+			if err != nil {
+				sublog.Error().Err(err).Msg("reading node for session failed")
+			}
+			if latestSession == session.ID() {
+				// propagate reverted sizeDiff after failed postprocessing
+				if err := fs.tp.Propagate(ctx, n, -session.SizeDiff()); err != nil {
+					sublog.Error().Err(err).Msg("could not propagate tree size change")
 				}
 			}
-
-			session.Cleanup(revertNodeMetadata, !keepUpload, !keepUpload, unmarkPostprocessing)
-
-			var isVersion bool
-			if session.NodeExists() {
-				info, err := session.GetInfo(ctx)
-				if err == nil && info.MetaData["versionsPath"] != "" {
-					isVersion = true
-				}
+		} else if p := getParent(); p != nil {
+			// update parent tmtime to propagate etag change after successful postprocessing
+			_ = p.SetTMTime(ctx, &now)
+			if err := fs.tp.Propagate(ctx, p, 0); err != nil {
+				sublog.Error().Err(err).Msg("could not propagate etag change")
 			}
+		}
 
-			if err := events.Publish(
-				ctx,
-				fs.stream,
-				events.UploadReady{
-					UploadID:      ev.UploadID,
-					Failed:        failed,
-					ExecutingUser: ev.ExecutingUser,
-					Filename:      ev.Filename,
-					FileRef: &provider.Reference{
-						ResourceId: &provider.ResourceId{
-							StorageId: session.ProviderID(),
-							SpaceId:   session.SpaceID(),
-							OpaqueId:  session.SpaceID(),
-						},
-						Path: utils.MakeRelativePath(filepath.Join(session.Dir(), session.Filename())),
+		session.Cleanup(revertNodeMetadata, !keepUpload, !keepUpload, unmarkPostprocessing)
+
+		var isVersion bool
+		if session.NodeExists() {
+			info, err := session.GetInfo(ctx)
+			if err == nil && info.MetaData["versionsPath"] != "" {
+				isVersion = true
+			}
+		}
+
+		if err := events.Publish(
+			ctx,
+			fs.stream,
+			events.UploadReady{
+				UploadID:      ev.UploadID,
+				Failed:        failed,
+				ExecutingUser: ev.ExecutingUser,
+				Filename:      ev.Filename,
+				FileRef: &provider.Reference{
+					ResourceId: &provider.ResourceId{
+						StorageId: session.ProviderID(),
+						SpaceId:   session.SpaceID(),
+						OpaqueId:  session.SpaceID(),
 					},
-					Timestamp:         utils.TimeToTS(now),
-					SpaceOwner:        n.SpaceOwnerOrManager(ctx),
-					IsVersion:         isVersion,
-					ImpersonatingUser: ev.ImpersonatingUser,
+					Path: utils.MakeRelativePath(filepath.Join(session.Dir(), session.Filename())),
 				},
-			); err != nil {
-				sublog.Error().Err(err).Msg("Failed to publish UploadReady event")
-			}
-		case events.RestartPostprocessing:
-			sublog := log.With().Str("event", "RestartPostprocessing").Str("uploadid", ev.UploadID).Logger()
-			session, err := fs.sessionStore.Get(ctx, ev.UploadID)
+				Timestamp:         utils.TimeToTS(now),
+				SpaceOwner:        n.SpaceOwnerOrManager(ctx),
+				IsVersion:         isVersion,
+				ImpersonatingUser: ev.ImpersonatingUser,
+			},
+		); err != nil {
+			sublog.Error().Err(err).Msg("Failed to publish UploadReady event")
+		}
+	case events.RestartPostprocessing:
+		sublog := log.With().Str("event", "RestartPostprocessing").Str("uploadid", ev.UploadID).Logger()
+		session, err := fs.sessionStore.Get(ctx, ev.UploadID)
+		if err != nil {
+			sublog.Error().Err(err).Msg("Failed to get upload")
+			return
+		}
+		n, err := session.Node(ctx)
+		if err != nil {
+			sublog.Error().Err(err).Msg("could not read node")
+			return
+		}
+		sublog = log.With().Str("spaceid", session.SpaceID()).Str("nodeid", session.NodeID()).Logger()
+		s, err := session.URL(ctx)
+		if err != nil {
+			sublog.Error().Err(err).Msg("could not create url")
+			return
+		}
+
+		metrics.UploadSessionsRestarted.Inc()
+
+		// restart postprocessing
+		if err := events.Publish(ctx, fs.stream, events.BytesReceived{
+			UploadID:      session.ID(),
+			URL:           s,
+			SpaceOwner:    n.SpaceOwnerOrManager(ctx),
+			ExecutingUser: &user.User{Id: &user.UserId{OpaqueId: "postprocessing-restart"}}, // send nil instead?
+			ResourceID:    &provider.ResourceId{SpaceId: n.SpaceID, OpaqueId: n.ID},
+			Filename:      session.Filename(),
+			Filesize:      uint64(session.Size()),
+		}); err != nil {
+			sublog.Error().Err(err).Msg("Failed to publish BytesReceived event")
+		}
+	case events.CleanUpload:
+		sublog := log.With().Str("event", "CleanUpload").Str("uploadid", ev.UploadID).Logger()
+		session, err := fs.sessionStore.Get(ctx, ev.UploadID)
+		if err != nil {
+			sublog.Error().Err(err).Msg("Failed to get upload")
+			return // NOTE: since we can't get the upload, we can't delete the blob
+		}
+		session.Cleanup(true, !ev.KeepUpload, !ev.KeepUpload, true)
+	case events.PostprocessingStepFinished:
+		sublog := log.With().Str("event", "PostprocessingStepFinished").Str("uploadid", ev.UploadID).Logger()
+		if ev.FinishedStep != events.PPStepAntivirus {
+			// atm we are only interested in antivirus results
+			return
+		}
+
+		res := ev.Result.(events.VirusscanResult)
+		if res.ErrorMsg != "" {
+			// scan failed somehow
+			// Should we handle this here?
+			return
+		}
+		sublog = log.With().Str("scan_description", res.Description).Bool("infected", res.Infected).Logger()
+
+		var n *node.Node
+		switch ev.UploadID {
+		case "":
+			// uploadid is empty -> this was an on-demand scan
+			/* ON DEMAND SCANNING NOT SUPPORTED ATM
+			ctx := ctxpkg.ContextSetUser(context.Background(), ev.ExecutingUser)
+			ref := &provider.Reference{ResourceId: ev.ResourceID}
+
+			no, err := fs.lu.NodeFromResource(ctx, ref)
 			if err != nil {
-				sublog.Error().Err(err).Msg("Failed to get upload")
+				log.Error().Err(err).Interface("resourceID", ev.ResourceID).Msg("Failed to get node after scan")
 				continue
+
 			}
-			n, err := session.Node(ctx)
-			if err != nil {
-				sublog.Error().Err(err).Msg("could not read node")
-				continue
-			}
-			sublog = log.With().Str("spaceid", session.SpaceID()).Str("nodeid", session.NodeID()).Logger()
-			s, err := session.URL(ctx)
-			if err != nil {
-				sublog.Error().Err(err).Msg("could not create url")
-				continue
-			}
+			n = no
+			if ev.Outcome == events.PPOutcomeDelete {
+				// antivir wants us to delete the file. We must obey and need to
 
-			metrics.UploadSessionsRestarted.Inc()
-
-			// restart postprocessing
-			if err := events.Publish(ctx, fs.stream, events.BytesReceived{
-				UploadID:      session.ID(),
-				URL:           s,
-				SpaceOwner:    n.SpaceOwnerOrManager(ctx),
-				ExecutingUser: &user.User{Id: &user.UserId{OpaqueId: "postprocessing-restart"}}, // send nil instead?
-				ResourceID:    &provider.ResourceId{SpaceId: n.SpaceID, OpaqueId: n.ID},
-				Filename:      session.Filename(),
-				Filesize:      uint64(session.Size()),
-			}); err != nil {
-				sublog.Error().Err(err).Msg("Failed to publish BytesReceived event")
-			}
-		case events.CleanUpload:
-			sublog := log.With().Str("event", "CleanUpload").Str("uploadid", ev.UploadID).Logger()
-			session, err := fs.sessionStore.Get(ctx, ev.UploadID)
-			if err != nil {
-				sublog.Error().Err(err).Msg("Failed to get upload")
-				continue // NOTE: since we can't get the upload, we can't delete the blob
-			}
-			session.Cleanup(true, !ev.KeepUpload, !ev.KeepUpload, true)
-		case events.PostprocessingStepFinished:
-			sublog := log.With().Str("event", "PostprocessingStepFinished").Str("uploadid", ev.UploadID).Logger()
-			if ev.FinishedStep != events.PPStepAntivirus {
-				// atm we are only interested in antivirus results
-				continue
-			}
-
-			res := ev.Result.(events.VirusscanResult)
-			if res.ErrorMsg != "" {
-				// scan failed somehow
-				// Should we handle this here?
-				continue
-			}
-			sublog = log.With().Str("scan_description", res.Description).Bool("infected", res.Infected).Logger()
-
-			var n *node.Node
-			switch ev.UploadID {
-			case "":
-				// uploadid is empty -> this was an on-demand scan
-				/* ON DEMAND SCANNING NOT SUPPORTED ATM
-				ctx := ctxpkg.ContextSetUser(context.Background(), ev.ExecutingUser)
-				ref := &provider.Reference{ResourceId: ev.ResourceID}
-
-				no, err := fs.lu.NodeFromResource(ctx, ref)
-				if err != nil {
-					log.Error().Err(err).Interface("resourceID", ev.ResourceID).Msg("Failed to get node after scan")
-					continue
-
-				}
-				n = no
-				if ev.Outcome == events.PPOutcomeDelete {
-					// antivir wants us to delete the file. We must obey and need to
-
-					// check if there a previous versions existing
-					revs, err := fs.ListRevisions(ctx, ref)
-					if len(revs) == 0 {
-						if err != nil {
-							log.Error().Err(err).Interface("resourceID", ev.ResourceID).Msg("Failed to list revisions. Fallback to delete file")
-						}
-
-						// no versions -> trash file
-						err := fs.Delete(ctx, ref)
-						if err != nil {
-							log.Error().Err(err).Interface("resourceID", ev.ResourceID).Msg("Failed to delete infected resource")
-							continue
-						}
-
-						// now purge it from the recycle bin
-						if err := fs.PurgeRecycleItem(ctx, &provider.Reference{ResourceId: &provider.ResourceId{SpaceId: n.SpaceID, OpaqueId: n.SpaceID}}, n.ID, "/"); err != nil {
-							log.Error().Err(err).Interface("resourceID", ev.ResourceID).Msg("Failed to purge infected resource from trash")
-						}
-
-						// remove cache entry in gateway
-						fs.cache.RemoveStatContext(ctx, ev.ExecutingUser.GetId(), &provider.ResourceId{SpaceId: n.SpaceID, OpaqueId: n.ID})
-						continue
-					}
-
-					// we have versions - find the newest
-					versions := make(map[uint64]string) // remember all versions - we need them later
-					var nv uint64
-					for _, v := range revs {
-						versions[v.Mtime] = v.Key
-						if v.Mtime > nv {
-							nv = v.Mtime
-						}
-					}
-
-					// restore newest version
-					if err := fs.RestoreRevision(ctx, ref, versions[nv]); err != nil {
-						log.Error().Err(err).Interface("resourceID", ev.ResourceID).Str("revision", versions[nv]).Msg("Failed to restore revision")
-						continue
-					}
-
-					// now find infected version
-					revs, err = fs.ListRevisions(ctx, ref)
+				// check if there a previous versions existing
+				revs, err := fs.ListRevisions(ctx, ref)
+				if len(revs) == 0 {
 					if err != nil {
-						log.Error().Err(err).Interface("resourceID", ev.ResourceID).Msg("Error listing revisions after restore")
+						log.Error().Err(err).Interface("resourceID", ev.ResourceID).Msg("Failed to list revisions. Fallback to delete file")
 					}
 
-					for _, v := range revs {
-						// we looking for a version that was previously not there
-						if _, ok := versions[v.Mtime]; ok {
-							continue
-						}
+					// no versions -> trash file
+					err := fs.Delete(ctx, ref)
+					if err != nil {
+						log.Error().Err(err).Interface("resourceID", ev.ResourceID).Msg("Failed to delete infected resource")
+						continue
+					}
 
-						if err := fs.DeleteRevision(ctx, ref, v.Key); err != nil {
-							log.Error().Err(err).Interface("resourceID", ev.ResourceID).Str("revision", v.Key).Msg("Failed to delete revision")
-						}
+					// now purge it from the recycle bin
+					if err := fs.PurgeRecycleItem(ctx, &provider.Reference{ResourceId: &provider.ResourceId{SpaceId: n.SpaceID, OpaqueId: n.SpaceID}}, n.ID, "/"); err != nil {
+						log.Error().Err(err).Interface("resourceID", ev.ResourceID).Msg("Failed to purge infected resource from trash")
 					}
 
 					// remove cache entry in gateway
 					fs.cache.RemoveStatContext(ctx, ev.ExecutingUser.GetId(), &provider.ResourceId{SpaceId: n.SpaceID, OpaqueId: n.ID})
 					continue
 				}
-				*/
-			default:
-				// uploadid is not empty -> this is an async upload
-				session, err := fs.sessionStore.Get(ctx, ev.UploadID)
-				if err != nil {
-					sublog.Error().Err(err).Msg("Failed to get upload")
+
+				// we have versions - find the newest
+				versions := make(map[uint64]string) // remember all versions - we need them later
+				var nv uint64
+				for _, v := range revs {
+					versions[v.Mtime] = v.Key
+					if v.Mtime > nv {
+						nv = v.Mtime
+					}
+				}
+
+				// restore newest version
+				if err := fs.RestoreRevision(ctx, ref, versions[nv]); err != nil {
+					log.Error().Err(err).Interface("resourceID", ev.ResourceID).Str("revision", versions[nv]).Msg("Failed to restore revision")
 					continue
 				}
 
-				n, err = session.Node(ctx)
+				// now find infected version
+				revs, err = fs.ListRevisions(ctx, ref)
 				if err != nil {
-					sublog.Error().Err(err).Msg("Failed to get node after scan")
-					continue
+					log.Error().Err(err).Interface("resourceID", ev.ResourceID).Msg("Error listing revisions after restore")
 				}
-				sublog = log.With().Str("spaceid", session.SpaceID()).Str("nodeid", session.NodeID()).Logger()
 
-				session.SetScanData(res.Description, res.Scandate)
-				if err := session.Persist(ctx); err != nil {
-					sublog.Error().Err(err).Msg("Failed to persist scan results")
+				for _, v := range revs {
+					// we looking for a version that was previously not there
+					if _, ok := versions[v.Mtime]; ok {
+						continue
+					}
+
+					if err := fs.DeleteRevision(ctx, ref, v.Key); err != nil {
+						log.Error().Err(err).Interface("resourceID", ev.ResourceID).Str("revision", v.Key).Msg("Failed to delete revision")
+					}
 				}
-			}
 
-			if err := n.SetScanData(ctx, res.Description, res.Scandate); err != nil {
-				sublog.Error().Err(err).Msg("Failed to set scan results")
+				// remove cache entry in gateway
+				fs.cache.RemoveStatContext(ctx, ev.ExecutingUser.GetId(), &provider.ResourceId{SpaceId: n.SpaceID, OpaqueId: n.ID})
 				continue
 			}
-
-			metrics.UploadSessionsScanned.Inc()
+			*/
 		default:
-			log.Error().Interface("event", ev).Msg("Unknown event")
+			// uploadid is not empty -> this is an async upload
+			session, err := fs.sessionStore.Get(ctx, ev.UploadID)
+			if err != nil {
+				sublog.Error().Err(err).Msg("Failed to get upload")
+				return
+			}
+
+			n, err = session.Node(ctx)
+			if err != nil {
+				sublog.Error().Err(err).Msg("Failed to get node after scan")
+				return
+			}
+			sublog = log.With().Str("spaceid", session.SpaceID()).Str("nodeid", session.NodeID()).Logger()
+
+			session.SetScanData(res.Description, res.Scandate)
+			if err := session.Persist(ctx); err != nil {
+				sublog.Error().Err(err).Msg("Failed to persist scan results")
+			}
 		}
+
+		if err := n.SetScanData(ctx, res.Description, res.Scandate); err != nil {
+			sublog.Error().Err(err).Msg("Failed to set scan results")
+			return
+		}
+
+		metrics.UploadSessionsScanned.Inc()
+	default:
+		log.Error().Interface("event", ev).Msg("Unknown event")
 	}
 }
 

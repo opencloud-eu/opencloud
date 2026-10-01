@@ -147,8 +147,8 @@ func (h *httpTransportClient) Recv(msg *Message) (err error) {
 	}
 
 	defer func() {
-		if err = rsp.Body.Close(); err != nil {
-			err = errors.Wrap(err, "failed to close body")
+		if cerr := rsp.Body.Close(); cerr != nil && err == nil {
+			err = errors.Wrap(cerr, "failed to close body")
 		}
 	}()
 

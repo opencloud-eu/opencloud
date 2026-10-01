@@ -92,7 +92,7 @@ func (h *rpcHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// try get service from router
 		s, err := h.opts.Router.Route(r)
 		if err != nil {
-			werr := writeError(w, r, errors.InternalServerError(packageID, err.Error()))
+			werr := writeError(w, r, errors.InternalServerError(packageID, "%s", err))
 			if werr != nil {
 				logger.Log(log.ErrorLevel, werr)
 			}

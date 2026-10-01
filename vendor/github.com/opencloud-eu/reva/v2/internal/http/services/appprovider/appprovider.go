@@ -412,6 +412,12 @@ func (s *svc) handleOpen(openMode int) http.HandlerFunc {
 		if templateID != "" {
 			openReq.Opaque = utils.AppendPlainToOpaque(openReq.Opaque, "template", templateID)
 		}
+
+		// the app provider decides whether it opens a mobile view.
+		if mobile := r.Form.Get("mobile"); mobile == "true" || mobile == "1" {
+			openReq.Opaque = utils.AppendPlainToOpaque(openReq.Opaque, "mobile", "1")
+		}
+
 		openRes, err := client.OpenInApp(ctx, &openReq)
 		if err != nil {
 			writeError(w, r, appErrorServerError,

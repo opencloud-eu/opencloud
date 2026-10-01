@@ -94,6 +94,26 @@ func (n *Node) ReadLock(ctx context.Context, skipFileLock bool) (*provider.Lock,
 	ctx, span := tracer.Start(ctx, "ReadLock")
 	defer span.End()
 
+	// Fast path: application locks almost never exist. Acquiring a file lock
+	// creates a .flock sibling next to the node, which bumps the parent
+	// directory's mtime and churns etags on every read. So if there is no lock
+	// file to read, bail out before taking any file lock (and before the
+	// MkdirAll), avoiding those side effects entirely.
+	if !skipFileLock {
+		_, subspan := tracer.Start(ctx, "os.Stat")
+		found := false
+		for _, p := range n.LockFilePaths() {
+			if _, serr := os.Stat(p); serr == nil {
+				found = true
+				break
+			}
+		}
+		subspan.End()
+		if !found {
+			return nil, errtypes.NotFound("no lock found")
+		}
+	}
+
 	// ensure parent path exists
 	_, subspan := tracer.Start(ctx, "os.MkdirAll")
 	err := os.MkdirAll(filepath.Dir(n.InternalPath()), 0700)

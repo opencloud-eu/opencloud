@@ -56,6 +56,15 @@ func (c *genericCurve) UnmarshalIntegerSecret(d []byte) *big.Int {
 	return new(big.Int).SetBytes(d)
 }
 
+func (c *genericCurve) MarshalFieldInteger(i *big.Int) (b []byte) {
+	b = make([]byte, (c.Curve.Params().BitSize+7)/8)
+	return i.FillBytes(b)
+}
+
+func (c *genericCurve) UnmarshalFieldInteger(d []byte) *big.Int {
+	return new(big.Int).SetBytes(d)
+}
+
 func (c *genericCurve) GenerateECDH(rand io.Reader) (point, secret []byte, err error) {
 	secret, x, y, err := elliptic.GenerateKey(c.Curve, rand)
 	if err != nil {
@@ -78,7 +87,7 @@ func (c *genericCurve) GenerateECDSA(rand io.Reader) (x, y, secret *big.Int, err
 func (c *genericCurve) Encaps(rand io.Reader, point []byte) (ephemeral, sharedSecret []byte, err error) {
 	xP, yP := elliptic.Unmarshal(c.Curve, point)
 	if xP == nil {
-		panic("invalid point")
+		return nil, nil, errors.KeyInvalidError(fmt.Sprintf("ecc (%s): invalid point", c.Curve.Params().Name))
 	}
 
 	d, x, y, err := elliptic.GenerateKey(c.Curve, rand)
@@ -99,6 +108,9 @@ func (c *genericCurve) Encaps(rand io.Reader, point []byte) (ephemeral, sharedSe
 
 func (c *genericCurve) Decaps(ephemeral, secret []byte) (sharedSecret []byte, err error) {
 	x, y := elliptic.Unmarshal(c.Curve, ephemeral)
+	if x == nil {
+		return nil, errors.KeyInvalidError(fmt.Sprintf("ecc (%s): invalid point", c.Curve.Params().Name))
+	}
 	zbBig, _ := c.Curve.ScalarMult(x, y, secret)
 	byteLen := (c.Curve.Params().BitSize + 7) >> 3
 	zb := make([]byte, byteLen)
