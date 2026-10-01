@@ -225,3 +225,60 @@ func (_c *AuthGuest_Redeem_Call) RunAndReturn(run func(ctx context.Context, toke
 	_c.Call.Return(run)
 	return _c
 }
+
+// Renew provides a mock function for the type AuthGuest
+func (_mock *AuthGuest) Renew(ctx context.Context, shareID string) error {
+	ret := _mock.Called(ctx, shareID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Renew")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = returnFunc(ctx, shareID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// AuthGuest_Renew_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Renew'
+type AuthGuest_Renew_Call struct {
+	*mock.Call
+}
+
+// Renew is a helper method to define mock.On call
+//   - ctx context.Context
+//   - shareID string
+func (_e *AuthGuest_Expecter) Renew(ctx any, shareID any) *AuthGuest_Renew_Call {
+	return &AuthGuest_Renew_Call{Call: _e.mock.On("Renew", ctx, shareID)}
+}
+
+func (_c *AuthGuest_Renew_Call) Run(run func(ctx context.Context, shareID string)) *AuthGuest_Renew_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *AuthGuest_Renew_Call) Return(err error) *AuthGuest_Renew_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *AuthGuest_Renew_Call) RunAndReturn(run func(ctx context.Context, shareID string) error) *AuthGuest_Renew_Call {
+	_c.Call.Return(run)
+	return _c
+}
