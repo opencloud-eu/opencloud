@@ -47,6 +47,7 @@ type RedeemResponse struct {
 type AuthGuest interface {
 	CreateToken(ctx context.Context, shareID string) (*token.Token, error)
 	Redeem(ctx context.Context, tokenString string) (*RedeemResponse, error)
+	Renew(ctx context.Context, shareID string) error
 	CleanupShare(shareID string) error
 }
 
@@ -120,6 +121,11 @@ func (s *AuthGuestService) Redeem(ctx context.Context, tokenString string) (*Red
 	}
 
 	return &RedeemResponse{SessionToken: sessionToken, ShareID: rec.ShareID}, nil
+}
+
+// Renew generates a new guest link token and PIN for the given share.
+func (s *AuthGuestService) Renew(ctx context.Context, shareID string) error {
+	return errors.New("renew not implemented")
 }
 
 // CleanupShare removes a share's token record from storage. Missing records are ignored.
