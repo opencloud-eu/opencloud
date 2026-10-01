@@ -60,8 +60,8 @@
           "label": "Light Theme",
           "designTokens": {
             "roles": {
-              "primary": "#00677f",
-              "onPrimary": "#ffffff",
+              "primary": "#e2baff",
+              "onPrimary": "#20434f",
               "primaryContainer": "#b7eaff",
               "onPrimaryContainer": "#001f28",
               "secondary": "#20434f",
@@ -112,8 +112,8 @@
           "logoMobile": "themes/opencloud/assets/logo-dark-mode-mobile.svg",
           "designTokens": {
             "roles": {
-              "primary": "#5cd5fb",
-              "onPrimary": "#003543",
+              "primary": "#e2baff",
+              "onPrimary": "#20434f",
               "primaryContainer": "#004e60",
               "onPrimaryContainer": "#b7eaff",
               "secondary": "#b3cad4",
