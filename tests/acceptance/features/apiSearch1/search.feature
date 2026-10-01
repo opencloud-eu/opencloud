@@ -502,6 +502,51 @@ Feature: Search
       | new              |
       | spaces           |
 
+  @issue-internal-326
+  Scenario: purging a trashed folder keeps an identically-named live folder at the same path in the search index
+    Given using spaces DAV path
+    And user "Alice" has created a folder "foo" in space "Personal"
+    And user "Alice" has uploaded a file inside space "Personal" with content "trashed content" to "foo/trashed-file.txt"
+    And user "Alice" has removed the folder "foo" from space "Personal"
+    And user "Alice" has created a folder "foo" in space "Personal"
+    And user "Alice" has uploaded a file inside space "Personal" with content "live content" to "foo/live-file.txt"
+    And user "Alice" has deleted the folder with original path "foo" from the trashbin
+    When user "Alice" searches for "*-file.txt*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result should contain "1" entries
+    And the search result of user "Alice" should contain these entries:
+      | live-file.txt |
+    But the search result of user "Alice" should not contain these entries:
+      | trashed-file.txt |
+
+
+  Scenario: searching for a folder after moving it in one space but not the other
+    Given using spaces DAV path
+    And user "Alice" has created a folder "foo" in space "Personal"
+    And user "Brian" has created a folder "foo" in space "Personal"
+    And user "Alice" has moved folder "foo" to "bar" in space "Personal"
+    When user "Brian" searches for "*foo*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result should contain "1" entries
+    And the search result of user "Brian" should contain these entries:
+      | foo |
+
+
+  Scenario: searching for a file after removing its folder in one space but not the other
+    Given using spaces DAV path
+    And user "Alice" has created a space "project-a" with the default quota using the Graph API
+    And user "Alice" has created a space "project-b" with the default quota using the Graph API
+    And user "Alice" has created a folder "foo" in space "project-a"
+    And user "Alice" has created a folder "foo" in space "project-b"
+    And user "Alice" has uploaded a file inside space "project-a" with content "a content" to "foo/file-a.txt"
+    And user "Alice" has uploaded a file inside space "project-b" with content "b content" to "foo/file-b.txt"
+    And user "Alice" has removed the folder "foo" from space "project-a"
+    When user "Alice" searches for "*file*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result should contain "1" entries
+    And the search result of user "Alice" should contain these entries:
+      | file-b.txt |
+
 
   Scenario: a deleted space leaves the search index
     Given using spaces DAV path
