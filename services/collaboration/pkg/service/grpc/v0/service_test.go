@@ -241,7 +241,7 @@ var _ = Describe("Discovery", func() {
 						Path: "/path/to/file.docx",
 					},
 					ViewMode:    viewMode,
-					AccessToken: MintToken(myself, cfg.Wopi.Secret, nowTime),
+					AccessToken: MintToken(myself, cfg.TokenManager.JWTSecret, nowTime),
 				}
 				if mobile != "" {
 					req.Opaque = utils.AppendPlainToOpaque(req.Opaque, "mobile", mobile)
