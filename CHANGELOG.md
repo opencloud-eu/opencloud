@@ -4,25 +4,28 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@NickWalters, @aduffeck, @butonic, @dschmidt, @fschade, @maki5, @pascalwengerter, @pbleser-oc, @rhafer, @saw-jan, @schweigisito, @v-scharf, @zerox80
+@NickWalters, @aduffeck, @butonic, @dschmidt, @fschade, @maki5, @micbar, @pascalwengerter, @pbleser-oc, @rhafer, @saw-jan, @schweigisito, @v-scharf, @zerox80
 
 ### 🔒 Security
 
 - feat(proxy): add optional OIDC access token audience validation [[#3466](https://github.com/opencloud-eu/opencloud/pull/3466)]
 
-### ✅ Tests
-
-- fix(collaboration): mint the mobile view test token with the token manager secret [[#3647](https://github.com/opencloud-eu/opencloud/pull/3647)]
-- run cli tests with decomposed nightly [[#3580](https://github.com/opencloud-eu/opencloud/pull/3580)]
--  [decomposed] test(api): remove passing notification tests from expected failure [[#3555](https://github.com/opencloud-eu/opencloud/pull/3555)]
-- api-test: add CLI test for reindexing all spaces including disabled [[#3560](https://github.com/opencloud-eu/opencloud/pull/3560)]
-
 ### 📈 Enhancement
 
+- feat(collaboration): let admins disable wopi extensions [[#3633](https://github.com/opencloud-eu/opencloud/pull/3633)]
+- fix(collaboration): send LastModifiedTime and the EuroOffice file size [[#3636](https://github.com/opencloud-eu/opencloud/pull/3636)]
 - feat(collaboration): mobile web view for EuroOffice [[#3635](https://github.com/opencloud-eu/opencloud/pull/3635)]
 - fix(collaboration): harden wopi token handling [[#3630](https://github.com/opencloud-eu/opencloud/pull/3630)]
 - add posixfs index command [[#3068](https://github.com/opencloud-eu/opencloud/pull/3068)]
 - feat(proxy): add per-service metrics to the proxy service [[#3521](https://github.com/opencloud-eu/opencloud/pull/3521)]
+
+### ✅ Tests
+
+- fix(search): ellipsize parity matrix labels by runes, not bytes [[#3643](https://github.com/opencloud-eu/opencloud/pull/3643)]
+- fix(collaboration): mint the mobile view test token with the token manager secret [[#3647](https://github.com/opencloud-eu/opencloud/pull/3647)]
+- run cli tests with decomposed nightly [[#3580](https://github.com/opencloud-eu/opencloud/pull/3580)]
+-  [decomposed] test(api): remove passing notification tests from expected failure [[#3555](https://github.com/opencloud-eu/opencloud/pull/3555)]
+- api-test: add CLI test for reindexing all spaces including disabled [[#3560](https://github.com/opencloud-eu/opencloud/pull/3560)]
 
 ### 🐛 Bug Fixes
 
@@ -38,6 +41,8 @@
 
 ### 📦️ Dependencies
 
+- chore: bump reva to latest main [[#3642](https://github.com/opencloud-eu/opencloud/pull/3642)]
+- chore: bump libre-graph-api-go to v1.0.8 [[#3645](https://github.com/opencloud-eu/opencloud/pull/3645)]
 - build(deps): bump github.com/nats-io/nats.go from 1.53.1 to 1.54.0 [[#3584](https://github.com/opencloud-eu/opencloud/pull/3584)]
 - build(deps): bump github.com/onsi/gomega from 1.42.1 to 1.43.1 [[#3582](https://github.com/opencloud-eu/opencloud/pull/3582)]
 - build(deps): bump google.golang.org/grpc from 1.83.2 to 1.84.0 [[#3581](https://github.com/opencloud-eu/opencloud/pull/3581)]
