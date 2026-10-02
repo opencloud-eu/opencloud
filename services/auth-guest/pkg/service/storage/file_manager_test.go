@@ -39,6 +39,36 @@ func TestFileManagerAddGet(t *testing.T) {
 	assert.Equal(t, rec, got)
 }
 
+func TestFileManagerReplaceCreates(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
+	require.NoError(t, s.Replace(rec))
+
+	got, err := s.Get(rec.ShareIDHash)
+	require.NoError(t, err)
+	assert.Equal(t, rec, got)
+}
+
+func TestFileManagerReplaceOverwrites(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
+	require.NoError(t, s.Add(rec))
+
+	rec.SecretHash = "other"
+	rec.PinHash = "pinhash"
+	rec.PinExpiry = time.Date(2026, 12, 31, 23, 59, 59, 0, time.UTC)
+	rec.Redeemed = true
+	require.NoError(t, s.Replace(rec))
+
+	got, err := s.Get(rec.ShareIDHash)
+	require.NoError(t, err)
+	assert.Equal(t, rec, got)
+}
+
 func TestFileManagerGetMissing(t *testing.T) {
 	dir := t.TempDir()
 	s := NewFileManager(dir)
@@ -70,6 +100,7 @@ func TestFileManagerInvalidHash(t *testing.T) {
 
 	require.ErrorIs(t, s.Remove("ab"), ErrInvalidHash)
 	require.ErrorIs(t, s.Add(Record{ShareIDHash: "ab"}), ErrInvalidHash)
+	require.ErrorIs(t, s.Replace(Record{ShareIDHash: "ab"}), ErrInvalidHash)
 }
 
 func TestFileManagerRemove(t *testing.T) {
