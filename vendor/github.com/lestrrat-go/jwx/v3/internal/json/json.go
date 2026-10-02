@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/lestrrat-go/jwx/v3/internal/base64"
+	"github.com/lestrrat-go/jwx/v3/internal/tokens"
 )
 
 var useNumber atomic.Uint32
@@ -163,4 +164,32 @@ func (dc *decodeCtx) Registry() *Registry {
 
 func (dc *decodeCtx) StrictStrings() bool {
 	return dc.strictStrings
+}
+
+// WriteQuotedKey writes key as a quoted JSON object member name followed by
+// the separating colon and a space.
+//
+// Member names come from public methods such as Set and Builder.Claim, so
+// they may contain any byte, including `"`. A name copied raw between the
+// quotes could end its own member and start further ones, so the serialized
+// object would no longer match the one the caller built
+// (GHSA-4cf7-xm37-g63h). A name that needs no escaping is written directly,
+// which keeps the common path free of allocations. Every other name goes
+// through the JSON string encoder.
+func WriteQuotedKey(buf *bytes.Buffer, key string) error {
+	if tokens.IsJSONSafeASCII(key) {
+		buf.WriteByte(tokens.DoubleQuote)
+		buf.WriteString(key)
+		buf.WriteString(`": `)
+		return nil
+	}
+
+	encoded, err := Marshal(key)
+	if err != nil {
+		return fmt.Errorf(`failed to encode object member name: %w`, err)
+	}
+	buf.Write(encoded)
+	buf.WriteByte(tokens.Colon)
+	buf.WriteByte(' ')
+	return nil
 }

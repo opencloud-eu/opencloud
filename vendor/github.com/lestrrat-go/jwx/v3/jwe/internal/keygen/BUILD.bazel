@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "keygen",
@@ -9,10 +9,8 @@ go_library(
     importpath = "github.com/lestrrat-go/jwx/v3/jwe/internal/keygen",
     visibility = ["//:__subpackages__"],
     deps = [
-        "//internal/ecutil",
-        "//jwa",
-        "//jwe/internal/concatkdf",
         "//internal/tokens",
+        "//jwe/internal/concatkdf",
         "//jwk",
     ],
 )
@@ -21,4 +19,13 @@ alias(
     name = "go_default_library",
     actual = ":keygen",
     visibility = ["//jwe:__subpackages__"],
+)
+
+go_test(
+    name = "keygen_test",
+    srcs = ["keygen_test.go"],
+    deps = [
+        ":keygen",
+        "@com_github_stretchr_testify//require",
+    ],
 )

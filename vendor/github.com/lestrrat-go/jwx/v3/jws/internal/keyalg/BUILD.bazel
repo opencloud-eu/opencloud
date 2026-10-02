@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "keyalg",
+    srcs = ["keyalg.go"],
+    importpath = "github.com/lestrrat-go/jwx/v3/jws/internal/keyalg",
+    visibility = ["//jws:__subpackages__"],
+    deps = [
+        "//jwa",
+        "//jwk",
+    ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":keyalg",
+    visibility = ["//jws:__subpackages__"],
+)

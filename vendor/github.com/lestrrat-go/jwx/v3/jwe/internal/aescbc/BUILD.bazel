@@ -12,7 +12,7 @@ go_test(
     name = "aescbc_test",
     srcs = ["aescbc_test.go"],
     embed = [":aescbc"],
-    deps = ["@com_github_stretchr_testify//require"]
+    deps = ["@com_github_stretchr_testify//require"],
 )
 
 alias(

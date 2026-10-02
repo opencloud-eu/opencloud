@@ -1,10 +1,11 @@
 package topdown
 
 import (
+	"cmp"
 	"context"
 	"crypto/rand"
 	"io"
-	"sort"
+	"slices"
 	"time"
 
 	"github.com/open-policy-agent/opa/v1/ast"
@@ -16,6 +17,7 @@ import (
 	"github.com/open-policy-agent/opa/v1/topdown/copypropagation"
 	"github.com/open-policy-agent/opa/v1/topdown/print"
 	"github.com/open-policy-agent/opa/v1/tracing"
+	"github.com/open-policy-agent/opa/v1/util"
 )
 
 // QueryResultSet represents a collection of results returned by a query.
@@ -56,6 +58,7 @@ type Query struct {
 	interQueryBuiltinValueCache cache.InterQueryValueCache
 	ndBuiltinCache              builtins.NDBCache
 	strictBuiltinErrors         bool
+	stackTraces                 bool
 	builtinErrorList            *[]Error
 	strictObjects               bool
 	roundTripper                CustomizeRoundTripper
@@ -271,6 +274,21 @@ func (q *Query) WithStrictBuiltinErrors(yes bool) *Query {
 	return q
 }
 
+// WithStackTraces tells the evaluator to record the stack of queries being
+// evaluated when an error occurred on the returned *Error. The stack is exposed
+// as Error.StackTrace and left out of the error message, so callers render it
+// themselves.
+//
+// Off by default because capture is not free: each *Error costs a walk of the
+// parent chain and a frame per query on it, resolved against the bindings in
+// scope, which on a query collecting one built-in error per row runs from +60%
+// to +203% in time (see BenchmarkStackTraceCollectedBuiltinErrors). OPA's own
+// CLI and server accept that cost and turn it on.
+func (q *Query) WithStackTraces(yes bool) *Query {
+	q.stackTraces = yes
+	return q
+}
+
 // WithBuiltinErrorList supplies a pointer to an Error slice to store built-in function errors
 // encountered during evaluation. This error slice can be inspected after evaluation to determine
 // which built-in function errors occurred.
@@ -281,9 +299,7 @@ func (q *Query) WithBuiltinErrorList(list *[]Error) *Query {
 
 // WithResolver configures an external resolver to use for the given ref.
 func (q *Query) WithResolver(ref ast.Ref, r resolver.Resolver) *Query {
-	if q.external == nil {
-		q.external = newResolverTrie()
-	}
+	q.external = util.Or(q.external, newResolverTrie)
 	q.external.Put(ref, r)
 	return q
 }
@@ -366,9 +382,7 @@ func (q *Query) WithEvaluatedRuleTracker(t *EvaluatedRuleTracker) *Query {
 // evaluation may produce additional support modules that should be used in
 // conjunction with the partially evaluated queries.
 func (q *Query) PartialRun(ctx context.Context) (partials []ast.Body, support []*ast.Module, err error) {
-	if q.partialNamespace == "" {
-		q.partialNamespace = "partial" // lazily initialize partial namespace
-	}
+	q.partialNamespace = cmp.Or(q.partialNamespace, "partial")
 	if q.evaluated != nil && q.compiler != nil {
 		q.evaluated.WithAnnotationSet(q.compiler.GetAnnotationSet())
 	}
@@ -378,26 +392,10 @@ func (q *Query) PartialRun(ctx context.Context) (partials []ast.Body, support []
 	if q.time.IsZero() {
 		q.time = time.Now()
 	}
-	if q.metrics == nil {
-		q.metrics = metrics.New()
-	}
+	q.metrics = util.Or(q.metrics, metrics.New)
 
 	f := &queryIDFactory{}
-	b := newBindings(0, q.instr)
-
-	var vc VirtualCache
-	if q.virtualCache != nil {
-		vc = q.virtualCache
-	} else {
-		vc = NewVirtualCache()
-	}
-
-	var bc BaseCache
-	if q.baseCache != nil {
-		bc = q.baseCache
-	} else {
-		bc = newBaseCache()
-	}
+	b := newBindings(q.instr)
 
 	e := &eval{
 		ctx:                         ctx,
@@ -412,12 +410,13 @@ func (q *Query) PartialRun(ctx context.Context) (partials []ast.Body, support []
 		bindings:                    b,
 		compiler:                    q.compiler,
 		store:                       q.store,
-		baseCache:                   bc,
+		baseCache:                   util.Or(q.baseCache, newBaseCache),
 		txn:                         q.txn,
 		input:                       q.input,
 		external:                    q.external,
 		tracers:                     q.tracers,
 		traceEnabled:                len(q.tracers) > 0,
+		stackCapture:                q.newStackCapture(),
 		plugTraceVars:               q.plugTraceVars,
 		instr:                       q.instr,
 		builtins:                    q.builtins,
@@ -425,7 +424,7 @@ func (q *Query) PartialRun(ctx context.Context) (partials []ast.Body, support []
 		interQueryBuiltinCache:      q.interQueryBuiltinCache,
 		interQueryBuiltinValueCache: q.interQueryBuiltinValueCache,
 		ndBuiltinCache:              q.ndBuiltinCache,
-		virtualCache:                vc,
+		virtualCache:                util.Or(q.virtualCache, NewVirtualCache),
 		saveSet:                     newSaveSet(q.unknowns, b, q.instr),
 		saveStack:                   newSaveStack(),
 		saveSupport:                 newSaveSupport(),
@@ -465,40 +464,37 @@ func (q *Query) PartialRun(ctx context.Context) (partials []ast.Body, support []
 		}
 	}
 
-	ast.WalkVars(q.query, func(x ast.Var) bool {
-		if !x.IsGenerated() {
-			livevars.Add(x)
-		}
-		return false
-	})
+	// iterate expressions to avoid Body -> any boxing in WalkVars argument
+	for _, expr := range q.query {
+		ast.WalkVars(expr, func(x ast.Var) bool {
+			if !x.IsGenerated() {
+				livevars.Add(x)
+			}
+			return false
+		})
+	}
 
 	p := copypropagation.New(livevars).WithCompiler(q.compiler)
 
 	err = e.Run(func(e *eval) error {
-
 		// Build output from saved expressions.
-		body := ast.NewBody()
-
-		for _, elem := range e.saveStack.Peek() {
-			body.Append(elem.Plug(e.bindings))
+		saved := e.saveStack.Peek()
+		exprs := make([]*ast.Expr, 0, len(saved)+e.bindings.size())
+		for _, elem := range saved {
+			exprs = append(exprs, elem.Plug(e.bindings))
 		}
 
 		// Include bindings as exprs so that when caller evals the result, they
 		// can obtain values for the vars in their query.
-		bindingExprs := []*ast.Expr{}
 		_ = e.bindings.Iter(e.bindings, func(a, b *ast.Term) error {
-			bindingExprs = append(bindingExprs, ast.Equality.Expr(a, b))
+			exprs = append(exprs, ast.Equality.Expr(a, b))
 			return nil
 		}) // cannot return error
 
 		// Sort binding expressions so that results are deterministic.
-		sort.Slice(bindingExprs, func(i, j int) bool {
-			return bindingExprs[i].Compare(bindingExprs[j]) < 0
-		})
+		slices.SortFunc(exprs[len(saved):], (*ast.Expr).Compare)
 
-		for i := range bindingExprs {
-			body.Append(bindingExprs[i])
-		}
+		body := ast.NewBody(exprs...)
 
 		// Skip this rule body if it fails to type-check.
 		// Type-checking failure means the rule body will never succeed.
@@ -513,8 +509,6 @@ func (q *Query) PartialRun(ctx context.Context) (partials []ast.Body, support []
 		partials = append(partials, body)
 		return nil
 	})
-
-	support = e.saveSupport.List()
 
 	if len(e.builtinErrors.errs) > 0 {
 		if q.strictBuiltinErrors {
@@ -537,14 +531,13 @@ func (q *Query) PartialRun(ctx context.Context) (partials []ast.Body, support []
 		}
 	}
 
+	support = e.saveSupport.List()
+
 	for i, m := range support {
 		if regoVersion := q.compiler.DefaultRegoVersion(); regoVersion != ast.RegoUndefined {
 			ast.SetModuleRegoVersion(m, q.compiler.DefaultRegoVersion())
 		}
-
-		sort.Slice(support[i].Rules, func(j, k int) bool {
-			return support[i].Rules[j].Compare(support[i].Rules[k]) < 0
-		})
+		slices.SortFunc(support[i].Rules, (*ast.Rule).Compare)
 	}
 
 	return partials, support, err
@@ -565,42 +558,20 @@ func (q *Query) Run(ctx context.Context) (QueryResultSet, error) {
 func (q *Query) Iter(ctx context.Context, iter func(QueryResult) error) error {
 	// Query evaluation must not be allowed if the compiler has errors and is in an undefined, possibly inconsistent state
 	if q.compiler != nil && len(q.compiler.Errors) > 0 {
-		return &Error{
-			Code:    InternalErr,
-			Message: "compiler has errors",
-		}
+		return &Error{Code: InternalErr, Message: "compiler has errors"}
 	}
-
 	if q.evaluated != nil && q.compiler != nil {
 		q.evaluated.WithAnnotationSet(q.compiler.GetAnnotationSet())
 	}
-
 	if q.seed == nil {
 		q.seed = rand.Reader
 	}
 	if q.time.IsZero() {
 		q.time = time.Now()
 	}
-	if q.metrics == nil {
-		q.metrics = metrics.New()
-	}
+	q.metrics = util.Or(q.metrics, metrics.New)
 
 	f := &queryIDFactory{}
-
-	var vc VirtualCache
-	if q.virtualCache != nil {
-		vc = q.virtualCache
-	} else {
-		vc = NewVirtualCache()
-	}
-
-	var bc BaseCache
-	if q.baseCache != nil {
-		bc = q.baseCache
-	} else {
-		bc = newBaseCache()
-	}
-
 	e := &eval{
 		ctx:                         ctx,
 		metrics:                     q.metrics,
@@ -611,15 +582,16 @@ func (q *Query) Iter(ctx context.Context, iter func(QueryResult) error) error {
 		queryCompiler:               q.queryCompiler,
 		queryIDFact:                 f,
 		queryID:                     f.Next(),
-		bindings:                    newBindings(0, q.instr),
+		bindings:                    newBindings(q.instr),
 		compiler:                    q.compiler,
 		store:                       q.store,
-		baseCache:                   bc,
+		baseCache:                   util.Or(q.baseCache, newBaseCache),
 		txn:                         q.txn,
 		input:                       q.input,
 		external:                    q.external,
 		tracers:                     q.tracers,
 		traceEnabled:                len(q.tracers) > 0,
+		stackCapture:                q.newStackCapture(),
 		plugTraceVars:               q.plugTraceVars,
 		instr:                       q.instr,
 		builtins:                    q.builtins,
@@ -627,7 +599,7 @@ func (q *Query) Iter(ctx context.Context, iter func(QueryResult) error) error {
 		interQueryBuiltinCache:      q.interQueryBuiltinCache,
 		interQueryBuiltinValueCache: q.interQueryBuiltinValueCache,
 		ndBuiltinCache:              q.ndBuiltinCache,
-		virtualCache:                vc,
+		virtualCache:                util.Or(q.virtualCache, NewVirtualCache),
 		genvarprefix:                q.genvarprefix,
 		runtime:                     q.runtime,
 		indexing:                    q.indexing,
@@ -647,7 +619,7 @@ func (q *Query) Iter(ctx context.Context, iter func(QueryResult) error) error {
 	e.caller = e
 	q.metrics.Timer(metrics.RegoQueryEval).Start()
 	err := e.Run(func(e *eval) error {
-		qr := QueryResult{}
+		qr := make(QueryResult, e.bindings.size())
 		_ = e.bindings.Iter(nil, func(k, v *ast.Term) error {
 			qr[k.Value.(ast.Var)] = v
 			return nil

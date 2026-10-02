@@ -4,6 +4,62 @@ Changes
 v3 has many incompatibilities with v2. To see the full list of differences between
 v2 and v3, please read the Changes-v3.md file (https://github.com/lestrrat-go/jwx/blob/develop/v3/Changes-v3.md)
 
+v3.3.0 8 Sep 2026
+  * [jwt][jws][jwe][jwk] Custom claim, header, and JWK field names are now
+    JSON-escaped on output. Previously a name was written between the quotes
+    as is, so a name containing `"` could close its own member and add
+    members the application never set. For example, calling `Set` with the
+    name `x":0,"admin` produced a signed token containing `"admin":true`.
+    Every name now yields exactly one member, and names that need no
+    escaping serialize exactly as before.
+
+    If your application accepts custom names from callers, an exact-match
+    allowlist was never affected. A blocklist of reserved names, or an
+    allowlist by namespace prefix, could be bypassed by this defect. Both are
+    reasonable designs; the bug was in the serializer. Prefer an exact-match
+    allowlist, and if you accept a prefix, require the rest of the name to be
+    a plain identifier.
+
+    Fixed in v4.5.0 and v3.3.0. v2, v1, and v0 contain the same code and are
+    unmaintained; see SECURITY.md. (GHSA-4cf7-xm37-g63h)
+
+  * [jws] Added `jws.WithStrictECDSA(bool)`, a `jws.Sign` option that rejects
+    anything RFC 7518 forbids for an ECDSA signature. Today that is Section
+    3.4's binding of ES256 to P-256, ES384 to P-384, and ES512 to P-521, so
+    signing a P-521 key under `jwa.ES256()` fails instead of producing a JWS
+    that other JOSE implementations reject.
+
+    The default is unchanged: without the option, a mismatched curve and
+    algorithm still sign exactly as before. `jws.Verify` is unaffected either
+    way. `jwt.Sign` callers can reach the option through
+    `jwt.WithSignOption(jws.WithStrictECDSA(true))`. (#2323)
+
+v3.2.0 27 Jul 2026
+  * [jwe] Correct the JSON `"aad"` member so it contains only
+    BASE64URL of the external Additional Authenticated Data, rather than the
+    combined value used as the content-encryption AAD. Add
+    `jwe.WithAuthenticateData` for encrypting JSON JWEs with external AAD;
+    the value is included in the shared AEAD input for all recipients, and
+    compact serialization rejects non-empty external AAD. (#2276, #2278)
+
+  * [jwk] Added opt-in retention of unparseable JWK Set entries. Passing
+    `jwk.WithStrictKeySetParsing(false)` to `jwk.Parse` (or setting it
+    globally via `jwk.Configure`) keeps an entry whose key type is not
+    understood — for example a post-quantum key published alongside
+    classical keys — as a `jwk.UnsupportedKey` placeholder instead of
+    failing the whole set (RFC 7517 §5). The placeholder preserves the
+    entry's original JSON (marshaling round-trips losslessly) and the
+    parse error via `Reason()`; use `jwk.IsUnsupportedKey` to detect one.
+    The default is unchanged: v3 still fails the whole set on the first
+    unparseable entry, so existing callers see no difference. The same
+    option exists in v4 with the opposite default (v4 retains by
+    default, v3 stays strict by default); call sites that pass the
+    option explicitly keep the same meaning across the v3→v4 migration.
+    Placeholders
+    are rejected by `jws`/`jwe` key selection, `jwk.Export`,
+    `jwk.AssignKeyID`, and `jwk.PublicSetOf` (which accepts a new
+    `jwk.WithOmitUnsupportedKeys(true)` to drop them). (#2263)
+
 v3.1.1 7 May 2026
   * [jws] Coordinated RFC 7797 `b64=false` handling pass: `jws.Verify`
     rejects payloads with `b64=false` unless `b64` is also listed in
