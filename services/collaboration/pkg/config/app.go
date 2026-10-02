@@ -12,6 +12,8 @@ type App struct {
 
 	ProofKeys          ProofKeys `yaml:"proofkeys"`
 	LicenseCheckEnable bool      `yaml:"licensecheckenable" env:"COLLABORATION_APP_LICENSE_CHECK_ENABLE" desc:"Enable license checking to edit files. Needs to be enabled when using Microsoft365 with the business flow." introductionVersion:"1.0.0"`
+
+	ProductEdition string `yaml:"product_edition" env:"COLLABORATION_APP_PRODUCT_EDITION" desc:"The edition of the WebOffice app, it decides which features the app offers. Only used for EuroOffice, where 'ce', 'de' and 'ee' are supported and an empty value is the same as 'ce'." introductionVersion:"%%NEXT%%"`
 }
 
 type ProofKeys struct {

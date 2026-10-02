@@ -239,6 +239,20 @@ func (s *Service) addQueryToURL(baseURL string, req *appproviderv1beta1.OpenInAp
 		q.Add("dchat", "1")
 	}
 
+	// EuroOffice ce offers the mobile view for reading only, ee and de also for editing.
+	if s.config.Wopi.EnableMobile && strings.ToLower(s.config.App.Product) == "onlyoffice" {
+		if mobile := utils.ReadPlainFromOpaque(req.GetOpaque(), "mobile"); mobile != "" {
+			switch strings.ToLower(s.config.App.ProductEdition) {
+			case "ee", "de":
+				q.Add("mobile", mobile)
+			default:
+				if req.GetViewMode() != appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE {
+					q.Add("mobile", mobile)
+				}
+			}
+		}
+	}
+
 	lang := utils.ReadPlainFromOpaque(req.GetOpaque(), "lang")
 
 	// @TODO: this is a temporary solution until we figure out how to send these from oc web

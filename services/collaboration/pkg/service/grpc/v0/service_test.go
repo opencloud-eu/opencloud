@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -208,6 +209,68 @@ var _ = Describe("Discovery", func() {
 			Entry("Collabora no chat lang", "Collabora", "de", true, "https://cloud.opencloud.test/hosting/wopi/word/view?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&closebutton=false&dchat=1&lang=de-DE"),
 			Entry("OnlyOffice no chat lang", "OnlyOffice", "de", true, "https://cloud.opencloud.test/hosting/wopi/word/edit?WOPISrc=https%3A%2F%2Fwopi.opencloud.test%2Fwopi%2Ffiles%2F2f6ec18696dd1008106749bd94106e5cfad5c09e15de7b77088d03843e71b43e&dchat=1&ui=de-DE"),
 		)
+		DescribeTable(
+			"Mobile view",
+			func(product, edition string, enableMobile bool, viewMode appproviderv1beta1.ViewMode, mobile, expectedMobile string) {
+				ctx := context.Background()
+				nowTime := time.Now()
+
+				cfg.Wopi.WopiSrc = "https://wopi.opencloud.test"
+				cfg.Wopi.Secret = "my_supa_secret"
+				cfg.Wopi.EnableMobile = enableMobile
+				cfg.App.Name = product
+				cfg.App.Product = product
+				cfg.App.ProductEdition = edition
+
+				myself := &userv1beta1.User{
+					Id: &userv1beta1.UserId{
+						Idp:      "myIdp",
+						OpaqueId: "opaque001",
+						Type:     userv1beta1.UserType_USER_TYPE_PRIMARY,
+					},
+					Username: "username",
+				}
+
+				req := &appproviderv1beta1.OpenInAppRequest{
+					ResourceInfo: &providerv1beta1.ResourceInfo{
+						Id: &providerv1beta1.ResourceId{
+							StorageId: "myStorage",
+							OpaqueId:  "storageOpaque001",
+							SpaceId:   "SpaceA",
+						},
+						Path: "/path/to/file.docx",
+					},
+					ViewMode:    viewMode,
+					AccessToken: MintToken(myself, cfg.Wopi.Secret, nowTime),
+				}
+				if mobile != "" {
+					req.Opaque = utils.AppendPlainToOpaque(req.Opaque, "mobile", mobile)
+				}
+
+				gatewayClient.On("WhoAmI", mock.Anything, mock.Anything).Times(1).Return(&gatewayv1beta1.WhoAmIResponse{
+					Status: status.NewOK(ctx),
+					User:   myself,
+				}, nil)
+
+				resp, err := srv.OpenInApp(ctx, req)
+				Expect(err).To(Succeed())
+				Expect(resp.GetStatus().GetCode()).To(Equal(rpcv1beta1.Code_CODE_OK))
+
+				appURL, err := url.Parse(resp.GetAppUrl().GetAppUrl())
+				Expect(err).To(Succeed())
+				Expect(appURL.Query().Get("mobile")).To(Equal(expectedMobile))
+			},
+			Entry("ee edits on mobile", "OnlyOffice", "ee", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE, "true", "true"),
+			Entry("de edits on mobile", "OnlyOffice", "de", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE, "true", "true"),
+			Entry("edition is matched case-insensitively", "OnlyOffice", "EE", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE, "true", "true"),
+			Entry("ce does not edit on mobile", "OnlyOffice", "ce", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE, "true", ""),
+			Entry("an empty edition is ce", "OnlyOffice", "", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE, "true", ""),
+			Entry("ce reads on mobile", "OnlyOffice", "ce", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_ONLY, "true", "true"),
+			Entry("disabled stays out of the url", "OnlyOffice", "ee", false, appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE, "true", ""),
+			Entry("without a mobile request nothing is added", "OnlyOffice", "ee", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE, "", ""),
+			Entry("collabora does not get it", "Collabora", "ee", true, appproviderv1beta1.ViewMode_VIEW_MODE_READ_ONLY, "true", ""),
+		)
+
 		It("Success with Wopi Proxy", func() {
 			ctx := context.Background()
 			nowTime := time.Now()

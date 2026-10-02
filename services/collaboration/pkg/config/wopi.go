@@ -8,4 +8,6 @@ type Wopi struct {
 	ProxyURL    string `yaml:"proxy_url" env:"COLLABORATION_WOPI_PROXY_URL" desc:"The URL to the OpenCloud WOPI proxy. Optional. To use this feature, you need an office365 proxy subscription. If you become part of the Microsoft CSP program (https://learn.microsoft.com/en-us/partner-center/enroll/csp-overview), you can use WebOffice without a proxy." introductionVersion:"1.0.0"`
 	ProxySecret string `yaml:"proxy_secret" env:"COLLABORATION_WOPI_PROXY_SECRET" desc:"Optional, the secret to authenticate against the OpenCloud WOPI proxy. This secret can be obtained from OpenCloud via the office365 proxy subscription." introductionVersion:"1.0.0"`
 	ShortTokens bool   `yaml:"short_tokens" env:"COLLABORATION_WOPI_SHORTTOKENS" desc:"Use short access tokens for WOPI access. This is useful for office packages, like Microsoft Office Online, which have URL length restrictions. If enabled, a persistent store must be configured." introductionVersion:"1.0.0"`
+
+	EnableMobile bool `yaml:"enable_mobile" env:"COLLABORATION_WOPI_ENABLE_MOBILE" desc:"Enable the mobile web view of the office web frontend. This feature applies to EuroOffice, where the product edition decides whether it covers editing as well." introductionVersion:"%%NEXT%%"`
 }
