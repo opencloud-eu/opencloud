@@ -75,7 +75,9 @@ var _ = Describe("Discovery", func() {
 	)
 
 	BeforeEach(func() {
-		cfg = &config.Config{}
+		cfg = &config.Config{
+			TokenManager: &config.TokenManager{JWTSecret: "jwtSecret"},
+		}
 		gatewayClient = &cs3mocks.GatewayAPIClient{}
 
 		gatewaySelector := mocks.NewSelectable[gatewayv1beta1.GatewayAPIClient](GinkgoT())
@@ -175,7 +177,7 @@ var _ = Describe("Discovery", func() {
 						Path: "/path/to/file.docx",
 					},
 					ViewMode:    appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE,
-					AccessToken: MintToken(myself, cfg.Wopi.Secret, nowTime),
+					AccessToken: MintToken(myself, cfg.TokenManager.JWTSecret, nowTime),
 				}
 				if lang != "" {
 					req.Opaque = utils.AppendPlainToOpaque(req.Opaque, "lang", lang)
@@ -235,7 +237,7 @@ var _ = Describe("Discovery", func() {
 					Path: "/path/to/file.docx",
 				},
 				ViewMode:    appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE,
-				AccessToken: MintToken(myself, cfg.Wopi.Secret, nowTime),
+				AccessToken: MintToken(myself, cfg.TokenManager.JWTSecret, nowTime),
 			}
 			req.Opaque = utils.AppendPlainToOpaque(req.Opaque, "lang", "en")
 
@@ -278,7 +280,7 @@ var _ = Describe("Discovery", func() {
 					Path: "/path/to/file.invalid",
 				},
 				ViewMode:    appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE,
-				AccessToken: MintToken(myself, cfg.Wopi.Secret, nowTime),
+				AccessToken: MintToken(myself, cfg.TokenManager.JWTSecret, nowTime),
 			}
 			req.Opaque = utils.AppendPlainToOpaque(req.Opaque, "lang", "en")
 
@@ -319,7 +321,7 @@ var _ = Describe("Discovery", func() {
 					Path: "/path/to/file.docx",
 				},
 				ViewMode:    appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE,
-				AccessToken: MintToken(myself, cfg.Wopi.Secret, nowTime),
+				AccessToken: MintToken(myself, cfg.TokenManager.JWTSecret, nowTime),
 			}
 			req.Opaque = utils.AppendPlainToOpaque(req.Opaque, "lang", "en")
 			req.Opaque = utils.AppendPlainToOpaque(req.Opaque, "template", "&file_id")
@@ -362,7 +364,7 @@ var _ = Describe("Discovery", func() {
 					Path: "/path/to/file.docx",
 				},
 				ViewMode:    appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE,
-				AccessToken: MintToken(myself, cfg.Wopi.Secret, nowTime),
+				AccessToken: MintToken(myself, cfg.TokenManager.JWTSecret, nowTime),
 			}
 			req.Opaque = utils.AppendPlainToOpaque(req.Opaque, "lang", "en")
 			req.Opaque = utils.AppendPlainToOpaque(req.Opaque, "template", "prodiderID$spaceID!opaqueID")

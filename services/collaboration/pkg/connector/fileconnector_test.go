@@ -8,6 +8,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"time"
 
 	appproviderv1beta1 "github.com/cs3org/go-cs3apis/cs3/app/provider/v1beta1"
 	auth "github.com/cs3org/go-cs3apis/cs3/auth/provider/v1beta1"
@@ -17,6 +18,7 @@ import (
 	link "github.com/cs3org/go-cs3apis/cs3/sharing/link/v1beta1"
 	providerv1beta1 "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
+	"github.com/golang-jwt/jwt/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
@@ -67,10 +69,19 @@ var _ = Describe("FileConnector", func() {
 		gatewaySelector.On("Next").Return(gatewayClient, nil)
 		fc = connector.NewFileConnector(gatewaySelector, cfg, nil, nil)
 
+		// PutRelativeFile mints a wopi token from this one and verifies it
+		now := time.Now()
+		accessToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"aud": "reva",
+			"iss": "https://cloud.opencloud.test",
+			"iat": now.Unix(),
+			"exp": now.Add(5 * time.Hour).Unix(),
+			"sub": "alice",
+		}).SignedString([]byte(cfg.TokenManager.JWTSecret))
+		Expect(err).ToNot(HaveOccurred())
+
 		wopiCtx = middleware.WopiContext{
-			// a real token is needed for the PutRelativeFileSuggested tests
-			// although we aren't checking anything inside the token
-			AccessToken: "eyJhbGciOiJQUzI1NiIsImtpZCI6InByaXZhdGUta2V5IiwidHlwIjoiSldUIn0.eyJhdWQiOiJ3ZWIiLCJleHAiOjE3MjAwOTIyODAsImlhdCI6MTcyMDA5MTk4MCwiaXNzIjoiaHR0cHM6Ly9vY2lzLmpwLnNvbGlkZ2Vhci5wcnYiLCJqdGkiOiJmQldpN0FYaFFQdUhhaDJDV0VQVFFLcENmZ3BGbEFpTCIsImxnLmkiOnsiZG4iOiJicm8iLCJpZCI6Im93bkNsb3VkVVVJRD1mYWYxMTY0Ny03NDUxLTRiOWEtYmZmZS0zYjVkZGNjNTk3MmIiLCJ1biI6ImJyb3RhdG8ifSwibGcucCI6ImlkZW50aWZpZXItbGRhcCIsImxnLnQiOiIxIiwic2NwIjoib3BlbmlkIHByb2ZpbGUgZW1haWwiLCJzdWIiOiJjQXZ1elg4Z1hMWmRpWHgtQDFOV1RKdENQRHFVSjQ0bnQ0NkZ0RDlwNUw3dGplUEZkWk1WSjlFMzBOeDItZHVpN0hLQ0x4QWlXYUNUdGJYNTExSmNkSHcifQ.StpQpE4ipxk8Nhk6xgob1Tovbk6bcUVs5-fkej2hIoKoJKfR2OY-CiFQ3wwgEcFro8notxeVfOmxs36z_ezFeJBZRbxpSggcr77LFtQwlsWvD5AuAgLZN1otdvULehunXE_DtxRJZ1rqnsOBT03zKOZLx8Q7QTy6DeRuf1KQtCIowa9D4ymPM4TTmtQdiW2XjByO3OCLFEMVBfDFGPibR6gMnftGQ5kfiZGDTUVCauEXwE-msZVZ42QY-wFRppX_RIL1Z0p6T4dr_6_y-VM1lNYJ5-dB5c5rg_c03Xu1y_TIxs31-8--dtUyZmBVOZFk8bB9msNk-iaOEjzKeUZLymo_-2qVYvXxzNrkq1QA8luaLR6jec_CRT2P8wsB2nyebFU6_myKe34m6f8uqGhOzcOwPB4TpoxPx4ucQgo1CQJwQZHZsZ7Q6TVYZUXJdWwzzMuvJXmnn36iybw0Ub6On4sGKj3gHetjoJg8VnL-TQkBvf1iHX2ktRG3Nq2rnPrB2OTpi2rLpleWg_s8Y8FXxIgYqM0JG8kO1n5RPGMeYQG7qd6f9wdcaPIvgxCa_HsZtMr7eGcDzZtxp-NivgJOS6ode0ZAJ3wGU-AVhmyshpds3DFECcvkBcP_4dD52AXiAq9X3UVkVdNsxs_yB9P7zBcdsKsD6QDJv5gf-6DEu34",
+			AccessToken: accessToken,
 			FileReference: &providerv1beta1.Reference{
 				ResourceId: &providerv1beta1.ResourceId{
 					StorageId: "abc",
