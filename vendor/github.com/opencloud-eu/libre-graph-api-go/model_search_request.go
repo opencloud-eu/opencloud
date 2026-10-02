@@ -32,6 +32,8 @@ type SearchRequest struct {
 	Aggregations []AggregationOption `json:"aggregations,omitempty"`
 	// Contains one or more filters to narrow search results to specific buckets of a prior aggregation. Build each filter from the response of a prior search that aggregated on the same field: take the `aggregationFilterToken` of the wanted `searchBucket` and combine it with the field as `{field}:{aggregationFilterToken}`, e.g. `audio.artist:\"ǂǂ50696e6b20466c6f7964\"` for a terms bucket or `audio.year:range(1980, 1990)` for a range bucket. Several buckets of the same field are combined with `{field}:or({aggregationFilterToken},{aggregationFilterToken})`. Whitespace after the commas of `range(...)` and `or(...)` is optional.  Multiple filters can be provided as separate array items. This results in a logical AND between the filters. Filters that are not built from server-issued tokens are rejected with `invalidRequest`. 
 	AggregationFilters []string `json:"aggregationFilters,omitempty"`
+	// Contains the ordered collection of fields to sort the results on. If absent, the results are sorted by relevance. See `SortProperty.Name` for the set of sortable fields. Optional.
+	SortProperties []SortProperty `json:"sortProperties,omitempty"`
 }
 
 type _SearchRequest SearchRequest

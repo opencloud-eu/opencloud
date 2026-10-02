@@ -95,7 +95,7 @@ func (s Service) Search(ctx context.Context, in *searchsvc.SearchRequest, out *s
 	}
 	ctx = revactx.ContextSetUser(ctx, u)
 
-	key := cacheKey(in.Query, in.PageSize, in.Ref, u, in.Aggregations)
+	key := cacheKey(in.Query, in.PageSize, in.Ref, u, in.Aggregations, in.OrderBy)
 	res, ok := s.FromCache(key)
 	if !ok {
 		var err error
@@ -104,6 +104,7 @@ func (s Service) Search(ctx context.Context, in *searchsvc.SearchRequest, out *s
 			PageSize:     in.PageSize,
 			Ref:          in.Ref,
 			Aggregations: in.Aggregations,
+			OrderBy:      in.OrderBy,
 		})
 		if err != nil {
 			switch err.(type) {
@@ -246,17 +247,17 @@ func (s Service) Cache(key string, res *searchsvc.SearchResponse) {
 }
 
 // cacheKey builds the cache identity for a search. Every result-affecting field
-// must be in the key, including aggregations (serialised via deterministic proto
-// marshalling). If the aggregation proto ever gains a map field, determinism
-// requires all writers to set Deterministic=true.
-func cacheKey(query string, pagesize int32, ref *v0.Reference, user *user.User, aggs []*searchsvc.AggregationOption) string {
-	aggPart := ""
-	if len(aggs) > 0 {
-		b, _ := proto.MarshalOptions{Deterministic: true}.Marshal(&searchsvc.SearchRequest{Aggregations: aggs})
-		aggPart = string(b)
+// must be in the key, including aggregations and order_by (serialised via
+// deterministic proto marshalling). If those protos ever gain a map field,
+// determinism requires all writers to set Deterministic=true.
+func cacheKey(query string, pagesize int32, ref *v0.Reference, user *user.User, aggs []*searchsvc.AggregationOption, orderBy []*searchsvc.SortProperty) string {
+	protoPart := ""
+	if len(aggs) > 0 || len(orderBy) > 0 {
+		b, _ := proto.MarshalOptions{Deterministic: true}.Marshal(&searchsvc.SearchRequest{Aggregations: aggs, OrderBy: orderBy})
+		protoPart = string(b)
 	}
 	return fmt.Sprintf("%s|%d|%s$%s!%s/%s|%s|%s",
 		query, pagesize,
 		ref.GetResourceId().GetStorageId(), ref.GetResourceId().GetSpaceId(), ref.GetResourceId().GetOpaqueId(),
-		ref.GetPath(), user.GetId().GetOpaqueId(), aggPart)
+		ref.GetPath(), user.GetId().GetOpaqueId(), protoPart)
 }
