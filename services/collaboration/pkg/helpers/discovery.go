@@ -110,7 +110,7 @@ func GetAppURLs(cfg *config.Config, logger log.Logger) (map[string]map[string]st
 
 	var appURLs map[string]map[string]string
 
-	appURLs, err = parseWopiDiscovery(httpResp.Body)
+	appURLs, err = parseWopiDiscovery(httpResp.Body, cfg.Wopi.DisabledExtensions)
 	if err != nil {
 		logger.Error().
 			Err(err).
@@ -123,9 +123,15 @@ func GetAppURLs(cfg *config.Config, logger log.Logger) (map[string]map[string]st
 	return appURLs, nil
 }
 
-// parseWopiDiscovery parses the response of the "/hosting/discovery" endpoint
-func parseWopiDiscovery(body io.Reader) (map[string]map[string]string, error) {
+// parseWopiDiscovery parses the response of the "/hosting/discovery" endpoint.
+// Extensions listed in disabledExtensions are left out.
+func parseWopiDiscovery(body io.Reader, disabledExtensions []string) (map[string]map[string]string, error) {
 	appURLs := make(map[string]map[string]string)
+
+	disabled := make(map[string]struct{}, len(disabledExtensions))
+	for _, ext := range disabledExtensions {
+		disabled[strings.ToLower(strings.TrimPrefix(strings.TrimSpace(ext), "."))] = struct{}{}
+	}
 
 	doc := etree.NewDocument()
 	if _, err := doc.ReadFrom(body); err != nil {
@@ -144,6 +150,10 @@ func parseWopiDiscovery(body io.Reader) (map[string]map[string]string, error) {
 						urlString := action.SelectAttrValue("urlsrc", "")
 
 						if ext == "" || urlString == "" {
+							continue
+						}
+
+						if _, ok := disabled[strings.ToLower(ext)]; ok {
 							continue
 						}
 

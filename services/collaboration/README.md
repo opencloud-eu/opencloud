@@ -52,6 +52,11 @@ There are a few variables that you need to set:
 * `COLLABORATION_WOPI_ENABLE_MOBILE`:\
   Enables the mobile web view of the office web frontend. Only applies to EuroOffice. `ce` offers the mobile view for reading only, `de` and `ee` also for editing, so set `COLLABORATION_APP_PRODUCT_EDITION` accordingly.
 
+* `COLLABORATION_WOPI_DISABLED_EXTENSIONS`:\
+  A comma separated list of file extensions the app must not offer, even though the document server announces them.\
+  The webUI offers no editor of this app for them and opening such a file with it fails.\
+  For example: `COLLABORATION_WOPI_DISABLED_EXTENSIONS=docx,xlsx,pptx`.
+
 The application can be customized further by changing the `COLLABORATION_APP_*` options to better describe the application.
 
 ## Storing

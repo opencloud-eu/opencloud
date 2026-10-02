@@ -366,6 +366,32 @@ var _ = Describe("Discovery", func() {
 			Expect(appUrls).To(Equal(expectedAppUrls))
 		})
 
+		It("Skips the disabled extensions", func() {
+			cfg := &config.Config{
+				App: config.App{
+					Addr:     srv.URL + "/good",
+					Insecure: true,
+				},
+				Wopi: config.Wopi{
+					// written the way an admin might, the match ignores dot and case
+					DisabledExtensions: []string{"docx", ".DJVU", " xls ", "odt"},
+				},
+			}
+			logger := log.NopLogger()
+
+			appUrls, err := helpers.GetAppURLs(cfg, logger)
+
+			expectedAppUrls := map[string]map[string]string{
+				"view": {
+					".pdf":  "https://cloud.opencloud.test/hosting/wopi/word/view",
+					".xlsb": "https://cloud.opencloud.test/hosting/wopi/cell/view",
+				},
+			}
+
+			Expect(err).To(Succeed())
+			Expect(appUrls).To(Equal(expectedAppUrls))
+		})
+
 		It("Wrong discovery URL", func() {
 			cfg := &config.Config{
 				App: config.App{

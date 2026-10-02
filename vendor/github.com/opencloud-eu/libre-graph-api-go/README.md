@@ -138,6 +138,7 @@ Class | Method | HTTP request | Description
 *GroupApi* | [**UpdateGroup**](docs/GroupApi.md#updategroup) | **Patch** /v1.0/groups/{group-id} | Update entity in groups
 *GroupsApi* | [**CreateGroup**](docs/GroupsApi.md#creategroup) | **Post** /v1.0/groups | Add new entity to groups
 *GroupsApi* | [**ListGroups**](docs/GroupsApi.md#listgroups) | **Get** /v1.0/groups | Get entities from groups
+*GuestLinksApi* | [**RedeemGuestLink**](docs/GuestLinksApi.md#redeemguestlink) | **Post** /v1beta1/extensions/org.libregraph/guestLinks/redeem | Redeem a guest link token
 *InvitationsApi* | [**CreateInvitation**](docs/InvitationsApi.md#createinvitation) | **Post** /v1.0/invitations | Create a new invitation
 *InvitationsApi* | [**GetInvitation**](docs/InvitationsApi.md#getinvitation) | **Get** /v1.0/invitations/{invitation-id} | Get an invitation by key
 *InvitationsApi* | [**ListInvitations**](docs/InvitationsApi.md#listinvitations) | **Get** /v1.0/invitations | Get a list of invitations
@@ -159,6 +160,7 @@ Class | Method | HTTP request | Description
 *MeUserApi* | [**UpdateOwnUser**](docs/MeUserApi.md#updateownuser) | **Patch** /v1.0/me | Update the current user
 *RoleManagementApi* | [**GetPermissionRoleDefinition**](docs/RoleManagementApi.md#getpermissionroledefinition) | **Get** /v1beta1/roleManagement/permissions/roleDefinitions/{role-id} | Get unifiedRoleDefinition
 *RoleManagementApi* | [**ListPermissionRoleDefinitions**](docs/RoleManagementApi.md#listpermissionroledefinitions) | **Get** /v1beta1/roleManagement/permissions/roleDefinitions | List roleDefinitions
+*SearchApi* | [**SearchQuery**](docs/SearchApi.md#searchquery) | **Post** /v1beta1/search/query | Search for resources
 *TagsApi* | [**AssignTags**](docs/TagsApi.md#assigntags) | **Put** /v1.0/extensions/org.libregraph/tags | Assign tags to a resource
 *TagsApi* | [**GetTags**](docs/TagsApi.md#gettags) | **Get** /v1.0/extensions/org.libregraph/tags | Get all known tags
 *TagsApi* | [**UnassignTags**](docs/TagsApi.md#unassigntags) | **Delete** /v1.0/extensions/org.libregraph/tags | Unassign tags from a resource
@@ -182,10 +184,13 @@ Class | Method | HTTP request | Description
  - [ActivityTemplate](docs/ActivityTemplate.md)
  - [ActivityTimes](docs/ActivityTimes.md)
  - [ActivityTopic](docs/ActivityTopic.md)
+ - [AggregationOption](docs/AggregationOption.md)
  - [AppRole](docs/AppRole.md)
  - [AppRoleAssignment](docs/AppRoleAssignment.md)
  - [Application](docs/Application.md)
  - [Audio](docs/Audio.md)
+ - [BucketAggregationRange](docs/BucketAggregationRange.md)
+ - [BucketDefinition](docs/BucketDefinition.md)
  - [ClassMemberReference](docs/ClassMemberReference.md)
  - [ClassReference](docs/ClassReference.md)
  - [ClassTeacherReference](docs/ClassTeacherReference.md)
@@ -224,7 +229,11 @@ Class | Method | HTTP request | Description
  - [Folder](docs/Folder.md)
  - [FolderView](docs/FolderView.md)
  - [GeoCoordinates](docs/GeoCoordinates.md)
+ - [GeohashDefinition](docs/GeohashDefinition.md)
  - [Group](docs/Group.md)
+ - [GuestLinkError](docs/GuestLinkError.md)
+ - [GuestLinkRedeemRequest](docs/GuestLinkRedeemRequest.md)
+ - [GuestLinkRedeemResponse](docs/GuestLinkRedeemResponse.md)
  - [Hashes](docs/Hashes.md)
  - [Identity](docs/Identity.md)
  - [IdentitySet](docs/IdentitySet.md)
@@ -235,6 +244,7 @@ Class | Method | HTTP request | Description
  - [LivePhoto](docs/LivePhoto.md)
  - [LockInfo](docs/LockInfo.md)
  - [MemberReference](docs/MemberReference.md)
+ - [MetricDefinition](docs/MetricDefinition.md)
  - [MotionPhoto](docs/MotionPhoto.md)
  - [ObjectIdentity](docs/ObjectIdentity.md)
  - [OdataError](docs/OdataError.md)
@@ -250,12 +260,23 @@ Class | Method | HTTP request | Description
  - [Quota](docs/Quota.md)
  - [Recipient](docs/Recipient.md)
  - [RemoteItem](docs/RemoteItem.md)
+ - [SearchAggregation](docs/SearchAggregation.md)
+ - [SearchBucket](docs/SearchBucket.md)
+ - [SearchHit](docs/SearchHit.md)
+ - [SearchHitsContainer](docs/SearchHitsContainer.md)
+ - [SearchMetric](docs/SearchMetric.md)
+ - [SearchQuery](docs/SearchQuery.md)
+ - [SearchQuery200Response](docs/SearchQuery200Response.md)
+ - [SearchQueryRequest](docs/SearchQueryRequest.md)
+ - [SearchRequest](docs/SearchRequest.md)
+ - [SearchResponse](docs/SearchResponse.md)
  - [SharePointIdentitySet](docs/SharePointIdentitySet.md)
  - [SharingInvitation](docs/SharingInvitation.md)
  - [SharingLink](docs/SharingLink.md)
  - [SharingLinkPassword](docs/SharingLinkPassword.md)
  - [SharingLinkType](docs/SharingLinkType.md)
  - [SignInActivity](docs/SignInActivity.md)
+ - [SortProperty](docs/SortProperty.md)
  - [SpecialFolder](docs/SpecialFolder.md)
  - [TagAssignment](docs/TagAssignment.md)
  - [TagUnassignment](docs/TagUnassignment.md)

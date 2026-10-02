@@ -22,6 +22,7 @@ import (
 	// Load core authentication managers.
 	_ "github.com/opencloud-eu/reva/v2/pkg/auth/manager/appauth"
 	_ "github.com/opencloud-eu/reva/v2/pkg/auth/manager/demo"
+	_ "github.com/opencloud-eu/reva/v2/pkg/auth/manager/guestlinks"
 	_ "github.com/opencloud-eu/reva/v2/pkg/auth/manager/impersonator"
 	_ "github.com/opencloud-eu/reva/v2/pkg/auth/manager/json"
 	_ "github.com/opencloud-eu/reva/v2/pkg/auth/manager/ldap"

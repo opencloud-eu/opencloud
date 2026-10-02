@@ -52,16 +52,25 @@ const (
 	RoleEditorWithVersions = "editor-with-versions"
 	// RoleEditorListGrants grants editor permission on a resource, including folders.
 	RoleEditorListGrants = "editor-list-grants"
+	// RoleEditorListGrantsWithVersions grants editor permission on a resource, including folders, and list versions.
+	RoleEditorListGrantsWithVersions = "editor-list-grants-with-versions"
 	// RoleSpaceEditor grants editor permission on a space.
 	RoleSpaceEditor = "spaceeditor"
 	// RoleSpaceEditorWithoutVersions grants editor permission without list/restore versions on a space.
 	RoleSpaceEditorWithoutVersions = "spaceeditor-without-versions"
+	// RoleSpaceEditorWithoutTrashbin grants editor permission without list/restore resources in trashbin on a space.
+	RoleSpaceEditorWithoutTrashbin = "spaceeditor-without-trashbin"
+	// RoleSpaceEditorWithoutVersionsWithoutTrashbin grants editor permission without list/restore versions
+	// and without list/restore resources in trashbin on a space.
+	RoleSpaceEditorWithoutVersionsWithoutTrashbin = "spaceeditor-without-versions-without-trashbin"
 	// RoleFileEditor grants editor permission on a single file.
 	RoleFileEditor = "file-editor"
 	// RoleFileEditorWithVersions grants editor permission on a single file, including list/restore versions.
 	RoleFileEditorWithVersions = "file-editor-with-versions"
 	// RoleFileEditorListGrants grants editor permission on a single file.
 	RoleFileEditorListGrants = "file-editor-list-grants"
+	// RoleFileEditorListGrantsWithVersions grants editor permission on a single file and list versions.
+	RoleFileEditorListGrantsWithVersions = "file-editor-list-grants-with-versions"
 	// RoleCoowner grants co-owner permissions on a resource.
 	RoleCoowner = "coowner"
 	// RoleEditorLite grants permission to upload and download to a resource.
@@ -186,14 +195,24 @@ func RoleFromName(name string) *Role {
 		return NewEditorWithVersionsRole()
 	case RoleEditorListGrants:
 		return NewEditorListGrantsRole()
+	case RoleEditorListGrantsWithVersions:
+		return NewEditorListGrantsWithVersionsRole()
+	case RoleSpaceEditorWithoutVersions:
+		return NewSpaceEditorWithoutVersionsRole()
 	case RoleSpaceEditor:
 		return NewSpaceEditorRole()
+	case RoleSpaceEditorWithoutTrashbin:
+		return NewSpaceEditorWithoutTrashbinRole()
+	case RoleSpaceEditorWithoutVersionsWithoutTrashbin:
+		return NewSpaceEditorWithoutVersionsWithoutTrashbinRole()
 	case RoleFileEditor:
 		return NewFileEditorRole()
 	case RoleFileEditorWithVersions:
 		return NewFileEditorWithVersionsRole()
 	case RoleFileEditorListGrants:
 		return NewFileEditorListGrantsRole()
+	case RoleFileEditorListGrantsWithVersions:
+		return NewFileEditorListGrantsWithVersionsRole()
 	case RoleUploader:
 		return NewUploaderRole()
 	case RoleManager:
@@ -311,6 +330,15 @@ func NewEditorListGrantsRole() *Role {
 	return role
 }
 
+// NewEditorListGrantsWithVersionsRole creates an editor role that can list the invited people
+// and the file versions of a resource, including folders.
+func NewEditorListGrantsWithVersionsRole() *Role {
+	role := NewEditorListGrantsRole()
+	role.Name = RoleEditorListGrantsWithVersions
+	role.cS3ResourcePermissions.ListFileVersions = true
+	return role
+}
+
 // NewEditorWithVersionsRole creates an editor role including list/restore versions. `sharing` indicates if sharing permission should be added
 func NewEditorWithVersionsRole() *Role {
 	role := NewEditorRole()
@@ -346,8 +374,18 @@ func NewSpaceEditorRole() *Role {
 
 // NewSpaceEditorWithoutVersionsRole creates an editor without list/restore versions role
 func NewSpaceEditorWithoutVersionsRole() *Role {
+	role := NewSpaceEditorWithoutVersionsWithoutTrashbinRole()
+	role.Name = RoleSpaceEditorWithoutVersions
+	role.cS3ResourcePermissions.ListRecycle = true
+	role.cS3ResourcePermissions.RestoreRecycleItem = true
+	return role
+}
+
+// NewSpaceEditorWithoutVersionsWithoutTrashbinRole creates an editor role without list/restore
+// versions and without list/restore resources in the trashbin on a space.
+func NewSpaceEditorWithoutVersionsWithoutTrashbinRole() *Role {
 	return &Role{
-		Name: RoleSpaceEditorWithoutVersions,
+		Name: RoleSpaceEditorWithoutVersionsWithoutTrashbin,
 		cS3ResourcePermissions: &provider.ResourcePermissions{
 			CreateContainer:      true,
 			Delete:               true,
@@ -357,13 +395,21 @@ func NewSpaceEditorWithoutVersionsRole() *Role {
 			InitiateFileUpload:   true,
 			ListContainer:        true,
 			ListGrants:           true,
-			ListRecycle:          true,
 			Move:                 true,
-			RestoreRecycleItem:   true,
 			Stat:                 true,
 		},
 		ocsPermissions: PermissionRead | PermissionCreate | PermissionWrite | PermissionDelete,
 	}
+}
+
+// NewSpaceEditorWithoutTrashbinRole creates an editor role without list/restore resources
+// in the trashbin on a space.
+func NewSpaceEditorWithoutTrashbinRole() *Role {
+	role := NewSpaceEditorWithoutVersionsWithoutTrashbinRole()
+	role.Name = RoleSpaceEditorWithoutTrashbin
+	role.cS3ResourcePermissions.ListFileVersions = true
+	role.cS3ResourcePermissions.RestoreFileVersion = true
+	return role
 }
 
 // NewFileEditorRole creates a file-editor role
@@ -389,6 +435,15 @@ func NewFileEditorRole() *Role {
 func NewFileEditorListGrantsRole() *Role {
 	role := NewFileEditorRole()
 	role.cS3ResourcePermissions.ListGrants = true
+	return role
+}
+
+// NewFileEditorListGrantsWithVersionsRole creates a file-editor role that can list the invited
+// people and the file versions of a single file.
+func NewFileEditorListGrantsWithVersionsRole() *Role {
+	role := NewFileEditorListGrantsRole()
+	role.Name = RoleFileEditorListGrantsWithVersions
+	role.cS3ResourcePermissions.ListFileVersions = true
 	return role
 }
 
@@ -626,8 +681,11 @@ func RoleFromResourcePermissions(rp *provider.ResourcePermissions, islink bool) 
 		rp.InitiateFileDownload {
 		r.ocsPermissions |= PermissionRead
 	}
+	// A role without trashbin access has no RestoreRecycleItem, so writing had to be
+	// inferred from Delete instead - otherwise the *WithoutTrashbin space editor roles
+	// come back without PermissionWrite and the web frontend renders them read-only.
 	if rp.InitiateFileUpload &&
-		rp.RestoreRecycleItem {
+		(rp.RestoreRecycleItem || (rp.Delete && !rp.ListRecycle)) {
 		r.ocsPermissions |= PermissionWrite
 	}
 	if rp.Stat &&
@@ -647,6 +705,9 @@ func RoleFromResourcePermissions(rp *provider.ResourcePermissions, islink bool) 
 			r.Name = RoleEditor
 			if rp.ListGrants {
 				r.Name = RoleEditorListGrants
+				if rp.ListFileVersions {
+					r.Name = RoleEditorListGrantsWithVersions
+				}
 			}
 			if rp.RemoveGrant {
 				r.Name = RoleManager

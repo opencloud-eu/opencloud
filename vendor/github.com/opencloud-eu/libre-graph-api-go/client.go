@@ -75,6 +75,8 @@ type APIClient struct {
 
 	GroupsApi *GroupsApiService
 
+	GuestLinksApi *GuestLinksApiService
+
 	InvitationsApi *InvitationsApiService
 
 	MeChangepasswordApi *MeChangepasswordApiService
@@ -92,6 +94,8 @@ type APIClient struct {
 	MeUserApi *MeUserApiService
 
 	RoleManagementApi *RoleManagementApiService
+
+	SearchApi *SearchApiService
 
 	TagsApi *TagsApiService
 
@@ -135,6 +139,7 @@ func NewAPIClient(cfg *Configuration) *APIClient {
 	c.EducationUserApi = (*EducationUserApiService)(&c.common)
 	c.GroupApi = (*GroupApiService)(&c.common)
 	c.GroupsApi = (*GroupsApiService)(&c.common)
+	c.GuestLinksApi = (*GuestLinksApiService)(&c.common)
 	c.InvitationsApi = (*InvitationsApiService)(&c.common)
 	c.MeChangepasswordApi = (*MeChangepasswordApiService)(&c.common)
 	c.MeDriveApi = (*MeDriveApiService)(&c.common)
@@ -144,6 +149,7 @@ func NewAPIClient(cfg *Configuration) *APIClient {
 	c.MePhotoApi = (*MePhotoApiService)(&c.common)
 	c.MeUserApi = (*MeUserApiService)(&c.common)
 	c.RoleManagementApi = (*RoleManagementApiService)(&c.common)
+	c.SearchApi = (*SearchApiService)(&c.common)
 	c.TagsApi = (*TagsApiService)(&c.common)
 	c.UserApi = (*UserApiService)(&c.common)
 	c.UserAppRoleAssignmentApi = (*UserAppRoleAssignmentApiService)(&c.common)

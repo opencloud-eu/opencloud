@@ -45,6 +45,10 @@ const (
 	// WOPI Locks generally have a lock duration of 30 minutes and will be refreshed before expiration if needed
 	// https://docs.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/concepts#lock
 	lockDuration time.Duration = 30 * time.Minute
+
+	// LastModifiedTime has to be ISO 8601 round-trip formatted
+	// https://learn.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/files/checkfileinfo/checkfileinfo-other#lastmodifiedtime
+	lastModifiedTimeFormat = "2006-01-02T15:04:05.0000000Z"
 )
 
 // FileConnectorService is the interface to implement the "Files"
@@ -1260,11 +1264,16 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 			logger.Error().Err(err).Msg("CheckFileInfo: error getting scopes from the context")
 		}
 	}
+	lastModifiedTime := time.Now().UTC().Format(lastModifiedTimeFormat)
+	if mtime := statRes.GetInfo().GetMtime(); mtime != nil {
+		lastModifiedTime = utils.TSToTime(mtime).UTC().Format(lastModifiedTimeFormat)
+	}
+
 	// fileinfo map
 	infoMap := map[string]any{
 		fileinfo.KeyOwnerID:           hexEncodedOwnerId,
-		fileinfo.KeySize:              int64(statRes.GetInfo().GetSize()),
 		fileinfo.KeyVersion:           getVersion(statRes.GetInfo().GetMtime()),
+		fileinfo.KeyLastModifiedTime:  lastModifiedTime,
 		fileinfo.KeyBaseFileName:      path.Base(statRes.GetInfo().GetPath()),
 		fileinfo.KeyBreadcrumbDocName: path.Base(statRes.GetInfo().GetPath()),
 		// to get the folder we actually need to do a GetPath() request
@@ -1296,6 +1305,16 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 		fileinfo.KeyLicenseCheckForEditIsEnabled: f.cfg.App.LicenseCheckEnable,
 
 		fileinfo.KeyUserCanNotWriteRelative: false,
+	}
+
+	// EuroOffice needs the size on an empty pdf to open the form editor, but
+	// breaks on a zero size for ods, odt and odp
+	size := int64(statRes.GetInfo().GetSize()) //nolint:gosec // a byte count never reaches the int64 ceiling
+	omitSize := size == 0 &&
+		strings.ToLower(f.cfg.App.Product) == "onlyoffice" &&
+		strings.ToLower(path.Ext(statRes.GetInfo().GetPath())) != ".pdf"
+	if !omitSize {
+		infoMap[fileinfo.KeySize] = size
 	}
 
 	switch wopiContext.ViewMode {

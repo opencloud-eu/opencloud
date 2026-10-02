@@ -175,35 +175,28 @@ func NewStatusFromErrType(ctx context.Context, msg string, err error) *rpc.Statu
 	switch e := err.(type) {
 	case nil:
 		return NewOK(ctx)
-	case errtypes.NotFound:
-		return NewNotFound(ctx, msg+": "+err.Error())
 	case errtypes.IsNotFound:
-		return NewNotFound(ctx, msg+": "+err.Error())
-	case errtypes.AlreadyExists:
-		return NewAlreadyExists(ctx, err, msg+": "+err.Error())
-	case errtypes.InvalidCredentials:
-		return NewPermissionDenied(ctx, e, msg+": "+err.Error())
+		return NewNotFound(ctx, msg+": "+e.Error())
+	case errtypes.IsAlreadyExists:
+		return NewAlreadyExists(ctx, e, msg+": "+e.Error())
 	case errtypes.IsInvalidCredentials:
-		// TODO this maps badly
-		return NewUnauthenticated(ctx, err, msg+": "+err.Error())
-	case errtypes.PermissionDenied:
-		return NewPermissionDenied(ctx, e, msg+": "+err.Error())
-	case errtypes.Locked:
+		return NewUnauthenticated(ctx, e, msg+": "+e.Error())
+	case errtypes.IsPermissionDenied:
+		return NewPermissionDenied(ctx, e, msg+": "+e.Error())
+	case errtypes.IsLocked:
 		// FIXME a locked error returns the current lockid
 		// FIXME use NewAborted as per the rpc code docs
-		return NewLocked(ctx, msg+": "+err.Error())
-	case errtypes.Aborted:
-		return NewAborted(ctx, e, msg+": "+err.Error())
-	case errtypes.PreconditionFailed:
-		return NewFailedPrecondition(ctx, e, msg+": "+err.Error())
+		return NewLocked(ctx, msg+": "+e.Error())
+	case errtypes.IsAborted:
+		return NewAborted(ctx, e, msg+": "+e.Error())
+	case errtypes.IsPreconditionFailed:
+		return NewFailedPrecondition(ctx, e, msg+": "+e.Error())
 	case errtypes.IsNotSupported:
-		return NewUnimplemented(ctx, err, msg+":"+err.Error())
-	case errtypes.BadRequest:
-		return NewInvalid(ctx, msg+":"+err.Error())
-	case errtypes.Unavailable:
-		return NewUnavailable(ctx, msg+": "+err.Error())
+		return NewUnimplemented(ctx, e, msg+": "+e.Error())
+	case errtypes.IsBadRequest:
+		return NewInvalid(ctx, msg+": "+e.Error())
 	case errtypes.IsUnavailable:
-		return NewUnavailable(ctx, msg+": "+err.Error())
+		return NewUnavailable(ctx, msg+": "+e.Error())
 	}
 
 	// map GRPC status codes coming from the auth middleware

@@ -123,7 +123,7 @@ Feature: moving/renaming file using file id
     And we save it into "FILEID"
     When user "Alice" renames file with id "<<FILEID>>" to "renamed.txt" inside space "project-space"
     Then the HTTP status code should be "502"
-    And the value of the item "/d:error/s:message" in the response about user "Alice" should be "move:error: not supported: cannot move across spaces"
+    And the value of the item "/d:error/s:message" in the response about user "Alice" should be "move: error: not supported: cannot move across spaces"
     And for user "Alice" folder "/" of the space "Personal" should contain these files:
       | textfile.txt |
     But for user "Alice" folder "/" of the space "project-space" should not contain these files:
@@ -283,7 +283,7 @@ Feature: moving/renaming file using file id
     And we save it into "FILEID"
     When user "Alice" renames file with id "<<FILEID>>" to "/renamedSecondProjectSpacetextfile.txt" inside space "first-project-space"
     Then the HTTP status code should be "502"
-    And the value of the item "/d:error/s:message" in the response about user "Alice" should be "move:error: not supported: cannot move across spaces"
+    And the value of the item "/d:error/s:message" in the response about user "Alice" should be "move: error: not supported: cannot move across spaces"
     And for user "Alice" folder "/" of the space "first-project-space" should contain these files:
       | firstProjectSpacetextfile.txt |
     And for user "Alice" folder "/" of the space "second-project-space" should contain these files:
@@ -358,7 +358,7 @@ Feature: moving/renaming file using file id
     And we save it into "FILEID"
     When user "Alice" renames file with id "<<FILEID>>" to "/renamed.txt" inside space "Personal"
     Then the HTTP status code should be "502"
-    And the value of the item "/d:error/s:message" in the response about user "Alice" should be "move:error: not supported: cannot move across spaces"
+    And the value of the item "/d:error/s:message" in the response about user "Alice" should be "move: error: not supported: cannot move across spaces"
     And for user "Alice" folder "/" of the space "project-space" should contain these files:
       | textfile.txt |
     But for user "Alice" folder "/" of the space "Personal" should not contain these files:
