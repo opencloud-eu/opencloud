@@ -33,6 +33,7 @@ import (
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/graph/mocks"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
@@ -168,7 +169,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		})
 
 		It("creates guest share using an email address", func() {
-			cfg.EnableGuestInvites = true
+			cfg.Commons = &shared.Commons{EnableGuestLinks: true}
 			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
 			gatewayClient.On("CreateShare", mock.Anything, mock.Anything).Return(createShareResponse, nil)
 			driveItemInvite.Recipients = []libregraph.DriveRecipient{

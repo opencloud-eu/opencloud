@@ -1,0 +1,170 @@
+// Copyright 2026 OpenCloud GmbH <mail@opencloud.eu>
+// SPDX-License-Identifier: Apache-2.0
+
+package storage
+
+import (
+	"io/fs"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/token"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func newRecord(shareID string) Record {
+	svc := token.NewTokenService()
+	tok, _ := svc.Generate(shareID)
+
+	return Record{
+		ShareID:     shareID,
+		ShareIDHash: tok.ShareIDHash,
+		SecretHash:  tok.SecretHash(),
+		Expiry:      time.Date(2026, 12, 31, 23, 59, 59, 0, time.UTC),
+	}
+}
+
+func TestFileManagerAddGet(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
+	require.NoError(t, s.Add(rec))
+
+	got, err := s.Get(rec.ShareIDHash)
+	require.NoError(t, err)
+	assert.Equal(t, rec, got)
+}
+
+func TestFileManagerGetMissing(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	_, err := s.Get("doesnotexist")
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestFileManagerAddExisting(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
+	require.NoError(t, s.Add(rec))
+
+	rec.SecretHash = "other"
+	require.ErrorIs(t, s.Add(rec), fs.ErrExist)
+}
+
+func TestFileManagerInvalidHash(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	_, err := s.Get("ab")
+	require.ErrorIs(t, err, ErrInvalidHash)
+
+	_, err = s.Get("../../etc/passwd-xyz")
+	require.ErrorIs(t, err, ErrInvalidHash)
+
+	require.ErrorIs(t, s.Remove("ab"), ErrInvalidHash)
+	require.ErrorIs(t, s.Add(Record{ShareIDHash: "ab"}), ErrInvalidHash)
+}
+
+func TestFileManagerRemove(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
+	require.NoError(t, s.Add(rec))
+
+	require.NoError(t, s.Remove(rec.ShareIDHash))
+
+	_, err := s.Get(rec.ShareIDHash)
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestFileManagerRemoveMissing(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	err := s.Remove("doesnotexist")
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestFileManagerRedeem(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
+	require.NoError(t, s.Add(rec))
+
+	require.NoError(t, s.Redeem(rec.ShareIDHash))
+
+	got, err := s.Get(rec.ShareIDHash)
+	require.NoError(t, err)
+	assert.True(t, got.Redeemed)
+
+	err = s.Redeem(rec.ShareIDHash)
+	assert.ErrorIs(t, err, ErrAlreadyRedeemed)
+}
+
+func TestFileManagerRedeemMissing(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	err := s.Redeem("doesnotexist")
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestFileManagerAddConcurrent(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
+
+	const workers = 20
+	var (
+		wg      sync.WaitGroup
+		success atomic.Int32
+	)
+	for range workers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := s.Add(rec); err == nil {
+				success.Add(1)
+			}
+		}()
+	}
+	wg.Wait()
+
+	assert.Equal(t, int32(1), success.Load())
+}
+
+func TestFileManagerRedeemConcurrent(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
+	require.NoError(t, s.Add(rec))
+
+	const workers = 20
+	var (
+		wg      sync.WaitGroup
+		success atomic.Int32
+	)
+	for range workers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := s.Redeem(rec.ShareIDHash); err == nil {
+				success.Add(1)
+			}
+		}()
+	}
+	wg.Wait()
+
+	assert.Equal(t, int32(1), success.Load())
+}

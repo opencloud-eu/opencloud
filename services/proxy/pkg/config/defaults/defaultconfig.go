@@ -284,6 +284,11 @@ func DefaultPolicies() []config.Policy {
 					Service:  "eu.opencloud.web.invitations",
 				},
 				{
+					Endpoint:    "/graph/v1beta1/extensions/org.libregraph/guestLinks",
+					Service:     "eu.opencloud.web.auth-guest",
+					Unprotected: true,
+				},
+				{
 					Endpoint: "/graph/",
 					Service:  "eu.opencloud.web.graph",
 				},

@@ -69,6 +69,7 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 		idmServicePassword, idpServicePassword, ocAdminServicePassword, revaServicePassword  string
 		tokenManagerJwtSecret, collaborationWOPISecret, machineAuthAPIKey, systemUserAPIKey  string
 		revaTransferSecret, thumbnailsTransferSecret, serviceAccountSecret, urlSigningSecret string
+		authGuestJWTSecret                                                                   string
 		adminPasswdwordGenerated                                                             bool
 	)
 
@@ -101,6 +102,13 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 			urlSigningSecret, err = generators.GenerateRandomPassword(passwordLength)
 			if err != nil {
 				return fmt.Errorf("could not generate random secret for urlSigningSecret: %s", err)
+			}
+		}
+		authGuestJWTSecret = oldCfg.AuthGuest.TokenManager.JWTSecret
+		if authGuestJWTSecret == "" {
+			authGuestJWTSecret, err = generators.GenerateRandomPassword(passwordLength)
+			if err != nil {
+				return fmt.Errorf("could not generate random secret for authGuestJWTSecret: %s", err)
 			}
 		}
 	} else {
@@ -154,6 +162,10 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 		urlSigningSecret, err = generators.GenerateRandomPassword(passwordLength)
 		if err != nil {
 			return fmt.Errorf("could not generate random secret for urlSigningSecret: %s", err)
+		}
+		authGuestJWTSecret, err = generators.GenerateRandomPassword(passwordLength)
+		if err != nil {
+			return fmt.Errorf("could not generate random secret for authGuestJWTSecret: %s", err)
 		}
 		thumbnailsTransferSecret, err = generators.GenerateRandomPassword(passwordLength)
 		if err != nil {
@@ -211,6 +223,10 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 					BindPassword: revaServicePassword,
 				},
 			},
+		},
+		AuthGuest: AuthGuest{
+			ServiceAccount: serviceAccount,
+			TokenManager:   TokenManager{JWTSecret: authGuestJWTSecret},
 		},
 		Users: UsersAndGroupsService{
 			Drivers: LdapBasedService{

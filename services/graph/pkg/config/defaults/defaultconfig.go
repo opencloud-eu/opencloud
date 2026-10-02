@@ -71,8 +71,7 @@ func DefaultConfig() *config.Config {
 			AssignDefaultUserRole:   true,
 			IdentitySearchMinLength: 3,
 		},
-		EnableGuestInvites: false,
-		Reva:               shared.DefaultRevaConfig(),
+		Reva: shared.DefaultRevaConfig(),
 		Spaces: config.Spaces{
 			StorageUsersAddress: "eu.opencloud.api.storage-users",
 			WebDavBase:          "https://localhost:9200",
