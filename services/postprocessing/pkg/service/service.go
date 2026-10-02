@@ -108,6 +108,12 @@ func NewPostprocessingService(ctx context.Context, logger log.Logger, sto store.
 func (pps *PostprocessingService) Run() error {
 	wg := sync.WaitGroup{}
 
+	// the first worker to hit an unrecoverable error stops the service and its
+	// error is returned to the caller, which shuts the service down properly
+	// instead of tearing the whole process down from inside a worker goroutine
+	var fatalErr error
+	var fatalOnce sync.Once
+
 	for range pps.c.Workers {
 		wg.Go(func() {
 
@@ -133,11 +139,17 @@ func (pps *PostprocessingService) Run() error {
 					if err != nil {
 						switch {
 						case errors.Is(err, ErrFatal):
-							pps.log.Fatal().Err(err).Msg("fatal error - exiting")
+							pps.log.Error().Err(err).Msg("fatal error - stopping")
+							fatalOnce.Do(func() { fatalErr = err })
+							pps.Close()
+							break EventLoop
 						case errors.Is(err, ErrEvent):
 							pps.log.Error().Err(err).Msg("continuing")
 						default:
-							pps.log.Fatal().Err(err).Msg("unknown error - exiting")
+							pps.log.Error().Err(err).Msg("unknown error - stopping")
+							fatalOnce.Do(func() { fatalErr = err })
+							pps.Close()
+							break EventLoop
 						}
 					}
 
@@ -152,7 +164,7 @@ func (pps *PostprocessingService) Run() error {
 
 	wg.Wait()
 
-	return nil
+	return fatalErr
 }
 
 // Close will make the postprocessing service to stop processing, so the `Run`
