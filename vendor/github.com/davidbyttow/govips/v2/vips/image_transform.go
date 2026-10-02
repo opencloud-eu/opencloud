@@ -29,9 +29,10 @@ func GetRotationAngleFromExif(orientation int) (Angle, bool) {
 	return Angle0, false
 }
 
-// AutoRotate rotates the image upright based on the EXIF Orientation tag.
+// AutoRotate rotates the image upright based on the EXIF Orientation tag,
+// including the mirrored orientations (2, 4, 5 and 7), which libvips
+// handles with a flip since 8.10.
 // It also resets the orientation information in the EXIF tag to be 1 (i.e. upright).
-// N.B. libvips does not flip images currently (i.e. no support for orientations 2, 4, 5 and 7).
 // N.B. due to the HEIF image standard, HEIF images are always autorotated by default on load.
 // Thus, calling AutoRotate for HEIF images is not needed.
 // todo: use https://www.libvips.org/API/current/libvips-conversion.html#vips-autorot-remove-angle
@@ -145,7 +146,8 @@ func (r *ImageRef) Embed(left, top, width, height int, extend ExtendStrategy) er
 	return nil
 }
 
-// EmbedBackground embeds the given picture with a background color
+// EmbedBackground embeds the given picture with a background color.
+// For greyscale images (1-2 bands) the R value is used as the grey level.
 func (r *ImageRef) EmbedBackground(left, top, width, height int, backgroundColor *Color) error {
 	defer runtime.KeepAlive(r)
 	c := &ColorRGBA{
@@ -170,7 +172,9 @@ func (r *ImageRef) EmbedBackground(left, top, width, height int, backgroundColor
 	return nil
 }
 
-// EmbedBackgroundRGBA embeds the given picture with a background rgba color
+// EmbedBackgroundRGBA embeds the given picture with a background rgba color.
+// For greyscale images the background is built from R and A only:
+// 1 band uses {R}, 2 bands (grey+alpha) use {R, A}.
 func (r *ImageRef) EmbedBackgroundRGBA(left, top, width, height int, backgroundColor *ColorRGBA) error {
 	defer runtime.KeepAlive(r)
 	if r.Height() > r.PageHeight() {

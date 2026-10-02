@@ -8,6 +8,7 @@ import "runtime"
 // CompositeMulti composites the given overlay image on top of the associated image with provided blending mode.
 func (r *ImageRef) CompositeMulti(ins []*ImageComposite) error {
 	defer runtime.KeepAlive(r)
+	defer runtime.KeepAlive(ins)
 	out, err := vipsComposite(toVipsCompositeStructs(r, ins))
 	if err != nil {
 		return err
@@ -19,6 +20,7 @@ func (r *ImageRef) CompositeMulti(ins []*ImageComposite) error {
 // Composite composites the given overlay image on top of the associated image with provided blending mode.
 func (r *ImageRef) Composite(overlay *ImageRef, mode BlendMode, x, y int) error {
 	defer runtime.KeepAlive(r)
+	defer runtime.KeepAlive(overlay)
 	out, err := vipsGenComposite2(r.image, overlay.image, mode, &Composite2Options{X: &x, Y: &y})
 	if err != nil {
 		return err
@@ -30,6 +32,7 @@ func (r *ImageRef) Composite(overlay *ImageRef, mode BlendMode, x, y int) error 
 // Insert draws the image on top of the associated image at the given coordinates.
 func (r *ImageRef) Insert(sub *ImageRef, x, y int, expand bool, background *ColorRGBA) error {
 	defer runtime.KeepAlive(r)
+	defer runtime.KeepAlive(sub)
 	insertOpts := &InsertOptions{Expand: &expand}
 	if background != nil {
 		insertOpts.Background = []float64{float64(background.R), float64(background.G), float64(background.B), float64(background.A)}
@@ -45,6 +48,7 @@ func (r *ImageRef) Insert(sub *ImageRef, x, y int, expand bool, background *Colo
 // Join joins this image with another in the direction specified
 func (r *ImageRef) Join(in *ImageRef, dir Direction) error {
 	defer runtime.KeepAlive(r)
+	defer runtime.KeepAlive(in)
 	out, err := vipsJoin(r.image, in.image, dir)
 	if err != nil {
 		return err
@@ -56,6 +60,7 @@ func (r *ImageRef) Join(in *ImageRef, dir Direction) error {
 // ArrayJoin joins an array of images together wrapping at each n images
 func (r *ImageRef) ArrayJoin(images []*ImageRef, across int) error {
 	defer runtime.KeepAlive(r)
+	defer runtime.KeepAlive(images)
 	allImages := append([]*ImageRef{r}, images...)
 	inputs := make([]*C.VipsImage, len(allImages))
 	for i := range inputs {

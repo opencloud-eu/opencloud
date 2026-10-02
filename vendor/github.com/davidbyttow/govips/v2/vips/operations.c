@@ -59,6 +59,35 @@ int icc_transform(VipsImage *in, VipsImage **out, const char *output_profile, co
 
 // Conversion
 
+// background_for_bands fills vec with a background vector sized to the
+// image's band count and returns the element count; libvips rejects
+// vectors longer than the band count (e.g. "linear: vector must have 1
+// or 2 elements" for greyscale images). Greyscale images take the R
+// value as the grey level: 1 band -> {r}, 2 bands -> {r, a}.
+static int background_for_bands(VipsImage *in, double vec[4], double r,
+                                double g, double b, double a) {
+  switch (in->Bands) {
+  case 1:
+    vec[0] = r;
+    return 1;
+  case 2:
+    vec[0] = r;
+    vec[1] = a;
+    return 2;
+  case 3:
+    vec[0] = r;
+    vec[1] = g;
+    vec[2] = b;
+    return 3;
+  default:
+    vec[0] = r;
+    vec[1] = g;
+    vec[2] = b;
+    vec[3] = a;
+    return 4;
+  }
+}
+
 int embed_image(VipsImage *in, VipsImage **out, int left, int top, int width,
                 int height, int extend) {
   return vips_embed(in, out, left, top, width, height, "extend", extend, NULL);
@@ -67,16 +96,9 @@ int embed_image(VipsImage *in, VipsImage **out, int left, int top, int width,
 int embed_image_background(VipsImage *in, VipsImage **out, int left, int top, int width,
                 int height, double r, double g, double b, double a) {
 
-  double background[3] = {r, g, b};
-  double backgroundRGBA[4] = {r, g, b, a};
-
-  VipsArrayDouble *vipsBackground;
-
-  if (in->Bands <= 3) {
-    vipsBackground = vips_array_double_new(background, 3);
-  } else {
-    vipsBackground = vips_array_double_new(backgroundRGBA, 4);
-  }
+  double background[4];
+  int n = background_for_bands(in, background, r, g, b, a);
+  VipsArrayDouble *vipsBackground = vips_array_double_new(background, n);
 
   int code = vips_embed(in, out, left, top, width, height,
     "extend", VIPS_EXTEND_BACKGROUND, "background", vipsBackground, NULL);
@@ -122,16 +144,10 @@ int embed_multi_page_image(VipsImage *in, VipsImage **out, int left, int top, in
 
 int embed_multi_page_image_background(VipsImage *in, VipsImage **out, int left, int top, int width,
                                    int height, double r, double g, double b, double a) {
-  double background[3] = {r, g, b};
-  double backgroundRGBA[4] = {r, g, b, a};
+  double background[4];
+  int n = background_for_bands(in, background, r, g, b, a);
+  VipsArrayDouble *vipsBackground = vips_array_double_new(background, n);
 
-  VipsArrayDouble *vipsBackground;
-
-  if (in->Bands <= 3) {
-    vipsBackground = vips_array_double_new(background, 3);
-  } else {
-    vipsBackground = vips_array_double_new(backgroundRGBA, 4);
-  }
   VipsObject *base = VIPS_OBJECT(vips_image_new());
   int page_height = vips_image_get_page_height(in);
   int in_width = in->Xsize;
@@ -180,17 +196,9 @@ int similarity(VipsImage *in, VipsImage **out, double scale, double angle,
     a = 65535 * a / 255;
   }
 
-  double background[3] = {r, g, b};
-  double backgroundRGBA[4] = {r, g, b, a};
-
-  VipsArrayDouble *vipsBackground;
-
-  // Ignore the alpha channel if the image doesn't have one
-  if (in->Bands <= 3) {
-    vipsBackground = vips_array_double_new(background, 3);
-  } else {
-    vipsBackground = vips_array_double_new(backgroundRGBA, 4);
-  }
+  double background[4];
+  int n = background_for_bands(in, background, r, g, b, a);
+  VipsArrayDouble *vipsBackground = vips_array_double_new(background, n);
 
   int code = vips_similarity(in, out, "scale", scale, "angle", angle,
                              "background", vipsBackground, "idx", idx, "idy",
@@ -283,16 +291,10 @@ int draw_rect(VipsImage *in, double r, double g, double b, double a, int left,
     a = 65535 * a / 255;
   }
 
-  double background[3] = {r, g, b};
-  double backgroundRGBA[4] = {r, g, b, a};
-
-  if (in->Bands <= 3) {
-    return vips_draw_rect(in, background, 3, left, top, width, height, "fill",
-                          fill, NULL);
-  } else {
-    return vips_draw_rect(in, backgroundRGBA, 4, left, top, width, height,
-                          "fill", fill, NULL);
-  }
+  double ink[4];
+  int n = background_for_bands(in, ink, r, g, b, a);
+  return vips_draw_rect(in, ink, n, left, top, width, height, "fill", fill,
+                        NULL);
 }
 
 // Header
