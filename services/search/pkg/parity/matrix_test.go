@@ -278,6 +278,10 @@ func matrixFixtures(group string) string {
 		fixtures = g.fixtures
 	}
 
+	if group == "aggregations" {
+		fixtures = aggregationFixtures()
+	}
+
 	if len(fixtures) == 0 {
 		return "Fixtures: none"
 	}

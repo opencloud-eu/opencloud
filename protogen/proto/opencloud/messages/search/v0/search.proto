@@ -110,6 +110,10 @@ message Entity {
 	MotionPhoto motionPhoto = 21;
 	Video video = 22;
 	LivePhoto livePhoto = 23;
+	// The effective permission actions of the caller, projected from the space
+	// root permission set at query time (the same source as `permissions`), for
+	// the driveItem `@libre.graph.permissions.actions.allowedValues` facet.
+	repeated string permissionsActionsAllowedValues = 24;
 }
 
 message Match {

@@ -13,13 +13,18 @@ var (
 )
 
 func KQLToOpenSearchBoolQuery(kqlQuery string) (*osu.BoolQuery, error) {
-	kqlAst, err := kql.Builder{}.Build(kqlQuery)
+	return KQLToOpenSearchBoolQueryWithFilters(kqlQuery, nil)
+}
+
+// KQLToOpenSearchBoolQueryWithFilters compiles the query together with decoded
+// aggregation filters, which are ANDed in as exact case-sensitive matches.
+func KQLToOpenSearchBoolQueryWithFilters(kqlQuery string, filters []string) (*osu.BoolQuery, error) {
+	// shared lowering (field resolution, media-type expansion, value lowercasing)
+	// plus the filters, forced to exact case-sensitive matches, ANDed in.
+	kqlAst, err := query.MergeFilters(kql.Builder{}, kqlQuery, filters)
 	if err != nil {
 		return nil, err
 	}
-
-	// shared lowering: field resolution, media-type expansion, value lowercasing.
-	kqlAst = query.Normalize(kqlAst, query.ResolveField)
 
 	builder, err := TranspileKQLToOpenSearch(kqlAst.Nodes)
 	if err != nil {

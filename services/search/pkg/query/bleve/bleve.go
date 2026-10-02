@@ -34,5 +34,16 @@ func (c Creator[T]) Create(qs string) (T, error) {
 	return t, nil
 }
 
+// CreateWithFilters compiles the query together with decoded aggregation
+// filters, ANDing them in as exact case-sensitive matches.
+func (c Creator[T]) CreateWithFilters(qs string, filters []string) (T, error) {
+	var t T
+	merged, err := query.MergeFilters(c.builder, qs, filters)
+	if err != nil {
+		return t, err
+	}
+	return c.compiler.Compile(merged)
+}
+
 // DefaultCreator exposes a kql to bleve query creator.
 var DefaultCreator = Creator[bQuery.Query]{kql.Builder{}, Compiler{}}

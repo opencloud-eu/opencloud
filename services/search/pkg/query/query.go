@@ -16,4 +16,7 @@ type Compiler[T any] interface {
 // Creator is the interface that wraps the basic Create method.
 type Creator[T any] interface {
 	Create(qs string) (T, error)
+	// CreateWithFilters compiles the query together with decoded aggregation
+	// filters, which are ANDed in as exact case-sensitive matches.
+	CreateWithFilters(qs string, filters []string) (T, error)
 }

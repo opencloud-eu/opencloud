@@ -57,9 +57,10 @@ func previewThumbnail(base string, box int32) *libregraph.Thumbnail {
 	return &libregraph.Thumbnail{Url: &url}
 }
 
-// setShareThumbnails works off the driveItem, the share listings have no resource
-// info. The id comes separately, a received share carries it on its remote item.
-func setShareThumbnails(item *libregraph.DriveItem, itemID, baseURL string) {
+// setDriveItemThumbnailsByID works off the driveItem itself (mime type from the
+// item, id passed separately), for callers that have no CS3 resource info: the
+// share listings and the search results.
+func setDriveItemThumbnailsByID(item *libregraph.DriveItem, itemID, baseURL string) {
 	mimeType := item.GetFile().MimeType
 	if itemID == "" || mimeType == nil || !thumbnail.IsMimeTypeSupported(*mimeType) {
 		return
