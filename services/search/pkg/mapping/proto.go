@@ -39,3 +39,17 @@ func setValueLenient(v reflect.Value, raw any) error {
 	}
 	return err
 }
+
+// ToProto builds a *M (a proto facet message) from the equally shaped
+// libregraph facet. protojson accepts plain-JSON numbers for int64, so the
+// JSON bridge is enough in this direction.
+func ToProto[M any, T any](v *T) *M {
+	if v == nil {
+		return nil
+	}
+	out, err := conversions.To[*M](v)
+	if err != nil {
+		return nil
+	}
+	return out
+}
