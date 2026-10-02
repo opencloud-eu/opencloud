@@ -315,6 +315,38 @@ class SpacesContext implements Context {
 	 *
 	 * @throws Exception|GuzzleException
 	 */
+	public function getSharesRemoteItemParentDriveId(string $user, string $share): string {
+		$credentials = $this->featureContext->graphContext->getAdminOrUserCredentials($user);
+		$response = GraphHelper::getSharesSharedWithMe(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			$credentials['username'],
+			$credentials['password']
+		);
+
+		$jsonBody = $this->featureContext->getJsonDecodedResponseBodyContent($response);
+
+		// Search parent driveId of a given share's remoteItem
+		foreach ($jsonBody->value as $item) {
+			if (isset($item->name) && $item->name === $share) {
+				if (isset($item->remoteItem->parentReference->driveId)) {
+					return $item->remoteItem->parentReference->driveId;
+				}
+				throw new Exception("Failed to find remoteItem parent driveId for share: $share");
+			}
+		}
+
+		throw new Exception("Cannot find share: $share");
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $share
+	 *
+	 * @return string
+	 *
+	 * @throws Exception|GuzzleException
+	 */
 	public function getSharesMountId(string $user, string $share): string {
 		$credentials = $this->featureContext->graphContext->getAdminOrUserCredentials($user);
 		$response = GraphHelper::getSharesSharedWithMe(
@@ -3145,6 +3177,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 */
 	#[When('user :user lists all deleted files in the trash bin of the space :spaceName')]
+	#[When('user :user tries to list all deleted files in the trash bin of the space :spaceName')]
 	public function userListAllDeletedFilesInTrash(
 		string $user,
 		string $spaceName
@@ -3264,6 +3297,7 @@ class SpacesContext implements Context {
 	 * @throws Exception
 	 */
 	#[When('/^user "([^"]*)" restores the (?:file|folder) "([^"]*)" from the trash of the space "([^"]*)" to "([^"]*)"$/')]
+	#[When('/^user "([^"]*)" tries to restore the (?:file|folder) "([^"]*)" from the trash of the space "([^"]*)" to "([^"]*)"$/')]
 	public function userRestoresSpaceObjectsFromTrashRequest(
 		string $user,
 		string $object,
@@ -3271,9 +3305,10 @@ class SpacesContext implements Context {
 		string $destination
 	): void {
 		$space = $this->getSpaceByName($user, $spaceName);
+		$spaceOwner = $this->getSpaceCreator($spaceName);
 
 		// find object in trash
-		$objectsInTrash = $this->getObjectsInTrashbin($user, $spaceName);
+		$objectsInTrash = $this->getObjectsInTrashbin($spaceOwner, $spaceName);
 		$pathToDeletedObject = "";
 		foreach ($objectsInTrash as $objectInTrash) {
 			if ($objectInTrash["name"] === $object) {
