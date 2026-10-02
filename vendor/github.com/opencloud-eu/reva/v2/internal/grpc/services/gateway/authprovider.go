@@ -57,25 +57,9 @@ func (s *svc) Authenticate(ctx context.Context, req *gateway.AuthenticateRequest
 		ClientId:     req.ClientId,
 		ClientSecret: req.ClientSecret,
 	}
-	res, err := c.Authenticate(ctx, authProviderReq)
-	switch {
-	case err != nil:
-		return &gateway.AuthenticateResponse{
-			Status: status.NewInternal(ctx, fmt.Sprintf("gateway: error calling Authenticate for type: %s", req.Type)),
-		}, nil
-	case res.Status.Code == rpc.Code_CODE_PERMISSION_DENIED:
-		fallthrough
-	case res.Status.Code == rpc.Code_CODE_UNAUTHENTICATED:
-		fallthrough
-	case res.Status.Code == rpc.Code_CODE_NOT_FOUND:
-		// normal failures, no need to log
-		return &gateway.AuthenticateResponse{
-			Status: res.Status,
-		}, nil
-	case res.Status.Code != rpc.Code_CODE_OK:
-		return &gateway.AuthenticateResponse{
-			Status: status.NewInternal(ctx, fmt.Sprintf("error authenticating credentials to auth provider for type: %s", req.Type)),
-		}, nil
+	res, callErr := c.Authenticate(ctx, authProviderReq)
+	if resp, done := translateProviderAuthenticateResult(ctx, req.Type, res, callErr); done {
+		return resp, nil
 	}
 
 	// validate valid userId
@@ -109,7 +93,7 @@ func (s *svc) Authenticate(ctx context.Context, req *gateway.AuthenticateRequest
 		return res, nil
 	}
 
-	if scope, ok := res.TokenScope["user"]; s.c.DisableHomeCreationOnLogin || !ok || scope.Role != authpb.Role_ROLE_OWNER || res.User.Id.Type == userpb.UserType_USER_TYPE_FEDERATED {
+	if scope, ok := res.TokenScope["user"]; s.c.DisableHomeCreationOnLogin || !ok || scope.Role != authpb.Role_ROLE_OWNER || res.User.Id.Type == userpb.UserType_USER_TYPE_FEDERATED || res.User.Id.Type == userpb.UserType_USER_TYPE_GUEST {
 		gwRes := &gateway.AuthenticateResponse{
 			Status: status.NewOK(ctx),
 			User:   res.User,
@@ -149,6 +133,42 @@ func (s *svc) Authenticate(ctx context.Context, req *gateway.AuthenticateRequest
 		Token:  token,
 	}
 	return gwRes, nil
+}
+
+// translateProviderAuthenticateResult inspects the result of calling the auth
+// provider's Authenticate RPC and decides whether the gateway should return
+// early with a translated response.
+//
+// Normal authentication failure statuses (CODE_UNAUTHENTICATED,
+// CODE_PERMISSION_DENIED, CODE_NOT_FOUND, CODE_UNAVAILABLE) are passed
+// through unchanged, preserving their Message, Trace and InnerError. Any
+// other unexpected application status is turned into CODE_INTERNAL.
+//
+// returns done == true if the caller should return resp immediately.
+func translateProviderAuthenticateResult(ctx context.Context, authType string, res *authpb.AuthenticateResponse, callErr error) (resp *gateway.AuthenticateResponse, done bool) {
+	switch {
+	case callErr != nil:
+		return &gateway.AuthenticateResponse{
+			Status: status.NewInternal(ctx, fmt.Sprintf("gateway: error calling Authenticate for type: %s", authType)),
+		}, true
+	case res.Status.Code == rpc.Code_CODE_PERMISSION_DENIED:
+		fallthrough
+	case res.Status.Code == rpc.Code_CODE_UNAUTHENTICATED:
+		fallthrough
+	case res.Status.Code == rpc.Code_CODE_NOT_FOUND:
+		fallthrough
+	case res.Status.Code == rpc.Code_CODE_UNAVAILABLE:
+		// normal failures, no need to log
+		return &gateway.AuthenticateResponse{
+			Status: res.Status,
+		}, true
+	case res.Status.Code != rpc.Code_CODE_OK:
+		return &gateway.AuthenticateResponse{
+			Status: status.NewInternal(ctx, fmt.Sprintf("error authenticating credentials to auth provider for type: %s", authType)),
+		}, true
+	}
+
+	return nil, false
 }
 
 func (s *svc) WhoAmI(ctx context.Context, req *gateway.WhoAmIRequest) (*gateway.WhoAmIResponse, error) {
