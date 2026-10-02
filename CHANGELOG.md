@@ -10,6 +10,13 @@
 
 - feat(proxy): add optional OIDC access token audience validation [[#3466](https://github.com/opencloud-eu/opencloud/pull/3466)]
 
+### ✅ Tests
+
+- fix(collaboration): mint the mobile view test token with the token manager secret [[#3647](https://github.com/opencloud-eu/opencloud/pull/3647)]
+- run cli tests with decomposed nightly [[#3580](https://github.com/opencloud-eu/opencloud/pull/3580)]
+-  [decomposed] test(api): remove passing notification tests from expected failure [[#3555](https://github.com/opencloud-eu/opencloud/pull/3555)]
+- api-test: add CLI test for reindexing all spaces including disabled [[#3560](https://github.com/opencloud-eu/opencloud/pull/3560)]
+
 ### 📈 Enhancement
 
 - feat(collaboration): mobile web view for EuroOffice [[#3635](https://github.com/opencloud-eu/opencloud/pull/3635)]
@@ -24,12 +31,6 @@
 - Remove the timeout when reindexing spaces [[#3543](https://github.com/opencloud-eu/opencloud/pull/3543)]
 - fix(shares): not auto accepting shares created by guest users [[#3533](https://github.com/opencloud-eu/opencloud/pull/3533)]
 - fix(graph): fix PatchMe method to prevent password change [[#3526](https://github.com/opencloud-eu/opencloud/pull/3526)]
-
-### ✅ Tests
-
-- run cli tests with decomposed nightly [[#3580](https://github.com/opencloud-eu/opencloud/pull/3580)]
--  [decomposed] test(api): remove passing notification tests from expected failure [[#3555](https://github.com/opencloud-eu/opencloud/pull/3555)]
-- api-test: add CLI test for reindexing all spaces including disabled [[#3560](https://github.com/opencloud-eu/opencloud/pull/3560)]
 
 ### 📚 Documentation
 
