@@ -12,6 +12,7 @@
 
 ### 📈 Enhancement
 
+- feat(collaboration): mobile web view for EuroOffice [[#3635](https://github.com/opencloud-eu/opencloud/pull/3635)]
 - fix(collaboration): harden wopi token handling [[#3630](https://github.com/opencloud-eu/opencloud/pull/3630)]
 - add posixfs index command [[#3068](https://github.com/opencloud-eu/opencloud/pull/3068)]
 - feat(proxy): add per-service metrics to the proxy service [[#3521](https://github.com/opencloud-eu/opencloud/pull/3521)]
