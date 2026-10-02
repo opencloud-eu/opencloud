@@ -216,96 +216,112 @@ func (e Unavailable) IsUnavailable() {}
 // to specify that a resource is not found.
 type IsNotFound interface {
 	IsNotFound()
+	error
 }
 
 // IsAlreadyExists is the interface to implement
 // to specify that a resource already exists.
 type IsAlreadyExists interface {
 	IsAlreadyExists()
+	error
 }
 
 // IsInternalError is the interface to implement
 // to specify that there was some internal error
 type IsInternalError interface {
 	IsInternalError()
+	error
 }
 
 // IsUserRequired is the interface to implement
 // to specify that a user is required.
 type IsUserRequired interface {
 	IsUserRequired()
+	error
 }
 
 // IsInvalidCredentials is the interface to implement
 // to specify that credentials were wrong.
 type IsInvalidCredentials interface {
 	IsInvalidCredentials()
+	error
 }
 
 // IsNotSupported is the interface to implement
 // to specify that an action is not supported.
 type IsNotSupported interface {
 	IsNotSupported()
+	error
 }
 
 // IsPermissionDenied is the interface to implement
 // to specify that an action is denied.
 type IsPermissionDenied interface {
 	IsPermissionDenied()
+	error
 }
 
 // IsLocked is the interface to implement
 // to specify that a resource is locked.
 type IsLocked interface {
 	IsLocked()
+	error
 }
 
 // IsAborted is the interface to implement
 // to specify that a request was aborted.
 type IsAborted interface {
 	IsAborted()
+	error
 }
 
 // IsPreconditionFailed is the interface to implement
 // to specify that a precondition failed.
 type IsPreconditionFailed interface {
 	IsPreconditionFailed()
+	error
 }
 
 // IsPartialContent is the interface to implement
 // to specify that the client request has partial data.
 type IsPartialContent interface {
 	IsPartialContent()
+	error
 }
 
 // IsBadRequest is the interface to implement
 // to specify that the server cannot or will not process the request.
 type IsBadRequest interface {
 	IsBadRequest()
+	error
 }
 
 // IsChecksumMismatch is the interface to implement
 // to specify that a checksum does not match.
 type IsChecksumMismatch interface {
 	IsChecksumMismatch()
+	error
 }
 
 // IsInsufficientStorage is the interface to implement
 // to specify that there is insufficient storage.
 type IsInsufficientStorage interface {
 	IsInsufficientStorage()
+	error
 }
 
 // IsTooEarly is the interface to implement
 // to specify that there is some not finished job over resource is still in process.
 type IsTooEarly interface {
 	IsTooEarly()
+	error
 }
 
 // IsUnavailable is the interface to implement to specify that a backend service is
 // temporarily unavailable and the caller should retry.
 type IsUnavailable interface {
 	IsUnavailable()
+	error
 }
 
 // NewErrtypeFromStatus maps a rpc status to an errtype

@@ -92,7 +92,8 @@ func TestSignedURLAuth_authenticateRejectsDisallowedMethods(t *testing.T) {
 
 	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete, "PROPFIND", "MOVE"} {
 		r := httptest.NewRequest(method, signed, nil)
-		if _, ok := pua.authenticate(r); ok {
+		result := pua.authenticate(r)
+		if result.State == AuthenticationSucceeded {
 			t.Errorf("expected %s with a signed url to be rejected", method)
 		}
 	}

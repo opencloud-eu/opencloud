@@ -30,6 +30,7 @@ OC_MODULES = \
 	services/auth-app \
 	services/auth-basic \
 	services/auth-bearer \
+	services/auth-guest \
 	services/auth-machine \
 	services/auth-service \
 	services/clientlog \

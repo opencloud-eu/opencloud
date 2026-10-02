@@ -115,6 +115,9 @@ func DefaultConfig() *config.Config {
 		AuthMiddleware: config.AuthMiddleware{
 			AllowAppAuth: true,
 		},
+		GuestLinkAuth: config.GuestLinkAuth{
+			CookieName: "__Host-oc_guest_session",
+		},
 	}
 }
 
@@ -282,6 +285,11 @@ func DefaultPolicies() []config.Policy {
 				{
 					Endpoint: "/graph/v1.0/invitations",
 					Service:  "eu.opencloud.web.invitations",
+				},
+				{
+					Endpoint:    "/graph/v1beta1/extensions/org.libregraph/guestLinks",
+					Service:     "eu.opencloud.web.auth-guest",
+					Unprotected: true,
 				},
 				{
 					Endpoint: "/graph/",

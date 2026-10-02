@@ -49,6 +49,7 @@ type Config struct {
 	CSPConfigFileLocation         string              `yaml:"csp_config_file_location" env:"PROXY_CSP_CONFIG_FILE_LOCATION" desc:"The location of the CSP configuration file." introductionVersion:"1.0.0"`
 	CSPConfigFileOverrideLocation string              `yaml:"csp_config_file_override_location" env:"PROXY_CSP_CONFIG_FILE_OVERRIDE_LOCATION" desc:"The location of the CSP configuration file override." introductionVersion:"4.0.0"`
 	Events                        Events              `yaml:"events"`
+	GuestLinkAuth                 GuestLinkAuth       `yaml:"guest_link_auth"`
 
 	Context context.Context `json:"-" yaml:"-"`
 }
@@ -243,4 +244,9 @@ type Events struct {
 	EnableTLS            bool   `yaml:"enable_tls" env:"OC_EVENTS_ENABLE_TLS;PROXY_EVENTS_ENABLE_TLS" desc:"Enable TLS for the connection to the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	AuthUsername         string `yaml:"username" env:"OC_EVENTS_AUTH_USERNAME;PROXY_EVENTS_AUTH_USERNAME" desc:"The username to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	AuthPassword         string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD;PROXY_EVENTS_AUTH_PASSWORD" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
+}
+
+// GuestLinkAuth configures the guest-link cookie authentication flow.
+type GuestLinkAuth struct {
+	CookieName string `yaml:"cookie_name" env:"PROXY_GUEST_LINK_COOKIE_NAME" desc:"The name of the guest-session cookie. Defaults to __Host-opencloud-guest." introductionVersion:"%%NEXT%%"`
 }

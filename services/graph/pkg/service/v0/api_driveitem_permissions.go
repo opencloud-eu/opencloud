@@ -164,7 +164,7 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 	var expiration *types.Timestamp
 	var cTime *types.Timestamp
 	if email := driveRecipient.GetEmail(); email != "" {
-		if !s.config.EnableGuestInvites {
+		if s.config.Commons == nil || !s.config.Commons.EnableGuestLinks {
 			return libregraph.Permission{}, errorcode.New(errorcode.NotSupported, "sharing with mail recipients is not enabled")
 		}
 		createShareRequest := createShareRequestToMail(email, statResponse.GetInfo(), cs3ResourcePermissions)
