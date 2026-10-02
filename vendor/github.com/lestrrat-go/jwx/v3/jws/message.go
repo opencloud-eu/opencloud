@@ -9,6 +9,7 @@ import (
 	"github.com/lestrrat-go/jwx/v3/internal/pool"
 	"github.com/lestrrat-go/jwx/v3/internal/tokens"
 	"github.com/lestrrat-go/jwx/v3/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwk"
 )
 
 func NewSignature() *Signature {
@@ -113,6 +114,15 @@ func (s *Signature) Sign(payload []byte, signer Signer, key any) ([]byte, []byte
 }
 
 func (s *Signature) sign2(payload []byte, signer interface{ Algorithm() jwa.SignatureAlgorithm }, key any) ([]byte, []byte, error) {
+	// A jwk.UnsupportedKey placeholder carries no usable key material and
+	// must never reach the Signer. This path builds a signatureBuilder
+	// directly and bypasses validateAlgorithmForKey (only the
+	// jws.Sign/WithKey path runs that guard), so reject the placeholder
+	// here — the single entry to signatureBuilder for this path.
+	if uk, ok := key.(jwk.UnsupportedKey); ok {
+		return nil, nil, unsupportedKeyError(uk, `signing`)
+	}
+
 	// Create a signatureBuilder to use the shared signing logic
 	sb := signatureBuilderPool.Get()
 	defer signatureBuilderPool.Put(sb)

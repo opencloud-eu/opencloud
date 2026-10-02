@@ -49,6 +49,29 @@ func (InsecureWhitelist) IsAllowed(_ string) bool { return true }
 // RegexpWhitelist is a jwk.Whitelist object comprised of a list of *regexp.Regexp
 // objects. All entries in the list are tried until one matches. If none of the
 // *regexp.Regexp objects match, then the URL is deemed unallowed.
+//
+// Matching is performed using (*regexp.Regexp).MatchString, which succeeds when
+// the pattern matches ANY substring of the URL — it is NOT anchored automatically.
+// This has important security implications: a pattern like `http://example.com`
+// will match URLs you almost certainly did not intend to allow, such as
+// `http://example.com.attacker.com/` (the host is actually attacker.com) or
+// `http://attacker.com/?u=http://example.com` (the pattern appears in the query).
+//
+// To restrict to a specific origin, anchor the pattern at the start with `^`,
+// escape the dots in the host (`.` is the "any character" metacharacter in a
+// regular expression), and terminate the host with a `/` so that it cannot be
+// extended into a subdomain:
+//
+//	// GOOD: only matches the example.com origin and its paths
+//	regexp.MustCompile(`^https://example\.com/`)
+//
+//	// BAD: also matches example.com.attacker.com, attacker.com/?x=http://example.com, httpsX//exampleYcom, ...
+//	regexp.MustCompile(`http://example.com`)
+//
+// Note that requiring a trailing `/` means the bare origin URL `https://example.com`
+// (no path) will not match; register an additional pattern such as
+// `^https://example\.com$` if you need to allow it. Likewise, account for an
+// optional port (e.g. `^https://example\.com(:\d+)?/`) if your URLs may include one.
 type RegexpWhitelist struct {
 	mu       sync.RWMutex
 	patterns []*regexp.Regexp

@@ -121,12 +121,13 @@ type Set interface {
 }
 
 type set struct {
-	keys               []Key
-	mu                 sync.RWMutex
-	dc                 DecodeCtx
-	privateParams      map[string]any
-	maxKeys            int  // scratch cap consumed by UnmarshalJSON; 0 means use global default
-	rejectDuplicateKID bool // scratch flag consumed by UnmarshalJSON; false falls back to global
+	keys                []Key
+	mu                  sync.RWMutex
+	dc                  DecodeCtx
+	privateParams       map[string]any
+	maxKeys             int   // scratch cap consumed by UnmarshalJSON; 0 means use global default
+	rejectDuplicateKID  *bool // scratch override consumed by UnmarshalJSON; nil falls back to global
+	strictKeySetParsing *bool // scratch override consumed by UnmarshalJSON; nil falls back to global
 }
 
 type PublicKeyer interface {

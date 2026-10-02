@@ -227,32 +227,23 @@ func (m *Message) MarshalJSON() ([]byte, error) {
 		})
 	}
 
-	var encodedProtectedHeaders []byte
 	if h := m.ProtectedHeaders(); h != nil {
 		v, err := h.Encode()
 		if err != nil {
 			return nil, fmt.Errorf(`failed to encode protected headers: %w`, err)
 		}
 
-		encodedProtectedHeaders = v
-		if len(encodedProtectedHeaders) <= 2 { // '{}'
-			encodedProtectedHeaders = nil
-		} else {
+		if len(v) > 2 { // '{}'
 			fields = append(fields, jsonKV{
 				Key:   ProtectedHeadersKey,
-				Value: fmt.Sprintf("%q", encodedProtectedHeaders),
+				Value: fmt.Sprintf("%q", v),
 			})
 		}
 	}
 
 	if aad := m.AuthenticatedData(); len(aad) > 0 {
-		aad = base64.Encode(aad)
-		if encodedProtectedHeaders != nil {
-			aad = concatAAD(encodedProtectedHeaders, aad)
-		}
-
 		buf.Reset()
-		if err := enc.Encode(aad); err != nil {
+		if err := enc.Encode(base64.EncodeToString(aad)); err != nil {
 			return nil, fmt.Errorf(`failed to encode %s field: %w`, AuthenticatedDataKey, err)
 		}
 		fields = append(fields, jsonKV{
@@ -377,7 +368,7 @@ func (m *Message) UnmarshalJSON(buf []byte) error {
 	if proxy.Headers != nil || len(proxy.EncryptedKey) > 0 {
 		recipient := NewRecipient()
 
-		// `"heders"` could be empty. If that's the case, just skip the
+		// `"headers"` could be empty. If that's the case, just skip the
 		// following unmarshaling step
 		if proxy.Headers != nil {
 			hdrs := NewHeaders()

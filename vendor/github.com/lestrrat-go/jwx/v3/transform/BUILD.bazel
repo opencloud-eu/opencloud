@@ -15,9 +15,7 @@ go_library(
 
 go_test(
     name = "transform_test",
-    srcs = [
-        "map_test.go",
-    ],
+    srcs = ["map_test.go"],
     deps = [
         ":transform",
         "//jwt",

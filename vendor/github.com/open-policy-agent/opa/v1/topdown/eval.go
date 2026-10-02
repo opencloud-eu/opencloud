@@ -107,6 +107,7 @@ type eval struct {
 	inliningControl             *inliningControl
 	runtime                     *ast.Term
 	builtinErrors               *builtinErrors
+	stackCapture                *stackTraceCapture
 	roundTripper                CustomizeRoundTripper
 	evaluated                   *EvaluatedRuleTracker
 	genvarprefix                string
@@ -134,8 +135,8 @@ var (
 	deecPool        = util.NewSyncPool[deferredEarlyExitContainer]()
 	resolverPool    = util.NewSyncPool[evalResolver]()
 	arraysRecPool   = util.NewSyncPool[biunifyArraysRecParams]()
-	evalFuncPool    = util.NewResettablePool[evalFunc, *evalFunc]()
-	evalBuiltinPool = util.NewResettablePool[evalBuiltin, *evalBuiltin]()
+	evalFuncPool    = util.NewResettablePool[evalFunc]()
+	evalBuiltinPool = util.NewResettablePool[evalBuiltin]()
 )
 
 func (e *eval) Run(iter evalIterator) error {
@@ -192,6 +193,7 @@ func (e *eval) closure(query ast.Body, cpy *eval) {
 	cpy.queryID = cpy.queryIDFact.Next()
 	cpy.parent = e
 	cpy.findOne = false
+	cpy.defined = false
 }
 
 // childWithBindingSizeHint creates a child evaluator with bindings pre-sized for the expected number of variables.
@@ -203,6 +205,7 @@ func (e *eval) childWithBindingSizeHint(query ast.Body, cpy *eval, sizeHint int)
 	cpy.bindings = newBindingsWithSize(cpy.queryID, e.instr, sizeHint)
 	cpy.parent = e
 	cpy.findOne = false
+	cpy.defined = false
 }
 
 func (e *eval) next(iter evalIterator) error {
@@ -375,17 +378,13 @@ func (e *eval) evalExpr(iter evalIterator) error {
 	}
 
 	if e.cancel != nil && e.cancel.Cancelled() {
+		cancelErr := &Error{Code: CancelErr, Message: "caller cancelled query execution"}
 		if e.ctx != nil && e.ctx.Err() != nil {
-			return &Error{
-				Code:    CancelErr,
-				Message: e.ctx.Err().Error(),
-				err:     e.ctx.Err(),
-			}
+			err := e.ctx.Err()
+			cancelErr.Message = err.Error()
+			cancelErr.err = err
 		}
-		return &Error{
-			Code:    CancelErr,
-			Message: "caller cancelled query execution",
-		}
+		return cancelErr
 	}
 
 	if e.index >= len(e.query) {
@@ -413,19 +412,20 @@ func (e *eval) evalExpr(iter evalIterator) error {
 		return e.evalWith(iter)
 	}
 
-	return e.evalStep(func(e *eval) error {
+	err := e.evalStep(func(e *eval) error {
 		return e.next(iter)
 	})
+
+	// The innermost point an error passes through with every enclosing query's
+	// expression index still intact.
+	return e.withStackTrace(err)
 }
 
-func (e *eval) evalStep(iter evalIterator) error {
+func (e *eval) evalStep(iter evalIterator) (err error) {
 	expr := e.query[e.index]
-
 	if expr.Negated {
 		return e.evalNot(iter)
 	}
-
-	var err error
 
 	// NOTE(æ): the reason why there's one branch for the tracing case and one almost
 	// identical branch below for when tracing is disabled is that the tracing case
@@ -629,7 +629,6 @@ func (e *eval) fmtVar() string {
 
 func (e *eval) evalNot(iter evalIterator) error {
 	expr := e.query[e.index]
-
 	if e.unknown(expr, e.bindings) {
 		return e.setupAndEvalNotPartial(iter)
 	}
@@ -639,7 +638,6 @@ func (e *eval) evalNot(iter evalIterator) error {
 	defer evalPool.Put(child)
 
 	e.closure(negation, child)
-
 	if e.traceEnabled {
 		child.traceEnter(negation)
 	}
@@ -659,8 +657,6 @@ func (e *eval) evalNot(iter evalIterator) error {
 	if !child.defined {
 		return iter(e)
 	}
-
-	child.defined = false
 
 	e.traceFail(expr)
 	return nil
@@ -741,20 +737,20 @@ func (e *eval) evalWith(iter evalIterator) error {
 
 	input, err := mergeTermWithValues(e.input, pairsInput)
 	if err != nil {
-		return &Error{
+		return e.withStackTrace(&Error{
 			Code:     ConflictErr,
 			Location: expr.Location,
 			Message:  err.Error(),
-		}
+		})
 	}
 
 	data, err := mergeTermWithValues(e.data, pairsData)
 	if err != nil {
-		return &Error{
+		return e.withStackTrace(&Error{
 			Code:     ConflictErr,
 			Location: expr.Location,
 			Message:  err.Error(),
-		}
+		})
 	}
 
 	oldInput, oldData, pushedFrame := e.evalWithPush(input, data, functionMocks, targets, disable)
@@ -765,6 +761,7 @@ func (e *eval) evalWith(iter evalIterator) error {
 		oldInput, oldData, pushedFrame = e.evalWithPush(input, data, functionMocks, targets, disable)
 		return err
 	})
+	err = e.withStackTrace(err)
 
 	e.evalWithPop(oldInput, oldData, pushedFrame)
 
@@ -793,24 +790,15 @@ func (e *eval) evalWithPush(input, data *ast.Term, functionMocks [][2]*ast.Term,
 		e.data = data
 	}
 
-	if e.comprehensionCache == nil {
-		e.comprehensionCache = newComprehensionCache()
-	}
-
+	e.comprehensionCache = util.Or(e.comprehensionCache, newComprehensionCache)
 	e.comprehensionCache.Push()
 	e.virtualCache.Push()
 
-	if e.targetStack == nil {
-		e.targetStack = newRefStack()
-	}
-
+	e.targetStack = util.Or(e.targetStack, newRefStack)
 	e.targetStack.Push(targets)
 	e.inliningControl.PushDisable(disable, true)
 
-	if e.functionMocks == nil {
-		e.functionMocks = newFunctionMocksStack()
-	}
-
+	e.functionMocks = util.Or(e.functionMocks, newFunctionMocksStack)
 	e.functionMocks.PutPairs(functionMocks)
 
 	return oldInput, oldData, pushedFrame
@@ -939,7 +927,6 @@ func (e *eval) evalNotPartial(expr *ast.Expr, unNegateFn unNegateFn, complementF
 }
 
 func (e *eval) evalNotPartialSupport(negationID uint64, expr *ast.Expr, supportTermsFn supportTermsFn, unknowns ast.VarSet, queries []ast.Body, iter evalIterator) error {
-
 	// Prepare support rule head.
 	supportName := fmt.Sprintf("__not%d_%d_%d__", e.queryID, e.index, negationID)
 	term := ast.RefTerm(ast.DefaultRootDocument, e.saveNamespace, ast.StringTerm(supportName))
@@ -952,27 +939,15 @@ func (e *eval) evalNotPartialSupport(negationID uint64, expr *ast.Expr, supportT
 		bodyVars.Update(q.Vars(ast.VarVisitorParams{}))
 	}
 
-	unknowns = unknowns.Intersect(bodyVars)
-
 	// Make rule args. Sort them to ensure order is deterministic.
-	args := make([]*ast.Term, 0, len(unknowns))
-
-	for v := range unknowns {
-		args = append(args, ast.NewTerm(v))
-	}
-
-	slices.SortFunc(args, ast.TermValueCompare)
-
+	args := util.SortedFunc(util.MapKeys(unknowns.Intersect(bodyVars), ast.ToTerm), ast.TermValueCompare)
 	if len(args) > 0 {
-		head.Args = args
+		head.Args = util.SortedFunc(args, ast.TermValueCompare)
 	}
 
 	// Save support rules.
 	for _, query := range queries {
-		e.saveSupport.Insert(path, &ast.Rule{
-			Head: head,
-			Body: query,
-		})
+		e.saveSupport.Insert(path, &ast.Rule{Head: head, Body: query})
 	}
 
 	// Save expression that refers to support rule set.
@@ -998,7 +973,8 @@ func (e *eval) evalCall(terms []*ast.Term, iter unifyIterator) error {
 	mock, mocked := e.functionMocks.Get(ref)
 	if mocked {
 		if m, ok := mock.Value.(ast.Ref); ok && isFunction(e.compiler.TypeEnv, m) { // builtin or data function
-			mockCall := append([]*ast.Term{mock}, terms[1:]...)
+			mockCall := make([]*ast.Term, 0, len(terms))
+			mockCall = append(append(mockCall, mock), terms[1:]...)
 
 			e.functionMocks.Push()
 			err := e.evalCall(mockCall, func() error {
@@ -1029,19 +1005,28 @@ func (e *eval) evalCall(terms []*ast.Term, iter unifyIterator) error {
 			ir, err = e.getRules(ref, terms[1:], index)
 		}
 		defer ast.IndexResultPool.Put(ir)
-		if err != nil {
+		if err != nil || ir == nil {
 			return err
 		}
-		if ir == nil {
-			return nil
+
+		// Since values may outlive the function in partial evaluation,
+		// only use pooled evalFunc when not doing partial eval.
+		var eval *evalFunc
+		if e.partial() {
+			eval = &evalFunc{}
+		} else {
+			eval = evalFuncPool.Get()
+			defer evalFuncPool.Put(eval)
 		}
 
-		eval := evalFuncPool.Get()
-		defer evalFuncPool.Put(eval)
-
 		eval.e = e
-		eval.terms = terms
 		eval.ir = ir
+		eval.terms = slices.Grow(eval.terms, len(terms))[:len(terms)]
+		copy(eval.terms, terms)
+
+		if eval.cacheKey == nil {
+			eval.cacheKey, eval.args = make(ast.Ref, 0, 8), make([]*ast.Term, 0, 8)
+		}
 
 		return eval.eval(iter)
 	}
@@ -1319,8 +1304,7 @@ func (e *eval) biunifyValues(a, b *ast.Term, b1, b2 *bindings, iter unifyIterato
 	// Sets must not contain unbound variables at this point as we cannot unify
 	// them. So simply plug both sides (to substitute any bound variables with
 	// values) and then check for equality.
-	switch a.Value.(type) {
-	case ast.Set:
+	if _, ok := a.Value.(ast.Set); ok {
 		a = b1.Plug(a)
 		b = b2.Plug(b)
 	}
@@ -1382,7 +1366,6 @@ func (e *eval) biunifyRef(a, b *ast.Term, b1, b2 *bindings, iter unifyIterator) 
 }
 
 func (e *eval) biunifyComprehension(a, b *ast.Term, b1, b2 *bindings, swap bool, iter unifyIterator) error {
-
 	if e.unknown(a, b1) {
 		return e.biunifyComprehensionPartial(a, b, b1, b2, swap, iter)
 	}
@@ -1410,16 +1393,13 @@ func (e *eval) biunifyComprehension(a, b *ast.Term, b1, b2 *bindings, swap bool,
 }
 
 func (e *eval) buildComprehensionCache(a *ast.Term) (*ast.Term, error) {
-
 	index := e.comprehensionIndex(a)
 	if index == nil {
 		e.instr.counterIncr(evalOpComprehensionCacheSkip)
 		return nil, nil
 	}
 
-	if e.comprehensionCache == nil {
-		e.comprehensionCache = newComprehensionCache()
-	}
+	e.comprehensionCache = util.Or(e.comprehensionCache, newComprehensionCache)
 
 	cache, ok := e.comprehensionCache.Elem(a)
 	if !ok {
@@ -1443,13 +1423,7 @@ func (e *eval) buildComprehensionCache(a *ast.Term) (*ast.Term, error) {
 		e.instr.counterIncr(evalOpComprehensionCacheHit)
 	}
 
-	values := make([]*ast.Term, len(index.Keys))
-
-	for i := range index.Keys {
-		values[i] = e.bindings.Plug(index.Keys[i])
-	}
-
-	return cache.Get(values), nil
+	return cache.Get(util.Map(index.Keys, e.bindings.Plug)), nil
 }
 
 func (e *eval) buildComprehensionCacheArray(x *ast.ArrayComprehension, keys []*ast.Term) (*comprehensionCacheElem, error) {
@@ -1459,10 +1433,7 @@ func (e *eval) buildComprehensionCacheArray(x *ast.ArrayComprehension, keys []*a
 	e.childWithBindingSizeHint(x.Body, child, ast.EstimateBodyBindingCount(x.Body))
 	node := newComprehensionCacheElem()
 	return node, child.Run(func(child *eval) error {
-		values := make([]*ast.Term, len(keys))
-		for i := range keys {
-			values[i] = child.bindings.Plug(keys[i])
-		}
+		values := util.Map(keys, child.bindings.Plug)
 		head := child.bindings.Plug(x.Term)
 		cached := node.Get(values)
 		if cached != nil {
@@ -1481,10 +1452,7 @@ func (e *eval) buildComprehensionCacheSet(x *ast.SetComprehension, keys []*ast.T
 	e.childWithBindingSizeHint(x.Body, child, ast.EstimateBodyBindingCount(x.Body))
 	node := newComprehensionCacheElem()
 	return node, child.Run(func(child *eval) error {
-		values := make([]*ast.Term, len(keys))
-		for i := range keys {
-			values[i] = child.bindings.Plug(keys[i])
-		}
+		values := util.Map(keys, child.bindings.Plug)
 		head := child.bindings.Plug(x.Term)
 		cached := node.Get(values)
 		if cached != nil {
@@ -1504,10 +1472,7 @@ func (e *eval) buildComprehensionCacheObject(x *ast.ObjectComprehension, keys []
 	e.childWithBindingSizeHint(x.Body, child, ast.EstimateBodyBindingCount(x.Body))
 	node := newComprehensionCacheElem()
 	return node, child.Run(func(child *eval) error {
-		values := make([]*ast.Term, len(keys))
-		for i := range keys {
-			values[i] = child.bindings.Plug(keys[i])
-		}
+		values := util.Map(keys, child.bindings.Plug)
 		headKey := child.bindings.Plug(x.Key)
 		headValue := child.bindings.Plug(x.Value)
 		cached := node.Get(values)
@@ -1834,6 +1799,17 @@ type evalResolver struct {
 	args []*ast.Term
 }
 
+// IndexEveryCandidateEvaluated implements ast.IndexEveryCandidateEvaluated.
+//
+// Partial evaluation never exits early, whatever its definitions resolve to:
+// evalExpr raises the error only where `!e.partial()`. So it evaluates every
+// candidate even under a ruleset IndexResult.EarlyExit says a caller could stop in
+// -- that field is what the ruleset permits, not what this caller does, which is
+// why an index has to ask.
+func (e *evalResolver) IndexEveryCandidateEvaluated() bool {
+	return e.e.partial()
+}
+
 func (e *evalResolver) Resolve(ref ast.Ref) (ast.Value, error) {
 	e.e.instr.startTimer(evalOpResolve)
 
@@ -2025,24 +2001,20 @@ func (e *eval) rewrittenVar(v ast.Var) (ast.Var, bool) {
 }
 
 func (e *eval) getDeclArgsLen(x *ast.Expr) (int, error) {
-
 	if !x.IsCall() {
 		return -1, nil
 	}
 
 	operator := x.Operator()
 	bi, _, ok := e.builtinFunc(operator.String())
-
 	if ok {
 		return bi.Decl.Arity(), nil
 	}
 
 	ir, err := e.getRules(operator, nil, e.ruleIndex(operator))
 	defer ast.IndexResultPool.Put(ir)
-	if err != nil {
+	if err != nil || ir == nil || ir.Empty() {
 		return -1, err
-	} else if ir == nil || ir.Empty() {
-		return -1, nil
 	}
 
 	return len(ir.Rules[0].Head.Args), nil
@@ -2076,17 +2048,24 @@ func (e *evalBuiltin) canUseNDBCache(bi *ast.Builtin) bool {
 	return bi.Nondeterministic && e.bctx != nil && e.bctx.NDBuiltinCache != nil
 }
 
-func (e *evalBuiltin) eval(iter unifyIterator) error {
-
-	operands := make([]*ast.Term, len(e.terms))
-
-	for i := range e.terms {
-		operands[i] = e.e.bindings.Plug(e.terms[i])
+// operandRequiresEval returns true if a plugged built-in operand still contains
+// terms that must be evaluated. ast.IsConstant answers this exactly, but walks
+// composites, making the check linear in operand size on every built-in call.
+// This stays O(1) -- IsGround is a cached field on composites -- at the cost of
+// missing nested terms that require evaluation but are ground (e.g. [data.foo]).
+func operandRequiresEval(v ast.Value) bool {
+	switch v.(type) {
+	case ast.Var, ast.Ref, ast.Call,
+		*ast.ArrayComprehension, *ast.ObjectComprehension, *ast.SetComprehension:
+		return true
 	}
 
-	numDeclArgs := e.bi.Decl.Arity()
+	return !v.IsGround()
+}
 
-	e.e.instr.startTimer(evalOpBuiltinCall)
+func (e *evalBuiltin) eval(iter unifyIterator) error {
+	operands := util.Map(e.terms, e.e.bindings.Plug)
+	numDeclArgs := e.bi.Decl.Arity()
 
 	// NOTE(philipc): We sometimes have to drop the very last term off
 	// the args list for cases where a builtin's result is used/assigned,
@@ -2096,6 +2075,24 @@ func (e *evalBuiltin) eval(iter unifyIterator) error {
 	if len(operands) > numDeclArgs {
 		endIndex--
 	}
+
+	// Every operand must be ground, except a captured output -- walk() is called
+	// with a non-ground composite there. Void built-ins have none, and Arity()
+	// undercounts the variadic ones (always void), so endIndex can't be used.
+	checkEnd := endIndex
+	if e.bi.Decl.Result() == nil {
+		checkEnd = len(operands)
+	}
+
+	for i, operand := range operands[:checkEnd] {
+		if operandRequiresEval(operand.Value) {
+			// If hit, this is a bug: the compiler hoists arguments that require evaluation.
+			// Fail loudly, as the built-in would return undefined instead leading to unexpected results.
+			return unevaluatedOperandErr(e.e.query[e.e.index].Location, e.bi.Name, i+1, operand)
+		}
+	}
+
+	e.e.instr.startTimer(evalOpBuiltinCall)
 
 	// We skip evaluation of the builtin entirely if the NDBCache is
 	// present, and we have a non-deterministic builtin already cached.
@@ -2132,11 +2129,8 @@ func (e *evalBuiltin) eval(iter unifyIterator) error {
 	}
 
 	// Normal unification flow for builtins:
-	err := e.f(bctx, operands, func(output *ast.Term) error {
-
+	err := e.f(bctx, operands, func(output *ast.Term) (err error) {
 		e.e.instr.stopTimer(evalOpBuiltinCall)
-
-		var err error
 
 		switch {
 		case e.bi.Decl.Result() == nil:
@@ -2171,6 +2165,13 @@ func (e *evalBuiltin) eval(iter unifyIterator) error {
 		if t, ok := err.(Halt); ok {
 			err = t.Err
 		} else {
+			// Built-in errors are collected here rather than unwinding through
+			// evalExpr, so the stack has to be recorded now. Skip it when the
+			// collected errors have no consumer: query.go drops them, and a
+			// policy over messy data reaches this for every row.
+			if c := e.e.stackCapture; c != nil && c.builtinErrors {
+				err = e.e.attachStackTrace(err)
+			}
 			e.e.builtinErrors.errs = append(e.e.builtinErrors.errs, err)
 			err = nil
 		}
@@ -2181,15 +2182,21 @@ func (e *evalBuiltin) eval(iter unifyIterator) error {
 }
 
 type evalFunc struct {
-	e     *eval
-	ir    *ast.IndexResult
-	terms []*ast.Term
+	terms    []*ast.Term
+	cacheKey []*ast.Term
+	args     []*ast.Term
+	e        *eval
+	ir       *ast.IndexResult
 }
 
 // Reset clears the fields before this evalFunc is returned to its pool,
 // so pooling it doesn't keep terms/index results from the previous call alive.
 func (e *evalFunc) Reset() {
-	e.e, e.terms, e.ir = nil, nil, nil
+	clear(e.terms)
+	clear(e.cacheKey)
+	clear(e.args)
+	e.terms, e.cacheKey, e.args = e.terms[:0], e.cacheKey[:0], e.args[:0]
+	e.e, e.ir = nil, nil
 }
 
 func (e *evalFunc) eval(iter unifyIterator) error {
@@ -2249,35 +2256,28 @@ func (e *evalFunc) eval(iter unifyIterator) error {
 }
 
 func (e *evalFunc) evalValue(iter unifyIterator, argCount int, findOne bool) error {
-	var cacheKey ast.Ref
 	if !e.e.partial() {
-		var hit bool
-		var err error
-		cacheKey, hit, err = e.evalCache(argCount, iter)
-		if err != nil {
+		hit, err := e.evalCache(argCount, iter)
+		if err != nil || hit {
 			return err
-		} else if hit {
-			return nil
 		}
 	}
 
-	// NOTE(anders): While it makes the code a bit more complex, reusing the
-	// args slice across each function increment saves a lot of resources
-	// compared to creating a new one inside each call to evalOneRule... so
-	// think twice before simplifying this :)
-	args := make([]*ast.Term, len(e.terms)-1)
+	numArgs := len(e.terms) - 1
+	e.args = slices.Grow(e.args, numArgs)[:numArgs]
 
 	var prev *ast.Term
 
 	return withSuppressEarlyExit(func() error {
 		var outerEe *deferredEarlyExitError
 		for _, rule := range e.ir.Rules {
-			copy(args, rule.Head.Args)
-			if len(args) == len(rule.Head.Args)+1 {
-				args[len(args)-1] = rule.Head.Value
+			copy(e.args, rule.Head.Args)
+			numHeadArgs := len(rule.Head.Args)
+			if numArgs == numHeadArgs+1 {
+				e.args[numArgs-1] = rule.Head.Value
 			}
 
-			next, err := e.evalOneRule(iter, rule, args, cacheKey, prev, findOne)
+			next, err := e.evalOneRule(iter, rule, prev, findOne)
 			if err != nil {
 				if oee, ok := err.(*deferredEarlyExitError); ok {
 					if outerEe == nil {
@@ -2289,12 +2289,12 @@ func (e *evalFunc) evalValue(iter unifyIterator, argCount int, findOne bool) err
 			}
 			if next == nil {
 				for _, erule := range e.ir.Else[rule] {
-					copy(args, erule.Head.Args)
-					if len(args) == len(erule.Head.Args)+1 {
-						args[len(args)-1] = erule.Head.Value
+					copy(e.args, erule.Head.Args)
+					if numArgs == numHeadArgs+1 {
+						e.args[numArgs-1] = erule.Head.Value
 					}
 
-					next, err = e.evalOneRule(iter, erule, args, cacheKey, prev, findOne)
+					next, err = e.evalOneRule(iter, erule, prev, findOne)
 					if err != nil {
 						if oee, ok := err.(*deferredEarlyExitError); ok {
 							if outerEe == nil {
@@ -2315,12 +2315,12 @@ func (e *evalFunc) evalValue(iter unifyIterator, argCount int, findOne bool) err
 		}
 
 		if e.ir.Default != nil && prev == nil {
-			copy(args, e.ir.Default.Head.Args)
-			if len(args) == len(e.ir.Default.Head.Args)+1 {
-				args[len(args)-1] = e.ir.Default.Head.Value
+			copy(e.args, e.ir.Default.Head.Args)
+			if numArgs == len(e.ir.Default.Head.Args)+1 {
+				e.args[numArgs-1] = e.ir.Default.Head.Value
 			}
 
-			_, err := e.evalOneRule(iter, e.ir.Default, args, cacheKey, prev, findOne)
+			_, err := e.evalOneRule(iter, e.ir.Default, prev, findOne)
 
 			return err
 		}
@@ -2333,46 +2333,43 @@ func (e *evalFunc) evalValue(iter unifyIterator, argCount int, findOne bool) err
 	})
 }
 
-func (e *evalFunc) evalCache(argCount int, iter unifyIterator) (ast.Ref, bool, error) {
+func (e *evalFunc) evalCache(argCount int, iter unifyIterator) (bool, error) {
 	plen := len(e.terms)
 	if plen == argCount+2 { // func name + output = 2
 		plen -= 1
 	}
 
-	cacheKey := make([]*ast.Term, plen)
+	e.cacheKey = slices.Grow(e.cacheKey, plen)[:plen]
 	for i := range plen {
-		if e.terms[i].IsGround() {
-			// Avoid expensive copying of ref if it is ground.
-			cacheKey[i] = e.terms[i]
-		} else {
-			cacheKey[i] = e.e.bindings.Plug(e.terms[i])
+		e.cacheKey[i] = e.terms[i] // Avoid expensive copying of ref if ground
+		if !e.terms[i].IsGround() {
+			e.cacheKey[i] = e.e.bindings.Plug(e.terms[i])
 		}
 	}
 
-	cached, _ := e.e.virtualCache.Get(cacheKey)
-	if cached != nil {
+	if cached, _ := e.e.virtualCache.Get(e.cacheKey); cached != nil {
 		e.e.instr.counterIncr(evalOpVirtualCacheHit)
 		if argCount == len(e.terms)-1 { // f(x)
 			if ast.Boolean(false).Equal(cached.Value) {
-				return nil, true, nil
+				return true, nil
 			}
-			return nil, true, iter()
+			return true, iter()
 		}
 		// f(x, y), y captured output value
-		return nil, true, e.e.unify(e.terms[len(e.terms)-1] /* y */, cached, iter)
+		return true, e.e.unify(e.terms[len(e.terms)-1] /* y */, cached, iter)
 	}
 	e.e.instr.counterIncr(evalOpVirtualCacheMiss)
-	return cacheKey, false, nil
+	return false, nil
 }
 
-func (e *evalFunc) evalOneRule(iter unifyIterator, rule *ast.Rule, args []*ast.Term, cacheKey ast.Ref, prev *ast.Term, findOne bool) (*ast.Term, error) {
+func (e *evalFunc) evalOneRule(iter unifyIterator, rule *ast.Rule, prev *ast.Term, findOne bool) (*ast.Term, error) {
 	child := evalPool.Get()
 	defer evalPool.Put(child)
 
 	// Optimization: pre-size bindings based on function argument count to reduce memory waste.
 	// Function argument count is known at compile time and most functions have < 10 arguments.
 	// This avoids allocating the default 16-slot array when only 2-3 bindings are needed.
-	sizeHint := len(args)
+	sizeHint := len(e.args)
 	e.e.childWithBindingSizeHint(rule.Body, child, sizeHint)
 	child.findOne = findOne
 
@@ -2380,25 +2377,26 @@ func (e *evalFunc) evalOneRule(iter unifyIterator, rule *ast.Rule, args []*ast.T
 
 	child.traceEnter(rule)
 
-	err := child.biunifyTerms(e.terms[1:], args, e.e.bindings, child.bindings, func() error {
+	err := child.biunifyTerms(e.terms[1:], e.args, e.e.bindings, child.bindings, func() error {
 		return child.eval(func(child *eval) error {
 			child.traceExit(rule)
 			e.e.evaluated.Record(rule)
 
 			// Partial evaluation must save an expression that tests the output value if the output value
 			// was not captured to handle the case where the output value may be `false`.
-			if len(rule.Head.Args) == len(e.terms)-1 && e.e.saveSet.Contains(rule.Head.Value, child.bindings) {
+			noOutputCapture := len(rule.Head.Args) == len(e.terms)-1
+			if noOutputCapture && e.e.saveSet.Contains(rule.Head.Value, child.bindings) {
 				err := e.e.saveExpr(ast.NewExpr(rule.Head.Value), child.bindings, iter)
 				child.traceRedo(rule)
 				return err
 			}
 
 			result = child.bindings.Plug(rule.Head.Value)
-			if cacheKey != nil {
-				e.e.virtualCache.Put(cacheKey, result) // the redos confirm this, or the evaluation is aborted
+			if e.cacheKey != nil {
+				e.e.virtualCache.Put(e.cacheKey, result) // the redos confirm this, or the evaluation is aborted
 			}
 
-			if len(rule.Head.Args) == len(e.terms)-1 && ast.Boolean(false).Equal(result.Value) {
+			if noOutputCapture && ast.Boolean(false).Equal(result.Value) {
 				if prev != nil && !prev.Equal(result) {
 					return functionConflictErr(rule.Location)
 				}
@@ -2437,15 +2435,13 @@ func (e *evalFunc) partialEvalSupport(declArgsLen int, iter unifyIterator) error
 
 	if !e.e.saveSupport.Exists(path) {
 		for _, rule := range e.ir.Rules {
-			err := e.partialEvalSupportRule(rule, path)
-			if err != nil {
+			if err := e.partialEvalSupportRule(rule, path); err != nil {
 				return err
 			}
 		}
 
 		if e.ir.Default != nil {
-			err := e.partialEvalSupportRule(e.ir.Default, path)
-			if err != nil {
+			if err := e.partialEvalSupportRule(e.ir.Default, path); err != nil {
 				return err
 			}
 		}
@@ -2455,9 +2451,11 @@ func (e *evalFunc) partialEvalSupport(declArgsLen int, iter unifyIterator) error
 		return nil
 	}
 
-	term := ast.NewTerm(path)
+	terms := make([]*ast.Term, len(e.terms))
+	terms[0] = ast.NewTerm(path)
+	copy(terms[1:], e.terms[1:])
 
-	return e.e.saveCall(declArgsLen, append([]*ast.Term{term}, e.terms[1:]...), iter)
+	return e.e.saveCall(declArgsLen, terms, iter)
 }
 
 func (e *evalFunc) partialEvalSupportRule(rule *ast.Rule, path ast.Ref) error {
@@ -2486,6 +2484,7 @@ func (e *evalFunc) partialEvalSupportRule(rule *ast.Rule, path ast.Ref) error {
 		// Skip this rule body if it fails to type-check.
 		// Type-checking failure means the rule body will never succeed.
 		if e.e.compiler.PassesTypeCheck(plugged) {
+			e.e.evaluated.Record(rule)
 			head := &ast.Head{
 				Name:      rule.Head.Name,
 				Reference: rule.Head.Reference,
@@ -2517,12 +2516,12 @@ type deferredEarlyExitContainer struct {
 }
 
 func (dc *deferredEarlyExitContainer) handleErr(err error) error {
-	if err == nil {
-		return nil
-	}
-
-	if dc.deferred == nil && errors.As(err, &dc.deferred) && dc.deferred != nil {
-		return nil
+	if err != nil && dc.deferred == nil {
+		var ok bool
+		dc.deferred, ok = errors.AsType[*deferredEarlyExitError](err)
+		if ok && dc.deferred != nil {
+			return nil
+		}
 	}
 
 	return err
@@ -2566,7 +2565,6 @@ func (e evalTree) eval(iter unifyIterator) error {
 }
 
 func (e evalTree) finish(iter unifyIterator) error {
-
 	// In some cases, it may not be possible to PE the ref. If the path refers
 	// to virtual docs that PE does not support or base documents where inlining
 	// has been disabled, then we have to save.
@@ -2583,7 +2581,6 @@ func (e evalTree) finish(iter unifyIterator) error {
 }
 
 func (e evalTree) next(iter unifyIterator, plugged *ast.Term) error {
-
 	var node *ast.TreeNode
 
 	cpy := e
@@ -2636,19 +2633,14 @@ func (e evalTree) next(iter unifyIterator, plugged *ast.Term) error {
 						cacheRef = append(cacheRef, k)
 					}
 
-					if !expand {
+					if !expand && e.e.partial() {
 						// The parameter key(s) are not ground, so we cannot
 						// select a concrete sub-source. Under partial evaluation
 						// the reference is unknown and must be residualized;
 						// otherwise it is simply undefined and we fall through
 						// with the bare (rule-less) external node.
-						if e.e.partial() {
-							saved := make(ast.Ref, len(e.ref))
-							for i := range e.ref {
-								saved[i] = e.bindings.Plug(e.ref[i])
-							}
-							return e.e.saveUnify(ast.NewTerm(saved), e.rterm, e.bindings, e.rbindings, iter)
-						}
+						saved := ast.Ref(util.Map(e.ref, e.bindings.Plug))
+						return e.e.saveUnify(ast.NewTerm(saved), e.rterm, e.bindings, e.rbindings, iter)
 					}
 				}
 
@@ -2755,6 +2747,13 @@ func (e evalTree) enumerate(iter unifyIterator) error {
 
 	doc, err := e.e.Resolve(e.plugged[:e.pos])
 	if err != nil {
+		// The save set check in biunifyValues compares refs as written, so a ref
+		// that only becomes unknown once bindings are plugged (e.g.
+		// data[input.type].x with data.project.x unknown) reaches here, where the
+		// document can't be enumerated and must be saved as evalTree.finish does.
+		if ast.IsUnknownValueErr(err) {
+			return e.e.saveUnify(ast.NewTerm(e.plugged), e.rterm, e.bindings, e.rbindings, iter)
+		}
 		return err
 	}
 
@@ -2765,6 +2764,7 @@ func (e evalTree) enumerate(iter unifyIterator) error {
 	// Use method value to avoid closure allocation.
 	// Create once and reuse for both doc and virtual doc enumeration.
 	en := enumerateNext{iter: iter, e: &e, key: nil}
+	call := en.call
 
 	if doc != nil {
 		switch doc := doc.(type) {
@@ -2772,7 +2772,7 @@ func (e evalTree) enumerate(iter unifyIterator) error {
 			for i := range doc.Len() {
 				k := ast.InternedTerm(i)
 				en.key = k
-				err := e.e.biunify(k, e.ref[e.pos], e.bindings, e.bindings, en.call)
+				err := e.e.biunify(k, e.ref[e.pos], e.bindings, e.bindings, call)
 
 				if err := dc.handleErr(err); err != nil {
 					return err
@@ -2782,7 +2782,7 @@ func (e evalTree) enumerate(iter unifyIterator) error {
 			ki := doc.KeysIterator()
 			for k, more := ki.Next(); more; k, more = ki.Next() {
 				en.key = k
-				err := e.e.biunify(k, e.ref[e.pos], e.bindings, e.bindings, en.call)
+				err := e.e.biunify(k, e.ref[e.pos], e.bindings, e.bindings, call)
 				if err := dc.handleErr(err); err != nil {
 					return err
 				}
@@ -2791,7 +2791,7 @@ func (e evalTree) enumerate(iter unifyIterator) error {
 			// Use Slice() to avoid closure allocation in Iter()
 			for _, elem := range doc.Slice() {
 				en.key = elem
-				err := e.e.biunify(elem, e.ref[e.pos], e.bindings, e.bindings, en.call)
+				err := e.e.biunify(elem, e.ref[e.pos], e.bindings, e.bindings, call)
 				if err := dc.handleErr(err); err != nil {
 					return err
 				}
@@ -2810,13 +2810,39 @@ func (e evalTree) enumerate(iter unifyIterator) error {
 	// Reuse the same enumerateNext for virtual documents
 	for _, k := range e.node.Sorted {
 		key := ast.NewTerm(k)
+
+		// next() descends into both the base document and the rule tree, so
+		// enumerating a key present in both would yield it twice.
+		if docHasKey(doc, key) {
+			continue
+		}
+
 		en.key = key
-		if err := e.e.biunify(key, e.ref[e.pos], e.bindings, e.bindings, en.call); err != nil {
+		if err := e.e.biunify(key, e.ref[e.pos], e.bindings, e.bindings, call); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// docHasKey returns true if key is one of the keys evalTree.enumerate yields
+// for the base document doc.
+func docHasKey(doc ast.Value, key *ast.Term) bool {
+	switch doc := doc.(type) {
+	case ast.Object:
+		return doc.Get(key) != nil
+	case *ast.Array:
+		i, ok := key.Value.(ast.Number)
+		if !ok {
+			return false
+		}
+		idx, ok := i.Int()
+		return ok && idx >= 0 && idx < doc.Len()
+	case ast.Set:
+		return doc.Contains(key)
+	}
+	return false
 }
 
 func (e evalTree) extent() (*ast.Term, error) {
@@ -2905,15 +2931,10 @@ type evalVirtual struct {
 }
 
 func (e evalVirtual) eval(iter unifyIterator) error {
-
 	ir, err := e.e.getRules(e.plugged[:e.pos+1], nil, e.e.ruleIndex(e.plugged[:e.pos+1]))
 	defer ast.IndexResultPool.Put(ir)
-	if err != nil {
+	if err != nil || ir == nil {
 		return err
-	}
-
-	if ir == nil {
-		return nil
 	}
 
 	// Partial evaluation of ordered rules is not supported currently. Save the
@@ -3003,9 +3024,7 @@ func (h *evalVirtualPartialCacheHint) keyWithoutScope() ast.Ref {
 }
 
 func (e evalVirtualPartial) eval(iter unifyIterator) error {
-
-	unknown := e.e.unknown(e.ref[:e.pos+1], e.bindings)
-
+	unknown := e.e.unknownRef(e.ref[:e.pos+1], e.bindings)
 	if len(e.ref) == e.pos+1 {
 		if unknown {
 			return e.partialEvalSupport(iter)
@@ -3038,14 +3057,13 @@ func maxRefLength(rules []*ast.Rule, ceil int) int {
 }
 
 func (e evalVirtualPartial) evalEachRule(iter unifyIterator, unknown bool) error {
-
 	if e.ir.Empty() {
 		return nil
 	}
 
 	if e.e.partial() {
 		m := maxRefLength(e.ir.Rules, len(e.ref))
-		if e.e.unknown(e.ref[e.pos+1:m], e.bindings) {
+		if e.e.unknownRef(e.ref[e.pos+1:m], e.bindings) {
 			for _, rule := range e.ir.Rules {
 				if err := e.evalOneRulePostUnify(iter, rule); err != nil {
 					return err
@@ -3095,7 +3113,6 @@ func (e evalVirtualPartial) evalEachRule(iter unifyIterator, unknown bool) error
 }
 
 func (e evalVirtualPartial) evalAllRules(iter unifyIterator, rules []*ast.Rule) error {
-
 	cacheKey := e.plugged[:e.pos+1]
 	result, _ := e.e.virtualCache.Get(cacheKey)
 	if result != nil {
@@ -3128,17 +3145,16 @@ func (e evalVirtualPartial) evalAllRulesNoCache(rules []*ast.Rule) (*ast.Term, e
 	for _, rule := range rules {
 		e.e.childWithBindingSizeHint(rule.Body, child, ast.EstimateBodyBindingCount(rule.Body))
 		child.traceEnter(rule)
-		err := child.eval(func(*eval) error {
+		err := child.eval(func(*eval) (err error) {
 			child.traceExit(rule)
 			e.e.evaluated.Record(rule)
-			var err error
+
 			result, _, err = e.reduce(rule, child.bindings, result, &visitedRefs)
-			if err != nil {
-				return err
+			if err == nil && child.traceEnabled {
+				child.traceRedo(rule)
 			}
 
-			child.traceRedo(rule)
-			return nil
+			return err
 		})
 
 		if err != nil {
@@ -3159,14 +3175,20 @@ func wrapInObjects(leaf *ast.Term, ref ast.Ref) *ast.Term {
 	return ast.ObjectTerm(ast.Item(key, val))
 }
 
-func (e evalVirtualPartial) evalOneRulePreUnify(iter unifyIterator, rule *ast.Rule, result *ast.Term, unknown bool, visitedRefs *[]ast.Ref) (*ast.Term, error) {
+func (e evalVirtualPartial) evalOneRulePreUnify(
+	iter unifyIterator,
+	rule *ast.Rule,
+	result *ast.Term,
+	unknown bool,
+	visitedRefs *[]ast.Ref,
+) (*ast.Term, error) {
 	child := evalPool.Get()
 	defer evalPool.Put(child)
 
 	e.e.childWithBindingSizeHint(rule.Body, child, ast.EstimateBodyBindingCount(rule.Body))
-
-	child.traceEnter(rule)
-	var defined bool
+	if child.traceEnabled {
+		child.traceEnter(rule)
+	}
 
 	headKey := rule.Head.Key
 	if headKey == nil {
@@ -3174,11 +3196,17 @@ func (e evalVirtualPartial) evalOneRulePreUnify(iter unifyIterator, rule *ast.Ru
 	}
 
 	// Walk the dynamic portion of rule ref and key to unify vars
-	err := child.biunifyRuleHead(e.pos+1, e.ref, rule, e.bindings, child.bindings, func(_ int) error {
-		defined = true
-		return child.eval(func(child *eval) error {
-
-			child.traceExit(rule)
+	err := child.biunifyRuleHead(e.pos+1, e.ref, rule, e.bindings, child.bindings, func(int) error {
+		child.defined = true
+		return child.eval(func(child *eval) (err error) {
+			if child.traceEnabled {
+				child.traceExit(rule)
+				defer func() {
+					if err == nil {
+						child.traceRedo(rule)
+					}
+				}()
+			}
 
 			term := rule.Head.Value
 			if term == nil {
@@ -3187,7 +3215,6 @@ func (e evalVirtualPartial) evalOneRulePreUnify(iter unifyIterator, rule *ast.Ru
 
 			if unknown {
 				term, termbindings := child.bindings.apply(term)
-
 				if rule.Head.RuleKind() == ast.MultiValue {
 					term = ast.SetTerm(term)
 				}
@@ -3195,37 +3222,24 @@ func (e evalVirtualPartial) evalOneRulePreUnify(iter unifyIterator, rule *ast.Ru
 				objRef := rule.Ref()[e.pos+1:]
 				term = wrapInObjects(term, objRef)
 
-				err := e.evalTerm(iter, e.pos+1, term, termbindings)
-				if err != nil {
-					return err
-				}
+				err = e.evalTerm(iter, e.pos+1, term, termbindings)
 			} else {
 				var dup bool
-				var err error
 				result, dup, err = e.reduce(rule, child.bindings, result, visitedRefs)
-				if err != nil {
-					return err
-				} else if !unknown && dup {
+				if err == nil && !unknown && dup && child.traceEnabled {
 					child.traceDuplicate(rule)
-					return nil
 				}
 			}
 
-			child.traceRedo(rule)
-
-			return nil
+			return err
 		})
 	})
 
-	if err != nil {
-		return nil, err
-	}
-
-	if !defined {
+	if err == nil && child.traceEnabled && !child.defined {
 		child.traceFail(rule)
 	}
 
-	return result, nil
+	return result, err
 }
 
 func (e *eval) biunifyRuleHead(pos int, ref ast.Ref, rule *ast.Rule, refBindings, ruleBindings *bindings, iter unifyRefIterator) error {
@@ -3256,34 +3270,30 @@ func (e *eval) biunifyDynamicRef(pos int, a, b ast.Ref, b1, b2 *bindings, iter u
 
 func (e evalVirtualPartial) evalOneRulePostUnify(iter unifyIterator, rule *ast.Rule) error {
 	child := evalPool.Get()
-	defer evalPool.Put(child)
+	defer func() {
+		if child.traceEnabled && !child.defined {
+			child.traceFail(rule)
+		}
+		evalPool.Put(child)
+	}()
 
 	e.e.childWithBindingSizeHint(rule.Body, child, ast.EstimateBodyBindingCount(rule.Body))
+	if e.e.traceEnabled {
+		child.traceEnter(rule)
+	}
 
-	child.traceEnter(rule)
-	var defined bool
-
-	err := child.eval(func(child *eval) error {
-		defined = true
-		return e.e.biunifyRuleHead(e.pos+1, e.ref, rule, e.bindings, child.bindings, func(_ int) error {
-			return e.evalOneRuleContinue(iter, rule, child)
+	return child.eval(func(next *eval) error {
+		child.defined = true
+		return e.e.biunifyRuleHead(e.pos+1, e.ref, rule, e.bindings, next.bindings, func(int) error {
+			return e.evalOneRuleContinue(iter, rule, next)
 		})
 	})
-
-	if err != nil {
-		return err
-	}
-
-	if !defined {
-		child.traceFail(rule)
-	}
-
-	return nil
 }
 
 func (e evalVirtualPartial) evalOneRuleContinue(iter unifyIterator, rule *ast.Rule, child *eval) error {
-
-	child.traceExit(rule)
+	if child.traceEnabled {
+		child.traceExit(rule)
+	}
 
 	term := rule.Head.Value
 	if term == nil {
@@ -3291,7 +3301,6 @@ func (e evalVirtualPartial) evalOneRuleContinue(iter unifyIterator, rule *ast.Ru
 	}
 
 	term, termbindings := child.bindings.apply(term)
-
 	if rule.Head.RuleKind() == ast.MultiValue {
 		term = ast.SetTerm(term)
 	}
@@ -3300,16 +3309,14 @@ func (e evalVirtualPartial) evalOneRuleContinue(iter unifyIterator, rule *ast.Ru
 	term = wrapInObjects(term, objRef)
 
 	err := e.evalTerm(iter, e.pos+1, term, termbindings)
-	if err != nil {
-		return err
+	if child.traceEnabled && err == nil {
+		child.traceRedo(rule)
 	}
 
-	child.traceRedo(rule)
-	return nil
+	return err
 }
 
 func (e evalVirtualPartial) partialEvalSupport(iter unifyIterator) error {
-
 	path := e.e.namespaceRef(e.plugged[:e.pos+1])
 	term := ast.NewTerm(e.e.namespaceRef(e.ref))
 
@@ -3360,6 +3367,7 @@ func (e evalVirtualPartial) partialEvalSupportRule(rule *ast.Rule, _ ast.Ref) (b
 		// Skip this rule body if it fails to type-check.
 		// Type-checking failure means the rule body will never succeed.
 		if e.e.compiler.PassesTypeCheck(plugged) {
+			e.e.evaluated.Record(rule)
 			var value *ast.Term
 
 			if rule.Head.Value != nil {
@@ -3423,10 +3431,9 @@ func (e evalVirtualPartial) evalTerm(iter unifyIterator, pos int, term *ast.Term
 }
 
 func (e evalVirtualPartial) evalCache(iter unifyIterator) (evalVirtualPartialCacheHint, error) {
-
 	var hint evalVirtualPartialCacheHint
 
-	if e.e.unknown(e.ref[:e.pos+1], e.bindings) {
+	if e.e.unknownRef(e.ref[:e.pos+1], e.bindings) {
 		// FIXME: Return empty hint if unknowns in any e.ref elem overlapping with applicable rule refs?
 		return hint, nil
 	}
@@ -3499,8 +3506,7 @@ func (e evalVirtualPartial) evalCache(iter unifyIterator) (evalVirtualPartialCac
 				scope.Ref = append(scope.Ref, plugged)
 				hint.key[len(hint.key)-1] = ast.NewTerm(scope)
 			} else {
-				scope = vcKeyScope{}
-				scope.Ref = append(scope.Ref, plugged)
+				scope = vcKeyScope{Ref: ast.Ref{plugged}}
 				hint.key = append(hint.key, ast.NewTerm(scope))
 			}
 		}
@@ -3604,9 +3610,10 @@ func (q vcKeyScope) AppendText(buf []byte) ([]byte, error) {
 // reduce removes vars from the tail of the ref.
 func (q vcKeyScope) reduce() vcKeyScope {
 	ref := q.Ref.CopyNonGround()
-	var i int
-	for i = len(q.Ref) - 1; i >= 0; i-- {
-		if _, ok := q.Ref[i].Value.(ast.Var); !ok {
+	i := -1
+	for idx, v := range slices.Backward(q.Ref) {
+		if _, ok := v.Value.(ast.Var); !ok {
+			i = idx
 			break
 		}
 	}
@@ -3734,7 +3741,6 @@ type evalVirtualComplete struct {
 }
 
 func (e evalVirtualComplete) eval(iter unifyIterator) error {
-
 	if e.ir.Empty() {
 		return nil
 	}
@@ -3856,9 +3862,8 @@ func (e evalVirtualComplete) evalValueRule(iter unifyIterator, rule *ast.Rule, p
 		e.e.evaluated.Record(rule)
 
 		result = child.bindings.Plug(rule.Head.Value)
-
 		if prev != nil {
-			if ast.Compare(result, prev) != 0 {
+			if !prev.Equal(result) {
 				return completeDocConflictErr(rule.Location)
 			}
 			child.traceRedo(rule)
@@ -3891,6 +3896,7 @@ func (e evalVirtualComplete) partialEval(iter unifyIterator) error {
 
 		err := child.eval(func(child *eval) error {
 			child.traceExit(rule)
+			e.e.evaluated.Record(rule)
 			term, termbindings := child.bindings.apply(rule.Head.Value)
 
 			if err := e.evalTerm(iter, term, termbindings); err != nil {
@@ -3976,6 +3982,7 @@ func (e evalVirtualComplete) partialEvalSupportRule(rule *ast.Rule, packagePath 
 		// Skip this rule body if it fails to type-check.
 		// Type-checking failure means the rule body will never succeed.
 		if e.e.compiler.PassesTypeCheck(plugged) {
+			e.e.evaluated.Record(rule)
 			head := ast.RefHead(ruleRef, child.bindings.PlugNamespaced(rule.Head.Value, e.e.caller.bindings))
 
 			if !e.e.inliningControl.shallow {
@@ -4045,6 +4052,15 @@ func (e evalTerm) eval(iter unifyIterator) error {
 
 func (e evalTerm) next(iter unifyIterator, plugged *ast.Term) error {
 
+	// Key selects an unknown sub-document: save the reference instead of reading
+	// a concrete document that may lack the key, or hold a stand-in value. The
+	// partial() test is inline to keep the call off the non-partial hot path.
+	if e.e.partial() {
+		if ref, ok := e.unknownPath(plugged); ok {
+			return e.e.saveUnify(ast.NewTerm(ref), e.rterm, e.bindings, e.rbindings, iter)
+		}
+	}
+
 	term, bindings := e.get(plugged)
 	if term == nil {
 		return nil
@@ -4057,11 +4073,84 @@ func (e evalTerm) next(iter unifyIterator, plugged *ast.Term) error {
 	return cpy.eval(iter)
 }
 
+// pluggedPrefix returns e.ref[:e.pos] with variables resolved.
+func (e evalTerm) pluggedPrefix() ast.Ref {
+	prefix := make(ast.Ref, e.pos)
+	for i := range prefix {
+		prefix[i] = e.bindings.Plug(e.ref[i])
+	}
+	return prefix
+}
+
+// unknownPath reports whether descending into key lands on an unknown, and if
+// so returns the full plugged reference to save.
+func (e evalTerm) unknownPath(key *ast.Term) (ast.Ref, bool) {
+	ref := make(ast.Ref, len(e.ref))
+	for i := range ref {
+		if i == e.pos {
+			ref[i] = key
+		} else {
+			ref[i] = e.bindings.Plug(e.ref[i])
+		}
+	}
+
+	if !e.e.saveSet.Covers(ref[:e.pos+1]) {
+		return nil, false
+	}
+	return ref, true
+}
+
+// enumerateUnknownKeys branches on each key an unknown contributes below the
+// current prefix but the concrete document lacks. Without it, input[k] with
+// input.x unknown and input = {"y": 2} would only ever consider k = "y".
+func (e evalTerm) enumerateUnknownKeys(iter unifyIterator, handleErr func(error) error) error {
+	prefix := e.pluggedPrefix()
+
+	for _, k := range e.e.saveSet.Keys(prefix) {
+		if term, _ := e.get(k); term != nil {
+			continue // already covered by the concrete enumeration above
+		}
+		// Nothing concrete to descend into: save the whole remaining reference.
+		ref := make(ast.Ref, len(e.ref))
+		copy(ref, prefix)
+		ref[e.pos] = k
+		for i := e.pos + 1; i < len(ref); i++ {
+			ref[i] = e.bindings.Plug(e.ref[i])
+		}
+		// Positions below the key can still rule the branch out: with input.x.a
+		// unknown, input[k].b has nothing to match at k = "x".
+		if !e.e.saveSet.ContainsOverlapping(ast.NewTerm(ref), e.bindings) {
+			continue
+		}
+		err := e.e.biunify(k, e.ref[e.pos], e.bindings, e.bindings, func() error {
+			return e.e.saveUnify(ast.NewTerm(ref), e.rterm, e.bindings, e.rbindings, iter)
+		})
+		if err := handleErr(err); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// evalTermNext is the evalTerm counterpart of enumerateNext: it lets the
+// object/set enumeration loops pass a method value to biunify instead of a
+// function literal, which would escape to the heap on every iteration.
+// evalTerm is held by value so call() doesn't chase a second pointer.
+type evalTermNext struct {
+	e    evalTerm
+	iter unifyIterator
+	key  *ast.Term
+}
+
+func (en *evalTermNext) call() error {
+	return en.e.next(en.iter, en.e.termbindings.Plug(en.key))
+}
+
 func (e evalTerm) enumerate(iter unifyIterator) error {
 	var deferredEe *deferredEarlyExitError
 	handleErr := func(err error) error {
-		var dee *deferredEarlyExitError
-		if errors.As(err, &dee) {
+		if dee, ok := errors.AsType[*deferredEarlyExitError](err); ok {
 			if deferredEe == nil {
 				deferredEe = dee
 			}
@@ -4102,10 +4191,14 @@ func (e evalTerm) enumerate(iter unifyIterator) error {
 			}
 		}
 	case ast.Object:
-		for _, k := range v.Keys() {
-			err := e.e.biunify(k, e.ref[e.pos], e.termbindings, e.bindings, func() error {
-				return e.next(iter, e.termbindings.Plug(k))
-			})
+		// Bind the method value once, outside the loop: a func literal — or a method
+		// value materialized per iteration — escapes to the heap on every key.
+		en := evalTermNext{iter: iter, e: e}
+		call := en.call
+		ki := v.KeysIterator()
+		for k, more := ki.Next(); more; k, more = ki.Next() {
+			en.key = k
+			err := e.e.biunify(k, e.ref[e.pos], e.termbindings, e.bindings, call)
 			if err != nil {
 				if err := handleErr(err); err != nil {
 					return err
@@ -4113,15 +4206,22 @@ func (e evalTerm) enumerate(iter unifyIterator) error {
 			}
 		}
 	case ast.Set:
+		en := evalTermNext{iter: iter, e: e}
+		call := en.call
 		for _, elem := range v.Slice() {
-			err := e.e.biunify(elem, e.ref[e.pos], e.termbindings, e.bindings, func() error {
-				return e.next(iter, e.termbindings.Plug(elem))
-			})
+			en.key = elem
+			err := e.e.biunify(elem, e.ref[e.pos], e.termbindings, e.bindings, call)
 			if err != nil {
 				if err := handleErr(err); err != nil {
 					return err
 				}
 			}
+		}
+	}
+
+	if e.e.partial() {
+		if err := e.enumerateUnknownKeys(iter, handleErr); err != nil {
+			return err
 		}
 	}
 
@@ -4327,7 +4427,6 @@ func (e evalNot) eval(iter evalIterator) error {
 	defer evalPool.Put(child)
 
 	e.e.closure(e.not.Body, child)
-
 	if e.e.traceEnabled {
 		child.traceEnter(e.not.Body)
 	}
@@ -4402,7 +4501,7 @@ func (e evalNot) evalPartial(iter evalIterator) error {
 
 	expr := e.e.query[e.e.index]
 
-	unNegate := func(expr *ast.Expr) ast.Body {
+	unNegate := func(*ast.Expr) ast.Body {
 		return e.not.Body
 	}
 
@@ -4545,13 +4644,12 @@ func evalLogicalOperand(parent *eval, body ast.Body) (bool, error) {
 		child.traceEnter(body)
 	}
 
-	defined := false
 	err := child.eval(func(*eval) error {
 		if parent.traceEnabled {
 			child.traceExit(body)
 			child.traceRedo(body)
 		}
-		defined = true
+		child.defined = true
 		return nil
 	})
 
@@ -4561,7 +4659,7 @@ func evalLogicalOperand(parent *eval, body ast.Body) (bool, error) {
 		return false, err
 	}
 
-	return defined, nil
+	return child.defined, nil
 }
 
 func plugBody(e *eval, body ast.Body) error {
@@ -4655,8 +4753,7 @@ func getSavePairsFromExpr(declArgsLen int, x *ast.Expr, b *bindings, result []sa
 
 func getSavePairsFromTerm(x *ast.Term, b *bindings, result []savePair) []savePair {
 	if _, ok := x.Value.(ast.Var); ok {
-		result = append(result, savePair{x, b})
-		return result
+		return append(result, savePair{x, b})
 	}
 	vis := ast.NewVarVisitor().WithParams(ast.VarVisitorParams{
 		SkipClosures: true,
@@ -4693,12 +4790,19 @@ func plugKeys(a ast.Object, b *bindings) ast.Object {
 }
 
 func canInlineNegation(safe ast.VarSet, queries []ast.Body) bool {
-
 	size := 1
 	vis := newNestedCheckVisitor()
 
 	for _, query := range queries {
 		size *= len(query)
+
+		// NOTE(tsandall): this limit is arbitrary–it's only in place to prevent the
+		// partial evaluation result from blowing up. In the future, we could make this
+		// configurable or do something more clever.
+		if size > maxInlineNegationSize {
+			return false
+		}
+
 		for _, expr := range query {
 			if containsNestedRefOrCall(vis, expr) {
 				// Expressions containing nested refs or calls cannot be trivially negated
@@ -4726,11 +4830,12 @@ func canInlineNegation(safe ast.VarSet, queries []ast.Body) bool {
 		}
 	}
 
-	// NOTE(tsandall): this limit is arbitrary–it's only in place to prevent the
-	// partial evaluation result from blowing up. In the future, we could make this
-	// configurable or do something more clever.
-	return size <= 16
+	return true
 }
+
+// maxInlineNegationSize is the largest cross product of negated queries that
+// evalNotPartial will inline instead of generating support rules for.
+const maxInlineNegationSize = 16
 
 type nestedCheckVisitor struct {
 	vis   *ast.GenericVisitor
@@ -4752,7 +4857,6 @@ func (v *nestedCheckVisitor) visit(x any) bool {
 }
 
 func containsNestedRefOrCall(vis *nestedCheckVisitor, expr *ast.Expr) bool {
-
 	if expr.IsEquality() {
 		for _, term := range expr.Operands() {
 			if containsNestedRefOrCallInTerm(vis, term) {
@@ -4808,10 +4912,7 @@ func containsNestedRefOrCallInTerm(vis *nestedCheckVisitor, term *ast.Term) bool
 		return false
 	default:
 		vis.vis.Walk(v)
-		if vis.found {
-			return true
-		}
-		return false
+		return vis.found
 	}
 }
 
@@ -4890,7 +4991,7 @@ func merge(a, b ast.Value) (ast.Value, bool) {
 // objects can be merged with other objects. If the values cannot be merged,
 // objB value will be overwritten by objA value.
 func mergeObjects(objA, objB ast.Object) (result ast.Object, ok bool) {
-	result = ast.NewObject()
+	result = ast.NewObjectWithCapacity(objA.Len() + objB.Len())
 	stop := objA.Until(func(k, v *ast.Term) bool {
 		if v2 := objB.Get(k); v2 == nil {
 			result.Insert(k, v)
@@ -4964,9 +5065,9 @@ func (e *eval) updateSavedMocks(withs []*ast.With) []*ast.With {
 // tree levels. keys are the ground parameter terms in reference order.
 func wrapExternalParams(keys []*ast.Term, tree *ast.TreeNode) *ast.TreeNode {
 	node := tree
-	for i := len(keys) - 1; i >= 0; i-- {
+	for _, key := range slices.Backward(keys) {
 		node = &ast.TreeNode{
-			Children: map[ast.Value]*ast.TreeNode{keys[i].Value: node},
+			Children: map[ast.Value]*ast.TreeNode{key.Value: node},
 		}
 	}
 	return node

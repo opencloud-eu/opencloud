@@ -9,3 +9,9 @@ go_library(
         "//jwk",
     ],
 )
+
+alias(
+    name = "go_default_library",
+    actual = ":keytype",
+    visibility = ["//jws:__subpackages__"],
+)
