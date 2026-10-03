@@ -84,7 +84,7 @@ type Settings struct {
 
 	Insecure bool `yaml:"ldap_insecure" env:"OC_LDAP_INSECURE;IDP_INSECURE" desc:"Disable TLS certificate validation for the LDAP connections. Do not set this in production environments." introductionVersion:"1.0.0"`
 
-	TrustedProxy []string `yaml:"trusted_proxy"` //TODO: how to configure this via env?
+	TrustedProxy []string `yaml:"trusted_proxy" env:"IDP_TRUSTED_PROXY" desc:"A list of trusted proxy IP addresses or CIDR networks. When the request remote address matches, the IDP honors forwarded headers such as X-Forwarded-Proto. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
 
 	AllowScope                     []string `yaml:"allow_scope"` // TODO: is this even needed?
 	AllowClientGuests              bool     `yaml:"allow_client_guests" env:"IDP_ALLOW_CLIENT_GUESTS" desc:"Allow guest clients to access OpenCloud." introductionVersion:"1.0.0"`
