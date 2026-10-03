@@ -10,6 +10,10 @@ import (
 	rscors "github.com/rs/cors"
 )
 
+// DefaultClientIPHeader is the header the proxy uses to propagate the resolved
+// client IP to the downstream services.
+const DefaultClientIPHeader = "X-Client-Ip"
+
 // NoCache writes required cache headers to all requests.
 func NoCache(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -40,6 +40,7 @@ func Server(opts ...Option) (http.Service, error) {
 	}
 
 	middlewares := []func(stdhttp.Handler) stdhttp.Handler{
+		chimiddleware.ClientIPFromHeader(middleware.DefaultClientIPHeader),
 		chimiddleware.RequestID,
 		middleware.Version(
 			options.Config.Service.Name,

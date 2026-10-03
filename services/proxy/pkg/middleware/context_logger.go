@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
@@ -12,7 +13,7 @@ func ContextLogger(logger log.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := logger.With().
-				Str("remoteAddr", r.RemoteAddr).
+				Str("remoteAddr", middleware.GetClientIP(r.Context())).
 				Str(log.RequestIDString, r.Header.Get("X-Request-ID")).
 				Str("proto", r.Proto).
 				Str("method", r.Method).
