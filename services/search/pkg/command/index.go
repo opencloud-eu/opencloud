@@ -13,8 +13,8 @@ import (
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config/parser"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 
+	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/spf13/cobra"
 )
 
@@ -31,7 +31,7 @@ func Index(cfg *config.Config) *cobra.Command {
 			allSpacesFlag, _ := cmd.Flags().GetBool("all-spaces")
 			spaceFlag, _ := cmd.Flags().GetString("space")
 			forceRescanFlag, _ := cmd.Flags().GetBool("force-rescan")
-			endpointFlag, _ := cmd.Flags().GetString("endpoint")
+			endpoint, _ := cmd.Flags().GetString("endpoint")
 			insecureFlag, _ := cmd.Flags().GetBool("insecure")
 			concurrencyFlag, _ := cmd.Flags().GetInt("concurrency")
 
@@ -43,7 +43,7 @@ func Index(cfg *config.Config) *cobra.Command {
 			}
 
 			if !cmd.Flags().Changed("endpoint") {
-				endpointFlag = cfg.GRPC.Addr
+				endpoint = cfg.GRPC.Addr
 			}
 
 			tlsMode := pool.TLSOff
@@ -55,12 +55,12 @@ func Index(cfg *config.Config) *cobra.Command {
 				tlsMode = mode
 			}
 
-			conn, err := pool.NewConn(endpointFlag,
+			conn, err := pool.NewConn(endpoint,
 				pool.WithTLSMode(tlsMode),
 				pool.WithTLSCACert(cfg.GRPCClientTLS.CACert),
 			)
 			if err != nil {
-				return fmt.Errorf("failed to dial %s: %w", endpointFlag, err)
+				return fmt.Errorf("failed to dial %s: %w", endpoint, err)
 			}
 			defer conn.Close()
 
@@ -127,7 +127,7 @@ func Index(cfg *config.Config) *cobra.Command {
 	indexCmd.Flags().String(
 		"endpoint",
 		"",
-		"the address of the search service gRPC endpoint. Defaults to the service's configured gRPC address (SEARCH_GRPC_ADDR).",
+		"the address of the search service gRPC endpoint. Defaults to the service's configured gRPC address (SEARCH_GRPC_ADDR). With OC_GRPC_CLIENT_TLS_MODE=on the server certificate must be valid for this address.",
 	)
 	indexCmd.Flags().Bool(
 		"insecure",
