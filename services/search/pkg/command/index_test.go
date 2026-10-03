@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
@@ -40,7 +41,7 @@ var _ = Describe("Index", func() {
 	BeforeEach(func() {
 		lis, err := net.Listen("tcp", "127.0.0.1:0")
 		Expect(err).ToNot(HaveOccurred())
-		srv := grpc.NewServer()
+		srv := grpc.NewServer(grpc.Creds(insecure.NewCredentials()))
 		searchsvc.RegisterSearchProviderServer(srv, fakeSearchProvider{})
 		go func() { _ = srv.Serve(lis) }()
 		DeferCleanup(srv.Stop)
@@ -58,7 +59,7 @@ var _ = Describe("Index", func() {
 	)
 
 	It("uses TLS when the mode is insecure", func() {
-		Expect(runIndex("insecure")).To(HaveOccurred())
+		Expect(runIndex("insecure")).To(MatchError(ContainSubstring("first record does not look like a TLS handshake")))
 	})
 
 	It("rejects an unknown mode", func() {
