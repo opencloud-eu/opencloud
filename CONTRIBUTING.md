@@ -2,13 +2,12 @@
 
 First, thank you for taking the time to read this and your interest in contributing to OpenCloud!
 
-The following is a set of guidelines suitable to most of the projects hosted in the [OpenCloud Organization](https://github.com/opencloud-eu).
-These are mostly guidelines, not rules.
-
 Use your best judgment and feel free to propose changes to this document in a [pull request](https://github.com/opencloud-eu/opencloud/pulls).
 
 For simplicity reasons, this document mostly refers to the [opencloud repository](https://www.github.com/opencloud-eu/opencloud),
-but it should be easily transferable to other (sub)projects.
+but should be easily transferable to all other sub-projects.
+
+Please also make sure to read our [AI Assisted Contribution](https://github.com/opencloud-eu/opencloud/blob/main/AI_GUIDELINE.md) guideline.
 
 #### Table Of Contents
 
@@ -33,9 +32,6 @@ but it should be easily transferable to other (sub)projects.
 *   [Branch Naming](#branch-naming)
 *   [Golang Styleguide](#golang-styleguide)
 
-[Additional Notes](#additional-notes)
-*   [Issue and Pull Request Labels](#issue-and-pull-request-labels)
-
   ## I don't want to read this whole thing I just have a question
 
 > **Note:** Please don't file an issue to ask a question. You'll get faster results by using the resources below.
@@ -54,17 +50,13 @@ The OpenCloud project follows the strict GitHub workflow of development as brief
 
 ### OpenCloud Company, Engineering Partners and Community
 
-OpenCloud is largely created by developers who are employed by the [OpenCloud company](https://opencloud.eu), which is located in Germany.
-It is providing support for OpenCloud for customers mainly in the EU. In addition, there are engineering partners who also work full-time on OpenCloud related code, for example, on the component [REVA](https://github.com/opencloud-eu/reva/).
+OpenCloud is largely created by developers employed by the [OpenCloud company](https://opencloud.eu) (Germany) and by engineering partners who work full-time on related code, e.g. [REVA](https://github.com/opencloud-eu/reva/).
 
-Because of that fact, the pace that the development is moving forward is sometimes high for people who are not willing and/or able to spend a comparable amount of time to contribute.
-Even though this can be a challenge, it should not scare anybody away. Here is our clear commitment that we feel honored by everybody who is interested in our work and improves it, no matter how big the contribution might be.
-
-We as the full-time devs from either organization are doing our best to listen, review and consider all changes that are brought forward following this guideline and make sense for the project.
+Because of that, development can move fast for people who can't spend a comparable amount of time contributing. That shouldn't scare anyone away: we're honored by every contribution, big or small, and do our best to listen, review and consider all changes that make sense for the project.
 
 ### Licensing and CLA
 
- There is *no CLA* required for any of the public code of OpenCloud.
+There is *no CLA* required for any of the public code of OpenCloud. The licenses are defined in every sub project.
 
 ## How to Contribute
 
@@ -81,66 +73,67 @@ There is no formal guideline to this, just do it :-)
 
 ### Reporting Bugs
 
-This section guides you through submitting a bug report for OpenCloud. Following these guidelines help maintainers and the community understand your report :pencil:,
-reproduce the behavior :computer: :computer:, and find related reports :mag_right:.
+This section guides you through submitting a bug report for OpenCloud. Following these guidelines helps maintainers and the community understand your report :pencil:, reproduce the behavior :computer:, and find related reports :mag_right:.
 
-Before creating bug reports, please check [this list](#before-submitting-a-bug-report) as you might find out that you don't need to create one.
-When you are creating a bug report, please [include as many details as possible](#how-to-submit-a-good-bug-report). Fill out [the required template](https://github.com/opencloud-eu/opencloud/issues/new?Type%3ABug&template=bug_report.md), the information it asks for helps to resolve issues faster.
+Before creating a bug report:
 
-> **Note:** If you find a **Closed** issue that seems like it is the same thing that you're experiencing, open a new issue and include a link to the original issue in the body of your new one. If you have permission to reopen the issue, feel free to do so.
+*   **Make sure you're on a recent version.** Use the latest release or current master to reproduce the problem — that helps attract developer attention.
+*   **Determine which [repository](https://github.com/opencloud-eu) the problem belongs to.**
+*   **Search [existing issues](https://github.com/search?q=org%3Aopencloud-eu+type%3Aissue+&type=issues)** first. If an open issue matches and you have new information, comment on it instead of opening a new one — use reactions instead of "+1" comments.
 
-#### Before Submitting A Bug Report
+> **Note:** If you find a **Closed** issue that seems like the same problem, open a new issue and link to the original.
 
-*   **Make sure you are running a recent version** Usually, developers' interest in old versions of software drops very fast once a new version has been released. So the general requirement is: Use the latest released version or even the current master to reproduce problems that you might encounter. That helps a lot to attract developers attention.
-*   **Determine which [repository](https://github.com/opencloud-eu) the problem should be reported in**.
-*   **Perform a [cursory search](https://github.com/search?q=org%3Aopencloud-eu+type%3Aissue+&type=issues)** with possibly a more granular filter on the repository to see if the problem has already been reported. If it has **and the issue is still open**, add a comment to the existing issue instead of opening a new one **if you have new information**. Please abstain from adding "+1" comments. Instead, use the GitHub reaction emojis to indicate that you are affected by the issue as well.
+Bugs are tracked as [GitHub issues](https://guides.github.com/features/issues/). Create one on the right repository and fill in [the template](https://github.com/opencloud-eu/opencloud/issues/new?Type%3ABug&template=bug_report.md), covering:
 
-#### How to Submit A (Good) Bug Report
-
-Bugs are tracked as [GitHub issues](https://guides.github.com/features/issues/). After you've determined [which repository](https://github.com/opencloud-eu) your bug is related to, create an issue on that repository and provide the following information by filling in [the template](https://github.com/opencloud-eu/opencloud/issues/new?Type%3ABug&template=bug_report.md).
-
-Explain the problem and include additional details to help maintainers reproduce the problem:
-
-*   **Use a clear and descriptive title** for the issue to identify the problem.
-*   **Describe the exact steps which reproduce the problem** in as many details as possible. Start with describing, from a user perspective, what you tried to achieve, i.e. "I want to share some pictures with Grandma". When listing steps, **don't just say what you did, but explain how you did it**. For example, if you uploaded a file to OpenCloud, say which client you used, which way of uploading you chose, if the name was special somehow and how big it was.
-*   **Provide specific examples to demonstrate the steps**. Include links to files or GitHub projects, or copy/pasteable snippets, which you use in those examples. If you're providing snippets in the issue, use [Markdown code blocks](https://help.github.com/articles/markdown-basics/#multiple-lines).
-*   **Describe the behavior you observed after following the steps** and point out what exactly is the problem with that behavior.
-*   **Explain which behavior you expected to see instead and why.**
-*   **Include screenshots and animated GIFs** which show you following the described steps and clearly demonstrate the problem. You can use [this tool](https://www.cockos.com/licecap/) to record GIFs on macOS and Windows, and [this tool](https://github.com/colinkeenan/silentcast) or [this tool](https://github.com/GNOME/byzanz) on Linux.
-*   **If you report a web browser related problem**, consider to using the browser's Web developer tools (such as the debugger, console or network monitor) to check what happened. Make sure to add screenshots of the utilities if you are short of time to interpret it.
-*   **If the problem wasn't triggered by a specific action**, describe what you were doing before the problem happened and share more information using the guidelines below.
-
-Provide more context by answering these questions:
-
-*   **Did the problem start happening recently** (e.g. after updating to a new version) or was this always a problem?
-*   If the problem started happening recently, **can you reproduce the problem in an older version?** What's the most recent version in which the problem doesn't happen? You can find more information about how to set up in the [Getting Started guide](https://docs.opencloud.eu/docs/admin/getting-started).
-*   **Can you reliably reproduce the issue?** If not, provide details about how often the problem happens and under which conditions it normally happens.
-
-Include details about your configuration and environment as asked for in the template.
+*   **A clear, descriptive title.**
+*   **Exact reproduction steps**, from a user perspective (e.g. "I want to share pictures with Grandma") — say which client/method you used, not just what you did.
+*   **Specific examples**: links, files, or copy/pasteable snippets in [Markdown code blocks](https://help.github.com/articles/markdown-basics/#multiple-lines).
+*   **Observed vs. expected behavior.**
+*   **Screenshots or GIFs** demonstrating the problem (e.g. [LICEcap](https://www.cockos.com/licecap/) on macOS/Windows, [silentcast](https://github.com/colinkeenan/silentcast) or [byzanz](https://github.com/GNOME/byzanz) on Linux).
+*   **Browser dev tools output**, if it's a web issue.
+*   **Context**: did it start recently (e.g. after an update)? Can you reproduce it in an older version? Is it reliably reproducible, and under what conditions?
+*   **Your configuration/environment**, as requested by the template.
 
 ### Suggesting Enhancements
 
-This section guides you through submitting an enhancement suggestion for OpenCloud, including completely new features and minor improvements to existing functionality.
-Following these guidelines help maintainers and the community understand your suggestion :pencil: and find related suggestions :mag_right:.
+This section guides you through submitting an enhancement suggestion, from new features to minor improvements.
 
-Before creating enhancement suggestions, please check [this list](#before-submitting-an-enhancement-suggestion) as you might find out that you don't need to create one.
-When you are creating an enhancement suggestion, please [include as many details as possible](#how-to-submit-a-good-enhancement-suggestion).
-Fill in [the template](https://github.com/opencloud-eu/opencloud/issues/new?template=feature_request.md), including the steps that you imagine you would take if the feature you're requesting existed.
+Before suggesting one:
 
-#### Before Submitting An Enhancement Suggestion
+*   **Check whether an existing extension or component already provides it.**
+*   **[Search existing suggestions](https://github.com/search?q=+is%3Aissue+user%3Aopencloud)** — if found, comment or react instead of opening a new issue.
 
-*   **Check if there's already an extension or other component that provides that enhancement, even differently.**
-*   **Perform a [cursory search](https://github.com/search?q=+is%3Aissue+user%3Aopencloud)** to see if the enhancement has already been suggested. If it has, add a comment to the existing issue instead of opening a new one. Feel free to use the GitHub emojis to indicate that you are in favor of an enhancement request.
+Enhancement suggestions are tracked as [GitHub issues](https://guides.github.com/features/issues/). Create one in the right repository and fill in [the template](https://github.com/opencloud-eu/opencloud/issues/new?template=feature_request.md), covering:
 
-#### How to Submit A (Good) Enhancement Suggestion
+*   **A clear, descriptive title.**
+*   **A step-by-step description** of the suggested enhancement.
+*   **Specific examples**, as [Markdown code blocks](https://help.github.com/articles/markdown-basics/#multiple-lines) where relevant.
+*   **Why it would be useful** to most OpenCloud users.
+*   **Other projects/products** where this already exists.
 
-Enhancement suggestions are tracked as [GitHub issues](https://guides.github.com/features/issues/). After you've determined [which repository](https://github.com/opencloud-eu) your enhancement suggestion is related to, create an issue on that repository and provide the following information:
+Always try to explain the problem that you want to see solved, and why it hurts today. That opens the space for a creative solution finding.
+Consider if your proposal affects many users and if it is worth to maintain it for the time being. Programming something is cheap, maintaining it is expensive.
 
-*   **Use a clear and descriptive title** for the issue to identify the suggestion.
-*   **Provide a step-by-step description of the suggested enhancement** in as many details as possible.
-*   **Provide specific examples to demonstrate the steps**. Include copy/pasteable snippets which you use in those examples, as [Markdown code blocks](https://help.github.com/articles/markdown-basics/#multiple-lines).
-*   **Explain why this enhancement would be useful** to most OpenCloud users.
-*   **List some other projects or products where this enhancement exists.**
+### Size of the Contribution
+
+Before submitting a PR to any repository of OpenCloud, it is important to think about its size and fit to the project. That is a big factor how maintainers look at it, especially in times of AI assisted development.
+
+#### Bug Fixes
+Bug fixes in form of "one-liners", typo fixes, fixes to translations and such are always very appreciated. Never think "that is too trivial to submit", it is not.
+
+#### Refactorings
+Bigger changes that fix misbehaviour, refactor parts of the codebase are also appreciated, but be careful. Have tests and keep changes small. Possibly ask before submitting what the maintainers think of your idea.
+
+#### Feature Additions
+Yes, we love it, but we also apply the rules here, as we take the responsibility to maintain code that we include into the project. Try to structure the changes you plan into multiple steps to make it easier to understand and review. Try to consider alternatives and document your decisions (ADR).
+
+Most important: make sure to talk before you invest work and tokens. There is a chance that we will not take your contribution even if it is formally great because it does not fit the roadmap.
+
+#### "Scratch your itch"
+"Scratching your own itch" and pushing the results upstream is in general a great motivation to contribute to open source projects. OpenCloud supports that idea.
+However, we have to keep the main direction of the project in mind, so we can not accept every "special purpose" feature.
+
+Make sure to find a balance between functions that are good for everybody and your own needs. You will have to keep private patches for some of your additions. OpenCloud comes with a [web extension system](https://docs.opencloud.eu/de/docs/dev/web/extension-system/) to make independently maintained extensions easy.
 
 ### Your First Code Contribution
 
@@ -152,11 +145,15 @@ Unsure where to begin contributing to OpenCloud? You can start by looking throug
 It is fine to pick one of the lists following personal preference.
 While not perfect, the number of comments is a reasonable proxy for the impact a given change will have.
 
+If you want to work on that is not yet covered by an issue, make sure to create one before you start to spend your time on implementing it. That will give you an indication if your contribution will be accepted.
+
+Think about creating an extension for OpenCloud rather than trying to push it to the core. That makes it easier to distribute maintenance over more shoulders.
+
 To find out how to set up OpenCloud for local development, please refer to the [Developer Documentation](https://docs.opencloud.eu/docs/dev/web/getting-started) for the web side, and the general server [README](https://github.com/opencloud-eu/opencloud/blob/main/README.md) for backend setup. Both contain information that will come in handy when starting to work on the project.
 
 ### Pull Requests
 
-All contributions to OpenClouds projects use so-called pull requests following the [GitHub PR workflow](https://guides.github.com/introduction/flow/).
+All contributions to OpenClouds projects use pull requests following the [GitHub PR workflow](https://guides.github.com/introduction/flow/).
 
 Please follow these steps to have your contribution considered by the maintainers:
 
@@ -165,6 +162,8 @@ Please follow these steps to have your contribution considered by the maintainer
 *   After you submit your pull request, verify that all [status checks](https://help.github.com/articles/about-status-checks/) are passing <details><summary>What if the status checks are failing?</summary>If a status check is failing, and you believe that the failure is unrelated to your change, please leave a comment on the pull request explaining why you believe the failure is unrelated. A maintainer will re-run the status check for you. If we conclude that the failure was a false positive, then we will open an issue to track that problem with our status check suite.</details>
 
 While the prerequisites above must be satisfied prior to having your pull request reviewed, the reviewer(s) may ask you to complete additional design work, tests, or other changes before your pull request can be ultimately accepted.
+
+Please be patient. Silence does not mean denial, but sitting in a queue. While waiting, consider to review other PRs to speed up the process.
 
 ### Documentation Contributions
 
@@ -195,76 +194,11 @@ It is mandatory to follow them in contributions.
 
 ### Branch Naming
 
-* Use short, descriptive names for your branches. For example, use `fix-login-bug` instead of `bugfix123`.
-* Use hyphens to separate words in branch names. For example, use `add-new-feature` instead of `add_new_feature`.
-* Avoid using special characters or spaces in branch names.
-* Consider including the issue number in the branch name for easy reference. For example, use `issue-45-fix-login-bug` if the branch addresses issue #45.
-* Keep branch names concise and to the point, ideally under 30 characters.
-* Use lowercase letters to maintain consistency and avoid confusion.
+*   Use short, descriptive, hyphen-separated lowercase names (e.g. `add-new-feature`, not `add_new_feature` or `bugfix123`).
+*   Avoid special characters or spaces; keep names concise, ideally under 30 characters.
+*   Consider including the issue number for easy reference, e.g. `issue-45-fix-login-bug`.
 
 ### Golang Styleguide
 
 Use the built-in golang code formatter before submitting the patch.
 Also, consulting documentation like [Effective Go](https://golang.org/doc/effective_go) or [Practical Go](http://bit.ly/gcsg-2019) helps to improve the code quality.
-
-## Additional Notes
-
-### Issue and Pull Request Labels
-
-This section lists the labels we use to help us track and manage issues and pull requests. Most labels are used across all OpenCloud repositories, but some are specific.
-
-[GitHub search](https://help.github.com/articles/searching-issues/) makes it easy to use labels for finding groups of issues or pull requests you're interested in.
-To help you find issues and pull requests, each label can be used in search links for finding open items with that label in the OpenCloud repositories.
-
-The labels are loosely grouped by their purpose, but it's not required that every issue has a label from every group or that an issue can't have more than one label from the same group.
-
-The list here contains all the more general categories of issues which are followed by a colon and a specific value.
-For example, severity 1 looks like `Priority:p1-urgent`.
-
-#### Platform
-
-Describes the platform the issue is happening on, i.e. iOS or Windows.
-
-#### Estimation
-
-T-Shirt sizes for effort estimation to fix that bug or implement an enhancement. Ranges from XS to XXXL.
-
-#### Priority
-
-P1 to P4 (lowest) to indicate a priority. Mostly a tool for internal project management and support.
-
-#### QA
-
-Flags to indicate the internal QA status in terms of process and priority. Please leave alone unless you're QA ;-)
-
-#### Severity
-
-Severity for the product, mostly impacts on the user.
-
-#### Type
-
-The issue type helps to structure the issues in the agile categories (Epic, Story...) but also organizational ones.
-
-#### Topic
-
-A general category of the topic of a ticket.
-
-#### Category
-
-Categorizes the issue to also indicate the type of the issue.
-
-#### Status
-
-The status in the ticket life cycle. Keep an eye on that one, especially for the `Status:Needs-Review` tag which might indicate that the reporter is asked for feedback.
-
-#### Interaction
-
-Another label that indicates the type of the issue.
-
-#### Browser
-
-Important for browser-dependent web issues. It specifies the browser that shows the error.
-
-#### Early-Adopter
-
-Tags issues reported by one of the OpenCloud early adopters, i.e. customers and users who start using OpenCloud before its general availability.
