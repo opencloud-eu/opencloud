@@ -12,11 +12,16 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/iancoleman/strcase"
 	merrors "go-micro.dev/v4/errors"
 	"go-micro.dev/v4/metadata"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
@@ -262,11 +267,58 @@ func matchToPropResponse(ctx context.Context, davPrefix, publicURL string, match
 		propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:favorite", "1"))
 	}
 
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "audio", match.Entity.Audio)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "location", match.Entity.Location)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "image", match.Entity.Image)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "photo", match.Entity.Photo)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "video", match.Entity.Video)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "motion-photo", match.Entity.MotionPhoto)
+	propstatOK.Prop = appendFacet(propstatOK.Prop, "live-photo", match.Entity.LivePhoto)
+
 	if len(propstatOK.Prop) > 0 {
 		response.Propstat = append(response.Propstat, propstatOK)
 	}
 
 	return &response, nil
+}
+
+// appendFacet renders a facet in the xml shape PROPFIND uses for it.
+func appendFacet(props []prop.PropertyXML, name string, facet proto.Message) []prop.PropertyXML {
+	m := facet.ProtoReflect()
+	if !m.IsValid() {
+		return props
+	}
+
+	content := strings.Builder{}
+	fields := m.Descriptor().Fields()
+	for i := 0; i < fields.Len(); i++ {
+		fd := fields.Get(i)
+		if !m.Has(fd) {
+			continue
+		}
+		key := "oc:" + strcase.ToKebab(string(fd.Name()))
+		content.WriteString("<" + key + ">")
+		content.WriteString(prop.Escape(facetValue(fd, m.Get(fd))))
+		content.WriteString("</" + key + ">")
+	}
+	if content.Len() == 0 {
+		return props
+	}
+	return append(props, prop.Raw("oc:"+name, content.String()))
+}
+
+func facetValue(fd protoreflect.FieldDescriptor, v protoreflect.Value) string {
+	switch fd.Kind() {
+	case protoreflect.FloatKind:
+		return strconv.FormatFloat(v.Float(), 'f', -1, 32)
+	case protoreflect.DoubleKind:
+		return strconv.FormatFloat(v.Float(), 'f', -1, 64)
+	case protoreflect.MessageKind:
+		if ts, ok := v.Message().Interface().(*timestamppb.Timestamp); ok {
+			return ts.AsTime().Format(time.RFC3339)
+		}
+	}
+	return v.String()
 }
 
 func hasPreview(md *provider.ResourceInfo, appendToOK func(p ...prop.PropertyXML)) {
