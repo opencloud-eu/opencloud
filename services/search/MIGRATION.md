@@ -8,7 +8,7 @@ until you remove it.
 ## v7.x.x to v8.x.x
 
 > [!IMPORTANT]
-> On 8.0.0 and 8.0.1, `opencloud search index` needs `--insecure` in the
+> On 8.0.x and 8.1.x, `opencloud search index` needs `--insecure` in the
 > default setup, where the search service runs gRPC without TLS: add it to the
 > commands below. Later releases don't need it.
 
