@@ -29,6 +29,8 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/spf13/cobra"
+
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 // Server is the entrypoint for the server command.
@@ -122,6 +124,40 @@ func Server(cfg *config.Config) *cobra.Command {
 
 			ss := search.NewService(selector, eng, extractor, mtrcs, logger, cfg)
 
+			// The KV bucket is used to remember spaces that were skipped during
+			// (re)indexing because they were disabled. It is shared between the gRPC
+			// reindex handler (which fills it) and the event consumer (which drains it
+			// again once a space gets enabled).
+			rawEventsCfg := raw.Config{
+				Endpoint:             cfg.Events.Endpoint,
+				Cluster:              cfg.Events.Cluster,
+				EnableTLS:            cfg.Events.EnableTLS,
+				TLSInsecure:          cfg.Events.TLSInsecure,
+				TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
+				AuthUsername:         cfg.Events.AuthUsername,
+				AuthPassword:         cfg.Events.AuthPassword,
+				MaxAckPending:        cfg.Events.MaxAckPending,
+				AckWait:              cfg.Events.AckWait,
+			}
+			skippedSpaces := search.NewSkippedSpaces(nil)
+			if !cfg.Events.Disabled {
+				kvConnName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeKeyValue)
+				js, err := raw.JetStream(ctx, kvConnName, rawEventsCfg)
+				if err != nil {
+					logger.Error().Err(err).Msg("Failed to connect to NATS jetstream")
+					return err
+				}
+				kv, err := js.CreateOrUpdateKeyValue(ctx, jetstream.KeyValueConfig{
+					Bucket:      search.SkippedSpacesBucket,
+					Description: "Spaces that were skipped during (re)indexing because they were disabled",
+				})
+				if err != nil {
+					logger.Error().Err(err).Msg("Failed to create the skipped spaces KV bucket")
+					return err
+				}
+				skippedSpaces = search.NewSkippedSpaces(kv)
+			}
+
 			// setup the servers
 			gr := runner.NewGroup()
 
@@ -136,6 +172,7 @@ func Server(cfg *config.Config) *cobra.Command {
 					grpc.TraceProvider(traceProvider),
 					grpc.GatewaySelector(selector),
 					grpc.Searcher(ss),
+					grpc.SkippedSpaces(skippedSpaces),
 				)
 				if err != nil {
 					logger.Error().Err(err).Str("transport", "grpc").Msg("Failed to initialize server")
@@ -149,23 +186,13 @@ func Server(cfg *config.Config) *cobra.Command {
 
 			if !cfg.Events.Disabled {
 				connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
-				bus, err := raw.FromConfig(context.Background(), connName, raw.Config{
-					Endpoint:             cfg.Events.Endpoint,
-					Cluster:              cfg.Events.Cluster,
-					EnableTLS:            cfg.Events.EnableTLS,
-					TLSInsecure:          cfg.Events.TLSInsecure,
-					TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
-					AuthUsername:         cfg.Events.AuthUsername,
-					AuthPassword:         cfg.Events.AuthPassword,
-					MaxAckPending:        cfg.Events.MaxAckPending,
-					AckWait:              cfg.Events.AckWait,
-				})
+				bus, err := raw.FromConfig(context.Background(), connName, rawEventsCfg)
 				if err != nil {
 					logger.Error().Err(err).Msg("Failed to create event bus client")
 					return err
 				}
 
-				eventSvc, err := svcEvent.New(ctx, bus, logger, traceProvider, mtrcs, ss, cfg.Events.DebounceDuration, cfg.Events.NumConsumers, cfg.Events.AsyncUploads)
+				eventSvc, err := svcEvent.New(ctx, bus, logger, traceProvider, mtrcs, ss, skippedSpaces, cfg.Events.DebounceDuration, cfg.Events.NumConsumers, cfg.Events.AsyncUploads)
 				if err != nil {
 					logger.Error().Err(err).Str("transport", "event").Msg("Failed to initialize server")
 					return err

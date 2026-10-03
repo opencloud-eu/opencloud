@@ -23,6 +23,7 @@ type Options struct {
 	Metrics         *metrics.Metrics
 	GatewaySelector *pool.Selector[gateway.GatewayAPIClient]
 	Searcher        search.Searcher
+	SkippedSpaces   *search.SkippedSpaces
 }
 
 func newOptions(opts ...Option) Options {
@@ -83,5 +84,12 @@ func GatewaySelector(val *pool.Selector[gateway.GatewayAPIClient]) Option {
 func Searcher(val search.Searcher) Option {
 	return func(o *Options) {
 		o.Searcher = val
+	}
+}
+
+// SkippedSpaces provides a function to set the SkippedSpaces option.
+func SkippedSpaces(val *search.SkippedSpaces) Option {
+	return func(o *Options) {
+		o.SkippedSpaces = val
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
@@ -92,14 +93,7 @@ func Index(cfg *config.Config) *cobra.Command {
 					return err
 				}
 
-				if progress.GetError() != "" {
-					fmt.Printf("[%d/%d] failed to index space %s: %s\n",
-						progress.GetIndexedSpaces(), progress.GetTotalSpaces(), progress.GetSpaceId(), progress.GetError())
-					continue
-				}
-
-				fmt.Printf("[%d/%d] indexed space %s in %s\n",
-					progress.GetIndexedSpaces(), progress.GetTotalSpaces(), progress.GetSpaceId(), progress.GetSpaceDuration().AsDuration())
+				printProgress(progress)
 			}
 			return nil
 		},
@@ -137,4 +131,31 @@ func Index(cfg *config.Config) *cobra.Command {
 	)
 
 	return indexCmd
+}
+
+// printProgress prints a single progress line, e.g.
+//
+//	[ 1/12 SKIPPED] <space id> is disabled, it will be indexed once it is enabled again
+//	[ 2/12 SUCCESS] <space id> indexed in 40.9ms
+//	[ 3/12 ERROR  ] <space id> failed: <error>
+//
+// The counter is padded to the width of the total and the status to the
+// longest status so that the messages line up.
+func printProgress(progress *searchsvc.IndexSpaceResponse) {
+	var status, msg string
+	switch {
+	case progress.GetStatus() == searchsvc.IndexSpaceResponse_STATUS_SKIPPED:
+		status = "SKIPPED"
+		msg = progress.GetSpaceId() + " is disabled, it will be indexed once it is enabled again"
+	// servers not setting a status only report failures via the error field
+	case progress.GetStatus() == searchsvc.IndexSpaceResponse_STATUS_ERROR || progress.GetError() != "":
+		status = "ERROR"
+		msg = progress.GetSpaceId() + " failed: " + progress.GetError()
+	default:
+		status = "SUCCESS"
+		msg = fmt.Sprintf("%s indexed in %s", progress.GetSpaceId(), progress.GetSpaceDuration().AsDuration())
+	}
+
+	width := len(strconv.FormatInt(progress.GetTotalSpaces(), 10))
+	fmt.Printf("[%*d/%d %-7s] %s\n", width, progress.GetIndexedSpaces(), progress.GetTotalSpaces(), status, msg)
 }

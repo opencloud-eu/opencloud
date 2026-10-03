@@ -32,6 +32,7 @@ type Service struct {
 	tp                  trace.TracerProvider
 	m                   *metrics.Metrics
 	index               search.Searcher
+	skippedSpaces       *search.SkippedSpaces
 	events              []events.Unmarshaller
 	stream              raw.Stream
 	indexSpaceDebouncer *SpaceDebouncer
@@ -41,16 +42,17 @@ type Service struct {
 }
 
 // New returns a service implementation for Service.
-func New(ctx context.Context, stream raw.Stream, logger log.Logger, tp trace.TracerProvider, m *metrics.Metrics, index search.Searcher, debounceDuration int, numConsumers int, asyncUploads bool) (Service, error) {
+func New(ctx context.Context, stream raw.Stream, logger log.Logger, tp trace.TracerProvider, m *metrics.Metrics, index search.Searcher, skippedSpaces *search.SkippedSpaces, debounceDuration int, numConsumers int, asyncUploads bool) (Service, error) {
 	svc := Service{
-		ctx:     ctx,
-		log:     logger,
-		tp:      tp,
-		m:       m,
-		index:   index,
-		stream:  stream,
-		stopCh:  make(chan struct{}, 1),
-		stopped: new(atomic.Bool),
+		ctx:           ctx,
+		log:           logger,
+		tp:            tp,
+		m:             m,
+		index:         index,
+		skippedSpaces: skippedSpaces,
+		stream:        stream,
+		stopCh:        make(chan struct{}, 1),
+		stopped:       new(atomic.Bool),
 		events: []events.Unmarshaller{
 			events.ItemTrashed{},
 			events.ItemPurged{},
@@ -64,6 +66,7 @@ func New(ctx context.Context, stream raw.Stream, logger log.Logger, tp trace.Tra
 			events.TagsRemoved{},
 			events.SpaceRenamed{},
 			events.SpaceDeleted{},
+			events.SpaceEnabled{},
 			events.LabelAdded{},
 			events.LabelRemoved{},
 		},
@@ -76,8 +79,8 @@ func New(ctx context.Context, stream raw.Stream, logger log.Logger, tp trace.Tra
 		svc.events = append(svc.events, events.FileUploaded{})
 	}
 
-	svc.indexSpaceDebouncer = NewSpaceDebouncer(time.Duration(debounceDuration)*time.Millisecond, 30*time.Second, func(id *provider.StorageSpaceId) {
-		if err := svc.index.IndexSpace(id, false); err != nil {
+	svc.indexSpaceDebouncer = NewSpaceDebouncer(time.Duration(debounceDuration)*time.Millisecond, 30*time.Second, func(id *provider.StorageSpaceId, force bool) {
+		if err := svc.index.IndexSpace(id, force); err != nil {
 			svc.log.Error().Err(err).Interface("spaceID", id).Msg("error while indexing a space")
 		}
 	}, svc.log)
@@ -174,9 +177,9 @@ func (s Service) processEvent(e raw.Event) error {
 
 	ack := e.Ack
 
-	debounce := func(id *provider.StorageSpaceId) {
+	debounce := func(id *provider.StorageSpaceId, force bool) {
 		ack = func() error { return nil }
-		s.indexSpaceDebouncer.Debounce(id, e.Ack)
+		s.indexSpaceDebouncer.Debounce(id, e.Ack, force)
 	}
 
 	var err error
@@ -184,37 +187,55 @@ func (s Service) processEvent(e raw.Event) error {
 	switch ev := e.Event.Event.(type) {
 	case events.ItemTrashed:
 		s.index.TrashItem(ev.ID)
-		debounce(getSpaceID(ev.Ref))
+		debounce(getSpaceID(ev.Ref), false)
 	case events.ItemPurged:
 		s.index.PurgeItem(ev.Ref)
 	case events.TrashbinPurged:
 		err = s.index.PurgeDeleted(getSpaceID(ev.Ref))
 	case events.ItemMoved:
 		s.index.MoveItem(ev.Ref)
-		debounce(getSpaceID(ev.Ref))
+		debounce(getSpaceID(ev.Ref), false)
 	case events.ItemRestored:
 		s.index.RestoreItem(ev.Ref)
-		debounce(getSpaceID(ev.Ref))
+		debounce(getSpaceID(ev.Ref), false)
 	case events.ContainerCreated:
-		debounce(getSpaceID(ev.Ref))
+		debounce(getSpaceID(ev.Ref), false)
 	case events.FileTouched:
-		debounce(getSpaceID(ev.Ref))
+		debounce(getSpaceID(ev.Ref), false)
 	case events.FileVersionRestored:
-		debounce(getSpaceID(ev.Ref))
+		debounce(getSpaceID(ev.Ref), false)
 	case events.TagsAdded:
 		s.index.UpsertItem(ev.Ref)
-		debounce(getSpaceID(ev.Ref))
+		debounce(getSpaceID(ev.Ref), false)
 	case events.TagsRemoved:
 		s.index.UpsertItem(ev.Ref)
-		debounce(getSpaceID(ev.Ref))
+		debounce(getSpaceID(ev.Ref), false)
 	case events.FileUploaded:
-		debounce(getSpaceID(ev.Ref))
+		debounce(getSpaceID(ev.Ref), false)
 	case events.UploadReady:
-		debounce(getSpaceID(ev.FileRef))
+		debounce(getSpaceID(ev.FileRef), false)
 	case events.SpaceRenamed:
-		debounce(ev.ID)
+		debounce(ev.ID, false)
+	case events.SpaceEnabled:
+		// A space that was skipped during (re)indexing while it was disabled
+		// needs to be reindexed now that it is enabled again.
+		marked, force, err := s.skippedSpaces.IsMarked(ev.ID)
+		if err != nil {
+			s.log.Error().Err(err).Interface("spaceID", ev.ID).Msg("failed to check whether space was skipped while disabled")
+			break
+		}
+		if !marked {
+			break
+		}
+		if err = s.skippedSpaces.Unmark(ev.ID); err != nil {
+			s.log.Error().Err(err).Interface("spaceID", ev.ID).Msg("failed to remove space from the skipped spaces bucket")
+		}
+		debounce(ev.ID, force)
 	case events.SpaceDeleted:
 		err = s.index.PurgeSpace(ev.ID)
+		if err = s.skippedSpaces.Unmark(ev.ID); err != nil {
+			s.log.Error().Err(err).Interface("spaceID", ev.ID).Msg("failed to remove space from the skipped spaces bucket")
+		}
 	case events.LabelAdded:
 		s.index.UpsertItem(ev.Ref)
 	case events.LabelRemoved:
