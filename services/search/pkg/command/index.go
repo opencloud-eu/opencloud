@@ -2,7 +2,6 @@ package command
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -15,10 +14,8 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config/parser"
 
+	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Index is the entrypoint for the server command.
@@ -45,16 +42,23 @@ func Index(cfg *config.Config) *cobra.Command {
 				return fmt.Errorf("concurrency %d exceeds max allowed %d", concurrencyFlag, cfg.ReindexMaxConcurrency)
 			}
 
-			var dialOpts []grpc.DialOption
-			if cfg.GRPCClientTLS.Mode == "insecure" || insecureFlag {
-				dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-			} else {
-				dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
-					MinVersion: tls.VersionTLS12,
-				})))
+			if !cmd.Flags().Changed("endpoint") {
+				endpointFlag = cfg.GRPC.Addr
 			}
 
-			conn, err := grpc.NewClient(endpointFlag, dialOpts...)
+			tlsMode := pool.TLSOff
+			if !insecureFlag {
+				mode, err := pool.StringToTLSMode(cfg.GRPCClientTLS.Mode)
+				if err != nil {
+					return err
+				}
+				tlsMode = mode
+			}
+
+			conn, err := pool.NewConn(endpointFlag,
+				pool.WithTLSMode(tlsMode),
+				pool.WithTLSCACert(cfg.GRPCClientTLS.CACert),
+			)
 			if err != nil {
 				return fmt.Errorf("failed to dial %s: %w", endpointFlag, err)
 			}
@@ -122,8 +126,8 @@ func Index(cfg *config.Config) *cobra.Command {
 	)
 	indexCmd.Flags().String(
 		"endpoint",
-		"127.0.0.1:9220",
-		"the address of the search service gRPC endpoint.",
+		"",
+		"the address of the search service gRPC endpoint. Defaults to the service's configured gRPC address (SEARCH_GRPC_ADDR). With OC_GRPC_CLIENT_TLS_MODE=on the server certificate must be valid for this address.",
 	)
 	indexCmd.Flags().Bool(
 		"insecure",
