@@ -26,6 +26,7 @@ use GuzzleHttp\Exception\GuzzleException;
 use PHPUnit\Framework\Assert;
 use Psr\Http\Message\ResponseInterface;
 use TestHelpers\GraphHelper;
+use TestHelpers\WaitHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\BehatHelper;
@@ -161,12 +162,18 @@ class SharingNgContext implements Context {
 		?string $resource = '',
 		?string $query = null
 	): ResponseInterface {
-		$spaceId = ($this->spacesContext->getSpaceByName($user, $space))["id"];
-
-		if ($fileOrFolder === 'folder') {
-			$itemId = $this->spacesContext->getResourceId($user, $space, $resource);
+		if ($space === "Shares") {
+			// a shared resource lives in the owner's space; its permissions are
+			// listed via the share's remote item id and its parent drive id
+			$spaceId = $this->spacesContext->getSharesRemoteItemParentDriveId($user, $resource);
+			$itemId = $this->spacesContext->getSharesRemoteItemId($user, $resource);
 		} else {
-			$itemId = $this->spacesContext->getFileId($user, $space, $resource);
+			$spaceId = ($this->spacesContext->getSpaceByName($user, $space))["id"];
+			if ($fileOrFolder === 'folder') {
+				$itemId = $this->spacesContext->getResourceId($user, $space, $resource);
+			} else {
+				$itemId = $this->spacesContext->getFileId($user, $space, $resource);
+			}
 		}
 
 		return GraphHelper::getPermissionsList(
@@ -231,6 +238,63 @@ class SharingNgContext implements Context {
 		$this->featureContext->setResponse(
 			$this->getPermissionsList($user, $fileOrFolder, $space, $resource)
 		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $fileOrFolder (file|folder)
+	 * @param string $resource
+	 * @param TableNode $table
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[Then('/^for user "([^"]*)" (file|folder) "([^"]*)" should have the following shares:$/')]
+	public function userGetsAllTheSharesOfTheResource(
+		string $user,
+		string $fileOrFolder,
+		string $resource,
+		TableNode $table
+	): void {
+		$permission = $this->getPermissionsList($user, $fileOrFolder, "Shares", $resource);
+		$jsonBody = $this->featureContext->getJsonDecodedResponseBodyContent($permission);
+
+		$errors = [];
+		foreach ($table->getHash() as $row) {
+			$expectedRoleId = GraphHelper::getPermissionsRoleIdByName($row['permissionsRole']);
+			if ($row['shareType'] === 'user') {
+				$expectedSharee = $this->featureContext->getDisplayNameForUser($row['sharee']);
+			} else {
+				$expectedSharee = $row['sharee'];
+			}
+			$found = false;
+			$actualSharee = '';
+			foreach ($jsonBody->value as $share) {
+				if ($row['shareType'] === 'user') {
+					if (isset($share->grantedToV2->user->displayName)) {
+						$actualSharee = $share->grantedToV2->user->displayName;
+					}
+				} else {
+					if (isset($share->grantedToV2->group->displayName)) {
+						$actualSharee = $share->grantedToV2->group->displayName;
+					}
+				}
+				if ($actualSharee === $expectedSharee) {
+					$found = true;
+					if ($share->roles[0] !== $expectedRoleId) {
+						$errors[] = "Expected user $actualSharee share role id to be '$expectedRoleId'"
+							. " but found '{$share->roles[0]}'";
+					}
+					break;
+				}
+			}
+			if (!$found) {
+				$errors[] = "Expected sharee '$expectedSharee' to be present but found '$actualSharee'";
+			}
+		}
+		if (!empty($errors)) {
+			Assert::fail(implode("\n", $errors));
+		}
 	}
 
 	/**
@@ -458,8 +522,26 @@ class SharingNgContext implements Context {
 			$rows,
 			"'resource' should be provided in the data-table while sharing a resource"
 		);
-		$response = $this->sendShareInvitation($user, $rows);
+		$response = WaitHelper::waitUntil(
+			fn () => $this->sendShareInvitation($user, $rows),
+			fn ($response) => !self::isShareManagerMigrating($response)
+		);
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, "", $response);
+	}
+
+	/**
+	 * @param ResponseInterface $response
+	 *
+	 * @return bool
+	 */
+	private static function isShareManagerMigrating(ResponseInterface $response): bool {
+		if ($response->getStatusCode() !== 500) {
+			return false;
+		}
+		return \str_contains(
+			(string)$response->getBody(),
+			"share manager is currently migrating"
+		);
 	}
 
 	/**

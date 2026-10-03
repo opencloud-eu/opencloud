@@ -162,3 +162,28 @@ msgid "View, download, upload, edit, add, delete including the history."
 msgstr ""
 "Ansehen, herunterladen, hochladen, bearbeiten, hinzufügen, löschen - "
 "inklusive des Verlaufs."
+
+#. UnifiedRole SpaceEditorWithoutTrashbin, Role DisplayName (resolves
+#. directly)
+#: pkg/unifiedrole/roles.go:183
+msgid "Can edit with versions"
+msgstr "Kann bearbeiten mit Historie"
+
+#. UnifiedRole EditorListGrantsWithVersions, Role Description (resolves
+#. directly)
+#: pkg/unifiedrole/roles.go:162
+msgid ""
+"View, download, upload, edit, delete, show all versions and all invited "
+"people."
+msgstr ""
+"Ansehen, herunterladen, hochladen, bearbeiten, löschen und anzeigen aller "
+"Versionen und eingeladenen Personen."
+
+#. UnifiedRole FileEditorListGrantsWithVersions, Role Description (resolves
+#. directly)
+#: pkg/unifiedrole/roles.go:201
+msgid ""
+"View, download, upload, edit, show all versions and all invited people."
+msgstr ""
+"Ansehen, herunterladen, hochladen, bearbeiten und anzeigen aller Versionen "
+"und eingeladenen Personen."

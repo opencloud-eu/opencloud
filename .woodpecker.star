@@ -232,6 +232,12 @@ config = {
             ],
             "skip": False,
         },
+        "sharingNgAdditionalShareRole": {
+            "suites": [
+                "apiSharingNgAdditionalShareRole",
+            ],
+            "skip": False,
+        },
         "notification": {
             "suites": [
                 "apiNotification",

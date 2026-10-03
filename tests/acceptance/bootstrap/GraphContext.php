@@ -3490,4 +3490,107 @@ class GraphContext implements Context {
 		$url = "/graph/$apiVersion/drives/$driveId/root:/$encoded";
 		$this->sendGraphRequestAndCaptureResponse($user, "GET", $url);
 	}
+
+	/**
+	 * @param string $user
+	 * @param string $resource
+	 * @param string $spaceName
+	 *
+	 * @return ResponseInterface
+	 * @throws GuzzleException
+	 */
+	public function getActivities(
+		string $user,
+		string $resource,
+		string $spaceName
+	): ResponseInterface {
+		if ($spaceName === "Shares") {
+			$resourceId = $this->spacesContext->getSharesRemoteItemId($user, $resource);
+		} else {
+			$resourceId = $this->spacesContext->getResourceId($user, $spaceName, $resource);
+		}
+		return GraphHelper::getActivities(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			$user,
+			$this->featureContext->getPasswordForUser($user),
+			$resourceId
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $resource
+	 * @param string $spaceName
+	 * @param TableNode $table
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[Then('/^for user "([^"]*)" (?:folder|file) "([^"]*)" of the space "([^"]*)" should have the following activities:$/')]
+	public function forUserFolderOrFileOfTheSpaceShouldHaveTheseActivities(
+		string $user,
+		string $resource,
+		string $spaceName,
+		TableNode $table
+	): void {
+		$expectedMessages = \array_map(fn ($row) => $row[0], $table->getRows());
+
+		// Activities are recorded asynchronously from events, so poll until every
+		// expected activity shows up (or the wait times out).
+		$actualMessages = [];
+		WaitHelper::waitUntil(
+			function () use ($user, $resource, $spaceName, &$actualMessages) {
+				$activities = $this->featureContext->getJsonDecodedResponse(
+					$this->getActivities($user, $resource, $spaceName)
+				);
+				$actualMessages = \array_map(
+					fn ($activity) => $activity['template']['message'],
+					$activities['value'] ?? []
+				);
+			},
+			function () use ($expectedMessages, &$actualMessages) {
+				foreach ($expectedMessages as $message) {
+					if (!\in_array($message, $actualMessages, true)) {
+						return false;
+					}
+				}
+				return true;
+			}
+		);
+
+		$errors = [];
+		foreach ($expectedMessages as $message) {
+			if (!\in_array($message, $actualMessages, true)) {
+				$errors[] = "Expected activity '$message' was not found in the response. ";
+			}
+		}
+		if (!empty($errors)) {
+			Assert::fail(implode("\n", $errors));
+		}
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $resource
+	 * @param string $spaceName
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[Then('/^for user "([^"]*)" (?:folder|file) "([^"]*)" of the space "([^"]*)" should not have any activity$/')]
+	public function forUserFileOfTheSpaceShouldNotHaveAnyActivity(
+		string $user,
+		string $resource,
+		string $spaceName
+	): void {
+		$response = $this->getActivities($user, $resource, $spaceName);
+		$responseBody = $response->getBody()->getContents();
+		Assert::assertEmpty(
+			$responseBody,
+			__METHOD__
+			. "\nExpected no activity of resource '$resource' for user '$user', but some activities were found\n"
+			. print_r(json_decode($responseBody, true), true)
+		);
+	}
 }

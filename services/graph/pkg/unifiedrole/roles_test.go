@@ -185,6 +185,7 @@ func TestGetRolesByPermissions(t *testing.T) {
 				unifiedrole.RoleFileEditor,
 				unifiedrole.RoleFileEditorWithVersions,
 				unifiedrole.RoleFileEditorListGrants,
+				unifiedrole.RoleFileEditorListGrantsWithVersions,
 			},
 		},
 		"BuildInRoles | folder": {
@@ -199,6 +200,7 @@ func TestGetRolesByPermissions(t *testing.T) {
 				unifiedrole.RoleEditor,
 				unifiedrole.RoleEditorListGrants,
 				unifiedrole.RoleEditorWithVersions,
+				unifiedrole.RoleEditorListGrantsWithVersions,
 				unifiedrole.RoleDenied,
 			},
 		},
@@ -208,7 +210,9 @@ func TestGetRolesByPermissions(t *testing.T) {
 			unifiedRoleDefinition: []*libregraph.UnifiedRoleDefinition{
 				unifiedrole.RoleSpaceViewer,
 				unifiedrole.RoleSpaceViewerWithVersions,
+				unifiedrole.RoleSpaceEditorWithoutVersionsWithoutTrashbin,
 				unifiedrole.RoleSpaceEditor,
+				unifiedrole.RoleSpaceEditorWithoutTrashbin,
 				unifiedrole.RoleSpaceEditorWithVersions,
 				unifiedrole.RoleManager,
 			},
