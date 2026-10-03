@@ -16,7 +16,7 @@ var _ = Describe("getPhoto", func() {
 			"exif:ExposureTime":     {"0.001"},
 			"exif:FNumber":          {"1.8"},
 			"exif:FocalLength":      {"50"},
-			"Base ISO":              {"100"},
+			"exif:IsoSpeedRatings":  {"100"},
 			"tiff:Orientation":      {"1"},
 			"exif:DateTimeOriginal": {"2018-01-01T12:34:56"},
 		})
@@ -30,6 +30,16 @@ var _ = Describe("getPhoto", func() {
 		Expect(photo.Iso).To(Equal(libregraph.PtrInt32(100)))
 		Expect(photo.Orientation).To(Equal(libregraph.PtrInt32(1)))
 		Expect(photo.TakenDateTime).To(Equal(libregraph.PtrTime(time.Date(2018, 1, 1, 12, 34, 56, 0, time.UTC))))
+	})
+
+	It("takes the iso of the shot, not the canon maker note base iso", func() {
+		photo := Tika{}.getPhoto(map[string][]string{
+			"exif:IsoSpeedRatings": {"800"},
+			"Base ISO":             {"256"},
+			"img:Base ISO":         {"256"},
+		})
+		Expect(photo).ToNot(BeNil())
+		Expect(photo.Iso).To(Equal(libregraph.PtrInt32(800)))
 	})
 
 	It("returns nil when no photo metadata is present", func() {
