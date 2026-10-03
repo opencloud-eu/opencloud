@@ -42,6 +42,10 @@ func Index(cfg *config.Config) *cobra.Command {
 				return fmt.Errorf("concurrency %d exceeds max allowed %d", concurrencyFlag, cfg.ReindexMaxConcurrency)
 			}
 
+			if !cmd.Flags().Changed("endpoint") {
+				endpointFlag = cfg.GRPC.Addr
+			}
+
 			tlsMode := pool.TLSOff
 			if !insecureFlag {
 				mode, err := pool.StringToTLSMode(cfg.GRPCClientTLS.Mode)
@@ -122,8 +126,8 @@ func Index(cfg *config.Config) *cobra.Command {
 	)
 	indexCmd.Flags().String(
 		"endpoint",
-		"127.0.0.1:9220",
-		"the address of the search service gRPC endpoint.",
+		"",
+		"the address of the search service gRPC endpoint. Defaults to the service's configured gRPC address (SEARCH_GRPC_ADDR).",
 	)
 	indexCmd.Flags().Bool(
 		"insecure",
