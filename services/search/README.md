@@ -134,6 +134,8 @@ Please note that a reindex only picks up new or changed files. Files that have a
 opencloud search index --all-spaces --force-rescan
 ```
 
+The command connects to the service's gRPC address (`SEARCH_GRPC_ADDR`) unless `--endpoint` is given, with the TLS mode set in `OC_GRPC_CLIENT_TLS_MODE`. With `on`, the server certificate is verified against that address, so if `SEARCH_GRPC_ADDR` is a bind address such as `0.0.0.0:9220`, pass `--endpoint` with a host name the certificate is valid for.
+
 ## Metrics
 
 The search service exposes the following prometheus metrics at `<debug_endpoint>/metrics` (as configured using the `SEARCH_DEBUG_ADDR` env var):
