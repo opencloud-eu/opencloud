@@ -43,6 +43,17 @@ func metadataGroup() responseGroup {
 		}),
 	)
 
+	// corrupt EXIF: latitude beyond 90 must not lose the file from the index
+	lost := fixtureDoc("lost.jpg",
+		withID("1$1!7"),
+		withMime("image/jpeg"),
+		withLocation(&libregraph.GeoCoordinates{
+			Altitude:  libregraph.PtrFloat64(0),
+			Latitude:  libregraph.PtrFloat64(100),
+			Longitude: libregraph.PtrFloat64(11.1),
+		}),
+	)
+
 	indexed := []string{
 		"Album=Some Album",
 		"AlbumArtist=Some AlbumArtist",
@@ -70,7 +81,7 @@ func metadataGroup() responseGroup {
 
 	return responseGroup{
 		name:     "metadata",
-		fixtures: []search.Resource{song, team},
+		fixtures: []search.Resource{song, team, lost},
 		cases: []responseCase{
 			{
 				id: 1, query: `*song*`, reads: "Audio", want: unchanged(indexed),
@@ -107,6 +118,17 @@ func metadataGroup() responseGroup {
 						fmt.Sprintf("Latitude=%v", location.GetLatitude()),
 						fmt.Sprintf("Longitude=%v", location.GetLongitude()),
 					})
+				}),
+			},
+			{
+				id: 4, query: `*lost*`, reads: "Location", want: []string{"Latitude=100", "Longitude=11.1"},
+				read: readsMany(func(m *searchMessage.Match) []string {
+					location := m.GetEntity().GetLocation()
+
+					return []string{
+						fmt.Sprintf("Latitude=%v", location.GetLatitude()),
+						fmt.Sprintf("Longitude=%v", location.GetLongitude()),
+					}
 				}),
 			},
 			{
