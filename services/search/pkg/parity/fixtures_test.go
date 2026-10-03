@@ -50,6 +50,10 @@ func withAudio(audio *libregraph.Audio) fixtureOption {
 	return func(r *search.Resource) { r.Audio = audio }
 }
 
+func withPhoto(photo *libregraph.Photo) fixtureOption {
+	return func(r *search.Resource) { r.Photo = photo }
+}
+
 func withLocation(location *libregraph.GeoCoordinates) fixtureOption {
 	return func(r *search.Resource) { r.Location = location }
 }
