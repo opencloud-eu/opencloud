@@ -20,6 +20,7 @@ package scope
 
 import (
 	"context"
+	"path"
 	"strings"
 
 	appprovider "github.com/cs3org/go-cs3apis/cs3/app/provider/v1beta1"
@@ -143,12 +144,29 @@ func publicshareScope(ctx context.Context, scope *authpb.Scope, resource interfa
 		// public links must not leak info about collaborative shares
 		return false, nil
 	case string:
-		return checkResourcePath(v), nil
+		return checkResourcePath(v) || checkGraphDrivesPath(v, share.Token), nil
 	}
 
 	msg := "public resource type assertion failed"
 	logger.Debug().Str("scope", "publicshareScope").Interface("resource", resource).Msg(msg)
 	return false, errtypes.InternalError(msg)
+}
+
+// checkGraphDrivesPath opens the graph drive routes of exactly the link's own
+// public drive; every other drive stays closed, notably the drives collection
+// and real space ids. Per CS3 request checks enforce what may be read below it.
+func checkGraphDrivesPath(p, token string) bool {
+	if token == "" {
+		return false
+	}
+	p = path.Clean(p)
+	drive := PublicStorageProviderID + "$" + PublicStorageProviderID + "!" + token
+	for _, prefix := range []string{"/graph/v1.0/drives/", "/graph/v1beta1/drives/"} {
+		if p == prefix+drive || strings.HasPrefix(p, prefix+drive+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 func checkStorageRef(ctx context.Context, s *link.PublicShare, r *provider.Reference) bool {

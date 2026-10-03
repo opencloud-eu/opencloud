@@ -3490,4 +3490,380 @@ class GraphContext implements Context {
 		$url = "/graph/$apiVersion/drives/$driveId/root:/$encoded";
 		$this->sendGraphRequestAndCaptureResponse($user, "GET", $url);
 	}
+
+	/**
+	 * The virtual drive a public link is addressed under: the public storage
+	 * provider/space id pair with the link token as opaque id.
+	 *
+	 * @param string $token
+	 *
+	 * @return string
+	 */
+	private function publicLinkDriveId(string $token): string {
+		$publicStorageId = "7993447f-687f-490d-875c-ac95e89a62a4";
+		return "$publicStorageId\$$publicStorageId!$token";
+	}
+
+	/**
+	 * Send an anonymous Graph request in the context of the last created
+	 * public link: token via the public-token query parameter, an optional
+	 * password as basic auth for user "public".
+	 *
+	 * @param string $urlSuffix part below /graph/v1.0/drives/{publicDriveId}
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	private function publicSendsGraphDriveRequest(string $urlSuffix, ?string $password = null): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$driveId = $this->publicLinkDriveId($token);
+		$url = $this->featureContext->getBaseUrl()
+			. "/graph/v1.0/drives/$driveId$urlSuffix"
+			. (\str_contains($urlSuffix, "?") ? "&" : "?") . "public-token=$token";
+		$response = HttpRequestHelper::get(
+			$url,
+			$this->featureContext->getStepLineRef(),
+			$password === null ? null : "public",
+			$this->featureContext->getActualPassword($password)
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public lists the children of the last created public link using the Graph API')]
+	#[When('the public lists the children of the last created public link with password :password using the Graph API')]
+	public function thePublicListsTheChildrenOfTheLastCreatedPublicLink(?string $password = null): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$rootId = $this->publicLinkDriveId($token);
+		$this->publicSendsGraphDriveRequest("/items/$rootId/children", $password);
+	}
+
+	/**
+	 * @param string $path
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public lists the children of path :path of the last created public link using the Graph API')]
+	#[When('the public lists the children of path :path of the last created public link with password :password using the Graph API')]
+	public function thePublicListsTheChildrenOfPathOfTheLastCreatedPublicLink(
+		string $path,
+		?string $password = null
+	): void {
+		$encoded = $this->encodeColonPathSegment($path);
+		$this->publicSendsGraphDriveRequest("/root:/$encoded:/children", $password);
+	}
+
+	/**
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public gets the root of the last created public link expanding its children using the Graph API')]
+	#[When('the public gets the root of the last created public link expanding its children with password :password using the Graph API')]
+	public function thePublicGetsTheRootOfTheLastCreatedPublicLinkExpandingItsChildren(?string $password = null): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$rootId = $this->publicLinkDriveId($token);
+		$this->publicSendsGraphDriveRequest("/items/$rootId?\$expand=children", $password);
+	}
+
+	/**
+	 * @param string $path
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public gets the drive item of path :path of the last created public link selecting the allowed actions with password :password using the Graph API')]
+	public function thePublicGetsTheDriveItemOfPathSelectingTheAllowedActions(
+		string $path,
+		?string $password = null
+	): void {
+		$encoded = $this->encodeColonPathSegment($path);
+		$select = "%24select=%40libre.graph.permissions.actions.allowedValues";
+		$this->publicSendsGraphDriveRequest("/root:/$encoded?$select", $password);
+	}
+
+	/**
+	 * @param string $urlSuffix raw suffix below /graph/v1.0, may contain :spaceOfUser
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	private function publicSendsRawGraphRequest(string $urlSuffix, ?string $password = null): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$url = $this->featureContext->getBaseUrl() . "/graph/v1.0" . $urlSuffix
+			. (\str_contains($urlSuffix, "?") ? "&" : "?") . "public-token=$token";
+		$response = HttpRequestHelper::get(
+			$url,
+			$this->featureContext->getStepLineRef(),
+			$password === null ? null : "public",
+			$this->featureContext->getActualPassword($password)
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public lists the children of the last created public link selecting the share types with password :password using the Graph API')]
+	public function thePublicListsTheChildrenSelectingTheShareTypes(?string $password = null): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$rootId = $this->publicLinkDriveId($token);
+		$select = "%24select=%40libre.graph.shareTypes";
+		$this->publicSendsGraphDriveRequest("/items/$rootId/children?$select", $password);
+	}
+
+	/**
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public tries to list the drives using the token of the last created public link with password :password using the Graph API')]
+	public function thePublicTriesToListTheDrives(?string $password = null): void {
+		$this->publicSendsRawGraphRequest("/drives/", $password);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public tries to get the personal drive of user :user through the last created public link with password :password using the Graph API')]
+	public function thePublicTriesToGetThePersonalDriveOfUser(string $user, ?string $password = null): void {
+		$user = $this->featureContext->getActualUsername($user);
+		$driveId = $this->spacesContext->getSpaceIdByName($user, "Personal");
+		$this->publicSendsRawGraphRequest("/drives/$driveId", $password);
+	}
+
+	/**
+	 * Addressing an in-share item through its REAL drive id must be rejected:
+	 * only the token's public drive is authorized.
+	 *
+	 * @param string $child
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public tries to get the child :child of the last created public link through its real drive id with password :password using the Graph API')]
+	public function thePublicTriesToGetTheChildThroughItsRealDriveId(string $child, ?string $password = null): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$rootId = $this->publicLinkDriveId($token);
+		$url = $this->featureContext->getBaseUrl()
+			. "/graph/v1.0/drives/$rootId/items/$rootId/children?public-token=$token";
+		$listing = HttpRequestHelper::get(
+			$url,
+			$this->featureContext->getStepLineRef(),
+			$password === null ? null : "public",
+			$this->featureContext->getActualPassword($password)
+		);
+		$children = \json_decode($listing->getBody()->getContents(), true)["value"] ?? [];
+		$childId = null;
+		foreach ($children as $entry) {
+			if ($entry["name"] === $child) {
+				$childId = $entry["id"];
+			}
+		}
+		Assert::assertNotNull($childId, "child '$child' not found in the public link listing");
+		$realDriveId = \explode("!", $childId)[0];
+		$this->publicSendsRawGraphRequest("/drives/$realDriveId/items/$childId", $password);
+	}
+
+	/**
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public tries to list the children of a foreign public link drive using the last created token with password :password using the Graph API')]
+	public function thePublicTriesToListAForeignPublicLinkDrive(?string $password = null): void {
+		$foreign = $this->publicLinkDriveId("notthetokenofthislink");
+		$this->publicSendsRawGraphRequest("/drives/$foreign/items/$foreign/children", $password);
+	}
+
+	/**
+	 * Mutation probes: the public link surface is read only, every write on the
+	 * beta routes has to be rejected.
+	 *
+	 * @param string $action
+	 * @param string $child
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('/^the public tries to (create a link for|delete|rename|list the permissions of) the child "([^"]*)" of the last created public link with password "([^"]*)" using the Graph API$/')]
+	public function thePublicTriesToMutateTheChildOfTheLastCreatedPublicLink(
+		string $action,
+		string $child,
+		?string $password = null
+	): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$rootId = $this->publicLinkDriveId($token);
+		$listing = HttpRequestHelper::get(
+			$this->featureContext->getBaseUrl()
+			. "/graph/v1.0/drives/$rootId/items/$rootId/children?public-token=$token",
+			$this->featureContext->getStepLineRef(),
+			"public",
+			$this->featureContext->getActualPassword($password)
+		);
+		$children = \json_decode($listing->getBody()->getContents(), true)["value"] ?? [];
+		$childId = null;
+		foreach ($children as $entry) {
+			if ($entry["name"] === $child) {
+				$childId = $entry["id"];
+			}
+		}
+		Assert::assertNotNull($childId, "child '$child' not found in the public link listing");
+
+		$base = "/graph/v1beta1/drives/$rootId/items/$childId";
+		switch ($action) {
+			case "create a link for":
+				$method = "POST";
+				$url = "$base/createLink";
+				$body = \json_encode(["type" => "view", "password" => "Sup3rS3cret!x"]);
+				break;
+			case "delete":
+				$method = "DELETE";
+				$url = $base;
+				$body = null;
+				break;
+			case "rename":
+				$method = "PATCH";
+				$url = $base;
+				$body = \json_encode(["name" => "renamed.txt"]);
+				break;
+			case "list the permissions of":
+				$method = "GET";
+				$url = "$base/permissions";
+				$body = null;
+				break;
+			default:
+				throw new \Exception("unknown mutation action '$action'");
+		}
+		$response = HttpRequestHelper::sendRequest(
+			$this->featureContext->getBaseUrl() . $url
+			. (\str_contains($url, "?") ? "&" : "?") . "public-token=$token",
+			$this->featureContext->getStepLineRef(),
+			$method,
+			"public",
+			$this->featureContext->getActualPassword($password),
+			["Content-Type" => "application/json"],
+			$body
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 * The public link drive endpoint rejects the token as a query parameter,
+	 * so it rides in the header here.
+	 *
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public gets the drive of the last created public link with password :password using the Graph API')]
+	public function thePublicGetsTheDriveOfTheLastCreatedPublicLink(?string $password = null): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$driveId = $this->publicLinkDriveId($token);
+		$response = HttpRequestHelper::get(
+			$this->featureContext->getBaseUrl() . "/graph/v1.0/drives/$driveId",
+			$this->featureContext->getStepLineRef(),
+			$password === null ? null : "public",
+			$this->featureContext->getActualPassword($password),
+			["public-token" => $token]
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 * Item anchored colon path: the anchor id is resolved through the public
+	 * children listing, so the step stays within the public API.
+	 *
+	 * @param string $path
+	 * @param string $child
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public gets the drive item :path below the child :child of the last created public link with password :password using the Graph API')]
+	public function thePublicGetsTheDriveItemBelowTheChildOfTheLastCreatedPublicLink(
+		string $path,
+		string $child,
+		?string $password = null
+	): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$rootId = $this->publicLinkDriveId($token);
+		$url = $this->featureContext->getBaseUrl()
+			. "/graph/v1.0/drives/$rootId/items/$rootId/children?public-token=$token";
+		$response = HttpRequestHelper::get(
+			$url,
+			$this->featureContext->getStepLineRef(),
+			$password === null ? null : "public",
+			$this->featureContext->getActualPassword($password)
+		);
+		$children = \json_decode($response->getBody()->getContents(), true)["value"] ?? [];
+		$childId = null;
+		foreach ($children as $entry) {
+			if ($entry["name"] === $child) {
+				$childId = $entry["id"];
+			}
+		}
+		Assert::assertNotNull($childId, "child '$child' not found in the public link listing");
+		$encoded = $this->encodeColonPathSegment($path);
+		$this->publicSendsGraphDriveRequest("/items/$childId:/$encoded", $password);
+	}
+
+	/**
+	 * @param string $name
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public creates an upload session for :name in the last created public link using the Graph API')]
+	#[When('the public creates an upload session for :name in the last created public link with password :password using the Graph API')]
+	public function thePublicCreatesAnUploadSessionForInTheLastCreatedPublicLink(
+		string $name,
+		?string $password = null
+	): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$rootId = $this->publicLinkDriveId($token);
+		$url = $this->featureContext->getBaseUrl()
+			. "/graph/v1.0/drives/$rootId/items/$rootId/createUploadSession?public-token=$token";
+		$response = HttpRequestHelper::post(
+			$url,
+			$this->featureContext->getStepLineRef(),
+			$password === null ? null : "public",
+			$this->featureContext->getActualPassword($password),
+			["Content-Type" => "application/json"],
+			\json_encode(["item" => ["name" => $name, "fileSize" => 6]])
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 * The security probe: an id of a resource that is NOT inside the public
+	 * link must not be readable through the link's token.
+	 *
+	 * @param string $path
+	 * @param string $user
+	 * @param string|null $password
+	 *
+	 * @return void
+	 */
+	#[When('the public tries to get the resource :path of user :user through the last created public link using the Graph API')]
+	#[When('the public tries to get the resource :path of user :user through the last created public link with password :password using the Graph API')]
+	public function thePublicTriesToGetTheResourceOfUserThroughTheLastCreatedPublicLink(
+		string $path,
+		string $user,
+		?string $password = null
+	): void {
+		$user = $this->featureContext->getActualUsername($user);
+		$resourceId = $this->featureContext->getFileIdForPath($user, $path);
+		$this->publicSendsGraphDriveRequest("/items/$resourceId", $password);
+	}
 }

@@ -76,6 +76,10 @@ const (
 	PreconditionFailed
 	// ItemIsLocked The item is locked by another process. Try again later.
 	ItemIsLocked
+	// PublicLinkPasswordRequired the public link is password protected and no password was provided.
+	PublicLinkPasswordRequired
+	// PublicLinkPasswordInvalid a password was provided for the public link but it was rejected.
+	PublicLinkPasswordInvalid
 )
 
 var errorCodes = [...]string{
@@ -99,6 +103,8 @@ var errorCodes = [...]string{
 	"unauthenticated",
 	"preconditionFailed",
 	"itemIsLocked",
+	"publicLinkPasswordRequired",
+	"publicLinkPasswordInvalid",
 }
 
 // New constructs a new errorcode.Error
@@ -151,6 +157,8 @@ func (e Error) Render(w http.ResponseWriter, r *http.Request) {
 		status = http.StatusMethodNotAllowed
 	case ItemIsLocked:
 		status = http.StatusLocked
+	case PublicLinkPasswordRequired, PublicLinkPasswordInvalid:
+		status = http.StatusUnauthorized
 	case PreconditionFailed:
 		status = http.StatusPreconditionFailed
 	default:

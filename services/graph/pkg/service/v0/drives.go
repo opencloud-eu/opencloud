@@ -881,6 +881,19 @@ func (g Graph) cs3StorageSpaceToDrive(ctx context.Context, baseURL *url.URL, spa
 				// DisplayName: , TODO read and cache from users provider
 			},
 		}
+	} else if space.GetRoot().GetStorageId() == utils.PublicStorageProviderID {
+		// a public share mountpoint carries no space owner; the request runs as
+		// the share creator (publicshares auth), so the context user is who
+		// shared it, the same source webdav fills oc:owner-display-name from.
+		if u, ok := revactx.ContextGetUser(ctx); ok && u.GetId().GetOpaqueId() != "" {
+			id := u.GetId().GetOpaqueId()
+			drive.Owner = &libregraph.IdentitySet{
+				User: &libregraph.Identity{
+					Id:          &id,
+					DisplayName: u.GetDisplayName(),
+				},
+			}
+		}
 	}
 	if space.Mtime != nil {
 		lastModified := cs3TimestampToTime(space.Mtime)
