@@ -31,7 +31,7 @@ func Index(cfg *config.Config) *cobra.Command {
 			allSpacesFlag, _ := cmd.Flags().GetBool("all-spaces")
 			spaceFlag, _ := cmd.Flags().GetString("space")
 			forceRescanFlag, _ := cmd.Flags().GetBool("force-rescan")
-			endpoint, _ := cmd.Flags().GetString("endpoint")
+			endpointFlag, _ := cmd.Flags().GetString("endpoint")
 			insecureFlag, _ := cmd.Flags().GetBool("insecure")
 			concurrencyFlag, _ := cmd.Flags().GetInt("concurrency")
 
@@ -43,7 +43,7 @@ func Index(cfg *config.Config) *cobra.Command {
 			}
 
 			if !cmd.Flags().Changed("endpoint") {
-				endpoint = cfg.GRPC.Addr
+				endpointFlag = cfg.GRPC.Addr
 			}
 
 			tlsMode := pool.TLSOff
@@ -55,12 +55,12 @@ func Index(cfg *config.Config) *cobra.Command {
 				tlsMode = mode
 			}
 
-			conn, err := pool.NewConn(endpoint,
+			conn, err := pool.NewConn(endpointFlag,
 				pool.WithTLSMode(tlsMode),
 				pool.WithTLSCACert(cfg.GRPCClientTLS.CACert),
 			)
 			if err != nil {
-				return fmt.Errorf("failed to dial %s: %w", endpoint, err)
+				return fmt.Errorf("failed to dial %s: %w", endpointFlag, err)
 			}
 			defer conn.Close()
 
