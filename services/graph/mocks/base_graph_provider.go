@@ -6,6 +6,7 @@ package mocks
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	"github.com/cs3org/go-cs3apis/cs3/sharing/ocm/v1beta1"
@@ -173,5 +174,51 @@ func (_c *BaseGraphProvider_CS3ReceivedSharesToDriveItems_Call) Return(driveItem
 
 func (_c *BaseGraphProvider_CS3ReceivedSharesToDriveItems_Call) RunAndReturn(run func(ctx context.Context, receivedShares []*collaborationv1beta1.ReceivedShare) ([]libregraph.DriveItem, error)) *BaseGraphProvider_CS3ReceivedSharesToDriveItems_Call {
 	_c.Call.Return(run)
+	return _c
+}
+
+// SetDriveItemsDownloadURL provides a mock function for the type BaseGraphProvider
+func (_mock *BaseGraphProvider) SetDriveItemsDownloadURL(r *http.Request, items []libregraph.DriveItem) {
+	_mock.Called(r, items)
+	return
+}
+
+// BaseGraphProvider_SetDriveItemsDownloadURL_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetDriveItemsDownloadURL'
+type BaseGraphProvider_SetDriveItemsDownloadURL_Call struct {
+	*mock.Call
+}
+
+// SetDriveItemsDownloadURL is a helper method to define mock.On call
+//   - r *http.Request
+//   - items []libregraph.DriveItem
+func (_e *BaseGraphProvider_Expecter) SetDriveItemsDownloadURL(r interface{}, items interface{}) *BaseGraphProvider_SetDriveItemsDownloadURL_Call {
+	return &BaseGraphProvider_SetDriveItemsDownloadURL_Call{Call: _e.mock.On("SetDriveItemsDownloadURL", r, items)}
+}
+
+func (_c *BaseGraphProvider_SetDriveItemsDownloadURL_Call) Run(run func(r *http.Request, items []libregraph.DriveItem)) *BaseGraphProvider_SetDriveItemsDownloadURL_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 *http.Request
+		if args[0] != nil {
+			arg0 = args[0].(*http.Request)
+		}
+		var arg1 []libregraph.DriveItem
+		if args[1] != nil {
+			arg1 = args[1].([]libregraph.DriveItem)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *BaseGraphProvider_SetDriveItemsDownloadURL_Call) Return() *BaseGraphProvider_SetDriveItemsDownloadURL_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *BaseGraphProvider_SetDriveItemsDownloadURL_Call) RunAndReturn(run func(r *http.Request, items []libregraph.DriveItem)) *BaseGraphProvider_SetDriveItemsDownloadURL_Call {
+	_c.Run(run)
 	return _c
 }

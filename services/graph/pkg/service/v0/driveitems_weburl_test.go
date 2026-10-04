@@ -26,7 +26,8 @@ func TestCS3ResourceToDriveItemPopulatesWebUrl(t *testing.T) {
 		base, err := url.Parse("https://example.com")
 		require.NoError(t, err)
 
-		item, err := cs3ResourceToDriveItem(&logger, base, res)
+		g := BaseGraphService{logger: &logger, publicBaseURL: base}
+		item, err := g.cs3ResourceToDriveItem(res)
 		require.NoError(t, err)
 		require.NotNil(t, item.WebUrl)
 		assert.Equal(t, "https://example.com/f/storage-1$space-1%21item-1", *item.WebUrl)
@@ -36,7 +37,8 @@ func TestCS3ResourceToDriveItemPopulatesWebUrl(t *testing.T) {
 		base, err := url.Parse("https://example.com/cloud")
 		require.NoError(t, err)
 
-		item, err := cs3ResourceToDriveItem(&logger, base, res)
+		g := BaseGraphService{logger: &logger, publicBaseURL: base}
+		item, err := g.cs3ResourceToDriveItem(res)
 		require.NoError(t, err)
 		require.NotNil(t, item.WebUrl)
 		assert.Equal(t, "https://example.com/cloud/f/storage-1$space-1%21item-1", *item.WebUrl)
