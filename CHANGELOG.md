@@ -44,6 +44,7 @@
 
 ### 📦️ Dependencies
 
+- [full-ci] chore: bump web to v8.1.0 [[#3656](https://github.com/opencloud-eu/opencloud/pull/3656)]
 - chore: bump reva to latest main [[#3642](https://github.com/opencloud-eu/opencloud/pull/3642)]
 - chore: bump libre-graph-api-go to v1.0.8 [[#3645](https://github.com/opencloud-eu/opencloud/pull/3645)]
 - build(deps): bump github.com/nats-io/nats.go from 1.53.1 to 1.54.0 [[#3584](https://github.com/opencloud-eu/opencloud/pull/3584)]
