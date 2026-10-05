@@ -2515,6 +2515,7 @@ def opencloudServer(storage = "decomposed", depends_on = [], deploy_type = "", e
         "WEBFINGER_DEBUG_ADDR": "0.0.0.0:9279",
         "STORAGE_USERS_POSIX_SCAN_DEBOUNCE_DELAY": 0,
         "OC_MACHINE_AUTH_API_KEY": MACHINE_AUTH_API_KEY,
+        "GRAPH_ENABLE_GUEST_INVITES": True,
     }
 
     if storage == "posix":
