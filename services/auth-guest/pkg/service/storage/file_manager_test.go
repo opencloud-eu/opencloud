@@ -95,31 +95,6 @@ func TestFileManagerRemoveMissing(t *testing.T) {
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 
-func TestFileManagerRedeem(t *testing.T) {
-	dir := t.TempDir()
-	s := NewFileManager(dir)
-
-	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
-	require.NoError(t, s.Add(rec))
-
-	require.NoError(t, s.Redeem(rec.ShareIDHash))
-
-	got, err := s.Get(rec.ShareIDHash)
-	require.NoError(t, err)
-	assert.True(t, got.Redeemed)
-
-	err = s.Redeem(rec.ShareIDHash)
-	assert.ErrorIs(t, err, ErrAlreadyRedeemed)
-}
-
-func TestFileManagerRedeemMissing(t *testing.T) {
-	dir := t.TempDir()
-	s := NewFileManager(dir)
-
-	err := s.Redeem("doesnotexist")
-	assert.ErrorIs(t, err, ErrNotFound)
-}
-
 func TestFileManagerUpdate(t *testing.T) {
 	dir := t.TempDir()
 	s := NewFileManager(dir)
@@ -191,7 +166,7 @@ func TestFileManagerAddConcurrent(t *testing.T) {
 	assert.Equal(t, int32(1), success.Load())
 }
 
-func TestFileManagerRedeemConcurrent(t *testing.T) {
+func TestFileManagerUpdateConcurrent(t *testing.T) {
 	dir := t.TempDir()
 	s := NewFileManager(dir)
 
@@ -207,7 +182,14 @@ func TestFileManagerRedeemConcurrent(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := s.Redeem(rec.ShareIDHash); err == nil {
+			err := s.Update(rec.ShareIDHash, func(r *Record) error {
+				if r.Redeemed {
+					return errors.New("already set")
+				}
+				r.Redeemed = true
+				return nil
+			})
+			if err == nil {
 				success.Add(1)
 			}
 		}()

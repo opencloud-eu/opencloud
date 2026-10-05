@@ -253,10 +253,9 @@ func TestValidateShare(t *testing.T) {
 }
 
 func TestRedeem(t *testing.T) {
-	store := storagemocks.NewManager(t)
+	store := storage.NewFileManager(t.TempDir())
 	tok, rec := newToken(t)
-	store.On("Get", rec.ShareIDHash).Return(rec, nil)
-	store.On("Redeem", rec.ShareIDHash).Return(nil)
+	require.NoError(t, store.Add(rec))
 
 	share := &collaboration.Share{Id: &collaboration.ShareId{OpaqueId: testShareID}}
 	s := newRedeemService(t, store, newGatewayMock(&collaboration.GetShareResponse{
@@ -269,14 +268,16 @@ func TestRedeem(t *testing.T) {
 	require.NotEmpty(t, result.SessionToken)
 	assert.Equal(t, testShareID, result.ShareID)
 
-	store.AssertCalled(t, "Redeem", rec.ShareIDHash)
+	got, err := store.Get(rec.ShareIDHash)
+	require.NoError(t, err)
+	assert.True(t, got.Redeemed)
 }
 
 func TestRedeemAlreadyRedeemed(t *testing.T) {
-	store := storagemocks.NewManager(t)
+	store := storage.NewFileManager(t.TempDir())
 	tok, rec := newToken(t)
-	store.On("Get", rec.ShareIDHash).Return(rec, nil)
-	store.On("Redeem", rec.ShareIDHash).Return(storage.ErrAlreadyRedeemed)
+	rec.Redeemed = true
+	require.NoError(t, store.Add(rec))
 
 	share := &collaboration.Share{Id: &collaboration.ShareId{OpaqueId: testShareID}}
 	s := newRedeemService(t, store, newGatewayMock(&collaboration.GetShareResponse{

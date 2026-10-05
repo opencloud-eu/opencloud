@@ -26,6 +26,11 @@ func writeError(w http.ResponseWriter, status int, body errorResponse) {
 }
 
 func writeGuestError(w http.ResponseWriter, err error) {
+	if errors.Is(err, authguest.ErrEventsNotConfigured) {
+		writeError(w, http.StatusServiceUnavailable, errorResponse{ErrorType: "serviceUnavailable", Message: err.Error()})
+		return
+	}
+
 	var ge *authguest.GuestError
 	if !errors.As(err, &ge) {
 		writeError(w, http.StatusInternalServerError, errorResponse{ErrorType: "internalError", Message: "An internal error occurred."})

@@ -66,6 +66,12 @@ func TestRenewHandlerErrorMapping(t *testing.T) {
 			wantStatus: http.StatusInternalServerError,
 			wantType:   "internalError",
 		},
+		{
+			name:       "events not configured",
+			err:        authguest.ErrEventsNotConfigured,
+			wantStatus: http.StatusServiceUnavailable,
+			wantType:   "serviceUnavailable",
+		},
 	}
 
 	for _, tt := range tests {

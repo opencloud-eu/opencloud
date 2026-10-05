@@ -147,57 +147,6 @@ func (_c *Manager_Get_Call) RunAndReturn(run func(shareIDHash string) (storage.R
 	return _c
 }
 
-// Redeem provides a mock function for the type Manager
-func (_mock *Manager) Redeem(shareIDHash string) error {
-	ret := _mock.Called(shareIDHash)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Redeem")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(string) error); ok {
-		r0 = returnFunc(shareIDHash)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// Manager_Redeem_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Redeem'
-type Manager_Redeem_Call struct {
-	*mock.Call
-}
-
-// Redeem is a helper method to define mock.On call
-//   - shareIDHash string
-func (_e *Manager_Expecter) Redeem(shareIDHash any) *Manager_Redeem_Call {
-	return &Manager_Redeem_Call{Call: _e.mock.On("Redeem", shareIDHash)}
-}
-
-func (_c *Manager_Redeem_Call) Run(run func(shareIDHash string)) *Manager_Redeem_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
-		if args[0] != nil {
-			arg0 = args[0].(string)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *Manager_Redeem_Call) Return(err error) *Manager_Redeem_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *Manager_Redeem_Call) RunAndReturn(run func(shareIDHash string) error) *Manager_Redeem_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // Remove provides a mock function for the type Manager
 func (_mock *Manager) Remove(shareIDHash string) error {
 	ret := _mock.Called(shareIDHash)

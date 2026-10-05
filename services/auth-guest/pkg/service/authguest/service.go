@@ -119,11 +119,14 @@ func (s *AuthGuestService) Redeem(ctx context.Context, tokenString string) (*Ses
 		return nil, err
 	}
 
-	if err := s.store.Redeem(rec.ShareIDHash); err != nil {
-		if errors.Is(err, storage.ErrAlreadyRedeemed) {
-			return nil, &GuestError{ErrorType: ErrAlreadyRedeemed, ShareID: rec.ShareID}
+	if err := s.store.Update(rec.ShareIDHash, func(r *storage.Record) error {
+		if r.Redeemed {
+			return ErrAlreadyRedeemed
 		}
-		return nil, err
+		r.Redeemed = true
+		return nil
+	}); err != nil {
+		return nil, &GuestError{ErrorType: err, ShareID: rec.ShareID}
 	}
 
 	sessionToken, err := s.jwtService.Sign(rec.ShareID)
