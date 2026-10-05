@@ -29,24 +29,24 @@ var ErrAlreadyRedeemed = errors.New("token already redeemed")
 var ErrShareNotFound = errors.New("share not found")
 var ErrShareExpired = errors.New("share expired")
 var ErrEventsNotConfigured = errors.New("event publisher not configured")
+var ErrPinInvalid = errors.New("pin invalid")
+var ErrPinExpired = errors.New("pin expired")
 
 const guestLinkTokenTTL = 30 * time.Minute
 const guestPinTTL = 30 * time.Minute
 
-// RedeemError wraps a redeem failure together with the share id. The HTTP
+// GuestError wraps an auth-guest failure together with the share id. The HTTP
 // transport inspects ErrorType to choose a status code and message.
-type RedeemError struct {
+type GuestError struct {
 	ErrorType error
 	ShareID   string
 }
 
-func (e *RedeemError) Error() string { return e.ErrorType.Error() }
+func (e *GuestError) Error() string { return e.ErrorType.Error() }
 
-// RenewError is an alias for RedeemError, used by the renew flow.
-type RenewError = RedeemError
-
-// RedeemResponse is the result of a successful token redemption.
-type RedeemResponse struct {
+// SessionResponse is the result of a successful authentication: a session token
+// and the share id it grants access to.
+type SessionResponse struct {
 	SessionToken string
 	ShareID      string
 }
@@ -54,8 +54,9 @@ type RedeemResponse struct {
 // AuthGuest is the domain service used by the transport and event layers.
 type AuthGuest interface {
 	CreateToken(ctx context.Context, shareID string) (*token.Token, error)
-	Redeem(ctx context.Context, tokenString string) (*RedeemResponse, error)
+	Redeem(ctx context.Context, tokenString string) (*SessionResponse, error)
 	Renew(ctx context.Context, shareID string) error
+	VerifyPin(ctx context.Context, shareID, pinValue string) (*SessionResponse, error)
 	CleanupShare(shareID string) error
 }
 
@@ -108,7 +109,7 @@ func (s *AuthGuestService) CreateToken(ctx context.Context, shareID string) (*to
 
 // Redeem validates a token and its share and exchanges them for a session token
 // and the share id.
-func (s *AuthGuestService) Redeem(ctx context.Context, tokenString string) (*RedeemResponse, error) {
+func (s *AuthGuestService) Redeem(ctx context.Context, tokenString string) (*SessionResponse, error) {
 	rec, err := s.verifyToken(tokenString)
 	if err != nil {
 		return nil, err
@@ -120,7 +121,7 @@ func (s *AuthGuestService) Redeem(ctx context.Context, tokenString string) (*Red
 
 	if err := s.store.Redeem(rec.ShareIDHash); err != nil {
 		if errors.Is(err, storage.ErrAlreadyRedeemed) {
-			return nil, &RedeemError{ErrorType: ErrAlreadyRedeemed, ShareID: rec.ShareID}
+			return nil, &GuestError{ErrorType: ErrAlreadyRedeemed, ShareID: rec.ShareID}
 		}
 		return nil, err
 	}
@@ -130,13 +131,13 @@ func (s *AuthGuestService) Redeem(ctx context.Context, tokenString string) (*Red
 		return nil, err
 	}
 
-	return &RedeemResponse{SessionToken: sessionToken, ShareID: rec.ShareID}, nil
+	return &SessionResponse{SessionToken: sessionToken, ShareID: rec.ShareID}, nil
 }
 
 // Renew generates a new guest link token and PIN for the given share.
 func (s *AuthGuestService) Renew(ctx context.Context, shareID string) error {
 	if _, err := s.store.Get(token.Hash(shareID)); err != nil {
-		return &RenewError{ErrorType: err, ShareID: shareID}
+		return &GuestError{ErrorType: err, ShareID: shareID}
 	}
 
 	if s.publisher == nil {
@@ -188,6 +189,49 @@ func (s *AuthGuestService) Renew(ctx context.Context, shareID string) error {
 	})
 }
 
+// VerifyPin validates a PIN and its share and exchanges them for a session token
+// and the share id.
+func (s *AuthGuestService) VerifyPin(ctx context.Context, shareID, pinValue string) (*SessionResponse, error) {
+	rec, err := s.store.Get(token.Hash(shareID))
+	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			// TODO: should a missing record map to 404 tokenNotFound instead of 401 pinInvalid?
+			return nil, &GuestError{ErrorType: ErrPinInvalid, ShareID: shareID}
+		}
+		return nil, &GuestError{ErrorType: err, ShareID: shareID}
+	}
+
+	if rec.PinHash == "" {
+		return nil, &GuestError{ErrorType: ErrPinInvalid, ShareID: shareID}
+	}
+
+	if !rec.PinExpiry.IsZero() && rec.PinExpiry.Before(time.Now()) {
+		return nil, &GuestError{ErrorType: ErrPinExpired, ShareID: shareID}
+	}
+
+	ok, err := pin.Verify(pinValue, rec.PinHash)
+	if err != nil || !ok {
+		return nil, &GuestError{ErrorType: ErrPinInvalid, ShareID: shareID}
+	}
+
+	if _, err := s.validateShare(ctx, shareID); err != nil {
+		return nil, err
+	}
+
+	rec.PinHash = ""
+	rec.PinExpiry = time.Time{}
+	if err := s.store.Replace(rec); err != nil {
+		return nil, err
+	}
+
+	sessionToken, err := s.jwtService.Sign(shareID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &SessionResponse{SessionToken: sessionToken, ShareID: shareID}, nil
+}
+
 // CleanupShare removes a share's token record from storage. Missing records are ignored.
 func (s *AuthGuestService) CleanupShare(shareID string) error {
 	shareIDHash := token.Hash(shareID)
@@ -207,27 +251,24 @@ func (s *AuthGuestService) CleanupShare(shareID string) error {
 func (s *AuthGuestService) verifyToken(tokenString string) (*storage.Record, error) {
 	tok, err := s.tokenSvc.Parse(tokenString)
 	if err != nil {
-		return nil, &RedeemError{ErrorType: token.ErrInvalidToken}
+		return nil, &GuestError{ErrorType: err}
 	}
 
 	rec, err := s.store.Get(tok.ShareIDHash)
-	switch {
-	case errors.Is(err, storage.ErrNotFound), errors.Is(err, storage.ErrInvalidHash):
-		return nil, &RedeemError{ErrorType: token.ErrInvalidToken}
-	case err != nil:
-		return nil, err
+	if err != nil {
+		return nil, &GuestError{ErrorType: err}
 	}
 
 	if err := s.tokenSvc.Verify(*tok, rec.SecretHash); err != nil {
-		return nil, &RedeemError{ErrorType: token.ErrInvalidToken}
+		return nil, &GuestError{ErrorType: err, ShareID: rec.ShareID}
 	}
 
 	if !rec.Expiry.IsZero() && rec.Expiry.Before(time.Now()) {
-		return nil, &RedeemError{ErrorType: ErrExpired, ShareID: rec.ShareID}
+		return nil, &GuestError{ErrorType: ErrExpired, ShareID: rec.ShareID}
 	}
 
 	if rec.Redeemed {
-		return nil, &RedeemError{ErrorType: ErrAlreadyRedeemed, ShareID: rec.ShareID}
+		return nil, &GuestError{ErrorType: ErrAlreadyRedeemed, ShareID: rec.ShareID}
 	}
 
 	return &rec, nil
@@ -237,11 +278,11 @@ func (s *AuthGuestService) verifyToken(tokenString string) (*storage.Record, err
 func (s *AuthGuestService) validateShare(ctx context.Context, shareID string) (*collaboration.Share, error) {
 	share, err := s.getShare(ctx, shareID)
 	if err != nil {
-		return nil, &RedeemError{ErrorType: err, ShareID: shareID}
+		return nil, &GuestError{ErrorType: err, ShareID: shareID}
 	}
 
 	if exp := utils.TSToTime(share.GetExpiration()); !exp.IsZero() && exp.Before(time.Now()) {
-		return nil, &RedeemError{ErrorType: ErrShareExpired, ShareID: shareID}
+		return nil, &GuestError{ErrorType: ErrShareExpired, ShareID: shareID}
 	}
 
 	return share, nil

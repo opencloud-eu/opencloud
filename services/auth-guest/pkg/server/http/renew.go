@@ -34,7 +34,7 @@ func RenewHandler(log log.Logger, s authguest.AuthGuest) func(w http.ResponseWri
 
 		if err := s.Renew(r.Context(), req.PermissionID); err != nil {
 			log.Debug().Err(err).Msg("renew failed")
-			writeRedeemError(w, err)
+			writeGuestError(w, err)
 			return
 		}
 
