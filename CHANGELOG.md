@@ -10,6 +10,16 @@
 
 - feat(proxy): add optional OIDC access token audience validation [[#3466](https://github.com/opencloud-eu/opencloud/pull/3466)]
 
+### 🐛 Bug Fixes
+
+- Reindex disabled spaces once they get enabled again [[#3579](https://github.com/opencloud-eu/opencloud/pull/3579)]
+- fix(search): tika key fixes [[#3651](https://github.com/opencloud-eu/opencloud/pull/3651)]
+- fix(search): keep trashed and live folders at the same path apart [[#3602](https://github.com/opencloud-eu/opencloud/pull/3602)]
+- Fix/uploads cli no async consumer [[#3603](https://github.com/opencloud-eu/opencloud/pull/3603)]
+- Remove the timeout when reindexing spaces [[#3543](https://github.com/opencloud-eu/opencloud/pull/3543)]
+- fix(shares): not auto accepting shares created by guest users [[#3533](https://github.com/opencloud-eu/opencloud/pull/3533)]
+- fix(graph): fix PatchMe method to prevent password change [[#3526](https://github.com/opencloud-eu/opencloud/pull/3526)]
+
 ### 📈 Enhancement
 
 - feat: add new editor roles [[#3637](https://github.com/opencloud-eu/opencloud/pull/3637)]
@@ -19,15 +29,6 @@
 - fix(collaboration): harden wopi token handling [[#3630](https://github.com/opencloud-eu/opencloud/pull/3630)]
 - add posixfs index command [[#3068](https://github.com/opencloud-eu/opencloud/pull/3068)]
 - feat(proxy): add per-service metrics to the proxy service [[#3521](https://github.com/opencloud-eu/opencloud/pull/3521)]
-
-### 🐛 Bug Fixes
-
-- fix(search): tika key fixes [[#3651](https://github.com/opencloud-eu/opencloud/pull/3651)]
-- fix(search): keep trashed and live folders at the same path apart [[#3602](https://github.com/opencloud-eu/opencloud/pull/3602)]
-- Fix/uploads cli no async consumer [[#3603](https://github.com/opencloud-eu/opencloud/pull/3603)]
-- Remove the timeout when reindexing spaces [[#3543](https://github.com/opencloud-eu/opencloud/pull/3543)]
-- fix(shares): not auto accepting shares created by guest users [[#3533](https://github.com/opencloud-eu/opencloud/pull/3533)]
-- fix(graph): fix PatchMe method to prevent password change [[#3526](https://github.com/opencloud-eu/opencloud/pull/3526)]
 
 ### ✅ Tests
 
