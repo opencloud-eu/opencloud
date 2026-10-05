@@ -159,23 +159,23 @@ func (_c *AuthGuest_CreateToken_Call) RunAndReturn(run func(ctx context.Context,
 }
 
 // Redeem provides a mock function for the type AuthGuest
-func (_mock *AuthGuest) Redeem(ctx context.Context, tokenString string) (*authguest.RedeemResponse, error) {
+func (_mock *AuthGuest) Redeem(ctx context.Context, tokenString string) (*authguest.SessionResponse, error) {
 	ret := _mock.Called(ctx, tokenString)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Redeem")
 	}
 
-	var r0 *authguest.RedeemResponse
+	var r0 *authguest.SessionResponse
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*authguest.RedeemResponse, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*authguest.SessionResponse, error)); ok {
 		return returnFunc(ctx, tokenString)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *authguest.RedeemResponse); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *authguest.SessionResponse); ok {
 		r0 = returnFunc(ctx, tokenString)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*authguest.RedeemResponse)
+			r0 = ret.Get(0).(*authguest.SessionResponse)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
@@ -216,12 +216,12 @@ func (_c *AuthGuest_Redeem_Call) Run(run func(ctx context.Context, tokenString s
 	return _c
 }
 
-func (_c *AuthGuest_Redeem_Call) Return(redeemResponse *authguest.RedeemResponse, err error) *AuthGuest_Redeem_Call {
-	_c.Call.Return(redeemResponse, err)
+func (_c *AuthGuest_Redeem_Call) Return(sessionResponse *authguest.SessionResponse, err error) *AuthGuest_Redeem_Call {
+	_c.Call.Return(sessionResponse, err)
 	return _c
 }
 
-func (_c *AuthGuest_Redeem_Call) RunAndReturn(run func(ctx context.Context, tokenString string) (*authguest.RedeemResponse, error)) *AuthGuest_Redeem_Call {
+func (_c *AuthGuest_Redeem_Call) RunAndReturn(run func(ctx context.Context, tokenString string) (*authguest.SessionResponse, error)) *AuthGuest_Redeem_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -279,6 +279,80 @@ func (_c *AuthGuest_Renew_Call) Return(err error) *AuthGuest_Renew_Call {
 }
 
 func (_c *AuthGuest_Renew_Call) RunAndReturn(run func(ctx context.Context, shareID string) error) *AuthGuest_Renew_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// VerifyPin provides a mock function for the type AuthGuest
+func (_mock *AuthGuest) VerifyPin(ctx context.Context, shareID string, pinValue string) (*authguest.SessionResponse, error) {
+	ret := _mock.Called(ctx, shareID, pinValue)
+
+	if len(ret) == 0 {
+		panic("no return value specified for VerifyPin")
+	}
+
+	var r0 *authguest.SessionResponse
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (*authguest.SessionResponse, error)); ok {
+		return returnFunc(ctx, shareID, pinValue)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) *authguest.SessionResponse); ok {
+		r0 = returnFunc(ctx, shareID, pinValue)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*authguest.SessionResponse)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = returnFunc(ctx, shareID, pinValue)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// AuthGuest_VerifyPin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'VerifyPin'
+type AuthGuest_VerifyPin_Call struct {
+	*mock.Call
+}
+
+// VerifyPin is a helper method to define mock.On call
+//   - ctx context.Context
+//   - shareID string
+//   - pinValue string
+func (_e *AuthGuest_Expecter) VerifyPin(ctx any, shareID any, pinValue any) *AuthGuest_VerifyPin_Call {
+	return &AuthGuest_VerifyPin_Call{Call: _e.mock.On("VerifyPin", ctx, shareID, pinValue)}
+}
+
+func (_c *AuthGuest_VerifyPin_Call) Run(run func(ctx context.Context, shareID string, pinValue string)) *AuthGuest_VerifyPin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *AuthGuest_VerifyPin_Call) Return(sessionResponse *authguest.SessionResponse, err error) *AuthGuest_VerifyPin_Call {
+	_c.Call.Return(sessionResponse, err)
+	return _c
+}
+
+func (_c *AuthGuest_VerifyPin_Call) RunAndReturn(run func(ctx context.Context, shareID string, pinValue string) (*authguest.SessionResponse, error)) *AuthGuest_VerifyPin_Call {
 	_c.Call.Return(run)
 	return _c
 }

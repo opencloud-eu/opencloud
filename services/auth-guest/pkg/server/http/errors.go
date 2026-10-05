@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/storage"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/token"
 )
 
@@ -24,9 +25,9 @@ func writeError(w http.ResponseWriter, status int, body errorResponse) {
 	_ = json.NewEncoder(w).Encode(body)
 }
 
-func writeRedeemError(w http.ResponseWriter, err error) {
-	var re *authguest.RedeemError
-	if !errors.As(err, &re) {
+func writeGuestError(w http.ResponseWriter, err error) {
+	var ge *authguest.GuestError
+	if !errors.As(err, &ge) {
 		writeError(w, http.StatusInternalServerError, errorResponse{ErrorType: "internalError", Message: "An internal error occurred."})
 		return
 	}
@@ -34,22 +35,30 @@ func writeRedeemError(w http.ResponseWriter, err error) {
 	status := http.StatusInternalServerError
 	errorType := "internalError"
 	switch {
-	case errors.Is(re.ErrorType, authguest.ErrExpired):
+	case errors.Is(ge.ErrorType, authguest.ErrExpired):
 		status, errorType = http.StatusUnauthorized, "tokenExpired"
-	case errors.Is(re.ErrorType, token.ErrInvalidToken):
+	case errors.Is(ge.ErrorType, token.ErrInvalidToken):
 		status, errorType = http.StatusUnauthorized, "tokenInvalid"
-	case errors.Is(re.ErrorType, authguest.ErrAlreadyRedeemed):
+	case errors.Is(ge.ErrorType, storage.ErrNotFound):
+		status, errorType = http.StatusNotFound, "tokenNotFound"
+	case errors.Is(ge.ErrorType, storage.ErrInvalidHash):
+		status, errorType = http.StatusUnauthorized, "tokenInvalid"
+	case errors.Is(ge.ErrorType, authguest.ErrAlreadyRedeemed):
 		status, errorType = http.StatusConflict, "tokenAlreadyRedeemed"
-	case errors.Is(re.ErrorType, authguest.ErrShareNotFound):
+	case errors.Is(ge.ErrorType, authguest.ErrShareNotFound):
 		status, errorType = http.StatusNotFound, "shareNotFound"
-	case errors.Is(re.ErrorType, authguest.ErrShareExpired):
+	case errors.Is(ge.ErrorType, authguest.ErrShareExpired):
 		status, errorType = http.StatusGone, "shareExpired"
+	case errors.Is(ge.ErrorType, authguest.ErrPinInvalid):
+		status, errorType = http.StatusUnauthorized, "pinInvalid"
+	case errors.Is(ge.ErrorType, authguest.ErrPinExpired):
+		status, errorType = http.StatusUnauthorized, "pinExpired"
 	}
 
-	message := re.ErrorType.Error()
+	message := ge.ErrorType.Error()
 	if errorType == "internalError" {
 		message = "An internal error occurred."
 	}
 
-	writeError(w, status, errorResponse{ErrorType: errorType, Message: message, PermissionID: re.ShareID})
+	writeError(w, status, errorResponse{ErrorType: errorType, Message: message, PermissionID: ge.ShareID})
 }

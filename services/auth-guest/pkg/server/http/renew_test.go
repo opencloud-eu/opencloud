@@ -48,14 +48,14 @@ func TestRenewHandlerErrorMapping(t *testing.T) {
 	}{
 		{
 			name:           "share not found",
-			err:            &authguest.RedeemError{ErrorType: authguest.ErrShareNotFound, ShareID: "share-1"},
+			err:            &authguest.GuestError{ErrorType: authguest.ErrShareNotFound, ShareID: "share-1"},
 			wantStatus:     http.StatusNotFound,
 			wantType:       "shareNotFound",
 			wantPermission: "share-1",
 		},
 		{
 			name:           "share expired",
-			err:            &authguest.RedeemError{ErrorType: authguest.ErrShareExpired, ShareID: "share-1"},
+			err:            &authguest.GuestError{ErrorType: authguest.ErrShareExpired, ShareID: "share-1"},
 			wantStatus:     http.StatusGone,
 			wantType:       "shareExpired",
 			wantPermission: "share-1",

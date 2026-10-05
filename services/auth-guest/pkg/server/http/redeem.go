@@ -40,21 +40,25 @@ func RedeemHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Config) fu
 		result, err := s.Redeem(r.Context(), req.Token)
 		if err != nil {
 			log.Debug().Err(err).Msg("redeem failed")
-			writeRedeemError(w, err)
+			writeGuestError(w, err)
 			return
 		}
 
-		http.SetCookie(w, &http.Cookie{
-			Name:     cfg.JWT.CookieName,
-			Value:    result.SessionToken,
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-			MaxAge:   int(cfg.JWT.TTL.Seconds()),
-		})
+		setSessionCookie(w, cfg, result.SessionToken)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(redeemResponse{PermissionID: result.ShareID})
 	}
+}
+
+func setSessionCookie(w http.ResponseWriter, cfg *config.Config, sessionToken string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     cfg.JWT.CookieName,
+		Value:    sessionToken,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   int(cfg.JWT.TTL.Seconds()),
+	})
 }

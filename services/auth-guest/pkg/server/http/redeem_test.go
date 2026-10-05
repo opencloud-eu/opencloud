@@ -15,6 +15,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest/mocks"
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/storage"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/token"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -34,7 +35,7 @@ func newRedeemHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc {
 
 func TestRedeemHandler(t *testing.T) {
 	svcMock := mocks.NewAuthGuest(t)
-	svcMock.On("Redeem", mock.Anything, "valid-token").Return(&authguest.RedeemResponse{SessionToken: "session-token", ShareID: "share-1"}, nil)
+	svcMock.On("Redeem", mock.Anything, "valid-token").Return(&authguest.SessionResponse{SessionToken: "session-token", ShareID: "share-1"}, nil)
 
 	body, err := json.Marshal(RedeemRequest{Token: "valid-token"})
 	require.NoError(t, err)
@@ -71,32 +72,38 @@ func TestRedeemHandlerErrorMapping(t *testing.T) {
 	}{
 		{
 			name:           "token expired",
-			err:            &authguest.RedeemError{ErrorType: authguest.ErrExpired, ShareID: "share-1"},
+			err:            &authguest.GuestError{ErrorType: authguest.ErrExpired, ShareID: "share-1"},
 			wantStatus:     http.StatusUnauthorized,
 			wantType:       "tokenExpired",
 			wantPermission: "share-1",
 		},
 		{
 			name:       "token invalid",
-			err:        &authguest.RedeemError{ErrorType: token.ErrInvalidToken},
+			err:        &authguest.GuestError{ErrorType: token.ErrInvalidToken},
 			wantStatus: http.StatusUnauthorized,
 			wantType:   "tokenInvalid",
 		},
 		{
+			name:       "token not found",
+			err:        &authguest.GuestError{ErrorType: storage.ErrNotFound},
+			wantStatus: http.StatusNotFound,
+			wantType:   "tokenNotFound",
+		},
+		{
 			name:       "token already redeemed",
-			err:        &authguest.RedeemError{ErrorType: authguest.ErrAlreadyRedeemed},
+			err:        &authguest.GuestError{ErrorType: authguest.ErrAlreadyRedeemed},
 			wantStatus: http.StatusConflict,
 			wantType:   "tokenAlreadyRedeemed",
 		},
 		{
 			name:       "share not found",
-			err:        &authguest.RedeemError{ErrorType: authguest.ErrShareNotFound},
+			err:        &authguest.GuestError{ErrorType: authguest.ErrShareNotFound},
 			wantStatus: http.StatusNotFound,
 			wantType:   "shareNotFound",
 		},
 		{
 			name:       "share expired",
-			err:        &authguest.RedeemError{ErrorType: authguest.ErrShareExpired},
+			err:        &authguest.GuestError{ErrorType: authguest.ErrShareExpired},
 			wantStatus: http.StatusGone,
 			wantType:   "shareExpired",
 		},
