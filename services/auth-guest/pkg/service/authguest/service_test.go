@@ -7,6 +7,8 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -307,13 +309,8 @@ func existingRecord() storage.Record {
 }
 
 func TestRenewPersistsRecordAndPublishesEvent(t *testing.T) {
-	store := storagemocks.NewManager(t)
-	store.On("Get", token.Hash(testShareID)).Return(existingRecord(), nil)
-
-	var replaced storage.Record
-	store.On("Replace", mock.Anything).Run(func(args mock.Arguments) {
-		replaced = args.Get(0).(storage.Record)
-	}).Return(nil)
+	store := storage.NewFileManager(t.TempDir())
+	require.NoError(t, store.Add(existingRecord()))
 
 	publisher := &testPublisher{}
 	gwc := newGatewayMock(&collaboration.GetShareResponse{
@@ -325,7 +322,8 @@ func TestRenewPersistsRecordAndPublishesEvent(t *testing.T) {
 
 	require.NoError(t, s.Renew(context.Background(), testShareID))
 
-	store.AssertCalled(t, "Replace", mock.Anything)
+	replaced, err := store.Get(token.Hash(testShareID))
+	require.NoError(t, err)
 	assert.Equal(t, testShareID, replaced.ShareID)
 	assert.Equal(t, token.Hash(testShareID), replaced.ShareIDHash)
 	assert.NotEmpty(t, replaced.SecretHash)
@@ -353,11 +351,13 @@ func TestRenewPersistsRecordAndPublishesEvent(t *testing.T) {
 }
 
 func TestRenewRecordNotFound(t *testing.T) {
-	store := storagemocks.NewManager(t)
-	store.On("Get", token.Hash(testShareID)).Return(storage.Record{}, storage.ErrNotFound)
+	store := storage.NewFileManager(t.TempDir())
 
 	publisher := &testPublisher{}
-	s := newRenewService(t, store, newGatewayMock(&collaboration.GetShareResponse{}), publisher)
+	s := newRenewService(t, store, newGatewayMock(&collaboration.GetShareResponse{
+		Status: &rpc.Status{Code: rpc.Code_CODE_OK},
+		Share:  newGuestShare(time.Now().Add(time.Hour)),
+	}), publisher)
 
 	err := s.Renew(context.Background(), testShareID)
 	require.Error(t, err)
@@ -367,25 +367,27 @@ func TestRenewRecordNotFound(t *testing.T) {
 	assert.ErrorIs(t, ge.ErrorType, storage.ErrNotFound)
 	assert.Equal(t, testShareID, ge.ShareID)
 
-	store.AssertNotCalled(t, "Replace", mock.Anything)
 	assert.Empty(t, publisher.published)
 }
 
 func TestRenewWithoutPublisher(t *testing.T) {
-	store := storagemocks.NewManager(t)
-	store.On("Get", token.Hash(testShareID)).Return(existingRecord(), nil)
+	store := storage.NewFileManager(t.TempDir())
+	require.NoError(t, store.Add(existingRecord()))
 
 	s := newRenewService(t, store, newGatewayMock(&collaboration.GetShareResponse{}), nil)
 
 	err := s.Renew(context.Background(), testShareID)
 	require.ErrorIs(t, err, ErrEventsNotConfigured)
-	store.AssertNotCalled(t, "Replace", mock.Anything)
+
+	got, err := store.Get(token.Hash(testShareID))
+	require.NoError(t, err)
+	assert.Empty(t, got.SecretHash)
+	assert.Empty(t, got.PinHash)
 }
 
-func TestRenewPublishFailure(t *testing.T) {
-	store := storagemocks.NewManager(t)
-	store.On("Get", token.Hash(testShareID)).Return(existingRecord(), nil)
-	store.On("Replace", mock.Anything).Return(nil)
+func TestRenewRollsBackOnPublishFailure(t *testing.T) {
+	store := storage.NewFileManager(t.TempDir())
+	require.NoError(t, store.Add(existingRecord()))
 
 	publisher := &testPublisher{err: errors.New("publish failed")}
 	gwc := newGatewayMock(&collaboration.GetShareResponse{
@@ -398,11 +400,18 @@ func TestRenewPublishFailure(t *testing.T) {
 	err := s.Renew(context.Background(), testShareID)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "publish failed")
+
+	got, err := store.Get(token.Hash(testShareID))
+	require.NoError(t, err)
+	assert.Empty(t, got.SecretHash)
+	assert.Empty(t, got.PinHash)
+	assert.True(t, got.PinExpiry.IsZero())
+	assert.False(t, got.Redeemed)
 }
 
 func TestRenewShareNotFound(t *testing.T) {
-	store := storagemocks.NewManager(t)
-	store.On("Get", token.Hash(testShareID)).Return(existingRecord(), nil)
+	store := storage.NewFileManager(t.TempDir())
+	require.NoError(t, store.Add(existingRecord()))
 
 	s := newRenewService(t, store, newGatewayMock(&collaboration.GetShareResponse{
 		Status: &rpc.Status{Code: rpc.Code_CODE_NOT_FOUND},
@@ -418,8 +427,8 @@ func TestRenewShareNotFound(t *testing.T) {
 }
 
 func TestRenewShareExpired(t *testing.T) {
-	store := storagemocks.NewManager(t)
-	store.On("Get", token.Hash(testShareID)).Return(existingRecord(), nil)
+	store := storage.NewFileManager(t.TempDir())
+	require.NoError(t, store.Add(existingRecord()))
 
 	s := newRenewService(t, store, newGatewayMock(&collaboration.GetShareResponse{
 		Status: &rpc.Status{Code: rpc.Code_CODE_OK},
@@ -439,18 +448,13 @@ func TestVerifyPinSuccess(t *testing.T) {
 	pinHash, err := pin.Hash("123456")
 	require.NoError(t, err)
 
-	store := storagemocks.NewManager(t)
-	store.On("Get", token.Hash(testShareID)).Return(storage.Record{
+	store := storage.NewFileManager(t.TempDir())
+	require.NoError(t, store.Add(storage.Record{
 		ShareID:     testShareID,
 		ShareIDHash: token.Hash(testShareID),
 		PinHash:     pinHash,
 		PinExpiry:   time.Now().Add(time.Minute),
-	}, nil)
-
-	var replaced storage.Record
-	store.On("Replace", mock.Anything).Run(func(args mock.Arguments) {
-		replaced = args.Get(0).(storage.Record)
-	}).Return(nil)
+	}))
 
 	s := newRedeemService(t, store, newGatewayMock(&collaboration.GetShareResponse{
 		Status: &rpc.Status{Code: rpc.Code_CODE_OK},
@@ -462,9 +466,10 @@ func TestVerifyPinSuccess(t *testing.T) {
 	assert.NotEmpty(t, result.SessionToken)
 	assert.Equal(t, testShareID, result.ShareID)
 
-	store.AssertCalled(t, "Replace", mock.Anything)
-	assert.Empty(t, replaced.PinHash)
-	assert.True(t, replaced.PinExpiry.IsZero())
+	got, err := store.Get(token.Hash(testShareID))
+	require.NoError(t, err)
+	assert.Empty(t, got.PinHash)
+	assert.True(t, got.PinExpiry.IsZero())
 }
 
 func TestVerifyPinErrors(t *testing.T) {
@@ -494,7 +499,7 @@ func TestVerifyPinErrors(t *testing.T) {
 		name     string
 		pin      string
 		rec      storage.Record
-		getErr   error
+		missing  bool
 		response *collaboration.GetShareResponse
 		wantErr  error
 	}{
@@ -522,7 +527,7 @@ func TestVerifyPinErrors(t *testing.T) {
 		{
 			name:     "record not found",
 			pin:      "123456",
-			getErr:   storage.ErrNotFound,
+			missing:  true,
 			response: validShare,
 			wantErr:  ErrPinInvalid,
 		},
@@ -549,11 +554,9 @@ func TestVerifyPinErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := storagemocks.NewManager(t)
-			if tt.getErr != nil {
-				store.On("Get", token.Hash(testShareID)).Return(storage.Record{}, tt.getErr)
-			} else {
-				store.On("Get", token.Hash(testShareID)).Return(tt.rec, nil)
+			store := storage.NewFileManager(t.TempDir())
+			if !tt.missing {
+				require.NoError(t, store.Add(tt.rec))
 			}
 
 			s := newRedeemService(t, store, newGatewayMock(tt.response))
@@ -566,7 +569,49 @@ func TestVerifyPinErrors(t *testing.T) {
 			assert.ErrorIs(t, ge.ErrorType, tt.wantErr)
 			assert.Equal(t, testShareID, ge.ShareID)
 
-			store.AssertNotCalled(t, "Replace", mock.Anything)
+			if !tt.missing {
+				got, err := store.Get(token.Hash(testShareID))
+				require.NoError(t, err)
+				assert.Equal(t, tt.rec.PinHash, got.PinHash)
+				assert.WithinDuration(t, tt.rec.PinExpiry, got.PinExpiry, time.Second)
+				assert.Equal(t, tt.rec.Redeemed, got.Redeemed)
+			}
 		})
 	}
+}
+
+func TestVerifyPinSingleUseConcurrent(t *testing.T) {
+	pinHash, err := pin.Hash("123456")
+	require.NoError(t, err)
+
+	store := storage.NewFileManager(t.TempDir())
+	require.NoError(t, store.Add(storage.Record{
+		ShareID:     testShareID,
+		ShareIDHash: token.Hash(testShareID),
+		PinHash:     pinHash,
+		PinExpiry:   time.Now().Add(time.Minute),
+	}))
+
+	s := newRedeemService(t, store, newGatewayMock(&collaboration.GetShareResponse{
+		Status: &rpc.Status{Code: rpc.Code_CODE_OK},
+		Share:  newGuestShare(time.Now().Add(time.Hour)),
+	}))
+
+	const workers = 10
+	var (
+		wg      sync.WaitGroup
+		success atomic.Int32
+	)
+	for range workers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if _, err := s.VerifyPin(context.Background(), testShareID, "123456"); err == nil {
+				success.Add(1)
+			}
+		}()
+	}
+	wg.Wait()
+
+	assert.Equal(t, int32(1), success.Load())
 }

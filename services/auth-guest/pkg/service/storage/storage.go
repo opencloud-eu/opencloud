@@ -25,8 +25,8 @@ type Record struct {
 
 type Manager interface {
 	Add(rec Record) error
-	Replace(rec Record) error
 	Get(shareIDHash string) (Record, error)
 	Remove(shareIDHash string) error
 	Redeem(shareIDHash string) error
+	Update(shareIDHash string, fn func(*Record) error) error
 }

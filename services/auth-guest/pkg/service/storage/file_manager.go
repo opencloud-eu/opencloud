@@ -53,17 +53,6 @@ func (s *FileManager) Add(rec Record) error {
 	return s.upsert(rec)
 }
 
-// Replace writes the record, overwriting an existing record for the same share id hash.
-func (s *FileManager) Replace(rec Record) error {
-	lock, err := s.lockRecord(rec.ShareIDHash)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = lock.Unlock() }()
-
-	return s.upsert(rec)
-}
-
 // Get returns the record for the given share id hash.
 func (s *FileManager) Get(shareIDHash string) (Record, error) {
 	return s.get(shareIDHash)
@@ -111,6 +100,27 @@ func (s *FileManager) Redeem(shareIDHash string) error {
 	}
 
 	rec.Redeemed = true
+	return s.upsert(rec)
+}
+
+// Update applies fn to the record under the record lock and writes it back.
+// If fn returns an error the record is left unchanged.
+func (s *FileManager) Update(shareIDHash string, fn func(*Record) error) error {
+	lock, err := s.lockRecord(shareIDHash)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = lock.Unlock() }()
+
+	rec, err := s.get(shareIDHash)
+	if err != nil {
+		return err
+	}
+
+	if err := fn(&rec); err != nil {
+		return err
+	}
+
 	return s.upsert(rec)
 }
 

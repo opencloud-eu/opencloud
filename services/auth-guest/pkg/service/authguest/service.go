@@ -136,10 +136,6 @@ func (s *AuthGuestService) Redeem(ctx context.Context, tokenString string) (*Ses
 
 // Renew generates a new guest link token and PIN for the given share.
 func (s *AuthGuestService) Renew(ctx context.Context, shareID string) error {
-	if _, err := s.store.Get(token.Hash(shareID)); err != nil {
-		return &GuestError{ErrorType: err, ShareID: shareID}
-	}
-
 	if s.publisher == nil {
 		return ErrEventsNotConfigured
 	}
@@ -166,19 +162,20 @@ func (s *AuthGuestService) Renew(ctx context.Context, shareID string) error {
 
 	now := time.Now()
 
-	if err := s.store.Replace(storage.Record{
-		ShareID:     shareID,
-		ShareIDHash: tok.ShareIDHash,
-		SecretHash:  tok.SecretHash(),
-		PinHash:     pinHash,
-		Expiry:      now.Add(guestLinkTokenTTL),
-		PinExpiry:   now.Add(guestPinTTL),
-		Redeemed:    false,
+	var previous storage.Record
+	if err := s.store.Update(token.Hash(shareID), func(rec *storage.Record) error {
+		previous = *rec
+		rec.SecretHash = tok.SecretHash()
+		rec.PinHash = pinHash
+		rec.Expiry = now.Add(guestLinkTokenTTL)
+		rec.PinExpiry = now.Add(guestPinTTL)
+		rec.Redeemed = false
+		return nil
 	}); err != nil {
-		return err
+		return &GuestError{ErrorType: err, ShareID: shareID}
 	}
 
-	return revaevents.Publish(ctx, s.publisher, events.GuestTokenRenewed{
+	if err := revaevents.Publish(ctx, s.publisher, events.GuestTokenRenewed{
 		ShareID:      share.GetId(),
 		Sharer:       share.GetCreator(),
 		GranteeEmail: share.GetGrantee().GetUserId().GetOpaqueId(),
@@ -186,42 +183,51 @@ func (s *AuthGuestService) Renew(ctx context.Context, shareID string) error {
 		Token:        tok.String(),
 		Pin:          pinStr,
 		Timestamp:    now,
-	})
+	}); err != nil {
+		if rbErr := s.store.Update(token.Hash(shareID), func(rec *storage.Record) error {
+			*rec = previous
+			return nil
+		}); rbErr != nil {
+			return fmt.Errorf("publishing guest token renewed event failed: %w (rollback failed: %v)", err, rbErr)
+		}
+		return err
+	}
+
+	return nil
 }
 
 // VerifyPin validates a PIN and its share and exchanges them for a session token
 // and the share id.
 func (s *AuthGuestService) VerifyPin(ctx context.Context, shareID, pinValue string) (*SessionResponse, error) {
-	rec, err := s.store.Get(token.Hash(shareID))
-	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
-			// TODO: should a missing record map to 404 tokenNotFound instead of 401 pinInvalid?
-			return nil, &GuestError{ErrorType: ErrPinInvalid, ShareID: shareID}
-		}
-		return nil, &GuestError{ErrorType: err, ShareID: shareID}
-	}
-
-	if rec.PinHash == "" {
-		return nil, &GuestError{ErrorType: ErrPinInvalid, ShareID: shareID}
-	}
-
-	if !rec.PinExpiry.IsZero() && rec.PinExpiry.Before(time.Now()) {
-		return nil, &GuestError{ErrorType: ErrPinExpired, ShareID: shareID}
-	}
-
-	ok, err := pin.Verify(pinValue, rec.PinHash)
-	if err != nil || !ok {
-		return nil, &GuestError{ErrorType: ErrPinInvalid, ShareID: shareID}
-	}
-
 	if _, err := s.validateShare(ctx, shareID); err != nil {
 		return nil, err
 	}
 
-	rec.PinHash = ""
-	rec.PinExpiry = time.Time{}
-	if err := s.store.Replace(rec); err != nil {
-		return nil, err
+	err := s.store.Update(token.Hash(shareID), func(rec *storage.Record) error {
+		if rec.PinHash == "" {
+			return ErrPinInvalid
+		}
+
+		if !rec.PinExpiry.IsZero() && rec.PinExpiry.Before(time.Now()) {
+			return ErrPinExpired
+		}
+
+		ok, err := pin.Verify(pinValue, rec.PinHash)
+		if err != nil || !ok {
+			return ErrPinInvalid
+		}
+
+		rec.PinHash = ""
+		rec.PinExpiry = time.Time{}
+
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			// TODO: should a missing record map to 404 tokenNotFound instead of 401 pinInvalid?
+			err = ErrPinInvalid
+		}
+		return nil, &GuestError{ErrorType: err, ShareID: shareID}
 	}
 
 	sessionToken, err := s.jwtService.Sign(shareID)

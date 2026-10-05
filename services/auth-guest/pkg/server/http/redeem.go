@@ -37,6 +37,12 @@ func RedeemHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Config) fu
 			return
 		}
 
+		if req.Token == "" {
+			log.Debug().Msg("request body is missing the token")
+			writeError(w, http.StatusBadRequest, errorResponse{ErrorType: "invalidRequest", Message: "The request body is missing the token."})
+			return
+		}
+
 		result, err := s.Redeem(r.Context(), req.Token)
 		if err != nil {
 			log.Debug().Err(err).Msg("redeem failed")
