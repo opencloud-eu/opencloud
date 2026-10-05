@@ -353,22 +353,29 @@ func (session *DecomposedFsSession) Finalize(ctx context.Context) (err error) {
 
 	// another upload on this node is in progress or has finished since we started
 	if !isProcessing || processingID != session.ID() {
-		versionID := n.ID + node.RevisionIDDelimiter + session.MTime().UTC().Format(time.RFC3339Nano)
-		// There should be a revision node (created by the other upload that finished before us), read it and upload our blob there.
-		existingRevisionNode, revisionNodeUnlock, err := node.LockAndReadNode(ctx, session.store.lu, session.SpaceID(), versionID, "", false, spaceRoot, false)
-		if err != nil || !existingRevisionNode.Exists {
-			// The revision node has not been created. Likely because the file on disk was modified externally and re-assilimated (watchfs == true)
-			// Let's create the revision node now and upload the blob to it.
-			n, revisionNodeUnlock, err = session.createRevisionNodeForUpload(ctx, n, session.MTime().UTC().Format(time.RFC3339Nano))
-			if err != nil {
-				appctx.GetLogger(ctx).Debug().Err(err).Str("versionID", session.MTime().UTC().Format(time.RFC3339Nano)).Msg("failed to create revision node for upload finalization")
-				return err
-			}
+		// The node's current content is already this upload's content (e.g. a
+		// newer upload was reverted in the meantime) - no revision is needed,
+		// upload the blob to the node itself.
+		if attribs.String(prefixes.BlobIDAttr) == session.ID() {
+			appctx.GetLogger(ctx).Debug().Str("nodepath", n.InternalPath()).Msg("node already contains this upload's content, no revision needed")
 		} else {
-			n = existingRevisionNode
+			versionID := n.ID + node.RevisionIDDelimiter + session.MTime().UTC().Format(time.RFC3339Nano)
+			// There should be a revision node (created by the other upload that finished before us), read it and upload our blob there.
+			existingRevisionNode, revisionNodeUnlock, err := node.LockAndReadNode(ctx, session.store.lu, session.SpaceID(), versionID, "", false, spaceRoot, false)
+			if err != nil || !existingRevisionNode.Exists {
+				// The revision node has not been created. Likely because the file on disk was modified externally and re-assilimated (watchfs == true)
+				// Let's create the revision node now and upload the blob to it.
+				n, revisionNodeUnlock, err = session.createRevisionNodeForUpload(ctx, n, session.MTime().UTC().Format(time.RFC3339Nano))
+				if err != nil {
+					appctx.GetLogger(ctx).Debug().Err(err).Str("versionID", session.MTime().UTC().Format(time.RFC3339Nano)).Msg("failed to create revision node for upload finalization")
+					return err
+				}
+			} else {
+				n = existingRevisionNode
+			}
+			appctx.GetLogger(ctx).Debug().Str("new nodepath", n.InternalPath()).Msg("uploading to revision node, that was created for us by another upload")
+			defer func() { _ = revisionNodeUnlock() }()
 		}
-		appctx.GetLogger(ctx).Debug().Str("new nodepath", n.InternalPath()).Msg("uploading to revision node, that was created for us by another upload")
-		defer func() { _ = revisionNodeUnlock() }()
 	}
 
 	// upload the data to the blobstore
@@ -433,17 +440,6 @@ func checkHash(expected string, h hash.Hash) error {
 	return nil
 }
 
-func (session *DecomposedFsSession) removeNode(ctx context.Context) {
-	n, err := session.Node(ctx)
-	if err != nil {
-		appctx.GetLogger(ctx).Error().Str("session", session.ID()).Err(err).Msg("getting node from session failed")
-		return
-	}
-	if err := n.Purge(ctx); err != nil {
-		appctx.GetLogger(ctx).Error().Str("nodepath", n.InternalPath()).Err(err).Msg("purging node failed")
-	}
-}
-
 // cleanup cleans up after the upload is finished
 func (session *DecomposedFsSession) Cleanup(revertNodeMetadata, cleanBin, cleanInfo, unmarkPostprocessing bool) {
 	ctx := session.Context(context.Background())
@@ -455,34 +451,12 @@ func (session *DecomposedFsSession) Cleanup(revertNodeMetadata, cleanBin, cleanI
 		if err != nil {
 			sublog.Error().Err(err).Msg("reading node for session failed")
 		} else {
-			if session.NodeExists() && session.info.MetaData["versionID"] != "" {
-				versionID := session.info.MetaData["versionID"]
+			versionID := strings.TrimPrefix(session.info.MetaData["versionID"], n.ID+node.RevisionIDDelimiter)
+			if session.NodeExists() && versionID != "" {
 				sublog.Debug().Str("nodepath", n.InternalPath()).Str("versionID", versionID).Msg("restoring revision")
-				revisionNode, err := node.ReadNode(ctx, session.store.lu, session.SpaceID(), versionID, "", false, n.SpaceRoot, false)
-				if err != nil {
-					sublog.Error().Err(err).Str("versionID", versionID).Msg("reading revision node failed")
+				if err := n.RevertUpload(ctx, versionID); err != nil {
+					sublog.Error().Err(err).Str("versionID", versionID).Msg("reverting node metadata failed")
 					return
-				}
-
-				if !revisionNode.Exists {
-					sublog.Error().Str("versionID", versionID).Msg("revision node does not exist")
-					return
-				}
-
-				// restore the revision
-				mtime, err := revisionNode.GetMTime(ctx)
-				if err != nil {
-					sublog.Error().Err(err).Str("versionID", versionID).Msg("getting mtime of revision node failed")
-					mtime = time.Now()
-				}
-
-				if err := session.store.tp.RestoreRevision(ctx, revisionNode, n, mtime); err != nil {
-					sublog.Error().Err(err).Str("versionID", versionID).Msg("restoring revision node failed")
-					return
-				}
-
-				if err := os.RemoveAll(revisionNode.InternalPath()); err != nil {
-					sublog.Error().Err(err).Str("revisionpath", revisionNode.InternalPath()).Msg("removing restored revision file failed")
 				}
 			} else {
 				// if no other upload session is in progress (processing id != session id) or has finished (processing id == "")
@@ -492,7 +466,9 @@ func (session *DecomposedFsSession) Cleanup(revertNodeMetadata, cleanBin, cleanI
 				}
 				if latestSession == session.ID() {
 					// actually delete the node
-					session.removeNode(ctx)
+					if err := n.Purge(ctx); err != nil {
+						sublog.Error().Err(err).Str("nodepath", n.InternalPath()).Msg("purging node failed")
+					}
 				}
 				// FIXME else if the upload has become a revision, delete the revision, or if it is the last one, delete the node
 			}
