@@ -162,7 +162,7 @@ class SharingNgContext implements Context {
 		?string $resource = '',
 		?string $query = null
 	): ResponseInterface {
-		if ($space === "Shares") {
+		if ($space === "Shares" && $resource !== '') {
 			// a shared resource lives in the owner's space; its permissions are
 			// listed via the share's remote item id and its parent drive id
 			$spaceId = $this->spacesContext->getSharesRemoteItemParentDriveId($user, $resource);
