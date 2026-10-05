@@ -1324,7 +1324,12 @@ func (n *Node) DeleteGrant(ctx context.Context, g *provider.Grant) (err error) {
 
 // Purge removes a node from disk. It does not move it to the trash
 func (n *Node) Purge(ctx context.Context) error {
-	return n.lu.PurgeNode(n)
+	if err := n.lu.PurgeNode(n); err != nil {
+		return err
+	}
+
+	// remove .mpk and .mlock files
+	return n.lu.MetadataBackend().Purge(ctx, n)
 }
 
 // ListGrants lists all grants of the current node.
@@ -1549,6 +1554,173 @@ func (n *Node) GetDTime(ctx context.Context) (time.Time, error) {
 // SetDTime writes the UTC dmtime to the extended attributes or removes the attribute if nil is passed
 func (n *Node) SetDTime(ctx context.Context, t *time.Time) (err error) {
 	return n.lu.TimeManager().SetDTime(ctx, n, t)
+}
+
+// RevertUpload reverts the upload that created the given revision: it
+// restores the revision onto the node and removes the revision, including its
+// metadata sidecars. The node's metadata lock is held for the duration of the
+// operation.
+func (n *Node) RevertUpload(ctx context.Context, versionID string) error {
+	if versionID == "" {
+		return errors.New("empty versionID")
+	}
+
+	unlock, err := n.lu.MetadataBackend().Lock(n)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = unlock()
+	}()
+
+	revisionNode := NewBaseNode(n.SpaceID, n.ID+RevisionIDDelimiter+versionID, n.lu)
+	revisionPath := revisionNode.InternalPath()
+	if _, err := os.Stat(revisionPath); err != nil {
+		appctx.GetLogger(ctx).Error().Str("versionpath", revisionPath).Err(err).Msg("revision does not exist")
+		return err
+	}
+
+	if err := n.lu.CopyMetadata(ctx, revisionNode, n, func(attributeName string, value []byte) (newValue []byte, copy bool) {
+		return value, strings.HasPrefix(attributeName, prefixes.ChecksumPrefix) ||
+			attributeName == prefixes.TypeAttr ||
+			attributeName == prefixes.BlobIDAttr ||
+			attributeName == prefixes.BlobsizeAttr ||
+			attributeName == prefixes.MTimeAttr
+	}); err != nil {
+		appctx.GetLogger(ctx).Info().Str("versionpath", revisionPath).Str("nodepath", n.InternalPath()).Err(err).Msg("restoring revision metadata failed")
+		return err
+	}
+
+	if err := os.RemoveAll(revisionPath); err != nil {
+		appctx.GetLogger(ctx).Info().Str("versionpath", revisionPath).Str("nodepath", n.InternalPath()).Err(err).Msg("error removing version")
+		return err
+	}
+
+	// remove the revision's metadata sidecars
+	if err := os.Remove(n.lu.MetadataBackend().MetadataPath(revisionNode)); err != nil {
+		appctx.GetLogger(ctx).Warn().Err(err).Str("versionpath", revisionPath).Msg("could not delete revision metadata, continuing")
+	}
+	if err := os.Remove(n.lu.MetadataBackend().LockfilePath(revisionNode)); err != nil {
+		appctx.GetLogger(ctx).Warn().Err(err).Str("versionpath", revisionPath).Msg("could not delete revision metadata lockfile, continuing")
+	}
+	if err := n.lu.MetadataBackend().Purge(ctx, revisionNode); err != nil {
+		appctx.GetLogger(ctx).Warn().Err(err).Str("versionpath", revisionPath).Msg("could not purge revision from cache, continuing")
+	}
+	return nil
+}
+
+// DeleteRevision deletes a revision of the node and returns the blob id of the
+// deleted revision, so that the caller can delete the blob. If versionID is
+// empty the node's current revision is deleted: the latest stored revision is
+// restored onto the node (or the node is purged when there is none) and the
+// processing flag is removed, unstalling the node. No blob is returned in that
+// case.
+func (n *Node) DeleteRevision(ctx context.Context, versionID string) (string, error) {
+	if versionID != "" {
+		return n.deleteRevision(ctx, n.ID+RevisionIDDelimiter+versionID)
+	}
+
+	revisionPath, err := n.getLatestRevision(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	if revisionPath == "" {
+		// there is no revision - delete the node
+		unlock, err := n.lu.MetadataBackend().Lock(n)
+		if err != nil {
+			return "", err
+		}
+		defer func() {
+			_ = unlock()
+		}()
+		if err := n.Purge(ctx); err != nil {
+			appctx.GetLogger(ctx).Info().Str("nodepath", n.InternalPath()).Err(err).Msg("error purging node")
+			return "", err
+		}
+		return "", nil
+	}
+
+	latestID := strings.TrimPrefix(revisionPath, n.lu.VersionPath(n.SpaceID, n.ID, ""))
+	if err := n.RevertUpload(ctx, latestID); err != nil {
+		return "", err
+	}
+
+	// we just deleted the current revision - remove processing flag if set
+	if uploadid, err := n.ProcessingID(ctx); err == nil {
+		return "", n.UnmarkProcessing(ctx, uploadid)
+	}
+	return "", nil
+}
+
+// deleteRevision deletes the revision node identified by revisionID (the node's
+// ID + RevisionIDDelimiter + timestamp) together with its metadata sidecars
+// and returns its blob id. It is a no-op if the revision does not exist.
+func (n *Node) deleteRevision(ctx context.Context, revisionID string) (string, error) {
+	log := appctx.GetLogger(ctx)
+
+	revisionNode := NewBaseNode(n.SpaceID, revisionID, n.lu)
+	revisionPath := revisionNode.InternalPath()
+	if _, err := os.Stat(revisionPath); err != nil {
+		log.Warn().Str("nodeid", n.ID).Str("revisionid", revisionID).Msg("revision does not exist, nothing to delete")
+		return "", nil
+	}
+
+	unlock, err := n.lu.MetadataBackend().Lock(n)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		_ = unlock()
+	}()
+
+	blobID, _, err := n.lu.ReadBlobIDAndSizeAttr(ctx, revisionNode, nil)
+	if err != nil {
+		return "", err
+	}
+
+	if err := os.RemoveAll(revisionPath); err != nil {
+		return "", err
+	}
+
+	if err := os.Remove(n.lu.MetadataBackend().MetadataPath(revisionNode)); err != nil {
+		log.Warn().Err(err).Str("nodeid", n.ID).Str("revisionid", revisionID).Msg("could not delete revision metadata, continuing")
+	}
+	if err := os.Remove(n.lu.MetadataBackend().LockfilePath(revisionNode)); err != nil {
+		log.Warn().Err(err).Str("nodeid", n.ID).Str("revisionid", revisionID).Msg("could not delete revision metadata lockfile, continuing")
+	}
+	if err := n.lu.MetadataBackend().Purge(ctx, revisionNode); err != nil {
+		log.Warn().Err(err).Str("nodeid", n.ID).Str("revisionid", revisionID).Msg("could not purge revision from cache, continuing")
+	}
+
+	return blobID, nil
+}
+
+func (n *Node) getLatestRevision(ctx context.Context) (string, error) {
+	revPrefix := n.lu.VersionPath(n.SpaceID, n.ID, "")
+	revisions, err := filepath.Glob(n.lu.VersionPath(n.SpaceID, n.ID, "*"))
+	if err != nil {
+		appctx.GetLogger(ctx).Error().Str("nodepath", n.InternalPath()).Err(err).Msg("error reading revisions")
+		return "", err
+	}
+
+	revPath, latest := "", time.Time{}
+	for _, rev := range revisions {
+		if strings.HasSuffix(rev, ".mpk") || strings.HasSuffix(rev, ".mlock") {
+			continue
+		}
+		revDate, err := time.Parse(time.RFC3339Nano, strings.TrimPrefix(rev, revPrefix))
+		if err != nil {
+			appctx.GetLogger(ctx).Error().Str("nodepath", n.InternalPath()).Err(err).Msg("error parsing revision date")
+			continue
+		}
+
+		if revDate.After(latest) {
+			latest = revDate
+			revPath = rev
+		}
+	}
+	return revPath, nil
 }
 
 // ReadChildNodeFromLink reads the child node id from a link

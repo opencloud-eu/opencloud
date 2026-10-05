@@ -83,6 +83,7 @@ var (
 		events.PostprocessingStepFinished{},
 		events.RestartPostprocessing{},
 		events.CleanUpload{},
+		events.DeleteRevision{},
 	}
 )
 
@@ -452,6 +453,31 @@ func (fs *Decomposedfs) handlePostprocessingEvent(ctx context.Context, event eve
 			return // NOTE: since we can't get the upload, we can't delete the blob
 		}
 		session.Cleanup(true, !ev.KeepUpload, !ev.KeepUpload, true)
+	case events.DeleteRevision:
+		sublog := log.With().Str("event", "DeleteRevision").Interface("nodeid", ev.ResourceID).Logger()
+		n, err := fs.lu.NodeFromID(ctx, ev.ResourceID)
+		if err != nil {
+			sublog.Error().Err(err).Msg("Failed to get node")
+			return
+		}
+
+		var deleteErr error
+		if ev.Timestamp == nil {
+			// the node's current revision is targeted - revert to the pre-upload
+			// state. Only stuck nodes are targeted: a reverted node has its
+			// processing flag removed, so a redelivered event is a no-op.
+			if !n.IsProcessing(ctx) {
+				sublog.Debug().Msg("node is not stuck, ignoring")
+				return
+			}
+			_, deleteErr = n.DeleteRevision(ctx, "")
+		} else {
+			versionID := time.Unix(int64(ev.Timestamp.Seconds), int64(ev.Timestamp.Nanos)).UTC().Format(time.RFC3339Nano)
+			deleteErr = fs.deleteRevisionFile(ctx, n, n.ID+node.RevisionIDDelimiter+versionID)
+		}
+		if deleteErr != nil {
+			sublog.Error().Err(deleteErr).Msg("Failed to delete revision")
+		}
 	case events.PostprocessingStepFinished:
 		sublog := log.With().Str("event", "PostprocessingStepFinished").Str("uploadid", ev.UploadID).Logger()
 		if ev.FinishedStep != events.PPStepAntivirus {

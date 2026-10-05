@@ -316,56 +316,9 @@ func checkHash(expected string, h hash.Hash) error {
 	return nil
 }
 
-func (session *OcisSession) removeNode(ctx context.Context) {
-	n, err := session.Node(ctx)
-	if err != nil {
-		appctx.GetLogger(ctx).Error().Str("session", session.ID()).Err(err).Msg("getting node from session failed")
-		return
-	}
-	if err := n.Purge(ctx); err != nil {
-		appctx.GetLogger(ctx).Error().Str("nodepath", n.InternalPath()).Err(err).Msg("purging node failed")
-	}
-}
-
 // cleanup cleans up after the upload is finished
 func (session *OcisSession) Cleanup(revertNodeMetadata, cleanBin, cleanInfo, unmarkPostprocessing bool) {
 	ctx := session.Context(context.Background())
-
-	if revertNodeMetadata {
-		n, err := session.Node(ctx)
-		if err != nil {
-			appctx.GetLogger(ctx).Error().Err(err).Str("sessionid", session.ID()).Msg("reading node for session failed")
-		} else {
-			if session.NodeExists() && session.info.MetaData["versionsPath"] != "" {
-				p := session.info.MetaData["versionsPath"]
-				if err := session.store.lu.CopyMetadata(ctx, p, n.InternalPath(), func(attributeName string, value []byte) (newValue []byte, copy bool) {
-					return value, strings.HasPrefix(attributeName, prefixes.ChecksumPrefix) ||
-						attributeName == prefixes.TypeAttr ||
-						attributeName == prefixes.BlobIDAttr ||
-						attributeName == prefixes.BlobsizeAttr ||
-						attributeName == prefixes.MTimeAttr
-				}, true); err != nil {
-					appctx.GetLogger(ctx).Info().Str("versionpath", p).Str("nodepath", n.InternalPath()).Err(err).Msg("renaming version node failed")
-				}
-
-				if err := os.RemoveAll(p); err != nil {
-					appctx.GetLogger(ctx).Info().Str("versionpath", p).Str("nodepath", n.InternalPath()).Err(err).Msg("error removing version")
-				}
-
-			} else {
-				// if no other upload session is in progress (processing id != session id) or has finished (processing id == "")
-				latestSession, err := n.ProcessingID(ctx)
-				if err != nil {
-					appctx.GetLogger(ctx).Error().Err(err).Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Str("uploadid", session.ID()).Msg("reading processingid for session failed")
-				}
-				if latestSession == session.ID() {
-					// actually delete the node
-					session.removeNode(ctx)
-				}
-				// FIXME else if the upload has become a revision, delete the revision, or if it is the last one, delete the node
-			}
-		}
-	}
 
 	if cleanBin {
 		if err := os.Remove(session.binPath()); err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -376,7 +329,36 @@ func (session *OcisSession) Cleanup(revertNodeMetadata, cleanBin, cleanInfo, unm
 	if cleanInfo {
 		if err := os.Remove(session.infoPath()); err != nil {
 			appctx.GetLogger(ctx).Error().Err(err).Str("session", session.ID()).Msg("removing upload info failed")
+		}
+	}
+
+	if revertNodeMetadata {
+		n, err := session.Node(ctx)
+		if err != nil {
+			appctx.GetLogger(ctx).Error().Err(err).Str("sessionid", session.ID()).Msg("reading node for session failed")
 			return
+		}
+
+		versionID := strings.TrimPrefix(session.info.MetaData["versionsPath"], n.InternalPath()+node.RevisionIDDelimiter)
+		if session.NodeExists() && versionID != "" {
+			if err := n.RevertUpload(ctx, versionID); err != nil {
+				appctx.GetLogger(ctx).Error().Err(err).Str("nodepath", n.InternalPath()).Msg("reverting node metadata failed")
+				return
+			}
+		} else {
+			// if no other upload session is in progress (processing id != session id) or has finished (processing id == "")
+			latestSession, err := n.ProcessingID(ctx)
+			if err != nil {
+				appctx.GetLogger(ctx).Error().Err(err).Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Str("uploadid", session.ID()).Msg("reading processingid for session failed")
+			}
+			if latestSession == session.ID() {
+				// actually delete the node
+				if err := n.Purge(ctx); err != nil {
+					appctx.GetLogger(ctx).Error().Err(err).Str("nodepath", n.InternalPath()).Msg("purging node failed")
+					return
+				}
+			}
+			// FIXME else if the upload has become a revision, delete the revision, or if it is the last one, delete the node
 		}
 	}
 

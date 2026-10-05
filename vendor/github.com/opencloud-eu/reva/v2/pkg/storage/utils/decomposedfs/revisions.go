@@ -345,11 +345,28 @@ func (fs *Decomposedfs) DeleteRevision(ctx context.Context, ref *provider.Refere
 		return err
 	}
 
-	if err := os.RemoveAll(fs.lu.InternalPath(n.SpaceID, revisionKey)); err != nil {
-		return err
+	return fs.deleteRevisionFile(ctx, n, revisionKey)
+}
+
+// deleteRevisionFile deletes the revision node identified by revisionKey
+// (nodeID + RevisionIDDelimiter + timestamp) together with its metadata
+// sidecars and its own blob. It is a no-op if the revision does not exist.
+func (fs *Decomposedfs) deleteRevisionFile(ctx context.Context, n *node.Node, revisionKey string) error {
+	kp := strings.SplitN(revisionKey, node.RevisionIDDelimiter, 2)
+	if len(kp) != 2 {
+		return errtypes.NotFound(revisionKey)
 	}
 
-	return fs.tp.DeleteBlob(n)
+	blobID, err := n.DeleteRevision(ctx, kp[1])
+	if err != nil {
+		return err
+	}
+	if blobID == "" {
+		// no blob to delete (0-byte file or current-revision revert)
+		return nil
+	}
+
+	return fs.tp.DeleteBlob(&node.Node{SpaceID: n.SpaceID, BlobID: blobID})
 }
 
 func (fs *Decomposedfs) getRevisionNode(ctx context.Context, ref *provider.Reference, revisionKey string, hasPermission func(*provider.ResourcePermissions) bool) (*node.Node, error) {
