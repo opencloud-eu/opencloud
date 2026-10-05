@@ -383,6 +383,18 @@ default:
         - SharingNgContext:
         - PublicWebDavContext:
         - OcConfigContext:
+    
+    apiSharingNgAdditionalShareRole:
+      paths:
+        - "%paths.base%/../features/apiSharingNgAdditionalShareRole"
+      context: *common_ldap_suite_context
+      contexts:
+        - FeatureContext: *common_feature_context_params
+        - SpacesContext:
+        - GraphContext:
+        - SharingNgContext:
+        - FilesVersionsContext:
+        - OcConfigContext:
 
     apiOcm:
       paths:

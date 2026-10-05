@@ -49,6 +49,10 @@ class GraphHelper {
 		'File Editor With Versions' => '3d00ce52-1fc2-4dbc-8b95-a73b73395f5a',
 		'File Editor List Grants' => 'c1235aea-d106-42db-8458-7d5610fb0a67',
 		'Denied' => '63e64e19-8d43-42ec-a738-2b6af2610efa',
+		'Editor List Grants With Versions' => '0911d62b-1e3f-4778-8b1b-903b7e4e8476',
+		'Space Editor Without Trashbin' => '8f4701d9-c68f-4109-a482-88e22ee32805',
+		'Space Editor Without Versions Without Trashbin' => 'a5f73816-4d4b-452d-8973-3b61c3d0bed4',
+		'File Editor List Grants With Versions' => 'b173329d-cf2e-42f0-a595-ee410645d840',
 	];
 
 	public const SHARES_SPACE_ID = 'a0ca6a90-a365-4782-871e-d44447bbc668$a0ca6a90-a365-4782-871e-d44447bbc668';
