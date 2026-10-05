@@ -9,7 +9,6 @@ import (
 )
 
 var ErrNotFound = errors.New("record not found")
-var ErrAlreadyRedeemed = errors.New("token already redeemed")
 var ErrInvalidHash = errors.New("invalid share id hash")
 
 // Record holds the data persisted for a guest share token.
@@ -27,6 +26,5 @@ type Manager interface {
 	Add(rec Record) error
 	Get(shareIDHash string) (Record, error)
 	Remove(shareIDHash string) error
-	Redeem(shareIDHash string) error
 	Update(shareIDHash string, fn func(*Record) error) error
 }

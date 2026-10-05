@@ -83,26 +83,6 @@ func (s *FileManager) Remove(shareIDHash string) error {
 	return nil
 }
 
-func (s *FileManager) Redeem(shareIDHash string) error {
-	lock, err := s.lockRecord(shareIDHash)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = lock.Unlock() }()
-
-	rec, err := s.get(shareIDHash)
-	if err != nil {
-		return err
-	}
-
-	if rec.Redeemed {
-		return ErrAlreadyRedeemed
-	}
-
-	rec.Redeemed = true
-	return s.upsert(rec)
-}
-
 // Update applies fn to the record under the record lock and writes it back.
 // If fn returns an error the record is left unchanged.
 func (s *FileManager) Update(shareIDHash string, fn func(*Record) error) error {
