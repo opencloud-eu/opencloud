@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"errors"
 	"io/fs"
 	"sync"
 	"sync/atomic"
@@ -33,36 +34,6 @@ func TestFileManagerAddGet(t *testing.T) {
 
 	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
 	require.NoError(t, s.Add(rec))
-
-	got, err := s.Get(rec.ShareIDHash)
-	require.NoError(t, err)
-	assert.Equal(t, rec, got)
-}
-
-func TestFileManagerReplaceCreates(t *testing.T) {
-	dir := t.TempDir()
-	s := NewFileManager(dir)
-
-	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
-	require.NoError(t, s.Replace(rec))
-
-	got, err := s.Get(rec.ShareIDHash)
-	require.NoError(t, err)
-	assert.Equal(t, rec, got)
-}
-
-func TestFileManagerReplaceOverwrites(t *testing.T) {
-	dir := t.TempDir()
-	s := NewFileManager(dir)
-
-	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
-	require.NoError(t, s.Add(rec))
-
-	rec.SecretHash = "other"
-	rec.PinHash = "pinhash"
-	rec.PinExpiry = time.Date(2026, 12, 31, 23, 59, 59, 0, time.UTC)
-	rec.Redeemed = true
-	require.NoError(t, s.Replace(rec))
 
 	got, err := s.Get(rec.ShareIDHash)
 	require.NoError(t, err)
@@ -100,7 +71,7 @@ func TestFileManagerInvalidHash(t *testing.T) {
 
 	require.ErrorIs(t, s.Remove("ab"), ErrInvalidHash)
 	require.ErrorIs(t, s.Add(Record{ShareIDHash: "ab"}), ErrInvalidHash)
-	require.ErrorIs(t, s.Replace(Record{ShareIDHash: "ab"}), ErrInvalidHash)
+	require.ErrorIs(t, s.Update("ab", func(*Record) error { return nil }), ErrInvalidHash)
 }
 
 func TestFileManagerRemove(t *testing.T) {
@@ -146,6 +117,52 @@ func TestFileManagerRedeemMissing(t *testing.T) {
 	s := NewFileManager(dir)
 
 	err := s.Redeem("doesnotexist")
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestFileManagerUpdate(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
+	require.NoError(t, s.Add(rec))
+
+	require.NoError(t, s.Update(rec.ShareIDHash, func(r *Record) error {
+		r.PinHash = "pinhash"
+		r.Redeemed = true
+		return nil
+	}))
+
+	got, err := s.Get(rec.ShareIDHash)
+	require.NoError(t, err)
+	assert.Equal(t, "pinhash", got.PinHash)
+	assert.True(t, got.Redeemed)
+}
+
+func TestFileManagerUpdateErrorLeavesRecordUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
+	require.NoError(t, s.Add(rec))
+
+	errBoom := errors.New("boom")
+	err := s.Update(rec.ShareIDHash, func(r *Record) error {
+		r.PinHash = "pinhash"
+		return errBoom
+	})
+	assert.ErrorIs(t, err, errBoom)
+
+	got, err := s.Get(rec.ShareIDHash)
+	require.NoError(t, err)
+	assert.Equal(t, rec, got)
+}
+
+func TestFileManagerUpdateMissing(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	err := s.Update("doesnotexist", func(*Record) error { return nil })
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 

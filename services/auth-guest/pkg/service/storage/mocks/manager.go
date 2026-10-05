@@ -249,53 +249,59 @@ func (_c *Manager_Remove_Call) RunAndReturn(run func(shareIDHash string) error) 
 	return _c
 }
 
-// Replace provides a mock function for the type Manager
-func (_mock *Manager) Replace(rec storage.Record) error {
-	ret := _mock.Called(rec)
+// Update provides a mock function for the type Manager
+func (_mock *Manager) Update(shareIDHash string, fn func(*storage.Record) error) error {
+	ret := _mock.Called(shareIDHash, fn)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Replace")
+		panic("no return value specified for Update")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(storage.Record) error); ok {
-		r0 = returnFunc(rec)
+	if returnFunc, ok := ret.Get(0).(func(string, func(*storage.Record) error) error); ok {
+		r0 = returnFunc(shareIDHash, fn)
 	} else {
 		r0 = ret.Error(0)
 	}
 	return r0
 }
 
-// Manager_Replace_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Replace'
-type Manager_Replace_Call struct {
+// Manager_Update_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Update'
+type Manager_Update_Call struct {
 	*mock.Call
 }
 
-// Replace is a helper method to define mock.On call
-//   - rec storage.Record
-func (_e *Manager_Expecter) Replace(rec any) *Manager_Replace_Call {
-	return &Manager_Replace_Call{Call: _e.mock.On("Replace", rec)}
+// Update is a helper method to define mock.On call
+//   - shareIDHash string
+//   - fn func(*storage.Record) error
+func (_e *Manager_Expecter) Update(shareIDHash any, fn any) *Manager_Update_Call {
+	return &Manager_Update_Call{Call: _e.mock.On("Update", shareIDHash, fn)}
 }
 
-func (_c *Manager_Replace_Call) Run(run func(rec storage.Record)) *Manager_Replace_Call {
+func (_c *Manager_Update_Call) Run(run func(shareIDHash string, fn func(*storage.Record) error)) *Manager_Update_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 storage.Record
+		var arg0 string
 		if args[0] != nil {
-			arg0 = args[0].(storage.Record)
+			arg0 = args[0].(string)
+		}
+		var arg1 func(*storage.Record) error
+		if args[1] != nil {
+			arg1 = args[1].(func(*storage.Record) error)
 		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
 }
 
-func (_c *Manager_Replace_Call) Return(err error) *Manager_Replace_Call {
+func (_c *Manager_Update_Call) Return(err error) *Manager_Update_Call {
 	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *Manager_Replace_Call) RunAndReturn(run func(rec storage.Record) error) *Manager_Replace_Call {
+func (_c *Manager_Update_Call) RunAndReturn(run func(shareIDHash string, fn func(*storage.Record) error) error) *Manager_Update_Call {
 	_c.Call.Return(run)
 	return _c
 }

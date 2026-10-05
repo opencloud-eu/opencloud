@@ -153,3 +153,19 @@ func TestRedeemHandlerMalformedBody(t *testing.T) {
 	require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
 	assert.Equal(t, "invalidRequest", resp.ErrorType)
 }
+
+func TestRedeemHandlerMissingToken(t *testing.T) {
+	svcMock := mocks.NewAuthGuest(t)
+
+	body, err := json.Marshal(RedeemRequest{})
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+	newRedeemHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body))))
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+
+	var resp errorResponse
+	require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
+	assert.Equal(t, "invalidRequest", resp.ErrorType)
+}

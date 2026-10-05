@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/alexedwards/argon2id"
@@ -18,12 +19,12 @@ var ErrInvalidPin = errors.New("invalid pin")
 var ErrInvalidHash = errors.New("invalid pin hash")
 
 func Generate() (string, error) {
-	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(math.Pow10(Length))))
 	if err != nil {
 		return "", fmt.Errorf("could not generate random pin: %w", err)
 	}
 
-	return fmt.Sprintf("%06d", n.Int64()), nil
+	return fmt.Sprintf("%0*d", Length, n.Int64()), nil
 }
 
 func Hash(p string) (string, error) {
