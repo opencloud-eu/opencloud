@@ -1,6 +1,6 @@
 # Changelog
 
-## [8.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.1.0) - 2026-10-03
+## [8.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.1.0) - 2026-10-05
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -10,6 +10,16 @@
 
 - feat(proxy): add optional OIDC access token audience validation [[#3466](https://github.com/opencloud-eu/opencloud/pull/3466)]
 
+### 📈 Enhancement
+
+- feat: add new editor roles [[#3637](https://github.com/opencloud-eu/opencloud/pull/3637)]
+- feat(collaboration): let admins disable wopi extensions [[#3633](https://github.com/opencloud-eu/opencloud/pull/3633)]
+- fix(collaboration): send LastModifiedTime and the EuroOffice file size [[#3636](https://github.com/opencloud-eu/opencloud/pull/3636)]
+- feat(collaboration): mobile web view for EuroOffice [[#3635](https://github.com/opencloud-eu/opencloud/pull/3635)]
+- fix(collaboration): harden wopi token handling [[#3630](https://github.com/opencloud-eu/opencloud/pull/3630)]
+- add posixfs index command [[#3068](https://github.com/opencloud-eu/opencloud/pull/3068)]
+- feat(proxy): add per-service metrics to the proxy service [[#3521](https://github.com/opencloud-eu/opencloud/pull/3521)]
+
 ### 🐛 Bug Fixes
 
 - fix(search): tika key fixes [[#3651](https://github.com/opencloud-eu/opencloud/pull/3651)]
@@ -18,15 +28,6 @@
 - Remove the timeout when reindexing spaces [[#3543](https://github.com/opencloud-eu/opencloud/pull/3543)]
 - fix(shares): not auto accepting shares created by guest users [[#3533](https://github.com/opencloud-eu/opencloud/pull/3533)]
 - fix(graph): fix PatchMe method to prevent password change [[#3526](https://github.com/opencloud-eu/opencloud/pull/3526)]
-
-### 📈 Enhancement
-
-- feat(collaboration): let admins disable wopi extensions [[#3633](https://github.com/opencloud-eu/opencloud/pull/3633)]
-- fix(collaboration): send LastModifiedTime and the EuroOffice file size [[#3636](https://github.com/opencloud-eu/opencloud/pull/3636)]
-- feat(collaboration): mobile web view for EuroOffice [[#3635](https://github.com/opencloud-eu/opencloud/pull/3635)]
-- fix(collaboration): harden wopi token handling [[#3630](https://github.com/opencloud-eu/opencloud/pull/3630)]
-- add posixfs index command [[#3068](https://github.com/opencloud-eu/opencloud/pull/3068)]
-- feat(proxy): add per-service metrics to the proxy service [[#3521](https://github.com/opencloud-eu/opencloud/pull/3521)]
 
 ### ✅ Tests
 
