@@ -193,7 +193,8 @@ Feature: an user shares resources
             "type": "array",
             "minItems": 19,
             "maxItems": 19,
-            "uniqueItems": true
+            "uniqueItems": true,
+            "items": { "type": "string" }
           },
           "@libre.graph.permissions.roles.allowedValues": {
             "type": "array",
@@ -260,7 +261,8 @@ Feature: an user shares resources
               "type": "array",
               "minItems": 19,
               "maxItems": 19,
-              "uniqueItems": true
+              "uniqueItems": true,
+              "items": { "type": "string" }
             },
             "@libre.graph.permissions.roles.allowedValues": {
               "type": "array",
@@ -324,7 +326,8 @@ Feature: an user shares resources
             "type": "array",
             "minItems": 19,
             "maxItems": 19,
-            "uniqueItems": true
+            "uniqueItems": true,
+            "items": { "type": "string" }
           },
           "@libre.graph.permissions.roles.allowedValues": {
             "type": "array",
@@ -401,7 +404,8 @@ Feature: an user shares resources
               "type": "array",
               "minItems": 19,
               "maxItems": 19,
-              "uniqueItems": true
+              "uniqueItems": true,
+              "items": { "type": "string" }
             },
             "@libre.graph.permissions.roles.allowedValues": {
               "type": "array",
@@ -495,7 +499,7 @@ Feature: an user shares resources
           "remoteItem": {
             "type": "object",
             "required": ["createdBy","eTag","file","id","lastModifiedDateTime","name",
-              "parentReference","permissions","size","spaceId"],
+              "parentReference","permissions","size"],
             "properties": {
               "createdBy": {
                 "type": "object",
@@ -528,10 +532,6 @@ Feature: an user shares resources
                   "driveId": { "pattern": "^%file_id_pattern%$" },
                   "driveType": { "const": "personal" }
                 }
-              },
-              "spaceId": {
-                "type": "string",
-                "pattern": "^%space_id_pattern%$"
               },
               "permissions": {
                 "type": "array",
@@ -606,7 +606,7 @@ Feature: an user shares resources
           "remoteItem": {
             "type": "object",
             "required": ["createdBy","eTag","folder","id","lastModifiedDateTime",
-              "name","parentReference","permissions","spaceId"],
+              "name","parentReference","permissions"],
             "properties": {
               "createdBy": {
                 "type": "object",
@@ -639,10 +639,6 @@ Feature: an user shares resources
                   "driveId": { "pattern": "^%file_id_pattern%$" },
                   "driveType": { "const": "personal" }
                 }
-              },
-              "spaceId": {
-                "type": "string",
-                "pattern": "^%space_id_pattern%$"
               },
               "permissions": {
                 "type": "array",
@@ -738,7 +734,7 @@ Feature: an user shares resources
           "remoteItem": {
             "type": "object",
             "required": ["eTag","file","id","lastModifiedDateTime",
-              "name","parentReference","permissions","size","spaceId"],
+              "name","parentReference","permissions","size"],
             "properties": {
               "eTag": { "pattern": "%etag_pattern%" },
               "file": {
@@ -757,10 +753,6 @@ Feature: an user shares resources
                   "driveId": { "pattern": "^%file_id_pattern%$" },
                   "driveType": { "const": "project" }
                 }
-              },
-              "spaceId": {
-                "type": "string",
-                "pattern": "^%space_id_pattern%$"
               },
               "permissions": {
                 "type": "array",
@@ -835,7 +827,7 @@ Feature: an user shares resources
           "remoteItem": {
             "type": "object",
             "required": ["eTag","folder","id","lastModifiedDateTime",
-              "name","parentReference","permissions","spaceId"],
+              "name","parentReference","permissions"],
             "properties": {
               "eTag": { "pattern": "%etag_pattern%" },
               "file": {
@@ -854,10 +846,6 @@ Feature: an user shares resources
                   "driveId": { "pattern": "^%file_id_pattern%$" },
                   "driveType": { "const": "project" }
                 }
-              },
-              "spaceId": {
-                "type": "string",
-                "pattern": "^%space_id_pattern%$"
               },
               "permissions": {
                 "type": "array",
@@ -930,6 +918,10 @@ Feature: an user shares resources
       | shareType       | user         |
       | permissionsRole | File Editor  |
     And user "Brian" has uploaded file with content "updated content" to "Shares/textfile.txt"
+    And user "Alice" has updated the last resource share with the following properties:
+      | permissionsRole | File Editor List Grants With Versions |
+      | space           | Personal                              |
+      | resource        | textfile.txt                          |
     And user "Alice" has sent the following resource share invitation:
       | resource        | folderToShare |
       | space           | Personal      |
@@ -937,16 +929,10 @@ Feature: an user shares resources
       | shareType       | user          |
       | permissionsRole | Editor        |
     And user "Brian" has uploaded file with content "updated content" to "Shares/folderToShare/lorem.txt"
-    And user "Alice" has updated the following resource share:
-      | permissionsRole | File Editor List Grants With Versions |
-      | space           | Personal                              |
-      | resource        | textfile.txt                          |
-      | sharee          | Brian                                 |
-    And user "Alice" has updated the following resource share:
+    And user "Alice" has updated the last resource share with the following properties:
       | permissionsRole | Editor List Grants With Versions |
       | space           | Personal                         |
       | resource        | folderToShare                    |
-      | sharee          | Brian                            |
     When user "Brian" gets the number of versions of file "Shares/textfile.txt"
     Then the HTTP status code should be "207"
     And the number of versions should be "1"
@@ -967,6 +953,10 @@ Feature: an user shares resources
       | shareType       | user                                  |
       | permissionsRole | File Editor List Grants With Versions |
     And user "Brian" has uploaded file with content "updated content" to "Shares/textfile.txt"
+    And user "Alice" has updated the last resource share with the following properties:
+      | permissionsRole | File Editor  |
+      | space           | Personal     |
+      | resource        | textfile.txt |
     And user "Alice" has sent the following resource share invitation:
       | resource        | folderToShare                    |
       | space           | Personal                         |
@@ -974,16 +964,10 @@ Feature: an user shares resources
       | shareType       | user                             |
       | permissionsRole | Editor List Grants With Versions |
     And user "Brian" has uploaded file with content "updated content" to "Shares/folderToShare/lorem.txt"
-    And user "Alice" has updated the following resource share:
-      | permissionsRole | File Editor  |
-      | space           | Personal     |
-      | resource        | textfile.txt |
-      | sharee          | Brian        |
-    And user "Alice" has updated the following resource share:
+    And user "Alice" has updated the last resource share with the following properties:
       | permissionsRole | Editor        |
       | space           | Personal      |
       | resource        | folderToShare |
-      | sharee          | Brian         |
     When user "Brian" tries to get versions of file "textfile.txt" from "Alice"
     Then the HTTP status code should be "403"
     When user "Brian" tries to get versions of file "folderToShare/lorem.txt" from "Alice"
@@ -1004,6 +988,10 @@ Feature: an user shares resources
       | shareType       | user         |
       | permissionsRole | File Editor  |
     And user "Brian" has uploaded file with content "updated content" to "Shares/textfile.txt"
+    And user "Alice" has updated the last resource share with the following properties:
+      | permissionsRole | File Editor List Grants With Versions |
+      | space           | new-space                             |
+      | resource        | textfile.txt                          |
     And user "Alice" has sent the following resource share invitation:
       | resource        | folderToShare |
       | space           | new-space     |
@@ -1011,16 +999,10 @@ Feature: an user shares resources
       | shareType       | user          |
       | permissionsRole | Editor        |
     And user "Brian" has uploaded file with content "updated content" to "Shares/folderToShare/lorem.txt"
-    And user "Alice" has updated the following resource share:
-      | permissionsRole | File Editor List Grants With Versions |
-      | space           | new-space                             |
-      | resource        | textfile.txt                          |
-      | sharee          | Brian                                 |
-    And user "Alice" has updated the following resource share:
+    And user "Alice" has updated the last resource share with the following properties:
       | permissionsRole | Editor List Grants With Versions |
       | space           | new-space                        |
       | resource        | folderToShare                    |
-      | sharee          | Brian                            |
     When user "Brian" gets the number of versions of file "Shares/textfile.txt"
     Then the HTTP status code should be "207"
     And the number of versions should be "1"
@@ -1044,6 +1026,10 @@ Feature: an user shares resources
       | shareType       | user                                  |
       | permissionsRole | File Editor List Grants With Versions |
     And user "Brian" has uploaded file with content "updated content" to "Shares/textfile.txt"
+    And user "Alice" has updated the last resource share with the following properties:
+      | permissionsRole | File Editor  |
+      | space           | new-space    |
+      | resource        | textfile.txt |
     And user "Alice" has sent the following resource share invitation:
       | resource        | folderToShare                    |
       | space           | new-space                        |
@@ -1051,16 +1037,10 @@ Feature: an user shares resources
       | shareType       | user                             |
       | permissionsRole | Editor List Grants With Versions |
     And user "Brian" has uploaded file with content "updated content" to "Shares/folderToShare/lorem.txt"
-    And user "Alice" has updated the following resource share:
-      | permissionsRole | File Editor  |
-      | space           | new-space    |
-      | resource        | textfile.txt |
-      | sharee          | Brian        |
-    And user "Alice" has updated the following resource share:
+    And user "Alice" has updated the last resource share with the following properties:
       | permissionsRole | Editor        |
       | space           | new-space     |
       | resource        | folderToShare |
-      | sharee          | Brian         |
     When user "Brian" tries to get versions of the file "textfile.txt" from the space "Shares" using the WebDAV API
     Then the HTTP status code should be "403"
     When user "Brian" tries to get versions of the file "folderToShare/lorem.txt" from the space "Shares" using the WebDAV API

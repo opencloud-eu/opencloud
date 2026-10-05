@@ -893,7 +893,7 @@ Feature: ListGrants role
           "name": {"const": "textfile.txt"},
           "remoteItem": {
             "type": "object",
-            "required": ["createdBy","eTag","file","id","lastModifiedDateTime","name","parentReference","permissions","size", "spaceId"],
+            "required": ["createdBy","eTag","file","id","lastModifiedDateTime","name","parentReference","permissions","size"],
             "properties": {
               "eTag": {"pattern": "%etag_pattern%"},
               "id": {"pattern": "^%file_id_pattern%$"},
@@ -944,10 +944,6 @@ Feature: ListGrants role
                     }
                   }
                 }
-              },
-              "spaceId": {
-                "type": "string",
-                "pattern": "^%space_id_pattern%$"
               }
             }
           }
@@ -967,7 +963,7 @@ Feature: ListGrants role
           "name": {"const": "folder"},
           "remoteItem": {
             "type": "object",
-            "required": ["createdBy","eTag","folder","id","lastModifiedDateTime","name","parentReference","permissions", "spaceId"],
+            "required": ["createdBy","eTag","folder","id","lastModifiedDateTime","name","parentReference","permissions"],
             "properties": {
               "eTag": {"pattern": "%etag_pattern%"},
               "file": {},
@@ -1019,10 +1015,6 @@ Feature: ListGrants role
                     }
                   }
                 }
-              },
-              "spaceId": {
-                "type": "string",
-                "pattern": "^%space_id_pattern%$"
               }
             }
           }
@@ -1043,107 +1035,9 @@ Feature: ListGrants role
       | shareType       | user               |
       | permissionsRole | <permissions-role> |
     And user "Brian" has a share "folder" synced
-    When user "Brian" lists the activities of folder "folder" from space "Shares" using the Graph API
-    Then the HTTP status code should be "200"
-    And the JSON data of the response should match
-      """
-      {
-        "type": "object",
-        "required": ["value"],
-        "properties": {
-          "value": {
-            "type": "array",
-            "minItems": 2,
-            "maxItems": 2,
-            "uniqueItems": true,
-            "items": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "required": ["id","template","times"],
-                  "properties": {
-                    "id": {"pattern": "^%user_id_pattern%$"},
-                    "template": {
-                      "type": "object",
-                      "required": ["message","variables"],
-                      "properties": {
-                        "message": {"const": "{user} added {resource} to {folder}"},
-                        "variables":{
-                          "type": "object",
-                          "required": ["folder","resource","user"],
-                          "properties": {
-                            "folder": {
-                              "type": "object",
-                              "required": ["id","name"],
-                              "properties":{
-                                "id": {"const": ""},
-                                "name": {"const": "shared-with-me"}
-                              }
-                            },
-                            "resource": {
-                              "type": "object",
-                              "required": ["id","name"],
-                              "properties": {"name": {"const": "folder"}}
-                            },
-                            "user": {
-                              "type": "object",
-                              "required": ["id","displayName"],
-                              "properties":{"displayName": {"const": "Alice Hansen"}}
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                },
-                {
-                  "type": "object",
-                  "required": ["id","template","times"],
-                  "properties": {
-                    "id": {"pattern": "^%user_id_pattern%$"},
-                    "template": {
-                      "type": "object",
-                      "required": ["message","variables"],
-                      "properties": {
-                        "message": {"const": "{user} shared {resource} with {sharee}"},
-                        "variables": {
-                          "type": "object",
-                          "required": ["folder","resource","sharee","user"],
-                          "properties": {
-                            "resource": {
-                              "type": "object",
-                              "required": ["id","name"],
-                              "properties": {"name": {"const": "folder"}}
-                            },
-                            "sharee": {
-                              "type": "object",
-                              "required": ["id","displayName"],
-                              "properties": {"displayName": {"const": "Brian"}}
-                            },
-                            "user": {
-                              "type": "object",
-                              "required": ["id","displayName"],
-                              "properties": {"displayName": {"const": "Alice Hansen"}}
-                            }
-                          }
-                        }
-                      }
-                    },
-                    "times": {
-                      "type": "object",
-                      "required": ["recordedTime"],
-                      "properties": {
-                        "recordedTime": { "format": "date-time" }
-                      }
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      }
-      """
+    Then for user "Brian" folder "folder" of the space "Shares" should have the following activities:
+      | {user} added {resource} to {folder}    |
+      | {user} shared {resource} with {sharee} |
     Examples:
       | permissions-role   |
       | Viewer List Grants |

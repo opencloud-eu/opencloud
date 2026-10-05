@@ -524,7 +524,9 @@ class SharingNgContext implements Context {
 		);
 		$response = WaitHelper::waitUntil(
 			fn () => $this->sendShareInvitation($user, $rows),
-			fn ($response) => !self::isShareManagerMigrating($response)
+			fn ($response) => !self::isShareManagerMigrating($response),
+			null,
+			30
 		);
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, "", $response);
 	}

@@ -2921,15 +2921,9 @@ class GraphContext implements Context {
 		string $resource,
 		string $spaceName
 	): void {
-		$resourceId = $this->featureContext->spacesContext->getResourceId($user, $spaceName, $resource);
-		$response = GraphHelper::getActivities(
-			$this->featureContext->getBaseUrl(),
-			$this->featureContext->getStepLineRef(),
-			$user,
-			$this->featureContext->getPasswordForUser($user),
-			$resourceId
+		$this->featureContext->setResponse(
+			$this->getActivities($user, $resource, $spaceName)
 		);
-		$this->featureContext->setResponse($response);
 	}
 
 	/**
