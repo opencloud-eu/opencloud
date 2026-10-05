@@ -9,7 +9,7 @@ type Wopi struct {
 	ProxySecret string `yaml:"proxy_secret" env:"COLLABORATION_WOPI_PROXY_SECRET" desc:"Optional, the secret to authenticate against the OpenCloud WOPI proxy. This secret can be obtained from OpenCloud via the office365 proxy subscription." introductionVersion:"1.0.0"`
 	ShortTokens bool   `yaml:"short_tokens" env:"COLLABORATION_WOPI_SHORTTOKENS" desc:"Use short access tokens for WOPI access. This is useful for office packages, like Microsoft Office Online, which have URL length restrictions. If enabled, a persistent store must be configured." introductionVersion:"1.0.0"`
 
-	EnableMobile bool `yaml:"enable_mobile" env:"COLLABORATION_WOPI_ENABLE_MOBILE" desc:"Enable the mobile web view of the office web frontend. This feature applies to EuroOffice, where the product edition decides whether it covers editing as well." introductionVersion:"%%NEXT%%"`
+	EnableMobile bool `yaml:"enable_mobile" env:"COLLABORATION_WOPI_ENABLE_MOBILE" desc:"Enable the mobile web view of the office web frontend. This feature applies to EuroOffice, where the product edition decides whether it covers editing as well." introductionVersion:"8.1.0"`
 
-	DisabledExtensions []string `yaml:"disabled_extensions" env:"COLLABORATION_WOPI_DISABLED_EXTENSIONS" desc:"A comma separated list of file extensions the office web frontend must not offer, for example 'docx,xlsx'. Extensions are matched case-insensitively, with or without the leading dot." introductionVersion:"%%NEXT%%"`
+	DisabledExtensions []string `yaml:"disabled_extensions" env:"COLLABORATION_WOPI_DISABLED_EXTENSIONS" desc:"A comma separated list of file extensions the office web frontend must not offer, for example 'docx,xlsx'. Extensions are matched case-insensitively, with or without the leading dot." introductionVersion:"8.1.0"`
 }
