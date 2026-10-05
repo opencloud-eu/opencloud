@@ -161,7 +161,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 		return Graph{}, err
 	}
 
-	drivesDriveItemApi, err := NewDrivesDriveItemApi(drivesDriveItemService, baseGraphService, options.Logger)
+	drivesDriveItemApi, err := NewDrivesDriveItemApi(drivesDriveItemService, baseGraphService, publicBaseURL, options.Logger)
 	if err != nil {
 		return Graph{}, err
 	}
@@ -272,6 +272,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 						r.Get("/", drivesDriveItemApi.GetDriveItem)
 						r.Patch("/", drivesDriveItemApi.UpdateDriveItem)
 						r.Delete("/", drivesDriveItemApi.DeleteDriveItem)
+						r.Post("/children", drivesDriveItemApi.CreateChildDriveItem)
 						r.Post("/invite", driveItemPermissionsApi.Invite)
 						r.Post("/createLink", driveItemPermissionsApi.CreateLink)
 						r.Route("/permissions", func(r chi.Router) {
