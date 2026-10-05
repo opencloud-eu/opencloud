@@ -62,7 +62,7 @@ func (q *Queue) Next(ctx context.Context) (*Lease, error) {
 			q.recordClaim(ready)
 			return ready, nil
 		case lease := <-q.lowReady:
-			ready, handled, claimErr := q.claimResource(lease)
+			ready, handled, claimErr := q.claimResource(ctx, lease)
 			if claimErr != nil {
 				return nil, claimErr
 			}
@@ -133,7 +133,7 @@ func (q *Queue) claimHigh(ctx context.Context, lease *Lease) (*Lease, bool, erro
 		}
 		return nil, true, nil
 	}
-	ready, handled, err := q.claimResource(lease)
+	ready, handled, err := q.claimResource(ctx, lease)
 	return ready, handled, err
 }
 
@@ -141,7 +141,7 @@ func (q *Queue) recordClaim(lease *Lease) {
 	q.metrics.QueueWait.WithLabelValues(string(lease.Job.Priority)).Observe(time.Since(lease.Job.EnqueuedAt).Seconds())
 }
 
-func (q *Queue) claimResource(lease *Lease) (*Lease, bool, error) {
+func (q *Queue) claimResource(ctx context.Context, lease *Lease) (*Lease, bool, error) {
 	if lease.Job.ResourceKey != "" && lease.Job.SourceSequence > 0 {
 		if q.inputAckFloor.Load() < lease.Job.SourceSequence {
 			if err := lease.NakWithDelay(resourceBlockedWait); err != nil {
@@ -150,7 +150,7 @@ func (q *Queue) claimResource(lease *Lease) (*Lease, bool, error) {
 			return nil, true, nil
 		}
 	}
-	claim, token, err := q.resourceOrder.Claim(q.ctx, lease.Job)
+	claim, token, err := q.resourceOrder.Claim(ctx, lease.Job)
 	if err != nil {
 		_ = lease.NakWithDelay(inputRetryDelay)
 		return nil, false, err

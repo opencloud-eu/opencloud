@@ -170,6 +170,9 @@ func Open(ctx context.Context, cfg *config.Config, onError func(error)) (*Queue,
 			conn.Close()
 		}
 	}()
+	if err := waitForNATSConnection(queueCtx, conn); err != nil {
+		return nil, fmt.Errorf("wait for antivirus priority queue NATS connection: %w", err)
+	}
 
 	legacyJS, err := conn.JetStream()
 	if err != nil {
@@ -283,6 +286,27 @@ func Open(ctx context.Context, cfg *config.Config, onError func(error)) (*Queue,
 	go q.monitor()
 	closeOnError = false
 	return q, nil
+}
+
+func waitForNATSConnection(ctx context.Context, conn *nats.Conn) error {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if conn.IsConnected() {
+			return nil
+		}
+		if conn.IsClosed() {
+			if err := conn.LastError(); err != nil {
+				return err
+			}
+			return errors.New("NATS connection closed before connecting")
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
 }
 
 func ensureMainEventStream(ctx context.Context, js jetstream.JetStream) error {

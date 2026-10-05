@@ -62,17 +62,22 @@ After that, the user's jobs are low priority for
 `ANTIVIRUS_PRIORITY_COOLDOWN` (30 seconds by default). Continued high-rate
 activity extends the cooldown. Other users' jobs are selected before queued
 low-priority jobs; there is no round-robin between users.
+The lanes are shared across replicas, but choosing a low job is not coordinated
+with a simultaneous high-job publish on another replica; a scan already
+started cannot be preempted.
 
-High-lane jobs are held for the configured rate window before scanning so a
-burst can be classified first. This adds up to one second of queueing by
-default. If a user crosses the threshold during that window, their queued
-high-lane jobs are moved to the low lane. Jobs already running cannot be
-demoted or preempted.
+High-lane jobs wait for the configured rate window from queue admission before
+scanning. This adds up to one second by default. If a user crosses the
+threshold during that window, their queued high-lane jobs are moved to the low
+lane. Intake backlog can affect how much of a burst is classified before a
+scan starts. Jobs already running cannot be demoted or preempted.
 
-Jobs for the same storage resource stay in source-event order across both
-lanes and through the corresponding `UploadReady` event. A newer high-priority
-edit cannot overtake an older low-priority scan or its finalization. Retry
-attempts keep their original place in that resource's order.
+For the same storage resource, antivirus jobs are ordered by the
+`StartPostprocessingStep` sequence seen on the event stream, across both lanes
+and through the corresponding `UploadReady` event. Retries keep their original
+place in that order. This does not guarantee original upload/version order:
+postprocessing workers may publish start events in a different order from the
+uploads that caused them.
 
 By default, one `ANTIVIRUS_WORKERS` slot is reserved for high-priority work
 when multiple scan workers are configured. With one scan worker, the default
@@ -95,7 +100,8 @@ account must be allowed to create and use streams, consumers, and KV buckets.
 These resources are durable and shared by antivirus replicas. Set
 `ANTIVIRUS_QUEUE_REPLICAS` to the desired NATS replication factor (default 1).
 Job acknowledgements are refreshed while scans run; `ANTIVIRUS_QUEUE_ACK_WAIT`
-controls the redelivery timeout.
+controls the redelivery timeout. Completion event IDs are deduplicated for two
+minutes; delivery is still at-least-once if a retry happens beyond that window.
 
 Configuration:
 

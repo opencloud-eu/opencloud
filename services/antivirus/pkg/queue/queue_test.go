@@ -17,8 +17,21 @@ import (
 	microevents "go-micro.dev/v4/events"
 
 	"github.com/opencloud-eu/opencloud/services/antivirus/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/antivirus/pkg/config/defaults"
 	revaevents "github.com/opencloud-eu/reva/v2/pkg/events"
 )
+
+func TestOpenWaitsForNATSConnectionUntilContextCancellation(t *testing.T) {
+	cfg := defaults.FullDefaultConfig()
+	cfg.Events.Endpoint = "nats://127.0.0.1:1"
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	_, err := Open(ctx, cfg, nil)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Open error = %v, want context deadline while waiting for NATS", err)
+	}
+}
 
 func TestQueueClassifiesHeavyUserAndAlwaysSelectsHighFirst(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -79,14 +92,17 @@ func TestQueueClassifiesHeavyUserAndAlwaysSelectsHighFirst(t *testing.T) {
 	}
 	secondReplicaClassifier := newClassifier(sharedRateStore, cfg.PriorityThreshold, cfg.PriorityWindow, cfg.PriorityCooldown)
 	classifyAt := time.Now().UTC()
-	if priority, err := q.classifier.Classify(ctx, "shared-classifier-user", classifyAt, classifyAt); err != nil || priority != PriorityHigh {
+	if priority, err := q.classifier.Classify(ctx, "shared-classifier-user", "classify-1", classifyAt, classifyAt); err != nil || priority != PriorityHigh {
 		t.Fatalf("first replica classification = %q, err=%v; want high", priority, err)
 	}
-	if priority, err := secondReplicaClassifier.Classify(ctx, "shared-classifier-user", classifyAt.Add(10*time.Millisecond), classifyAt.Add(10*time.Millisecond)); err != nil || priority != PriorityHigh {
+	if priority, err := secondReplicaClassifier.Classify(ctx, "shared-classifier-user", "classify-2", classifyAt.Add(10*time.Millisecond), classifyAt.Add(10*time.Millisecond)); err != nil || priority != PriorityHigh {
 		t.Fatalf("second replica classification = %q, err=%v; want high", priority, err)
 	}
-	if priority, err := q.classifier.Classify(ctx, "shared-classifier-user", classifyAt.Add(20*time.Millisecond), classifyAt.Add(20*time.Millisecond)); err != nil || priority != PriorityLow {
+	if priority, err := q.classifier.Classify(ctx, "shared-classifier-user", "classify-3", classifyAt.Add(20*time.Millisecond), classifyAt.Add(20*time.Millisecond)); err != nil || priority != PriorityLow {
 		t.Fatalf("shared rate classification = %q, err=%v; want low", priority, err)
+	}
+	if priority, err := q.classifier.Classify(ctx, "shared-classifier-user", "classify-1", classifyAt, classifyAt.Add(30*time.Millisecond)); err != nil || priority != PriorityHigh {
+		t.Fatalf("redelivered event classification = %q, err=%v; want its original high classification", priority, err)
 	}
 
 	publisher, err := nats.Connect(natsServer.ClientURL())
@@ -273,7 +289,6 @@ func TestQueueClassifiesHeavyUserAndAlwaysSelectsHighFirst(t *testing.T) {
 	if err := lease.Ack(); err != nil {
 		t.Fatal(err)
 	}
-
 	retryResource := classifierKey("resource-order-retry-test")
 	if err := q.resourceOrder.Register(ctx, retryResource, "attempt-1", "retry-upload", 100); err != nil {
 		t.Fatal(err)
@@ -315,6 +330,36 @@ func TestQueueClassifiesHeavyUserAndAlwaysSelectsHighFirst(t *testing.T) {
 	if err := q.resourceOrder.Complete(ctx, laterJob, token); err != nil {
 		t.Fatal(err)
 	}
+
+	contextJob := Job{
+		ID:          "context-cancel-job",
+		ResourceKey: classifierKey("context-cancel-resource"),
+		Priority:    PriorityLow,
+		EnqueuedAt:  time.Now().UTC(),
+	}
+	if err := q.resourceOrder.Register(ctx, contextJob.ResourceKey, contextJob.ID, "", 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := q.enqueue(ctx, contextJob); err != nil {
+		t.Fatal(err)
+	}
+	var contextLease *Lease
+	deadline = time.Now().Add(5 * time.Second)
+	for contextLease == nil {
+		select {
+		case contextLease = <-q.lowReady:
+		case <-time.After(10 * time.Millisecond):
+			if time.Now().After(deadline) {
+				t.Fatal("timed out waiting for context-check job")
+			}
+		}
+	}
+	canceledCtx, cancelContext := context.WithCancel(ctx)
+	cancelContext()
+	if _, _, err := q.claimResource(canceledCtx, contextLease); !errors.Is(err, context.Canceled) {
+		t.Fatalf("resource claim error = %v, want canceled caller context", err)
+	}
+
 	q.Close()
 	select {
 	case err := <-callbackErrors:

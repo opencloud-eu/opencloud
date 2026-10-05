@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 
@@ -72,7 +73,7 @@ func (o *resourceOrder) Register(ctx context.Context, resourceKey, jobID, upload
 				return fmt.Errorf("decode antivirus resource order: %w", err)
 			}
 		}
-		if containsString(state.Completed, jobID) {
+		if slices.Contains(state.Completed, jobID) {
 			return nil
 		}
 		found := false
@@ -249,7 +250,7 @@ func (o *resourceOrder) Claim(ctx context.Context, job Job) (resourceClaim, stri
 		if err := json.Unmarshal(entry.Value(), &state); err != nil {
 			return resourceBlocked, "", fmt.Errorf("decode antivirus resource order: %w", err)
 		}
-		if containsString(state.Completed, job.ID) {
+		if slices.Contains(state.Completed, job.ID) {
 			return resourceCompleted, "", nil
 		}
 		index := findJob(state.Pending, job.ID)
@@ -327,7 +328,7 @@ func (o *resourceOrder) updateLease(ctx context.Context, job Job, token string, 
 			return fmt.Errorf("decode antivirus resource lease: %w", err)
 		}
 		if state.RunningJobID != job.ID || state.RunningToken != token {
-			if release && containsString(state.Completed, job.ID) {
+			if release && slices.Contains(state.Completed, job.ID) {
 				return nil
 			}
 			return errResourceLeaseLost
@@ -368,7 +369,7 @@ func (o *resourceOrder) Complete(ctx context.Context, job Job, token string) err
 		if err := json.Unmarshal(entry.Value(), &state); err != nil {
 			return fmt.Errorf("decode antivirus resource queue: %w", err)
 		}
-		if containsString(state.Completed, job.ID) {
+		if slices.Contains(state.Completed, job.ID) {
 			return nil
 		}
 		if state.RunningJobID != job.ID || state.RunningToken != token || len(state.Pending) == 0 || state.Pending[0].ID != job.ID {
@@ -409,12 +410,3 @@ func findJob(jobs []resourceJob, id string) int {
 }
 
 func uploadOrderKey(uploadID string) string { return "upload-" + classifierKey(uploadID) }
-
-func containsString(values []string, value string) bool {
-	for _, existing := range values {
-		if existing == value {
-			return true
-		}
-	}
-	return false
-}

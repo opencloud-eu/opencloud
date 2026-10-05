@@ -13,6 +13,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	revaevents "github.com/opencloud-eu/reva/v2/pkg/events"
+	microevents "go-micro.dev/v4/events"
 )
 
 func (q *Queue) subscribeInput() error {
@@ -147,15 +148,8 @@ func (q *Queue) monitor() {
 	}
 }
 
-type eventEnvelope struct {
-	ID        string            `json:"ID"`
-	Timestamp time.Time         `json:"Timestamp"`
-	Metadata  map[string]string `json:"Metadata"`
-	Payload   []byte            `json:"Payload"`
-}
-
 func (q *Queue) handleInput(msg *nats.Msg) {
-	var envelope eventEnvelope
+	var envelope microevents.Event
 	if err := json.Unmarshal(msg.Data, &envelope); err != nil {
 		q.report(fmt.Errorf("decode antivirus input event: %w", err))
 		_ = msg.Term()
@@ -171,18 +165,7 @@ func (q *Queue) handleInput(msg *nats.Msg) {
 			_ = msg.Term()
 			return
 		}
-		if !q.inputPredecessorsAcked(msg) {
-			_ = msg.NakWithDelay(resourceBlockedWait)
-			return
-		}
-		if err := q.resourceOrder.FinishUpload(q.ctx, ev.UploadID); err != nil {
-			q.report(err)
-			_ = msg.NakWithDelay(inputRetryDelay)
-			return
-		}
-		if err := msg.AckSync(); err != nil {
-			q.report(fmt.Errorf("acknowledge UploadReady event: %w", err))
-		}
+		q.finishUploadInput(msg, ev.UploadID, "UploadReady")
 		return
 	case reflect.TypeOf(revaevents.CleanUpload{}).String():
 		var ev revaevents.CleanUpload
@@ -191,18 +174,7 @@ func (q *Queue) handleInput(msg *nats.Msg) {
 			_ = msg.Term()
 			return
 		}
-		if !q.inputPredecessorsAcked(msg) {
-			_ = msg.NakWithDelay(resourceBlockedWait)
-			return
-		}
-		if err := q.resourceOrder.FinishUpload(q.ctx, ev.UploadID); err != nil {
-			q.report(err)
-			_ = msg.NakWithDelay(inputRetryDelay)
-			return
-		}
-		if err := msg.AckSync(); err != nil {
-			q.report(fmt.Errorf("acknowledge CleanUpload event: %w", err))
-		}
+		q.finishUploadInput(msg, ev.UploadID, "CleanUpload")
 		return
 	}
 
@@ -242,7 +214,7 @@ func (q *Queue) handleInput(msg *nats.Msg) {
 
 	now := time.Now()
 	eventTime := envelope.Timestamp
-	priority, err := q.classifier.Classify(q.ctx, userIdentity(ev.ExecutingUser), eventTime, now)
+	priority, err := q.classifier.Classify(q.ctx, userIdentity(ev.ExecutingUser), jobID, eventTime, now)
 	if err != nil {
 		q.report(err)
 		_ = msg.NakWithDelay(inputRetryDelay)
@@ -270,6 +242,21 @@ func (q *Queue) handleInput(msg *nats.Msg) {
 	}
 	if err := msg.AckSync(); err != nil {
 		q.report(fmt.Errorf("acknowledge durably enqueued antivirus job: %w", err))
+	}
+}
+
+func (q *Queue) finishUploadInput(msg *nats.Msg, uploadID, eventType string) {
+	if !q.inputPredecessorsAcked(msg) {
+		_ = msg.NakWithDelay(resourceBlockedWait)
+		return
+	}
+	if err := q.resourceOrder.FinishUpload(q.ctx, uploadID); err != nil {
+		q.report(err)
+		_ = msg.NakWithDelay(inputRetryDelay)
+		return
+	}
+	if err := msg.AckSync(); err != nil {
+		q.report(fmt.Errorf("acknowledge %s event: %w", eventType, err))
 	}
 }
 
