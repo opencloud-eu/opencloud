@@ -2,10 +2,15 @@ package config
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 )
+
+// MainEventStreamDuplicateWindow matches the JetStream duplicate window used
+// for stable antivirus completion event IDs on the shared event stream.
+const MainEventStreamDuplicateWindow = 2 * time.Minute
 
 // ScannerType gives info which scanner is used
 type ScannerType string
@@ -39,11 +44,12 @@ type Config struct {
 	InfectedFileHandling string `yaml:"infected-file-handling" env:"ANTIVIRUS_INFECTED_FILE_HANDLING" desc:"Defines the behaviour when a virus has been found. Supported options are: 'delete', 'continue' and 'abort '. Delete will delete the file. Continue will mark the file as infected but continues further processing. Abort will keep the file in the uploads folder for further admin inspection and will not move it to its final destination." introductionVersion:"1.0.0"`
 	Events               Events
 	Workers              int `yaml:"workers" env:"ANTIVIRUS_WORKERS" desc:"The number of concurrent go routines that fetch events from the event queue." introductionVersion:"1.0.0"`
+	QueueIntakeWorkers   int `yaml:"queue_intake_workers" env:"ANTIVIRUS_QUEUE_INTAKE_WORKERS" desc:"The number of workers that copy scan requests from the shared event stream into durable priority queues. This does not change scan concurrency." introductionVersion:"8.0.0"`
 
 	PriorityThreshold           int           `yaml:"priority_threshold" env:"ANTIVIRUS_PRIORITY_THRESHOLD" desc:"Maximum virus-scan jobs per user in the priority window before subsequent jobs are queued at low priority." introductionVersion:"8.0.0"`
 	PriorityWindow              time.Duration `yaml:"priority_window" env:"ANTIVIRUS_PRIORITY_WINDOW" desc:"Rolling window used to detect high-volume virus-scan uploads." introductionVersion:"8.0.0"`
 	PriorityCooldown            time.Duration `yaml:"priority_cooldown" env:"ANTIVIRUS_PRIORITY_COOLDOWN" desc:"How long a user remains at low priority after exceeding the configured rate." introductionVersion:"8.0.0"`
-	HighPriorityReservedWorkers int           `yaml:"high_priority_reserved_workers" env:"ANTIVIRUS_HIGH_PRIORITY_RESERVED_WORKERS" desc:"Number of antivirus workers that only claim high-priority jobs, protecting them from long-running low-priority scans." introductionVersion:"8.0.0"`
+	HighPriorityReservedWorkers int           `yaml:"high_priority_reserved_workers" env:"ANTIVIRUS_HIGH_PRIORITY_RESERVED_WORKERS" desc:"Number of antivirus workers that only claim high-priority jobs, protecting them from long-running low-priority scans. Defaults to one when multiple workers are configured, otherwise zero." introductionVersion:"8.0.0"`
 	QueueAckWait                time.Duration `yaml:"queue_ack_wait" env:"ANTIVIRUS_QUEUE_ACK_WAIT" desc:"How long a claimed antivirus job may remain unacknowledged before JetStream redelivers it. Workers refresh the acknowledgement while scanning. Keep it below the main event stream duplicate window (2m)." introductionVersion:"8.0.0"`
 	QueueReplicas               int           `yaml:"queue_replicas" env:"ANTIVIRUS_QUEUE_REPLICAS" desc:"JetStream replica count for the durable antivirus job stream and user-rate bucket. Set to the NATS cluster's desired replication factor." introductionVersion:"8.0.0"`
 
@@ -54,6 +60,38 @@ type Config struct {
 	Context context.Context `json:"-" yaml:"-"`
 
 	DebugScanOutcome string `yaml:"-" env:"ANTIVIRUS_DEBUG_SCAN_OUTCOME" desc:"A predefined outcome for virus scanning, FOR DEBUG PURPOSES ONLY! (example values: 'found,infected')" introductionVersion:"1.0.0"`
+}
+
+// Validate checks the antivirus worker and priority-queue configuration.
+func (c *Config) Validate() error {
+	if c.Workers < 1 {
+		return errors.New("ANTIVIRUS_WORKERS must be greater than zero")
+	}
+	if c.QueueIntakeWorkers < 1 {
+		return errors.New("ANTIVIRUS_QUEUE_INTAKE_WORKERS must be greater than zero")
+	}
+	if c.HighPriorityReservedWorkers < 0 || c.HighPriorityReservedWorkers >= c.Workers {
+		return errors.New("ANTIVIRUS_HIGH_PRIORITY_RESERVED_WORKERS must be at least zero and less than ANTIVIRUS_WORKERS")
+	}
+	if c.PriorityThreshold < 1 {
+		return errors.New("ANTIVIRUS_PRIORITY_THRESHOLD must be greater than zero")
+	}
+	if c.PriorityWindow <= 0 {
+		return errors.New("ANTIVIRUS_PRIORITY_WINDOW must be greater than zero")
+	}
+	if c.PriorityCooldown <= 0 {
+		return errors.New("ANTIVIRUS_PRIORITY_COOLDOWN must be greater than zero")
+	}
+	if c.QueueAckWait <= 0 {
+		return errors.New("ANTIVIRUS_QUEUE_ACK_WAIT must be greater than zero")
+	}
+	if c.QueueAckWait >= MainEventStreamDuplicateWindow {
+		return errors.New("ANTIVIRUS_QUEUE_ACK_WAIT must be less than 2m")
+	}
+	if c.QueueReplicas < 1 {
+		return errors.New("ANTIVIRUS_QUEUE_REPLICAS must be greater than zero")
+	}
+	return nil
 }
 
 // Service defines the available service configuration.

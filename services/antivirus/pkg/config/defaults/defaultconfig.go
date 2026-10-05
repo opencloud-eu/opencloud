@@ -29,10 +29,11 @@ func DefaultConfig() *config.Config {
 			Cluster:  "opencloud-cluster",
 		},
 		Workers:                     10,
+		QueueIntakeWorkers:          10,
 		PriorityThreshold:           10,
 		PriorityWindow:              time.Second,
 		PriorityCooldown:            30 * time.Second,
-		HighPriorityReservedWorkers: 1,
+		HighPriorityReservedWorkers: -1,
 		QueueAckWait:                time.Minute,
 		QueueReplicas:               1,
 		InfectedFileHandling:        "delete",
@@ -68,5 +69,11 @@ func Sanitize(cfg *config.Config) {
 
 	if cfg.MaxScanSize == "" {
 		cfg.MaxScanSize = defaultConfig.MaxScanSize
+	}
+	if cfg.HighPriorityReservedWorkers < 0 {
+		cfg.HighPriorityReservedWorkers = 0
+		if cfg.Workers > 1 {
+			cfg.HighPriorityReservedWorkers = 1
+		}
 	}
 }

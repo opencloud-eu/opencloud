@@ -54,30 +54,74 @@ The number of concurrent scans can be increased by setting `ANTIVIRUS_WORKERS`. 
 
 ### Scan queue priority
 
-Antivirus requests are copied from the existing event stream into durable JetStream high- and low-priority queues. Jobs from a user remain high priority until they exceed `ANTIVIRUS_PRIORITY_THRESHOLD` scan requests during `ANTIVIRUS_PRIORITY_WINDOW`. The default is more than 10 requests in one second. Once exceeded, that user's jobs are low priority for `ANTIVIRUS_PRIORITY_COOLDOWN` (30 seconds by default). Continued high-rate activity extends the cooldown. Other users' jobs stay high priority and are selected before queued low-priority jobs; there is no round-robin between users.
+Antivirus requests are copied from the existing event stream into durable
+JetStream high- and low-priority queues. A user's jobs stay high priority until
+they exceed `ANTIVIRUS_PRIORITY_THRESHOLD` scan requests during
+`ANTIVIRUS_PRIORITY_WINDOW` (more than 10 requests per second by default).
+After that, the user's jobs are low priority for
+`ANTIVIRUS_PRIORITY_COOLDOWN` (30 seconds by default). Continued high-rate
+activity extends the cooldown. Other users' jobs are selected before queued
+low-priority jobs; there is no round-robin between users.
 
-High-lane jobs are held for the configured rate window before scanning so a burst can be classified before those queued jobs start. This adds up to one second of queueing by default. If the user crosses the threshold during that window, their not-yet-started high-lane jobs are moved to the low lane. Jobs already running cannot be demoted or preempted.
+High-lane jobs are held for the configured rate window before scanning so a
+burst can be classified first. This adds up to one second of queueing by
+default. If a user crosses the threshold during that window, their queued
+high-lane jobs are moved to the low lane. Jobs already running cannot be
+demoted or preempted.
 
-By default, one `ANTIVIRUS_WORKERS` slot is reserved for high-priority work (`ANTIVIRUS_HIGH_PRIORITY_RESERVED_WORKERS=1`). Reserved workers never take low-priority jobs; the remaining workers take high-priority jobs first and low-priority jobs only when no high-priority job is ready. This protects some capacity for interactive work, at the cost of leaving that slot idle when only bulk work is queued. Set the value to `0` to disable the reservation. It must be less than `ANTIVIRUS_WORKERS`.
+Jobs for the same storage resource stay in source-event order across both
+lanes and through the corresponding `UploadReady` event. A newer high-priority
+edit cannot overtake an older low-priority scan or its finalization. Retry
+attempts keep their original place in that resource's order.
 
-This is prioritization, not rate limiting: uploads are accepted and low-priority scans remain queued. Strict high-first scheduling can starve low-priority jobs while the high-priority queue never empties. Scans already running cannot be preempted; the reserved worker limits this head-of-line blocking but cannot guarantee a fixed latency during a burst of high-priority work. A user's Collabora saves are also classified by that user's upload rate; this policy does not separately identify interactive edits.
+By default, one `ANTIVIRUS_WORKERS` slot is reserved for high-priority work
+when multiple scan workers are configured. With one scan worker, the default
+reservation is zero. Reserved workers never take low-priority jobs; the other
+workers check for high-priority jobs first. This protects some capacity for
+interactive work, at the cost of leaving that slot idle when only bulk work is
+queued. Set `ANTIVIRUS_HIGH_PRIORITY_RESERVED_WORKERS=0` to disable it; the
+value must be less than `ANTIVIRUS_WORKERS`.
 
-The scheduler creates the `OPENCLOUD_ANTIVIRUS_JOBS` JetStream stream and `ANTIVIRUS_USER_RATES` KV bucket. The NATS account used by the antivirus service must be allowed to create and use streams, consumers, and KV buckets. These resources are durable and shared by all antivirus replicas. Set `ANTIVIRUS_QUEUE_REPLICAS` to the desired JetStream replication factor (the default is 1; use the NATS cluster's appropriate value for high availability). Queue job acknowledgements are refreshed while scans run; `ANTIVIRUS_QUEUE_ACK_WAIT` controls the redelivery timeout.
+This is prioritization, not rate limiting: uploads are accepted and low-priority
+scans remain queued. Strict high-first scheduling can starve low-priority jobs
+while the high-priority queue never empties. Scans already running cannot be
+preempted, so the reserved worker cannot guarantee a fixed latency during a
+burst of high-priority work. A user's Collabora saves are also classified by
+that user's upload rate; interactive edits are not distinguished separately.
+
+The scheduler creates the `OPENCLOUD_ANTIVIRUS_JOBS` JetStream stream and the
+`ANTIVIRUS_USER_RATES` and `ANTIVIRUS_RESOURCE_ORDER` KV buckets. The NATS
+account must be allowed to create and use streams, consumers, and KV buckets.
+These resources are durable and shared by antivirus replicas. Set
+`ANTIVIRUS_QUEUE_REPLICAS` to the desired NATS replication factor (default 1).
+Job acknowledgements are refreshed while scans run; `ANTIVIRUS_QUEUE_ACK_WAIT`
+controls the redelivery timeout.
 
 Configuration:
 
-| Environment variable | Default | Meaning |
-| --- | --- | --- |
-| `ANTIVIRUS_PRIORITY_THRESHOLD` | `10` | Requests per user allowed in the priority window before requests are demoted. |
-| `ANTIVIRUS_PRIORITY_WINDOW` | `1s` | Rolling rate window. |
-| `ANTIVIRUS_PRIORITY_COOLDOWN` | `30s` | Time a heavy uploader remains low priority. |
-| `ANTIVIRUS_HIGH_PRIORITY_RESERVED_WORKERS` | `1` | Workers reserved for high-priority jobs only. Must be less than `ANTIVIRUS_WORKERS`. |
-| `ANTIVIRUS_QUEUE_ACK_WAIT` | `1m` | JetStream job redelivery timeout; workers send lease heartbeats during scans. Must stay below 2m. |
-| `ANTIVIRUS_QUEUE_REPLICAS` | `1` | Replicas for the durable job stream and shared rate bucket. |
+* `ANTIVIRUS_PRIORITY_THRESHOLD` (default `10`): requests per user allowed in
+  the priority window before new requests are demoted.
+* `ANTIVIRUS_PRIORITY_WINDOW` (default `1s`): rolling rate window.
+* `ANTIVIRUS_PRIORITY_COOLDOWN` (default `30s`): low-priority cooldown.
+* `ANTIVIRUS_QUEUE_INTAKE_WORKERS` (default `10`): event intake workers,
+  independent of scan concurrency.
+* `ANTIVIRUS_HIGH_PRIORITY_RESERVED_WORKERS` (default `1`, or `0` with one
+  scan worker): reserved high-priority workers. Must be less than
+  `ANTIVIRUS_WORKERS`.
+* `ANTIVIRUS_QUEUE_ACK_WAIT` (default `1m`): job redelivery timeout. Workers
+  send lease heartbeats; this value must stay below `2m`.
+* `ANTIVIRUS_QUEUE_REPLICAS` (default `1`): replication factor for queue state.
 
-The service exposes `opencloud_antivirus_jobs_pending{priority}`, `opencloud_antivirus_jobs_in_flight{priority}`, `opencloud_antivirus_jobs_enqueued_total{priority}`, and `opencloud_antivirus_queue_wait_seconds{priority}`. Metrics do not include user IDs.
+Metrics are available without user-ID labels:
+`opencloud_antivirus_jobs_pending{priority}`,
+`opencloud_antivirus_jobs_in_flight{priority}`,
+`opencloud_antivirus_jobs_enqueued_total{priority}`, and
+`opencloud_antivirus_queue_wait_seconds{priority}`.
 
-When upgrading, stop old antivirus replicas before starting the new version, then start the new replicas together. The implementation reuses the existing `antivirus` durable consumer cursor, but mixed old/new replicas can process the same consumer group with different queue behavior.
+When upgrading, stop old antivirus replicas before starting the new version,
+then start the new replicas together. The implementation reuses the existing
+`antivirus` durable consumer cursor; mixed old/new replicas can process the
+same group with different queue behavior.
 
 ### Infected File Handling
 
