@@ -52,6 +52,33 @@ In such cases, the antivirus max scan size mode can be handy, the following mode
 
 The number of concurrent scans can be increased by setting `ANTIVIRUS_WORKERS`. Be aware that this will also increase memory usage.
 
+### Scan queue priority
+
+Antivirus requests are copied from the existing event stream into durable JetStream high- and low-priority queues. Jobs from a user remain high priority until they exceed `ANTIVIRUS_PRIORITY_THRESHOLD` scan requests during `ANTIVIRUS_PRIORITY_WINDOW`. The default is more than 10 requests in one second. Once exceeded, that user's jobs are low priority for `ANTIVIRUS_PRIORITY_COOLDOWN` (30 seconds by default). Continued high-rate activity extends the cooldown. Other users' jobs stay high priority and are selected before queued low-priority jobs; there is no round-robin between users.
+
+High-lane jobs are held for the configured rate window before scanning so a burst can be classified before those queued jobs start. This adds up to one second of queueing by default. If the user crosses the threshold during that window, their not-yet-started high-lane jobs are moved to the low lane. Jobs already running cannot be demoted or preempted.
+
+By default, one `ANTIVIRUS_WORKERS` slot is reserved for high-priority work (`ANTIVIRUS_HIGH_PRIORITY_RESERVED_WORKERS=1`). Reserved workers never take low-priority jobs; the remaining workers take high-priority jobs first and low-priority jobs only when no high-priority job is ready. This protects some capacity for interactive work, at the cost of leaving that slot idle when only bulk work is queued. Set the value to `0` to disable the reservation. It must be less than `ANTIVIRUS_WORKERS`.
+
+This is prioritization, not rate limiting: uploads are accepted and low-priority scans remain queued. Strict high-first scheduling can starve low-priority jobs while the high-priority queue never empties. Scans already running cannot be preempted; the reserved worker limits this head-of-line blocking but cannot guarantee a fixed latency during a burst of high-priority work. A user's Collabora saves are also classified by that user's upload rate; this policy does not separately identify interactive edits.
+
+The scheduler creates the `OPENCLOUD_ANTIVIRUS_JOBS` JetStream stream and `ANTIVIRUS_USER_RATES` KV bucket. The NATS account used by the antivirus service must be allowed to create and use streams, consumers, and KV buckets. These resources are durable and shared by all antivirus replicas. Set `ANTIVIRUS_QUEUE_REPLICAS` to the desired JetStream replication factor (the default is 1; use the NATS cluster's appropriate value for high availability). Queue job acknowledgements are refreshed while scans run; `ANTIVIRUS_QUEUE_ACK_WAIT` controls the redelivery timeout.
+
+Configuration:
+
+| Environment variable | Default | Meaning |
+| --- | --- | --- |
+| `ANTIVIRUS_PRIORITY_THRESHOLD` | `10` | Requests per user allowed in the priority window before requests are demoted. |
+| `ANTIVIRUS_PRIORITY_WINDOW` | `1s` | Rolling rate window. |
+| `ANTIVIRUS_PRIORITY_COOLDOWN` | `30s` | Time a heavy uploader remains low priority. |
+| `ANTIVIRUS_HIGH_PRIORITY_RESERVED_WORKERS` | `1` | Workers reserved for high-priority jobs only. Must be less than `ANTIVIRUS_WORKERS`. |
+| `ANTIVIRUS_QUEUE_ACK_WAIT` | `1m` | JetStream job redelivery timeout; workers send lease heartbeats during scans. Must stay below 2m. |
+| `ANTIVIRUS_QUEUE_REPLICAS` | `1` | Replicas for the durable job stream and shared rate bucket. |
+
+The service exposes `opencloud_antivirus_jobs_pending{priority}`, `opencloud_antivirus_jobs_in_flight{priority}`, `opencloud_antivirus_jobs_enqueued_total{priority}`, and `opencloud_antivirus_queue_wait_seconds{priority}`. Metrics do not include user IDs.
+
+When upgrading, stop old antivirus replicas before starting the new version, then start the new replicas together. The implementation reuses the existing `antivirus` durable consumer cursor, but mixed old/new replicas can process the same consumer group with different queue behavior.
+
 ### Infected File Handling
 
 The antivirus service allows three different ways of handling infected files. Those can be set via the `ANTIVIRUS_INFECTED_FILE_HANDLING` environment variable:

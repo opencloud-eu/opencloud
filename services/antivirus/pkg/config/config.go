@@ -40,6 +40,13 @@ type Config struct {
 	Events               Events
 	Workers              int `yaml:"workers" env:"ANTIVIRUS_WORKERS" desc:"The number of concurrent go routines that fetch events from the event queue." introductionVersion:"1.0.0"`
 
+	PriorityThreshold           int           `yaml:"priority_threshold" env:"ANTIVIRUS_PRIORITY_THRESHOLD" desc:"Maximum virus-scan jobs per user in the priority window before subsequent jobs are queued at low priority." introductionVersion:"8.0.0"`
+	PriorityWindow              time.Duration `yaml:"priority_window" env:"ANTIVIRUS_PRIORITY_WINDOW" desc:"Rolling window used to detect high-volume virus-scan uploads." introductionVersion:"8.0.0"`
+	PriorityCooldown            time.Duration `yaml:"priority_cooldown" env:"ANTIVIRUS_PRIORITY_COOLDOWN" desc:"How long a user remains at low priority after exceeding the configured rate." introductionVersion:"8.0.0"`
+	HighPriorityReservedWorkers int           `yaml:"high_priority_reserved_workers" env:"ANTIVIRUS_HIGH_PRIORITY_RESERVED_WORKERS" desc:"Number of antivirus workers that only claim high-priority jobs, protecting them from long-running low-priority scans." introductionVersion:"8.0.0"`
+	QueueAckWait                time.Duration `yaml:"queue_ack_wait" env:"ANTIVIRUS_QUEUE_ACK_WAIT" desc:"How long a claimed antivirus job may remain unacknowledged before JetStream redelivers it. Workers refresh the acknowledgement while scanning. Keep it below the main event stream duplicate window (2m)." introductionVersion:"8.0.0"`
+	QueueReplicas               int           `yaml:"queue_replicas" env:"ANTIVIRUS_QUEUE_REPLICAS" desc:"JetStream replica count for the durable antivirus job stream and user-rate bucket. Set to the NATS cluster's desired replication factor." introductionVersion:"8.0.0"`
+
 	Scanner         Scanner
 	MaxScanSize     string          `yaml:"max-scan-size" env:"ANTIVIRUS_MAX_SCAN_SIZE" desc:"The maximum scan size the virus scanner can handle.0 means unlimited. Usable common abbreviations: [KB, KiB, MB, MiB, GB, GiB, TB, TiB, PB, PiB, EB, EiB], example: 2GB." introductionVersion:"1.0.0"`
 	MaxScanSizeMode MaxScanSizeMode `yaml:"max-scan-size-mode" env:"ANTIVIRUS_MAX_SCAN_SIZE_MODE" desc:"Defines the mode of handling files that exceed the maximum scan size. Supported options are: 'skip', which skips files that are bigger than the max scan size, and 'truncate' (default), which only uses the file up to the max size." introductionVersion:"2.1.0"`
