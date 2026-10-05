@@ -81,10 +81,29 @@ func Server(cfg *config.Config) *cobra.Command {
 			store := storage.NewFileManager(cfg.Storage.RootDirectory)
 			jwtService := jwt.NewJwtService(cfg.SessionSecret(), cfg.JWT.TTL)
 
+			var evStream events.Stream
+			if !cfg.Events.Disabled {
+				connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
+				evStream, err = stream.NatsFromConfig(connName, false, stream.NatsConfig{
+					Endpoint:             cfg.Events.Endpoint,
+					Cluster:              cfg.Events.Cluster,
+					EnableTLS:            cfg.Events.EnableTLS,
+					TLSInsecure:          cfg.Events.TLSInsecure,
+					TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
+					AuthUsername:         cfg.Events.AuthUsername,
+					AuthPassword:         cfg.Events.AuthPassword,
+				})
+				if err != nil {
+					logger.Error().Err(err).Msg("Failed to initialize event stream")
+					return err
+				}
+			}
+
 			authGuest := authguest.NewAuthGuestService(tokenSvc, store,
 				authguest.GatewaySelector(gatewaySelector),
 				authguest.ServiceAccount(cfg.ServiceAccount),
 				authguest.JWT(jwtService),
+				authguest.EventsPublisher(evStream),
 			)
 
 			if !cfg.HTTP.Disabled {
@@ -109,21 +128,6 @@ func Server(cfg *config.Config) *cobra.Command {
 			}
 
 			if !cfg.Events.Disabled {
-				connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
-				evStream, err := stream.NatsFromConfig(connName, false, stream.NatsConfig{
-					Endpoint:             cfg.Events.Endpoint,
-					Cluster:              cfg.Events.Cluster,
-					EnableTLS:            cfg.Events.EnableTLS,
-					TLSInsecure:          cfg.Events.TLSInsecure,
-					TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
-					AuthUsername:         cfg.Events.AuthUsername,
-					AuthPassword:         cfg.Events.AuthPassword,
-				})
-				if err != nil {
-					logger.Error().Err(err).Msg("Failed to initialize event stream")
-					return err
-				}
-
 				consumer, err := svcEvents.NewEventConsumer(
 					evStream,
 					svcEvents.Logger(logger),

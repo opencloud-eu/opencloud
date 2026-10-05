@@ -13,10 +13,13 @@ import (
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	collaboration "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 
+	"github.com/opencloud-eu/opencloud/pkg/events"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/jwt"
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/pin"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/storage"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/token"
+	revaevents "github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
@@ -25,8 +28,10 @@ var ErrExpired = errors.New("token expired")
 var ErrAlreadyRedeemed = errors.New("token already redeemed")
 var ErrShareNotFound = errors.New("share not found")
 var ErrShareExpired = errors.New("share expired")
+var ErrEventsNotConfigured = errors.New("event publisher not configured")
 
 const guestLinkTokenTTL = 30 * time.Minute
+const guestPinTTL = 30 * time.Minute
 
 // RedeemError wraps a redeem failure together with the share id. The HTTP
 // transport inspects ErrorType to choose a status code and message.
@@ -36,6 +41,9 @@ type RedeemError struct {
 }
 
 func (e *RedeemError) Error() string { return e.ErrorType.Error() }
+
+// RenewError is an alias for RedeemError, used by the renew flow.
+type RenewError = RedeemError
 
 // RedeemResponse is the result of a successful token redemption.
 type RedeemResponse struct {
@@ -60,6 +68,7 @@ type AuthGuestService struct {
 	gatewaySelector pool.Selectable[gateway.GatewayAPIClient]
 	serviceAccount  config.ServiceAccount
 	jwtService      *jwt.JwtService
+	publisher       revaevents.Publisher
 }
 
 func NewAuthGuestService(tokenSvc *token.TokenService, store storage.Manager, opts ...Option) *AuthGuestService {
@@ -74,6 +83,7 @@ func NewAuthGuestService(tokenSvc *token.TokenService, store storage.Manager, op
 		gatewaySelector: o.GatewaySelector,
 		serviceAccount:  o.ServiceAccount,
 		jwtService:      o.JWT,
+		publisher:       o.Publisher,
 	}
 }
 
@@ -125,7 +135,57 @@ func (s *AuthGuestService) Redeem(ctx context.Context, tokenString string) (*Red
 
 // Renew generates a new guest link token and PIN for the given share.
 func (s *AuthGuestService) Renew(ctx context.Context, shareID string) error {
-	return errors.New("renew not implemented")
+	if _, err := s.store.Get(token.Hash(shareID)); err != nil {
+		return &RenewError{ErrorType: err, ShareID: shareID}
+	}
+
+	if s.publisher == nil {
+		return ErrEventsNotConfigured
+	}
+
+	share, err := s.validateShare(ctx, shareID)
+	if err != nil {
+		return err
+	}
+
+	tok, err := s.tokenSvc.Generate(shareID)
+	if err != nil {
+		return err
+	}
+
+	pinStr, err := pin.Generate()
+	if err != nil {
+		return err
+	}
+
+	pinHash, err := pin.Hash(pinStr)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+
+	if err := s.store.Replace(storage.Record{
+		ShareID:     shareID,
+		ShareIDHash: tok.ShareIDHash,
+		SecretHash:  tok.SecretHash(),
+		PinHash:     pinHash,
+		Expiry:      now.Add(guestLinkTokenTTL),
+		PinExpiry:   now.Add(guestPinTTL),
+		Redeemed:    false,
+	}); err != nil {
+		return err
+	}
+
+	return revaevents.Publish(ctx, s.publisher, events.GuestTokenRenewed{
+		ShareID:      share.GetId(),
+		Sharer:       share.GetCreator(),
+		GranteeEmail: share.GetGrantee().GetUserId().GetOpaqueId(),
+		ItemID:       share.GetResourceId(),
+		Token:        tok.String(),
+		Pin:          pinStr,
+		Timestamp:    now,
+	})
 }
 
 // CleanupShare removes a share's token record from storage. Missing records are ignored.
