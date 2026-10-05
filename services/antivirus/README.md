@@ -99,18 +99,18 @@ controls the redelivery timeout.
 
 Configuration:
 
-* `ANTIVIRUS_PRIORITY_THRESHOLD` (default `10`): requests per user allowed in
+- `ANTIVIRUS_PRIORITY_THRESHOLD` (default `10`): requests per user allowed in
   the priority window before new requests are demoted.
-* `ANTIVIRUS_PRIORITY_WINDOW` (default `1s`): rolling rate window.
-* `ANTIVIRUS_PRIORITY_COOLDOWN` (default `30s`): low-priority cooldown.
-* `ANTIVIRUS_QUEUE_INTAKE_WORKERS` (default `10`): event intake workers,
+- `ANTIVIRUS_PRIORITY_WINDOW` (default `1s`): rolling rate window.
+- `ANTIVIRUS_PRIORITY_COOLDOWN` (default `30s`): low-priority cooldown.
+- `ANTIVIRUS_QUEUE_INTAKE_WORKERS` (default `10`): event intake workers,
   independent of scan concurrency.
-* `ANTIVIRUS_HIGH_PRIORITY_RESERVED_WORKERS` (default `1`, or `0` with one
+- `ANTIVIRUS_HIGH_PRIORITY_RESERVED_WORKERS` (default `1`, or `0` with one
   scan worker): reserved high-priority workers. Must be less than
   `ANTIVIRUS_WORKERS`.
-* `ANTIVIRUS_QUEUE_ACK_WAIT` (default `1m`): job redelivery timeout. Workers
+- `ANTIVIRUS_QUEUE_ACK_WAIT` (default `1m`): job redelivery timeout. Workers
   send lease heartbeats; this value must stay below `2m`.
-* `ANTIVIRUS_QUEUE_REPLICAS` (default `1`): replication factor for queue state.
+- `ANTIVIRUS_QUEUE_REPLICAS` (default `1`): replication factor for queue state.
 
 Metrics are available without user-ID labels:
 `opencloud_antivirus_jobs_pending{priority}`,
