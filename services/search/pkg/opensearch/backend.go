@@ -91,6 +91,12 @@ func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.I
 		return nil, fmt.Errorf("failed to convert KQL query to OpenSearch bool query: %w", err)
 	}
 
+	filters, err := aggregationFilterQueries(sir.AggregationFilters)
+	if err != nil {
+		return nil, errtypes.BadRequest(err.Error())
+	}
+	boolQuery.Filter(filters...)
+
 	// filter out deleted resources
 	boolQuery.Filter(
 		osu.NewTermQuery[bool]("Deleted").Value(false),

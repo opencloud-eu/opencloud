@@ -158,6 +158,9 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	if err := aggregation.ValidateOptions(req.GetAggregations(), AggregatableFieldType); err != nil {
 		return nil, errtypes.BadRequest(err.Error())
 	}
+	if err := aggregation.ValidateFilters(req.GetAggregationFilters(), AggregatableFieldType); err != nil {
+		return nil, errtypes.BadRequest(err.Error())
+	}
 	s.logger.Debug().Str("query", req.Query).Msg("performing a search")
 
 	// collect metrics
@@ -524,8 +527,9 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 	}
 
 	searchRequest := &IndexQuery{
-		Query:        ExpandQueryTemplate(s.queryTemplate, req.Query, space),
-		Aggregations: req.GetAggregations(),
+		Query:              ExpandQueryTemplate(s.queryTemplate, req.Query, space),
+		Aggregations:       req.GetAggregations(),
+		AggregationFilters: req.GetAggregationFilters(),
 		Ref: &searchmsg.Reference{
 			ResourceId: searchRootID,
 			Path:       searchPathPrefix,

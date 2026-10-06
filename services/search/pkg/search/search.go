@@ -49,10 +49,11 @@ var ErrOptimizeInProgress = errors.New("the index is being optimized already")
 
 // IndexQuery is one search against the index.
 type IndexQuery struct {
-	Query        string
-	Ref          *searchmsg.Reference
-	PageSize     *int32
-	Aggregations []*searchsvc.AggregationOption
+	Query              string
+	Ref                *searchmsg.Reference
+	PageSize           *int32
+	Aggregations       []*searchsvc.AggregationOption
+	AggregationFilters []*searchsvc.AggregationFilter
 }
 
 // IndexResult is what the engine answers: the matches of one space and how
