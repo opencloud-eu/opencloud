@@ -42,6 +42,15 @@ var _ = Describe("FromProto", func() {
 		Expect(out.GetTakenDateTime()).To(Equal(mustTime("2023-07-21T10:11:12Z")))
 	})
 
+	It("round-trips through ToProto", func() {
+		lg := &libregraph.Audio{Artist: conversions.ToPointer("Motörhead"), Bitrate: conversions.ToPointer(int64(256))}
+		pb := ToProto[searchmsg.Audio](lg)
+		Expect(pb).ToNot(BeNil())
+		Expect(pb.GetArtist()).To(Equal("Motörhead"))
+		Expect(pb.GetBitrate()).To(Equal(int64(256)))
+		Expect(FromProto[libregraph.Audio](pb)).To(Equal(lg))
+	})
+
 	It("returns nil for nil input and for an empty message", func() {
 		Expect(FromProto[libregraph.Audio]((*searchmsg.Audio)(nil))).To(BeNil())
 		Expect(FromProto[libregraph.Audio](&searchmsg.Audio{})).To(BeNil())
