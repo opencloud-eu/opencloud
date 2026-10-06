@@ -183,6 +183,7 @@ func OwnCloudSQL(cfg *config.Config) map[string]any {
 func Decomposed(cfg *config.Config) map[string]any {
 	return map[string]any{
 		"metadata_backend": "messagepack",
+		"metadata_prefix":  cfg.Drivers.Decomposed.MetadataPrefix,
 		"propagator":       cfg.Drivers.Decomposed.Propagator,
 		"async_propagator_options": map[string]any{
 			"propagation_delay": cfg.Drivers.Decomposed.AsyncPropagatorOptions.PropagationDelay,
@@ -242,6 +243,7 @@ func Decomposed(cfg *config.Config) map[string]any {
 func DecomposedNoEvents(cfg *config.Config) map[string]any {
 	return map[string]any{
 		"metadata_backend": "messagepack",
+		"metadata_prefix":  cfg.Drivers.Decomposed.MetadataPrefix,
 		"propagator":       cfg.Drivers.Decomposed.Propagator,
 		"async_propagator_options": map[string]any{
 			"propagation_delay": cfg.Drivers.Decomposed.AsyncPropagatorOptions.PropagationDelay,
@@ -294,6 +296,7 @@ func DecomposedNoEvents(cfg *config.Config) map[string]any {
 func DecomposedS3(cfg *config.Config) map[string]any {
 	return map[string]any{
 		"metadata_backend": "messagepack",
+		"metadata_prefix":  cfg.Drivers.DecomposedS3.MetadataPrefix,
 		"propagator":       cfg.Drivers.DecomposedS3.Propagator,
 		"async_propagator_options": map[string]any{
 			"propagation_delay": cfg.Drivers.DecomposedS3.AsyncPropagatorOptions.PropagationDelay,
@@ -363,6 +366,7 @@ func DecomposedS3(cfg *config.Config) map[string]any {
 func DecomposedS3NoEvents(cfg *config.Config) map[string]any {
 	return map[string]any{
 		"metadata_backend": "messagepack",
+		"metadata_prefix":  cfg.Drivers.DecomposedS3.MetadataPrefix,
 		"propagator":       cfg.Drivers.DecomposedS3.Propagator,
 		"async_propagator_options": map[string]any{
 			"propagation_delay": cfg.Drivers.DecomposedS3.AsyncPropagatorOptions.PropagationDelay,

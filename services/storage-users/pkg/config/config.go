@@ -124,6 +124,7 @@ type DecomposedDriver struct {
 	AsyncUploads            bool   `yaml:"async_uploads" env:"OC_ASYNC_UPLOADS" desc:"Enable asynchronous file uploads." introductionVersion:"1.0.0"`
 	MaxQuota                uint64 `yaml:"max_quota" env:"OC_SPACES_MAX_QUOTA;STORAGE_USERS_DECOMPOSED_MAX_QUOTA" desc:"Set a global max quota for spaces in bytes. A value of 0 equals unlimited. If not using the global OC_SPACES_MAX_QUOTA, you must define the FRONTEND_MAX_QUOTA in the frontend service." introductionVersion:"1.0.0"`
 	DisableVersioning       bool   `yaml:"disable_versioning" env:"OC_DISABLE_VERSIONING" desc:"Disables versioning of files. When set to true, new uploads with the same filename will overwrite existing files instead of creating a new version." introductionVersion:"1.0.0"`
+	MetadataPrefix          string `yaml:"metadata_prefix" env:"STORAGE_USERS_DECOMPOSED_METADATA_PREFIX" desc:"The attribute key prefix of the metadata on disk. Defaults to the native 'user.oc.' prefix." introductionVersion:"%%NEXT%%"`
 }
 
 // DecomposedS3Driver is the storage driver configuration when using 'decomposeds3' storage driver
@@ -160,6 +161,7 @@ type DecomposedS3Driver struct {
 	MaxConcurrency          int    `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;STORAGE_USERS_DECOMPOSEDS3_MAX_CONCURRENCY" desc:"Maximum number of concurrent go-routines. Higher values can potentially get work done faster but will also cause more load on the system. Values of 0 or below will be ignored and the default value of 100 will be used." introductionVersion:"1.0.0"`
 	AsyncUploads            bool   `yaml:"async_uploads" env:"OC_ASYNC_UPLOADS" desc:"Enable asynchronous file uploads." introductionVersion:"1.0.0"`
 	DisableVersioning       bool   `yaml:"disable_versioning" env:"OC_DISABLE_VERSIONING" desc:"Disables versioning of files. When set to true, new uploads with the same filename will overwrite existing files instead of creating a new version." introductionVersion:"1.0.0"`
+	MetadataPrefix          string `yaml:"metadata_prefix" env:"STORAGE_USERS_DECOMPOSEDS3_METADATA_PREFIX" desc:"The attribute key prefix of the metadata on disk. Defaults to the native 'user.oc.' prefix." introductionVersion:"%%NEXT%%"`
 }
 
 // OwnCloudSQLDriver is the storage driver configuration when using 'owncloudsql' storage driver

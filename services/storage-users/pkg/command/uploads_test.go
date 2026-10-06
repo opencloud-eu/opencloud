@@ -1,10 +1,15 @@
 package command
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/test-go/testify/require"
+	"github.com/vmihailenco/msgpack/v5"
+
+	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
 )
 
 func TestBuildInfo(t *testing.T) {
@@ -72,6 +77,32 @@ func TestBuildInfo(t *testing.T) {
 
 		t.Run(alias, func(t *testing.T) {
 			require.Equal(t, expectedInfo, buildInfo(filter))
+		})
+	}
+}
+
+func TestDeleteStaleNodeMetadataPrefix(t *testing.T) {
+	testCases := []struct {
+		alias   string
+		prefix  string
+		diskKey string
+	}{
+		{alias: "native prefix", prefix: "", diskKey: "user.oc.nodestatus"},
+		{alias: "foreign prefix", prefix: "user.foreign.", diskKey: "user.foreign.nodestatus"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.alias, func(t *testing.T) {
+			root := t.TempDir()
+			nodePath := filepath.Join(root, "spaces", "ab", "cdef", "nodes", "12", "34", "56", "78", "-9abc")
+			require.NoError(t, os.MkdirAll(filepath.Dir(nodePath), 0700))
+
+			b, err := msgpack.Marshal(map[string][]byte{tc.diskKey: []byte("processing:upload-1")})
+			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(nodePath+".mpk", b, 0600))
+
+			cfg := &config.Config{Drivers: config.Drivers{Decomposed: config.DecomposedDriver{Root: root, MetadataPrefix: tc.prefix}}}
+			require.Equal(t, 1, deleteStaleNode(cfg, nodePath+".mpk", true, false, nil))
 		})
 	}
 }
