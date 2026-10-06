@@ -227,16 +227,16 @@ func (_c *AuthGuest_Redeem_Call) RunAndReturn(run func(ctx context.Context, toke
 }
 
 // Renew provides a mock function for the type AuthGuest
-func (_mock *AuthGuest) Renew(ctx context.Context, shareID string) error {
-	ret := _mock.Called(ctx, shareID)
+func (_mock *AuthGuest) Renew(ctx context.Context, shareID string, tokenString string, sessionToken string) error {
+	ret := _mock.Called(ctx, shareID, tokenString, sessionToken)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Renew")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = returnFunc(ctx, shareID)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = returnFunc(ctx, shareID, tokenString, sessionToken)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -251,11 +251,13 @@ type AuthGuest_Renew_Call struct {
 // Renew is a helper method to define mock.On call
 //   - ctx context.Context
 //   - shareID string
-func (_e *AuthGuest_Expecter) Renew(ctx any, shareID any) *AuthGuest_Renew_Call {
-	return &AuthGuest_Renew_Call{Call: _e.mock.On("Renew", ctx, shareID)}
+//   - tokenString string
+//   - sessionToken string
+func (_e *AuthGuest_Expecter) Renew(ctx any, shareID any, tokenString any, sessionToken any) *AuthGuest_Renew_Call {
+	return &AuthGuest_Renew_Call{Call: _e.mock.On("Renew", ctx, shareID, tokenString, sessionToken)}
 }
 
-func (_c *AuthGuest_Renew_Call) Run(run func(ctx context.Context, shareID string)) *AuthGuest_Renew_Call {
+func (_c *AuthGuest_Renew_Call) Run(run func(ctx context.Context, shareID string, tokenString string, sessionToken string)) *AuthGuest_Renew_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -265,9 +267,19 @@ func (_c *AuthGuest_Renew_Call) Run(run func(ctx context.Context, shareID string
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -278,7 +290,7 @@ func (_c *AuthGuest_Renew_Call) Return(err error) *AuthGuest_Renew_Call {
 	return _c
 }
 
-func (_c *AuthGuest_Renew_Call) RunAndReturn(run func(ctx context.Context, shareID string) error) *AuthGuest_Renew_Call {
+func (_c *AuthGuest_Renew_Call) RunAndReturn(run func(ctx context.Context, shareID string, tokenString string, sessionToken string) error) *AuthGuest_Renew_Call {
 	_c.Call.Return(run)
 	return _c
 }
