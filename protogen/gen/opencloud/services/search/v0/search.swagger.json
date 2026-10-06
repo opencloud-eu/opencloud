@@ -186,6 +186,13 @@
         "metricDefinition": {
           "$ref": "#/definitions/v0MetricDefinition",
           "description": "Optional. When set, this aggregation is a scalar metric over `field`\nrather than a bucket aggregation; the corresponding AggregationResult\ncarries `metric` instead of `buckets`."
+        },
+        "subAggregations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0AggregationOption"
+          },
+          "description": "Optional. Nested aggregations computed within each bucket of this\naggregation."
         }
       }
     },
@@ -277,6 +284,13 @@
         "count": {
           "type": "string",
           "format": "int64"
+        },
+        "subAggregations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0AggregationResult"
+          },
+          "description": "Nested aggregation results, one per sub_aggregation of the parent\nAggregationOption, at the same position."
         }
       }
     },

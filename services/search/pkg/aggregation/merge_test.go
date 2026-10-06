@@ -31,8 +31,8 @@ func buckets(field string, bs ...*searchsvc.Bucket) *searchsvc.AggregationResult
 	return &searchsvc.AggregationResult{Field: field, Buckets: bs}
 }
 
-func bucket(key string, count int64) *searchsvc.Bucket {
-	return &searchsvc.Bucket{Key: key, Count: count}
+func bucket(key string, count int64, subs ...*searchsvc.AggregationResult) *searchsvc.Bucket {
+	return &searchsvc.Bucket{Key: key, Count: count, SubAggregations: subs}
 }
 
 func rangesOf(sortBy searchsvc.BucketSortBy, rs ...*searchsvc.BucketRange) *searchsvc.BucketDefinition {
@@ -40,23 +40,29 @@ func rangesOf(sortBy searchsvc.BucketSortBy, rs ...*searchsvc.BucketRange) *sear
 }
 
 // render flattens results like the parity suite: one line per bucket or
-// metric.
+// metric, nested ones below their bucket.
 func render(results []*searchsvc.AggregationResult) []string {
-	out := []string{}
-	for _, r := range results {
-		if m := r.GetMetric(); m != nil {
-			if m.Value == nil {
-				out = append(out, fmt.Sprintf("%s %s none", r.GetField(), m.GetKind()))
-			} else {
-				out = append(out, fmt.Sprintf("%s %s=%v", r.GetField(), m.GetKind(), m.GetValue()))
+	var walk func(prefix string, results []*searchsvc.AggregationResult) []string
+	walk = func(prefix string, results []*searchsvc.AggregationResult) []string {
+		out := []string{}
+		for _, r := range results {
+			if m := r.GetMetric(); m != nil {
+				if m.Value == nil {
+					out = append(out, prefix+fmt.Sprintf("%s %s none", r.GetField(), m.GetKind()))
+				} else {
+					out = append(out, prefix+fmt.Sprintf("%s %s=%v", r.GetField(), m.GetKind(), m.GetValue()))
+				}
+				continue
 			}
-			continue
+			for _, b := range r.GetBuckets() {
+				line := prefix + fmt.Sprintf("%s %s=%d", r.GetField(), b.GetKey(), b.GetCount())
+				out = append(out, line)
+				out = append(out, walk(line+" / ", b.GetSubAggregations())...)
+			}
 		}
-		for _, b := range r.GetBuckets() {
-			out = append(out, fmt.Sprintf("%s %s=%d", r.GetField(), b.GetKey(), b.GetCount()))
-		}
+		return out
 	}
-	return out
+	return walk("", results)
 }
 
 // merged runs the service layer's fold over the answers of several spaces.
@@ -81,7 +87,8 @@ var _ = Describe("Merge and Finalize", func() {
 		opts := []*searchsvc.AggregationOption{
 			{Field: "audio.artist"},
 			metricOpt("audio.year", sum),
-			{Field: "audio.year", BucketDefinition: rangesOf(searchsvc.BucketSortBy_BUCKET_SORT_BY_KEY_AS_NUMBER, &searchsvc.BucketRange{To: "1980"}, &searchsvc.BucketRange{From: "1980"})},
+			{Field: "audio.year", BucketDefinition: rangesOf(searchsvc.BucketSortBy_BUCKET_SORT_BY_KEY_AS_NUMBER, &searchsvc.BucketRange{To: "1980"}, &searchsvc.BucketRange{From: "1980"}),
+				SubAggregations: []*searchsvc.AggregationOption{{Field: "audio.artist"}, metricOpt("audio.year", max)}},
 		}
 		got := merged(opts)
 		Expect(got).To(HaveLen(3))
@@ -89,7 +96,8 @@ var _ = Describe("Merge and Finalize", func() {
 		Expect(got[0].GetBuckets()).To(BeEmpty())
 		Expect(render(got)).To(Equal([]string{
 			"audio.year METRIC_KIND_SUM none",
-			"audio.year ..1980=0", "audio.year 1980..=0",
+			"audio.year ..1980=0", "audio.year ..1980=0 / audio.year METRIC_KIND_MAX none",
+			"audio.year 1980..=0", "audio.year 1980..=0 / audio.year METRIC_KIND_MAX none",
 		}))
 	})
 
@@ -144,6 +152,44 @@ var _ = Describe("Merge and Finalize", func() {
 			"audio.year ..2000=3", "audio.year 2000..=1",
 			"audio.year METRIC_KIND_MAX=2001",
 		}))
+	})
+
+	It("keeps sibling metrics on one field apart below a bucket that spans spaces", func() {
+		opts := []*searchsvc.AggregationOption{{Field: "audio.artist", SubAggregations: []*searchsvc.AggregationOption{
+			metricOpt("audio.year", sum),
+			metricOpt("audio.year", avg),
+		}}}
+		space := func(years ...float64) []*searchsvc.AggregationResult {
+			return []*searchsvc.AggregationResult{buckets("audio.artist",
+				bucket("Saxon", int64(len(years)), metric("audio.year", sum, years...), metric("audio.year", avg, years...)),
+			)}
+		}
+		got := merged(opts, space(1971, 1975), space(1980))
+		Expect(render(got)).To(Equal([]string{
+			"audio.artist Saxon=3",
+			"audio.artist Saxon=3 / audio.year METRIC_KIND_SUM=5926",
+			"audio.artist Saxon=3 / audio.year METRIC_KIND_AVG=1975.3333333333333",
+		}))
+	})
+
+	It("answers nested results in request order", func() {
+		opts := []*searchsvc.AggregationOption{{Field: "audio.artist", SubAggregations: []*searchsvc.AggregationOption{
+			{Field: "audio.genre"}, {Field: "audio.album"}, metricOpt("audio.year", max), {Field: "audio.composers"},
+		}}}
+		space := []*searchsvc.AggregationResult{buckets("audio.artist", bucket("Saxon", 1,
+			buckets("audio.genre", bucket("Metal", 1)),
+			buckets("audio.album", bucket("Wheels of Steel", 1)),
+			metric("audio.year", max, 1980),
+			buckets("audio.composers", bucket("Byford", 1)),
+		))}
+		for range 20 {
+			got := merged(opts, space, space)
+			fields := []string{}
+			for _, sub := range got[0].GetBuckets()[0].GetSubAggregations() {
+				fields = append(fields, sub.GetField())
+			}
+			Expect(fields).To(Equal([]string{"audio.genre", "audio.album", "audio.year", "audio.composers"}))
+		}
 	})
 
 	DescribeTable("reduces a metric over the values of all spaces",
@@ -236,6 +282,22 @@ var _ = Describe("Merge and Finalize", func() {
 				[]*searchsvc.AggregationResult{buckets("audio.artist", bucket("Saxon", 1))},
 			)
 			Expect(render(got)).To(Equal([]string{"audio.artist Saxon=2"}))
+		})
+
+		It("shapes the buckets of a sub-aggregation by its own definition", func() {
+			opts := []*searchsvc.AggregationOption{{Field: "audio.artist", SubAggregations: []*searchsvc.AggregationOption{{
+				Field: "audio.album", Size: 2,
+				BucketDefinition: &searchsvc.BucketDefinition{SortBy: searchsvc.BucketSortBy_BUCKET_SORT_BY_KEY_AS_STRING, MinimumCount: 2},
+			}}}}
+			space := []*searchsvc.AggregationResult{buckets("audio.artist", bucket("Saxon", 4, buckets("audio.album",
+				bucket("Wheels of Steel", 1), bucket("Strong Arm of the Law", 1), bucket("Denim and Leather", 1), bucket("Crusader", 1),
+			)))}
+			Expect(render(merged(opts, space, space))).To(Equal([]string{
+				"audio.artist Saxon=8",
+				"audio.artist Saxon=8 / audio.album Crusader=2",
+				"audio.artist Saxon=8 / audio.album Denim and Leather=2",
+			}))
+			Expect(render(merged(opts, space))).To(Equal([]string{"audio.artist Saxon=4"}), "one space alone stays below the minimum count")
 		})
 	})
 })

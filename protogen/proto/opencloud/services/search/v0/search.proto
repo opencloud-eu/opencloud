@@ -138,6 +138,9 @@ message AggregationOption {
   // rather than a bucket aggregation; the corresponding AggregationResult
   // carries `metric` instead of `buckets`.
   MetricDefinition metric_definition = 4 [(google.api.field_behavior) = OPTIONAL];
+  // Optional. Nested aggregations computed within each bucket of this
+  // aggregation.
+  repeated AggregationOption sub_aggregations = 5 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message MetricDefinition {
@@ -205,6 +208,9 @@ message Metric {
 message Bucket {
   string key = 1;
   int64 count = 2;
+  // Nested aggregation results, one per sub_aggregation of the parent
+  // AggregationOption, at the same position.
+  repeated AggregationResult sub_aggregations = 3;
 }
 
 message IndexSpaceRequest {

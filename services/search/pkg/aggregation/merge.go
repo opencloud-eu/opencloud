@@ -29,14 +29,15 @@ func Empty(opts []*searchsvc.AggregationOption) []*searchsvc.AggregationResult {
 }
 
 // RangeBuckets lists every range of a range aggregation in request order: the
-// answered bucket where there is one, a count of zero otherwise.
+// answered bucket where there is one, a count of zero and empty
+// sub-aggregations otherwise.
 func RangeBuckets(opt *searchsvc.AggregationOption, answered map[string]*searchsvc.Bucket) []*searchsvc.Bucket {
 	ranges := opt.GetBucketDefinition().GetRanges()
 	out := make([]*searchsvc.Bucket, 0, len(ranges))
 	for _, r := range ranges {
 		bucket, ok := answered[RangeKey(r)]
 		if !ok {
-			bucket = &searchsvc.Bucket{Key: RangeKey(r)}
+			bucket = &searchsvc.Bucket{Key: RangeKey(r), SubAggregations: Empty(opt.GetSubAggregations())}
 		}
 		out = append(out, bucket)
 	}
@@ -44,8 +45,8 @@ func RangeBuckets(opt *searchsvc.AggregationOption, answered map[string]*searchs
 }
 
 // Merge folds the results of one space into acc and returns it. Results
-// belong to the option at their position, so several aggregations on one
-// field stay apart.
+// belong to the option at their position, at every level, so several
+// aggregations on one field stay apart.
 func Merge(opts []*searchsvc.AggregationOption, acc, results []*searchsvc.AggregationResult) []*searchsvc.AggregationResult {
 	if acc == nil {
 		acc = Empty(opts)
@@ -70,13 +71,16 @@ func Merge(opts []*searchsvc.AggregationOption, acc, results []*searchsvc.Aggreg
 				acc[i].Buckets = append(acc[i].Buckets, merged)
 			}
 			merged.Count += b.GetCount()
+			if subs := opt.GetSubAggregations(); len(subs) > 0 {
+				merged.SubAggregations = Merge(subs, merged.GetSubAggregations(), b.GetSubAggregations())
+			}
 		}
 	}
 	return acc
 }
 
-// Finalize shapes merged results per their options: buckets get their minimum
-// count, order and size, metrics their value.
+// Finalize shapes merged results per their options, at every level: buckets
+// get their minimum count, order and size, metrics their value.
 func Finalize(opts []*searchsvc.AggregationOption, results []*searchsvc.AggregationResult) {
 	for i, opt := range opts {
 		r := results[i]
@@ -87,6 +91,9 @@ func Finalize(opts []*searchsvc.AggregationOption, results []*searchsvc.Aggregat
 			continue
 		}
 		r.Buckets = shapeBuckets(opt, r.GetBuckets())
+		for _, b := range r.GetBuckets() {
+			Finalize(opt.GetSubAggregations(), b.GetSubAggregations())
+		}
 	}
 }
 

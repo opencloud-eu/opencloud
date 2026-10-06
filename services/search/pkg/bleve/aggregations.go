@@ -17,8 +17,8 @@ import (
 )
 
 // Bleve facets count the indexed terms of one field (numbers among them as
-// prefix-coded terms), so every aggregation is folded from doc values by
-// aggCollector, hooked into the collector walk through bleve's
+// prefix-coded terms) and cannot nest, so every aggregation is folded from doc
+// values by aggCollector, hooked into the collector walk through bleve's
 // document-match-handler context key. Loading hits for them instead costs a
 // stored-document decode per match.
 
@@ -39,6 +39,7 @@ type aggLevel struct {
 	kind      aggregation.Kind
 	fieldType string
 	ranges    aggregation.Ranges
+	children  []*aggLevel
 }
 
 // numeric values are prefix-coded in the index, their terms come from the
@@ -56,6 +57,13 @@ func newAggLevel(opt *searchService.AggregationOption) (*aggLevel, error) {
 		}
 		l.ranges = ranges
 	}
+	for _, sub := range opt.GetSubAggregations() {
+		child, err := newAggLevel(sub)
+		if err != nil {
+			return nil, err
+		}
+		l.children = append(l.children, child)
+	}
 	return l, nil
 }
 
@@ -69,6 +77,7 @@ type fieldValues struct {
 
 type bucketAcc struct {
 	counts map[string]int64
+	subs   map[string][]*bucketAcc
 	metric *searchService.Metric
 }
 
@@ -76,7 +85,11 @@ func newBucketAcc(l *aggLevel) *bucketAcc {
 	if l.kind == aggregation.KindMetric {
 		return &bucketAcc{metric: &searchService.Metric{Kind: l.opt.GetMetricDefinition().GetKind()}}
 	}
-	return &bucketAcc{counts: map[string]int64{}}
+	a := &bucketAcc{counts: map[string]int64{}}
+	if len(l.children) > 0 {
+		a.subs = map[string][]*bucketAcc{}
+	}
+	return a
 }
 
 // aggCollector serves one search; bleve's collector is single-threaded.
@@ -118,6 +131,9 @@ func (c *aggCollector) register(l *aggLevel) {
 		fv.asTerms = true
 	} else {
 		fv.asNumbers = true
+	}
+	for _, child := range l.children {
+		c.register(child)
 	}
 }
 
@@ -216,8 +232,22 @@ func (c *aggCollector) fold(a *bucketAcc, l *aggLevel) {
 	}
 }
 
-func (c *aggCollector) foldBucket(a *bucketAcc, _ *aggLevel, key string) {
+func (c *aggCollector) foldBucket(a *bucketAcc, l *aggLevel, key string) {
 	a.counts[key]++
+	if len(l.children) == 0 {
+		return
+	}
+	subs, ok := a.subs[key]
+	if !ok {
+		subs = make([]*bucketAcc, len(l.children))
+		for i, child := range l.children {
+			subs[i] = newBucketAcc(child)
+		}
+		a.subs[key] = subs
+	}
+	for i, child := range l.children {
+		c.fold(subs[i], child)
+	}
 }
 
 // results returns one result per aggregation, in request order.
@@ -238,7 +268,11 @@ func (a *bucketAcc) result(l *aggLevel) *searchService.AggregationResult {
 
 	counted := make(map[string]*searchService.Bucket, len(a.counts))
 	for key, count := range a.counts {
-		counted[key] = &searchService.Bucket{Key: key, Count: count}
+		b := &searchService.Bucket{Key: key, Count: count}
+		for i, child := range l.children {
+			b.SubAggregations = append(b.SubAggregations, a.subs[key][i].result(child))
+		}
+		counted[key] = b
 	}
 	if l.kind == aggregation.KindRange {
 		r.Buckets = aggregation.RangeBuckets(l.opt, counted)

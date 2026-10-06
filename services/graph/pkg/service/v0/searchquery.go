@@ -92,13 +92,17 @@ func unsupportedProperty(sr libregraph.SearchRequest) string {
 	if len(sr.AggregationFilters) > 0 {
 		return "aggregationFilters"
 	}
-	for _, a := range sr.Aggregations {
-		switch {
-		case a.LibreGraphGeohashDefinition != nil:
-			return "@libre.graph.geohashDefinition"
-		case len(a.LibreGraphSubAggregations) > 0:
-			return "@libre.graph.subAggregations"
+	var geohash func(aggs []libregraph.AggregationOption) bool
+	geohash = func(aggs []libregraph.AggregationOption) bool {
+		for _, a := range aggs {
+			if a.LibreGraphGeohashDefinition != nil || geohash(a.LibreGraphSubAggregations) {
+				return true
+			}
 		}
+		return false
+	}
+	if geohash(sr.Aggregations) {
+		return "@libre.graph.geohashDefinition"
 	}
 	return ""
 }
@@ -242,6 +246,9 @@ func validateAggregations(aggs []libregraph.AggregationOption) error {
 			if bd.MinimumCount != nil && *bd.MinimumCount < 0 {
 				return fmt.Errorf("minimumCount of the aggregation on %q must not be negative", a.Field)
 			}
+		}
+		if err := validateAggregations(a.LibreGraphSubAggregations); err != nil {
+			return err
 		}
 	}
 	return nil

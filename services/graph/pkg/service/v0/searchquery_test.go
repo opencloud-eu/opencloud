@@ -92,8 +92,9 @@ type searchAggregationJSON struct {
 		Value *float64 `json:"value"`
 	} `json:"@libre.graph.metric"`
 	Buckets []struct {
-		Key   string `json:"key"`
-		Count int64  `json:"count"`
+		Key             string                  `json:"key"`
+		Count           int64                   `json:"count"`
+		SubAggregations []searchAggregationJSON `json:"@libre.graph.subAggregations"`
 	} `json:"buckets"`
 }
 
@@ -309,6 +310,8 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		ginkgo.Entry("an unknown sortBy", `"aggregations": [{"field": "audio.artist", "bucketDefinition": {"sortBy": "relevance"}}]`),
 		ginkgo.Entry("a size below one", `"aggregations": [{"field": "audio.artist", "size": 0}]`),
 		ginkgo.Entry("a negative minimumCount", `"aggregations": [{"field": "audio.artist", "bucketDefinition": {"sortBy": "count", "minimumCount": -1}}]`),
+		ginkgo.Entry("an unknown metric kind two levels down",
+			`"aggregations": [{"field": "audio.artist", "@libre.graph.subAggregations": [{"field": "audio.album", "@libre.graph.subAggregations": [{"field": "audio.year", "@libre.graph.metricDefinition": {"kind": "median"}}]}]}]`),
 		ginkgo.Entry("a field the index does not know", `"aggregations": [{"field": "audio.nonexistent"}]`),
 		ginkgo.Entry("a range bound that is no number", `"aggregations": [{"field": "audio.year", "bucketDefinition": {"sortBy": "count", "ranges": [{"from": "1970", "to": "198o"}]}}]`),
 	)
@@ -407,7 +410,8 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		ginkgo.Entry("aggregationFilters", `"aggregationFilters": ["audio.artist:\"ǂǂ5361786f6e\""]`, "aggregationFilters"),
 		ginkgo.Entry("a geohash aggregation",
 			`"aggregations": [{"field": "location", "@libre.graph.geohashDefinition": {"precision": 5}}]`, "geohashDefinition"),
-		ginkgo.Entry("sub-aggregations", `"aggregations": [{"field": "audio.artist", "@libre.graph.subAggregations": [{"field": "audio.album"}]}]`, "subAggregations"),
+		ginkgo.Entry("a nested geohash aggregation",
+			`"aggregations": [{"field": "audio.artist", "@libre.graph.subAggregations": [{"field": "location", "@libre.graph.geohashDefinition": {"precision": 5}}]}]`, "geohashDefinition"),
 	)
 
 	ginkgo.It("rejects an $expand it does not know with 400", func() {
