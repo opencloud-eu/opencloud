@@ -37,7 +37,7 @@ func TestFileManagerAddGet(t *testing.T) {
 
 	got, err := s.Get(rec.ShareIDHash)
 	require.NoError(t, err)
-	assert.Equal(t, rec, got)
+	assert.Equal(t, rec, *got)
 }
 
 func TestFileManagerGetMissing(t *testing.T) {
@@ -72,6 +72,8 @@ func TestFileManagerInvalidHash(t *testing.T) {
 	require.ErrorIs(t, s.Remove("ab"), ErrInvalidHash)
 	require.ErrorIs(t, s.Add(Record{ShareIDHash: "ab"}), ErrInvalidHash)
 	require.ErrorIs(t, s.Update("ab", func(*Record) error { return nil }), ErrInvalidHash)
+	_, err = s.UpdateFrom(Record{ShareIDHash: "ab"}, func(*Record) error { return nil })
+	require.ErrorIs(t, err, ErrInvalidHash)
 }
 
 func TestFileManagerRemove(t *testing.T) {
@@ -112,6 +114,7 @@ func TestFileManagerUpdate(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "pinhash", got.PinHash)
 	assert.True(t, got.Redeemed)
+	assert.Equal(t, uint64(1), got.Revision)
 }
 
 func TestFileManagerUpdateErrorLeavesRecordUnchanged(t *testing.T) {
@@ -130,7 +133,7 @@ func TestFileManagerUpdateErrorLeavesRecordUnchanged(t *testing.T) {
 
 	got, err := s.Get(rec.ShareIDHash)
 	require.NoError(t, err)
-	assert.Equal(t, rec, got)
+	assert.Equal(t, rec, *got)
 }
 
 func TestFileManagerUpdateMissing(t *testing.T) {
@@ -138,6 +141,65 @@ func TestFileManagerUpdateMissing(t *testing.T) {
 	s := NewFileManager(dir)
 
 	err := s.Update("doesnotexist", func(*Record) error { return nil })
+	assert.ErrorIs(t, err, ErrNotFound)
+}
+
+func TestFileManagerUpdateFrom(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
+	require.NoError(t, s.Add(rec))
+
+	seen, err := s.Get(rec.ShareIDHash)
+	require.NoError(t, err)
+
+	updated, err := s.UpdateFrom(*seen, func(r *Record) error {
+		r.PinHash = "pinhash"
+		return nil
+	})
+	require.NoError(t, err)
+	require.NotNil(t, updated)
+	assert.Equal(t, seen.Revision+1, updated.Revision)
+	assert.Equal(t, "pinhash", updated.PinHash)
+
+	got, err := s.Get(rec.ShareIDHash)
+	require.NoError(t, err)
+	assert.Equal(t, *updated, *got)
+}
+
+func TestFileManagerUpdateFromConflict(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
+	require.NoError(t, s.Add(rec))
+
+	seen, err := s.Get(rec.ShareIDHash)
+	require.NoError(t, err)
+
+	require.NoError(t, s.Update(rec.ShareIDHash, func(r *Record) error {
+		r.SecretHash = "other"
+		return nil
+	}))
+
+	_, err = s.UpdateFrom(*seen, func(r *Record) error {
+		r.PinHash = "pinhash"
+		return nil
+	})
+	assert.ErrorIs(t, err, ErrConflict)
+
+	got, err := s.Get(rec.ShareIDHash)
+	require.NoError(t, err)
+	assert.Equal(t, "other", got.SecretHash)
+	assert.Empty(t, got.PinHash)
+}
+
+func TestFileManagerUpdateFromMissing(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	_, err := s.UpdateFrom(Record{ShareIDHash: "doesnotexist"}, func(*Record) error { return nil })
 	assert.ErrorIs(t, err, ErrNotFound)
 }
 

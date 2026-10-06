@@ -41,9 +41,11 @@ func TestHashProducesArgon2id(t *testing.T) {
 	assert.NotEqual(t, "123456", h)
 }
 
-func TestHashEmptyPin(t *testing.T) {
-	_, err := Hash("")
-	assert.ErrorIs(t, err, ErrInvalidPin)
+func TestHashInvalidLength(t *testing.T) {
+	for _, p := range []string{"", "12345", "1234567"} {
+		_, err := Hash(p)
+		assert.ErrorIs(t, err, ErrInvalidPin)
+	}
 }
 
 func TestVerify(t *testing.T) {

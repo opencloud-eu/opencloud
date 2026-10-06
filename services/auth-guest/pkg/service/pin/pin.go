@@ -28,7 +28,7 @@ func Generate() (string, error) {
 }
 
 func Hash(p string) (string, error) {
-	if p == "" {
+	if len(p) != Length {
 		return "", ErrInvalidPin
 	}
 

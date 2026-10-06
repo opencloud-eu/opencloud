@@ -42,3 +42,52 @@ func TestParseExpired(t *testing.T) {
 	_, err = parseClaims(t, m, tok)
 	assert.Error(t, err)
 }
+
+func TestVerify(t *testing.T) {
+	m := NewJwtService("test-secret", time.Hour)
+
+	tok, err := m.Sign("share-id")
+	require.NoError(t, err)
+
+	shareID, err := m.Verify(tok)
+	require.NoError(t, err)
+	assert.Equal(t, "share-id", shareID)
+}
+
+func TestVerifyExpired(t *testing.T) {
+	m := NewJwtService("test-secret", -time.Minute)
+
+	tok, err := m.Sign("share-id")
+	require.NoError(t, err)
+
+	shareID, err := m.Verify(tok)
+	require.NoError(t, err)
+	assert.Equal(t, "share-id", shareID)
+}
+
+func TestVerifyInvalid(t *testing.T) {
+	m := NewJwtService("test-secret", time.Hour)
+
+	tok, err := m.Sign("share-id")
+	require.NoError(t, err)
+
+	other, err := NewJwtService("other-secret", time.Hour).Sign("share-id")
+	require.NoError(t, err)
+
+	tests := []struct {
+		name  string
+		token string
+	}{
+		{name: "garbage", token: "not-a-token"},
+		{name: "empty", token: ""},
+		{name: "wrong secret", token: other},
+		{name: "tampered", token: tok + "x"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := m.Verify(tt.token)
+			assert.ErrorIs(t, err, ErrInvalidSession)
+		})
+	}
+}

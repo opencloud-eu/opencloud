@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/jwt"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/storage"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/token"
 )
@@ -58,6 +59,10 @@ func writeGuestError(w http.ResponseWriter, err error) {
 		status, errorType = http.StatusUnauthorized, "pinInvalid"
 	case errors.Is(ge.ErrorType, authguest.ErrPinExpired):
 		status, errorType = http.StatusUnauthorized, "pinExpired"
+	case errors.Is(ge.ErrorType, jwt.ErrInvalidSession):
+		status, errorType = http.StatusUnauthorized, "sessionInvalid"
+	case errors.Is(ge.ErrorType, authguest.ErrPermissionMismatch):
+		status, errorType = http.StatusBadRequest, "invalidRequest"
 	}
 
 	message := ge.ErrorType.Error()

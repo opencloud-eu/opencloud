@@ -31,6 +31,7 @@ var ErrShareExpired = errors.New("share expired")
 var ErrEventsNotConfigured = errors.New("event publisher not configured")
 var ErrPinInvalid = errors.New("pin invalid")
 var ErrPinExpired = errors.New("pin expired")
+var ErrPermissionMismatch = errors.New("permissionId does not match the provided credentials")
 
 const guestLinkTokenTTL = 30 * time.Minute
 const guestPinTTL = 30 * time.Minute
@@ -55,7 +56,7 @@ type SessionResponse struct {
 type AuthGuest interface {
 	CreateToken(ctx context.Context, shareID string) (*token.Token, error)
 	Redeem(ctx context.Context, tokenString string) (*SessionResponse, error)
-	Renew(ctx context.Context, shareID string) error
+	Renew(ctx context.Context, shareID, tokenString, sessionToken string) error
 	VerifyPin(ctx context.Context, shareID, pinValue string) (*SessionResponse, error)
 	CleanupShare(shareID string) error
 }
@@ -119,13 +120,16 @@ func (s *AuthGuestService) Redeem(ctx context.Context, tokenString string) (*Ses
 		return nil, err
 	}
 
-	if err := s.store.Update(rec.ShareIDHash, func(r *storage.Record) error {
+	if _, err := s.store.UpdateFrom(*rec, func(r *storage.Record) error {
 		if r.Redeemed {
 			return ErrAlreadyRedeemed
 		}
 		r.Redeemed = true
 		return nil
 	}); err != nil {
+		if errors.Is(err, storage.ErrConflict) {
+			err = ErrAlreadyRedeemed
+		}
 		return nil, &GuestError{ErrorType: err, ShareID: rec.ShareID}
 	}
 
@@ -137,10 +141,15 @@ func (s *AuthGuestService) Redeem(ctx context.Context, tokenString string) (*Ses
 	return &SessionResponse{SessionToken: sessionToken, ShareID: rec.ShareID}, nil
 }
 
-// Renew generates a new guest link token and PIN for the given share.
-func (s *AuthGuestService) Renew(ctx context.Context, shareID string) error {
+// Renew generates a new guest link token and PIN for shareID, authorized by the
+// previous link token or a (possibly expired) session token.
+func (s *AuthGuestService) Renew(ctx context.Context, shareID, tokenString, sessionToken string) error {
 	if s.publisher == nil {
 		return ErrEventsNotConfigured
+	}
+
+	if err := s.verifyRenewCredentials(shareID, tokenString, sessionToken); err != nil {
+		return err
 	}
 
 	share, err := s.validateShare(ctx, shareID)
@@ -165,16 +174,23 @@ func (s *AuthGuestService) Renew(ctx context.Context, shareID string) error {
 
 	now := time.Now()
 
-	var previous storage.Record
-	if err := s.store.Update(token.Hash(shareID), func(rec *storage.Record) error {
-		previous = *rec
+	current, err := s.store.Get(token.Hash(shareID))
+	if err != nil {
+		return &GuestError{ErrorType: err, ShareID: shareID}
+	}
+
+	updated, err := s.store.UpdateFrom(*current, func(rec *storage.Record) error {
 		rec.SecretHash = tok.SecretHash()
 		rec.PinHash = pinHash
 		rec.Expiry = now.Add(guestLinkTokenTTL)
 		rec.PinExpiry = now.Add(guestPinTTL)
 		rec.Redeemed = false
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
+		if errors.Is(err, storage.ErrConflict) {
+			err = ErrAlreadyRedeemed
+		}
 		return &GuestError{ErrorType: err, ShareID: shareID}
 	}
 
@@ -187,8 +203,8 @@ func (s *AuthGuestService) Renew(ctx context.Context, shareID string) error {
 		Pin:          pinStr,
 		Timestamp:    now,
 	}); err != nil {
-		if rbErr := s.store.Update(token.Hash(shareID), func(rec *storage.Record) error {
-			*rec = previous
+		if _, rbErr := s.store.UpdateFrom(*updated, func(rec *storage.Record) error {
+			*rec = *current
 			return nil
 		}); rbErr != nil {
 			return fmt.Errorf("publishing guest token renewed event failed: %w (rollback failed: %v)", err, rbErr)
@@ -252,6 +268,53 @@ func (s *AuthGuestService) CleanupShare(shareID string) error {
 	return nil
 }
 
+// verifyRenewCredentials checks that the previous link token or a (possibly
+// expired) session token belongs to shareID.
+func (s *AuthGuestService) verifyRenewCredentials(shareID, tokenString, sessionToken string) error {
+	switch {
+	case tokenString != "":
+		return s.verifyRenewToken(shareID, tokenString)
+	case sessionToken != "":
+		if s.jwtService == nil {
+			return &GuestError{ErrorType: jwt.ErrInvalidSession, ShareID: shareID}
+		}
+		sessionShareID, err := s.jwtService.Verify(sessionToken)
+		if err != nil {
+			return &GuestError{ErrorType: err, ShareID: shareID}
+		}
+		if sessionShareID != shareID {
+			return &GuestError{ErrorType: ErrPermissionMismatch, ShareID: shareID}
+		}
+		return nil
+	default:
+		return &GuestError{ErrorType: jwt.ErrInvalidSession, ShareID: shareID}
+	}
+}
+
+// verifyRenewToken checks that the link token belongs to shareID and matches
+// the stored record, ignoring its expiry and redeemed state.
+func (s *AuthGuestService) verifyRenewToken(shareID, tokenString string) error {
+	tok, err := s.tokenSvc.Parse(tokenString)
+	if err != nil {
+		return &GuestError{ErrorType: err, ShareID: shareID}
+	}
+
+	if tok.ShareIDHash != token.Hash(shareID) {
+		return &GuestError{ErrorType: ErrPermissionMismatch, ShareID: shareID}
+	}
+
+	rec, err := s.store.Get(tok.ShareIDHash)
+	if err != nil {
+		return &GuestError{ErrorType: err, ShareID: shareID}
+	}
+
+	if err := s.tokenSvc.Verify(*tok, rec.SecretHash); err != nil {
+		return &GuestError{ErrorType: err, ShareID: shareID}
+	}
+
+	return nil
+}
+
 // VerifyToken validates a token and returns its stored record.
 //
 // Until the secret has been verified, all failures are reported as
@@ -280,7 +343,7 @@ func (s *AuthGuestService) verifyToken(tokenString string) (*storage.Record, err
 		return nil, &GuestError{ErrorType: ErrAlreadyRedeemed, ShareID: rec.ShareID}
 	}
 
-	return &rec, nil
+	return rec, nil
 }
 
 // validateShare extracts the share information from the gateway and checks its existence and expiration.

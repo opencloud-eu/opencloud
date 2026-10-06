@@ -75,24 +75,23 @@ sequenceDiagram
 
 A guest session (signed JWT) is valid for 24 hours by default
 (`AUTH_GUEST_JWT_TTL`); a link token is single-use and valid for 30 minutes.
-Renewal starts from a *failed* attempt`:
+Renewal starts from a *failed* attempt:
 
 - an authenticated request made with an expired session is rejected with `401`;
+  the browser still holds the (expired) session cookie;
 - `redeem` on a link that was already used answers `409`, and on an expired
-  link `401`.
+  link `401`; the client still holds the link token.
 
-Both errors carry the share id, which the client sends to `renew` as
-`permissionId`.
-
-`renew` itself does not create a
-session. It requires an existing token record for the share
-, validates the share, generates a new link token and a 6-digit PIN (both valid
-for 30 minutes), overwrites the stored token and PIN hashes (invalidating the
-previous link and PIN), resets the redeemed flag so the new link can be
-redeemed, and publishes `GuestTokenRenewed`. It answers `200`. This works
-whether the record is unused, expired or already redeemed (the guest already
-redeemed an earlier link); if publishing fails, the previous record is
-restored.
+`renew` requires the share id (`permissionId`) and is authorized by either the
+(possibly expired) session cookie or the previous link token, whichever the
+client has; the credential must belong to the given share. It does not create a
+session. It requires an existing token record for the share, validates the
+share, generates a new link token and a 6-digit PIN (both valid for 30 minutes),
+overwrites the stored token and PIN hashes (invalidating the previous link and
+PIN), resets the redeemed flag so the new link can be redeemed, and publishes
+`GuestTokenRenewed`. It answers `200`. This works whether the record is unused,
+expired or already redeemed (the guest already redeemed an earlier link); if
+publishing fails, the previous record is restored.
 
 To turn the new credentials into a session the guest either redeems the link
 (`redeem`) or enters the PIN (`verify/pin`); both return a session cookie and
@@ -109,7 +108,7 @@ sequenceDiagram
     participant Bus as Event bus
 
     Note over Web: Session expired / previous link used or expired
-    Web->>+Renew: POST renew { permissionId }
+    Web->>+Renew: POST renew { permissionId } (+ session cookie or link token)
     Note right of Renew: Validate share, generate token + PIN, store hashes
     Renew->>Bus: publish GuestTokenRenewed
     Note right of Bus: External consumer delivers token + PIN (out of scope)
@@ -144,14 +143,16 @@ sequenceDiagram
    30 minutes; the session cookie lives for 24 hours by default
    (`AUTH_GUEST_JWT_TTL`).
 3. **Renew** — the guest posts the `permissionId` to
-   `POST /graph/v1beta1/extensions/org.libregraph/guestLinks/renew`.
-   An existing record is required; otherwise the request fails with
-   `tokenNotFound`. The service validates the share, generates a new link token
-   and a 6-digit PIN (both valid for 30 minutes), overwrites the stored token
-   and PIN hashes (invalidating the previous link and PIN) and resets the
-   redeemed flag so the new link can be redeemed, then publishes the
-   `GuestTokenRenewed` event. This works whether the record is unused, expired
-   or already redeemed. If publishing fails, the previous record is restored.
+   `POST /graph/v1beta1/extensions/org.libregraph/guestLinks/renew`, authorized
+   by either the previous link token (`{ "token": "<token>" }`) or the (possibly
+   expired) session cookie, which must both belong to that share. An existing
+   record is required; otherwise the request fails with `tokenNotFound`. The
+   service validates the share, generates a new link token and a 6-digit PIN
+   (both valid for 30 minutes), overwrites the stored token and PIN hashes
+   (invalidating the previous link and PIN) and resets the redeemed flag so the
+   new link can be redeemed, then publishes the `GuestTokenRenewed` event. This
+   works whether the record is unused, expired or already redeemed. If
+   publishing fails, the previous record is restored.
 4. **Verify PIN** — the guest posts the PIN and the `permissionId` to
    `POST /graph/v1beta1/extensions/org.libregraph/guestLinks/verify/pin`.
    The service validates the record and the share, compares the PIN against the
@@ -177,12 +178,15 @@ Alias: `.../guestLinks/verify/token`
 
 #### `POST .../guestLinks/renew`
 
-- **Request body:** `{ "permissionId": "<share-id>" }`
+- **Request body:** `{ "permissionId": "<share-id>", "token": "<previous link token>" }`
+  (`token` optional when the session cookie is sent)
+- **Authorization:** the share id is required; the body link token or the
+  session cookie must belong to it, the link token takes precedence
 - **Success:** `200` (no session cookie; the new link/PIN are delivered out
   of band)
-- **Errors:** `400 invalidRequest`, `404 tokenNotFound`,
-  `404 shareNotFound`, `410 shareExpired`, `503 serviceUnavailable`,
-  `500 internalError`
+- **Errors:** `400 invalidRequest`, `401 tokenInvalid`, `401 sessionInvalid`,
+  `404 tokenNotFound`, `404 shareNotFound`, `410 shareExpired`,
+  `409 tokenAlreadyRedeemed`, `503 serviceUnavailable`, `500 internalError`
 
 #### `POST .../guestLinks/verify/pin`
 

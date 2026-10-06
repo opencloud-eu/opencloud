@@ -61,7 +61,7 @@ func Server(opts ...Option) (ohttp.Service, error) {
 	mux.Route(options.Config.HTTP.Root, func(r chi.Router) {
 		r.Post("/v1beta1/extensions/org.libregraph/guestLinks/redeem", RedeemHandler(options.Logger, options.Service, options.Config))
 		r.Post("/v1beta1/extensions/org.libregraph/guestLinks/verify/token", RedeemHandler(options.Logger, options.Service, options.Config))
-		r.Post("/v1beta1/extensions/org.libregraph/guestLinks/renew", RenewHandler(options.Logger, options.Service))
+		r.Post("/v1beta1/extensions/org.libregraph/guestLinks/renew", RenewHandler(options.Logger, options.Service, options.Config))
 		r.Post("/v1beta1/extensions/org.libregraph/guestLinks/verify/pin", VerifyPinHandler(options.Logger, options.Service, options.Config))
 	})
 
