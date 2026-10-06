@@ -49,6 +49,24 @@ Even though this share has been revoked you still might have access through othe
 Even though this share has been revoked you still might have access through other shares and/or space memberships.`),
 	}
 
+	// Guest link templates
+	GuestLinkShareCreated = MessageTemplate{
+		textTemplate: _textTemplate,
+		htmlTemplate: _htmlTemplate,
+		// GuestLinkShareCreated email template, Subject field (resolves directly)
+		Subject: l10n.Template(`{ShareSharer} shared '{ShareFolder}' with you`),
+		// GuestLinkShareCreated email template, resolves via {{ .Greeting }}
+		Greeting: l10n.Template(`Hello,`),
+		// GuestLinkShareCreated email template, resolves via {{ .MessageBody }}
+		MessageBody: l10n.Template(`{ShareSharer} has shared "{ShareFolder}" with you.
+
+The link below is personal and can only be used once. Please do not forward it.
+
+The link is only valid for 30 minutes.`),
+		// GuestLinkShareCreated email template, resolves via {{ .CallToAction }}
+		CallToAction: l10n.Template(`Click here to view it: {ShareLink}`),
+	}
+
 	// Spaces templates
 	SharedSpace = MessageTemplate{
 		textTemplate: _textTemplate,

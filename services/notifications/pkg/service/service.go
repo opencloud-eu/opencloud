@@ -131,6 +131,8 @@ EventLoop:
 					s.handleShareExpired(e, evt.ID)
 				case events.ShareRemoved:
 					s.handleShareRemoved(e, evt.ID)
+				case ocEvents.GuestTokenCreated:
+					s.handleGuestTokenCreated(e)
 				case events.ScienceMeshInviteTokenGenerated:
 					s.handleScienceMeshInviteTokenGenerated(e)
 				case events.SendEmailsEvent:
@@ -202,6 +204,10 @@ func (s eventsNotifier) ensureGranteeList(ctx context.Context, executant, u *use
 func (s eventsNotifier) getGranteeList(ctx context.Context, executant, u *user.UserId, g *group.GroupId) ([]*user.User, error) {
 	switch {
 	case u != nil:
+		// guests aren't users, they are notified via GuestTokenCreated
+		if u.GetType() == user.UserType_USER_TYPE_GUEST {
+			return nil, nil
+		}
 		if s.disableEmails(ctx, u) {
 			return nil, nil
 		}

@@ -290,6 +290,9 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 									"outgoing": cfg.EnableFederatedSharingOutgoing,
 									"incoming": cfg.EnableFederatedSharingIncoming,
 								},
+								"guest_links": map[string]any{
+									"enabled": cfg.Commons.EnableGuestLinks,
+								},
 							},
 							"spaces": map[string]any{
 								"version":    "1.0.0",

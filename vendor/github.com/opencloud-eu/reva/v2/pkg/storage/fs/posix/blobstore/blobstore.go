@@ -95,6 +95,7 @@ func (bs *Blobstore) Upload(n *node.Node, source, copyTarget string) error {
 		}
 
 		if err := copyWithPeriodicSync(tempFile, sourceFile); err != nil {
+			_ = tempFile.Close()
 			return fmt.Errorf("failed to copy source file '%s' to temp file '%s' - %v", source, tempName, err)
 		}
 
@@ -204,8 +205,7 @@ func copyWithPeriodicSync(dst, src *os.File) error {
 			}
 		}
 		if err == io.EOF {
-			_ = dst.Sync()
-			return nil
+			return dst.Sync()
 		}
 		if err != nil {
 			return err

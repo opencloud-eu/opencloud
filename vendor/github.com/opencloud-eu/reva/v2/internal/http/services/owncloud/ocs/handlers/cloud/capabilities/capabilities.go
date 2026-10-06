@@ -198,6 +198,12 @@ func (h *Handler) Init(c *config.Config) {
 	// h.c.Capabilities.FilesSharing.Federation.Outgoing is boolean
 	// h.c.Capabilities.FilesSharing.Federation.Incoming is boolean
 
+	if h.c.Capabilities.FilesSharing.GuestLinks == nil {
+		h.c.Capabilities.FilesSharing.GuestLinks = &ocs.CapabilitiesFilesSharingGuestLinks{}
+	}
+
+	// h.c.Capabilities.FilesSharing.GuestLinks.Enabled is boolean
+
 	if h.c.Capabilities.FilesSharing.SearchMinLength == 0 {
 		h.c.Capabilities.FilesSharing.SearchMinLength = 2
 	}

@@ -225,6 +225,7 @@ type CapabilitiesFilesSharing struct {
 	DefaultPermissions            int                                      `json:"default_permissions" xml:"default_permissions" mapstructure:"default_permissions"`
 	UserEnumeration               *CapabilitiesFilesSharingUserEnumeration `json:"user_enumeration" xml:"user_enumeration" mapstructure:"user_enumeration"`
 	Federation                    *CapabilitiesFilesSharingFederation      `json:"federation" xml:"federation"`
+	GuestLinks                    *CapabilitiesFilesSharingGuestLinks      `json:"guest_links" xml:"guest_links" mapstructure:"guest_links"`
 	Public                        *CapabilitiesFilesSharingPublic          `json:"public" xml:"public"`
 	User                          *CapabilitiesFilesSharingUser            `json:"user" xml:"user"`
 	// TODO: Remove next line once web defaults to resharing=false
@@ -289,6 +290,11 @@ type CapabilitiesFilesSharingUserEnumeration struct {
 type CapabilitiesFilesSharingFederation struct {
 	Outgoing ocsBool `json:"outgoing" xml:"outgoing"`
 	Incoming ocsBool `json:"incoming" xml:"incoming"`
+}
+
+// CapabilitiesFilesSharingGuestLinks holds the guest links capabilities
+type CapabilitiesFilesSharingGuestLinks struct {
+	Enabled ocsBool `json:"enabled" xml:"enabled" mapstructure:"enabled"`
 }
 
 // CapabilitiesNotifications holds a list of notification endpoints
