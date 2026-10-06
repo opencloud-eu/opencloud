@@ -21,6 +21,13 @@ var bucketSortBy = map[string]searchsvc.BucketSortBy{
 	"keyAsNumber": searchsvc.BucketSortBy_BUCKET_SORT_BY_KEY_AS_NUMBER,
 }
 
+var metricKinds = map[string]searchsvc.MetricKind{
+	"sum": searchsvc.MetricKind_METRIC_KIND_SUM,
+	"min": searchsvc.MetricKind_METRIC_KIND_MIN,
+	"max": searchsvc.MetricKind_METRIC_KIND_MAX,
+	"avg": searchsvc.MetricKind_METRIC_KIND_AVG,
+}
+
 // driveItemFields are the scalar driveItem properties a hit carries and the
 // index fields behind them; a facet property (audio.artist) is its index
 // field already.
@@ -60,6 +67,9 @@ func libregraphAggregationsToSearch(in []libregraph.AggregationOption) []*search
 		}
 		if a.BucketDefinition != nil {
 			agg.BucketDefinition = libregraphBucketDefinitionToSearch(*a.BucketDefinition)
+		}
+		if md := a.LibreGraphMetricDefinition; md != nil {
+			agg.MetricDefinition = &searchsvc.MetricDefinition{Kind: metricKinds[md.Kind]}
 		}
 		out = append(out, agg)
 	}
@@ -101,6 +111,15 @@ func searchAggregationsToLibregraph(in []*searchsvc.AggregationResult, defs []li
 			break
 		}
 		agg := libregraph.SearchAggregation{Field: libregraph.PtrString(def.Field)}
+		if md := def.LibreGraphMetricDefinition; md != nil {
+			agg.LibreGraphMetric = &libregraph.SearchMetric{Kind: libregraph.PtrString(md.Kind)}
+			// a metric without a single value has no value
+			if m := in[i].GetMetric(); m != nil {
+				agg.LibreGraphMetric.Value = m.Value
+			}
+			out = append(out, agg)
+			continue
+		}
 		agg.Buckets = make([]libregraph.SearchBucket, 0, len(in[i].GetBuckets()))
 		for _, b := range in[i].GetBuckets() {
 			agg.Buckets = append(agg.Buckets, libregraph.SearchBucket{

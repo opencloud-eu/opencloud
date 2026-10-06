@@ -27,6 +27,7 @@ func fieldTypes(field string) string {
 var _ = Describe("ValidateOptions", func() {
 	numeric := &searchsvc.BucketDefinition{Ranges: []*searchsvc.BucketRange{{From: "1980", To: "1990"}}}
 	dates := &searchsvc.BucketDefinition{Ranges: []*searchsvc.BucketRange{{From: "2018-08-11T00:00:00Z"}}}
+	sum := &searchsvc.MetricDefinition{Kind: searchsvc.MetricKind_METRIC_KIND_SUM}
 
 	DescribeTable("accepts an aggregation that fits its field",
 		func(opt *searchsvc.AggregationOption) {
@@ -37,6 +38,7 @@ var _ = Describe("ValidateOptions", func() {
 		Entry("terms on a number", &searchsvc.AggregationOption{Field: "audio.year"}),
 		Entry("numeric ranges on a number", &searchsvc.AggregationOption{Field: "audio.year", BucketDefinition: numeric}),
 		Entry("date ranges on a date", &searchsvc.AggregationOption{Field: "photo.takenDateTime", BucketDefinition: dates}),
+		Entry("a metric on a number", &searchsvc.AggregationOption{Field: "audio.year", MetricDefinition: sum}),
 	)
 
 	DescribeTable("rejects an aggregation the index cannot answer",
@@ -49,6 +51,8 @@ var _ = Describe("ValidateOptions", func() {
 		Entry("terms on a path", &searchsvc.AggregationOption{Field: "Path"}),
 		Entry("terms on a facet object", &searchsvc.AggregationOption{Field: "audio"}),
 		Entry("terms on a geopoint", &searchsvc.AggregationOption{Field: "location"}),
+		Entry("a metric on a keyword", &searchsvc.AggregationOption{Field: "audio.artist", MetricDefinition: sum}),
+		Entry("a metric on a date", &searchsvc.AggregationOption{Field: "photo.takenDateTime", MetricDefinition: sum}),
 		Entry("numeric ranges on a keyword", &searchsvc.AggregationOption{Field: "audio.artist", BucketDefinition: numeric}),
 		Entry("numeric ranges on a date", &searchsvc.AggregationOption{Field: "photo.takenDateTime", BucketDefinition: numeric}),
 		Entry("date ranges on a number", &searchsvc.AggregationOption{Field: "audio.year", BucketDefinition: dates}),

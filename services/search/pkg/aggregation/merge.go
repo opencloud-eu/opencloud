@@ -18,7 +18,10 @@ func Empty(opts []*searchsvc.AggregationOption) []*searchsvc.AggregationResult {
 	out := make([]*searchsvc.AggregationResult, len(opts))
 	for i, opt := range opts {
 		out[i] = &searchsvc.AggregationResult{Field: opt.GetField()}
-		if KindOf(opt) == KindRange {
+		switch KindOf(opt) {
+		case KindMetric:
+			out[i].Metric = &searchsvc.Metric{Kind: opt.GetMetricDefinition().GetKind()}
+		case KindRange:
 			out[i].Buckets = RangeBuckets(opt, nil)
 		}
 	}
@@ -47,8 +50,12 @@ func Merge(opts []*searchsvc.AggregationOption, acc, results []*searchsvc.Aggreg
 	if acc == nil {
 		acc = Empty(opts)
 	}
-	for i := range opts {
+	for i, opt := range opts {
 		if i >= len(results) || results[i] == nil {
+			continue
+		}
+		if KindOf(opt) == KindMetric {
+			add(acc[i].GetMetric(), results[i].GetMetric())
 			continue
 		}
 		byKey := make(map[string]*searchsvc.Bucket, len(acc[i].GetBuckets()))
@@ -69,10 +76,17 @@ func Merge(opts []*searchsvc.AggregationOption, acc, results []*searchsvc.Aggreg
 }
 
 // Finalize shapes merged results per their options: buckets get their minimum
-// count, order and size.
+// count, order and size, metrics their value.
 func Finalize(opts []*searchsvc.AggregationOption, results []*searchsvc.AggregationResult) {
 	for i, opt := range opts {
-		results[i].Buckets = shapeBuckets(opt, results[i].GetBuckets())
+		r := results[i]
+		if KindOf(opt) == KindMetric {
+			if v, ok := MetricValue(r.GetMetric()); ok {
+				r.Metric.Value = &v
+			}
+			continue
+		}
+		r.Buckets = shapeBuckets(opt, r.GetBuckets())
 	}
 }
 
