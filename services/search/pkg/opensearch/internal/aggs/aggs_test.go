@@ -110,6 +110,11 @@ var _ = Describe("Aggregations", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
+	It("rejects a malformed range below another aggregation", func() {
+		_, err := aggs.Build([]*searchsvc.AggregationOption{{Field: "audio.artist", SubAggregations: []*searchsvc.AggregationOption{malformed}}})
+		Expect(err).To(HaveOccurred())
+	})
+
 	It("lists every requested range in request order, empty ones included", func() {
 		out := parse(`{"a_0": {"buckets": [
 			{"key": "1970..1980", "doc_count": 4},
@@ -177,4 +182,58 @@ var _ = Describe("Aggregations", func() {
 			&searchsvc.AggregationOption{Field: "audio.year", MetricDefinition: &searchsvc.MetricDefinition{Kind: searchsvc.MetricKind_METRIC_KIND_SUM}},
 			`{"a_0": {"count": "many"}}`),
 	)
+
+	It("nests sub-aggregations in their parent, named by position", func() {
+		artist := build(&searchsvc.AggregationOption{
+			Field: "audio.artist",
+			SubAggregations: []*searchsvc.AggregationOption{
+				{Field: "audio.year", BucketDefinition: &searchsvc.BucketDefinition{Ranges: []*searchsvc.BucketRange{{To: "1980"}}},
+					SubAggregations: []*searchsvc.AggregationOption{{Field: "audio.album"}}},
+				{Field: "audio.duration", MetricDefinition: &searchsvc.MetricDefinition{Kind: searchsvc.MetricKind_METRIC_KIND_SUM}},
+			},
+		})["a_0"].(map[string]any)
+		children := artist["aggs"].(map[string]any)
+		Expect(children).To(HaveKey("a_1"), "the metric")
+		Expect(children["a_1"].(map[string]any)).To(HaveKey("stats"))
+
+		years := children["a_0"].(map[string]any)
+		Expect(years).To(HaveKey("range"))
+		albums := years["aggs"].(map[string]any)["a_0"].(map[string]any)["terms"].(map[string]any)
+		Expect(albums["field"]).To(Equal("audio.album"))
+	})
+
+	It("reads nested results below their bucket, terms below a range below terms too", func() {
+		out := parse(`{"a_0": {"buckets": [
+			{"key": "Saxon", "doc_count": 2,
+				"a_0": {"buckets": [
+					{"key": "..1980", "doc_count": 2, "a_0": {"buckets": [{"key": "Wheels of Steel", "doc_count": 2}]}},
+					{"key": "1980..", "doc_count": 0, "a_0": {"buckets": []}}
+				]},
+				"a_1": {"count": 2, "min": 1971.0, "max": 1975.0, "sum": 3946.0}},
+			{"key": "Accept", "doc_count": 1,
+				"a_0": {"buckets": [
+					{"key": "..1980", "doc_count": 0, "a_0": {"buckets": []}},
+					{"key": "1980..", "doc_count": 1, "a_0": {"buckets": [{"key": "Breaker", "doc_count": 1}]}}
+				]},
+				"a_1": {"count": 1, "min": 1981.0, "max": 1981.0, "sum": 1981.0}}
+		]}}`, &searchsvc.AggregationOption{
+			Field: "audio.artist",
+			SubAggregations: []*searchsvc.AggregationOption{
+				{Field: "audio.year", BucketDefinition: &searchsvc.BucketDefinition{Ranges: []*searchsvc.BucketRange{{To: "1980"}, {From: "1980"}}},
+					SubAggregations: []*searchsvc.AggregationOption{{Field: "audio.album"}}},
+				{Field: "audio.year", MetricDefinition: &searchsvc.MetricDefinition{Kind: searchsvc.MetricKind_METRIC_KIND_SUM}},
+			},
+		})
+		Expect(keys(out[0])).To(Equal([]string{"Saxon=2", "Accept=1"}))
+
+		saxon := out[0].GetBuckets()[0].GetSubAggregations()
+		Expect(saxon).To(HaveLen(2))
+		Expect(keys(saxon[0])).To(Equal([]string{"..1980=2", "1980..=0"}))
+		Expect(keys(saxon[0].GetBuckets()[0].GetSubAggregations()[0])).To(Equal([]string{"Wheels of Steel=2"}), "only the albums of this artist")
+		Expect(saxon[0].GetBuckets()[1].GetSubAggregations()[0].GetBuckets()).To(BeEmpty())
+		Expect(saxon[1].GetMetric().GetSum()).To(Equal(3946.0))
+
+		accept := out[0].GetBuckets()[1].GetSubAggregations()
+		Expect(keys(accept[0].GetBuckets()[1].GetSubAggregations()[0])).To(Equal([]string{"Breaker=1"}))
+	})
 })

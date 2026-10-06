@@ -32,8 +32,8 @@ func KindOf(opt *searchsvc.AggregationOption) Kind {
 }
 
 // MaxBuckets is how many buckets the aggregations of one request may have in
-// one space: the search.max_buckets default of OpenSearch, held on every
-// engine.
+// one space, all levels counted: the search.max_buckets default of OpenSearch,
+// held on every engine.
 const MaxBuckets = math.MaxUint16
 
 // ErrTooManyBuckets is what an engine answers beyond MaxBuckets; the service
@@ -52,6 +52,9 @@ func countBuckets(results []*searchsvc.AggregationResult) int {
 	n := 0
 	for _, r := range results {
 		n += len(r.GetBuckets())
+		for _, b := range r.GetBuckets() {
+			n += countBuckets(b.GetSubAggregations())
+		}
 	}
 	return n
 }

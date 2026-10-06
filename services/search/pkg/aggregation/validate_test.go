@@ -39,6 +39,11 @@ var _ = Describe("ValidateOptions", func() {
 		Entry("numeric ranges on a number", &searchsvc.AggregationOption{Field: "audio.year", BucketDefinition: numeric}),
 		Entry("date ranges on a date", &searchsvc.AggregationOption{Field: "photo.takenDateTime", BucketDefinition: dates}),
 		Entry("a metric on a number", &searchsvc.AggregationOption{Field: "audio.year", MetricDefinition: sum}),
+		Entry("a tree of them", &searchsvc.AggregationOption{Field: "audio.artist", SubAggregations: []*searchsvc.AggregationOption{
+			{Field: "audio.year", BucketDefinition: numeric, SubAggregations: []*searchsvc.AggregationOption{
+				{Field: "audio.album"}, {Field: "audio.year", MetricDefinition: sum},
+			}},
+		}}),
 	)
 
 	DescribeTable("rejects an aggregation the index cannot answer",
@@ -53,8 +58,13 @@ var _ = Describe("ValidateOptions", func() {
 		Entry("terms on a geopoint", &searchsvc.AggregationOption{Field: "location"}),
 		Entry("a metric on a keyword", &searchsvc.AggregationOption{Field: "audio.artist", MetricDefinition: sum}),
 		Entry("a metric on a date", &searchsvc.AggregationOption{Field: "photo.takenDateTime", MetricDefinition: sum}),
+		Entry("a metric with sub-aggregations", &searchsvc.AggregationOption{Field: "audio.year", MetricDefinition: sum,
+			SubAggregations: []*searchsvc.AggregationOption{{Field: "audio.artist"}}}),
 		Entry("numeric ranges on a keyword", &searchsvc.AggregationOption{Field: "audio.artist", BucketDefinition: numeric}),
 		Entry("numeric ranges on a date", &searchsvc.AggregationOption{Field: "photo.takenDateTime", BucketDefinition: numeric}),
 		Entry("date ranges on a number", &searchsvc.AggregationOption{Field: "audio.year", BucketDefinition: dates}),
+		Entry("an invalid aggregation two levels down", &searchsvc.AggregationOption{Field: "audio.artist", SubAggregations: []*searchsvc.AggregationOption{
+			{Field: "audio.album", SubAggregations: []*searchsvc.AggregationOption{{Field: "photo.takenDateTime"}}},
+		}}),
 	)
 })

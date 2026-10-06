@@ -55,6 +55,7 @@ func indexField(field string) string {
 func resolveFields(opts []*searchsvc.AggregationOption) {
 	for _, opt := range opts {
 		opt.Field = indexField(opt.Field)
+		resolveFields(opt.SubAggregations)
 	}
 }
 
@@ -67,6 +68,9 @@ func libregraphAggregationsToSearch(in []libregraph.AggregationOption) []*search
 		}
 		if a.BucketDefinition != nil {
 			agg.BucketDefinition = libregraphBucketDefinitionToSearch(*a.BucketDefinition)
+		}
+		if len(a.LibreGraphSubAggregations) > 0 {
+			agg.SubAggregations = libregraphAggregationsToSearch(a.LibreGraphSubAggregations)
 		}
 		if md := a.LibreGraphMetricDefinition; md != nil {
 			agg.MetricDefinition = &searchsvc.MetricDefinition{Kind: metricKinds[md.Kind]}
@@ -99,8 +103,8 @@ func libregraphRangesToSearch(in []libregraph.BucketAggregationRange) []*searchs
 }
 
 // searchAggregationsToLibregraph maps the results to their definitions by
-// position: the search service answers one result per aggregation, in request
-// order.
+// position, at every level: the search service answers one result per
+// aggregation, in request order.
 func searchAggregationsToLibregraph(in []*searchsvc.AggregationResult, defs []libregraph.AggregationOption) []libregraph.SearchAggregation {
 	if len(in) == 0 {
 		return nil
@@ -123,8 +127,9 @@ func searchAggregationsToLibregraph(in []*searchsvc.AggregationResult, defs []li
 		agg.Buckets = make([]libregraph.SearchBucket, 0, len(in[i].GetBuckets()))
 		for _, b := range in[i].GetBuckets() {
 			agg.Buckets = append(agg.Buckets, libregraph.SearchBucket{
-				Key:   libregraph.PtrString(b.GetKey()),
-				Count: libregraph.PtrInt64(b.GetCount()),
+				Key:                       libregraph.PtrString(b.GetKey()),
+				Count:                     libregraph.PtrInt64(b.GetCount()),
+				LibreGraphSubAggregations: searchAggregationsToLibregraph(b.GetSubAggregations(), def.LibreGraphSubAggregations),
 			})
 		}
 		out = append(out, agg)

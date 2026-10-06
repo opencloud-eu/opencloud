@@ -21,6 +21,9 @@ func ValidateOptions(opts []*searchsvc.AggregationOption, fieldType func(string)
 			if t != mapping.TypeNumeric {
 				return fmt.Errorf("metric aggregation needs a numeric field, %q is none", field)
 			}
+			if len(opt.GetSubAggregations()) > 0 {
+				return fmt.Errorf("metric aggregation on %q has no buckets to nest sub-aggregations in", field)
+			}
 		case KindRange:
 			parsed, err := ParseRanges(field, opt.GetBucketDefinition().GetRanges())
 			if err != nil {
@@ -33,6 +36,9 @@ func ValidateOptions(opts []*searchsvc.AggregationOption, fieldType func(string)
 			if err := validateTermsField(field, t); err != nil {
 				return err
 			}
+		}
+		if err := ValidateOptions(opt.GetSubAggregations(), fieldType); err != nil {
+			return err
 		}
 	}
 	return nil
