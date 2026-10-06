@@ -1,5 +1,15 @@
 # Changelog
 
+## [9.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.0) - 2026-10-06
+
+### ❤️ Thanks to all contributors! ❤️
+
+@maki5
+
+### 💥 Breaking changes
+
+- feat(guestlinks)!: auth-guest service [[#3609](https://github.com/opencloud-eu/opencloud/pull/3609)]
+
 ## [8.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.1.0) - 2026-10-05
 
 ### ❤️ Thanks to all contributors! ❤️
