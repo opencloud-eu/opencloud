@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -22,10 +21,10 @@ import (
 	"go-micro.dev/v4/metadata"
 	"golang.org/x/sync/errgroup"
 	grpcmetadata "google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	v0 "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
@@ -100,15 +99,11 @@ func (s Service) Search(ctx context.Context, in *searchsvc.SearchRequest, out *s
 	}
 	ctx = revactx.ContextSetUser(ctx, u)
 
-	key := cacheKey(in.Query, in.PageSize, in.Ref, u)
+	key := cacheKey(in, u)
 	res, ok := s.FromCache(key)
 	if !ok {
 		var err error
-		res, err = s.searcher.Search(ctx, &searchsvc.SearchRequest{
-			Query:    in.Query,
-			PageSize: in.PageSize,
-			Ref:      in.Ref,
-		})
+		res, err = s.searcher.Search(ctx, in)
 		if err != nil {
 			switch err.(type) {
 			case errtypes.BadRequest:
@@ -265,6 +260,11 @@ func (s Service) Cache(key string, res *searchsvc.SearchResponse) {
 	_ = s.cache.Set(key, res)
 }
 
-func cacheKey(query string, pagesize int32, ref *v0.Reference, user *user.User) string {
-	return fmt.Sprintf("%s|%d|%s$%s!%s/%s|%s", query, pagesize, ref.GetResourceId().GetStorageId(), ref.GetResourceId().GetSpaceId(), ref.GetResourceId().GetOpaqueId(), ref.GetPath(), user.GetId().GetOpaqueId())
+// cacheKey is the request as the searcher sees it, per user. An absent page
+// size is the default, both share an entry.
+func cacheKey(req *searchsvc.SearchRequest, user *user.User) string {
+	keyed := proto.Clone(req).(*searchsvc.SearchRequest)
+	keyed.PageSize = proto.Int32(search.PageSizeOrDefault(req.PageSize))
+	b, _ := proto.MarshalOptions{Deterministic: true}.Marshal(keyed)
+	return user.GetId().GetOpaqueId() + "|" + string(b)
 }

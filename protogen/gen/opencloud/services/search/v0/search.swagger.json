@@ -574,6 +574,11 @@
         },
         "ref": {
           "$ref": "#/definitions/v0Reference"
+        },
+        "from": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Optional. Number of leading matches to skip in the globally sorted,\ncross-space merged result list."
         }
       }
     },

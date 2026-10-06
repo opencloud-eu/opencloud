@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -30,6 +31,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
@@ -137,6 +139,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		return nil, errtypes.BadRequest("empty query provided")
 	}
 	req.Query = query
+
 	if len(scope) > 0 {
 		scopedID, err := storagespace.ParseID(scope)
 		if err != nil {
@@ -299,13 +302,17 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		}
 	}
 
-	// compile one sorted list of matches from all spaces and apply the limit if needed
+	// compile one sorted list of matches from all spaces and apply from/limit if needed
 	sort.Sort(matches)
-	limit := req.PageSize
-	if limit == 0 {
-		limit = 200
+	limit := PageSizeOrDefault(req.PageSize)
+	if from := int(req.GetFrom()); from > 0 {
+		if from < len(matches) {
+			matches = matches[from:]
+		} else {
+			matches = nil
+		}
 	}
-	if int32(len(matches)) > limit && limit != -1 {
+	if limit != -1 && int32(len(matches)) > limit {
 		matches = matches[0:limit]
 	}
 
@@ -314,6 +321,40 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		Matches:      matches,
 		TotalMatches: total,
 	}, nil
+}
+
+// PageSizeOrDefault reads an absent page size as 200; -1 is no limit.
+func PageSizeOrDefault(pageSize *int32) int32 {
+	if pageSize != nil {
+		return *pageSize
+	}
+	return 200
+}
+
+// EnginePageSize is the page an engine fetches: the default for an absent
+// size, unlimited for -1, and never beyond the result window.
+func EnginePageSize(pageSize *int32, unlimited int) (int, error) {
+	size := PageSizeOrDefault(pageSize)
+	if err := CheckResultWindow(0, size); err != nil {
+		return 0, errtypes.BadRequest(err.Error())
+	}
+	if size == -1 {
+		return unlimited, nil
+	}
+	return int(size), nil
+}
+
+// engineFetchSize: the global offset cannot be distributed across spaces, so
+// every space must return the full prefix up to from+limit for the merge.
+func engineFetchSize(from int32, pageSize *int32) int32 {
+	limit := PageSizeOrDefault(pageSize)
+	if limit <= 0 || from <= 0 {
+		return limit
+	}
+	if total := int64(from) + int64(limit); total <= math.MaxInt32 {
+		return int32(total)
+	}
+	return math.MaxInt32
 }
 
 func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, space *provider.StorageSpace, mountpointID string) (*searchsvc.SearchIndexResponse, error) {
@@ -418,7 +459,8 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 			ResourceId: searchRootID,
 			Path:       searchPathPrefix,
 		},
-		PageSize: req.PageSize,
+		// not GetPageSize(): the getter collapses nil (default) and explicit 0
+		PageSize: conversions.ToPointer(engineFetchSize(req.GetFrom(), req.PageSize)),
 	}
 	start := time.Now()
 	res, err := s.engine.Search(ctx, searchRequest)

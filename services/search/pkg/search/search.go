@@ -1,6 +1,7 @@
 package search
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -126,6 +127,18 @@ func ResolveReference(ctx context.Context, ref *provider.Reference, ri *provider
 	}, nil
 }
 
+// MaxResultWindow is how deep a search pages: OpenSearch returns no matches
+// beyond its index.max_result_window, so no engine does.
+const MaxResultWindow = 10000
+
+// CheckResultWindow rejects a page that reaches beyond MaxResultWindow.
+func CheckResultWindow(from, size int32) error {
+	if int64(from)+int64(size) > MaxResultWindow {
+		return fmt.Errorf("from and size reach beyond the first %d matches", MaxResultWindow)
+	}
+	return nil
+}
+
 type matchArray []*searchmsg.Match
 
 func (ma matchArray) Len() int {
@@ -134,8 +147,20 @@ func (ma matchArray) Len() int {
 func (ma matchArray) Swap(i, j int) {
 	ma[i], ma[j] = ma[j], ma[i]
 }
+
+// Less orders by score and breaks ties by id: without that, matches with the
+// same score change places between requests and pages overlap. The engines
+// order their pages the same way.
 func (ma matchArray) Less(i, j int) bool {
-	return ma[i].GetScore() > ma[j].GetScore()
+	if ma[i].GetScore() != ma[j].GetScore() {
+		return ma[i].GetScore() > ma[j].GetScore()
+	}
+	a, b := ma[i].GetEntity().GetId(), ma[j].GetEntity().GetId()
+	return cmp.Or(
+		cmp.Compare(a.GetStorageId(), b.GetStorageId()),
+		cmp.Compare(a.GetSpaceId(), b.GetSpaceId()),
+		cmp.Compare(a.GetOpaqueId(), b.GetOpaqueId()),
+	) < 0
 }
 
 func logDocCount(engine Engine, logger log.Logger) {

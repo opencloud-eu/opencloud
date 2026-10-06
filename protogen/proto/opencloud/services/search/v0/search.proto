@@ -64,7 +64,7 @@ service IndexProvider {
 
 message SearchRequest {
   // Optional. The maximum number of entries to return in the response
-  int32 page_size = 1 [(google.api.field_behavior) = OPTIONAL];
+  optional int32 page_size = 1 [(google.api.field_behavior) = OPTIONAL];
 
   // Optional. A pagination token returned from a previous call to `Get`
   // that indicates from where search should continue
@@ -72,6 +72,10 @@ message SearchRequest {
 
   string query = 3;
   opencloud.messages.search.v0.Reference ref = 4 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional. Number of leading matches to skip in the globally sorted,
+  // cross-space merged result list.
+  int32 from = 7 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message SearchResponse {
@@ -85,7 +89,7 @@ message SearchResponse {
 
 message SearchIndexRequest {
   // Optional. The maximum number of entries to return in the response
-  int32 page_size = 1 [(google.api.field_behavior) = OPTIONAL];
+  optional int32 page_size = 1 [(google.api.field_behavior) = OPTIONAL];
 
   // Optional. A pagination token returned from a previous call to `Get`
   // that indicates from where search should continue
