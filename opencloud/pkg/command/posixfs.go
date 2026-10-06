@@ -110,10 +110,14 @@ the command is aborted with an error before performing any scanning.`,
 							path = v
 						}
 					}
-					// not ensuring whether the path is under the storage root here, will be done when iterating over them
+					// checkStorageRoot below makes sure the path is in the configured storage
 					path = filepath.Clean(path)
 					paths = append(paths, path)
 				}
+			}
+
+			if err := checkStorageRoot(storageRoot, paths); err != nil {
+				return err
 			}
 
 			var scan func(path string) error = nil
@@ -370,6 +374,16 @@ The provided arguments determines the scope of the check:
 			if len(args) == 0 {
 				args = []string{cfg.Drivers.Posix.Root}
 			}
+			for i, arg := range args {
+				abs, err := filepath.Abs(arg)
+				if err != nil {
+					return fmt.Errorf("failed to make the path %q absolute: %w", arg, err)
+				}
+				args[i] = abs
+			}
+			if err := checkStorageRoot(cfg.Drivers.Posix.Root, args); err != nil {
+				return err
+			}
 			log := logger("posixfs")
 			recalculateChecksums, err := cmd.Flags().GetBool("fix-checksums")
 			if err != nil {
@@ -424,6 +438,35 @@ func findStorageRoot(path string) (string, error) {
 		}
 		current = parent
 	}
+}
+
+// checkStorageRoot returns an error if a path is not inside the configured
+// posixfs storage, spelled the way the configuration spells it. The commands
+// build their ignore rules and the driver from the configured root, and those
+// compare plain path strings. A path in another storage, or one reached through
+// a symlink, would not have its internal directories (.Trash, .oc-nodes,
+// .oc-tmp) recognised, and node attributes would be written onto them. Paths
+// must be absolute. Paths outside any storage are left to the caller, which
+// reports them.
+func checkStorageRoot(configured string, paths []string) error {
+	if _, err := os.Stat(configured); err != nil {
+		return fmt.Errorf("the configured posixfs root '%s' is not accessible: %w", configured, err)
+	}
+	configured = filepath.Clean(configured)
+	for _, path := range paths {
+		if !filepath.IsAbs(path) {
+			return fmt.Errorf("'%s' is not an absolute path", path)
+		}
+		root, err := findStorageRoot(path)
+		if err != nil {
+			continue
+		}
+		if filepath.Clean(root) != configured {
+			return fmt.Errorf("'%s' is not under the configured posixfs root '%s' (it looks like part of a storage at '%s'). "+
+				"Pass a path under '%s', or set STORAGE_USERS_POSIX_ROOT to the storage you mean", path, configured, root, configured)
+		}
+	}
+	return nil
 }
 
 // isSpaceRoot reports whether the given path is a space root, which is
