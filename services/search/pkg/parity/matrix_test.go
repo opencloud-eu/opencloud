@@ -278,6 +278,12 @@ func matrixFixtures(group string) string {
 		fixtures = g.fixtures
 	}
 
+	for _, g := range aggregationGroups() {
+		if g.name == group {
+			fixtures = g.fixtures
+		}
+	}
+
 	if len(fixtures) == 0 {
 		return "Fixtures: none"
 	}
@@ -379,6 +385,10 @@ func matrixScope(ref *searchMessage.Reference) string {
 	return "in " + space
 }
 
+// matrixNamesHead keeps a table row readable: a huge answer list renders as
+// its head plus a count instead of flooding the README.
+const matrixNamesHead = 8
+
 func matrixNames(names []string) string {
 	if len(names) == 0 {
 		return "no match"
@@ -390,6 +400,9 @@ func matrixNames(names []string) string {
 	}
 	sort.Strings(shortened)
 
+	if len(shortened) > matrixNamesHead {
+		return strings.Join(shortened[:matrixNamesHead], ", ") + fmt.Sprintf(", … +%d more", len(shortened)-matrixNamesHead)
+	}
 	return strings.Join(shortened, ", ")
 }
 

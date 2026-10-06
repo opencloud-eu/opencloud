@@ -1,0 +1,227 @@
+package parity
+
+import (
+	"context"
+	"fmt"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
+
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
+	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
+)
+
+// aggCase is one aggregation request both engines have to answer alike. The
+// answer is rendered to strings (one per non-empty bucket or metric), so the
+// matrix machinery can carry it like any query answer.
+type aggCase struct {
+	id              int
+	query           string
+	aggs            []*searchService.AggregationOption
+	reads           string
+	want            []string
+	wantCount       *int
+	wantBadRequest  bool
+	engineOverrides map[string]override
+	// pageSize, when set, prefixes the answer with "<returned> of <total> matches"
+	pageSize int32
+	// listMatches puts the names of the matches into the answer and holds the
+	// engines to their order
+	listMatches bool
+}
+
+// aggGroup is a set of cases over one set of fixtures.
+type aggGroup struct {
+	name     string
+	fixtures []search.Resource
+	cases    []aggCase
+}
+
+func aggregationGroups() []aggGroup {
+	return []aggGroup{
+		{name: "aggregations", fixtures: aggregationFixtures(), cases: aggregationCases()},
+		{name: "cardinality", fixtures: cardinalityFixtures(), cases: cardinalityCases()},
+	}
+}
+
+func (c aggCase) label() string { return fmt.Sprintf("AGG-%02d", c.id) }
+
+func untaggedSong(name string, year int32) search.Resource {
+	return fixtureDoc(name, withMime("audio/mpeg"), withAudio(&libregraph.Audio{Year: libregraph.PtrInt32(year)}))
+}
+
+func song(name, artist, album string, year int32, opts ...fixtureOption) search.Resource {
+	return fixtureDoc(name, append([]fixtureOption{withMime("audio/mpeg"), withAudio(&libregraph.Audio{
+		Artist: libregraph.PtrString(artist),
+		Album:  libregraph.PtrString(album),
+		Year:   libregraph.PtrInt32(year),
+	})}, opts...)...)
+}
+
+func withDrm(r search.Resource, drm bool) search.Resource {
+	r.Audio.HasDrm = &drm
+	return r
+}
+
+func aggregationFixtures() []search.Resource {
+	return []search.Resource{
+		// years: 1971, 1975, 1982, 1999, 2001, 2005, 2009
+		withDrm(song("a.mp3", "Saxon", "Wheels of Steel", 1971), true),
+		withDrm(song("b.mp3", "Saxon", "Wheels of Steel", 1975), false),
+		song("c.mp3", "Motörhead", "Bomber", 1982),
+		song("d.mp3", "Motörhead", "Bomber", 1999),
+		song("e.mp3", "Motörhead", "Ace of Spades", 2001),
+		untaggedSong("f.mp3", 2005),
+		untaggedSong("g.mp3", 2009),
+	}
+}
+
+func aggregationCases() []aggCase {
+	return []aggCase{
+		{id: 1, query: "mediatype:audio", reads: "term buckets on audio.artist",
+			aggs: []*searchService.AggregationOption{{Field: "audio.artist", Size: 10}},
+			want: []string{"audio.artist Saxon=2", "audio.artist Motörhead=3"}},
+		{id: 2, query: "mediatype:audio", reads: "no aggregations requested"},
+		{id: 3, query: "mediatype:audio", reads: "artist and album buckets in one request",
+			aggs: []*searchService.AggregationOption{{Field: "audio.artist"}, {Field: "audio.album"}},
+			want: []string{
+				"audio.artist Saxon=2", "audio.artist Motörhead=3",
+				"audio.album Wheels of Steel=2", "audio.album Bomber=2", "audio.album Ace of Spades=1",
+			}},
+		{id: 34, query: "mediatype:audio", reads: "term buckets on the numeric audio.year",
+			aggs: []*searchService.AggregationOption{{Field: "audio.year"}},
+			want: []string{
+				"audio.year 1971=1", "audio.year 1975=1", "audio.year 1982=1", "audio.year 1999=1",
+				"audio.year 2001=1", "audio.year 2005=1", "audio.year 2009=1",
+			}},
+		{id: 37, query: "mediatype:audio", reads: "term buckets on the bool audio.hasDrm, spelled true and false",
+			aggs: []*searchService.AggregationOption{{Field: "audio.hasDrm"}},
+			want: []string{"audio.hasDrm true=1", "audio.hasDrm false=1"}},
+		{id: 39, query: "mediatype:audio", reads: "no bucket for the empty Title of every match",
+			aggs: []*searchService.AggregationOption{{Field: "Title"}}},
+		{id: 41, query: "mediatype:audio", reads: "matches of the same score in the order of their ids, page after page",
+			pageSize: 3, listMatches: true,
+			want: []string{"3 of 7 matches", "a.mp3", "b.mp3", "c.mp3"}},
+	}
+}
+
+// renderAggregations flattens an answer into comparable strings, one per
+// bucket.
+func renderAggregations(resp *searchService.SearchIndexResponse, err error) []string {
+	if err != nil {
+		if _, ok := err.(errtypes.BadRequest); ok {
+			return []string{"bad request"}
+		}
+		return []string{"error"}
+	}
+
+	out := []string{}
+	for _, a := range resp.Aggregations {
+		out = append(out, renderAggregation("", a)...)
+	}
+
+	return out
+}
+
+func renderAggregation(prefix string, a *searchService.AggregationResult) []string {
+	out := []string{}
+	for _, b := range a.Buckets {
+		out = append(out, prefix+fmt.Sprintf("%s %s=%d", a.Field, b.Key, b.Count))
+	}
+
+	return out
+}
+
+// cardinalityFixtures exceed the composite page size and what OpenSearch
+// counts and returns by default (10000 matches).
+func cardinalityFixtures() []search.Resource {
+	docs := make([]search.Resource, 0, 10050)
+	for i := 0; i < 10050; i++ {
+		docs = append(docs, song(fmt.Sprintf("card-%05d.mp3", i), fmt.Sprintf("artist-%05d", i), "Singles", int32(1950+i%50)))
+	}
+	return docs
+}
+
+func cardinalityCases() []aggCase {
+	count := 10050
+	return []aggCase{
+		{id: 17, query: "mediatype:audio", reads: "one bucket per artist, cardinality above the page size",
+			aggs:      []*searchService.AggregationOption{{Field: "audio.artist"}},
+			wantCount: &count},
+		{id: 42, query: "mediatype:audio", reads: "the total counts every match",
+			pageSize: 1,
+			want:     []string{"1 of 10050 matches"}},
+		{id: 43, query: "mediatype:audio", reads: "a page reaching beyond the first 10000 matches is refused",
+			pageSize:       10001,
+			wantBadRequest: true},
+	}
+}
+
+var _ = Describe("Aggregations", func() {
+	for groupAt, group := range aggregationGroups() {
+		Describe(group.name, Ordered, ContinueOnFailure, func() {
+			var engines []testEngine
+
+			BeforeAll(func() {
+				engines = newEngines("opencloud-test-engine-parity-agg-"+group.name, group.fixtures)
+			})
+
+			for caseAt, c := range group.cases {
+				row := matrixRow{
+					Section: "Aggregations", Group: group.name, ID: c.label(),
+					Query: c.query, Reads: c.reads,
+					Want: c.want, WantCount: c.wantCount, WantBadRequest: c.wantBadRequest, Overrides: renderOverrides(c.engineOverrides),
+					GroupAt: 100 + groupAt, CaseAt: caseAt,
+				}
+				planRow(row)
+
+				Describe(c.label()+" "+c.reads, func() {
+					for _, name := range engineNames {
+						It("on "+name, func() {
+							e := engineNamed(engines, name)
+							if e.unavailable != "" {
+								recordSkip(row, name)
+								Skip(e.unavailable)
+							}
+
+							request := &searchService.SearchIndexRequest{
+								Query:        c.query,
+								Aggregations: c.aggs,
+							}
+							if c.pageSize != 0 {
+								request.PageSize = conversions.ToPointer(c.pageSize)
+							}
+							resp, err := e.backend.Search(context.Background(), request)
+							answer := renderAggregations(resp, err)
+							if err == nil && c.listMatches {
+								names := make([]string, 0, len(resp.Matches))
+								for _, m := range resp.Matches {
+									names = append(names, m.GetEntity().GetName())
+								}
+								answer = append(names, answer...)
+							}
+							if err == nil && c.pageSize > 0 {
+								answer = append([]string{fmt.Sprintf("%d of %d matches", len(resp.Matches), resp.TotalMatches)}, answer...)
+							}
+							recordAnswer(row, name, answer)
+
+							_, overridden := c.engineOverrides[name]
+							if !overridden && !c.wantBadRequest {
+								Expect(err).NotTo(HaveOccurred(), "the aggregation has to answer")
+							}
+
+							if c.listMatches {
+								Expect(answer).To(Equal(c.want))
+								return
+							}
+							expectAnswer(name, answer, override{want: c.want, wantCount: c.wantCount, wantBadRequest: c.wantBadRequest}, c.engineOverrides)
+						})
+					}
+				})
+			}
+		})
+	}
+})

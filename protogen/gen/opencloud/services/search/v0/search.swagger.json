@@ -167,6 +167,39 @@
       },
       "additionalProperties": {}
     },
+    "v0AggregationOption": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string",
+          "description": "Required. The indexed field to aggregate on."
+        },
+        "size": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Optional. Maximum number of buckets to return, applied after the\ncross-space merge. 0 returns every bucket."
+        },
+        "bucketDefinition": {
+          "$ref": "#/definitions/v0BucketDefinition",
+          "description": "Optional. Controls bucket selection, ordering and filtering."
+        }
+      }
+    },
+    "v0AggregationResult": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "buckets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0Bucket"
+          }
+        }
+      },
+      "description": "One result per AggregationOption, at the same position."
+    },
     "v0Audio": {
       "type": "object",
       "properties": {
@@ -226,6 +259,44 @@
           "format": "int32"
         }
       }
+    },
+    "v0Bucket": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "count": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "v0BucketDefinition": {
+      "type": "object",
+      "properties": {
+        "sortBy": {
+          "$ref": "#/definitions/v0BucketSortBy",
+          "description": "Unspecified orders like a facet, by count descending, whatever\nis_descending says."
+        },
+        "isDescending": {
+          "type": "boolean"
+        },
+        "minimumCount": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "v0BucketSortBy": {
+      "type": "string",
+      "enum": [
+        "BUCKET_SORT_BY_UNSPECIFIED",
+        "BUCKET_SORT_BY_COUNT",
+        "BUCKET_SORT_BY_KEY_AS_STRING",
+        "BUCKET_SORT_BY_KEY_AS_NUMBER"
+      ],
+      "default": "BUCKET_SORT_BY_UNSPECIFIED"
     },
     "v0Entity": {
       "type": "object",
@@ -542,6 +613,13 @@
         },
         "ref": {
           "$ref": "#/definitions/v0Reference"
+        },
+        "aggregations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0AggregationOption"
+          },
+          "description": "Optional. Per-space aggregations (facets) to compute alongside the matches."
         }
       }
     },
@@ -561,6 +639,13 @@
         "totalMatches": {
           "type": "integer",
           "format": "int32"
+        },
+        "aggregations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0AggregationResult"
+          },
+          "description": "Per-space aggregation results, one entry per requested aggregation, in\nrequest order. The service layer merges these across spaces before\nreturning them to the caller."
         }
       }
     },
@@ -581,6 +666,13 @@
         },
         "ref": {
           "$ref": "#/definitions/v0Reference"
+        },
+        "aggregations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0AggregationOption"
+          },
+          "description": "Optional. Aggregations (facets) to compute alongside the matches."
         },
         "from": {
           "type": "integer",
@@ -605,6 +697,13 @@
         "totalMatches": {
           "type": "integer",
           "format": "int32"
+        },
+        "aggregations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0AggregationResult"
+          },
+          "description": "Aggregation results, one entry per requested aggregation, in request\norder."
         }
       }
     },

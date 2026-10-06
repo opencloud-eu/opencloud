@@ -3,6 +3,7 @@ package svc
 import (
 	"path"
 	"slices"
+	"strings"
 	"time"
 
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -10,8 +11,96 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
+	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 )
+
+var bucketSortBy = map[string]searchsvc.BucketSortBy{
+	"count":       searchsvc.BucketSortBy_BUCKET_SORT_BY_COUNT,
+	"keyAsString": searchsvc.BucketSortBy_BUCKET_SORT_BY_KEY_AS_STRING,
+	"keyAsNumber": searchsvc.BucketSortBy_BUCKET_SORT_BY_KEY_AS_NUMBER,
+}
+
+// driveItemFields are the scalar driveItem properties a hit carries and the
+// index fields behind them; a facet property (audio.artist) is its index
+// field already.
+var driveItemFields = map[string]string{
+	"name":                 "Name",
+	"size":                 "Size",
+	"lastModifiedDateTime": "Mtime",
+	"mimeType":             "MimeType",
+	"@libre.graph.tags":    "Tags",
+}
+
+// indexField resolves a field spelled like the driveItem property, and only
+// so: a scalar property by name, a facet property as it is. Any other
+// spelling resolves to no field and fails validation.
+func indexField(field string) string {
+	if index, ok := driveItemFields[field]; ok {
+		return index
+	}
+	if strings.Contains(field, ".") {
+		return field
+	}
+	return ""
+}
+
+func resolveFields(opts []*searchsvc.AggregationOption) {
+	for _, opt := range opts {
+		opt.Field = indexField(opt.Field)
+	}
+}
+
+func libregraphAggregationsToSearch(in []libregraph.AggregationOption) []*searchsvc.AggregationOption {
+	out := make([]*searchsvc.AggregationOption, 0, len(in))
+	for _, a := range in {
+		agg := &searchsvc.AggregationOption{Field: a.Field}
+		if a.Size != nil {
+			agg.Size = *a.Size
+		}
+		if a.BucketDefinition != nil {
+			agg.BucketDefinition = libregraphBucketDefinitionToSearch(*a.BucketDefinition)
+		}
+		out = append(out, agg)
+	}
+	return out
+}
+
+func libregraphBucketDefinitionToSearch(in libregraph.BucketDefinition) *searchsvc.BucketDefinition {
+	bd := &searchsvc.BucketDefinition{SortBy: bucketSortBy[in.SortBy]}
+	if in.IsDescending != nil {
+		bd.IsDescending = *in.IsDescending
+	}
+	if in.MinimumCount != nil {
+		bd.MinimumCount = *in.MinimumCount
+	}
+	return bd
+}
+
+// searchAggregationsToLibregraph maps the results to their definitions by
+// position: the search service answers one result per aggregation, in request
+// order.
+func searchAggregationsToLibregraph(in []*searchsvc.AggregationResult, defs []libregraph.AggregationOption) []libregraph.SearchAggregation {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]libregraph.SearchAggregation, 0, len(defs))
+	for i, def := range defs {
+		if i >= len(in) {
+			break
+		}
+		agg := libregraph.SearchAggregation{Field: libregraph.PtrString(def.Field)}
+		agg.Buckets = make([]libregraph.SearchBucket, 0, len(in[i].GetBuckets()))
+		for _, b := range in[i].GetBuckets() {
+			agg.Buckets = append(agg.Buckets, libregraph.SearchBucket{
+				Key:   libregraph.PtrString(b.GetKey()),
+				Count: libregraph.PtrInt64(b.GetCount()),
+			})
+		}
+		out = append(out, agg)
+	}
+	return out
+}
 
 func searchResourceID(id *searchmsg.ResourceID) string {
 	return storagespace.FormatResourceID(&storageprovider.ResourceId{

@@ -16,6 +16,7 @@ import (
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"go-micro.dev/v4/client"
 	merrors "go-micro.dev/v4/errors"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
@@ -55,6 +56,10 @@ func graphWithSearchAnswer(resp *searchsvc.SearchResponse) (Graph, func() *searc
 	return g, func() *searchsvc.SearchRequest { return captured }
 }
 
+func graphWithAggregations(aggregations ...*searchsvc.AggregationResult) (Graph, func() *searchsvc.SearchRequest) {
+	return graphWithSearchAnswer(&searchsvc.SearchResponse{Aggregations: aggregations})
+}
+
 func graphWithoutSearch() Graph {
 	return graphWithSearch(stubSearchService{
 		search: func(*searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {
@@ -80,6 +85,14 @@ func oneMatch(entity *searchmsg.Entity) *searchsvc.SearchResponse {
 	return &searchsvc.SearchResponse{TotalMatches: 1, Matches: []*searchmsg.Match{{Entity: entity}}}
 }
 
+type searchAggregationJSON struct {
+	Field   string `json:"field"`
+	Buckets []struct {
+		Key   string `json:"key"`
+		Count int64  `json:"count"`
+	} `json:"buckets"`
+}
+
 type searchHitsContainerJSON struct {
 	Hits []struct {
 		Rank     int32 `json:"rank"`
@@ -96,8 +109,9 @@ type searchHitsContainerJSON struct {
 			} `json:"parentReference"`
 		} `json:"resource"`
 	} `json:"hits"`
-	Total                int64 `json:"total"`
-	MoreResultsAvailable bool  `json:"moreResultsAvailable"`
+	Total                int64                   `json:"total"`
+	MoreResultsAvailable bool                    `json:"moreResultsAvailable"`
+	Aggregations         []searchAggregationJSON `json:"aggregations"`
 }
 
 // hitsContainers decodes the one hits container of every request.
@@ -137,8 +151,8 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 			`"message":"from and size reach beyond`),
 		ginkgo.Entry("a bad second request, every request is validated before the first one runs", `{"requests": [
 			{"entityTypes": ["driveItem"], "query": {"queryString": "notes"}},
-			{"entityTypes": ["driveItem"], "query": {"queryString": "notes"}, "size": 1000}
-		]}`, "size must be"),
+			{"entityTypes": ["driveItem"], "query": {"queryString": "notes"}, "aggregations": [{"field": "audio.nonexistent"}]}
+		]}`, "audio.nonexistent"),
 	)
 
 	ginkgo.It("answers one hits container per request, in request order", func() {
@@ -276,6 +290,69 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		Expect(hc.Hits).To(BeEmpty())
 	})
 
+	// the rules of the index are pinned in the aggregation package; one entry
+	// per kind proves the handler asks them before the search service
+	ginkgo.DescribeTable("rejects an aggregation the spec or the index does not allow with 400",
+		func(fragment string) {
+			rr := postSearchQuery(graphWithoutSearch(), searchQueryBody(fragment))
+			Expect(rr.Code).To(Equal(http.StatusBadRequest), rr.Body.String())
+			Expect(rr.Body.String()).To(ContainSubstring("invalidRequest"))
+		},
+		ginkgo.Entry("an empty field", `"aggregations": [{"field": ""}]`),
+		ginkgo.Entry("an unknown sortBy", `"aggregations": [{"field": "audio.artist", "bucketDefinition": {"sortBy": "relevance"}}]`),
+		ginkgo.Entry("a size below one", `"aggregations": [{"field": "audio.artist", "size": 0}]`),
+		ginkgo.Entry("a negative minimumCount", `"aggregations": [{"field": "audio.artist", "bucketDefinition": {"sortBy": "count", "minimumCount": -1}}]`),
+		ginkgo.Entry("a field the index does not know", `"aggregations": [{"field": "audio.nonexistent"}]`),
+	)
+
+	ginkgo.It("translates the bucket definition for the search service", func() {
+		g, captured := graphWithAggregations()
+		rr := postSearchQuery(g, searchQueryBody(`"aggregations": [
+			{"field": "audio.artist", "size": 5, "bucketDefinition": {"sortBy": "keyAsString", "isDescending": true, "minimumCount": 2}},
+			{"field": "audio.genre", "bucketDefinition": {"sortBy": "count"}}
+		]`))
+		Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+
+		Expect(captured().GetAggregations()).To(BeComparableTo([]*searchsvc.AggregationOption{
+			{Field: "audio.artist", Size: 5, BucketDefinition: &searchsvc.BucketDefinition{SortBy: searchsvc.BucketSortBy_BUCKET_SORT_BY_KEY_AS_STRING, IsDescending: true, MinimumCount: 2}},
+			{Field: "audio.genre", BucketDefinition: &searchsvc.BucketDefinition{SortBy: searchsvc.BucketSortBy_BUCKET_SORT_BY_COUNT}},
+		}, protocmp.Transform()))
+	})
+
+	ginkgo.DescribeTable("resolves the driveItem spelling of a field to the index field and answers in the spelling of the request",
+		func(requested, indexed string) {
+			g, captured := graphWithAggregations(&searchsvc.AggregationResult{
+				Field:   indexed,
+				Buckets: []*searchsvc.Bucket{{Key: "audio/mpeg", Count: 3}},
+			})
+			rr := postSearchQuery(g, searchQueryBody(fmt.Sprintf(`"aggregations": [{"field": %q}]`, requested)))
+			Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+
+			Expect(captured().GetAggregations()[0].GetField()).To(Equal(indexed))
+			Expect(hitsContainer(rr).Aggregations[0].Field).To(Equal(requested))
+		},
+		ginkgo.Entry("mimeType", "mimeType", "MimeType"),
+		ginkgo.Entry("name", "name", "Name"),
+		ginkgo.Entry("tags", "@libre.graph.tags", "Tags"),
+		ginkgo.Entry("a facet property", "audio.artist", "audio.artist"),
+	)
+
+	ginkgo.DescribeTable("rejects a field not spelled like the driveItem property with 400, naming it as the request did",
+		func(field string) {
+			rr := postSearchQuery(graphWithoutSearch(), searchQueryBody(fmt.Sprintf(`"aggregations": [{"field": %q}]`, field)))
+			Expect(rr.Code).To(Equal(http.StatusBadRequest), rr.Body.String())
+			Expect(rr.Body.String()).To(ContainSubstring(field))
+			Expect(rr.Body.String()).ToNot(ContainSubstring("Mtime"), "no index names")
+		},
+		ginkgo.Entry("the index spelling of a property", "MimeType"),
+		ginkgo.Entry("another case", "MIMETYPE"),
+		ginkgo.Entry("the index spelling of the modification time", "mtime"),
+		ginkgo.Entry("a KQL alias", "tag"),
+		ginkgo.Entry("a facet in another case", "Audio.Artist"),
+		ginkgo.Entry("the nested driveItem path of the mime type", "file.mimeType"),
+		ginkgo.Entry("a property the index rules refuse for terms", "lastModifiedDateTime"),
+	)
+
 	ginkgo.DescribeTable("answers a property it does not evaluate with 501 instead of ignoring it",
 		func(fragment, property string) {
 			rr := postSearchQuery(graphWithoutSearch(), searchQueryBody(fragment))
@@ -284,8 +361,12 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 			Expect(rr.Body.String()).To(ContainSubstring(property))
 		},
 		ginkgo.Entry("sortProperties", `"sortProperties": [{"name": "name"}]`, "sortProperties"),
-		ginkgo.Entry("aggregations", `"aggregations": [{"field": "audio.artist"}]`, "aggregations"),
 		ginkgo.Entry("aggregationFilters", `"aggregationFilters": ["audio.artist:\"ǂǂ5361786f6e\""]`, "aggregationFilters"),
+		ginkgo.Entry("a geohash aggregation",
+			`"aggregations": [{"field": "location", "@libre.graph.geohashDefinition": {"precision": 5}}]`, "geohashDefinition"),
+		ginkgo.Entry("ranges", `"aggregations": [{"field": "audio.year", "bucketDefinition": {"sortBy": "count", "ranges": [{"from": "1980"}]}}]`, "ranges"),
+		ginkgo.Entry("a metric", `"aggregations": [{"field": "audio.year", "@libre.graph.metricDefinition": {"kind": "sum"}}]`, "metricDefinition"),
+		ginkgo.Entry("sub-aggregations", `"aggregations": [{"field": "audio.artist", "@libre.graph.subAggregations": [{"field": "audio.album"}]}]`, "subAggregations"),
 	)
 
 	ginkgo.It("rejects an $expand it does not know with 400", func() {
@@ -301,7 +382,7 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 			g := graphWithSearch(stubSearchService{
 				search: func(*searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) { return nil, serviceErr },
 			})
-			rr := postSearchQuery(g, searchQueryBody(`"from": 0`))
+			rr := postSearchQuery(g, searchQueryBody(`"aggregations": [{"field": "audio.artist"}]`))
 			Expect(rr.Code).To(Equal(status), rr.Body.String())
 
 			var decoded struct {

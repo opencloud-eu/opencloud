@@ -73,6 +73,9 @@ message SearchRequest {
   string query = 3;
   opencloud.messages.search.v0.Reference ref = 4 [(google.api.field_behavior) = OPTIONAL];
 
+  // Optional. Aggregations (facets) to compute alongside the matches.
+  repeated AggregationOption aggregations = 5 [(google.api.field_behavior) = OPTIONAL];
+
   // Optional. Number of leading matches to skip in the globally sorted,
   // cross-space merged result list.
   int32 from = 7 [(google.api.field_behavior) = OPTIONAL];
@@ -85,6 +88,10 @@ message SearchResponse {
   // more results in the list
   string next_page_token = 2;
   int32 total_matches = 3;
+
+  // Aggregation results, one entry per requested aggregation, in request
+  // order.
+  repeated AggregationResult aggregations = 4;
 }
 
 message SearchIndexRequest {
@@ -97,6 +104,9 @@ message SearchIndexRequest {
 
 	string query = 3;
   opencloud.messages.search.v0.Reference ref = 4 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional. Per-space aggregations (facets) to compute alongside the matches.
+  repeated AggregationOption aggregations = 5 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message SearchIndexResponse {
@@ -106,6 +116,47 @@ message SearchIndexResponse {
   // more results in the list
   string next_page_token = 2;
   int32 total_matches = 3;
+
+  // Per-space aggregation results, one entry per requested aggregation, in
+  // request order. The service layer merges these across spaces before
+  // returning them to the caller.
+  repeated AggregationResult aggregations = 4;
+}
+
+message AggregationOption {
+  // Required. The indexed field to aggregate on.
+  string field = 1;
+  // Optional. Maximum number of buckets to return, applied after the
+  // cross-space merge. 0 returns every bucket.
+  int32 size = 2 [(google.api.field_behavior) = OPTIONAL];
+  // Optional. Controls bucket selection, ordering and filtering.
+  BucketDefinition bucket_definition = 3 [(google.api.field_behavior) = OPTIONAL];
+}
+
+message BucketDefinition {
+  // Unspecified orders like a facet, by count descending, whatever
+  // is_descending says.
+  BucketSortBy sort_by = 1;
+  bool is_descending = 2;
+  int32 minimum_count = 3;
+}
+
+enum BucketSortBy {
+  BUCKET_SORT_BY_UNSPECIFIED = 0;
+  BUCKET_SORT_BY_COUNT = 1;
+  BUCKET_SORT_BY_KEY_AS_STRING = 2;
+  BUCKET_SORT_BY_KEY_AS_NUMBER = 3;
+}
+
+// One result per AggregationOption, at the same position.
+message AggregationResult {
+  string field = 1;
+  repeated Bucket buckets = 2;
+}
+
+message Bucket {
+  string key = 1;
+  int64 count = 2;
 }
 
 message IndexSpaceRequest {
