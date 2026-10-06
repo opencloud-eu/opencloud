@@ -23,6 +23,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
+	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 )
@@ -48,9 +49,10 @@ var ErrOptimizeInProgress = errors.New("the index is being optimized already")
 
 // IndexQuery is one search against the index.
 type IndexQuery struct {
-	Query    string
-	Ref      *searchmsg.Reference
-	PageSize *int32
+	Query        string
+	Ref          *searchmsg.Reference
+	PageSize     *int32
+	Aggregations []*searchsvc.AggregationOption
 }
 
 // IndexResult is what the engine answers: the matches of one space and how
@@ -58,6 +60,7 @@ type IndexQuery struct {
 type IndexResult struct {
 	Matches      []*searchmsg.Match
 	TotalMatches int32
+	Aggregations []*searchsvc.AggregationResult
 }
 
 // Engine is the interface to the search engine
@@ -134,16 +137,22 @@ var resourceFieldOverrides = sync.OnceValue(func() map[string]mapping.FieldOpts 
 	return map[string]mapping.FieldOpts{
 		// every keyword field searches case-insensitively and by word (name,
 		// title, the facets) unless opted out: ids are opaque, paths are POSIX,
-		// the mime type is normalized already, a tag is one label
-		"ID":                  {CaseInsensitive: &False, NoWordBreaker: &True},
-		"RootID":              {CaseInsensitive: &False, NoWordBreaker: &True},
-		"ParentID":            {CaseInsensitive: &False, NoWordBreaker: &True},
-		"Path":                {Type: mapping.TypePath, CaseInsensitive: &False},
+		// the mime type is normalized already, a tag is one label.
+		// Internal fields are no driveItem property: ids, flags, the content,
+		// and Favorites, which would list who favorited what.
+		"ID":                  {CaseInsensitive: &False, NoWordBreaker: &True, Internal: true},
+		"RootID":              {CaseInsensitive: &False, NoWordBreaker: &True, Internal: true},
+		"ParentID":            {CaseInsensitive: &False, NoWordBreaker: &True, Internal: true},
+		"Path":                {Type: mapping.TypePath, CaseInsensitive: &False, Internal: true},
 		"MimeType":            {CaseInsensitive: &False, NoWordBreaker: &True},
-		"Content":             {Type: mapping.TypeFulltext},
+		"Content":             {Type: mapping.TypeFulltext, Internal: true},
+		"Title":               {Internal: true},
+		"Type":                {Internal: true},
+		"Deleted":             {Internal: true},
+		"Hidden":              {Internal: true},
 		"Tags":                {NoWordBreaker: &True, IncludeInAll: &False},
-		"Favorites":           {NoWordBreaker: &True, IncludeInAll: &False, CaseInsensitive: &False}, // opaque user ids
-		"livePhoto.contentId": {NoWordBreaker: &True, CaseInsensitive: &False},                       // opaque pairing uuid
+		"Favorites":           {NoWordBreaker: &True, IncludeInAll: &False, CaseInsensitive: &False, Internal: true}, // opaque user ids
+		"livePhoto.contentId": {NoWordBreaker: &True, CaseInsensitive: &False},                                       // opaque pairing uuid
 		"location":            {Type: mapping.TypeGeopoint},
 	}
 })

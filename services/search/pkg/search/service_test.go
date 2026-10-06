@@ -15,11 +15,13 @@ import (
 	. "github.com/onsi/gomega"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
+	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 	cs3mocks "github.com/opencloud-eu/reva/v3/tests/cs3mocks/mocks"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -873,7 +875,34 @@ var _ = Describe("Searchprovider", func() {
 				Expect(match.Entity.Ref.ResourceId.OpaqueId).To(Equal(personalSpace.Root.OpaqueId))
 				Expect(match.Entity.Ref.Path).To(Equal("./path/to/Foo.pdf"))
 			})
+
+			It("forwards aggregations to the engine", func() {
+				_, err := s.Search(ctx, &searchsvc.SearchRequest{
+					Query: "foo",
+					Aggregations: []*searchsvc.AggregationOption{
+						{Field: "audio.artist", Size: 10},
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *search.IndexQuery) bool {
+					return len(req.Aggregations) == 1 &&
+						req.Aggregations[0].Field == "audio.artist" &&
+						req.Aggregations[0].Size == 10
+				}))
+			})
 		})
+
+		DescribeTable("rejects a request the index cannot answer without asking the engine",
+			func(req *searchsvc.SearchRequest) {
+				_, err := s.Search(ctx, req)
+				Expect(err).To(BeAssignableToTypeOf(errtypes.BadRequest("")))
+				indexClient.AssertNotCalled(GinkgoT(), "Search", mock.Anything, mock.Anything)
+				gatewayClient.AssertNotCalled(GinkgoT(), "ListStorageSpaces", mock.Anything, mock.Anything)
+			},
+			// the rules are pinned in the aggregation package
+			Entry("an aggregation on an internal field", &searchsvc.SearchRequest{Query: "foo",
+				Aggregations: []*searchsvc.AggregationOption{{Field: "Favorites"}}}),
+		)
 
 		// two personal spaces, the engine answers each by its space id
 		var (
@@ -899,6 +928,33 @@ var _ = Describe("Searchprovider", func() {
 				return req.Ref.GetResourceId().GetSpaceId() == id
 			}))
 		}
+
+		Context("with two personal spaces returning aggregations", func() {
+			BeforeEach(func() {
+				listsSpacesAB()
+				searchOfSpace("a").Return(&search.IndexResult{
+					TotalMatches: 2,
+					Aggregations: []*searchsvc.AggregationResult{{Field: "audio.artist", Buckets: []*searchsvc.Bucket{{Key: "Saxon", Count: 2}, {Key: "Motörhead", Count: 1}}}},
+				}, nil)
+				searchOfSpace("b").Return(&search.IndexResult{
+					TotalMatches: 3,
+					Aggregations: []*searchsvc.AggregationResult{{Field: "audio.artist", Buckets: []*searchsvc.Bucket{{Key: "Saxon", Count: 3}, {Key: "Led Zeppelin", Count: 1}}}},
+				}, nil)
+			})
+
+			It("merges bucket counts across spaces", func() {
+				res, err := s.Search(ctx, &searchsvc.SearchRequest{
+					Query: "mediatype:audio",
+					Aggregations: []*searchsvc.AggregationOption{
+						{Field: "audio.artist", Size: 10},
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res.Aggregations).To(BeComparableTo([]*searchsvc.AggregationResult{{Field: "audio.artist", Buckets: []*searchsvc.Bucket{
+					{Key: "Saxon", Count: 5}, {Key: "Led Zeppelin", Count: 1}, {Key: "Motörhead", Count: 1},
+				}}}, protocmp.Transform()))
+			})
+		})
 
 		Context("with two personal spaces returning matches of the same score", func() {
 			match := func(space, name string) *searchmsg.Match {

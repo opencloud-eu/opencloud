@@ -38,6 +38,7 @@ import (
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/metrics"
@@ -154,6 +155,9 @@ func ExpandQueryTemplate(template, query string, space *provider.StorageSpace) s
 
 // Search processes a search request and passes it down to the engine.
 func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*searchsvc.SearchResponse, error) {
+	if err := aggregation.ValidateOptions(req.GetAggregations(), AggregatableFieldType); err != nil {
+		return nil, errtypes.BadRequest(err.Error())
+	}
 	s.logger.Debug().Str("query", req.Query).Msg("performing a search")
 
 	// collect metrics
@@ -346,6 +350,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		return nil, err
 	}
 
+	aggregations := aggregation.Empty(req.GetAggregations())
 	for _, res := range responses {
 		if res == nil {
 			continue
@@ -354,7 +359,9 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		for _, match := range res.Matches {
 			matches = append(matches, match)
 		}
+		aggregations = aggregation.Merge(req.GetAggregations(), aggregations, res.Aggregations)
 	}
+	aggregation.Finalize(req.GetAggregations(), aggregations)
 
 	// compile one sorted list of matches from all spaces and apply from/limit if needed
 	sort.Sort(matches)
@@ -374,6 +381,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	return &searchsvc.SearchResponse{
 		Matches:      matches,
 		TotalMatches: total,
+		Aggregations: aggregations,
 	}, nil
 }
 
@@ -516,7 +524,8 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 	}
 
 	searchRequest := &IndexQuery{
-		Query: ExpandQueryTemplate(s.queryTemplate, req.Query, space),
+		Query:        ExpandQueryTemplate(s.queryTemplate, req.Query, space),
+		Aggregations: req.GetAggregations(),
 		Ref: &searchmsg.Reference{
 			ResourceId: searchRootID,
 			Path:       searchPathPrefix,

@@ -21,7 +21,9 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/aggs"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/convert"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
@@ -133,6 +135,11 @@ func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.I
 		Size:           conversions.ToPointer(size),
 	}
 
+	aggregationsBody, err := aggs.Build(sir.Aggregations)
+	if err != nil {
+		return nil, errtypes.BadRequest(err.Error())
+	}
+
 	req, err := osu.BuildSearchReq(&opensearchgoAPI.SearchReq{
 		Indices: []string{b.index},
 		Params:  searchParams,
@@ -152,6 +159,7 @@ func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.I
 					},
 				},
 			},
+			Aggs: aggregationsBody,
 		},
 	)
 	if err != nil {
@@ -159,7 +167,10 @@ func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.I
 	}
 
 	resp, err := b.client.Search(ctx, req)
-	if err != nil {
+	switch {
+	case tooManyBuckets(err):
+		return nil, errtypes.BadRequest(aggregation.ErrTooManyBuckets.Error())
+	case err != nil:
 		return nil, fmt.Errorf("failed to search: %w", err)
 	}
 
@@ -174,9 +185,21 @@ func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.I
 		matches = append(matches, match)
 	}
 
+	aggregations, err := aggs.Parse(sir.Aggregations, resp.Aggregations)
+	if err == nil {
+		err = aggregation.CheckBuckets(aggregations)
+	}
+	switch {
+	case errors.Is(err, aggregation.ErrTooManyBuckets):
+		return nil, errtypes.BadRequest(err.Error())
+	case err != nil:
+		return nil, fmt.Errorf("failed to parse aggregations: %w", err)
+	}
+
 	return &search.IndexResult{
 		Matches:      matches,
 		TotalMatches: int32(totalMatches),
+		Aggregations: aggregations,
 	}, nil
 }
 
@@ -235,6 +258,22 @@ func (b *Backend) Update(ctx context.Context, id string, u search.MetadataUpdate
 		return fmt.Errorf("failed to update the document: %w", err)
 	}
 	return nil
+}
+
+// tooManyBuckets tells whether OpenSearch refused the aggregations for their
+// bucket count (search.max_buckets); the cause sits below the search phase
+// error.
+func tooManyBuckets(err error) bool {
+	var structErr *opensearchgo.StructError
+	if !errors.As(err, &structErr) {
+		return false
+	}
+	for cause := structErr.Err.CausedBy; cause != nil; cause = cause.CausedBy {
+		if cause.Type == "too_many_buckets_exception" {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *Backend) DocCount() (uint64, error) {

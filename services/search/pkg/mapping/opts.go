@@ -56,6 +56,10 @@ type FieldOpts struct {
 	// IncludeInAll controls bleve's _all field inclusion. Nil means "use the
 	// bleve default for this field type". Has no effect on OpenSearch.
 	IncludeInAll *bool
+
+	// Internal marks index housekeeping no client names: not aggregated on,
+	// not filtered to. KQL still searches it.
+	Internal bool
 }
 
 func (o FieldOpts) caseInsensitive() bool { return o.CaseInsensitive == nil || *o.CaseInsensitive }
