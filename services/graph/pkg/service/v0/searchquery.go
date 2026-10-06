@@ -98,8 +98,6 @@ func unsupportedProperty(sr libregraph.SearchRequest) string {
 			return "@libre.graph.geohashDefinition"
 		case len(a.LibreGraphSubAggregations) > 0:
 			return "@libre.graph.subAggregations"
-		case a.LibreGraphMetricDefinition != nil:
-			return "@libre.graph.metricDefinition"
 		}
 	}
 	return ""
@@ -218,16 +216,24 @@ func validatePagination(fromP, sizeP *int32) error {
 	return search.CheckResultWindow(from, size)
 }
 
-// openapi-generator enforces neither the enums nor the bounds of the spec.
-// Whether an aggregation fits its field is for aggregation.ValidateOptions to
-// say.
+// openapi-generator enforces neither the enums and bounds of the spec nor its
+// at-most-one definition rule. Whether an aggregation fits its field is for
+// aggregation.ValidateOptions to say.
 func validateAggregations(aggs []libregraph.AggregationOption) error {
 	for _, a := range aggs {
 		if a.Field == "" {
 			return fmt.Errorf("aggregation field must not be empty")
 		}
+		if a.BucketDefinition != nil && a.LibreGraphMetricDefinition != nil {
+			return fmt.Errorf("aggregation on %q sets more than one of bucketDefinition and @libre.graph.metricDefinition", a.Field)
+		}
 		if a.Size != nil && *a.Size < 1 {
 			return fmt.Errorf("size of the aggregation on %q must be at least 1", a.Field)
+		}
+		if md := a.LibreGraphMetricDefinition; md != nil {
+			if _, ok := metricKinds[md.Kind]; !ok {
+				return fmt.Errorf("unsupported metric kind %q on field %q", md.Kind, a.Field)
+			}
 		}
 		if bd := a.BucketDefinition; bd != nil {
 			if _, ok := bucketSortBy[bd.SortBy]; !ok {

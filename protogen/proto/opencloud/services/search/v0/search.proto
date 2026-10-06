@@ -124,14 +124,32 @@ message SearchIndexResponse {
 }
 
 message AggregationOption {
-  // Required. The indexed field to aggregate on.
+  // Required. The indexed field to aggregate on (for terms/range
+  // aggregations) or to reduce (for metric aggregations).
   string field = 1;
   // Optional. Maximum number of buckets to return for a terms aggregation,
   // applied after the cross-space merge. 0 returns every bucket. Ignored for
-  // range aggregations.
+  // range and metric aggregations.
   int32 size = 2 [(google.api.field_behavior) = OPTIONAL];
   // Optional. Controls bucket selection, ordering and filtering.
+  // Ignored for metric aggregations.
   BucketDefinition bucket_definition = 3 [(google.api.field_behavior) = OPTIONAL];
+  // Optional. When set, this aggregation is a scalar metric over `field`
+  // rather than a bucket aggregation; the corresponding AggregationResult
+  // carries `metric` instead of `buckets`.
+  MetricDefinition metric_definition = 4 [(google.api.field_behavior) = OPTIONAL];
+}
+
+message MetricDefinition {
+  MetricKind kind = 1;
+}
+
+enum MetricKind {
+  METRIC_KIND_UNSPECIFIED = 0;
+  METRIC_KIND_SUM = 1;
+  METRIC_KIND_MIN = 2;
+  METRIC_KIND_MAX = 3;
+  METRIC_KIND_AVG = 4;
 }
 
 message BucketDefinition {
@@ -164,6 +182,24 @@ message BucketRange {
 message AggregationResult {
   string field = 1;
   repeated Bucket buckets = 2;
+  // Result of a metric aggregation (metric_definition set on the
+  // corresponding AggregationOption). Unset for terms/range aggregations.
+  Metric metric = 3;
+}
+
+message Metric {
+  // Echoes the kind of the corresponding MetricDefinition.
+  MetricKind kind = 1;
+  // The reduced value. Set by the service layer after the cross-space
+  // merge, unset when no match carries a value.
+  optional double value = 2;
+  // Accumulators over the values of all matches. An engine fills all of
+  // them, whatever the kind, so the service layer can merge results across
+  // spaces without knowing the kind (an average of averages is no average).
+  double sum = 3;
+  int64 count = 4;
+  double min = 5;
+  double max = 6;
 }
 
 message Bucket {

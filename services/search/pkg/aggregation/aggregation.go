@@ -1,6 +1,6 @@
 // Package aggregation holds what the engines and the service layer share
-// about aggregations: the kind of an option, range bounds and the cross-space
-// merge.
+// about aggregations: the kind of an option, range bounds, metric
+// accumulators and the cross-space merge.
 package aggregation
 
 import (
@@ -17,11 +17,15 @@ type Kind int
 const (
 	KindTerms Kind = iota
 	KindRange
+	KindMetric
 )
 
 // KindOf tells the kind from the definitions an option carries.
 func KindOf(opt *searchsvc.AggregationOption) Kind {
-	if len(opt.GetBucketDefinition().GetRanges()) > 0 {
+	switch {
+	case opt.GetMetricDefinition() != nil:
+		return KindMetric
+	case len(opt.GetBucketDefinition().GetRanges()) > 0:
 		return KindRange
 	}
 	return KindTerms

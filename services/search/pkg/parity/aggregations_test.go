@@ -3,6 +3,7 @@ package parity
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -96,6 +98,10 @@ func aggregationCases() []aggCase {
 	ranges := func(rs ...*searchService.BucketRange) *searchService.BucketDefinition {
 		return &searchService.BucketDefinition{Ranges: rs}
 	}
+	metric := func(field string, kind searchService.MetricKind) *searchService.AggregationOption {
+		return &searchService.AggregationOption{Field: field, MetricDefinition: &searchService.MetricDefinition{Kind: kind}}
+	}
+
 	return []aggCase{
 		{id: 1, query: "mediatype:audio", reads: "term buckets on audio.artist",
 			aggs: []*searchService.AggregationOption{{Field: "audio.artist", Size: 10}},
@@ -121,6 +127,14 @@ func aggregationCases() []aggCase {
 				&searchService.BucketRange{From: "2000"},
 			)}},
 			want: []string{"audio.year ..1990=3", "audio.year 2000..=3"}},
+		{id: 6, query: "mediatype:audio", reads: "top-level metrics on audio.year",
+			aggs: []*searchService.AggregationOption{
+				metric("audio.year", searchService.MetricKind_METRIC_KIND_SUM),
+				metric("audio.year", searchService.MetricKind_METRIC_KIND_MIN),
+				metric("audio.year", searchService.MetricKind_METRIC_KIND_MAX),
+				metric("audio.year", searchService.MetricKind_METRIC_KIND_AVG),
+			},
+			want: []string{"audio.year sum=13942", "audio.year min=1971", "audio.year max=2009", "audio.year avg sum=13942 count=7"}},
 		{id: 7, query: "mediatype:image", reads: "photo.takenDateTime buckets per date range, an empty range counts zero",
 			aggs: []*searchService.AggregationOption{{Field: "photo.takenDateTime", BucketDefinition: ranges(
 				&searchService.BucketRange{From: "2018-08-11T00:00:00Z", To: "2018-08-12T00:00:00Z"},
@@ -145,6 +159,24 @@ func aggregationCases() []aggCase {
 				&searchService.BucketRange{From: "2018-08-11T00:00:00Z", To: "not-a-date"},
 			)}},
 			wantBadRequest: true},
+		{id: 18, query: "mediatype:audio", reads: "two range aggregations and a metric on audio.year stay apart",
+			aggs: []*searchService.AggregationOption{
+				{Field: "audio.year", BucketDefinition: ranges(&searchService.BucketRange{To: "1980"}, &searchService.BucketRange{From: "1980"})},
+				{Field: "audio.year", BucketDefinition: ranges(&searchService.BucketRange{To: "2000"}, &searchService.BucketRange{From: "2000"})},
+				metric("audio.year", searchService.MetricKind_METRIC_KIND_MAX),
+			},
+			want: []string{
+				"audio.year ..1980=2", "audio.year 1980..=5",
+				"audio.year ..2000=4", "audio.year 2000..=3",
+				"audio.year max=2009",
+			}},
+		{id: 21, query: "mediatype:image", reads: "a metric without a single value has none",
+			aggs: []*searchService.AggregationOption{
+				metric("audio.year", searchService.MetricKind_METRIC_KIND_SUM),
+				metric("audio.year", searchService.MetricKind_METRIC_KIND_MIN),
+				metric("audio.year", searchService.MetricKind_METRIC_KIND_AVG),
+			},
+			want: []string{"audio.year sum none", "audio.year min none", "audio.year avg none"}},
 		{id: 34, query: "mediatype:audio", reads: "term buckets on the numeric audio.year",
 			aggs: []*searchService.AggregationOption{{Field: "audio.year"}},
 			want: []string{
@@ -163,7 +195,7 @@ func aggregationCases() []aggCase {
 }
 
 // renderAggregations flattens an answer into comparable strings, one per
-// bucket.
+// bucket or metric.
 func renderAggregations(resp *searchService.SearchIndexResponse, err error) []string {
 	if err != nil {
 		if _, ok := err.(errtypes.BadRequest); ok {
@@ -181,6 +213,18 @@ func renderAggregations(resp *searchService.SearchIndexResponse, err error) []st
 }
 
 func renderAggregation(prefix string, a *searchService.AggregationResult) []string {
+	if m := a.GetMetric(); m != nil {
+		kind := strings.ToLower(strings.TrimPrefix(m.GetKind().String(), "METRIC_KIND_"))
+		value, ok := aggregation.MetricValue(m)
+		switch {
+		case !ok:
+			return []string{prefix + fmt.Sprintf("%s %s none", a.Field, kind)}
+		case m.GetKind() == searchService.MetricKind_METRIC_KIND_AVG:
+			return []string{prefix + fmt.Sprintf("%s avg sum=%v count=%d", a.Field, m.GetSum(), m.GetCount())}
+		}
+		return []string{prefix + fmt.Sprintf("%s %s=%v", a.Field, kind, value)}
+	}
+
 	out := []string{}
 	for _, b := range a.Buckets {
 		out = append(out, prefix+fmt.Sprintf("%s %s=%d", a.Field, b.Key, b.Count))

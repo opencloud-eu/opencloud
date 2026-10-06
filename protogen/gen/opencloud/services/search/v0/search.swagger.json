@@ -172,16 +172,20 @@
       "properties": {
         "field": {
           "type": "string",
-          "description": "Required. The indexed field to aggregate on."
+          "description": "Required. The indexed field to aggregate on (for terms/range\naggregations) or to reduce (for metric aggregations)."
         },
         "size": {
           "type": "integer",
           "format": "int32",
-          "description": "Optional. Maximum number of buckets to return for a terms aggregation,\napplied after the cross-space merge. 0 returns every bucket. Ignored for\nrange aggregations."
+          "description": "Optional. Maximum number of buckets to return for a terms aggregation,\napplied after the cross-space merge. 0 returns every bucket. Ignored for\nrange and metric aggregations."
         },
         "bucketDefinition": {
           "$ref": "#/definitions/v0BucketDefinition",
-          "description": "Optional. Controls bucket selection, ordering and filtering."
+          "description": "Optional. Controls bucket selection, ordering and filtering.\nIgnored for metric aggregations."
+        },
+        "metricDefinition": {
+          "$ref": "#/definitions/v0MetricDefinition",
+          "description": "Optional. When set, this aggregation is a scalar metric over `field`\nrather than a bucket aggregation; the corresponding AggregationResult\ncarries `metric` instead of `buckets`."
         }
       }
     },
@@ -196,6 +200,10 @@
           "items": {
             "$ref": "#/definitions/v0Bucket"
           }
+        },
+        "metric": {
+          "$ref": "#/definitions/v0Metric",
+          "description": "Result of a metric aggregation (metric_definition set on the\ncorresponding AggregationOption). Unset for terms/range aggregations."
         }
       },
       "description": "One result per AggregationOption, at the same position."
@@ -534,6 +542,56 @@
           "title": "the match score"
         }
       }
+    },
+    "v0Metric": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/v0MetricKind",
+          "description": "Echoes the kind of the corresponding MetricDefinition."
+        },
+        "value": {
+          "type": "number",
+          "format": "double",
+          "description": "The reduced value. Set by the service layer after the cross-space\nmerge, unset when no match carries a value."
+        },
+        "sum": {
+          "type": "number",
+          "format": "double",
+          "description": "Accumulators over the values of all matches. An engine fills all of\nthem, whatever the kind, so the service layer can merge results across\nspaces without knowing the kind (an average of averages is no average)."
+        },
+        "count": {
+          "type": "string",
+          "format": "int64"
+        },
+        "min": {
+          "type": "number",
+          "format": "double"
+        },
+        "max": {
+          "type": "number",
+          "format": "double"
+        }
+      }
+    },
+    "v0MetricDefinition": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/v0MetricKind"
+        }
+      }
+    },
+    "v0MetricKind": {
+      "type": "string",
+      "enum": [
+        "METRIC_KIND_UNSPECIFIED",
+        "METRIC_KIND_SUM",
+        "METRIC_KIND_MIN",
+        "METRIC_KIND_MAX",
+        "METRIC_KIND_AVG"
+      ],
+      "default": "METRIC_KIND_UNSPECIFIED"
     },
     "v0MotionPhoto": {
       "type": "object",

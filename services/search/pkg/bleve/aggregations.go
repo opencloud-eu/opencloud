@@ -69,9 +69,13 @@ type fieldValues struct {
 
 type bucketAcc struct {
 	counts map[string]int64
+	metric *searchService.Metric
 }
 
-func newBucketAcc() *bucketAcc {
+func newBucketAcc(l *aggLevel) *bucketAcc {
+	if l.kind == aggregation.KindMetric {
+		return &bucketAcc{metric: &searchService.Metric{Kind: l.opt.GetMetricDefinition().GetKind()}}
+	}
 	return &bucketAcc{counts: map[string]int64{}}
 }
 
@@ -98,7 +102,7 @@ func newAggCollector(aggs []*searchService.AggregationOption) (*aggCollector, er
 			return nil, err
 		}
 		c.register(l)
-		c.roots = append(c.roots, &aggRoot{level: l, acc: newBucketAcc()})
+		c.roots = append(c.roots, &aggRoot{level: l, acc: newBucketAcc(l)})
 	}
 	return c, nil
 }
@@ -180,6 +184,10 @@ func (c *aggCollector) visit(field string, term []byte) {
 func (c *aggCollector) fold(a *bucketAcc, l *aggLevel) {
 	fv := c.fields[l.opt.GetField()]
 	switch l.kind {
+	case aggregation.KindMetric:
+		for _, raw := range fv.numbers {
+			aggregation.Observe(a.metric, numeric.Int64ToFloat64(raw))
+		}
 	case aggregation.KindTerms:
 		if l.numericTerms() {
 			for _, raw := range fv.numbers {
@@ -223,6 +231,10 @@ func (c *aggCollector) results() []*searchService.AggregationResult {
 
 func (a *bucketAcc) result(l *aggLevel) *searchService.AggregationResult {
 	r := &searchService.AggregationResult{Field: l.opt.GetField()}
+	if l.kind == aggregation.KindMetric {
+		r.Metric = a.metric
+		return r
+	}
 
 	counted := make(map[string]*searchService.Bucket, len(a.counts))
 	for key, count := range a.counts {

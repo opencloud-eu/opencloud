@@ -17,6 +17,10 @@ func ValidateOptions(opts []*searchsvc.AggregationOption, fieldType func(string)
 			return fmt.Errorf("unknown aggregation field %q", field)
 		}
 		switch KindOf(opt) {
+		case KindMetric:
+			if t != mapping.TypeNumeric {
+				return fmt.Errorf("metric aggregation needs a numeric field, %q is none", field)
+			}
 		case KindRange:
 			parsed, err := ParseRanges(field, opt.GetBucketDefinition().GetRanges())
 			if err != nil {

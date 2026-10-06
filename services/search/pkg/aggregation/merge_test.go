@@ -2,6 +2,7 @@ package aggregation_test
 
 import (
 	"fmt"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -9,6 +10,22 @@ import (
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
 )
+
+func metricOpt(field string, kind searchsvc.MetricKind) *searchsvc.AggregationOption {
+	return &searchsvc.AggregationOption{Field: field, MetricDefinition: &searchsvc.MetricDefinition{Kind: kind}}
+}
+
+// metric is what an engine answers for the given values: all accumulators.
+func metric(field string, kind searchsvc.MetricKind, values ...float64) *searchsvc.AggregationResult {
+	m := &searchsvc.Metric{Kind: kind, Count: int64(len(values))}
+	if len(values) > 0 {
+		m.Min, m.Max = slices.Min(values), slices.Max(values)
+	}
+	for _, v := range values {
+		m.Sum += v
+	}
+	return &searchsvc.AggregationResult{Field: field, Metric: m}
+}
 
 func buckets(field string, bs ...*searchsvc.Bucket) *searchsvc.AggregationResult {
 	return &searchsvc.AggregationResult{Field: field, Buckets: bs}
@@ -22,10 +39,19 @@ func rangesOf(sortBy searchsvc.BucketSortBy, rs ...*searchsvc.BucketRange) *sear
 	return &searchsvc.BucketDefinition{SortBy: sortBy, Ranges: rs}
 }
 
-// render flattens results like the parity suite: one line per bucket.
+// render flattens results like the parity suite: one line per bucket or
+// metric.
 func render(results []*searchsvc.AggregationResult) []string {
 	out := []string{}
 	for _, r := range results {
+		if m := r.GetMetric(); m != nil {
+			if m.Value == nil {
+				out = append(out, fmt.Sprintf("%s %s none", r.GetField(), m.GetKind()))
+			} else {
+				out = append(out, fmt.Sprintf("%s %s=%v", r.GetField(), m.GetKind(), m.GetValue()))
+			}
+			continue
+		}
 		for _, b := range r.GetBuckets() {
 			out = append(out, fmt.Sprintf("%s %s=%d", r.GetField(), b.GetKey(), b.GetCount()))
 		}
@@ -44,16 +70,27 @@ func merged(opts []*searchsvc.AggregationOption, spaces ...[]*searchsvc.Aggregat
 }
 
 var _ = Describe("Merge and Finalize", func() {
+	const (
+		sum = searchsvc.MetricKind_METRIC_KIND_SUM
+		min = searchsvc.MetricKind_METRIC_KIND_MIN
+		max = searchsvc.MetricKind_METRIC_KIND_MAX
+		avg = searchsvc.MetricKind_METRIC_KIND_AVG
+	)
+
 	It("answers one result per option without any space, every range at zero", func() {
 		opts := []*searchsvc.AggregationOption{
 			{Field: "audio.artist"},
+			metricOpt("audio.year", sum),
 			{Field: "audio.year", BucketDefinition: rangesOf(searchsvc.BucketSortBy_BUCKET_SORT_BY_KEY_AS_NUMBER, &searchsvc.BucketRange{To: "1980"}, &searchsvc.BucketRange{From: "1980"})},
 		}
 		got := merged(opts)
-		Expect(got).To(HaveLen(2))
+		Expect(got).To(HaveLen(3))
 		Expect(got[0].GetField()).To(Equal("audio.artist"))
 		Expect(got[0].GetBuckets()).To(BeEmpty())
-		Expect(render(got)).To(Equal([]string{"audio.year ..1980=0", "audio.year 1980..=0"}))
+		Expect(render(got)).To(Equal([]string{
+			"audio.year METRIC_KIND_SUM none",
+			"audio.year ..1980=0", "audio.year 1980..=0",
+		}))
 	})
 
 	It("adds up the counts of a bucket across spaces", func() {
@@ -66,10 +103,11 @@ var _ = Describe("Merge and Finalize", func() {
 	})
 
 	It("leaves the answers of the spaces untouched", func() {
-		opts := []*searchsvc.AggregationOption{{Field: "audio.artist"}}
-		space := []*searchsvc.AggregationResult{buckets("audio.artist", bucket("Saxon", 2))}
+		opts := []*searchsvc.AggregationOption{{Field: "audio.artist"}, metricOpt("audio.year", sum)}
+		space := []*searchsvc.AggregationResult{buckets("audio.artist", bucket("Saxon", 2)), metric("audio.year", sum, 1980)}
 		merged(opts, space, space)
 		Expect(space[0].GetBuckets()[0].GetCount()).To(Equal(int64(2)))
+		Expect(space[1].GetMetric().GetSum()).To(Equal(1980.0))
 	})
 
 	It("keeps two terms aggregations on one field apart", func() {
@@ -84,23 +122,45 @@ var _ = Describe("Merge and Finalize", func() {
 		}))
 	})
 
-	It("keeps two range aggregations on one field apart", func() {
+	It("keeps range and metric aggregations on one field apart", func() {
 		opts := []*searchsvc.AggregationOption{
 			{Field: "audio.year", BucketDefinition: rangesOf(searchsvc.BucketSortBy_BUCKET_SORT_BY_KEY_AS_NUMBER, &searchsvc.BucketRange{To: "1980"}, &searchsvc.BucketRange{From: "1980"})},
+			metricOpt("audio.year", min),
 			{Field: "audio.year", BucketDefinition: rangesOf(searchsvc.BucketSortBy_BUCKET_SORT_BY_KEY_AS_NUMBER, &searchsvc.BucketRange{To: "2000"}, &searchsvc.BucketRange{From: "2000"})},
+			metricOpt("audio.year", max),
 		}
-		space := func(below1980, from1980, below2000, from2000 int64) []*searchsvc.AggregationResult {
+		space := func(below1980, from1980, below2000, from2000 int64, years ...float64) []*searchsvc.AggregationResult {
 			return []*searchsvc.AggregationResult{
 				buckets("audio.year", bucket("..1980", below1980), bucket("1980..", from1980)),
+				metric("audio.year", min, years...),
 				buckets("audio.year", bucket("..2000", below2000), bucket("2000..", from2000)),
+				metric("audio.year", max, years...),
 			}
 		}
-		got := merged(opts, space(1, 1, 2, 0), space(0, 2, 1, 1))
+		got := merged(opts, space(1, 1, 2, 0, 1971, 1982), space(0, 2, 1, 1, 1999, 2001))
 		Expect(render(got)).To(Equal([]string{
 			"audio.year ..1980=1", "audio.year 1980..=3",
+			"audio.year METRIC_KIND_MIN=1971",
 			"audio.year ..2000=3", "audio.year 2000..=1",
+			"audio.year METRIC_KIND_MAX=2001",
 		}))
 	})
+
+	DescribeTable("reduces a metric over the values of all spaces",
+		func(kind searchsvc.MetricKind, want string) {
+			opts := []*searchsvc.AggregationOption{metricOpt("audio.year", kind)}
+			got := merged(opts,
+				[]*searchsvc.AggregationResult{metric("audio.year", kind, 1970, 1980, 1990)},
+				[]*searchsvc.AggregationResult{metric("audio.year", kind)},
+				[]*searchsvc.AggregationResult{metric("audio.year", kind, 2010)},
+			)
+			Expect(render(got)).To(Equal([]string{"audio.year " + want}))
+		},
+		Entry("sum", sum, "METRIC_KIND_SUM=7950"),
+		Entry("min, a space without values is no zero", min, "METRIC_KIND_MIN=1970"),
+		Entry("max", max, "METRIC_KIND_MAX=2010"),
+		Entry("avg of the values, not of the averages of the spaces", avg, "METRIC_KIND_AVG=1987.5"),
+	)
 
 	Describe("bucket order", func() {
 		space := []*searchsvc.AggregationResult{buckets("audio.track",
