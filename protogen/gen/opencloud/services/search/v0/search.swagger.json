@@ -167,6 +167,29 @@
       },
       "additionalProperties": {}
     },
+    "v0AggregationFilter": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "terms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Bucket keys of a terms aggregation, matched exactly and case-sensitively."
+        },
+        "ranges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0BucketRange"
+          },
+          "description": "Buckets of a range aggregation."
+        }
+      },
+      "description": "AggregationFilter narrows the matches to buckets of one field. A match has\nto be in any of the listed buckets."
+    },
     "v0AggregationOption": {
       "type": "object",
       "properties": {
@@ -712,6 +735,13 @@
             "$ref": "#/definitions/v0AggregationOption"
           },
           "description": "Optional. Per-space aggregations (facets) to compute alongside the matches."
+        },
+        "aggregationFilters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0AggregationFilter"
+          },
+          "description": "Optional. Filters narrowing the matches to buckets of a prior\naggregation; the engine ANDs them with `query`."
         }
       }
     },
@@ -765,6 +795,13 @@
             "$ref": "#/definitions/v0AggregationOption"
           },
           "description": "Optional. Aggregations (facets) to compute alongside the matches."
+        },
+        "aggregationFilters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0AggregationFilter"
+          },
+          "description": "Optional. Filters narrowing the matches to buckets of a prior\naggregation. Combined with `query` and with each other via AND."
         },
         "from": {
           "type": "integer",

@@ -94,6 +94,7 @@ type searchAggregationJSON struct {
 	Buckets []struct {
 		Key             string                  `json:"key"`
 		Count           int64                   `json:"count"`
+		Token           string                  `json:"aggregationFilterToken"`
 		SubAggregations []searchAggregationJSON `json:"@libre.graph.subAggregations"`
 	} `json:"buckets"`
 }
@@ -314,6 +315,9 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 			`"aggregations": [{"field": "audio.artist", "@libre.graph.subAggregations": [{"field": "audio.album", "@libre.graph.subAggregations": [{"field": "audio.year", "@libre.graph.metricDefinition": {"kind": "median"}}]}]}]`),
 		ginkgo.Entry("a field the index does not know", `"aggregations": [{"field": "audio.nonexistent"}]`),
 		ginkgo.Entry("a range bound that is no number", `"aggregations": [{"field": "audio.year", "bucketDefinition": {"sortBy": "count", "ranges": [{"from": "1970", "to": "198o"}]}}]`),
+		// the token grammar is pinned in the filtertoken package
+		ginkgo.Entry("an aggregation filter that is no server-issued token", `"aggregationFilters": ["audio.artist:\"not a token\""]`),
+		ginkgo.Entry("an aggregation filter on an internal field", `"aggregationFilters": ["favorites:\"ǂǂ5361786f6e\""]`),
 	)
 
 	ginkgo.It("translates the bucket definition for the search service", func() {
@@ -338,10 +342,12 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 				Field:   indexed,
 				Buckets: []*searchsvc.Bucket{{Key: "audio/mpeg", Count: 3}},
 			})
-			rr := postSearchQuery(g, searchQueryBody(fmt.Sprintf(`"aggregations": [{"field": %q}]`, requested)))
+			rr := postSearchQuery(g, searchQueryBody(fmt.Sprintf(`"aggregations": [{"field": %q}], "aggregationFilters": [%q]`, requested, requested+`:"ǂǂ617564696f2f6d706567"`)))
 			Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
 
 			Expect(captured().GetAggregations()[0].GetField()).To(Equal(indexed))
+			Expect(captured().GetAggregationFilters()[0].GetField()).To(Equal(indexed))
+			Expect(captured().GetAggregationFilters()[0].GetTerms()).To(Equal([]string{"audio/mpeg"}))
 			Expect(hitsContainer(rr).Aggregations[0].Field).To(Equal(requested))
 		},
 		ginkgo.Entry("mimeType", "mimeType", "MimeType"),
@@ -407,7 +413,6 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 			Expect(rr.Body.String()).To(ContainSubstring(property))
 		},
 		ginkgo.Entry("sortProperties", `"sortProperties": [{"name": "name"}]`, "sortProperties"),
-		ginkgo.Entry("aggregationFilters", `"aggregationFilters": ["audio.artist:\"ǂǂ5361786f6e\""]`, "aggregationFilters"),
 		ginkgo.Entry("a geohash aggregation",
 			`"aggregations": [{"field": "location", "@libre.graph.geohashDefinition": {"precision": 5}}]`, "geohashDefinition"),
 		ginkgo.Entry("a nested geohash aggregation",
@@ -449,5 +454,67 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 			http.StatusInternalServerError, "generalException", "engine down"),
 		ginkgo.Entry("an error that is no service error", errors.New("connection refused"),
 			http.StatusInternalServerError, "generalException", "connection refused"),
+	)
+
+	ginkgo.It("issues terms and range tokens by the definition at the position of the result", func() {
+		// the range aggregation and the metric share a field: the result at
+		// position 0 is the range aggregation, whatever follows on that field
+		g, _ := graphWithAggregations(
+			&searchsvc.AggregationResult{Field: "audio.year", Buckets: []*searchsvc.Bucket{
+				{Key: "..1980", Count: 2},
+				{Key: "1980..1990", Count: 1},
+				{Key: "1990..", Count: 4},
+			}},
+			&searchsvc.AggregationResult{Field: "audio.artist", Buckets: []*searchsvc.Bucket{
+				{Key: "Saxon", Count: 2, SubAggregations: []*searchsvc.AggregationResult{
+					{Field: "audio.album", Buckets: []*searchsvc.Bucket{{Key: "Wheels of Steel", Count: 2}}},
+					{Field: "audio.year", Buckets: []*searchsvc.Bucket{{Key: "1980..", Count: 2}}},
+				}},
+			}},
+			&searchsvc.AggregationResult{Field: "audio.year", Metric: &searchsvc.Metric{Kind: searchsvc.MetricKind_METRIC_KIND_MAX}},
+		)
+		rr := postSearchQuery(g, searchQueryBody(`"aggregations": [
+			{"field": "audio.year", "bucketDefinition": {"sortBy": "keyAsNumber", "ranges": [{"to": "1980"}, {"from": "1980", "to": "1990"}, {"from": "1990"}]}},
+			{"field": "audio.artist", "@libre.graph.subAggregations": [
+				{"field": "audio.album"},
+				{"field": "audio.year", "bucketDefinition": {"sortBy": "keyAsNumber", "ranges": [{"from": "1980"}]}}
+			]},
+			{"field": "audio.year", "@libre.graph.metricDefinition": {"kind": "max"}}
+		]`))
+		Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+
+		aggs := hitsContainer(rr).Aggregations
+		Expect(aggs).To(HaveLen(3))
+
+		years := aggs[0].Buckets
+		Expect(years).To(HaveLen(3))
+		Expect(years[0].Token).To(Equal("range(min, 1980)"))
+		Expect(years[1].Token).To(Equal("range(1980, 1990)"))
+		Expect(years[2].Token).To(Equal(`range(1990, max, to="le")`))
+
+		saxon := aggs[1].Buckets[0]
+		Expect(saxon.Token).To(Equal(`"ǂǂ5361786f6e"`))
+		Expect(saxon.SubAggregations).To(HaveLen(2))
+		Expect(saxon.SubAggregations[0].Buckets[0].Token).To(Equal(`"ǂǂ576865656c73206f6620537465656c"`))
+		Expect(saxon.SubAggregations[1].Buckets[0].Token).To(Equal(`range(1980, max, to="le")`))
+
+		Expect(aggs[2].Metric).ToNot(BeNil())
+		Expect(aggs[2].Buckets).To(BeEmpty())
+	})
+
+	ginkgo.DescribeTable("hands the buckets of an aggregation filter to the search service",
+		func(filter string, want *searchsvc.AggregationFilter) {
+			g, captured := graphWithAggregations()
+			rr := postSearchQuery(g, searchQueryBody(fmt.Sprintf(`"aggregationFilters": [%q]`, filter)))
+			Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+
+			Expect(captured().GetAggregationFilters()).To(BeComparableTo([]*searchsvc.AggregationFilter{want}, protocmp.Transform()))
+		},
+		ginkgo.Entry("several terms", `audio.artist:or("ǂǂ5361786f6e", "ǂǂ49726f6e204d616964656e")`,
+			&searchsvc.AggregationFilter{Field: "audio.artist", Terms: []string{"Saxon", "Iron Maiden"}}),
+		ginkgo.Entry("several ranges", `audio.year:or(range(min, 1980),range(2010, max, to="le"))`,
+			&searchsvc.AggregationFilter{Field: "audio.year", Ranges: []*searchsvc.BucketRange{{To: "1980"}, {From: "2010"}}}),
+		ginkgo.Entry("a date range", `photo.takenDateTime:range(2018-08-11T00:00:00Z, 2018-08-12T00:00:00Z)`,
+			&searchsvc.AggregationFilter{Field: "photo.takenDateTime", Ranges: []*searchsvc.BucketRange{{From: "2018-08-11T00:00:00Z", To: "2018-08-12T00:00:00Z"}}}),
 	)
 })

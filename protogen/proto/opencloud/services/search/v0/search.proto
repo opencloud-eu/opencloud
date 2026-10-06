@@ -76,6 +76,10 @@ message SearchRequest {
   // Optional. Aggregations (facets) to compute alongside the matches.
   repeated AggregationOption aggregations = 5 [(google.api.field_behavior) = OPTIONAL];
 
+  // Optional. Filters narrowing the matches to buckets of a prior
+  // aggregation. Combined with `query` and with each other via AND.
+  repeated AggregationFilter aggregation_filters = 6 [(google.api.field_behavior) = OPTIONAL];
+
   // Optional. Number of leading matches to skip in the globally sorted,
   // cross-space merged result list.
   int32 from = 7 [(google.api.field_behavior) = OPTIONAL];
@@ -107,6 +111,10 @@ message SearchIndexRequest {
 
   // Optional. Per-space aggregations (facets) to compute alongside the matches.
   repeated AggregationOption aggregations = 5 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional. Filters narrowing the matches to buckets of a prior
+  // aggregation; the engine ANDs them with `query`.
+  repeated AggregationFilter aggregation_filters = 6 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message SearchIndexResponse {
@@ -179,6 +187,16 @@ message BucketRange {
   // of one kind per aggregation: decimal numbers or RFC3339 dates.
   string from = 1;
   string to = 2;
+}
+
+// AggregationFilter narrows the matches to buckets of one field. A match has
+// to be in any of the listed buckets.
+message AggregationFilter {
+  string field = 1;
+  // Bucket keys of a terms aggregation, matched exactly and case-sensitively.
+  repeated string terms = 2;
+  // Buckets of a range aggregation.
+  repeated BucketRange ranges = 3;
 }
 
 // One result per AggregationOption, at the same position.
