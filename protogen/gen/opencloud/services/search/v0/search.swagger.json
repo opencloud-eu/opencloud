@@ -177,7 +177,7 @@
         "size": {
           "type": "integer",
           "format": "int32",
-          "description": "Optional. Maximum number of buckets to return, applied after the\ncross-space merge. 0 returns every bucket."
+          "description": "Optional. Maximum number of buckets to return for a terms aggregation,\napplied after the cross-space merge. 0 returns every bucket. Ignored for\nrange aggregations."
         },
         "bucketDefinition": {
           "$ref": "#/definitions/v0BucketDefinition",
@@ -285,8 +285,28 @@
         "minimumCount": {
           "type": "integer",
           "format": "int32"
+        },
+        "ranges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v0BucketRange"
+          },
+          "description": "Optional. When non-empty, the aggregation is computed over these numeric\nor date ranges instead of as a terms aggregation."
         }
       }
+    },
+    "v0BucketRange": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string",
+          "description": "At least one of `from` or `to` must be set. Both are string-encoded and\nof one kind per aggregation: decimal numbers or RFC3339 dates."
+        },
+        "to": {
+          "type": "string"
+        }
+      },
+      "description": "A range is from-inclusive and to-exclusive."
     },
     "v0BucketSortBy": {
       "type": "string",

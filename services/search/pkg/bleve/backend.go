@@ -94,7 +94,10 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 	bleveReq.SortBy([]string{"-_score", "_id"})
 	bleveReq.Size = size
 
-	collector := newAggCollector(sir.GetAggregations())
+	collector, err := newAggCollector(sir.GetAggregations())
+	if err != nil {
+		return nil, errtypes.BadRequest(err.Error())
+	}
 	if collector != nil {
 		ctx = collector.withContext(ctx)
 	}

@@ -3,6 +3,7 @@ package parity
 import (
 	"context"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -53,6 +54,14 @@ func untaggedSong(name string, year int32) search.Resource {
 	return fixtureDoc(name, withMime("audio/mpeg"), withAudio(&libregraph.Audio{Year: libregraph.PtrInt32(year)}))
 }
 
+func photo(name, taken string) search.Resource {
+	t, err := time.Parse(time.RFC3339, taken)
+	if err != nil {
+		panic(err)
+	}
+	return fixtureDoc(name, withMime("image/jpeg"), withPhoto(&libregraph.Photo{TakenDateTime: &t}))
+}
+
 func song(name, artist, album string, year int32, opts ...fixtureOption) search.Resource {
 	return fixtureDoc(name, append([]fixtureOption{withMime("audio/mpeg"), withAudio(&libregraph.Audio{
 		Artist: libregraph.PtrString(artist),
@@ -76,10 +85,17 @@ func aggregationFixtures() []search.Resource {
 		song("e.mp3", "Motörhead", "Ace of Spades", 2001),
 		untaggedSong("f.mp3", 2005),
 		untaggedSong("g.mp3", 2009),
+		photo("a.jpg", "2018-08-11T09:15:00Z"),
+		photo("b.jpg", "2018-08-11T19:42:00Z"),
+		photo("c.jpg", "2018-09-01T12:00:00Z"),
+		photo("d.jpg", "2021-08-11T08:00:00Z"),
 	}
 }
 
 func aggregationCases() []aggCase {
+	ranges := func(rs ...*searchService.BucketRange) *searchService.BucketDefinition {
+		return &searchService.BucketDefinition{Ranges: rs}
+	}
 	return []aggCase{
 		{id: 1, query: "mediatype:audio", reads: "term buckets on audio.artist",
 			aggs: []*searchService.AggregationOption{{Field: "audio.artist", Size: 10}},
@@ -91,6 +107,44 @@ func aggregationCases() []aggCase {
 				"audio.artist Saxon=2", "audio.artist Motörhead=3",
 				"audio.album Wheels of Steel=2", "audio.album Bomber=2", "audio.album Ace of Spades=1",
 			}},
+		{id: 4, query: "mediatype:audio", reads: "audio.year buckets per decade",
+			aggs: []*searchService.AggregationOption{{Field: "audio.year", BucketDefinition: ranges(
+				&searchService.BucketRange{From: "1970", To: "1980"},
+				&searchService.BucketRange{From: "1980", To: "1990"},
+				&searchService.BucketRange{From: "1990", To: "2000"},
+				&searchService.BucketRange{From: "2000", To: "2010"},
+			)}},
+			want: []string{"audio.year 1970..1980=2", "audio.year 1980..1990=1", "audio.year 1990..2000=1", "audio.year 2000..2010=3"}},
+		{id: 5, query: "mediatype:audio", reads: "open-ended audio.year ranges",
+			aggs: []*searchService.AggregationOption{{Field: "audio.year", BucketDefinition: ranges(
+				&searchService.BucketRange{To: "1990"},
+				&searchService.BucketRange{From: "2000"},
+			)}},
+			want: []string{"audio.year ..1990=3", "audio.year 2000..=3"}},
+		{id: 7, query: "mediatype:image", reads: "photo.takenDateTime buckets per date range, an empty range counts zero",
+			aggs: []*searchService.AggregationOption{{Field: "photo.takenDateTime", BucketDefinition: ranges(
+				&searchService.BucketRange{From: "2018-08-11T00:00:00Z", To: "2018-08-12T00:00:00Z"},
+				&searchService.BucketRange{From: "2018-08-01T00:00:00Z", To: "2018-09-01T00:00:00Z"},
+				&searchService.BucketRange{From: "2021-01-01T00:00:00Z", To: "2022-01-01T00:00:00Z"},
+				&searchService.BucketRange{From: "2023-01-01T00:00:00Z", To: "2024-01-01T00:00:00Z"},
+			)}},
+			want: []string{
+				"photo.takenDateTime 2018-08-11T00:00:00Z..2018-08-12T00:00:00Z=2",
+				"photo.takenDateTime 2018-08-01T00:00:00Z..2018-09-01T00:00:00Z=2",
+				"photo.takenDateTime 2021-01-01T00:00:00Z..2022-01-01T00:00:00Z=1",
+				"photo.takenDateTime 2023-01-01T00:00:00Z..2024-01-01T00:00:00Z=0",
+			}},
+		{id: 8, query: "mediatype:image", reads: "open-ended date ranges",
+			aggs: []*searchService.AggregationOption{{Field: "photo.takenDateTime", BucketDefinition: ranges(
+				&searchService.BucketRange{To: "2019-01-01T00:00:00Z"},
+				&searchService.BucketRange{From: "2019-01-01T00:00:00Z"},
+			)}},
+			want: []string{"photo.takenDateTime ..2019-01-01T00:00:00Z=3", "photo.takenDateTime 2019-01-01T00:00:00Z..=1"}},
+		{id: 9, query: "mediatype:image", reads: "malformed date range bound",
+			aggs: []*searchService.AggregationOption{{Field: "photo.takenDateTime", BucketDefinition: ranges(
+				&searchService.BucketRange{From: "2018-08-11T00:00:00Z", To: "not-a-date"},
+			)}},
+			wantBadRequest: true},
 		{id: 34, query: "mediatype:audio", reads: "term buckets on the numeric audio.year",
 			aggs: []*searchService.AggregationOption{{Field: "audio.year"}},
 			want: []string{

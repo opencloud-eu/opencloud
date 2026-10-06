@@ -2,13 +2,15 @@ package aggregation
 
 import (
 	"cmp"
+	"math"
 	"slices"
 	"strconv"
 
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 )
 
-// Empty returns the results of a search without matches: one per option.
+// Empty returns the results of a search without matches: one per option, a
+// range aggregation with every range at a count of zero.
 func Empty(opts []*searchsvc.AggregationOption) []*searchsvc.AggregationResult {
 	if len(opts) == 0 {
 		return nil
@@ -16,6 +18,24 @@ func Empty(opts []*searchsvc.AggregationOption) []*searchsvc.AggregationResult {
 	out := make([]*searchsvc.AggregationResult, len(opts))
 	for i, opt := range opts {
 		out[i] = &searchsvc.AggregationResult{Field: opt.GetField()}
+		if KindOf(opt) == KindRange {
+			out[i].Buckets = RangeBuckets(opt, nil)
+		}
+	}
+	return out
+}
+
+// RangeBuckets lists every range of a range aggregation in request order: the
+// answered bucket where there is one, a count of zero otherwise.
+func RangeBuckets(opt *searchsvc.AggregationOption, answered map[string]*searchsvc.Bucket) []*searchsvc.Bucket {
+	ranges := opt.GetBucketDefinition().GetRanges()
+	out := make([]*searchsvc.Bucket, 0, len(ranges))
+	for _, r := range ranges {
+		bucket, ok := answered[RangeKey(r)]
+		if !ok {
+			bucket = &searchsvc.Bucket{Key: RangeKey(r)}
+		}
+		out = append(out, bucket)
 	}
 	return out
 }
@@ -64,7 +84,9 @@ func shapeBuckets(opt *searchsvc.AggregationOption, buckets []*searchsvc.Bucket)
 
 	slices.SortFunc(buckets, bucketOrder(opt))
 
-	if size := int(opt.GetSize()); size > 0 && len(buckets) > size {
+	// size shapes terms aggregations only, a range aggregation returns the
+	// ranges it was asked for
+	if size := int(opt.GetSize()); size > 0 && KindOf(opt) == KindTerms && len(buckets) > size {
 		buckets = buckets[:size]
 	}
 	return buckets
@@ -88,9 +110,10 @@ func bucketOrder(opt *searchsvc.AggregationOption) func(a, b *searchsvc.Bucket) 
 		return func(a, b *searchsvc.Bucket) int { return direction * byKey(a, b) }
 	case searchsvc.BucketSortBy_BUCKET_SORT_BY_KEY_AS_NUMBER:
 		// keys that are no number come last, whatever the direction
+		number := keyNumbers(opt)
 		return func(a, b *searchsvc.Bucket) int {
-			av, aok := keyNumber(a.GetKey())
-			bv, bok := keyNumber(b.GetKey())
+			av, aok := number(a.GetKey())
+			bv, bok := number(b.GetKey())
 			return cmp.Or(cmp.Compare(boolInt(!aok), boolInt(!bok)), direction*cmp.Compare(av, bv), byKey(a, b))
 		}
 	}
@@ -106,7 +129,32 @@ func boolInt(b bool) int {
 	return 0
 }
 
-func keyNumber(key string) (float64, bool) {
-	v, err := strconv.ParseFloat(key, 64)
-	return v, err == nil
+// keyNumbers reads a terms key as a number and a range key as its lower
+// bound, an open one as the smallest.
+func keyNumbers(opt *searchsvc.AggregationOption) func(key string) (float64, bool) {
+	if KindOf(opt) != KindRange {
+		return func(key string) (float64, bool) {
+			v, err := strconv.ParseFloat(key, 64)
+			return v, err == nil
+		}
+	}
+	lower := map[string]float64{}
+	if ranges, err := ParseRanges(opt.GetField(), opt.GetBucketDefinition().GetRanges()); err == nil {
+		for _, r := range ranges.Numeric {
+			lower[r.Key] = math.Inf(-1)
+			if r.From != nil {
+				lower[r.Key] = *r.From
+			}
+		}
+		for _, r := range ranges.Dates {
+			lower[r.Key] = math.Inf(-1)
+			if !r.From.IsZero() {
+				lower[r.Key] = float64(r.From.UnixNano())
+			}
+		}
+	}
+	return func(key string) (float64, bool) {
+		v, ok := lower[key]
+		return v, ok
+	}
 }

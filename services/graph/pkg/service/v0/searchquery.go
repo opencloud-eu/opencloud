@@ -100,8 +100,6 @@ func unsupportedProperty(sr libregraph.SearchRequest) string {
 			return "@libre.graph.subAggregations"
 		case a.LibreGraphMetricDefinition != nil:
 			return "@libre.graph.metricDefinition"
-		case len(a.BucketDefinition.GetRanges()) > 0:
-			return "bucketDefinition.ranges"
 		}
 	}
 	return ""

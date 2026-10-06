@@ -86,6 +86,43 @@ var _ = Describe("Aggregations", func() {
 		}
 	})
 
+	DescribeTable("builds a range or date_range aggregation by the kind of the bounds, open ones without",
+		func(field, kind string, ranges []*searchsvc.BucketRange, want []map[string]any) {
+			r := build(&searchsvc.AggregationOption{Field: field, BucketDefinition: &searchsvc.BucketDefinition{Ranges: ranges}})["a_0"].(map[string]any)[kind].(map[string]any)
+			Expect(r["field"]).To(Equal(field))
+			Expect(r["ranges"]).To(Equal(want))
+		},
+		Entry("numbers", "audio.year", "range",
+			[]*searchsvc.BucketRange{{From: "1970", To: "1980"}, {To: "1970"}, {From: "2020"}},
+			[]map[string]any{{"key": "1970..1980", "from": 1970.0, "to": 1980.0}, {"key": "..1970", "to": 1970.0}, {"key": "2020..", "from": 2020.0}}),
+		Entry("dates", "photo.takenDateTime", "date_range",
+			[]*searchsvc.BucketRange{{From: "2018-08-01T00:00:00Z", To: "2018-09-01T00:00:00Z"}, {From: "2018-08-11T00:00:00Z"}},
+			[]map[string]any{{"key": "2018-08-01T00:00:00Z..2018-09-01T00:00:00Z", "from": "2018-08-01T00:00:00Z", "to": "2018-09-01T00:00:00Z"}, {"key": "2018-08-11T00:00:00Z..", "from": "2018-08-11T00:00:00Z"}}),
+	)
+
+	malformed := &searchsvc.AggregationOption{
+		Field:            "photo.takenDateTime",
+		BucketDefinition: &searchsvc.BucketDefinition{Ranges: []*searchsvc.BucketRange{{From: "2018-08-11T00:00:00Z", To: "not-a-date"}}},
+	}
+
+	It("rejects a malformed range", func() {
+		_, err := aggs.Build([]*searchsvc.AggregationOption{malformed})
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("lists every requested range in request order, empty ones included", func() {
+		out := parse(`{"a_0": {"buckets": [
+			{"key": "1970..1980", "doc_count": 4},
+			{"key": "1980..1990", "doc_count": 0}
+		]}}`, &searchsvc.AggregationOption{
+			Field: "audio.year",
+			BucketDefinition: &searchsvc.BucketDefinition{
+				Ranges: []*searchsvc.BucketRange{{From: "1980", To: "1990"}, {From: "1970", To: "1980"}, {From: "1990"}},
+			},
+		})
+		Expect(keys(out[0])).To(Equal([]string{"1980..1990=0", "1970..1980=4", "1990..=0"}))
+	})
+
 	DescribeTable("reports a result it cannot decode instead of dropping it",
 		func(opt *searchsvc.AggregationOption, response string) {
 			_, err := aggs.Parse([]*searchsvc.AggregationOption{opt}, json.RawMessage(response))

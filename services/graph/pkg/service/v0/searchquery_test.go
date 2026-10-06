@@ -303,18 +303,21 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		ginkgo.Entry("a size below one", `"aggregations": [{"field": "audio.artist", "size": 0}]`),
 		ginkgo.Entry("a negative minimumCount", `"aggregations": [{"field": "audio.artist", "bucketDefinition": {"sortBy": "count", "minimumCount": -1}}]`),
 		ginkgo.Entry("a field the index does not know", `"aggregations": [{"field": "audio.nonexistent"}]`),
+		ginkgo.Entry("a range bound that is no number", `"aggregations": [{"field": "audio.year", "bucketDefinition": {"sortBy": "count", "ranges": [{"from": "1970", "to": "198o"}]}}]`),
 	)
 
 	ginkgo.It("translates the bucket definition for the search service", func() {
 		g, captured := graphWithAggregations()
 		rr := postSearchQuery(g, searchQueryBody(`"aggregations": [
 			{"field": "audio.artist", "size": 5, "bucketDefinition": {"sortBy": "keyAsString", "isDescending": true, "minimumCount": 2}},
+			{"field": "audio.year", "bucketDefinition": {"sortBy": "keyAsNumber", "ranges": [{"to": "1980"}, {"from": "1980", "to": "1990"}]}},
 			{"field": "audio.genre", "bucketDefinition": {"sortBy": "count"}}
 		]`))
 		Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
 
 		Expect(captured().GetAggregations()).To(BeComparableTo([]*searchsvc.AggregationOption{
 			{Field: "audio.artist", Size: 5, BucketDefinition: &searchsvc.BucketDefinition{SortBy: searchsvc.BucketSortBy_BUCKET_SORT_BY_KEY_AS_STRING, IsDescending: true, MinimumCount: 2}},
+			{Field: "audio.year", BucketDefinition: &searchsvc.BucketDefinition{SortBy: searchsvc.BucketSortBy_BUCKET_SORT_BY_KEY_AS_NUMBER, Ranges: []*searchsvc.BucketRange{{To: "1980"}, {From: "1980", To: "1990"}}}},
 			{Field: "audio.genre", BucketDefinition: &searchsvc.BucketDefinition{SortBy: searchsvc.BucketSortBy_BUCKET_SORT_BY_COUNT}},
 		}, protocmp.Transform()))
 	})
@@ -353,6 +356,18 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		ginkgo.Entry("a property the index rules refuse for terms", "lastModifiedDateTime"),
 	)
 
+	ginkgo.It("resolves lastModifiedDateTime to the modification time of the index", func() {
+		g, captured := graphWithAggregations(&searchsvc.AggregationResult{
+			Field:   "Mtime",
+			Buckets: []*searchsvc.Bucket{{Key: "2026-01-01T00:00:00Z..", Count: 3}},
+		})
+		rr := postSearchQuery(g, searchQueryBody(`"aggregations": [{"field": "lastModifiedDateTime", "bucketDefinition": {"sortBy": "count", "ranges": [{"from": "2026-01-01T00:00:00Z"}]}}]`))
+		Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+
+		Expect(captured().GetAggregations()[0].GetField()).To(Equal("Mtime"))
+		Expect(hitsContainer(rr).Aggregations[0].Field).To(Equal("lastModifiedDateTime"))
+	})
+
 	ginkgo.DescribeTable("answers a property it does not evaluate with 501 instead of ignoring it",
 		func(fragment, property string) {
 			rr := postSearchQuery(graphWithoutSearch(), searchQueryBody(fragment))
@@ -364,7 +379,6 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 		ginkgo.Entry("aggregationFilters", `"aggregationFilters": ["audio.artist:\"ǂǂ5361786f6e\""]`, "aggregationFilters"),
 		ginkgo.Entry("a geohash aggregation",
 			`"aggregations": [{"field": "location", "@libre.graph.geohashDefinition": {"precision": 5}}]`, "geohashDefinition"),
-		ginkgo.Entry("ranges", `"aggregations": [{"field": "audio.year", "bucketDefinition": {"sortBy": "count", "ranges": [{"from": "1980"}]}}]`, "ranges"),
 		ginkgo.Entry("a metric", `"aggregations": [{"field": "audio.year", "@libre.graph.metricDefinition": {"kind": "sum"}}]`, "metricDefinition"),
 		ginkgo.Entry("sub-aggregations", `"aggregations": [{"field": "audio.artist", "@libre.graph.subAggregations": [{"field": "audio.album"}]}]`, "subAggregations"),
 	)

@@ -729,12 +729,21 @@ Fixtures:
 - `e.mp3`, MimeType = audio/mpeg
 - `f.mp3`, MimeType = audio/mpeg
 - `g.mp3`, MimeType = audio/mpeg
+- `a.jpg`, MimeType = image/jpeg
+- `b.jpg`, MimeType = image/jpeg
+- `c.jpg`, MimeType = image/jpeg
+- `d.jpg`, MimeType = image/jpeg
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
 | AGG-01 | `mediatype:audio` reads `term buckets on audio.artist` | audio.artist Motörhead=3, audio.artist Saxon=2 | audio.artist Motörhead=3, audio.artist Saxon=2 | audio.artist Motörhead=3, audio.artist Saxon=2 | ✅ |
 | AGG-02 | `mediatype:audio` reads `no aggregations requested` | no match | no match | no match | ✅ |
 | AGG-03 | `mediatype:audio` reads `artist and album buckets in one request` | audio.albu... Steel=2, audio.albu...Spades=1, audio.album Bomber=2, audio.artist Motörhead=3, audio.artist Saxon=2 | audio.albu... Steel=2, audio.albu...Spades=1, audio.album Bomber=2, audio.artist Motörhead=3, audio.artist Saxon=2 | audio.albu... Steel=2, audio.albu...Spades=1, audio.album Bomber=2, audio.artist Motörhead=3, audio.artist Saxon=2 | ✅ |
+| AGG-04 | `mediatype:audio` reads `audio.year buckets per decade` | audio.year 1970..1980=2, audio.year 1980..1990=1, audio.year 1990..2000=1, audio.year 2000..2010=3 | audio.year 1970..1980=2, audio.year 1980..1990=1, audio.year 1990..2000=1, audio.year 2000..2010=3 | audio.year 1970..1980=2, audio.year 1980..1990=1, audio.year 1990..2000=1, audio.year 2000..2010=3 | ✅ |
+| AGG-05 | `mediatype:audio` reads `open-ended audio.year ranges` | audio.year ..1990=3, audio.year 2000..=3 | audio.year ..1990=3, audio.year 2000..=3 | audio.year ..1990=3, audio.year 2000..=3 | ✅ |
+| AGG-07 | `mediatype:image` reads `photo.takenDateTime buckets per date range, an empty range counts zero` | photo.take...00:00Z=0, photo.take...00:00Z=1, photo.take...00:00Z=2, photo.take...00:00Z=2 | photo.take...00:00Z=0, photo.take...00:00Z=1, photo.take...00:00Z=2, photo.take...00:00Z=2 | photo.take...00:00Z=0, photo.take...00:00Z=1, photo.take...00:00Z=2, photo.take...00:00Z=2 | ✅ |
+| AGG-08 | `mediatype:image` reads `open-ended date ranges` | photo.take...00:00Z=3, photo.take...:00Z..=1 | photo.take...00:00Z=3, photo.take...:00Z..=1 | photo.take...00:00Z=3, photo.take...:00Z..=1 | ✅ |
+| AGG-09 | `mediatype:image` reads `malformed date range bound` | bad request | bad request | bad request | ✅ |
 | AGG-34 | `mediatype:audio` reads `term buckets on the numeric audio.year` | audio.year 1971=1, audio.year 1975=1, audio.year 1982=1, audio.year 1999=1, audio.year 2001=1, audio.year 2005=1, audio.year 2009=1 | audio.year 1971=1, audio.year 1975=1, audio.year 1982=1, audio.year 1999=1, audio.year 2001=1, audio.year 2005=1, audio.year 2009=1 | audio.year 1971=1, audio.year 1975=1, audio.year 1982=1, audio.year 1999=1, audio.year 2001=1, audio.year 2005=1, audio.year 2009=1 | ✅ |
 | AGG-37 | `mediatype:audio` reads `term buckets on the bool audio.hasDrm, spelled true and false` | audio.hasDrm false=1, audio.hasDrm true=1 | audio.hasDrm false=1, audio.hasDrm true=1 | audio.hasDrm false=1, audio.hasDrm true=1 | ✅ |
 | AGG-39 | `mediatype:audio` reads `no bucket for the empty Title of every match` | no match | no match | no match | ✅ |

@@ -67,7 +67,10 @@ func libregraphAggregationsToSearch(in []libregraph.AggregationOption) []*search
 }
 
 func libregraphBucketDefinitionToSearch(in libregraph.BucketDefinition) *searchsvc.BucketDefinition {
-	bd := &searchsvc.BucketDefinition{SortBy: bucketSortBy[in.SortBy]}
+	bd := &searchsvc.BucketDefinition{
+		SortBy: bucketSortBy[in.SortBy],
+		Ranges: libregraphRangesToSearch(in.Ranges),
+	}
 	if in.IsDescending != nil {
 		bd.IsDescending = *in.IsDescending
 	}
@@ -75,6 +78,14 @@ func libregraphBucketDefinitionToSearch(in libregraph.BucketDefinition) *searchs
 		bd.MinimumCount = *in.MinimumCount
 	}
 	return bd
+}
+
+func libregraphRangesToSearch(in []libregraph.BucketAggregationRange) []*searchsvc.BucketRange {
+	out := make([]*searchsvc.BucketRange, 0, len(in))
+	for _, r := range in {
+		out = append(out, &searchsvc.BucketRange{From: r.GetFrom(), To: r.GetTo()})
+	}
+	return out
 }
 
 // searchAggregationsToLibregraph maps the results to their definitions by
