@@ -3,6 +3,7 @@ package bleve
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/blevesearch/bleve/v2/numeric"
 	bleveSearch "github.com/blevesearch/bleve/v2/search"
@@ -35,17 +36,27 @@ func termKey(fieldType, term string) (string, bool) {
 
 type aggLevel struct {
 	opt       *searchService.AggregationOption
+	kind      aggregation.Kind
 	fieldType string
+	ranges    aggregation.Ranges
 }
 
 // numeric values are prefix-coded in the index, their terms come from the
 // decoded doc values
 func (l *aggLevel) numericTerms() bool {
-	return l.fieldType == mapping.TypeNumeric
+	return l.kind == aggregation.KindTerms && l.fieldType == mapping.TypeNumeric
 }
 
-func newAggLevel(opt *searchService.AggregationOption) *aggLevel {
-	return &aggLevel{opt: opt, fieldType: search.FieldType(opt.GetField())}
+func newAggLevel(opt *searchService.AggregationOption) (*aggLevel, error) {
+	l := &aggLevel{opt: opt, kind: aggregation.KindOf(opt), fieldType: search.FieldType(opt.GetField())}
+	if l.kind == aggregation.KindRange {
+		ranges, err := aggregation.ParseRanges(opt.GetField(), opt.GetBucketDefinition().GetRanges())
+		if err != nil {
+			return nil, err
+		}
+		l.ranges = ranges
+	}
+	return l, nil
 }
 
 // fieldValues is per-document scratch, reused across documents.
@@ -76,17 +87,20 @@ type aggRoot struct {
 	acc   *bucketAcc
 }
 
-func newAggCollector(aggs []*searchService.AggregationOption) *aggCollector {
+func newAggCollector(aggs []*searchService.AggregationOption) (*aggCollector, error) {
 	if len(aggs) == 0 {
-		return nil
+		return nil, nil
 	}
 	c := &aggCollector{fields: map[string]*fieldValues{}}
 	for _, agg := range aggs {
-		l := newAggLevel(agg)
+		l, err := newAggLevel(agg)
+		if err != nil {
+			return nil, err
+		}
 		c.register(l)
 		c.roots = append(c.roots, &aggRoot{level: l, acc: newBucketAcc()})
 	}
-	return c
+	return c, nil
 }
 
 func (c *aggCollector) register(l *aggLevel) {
@@ -96,10 +110,10 @@ func (c *aggCollector) register(l *aggLevel) {
 		c.fields[l.opt.GetField()] = fv
 		c.fieldNames = append(c.fieldNames, l.opt.GetField())
 	}
-	if l.numericTerms() {
-		fv.asNumbers = true
-	} else {
+	if l.kind == aggregation.KindTerms && !l.numericTerms() {
 		fv.asTerms = true
+	} else {
+		fv.asNumbers = true
 	}
 }
 
@@ -143,8 +157,8 @@ func (c *aggCollector) collect(dvr index.DocValueReader, d *bleveSearch.Document
 	return nil
 }
 
-// Numeric doc values are prefix-coded at several precisions; only shift 0
-// carries the exact value.
+// Numeric and date doc values are prefix-coded at several precisions; only
+// shift 0 carries the exact value.
 func (c *aggCollector) visit(field string, term []byte) {
 	fv, ok := c.fields[field]
 	if !ok {
@@ -165,15 +179,31 @@ func (c *aggCollector) visit(field string, term []byte) {
 
 func (c *aggCollector) fold(a *bucketAcc, l *aggLevel) {
 	fv := c.fields[l.opt.GetField()]
-	if l.numericTerms() {
-		for _, raw := range fv.numbers {
-			c.foldBucket(a, l, aggregation.NumberKey(numeric.Int64ToFloat64(raw)))
+	switch l.kind {
+	case aggregation.KindTerms:
+		if l.numericTerms() {
+			for _, raw := range fv.numbers {
+				c.foldBucket(a, l, aggregation.NumberKey(numeric.Int64ToFloat64(raw)))
+			}
+			return
 		}
-		return
-	}
-	for _, term := range fv.terms {
-		if key, ok := termKey(l.fieldType, term); ok {
-			c.foldBucket(a, l, key)
+		for _, term := range fv.terms {
+			if key, ok := termKey(l.fieldType, term); ok {
+				c.foldBucket(a, l, key)
+			}
+		}
+	case aggregation.KindRange:
+		for _, raw := range fv.numbers {
+			for _, r := range l.ranges.Numeric {
+				if r.Contains(numeric.Int64ToFloat64(raw)) {
+					c.foldBucket(a, l, r.Key)
+				}
+			}
+			for _, r := range l.ranges.Dates {
+				if r.Contains(time.Unix(0, raw)) {
+					c.foldBucket(a, l, r.Key)
+				}
+			}
 		}
 	}
 }
@@ -197,6 +227,10 @@ func (a *bucketAcc) result(l *aggLevel) *searchService.AggregationResult {
 	counted := make(map[string]*searchService.Bucket, len(a.counts))
 	for key, count := range a.counts {
 		counted[key] = &searchService.Bucket{Key: key, Count: count}
+	}
+	if l.kind == aggregation.KindRange {
+		r.Buckets = aggregation.RangeBuckets(l.opt, counted)
+		return r
 	}
 	r.Buckets = make([]*searchService.Bucket, 0, len(counted))
 	for _, b := range counted {

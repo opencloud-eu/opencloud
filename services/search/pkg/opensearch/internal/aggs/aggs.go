@@ -6,6 +6,7 @@ package aggs
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
@@ -35,7 +36,50 @@ func aggName(position int) string {
 }
 
 func build(opt *searchsvc.AggregationOption) (map[string]any, error) {
-	return map[string]any{"terms": map[string]any{"field": opt.GetField(), "size": aggregation.MaxBuckets}}, nil
+	var entry map[string]any
+	switch aggregation.KindOf(opt) {
+	case aggregation.KindRange:
+		ranges, err := buildRanges(opt.GetField(), opt.GetBucketDefinition().GetRanges())
+		if err != nil {
+			return nil, err
+		}
+		entry = ranges
+	default:
+		entry = map[string]any{"terms": map[string]any{"field": opt.GetField(), "size": aggregation.MaxBuckets}}
+	}
+	return entry, nil
+}
+
+// buildRanges renders the numeric "range" or the "date_range" aggregation.
+func buildRanges(field string, ranges []*searchsvc.BucketRange) (map[string]any, error) {
+	parsed, err := aggregation.ParseRanges(field, ranges)
+	if err != nil {
+		return nil, err
+	}
+	kind := "range"
+	out := make([]map[string]any, 0, len(ranges))
+	for _, r := range parsed.Numeric {
+		entry := map[string]any{"key": r.Key}
+		if r.From != nil {
+			entry["from"] = *r.From
+		}
+		if r.To != nil {
+			entry["to"] = *r.To
+		}
+		out = append(out, entry)
+	}
+	for _, r := range parsed.Dates {
+		kind = "date_range"
+		entry := map[string]any{"key": r.Key}
+		if !r.From.IsZero() {
+			entry["from"] = r.From.Format(time.RFC3339Nano)
+		}
+		if !r.To.IsZero() {
+			entry["to"] = r.To.Format(time.RFC3339Nano)
+		}
+		out = append(out, entry)
+	}
+	return map[string]any{kind: map[string]any{"field": field, "ranges": out}}, nil
 }
 
 // Parse reads the aggregation block of a response into one result per option,
@@ -84,6 +128,7 @@ func result(opt *searchsvc.AggregationOption, raw json.RawMessage) (*searchsvc.A
 	}
 
 	res := &searchsvc.AggregationResult{Field: opt.GetField(), Buckets: []*searchsvc.Bucket{}}
+	byKey := make(map[string]*searchsvc.Bucket, len(body.Buckets))
 	for _, rawBucket := range body.Buckets {
 		bucket, err := parseBucket(opt, rawBucket)
 		if err != nil {
@@ -92,7 +137,11 @@ func result(opt *searchsvc.AggregationOption, raw json.RawMessage) (*searchsvc.A
 		// a field without a value has no bucket, an empty one neither
 		if bucket.GetKey() != "" {
 			res.Buckets = append(res.Buckets, bucket)
+			byKey[bucket.GetKey()] = bucket
 		}
+	}
+	if aggregation.KindOf(opt) == aggregation.KindRange {
+		res.Buckets = aggregation.RangeBuckets(opt, byKey)
 	}
 	return res, nil
 }

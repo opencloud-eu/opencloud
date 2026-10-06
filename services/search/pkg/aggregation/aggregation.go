@@ -1,6 +1,6 @@
 // Package aggregation holds what the engines and the service layer share
-// about aggregations: the bucket limit, the spelling of keys and the
-// cross-space merge.
+// about aggregations: the kind of an option, range bounds and the cross-space
+// merge.
 package aggregation
 
 import (
@@ -10,6 +10,22 @@ import (
 
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 )
+
+// Kind is what an aggregation option asks for.
+type Kind int
+
+const (
+	KindTerms Kind = iota
+	KindRange
+)
+
+// KindOf tells the kind from the definitions an option carries.
+func KindOf(opt *searchsvc.AggregationOption) Kind {
+	if len(opt.GetBucketDefinition().GetRanges()) > 0 {
+		return KindRange
+	}
+	return KindTerms
+}
 
 // MaxBuckets is how many buckets the aggregations of one request may have in
 // one space: the search.max_buckets default of OpenSearch, held on every
