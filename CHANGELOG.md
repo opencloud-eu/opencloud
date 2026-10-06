@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @maki5
+@AlexAndBear, @maki5, @rhafer
 
 ### 💥 Breaking changes
 
