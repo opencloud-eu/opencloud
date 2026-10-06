@@ -50,6 +50,15 @@ type Decoder interface {
 // will return an error on Decode if there is an error while parsing.
 // If everything must be strict, consider using StrictDecode instead.
 //
+// In addition to any defined environment variable the same environment variable
+// suffixed with `_FILE` can be used with the following semantics: instead of
+// taking its value directly as the configuration parameter it is interpreted as
+// a path to a file whose content (modulo trailing newlines) is interpreted as
+// the value for the configuration parameter. E.g. instead of setting the access
+// key directly with `AWS_SECRET_ACCESS_KEY` securely store the access key in a
+// file and provide the path to the file with `AWS_SECRET_ACCESS_KEY_FILE`.
+// Note: environment variables not suffixed with `_FILE` have precendence.
+//
 // All primitive types are supported, including bool, floating point,
 // signed and unsigned integers, and string.  Boolean and numeric
 // types are decoded using the standard strconv Parse functions for
@@ -154,6 +163,18 @@ func decode(target any, strict bool) (int, error) {
 			if v, set := os.LookupEnv(override); set {
 				env = v
 				envSet = true
+				// setting the value directly in the environment has precedence (over reading from file)
+				continue
+			}
+			// try environment variable suffixed with `_FILE`: interprete as file containing the value
+			fileEnvVariable := override + "_FILE"
+			value, set, err := readFileEnv(fileEnvVariable)
+			if err != nil {
+				return 0, err
+			}
+			if set {
+				env = value
+				envSet = true
 			}
 		}
 
@@ -211,6 +232,20 @@ func decode(target any, strict bool) (int, error) {
 	}
 
 	return setFieldCount, nil
+}
+
+func readFileEnv(fileEnvVariable string) (string, bool, error) {
+	if file, set := os.LookupEnv(fileEnvVariable); set {
+		if file == "" {
+			return "", true, fmt.Errorf("no file provided: %s=", fileEnvVariable)
+		}
+		content, err := os.ReadFile(file)
+		if err != nil {
+			return "", true, fmt.Errorf("failed to read file: %s=\"%s\"", fileEnvVariable, file)
+		}
+		return strings.TrimRight(string(content), "\r\n"), true, nil
+	}
+	return "", false, nil
 }
 
 func decodeSlice(f *reflect.Value, env string) error {
