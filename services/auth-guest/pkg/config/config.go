@@ -25,6 +25,7 @@ type Config struct {
 	RevaGateway   string                `yaml:"reva_gateway" env:"OC_REVA_GATEWAY" desc:"CS3 gateway used to look up user metadata" introductionVersion:"%%NEXT%%"`
 	GRPCClientTLS *shared.GRPCClientTLS `yaml:"grpc_client_tls"`
 
+	GRPC         GRPCConfig    `yaml:"grpc"`
 	HTTP         HTTP          `yaml:"http"`
 	Storage      Storage       `yaml:"storage"`
 	TokenManager *TokenManager `yaml:"token_manager"`
@@ -73,6 +74,14 @@ type HTTP struct {
 	TLS       shared.HTTPServiceTLS `yaml:"tls"`
 }
 
+// GRPCConfig defines the GRPC configuration
+type GRPCConfig struct {
+	Addr      string                 `yaml:"addr" env:"AUTH_GUEST_GRPC_ADDR" desc:"The bind address of the GRPC service." introductionVersion:"%%NEXT%%"`
+	TLS       *shared.GRPCServiceTLS `yaml:"tls"`
+	Namespace string                 `yaml:"-"`
+	Protocol  string                 `yaml:"protocol" env:"OC_GRPC_PROTOCOL;AUTH_GUEST_GRPC_PROTOCOL" desc:"The transport protocol of the GRPC service." introductionVersion:"%%NEXT%%"`
+}
+
 // Storage defines the configuration for the token storage.
 type Storage struct {
 	RootDirectory string `yaml:"root_directory" env:"AUTH_GUEST_TOKENS_STORAGE_ROOT" desc:"The directory where the guest share tokens are stored. If not defined, the root directory derives from $OC_BASE_DATA_PATH/auth-guest." introductionVersion:"%%NEXT%%"`
@@ -80,11 +89,12 @@ type Storage struct {
 
 // TokenManager is the config for using the reva token manager
 type TokenManager struct {
-	JWTSecret string `yaml:"jwt_secret" env:"AUTH_GUEST_JWT_SECRET" desc:"The secret to mint and validate jwt tokens." introductionVersion:"%%NEXT%%"`
+	JWTSecret string `yaml:"jwt_secret" env:"OC_JWT_SECRET;AUTH_GUEST_JWT_SECRET" desc:"The secret to mint and validate jwt tokens." introductionVersion:"%%NEXT%%"`
 }
 
 // JWT defines the configuration for guest session tokens.
 type JWT struct {
+	Secret     string        `yaml:"secret" env:"AUTH_GUEST_SESSION_JWT_SECRET" desc:"The secret used to sign and validate guest session tokens. It must differ from OC_JWT_SECRET." introductionVersion:"%%NEXT%%" mask:"password"`
 	CookieName string        `yaml:"cookie_name" env:"AUTH_GUEST_JWT_COOKIE_NAME" desc:"The name of the session cookie set when a guest token is redeemed." introductionVersion:"%%NEXT%%"`
 	TTL        time.Duration `yaml:"ttl" env:"AUTH_GUEST_JWT_TTL" desc:"The lifetime of a redeemed guest session token." introductionVersion:"%%NEXT%%"`
 }

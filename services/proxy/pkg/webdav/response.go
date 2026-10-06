@@ -2,6 +2,7 @@ package webdav
 
 import (
 	"encoding/xml"
+	"io"
 	"net/http"
 )
 
@@ -55,6 +56,26 @@ func Marshal(e Exception) ([]byte, error) {
 		return []byte(""), err
 	}
 	return []byte(xml.Header + string(xmlstring)), err
+}
+
+// Encode writes the given Exception as a SabreDAV error document, including the
+// XML header, to w.
+func Encode(w io.Writer, e Exception) error {
+	return EncodeXML(w, &errorXML{
+		Xmlnsd:    "DAV",
+		Xmlnss:    "http://sabredav.org/ns",
+		Exception: codesEnum[e.Code],
+		Message:   e.Message,
+		Header:    e.Header,
+	})
+}
+
+// EncodeXML writes v as an XML document, including the XML header, to w.
+func EncodeXML(w io.Writer, v any) error {
+	if _, err := io.WriteString(w, xml.Header); err != nil {
+		return err
+	}
+	return xml.NewEncoder(w).Encode(v)
 }
 
 // http://www.webdav.org/specs/rfc4918.html#ELEMENT_error

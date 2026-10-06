@@ -53,14 +53,14 @@ var _ = Describe("Authenticating requests", Label("AppAuthAuthenticator"), func(
 			req := httptest.NewRequest(http.MethodGet, "http://example.com/example/path", http.NoBody)
 			req.SetBasicAuth("test-user", "AppPassword")
 
-			req2, valid := authenticator.Authenticate(req)
+			result := authenticator.Authenticate(req)
 
-			Expect(valid).To(Equal(true))
-			Expect(req2).ToNot(BeNil())
-			user, ok := revactx.ContextGetUser(req2.Context())
+			Expect(result.State).To(Equal(AuthenticationSucceeded))
+			Expect(result.Request).ToNot(BeNil())
+			user, ok := revactx.ContextGetUser(result.Request.Context())
 			Expect(ok).To(BeTrue())
 			Expect(user).ToNot(BeNil())
-			token, ok := revactx.ContextGetToken(req2.Context())
+			token, ok := revactx.ContextGetToken(result.Request.Context())
 			Expect(ok).To(BeTrue())
 			Expect(token).To(Equal("reva-token"))
 		})
@@ -71,10 +71,9 @@ var _ = Describe("Authenticating requests", Label("AppAuthAuthenticator"), func(
 			req := httptest.NewRequest(http.MethodGet, "http://example.com/example/path", http.NoBody)
 			req.SetBasicAuth("test-user", "WrongAppPassword")
 
-			req2, valid := authenticator.Authenticate(req)
+			result := authenticator.Authenticate(req)
 
-			Expect(valid).To(Equal(false))
-			Expect(req2).To(BeNil())
+			Expect(result.State).To(Equal(AuthenticationFailed))
 		})
 	})
 })

@@ -115,6 +115,9 @@ func DefaultConfig() *config.Config {
 		AuthMiddleware: config.AuthMiddleware{
 			AllowAppAuth: true,
 		},
+		GuestLinkAuth: config.GuestLinkAuth{
+			CookieName: "__Host-oc_guest_session",
+		},
 	}
 }
 

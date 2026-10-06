@@ -5,6 +5,8 @@ package authguest
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -156,6 +158,86 @@ func TestVerifyToken(t *testing.T) {
 			assert.Equal(t, rec, *got)
 		})
 	}
+}
+
+func TestVerifyTokenDoesNotDiscloseShare(t *testing.T) {
+	tok, rec := newToken(t)
+	// flip the last character of the secret
+	last := "x"
+	if strings.HasSuffix(tok, last) {
+		last = "y"
+	}
+	tamperedSecret := tok[:len(tok)-1] + last
+
+	tests := []struct {
+		name  string
+		token string
+		setup func(store *storagemocks.Manager)
+	}{
+		{
+			name:  "malformed token",
+			token: "not-a-token",
+		},
+		{
+			name:  "unknown record",
+			token: tok,
+			setup: func(store *storagemocks.Manager) {
+				store.On("Get", rec.ShareIDHash).Return(storage.Record{}, storage.ErrNotFound)
+			},
+		},
+		{
+			name:  "invalid hash",
+			token: "v1.ab.secret",
+			setup: func(store *storagemocks.Manager) {
+				store.On("Get", "ab").Return(storage.Record{}, storage.ErrInvalidHash)
+			},
+		},
+		{
+			name:  "wrong secret",
+			token: tamperedSecret,
+			setup: func(store *storagemocks.Manager) {
+				store.On("Get", rec.ShareIDHash).Return(rec, nil)
+			},
+		},
+		{
+			name:  "wrong secret on expired and redeemed record",
+			token: tamperedSecret,
+			setup: func(store *storagemocks.Manager) {
+				r := rec
+				r.Expiry = time.Now().Add(-time.Hour)
+				r.Redeemed = true
+				store.On("Get", rec.ShareIDHash).Return(r, nil)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := storagemocks.NewManager(t)
+			if tt.setup != nil {
+				tt.setup(store)
+			}
+			s := NewAuthGuestService(token.NewTokenService(), store)
+
+			_, err := s.verifyToken(tt.token)
+			var re *RedeemError
+			require.ErrorAs(t, err, &re)
+			assert.ErrorIs(t, re.ErrorType, token.ErrInvalidToken)
+			assert.Empty(t, re.ShareID)
+		})
+	}
+}
+
+func TestVerifyTokenStorageFailure(t *testing.T) {
+	tok, rec := newToken(t)
+	store := storagemocks.NewManager(t)
+	store.On("Get", rec.ShareIDHash).Return(storage.Record{}, errors.New("disk on fire"))
+	s := NewAuthGuestService(token.NewTokenService(), store)
+
+	_, err := s.verifyToken(tok)
+	require.Error(t, err)
+	var re *RedeemError
+	assert.False(t, errors.As(err, &re), "storage failures must surface as internal errors")
 }
 
 func TestValidateShare(t *testing.T) {

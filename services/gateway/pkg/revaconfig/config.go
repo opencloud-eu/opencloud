@@ -92,6 +92,7 @@ func GatewayConfigFromStruct(cfg *config.Config, logger log.Logger) map[string]a
 								"publicshares":    cfg.StoragePublicLinkEndpoint,
 								"serviceaccounts": cfg.AuthServiceEndpoint,
 								"ocmshares":       cfg.OCMEndpoint,
+								"guestlinks":      cfg.AuthGuestLinkEndpoint,
 							},
 						},
 					},

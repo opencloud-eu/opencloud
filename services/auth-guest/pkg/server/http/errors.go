@@ -9,7 +9,6 @@ import (
 	"net/http"
 
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
-	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/storage"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/token"
 )
 
@@ -38,10 +37,6 @@ func writeRedeemError(w http.ResponseWriter, err error) {
 	case errors.Is(re.ErrorType, authguest.ErrExpired):
 		status, errorType = http.StatusUnauthorized, "tokenExpired"
 	case errors.Is(re.ErrorType, token.ErrInvalidToken):
-		status, errorType = http.StatusUnauthorized, "tokenInvalid"
-	case errors.Is(re.ErrorType, storage.ErrNotFound):
-		status, errorType = http.StatusNotFound, "tokenNotFound"
-	case errors.Is(re.ErrorType, storage.ErrInvalidHash):
 		status, errorType = http.StatusUnauthorized, "tokenInvalid"
 	case errors.Is(re.ErrorType, authguest.ErrAlreadyRedeemed):
 		status, errorType = http.StatusConflict, "tokenAlreadyRedeemed"

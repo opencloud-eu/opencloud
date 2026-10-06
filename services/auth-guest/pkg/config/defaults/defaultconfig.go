@@ -40,6 +40,11 @@ func DefaultConfig() *config.Config {
 			EnableTLS: false,
 		},
 		RevaGateway: shared.DefaultRevaConfig().Address,
+		GRPC: config.GRPCConfig{
+			Addr:      "127.0.0.1:9268",
+			Namespace: "eu.opencloud.api",
+			Protocol:  "tcp",
+		},
 		HTTP: config.HTTP{
 			Addr:      "127.0.0.1:9266",
 			Root:      "/graph",
@@ -70,7 +75,15 @@ func EnsureDefaults(cfg *config.Config) {
 		cfg.GRPCClientTLS = structs.CopyOrZeroValue(cfg.Commons.GRPCClientTLS)
 	}
 
-	if cfg.TokenManager == nil {
+	if cfg.GRPC.TLS == nil && cfg.Commons != nil {
+		cfg.GRPC.TLS = structs.CopyOrZeroValue(cfg.Commons.GRPCServiceTLS)
+	}
+
+	if cfg.TokenManager == nil && cfg.Commons != nil && cfg.Commons.TokenManager != nil {
+		cfg.TokenManager = &config.TokenManager{
+			JWTSecret: cfg.Commons.TokenManager.JWTSecret,
+		}
+	} else if cfg.TokenManager == nil {
 		cfg.TokenManager = &config.TokenManager{}
 	}
 

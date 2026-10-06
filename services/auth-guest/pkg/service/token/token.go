@@ -6,6 +6,7 @@ package token
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -65,7 +66,8 @@ func (s *TokenService) Parse(encoded string) (*Token, error) {
 }
 
 func (s *TokenService) Verify(candidate Token, storedSecretHash string) error {
-	if candidate.ShareIDHash == "" || candidate.secret == "" || candidate.SecretHash() != storedSecretHash {
+	if candidate.ShareIDHash == "" || candidate.secret == "" ||
+		subtle.ConstantTimeCompare([]byte(candidate.SecretHash()), []byte(storedSecretHash)) != 1 {
 		return ErrInvalidToken
 	}
 

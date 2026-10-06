@@ -104,7 +104,7 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 				return fmt.Errorf("could not generate random secret for urlSigningSecret: %s", err)
 			}
 		}
-		authGuestJWTSecret = oldCfg.AuthGuest.TokenManager.JWTSecret
+		authGuestJWTSecret = oldCfg.AuthGuest.JWT.Secret
 		if authGuestJWTSecret == "" {
 			authGuestJWTSecret, err = generators.GenerateRandomPassword(passwordLength)
 			if err != nil {
@@ -226,7 +226,7 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 		},
 		AuthGuest: AuthGuest{
 			ServiceAccount: serviceAccount,
-			TokenManager:   TokenManager{JWTSecret: authGuestJWTSecret},
+			JWT:            AuthGuestJWT{Secret: authGuestJWTSecret},
 		},
 		Users: UsersAndGroupsService{
 			Drivers: LdapBasedService{

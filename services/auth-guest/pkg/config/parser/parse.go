@@ -5,8 +5,10 @@ package parser
 
 import (
 	"errors"
+	"fmt"
 
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
+	ocdefaults "github.com/opencloud-eu/opencloud/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config/defaults"
@@ -40,6 +42,18 @@ func ParseConfig(cfg *config.Config) error {
 func Validate(cfg *config.Config) error {
 	if cfg.TokenManager == nil || cfg.TokenManager.JWTSecret == "" {
 		return shared.MissingJWTTokenError(cfg.Service.Name)
+	}
+	if cfg.JWT.Secret == "" {
+		return fmt.Errorf("the guest session secret has not been set properly in your config for %s. "+
+			"Make sure your %s config contains the proper values "+
+			"(e.g. by using 'opencloud init --diff' and applying the patch or setting a value manually in "+
+			"the config/corresponding environment variable AUTH_GUEST_SESSION_JWT_SECRET)",
+			cfg.Service.Name, ocdefaults.BaseConfigPath())
+	}
+	// The guest session token and the reva access token are both HS256 JWTs. Signing them
+	// with the same key would make them interchangeable.
+	if cfg.JWT.Secret == cfg.TokenManager.JWTSecret {
+		return fmt.Errorf("the guest session secret (AUTH_GUEST_SESSION_JWT_SECRET) of %s must differ from the jwt secret (OC_JWT_SECRET)", cfg.Service.Name)
 	}
 	return nil
 }

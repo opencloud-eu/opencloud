@@ -19,6 +19,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/metrics"
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/revaconfig"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/server/http"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
@@ -26,6 +27,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/jwt"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/storage"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/token"
+	"github.com/opencloud-eu/reva/v2/cmd/revad/runtime"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -77,7 +79,7 @@ func Server(cfg *config.Config) *cobra.Command {
 
 			tokenSvc := token.NewTokenService()
 			store := storage.NewFileManager(cfg.Storage.RootDirectory)
-			jwtService := jwt.NewJwtService(cfg.TokenManager.JWTSecret, cfg.JWT.TTL)
+			jwtService := jwt.NewJwtService(cfg.JWT.Secret, cfg.JWT.TTL)
 
 			authGuest := authguest.NewAuthGuestService(tokenSvc, store,
 				authguest.GatewaySelector(gatewaySelector),
@@ -143,7 +145,18 @@ func Server(cfg *config.Config) *cobra.Command {
 			} else {
 				logger.Info().Msg("event listening disabled, not starting event service")
 			}
-
+			{
+				//FIXME: Does this need to be optional? Similar to cfg.HTTP.Disabled?
+				// run the appropriate reva servers based on the config
+				rCfg := revaconfig.GuestLinksConfigFromStruct(cfg)
+				if rServer := runtime.NewDrivenGRPCServerWithOptions(rCfg,
+					runtime.WithLogger(&logger.Logger),
+					runtime.WithRegistry(registry.GetRegistry()),
+					runtime.WithTraceProvider(tracerProvider),
+				); rServer != nil {
+					gr.Add(runner.NewRevaServiceRunner(cfg.Service.Name+".rgrpc", rServer))
+				}
+			}
 			{
 				debugServer, err := debug.Server(
 					debug.Logger(logger),
@@ -156,6 +169,10 @@ func Server(cfg *config.Config) *cobra.Command {
 				}
 
 				gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
+			}
+			grpcSvc := registry.BuildGRPCService(cfg.GRPC.Namespace+"."+cfg.Service.Name, cfg.GRPC.Protocol, cfg.GRPC.Addr, version.GetString())
+			if err := registry.RegisterService(ctx, logger, grpcSvc, cfg.Debug.Addr); err != nil {
+				logger.Fatal().Err(err).Msg("failed to register the grpc service")
 			}
 
 			grResults := gr.Run(ctx)

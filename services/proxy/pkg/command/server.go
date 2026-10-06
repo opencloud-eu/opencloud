@@ -332,6 +332,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 	}
 
 	var authenticators []middleware.Authenticator
+
 	if cfg.EnableBasicAuth {
 		logger.Warn().Msg("basic auth enabled, use only for testing or development")
 		authenticators = append(authenticators, middleware.BasicAuthenticator{
@@ -352,6 +353,17 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		return alice.Chain{}, err
 	}
 	authenticators = append(authenticators, oidcAuthenticator)
+
+	if cfg.Commons != nil && cfg.Commons.EnableGuestLinks {
+		authenticators = append(authenticators, &middleware.GuestLinkAuthenticator{
+			Logger:              logger,
+			RevaGatewaySelector: gatewaySelector,
+			Config: middleware.GuestLinkAuthConfig{
+				CookieName: cfg.GuestLinkAuth.CookieName,
+			},
+		})
+	}
+
 	authenticators = append(authenticators, middleware.PublicShareAuthenticator{
 		Logger:              logger,
 		RevaGatewaySelector: gatewaySelector,

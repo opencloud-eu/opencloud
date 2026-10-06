@@ -113,3 +113,17 @@ func validProxyConfig() *config.Config {
 	cfg.Commons = &shared.Commons{URLSigningSecret: "test-url-secret"}
 	return cfg
 }
+
+func TestGuestLinkAuthConfig(t *testing.T) {
+	t.Run("feature disabled by default", func(t *testing.T) {
+		cfg := defaults.FullDefaultConfig()
+		require.Equal(t, "__Host-oc_guest_session", cfg.GuestLinkAuth.CookieName)
+	})
+
+	t.Run("custom cookie name is accepted", func(t *testing.T) {
+		cfg := validProxyConfig()
+		cfg.GuestLinkAuth.CookieName = "custom-guest-cookie"
+		require.NoError(t, parser.Validate(cfg))
+		require.Equal(t, "custom-guest-cookie", cfg.GuestLinkAuth.CookieName)
+	})
+}

@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
@@ -42,12 +44,92 @@ const (
 	WwwAuthenticate = "Www-Authenticate"
 )
 
+// AuthenticationState represents the outcome of an authentication attempt.
+type AuthenticationState int
+
+const (
+	// AuthenticationNotApplicable means the authenticator does not apply to this request
+	// (e.g., no relevant credentials present, or not the right path).
+	AuthenticationNotApplicable AuthenticationState = iota
+	// AuthenticationFailed means the authenticator found applicable credentials but
+	// they were rejected (e.g., wrong password, invalid token).
+	AuthenticationFailed
+	// AuthenticationSucceeded means authentication was successful and the request
+	// has been augmented with identity information.
+	AuthenticationSucceeded
+	// AuthenticationError means authentication encountered an internal/dependency failure
+	// (e.g., backend unavailable, transport error).
+	AuthenticationError
+)
+
+// AuthenticationResult represents the typed result of an authentication attempt.
+type AuthenticationResult struct {
+	Request      *http.Request
+	State        AuthenticationState
+	Err          error
+	Terminal     bool
+	ErrorDetails ErrorDetails
+	// CookiesToClear lists cookie names that should be cleared on terminal failures.
+	CookiesToClear []string
+}
+
+// ErrorDetails carries optional structured data for terminal failures.
+type ErrorDetails interface {
+	isErrorDetails()
+}
+
+// GuestSessionExpiredDetails carries data needed to render an expired-session response.
+type GuestSessionExpiredDetails struct {
+	PermissionID string
+	IsDAV        bool
+}
+
+func (g GuestSessionExpiredDetails) isErrorDetails() {}
+
+// NotApplicable returns a result indicating the authenticator does not apply to the request.
+func NotApplicable() AuthenticationResult {
+	return AuthenticationResult{State: AuthenticationNotApplicable}
+}
+
+// Failed returns a result indicating credentials were present but rejected.
+func Failed() AuthenticationResult {
+	return AuthenticationResult{State: AuthenticationFailed}
+}
+
+// FailedWithErr returns a result indicating credentials were present but rejected,
+// with an associated error for logging/classification.
+func FailedWithErr(err error) AuthenticationResult {
+	return AuthenticationResult{State: AuthenticationFailed, Err: err}
+}
+
+// TerminalFailed returns a result indicating credentials were present but rejected,
+// and no further authenticators should be tried.
+func TerminalFailed() AuthenticationResult {
+	return AuthenticationResult{State: AuthenticationFailed, Terminal: true}
+}
+
+// TerminalFailedWithErr returns a result indicating credentials were present but rejected,
+// with an associated error for logging/classification, and no further authenticators should be tried.
+func TerminalFailedWithErr(err error) AuthenticationResult {
+	return AuthenticationResult{State: AuthenticationFailed, Err: err, Terminal: true}
+}
+
+// Succeeded returns a result indicating successful authentication with the augmented request.
+func Succeeded(r *http.Request) AuthenticationResult {
+	return AuthenticationResult{Request: r, State: AuthenticationSucceeded}
+}
+
+// AuthenticationErrorResult returns a result indicating an internal/dependency failure.
+func AuthenticationErrorResult(err error) AuthenticationResult {
+	return AuthenticationResult{State: AuthenticationError, Err: err}
+}
+
 // Authenticator is the common interface implemented by all request authenticators.
 type Authenticator interface {
 	// Authenticate is used to authenticate incoming HTTP requests.
-	// The Authenticator may augment the request with user info or anything related to the
-	// authentication and return the augmented request.
-	Authenticate(*http.Request) (*http.Request, bool)
+	// The Authenticator returns a typed result indicating whether the request was
+	// authenticated, not applicable, failed, or encountered an error.
+	Authenticate(*http.Request) AuthenticationResult
 }
 
 type authenticationChallengeSuppressor interface {
@@ -81,15 +163,35 @@ func Authentication(auths []Authenticator, opts ...Option) func(next http.Handle
 			}
 
 			suppressAuthenticationChallenge := false
+			var terminalResult AuthenticationResult
 			for _, a := range auths {
-				if req, ok := a.Authenticate(r); ok {
+				result := a.Authenticate(r)
+				if result.State == AuthenticationSucceeded {
 					span.End()
-					next.ServeHTTP(w, req)
+					next.ServeHTTP(w, result.Request)
 					return
 				}
 				if suppressor, ok := a.(authenticationChallengeSuppressor); ok && suppressor.SuppressAuthenticationChallenge(r) {
 					suppressAuthenticationChallenge = true
 				}
+				if result.Terminal && result.State != AuthenticationSucceeded {
+					terminalResult = result
+					break
+				}
+			}
+
+			// Handle terminal failures with error details (e.g., expired guest sessions).
+			if terminalResult.State != AuthenticationNotApplicable {
+				// Clear any cookies specified in the terminal result.
+				for _, cookieName := range terminalResult.CookiesToClear {
+					http.SetCookie(w, clearGuestCookie(cookieName))
+				}
+				if renderErr := renderTerminalFailure(w, r, terminalResult); renderErr != nil {
+					options.Logger.Error().Err(renderErr).Str("authenticator", "terminal_failure_renderer").Msg("Failed to render terminal failure response")
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+				return
 			}
 
 			if !suppressAuthenticationChallenge && !isPublicPath(r.URL.Path) {
@@ -224,4 +326,89 @@ func getTraceProvider(o Options) trace.TracerProvider {
 		return o.TraceProvider
 	}
 	return trace.NewNoopTracerProvider()
+}
+
+// renderTerminalFailure renders the appropriate response for a terminal authentication failure.
+// Returns nil on success, or an error if rendering fails.
+func renderTerminalFailure(w http.ResponseWriter, r *http.Request, result AuthenticationResult) error {
+	// Check for structured error details (e.g., expired guest sessions).
+	if result.ErrorDetails != nil {
+		return renderErrorDetails(w, r, result.ErrorDetails)
+	}
+
+	// Default: generic 401 without challenges.
+	if !webdav.IsWebdavRequest(r) {
+		w.WriteHeader(http.StatusUnauthorized)
+		return nil
+	}
+
+	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+	w.WriteHeader(http.StatusUnauthorized)
+	return webdav.Encode(w, webdav.Exception{
+		Code:    webdav.SabredavNotAuthenticated,
+		Message: "Authentication error",
+	})
+}
+
+// renderErrorDetails renders a response based on structured error details.
+func renderErrorDetails(w http.ResponseWriter, r *http.Request, details ErrorDetails) error {
+	switch d := details.(type) {
+	case GuestSessionExpiredDetails:
+		if webdav.IsWebdavRequest(r) {
+			return renderDAVExpired(w, d.PermissionID)
+		}
+		return renderJSONExpired(w, d.PermissionID)
+	default:
+		w.WriteHeader(http.StatusUnauthorized)
+		return nil
+	}
+}
+
+// renderJSONExpired writes a structured JSON response for expired guest sessions.
+func renderJSONExpired(w http.ResponseWriter, permissionID string) error {
+	resp := struct {
+		ErrorType    string `json:"error_type"`
+		Message      string `json:"message"`
+		PermissionID string `json:"permissionId"`
+	}{
+		ErrorType:    "session_expired",
+		Message:      "Your session has expired.",
+		PermissionID: permissionID,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusUnauthorized)
+	return json.NewEncoder(w).Encode(resp)
+}
+
+// renderDAVExpired writes a SabreDAV-compatible XML response for expired guest sessions.
+func renderDAVExpired(w http.ResponseWriter, permissionID string) error {
+	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+	w.WriteHeader(http.StatusUnauthorized)
+	return webdav.EncodeXML(w, davExpiredResponse{
+		XmlnsD:    "DAV",
+		XmlnsS:    "http://sabredav.org/ns",
+		Exception: "Sabre\\DAV\\Exception\\NotAuthenticated",
+		Message:   "Guest session has expired.",
+		Details: davExpiredDetails{
+			XmlnsOpenCloud: "http://opencloud.org/ns",
+			ErrorType:      "session_expired",
+			ShareID:        permissionID,
+		},
+	})
+}
+
+type davExpiredResponse struct {
+	XMLName   xml.Name          `xml:"d:error"`
+	XmlnsD    string            `xml:"xmlns:d,attr"`
+	XmlnsS    string            `xml:"xmlns:s,attr"`
+	Exception string            `xml:"s:Exception"`
+	Message   string            `xml:"s:Message"`
+	Details   davExpiredDetails `xml:"opencloud:details"`
+}
+
+type davExpiredDetails struct {
+	XmlnsOpenCloud string `xml:"xmlns:opencloud,attr"`
+	ErrorType      string `xml:"opencloud:error_type"`
+	ShareID        string `xml:"opencloud:share_id"`
 }

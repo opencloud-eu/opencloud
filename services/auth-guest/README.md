@@ -41,7 +41,7 @@ sequenceDiagram
     Redeem->>+Reva: Get Share
     Reva->>-Redeem: Share
     Note right of Redeem: Validate Share, Mark Token used
-    Redeem->>-Web: Set Cookie, return shareid 
+    Redeem->>-Web: Set Cookie, return shareid
     Note right of Web: HTTP only cookie with signed JWT (JWT lifetime 24h)
     Web->>+Proxy: "/graph/me/drives/sharedWithMe"
     Proxy->>+Reva: validate token extracted from JWT
@@ -91,7 +91,8 @@ the event consumer, set `AUTH_GUEST_HTTP_DISABLED=true`.
 
 Relevant options:
 
-- `AUTH_GUEST_JWT_SECRET` — secret used to sign session tokens.
+- `AUTH_GUEST_SESSION_JWT_SECRET` — secret used to sign guest session tokens.
+  It must differ from `OC_JWT_SECRET`.
 - `AUTH_GUEST_JWT_COOKIE_NAME`, `AUTH_GUEST_JWT_TTL` — session cookie name and
   lifetime.
 - `AUTH_GUEST_TOKENS_STORAGE_ROOT` — where guest link token records are stored.

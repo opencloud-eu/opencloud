@@ -15,7 +15,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest/mocks"
-	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/storage"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/token"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -84,12 +83,6 @@ func TestRedeemHandlerErrorMapping(t *testing.T) {
 			wantType:   "tokenInvalid",
 		},
 		{
-			name:       "token not found",
-			err:        &authguest.RedeemError{ErrorType: storage.ErrNotFound},
-			wantStatus: http.StatusNotFound,
-			wantType:   "tokenNotFound",
-		},
-		{
 			name:       "token already redeemed",
 			err:        &authguest.RedeemError{ErrorType: authguest.ErrAlreadyRedeemed},
 			wantStatus: http.StatusConflict,
@@ -128,6 +121,17 @@ func TestRedeemHandlerErrorMapping(t *testing.T) {
 			assert.Equal(t, tt.wantPermission, resp.PermissionID)
 		})
 	}
+}
+
+func TestRedeemHandlerBodyTooLarge(t *testing.T) {
+	svcMock := mocks.NewAuthGuest(t)
+
+	body := `{"token":"` + strings.Repeat("a", maxRedeemBodySize) + `"}`
+	rr := httptest.NewRecorder()
+	newRedeemHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body)))
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+	svcMock.AssertNotCalled(t, "Redeem", mock.Anything, mock.Anything)
 }
 
 func TestRedeemHandlerMalformedBody(t *testing.T) {

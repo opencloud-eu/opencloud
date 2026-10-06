@@ -12,6 +12,10 @@ import (
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
 )
 
+// maxRedeemBodySize limits the body of the unauthenticated redeem request. A
+// token is about 90 bytes, so this leaves plenty of room for the JSON wrapping.
+const maxRedeemBodySize = 4 << 10
+
 // RedeemRequest is the request body for token redemption.
 type RedeemRequest struct {
 	Token string `json:"token"`
@@ -24,6 +28,8 @@ type redeemResponse struct {
 // RedeemHandler validates the token submitted to the redeem endpoint.
 func RedeemHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Config) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxRedeemBodySize)
+
 		var req RedeemRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			log.Debug().Err(err).Msg("request body is malformed")

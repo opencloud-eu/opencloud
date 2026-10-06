@@ -134,19 +134,26 @@ func (s *AuthGuestService) CleanupShare(shareID string) error {
 }
 
 // VerifyToken validates a token and returns its stored record.
+//
+// Until the secret has been verified, all failures are reported as
+// token.ErrInvalidToken without a share id, so that a caller holding only part
+// of a token learns neither the share id nor whether a record exists.
 func (s *AuthGuestService) verifyToken(tokenString string) (*storage.Record, error) {
 	tok, err := s.tokenSvc.Parse(tokenString)
 	if err != nil {
-		return nil, &RedeemError{ErrorType: err}
+		return nil, &RedeemError{ErrorType: token.ErrInvalidToken}
 	}
 
 	rec, err := s.store.Get(tok.ShareIDHash)
-	if err != nil {
-		return nil, &RedeemError{ErrorType: err}
+	switch {
+	case errors.Is(err, storage.ErrNotFound), errors.Is(err, storage.ErrInvalidHash):
+		return nil, &RedeemError{ErrorType: token.ErrInvalidToken}
+	case err != nil:
+		return nil, err
 	}
 
 	if err := s.tokenSvc.Verify(*tok, rec.SecretHash); err != nil {
-		return nil, &RedeemError{ErrorType: err, ShareID: rec.ShareID}
+		return nil, &RedeemError{ErrorType: token.ErrInvalidToken}
 	}
 
 	if !rec.Expiry.IsZero() && rec.Expiry.Before(time.Now()) {

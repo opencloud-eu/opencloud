@@ -57,7 +57,12 @@ type Activitylog struct {
 // AuthGuest is the configuration for the auth-guest service
 type AuthGuest struct {
 	ServiceAccount ServiceAccount `yaml:"service_account"`
-	TokenManager   TokenManager   `yaml:"token_manager"`
+	JWT            AuthGuestJWT   `yaml:"jwt"`
+}
+
+// AuthGuestJWT is the configuration for the guest session tokens
+type AuthGuestJWT struct {
+	Secret string `yaml:"secret"`
 }
 
 // App is the configuration for the collaboration service

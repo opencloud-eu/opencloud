@@ -44,19 +44,19 @@ var _ = Describe("Authenticating requests", Label("BasicAuthenticator"), func() 
 			req := httptest.NewRequest(http.MethodGet, "http://example.com/example/path", http.NoBody)
 			req.SetBasicAuth("testuser", "testpassword")
 
-			req2, valid := authenticator.Authenticate(req)
+			result := authenticator.Authenticate(req)
 
-			Expect(valid).To(Equal(true))
-			Expect(req2).ToNot(BeNil())
+			Expect(result.State).To(Equal(AuthenticationSucceeded))
+			Expect(result.Request).ToNot(BeNil())
 		})
 		It("adds claims to the request context", func() {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com/example/path", http.NoBody)
 			req.SetBasicAuth("testuser", "testpassword")
 
-			req2, valid := authenticator.Authenticate(req)
-			Expect(valid).To(Equal(true))
+			result := authenticator.Authenticate(req)
+			Expect(result.State).To(Equal(AuthenticationSucceeded))
 
-			claims := oidc.FromContext(req2.Context())
+			claims := oidc.FromContext(result.Request.Context())
 			Expect(claims).ToNot(BeNil())
 			Expect(claims[oidc.Iss]).To(Equal("IdpId"))
 			Expect(claims[oidc.PreferredUsername]).To(Equal("testuser"))
