@@ -94,7 +94,7 @@ expired or already redeemed (the guest already redeemed an earlier link); if
 publishing fails, the previous record is restored.
 
 To turn the new credentials into a session the guest either redeems the link
-(`redeem`) or enters the PIN (`verify/pin`); both return a session cookie and
+(`verify/token`) or enters the PIN (`verify/pin`); both return a session cookie and
 the `permissionId`. `verify/pin` does not consume the link token.
 
 ```mermaid
@@ -135,8 +135,7 @@ sequenceDiagram
    the hash of the share id. It then publishes the `GuestTokenCreated` event
    with the token.
 2. **Redeem** — the guest posts the token to
-   `POST /graph/v1beta1/extensions/org.libregraph/guestLinks/redeem` (alias
-   `.../guestLinks/verify/token`).
+   `POST /graph/v1beta1/extensions/org.libregraph/guestLinks/verify/token`.
    The service validates the token and the share, marks the token as used and
    returns a signed JWT session token in a cookie plus the share's
    `permissionId` in the response body. Tokens are single-use and valid for
@@ -165,9 +164,7 @@ sequenceDiagram
 All error responses have the body
 `{ "errorType": "<type>", "message": "<msg>", "permissionId": "<share-id>" }`.
 
-#### `POST .../guestLinks/redeem`
-
-Alias: `.../guestLinks/verify/token`
+#### `POST .../guestLinks/verify/token`
 
 - **Request body:** `{ "token": "<token>" }`
 - **Success:** `200`, session cookie,
@@ -209,7 +206,7 @@ events and serves the HTTP endpoints. Either transport can be disabled:
   (no tokens are created or cleaned up) and `renew` cannot publish its event,
   so it responds with `503 serviceUnavailable`.
 - `AUTH_GUEST_HTTP_DISABLED=true` — the service does not serve the HTTP
-  endpoints (`redeem`, `renew`, `verify/pin`).
+  endpoints (`verify/token`, `renew`, `verify/pin`).
 
 The token and PIN lifetimes are fixed (30 minutes each) and are not
 configurable.
