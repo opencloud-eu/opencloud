@@ -316,10 +316,6 @@ func (s *AuthGuestService) verifyRenewToken(shareID, tokenString string) error {
 }
 
 // VerifyToken validates a token and returns its stored record.
-//
-// Until the secret has been verified, all failures are reported as
-// token.ErrInvalidToken without a share id, so that a caller holding only part
-// of a token learns neither the share id nor whether a record exists.
 func (s *AuthGuestService) verifyToken(tokenString string) (*storage.Record, error) {
 	tok, err := s.tokenSvc.Parse(tokenString)
 	if err != nil {
