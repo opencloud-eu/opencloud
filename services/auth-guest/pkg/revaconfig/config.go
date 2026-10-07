@@ -27,7 +27,7 @@ func GuestLinksConfigFromStruct(cfg *config.Config) map[string]any {
 					"auth_managers": map[string]any{
 						"guestlinks": map[string]any{
 							"gateway_addr":           cfg.RevaGateway,
-							"jwt_secret":             cfg.JWT.Secret,
+							"jwt_secret":             cfg.SessionSecret(),
 							"service_account_id":     cfg.ServiceAccount.ServiceAccountID,
 							"service_account_secret": cfg.ServiceAccount.ServiceAccountSecret,
 						},
