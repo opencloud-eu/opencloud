@@ -10,7 +10,7 @@ import (
 	"image/jpeg"
 	"image/png"
 
-	"github.com/opencloud-eu/opencloud/services/webdav/pkg/generator"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/preprocessor"
 )
 
 // encodeForUpload turns the value produced by the preprocessing step into
@@ -19,7 +19,9 @@ import (
 func encodeForUpload(v any, mimeType string) ([]byte, string, error) {
 	switch data := v.(type) {
 	case []byte:
-		return data, generator.MimeToExt(mimeType), nil
+		return data, mimeType, nil
+	case preprocessor.Encoded:
+		return data.Data, data.ContentType, nil
 	case image.Image:
 		var (
 			buf bytes.Buffer
@@ -27,16 +29,16 @@ func encodeForUpload(v any, mimeType string) ([]byte, string, error) {
 		)
 		if mimeType == "image/jpeg" || mimeType == "image/jpg" {
 			err = jpeg.Encode(&buf, data, &jpeg.Options{Quality: 85})
-			return buf.Bytes(), "jpg", err
+			return buf.Bytes(), "image/jpeg", err
 		}
 		err = png.Encode(&buf, data)
-		return buf.Bytes(), "png", err
+		return buf.Bytes(), "image/png", err
 	case *gif.GIF:
 		var buf bytes.Buffer
 		if err := gif.EncodeAll(&buf, data); err != nil {
 			return nil, "", fmt.Errorf("encode gif: %w", err)
 		}
-		return buf.Bytes(), "gif", nil
+		return buf.Bytes(), "image/gif", nil
 	default:
 		return nil, "", fmt.Errorf("unsupported converted type %T", v)
 	}
