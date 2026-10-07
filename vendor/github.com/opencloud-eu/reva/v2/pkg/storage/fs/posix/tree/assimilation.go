@@ -67,7 +67,7 @@ type queueItem struct {
 	timer *time.Timer
 }
 
-const dirtyFlag = prefixes.OcPrefix + "dirty"
+func dirtyFlag() string { return prefixes.OcPrefix + "dirty" }
 
 type assimilationNode struct {
 	path    string
@@ -601,10 +601,11 @@ func (t *Tree) assimilate(item scanItem) error {
 					})
 				} else {
 					t.PublishEvent(events.UploadReady{
-						FileRef:   ref,
-						ParentID:  parentResourceID,
-						Timestamp: utils.TSNow(),
-						IsVersion: true,
+						FileRef:    ref,
+						ParentID:   parentResourceID,
+						ResourceID: ref.ResourceId,
+						Timestamp:  utils.TSNow(),
+						IsVersion:  true,
 					})
 				}
 			}
@@ -671,10 +672,11 @@ func (t *Tree) assimilate(item scanItem) error {
 				})
 			} else {
 				t.PublishEvent(events.UploadReady{
-					FileRef:   ref,
-					ParentID:  parentId,
-					Timestamp: utils.TSNow(),
-					IsVersion: false,
+					FileRef:    ref,
+					ParentID:   parentId,
+					ResourceID: ref.ResourceId,
+					Timestamp:  utils.TSNow(),
+					IsVersion:  false,
 				})
 			}
 		}
@@ -1088,11 +1090,11 @@ func (t *Tree) propagateSizeDiff(n *node.Node, size int64) error {
 }
 
 func (t *Tree) setDirty(path string, dirty bool) error {
-	return xattr.Set(path, dirtyFlag, []byte(fmt.Sprintf("%t", dirty)))
+	return xattr.Set(path, dirtyFlag(), []byte(fmt.Sprintf("%t", dirty)))
 }
 
 func (t *Tree) isDirty(path string) (bool, error) {
-	dirtyAttr, err := xattr.Get(path, dirtyFlag)
+	dirtyAttr, err := xattr.Get(path, dirtyFlag())
 	if err != nil {
 		if metadata.IsAttrUnset(err) {
 			return true, nil

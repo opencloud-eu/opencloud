@@ -51,6 +51,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/aspects"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/lookup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/options"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/permissions"
@@ -144,6 +145,10 @@ func NewDefault(m map[string]interface{}, bs node.Blobstore, es events.Stream, l
 
 	o, err := options.New(m)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := prefixes.SetOcPrefix(o.MetadataPrefix); err != nil {
 		return nil, err
 	}
 
@@ -414,6 +419,11 @@ func (fs *Decomposedfs) handlePostprocessingEvent(ctx context.Context, event eve
 						OpaqueId:  session.SpaceID(),
 					},
 					Path: utils.MakeRelativePath(filepath.Join(session.Dir(), session.Filename())),
+				},
+				ResourceID: &provider.ResourceId{
+					StorageId: session.ProviderID(),
+					SpaceId:   session.SpaceID(),
+					OpaqueId:  session.NodeID(),
 				},
 				ParentID:          parentId,
 				Timestamp:         utils.TimeToTS(now),

@@ -183,12 +183,21 @@ type UploadReady struct {
 	SpaceOwner        *user.UserId
 	ExecutingUser     *user.User
 	ImpersonatingUser *user.User
-	FileRef           *provider.Reference
-	ParentID          *provider.ResourceId
-	Timestamp         *types.Timestamp
-	Failed            bool
-	IsVersion         bool
-	// add reference here? We could use it to inform client pp is finished
+	// FileRef is a legacy reference to the uploaded file and its shape depends on
+	// the producer: decomposedfs anchors it at the space root
+	// (ResourceId.OpaqueId == SpaceId, with a Path relative to that anchor), while
+	// the posix assimilation emits the file node ID with an empty Path. Neither
+	// OpaqueId nor Path can be relied on universally, so treat Path as optional
+	// and use ResourceID to identify the file.
+	FileRef  *provider.Reference
+	ParentID *provider.ResourceId
+	// ResourceID identifies the uploaded file: OpaqueId is the node ID. It mirrors
+	// BytesReceived and is the only file reference every producer sets the same
+	// way, so id based consumers (Graph API, fileid lookups) should use it.
+	ResourceID *provider.ResourceId
+	Timestamp  *types.Timestamp
+	Failed     bool
+	IsVersion  bool
 }
 
 // Unmarshal to fulfill umarshaller interface
