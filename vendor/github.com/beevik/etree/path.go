@@ -475,8 +475,8 @@ func (f *filterPos) apply(p *pather) {
 			p.scratch = append(p.scratch, p.candidates[f.index])
 		}
 	} else {
-		if -f.index <= len(p.candidates) {
-			p.scratch = append(p.scratch, p.candidates[len(p.candidates)+f.index])
+		if i := len(p.candidates) + f.index; i >= 0 {
+			p.scratch = append(p.scratch, p.candidates[i])
 		}
 	}
 	p.candidates, p.scratch = p.scratch, p.candidates[0:0]
