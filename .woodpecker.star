@@ -3413,6 +3413,10 @@ def tikaService():
         # tika 4 discovers its plugins relative to the image working directory,
         # the workspace default would leave the pipes fetchers empty
         "directory": "/opt/tika-server",
+        "environment": {
+            # the thumbnail preset ships inert, this activates it
+            "TIKA_PRESETS": "thumbnail",
+        },
         "detach": True,
     }, {
         "name": "wait-for-tika-service",
