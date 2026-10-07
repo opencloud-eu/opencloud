@@ -5,4 +5,7 @@ services:
       - tika
     command: tika:9998
   tika:
-    image: apache/tika:4.0.0-full
+    image: apache/tika:4.1.0-full
+    command: ['-c', '/tika-config.json']
+    volumes:
+      - ../../../config/woodpecker/tika-config.json:/tika-config.json

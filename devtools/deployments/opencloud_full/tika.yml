@@ -3,6 +3,10 @@ services:
   tika:
     image: ${TIKA_IMAGE:-apache/tika:latest-full}
     # release notes: https://tika.apache.org
+    # the thumbnail preset ships inert; the config is what activates it
+    command: ['-c', '/tika-config.json']
+    volumes:
+      - ./config/tika/tika-config.json:/tika-config.json
     networks:
       opencloud-net:
     restart: always
@@ -13,5 +17,6 @@ services:
     environment:
       # fulltext search
       SEARCH_EXTRACTOR_TYPE: tika
-      SEARCH_EXTRACTOR_TIKA_TIKA_URL: http://tika:9998
+      # the search extractor and the webdav thumbnailer both read it
+      OC_TIKA_URL: http://tika:9998
       FRONTEND_FULL_TEXT_SEARCH_ENABLED: "true"
