@@ -14,6 +14,7 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/tw"
+	"github.com/shamaton/msgpack/v2"
 	"github.com/spf13/cobra"
 
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
@@ -27,7 +28,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/lookup"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
@@ -343,6 +343,11 @@ func DeleteStaleProcessingNodes(cfg *config.Config) *cobra.Command {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// the command reads the node metadata itself, without starting the driver that sets the prefix
+			if err := prefixes.SetOcPrefix(cfg.Drivers.Decomposed.MetadataPrefix); err != nil {
+				return err
+			}
+
 			spaceIDs := []string{}
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
 			verbose, _ := cmd.Flags().GetBool("verbose")
@@ -456,14 +461,19 @@ func deleteStaleUploads(cfg *config.Config, spaceID string, dryRun bool, verbose
 func deleteStaleNode(cfg *config.Config, path string, dryRun bool, verbose bool, stream events.Stream) int {
 	nodeDir := filepath.Dir(path)
 
-	// the backend maps a foreign metadata prefix back to the native keys
-	attribs, err := metadata.MessagePackBackend{}.WithPrefix(cfg.Drivers.Decomposed.MetadataPrefix).AllFromPath(context.Background(), strings.TrimSuffix(path, ".mpk"))
+	// Read .mpk file to get processing info
+	b, err := os.ReadFile(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading metadata %s: %s\n", path, err)
+		fmt.Fprintf(os.Stderr, "Error reading file %s: %s\n", path, err)
+		return 0
+	}
+	var mpkData map[string]any
+	if err := msgpack.Unmarshal(b, &mpkData); err != nil {
+		fmt.Fprintf(os.Stderr, "Error unmarshaling file %s: %s\n", path, err)
 		return 0
 	}
 
-	processingID := extractProcessingID(attribs)
+	processingID := extractProcessingID(mpkData)
 	if processingID == "" {
 		return 0
 	}
@@ -515,12 +525,16 @@ func deleteStaleNode(cfg *config.Config, path string, dryRun bool, verbose bool,
 	return 1
 }
 
-func extractProcessingID(attribs map[string][]byte) string {
-	status := string(attribs[prefixes.StatusPrefix])
-	if !strings.Contains(status, node.ProcessingStatus) {
-		return ""
+func extractProcessingID(mpkData map[string]any) string {
+	processingID := ""
+	for k, v := range mpkData {
+		vStr := string(v.([]byte))
+		if k == prefixes.StatusPrefix && strings.Contains(vStr, node.ProcessingStatus) {
+			processingID = strings.Split(vStr, ":")[1]
+			break
+		}
 	}
-	return strings.Split(status, ":")[1]
+	return processingID
 }
 
 func extractResourceID(path string) *provider.ResourceId {

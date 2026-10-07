@@ -30,19 +30,17 @@ import (
 	"time"
 
 	"github.com/google/renameio/v2"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/cache"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/pkg/xattr"
 	"github.com/rogpeppe/go-internal/lockedfile"
 	"github.com/vmihailenco/msgpack/v5"
 	"go.opentelemetry.io/otel/codes"
-
-	"github.com/opencloud-eu/reva/v2/pkg/storage/cache"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 )
 
 // MessagePackBackend persists the attributes in messagepack format inside the file
 type MessagePackBackend struct {
 	metaCache cache.FileMetadataCache
-	prefix    string
 }
 
 // NewMessagePackBackend returns a new MessagePackBackend instance
@@ -54,46 +52,6 @@ func NewMessagePackBackend(o cache.Config) MessagePackBackend {
 
 // Name returns the name of the backend
 func (MessagePackBackend) Name() string { return "messagepack" }
-
-// WithPrefix returns a copy of the backend that translates between the given
-// on-disk attribute key prefix.
-func (b MessagePackBackend) WithPrefix(prefix string) MessagePackBackend {
-	if prefix == prefixes.OcPrefix {
-		prefix = ""
-	}
-
-	b.prefix = prefix
-	return b
-}
-
-func (b MessagePackBackend) fromDisk(attribs map[string][]byte) map[string][]byte {
-	if b.prefix == "" {
-		return attribs
-	}
-	return translate(attribs, b.prefix, prefixes.OcPrefix)
-}
-
-func (b MessagePackBackend) toDisk(attribs map[string][]byte) map[string][]byte {
-	if b.prefix == "" {
-		return attribs
-	}
-	return translate(attribs, prefixes.OcPrefix, b.prefix)
-}
-
-func translate(attribs map[string][]byte, from, to string) map[string][]byte {
-	out := make(map[string][]byte, len(attribs))
-	for k, v := range attribs {
-		if strings.HasPrefix(k, from) {
-			out[to+k[len(from):]] = v
-		}
-	}
-	for k, v := range attribs {
-		if !strings.HasPrefix(k, from) {
-			out[k] = v
-		}
-	}
-	return out
-}
 
 // IdentifyPath returns the id and mtime of a file
 func (b MessagePackBackend) IdentifyPath(_ context.Context, path string) (string, string, string, time.Time, error) {
@@ -113,7 +71,6 @@ func (b MessagePackBackend) IdentifyPath(_ context.Context, path string) (string
 	if err != nil {
 		return "", "", "", time.Time{}, err
 	}
-	attribs = b.fromDisk(attribs)
 
 	spaceID := attribs[prefixes.IDAttr]
 	id := attribs[prefixes.IDAttr]
@@ -130,23 +87,6 @@ func (b MessagePackBackend) IdentifyPath(_ context.Context, path string) (string
 // All reads all extended attributes for a node
 func (b MessagePackBackend) All(ctx context.Context, n MetadataNode) (map[string][]byte, error) {
 	return b.loadAttributes(ctx, n)
-}
-
-// AllFromPath reads all attributes of the node at the given path directly
-// from disk, without cache or lock.
-func (b MessagePackBackend) AllFromPath(_ context.Context, path string) (map[string][]byte, error) {
-	metaPath := filepath.Clean(path + ".mpk")
-	msgBytes, err := os.ReadFile(metaPath)
-	if err != nil {
-		return nil, err
-	}
-	attribs := map[string][]byte{}
-	if len(msgBytes) > 0 {
-		if err := msgpack.Unmarshal(msgBytes, &attribs); err != nil {
-			return nil, err
-		}
-	}
-	return b.fromDisk(attribs), nil
 }
 
 // Get an extended attribute value for the given key
@@ -236,7 +176,6 @@ func (b MessagePackBackend) saveAttributes(ctx context.Context, n MetadataNode, 
 		if err != nil {
 			return err
 		}
-		attribs = b.fromDisk(attribs)
 	}
 
 	// prepare metadata
@@ -247,7 +186,7 @@ func (b MessagePackBackend) saveAttributes(ctx context.Context, n MetadataNode, 
 		delete(attribs, key)
 	}
 	var d []byte
-	d, err = msgpack.Marshal(b.toDisk(attribs))
+	d, err = msgpack.Marshal(attribs)
 	if err != nil {
 		return err
 	}
@@ -309,7 +248,6 @@ func (b MessagePackBackend) loadAttributes(ctx context.Context, n MetadataNode) 
 		if err != nil {
 			return nil, err
 		}
-		attribs = b.fromDisk(attribs)
 	}
 
 	_, subspan = tracer.Start(ctx, "metaCache.PushToCache")

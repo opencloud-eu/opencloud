@@ -100,6 +100,7 @@ func Posix(cfg *config.Config, enableFSScan, enableFSWatch bool) map[string]any 
 		"scan_debounce_delay":         cfg.Drivers.Posix.ScanDebounceDelay,
 		"max_quota":                   cfg.Drivers.Posix.MaxQuota,
 		"disable_versioning":          cfg.Drivers.Posix.DisableVersioning,
+		"metadata_prefix":             cfg.Drivers.Posix.MetadataPrefix,
 		"multi_tenant_enabled":        cfg.Commons.MultiTenantEnabled,
 		"propagator":                  cfg.Drivers.Posix.Propagator,
 		"async_propagator_options": map[string]any{

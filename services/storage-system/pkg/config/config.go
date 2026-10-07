@@ -73,7 +73,7 @@ type DecomposedDriver struct {
 
 	MaxAcquireLockCycles    int    `yaml:"max_acquire_lock_cycles" env:"STORAGE_SYSTEM_OC_MAX_ACQUIRE_LOCK_CYCLES" desc:"When trying to lock files, OpenCloud will try this amount of times to acquire the lock before failing. After each try it will wait for an increasing amount of time. Values of 0 or below will be ignored and the default value of 20 will be used." introductionVersion:"1.0.0"`
 	LockCycleDurationFactor int    `yaml:"lock_cycle_duration_factor" env:"STORAGE_SYSTEM_OC_LOCK_CYCLE_DURATION_FACTOR" desc:"When trying to lock files, OpenCloud will multiply the cycle with this factor and use it as a millisecond timeout. Values of 0 or below will be ignored and the default value of 30 will be used." introductionVersion:"1.0.0"`
-	MetadataPrefix          string `yaml:"metadata_prefix" env:"STORAGE_SYSTEM_OC_METADATA_PREFIX" desc:"The attribute key prefix of the metadata on disk. Defaults to the native 'user.oc.' prefix." introductionVersion:"%%NEXT%%"`
+	MetadataPrefix          string `yaml:"metadata_prefix" env:"OC_METADATA_PREFIX" desc:"The attribute key prefix of the metadata on disk. Defaults to the native 'user.oc.' prefix. It applies to all storage drivers of the instance, they must share the prefix because it is set process wide." introductionVersion:"%%NEXT%%"`
 }
 
 // Cache holds cache config

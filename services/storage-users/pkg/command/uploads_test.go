@@ -81,30 +81,20 @@ func TestBuildInfo(t *testing.T) {
 	}
 }
 
-func TestDeleteStaleNodeMetadataPrefix(t *testing.T) {
-	testCases := []struct {
-		alias   string
-		prefix  string
-		diskKey string
-	}{
-		{alias: "native prefix", prefix: "", diskKey: "user.oc.nodestatus"},
-		{alias: "foreign prefix", prefix: "user.foreign.", diskKey: "user.foreign.nodestatus"},
-	}
+func TestDeleteStaleNodesHonoursMetadataPrefix(t *testing.T) {
+	root := t.TempDir()
+	nodePath := filepath.Join(root, "spaces", "ab", "cdef", "nodes", "12", "34", "56", "78", "-9abc")
+	require.NoError(t, os.MkdirAll(filepath.Dir(nodePath), 0700))
 
-	for _, tc := range testCases {
-		t.Run(tc.alias, func(t *testing.T) {
-			root := t.TempDir()
-			nodePath := filepath.Join(root, "spaces", "ab", "cdef", "nodes", "12", "34", "56", "78", "-9abc")
-			require.NoError(t, os.MkdirAll(filepath.Dir(nodePath), 0700))
+	b, err := msgpack.Marshal(map[string][]byte{"user.foreign.nodestatus": []byte("processing:upload-1")})
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(nodePath+".mpk", b, 0600))
 
-			b, err := msgpack.Marshal(map[string][]byte{tc.diskKey: []byte("processing:upload-1")})
-			require.NoError(t, err)
-			require.NoError(t, os.WriteFile(nodePath+".mpk", b, 0600))
-
-			cfg := &config.Config{Drivers: config.Drivers{Decomposed: config.DecomposedDriver{Root: root, MetadataPrefix: tc.prefix}}}
-			require.Equal(t, 1, deleteStaleNode(cfg, nodePath+".mpk", true, false, nil))
-		})
-	}
+	// the prefix is process wide, this test fixes it for the whole package
+	cfg := &config.Config{Drivers: config.Drivers{Decomposed: config.DecomposedDriver{Root: root, MetadataPrefix: "user.foreign."}}}
+	cmd := DeleteStaleProcessingNodes(cfg)
+	require.NoError(t, cmd.RunE(cmd, nil))
+	require.Equal(t, 1, deleteStaleNode(cfg, nodePath+".mpk", true, false, nil))
 }
 
 func boolPtr(b bool) *bool {

@@ -22,7 +22,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"math"
 	"os"
 	"path/filepath"
@@ -31,14 +30,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"maps"
+
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	v1beta11 "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
-	"github.com/pkg/errors"
-	"github.com/vmihailenco/msgpack/v5"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/opencloud-eu/reva/v2/internal/grpc/services/storageprovider"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	ocsconv "github.com/opencloud-eu/reva/v2/pkg/conversions"
@@ -48,13 +45,15 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	sdk "github.com/opencloud-eu/reva/v2/pkg/sdk/common"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/permissions"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/templates"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/pkg/errors"
+	"github.com/vmihailenco/msgpack/v5"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -842,22 +841,17 @@ func (fs *Decomposedfs) DeleteStorageSpace(ctx context.Context, req *provider.De
 				return nil
 			}
 
-			var m map[string][]byte
-			if mpb, ok := fs.lu.MetadataBackend().(metadata.MessagePackBackend); ok {
-				m, err = mpb.AllFromPath(ctx, strings.TrimSuffix(path, ".mpk"))
-			} else {
-				var b []byte
-				b, err = os.ReadFile(path)
-				if err == nil {
-					m = map[string][]byte{}
-					err = msgpack.Unmarshal(b, &m)
-				}
-			}
+			b, err := os.ReadFile(path)
 			if err != nil {
 				return err
 			}
 
-			bid := m[prefixes.BlobIDAttr]
+			m := map[string][]byte{}
+			if err := msgpack.Unmarshal(b, &m); err != nil {
+				return err
+			}
+
+			bid := m["user.oc.blobid"]
 			if string(bid) == "" {
 				return nil
 			}
