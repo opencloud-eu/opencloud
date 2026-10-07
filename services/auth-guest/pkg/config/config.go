@@ -5,7 +5,7 @@ package config
 
 import (
 	"context"
-	"crypto/hmac"
+	"crypto/hkdf"
 	"crypto/sha256"
 	"encoding/hex"
 	"time"
@@ -101,22 +101,30 @@ type JWT struct {
 	TTL        time.Duration `yaml:"ttl" env:"AUTH_GUEST_JWT_TTL" desc:"The lifetime of a redeemed guest session token." introductionVersion:"%%NEXT%%"`
 }
 
-// sessionSecretLabel binds the derived guest session key to its purpose. Changing it
-// invalidates all existing guest sessions.
-const sessionSecretLabel = "opencloud auth-guest session jwt v1"
+const (
+	// sessionSecretInfo binds the derived guest session key to its purpose. Changing it
+	// invalidates all existing guest sessions.
+	sessionSecretInfo = "opencloud auth-guest session jwt v1"
+	// sessionSecretLength is the length of the derived key in bytes.
+	sessionSecretLength = 32
+)
 
 // SessionSecret returns the key used to sign and validate guest session tokens.
 // The guest session token and the reva access token are both HS256 JWTs, so they must
 // not share a key, otherwise they would be interchangeable. The key is derived from the
-// reva JWT secret to keep them apart without requiring an additional secret.
+// reva JWT secret with HKDF-SHA256 to keep them apart without requiring an additional
+// secret.
 //
 // An empty reva secret yields an empty session key rather than a key anyone could
-// compute from the label alone. The guestlinks auth manager refuses an empty key.
+// compute from the info string alone. The guestlinks auth manager refuses an empty key.
 func (c *Config) SessionSecret() string {
 	if c.TokenManager == nil || c.TokenManager.JWTSecret == "" {
 		return ""
 	}
-	mac := hmac.New(sha256.New, []byte(c.TokenManager.JWTSecret))
-	mac.Write([]byte(sessionSecretLabel))
-	return hex.EncodeToString(mac.Sum(nil))
+	key, err := hkdf.Key(sha256.New, []byte(c.TokenManager.JWTSecret), nil, sessionSecretInfo, sessionSecretLength)
+	if err != nil {
+		// Only possible for an invalid key length, which is a constant here.
+		return ""
+	}
+	return hex.EncodeToString(key)
 }
