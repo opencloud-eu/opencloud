@@ -14,8 +14,13 @@ go_library(
     deps = [
         "//internal/ecutil",
         "//internal/keyconv",
-        "//internal/pool",
         "//jwa",
         "//jws/internal/keytype",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":legacy",
+    visibility = ["//visibility:public"],
 )

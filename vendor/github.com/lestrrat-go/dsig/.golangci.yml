@@ -1,0 +1,14 @@
+version: "2"
+
+# The linter set is golangci-lint's default. The point of this file is the
+# formatters block below: without it nothing checked gofmt, and the drift that
+# allowed put a closing code fence on the same line as a line of Go, which
+# broke half of README.md once the doc generator started running.
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  # Report every unformatted file. The default caps repeats of one message at
+  # three, which would hide the tail of exactly this kind of sweep.
+  max-same-issues: 0

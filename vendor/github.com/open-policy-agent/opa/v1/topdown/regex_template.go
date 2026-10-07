@@ -67,25 +67,16 @@ func delimiterIndices(s string, delimiterStart, delimiterEnd byte) ([]int, error
 	return idxs, nil
 }
 
-// compileRegexTemplate parses a template and returns a Regexp.
-//
-// You can define your own delimiters. It is e.g. common to use curly braces {} but I recommend using characters
-// which have no special meaning in Regex, e.g.: <, >
-//
-//	reg, err := compiler.CompileRegex("foo:bar.baz:<[0-9]{2,10}>", '<', '>')
-//	// if err != nil ...
-//	reg.MatchString("foo:bar.baz:123")
-func compileRegexTemplate(tpl string, delimiterStart, delimiterEnd byte) (*regexp.Regexp, error) {
+// generateRegexTemplate creates and returns the pattern string compiled by
+// compileRegexTemplate().
+func generateRegexTemplate(tpl string, delimiterStart, delimiterEnd byte) (string, error) {
 	// Check if it is well-formed.
 	idxs, errBraces := delimiterIndices(tpl, delimiterStart, delimiterEnd)
 	if errBraces != nil {
-		return nil, errBraces
+		return "", errBraces
 	}
 	varsR := make([]*regexp.Regexp, len(idxs)/2)
-	pattern := bytes.NewBufferString("")
-
-	// WriteByte's error value is always nil for bytes.Buffer, no need to check it.
-	pattern.WriteByte('^')
+	pattern := bytes.NewBufferString("^")
 
 	var end int
 	var err error
@@ -99,7 +90,7 @@ func compileRegexTemplate(tpl string, delimiterStart, delimiterEnd byte) (*regex
 		fmt.Fprintf(pattern, "%s(%s)", regexp.QuoteMeta(raw), patt)
 		varsR[varIdx], err = regexp.Compile(fmt.Sprintf("^%s$", patt))
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 	}
 
@@ -112,11 +103,23 @@ func compileRegexTemplate(tpl string, delimiterStart, delimiterEnd byte) (*regex
 	// WriteByte's error value is always nil for bytes.Buffer, no need to check it.
 	pattern.WriteByte('$')
 
-	// Compile full regexp.
-	reg, errCompile := regexp.Compile(pattern.String())
-	if errCompile != nil {
-		return nil, errCompile
+	return pattern.String(), nil
+}
+
+// compileRegexTemplate parses a template and returns a Regexp.
+//
+// You can define your own delimiters. It is e.g. common to use curly braces {} but I recommend using characters
+// which have no special meaning in Regex, e.g.: <, >
+//
+//	reg, err := compiler.CompileRegex("foo:bar.baz:<[0-9]{2,10}>", '<', '>')
+//	// if err != nil ...
+//	reg.MatchString("foo:bar.baz:123")
+func compileRegexTemplate(tpl string, delimiterStart, delimiterEnd byte) (*regexp.Regexp, error) {
+	pattern, err := generateRegexTemplate(tpl, delimiterStart, delimiterEnd)
+	if err != nil {
+		return nil, err
 	}
 
-	return reg, nil
+	// Compile full regexp.
+	return regexp.Compile(pattern)
 }

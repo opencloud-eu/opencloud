@@ -91,6 +91,76 @@ func (ss *saveSet) containsrec(t *ast.Term, b *bindings) bool {
 	return found
 }
 
+// ContainsOverlapping is a conservative Contains: it also reports terms that
+// may refer to an unknown once resolved, like input[k] when input.x is unknown.
+// Callers saving whole expressions need it; evalTerm saves per branch instead.
+func (ss *saveSet) ContainsOverlapping(t *ast.Term, b *bindings) bool {
+	if ss == nil {
+		return false
+	}
+	ss.instr.startTimer(partialOpSaveSetContains)
+	defer ss.instr.stopTimer(partialOpSaveSetContains)
+
+	other, ok := t.Value.(ast.Ref)
+	if !ok {
+		return ss.contains(t, b)
+	}
+
+	for el := ss.l.Back(); el != nil; el = el.Prev() {
+		elem := el.Value.(*saveSetElem)
+		for _, ref := range elem.refs {
+			if refsMayOverlap(ref, other) {
+				return true
+			}
+		}
+		if elem.containsVar(other[0], b) {
+			return true
+		}
+	}
+	return false
+}
+
+// Covers reports whether an unknown sits at or above path, i.e. the whole
+// sub-document is unknown. Directional half of Contains: input.z.a being
+// unknown leaves input.z.b known, so a walk through input.z keeps descending.
+func (ss *saveSet) Covers(path ast.Ref) bool {
+	if ss == nil {
+		return false
+	}
+	for el := ss.l.Back(); el != nil; el = el.Prev() {
+		if slices.ContainsFunc(el.Value.(*saveSetElem).refs, path.HasPrefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// Keys returns the ground keys unknowns contribute directly below prefix. With
+// input.x unknown and input = {"y": 2}, iterating input[k] must still produce a
+// branch for k = "x". A non-ground prefix matches no unknown, hence no keys.
+func (ss *saveSet) Keys(prefix ast.Ref) []*ast.Term {
+	if ss == nil {
+		return nil
+	}
+
+	var keys []*ast.Term
+	for el := ss.l.Back(); el != nil; el = el.Prev() {
+		for _, ref := range el.Value.(*saveSetElem).refs {
+			if len(ref) <= len(prefix) || !ref.HasPrefix(prefix) {
+				continue
+			}
+			k := ref[len(prefix)]
+			if !k.IsGround() {
+				continue
+			}
+			if !slices.ContainsFunc(keys, k.Equal) {
+				keys = append(keys, k)
+			}
+		}
+	}
+	return keys
+}
+
 func (ss *saveSet) Vars(caller *bindings) ast.VarSet {
 	result := ast.NewVarSet()
 	for x := ss.l.Front(); x != nil; x = x.Next() {
@@ -156,6 +226,31 @@ func (sse *saveSetElem) Contains(t *ast.Term, b *bindings) bool {
 		return sse.containsVar(other[0], b)
 	}
 	return false
+}
+
+// refsMayOverlap returns true if ref (an unknown) and other could refer to the
+// same document. Non-ground positions act as wildcards: input[k] may hit
+// input.x. Heads are exempt -- ref[0] names a root doc, not an unbound position.
+func refsMayOverlap(ref, other ast.Ref) bool {
+	if len(ref) == 0 || len(other) == 0 {
+		return true
+	}
+
+	if !ref[0].Equal(other[0]) {
+		return false
+	}
+
+	for i, n := 1, min(len(ref), len(other)); i < n; i++ {
+		// Two ground positions that differ are the only thing ruling an overlap
+		// out; a non-ground position on either side acts as a wildcard. `other`
+		// is the side carrying variables, so test its groundness first.
+		x, y := ref[i], other[i]
+		if !x.Equal(y) && y.IsGround() && x.IsGround() {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (sse *saveSetElem) String() string {
@@ -275,11 +370,7 @@ func newSaveSupport() *saveSupport {
 }
 
 func (s *saveSupport) List() []*ast.Module {
-	result := make([]*ast.Module, 0, len(s.modules))
-	for _, module := range s.modules {
-		result = append(result, module)
-	}
-	return result
+	return util.Values(s.modules)
 }
 
 func (s *saveSupport) Exists(path ast.Ref) bool {
@@ -378,18 +469,22 @@ func saveRequired(compilerTree *ast.TreeNode, extStack *externalTreeStack, ic *i
 					found = true
 				}
 			case ast.Ref:
-				if ss.Contains(node, b) {
+				if ss.ContainsOverlapping(node, b) {
 					found = true
 				} else if ic.Disabled(v.ConstantPrefix(), icIgnoreInternal) {
 					found = true
 				} else {
-					rules := getRulesDynamic(compilerTree, extStack, v, ast.RulesOptions{IncludeHiddenModules: false})
-					for _, rule := range rules {
-						if saveRequired(compilerTree, extStack, ic, icIgnoreInternal, ss, b, rule, true) {
-							found = true
-							break
-						}
+					// Only terms from the call site can be plugged: once traversal
+					// recurses into a rule, that rule's variables belong to another
+					// binding list and could resolve to unrelated values in b.
+					lookup := v
+					if !rec {
+						lookup = plugRefForRuleLookup(v, b)
 					}
+					found = anyRuleDynamic(compilerTree, extStack, lookup, ast.RulesOptions{IncludeHiddenModules: false},
+						func(rule *ast.Rule) bool {
+							return saveRequired(compilerTree, extStack, ic, icIgnoreInternal, ss, b, rule, true)
+						})
 				}
 			}
 		}
@@ -401,10 +496,41 @@ func saveRequired(compilerTree *ast.TreeNode, extStack *externalTreeStack, ic *i
 	return found
 }
 
-// getRulesDynamic looks up rules in both the compiler tree and external sources.
-func getRulesDynamic(compilerTree *ast.TreeNode, extStack *externalTreeStack, ref ast.Ref, opts ast.RulesOptions) []*ast.Rule {
-	var rules []*ast.Rule
+// plugRefForRuleLookup replaces variables in ref that are bound to a scalar with
+// that value, narrowing rule lookup to the sub-tree that will actually be
+// evaluated. Positions left as-is, because they are unbound or bound to a
+// composite, fan out over all children as before.
+func plugRefForRuleLookup(ref ast.Ref, b *bindings) ast.Ref {
+	if b == nil {
+		return ref
+	}
 
+	cpy := ref
+
+	for i := 1; i < len(ref); i++ {
+		if _, ok := ref[i].Value.(ast.Var); !ok {
+			continue
+		}
+		plugged := b.Plug(ref[i])
+		if !ast.IsScalar(plugged.Value) {
+			continue
+		}
+		if len(cpy) == len(ref) && &cpy[0] == &ref[0] {
+			cpy = make(ast.Ref, len(ref))
+			copy(cpy, ref)
+		}
+		cpy[i] = plugged
+	}
+
+	return cpy
+}
+
+// anyRuleDynamic invokes f for the rules matching ref in the external trees and
+// the compiler tree, stopping as soon as f returns true. Rules are streamed to f
+// rather than collected so that callers only interested in whether *some* rule
+// satisfies a predicate don't pay for walking the whole matching sub-tree, which
+// for refs with non-constant elements can mean every rule loaded.
+func anyRuleDynamic(compilerTree *ast.TreeNode, extStack *externalTreeStack, ref ast.Ref, opts ast.RulesOptions, f func(*ast.Rule) bool) bool {
 	// Check external trees
 	if extStack != nil {
 		for i := range extStack.entries {
@@ -412,63 +538,75 @@ func getRulesDynamic(compilerTree *ast.TreeNode, extStack *externalTreeStack, re
 			if entry.tree != nil && ref.HasPrefix(entry.ref) {
 				// Navigate into the external tree using the remaining path
 				remaining := ref[len(entry.ref):]
-				rules = append(rules, getRulesFromTree(entry.tree, remaining, opts)...)
+				if anyRuleFromTree(entry.tree, remaining, opts, f) {
+					return true
+				}
 			}
 		}
 	}
 
 	// Then check compiler tree
-	rules = append(rules, getRulesFromTree(compilerTree, ref, opts)...)
-
-	return rules
+	return anyRuleFromTree(compilerTree, ref, opts, f)
 }
 
-// getRulesFromTree walks a tree to find all rules matching the given ref.
-func getRulesFromTree(node *ast.TreeNode, ref ast.Ref, opts ast.RulesOptions) []*ast.Rule {
-	set := map[*ast.Rule]struct{}{}
-	var walk func(*ast.TreeNode, int)
-	walk = func(nav *ast.TreeNode, i int) {
+// anyRuleFromTree walks a tree to find rules matching the given ref, invoking f
+// for each and stopping early if f returns true.
+func anyRuleFromTree(node *ast.TreeNode, ref ast.Ref, opts ast.RulesOptions, f func(*ast.Rule) bool) bool {
+	var walk func(*ast.TreeNode, int) bool
+	walk = func(nav *ast.TreeNode, i int) bool {
 		switch {
 		case i >= len(ref):
-			nav.DepthFirst(func(descendant *ast.TreeNode) bool {
-				for _, rule := range descendant.Values {
-					set[rule] = struct{}{}
-				}
-				if opts.IncludeHiddenModules {
-					return false
-				}
-				return descendant.Hide
-			})
+			// The rules on nav itself have already been passed to f by the caller,
+			// unless nav is where the walk started.
+			return anyRuleDescendant(nav, opts, f, i == 0)
 
 		case i == 0 || ast.IsConstant(ref[i].Value):
-			if child := nav.Child(ref[i].Value); child != nil {
-				for _, rule := range child.Values {
-					set[rule] = struct{}{}
-				}
-				walk(child, i+1)
-			} else {
-				return
+			child := nav.Child(ref[i].Value)
+			if child == nil {
+				return false
 			}
+			return anyRule(child.Values, f) || walk(child, i+1)
 
 		default:
 			for _, child := range nav.Children {
 				if child.Hide && !opts.IncludeHiddenModules {
 					continue
 				}
-				for _, rule := range child.Values {
-					set[rule] = struct{}{}
+				if anyRule(child.Values, f) || walk(child, i+1) {
+					return true
 				}
-				walk(child, i+1)
 			}
+			return false
 		}
 	}
 
-	walk(node, 0)
-	rules := make([]*ast.Rule, 0, len(set))
-	for rule := range set {
-		rules = append(rules, rule)
+	return walk(node, 0)
+}
+
+// anyRuleDescendant invokes f for every rule in node's sub-tree, stopping early
+// if f returns true. The rules on node itself are only visited if visitSelf is
+// set. Hidden nodes are not descended into unless opts.IncludeHiddenModules is
+// set.
+func anyRuleDescendant(node *ast.TreeNode, opts ast.RulesOptions, f func(*ast.Rule) bool, visitSelf bool) bool {
+	if visitSelf && anyRule(node.Values, f) {
+		return true
 	}
-	return rules
+
+	if node.Hide && !opts.IncludeHiddenModules {
+		return false
+	}
+
+	for _, child := range node.Children {
+		if anyRuleDescendant(child, opts, f, true) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func anyRule(rules []*ast.Rule, f func(*ast.Rule) bool) bool {
+	return slices.ContainsFunc(rules, f)
 }
 
 func ignoreExprDuringPartial(expr *ast.Expr) bool {

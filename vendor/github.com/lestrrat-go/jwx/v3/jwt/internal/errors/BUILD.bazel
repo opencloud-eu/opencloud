@@ -2,9 +2,7 @@ load("@rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "errors",
-    srcs = [
-        "errors.go",
-    ],
+    srcs = ["errors.go"],
     importpath = "github.com/lestrrat-go/jwx/v3/jwt/internal/errors",
     visibility = ["//jwt:__subpackages__"],
 )

@@ -2,13 +2,21 @@
 
 ## Supported Versions
 
-Most recent two major versions will receive security updates
+Security fixes are published for the versions marked below. The
+[State of support](https://github.com/lestrrat-go/jwx/discussions/1079)
+discussion is the canonical, up-to-date statement; this table summarizes it.
 
 | Version  | Supported          |
 | -------- | ------------------ |
-| v3.x.x   | :white_check_mark: |
-| v2.x.x   | :white_check_mark: |
-| < v2.0.0 | :x:                |
+| v4.x.x   | :white_check_mark: Current release |
+| v3.x.x   | :white_check_mark: Previous release; receives regular fixes |
+| v2.x.x   | :x: Unmaintained. Do not use |
+| v1.x.x   | :x: Unmaintained. Do not use |
+| < v1.0.0 | :x: Unmaintained. Do not use |
+
+Unmaintained versions receive no fixes of any kind, including for issues
+already fixed in a supported version. Each advisory names the versions that
+carry the fix; a version not named there stays affected.
 
 ## Reporting a Vulnerability
 

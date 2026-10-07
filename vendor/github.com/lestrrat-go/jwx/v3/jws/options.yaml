@@ -227,6 +227,28 @@ options:
       the key on-demand each time.
 
       By default, the key is not validated.
+  - ident: StrictECDSA
+    interface: SignOption
+    argument_type: bool
+    comment: |
+      WithStrictECDSA makes `jws.Sign()` reject anything RFC 7518 forbids for
+      an ECDSA signature. Today that is exactly one rule: Section 3.4 binds
+      ES256 to P-256, ES384 to P-384, and ES512 to P-521, so signing with a
+      key on any other curve fails instead of producing a JWS that strict
+      JOSE implementations reject.
+
+      Future releases may enforce further RFC 7518 ECDSA rules under this
+      same option, so enabling it means "be strict about ECDSA", not "check
+      the curve and nothing else".
+
+      Extension algorithms on their own curves, such as ES256K, are not
+      affected. Only the three curves the RFC names are checked.
+
+      This option is sign-side only. `jws.Verify()` is unaffected and keeps
+      inferring algorithms from a key's curve exactly as before, so a JWS
+      produced without this option still verifies.
+
+      By default, the curve is not checked.
   - ident: InferAlgorithmFromKey
     interface: WithKeySetSuboption
     argument_type: bool
