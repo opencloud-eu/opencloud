@@ -57,7 +57,12 @@ func TestRenewHandlerWithSessionCookie(t *testing.T) {
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
-	req.AddCookie(&http.Cookie{Name: testCookieName, Value: "session-token"})
+	req.AddCookie(&http.Cookie{
+		Name:     testCookieName,
+		Value:    "session-token",
+		HttpOnly: true,
+		Secure:   true,
+	})
 
 	rr := httptest.NewRecorder()
 	newRenewHandler(t, svcMock)(rr, req)

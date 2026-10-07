@@ -178,7 +178,8 @@ Alias: `.../guestLinks/verify/token`
 
 #### `POST .../guestLinks/renew`
 
-- **Request body:** `{ "permissionId": "<share-id>", "token": "<previous link token>" }`
+- **Request body:**
+  `{ "permissionId": "<share-id>", "token": "<previous link token>" }`
   (`token` optional when the session cookie is sent)
 - **Authorization:** the share id is required; the body link token or the
   session cookie must belong to it, the link token takes precedence
