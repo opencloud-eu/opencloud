@@ -176,7 +176,8 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				{Email: libregraph.PtrString("guest@example.com")},
 			}
 			createShareResponse.Share = &collaboration.Share{
-				Id: &collaboration.ShareId{OpaqueId: "guest123"},
+				Id:      &collaboration.ShareId{OpaqueId: "guest123"},
+				Grantee: guestGrantee("guest@example.com"),
 			}
 
 			permission, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
@@ -185,6 +186,23 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Expect(permission.GrantedToV2.User.GetDisplayName()).To(Equal("guest@example.com"))
 			Expect(permission.GrantedToV2.User.GetId()).To(Equal("guest@example.com"))
 			Expect(permission.GrantedToV2.User.GetLibreGraphUserType()).To(Equal("Guest"))
+		})
+
+		It("returns the guest id as stored by the share provider", func() {
+			cfg.Commons = &shared.Commons{EnableGuestLinks: true}
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
+			gatewayClient.On("CreateShare", mock.Anything, mock.Anything).Return(createShareResponse, nil)
+			driveItemInvite.Recipients = []libregraph.DriveRecipient{
+				{Email: libregraph.PtrString("Guest@\u0130nfocorp.com")},
+			}
+			createShareResponse.Share = &collaboration.Share{
+				Id:      &collaboration.ShareId{OpaqueId: "guest123"},
+				Grantee: guestGrantee("guest@xn--infocorp-o0e.com"),
+			}
+
+			permission, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(permission.GrantedToV2.User.GetId()).To(Equal("guest@xn--infocorp-o0e.com"))
 		})
 
 		It("rejects guest shares when guest invites are disabled by default", func() {
@@ -1477,3 +1495,12 @@ var _ = Describe("DriveItemPermissionsApi", func() {
 		})
 	})
 })
+
+func guestGrantee(mail string) *provider.Grantee {
+	return &provider.Grantee{
+		Type: provider.GranteeType_GRANTEE_TYPE_USER,
+		Id: &provider.Grantee_UserId{
+			UserId: &userpb.UserId{Type: userpb.UserType_USER_TYPE_GUEST, OpaqueId: mail},
+		},
+	}
+}

@@ -20,7 +20,6 @@ package usershareprovider
 
 import (
 	"context"
-	"net/mail"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -184,13 +183,15 @@ func (s *service) CreateShare(ctx context.Context, req *collaboration.CreateShar
 
 		if req.GetGrant().GetGrantee().GetUserId().GetType() == userpb.UserType_USER_TYPE_GUEST {
 			// guests are identified by their mail address, lets be strict here and only accept bare mail addresses
-			// and reject the "Mailbox"-Format that also contains a Display name
-			addr, err := mail.ParseAddress(req.GetGrant().GetGrantee().GetUserId().GetOpaqueId())
-			if err != nil || addr.Name != "" {
+			// and store them in their canonical form
+			guestID := req.GetGrant().GetGrantee().GetUserId()
+			canonical, err := utils.CanonicalMail(guestID.GetOpaqueId())
+			if err != nil {
 				return &collaboration.CreateShareResponse{
-					Status: status.NewInvalidArg(ctx, "invalid mail address for guest grantee"),
+					Status: status.NewInvalidArg(ctx, "invalid mail address for guest grantee: "+err.Error()),
 				}, nil
 			}
+			guestID.OpaqueId = canonical
 		}
 	}
 	gatewayClient, err := s.gatewaySelector.Next()
