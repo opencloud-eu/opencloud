@@ -160,7 +160,7 @@ func newShareService(t *testing.T, gwc *cs3mocks.GatewayAPIClient) *AuthGuestSer
 	)
 }
 
-func newRedeemService(t *testing.T, store storage.Manager, gwc *cs3mocks.GatewayAPIClient) *AuthGuestService {
+func newAuthGuestService(t *testing.T, store storage.Manager, gwc *cs3mocks.GatewayAPIClient) *AuthGuestService {
 	t.Helper()
 	return NewAuthGuestService(
 		token.NewTokenService(),
@@ -303,18 +303,18 @@ func TestValidateShare(t *testing.T) {
 	}
 }
 
-func TestRedeem(t *testing.T) {
+func TestVerifyTokenSuccess(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
 	tok, rec := newToken(t)
 	require.NoError(t, store.Add(rec))
 
 	share := &collaboration.Share{Id: &collaboration.ShareId{OpaqueId: testShareID}}
-	s := newRedeemService(t, store, newGatewayMock(&collaboration.GetShareResponse{
+	s := newAuthGuestService(t, store, newGatewayMock(&collaboration.GetShareResponse{
 		Status: &rpc.Status{Code: rpc.Code_CODE_OK},
 		Share:  share,
 	}))
 
-	result, err := s.Redeem(context.Background(), tok)
+	result, err := s.VerifyToken(context.Background(), tok)
 	require.NoError(t, err)
 	require.NotEmpty(t, result.SessionToken)
 	assert.Equal(t, testShareID, result.ShareID)
@@ -324,25 +324,25 @@ func TestRedeem(t *testing.T) {
 	assert.True(t, got.Redeemed)
 }
 
-func TestRedeemAlreadyRedeemed(t *testing.T) {
+func TestVerifyTokenAlreadyRedeemed(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
 	tok, rec := newToken(t)
 	rec.Redeemed = true
 	require.NoError(t, store.Add(rec))
 
 	share := &collaboration.Share{Id: &collaboration.ShareId{OpaqueId: testShareID}}
-	s := newRedeemService(t, store, newGatewayMock(&collaboration.GetShareResponse{
+	s := newAuthGuestService(t, store, newGatewayMock(&collaboration.GetShareResponse{
 		Status: &rpc.Status{Code: rpc.Code_CODE_OK},
 		Share:  share,
 	}))
 
-	_, err := s.Redeem(context.Background(), tok)
+	_, err := s.VerifyToken(context.Background(), tok)
 	var ge *GuestError
 	require.ErrorAs(t, err, &ge)
 	assert.ErrorIs(t, ge.ErrorType, ErrAlreadyRedeemed)
 }
 
-func TestRedeemConflictIsAlreadyRedeemed(t *testing.T) {
+func TestVerifyTokenConflictIsAlreadyRedeemed(t *testing.T) {
 	base := storage.NewFileManager(t.TempDir())
 	tok, rec := newToken(t)
 	require.NoError(t, base.Add(rec))
@@ -355,12 +355,12 @@ func TestRedeemConflictIsAlreadyRedeemed(t *testing.T) {
 	}
 
 	share := &collaboration.Share{Id: &collaboration.ShareId{OpaqueId: testShareID}}
-	s := newRedeemService(t, store, newGatewayMock(&collaboration.GetShareResponse{
+	s := newAuthGuestService(t, store, newGatewayMock(&collaboration.GetShareResponse{
 		Status: &rpc.Status{Code: rpc.Code_CODE_OK},
 		Share:  share,
 	}))
 
-	_, err := s.Redeem(context.Background(), tok)
+	_, err := s.VerifyToken(context.Background(), tok)
 	var ge *GuestError
 	require.ErrorAs(t, err, &ge)
 	assert.ErrorIs(t, ge.ErrorType, ErrAlreadyRedeemed)
@@ -644,7 +644,7 @@ func TestVerifyPinSuccess(t *testing.T) {
 		PinExpiry:   time.Now().Add(time.Minute),
 	}))
 
-	s := newRedeemService(t, store, newGatewayMock(&collaboration.GetShareResponse{
+	s := newAuthGuestService(t, store, newGatewayMock(&collaboration.GetShareResponse{
 		Status: &rpc.Status{Code: rpc.Code_CODE_OK},
 		Share:  newGuestShare(time.Now().Add(time.Hour)),
 	}))
@@ -747,7 +747,7 @@ func TestVerifyPinErrors(t *testing.T) {
 				require.NoError(t, store.Add(tt.rec))
 			}
 
-			s := newRedeemService(t, store, newGatewayMock(tt.response))
+			s := newAuthGuestService(t, store, newGatewayMock(tt.response))
 
 			_, err := s.VerifyPin(context.Background(), testShareID, tt.pin)
 			require.Error(t, err)
@@ -780,7 +780,7 @@ func TestVerifyPinSingleUseConcurrent(t *testing.T) {
 		PinExpiry:   time.Now().Add(time.Minute),
 	}))
 
-	s := newRedeemService(t, store, newGatewayMock(&collaboration.GetShareResponse{
+	s := newAuthGuestService(t, store, newGatewayMock(&collaboration.GetShareResponse{
 		Status: &rpc.Status{Code: rpc.Code_CODE_OK},
 		Share:  newGuestShare(time.Now().Add(time.Hour)),
 	}))

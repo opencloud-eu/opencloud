@@ -12,25 +12,26 @@ import (
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
 )
 
-// maxRedeemBodySize limits the body of the unauthenticated redeem request. A
-// token is about 90 bytes, so this leaves plenty of room for the JSON wrapping.
-const maxRedeemBodySize = 4 << 10
+// maxVerifyTokenBodySize limits the body of the unauthenticated verify token
+// request. A token is about 90 bytes, so this leaves plenty of room for the
+// JSON wrapping.
+const maxVerifyTokenBodySize = 4 << 10
 
-// RedeemRequest is the request body for token redemption.
-type RedeemRequest struct {
+// VerifyTokenRequest is the request body for token verification.
+type VerifyTokenRequest struct {
 	Token string `json:"token"`
 }
 
-type redeemResponse struct {
+type sessionResponse struct {
 	PermissionID string `json:"permissionId"`
 }
 
-// RedeemHandler validates the token submitted to the redeem endpoint.
-func RedeemHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Config) func(w http.ResponseWriter, r *http.Request) {
+// VerifyTokenHandler validates the token submitted to the verify token endpoint.
+func VerifyTokenHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Config) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, maxRedeemBodySize)
+		r.Body = http.MaxBytesReader(w, r.Body, maxVerifyTokenBodySize)
 
-		var req RedeemRequest
+		var req VerifyTokenRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			log.Debug().Err(err).Msg("request body is malformed")
 			writeError(w, http.StatusBadRequest, errorResponse{ErrorType: "invalidRequest", Message: "The request body is malformed."})
@@ -43,9 +44,9 @@ func RedeemHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Config) fu
 			return
 		}
 
-		result, err := s.Redeem(r.Context(), req.Token)
+		result, err := s.VerifyToken(r.Context(), req.Token)
 		if err != nil {
-			log.Debug().Err(err).Msg("redeem failed")
+			log.Debug().Err(err).Msg("verify token failed")
 			writeGuestError(w, err)
 			return
 		}
@@ -53,7 +54,7 @@ func RedeemHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Config) fu
 		setSessionCookie(w, cfg, result.SessionToken)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(redeemResponse{PermissionID: result.ShareID})
+		_ = json.NewEncoder(w).Encode(sessionResponse{PermissionID: result.ShareID})
 	}
 }
 

@@ -158,12 +158,12 @@ func (_c *AuthGuest_CreateToken_Call) RunAndReturn(run func(ctx context.Context,
 	return _c
 }
 
-// Redeem provides a mock function for the type AuthGuest
-func (_mock *AuthGuest) Redeem(ctx context.Context, tokenString string) (*authguest.SessionResponse, error) {
+// VerifyToken provides a mock function for the type AuthGuest
+func (_mock *AuthGuest) VerifyToken(ctx context.Context, tokenString string) (*authguest.SessionResponse, error) {
 	ret := _mock.Called(ctx, tokenString)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Redeem")
+		panic("no return value specified for VerifyToken")
 	}
 
 	var r0 *authguest.SessionResponse
@@ -186,19 +186,19 @@ func (_mock *AuthGuest) Redeem(ctx context.Context, tokenString string) (*authgu
 	return r0, r1
 }
 
-// AuthGuest_Redeem_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Redeem'
-type AuthGuest_Redeem_Call struct {
+// AuthGuest_VerifyToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'VerifyToken'
+type AuthGuest_VerifyToken_Call struct {
 	*mock.Call
 }
 
-// Redeem is a helper method to define mock.On call
+// VerifyToken is a helper method to define mock.On call
 //   - ctx context.Context
 //   - tokenString string
-func (_e *AuthGuest_Expecter) Redeem(ctx any, tokenString any) *AuthGuest_Redeem_Call {
-	return &AuthGuest_Redeem_Call{Call: _e.mock.On("Redeem", ctx, tokenString)}
+func (_e *AuthGuest_Expecter) VerifyToken(ctx any, tokenString any) *AuthGuest_VerifyToken_Call {
+	return &AuthGuest_VerifyToken_Call{Call: _e.mock.On("VerifyToken", ctx, tokenString)}
 }
 
-func (_c *AuthGuest_Redeem_Call) Run(run func(ctx context.Context, tokenString string)) *AuthGuest_Redeem_Call {
+func (_c *AuthGuest_VerifyToken_Call) Run(run func(ctx context.Context, tokenString string)) *AuthGuest_VerifyToken_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -216,12 +216,12 @@ func (_c *AuthGuest_Redeem_Call) Run(run func(ctx context.Context, tokenString s
 	return _c
 }
 
-func (_c *AuthGuest_Redeem_Call) Return(sessionResponse *authguest.SessionResponse, err error) *AuthGuest_Redeem_Call {
+func (_c *AuthGuest_VerifyToken_Call) Return(sessionResponse *authguest.SessionResponse, err error) *AuthGuest_VerifyToken_Call {
 	_c.Call.Return(sessionResponse, err)
 	return _c
 }
 
-func (_c *AuthGuest_Redeem_Call) RunAndReturn(run func(ctx context.Context, tokenString string) (*authguest.SessionResponse, error)) *AuthGuest_Redeem_Call {
+func (_c *AuthGuest_VerifyToken_Call) RunAndReturn(run func(ctx context.Context, tokenString string) (*authguest.SessionResponse, error)) *AuthGuest_VerifyToken_Call {
 	_c.Call.Return(run)
 	return _c
 }

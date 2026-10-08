@@ -18,7 +18,7 @@ type VerifyPinRequest struct {
 	PermissionID string `json:"permissionId"`
 }
 
-type verifyPinResponse = redeemResponse
+type verifyPinResponse = sessionResponse
 
 // VerifyPinHandler validates the PIN submitted to the verify pin endpoint.
 func VerifyPinHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Config) func(w http.ResponseWriter, r *http.Request) {

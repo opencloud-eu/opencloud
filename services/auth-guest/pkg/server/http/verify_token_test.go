@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newRedeemHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc {
+func newVerifyTokenHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc {
 	t.Helper()
 	cfg := &config.Config{
 		JWT: config.JWT{
@@ -30,18 +30,18 @@ func newRedeemHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc {
 			TTL:        time.Hour,
 		},
 	}
-	return RedeemHandler(log.NopLogger(), svc, cfg)
+	return VerifyTokenHandler(log.NopLogger(), svc, cfg)
 }
 
-func TestRedeemHandler(t *testing.T) {
+func TestVerifyTokenHandler(t *testing.T) {
 	svcMock := mocks.NewAuthGuest(t)
-	svcMock.On("Redeem", mock.Anything, "valid-token").Return(&authguest.SessionResponse{SessionToken: "session-token", ShareID: "share-1"}, nil)
+	svcMock.On("VerifyToken", mock.Anything, "valid-token").Return(&authguest.SessionResponse{SessionToken: "session-token", ShareID: "share-1"}, nil)
 
-	body, err := json.Marshal(RedeemRequest{Token: "valid-token"})
+	body, err := json.Marshal(VerifyTokenRequest{Token: "valid-token"})
 	require.NoError(t, err)
 
 	rr := httptest.NewRecorder()
-	newRedeemHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body))))
+	newVerifyTokenHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body))))
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
@@ -57,12 +57,12 @@ func TestRedeemHandler(t *testing.T) {
 	assert.True(t, cookie.Secure)
 	assert.Equal(t, "/", cookie.Path)
 
-	var resp redeemResponse
+	var resp sessionResponse
 	require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
 	assert.Equal(t, "share-1", resp.PermissionID)
 }
 
-func TestRedeemHandlerErrorMapping(t *testing.T) {
+func TestVerifyTokenHandlerErrorMapping(t *testing.T) {
 	tests := []struct {
 		name           string
 		err            error
@@ -112,13 +112,13 @@ func TestRedeemHandlerErrorMapping(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svcMock := mocks.NewAuthGuest(t)
-			svcMock.On("Redeem", mock.Anything, "token").Return(nil, tt.err)
+			svcMock.On("VerifyToken", mock.Anything, "token").Return(nil, tt.err)
 
-			body, err := json.Marshal(RedeemRequest{Token: "token"})
+			body, err := json.Marshal(VerifyTokenRequest{Token: "token"})
 			require.NoError(t, err)
 
 			rr := httptest.NewRecorder()
-			newRedeemHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body))))
+			newVerifyTokenHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body))))
 
 			assert.Equal(t, tt.wantStatus, rr.Code)
 
@@ -130,22 +130,22 @@ func TestRedeemHandlerErrorMapping(t *testing.T) {
 	}
 }
 
-func TestRedeemHandlerBodyTooLarge(t *testing.T) {
+func TestVerifyTokenHandlerBodyTooLarge(t *testing.T) {
 	svcMock := mocks.NewAuthGuest(t)
 
-	body := `{"token":"` + strings.Repeat("a", maxRedeemBodySize) + `"}`
+	body := `{"token":"` + strings.Repeat("a", maxVerifyTokenBodySize) + `"}`
 	rr := httptest.NewRecorder()
-	newRedeemHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body)))
+	newVerifyTokenHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body)))
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
-	svcMock.AssertNotCalled(t, "Redeem", mock.Anything, mock.Anything)
+	svcMock.AssertNotCalled(t, "VerifyToken", mock.Anything, mock.Anything)
 }
 
-func TestRedeemHandlerMalformedBody(t *testing.T) {
+func TestVerifyTokenHandlerMalformedBody(t *testing.T) {
 	svcMock := mocks.NewAuthGuest(t)
 
 	rr := httptest.NewRecorder()
-	newRedeemHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader("not-json")))
+	newVerifyTokenHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader("not-json")))
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 
@@ -154,14 +154,14 @@ func TestRedeemHandlerMalformedBody(t *testing.T) {
 	assert.Equal(t, "invalidRequest", resp.ErrorType)
 }
 
-func TestRedeemHandlerMissingToken(t *testing.T) {
+func TestVerifyTokenHandlerMissingToken(t *testing.T) {
 	svcMock := mocks.NewAuthGuest(t)
 
-	body, err := json.Marshal(RedeemRequest{})
+	body, err := json.Marshal(VerifyTokenRequest{})
 	require.NoError(t, err)
 
 	rr := httptest.NewRecorder()
-	newRedeemHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body))))
+	newVerifyTokenHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body))))
 
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 
