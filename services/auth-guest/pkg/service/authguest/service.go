@@ -55,7 +55,7 @@ type SessionResponse struct {
 // AuthGuest is the domain service used by the transport and event layers.
 type AuthGuest interface {
 	CreateToken(ctx context.Context, shareID string) (*token.Token, error)
-	Redeem(ctx context.Context, tokenString string) (*SessionResponse, error)
+	VerifyToken(ctx context.Context, tokenString string) (*SessionResponse, error)
 	Renew(ctx context.Context, shareID, tokenString, sessionToken string) error
 	VerifyPin(ctx context.Context, shareID, pinValue string) (*SessionResponse, error)
 	CleanupShare(shareID string) error
@@ -108,9 +108,9 @@ func (s *AuthGuestService) CreateToken(ctx context.Context, shareID string) (*to
 	return tok, nil
 }
 
-// Redeem validates a token and its share and exchanges them for a session token
-// and the share id.
-func (s *AuthGuestService) Redeem(ctx context.Context, tokenString string) (*SessionResponse, error) {
+// VerifyToken validates a token and its share and exchanges them for a session
+// token and the share id.
+func (s *AuthGuestService) VerifyToken(ctx context.Context, tokenString string) (*SessionResponse, error) {
 	rec, err := s.verifyToken(tokenString)
 	if err != nil {
 		return nil, err
