@@ -72,6 +72,7 @@ type AuthGuestService struct {
 	serviceAccount  config.ServiceAccount
 	jwtService      *jwt.JwtService
 	publisher       revaevents.Publisher
+	challenge       config.Challenge
 }
 
 func NewAuthGuestService(tokenSvc *token.TokenService, store storage.Manager, opts ...Option) *AuthGuestService {
@@ -87,6 +88,7 @@ func NewAuthGuestService(tokenSvc *token.TokenService, store storage.Manager, op
 		serviceAccount:  o.ServiceAccount,
 		jwtService:      o.JWT,
 		publisher:       o.Publisher,
+		challenge:       o.Challenge,
 	}
 }
 
@@ -185,6 +187,7 @@ func (s *AuthGuestService) Renew(ctx context.Context, shareID, tokenString, sess
 		rec.PinHash = pinHash
 		rec.Expiry = now.Add(guestLinkTokenTTL)
 		rec.PinExpiry = now.Add(guestPinTTL)
+		rec.ChallengeExpiry = now.Add(s.challenge.TTL)
 		rec.Redeemed = false
 		return nil
 	})
@@ -232,6 +235,10 @@ func (s *AuthGuestService) VerifyPin(ctx context.Context, shareID, pinValue stri
 			return ErrPinExpired
 		}
 
+		if !rec.ChallengeExpiry.IsZero() && rec.ChallengeExpiry.Before(time.Now()) {
+			return ErrPinExpired
+		}
+
 		ok, err := pin.Verify(pinValue, rec.PinHash)
 		if err != nil || !ok {
 			return ErrPinInvalid
@@ -239,6 +246,7 @@ func (s *AuthGuestService) VerifyPin(ctx context.Context, shareID, pinValue stri
 
 		rec.PinHash = ""
 		rec.PinExpiry = time.Time{}
+		rec.ChallengeExpiry = time.Time{}
 
 		return nil
 	})

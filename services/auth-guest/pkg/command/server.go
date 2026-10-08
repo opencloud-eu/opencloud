@@ -104,6 +104,7 @@ func Server(cfg *config.Config) *cobra.Command {
 				authguest.ServiceAccount(cfg.ServiceAccount),
 				authguest.JWT(jwtService),
 				authguest.EventsPublisher(evStream),
+				authguest.Challenge(cfg.Challenge),
 			)
 
 			if !cfg.HTTP.Disabled {

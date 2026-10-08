@@ -660,6 +660,7 @@ func TestVerifyPinSuccess(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, got.PinHash)
 	assert.True(t, got.PinExpiry.IsZero())
+	assert.True(t, got.ChallengeExpiry.IsZero())
 }
 
 func TestVerifyPinErrors(t *testing.T) {
@@ -677,6 +678,13 @@ func TestVerifyPinErrors(t *testing.T) {
 		ShareIDHash: token.Hash(testShareID),
 		PinHash:     pinHash,
 		PinExpiry:   time.Now().Add(-time.Minute),
+	}
+	challengeExpiredRecord := storage.Record{
+		ShareID:         testShareID,
+		ShareIDHash:     token.Hash(testShareID),
+		PinHash:         pinHash,
+		PinExpiry:       time.Now().Add(time.Minute),
+		ChallengeExpiry: time.Now().Add(-time.Minute),
 	}
 	noPinRecord := storage.Record{ShareID: testShareID, ShareIDHash: token.Hash(testShareID)}
 
@@ -704,6 +712,13 @@ func TestVerifyPinErrors(t *testing.T) {
 			name:     "expired pin",
 			pin:      "123456",
 			rec:      expiredRecord,
+			response: validShare,
+			wantErr:  ErrPinExpired,
+		},
+		{
+			name:     "expired challenge",
+			pin:      "123456",
+			rec:      challengeExpiredRecord,
 			response: validShare,
 			wantErr:  ErrPinExpired,
 		},

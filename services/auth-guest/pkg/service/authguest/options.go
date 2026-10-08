@@ -19,6 +19,7 @@ type Options struct {
 	ServiceAccount  config.ServiceAccount
 	JWT             *jwt.JwtService
 	Publisher       events.Publisher
+	Challenge       config.Challenge
 }
 
 // GatewaySelector adds a grpc client selector for the gateway service
@@ -46,5 +47,12 @@ func JWT(m *jwt.JwtService) Option {
 func EventsPublisher(p events.Publisher) Option {
 	return func(o *Options) {
 		o.Publisher = p
+	}
+}
+
+// Challenge configures the PIN challenge for the auth-guest service
+func Challenge(challenge config.Challenge) Option {
+	return func(o *Options) {
+		o.Challenge = challenge
 	}
 }

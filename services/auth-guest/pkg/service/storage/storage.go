@@ -22,6 +22,15 @@ type Record struct {
 	PinExpiry   time.Time `json:"pinexpiry,omitzero"`
 	Redeemed    bool      `json:"redeemed"`
 	Revision    uint64    `json:"revision"`
+
+	// The following fields are needed for rate limiting.
+	ChallengeNonceHash string    `json:"challengenoncehash,omitempty"`
+	ChallengeExpiry    time.Time `json:"challengeexpiry,omitzero"`
+	PinFailures        int       `json:"pinfailures,omitempty"`
+	PinNotBefore       time.Time `json:"pinnotbefore,omitzero"`
+	LastRenewAt        time.Time `json:"lastrenewat,omitzero"`
+	RenewCount         int       `json:"renewcount,omitempty"`
+	RenewWindowStart   time.Time `json:"renewwindowstart,omitzero"`
 }
 
 type Manager interface {

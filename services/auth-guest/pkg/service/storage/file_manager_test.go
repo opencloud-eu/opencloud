@@ -40,6 +40,28 @@ func TestFileManagerAddGet(t *testing.T) {
 	assert.Equal(t, rec, *got)
 }
 
+func TestFileManagerChallengeAndRenewFieldsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
+	rec.PinHash = "pinhash"
+	rec.PinExpiry = time.Date(2026, 2, 3, 4, 5, 6, 0, time.UTC)
+	rec.ChallengeNonceHash = "noncehash"
+	rec.ChallengeExpiry = time.Date(2026, 2, 3, 4, 5, 9, 0, time.UTC)
+	rec.PinFailures = 2
+	rec.PinNotBefore = time.Date(2026, 2, 3, 4, 5, 7, 0, time.UTC)
+	rec.LastRenewAt = time.Date(2026, 2, 3, 4, 5, 8, 0, time.UTC)
+	rec.RenewCount = 3
+	rec.RenewWindowStart = time.Date(2026, 2, 3, 0, 0, 0, 0, time.UTC)
+
+	require.NoError(t, s.Add(rec))
+
+	got, err := s.Get(rec.ShareIDHash)
+	require.NoError(t, err)
+	assert.Equal(t, rec, *got)
+}
+
 func TestFileManagerGetMissing(t *testing.T) {
 	dir := t.TempDir()
 	s := NewFileManager(dir)
