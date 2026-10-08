@@ -4,19 +4,20 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @aduffeck, @maki5, @rhafer, @v-scharf
+@AlexAndBear, @aduffeck, @maki5, @micbar, @rhafer, @v-scharf
 
 ### 💥 Breaking changes
 
 - feat(guestlinks)!: auth-guest service [[#3609](https://github.com/opencloud-eu/opencloud/pull/3609)]
 
+### 📈 Enhancement
+
+- feat: add more cli options to unified roles [[#3658](https://github.com/opencloud-eu/opencloud/pull/3658)]
+- feat(web): use the OpenCloud brand colors for the primary color role [[#3631](https://github.com/opencloud-eu/opencloud/pull/3631)]
+
 ### ✅ Tests
 
 - api-test: extend search tests [[#3634](https://github.com/opencloud-eu/opencloud/pull/3634)]
-
-### 📈 Enhancement
-
-- feat(web): use the OpenCloud brand colors for the primary color role [[#3631](https://github.com/opencloud-eu/opencloud/pull/3631)]
 
 ### 📦️ Dependencies
 
