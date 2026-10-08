@@ -69,7 +69,6 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 		idmServicePassword, idpServicePassword, ocAdminServicePassword, revaServicePassword  string
 		tokenManagerJwtSecret, collaborationWOPISecret, machineAuthAPIKey, systemUserAPIKey  string
 		revaTransferSecret, thumbnailsTransferSecret, serviceAccountSecret, urlSigningSecret string
-		authGuestJWTSecret                                                                   string
 		adminPasswdwordGenerated                                                             bool
 	)
 
@@ -102,13 +101,6 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 			urlSigningSecret, err = generators.GenerateRandomPassword(passwordLength)
 			if err != nil {
 				return fmt.Errorf("could not generate random secret for urlSigningSecret: %s", err)
-			}
-		}
-		authGuestJWTSecret = oldCfg.AuthGuest.JWT.Secret
-		if authGuestJWTSecret == "" {
-			authGuestJWTSecret, err = generators.GenerateRandomPassword(passwordLength)
-			if err != nil {
-				return fmt.Errorf("could not generate random secret for authGuestJWTSecret: %s", err)
 			}
 		}
 	} else {
@@ -162,10 +154,6 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 		urlSigningSecret, err = generators.GenerateRandomPassword(passwordLength)
 		if err != nil {
 			return fmt.Errorf("could not generate random secret for urlSigningSecret: %s", err)
-		}
-		authGuestJWTSecret, err = generators.GenerateRandomPassword(passwordLength)
-		if err != nil {
-			return fmt.Errorf("could not generate random secret for authGuestJWTSecret: %s", err)
 		}
 		thumbnailsTransferSecret, err = generators.GenerateRandomPassword(passwordLength)
 		if err != nil {
@@ -226,7 +214,6 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 		},
 		AuthGuest: AuthGuest{
 			ServiceAccount: serviceAccount,
-			JWT:            AuthGuestJWT{Secret: authGuestJWTSecret},
 		},
 		Users: UsersAndGroupsService{
 			Drivers: LdapBasedService{

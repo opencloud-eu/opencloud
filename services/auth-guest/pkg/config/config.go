@@ -5,6 +5,9 @@ package config
 
 import (
 	"context"
+	"crypto/hkdf"
+	"crypto/sha256"
+	"encoding/hex"
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
@@ -94,7 +97,34 @@ type TokenManager struct {
 
 // JWT defines the configuration for guest session tokens.
 type JWT struct {
-	Secret     string        `yaml:"secret" env:"AUTH_GUEST_SESSION_JWT_SECRET" desc:"The secret used to sign and validate guest session tokens. It must differ from OC_JWT_SECRET." introductionVersion:"%%NEXT%%" mask:"password"`
 	CookieName string        `yaml:"cookie_name" env:"AUTH_GUEST_JWT_COOKIE_NAME" desc:"The name of the session cookie set when a guest token is redeemed." introductionVersion:"%%NEXT%%"`
 	TTL        time.Duration `yaml:"ttl" env:"AUTH_GUEST_JWT_TTL" desc:"The lifetime of a redeemed guest session token." introductionVersion:"%%NEXT%%"`
+}
+
+const (
+	// sessionSecretInfo binds the derived guest session key to its purpose. Changing it
+	// invalidates all existing guest sessions.
+	sessionSecretInfo = "opencloud auth-guest session jwt v1"
+	// sessionSecretLength is the length of the derived key in bytes.
+	sessionSecretLength = 32
+)
+
+// SessionSecret returns the key used to sign and validate guest session tokens.
+// The guest session token and the reva access token are both HS256 JWTs, so they must
+// not share a key, otherwise they would be interchangeable. The key is derived from the
+// reva JWT secret with HKDF-SHA256 to keep them apart without requiring an additional
+// secret.
+//
+// An empty reva secret yields an empty session key rather than a key anyone could
+// compute from the info string alone. The guestlinks auth manager refuses an empty key.
+func (c *Config) SessionSecret() string {
+	if c.TokenManager == nil || c.TokenManager.JWTSecret == "" {
+		return ""
+	}
+	key, err := hkdf.Key(sha256.New, []byte(c.TokenManager.JWTSecret), nil, sessionSecretInfo, sessionSecretLength)
+	if err != nil {
+		// Only possible for an invalid key length, which is a constant here.
+		return ""
+	}
+	return hex.EncodeToString(key)
 }

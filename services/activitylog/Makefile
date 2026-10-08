@@ -1,7 +1,7 @@
 SHELL := bash
 NAME := activitylog
-OUTPUT_DIR = ./pkg/service/l10n
-TEMPLATE_FILE = ./pkg/service/l10n/activitylog.pot
+OUTPUT_DIR = ./pkg/server/http/l10n
+TEMPLATE_FILE = ./pkg/server/http/l10n/activitylog.pot
 
 ifneq (, $(shell command -v go 2> /dev/null)) # suppress `command not found warnings` for non go targets in CI
 include ../../.bingo/Variables.mk

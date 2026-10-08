@@ -91,10 +91,11 @@ the event consumer, set `AUTH_GUEST_HTTP_DISABLED=true`.
 
 Relevant options:
 
-- `AUTH_GUEST_SESSION_JWT_SECRET` — secret used to sign guest session tokens.
-  It must differ from `OC_JWT_SECRET`.
 - `AUTH_GUEST_JWT_COOKIE_NAME`, `AUTH_GUEST_JWT_TTL` — session cookie name and
   lifetime.
+- Guest session tokens are signed with a key derived from `OC_JWT_SECRET`. There
+  is no separate secret to configure; rotating `OC_JWT_SECRET` invalidates all
+  guest sessions.
 - `AUTH_GUEST_TOKENS_STORAGE_ROOT` — where guest link token records are stored.
 - `AUTH_GUEST_SERVICE_ACCOUNT_ID`, `AUTH_GUEST_SERVICE_ACCOUNT_SECRET` — service
   account used to query the gateway for share metadata.

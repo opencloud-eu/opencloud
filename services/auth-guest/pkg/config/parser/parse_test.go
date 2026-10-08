@@ -11,22 +11,18 @@ import (
 
 func TestValidate(t *testing.T) {
 	tests := []struct {
-		name          string
-		jwtSecret     string
-		sessionSecret string
-		wantErr       bool
+		name      string
+		jwtSecret string
+		wantErr   bool
 	}{
-		{name: "distinct secrets", jwtSecret: "reva-secret", sessionSecret: "session-secret"},
-		{name: "missing jwt secret", sessionSecret: "session-secret", wantErr: true},
-		{name: "missing session secret", jwtSecret: "reva-secret", wantErr: true},
-		{name: "shared secret", jwtSecret: "same-secret", sessionSecret: "same-secret", wantErr: true},
+		{name: "jwt secret set", jwtSecret: "reva-secret"},
+		{name: "missing jwt secret", wantErr: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &config.Config{
 				TokenManager: &config.TokenManager{JWTSecret: tt.jwtSecret},
-				JWT:          config.JWT{Secret: tt.sessionSecret},
 			}
 
 			err := Validate(cfg)

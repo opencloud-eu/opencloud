@@ -79,7 +79,7 @@ func Server(cfg *config.Config) *cobra.Command {
 
 			tokenSvc := token.NewTokenService()
 			store := storage.NewFileManager(cfg.Storage.RootDirectory)
-			jwtService := jwt.NewJwtService(cfg.JWT.Secret, cfg.JWT.TTL)
+			jwtService := jwt.NewJwtService(cfg.SessionSecret(), cfg.JWT.TTL)
 
 			authGuest := authguest.NewAuthGuestService(tokenSvc, store,
 				authguest.GatewaySelector(gatewaySelector),
