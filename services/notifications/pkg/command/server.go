@@ -92,6 +92,7 @@ func Server(cfg *config.Config) *cobra.Command {
 				events.SendEmailsEvent{},
 				ocEvents.ResourceMention{},
 				ocEvents.GuestTokenCreated{},
+				ocEvents.GuestTokenRenewed{},
 			}
 			registeredEvents := make(map[string]events.Unmarshaller)
 			for _, e := range evs {

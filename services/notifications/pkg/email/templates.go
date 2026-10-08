@@ -67,6 +67,25 @@ The link is only valid for 30 minutes.`),
 		CallToAction: l10n.Template(`Click here to view it: {ShareLink}`),
 	}
 
+	GuestLinkShareRenewed = MessageTemplate{
+		textTemplate: _textTemplate,
+		htmlTemplate: _htmlTemplate,
+		// GuestLinkShareRenewed email template, Subject field (resolves directly)
+		Subject: l10n.Template(`Your new link to '{ShareFolder}'`),
+		// GuestLinkShareRenewed email template, resolves via {{ .Greeting }}
+		Greeting: l10n.Template(`Hello,`),
+		// GuestLinkShareRenewed email template, resolves via {{ .MessageBody }}
+		MessageBody: l10n.Template(`A new link to "{ShareFolder}", shared with you by {ShareSharer}, has been requested.
+
+Your PIN: {SharePin}
+
+Open the link below or enter the PIN on the page where you requested the new link. The link and the PIN are personal and can only be used once. Please do not forward them.
+
+The link and the PIN are only valid for 30 minutes.`),
+		// GuestLinkShareRenewed email template, resolves via {{ .CallToAction }}
+		CallToAction: l10n.Template(`Click here to view it: {ShareLink}`),
+	}
+
 	// Spaces templates
 	SharedSpace = MessageTemplate{
 		textTemplate: _textTemplate,
@@ -166,6 +185,7 @@ var _placeholders = map[string]string{
 	"{ShareFolder}":     "{{ .ShareFolder }}",
 	"{ShareGrantee}":    "{{ .ShareGrantee }}",
 	"{ShareLink}":       "{{ .ShareLink }}",
+	"{SharePin}":        "{{ .SharePin }}",
 	"{SpaceName}":       "{{ .SpaceName }}",
 	"{SpaceGrantee}":    "{{ .SpaceGrantee }}",
 	"{SpaceSharer}":     "{{ .SpaceSharer }}",
