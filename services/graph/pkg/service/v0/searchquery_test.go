@@ -412,11 +412,51 @@ var _ = ginkgo.Describe("SearchQuery", func() {
 			Expect(rr.Body.String()).To(ContainSubstring("notSupported"))
 			Expect(rr.Body.String()).To(ContainSubstring(property))
 		},
-		ginkgo.Entry("sortProperties", `"sortProperties": [{"name": "name"}]`, "sortProperties"),
 		ginkgo.Entry("a geohash aggregation",
 			`"aggregations": [{"field": "location", "@libre.graph.geohashDefinition": {"precision": 5}}]`, "geohashDefinition"),
 		ginkgo.Entry("a nested geohash aggregation",
 			`"aggregations": [{"field": "audio.artist", "@libre.graph.subAggregations": [{"field": "location", "@libre.graph.geohashDefinition": {"precision": 5}}]}]`, "geohashDefinition"),
+	)
+
+	ginkgo.It("forwards sortProperties to the search service as order_by", func() {
+		g, captured := graphWithSearchAnswer(&searchsvc.SearchResponse{})
+		rr := postSearchQuery(g, searchQueryBody(`"sortProperties": [{"name": "photo.takenDateTime", "isDescending": true}, {"name": "name"}]`))
+		Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+
+		Expect(captured().GetOrderBy()).To(HaveLen(2))
+		Expect(captured().GetOrderBy()[0].GetName()).To(Equal("photo.takenDateTime"))
+		Expect(captured().GetOrderBy()[0].GetIsDescending()).To(BeTrue())
+		Expect(captured().GetOrderBy()[1].GetName()).To(Equal("name"))
+		Expect(captured().GetOrderBy()[1].GetIsDescending()).To(BeFalse())
+	})
+
+	ginkgo.DescribeTable("accepts sorting by scalar hit fields",
+		func(field string) {
+			g, _ := graphWithSearchAnswer(&searchsvc.SearchResponse{})
+			rr := postSearchQuery(g, searchQueryBody(fmt.Sprintf(`"sortProperties": [{"name": %q}]`, field)))
+			Expect(rr.Code).To(Equal(http.StatusOK), rr.Body.String())
+		},
+		ginkgo.Entry("name", "name"),
+		ginkgo.Entry("size", "size"),
+		ginkgo.Entry("lastModifiedDateTime", "lastModifiedDateTime"),
+		ginkgo.Entry("mimeType", "mimeType"),
+		ginkgo.Entry("photo.takenDateTime", "photo.takenDateTime"),
+		ginkgo.Entry("photo.iso", "photo.iso"),
+		ginkgo.Entry("audio.artist", "audio.artist"),
+		ginkgo.Entry("image.width", "image.width"),
+	)
+
+	ginkgo.DescribeTable("rejects sorting by unsortable fields with 400",
+		func(field string) {
+			rr := postSearchQuery(graphWithoutSearch(), searchQueryBody(fmt.Sprintf(`"sortProperties": [{"name": %q}]`, field)))
+			Expect(rr.Code).To(Equal(http.StatusBadRequest), rr.Body.String())
+			Expect(rr.Body.String()).To(ContainSubstring(field))
+		},
+		ginkgo.Entry("unknown field", "definitelyNotAField"),
+		ginkgo.Entry("multivalued field", "tags"),
+		ginkgo.Entry("internal index field name", "Mtime"),
+		ginkgo.Entry("bare audio facet", "audio"),
+		ginkgo.Entry("bare location facet", "location"),
 	)
 
 	ginkgo.It("rejects an $expand it does not know with 400", func() {

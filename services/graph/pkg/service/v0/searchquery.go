@@ -86,9 +86,6 @@ func validateSearchExpand(r *http.Request) error {
 // unsupportedProperty names a property of the spec this endpoint does not
 // evaluate yet.
 func unsupportedProperty(sr libregraph.SearchRequest) string {
-	if len(sr.SortProperties) > 0 {
-		return "sortProperties"
-	}
 	var geohash func(aggs []libregraph.AggregationOption) bool
 	geohash = func(aggs []libregraph.AggregationOption) bool {
 		for _, a := range aggs {
@@ -117,6 +114,9 @@ func searchRequestOf(sr libregraph.SearchRequest) (*searchsvc.SearchRequest, err
 	if err := validateAggregations(sr.Aggregations); err != nil {
 		return nil, err
 	}
+	if err := validateSortProperties(sr.SortProperties); err != nil {
+		return nil, err
+	}
 	aggregations := libregraphAggregationsToSearch(sr.Aggregations)
 	filters, err := aggregationFiltersToSearch(sr.AggregationFilters)
 	if err != nil {
@@ -141,6 +141,7 @@ func searchRequestOf(sr libregraph.SearchRequest) (*searchsvc.SearchRequest, err
 		PageSize:           &size,
 		Aggregations:       aggregations,
 		AggregationFilters: filters,
+		OrderBy:            libregraphSortToSearch(sr.SortProperties),
 	}, nil
 }
 
@@ -260,6 +261,34 @@ func validateAggregations(aggs []libregraph.AggregationOption) error {
 		}
 	}
 	return nil
+}
+
+// validateSortProperties rejects sorting by unknown or multivalued fields.
+// Sortable are scalar fields carried on the search hit: name, size,
+// lastModifiedDateTime, mimeType and the facet fields (photo.takenDateTime,
+// audio.artist, image.width, ...); see search.IsSortableField.
+func validateSortProperties(sortProperties []libregraph.SortProperty) error {
+	for _, sp := range sortProperties {
+		if !search.IsSortableField(sp.Name) {
+			return fmt.Errorf("field %q is not sortable; sortable are scalar hit fields such as name, size, lastModifiedDateTime, mimeType or photo.takenDateTime", sp.Name)
+		}
+	}
+	return nil
+}
+
+func libregraphSortToSearch(in []libregraph.SortProperty) []*searchsvc.SortProperty {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]*searchsvc.SortProperty, 0, len(in))
+	for _, sp := range in {
+		p := &searchsvc.SortProperty{Name: sp.Name}
+		if sp.IsDescending != nil {
+			p.IsDescending = *sp.IsDescending
+		}
+		out = append(out, p)
+	}
+	return out
 }
 
 // renderSearchError answers with the status the search service failed with.
