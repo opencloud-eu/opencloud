@@ -16,37 +16,37 @@ import (
 	"fmt"
 )
 
-// checks if the GuestLinkRedeemRequest type satisfies the MappedNullable interface at compile time
-var _ MappedNullable = &GuestLinkRedeemRequest{}
+// checks if the GuestLinkVerifyTokenRequest type satisfies the MappedNullable interface at compile time
+var _ MappedNullable = &GuestLinkVerifyTokenRequest{}
 
-// GuestLinkRedeemRequest Request body for redeeming a guest link token.
-type GuestLinkRedeemRequest struct {
+// GuestLinkVerifyTokenRequest Request body for verifying a guest link token.
+type GuestLinkVerifyTokenRequest struct {
 	// One-time guest link token received from the guest link.
 	Token string `json:"token"`
 }
 
-type _GuestLinkRedeemRequest GuestLinkRedeemRequest
+type _GuestLinkVerifyTokenRequest GuestLinkVerifyTokenRequest
 
-// NewGuestLinkRedeemRequest instantiates a new GuestLinkRedeemRequest object
+// NewGuestLinkVerifyTokenRequest instantiates a new GuestLinkVerifyTokenRequest object
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewGuestLinkRedeemRequest(token string) *GuestLinkRedeemRequest {
-	this := GuestLinkRedeemRequest{}
+func NewGuestLinkVerifyTokenRequest(token string) *GuestLinkVerifyTokenRequest {
+	this := GuestLinkVerifyTokenRequest{}
 	this.Token = token
 	return &this
 }
 
-// NewGuestLinkRedeemRequestWithDefaults instantiates a new GuestLinkRedeemRequest object
+// NewGuestLinkVerifyTokenRequestWithDefaults instantiates a new GuestLinkVerifyTokenRequest object
 // This constructor will only assign default values to properties that have it defined,
 // but it doesn't guarantee that properties required by API are set
-func NewGuestLinkRedeemRequestWithDefaults() *GuestLinkRedeemRequest {
-	this := GuestLinkRedeemRequest{}
+func NewGuestLinkVerifyTokenRequestWithDefaults() *GuestLinkVerifyTokenRequest {
+	this := GuestLinkVerifyTokenRequest{}
 	return &this
 }
 
 // GetToken returns the Token field value
-func (o *GuestLinkRedeemRequest) GetToken() string {
+func (o *GuestLinkVerifyTokenRequest) GetToken() string {
 	if o == nil {
 		var ret string
 		return ret
@@ -57,7 +57,7 @@ func (o *GuestLinkRedeemRequest) GetToken() string {
 
 // GetTokenOk returns a tuple with the Token field value
 // and a boolean to check if the value has been set.
-func (o *GuestLinkRedeemRequest) GetTokenOk() (*string, bool) {
+func (o *GuestLinkVerifyTokenRequest) GetTokenOk() (*string, bool) {
 	if o == nil {
 		return nil, false
 	}
@@ -65,11 +65,11 @@ func (o *GuestLinkRedeemRequest) GetTokenOk() (*string, bool) {
 }
 
 // SetToken sets field value
-func (o *GuestLinkRedeemRequest) SetToken(v string) {
+func (o *GuestLinkVerifyTokenRequest) SetToken(v string) {
 	o.Token = v
 }
 
-func (o GuestLinkRedeemRequest) MarshalJSON() ([]byte, error) {
+func (o GuestLinkVerifyTokenRequest) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
 		return []byte{}, err
@@ -77,13 +77,13 @@ func (o GuestLinkRedeemRequest) MarshalJSON() ([]byte, error) {
 	return json.Marshal(toSerialize)
 }
 
-func (o GuestLinkRedeemRequest) ToMap() (map[string]interface{}, error) {
+func (o GuestLinkVerifyTokenRequest) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["token"] = o.Token
 	return toSerialize, nil
 }
 
-func (o *GuestLinkRedeemRequest) UnmarshalJSON(data []byte) (err error) {
+func (o *GuestLinkVerifyTokenRequest) UnmarshalJSON(data []byte) (err error) {
 	// This validates that all required properties are included in the JSON object
 	// by unmarshalling the object into a generic map with string keys and checking
 	// that every required field exists as a key in the generic map.
@@ -105,53 +105,53 @@ func (o *GuestLinkRedeemRequest) UnmarshalJSON(data []byte) (err error) {
 		}
 	}
 
-	varGuestLinkRedeemRequest := _GuestLinkRedeemRequest{}
+	varGuestLinkVerifyTokenRequest := _GuestLinkVerifyTokenRequest{}
 
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varGuestLinkRedeemRequest)
+	err = decoder.Decode(&varGuestLinkVerifyTokenRequest)
 
 	if err != nil {
 		return err
 	}
 
-	*o = GuestLinkRedeemRequest(varGuestLinkRedeemRequest)
+	*o = GuestLinkVerifyTokenRequest(varGuestLinkVerifyTokenRequest)
 
 	return err
 }
 
-type NullableGuestLinkRedeemRequest struct {
-	value *GuestLinkRedeemRequest
+type NullableGuestLinkVerifyTokenRequest struct {
+	value *GuestLinkVerifyTokenRequest
 	isSet bool
 }
 
-func (v NullableGuestLinkRedeemRequest) Get() *GuestLinkRedeemRequest {
+func (v NullableGuestLinkVerifyTokenRequest) Get() *GuestLinkVerifyTokenRequest {
 	return v.value
 }
 
-func (v *NullableGuestLinkRedeemRequest) Set(val *GuestLinkRedeemRequest) {
+func (v *NullableGuestLinkVerifyTokenRequest) Set(val *GuestLinkVerifyTokenRequest) {
 	v.value = val
 	v.isSet = true
 }
 
-func (v NullableGuestLinkRedeemRequest) IsSet() bool {
+func (v NullableGuestLinkVerifyTokenRequest) IsSet() bool {
 	return v.isSet
 }
 
-func (v *NullableGuestLinkRedeemRequest) Unset() {
+func (v *NullableGuestLinkVerifyTokenRequest) Unset() {
 	v.value = nil
 	v.isSet = false
 }
 
-func NewNullableGuestLinkRedeemRequest(val *GuestLinkRedeemRequest) *NullableGuestLinkRedeemRequest {
-	return &NullableGuestLinkRedeemRequest{value: val, isSet: true}
+func NewNullableGuestLinkVerifyTokenRequest(val *GuestLinkVerifyTokenRequest) *NullableGuestLinkVerifyTokenRequest {
+	return &NullableGuestLinkVerifyTokenRequest{value: val, isSet: true}
 }
 
-func (v NullableGuestLinkRedeemRequest) MarshalJSON() ([]byte, error) {
+func (v NullableGuestLinkVerifyTokenRequest) MarshalJSON() ([]byte, error) {
 	return json.Marshal(v.value)
 }
 
-func (v *NullableGuestLinkRedeemRequest) UnmarshalJSON(src []byte) error {
+func (v *NullableGuestLinkVerifyTokenRequest) UnmarshalJSON(src []byte) error {
 	v.isSet = true
 	return json.Unmarshal(src, &v.value)
 }
