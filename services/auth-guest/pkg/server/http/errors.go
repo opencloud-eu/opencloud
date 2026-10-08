@@ -59,6 +59,10 @@ func writeGuestError(w http.ResponseWriter, err error) {
 		status, errorType = http.StatusUnauthorized, "pinInvalid"
 	case errors.Is(ge.ErrorType, authguest.ErrPinExpired):
 		status, errorType = http.StatusUnauthorized, "pinExpired"
+	case errors.Is(ge.ErrorType, authguest.ErrChallengeInvalid):
+		status, errorType = http.StatusUnauthorized, "challengeInvalid"
+	case errors.Is(ge.ErrorType, authguest.ErrChallengeExpired):
+		status, errorType = http.StatusUnauthorized, "challengeExpired"
 	case errors.Is(ge.ErrorType, jwt.ErrInvalidSession):
 		status, errorType = http.StatusUnauthorized, "sessionInvalid"
 	case errors.Is(ge.ErrorType, authguest.ErrPermissionMismatch):

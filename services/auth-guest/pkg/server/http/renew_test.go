@@ -24,11 +24,17 @@ import (
 
 const testCookieName = "__Host-oc_guest_session"
 
+const testChallengeCookieName = "__Host-oc_guest_challenge"
+
 func newRenewHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc {
 	t.Helper()
 	cfg := &config.Config{
 		JWT: config.JWT{
 			CookieName: testCookieName,
+			TTL:        time.Hour,
+		},
+		Challenge: config.Challenge{
+			CookieName: testChallengeCookieName,
 			TTL:        time.Hour,
 		},
 	}
@@ -37,7 +43,7 @@ func newRenewHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc {
 
 func TestRenewHandlerWithLinkToken(t *testing.T) {
 	svcMock := mocks.NewAuthGuest(t)
-	svcMock.On("Renew", mock.Anything, "share-1", "link-token", "").Return(nil)
+	svcMock.On("Renew", mock.Anything, "share-1", "link-token", "").Return("challenge-nonce", nil)
 
 	body, err := json.Marshal(RenewRequest{PermissionID: "share-1", Token: "link-token"})
 	require.NoError(t, err)
@@ -47,11 +53,23 @@ func TestRenewHandlerWithLinkToken(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	svcMock.AssertCalled(t, "Renew", mock.Anything, "share-1", "link-token", "")
+
+	var cookie *http.Cookie
+	for _, c := range rr.Result().Cookies() {
+		if c.Name == testChallengeCookieName {
+			cookie = c
+		}
+	}
+	require.NotNil(t, cookie)
+	assert.Equal(t, "challenge-nonce", cookie.Value)
+	assert.True(t, cookie.HttpOnly)
+	assert.True(t, cookie.Secure)
+	assert.Equal(t, "/", cookie.Path)
 }
 
 func TestRenewHandlerWithSessionCookie(t *testing.T) {
 	svcMock := mocks.NewAuthGuest(t)
-	svcMock.On("Renew", mock.Anything, "share-1", "", "session-token").Return(nil)
+	svcMock.On("Renew", mock.Anything, "share-1", "", "session-token").Return("challenge-nonce", nil)
 
 	body, err := json.Marshal(RenewRequest{PermissionID: "share-1"})
 	require.NoError(t, err)
@@ -124,7 +142,7 @@ func TestRenewHandlerErrorMapping(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svcMock := mocks.NewAuthGuest(t)
-			svcMock.On("Renew", mock.Anything, "share-1", "link-token", "").Return(tt.err)
+			svcMock.On("Renew", mock.Anything, "share-1", "link-token", "").Return("", tt.err)
 
 			body, err := json.Marshal(RenewRequest{PermissionID: "share-1", Token: "link-token"})
 			require.NoError(t, err)

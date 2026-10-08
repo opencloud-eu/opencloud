@@ -28,6 +28,10 @@ func newVerifyPinHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc
 			CookieName: "__Host-oc_guest_session",
 			TTL:        time.Hour,
 		},
+		Challenge: config.Challenge{
+			CookieName: testChallengeCookieName,
+			TTL:        time.Hour,
+		},
 	}
 	return VerifyPinHandler(log.NopLogger(), svc, cfg)
 }
@@ -35,13 +39,16 @@ func newVerifyPinHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc
 func TestVerifyPinHandler(t *testing.T) {
 	svcMock := mocks.NewAuthGuest(t)
 	expiresAt := time.Date(2026, 10, 15, 10, 30, 0, 0, time.FixedZone("CEST", 2*60*60))
-	svcMock.On("VerifyPin", mock.Anything, "share-1", "123456").Return(&authguest.SessionResponse{SessionToken: "session-token", ExpiresAt: expiresAt, ShareID: "share-1"}, nil)
+	svcMock.On("VerifyPin", mock.Anything, "share-1", "123456", "challenge-nonce").Return(&authguest.SessionResponse{SessionToken: "session-token", ExpiresAt: expiresAt, ShareID: "share-1"}, nil)
 
 	body, err := json.Marshal(VerifyPinRequest{Pin: "123456", PermissionID: "share-1"})
 	require.NoError(t, err)
 
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
+	req.AddCookie(&http.Cookie{Name: testChallengeCookieName, Value: "challenge-nonce"})
+
 	rr := httptest.NewRecorder()
-	newVerifyPinHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body))))
+	newVerifyPinHandler(t, svcMock)(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
@@ -56,6 +63,15 @@ func TestVerifyPinHandler(t *testing.T) {
 	assert.True(t, cookie.HttpOnly)
 	assert.True(t, cookie.Secure)
 	assert.Equal(t, "/", cookie.Path)
+
+	var challengeCookie *http.Cookie
+	for _, c := range rr.Result().Cookies() {
+		if c.Name == testChallengeCookieName {
+			challengeCookie = c
+		}
+	}
+	require.NotNil(t, challengeCookie)
+	assert.Equal(t, -1, challengeCookie.MaxAge)
 
 	var resp verifyPinResponse
 	require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
@@ -86,6 +102,20 @@ func TestVerifyPinHandlerErrorMapping(t *testing.T) {
 			wantPermission: "share-1",
 		},
 		{
+			name:           "challenge invalid",
+			err:            &authguest.GuestError{ErrorType: authguest.ErrChallengeInvalid, ShareID: "share-1"},
+			wantStatus:     http.StatusUnauthorized,
+			wantType:       "challengeInvalid",
+			wantPermission: "share-1",
+		},
+		{
+			name:           "challenge expired",
+			err:            &authguest.GuestError{ErrorType: authguest.ErrChallengeExpired, ShareID: "share-1"},
+			wantStatus:     http.StatusUnauthorized,
+			wantType:       "challengeExpired",
+			wantPermission: "share-1",
+		},
+		{
 			name:           "share not found",
 			err:            &authguest.GuestError{ErrorType: authguest.ErrShareNotFound, ShareID: "share-1"},
 			wantStatus:     http.StatusNotFound,
@@ -110,13 +140,16 @@ func TestVerifyPinHandlerErrorMapping(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svcMock := mocks.NewAuthGuest(t)
-			svcMock.On("VerifyPin", mock.Anything, "share-1", "123456").Return(nil, tt.err)
+			svcMock.On("VerifyPin", mock.Anything, "share-1", "123456", mock.Anything).Return(nil, tt.err)
 
 			body, err := json.Marshal(VerifyPinRequest{Pin: "123456", PermissionID: "share-1"})
 			require.NoError(t, err)
 
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
+			req.AddCookie(&http.Cookie{Name: testChallengeCookieName, Value: "challenge-nonce"})
+
 			rr := httptest.NewRecorder()
-			newVerifyPinHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body))))
+			newVerifyPinHandler(t, svcMock)(rr, req)
 
 			assert.Equal(t, tt.wantStatus, rr.Code)
 
@@ -124,6 +157,41 @@ func TestVerifyPinHandlerErrorMapping(t *testing.T) {
 			require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
 			assert.Equal(t, tt.wantType, resp.ErrorType)
 			assert.Equal(t, tt.wantPermission, resp.PermissionID)
+		})
+	}
+}
+
+func TestVerifyPinHandlerMissingChallengeCookie(t *testing.T) {
+	tests := []struct {
+		name        string
+		addCookie   bool
+		cookieValue string
+	}{
+		{name: "no cookie"},
+		{name: "empty cookie value", addCookie: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svcMock := mocks.NewAuthGuest(t)
+
+			body, err := json.Marshal(VerifyPinRequest{Pin: "123456", PermissionID: "share-1"})
+			require.NoError(t, err)
+
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
+			if tt.addCookie {
+				req.AddCookie(&http.Cookie{Name: testChallengeCookieName, Value: tt.cookieValue})
+			}
+
+			rr := httptest.NewRecorder()
+			newVerifyPinHandler(t, svcMock)(rr, req)
+
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+			svcMock.AssertNotCalled(t, "VerifyPin", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+
+			var resp errorResponse
+			require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
+			assert.Equal(t, "invalidRequest", resp.ErrorType)
 		})
 	}
 }

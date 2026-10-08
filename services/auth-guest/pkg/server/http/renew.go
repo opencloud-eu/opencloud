@@ -43,11 +43,14 @@ func RenewHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Config) fun
 			sessionToken = cookie.Value
 		}
 
-		if err := s.Renew(r.Context(), req.PermissionID, req.Token, sessionToken); err != nil {
+		nonce, err := s.Renew(r.Context(), req.PermissionID, req.Token, sessionToken)
+		if err != nil {
 			log.Debug().Err(err).Msg("renew failed")
 			writeGuestError(w, err)
 			return
 		}
+
+		setChallengeCookie(w, cfg, nonce)
 
 		w.WriteHeader(http.StatusOK)
 	}
