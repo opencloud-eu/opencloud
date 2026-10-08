@@ -7,7 +7,6 @@ import (
 )
 
 // BindSourcesToStructs assigns any config value from a config file / env variable to struct `dst`.
-// The implementation lives in pkg/config/binder.
 func BindSourcesToStructs(service string, dst any) error {
 	return binder.BindSourcesToStructs(service, dst)
 }

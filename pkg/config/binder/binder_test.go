@@ -14,8 +14,7 @@ type TestConfig struct {
 }
 
 func TestBindSourcesToStructs(t *testing.T) {
-	// setup test env: one var set to pin env expansion, two deliberately
-	// unset to pin the defaults
+	// setup test env
 	t.Setenv("BINDER_TEST_SET_VAR", "from-env")
 	yaml := `
 a: "${BINDER_TEST_SET_VAR|no-foo}"
