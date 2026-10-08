@@ -23,6 +23,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/tags"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail"
@@ -74,9 +75,10 @@ func (g Webdav) Search(w http.ResponseWriter, r *http.Request) {
 	ctx := revactx.ContextSetToken(r.Context(), t)
 	ctx = metadata.Set(ctx, revactx.TokenHeader, t)
 
-	req := &searchsvc.SearchRequest{
-		Query:    rep.SearchFiles.Search.Pattern,
-		PageSize: int32(rep.SearchFiles.Search.Limit),
+	req, err := searchRequestOf(rep.SearchFiles.Search)
+	if err != nil {
+		renderError(w, r, errBadRequest(err.Error()))
+		return
 	}
 
 	// Limit search to the according space when searching /dav/spaces/<spaceid>
@@ -113,6 +115,22 @@ func (g Webdav) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	g.sendSearchResponse(davPrefix, rsp, w, r, user)
+}
+
+// searchRequestOf maps the search element of the report: limit -1 is no
+// limit, 0 the default, offset skips leading matches of the merged list.
+func searchRequestOf(search reportSearchFilesSearch) (*searchsvc.SearchRequest, error) {
+	if search.Limit < -1 {
+		return nil, fmt.Errorf("limit must be -1, 0 or positive")
+	}
+	if search.Offset < 0 {
+		return nil, fmt.Errorf("offset must not be negative")
+	}
+	req := &searchsvc.SearchRequest{Query: search.Pattern, From: int32(search.Offset)}
+	if search.Limit != 0 {
+		req.PageSize = conversions.ToPointer(int32(search.Limit))
+	}
+	return req, nil
 }
 
 func (g Webdav) sendSearchResponse(davPrefix string, rsp *searchsvc.SearchResponse, w http.ResponseWriter, r *http.Request, user *userv1beta1.User) {

@@ -2,6 +2,7 @@ package search_test
 
 import (
 	"context"
+	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
@@ -11,12 +12,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/testing/protocmp"
 
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
@@ -258,6 +262,128 @@ var _ = Describe("Searchprovider", func() {
 				Expect(match.Entity.Ref.ResourceId.OpaqueId).To(Equal(personalSpace.Root.OpaqueId))
 				Expect(match.Entity.Ref.Path).To(Equal("./path/to/Foo.pdf"))
 			})
+
+			It("forwards aggregations to the engine", func() {
+				_, err := s.Search(ctx, &searchsvc.SearchRequest{
+					Query: "foo",
+					Aggregations: []*searchsvc.AggregationOption{
+						{Field: "audio.artist", Size: 10},
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
+					return len(req.Aggregations) == 1 &&
+						req.Aggregations[0].Field == "audio.artist" &&
+						req.Aggregations[0].Size == 10
+				}))
+			})
+		})
+
+		DescribeTable("rejects a request the index cannot answer without asking the engine",
+			func(req *searchsvc.SearchRequest) {
+				_, err := s.Search(ctx, req)
+				Expect(err).To(BeAssignableToTypeOf(errtypes.BadRequest("")))
+				indexClient.AssertNotCalled(GinkgoT(), "Search", mock.Anything, mock.Anything)
+				gatewayClient.AssertNotCalled(GinkgoT(), "ListStorageSpaces", mock.Anything, mock.Anything)
+			},
+			// the rules are pinned in the aggregation package
+			Entry("an aggregation on an internal field", &searchsvc.SearchRequest{Query: "foo",
+				Aggregations: []*searchsvc.AggregationOption{{Field: "Favorites"}}}),
+			Entry("a filter on an internal field", &searchsvc.SearchRequest{Query: "foo",
+				AggregationFilters: []*searchsvc.AggregationFilter{{Field: "Favorites", Terms: []string{"user-a"}}}}),
+		)
+
+		// two personal spaces, the engine answers each by its space id
+		var (
+			spaceA = &sprovider.StorageSpace{
+				Id:        &sprovider.StorageSpaceId{OpaqueId: "storageid$a!a"},
+				Root:      &sprovider.ResourceId{StorageId: "storageid", SpaceId: "a", OpaqueId: "a"},
+				SpaceType: "personal",
+			}
+			spaceB = &sprovider.StorageSpace{
+				Id:        &sprovider.StorageSpaceId{OpaqueId: "storageid$b!b"},
+				Root:      &sprovider.ResourceId{StorageId: "storageid", SpaceId: "b", OpaqueId: "b"},
+				SpaceType: "personal",
+			}
+		)
+		listsSpacesAB := func() {
+			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&sprovider.ListStorageSpacesResponse{
+				Status:        status.NewOK(ctx),
+				StorageSpaces: []*sprovider.StorageSpace{spaceA, spaceB},
+			}, nil)
+		}
+		searchOfSpace := func(id string) *mock.Call {
+			return indexClient.On("Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
+				return req.GetRef().GetResourceId().GetSpaceId() == id
+			}))
+		}
+
+		Context("with two personal spaces returning aggregations", func() {
+			BeforeEach(func() {
+				listsSpacesAB()
+				searchOfSpace("a").Return(&searchsvc.SearchIndexResponse{
+					TotalMatches: 2,
+					Aggregations: []*searchsvc.AggregationResult{{Field: "audio.artist", Buckets: []*searchsvc.Bucket{{Key: "Saxon", Count: 2}, {Key: "Motörhead", Count: 1}}}},
+				}, nil)
+				searchOfSpace("b").Return(&searchsvc.SearchIndexResponse{
+					TotalMatches: 3,
+					Aggregations: []*searchsvc.AggregationResult{{Field: "audio.artist", Buckets: []*searchsvc.Bucket{{Key: "Saxon", Count: 3}, {Key: "Led Zeppelin", Count: 1}}}},
+				}, nil)
+			})
+
+			It("merges bucket counts across spaces", func() {
+				res, err := s.Search(ctx, &searchsvc.SearchRequest{
+					Query: "mediatype:audio",
+					Aggregations: []*searchsvc.AggregationOption{
+						{Field: "audio.artist", Size: 10},
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res.Aggregations).To(BeComparableTo([]*searchsvc.AggregationResult{{Field: "audio.artist", Buckets: []*searchsvc.Bucket{
+					{Key: "Saxon", Count: 5}, {Key: "Led Zeppelin", Count: 1}, {Key: "Motörhead", Count: 1},
+				}}}, protocmp.Transform()))
+			})
+		})
+
+		Context("with two personal spaces returning matches of the same score", func() {
+			match := func(space, name string) *searchmsg.Match {
+				return &searchmsg.Match{Score: 1, Entity: &searchmsg.Entity{
+					Id:   &searchmsg.ResourceID{StorageId: "storageid", SpaceId: space, OpaqueId: name},
+					Ref:  &searchmsg.Reference{ResourceId: &searchmsg.ResourceID{StorageId: "storageid", SpaceId: space, OpaqueId: space}, Path: "./" + name},
+					Name: name,
+				}}
+			}
+
+			// answers of the spaces arrive in the order of their delays
+			searchWith := func(delayA, delayB time.Duration) {
+				listsSpacesAB()
+				searchOfSpace("a").After(delayA).Return(func(context.Context, *searchsvc.SearchIndexRequest) (*searchsvc.SearchIndexResponse, error) {
+					return &searchsvc.SearchIndexResponse{TotalMatches: 2, Matches: []*searchmsg.Match{match("a", "a1"), match("a", "a2")}}, nil
+				})
+				searchOfSpace("b").After(delayB).Return(func(context.Context, *searchsvc.SearchIndexRequest) (*searchsvc.SearchIndexResponse, error) {
+					return &searchsvc.SearchIndexResponse{TotalMatches: 2, Matches: []*searchmsg.Match{match("b", "b1"), match("b", "b2")}}, nil
+				})
+			}
+
+			page := func(from int32) []string {
+				res, err := s.Search(ctx, &searchsvc.SearchRequest{Query: "foo", From: from, PageSize: conversions.ToPointer(int32(2))})
+				Expect(err).ToNot(HaveOccurred())
+				names := []string{}
+				for _, m := range res.Matches {
+					names = append(names, m.GetEntity().GetName())
+				}
+				return names
+			}
+
+			DescribeTable("cuts pages that neither overlap nor skip, whichever space answers first",
+				func(delayA, delayB time.Duration) {
+					searchWith(delayA, delayB)
+					Expect(page(0)).To(Equal([]string{"a1", "a2"}))
+					Expect(page(2)).To(Equal([]string{"b1", "b2"}))
+				},
+				Entry("space a answers first", time.Duration(0), 20*time.Millisecond),
+				Entry("space b answers first", 20*time.Millisecond, time.Duration(0)),
+			)
 		})
 
 		Context("with a personal space with a filter", func() {
@@ -550,13 +676,44 @@ var _ = Describe("Searchprovider", func() {
 				It("sorts and limits the combined results from all spaces", func() {
 					res, err := s.Search(ctx, &searchsvc.SearchRequest{
 						Query:    "foo",
-						PageSize: 2,
+						PageSize: conversions.ToPointer(int32(2)),
 					})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(res).ToNot(BeNil())
 					Expect(len(res.Matches)).To(Equal(2))
 					ids := []string{res.Matches[0].Entity.Id.OpaqueId, res.Matches[1].Entity.Id.OpaqueId}
 					Expect(ids).To(Equal([]string{"grant-shared-id", "foo-id"}))
+				})
+
+				It("applies the from offset after the cross-space merge", func() {
+					res, err := s.Search(ctx, &searchsvc.SearchRequest{
+						Query:    "foo",
+						PageSize: conversions.ToPointer(int32(2)),
+						From:     1,
+					})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(len(res.Matches)).To(Equal(2))
+					ids := []string{res.Matches[0].Entity.Id.OpaqueId, res.Matches[1].Entity.Id.OpaqueId}
+					Expect(ids).To(Equal([]string{"foo-id", "grant-irrelevant-id"}))
+
+					for _, call := range indexClient.Calls {
+						if call.Method != "Search" {
+							continue
+						}
+						req := call.Arguments.Get(1).(*searchsvc.SearchIndexRequest)
+						Expect(req.GetPageSize()).To(Equal(int32(3)), "every space must return the full prefix up to from+size")
+					}
+				})
+
+				It("returns no matches when from points past the merged list", func() {
+					res, err := s.Search(ctx, &searchsvc.SearchRequest{
+						Query:    "foo",
+						PageSize: conversions.ToPointer(int32(2)),
+						From:     10,
+					})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(res.Matches).To(BeEmpty())
+					Expect(res.TotalMatches).To(Equal(int32(3)))
 				})
 			})
 		})
