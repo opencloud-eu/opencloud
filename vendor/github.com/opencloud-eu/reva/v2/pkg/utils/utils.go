@@ -32,6 +32,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	appprovider "github.com/cs3org/go-cs3apis/cs3/app/provider/v1beta1"
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -240,9 +241,32 @@ func CanonicalUserID(id *userpb.UserId) string {
 		// comparisons: those are email addresses, and while RFC 5321 states
 		// that the local-part is case sensitive, in practice, it's a de facto
 		// standard that email providers consider them to be case insensitive.
-		return strings.ToLower(id.GetOpaqueId())
+		return LowerASCII(id.GetOpaqueId())
 	}
 	return id.GetOpaqueId()
+}
+
+// LowerASCII lowercases only the ASCII letters A-Z in s and leaves all other
+// characters untouched. Unlike strings.ToLower it never maps a non-ASCII
+// character to an ASCII one (e.g. 'İ' -> 'i' or the Kelvin sign 'K' -> 'k'),
+// so two different email addresses can't end up with the same canonical form.
+func LowerASCII(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= 'A' && r <= 'Z' {
+			return r + ('a' - 'A')
+		}
+		return r
+	}, s)
+}
+
+// IsASCII returns true if s contains only ASCII characters.
+func IsASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= utf8.RuneSelf {
+			return false
+		}
+	}
+	return true
 }
 
 // GroupEqual returns whether two groups have the same field values.

@@ -271,6 +271,10 @@ func guestUserFromShare(s *collaboration.Share) (*userpb.User, error) {
 		return nil, errors.New("guestlinks: grantee is not a guest user")
 	}
 
+	if !utils.IsASCII(uid.GetOpaqueId()) {
+		return nil, errors.New("guestlinks: grantee opaque id is not ASCII")
+	}
+
 	addr, err := mail.ParseAddress(uid.GetOpaqueId())
 	if err != nil || addr.Name != "" || addr.Address != uid.GetOpaqueId() {
 		return nil, errors.New("guestlinks: grantee opaque id is not a bare email address")
