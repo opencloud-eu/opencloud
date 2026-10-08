@@ -1,5 +1,4 @@
-// Package binder binds OpenCloud yaml config files to config structs, as a leaf
-// package that avoids importing the aggregate service config in pkg/config.
+// Package binder binds yaml config files to config structs.
 package binder
 
 import (
@@ -42,8 +41,6 @@ func BindSourcesToStructsFS(fileSystem fs.FS, filePath, service string, dst any)
 
 		return err
 	}
-	// the error is ignored on purpose, matching the pre-extraction behavior:
-	// an unparseable yaml file binds nothing instead of failing the startup
 	_ = cnf.LoadSources("yaml", yamlContent)
 
 	err = cnf.BindStruct("", &dst)
