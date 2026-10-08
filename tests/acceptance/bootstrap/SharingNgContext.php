@@ -26,7 +26,6 @@ use GuzzleHttp\Exception\GuzzleException;
 use PHPUnit\Framework\Assert;
 use Psr\Http\Message\ResponseInterface;
 use TestHelpers\GraphHelper;
-use TestHelpers\WaitHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\BehatHelper;
@@ -522,28 +521,8 @@ class SharingNgContext implements Context {
 			$rows,
 			"'resource' should be provided in the data-table while sharing a resource"
 		);
-		$response = WaitHelper::waitUntil(
-			fn () => $this->sendShareInvitation($user, $rows),
-			fn ($response) => !self::isShareManagerMigrating($response),
-			null,
-			30
-		);
+		$response = $this->sendShareInvitation($user, $rows);
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, "", $response);
-	}
-
-	/**
-	 * @param ResponseInterface $response
-	 *
-	 * @return bool
-	 */
-	private static function isShareManagerMigrating(ResponseInterface $response): bool {
-		if ($response->getStatusCode() !== 500) {
-			return false;
-		}
-		return \str_contains(
-			(string)$response->getBody(),
-			"share manager is currently migrating"
-		);
 	}
 
 	/**

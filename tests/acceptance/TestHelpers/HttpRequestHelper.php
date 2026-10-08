@@ -275,9 +275,13 @@ class HttpRequestHelper {
 				$client,
 			);
 
+			$isMigrating = $response->getStatusCode() === 500
+				&& self::responseIndicatesShareManagerMigrating($response);
+
 			if ($response->getStatusCode() >= 400
 				&& $response->getStatusCode() !== self::HTTP_TOO_EARLY
 				&& $response->getStatusCode() !== self::HTTP_CONFLICT
+				&& !$isMigrating
 			) {
 				$sendExceptionHappened = true;
 			}
@@ -292,9 +296,11 @@ class HttpRequestHelper {
 			// HTTP_CONFLICT (409) can happen if the user has just been created in the previous step.
 			// The OCS API might not "realize" yet that the user exists. A folder creation (MKCOL) or maybe even
 			// a file upload might return 409.
-			// In all these cases we can try the API request again after a short time.
+			// share-manager-migrating (500) can happen right after oc_wrapper restarts server
+			// while the jsoncs3 share manager is still running its data migrations.
 			$loopAgain = !$sendExceptionHappened && ($response->getStatusCode() === self::HTTP_TOO_EARLY ||
-						($response->getStatusCode() === self::HTTP_CONFLICT && $isGivenStep)) &&
+						($response->getStatusCode() === self::HTTP_CONFLICT && $isGivenStep) ||
+						$isMigrating) &&
 						$sendCount <= $sendRetryLimit;
 			if ($loopAgain) {
 				// we need to repeat the send request, because we got HTTP_TOO_EARLY or HTTP_CONFLICT
@@ -338,6 +344,22 @@ class HttpRequestHelper {
 		self::printHeaders($response->getHeaders());
 		self::printBody($response->getBody());
 		print("\n### END RESPONSE\n");
+	}
+
+	/**
+	 * Checks whether the response body indicates that the share manager is currently migrating.
+	 *
+	 * @param ResponseInterface $response
+	 *
+	 * @return bool
+	 */
+	private static function responseIndicatesShareManagerMigrating(ResponseInterface $response): bool {
+		$stream = $response->getBody();
+		$body = $stream->getContents();
+		if ($stream->isSeekable()) {
+			$stream->rewind();
+		}
+		return \str_contains($body, 'share manager is currently migrating');
 	}
 
 	/**
