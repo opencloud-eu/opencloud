@@ -13,7 +13,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-08-28 23:16+0000\n"
+"POT-Creation-Date: 2026-10-08 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Matt, 2026\n"
 "Language-Team: Polish (https://app.transifex.com/opencloud-eu/teams/204053/pl/)\n"
@@ -23,82 +23,82 @@ msgstr ""
 "Language: pl\n"
 "Plural-Forms: nplurals=4; plural=(n==1 ? 0 : (n%10>=2 && n%10<=4) && (n%100<12 || n%100>14) ? 1 : n!=1 && (n%10>=0 && n%10<=1) || (n%10>=5 && n%10<=9) || (n%100>=12 && n%100<=14) ? 2 : 3);\n"
 
-#: pkg/service/response.go:44
+#: pkg/service/http/response.go:44
 msgid "description"
 msgstr "opis"
 
-#: pkg/service/response.go:43
+#: pkg/service/http/response.go:43
 msgid "display name"
 msgstr "wyświetlana nazwa"
 
-#: pkg/service/response.go:42
+#: pkg/service/http/response.go:42
 msgid "expiration date"
 msgstr "data wygaśnięcia"
 
-#: pkg/service/response.go:41
+#: pkg/service/http/response.go:41
 msgid "password"
 msgstr "hasło"
 
-#: pkg/service/response.go:40
+#: pkg/service/http/response.go:40
 msgid "permission"
 msgstr "uprawnienie"
 
-#: pkg/service/response.go:39
+#: pkg/service/http/response.go:39
 msgid "some field"
 msgstr "jakieś pole"
 
-#: pkg/service/response.go:26
+#: pkg/service/http/response.go:26
 msgid "{resource} was downloaded via public link {token}"
 msgstr "{resource} zostało pobrane przez link publiczny {token}"
 
-#: pkg/service/response.go:24
+#: pkg/service/http/response.go:24
 msgid "{user} added {resource} to {folder}"
 msgstr "{user} dodał {resource} do {folder}"
 
-#: pkg/service/response.go:36
+#: pkg/service/http/response.go:36
 msgid "{user} added {sharee} as member of {space}"
 msgstr "{user} dodał {sharee} jako członka {space}"
 
-#: pkg/service/response.go:27
+#: pkg/service/http/response.go:27
 msgid "{user} deleted {resource} from {folder}"
 msgstr "{user} usunął {resource} z {folder}"
 
-#: pkg/service/response.go:28
+#: pkg/service/http/response.go:28
 msgid "{user} moved {resource} to {folder}"
 msgstr "{user} przeniósł {resource} do {folder}"
 
-#: pkg/service/response.go:35
+#: pkg/service/http/response.go:35
 msgid "{user} removed link to {resource}"
 msgstr "{user} usunął link do {resource}"
 
-#: pkg/service/response.go:32
+#: pkg/service/http/response.go:32
 msgid "{user} removed {sharee} from {resource}"
 msgstr "{user} usunął {sharee} z {resource}"
 
-#: pkg/service/response.go:37
+#: pkg/service/http/response.go:37
 msgid "{user} removed {sharee} from {space}"
 msgstr "{user} usunął {sharee} z {space}"
 
-#: pkg/service/response.go:29
+#: pkg/service/http/response.go:29
 msgid "{user} renamed {oldResource} to {resource}"
 msgstr "{user} zmienił nazwę z {oldResource} na {resource}"
 
-#: pkg/service/response.go:33
+#: pkg/service/http/response.go:33
 msgid "{user} shared {resource} via link"
 msgstr "Użytkownik {user} udostępnił {resource} przez link"
 
-#: pkg/service/response.go:30
+#: pkg/service/http/response.go:30
 msgid "{user} shared {resource} with {sharee}"
 msgstr "{user} udostępnił {resource} dla {sharee}"
 
-#: pkg/service/response.go:34
+#: pkg/service/http/response.go:34
 msgid "{user} updated {field} for a link {token} on {resource}"
 msgstr "{user} zaktualizował {field} dla linku {token} do {resource}"
 
-#: pkg/service/response.go:31
+#: pkg/service/http/response.go:31
 msgid "{user} updated {field} for the {resource}"
 msgstr "{user} zaktualizował {field} dla {resource}"
 
-#: pkg/service/response.go:25
+#: pkg/service/http/response.go:25
 msgid "{user} updated {resource} in {folder}"
 msgstr "{user} zaktualizował {resource} w {folder}"

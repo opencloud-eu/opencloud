@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-08-28 23:16+0000\n"
+"POT-Creation-Date: 2026-10-08 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Jiri Grönroos <jiri.gronroos@iki.fi>, 2025\n"
 "Language-Team: Finnish (https://app.transifex.com/opencloud-eu/teams/204053/fi/)\n"
@@ -21,83 +21,83 @@ msgstr ""
 "Language: fi\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: pkg/service/response.go:44
+#: pkg/service/http/response.go:44
 msgid "description"
 msgstr "kuvaus"
 
-#: pkg/service/response.go:43
+#: pkg/service/http/response.go:43
 msgid "display name"
 msgstr "näyttönimi"
 
-#: pkg/service/response.go:42
+#: pkg/service/http/response.go:42
 msgid "expiration date"
 msgstr "vanhenemispäivä"
 
-#: pkg/service/response.go:41
+#: pkg/service/http/response.go:41
 msgid "password"
 msgstr "salasana"
 
-#: pkg/service/response.go:40
+#: pkg/service/http/response.go:40
 msgid "permission"
 msgstr "käyttöoikeus"
 
-#: pkg/service/response.go:39
+#: pkg/service/http/response.go:39
 msgid "some field"
 msgstr "jokin kieltä"
 
-#: pkg/service/response.go:26
+#: pkg/service/http/response.go:26
 msgid "{resource} was downloaded via public link {token}"
 msgstr "{resource} ladattiin julkisen linkin {token} kautta"
 
-#: pkg/service/response.go:24
+#: pkg/service/http/response.go:24
 msgid "{user} added {resource} to {folder}"
 msgstr "{user} lisäsi {resource} kansioon {folder}"
 
-#: pkg/service/response.go:36
+#: pkg/service/http/response.go:36
 msgid "{user} added {sharee} as member of {space}"
 msgstr "{user} lisäsi {sharee} jäseneksi avaruuteen {space}"
 
-#: pkg/service/response.go:27
+#: pkg/service/http/response.go:27
 msgid "{user} deleted {resource} from {folder}"
 msgstr "{user} poisti {resource} kansiosta {folder}"
 
-#: pkg/service/response.go:28
+#: pkg/service/http/response.go:28
 msgid "{user} moved {resource} to {folder}"
 msgstr "{user} siirsi {resource} kansioon {folder}"
 
-#: pkg/service/response.go:35
+#: pkg/service/http/response.go:35
 msgid "{user} removed link to {resource}"
 msgstr "{user} poisti linkin resurssiin {resource}"
 
-#: pkg/service/response.go:32
+#: pkg/service/http/response.go:32
 msgid "{user} removed {sharee} from {resource}"
 msgstr "{user} poisti {sharee} resurssista {resource}"
 
-#: pkg/service/response.go:37
+#: pkg/service/http/response.go:37
 msgid "{user} removed {sharee} from {space}"
 msgstr "{user} poisti {sharee} avaruudesta {space}"
 
-#: pkg/service/response.go:29
+#: pkg/service/http/response.go:29
 msgid "{user} renamed {oldResource} to {resource}"
 msgstr "{user} muutti kohteen {oldResource} uudeksi nimeksi {resource}"
 
-#: pkg/service/response.go:33
+#: pkg/service/http/response.go:33
 msgid "{user} shared {resource} via link"
 msgstr "{user} jakoi {resource} linkin kautta"
 
-#: pkg/service/response.go:30
+#: pkg/service/http/response.go:30
 msgid "{user} shared {resource} with {sharee}"
 msgstr "{user} jakoi {resource} käyttäjän {sharee} kanssa"
 
-#: pkg/service/response.go:34
+#: pkg/service/http/response.go:34
 msgid "{user} updated {field} for a link {token} on {resource}"
 msgstr ""
 "{user} päivitti kentän {field} linkkiin {token} resurssissa {resource}"
 
-#: pkg/service/response.go:31
+#: pkg/service/http/response.go:31
 msgid "{user} updated {field} for the {resource}"
 msgstr "{user} päivitti kentän {field} resurssille {resource}"
 
-#: pkg/service/response.go:25
+#: pkg/service/http/response.go:25
 msgid "{user} updated {resource} in {folder}"
 msgstr "{user} päivitti {resource} kansiossa {folder}"

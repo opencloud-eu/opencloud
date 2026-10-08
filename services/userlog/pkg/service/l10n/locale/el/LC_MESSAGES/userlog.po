@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-08-30 23:16+0000\n"
+"POT-Creation-Date: 2026-10-08 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Efstathios Iosifidis <eiosifidis@gmail.com>, 2026\n"
 "Language-Team: Greek (https://app.transifex.com/opencloud-eu/teams/204053/el/)\n"
@@ -101,7 +101,7 @@ msgstr ""
 
 #: pkg/service/templates.go:53
 msgid "You have been mentioned"
-msgstr ""
+msgstr "Αναφερθήκατε"
 
 #: pkg/service/templates.go:19
 msgid "{user} added you to Space {space}"
@@ -117,7 +117,7 @@ msgstr "Ο/Η {user} απενεργοποίησε τον Χώρο {space}"
 
 #: pkg/service/templates.go:54
 msgid "{user} mentioned you in {resource}"
-msgstr ""
+msgstr "Ο/Η {user} σάς ανέφερε στο {resource}"
 
 #: pkg/service/templates.go:24
 msgid "{user} removed you from Space {space}"
