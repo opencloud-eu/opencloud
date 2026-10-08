@@ -28,8 +28,15 @@ func DefaultConfig() *config.Config {
 			Endpoint: "127.0.0.1:9233",
 			Cluster:  "opencloud-cluster",
 		},
-		Workers:              10,
-		InfectedFileHandling: "delete",
+		Workers:                     10,
+		QueueIntakeWorkers:          10,
+		PriorityThreshold:           10,
+		PriorityWindow:              time.Second,
+		PriorityCooldown:            30 * time.Second,
+		HighPriorityReservedWorkers: -1,
+		QueueAckWait:                time.Minute,
+		QueueReplicas:               1,
+		InfectedFileHandling:        "delete",
 		// defaults from clamav sample conf: MaxScanSize=400M, MaxFileSize=100M, StreamMaxLength=100M
 		// https://github.com/Cisco-Talos/clamav/blob/main/etc/clamd.conf.sample
 		MaxScanSize:     "100MB",
@@ -62,5 +69,11 @@ func Sanitize(cfg *config.Config) {
 
 	if cfg.MaxScanSize == "" {
 		cfg.MaxScanSize = defaultConfig.MaxScanSize
+	}
+	if cfg.HighPriorityReservedWorkers < 0 {
+		cfg.HighPriorityReservedWorkers = 0
+		if cfg.Workers > 1 {
+			cfg.HighPriorityReservedWorkers = 1
+		}
 	}
 }

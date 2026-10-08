@@ -1,14 +1,11 @@
 package service
 
 import (
-	"bytes"
 	"context"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -17,21 +14,13 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/bytesize"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/antivirus/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/antivirus/pkg/queue"
 	"github.com/opencloud-eu/opencloud/services/antivirus/pkg/scanners"
-)
-
-var (
-	// ErrFatal is returned when a fatal error occurs, and we want to exit.
-	ErrFatal = errors.New("fatal error")
-	// ErrEvent is returned when something went wrong with a specific event.
-	ErrEvent = errors.New("event error")
 )
 
 // Scanner is an abstraction for the actual virus scan
@@ -107,65 +96,60 @@ type Antivirus struct {
 
 // Run runs the service
 func (av Antivirus) Run() error {
-	eventsCfg := av.config.Events
-
-	var rootCAPool *x509.CertPool
-	if av.config.Events.TLSRootCACertificate != "" {
-		rootCrtFile, err := os.Open(eventsCfg.TLSRootCACertificate)
-		if err != nil {
-			return err
+	runCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		select {
+		case <-av.stopCh:
+			cancel()
+		case <-runCtx.Done():
 		}
+	}()
 
-		var certBytes bytes.Buffer
-		if _, err := io.Copy(&certBytes, rootCrtFile); err != nil {
-			return err
-		}
-
-		rootCAPool = x509.NewCertPool()
-		rootCAPool.AppendCertsFromPEM(certBytes.Bytes())
-		av.config.Events.TLSInsecure = false
-	}
-
-	connName := generators.GenerateConnectionName(av.config.Service.Name, generators.NTypeBus)
-	natsStream, err := stream.NatsFromConfig(connName, false, stream.NatsConfig(av.config.Events))
+	priorityQueue, err := queue.Open(runCtx, av.config, func(err error) {
+		av.log.Error().Err(err).Msg("antivirus priority queue error")
+	})
 	if err != nil {
 		return err
 	}
-
-	ch, err := events.Consume(natsStream, "antivirus", events.StartPostprocessingStep{})
-	if err != nil {
-		return err
-	}
+	defer priorityQueue.Close()
 
 	wg := sync.WaitGroup{}
-	for range av.config.Workers {
+	for worker := range av.config.Workers {
+		highPriorityOnly := worker < av.config.HighPriorityReservedWorkers
 		wg.Go(func() {
-
-		EventLoop:
 			for {
-				select {
-				case e, ok := <-ch:
-					if !ok {
-						break EventLoop
+				var lease *queue.Lease
+				var err error
+				if highPriorityOnly {
+					lease, err = priorityQueue.NextHighPriority(runCtx)
+				} else {
+					lease, err = priorityQueue.Next(runCtx)
+				}
+				if err != nil {
+					if runCtx.Err() != nil {
+						return
 					}
+					av.log.Error().Err(err).Msg("failed to claim antivirus job")
+					timer := time.NewTimer(time.Second)
+					select {
+					case <-runCtx.Done():
+						timer.Stop()
+						return
+					case <-timer.C:
+					}
+					continue
+				}
 
-					err := av.processEvent(e, natsStream)
-					if err != nil {
-						switch {
-						case errors.Is(err, ErrFatal):
-							av.log.Fatal().Err(err).Msg("fatal error - exiting")
-						case errors.Is(err, ErrEvent):
-							av.log.Error().Err(err).Msg("continuing")
-						default:
-							av.log.Fatal().Err(err).Msg("unknown error - exiting")
-						}
+				if err := av.processLease(runCtx, priorityQueue, lease); err != nil {
+					av.log.Error().Err(err).Str("jobID", lease.Job.ID).Msg("antivirus job failed; it will be retried")
+					if nakErr := lease.NakWithDelay(time.Second); nakErr != nil {
+						av.log.Error().Err(nakErr).Str("jobID", lease.Job.ID).Msg("failed to release antivirus job for retry")
 					}
-
-					if av.stopped.Load() {
-						break EventLoop
-					}
-				case <-av.stopCh:
-					break EventLoop
+					continue
+				}
+				if err := lease.Ack(); err != nil {
+					av.log.Error().Err(err).Str("jobID", lease.Job.ID).Msg("failed to acknowledge antivirus job")
 				}
 			}
 		})
@@ -182,19 +166,64 @@ func (av Antivirus) Close() {
 	}
 }
 
-func (av Antivirus) processEvent(e events.Event, s events.Publisher) error {
-	ctx, span := av.tracerProvider.Tracer("antivirus").Start(e.GetTraceContext(context.Background()), "processEvent")
+func (av Antivirus) processLease(ctx context.Context, q *queue.Queue, lease *queue.Lease) error {
+	job := lease.Job
+	e := events.Event{TraceParent: job.TraceParent}
+	ctx = e.GetTraceContext(ctx)
+	ctx = ctxpkg.ContextSetInitiator(ctx, job.InitiatorID)
+	ctx, span := av.tracerProvider.Tracer("antivirus").Start(ctx, "processEvent")
 	defer span.End()
 	av.log.Info().Str("traceID", span.SpanContext().TraceID().String()).Msg("TraceID")
 
-	ev := e.Event.(events.StartPostprocessingStep)
-	if ev.StepToStart != events.PPStepAntivirus {
+	// Keep the JetStream lease alive for scans that take longer than AckWait.
+	heartbeatDone := make(chan struct{})
+	heartbeatStopped := make(chan struct{})
+	leaseLost := new(atomic.Bool)
+	go func() {
+		defer close(heartbeatStopped)
+		interval := q.AckWait() / 3
+		if interval <= 0 || interval > 10*time.Second {
+			interval = 10 * time.Second
+		}
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-heartbeatDone:
+				return
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := lease.InProgress(); err != nil {
+					leaseLost.Store(true)
+					av.log.Warn().Err(err).Str("jobID", job.ID).Msg("failed to extend antivirus job lease")
+				}
+			}
+		}
+	}()
+	defer func() {
+		close(heartbeatDone)
+		<-heartbeatStopped
+	}()
+
+	ev := job.Event
+	av.log.Debug().Str("uploadid", ev.UploadID).Str("priority", string(job.Priority)).Dur("queue_wait", time.Since(job.EnqueuedAt)).Msg("Starting virus scan")
+	validateLease := func() error {
+		if leaseLost.Load() {
+			return errors.New("antivirus job lease was lost while scanning")
+		}
+		if err := lease.Validate(ctx); err != nil {
+			return fmt.Errorf("validate antivirus job lease: %w", err)
+		}
 		return nil
 	}
 
 	if av.config.DebugScanOutcome != "" {
 		av.log.Warn().Str("antivir, clamav", ">>>>>>> ANTIVIRUS_DEBUG_SCAN_OUTCOME IS SET NO ACTUAL VIRUS SCAN IS PERFORMED!").Send()
-		if err := events.Publish(ctx, s, events.PostprocessingStepFinished{
+		if err := validateLease(); err != nil {
+			return err
+		}
+		if err := q.PublishFinished(ctx, job, events.PostprocessingStepFinished{
 			FinishedStep:  events.PPStepAntivirus,
 			Outcome:       events.PostprocessingOutcome(av.config.DebugScanOutcome),
 			UploadID:      ev.UploadID,
@@ -207,13 +236,11 @@ func (av Antivirus) processEvent(e events.Event, s events.Publisher) error {
 				ResourceID:  ev.ResourceID,
 			},
 		}); err != nil {
-			av.log.Fatal().Err(err).Str("uploadid", ev.UploadID).Interface("resourceID", ev.ResourceID).Msg("cannot publish events - exiting")
-			return fmt.Errorf("%w: cannot publish events", ErrFatal)
+			av.log.Error().Err(err).Str("uploadid", ev.UploadID).Interface("resourceID", ev.ResourceID).Msg("cannot publish antivirus result")
+			return fmt.Errorf("cannot publish antivirus result: %w", err)
 		}
-		return fmt.Errorf("%w: no actual virus scan performed", ErrEvent)
+		return nil
 	}
-
-	av.log.Debug().Str("uploadid", ev.UploadID).Str("filename", ev.Filename).Msg("Starting virus scan.")
 
 	var errmsg string
 	start := time.Now()
@@ -222,6 +249,9 @@ func (av Antivirus) processEvent(e events.Event, s events.Publisher) error {
 		errmsg = err.Error()
 	}
 	duration := time.Since(start)
+	if err := validateLease(); err != nil {
+		return err
+	}
 
 	var outcome events.PostprocessingOutcome
 	switch {
@@ -235,9 +265,8 @@ func (av Antivirus) processEvent(e events.Event, s events.Publisher) error {
 		// Not sure what this is about. Abort.
 		outcome = events.PPOutcomeAbort
 	}
-
 	av.log.Info().Str("uploadid", ev.UploadID).Interface("resourceID", ev.ResourceID).Str("virus", res.Description).Str("outcome", string(outcome)).Str("filename", ev.Filename).Str("user", ev.ExecutingUser.GetId().GetOpaqueId()).Bool("infected", res.Infected).Dur("duration", duration).Msg("File scanned")
-	if err := events.Publish(ctx, s, events.PostprocessingStepFinished{
+	if err := q.PublishFinished(ctx, job, events.PostprocessingStepFinished{
 		FinishedStep:  events.PPStepAntivirus,
 		Outcome:       outcome,
 		UploadID:      ev.UploadID,
@@ -251,8 +280,8 @@ func (av Antivirus) processEvent(e events.Event, s events.Publisher) error {
 			ErrorMsg:    errmsg,
 		},
 	}); err != nil {
-		av.log.Fatal().Err(err).Str("uploadid", ev.UploadID).Interface("resourceID", ev.ResourceID).Msg("cannot publish events - exiting")
-		return fmt.Errorf("%w: %s", ErrFatal, err)
+		av.log.Error().Err(err).Str("uploadid", ev.UploadID).Interface("resourceID", ev.ResourceID).Msg("cannot publish antivirus result")
+		return fmt.Errorf("cannot publish antivirus result: %w", err)
 	}
 	return nil
 }
