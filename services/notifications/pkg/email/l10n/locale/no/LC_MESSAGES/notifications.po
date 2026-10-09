@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-10-08 23:16+0000\n"
+"POT-Creation-Date: 2026-10-09 23:15+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Roy-Magne Mo, 2026\n"
 "Language-Team: Norwegian (https://app.transifex.com/opencloud-eu/teams/204053/no/)\n"
@@ -24,7 +24,7 @@ msgstr ""
 #. UnsharedSpace email template, resolves via {{ .CallToAction }}
 #: pkg/email/templates.go:96
 msgid "Click here to check it: {ShareLink}"
-msgstr "Klikk her for å sjekke det: {ShareLink}"
+msgstr "Klikk her for å se det: {ShareLink}"
 
 #. ShareCreated email template, resolves via {{ .CallToAction }}
 #. GuestLinkShareCreated email template, resolves via {{ .CallToAction }}
@@ -32,7 +32,7 @@ msgstr "Klikk her for å sjekke det: {ShareLink}"
 #: pkg/email/templates.go:23 pkg/email/templates.go:67
 #: pkg/email/templates.go:81
 msgid "Click here to view it: {ShareLink}"
-msgstr "Klikk her for å se den: {ShareLink}"
+msgstr "Klikk her for å se det: {ShareLink}"
 
 #: pkg/email/templates.go:157
 msgid "Hello {RecipientName},"
@@ -60,7 +60,7 @@ msgstr "Hei {SpaceGrantee},"
 #. GuestLinkShareCreated email template, resolves via {{ .Greeting }}
 #: pkg/email/templates.go:59
 msgid "Hello,"
-msgstr ""
+msgstr "Hei,"
 
 #. Grouped email template, resolves via {{ .Greeting }}
 #: pkg/email/templates.go:149
@@ -78,7 +78,7 @@ msgstr "Hei,"
 #. MembershipExpired email template, Subject field (resolves directly)
 #: pkg/email/templates.go:103
 msgid "Membership of '{SpaceName}' expired at {ExpiredAt}"
-msgstr "Medlemskap i '{SpaceName}' utløpt {ExpiredAt}"
+msgstr "Medlemskapet i «{SpaceName}» utløp {ExpiredAt}"
 
 #. Grouped email template, Subject field (resolves directly)
 #: pkg/email/templates.go:147
@@ -96,7 +96,7 @@ msgstr "ScienceMesh: {InitiatorName} ønsker å samarbeide med deg"
 #. ShareExpired email template, Subject field (resolves directly)
 #: pkg/email/templates.go:43
 msgid "Share to '{ShareFolder}' expired at {ExpiredAt}"
-msgstr "Deling til '{ShareFolder}' utløpt {ExpiredAt}"
+msgstr "Delingen av «{ShareFolder}» utløp {ExpiredAt}"
 
 #: pkg/email/templates.go:159
 msgid "You can view the mention here: {ResourceLink}"
@@ -113,7 +113,7 @@ msgid ""
 "\n"
 "Even though this membership has expired you still might have access through other shares and/or space memberships"
 msgstr ""
-"Medlemskapet ditt i rom {SpaceName} utløp {ExpiredAt}\n"
+"Medlemskapet ditt i rommet {SpaceName} utløp {ExpiredAt}\n"
 "\n"
 "Selv om dette medlemskapet har utløpt, kan du fortsatt ha tilgang gjennom andre delinger og/eller rommedlemskap"
 
@@ -124,9 +124,9 @@ msgid ""
 "\n"
 "Even though this share has been revoked you still might have access through other shares and/or space memberships."
 msgstr ""
-"Deltakelsen din i {ShareFolder} utløp {ExpiredAt}\n"
+"Delingen din av {ShareFolder} utløp {ExpiredAt}\n"
 "\n"
-"Selv om denne deltakelsen er trukket tilbake, kan du fortsatt ha tilgang gjennom andre deltakelser og/eller plassmedlemskap."
+"Selv om denne delingen er trukket tilbake, kan du fortsatt ha tilgang gjennom andre delinger og/eller rommedlemskap."
 
 #: pkg/email/templates.go:158
 msgid "{AuthorName} mentioned you in \"{ResourceName}\"."
@@ -141,8 +141,8 @@ msgid ""
 "  Token: {Token}\n"
 "  ProviderDomain: {ProviderDomain}"
 msgstr ""
-"{ShareSharer} ({ShareSharerMail}) ønsker å begynne å dele samarbeidsressurser med deg.\n"
-"Vennligst besøk føderasjonsinnstillingene dine og bruk følgende detaljer:\n"
+"{ShareSharer} ({ShareSharerMail}) vil begynne å dele samarbeidsressurser med deg.\n"
+"Gå til føderasjonsinnstillingene dine og bruk disse opplysningene:\n"
 "  Token: {Token}\n"
 "  ProviderDomain: {ProviderDomain}"
 
@@ -158,11 +158,11 @@ msgid ""
 "  Token: {Token}\n"
 "  ProviderDomain: {ProviderDomain}"
 msgstr ""
-"{ShareSharer} ({ShareSharerMail}) ønsker å begynne å dele samarbeidsressurser med deg.\n"
-"For å akseptere invitasjonen, besøk følgende URL:\n"
+"{ShareSharer} ({ShareSharerMail}) vil begynne å dele samarbeidsressurser med deg.\n"
+"For å godta invitasjonen går du til denne adressen:\n"
 "{ShareLink}\n"
 "\n"
-"Alternativt kan du besøke dine føderasjonsinnstillinger og bruke følgende detaljer:\n"
+"Du kan også gå til føderasjonsinnstillingene dine og bruke disse opplysningene:\n"
 "  Token: {Token}\n"
 "  ProviderDomain: {ProviderDomain}"
 
@@ -180,6 +180,11 @@ msgid ""
 "\n"
 "The link is only valid for 30 minutes."
 msgstr ""
+"{ShareSharer} har delt «{ShareFolder}» med deg.\n"
+"\n"
+"Lenken nedenfor er personlig og kan bare brukes én gang. Ikke send den videre.\n"
+"\n"
+"Lenken er bare gyldig i 30 minutter."
 
 #. ShareRemoved email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:34
@@ -188,20 +193,20 @@ msgid ""
 "\n"
 "Even though this share has been revoked you still might have access through other shares and/or space memberships."
 msgstr ""
-"{ShareSharer} har fjernet deling '{ShareFolder}' til deg.\n"
+"{ShareSharer} har sluttet å dele «{ShareFolder}» med deg.\n"
 "\n"
-"Selv om denne delingen er trukket tilbake, kan du fortsatt ha tilgang gjennom andre delinger og/eller medlemskap i rommet."
+"Selv om denne delingen er trukket tilbake, kan du fortsatt ha tilgang gjennom andre delinger og/eller rommedlemskap."
 
 #. ShareCreated email template, Subject field (resolves directly)
 #. GuestLinkShareCreated email template, Subject field (resolves directly)
 #: pkg/email/templates.go:17 pkg/email/templates.go:57
 msgid "{ShareSharer} shared '{ShareFolder}' with you"
-msgstr "{ShareSharer} delte '{ShareFolder}' med deg"
+msgstr "{ShareSharer} delte «{ShareFolder}» med deg"
 
 #. ShareRemoved email template, Subject field (resolves directly)
 #: pkg/email/templates.go:30
 msgid "{ShareSharer} unshared '{ShareFolder}' with you"
-msgstr "{ShareSharer} deler ikke '{ShareFolder}' med deg"
+msgstr "{ShareSharer} sluttet å dele «{ShareFolder}» med deg"
 
 #. SharedSpace email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:79
@@ -217,7 +222,7 @@ msgid ""
 msgstr ""
 "{SpaceSharer} har fjernet deg fra «{SpaceName}».\n"
 "\n"
-"Du kan fortsatt ha tilgang gjennom andre grupper eller direkte medlemskap."
+"Du kan fortsatt ha tilgang gjennom de andre gruppene dine eller direkte medlemskap."
 
 #. SharedSpace email template, Subject field (resolves directly)
 #: pkg/email/templates.go:75
