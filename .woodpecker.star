@@ -550,6 +550,9 @@ def main(ctx):
     if ctx.build.event == "cron" and ctx.build.cron == "translation-sync":
         return translation_sync(ctx)
 
+    if ctx.build.event == "cron" and ctx.build.cron == "purge-cache":
+        return [purgeS3Cache()]
+
     is_release_pr = (ctx.build.event == "pull_request" and "🎉 release" in ctx.build.title.lower())
     if is_release_pr:
         return checkVersionPlaceholder() + \
@@ -582,54 +585,6 @@ def main(ctx):
     build_release_pipelines = \
         dockerReleases(ctx) + \
         binaryReleases(ctx)
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeBuildArtifactCache(ctx),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeBrowserCache(ctx),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeTracingCache(ctx),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeOpencloudWebBuildCache(ctx),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeGoBinCache(ctx),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgePipelineInfoCache(),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
 
     pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + serverTestingDocs(ctx) + notifyMatrixCheckSteps(ctx, getPipelineNames(testPipelines(ctx), optional = True))
 
@@ -2834,26 +2789,35 @@ def genericCache(name, action, mounts, cache_path):
     }
     return step
 
-def purgeCache(name, flush_path, flush_age):
+PURGE_TARGETS = [
+    # short lived build artifacts (binaries, s3-cache)
+    ("cache", 1),
+    # reusable build caches and debug artifacts (reports, traces, logs)
+    ("dev", 14),
+    ("public", 14),
+]
+
+def purgeS3Cache():
+    commands = ["mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY"]
+    for bucket, flush_age in PURGE_TARGETS:
+        commands.append("to_delete=$(mc find s3/%s/ --older-than %sd || true)" % (bucket, flush_age))
+        commands.append('if [ -n "$to_delete" ]; then mc rm $to_delete; fi')
+
     return {
-        "name": name,
+        "name": "purge_ci_cache",
         "skip_clone": True,
         "when": [
-            dict(event["cron"], status = ["success", "failure"]),
-            dict(event["base"], status = ["success", "failure"]),
-            dict(event["pull_request"], status = ["success", "failure"]),
+            {
+                "event": "cron",
+                "cron": "purge-cache",
+            },
         ],
         "steps": [
             {
                 "name": "purge",
                 "image": MINIO_MC,
                 "environment": MINIO_MC_ENV,
-                "commands": [
-                    "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
-                    "to_delete=$(mc find s3/%s/ --older-than %sd || true)" % (flush_path, flush_age),
-                    'if [ -z "$to_delete" ]; then exit 0; fi',
-                    "mc rm $to_delete",
-                ],
+                "commands": commands,
             },
         ],
     }
@@ -2864,8 +2828,6 @@ def genericBuildArtifactCache(ctx, name, action, path):
         name = "%s_build_artifact_cache" % name
         return genericCache(name, action, [path], cache_path)
 
-    if action == "purge":
-        return purgeCache("purge_opencloud_build_artifact_cache", "cache/%s" % repo_slug, 1)
     return []
 
 def restoreBuildArtifactCache(ctx, name, path):
@@ -2873,24 +2835,6 @@ def restoreBuildArtifactCache(ctx, name, path):
 
 def rebuildBuildArtifactCache(ctx, name, path):
     return [genericBuildArtifactCache(ctx, name, "rebuild", path)]
-
-def purgeBuildArtifactCache(ctx):
-    return genericBuildArtifactCache(ctx, "", "purge", [])
-
-def purgeBrowserCache(ctx):
-    return purgeCache("purge_browser_build_cache", "dev/web", 14)
-
-def purgeTracingCache(ctx):
-    return purgeCache("purge_playwright_tracing_cache", "public/web/tracing", 14)
-
-def purgeOpencloudWebBuildCache(ctx):
-    return purgeCache("purge_opencloud_web_build_cache", "dev/opencloud/web-test-runner", 14)
-
-def purgeGoBinCache(ctx):
-    return purgeCache("purge_go_bin_cache", "dev/opencloud/go-bin", 14)
-
-def purgePipelineInfoCache():
-    return purgeCache("purge_pipeline_info_cache", "public/opencloud/pipelines", 14)
 
 def pipelineSanityChecks(pipelines):
     """pipelineSanityChecks helps the CI developers to find errors before running it
