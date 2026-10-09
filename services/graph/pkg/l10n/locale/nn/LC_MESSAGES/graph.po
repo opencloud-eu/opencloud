@@ -14,11 +14,11 @@ msgstr ""
 "POT-Creation-Date: 2026-10-09 11:19+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Roy-Magne Mo, 2026\n"
-"Language-Team: Norwegian (https://app.transifex.com/opencloud-eu/teams/204053/no/)\n"
+"Language-Team: Norwegian Nynorsk (https://app.transifex.com/opencloud-eu/teams/204053/nn/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: no\n"
+"Language: nn\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #. UnifiedRole Editor, Role DisplayName (resolves directly)
@@ -46,13 +46,13 @@ msgstr "Kan redigere"
 #. directly)
 #: pkg/unifiedrole/roles.go:183
 msgid "Can edit with versions"
-msgstr "Kan redigere med versjoner"
+msgstr "Kan redigere med versjonar"
 
 #. UnifiedRole SpaseEditorWithoutVersions, Role DisplayName (resolves
 #. directly)
 #: pkg/unifiedrole/roles.go:177
 msgid "Can edit without versions"
-msgstr "Kan redigere uten versjoner"
+msgstr "Kan redigere utan versjonar"
 
 #. UnifiedRole Manager, Role DisplayName (resolves directly)
 #: pkg/unifiedrole/roles.go:225
@@ -73,17 +73,17 @@ msgstr "Kan laste opp"
 #: pkg/unifiedrole/roles.go:129 pkg/unifiedrole/roles.go:135
 #: pkg/unifiedrole/roles.go:141
 msgid "Can view"
-msgstr "Kan se"
+msgstr "Kan sjå"
 
 #. UnifiedRole SecureViewer, Role DisplayName (resolves directly)
 #: pkg/unifiedrole/roles.go:231
 msgid "Can view (secure)"
-msgstr "Kan se (sikker)"
+msgstr "Kan sjå (sikker)"
 
 #. UnifiedRole FullDenial, Role DisplayName (resolves directly)
 #: pkg/unifiedrole/roles.go:237
 msgid "Cannot access"
-msgstr "Kan ikke få tilgang"
+msgstr "Kan ikkje få tilgang"
 
 #. UnifiedRole FullDenial, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:234
@@ -93,13 +93,13 @@ msgstr "Avvis all tilgang."
 #. default description for new spaces
 #: pkg/service/v0/spacetemplates.go:32
 msgid "Here you can add a description for this Space."
-msgstr "Her kan du legge til en beskrivelse for dette rommet."
+msgstr "Her kan du leggje til ei skildring for dette rommet."
 
 #. UnifiedRole ViewerWithVersions, Role Description (resolves directly)
 #. UnifiedRole SpaceViewer, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:120 pkg/unifiedrole/roles.go:138
 msgid "View and download including the history."
-msgstr "Vis og last ned, inkludert historikken."
+msgstr "Vis og last ned, medrekna historikken."
 
 #. UnifiedRole Viewer, Role Description (resolves directly)
 #. UnifiedRole SpaceViewer, Role Description (resolves directly)
@@ -110,12 +110,12 @@ msgstr "Vis og last ned."
 #. UnifiedRole SecureViewer, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:228
 msgid "View only documents, images and PDFs. Watermarks will be applied."
-msgstr "Vis bare dokumenter, bilder og PDF-er. Vannmerker blir lagt på."
+msgstr "Vis berre dokument, bilete og PDF-ar. Vassmerke vert lagde på."
 
 #. UnifiedRole FileEditorWithVErsions, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:210
 msgid "View, download and edit including the history."
-msgstr "Vis, last ned og rediger, inkludert historikken."
+msgstr "Vis, last ned og rediger, medrekna historikken."
 
 #. UnifiedRole FileEditor, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:192
@@ -125,7 +125,7 @@ msgstr "Vis, last ned og rediger."
 #. UnifiedRole ViewerListGrants, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:126
 msgid "View, download and show all invited people."
-msgstr "Vis, last ned og vis alle inviterte personer."
+msgstr "Vis, last ned og vis alle inviterte personar."
 
 #. UnifiedRole EditorLite, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:216
@@ -135,13 +135,13 @@ msgstr "Vis, last ned og last opp."
 #. UnifiedRole FileEditorListGrants, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:198
 msgid "View, download, edit and show all invited people."
-msgstr "Vis, last ned, rediger og vis alle inviterte personer."
+msgstr "Vis, last ned, rediger og vis alle inviterte personar."
 
 #. UnifiedRole Editor, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:150
 msgid "View, download, upload, edit, add and delete including the history."
 msgstr ""
-"Vis, last ned, last opp, rediger, legg til og slett, inkludert historikken."
+"Vis, last ned, last opp, rediger, legg til og slett, medrekna historikken."
 
 #. UnifiedRole Editor, Role Description (resolves directly)
 #. UnifiedRole SpaseEditorWithoutVersions, Role Description (resolves
@@ -157,14 +157,14 @@ msgstr "Vis, last ned, last opp, rediger, legg til og slett."
 #: pkg/unifiedrole/roles.go:222
 msgid "View, download, upload, edit, add, delete and manage members."
 msgstr ""
-"Vis, last ned, last opp, rediger, legg til, slett og administrer medlemmer."
+"Vis, last ned, last opp, rediger, legg til, slett og administrer medlemar."
 
 #. UnifiedRoleListGrants Editor, Role Description (resolves directly)
 #: pkg/unifiedrole/roles.go:156
 msgid "View, download, upload, edit, add, delete and show all invited people."
 msgstr ""
 "Vis, last ned, last opp, rediger, legg til, slett og vis alle inviterte "
-"personer."
+"personar."
 
 #. UnifiedRole SpaseEditor, Role Description (resolves directly)
 #. UnifiedRole SpaceEditorWithoutTrashbin, Role Description (resolves
@@ -172,7 +172,7 @@ msgstr ""
 #: pkg/unifiedrole/roles.go:168 pkg/unifiedrole/roles.go:180
 msgid "View, download, upload, edit, add, delete including the history."
 msgstr ""
-"Vis, last ned, last opp, rediger, legg til, slett, inkludert historikken."
+"Vis, last ned, last opp, rediger, legg til, slett medrekna historikken."
 
 #. UnifiedRole EditorListGrantsWithVersions, Role Description (resolves
 #. directly)
@@ -181,8 +181,8 @@ msgid ""
 "View, download, upload, edit, delete, show all versions and all invited "
 "people."
 msgstr ""
-"Vis, last ned, last opp, rediger, slett, vis alle versjoner og alle "
-"inviterte personer."
+"Vis, last ned, last opp, rediger, slett, vis alle versjonar og alle "
+"inviterte personar."
 
 #. UnifiedRole FileEditorListGrantsWithVersions, Role Description (resolves
 #. directly)
@@ -190,5 +190,5 @@ msgstr ""
 msgid ""
 "View, download, upload, edit, show all versions and all invited people."
 msgstr ""
-"Vis, last ned, last opp, rediger, vis alle versjoner og alle inviterte "
-"personer."
+"Vis, last ned, last opp, rediger, vis alle versjonar og alle inviterte "
+"personar."

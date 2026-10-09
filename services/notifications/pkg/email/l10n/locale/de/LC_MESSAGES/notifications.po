@@ -63,7 +63,7 @@ msgstr "Hallo {SpaceGrantee},"
 #. GuestLinkShareCreated email template, resolves via {{ .Greeting }}
 #: pkg/email/templates.go:59
 msgid "Hello,"
-msgstr ""
+msgstr "Hallo,"
 
 #. Grouped email template, resolves via {{ .Greeting }}
 #: pkg/email/templates.go:149
@@ -183,6 +183,11 @@ msgid ""
 "\n"
 "The link is only valid for 30 minutes."
 msgstr ""
+"{ShareSharer} hat »{ShareFolder}« für Sie freigegeben.\n"
+"\n"
+"Der untenstehende Link ist persönlich und kann nur einmal verwendet werden. Bitte leiten Sie ihn nicht weiter.\n"
+"\n"
+"Der Link ist nur 30 Minuten lang gültig."
 
 #. ShareRemoved email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:34
