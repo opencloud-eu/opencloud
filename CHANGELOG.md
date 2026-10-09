@@ -1,5 +1,33 @@
 # Changelog
 
+## [9.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.0) - 2026-10-09
+
+### ❤️ Thanks to all contributors! ❤️
+
+@AlexAndBear, @aduffeck, @fschade, @maki5, @micbar, @rhafer, @v-scharf
+
+### 💥 Breaking changes
+
+- feat(guestlinks)!: auth-guest service [[#3609](https://github.com/opencloud-eu/opencloud/pull/3609)]
+
+### 📈 Enhancement
+
+- feat: make space2share migration repeatable [[#3669](https://github.com/opencloud-eu/opencloud/pull/3669)]
+- feat: run the decomposed drivers on foreign metadata via metadata_prefix [[#3670](https://github.com/opencloud-eu/opencloud/pull/3670)]
+- feat: add more cli options to unified roles [[#3658](https://github.com/opencloud-eu/opencloud/pull/3658)]
+- feat(web): use the OpenCloud brand colors for the primary color role [[#3631](https://github.com/opencloud-eu/opencloud/pull/3631)]
+
+### ✅ Tests
+
+- test: retry acceptance requests while share manager is migrating [[#3681](https://github.com/opencloud-eu/opencloud/pull/3681)]
+- api-test: extend search tests [[#3634](https://github.com/opencloud-eu/opencloud/pull/3634)]
+
+### 📦️ Dependencies
+
+- chore: bump reva to latest main [[#3685](https://github.com/opencloud-eu/opencloud/pull/3685)]
+- build(deps): bump github.com/onsi/ginkgo/v2 from 2.32.1 to 2.33.0 [[#3596](https://github.com/opencloud-eu/opencloud/pull/3596)]
+- build(deps): bump github.com/open-policy-agent/opa from 1.19.1 to 1.21.1 [[#3599](https://github.com/opencloud-eu/opencloud/pull/3599)]
+
 ## [8.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.1.0) - 2026-10-05
 
 ### ❤️ Thanks to all contributors! ❤️
