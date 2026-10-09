@@ -14,20 +14,20 @@ msgstr ""
 "POT-Creation-Date: 2026-10-09 23:15+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Roy-Magne Mo, 2026\n"
-"Language-Team: Norwegian (https://app.transifex.com/opencloud-eu/teams/204053/no/)\n"
+"Language-Team: Norwegian Nynorsk (https://app.transifex.com/opencloud-eu/teams/204053/nn/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: no\n"
+"Language: nn\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: pkg/service/templates.go:39
 msgid "Access to Space {space} lost"
-msgstr "Mistet tilgangen til rommet {space}"
+msgstr "Mista tilgangen til rommet {space}"
 
 #: pkg/service/templates.go:59
 msgid "Access to {resource} expired"
-msgstr "Tilgangen til {resource} har utløpt"
+msgstr "Tilgangen til {resource} har gått ut"
 
 #: pkg/service/templates.go:64
 msgid ""
@@ -35,24 +35,24 @@ msgid ""
 "Download all your data before that date as no access past that date is "
 "possible."
 msgstr ""
-"Merk! Instansen blir slått av og avviklet {date}. Last ned alle dataene dine"
-" før denne datoen, for etter det er det ikke mulig å få tilgang."
+"Merk! Instansen vert slått av og avvikla {date}. Last ned alle dataa dine "
+"før denne datoen, for etter det er det ikkje mogleg å få tilgang."
 
 #: pkg/service/templates.go:63
 msgid "Instance will be shut down and deprovisioned"
-msgstr "Instansen blir slått av og avviklet"
+msgstr "Instansen vert slått av og avvikla"
 
 #: pkg/service/templates.go:38
 msgid "Membership expired"
-msgstr "Medlemskapet har utløpt"
+msgstr "Medlemskapet har gått ut"
 
 #: pkg/service/templates.go:13
 msgid "Policies enforced"
-msgstr "Retningslinjene er håndhevet"
+msgstr "Retningslinjene er handheva"
 
 #: pkg/service/templates.go:23
 msgid "Removed from Space"
-msgstr "Fjernet fra rommet"
+msgstr "Fjerna frå rommet"
 
 #: pkg/service/templates.go:43
 msgid "Resource shared"
@@ -60,15 +60,15 @@ msgstr "Ressurs delt"
 
 #: pkg/service/templates.go:48
 msgid "Resource unshared"
-msgstr "Ressursen er ikke delt lenger"
+msgstr "Ressursen er ikkje delt lenger"
 
 #: pkg/service/templates.go:58
 msgid "Share expired"
-msgstr "Delingen har utløpt"
+msgstr "Delinga har gått ut"
 
 #: pkg/service/templates.go:33
 msgid "Space deleted"
-msgstr "Rommet er slettet"
+msgstr "Rommet er sletta"
 
 #: pkg/service/templates.go:28
 msgid "Space disabled"
@@ -84,21 +84,21 @@ msgid ""
 " cloud. This could be due to an unsupported file type, potentially harmful "
 "or prohibited content, or file size limits."
 msgstr ""
-"Filen {resource} ble slettet fordi den bryter med begrensningene i denne "
-"skyen. Det kan skyldes en filtype som ikke støttes, innhold som kan være "
-"skadelig eller er forbudt, eller grenser for filstørrelse."
+"Fila {resource} vart sletta fordi ho bryt med avgrensingane i denne skya. "
+"Det kan kome av ein filtype som ikkje er støtta, innhald som kan vere "
+"skadeleg eller er forbode, eller grenser for filstorleik."
 
 #: pkg/service/templates.go:8
 msgid "Virus found"
-msgstr "Fant virus"
+msgstr "Fann virus"
 
 #: pkg/service/templates.go:9
 msgid "Virus found in {resource}. Upload not possible. Virus: {virus}"
-msgstr "Fant virus i {resource}. Opplasting er ikke mulig. Virus: {virus}"
+msgstr "Fann virus i {resource}. Opplasting er ikkje mogleg. Virus: {virus}"
 
 #: pkg/service/templates.go:53
 msgid "You have been mentioned"
-msgstr "Du er nevnt"
+msgstr "Du er nemnd"
 
 #: pkg/service/templates.go:19
 msgid "{user} added you to Space {space}"
@@ -106,7 +106,7 @@ msgstr "{user} la deg til i rommet {space}"
 
 #: pkg/service/templates.go:34
 msgid "{user} deleted Space {space}"
-msgstr "{user} slettet rommet {space}"
+msgstr "{user} sletta rommet {space}"
 
 #: pkg/service/templates.go:29
 msgid "{user} disabled Space {space}"
@@ -114,11 +114,11 @@ msgstr "{user} slo av rommet {space}"
 
 #: pkg/service/templates.go:54
 msgid "{user} mentioned you in {resource}"
-msgstr "{user} nevnte deg i {resource}"
+msgstr "{user} nemnde deg i {resource}"
 
 #: pkg/service/templates.go:24
 msgid "{user} removed you from Space {space}"
-msgstr "{user} fjernet deg fra rommet {space}"
+msgstr "{user} fjerna deg frå rommet {space}"
 
 #: pkg/service/templates.go:44
 msgid "{user} shared {resource} with you"
@@ -126,4 +126,4 @@ msgstr "{user} delte {resource} med deg"
 
 #: pkg/service/templates.go:49
 msgid "{user} unshared {resource} with you"
-msgstr "{user} sluttet å dele {resource} med deg"
+msgstr "{user} slutta å dele {resource} med deg"
