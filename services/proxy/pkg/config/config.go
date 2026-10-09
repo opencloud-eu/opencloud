@@ -46,8 +46,8 @@ type Config struct {
 	BackendHTTPSCACert            string              `yaml:"backend_https_cacert" env:"PROXY_HTTPS_CACERT" desc:"Path/File for the root CA certificate used to validate the server’s TLS certificate for https enabled backend services." introductionVersion:"1.0.0"`
 	AuthMiddleware                AuthMiddleware      `yaml:"auth_middleware"`
 	PoliciesMiddleware            PoliciesMiddleware  `yaml:"policies_middleware"`
-	CSPConfigFileLocation         string              `yaml:"csp_config_file_location" env:"PROXY_CSP_CONFIG_FILE_LOCATION" desc:"The location of the CSP configuration file." introductionVersion:"1.0.0"`
-	CSPConfigFileOverrideLocation string              `yaml:"csp_config_file_override_location" env:"PROXY_CSP_CONFIG_FILE_OVERRIDE_LOCATION" desc:"The location of the CSP configuration file override." introductionVersion:"4.0.0"`
+	CSPConfigFileLocation         []string            `yaml:"csp_config_file_location" env:"PROXY_CSP_CONFIG_FILE_LOCATION" desc:"A comma-separated list of CSP configuration files, which are merged into the default CSP in the given order. Each element can be a path or a glob pattern like '/web/apps/*/csp.yaml'. A pattern without matches is ignored, a path to a missing file is an error." introductionVersion:"1.0.0"`
+	CSPConfigFileOverrideLocation []string            `yaml:"csp_config_file_override_location" env:"PROXY_CSP_CONFIG_FILE_OVERRIDE_LOCATION" desc:"A comma-separated list of CSP configuration files, which replace the default CSP and are merged in the given order. Each element can be a path or a glob pattern like '/web/apps/*/csp.yaml'. A pattern without matches is ignored, a path to a missing file is an error. At least one file needs to exist. If set, PROXY_CSP_CONFIG_FILE_LOCATION is ignored." introductionVersion:"4.0.0"`
 	Events                        Events              `yaml:"events"`
 	GuestLinkAuth                 GuestLinkAuth       `yaml:"guest_link_auth"`
 
