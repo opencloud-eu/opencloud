@@ -701,6 +701,20 @@ func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, bat
 	facetToMetadata(metadata, doc.Video, "libre.graph.video.")
 	facetToMetadata(metadata, doc.MotionPhoto, "libre.graph.motionPhoto.")
 	facetToMetadata(metadata, doc.LivePhoto, "libre.graph.livePhoto.")
+
+	var stale []string
+	for key, current := range stat.GetInfo().GetArbitraryMetadata().GetMetadata() {
+		value, ok := metadata[key]
+		switch {
+		case ok && value == current:
+			// do not overwrite stored values with themselves
+			delete(metadata, key)
+		case !ok && strings.HasPrefix(key, "libre.graph."):
+			stale = append(stale, key)
+		}
+	}
+	s.unsetFacetMetadata(ctx, ref, stale)
+
 	if len(metadata) == 0 {
 		return
 	}
@@ -722,6 +736,26 @@ func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, bat
 	if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
 		s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error storing metadata")
 		return
+	}
+}
+
+func (s *Service) unsetFacetMetadata(ctx context.Context, ref *provider.Reference, keys []string) {
+	if len(keys) == 0 {
+		return
+	}
+
+	gatewayClient, err := s.gatewaySelector.Next()
+	if err != nil {
+		s.logger.Error().Err(err).Msg("could not retrieve client to remove stale metadata")
+		return
+	}
+
+	resp, err := gatewayClient.UnsetArbitraryMetadata(ctx, &provider.UnsetArbitraryMetadataRequest{
+		Ref:                   ref,
+		ArbitraryMetadataKeys: keys,
+	})
+	if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+		s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error removing stale metadata")
 	}
 }
 
