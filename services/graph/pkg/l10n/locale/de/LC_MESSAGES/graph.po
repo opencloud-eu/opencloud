@@ -5,8 +5,8 @@
 # 
 # Translators:
 # Jörn Friedrich Dreyer <jfd@butonic.de>, 2025
-# Jannick Kuhr, 2026
 # OpenCloud Ops, 2026
+# Jannick Kuhr, 2026
 # 
 #, fuzzy
 msgid ""
@@ -15,7 +15,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: EMAIL\n"
 "POT-Creation-Date: 2026-10-08 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
-"Last-Translator: OpenCloud Ops, 2026\n"
+"Last-Translator: Jannick Kuhr, 2026\n"
 "Language-Team: German (https://app.transifex.com/opencloud-eu/teams/204053/de/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -48,7 +48,7 @@ msgstr "Kann bearbeiten"
 #. directly)
 #: pkg/unifiedrole/roles.go:183
 msgid "Can edit with versions"
-msgstr ""
+msgstr "Kann bearbeitet werden mit Versionen"
 
 #. UnifiedRole SpaseEditorWithoutVersions, Role DisplayName (resolves
 #. directly)
@@ -188,6 +188,8 @@ msgid ""
 "View, download, upload, edit, delete, show all versions and all invited "
 "people."
 msgstr ""
+"Anzeigen, herunterladen, hochladen, bearbeiten, löschen, alle Versionen und "
+"alle eingeladenen Personen anzeigen."
 
 #. UnifiedRole FileEditorListGrantsWithVersions, Role Description (resolves
 #. directly)
@@ -195,3 +197,5 @@ msgstr ""
 msgid ""
 "View, download, upload, edit, show all versions and all invited people."
 msgstr ""
+"Anzeigen, herunterladen, hochladen, bearbeiten, alle Versionen und alle "
+"eingeladenen Personen anzeigen."

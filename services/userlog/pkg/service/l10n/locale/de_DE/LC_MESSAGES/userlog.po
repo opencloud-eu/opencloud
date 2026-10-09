@@ -1,0 +1,132 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
+# Translators:
+# tammi23, 2026
+# 
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: EMAIL\n"
+"POT-Creation-Date: 2026-10-08 23:16+0000\n"
+"PO-Revision-Date: 2025-01-27 10:17+0000\n"
+"Last-Translator: tammi23, 2026\n"
+"Language-Team: German (Germany) (https://app.transifex.com/opencloud-eu/teams/204053/de_DE/)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: de_DE\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: pkg/service/templates.go:39
+msgid "Access to Space {space} lost"
+msgstr "Zugriff auf Space {space} verloren"
+
+#: pkg/service/templates.go:59
+msgid "Access to {resource} expired"
+msgstr "Zugriff auf {resource} abgelaufen"
+
+#: pkg/service/templates.go:64
+msgid ""
+"Attention! The instance will be shut down and deprovisioned on {date}. "
+"Download all your data before that date as no access past that date is "
+"possible."
+msgstr ""
+"Achtung! Diese Instanz wird am {date} heruntergefahren und außer Betrieb "
+"genommen werden. Laden Sie Ihre Daten vor diesem Tag herunter, da Sie danach"
+" nicht mehr darauf zugreifen können."
+
+#: pkg/service/templates.go:63
+msgid "Instance will be shut down and deprovisioned"
+msgstr "Instanz wird heruntergefahren und außer Betrieb genommen werden."
+
+#: pkg/service/templates.go:38
+msgid "Membership expired"
+msgstr "Mitgliedschaft abgelaufen"
+
+#: pkg/service/templates.go:13
+msgid "Policies enforced"
+msgstr "Verstoß gegen Richtlinien"
+
+#: pkg/service/templates.go:23
+msgid "Removed from Space"
+msgstr "Aus Space entfernt"
+
+#: pkg/service/templates.go:43
+msgid "Resource shared"
+msgstr "Neue Freigabe"
+
+#: pkg/service/templates.go:48
+msgid "Resource unshared"
+msgstr "Freigabe entfernt"
+
+#: pkg/service/templates.go:58
+msgid "Share expired"
+msgstr "Freigabe abgelaufen"
+
+#: pkg/service/templates.go:33
+msgid "Space deleted"
+msgstr "Space gelöscht"
+
+#: pkg/service/templates.go:28
+msgid "Space disabled"
+msgstr "Space deaktiviert"
+
+#: pkg/service/templates.go:18
+msgid "Space shared"
+msgstr "Space freigegeben"
+
+#: pkg/service/templates.go:14
+msgid ""
+"The file {resource} was deleted because it violates the restrictions of this"
+" cloud. This could be due to an unsupported file type, potentially harmful "
+"or prohibited content, or file size limits."
+msgstr ""
+"Die Datei {resource} wurde gelöscht, da sie gegen die Einschränkungen dieser"
+" Cloud verstößt. Dies kann an einem nicht unterstützten Dateityp, potenziell"
+" schädlichen oder verbotenen Inhalten oder Dateigrößenbeschränkungen liegen."
+
+#: pkg/service/templates.go:8
+msgid "Virus found"
+msgstr "Virus gefunden"
+
+#: pkg/service/templates.go:9
+msgid "Virus found in {resource}. Upload not possible. Virus: {virus}"
+msgstr ""
+"In {resource} wurde potenziell schädlicher Code gefunden. Das Hochladen wurde abgebrochen.\n"
+"Grund: {virus}"
+
+#: pkg/service/templates.go:53
+msgid "You have been mentioned"
+msgstr "Sie wurden erwähnt"
+
+#: pkg/service/templates.go:19
+msgid "{user} added you to Space {space}"
+msgstr "{user} hat Sie zu Space {space} hinzugefügt"
+
+#: pkg/service/templates.go:34
+msgid "{user} deleted Space {space}"
+msgstr "{user} hat Space {space} gelöscht"
+
+#: pkg/service/templates.go:29
+msgid "{user} disabled Space {space}"
+msgstr "{user} hat Space {space} deaktiviert"
+
+#: pkg/service/templates.go:54
+msgid "{user} mentioned you in {resource}"
+msgstr "{user} hat Sie in der Datei {resource} erwähnt"
+
+#: pkg/service/templates.go:24
+msgid "{user} removed you from Space {space}"
+msgstr "{user} hat Sie aus Space {space} entfernt."
+
+#: pkg/service/templates.go:44
+msgid "{user} shared {resource} with you"
+msgstr "{user} hat {resource} mit Ihnen geteilt"
+
+#: pkg/service/templates.go:49
+msgid "{user} unshared {resource} with you"
+msgstr "{user} hat die Freigabe auf {resource} für Sie aufgehoben"
