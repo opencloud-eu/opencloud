@@ -57,10 +57,9 @@ var _ = Describe("share recipients", func() {
 
 	// resourceInfo returns a resource info as stat'ed with the ancestor grants
 	resourceInfo := func(id *provider.ResourceId, grants ...*provider.Grant) *provider.ResourceInfo {
-		return &provider.ResourceInfo{
-			Id:     id,
-			Opaque: utils.AppendGrantsToOpaque(nil, ancestorGrantsKey, grants),
-		}
+		o, err := utils.AppendGrantsToOpaque(nil, ancestorGrantsKey, grants)
+		Expect(err).ToNot(HaveOccurred())
+		return &provider.ResourceInfo{Id: id, Opaque: o}
 	}
 
 	expectGroupMembers := func(members ...string) {
