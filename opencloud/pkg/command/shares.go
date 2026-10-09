@@ -35,8 +35,8 @@ import (
 // this executions is not returned this timeout is needed
 const cleanupTimeout = 1 * time.Minute
 
-// migrationTimeout bounds a forced migration run. Importing the grants of many
-// project spaces is not fast, so this is generous.
+// migrationTimeout is the default bound of a forced migration run. Importing the
+// grants of many project spaces is not fast, so this is generous.
 const migrationTimeout = 30 * time.Minute
 
 // SharesCommand is the entrypoint for the groups command.
@@ -107,12 +107,7 @@ func cleanup(_ *cobra.Command, cfg *config.Config) error {
 
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
-	rcfg := revaShareConfig(cfg.Sharing)
-	f, ok := registry.NewFuncs[driver]
-	if !ok {
-		return configlog.ReturnError(errors.New("Unknown share manager type '" + driver + "'"))
-	}
-	mgr, err := f(rcfg[driver].(map[string]any), &l)
+	mgr, err := jsoncs3Manager(cfg, driver, &l)
 	if err != nil {
 		return configlog.ReturnError(err)
 	}
@@ -141,14 +136,12 @@ func cleanup(_ *cobra.Command, cfg *config.Config) error {
 
 	cleanupCtx, cancel := context.WithTimeout(serviceUserCtx, cleanupTimeout)
 	defer cancel()
-	if err := mgr.(*jsoncs3.Manager).CleanupStaleShares(cleanupCtx); err != nil {
+	if err := mgr.CleanupStaleShares(cleanupCtx); err != nil {
 		return configlog.ReturnError(err)
 	}
 
 	return nil
 }
-
-const migrationWaitTimeout = 30 * time.Minute
 
 func migrateCmd(cfg *config.Config) *cobra.Command {
 	migrateCmd := &cobra.Command{
@@ -195,12 +188,13 @@ Use --list to see the available migrations.`,
 	}
 
 	migrateCmd.Flags().BoolP("list", "l", false, "list the available migrations and exit")
+	migrateCmd.Flags().Duration("timeout", migrationTimeout, "abort the migration after this duration")
 	_ = viper.BindPFlag("list", migrateCmd.Flags().Lookup("list"))
 
 	return migrateCmd
 }
 
-func migrate(_ *cobra.Command, cfg *config.Config, args []string) error {
+func migrate(cmd *cobra.Command, cfg *config.Config, args []string) error {
 	if viper.GetBool("list") {
 		for _, name := range migration.Names() {
 			fmt.Println(name)
@@ -219,20 +213,44 @@ func migrate(_ *cobra.Command, cfg *config.Config, args []string) error {
 	// Initialize registry to make service lookup work
 	_ = mregistry.GetRegistry()
 
-	rcfg := revaShareConfig(cfg.Sharing)
-	f, ok := registry.NewFuncs[driver]
-	if !ok {
-		return configlog.ReturnError(errors.New("Unknown share manager type '" + driver + "'"))
-	}
-	mgr, err := f(rcfg[driver].(map[string]any), &l)
+	mgr, err := jsoncs3Manager(cfg, driver, &l)
 	if err != nil {
 		return configlog.ReturnError(err)
 	}
 
-	ctx, cancel := context.WithTimeout(l.WithContext(context.Background()), migrationTimeout)
+	timeout, err := cmd.Flags().GetDuration("timeout")
+	if err != nil {
+		return configlog.ReturnError(err)
+	}
+	ctx, cancel := context.WithTimeout(l.WithContext(context.Background()), timeout)
 	defer cancel()
 
-	return configlog.ReturnError(mgr.(*jsoncs3.Manager).RunMigration(ctx, args[0]))
+	return configlog.ReturnError(mgr.RunMigration(ctx, args[0]))
+}
+
+// jsoncs3Manager creates the share manager of the given driver and returns it as a jsoncs3 manager.
+func jsoncs3Manager(cfg *config.Config, driver string, l *zerolog.Logger) (*jsoncs3.Manager, error) {
+	f, ok := registry.NewFuncs[driver]
+	if !ok {
+		return nil, errors.New("Unknown share manager type '" + driver + "'")
+	}
+	d, ok := revaShareConfig(cfg.Sharing)[driver]
+	if !ok {
+		return nil, errors.New("no configuration for share manager type '" + driver + "'")
+	}
+	m, ok := d.(map[string]any)
+	if !ok {
+		return nil, errors.New("invalid configuration for share manager type '" + driver + "'")
+	}
+	mgr, err := f(m, l)
+	if err != nil {
+		return nil, err
+	}
+	jmgr, ok := mgr.(*jsoncs3.Manager)
+	if !ok {
+		return nil, errors.New("share manager type '" + driver + "' is not jsoncs3")
+	}
+	return jmgr, nil
 }
 
 func revaShareConfig(cfg *sharing.Config) map[string]any {
