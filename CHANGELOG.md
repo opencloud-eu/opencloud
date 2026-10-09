@@ -1,6 +1,6 @@
 # Changelog
 
-## [9.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.0) - 2026-10-08
+## [9.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.0) - 2026-10-09
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -10,14 +10,15 @@
 
 - feat(guestlinks)!: auth-guest service [[#3609](https://github.com/opencloud-eu/opencloud/pull/3609)]
 
+### ✅ Tests
+
+- test: retry acceptance requests while share manager is migrating [[#3681](https://github.com/opencloud-eu/opencloud/pull/3681)]
+- api-test: extend search tests [[#3634](https://github.com/opencloud-eu/opencloud/pull/3634)]
+
 ### 📈 Enhancement
 
 - feat: add more cli options to unified roles [[#3658](https://github.com/opencloud-eu/opencloud/pull/3658)]
 - feat(web): use the OpenCloud brand colors for the primary color role [[#3631](https://github.com/opencloud-eu/opencloud/pull/3631)]
-
-### ✅ Tests
-
-- api-test: extend search tests [[#3634](https://github.com/opencloud-eu/opencloud/pull/3634)]
 
 ### 📦️ Dependencies
 
