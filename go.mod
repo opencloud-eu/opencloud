@@ -9,6 +9,7 @@ require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/MicahParks/keyfunc/v2 v2.1.0
 	github.com/Nerzal/gocloak/v13 v13.9.0
+	github.com/alexedwards/argon2id v1.0.0
 	github.com/bbalet/stopwords v1.0.0
 	github.com/beevik/etree v1.8.0
 	github.com/blevesearch/bleve/v2 v2.6.1
@@ -65,7 +66,7 @@ require (
 	github.com/onsi/gomega v1.43.1
 	github.com/open-policy-agent/opa v1.21.1
 	github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89
-	github.com/opencloud-eu/libre-graph-api-go v1.0.8
+	github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261008090127-e04fc3d3e458
 	github.com/opencloud-eu/reva/v2 v2.51.1-0.20261007142032-7148a82e0e45
 	github.com/opensearch-project/opensearch-go/v4 v4.7.3
 	github.com/orcaman/concurrent-map v1.0.0
@@ -136,7 +137,6 @@ require (
 	github.com/RoaringBitmap/roaring/v2 v2.14.5 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/ajg/form v1.5.1 // indirect
-	github.com/alexedwards/argon2id v1.0.0 // indirect
 	github.com/amoghe/go-crypt v0.0.0-20220222110647-20eada5f5964 // indirect
 	github.com/antithesishq/antithesis-sdk-go v0.8.0-default-no-op // indirect
 	github.com/armon/go-radix v1.0.0 // indirect

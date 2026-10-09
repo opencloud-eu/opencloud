@@ -50,11 +50,11 @@ func (s *FileManager) Add(rec Record) error {
 		return err
 	}
 
-	return s.add(rec)
+	return s.upsert(rec)
 }
 
 // Get returns the record for the given share id hash.
-func (s *FileManager) Get(shareIDHash string) (Record, error) {
+func (s *FileManager) Get(shareIDHash string) (*Record, error) {
 	return s.get(shareIDHash)
 }
 
@@ -83,7 +83,8 @@ func (s *FileManager) Remove(shareIDHash string) error {
 	return nil
 }
 
-func (s *FileManager) Redeem(shareIDHash string) error {
+// Update applies fn to the record under lock and writes it back.
+func (s *FileManager) Update(shareIDHash string, fn func(*Record) error) error {
 	lock, err := s.lockRecord(shareIDHash)
 	if err != nil {
 		return err
@@ -95,12 +96,45 @@ func (s *FileManager) Redeem(shareIDHash string) error {
 		return err
 	}
 
-	if rec.Redeemed {
-		return ErrAlreadyRedeemed
+	if err := fn(rec); err != nil {
+		return err
 	}
 
-	rec.Redeemed = true
-	return s.add(rec)
+	rec.Revision++
+
+	return s.upsert(*rec)
+}
+
+// UpdateFrom applies fn to the record under lock and writes it back, unless it
+// changed since seen (its revision advanced), in which case it returns
+// ErrConflict. It returns the updated record.
+func (s *FileManager) UpdateFrom(seen Record, fn func(*Record) error) (*Record, error) {
+	lock, err := s.lockRecord(seen.ShareIDHash)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = lock.Unlock() }()
+
+	rec, err := s.get(seen.ShareIDHash)
+	if err != nil {
+		return nil, err
+	}
+
+	if seen.Revision < rec.Revision {
+		return nil, ErrConflict
+	}
+
+	if err := fn(rec); err != nil {
+		return nil, err
+	}
+
+	rec.Revision = seen.Revision + 1
+
+	if err := s.upsert(*rec); err != nil {
+		return nil, err
+	}
+
+	return rec, nil
 }
 
 func (s *FileManager) lockRecord(shareIDHash string) (*flock.Flock, error) {
@@ -121,7 +155,7 @@ func (s *FileManager) lockRecord(shareIDHash string) (*flock.Flock, error) {
 	return lock, nil
 }
 
-func (s *FileManager) add(rec Record) error {
+func (s *FileManager) upsert(rec Record) error {
 	p, err := s.path(rec.ShareIDHash)
 	if err != nil {
 		return err
@@ -140,23 +174,23 @@ func (s *FileManager) add(rec Record) error {
 	return renameio.WriteFile(p, data, filePerm)
 }
 
-func (s *FileManager) get(shareIDHash string) (Record, error) {
+func (s *FileManager) get(shareIDHash string) (*Record, error) {
 	p, err := s.path(shareIDHash)
 	if err != nil {
-		return Record{}, err
+		return nil, err
 	}
 
 	data, err := os.ReadFile(p)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return Record{}, ErrNotFound
+			return nil, ErrNotFound
 		}
-		return Record{}, err
+		return nil, err
 	}
 
-	rec := Record{}
-	if err := json.Unmarshal(data, &rec); err != nil {
-		return Record{}, err
+	rec := &Record{}
+	if err := json.Unmarshal(data, rec); err != nil {
+		return nil, err
 	}
 
 	return rec, nil

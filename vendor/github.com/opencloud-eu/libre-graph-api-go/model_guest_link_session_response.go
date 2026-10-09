@@ -16,37 +16,37 @@ import (
 	"fmt"
 )
 
-// checks if the GuestLinkRedeemResponse type satisfies the MappedNullable interface at compile time
-var _ MappedNullable = &GuestLinkRedeemResponse{}
+// checks if the GuestLinkSessionResponse type satisfies the MappedNullable interface at compile time
+var _ MappedNullable = &GuestLinkSessionResponse{}
 
-// GuestLinkRedeemResponse Response body for a successful guest link redemption.
-type GuestLinkRedeemResponse struct {
+// GuestLinkSessionResponse Response body for a successful guest link authentication: the share (permission) id the guest was invited to. A session cookie is set via the Set-Cookie header.
+type GuestLinkSessionResponse struct {
 	// Identifier of the share (permission) the guest was invited to.
 	PermissionId string `json:"permissionId"`
 }
 
-type _GuestLinkRedeemResponse GuestLinkRedeemResponse
+type _GuestLinkSessionResponse GuestLinkSessionResponse
 
-// NewGuestLinkRedeemResponse instantiates a new GuestLinkRedeemResponse object
+// NewGuestLinkSessionResponse instantiates a new GuestLinkSessionResponse object
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewGuestLinkRedeemResponse(permissionId string) *GuestLinkRedeemResponse {
-	this := GuestLinkRedeemResponse{}
+func NewGuestLinkSessionResponse(permissionId string) *GuestLinkSessionResponse {
+	this := GuestLinkSessionResponse{}
 	this.PermissionId = permissionId
 	return &this
 }
 
-// NewGuestLinkRedeemResponseWithDefaults instantiates a new GuestLinkRedeemResponse object
+// NewGuestLinkSessionResponseWithDefaults instantiates a new GuestLinkSessionResponse object
 // This constructor will only assign default values to properties that have it defined,
 // but it doesn't guarantee that properties required by API are set
-func NewGuestLinkRedeemResponseWithDefaults() *GuestLinkRedeemResponse {
-	this := GuestLinkRedeemResponse{}
+func NewGuestLinkSessionResponseWithDefaults() *GuestLinkSessionResponse {
+	this := GuestLinkSessionResponse{}
 	return &this
 }
 
 // GetPermissionId returns the PermissionId field value
-func (o *GuestLinkRedeemResponse) GetPermissionId() string {
+func (o *GuestLinkSessionResponse) GetPermissionId() string {
 	if o == nil {
 		var ret string
 		return ret
@@ -57,7 +57,7 @@ func (o *GuestLinkRedeemResponse) GetPermissionId() string {
 
 // GetPermissionIdOk returns a tuple with the PermissionId field value
 // and a boolean to check if the value has been set.
-func (o *GuestLinkRedeemResponse) GetPermissionIdOk() (*string, bool) {
+func (o *GuestLinkSessionResponse) GetPermissionIdOk() (*string, bool) {
 	if o == nil {
 		return nil, false
 	}
@@ -65,11 +65,11 @@ func (o *GuestLinkRedeemResponse) GetPermissionIdOk() (*string, bool) {
 }
 
 // SetPermissionId sets field value
-func (o *GuestLinkRedeemResponse) SetPermissionId(v string) {
+func (o *GuestLinkSessionResponse) SetPermissionId(v string) {
 	o.PermissionId = v
 }
 
-func (o GuestLinkRedeemResponse) MarshalJSON() ([]byte, error) {
+func (o GuestLinkSessionResponse) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
 		return []byte{}, err
@@ -77,13 +77,13 @@ func (o GuestLinkRedeemResponse) MarshalJSON() ([]byte, error) {
 	return json.Marshal(toSerialize)
 }
 
-func (o GuestLinkRedeemResponse) ToMap() (map[string]interface{}, error) {
+func (o GuestLinkSessionResponse) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["permissionId"] = o.PermissionId
 	return toSerialize, nil
 }
 
-func (o *GuestLinkRedeemResponse) UnmarshalJSON(data []byte) (err error) {
+func (o *GuestLinkSessionResponse) UnmarshalJSON(data []byte) (err error) {
 	// This validates that all required properties are included in the JSON object
 	// by unmarshalling the object into a generic map with string keys and checking
 	// that every required field exists as a key in the generic map.
@@ -105,53 +105,53 @@ func (o *GuestLinkRedeemResponse) UnmarshalJSON(data []byte) (err error) {
 		}
 	}
 
-	varGuestLinkRedeemResponse := _GuestLinkRedeemResponse{}
+	varGuestLinkSessionResponse := _GuestLinkSessionResponse{}
 
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
-	err = decoder.Decode(&varGuestLinkRedeemResponse)
+	err = decoder.Decode(&varGuestLinkSessionResponse)
 
 	if err != nil {
 		return err
 	}
 
-	*o = GuestLinkRedeemResponse(varGuestLinkRedeemResponse)
+	*o = GuestLinkSessionResponse(varGuestLinkSessionResponse)
 
 	return err
 }
 
-type NullableGuestLinkRedeemResponse struct {
-	value *GuestLinkRedeemResponse
+type NullableGuestLinkSessionResponse struct {
+	value *GuestLinkSessionResponse
 	isSet bool
 }
 
-func (v NullableGuestLinkRedeemResponse) Get() *GuestLinkRedeemResponse {
+func (v NullableGuestLinkSessionResponse) Get() *GuestLinkSessionResponse {
 	return v.value
 }
 
-func (v *NullableGuestLinkRedeemResponse) Set(val *GuestLinkRedeemResponse) {
+func (v *NullableGuestLinkSessionResponse) Set(val *GuestLinkSessionResponse) {
 	v.value = val
 	v.isSet = true
 }
 
-func (v NullableGuestLinkRedeemResponse) IsSet() bool {
+func (v NullableGuestLinkSessionResponse) IsSet() bool {
 	return v.isSet
 }
 
-func (v *NullableGuestLinkRedeemResponse) Unset() {
+func (v *NullableGuestLinkSessionResponse) Unset() {
 	v.value = nil
 	v.isSet = false
 }
 
-func NewNullableGuestLinkRedeemResponse(val *GuestLinkRedeemResponse) *NullableGuestLinkRedeemResponse {
-	return &NullableGuestLinkRedeemResponse{value: val, isSet: true}
+func NewNullableGuestLinkSessionResponse(val *GuestLinkSessionResponse) *NullableGuestLinkSessionResponse {
+	return &NullableGuestLinkSessionResponse{value: val, isSet: true}
 }
 
-func (v NullableGuestLinkRedeemResponse) MarshalJSON() ([]byte, error) {
+func (v NullableGuestLinkSessionResponse) MarshalJSON() ([]byte, error) {
 	return json.Marshal(v.value)
 }
 
-func (v *NullableGuestLinkRedeemResponse) UnmarshalJSON(src []byte) error {
+func (v *NullableGuestLinkSessionResponse) UnmarshalJSON(src []byte) error {
 	v.isSet = true
 	return json.Unmarshal(src, &v.value)
 }
