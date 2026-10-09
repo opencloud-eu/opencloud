@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-08-28 23:16+0000\n"
+"POT-Creation-Date: 2026-10-08 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: BoneNI, 2026\n"
 "Language-Team: Lao (https://app.transifex.com/opencloud-eu/teams/204053/lo/)\n"
@@ -21,82 +21,82 @@ msgstr ""
 "Language: lo\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: pkg/service/response.go:44
+#: pkg/service/http/response.go:44
 msgid "description"
 msgstr "ຄຳອະທິບາຍ"
 
-#: pkg/service/response.go:43
+#: pkg/service/http/response.go:43
 msgid "display name"
 msgstr "ຊື່ທີ່ສະແດງ"
 
-#: pkg/service/response.go:42
+#: pkg/service/http/response.go:42
 msgid "expiration date"
 msgstr "ວັນໝົດອາຍຸ"
 
-#: pkg/service/response.go:41
+#: pkg/service/http/response.go:41
 msgid "password"
 msgstr "ລະຫັດຜ່ານ"
 
-#: pkg/service/response.go:40
+#: pkg/service/http/response.go:40
 msgid "permission"
 msgstr "ສິດອະນຸຍາດ"
 
-#: pkg/service/response.go:39
+#: pkg/service/http/response.go:39
 msgid "some field"
 msgstr "ບາງຟີວ"
 
-#: pkg/service/response.go:26
+#: pkg/service/http/response.go:26
 msgid "{resource} was downloaded via public link {token}"
 msgstr "{resource} ຖືກດາວໂຫຼດຜ່ານລິ້ງສາທາລະນະ {token}"
 
-#: pkg/service/response.go:24
+#: pkg/service/http/response.go:24
 msgid "{user} added {resource} to {folder}"
 msgstr "{user} ໄດ້ເພີ່ມ {resource} ເຂົ້າໃນ {folder}"
 
-#: pkg/service/response.go:36
+#: pkg/service/http/response.go:36
 msgid "{user} added {sharee} as member of {space}"
 msgstr "{user} ໄດ້ເພີ່ມ {sharee} ເປັນສະມາຊິກຂອງ {space}"
 
-#: pkg/service/response.go:27
+#: pkg/service/http/response.go:27
 msgid "{user} deleted {resource} from {folder}"
 msgstr "{user} ໄດ້ລຶບ {resource} ອອກຈາກ {folder}"
 
-#: pkg/service/response.go:28
+#: pkg/service/http/response.go:28
 msgid "{user} moved {resource} to {folder}"
 msgstr "{user} ໄດ້ຍ້າຍ {resource} ໄປທີ່ {folder}"
 
-#: pkg/service/response.go:35
+#: pkg/service/http/response.go:35
 msgid "{user} removed link to {resource}"
 msgstr "{user} ໄດ້ລຶບລິ້ງໄປຫາ {resource}"
 
-#: pkg/service/response.go:32
+#: pkg/service/http/response.go:32
 msgid "{user} removed {sharee} from {resource}"
 msgstr "{user} ໄດ້ລຶບ {sharee} ອອກຈາກ {resource}"
 
-#: pkg/service/response.go:37
+#: pkg/service/http/response.go:37
 msgid "{user} removed {sharee} from {space}"
 msgstr "{user} ໄດ້ລຶບ {sharee} ອອກຈາກ {space}"
 
-#: pkg/service/response.go:29
+#: pkg/service/http/response.go:29
 msgid "{user} renamed {oldResource} to {resource}"
 msgstr "{user} ໄດ້ປ່ຽນຊື່ {oldResource} ເປັນ {resource}"
 
-#: pkg/service/response.go:33
+#: pkg/service/http/response.go:33
 msgid "{user} shared {resource} via link"
 msgstr "{user} ໄດ້ແບ່ງປັນ {resource} ຜ່ານລິ້ງ"
 
-#: pkg/service/response.go:30
+#: pkg/service/http/response.go:30
 msgid "{user} shared {resource} with {sharee}"
 msgstr "{user} ໄດ້ແບ່ງປັນ {resource} ກັບ {sharee}"
 
-#: pkg/service/response.go:34
+#: pkg/service/http/response.go:34
 msgid "{user} updated {field} for a link {token} on {resource}"
 msgstr "{user} ໄດ້ອັບເດດ {field} ສຳລັບລິ້ງ {token} ໃນ {resource}"
 
-#: pkg/service/response.go:31
+#: pkg/service/http/response.go:31
 msgid "{user} updated {field} for the {resource}"
 msgstr "{user} ໄດ້ອັບເດດ {field} ສຳລັບ {resource}"
 
-#: pkg/service/response.go:25
+#: pkg/service/http/response.go:25
 msgid "{user} updated {resource} in {folder}"
 msgstr "{user} ໄດ້ອັບເດດ {resource} ໃນ {folder}"

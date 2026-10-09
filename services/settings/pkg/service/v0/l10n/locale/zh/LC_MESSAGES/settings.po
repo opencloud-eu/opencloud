@@ -12,7 +12,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-08-28 23:16+0000\n"
+"POT-Creation-Date: 2026-10-08 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Dean Tree, 2026\n"
 "Language-Team: Chinese (https://app.transifex.com/opencloud-eu/teams/204053/zh/)\n"
@@ -132,17 +132,17 @@ msgstr "收到共享"
 #. name of the notification option 'Share Removed'
 #: pkg/store/defaults/templates.go:12
 msgid "Share Removed"
-msgstr "共享已移除"
+msgstr "共享被移除"
 
 #. name of the notification option 'Space Deleted'
 #: pkg/store/defaults/templates.go:40
 msgid "Space deleted"
-msgstr "空间已删除"
+msgstr "空间被删除"
 
 #. name of the notification option 'Space Disabled'
 #: pkg/store/defaults/templates.go:36
 msgid "Space disabled"
-msgstr "空间已禁用"
+msgstr "空间被禁用"
 
 #. name of the notification option 'Space Membership Expired'
 #: pkg/store/defaults/templates.go:32

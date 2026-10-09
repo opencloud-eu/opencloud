@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-08-28 23:16+0000\n"
+"POT-Creation-Date: 2026-10-08 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Efstathios Iosifidis <eiosifidis@gmail.com>, 2026\n"
 "Language-Team: Greek (https://app.transifex.com/opencloud-eu/teams/204053/el/)\n"
@@ -21,90 +21,90 @@ msgstr ""
 "Language: el\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: pkg/service/response.go:44
+#: pkg/service/http/response.go:44
 msgid "description"
 msgstr "περιγραφή"
 
-#: pkg/service/response.go:43
+#: pkg/service/http/response.go:43
 msgid "display name"
 msgstr "όνομα εμφάνισης"
 
-#: pkg/service/response.go:42
+#: pkg/service/http/response.go:42
 msgid "expiration date"
 msgstr "ημερομηνία λήξης"
 
-#: pkg/service/response.go:41
+#: pkg/service/http/response.go:41
 msgid "password"
 msgstr "κωδικός πρόσβασης"
 
-#: pkg/service/response.go:40
+#: pkg/service/http/response.go:40
 msgid "permission"
 msgstr "δικαίωμα"
 
-#: pkg/service/response.go:39
+#: pkg/service/http/response.go:39
 msgid "some field"
 msgstr "κάποιο πεδίο"
 
-#: pkg/service/response.go:26
+#: pkg/service/http/response.go:26
 msgid "{resource} was downloaded via public link {token}"
 msgstr "ο πόρος {resource} λήφθηκε μέσω του δημόσιου συνδέσμου {token}"
 
-#: pkg/service/response.go:24
+#: pkg/service/http/response.go:24
 msgid "{user} added {resource} to {folder}"
 msgstr "ο χρήστης {user} πρόσθεσε το στοιχείο {resource} στον φάκελο {folder}"
 
-#: pkg/service/response.go:36
+#: pkg/service/http/response.go:36
 msgid "{user} added {sharee} as member of {space}"
 msgstr ""
 "ο χρήστης {user} πρόσθεσε τον χρήστη {sharee} ως μέλος του χώρου {space}"
 
-#: pkg/service/response.go:27
+#: pkg/service/http/response.go:27
 msgid "{user} deleted {resource} from {folder}"
 msgstr ""
 "ο χρήστης {user} διέγραψε το στοιχείο {resource} από τον φάκελο {folder}"
 
-#: pkg/service/response.go:28
+#: pkg/service/http/response.go:28
 msgid "{user} moved {resource} to {folder}"
 msgstr "ο χρήστης {user} μετέφερε το στοιχείο {resource} στον φάκελο {folder}"
 
-#: pkg/service/response.go:35
+#: pkg/service/http/response.go:35
 msgid "{user} removed link to {resource}"
 msgstr "ο χρήστης {user} αφαίρεσε τον σύνδεσμο για το στοιχείο {resource}"
 
-#: pkg/service/response.go:32
+#: pkg/service/http/response.go:32
 msgid "{user} removed {sharee} from {resource}"
 msgstr ""
 "ο χρήστης {user} αφαίρεσε τον χρήστη {sharee} από το στοιχείο {resource}"
 
-#: pkg/service/response.go:37
+#: pkg/service/http/response.go:37
 msgid "{user} removed {sharee} from {space}"
 msgstr "ο χρήστης {user} αφαίρεσε τον χρήστη {sharee} από τον χώρο {space}"
 
-#: pkg/service/response.go:29
+#: pkg/service/http/response.go:29
 msgid "{user} renamed {oldResource} to {resource}"
 msgstr "ο χρήστης {user} μετονόμασε το {oldResource} σε {resource}"
 
-#: pkg/service/response.go:33
+#: pkg/service/http/response.go:33
 msgid "{user} shared {resource} via link"
 msgstr "ο χρήστης {user} διαμοιράστηκε το στοιχείο {resource} μέσω συνδέσμου"
 
-#: pkg/service/response.go:30
+#: pkg/service/http/response.go:30
 msgid "{user} shared {resource} with {sharee}"
 msgstr ""
 "ο χρήστης {user} διαμοιράστηκε το στοιχείο {resource} με τον χρήστη {sharee}"
 
-#: pkg/service/response.go:34
+#: pkg/service/http/response.go:34
 msgid "{user} updated {field} for a link {token} on {resource}"
 msgstr ""
 "ο χρήστης {user} ενημέρωσε το πεδίο {field} για έναν σύνδεσμο {token} στο "
 "στοιχείο {resource}"
 
-#: pkg/service/response.go:31
+#: pkg/service/http/response.go:31
 msgid "{user} updated {field} for the {resource}"
 msgstr ""
 "ο χρήστης {user} ενημέρωσε το πεδίο {field} για το στοιχείο {resource}"
 
-#: pkg/service/response.go:25
+#: pkg/service/http/response.go:25
 msgid "{user} updated {resource} in {folder}"
 msgstr ""
 "ο χρήστης {user} ενημέρωσε το στοιχείο {resource} στον φάκελο {folder}"
