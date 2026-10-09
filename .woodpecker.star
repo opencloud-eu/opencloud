@@ -81,6 +81,15 @@ event = {
     "cron": {
         "event": "cron",
         "branch": "main",
+        "cron": "nightly*",
+    },
+    "translation_sync": {
+        "event": "cron",
+        "cron": "translation-sync",
+    },
+    "purge_cache": {
+        "event": "cron",
+        "cron": "purge-cache",
     },
     "pull_request": {
         "event": "pull_request",
@@ -2713,10 +2722,7 @@ def translation_sync(ctx):
             },
         ],
         "when": [
-            {
-                "event": "cron",
-                "cron": "translation-sync",
-            },
+            event["translation_sync"],
         ],
     }]
 
@@ -2807,10 +2813,7 @@ def purgeS3Cache():
         "name": "purge_ci_cache",
         "skip_clone": True,
         "when": [
-            {
-                "event": "cron",
-                "cron": "purge-cache",
-            },
+            event["purge_cache"],
         ],
         "steps": [
             {
