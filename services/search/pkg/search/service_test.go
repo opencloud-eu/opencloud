@@ -10,6 +10,7 @@ import (
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -175,6 +176,98 @@ var _ = Describe("Searchprovider", func() {
 			Entry("./", "./", false),
 			Entry("/", "/", false),
 		)
+
+		Context("with facet metadata stored on the resource", func() {
+			var info *sprovider.ResourceInfo
+
+			BeforeEach(func() {
+				info = &sprovider.ResourceInfo{
+					Id:       &sprovider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "facet-opaqueid"},
+					ParentId: &sprovider.ResourceId{StorageId: "storageid", OpaqueId: "parentopaqueid"},
+					Path:     "photo.jpg",
+					ArbitraryMetadata: &sprovider.ArbitraryMetadata{Metadata: map[string]string{
+						"tags":                         "holiday",
+						"libre.graph.photo.cameraMake": "Canon",
+						"libre.graph.photo.iso":        "100",
+						"libre.graph.image.width":      "1024",
+					}},
+				}
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
+					Status: status.NewOK(context.Background()),
+					Info:   info,
+				}, nil)
+				gatewayClient.On("GetPath", mock.Anything, mock.MatchedBy(func(req *sprovider.GetPathRequest) bool {
+					return req.GetResourceId().GetOpaqueId() == info.GetId().GetOpaqueId()
+				})).Return(&sprovider.GetPathResponse{
+					Status: status.NewOK(context.Background()),
+					Path:   info.GetPath(),
+				}, nil)
+				indexClient.On("Upsert", mock.Anything, mock.Anything).Return(nil)
+			})
+
+			It("removes the keys the extraction no longer delivers", func() {
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{
+					Photo: &libregraph.Photo{CameraMake: libregraph.PtrString("Nikon")},
+				}, nil)
+				var set map[string]string
+				gatewayClient.On("SetArbitraryMetadata", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+					set = args.Get(1).(*sprovider.SetArbitraryMetadataRequest).GetArbitraryMetadata().GetMetadata()
+				}).Return(&sprovider.SetArbitraryMetadataResponse{Status: status.NewOK(context.Background())}, nil)
+				var unset []string
+				gatewayClient.On("UnsetArbitraryMetadata", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+					unset = args.Get(1).(*sprovider.UnsetArbitraryMetadataRequest).GetArbitraryMetadataKeys()
+				}).Return(&sprovider.UnsetArbitraryMetadataResponse{Status: status.NewOK(context.Background())}, nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+
+				Expect(set).To(Equal(map[string]string{"libre.graph.photo.cameraMake": "Nikon"}))
+				Expect(unset).To(ConsistOf("libre.graph.image.width", "libre.graph.photo.iso"))
+			})
+
+			It("removes all facet keys when the extraction delivers no facet", func() {
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, nil)
+				var unset []string
+				gatewayClient.On("UnsetArbitraryMetadata", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+					unset = args.Get(1).(*sprovider.UnsetArbitraryMetadataRequest).GetArbitraryMetadataKeys()
+				}).Return(&sprovider.UnsetArbitraryMetadataResponse{Status: status.NewOK(context.Background())}, nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+
+				gatewayClient.AssertNotCalled(GinkgoT(), "SetArbitraryMetadata", mock.Anything, mock.Anything)
+				Expect(unset).To(ConsistOf("libre.graph.image.width", "libre.graph.photo.cameraMake", "libre.graph.photo.iso"))
+			})
+
+			It("writes only the keys whose value changed", func() {
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{
+					Photo: &libregraph.Photo{CameraMake: libregraph.PtrString("Canon"), Iso: libregraph.PtrInt32(200)},
+					Image: &libregraph.Image{Width: libregraph.PtrInt32(1024), Height: libregraph.PtrInt32(768)},
+				}, nil)
+				var set map[string]string
+				gatewayClient.On("SetArbitraryMetadata", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+					set = args.Get(1).(*sprovider.SetArbitraryMetadataRequest).GetArbitraryMetadata().GetMetadata()
+				}).Return(&sprovider.SetArbitraryMetadataResponse{Status: status.NewOK(context.Background())}, nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+
+				Expect(set).To(Equal(map[string]string{
+					"libre.graph.photo.iso":    "200",
+					"libre.graph.image.height": "768",
+				}))
+				gatewayClient.AssertNotCalled(GinkgoT(), "UnsetArbitraryMetadata", mock.Anything, mock.Anything)
+			})
+
+			It("does not touch the storage when the stored keys match the extraction", func() {
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{
+					Photo: &libregraph.Photo{CameraMake: libregraph.PtrString("Canon"), Iso: libregraph.PtrInt32(100)},
+					Image: &libregraph.Image{Width: libregraph.PtrInt32(1024)},
+				}, nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+
+				gatewayClient.AssertNotCalled(GinkgoT(), "SetArbitraryMetadata", mock.Anything, mock.Anything)
+				gatewayClient.AssertNotCalled(GinkgoT(), "UnsetArbitraryMetadata", mock.Anything, mock.Anything)
+			})
+		})
 	})
 
 	DescribeTable("IsHidden",
