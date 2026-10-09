@@ -502,22 +502,7 @@ def pipelineDependsOn(pipeline, dependant_pipelines):
         pipeline["depends_on"] = getPipelineNames(dependant_pipelines)
     return pipeline
 
-def pipelinesDependsOn(pipelines, dependant_pipelines):
-    pipes = []
-    for pipeline in pipelines:
-        pipes.append(pipelineDependsOn(pipeline, dependant_pipelines))
-
-    return pipes
-
 def getPipelineNames(pipelines = []):
-    """getPipelineNames returns names of pipelines as a string array
-
-    Args:
-      pipelines: array of woodpecker pipelines
-
-    Returns:
-      names of the given pipelines as string array
-    """
     names = []
     for pipeline in pipelines:
         names.append(pipeline["name"])
@@ -556,10 +541,10 @@ def main(ctx):
         codestyle(ctx) + \
         checkGherkinLint(ctx) + \
         checkTestSuitesInExpectedFailures(ctx) + \
-        pipelinesDependsOn(buildWebCache(ctx), savePipelineNumber(ctx)) + \
-        pipelinesDependsOn(cacheBrowsers(ctx), savePipelineNumber(ctx)) + \
+        buildWebCache(ctx) + \
+        cacheBrowsers(ctx) + \
         getGoBinForTesting(ctx) + \
-        pipelinesDependsOn(buildOpencloudBinaryForTesting(ctx), savePipelineNumber(ctx)) + \
+        buildOpencloudBinaryForTesting(ctx) + \
         checkStarlark(ctx) + \
         build_release_helpers + \
         testOpencloudAndUploadResults(ctx) + \
@@ -572,33 +557,22 @@ def main(ctx):
     pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + notifyMatrixCheckSteps(ctx, getPipelineNames(testPipelines(ctx)))
 
     pipelineSanityChecks(pipelines)
-    return savePipelineNumber(ctx) + pipelines
+    return pipelines
 
-def savePipelineNumber(ctx):
+def savePipelineInfoStep(ctx):
     base_url = "https://raw.githubusercontent.com/%s" % repo_slug
     script_link = "%s/%s/tests/config/woodpecker/upload_pipeline_info.sh" % (base_url, ctx.build.commit)
-    return [{
-        "name": "save-pipeline-info",
-        "skip_clone": True,
-        "steps": [{
-            "name": "upload-info",
+    return [
+        {
+            "name": "save-pipeline-info",
             "image": MINIO_MC,
             "environment": MINIO_MC_ENV,
             "commands": [
                 "curl -s -o upload_pipeline_info.sh %s" % script_link,
                 "bash -x upload_pipeline_info.sh",
             ],
-        }],
-        "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": ["main", "stable-*"],
-            },
-            event["tag"],
-            event["cron"],
-            event["pull_request"],
-        ],
-    }]
+        },
+    ]
 
 def evaluateWorkflowStep():
     return [{
@@ -858,7 +832,8 @@ def scanOpencloud(ctx):
 def buildOpencloudBinaryForTesting(ctx):
     pipeline = {
         "name": "build-opencloud-for-testing",
-        "steps": makeNodeGenerate("") +
+        "steps": savePipelineInfoStep(ctx) +
+                 makeNodeGenerate("") +
                  makeGoGenerate("") +
                  build() +
                  rebuildBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]),
