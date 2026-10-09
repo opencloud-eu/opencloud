@@ -20,6 +20,7 @@ import (
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
+	olog "github.com/opencloud-eu/opencloud/pkg/log"
 	opencloudstorage "github.com/opencloud-eu/opencloud/pkg/storage"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config/parser"
@@ -31,6 +32,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/lookup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
+	"github.com/opencloud-eu/reva/v2/pkg/upload"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
@@ -108,15 +110,21 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 				}
 			}
 
-			fs, err := f(drivers[driver].(map[string]any), fsStream, nil)
+			driverConf, ok := drivers[driver].(map[string]any)
+			if !ok {
+				fmt.Fprintf(os.Stderr, "No configuration found for filesystem driver '%s'\n", cfg.Driver)
+				os.Exit(1)
+			}
+			fs, err := f(driverConf, fsStream, nil)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to initialize filesystem driver '%s'\n", cfg.Driver)
 				return err
 			}
 
-			managingFS, ok := fs.(storage.UploadSessionLister)
-			if !ok {
-				fmt.Fprintf(os.Stderr, "'%s' storage does not support listing upload sessions\n", cfg.Driver)
+			logger := olog.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
+			coord, err := upload.NewCoordinatorFromConfig("", driverConf, fs, nil, &logger.Logger, false)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to initialize the upload coordinator: %v\n", err)
 				os.Exit(1)
 			}
 
@@ -135,7 +143,7 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 			}
 
 			filter := buildFilter(cmd)
-			uploads, err := managingFS.ListUploadSessions(cmd.Context(), filter)
+			uploads, err := coord.ListUploadSessions(cmd.Context(), filter)
 			if err != nil {
 				return err
 			}
