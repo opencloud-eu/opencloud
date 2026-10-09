@@ -82,7 +82,7 @@ func TestGuestLinkAuthenticator_Applicability(t *testing.T) {
 }
 
 func TestGuestLinkAuthenticator_SupportsPathPrefixes(t *testing.T) {
-	supportedPrefixes := []string{"/graph/v1beta1/me/drive/sharedWithMe", "/dav/", "/webdav/", "/remote.php/dav/", "/remote.php/webdav/"}
+	supportedPrefixes := []string{"/graph/v1beta1/me/drive/sharedWithMe", "/dav/", "/webdav/", "/remote.php/dav/", "/remote.php/webdav/", "/ocs/v2.php/apps/notifications/api/v1/notifications/sse"}
 	for _, prefix := range supportedPrefixes {
 		t.Run("path prefix "+prefix, func(t *testing.T) {
 			if !isGuestLinkPath(prefix + "test") {
@@ -91,7 +91,7 @@ func TestGuestLinkAuthenticator_SupportsPathPrefixes(t *testing.T) {
 		})
 	}
 
-	unsupportedPaths := []string{"/archiver", "/", "/ocs/", "/konnect/", "/apps/"}
+	unsupportedPaths := []string{"/archiver", "/", "/ocs/", "/ocs/v2.php/apps/notifications/api/v1/notifications", "/konnect/", "/apps/"}
 	for _, path := range unsupportedPaths {
 		t.Run("unsupported "+path, func(t *testing.T) {
 			if isGuestLinkPath(path) {
