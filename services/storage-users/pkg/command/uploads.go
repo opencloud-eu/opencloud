@@ -343,6 +343,11 @@ func DeleteStaleProcessingNodes(cfg *config.Config) *cobra.Command {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// the command reads the node metadata itself, without starting the driver that sets the prefix
+			if err := prefixes.SetOcPrefix(cfg.Drivers.Decomposed.MetadataPrefix); err != nil {
+				return err
+			}
+
 			spaceIDs := []string{}
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
 			verbose, _ := cmd.Flags().GetBool("verbose")
