@@ -21,15 +21,13 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 )
 
-// ancestorGrantsKey makes a stat return the active grants on the resource and its ancestors,
-// excluding the space root. The storage only returns them to service accounts.
-const ancestorGrantsKey = "ancestor-grants"
-
+// The storage returns the active grants on a resource and its ancestors, excluding the space
+// root, only to service accounts.
 var (
 	// resourceFieldMask returns the complete resource info including the ancestor grants
-	resourceFieldMask = &fieldmaskpb.FieldMask{Paths: []string{"*", ancestorGrantsKey}}
+	resourceFieldMask = &fieldmaskpb.FieldMask{Paths: []string{"*", utils.AncestorGrantsKey}}
 	// ancestorGrantsFieldMask returns the basic resource info and the ancestor grants
-	ancestorGrantsFieldMask = &fieldmaskpb.FieldMask{Paths: []string{ancestorGrantsKey}}
+	ancestorGrantsFieldMask = &fieldmaskpb.FieldMask{Paths: []string{utils.AncestorGrantsKey}}
 )
 
 // addShareRecipients adds the grantees of shares on the resource or on one of its ancestors
@@ -70,11 +68,11 @@ func addParentShareRecipients(ctx context.Context, gwc gateway.GatewayAPIClient,
 // getShareRecipients returns the grantees of the ancestor grants of the resource and the users
 // that were denied access on the resource or one of its ancestors.
 func getShareRecipients(ctx context.Context, gwc gateway.GatewayAPIClient, info *provider.ResourceInfo) (recipients, denied []string, err error) {
-	if !utils.ExistsInOpaque(info.GetOpaque(), ancestorGrantsKey) {
+	if !utils.ExistsInOpaque(info.GetOpaque(), utils.AncestorGrantsKey) {
 		return nil, nil, nil
 	}
 
-	gs, err := utils.ReadGrantsFromOpaque(info.GetOpaque(), ancestorGrantsKey)
+	gs, err := utils.ReadGrantsFromOpaque(info.GetOpaque(), utils.AncestorGrantsKey)
 	if err != nil {
 		return nil, nil, err
 	}

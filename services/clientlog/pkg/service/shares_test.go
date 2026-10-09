@@ -57,7 +57,7 @@ var _ = Describe("share recipients", func() {
 
 	// resourceInfo returns a resource info as stat'ed with the ancestor grants
 	resourceInfo := func(id *provider.ResourceId, grants ...*provider.Grant) *provider.ResourceInfo {
-		o, err := utils.AppendGrantsToOpaque(nil, ancestorGrantsKey, grants)
+		o, err := utils.AppendGrantsToOpaque(nil, utils.AncestorGrantsKey, grants)
 		Expect(err).ToNot(HaveOccurred())
 		return &provider.ResourceInfo{Id: id, Opaque: o}
 	}
@@ -114,7 +114,7 @@ var _ = Describe("share recipients", func() {
 
 		It("fails when the ancestor grants can't be decoded", func() {
 			info := &provider.ResourceInfo{Id: fileID, Opaque: &types.Opaque{Map: map[string]*types.OpaqueEntry{
-				ancestorGrantsKey: {Decoder: "json", Value: []byte("not json")},
+				utils.AncestorGrantsKey: {Decoder: "json", Value: []byte("not json")},
 			}}}
 			_, _, err := getShareRecipients(ctx, gwc, info)
 			Expect(err).To(HaveOccurred())
@@ -144,7 +144,7 @@ var _ = Describe("share recipients", func() {
 			gwc.EXPECT().Stat(mock.Anything, mock.MatchedBy(func(req *provider.StatRequest) bool {
 				return utils.ResourceIDEqual(req.GetRef().GetResourceId(), rootID) &&
 					req.GetRef().GetPath() == "./a" &&
-					req.GetFieldMask().GetPaths()[0] == ancestorGrantsKey
+					req.GetFieldMask().GetPaths()[0] == utils.AncestorGrantsKey
 			})).Return(&provider.StatResponse{
 				Status: okStatus,
 				Info:   resourceInfo(folderA, userGrant(&user.UserId{OpaqueId: "bob"}, viewer)),
@@ -178,7 +178,7 @@ var _ = Describe("share recipients", func() {
 			info.ParentId = folderA
 			info.Space = &provider.StorageSpace{Id: &provider.StorageSpaceId{OpaqueId: storageID + "$" + spaceID}}
 			gwc.EXPECT().Stat(mock.Anything, mock.MatchedBy(func(req *provider.StatRequest) bool {
-				return req.GetFieldMask().GetPaths()[1] == ancestorGrantsKey
+				return req.GetFieldMask().GetPaths()[1] == utils.AncestorGrantsKey
 			})).Return(&provider.StatResponse{Status: okStatus, Info: info}, nil).Once()
 
 			members := utils.AppendJSONToOpaque(nil, "grants", map[string]*provider.ResourcePermissions{
