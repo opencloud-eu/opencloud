@@ -34,7 +34,7 @@ var (
 // to users and removes the users that were denied access. The resource info must have been
 // stat'ed with the ancestor grants. Errors are logged, users is returned unchanged in that case.
 func addShareRecipients(ctx context.Context, gwc gateway.GatewayAPIClient, logger log.Logger, users []string, info *provider.ResourceInfo) []string {
-	recipients, denied, err := getShareRecipients(ctx, gwc, info)
+	recipients, denied, err := getShareRecipients(ctx, gwc, logger, info)
 	if err != nil {
 		logger.Error().Err(err).Str("itemid", storagespace.FormatResourceID(info.GetId())).Msg("error gathering share recipients")
 		return users
@@ -66,8 +66,9 @@ func addParentShareRecipients(ctx context.Context, gwc gateway.GatewayAPIClient,
 }
 
 // getShareRecipients returns the grantees of the ancestor grants of the resource and the users
-// that were denied access on the resource or one of its ancestors.
-func getShareRecipients(ctx context.Context, gwc gateway.GatewayAPIClient, info *provider.ResourceInfo) (recipients, denied []string, err error) {
+// that were denied access on the resource or one of its ancestors. Grantees that can't be
+// resolved are logged and skipped, so the others are still notified.
+func getShareRecipients(ctx context.Context, gwc gateway.GatewayAPIClient, logger log.Logger, info *provider.ResourceInfo) (recipients, denied []string, err error) {
 	if !utils.ExistsInOpaque(info.GetOpaque(), utils.AncestorGrantsKey) {
 		return nil, nil, nil
 	}
@@ -85,7 +86,8 @@ func getShareRecipients(ctx context.Context, gwc gateway.GatewayAPIClient, info 
 
 		us, err := resolveID(ctx, gwc, uid, gid)
 		if err != nil {
-			return nil, nil, err
+			logger.Error().Err(err).Str("groupid", gid.GetOpaqueId()).Str("itemid", storagespace.FormatResourceID(info.GetId())).Msg("error resolving grantee, skipping it")
+			continue
 		}
 
 		// denials are grants without any permissions, they apply to the whole subtree

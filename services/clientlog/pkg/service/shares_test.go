@@ -83,7 +83,7 @@ var _ = Describe("share recipients", func() {
 		It("returns the grantees of the ancestor grants", func() {
 			expectGroupMembers("bob", "carol")
 
-			recipients, denials, err := getShareRecipients(ctx, gwc, resourceInfo(fileID,
+			recipients, denials, err := getShareRecipients(ctx, gwc, logger, resourceInfo(fileID,
 				userGrant(&user.UserId{OpaqueId: "bob"}, viewer),
 				userGrant(&user.UserId{OpaqueId: "guest@example.com", Type: user.UserType_USER_TYPE_GUEST}, viewer),
 				groupGrant("group", viewer),
@@ -96,7 +96,7 @@ var _ = Describe("share recipients", func() {
 		It("returns the users that were denied access", func() {
 			expectGroupMembers("carol", "dave")
 
-			recipients, denials, err := getShareRecipients(ctx, gwc, resourceInfo(fileID,
+			recipients, denials, err := getShareRecipients(ctx, gwc, logger, resourceInfo(fileID,
 				userGrant(&user.UserId{OpaqueId: "bob"}, viewer),
 				groupGrant("group", denied),
 			))
@@ -106,7 +106,7 @@ var _ = Describe("share recipients", func() {
 		})
 
 		It("returns nothing when the storage didn't return the ancestor grants", func() {
-			recipients, denials, err := getShareRecipients(ctx, gwc, &provider.ResourceInfo{Id: fileID})
+			recipients, denials, err := getShareRecipients(ctx, gwc, logger, &provider.ResourceInfo{Id: fileID})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(recipients).To(BeEmpty())
 			Expect(denials).To(BeEmpty())
@@ -116,7 +116,7 @@ var _ = Describe("share recipients", func() {
 			info := &provider.ResourceInfo{Id: fileID, Opaque: &types.Opaque{Map: map[string]*types.OpaqueEntry{
 				utils.AncestorGrantsKey: {Decoder: "json", Value: []byte("not json")},
 			}}}
-			_, _, err := getShareRecipients(ctx, gwc, info)
+			_, _, err := getShareRecipients(ctx, gwc, logger, info)
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -131,11 +131,14 @@ var _ = Describe("share recipients", func() {
 			Expect(users).To(ConsistOf("alice", "bob"))
 		})
 
-		It("keeps the users when a group can't be resolved", func() {
+		It("skips groups that can't be resolved", func() {
 			gwc.EXPECT().GetGroup(mock.Anything, mock.Anything).Return(nil, errors.New("unavailable"))
 
-			users := addShareRecipients(ctx, gwc, logger, []string{"alice"}, resourceInfo(fileID, groupGrant("group", denied)))
-			Expect(users).To(ConsistOf("alice"))
+			users := addShareRecipients(ctx, gwc, logger, []string{"alice"}, resourceInfo(fileID,
+				groupGrant("group", viewer),
+				userGrant(&user.UserId{OpaqueId: "bob"}, viewer),
+			))
+			Expect(users).To(ConsistOf("alice", "bob"))
 		})
 	})
 
