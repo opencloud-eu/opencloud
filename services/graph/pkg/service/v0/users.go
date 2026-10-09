@@ -147,13 +147,15 @@ func (g Graph) GetUserDrive(w http.ResponseWriter, r *http.Request) {
 
 	log = log.With().Str("userID", userID).Logger()
 
-	_, expandPermissions, err := parseDriveRequest(r)
+	odataReq, expandPermissions, err := parseDriveRequest(r)
 	if err != nil {
 		log.Debug().Err(err).Msg("could not get drives: error parsing odata request")
 		errorcode.RenderError(w, r, err)
 		return
 	}
 
+	// Empty {user-id} is the current user (/me/drive); a non-empty one may be
+	// an id or a name, so resolve it to the opaque id the filter expects.
 	if userID == "" {
 		u, ok := revactx.ContextGetUser(ctx)
 		if !ok {
@@ -162,6 +164,14 @@ func (g Graph) GetUserDrive(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		userID = u.GetId().GetOpaqueId()
+	} else {
+		user, err := g.identityBackend.GetUser(ctx, userID, odataReq)
+		if err != nil {
+			log.Debug().Err(err).Str("userID", userID).Msg("could not get user drive: failed to resolve user")
+			errorcode.RenderError(w, r, err)
+			return
+		}
+		userID = user.GetId()
 	}
 
 	log.Debug().Msg("calling list storage spaces with user and personal filter")
