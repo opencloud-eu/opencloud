@@ -155,8 +155,11 @@ func (p Web) getPayload(ctx context.Context) (payload []byte, err error) {
 		webConfig.Apps = make([]string, 0)
 	}
 
-	// ensure that the server url has a trailing slash
-	webConfig.Server = strings.TrimRight(webConfig.Server, "/") + "/"
+	// ensure that the server url has a trailing slash. An empty server is left unset so the
+	// client falls back to the browser's origin.
+	if webConfig.Server != "" {
+		webConfig.Server = strings.TrimRight(webConfig.Server, "/") + "/"
+	}
 
 	// the runtime store is the single source of truth for the announcement banner: expose it
 	// when live, clear it otherwise. A statically configured value is not supported.
