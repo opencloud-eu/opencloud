@@ -92,6 +92,22 @@ var _ = Describe("PostprocessingService", func() {
 		}
 	}
 
+	// stepFinishedForUnknownUpload reports a finished step for an upload the store does
+	// not know about. Handling it fails with ErrEvent, which concerns only that event.
+	stepFinishedForUnknownUpload := func() raw.Event {
+		ev := events.PostprocessingStepFinished{
+			UploadID:     "unknown-" + uuid.New().String(),
+			FinishedStep: events.PPStepAntivirus,
+		}
+		return raw.Event{
+			Event: events.Event{
+				ID:    uuid.New().String(),
+				Type:  reflect.TypeOf(ev).String(),
+				Event: ev,
+			},
+		}
+	}
+
 	BeforeEach(func() {
 		cfg = config.Postprocessing{
 			Steps:                []string{"virusscan"},
@@ -195,6 +211,63 @@ var _ = Describe("PostprocessingService", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(errors.Is(err, ErrEvent)).To(BeTrue())
 			Expect(errors.Is(err, ErrFatal)).To(BeFalse())
+		})
+	})
+
+	Describe("running the event loop", func() {
+		// newRunningService is newService plus the worker count and the event channel
+		// Run needs. The channel is handed back so a test can feed the workers.
+		newRunningService := func(workers int) (*PostprocessingService, chan raw.Event) {
+			cfg.Workers = workers
+			evs := make(chan raw.Event)
+			svc := newService()
+			svc.events = evs
+			return svc, evs
+		}
+
+		It("returns without an error when it is stopped", func() {
+			svc, _ := newRunningService(2)
+
+			done := make(chan error, 1)
+			go func() { done <- svc.Run() }()
+
+			svc.Close()
+
+			Eventually(done, 5*time.Second).Should(Receive(BeNil()))
+		})
+
+		It("returns the fatal error instead of killing the process", func() {
+			// every publish fails, so the first event exhausts the retries and comes
+			// back as ErrFatal. That used to be a log.Fatal, which exits the process
+			// and takes every other service in the same binary with it.
+			pub.failures = 1000
+			svc, evs := newRunningService(2)
+
+			done := make(chan error, 1)
+			go func() { done <- svc.Run() }()
+
+			evs <- bytesReceived()
+
+			var err error
+			Eventually(done, 5*time.Second).Should(Receive(&err))
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, ErrFatal)).To(BeTrue())
+		})
+
+		It("keeps going after an error that only concerns a single event", func() {
+			// a step finished for an upload the store knows nothing about fails with
+			// ErrEvent, which the loop logs and moves on from
+			svc, evs := newRunningService(1)
+
+			done := make(chan error, 1)
+			go func() { done <- svc.Run() }()
+
+			evs <- stepFinishedForUnknownUpload()
+
+			Consistently(done, 200*time.Millisecond).ShouldNot(Receive())
+
+			svc.Close()
+			Eventually(done, 5*time.Second).Should(Receive(BeNil()))
 		})
 	})
 })

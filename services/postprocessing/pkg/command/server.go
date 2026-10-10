@@ -3,9 +3,9 @@ package command
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/signal"
 
+	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
@@ -25,12 +25,7 @@ func Server(cfg *config.Config) *cobra.Command {
 		Use:   "server",
 		Short: fmt.Sprintf("start %s service without runtime (unsupervised mode)", cfg.Service.Name),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			err := parser.ParseConfig(cfg)
-			if err != nil {
-				fmt.Printf("%v", err)
-				os.Exit(1)
-			}
-			return err
+			return configlog.ReturnError(parser.ParseConfig(cfg))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)

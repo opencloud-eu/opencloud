@@ -2,6 +2,7 @@
 package backup
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -162,7 +163,7 @@ func (c *Consistency) PrintResults(discpath string, fail bool) error {
 	if len(c.Nodes) == 0 && len(c.LinkedNodes) == 0 && len(c.Blobs) == 0 && len(c.BlobReferences) == 0 {
 		fmt.Printf("💚 No inconsistency found. The backup in '%s' seems to be valid.\n", discpath)
 	} else if fail {
-		os.Exit(1)
+		return errors.New("consistency check failed")
 	}
 	return nil
 
