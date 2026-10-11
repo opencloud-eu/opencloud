@@ -450,6 +450,41 @@ func AppendJSONToOpaque(o *types.Opaque, key string, value interface{}) *types.O
 	return o
 }
 
+// AncestorGrantsKey is the field mask path to request the active grants on a resource and its
+// ancestors from a storage, and the opaque key they are returned under (see ReadGrantsFromOpaque).
+const AncestorGrantsKey = "ancestor-grants"
+
+// AppendGrantsToOpaque adds the grants as json on the given opaque and returns it.
+// If the grants can't be marshaled, e.g. because an id is not valid UTF-8, the opaque is returned unchanged.
+func AppendGrantsToOpaque(o *types.Opaque, key string, grants []*provider.Grant) (*types.Opaque, error) {
+	// grantees are oneofs, which only protojson can marshal
+	b, err := MarshalProtoV1ToJSON(&provider.ListGrantsResponse{Grants: grants})
+	if err != nil {
+		return o, err
+	}
+
+	o = ensureOpaque(o)
+	o.Map[key] = &types.OpaqueEntry{
+		Decoder: "json",
+		Value:   b,
+	}
+	return o, nil
+}
+
+// ReadGrantsFromOpaque reads grants added with AppendGrantsToOpaque from the given opaque map
+func ReadGrantsFromOpaque(o *types.Opaque, key string) ([]*provider.Grant, error) {
+	e, ok := o.GetMap()[key]
+	if !ok || e.Decoder != "json" {
+		return nil, errors.New("not found")
+	}
+
+	res := &provider.ListGrantsResponse{}
+	if err := UnmarshalJSONToProtoV1(e.Value, res); err != nil {
+		return nil, err
+	}
+	return res.GetGrants(), nil
+}
+
 // ReadPlainFromOpaque reads a plain string from the given opaque map
 func ReadPlainFromOpaque(o *types.Opaque, key string) string {
 	if o.GetMap() == nil {

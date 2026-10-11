@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-10-08 23:16+0000\n"
+"POT-Creation-Date: 2026-10-10 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Daniel Nylander <po@danielnylander.se>, 2026\n"
 "Language-Team: Swedish (https://app.transifex.com/opencloud-eu/teams/204053/sv/)\n"
@@ -46,7 +46,7 @@ msgstr "Kan redigera"
 #. directly)
 #: pkg/unifiedrole/roles.go:183
 msgid "Can edit with versions"
-msgstr ""
+msgstr "Kan redigera med versioner"
 
 #. UnifiedRole SpaseEditorWithoutVersions, Role DisplayName (resolves
 #. directly)
@@ -185,6 +185,8 @@ msgid ""
 "View, download, upload, edit, delete, show all versions and all invited "
 "people."
 msgstr ""
+"Visa, hämta, skicka upp, redigera, ta bort, visa alla versioner och alla "
+"inbjudna personer."
 
 #. UnifiedRole FileEditorListGrantsWithVersions, Role Description (resolves
 #. directly)
@@ -192,3 +194,5 @@ msgstr ""
 msgid ""
 "View, download, upload, edit, show all versions and all invited people."
 msgstr ""
+"Visa, hämta, skicka upp, redigera, visa alla versioner och alla inbjudna "
+"personer."

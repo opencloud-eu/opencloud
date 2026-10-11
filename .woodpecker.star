@@ -81,6 +81,15 @@ event = {
     "cron": {
         "event": "cron",
         "branch": "main",
+        "cron": "nightly*",
+    },
+    "translation_sync": {
+        "event": "cron",
+        "cron": "translation-sync",
+    },
+    "purge_cache": {
+        "event": "cron",
+        "cron": "purge-cache",
     },
     "pull_request": {
         "event": "pull_request",
@@ -521,13 +530,6 @@ def pipelineDependsOn(pipeline, dependant_pipelines, optional = False):
         pipeline["depends_on"] = depends
     return pipeline
 
-def pipelinesDependsOn(pipelines, dependant_pipelines):
-    pipes = []
-    for pipeline in pipelines:
-        pipes.append(pipelineDependsOn(pipeline, dependant_pipelines))
-
-    return pipes
-
 def getPipelineNames(pipelines = [], optional = False):
     names = []
     for pipeline in pipelines:
@@ -550,6 +552,9 @@ def main(ctx):
     if ctx.build.event == "cron" and ctx.build.cron == "translation-sync":
         return translation_sync(ctx)
 
+    if ctx.build.event == "cron" and ctx.build.cron == "purge-cache":
+        return [purgeS3Cache()]
+
     is_release_pr = (ctx.build.event == "pull_request" and "🎉 release" in ctx.build.title.lower())
     if is_release_pr:
         return checkVersionPlaceholder() + \
@@ -570,10 +575,10 @@ def main(ctx):
         codestyle(ctx) + \
         checkGherkinLint(ctx) + \
         checkTestSuitesInExpectedFailures(ctx) + \
-        pipelinesDependsOn(buildWebCache(ctx), savePipelineNumber(ctx)) + \
-        pipelinesDependsOn(cacheBrowsers(ctx), savePipelineNumber(ctx)) + \
+        buildWebCache(ctx) + \
+        cacheBrowsers(ctx) + \
         getGoBinForTesting(ctx) + \
-        pipelinesDependsOn(buildOpencloudBinaryForTesting(ctx), savePipelineNumber(ctx)) + \
+        buildOpencloudBinaryForTesting(ctx) + \
         checkStarlark(ctx) + \
         build_release_helpers + \
         testOpencloudAndUploadResults(ctx) + \
@@ -583,84 +588,25 @@ def main(ctx):
         dockerReleases(ctx) + \
         binaryReleases(ctx)
 
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeBuildArtifactCache(ctx),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeBrowserCache(ctx),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeTracingCache(ctx),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeOpencloudWebBuildCache(ctx),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeGoBinCache(ctx),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgePipelineInfoCache(),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
-
     pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + serverTestingDocs(ctx) + notifyMatrixCheckSteps(ctx, getPipelineNames(testPipelines(ctx), optional = True))
 
     pipelineSanityChecks(pipelines)
-    return savePipelineNumber(ctx) + pipelines
+    return pipelines
 
-def savePipelineNumber(ctx):
+def savePipelineInfoStep(ctx):
     base_url = "https://raw.githubusercontent.com/%s" % repo_slug
     script_link = "%s/%s/tests/config/woodpecker/upload_pipeline_info.sh" % (base_url, ctx.build.commit)
-    return [{
-        "name": "save-pipeline-info",
-        "skip_clone": True,
-        "steps": [{
-            "name": "upload-info",
+    return [
+        {
+            "name": "save-pipeline-info",
             "image": MINIO_MC,
             "environment": MINIO_MC_ENV,
             "commands": [
                 "curl -s -o upload_pipeline_info.sh %s" % script_link,
                 "bash -x upload_pipeline_info.sh",
             ],
-        }],
-        "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": ["main", "stable-*"],
-            },
-            event["tag"],
-            event["cron"],
-            event["pull_request"],
-        ],
-    }]
+        },
+    ]
 
 def evaluateWorkflowStep():
     return [{
@@ -924,7 +870,8 @@ def scanOpencloud(ctx):
 def buildOpencloudBinaryForTesting(ctx):
     pipeline = {
         "name": "build-opencloud-for-testing",
-        "steps": makeNodeGenerate("") +
+        "steps": savePipelineInfoStep(ctx) +
+                 makeNodeGenerate("") +
                  makeGoGenerate("") +
                  build() +
                  rebuildBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]),
@@ -2758,10 +2705,7 @@ def translation_sync(ctx):
             },
         ],
         "when": [
-            {
-                "event": "cron",
-                "cron": "translation-sync",
-            },
+            event["translation_sync"],
         ],
     }]
 
@@ -2834,26 +2778,32 @@ def genericCache(name, action, mounts, cache_path):
     }
     return step
 
-def purgeCache(name, flush_path, flush_age):
+PURGE_TARGETS = [
+    # short lived build artifacts (binaries, s3-cache)
+    ("cache", 1),
+    # reusable build caches and debug artifacts (reports, traces, logs)
+    ("dev", 14),
+    ("public", 14),
+]
+
+def purgeS3Cache():
+    commands = ["mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY"]
+    for bucket, flush_age in PURGE_TARGETS:
+        commands.append("to_delete=$(mc find s3/%s/ --older-than %sd || true)" % (bucket, flush_age))
+        commands.append('if [ -n "$to_delete" ]; then mc rm $to_delete; fi')
+
     return {
-        "name": name,
+        "name": "purge_ci_cache",
         "skip_clone": True,
         "when": [
-            dict(event["cron"], status = ["success", "failure"]),
-            dict(event["base"], status = ["success", "failure"]),
-            dict(event["pull_request"], status = ["success", "failure"]),
+            event["purge_cache"],
         ],
         "steps": [
             {
                 "name": "purge",
                 "image": MINIO_MC,
                 "environment": MINIO_MC_ENV,
-                "commands": [
-                    "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
-                    "to_delete=$(mc find s3/%s/ --older-than %sd || true)" % (flush_path, flush_age),
-                    'if [ -z "$to_delete" ]; then exit 0; fi',
-                    "mc rm $to_delete",
-                ],
+                "commands": commands,
             },
         ],
     }
@@ -2864,8 +2814,6 @@ def genericBuildArtifactCache(ctx, name, action, path):
         name = "%s_build_artifact_cache" % name
         return genericCache(name, action, [path], cache_path)
 
-    if action == "purge":
-        return purgeCache("purge_opencloud_build_artifact_cache", "cache/%s" % repo_slug, 1)
     return []
 
 def restoreBuildArtifactCache(ctx, name, path):
@@ -2873,24 +2821,6 @@ def restoreBuildArtifactCache(ctx, name, path):
 
 def rebuildBuildArtifactCache(ctx, name, path):
     return [genericBuildArtifactCache(ctx, name, "rebuild", path)]
-
-def purgeBuildArtifactCache(ctx):
-    return genericBuildArtifactCache(ctx, "", "purge", [])
-
-def purgeBrowserCache(ctx):
-    return purgeCache("purge_browser_build_cache", "dev/web", 14)
-
-def purgeTracingCache(ctx):
-    return purgeCache("purge_playwright_tracing_cache", "public/web/tracing", 14)
-
-def purgeOpencloudWebBuildCache(ctx):
-    return purgeCache("purge_opencloud_web_build_cache", "dev/opencloud/web-test-runner", 14)
-
-def purgeGoBinCache(ctx):
-    return purgeCache("purge_go_bin_cache", "dev/opencloud/go-bin", 14)
-
-def purgePipelineInfoCache():
-    return purgeCache("purge_pipeline_info_cache", "public/opencloud/pipelines", 14)
 
 def pipelineSanityChecks(pipelines):
     """pipelineSanityChecks helps the CI developers to find errors before running it
