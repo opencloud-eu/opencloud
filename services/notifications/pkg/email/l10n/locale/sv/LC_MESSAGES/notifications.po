@@ -12,7 +12,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-10-08 23:16+0000\n"
+"POT-Creation-Date: 2026-10-10 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Daniel Nylander <po@danielnylander.se>, 2026\n"
 "Language-Team: Swedish (https://app.transifex.com/opencloud-eu/teams/204053/sv/)\n"
@@ -61,7 +61,7 @@ msgstr "Hej {SpaceGrantee},"
 #. GuestLinkShareCreated email template, resolves via {{ .Greeting }}
 #: pkg/email/templates.go:59
 msgid "Hello,"
-msgstr ""
+msgstr "Hej,"
 
 #. Grouped email template, resolves via {{ .Greeting }}
 #: pkg/email/templates.go:149
@@ -181,6 +181,11 @@ msgid ""
 "\n"
 "The link is only valid for 30 minutes."
 msgstr ""
+"{ShareSharer} har delat ”{ShareFolder}” med dig.\n"
+"\n"
+"Länken nedan är personlig och kan bara användas en gång. Vidarebefordra den inte.\n"
+"\n"
+"Länken är giltig i 30 minuter."
 
 #. ShareRemoved email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:34
@@ -189,9 +194,9 @@ msgid ""
 "\n"
 "Even though this share has been revoked you still might have access through other shares and/or space memberships."
 msgstr ""
-"{ShareSharer} har slutat dela ”{ShareFolder}” med dig.\\n\\nÄven om denna "
-"delning har återkallats kan du fortfarande ha åtkomst genom andra delningar "
-"och/eller medlemskap i utrymmen."
+"{ShareSharer} har slutat dela ”{ShareFolder}” med dig.\n"
+"\n"
+"Även om denna delning har återkallats kan du fortfarande ha åtkomst genom andra delningar och eller medlemskap i utrymmen."
 
 #. ShareCreated email template, Subject field (resolves directly)
 #. GuestLinkShareCreated email template, Subject field (resolves directly)
