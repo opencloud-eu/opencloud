@@ -45,6 +45,7 @@ const (
 	lockFile              = "migrations/lock.json"
 	lockTTL               = time.Minute
 	lockHeartbeatInterval = 20 * time.Second
+	lockReleaseTimeout    = 10 * time.Second
 )
 
 // lockPollInterval is how long acquireLock sleeps between retries when the
@@ -302,8 +303,11 @@ func (m *Migrations) startHeartbeat(ctx context.Context, etag string) context.Ca
 	return cancel
 }
 
-// releaseLock deletes the lock file unconditionally.
+// releaseLock deletes the lock file unconditionally. It ignores the
+// cancellation of ctx, so a shutdown signal does not leave the lock behind.
 func (m *Migrations) releaseLock(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), lockReleaseTimeout)
+	defer cancel()
 	if err := m.storage.Delete(ctx, lockFile); err != nil {
 		m.logger.Warn().Err(err).Msg("failed to release migration lock")
 	}
