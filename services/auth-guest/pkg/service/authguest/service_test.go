@@ -811,6 +811,34 @@ func TestRenewDailyCap(t *testing.T) {
 	gwc.AssertNotCalled(t, "GetShare", mock.Anything, mock.Anything)
 }
 
+func TestRotateGuestTokenBlockedReturnsRetryAfter(t *testing.T) {
+	store := storage.NewFileManager(t.TempDir())
+	tokStr, rec := newToken(t)
+	rec.QuotaLimiterState = guard.QuotaLimiterState{
+		Count:       1,
+		NotBefore:   time.Now().Add(time.Minute),
+		WindowStart: time.Now(),
+	}
+	require.NoError(t, store.Add(rec))
+
+	s := newRenewServiceWithLimiter(t, store, newGatewayMock(validShareResponse()), &testPublisher{}, config.QuotaLimiter{
+		Cooldown: time.Minute,
+		Window:   24 * time.Hour,
+		DailyCap: 20,
+	})
+
+	tok, err := s.tokenSvc.Parse(tokStr)
+	require.NoError(t, err)
+
+	_, _, _, err = s.rotateGuestToken(token.Hash(testShareID), tok, "pin-hash", time.Now())
+	require.Error(t, err)
+
+	var ge *GuestError
+	require.ErrorAs(t, err, &ge)
+	assert.ErrorIs(t, ge.ErrorType, ErrTooManyAttempts)
+	assert.Greater(t, ge.RetryAfter, time.Duration(0))
+}
+
 func TestVerifyPinSuccess(t *testing.T) {
 	pinHash, err := pin.Hash("123456")
 	require.NoError(t, err)
@@ -1084,6 +1112,22 @@ func TestVerifyPinBlockedDuringBackoff(t *testing.T) {
 	assert.Greater(t, ge.RetryAfter, time.Duration(0))
 
 	gwc.AssertNotCalled(t, "GetShare", mock.Anything, mock.Anything)
+}
+
+func TestVerifyPinAttemptBlockedReturnsRetryAfter(t *testing.T) {
+	rec, nonce := pinRecord(t, "", time.Now().Add(time.Minute), guard.BackoffLimiterState{
+		Count:     1,
+		NotBefore: time.Now().Add(time.Minute),
+	}, time.Time{})
+	s := newAuthGuestService(t, storage.NewFileManager(t.TempDir()), newGatewayMock(validShareResponse()))
+
+	ok, err := s.verifyPinAttempt(&rec, "123456", nonce)
+	require.False(t, ok)
+
+	var ge *GuestError
+	require.ErrorAs(t, err, &ge)
+	assert.ErrorIs(t, ge.ErrorType, ErrTooManyAttempts)
+	assert.Greater(t, ge.RetryAfter, time.Duration(0))
 }
 
 func TestVerifyPinInvalidatedAfterMaxAttempts(t *testing.T) {

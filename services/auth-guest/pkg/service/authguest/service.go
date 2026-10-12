@@ -184,7 +184,11 @@ func (s *AuthGuestService) Renew(ctx context.Context, shareID, tokenString, sess
 
 	nonce, seen, updated, err := s.rotateGuestToken(hash, tok, pinHash, now)
 	if err != nil {
-		return "", &GuestError{ErrorType: err, ShareID: shareID}
+		var ge *GuestError
+		if !errors.As(err, &ge) {
+			return "", &GuestError{ErrorType: err, ShareID: shareID}
+		}
+		return "", ge
 	}
 
 	if err := revaevents.Publish(ctx, s.publisher, events.GuestTokenRenewed{
@@ -233,7 +237,11 @@ func (s *AuthGuestService) VerifyPin(ctx context.Context, shareID, pinValue, non
 		return nil
 	})
 	if err != nil {
-		return nil, nonceStoreError(err, shareID)
+		var ge *GuestError
+		if !errors.As(err, &ge) {
+			return nil, nonceStoreError(err, shareID)
+		}
+		return nil, ge
 	}
 	if denied {
 		return nil, &GuestError{ErrorType: ErrPinInvalid, ShareID: shareID}
@@ -272,8 +280,8 @@ func (s *AuthGuestService) rotateGuestToken(hash string, tok *token.Token, pinHa
 		}
 
 		updated, err := s.store.UpdateFrom(*rec, func(record *storage.Record) error {
-			if s.guards.quotaLimiter.RetryAfter(&record.QuotaLimiterState, now) > 0 {
-				return ErrTooManyAttempts
+			if wait := s.guards.quotaLimiter.RetryAfter(&record.QuotaLimiterState, now); wait > 0 {
+				return &GuestError{ErrorType: ErrTooManyAttempts, ShareID: record.ShareID, RetryAfter: wait}
 			}
 
 			n, err := s.guards.nonce.Issue(&record.NonceState, now)
@@ -337,11 +345,12 @@ func (s *AuthGuestService) precheckPin(shareID, nonce string) error {
 func (s *AuthGuestService) verifyPinAttempt(rec *storage.Record, pinValue, nonce string) (ok bool, err error) {
 	now := time.Now()
 
-	// The pre-check already surfaced Retry-After; the wait is dropped here
-	// because a store update cannot carry HTTP headers.
+	// The pre-check surfaced Retry-After already; this authoritative re-check
+	// under the lock returns the GuestError so the wait still reaches the
+	// transport.
 	ge := s.checkPinRequest(rec, nonce, now)
 	if ge != nil {
-		return false, ge.ErrorType
+		return false, ge
 	}
 
 	switch {
