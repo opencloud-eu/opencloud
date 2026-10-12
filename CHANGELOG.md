@@ -4,11 +4,15 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @aduffeck, @fschade, @maki5, @micbar, @rhafer, @saw-jan, @v-scharf
+@AlexAndBear, @Svanvith, @aduffeck, @fschade, @maki5, @micbar, @rhafer, @saw-jan, @v-scharf
 
 ### 💥 Breaking changes
 
 - feat(guestlinks)!: auth-guest service [[#3609](https://github.com/opencloud-eu/opencloud/pull/3609)]
+
+### 📚 Documentation
+
+- fix(proxy): make metrics table MDX-compatible [[#3680](https://github.com/opencloud-eu/opencloud/pull/3680)]
 
 ### ✅ Tests
 
