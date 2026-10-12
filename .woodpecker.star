@@ -502,22 +502,7 @@ def pipelineDependsOn(pipeline, dependant_pipelines):
         pipeline["depends_on"] = getPipelineNames(dependant_pipelines)
     return pipeline
 
-def pipelinesDependsOn(pipelines, dependant_pipelines):
-    pipes = []
-    for pipeline in pipelines:
-        pipes.append(pipelineDependsOn(pipeline, dependant_pipelines))
-
-    return pipes
-
 def getPipelineNames(pipelines = []):
-    """getPipelineNames returns names of pipelines as a string array
-
-    Args:
-      pipelines: array of woodpecker pipelines
-
-    Returns:
-      names of the given pipelines as string array
-    """
     names = []
     for pipeline in pipelines:
         names.append(pipeline["name"])
@@ -556,10 +541,10 @@ def main(ctx):
         codestyle(ctx) + \
         checkGherkinLint(ctx) + \
         checkTestSuitesInExpectedFailures(ctx) + \
-        pipelinesDependsOn(buildWebCache(ctx), savePipelineNumber(ctx)) + \
-        pipelinesDependsOn(cacheBrowsers(ctx), savePipelineNumber(ctx)) + \
+        buildWebCache(ctx) + \
+        cacheBrowsers(ctx) + \
         getGoBinForTesting(ctx) + \
-        pipelinesDependsOn(buildOpencloudBinaryForTesting(ctx), savePipelineNumber(ctx)) + \
+        buildOpencloudBinaryForTesting(ctx) + \
         checkStarlark(ctx) + \
         build_release_helpers + \
         testOpencloudAndUploadResults(ctx) + \
@@ -569,78 +554,25 @@ def main(ctx):
         dockerReleases(ctx) + \
         binaryReleases(ctx)
 
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeBuildArtifactCache(ctx),
-            testPipelines(ctx),
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeBrowserCache(ctx),
-            testPipelines(ctx),
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeTracingCache(ctx),
-            testPipelines(ctx),
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeOpencloudWebBuildCache(ctx),
-            testPipelines(ctx),
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeGoBinCache(ctx),
-            testPipelines(ctx),
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgePipelineInfoCache(),
-            testPipelines(ctx),
-        ),
-    )
-
     pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + notifyMatrixCheckSteps(ctx, getPipelineNames(testPipelines(ctx)))
 
     pipelineSanityChecks(pipelines)
-    return savePipelineNumber(ctx) + pipelines
+    return pipelines
 
-def savePipelineNumber(ctx):
+def savePipelineInfoStep(ctx):
     base_url = "https://raw.githubusercontent.com/%s" % repo_slug
     script_link = "%s/%s/tests/config/woodpecker/upload_pipeline_info.sh" % (base_url, ctx.build.commit)
-    return [{
-        "name": "save-pipeline-info",
-        "skip_clone": True,
-        "steps": [{
-            "name": "upload-info",
+    return [
+        {
+            "name": "save-pipeline-info",
             "image": MINIO_MC,
             "environment": MINIO_MC_ENV,
             "commands": [
                 "curl -s -o upload_pipeline_info.sh %s" % script_link,
                 "bash -x upload_pipeline_info.sh",
             ],
-        }],
-        "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": ["main", "stable-*"],
-            },
-            event["tag"],
-            event["cron"],
-            event["pull_request"],
-        ],
-    }]
+        },
+    ]
 
 def evaluateWorkflowStep():
     return [{
@@ -900,7 +832,8 @@ def scanOpencloud(ctx):
 def buildOpencloudBinaryForTesting(ctx):
     pipeline = {
         "name": "build-opencloud-for-testing",
-        "steps": makeNodeGenerate("") +
+        "steps": savePipelineInfoStep(ctx) +
+                 makeNodeGenerate("") +
                  makeGoGenerate("") +
                  build() +
                  rebuildBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]),
@@ -2726,39 +2659,12 @@ def genericCache(name, action, mounts, cache_path):
     }
     return step
 
-def purgeCache(name, flush_path, flush_age):
-    return {
-        "name": name,
-        "skip_clone": True,
-        "when": [
-            event["cron"],
-            event["base"],
-            event["pull_request"],
-        ],
-        "runs_on": ["success", "failure"],
-        "steps": [
-            {
-                "name": "purge",
-                "image": MINIO_MC,
-                "environment": MINIO_MC_ENV,
-                "commands": [
-                    "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
-                    "to_delete=$(mc find s3/%s/ --older-than %sd || true)" % (flush_path, flush_age),
-                    'if [ -z "$to_delete" ]; then exit 0; fi',
-                    "mc rm $to_delete",
-                ],
-            },
-        ],
-    }
-
 def genericBuildArtifactCache(ctx, name, action, path):
     if action == "rebuild" or action == "restore":
         cache_path = "%s/%s/%s" % ("cache", repo_slug, ctx.build.commit + "-${CI_PIPELINE_NUMBER}")
         name = "%s_build_artifact_cache" % name
         return genericCache(name, action, [path], cache_path)
 
-    if action == "purge":
-        return purgeCache("purge_opencloud_build_artifact_cache", "cache/%s" % repo_slug, 1)
     return []
 
 def restoreBuildArtifactCache(ctx, name, path):
@@ -2766,24 +2672,6 @@ def restoreBuildArtifactCache(ctx, name, path):
 
 def rebuildBuildArtifactCache(ctx, name, path):
     return [genericBuildArtifactCache(ctx, name, "rebuild", path)]
-
-def purgeBuildArtifactCache(ctx):
-    return genericBuildArtifactCache(ctx, "", "purge", [])
-
-def purgeBrowserCache(ctx):
-    return purgeCache("purge_browser_build_cache", "dev/web", 14)
-
-def purgeTracingCache(ctx):
-    return purgeCache("purge_playwright_tracing_cache", "public/web/tracing", 14)
-
-def purgeOpencloudWebBuildCache(ctx):
-    return purgeCache("purge_opencloud_web_build_cache", "dev/opencloud/web-test-runner", 14)
-
-def purgeGoBinCache(ctx):
-    return purgeCache("purge_go_bin_cache", "dev/opencloud/go-bin", 14)
-
-def purgePipelineInfoCache():
-    return purgeCache("purge_pipeline_info_cache", "public/opencloud/pipelines", 14)
 
 def pipelineSanityChecks(pipelines):
     """pipelineSanityChecks helps the CI developers to find errors before running it
