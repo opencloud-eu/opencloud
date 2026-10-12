@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 	searchMocks "github.com/opencloud-eu/opencloud/services/search/pkg/search/mocks"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/service/event"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
@@ -27,7 +28,7 @@ var _ = DescribeTable("event",
 		ch := make(chan raw.Event, 1)
 		stream.EXPECT().Consume(mock.Anything, mock.Anything).Return((<-chan raw.Event)(ch), nil)
 
-		event, err := event.New(context.Background(), stream, log.NewLogger(), nil, nil, s, 50, 1, asyncUploads)
+		event, err := event.New(context.Background(), stream, log.NewLogger(), nil, nil, s, search.NewSkippedSpaces(nil), 50, 1, asyncUploads)
 		Expect(err).NotTo(HaveOccurred())
 
 		go func() {
