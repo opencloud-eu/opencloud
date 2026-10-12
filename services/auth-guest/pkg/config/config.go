@@ -28,13 +28,14 @@ type Config struct {
 	RevaGateway   string                `yaml:"reva_gateway" env:"OC_REVA_GATEWAY" desc:"CS3 gateway used to look up user metadata" introductionVersion:"%%NEXT%%"`
 	GRPCClientTLS *shared.GRPCClientTLS `yaml:"grpc_client_tls"`
 
-	GRPC         GRPCConfig    `yaml:"grpc"`
-	HTTP         HTTP          `yaml:"http"`
-	Storage      Storage       `yaml:"storage"`
-	TokenManager *TokenManager `yaml:"token_manager"`
-	JWT          JWT           `yaml:"jwt"`
-	Challenge    Challenge     `yaml:"challenge"`
-	Renew        Renew         `yaml:"renew"`
+	GRPC           GRPCConfig     `yaml:"grpc"`
+	HTTP           HTTP           `yaml:"http"`
+	Storage        Storage        `yaml:"storage"`
+	TokenManager   *TokenManager  `yaml:"token_manager"`
+	JWT            JWT            `yaml:"jwt"`
+	Nonce          Nonce          `yaml:"nonce"`
+	BackoffLimiter BackoffLimiter `yaml:"backoff_limiter"`
+	QuotaLimiter   QuotaLimiter   `yaml:"quota_limiter"`
 
 	ServiceAccount ServiceAccount `yaml:"service_account"`
 
@@ -103,20 +104,28 @@ type JWT struct {
 	TTL        time.Duration `yaml:"ttl" env:"AUTH_GUEST_JWT_TTL" desc:"The lifetime of a redeemed guest session token." introductionVersion:"%%NEXT%%"`
 }
 
-// Challenge defines the configuration of the browser-bound PIN challenge that
-// is created on renewal and required to verify a PIN.
-type Challenge struct {
-	CookieName  string        `yaml:"cookie_name" env:"AUTH_GUEST_CHALLENGE_COOKIE_NAME" desc:"The name of the cookie that binds a PIN challenge to the browser that requested the renewal." introductionVersion:"%%NEXT%%"`
-	TTL         time.Duration `yaml:"ttl" env:"AUTH_GUEST_CHALLENGE_TTL" desc:"The lifetime of a PIN challenge. After it expires the PIN has to be renewed again. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
-	MaxAttempts int           `yaml:"max_attempts" env:"AUTH_GUEST_CHALLENGE_MAX_ATTEMPTS" desc:"The maximum number of failed PIN verification attempts before the challenge and the PIN are invalidated." introductionVersion:"%%NEXT%%"`
-	BackoffBase time.Duration `yaml:"backoff_base" env:"AUTH_GUEST_CHALLENGE_BACKOFF_BASE" desc:"The base duration for the exponential backoff between failed PIN verification attempts. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
-	BackoffCap  time.Duration `yaml:"backoff_cap" env:"AUTH_GUEST_CHALLENGE_BACKOFF_CAP" desc:"The maximum duration for the exponential backoff between failed PIN verification attempts. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+// Nonce defines the configuration of the browser-bound nonce that is
+// created on renewal and required to verify a PIN.
+type Nonce struct {
+	CookieName string        `yaml:"cookie_name" env:"AUTH_GUEST_NONCE_COOKIE_NAME" desc:"The name of the cookie that binds a nonce to the browser that requested the renewal." introductionVersion:"%%NEXT%%"`
+	TTL        time.Duration `yaml:"ttl" env:"AUTH_GUEST_NONCE_TTL" desc:"The lifetime of a nonce. After it expires the PIN has to be renewed again. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
 }
 
-// Renew defines the configuration to throttle renewal requests per guest link.
-type Renew struct {
-	Cooldown time.Duration `yaml:"cooldown" env:"AUTH_GUEST_RENEW_COOLDOWN" desc:"The minimum time between two renewal requests for the same guest link. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
-	DailyCap int           `yaml:"daily_cap" env:"AUTH_GUEST_RENEW_DAILY_CAP" desc:"The maximum number of renewal requests for the same guest link within the renewal window of 24 hours." introductionVersion:"%%NEXT%%"`
+// BackoffLimiter defines the configuration of a limiter that counts events,
+// blocks after a maximum number of them and increases the wait between events
+// exponentially.
+type BackoffLimiter struct {
+	MaxAttempts int           `yaml:"max_attempts" env:"AUTH_GUEST_BACKOFF_MAX_ATTEMPTS" desc:"The maximum number of failed attempts before the PIN is invalidated." introductionVersion:"%%NEXT%%"`
+	BackoffBase time.Duration `yaml:"backoff_base" env:"AUTH_GUEST_BACKOFF_BASE" desc:"The base duration for the exponential backoff between failed attempts. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	BackoffCap  time.Duration `yaml:"backoff_cap" env:"AUTH_GUEST_BACKOFF_CAP" desc:"The maximum duration for the exponential backoff between failed attempts. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+}
+
+// QuotaLimiter defines the configuration of a limiter that allows a maximum
+// number of events per window with a minimum cooldown between them.
+type QuotaLimiter struct {
+	DailyCap int           `yaml:"daily_cap" env:"AUTH_GUEST_QUOTA_DAILY_CAP" desc:"The maximum number of renewals for the same share within the window." introductionVersion:"%%NEXT%%"`
+	Cooldown time.Duration `yaml:"cooldown" env:"AUTH_GUEST_QUOTA_COOLDOWN" desc:"The minimum time between two renewals for the same share. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	Window   time.Duration `yaml:"window" env:"AUTH_GUEST_QUOTA_WINDOW" desc:"The window over which the renewal quota is counted. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
 }
 
 const (

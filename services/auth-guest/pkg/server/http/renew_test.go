@@ -24,7 +24,7 @@ import (
 
 const testCookieName = "__Host-oc_guest_session"
 
-const testChallengeCookieName = "__Host-oc_guest_challenge"
+const testNonceCookieName = "__Host-oc_guest_nonce"
 
 func newRenewHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc {
 	t.Helper()
@@ -33,8 +33,8 @@ func newRenewHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc {
 			CookieName: testCookieName,
 			TTL:        time.Hour,
 		},
-		Challenge: config.Challenge{
-			CookieName: testChallengeCookieName,
+		Nonce: config.Nonce{
+			CookieName: testNonceCookieName,
 			TTL:        time.Hour,
 		},
 	}
@@ -43,7 +43,7 @@ func newRenewHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc {
 
 func TestRenewHandlerWithLinkToken(t *testing.T) {
 	svcMock := mocks.NewAuthGuest(t)
-	svcMock.On("Renew", mock.Anything, "share-1", "link-token", "").Return("challenge-nonce", nil)
+	svcMock.On("Renew", mock.Anything, "share-1", "link-token", "").Return("nonce-value", nil)
 
 	body, err := json.Marshal(RenewRequest{PermissionID: "share-1", Token: "link-token"})
 	require.NoError(t, err)
@@ -56,12 +56,12 @@ func TestRenewHandlerWithLinkToken(t *testing.T) {
 
 	var cookie *http.Cookie
 	for _, c := range rr.Result().Cookies() {
-		if c.Name == testChallengeCookieName {
+		if c.Name == testNonceCookieName {
 			cookie = c
 		}
 	}
 	require.NotNil(t, cookie)
-	assert.Equal(t, "challenge-nonce", cookie.Value)
+	assert.Equal(t, "nonce-value", cookie.Value)
 	assert.True(t, cookie.HttpOnly)
 	assert.True(t, cookie.Secure)
 	assert.Equal(t, "/", cookie.Path)
@@ -69,7 +69,7 @@ func TestRenewHandlerWithLinkToken(t *testing.T) {
 
 func TestRenewHandlerWithSessionCookie(t *testing.T) {
 	svcMock := mocks.NewAuthGuest(t)
-	svcMock.On("Renew", mock.Anything, "share-1", "", "session-token").Return("challenge-nonce", nil)
+	svcMock.On("Renew", mock.Anything, "share-1", "", "session-token").Return("nonce-value", nil)
 
 	body, err := json.Marshal(RenewRequest{PermissionID: "share-1"})
 	require.NoError(t, err)

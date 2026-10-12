@@ -19,7 +19,9 @@ type Options struct {
 	ServiceAccount  config.ServiceAccount
 	JWT             *jwt.JwtService
 	Publisher       events.Publisher
-	Challenge       config.Challenge
+	Nonce           config.Nonce
+	BackoffLimiter  config.BackoffLimiter
+	QuotaLimiter    config.QuotaLimiter
 }
 
 // GatewaySelector adds a grpc client selector for the gateway service
@@ -50,9 +52,23 @@ func EventsPublisher(p events.Publisher) Option {
 	}
 }
 
-// Challenge configures the PIN challenge for the auth-guest service
-func Challenge(challenge config.Challenge) Option {
+// Nonce configures the browser-bound nonce for the auth-guest service
+func Nonce(n config.Nonce) Option {
 	return func(o *Options) {
-		o.Challenge = challenge
+		o.Nonce = n
+	}
+}
+
+// BackoffLimiter configures the failed-attempt backoff limiter for the auth-guest service
+func BackoffLimiter(l config.BackoffLimiter) Option {
+	return func(o *Options) {
+		o.BackoffLimiter = l
+	}
+}
+
+// QuotaLimiter configures the renewal quota limiter for the auth-guest service
+func QuotaLimiter(l config.QuotaLimiter) Option {
+	return func(o *Options) {
+		o.QuotaLimiter = l
 	}
 }

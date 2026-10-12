@@ -13,16 +13,17 @@ import (
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config"
 )
 
-// Default values for the PIN challenge and renewal throttling.
+// Default values for the guard policies (nonce, backoff and quota limiters).
 const (
-	defaultSessionCookieName    = "__Host-oc_guest_session"
-	defaultChallengeCookieName  = "__Host-oc_guest_challenge"
-	defaultChallengeTTL         = 15 * time.Minute
-	defaultChallengeMaxAttempts = 5
-	defaultChallengeBackoffBase = time.Second
-	defaultChallengeBackoffCap  = 30 * time.Second
-	defaultRenewCooldown        = time.Minute
-	defaultRenewDailyCap        = 20
+	defaultSessionCookieName  = "__Host-oc_guest_session"
+	defaultNonceCookieName    = "__Host-oc_guest_nonce"
+	defaultNonceTTL           = 15 * time.Minute
+	defaultBackoffMaxAttempts = 5
+	defaultBackoffBase        = time.Second
+	defaultBackoffCap         = 30 * time.Second
+	defaultQuotaCooldown      = time.Minute
+	defaultQuotaWindow        = 24 * time.Hour
+	defaultQuotaDailyCap      = 20
 )
 
 // FullDefaultConfig returns the full default config
@@ -75,16 +76,19 @@ func DefaultConfig() *config.Config {
 			CookieName: defaultSessionCookieName,
 			TTL:        24 * time.Hour,
 		},
-		Challenge: config.Challenge{
-			CookieName:  defaultChallengeCookieName,
-			TTL:         defaultChallengeTTL,
-			MaxAttempts: defaultChallengeMaxAttempts,
-			BackoffBase: defaultChallengeBackoffBase,
-			BackoffCap:  defaultChallengeBackoffCap,
+		Nonce: config.Nonce{
+			CookieName: defaultNonceCookieName,
+			TTL:        defaultNonceTTL,
 		},
-		Renew: config.Renew{
-			Cooldown: defaultRenewCooldown,
-			DailyCap: defaultRenewDailyCap,
+		BackoffLimiter: config.BackoffLimiter{
+			MaxAttempts: defaultBackoffMaxAttempts,
+			BackoffBase: defaultBackoffBase,
+			BackoffCap:  defaultBackoffCap,
+		},
+		QuotaLimiter: config.QuotaLimiter{
+			DailyCap: defaultQuotaDailyCap,
+			Cooldown: defaultQuotaCooldown,
+			Window:   defaultQuotaWindow,
 		},
 	}
 }
@@ -114,26 +118,29 @@ func EnsureDefaults(cfg *config.Config) {
 		cfg.HTTP.TLS = cfg.Commons.HTTPServiceTLS
 	}
 
-	if cfg.Challenge.CookieName == "" {
-		cfg.Challenge.CookieName = defaultChallengeCookieName
+	if cfg.Nonce.CookieName == "" {
+		cfg.Nonce.CookieName = defaultNonceCookieName
 	}
-	if cfg.Challenge.TTL <= 0 {
-		cfg.Challenge.TTL = defaultChallengeTTL
+	if cfg.Nonce.TTL <= 0 {
+		cfg.Nonce.TTL = defaultNonceTTL
 	}
-	if cfg.Challenge.MaxAttempts <= 0 {
-		cfg.Challenge.MaxAttempts = defaultChallengeMaxAttempts
+	if cfg.BackoffLimiter.MaxAttempts <= 0 {
+		cfg.BackoffLimiter.MaxAttempts = defaultBackoffMaxAttempts
 	}
-	if cfg.Challenge.BackoffBase <= 0 {
-		cfg.Challenge.BackoffBase = defaultChallengeBackoffBase
+	if cfg.BackoffLimiter.BackoffBase <= 0 {
+		cfg.BackoffLimiter.BackoffBase = defaultBackoffBase
 	}
-	if cfg.Challenge.BackoffCap <= 0 {
-		cfg.Challenge.BackoffCap = defaultChallengeBackoffCap
+	if cfg.BackoffLimiter.BackoffCap <= 0 {
+		cfg.BackoffLimiter.BackoffCap = defaultBackoffCap
 	}
-	if cfg.Renew.Cooldown <= 0 {
-		cfg.Renew.Cooldown = defaultRenewCooldown
+	if cfg.QuotaLimiter.Cooldown <= 0 {
+		cfg.QuotaLimiter.Cooldown = defaultQuotaCooldown
 	}
-	if cfg.Renew.DailyCap <= 0 {
-		cfg.Renew.DailyCap = defaultRenewDailyCap
+	if cfg.QuotaLimiter.Window <= 0 {
+		cfg.QuotaLimiter.Window = defaultQuotaWindow
+	}
+	if cfg.QuotaLimiter.DailyCap <= 0 {
+		cfg.QuotaLimiter.DailyCap = defaultQuotaDailyCap
 	}
 }
 

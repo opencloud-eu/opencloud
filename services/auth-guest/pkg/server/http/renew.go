@@ -50,7 +50,7 @@ func RenewHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Config) fun
 			return
 		}
 
-		setChallengeCookie(w, cfg, nonce)
+		setNonceCookie(w, cfg, nonce)
 
 		w.WriteHeader(http.StatusOK)
 	}

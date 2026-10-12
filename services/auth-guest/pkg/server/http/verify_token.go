@@ -72,21 +72,21 @@ func setSessionCookie(w http.ResponseWriter, cfg *config.Config, sessionToken st
 	})
 }
 
-func setChallengeCookie(w http.ResponseWriter, cfg *config.Config, nonce string) {
+func setNonceCookie(w http.ResponseWriter, cfg *config.Config, nonce string) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     cfg.Challenge.CookieName,
+		Name:     cfg.Nonce.CookieName,
 		Value:    nonce,
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(cfg.Challenge.TTL.Seconds()),
+		MaxAge:   int(cfg.Nonce.TTL.Seconds()),
 	})
 }
 
-func clearChallengeCookie(w http.ResponseWriter, cfg *config.Config) {
+func clearNonceCookie(w http.ResponseWriter, cfg *config.Config) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     cfg.Challenge.CookieName,
+		Name:     cfg.Nonce.CookieName,
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,

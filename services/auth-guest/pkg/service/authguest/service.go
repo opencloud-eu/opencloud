@@ -5,9 +5,6 @@ package authguest
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/subtle"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"time"
@@ -18,6 +15,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/events"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/guard"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/jwt"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/pin"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/storage"
@@ -27,45 +25,11 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
-var ErrExpired = errors.New("token expired")
-var ErrAlreadyRedeemed = errors.New("token already redeemed")
-var ErrShareNotFound = errors.New("share not found")
-var ErrShareExpired = errors.New("share expired")
-var ErrEventsNotConfigured = errors.New("event publisher not configured")
-var ErrPinInvalid = errors.New("pin invalid")
-var ErrPinExpired = errors.New("pin expired")
-
-// ErrChallengeInvalid is returned when the browser-bound challenge is missing
-// or does not match the stored challenge.
-var ErrChallengeInvalid = errors.New("challenge invalid")
-
-// ErrChallengeExpired is returned when the browser-bound challenge has expired.
-var ErrChallengeExpired = errors.New("challenge expired")
-var ErrPermissionMismatch = errors.New("permissionId does not match the provided credentials")
-
-const guestLinkTokenTTL = 30 * time.Minute
-const guestPinTTL = 30 * time.Minute
-
-const nonceLength = 32
-
-// generateNonce returns a random value used to bind a PIN challenge to the
-// browser that requested the renewal.
-func generateNonce() (string, error) {
-	b := make([]byte, nonceLength)
-	if _, err := rand.Read(b); err != nil {
-		return "", fmt.Errorf("could not generate random nonce: %w", err)
-	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
-}
-
-// GuestError wraps an auth-guest failure together with the share id. The HTTP
-// transport inspects ErrorType to choose a status code and message.
-type GuestError struct {
-	ErrorType error
-	ShareID   string
-}
-
-func (e *GuestError) Error() string { return e.ErrorType.Error() }
+const (
+	guestLinkTokenTTL = 30 * time.Minute
+	guestPinTTL       = 30 * time.Minute
+	renewMaxAttempts  = 3
+)
 
 // SessionResponse is the result of a successful authentication: a session token,
 // its expiry and the share id it grants access to.
@@ -94,7 +58,15 @@ type AuthGuestService struct {
 	serviceAccount  config.ServiceAccount
 	jwtService      *jwt.JwtService
 	publisher       revaevents.Publisher
-	challenge       config.Challenge
+	guards          guards
+}
+
+// guards bundles the rate limiters and the nonce protecting the guest
+// endpoints. Their policies are fixed at construction from the service config.
+type guards struct {
+	backoffLimiter guard.BackoffLimiter
+	quotaLimiter   guard.QuotaLimiter
+	nonce          guard.Nonce
 }
 
 func NewAuthGuestService(tokenSvc *token.TokenService, store storage.Manager, opts ...Option) *AuthGuestService {
@@ -110,7 +82,11 @@ func NewAuthGuestService(tokenSvc *token.TokenService, store storage.Manager, op
 		serviceAccount:  o.ServiceAccount,
 		jwtService:      o.JWT,
 		publisher:       o.Publisher,
-		challenge:       o.Challenge,
+		guards: guards{
+			backoffLimiter: guard.NewBackoffLimiter(o.BackoffLimiter),
+			quotaLimiter:   guard.NewQuotaLimiter(o.QuotaLimiter),
+			nonce:          guard.NewNonce(o.Nonce),
+		},
 	}
 }
 
@@ -120,13 +96,8 @@ func (s *AuthGuestService) CreateToken(ctx context.Context, shareID string) (*to
 		return nil, err
 	}
 
-	if err := s.store.Add(storage.Record{
-		ShareID:     shareID,
-		ShareIDHash: tok.ShareIDHash,
-		SecretHash:  tok.SecretHash(),
-		Expiry:      time.Now().Add(guestLinkTokenTTL),
-		Redeemed:    false,
-	}); err != nil {
+	rec := storage.NewRecord(shareID, tok.ShareIDHash, tok.SecretHash(), time.Now().Add(guestLinkTokenTTL))
+	if err := s.store.Add(rec); err != nil {
 		return nil, err
 	}
 
@@ -166,9 +137,9 @@ func (s *AuthGuestService) VerifyToken(ctx context.Context, tokenString string) 
 	return &SessionResponse{SessionToken: sessionToken, ExpiresAt: expiresAt, ShareID: rec.ShareID}, nil
 }
 
-// Renew generates a new guest link token, PIN and challenge nonce for shareID,
+// Renew generates a new guest link token, PIN and nonce for shareID,
 // authorized by the previous link token or a (possibly expired) session token.
-// The returned nonce binds the PIN challenge to the requesting browser.
+// The returned nonce binds the PIN to the requesting browser.
 func (s *AuthGuestService) Renew(ctx context.Context, shareID, tokenString, sessionToken string) (string, error) {
 	if s.publisher == nil {
 		return "", ErrEventsNotConfigured
@@ -176,6 +147,19 @@ func (s *AuthGuestService) Renew(ctx context.Context, shareID, tokenString, sess
 
 	if err := s.verifyRenewCredentials(shareID, tokenString, sessionToken); err != nil {
 		return "", err
+	}
+
+	hash := token.Hash(shareID)
+	now := time.Now()
+
+	current, err := s.store.Get(hash)
+	if err != nil {
+		return "", &GuestError{ErrorType: err, ShareID: shareID}
+	}
+
+	// Reject an active cooldown before doing the (remote) share validation.
+	if wait := s.guards.quotaLimiter.RetryAfter(&current.QuotaLimiterState, now); wait > 0 {
+		return "", &GuestError{ErrorType: ErrTooManyAttempts, ShareID: shareID, RetryAfter: wait}
 	}
 
 	share, err := s.validateShare(ctx, shareID)
@@ -198,32 +182,8 @@ func (s *AuthGuestService) Renew(ctx context.Context, shareID, tokenString, sess
 		return "", err
 	}
 
-	nonce, err := generateNonce()
+	nonce, seen, updated, err := s.rotateGuestToken(hash, tok, pinHash, now)
 	if err != nil {
-		return "", err
-	}
-
-	now := time.Now()
-
-	current, err := s.store.Get(token.Hash(shareID))
-	if err != nil {
-		return "", &GuestError{ErrorType: err, ShareID: shareID}
-	}
-
-	updated, err := s.store.UpdateFrom(*current, func(rec *storage.Record) error {
-		rec.SecretHash = tok.SecretHash()
-		rec.PinHash = pinHash
-		rec.Expiry = now.Add(guestLinkTokenTTL)
-		rec.PinExpiry = now.Add(guestPinTTL)
-		rec.ChallengeExpiry = now.Add(s.challenge.TTL)
-		rec.ChallengeNonceHash = token.Hash(nonce)
-		rec.Redeemed = false
-		return nil
-	})
-	if err != nil {
-		if errors.Is(err, storage.ErrConflict) {
-			err = ErrAlreadyRedeemed
-		}
 		return "", &GuestError{ErrorType: err, ShareID: shareID}
 	}
 
@@ -236,8 +196,8 @@ func (s *AuthGuestService) Renew(ctx context.Context, shareID, tokenString, sess
 		Pin:          pinStr,
 		Timestamp:    now,
 	}); err != nil {
-		if _, rbErr := s.store.UpdateFrom(*updated, func(rec *storage.Record) error {
-			*rec = *current
+		if _, rbErr := s.store.UpdateFrom(updated, func(rec *storage.Record) error {
+			*rec = seen
 			return nil
 		}); rbErr != nil {
 			return "", fmt.Errorf("publishing guest token renewed event failed: %w (rollback failed: %v)", err, rbErr)
@@ -248,57 +208,35 @@ func (s *AuthGuestService) Renew(ctx context.Context, shareID, tokenString, sess
 	return nonce, nil
 }
 
-// VerifyPin validates a PIN and the browser-bound challenge nonce and exchanges
+// VerifyPin validates a PIN and the browser-bound nonce and exchanges
 // them for a session token and the share id.
 func (s *AuthGuestService) VerifyPin(ctx context.Context, shareID, pinValue, nonce string) (*SessionResponse, error) {
-	rec, err := s.store.Get(token.Hash(shareID))
-	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
-			err = ErrChallengeInvalid
-		}
-		return nil, &GuestError{ErrorType: err, ShareID: shareID}
-	}
+	hash := token.Hash(shareID)
 
-	// this check is here because the validateShare call is pretty costlly, and it's better to fail here in case the
-	// challenge is invalid or expired before making the remote call.
-	if err := verifyChallenge(rec, nonce, time.Now()); err != nil {
-		return nil, &GuestError{ErrorType: err, ShareID: shareID}
+	if err := s.precheckPin(shareID, nonce); err != nil {
+		return nil, err
 	}
 
 	if _, err := s.validateShare(ctx, shareID); err != nil {
 		return nil, err
 	}
 
-	err = s.store.Update(token.Hash(shareID), func(rec *storage.Record) error {
-		if err := verifyChallenge(rec, nonce, time.Now()); err != nil {
+	// verifyPinAttempt reports a wrong PIN as ok=false with a nil error, so the
+	// failed-attempt state is persisted by Update; real errors abort the write.
+	var denied bool
+	err := s.store.Update(hash, func(rec *storage.Record) error {
+		ok, err := s.verifyPinAttempt(rec, pinValue, nonce)
+		if err != nil {
 			return err
 		}
-
-		if rec.PinHash == "" {
-			return ErrPinInvalid
-		}
-
-		if !rec.PinExpiry.IsZero() && rec.PinExpiry.Before(time.Now()) {
-			return ErrPinExpired
-		}
-
-		ok, err := pin.Verify(pinValue, rec.PinHash)
-		if err != nil || !ok {
-			return ErrPinInvalid
-		}
-
-		rec.PinHash = ""
-		rec.PinExpiry = time.Time{}
-		rec.ChallengeExpiry = time.Time{}
-		rec.ChallengeNonceHash = ""
-
+		denied = !ok
 		return nil
 	})
 	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
-			err = ErrChallengeInvalid
-		}
-		return nil, &GuestError{ErrorType: err, ShareID: shareID}
+		return nil, nonceStoreError(err, shareID)
+	}
+	if denied {
+		return nil, &GuestError{ErrorType: ErrPinInvalid, ShareID: shareID}
 	}
 
 	sessionToken, expiresAt, err := s.jwtService.Sign(shareID)
@@ -318,6 +256,114 @@ func (s *AuthGuestService) CleanupShare(shareID string) error {
 	}
 
 	return nil
+}
+
+// rotateGuestToken replaces the guest token's secret, PIN and nonce
+// under the record lock. When the record is modified concurrently it re-reads
+// and re-applies the rotation, up to renewMaxAttempts. It returns the issued
+// nonce, the record state seen before the successful update (for rollback) and
+// the updated record.
+func (s *AuthGuestService) rotateGuestToken(hash string, tok *token.Token, pinHash string, now time.Time) (string, storage.Record, storage.Record, error) {
+	var nonce string
+	for attempt := 1; ; attempt++ {
+		rec, err := s.store.Get(hash)
+		if err != nil {
+			return "", storage.Record{}, storage.Record{}, err
+		}
+
+		updated, err := s.store.UpdateFrom(*rec, func(record *storage.Record) error {
+			if s.guards.quotaLimiter.RetryAfter(&record.QuotaLimiterState, now) > 0 {
+				return ErrTooManyAttempts
+			}
+
+			n, err := s.guards.nonce.Issue(&record.NonceState, now)
+			if err != nil {
+				return err
+			}
+			nonce = n
+			record.BackoffLimiterState = guard.BackoffLimiterState{}
+			s.guards.quotaLimiter.Record(&record.QuotaLimiterState, now)
+
+			record.SecretHash = tok.SecretHash()
+			record.PinHash = pinHash
+			record.Expiry = now.Add(guestLinkTokenTTL)
+			record.PinExpiry = now.Add(guestPinTTL)
+			record.Redeemed = false
+			return nil
+		})
+		if err == nil {
+			return nonce, *rec, *updated, nil
+		}
+		if !errors.Is(err, storage.ErrConflict) || attempt >= renewMaxAttempts {
+			return "", storage.Record{}, storage.Record{}, err
+		}
+	}
+}
+
+// checkPinRequest verifies the browser-bound nonce and then the PIN
+// failed-attempt backoff, returning the error to surface to the client. The
+// nonce is checked first so a missing or mismatched nonce is not hidden behind
+// rate limiting.
+func (s *AuthGuestService) checkPinRequest(rec *storage.Record, nonce string, now time.Time) *GuestError {
+	if err := s.guards.nonce.Verify(&rec.NonceState, nonce, now); err != nil {
+		return &GuestError{ErrorType: nonceError(err), ShareID: rec.ShareID}
+	}
+	if wait := s.guards.backoffLimiter.RetryAfter(&rec.BackoffLimiterState, now); wait > 0 {
+		return &GuestError{ErrorType: ErrTooManyAttempts, ShareID: rec.ShareID, RetryAfter: wait}
+	}
+	return nil
+}
+
+// precheckPin cheaply rejects a bad or blocked request before the (remote)
+// share validation. The same checks run again under the record lock in
+// verifyPinAttempt, which is what actually consumes the attempt.
+func (s *AuthGuestService) precheckPin(shareID, nonce string) error {
+	rec, err := s.store.Get(token.Hash(shareID))
+	if err != nil {
+		return nonceStoreError(err, shareID)
+	}
+
+	ge := s.checkPinRequest(rec, nonce, time.Now())
+	if ge != nil {
+		return ge
+	}
+	return nil
+}
+
+// verifyPinAttempt verifies the PIN under the caller's lock and updates the
+// record: a success clears the credential, a wrong PIN records the attempt and
+// its backoff. Gate and expiry failures leave the record untouched and return an
+// error.
+func (s *AuthGuestService) verifyPinAttempt(rec *storage.Record, pinValue, nonce string) (ok bool, err error) {
+	now := time.Now()
+
+	// The pre-check already surfaced Retry-After; the wait is dropped here
+	// because a store update cannot carry HTTP headers.
+	ge := s.checkPinRequest(rec, nonce, now)
+	if ge != nil {
+		return false, ge.ErrorType
+	}
+
+	switch {
+	case rec.PinHash == "":
+		return false, ErrPinInvalid
+	case !rec.PinExpiry.IsZero() && rec.PinExpiry.Before(now):
+		return false, ErrPinExpired
+	}
+
+	match, _ := pin.Verify(pinValue, rec.PinHash)
+	if !match && !s.guards.backoffLimiter.Record(&rec.BackoffLimiterState, now) {
+		// Wrong PIN, but attempts remain: keep the credential and its nonce.
+		return false, nil
+	}
+
+	// Either the PIN was correct (credential consumed) or the attempts are
+	// exhausted (credential invalidated); both spend the single-use nonce.
+	rec.PinHash = ""
+	rec.PinExpiry = time.Time{}
+	s.guards.nonce.Clear(&rec.NonceState)
+	s.guards.backoffLimiter.Reset(&rec.BackoffLimiterState)
+	return match, nil
 }
 
 // verifyRenewCredentials checks that the previous link token or a (possibly
@@ -447,18 +493,4 @@ func (s *AuthGuestService) getShare(ctx context.Context, shareID string) (*colla
 	}
 
 	return share, nil
-}
-
-// verifyChallenge validates the browser-bound challenge nonce against the record
-func verifyChallenge(rec *storage.Record, nonce string, now time.Time) error {
-	if rec.ChallengeNonceHash == "" ||
-		subtle.ConstantTimeCompare([]byte(token.Hash(nonce)), []byte(rec.ChallengeNonceHash)) != 1 {
-		return ErrChallengeInvalid
-	}
-
-	if !rec.ChallengeExpiry.IsZero() && rec.ChallengeExpiry.Before(now) {
-		return ErrChallengeExpired
-	}
-
-	return nil
 }
