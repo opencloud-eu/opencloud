@@ -143,9 +143,11 @@ func (b *Batch) Purge(id string, onlyDeleted bool) error {
 			return fmt.Errorf("failed to get resource: %w", err)
 		}
 
-		// a trashed folder keeps its path, so a live folder can take the same one:
-		// scope to the resource's trash state (onlyDeleted takes the trashed ones only)
+		// scope to the resource's space: the same path exists in other spaces;
+		// and to its trash state: a trashed folder keeps its path, so a live
+		// folder can take the same one (onlyDeleted takes the trashed ones only)
 		query := osu.NewBoolQuery().Must(
+			osu.NewTermQuery[string]("RootID").Value(resource.RootID),
 			osu.NewTermQuery[string]("Path").Value(resource.Path),
 			osu.NewTermQuery[bool]("Deleted").Value(resource.Deleted || onlyDeleted),
 		)

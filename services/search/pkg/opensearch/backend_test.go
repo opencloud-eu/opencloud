@@ -406,6 +406,20 @@ var _ = Describe("Backend", func() {
 			Expect(resourceByID(tc, indexName, live.ID).Path).To(Equal("./a"))
 			Expect(resourceByID(tc, indexName, liveFile.ID).Path).To(Equal("./a/y.txt"))
 		})
+
+		It("purges only the resource in the target root", func() {
+			target := opensearchtest.Testdata.Resources.File
+			other := otherRoot(target)
+			for _, r := range []search.Resource{target, other} {
+				tc.Require.DocumentCreate(indexName, r.ID, strings.NewReader(opensearchtest.JSONMustMarshal(GinkgoTB(), r)))
+			}
+			tc.Require.IndicesCount([]string{indexName}, nil, 2)
+
+			Expect(backend.Purge(target.ID, false)).To(Succeed())
+
+			tc.Require.IndicesCount([]string{indexName}, nil, 1)
+			Expect(resourceByID(tc, indexName, other.ID).Path).To(Equal(other.Path), "resource in a different root must not be purged")
+		})
 	})
 
 	Describe("PurgeSpace", func() {
