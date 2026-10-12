@@ -124,15 +124,17 @@ opencloud search index --space $SPACE_ID
 It can also be used to re-index all spaces:
 
 ```shell
-opencloud search index --all-spaces --insecure
+opencloud search index --all-spaces
 ```
 
 Please note that a reindex only picks up new or changed files. Files that have already been indexed are not scanned again, even if the configuration or the whole extractor has been changed. To force a full rescan (re-running the extractor on every file) you need to use the `force-rescan` flag:
 
 
 ```shell
-opencloud search index --all-spaces --force-rescan --insecure
+opencloud search index --all-spaces --force-rescan
 ```
+
+The command connects to the service's gRPC address (`SEARCH_GRPC_ADDR`) unless `--endpoint` is given, with the TLS mode set in `OC_GRPC_CLIENT_TLS_MODE`. With `on`, the server certificate is verified against that address, so if `SEARCH_GRPC_ADDR` is a bind address such as `0.0.0.0:9220`, pass `--endpoint` with a host name the certificate is valid for.
 
 ## Metrics
 
