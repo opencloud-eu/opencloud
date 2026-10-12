@@ -143,10 +143,12 @@ func (b *Batch) Purge(id string, onlyDeleted bool) error {
 			return fmt.Errorf("failed to get resource: %w", err)
 		}
 
-		query := osu.NewBoolQuery().Must(osu.NewTermQuery[string]("Path").Value(resource.Path))
-		if onlyDeleted {
-			query.Must(osu.NewTermQuery[bool]("Deleted").Value(true))
-		}
+		// a trashed folder keeps its path, so a live folder can take the same one:
+		// scope to the resource's trash state (onlyDeleted takes the trashed ones only)
+		query := osu.NewBoolQuery().Must(
+			osu.NewTermQuery[string]("Path").Value(resource.Path),
+			osu.NewTermQuery[bool]("Deleted").Value(resource.Deleted || onlyDeleted),
+		)
 
 		req, err := osu.BuildDocumentDeleteByQueryReq(
 			opensearchgoAPI.DocumentDeleteByQueryReq{
