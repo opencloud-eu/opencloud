@@ -29,6 +29,7 @@ type Options struct {
 	TraceProvider   trace.TracerProvider
 	GatewaySelector *pool.Selector[gateway.GatewayAPIClient]
 	Searcher        search.Searcher
+	SkippedSpaces   *search.SkippedSpaces
 }
 
 // newOptions initializes the available default options.
@@ -109,5 +110,12 @@ func GatewaySelector(val *pool.Selector[gateway.GatewayAPIClient]) Option {
 func Searcher(val search.Searcher) Option {
 	return func(o *Options) {
 		o.Searcher = val
+	}
+}
+
+// SkippedSpaces provides a function to set the SkippedSpaces option.
+func SkippedSpaces(val *search.SkippedSpaces) Option {
+	return func(o *Options) {
+		o.SkippedSpaces = val
 	}
 }
