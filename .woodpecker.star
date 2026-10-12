@@ -569,48 +569,6 @@ def main(ctx):
         dockerReleases(ctx) + \
         binaryReleases(ctx)
 
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeBuildArtifactCache(ctx),
-            testPipelines(ctx),
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeBrowserCache(ctx),
-            testPipelines(ctx),
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeTracingCache(ctx),
-            testPipelines(ctx),
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeOpencloudWebBuildCache(ctx),
-            testPipelines(ctx),
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeGoBinCache(ctx),
-            testPipelines(ctx),
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgePipelineInfoCache(),
-            testPipelines(ctx),
-        ),
-    )
-
     pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + notifyMatrixCheckSteps(ctx, getPipelineNames(testPipelines(ctx)))
 
     pipelineSanityChecks(pipelines)
@@ -2726,39 +2684,12 @@ def genericCache(name, action, mounts, cache_path):
     }
     return step
 
-def purgeCache(name, flush_path, flush_age):
-    return {
-        "name": name,
-        "skip_clone": True,
-        "when": [
-            event["cron"],
-            event["base"],
-            event["pull_request"],
-        ],
-        "runs_on": ["success", "failure"],
-        "steps": [
-            {
-                "name": "purge",
-                "image": MINIO_MC,
-                "environment": MINIO_MC_ENV,
-                "commands": [
-                    "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
-                    "to_delete=$(mc find s3/%s/ --older-than %sd || true)" % (flush_path, flush_age),
-                    'if [ -z "$to_delete" ]; then exit 0; fi',
-                    "mc rm $to_delete",
-                ],
-            },
-        ],
-    }
-
 def genericBuildArtifactCache(ctx, name, action, path):
     if action == "rebuild" or action == "restore":
         cache_path = "%s/%s/%s" % ("cache", repo_slug, ctx.build.commit + "-${CI_PIPELINE_NUMBER}")
         name = "%s_build_artifact_cache" % name
         return genericCache(name, action, [path], cache_path)
 
-    if action == "purge":
-        return purgeCache("purge_opencloud_build_artifact_cache", "cache/%s" % repo_slug, 1)
     return []
 
 def restoreBuildArtifactCache(ctx, name, path):
@@ -2766,24 +2697,6 @@ def restoreBuildArtifactCache(ctx, name, path):
 
 def rebuildBuildArtifactCache(ctx, name, path):
     return [genericBuildArtifactCache(ctx, name, "rebuild", path)]
-
-def purgeBuildArtifactCache(ctx):
-    return genericBuildArtifactCache(ctx, "", "purge", [])
-
-def purgeBrowserCache(ctx):
-    return purgeCache("purge_browser_build_cache", "dev/web", 14)
-
-def purgeTracingCache(ctx):
-    return purgeCache("purge_playwright_tracing_cache", "public/web/tracing", 14)
-
-def purgeOpencloudWebBuildCache(ctx):
-    return purgeCache("purge_opencloud_web_build_cache", "dev/opencloud/web-test-runner", 14)
-
-def purgeGoBinCache(ctx):
-    return purgeCache("purge_go_bin_cache", "dev/opencloud/go-bin", 14)
-
-def purgePipelineInfoCache():
-    return purgeCache("purge_pipeline_info_cache", "public/opencloud/pipelines", 14)
 
 def pipelineSanityChecks(pipelines):
     """pipelineSanityChecks helps the CI developers to find errors before running it
