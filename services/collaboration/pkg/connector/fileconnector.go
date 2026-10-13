@@ -222,6 +222,14 @@ func (f *FileConnector) Lock(ctx context.Context, lockID, oldLockID string) (*Co
 		return NewResponse(400), nil
 	}
 
+	// OnlyOffice locks on every open, a SetLock with a read-only token fails and the 500 becomes an error dialog
+	// in OnlyOffice, so read-only and view-only sessions get their 200 without a lock
+	if wopiContext.ViewMode == appproviderv1beta1.ViewMode_VIEW_MODE_READ_ONLY ||
+		wopiContext.ViewMode == appproviderv1beta1.ViewMode_VIEW_MODE_VIEW_ONLY {
+		logger.Debug().Msg("Lock: read-only session, skipping the lock")
+		return NewResponseWithVersion(nil), nil
+	}
+
 	var setOrRefreshStatus *rpcv1beta1.Status
 	if oldLockID == "" {
 		// If the oldLockID is empty, this is a "LOCK" request
@@ -1329,7 +1337,8 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 		infoMap[fileinfo.KeyDisableExport] = true // only for collabora
 		infoMap[fileinfo.KeyDisableCopy] = true   // only for collabora
 		infoMap[fileinfo.KeyDisablePrint] = true
-		if !isPublicShare {
+		// a viewer role opens the document view only as well, the watermark is for secure view
+		if !isPublicShare && wopiContext.ViewOnlyToken != "" {
 			infoMap[fileinfo.KeyWatermarkText] = f.watermarkText(user) // only for collabora
 		}
 	}
