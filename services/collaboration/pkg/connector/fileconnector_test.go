@@ -171,6 +171,26 @@ var _ = Describe("FileConnector", func() {
 				Expect(response.Headers).To(BeNil())
 			})
 
+			It("Read-only session gets 200 without a lock", func() {
+				gatewaySelector.EXPECT().Next().Unset()
+				wopiCtx.ViewMode = appproviderv1beta1.ViewMode_VIEW_MODE_READ_ONLY
+				ctx := middleware.WopiContextToCtx(context.Background(), wopiCtx)
+
+				response, err := fc.Lock(ctx, "abcdef123", "")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response.Status).To(Equal(200))
+			})
+
+			It("View-only session gets 200 without a lock", func() {
+				gatewaySelector.EXPECT().Next().Unset()
+				wopiCtx.ViewMode = appproviderv1beta1.ViewMode_VIEW_MODE_VIEW_ONLY
+				ctx := middleware.WopiContextToCtx(context.Background(), wopiCtx)
+
+				response, err := fc.Lock(ctx, "abcdef123", "")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response.Status).To(Equal(200))
+			})
+
 			It("Set lock failed", func() {
 				ctx := middleware.WopiContextToCtx(context.Background(), wopiCtx)
 
