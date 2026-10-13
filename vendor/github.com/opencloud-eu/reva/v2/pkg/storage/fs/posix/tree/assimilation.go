@@ -27,6 +27,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -537,7 +538,7 @@ func (t *Tree) assimilate(item scanItem) error {
 				if fi.IsDir() {
 					// if it was moved and it is a directory we need to propagate the move
 					go func() {
-						if err := t.WarmupIDCache(item.Path, false, true); err != nil {
+						if err := t.WarmupIDCache(item.Path, false, false); err != nil {
 							t.log.Error().Err(err).Str("path", item.Path).Msg("could not warmup id cache")
 						}
 					}()
@@ -920,6 +921,12 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 	}
 
 	sizes := make(map[string]int64)
+	addToParents := func(path string, size int64) {
+		for dir := path; dir != root; {
+			dir = filepath.Clean(filepath.Dir(dir))
+			sizes[dir] += size
+		}
+	}
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -948,22 +955,24 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 
 		// calculate tree sizes
 		if !info.IsDir() {
-			dir := path
-			for dir != root {
-				dir = filepath.Clean(filepath.Dir(dir))
-				sizes[dir] += info.Size()
-			}
+			addToParents(path, info.Size())
 		} else {
-			sizes[path] += 0 // Make sure to set the size to 0 for empty directories
 			if onlyDirty {
 				dirty, err := t.isDirty(path)
 				if err != nil {
 					return err
 				}
 				if !dirty {
-					return filepath.SkipDir
+					// the stored tree size of a clean directory is still valid. Count it for the
+					// parents instead of overwriting it with the size of the files we skip.
+					if size, ok := t.storedTreeSize(path); ok {
+						addToParents(path, size)
+						return filepath.SkipDir
+					}
+					// without a valid stored tree size, walk the directory to calculate it
 				}
 			}
+			sizes[path] += 0 // Make sure to set the size to 0 for empty directories
 		}
 
 		nodeSpaceID, id, _, _, err := t.lookup.MetadataBackend().IdentifyPath(context.Background(), path)
@@ -1091,6 +1100,15 @@ func (t *Tree) propagateSizeDiff(n *node.Node, size int64) error {
 
 func (t *Tree) setDirty(path string, dirty bool) error {
 	return xattr.Set(path, dirtyFlag(), []byte(fmt.Sprintf("%t", dirty)))
+}
+
+func (t *Tree) storedTreeSize(path string) (int64, bool) {
+	b, err := xattr.Get(path, prefixes.TreesizeAttr)
+	if err != nil {
+		return 0, false
+	}
+	size, err := strconv.ParseInt(string(b), 10, 64)
+	return size, err == nil && size >= 0
 }
 
 func (t *Tree) isDirty(path string) (bool, error) {
