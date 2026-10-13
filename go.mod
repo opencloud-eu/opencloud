@@ -11,7 +11,7 @@ require (
 	github.com/Nerzal/gocloak/v13 v13.9.0
 	github.com/alexedwards/argon2id v1.0.0
 	github.com/bbalet/stopwords v1.0.0
-	github.com/beevik/etree v1.8.0
+	github.com/beevik/etree v1.8.1
 	github.com/blevesearch/bleve/v2 v2.6.1
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/coreos/go-oidc/v3 v3.21.0
