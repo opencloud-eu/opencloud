@@ -94,8 +94,8 @@ expired or already redeemed (the guest already redeemed an earlier link); if
 publishing fails, the previous record is restored.
 
 To turn the new credentials into a session the guest either redeems the link
-(`verify/token`) or enters the PIN (`verify/pin`); both return a session cookie and
-the `permissionId`. `verify/pin` does not consume the link token.
+(`verify/token`) or enters the PIN (`verify/pin`); both return a session
+cookie and the `permissionId`. `verify/pin` does not consume the link token.
 
 ```mermaid
 sequenceDiagram
