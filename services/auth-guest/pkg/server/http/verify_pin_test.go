@@ -21,6 +21,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func newNonceCookie(value string) *http.Cookie {
+	return &http.Cookie{Name: testNonceCookieName, Value: value, Secure: true, HttpOnly: true}
+}
+
 func newVerifyPinHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc {
 	t.Helper()
 	cfg := &config.Config{
@@ -45,7 +49,7 @@ func TestVerifyPinHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
-	req.AddCookie(&http.Cookie{Name: testNonceCookieName, Value: "nonce-value"})
+	req.AddCookie(newNonceCookie("nonce-value"))
 
 	rr := httptest.NewRecorder()
 	newVerifyPinHandler(t, svcMock)(rr, req)
@@ -146,7 +150,7 @@ func TestVerifyPinHandlerErrorMapping(t *testing.T) {
 			require.NoError(t, err)
 
 			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
-			req.AddCookie(&http.Cookie{Name: testNonceCookieName, Value: "nonce-value"})
+			req.AddCookie(newNonceCookie("nonce-value"))
 
 			rr := httptest.NewRecorder()
 			newVerifyPinHandler(t, svcMock)(rr, req)
@@ -170,7 +174,7 @@ func TestVerifyPinHandlerTooManyAttempts(t *testing.T) {
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
-	req.AddCookie(&http.Cookie{Name: testNonceCookieName, Value: "nonce-value"})
+	req.AddCookie(newNonceCookie("nonce-value"))
 
 	rr := httptest.NewRecorder()
 	newVerifyPinHandler(t, svcMock)(rr, req)
@@ -203,7 +207,7 @@ func TestVerifyPinHandlerMissingNonceCookie(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
 			if tt.addCookie {
-				req.AddCookie(&http.Cookie{Name: testNonceCookieName, Value: tt.cookieValue})
+				req.AddCookie(newNonceCookie(tt.cookieValue))
 			}
 
 			rr := httptest.NewRecorder()

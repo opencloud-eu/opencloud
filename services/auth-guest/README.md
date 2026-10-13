@@ -112,11 +112,11 @@ link); if publishing fails, the previous record is restored.
 and a `Retry-After` header.
 
 To turn the new credentials into a session the guest either redeems the link
-(`verify/token`) or enters the PIN (`verify/pin`); both return a session cookie and
-the `permissionId`. `verify/pin` does not consume the link token, but it requires
-the nonce cookie set by `renew`, so the PIN can only be verified from the browser
-that requested the renewal. Each wrong PIN increments a counter and the wait
-between attempts grows exponentially; after
+(`verify/token`) or enters the PIN (`verify/pin`); both return a session
+cookie and the `permissionId`. `verify/pin` does not consume the link token, but
+it requires the nonce cookie set by `renew`, so the PIN can only be verified
+from the browser that requested the renewal. Each wrong PIN increments a counter
+and the wait between attempts grows exponentially; after
 `AUTH_GUEST_BACKOFF_MAX_ATTEMPTS` (default 5) failures the PIN is invalidated.
 While the backoff is active `verify/pin` answers `429` with a `Retry-After`
 header. The magic link (`verify/token`) is not affected by any of this: it
