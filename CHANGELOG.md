@@ -10,6 +10,10 @@
 
 - feat(guestlinks)!: auth-guest service [[#3609](https://github.com/opencloud-eu/opencloud/pull/3609)]
 
+### 🐛 Bug Fixes
+
+- fix: add restart command output [[#3706](https://github.com/opencloud-eu/opencloud/pull/3706)]
+
 ### 📚 Documentation
 
 - fix(proxy): make metrics table MDX-compatible [[#3680](https://github.com/opencloud-eu/opencloud/pull/3680)]
