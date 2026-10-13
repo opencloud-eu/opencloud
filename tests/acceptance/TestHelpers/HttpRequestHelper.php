@@ -58,6 +58,13 @@ class HttpRequestHelper {
 	}
 
 	/**
+	 * @return int
+	 */
+	public static function maxRetriesOnHTTPFailure(): int {
+		return MAXIMUM_RETRY_COUNT;
+	}
+
+	/**
 	 *
 	 * @param string $url
 	 * @param string|null $xRequestId
@@ -254,6 +261,7 @@ class HttpRequestHelper {
 		}
 
 		$sendCount = 0;
+		$pollInterval = 1; // 1 second
 		do {
 			$response = self::sendRequestOnce(
 				$url,
@@ -293,13 +301,19 @@ class HttpRequestHelper {
 				break;
 			}
 
+			$noOfRetries = self::numRetriesOnHttpTooEarly();
+			if ($isShareMigrating) {
+				$noOfRetries = self::maxRetriesOnHTTPFailure();
+				$pollInterval = 5; // 5 seconds
+			}
+
 			$sendCount = $sendCount + 1;
 			echo "[INFO] Received '" . $statusCode .
 				"' status code, retrying request ($sendCount)...\n";
-			// wait 1 second before sending again, to give the server some time
+			// wait before sending again, to give the server some time
 			// to finish whatever post-processing it might be doing.
-			\sleep(1);
-		} while ($sendCount <= self::numRetriesOnHttpTooEarly());
+			\sleep($pollInterval);
+		} while ($sendCount < $noOfRetries);
 		return $response;
 	}
 

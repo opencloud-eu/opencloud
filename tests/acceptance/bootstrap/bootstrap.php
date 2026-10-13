@@ -34,9 +34,15 @@ $classLoader->register();
 if (!\defined('STANDARD_RETRY_COUNT')) {
 	\define('STANDARD_RETRY_COUNT', 10);
 }
+
 // Minimum number of times to retry where retries are useful
 if (!\defined('MINIMUM_RETRY_COUNT')) {
 	\define('MINIMUM_RETRY_COUNT', 2);
+}
+
+// Maximum number of times to retry where retries are useful
+if (!\defined('MAXIMUM_RETRY_COUNT')) {
+	\define('MAXIMUM_RETRY_COUNT', 60);
 }
 
 // Minimum number of times to retry where retries are useful
