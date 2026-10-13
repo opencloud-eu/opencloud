@@ -2456,6 +2456,8 @@ def opencloudServer(storage = "decomposed", depends_on = [], deploy_type = "", e
         "SEARCH_DEBUG_ADDR": "0.0.0.0:9224",
         "SETTINGS_DEBUG_ADDR": "0.0.0.0:9194",
         "SHARING_DEBUG_ADDR": "0.0.0.0:9151",
+        # the ocwrapper restarts the server mid-migration and leaves a stale migration lock behind
+        "SHARING_USER_JSONCS3_SKIP_MIGRATIONS": True,
         "SSE_DEBUG_ADDR": "0.0.0.0:9139",
         "STORAGE_PUBLICLINK_DEBUG_ADDR": "0.0.0.0:9179",
         "STORAGE_SHARES_DEBUG_ADDR": "0.0.0.0:9156",
