@@ -12,6 +12,8 @@
 
 ### 🐛 Bug Fixes
 
+- fix(collaboration): answer a wopi lock in a read-only session with 200 instead of locking [[#3711](https://github.com/opencloud-eu/opencloud/pull/3711)]
+- fix(collaboration): show the secure view watermark only for view-only tokens [[#3712](https://github.com/opencloud-eu/opencloud/pull/3712)]
 - fix: add restart command output [[#3706](https://github.com/opencloud-eu/opencloud/pull/3706)]
 
 ### 📚 Documentation
