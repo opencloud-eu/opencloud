@@ -37,3 +37,19 @@ func (GuestTokenCreated) Unmarshal(v []byte) (interface{}, error) {
 	err := json.Unmarshal(v, &e)
 	return e, err
 }
+
+type GuestTokenRenewed struct {
+	ShareID      *collaboration.ShareId
+	Sharer       *user.UserId
+	GranteeEmail string
+	ItemID       *provider.ResourceId
+	Token        string
+	Pin          string
+	Timestamp    time.Time
+}
+
+func (GuestTokenRenewed) Unmarshal(v []byte) (interface{}, error) {
+	e := GuestTokenRenewed{}
+	err := json.Unmarshal(v, &e)
+	return e, err
+}

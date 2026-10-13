@@ -88,22 +88,24 @@ func (_c *Manager_Add_Call) RunAndReturn(run func(rec storage.Record) error) *Ma
 }
 
 // Get provides a mock function for the type Manager
-func (_mock *Manager) Get(shareIDHash string) (storage.Record, error) {
+func (_mock *Manager) Get(shareIDHash string) (*storage.Record, error) {
 	ret := _mock.Called(shareIDHash)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Get")
 	}
 
-	var r0 storage.Record
+	var r0 *storage.Record
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(string) (storage.Record, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) (*storage.Record, error)); ok {
 		return returnFunc(shareIDHash)
 	}
-	if returnFunc, ok := ret.Get(0).(func(string) storage.Record); ok {
+	if returnFunc, ok := ret.Get(0).(func(string) *storage.Record); ok {
 		r0 = returnFunc(shareIDHash)
 	} else {
-		r0 = ret.Get(0).(storage.Record)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*storage.Record)
+		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(string) error); ok {
 		r1 = returnFunc(shareIDHash)
@@ -137,63 +139,12 @@ func (_c *Manager_Get_Call) Run(run func(shareIDHash string)) *Manager_Get_Call 
 	return _c
 }
 
-func (_c *Manager_Get_Call) Return(record storage.Record, err error) *Manager_Get_Call {
+func (_c *Manager_Get_Call) Return(record *storage.Record, err error) *Manager_Get_Call {
 	_c.Call.Return(record, err)
 	return _c
 }
 
-func (_c *Manager_Get_Call) RunAndReturn(run func(shareIDHash string) (storage.Record, error)) *Manager_Get_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// Redeem provides a mock function for the type Manager
-func (_mock *Manager) Redeem(shareIDHash string) error {
-	ret := _mock.Called(shareIDHash)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Redeem")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(string) error); ok {
-		r0 = returnFunc(shareIDHash)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// Manager_Redeem_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Redeem'
-type Manager_Redeem_Call struct {
-	*mock.Call
-}
-
-// Redeem is a helper method to define mock.On call
-//   - shareIDHash string
-func (_e *Manager_Expecter) Redeem(shareIDHash any) *Manager_Redeem_Call {
-	return &Manager_Redeem_Call{Call: _e.mock.On("Redeem", shareIDHash)}
-}
-
-func (_c *Manager_Redeem_Call) Run(run func(shareIDHash string)) *Manager_Redeem_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 string
-		if args[0] != nil {
-			arg0 = args[0].(string)
-		}
-		run(
-			arg0,
-		)
-	})
-	return _c
-}
-
-func (_c *Manager_Redeem_Call) Return(err error) *Manager_Redeem_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *Manager_Redeem_Call) RunAndReturn(run func(shareIDHash string) error) *Manager_Redeem_Call {
+func (_c *Manager_Get_Call) RunAndReturn(run func(shareIDHash string) (*storage.Record, error)) *Manager_Get_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -245,6 +196,131 @@ func (_c *Manager_Remove_Call) Return(err error) *Manager_Remove_Call {
 }
 
 func (_c *Manager_Remove_Call) RunAndReturn(run func(shareIDHash string) error) *Manager_Remove_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Update provides a mock function for the type Manager
+func (_mock *Manager) Update(shareIDHash string, fn func(*storage.Record) error) error {
+	ret := _mock.Called(shareIDHash, fn)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Update")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string, func(*storage.Record) error) error); ok {
+		r0 = returnFunc(shareIDHash, fn)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// Manager_Update_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Update'
+type Manager_Update_Call struct {
+	*mock.Call
+}
+
+// Update is a helper method to define mock.On call
+//   - shareIDHash string
+//   - fn func(*storage.Record) error
+func (_e *Manager_Expecter) Update(shareIDHash any, fn any) *Manager_Update_Call {
+	return &Manager_Update_Call{Call: _e.mock.On("Update", shareIDHash, fn)}
+}
+
+func (_c *Manager_Update_Call) Run(run func(shareIDHash string, fn func(*storage.Record) error)) *Manager_Update_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		var arg1 func(*storage.Record) error
+		if args[1] != nil {
+			arg1 = args[1].(func(*storage.Record) error)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *Manager_Update_Call) Return(err error) *Manager_Update_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *Manager_Update_Call) RunAndReturn(run func(shareIDHash string, fn func(*storage.Record) error) error) *Manager_Update_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateFrom provides a mock function for the type Manager
+func (_mock *Manager) UpdateFrom(seen storage.Record, fn func(*storage.Record) error) (*storage.Record, error) {
+	ret := _mock.Called(seen, fn)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateFrom")
+	}
+
+	var r0 *storage.Record
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(storage.Record, func(*storage.Record) error) (*storage.Record, error)); ok {
+		return returnFunc(seen, fn)
+	}
+	if returnFunc, ok := ret.Get(0).(func(storage.Record, func(*storage.Record) error) *storage.Record); ok {
+		r0 = returnFunc(seen, fn)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*storage.Record)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(storage.Record, func(*storage.Record) error) error); ok {
+		r1 = returnFunc(seen, fn)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// Manager_UpdateFrom_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateFrom'
+type Manager_UpdateFrom_Call struct {
+	*mock.Call
+}
+
+// UpdateFrom is a helper method to define mock.On call
+//   - seen storage.Record
+//   - fn func(*storage.Record) error
+func (_e *Manager_Expecter) UpdateFrom(seen any, fn any) *Manager_UpdateFrom_Call {
+	return &Manager_UpdateFrom_Call{Call: _e.mock.On("UpdateFrom", seen, fn)}
+}
+
+func (_c *Manager_UpdateFrom_Call) Run(run func(seen storage.Record, fn func(*storage.Record) error)) *Manager_UpdateFrom_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 storage.Record
+		if args[0] != nil {
+			arg0 = args[0].(storage.Record)
+		}
+		var arg1 func(*storage.Record) error
+		if args[1] != nil {
+			arg1 = args[1].(func(*storage.Record) error)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *Manager_UpdateFrom_Call) Return(record *storage.Record, err error) *Manager_UpdateFrom_Call {
+	_c.Call.Return(record, err)
+	return _c
+}
+
+func (_c *Manager_UpdateFrom_Call) RunAndReturn(run func(seen storage.Record, fn func(*storage.Record) error) (*storage.Record, error)) *Manager_UpdateFrom_Call {
 	_c.Call.Return(run)
 	return _c
 }

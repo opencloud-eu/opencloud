@@ -19,7 +19,7 @@ import (
 // checks if the GuestLinkError type satisfies the MappedNullable interface at compile time
 var _ MappedNullable = &GuestLinkError{}
 
-// GuestLinkError Error returned by the guest link redeem endpoint.
+// GuestLinkError Error returned by a guest link endpoint.
 type GuestLinkError struct {
 	// Machine-readable error identifier.
 	ErrorType string `json:"errorType"`

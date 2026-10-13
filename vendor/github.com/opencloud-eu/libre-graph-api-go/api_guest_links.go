@@ -22,58 +22,56 @@ import (
 // GuestLinksApiService GuestLinksApi service
 type GuestLinksApiService service
 
-type ApiRedeemGuestLinkRequest struct {
+type ApiRenewGuestLinkRequest struct {
 	ctx context.Context
 	ApiService *GuestLinksApiService
-	guestLinkRedeemRequest *GuestLinkRedeemRequest
+	guestLinkRenewRequest *GuestLinkRenewRequest
 }
 
-func (r ApiRedeemGuestLinkRequest) GuestLinkRedeemRequest(guestLinkRedeemRequest GuestLinkRedeemRequest) ApiRedeemGuestLinkRequest {
-	r.guestLinkRedeemRequest = &guestLinkRedeemRequest
+func (r ApiRenewGuestLinkRequest) GuestLinkRenewRequest(guestLinkRenewRequest GuestLinkRenewRequest) ApiRenewGuestLinkRequest {
+	r.guestLinkRenewRequest = &guestLinkRenewRequest
 	return r
 }
 
-func (r ApiRedeemGuestLinkRequest) Execute() (*GuestLinkRedeemResponse, *http.Response, error) {
-	return r.ApiService.RedeemGuestLinkExecute(r)
+func (r ApiRenewGuestLinkRequest) Execute() (*http.Response, error) {
+	return r.ApiService.RenewGuestLinkExecute(r)
 }
 
 /*
-RedeemGuestLink Redeem a guest link token
+RenewGuestLink Renew a guest link
 
-Redeem a guest link token to obtain a guest session.
+Generate a new guest link token and PIN for an existing guest link and publish the renewal event so the guest can be notified.
 
  @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
- @return ApiRedeemGuestLinkRequest
+ @return ApiRenewGuestLinkRequest
 */
-func (a *GuestLinksApiService) RedeemGuestLink(ctx context.Context) ApiRedeemGuestLinkRequest {
-	return ApiRedeemGuestLinkRequest{
+func (a *GuestLinksApiService) RenewGuestLink(ctx context.Context) ApiRenewGuestLinkRequest {
+	return ApiRenewGuestLinkRequest{
 		ApiService: a,
 		ctx: ctx,
 	}
 }
 
 // Execute executes the request
-//  @return GuestLinkRedeemResponse
-func (a *GuestLinksApiService) RedeemGuestLinkExecute(r ApiRedeemGuestLinkRequest) (*GuestLinkRedeemResponse, *http.Response, error) {
+func (a *GuestLinksApiService) RenewGuestLinkExecute(r ApiRenewGuestLinkRequest) (*http.Response, error) {
 	var (
 		localVarHTTPMethod   = http.MethodPost
 		localVarPostBody     interface{}
 		formFiles            []formFile
-		localVarReturnValue  *GuestLinkRedeemResponse
 	)
 
-	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "GuestLinksApiService.RedeemGuestLink")
+	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "GuestLinksApiService.RenewGuestLink")
 	if err != nil {
-		return localVarReturnValue, nil, &GenericOpenAPIError{error: err.Error()}
+		return nil, &GenericOpenAPIError{error: err.Error()}
 	}
 
-	localVarPath := localBasePath + "/v1beta1/extensions/org.libregraph/guestLinks/redeem"
+	localVarPath := localBasePath + "/v1beta1/extensions/org.libregraph/guestLinks/renew"
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
-	if r.guestLinkRedeemRequest == nil {
-		return localVarReturnValue, nil, reportError("guestLinkRedeemRequest is required and must be specified")
+	if r.guestLinkRenewRequest == nil {
+		return nil, reportError("guestLinkRenewRequest is required and must be specified")
 	}
 
 	// to determine the Content-Type header
@@ -94,7 +92,355 @@ func (a *GuestLinksApiService) RedeemGuestLinkExecute(r ApiRedeemGuestLinkReques
 		localVarHeaderParams["Accept"] = localVarHTTPHeaderAccept
 	}
 	// body params
-	localVarPostBody = r.guestLinkRedeemRequest
+	localVarPostBody = r.guestLinkRenewRequest
+	req, err := a.client.prepareRequest(r.ctx, localVarPath, localVarHTTPMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, formFiles)
+	if err != nil {
+		return nil, err
+	}
+
+	localVarHTTPResponse, err := a.client.callAPI(req)
+	if err != nil || localVarHTTPResponse == nil {
+		return localVarHTTPResponse, err
+	}
+
+	localVarBody, err := io.ReadAll(localVarHTTPResponse.Body)
+	localVarHTTPResponse.Body.Close()
+	localVarHTTPResponse.Body = io.NopCloser(bytes.NewBuffer(localVarBody))
+	if err != nil {
+		return localVarHTTPResponse, err
+	}
+
+	if localVarHTTPResponse.StatusCode >= 300 {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: localVarHTTPResponse.Status,
+		}
+		if localVarHTTPResponse.StatusCode == 400 {
+			var v GuestLinkError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarHTTPResponse, newErr
+			}
+					newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+					newErr.model = v
+			return localVarHTTPResponse, newErr
+		}
+		if localVarHTTPResponse.StatusCode == 401 {
+			var v GuestLinkError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarHTTPResponse, newErr
+			}
+					newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+					newErr.model = v
+			return localVarHTTPResponse, newErr
+		}
+		if localVarHTTPResponse.StatusCode == 404 {
+			var v GuestLinkError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarHTTPResponse, newErr
+			}
+					newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+					newErr.model = v
+			return localVarHTTPResponse, newErr
+		}
+		if localVarHTTPResponse.StatusCode == 410 {
+			var v GuestLinkError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarHTTPResponse, newErr
+			}
+					newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+					newErr.model = v
+			return localVarHTTPResponse, newErr
+		}
+		if localVarHTTPResponse.StatusCode == 500 {
+			var v GuestLinkError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarHTTPResponse, newErr
+			}
+					newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+					newErr.model = v
+			return localVarHTTPResponse, newErr
+		}
+		if localVarHTTPResponse.StatusCode == 503 {
+			var v GuestLinkError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarHTTPResponse, newErr
+			}
+					newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+					newErr.model = v
+			return localVarHTTPResponse, newErr
+		}
+			var v OdataError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarHTTPResponse, newErr
+			}
+					newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+					newErr.model = v
+		return localVarHTTPResponse, newErr
+	}
+
+	return localVarHTTPResponse, nil
+}
+
+type ApiVerifyGuestLinkPinRequest struct {
+	ctx context.Context
+	ApiService *GuestLinksApiService
+	guestLinkVerifyPinRequest *GuestLinkVerifyPinRequest
+}
+
+func (r ApiVerifyGuestLinkPinRequest) GuestLinkVerifyPinRequest(guestLinkVerifyPinRequest GuestLinkVerifyPinRequest) ApiVerifyGuestLinkPinRequest {
+	r.guestLinkVerifyPinRequest = &guestLinkVerifyPinRequest
+	return r
+}
+
+func (r ApiVerifyGuestLinkPinRequest) Execute() (*GuestLinkSessionResponse, *http.Response, error) {
+	return r.ApiService.VerifyGuestLinkPinExecute(r)
+}
+
+/*
+VerifyGuestLinkPin Verify a guest link PIN
+
+Exchange a PIN and a share id for a guest session.
+
+ @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+ @return ApiVerifyGuestLinkPinRequest
+*/
+func (a *GuestLinksApiService) VerifyGuestLinkPin(ctx context.Context) ApiVerifyGuestLinkPinRequest {
+	return ApiVerifyGuestLinkPinRequest{
+		ApiService: a,
+		ctx: ctx,
+	}
+}
+
+// Execute executes the request
+//  @return GuestLinkSessionResponse
+func (a *GuestLinksApiService) VerifyGuestLinkPinExecute(r ApiVerifyGuestLinkPinRequest) (*GuestLinkSessionResponse, *http.Response, error) {
+	var (
+		localVarHTTPMethod   = http.MethodPost
+		localVarPostBody     interface{}
+		formFiles            []formFile
+		localVarReturnValue  *GuestLinkSessionResponse
+	)
+
+	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "GuestLinksApiService.VerifyGuestLinkPin")
+	if err != nil {
+		return localVarReturnValue, nil, &GenericOpenAPIError{error: err.Error()}
+	}
+
+	localVarPath := localBasePath + "/v1beta1/extensions/org.libregraph/guestLinks/verify/pin"
+
+	localVarHeaderParams := make(map[string]string)
+	localVarQueryParams := url.Values{}
+	localVarFormParams := url.Values{}
+	if r.guestLinkVerifyPinRequest == nil {
+		return localVarReturnValue, nil, reportError("guestLinkVerifyPinRequest is required and must be specified")
+	}
+
+	// to determine the Content-Type header
+	localVarHTTPContentTypes := []string{"application/json"}
+
+	// set Content-Type header
+	localVarHTTPContentType := selectHeaderContentType(localVarHTTPContentTypes)
+	if localVarHTTPContentType != "" {
+		localVarHeaderParams["Content-Type"] = localVarHTTPContentType
+	}
+
+	// to determine the Accept header
+	localVarHTTPHeaderAccepts := []string{"application/json"}
+
+	// set Accept header
+	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
+	if localVarHTTPHeaderAccept != "" {
+		localVarHeaderParams["Accept"] = localVarHTTPHeaderAccept
+	}
+	// body params
+	localVarPostBody = r.guestLinkVerifyPinRequest
+	req, err := a.client.prepareRequest(r.ctx, localVarPath, localVarHTTPMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, formFiles)
+	if err != nil {
+		return localVarReturnValue, nil, err
+	}
+
+	localVarHTTPResponse, err := a.client.callAPI(req)
+	if err != nil || localVarHTTPResponse == nil {
+		return localVarReturnValue, localVarHTTPResponse, err
+	}
+
+	localVarBody, err := io.ReadAll(localVarHTTPResponse.Body)
+	localVarHTTPResponse.Body.Close()
+	localVarHTTPResponse.Body = io.NopCloser(bytes.NewBuffer(localVarBody))
+	if err != nil {
+		return localVarReturnValue, localVarHTTPResponse, err
+	}
+
+	if localVarHTTPResponse.StatusCode >= 300 {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: localVarHTTPResponse.Status,
+		}
+		if localVarHTTPResponse.StatusCode == 400 {
+			var v GuestLinkError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarReturnValue, localVarHTTPResponse, newErr
+			}
+					newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+					newErr.model = v
+			return localVarReturnValue, localVarHTTPResponse, newErr
+		}
+		if localVarHTTPResponse.StatusCode == 401 {
+			var v GuestLinkError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarReturnValue, localVarHTTPResponse, newErr
+			}
+					newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+					newErr.model = v
+			return localVarReturnValue, localVarHTTPResponse, newErr
+		}
+		if localVarHTTPResponse.StatusCode == 404 {
+			var v GuestLinkError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarReturnValue, localVarHTTPResponse, newErr
+			}
+					newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+					newErr.model = v
+			return localVarReturnValue, localVarHTTPResponse, newErr
+		}
+		if localVarHTTPResponse.StatusCode == 410 {
+			var v GuestLinkError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarReturnValue, localVarHTTPResponse, newErr
+			}
+					newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+					newErr.model = v
+			return localVarReturnValue, localVarHTTPResponse, newErr
+		}
+		if localVarHTTPResponse.StatusCode == 500 {
+			var v GuestLinkError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarReturnValue, localVarHTTPResponse, newErr
+			}
+					newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+					newErr.model = v
+			return localVarReturnValue, localVarHTTPResponse, newErr
+		}
+			var v OdataError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarReturnValue, localVarHTTPResponse, newErr
+			}
+					newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+					newErr.model = v
+		return localVarReturnValue, localVarHTTPResponse, newErr
+	}
+
+	err = a.client.decode(&localVarReturnValue, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+	if err != nil {
+		newErr := &GenericOpenAPIError{
+			body:  localVarBody,
+			error: err.Error(),
+		}
+		return localVarReturnValue, localVarHTTPResponse, newErr
+	}
+
+	return localVarReturnValue, localVarHTTPResponse, nil
+}
+
+type ApiVerifyGuestLinkTokenRequest struct {
+	ctx context.Context
+	ApiService *GuestLinksApiService
+	guestLinkVerifyTokenRequest *GuestLinkVerifyTokenRequest
+}
+
+func (r ApiVerifyGuestLinkTokenRequest) GuestLinkVerifyTokenRequest(guestLinkVerifyTokenRequest GuestLinkVerifyTokenRequest) ApiVerifyGuestLinkTokenRequest {
+	r.guestLinkVerifyTokenRequest = &guestLinkVerifyTokenRequest
+	return r
+}
+
+func (r ApiVerifyGuestLinkTokenRequest) Execute() (*GuestLinkSessionResponse, *http.Response, error) {
+	return r.ApiService.VerifyGuestLinkTokenExecute(r)
+}
+
+/*
+VerifyGuestLinkToken Verify a guest link token
+
+Verify a guest link token to obtain a guest session.
+
+ @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
+ @return ApiVerifyGuestLinkTokenRequest
+*/
+func (a *GuestLinksApiService) VerifyGuestLinkToken(ctx context.Context) ApiVerifyGuestLinkTokenRequest {
+	return ApiVerifyGuestLinkTokenRequest{
+		ApiService: a,
+		ctx: ctx,
+	}
+}
+
+// Execute executes the request
+//  @return GuestLinkSessionResponse
+func (a *GuestLinksApiService) VerifyGuestLinkTokenExecute(r ApiVerifyGuestLinkTokenRequest) (*GuestLinkSessionResponse, *http.Response, error) {
+	var (
+		localVarHTTPMethod   = http.MethodPost
+		localVarPostBody     interface{}
+		formFiles            []formFile
+		localVarReturnValue  *GuestLinkSessionResponse
+	)
+
+	localBasePath, err := a.client.cfg.ServerURLWithContext(r.ctx, "GuestLinksApiService.VerifyGuestLinkToken")
+	if err != nil {
+		return localVarReturnValue, nil, &GenericOpenAPIError{error: err.Error()}
+	}
+
+	localVarPath := localBasePath + "/v1beta1/extensions/org.libregraph/guestLinks/verify/token"
+
+	localVarHeaderParams := make(map[string]string)
+	localVarQueryParams := url.Values{}
+	localVarFormParams := url.Values{}
+	if r.guestLinkVerifyTokenRequest == nil {
+		return localVarReturnValue, nil, reportError("guestLinkVerifyTokenRequest is required and must be specified")
+	}
+
+	// to determine the Content-Type header
+	localVarHTTPContentTypes := []string{"application/json"}
+
+	// set Content-Type header
+	localVarHTTPContentType := selectHeaderContentType(localVarHTTPContentTypes)
+	if localVarHTTPContentType != "" {
+		localVarHeaderParams["Content-Type"] = localVarHTTPContentType
+	}
+
+	// to determine the Accept header
+	localVarHTTPHeaderAccepts := []string{"application/json"}
+
+	// set Accept header
+	localVarHTTPHeaderAccept := selectHeaderAccept(localVarHTTPHeaderAccepts)
+	if localVarHTTPHeaderAccept != "" {
+		localVarHeaderParams["Accept"] = localVarHTTPHeaderAccept
+	}
+	// body params
+	localVarPostBody = r.guestLinkVerifyTokenRequest
 	req, err := a.client.prepareRequest(r.ctx, localVarPath, localVarHTTPMethod, localVarPostBody, localVarHeaderParams, localVarQueryParams, localVarFormParams, formFiles)
 	if err != nil {
 		return localVarReturnValue, nil, err
