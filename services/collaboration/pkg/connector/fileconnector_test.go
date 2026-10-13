@@ -1943,6 +1943,7 @@ var _ = Describe("FileConnector", func() {
 		It("Stat success authenticated user", func() {
 			// change view mode to view only
 			wopiCtx.ViewMode = appproviderv1beta1.ViewMode_VIEW_MODE_VIEW_ONLY
+			wopiCtx.ViewOnlyToken = "ABC123"
 
 			ctx := middleware.WopiContextToCtx(context.Background(), wopiCtx)
 			u := &userv1beta1.User{
@@ -2005,6 +2006,99 @@ var _ = Describe("FileConnector", func() {
 				UserFriendlyName:        "Pet Shaft",
 				EnableOwnerTermination:  true,
 				WatermarkText:           "Pet Shaft shaft@example.com",
+				SupportsLocks:           true,
+				SupportsRename:          true,
+				UserCanRename:           false,
+				BreadcrumbDocName:       "test.txt",
+				PostMessageOrigin:       "https://cloud.opencloud.test",
+				EnableInsertRemoteImage: true,
+				EnableInsertRemoteFile:  true,
+				EnableRemoteLinkPicker:  true,
+				IsAdminUser:             true,
+				UserExtraInfo: &fileinfo.UserExtraInfo{
+					Mail: "shaft@example.com",
+				},
+			}
+
+			response, err := fc.CheckFileInfo(ctx)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(response.Status).To(Equal(200))
+			body := response.Body.(*fileinfo.Collabora)
+			// Avatar URL contains a dynamic WOPI token, so check prefix separately
+			Expect(body.UserExtraInfo).ToNot(BeNil())
+			Expect(body.UserExtraInfo.Avatar).To(ContainSubstring("/wopi/avatars/aabbcc?access_token="))
+			Expect(body.UserExtraInfo.Mail).To(Equal("shaft@example.com"))
+			// Clear dynamic fields for struct comparison
+			body.UserExtraInfo.Avatar = ""
+			expectedFileInfo.UserExtraInfo.Avatar = ""
+			Expect(body).To(Equal(expectedFileInfo))
+		})
+		It("Stat success authenticated user with a viewer role", func() {
+			// a viewer role opens view only without a view-only token, no secure view, no watermark
+			wopiCtx.ViewMode = appproviderv1beta1.ViewMode_VIEW_MODE_VIEW_ONLY
+
+			ctx := middleware.WopiContextToCtx(context.Background(), wopiCtx)
+			u := &userv1beta1.User{
+				Id: &userv1beta1.UserId{
+					Idp:      "example.com",
+					OpaqueId: "aabbcc",
+					Type:     userv1beta1.UserType_USER_TYPE_PRIMARY,
+				},
+				DisplayName: "Pet Shaft",
+				Mail:        "shaft@example.com",
+			}
+			ctx = ctxpkg.ContextSetUser(ctx, u)
+
+			gatewayClient.On("CheckPermission", mock.Anything, mock.Anything).Return(
+				&permissions.CheckPermissionResponse{
+					Status: status.NewOK(ctx),
+				},
+				nil,
+			)
+
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Times(1).Return(&providerv1beta1.StatResponse{
+				Status: status.NewOK(ctx),
+				Info: &providerv1beta1.ResourceInfo{
+					Owner: &userv1beta1.UserId{
+						Idp:      "customIdp",
+						OpaqueId: "aabbcc",
+						Type:     userv1beta1.UserType_USER_TYPE_PRIMARY,
+					},
+					Size: uint64(998877),
+					Mtime: &typesv1beta1.Timestamp{
+						Seconds: uint64(16273849),
+					},
+					Path: "/path/to/test.txt",
+					Id: &providerv1beta1.ResourceId{
+						StorageId: "storageid",
+						OpaqueId:  "opaqueid",
+						SpaceId:   "spaceid",
+					},
+					ParentId: &providerv1beta1.ResourceId{
+						StorageId: "storageid",
+						OpaqueId:  "parentopaqueid",
+						SpaceId:   "spaceid",
+					},
+				},
+			}, nil)
+
+			// change wopi app provider
+			cfg.App.Name = "Collabora"
+			cfg.App.Product = "Collabora"
+
+			expectedFileInfo := &fileinfo.Collabora{
+				OwnerID:                 "61616262636340637573746f6d496470", // hex of aabbcc@customIdp
+				Size:                    int64(998877),
+				BaseFileName:            "test.txt",
+				UserCanNotWriteRelative: false,
+				DisableExport:           true,
+				DisableCopy:             true,
+				DisablePrint:            true,
+				UserID:                  hex.EncodeToString([]byte("aabbcc@example.com")),
+				UserFriendlyName:        "Pet Shaft",
+				EnableOwnerTermination:  true,
+				WatermarkText:           "",
 				SupportsLocks:           true,
 				SupportsRename:          true,
 				UserCanRename:           false,
