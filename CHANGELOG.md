@@ -1,6 +1,6 @@
 # Changelog
 
-## [9.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.0) - 2026-10-13
+## [9.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.0) - 2026-10-14
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -9,6 +9,13 @@
 ### 💥 Breaking changes
 
 - feat(guestlinks)!: auth-guest service [[#3609](https://github.com/opencloud-eu/opencloud/pull/3609)]
+
+### ✅ Tests
+
+- api-test: check PROPFIND/REPORT has-preview [[#3714](https://github.com/opencloud-eu/opencloud/pull/3714)]
+- test(api): simply HTTP request retry conditions [[#3696](https://github.com/opencloud-eu/opencloud/pull/3696)]
+- test: retry acceptance requests while share manager is migrating [[#3681](https://github.com/opencloud-eu/opencloud/pull/3681)]
+- api-test: extend search tests [[#3634](https://github.com/opencloud-eu/opencloud/pull/3634)]
 
 ### 🐛 Bug Fixes
 
@@ -19,12 +26,6 @@
 ### 📚 Documentation
 
 - fix(proxy): make metrics table MDX-compatible [[#3680](https://github.com/opencloud-eu/opencloud/pull/3680)]
-
-### ✅ Tests
-
-- test(api): simply HTTP request retry conditions [[#3696](https://github.com/opencloud-eu/opencloud/pull/3696)]
-- test: retry acceptance requests while share manager is migrating [[#3681](https://github.com/opencloud-eu/opencloud/pull/3681)]
-- api-test: extend search tests [[#3634](https://github.com/opencloud-eu/opencloud/pull/3634)]
 
 ### 📈 Enhancement
 
