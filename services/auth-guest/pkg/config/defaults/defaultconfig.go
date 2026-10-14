@@ -15,15 +15,15 @@ import (
 
 // Default values for the guard policies (nonce, backoff and quota limiters).
 const (
-	defaultSessionCookieName  = "__Host-oc_guest_session"
-	defaultNonceCookieName    = "__Host-oc_guest_nonce"
-	defaultNonceTTL           = 15 * time.Minute
-	defaultBackoffMaxAttempts = 5
-	defaultBackoffBase        = time.Second
-	defaultBackoffCap         = 30 * time.Second
-	defaultQuotaCooldown      = time.Minute
-	defaultQuotaWindow        = 24 * time.Hour
-	defaultQuotaDailyCap      = 20
+	defaultSessionCookieName   = "__Host-oc_guest_session"
+	defaultNonceCookieBaseName = "__Host-oc_guest_nonce"
+	defaultNonceTTL            = 15 * time.Minute
+	defaultBackoffMaxAttempts  = 5
+	defaultBackoffBase         = time.Second
+	defaultBackoffCap          = 30 * time.Second
+	defaultQuotaCooldown       = time.Minute
+	defaultQuotaWindow         = 24 * time.Hour
+	defaultQuotaDailyCap       = 20
 )
 
 // FullDefaultConfig returns the full default config
@@ -77,8 +77,8 @@ func DefaultConfig() *config.Config {
 			TTL:        24 * time.Hour,
 		},
 		Nonce: config.Nonce{
-			CookieName: defaultNonceCookieName,
-			TTL:        defaultNonceTTL,
+			CookieBaseName: defaultNonceCookieBaseName,
+			TTL:            defaultNonceTTL,
 		},
 		BackoffLimiter: config.BackoffLimiter{
 			MaxAttempts: defaultBackoffMaxAttempts,
@@ -118,8 +118,8 @@ func EnsureDefaults(cfg *config.Config) {
 		cfg.HTTP.TLS = cfg.Commons.HTTPServiceTLS
 	}
 
-	if cfg.Nonce.CookieName == "" {
-		cfg.Nonce.CookieName = defaultNonceCookieName
+	if cfg.Nonce.CookieBaseName == "" {
+		cfg.Nonce.CookieBaseName = defaultNonceCookieBaseName
 	}
 	if cfg.Nonce.TTL <= 0 {
 		cfg.Nonce.TTL = defaultNonceTTL

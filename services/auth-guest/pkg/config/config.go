@@ -107,8 +107,8 @@ type JWT struct {
 // Nonce defines the configuration of the browser-bound nonce that is
 // created on renewal and required to verify a PIN.
 type Nonce struct {
-	CookieName string        `yaml:"cookie_name" env:"AUTH_GUEST_NONCE_COOKIE_NAME" desc:"The name of the cookie that binds a nonce to the browser that requested the renewal." introductionVersion:"%%NEXT%%"`
-	TTL        time.Duration `yaml:"ttl" env:"AUTH_GUEST_NONCE_TTL" desc:"The lifetime of a nonce. After it expires the PIN has to be renewed again. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	CookieBaseName string        `yaml:"cookie_base_name" env:"AUTH_GUEST_NONCE_COOKIE_BASE_NAME" desc:"The base name of the cookie that binds a nonce to the browser that requested the renewal. A short hash of the share id is appended per share, so the actual cookie is e.g. __Host-oc_guest_nonce_<hash>." introductionVersion:"%%NEXT%%"`
+	TTL            time.Duration `yaml:"ttl" env:"AUTH_GUEST_NONCE_TTL" desc:"The lifetime of a nonce. After it expires the PIN has to be renewed again. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
 }
 
 // BackoffLimiter defines the configuration of a limiter that counts events,

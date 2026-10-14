@@ -11,12 +11,13 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/token"
 )
 
-// maxVerifyTokenBodySize limits the body of the unauthenticated verify token
-// request. A token is about 90 bytes, so this leaves plenty of room for the
-// JSON wrapping.
-const maxVerifyTokenBodySize = 4 << 10
+const (
+	maxVerifyTokenBodySize    = 4 << 10
+	nonceCookieNameHashLength = 8
+)
 
 // VerifyTokenRequest is the request body for token verification.
 type VerifyTokenRequest struct {
@@ -60,6 +61,11 @@ func VerifyTokenHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Confi
 	}
 }
 
+// nonceCookieName returns the per-share nonce cookie name
+func nonceCookieName(baseName, shareID string) string {
+	return baseName + "_" + token.Hash(shareID)[:nonceCookieNameHashLength]
+}
+
 func setSessionCookie(w http.ResponseWriter, cfg *config.Config, sessionToken string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     cfg.JWT.CookieName,
@@ -72,9 +78,9 @@ func setSessionCookie(w http.ResponseWriter, cfg *config.Config, sessionToken st
 	})
 }
 
-func setNonceCookie(w http.ResponseWriter, cfg *config.Config, nonce string) {
+func setNonceCookie(w http.ResponseWriter, cfg *config.Config, shareID, nonce string) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     cfg.Nonce.CookieName,
+		Name:     nonceCookieName(cfg.Nonce.CookieBaseName, shareID),
 		Value:    nonce,
 		Path:     "/",
 		HttpOnly: true,
@@ -84,9 +90,9 @@ func setNonceCookie(w http.ResponseWriter, cfg *config.Config, nonce string) {
 	})
 }
 
-func clearNonceCookie(w http.ResponseWriter, cfg *config.Config) {
+func clearNonceCookie(w http.ResponseWriter, baseName, shareID string) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     cfg.Nonce.CookieName,
+		Name:     nonceCookieName(baseName, shareID),
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,

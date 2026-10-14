@@ -247,7 +247,9 @@ The PIN is bound to the browser that renewed, so the order matters:
 
 The nonce cookie is `HttpOnly`, `Secure`, `Path=/`, `SameSite=Lax` and uses the
 `__Host-` prefix, so it is only sent over HTTPS (browsers treat `localhost` as
-secure) and cannot be read from JavaScript.
+secure) and cannot be read from JavaScript. It is scoped per share (a short
+share-id hash is appended to the name), so multiple guest shares can be renewed
+in one browser without overwriting each other's nonce cookie.
 
 Client-side handling of the relevant responses:
 
@@ -280,9 +282,10 @@ events and serves the HTTP endpoints. Either transport can be disabled:
 The link token and PIN lifetimes are fixed (30 minutes each) and are not
 configurable. The rate-limiting and nonce options are:
 
-- `AUTH_GUEST_NONCE_COOKIE_NAME` (default `__Host-oc_guest_nonce`),
-  `AUTH_GUEST_NONCE_TTL` (default `15m`) — name and lifetime of the nonce cookie
-  set by `renew` and required by `verify/pin`.
+- `AUTH_GUEST_NONCE_COOKIE_BASE_NAME` (default `__Host-oc_guest_nonce`; a short
+  share-id hash is appended per share, e.g. `__Host-oc_guest_nonce_<hash>`),
+  `AUTH_GUEST_NONCE_TTL` (default `15m`) — base name and lifetime of the nonce
+  cookie set by `renew` and required by `verify/pin`.
 - `AUTH_GUEST_BACKOFF_MAX_ATTEMPTS` (default `5`),
   `AUTH_GUEST_BACKOFF_BASE` (default `1s`),
   `AUTH_GUEST_BACKOFF_CAP` (default `30s`) — failed PIN attempts before the PIN
