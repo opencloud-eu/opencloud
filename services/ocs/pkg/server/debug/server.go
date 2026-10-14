@@ -6,6 +6,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/checks"
 	"github.com/opencloud-eu/opencloud/pkg/handlers"
+	"github.com/opencloud-eu/opencloud/pkg/nats"
 	"github.com/opencloud-eu/opencloud/pkg/service/debug"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 )
@@ -21,8 +22,15 @@ func Server(opts ...Option) (*http.Server, error) {
 	readyHandlerConfiguration := healthHandlerConfiguration.
 		WithCheck("nats reachability", func(ctx context.Context) error {
 			if len(options.Config.SigningKeys.Nodes) > 0 {
-				// no secureOption because we cannot configure it
-				return checks.NewNatsCheck(options.Config.SigningKeys.Nodes[0])(ctx)
+				return checks.NewNatsCheck(
+					options.Config.SigningKeys.Nodes[0],
+					nats.Secure(
+						options.Config.SigningKeys.EnableTLS,
+						options.Config.SigningKeys.TLSInsecure,
+						options.Config.SigningKeys.TLSRootCACertificate,
+					),
+					nats.Auth(options.Config.SigningKeys.AuthUsername, options.Config.SigningKeys.AuthPassword),
+				)(ctx)
 			}
 			return nil
 		})

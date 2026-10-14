@@ -18,3 +18,11 @@ func Secure(enableTLS, insecure bool, rootCA string) nats.Option {
 	}
 	return nil
 }
+
+// Auth returns the option to authenticate with the given credentials, nil when no username is set.
+func Auth(username, password string) nats.Option {
+	if username != "" {
+		return nats.UserInfo(username, password)
+	}
+	return nil
+}
