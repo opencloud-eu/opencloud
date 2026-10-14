@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -17,9 +18,11 @@ import (
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/revaconfig"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/ignore"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/tree/propagator"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/spaceidindex"
 
 	"github.com/pkg/xattr"
@@ -121,19 +124,24 @@ the command is aborted with an error before performing any scanning.`,
 			}
 
 			var scan func(path string) error = nil
+			var internal []string
 			{
 				// We want to initialize the driver but disable scanfs on boot, so we can trigger it manually afterwards
 				drivers := revaconfig.StorageProviderDrivers(cfg)
 				drivers["posix"] = revaconfig.Posix(cfg, false, false)
+				opts, err := options.New(drivers["posix"].(map[string]any))
+				if err != nil {
+					return err
+				}
 
 				var fsStream events.Stream
-				var err error
 				fsStream, err = event.NewStream(cfg)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "Failed to create event stream for posix driver: %v\n", err)
 					os.Exit(1)
 				}
 				log := logger("posixfs")
+				internal = internalDirs(opts)
 
 				f, ok := registry.NewFuncs["posix"]
 				if !ok {
@@ -162,15 +170,7 @@ the command is aborted with an error before performing any scanning.`,
 				}
 			}
 
-			errors := processPosixFsResources(paths, !haltOnError,
-				func(path string) error {
-					fmt.Println("Scanning personal spaces...")
-					return scan(path)
-				},
-				func(path string) error {
-					fmt.Println("Scanning project spaces...")
-					return scan(path)
-				},
+			errors := processPosixFsResources(paths, internal, !haltOnError,
 				func(path string) error {
 					fmt.Printf("Scanning space '%s'...\n", path)
 					return scan(path)
@@ -401,6 +401,7 @@ The provided arguments determines the scope of the check:
 			checker := &consistencyChecker{
 				cfg:                  cfg,
 				ignorer:              ignorer,
+				internalDirs:         internalDirs(opts),
 				recalculateChecksums: recalculateChecksums,
 			}
 
@@ -425,11 +426,8 @@ func logFailure(message string, args ...any) {
 func findStorageRoot(path string) (string, error) {
 	current := path
 	for {
-		indexesPath := filepath.Join(current, "indexes")
-		if info, err := os.Stat(indexesPath); err == nil && info.IsDir() {
-			if id, err := xattr.Get(indexesPath, prefixes.IDAttr); err != nil || len(id) == 0 {
-				return current, nil
-			}
+		if isStorageRoot(current) {
+			return current, nil
 		}
 
 		parent := filepath.Dir(current)
@@ -437,6 +435,24 @@ func findStorageRoot(path string) (string, error) {
 			return "", fmt.Errorf("'%s' does not appear to be inside a posixfs storage (no 'indexes' directory found)", path)
 		}
 		current = parent
+	}
+}
+
+func isStorageRoot(dir string) bool {
+	indexesPath := filepath.Join(dir, "indexes")
+	if info, err := os.Stat(indexesPath); err != nil || !info.IsDir() {
+		return false
+	}
+	id, err := xattr.Get(indexesPath, prefixes.IDAttr)
+	return err != nil || len(id) == 0
+}
+
+// internalDirs returns the directories of a storage that hold no spaces.
+func internalDirs(opts *options.Options) []string {
+	return []string{
+		filepath.Join(opts.Root, lookup.IndexesDir),
+		filepath.Join(opts.Root, propagator.ChangesDir),
+		filepath.Clean(opts.UploadDirectory),
 	}
 }
 
@@ -483,9 +499,8 @@ func isSpaceRoot(path string) bool {
 // subsequent paths, and then returns a slice of errors at the end (or an empty slice
 // if no errors occured)
 func processPosixFsResources(paths []string,
+	internal []string,
 	keepGoing bool,
-	personalSpaceDir func(string) error,
-	projectSpaceDir func(string) error,
 	spaceRoot func(string) error,
 	entity func(string) error,
 ) []error {
@@ -517,17 +532,54 @@ func processPosixFsResources(paths []string,
 
 		switch {
 		case path == rootPath:
-			if err := personalSpaceDir(filepath.Join(path, "users")); err != nil {
-				errors = append(errors, err)
-				if !keepGoing {
-					return errors
+			// the path templates decide where the spaces are, so look for them
+			// instead of assuming the default users/ and projects/ directories.
+			// The trailing separator makes WalkDir follow a symlinked root.
+			walkRoot := path + string(filepath.Separator)
+			err := filepath.WalkDir(walkRoot, func(p string, d os.DirEntry, err error) error {
+				if err != nil {
+					logFailure("error reading '%s': %v", p, err)
+					errors = append(errors, err)
+					if !keepGoing {
+						return err
+					}
+					return nil
 				}
-			}
-			if err := projectSpaceDir(filepath.Join(path, "projects")); err != nil {
-				errors = append(errors, err)
-				if !keepGoing {
-					return errors
+				if !d.IsDir() {
+					return nil
 				}
+				if slices.Contains(internal, p) {
+					return filepath.SkipDir
+				}
+				if isSpaceRoot(p) {
+					if err := spaceRoot(p); err != nil {
+						errors = append(errors, err)
+						if !keepGoing {
+							return err
+						}
+					}
+					return filepath.SkipDir
+				}
+				// a space can contain a directory named indexes, so look for
+				// nested storages only outside of spaces
+				if p != walkRoot && isStorageRoot(p) {
+					return filepath.SkipDir
+				}
+				// every space keeps its metadata in this directory, so this
+				// is a space that lost its space ID
+				if info, err := os.Stat(filepath.Join(p, lookup.MetadataDir)); err == nil && info.IsDir() {
+					err := fmt.Errorf("the directory '%s' looks like a space root, but it is missing the '%s' attribute", p, prefixes.SpaceIDAttr)
+					logFailure(err.Error())
+					errors = append(errors, err)
+					if !keepGoing {
+						return err
+					}
+					return filepath.SkipDir
+				}
+				return nil
+			})
+			if err != nil {
+				return errors
 			}
 		case isSpaceRoot(path):
 			if err := spaceRoot(path); err != nil {
