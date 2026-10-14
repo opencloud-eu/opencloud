@@ -70,7 +70,7 @@ func TestProcessPosixFsResourcesFindsSpaces(t *testing.T) {
 	root := t.TempDir()
 	spaces := []string{
 		"users/space1",                   // default layout
-		"personal/alice-123",             // {{.SpaceType}}/{{.User.Username}}-{{.Id.OpaqueId}}
+		"personal/alice-123",             // personal/{{.User.Username}}-{{.Id.OpaqueId}}
 		"project/Team Space/456-spaceid", // {{.SpaceType}}/{{.SpaceName}}/{{.Id.OpaqueId}}-{{.SpaceId}}
 	}
 	// users/space1/indexes is a user directory without a node ID, not a nested storage
