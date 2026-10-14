@@ -51,6 +51,8 @@ func writeGuestError(w http.ResponseWriter, err error) {
 		status, errorType = http.StatusNotFound, "tokenNotFound"
 	case errors.Is(ge.ErrorType, storage.ErrInvalidHash):
 		status, errorType = http.StatusUnauthorized, "tokenInvalid"
+	case errors.Is(ge.ErrorType, storage.ErrConflict):
+		status, errorType = http.StatusConflict, "conflict"
 	case errors.Is(ge.ErrorType, authguest.ErrAlreadyRedeemed):
 		status, errorType = http.StatusConflict, "tokenAlreadyRedeemed"
 	case errors.Is(ge.ErrorType, authguest.ErrShareNotFound):

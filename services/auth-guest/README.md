@@ -213,7 +213,7 @@ Rate-limited responses (`429`) also carry a `retryAfter` field (seconds) and a
 - **Success:** `200` (no session cookie; the new link/PIN are delivered out
   of band, the nonce cookie is set)
 - **Errors:** `400 invalidRequest`, `401 tokenInvalid`, `404 tokenNotFound`,
-  `404 shareNotFound`, `410 shareExpired`, `429 tooManyRequests`
+  `404 shareNotFound`, `409 conflict`, `410 shareExpired`, `429 tooManyRequests`
   (with `Retry-After`), `503 serviceUnavailable`, `500 internalError`
 
 #### `POST .../guestLinks/verify/pin`
@@ -223,9 +223,9 @@ Rate-limited responses (`429`) also carry a `retryAfter` field (seconds) and a
 - **Success:** `200`, session cookie, clears the nonce cookie,
   `{ "permissionId": "<share-id>" }`
 - **Errors:** `400 invalidRequest` (missing nonce cookie), `401 nonceInvalid`,
-  `401 nonceExpired`, `401 pinInvalid`, `401 pinExpired`, `404 shareNotFound`,
-  `410 shareExpired`, `429 tooManyRequests` (with `Retry-After`),
-  `500 internalError`
+  `401 nonceExpired`, `401 pinInvalid`, `401 pinExpired`, `404 tokenNotFound`,
+  `404 shareNotFound`, `410 shareExpired`, `429 tooManyRequests` (with
+  `Retry-After`), `500 internalError`
 
 ## Frontend integration
 
@@ -257,6 +257,9 @@ Client-side handling of the relevant responses:
 - `401 pinInvalid` — wrong PIN; the wait between attempts grows, so retry with a
   delay.
 - `401 pinExpired` — the PIN expired; call `renew` again.
+- `404 tokenNotFound` — no guest link exists for this share; it has to be
+  invited again.
+- `409 conflict` — the share's record was updated concurrently; retry `renew`.
 - `429 tooManyRequests` — too many failed attempts, or the renewal cooldown or
   cap is active; wait for the `Retry-After` header (or the `retryAfter` field)
   in seconds, then retry.

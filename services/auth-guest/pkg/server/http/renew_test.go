@@ -16,6 +16,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest/mocks"
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -120,6 +121,13 @@ func TestRenewHandlerErrorMapping(t *testing.T) {
 			err:            &authguest.GuestError{ErrorType: authguest.ErrPermissionMismatch, ShareID: "share-1"},
 			wantStatus:     http.StatusBadRequest,
 			wantType:       "invalidRequest",
+			wantPermission: "share-1",
+		},
+		{
+			name:           "concurrent update",
+			err:            &authguest.GuestError{ErrorType: storage.ErrConflict, ShareID: "share-1"},
+			wantStatus:     http.StatusConflict,
+			wantType:       "conflict",
 			wantPermission: "share-1",
 		},
 		{

@@ -240,7 +240,7 @@ func (s *AuthGuestService) VerifyPin(ctx context.Context, shareID, pinValue, non
 	if err != nil {
 		var ge *GuestError
 		if !errors.As(err, &ge) {
-			return nil, nonceStoreError(err, shareID)
+			return nil, &GuestError{ErrorType: err, ShareID: shareID}
 		}
 		return nil, ge
 	}
@@ -329,7 +329,7 @@ func (s *AuthGuestService) checkPinRequest(rec *storage.Record, nonce string, no
 func (s *AuthGuestService) precheckPin(shareID, nonce string) error {
 	rec, err := s.store.Get(token.Hash(shareID))
 	if err != nil {
-		return nonceStoreError(err, shareID)
+		return &GuestError{ErrorType: err, ShareID: shareID}
 	}
 
 	ge := s.checkPinRequest(rec, nonce, time.Now())

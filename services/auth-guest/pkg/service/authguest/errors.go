@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/guard"
-	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/storage"
 )
 
 var (
@@ -40,13 +39,4 @@ func nonceError(err error) error {
 		return ErrNonceExpired
 	}
 	return ErrNonceInvalid
-}
-
-// nonceStoreError wraps a store error as a GuestError, treating a missing
-// record as an invalid nonce.
-func nonceStoreError(err error, shareID string) *GuestError {
-	if errors.Is(err, storage.ErrNotFound) {
-		err = ErrNonceInvalid
-	}
-	return &GuestError{ErrorType: err, ShareID: shareID}
 }

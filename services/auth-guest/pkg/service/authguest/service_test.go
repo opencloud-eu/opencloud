@@ -897,7 +897,7 @@ func TestVerifyPinErrors(t *testing.T) {
 			pin:      "123456",
 			missing:  true,
 			response: validShare,
-			wantErr:  ErrNonceInvalid,
+			wantErr:  storage.ErrNotFound,
 		},
 		{
 			name: "share not found",

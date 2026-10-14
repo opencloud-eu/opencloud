@@ -16,6 +16,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest/mocks"
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -145,6 +146,13 @@ func TestVerifyPinHandlerErrorMapping(t *testing.T) {
 			err:            &authguest.GuestError{ErrorType: authguest.ErrShareNotFound, ShareID: "share-1"},
 			wantStatus:     http.StatusNotFound,
 			wantType:       "shareNotFound",
+			wantPermission: "share-1",
+		},
+		{
+			name:           "token not found",
+			err:            &authguest.GuestError{ErrorType: storage.ErrNotFound, ShareID: "share-1"},
+			wantStatus:     http.StatusNotFound,
+			wantType:       "tokenNotFound",
 			wantPermission: "share-1",
 		},
 		{
