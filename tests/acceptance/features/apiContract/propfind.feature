@@ -115,11 +115,27 @@ Feature: Propfind test
       | oc:name        | testfile.txt      |
       | oc:permissions | <oc-permission>   |
       | oc:size        | 12                |
+      | oc:has-preview | 1                 |
     Examples:
       | space-role   | oc-permission |
       | Manager      | RDNVWZP       |
       | Space Editor | DNVW          |
       | Space Viewer |               |
+
+
+  Scenario Outline: check has-preview property in the PROPFIND response of a file
+    Given user "Alice" has uploaded a file "filesForUpload/<file>" to "<file>" in space "new-space"
+    When user "Alice" sends PROPFIND request from the space "new-space" to the resource "<file>" with depth "0" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And as user "Alice" the PROPFIND response should contain a resource "<file>" with these key and value pairs:
+      | key              | value          |
+      | oc:name          | <file>         |
+      | d:getcontenttype | <content-type> |
+      | oc:has-preview   | <has-preview>  |
+    Examples:
+      | file           | content-type    | has-preview |
+      | testavatar.jpg | image/jpeg      | 1           |
+      | simple.pdf     | application/pdf | 0           |
 
   @issue-1523
   Scenario: propfind response contains a restored folder with correct name
