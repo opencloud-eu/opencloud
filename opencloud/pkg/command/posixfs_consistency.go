@@ -59,9 +59,9 @@ func (c *consistencyChecker) Check(paths []string) error {
 }
 
 // isIgnored reports whether path is internal and must not be checked.
-// The ignorer finds the internal directories of a space only if the space is
-// one level below the fixed prefix of a path template, so look for them here
-// too.
+// The ignorer finds the internal directories of a space only where the path
+// templates put a space. The checker finds spaces by their space ID, so a space
+// can be elsewhere, e.g. after a template change. Look for them here too.
 func (c *consistencyChecker) isIgnored(path string) bool {
 	if c.ignorer.IsIgnored(path) {
 		return true
