@@ -5,6 +5,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/ignore"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
+	"github.com/pkg/xattr"
+	"github.com/rs/zerolog"
 	"github.com/test-go/testify/require"
 )
 
@@ -51,5 +56,83 @@ func TestCheckStorageRoot(t *testing.T) {
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tc.wantErr)
 		})
+	}
+}
+
+func newOptions(t *testing.T, root string) *options.Options {
+	t.Helper()
+	opts, err := options.New(map[string]any{"root": root})
+	require.NoError(t, err)
+	return opts
+}
+
+func TestProcessPosixFsResourcesFindsSpaces(t *testing.T) {
+	root := t.TempDir()
+	spaces := []string{
+		"users/space1",                   // default layout
+		"personal/alice-123",             // {{.SpaceType}}/{{.User.Username}}-{{.Id.OpaqueId}}
+		"project/Team Space/456-spaceid", // {{.SpaceType}}/{{.SpaceName}}/{{.Id.OpaqueId}}-{{.SpaceId}}
+	}
+	// users/space1/indexes is a user directory without a node ID, not a nested storage
+	for _, dir := range append([]string{"indexes", "users/space1/docs", "users/space1/indexes", "project/Team Space/plain"}, spaces...) {
+		require.NoError(t, os.MkdirAll(filepath.Join(root, dir), 0o700))
+	}
+	for _, s := range spaces {
+		require.NoError(t, xattr.Set(filepath.Join(root, s), prefixes.SpaceIDAttr, []byte(s)))
+	}
+	// a space ID below a space root belongs to that space and is not a space of its own
+	require.NoError(t, xattr.Set(filepath.Join(root, "users/space1/docs"), prefixes.SpaceIDAttr, []byte("space1")))
+	// the internal directories of the storage and a storage nested in it are not searched
+	for _, dir := range []string{"indexes/by-type/x", "uploads/x", "backup/indexes", "backup/users/x"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(root, dir), 0o700))
+		require.NoError(t, xattr.Set(filepath.Join(root, dir), prefixes.SpaceIDAttr, []byte(dir)))
+	}
+	require.NoError(t, os.RemoveAll(filepath.Join(root, "backup/indexes")))
+	require.NoError(t, os.Mkdir(filepath.Join(root, "backup/indexes"), 0o700))
+	// a sibling of an internal directory is searched
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "indexes-team/789"), 0o700))
+	require.NoError(t, xattr.Set(filepath.Join(root, "indexes-team/789"), prefixes.SpaceIDAttr, []byte("789")))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "personal/file"), nil, 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "project/.oc-nodes"), nil, 0o600))
+	// a space root that lost its space ID still has its metadata directory
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "personal/bob-789/.oc-nodes"), 0o700))
+
+	link := filepath.Join(t.TempDir(), "link")
+	require.NoError(t, os.Symlink(root, link))
+	for _, r := range []string{root, link} {
+		found := []string{}
+		errs := processPosixFsResources([]string{r}, internalDirs(newOptions(t, r)), true,
+			func(path string) error { found = append(found, path); return nil },
+			func(path string) error { t.Errorf("unexpected entity %s", path); return nil },
+		)
+		require.Len(t, errs, 1)
+		require.Contains(t, errs[0].Error(), filepath.Join(r, "personal/bob-789"))
+		want := []string{}
+		for _, s := range []string{"indexes-team/789", "personal/alice-123", "project/Team Space/456-spaceid", "users/space1"} {
+			want = append(want, filepath.Join(r, s))
+		}
+		require.Equal(t, want, found)
+	}
+}
+
+func TestConsistencyIgnoresSpaceInternals(t *testing.T) {
+	root := t.TempDir()
+	space := filepath.Join(root, "personal/alice-123")
+	for _, dir := range []string{".Trash/x", ".oc-nodes", ".oc-tmp", "docs/.Trash"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(space, dir), 0o700))
+	}
+	require.NoError(t, xattr.Set(space, prefixes.IDAttr, []byte("alice")))
+	require.NoError(t, xattr.Set(space, prefixes.SpaceIDAttr, []byte("alice")))
+	// a directory created through the API has the space ID as well
+	require.NoError(t, xattr.Set(filepath.Join(space, "docs"), prefixes.IDAttr, []byte("docs")))
+	require.NoError(t, xattr.Set(filepath.Join(space, "docs"), prefixes.SpaceIDAttr, []byte("alice")))
+	log := zerolog.Nop()
+	c := &consistencyChecker{ignorer: ignore.NewIgnorer(newOptions(t, root), &log)}
+
+	for _, p := range []string{".Trash", ".Trash/x", ".oc-nodes", ".oc-tmp"} {
+		require.True(t, c.isIgnored(filepath.Join(space, p)), p)
+	}
+	for _, p := range []string{filepath.Join(space, "docs"), filepath.Join(space, "docs/.Trash")} {
+		require.False(t, c.isIgnored(p), p)
 	}
 }

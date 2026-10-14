@@ -15,7 +15,9 @@ import (
 	"time"
 
 	storageUsersConfig "github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/blobstore"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/ignore"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/pkg/xattr"
@@ -25,6 +27,7 @@ import (
 type consistencyChecker struct {
 	cfg                  *storageUsersConfig.Config
 	ignorer              *ignore.Ignorer
+	internalDirs         []string
 	recalculateChecksums bool
 
 	restartRequired bool
@@ -34,24 +37,14 @@ type consistencyChecker struct {
 // given path determines the scope of the check: the whole storage, a single
 // space or a single entity within a space.
 func (c *consistencyChecker) Check(paths []string) error {
-	_ = processPosixFsResources(paths, true,
-		func(path string) error {
-			fmt.Println("Checking personal spaces...")
-			c.checkSpaces(path)
-			return nil
-		},
-		func(path string) error {
-			fmt.Println("Checking project spaces...")
-			c.checkSpaces(path)
-			return nil
-		},
+	_ = processPosixFsResources(paths, c.internalDirs, true,
 		func(path string) error {
 			fmt.Printf("Checking space '%s'...\n", path)
 			c.checkSpace(path)
 			return nil
 		},
 		func(path string) error {
-			if c.ignorer.IsIgnored(path) {
+			if c.isIgnored(path) {
 				return nil
 			}
 			fmt.Printf("Checking '%s'...\n", path)
@@ -65,19 +58,27 @@ func (c *consistencyChecker) Check(paths []string) error {
 	return nil
 }
 
-func (c *consistencyChecker) checkSpaces(basePath string) {
-	dirEntries, err := os.ReadDir(basePath)
-	if err != nil {
-		logFailure("Error reading spaces directory '%s': %v", basePath, err)
-		return
+// isIgnored reports whether path is internal and must not be checked.
+// The ignorer finds the internal directories of a space only if the space is
+// one level below the fixed prefix of a path template, so look for them here
+// too.
+func (c *consistencyChecker) isIgnored(path string) bool {
+	if c.ignorer.IsIgnored(path) {
+		return true
 	}
-
-	for _, entry := range dirEntries {
-		if entry.IsDir() {
-			fullPath := filepath.Join(basePath, entry.Name())
-			c.checkSpace(fullPath)
+	for p := path; p != filepath.Dir(p); p = filepath.Dir(p) {
+		switch filepath.Base(p) {
+		case lookup.TrashDir, lookup.MetadataDir, blobstore.TMPDir:
+			// directories created through the API have a space ID too, but
+			// only a space root has the space ID as its node ID
+			id, _ := xattr.Get(filepath.Dir(p), prefixes.IDAttr)
+			spaceID, _ := xattr.Get(filepath.Dir(p), prefixes.SpaceIDAttr)
+			if len(id) > 0 && string(id) == string(spaceID) {
+				return true
+			}
 		}
 	}
+	return false
 }
 
 func (c *consistencyChecker) checkSpace(spacePath string) {
@@ -157,7 +158,7 @@ func (c *consistencyChecker) walkNodes(dir string, parentID string) int {
 	for _, entry := range entries {
 		fullPath := filepath.Join(dir, entry.Name())
 
-		if c.ignorer.IsIgnored(fullPath) {
+		if c.isIgnored(fullPath) {
 			continue
 		}
 
@@ -363,7 +364,7 @@ func (c *consistencyChecker) gatherAttributes(path string) ([]EntryInfo, map[str
 
 	for _, entry := range dirEntries {
 		fullPath := filepath.Join(path, entry.Name())
-		if c.ignorer.IsIgnored(fullPath) {
+		if c.isIgnored(fullPath) {
 			continue
 		}
 		info, err := os.Stat(fullPath)
