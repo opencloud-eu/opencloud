@@ -4,17 +4,17 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
 # Translators:
-# eric_G <junk.eg@free.fr>, 2025
 # Benoît Aguesse, 2026
+# eric_G <junk.eg@free.fr>, 2026
 # 
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-10-08 23:16+0000\n"
+"POT-Creation-Date: 2026-10-14 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
-"Last-Translator: Benoît Aguesse, 2026\n"
+"Last-Translator: eric_G <junk.eg@free.fr>, 2026\n"
 "Language-Team: French (https://app.transifex.com/opencloud-eu/teams/204053/fr/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -102,7 +102,7 @@ msgstr ""
 
 #: pkg/service/templates.go:53
 msgid "You have been mentioned"
-msgstr ""
+msgstr "Votre nom a été mentionné"
 
 #: pkg/service/templates.go:19
 msgid "{user} added you to Space {space}"
@@ -118,7 +118,7 @@ msgstr "{utilisateur} a désactivé Espace {espace}"
 
 #: pkg/service/templates.go:54
 msgid "{user} mentioned you in {resource}"
-msgstr ""
+msgstr "{user} vous a mentionné dans {resource}"
 
 #: pkg/service/templates.go:24
 msgid "{user} removed you from Space {space}"

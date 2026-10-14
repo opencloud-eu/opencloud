@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-10-08 23:16+0000\n"
+"POT-Creation-Date: 2026-10-14 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: eric_G <junk.eg@free.fr>, 2026\n"
 "Language-Team: French (https://app.transifex.com/opencloud-eu/teams/204053/fr/)\n"
@@ -60,7 +60,7 @@ msgstr "Bonjour {SpaceGrantee}"
 #. GuestLinkShareCreated email template, resolves via {{ .Greeting }}
 #: pkg/email/templates.go:59
 msgid "Hello,"
-msgstr ""
+msgstr "Bonjour,"
 
 #. Grouped email template, resolves via {{ .Greeting }}
 #: pkg/email/templates.go:149
@@ -180,6 +180,11 @@ msgid ""
 "\n"
 "The link is only valid for 30 minutes."
 msgstr ""
+"{ShareSharer} a partagé « {ShareFolder} » avec vous.\n"
+"\n"
+"Le lien ci-dessous est personnel et ne peut être utilisé qu'une seule fois. Veuillez ne pas le transférer.\n"
+"\n"
+"Ce lien n'est valable que pendant 30 minutes."
 
 #. ShareRemoved email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:34
