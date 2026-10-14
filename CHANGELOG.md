@@ -36,6 +36,7 @@
 
 ### 📦️ Dependencies
 
+- chore: bump reva to latest main [[#3713](https://github.com/opencloud-eu/opencloud/pull/3713)]
 - chore: bump reva to latest main [[#3700](https://github.com/opencloud-eu/opencloud/pull/3700)]
 - chore: bump reva to latest main [[#3685](https://github.com/opencloud-eu/opencloud/pull/3685)]
 - build(deps): bump github.com/onsi/ginkgo/v2 from 2.32.1 to 2.33.0 [[#3596](https://github.com/opencloud-eu/opencloud/pull/3596)]
