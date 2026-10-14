@@ -723,7 +723,7 @@ func (g Graph) DeleteUser(w http.ResponseWriter, r *http.Request) {
 			// Deleting a space a two step process (1. disabling/trashing, 2. purging)
 			// Do the "disable/trash" step only if the space is not marked as trashed yet:
 			if _, ok := sp.Opaque.Map[_spaceStateTrashed]; !ok {
-				_, err := client.DeleteStorageSpace(r.Context(), &storageprovider.DeleteStorageSpaceRequest{
+				resp, err := client.DeleteStorageSpace(r.Context(), &storageprovider.DeleteStorageSpaceRequest{
 					Id: &storageprovider.StorageSpaceId{
 						OpaqueId: sp.Id.OpaqueId,
 					},
@@ -733,11 +733,16 @@ func (g Graph) DeleteUser(w http.ResponseWriter, r *http.Request) {
 					errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not disable homespace, aborting")
 					return
 				}
+				if code := resp.GetStatus().GetCode(); code != cs3rpc.Code_CODE_OK {
+					logger.Error().Str("message", resp.GetStatus().GetMessage()).Interface("code", code).Msg("could not disable homespace: unexpected status code")
+					errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not disable homespace, aborting")
+					return
+				}
 			}
 			// the space will if the system does not have a UserSoftDeleteRetentionTime configured, e.g. SoftDelete disabled
 			if g.config.UserSoftDeleteRetentionTime == 0 || (purgeUser && us.State == userstate.UserStateSoftDeleted) {
 				purgeSpaceFlag := utils.AppendPlainToOpaque(nil, "purge", "")
-				_, err := client.DeleteStorageSpace(r.Context(), &storageprovider.DeleteStorageSpaceRequest{
+				resp, err := client.DeleteStorageSpace(r.Context(), &storageprovider.DeleteStorageSpaceRequest{
 					Opaque: purgeSpaceFlag,
 					Id: &storageprovider.StorageSpaceId{
 						OpaqueId: sp.Id.OpaqueId,
@@ -746,6 +751,12 @@ func (g Graph) DeleteUser(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					// transport error, log as error
 					logger.Error().Err(err).Msg("could not delete homespace: transport error")
+					errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not delete homespace, aborting")
+					return
+				}
+				// a space that is already gone needs no purging
+				if code := resp.GetStatus().GetCode(); code != cs3rpc.Code_CODE_OK && code != cs3rpc.Code_CODE_NOT_FOUND {
+					logger.Error().Str("message", resp.GetStatus().GetMessage()).Interface("code", code).Msg("could not delete homespace: unexpected status code")
 					errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, "could not delete homespace, aborting")
 					return
 				}
