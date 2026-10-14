@@ -34,6 +34,7 @@ type Config struct {
 	TokenManager   *TokenManager  `yaml:"token_manager"`
 	JWT            JWT            `yaml:"jwt"`
 	Nonce          Nonce          `yaml:"nonce"`
+	PinAndNonceTTL time.Duration  `yaml:"pin_and_nonce_ttl" env:"AUTH_GUEST_PIN_AND_NONCE_TTL" desc:"The lifetime of the one-time PIN and of the nonce that binds it to the browser. After it expires the PIN has to be renewed again. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
 	BackoffLimiter BackoffLimiter `yaml:"backoff_limiter"`
 	QuotaLimiter   QuotaLimiter   `yaml:"quota_limiter"`
 
@@ -105,10 +106,10 @@ type JWT struct {
 }
 
 // Nonce defines the configuration of the browser-bound nonce that is
-// created on renewal and required to verify a PIN.
+// created on renewal and required to verify a PIN. Its lifetime is shared
+// with the PIN and configured via PinAndNonceTTL.
 type Nonce struct {
-	CookieBaseName string        `yaml:"cookie_base_name" env:"AUTH_GUEST_NONCE_COOKIE_BASE_NAME" desc:"The base name of the cookie that binds a nonce to the browser that requested the renewal. A short hash of the share id is appended per share, so the actual cookie is e.g. __Host-oc_guest_nonce_<hash>." introductionVersion:"%%NEXT%%"`
-	TTL            time.Duration `yaml:"ttl" env:"AUTH_GUEST_NONCE_TTL" desc:"The lifetime of a nonce. After it expires the PIN has to be renewed again. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	CookieBaseName string `yaml:"cookie_base_name" env:"AUTH_GUEST_NONCE_COOKIE_BASE_NAME" desc:"The base name of the cookie that binds a nonce to the browser that requested the renewal. A short hash of the share id is appended per share, so the actual cookie is e.g. __Host-oc_guest_nonce_<hash>." introductionVersion:"%%NEXT%%"`
 }
 
 // BackoffLimiter defines the configuration of a limiter that counts events,

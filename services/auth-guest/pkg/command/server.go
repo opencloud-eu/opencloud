@@ -104,7 +104,7 @@ func Server(cfg *config.Config) *cobra.Command {
 				authguest.ServiceAccount(cfg.ServiceAccount),
 				authguest.JWT(jwtService),
 				authguest.EventsPublisher(evStream),
-				authguest.Nonce(cfg.Nonce),
+				authguest.PinAndNonceTTL(cfg.PinAndNonceTTL),
 				authguest.BackoffLimiter(cfg.BackoffLimiter),
 				authguest.QuotaLimiter(cfg.QuotaLimiter),
 			)

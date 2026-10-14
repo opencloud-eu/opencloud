@@ -86,7 +86,7 @@ func setNonceCookie(w http.ResponseWriter, cfg *config.Config, shareID, nonce st
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(cfg.Nonce.TTL.Seconds()),
+		MaxAge:   int(cfg.PinAndNonceTTL.Seconds()),
 	})
 }
 

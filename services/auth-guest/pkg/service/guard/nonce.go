@@ -10,8 +10,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"time"
-
-	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config"
 )
 
 // Nonce verification errors.
@@ -34,9 +32,9 @@ type Nonce struct {
 	ttl time.Duration
 }
 
-// NewNonce returns a Nonce configured from cfg.
-func NewNonce(cfg config.Nonce) Nonce {
-	return Nonce{ttl: cfg.TTL}
+// NewNonce returns a Nonce that issues and verifies nonces with the given TTL.
+func NewNonce(ttl time.Duration) Nonce {
+	return Nonce{ttl: ttl}
 }
 
 // Issue generates a nonce, stores its hash and expiry, and returns the raw

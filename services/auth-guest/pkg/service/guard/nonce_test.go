@@ -7,14 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNonceIssueAndVerify(t *testing.T) {
 	now := time.Now()
-	n := NewNonce(config.Nonce{TTL: time.Minute})
+	n := NewNonce(time.Minute)
 	var s NonceState
 
 	nonce, err := n.Issue(&s, now)
@@ -27,14 +26,14 @@ func TestNonceIssueAndVerify(t *testing.T) {
 }
 
 func TestNonceVerifyMissing(t *testing.T) {
-	n := NewNonce(config.Nonce{TTL: time.Minute})
+	n := NewNonce(time.Minute)
 	var s NonceState
 	assert.ErrorIs(t, n.Verify(&s, "whatever", time.Now()), ErrNonceMissing)
 }
 
 func TestNonceVerifyExpired(t *testing.T) {
 	now := time.Now()
-	n := NewNonce(config.Nonce{TTL: time.Minute})
+	n := NewNonce(time.Minute)
 	var s NonceState
 
 	nonce, err := n.Issue(&s, now)
@@ -44,7 +43,7 @@ func TestNonceVerifyExpired(t *testing.T) {
 
 func TestNonceClear(t *testing.T) {
 	now := time.Now()
-	n := NewNonce(config.Nonce{TTL: time.Minute})
+	n := NewNonce(time.Minute)
 	var s NonceState
 
 	nonce, err := n.Issue(&s, now)

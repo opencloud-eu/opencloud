@@ -34,8 +34,8 @@ func newVerifyPinHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc
 		},
 		Nonce: config.Nonce{
 			CookieBaseName: testNonceCookieName,
-			TTL:            time.Hour,
 		},
+		PinAndNonceTTL: time.Hour,
 	}
 	return VerifyPinHandler(log.NopLogger(), svc, cfg)
 }

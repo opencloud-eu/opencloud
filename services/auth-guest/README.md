@@ -95,7 +95,7 @@ token.
 `renew` requires the share id (`permissionId`) and the previous link token,
 which must belong to the given share. It does not create a
 session. It requires an existing token record for the share, validates the
-share, generates a new link token and a 6-digit PIN (both valid for 30 minutes),
+share, generates a new link token and a 6-digit PIN (30 minutes by default),
 overwrites the stored token, PIN and nonce hashes (invalidating the previous
 link and PIN), resets the redeemed flag so the new link can be redeemed, and
 publishes `GuestTokenRenewed`. It answers `200` and sets the nonce cookie that
@@ -170,7 +170,7 @@ sequenceDiagram
    must belong to that share. An existing record is required; otherwise the
    request fails with `tokenNotFound`. The
    service validates the share, generates a new link token and a 6-digit PIN
-   (both valid for 30 minutes), overwrites the stored token, PIN and nonce
+   (30 minutes by default), overwrites the stored token, PIN and nonce
    hashes (invalidating the previous link and PIN), resets the redeemed flag so
    the new link can be redeemed, publishes the `GuestTokenRenewed` event and
    sets the nonce cookie. Renewals are limited per share (cooldown plus daily
@@ -275,13 +275,15 @@ events and serves the HTTP endpoints. Either transport can be disabled:
 - `AUTH_GUEST_HTTP_DISABLED=true` — the service does not serve the HTTP
   endpoints (`verify/token`, `renew`, `verify/pin`).
 
-The link token and PIN lifetimes are fixed (30 minutes each) and are not
-configurable. The rate-limiting and nonce options are:
+The link token lifetime is fixed (30 minutes). The lifetime of the one-time PIN
+and of the nonce that protects it is shared and configurable. The rate-limiting
+and nonce options are:
 
 - `AUTH_GUEST_NONCE_COOKIE_BASE_NAME` (default `__Host-oc_guest_nonce`; a short
-  share-id hash is appended per share, e.g. `__Host-oc_guest_nonce_<hash>`),
-  `AUTH_GUEST_NONCE_TTL` (default `15m`) — base name and lifetime of the nonce
-  cookie set by `renew` and required by `verify/pin`.
+  share-id hash is appended per share, e.g. `__Host-oc_guest_nonce_<hash>`) —
+  base name of the nonce cookie set by `renew` and required by `verify/pin`.
+- `AUTH_GUEST_PIN_AND_NONCE_TTL` (default `30m`) — lifetime of the one-time PIN and
+  of the nonce that binds it to the browser.
 - `AUTH_GUEST_BACKOFF_MAX_ATTEMPTS` (default `5`),
   `AUTH_GUEST_BACKOFF_BASE` (default `1s`),
   `AUTH_GUEST_BACKOFF_CAP` (default `30s`) — failed PIN attempts before the PIN

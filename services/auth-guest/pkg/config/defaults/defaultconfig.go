@@ -17,7 +17,7 @@ import (
 const (
 	defaultSessionCookieName   = "__Host-oc_guest_session"
 	defaultNonceCookieBaseName = "__Host-oc_guest_nonce"
-	defaultNonceTTL            = 15 * time.Minute
+	defaultPinAndNonceTTL      = 30 * time.Minute
 	defaultBackoffMaxAttempts  = 5
 	defaultBackoffBase         = time.Second
 	defaultBackoffCap          = 30 * time.Second
@@ -78,8 +78,8 @@ func DefaultConfig() *config.Config {
 		},
 		Nonce: config.Nonce{
 			CookieBaseName: defaultNonceCookieBaseName,
-			TTL:            defaultNonceTTL,
 		},
+		PinAndNonceTTL: defaultPinAndNonceTTL,
 		BackoffLimiter: config.BackoffLimiter{
 			MaxAttempts: defaultBackoffMaxAttempts,
 			BackoffBase: defaultBackoffBase,
@@ -121,8 +121,8 @@ func EnsureDefaults(cfg *config.Config) {
 	if cfg.Nonce.CookieBaseName == "" {
 		cfg.Nonce.CookieBaseName = defaultNonceCookieBaseName
 	}
-	if cfg.Nonce.TTL <= 0 {
-		cfg.Nonce.TTL = defaultNonceTTL
+	if cfg.PinAndNonceTTL <= 0 {
+		cfg.PinAndNonceTTL = defaultPinAndNonceTTL
 	}
 	if cfg.BackoffLimiter.MaxAttempts <= 0 {
 		cfg.BackoffLimiter.MaxAttempts = defaultBackoffMaxAttempts

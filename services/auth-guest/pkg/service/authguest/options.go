@@ -4,6 +4,8 @@
 package authguest
 
 import (
+	"time"
+
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/jwt"
@@ -19,7 +21,7 @@ type Options struct {
 	ServiceAccount  config.ServiceAccount
 	JWT             *jwt.JwtService
 	Publisher       events.Publisher
-	Nonce           config.Nonce
+	PinAndNonceTTL  time.Duration
 	BackoffLimiter  config.BackoffLimiter
 	QuotaLimiter    config.QuotaLimiter
 }
@@ -52,10 +54,10 @@ func EventsPublisher(p events.Publisher) Option {
 	}
 }
 
-// Nonce configures the browser-bound nonce for the auth-guest service
-func Nonce(n config.Nonce) Option {
+// PinAndNonceTTL configures the shared PIN and nonce lifetime for the auth-guest service
+func PinAndNonceTTL(ttl time.Duration) Option {
 	return func(o *Options) {
-		o.Nonce = n
+		o.PinAndNonceTTL = ttl
 	}
 }
 

@@ -27,7 +27,6 @@ import (
 
 const (
 	guestLinkTokenTTL = 30 * time.Minute
-	guestPinTTL       = 30 * time.Minute
 	renewMaxAttempts  = 3
 )
 
@@ -58,6 +57,7 @@ type AuthGuestService struct {
 	serviceAccount  config.ServiceAccount
 	jwtService      *jwt.JwtService
 	publisher       revaevents.Publisher
+	pinAndNonceTTL  time.Duration
 	guards          guards
 }
 
@@ -82,10 +82,11 @@ func NewAuthGuestService(tokenSvc *token.TokenService, store storage.Manager, op
 		serviceAccount:  o.ServiceAccount,
 		jwtService:      o.JWT,
 		publisher:       o.Publisher,
+		pinAndNonceTTL:  o.PinAndNonceTTL,
 		guards: guards{
 			backoffLimiter: guard.NewBackoffLimiter(o.BackoffLimiter),
 			quotaLimiter:   guard.NewQuotaLimiter(o.QuotaLimiter),
-			nonce:          guard.NewNonce(o.Nonce),
+			nonce:          guard.NewNonce(o.PinAndNonceTTL),
 		},
 	}
 }
@@ -295,7 +296,7 @@ func (s *AuthGuestService) rotateGuestToken(hash string, tok *token.Token, pinHa
 			record.SecretHash = tok.SecretHash()
 			record.PinHash = pinHash
 			record.Expiry = now.Add(guestLinkTokenTTL)
-			record.PinExpiry = now.Add(guestPinTTL)
+			record.PinExpiry = now.Add(s.pinAndNonceTTL)
 			record.Redeemed = false
 			return nil
 		})

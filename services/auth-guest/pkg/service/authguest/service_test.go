@@ -169,7 +169,7 @@ func newAuthGuestService(t *testing.T, store storage.Manager, gwc *cs3mocks.Gate
 		GatewaySelector(newGatewayTestSelector(gwc)),
 		ServiceAccount(config.ServiceAccount{ServiceAccountID: "sa-id", ServiceAccountSecret: "sa-secret"}),
 		JWT(jwt.NewJwtService("test-secret", time.Hour)),
-		Nonce(config.Nonce{TTL: time.Minute}),
+		PinAndNonceTTL(time.Minute),
 		BackoffLimiter(config.BackoffLimiter{
 			MaxAttempts: 5,
 			BackoffBase: time.Second,
@@ -400,7 +400,7 @@ func newRenewServiceWithLimiter(t *testing.T, store storage.Manager, gwc *cs3moc
 		ServiceAccount(config.ServiceAccount{ServiceAccountID: "sa-id", ServiceAccountSecret: "sa-secret"}),
 		JWT(jwt.NewJwtService("test-secret", 24*time.Hour)),
 		EventsPublisher(publisher),
-		Nonce(config.Nonce{TTL: time.Hour}),
+		PinAndNonceTTL(time.Hour),
 		BackoffLimiter(config.BackoffLimiter{
 			MaxAttempts: 5,
 			BackoffBase: time.Second,
@@ -423,7 +423,7 @@ func pinRecord(t *testing.T, pinHash string, pinExpiry time.Time, backoff guard.
 	t.Helper()
 
 	var state guard.NonceState
-	nonce, err := guard.NewNonce(config.Nonce{TTL: time.Hour}).Issue(&state, time.Now())
+	nonce, err := guard.NewNonce(time.Hour).Issue(&state, time.Now())
 	require.NoError(t, err)
 	if !nonceExpiry.IsZero() {
 		state.Expiry = nonceExpiry
@@ -470,9 +470,9 @@ func TestRenewPersistsRecordAndPublishesEvent(t *testing.T) {
 	assert.NotEmpty(t, replaced.SecretHash)
 	assert.True(t, strings.HasPrefix(replaced.PinHash, "$argon2id$"))
 	assert.WithinDuration(t, time.Now().Add(guestLinkTokenTTL), replaced.Expiry, time.Minute)
-	assert.WithinDuration(t, time.Now().Add(guestPinTTL), replaced.PinExpiry, time.Minute)
+	assert.WithinDuration(t, time.Now().Add(time.Hour), replaced.PinExpiry, time.Minute)
 	assert.Equal(t, token.Hash(nonce), replaced.NonceState.Hash)
-	assert.NoError(t, guard.NewNonce(config.Nonce{TTL: time.Hour}).Verify(&replaced.NonceState, nonce, time.Now()))
+	assert.NoError(t, guard.NewNonce(time.Hour).Verify(&replaced.NonceState, nonce, time.Now()))
 	assert.False(t, replaced.Redeemed)
 
 	require.Len(t, publisher.published, 1)
@@ -542,7 +542,7 @@ func TestRenewRetriesOnConflict(t *testing.T) {
 	renewed, err := store.Get(token.Hash(testShareID))
 	require.NoError(t, err)
 	assert.Equal(t, rec.Revision+1, renewed.Revision)
-	assert.NoError(t, guard.NewNonce(config.Nonce{TTL: time.Hour}).Verify(&renewed.NonceState, nonce, time.Now()))
+	assert.NoError(t, guard.NewNonce(time.Hour).Verify(&renewed.NonceState, nonce, time.Now()))
 	require.Len(t, publisher.published, 1)
 
 	// The remote share is validated only once; the retry re-reads the record only.

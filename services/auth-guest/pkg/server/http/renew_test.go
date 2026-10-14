@@ -34,8 +34,8 @@ func newRenewHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc {
 		},
 		Nonce: config.Nonce{
 			CookieBaseName: testNonceCookieName,
-			TTL:            time.Hour,
 		},
+		PinAndNonceTTL: time.Hour,
 	}
 	return RenewHandler(log.NopLogger(), svc, cfg)
 }
