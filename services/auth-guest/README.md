@@ -132,7 +132,7 @@ sequenceDiagram
 
     Note over Web: Previous link used or expired
     Web->>+Renew: POST renew { permissionId, token }
-    Note right of Renew: Validate share, generate token + PIN + nonce, store hashes
+    Note right of Renew: Validate share, generate token + PIN + nonce
     Renew->>Bus: publish GuestTokenRenewed
     Note right of Bus: notifications service mails the new link + PIN to the guest
     Renew->>-Web: 200 OK
@@ -232,8 +232,8 @@ Rate-limited responses (`429`) also carry a `retryAfter` field (seconds) and a
 The three endpoints are unauthenticated and rely on cookies, so the client must
 send credentials with every request (for example `credentials: 'include'` in
 `fetch`). Cross-origin deployments also need the service CORS to allow the
-origin and credentials; the default `AUTH_GUEST_CORS_ALLOW_ORIGINS` of `*` is not
-sufficient together with credentials, so set a concrete origin.
+origin and credentials; the default `AUTH_GUEST_CORS_ALLOW_ORIGINS` of `*` is
+not sufficient together with credentials, so set a concrete origin.
 
 The PIN is bound to the browser that renewed, so the order matters:
 
@@ -285,8 +285,8 @@ and nonce options are:
 - `AUTH_GUEST_NONCE_COOKIE_BASE_NAME` (default `__Host-oc_guest_nonce`; a short
   share-id hash is appended per share, e.g. `__Host-oc_guest_nonce_<hash>`) —
   base name of the nonce cookie set by `renew` and required by `verify/pin`.
-- `AUTH_GUEST_PIN_AND_NONCE_TTL` (default `30m`) — lifetime of the one-time PIN and
-  of the nonce that binds it to the browser.
+- `AUTH_GUEST_PIN_AND_NONCE_TTL` (default `30m`) — lifetime of the one-time PIN
+  and of the nonce that binds it to the browser.
 - `AUTH_GUEST_BACKOFF_MAX_ATTEMPTS` (default `5`),
   `AUTH_GUEST_BACKOFF_BASE` (default `1s`),
   `AUTH_GUEST_BACKOFF_CAP` (default `30s`) — failed PIN attempts before the PIN
