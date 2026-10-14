@@ -430,11 +430,17 @@ func (c *consistencyChecker) updateOwnerIndexFile(basePath string, obsoleteIDs [
 		return fmt.Errorf("could not get owner ID from oldest entry '%s' to find index: %w", basePath, err)
 	}
 
-	indexPath := filepath.Join(c.cfg.Drivers.Posix.Root, "indexes", "by-user-id", string(ownerID)+".mpk")
-	indexPath = filepath.Clean(indexPath)
+	// the owner ID comes from an xattr that the owner of the directory can
+	// set, so keep the index path inside the index directory
+	indexDir, err := os.OpenRoot(filepath.Join(c.cfg.Drivers.Posix.Root, "indexes", "by-user-id"))
+	if err != nil {
+		return fmt.Errorf("could not open the index directory: %w", err)
+	}
+	defer indexDir.Close()
+	indexName := string(ownerID) + ".mpk"
 
 	// Read the MessagePack file
-	fileData, err := os.ReadFile(indexPath)
+	fileData, err := indexDir.ReadFile(indexName)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("index file does not exist, skipping update")
@@ -467,7 +473,7 @@ func (c *consistencyChecker) updateOwnerIndexFile(basePath string, obsoleteIDs [
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated index map: %w", err)
 	}
-	if err := os.WriteFile(indexPath, updatedData, 0644); err != nil {
+	if err := indexDir.WriteFile(indexName, updatedData, 0644); err != nil {
 		return fmt.Errorf("failed to write updated index file: %w", err)
 	}
 

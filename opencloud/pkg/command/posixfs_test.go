@@ -5,11 +5,13 @@ import (
 	"path/filepath"
 	"testing"
 
+	storageUsersConfig "github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/ignore"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/pkg/xattr"
 	"github.com/rs/zerolog"
+	"github.com/shamaton/msgpack/v2"
 	"github.com/test-go/testify/require"
 )
 
@@ -135,4 +137,35 @@ func TestConsistencyIgnoresSpaceInternals(t *testing.T) {
 	for _, p := range []string{filepath.Join(space, "docs"), filepath.Join(space, "docs/.Trash")} {
 		require.False(t, c.isIgnored(p), p)
 	}
+}
+
+func TestUpdateOwnerIndexFileStaysInIndexDir(t *testing.T) {
+	root := t.TempDir()
+	indexDir := filepath.Join(root, "indexes/by-user-id")
+	space := filepath.Join(root, "users/alice")
+	for _, dir := range []string{indexDir, space} {
+		require.NoError(t, os.MkdirAll(dir, 0o700))
+	}
+	index, err := msgpack.Marshal(map[string]string{"old": "old", "keep": "keep"})
+	require.NoError(t, err)
+	for _, f := range []string{filepath.Join(indexDir, "alice.mpk"), filepath.Join(root, "outside.mpk")} {
+		require.NoError(t, os.WriteFile(f, index, 0o600))
+	}
+	c := &consistencyChecker{cfg: &storageUsersConfig.Config{}}
+	c.cfg.Drivers.Posix.Root = root
+
+	require.NoError(t, xattr.Set(space, prefixes.OwnerIDAttr, []byte("alice")))
+	require.NoError(t, c.updateOwnerIndexFile(space, []string{"old"}))
+	data, err := os.ReadFile(filepath.Join(indexDir, "alice.mpk"))
+	require.NoError(t, err)
+	var got map[string]string
+	require.NoError(t, msgpack.Unmarshal(data, &got))
+	require.Equal(t, map[string]string{"keep": "keep"}, got)
+
+	// an owner ID that points out of the index directory is refused
+	require.NoError(t, xattr.Set(space, prefixes.OwnerIDAttr, []byte("../../outside")))
+	require.Error(t, c.updateOwnerIndexFile(space, []string{"old"}))
+	data, err = os.ReadFile(filepath.Join(root, "outside.mpk"))
+	require.NoError(t, err)
+	require.Equal(t, index, data)
 }
