@@ -43,7 +43,7 @@ type SessionResponse struct {
 type AuthGuest interface {
 	CreateToken(ctx context.Context, shareID string) (*token.Token, error)
 	VerifyToken(ctx context.Context, tokenString string) (*SessionResponse, error)
-	Renew(ctx context.Context, shareID, tokenString, sessionToken string) (string, error)
+	Renew(ctx context.Context, shareID, tokenString string) (string, error)
 	VerifyPin(ctx context.Context, shareID, pinValue, nonce string) (*SessionResponse, error)
 	CleanupShare(shareID string) error
 }
@@ -138,14 +138,14 @@ func (s *AuthGuestService) VerifyToken(ctx context.Context, tokenString string) 
 }
 
 // Renew generates a new guest link token, PIN and nonce for shareID,
-// authorized by the previous link token or a (possibly expired) session token.
+// authorized by the previous link token.
 // The returned nonce binds the PIN to the requesting browser.
-func (s *AuthGuestService) Renew(ctx context.Context, shareID, tokenString, sessionToken string) (string, error) {
+func (s *AuthGuestService) Renew(ctx context.Context, shareID, tokenString string) (string, error) {
 	if s.publisher == nil {
 		return "", ErrEventsNotConfigured
 	}
 
-	if err := s.verifyRenewCredentials(shareID, tokenString, sessionToken); err != nil {
+	if err := s.verifyRenewToken(shareID, tokenString); err != nil {
 		return "", err
 	}
 
@@ -373,29 +373,6 @@ func (s *AuthGuestService) verifyPinAttempt(rec *storage.Record, pinValue, nonce
 	s.guards.nonce.Clear(&rec.NonceState)
 	s.guards.backoffLimiter.Reset(&rec.BackoffLimiterState)
 	return match, nil
-}
-
-// verifyRenewCredentials checks that the previous link token or a (possibly
-// expired) session token belongs to shareID.
-func (s *AuthGuestService) verifyRenewCredentials(shareID, tokenString, sessionToken string) error {
-	switch {
-	case tokenString != "":
-		return s.verifyRenewToken(shareID, tokenString)
-	case sessionToken != "":
-		if s.jwtService == nil {
-			return &GuestError{ErrorType: jwt.ErrInvalidSession, ShareID: shareID}
-		}
-		sessionShareID, err := s.jwtService.Verify(sessionToken)
-		if err != nil {
-			return &GuestError{ErrorType: err, ShareID: shareID}
-		}
-		if sessionShareID != shareID {
-			return &GuestError{ErrorType: ErrPermissionMismatch, ShareID: shareID}
-		}
-		return nil
-	default:
-		return &GuestError{ErrorType: jwt.ErrInvalidSession, ShareID: shareID}
-	}
 }
 
 // verifyRenewToken checks that the link token belongs to shareID and matches

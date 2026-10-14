@@ -459,7 +459,7 @@ func TestRenewPersistsRecordAndPublishesEvent(t *testing.T) {
 
 	s := newRenewService(t, store, gwc, publisher)
 
-	nonce, err := s.Renew(context.Background(), testShareID, tok, "")
+	nonce, err := s.Renew(context.Background(), testShareID, tok)
 	require.NoError(t, err)
 
 	replaced, err := store.Get(token.Hash(testShareID))
@@ -493,32 +493,6 @@ func TestRenewPersistsRecordAndPublishesEvent(t *testing.T) {
 	assert.True(t, pinOK)
 }
 
-func TestRenewWithExpiredSessionToken(t *testing.T) {
-	store := storage.NewFileManager(t.TempDir())
-	require.NoError(t, store.Add(existingRecord()))
-
-	jwtSvc := jwt.NewJwtService("test-secret", -time.Hour)
-	sessionToken, _, err := jwtSvc.Sign(testShareID)
-	require.NoError(t, err)
-
-	publisher := &testPublisher{}
-	s := NewAuthGuestService(
-		token.NewTokenService(),
-		store,
-		GatewaySelector(newGatewayTestSelector(newGatewayMock(&collaboration.GetShareResponse{
-			Status: &rpc.Status{Code: rpc.Code_CODE_OK},
-			Share:  newGuestShare(time.Now().Add(time.Hour)),
-		}))),
-		ServiceAccount(config.ServiceAccount{ServiceAccountID: "sa-id", ServiceAccountSecret: "sa-secret"}),
-		JWT(jwtSvc),
-		EventsPublisher(publisher),
-	)
-
-	_, err = s.Renew(context.Background(), testShareID, "", sessionToken)
-	require.NoError(t, err)
-	require.Len(t, publisher.published, 1)
-}
-
 func TestRenewLinkTokenIgnoresRedeemedAndExpiry(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
 	tok, rec := newToken(t)
@@ -531,7 +505,7 @@ func TestRenewLinkTokenIgnoresRedeemedAndExpiry(t *testing.T) {
 		Share:  newGuestShare(time.Now().Add(time.Hour)),
 	}), &testPublisher{})
 
-	_, err := s.Renew(context.Background(), testShareID, tok, "")
+	_, err := s.Renew(context.Background(), testShareID, tok)
 	require.NoError(t, err)
 }
 
@@ -560,7 +534,7 @@ func TestRenewRetriesOnConflict(t *testing.T) {
 	flaky := &conflictOnceStore{Manager: store}
 	s := newRenewService(t, flaky, gwc, publisher)
 
-	nonce, err := s.Renew(context.Background(), testShareID, tok, "")
+	nonce, err := s.Renew(context.Background(), testShareID, tok)
 	require.NoError(t, err)
 	assert.NotEmpty(t, nonce)
 	assert.Equal(t, 2, flaky.updates)
@@ -579,27 +553,22 @@ func TestRenewInvalidCredentials(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
 	s := newRenewService(t, store, newGatewayMock(&collaboration.GetShareResponse{}), &testPublisher{})
 
-	otherSession, _, err := jwt.NewJwtService("test-secret", 24*time.Hour).Sign("other-share")
-	require.NoError(t, err)
 	otherToken, _ := newTokenFor(t, "other-share")
 
 	tests := []struct {
-		name         string
-		shareID      string
-		token        string
-		sessionToken string
-		wantErr      error
+		name    string
+		shareID string
+		token   string
+		wantErr error
 	}{
-		{name: "no credentials", shareID: testShareID, wantErr: jwt.ErrInvalidSession},
-		{name: "invalid session", shareID: testShareID, sessionToken: "garbage", wantErr: jwt.ErrInvalidSession},
-		{name: "invalid link token prefers token", shareID: testShareID, token: "garbage", sessionToken: "garbage", wantErr: token.ErrInvalidToken},
-		{name: "session for another share", shareID: testShareID, sessionToken: otherSession, wantErr: ErrPermissionMismatch},
+		{name: "empty token", shareID: testShareID, wantErr: token.ErrInvalidToken},
+		{name: "invalid token", shareID: testShareID, token: "garbage", wantErr: token.ErrInvalidToken},
 		{name: "token for another share", shareID: testShareID, token: otherToken, wantErr: ErrPermissionMismatch},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := s.Renew(context.Background(), tt.shareID, tt.token, tt.sessionToken)
+			_, err := s.Renew(context.Background(), tt.shareID, tt.token)
 
 			var ge *GuestError
 			require.ErrorAs(t, err, &ge)
@@ -618,7 +587,7 @@ func TestRenewRecordNotFound(t *testing.T) {
 		Share:  newGuestShare(time.Now().Add(time.Hour)),
 	}), publisher)
 
-	_, err := s.Renew(context.Background(), testShareID, tok, "")
+	_, err := s.Renew(context.Background(), testShareID, tok)
 	require.Error(t, err)
 
 	var ge *GuestError
@@ -635,7 +604,7 @@ func TestRenewWithoutPublisher(t *testing.T) {
 
 	s := newRenewService(t, store, newGatewayMock(&collaboration.GetShareResponse{}), nil)
 
-	_, err := s.Renew(context.Background(), testShareID, "irrelevant", "")
+	_, err := s.Renew(context.Background(), testShareID, "irrelevant")
 	require.ErrorIs(t, err, ErrEventsNotConfigured)
 
 	got, err := store.Get(token.Hash(testShareID))
@@ -657,7 +626,7 @@ func TestRenewRollsBackOnPublishFailure(t *testing.T) {
 
 	s := newRenewService(t, store, gwc, publisher)
 
-	_, err := s.Renew(context.Background(), testShareID, tok, "")
+	_, err := s.Renew(context.Background(), testShareID, tok)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "publish failed")
 
@@ -687,7 +656,7 @@ func TestRenewRollbackConflictKeepsConcurrentChange(t *testing.T) {
 		Share:  newGuestShare(time.Now().Add(time.Hour)),
 	}), publisher)
 
-	_, err := s.Renew(context.Background(), testShareID, tok, "")
+	_, err := s.Renew(context.Background(), testShareID, tok)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "publish failed")
 	assert.Contains(t, err.Error(), "rollback failed")
@@ -706,7 +675,7 @@ func TestRenewShareNotFound(t *testing.T) {
 		Status: &rpc.Status{Code: rpc.Code_CODE_NOT_FOUND},
 	}), &testPublisher{})
 
-	_, err := s.Renew(context.Background(), testShareID, tok, "")
+	_, err := s.Renew(context.Background(), testShareID, tok)
 	require.Error(t, err)
 
 	var ge *GuestError
@@ -725,7 +694,7 @@ func TestRenewShareExpired(t *testing.T) {
 		Share:  newGuestShare(time.Now().Add(-time.Hour)),
 	}), &testPublisher{})
 
-	_, err := s.Renew(context.Background(), testShareID, tok, "")
+	_, err := s.Renew(context.Background(), testShareID, tok)
 	require.Error(t, err)
 
 	var ge *GuestError
@@ -745,7 +714,7 @@ func TestRenewRecordsCooldown(t *testing.T) {
 		DailyCap: 20,
 	})
 
-	_, err := s.Renew(context.Background(), testShareID, tok, "")
+	_, err := s.Renew(context.Background(), testShareID, tok)
 	require.NoError(t, err)
 
 	got, err := store.Get(token.Hash(testShareID))
@@ -772,7 +741,7 @@ func TestRenewBlockedDuringCooldown(t *testing.T) {
 		DailyCap: 20,
 	})
 
-	_, err := s.Renew(context.Background(), testShareID, tok, "")
+	_, err := s.Renew(context.Background(), testShareID, tok)
 	require.Error(t, err)
 
 	var ge *GuestError
@@ -800,7 +769,7 @@ func TestRenewDailyCap(t *testing.T) {
 		DailyCap: 20,
 	})
 
-	_, err := s.Renew(context.Background(), testShareID, tok, "")
+	_, err := s.Renew(context.Background(), testShareID, tok)
 	require.Error(t, err)
 
 	var ge *GuestError
@@ -1173,7 +1142,7 @@ func TestRenewResetsPinAttempts(t *testing.T) {
 
 	s := newRenewService(t, store, newGatewayMock(validShareResponse()), &testPublisher{})
 
-	_, err := s.Renew(context.Background(), testShareID, tok, "")
+	_, err := s.Renew(context.Background(), testShareID, tok)
 	require.NoError(t, err)
 
 	got, err := store.Get(token.Hash(testShareID))

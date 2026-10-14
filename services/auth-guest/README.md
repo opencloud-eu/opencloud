@@ -6,9 +6,9 @@ OpenCloud account. When a share is created for a user of type
 that token exchanges it for a signed session cookie that authenticates the
 guest.
 
-When the session or the link token is no longer valid, the guest can *renew*:
-the service issues a new link token together with a one-time PIN. The guest
-then either redeems the new link or exchanges the PIN for a fresh session.
+When the link token is no longer valid, the guest can *renew*: the service
+issues a new link token together with a one-time PIN. The guest then either
+redeems the new link or exchanges the PIN for a fresh session.
 
 The unauthenticated endpoints are protected against brute-force and abuse: the
 PIN is bound to a browser-held nonce, failed PIN attempts back off exponentially
@@ -86,16 +86,14 @@ A guest session (signed JWT) is valid for 24 hours by default
 (`AUTH_GUEST_JWT_TTL`); a link token is single-use and valid for 30 minutes.
 Verifying a token or a PIN returns the session expiry as `expirationDateTime`,
 so the client can warn the guest before the session runs out, since it cannot
-read the HttpOnly cookie. Renewal starts from a *failed* attempt:
+read the HttpOnly cookie.
 
-- an authenticated request made with an expired session is rejected with `401`;
-  the browser still holds the (expired) session cookie;
-- `redeem` on a link that was already used answers `409`, and on an expired
-  link `401`; the client still holds the link token.
+Renewal starts from a *failed* attempt: `redeem` on a link that was already used
+answers `409`, and on an expired link `401`; the client still holds the link
+token.
 
-`renew` requires the share id (`permissionId`) and is authorized by either the
-(possibly expired) session cookie or the previous link token, whichever the
-client has; the credential must belong to the given share. It does not create a
+`renew` requires the share id (`permissionId`) and the previous link token,
+which must belong to the given share. It does not create a
 session. It requires an existing token record for the share, validates the
 share, generates a new link token and a 6-digit PIN (both valid for 30 minutes),
 overwrites the stored token, PIN and nonce hashes (invalidating the previous
@@ -132,8 +130,8 @@ sequenceDiagram
     participant Pin as Verify PIN endpoint
     participant Bus as Event bus
 
-    Note over Web: Session expired / previous link used or expired
-    Web->>+Renew: POST renew { permissionId } (+ session cookie or link token)
+    Note over Web: Previous link used or expired
+    Web->>+Renew: POST renew { permissionId, token }
     Note right of Renew: Validate share, generate token + PIN + nonce, store hashes
     Renew->>Bus: publish GuestTokenRenewed
     Note right of Bus: notifications service mails the new link + PIN to the guest
@@ -166,11 +164,11 @@ sequenceDiagram
    `permissionId` in the response body. Tokens are single-use and valid for
    30 minutes; the session cookie lives for 24 hours by default
    (`AUTH_GUEST_JWT_TTL`).
-3. **Renew** — the guest posts the `permissionId` to
-   `POST /graph/v1beta1/extensions/org.libregraph/guestLinks/renew`, authorized
-   by either the previous link token (`{ "token": "<token>" }`) or the (possibly
-   expired) session cookie, which must both belong to that share. An existing
-   record is required; otherwise the request fails with `tokenNotFound`. The
+3. **Renew** — the guest posts the `permissionId` and the previous link token
+   (`{ "token": "<token>" }`) to
+   `POST /graph/v1beta1/extensions/org.libregraph/guestLinks/renew`; the token
+   must belong to that share. An existing record is required; otherwise the
+   request fails with `tokenNotFound`. The
    service validates the share, generates a new link token and a 6-digit PIN
    (both valid for 30 minutes), overwrites the stored token, PIN and nonce
    hashes (invalidating the previous link and PIN), resets the redeemed flag so
@@ -209,16 +207,14 @@ Rate-limited responses (`429`) also carry a `retryAfter` field (seconds) and a
 #### `POST .../guestLinks/renew`
 
 - **Request body:**
-  `{ "permissionId": "<share-id>", "token": "<previous link token>" }`
-  (`token` optional when the session cookie is sent)
-- **Authorization:** the share id is required; the body link token or the
-  session cookie must belong to it, the link token takes precedence
+  `{ "permissionId": "<share-id>", "token": "<previous link token>" }` (both
+  required)
+- **Authorization:** the previous link token must belong to the given share id
 - **Success:** `200` (no session cookie; the new link/PIN are delivered out
   of band, the nonce cookie is set)
-- **Errors:** `400 invalidRequest`, `401 tokenInvalid`, `401 sessionInvalid`,
-  `404 tokenNotFound`, `404 shareNotFound`, `410 shareExpired`,
-  `429 tooManyRequests` (with `Retry-After`), `503 serviceUnavailable`,
-  `500 internalError`
+- **Errors:** `400 invalidRequest`, `401 tokenInvalid`, `404 tokenNotFound`,
+  `404 shareNotFound`, `410 shareExpired`, `429 tooManyRequests`
+  (with `Retry-After`), `503 serviceUnavailable`, `500 internalError`
 
 #### `POST .../guestLinks/verify/pin`
 

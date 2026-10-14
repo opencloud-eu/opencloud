@@ -12,17 +12,15 @@ import (
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
 )
 
-// RenewRequest is the request body for token renewal. The share id is required;
-// the previous link token is optional when the (possibly expired) session
-// cookie is sent instead.
+// RenewRequest is the request body for token renewal. The share id and the
+// previous link token are required.
 type RenewRequest struct {
 	PermissionID string `json:"permissionId"`
 	Token        string `json:"token"`
 }
 
 // RenewHandler generates a new guest link token and PIN for the share
-// identified by the permission id, authorized by the submitted link token or
-// the session cookie.
+// identified by the permission id, authorized by the submitted link token.
 func RenewHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Config) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req RenewRequest
@@ -38,12 +36,13 @@ func RenewHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Config) fun
 			return
 		}
 
-		sessionToken := ""
-		if cookie, err := r.Cookie(cfg.JWT.CookieName); err == nil {
-			sessionToken = cookie.Value
+		if req.Token == "" {
+			log.Debug().Msg("request body is missing the token")
+			writeError(w, http.StatusBadRequest, errorResponse{ErrorType: "invalidRequest", Message: "The request body is missing the token."})
+			return
 		}
 
-		nonce, err := s.Renew(r.Context(), req.PermissionID, req.Token, sessionToken)
+		nonce, err := s.Renew(r.Context(), req.PermissionID, req.Token)
 		if err != nil {
 			log.Debug().Err(err).Msg("renew failed")
 			writeGuestError(w, err)

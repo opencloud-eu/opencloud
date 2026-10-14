@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
-	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/jwt"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/storage"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/token"
 )
@@ -68,8 +67,6 @@ func writeGuestError(w http.ResponseWriter, err error) {
 		status, errorType = http.StatusUnauthorized, "nonceExpired"
 	case errors.Is(ge.ErrorType, authguest.ErrTooManyAttempts):
 		status, errorType = http.StatusTooManyRequests, "tooManyRequests"
-	case errors.Is(ge.ErrorType, jwt.ErrInvalidSession):
-		status, errorType = http.StatusUnauthorized, "sessionInvalid"
 	case errors.Is(ge.ErrorType, authguest.ErrPermissionMismatch):
 		status, errorType = http.StatusBadRequest, "invalidRequest"
 	}
