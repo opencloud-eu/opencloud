@@ -256,7 +256,7 @@ func (session *DecomposedFsSession) FinishUploadDecomposed(ctx context.Context) 
 	if !session.store.async || session.info.Size == 0 {
 		// handle postprocessing synchronously
 		err = session.Finalize(ctx)
-		session.Cleanup(err != nil, true, true, true)
+		session.Cleanup(err != nil, err == nil, true, true)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to upload")
 			return err

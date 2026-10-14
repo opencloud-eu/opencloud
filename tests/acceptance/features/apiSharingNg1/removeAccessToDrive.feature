@@ -186,6 +186,19 @@ Feature: Remove access to a drive
     Then the HTTP status code should be "204"
     And user "Alice" should not have any "link" permissions on space "NewSpace"
 
+
+  Scenario: user tries to remove an already removed link share from project space using root endpoint
+    Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
+    And user "Alice" has created a space "NewSpace" with the default quota using the Graph API
+    And user "Alice" has created the following space link share:
+      | space           | NewSpace |
+      | permissionsRole | view     |
+      | password        | %public% |
+    And user "Alice" removes the link from space "NewSpace" using root endpoint of the Graph API
+    And the HTTP status code should be "204"
+    When user "Alice" removes the link from space "NewSpace" using root endpoint of the Graph API
+    Then the HTTP status code should be "404"
+
   @issue-7879
   Scenario Outline: user tries to remove link share of project space owned by next user using root endpoint
     Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
