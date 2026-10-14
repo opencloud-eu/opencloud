@@ -98,7 +98,7 @@ Feature: collaboration (wopi)
       """
 
 
-  Scenario: user tries to open text file without app name in url query (MIME type not registered in app-registry)
+  Scenario: user tries to open text file without app name in url query using the first possible provider
     Given user "Alice" has uploaded file "filesForUpload/lorem.txt" to "lorem.txt"
     And we save it into "FILEID"
     When user "Alice" tries to send HTTP method "POST" to URL "/app/open?file_id=<<FILEID>>"
@@ -393,7 +393,7 @@ Feature: collaboration (wopi)
       """
 
 
-  Scenario: user tries to open text file using open-with-web without app name in url query (MIME type not registered in app-registry)
+  Scenario: user tries to open text file using open-with-web without app name in url query using the first possible provider
     Given user "Alice" has uploaded file "filesForUpload/lorem.txt" to "lorem.txt"
     And we save it into "FILEID"
     When user "Alice" tries to send HTTP method "POST" to URL "/app/open-with-web?file_id=<<FILEID>>"
