@@ -156,7 +156,10 @@ func TestUpdateOwnerIndexFileStaysInIndexDir(t *testing.T) {
 
 	require.NoError(t, xattr.Set(space, prefixes.OwnerIDAttr, []byte("alice")))
 	require.NoError(t, c.updateOwnerIndexFile(space, []string{"old"}))
-	data, err := os.ReadFile(filepath.Join(indexDir, "alice.mpk"))
+	rootDir, err := os.OpenRoot(root)
+	require.NoError(t, err)
+	defer rootDir.Close()
+	data, err := rootDir.ReadFile("indexes/by-user-id/alice.mpk")
 	require.NoError(t, err)
 	var got map[string]string
 	require.NoError(t, msgpack.Unmarshal(data, &got))
@@ -165,7 +168,7 @@ func TestUpdateOwnerIndexFileStaysInIndexDir(t *testing.T) {
 	// an owner ID that points out of the index directory is refused
 	require.NoError(t, xattr.Set(space, prefixes.OwnerIDAttr, []byte("../../outside")))
 	require.Error(t, c.updateOwnerIndexFile(space, []string{"old"}))
-	data, err = os.ReadFile(filepath.Join(root, "outside.mpk"))
+	data, err = rootDir.ReadFile("outside.mpk")
 	require.NoError(t, err)
 	require.Equal(t, index, data)
 }
