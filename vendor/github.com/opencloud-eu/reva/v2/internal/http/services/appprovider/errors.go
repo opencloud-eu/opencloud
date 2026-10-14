@@ -37,6 +37,7 @@ const (
 	appErrorInvalidParameter appErrorCode = "INVALID_PARAMETER"
 	appErrorServerError      appErrorCode = "SERVER_ERROR"
 	appErrorTooEarly         appErrorCode = "TOO_EARLY"
+	appErrorProviderNotFound appErrorCode = "PROVIDER_NOT_FOUND"
 )
 
 // appErrorCodeMapping stores the HTTP error code mapping for various APIErrorCodes
@@ -49,6 +50,7 @@ var appErrorCodeMapping = map[appErrorCode]int{
 	appErrorServerError:      http.StatusInternalServerError,
 	appErrorPermissionDenied: http.StatusForbidden,
 	appErrorTooEarly:         http.StatusTooEarly,
+	appErrorProviderNotFound: http.StatusNotFound,
 }
 
 // APIError encompasses the error type and message
