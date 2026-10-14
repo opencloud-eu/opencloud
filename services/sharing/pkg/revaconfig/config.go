@@ -78,6 +78,7 @@ func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]
 							"machine_auth_apikey":    cfg.UserSharingDrivers.JSONCS3.SystemUserAPIKey,
 							"ttl":                    cfg.UserSharingDrivers.JSONCS3.CacheTTL,
 							"max_concurrency":        cfg.UserSharingDrivers.JSONCS3.MaxConcurrency,
+							"skip_migrations":        cfg.UserSharingDrivers.JSONCS3.SkipMigrations,
 							"service_account_id":     cfg.ServiceAccount.ServiceAccountID,
 							"service_account_secret": cfg.ServiceAccount.ServiceAccountSecret,
 							"events": map[string]any{

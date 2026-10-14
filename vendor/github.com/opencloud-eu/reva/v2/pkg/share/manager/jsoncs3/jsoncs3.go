@@ -139,6 +139,9 @@ type config struct {
 	ProviderRegistryAddr string       `mapstructure:"provider_registry_addr"`
 	CacheTTL             int          `mapstructure:"ttl"`
 	Events               EventOptions `mapstructure:"events"`
+	// SkipMigrations does not run the data migrations on startup. Only meant for
+	// test environments, skipped migrations are not applied later.
+	SkipMigrations bool `mapstructure:"skip_migrations"`
 }
 
 // EventOptions are the configurable options for events
@@ -205,6 +208,11 @@ func NewDefault(m map[string]interface{}, logger *zerolog.Logger) (share.Manager
 	mgr, err := New(s, logger, gatewaySelector, c.CacheTTL, es, c.MaxConcurrency)
 	if err != nil {
 		return nil, err
+	}
+	if c.SkipMigrations {
+		mgr.logger.Warn().Msg("share manager: skipping data migrations")
+		mgr.SkipMigrations()
+		return mgr, nil
 	}
 	providerRegistryAddr := c.ProviderRegistryAddr
 	if providerRegistryAddr == "" {
