@@ -4126,7 +4126,8 @@ class SpacesContext implements Context {
 			'oc:privatelink',
 			'd:getcontenttype',
 			'd:lockdiscovery',
-			'd:activelock'
+			'd:activelock',
+			'oc:has-preview'
 		];
 
 		$davPathVersion = $this->featureContext->getDavPathVersion();
