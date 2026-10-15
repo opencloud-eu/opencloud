@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	pkgmiddleware "github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"google.golang.org/grpc"
 )
@@ -37,6 +38,13 @@ var _ = Describe("Authenticating requests", Label("PublicShareAuthenticator"), f
 
 							if clientID == "sharetoken" && clientSecret == "password|" {
 								return "otherexampletoken", rpcv1beta1.Code_CODE_OK
+							}
+
+							if clientID == "protectedtoken" {
+								if clientSecret == "password|right" {
+									return "protectedexampletoken", rpcv1beta1.Code_CODE_OK
+								}
+								return "", rpcv1beta1.Code_CODE_UNAUTHENTICATED
 							}
 
 							return "", rpcv1beta1.Code_CODE_NOT_FOUND
@@ -95,6 +103,38 @@ var _ = Describe("Authenticating requests", Label("PublicShareAuthenticator"), f
 
 				Expect(result.State).To(Equal(AuthenticationNotApplicable))
 			})
+		})
+	})
+	When("the request is a graph request", func() {
+		DescribeTable("passes the request on and tells graph why the link was rejected",
+			func(token, password, wantAccessToken, wantHint string) {
+				req := httptest.NewRequest(http.MethodGet, "http://example.com/graph/v1.0/drives/x/items/x/children?public-token="+token, http.NoBody)
+				if password != "" {
+					req.SetBasicAuth("public", password)
+				}
+
+				result := authenticator.Authenticate(req)
+
+				Expect(result.State).To(Equal(AuthenticationSucceeded))
+				Expect(result.Request.Header.Get(headerRevaAccessToken)).To(Equal(wantAccessToken))
+				Expect(result.Request.Header.Get(pkgmiddleware.PublicLinkAuthHeader)).To(Equal(wantHint))
+			},
+			Entry("right password", "protectedtoken", "right", "protectedexampletoken", ""),
+			Entry("no password", "protectedtoken", "", "", pkgmiddleware.PublicLinkPasswordRequired),
+			Entry("wrong password", "protectedtoken", "wrong", "", pkgmiddleware.PublicLinkInvalidPassword),
+			Entry("unknown token without password", "unknowntoken", "", "", ""),
+			Entry("unknown token with password", "unknowntoken", "secret", "", ""),
+		)
+	})
+	When("a public-files request is rejected", func() {
+		It("passes it on without a hint, ocdav renders the 401", func() {
+			req := httptest.NewRequest(http.MethodGet, "http://example.com/dav/public-files/?public-token=protectedtoken", http.NoBody)
+			req.SetBasicAuth("public", "wrong")
+
+			result := authenticator.Authenticate(req)
+
+			Expect(result.State).To(Equal(AuthenticationSucceeded))
+			Expect(result.Request.Header.Get(pkgmiddleware.PublicLinkAuthHeader)).To(BeEmpty())
 		})
 	})
 })

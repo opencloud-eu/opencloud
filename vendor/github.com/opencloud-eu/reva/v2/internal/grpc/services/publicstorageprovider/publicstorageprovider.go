@@ -23,7 +23,6 @@ package publicstorageprovider
 import (
 	"context"
 	"encoding/json"
-	"path"
 	"strings"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -37,6 +36,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v2/pkg/publicshare"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -769,15 +769,7 @@ func (s *service) augmentStatResponse(ctx context.Context, statInfo *provider.Re
 			appctx.GetLogger(ctx).Error().Err(err).Interface("share", share).Interface("info", statInfo).Msg("error when adding share")
 		}
 
-		var sharePath string
-		if shareInfo.Type == provider.ResourceType_RESOURCE_TYPE_FILE {
-			sharePath = path.Base(shareInfo.Path)
-		} else {
-			sharePath = strings.TrimPrefix(statInfo.Path, shareInfo.Path)
-		}
-
-		statInfo.Path = path.Join("/", sharePath)
-		filterPermissions(statInfo.PermissionSet, shareInfo.PermissionSet)
+		publicshare.FilterResourceInfo(statInfo, shareInfo, shareInfo.GetPermissionSet())
 	}
 }
 
@@ -843,34 +835,13 @@ func (s *service) ListContainer(ctx context.Context, req *provider.ListContainer
 	for i := range listContainerR.Infos {
 		// FIXME how do we reduce permissions to what is granted by the public link?
 		// only a problem for id based access -> middleware
-		filterPermissions(listContainerR.Infos[i].PermissionSet, info.PermissionSet)
+		publicshare.FilterPermissions(listContainerR.Infos[i].PermissionSet, info.PermissionSet)
 		if err := addShare(listContainerR.Infos[i], share); err != nil {
 			appctx.GetLogger(ctx).Error().Err(err).Interface("share", share).Interface("info", listContainerR.Infos[i]).Msg("error when adding share")
 		}
 	}
 
 	return listContainerR, nil
-}
-
-func filterPermissions(l *provider.ResourcePermissions, r *provider.ResourcePermissions) {
-	l.AddGrant = l.AddGrant && r.AddGrant
-	l.CreateContainer = l.CreateContainer && r.CreateContainer
-	l.Delete = l.Delete && r.Delete
-	l.GetPath = l.GetPath && r.GetPath
-	l.GetQuota = l.GetQuota && r.GetQuota
-	l.InitiateFileDownload = l.InitiateFileDownload && r.InitiateFileDownload
-	l.InitiateFileUpload = l.InitiateFileUpload && r.InitiateFileUpload
-	l.ListContainer = l.ListContainer && r.ListContainer
-	l.ListFileVersions = l.ListFileVersions && r.ListFileVersions
-	l.ListGrants = l.ListGrants && r.ListGrants
-	l.ListRecycle = l.ListRecycle && r.ListRecycle
-	l.Move = l.Move && r.Move
-	l.PurgeRecycle = l.PurgeRecycle && r.PurgeRecycle
-	l.RemoveGrant = l.RemoveGrant && r.RemoveGrant
-	l.RestoreFileVersion = l.RestoreFileVersion && r.RestoreFileVersion
-	l.RestoreRecycleItem = l.RestoreRecycleItem && r.RestoreRecycleItem
-	l.Stat = l.Stat && r.Stat
-	l.UpdateGrant = l.UpdateGrant && r.UpdateGrant
 }
 
 func (s *service) ListFileVersions(ctx context.Context, req *provider.ListFileVersionsRequest) (*provider.ListFileVersionsResponse, error) {

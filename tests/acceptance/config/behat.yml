@@ -110,6 +110,7 @@ default:
         - SharingNgContext:
         - FavoritesContext:
         - WebDavPropertiesContext:
+        - WebDavLockingContext:
 
     apiGraphUserGroup:
       paths:
