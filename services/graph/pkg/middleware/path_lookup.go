@@ -203,7 +203,7 @@ func rewriteColonPath(
 			logger.Debug().Err(err).Str("driveID", driveID).Msg("invalid drive id in colon path")
 			return "", errInvalidRequest
 		}
-		if drive.GetStorageId() != anchor.GetStorageId() || drive.GetSpaceId() != anchor.GetSpaceId() {
+		if !ItemAddressableInDrive(&drive, &anchor) {
 			logger.Debug().
 				Str("driveID", driveID).
 				Str("itemID", anchorIDStr).
@@ -363,4 +363,18 @@ func resolvePath(
 // param, which is a no-op for these literal sub-delims, so the id round-trips.
 func buildCanonicalRoutePath(itemID, suffix string) string {
 	return "/items/" + itemID + suffix
+}
+
+// ItemAddressableInDrive is always true below the public share drive: its items
+// keep their real ids and the token scope checks containment instead.
+func ItemAddressableInDrive(driveID, driveItemID *storageprovider.ResourceId) bool {
+	if IsPublicLinkDrive(driveID) {
+		return true
+	}
+	return driveID.GetStorageId() == driveItemID.GetStorageId() && driveID.GetSpaceId() == driveItemID.GetSpaceId()
+}
+
+// IsPublicLinkDrive reports whether the drive id is the public share mountpoint.
+func IsPublicLinkDrive(driveID *storageprovider.ResourceId) bool {
+	return driveID.GetStorageId() == utils.PublicStorageProviderID && driveID.GetSpaceId() == utils.PublicStorageSpaceID
 }
