@@ -68,7 +68,7 @@ func publicLinkOf(r *http.Request) (publicLink, bool) {
 	return l, ok
 }
 
-func publicDriveRequest(r *http.Request) bool {
+func publicLinkRequest(r *http.Request) bool {
 	_, ok := publicLinkOf(r)
 	return ok
 }
@@ -76,12 +76,12 @@ func publicDriveRequest(r *http.Request) bool {
 // publicLinkGate lets a link without ListContainer reach only its drive and upload sessions.
 func (g Graph) publicLinkGate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		driveID, err := parseIDParam(r, "driveID")
-		if err != nil || !graphm.IsPublicLinkDrive(&driveID) {
+		share, ok := graphm.PublicShareFromContext(r.Context())
+		if !ok {
 			next.ServeHTTP(w, r)
 			return
 		}
-		l, err := g.resolvePublicLink(r.Context(), &driveID)
+		l, err := g.resolvePublicLink(r.Context(), share.GetToken())
 		if err != nil {
 			errorcode.RenderError(w, r, err)
 			return
@@ -122,32 +122,35 @@ func sanitizePublicDriveInfos(l publicLink, infos ...*storageprovider.ResourceIn
 	}
 }
 
-// pointParentsAtPublicDrive keeps a visitor inside the drive the items were reached through.
-func pointParentsAtPublicDrive(l publicLink, items ...*libregraph.DriveItem) {
-	for _, item := range items {
-		if item.ParentReference != nil {
-			item.ParentReference.SetDriveId(l.driveID)
-		}
+// publicLinkRemoteItem points the public drive at the shared item, like a share
+// mountpoint, without the owner's alias, path or folder size.
+func publicLinkRemoteItem(root *storageprovider.ResourceInfo) *libregraph.RemoteItem {
+	item, err := cs3ResourceToRemoteItem(root)
+	if err != nil {
+		return nil
 	}
+	item.Name = libregraph.PtrString(root.GetName())
+	item.Path = nil
+	item.DriveAlias = nil
+	item.Size = nil
+	return item
 }
 
 type publicLinkKey struct{}
 
 type publicLink struct {
-	driveID string
-	root    *storageprovider.ResourceInfo
-	grant   *storageprovider.ResourcePermissions
+	root  *storageprovider.ResourceInfo
+	grant *storageprovider.ResourcePermissions
 }
 
-// resolvePublicLink looks up the link whose token is the public drive's opaque id.
-func (g Graph) resolvePublicLink(ctx context.Context, driveID *storageprovider.ResourceId) (publicLink, error) {
+func (g Graph) resolvePublicLink(ctx context.Context, token string) (publicLink, error) {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
 		return publicLink{}, err
 	}
 	shareResp, err := gatewayClient.GetPublicShare(ctx, &link.GetPublicShareRequest{
 		Ref: &link.PublicShareReference{
-			Spec: &link.PublicShareReference_Token{Token: driveID.GetOpaqueId()},
+			Spec: &link.PublicShareReference_Token{Token: token},
 		},
 	})
 	if err := errorcode.FromCS3Status(shareResp.GetStatus(), err); err != nil {
@@ -162,9 +165,8 @@ func (g Graph) resolvePublicLink(ctx context.Context, driveID *storageprovider.R
 		return publicLink{}, err
 	}
 	return publicLink{
-		driveID: storagespace.FormatResourceID(driveID),
-		root:    statResp.GetInfo(),
-		grant:   shareResp.GetShare().GetPermissions().GetPermissions(),
+		root:  statResp.GetInfo(),
+		grant: shareResp.GetShare().GetPermissions().GetPermissions(),
 	}, nil
 }
 
@@ -216,7 +218,7 @@ func (g Graph) CreateUploadSession(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if publicDriveRequest(r) && !plainName(cusr.Item.Name) {
+	if publicLinkRequest(r) && !plainName(cusr.Item.Name) {
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "the item name must not contain a path")
 		return
 	}
@@ -448,9 +450,6 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if l, ok := publicLinkOf(r); ok {
-		pointParentsAtPublicDrive(l, driveItem)
-	}
 
 	if driveItemPropertySelected(r, _selectAllowedValues) {
 		driveItem.LibreGraphPermissionsActionsAllowedValues = unifiedrole.CS3ResourcePermissionsToLibregraphActions(res.GetInfo().GetPermissionSet())
@@ -465,7 +464,7 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		driveItem.Children = children
 	}
 
-	if driveItemPropertySelected(r, _selectShareTypes) && !publicDriveRequest(r) {
+	if driveItemPropertySelected(r, _selectShareTypes) && !publicLinkRequest(r) {
 		infos := []*storageprovider.ResourceInfo{res.GetInfo()}
 		driveItem.LibreGraphShareTypes = shareTypesOf(res.GetInfo(), g.listLinkShares(ctx, infos))
 	}
@@ -525,7 +524,7 @@ func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, dri
 	childrenRequest := &storageprovider.ListContainerRequest{
 		Ref: &storageprovider.Reference{ResourceId: driveItemID},
 	}
-	if driveItemPropertySelected(r, _selectShareTypes) && !publicDriveRequest(r) {
+	if driveItemPropertySelected(r, _selectShareTypes) && !publicLinkRequest(r) {
 		childrenRequest.FieldMask = shareTypesFieldMask
 	}
 
@@ -560,13 +559,8 @@ func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, dri
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return nil, false
 	}
-	if public {
-		for i := range files {
-			pointParentsAtPublicDrive(l, &files[i])
-		}
-	}
 
-	if driveItemPropertySelected(r, _selectShareTypes) && !publicDriveRequest(r) {
+	if driveItemPropertySelected(r, _selectShareTypes) && !publicLinkRequest(r) {
 		g.addShareTypes(r.Context(), files, res.GetInfos())
 	}
 

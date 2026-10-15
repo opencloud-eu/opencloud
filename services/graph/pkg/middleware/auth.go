@@ -1,8 +1,12 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
+	"strings"
 
+	authpb "github.com/cs3org/go-cs3apis/cs3/auth/provider/v1beta1"
+	link "github.com/cs3org/go-cs3apis/cs3/sharing/link/v1beta1"
 	gmmetadata "go-micro.dev/v4/metadata"
 	"google.golang.org/grpc/metadata"
 
@@ -13,6 +17,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/auth/scope"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/token/manager/jwt"
+	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
 // authOptions initializes the available default options.
@@ -84,6 +89,9 @@ func Auth(opts ...account.Option) func(http.Handler) http.Handler {
 				return
 			}
 
+			if share := publicShareOfScope(tokenScope); share != nil {
+				ctx = context.WithValue(ctx, publicShareKey{}, share)
+			}
 			ctx = revactx.ContextSetToken(ctx, t)
 			ctx = revactx.ContextSetUser(ctx, u)
 			ctx = gmmetadata.Set(ctx, opkgm.AccountID, u.GetId().GetOpaqueId())
@@ -103,4 +111,25 @@ func Auth(opts ...account.Option) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+type publicShareKey struct{}
+
+// PublicShareFromContext returns the public link a request is authenticated with.
+func PublicShareFromContext(ctx context.Context) (*link.PublicShare, bool) {
+	share, ok := ctx.Value(publicShareKey{}).(*link.PublicShare)
+	return share, ok
+}
+
+func publicShareOfScope(scopes map[string]*authpb.Scope) *link.PublicShare {
+	for key, s := range scopes {
+		if !strings.HasPrefix(key, "publicshare:") {
+			continue
+		}
+		share := &link.PublicShare{}
+		if err := utils.UnmarshalJSONToProtoV1(s.GetResource().GetValue(), share); err == nil && share.GetToken() != "" {
+			return share
+		}
+	}
+	return nil
 }

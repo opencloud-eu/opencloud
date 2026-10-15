@@ -337,6 +337,9 @@ func (g Graph) GetSingleDrive(w http.ResponseWriter, r *http.Request) {
 		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "no drive returned from storage")
 		return
 	case num == 1:
+		if l, ok := publicLinkOf(r); ok && spaces[0].Root != nil {
+			spaces[0].Root.RemoteItem = publicLinkRemoteItem(l.root)
+		}
 		render.Status(r, http.StatusOK)
 		render.JSON(w, r, spaces[0])
 	default:
