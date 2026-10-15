@@ -73,7 +73,8 @@ func publicLinkRequest(r *http.Request) bool {
 	return ok
 }
 
-// publicLinkGate lets a link without ListContainer reach only its drive and upload sessions.
+// publicLinkGate stops a public link from sharing further and applies its listing
+// grant; writes are left to the token scope, which checks the link role.
 func (g Graph) publicLinkGate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		share, ok := graphm.PublicShareFromContext(r.Context())
@@ -86,20 +87,28 @@ func (g Graph) publicLinkGate(next http.Handler) http.Handler {
 			errorcode.RenderError(w, r, err)
 			return
 		}
-		if !l.grant.GetListContainer() && !addressesDriveOrUploadSession(r) {
-			errorcode.AccessDenied.Render(w, r, http.StatusForbidden, "the public link does not grant listing")
+		if !publicLinkAllows(r, l.grant) {
+			errorcode.AccessDenied.Render(w, r, http.StatusForbidden, "the public link does not allow this request")
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), publicLinkKey{}, l)))
 	})
 }
 
-func addressesDriveOrUploadSession(r *http.Request) bool {
+func publicLinkAllows(r *http.Request, grant *storageprovider.ResourcePermissions) bool {
 	p := strings.TrimSuffix(r.URL.EscapedPath(), "/")
-	if r.Method == http.MethodPost && strings.HasSuffix(p, "/createUploadSession") {
+	relationship := p
+	if i := strings.LastIndex(p, ":"); i >= 0 {
+		relationship = p[i+1:]
+	}
+	if strings.HasSuffix(relationship, "/invite") || strings.HasSuffix(relationship, "/createLink") ||
+		strings.Contains(relationship+"/", "/permissions/") {
+		return false
+	}
+	if r.Method != http.MethodGet {
 		return true
 	}
-	return r.Method == http.MethodGet && strings.HasSuffix(p, "/drives/"+chi.URLParam(r, "driveID"))
+	return grant.GetListContainer() || strings.HasSuffix(p, "/drives/"+chi.URLParam(r, "driveID"))
 }
 
 // sanitizePublicDriveInfos limits infos to what the public link may see.
