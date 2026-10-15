@@ -338,6 +338,39 @@ https://opencloud.eu
 				Token:        "v1.sharehash.secret",
 			},
 		}),
+
+		Entry("Guest Token Renewed", testChannel{
+			expectedReceipients: []string{"guest@example.com"},
+			expectedSubject:     "Your new link to 'secrets of the board'",
+			expectedTextBody: `Hello,
+
+A new link to "secrets of the board", shared with you by Dr. S. Harer, has been requested.
+
+Your PIN: 123456
+
+Open the link below or enter the PIN on the page where you requested the new link. The link and the PIN are personal and can only be used once. Please do not forward them.
+
+The link and the PIN are only valid for 30 minutes.
+
+Click here to view it: https://cloud.example.com/g/v1.sharehash.newsecret
+
+
+---
+OpenCloud - a safe home for all your data
+https://opencloud.eu
+`,
+			expectedSender: sharer.GetDisplayName(),
+			expectedLink:   testOpenCloudURL + "/g/v1.sharehash.newsecret",
+			done:           make(chan struct{}),
+		}, events.Event{
+			Event: ocEvents.GuestTokenRenewed{
+				Sharer:       sharer.GetId(),
+				GranteeEmail: "guest@example.com",
+				ItemID:       resourceid,
+				Token:        "v1.sharehash.newsecret",
+				Pin:          "123456",
+			},
+		}),
 	)
 })
 

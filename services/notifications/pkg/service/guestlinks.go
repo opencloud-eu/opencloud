@@ -6,7 +6,10 @@ package service
 import (
 	"context"
 
+	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	ocevents "github.com/opencloud-eu/opencloud/pkg/events"
@@ -23,11 +26,36 @@ func (s eventsNotifier) handleGuestTokenCreated(e ocevents.GuestTokenCreated) {
 		Str("itemid", e.ItemID.GetOpaqueId()).
 		Logger()
 
-	if err := validate.Var(e.GranteeEmail, "required,email"); err != nil {
+	s.sendGuestLinkMail(logger, email.GuestLinkShareCreated, e.Sharer, e.GranteeEmail, e.ItemID, e.ResourceName, e.Token, nil)
+}
+
+// handleGuestTokenRenewed sends the renewed guest link and the PIN to the
+// guest's email address, like handleGuestTokenCreated.
+func (s eventsNotifier) handleGuestTokenRenewed(e ocevents.GuestTokenRenewed) {
+	logger := s.logger.With().
+		Str("event", "GuestTokenRenewed").
+		Str("itemid", e.ItemID.GetOpaqueId()).
+		Logger()
+
+	if e.Pin == "" {
+		logger.Error().Msg("guest pin is empty")
+		return
+	}
+
+	s.sendGuestLinkMail(logger, email.GuestLinkShareRenewed, e.Sharer, e.GranteeEmail, e.ItemID, "", e.Token,
+		map[string]string{"SharePin": e.Pin})
+}
+
+// sendGuestLinkMail renders the guest link template and sends it to the guest.
+// The resource is stat'ed when resourceName is empty. vars are passed to the
+// template in addition to ShareSharer, ShareFolder and ShareLink.
+func (s eventsNotifier) sendGuestLinkMail(logger zerolog.Logger, template email.MessageTemplate, sharer *user.UserId,
+	granteeEmail string, itemID *provider.ResourceId, resourceName, token string, vars map[string]string) {
+	if err := validate.Var(granteeEmail, "required,email"); err != nil {
 		logger.Error().Err(err).Msg("invalid guest email address")
 		return
 	}
-	if e.Token == "" {
+	if token == "" {
 		logger.Error().Msg("guest token is empty")
 		return
 	}
@@ -44,15 +72,15 @@ func (s eventsNotifier) handleGuestTokenCreated(e ocevents.GuestTokenCreated) {
 		return
 	}
 
-	owner, err := utils.GetUserNoGroups(ctx, e.Sharer, gatewayClient)
+	owner, err := utils.GetUserNoGroups(ctx, sharer, gatewayClient)
 	if err != nil {
 		logger.Error().Err(err).Msg("could not get user")
 		return
 	}
 
-	shareFolder := e.ResourceName
+	shareFolder := resourceName
 	if shareFolder == "" {
-		resourceInfo, err := s.getResourceInfo(ctx, e.ItemID, &fieldmaskpb.FieldMask{Paths: []string{"name"}})
+		resourceInfo, err := s.getResourceInfo(ctx, itemID, &fieldmaskpb.FieldMask{Paths: []string{"name"}})
 		if err != nil {
 			logger.Error().Err(err).Msg("could not stat resource")
 			return
@@ -60,25 +88,29 @@ func (s eventsNotifier) handleGuestTokenCreated(e ocevents.GuestTokenCreated) {
 		shareFolder = resourceInfo.GetName()
 	}
 
-	shareLink, err := urlJoinPath(s.openCloudURL, "g", e.Token)
+	shareLink, err := urlJoinPath(s.openCloudURL, "g", token)
 	if err != nil {
 		logger.Error().Err(err).Msg("could not create guest link")
 		return
 	}
 
-	msg, err := email.RenderEmailTemplate(email.GuestLinkShareCreated, s.defaultLanguage, s.defaultLanguage,
-		s.emailTemplatePath, s.translationPath,
-		map[string]string{
-			"ShareSharer": owner.GetDisplayName(),
-			"ShareFolder": shareFolder,
-			"ShareLink":   shareLink,
-		})
+	templateVars := map[string]string{
+		"ShareSharer": owner.GetDisplayName(),
+		"ShareFolder": shareFolder,
+		"ShareLink":   shareLink,
+	}
+	for k, v := range vars {
+		templateVars[k] = v
+	}
+
+	msg, err := email.RenderEmailTemplate(template, s.defaultLanguage, s.defaultLanguage,
+		s.emailTemplatePath, s.translationPath, templateVars)
 	if err != nil {
 		logger.Error().Err(err).Msg("could not render the email")
 		return
 	}
 	msg.Sender = owner.GetDisplayName()
-	msg.Recipient = []string{e.GranteeEmail}
+	msg.Recipient = []string{granteeEmail}
 
 	s.send(ctx, []*channels.Message{msg})
 }

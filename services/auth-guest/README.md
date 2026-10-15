@@ -18,7 +18,9 @@ links feature and start the service.
 - **Consumes** the share lifecycle events `ShareCreated`, `ShareRemoved` and
   `ShareExpired`.
 - **Publishes** the `GuestTokenCreated` event (initial token) and the
-  `GuestTokenRenewed` event (refresh, carrying the new token and the PIN).
+  `GuestTokenRenewed` event (refresh, carrying the new token and the PIN). The
+  `notifications` service consumes both and mails the link (and the PIN) to
+  the guest.
 - Exposes unauthenticated endpoints to redeem a token, renew it and verify a
   PIN; redeeming a token or verifying a PIN sets a session cookie.
 - Stores only hashes of the token secret and of the PIN and deletes the stored
@@ -111,7 +113,7 @@ sequenceDiagram
     Web->>+Renew: POST renew { permissionId } (+ session cookie or link token)
     Note right of Renew: Validate share, generate token + PIN, store hashes
     Renew->>Bus: publish GuestTokenRenewed
-    Note right of Bus: External consumer delivers token + PIN (out of scope)
+    Note right of Bus: notifications service mails the new link + PIN to the guest
     Renew->>-Web: 200 OK
 
     alt Guest opens the new link

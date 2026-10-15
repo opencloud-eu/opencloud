@@ -133,6 +133,8 @@ EventLoop:
 					s.handleShareRemoved(e, evt.ID)
 				case ocEvents.GuestTokenCreated:
 					s.handleGuestTokenCreated(e)
+				case ocEvents.GuestTokenRenewed:
+					s.handleGuestTokenRenewed(e)
 				case events.ScienceMeshInviteTokenGenerated:
 					s.handleScienceMeshInviteTokenGenerated(e)
 				case events.SendEmailsEvent:
