@@ -10,6 +10,7 @@ import (
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -25,6 +26,7 @@ import (
 	contentMocks "github.com/opencloud-eu/opencloud/services/search/pkg/content/mocks"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 	engineMocks "github.com/opencloud-eu/opencloud/services/search/pkg/search/mocks"
+	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail"
 )
 
 var _ = Describe("Searchprovider", func() {
@@ -174,6 +176,47 @@ var _ = Describe("Searchprovider", func() {
 			Entry("/.git/config", "/.git/config", true),
 			Entry("./", "./", false),
 			Entry("/", "/", false),
+		)
+
+		DescribeTable("stores the metadata the thumbnail service reads its source dimensions from",
+			func(doc content.Document, wantWidth, wantHeight int32) {
+				info := &sprovider.ResourceInfo{
+					Id:       &sprovider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+					ParentId: &sprovider.ResourceId{StorageId: "storageid", OpaqueId: "parentopaqueid"},
+					Path:     "./file",
+					MimeType: doc.MimeType,
+				}
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
+					Status: status.NewOK(context.Background()),
+					Info:   info,
+				}, nil)
+				gatewayClient.On("GetPath", mock.Anything, mock.Anything).Return(&sprovider.GetPathResponse{
+					Status: status.NewOK(context.Background()),
+					Path:   info.GetPath(),
+				}, nil)
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(doc, nil)
+				indexClient.On("Upsert", mock.Anything, mock.Anything).Return(nil)
+
+				var stored *sprovider.ArbitraryMetadata
+				gatewayClient.On("SetArbitraryMetadata", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+					stored = args.Get(1).(*sprovider.SetArbitraryMetadataRequest).GetArbitraryMetadata()
+				}).Return(&sprovider.SetArbitraryMetadataResponse{Status: status.NewOK(context.Background())}, nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+
+				info.ArbitraryMetadata = stored
+				Expect(thumbnail.HasPreview(info)).To(BeTrue())
+				w, h := thumbnail.SourceDimensions(info)
+				Expect([]int32{w, h}).To(Equal([]int32{wantWidth, wantHeight}))
+			},
+			Entry("audio cover", content.Document{
+				MimeType: "audio/mpeg",
+				Preview:  &content.Preview{Width: 500, Height: 400},
+			}, int32(500), int32(400)),
+			Entry("image", content.Document{
+				MimeType: "image/jpeg",
+				Image:    &libregraph.Image{Width: libregraph.PtrInt32(300), Height: libregraph.PtrInt32(200)},
+			}, int32(300), int32(200)),
 		)
 	})
 

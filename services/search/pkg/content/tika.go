@@ -118,6 +118,8 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		doc.MotionPhoto = t.getMotionPhoto(m0, metas[i+1])
 	}
 
+	doc.Preview = getPreview(ri.GetMimeType(), metas)
+
 	if langCode := t.detectLanguage(ctx, doc.Content); langCode != "" && t.CleanStopWords {
 		doc.Content = CleanString(doc.Content, langCode)
 	}

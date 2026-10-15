@@ -701,6 +701,7 @@ func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, bat
 	facetToMetadata(metadata, doc.Video, "libre.graph.video.")
 	facetToMetadata(metadata, doc.MotionPhoto, "libre.graph.motionPhoto.")
 	facetToMetadata(metadata, doc.LivePhoto, "libre.graph.livePhoto.")
+	facetToMetadata(metadata, doc.Preview, "oc.preview.")
 	if len(metadata) == 0 {
 		return
 	}
