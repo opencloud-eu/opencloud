@@ -79,6 +79,9 @@ func OpenSearchHitToMatch(hit opensearchgoAPI.SearchHit) (*searchMessage.Match, 
 
 				return strings.Join(contentHighlights[:], "; ")
 			}(),
+
+			Preview: copyFacet[searchMessage.Preview](resource.Preview),
+
 			Audio:       copyFacet[searchMessage.Audio](resource.Audio),
 			Image:       copyFacet[searchMessage.Image](resource.Image),
 			Location:    copyFacet[searchMessage.GeoCoordinates](resource.Location),
