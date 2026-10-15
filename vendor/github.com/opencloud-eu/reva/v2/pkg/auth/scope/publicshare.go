@@ -145,7 +145,7 @@ func publicshareScope(ctx context.Context, scope *authpb.Scope, resource interfa
 		// public links must not leak info about collaborative shares
 		return false, nil
 	case string:
-		return checkResourcePath(v) || checkGraphDrivesPath(v, share.Token), nil
+		return checkResourcePath(v) || checkGraphDrivesPath(v, &share), nil
 	}
 
 	msg := "public resource type assertion failed"
@@ -155,20 +155,37 @@ func publicshareScope(ctx context.Context, scope *authpb.Scope, resource interfa
 
 var graphDrivesRoutes = []string{"/graph/v1.0/drives/", "/graph/v1beta1/drives/"}
 
-// checkGraphDrivesPath opens the graph routes of the link's own public drive only.
-func checkGraphDrivesPath(p, token string) bool {
-	if token == "" {
+// checkGraphDrivesPath opens the graph routes of the link's own public drive and
+// the item routes of the space the link points into.
+func checkGraphDrivesPath(p string, share *link.PublicShare) bool {
+	if share.GetToken() == "" {
 		return false
 	}
 	p = path.Clean(p)
-	drive := storagespace.FormatResourceID(&provider.ResourceId{
+	publicDrive := storagespace.FormatResourceID(&provider.ResourceId{
 		StorageId: utils.PublicStorageProviderID,
 		SpaceId:   utils.PublicStorageSpaceID,
-		OpaqueId:  token,
+		OpaqueId:  share.GetToken(),
 	})
+	var targetDrives []string
+	if target := share.GetResourceId(); target.GetSpaceId() != "" {
+		targetDrives = []string{
+			storagespace.FormatStorageID(target.GetStorageId(), target.GetSpaceId()),
+			storagespace.FormatResourceID(&provider.ResourceId{
+				StorageId: target.GetStorageId(),
+				SpaceId:   target.GetSpaceId(),
+				OpaqueId:  target.GetSpaceId(),
+			}),
+		}
+	}
 	for _, route := range graphDrivesRoutes {
-		if p == route+drive || strings.HasPrefix(p, route+drive+"/") {
+		if p == route+publicDrive || strings.HasPrefix(p, route+publicDrive+"/") {
 			return true
+		}
+		for _, drive := range targetDrives {
+			if strings.HasPrefix(p, route+drive+"/items/") {
+				return true
+			}
 		}
 	}
 	return false
