@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @Svanvith, @aduffeck, @dragonchaser, @fschade, @maki5, @micbar, @rhafer, @saw-jan, @v-scharf
+@AlexAndBear, @JammingBen, @Svanvith, @aduffeck, @dragonchaser, @fschade, @maki5, @micbar, @rhafer, @saw-jan, @v-scharf
 
 ### 💥 Breaking changes
 
@@ -12,6 +12,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix: allow guests to list role definitions [[#3729](https://github.com/opencloud-eu/opencloud/pull/3729)]
 - fix: nats checks were missing the configured auth [[#3724](https://github.com/opencloud-eu/opencloud/pull/3724)]
 - fix(collaboration): answer a wopi lock in a read-only session with 200 instead of locking [[#3711](https://github.com/opencloud-eu/opencloud/pull/3711)]
 - fix(collaboration): show the secure view watermark only for view-only tokens [[#3712](https://github.com/opencloud-eu/opencloud/pull/3712)]
