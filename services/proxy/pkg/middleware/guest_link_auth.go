@@ -32,6 +32,7 @@ const (
 var (
 	guestLinkPathPrefixes = []string{
 		"/graph/v1beta1/me/drive/sharedWithMe",
+		"/graph/v1beta1/roleManagement/permissions/roleDefinitions",
 		"/dav/",
 		"/remote.php/dav/",
 		"/webdav/",
