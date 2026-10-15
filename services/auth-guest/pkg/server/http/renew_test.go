@@ -16,6 +16,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest/mocks"
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/jwt"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -41,18 +42,26 @@ func newRenewHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc {
 	return RenewHandler(log.NopLogger(), svc, cfg)
 }
 
-func TestRenewHandlerWithLinkToken(t *testing.T) {
+func TestRenewHandlerWithSessionCookie(t *testing.T) {
 	svcMock := mocks.NewAuthGuest(t)
-	svcMock.On("Renew", mock.Anything, "share-1", "link-token").Return("nonce-value", nil)
+	svcMock.On("Renew", mock.Anything, "share-1", "session-token").Return("nonce-value", nil)
 
-	body, err := json.Marshal(RenewRequest{PermissionID: "share-1", Token: "link-token"})
+	body, err := json.Marshal(RenewRequest{PermissionID: "share-1"})
 	require.NoError(t, err)
 
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
+	req.AddCookie(&http.Cookie{
+		Name:     testCookieName,
+		Value:    "session-token",
+		HttpOnly: true,
+		Secure:   true,
+	})
+
 	rr := httptest.NewRecorder()
-	newRenewHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body))))
+	newRenewHandler(t, svcMock)(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	svcMock.AssertCalled(t, "Renew", mock.Anything, "share-1", "link-token")
+	svcMock.AssertCalled(t, "Renew", mock.Anything, "share-1", "session-token")
 
 	wantName := nonceCookieName(testNonceCookieName, "share-1")
 	var cookie *http.Cookie
@@ -70,18 +79,52 @@ func TestRenewHandlerWithLinkToken(t *testing.T) {
 	assert.Equal(t, "/", cookie.Path)
 }
 
+func TestRenewHandlerWithoutSessionCookie(t *testing.T) {
+	svcMock := mocks.NewAuthGuest(t)
+	svcMock.On("Renew", mock.Anything, "share-1", "").Return("nonce-value", nil)
+
+	body, err := json.Marshal(RenewRequest{PermissionID: "share-1"})
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+	newRenewHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body))))
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	svcMock.AssertCalled(t, "Renew", mock.Anything, "share-1", "")
+}
+
+func TestRenewHandlerSkipsNonceCookieWhenEmpty(t *testing.T) {
+	svcMock := mocks.NewAuthGuest(t)
+	svcMock.On("Renew", mock.Anything, "share-1", "session-token").Return("", nil)
+
+	body, err := json.Marshal(RenewRequest{PermissionID: "share-1"})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
+	req.AddCookie(&http.Cookie{Name: testCookieName, Value: "session-token"})
+
+	rr := httptest.NewRecorder()
+	newRenewHandler(t, svcMock)(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Empty(t, rr.Result().Cookies())
+}
+
 func TestRenewHandlerNonceCookiePerShare(t *testing.T) {
 	svcMock := mocks.NewAuthGuest(t)
-	svcMock.On("Renew", mock.Anything, "share-1", "link-token").Return("nonce-1", nil)
-	svcMock.On("Renew", mock.Anything, "share-2", "link-token").Return("nonce-2", nil)
+	svcMock.On("Renew", mock.Anything, "share-1", "session-token").Return("nonce-1", nil)
+	svcMock.On("Renew", mock.Anything, "share-2", "session-token").Return("nonce-2", nil)
 
 	names := map[string]string{}
 	for _, shareID := range []string{"share-1", "share-2"} {
-		body, err := json.Marshal(RenewRequest{PermissionID: shareID, Token: "link-token"})
+		body, err := json.Marshal(RenewRequest{PermissionID: shareID})
 		require.NoError(t, err)
 
+		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
+		req.AddCookie(&http.Cookie{Name: testCookieName, Value: "session-token"})
+
 		rr := httptest.NewRecorder()
-		newRenewHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body))))
+		newRenewHandler(t, svcMock)(rr, req)
 
 		assert.Equal(t, http.StatusOK, rr.Code)
 
@@ -124,6 +167,13 @@ func TestRenewHandlerErrorMapping(t *testing.T) {
 			wantPermission: "share-1",
 		},
 		{
+			name:           "invalid session",
+			err:            &authguest.GuestError{ErrorType: jwt.ErrInvalidSession, ShareID: "share-1"},
+			wantStatus:     http.StatusUnauthorized,
+			wantType:       "sessionInvalid",
+			wantPermission: "share-1",
+		},
+		{
 			name:           "concurrent update",
 			err:            &authguest.GuestError{ErrorType: storage.ErrConflict, ShareID: "share-1"},
 			wantStatus:     http.StatusConflict,
@@ -147,9 +197,9 @@ func TestRenewHandlerErrorMapping(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svcMock := mocks.NewAuthGuest(t)
-			svcMock.On("Renew", mock.Anything, "share-1", "link-token").Return("", tt.err)
+			svcMock.On("Renew", mock.Anything, "share-1", "").Return("", tt.err)
 
-			body, err := json.Marshal(RenewRequest{PermissionID: "share-1", Token: "link-token"})
+			body, err := json.Marshal(RenewRequest{PermissionID: "share-1"})
 			require.NoError(t, err)
 
 			rr := httptest.NewRecorder()
@@ -181,7 +231,7 @@ func TestRenewHandlerMalformedBody(t *testing.T) {
 func TestRenewHandlerMissingPermissionID(t *testing.T) {
 	svcMock := mocks.NewAuthGuest(t)
 
-	body, err := json.Marshal(RenewRequest{Token: "link-token"})
+	body, err := json.Marshal(RenewRequest{})
 	require.NoError(t, err)
 
 	rr := httptest.NewRecorder()
@@ -192,21 +242,4 @@ func TestRenewHandlerMissingPermissionID(t *testing.T) {
 	var resp errorResponse
 	require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
 	assert.Equal(t, "invalidRequest", resp.ErrorType)
-}
-
-func TestRenewHandlerMissingToken(t *testing.T) {
-	svcMock := mocks.NewAuthGuest(t)
-
-	body, err := json.Marshal(RenewRequest{PermissionID: "share-1"})
-	require.NoError(t, err)
-
-	rr := httptest.NewRecorder()
-	newRenewHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body))))
-
-	assert.Equal(t, http.StatusBadRequest, rr.Code)
-
-	var resp errorResponse
-	require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
-	assert.Equal(t, "invalidRequest", resp.ErrorType)
-	svcMock.AssertNotCalled(t, "Renew", mock.Anything, mock.Anything, mock.Anything)
 }

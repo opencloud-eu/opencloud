@@ -4,10 +4,14 @@
 package jwt
 
 import (
+	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
+
+// ErrInvalidSession is returned when a session token cannot be verified.
+var ErrInvalidSession = errors.New("invalid session")
 
 type jwtClaims struct {
 	ShareID string `json:"permissionId"`
@@ -38,4 +42,18 @@ func (m *JwtService) Sign(shareID string) (string, time.Time, error) {
 		return "", time.Time{}, err
 	}
 	return signed, claims.ExpiresAt.Time, nil
+}
+
+// Verify returns the share id of a session token, ignoring its expiry so an
+// expired session can still be used to renew the guest link.
+func (m *JwtService) Verify(tokenString string) (string, error) {
+	claims := &jwtClaims{}
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(*jwt.Token) (any, error) {
+		return m.secret, nil
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithoutClaimsValidation())
+	if err != nil || !token.Valid || claims.ShareID == "" {
+		return "", ErrInvalidSession
+	}
+
+	return claims.ShareID, nil
 }

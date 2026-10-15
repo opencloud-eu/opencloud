@@ -42,7 +42,7 @@ type SessionResponse struct {
 type AuthGuest interface {
 	CreateToken(ctx context.Context, shareID string) (*token.Token, error)
 	VerifyToken(ctx context.Context, tokenString string) (*SessionResponse, error)
-	Renew(ctx context.Context, shareID, tokenString string) (string, error)
+	Renew(ctx context.Context, shareID, sessionToken string) (string, error)
 	VerifyPin(ctx context.Context, shareID, pinValue, nonce string) (*SessionResponse, error)
 	CleanupShare(shareID string) error
 }
@@ -139,15 +139,11 @@ func (s *AuthGuestService) VerifyToken(ctx context.Context, tokenString string) 
 }
 
 // Renew generates a new guest link token, PIN and nonce for shareID,
-// authorized by the previous link token.
+// authorized by a (possibly expired) session token.
 // The returned nonce binds the PIN to the requesting browser.
-func (s *AuthGuestService) Renew(ctx context.Context, shareID, tokenString string) (string, error) {
+func (s *AuthGuestService) Renew(ctx context.Context, shareID, sessionToken string) (string, error) {
 	if s.publisher == nil {
 		return "", ErrEventsNotConfigured
-	}
-
-	if err := s.verifyRenewToken(shareID, tokenString); err != nil {
-		return "", err
 	}
 
 	hash := token.Hash(shareID)
@@ -158,9 +154,17 @@ func (s *AuthGuestService) Renew(ctx context.Context, shareID, tokenString strin
 		return "", &GuestError{ErrorType: err, ShareID: shareID}
 	}
 
-	// Reject an active cooldown before doing the (remote) share validation.
-	if wait := s.guards.quotaLimiter.RetryAfter(&current.QuotaLimiterState, now); wait > 0 {
-		return "", &GuestError{ErrorType: ErrTooManyAttempts, ShareID: shareID, RetryAfter: wait}
+	validSession := false
+	if sessionToken != "" {
+		sessionShareID, err := s.jwtService.Verify(sessionToken)
+		validSession = err == nil && sessionShareID == shareID
+	}
+
+	if !validSession {
+		// Reject an active cooldown before doing the (remote) share validation.
+		if wait := s.guards.quotaLimiter.RetryAfter(&current.QuotaLimiterState, now); wait > 0 {
+			return "", &GuestError{ErrorType: ErrTooManyAttempts, ShareID: shareID, RetryAfter: wait}
+		}
 	}
 
 	share, err := s.validateShare(ctx, shareID)
@@ -183,7 +187,7 @@ func (s *AuthGuestService) Renew(ctx context.Context, shareID, tokenString strin
 		return "", err
 	}
 
-	nonce, seen, updated, err := s.rotateGuestToken(hash, tok, pinHash, now)
+	nonce, seen, updated, err := s.rotateGuestToken(hash, tok, pinHash, now, validSession)
 	if err != nil {
 		var ge *GuestError
 		if !errors.As(err, &ge) {
@@ -192,15 +196,20 @@ func (s *AuthGuestService) Renew(ctx context.Context, shareID, tokenString strin
 		return "", ge
 	}
 
-	if err := revaevents.Publish(ctx, s.publisher, events.GuestTokenRenewed{
+	ev := events.GuestTokenRenewed{
 		ShareID:      share.GetId(),
 		Sharer:       share.GetCreator(),
 		GranteeEmail: share.GetGrantee().GetUserId().GetOpaqueId(),
 		ItemID:       share.GetResourceId(),
 		Token:        tok.String(),
-		Pin:          pinStr,
 		Timestamp:    now,
-	}); err != nil {
+	}
+
+	if !validSession {
+		ev.Pin = pinStr
+	}
+
+	if err := revaevents.Publish(ctx, s.publisher, ev); err != nil {
 		if _, rbErr := s.store.UpdateFrom(updated, func(rec *storage.Record) error {
 			*rec = seen
 			return nil
@@ -272,7 +281,7 @@ func (s *AuthGuestService) CleanupShare(shareID string) error {
 // and re-applies the rotation, up to renewMaxAttempts. It returns the issued
 // nonce, the record state seen before the successful update (for rollback) and
 // the updated record.
-func (s *AuthGuestService) rotateGuestToken(hash string, tok *token.Token, pinHash string, now time.Time) (string, storage.Record, storage.Record, error) {
+func (s *AuthGuestService) rotateGuestToken(hash string, tok *token.Token, pinHash string, now time.Time, sessionValid bool) (string, storage.Record, storage.Record, error) {
 	var nonce string
 	for attempt := 1; ; attempt++ {
 		rec, err := s.store.Get(hash)
@@ -281,22 +290,26 @@ func (s *AuthGuestService) rotateGuestToken(hash string, tok *token.Token, pinHa
 		}
 
 		updated, err := s.store.UpdateFrom(*rec, func(record *storage.Record) error {
-			if wait := s.guards.quotaLimiter.RetryAfter(&record.QuotaLimiterState, now); wait > 0 {
-				return &GuestError{ErrorType: ErrTooManyAttempts, ShareID: record.ShareID, RetryAfter: wait}
-			}
+			if !sessionValid {
+				if wait := s.guards.quotaLimiter.RetryAfter(&record.QuotaLimiterState, now); wait > 0 {
+					return &GuestError{ErrorType: ErrTooManyAttempts, ShareID: record.ShareID, RetryAfter: wait}
+				}
 
-			n, err := s.guards.nonce.Issue(&record.NonceState, now)
-			if err != nil {
-				return err
+				n, err := s.guards.nonce.Issue(&record.NonceState, now)
+				if err != nil {
+					return err
+				}
+				nonce = n
+				record.BackoffLimiterState = guard.BackoffLimiterState{}
+				s.guards.quotaLimiter.Record(&record.QuotaLimiterState, now)
+
+				record.PinHash = pinHash
+				record.PinExpiry = now.Add(s.pinAndNonceTTL)
 			}
-			nonce = n
-			record.BackoffLimiterState = guard.BackoffLimiterState{}
-			s.guards.quotaLimiter.Record(&record.QuotaLimiterState, now)
 
 			record.SecretHash = tok.SecretHash()
-			record.PinHash = pinHash
 			record.Expiry = now.Add(guestLinkTokenTTL)
-			record.PinExpiry = now.Add(s.pinAndNonceTTL)
+
 			record.Redeemed = false
 			return nil
 		})
@@ -374,30 +387,6 @@ func (s *AuthGuestService) verifyPinAttempt(rec *storage.Record, pinValue, nonce
 	s.guards.nonce.Clear(&rec.NonceState)
 	s.guards.backoffLimiter.Reset(&rec.BackoffLimiterState)
 	return match, nil
-}
-
-// verifyRenewToken checks that the link token belongs to shareID and matches
-// the stored record, ignoring its expiry and redeemed state.
-func (s *AuthGuestService) verifyRenewToken(shareID, tokenString string) error {
-	tok, err := s.tokenSvc.Parse(tokenString)
-	if err != nil {
-		return &GuestError{ErrorType: err, ShareID: shareID}
-	}
-
-	if tok.ShareIDHash != token.Hash(shareID) {
-		return &GuestError{ErrorType: ErrPermissionMismatch, ShareID: shareID}
-	}
-
-	rec, err := s.store.Get(tok.ShareIDHash)
-	if err != nil {
-		return &GuestError{ErrorType: err, ShareID: shareID}
-	}
-
-	if err := s.tokenSvc.Verify(*tok, rec.SecretHash); err != nil {
-		return &GuestError{ErrorType: err, ShareID: shareID}
-	}
-
-	return nil
 }
 
 // VerifyToken validates a token and returns its stored record.

@@ -135,22 +135,6 @@ func newToken(t *testing.T) (string, storage.Record) {
 	return tok.String(), rec
 }
 
-func newTokenFor(t *testing.T, shareID string) (string, storage.Record) {
-	t.Helper()
-	ts := token.NewTokenService()
-	tok, err := ts.Generate(shareID)
-	require.NoError(t, err)
-
-	rec := storage.Record{
-		ShareID:     shareID,
-		ShareIDHash: tok.ShareIDHash,
-		SecretHash:  tok.SecretHash(),
-		Expiry:      time.Date(2026, 12, 31, 23, 59, 59, 0, time.UTC),
-	}
-
-	return tok.String(), rec
-}
-
 func newShareService(t *testing.T, gwc *cs3mocks.GatewayAPIClient) *AuthGuestService {
 	t.Helper()
 	return NewAuthGuestService(
@@ -448,7 +432,7 @@ func validShareResponse() *collaboration.GetShareResponse {
 
 func TestRenewPersistsRecordAndPublishesEvent(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	tok, rec := newToken(t)
+	_, rec := newToken(t)
 	require.NoError(t, store.Add(rec))
 
 	publisher := &testPublisher{}
@@ -459,7 +443,7 @@ func TestRenewPersistsRecordAndPublishesEvent(t *testing.T) {
 
 	s := newRenewService(t, store, gwc, publisher)
 
-	nonce, err := s.Renew(context.Background(), testShareID, tok)
+	nonce, err := s.Renew(context.Background(), testShareID, "")
 	require.NoError(t, err)
 
 	replaced, err := store.Get(token.Hash(testShareID))
@@ -493,9 +477,86 @@ func TestRenewPersistsRecordAndPublishesEvent(t *testing.T) {
 	assert.True(t, pinOK)
 }
 
-func TestRenewLinkTokenIgnoresRedeemedAndExpiry(t *testing.T) {
+func TestRenewWithExpiredSessionToken(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	tok, rec := newToken(t)
+	require.NoError(t, store.Add(existingRecord()))
+
+	// Signed with the same secret the service uses, but already expired.
+	sessionToken, err := jwt.NewJwtService("test-secret", -time.Hour).Sign(testShareID)
+	require.NoError(t, err)
+
+	publisher := &testPublisher{}
+	s := newRenewService(t, store, newGatewayMock(validShareResponse()), publisher)
+
+	nonce, err := s.Renew(context.Background(), testShareID, sessionToken)
+	require.NoError(t, err)
+	assert.Empty(t, nonce)
+
+	got, err := store.Get(token.Hash(testShareID))
+	require.NoError(t, err)
+	assert.NotEmpty(t, got.SecretHash)
+	assert.Empty(t, got.PinHash)
+	assert.True(t, got.PinExpiry.IsZero())
+	assert.Zero(t, got.QuotaLimiterState.Count)
+	assert.False(t, got.Redeemed)
+
+	require.Len(t, publisher.published, 1)
+	ev, ok := publisher.published[0].(ocEvents.GuestTokenRenewed)
+	require.True(t, ok)
+	assert.Empty(t, ev.Pin)
+}
+
+func TestRenewValidSessionBypassesCooldown(t *testing.T) {
+	store := storage.NewFileManager(t.TempDir())
+	rec := existingRecord()
+	rec.QuotaLimiterState = guard.QuotaLimiterState{
+		Count:       1,
+		NotBefore:   time.Now().Add(time.Minute),
+		WindowStart: time.Now(),
+	}
+	require.NoError(t, store.Add(rec))
+
+	sessionToken, err := jwt.NewJwtService("test-secret", time.Hour).Sign(testShareID)
+	require.NoError(t, err)
+
+	gwc := newGatewayMock(validShareResponse())
+	s := newRenewServiceWithLimiter(t, store, gwc, &testPublisher{}, config.QuotaLimiter{
+		Cooldown: time.Minute,
+		Window:   24 * time.Hour,
+		DailyCap: 20,
+	})
+
+	nonce, err := s.Renew(context.Background(), testShareID, sessionToken)
+	require.NoError(t, err)
+	assert.Empty(t, nonce)
+	gwc.AssertCalled(t, "GetShare", mock.Anything, mock.Anything)
+}
+
+func TestRenewInvalidSessionFallsBackToPin(t *testing.T) {
+	store := storage.NewFileManager(t.TempDir())
+	_, rec := newToken(t)
+	require.NoError(t, store.Add(rec))
+
+	publisher := &testPublisher{}
+	s := newRenewService(t, store, newGatewayMock(validShareResponse()), publisher)
+
+	nonce, err := s.Renew(context.Background(), testShareID, "not-a-session")
+	require.NoError(t, err)
+	assert.NotEmpty(t, nonce)
+
+	got, err := store.Get(token.Hash(testShareID))
+	require.NoError(t, err)
+	assert.NotEmpty(t, got.PinHash)
+
+	require.Len(t, publisher.published, 1)
+	ev, ok := publisher.published[0].(ocEvents.GuestTokenRenewed)
+	require.True(t, ok)
+	assert.NotEmpty(t, ev.Pin)
+}
+
+func TestRenewIgnoresRedeemedAndExpiry(t *testing.T) {
+	store := storage.NewFileManager(t.TempDir())
+	_, rec := newToken(t)
 	rec.Redeemed = true
 	rec.Expiry = time.Now().Add(-time.Hour)
 	require.NoError(t, store.Add(rec))
@@ -505,7 +566,7 @@ func TestRenewLinkTokenIgnoresRedeemedAndExpiry(t *testing.T) {
 		Share:  newGuestShare(time.Now().Add(time.Hour)),
 	}), &testPublisher{})
 
-	_, err := s.Renew(context.Background(), testShareID, tok)
+	_, err := s.Renew(context.Background(), testShareID, "")
 	require.NoError(t, err)
 }
 
@@ -526,7 +587,7 @@ func (s *conflictOnceStore) UpdateFrom(seen storage.Record, fn func(*storage.Rec
 
 func TestRenewRetriesOnConflict(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	tok, rec := newToken(t)
+	_, rec := newToken(t)
 	require.NoError(t, store.Add(rec))
 
 	publisher := &testPublisher{}
@@ -534,7 +595,7 @@ func TestRenewRetriesOnConflict(t *testing.T) {
 	flaky := &conflictOnceStore{Manager: store}
 	s := newRenewService(t, flaky, gwc, publisher)
 
-	nonce, err := s.Renew(context.Background(), testShareID, tok)
+	nonce, err := s.Renew(context.Background(), testShareID, "")
 	require.NoError(t, err)
 	assert.NotEmpty(t, nonce)
 	assert.Equal(t, 2, flaky.updates)
@@ -549,37 +610,8 @@ func TestRenewRetriesOnConflict(t *testing.T) {
 	gwc.AssertNumberOfCalls(t, "GetShare", 1)
 }
 
-func TestRenewInvalidCredentials(t *testing.T) {
-	store := storage.NewFileManager(t.TempDir())
-	s := newRenewService(t, store, newGatewayMock(&collaboration.GetShareResponse{}), &testPublisher{})
-
-	otherToken, _ := newTokenFor(t, "other-share")
-
-	tests := []struct {
-		name    string
-		shareID string
-		token   string
-		wantErr error
-	}{
-		{name: "empty token", shareID: testShareID, wantErr: token.ErrInvalidToken},
-		{name: "invalid token", shareID: testShareID, token: "garbage", wantErr: token.ErrInvalidToken},
-		{name: "token for another share", shareID: testShareID, token: otherToken, wantErr: ErrPermissionMismatch},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := s.Renew(context.Background(), tt.shareID, tt.token)
-
-			var ge *GuestError
-			require.ErrorAs(t, err, &ge)
-			assert.ErrorIs(t, ge.ErrorType, tt.wantErr)
-		})
-	}
-}
-
 func TestRenewRecordNotFound(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	tok, _ := newToken(t)
 
 	publisher := &testPublisher{}
 	s := newRenewService(t, store, newGatewayMock(&collaboration.GetShareResponse{
@@ -587,7 +619,7 @@ func TestRenewRecordNotFound(t *testing.T) {
 		Share:  newGuestShare(time.Now().Add(time.Hour)),
 	}), publisher)
 
-	_, err := s.Renew(context.Background(), testShareID, tok)
+	_, err := s.Renew(context.Background(), testShareID, "")
 	require.Error(t, err)
 
 	var ge *GuestError
@@ -604,7 +636,7 @@ func TestRenewWithoutPublisher(t *testing.T) {
 
 	s := newRenewService(t, store, newGatewayMock(&collaboration.GetShareResponse{}), nil)
 
-	_, err := s.Renew(context.Background(), testShareID, "irrelevant")
+	_, err := s.Renew(context.Background(), testShareID, "")
 	require.ErrorIs(t, err, ErrEventsNotConfigured)
 
 	got, err := store.Get(token.Hash(testShareID))
@@ -615,7 +647,7 @@ func TestRenewWithoutPublisher(t *testing.T) {
 
 func TestRenewRollsBackOnPublishFailure(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	tok, rec := newToken(t)
+	_, rec := newToken(t)
 	require.NoError(t, store.Add(rec))
 
 	publisher := &testPublisher{err: errors.New("publish failed")}
@@ -626,7 +658,7 @@ func TestRenewRollsBackOnPublishFailure(t *testing.T) {
 
 	s := newRenewService(t, store, gwc, publisher)
 
-	_, err := s.Renew(context.Background(), testShareID, tok)
+	_, err := s.Renew(context.Background(), testShareID, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "publish failed")
 
@@ -640,7 +672,7 @@ func TestRenewRollsBackOnPublishFailure(t *testing.T) {
 
 func TestRenewRollbackConflictKeepsConcurrentChange(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	tok, rec := newToken(t)
+	_, rec := newToken(t)
 	require.NoError(t, store.Add(rec))
 
 	publisher := &mutatingPublisher{testPublisher: testPublisher{err: errors.New("publish failed")}}
@@ -656,7 +688,7 @@ func TestRenewRollbackConflictKeepsConcurrentChange(t *testing.T) {
 		Share:  newGuestShare(time.Now().Add(time.Hour)),
 	}), publisher)
 
-	_, err := s.Renew(context.Background(), testShareID, tok)
+	_, err := s.Renew(context.Background(), testShareID, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "publish failed")
 	assert.Contains(t, err.Error(), "rollback failed")
@@ -668,14 +700,14 @@ func TestRenewRollbackConflictKeepsConcurrentChange(t *testing.T) {
 
 func TestRenewShareNotFound(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	tok, rec := newToken(t)
+	_, rec := newToken(t)
 	require.NoError(t, store.Add(rec))
 
 	s := newRenewService(t, store, newGatewayMock(&collaboration.GetShareResponse{
 		Status: &rpc.Status{Code: rpc.Code_CODE_NOT_FOUND},
 	}), &testPublisher{})
 
-	_, err := s.Renew(context.Background(), testShareID, tok)
+	_, err := s.Renew(context.Background(), testShareID, "")
 	require.Error(t, err)
 
 	var ge *GuestError
@@ -686,7 +718,7 @@ func TestRenewShareNotFound(t *testing.T) {
 
 func TestRenewShareExpired(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	tok, rec := newToken(t)
+	_, rec := newToken(t)
 	require.NoError(t, store.Add(rec))
 
 	s := newRenewService(t, store, newGatewayMock(&collaboration.GetShareResponse{
@@ -694,7 +726,7 @@ func TestRenewShareExpired(t *testing.T) {
 		Share:  newGuestShare(time.Now().Add(-time.Hour)),
 	}), &testPublisher{})
 
-	_, err := s.Renew(context.Background(), testShareID, tok)
+	_, err := s.Renew(context.Background(), testShareID, "")
 	require.Error(t, err)
 
 	var ge *GuestError
@@ -705,7 +737,7 @@ func TestRenewShareExpired(t *testing.T) {
 
 func TestRenewRecordsCooldown(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	tok, rec := newToken(t)
+	_, rec := newToken(t)
 	require.NoError(t, store.Add(rec))
 
 	s := newRenewServiceWithLimiter(t, store, newGatewayMock(validShareResponse()), &testPublisher{}, config.QuotaLimiter{
@@ -714,7 +746,7 @@ func TestRenewRecordsCooldown(t *testing.T) {
 		DailyCap: 20,
 	})
 
-	_, err := s.Renew(context.Background(), testShareID, tok)
+	_, err := s.Renew(context.Background(), testShareID, "")
 	require.NoError(t, err)
 
 	got, err := store.Get(token.Hash(testShareID))
@@ -726,7 +758,7 @@ func TestRenewRecordsCooldown(t *testing.T) {
 
 func TestRenewBlockedDuringCooldown(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	tok, rec := newToken(t)
+	_, rec := newToken(t)
 	rec.QuotaLimiterState = guard.QuotaLimiterState{
 		Count:       1,
 		NotBefore:   time.Now().Add(time.Minute),
@@ -741,7 +773,7 @@ func TestRenewBlockedDuringCooldown(t *testing.T) {
 		DailyCap: 20,
 	})
 
-	_, err := s.Renew(context.Background(), testShareID, tok)
+	_, err := s.Renew(context.Background(), testShareID, "")
 	require.Error(t, err)
 
 	var ge *GuestError
@@ -754,7 +786,7 @@ func TestRenewBlockedDuringCooldown(t *testing.T) {
 
 func TestRenewDailyCap(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	tok, rec := newToken(t)
+	_, rec := newToken(t)
 	rec.QuotaLimiterState = guard.QuotaLimiterState{
 		Count:       20,
 		NotBefore:   time.Now().Add(time.Minute),
@@ -769,7 +801,7 @@ func TestRenewDailyCap(t *testing.T) {
 		DailyCap: 20,
 	})
 
-	_, err := s.Renew(context.Background(), testShareID, tok)
+	_, err := s.Renew(context.Background(), testShareID, "")
 	require.Error(t, err)
 
 	var ge *GuestError
@@ -799,7 +831,7 @@ func TestRotateGuestTokenBlockedReturnsRetryAfter(t *testing.T) {
 	tok, err := s.tokenSvc.Parse(tokStr)
 	require.NoError(t, err)
 
-	_, _, _, err = s.rotateGuestToken(token.Hash(testShareID), tok, "pin-hash", time.Now())
+	_, _, _, err = s.rotateGuestToken(token.Hash(testShareID), tok, "pin-hash", time.Now(), false)
 	require.Error(t, err)
 
 	var ge *GuestError
@@ -1136,13 +1168,13 @@ func TestVerifyPinInvalidatedAfterMaxAttempts(t *testing.T) {
 
 func TestRenewResetsPinAttempts(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	tok, rec := newToken(t)
+	_, rec := newToken(t)
 	rec.BackoffLimiterState = guard.BackoffLimiterState{Count: 3, NotBefore: time.Now().Add(time.Minute)}
 	require.NoError(t, store.Add(rec))
 
 	s := newRenewService(t, store, newGatewayMock(validShareResponse()), &testPublisher{})
 
-	_, err := s.Renew(context.Background(), testShareID, tok)
+	_, err := s.Renew(context.Background(), testShareID, "")
 	require.NoError(t, err)
 
 	got, err := store.Get(token.Hash(testShareID))

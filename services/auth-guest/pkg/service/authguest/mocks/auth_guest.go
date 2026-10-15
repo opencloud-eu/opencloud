@@ -159,8 +159,8 @@ func (_c *AuthGuest_CreateToken_Call) RunAndReturn(run func(ctx context.Context,
 }
 
 // Renew provides a mock function for the type AuthGuest
-func (_mock *AuthGuest) Renew(ctx context.Context, shareID string, tokenString string) (string, error) {
-	ret := _mock.Called(ctx, shareID, tokenString)
+func (_mock *AuthGuest) Renew(ctx context.Context, shareID string, sessionToken string) (string, error) {
+	ret := _mock.Called(ctx, shareID, sessionToken)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Renew")
@@ -169,15 +169,15 @@ func (_mock *AuthGuest) Renew(ctx context.Context, shareID string, tokenString s
 	var r0 string
 	var r1 error
 	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (string, error)); ok {
-		return returnFunc(ctx, shareID, tokenString)
+		return returnFunc(ctx, shareID, sessionToken)
 	}
 	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) string); ok {
-		r0 = returnFunc(ctx, shareID, tokenString)
+		r0 = returnFunc(ctx, shareID, sessionToken)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
-		r1 = returnFunc(ctx, shareID, tokenString)
+		r1 = returnFunc(ctx, shareID, sessionToken)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -192,12 +192,12 @@ type AuthGuest_Renew_Call struct {
 // Renew is a helper method to define mock.On call
 //   - ctx context.Context
 //   - shareID string
-//   - tokenString string
-func (_e *AuthGuest_Expecter) Renew(ctx any, shareID any, tokenString any) *AuthGuest_Renew_Call {
-	return &AuthGuest_Renew_Call{Call: _e.mock.On("Renew", ctx, shareID, tokenString)}
+//   - sessionToken string
+func (_e *AuthGuest_Expecter) Renew(ctx any, shareID any, sessionToken any) *AuthGuest_Renew_Call {
+	return &AuthGuest_Renew_Call{Call: _e.mock.On("Renew", ctx, shareID, sessionToken)}
 }
 
-func (_c *AuthGuest_Renew_Call) Run(run func(ctx context.Context, shareID string, tokenString string)) *AuthGuest_Renew_Call {
+func (_c *AuthGuest_Renew_Call) Run(run func(ctx context.Context, shareID string, sessionToken string)) *AuthGuest_Renew_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -225,7 +225,7 @@ func (_c *AuthGuest_Renew_Call) Return(s string, err error) *AuthGuest_Renew_Cal
 	return _c
 }
 
-func (_c *AuthGuest_Renew_Call) RunAndReturn(run func(ctx context.Context, shareID string, tokenString string) (string, error)) *AuthGuest_Renew_Call {
+func (_c *AuthGuest_Renew_Call) RunAndReturn(run func(ctx context.Context, shareID string, sessionToken string) (string, error)) *AuthGuest_Renew_Call {
 	_c.Call.Return(run)
 	return _c
 }
