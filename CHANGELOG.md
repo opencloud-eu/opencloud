@@ -1,14 +1,21 @@
 # Changelog
 
-## [9.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.0) - 2026-10-14
+## [9.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.0) - 2026-10-15
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @Svanvith, @aduffeck, @fschade, @maki5, @micbar, @rhafer, @saw-jan, @v-scharf
+@AlexAndBear, @Svanvith, @aduffeck, @dragonchaser, @fschade, @maki5, @micbar, @rhafer, @saw-jan, @v-scharf
 
 ### 💥 Breaking changes
 
 - feat(guestlinks)!: auth-guest service [[#3609](https://github.com/opencloud-eu/opencloud/pull/3609)]
+
+### 🐛 Bug Fixes
+
+- fix: nats checks were missing the configured auth [[#3724](https://github.com/opencloud-eu/opencloud/pull/3724)]
+- fix(collaboration): answer a wopi lock in a read-only session with 200 instead of locking [[#3711](https://github.com/opencloud-eu/opencloud/pull/3711)]
+- fix(collaboration): show the secure view watermark only for view-only tokens [[#3712](https://github.com/opencloud-eu/opencloud/pull/3712)]
+- fix: add restart command output [[#3706](https://github.com/opencloud-eu/opencloud/pull/3706)]
 
 ### ✅ Tests
 
@@ -17,12 +24,6 @@
 - test(api): simply HTTP request retry conditions [[#3696](https://github.com/opencloud-eu/opencloud/pull/3696)]
 - test: retry acceptance requests while share manager is migrating [[#3681](https://github.com/opencloud-eu/opencloud/pull/3681)]
 - api-test: extend search tests [[#3634](https://github.com/opencloud-eu/opencloud/pull/3634)]
-
-### 🐛 Bug Fixes
-
-- fix(collaboration): answer a wopi lock in a read-only session with 200 instead of locking [[#3711](https://github.com/opencloud-eu/opencloud/pull/3711)]
-- fix(collaboration): show the secure view watermark only for view-only tokens [[#3712](https://github.com/opencloud-eu/opencloud/pull/3712)]
-- fix: add restart command output [[#3706](https://github.com/opencloud-eu/opencloud/pull/3706)]
 
 ### 📚 Documentation
 
@@ -37,6 +38,7 @@
 
 ### 📦️ Dependencies
 
+- chore: bump reva to latest main [[#3720](https://github.com/opencloud-eu/opencloud/pull/3720)]
 - chore: bump reva to latest main [[#3713](https://github.com/opencloud-eu/opencloud/pull/3713)]
 - chore: bump reva to latest main [[#3700](https://github.com/opencloud-eu/opencloud/pull/3700)]
 - chore: bump reva to latest main [[#3685](https://github.com/opencloud-eu/opencloud/pull/3685)]
