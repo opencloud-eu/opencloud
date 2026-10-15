@@ -161,7 +161,7 @@ Feature: listing the content of a public link via the Graph API
                   "required": ["path", "driveId"],
                   "properties": {
                     "path": { "const": "/" },
-                    "driveId": { "pattern": "^7993447f-687f-490d-875c-ac95e89a62a4\\$7993447f-687f-490d-875c-ac95e89a62a4!" }
+                    "driveId": { "not": { "pattern": "^7993447f-687f-490d-875c-ac95e89a62a4" } }
                   }
                 }
               }
@@ -281,9 +281,68 @@ Feature: listing the content of a public link via the Graph API
     Then the HTTP status code should be "401"
 
 
-  Scenario: an in-share item is not addressable through its real drive id
-    When the public tries to get the child "sub" of the last created public link through its real drive id with password "%public%" using the Graph API
+  Scenario: an in-share item is addressable through its real drive id
+    When the public gets the child "sub" of the last created public link through its real drive id with password "%public%" using the Graph API
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "const": "sub" }
+        }
+      }
+      """
+
+
+  Scenario: the public lists a subfolder through the real drive
+    When the public lists the children of resource "publicfolder/sub" of user "Alice" through the real drive of the last created public link with password "%public%" using the Graph API
+    Then the HTTP status code should be "200"
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": ["value"],
+        "properties": {
+          "value": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "required": ["name", "parentReference"],
+              "properties": {
+                "name": { "const": "b.txt" },
+                "parentReference": {
+                  "type": "object",
+                  "required": ["path"],
+                  "properties": {
+                    "path": { "const": "/sub" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      """
+
+
+  Scenario: the real drive itself stays closed to a public token
+    When the public tries to get the drive of resource "publicfolder" of user "Alice" through the last created public link with password "%public%" using the Graph API
     Then the HTTP status code should be "401"
+
+
+  Scenario: the root of the real drive stays closed to a public token
+    When the public tries to get the path "private.txt" from the real drive root of resource "publicfolder" of user "Alice" through the last created public link with password "%public%" using the Graph API
+    Then the HTTP status code should be "401"
+
+
+  Scenario: a resource outside the public link is not readable through the real drive
+    When the public tries to get the resource "private.txt" of user "Alice" through the real drive of the last created public link with password "%public%" using the Graph API
+    Then the HTTP status code should be "404"
 
 
   Scenario: a token does not open another link's drive
@@ -416,6 +475,16 @@ Feature: listing the content of a public link via the Graph API
     Then the HTTP status code should be "200"
 
 
+  Scenario: a file drop link does not list its folder through the real drive
+    Given user "Alice" has created the following resource link share:
+      | resource        | publicfolder |
+      | space           | Personal     |
+      | permissionsRole | createOnly   |
+      | password        | %public%     |
+    When the public lists the children of resource "publicfolder" of user "Alice" through the real drive of the last created public link with password "%public%" using the Graph API
+    Then the HTTP status code should be "403"
+
+
   Scenario: an internal link does not list its folder through the real id
     Given user "Alice" has created the following resource link share:
       | resource        | publicfolder |
@@ -493,9 +562,29 @@ Feature: listing the content of a public link via the Graph API
       """
       {
         "type": "object",
-        "required": ["driveType", "owner"],
+        "required": ["driveType", "owner", "root"],
         "properties": {
           "driveType": { "const": "mountpoint" },
+          "root": {
+            "type": "object",
+            "required": ["remoteItem"],
+            "properties": {
+              "remoteItem": {
+                "type": "object",
+                "required": ["id", "name"],
+                "properties": {
+                  "name": { "const": "publicfolder" }
+                },
+                "not": {
+                  "anyOf": [
+                    { "required": ["path"] },
+                    { "required": ["driveAlias"] },
+                    { "required": ["size"] }
+                  ]
+                }
+              }
+            }
+          },
           "owner": {
             "type": "object",
             "required": ["user"],

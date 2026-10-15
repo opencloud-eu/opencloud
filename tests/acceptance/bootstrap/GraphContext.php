@@ -3763,7 +3763,7 @@ class GraphContext implements Context {
 	 *
 	 * @return void
 	 */
-	#[When('the public tries to get the child :child of the last created public link through its real drive id with password :password using the Graph API')]
+	#[When('the public gets the child :child of the last created public link through its real drive id with password :password using the Graph API')]
 	public function thePublicTriesToGetTheChildThroughItsRealDriveId(string $child, ?string $password = null): void {
 		$childId = $this->publicLinkChildId($child, $password);
 		$realDriveId = \explode("!", $childId)[0];
@@ -3936,5 +3936,74 @@ class GraphContext implements Context {
 		string $password
 	): void {
 		$this->publicSendsGraphDriveRequest("/root:/$path:", $password);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $path
+	 *
+	 * @return array [real drive id, resource id]
+	 */
+	private function realDriveOfResource(string $user, string $path): array {
+		$resourceId = $this->featureContext->getFileIdForPath($this->featureContext->getActualUsername($user), $path);
+		return [\explode("!", $resourceId)[0], $resourceId];
+	}
+
+	/**
+	 * @param string $path
+	 * @param string $user
+	 * @param string $password
+	 *
+	 * @return void
+	 */
+	#[When('the public lists the children of resource :path of user :user through the real drive of the last created public link with password :password using the Graph API')]
+	public function thePublicListsTheChildrenOfResourceThroughTheRealDrive(string $path, string $user, string $password): void {
+		[$driveId, $resourceId] = $this->realDriveOfResource($user, $path);
+		$this->publicSendsRawGraphRequest("/drives/$driveId/items/$resourceId/children", $password);
+	}
+
+	/**
+	 * @param string $path
+	 * @param string $user
+	 * @param string $password
+	 *
+	 * @return void
+	 */
+	#[When('the public tries to get the resource :path of user :user through the real drive of the last created public link with password :password using the Graph API')]
+	public function thePublicTriesToGetTheResourceThroughTheRealDrive(string $path, string $user, string $password): void {
+		[$driveId, $resourceId] = $this->realDriveOfResource($user, $path);
+		$this->publicSendsRawGraphRequest("/drives/$driveId/items/$resourceId", $password);
+	}
+
+	/**
+	 * @param string $path
+	 * @param string $user
+	 * @param string $password
+	 *
+	 * @return void
+	 */
+	#[When('the public tries to get the drive of resource :path of user :user through the last created public link with password :password using the Graph API')]
+	public function thePublicTriesToGetTheDriveOfResource(string $path, string $user, string $password): void {
+		[$driveId] = $this->realDriveOfResource($user, $path);
+		$this->publicSendsRawGraphRequest("/drives/$driveId", $password);
+	}
+
+	/**
+	 * @param string $relativePath
+	 * @param string $path
+	 * @param string $user
+	 * @param string $password
+	 *
+	 * @return void
+	 */
+	#[When('the public tries to get the path :relativePath from the real drive root of resource :path of user :user through the last created public link with password :password using the Graph API')]
+	public function thePublicTriesToGetThePathFromTheRealDriveRoot(
+		string $relativePath,
+		string $path,
+		string $user,
+		string $password
+	): void {
+		[$driveId] = $this->realDriveOfResource($user, $path);
+		$this->publicSendsRawGraphRequest("/drives/$driveId/root:/$relativePath:", $password);
 	}
 }
