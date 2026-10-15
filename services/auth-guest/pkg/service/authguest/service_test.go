@@ -430,6 +430,13 @@ func validShareResponse() *collaboration.GetShareResponse {
 	}
 }
 
+func validSessionToken(t *testing.T) string {
+	t.Helper()
+	tok, err := jwt.NewJwtService("test-secret", time.Hour).Sign(testShareID)
+	require.NoError(t, err)
+	return tok
+}
+
 func TestRenewPersistsRecordAndPublishesEvent(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
 	_, rec := newToken(t)
@@ -443,7 +450,7 @@ func TestRenewPersistsRecordAndPublishesEvent(t *testing.T) {
 
 	s := newRenewService(t, store, gwc, publisher)
 
-	nonce, err := s.Renew(context.Background(), testShareID, "")
+	nonce, err := s.Renew(context.Background(), testShareID, validSessionToken(t))
 	require.NoError(t, err)
 
 	replaced, err := store.Get(token.Hash(testShareID))
@@ -490,23 +497,21 @@ func TestRenewWithExpiredSessionToken(t *testing.T) {
 
 	nonce, err := s.Renew(context.Background(), testShareID, sessionToken)
 	require.NoError(t, err)
-	assert.Empty(t, nonce)
+	assert.NotEmpty(t, nonce)
 
 	got, err := store.Get(token.Hash(testShareID))
 	require.NoError(t, err)
 	assert.NotEmpty(t, got.SecretHash)
-	assert.Empty(t, got.PinHash)
-	assert.True(t, got.PinExpiry.IsZero())
-	assert.Zero(t, got.QuotaLimiterState.Count)
+	assert.NotEmpty(t, got.PinHash)
 	assert.False(t, got.Redeemed)
 
 	require.Len(t, publisher.published, 1)
 	ev, ok := publisher.published[0].(ocEvents.GuestTokenRenewed)
 	require.True(t, ok)
-	assert.Empty(t, ev.Pin)
+	assert.NotEmpty(t, ev.Pin)
 }
 
-func TestRenewValidSessionBypassesCooldown(t *testing.T) {
+func TestRenewValidSessionBlockedDuringCooldown(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
 	rec := existingRecord()
 	rec.QuotaLimiterState = guard.QuotaLimiterState{
@@ -516,8 +521,57 @@ func TestRenewValidSessionBypassesCooldown(t *testing.T) {
 	}
 	require.NoError(t, store.Add(rec))
 
-	sessionToken, err := jwt.NewJwtService("test-secret", time.Hour).Sign(testShareID)
+	gwc := newGatewayMock(validShareResponse())
+	s := newRenewServiceWithLimiter(t, store, gwc, &testPublisher{}, config.QuotaLimiter{
+		Cooldown: time.Minute,
+		Window:   24 * time.Hour,
+		DailyCap: 20,
+	})
+
+	_, err := s.Renew(context.Background(), testShareID, validSessionToken(t))
+	require.Error(t, err)
+
+	var ge *GuestError
+	require.ErrorAs(t, err, &ge)
+	assert.ErrorIs(t, ge.ErrorType, ErrTooManyAttempts)
+	assert.Greater(t, ge.RetryAfter, time.Duration(0))
+
+	gwc.AssertNotCalled(t, "GetShare", mock.Anything, mock.Anything)
+}
+
+func TestRenewWithoutSessionRotatesSilently(t *testing.T) {
+	store := storage.NewFileManager(t.TempDir())
+	_, rec := newToken(t)
+	require.NoError(t, store.Add(rec))
+
+	publisher := &testPublisher{}
+	s := newRenewService(t, store, newGatewayMock(validShareResponse()), publisher)
+
+	nonce, err := s.Renew(context.Background(), testShareID, "")
 	require.NoError(t, err)
+	assert.Empty(t, nonce)
+
+	got, err := store.Get(token.Hash(testShareID))
+	require.NoError(t, err)
+	assert.NotEmpty(t, got.SecretHash)
+	assert.Empty(t, got.PinHash)
+	assert.Zero(t, got.QuotaLimiterState.Count)
+
+	require.Len(t, publisher.published, 1)
+	ev, ok := publisher.published[0].(ocEvents.GuestTokenRenewed)
+	require.True(t, ok)
+	assert.Empty(t, ev.Pin)
+}
+
+func TestRenewWithoutSessionBypassesCooldown(t *testing.T) {
+	store := storage.NewFileManager(t.TempDir())
+	rec := existingRecord()
+	rec.QuotaLimiterState = guard.QuotaLimiterState{
+		Count:       20,
+		NotBefore:   time.Now().Add(time.Minute),
+		WindowStart: time.Now(),
+	}
+	require.NoError(t, store.Add(rec))
 
 	gwc := newGatewayMock(validShareResponse())
 	s := newRenewServiceWithLimiter(t, store, gwc, &testPublisher{}, config.QuotaLimiter{
@@ -526,32 +580,9 @@ func TestRenewValidSessionBypassesCooldown(t *testing.T) {
 		DailyCap: 20,
 	})
 
-	nonce, err := s.Renew(context.Background(), testShareID, sessionToken)
+	_, err := s.Renew(context.Background(), testShareID, "")
 	require.NoError(t, err)
-	assert.Empty(t, nonce)
 	gwc.AssertCalled(t, "GetShare", mock.Anything, mock.Anything)
-}
-
-func TestRenewInvalidSessionFallsBackToPin(t *testing.T) {
-	store := storage.NewFileManager(t.TempDir())
-	_, rec := newToken(t)
-	require.NoError(t, store.Add(rec))
-
-	publisher := &testPublisher{}
-	s := newRenewService(t, store, newGatewayMock(validShareResponse()), publisher)
-
-	nonce, err := s.Renew(context.Background(), testShareID, "not-a-session")
-	require.NoError(t, err)
-	assert.NotEmpty(t, nonce)
-
-	got, err := store.Get(token.Hash(testShareID))
-	require.NoError(t, err)
-	assert.NotEmpty(t, got.PinHash)
-
-	require.Len(t, publisher.published, 1)
-	ev, ok := publisher.published[0].(ocEvents.GuestTokenRenewed)
-	require.True(t, ok)
-	assert.NotEmpty(t, ev.Pin)
 }
 
 func TestRenewIgnoresRedeemedAndExpiry(t *testing.T) {
@@ -595,7 +626,7 @@ func TestRenewRetriesOnConflict(t *testing.T) {
 	flaky := &conflictOnceStore{Manager: store}
 	s := newRenewService(t, flaky, gwc, publisher)
 
-	nonce, err := s.Renew(context.Background(), testShareID, "")
+	nonce, err := s.Renew(context.Background(), testShareID, validSessionToken(t))
 	require.NoError(t, err)
 	assert.NotEmpty(t, nonce)
 	assert.Equal(t, 2, flaky.updates)
@@ -658,7 +689,7 @@ func TestRenewRollsBackOnPublishFailure(t *testing.T) {
 
 	s := newRenewService(t, store, gwc, publisher)
 
-	_, err := s.Renew(context.Background(), testShareID, "")
+	_, err := s.Renew(context.Background(), testShareID, validSessionToken(t))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "publish failed")
 
@@ -688,7 +719,7 @@ func TestRenewRollbackConflictKeepsConcurrentChange(t *testing.T) {
 		Share:  newGuestShare(time.Now().Add(time.Hour)),
 	}), publisher)
 
-	_, err := s.Renew(context.Background(), testShareID, "")
+	_, err := s.Renew(context.Background(), testShareID, validSessionToken(t))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "publish failed")
 	assert.Contains(t, err.Error(), "rollback failed")
@@ -746,7 +777,7 @@ func TestRenewRecordsCooldown(t *testing.T) {
 		DailyCap: 20,
 	})
 
-	_, err := s.Renew(context.Background(), testShareID, "")
+	_, err := s.Renew(context.Background(), testShareID, validSessionToken(t))
 	require.NoError(t, err)
 
 	got, err := store.Get(token.Hash(testShareID))
@@ -773,7 +804,7 @@ func TestRenewBlockedDuringCooldown(t *testing.T) {
 		DailyCap: 20,
 	})
 
-	_, err := s.Renew(context.Background(), testShareID, "")
+	_, err := s.Renew(context.Background(), testShareID, validSessionToken(t))
 	require.Error(t, err)
 
 	var ge *GuestError
@@ -801,7 +832,7 @@ func TestRenewDailyCap(t *testing.T) {
 		DailyCap: 20,
 	})
 
-	_, err := s.Renew(context.Background(), testShareID, "")
+	_, err := s.Renew(context.Background(), testShareID, validSessionToken(t))
 	require.Error(t, err)
 
 	var ge *GuestError
@@ -831,7 +862,7 @@ func TestRotateGuestTokenBlockedReturnsRetryAfter(t *testing.T) {
 	tok, err := s.tokenSvc.Parse(tokStr)
 	require.NoError(t, err)
 
-	_, _, _, err = s.rotateGuestToken(token.Hash(testShareID), tok, "pin-hash", time.Now(), false)
+	_, _, _, err = s.rotateGuestToken(token.Hash(testShareID), tok, "pin-hash", time.Now(), true)
 	require.Error(t, err)
 
 	var ge *GuestError
@@ -1174,7 +1205,7 @@ func TestRenewResetsPinAttempts(t *testing.T) {
 
 	s := newRenewService(t, store, newGatewayMock(validShareResponse()), &testPublisher{})
 
-	_, err := s.Renew(context.Background(), testShareID, "")
+	_, err := s.Renew(context.Background(), testShareID, validSessionToken(t))
 	require.NoError(t, err)
 
 	got, err := store.Get(token.Hash(testShareID))
