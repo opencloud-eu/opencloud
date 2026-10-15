@@ -54,17 +54,6 @@ func NewSourceTypes(entries []string) SourceTypes {
 	return t
 }
 
-// carriesPreviewInside reports whether the type only has a preview when the file
-// carries one, which is what EmbeddedSourceTypes names.
-func (t SourceTypes) carriesPreviewInside(contentType string) bool {
-	parsed, _, err := mime.ParseMediaType(contentType)
-	if err != nil {
-		return false
-	}
-
-	return slices.Contains(EmbeddedSourceTypes, parsed)
-}
-
 // Supports reports whether a preview is made of this type.
 func (t SourceTypes) Supports(contentType string) bool {
 	parsed, _, err := mime.ParseMediaType(contentType)

@@ -1,6 +1,9 @@
 package thumbnail
 
 import (
+	"mime"
+	"slices"
+
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
@@ -22,6 +25,17 @@ var EmbeddedSourceTypes = []string{
 	"audio/ogg",
 }
 
+// IsEmbeddedSourceType reports whether the type carries its preview inside the
+// file, which is what the index has to answer for.
+func IsEmbeddedSourceType(contentType string) bool {
+	parsed, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return false
+	}
+
+	return slices.Contains(EmbeddedSourceTypes, parsed)
+}
+
 // HasPreview reports whether a preview can be produced for the resource: a type
 // that always has one says so by itself, a type that carries its preview inside
 // the file only when the index saw one.
@@ -40,11 +54,25 @@ func (t SourceTypes) HasPreviewForMimeType(mimeType string, hasEmbeddedPreview b
 	if !t.Supports(mimeType) {
 		return false
 	}
-	if t.carriesPreviewInside(mimeType) {
+	if IsEmbeddedSourceType(mimeType) {
 		return hasEmbeddedPreview
 	}
 
 	return true
+}
+
+// SourceDimensions are the dimensions of the image the preview is rendered from,
+// or (0, 0) when they are unknown.
+func SourceDimensions(md *provider.ResourceInfo) (int32, int32) {
+	// a preview extracted at index time, an audio cover for one, has its own size
+	if w, h := PreviewDimensions(md); w > 0 && h > 0 {
+		return w, h
+	}
+
+	// an image renders itself, so the image facet holds the size
+	meta := md.GetArbitraryMetadata().GetMetadata()
+
+	return conversions.StringToInt32(meta["libre.graph.image.width"], 0), conversions.StringToInt32(meta["libre.graph.image.height"], 0)
 }
 
 // PreviewDimensions returns the stored embedded-preview dimensions, or (0, 0).
