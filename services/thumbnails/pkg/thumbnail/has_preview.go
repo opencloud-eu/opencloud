@@ -27,12 +27,12 @@ func HasPreview(res *provider.ResourceInfo) bool {
 		return false
 	}
 	w, h := previewDimensions(res)
-	return HasPreviewForMimeType(res.GetMimeType(), w > 0 && h > 0)
+	return HasPreviewForMimeType(res.GetMimeType(), w, h)
 }
 
 // HasPreviewForMimeType is HasPreview for callers that only have the mimetype
-// and a presence signal (e.g. search results) rather than a full ResourceInfo.
-func HasPreviewForMimeType(mimeType string, hasEmbeddedPreview bool) bool {
+// and the preview dimensions (e.g. search results) rather than a full ResourceInfo.
+func HasPreviewForMimeType(mimeType string, previewWidth, previewHeight int32) bool {
 	mediaType, _, err := mime.ParseMediaType(mimeType)
 	if err != nil {
 		return false
@@ -41,7 +41,7 @@ func HasPreviewForMimeType(mimeType string, hasEmbeddedPreview bool) bool {
 		return true
 	}
 	if _, ok := EmbeddedPreviewMimeTypes[mediaType]; ok {
-		return hasEmbeddedPreview
+		return previewWidth > 0 && previewHeight > 0
 	}
 	return false
 }
