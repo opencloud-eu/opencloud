@@ -5,7 +5,9 @@ import (
 	"strings"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
+	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	pkgmiddleware "github.com/opencloud-eu/opencloud/pkg/middleware"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"go.opentelemetry.io/otel/attribute"
@@ -14,7 +16,7 @@ import (
 
 const (
 	headerRevaAccessToken   = revactx.TokenHeader
-	headerShareToken        = "public-token"
+	headerShareToken        = pkgmiddleware.PublicLinkTokenName
 	basicAuthPasswordPrefix = "password|"
 	authenticationType      = "publicshares"
 
@@ -34,12 +36,7 @@ type PublicShareAuthenticator struct {
 // using signed url, which are handled by other middleware. For this reason we can't just
 // handle `/archiver` with the `isPublicPath()` check.
 func isPublicShareArchive(r *http.Request) bool {
-	if strings.HasPrefix(r.URL.Path, "/archiver") {
-		if r.URL.Query().Get(headerShareToken) != "" || r.Header.Get(headerShareToken) != "" {
-			return true
-		}
-	}
-	return false
+	return strings.HasPrefix(r.URL.Path, "/archiver") && pkgmiddleware.HasPublicLinkToken(r)
 }
 
 // The app open requests can be made in public share contexts. For that the PublicShareAuthenticator needs to
@@ -48,19 +45,30 @@ func isPublicShareArchive(r *http.Request) bool {
 // needs to ignore the request.
 func isPublicShareAppOpen(r *http.Request) bool {
 	return (strings.HasPrefix(r.URL.Path, "/app/open") || strings.HasPrefix(r.URL.Path, "/app/new")) &&
-		(r.URL.Query().Get(headerShareToken) != "" || r.Header.Get(headerShareToken) != "")
+		pkgmiddleware.HasPublicLinkToken(r)
 }
 
 // The public-files requests can also be made in authenticated context. In these cases the OIDCAuthenticator and
 // the BasicAuthenticator needs to ignore the request when the headerShareToken exist.
 func isPublicWithShareToken(r *http.Request) bool {
 	return (strings.HasPrefix(r.URL.Path, "/dav/public-files") || strings.HasPrefix(r.URL.Path, "/remote.php/dav/public-files")) &&
-		(r.URL.Query().Get(headerShareToken) != "" || r.Header.Get(headerShareToken) != "")
+		pkgmiddleware.HasPublicLinkToken(r)
+}
+
+func isPublicShareGraphRequest(r *http.Request) bool {
+	return strings.HasPrefix(r.URL.Path, "/graph/") && pkgmiddleware.HasPublicLinkToken(r)
+}
+
+func shareTokenHint(token string) string {
+	if len(token) <= 4 {
+		return token
+	}
+	return token[:4] + "..."
 }
 
 // Authenticate implements the authenticator interface to authenticate requests via public share auth.
 func (a PublicShareAuthenticator) Authenticate(r *http.Request) AuthenticationResult {
-	if !isPublicPath(r.URL.Path) && !isPublicShareArchive(r) && !isPublicShareAppOpen(r) {
+	if !isPublicPath(r.URL.Path) && !isPublicShareArchive(r) && !isPublicShareAppOpen(r) && !isPublicShareGraphRequest(r) {
 		return NotApplicable()
 	}
 
@@ -99,7 +107,7 @@ func (a PublicShareAuthenticator) Authenticate(r *http.Request) AuthenticationRe
 		a.Logger.Error().
 			Err(err).
 			Str("authenticator", "public_share").
-			Str("public_share_token", shareToken).
+			Str("public_share_token", shareTokenHint(shareToken)).
 			Str("path", r.URL.Path).
 			Msg("could not select next gateway client")
 		return AuthenticationErrorResult(err)
@@ -115,10 +123,22 @@ func (a PublicShareAuthenticator) Authenticate(r *http.Request) AuthenticationRe
 		a.Logger.Error().
 			Err(err).
 			Str("authenticator", "public_share").
-			Str("public_share_token", shareToken).
+			Str("public_share_token", shareTokenHint(shareToken)).
 			Str("path", r.URL.Path).
 			Msg("failed to authenticate request")
 		return AuthenticationErrorResult(err)
+	}
+
+	if code := authResp.GetStatus().GetCode(); code != rpc.Code_CODE_OK && isPublicShareGraphRequest(r) {
+		// the hint lets the 401 tell a missing from a wrong password
+		if code == rpc.Code_CODE_UNAUTHENTICATED {
+			if _, password, ok := r.BasicAuth(); ok && password != "" {
+				r.Header.Set(pkgmiddleware.PublicLinkAuthHeader, pkgmiddleware.PublicLinkInvalidPassword)
+			} else {
+				r.Header.Set(pkgmiddleware.PublicLinkAuthHeader, pkgmiddleware.PublicLinkPasswordRequired)
+			}
+		}
+		return Succeeded(r)
 	}
 
 	r.Header.Add(headerRevaAccessToken, authResp.Token)
