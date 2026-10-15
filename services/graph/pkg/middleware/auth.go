@@ -44,6 +44,17 @@ func Auth(opts ...account.Option) func(http.Handler) http.Handler {
 			ctx := r.Context()
 			t := r.Header.Get(revactx.TokenHeader)
 			if t == "" {
+				if hint := r.Header.Get(opkgm.PublicLinkAuthHeader); hint != "" && opkgm.HasPublicLinkToken(r) {
+					// no WWW-Authenticate: a Basic challenge would open the browser's auth dialog
+					switch hint {
+					case opkgm.PublicLinkPasswordRequired:
+						errorcode.PublicLinkPasswordRequired.Render(w, r, http.StatusUnauthorized, "This public link is password protected.")
+						return
+					case opkgm.PublicLinkInvalidPassword:
+						errorcode.PublicLinkPasswordInvalid.Render(w, r, http.StatusUnauthorized, "The password is incorrect.")
+						return
+					}
+				}
 				errorcode.InvalidAuthenticationToken.Render(w, r, http.StatusUnauthorized, "Access token is empty.")
 				/* msgraph error for GET https://graph.microsoft.com/v1.0/me
 				{
@@ -67,7 +78,7 @@ func Auth(opts ...account.Option) func(http.Handler) http.Handler {
 				errorcode.InvalidAuthenticationToken.Render(w, r, http.StatusUnauthorized, "invalid token")
 				return
 			}
-			if ok, err := scope.VerifyScope(ctx, tokenScope, r); err != nil || !ok {
+			if ok, err := scope.VerifyScope(ctx, tokenScope, r.URL.Path); err != nil || !ok {
 				opt.Logger.Error().Str(log.RequestIDString, r.Header.Get("X-Request-ID")).Err(err).Msg("verifying scope failed")
 				errorcode.InvalidAuthenticationToken.Render(w, r, http.StatusUnauthorized, "verifying scope failed")
 				return

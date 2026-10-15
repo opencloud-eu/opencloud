@@ -35,6 +35,7 @@ import (
 	v0 "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	graphm "github.com/opencloud-eu/opencloud/services/graph/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/odata"
 	settingsServiceExt "github.com/opencloud-eu/opencloud/services/settings/pkg/store/defaults"
 )
@@ -880,6 +881,17 @@ func (g Graph) cs3StorageSpaceToDrive(ctx context.Context, baseURL *url.URL, spa
 				Id: &space.Owner.Id.OpaqueId,
 				// DisplayName: , TODO read and cache from users provider
 			},
+		}
+	} else if graphm.IsPublicLinkDrive(space.GetRoot()) {
+		// a public share mountpoint has no space owner; the request runs as the sharer
+		if u, ok := revactx.ContextGetUser(ctx); ok && u.GetId().GetOpaqueId() != "" {
+			id := u.GetId().GetOpaqueId()
+			drive.Owner = &libregraph.IdentitySet{
+				User: &libregraph.Identity{
+					Id:          &id,
+					DisplayName: u.GetDisplayName(),
+				},
+			}
 		}
 	}
 	if space.Mtime != nil {
