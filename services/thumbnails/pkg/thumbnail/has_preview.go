@@ -33,17 +33,28 @@ func HasPreview(res *provider.ResourceInfo) bool {
 // HasPreviewForMimeType is HasPreview for callers that only have the mimetype
 // and the preview dimensions (e.g. search results) rather than a full ResourceInfo.
 func HasPreviewForMimeType(mimeType string, previewWidth, previewHeight int32) bool {
-	mediaType, _, err := mime.ParseMediaType(mimeType)
-	if err != nil {
-		return false
-	}
-	if _, ok := UnconditionalPreviewMimeTypes[mediaType]; ok {
+	if _, ok := UnconditionalPreviewMimeTypes[mediaType(mimeType)]; ok {
 		return true
 	}
-	if _, ok := EmbeddedPreviewMimeTypes[mediaType]; ok {
+	if IsEmbeddedPreviewMimeType(mimeType) {
 		return previewWidth > 0 && previewHeight > 0
 	}
 	return false
+}
+
+// IsEmbeddedPreviewMimeType reports whether the preview of this type depends on
+// an embedded preview, see EmbeddedPreviewMimeTypes.
+func IsEmbeddedPreviewMimeType(mimeType string) bool {
+	_, ok := EmbeddedPreviewMimeTypes[mediaType(mimeType)]
+	return ok
+}
+
+func mediaType(mimeType string) string {
+	mediaType, _, err := mime.ParseMediaType(mimeType)
+	if err != nil {
+		return ""
+	}
+	return mediaType
 }
 
 // SourceDimensions returns the dimensions of the image the preview is rendered
@@ -54,15 +65,14 @@ func SourceDimensions(res *provider.ResourceInfo) (int32, int32) {
 		return w, h
 	}
 	// Images render themselves, the image facet holds their size.
-	meta := res.GetArbitraryMetadata().GetMetadata()
-	w := conversions.StringToInt32(meta[imageWidthKey], 0)
-	h := conversions.StringToInt32(meta[imageHeightKey], 0)
-	return w, h
+	return dimensions(res, imageWidthKey, imageHeightKey)
 }
 
 func previewDimensions(res *provider.ResourceInfo) (int32, int32) {
+	return dimensions(res, PreviewWidthKey, PreviewHeightKey)
+}
+
+func dimensions(res *provider.ResourceInfo, widthKey, heightKey string) (int32, int32) {
 	meta := res.GetArbitraryMetadata().GetMetadata()
-	w := conversions.StringToInt32(meta[PreviewWidthKey], 0)
-	h := conversions.StringToInt32(meta[PreviewHeightKey], 0)
-	return w, h
+	return conversions.StringToInt32(meta[widthKey], 0), conversions.StringToInt32(meta[heightKey], 0)
 }

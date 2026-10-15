@@ -13,10 +13,9 @@ const frontCoverDescription = "Cover (front)"
 
 // getPreview returns the dimensions of an audio file's embedded cover art from
 // Tika's recursive metadata, preferring the front cover (dc:description) and
-// falling back to the first image, matching the thumbnailer's selection. It only
-// runs for EmbeddedPreviewMimeTypes.
+// falling back to the first image, matching the thumbnailer's selection.
 func getPreview(mimeType string, metas []map[string][]string) *Preview {
-	if _, ok := thumbnail.EmbeddedPreviewMimeTypes[mimeType]; !ok {
+	if !thumbnail.IsEmbeddedPreviewMimeType(mimeType) {
 		return nil
 	}
 	var first *Preview
