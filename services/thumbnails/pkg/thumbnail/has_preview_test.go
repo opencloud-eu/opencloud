@@ -18,12 +18,14 @@ func resourceInfo(mime string, meta map[string]string) *provider.ResourceInfo {
 
 var _ = Describe("HasPreview", func() {
 	DescribeTable("preview availability",
-		func(md *provider.ResourceInfo, want bool) {
-			Expect(thumbnail.HasPreview(md)).To(Equal(want))
+		func(res *provider.ResourceInfo, want bool) {
+			Expect(thumbnail.HasPreview(res)).To(Equal(want))
 		},
 		Entry("nil", nil, false),
 		Entry("unconditional image", resourceInfo("image/png", nil), true),
 		Entry("unconditional text", resourceInfo("text/plain", nil), true),
+		Entry("mimetype with parameters", resourceInfo("text/plain; charset=utf-8", nil), true),
+		Entry("malformed mimetype", resourceInfo("text/plain; =", nil), false),
 		Entry("unsupported type", resourceInfo("application/pdf", nil), false),
 		Entry("audio without preview dims", resourceInfo("audio/mpeg", nil), false),
 		Entry("audio with zero dims", resourceInfo("audio/mpeg", map[string]string{

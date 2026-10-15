@@ -1,6 +1,8 @@
 package thumbnail
 
 import (
+	"mime"
+
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
@@ -13,23 +15,32 @@ const (
 	PreviewHeightKey = "oc.preview.height"
 )
 
+const (
+	imageWidthKey  = "libre.graph.image.width"
+	imageHeightKey = "libre.graph.image.height"
+)
+
 // HasPreview reports whether a preview can be produced for the resource:
 // unconditional types by mimetype, embedded-preview types by stored dimensions.
-func HasPreview(md *provider.ResourceInfo) bool {
-	if md == nil {
+func HasPreview(res *provider.ResourceInfo) bool {
+	if res == nil {
 		return false
 	}
-	w, h := previewDimensions(md)
-	return HasPreviewForMimeType(md.GetMimeType(), w > 0 && h > 0)
+	w, h := previewDimensions(res)
+	return HasPreviewForMimeType(res.GetMimeType(), w > 0 && h > 0)
 }
 
 // HasPreviewForMimeType is HasPreview for callers that only have the mimetype
 // and a presence signal (e.g. search results) rather than a full ResourceInfo.
 func HasPreviewForMimeType(mimeType string, hasEmbeddedPreview bool) bool {
-	if _, ok := UnconditionalPreviewMimeTypes[mimeType]; ok {
+	mediaType, _, err := mime.ParseMediaType(mimeType)
+	if err != nil {
+		return false
+	}
+	if _, ok := UnconditionalPreviewMimeTypes[mediaType]; ok {
 		return true
 	}
-	if _, ok := EmbeddedPreviewMimeTypes[mimeType]; ok {
+	if _, ok := EmbeddedPreviewMimeTypes[mediaType]; ok {
 		return hasEmbeddedPreview
 	}
 	return false
@@ -37,20 +48,20 @@ func HasPreviewForMimeType(mimeType string, hasEmbeddedPreview bool) bool {
 
 // SourceDimensions returns the dimensions of the image the preview is rendered
 // from, or (0, 0) when they are unknown.
-func SourceDimensions(md *provider.ResourceInfo) (int32, int32) {
+func SourceDimensions(res *provider.ResourceInfo) (int32, int32) {
 	// A preview extracted or rendered at index time (e.g. audio cover) has its own size.
-	if w, h := previewDimensions(md); w > 0 && h > 0 {
+	if w, h := previewDimensions(res); w > 0 && h > 0 {
 		return w, h
 	}
 	// Images render themselves, the image facet holds their size.
-	meta := md.GetArbitraryMetadata().GetMetadata()
-	w := conversions.StringToInt32(meta["libre.graph.image.width"], 0)
-	h := conversions.StringToInt32(meta["libre.graph.image.height"], 0)
+	meta := res.GetArbitraryMetadata().GetMetadata()
+	w := conversions.StringToInt32(meta[imageWidthKey], 0)
+	h := conversions.StringToInt32(meta[imageHeightKey], 0)
 	return w, h
 }
 
-func previewDimensions(md *provider.ResourceInfo) (int32, int32) {
-	meta := md.GetArbitraryMetadata().GetMetadata()
+func previewDimensions(res *provider.ResourceInfo) (int32, int32) {
+	meta := res.GetArbitraryMetadata().GetMetadata()
 	w := conversions.StringToInt32(meta[PreviewWidthKey], 0)
 	h := conversions.StringToInt32(meta[PreviewHeightKey], 0)
 	return w, h

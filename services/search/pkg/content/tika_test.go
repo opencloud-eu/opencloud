@@ -181,11 +181,26 @@ var _ = Describe("Tika", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(doc.Audio).ToNot(BeNil())
 			Expect(doc.Audio.Title).To(Equal(libregraph.PtrString("Sucker")))
-			// facets describe the container only, the cover surfaces as preview
 			Expect(doc.Image).To(BeNil())
 			Expect(doc.Preview).ToNot(BeNil())
 			Expect(doc.Preview.Width).To(Equal(int32(500)))
 			Expect(doc.Preview.Height).To(Equal(int32(400)))
+		})
+
+		It("takes the front cover from a Tika 4.1 response listing the back cover first", func() {
+			fullResponse = `[
+				{"Content-Type": "audio/mpeg", "xmpDM:audioCompressor": "MP3", "tk:embedded-depth": "0"},
+				{"Content-Type": "image/jpeg", "dc:description": "Cover (back)", "dc:title": "some back art", "tiff:ImageWidth": "300", "tiff:ImageLength": "200", "tk:embedded-depth": "1", "tk:embedded-resource-type": "INLINE"},
+				{"Content-Type": "image/jpeg", "dc:description": "Cover (front)", "dc:title": "some front art", "tiff:ImageWidth": "500", "tiff:ImageLength": "400", "tk:embedded-depth": "1", "tk:embedded-resource-type": "THUMBNAIL"}
+			]`
+
+			doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+				Type:     provider.ResourceType_RESOURCE_TYPE_FILE,
+				Size:     1,
+				MimeType: "audio/mpeg",
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(doc.Preview).To(Equal(&content.Preview{Width: 500, Height: 400}))
 		})
 
 		It("adds no audio facet to non-audio documents", func() {

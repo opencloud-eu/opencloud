@@ -715,3 +715,5 @@ Fixtures:
 | METADATA-01 | `*song*` reads `Audio` | all 16 fields unchanged | all 16 fields unchanged | all 16 fields unchanged | ✅ |
 | METADATA-02 | `*team*` reads `Location` | all 3 fields unchanged | all 3 fields unchanged | all 3 fields unchanged | ✅ |
 | METADATA-03 | `*team*` reads `Audio` | none | none | none | ✅ |
+| METADATA-04 | `*song*` reads `Preview` | 500x400 | 500x400 | 500x400 | ✅ |
+| METADATA-05 | `*team*` reads `Preview` | none | none | none | ✅ |
