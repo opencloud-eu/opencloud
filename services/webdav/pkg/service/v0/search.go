@@ -222,8 +222,8 @@ func matchToPropResponse(ctx context.Context, davPrefix, publicURL string, match
 	propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:permissions", match.Entity.Permissions))
 	propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:highlights", match.Entity.Highlights))
 	propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("d:getcontenttype", match.Entity.MimeType))
-	isSupportedMimeType := sourceTypes.Supports(match.Entity.MimeType)
-	if isSupportedMimeType {
+	hasPreview := sourceTypes.HasPreviewForMimeType(match.Entity.MimeType, match.Entity.GetPreview() != nil)
+	if hasPreview {
 		propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:has-preview", "1"))
 	} else {
 		propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:has-preview", "0"))
