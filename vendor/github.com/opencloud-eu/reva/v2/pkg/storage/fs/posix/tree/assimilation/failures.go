@@ -3,11 +3,14 @@ package assimilation
 
 import (
 	"io/fs"
+	"os"
 	"syscall"
 	"time"
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/pkg/errors"
+
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/timemanager"
 )
 
 const (
@@ -28,6 +31,7 @@ type Failures struct {
 type failure struct {
 	err     error
 	modTime time.Time
+	cTime   time.Time
 	size    int64
 	mode    fs.FileMode
 	uid     uint32
@@ -63,14 +67,27 @@ func (f *Failures) Record(path string, fi fs.FileInfo, err error) {
 		return
 	}
 
+	// keep the doubled delay when only the ctime changed, so a file that gets fixed again and
+	// again costs one read per fix instead of starting over at the minimum delay
 	delay := minRetryDelay
-	if last, ok := f.lru.Peek(path); ok && last.unchanged(fi) {
+	if last, ok := f.lru.Peek(path); ok && last.sameAttributes(fi) {
 		delay = min(2*last.delay, maxRetryDelay)
 	}
+
+	// every attribute the attempt managed to write changed the ctime, so read it again here. A
+	// change after this point, for example a setfacl or a chattr -i, then triggers a retry.
+	// Without a fresh stat the ctime stays unknown, which is better than keeping the one from
+	// before the attempt: that one never matches again, so every scan would read the file.
+	ctime := time.Time{}
+	if after, err := os.Lstat(path); err == nil {
+		ctime = cTime(after)
+	}
+
 	uid, gid := owner(fi)
 	f.lru.Add(path, failure{
 		err:     err,
 		modTime: fi.ModTime(),
+		cTime:   ctime,
 		size:    fi.Size(),
 		mode:    fi.Mode(),
 		uid:     uid,
@@ -80,11 +97,30 @@ func (f *Failures) Record(path string, fi fs.FileInfo, err error) {
 	})
 }
 
-// unchanged reports whether fi still matches the file that failed. It includes the owner, so a chown
-// that fixes the file triggers a retry.
+// unchanged reports whether fi still matches the file that failed. A zero ctime means it is
+// unknown, and only the attributes decide.
 func (f failure) unchanged(fi fs.FileInfo) bool {
+	return f.sameAttributes(fi) && (f.cTime.IsZero() || f.cTime.Equal(cTime(fi)))
+}
+
+// sameAttributes reports whether the attributes of fi still match the file that failed. It includes
+// the owner, so a chown that fixes the file triggers a retry. A setfacl or a chattr changes none of
+// them, which is why unchanged looks at the ctime as well.
+func (f failure) sameAttributes(fi fs.FileInfo) bool {
 	uid, gid := owner(fi)
 	return f.modTime.Equal(fi.ModTime()) && f.size == fi.Size() && f.mode == fi.Mode() && f.uid == uid && f.gid == gid
+}
+
+// cTime returns the time of the last change to the file or its attributes. It is zero on systems
+// that don't report one, which leaves unchanged to the attributes above.
+func cTime(fi fs.FileInfo) time.Time {
+	st, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok {
+		return time.Time{}
+	}
+	ts := timemanager.StatCTime(st)
+	//nolint:unconvert
+	return time.Unix(int64(ts.Sec), int64(ts.Nsec))
 }
 
 func owner(fi fs.FileInfo) (uint32, uint32) {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/checks"
 	"github.com/opencloud-eu/opencloud/pkg/handlers"
+	"github.com/opencloud-eu/opencloud/pkg/nats"
 	"github.com/opencloud-eu/opencloud/pkg/service/debug"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 )
@@ -18,8 +19,15 @@ func Server(opts ...Option) (*http.Server, error) {
 		WithLogger(options.Logger).
 		WithCheck("nats reachability", func(ctx context.Context) error {
 			if options.Config.Cache.ProviderCacheStore == "nats-js-kv" && len(options.Config.Cache.ProviderCacheNodes) > 0 {
-				// no secureOption because we cannot yet configure tls for the cache store
-				return checks.NewNatsCheck(options.Config.Cache.ProviderCacheNodes[0])(ctx)
+				return checks.NewNatsCheck(
+					options.Config.Cache.ProviderCacheNodes[0],
+					nats.Secure(
+						options.Config.Cache.ProviderCacheEnableTLS,
+						options.Config.Cache.ProviderCacheTLSInsecure,
+						options.Config.Cache.ProviderCacheTLSRootCACertificate,
+					),
+					nats.Auth(options.Config.Cache.ProviderCacheAuthUsername, options.Config.Cache.ProviderCacheAuthPassword),
+				)(ctx)
 			}
 			return nil
 		})

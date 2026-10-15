@@ -185,6 +185,59 @@ opencloud storage-users uploads delete-stale-nodes --dry-run=false --verbose
 ```
 
 
+### Check and Inspect the Blobstore
+
+The `blobstore` command group verifies connectivity to the configured blobstore and inspects individual blobs. The `ocis`/`decomposed` and `s3ng`/`decomposeds3` storage drivers are supported.
+
+```bash
+opencloud storage-users blobstore <command>
+```
+
+```plaintext
+COMMANDS:
+   check  check blobstore connectivity via an upload/download/delete round-trip
+   get    get a blob from the blobstore by ID
+```
+
+#### Check
+
+Uploads a random blob, downloads and verifies it, then deletes it. All three steps must succeed.
+
+```bash
+opencloud storage-users blobstore check [flags]
+```
+
+`--blob-size` sets the random payload size and accepts values such as `64`, `1KB`, `1MB`, or `4MiB` (default: `64` bytes).
+
+```bash
+# Check the configured blobstore using the default payload
+opencloud storage-users blobstore check
+
+# Use a larger payload
+opencloud storage-users blobstore check --blob-size=4MiB
+```
+
+#### Get
+
+Downloads a blob to verify that it is readable. Identify the blob by passing the raw path from a log line with `--path`, or by setting `--blob-id` and `--space-id`.
+
+```bash
+opencloud storage-users blobstore get [flags]
+```
+
+For S3-backed drivers, `--blob-size` can specify the expected size when known. If it is wrong or omitted, the command retries once using the actual size returned by S3.
+
+```bash
+# Use a path from an s3ng/decomposeds3 log line
+opencloud storage-users blobstore get --path="b19ec764-5398-458a-8ff1-1925bd906999/61/03/ab/c3/-b08a-4556-9937-2bf3065c1202"
+
+# Use a full filesystem path from an ocis/decomposed log line
+opencloud storage-users blobstore get --path="/var/lib/opencloud/storage/users/spaces/b1/9ec764-5398-458a-8ff1-1925bd906999/blobs/61/03/ab/c3/-b08a-4556-9937-2bf3065c1202"
+
+# Or provide the space and blob IDs directly
+opencloud storage-users blobstore get --space-id=b19ec764-5398-458a-8ff1-1925bd906999 --blob-id=6103abc3-b08a-4556-9937-2bf3065c1202
+```
+
 ### Manage Trash-Bin Items
 
 This command set provides commands to get an overview of trash-bin items, restore items and purge old items of `personal` spaces and `project` spaces (spaces that have been created manually). `trash-bin` commands require a `spaceID` as parameter. 
