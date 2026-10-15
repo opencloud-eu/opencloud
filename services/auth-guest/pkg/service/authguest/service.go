@@ -45,10 +45,11 @@ type GuestError struct {
 
 func (e *GuestError) Error() string { return e.ErrorType.Error() }
 
-// SessionResponse is the result of a successful authentication: a session token
-// and the share id it grants access to.
+// SessionResponse is the result of a successful authentication: a session token,
+// its expiry and the share id it grants access to.
 type SessionResponse struct {
 	SessionToken string
+	ExpiresAt    time.Time
 	ShareID      string
 }
 
@@ -133,12 +134,12 @@ func (s *AuthGuestService) VerifyToken(ctx context.Context, tokenString string) 
 		return nil, &GuestError{ErrorType: err, ShareID: rec.ShareID}
 	}
 
-	sessionToken, err := s.jwtService.Sign(rec.ShareID)
+	sessionToken, expiresAt, err := s.jwtService.Sign(rec.ShareID)
 	if err != nil {
 		return nil, err
 	}
 
-	return &SessionResponse{SessionToken: sessionToken, ShareID: rec.ShareID}, nil
+	return &SessionResponse{SessionToken: sessionToken, ExpiresAt: expiresAt, ShareID: rec.ShareID}, nil
 }
 
 // Renew generates a new guest link token and PIN for shareID, authorized by the
@@ -249,12 +250,12 @@ func (s *AuthGuestService) VerifyPin(ctx context.Context, shareID, pinValue stri
 		return nil, &GuestError{ErrorType: err, ShareID: shareID}
 	}
 
-	sessionToken, err := s.jwtService.Sign(shareID)
+	sessionToken, expiresAt, err := s.jwtService.Sign(shareID)
 	if err != nil {
 		return nil, err
 	}
 
-	return &SessionResponse{SessionToken: sessionToken, ShareID: shareID}, nil
+	return &SessionResponse{SessionToken: sessionToken, ExpiresAt: expiresAt, ShareID: shareID}, nil
 }
 
 // CleanupShare removes a share's token record from storage. Missing records are ignored.

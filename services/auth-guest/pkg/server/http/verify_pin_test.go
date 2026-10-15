@@ -34,7 +34,8 @@ func newVerifyPinHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc
 
 func TestVerifyPinHandler(t *testing.T) {
 	svcMock := mocks.NewAuthGuest(t)
-	svcMock.On("VerifyPin", mock.Anything, "share-1", "123456").Return(&authguest.SessionResponse{SessionToken: "session-token", ShareID: "share-1"}, nil)
+	expiresAt := time.Date(2026, 10, 15, 10, 30, 0, 0, time.FixedZone("CEST", 2*60*60))
+	svcMock.On("VerifyPin", mock.Anything, "share-1", "123456").Return(&authguest.SessionResponse{SessionToken: "session-token", ExpiresAt: expiresAt, ShareID: "share-1"}, nil)
 
 	body, err := json.Marshal(VerifyPinRequest{Pin: "123456", PermissionID: "share-1"})
 	require.NoError(t, err)
@@ -59,6 +60,7 @@ func TestVerifyPinHandler(t *testing.T) {
 	var resp verifyPinResponse
 	require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
 	assert.Equal(t, "share-1", resp.PermissionID)
+	assert.Equal(t, "2026-10-15T08:30:00Z", resp.ExpirationDateTime.Format(time.RFC3339))
 }
 
 func TestVerifyPinHandlerErrorMapping(t *testing.T) {
