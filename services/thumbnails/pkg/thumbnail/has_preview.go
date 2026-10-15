@@ -19,7 +19,7 @@ func HasPreview(md *provider.ResourceInfo) bool {
 	if md == nil {
 		return false
 	}
-	w, h := PreviewDimensions(md)
+	w, h := previewDimensions(md)
 	return HasPreviewForMimeType(md.GetMimeType(), w > 0 && h > 0)
 }
 
@@ -35,9 +35,21 @@ func HasPreviewForMimeType(mimeType string, hasEmbeddedPreview bool) bool {
 	return false
 }
 
-// PreviewDimensions returns the stored embedded-preview dimensions, or (0, 0).
-// Only meaningful for EmbeddedPreviewMimeTypes.
-func PreviewDimensions(md *provider.ResourceInfo) (int32, int32) {
+// SourceDimensions returns the dimensions of the image the preview is rendered
+// from, or (0, 0) when they are unknown.
+func SourceDimensions(md *provider.ResourceInfo) (int32, int32) {
+	// A preview extracted or rendered at index time (e.g. audio cover) has its own size.
+	if w, h := previewDimensions(md); w > 0 && h > 0 {
+		return w, h
+	}
+	// Images render themselves, the image facet holds their size.
+	meta := md.GetArbitraryMetadata().GetMetadata()
+	w := conversions.StringToInt32(meta["libre.graph.image.width"], 0)
+	h := conversions.StringToInt32(meta["libre.graph.image.height"], 0)
+	return w, h
+}
+
+func previewDimensions(md *provider.ResourceInfo) (int32, int32) {
 	meta := md.GetArbitraryMetadata().GetMetadata()
 	w := conversions.StringToInt32(meta[PreviewWidthKey], 0)
 	h := conversions.StringToInt32(meta[PreviewHeightKey], 0)
