@@ -43,8 +43,7 @@ func previewThumbnailSet(res *provider.ResourceInfo, baseURL string, sourceTypes
 	itemID := storagespace.FormatResourceID(res.GetId())
 	set := thumbnailSetFor(baseURL, itemID)
 	if w, h := thumbnail.SourceDimensions(res); w > 0 && h > 0 {
-		url := fmt.Sprintf("%s&x=%d&y=%d", previewBaseURL(baseURL, itemID), w, h)
-		set.Source = &libregraph.Thumbnail{Url: &url}
+		set.Source = previewThumbnail(previewBaseURL(baseURL, itemID), w, h)
 	}
 	return set
 }
@@ -53,9 +52,9 @@ func previewThumbnailSet(res *provider.ResourceInfo, baseURL string, sourceTypes
 func thumbnailSetFor(baseURL, itemID string) *libregraph.ThumbnailSet {
 	base := previewBaseURL(baseURL, itemID)
 	return &libregraph.ThumbnailSet{
-		Small:  previewThumbnail(base, thumbnailBoxSmall),
-		Medium: previewThumbnail(base, thumbnailBoxMedium),
-		Large:  previewThumbnail(base, thumbnailBoxLarge),
+		Small:  previewThumbnail(base, thumbnailBoxSmall, thumbnailBoxSmall),
+		Medium: previewThumbnail(base, thumbnailBoxMedium, thumbnailBoxMedium),
+		Large:  previewThumbnail(base, thumbnailBoxLarge, thumbnailBoxLarge),
 	}
 }
 
@@ -63,8 +62,8 @@ func previewBaseURL(baseURL, itemID string) string {
 	return fmt.Sprintf("%s/dav/spaces/%s?scalingup=0&preview=1&processor=thumbnail", baseURL, itemID)
 }
 
-func previewThumbnail(base string, box int32) *libregraph.Thumbnail {
-	url := fmt.Sprintf("%s&x=%d&y=%d", base, box, box)
+func previewThumbnail(base string, width, height int32) *libregraph.Thumbnail {
+	url := fmt.Sprintf("%s&x=%d&y=%d", base, width, height)
 	return &libregraph.Thumbnail{Url: &url}
 }
 

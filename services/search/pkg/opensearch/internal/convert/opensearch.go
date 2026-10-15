@@ -79,9 +79,6 @@ func OpenSearchHitToMatch(hit opensearchgoAPI.SearchHit) (*searchMessage.Match, 
 
 				return strings.Join(contentHighlights[:], "; ")
 			}(),
-
-			Preview: copyFacet[searchMessage.Preview](resource.Preview),
-
 			Audio:       copyFacet[searchMessage.Audio](resource.Audio),
 			Image:       copyFacet[searchMessage.Image](resource.Image),
 			Location:    copyFacet[searchMessage.GeoCoordinates](resource.Location),
@@ -89,6 +86,7 @@ func OpenSearchHitToMatch(hit opensearchgoAPI.SearchHit) (*searchMessage.Match, 
 			Video:       copyFacet[searchMessage.Video](resource.Video),
 			MotionPhoto: copyFacet[searchMessage.MotionPhoto](resource.MotionPhoto),
 			LivePhoto:   copyFacet[searchMessage.LivePhoto](resource.LivePhoto),
+			Preview:     copyFacet[searchMessage.Preview](resource.Preview),
 		},
 	}
 

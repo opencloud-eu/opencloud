@@ -54,6 +54,10 @@ func withLocation(location *libregraph.GeoCoordinates) fixtureOption {
 	return func(r *search.Resource) { r.Location = location }
 }
 
+func withPreview(preview *content.Preview) fixtureOption {
+	return func(r *search.Resource) { r.Preview = preview }
+}
+
 func fixtureDoc(name string, opts ...fixtureOption) search.Resource {
 	mtime := fixtureNow
 	r := search.Resource{

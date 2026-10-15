@@ -1,9 +1,9 @@
 package content
 
 import (
-	"strconv"
 	"strings"
 
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
@@ -25,17 +25,12 @@ func getPreview(mimeType string, metas []map[string][]string) *Preview {
 		if err != nil || !strings.HasPrefix(ct, "image/") {
 			continue
 		}
-		w, wErr := getFirstValue(meta, "tiff:ImageWidth")
-		h, hErr := getFirstValue(meta, "tiff:ImageLength")
-		if wErr != nil || hErr != nil {
+		w, _ := getFirstValue(meta, "tiff:ImageWidth")
+		h, _ := getFirstValue(meta, "tiff:ImageLength")
+		preview := &Preview{Width: conversions.StringToInt32(w, 0), Height: conversions.StringToInt32(h, 0)}
+		if preview.Width <= 0 || preview.Height <= 0 {
 			continue
 		}
-		width, wErr := strconv.ParseInt(w, 10, 32)
-		height, hErr := strconv.ParseInt(h, 10, 32)
-		if wErr != nil || hErr != nil || width <= 0 || height <= 0 {
-			continue
-		}
-		preview := &Preview{Width: int32(width), Height: int32(height)}
 		if desc, _ := getFirstValue(meta, "dc:description"); desc == frontCoverDescription {
 			return preview
 		}

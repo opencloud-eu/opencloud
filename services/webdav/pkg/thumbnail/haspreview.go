@@ -16,6 +16,12 @@ const (
 	PreviewHeightKey = "oc.preview.height"
 )
 
+// the image facet an image writes about itself at index time
+const (
+	imageWidthKey  = "libre.graph.image.width"
+	imageHeightKey = "libre.graph.image.height"
+)
+
 // EmbeddedSourceTypes carry their preview inside the file, audio cover art for
 // one, so whether a preview exists is a property of the file and not of its
 // type. The index answers that, through the dimensions it stored.
@@ -72,7 +78,7 @@ func SourceDimensions(md *provider.ResourceInfo) (int32, int32) {
 	// an image renders itself, so the image facet holds the size
 	meta := md.GetArbitraryMetadata().GetMetadata()
 
-	return conversions.StringToInt32(meta["libre.graph.image.width"], 0), conversions.StringToInt32(meta["libre.graph.image.height"], 0)
+	return conversions.StringToInt32(meta[imageWidthKey], 0), conversions.StringToInt32(meta[imageHeightKey], 0)
 }
 
 // PreviewDimensions returns the stored embedded-preview dimensions, or (0, 0).
