@@ -337,6 +337,165 @@ class CliContext implements Context {
 	}
 
 	/**
+	 * runs the revisions cleanup command with the files to clean up and further flags
+	 *
+	 * @param string $scope the flags that select the files, e.g. "--all"
+	 * @param string $flags e.g. "--strategy 1 --dry-run"
+	 *
+	 * @return void
+	 */
+	private function cleanUpFileVersions(string $scope, string $flags): void {
+		$command = \trim("storage-users revisions cleanup $scope $flags");
+		$body = [
+			"command" => $command
+		];
+		$this->featureContext->setResponse(CliHelper::runCommand($body));
+	}
+
+	/**
+	 *
+	 * @param string $flags
+	 *
+	 * @return void
+	 */
+	#[When('the administrator cleans up the file versions using the CLI with flags :flags')]
+	public function theAdministratorCleansUpTheFileVersionsUsingTheCliWithFlags(string $flags): void {
+		$this->cleanUpFileVersions("", $flags);
+	}
+
+	/**
+	 *
+	 * @param string $flags
+	 *
+	 * @return void
+	 */
+	#[When('the administrator cleans up the file versions of all spaces using the CLI with flags :flags')]
+	public function theAdministratorCleansUpTheFileVersionsOfAllSpacesUsingTheCliWithFlags(string $flags): void {
+		$this->cleanUpFileVersions("--all", $flags);
+	}
+
+	/**
+	 *
+	 * @param string $space
+	 * @param string $user
+	 * @param string $flags
+	 *
+	 * @return void
+	 */
+	#[When('the administrator cleans up the file versions of space :space of user :user using the CLI with flags :flags')]
+	public function theAdministratorCleansUpTheFileVersionsOfSpaceUsingTheCliWithFlags(
+		string $space,
+		string $user,
+		string $flags
+	): void {
+		$spaceId = $this->spacesContext->getSpaceIdByName($user, $space);
+		$this->cleanUpFileVersions("--space $spaceId", $flags);
+	}
+
+	/**
+	 *
+	 * @param string $path
+	 * @param string $space
+	 * @param string $user
+	 * @param string $flags
+	 *
+	 * @return void
+	 */
+	#[When('the administrator cleans up the file versions of :path in space :space of user :user using the CLI with flags :flags')]
+	public function theAdministratorCleansUpTheFileVersionsOfPathInSpaceUsingTheCliWithFlags(
+		string $path,
+		string $space,
+		string $user,
+		string $flags
+	): void {
+		$spaceId = $this->spacesContext->getSpaceIdByName($user, $space);
+		$this->cleanUpFileVersions("--space $spaceId --path $path", $flags);
+	}
+
+	/**
+	 *
+	 * @param string $path
+	 * @param string $user
+	 * @param string $flags
+	 *
+	 * @return void
+	 */
+	#[When('the administrator cleans up the file versions of :path of user :user by its path on the POSIX filesystem using the CLI with flags :flags')]
+	public function theAdministratorCleansUpTheFileVersionsByPathOnPosixUsingTheCliWithFlags(
+		string $path,
+		string $user,
+		string $flags
+	): void {
+		$userUuid = $this->featureContext->getAttributeOfCreatedUser($user, 'id');
+		$fsPath = $this->getUsersStoragePath() . "/$userUuid/" . \ltrim($path, '/');
+		$this->cleanUpFileVersions("--fs-path $fsPath", $flags);
+	}
+
+	/**
+	 *
+	 * @param int $exitCode
+	 *
+	 * @return void
+	 */
+	#[Then('the command should exit with code :exitCode')]
+	public function theCommandShouldExitWithCode(int $exitCode): void {
+		$response = $this->featureContext->getResponse();
+		$this->featureContext->theHTTPStatusCodeShouldBe(200, '', $response);
+
+		$jsonResponse = $this->featureContext->getJsonDecodedResponse($response);
+		Assert::assertSame(
+			$exitCode,
+			$jsonResponse["exitCode"],
+			"Expected exit code $exitCode, but got " . $jsonResponse["exitCode"]
+			. ". Message: " . $jsonResponse["message"]
+		);
+	}
+
+	/**
+	 * checks the output of a command that prints JSON objects, one per line, e.g. with --json,
+	 * for an object with a "type" and the given values
+	 *
+	 * @param string $type
+	 * @param TableNode $table with the columns "key" and "value"
+	 *
+	 * @return void
+	 */
+	#[Then('the JSON output of the command should contain an object of type :type with:')]
+	public function theJsonOutputOfTheCommandShouldContainAnObjectOfTypeWith(string $type, TableNode $table): void {
+		$response = $this->featureContext->getResponse();
+		$message = $this->featureContext->getJsonDecodedResponse($response)["message"];
+		$expected = [];
+		foreach ($table->getHash() as $row) {
+			$expected[$row['key']] = $this->featureContext->substituteInLineCodes($row['value']);
+		}
+
+		// other lines, e.g. log messages, are not JSON objects
+		foreach (\preg_split('/\r?\n/', $message) as $line) {
+			$object = \json_decode(\trim($line), true);
+			if (!\is_array($object) || ($object["type"] ?? null) !== $type) {
+				continue;
+			}
+			$matches = true;
+			foreach ($expected as $key => $value) {
+				$actual = $object[$key] ?? null;
+				if (\is_bool($actual)) {
+					$actual = $actual ? "true" : "false";
+				}
+				if ((string)$actual !== $value) {
+					$matches = false;
+					break;
+				}
+			}
+			if ($matches) {
+				return;
+			}
+		}
+		Assert::fail(
+			"No JSON object of type '$type' with " . \json_encode($expected) . " in the output:\n$message"
+		);
+	}
+
+	/**
 	 *
 	 * @return void
 	 */
