@@ -2372,6 +2372,36 @@ trait WebDav {
 	}
 
 	/**
+	 *
+	 * @param string $user
+	 * @param string|null $content
+	 * @param string $mtime e.g. "-60 days", anything DateTime accepts
+	 * @param string $destination
+	 *
+	 * @return void
+	 * @throws Exception
+	 */
+	#[Given('user :user has uploaded a file with content :content and mtime :mtime to :destination')]
+	public function userHasUploadedAFileWithContentAndMtimeTo(
+		string $user,
+		?string $content,
+		string $mtime,
+		string $destination
+	): void {
+		$user = $this->getActualUsername($user);
+		$mtime = new DateTime($mtime);
+		$mtime = $mtime->format('U');
+		$response = $this->makeDavRequest(
+			$user,
+			"PUT",
+			$destination,
+			["X-OC-Mtime" => $mtime],
+			$content
+		);
+		$this->theHTTPStatusCodeShouldBe(["201", "204"], "", $response);
+	}
+
+	/**
 	 * @param string $user
 	 * @param string $checksum
 	 * @param string|null $content
