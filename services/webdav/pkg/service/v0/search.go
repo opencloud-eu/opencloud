@@ -222,8 +222,7 @@ func matchToPropResponse(ctx context.Context, davPrefix, publicURL string, match
 	propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:permissions", match.Entity.Permissions))
 	propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:highlights", match.Entity.Highlights))
 	propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("d:getcontenttype", match.Entity.MimeType))
-	_, isSupportedMimeType := thumbnail.SupportedMimeTypes[match.Entity.MimeType]
-	if isSupportedMimeType {
+	if thumbnail.HasPreviewForMimeType(match.Entity.MimeType, match.Entity.GetPreview() != nil) {
 		propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:has-preview", "1"))
 	} else {
 		propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:has-preview", "0"))
@@ -267,15 +266,6 @@ func matchToPropResponse(ctx context.Context, davPrefix, publicURL string, match
 	}
 
 	return &response, nil
-}
-
-func hasPreview(md *provider.ResourceInfo, appendToOK func(p ...prop.PropertyXML)) {
-	_, match := thumbnail.SupportedMimeTypes[md.MimeType]
-	if match {
-		appendToOK(prop.Escaped("oc:has-preview", "1"))
-	} else {
-		appendToOK(prop.Escaped("oc:has-preview", "0"))
-	}
 }
 
 type report struct {
