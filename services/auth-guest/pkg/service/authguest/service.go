@@ -140,7 +140,7 @@ func (s *AuthGuestService) VerifyToken(ctx context.Context, tokenString string) 
 
 // Renew renews the guest link token for shareID. When the request is
 // authorized by a (possibly expired) session token, a new PIN and nonce are
-// also issued (rate limited); otherwise the token is only rotated and no
+// also issued; otherwise the token is only rotated (rate limited) and no
 // PIN or nonce is issued.
 func (s *AuthGuestService) Renew(ctx context.Context, shareID, sessionToken string) (string, error) {
 	if s.publisher == nil {
@@ -161,7 +161,7 @@ func (s *AuthGuestService) Renew(ctx context.Context, shareID, sessionToken stri
 		validSession = err == nil && sessionShareID == shareID
 	}
 
-	if validSession {
+	if !validSession {
 		// Reject an active cooldown before doing the (remote) share validation.
 		if wait := s.guards.quotaLimiter.RetryAfter(&current.QuotaLimiterState, now); wait > 0 {
 			return "", &GuestError{ErrorType: ErrTooManyAttempts, ShareID: shareID, RetryAfter: wait}
@@ -278,8 +278,9 @@ func (s *AuthGuestService) CleanupShare(shareID string) error {
 }
 
 // rotateGuestToken replaces the guest token's secret and expiry under the
-// record lock. When sessionValid, the PIN, nonce and quota state are replaced
-// as well. When the record is modified concurrently it re-reads
+// record lock. When sessionValid, the PIN and nonce are replaced as well;
+// otherwise the quota limiter state is recorded. When the record is modified
+// concurrently it re-reads
 // and re-applies the rotation, up to renewMaxAttempts. It returns the issued
 // nonce, the record state seen before the successful update (for rollback) and
 // the updated record.
@@ -292,18 +293,18 @@ func (s *AuthGuestService) rotateGuestToken(hash string, tok *token.Token, pinHa
 		}
 
 		updated, err := s.store.UpdateFrom(*rec, func(record *storage.Record) error {
-			if sessionValid {
+			if !sessionValid {
 				if wait := s.guards.quotaLimiter.RetryAfter(&record.QuotaLimiterState, now); wait > 0 {
 					return &GuestError{ErrorType: ErrTooManyAttempts, ShareID: record.ShareID, RetryAfter: wait}
 				}
-
+				s.guards.quotaLimiter.Record(&record.QuotaLimiterState, now)
+			} else {
 				n, err := s.guards.nonce.Issue(&record.NonceState, now)
 				if err != nil {
 					return err
 				}
 				nonce = n
 				record.BackoffLimiterState = guard.BackoffLimiterState{}
-				s.guards.quotaLimiter.Record(&record.QuotaLimiterState, now)
 
 				record.PinHash = pinHash
 				record.PinExpiry = now.Add(s.pinAndNonceTTL)

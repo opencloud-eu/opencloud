@@ -465,6 +465,7 @@ func TestRenewPersistsRecordAndPublishesEvent(t *testing.T) {
 	assert.Equal(t, token.Hash(nonce), replaced.NonceState.Hash)
 	assert.NoError(t, guard.NewNonce(time.Hour).Verify(&replaced.NonceState, nonce, time.Now()))
 	assert.False(t, replaced.Redeemed)
+	assert.Zero(t, replaced.QuotaLimiterState.Count)
 
 	require.Len(t, publisher.published, 1)
 	ev, ok := publisher.published[0].(ocEvents.GuestTokenRenewed)
@@ -511,7 +512,7 @@ func TestRenewWithExpiredSessionToken(t *testing.T) {
 	assert.NotEmpty(t, ev.Pin)
 }
 
-func TestRenewValidSessionBlockedDuringCooldown(t *testing.T) {
+func TestRenewValidSessionBypassesCooldown(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
 	rec := existingRecord()
 	rec.QuotaLimiterState = guard.QuotaLimiterState{
@@ -528,15 +529,14 @@ func TestRenewValidSessionBlockedDuringCooldown(t *testing.T) {
 		DailyCap: 20,
 	})
 
-	_, err := s.Renew(context.Background(), testShareID, validSessionToken(t))
-	require.Error(t, err)
+	nonce, err := s.Renew(context.Background(), testShareID, validSessionToken(t))
+	require.NoError(t, err)
+	assert.NotEmpty(t, nonce)
+	gwc.AssertCalled(t, "GetShare", mock.Anything, mock.Anything)
 
-	var ge *GuestError
-	require.ErrorAs(t, err, &ge)
-	assert.ErrorIs(t, ge.ErrorType, ErrTooManyAttempts)
-	assert.Greater(t, ge.RetryAfter, time.Duration(0))
-
-	gwc.AssertNotCalled(t, "GetShare", mock.Anything, mock.Anything)
+	got, err := store.Get(token.Hash(testShareID))
+	require.NoError(t, err)
+	assert.Equal(t, 1, got.QuotaLimiterState.Count)
 }
 
 func TestRenewWithoutSessionRotatesSilently(t *testing.T) {
@@ -555,7 +555,7 @@ func TestRenewWithoutSessionRotatesSilently(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, got.SecretHash)
 	assert.Empty(t, got.PinHash)
-	assert.Zero(t, got.QuotaLimiterState.Count)
+	assert.Equal(t, 1, got.QuotaLimiterState.Count)
 
 	require.Len(t, publisher.published, 1)
 	ev, ok := publisher.published[0].(ocEvents.GuestTokenRenewed)
@@ -563,7 +563,7 @@ func TestRenewWithoutSessionRotatesSilently(t *testing.T) {
 	assert.Empty(t, ev.Pin)
 }
 
-func TestRenewWithoutSessionBypassesCooldown(t *testing.T) {
+func TestRenewWithoutSessionBlockedDuringCooldown(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
 	rec := existingRecord()
 	rec.QuotaLimiterState = guard.QuotaLimiterState{
@@ -581,8 +581,14 @@ func TestRenewWithoutSessionBypassesCooldown(t *testing.T) {
 	})
 
 	_, err := s.Renew(context.Background(), testShareID, "")
-	require.NoError(t, err)
-	gwc.AssertCalled(t, "GetShare", mock.Anything, mock.Anything)
+	require.Error(t, err)
+
+	var ge *GuestError
+	require.ErrorAs(t, err, &ge)
+	assert.ErrorIs(t, ge.ErrorType, ErrTooManyAttempts)
+	assert.Greater(t, ge.RetryAfter, time.Duration(0))
+
+	gwc.AssertNotCalled(t, "GetShare", mock.Anything, mock.Anything)
 }
 
 func TestRenewIgnoresRedeemedAndExpiry(t *testing.T) {
@@ -777,7 +783,7 @@ func TestRenewRecordsCooldown(t *testing.T) {
 		DailyCap: 20,
 	})
 
-	_, err := s.Renew(context.Background(), testShareID, validSessionToken(t))
+	_, err := s.Renew(context.Background(), testShareID, "")
 	require.NoError(t, err)
 
 	got, err := store.Get(token.Hash(testShareID))
@@ -804,7 +810,7 @@ func TestRenewBlockedDuringCooldown(t *testing.T) {
 		DailyCap: 20,
 	})
 
-	_, err := s.Renew(context.Background(), testShareID, validSessionToken(t))
+	_, err := s.Renew(context.Background(), testShareID, "")
 	require.Error(t, err)
 
 	var ge *GuestError
@@ -832,7 +838,7 @@ func TestRenewDailyCap(t *testing.T) {
 		DailyCap: 20,
 	})
 
-	_, err := s.Renew(context.Background(), testShareID, validSessionToken(t))
+	_, err := s.Renew(context.Background(), testShareID, "")
 	require.Error(t, err)
 
 	var ge *GuestError
@@ -862,7 +868,7 @@ func TestRotateGuestTokenBlockedReturnsRetryAfter(t *testing.T) {
 	tok, err := s.tokenSvc.Parse(tokStr)
 	require.NoError(t, err)
 
-	_, _, _, err = s.rotateGuestToken(token.Hash(testShareID), tok, "pin-hash", time.Now(), true)
+	_, _, _, err = s.rotateGuestToken(token.Hash(testShareID), tok, "pin-hash", time.Now(), false)
 	require.Error(t, err)
 
 	var ge *GuestError
