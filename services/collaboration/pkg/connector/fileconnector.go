@@ -1272,6 +1272,13 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 			logger.Error().Err(err).Msg("CheckFileInfo: error getting scopes from the context")
 		}
 	}
+	// the space root id must not reach a public share, like the parent folder link above
+	breadcrumbBrandURL := ""
+	if spaceRoot := statRes.GetInfo().GetSpace().GetRoot(); !isPublicShare && spaceRoot != nil {
+		brandURL := *ocURL
+		brandURL.Path = path.Join(ocURL.Path, "f", storagespace.FormatResourceID(spaceRoot))
+		breadcrumbBrandURL = brandURL.String()
+	}
 	lastModifiedTime := time.Now().UTC().Format(lastModifiedTimeFormat)
 	if mtime := statRes.GetInfo().GetMtime(); mtime != nil {
 		lastModifiedTime = utils.TSToTime(mtime).UTC().Format(lastModifiedTimeFormat)
@@ -1287,7 +1294,10 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 		// to get the folder we actually need to do a GetPath() request
 		fileinfo.KeyBreadcrumbFolderName: breadcrumbFolderName,
 		fileinfo.KeyBreadcrumbFolderURL:  parentFolderURL.String(),
+		fileinfo.KeyBreadcrumbBrandName:  statRes.GetInfo().GetSpace().GetName(),
+		fileinfo.KeyBreadcrumbBrandURL:   breadcrumbBrandURL,
 
+		fileinfo.KeyCloseURL:       parentFolderURL.String(),
 		fileinfo.KeyHostViewURL:    createHostUrl("view", ocURL, f.cfg.App.Name, statRes.GetInfo()),
 		fileinfo.KeyHostEditURL:    createHostUrl("write", ocURL, f.cfg.App.Name, statRes.GetInfo()),
 		fileinfo.KeyFileSharingURL: createShareUrl(privateLinkURL),
@@ -1325,6 +1335,13 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 		infoMap[fileinfo.KeySize] = size
 	}
 
+	infoMap[fileinfo.KeyReadOnly] = wopiContext.ViewMode != appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE
+
+	// only the collabora integration in web handles UI_Edit, the other office apps would post into the void
+	if strings.ToLower(f.cfg.App.Product) == "collabora" {
+		infoMap[fileinfo.KeyEditModePostMessage] = true
+	}
+
 	switch wopiContext.ViewMode {
 	case appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE:
 		infoMap[fileinfo.KeyUserCanWrite] = true
@@ -1337,9 +1354,12 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 		infoMap[fileinfo.KeyDisableExport] = true // only for collabora
 		infoMap[fileinfo.KeyDisableCopy] = true   // only for collabora
 		infoMap[fileinfo.KeyDisablePrint] = true
-		// a viewer role opens the document view only as well, the watermark is for secure view
-		if !isPublicShare && wopiContext.ViewOnlyToken != "" {
-			infoMap[fileinfo.KeyWatermarkText] = f.watermarkText(user) // only for collabora
+		// a viewer role opens the document view only as well, lock and watermark are for secure view
+		if wopiContext.ViewOnlyToken != "" {
+			infoMap[fileinfo.KeyIsUserLocked] = true // only for collabora
+			if !isPublicShare {
+				infoMap[fileinfo.KeyWatermarkText] = f.watermarkText(user) // only for collabora
+			}
 		}
 	}
 

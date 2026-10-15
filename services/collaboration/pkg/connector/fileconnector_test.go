@@ -1762,6 +1762,7 @@ var _ = Describe("FileConnector", func() {
 				FileVersionURL:             "https://cloud.opencloud.test/f/storageid$spaceid%21opaqueid?details=versions",
 				HostEditURL:                "https://cloud.opencloud.test/external-test/path/to/test.txt?fileId=storageid%24spaceid%21opaqueid&view_mode=write",
 				HostViewURL:                "https://cloud.opencloud.test/external-test/path/to/test.txt?fileId=storageid%24spaceid%21opaqueid&view_mode=view",
+				CloseURL:                   "https://cloud.opencloud.test/f/storageid$spaceid%21parentopaqueid",
 			}
 
 			response, err := fc.CheckFileInfo(ctx)
@@ -1838,6 +1839,18 @@ var _ = Describe("FileConnector", func() {
 				EnableInsertRemoteFile:  true,
 				EnableRemoteLinkPicker:  true,
 				IsAnonymousUser:         true,
+				Version:                 "v162738490",
+				LastModifiedTime:        "1970-07-08T08:30:49.0000000Z",
+				ReadOnly:                true,
+				SupportsUpdate:          true,
+				BreadcrumbFolderName:    "/path/to",
+				BreadcrumbFolderURL:     "https://cloud.opencloud.test",
+				CloseURL:                "https://cloud.opencloud.test",
+				FileSharingURL:          "https://cloud.opencloud.test/f/storageid$spaceid%21opaqueid?details=sharing",
+				FileVersionURL:          "https://cloud.opencloud.test/f/storageid$spaceid%21opaqueid?details=versions",
+				HostEditURL:             "https://cloud.opencloud.test/external-collabora/path/to/test.txt?fileId=storageid%24spaceid%21opaqueid&view_mode=write",
+				HostViewURL:             "https://cloud.opencloud.test/external-collabora/path/to/test.txt?fileId=storageid%24spaceid%21opaqueid&view_mode=view",
+				EditModePostMessage:     true,
 			}
 
 			response, err := fc.CheckFileInfo(ctx)
@@ -1944,6 +1957,8 @@ var _ = Describe("FileConnector", func() {
 				FileVersionURL:          "https://cloud.opencloud.test/f/storageid$spaceid%21opaqueid?details=versions",
 				HostEditURL:             "https://cloud.opencloud.test/external-onlyoffice/path/to/test.txt?fileId=storageid%24spaceid%21opaqueid&view_mode=write",
 				PostMessageOrigin:       "https://cloud.opencloud.test",
+				CloseURL:                "https://cloud.opencloud.test/s/ABC123",
+				ReadOnly:                true,
 			}
 
 			response, err := fc.CheckFileInfo(ctx)
@@ -2035,6 +2050,19 @@ var _ = Describe("FileConnector", func() {
 				EnableInsertRemoteFile:  true,
 				EnableRemoteLinkPicker:  true,
 				IsAdminUser:             true,
+				Version:                 "v162738490",
+				LastModifiedTime:        "1970-07-08T08:30:49.0000000Z",
+				ReadOnly:                true,
+				SupportsUpdate:          true,
+				BreadcrumbFolderName:    "/path/to",
+				BreadcrumbFolderURL:     "https://cloud.opencloud.test/f/storageid$spaceid%21parentopaqueid",
+				CloseURL:                "https://cloud.opencloud.test/f/storageid$spaceid%21parentopaqueid",
+				FileSharingURL:          "https://cloud.opencloud.test/f/storageid$spaceid%21opaqueid?details=sharing",
+				FileVersionURL:          "https://cloud.opencloud.test/f/storageid$spaceid%21opaqueid?details=versions",
+				HostEditURL:             "https://cloud.opencloud.test/external-collabora/path/to/test.txt?fileId=storageid%24spaceid%21opaqueid&view_mode=write",
+				HostViewURL:             "https://cloud.opencloud.test/external-collabora/path/to/test.txt?fileId=storageid%24spaceid%21opaqueid&view_mode=view",
+				EditModePostMessage:     true,
+				IsUserLocked:            true,
 				UserExtraInfo: &fileinfo.UserExtraInfo{
 					Mail: "shaft@example.com",
 				},
@@ -2128,6 +2156,18 @@ var _ = Describe("FileConnector", func() {
 				EnableInsertRemoteFile:  true,
 				EnableRemoteLinkPicker:  true,
 				IsAdminUser:             true,
+				Version:                 "v162738490",
+				LastModifiedTime:        "1970-07-08T08:30:49.0000000Z",
+				ReadOnly:                true,
+				SupportsUpdate:          true,
+				BreadcrumbFolderName:    "/path/to",
+				BreadcrumbFolderURL:     "https://cloud.opencloud.test/f/storageid$spaceid%21parentopaqueid",
+				CloseURL:                "https://cloud.opencloud.test/f/storageid$spaceid%21parentopaqueid",
+				FileSharingURL:          "https://cloud.opencloud.test/f/storageid$spaceid%21opaqueid?details=sharing",
+				FileVersionURL:          "https://cloud.opencloud.test/f/storageid$spaceid%21opaqueid?details=versions",
+				HostEditURL:             "https://cloud.opencloud.test/external-collabora/path/to/test.txt?fileId=storageid%24spaceid%21opaqueid&view_mode=write",
+				HostViewURL:             "https://cloud.opencloud.test/external-collabora/path/to/test.txt?fileId=storageid%24spaceid%21opaqueid&view_mode=view",
+				EditModePostMessage:     true,
 				UserExtraInfo: &fileinfo.UserExtraInfo{
 					Mail: "shaft@example.com",
 				},
@@ -2218,6 +2258,7 @@ var _ = Describe("FileConnector", func() {
 				HostEditURL:             "https://cloud.opencloud.test/external-onlyoffice/path/to/test.txt?fileId=storageid%24spaceid%21opaqueid&view_mode=write",
 				PostMessageOrigin:       "https://cloud.opencloud.test",
 				EnableInsertRemoteImage: true,
+				CloseURL:                "https://cloud.opencloud.test/f/storageid$spaceid%21parentopaqueid",
 			}
 
 			// change wopi app provider
@@ -2318,6 +2359,87 @@ var _ = Describe("FileConnector", func() {
 				lastModified, perr := time.Parse("2006-01-02T15:04:05.0000000Z", response.Body.(*fileinfo.OnlyOffice).LastModifiedTime)
 				Expect(perr).ToNot(HaveOccurred())
 				Expect(lastModified).To(BeTemporally("~", time.Now().UTC(), time.Minute))
+			})
+		})
+
+		Describe("Breadcrumb brand", func() {
+			statFileInSpace := func(ctx context.Context) {
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Times(1).Return(&providerv1beta1.StatResponse{
+					Status: status.NewOK(ctx),
+					Info: &providerv1beta1.ResourceInfo{
+						Owner: &userv1beta1.UserId{
+							Idp:      "customIdp",
+							OpaqueId: "aabbcc",
+							Type:     userv1beta1.UserType_USER_TYPE_PRIMARY,
+						},
+						Size: uint64(998877),
+						Path: "/path/to/test.txt",
+						Id: &providerv1beta1.ResourceId{
+							StorageId: "storageid",
+							OpaqueId:  "opaqueid",
+							SpaceId:   "spaceid",
+						},
+						ParentId: &providerv1beta1.ResourceId{
+							StorageId: "storageid",
+							OpaqueId:  "parentopaqueid",
+							SpaceId:   "spaceid",
+						},
+						Space: &providerv1beta1.StorageSpace{
+							Name: "Project X",
+							Root: &providerv1beta1.ResourceId{
+								StorageId: "storageid",
+								OpaqueId:  "spaceid",
+								SpaceId:   "spaceid",
+							},
+						},
+					},
+				}, nil)
+			}
+
+			BeforeEach(func() {
+				cfg.App.Name = "Collabora"
+				cfg.App.Product = "Collabora"
+			})
+
+			It("names and links the space for an authenticated user", func() {
+				ctx := middleware.WopiContextToCtx(context.Background(), wopiCtx)
+				ctx = ctxpkg.ContextSetUser(ctx, &userv1beta1.User{
+					Id: &userv1beta1.UserId{
+						Idp:      "example.com",
+						OpaqueId: "aabbcc",
+						Type:     userv1beta1.UserType_USER_TYPE_PRIMARY,
+					},
+					DisplayName: "Pet Shaft",
+				})
+				gatewayClient.On("CheckPermission", mock.Anything, mock.Anything).Return(
+					&permissions.CheckPermissionResponse{Status: status.NewOK(ctx)},
+					nil,
+				)
+				statFileInSpace(ctx)
+
+				response, err := fc.CheckFileInfo(ctx)
+				Expect(err).ToNot(HaveOccurred())
+				body := response.Body.(*fileinfo.Collabora)
+				Expect(body.BreadcrumbBrandName).To(Equal("Project X"))
+				Expect(body.BreadcrumbBrandURL).To(Equal("https://cloud.opencloud.test/f/storageid$spaceid%21spaceid"))
+			})
+
+			It("names the space but keeps its link from a public share", func() {
+				ctx := middleware.WopiContextToCtx(context.Background(), wopiCtx)
+				ctx = ctxpkg.ContextSetUser(ctx, &userv1beta1.User{
+					Opaque: &typesv1beta1.Opaque{
+						Map: map[string]*typesv1beta1.OpaqueEntry{
+							"public-share-role": {Decoder: "plain", Value: []byte("viewer")},
+						},
+					},
+				})
+				statFileInSpace(ctx)
+
+				response, err := fc.CheckFileInfo(ctx)
+				Expect(err).ToNot(HaveOccurred())
+				body := response.Body.(*fileinfo.Collabora)
+				Expect(body.BreadcrumbBrandName).To(Equal("Project X"))
+				Expect(body.BreadcrumbBrandURL).To(BeEmpty())
 			})
 		})
 	})

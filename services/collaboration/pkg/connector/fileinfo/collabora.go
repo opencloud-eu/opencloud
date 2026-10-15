@@ -27,6 +27,14 @@ type Collabora struct {
 	PostMessageOrigin string `json:"PostMessageOrigin,omitempty"`
 	// copied from MS WOPI
 	Size int64 `json:"Size"`
+	// The file version, it changes with every change of the file and never repeats.
+	Version string `json:"Version,omitempty"`
+	// The last modification of the file as UTC time in ISO 8601 round-trip format.
+	LastModifiedTime string `json:"LastModifiedTime,omitempty"`
+	// If set to true, the file cannot be changed by this user.
+	ReadOnly bool `json:"ReadOnly"`
+	// If set to true, PutFile and PutRelativeFile are available.
+	SupportsUpdate bool `json:"SupportsUpdate"`
 	// The ID of file (like the wopi/files/ID) can be a non-existing file. In that case, the file will be created from a template when the template (eg. an OTT file) is specified as TemplateSource in the CheckFileInfo response. The TemplateSource is supposed to be an URL like https://somewhere/accessible/file.ott that is accessible by the Online. For the actual saving of the content, normal PutFile mechanism will be used.
 	TemplateSource string `json:"TemplateSource,omitempty"`
 	// copied from MS WOPI
@@ -37,6 +45,34 @@ type Collabora struct {
 	UserID string `json:"UserId,omitempty"`
 	// copied from MS WOPI
 	UserFriendlyName string `json:"UserFriendlyName,omitempty"`
+
+	//
+	// URL properties
+	//
+
+	// The page to navigate to when the editor closes or fails unrecoverably.
+	CloseURL string `json:"CloseUrl,omitempty"`
+	// The page that lets the user share the file.
+	FileSharingURL string `json:"FileSharingUrl,omitempty"`
+	// The page that shows the version history of the file.
+	FileVersionURL string `json:"FileVersionUrl,omitempty"`
+	// The host page that opens the file in edit mode.
+	HostEditURL string `json:"HostEditUrl,omitempty"`
+	// The host page that opens the file in view mode.
+	HostViewURL string `json:"HostViewUrl,omitempty"`
+
+	//
+	// Breadcrumb properties
+	//
+
+	// The name shown as the brand part of the breadcrumb, the space name.
+	BreadcrumbBrandName string `json:"BreadcrumbBrandName,omitempty"`
+	// The page to navigate to from the breadcrumb brand.
+	BreadcrumbBrandURL string `json:"BreadcrumbBrandUrl,omitempty"`
+	// The name of the folder that contains the file.
+	BreadcrumbFolderName string `json:"BreadcrumbFolderName,omitempty"`
+	// The page to navigate to from the breadcrumb folder.
+	BreadcrumbFolderURL string `json:"BreadcrumbFolderUrl,omitempty"`
 
 	//
 	// Extended response properties
@@ -64,6 +100,8 @@ type Collabora struct {
 	DisableInactiveMessages bool `json:"DisableInactiveMessages,omitempty"`
 	// Indicate that the integration wants to handle the downloading of pdf for printing or svg for slideshows or exported document, because it cannot rely on browser’s support for downloading.
 	DownloadAsPostMessage bool `json:"DownloadAsPostMessage,omitempty"`
+	// If set to true, a UI_Edit postMessage is sent when the user switches to edit mode.
+	EditModePostMessage bool `json:"EditModePostMessage,omitempty"`
 	// Similar to download as, doctype extensions can be provided for save-as. In this case the new file is loaded in the integration instead of downloaded.
 	SaveAsPostmessage bool `json:"SaveAsPostmessage,omitempty"`
 	// If set to true, it allows the document owner (the one with OwnerId =UserId) to send a closedocument message (see protocol.txt)
@@ -72,6 +110,8 @@ type Collabora struct {
 	IsAdminUser bool `json:"IsAdminUser"`
 	// If set to true, some functionality of Collabora which is supposed to be shown to authenticated users only is hidden
 	IsAnonymousUser bool `json:"IsAnonymousUser,omitempty"`
+	// If set to true, the feature lock configured in Collabora restricts the commands available to this user.
+	IsUserLocked bool `json:"IsUserLocked,omitempty"`
 
 	// JSON object that contains additional info about the user, namely the avatar image.
 	// Shared among all views in collaborative editing sessions.
@@ -111,6 +151,12 @@ func (cinfo *Collabora) SetProperties(props map[string]any) {
 			cinfo.PostMessageOrigin = value.(string)
 		case KeySize:
 			cinfo.Size = value.(int64)
+		case KeyVersion:
+			cinfo.Version = value.(string)
+		case KeyLastModifiedTime:
+			cinfo.LastModifiedTime = value.(string)
+		case KeyReadOnly:
+			cinfo.ReadOnly = value.(bool)
 		case KeyTemplateSource:
 			cinfo.TemplateSource = value.(string)
 		case KeyUserCanWrite:
@@ -121,6 +167,17 @@ func (cinfo *Collabora) SetProperties(props map[string]any) {
 			cinfo.UserID = value.(string)
 		case KeyUserFriendlyName:
 			cinfo.UserFriendlyName = value.(string)
+
+		case KeyCloseURL:
+			cinfo.CloseURL = value.(string)
+		case KeyFileSharingURL:
+			cinfo.FileSharingURL = value.(string)
+		case KeyFileVersionURL:
+			cinfo.FileVersionURL = value.(string)
+		case KeyHostEditURL:
+			cinfo.HostEditURL = value.(string)
+		case KeyHostViewURL:
+			cinfo.HostViewURL = value.(string)
 
 		case KeyEnableInsertRemoteImage:
 			cinfo.EnableInsertRemoteImage = value.(bool)
@@ -144,6 +201,8 @@ func (cinfo *Collabora) SetProperties(props map[string]any) {
 			cinfo.DisableInactiveMessages = value.(bool)
 		case KeyDownloadAsPostMessage:
 			cinfo.DownloadAsPostMessage = value.(bool)
+		case KeyEditModePostMessage:
+			cinfo.EditModePostMessage = value.(bool)
 		case KeySaveAsPostmessage:
 			cinfo.SaveAsPostmessage = value.(bool)
 		case KeyEnableOwnerTermination:
@@ -157,6 +216,8 @@ func (cinfo *Collabora) SetProperties(props map[string]any) {
 			cinfo.IsAdminUser = value.(bool)
 		case KeyIsAnonymousUser:
 			cinfo.IsAnonymousUser = value.(bool)
+		case KeyIsUserLocked:
+			cinfo.IsUserLocked = value.(bool)
 
 		case KeyEnableShare:
 			cinfo.EnableShare = value.(bool)
@@ -170,6 +231,16 @@ func (cinfo *Collabora) SetProperties(props map[string]any) {
 			cinfo.UserCanRename = value.(bool)
 		case KeyBreadcrumbDocName:
 			cinfo.BreadcrumbDocName = value.(string)
+		case KeySupportsUpdate:
+			cinfo.SupportsUpdate = value.(bool)
+		case KeyBreadcrumbBrandName:
+			cinfo.BreadcrumbBrandName = value.(string)
+		case KeyBreadcrumbBrandURL:
+			cinfo.BreadcrumbBrandURL = value.(string)
+		case KeyBreadcrumbFolderName:
+			cinfo.BreadcrumbFolderName = value.(string)
+		case KeyBreadcrumbFolderURL:
+			cinfo.BreadcrumbFolderURL = value.(string)
 		}
 	}
 }
