@@ -549,10 +549,43 @@ Feature: listing the content of a public link via the Graph API
 
     Examples:
       | action                  | code |
-      | create a link for       | 404  |
+      | create a link for       | 403  |
       | delete                  | 400  |
       | rename                  | 400  |
-      | list the permissions of | 404  |
+      | list the permissions of | 403  |
+
+
+  Scenario Outline: writes through the real drive are rejected
+    Given user "Alice" has created the following resource link share:
+      | resource        | publicfolder |
+      | space           | Personal     |
+      | permissionsRole | edit         |
+      | password        | %public%     |
+    When the public tries to <action> the child "a.txt" of the last created public link through the real drive with password "%public%" using the Graph API
+    Then the HTTP status code should be "<code>"
+    And as "Alice" file "publicfolder/a.txt" should exist
+
+    Examples:
+      | action                  | code |
+      | create a link for       | 403  |
+      | delete                  | 400  |
+      | rename                  | 400  |
+      | list the permissions of | 403  |
+
+
+  Scenario Outline: a colon path does not climb above the public link through the real drive
+    When the public tries to get the path "<path>" below resource "publicfolder" of user "Alice" through the real drive of the last created public link with password "%public%" using the Graph API
+    Then the HTTP status code should be "404"
+    Examples:
+      | path                  |
+      | ../private.txt        |
+      | %2E%2E/private.txt    |
+      | sub/../../private.txt |
+
+
+  Scenario: the root item of the real drive is not readable through a public link
+    When the public tries to get the root item of the real drive of resource "publicfolder" of user "Alice" through the last created public link with password "%public%" using the Graph API
+    Then the HTTP status code should be "404"
 
 
   Scenario: the public sees who shared the link on the drive
