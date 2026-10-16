@@ -10,7 +10,7 @@ Currently, the webdav service handles request for two functionalities, which are
 
 The webdav service provides various `GET` endpoints to get the thumbnails of a file in authenticated and unauthenticated contexts. It also provides thumbnails for spaces on different endpoints.
 
-Generated thumbnails are cached by the webdav service itself. The cache backend defaults to `file`, storing entries under `$OC_BASE_DATA_PATH/thumbnails/files` (override with `WEBDAV_THUMBNAIL_CACHE_BACKEND` and `WEBDAV_THUMBNAIL_CACHE_DIR`). Use the `s3` backend when running multiple instances behind a load balancer so they share one cache.
+Generated thumbnails are cached by the webdav service itself. The cache backend defaults to `file`, storing entries under `$OC_BASE_DATA_PATH/thumbnails/files` (override with `WEBDAV_THUMBNAIL_CACHE_BACKEND` and `WEBDAV_THUMBNAIL_CACHE_DIR`). Use the `s3` backend when running multiple instances behind a load balancer so they share one cache. A backend nobody can serve, an unknown name or an `s3` backend without bucket, endpoint and credentials, fails at startup instead of serving without a cache. The `memory` backend is bounded and drops its oldest entries; `none` disables caching on purpose.
 
 #### Thumbnail Query String Parameters
 
@@ -21,8 +21,8 @@ The following query parameters are supported:
 | Parameter | Required | Default Value                                              | Description                                                                     |
 | --------- | -------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | preview   | YES      | 1                                                          | generates preview                                                               |
-| x         | YES      | first x-value configured in `WEBDAV_THUMBNAIL_RESOLUTIONS` | horizontal target size                                                          |
-| y         | YES      | first y-value configured in `WEBDAV_THUMBNAIL_RESOLUTIONS` | vertical target size                                                            |
+| x         | NO       | 32, when y is absent too                                   | horizontal target size, `0` or absent leaves the width unconstrained            |
+| y         | NO       | 32, when x is absent too                                   | vertical target size, `0` or absent leaves the height unconstrained             |
 | scalingup | NO       | 0                                                          | accepted for compatibility but ignored; not forwarded to the generator          |
 | a         | NO       | 1                                                          | aspect ratio (legacy; only honored when no explicit `processor` is given)       |
 | c         | NO       | Caching string                                             | Clients should send the etag, so they get a fresh thumbnail after a file change |
@@ -30,28 +30,55 @@ The following query parameters are supported:
 
 #### Thumbnail Resolution
 
-Various resolutions can be defined via `WEBDAV_THUMBNAIL_RESOLUTIONS`. A requestor can request any arbitrary resolution and the webdav service will use the one closest to the requested resolution. If more than one resolution is required, each resolution must be requested individually.
+`WEBDAV_THUMBNAIL_RESOLUTIONS` is a ladder of edge lengths, not a list of boxes. Each axis of a request is rounded up to the next length on the ladder, on its own, so a thumbnail never comes back in a different orientation than it was asked for. The largest length is the cap: a request above it, and an axis left unconstrained with `0`, get that one.
 
-Example:
+Example with the default ladder (16, 32, 64, 128, 192, 256, 320, 384, 448, 512, 640, 768, 1024, 1280, 1920, 2560, 3840, 7680):
 
 Requested: 18x12\
-Available: 30x20, 15x10, 9x6\
-Returned: 15x10
+Returned: 32x16
+
+Entries written as `WidthxHeight` are still accepted and contribute both of their sides to the ladder, so a configuration written for the old box list keeps working.
+
+Rounding onto the ladder is also what the cache is keyed on, so requests that produce the same image share one entry.
 
 #### Thumbnail Processors
 
 Normally, an image might get cropped when creating a preview, depending on the aspect ratio of the original image. This can have negative impacts on previews as only a part of the image will be shown. When using an _optional_ processor in the request, cropping can be avoided by defining on how the preview image generation will be done. The following processors are available:
 
-*   `resize` resizes the image to the specified width and height and returns the transformed image (distorts to the exact box).
-*   `fit-in` scales the image down to fit within the specified maximum width and height, preserving aspect ratio and never upscaling (letterboxed).
-*   `fill`: creates an image with the specified dimensions and fills it with the scaled source image. To achieve the correct aspect ratio without stretching, the source image will be cropped.
+- `resize` resizes the image to the specified width and height and returns the transformed image (distorts to the exact box).
+- `fit-in` scales the image down to fit within the specified maximum width and height, preserving aspect ratio and never upscaling (letterboxed).
+- `fill`: creates an image with the specified dimensions and fills it with the scaled source image. To achieve the correct aspect ratio without stretching, the source image will be cropped.
 
 The following are **legacy aliases** kept for compatibility. They map onto the processors above but **ignore the `a` and `scalingup` query parameters**; callers that need aspect or upscaling control should use the imagor names directly (`fill`, `fit-in`, `resize`):
 
-*   `thumbnail` is a legacy alias for `fill` (center-crop to the exact box, may upscale).
-*   `fit` is a legacy alias for `fit-in`.
+- `thumbnail` is a legacy alias for `fill` (center-crop to the exact box, may upscale).
+- `fit` is a legacy alias for `fit-in`.
 
-To apply one of those, a query parameter has to be added to the request, like `?processor=fit-in`. If no processor is given, the default behaviour applies which is `resize` for gifs and `thumbnail` (i.e. `fill`) for all others. When an explicit processor overrides a contradictory legacy `a`, the thumbnail response includes the header `X-OpenCloud-Thumbnail-Aspect-Ignored` so developers can fix their client to send a consistent request.
+To apply one of those, a query parameter has to be added to the request, like `?processor=fit-in`.
+
+Without a processor three things decide, in this order. An unconstrained axis is always fitted, because there is no box to crop to, so `?x=0&y=512` needs nothing else. Then `a` decides when the client sent it: `a=1` fits in, `a=0` fills. Otherwise the source type decides, `resize` for gifs and `fill` for everything else, which is what a request without `a` has always got.
+
+When what a request resolves to contradicts an `a` the client sent, the response carries the header `X-OpenCloud-Thumbnail-Aspect-Ignored` so developers can fix their client. A request that does not send `a` never gets the header.
+
+#### Thumbnail Generator
+
+The thumbnails themselves are made by a generator the webdav service POSTs to, configured with `WEBDAV_THUMBNAIL_GENERATOR_URL` (and `WEBDAV_THUMBNAIL_GENERATOR_TIMEOUT`). The built-in thumbnails service speaks the imagor image endpoint, so a real [imagor](https://imagor.net) can be put in its place without changing anything else. A source the generator cannot read answers `404`, one that is too large `403`, and `WEBDAV_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE` caps what is sent at all. A generator that refuses because it is busy answers `429` with its own `Retry-After`, so a client can come back instead of treating it as a missing preview.
+
+Three settings say what is made of what. They are merged onto the built-in defaults, so naming one type does not take the answer away from the others:
+
+| Environment variable                 | Description                                                                                                                                                  |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `WEBDAV_THUMBNAIL_SOURCE_TYPES`      | Types a preview is announced and attempted for, e.g. `image/vnd.microsoft.icon` for a generator that reads icons                                             |
+| `WEBDAV_THUMBNAIL_TYPE_MAPPING`      | The type a thumbnail is returned in, per source type, as `mime:mime` entries, e.g. `image/vnd.microsoft.icon:image/png`                                      |
+| `WEBDAV_THUMBNAIL_GENERATOR_FORMATS` | The formats the generator writes, as `mime:format` entries, e.g. `image/webp:webp`. The format is the name its own `format(...)` filter uses                 |
+
+Reading them as a chain: a source type is mapped to the type its thumbnail is returned in, and that type is asked for by the name the generator knows it under. An icon becomes `image/png`, which the generator is asked for as `format(png)`. A type nobody mapped becomes a JPEG, and a mapping onto a type the generator has no format name for is refused at startup.
+
+The defaults return `image/png` for png, gif and icon sources and `image/jpeg` for everything else, so a client must read the response's `Content-Type` instead of assuming the type it got before.
+
+Previews can be switched off entirely with `OC_DISABLE_PREVIEWS`. Search keeps working, every thumbnail path answers `404`.
+
+In the single binary nothing has to be set: the generator URL defaults to the built-in thumbnails service. A deployment that runs the services in separate containers has to point `WEBDAV_THUMBNAIL_GENERATOR_URL` at its thumbnails service or at an imagor, because `127.0.0.1` no longer reaches it. The settings that used to live on the thumbnails service now belong to webdav, `THUMBNAILS_RESOLUTIONS` and `THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE` keep working there, and the thumbnail cache moves with them: the directory behind `THUMBNAILS_FILESYSTEMSTORAGE_ROOT`, now `WEBDAV_THUMBNAIL_CACHE_DIR`, has to be reachable by the webdav container.
 
 ### Search
 

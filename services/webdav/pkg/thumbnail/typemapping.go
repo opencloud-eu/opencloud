@@ -7,7 +7,7 @@ import (
 )
 
 // DefaultTypeMapping answers for every type in SupportedMimeTypes, so the
-// format a thumbnail is written in can be read off here instead of being
+// type a thumbnail is returned in can be read off here instead of being
 // guessed from a file name. Types that carry alpha or animation keep their own
 // format, everything else becomes a JPEG. An icon is the one type no generator
 // writes back: it has to become a PNG, or JPEG would flatten its transparent
@@ -31,7 +31,7 @@ var DefaultTypeMapping = []string{
 	"application/vnd.geogebra.pinboard:image/jpeg",
 }
 
-// TypeMapping says which type a thumbnail of an image is written in, for the
+// TypeMapping says which type a thumbnail of an image is returned in, for the
 // types where the image's own is not the answer.
 type TypeMapping struct {
 	byType map[string]string
@@ -44,8 +44,8 @@ func NewTypeMapping(entries []string) TypeMapping {
 	return TypeMapping{byType: generator.ParsePairs(DefaultTypeMapping, entries)}
 }
 
-// TargetFor is the type a thumbnail of this type is written in, "" when nothing
-// is mapped and the caller keeps what it had.
+// TargetFor is the type a thumbnail of this type is returned in, "" when
+// nothing is mapped and the caller keeps what it had.
 func (m TypeMapping) TargetFor(contentType string) string {
 	parsed, _, err := mime.ParseMediaType(contentType)
 	if err != nil {
@@ -55,5 +55,5 @@ func (m TypeMapping) TargetFor(contentType string) string {
 	return m.byType[parsed]
 }
 
-// Targets lists the type a thumbnail is written in, by source type.
+// Targets lists the type a thumbnail is returned in, by source type.
 func (m TypeMapping) Targets() map[string]string { return m.byType }

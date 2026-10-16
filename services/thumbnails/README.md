@@ -8,7 +8,7 @@ upload and returns the resized thumbnail encoded in the requested format.
 > default it binds to `127.0.0.1:9186` so only local processes (the webdav
 > service) can reach it. If you change `THUMBNAILS_HTTP_ADDR` to a non-loopback
 > address, put it behind your reverse proxy's auth layer or an internal network
-> boundary — anyone who can reach the endpoint can upload and retrieve
+> boundary. Anyone who can reach the endpoint can upload and retrieve
 > arbitrary images through it.
 
 ## Push Endpoint
@@ -16,54 +16,43 @@ upload and returns the resized thumbnail encoded in the requested format.
 The webdav service (which owns the complete thumbnail workflow) POSTs the
 source file to this endpoint and receives the processed image back.
 
-| Route                                                                            | Description                                                                                   |
-| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `POST /unsafe/{width}x{height}` (optionally `/filters:format({format})`)         | Fill the exact width x height (center crop, may upscale) — the default                        |
-| `POST /unsafe/fit-in/{width}x{height}` (optionally `/filters:format({format})`)  | Scale to fit within width x height, preserving aspect ratio and never upscaling (letterboxed) |
-| `POST /unsafe/stretch/{width}x{height}` (optionally `/filters:format({format})`) | Resize to the exact width x height without preserving aspect ratio (distorts)                 |
+| Route                                                     | Description                                                                       |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `POST /unsafe/{width}x{height}/filters:{filters}`         | Fill the exact width x height (center crop, may upscale), the default             |
+| `POST /unsafe/fit-in/{width}x{height}/filters:{filters}`  | Scale to fit within width x height, preserving aspect ratio and never upscaling   |
+| `POST /unsafe/stretch/{width}x{height}/filters:{filters}` | Resize to the exact width x height without preserving aspect ratio (distorts)     |
 
-The filters segment is captured whole and parsed; the `format` and `no_upscale`
-filters are meaningful to this executor, other filters are ignored. The
-`format` filter is optional: when absent the input's own format is preserved
-(detected from the image header), matching imagor. Inputs we cannot re-encode
-(e.g. webp, tiff, bmp) fall back to JPEG, mirroring imagor's default for
-unsavable sources.
+The filters segment is optional, like imagor's, and may also be empty
+(`filters:`). Inside it, `format` and
+`no_upscale` are the filters this executor acts on, every other filter is
+ignored. `format` itself is optional: without it the input's own format is
+preserved, the same way imagor does it. An input this service cannot write
+(tiff, bmp) becomes a JPEG; imagor writes tiff back in its own format and only
+falls back to JPEG for the ones it cannot write either.
 
 Like real imagor, the default fill resize **upscales** small sources to fill
 the box exactly (a 100x100 source requested at `320x320` returns a 320x320
 image). Adding the `no_upscale()` filter caps the result at the source size
-instead (the same request returns 100x100). The `fit-in` route never upscales
-regardless of filters.
+instead (the same request returns 100x100). The `fit-in` route never upscales,
+imagor would with the `upscale()` filter, this service ignores it.
 
-The webdav service selects the route based on the requested processor. The full
-mapping is:
-
-| Request                                   | Operation                                           |
-| ----------------------------------------- | --------------------------------------------------- |
-| `processor=resize`                        | stretch (distort to the exact box)                  |
-| `processor=fill` or `processor=thumbnail` | fill (center-crop to the exact box, may upscale)    |
-| `processor=fit` / `processor=fit-in`      | fit-in (preserve aspect, fit in box, never upscale) |
-| no processor, gif source                  | stretch (resize for gifs)                           |
-| no processor, other sources               | fill (default = thumbnail = fill)                   |
-
-By default (no processor, non-gif) the fill form is used, which center-crops to
-the exact box and upscales small sources — this matches the legacy `thumbnail`
-processor behavior (e.g. a 200x100 image requested at 100x100 returns a square
-100x100 image). Requesting `processor=fit` switches to the `fit-in` form, which
-preserves aspect ratio and never upscales, letterboxing a non-square source
-into the box (the same image returns 100x50).
-
-### Legacy `a` parameter
-
-The webdav preview endpoint also accepts a legacy `a` flag: `a=1` (or absent)
-means "preserve aspect" (fit-in), `a=0` means "fill". An explicit `processor`
-always wins over `a`. When an explicit processor overrides a contradictory `a`,
-the thumbnail response includes the header
-`X-OpenCloud-Thumbnail-Aspect-Ignored` so developers can tell their client to
-send a consistent request.
+Which route a preview request ends up on, and the `processor` and `a`
+parameters that decide it, are the webdav service's business and documented in
+[its README](../webdav/README.md).
 
 The request body is a `multipart/form-data` upload with a single file field
-named `image`. Supported output formats are `jpg`, `png`, and `gif`.
+named `image`, typed `image/*`; an untyped part is refused the way imagor's
+upload loader refuses it. Output formats are `jpg`, `png`, `gif` and, with
+libvips, `webp`; the pure Go build answers `400` for `format(webp)` because it
+has no webp encoder. An animated gif asked for a still format is flattened to
+its first frame, and a still source asked for `format(gif)` is palettised.
+
+Reading an ICO needs libvips with its magick loader; the pure Go build answers
+`406` for one.
+
+The answers are imagor's: `400` for a malformed request, `406` for a source it
+cannot read, `422` for an image above the configured maximum dimensions, `429`
+when the concurrency limit is reached.
 
 ## Configuration
 
@@ -72,6 +61,8 @@ named `image`. Supported output formats are `jpg`, `png`, and `gif`.
 | `THUMBNAILS_HTTP_ADDR`               | Bind address of the HTTP service (default `127.0.0.1:9186`)                                                                                                                           |
 | `THUMBNAILS_LOG_LEVEL`               | Log level (`panic`, `fatal`, `error`, `warn`, `info`, `debug`, `trace`)                                                                                                               |
 | `THUMBNAILS_MAX_CONCURRENT_REQUESTS` | Maximum number of thumbnail requests decoded and resized in parallel. Default is 0 (unlimited). Requests arriving while the limit is reached get HTTP 429 with a `Retry-After` header |
+| `THUMBNAILS_MAX_INPUT_WIDTH`         | Maximum width of a source image, 7680 by default. A wider one is refused with HTTP 422, which webdav turns into its legacy 403                                                        |
+| `THUMBNAILS_MAX_INPUT_HEIGHT`        | Maximum height of a source image, 7680 by default                                                                                                                                     |
 
 ## Using libvips for Image Processing
 
@@ -80,11 +71,11 @@ thumbnails service is able to utilize the
 [libvips library](https://www.libvips.org/) for image processing. Support for
 libvips needs to be enabled at buildtime and has a couple of implications:
 
-*  With libvips support enabled, it is not possible to create a statically
+- With libvips support enabled, it is not possible to create a statically
    linked OpenCloud binary.
-*  Therefore, the libvips shared libraries need to be available at runtime in
+- Therefore, the libvips shared libraries need to be available at runtime in
    the same release that was used to build the OpenCloud binary.
-*  When using the OpenCloud docker images, the libvips shared libraries are
+- When using the OpenCloud docker images, the libvips shared libraries are
    included in the image and are correctly embedded.
 
 Support of libvips is disabled by default. To enable it, make sure libvips

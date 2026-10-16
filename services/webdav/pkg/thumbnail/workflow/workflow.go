@@ -220,7 +220,7 @@ func WithFormats(f generator.Formats) Option {
 	return func(w *ThumbnailWorkflow) { w.formats = f }
 }
 
-// WithTypeMapping sets the format a thumbnail of a given image type is written in.
+// WithTypeMapping sets the type a thumbnail of a given image type is returned in.
 func WithTypeMapping(m thumbnail.TypeMapping) Option {
 	return func(w *ThumbnailWorkflow) { w.typeMapping = m }
 }
@@ -430,7 +430,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	}
 	mimeType := info.GetMimeType()
 
-	// The thumbnail is written in the type the source type maps to, asked for by
+	// The thumbnail is returned in the type the source type maps to, asked for by
 	// the name the generator's filter uses. A type nobody mapped, and one whose
 	// target the generator cannot write, becomes a JPEG.
 	outputType, outputFormat := "image/jpeg", "jpg"
