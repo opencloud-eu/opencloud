@@ -16,15 +16,20 @@ func newThumbnailRequest(t *testing.T, rawQuery string) *http.Request {
 	return req.WithContext(ctx)
 }
 
+var (
+	trueValue  = true
+	falseValue = false
+)
+
 func TestParseThumbnailRequestAspect(t *testing.T) {
 	tests := []struct {
 		name  string
 		query string
-		wantA bool
+		wantA *bool
 	}{
-		{"a absent defaults to preserve aspect", "x=1024&y=1024", true},
-		{"a=1 preserves aspect", "x=1024&y=1024&a=1", true},
-		{"a=0 fills the box", "x=1024&y=1024&a=0", false},
+		{"a absent is not set at all", "x=1024&y=1024", nil},
+		{"a=1 preserves aspect", "x=1024&y=1024&a=1", &trueValue},
+		{"a=0 fills the box", "x=1024&y=1024&a=0", &falseValue},
 	}
 
 	for _, tt := range tests {
@@ -34,8 +39,13 @@ func TestParseThumbnailRequestAspect(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ParseThumbnailRequest() error = %v", err)
 			}
-			if tr.Aspect != tt.wantA {
-				t.Errorf("Aspect = %v, want %v", tr.Aspect, tt.wantA)
+			switch {
+			case tt.wantA == nil && tr.Aspect != nil:
+				t.Errorf("Aspect = %v, want it unset", *tr.Aspect)
+			case tt.wantA != nil && tr.Aspect == nil:
+				t.Errorf("Aspect unset, want %v", *tt.wantA)
+			case tt.wantA != nil && *tr.Aspect != *tt.wantA:
+				t.Errorf("Aspect = %v, want %v", *tr.Aspect, *tt.wantA)
 			}
 		})
 	}

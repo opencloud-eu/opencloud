@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/riandyrn/otelchi"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -47,13 +48,12 @@ func NewService(opts ...Option) Service {
 	// is captured whole and parsed by the handler so any set and order of imagor
 	// filters is accepted.
 	handler := svc.pushHandler
-	m.Post("/unsafe/{operation}/{width}x{height}/filters:{filters}/", handler)
+	// StripSlashes makes the trailing slash optional, the operation and filters
+	// segments are the four remaining combinations.
+	m.Use(middleware.StripSlashes)
 	m.Post("/unsafe/{operation}/{width}x{height}/filters:{filters}", handler)
-	m.Post("/unsafe/{width}x{height}/filters:{filters}/", handler)
 	m.Post("/unsafe/{width}x{height}/filters:{filters}", handler)
-	m.Post("/unsafe/{operation}/{width}x{height}/", handler)
 	m.Post("/unsafe/{operation}/{width}x{height}", handler)
-	m.Post("/unsafe/{width}x{height}/", handler)
 	m.Post("/unsafe/{width}x{height}", handler)
 
 	_ = chi.Walk(m, func(method string, route string, _ http.Handler, middlewares ...func(http.Handler) http.Handler) error {

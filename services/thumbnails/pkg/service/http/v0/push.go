@@ -25,9 +25,6 @@ const (
 	OpStretch = "stretch"
 )
 
-// errInvalid mirrors imagor's ErrInvalid: a syntactically invalid request.
-var errInvalid = fmt.Errorf("invalid")
-
 // errFormatUnsupported is what an encoder returns for a format this build has no
 // encoder for, as opposed to an encode that went wrong.
 var errFormatUnsupported = fmt.Errorf("format not supported by this build")
@@ -118,6 +115,9 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 	// resulting 422 into its legacy 403 response.
 	if s.maxWidth > 0 || s.maxHeight > 0 {
 		cfg, _, err := image.DecodeConfig(bytes.NewReader(imgData))
+		if err != nil {
+			s.logger.Debug().Err(err).Msg("could not read the image header, skipping the dimension check")
+		}
 		if err == nil {
 			if (s.maxWidth > 0 && cfg.Width > s.maxWidth) || (s.maxHeight > 0 && cfg.Height > s.maxHeight) {
 				writeMaxResolution(w)
@@ -128,7 +128,13 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 
 	// The box and operation are chosen by webdav (the sizing brain); this service
 	// is a dumb, imagor-like executor that just fits within the given box.
-	processed, err := processImage(bytes.NewReader(imgData), width, height, operation, noUpscale, ext == "gif")
+	processed, err := processImage(bytes.NewReader(imgData), resizeRequest{
+		Width:         width,
+		Height:        height,
+		Operation:     operation,
+		NoUpscale:     noUpscale,
+		KeepAnimation: ext == "gif",
+	})
 	if err != nil {
 		writeNotAcceptable(w, "failed to process image")
 		return
@@ -149,9 +155,13 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 	case "webp":
 		contentType = "image/webp"
 		encErr = encodeWebP(&buf, processed)
-	default:
+	case "gif":
 		contentType = "image/gif"
 		encErr = encodeGIF(&buf, processed)
+	default:
+		writeInvalid(w, fmt.Sprintf("unsupported output format: %s", ext))
+
+		return
 	}
 	if errors.Is(encErr, errFormatUnsupported) {
 		// 406, not 400: the request is fine, this build just cannot answer it,
@@ -348,7 +358,18 @@ func isGifReader(r io.Reader) bool {
 // selects the resize/crop mode (fill, fit-in, stretch). noUpscale mirrors
 // imagor's no_upscale() filter: when set, fill and fit-in must not enlarge the
 // source (stretch is exact and ignores it).
-var processImage func(io.Reader, int, int, string, bool, bool) (any, error)
+var processImage func(io.Reader, resizeRequest) (any, error)
+
+// resizeRequest is what the executor is asked to do. webdav chose the box and
+// the operation; noUpscale mirrors imagor's no_upscale() filter, and animation
+// is only kept when the output is a gif too.
+type resizeRequest struct {
+	Width         int
+	Height        int
+	Operation     string
+	NoUpscale     bool
+	KeepAnimation bool
+}
 
 // encodeJPEG and encodePNG write the processed image to w in the requested
 // format. Set by init() in push_imaging.go / push_vips.go. The vips backend

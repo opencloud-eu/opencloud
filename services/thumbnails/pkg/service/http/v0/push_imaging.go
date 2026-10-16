@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"image"
 	"image/color/palette"
-	"image/draw"
 	"image/gif"
 	"image/jpeg"
 	"image/png"
@@ -30,11 +29,11 @@ func init() {
 // upscaling small sources by default like real imagor), or stretch (resize to the
 // exact box). noUpscale caps the
 // default fill at the source size, mirroring imagor's no_upscale() filter.
-func processImageImaging(r io.Reader, width, height int, operation string, noUpscale, keepAnimation bool) (any, error) {
-	if keepAnimation && isGifReader(r) {
+func processImageImaging(r io.Reader, req resizeRequest) (any, error) {
+	if req.KeepAnimation && isGifReader(r) {
 		g, err := gif.DecodeAll(r)
 		if err == nil && len(g.Image) > 0 {
-			return resizeGIF(g, width, height, operation, noUpscale), nil
+			return resizeGIF(g, req.Width, req.Height, req.Operation, req.NoUpscale), nil
 		}
 	}
 
@@ -45,24 +44,24 @@ func processImageImaging(r io.Reader, width, height int, operation string, noUps
 
 	srcBounds := img.Bounds()
 
-	switch operation {
+	switch req.Operation {
 	case OpStretch:
-		return imaging.Resize(img, width, height, imaging.Lanczos), nil
+		return imaging.Resize(img, req.Width, req.Height, imaging.Lanczos), nil
 	case OpFitIn:
 		// imagor's fit-in only enlarges with the upscale() filter, which webdav
 		// never sends, so a source smaller than the box is returned as it is.
 		// Not imaging.Fit: it truncates the scaled side, vips and imagor round it.
-		w, h := fitInBox(srcBounds.Dx(), srcBounds.Dy(), width, height)
+		w, h := fitInBox(srcBounds.Dx(), srcBounds.Dy(), req.Width, req.Height)
 		if w >= srcBounds.Dx() && h >= srcBounds.Dy() {
 			return img, nil
 		}
 		return imaging.Resize(img, w, h, imaging.Lanczos), nil
 	default: // OpFill
-		if noUpscale && srcBounds.Dx() <= width && srcBounds.Dy() <= height {
+		if req.NoUpscale && srcBounds.Dx() <= req.Width && srcBounds.Dy() <= req.Height {
 			// imagor no_upscale(): never enlarge the source.
 			return img, nil
 		}
-		return imaging.Thumbnail(img, width, height, imaging.Lanczos), nil
+		return imaging.Thumbnail(img, req.Width, req.Height, imaging.Lanczos), nil
 	}
 }
 
@@ -72,72 +71,6 @@ func fitInBox(srcW, srcH, boxW, boxH int) (int, int) {
 	scale := math.Min(float64(boxW)/float64(srcW), float64(boxH)/float64(srcH))
 
 	return max(int(math.Round(float64(srcW)*scale)), 1), max(int(math.Round(float64(srcH)*scale)), 1)
-}
-
-// resizeGIF resizes every frame of an animated gif while preserving the
-// animation. It composites each frame onto a running canvas honoring the gif
-// disposal method, resizes with the requested processor, and re-pallettes the
-// result using Floyd-Steinberg dithering. Code adapted from
-// https://github.com/willnorris/gifresize. noUpscale caps the default fill at
-// the source size, mirroring imagor's no_upscale() filter.
-func resizeGIF(m *gif.GIF, width, height int, operation string, noUpscale bool) *gif.GIF {
-	srcX, srcY := m.Config.Width, m.Config.Height
-	b := image.Rect(0, 0, srcX, srcY)
-	tmp := image.NewRGBA(b)
-
-	for i, frame := range m.Image {
-		frameBounds := frame.Bounds()
-		prev := tmp
-		draw.Draw(tmp, frameBounds, frame, frameBounds.Min, draw.Over)
-
-		var processed image.Image
-		switch operation {
-		case OpStretch:
-			processed = imaging.Resize(tmp, width, height, imaging.Lanczos)
-		case OpFitIn:
-			if noUpscale && srcX <= width && srcY <= height {
-				processed = tmp
-			} else if srcX <= width && srcY <= height {
-				srcAR := float64(srcX) / float64(srcY)
-				boxAR := float64(width) / float64(height)
-				if srcAR > boxAR {
-					processed = imaging.Resize(tmp, width, int(float64(width)/srcAR), imaging.Lanczos)
-				} else {
-					processed = imaging.Resize(tmp, int(float64(height)*srcAR), height, imaging.Lanczos)
-				}
-			} else {
-				processed = imaging.Fit(tmp, width, height, imaging.Lanczos)
-			}
-		default: // OpFill
-			if noUpscale && srcX <= width && srcY <= height {
-				processed = tmp
-			} else {
-				processed = imaging.Fill(tmp, width, height, imaging.Center, imaging.Lanczos)
-			}
-		}
-
-		m.Image[i] = palettedAtOrigin(processed, frame.Palette)
-
-		switch m.Disposal[i] {
-		case gif.DisposalBackground:
-			tmp = image.NewRGBA(b)
-		case gif.DisposalPrevious:
-			tmp = prev
-		}
-	}
-
-	// stretch resizes every frame to exactly width x height, so the logical
-	// screen must always match the box even when that is larger than the source
-	// (webdav sends no_upscale(), which would otherwise skip the update and leave
-	// frames extending past the screen, making gif.EncodeAll fail with "image
-	// block is out of bounds"). fill/fit-in keep the source size when noUpscale
-	// caps them at the source, so they only grow the screen when actually resized.
-	if operation == OpStretch || !noUpscale || srcX > width || srcY > height {
-		m.Config.Width = width
-		m.Config.Height = height
-	}
-
-	return m
 }
 
 // encodeJPEGImaging encodes the processed image as JPEG using the stdlib encoder.

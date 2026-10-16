@@ -109,7 +109,7 @@ type GeneratorBusyError struct {
 }
 
 func (e *GeneratorBusyError) Error() string {
-	return "thumbnails: generator is busy"
+	return fmt.Sprintf("thumbnails: generator is busy, retry after %ds", e.RetryAfterSeconds)
 }
 
 // fileIsProcessing reports whether the resource carries the "processing" status
@@ -594,9 +594,9 @@ func (w *ThumbnailWorkflow) matchOperation(tr *requests.ThumbnailRequest, mimeTy
 		switch {
 		case tr.Width == 0 || tr.Height == 0:
 			operation = generator.OpFitIn
-		case tr.AspectSet && tr.Aspect:
+		case tr.Aspect != nil && *tr.Aspect:
 			operation = generator.OpFitIn
-		case tr.AspectSet:
+		case tr.Aspect != nil:
 			operation = generator.OpFill
 		case strings.HasPrefix(mimeType, "image/gif"):
 			operation = generator.OpStretch
@@ -611,12 +611,12 @@ func (w *ThumbnailWorkflow) matchOperation(tr *requests.ThumbnailRequest, mimeTy
 	// so it can fix the request. stretch distorts either way, so "a" means
 	// nothing for it and never counts as ignored.
 	aIgnored := false
-	if tr.AspectSet {
+	if tr.Aspect != nil {
 		switch operation {
 		case generator.OpFill:
-			aIgnored = tr.Aspect // a asked for fit-in but we fill
+			aIgnored = *tr.Aspect // a asked for fit-in but we fill
 		case generator.OpFitIn:
-			aIgnored = !tr.Aspect // a asked for fill but we fit in
+			aIgnored = !*tr.Aspect // a asked for fill but we fit in
 		}
 	}
 

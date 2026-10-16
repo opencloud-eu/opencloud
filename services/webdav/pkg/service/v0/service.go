@@ -328,19 +328,23 @@ func (g Webdav) WebDAVContext() func(next http.Handler) http.Handler {
 	}
 }
 
+// requestLogger is the logger every thumbnail endpoint logs through.
+func (g Webdav) requestLogger(r *http.Request) log.Logger {
+	return g.log.SubloggerWithRequestID(r.Context())
+}
+
 // parseThumbnailRequest reads the request every thumbnail endpoint starts with.
 // It reports false when it already answered with a 400.
-func (g Webdav) parseThumbnailRequest(w http.ResponseWriter, r *http.Request) (*requests.ThumbnailRequest, log.Logger, bool) {
-	logger := g.log.SubloggerWithRequestID(r.Context())
-
+func (g Webdav) parseThumbnailRequest(w http.ResponseWriter, r *http.Request, logger log.Logger) (*requests.ThumbnailRequest, bool) {
 	tr, err := requests.ParseThumbnailRequest(r)
 	if err != nil {
 		logger.Debug().Err(err).Msg("could not create Request")
 		renderError(w, r, errBadRequest(err.Error()))
-		return nil, logger, false
+
+		return nil, false
 	}
 
-	return tr, logger, true
+	return tr, true
 }
 
 // writeThumbnail runs the workflow and answers with the thumbnail it produced.
@@ -357,7 +361,8 @@ func (g Webdav) writeThumbnail(w http.ResponseWriter, r *http.Request, tr *reque
 
 // SpacesThumbnail is the endpoint for retrieving thumbnails inside of spaces.
 func (g Webdav) SpacesThumbnail(w http.ResponseWriter, r *http.Request) {
-	tr, logger, ok := g.parseThumbnailRequest(w, r)
+	logger := g.requestLogger(r)
+	tr, ok := g.parseThumbnailRequest(w, r, logger)
 	if !ok {
 		return
 	}
@@ -367,7 +372,8 @@ func (g Webdav) SpacesThumbnail(w http.ResponseWriter, r *http.Request) {
 
 // Thumbnail implements the Service interface.
 func (g Webdav) Thumbnail(w http.ResponseWriter, r *http.Request) {
-	tr, logger, ok := g.parseThumbnailRequest(w, r)
+	logger := g.requestLogger(r)
+	tr, ok := g.parseThumbnailRequest(w, r, logger)
 	if !ok {
 		return
 	}
@@ -377,7 +383,8 @@ func (g Webdav) Thumbnail(w http.ResponseWriter, r *http.Request) {
 
 // PublicThumbnail serves a thumbnail for a file behind a public link.
 func (g Webdav) PublicThumbnail(w http.ResponseWriter, r *http.Request) {
-	tr, logger, ok := g.parseThumbnailRequest(w, r)
+	logger := g.requestLogger(r)
+	tr, ok := g.parseThumbnailRequest(w, r, logger)
 	if !ok {
 		return
 	}
@@ -405,7 +412,8 @@ func whoami(gatewayClient gatewayv1beta1.GatewayAPIClient, ctx context.Context, 
 }
 
 func (g Webdav) PublicThumbnailHead(w http.ResponseWriter, r *http.Request) {
-	tr, logger, ok := g.parseThumbnailRequest(w, r)
+	logger := g.requestLogger(r)
+	tr, ok := g.parseThumbnailRequest(w, r, logger)
 	if !ok {
 		return
 	}
@@ -440,6 +448,8 @@ func setAspectIgnoredHeader(w http.ResponseWriter, ignored bool) {
 func (g Webdav) handleWorkflowError(w http.ResponseWriter, r *http.Request, err error, tr *requests.ThumbnailRequest, logger log.Logger, step string) {
 	var busy *workflow.GeneratorBusyError
 
+	logger = log.Logger{Logger: logger.With().Str("step", step).Logger()}
+
 	switch {
 	case errors.Is(err, workflow.ErrFileProcessing):
 		addRetryAfterHeader(w)
@@ -455,19 +465,19 @@ func (g Webdav) handleWorkflowError(w http.ResponseWriter, r *http.Request, err 
 		logger.Debug().Err(err).Msg("user lacks download permission for thumbnail")
 		renderError(w, r, errPermissionDenied(workflow.ErrPermissionDenied.Error()))
 	case errors.Is(err, workflow.ErrNotAFile):
-		logger.Debug().Err(err).Msg(step + " requested for a non-file resource")
+		logger.Debug().Err(err).Msg("requested for a non-file resource")
 		renderError(w, r, errBadRequest("Unsupported file type"))
 	case errors.Is(err, workflow.ErrNotFound):
 		logger.Debug().Err(err).Msg("thumbnail source could not be located")
 		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
 	case errors.Is(err, workflow.ErrUnsupportedFileType):
-		logger.Debug().Err(err).Msg(step + " requested for unsupported file type")
+		logger.Debug().Err(err).Msg("requested for an unsupported file type")
 		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
 	default:
 		// Anything else (generator down, download failure, timeout, ...) is a
 		// server error: clients must not cache it as "no preview" the way they
 		// do 404s.
-		logger.Error().Err(err).Msg(step + " failed")
+		logger.Error().Err(err).Msg("failed")
 		renderError(w, r, errInternalError("could not generate thumbnail"))
 	}
 }

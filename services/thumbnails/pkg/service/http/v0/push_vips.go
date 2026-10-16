@@ -4,14 +4,11 @@ package svc
 
 import (
 	"fmt"
-	"image"
 	"image/color/palette"
-	"image/draw"
 	"image/gif"
 	"io"
 
 	"github.com/davidbyttow/govips/v2/vips"
-	"github.com/kovidgoyal/imaging"
 )
 
 func init() {
@@ -28,11 +25,11 @@ func init() {
 // small sources by default like real imagor), or stretch (resize to the exact box).
 // noUpscale caps the upscaling at the source size, mirroring imagor's no_upscale()
 // filter.
-func processImageVips(r io.Reader, width, height int, operation string, noUpscale, keepAnimation bool) (any, error) {
-	if keepAnimation && isGifReader(r) {
+func processImageVips(r io.Reader, req resizeRequest) (any, error) {
+	if req.KeepAnimation && isGifReader(r) {
 		g, err := gif.DecodeAll(r)
 		if err == nil && len(g.Image) > 0 {
-			return resizeGIFVips(g, width, height, operation, noUpscale), nil
+			return resizeGIF(g, req.Width, req.Height, req.Operation, req.NoUpscale), nil
 		}
 	}
 
@@ -51,18 +48,18 @@ func processImageVips(r io.Reader, width, height int, operation string, noUpscal
 	// after exporting. Closing it here would free the underlying C image before the
 	// export runs (use-after-free).
 
-	switch operation {
+	switch req.Operation {
 	case OpStretch:
 		// Resize to the exact box without preserving aspect ratio.
-		hScale := float64(width) / float64(m.Width())
-		vScale := float64(height) / float64(m.Height())
+		hScale := float64(req.Width) / float64(m.Width())
+		vScale := float64(req.Height) / float64(m.Height())
 		if err := m.ResizeWithVScale(hScale, vScale, vips.KernelLanczos3); err != nil {
 			return nil, err
 		}
 	case OpFitIn:
 		// imagor's fit-in only enlarges with the upscale() filter, which webdav
 		// never sends, so it always caps at the source size.
-		if err := m.ThumbnailWithSize(width, height, vips.InterestingNone, vips.SizeDown); err != nil {
+		if err := m.ThumbnailWithSize(req.Width, req.Height, vips.InterestingNone, vips.SizeDown); err != nil {
 			return nil, err
 		}
 	default: // OpFill
@@ -70,10 +67,10 @@ func processImageVips(r io.Reader, width, height int, operation string, noUpscal
 		// default resize (which upscales small sources); no_upscale() caps it
 		// at the source size via SizeDown.
 		size := vips.SizeBoth
-		if noUpscale {
+		if req.NoUpscale {
 			size = vips.SizeDown
 		}
-		if err := m.ThumbnailWithSize(width, height, vips.InterestingAttention, size); err != nil {
+		if err := m.ThumbnailWithSize(req.Width, req.Height, vips.InterestingAttention, size); err != nil {
 			return nil, err
 		}
 	}
@@ -86,63 +83,6 @@ func processImageVips(r io.Reader, width, height int, operation string, noUpscal
 	// ExportJpeg/ExportPng (matching the legacy pipeline's progressive JPEG and
 	// quality-80 output) instead of a lossy PNG round-trip + stdlib re-encode.
 	return m, nil
-}
-
-// resizeGIFVips resizes every frame of an animated gif while preserving the
-// animation, compositing each frame onto a running canvas honoring the gif
-// disposal method and re-palletting with Floyd-Steinberg dithering. noUpscale
-// caps the default fill at the source size, mirroring imagor's no_upscale()
-// filter.
-func resizeGIFVips(m *gif.GIF, width, height int, operation string, noUpscale bool) *gif.GIF {
-	srcX, srcY := m.Config.Width, m.Config.Height
-	b := image.Rect(0, 0, srcX, srcY)
-	tmp := image.NewRGBA(b)
-
-	for i, frame := range m.Image {
-		frameBounds := frame.Bounds()
-		prev := tmp
-		draw.Draw(tmp, frameBounds, frame, frameBounds.Min, draw.Over)
-
-		var processed image.Image
-		switch operation {
-		case OpStretch:
-			processed = imaging.Resize(tmp, width, height, imaging.Lanczos)
-		case OpFitIn:
-			if noUpscale && srcX <= width && srcY <= height {
-				processed = tmp
-			} else {
-				processed = imaging.Fit(tmp, width, height, imaging.Lanczos)
-			}
-		default: // OpFill
-			if noUpscale && srcX <= width && srcY <= height {
-				processed = tmp
-			} else {
-				processed = imaging.Fill(tmp, width, height, imaging.Center, imaging.Lanczos)
-			}
-		}
-
-		m.Image[i] = palettedAtOrigin(processed, frame.Palette)
-
-		switch m.Disposal[i] {
-		case gif.DisposalBackground:
-			tmp = image.NewRGBA(b)
-		case gif.DisposalPrevious:
-			tmp = prev
-		}
-	}
-
-	// stretch resizes every frame to exactly width x height, so the logical
-	// screen must always match the box even when that is larger than the source
-	// (webdav sends no_upscale(), which would otherwise skip the update and leave
-	// frames extending past the screen, making gif.EncodeAll fail with "image
-	// block is out of bounds"). fill/fit-in keep the source size when noUpscale
-	// caps them at the source, so they only grow the screen when actually resized.
-	if operation == OpStretch || !noUpscale || srcX > width || srcY > height {
-		m.Config.Width = width
-		m.Config.Height = height
-	}
-
-	return m
 }
 
 // encodeJPEGVips exports the processed libvips image as JPEG using libvips's

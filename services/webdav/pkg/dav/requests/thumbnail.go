@@ -44,12 +44,10 @@ type ThumbnailRequest struct {
 	Height int32
 	// Indicates which image processor to use
 	Processor string
-	// Aspect reports whether the client wants the aspect ratio preserved (the
-	// legacy ownCloud "a" flag: a=1/absent -> preserve, a=0 -> fill the box).
-	Aspect bool
-	// AspectSet reports whether the client sent "a" at all, so a contradiction
-	// is only reported for a flag someone actually asked for.
-	AspectSet bool
+	// Aspect is the legacy ownCloud "a" flag when the client sent it: true wants
+	// the aspect ratio preserved, false wants the box filled. It is nil when the
+	// client said nothing, and then nothing is reported as contradicted either.
+	Aspect *bool
 	// Identifier is the username from /dav/files/{user}/... when present. The
 	// workflow resolves it via GetUserByClaim so the file is looked up in that
 	// user's home; empty for space-ID, /webdav/ and public-link requests.
@@ -122,8 +120,7 @@ func ParseThumbnailRequest(r *http.Request) (*ThumbnailRequest, error) {
 		Width:      int32(width),
 		Height:     int32(height),
 		Processor:  processor,
-		Aspect:     q.Get("a") != "0",
-		AspectSet:  q.Has("a"),
+		Aspect:     aspect(q),
 		Identifier: identifier,
 	}, nil
 }
@@ -169,6 +166,17 @@ func parseDimension(d, name string) (int64, error) {
 		return 0, fmt.Errorf("Cannot set %s of 0 or smaller!", name)
 	}
 	return result, nil
+}
+
+// aspect reads the legacy "a" flag, nil when the client did not send it.
+func aspect(q url.Values) *bool {
+	if !q.Has("a") {
+		return nil
+	}
+
+	preserve := q.Get("a") != "0"
+
+	return &preserve
 }
 
 // cropsToBox reports whether the processor produces exactly the requested box,

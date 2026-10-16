@@ -55,6 +55,9 @@ func spaceRef(spaceID, relPath string) *providerv1beta1.Reference {
 	}
 }
 
+// ptr is the address of a literal, for the optional flags on a request.
+func ptr[T any](v T) *T { return &v }
+
 var _ = Describe("processorID", func() {
 	It("maps the default (empty) processor to the thumbnail id", func() {
 		Expect(processorID("")).To(Equal("thumbnail"))
@@ -126,7 +129,7 @@ var _ = Describe("matchOperation", func() {
 	DescribeTable("honours a when the client sent it and no processor",
 		func(aspect bool, want string) {
 			op, _, aIgnored := w.matchOperation(
-				&requests.ThumbnailRequest{Width: 64, Height: 64, Aspect: aspect, AspectSet: true}, "image/jpeg")
+				&requests.ThumbnailRequest{Width: 64, Height: 64, Aspect: &aspect}, "image/jpeg")
 			Expect(op).To(Equal(want))
 			Expect(aIgnored).To(BeFalse(), "nothing contradicted a")
 		},
@@ -136,29 +139,29 @@ var _ = Describe("matchOperation", func() {
 
 	It("reports aIgnored when an unconstrained axis overrules a=0", func() {
 		op, _, aIgnored := w.matchOperation(
-			&requests.ThumbnailRequest{Width: 0, Height: 512, Aspect: false, AspectSet: true}, "image/jpeg")
+			&requests.ThumbnailRequest{Width: 0, Height: 512, Aspect: ptr(false)}, "image/jpeg")
 		Expect(op).To(Equal(generator.OpFitIn))
 		Expect(aIgnored).To(BeTrue())
 	})
 
 	It("reports aIgnored when an explicit processor overrides the legacy a flag", func() {
 		// a=0 (Aspect=false) wants fill; fit processor overrides it with fit-in.
-		op, _, aIgnored := w.matchOperation(&requests.ThumbnailRequest{Processor: "fit", AspectSet: true}, "image/jpeg")
+		op, _, aIgnored := w.matchOperation(&requests.ThumbnailRequest{Processor: "fit", Aspect: ptr(false)}, "image/jpeg")
 		Expect(op).To(Equal(generator.OpFitIn))
 		Expect(aIgnored).To(BeTrue())
 
 		// a=1 (Aspect=true) wants fit-in; fill processor overrides it with fill.
-		op, _, aIgnored = w.matchOperation(&requests.ThumbnailRequest{Processor: "fill", Aspect: true, AspectSet: true}, "image/jpeg")
+		op, _, aIgnored = w.matchOperation(&requests.ThumbnailRequest{Processor: "fill", Aspect: ptr(true)}, "image/jpeg")
 		Expect(op).To(Equal(generator.OpFill))
 		Expect(aIgnored).To(BeTrue())
 
 		// a=0 wants fill; thumbnail processor implies fill -> no contradiction.
-		op, _, aIgnored = w.matchOperation(&requests.ThumbnailRequest{Processor: "thumbnail", Aspect: false}, "image/jpeg")
+		op, _, aIgnored = w.matchOperation(&requests.ThumbnailRequest{Processor: "thumbnail", Aspect: ptr(false)}, "image/jpeg")
 		Expect(op).To(Equal(generator.OpFill))
 		Expect(aIgnored).To(BeFalse())
 
 		// resize is neutral: never reports a contradiction.
-		_, _, aIgnored = w.matchOperation(&requests.ThumbnailRequest{Processor: "resize", Aspect: false}, "image/jpeg")
+		_, _, aIgnored = w.matchOperation(&requests.ThumbnailRequest{Processor: "resize", Aspect: ptr(false)}, "image/jpeg")
 		Expect(aIgnored).To(BeFalse())
 	})
 })
@@ -427,7 +430,6 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Filename: "test.jpg",
 				Width:    128,
 				Height:   128,
-				Aspect:   true,
 			}
 
 			result, err := wf.Execute(context.Background(), tr, testToken, logger)
@@ -1011,7 +1013,6 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Filename: "test.jpg",
 				Width:    128,
 				Height:   128,
-				Aspect:   true,
 			}
 
 			result, err := wf.Execute(context.Background(), tr, testToken, logger)
@@ -1274,7 +1275,6 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Filename: "photo.jpg",
 				Width:    64,
 				Height:   64,
-				Aspect:   true,
 			}
 
 			result, err := wf.Execute(req.Context(), tr, auth, logger)

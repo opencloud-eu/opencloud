@@ -2,13 +2,13 @@ package cache
 
 import "sync"
 
-// InMemoryCacheSize is how much the memory backend keeps before it drops the
+// InMemoryCacheMaxBytes is how much the memory backend keeps before it drops the
 // oldest entries. The backend is a convenience for a single process; file and s3
 // are the ones that survive a restart.
-const InMemoryCacheSize = 128 << 20
+const InMemoryCacheMaxBytes = 128 << 20
 
 // InMemoryCache is a simple in-memory thumbnail cache, bounded by
-// InMemoryCacheSize and evicting in insertion order.
+// InMemoryCacheMaxBytes and evicting in insertion order.
 type InMemoryCache struct {
 	mu      sync.RWMutex
 	data    map[string][]byte
@@ -20,7 +20,7 @@ type InMemoryCache struct {
 func NewInMemoryCache() *InMemoryCache {
 	return &InMemoryCache{
 		data:    make(map[string][]byte),
-		maxSize: InMemoryCacheSize,
+		maxSize: InMemoryCacheMaxBytes,
 	}
 }
 
@@ -53,6 +53,7 @@ func (c *InMemoryCache) Put(key string, data []byte) error {
 	c.data[key] = cp
 	c.size += len(cp)
 
+	// the entry just written stays, even when it is larger than the budget
 	for c.size > c.maxSize && len(c.order) > 1 {
 		oldest := c.order[0]
 		c.order = c.order[1:]
