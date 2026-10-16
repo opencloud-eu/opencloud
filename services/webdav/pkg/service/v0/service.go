@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -70,6 +71,8 @@ func NewService(opts ...Option) (Service, error) {
 		),
 	)
 
+	sourceTypes := thumbnail.NewSourceTypes(conf.ThumbnailSourceTypes)
+
 	tm, err := pool.StringToTLSMode(conf.GRPCClientTLS.Mode)
 	if err != nil {
 		return nil, err
@@ -88,7 +91,7 @@ func NewService(opts ...Option) (Service, error) {
 	// and its cache are never built
 	var wf *workflow.ThumbnailWorkflow
 	if !conf.DisablePreviews {
-		wf, err = newThumbnailWorkflow(conf, options.Logger, gatewaySelector)
+		wf, err = newThumbnailWorkflow(conf, sourceTypes, options.Logger, gatewaySelector)
 		if err != nil {
 			return nil, fmt.Errorf("create thumbnail workflow: %w", err)
 		}
@@ -96,6 +99,7 @@ func NewService(opts ...Option) (Service, error) {
 
 	svc := Webdav{
 		config:          conf,
+		sourceTypes:     sourceTypes,
 		log:             options.Logger,
 		mux:             m,
 		searchClient:    searchsvc.NewSearchProviderService("eu.opencloud.api.search", conf.GrpcClient),
@@ -160,7 +164,7 @@ func NewService(opts ...Option) (Service, error) {
 
 // newThumbnailWorkflow wires the preview pipeline: the generator client, the
 // cache and the gateway-backed lookups.
-func newThumbnailWorkflow(conf *config.Config, logger log.Logger, gatewaySelector pool.Selectable[gatewayv1beta1.GatewayAPIClient]) (*workflow.ThumbnailWorkflow, error) {
+func newThumbnailWorkflow(conf *config.Config, sourceTypes thumbnail.SourceTypes, logger log.Logger, gatewaySelector pool.Selectable[gatewayv1beta1.GatewayAPIClient]) (*workflow.ThumbnailWorkflow, error) {
 	genTimeout, _ := time.ParseDuration(conf.ThumbnailGeneratorTimeout)
 	if genTimeout == 0 {
 		genTimeout = 30 * time.Second
@@ -174,6 +178,12 @@ func newThumbnailWorkflow(conf *config.Config, logger log.Logger, gatewaySelecto
 	maxInputSize, err := generator.ParseMaxInputFileSize(conf.ThumbnailMaxInputFileSize)
 	if err != nil {
 		return nil, fmt.Errorf("parse max input file size: %w", err)
+	}
+
+	typeMapping := thumbnail.NewTypeMapping(conf.ThumbnailTypeMapping)
+	formats := generator.NewFormats(conf.ThumbnailGeneratorFormats)
+	if err := checkTypeMapping(typeMapping, formats); err != nil {
+		return nil, err
 	}
 
 	s3cfg := cache.BuildS3CacheConfig(
@@ -194,8 +204,9 @@ func newThumbnailWorkflow(conf *config.Config, logger log.Logger, gatewaySelecto
 		workflow.WithHTTPClient(httpClient),
 		workflow.WithMaxInputSize(maxInputSize),
 		workflow.WithSizes(sizes),
-		workflow.WithFormats(generator.NewFormats(conf.ThumbnailGeneratorFormats)),
-		workflow.WithTypeMapping(thumbnail.NewTypeMapping(conf.ThumbnailTypeMapping)),
+		workflow.WithSourceTypes(sourceTypes),
+		workflow.WithFormats(formats),
+		workflow.WithTypeMapping(typeMapping),
 		workflow.WithWebdavNamespace(conf.WebdavNamespace),
 		workflow.WithFontMapFile(conf.ThumbnailFontMapFile),
 		workflow.WithLogger(logger),
@@ -206,8 +217,27 @@ func newThumbnailWorkflow(conf *config.Config, logger log.Logger, gatewaySelecto
 	)
 }
 
+// checkTypeMapping refuses a mapping that asks for a type the generator has no
+// format name for: the thumbnail would silently become a JPEG instead.
+func checkTypeMapping(mapping thumbnail.TypeMapping, formats generator.Formats) error {
+	var unknown []string
+	for source, target := range mapping.Targets() {
+		if target == "" || formats.For(target) != "" {
+			continue
+		}
+		unknown = append(unknown, fmt.Sprintf("%s (mapped from %s)", target, source))
+	}
+	if len(unknown) == 0 {
+		return nil
+	}
+	sort.Strings(unknown)
+
+	return fmt.Errorf("thumbnail type mapping: no generator format for %s", strings.Join(unknown, ", "))
+}
+
 // Webdav implements the business logic for Service.
 type Webdav struct {
+	sourceTypes     thumbnail.SourceTypes
 	config          *config.Config
 	log             log.Logger
 	mux             *chi.Mux

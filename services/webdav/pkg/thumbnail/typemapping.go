@@ -54,3 +54,6 @@ func (m TypeMapping) TargetFor(contentType string) string {
 
 	return m.byType[parsed]
 }
+
+// Targets lists the type a thumbnail is written in, by source type.
+func (m TypeMapping) Targets() map[string]string { return m.byType }

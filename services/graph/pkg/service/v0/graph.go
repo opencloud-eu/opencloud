@@ -27,6 +27,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
 // Permissions is the interface used to access the permissions service
@@ -56,6 +57,7 @@ type RoleService interface {
 // Graph defines implements the business logic for Service.
 type Graph struct {
 	BaseGraphService
+	sourceTypes              thumbnail.SourceTypes
 	mux                      *chi.Mux
 	identityBackend          identity.Backend
 	identityEducationBackend identity.EducationBackend

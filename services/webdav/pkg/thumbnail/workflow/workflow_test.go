@@ -188,6 +188,7 @@ func setupPreprocessTest(
 		WithCache(testCache),
 		WithHTTPClient(&http.Client{}),
 		WithWebdavNamespace("/users/{{.Id.OpaqueId}}"),
+		WithSourceTypes(thumbnail.NewSourceTypes(nil)),
 		WithFormats(generator.NewFormats(nil)),
 		WithTypeMapping(thumbnail.NewTypeMapping(nil)),
 		WithLogger(logger),
@@ -303,6 +304,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			WithCache(testCache),
 			WithHTTPClient(&http.Client{}),
 			WithWebdavNamespace("/users/{{.Id.OpaqueId}}"),
+			WithSourceTypes(thumbnail.NewSourceTypes(nil)),
 			WithFormats(generator.NewFormats(nil)),
 			WithTypeMapping(thumbnail.NewTypeMapping(nil)),
 			WithLogger(logger),
@@ -1046,6 +1048,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				WithCache(testCache),
 				WithHTTPClient(&http.Client{}),
 				WithMaxInputSize(1024),
+				WithSourceTypes(thumbnail.NewSourceTypes(nil)),
 				WithWebdavNamespace("/users/{{.Id.OpaqueId}}"),
 				WithLogger(logger),
 				WithStater(NewGatewayStater(pool.GetSelector[gatewayv1beta1.GatewayAPIClient](

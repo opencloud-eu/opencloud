@@ -139,6 +139,7 @@ type ThumbnailWorkflow struct {
 	maxInputSize   uint64
 	sizes          *thumbnail.Sizes
 	typeMapping    thumbnail.TypeMapping
+	sourceTypes    thumbnail.SourceTypes
 	formats        generator.Formats
 	webdavNS       string
 	fontMapFile    string
@@ -207,6 +208,11 @@ func WithSizes(s *thumbnail.Sizes) Option {
 // WithWebdavNamespace sets the CS3 path layout for resolving user paths.
 func WithWebdavNamespace(ns string) Option {
 	return func(w *ThumbnailWorkflow) { w.webdavNS = ns }
+}
+
+// WithSourceTypes sets the types a preview is attempted for.
+func WithSourceTypes(t thumbnail.SourceTypes) Option {
+	return func(w *ThumbnailWorkflow) { w.sourceTypes = t }
 }
 
 // WithFormats sets the formats the generator writes, by type.
@@ -298,7 +304,7 @@ func (w *ThumbnailWorkflow) Head(ctx context.Context, tr *requests.ThumbnailRequ
 		return ErrPermissionDenied
 	}
 
-	if !thumbnail.IsMimeTypeSupported(info.GetMimeType()) {
+	if !w.sourceTypes.Supports(info.GetMimeType()) {
 		return fmt.Errorf("%w: %s", ErrUnsupportedFileType, info.GetMimeType())
 	}
 
@@ -406,7 +412,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 		return nil, "", false, ErrPermissionDenied
 	}
 
-	if !thumbnail.IsMimeTypeSupported(info.GetMimeType()) {
+	if !w.sourceTypes.Supports(info.GetMimeType()) {
 		return nil, "", false, fmt.Errorf("%w: %s", ErrUnsupportedFileType, info.GetMimeType())
 	}
 
@@ -681,6 +687,12 @@ func (w *ThumbnailWorkflow) postToGenerator(ctx context.Context, url string, img
 		// the pre-refactor behavior where webdav enforced the dimension limit.
 		if httpRsp.StatusCode == http.StatusUnprocessableEntity {
 			return nil, "", ErrImageTooLarge
+		}
+		// The generator refuses what it cannot read: imagor answers 406, the
+		// built-in one 400. That is a missing preview, not a server fault, so
+		// the client gets a 404 and stops asking.
+		if httpRsp.StatusCode == http.StatusBadRequest || httpRsp.StatusCode == http.StatusNotAcceptable {
+			return nil, "", fmt.Errorf("%w: generator refused the source: %s", ErrUnsupportedFileType, strings.TrimSpace(string(respBody)))
 		}
 		return nil, "", fmt.Errorf("generator returned status %d: %s", httpRsp.StatusCode, string(respBody))
 	}
