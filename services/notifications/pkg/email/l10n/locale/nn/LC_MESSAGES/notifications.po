@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-10-15 23:28+0000\n"
+"POT-Creation-Date: 2026-10-16 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Roy-Magne Mo, 2026\n"
 "Language-Team: Norwegian Nynorsk (https://app.transifex.com/opencloud-eu/teams/204053/nn/)\n"
@@ -20,6 +20,17 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Language: nn\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. GuestLinkShareRenewedWithoutPin email template, resolves via {{
+#. .MessageBody }}
+#: pkg/email/templates.go:97
+msgid ""
+"A new link to \"{ShareFolder}\", shared with you by {ShareSharer}, has been requested.\n"
+"\n"
+"The link below is personal and can only be used once. Please do not forward it.\n"
+"\n"
+"The link is only valid for 30 minutes."
+msgstr ""
 
 #. GuestLinkShareRenewed email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:78
@@ -32,22 +43,32 @@ msgid ""
 "\n"
 "The link and the PIN are only valid for 30 minutes."
 msgstr ""
+"Det er førespurt ei ny lenkje til «{ShareFolder}», som {ShareSharer} har delt med deg.\n"
+"\n"
+"PIN-koden din: {SharePin}\n"
+"\n"
+"Opne lenkja nedanfor, eller skriv inn PIN-koden på sida der du førespurde den nye lenkja. Lenkja og PIN-koden er personlege og kan berre brukast éin gong. Ikkje send dei vidare.\n"
+"\n"
+"Lenkja og PIN-koden er berre gyldige i 30 minutt."
 
 #. UnsharedSpace email template, resolves via {{ .CallToAction }}
-#: pkg/email/templates.go:115
+#: pkg/email/templates.go:132
 msgid "Click here to check it: {ShareLink}"
 msgstr "Klikk her for å sjå det: {ShareLink}"
 
 #. ShareCreated email template, resolves via {{ .CallToAction }}
 #. GuestLinkShareCreated email template, resolves via {{ .CallToAction }}
 #. GuestLinkShareRenewed email template, resolves via {{ .CallToAction }}
+#. GuestLinkShareRenewedWithoutPin email template, resolves via {{
+#. .CallToAction }}
 #. SharedSpace email template, resolves via {{ .CallToAction }}
 #: pkg/email/templates.go:23 pkg/email/templates.go:67
-#: pkg/email/templates.go:86 pkg/email/templates.go:100
+#: pkg/email/templates.go:86 pkg/email/templates.go:103
+#: pkg/email/templates.go:117
 msgid "Click here to view it: {ShareLink}"
 msgstr "Klikk her for å sjå det: {ShareLink}"
 
-#: pkg/email/templates.go:176
+#: pkg/email/templates.go:193
 msgid "Hello {RecipientName},"
 msgstr "Hei {RecipientName},"
 
@@ -65,19 +86,22 @@ msgstr "Hei {ShareGrantee},"
 #. SharedSpace email template, resolves via {{ .Greeting }}
 #. UnsharedSpace email template, resolves via {{ .Greeting }}
 #. MembershipExpired email template, resolves via {{ .Greeting }}
-#: pkg/email/templates.go:96 pkg/email/templates.go:109
-#: pkg/email/templates.go:124
+#: pkg/email/templates.go:113 pkg/email/templates.go:126
+#: pkg/email/templates.go:141
 msgid "Hello {SpaceGrantee},"
 msgstr "Hei {SpaceGrantee},"
 
 #. GuestLinkShareCreated email template, resolves via {{ .Greeting }}
 #. GuestLinkShareRenewed email template, resolves via {{ .Greeting }}
+#. GuestLinkShareRenewedWithoutPin email template, resolves via {{ .Greeting
+#. }}
 #: pkg/email/templates.go:59 pkg/email/templates.go:76
+#: pkg/email/templates.go:95
 msgid "Hello,"
 msgstr "Hei,"
 
 #. Grouped email template, resolves via {{ .Greeting }}
-#: pkg/email/templates.go:168
+#: pkg/email/templates.go:185
 msgid "Hi {DisplayName},"
 msgstr "Hei {DisplayName},"
 
@@ -85,17 +109,17 @@ msgstr "Hei {DisplayName},"
 #. }}
 #. ScienceMeshInviteTokenGeneratedWithoutShareLink email template, resolves
 #. via {{ .Greeting }}
-#: pkg/email/templates.go:137 pkg/email/templates.go:154
+#: pkg/email/templates.go:154 pkg/email/templates.go:171
 msgid "Hi,"
 msgstr "Hei,"
 
 #. MembershipExpired email template, Subject field (resolves directly)
-#: pkg/email/templates.go:122
+#: pkg/email/templates.go:139
 msgid "Membership of '{SpaceName}' expired at {ExpiredAt}"
 msgstr "Medlemskapet i «{SpaceName}» gjekk ut {ExpiredAt}"
 
 #. Grouped email template, Subject field (resolves directly)
-#: pkg/email/templates.go:166
+#: pkg/email/templates.go:183
 msgid "Report"
 msgstr "Rapport"
 
@@ -103,7 +127,7 @@ msgstr "Rapport"
 #. directly)
 #. ScienceMeshInviteTokenGeneratedWithoutShareLink email template, Subject
 #. field (resolves directly)
-#: pkg/email/templates.go:135 pkg/email/templates.go:152
+#: pkg/email/templates.go:152 pkg/email/templates.go:169
 msgid "ScienceMesh: {InitiatorName} wants to collaborate with you"
 msgstr "ScienceMesh: {InitiatorName} ønskjer å samarbeide med deg"
 
@@ -112,16 +136,16 @@ msgstr "ScienceMesh: {InitiatorName} ønskjer å samarbeide med deg"
 msgid "Share to '{ShareFolder}' expired at {ExpiredAt}"
 msgstr "Delinga av «{ShareFolder}» gjekk ut {ExpiredAt}"
 
-#: pkg/email/templates.go:178
+#: pkg/email/templates.go:195
 msgid "You can view the mention here: {ResourceLink}"
 msgstr "Du kan sjå omtalen her: {ResourceLink}"
 
-#: pkg/email/templates.go:175
+#: pkg/email/templates.go:192
 msgid "You were mentioned in '{ResourceName}'"
 msgstr "Du vart nemnd i «{ResourceName}»"
 
 #. MembershipExpired email template, resolves via {{ .MessageBody }}
-#: pkg/email/templates.go:126
+#: pkg/email/templates.go:143
 msgid ""
 "Your membership of space {SpaceName} has expired at {ExpiredAt}\n"
 "\n"
@@ -132,9 +156,11 @@ msgstr ""
 "Sjølv om dette medlemskapet har gått ut, kan du framleis ha tilgang gjennom andre delingar og/eller rommedlemskap"
 
 #. GuestLinkShareRenewed email template, Subject field (resolves directly)
-#: pkg/email/templates.go:74
+#. GuestLinkShareRenewedWithoutPin email template, Subject field (resolves
+#. directly)
+#: pkg/email/templates.go:74 pkg/email/templates.go:93
 msgid "Your new link to '{ShareFolder}'"
-msgstr ""
+msgstr "Den nye lenkja di til «{ShareFolder}»"
 
 #. ShareExpired email template, resolves via {{ .MessageBody }}
 #: pkg/email/templates.go:47
@@ -147,13 +173,13 @@ msgstr ""
 "\n"
 "Sjølv om denne delinga er trekt tilbake, kan du framleis ha tilgang gjennom andre delingar og/eller rommedlemskap."
 
-#: pkg/email/templates.go:177
+#: pkg/email/templates.go:194
 msgid "{AuthorName} mentioned you in \"{ResourceName}\"."
 msgstr "{AuthorName} nemnde deg i «{ResourceName}»."
 
 #. ScienceMeshInviteTokenGeneratedWithoutShareLink email template, resolves
 #. via {{ .MessageBody }}
-#: pkg/email/templates.go:156
+#: pkg/email/templates.go:173
 msgid ""
 "{ShareSharer} ({ShareSharerMail}) wants to start sharing collaboration resources with you.\n"
 "Please visit your federation settings and use the following details:\n"
@@ -167,7 +193,7 @@ msgstr ""
 
 #. ScienceMeshInviteTokenGenerated email template, resolves via {{
 #. .MessageBody }}
-#: pkg/email/templates.go:139
+#: pkg/email/templates.go:156
 msgid ""
 "{ShareSharer} ({ShareSharerMail}) wants to start sharing collaboration resources with you.\n"
 "To accept the invite, please visit the following URL:\n"
@@ -228,12 +254,12 @@ msgid "{ShareSharer} unshared '{ShareFolder}' with you"
 msgstr "{ShareSharer} slutta å dele «{ShareFolder}» med deg"
 
 #. SharedSpace email template, resolves via {{ .MessageBody }}
-#: pkg/email/templates.go:98
+#: pkg/email/templates.go:115
 msgid "{SpaceSharer} has invited you to join \"{SpaceName}\"."
 msgstr "{SpaceSharer} har invitert deg til å bli med i «{SpaceName}»."
 
 #. UnsharedSpace email template, resolves via {{ .MessageBody }}
-#: pkg/email/templates.go:111
+#: pkg/email/templates.go:128
 msgid ""
 "{SpaceSharer} has removed you from \"{SpaceName}\".\n"
 "\n"
@@ -244,11 +270,11 @@ msgstr ""
 "Du kan framleis ha tilgang gjennom dei andre gruppene dine eller direkte medlemskap."
 
 #. SharedSpace email template, Subject field (resolves directly)
-#: pkg/email/templates.go:94
+#: pkg/email/templates.go:111
 msgid "{SpaceSharer} invited you to join {SpaceName}"
 msgstr "{SpaceSharer} inviterte deg til å bli med i {SpaceName}"
 
 #. UnsharedSpace email template, Subject field (resolves directly)
-#: pkg/email/templates.go:107
+#: pkg/email/templates.go:124
 msgid "{SpaceSharer} removed you from {SpaceName}"
 msgstr "{SpaceSharer} fjerna deg frå {SpaceName}"
