@@ -164,7 +164,7 @@ sequenceDiagram
     Note over Web: Previous link used or expired
     Web->>+Renew: POST renew { permissionId } (+ session cookie)
     Note right of Renew: Validate session + share, rotate token
-    Note right of Renew: Rate-limited per path; valid session: new PIN + nonce
+    Note right of Renew: Rate-limited per path, valid session: new PIN + nonce
     Note right of Renew: No valid session and newest link unused: do nothing
     Renew->>Bus: publish GuestTokenRenewed
     Note right of Bus: With a new PIN only when the session is valid
