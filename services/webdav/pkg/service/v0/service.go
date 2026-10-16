@@ -165,7 +165,10 @@ func NewService(opts ...Option) (Service, error) {
 // newThumbnailWorkflow wires the preview pipeline: the generator client, the
 // cache and the gateway-backed lookups.
 func newThumbnailWorkflow(conf *config.Config, sourceTypes thumbnail.SourceTypes, logger log.Logger, gatewaySelector pool.Selectable[gatewayv1beta1.GatewayAPIClient]) (*workflow.ThumbnailWorkflow, error) {
-	genTimeout, _ := time.ParseDuration(conf.ThumbnailGeneratorTimeout)
+	genTimeout, err := time.ParseDuration(conf.ThumbnailGeneratorTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("parse thumbnail generator timeout: %w", err)
+	}
 	if genTimeout == 0 {
 		genTimeout = 30 * time.Second
 	}
@@ -194,7 +197,15 @@ func newThumbnailWorkflow(conf *config.Config, sourceTypes thumbnail.SourceTypes
 		conf.ThumbnailCacheS3SecretKey,
 	)
 
-	c := cache.NewThumbnailCache(conf.ThumbnailCacheBackend, conf.ThumbnailCacheDir, s3cfg)
+	cacheDir := conf.ThumbnailCacheDir
+	if cacheDir == "" {
+		cacheDir = conf.ThumbnailFilesystemStorageRoot
+	}
+
+	c, err := cache.NewThumbnailCache(conf.ThumbnailCacheBackend, cacheDir, s3cfg)
+	if err != nil {
+		return nil, err
+	}
 
 	httpClient := &http.Client{Timeout: genTimeout}
 
@@ -313,24 +324,67 @@ func (g Webdav) WebDAVContext() func(next http.Handler) http.Handler {
 	}
 }
 
-// SpacesThumbnail is the endpoint for retrieving thumbnails inside of spaces.
-func (g Webdav) SpacesThumbnail(w http.ResponseWriter, r *http.Request) {
+// parseThumbnailRequest reads the request every thumbnail endpoint starts with.
+// It reports false when it already answered with a 400.
+func (g Webdav) parseThumbnailRequest(w http.ResponseWriter, r *http.Request) (*requests.ThumbnailRequest, log.Logger, bool) {
 	logger := g.log.SubloggerWithRequestID(r.Context())
+
 	tr, err := requests.ParseThumbnailRequest(r)
 	if err != nil {
 		logger.Debug().Err(err).Msg("could not create Request")
 		renderError(w, r, errBadRequest(err.Error()))
+		return nil, logger, false
+	}
+
+	return tr, logger, true
+}
+
+// writeThumbnail runs the workflow and answers with the thumbnail it produced.
+func (g Webdav) writeThumbnail(w http.ResponseWriter, r *http.Request, tr *requests.ThumbnailRequest, auth string, logger log.Logger) {
+	thumb, err := g.workflow.Execute(r.Context(), tr, auth, logger)
+	if err != nil {
+		g.handleWorkflowError(w, r, err, tr, logger, "thumbnail")
 		return
 	}
 
-	auth := r.Header.Get(revactx.TokenHeader)
-	data, contentType, aIgnored, err := g.workflow.Execute(r.Context(), tr, auth, logger)
-	if err != nil {
-		g.handleWorkflowError(w, r, err, tr, logger)
+	setAspectIgnoredHeader(w, thumb.AspectIgnored)
+	generator.WriteThumbnailResponse(w, thumb.Data, thumb.ContentType)
+}
+
+// SpacesThumbnail is the endpoint for retrieving thumbnails inside of spaces.
+func (g Webdav) SpacesThumbnail(w http.ResponseWriter, r *http.Request) {
+	tr, logger, ok := g.parseThumbnailRequest(w, r)
+	if !ok {
 		return
 	}
-	setAspectIgnoredHeader(w, aIgnored)
-	generator.WriteThumbnailResponse(w, data, contentType)
+
+	g.writeThumbnail(w, r, tr, r.Header.Get(revactx.TokenHeader), logger)
+}
+
+// Thumbnail implements the Service interface.
+func (g Webdav) Thumbnail(w http.ResponseWriter, r *http.Request) {
+	tr, logger, ok := g.parseThumbnailRequest(w, r)
+	if !ok {
+		return
+	}
+
+	g.writeThumbnail(w, r, tr, r.Header.Get(revactx.TokenHeader), logger)
+}
+
+// PublicThumbnail serves a thumbnail for a file behind a public link.
+func (g Webdav) PublicThumbnail(w http.ResponseWriter, r *http.Request) {
+	tr, logger, ok := g.parseThumbnailRequest(w, r)
+	if !ok {
+		return
+	}
+
+	auth, err := workflow.ResolvePublicLinkAuth(r.Context(), r, chi.URLParam(r, "token"), g.gatewaySelector)
+	if err != nil {
+		g.handlePublicLinkAuthError(w, r, err, tr.Filename, logger)
+		return
+	}
+
+	g.writeThumbnail(w, r, tr, auth, logger)
 }
 
 func whoami(gatewayClient gatewayv1beta1.GatewayAPIClient, ctx context.Context, token string) (*userv1beta1.User, error) {
@@ -346,56 +400,9 @@ func whoami(gatewayClient gatewayv1beta1.GatewayAPIClient, ctx context.Context, 
 	return userRes.GetUser(), nil
 }
 
-// Thumbnail implements the Service interface.
-func (g Webdav) Thumbnail(w http.ResponseWriter, r *http.Request) {
-	logger := g.log.SubloggerWithRequestID(r.Context())
-	tr, err := requests.ParseThumbnailRequest(r)
-	if err != nil {
-		logger.Debug().Err(err).Msg("could not create Request")
-		renderError(w, r, errBadRequest(err.Error()))
-		return
-	}
-
-	auth := r.Header.Get(revactx.TokenHeader)
-	data, contentType, aIgnored, err := g.workflow.Execute(r.Context(), tr, auth, logger)
-	if err != nil {
-		g.handleWorkflowError(w, r, err, tr, logger)
-		return
-	}
-	setAspectIgnoredHeader(w, aIgnored)
-	generator.WriteThumbnailResponse(w, data, contentType)
-}
-
-func (g Webdav) PublicThumbnail(w http.ResponseWriter, r *http.Request) {
-	logger := g.log.SubloggerWithRequestID(r.Context())
-	tr, err := requests.ParseThumbnailRequest(r)
-	if err != nil {
-		logger.Debug().Err(err).Msg("could not create Request")
-		renderError(w, r, errBadRequest(err.Error()))
-		return
-	}
-
-	auth, err := workflow.ResolvePublicLinkAuth(r.Context(), r, chi.URLParam(r, "token"), g.gatewaySelector)
-	if err != nil {
-		g.handlePublicLinkAuthError(w, r, err, tr.Filename, logger)
-		return
-	}
-
-	data, contentType, aIgnored, err := g.workflow.ExecutePublic(r.Context(), tr, auth, logger)
-	if err != nil {
-		g.handleWorkflowError(w, r, err, tr, logger)
-		return
-	}
-	setAspectIgnoredHeader(w, aIgnored)
-	generator.WriteThumbnailResponse(w, data, contentType)
-}
-
 func (g Webdav) PublicThumbnailHead(w http.ResponseWriter, r *http.Request) {
-	logger := g.log.SubloggerWithRequestID(r.Context())
-	tr, err := requests.ParseThumbnailRequest(r)
-	if err != nil {
-		logger.Debug().Err(err).Msg("could not create Request")
-		renderError(w, r, errBadRequest(err.Error()))
+	tr, logger, ok := g.parseThumbnailRequest(w, r)
+	if !ok {
 		return
 	}
 
@@ -406,7 +413,7 @@ func (g Webdav) PublicThumbnailHead(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := g.workflow.Head(r.Context(), tr, auth, logger); err != nil {
-		g.handleHeadError(w, r, err, tr, logger)
+		g.handleWorkflowError(w, r, err, tr, logger, "thumbnail head check")
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -424,76 +431,41 @@ func setAspectIgnoredHeader(w http.ResponseWriter, ignored bool) {
 	w.Header().Set(aspectIgnoredHeader, "1; an explicit processor overrode the legacy 'a' flag, see the thumbnail docs")
 }
 
-func (g Webdav) handleWorkflowError(w http.ResponseWriter, r *http.Request, err error, tr *requests.ThumbnailRequest, logger log.Logger) {
-	if errors.Is(err, workflow.ErrFileProcessing) {
-		addRetryAfterHeader(w)
-		renderError(w, r, errTooEarly("file is being processed"))
-		return
-	}
-	if errors.Is(err, workflow.ErrImageTooLarge) {
-		logger.Debug().Err(err).Msg("thumbnail input image too large")
-		renderError(w, r, errPermissionDenied(workflow.ErrImageTooLarge.Error()))
-		return
-	}
-	if errors.Is(err, workflow.ErrPermissionDenied) {
-		logger.Debug().Err(err).Msg("user lacks download permission for thumbnail")
-		renderError(w, r, errPermissionDenied(workflow.ErrPermissionDenied.Error()))
-		return
-	}
-	if errors.Is(err, workflow.ErrNotAFile) {
-		logger.Debug().Err(err).Msg("thumbnail requested for a non-file resource")
-		renderError(w, r, errBadRequest("Unsupported file type"))
-		return
-	}
-	if errors.Is(err, workflow.ErrNotFound) {
-		logger.Debug().Err(err).Msg("thumbnail source could not be located")
-		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
-		return
-	}
-	if errors.Is(err, workflow.ErrUnsupportedFileType) {
-		logger.Debug().Err(err).Msg("thumbnail requested for unsupported file type")
-		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
-		return
-	}
-	// Anything else (generator down, download failure, timeout, ...) is a server
-	// error: clients must not cache it as "no preview" the way they do 404s.
-	logger.Error().Err(err).Msg("thumbnail workflow failed")
-	renderError(w, r, errInternalError("could not generate thumbnail"))
-}
+// handleWorkflowError maps a workflow error onto the response. step names what
+// was attempted, for the log line.
+func (g Webdav) handleWorkflowError(w http.ResponseWriter, r *http.Request, err error, tr *requests.ThumbnailRequest, logger log.Logger, step string) {
+	var busy *workflow.GeneratorBusyError
 
-func (g Webdav) handleHeadError(w http.ResponseWriter, r *http.Request, err error, tr *requests.ThumbnailRequest, logger log.Logger) {
-	if errors.Is(err, workflow.ErrFileProcessing) {
+	switch {
+	case errors.Is(err, workflow.ErrFileProcessing):
 		addRetryAfterHeader(w)
 		renderError(w, r, errTooEarly("file is being processed"))
-		return
-	}
-	if errors.Is(err, workflow.ErrImageTooLarge) {
+	case errors.As(err, &busy):
+		logger.Debug().Err(err).Msg("thumbnail generator is busy")
+		w.Header().Set("Retry-After", strconv.Itoa(max(busy.RetryAfterSeconds, 1)))
+		renderError(w, r, errTooManyRequests("the thumbnail generator is busy"))
+	case errors.Is(err, workflow.ErrImageTooLarge):
 		logger.Debug().Err(err).Msg("thumbnail input image too large")
 		renderError(w, r, errPermissionDenied(workflow.ErrImageTooLarge.Error()))
-		return
-	}
-	if errors.Is(err, workflow.ErrPermissionDenied) {
+	case errors.Is(err, workflow.ErrPermissionDenied):
 		logger.Debug().Err(err).Msg("user lacks download permission for thumbnail")
 		renderError(w, r, errPermissionDenied(workflow.ErrPermissionDenied.Error()))
-		return
-	}
-	if errors.Is(err, workflow.ErrNotAFile) {
-		logger.Debug().Err(err).Msg("thumbnail head check requested for a non-file resource")
+	case errors.Is(err, workflow.ErrNotAFile):
+		logger.Debug().Err(err).Msg(step + " requested for a non-file resource")
 		renderError(w, r, errBadRequest("Unsupported file type"))
-		return
-	}
-	if errors.Is(err, workflow.ErrNotFound) {
+	case errors.Is(err, workflow.ErrNotFound):
 		logger.Debug().Err(err).Msg("thumbnail source could not be located")
 		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
-		return
-	}
-	if errors.Is(err, workflow.ErrUnsupportedFileType) {
-		logger.Debug().Err(err).Msg("thumbnail head check requested for unsupported file type")
+	case errors.Is(err, workflow.ErrUnsupportedFileType):
+		logger.Debug().Err(err).Msg(step + " requested for unsupported file type")
 		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
-		return
+	default:
+		// Anything else (generator down, download failure, timeout, ...) is a
+		// server error: clients must not cache it as "no preview" the way they
+		// do 404s.
+		logger.Error().Err(err).Msg(step + " failed")
+		renderError(w, r, errInternalError("could not generate thumbnail"))
 	}
-	logger.Error().Err(err).Msg("thumbnail head check failed")
-	renderError(w, r, errInternalError("could not check thumbnail"))
 }
 
 func (g Webdav) handlePublicLinkAuthError(w http.ResponseWriter, r *http.Request, err error, filename string, logger log.Logger) {
@@ -552,6 +524,10 @@ func errPermissionDenied(msg string) *errResponse {
 
 func errNotFound(msg string) *errResponse {
 	return newErrResponse(http.StatusNotFound, msg)
+}
+
+func errTooManyRequests(msg string) *errResponse {
+	return newErrResponse(http.StatusTooManyRequests, msg)
 }
 
 func errTooEarly(msg string) *errResponse {

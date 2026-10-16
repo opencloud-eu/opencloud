@@ -109,26 +109,29 @@ var _ = Describe("NoopCache", func() {
 
 var _ = Describe("NewThumbnailCache", func() {
 	It("should create InMemoryCache for 'memory' backend", func() {
-		cache := NewThumbnailCache("memory", "", nil)
+		cache, err := NewThumbnailCache("memory", "", nil)
+		Expect(err).ToNot(HaveOccurred())
 		Expect(cache).ToNot(BeNil())
-		err := cache.Put("k", []byte("v"))
+		err = cache.Put("k", []byte("v"))
 		Expect(err).ToNot(HaveOccurred())
 		data, err := cache.Get("k")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(data).To(Equal([]byte("v")))
 	})
 
-	It("should create NoopCache for unknown backend", func() {
-		cache := NewThumbnailCache("unknown", "", nil)
-		Expect(cache).ToNot(BeNil())
-		data, err := cache.Get("k")
-		Expect(err).To(MatchError(ErrCacheMiss))
-		Expect(data).To(BeNil())
+	It("should refuse an unknown backend", func() {
+		_, err := NewThumbnailCache("unknown", "", nil)
+		Expect(err).To(MatchError(ContainSubstring("unknown thumbnail cache backend")))
 	})
 
-	It("should create NoopCache for empty backend", func() {
-		cache := NewThumbnailCache("", "", nil)
-		Expect(cache).ToNot(BeNil())
+	It("should refuse an empty backend", func() {
+		_, err := NewThumbnailCache("", "", nil)
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should create NoopCache for the 'none' backend", func() {
+		cache, err := NewThumbnailCache("none", "", nil)
+		Expect(err).ToNot(HaveOccurred())
 		data, err := cache.Get("k")
 		Expect(err).To(MatchError(ErrCacheMiss))
 		Expect(data).To(BeNil())
@@ -140,28 +143,21 @@ var _ = Describe("NewThumbnailCache", func() {
 			Region:      "us-east-1",
 			Credentials: credentials.NewStaticV4("ak", "sk", ""),
 		}
-		cache := NewThumbnailCache("s3", "", cfg)
-		Expect(cache).ToNot(BeNil())
+		cache, err := NewThumbnailCache("s3", "", cfg)
+		Expect(err).ToNot(HaveOccurred())
 		s3cache, ok := cache.(*S3Cache)
 		Expect(ok).To(BeTrue())
 		Expect(s3cache.config.Bucket).To(Equal("my-bucket"))
 	})
 
-	It("should create NoopCache for 's3' backend with incomplete config", func() {
-		cfg := &S3CacheConfig{Bucket: "only-bucket"}
-		cache := NewThumbnailCache("s3", "", cfg)
-		Expect(cache).ToNot(BeNil())
-		data, err := cache.Get("k")
-		Expect(err).To(MatchError(ErrCacheMiss))
-		Expect(data).To(BeNil())
+	It("should refuse an 's3' backend with incomplete config", func() {
+		_, err := NewThumbnailCache("s3", "", &S3CacheConfig{Bucket: "only-bucket"})
+		Expect(err).To(MatchError(ContainSubstring("s3 thumbnail cache")))
 	})
 
-	It("should create NoopCache for 's3' backend with nil config", func() {
-		cache := NewThumbnailCache("s3", "", nil)
-		Expect(cache).ToNot(BeNil())
-		data, err := cache.Get("k")
-		Expect(err).To(MatchError(ErrCacheMiss))
-		Expect(data).To(BeNil())
+	It("should refuse an 's3' backend without config", func() {
+		_, err := NewThumbnailCache("s3", "", nil)
+		Expect(err).To(MatchError(ContainSubstring("s3 thumbnail cache")))
 	})
 
 	It("should build S3CacheConfig from env var fields via BuildS3CacheConfig", func() {
@@ -537,8 +533,8 @@ var _ = Describe("NewThumbnailCache factory", func() {
 		Expect(err).ToNot(HaveOccurred())
 		defer os.RemoveAll(tmpdir)
 
-		cache := NewThumbnailCache("file", tmpdir, nil)
-		Expect(cache).ToNot(BeNil())
+		cache, err := NewThumbnailCache("file", tmpdir, nil)
+		Expect(err).ToNot(HaveOccurred())
 
 		fileCache, ok := cache.(*FileCache)
 		Expect(ok).To(BeTrue())
@@ -553,7 +549,8 @@ var _ = Describe("NewThumbnailCache factory", func() {
 	})
 
 	It("should create FileCache with default dir when empty string passed", func() {
-		cache := NewThumbnailCache("file", "", nil)
+		cache, err := NewThumbnailCache("file", "", nil)
+		Expect(err).ToNot(HaveOccurred())
 		fileCache, ok := cache.(*FileCache)
 		Expect(ok).To(BeTrue())
 		Expect(fileCache.dir).To(Equal(DefaultFileCacheDir()))

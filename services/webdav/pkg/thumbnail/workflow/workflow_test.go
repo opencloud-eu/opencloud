@@ -119,12 +119,12 @@ var _ = Describe("matchOperation", func() {
 
 	It("reports aIgnored when an explicit processor overrides the legacy a flag", func() {
 		// a=0 (Aspect=false) wants fill; fit processor overrides it with fit-in.
-		op, _, aIgnored := w.matchOperation(&requests.ThumbnailRequest{Processor: "fit"}, "image/jpeg")
+		op, _, aIgnored := w.matchOperation(&requests.ThumbnailRequest{Processor: "fit", AspectSet: true}, "image/jpeg")
 		Expect(op).To(Equal(generator.OpFitIn))
 		Expect(aIgnored).To(BeTrue())
 
 		// a=1 (Aspect=true) wants fit-in; fill processor overrides it with fill.
-		op, _, aIgnored = w.matchOperation(&requests.ThumbnailRequest{Processor: "fill", Aspect: true}, "image/jpeg")
+		op, _, aIgnored = w.matchOperation(&requests.ThumbnailRequest{Processor: "fill", Aspect: true, AspectSet: true}, "image/jpeg")
 		Expect(op).To(Equal(generator.OpFill))
 		Expect(aIgnored).To(BeTrue())
 
@@ -406,7 +406,8 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Aspect:   true,
 			}
 
-			data, contentType, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			result, err := wf.Execute(context.Background(), tr, testToken, logger)
+			data, contentType := result.Data, result.ContentType
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(Equal(thumbBytes))
 			Expect(contentType).To(Equal("image/jpeg"))
@@ -482,7 +483,8 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   36,
 			}
 
-			data, contentType, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			result, err := wf.Execute(context.Background(), tr, testToken, logger)
+			data, contentType := result.Data, result.ContentType
 			Expect(err).ToNot(HaveOccurred())
 			Expect(contentType).To(Equal("image/jpeg"))
 			Expect(data).To(Equal([]byte("webdav-thumbnail")))
@@ -549,7 +551,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Identifier: "Alice",
 			}
 
-			_, _, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			_, err := wf.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).To(HaveOccurred())
 			Expect(errors.Is(err, ErrNotFound)).To(BeTrue())
 		})
@@ -614,7 +616,8 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   36,
 			}
 
-			data, contentType, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			result, err := wf.Execute(context.Background(), tr, testToken, logger)
+			data, contentType := result.Data, result.ContentType
 			Expect(err).ToNot(HaveOccurred())
 			Expect(contentType).To(Equal("image/jpeg"))
 			Expect(data).To(Equal([]byte("space-thumbnail")))
@@ -692,7 +695,8 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   36,
 			}
 
-			data, contentType, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			result, err := wf.Execute(context.Background(), tr, testToken, logger)
+			data, contentType := result.Data, result.ContentType
 			Expect(err).ToNot(HaveOccurred())
 			Expect(contentType).To(Equal("image/jpeg"))
 			Expect(data).To(Equal([]byte("share-thumbnail")))
@@ -773,7 +777,8 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Identifier: "alice",
 			}
 
-			data, contentType, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			result, err := wf.Execute(context.Background(), tr, testToken, logger)
+			data, contentType := result.Data, result.ContentType
 			Expect(err).ToNot(HaveOccurred())
 			Expect(contentType).To(Equal("image/jpeg"))
 			Expect(data).To(Equal([]byte("user-thumbnail")))
@@ -801,7 +806,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   64,
 			}
 
-			_, _, _, err = wf2.Execute(context.Background(), tr, testToken, logger)
+			_, err = wf2.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(captured.data).To(Equal(pngBytes))
 		})
@@ -819,7 +824,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   64,
 			}
 
-			_, _, _, err = wf2.Execute(context.Background(), tr, testToken, logger)
+			_, err = wf2.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(captured.data).ToNot(BeEmpty())
 			Expect(captured.data).ToNot(Equal(mp3Bytes))
@@ -838,7 +843,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   64,
 			}
 
-			_, _, _, err = wf2.Execute(context.Background(), tr, testToken, logger)
+			_, err = wf2.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(captured.data).ToNot(BeEmpty())
 			Expect(captured.data).ToNot(Equal(ggsBytes))
@@ -856,7 +861,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   64,
 			}
 
-			_, _, _, err := wf2.Execute(context.Background(), tr, testToken, logger)
+			_, err := wf2.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(captured.data).ToNot(BeEmpty())
 			Expect(captured.data).ToNot(Equal(text))
@@ -875,7 +880,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   64,
 			}
 
-			_, _, _, err = wf2.Execute(context.Background(), tr, testToken, logger)
+			_, err = wf2.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).ToNot(HaveOccurred())
 			// Gifs are image/* and must reach the generator byte-for-byte; the
 			// generator (imagor or thumbnailer) handles multi-frame resizing.
@@ -892,7 +897,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   64,
 			}
 
-			_, _, _, err := wf2.Execute(context.Background(), tr, testToken, logger)
+			_, err := wf2.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).To(HaveOccurred())
 			Expect(errors.Is(err, ErrNotFound)).To(BeTrue())
 			Expect(err.Error()).To(ContainSubstring("could not get image"))
@@ -911,7 +916,8 @@ var _ = Describe("ThumbnailWorkflow", func() {
 					Height:   64,
 				}
 
-				_, contentType, _, err := wf2.Execute(context.Background(), tr, testToken, logger)
+				result, err := wf2.Execute(context.Background(), tr, testToken, logger)
+				contentType := result.ContentType
 				Expect(err).ToNot(HaveOccurred())
 				Expect(captured.path).To(ContainSubstring(wantFilter))
 				Expect(contentType).To(Equal(wantType))
@@ -942,7 +948,8 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   64,
 			}
 
-			_, contentType, _, err := wf2.Execute(context.Background(), tr, testToken, logger)
+			result, err := wf2.Execute(context.Background(), tr, testToken, logger)
+			contentType := result.ContentType
 			Expect(err).ToNot(HaveOccurred())
 			Expect(captured.path).To(ContainSubstring("filters:format(webp)"))
 			Expect(contentType).To(Equal("image/webp"))
@@ -959,7 +966,8 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   64,
 			}
 
-			_, contentType, _, err := wf2.Execute(context.Background(), tr, testToken, logger)
+			result, err := wf2.Execute(context.Background(), tr, testToken, logger)
+			contentType := result.ContentType
 			Expect(err).ToNot(HaveOccurred())
 			Expect(captured.path).To(ContainSubstring("filters:format(jpg)"))
 			Expect(contentType).To(Equal("image/jpeg"))
@@ -982,7 +990,8 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Aspect:   true,
 			}
 
-			data, contentType, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			result, err := wf.Execute(context.Background(), tr, testToken, logger)
+			data, contentType := result.Data, result.ContentType
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(Equal(cachedThumb))
 			Expect(contentType).To(Equal("image/jpeg"))
@@ -1011,7 +1020,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   64,
 			}
 
-			_, _, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			_, err := wf.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).To(HaveOccurred())
 			Expect(errors.Is(err, ErrUnsupportedFileType)).To(BeTrue())
 		})
@@ -1035,7 +1044,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   64,
 			}
 
-			_, _, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			_, err := wf.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).To(HaveOccurred())
 			Expect(errors.Is(err, ErrNotAFile)).To(BeTrue())
 		})
@@ -1091,7 +1100,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   64,
 			}
 
-			_, _, _, err = wfWithLimit.Execute(context.Background(), tr, testToken, logger)
+			_, err = wfWithLimit.Execute(context.Background(), tr, testToken, logger)
 			Expect(errors.Is(err, ErrImageTooLarge)).To(BeTrue())
 		})
 	})
@@ -1130,7 +1139,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   100,
 			}
 
-			_, _, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			_, err := wf.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(receivedURL).To(ContainSubstring("100x100"))
 		})
@@ -1169,7 +1178,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   64,
 			}
 
-			_, _, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			_, err := wf.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(receivedURL).To(ContainSubstring("64x64"))
 		})
@@ -1244,7 +1253,8 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Aspect:   true,
 			}
 
-			data, contentType, _, err := wf.ExecutePublic(req.Context(), tr, auth, logger)
+			result, err := wf.Execute(req.Context(), tr, auth, logger)
+			data, contentType := result.Data, result.ContentType
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(Equal(thumbBytes))
 			Expect(contentType).To(Equal("image/jpeg"))
@@ -1320,7 +1330,8 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   64,
 			}
 
-			data, _, _, err := wf.ExecutePublic(req.Context(), tr, auth, logger)
+			result, err := wf.Execute(req.Context(), tr, auth, logger)
+			data := result.Data
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(Equal(thumbBytes))
 		})
@@ -1494,7 +1505,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   64,
 			}
 
-			_, _, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			_, err := wf.Execute(context.Background(), tr, testToken, logger)
 			Expect(errors.Is(err, ErrPermissionDenied)).To(BeTrue())
 		})
 
@@ -1564,7 +1575,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   64,
 			}
 
-			_, _, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			_, err := wf.Execute(context.Background(), tr, testToken, logger)
 			Expect(errors.Is(err, ErrFileProcessing)).To(BeTrue())
 		})
 
@@ -1627,7 +1638,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   64,
 			}
 
-			_, _, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			_, err := wf.Execute(context.Background(), tr, testToken, logger)
 			Expect(errors.Is(err, ErrNotFound)).To(BeTrue())
 		})
 	})

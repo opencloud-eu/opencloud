@@ -2,6 +2,7 @@ package cache
 
 import (
 	"errors"
+	"fmt"
 	"path/filepath"
 
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -23,26 +24,27 @@ type ThumbnailCache interface {
 	Put(key string, data []byte) error
 }
 
-// NewThumbnailCache creates a cache instance based on the configured backend.
-func NewThumbnailCache(backend string, cacheDir string, s3cfg *S3CacheConfig) ThumbnailCache {
+// NewThumbnailCache creates a cache instance based on the configured backend. A
+// backend nobody can serve is an error, not a silently disabled cache.
+func NewThumbnailCache(backend string, cacheDir string, s3cfg *S3CacheConfig) (ThumbnailCache, error) {
 	switch backend {
 	case "none":
-		return NoopCache{}
+		return NoopCache{}, nil
 	case "memory":
-		return NewInMemoryCache()
+		return NewInMemoryCache(), nil
 	case "file":
 		dir := cacheDir
 		if dir == "" {
 			dir = DefaultFileCacheDir()
 		}
-		return NewFileCache(dir)
+		return NewFileCache(dir), nil
 	case "s3":
-		if s3cfg != nil && s3cfg.IsComplete() {
-			return NewS3Cache(*s3cfg)
+		if s3cfg == nil || !s3cfg.IsComplete() {
+			return nil, errors.New("s3 thumbnail cache needs a bucket, an endpoint and credentials")
 		}
-		return NoopCache{}
+		return NewS3Cache(*s3cfg), nil
 	default:
-		return NoopCache{}
+		return nil, fmt.Errorf("unknown thumbnail cache backend %q, expected none, memory, file or s3", backend)
 	}
 }
 

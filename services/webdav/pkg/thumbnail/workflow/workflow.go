@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	gatewayv1beta1 "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -101,6 +102,16 @@ var ErrNoStorageSpace = errors.New("thumbnails: no storage space found for path"
 // thumbnail service.
 var ErrUnsupportedFileType = errors.New("unsupported file type")
 
+// GeneratorBusyError is returned when the generator refuses a request because
+// its concurrency limit is reached. RetryAfterSeconds carries its own hint.
+type GeneratorBusyError struct {
+	RetryAfterSeconds int
+}
+
+func (e *GeneratorBusyError) Error() string {
+	return "thumbnails: generator is busy"
+}
+
 // fileIsProcessing reports whether the resource carries the "processing" status
 // in its opaque map, as set by the storage backend while a file is being handled.
 func fileIsProcessing(info *providerv1beta1.ResourceInfo) bool {
@@ -119,8 +130,8 @@ func processorID(processor string) string {
 // thumbnailStorageKey builds the cache key: checksum[:2]/checksum[2:4]/checksum[4:]/wxh-<operation>.format.
 // The <operation> segment (fit-in, fill, stretch, ...) distinguishes requests that
 // share a size but produce different images, so they never share a cache entry.
-// The requested resolution is used (not the matched one) so the key can be
-// computed before downloading the source. Caches regenerate when the configured
+// The key carries the snapped box, not the requested size, so every request that
+// rounds to the same box shares one entry. Caches regenerate when the configured
 // resolutions or operations change.
 func thumbnailStorageKey(checksum string, w, h int, format, processor string) string {
 	name := fmt.Sprintf("%dx%d-%s.%s", w, h, processor, format)
@@ -258,26 +269,22 @@ func WithUserResolver(r UserResolver) Option {
 	return func(w *ThumbnailWorkflow) { w.userResolver = r }
 }
 
-// Execute handles a user thumbnail request (GET).
-func (w *ThumbnailWorkflow) Execute(ctx context.Context, tr *requests.ThumbnailRequest, auth string, logger log.Logger) (data []byte, contentType string, aIgnored bool, err error) {
-	ref, err := w.resolveReference(ctx, tr, auth)
-	if err != nil {
-		return nil, "", false, err
-	}
-
-	data, contentType, aIgnored, err = w.generate(ctx, ref, auth, tr, logger)
-	return data, contentType, aIgnored, err
+// Thumbnail is what a request produces: the image, the type it is returned in,
+// and whether an explicit processor overrode a contradicting legacy "a" flag.
+type Thumbnail struct {
+	Data          []byte
+	ContentType   string
+	AspectIgnored bool
 }
 
-// ExecutePublic handles a public link thumbnail request (GET).
-func (w *ThumbnailWorkflow) ExecutePublic(ctx context.Context, tr *requests.ThumbnailRequest, auth string, logger log.Logger) (data []byte, contentType string, aIgnored bool, err error) {
+// Execute handles a user thumbnail request (GET).
+func (w *ThumbnailWorkflow) Execute(ctx context.Context, tr *requests.ThumbnailRequest, auth string, logger log.Logger) (Thumbnail, error) {
 	ref, err := w.resolveReference(ctx, tr, auth)
 	if err != nil {
-		return nil, "", false, err
+		return Thumbnail{}, err
 	}
 
-	data, contentType, aIgnored, err = w.generate(ctx, ref, auth, tr, logger)
-	return data, contentType, aIgnored, err
+	return w.generate(ctx, ref, auth, tr, logger)
 }
 
 // Head performs a cache-only check for a public link thumbnail (HEAD).
@@ -395,30 +402,30 @@ func (w *ThumbnailWorkflow) absolutizeUserPath(ctx context.Context, p, identifie
 	return filepath.Join(templates.WithUser(user, w.webdavNS), p)
 }
 
-func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.Reference, auth string, tr *requests.ThumbnailRequest, logger log.Logger) ([]byte, string, bool, error) {
+func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.Reference, auth string, tr *requests.ThumbnailRequest, logger log.Logger) (Thumbnail, error) {
 	statRsp, err := w.stater.Stat(ctx, ref, auth)
 	if err != nil {
 		logger.Debug().Err(err).Msg("could not stat file")
-		return nil, "", false, fmt.Errorf("stat: %w", err)
+		return Thumbnail{}, fmt.Errorf("stat: %w", err)
 	}
 
 	info := statRsp.GetInfo()
 
 	if fileIsProcessing(info) {
-		return nil, "", false, ErrFileProcessing
+		return Thumbnail{}, ErrFileProcessing
 	}
 
 	if !info.GetPermissionSet().GetInitiateFileDownload() {
-		return nil, "", false, ErrPermissionDenied
+		return Thumbnail{}, ErrPermissionDenied
 	}
 
 	if !w.sourceTypes.Supports(info.GetMimeType()) {
-		return nil, "", false, fmt.Errorf("%w: %s", ErrUnsupportedFileType, info.GetMimeType())
+		return Thumbnail{}, fmt.Errorf("%w: %s", ErrUnsupportedFileType, info.GetMimeType())
 	}
 
 	if w.maxInputSize > 0 && info.GetSize() > w.maxInputSize {
 		logger.Debug().Uint64("size", info.GetSize()).Uint64("max", w.maxInputSize).Msg("file too large for thumbnail")
-		return nil, "", false, ErrImageTooLarge
+		return Thumbnail{}, ErrImageTooLarge
 	}
 
 	checksum := info.GetChecksum().GetSum()
@@ -426,7 +433,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 		// Without a checksum the cache key would be shared across all files, so
 		// the resource is treated as not found (matching main's grpc service).
 		logger.Debug().Msg("resource info is missing a checksum")
-		return nil, "", false, ErrNotFound
+		return Thumbnail{}, ErrNotFound
 	}
 	mimeType := info.GetMimeType()
 
@@ -464,7 +471,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 
 	if w.cache != nil {
 		if cached, err := w.cache.Get(cacheKey); err == nil {
-			return cached, outputType, aIgnored, nil
+			return Thumbnail{Data: cached, ContentType: outputType, AspectIgnored: aIgnored}, nil
 		}
 	}
 
@@ -481,14 +488,14 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	imgStream, srcType, cleanup, err := w.sourceImage(ctx, ref, auth, mimeType, tr.Filename, logger)
 	if err != nil {
 		logger.Error().Err(err).Msg("could not obtain source image for thumbnail")
-		return nil, "", false, err
+		return Thumbnail{}, err
 	}
 	defer cleanup()
 
 	thumbBytes, thumbType, err := w.postToGenerator(ctx, genURL, imgStream, tr.Filename, srcType)
 	if err != nil {
 		logger.Error().Err(err).Msg("could not generate thumbnail")
-		return nil, "", false, fmt.Errorf("generate: %w", err)
+		return Thumbnail{}, fmt.Errorf("generate: %w", err)
 	}
 	if thumbType != "" && thumbType != outputType {
 		// the answer is always the type we cache under, so the same request
@@ -503,7 +510,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 		}
 	}
 
-	return thumbBytes, outputType, aIgnored, nil
+	return Thumbnail{Data: thumbBytes, ContentType: outputType, AspectIgnored: aIgnored}, nil
 }
 
 // sourceImage returns a reader over the source image to send to the generator,
@@ -602,9 +609,9 @@ func (w *ThumbnailWorkflow) matchOperation(tr *requests.ThumbnailRequest, mimeTy
 	if proc != "" {
 		switch operation {
 		case generator.OpFill:
-			aIgnored = tr.Aspect // a asked for fit-in but we filled
+			aIgnored = tr.AspectSet && tr.Aspect // a asked for fit-in but we filled
 		case generator.OpFitIn:
-			aIgnored = !tr.Aspect // a asked for fill but we fit-in
+			aIgnored = tr.AspectSet && !tr.Aspect // a asked for fill but we fit-in
 		}
 	}
 
@@ -686,7 +693,14 @@ func (w *ThumbnailWorkflow) postToGenerator(ctx context.Context, url string, img
 		// The generator refuses what it cannot read: imagor answers 406, the
 		// built-in one 400. That is a missing preview, not a server fault, so
 		// the client gets a 404 and stops asking.
-		if httpRsp.StatusCode == http.StatusBadRequest || httpRsp.StatusCode == http.StatusNotAcceptable {
+		if httpRsp.StatusCode == http.StatusTooManyRequests {
+			retryAfter, _ := strconv.Atoi(httpRsp.Header.Get("Retry-After"))
+			return nil, "", &GeneratorBusyError{RetryAfterSeconds: retryAfter}
+		}
+
+		// Only a source the generator cannot read means "no preview"; a 400 is a
+		// request this service built wrong and must not read as one.
+		if httpRsp.StatusCode == http.StatusNotAcceptable {
 			return nil, "", fmt.Errorf("%w: generator refused the source: %s", ErrUnsupportedFileType, strings.TrimSpace(string(respBody)))
 		}
 		return nil, "", fmt.Errorf("generator returned status %d: %s", httpRsp.StatusCode, string(respBody))

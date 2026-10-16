@@ -47,6 +47,9 @@ type ThumbnailRequest struct {
 	// Aspect reports whether the client wants the aspect ratio preserved (the
 	// legacy ownCloud "a" flag: a=1/absent -> preserve, a=0 -> fill the box).
 	Aspect bool
+	// AspectSet reports whether the client sent "a" at all, so a contradiction
+	// is only reported for a flag someone actually asked for.
+	AspectSet bool
 	// Identifier is the username from /dav/files/{user}/... when present. The
 	// workflow resolves it via GetUserByClaim so the file is looked up in that
 	// user's home; empty for space-ID, /webdav/ and public-link requests.
@@ -64,11 +67,11 @@ func ParseThumbnailRequest(r *http.Request) (*ThumbnailRequest, error) {
 		identifier string
 	)
 	if v := ctx.Value(constants.ContextKeyID); v != nil {
-		id := v.(string)
+		id := addMissingStorageID(v.(string))
 		if strings.Contains(id, "$") {
 			// Space-ID based request (dav/spaces/{id}/...): the URL carries the
 			// space root, so build the reference directly from the parsed ID.
-			rid, err := storagespace.ParseID(addMissingStorageID(id))
+			rid, err := storagespace.ParseID(id)
 			if err != nil {
 				return nil, fmt.Errorf("parse space id %q: %w", id, err)
 			}
@@ -117,6 +120,7 @@ func ParseThumbnailRequest(r *http.Request) (*ThumbnailRequest, error) {
 		Height:     int32(height),
 		Processor:  q.Get("processor"),
 		Aspect:     q.Get("a") != "0",
+		AspectSet:  q.Has("a"),
 		Identifier: identifier,
 	}, nil
 }
