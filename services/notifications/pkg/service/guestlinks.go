@@ -29,8 +29,9 @@ func (s eventsNotifier) handleGuestTokenCreated(e ocevents.GuestTokenCreated) {
 	s.sendGuestLinkMail(logger, email.GuestLinkShareCreated, e.Sharer, e.GranteeEmail, e.ItemID, e.ResourceName, e.Token, nil)
 }
 
-// handleGuestTokenRenewed sends the renewed guest link and the PIN to the
-// guest's email address, like handleGuestTokenCreated.
+// handleGuestTokenRenewed sends the renewed guest link to the guest's email
+// address, like handleGuestTokenCreated. The event only carries a PIN when the
+// renewal was authorized by a guest session; otherwise just the link is sent.
 func (s eventsNotifier) handleGuestTokenRenewed(e ocevents.GuestTokenRenewed) {
 	logger := s.logger.With().
 		Str("event", "GuestTokenRenewed").
@@ -38,7 +39,7 @@ func (s eventsNotifier) handleGuestTokenRenewed(e ocevents.GuestTokenRenewed) {
 		Logger()
 
 	if e.Pin == "" {
-		logger.Error().Msg("guest pin is empty")
+		s.sendGuestLinkMail(logger, email.GuestLinkShareRenewedWithoutPin, e.Sharer, e.GranteeEmail, e.ItemID, "", e.Token, nil)
 		return
 	}
 

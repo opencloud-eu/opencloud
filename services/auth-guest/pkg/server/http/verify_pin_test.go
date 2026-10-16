@@ -16,18 +16,27 @@ import (
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest/mocks"
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
+func newNonceCookie(shareID, value string) *http.Cookie {
+	return &http.Cookie{Name: nonceCookieName(testNonceCookieName, shareID), Value: value, Secure: true, HttpOnly: true}
+}
+
 func newVerifyPinHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc {
 	t.Helper()
 	cfg := &config.Config{
 		JWT: config.JWT{
-			CookieName: "__Host-oc_guest_session",
+			CookieName: testCookieName,
 			TTL:        time.Hour,
 		},
+		Nonce: config.Nonce{
+			CookieBaseName: testNonceCookieName,
+		},
+		PinAndNonceTTL: time.Hour,
 	}
 	return VerifyPinHandler(log.NopLogger(), svc, cfg)
 }
@@ -35,13 +44,16 @@ func newVerifyPinHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFunc
 func TestVerifyPinHandler(t *testing.T) {
 	svcMock := mocks.NewAuthGuest(t)
 	expiresAt := time.Date(2026, 10, 15, 10, 30, 0, 0, time.FixedZone("CEST", 2*60*60))
-	svcMock.On("VerifyPin", mock.Anything, "share-1", "123456").Return(&authguest.SessionResponse{SessionToken: "session-token", ExpiresAt: expiresAt, ShareID: "share-1"}, nil)
+	svcMock.On("VerifyPin", mock.Anything, "share-1", "123456", "nonce-value").Return(&authguest.SessionResponse{SessionToken: "session-token", ExpiresAt: expiresAt, ShareID: "share-1"}, nil)
 
 	body, err := json.Marshal(VerifyPinRequest{Pin: "123456", PermissionID: "share-1"})
 	require.NoError(t, err)
 
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
+	req.AddCookie(newNonceCookie("share-1", "nonce-value"))
+
 	rr := httptest.NewRecorder()
-	newVerifyPinHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body))))
+	newVerifyPinHandler(t, svcMock)(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 
@@ -57,10 +69,40 @@ func TestVerifyPinHandler(t *testing.T) {
 	assert.True(t, cookie.Secure)
 	assert.Equal(t, "/", cookie.Path)
 
+	wantNonceName := nonceCookieName(testNonceCookieName, "share-1")
+	var nonceCookie *http.Cookie
+	for _, c := range rr.Result().Cookies() {
+		if c.Name == wantNonceName {
+			nonceCookie = c
+		}
+	}
+	require.NotNil(t, nonceCookie)
+	assert.Equal(t, wantNonceName, nonceCookie.Name)
+	assert.Equal(t, -1, nonceCookie.MaxAge)
+
 	var resp verifyPinResponse
 	require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
 	assert.Equal(t, "share-1", resp.PermissionID)
 	assert.Equal(t, "2026-10-15T08:30:00Z", resp.ExpirationDateTime.Format(time.RFC3339))
+}
+
+func TestVerifyPinHandlerNonceCookiePerShare(t *testing.T) {
+	svcMock := mocks.NewAuthGuest(t)
+	svcMock.On("VerifyPin", mock.Anything, "share-1", "123456", "nonce-1").
+		Return(&authguest.SessionResponse{SessionToken: "session-token", ShareID: "share-1"}, nil)
+
+	body, err := json.Marshal(VerifyPinRequest{Pin: "123456", PermissionID: "share-1"})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
+	req.AddCookie(newNonceCookie("share-1", "nonce-1"))
+	req.AddCookie(newNonceCookie("share-2", "nonce-2"))
+
+	rr := httptest.NewRecorder()
+	newVerifyPinHandler(t, svcMock)(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	svcMock.AssertCalled(t, "VerifyPin", mock.Anything, "share-1", "123456", "nonce-1")
 }
 
 func TestVerifyPinHandlerErrorMapping(t *testing.T) {
@@ -86,10 +128,31 @@ func TestVerifyPinHandlerErrorMapping(t *testing.T) {
 			wantPermission: "share-1",
 		},
 		{
+			name:           "nonce invalid",
+			err:            &authguest.GuestError{ErrorType: authguest.ErrNonceInvalid, ShareID: "share-1"},
+			wantStatus:     http.StatusUnauthorized,
+			wantType:       "nonceInvalid",
+			wantPermission: "share-1",
+		},
+		{
+			name:           "nonce expired",
+			err:            &authguest.GuestError{ErrorType: authguest.ErrNonceExpired, ShareID: "share-1"},
+			wantStatus:     http.StatusUnauthorized,
+			wantType:       "nonceExpired",
+			wantPermission: "share-1",
+		},
+		{
 			name:           "share not found",
 			err:            &authguest.GuestError{ErrorType: authguest.ErrShareNotFound, ShareID: "share-1"},
 			wantStatus:     http.StatusNotFound,
 			wantType:       "shareNotFound",
+			wantPermission: "share-1",
+		},
+		{
+			name:           "token not found",
+			err:            &authguest.GuestError{ErrorType: storage.ErrNotFound, ShareID: "share-1"},
+			wantStatus:     http.StatusNotFound,
+			wantType:       "tokenNotFound",
 			wantPermission: "share-1",
 		},
 		{
@@ -110,13 +173,16 @@ func TestVerifyPinHandlerErrorMapping(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svcMock := mocks.NewAuthGuest(t)
-			svcMock.On("VerifyPin", mock.Anything, "share-1", "123456").Return(nil, tt.err)
+			svcMock.On("VerifyPin", mock.Anything, "share-1", "123456", mock.Anything).Return(nil, tt.err)
 
 			body, err := json.Marshal(VerifyPinRequest{Pin: "123456", PermissionID: "share-1"})
 			require.NoError(t, err)
 
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
+			req.AddCookie(newNonceCookie("share-1", "nonce-value"))
+
 			rr := httptest.NewRecorder()
-			newVerifyPinHandler(t, svcMock)(rr, httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body))))
+			newVerifyPinHandler(t, svcMock)(rr, req)
 
 			assert.Equal(t, tt.wantStatus, rr.Code)
 
@@ -124,6 +190,64 @@ func TestVerifyPinHandlerErrorMapping(t *testing.T) {
 			require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
 			assert.Equal(t, tt.wantType, resp.ErrorType)
 			assert.Equal(t, tt.wantPermission, resp.PermissionID)
+		})
+	}
+}
+
+func TestVerifyPinHandlerTooManyAttempts(t *testing.T) {
+	svcMock := mocks.NewAuthGuest(t)
+	svcMock.On("VerifyPin", mock.Anything, "share-1", "123456", mock.Anything).
+		Return(nil, &authguest.GuestError{ErrorType: authguest.ErrTooManyAttempts, ShareID: "share-1", RetryAfter: 1500 * time.Millisecond})
+
+	body, err := json.Marshal(VerifyPinRequest{Pin: "123456", PermissionID: "share-1"})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
+	req.AddCookie(newNonceCookie("share-1", "nonce-value"))
+
+	rr := httptest.NewRecorder()
+	newVerifyPinHandler(t, svcMock)(rr, req)
+
+	assert.Equal(t, http.StatusTooManyRequests, rr.Code)
+	assert.Equal(t, "2", rr.Header().Get("Retry-After"))
+
+	var resp errorResponse
+	require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
+	assert.Equal(t, "tooManyRequests", resp.ErrorType)
+	assert.Equal(t, 2, resp.RetryAfter)
+}
+
+func TestVerifyPinHandlerMissingNonceCookie(t *testing.T) {
+	tests := []struct {
+		name        string
+		addCookie   bool
+		cookieValue string
+	}{
+		{name: "no cookie"},
+		{name: "empty cookie value", addCookie: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svcMock := mocks.NewAuthGuest(t)
+
+			body, err := json.Marshal(VerifyPinRequest{Pin: "123456", PermissionID: "share-1"})
+			require.NoError(t, err)
+
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(string(body)))
+			if tt.addCookie {
+				req.AddCookie(newNonceCookie("share-1", tt.cookieValue))
+			}
+
+			rr := httptest.NewRecorder()
+			newVerifyPinHandler(t, svcMock)(rr, req)
+
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+			svcMock.AssertNotCalled(t, "VerifyPin", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+
+			var resp errorResponse
+			require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
+			assert.Equal(t, "invalidRequest", resp.ErrorType)
 		})
 	}
 }

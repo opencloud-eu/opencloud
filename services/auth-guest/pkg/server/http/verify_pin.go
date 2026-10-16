@@ -36,13 +36,21 @@ func VerifyPinHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Config)
 			return
 		}
 
-		result, err := s.VerifyPin(r.Context(), req.PermissionID, req.Pin)
+		cookie, err := r.Cookie(nonceCookieName(cfg.Nonce.CookieBaseName, req.PermissionID))
+		if err != nil || cookie.Value == "" {
+			log.Debug().Msg("the nonce cookie is missing from the request")
+			writeError(w, http.StatusBadRequest, errorResponse{ErrorType: "invalidRequest", Message: "The nonce cookie is missing from the request."})
+			return
+		}
+
+		result, err := s.VerifyPin(r.Context(), req.PermissionID, req.Pin, cookie.Value)
 		if err != nil {
 			log.Debug().Err(err).Msg("verify pin failed")
 			writeGuestError(w, err)
 			return
 		}
 
+		clearNonceCookie(w, cfg.Nonce.CookieBaseName, req.PermissionID)
 		setSessionCookie(w, cfg, result.SessionToken)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)

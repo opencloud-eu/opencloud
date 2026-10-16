@@ -12,6 +12,7 @@ package libregraph
 
 import (
 	"encoding/json"
+	"time"
 	"bytes"
 	"fmt"
 )
@@ -19,10 +20,12 @@ import (
 // checks if the GuestLinkSessionResponse type satisfies the MappedNullable interface at compile time
 var _ MappedNullable = &GuestLinkSessionResponse{}
 
-// GuestLinkSessionResponse Response body for a successful guest link authentication: the share (permission) id the guest was invited to. A session cookie is set via the Set-Cookie header.
+// GuestLinkSessionResponse Response body for a successful guest link authentication: the share (permission) id the guest was invited to and the expiry of the guest session. A session cookie is set via the Set-Cookie header.
 type GuestLinkSessionResponse struct {
 	// Identifier of the share (permission) the guest was invited to.
 	PermissionId string `json:"permissionId"`
+	// The date and time when the guest session expires, in UTC. After that the guest has to renew the guest link.
+	ExpirationDateTime time.Time `json:"expirationDateTime"`
 }
 
 type _GuestLinkSessionResponse GuestLinkSessionResponse
@@ -31,9 +34,10 @@ type _GuestLinkSessionResponse GuestLinkSessionResponse
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewGuestLinkSessionResponse(permissionId string) *GuestLinkSessionResponse {
+func NewGuestLinkSessionResponse(permissionId string, expirationDateTime time.Time) *GuestLinkSessionResponse {
 	this := GuestLinkSessionResponse{}
 	this.PermissionId = permissionId
+	this.ExpirationDateTime = expirationDateTime
 	return &this
 }
 
@@ -69,6 +73,30 @@ func (o *GuestLinkSessionResponse) SetPermissionId(v string) {
 	o.PermissionId = v
 }
 
+// GetExpirationDateTime returns the ExpirationDateTime field value
+func (o *GuestLinkSessionResponse) GetExpirationDateTime() time.Time {
+	if o == nil {
+		var ret time.Time
+		return ret
+	}
+
+	return o.ExpirationDateTime
+}
+
+// GetExpirationDateTimeOk returns a tuple with the ExpirationDateTime field value
+// and a boolean to check if the value has been set.
+func (o *GuestLinkSessionResponse) GetExpirationDateTimeOk() (*time.Time, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.ExpirationDateTime, true
+}
+
+// SetExpirationDateTime sets field value
+func (o *GuestLinkSessionResponse) SetExpirationDateTime(v time.Time) {
+	o.ExpirationDateTime = v
+}
+
 func (o GuestLinkSessionResponse) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -80,6 +108,7 @@ func (o GuestLinkSessionResponse) MarshalJSON() ([]byte, error) {
 func (o GuestLinkSessionResponse) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["permissionId"] = o.PermissionId
+	toSerialize["expirationDateTime"] = o.ExpirationDateTime
 	return toSerialize, nil
 }
 
@@ -89,6 +118,7 @@ func (o *GuestLinkSessionResponse) UnmarshalJSON(data []byte) (err error) {
 	// that every required field exists as a key in the generic map.
 	requiredProperties := []string{
 		"permissionId",
+		"expirationDateTime",
 	}
 
 	allProperties := make(map[string]interface{})

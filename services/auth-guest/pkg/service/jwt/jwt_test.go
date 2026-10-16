@@ -63,8 +63,8 @@ func TestVerifyExpired(t *testing.T) {
 	require.NoError(t, err)
 
 	shareID, err := m.Verify(tok)
-	require.NoError(t, err)
-	assert.Equal(t, "share-id", shareID)
+	assert.ErrorIs(t, err, ErrInvalidSession)
+	assert.Empty(t, shareID)
 }
 
 func TestVerifyInvalid(t *testing.T) {

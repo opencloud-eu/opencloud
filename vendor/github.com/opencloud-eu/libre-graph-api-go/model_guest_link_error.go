@@ -27,6 +27,8 @@ type GuestLinkError struct {
 	Message string `json:"message"`
 	// Permission (share) identifier related to the error, when known.
 	PermissionId string `json:"permissionId"`
+	// Number of seconds the client should wait before retrying. Present on rate-limited (429) responses and mirrored in the Retry-After response header.
+	RetryAfter *int32 `json:"retryAfter,omitempty"`
 }
 
 type _GuestLinkError GuestLinkError
@@ -123,6 +125,38 @@ func (o *GuestLinkError) SetPermissionId(v string) {
 	o.PermissionId = v
 }
 
+// GetRetryAfter returns the RetryAfter field value if set, zero value otherwise.
+func (o *GuestLinkError) GetRetryAfter() int32 {
+	if o == nil || IsNil(o.RetryAfter) {
+		var ret int32
+		return ret
+	}
+	return *o.RetryAfter
+}
+
+// GetRetryAfterOk returns a tuple with the RetryAfter field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *GuestLinkError) GetRetryAfterOk() (*int32, bool) {
+	if o == nil || IsNil(o.RetryAfter) {
+		return nil, false
+	}
+	return o.RetryAfter, true
+}
+
+// HasRetryAfter returns a boolean if a field has been set.
+func (o *GuestLinkError) HasRetryAfter() bool {
+	if o != nil && !IsNil(o.RetryAfter) {
+		return true
+	}
+
+	return false
+}
+
+// SetRetryAfter gets a reference to the given int32 and assigns it to the RetryAfter field.
+func (o *GuestLinkError) SetRetryAfter(v int32) {
+	o.RetryAfter = &v
+}
+
 func (o GuestLinkError) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -136,6 +170,9 @@ func (o GuestLinkError) ToMap() (map[string]interface{}, error) {
 	toSerialize["errorType"] = o.ErrorType
 	toSerialize["message"] = o.Message
 	toSerialize["permissionId"] = o.PermissionId
+	if !IsNil(o.RetryAfter) {
+		toSerialize["retryAfter"] = o.RetryAfter
+	}
 	return toSerialize, nil
 }
 

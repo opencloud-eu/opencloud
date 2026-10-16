@@ -1272,6 +1272,13 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 			logger.Error().Err(err).Msg("CheckFileInfo: error getting scopes from the context")
 		}
 	}
+	// the space root id must not reach a public share, like the parent folder link above
+	breadcrumbBrandURL := ""
+	if spaceRoot := statRes.GetInfo().GetSpace().GetRoot(); !isPublicShare && spaceRoot != nil {
+		brandURL := *ocURL
+		brandURL.Path = path.Join(ocURL.Path, "f", storagespace.FormatResourceID(spaceRoot))
+		breadcrumbBrandURL = brandURL.String()
+	}
 	lastModifiedTime := time.Now().UTC().Format(lastModifiedTimeFormat)
 	if mtime := statRes.GetInfo().GetMtime(); mtime != nil {
 		lastModifiedTime = utils.TSToTime(mtime).UTC().Format(lastModifiedTimeFormat)
@@ -1287,7 +1294,10 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 		// to get the folder we actually need to do a GetPath() request
 		fileinfo.KeyBreadcrumbFolderName: breadcrumbFolderName,
 		fileinfo.KeyBreadcrumbFolderURL:  parentFolderURL.String(),
+		fileinfo.KeyBreadcrumbBrandName:  statRes.GetInfo().GetSpace().GetName(),
+		fileinfo.KeyBreadcrumbBrandURL:   breadcrumbBrandURL,
 
+		fileinfo.KeyCloseURL:       parentFolderURL.String(),
 		fileinfo.KeyHostViewURL:    createHostUrl("view", ocURL, f.cfg.App.Name, statRes.GetInfo()),
 		fileinfo.KeyHostEditURL:    createHostUrl("write", ocURL, f.cfg.App.Name, statRes.GetInfo()),
 		fileinfo.KeyFileSharingURL: createShareUrl(privateLinkURL),
@@ -1325,6 +1335,13 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 		infoMap[fileinfo.KeySize] = size
 	}
 
+	infoMap[fileinfo.KeyReadOnly] = wopiContext.ViewMode != appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE
+
+	// only the collabora integration in web handles UI_Edit, the other office apps would post into the void
+	if strings.ToLower(f.cfg.App.Product) == "collabora" {
+		infoMap[fileinfo.KeyEditModePostMessage] = true
+	}
+
 	switch wopiContext.ViewMode {
 	case appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE:
 		infoMap[fileinfo.KeyUserCanWrite] = true
@@ -1337,9 +1354,12 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 		infoMap[fileinfo.KeyDisableExport] = true // only for collabora
 		infoMap[fileinfo.KeyDisableCopy] = true   // only for collabora
 		infoMap[fileinfo.KeyDisablePrint] = true
-		// a viewer role opens the document view only as well, the watermark is for secure view
-		if !isPublicShare && wopiContext.ViewOnlyToken != "" {
-			infoMap[fileinfo.KeyWatermarkText] = f.watermarkText(user) // only for collabora
+		// a viewer role opens the document view only as well, lock and watermark are for secure view
+		if wopiContext.ViewOnlyToken != "" {
+			infoMap[fileinfo.KeyIsUserLocked] = true // only for collabora
+			if !isPublicShare {
+				infoMap[fileinfo.KeyWatermarkText] = f.watermarkText(user) // only for collabora
+			}
 		}
 	}
 
@@ -1353,6 +1373,15 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 			extraInfo.Avatar = avatarURL
 		}
 		infoMap[fileinfo.KeyUserExtraInfo] = extraInfo
+	}
+
+	// secure view exists to keep the original file from the user, so it gets no download link
+	if wopiContext.ViewOnlyToken == "" {
+		if du, err := f.createFileDownloadURL(wopiContext, collaborationURL); err == nil {
+			infoMap[fileinfo.KeyDownloadURL] = du
+		} else {
+			logger.Error().Err(err).Msg("CheckFileInfo: failed to create the download URL")
+		}
 	}
 
 	// if the file content is empty and a template reference is set, add the template source URL
@@ -1385,6 +1414,25 @@ func (f *FileConnector) createDownloadURL(wopiContext middleware.WopiContext, co
 		collaborationURL.Path,
 		"wopi/templates/",
 		helpers.HashResourceId(templateContext.FileReference.GetResourceId()),
+	)
+	q := downloadURL.Query()
+	q.Add("access_token", token)
+	downloadURL.RawQuery = q.Encode()
+	return downloadURL.String(), nil
+}
+
+// createFileDownloadURL builds a URL to the WOPI contents of the file, authorized by a WOPI token.
+func (f *FileConnector) createFileDownloadURL(wopiContext middleware.WopiContext, collaborationURL *url.URL) (string, error) {
+	token, _, err := middleware.GenerateWopiToken(wopiContext, f.cfg, f.store)
+	if err != nil {
+		return "", err
+	}
+	downloadURL := *collaborationURL
+	downloadURL.Path = path.Join(
+		collaborationURL.Path,
+		"wopi/files/",
+		helpers.HashResourceId(wopiContext.FileReference.GetResourceId()),
+		"contents",
 	)
 	q := downloadURL.Query()
 	q.Add("access_token", token)

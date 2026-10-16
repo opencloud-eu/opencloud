@@ -13,16 +13,13 @@ import (
 )
 
 // RenewRequest is the request body for token renewal. The share id is required;
-// the previous link token is optional when the (possibly expired) session
-// cookie is sent instead.
+// the guest is authorized by the session cookie, when present.
 type RenewRequest struct {
 	PermissionID string `json:"permissionId"`
-	Token        string `json:"token"`
 }
 
 // RenewHandler generates a new guest link token and PIN for the share
-// identified by the permission id, authorized by the submitted link token or
-// the session cookie.
+// identified by the permission id, authorized by the session cookie.
 func RenewHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Config) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req RenewRequest
@@ -43,10 +40,15 @@ func RenewHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Config) fun
 			sessionToken = cookie.Value
 		}
 
-		if err := s.Renew(r.Context(), req.PermissionID, req.Token, sessionToken); err != nil {
+		nonce, err := s.Renew(r.Context(), req.PermissionID, sessionToken)
+		if err != nil {
 			log.Debug().Err(err).Msg("renew failed")
 			writeGuestError(w, err)
 			return
+		}
+
+		if nonce != "" {
+			setNonceCookie(w, cfg, req.PermissionID, nonce)
 		}
 
 		w.WriteHeader(http.StatusOK)

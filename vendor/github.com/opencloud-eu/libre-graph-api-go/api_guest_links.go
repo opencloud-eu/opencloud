@@ -40,7 +40,7 @@ func (r ApiRenewGuestLinkRequest) Execute() (*http.Response, error) {
 /*
 RenewGuestLink Renew a guest link
 
-Generate a new guest link token and PIN for an existing guest link and publish the renewal event so the guest can be notified.
+Renew a guest link. When the request carries a valid guest session cookie (possibly expired), a new link token and PIN are generated, the renewal event is published so the guest can be notified, and the nonce cookie that binds the PIN to the browser is set. Without a valid session the link token is rotated silently: no new PIN is generated, no nonce cookie is set, and the request is rate limited.
 
  @param ctx context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  @return ApiRenewGuestLinkRequest
@@ -126,17 +126,6 @@ func (a *GuestLinksApiService) RenewGuestLinkExecute(r ApiRenewGuestLinkRequest)
 					newErr.model = v
 			return localVarHTTPResponse, newErr
 		}
-		if localVarHTTPResponse.StatusCode == 401 {
-			var v GuestLinkError
-			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
-			if err != nil {
-				newErr.error = err.Error()
-				return localVarHTTPResponse, newErr
-			}
-					newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
-					newErr.model = v
-			return localVarHTTPResponse, newErr
-		}
 		if localVarHTTPResponse.StatusCode == 404 {
 			var v GuestLinkError
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
@@ -148,7 +137,29 @@ func (a *GuestLinksApiService) RenewGuestLinkExecute(r ApiRenewGuestLinkRequest)
 					newErr.model = v
 			return localVarHTTPResponse, newErr
 		}
+		if localVarHTTPResponse.StatusCode == 409 {
+			var v GuestLinkError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarHTTPResponse, newErr
+			}
+					newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+					newErr.model = v
+			return localVarHTTPResponse, newErr
+		}
 		if localVarHTTPResponse.StatusCode == 410 {
+			var v GuestLinkError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarHTTPResponse, newErr
+			}
+					newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+					newErr.model = v
+			return localVarHTTPResponse, newErr
+		}
+		if localVarHTTPResponse.StatusCode == 429 {
 			var v GuestLinkError
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
 			if err != nil {
@@ -198,7 +209,14 @@ func (a *GuestLinksApiService) RenewGuestLinkExecute(r ApiRenewGuestLinkRequest)
 type ApiVerifyGuestLinkPinRequest struct {
 	ctx context.Context
 	ApiService *GuestLinksApiService
+	hostOcGuestNonce *string
 	guestLinkVerifyPinRequest *GuestLinkVerifyPinRequest
+}
+
+// Per-share nonce cookie set by the renew endpoint (&#x60;__Host-oc_guest_nonce_&lt;share-hash&gt;&#x60;), binding the PIN to the browser that renewed the link.
+func (r ApiVerifyGuestLinkPinRequest) HostOcGuestNonce(hostOcGuestNonce string) ApiVerifyGuestLinkPinRequest {
+	r.hostOcGuestNonce = &hostOcGuestNonce
+	return r
 }
 
 func (r ApiVerifyGuestLinkPinRequest) GuestLinkVerifyPinRequest(guestLinkVerifyPinRequest GuestLinkVerifyPinRequest) ApiVerifyGuestLinkPinRequest {
@@ -245,6 +263,9 @@ func (a *GuestLinksApiService) VerifyGuestLinkPinExecute(r ApiVerifyGuestLinkPin
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
+	if r.hostOcGuestNonce == nil {
+		return localVarReturnValue, nil, reportError("hostOcGuestNonce is required and must be specified")
+	}
 	if r.guestLinkVerifyPinRequest == nil {
 		return localVarReturnValue, nil, reportError("guestLinkVerifyPinRequest is required and must be specified")
 	}
@@ -324,6 +345,17 @@ func (a *GuestLinksApiService) VerifyGuestLinkPinExecute(r ApiVerifyGuestLinkPin
 			return localVarReturnValue, localVarHTTPResponse, newErr
 		}
 		if localVarHTTPResponse.StatusCode == 410 {
+			var v GuestLinkError
+			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
+			if err != nil {
+				newErr.error = err.Error()
+				return localVarReturnValue, localVarHTTPResponse, newErr
+			}
+					newErr.error = formatErrorMessage(localVarHTTPResponse.Status, &v)
+					newErr.model = v
+			return localVarReturnValue, localVarHTTPResponse, newErr
+		}
+		if localVarHTTPResponse.StatusCode == 429 {
 			var v GuestLinkError
 			err = a.client.decode(&v, localVarBody, localVarHTTPResponse.Header.Get("Content-Type"))
 			if err != nil {

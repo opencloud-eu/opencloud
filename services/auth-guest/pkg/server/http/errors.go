@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/jwt"
@@ -18,6 +20,7 @@ type errorResponse struct {
 	ErrorType    string `json:"errorType"`
 	Message      string `json:"message"`
 	PermissionID string `json:"permissionId"`
+	RetryAfter   int    `json:"retryAfter,omitempty"`
 }
 
 func writeError(w http.ResponseWriter, status int, body errorResponse) {
@@ -49,6 +52,8 @@ func writeGuestError(w http.ResponseWriter, err error) {
 		status, errorType = http.StatusNotFound, "tokenNotFound"
 	case errors.Is(ge.ErrorType, storage.ErrInvalidHash):
 		status, errorType = http.StatusUnauthorized, "tokenInvalid"
+	case errors.Is(ge.ErrorType, storage.ErrConflict):
+		status, errorType = http.StatusConflict, "conflict"
 	case errors.Is(ge.ErrorType, authguest.ErrAlreadyRedeemed):
 		status, errorType = http.StatusConflict, "tokenAlreadyRedeemed"
 	case errors.Is(ge.ErrorType, authguest.ErrShareNotFound):
@@ -61,6 +66,12 @@ func writeGuestError(w http.ResponseWriter, err error) {
 		status, errorType = http.StatusUnauthorized, "pinExpired"
 	case errors.Is(ge.ErrorType, jwt.ErrInvalidSession):
 		status, errorType = http.StatusUnauthorized, "sessionInvalid"
+	case errors.Is(ge.ErrorType, authguest.ErrNonceInvalid):
+		status, errorType = http.StatusUnauthorized, "nonceInvalid"
+	case errors.Is(ge.ErrorType, authguest.ErrNonceExpired):
+		status, errorType = http.StatusUnauthorized, "nonceExpired"
+	case errors.Is(ge.ErrorType, authguest.ErrTooManyAttempts):
+		status, errorType = http.StatusTooManyRequests, "tooManyRequests"
 	case errors.Is(ge.ErrorType, authguest.ErrPermissionMismatch):
 		status, errorType = http.StatusBadRequest, "invalidRequest"
 	}
@@ -70,5 +81,11 @@ func writeGuestError(w http.ResponseWriter, err error) {
 		message = "An internal error occurred."
 	}
 
-	writeError(w, status, errorResponse{ErrorType: errorType, Message: message, PermissionID: ge.ShareID})
+	retryAfter := 0
+	if ge.RetryAfter > 0 {
+		retryAfter = int((ge.RetryAfter + time.Second - 1) / time.Second)
+		w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
+	}
+
+	writeError(w, status, errorResponse{ErrorType: errorType, Message: message, PermissionID: ge.ShareID, RetryAfter: retryAfter})
 }

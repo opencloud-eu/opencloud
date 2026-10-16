@@ -6,6 +6,8 @@ package storage
 import (
 	"errors"
 	"time"
+
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/guard"
 )
 
 var ErrNotFound = errors.New("record not found")
@@ -14,14 +16,28 @@ var ErrConflict = errors.New("record was modified concurrently")
 
 // Record holds the data persisted for a guest share token.
 type Record struct {
-	ShareID     string    `json:"shareid"`
-	ShareIDHash string    `json:"shareidhash"`
-	SecretHash  string    `json:"secrethash"`
-	PinHash     string    `json:"pinhash"`
-	Expiry      time.Time `json:"expiry,omitzero"`
-	PinExpiry   time.Time `json:"pinexpiry,omitzero"`
-	Redeemed    bool      `json:"redeemed"`
-	Revision    uint64    `json:"revision"`
+	ShareID                  string                    `json:"shareid"`
+	ShareIDHash              string                    `json:"shareidhash"`
+	SecretHash               string                    `json:"secrethash"`
+	PinHash                  string                    `json:"pinhash"`
+	Expiry                   time.Time                 `json:"expiry,omitzero"`
+	PinExpiry                time.Time                 `json:"pinexpiry,omitzero"`
+	Redeemed                 bool                      `json:"redeemed"`
+	Revision                 uint64                    `json:"revision"`
+	NonceState               guard.NonceState          `json:"nonce,omitzero"`
+	BackoffLimiterState      guard.BackoffLimiterState `json:"backoff_limiter,omitzero"`
+	QuotaLimiterState        guard.QuotaLimiterState   `json:"quota_limiter,omitzero"`
+	SessionQuotaLimiterState guard.QuotaLimiterState   `json:"session_quota_limiter,omitzero"`
+}
+
+// NewRecord returns a record for the given token.
+func NewRecord(shareID, shareIDHash, secretHash string, expiry time.Time) Record {
+	return Record{
+		ShareID:     shareID,
+		ShareIDHash: shareIDHash,
+		SecretHash:  secretHash,
+		Expiry:      expiry,
+	}
 }
 
 type Manager interface {

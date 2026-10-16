@@ -86,6 +86,23 @@ The link and the PIN are only valid for 30 minutes.`),
 		CallToAction: l10n.Template(`Click here to view it: {ShareLink}`),
 	}
 
+	GuestLinkShareRenewedWithoutPin = MessageTemplate{
+		textTemplate: _textTemplate,
+		htmlTemplate: _htmlTemplate,
+		// GuestLinkShareRenewedWithoutPin email template, Subject field (resolves directly)
+		Subject: l10n.Template(`Your new link to '{ShareFolder}'`),
+		// GuestLinkShareRenewedWithoutPin email template, resolves via {{ .Greeting }}
+		Greeting: l10n.Template(`Hello,`),
+		// GuestLinkShareRenewedWithoutPin email template, resolves via {{ .MessageBody }}
+		MessageBody: l10n.Template(`A new link to "{ShareFolder}", shared with you by {ShareSharer}, has been requested.
+
+The link below is personal and can only be used once. Please do not forward it.
+
+The link is only valid for 30 minutes.`),
+		// GuestLinkShareRenewedWithoutPin email template, resolves via {{ .CallToAction }}
+		CallToAction: l10n.Template(`Click here to view it: {ShareLink}`),
+	}
+
 	// Spaces templates
 	SharedSpace = MessageTemplate{
 		textTemplate: _textTemplate,

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/guard"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/token"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,6 +34,34 @@ func TestFileManagerAddGet(t *testing.T) {
 	s := NewFileManager(dir)
 
 	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
+	require.NoError(t, s.Add(rec))
+
+	got, err := s.Get(rec.ShareIDHash)
+	require.NoError(t, err)
+	assert.Equal(t, rec, *got)
+}
+
+func TestFileManagerGuardsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	s := NewFileManager(dir)
+
+	rec := newRecord("e0123456-7890-abcd-ef01-234567890abc")
+	rec.PinHash = "pinhash"
+	rec.PinExpiry = time.Date(2026, 2, 3, 4, 5, 6, 0, time.UTC)
+	rec.NonceState = guard.NonceState{
+		Hash:   "noncehash",
+		Expiry: time.Date(2026, 2, 3, 4, 5, 9, 0, time.UTC),
+	}
+	rec.BackoffLimiterState = guard.BackoffLimiterState{
+		Count:     2,
+		NotBefore: time.Date(2026, 2, 3, 4, 5, 7, 0, time.UTC),
+	}
+	rec.QuotaLimiterState = guard.QuotaLimiterState{
+		Count:       3,
+		NotBefore:   time.Date(2026, 2, 3, 4, 5, 8, 0, time.UTC),
+		WindowStart: time.Date(2026, 2, 3, 0, 0, 0, 0, time.UTC),
+	}
+
 	require.NoError(t, s.Add(rec))
 
 	got, err := s.Get(rec.ShareIDHash)

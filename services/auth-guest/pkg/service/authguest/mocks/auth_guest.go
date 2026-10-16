@@ -158,6 +158,158 @@ func (_c *AuthGuest_CreateToken_Call) RunAndReturn(run func(ctx context.Context,
 	return _c
 }
 
+// Renew provides a mock function for the type AuthGuest
+func (_mock *AuthGuest) Renew(ctx context.Context, shareID string, sessionToken string) (string, error) {
+	ret := _mock.Called(ctx, shareID, sessionToken)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Renew")
+	}
+
+	var r0 string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (string, error)); ok {
+		return returnFunc(ctx, shareID, sessionToken)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) string); ok {
+		r0 = returnFunc(ctx, shareID, sessionToken)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = returnFunc(ctx, shareID, sessionToken)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// AuthGuest_Renew_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Renew'
+type AuthGuest_Renew_Call struct {
+	*mock.Call
+}
+
+// Renew is a helper method to define mock.On call
+//   - ctx context.Context
+//   - shareID string
+//   - sessionToken string
+func (_e *AuthGuest_Expecter) Renew(ctx any, shareID any, sessionToken any) *AuthGuest_Renew_Call {
+	return &AuthGuest_Renew_Call{Call: _e.mock.On("Renew", ctx, shareID, sessionToken)}
+}
+
+func (_c *AuthGuest_Renew_Call) Run(run func(ctx context.Context, shareID string, sessionToken string)) *AuthGuest_Renew_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *AuthGuest_Renew_Call) Return(s string, err error) *AuthGuest_Renew_Call {
+	_c.Call.Return(s, err)
+	return _c
+}
+
+func (_c *AuthGuest_Renew_Call) RunAndReturn(run func(ctx context.Context, shareID string, sessionToken string) (string, error)) *AuthGuest_Renew_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// VerifyPin provides a mock function for the type AuthGuest
+func (_mock *AuthGuest) VerifyPin(ctx context.Context, shareID string, pinValue string, nonce string) (*authguest.SessionResponse, error) {
+	ret := _mock.Called(ctx, shareID, pinValue, nonce)
+
+	if len(ret) == 0 {
+		panic("no return value specified for VerifyPin")
+	}
+
+	var r0 *authguest.SessionResponse
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) (*authguest.SessionResponse, error)); ok {
+		return returnFunc(ctx, shareID, pinValue, nonce)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) *authguest.SessionResponse); ok {
+		r0 = returnFunc(ctx, shareID, pinValue, nonce)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*authguest.SessionResponse)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = returnFunc(ctx, shareID, pinValue, nonce)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// AuthGuest_VerifyPin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'VerifyPin'
+type AuthGuest_VerifyPin_Call struct {
+	*mock.Call
+}
+
+// VerifyPin is a helper method to define mock.On call
+//   - ctx context.Context
+//   - shareID string
+//   - pinValue string
+//   - nonce string
+func (_e *AuthGuest_Expecter) VerifyPin(ctx any, shareID any, pinValue any, nonce any) *AuthGuest_VerifyPin_Call {
+	return &AuthGuest_VerifyPin_Call{Call: _e.mock.On("VerifyPin", ctx, shareID, pinValue, nonce)}
+}
+
+func (_c *AuthGuest_VerifyPin_Call) Run(run func(ctx context.Context, shareID string, pinValue string, nonce string)) *AuthGuest_VerifyPin_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *AuthGuest_VerifyPin_Call) Return(sessionResponse *authguest.SessionResponse, err error) *AuthGuest_VerifyPin_Call {
+	_c.Call.Return(sessionResponse, err)
+	return _c
+}
+
+func (_c *AuthGuest_VerifyPin_Call) RunAndReturn(run func(ctx context.Context, shareID string, pinValue string, nonce string) (*authguest.SessionResponse, error)) *AuthGuest_VerifyPin_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // VerifyToken provides a mock function for the type AuthGuest
 func (_mock *AuthGuest) VerifyToken(ctx context.Context, tokenString string) (*authguest.SessionResponse, error) {
 	ret := _mock.Called(ctx, tokenString)
@@ -222,149 +374,6 @@ func (_c *AuthGuest_VerifyToken_Call) Return(sessionResponse *authguest.SessionR
 }
 
 func (_c *AuthGuest_VerifyToken_Call) RunAndReturn(run func(ctx context.Context, tokenString string) (*authguest.SessionResponse, error)) *AuthGuest_VerifyToken_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// Renew provides a mock function for the type AuthGuest
-func (_mock *AuthGuest) Renew(ctx context.Context, shareID string, tokenString string, sessionToken string) error {
-	ret := _mock.Called(ctx, shareID, tokenString, sessionToken)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Renew")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
-		r0 = returnFunc(ctx, shareID, tokenString, sessionToken)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// AuthGuest_Renew_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Renew'
-type AuthGuest_Renew_Call struct {
-	*mock.Call
-}
-
-// Renew is a helper method to define mock.On call
-//   - ctx context.Context
-//   - shareID string
-//   - tokenString string
-//   - sessionToken string
-func (_e *AuthGuest_Expecter) Renew(ctx any, shareID any, tokenString any, sessionToken any) *AuthGuest_Renew_Call {
-	return &AuthGuest_Renew_Call{Call: _e.mock.On("Renew", ctx, shareID, tokenString, sessionToken)}
-}
-
-func (_c *AuthGuest_Renew_Call) Run(run func(ctx context.Context, shareID string, tokenString string, sessionToken string)) *AuthGuest_Renew_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 string
-		if args[1] != nil {
-			arg1 = args[1].(string)
-		}
-		var arg2 string
-		if args[2] != nil {
-			arg2 = args[2].(string)
-		}
-		var arg3 string
-		if args[3] != nil {
-			arg3 = args[3].(string)
-		}
-		run(
-			arg0,
-			arg1,
-			arg2,
-			arg3,
-		)
-	})
-	return _c
-}
-
-func (_c *AuthGuest_Renew_Call) Return(err error) *AuthGuest_Renew_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *AuthGuest_Renew_Call) RunAndReturn(run func(ctx context.Context, shareID string, tokenString string, sessionToken string) error) *AuthGuest_Renew_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// VerifyPin provides a mock function for the type AuthGuest
-func (_mock *AuthGuest) VerifyPin(ctx context.Context, shareID string, pinValue string) (*authguest.SessionResponse, error) {
-	ret := _mock.Called(ctx, shareID, pinValue)
-
-	if len(ret) == 0 {
-		panic("no return value specified for VerifyPin")
-	}
-
-	var r0 *authguest.SessionResponse
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (*authguest.SessionResponse, error)); ok {
-		return returnFunc(ctx, shareID, pinValue)
-	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) *authguest.SessionResponse); ok {
-		r0 = returnFunc(ctx, shareID, pinValue)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*authguest.SessionResponse)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
-		r1 = returnFunc(ctx, shareID, pinValue)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// AuthGuest_VerifyPin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'VerifyPin'
-type AuthGuest_VerifyPin_Call struct {
-	*mock.Call
-}
-
-// VerifyPin is a helper method to define mock.On call
-//   - ctx context.Context
-//   - shareID string
-//   - pinValue string
-func (_e *AuthGuest_Expecter) VerifyPin(ctx any, shareID any, pinValue any) *AuthGuest_VerifyPin_Call {
-	return &AuthGuest_VerifyPin_Call{Call: _e.mock.On("VerifyPin", ctx, shareID, pinValue)}
-}
-
-func (_c *AuthGuest_VerifyPin_Call) Run(run func(ctx context.Context, shareID string, pinValue string)) *AuthGuest_VerifyPin_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 string
-		if args[1] != nil {
-			arg1 = args[1].(string)
-		}
-		var arg2 string
-		if args[2] != nil {
-			arg2 = args[2].(string)
-		}
-		run(
-			arg0,
-			arg1,
-			arg2,
-		)
-	})
-	return _c
-}
-
-func (_c *AuthGuest_VerifyPin_Call) Return(sessionResponse *authguest.SessionResponse, err error) *AuthGuest_VerifyPin_Call {
-	_c.Call.Return(sessionResponse, err)
-	return _c
-}
-
-func (_c *AuthGuest_VerifyPin_Call) RunAndReturn(run func(ctx context.Context, shareID string, pinValue string) (*authguest.SessionResponse, error)) *AuthGuest_VerifyPin_Call {
 	_c.Call.Return(run)
 	return _c
 }
