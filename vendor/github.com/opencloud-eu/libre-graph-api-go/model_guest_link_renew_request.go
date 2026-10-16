@@ -19,12 +19,10 @@ import (
 // checks if the GuestLinkRenewRequest type satisfies the MappedNullable interface at compile time
 var _ MappedNullable = &GuestLinkRenewRequest{}
 
-// GuestLinkRenewRequest Request body for renewing a guest link. Besides the share (permission) id, the previous guest link token or a (possibly expired) guest session cookie is required to authorize the renewal.
+// GuestLinkRenewRequest Request body for renewing a guest link. Only the share (permission) id is sent; the request is authorized by the guest session cookie when one is present.
 type GuestLinkRenewRequest struct {
 	// Identifier of the share (permission) the guest was invited to.
 	PermissionId string `json:"permissionId"`
-	// Previous guest link token. Optional when the guest session cookie is sent instead.
-	Token *string `json:"token,omitempty"`
 }
 
 type _GuestLinkRenewRequest GuestLinkRenewRequest
@@ -71,38 +69,6 @@ func (o *GuestLinkRenewRequest) SetPermissionId(v string) {
 	o.PermissionId = v
 }
 
-// GetToken returns the Token field value if set, zero value otherwise.
-func (o *GuestLinkRenewRequest) GetToken() string {
-	if o == nil || IsNil(o.Token) {
-		var ret string
-		return ret
-	}
-	return *o.Token
-}
-
-// GetTokenOk returns a tuple with the Token field value if set, nil otherwise
-// and a boolean to check if the value has been set.
-func (o *GuestLinkRenewRequest) GetTokenOk() (*string, bool) {
-	if o == nil || IsNil(o.Token) {
-		return nil, false
-	}
-	return o.Token, true
-}
-
-// HasToken returns a boolean if a field has been set.
-func (o *GuestLinkRenewRequest) HasToken() bool {
-	if o != nil && !IsNil(o.Token) {
-		return true
-	}
-
-	return false
-}
-
-// SetToken gets a reference to the given string and assigns it to the Token field.
-func (o *GuestLinkRenewRequest) SetToken(v string) {
-	o.Token = &v
-}
-
 func (o GuestLinkRenewRequest) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -114,9 +80,6 @@ func (o GuestLinkRenewRequest) MarshalJSON() ([]byte, error) {
 func (o GuestLinkRenewRequest) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
 	toSerialize["permissionId"] = o.PermissionId
-	if !IsNil(o.Token) {
-		toSerialize["token"] = o.Token
-	}
 	return toSerialize, nil
 }
 
