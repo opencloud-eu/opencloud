@@ -1586,3 +1586,26 @@ var _ = Describe("ThumbnailWorkflow", func() {
 	})
 })
 
+var _ = Describe("postToGenerator", func() {
+	It("types the uploaded part so imagor's upload loader accepts it", func() {
+		var partType, partDisposition string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mr, err := r.MultipartReader()
+			Expect(err).ToNot(HaveOccurred())
+			part, err := mr.NextPart()
+			Expect(err).ToNot(HaveOccurred())
+			partType = part.Header.Get("Content-Type")
+			partDisposition = part.Header.Get("Content-Disposition")
+			_, _ = io.Copy(io.Discard, part)
+			_, _ = w.Write([]byte("thumb"))
+		}))
+		defer srv.Close()
+
+		wf := &ThumbnailWorkflow{httpClient: srv.Client()}
+		out, err := wf.postToGenerator(context.Background(), srv.URL, strings.NewReader("payload"), `we"ird.png`, "image/png")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(out)).To(Equal("thumb"))
+		Expect(partType).To(Equal("image/png"), "application/octet-stream is rejected by imagor")
+		Expect(partDisposition).To(Equal(`form-data; name="image"; filename="we\"ird.png"`))
+	})
+})

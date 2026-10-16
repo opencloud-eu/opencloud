@@ -11,17 +11,18 @@ func TestParseMaxInputFileSize(t *testing.T) {
 		want    uint64
 		wantErr bool
 	}{
-		{"empty", "", 0, false},
+		{"empty means no limit", "", 0, false},
 		{"plain bytes", "1234", 1234, false},
-		{"KB", "50KB", 50 * 1024, false},
-		{"kB case insensitive", "50kB", 50 * 1024, false},
-		{"KiB", "50KiB", 50 * 1024, false},
-		{"MB", "5MB", 5 * 1024 * 1024, false},
-		{"MiB", "5MiB", 5 * 1024 * 1024, false},
-		{"GB", "2GB", 2 * 1024 * 1024 * 1024, false},
-		{"GiB", "2GiB", 2 * 1024 * 1024 * 1024, false},
-		{"whitespace around value", "  5MB  ", 5 * 1024 * 1024, false},
-		{"space before suffix", "5 MB", 5 * 1024 * 1024, false},
+		{"KB is decimal", "50KB", 50_000, false},
+		{"KiB is binary", "50KiB", 50 * 1024, false},
+		{"MB is decimal", "5MB", 5_000_000, false},
+		{"MiB is binary", "5MiB", 5 * 1024 * 1024, false},
+		{"GB is decimal", "2GB", 2_000_000_000, false},
+		{"GiB is binary", "2GiB", 2 * 1024 * 1024 * 1024, false},
+		{"TB", "2TB", 2_000_000_000_000, false},
+		{"whitespace around value", "  5MB  ", 5_000_000, false},
+		{"space before suffix", "5 MB", 5_000_000, false},
+		{"lowercase unit", "50kB", 0, true},
 		{"invalid input", "abc", 0, true},
 		{"negative number", "-5MB", 0, true},
 	}

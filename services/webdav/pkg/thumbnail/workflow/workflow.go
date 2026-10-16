@@ -10,6 +10,7 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"path/filepath"
 	"strings"
 
@@ -457,14 +458,14 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	// in webdav: real images (incl. gif) are streamed straight through undecoded;
 	// non-image sources are converted to image bytes here so the generator always
 	// receives an image.
-	imgStream, cleanup, err := w.sourceImage(ctx, ref, auth, mimeType, tr.Filename, logger)
+	imgStream, srcType, cleanup, err := w.sourceImage(ctx, ref, auth, mimeType, tr.Filename, logger)
 	if err != nil {
 		logger.Error().Err(err).Msg("could not obtain source image for thumbnail")
 		return nil, "", false, err
 	}
 	defer cleanup()
 
-	thumbBytes, err := w.postToGenerator(ctx, genURL, imgStream, tr.Filename)
+	thumbBytes, err := w.postToGenerator(ctx, genURL, imgStream, tr.Filename, srcType)
 	if err != nil {
 		logger.Error().Err(err).Msg("could not generate thumbnail")
 		return nil, "", false, fmt.Errorf("generate: %w", err)
@@ -486,40 +487,40 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 //     undecoded; the generator handles decoding and multi-frame gifs itself.
 //   - text/plain is rendered to an image here (the only true conversion).
 //   - audio and geogebra sources have their embedded image extracted to bytes.
-func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta1.Reference, auth, mimeType, filename string, logger log.Logger) (io.Reader, func(), error) {
+func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta1.Reference, auth, mimeType, filename string, logger log.Logger) (io.Reader, string, func(), error) {
 	m, _, _ := mime.ParseMediaType(mimeType)
 
 	if strings.HasPrefix(m, "image/") {
 		body, err := w.fileDownloader.DownloadStream(ctx, ref, auth)
 		if err != nil {
-			return nil, nil, fmt.Errorf("download: %w", err)
+			return nil, "", nil, fmt.Errorf("download: %w", err)
 		}
-		return body, func() { _ = body.Close() }, nil
+		return body, m, func() { _ = body.Close() }, nil
 	}
 
 	body, err := w.fileDownloader.DownloadStream(ctx, ref, auth)
 	if err != nil {
-		return nil, nil, fmt.Errorf("download: %w", err)
+		return nil, "", nil, fmt.Errorf("download: %w", err)
 	}
 	defer body.Close()
 
 	fileBytes, err := io.ReadAll(body)
 	if err != nil {
-		return nil, nil, fmt.Errorf("read source: %w", err)
+		return nil, "", nil, fmt.Errorf("read source: %w", err)
 	}
 
 	ppOpts := map[string]any{"fontFileMap": w.fontMapFile}
 	img, err := preprocessor.ForType(mimeType, ppOpts).Convert(bytes.NewReader(fileBytes))
 	if img == nil || err != nil {
 		logger.Debug().Err(err).Msg("could not convert file to image")
-		return nil, nil, fmt.Errorf("%w: could not get image", ErrNotFound)
+		return nil, "", nil, fmt.Errorf("%w: could not get image", ErrNotFound)
 	}
 
-	data, _, err := encodeForUpload(img, mimeType)
+	data, ext, err := encodeForUpload(img, mimeType)
 	if err != nil {
-		return nil, nil, fmt.Errorf("encode converted image: %w", err)
+		return nil, "", nil, fmt.Errorf("encode converted image: %w", err)
 	}
-	return bytes.NewReader(data), func() {}, nil
+	return bytes.NewReader(data), generator.ContentType(ext), func() {}, nil
 }
 
 // matchOperation resolves the generator resize/crop operation for a request from
@@ -583,20 +584,29 @@ func (w *ThumbnailWorkflow) matchOperation(tr *requests.ThumbnailRequest, mimeTy
 	return operation, noUpscale, aIgnored
 }
 
+// quoteEscaper matches the escaping mime/multipart applies to part filenames.
+var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
+
 // postToGenerator streams the source image to the generator as a multipart
 // POST. The body is produced by an io.Pipe so the (potentially large) image is
 // never fully buffered in webdav: the writer goroutine copies the reader into
 // the form part on demand. No Content-Length is set, so the request uses chunked
 // transfer-encoding; both imagor and the thumbnailer parse the multipart body
 // without needing it (imagor enforces its size limit after reading the part).
-func (w *ThumbnailWorkflow) postToGenerator(ctx context.Context, url string, img io.Reader, filename string) ([]byte, error) {
+func (w *ThumbnailWorkflow) postToGenerator(ctx context.Context, url string, img io.Reader, filename, contentType string) ([]byte, error) {
 	pr, pw := io.Pipe()
 	writer := multipart.NewWriter(pw)
 
 	errCh := make(chan error, 1)
 	go func() {
 		defer pw.Close()
-		part, err := writer.CreateFormFile("image", filename)
+		// Not CreateFormFile: it types the part application/octet-stream, which
+		// imagor's upload loader rejects (UPLOAD_LOADER_ACCEPT defaults to image/*).
+		h := make(textproto.MIMEHeader)
+		h.Set("Content-Disposition",
+			`form-data; name="image"; filename="`+quoteEscaper.Replace(filename)+`"`)
+		h.Set("Content-Type", contentType)
+		part, err := writer.CreatePart(h)
 		if err != nil {
 			errCh <- fmt.Errorf("create form file: %w", err)
 			return
@@ -923,7 +933,9 @@ func ResolvePublicLinkAuth(ctx context.Context, r *http.Request, publicLinkToken
 	switch rsp.GetStatus().GetCode() {
 	case rpcv1beta1.Code_CODE_OK:
 		return rsp.GetToken(), nil
-	case rpcv1beta1.Code_CODE_PERMISSION_DENIED:
+	case rpcv1beta1.Code_CODE_PERMISSION_DENIED, rpcv1beta1.Code_CODE_UNAUTHENTICATED:
+		// reva reports a wrong or missing link password as InvalidCredentials,
+		// which the gateway passes through as UNAUTHENTICATED.
 		return "", fmt.Errorf("%w: %s", ErrPublicLinkPasswordRequired, rsp.GetStatus().GetMessage())
 	case rpcv1beta1.Code_CODE_FAILED_PRECONDITION:
 		return "", fmt.Errorf("%w: %s", ErrPublicLinkExpired, rsp.GetStatus().GetMessage())
