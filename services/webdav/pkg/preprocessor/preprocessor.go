@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"image"
 	"image/draw"
+	"image/png"
 	"io"
 	"math"
 	"mime"
@@ -24,13 +25,13 @@ import (
 
 // FileConverter is the interface for the file converter
 type FileConverter interface {
-	Convert(r io.Reader) (any, error)
+	Convert(r io.Reader) (*Image, error)
 }
 
-// ImageFile is an image a converter hands on as it found it, together with the
-// type its bytes are in. webdav does not decode it: the generator does the
-// image work, so an embedded cover reaches it the way a plain image file does.
-type ImageFile struct {
+// Image is what a converter hands on: the bytes and the type they are in.
+// webdav does not decode them, the generator does the image work, so an
+// embedded cover reaches it the way a plain image file does.
+type Image struct {
 	ContentType string
 	Data        []byte
 }
@@ -45,7 +46,7 @@ type GgsDecoder struct{ thumbnailpath string }
 // embedded thumbnail out of the .ggs container). The image itself is handed on
 // undecoded, but reading the container in webdav is an attack vector of its
 // own; Tika is the intended out-of-process extractor for embedded images.
-func (g GgsDecoder) Convert(r io.Reader) (any, error) {
+func (g GgsDecoder) Convert(r io.Reader) (*Image, error) {
 	var buf bytes.Buffer
 	_, err := io.Copy(&buf, r)
 	if err != nil {
@@ -66,7 +67,7 @@ func (g GgsDecoder) Convert(r io.Reader) (any, error) {
 				return nil, errors.Wrap(err, `could not read the embedded image`)
 			}
 
-			return ImageFile{ContentType: "image/png", Data: data}, nil
+			return &Image{ContentType: "image/png", Data: data}, nil
 		}
 	}
 	return nil, errors.Errorf("%s not found", g.thumbnailpath)
@@ -81,7 +82,7 @@ type AudioDecoder struct{}
 // metadata and pulls the embedded APIC picture). The picture itself is handed
 // on undecoded, but reading the metadata in webdav is an attack vector of its
 // own; Tika is the intended out-of-process extractor for embedded images.
-func (i AudioDecoder) Convert(r io.Reader) (any, error) {
+func (i AudioDecoder) Convert(r io.Reader) (*Image, error) {
 	b, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -100,7 +101,7 @@ func (i AudioDecoder) Convert(r io.Reader) (any, error) {
 		return nil, ErrNoConverterForExtractedImageFromAudioFile
 	}
 
-	return ImageFile{ContentType: picture.MIMEType, Data: picture.Data}, nil
+	return &Image{ContentType: picture.MIMEType, Data: picture.Data}, nil
 }
 
 // TxtToImageConverter is a converter for the text file
@@ -109,7 +110,7 @@ type TxtToImageConverter struct {
 }
 
 // Convert reads the text file and renders it into a thumbnail image
-func (t TxtToImageConverter) Convert(r io.Reader) (any, error) {
+func (t TxtToImageConverter) Convert(r io.Reader) (*Image, error) {
 	img := image.NewRGBA(image.Rect(0, 0, 640, 480))
 
 	imgBounds := img.Bounds()
@@ -184,7 +185,18 @@ Scan: // Label for the scanner loop, so we can break it easily
 			break
 		}
 	}
-	return img, scanner.Err()
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	// png, not jpeg: the render goes to the generator untouched and is
+	// compressed once, in the size the client asked for
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return nil, errors.Wrap(err, `could not encode the rendered text`)
+	}
+
+	return &Image{ContentType: "image/png", Data: buf.Bytes()}, nil
 }
 
 // GGPStruct is the layout of a ggp file (which is basically json)
@@ -209,7 +221,7 @@ type GgpDecoder struct{}
 // the embedded image). The image itself is handed on undecoded, but reading the
 // document in webdav is an attack vector of its own; Tika is the intended
 // out-of-process extractor for embedded images.
-func (j GgpDecoder) Convert(r io.Reader) (any, error) {
+func (j GgpDecoder) Convert(r io.Reader) (*Image, error) {
 	ggp := &GGPStruct{}
 	err := json.NewDecoder(r).Decode(ggp)
 	if err != nil {
@@ -231,7 +243,7 @@ func (j GgpDecoder) Convert(r io.Reader) (any, error) {
 		return nil, ErrNoConverterForExtractedImageFromGgpFile
 	}
 
-	return ImageFile{ContentType: contentType, Data: b}, nil
+	return &Image{ContentType: contentType, Data: b}, nil
 }
 
 func extractBase64ImageFromGGP(ggp *GGPStruct) (string, error) {

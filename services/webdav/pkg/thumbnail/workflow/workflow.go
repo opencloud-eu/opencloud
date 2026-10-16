@@ -542,17 +542,12 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 	}
 
 	img, err := converter.Convert(bytes.NewReader(fileBytes))
-	if img == nil || err != nil {
+	if err != nil || img == nil {
 		logger.Debug().Err(err).Msg("could not convert file to image")
 		return nil, "", nil, fmt.Errorf("%w: could not get image", ErrNotFound)
 	}
 
-	data, contentType, err := encodeForUpload(img)
-	if err != nil {
-		return nil, "", nil, fmt.Errorf("encode converted image: %w", err)
-	}
-
-	return bytes.NewReader(data), contentType, func() {}, nil
+	return bytes.NewReader(img.Data), img.ContentType, func() {}, nil
 }
 
 // matchOperation resolves the generator resize/crop operation for a request from

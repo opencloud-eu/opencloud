@@ -33,9 +33,8 @@ var _ = Describe("preprocessor", func() {
 			decoder := GgsDecoder{"_slide0/geogebra_thumbnail.png"}
 			img, err := decoder.Convert(fileReader)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(img).To(BeAssignableToTypeOf(ImageFile{}))
-			Expect(img.(ImageFile).ContentType).To(Equal("image/png"))
-			Expect(img.(ImageFile).Data).ToNot(BeEmpty())
+			Expect(img.ContentType).To(Equal("image/png"))
+			Expect(img.Data).ToNot(BeEmpty())
 		})
 
 		It("should return an error if the ggs is invalid", func() {
@@ -57,9 +56,8 @@ var _ = Describe("preprocessor", func() {
 			decoder := AudioDecoder{}
 			img, err := decoder.Convert(fileReader)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(img).To(BeAssignableToTypeOf(ImageFile{}))
-			Expect(img.(ImageFile).ContentType).To(HavePrefix("image/"))
-			Expect(img.(ImageFile).Data).ToNot(BeEmpty())
+			Expect(img.ContentType).To(HavePrefix("image/"))
+			Expect(img.Data).ToNot(BeEmpty())
 		})
 		It("should decode an audio", func() {
 			fileContent, err := os.ReadFile("test_assets/empty_no_image.mp3")
@@ -97,10 +95,11 @@ var _ = Describe("preprocessor", func() {
 				fontLoader: fontLoader,
 			}
 		})
-		It("should decode a text", func() {
+		It("renders the text as a png", func() {
 			img, err := decoder.Convert(bytes.NewReader([]byte("This is a test text")))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(img).ToNot(BeNil())
+			Expect(img.ContentType).To(Equal("image/png"))
+			Expect(img.Data).ToNot(BeEmpty())
 		})
 
 		It("fails if the font is missing", func() {
