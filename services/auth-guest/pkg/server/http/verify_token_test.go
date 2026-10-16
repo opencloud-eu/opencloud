@@ -35,7 +35,8 @@ func newVerifyTokenHandler(t *testing.T, svc authguest.AuthGuest) http.HandlerFu
 
 func TestVerifyTokenHandler(t *testing.T) {
 	svcMock := mocks.NewAuthGuest(t)
-	svcMock.On("VerifyToken", mock.Anything, "valid-token").Return(&authguest.SessionResponse{SessionToken: "session-token", ShareID: "share-1"}, nil)
+	expiresAt := time.Date(2026, 10, 15, 10, 30, 0, 0, time.FixedZone("CEST", 2*60*60))
+	svcMock.On("VerifyToken", mock.Anything, "valid-token").Return(&authguest.SessionResponse{SessionToken: "session-token", ExpiresAt: expiresAt, ShareID: "share-1"}, nil)
 
 	body, err := json.Marshal(VerifyTokenRequest{Token: "valid-token"})
 	require.NoError(t, err)
@@ -60,6 +61,7 @@ func TestVerifyTokenHandler(t *testing.T) {
 	var resp sessionResponse
 	require.NoError(t, json.NewDecoder(rr.Body).Decode(&resp))
 	assert.Equal(t, "share-1", resp.PermissionID)
+	assert.Equal(t, "2026-10-15T08:30:00Z", resp.ExpirationDateTime.Format(time.RFC3339))
 }
 
 func TestVerifyTokenHandlerErrorMapping(t *testing.T) {

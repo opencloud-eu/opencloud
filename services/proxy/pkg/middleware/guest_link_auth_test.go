@@ -44,6 +44,9 @@ func TestGuestLinkAuthenticator_Applicability(t *testing.T) {
 		{"supported path - dav", true, "some-jwt", "/dav/files/user", AuthenticationFailed},
 		{"supported path - webdav", true, "some-jwt", "/webdav/files/user", AuthenticationFailed},
 		{"supported path - remote.php", true, "some-jwt", "/remote.php/dav/files/user", AuthenticationFailed},
+		{"supported path - app open", true, "some-jwt", "/app/open", AuthenticationFailed},
+		{"supported path - app new", true, "some-jwt", "/app/new", AuthenticationFailed},
+		{"unsupported path - app list", true, "some-jwt", "/app/list", AuthenticationNotApplicable},
 	}
 
 	for _, tt := range tests {
@@ -82,7 +85,7 @@ func TestGuestLinkAuthenticator_Applicability(t *testing.T) {
 }
 
 func TestGuestLinkAuthenticator_SupportsPathPrefixes(t *testing.T) {
-	supportedPrefixes := []string{"/graph/v1beta1/me/drive/sharedWithMe", "/graph/v1beta1/roleManagement/permissions/roleDefinitions", "/dav/", "/webdav/", "/remote.php/dav/", "/remote.php/webdav/", "/ocs/v2.php/apps/notifications/api/v1/notifications/sse"}
+	supportedPrefixes := []string{"/graph/v1beta1/me/drive/sharedWithMe", "/graph/v1beta1/roleManagement/permissions/roleDefinitions", "/dav/", "/webdav/", "/remote.php/dav/", "/remote.php/webdav/", "/ocs/v2.php/apps/notifications/api/v1/notifications/sse", "/app/open", "/app/new"}
 	for _, prefix := range supportedPrefixes {
 		t.Run("path prefix "+prefix, func(t *testing.T) {
 			if !isGuestLinkPath(prefix + "test") {
@@ -91,7 +94,7 @@ func TestGuestLinkAuthenticator_SupportsPathPrefixes(t *testing.T) {
 		})
 	}
 
-	unsupportedPaths := []string{"/archiver", "/", "/graph/v1beta1/me/drives", "/ocs/", "/ocs/v2.php/apps/notifications/api/v1/notifications", "/konnect/", "/apps/"}
+	unsupportedPaths := []string{"/archiver", "/", "/graph/v1beta1/me/drives", "/ocs/", "/ocs/v2.php/apps/notifications/api/v1/notifications", "/konnect/", "/apps/", "/app/", "/app/list"}
 	for _, path := range unsupportedPaths {
 		t.Run("unsupported "+path, func(t *testing.T) {
 			if isGuestLinkPath(path) {

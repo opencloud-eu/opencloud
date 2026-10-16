@@ -24,19 +24,21 @@ func parseClaims(t *testing.T, m *JwtService, tokenString string) (*jwtClaims, e
 func TestSignAndParse(t *testing.T) {
 	m := NewJwtService("test-secret", time.Hour)
 
-	tok, err := m.Sign("share-id")
+	tok, expiresAt, err := m.Sign("share-id")
 	require.NoError(t, err)
 	require.NotEmpty(t, tok)
+	assert.WithinDuration(t, time.Now().Add(time.Hour), expiresAt, 2*time.Second)
 
 	claims, err := parseClaims(t, m, tok)
 	require.NoError(t, err)
 	assert.Equal(t, "share-id", claims.ShareID)
+	assert.True(t, claims.ExpiresAt.Equal(expiresAt))
 }
 
 func TestParseExpired(t *testing.T) {
 	m := NewJwtService("test-secret", -time.Minute)
 
-	tok, err := m.Sign("share-id")
+	tok, _, err := m.Sign("share-id")
 	require.NoError(t, err)
 
 	_, err = parseClaims(t, m, tok)
@@ -46,7 +48,7 @@ func TestParseExpired(t *testing.T) {
 func TestVerify(t *testing.T) {
 	m := NewJwtService("test-secret", time.Hour)
 
-	tok, err := m.Sign("share-id")
+	tok, _, err := m.Sign("share-id")
 	require.NoError(t, err)
 
 	shareID, err := m.Verify(tok)
@@ -57,7 +59,7 @@ func TestVerify(t *testing.T) {
 func TestVerifyExpired(t *testing.T) {
 	m := NewJwtService("test-secret", -time.Minute)
 
-	tok, err := m.Sign("share-id")
+	tok, _, err := m.Sign("share-id")
 	require.NoError(t, err)
 
 	shareID, err := m.Verify(tok)
@@ -68,10 +70,10 @@ func TestVerifyExpired(t *testing.T) {
 func TestVerifyInvalid(t *testing.T) {
 	m := NewJwtService("test-secret", time.Hour)
 
-	tok, err := m.Sign("share-id")
+	tok, _, err := m.Sign("share-id")
 	require.NoError(t, err)
 
-	other, err := NewJwtService("other-secret", time.Hour).Sign("share-id")
+	other, _, err := NewJwtService("other-secret", time.Hour).Sign("share-id")
 	require.NoError(t, err)
 
 	tests := []struct {

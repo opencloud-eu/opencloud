@@ -317,6 +317,7 @@ func TestVerifyTokenSuccess(t *testing.T) {
 	result, err := s.VerifyToken(context.Background(), tok)
 	require.NoError(t, err)
 	require.NotEmpty(t, result.SessionToken)
+	assert.WithinDuration(t, time.Now().Add(time.Hour), result.ExpiresAt, 2*time.Second)
 	assert.Equal(t, testShareID, result.ShareID)
 
 	got, err := store.Get(rec.ShareIDHash)
@@ -438,7 +439,7 @@ func TestRenewWithExpiredSessionToken(t *testing.T) {
 	require.NoError(t, store.Add(existingRecord()))
 
 	jwtSvc := jwt.NewJwtService("test-secret", -time.Hour)
-	sessionToken, err := jwtSvc.Sign(testShareID)
+	sessionToken, _, err := jwtSvc.Sign(testShareID)
 	require.NoError(t, err)
 
 	publisher := &testPublisher{}
@@ -477,7 +478,7 @@ func TestRenewInvalidCredentials(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
 	s := newRenewService(t, store, newGatewayMock(&collaboration.GetShareResponse{}), &testPublisher{})
 
-	otherSession, err := jwt.NewJwtService("test-secret", 24*time.Hour).Sign("other-share")
+	otherSession, _, err := jwt.NewJwtService("test-secret", 24*time.Hour).Sign("other-share")
 	require.NoError(t, err)
 	otherToken, _ := newTokenFor(t, "other-share")
 
@@ -652,6 +653,7 @@ func TestVerifyPinSuccess(t *testing.T) {
 	result, err := s.VerifyPin(context.Background(), testShareID, "123456")
 	require.NoError(t, err)
 	assert.NotEmpty(t, result.SessionToken)
+	assert.WithinDuration(t, time.Now().Add(time.Hour), result.ExpiresAt, 2*time.Second)
 	assert.Equal(t, testShareID, result.ShareID)
 
 	got, err := store.Get(token.Hash(testShareID))

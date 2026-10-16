@@ -6,6 +6,7 @@ package http
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config"
@@ -23,7 +24,8 @@ type VerifyTokenRequest struct {
 }
 
 type sessionResponse struct {
-	PermissionID string `json:"permissionId"`
+	PermissionID       string    `json:"permissionId"`
+	ExpirationDateTime time.Time `json:"expirationDateTime"`
 }
 
 // VerifyTokenHandler validates the token submitted to the verify token endpoint.
@@ -54,7 +56,7 @@ func VerifyTokenHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Confi
 		setSessionCookie(w, cfg, result.SessionToken)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(sessionResponse{PermissionID: result.ShareID})
+		_ = json.NewEncoder(w).Encode(sessionResponse{PermissionID: result.ShareID, ExpirationDateTime: result.ExpiresAt.UTC()})
 	}
 }
 

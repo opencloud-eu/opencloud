@@ -26,8 +26,8 @@ func NewJwtService(secret string, ttl time.Duration) *JwtService {
 	return &JwtService{secret: []byte(secret), ttl: ttl}
 }
 
-// Sign returns a signed jwt token for the given share.
-func (m *JwtService) Sign(shareID string) (string, error) {
+// Sign returns a signed jwt token for the given share and its expiry.
+func (m *JwtService) Sign(shareID string) (string, time.Time, error) {
 	now := time.Now()
 	claims := jwtClaims{
 		ShareID: shareID,
@@ -36,7 +36,11 @@ func (m *JwtService) Sign(shareID string) (string, error) {
 			ExpiresAt: jwt.NewNumericDate(now.Add(m.ttl)),
 		},
 	}
-	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(m.secret)
+	signed, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(m.secret)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	return signed, claims.ExpiresAt.Time, nil
 }
 
 // Verify returns the share id of a session token, ignoring its expiry so an

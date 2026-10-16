@@ -47,7 +47,7 @@ sequenceDiagram
     Redeem->>+Reva: Get Share
     Reva->>-Redeem: Share
     Note right of Redeem: Validate Share, Mark Token used
-    Redeem->>-Web: Set Cookie, return shareid
+    Redeem->>-Web: Set Cookie, return shareid and session expiry
     Note right of Web: HTTP only cookie with signed JWT (24h by default)
     Web->>+Proxy: "/graph/me/drives/sharedWithMe"
     Proxy->>+Reva: validate token extracted from JWT
@@ -77,7 +77,9 @@ sequenceDiagram
 
 A guest session (signed JWT) is valid for 24 hours by default
 (`AUTH_GUEST_JWT_TTL`); a link token is single-use and valid for 30 minutes.
-Renewal starts from a *failed* attempt:
+Verifying a token or a PIN returns the session expiry as `expirationDateTime`,
+so the client can warn the guest before the session runs out, since it cannot
+read the HttpOnly cookie. Renewal starts from a *failed* attempt:
 
 - an authenticated request made with an expired session is rejected with `401`;
   the browser still holds the (expired) session cookie;

@@ -46,6 +46,6 @@ func VerifyPinHandler(log log.Logger, s authguest.AuthGuest, cfg *config.Config)
 		setSessionCookie(w, cfg, result.SessionToken)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(verifyPinResponse{PermissionID: result.ShareID})
+		_ = json.NewEncoder(w).Encode(verifyPinResponse{PermissionID: result.ShareID, ExpirationDateTime: result.ExpiresAt.UTC()})
 	}
 }
