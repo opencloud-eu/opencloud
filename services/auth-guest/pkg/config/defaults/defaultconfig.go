@@ -23,7 +23,10 @@ const (
 	defaultBackoffCap          = 30 * time.Second
 	defaultQuotaCooldown       = time.Minute
 	defaultQuotaWindow         = 24 * time.Hour
-	defaultQuotaDailyCap       = 20
+	// Renewals without a session only rotate a link once the previous one is
+	// used or expired (after 30 minutes), so 48 a day can happen without anyone
+	// using a link. The cap stays above that so it can't lock the guest out.
+	defaultQuotaDailyCap = 50
 	// Renewals with a valid session issue a PIN, so their quota is small: enough
 	// to refresh a session before it expires, plus a few retries.
 	defaultSessionQuotaCooldown = 5 * time.Minute

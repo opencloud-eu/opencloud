@@ -125,8 +125,11 @@ neither can use up the other's:
 
 - **Without a valid session:** a cooldown between two renewals
   (`AUTH_GUEST_QUOTA_COOLDOWN`, default 1 minute) and a daily cap
-  (`AUTH_GUEST_QUOTA_DAILY_CAP`, default 20 per `AUTH_GUEST_QUOTA_WINDOW`,
-  default 24 hours).
+  (`AUTH_GUEST_QUOTA_DAILY_CAP`, default 50 per `AUTH_GUEST_QUOTA_WINDOW`,
+  default 24 hours). A link is only replaced once it is used or expired, so
+  without anyone using a link there are at most 48 renewals a day. The default
+  cap stays above that, so that someone who only knows the share id can't use it
+  up and lock the guest out.
 - **With a valid session:** a cooldown (`AUTH_GUEST_SESSION_QUOTA_COOLDOWN`,
   default 5 minutes) and a daily cap (`AUTH_GUEST_SESSION_QUOTA_DAILY_CAP`,
   default 5 per `AUTH_GUEST_SESSION_QUOTA_WINDOW`, default 24 hours). Each of
@@ -328,7 +331,7 @@ and nonce options are:
   `AUTH_GUEST_BACKOFF_BASE` (default `1s`),
   `AUTH_GUEST_BACKOFF_CAP` (default `30s`) — failed PIN attempts before the PIN
   is invalidated, and the exponential backoff between attempts.
-- `AUTH_GUEST_QUOTA_DAILY_CAP` (default `20`),
+- `AUTH_GUEST_QUOTA_DAILY_CAP` (default `50`),
   `AUTH_GUEST_QUOTA_COOLDOWN` (default `1m`),
   `AUTH_GUEST_QUOTA_WINDOW` (default `24h`) — maximum renewals per share per
   window and the minimum time between two renewals (applies to `renew` without a
