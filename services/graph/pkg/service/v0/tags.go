@@ -7,13 +7,14 @@ import (
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/go-chi/render"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	revaCtx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/tags"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"go-micro.dev/v4/metadata"
 )
 
@@ -24,7 +25,7 @@ func (g Graph) GetTags(w http.ResponseWriter, r *http.Request) {
 	ctx = metadata.Set(ctx, revaCtx.TokenHeader, th)
 	sr, err := g.searchService.Search(ctx, &searchsvc.SearchRequest{
 		Query:    "Tags:*",
-		PageSize: -1,
+		PageSize: conversions.ToPointer(int32(-1)),
 	})
 	if err != nil {
 		g.logger.Error().Err(err).Msg("Could not search for tags")
