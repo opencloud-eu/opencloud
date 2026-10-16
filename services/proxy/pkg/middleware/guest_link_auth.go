@@ -38,6 +38,8 @@ var (
 		"/webdav/",
 		"/remote.php/webdav/",
 		"/ocs/v2.php/apps/notifications/api/v1/notifications/sse",
+		"/app/open",
+		"/app/new",
 	}
 
 	// unixEpoch is the zero time used for cookie expiration.
