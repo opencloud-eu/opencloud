@@ -95,14 +95,15 @@ answers `409`, and on an expired link `401`; the client still holds the link
 token.
 
 `renew` requires the share id (`permissionId`). When the request carries a
-session cookie with a session token for that share (expired or not), the service
+session cookie with a valid, unexpired session token for that share, the service
 validates the share, generates a new link token and a 6-digit PIN (30 minutes by
 default), overwrites the stored token, PIN and nonce hashes (invalidating the
 previous link and PIN), resets the redeemed flag, publishes `GuestTokenRenewed`
 carrying the PIN, and sets the nonce cookie that binds the PIN to the requesting
 browser.
 
-Without a session the renewal is *silent*: the service validates the share,
+Without a valid session (no cookie, an expired session token or one for
+another share) the renewal is *silent*: the service validates the share,
 rotates the stored token secret and expiry, resets the redeemed flag so the new
 link can be redeemed, and publishes `GuestTokenRenewed` without a PIN; it
 answers `200` and sets no nonce cookie. Because such a request is
@@ -177,8 +178,8 @@ sequenceDiagram
    (`AUTH_GUEST_JWT_TTL`).
 3. **Renew** — the guest posts the `permissionId` to
    `POST /graph/v1beta1/extensions/org.libregraph/guestLinks/renew`. If the
-   request carries a session cookie with a session token for that share (expired
-   or not), the service validates the share, generates a new link token and a
+   request carries a session cookie with a valid, unexpired session token for
+   that share, the service validates the share, generates a new link token and a
    6-digit PIN (30 minutes by default), overwrites the stored token, PIN and
    nonce hashes (invalidating the previous link and PIN), resets the redeemed
    flag, publishes `GuestTokenRenewed` with the PIN and sets the nonce cookie;
@@ -220,8 +221,9 @@ Rate-limited responses (`429`) also carry a `retryAfter` field (seconds) and a
 #### `POST .../guestLinks/renew`
 
 - **Request body:** `{ "permissionId": "<share-id>" }`
-- **Authorization:** the session cookie, when it carries a session token for the
-  given share; without it the renewal is silent (no PIN, no nonce cookie)
+- **Authorization:** the session cookie, when it carries a valid, unexpired
+  session token for the given share; without it the renewal is silent (no PIN,
+  no nonce cookie)
 - **Success:** `200` (no session cookie; when authorized by a session a new
   link/PIN are delivered out of band and the nonce cookie is set, otherwise no
   new link/PIN is generated and no nonce cookie is set)

@@ -485,7 +485,7 @@ func TestRenewPersistsRecordAndPublishesEvent(t *testing.T) {
 	assert.True(t, pinOK)
 }
 
-func TestRenewWithExpiredSessionToken(t *testing.T) {
+func TestRenewWithExpiredSessionTokenRotatesSilently(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
 	require.NoError(t, store.Add(existingRecord()))
 
@@ -498,18 +498,20 @@ func TestRenewWithExpiredSessionToken(t *testing.T) {
 
 	nonce, err := s.Renew(context.Background(), testShareID, sessionToken)
 	require.NoError(t, err)
-	assert.NotEmpty(t, nonce)
+	assert.Empty(t, nonce)
 
 	got, err := store.Get(token.Hash(testShareID))
 	require.NoError(t, err)
 	assert.NotEmpty(t, got.SecretHash)
-	assert.NotEmpty(t, got.PinHash)
+	assert.Empty(t, got.PinHash)
+	assert.Empty(t, got.NonceState.Hash)
 	assert.False(t, got.Redeemed)
+	assert.Equal(t, 1, got.QuotaLimiterState.Count)
 
 	require.Len(t, publisher.published, 1)
 	ev, ok := publisher.published[0].(ocEvents.GuestTokenRenewed)
 	require.True(t, ok)
-	assert.NotEmpty(t, ev.Pin)
+	assert.Empty(t, ev.Pin)
 }
 
 func TestRenewValidSessionBypassesCooldown(t *testing.T) {

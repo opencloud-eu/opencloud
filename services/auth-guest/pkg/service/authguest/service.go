@@ -139,7 +139,7 @@ func (s *AuthGuestService) VerifyToken(ctx context.Context, tokenString string) 
 }
 
 // Renew renews the guest link token for shareID. When the request is
-// authorized by a (possibly expired) session token, a new PIN and nonce are
+// authorized by a valid, unexpired session token, a new PIN and nonce are
 // also issued; otherwise the token is only rotated (rate limited) and no
 // PIN or nonce is issued.
 func (s *AuthGuestService) Renew(ctx context.Context, shareID, sessionToken string) (string, error) {
