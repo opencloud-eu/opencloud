@@ -13,6 +13,10 @@ CHKO_DOCKER_PUSHRM = "chko/docker-pushrm:1"
 CODACY_COVERAGE_REPORTER = "codacy/codacy-coverage-reporter:14.1.3"
 COLLABORA_CODE = "collabora/code:24.04.5.1.1"
 OPEN_SEARCH = "opensearchproject/opensearch:2"
+
+# imagor for the thumbnail parity suite, keep equal to imagortest.Variants
+IMAGOR = "shumc/imagor:1.9.11"
+IMAGOR_MAGICK = "ghcr.io/cshum/imagor-magick:1.9.11"
 INBUCKET_INBUCKET = "inbucket/inbucket"
 MINIO_MC = "quay.io/opencloudeu/minio-mc-ci:1.0"
 OC_CI_ALPINE = "owncloudci/alpine:latest"
@@ -784,16 +788,32 @@ def testOpencloud(ctx):
             ],
             "environment": CI_HTTP_PROXY_ENV,
         },
-    ] + waitForOpenSearch() + [
+    ] + waitForOpenSearch() + waitForImagor() + [
         {
             "name": "test",
             "image": OC_CI_GOLANG,
             "environment": {
                 "SEARCH_ENGINE_OPEN_SEARCH_CLIENT_ADDRESSES": "http://open-search:9200",
+                "THUMBNAILS_PARITY_IMAGOR_URL": "http://imagor:8000",
+                "THUMBNAILS_PARITY_IMAGOR_MAGICK_URL": "http://imagor-magick:8000",
             },
             "commands": [
                 "make test",
                 "mv coverage.out unit.coverage.out",
+            ],
+        },
+        {
+            # the only run that covers the resize code the official docker
+            # images ship
+            # FIXME: run it with the libvips those images ship, see issue 3746
+            "name": "test-thumbnail-parity-vips",
+            "image": OC_CI_GOLANG,
+            "environment": {
+                "THUMBNAILS_PARITY_IMAGOR_URL": "http://imagor:8000",
+                "THUMBNAILS_PARITY_IMAGOR_MAGICK_URL": "http://imagor-magick:8000",
+            },
+            "commands": [
+                "go test -tags enable_vips ./services/thumbnails/pkg/parity/...",
             ],
         },
         {
@@ -816,7 +836,7 @@ def testOpencloud(ctx):
     pipeline = {
         "name": "test-lint-unit",
         "steps": steps,
-        "services": openSearchService(),
+        "services": openSearchService() + imagorServices(),
         "when": [
             event["base"],
             event["cron"],
@@ -3418,6 +3438,46 @@ def waitForOpenSearch():
             "  sleep 5\n" +
             "done\n" +
             "echo \"http://open-search:9200 healthy...\"\n" +
+            "'",
+        ],
+    }]
+
+def imagorServices():
+    environment = {
+        # the parity suite posts every image, and there is nothing to sign with
+        "IMAGOR_UNSAFE": True,
+        "UPLOAD_LOADER_ENABLE": True,
+        "HTTP_LOADER_DISABLE": True,
+        "VIPS_MAX_WIDTH": 7680,
+        "VIPS_MAX_HEIGHT": 7680,
+    }
+
+    return [
+        {
+            "name": "imagor",
+            "image": IMAGOR,
+            "environment": environment,
+        },
+        {
+            "name": "imagor-magick",
+            "image": IMAGOR_MAGICK,
+            "environment": environment,
+        },
+    ]
+
+def waitForImagor():
+    return [{
+        "name": "wait-for-imagor",
+        "image": OC_CI_ALPINE,
+        "commands": [
+            "bash -c '" +
+            "for host in imagor imagor-magick; do\n" +
+            "  until curl -sS -o /dev/null \"http://$host:8000/\"; do\n" +
+            "    echo \"Waiting for http://$host:8000 to be healthy...\"\n" +
+            "    sleep 2\n" +
+            "  done\n" +
+            "  echo \"http://$host:8000 healthy...\"\n" +
+            "done\n" +
             "'",
         ],
     }]
