@@ -4,10 +4,23 @@
 
 
 
-## v0.67.0 (2026-03-18)
+## v0.68.0 (2026-09-01)
+
+- Limit decompressed size of SAML logout messages
+- Fix the action logger running in production
+- Bump github.com/sirupsen/logrus from 1.9.3 to 1.9.4
+- Bump golang.org/x/crypto from 0.51.0 to 0.52.0
+- Bump github.com/go-ldap/ldap/v3 from 3.4.11 to 3.4.13
+- Bump golang.org/x/net from 0.47.0 to 0.55.0
+- Bump golang.org/x/oauth2 from 0.31.0 to 0.35.0
+- Bump github.com/go-jose/go-jose/v3 from 3.0.4 to 3.0.5
+- Bump github.com/Azure/go-ntlmssp
+
+
+## v0.67.0 (2026-03-27)
 
 - Bump github.com/russellhaering/goxmldsig from 1.5.0 to 1.6.0
-- Run npx update-browserslist-db@latest
+- Run npx update-browserslist-db[@latest](https://github.com/latest/)
 - Add signed JWT auto sign-in flow (LibreGraph.SignedLoginOK)
 - Fix Go formatting treewide
 - Add per-client external authorize redirect URIs
