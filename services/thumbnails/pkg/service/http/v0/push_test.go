@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/textproto"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -31,9 +32,20 @@ func createTestImage(width, height int) []byte {
 }
 
 func createMultipartBody(imgBytes []byte) (*bytes.Buffer, string) {
+	return createMultipartBodyWithType(imgBytes, "image/png")
+}
+
+// createMultipartBodyWithType types the part the way webdav does; the upload
+// loader of a real imagor accepts image/* only.
+func createMultipartBodyWithType(imgBytes []byte, partType string) (*bytes.Buffer, string) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("image", "test.png")
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", `form-data; name="image"; filename="test.png"`)
+	if partType != "" {
+		h.Set("Content-Type", partType)
+	}
+	part, err := writer.CreatePart(h)
 	if err != nil {
 		panic(err)
 	}
@@ -291,9 +303,10 @@ func TestPushEndpoint_FitIn_AspectRatio(t *testing.T) {
 }
 
 // TestPushEndpoint_FitIn_UpscalesByDefault documents that, like real imagor,
-// fit-in upscales a small source to fit the box when no_upscale() is absent. A
-// 50x50 source requested at 200x200 must come back as exactly 200x200.
-func TestPushEndpoint_FitIn_UpscalesByDefault(t *testing.T) {
+// fit-in never enlarges a source: imagor only upscales fit-in with the
+// upscale() filter, so a 50x50 source requested at 200x200 stays 50x50.
+// https://docs.imagor.net/filters
+func TestPushEndpoint_FitIn_NeverUpscales(t *testing.T) {
 	mux := newTestMux()
 
 	imgBytes := createTestImage(50, 50)
@@ -314,8 +327,8 @@ func TestPushEndpoint_FitIn_UpscalesByDefault(t *testing.T) {
 		t.Fatalf("failed to decode response image: %v", err)
 	}
 	bounds := img.Bounds()
-	if bounds.Dx() != 200 || bounds.Dy() != 200 {
-		t.Errorf("fit-in should upscale 50x50 to fit a 200x200 box as 200x200, got %dx%d", bounds.Dx(), bounds.Dy())
+	if bounds.Dx() != 50 || bounds.Dy() != 50 {
+		t.Errorf("fit-in should leave a 50x50 source in a 200x200 box untouched, got %dx%d", bounds.Dx(), bounds.Dy())
 	}
 }
 
@@ -557,7 +570,7 @@ func TestPushEndpoint_UnsupportedFormat(t *testing.T) {
 	imgBytes := createTestImage(100, 100)
 	body, contentType := createMultipartBody(imgBytes)
 
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/50x50/filters:format(webp)/", body)
+	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/50x50/filters:format(tiff)/", body)
 	req.Header.Set("Content-Type", contentType)
 	rec := httptest.NewRecorder()
 
@@ -579,8 +592,8 @@ func TestPushEndpoint_InvalidImageData(t *testing.T) {
 
 	mux.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected status 400 for invalid image data, got %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusNotAcceptable {
+		t.Errorf("expected status 406 for invalid image data, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -978,7 +991,7 @@ func TestOutputFormatFromFilters(t *testing.T) {
 	}{
 		{"format jpeg", "format(jpeg)", "jpg", true, false},
 		{"extra filters ignored", "no_upscale():format(png)", "png", true, false},
-		{"unsupported format", "format(webp)", "", false, true},
+		{"unsupported format", "format(tiff)", "", false, true},
 		{"no format filter", "no_upscale()", "", false, false},
 		{"empty segment", "", "", false, false},
 	}

@@ -43,13 +43,18 @@ func NewService(opts ...Option) Service {
 
 	// Push-based thumbnail generation endpoint (imagor-compatible). The optional
 	// operation segment selects the resize/crop mode; its absence is the default
-	// center-crop fill. The filters segment is captured whole and parsed by the
-	// handler so any set/order of imagor filters is accepted.
+	// center-crop fill. The filters segment is optional too, like imagor's, and
+	// is captured whole and parsed by the handler so any set and order of imagor
+	// filters is accepted.
 	handler := svc.pushHandler
 	m.Post("/unsafe/{operation}/{width}x{height}/filters:{filters}/", handler)
 	m.Post("/unsafe/{operation}/{width}x{height}/filters:{filters}", handler)
 	m.Post("/unsafe/{width}x{height}/filters:{filters}/", handler)
 	m.Post("/unsafe/{width}x{height}/filters:{filters}", handler)
+	m.Post("/unsafe/{operation}/{width}x{height}/", handler)
+	m.Post("/unsafe/{operation}/{width}x{height}", handler)
+	m.Post("/unsafe/{width}x{height}/", handler)
+	m.Post("/unsafe/{width}x{height}", handler)
 
 	_ = chi.Walk(m, func(method string, route string, _ http.Handler, middlewares ...func(http.Handler) http.Handler) error {
 		options.Logger.Debug().Str("method", method).Str("route", route).Int("middlewares", len(middlewares)).Msg("serving endpoint")

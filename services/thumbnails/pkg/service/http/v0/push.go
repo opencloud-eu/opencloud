@@ -2,9 +2,9 @@ package svc
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"image"
-	"image/gif"
 	"io"
 	"net/http"
 	"strconv"
@@ -27,6 +27,10 @@ const (
 
 // errInvalid mirrors imagor's ErrInvalid: a syntactically invalid request.
 var errInvalid = fmt.Errorf("invalid")
+
+// errFormatUnsupported is what an encoder returns for a format this build has no
+// encoder for, as opposed to an encode that went wrong.
+var errFormatUnsupported = fmt.Errorf("format not supported by this build")
 
 // pushHandler handles POST requests for the imagor-like push-based thumbnail endpoint.
 // Path patterns (operation and format are both optional; absent operation is the default
@@ -73,12 +77,19 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, _, err := r.FormFile("image")
+	file, header, err := r.FormFile("image")
 	if err != nil {
 		writeInvalid(w, "missing image field in form data")
 		return
 	}
 	defer file.Close()
+
+	// imagor's upload loader accepts image/* only (UPLOAD_LOADER_ACCEPT), so an
+	// untyped part is refused here too.
+	if ct := header.Header.Get("Content-Type"); !strings.HasPrefix(ct, "image/") {
+		writeNotAcceptable(w, fmt.Sprintf("unsupported part type: %q", ct))
+		return
+	}
 
 	imgData, err := io.ReadAll(file)
 	if err != nil {
@@ -117,9 +128,9 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 
 	// The box and operation are chosen by webdav (the sizing brain); this service
 	// is a dumb, imagor-like executor that just fits within the given box.
-	processed, err := processImage(bytes.NewReader(imgData), width, height, operation, noUpscale)
+	processed, err := processImage(bytes.NewReader(imgData), width, height, operation, noUpscale, ext == "gif")
 	if err != nil {
-		writeInvalid(w, "failed to process image")
+		writeNotAcceptable(w, "failed to process image")
 		return
 	}
 
@@ -135,14 +146,18 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 	case "png":
 		contentType = "image/png"
 		encErr = encodePNG(&buf, processed)
+	case "webp":
+		contentType = "image/webp"
+		encErr = encodeWebP(&buf, processed)
 	default:
 		contentType = "image/gif"
-		g, ok := processed.(*gif.GIF)
-		if !ok {
-			writeInvalid(w, "processed image is not a gif")
-			return
-		}
-		encErr = gif.EncodeAll(&buf, g)
+		encErr = encodeGIF(&buf, processed)
+	}
+	if errors.Is(encErr, errFormatUnsupported) {
+		// 406, not 400: the request is fine, this build just cannot answer it,
+		// and webdav reads a 400 as its own bug
+		writeNotAcceptable(w, fmt.Sprintf("this build writes no %s", ext))
+		return
 	}
 	if encErr != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -162,6 +177,13 @@ func parseDim(r *http.Request, name string) (int, error) {
 		return 0, fmt.Errorf("invalid %s: %s", name, v)
 	}
 	return n, nil
+}
+
+// writeNotAcceptable responds with imagor's status for a source it cannot read
+// (406 Not Acceptable), as opposed to a malformed request.
+func writeNotAcceptable(w http.ResponseWriter, msg string) {
+	w.WriteHeader(http.StatusNotAcceptable)
+	fmt.Fprintln(w, msg)
 }
 
 // writeInvalid responds with imagor's ErrInvalid status (400 Bad Request).
@@ -246,7 +268,7 @@ func outputFormatFromFilters(segment string) (ext string, hasFormat bool, err er
 		}
 		mapped := mapFormatToExt(args)
 		switch mapped {
-		case "jpg", "png", "gif":
+		case "jpg", "png", "gif", "webp":
 			return mapped, true, nil
 		default:
 			return "", false, fmt.Errorf("unsupported output format: %s", args)
@@ -321,11 +343,12 @@ func isGifReader(r io.Reader) bool {
 
 // Backend-specific function set in init() by push_imaging.go or push_vips.go.
 // For gif input it returns a *gif.GIF with every frame resized (preserving
-// animation); for other inputs it returns a single image.Image. The operation
+// animation) when keepAnimation is set; for other inputs it returns a single
+// image.Image. The operation
 // selects the resize/crop mode (fill, fit-in, stretch). noUpscale mirrors
 // imagor's no_upscale() filter: when set, fill and fit-in must not enlarge the
 // source (stretch is exact and ignores it).
-var processImage func(io.Reader, int, int, string, bool) (any, error)
+var processImage func(io.Reader, int, int, string, bool, bool) (any, error)
 
 // encodeJPEG and encodePNG write the processed image to w in the requested
 // format. Set by init() in push_imaging.go / push_vips.go. The vips backend
@@ -336,4 +359,9 @@ var processImage func(io.Reader, int, int, string, bool) (any, error)
 var (
 	encodeJPEG func(w io.Writer, processed any) error
 	encodePNG  func(w io.Writer, processed any) error
+	// encodeGIF takes an animated gif as it is and palettes a still image.
+	encodeGIF func(w io.Writer, processed any) error
+	// encodeWebP is only answered by the libvips build; the pure Go one has no
+	// webp encoder.
+	encodeWebP func(w io.Writer, processed any) error
 )

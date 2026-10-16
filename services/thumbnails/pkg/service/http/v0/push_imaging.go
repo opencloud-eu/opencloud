@@ -5,19 +5,23 @@ package svc
 import (
 	"fmt"
 	"image"
+	"image/color/palette"
 	"image/draw"
 	"image/gif"
 	"image/jpeg"
 	"image/png"
 	"io"
+	"math"
 
 	"github.com/kovidgoyal/imaging"
 )
 
 func init() {
 	processImage = processImageImaging
-	encodeJPEG   = encodeJPEGImaging
-	encodePNG    = encodePNGImaging
+	encodeJPEG = encodeJPEGImaging
+	encodePNG = encodePNGImaging
+	encodeGIF = encodeGIFImaging
+	encodeWebP = encodeWebPImaging
 }
 
 // processImageImaging resizes the input using the imaging backend. The operation
@@ -26,8 +30,8 @@ func init() {
 // upscaling small sources by default like real imagor), or stretch (resize to the
 // exact box). noUpscale caps the
 // default fill at the source size, mirroring imagor's no_upscale() filter.
-func processImageImaging(r io.Reader, width, height int, operation string, noUpscale bool) (any, error) {
-	if isGifReader(r) {
+func processImageImaging(r io.Reader, width, height int, operation string, noUpscale, keepAnimation bool) (any, error) {
+	if keepAnimation && isGifReader(r) {
 		g, err := gif.DecodeAll(r)
 		if err == nil && len(g.Image) > 0 {
 			return resizeGIF(g, width, height, operation, noUpscale), nil
@@ -45,22 +49,14 @@ func processImageImaging(r io.Reader, width, height int, operation string, noUps
 	case OpStretch:
 		return imaging.Resize(img, width, height, imaging.Lanczos), nil
 	case OpFitIn:
-		// Like real imagor, fit-in fits within the box preserving aspect and
-		// upscales small sources by default; no_upscale() caps it at the source
-		// size. imaging.Fit never enlarges, so a small source is scaled up to the
-		// fitted dimensions explicitly.
-		if noUpscale && srcBounds.Dx() <= width && srcBounds.Dy() <= height {
+		// imagor's fit-in only enlarges with the upscale() filter, which webdav
+		// never sends, so a source smaller than the box is returned as it is.
+		// Not imaging.Fit: it truncates the scaled side, vips and imagor round it.
+		w, h := fitInBox(srcBounds.Dx(), srcBounds.Dy(), width, height)
+		if w >= srcBounds.Dx() && h >= srcBounds.Dy() {
 			return img, nil
 		}
-		if srcBounds.Dx() <= width && srcBounds.Dy() <= height {
-			srcAR := float64(srcBounds.Dx()) / float64(srcBounds.Dy())
-			boxAR := float64(width) / float64(height)
-			if srcAR > boxAR {
-				return imaging.Resize(img, width, int(float64(width)/srcAR), imaging.Lanczos), nil
-			}
-			return imaging.Resize(img, int(float64(height)*srcAR), height, imaging.Lanczos), nil
-		}
-		return imaging.Fit(img, width, height, imaging.Lanczos), nil
+		return imaging.Resize(img, w, h, imaging.Lanczos), nil
 	default: // OpFill
 		if noUpscale && srcBounds.Dx() <= width && srcBounds.Dy() <= height {
 			// imagor no_upscale(): never enlarge the source.
@@ -68,6 +64,14 @@ func processImageImaging(r io.Reader, width, height int, operation string, noUps
 		}
 		return imaging.Thumbnail(img, width, height, imaging.Lanczos), nil
 	}
+}
+
+// fitInBox is the size an image of srcW x srcH takes inside the box, aspect
+// ratio preserved and the scaled side rounded the way vips and imagor round it.
+func fitInBox(srcW, srcH, boxW, boxH int) (int, int) {
+	scale := math.Min(float64(boxW)/float64(srcW), float64(boxH)/float64(srcH))
+
+	return max(int(math.Round(float64(srcW)*scale)), 1), max(int(math.Round(float64(srcH)*scale)), 1)
 }
 
 // resizeGIF resizes every frame of an animated gif while preserving the
@@ -152,4 +156,25 @@ func encodePNGImaging(w io.Writer, processed any) error {
 		return fmt.Errorf("cannot encode %T as png", processed)
 	}
 	return png.Encode(w, img)
+}
+
+// encodeGIFImaging writes an animated gif as it is and palettes a still image
+// with the same dithering the animated path uses.
+func encodeGIFImaging(w io.Writer, processed any) error {
+	if g, ok := processed.(*gif.GIF); ok {
+		return gif.EncodeAll(w, g)
+	}
+
+	img, ok := processed.(image.Image)
+	if !ok {
+		return fmt.Errorf("cannot encode %T as gif", processed)
+	}
+
+	return gif.Encode(w, palettedAtOrigin(img, palette.Plan9), nil)
+}
+
+// encodeWebPImaging refuses: there is no webp encoder in the pure Go build, so a
+// deployment that needs webp output runs the libvips build or a real imagor.
+func encodeWebPImaging(io.Writer, any) error {
+	return errFormatUnsupported
 }

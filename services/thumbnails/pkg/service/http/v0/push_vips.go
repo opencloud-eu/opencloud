@@ -5,6 +5,7 @@ package svc
 import (
 	"fmt"
 	"image"
+	"image/color/palette"
 	"image/draw"
 	"image/gif"
 	"io"
@@ -15,8 +16,10 @@ import (
 
 func init() {
 	processImage = processImageVips
-	encodeJPEG   = encodeJPEGVips
-	encodePNG    = encodePNGVips
+	encodeJPEG = encodeJPEGVips
+	encodePNG = encodePNGVips
+	encodeGIF = encodeGIFVips
+	encodeWebP = encodeWebPVips
 }
 
 // processImageVips resizes the input using libvips. The operation selects the
@@ -25,8 +28,8 @@ func init() {
 // small sources by default like real imagor), or stretch (resize to the exact box).
 // noUpscale caps the upscaling at the source size, mirroring imagor's no_upscale()
 // filter.
-func processImageVips(r io.Reader, width, height int, operation string, noUpscale bool) (any, error) {
-	if isGifReader(r) {
+func processImageVips(r io.Reader, width, height int, operation string, noUpscale, keepAnimation bool) (any, error) {
+	if keepAnimation && isGifReader(r) {
 		g, err := gif.DecodeAll(r)
 		if err == nil && len(g.Image) > 0 {
 			return resizeGIFVips(g, width, height, operation, noUpscale), nil
@@ -57,13 +60,9 @@ func processImageVips(r io.Reader, width, height int, operation string, noUpscal
 			return nil, err
 		}
 	case OpFitIn:
-		// Like real imagor, fit-in upscales small sources to fit the box by
-		// default (SizeBoth); no_upscale() caps it at the source size (SizeDown).
-		size := vips.SizeBoth
-		if noUpscale {
-			size = vips.SizeDown
-		}
-		if err := m.ThumbnailWithSize(width, height, vips.InterestingNone, size); err != nil {
+		// imagor's fit-in only enlarges with the upscale() filter, which webdav
+		// never sends, so it always caps at the source size.
+		if err := m.ThumbnailWithSize(width, height, vips.InterestingNone, vips.SizeDown); err != nil {
 			return nil, err
 		}
 	default: // OpFill
@@ -175,5 +174,44 @@ func encodePNGVips(w io.Writer, processed any) error {
 		return err
 	}
 	_, err = w.Write(buf)
+	return err
+}
+
+// encodeGIFVips writes an animated gif as it is; a still libvips image goes
+// through the same palette the animated path uses, as libvips has no gif export.
+func encodeGIFVips(w io.Writer, processed any) error {
+	if g, ok := processed.(*gif.GIF); ok {
+		return gif.EncodeAll(w, g)
+	}
+
+	m, ok := processed.(*vips.ImageRef)
+	if !ok {
+		return fmt.Errorf("cannot encode %T as gif", processed)
+	}
+	defer m.Close()
+
+	img, err := m.ToImage(vips.NewDefaultPNGExportParams())
+	if err != nil {
+		return err
+	}
+
+	return gif.Encode(w, palettedAtOrigin(img, palette.Plan9), nil)
+}
+
+// encodeWebPVips exports the processed libvips image as webp.
+func encodeWebPVips(w io.Writer, processed any) error {
+	m, ok := processed.(*vips.ImageRef)
+	if !ok {
+		return fmt.Errorf("cannot encode %T as webp", processed)
+	}
+	defer m.Close()
+
+	buf, _, err := m.ExportWebp(vips.NewWebpExportParams())
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write(buf)
+
 	return err
 }
