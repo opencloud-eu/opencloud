@@ -3,1007 +3,289 @@ package svc
 import (
 	"bytes"
 	"image"
-	"image/color"
-	"image/gif"
-	"image/jpeg"
-	"image/png"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
-	"net/textproto"
-	"testing"
 
-	"github.com/go-chi/chi/v5"
-	"golang.org/x/image/bmp"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func createTestImage(width, height int) []byte {
-	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			img.Set(x, y, color.RGBA{R: uint8(x % 256), G: uint8(y % 256), B: 128, A: 255})
-		}
-	}
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
-		panic(err)
-	}
-	return buf.Bytes()
-}
-
-func createMultipartBody(imgBytes []byte) (*bytes.Buffer, string) {
-	return createMultipartBodyWithType(imgBytes, "image/png")
-}
-
-// createMultipartBodyWithType types the part the way webdav does; the upload
-// loader of a real imagor accepts image/* only.
-func createMultipartBodyWithType(imgBytes []byte, partType string) (*bytes.Buffer, string) {
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	h := make(textproto.MIMEHeader)
-	h.Set("Content-Disposition", `form-data; name="image"; filename="test.png"`)
-	if partType != "" {
-		h.Set("Content-Type", partType)
-	}
-	part, err := writer.CreatePart(h)
-	if err != nil {
-		panic(err)
-	}
-	if _, err := part.Write(imgBytes); err != nil {
-		panic(err)
-	}
-	if err := writer.Close(); err != nil {
-		panic(err)
-	}
-	return body, writer.FormDataContentType()
-}
-
-func newTestMux() *chi.Mux {
-	return newTestMuxWithLimits(0, 0)
-}
-
-// newTestMuxWithLimits builds the route table with explicit max width/height so
-// tests can exercise the ErrMaxResolutionExceeded (422) path. A limit of 0
-// disables the corresponding bound.
-func newTestMuxWithLimits(maxWidth, maxHeight int) *chi.Mux {
-	mux := chi.NewRouter()
-	h := Thumbnails{maxWidth: maxWidth, maxHeight: maxHeight}.pushHandler
-	mux.Post("/unsafe/{operation}/{width}x{height}/filters:{filters}/", h)
-	mux.Post("/unsafe/{operation}/{width}x{height}/filters:{filters}", h)
-	mux.Post("/unsafe/{width}x{height}/filters:{filters}/", h)
-	mux.Post("/unsafe/{width}x{height}/filters:{filters}", h)
-	return mux
-}
-
-// createTestGIF returns an animated gif with the given number of frames, each
-// frame a solid color so that animation preservation can be verified.
-func createTestGIF(width, height, frames int) []byte {
-	pal := color.Palette{color.RGBA{255, 0, 0, 255}, color.RGBA{0, 255, 0, 255}, color.RGBA{0, 0, 255, 255}}
-	g := &gif.GIF{}
-	for i := 0; i < frames; i++ {
-		frame := image.NewPaletted(image.Rect(0, 0, width, height), pal)
-		for y := 0; y < height; y++ {
-			for x := 0; x < width; x++ {
-				frame.SetColorIndex(x, y, uint8(i%len(pal)))
-			}
-		}
-		g.Image = append(g.Image, frame)
-		g.Delay = append(g.Delay, 10)
-	}
-	var buf bytes.Buffer
-	if err := gif.EncodeAll(&buf, g); err != nil {
-		panic(err)
-	}
-	return buf.Bytes()
-}
-
-func TestPushEndpoint_FitIn_JPEG(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestImage(200, 200)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/100x100/filters:format(jpeg)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-	if ct := rec.Header().Get("Content-Type"); ct != "image/jpeg" {
-		t.Errorf("expected Content-Type image/jpeg, got %s", ct)
-	}
-	if rec.Body.Len() == 0 {
-		t.Error("expected non-empty response body")
-	}
-}
-
-func TestPushEndpoint_FitIn_PNG(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestImage(200, 200)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/100x100/filters:format(png)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-	if ct := rec.Header().Get("Content-Type"); ct != "image/png" {
-		t.Errorf("expected Content-Type image/png, got %s", ct)
-	}
-	if rec.Body.Len() == 0 {
-		t.Error("expected non-empty response body")
-	}
-}
-
-func TestPushEndpoint_FitIn_GIF(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestGIF(200, 200, 3)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/100x100/filters:format(gif)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-	if ct := rec.Header().Get("Content-Type"); ct != "image/gif" {
-		t.Errorf("expected Content-Type image/gif, got %s", ct)
-	}
-	if rec.Body.Len() == 0 {
-		t.Error("expected non-empty response body")
-	}
-
-	out, err := gif.DecodeAll(rec.Body)
-	if err != nil {
-		t.Fatalf("failed to decode response gif: %v", err)
-	}
-	if len(out.Image) != 3 {
-		t.Errorf("expected 3 frames preserved, got %d", len(out.Image))
-	}
-}
-
-func TestPushEndpoint_FitIn_GIFPreservesAnimation(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestGIF(200, 100, 4)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/50x50/filters:format(gif)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	out, err := gif.DecodeAll(rec.Body)
-	if err != nil {
-		t.Fatalf("failed to decode response gif: %v", err)
-	}
-	if len(out.Image) != 4 {
-		t.Errorf("expected 4 frames preserved, got %d", len(out.Image))
-	}
-	// fit-in of a 200x100 source into a 50x50 box downscales (no upscaling needed),
-	// so every frame must stay within the box.
-	for i, frame := range out.Image {
-		b := frame.Bounds()
-		if b.Dx() > 50 || b.Dy() > 50 {
-			t.Errorf("frame %d exceeds requested dimensions: %dx%d", i, b.Dx(), b.Dy())
-		}
-	}
-}
-
-func TestPushEndpoint_Fill_GIF(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestGIF(200, 100, 3)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/64x64/filters:format(gif)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	out, err := gif.DecodeAll(rec.Body)
-	if err != nil {
-		t.Fatalf("failed to decode response gif: %v", err)
-	}
-	if len(out.Image) != 3 {
-		t.Errorf("expected 3 frames preserved, got %d", len(out.Image))
-	}
-	for i, frame := range out.Image {
-		b := frame.Bounds()
-		if b.Dx() != 64 || b.Dy() != 64 {
-			t.Errorf("fill should produce exact dimensions, frame %d is %dx%d", i, b.Dx(), b.Dy())
-		}
-	}
-}
-
-// TestPushEndpoint_Stretch_GIFUpscaleNoUpscaleFilter pins the fix for stretching a
-// gif to a box larger than the source while the no_upscale() filter is set (which
-// is exactly what webdav sends). The resized frames are larger than the original
-// logical screen, so without updating m.Config the frame rects extend past the
-// screen and gif.EncodeAll fails with "image block is out of bounds" (surfaced as
-// HTTP 500). The endpoint must return 200 with every frame exactly the requested
-// size.
-func TestPushEndpoint_Stretch_GIFUpscaleNoUpscaleFilter(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestGIF(100, 80, 3)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/stretch/200x160/filters:no_upscale():format(gif)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	out, err := gif.DecodeAll(rec.Body)
-	if err != nil {
-		t.Fatalf("failed to decode response gif: %v", err)
-	}
-	if len(out.Image) != 3 {
-		t.Fatalf("expected 3 frames preserved, got %d", len(out.Image))
-	}
-	for i, frame := range out.Image {
-		b := frame.Bounds()
-		if b.Dx() != 200 || b.Dy() != 160 {
-			t.Errorf("stretch should produce exactly 200x160, frame %d is %dx%d", i, b.Dx(), b.Dy())
-		}
-	}
-}
-
-func TestPushEndpoint_FitIn_AspectRatio(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestImage(400, 200)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/100x100/filters:format(png)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	img, err := png.Decode(rec.Body)
-	if err != nil {
-		t.Fatalf("failed to decode response image: %v", err)
-	}
-	bounds := img.Bounds()
-	if bounds.Dx() > 100 || bounds.Dy() > 100 {
-		t.Errorf("fit-in should not exceed requested dimensions, got %dx%d", bounds.Dx(), bounds.Dy())
-	}
-}
-
-// TestPushEndpoint_FitIn_UpscalesByDefault documents that, like real imagor,
-// fit-in never enlarges a source: imagor only upscales fit-in with the
-// upscale() filter, so a 50x50 source requested at 200x200 stays 50x50.
-// https://docs.imagor.net/filters
-func TestPushEndpoint_FitIn_NeverUpscales(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestImage(50, 50)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/200x200/filters:format(png)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	img, err := png.Decode(rec.Body)
-	if err != nil {
-		t.Fatalf("failed to decode response image: %v", err)
-	}
-	bounds := img.Bounds()
-	if bounds.Dx() != 50 || bounds.Dy() != 50 {
-		t.Errorf("fit-in should leave a 50x50 source in a 200x200 box untouched, got %dx%d", bounds.Dx(), bounds.Dy())
-	}
-}
-
-// TestPushEndpoint_FitIn_NoUpscaleFilter pins imagor's no_upscale() filter on
-// fit-in: with it, a small source must not be enlarged. A 50x50 source requested
-// at 200x200 comes back as 50x50 instead of 200x200.
-func TestPushEndpoint_FitIn_NoUpscaleFilter(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestImage(50, 50)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/200x200/filters:no_upscale():format(png)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	img, err := png.Decode(rec.Body)
-	if err != nil {
-		t.Fatalf("failed to decode response image: %v", err)
-	}
-	bounds := img.Bounds()
-	if bounds.Dx() > 50 || bounds.Dy() > 50 {
-		t.Errorf("fit-in with no_upscale should not enlarge the image, got %dx%d", bounds.Dx(), bounds.Dy())
-	}
-}
-
-// TestPushEndpoint_Default_SquareFill pins the default processor's outcome:
-// center-crop to fill the requested box exactly (the legacy "thumbnail"
-// processor behavior). A 200x100 source requested at 100x100 must come back as
-// exactly 100x100 — center-cropped, NOT letterboxed to 100x50. This is the route
-// the webdav service uses by default (no fit-in segment).
-func TestPushEndpoint_Default_SquareFill(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestImage(200, 100)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/100x100/filters:format(png)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	img, err := png.Decode(rec.Body)
-	if err != nil {
-		t.Fatalf("failed to decode response image: %v", err)
-	}
-	bounds := img.Bounds()
-	if bounds.Dx() != 100 || bounds.Dy() != 100 {
-		t.Errorf("default should center-crop 200x100 into a 100x100 box as 100x100, got %dx%d", bounds.Dx(), bounds.Dy())
-	}
-}
-
-// TestPushEndpoint_Default_Upscales documents that the default (fill) processor
-// upscales small sources to fill the box exactly, matching the legacy
-// "thumbnail" processor. A 50x50 source requested at 200x200 must come back as
-// exactly 200x200.
-func TestPushEndpoint_Default_Upscales(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestImage(50, 50)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/200x200/filters:format(png)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	img, err := png.Decode(rec.Body)
-	if err != nil {
-		t.Fatalf("failed to decode response image: %v", err)
-	}
-	bounds := img.Bounds()
-	if bounds.Dx() != 200 || bounds.Dy() != 200 {
-		t.Errorf("default should upscale 50x50 to fill a 200x200 box as 200x200, got %dx%d", bounds.Dx(), bounds.Dy())
-	}
-}
-
-// TestPushEndpoint_Default_NoUpscaleFilter pins imagor's no_upscale() filter:
-// with it, the default resize must not enlarge a small source. A 50x50 source
-// requested at 200x200 comes back as 50x50 instead of 200x200.
-func TestPushEndpoint_Default_NoUpscaleFilter(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestImage(50, 50)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/200x200/filters:no_upscale():format(png)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	img, err := png.Decode(rec.Body)
-	if err != nil {
-		t.Fatalf("failed to decode response image: %v", err)
-	}
-	bounds := img.Bounds()
-	if bounds.Dx() != 50 || bounds.Dy() != 50 {
-		t.Errorf("no_upscale should keep the source at 50x50, got %dx%d", bounds.Dx(), bounds.Dy())
-	}
-}
-
-// TestPushEndpoint_FitIn_LetterboxOutcome pins the opt-in "fit" processor's
-// outcome: aspect-preserving fit within the box. A 200x100 source requested at
-// 100x100 must come back as exactly 100x50 — centered/letterboxed in the box,
-// NOT center-cropped to 100x100.
-func TestPushEndpoint_FitIn_LetterboxOutcome(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestImage(200, 100)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/100x100/filters:format(png)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	img, err := png.Decode(rec.Body)
-	if err != nil {
-		t.Fatalf("failed to decode response image: %v", err)
-	}
-	bounds := img.Bounds()
-	if bounds.Dx() != 100 || bounds.Dy() != 50 {
-		t.Errorf("fit-in should letterbox 200x100 into a 100x100 box as 100x50, got %dx%d", bounds.Dx(), bounds.Dy())
-	}
-}
-
-func TestPushEndpoint_Fill_JPEG(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestImage(200, 200)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/100x100/filters:format(jpeg)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-	if ct := rec.Header().Get("Content-Type"); ct != "image/jpeg" {
-		t.Errorf("expected Content-Type image/jpeg, got %s", ct)
-	}
-	if rec.Body.Len() == 0 {
-		t.Error("expected non-empty response body")
-	}
-}
-
-func TestPushEndpoint_Fill_ExactDimensions(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestImage(400, 200)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/100x100/filters:format(png)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	img, err := png.Decode(rec.Body)
-	if err != nil {
-		t.Fatalf("failed to decode response image: %v", err)
-	}
-	bounds := img.Bounds()
-	if bounds.Dx() != 100 || bounds.Dy() != 100 {
-		t.Errorf("fill should produce exact dimensions, got %dx%d", bounds.Dx(), bounds.Dy())
-	}
-}
-
-func TestPushEndpoint_BadDimensions(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestImage(100, 100)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/abcxdef/filters:format(jpeg)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected status 400, got %d", rec.Code)
-	}
-}
-
-func TestPushEndpoint_ZeroDimensions(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestImage(100, 100)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/0x0/filters:format(jpeg)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected status 400 for zero dimensions, got %d", rec.Code)
-	}
-}
-
-func TestPushEndpoint_UnsupportedFormat(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestImage(100, 100)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/50x50/filters:format(tiff)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected status 400 for unsupported format, got %d", rec.Code)
-	}
-}
-
-func TestPushEndpoint_InvalidImageData(t *testing.T) {
-	mux := newTestMux()
-
-	body, contentType := createMultipartBody([]byte("not a valid image"))
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/50x50/filters:format(jpeg)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusNotAcceptable {
-		t.Errorf("expected status 406 for invalid image data, got %d: %s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestPushEndpoint_MissingImageField(t *testing.T) {
-	mux := newTestMux()
-
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	_ = writer.WriteField("other_field", "some value")
-	if err := writer.Close(); err != nil {
-		panic(err)
-	}
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/50x50/filters:format(jpeg)/", body)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected status 400 for missing image field, got %d: %s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestPushEndpoint_NotMultipart(t *testing.T) {
-	mux := newTestMux()
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/50x50/filters:format(jpeg)/", bytes.NewReader([]byte("plain text")))
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("expected status 400 for non-multipart request, got %d: %s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestPushEndpoint_NoTrailingSlash(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestImage(200, 200)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/100x100/filters:format(png)", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200 without trailing slash, got %d: %s", rec.Code, rec.Body.String())
-	}
-	if ct := rec.Header().Get("Content-Type"); ct != "image/png" {
-		t.Errorf("expected Content-Type image/png, got %s", ct)
-	}
-}
-
-// TestPushEndpoint_Stretch pins the stretch operation: resize to the exact box
-// without preserving aspect ratio. A 200x100 source requested at 64x32 must come
-// back as exactly 64x32 (distorted), not letterboxed or cropped.
-func TestPushEndpoint_Stretch(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestImage(200, 100)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/stretch/64x32/filters:format(png)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	img, err := png.Decode(rec.Body)
-	if err != nil {
-		t.Fatalf("failed to decode response image: %v", err)
-	}
-	bounds := img.Bounds()
-	if bounds.Dx() != 64 || bounds.Dy() != 32 {
-		t.Errorf("stretch should produce exactly 64x32, got %dx%d", bounds.Dx(), bounds.Dy())
-	}
-}
-
-// TestPushEndpoint_MaxResolutionExceeded pins the ErrMaxResolutionExceeded path:
-// a decoded input exceeding the configured max width/height returns 422.
-func TestPushEndpoint_MaxResolutionExceeded(t *testing.T) {
-	mux := newTestMuxWithLimits(100, 100)
-
-	imgBytes := createTestImage(500, 500)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/64x64/filters:format(png)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusUnprocessableEntity {
-		t.Errorf("expected status 422 for oversized input, got %d: %s", rec.Code, rec.Body.String())
-	}
-}
-
-// TestPushEndpoint_MaxResolutionExceeded_OneAxis pins the per-axis check: a source
-// that exceeds only the max width (but is well under the max height) must still be
-// rejected with 422. This catches an inverted "both axes" condition.
-func TestPushEndpoint_MaxResolutionExceeded_OneAxis(t *testing.T) {
-	mux := newTestMuxWithLimits(100, 100)
-
-	imgBytes := createTestImage(500, 10)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/64x64/filters:format(png)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusUnprocessableEntity {
-		t.Errorf("expected status 422 for width-oversized input, got %d: %s", rec.Code, rec.Body.String())
-	}
-}
-
-// TestPushEndpoint_WithinMaxResolution confirms an input within the configured
-// limits still succeeds (the 422 check must not over-trigger).
-func TestPushEndpoint_WithinMaxResolution(t *testing.T) {
-	mux := newTestMuxWithLimits(100, 100)
-
-	imgBytes := createTestImage(50, 50)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/32x32/filters:format(png)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Errorf("expected status 200 for in-bounds input, got %d: %s", rec.Code, rec.Body.String())
-	}
-}
-
-// TestConcurrencyLimiter pins the THUMBNAILS_MAX_CONCURRENT_REQUESTS behavior:
-// up to N requests may proceed in parallel, the (N+1)th is rejected non-blocking
-// with a 429. A limit of 0 disables the limiter entirely.
-func TestConcurrencyLimiter(t *testing.T) {
-	t.Run("limit 2 rejects the third concurrent request", func(t *testing.T) {
-		l := newConcurrencyLimiter(2)
-
-		if ok, _ := l.acquire(); !ok {
-			t.Fatal("first acquire should succeed")
-		}
-		if ok, _ := l.acquire(); !ok {
-			t.Fatal("second acquire should succeed")
-		}
-		ok, retryAfter := l.acquire()
-		if ok {
-			t.Fatal("third acquire should fail while the limit is reached")
-		}
-		if retryAfter <= 0 {
-			t.Errorf("expected a positive Retry-After hint, got %d", retryAfter)
-		}
-
-		l.release()
-		if ok, _ := l.acquire(); !ok {
-			t.Fatal("acquire after release should succeed")
-		}
+var _ = Describe("the push endpoint", func() {
+	DescribeTable("answers in the format the filters ask for",
+		func(path string, source []byte, wantType string) {
+			rec := post(path, source)
+
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			Expect(rec.Header().Get("Content-Type")).To(Equal(wantType))
+			Expect(rec.Body.Len()).ToNot(BeZero())
+		},
+		Entry("jpeg", "/unsafe/fit-in/100x100/filters:format(jpeg)/", pngSource(200, 200), "image/jpeg"),
+		Entry("png", "/unsafe/fit-in/100x100/filters:format(png)/", pngSource(200, 200), "image/png"),
+		Entry("gif", "/unsafe/fit-in/100x100/filters:format(gif)/", gifSource(200, 200, 3), "image/gif"),
+		Entry("jpeg while filling", "/unsafe/100x100/filters:format(jpeg)/", pngSource(200, 200), "image/jpeg"),
+		Entry("a filter it does not know is ignored",
+			"/unsafe/fit-in/100x100/filters:no_upscale():format(jpeg)/", pngSource(200, 200), "image/jpeg"),
+		Entry("without a trailing slash", "/unsafe/fit-in/100x100/filters:format(png)", pngSource(200, 200), "image/png"),
+	)
+
+	DescribeTable("keeps the input's own format when no format filter is given",
+		func(source []byte, wantType string) {
+			rec := post("/unsafe/fit-in/100x100/filters:no_upscale()/", source)
+
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			Expect(rec.Header().Get("Content-Type")).To(Equal(wantType))
+		},
+		Entry("a gif stays a gif", gifSource(200, 200, 3), "image/gif"),
+		Entry("a png stays a png", pngSource(200, 200), "image/png"),
+		Entry("a jpeg stays a jpeg", jpegSource(200, 200), "image/jpeg"),
+		Entry("a format it cannot write becomes a jpeg", bmpSource(200, 200), "image/jpeg"),
+	)
+
+	DescribeTable("sizes the result the way the operation says",
+		func(path string, source []byte, want image.Rectangle) {
+			rec := post(path, source)
+
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			Expect(decodedBounds(rec)).To(Equal(want))
+		},
+		Entry("fill center-crops to the exact box",
+			"/unsafe/100x100/filters:format(png)/", pngSource(200, 100), image.Rect(0, 0, 100, 100)),
+		Entry("fill crops a landscape source too",
+			"/unsafe/100x100/filters:format(png)/", pngSource(400, 200), image.Rect(0, 0, 100, 100)),
+		Entry("fill enlarges a small source, like imagor's default resize",
+			"/unsafe/200x200/filters:format(png)/", pngSource(50, 50), image.Rect(0, 0, 200, 200)),
+		Entry("no_upscale caps fill at the source size",
+			"/unsafe/200x200/filters:no_upscale():format(png)/", pngSource(50, 50), image.Rect(0, 0, 50, 50)),
+		Entry("fit-in inscribes and letterboxes",
+			"/unsafe/fit-in/100x100/filters:format(png)/", pngSource(200, 100), image.Rect(0, 0, 100, 50)),
+		Entry("fit-in never enlarges, imagor needs upscale() for that",
+			"/unsafe/fit-in/200x200/filters:format(png)/", pngSource(50, 50), image.Rect(0, 0, 50, 50)),
+		Entry("stretch distorts to the exact box",
+			"/unsafe/stretch/64x32/filters:format(png)/", pngSource(200, 100), image.Rect(0, 0, 64, 32)),
+	)
+
+	It("fits a source inside the box without exceeding it", func() {
+		rec := post("/unsafe/fit-in/100x100/filters:format(png)/", pngSource(400, 200))
+
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		bounds := decodedBounds(rec)
+		Expect(bounds.Dx()).To(BeNumerically("<=", 100))
+		Expect(bounds.Dy()).To(BeNumerically("<=", 100))
 	})
 
-	t.Run("zero limit is unlimited", func(t *testing.T) {
-		var l *concurrencyLimiter
-		for i := 0; i < 100; i++ {
-			if ok, _ := l.acquire(); !ok {
-				t.Fatalf("acquire %d should succeed without a limiter", i)
+	Describe("an animated gif", func() {
+		It("keeps its frames when fitted into the box", func() {
+			rec := post("/unsafe/fit-in/50x50/filters:format(gif)/", gifSource(200, 100, 4))
+
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			out := decodedGIF(rec)
+			Expect(out.Image).To(HaveLen(4))
+			for i, frame := range out.Image {
+				Expect(frame.Bounds().Dx()).To(BeNumerically("<=", 50), "frame %d", i)
+				Expect(frame.Bounds().Dy()).To(BeNumerically("<=", 50), "frame %d", i)
 			}
-		}
-		l.release()
+		})
+
+		It("keeps its frames when filled to the exact box", func() {
+			rec := post("/unsafe/64x64/filters:format(gif)/", gifSource(200, 100, 3))
+
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			out := decodedGIF(rec)
+			Expect(out.Image).To(HaveLen(3))
+			for i, frame := range out.Image {
+				Expect(frame.Bounds()).To(Equal(image.Rect(0, 0, 64, 64)), "frame %d", i)
+			}
+		})
+
+		// A stretch past the source size with no_upscale() set, which is what
+		// webdav sends, used to leave frames outside the logical screen and fail
+		// the encode with "image block is out of bounds".
+		It("grows its logical screen when stretched past the source", func() {
+			rec := post("/unsafe/stretch/200x160/filters:no_upscale():format(gif)/", gifSource(100, 80, 3))
+
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			out := decodedGIF(rec)
+			Expect(out.Image).To(HaveLen(3))
+			for i, frame := range out.Image {
+				Expect(frame.Bounds()).To(Equal(image.Rect(0, 0, 200, 160)), "frame %d", i)
+			}
+		})
+
+		It("flattens to the first frame when the output is still", func() {
+			rec := post("/unsafe/50x50/filters:format(png)/", gifSource(200, 100, 3))
+
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			Expect(rec.Header().Get("Content-Type")).To(Equal("image/png"))
+			Expect(decodedBounds(rec)).To(Equal(image.Rect(0, 0, 50, 50)))
+		})
 	})
 
-	t.Run("429 is returned when the handler is saturated", func(t *testing.T) {
-		s := Thumbnails{limiter: newConcurrencyLimiter(1)}
-		if ok, _ := s.limiter.acquire(); !ok {
-			t.Fatal("could not saturate the limiter")
-		}
-		defer s.limiter.release()
+	DescribeTable("refuses what it cannot answer",
+		func(path string, source []byte, partType string, want int) {
+			rec := postTo(testMux(0, 0), path, source, partType)
 
-		req := httptest.NewRequest(http.MethodPost, "/unsafe/64x64/filters:format(png)/", nil)
+			Expect(rec.Code).To(Equal(want), rec.Body.String())
+		},
+		Entry("dimensions that are not numbers",
+			"/unsafe/fit-in/abcxdef/filters:format(jpeg)/", pngSource(100, 100), "image/png", http.StatusBadRequest),
+		Entry("a zero box",
+			"/unsafe/fit-in/0x0/filters:format(jpeg)/", pngSource(100, 100), "image/png", http.StatusBadRequest),
+		Entry("a format nobody writes",
+			"/unsafe/fit-in/50x50/filters:format(tiff)/", pngSource(100, 100), "image/png", http.StatusBadRequest),
+		Entry("bytes that are not an image",
+			"/unsafe/fit-in/50x50/filters:format(jpeg)/", []byte("not an image"), "image/png", http.StatusNotAcceptable),
+		Entry("an untyped part, which imagor's upload loader also refuses",
+			"/unsafe/fit-in/50x50/filters:format(png)/", pngSource(100, 100), "application/octet-stream", http.StatusNotAcceptable),
+	)
+
+	It("refuses a body that is not multipart", func() {
+		req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/50x50/filters:format(jpeg)/", bytes.NewReader([]byte("plain text")))
 		rec := httptest.NewRecorder()
-		s.pushHandler(rec, req)
+		testMux(0, 0).ServeHTTP(rec, req)
 
-		if rec.Code != http.StatusTooManyRequests {
-			t.Errorf("expected 429 from a saturated limiter, got %d", rec.Code)
-		}
-		if rec.Header().Get("Retry-After") == "" {
-			t.Error("expected a Retry-After header on 429")
-		}
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
 	})
-}
 
-func createTestJPEG(width, height int) []byte {
-	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			img.Set(x, y, color.RGBA{R: uint8(x % 256), G: uint8(y % 256), B: 128, A: 255})
-		}
-	}
-	var buf bytes.Buffer
-	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 80}); err != nil {
-		panic(err)
-	}
-	return buf.Bytes()
-}
+	It("refuses a multipart body whose only field is not the image", func() {
+		body := &bytes.Buffer{}
+		writer := multipart.NewWriter(body)
+		Expect(writer.WriteField("other_field", "some value")).To(Succeed())
+		Expect(writer.Close()).To(Succeed())
 
-func createTestBMP(width, height int) []byte {
-	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			img.Set(x, y, color.RGBA{R: uint8(x % 256), G: uint8(y % 256), B: 128, A: 255})
-		}
-	}
-	var buf bytes.Buffer
-	if err := bmp.Encode(&buf, img); err != nil {
-		panic(err)
-	}
-	return buf.Bytes()
-}
+		req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/50x50/filters:format(jpeg)/", body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		rec := httptest.NewRecorder()
+		testMux(0, 0).ServeHTTP(rec, req)
 
-// TestPushEndpoint_ToleratesExtraFilters proves the generic filters parser ignores
-// filters other than format (a real imagor client may send no_upscale or others).
-func TestPushEndpoint_ToleratesExtraFilters(t *testing.T) {
-	mux := newTestMux()
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+	})
 
-	imgBytes := createTestImage(200, 200)
-	body, contentType := createMultipartBody(imgBytes)
+	Describe("the configured maximum input resolution", func() {
+		DescribeTable("refuses an image above it before decoding",
+			func(source []byte) {
+				rec := postTo(testMux(100, 100), "/unsafe/64x64/filters:format(png)/", source, "image/png")
 
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/100x100/filters:no_upscale():format(jpeg)/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
+				Expect(rec.Code).To(Equal(http.StatusUnprocessableEntity), rec.Body.String())
+			},
+			Entry("both axes too large", pngSource(500, 500)),
+			Entry("one axis too large", pngSource(500, 10)),
+		)
 
-	mux.ServeHTTP(rec, req)
+		It("lets an image within it through", func() {
+			rec := postTo(testMux(100, 100), "/unsafe/32x32/filters:format(png)/", pngSource(50, 50), "image/png")
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-	if ct := rec.Header().Get("Content-Type"); ct != "image/jpeg" {
-		t.Errorf("expected Content-Type image/jpeg, got %s", ct)
-	}
-}
-
-// TestPushEndpoint_NoFormat_FallbackGIF pins the 1c pass-through fallback: a filters
-// segment with no format filter (here just no_upscale) keeps a gif input as gif.
-func TestPushEndpoint_NoFormat_FallbackGIF(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestGIF(200, 200, 2)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/100x100/filters:no_upscale()/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-	if ct := rec.Header().Get("Content-Type"); ct != "image/gif" {
-		t.Errorf("expected Content-Type image/gif, got %s", ct)
-	}
-}
-
-// TestPushEndpoint_NoFormat_FallbackPNG pins the 1c pass-through fallback: a filters
-// segment with no format filter keeps a png input as png.
-func TestPushEndpoint_NoFormat_FallbackPNG(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestImage(200, 200)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/100x100/filters:no_upscale()/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-	if ct := rec.Header().Get("Content-Type"); ct != "image/png" {
-		t.Errorf("expected Content-Type image/png, got %s", ct)
-	}
-}
-
-// TestPushEndpoint_NoFormat_FallbackJPEG pins the 1c pass-through fallback: a filters
-// segment with no format filter keeps a jpeg input as jpeg.
-func TestPushEndpoint_NoFormat_FallbackJPEG(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestJPEG(200, 200)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/100x100/filters:no_upscale()/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-	if ct := rec.Header().Get("Content-Type"); ct != "image/jpeg" {
-		t.Errorf("expected Content-Type image/jpeg, got %s", ct)
-	}
-}
-
-// TestPushEndpoint_NoFormat_UnsupportedInputFallsBackToJPEG pins imagor's unsavable
-// source behavior: an input we cannot re-encode (here a BMP) with no format filter is
-// returned as JPEG, matching imagor's default for formats outside its savable set.
-func TestPushEndpoint_NoFormat_UnsupportedInputFallsBackToJPEG(t *testing.T) {
-	mux := newTestMux()
-
-	imgBytes := createTestBMP(200, 200)
-	body, contentType := createMultipartBody(imgBytes)
-
-	req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/100x100/filters:no_upscale()/", body)
-	req.Header.Set("Content-Type", contentType)
-	rec := httptest.NewRecorder()
-
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-	if ct := rec.Header().Get("Content-Type"); ct != "image/jpeg" {
-		t.Errorf("expected Content-Type image/jpeg, got %s", ct)
-	}
-}
-
-func TestInputFormatViaImaging(t *testing.T) {
-	tests := []struct {
-		name string
-		data []byte
-		want string
-	}{
-		{"jpeg", createTestJPEG(16, 16), "jpg"},
-		{"png", createTestImage(16, 16), "png"},
-		{"gif", createTestGIF(16, 16, 2), "gif"},
-		{"bmp falls back to jpeg", createTestBMP(16, 16), "jpg"},
-		{"undecodable falls back to jpeg", []byte("not an image at all"), "jpg"},
-		{"empty falls back to jpeg", []byte{}, "jpg"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := inputFormatViaImaging(tt.data); got != tt.want {
-				t.Errorf("inputFormatViaImaging() = %q, want %q", got, tt.want)
-			}
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		})
-	}
-}
 
-func TestSplitFilter(t *testing.T) {
-	tests := []struct {
-		name     string
-		token    string
-		wantName string
-		wantArgs string
-		wantOK   bool
-	}{
-		{"format", "format(jpeg)", "format", "jpeg", true},
-		{"no args name", "no_upscale()", "no_upscale", "", true},
-		{"no parens", "plain", "", "", false},
-		{"open only", "format(jpeg", "", "", false},
-		{"close only", "formatjpeg)", "", "", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			name, args, ok := splitFilter(tt.token)
-			if ok != tt.wantOK || name != tt.wantName || args != tt.wantArgs {
-				t.Errorf("splitFilter(%q) = (%q,%q,%v), want (%q,%q,%v)",
-					tt.token, name, args, ok, tt.wantName, tt.wantArgs, tt.wantOK)
-			}
-		})
-	}
-}
+		// a tiny file that declares huge dimensions must not reach a decoder
+		DescribeTable("refuses a dimension bomb from its header alone",
+			func(source []byte, path string) {
+				rec := postTo(testMux(7680, 7680), path, source, "image/png")
 
-func TestOutputFormatFromFilters(t *testing.T) {
-	tests := []struct {
-		name    string
-		segment string
-		wantExt string
-		wantHas bool
-		wantErr bool
-	}{
-		{"format jpeg", "format(jpeg)", "jpg", true, false},
-		{"extra filters ignored", "no_upscale():format(png)", "png", true, false},
-		{"unsupported format", "format(tiff)", "", false, true},
-		{"no format filter", "no_upscale()", "", false, false},
-		{"empty segment", "", "", false, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, has, err := outputFormatFromFilters(tt.segment)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("outputFormatFromFilters() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if got != tt.wantExt || has != tt.wantHas {
-				t.Errorf("outputFormatFromFilters() = (%q,%v), want (%q,%v)", got, has, tt.wantExt, tt.wantHas)
-			}
+				Expect(rec.Code).To(Equal(http.StatusUnprocessableEntity), rec.Body.String())
+			},
+			Entry("a jpeg", dimensionBomb(20000, 20000), "/unsafe/64x64/filters:format(png)/"),
+			Entry("a gif", gifDimensionBomb(), "/unsafe/64x64/filters:format(gif)/"),
+		)
+	})
+
+	Describe("the concurrency limiter", func() {
+		It("hands out as many slots as configured and then refuses", func() {
+			l := newConcurrencyLimiter(2)
+
+			ok, _ := l.acquire()
+			Expect(ok).To(BeTrue())
+			ok, _ = l.acquire()
+			Expect(ok).To(BeTrue())
+
+			ok, retryAfter := l.acquire()
+			Expect(ok).To(BeFalse(), "the third request exceeds the limit")
+			Expect(retryAfter).To(BeNumerically(">", 0), "a refused request needs a hint when to come back")
+
+			l.release()
+			ok, _ = l.acquire()
+			Expect(ok).To(BeTrue(), "a released slot can be taken again")
 		})
-	}
-}
+
+		It("is unlimited when no limit is configured", func() {
+			var l *concurrencyLimiter
+			for range 100 {
+				ok, _ := l.acquire()
+				Expect(ok).To(BeTrue())
+			}
+			l.release()
+		})
+
+		It("answers 429 with a Retry-After while saturated", func() {
+			s := Thumbnails{limiter: newConcurrencyLimiter(1)}
+			ok, _ := s.limiter.acquire()
+			Expect(ok).To(BeTrue())
+			defer s.limiter.release()
+
+			req := httptest.NewRequest(http.MethodPost, "/unsafe/64x64/filters:format(png)/", nil)
+			rec := httptest.NewRecorder()
+			s.pushHandler(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusTooManyRequests))
+			Expect(rec.Header().Get("Retry-After")).ToNot(BeEmpty())
+		})
+	})
+})
+
+var _ = Describe("inputFormatViaImaging", func() {
+	DescribeTable("names the format a body is in",
+		func(source []byte, want string) {
+			Expect(inputFormatViaImaging(source)).To(Equal(want))
+		},
+		Entry("png", pngSource(10, 10), "png"),
+		Entry("jpeg", jpegSource(10, 10), "jpg"),
+		Entry("gif", gifSource(10, 10, 1), "gif"),
+		Entry("a format it cannot write falls back to jpeg", bmpSource(10, 10), "jpg"),
+		Entry("something undecodable falls back to jpeg", []byte("nonsense"), "jpg"),
+	)
+})
+
+var _ = Describe("splitFilter", func() {
+	DescribeTable("splits a filter into its name and arguments",
+		func(token, wantName, wantArgs string, wantOK bool) {
+			name, args, ok := splitFilter(token)
+
+			Expect(ok).To(Equal(wantOK))
+			Expect(name).To(Equal(wantName))
+			Expect(args).To(Equal(wantArgs))
+		},
+		Entry("with arguments", "format(jpeg)", "format", "jpeg", true),
+		Entry("without arguments", "no_upscale()", "no_upscale", "", true),
+		Entry("without the closing paren", "format(jpeg", "", "", false),
+		Entry("without the opening paren", "formatjpeg)", "", "", false),
+		Entry("not a filter at all", "plain", "", "", false),
+		Entry("empty", "", "", "", false),
+	)
+})
+
+var _ = Describe("outputFormatFromFilters", func() {
+	DescribeTable("reads the format filter out of a segment",
+		func(segment, wantExt string, wantHasFormat, wantErr bool) {
+			ext, hasFormat, err := outputFormatFromFilters(segment)
+
+			if wantErr {
+				Expect(err).To(HaveOccurred())
+
+				return
+			}
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ext).To(Equal(wantExt))
+			Expect(hasFormat).To(Equal(wantHasFormat))
+		},
+		Entry("jpeg maps onto our jpg", "format(jpeg)", "jpg", true, false),
+		Entry("png", "format(png)", "png", true, false),
+		Entry("gif", "format(gif)", "gif", true, false),
+		Entry("webp, which only the libvips build writes", "format(webp)", "webp", true, false),
+		Entry("behind another filter", "no_upscale():format(png)", "png", true, false),
+		Entry("no format filter at all", "no_upscale()", "", false, false),
+		Entry("an empty segment", "", "", false, false),
+		Entry("a format nobody writes", "format(tiff)", "", false, true),
+	)
+})
