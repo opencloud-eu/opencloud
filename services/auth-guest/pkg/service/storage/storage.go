@@ -16,17 +16,18 @@ var ErrConflict = errors.New("record was modified concurrently")
 
 // Record holds the data persisted for a guest share token.
 type Record struct {
-	ShareID             string                    `json:"shareid"`
-	ShareIDHash         string                    `json:"shareidhash"`
-	SecretHash          string                    `json:"secrethash"`
-	PinHash             string                    `json:"pinhash"`
-	Expiry              time.Time                 `json:"expiry,omitzero"`
-	PinExpiry           time.Time                 `json:"pinexpiry,omitzero"`
-	Redeemed            bool                      `json:"redeemed"`
-	Revision            uint64                    `json:"revision"`
-	NonceState          guard.NonceState          `json:"nonce,omitzero"`
-	BackoffLimiterState guard.BackoffLimiterState `json:"backoff_limiter,omitzero"`
-	QuotaLimiterState   guard.QuotaLimiterState   `json:"quota_limiter,omitzero"`
+	ShareID                  string                    `json:"shareid"`
+	ShareIDHash              string                    `json:"shareidhash"`
+	SecretHash               string                    `json:"secrethash"`
+	PinHash                  string                    `json:"pinhash"`
+	Expiry                   time.Time                 `json:"expiry,omitzero"`
+	PinExpiry                time.Time                 `json:"pinexpiry,omitzero"`
+	Redeemed                 bool                      `json:"redeemed"`
+	Revision                 uint64                    `json:"revision"`
+	NonceState               guard.NonceState          `json:"nonce,omitzero"`
+	BackoffLimiterState      guard.BackoffLimiterState `json:"backoff_limiter,omitzero"`
+	QuotaLimiterState        guard.QuotaLimiterState   `json:"quota_limiter,omitzero"`
+	SessionQuotaLimiterState guard.QuotaLimiterState   `json:"session_quota_limiter,omitzero"`
 }
 
 // NewRecord returns a record for the given token.

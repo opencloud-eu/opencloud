@@ -107,6 +107,7 @@ func Server(cfg *config.Config) *cobra.Command {
 				authguest.PinAndNonceTTL(cfg.PinAndNonceTTL),
 				authguest.BackoffLimiter(cfg.BackoffLimiter),
 				authguest.QuotaLimiter(cfg.QuotaLimiter),
+				authguest.SessionQuotaLimiter(config.QuotaLimiter(cfg.SessionQuotaLimiter)),
 			)
 
 			if !cfg.HTTP.Disabled {

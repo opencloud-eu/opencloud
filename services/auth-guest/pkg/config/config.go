@@ -28,15 +28,16 @@ type Config struct {
 	RevaGateway   string                `yaml:"reva_gateway" env:"OC_REVA_GATEWAY" desc:"CS3 gateway used to look up user metadata" introductionVersion:"%%NEXT%%"`
 	GRPCClientTLS *shared.GRPCClientTLS `yaml:"grpc_client_tls"`
 
-	GRPC           GRPCConfig     `yaml:"grpc"`
-	HTTP           HTTP           `yaml:"http"`
-	Storage        Storage        `yaml:"storage"`
-	TokenManager   *TokenManager  `yaml:"token_manager"`
-	JWT            JWT            `yaml:"jwt"`
-	Nonce          Nonce          `yaml:"nonce"`
-	PinAndNonceTTL time.Duration  `yaml:"pin_and_nonce_ttl" env:"AUTH_GUEST_PIN_AND_NONCE_TTL" desc:"The lifetime of the one-time PIN and of the nonce that binds it to the browser. After it expires the PIN has to be renewed again. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
-	BackoffLimiter BackoffLimiter `yaml:"backoff_limiter"`
-	QuotaLimiter   QuotaLimiter   `yaml:"quota_limiter"`
+	GRPC                GRPCConfig          `yaml:"grpc"`
+	HTTP                HTTP                `yaml:"http"`
+	Storage             Storage             `yaml:"storage"`
+	TokenManager        *TokenManager       `yaml:"token_manager"`
+	JWT                 JWT                 `yaml:"jwt"`
+	Nonce               Nonce               `yaml:"nonce"`
+	PinAndNonceTTL      time.Duration       `yaml:"pin_and_nonce_ttl" env:"AUTH_GUEST_PIN_AND_NONCE_TTL" desc:"The lifetime of the one-time PIN and of the nonce that binds it to the browser. After it expires the PIN has to be renewed again. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	BackoffLimiter      BackoffLimiter      `yaml:"backoff_limiter"`
+	QuotaLimiter        QuotaLimiter        `yaml:"quota_limiter"`
+	SessionQuotaLimiter SessionQuotaLimiter `yaml:"session_quota_limiter"`
 
 	ServiceAccount ServiceAccount `yaml:"service_account"`
 
@@ -122,11 +123,21 @@ type BackoffLimiter struct {
 }
 
 // QuotaLimiter defines the configuration of a limiter that allows a maximum
-// number of events per window with a minimum cooldown between them.
+// number of events per window with a minimum cooldown between them. It limits
+// renewals without a valid session.
 type QuotaLimiter struct {
-	DailyCap int           `yaml:"daily_cap" env:"AUTH_GUEST_QUOTA_DAILY_CAP" desc:"The maximum number of renewals for the same share within the window." introductionVersion:"%%NEXT%%"`
-	Cooldown time.Duration `yaml:"cooldown" env:"AUTH_GUEST_QUOTA_COOLDOWN" desc:"The minimum time between two renewals for the same share. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
-	Window   time.Duration `yaml:"window" env:"AUTH_GUEST_QUOTA_WINDOW" desc:"The window over which the renewal quota is counted. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	DailyCap int           `yaml:"daily_cap" env:"AUTH_GUEST_QUOTA_DAILY_CAP" desc:"The maximum number of renewals without a valid session for the same share within the window." introductionVersion:"%%NEXT%%"`
+	Cooldown time.Duration `yaml:"cooldown" env:"AUTH_GUEST_QUOTA_COOLDOWN" desc:"The minimum time between two renewals without a valid session for the same share. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	Window   time.Duration `yaml:"window" env:"AUTH_GUEST_QUOTA_WINDOW" desc:"The window over which the quota for renewals without a valid session is counted. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+}
+
+// SessionQuotaLimiter defines the quota for renewals authorized by a valid
+// session, which issue a new PIN. It is counted separately from QuotaLimiter,
+// so renewals without a session cannot use it up.
+type SessionQuotaLimiter struct {
+	DailyCap int           `yaml:"daily_cap" env:"AUTH_GUEST_SESSION_QUOTA_DAILY_CAP" desc:"The maximum number of renewals authorized by a valid session for the same share within the window. Each of these renewals issues a new PIN." introductionVersion:"%%NEXT%%"`
+	Cooldown time.Duration `yaml:"cooldown" env:"AUTH_GUEST_SESSION_QUOTA_COOLDOWN" desc:"The minimum time between two renewals authorized by a valid session for the same share. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	Window   time.Duration `yaml:"window" env:"AUTH_GUEST_SESSION_QUOTA_WINDOW" desc:"The window over which the quota for renewals authorized by a valid session is counted. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
 }
 
 const (

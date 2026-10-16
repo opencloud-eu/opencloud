@@ -377,6 +377,14 @@ func newRenewService(t *testing.T, store storage.Manager, gwc *cs3mocks.GatewayA
 
 func newRenewServiceWithLimiter(t *testing.T, store storage.Manager, gwc *cs3mocks.GatewayAPIClient, publisher revaevents.Publisher, quota config.QuotaLimiter) *AuthGuestService {
 	t.Helper()
+	return newRenewServiceWithLimiters(t, store, gwc, publisher, quota, config.QuotaLimiter{
+		Window:   24 * time.Hour,
+		DailyCap: 100,
+	})
+}
+
+func newRenewServiceWithLimiters(t *testing.T, store storage.Manager, gwc *cs3mocks.GatewayAPIClient, publisher revaevents.Publisher, quota, sessionQuota config.QuotaLimiter) *AuthGuestService {
+	t.Helper()
 	return NewAuthGuestService(
 		token.NewTokenService(),
 		store,
@@ -391,6 +399,7 @@ func newRenewServiceWithLimiter(t *testing.T, store storage.Manager, gwc *cs3moc
 			BackoffCap:  30 * time.Second,
 		}),
 		QuotaLimiter(quota),
+		SessionQuotaLimiter(sessionQuota),
 	)
 }
 
@@ -466,6 +475,7 @@ func TestRenewPersistsRecordAndPublishesEvent(t *testing.T) {
 	assert.NoError(t, guard.NewNonce(time.Hour).Verify(&replaced.NonceState, nonce, time.Now()))
 	assert.False(t, replaced.Redeemed)
 	assert.Zero(t, replaced.QuotaLimiterState.Count)
+	assert.Equal(t, 1, replaced.SessionQuotaLimiterState.Count)
 
 	require.Len(t, publisher.published, 1)
 	ev, ok := publisher.published[0].(ocEvents.GuestTokenRenewed)
@@ -514,7 +524,7 @@ func TestRenewWithExpiredSessionTokenRotatesSilently(t *testing.T) {
 	assert.Empty(t, ev.Pin)
 }
 
-func TestRenewValidSessionBypassesCooldown(t *testing.T) {
+func TestRenewValidSessionIgnoresQuotaWithoutSession(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
 	rec := existingRecord()
 	rec.QuotaLimiterState = guard.QuotaLimiterState{
@@ -539,6 +549,80 @@ func TestRenewValidSessionBypassesCooldown(t *testing.T) {
 	got, err := store.Get(token.Hash(testShareID))
 	require.NoError(t, err)
 	assert.Equal(t, 1, got.QuotaLimiterState.Count)
+	assert.Equal(t, 1, got.SessionQuotaLimiterState.Count)
+}
+
+func TestRenewValidSessionBlockedBySessionQuota(t *testing.T) {
+	tests := []struct {
+		name  string
+		state guard.QuotaLimiterState
+	}{
+		{
+			name:  "cooldown",
+			state: guard.QuotaLimiterState{Count: 1, NotBefore: time.Now().Add(5 * time.Minute), WindowStart: time.Now()},
+		},
+		{
+			name:  "daily cap",
+			state: guard.QuotaLimiterState{Count: 5, NotBefore: time.Now().Add(-time.Minute), WindowStart: time.Now().Add(-time.Hour)},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := storage.NewFileManager(t.TempDir())
+			rec := existingRecord()
+			rec.SessionQuotaLimiterState = tt.state
+			require.NoError(t, store.Add(rec))
+
+			gwc := newGatewayMock(validShareResponse())
+			publisher := &testPublisher{}
+			s := newRenewServiceWithLimiters(t, store, gwc, publisher,
+				config.QuotaLimiter{Window: 24 * time.Hour, DailyCap: 20},
+				config.QuotaLimiter{Cooldown: 5 * time.Minute, Window: 24 * time.Hour, DailyCap: 5},
+			)
+
+			nonce, err := s.Renew(context.Background(), testShareID, validSessionToken(t))
+			require.Error(t, err)
+			assert.Empty(t, nonce)
+
+			var ge *GuestError
+			require.ErrorAs(t, err, &ge)
+			assert.ErrorIs(t, ge.ErrorType, ErrTooManyAttempts)
+			assert.Greater(t, ge.RetryAfter, time.Duration(0))
+
+			gwc.AssertNotCalled(t, "GetShare", mock.Anything, mock.Anything)
+			assert.Empty(t, publisher.published)
+
+			got, err := store.Get(token.Hash(testShareID))
+			require.NoError(t, err)
+			assert.Empty(t, got.PinHash)
+			assert.Empty(t, got.NonceState.Hash)
+		})
+	}
+}
+
+func TestRenewWithoutSessionIgnoresSessionQuota(t *testing.T) {
+	store := storage.NewFileManager(t.TempDir())
+	rec := existingRecord()
+	rec.SessionQuotaLimiterState = guard.QuotaLimiterState{
+		Count:       5,
+		NotBefore:   time.Now().Add(5 * time.Minute),
+		WindowStart: time.Now(),
+	}
+	require.NoError(t, store.Add(rec))
+
+	s := newRenewServiceWithLimiters(t, store, newGatewayMock(validShareResponse()), &testPublisher{},
+		config.QuotaLimiter{Window: 24 * time.Hour, DailyCap: 20},
+		config.QuotaLimiter{Cooldown: 5 * time.Minute, Window: 24 * time.Hour, DailyCap: 5},
+	)
+
+	_, err := s.Renew(context.Background(), testShareID, "")
+	require.NoError(t, err)
+
+	got, err := store.Get(token.Hash(testShareID))
+	require.NoError(t, err)
+	assert.Equal(t, 1, got.QuotaLimiterState.Count)
+	assert.Equal(t, 5, got.SessionQuotaLimiterState.Count)
 }
 
 func TestRenewWithoutSessionRotatesSilently(t *testing.T) {

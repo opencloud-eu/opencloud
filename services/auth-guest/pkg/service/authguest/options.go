@@ -17,13 +17,14 @@ type Option func(*Options)
 
 // Options for the auth-guest service
 type Options struct {
-	GatewaySelector pool.Selectable[gateway.GatewayAPIClient]
-	ServiceAccount  config.ServiceAccount
-	JWT             *jwt.JwtService
-	Publisher       events.Publisher
-	PinAndNonceTTL  time.Duration
-	BackoffLimiter  config.BackoffLimiter
-	QuotaLimiter    config.QuotaLimiter
+	GatewaySelector     pool.Selectable[gateway.GatewayAPIClient]
+	ServiceAccount      config.ServiceAccount
+	JWT                 *jwt.JwtService
+	Publisher           events.Publisher
+	PinAndNonceTTL      time.Duration
+	BackoffLimiter      config.BackoffLimiter
+	QuotaLimiter        config.QuotaLimiter
+	SessionQuotaLimiter config.QuotaLimiter
 }
 
 // GatewaySelector adds a grpc client selector for the gateway service
@@ -68,9 +69,16 @@ func BackoffLimiter(l config.BackoffLimiter) Option {
 	}
 }
 
-// QuotaLimiter configures the renewal quota limiter for the auth-guest service
+// QuotaLimiter configures the quota limiter for renewals without a valid session
 func QuotaLimiter(l config.QuotaLimiter) Option {
 	return func(o *Options) {
 		o.QuotaLimiter = l
+	}
+}
+
+// SessionQuotaLimiter configures the quota limiter for renewals authorized by a valid session
+func SessionQuotaLimiter(l config.QuotaLimiter) Option {
+	return func(o *Options) {
+		o.SessionQuotaLimiter = l
 	}
 }

@@ -64,9 +64,10 @@ type AuthGuestService struct {
 // guards bundles the rate limiters and the nonce protecting the guest
 // endpoints. Their policies are fixed at construction from the service config.
 type guards struct {
-	backoffLimiter guard.BackoffLimiter
-	quotaLimiter   guard.QuotaLimiter
-	nonce          guard.Nonce
+	backoffLimiter      guard.BackoffLimiter
+	quotaLimiter        guard.QuotaLimiter
+	sessionQuotaLimiter guard.QuotaLimiter
+	nonce               guard.Nonce
 }
 
 func NewAuthGuestService(tokenSvc *token.TokenService, store storage.Manager, opts ...Option) *AuthGuestService {
@@ -84,9 +85,10 @@ func NewAuthGuestService(tokenSvc *token.TokenService, store storage.Manager, op
 		publisher:       o.Publisher,
 		pinAndNonceTTL:  o.PinAndNonceTTL,
 		guards: guards{
-			backoffLimiter: guard.NewBackoffLimiter(o.BackoffLimiter),
-			quotaLimiter:   guard.NewQuotaLimiter(o.QuotaLimiter),
-			nonce:          guard.NewNonce(o.PinAndNonceTTL),
+			backoffLimiter:      guard.NewBackoffLimiter(o.BackoffLimiter),
+			quotaLimiter:        guard.NewQuotaLimiter(o.QuotaLimiter),
+			sessionQuotaLimiter: guard.NewQuotaLimiter(o.SessionQuotaLimiter),
+			nonce:               guard.NewNonce(o.PinAndNonceTTL),
 		},
 	}
 }
@@ -161,11 +163,10 @@ func (s *AuthGuestService) Renew(ctx context.Context, shareID, sessionToken stri
 		validSession = err == nil && sessionShareID == shareID
 	}
 
-	if !validSession {
-		// Reject an active cooldown before doing the (remote) share validation.
-		if wait := s.guards.quotaLimiter.RetryAfter(&current.QuotaLimiterState, now); wait > 0 {
-			return "", &GuestError{ErrorType: ErrTooManyAttempts, ShareID: shareID, RetryAfter: wait}
-		}
+	// Reject an active cooldown before doing the (remote) share validation.
+	quota, quotaState := s.renewQuota(current, validSession)
+	if wait := quota.RetryAfter(quotaState, now); wait > 0 {
+		return "", &GuestError{ErrorType: ErrTooManyAttempts, ShareID: shareID, RetryAfter: wait}
 	}
 
 	share, err := s.validateShare(ctx, shareID)
@@ -278,12 +279,11 @@ func (s *AuthGuestService) CleanupShare(shareID string) error {
 }
 
 // rotateGuestToken replaces the guest token's secret and expiry under the
-// record lock. When sessionValid, the PIN and nonce are replaced as well;
-// otherwise the quota limiter state is recorded. When the record is modified
-// concurrently it re-reads
-// and re-applies the rotation, up to renewMaxAttempts. It returns the issued
-// nonce, the record state seen before the successful update (for rollback) and
-// the updated record.
+// record lock and counts the renewal against the quota of its path (see
+// renewQuota). When sessionValid, the PIN and nonce are replaced as well. When
+// the record is modified concurrently it re-reads and re-applies the rotation,
+// up to renewMaxAttempts. It returns the issued nonce, the record state seen
+// before the successful update (for rollback) and the updated record.
 func (s *AuthGuestService) rotateGuestToken(hash string, tok *token.Token, pinHash string, now time.Time, sessionValid bool) (string, storage.Record, storage.Record, error) {
 	var nonce string
 	for attempt := 1; ; attempt++ {
@@ -293,12 +293,13 @@ func (s *AuthGuestService) rotateGuestToken(hash string, tok *token.Token, pinHa
 		}
 
 		updated, err := s.store.UpdateFrom(*rec, func(record *storage.Record) error {
-			if !sessionValid {
-				if wait := s.guards.quotaLimiter.RetryAfter(&record.QuotaLimiterState, now); wait > 0 {
-					return &GuestError{ErrorType: ErrTooManyAttempts, ShareID: record.ShareID, RetryAfter: wait}
-				}
-				s.guards.quotaLimiter.Record(&record.QuotaLimiterState, now)
-			} else {
+			quota, quotaState := s.renewQuota(record, sessionValid)
+			if wait := quota.RetryAfter(quotaState, now); wait > 0 {
+				return &GuestError{ErrorType: ErrTooManyAttempts, ShareID: record.ShareID, RetryAfter: wait}
+			}
+			quota.Record(quotaState, now)
+
+			if sessionValid {
 				n, err := s.guards.nonce.Issue(&record.NonceState, now)
 				if err != nil {
 					return err
@@ -323,6 +324,17 @@ func (s *AuthGuestService) rotateGuestToken(hash string, tok *token.Token, pinHa
 			return "", storage.Record{}, storage.Record{}, err
 		}
 	}
+}
+
+// renewQuota returns the quota limiter and its state in rec for a renewal with
+// or without a valid session. The two quotas are counted separately, so that
+// renewals without a session, which only need the share id, cannot use up the
+// quota for refreshing a session, and the other way round.
+func (s *AuthGuestService) renewQuota(rec *storage.Record, sessionValid bool) (guard.QuotaLimiter, *guard.QuotaLimiterState) {
+	if sessionValid {
+		return s.guards.sessionQuotaLimiter, &rec.SessionQuotaLimiterState
+	}
+	return s.guards.quotaLimiter, &rec.QuotaLimiterState
 }
 
 // checkPinRequest verifies the browser-bound nonce and then the PIN
