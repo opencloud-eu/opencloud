@@ -22,6 +22,10 @@ var (
 	ErrNonceExpired        = errors.New("nonce expired")
 	ErrTooManyAttempts     = errors.New("too many attempts")
 	ErrPermissionMismatch  = errors.New("permissionId does not match the provided credentials")
+
+	// errLinkRedeemable aborts a renewal without a valid session because the
+	// newest link can still be redeemed. Renew reports it as success.
+	errLinkRedeemable = errors.New("newest guest link can still be redeemed")
 )
 
 // GuestError wraps an auth-guest failure together with the share id. The HTTP

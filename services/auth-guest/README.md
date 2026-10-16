@@ -110,9 +110,15 @@ link can be redeemed, and publishes `GuestTokenRenewed` without a PIN; it
 answers `200` and sets no nonce cookie. Because such a request is
 unauthenticated, it is rate-limited per share.
 
-Both paths require an existing token record for the share and work whether the
-record is unused, expired or already redeemed (the guest already redeemed an
-earlier link); if publishing fails, the previous record is restored.
+While the newest link can still be redeemed (it is neither used nor expired), a
+renewal without a valid session does nothing: it answers `200` like a real
+renewal, but does not rotate the link, publish an event or count against the
+quota. This path only needs the share id, so otherwise anyone who knows it
+could cancel the link the guest just received. Renewals with a valid session
+always issue a new link and PIN.
+
+Both paths require an existing token record for the share; if publishing fails,
+the previous record is restored.
 
 `renew` is limited per share, with a separate quota for each path so that
 neither can use up the other's:
@@ -156,6 +162,7 @@ sequenceDiagram
     Web->>+Renew: POST renew { permissionId } (+ session cookie)
     Note right of Renew: Validate session + share, rotate token
     Note right of Renew: Rate-limited per path; valid session: new PIN + nonce
+    Note right of Renew: No valid session and newest link unused: do nothing
     Renew->>Bus: publish GuestTokenRenewed
     Note right of Bus: With a new PIN only when the session is valid
     Renew->>-Web: 200 OK, Set-Cookie (nonce) only when the session is valid
@@ -198,9 +205,9 @@ sequenceDiagram
    rotates the stored token secret and expiry, resets the redeemed flag and
    publishes `GuestTokenRenewed` without a PIN; no nonce cookie is set. Each
    path is limited per share by its own quota (cooldown plus daily cap), and an
-   exceeded limit fails with `429`. Both paths
-   require an existing record; otherwise the request fails with `tokenNotFound`.
-   This works whether the record is unused, expired or already redeemed. If
+   exceeded limit fails with `429`. Without a valid session nothing happens
+   while the newest link is neither used nor expired. Both paths require an
+   existing record; otherwise the request fails with `tokenNotFound`. If
    publishing fails, the previous record is restored.
 4. **Verify PIN** — the guest posts the PIN, the `permissionId` and the nonce
    cookie to
@@ -235,9 +242,10 @@ Rate-limited responses (`429`) also carry a `retryAfter` field (seconds) and a
 - **Authorization:** the session cookie, when it carries a valid, unexpired
   session token for the given share; without it the renewal is silent (no PIN,
   no nonce cookie)
-- **Success:** `200` (no session cookie; when authorized by a session a new
-  link/PIN are delivered out of band and the nonce cookie is set, otherwise no
-  new link/PIN is generated and no nonce cookie is set)
+- **Success:** `200`, no session cookie. With a valid session a new link and
+  PIN are sent by mail and the nonce cookie is set. Without one a new link is
+  sent by mail, unless the newest link can still be redeemed, in which case
+  nothing happens; the response is the same either way.
 - **Errors:** `400 invalidRequest`, `404 tokenNotFound`, `404 shareNotFound`,
   `409 conflict`, `410 shareExpired`, `429 tooManyRequests` (with
   `Retry-After`), `503 serviceUnavailable`, `500 internalError`
@@ -276,6 +284,8 @@ in one browser without overwriting each other's nonce cookie.
 
 Client-side handling of the relevant responses:
 
+- `200` from `renew` without a session — a new link may or may not have been
+  sent; tell the guest to use the link from their newest mail.
 - `400 invalidRequest` "The nonce cookie is missing from the request." — the
   browser has no nonce (it never renewed, or the cookie expired): call `renew`
   again before `verify/pin`.

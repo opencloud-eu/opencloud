@@ -135,6 +135,14 @@ func newToken(t *testing.T) (string, storage.Record) {
 	return tok.String(), rec
 }
 
+// newRedeemedToken is newToken with the link already used, so a renewal without
+// a session rotates it instead of leaving it alone.
+func newRedeemedToken(t *testing.T) (string, storage.Record) {
+	tok, rec := newToken(t)
+	rec.Redeemed = true
+	return tok, rec
+}
+
 func newShareService(t *testing.T, gwc *cs3mocks.GatewayAPIClient) *AuthGuestService {
 	t.Helper()
 	return NewAuthGuestService(
@@ -627,7 +635,7 @@ func TestRenewWithoutSessionIgnoresSessionQuota(t *testing.T) {
 
 func TestRenewWithoutSessionRotatesSilently(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	_, rec := newToken(t)
+	_, rec := newRedeemedToken(t)
 	require.NoError(t, store.Add(rec))
 
 	publisher := &testPublisher{}
@@ -675,6 +683,133 @@ func TestRenewWithoutSessionBlockedDuringCooldown(t *testing.T) {
 	assert.Greater(t, ge.RetryAfter, time.Duration(0))
 
 	gwc.AssertNotCalled(t, "GetShare", mock.Anything, mock.Anything)
+}
+
+func TestRenewWithoutSessionKeepsRedeemableLink(t *testing.T) {
+	tests := []struct {
+		name  string
+		quota guard.QuotaLimiterState
+	}{
+		{name: "quota available"},
+		{
+			name:  "quota used up",
+			quota: guard.QuotaLimiterState{Count: 20, NotBefore: time.Now().Add(time.Minute), WindowStart: time.Now()},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := storage.NewFileManager(t.TempDir())
+			_, rec := newToken(t)
+			rec.Expiry = time.Now().Add(10 * time.Minute)
+			rec.QuotaLimiterState = tt.quota
+			require.NoError(t, store.Add(rec))
+
+			gwc := newGatewayMock(validShareResponse())
+			publisher := &testPublisher{}
+			s := newRenewServiceWithLimiter(t, store, gwc, publisher, config.QuotaLimiter{
+				Cooldown: time.Minute,
+				Window:   24 * time.Hour,
+				DailyCap: 20,
+			})
+
+			nonce, err := s.Renew(context.Background(), testShareID, "")
+			require.NoError(t, err)
+			assert.Empty(t, nonce)
+
+			got, err := store.Get(token.Hash(testShareID))
+			require.NoError(t, err)
+			assert.Equal(t, rec.SecretHash, got.SecretHash)
+			assert.Equal(t, rec.Revision, got.Revision)
+			assert.Equal(t, tt.quota.Count, got.QuotaLimiterState.Count)
+
+			assert.Empty(t, publisher.published)
+			gwc.AssertNotCalled(t, "GetShare", mock.Anything, mock.Anything)
+		})
+	}
+}
+
+func TestRenewWithoutSessionRotatesUnusableLink(t *testing.T) {
+	tests := []struct {
+		name     string
+		redeemed bool
+		expiry   time.Time
+	}{
+		{name: "used", redeemed: true, expiry: time.Now().Add(10 * time.Minute)},
+		{name: "expired", expiry: time.Now().Add(-time.Minute)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := storage.NewFileManager(t.TempDir())
+			_, rec := newToken(t)
+			rec.Redeemed = tt.redeemed
+			rec.Expiry = tt.expiry
+			require.NoError(t, store.Add(rec))
+
+			publisher := &testPublisher{}
+			s := newRenewService(t, store, newGatewayMock(validShareResponse()), publisher)
+
+			_, err := s.Renew(context.Background(), testShareID, "")
+			require.NoError(t, err)
+
+			got, err := store.Get(token.Hash(testShareID))
+			require.NoError(t, err)
+			assert.NotEqual(t, rec.SecretHash, got.SecretHash)
+			assert.False(t, got.Redeemed)
+			require.Len(t, publisher.published, 1)
+		})
+	}
+}
+
+func TestRenewWithoutSessionKeepsLinkIssuedConcurrently(t *testing.T) {
+	base := storage.NewFileManager(t.TempDir())
+	_, rec := newRedeemedToken(t)
+	require.NoError(t, base.Add(rec))
+
+	// Another renewal issues a fresh link after Renew has read the record.
+	store := &rewriteStore{Manager: base}
+	store.onGet = func() {
+		require.NoError(t, base.Update(rec.ShareIDHash, func(r *storage.Record) error {
+			r.SecretHash = "concurrent"
+			r.Redeemed = false
+			r.Expiry = time.Now().Add(guestLinkTokenTTL)
+			return nil
+		}))
+	}
+
+	publisher := &testPublisher{}
+	s := newRenewService(t, store, newGatewayMock(validShareResponse()), publisher)
+
+	nonce, err := s.Renew(context.Background(), testShareID, "")
+	require.NoError(t, err)
+	assert.Empty(t, nonce)
+
+	got, err := base.Get(rec.ShareIDHash)
+	require.NoError(t, err)
+	assert.Equal(t, "concurrent", got.SecretHash)
+	assert.Zero(t, got.QuotaLimiterState.Count)
+	assert.Empty(t, publisher.published)
+}
+
+func TestRenewWithValidSessionReplacesRedeemableLink(t *testing.T) {
+	store := storage.NewFileManager(t.TempDir())
+	_, rec := newToken(t)
+	rec.Expiry = time.Now().Add(10 * time.Minute)
+	require.NoError(t, store.Add(rec))
+
+	publisher := &testPublisher{}
+	s := newRenewService(t, store, newGatewayMock(validShareResponse()), publisher)
+
+	nonce, err := s.Renew(context.Background(), testShareID, validSessionToken(t))
+	require.NoError(t, err)
+	assert.NotEmpty(t, nonce)
+
+	got, err := store.Get(token.Hash(testShareID))
+	require.NoError(t, err)
+	assert.NotEqual(t, rec.SecretHash, got.SecretHash)
+	assert.NotEmpty(t, got.PinHash)
+	require.Len(t, publisher.published, 1)
 }
 
 func TestRenewIgnoresRedeemedAndExpiry(t *testing.T) {
@@ -823,7 +958,7 @@ func TestRenewRollbackConflictKeepsConcurrentChange(t *testing.T) {
 
 func TestRenewShareNotFound(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	_, rec := newToken(t)
+	_, rec := newRedeemedToken(t)
 	require.NoError(t, store.Add(rec))
 
 	s := newRenewService(t, store, newGatewayMock(&collaboration.GetShareResponse{
@@ -841,7 +976,7 @@ func TestRenewShareNotFound(t *testing.T) {
 
 func TestRenewShareExpired(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	_, rec := newToken(t)
+	_, rec := newRedeemedToken(t)
 	require.NoError(t, store.Add(rec))
 
 	s := newRenewService(t, store, newGatewayMock(&collaboration.GetShareResponse{
@@ -860,7 +995,7 @@ func TestRenewShareExpired(t *testing.T) {
 
 func TestRenewRecordsCooldown(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	_, rec := newToken(t)
+	_, rec := newRedeemedToken(t)
 	require.NoError(t, store.Add(rec))
 
 	s := newRenewServiceWithLimiter(t, store, newGatewayMock(validShareResponse()), &testPublisher{}, config.QuotaLimiter{
@@ -881,7 +1016,7 @@ func TestRenewRecordsCooldown(t *testing.T) {
 
 func TestRenewBlockedDuringCooldown(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	_, rec := newToken(t)
+	_, rec := newRedeemedToken(t)
 	rec.QuotaLimiterState = guard.QuotaLimiterState{
 		Count:       1,
 		NotBefore:   time.Now().Add(time.Minute),
@@ -909,7 +1044,7 @@ func TestRenewBlockedDuringCooldown(t *testing.T) {
 
 func TestRenewDailyCap(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	_, rec := newToken(t)
+	_, rec := newRedeemedToken(t)
 	rec.QuotaLimiterState = guard.QuotaLimiterState{
 		Count:       20,
 		NotBefore:   time.Now().Add(time.Minute),
@@ -937,7 +1072,7 @@ func TestRenewDailyCap(t *testing.T) {
 
 func TestRotateGuestTokenBlockedReturnsRetryAfter(t *testing.T) {
 	store := storage.NewFileManager(t.TempDir())
-	tokStr, rec := newToken(t)
+	tokStr, rec := newRedeemedToken(t)
 	rec.QuotaLimiterState = guard.QuotaLimiterState{
 		Count:       1,
 		NotBefore:   time.Now().Add(time.Minute),
