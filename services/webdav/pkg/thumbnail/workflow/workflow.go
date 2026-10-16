@@ -116,14 +116,14 @@ func processorID(processor string) string {
 	return strings.ToLower(processor)
 }
 
-// thumbnailStorageKey builds the cache key: checksum[:2]/checksum[2:4]/checksum[4:]/wxh-<operation>.ext.
+// thumbnailStorageKey builds the cache key: checksum[:2]/checksum[2:4]/checksum[4:]/wxh-<operation>.format.
 // The <operation> segment (fit-in, fill, stretch, ...) distinguishes requests that
 // share a size but produce different images, so they never share a cache entry.
 // The requested resolution is used (not the matched one) so the key can be
 // computed before downloading the source. Caches regenerate when the configured
 // resolutions or operations change.
-func thumbnailStorageKey(checksum string, w, h int, ext, processor string) string {
-	name := fmt.Sprintf("%dx%d-%s.%s", w, h, processor, ext)
+func thumbnailStorageKey(checksum string, w, h int, format, processor string) string {
+	name := fmt.Sprintf("%dx%d-%s.%s", w, h, processor, format)
 	if len(checksum) >= 6 {
 		return checksum[:2] + "/" + checksum[2:4] + "/" + checksum[4:] + "/" + name
 	}
@@ -138,6 +138,8 @@ type ThumbnailWorkflow struct {
 	httpClient     *http.Client
 	maxInputSize   uint64
 	sizes          *thumbnail.Sizes
+	typeMapping    thumbnail.TypeMapping
+	formats        generator.Formats
 	webdavNS       string
 	fontMapFile    string
 	log            log.Logger
@@ -207,6 +209,16 @@ func WithWebdavNamespace(ns string) Option {
 	return func(w *ThumbnailWorkflow) { w.webdavNS = ns }
 }
 
+// WithFormats sets the formats the generator writes, by type.
+func WithFormats(f generator.Formats) Option {
+	return func(w *ThumbnailWorkflow) { w.formats = f }
+}
+
+// WithTypeMapping sets the format a thumbnail of a given image type is written in.
+func WithTypeMapping(m thumbnail.TypeMapping) Option {
+	return func(w *ThumbnailWorkflow) { w.typeMapping = m }
+}
+
 // WithFontMapFile sets the font map file used for text thumbnail rendering.
 func WithFontMapFile(file string) Option {
 	return func(w *ThumbnailWorkflow) { w.fontMapFile = file }
@@ -241,25 +253,25 @@ func WithUserResolver(r UserResolver) Option {
 }
 
 // Execute handles a user thumbnail request (GET).
-func (w *ThumbnailWorkflow) Execute(ctx context.Context, tr *requests.ThumbnailRequest, auth string, logger log.Logger) (data []byte, ext string, aIgnored bool, err error) {
+func (w *ThumbnailWorkflow) Execute(ctx context.Context, tr *requests.ThumbnailRequest, auth string, logger log.Logger) (data []byte, contentType string, aIgnored bool, err error) {
 	ref, err := w.resolveReference(ctx, tr, auth)
 	if err != nil {
 		return nil, "", false, err
 	}
 
-	data, ext, aIgnored, err = w.generate(ctx, ref, auth, tr, logger)
-	return data, ext, aIgnored, err
+	data, contentType, aIgnored, err = w.generate(ctx, ref, auth, tr, logger)
+	return data, contentType, aIgnored, err
 }
 
 // ExecutePublic handles a public link thumbnail request (GET).
-func (w *ThumbnailWorkflow) ExecutePublic(ctx context.Context, tr *requests.ThumbnailRequest, auth string, logger log.Logger) (data []byte, ext string, aIgnored bool, err error) {
+func (w *ThumbnailWorkflow) ExecutePublic(ctx context.Context, tr *requests.ThumbnailRequest, auth string, logger log.Logger) (data []byte, contentType string, aIgnored bool, err error) {
 	ref, err := w.resolveReference(ctx, tr, auth)
 	if err != nil {
 		return nil, "", false, err
 	}
 
-	data, ext, aIgnored, err = w.generate(ctx, ref, auth, tr, logger)
-	return data, ext, aIgnored, err
+	data, contentType, aIgnored, err = w.generate(ctx, ref, auth, tr, logger)
+	return data, contentType, aIgnored, err
 }
 
 // Head performs a cache-only check for a public link thumbnail (HEAD).
@@ -412,12 +424,14 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	}
 	mimeType := info.GetMimeType()
 
-	// The output type follows the source mime (like main's GetExtForMime); when
-	// the source has no dedicated image type (txt, audio) it falls back to the
-	// requested extension.
-	outputExt := generator.OutputFormat(tr.Extension)
-	if ext := generator.ExtForMime(mimeType); ext != "" {
-		outputExt = ext
+	// The thumbnail is written in the type the source type maps to, asked for by
+	// the name the generator's filter uses. A type nobody mapped, and one whose
+	// target the generator cannot write, becomes a JPEG.
+	outputType, outputFormat := "image/jpeg", "jpg"
+	if target := w.typeMapping.TargetFor(mimeType); target != "" {
+		if format := w.formats.For(target); format != "" {
+			outputType, outputFormat = target, format
+		}
 	}
 
 	// The operation is resolved up front so it can be part of the cache key: a
@@ -440,11 +454,11 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	// requests that produce the same image share one entry and the number of
 	// entries per file stays bounded by the ladder. It needs nothing but the
 	// request, so a hit still returns without touching storage.
-	cacheKey := thumbnailStorageKey(checksum, box.Dx(), box.Dy(), outputExt, processorID(operation))
+	cacheKey := thumbnailStorageKey(checksum, box.Dx(), box.Dy(), outputFormat, processorID(operation))
 
 	if w.cache != nil {
 		if cached, err := w.cache.Get(cacheKey); err == nil {
-			return cached, outputExt, aIgnored, nil
+			return cached, outputType, aIgnored, nil
 		}
 	}
 
@@ -452,7 +466,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	// generator fill that box. Only fit-in suppresses upscaling (noUpscale); for
 	// fill/thumbnail/resize the generator may enlarge a small source (e.g. a text
 	// file rendered at a fixed canvas) to fill the snapped box, matching main.
-	genURL := generator.BuildURL(w.generatorURL, int32(box.Dx()), int32(box.Dy()), operation, outputExt, noUpscale)
+	genURL := generator.BuildURL(w.generatorURL, int32(box.Dx()), int32(box.Dy()), operation, outputFormat, noUpscale)
 
 	// Produce the source image to send to the generator, never decoding an image
 	// in webdav: real images (incl. gif) are streamed straight through undecoded;
@@ -465,10 +479,16 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	}
 	defer cleanup()
 
-	thumbBytes, err := w.postToGenerator(ctx, genURL, imgStream, tr.Filename, srcType)
+	thumbBytes, thumbType, err := w.postToGenerator(ctx, genURL, imgStream, tr.Filename, srcType)
 	if err != nil {
 		logger.Error().Err(err).Msg("could not generate thumbnail")
 		return nil, "", false, fmt.Errorf("generate: %w", err)
+	}
+	if thumbType != "" && thumbType != outputType {
+		// the answer is always the type we cache under, so the same request
+		// cannot report one type now and another one after a cache hit
+		logger.Debug().Str("asked", outputType).Str("answered", thumbType).
+			Msg("generator wrote a type we did not ask for")
 	}
 
 	if w.cache != nil {
@@ -477,7 +497,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 		}
 	}
 
-	return thumbBytes, outputExt, aIgnored, nil
+	return thumbBytes, outputType, aIgnored, nil
 }
 
 // sourceImage returns a reader over the source image to send to the generator,
@@ -516,11 +536,12 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 		return nil, "", nil, fmt.Errorf("%w: could not get image", ErrNotFound)
 	}
 
-	data, ext, err := encodeForUpload(img, mimeType)
+	data, contentType, err := encodeForUpload(img, mimeType)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("encode converted image: %w", err)
 	}
-	return bytes.NewReader(data), generator.ContentType(ext), func() {}, nil
+
+	return bytes.NewReader(data), contentType, func() {}, nil
 }
 
 // matchOperation resolves the generator resize/crop operation for a request from
@@ -593,7 +614,7 @@ var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
 // the form part on demand. No Content-Length is set, so the request uses chunked
 // transfer-encoding; both imagor and the thumbnailer parse the multipart body
 // without needing it (imagor enforces its size limit after reading the part).
-func (w *ThumbnailWorkflow) postToGenerator(ctx context.Context, url string, img io.Reader, filename, contentType string) ([]byte, error) {
+func (w *ThumbnailWorkflow) postToGenerator(ctx context.Context, url string, img io.Reader, filename, contentType string) ([]byte, string, error) {
 	pr, pw := io.Pipe()
 	writer := multipart.NewWriter(pw)
 
@@ -625,7 +646,7 @@ func (w *ThumbnailWorkflow) postToGenerator(ctx context.Context, url string, img
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, pr)
 	if err != nil {
 		pr.Close()
-		return nil, fmt.Errorf("create generator request: %w", err)
+		return nil, "", fmt.Errorf("create generator request: %w", err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	// Forward the request ID so the generator's logs can be correlated with this
@@ -638,13 +659,13 @@ func (w *ThumbnailWorkflow) postToGenerator(ctx context.Context, url string, img
 	httpRsp, err := w.httpClient.Do(req)
 	if err != nil {
 		pr.Close()
-		return nil, fmt.Errorf("generator request: %w", err)
+		return nil, "", fmt.Errorf("generator request: %w", err)
 	}
 	defer httpRsp.Body.Close()
 
 	if writeErr := <-errCh; writeErr != nil {
 		io.Copy(io.Discard, httpRsp.Body)
-		return nil, writeErr
+		return nil, "", writeErr
 	}
 
 	if httpRsp.StatusCode < 200 || httpRsp.StatusCode >= 300 {
@@ -654,17 +675,17 @@ func (w *ThumbnailWorkflow) postToGenerator(ctx context.Context, url string, img
 		// legacy "image is too large" error so the DAV layer returns 403, matching
 		// the pre-refactor behavior where webdav enforced the dimension limit.
 		if httpRsp.StatusCode == http.StatusUnprocessableEntity {
-			return nil, ErrImageTooLarge
+			return nil, "", ErrImageTooLarge
 		}
-		return nil, fmt.Errorf("generator returned status %d: %s", httpRsp.StatusCode, string(respBody))
+		return nil, "", fmt.Errorf("generator returned status %d: %s", httpRsp.StatusCode, string(respBody))
 	}
 
 	rspData, err := io.ReadAll(httpRsp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("read generator response: %w", err)
+		return nil, "", fmt.Errorf("read generator response: %w", err)
 	}
 
-	return rspData, nil
+	return rspData, httpRsp.Header.Get("Content-Type"), nil
 }
 
 // gatewaySelector is the interface for selecting a gateway client.

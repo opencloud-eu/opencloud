@@ -38,7 +38,6 @@ type ThumbnailRequest struct {
 	// The file name of the source file including the extension
 	Filename string
 	// The file extension
-	Extension string
 	// The requested width of the thumbnail
 	Width int32
 	// The requested height of the thumbnail
@@ -114,7 +113,6 @@ func ParseThumbnailRequest(r *http.Request) (*ThumbnailRequest, error) {
 	return &ThumbnailRequest{
 		Ref:        ref,
 		Filename:   filepath.Base(fp),
-		Extension:  filepath.Ext(fp),
 		Width:      int32(width),
 		Height:     int32(height),
 		Processor:  q.Get("processor"),

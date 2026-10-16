@@ -1,168 +1,84 @@
-package generator
+package generator_test
 
 import (
-	"testing"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/generator"
 )
 
-func TestParseMaxInputFileSize(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   string
-		want    uint64
-		wantErr bool
-	}{
-		{"empty means no limit", "", 0, false},
-		{"plain bytes", "1234", 1234, false},
-		{"KB is decimal", "50KB", 50_000, false},
-		{"KiB is binary", "50KiB", 50 * 1024, false},
-		{"MB is decimal", "5MB", 5_000_000, false},
-		{"MiB is binary", "5MiB", 5 * 1024 * 1024, false},
-		{"GB is decimal", "2GB", 2_000_000_000, false},
-		{"GiB is binary", "2GiB", 2 * 1024 * 1024 * 1024, false},
-		{"TB", "2TB", 2_000_000_000_000, false},
-		{"whitespace around value", "  5MB  ", 5_000_000, false},
-		{"space before suffix", "5 MB", 5_000_000, false},
-		{"lowercase unit", "50kB", 0, true},
-		{"invalid input", "abc", 0, true},
-		{"negative number", "-5MB", 0, true},
-	}
+var _ = Describe("ParseMaxInputFileSize", func() {
+	DescribeTable("reads a size the way the thumbnails service did",
+		func(input string, want uint64, wantErr bool) {
+			got, err := generator.ParseMaxInputFileSize(input)
+			if wantErr {
+				Expect(err).To(HaveOccurred())
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := ParseMaxInputFileSize(tt.input)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseMaxInputFileSize() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("ParseMaxInputFileSize() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
 
-func TestGetExtensionInfo(t *testing.T) {
-	tests := []struct {
-		ext    string
-		format string
-		ct     string
-	}{
-		{"gif", "gif", "image/gif"},
-		{".gif", "gif", "image/gif"},
-		{"png", "png", "image/png"},
-		{"jpeg", "jpeg", "image/jpeg"},
-		{"jpg", "jpeg", "image/jpeg"},
-		{"webp", "jpeg", "image/jpeg"},
-		{"", "jpeg", "image/jpeg"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.ext, func(t *testing.T) {
-			info := GetExtensionInfo(tt.ext)
-			if info.OutputFormat != tt.format {
-				t.Errorf("OutputFormat = %q, want %q", info.OutputFormat, tt.format)
-			}
-			if info.ContentType != tt.ct {
-				t.Errorf("ContentType = %q, want %q", info.ContentType, tt.ct)
-			}
-		})
-	}
-}
-
-func TestOutputFormat(t *testing.T) {
-	if got := OutputFormat("png"); got != "png" {
-		t.Errorf("OutputFormat(\"png\") = %q, want \"png\"", got)
-	}
-	if got := OutputFormat("jpg"); got != "jpeg" {
-		t.Errorf("OutputFormat(\"jpg\") = %q, want \"jpeg\"", got)
-	}
-}
-
-func TestContentType(t *testing.T) {
-	if got := ContentType("gif"); got != "image/gif" {
-		t.Errorf("ContentType(\"gif\") = %q, want \"image/gif\"", got)
-	}
-	if got := ContentType("unknown"); got != "image/jpeg" {
-		t.Errorf("ContentType(\"unknown\") = %q, want \"image/jpeg\"", got)
-	}
-}
-
-func TestMimeToExt(t *testing.T) {
-	tests := []struct {
-		mime string
-		want string
-	}{
-		{"image/jpeg", "jpg"},
-		{"image/png", "png"},
-		{"image/gif", "gif"},
-		{"application/octet-stream", "jpg"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.mime, func(t *testing.T) {
-			if got := MimeToExt(tt.mime); got != tt.want {
-				t.Errorf("MimeToExt(%q) = %q, want %q", tt.mime, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestBuildURL(t *testing.T) {
-	tests := []struct {
-		name      string
-		base      string
-		width     int32
-		height    int32
-		operation string
-		ext       string
-		noUpscale bool
-		want      string
-	}{
-		{
-			name:      "fill operation center-crops to the box",
-			base:      "http://generator",
-			width:     128,
-			height:    128,
-			operation: OpFill,
-			ext:       "jpeg",
-			want:      "http://generator/unsafe/128x128/filters:format(jpeg)/",
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got).To(Equal(want))
 		},
-		{
-			name:      "fill with no_upscale filter caps the resize at source size",
-			base:      "http://generator",
-			width:     128,
-			height:    128,
-			operation: OpFill,
-			ext:       "jpeg",
-			noUpscale: true,
-			want:      "http://generator/unsafe/128x128/filters:no_upscale():format(jpeg)/",
-		},
-		{
-			name:      "fit-in preserves aspect ratio within the box without upscaling",
-			base:      "http://generator",
-			width:     1024,
-			height:    1024,
-			operation: OpFitIn,
-			ext:       "jpeg",
-			want:      "http://generator/unsafe/fit-in/1024x1024/filters:format(jpeg)/",
-		},
-		{
-			name:      "stretch resizes to the exact box",
-			base:      "http://generator/",
-			width:     64,
-			height:    32,
-			operation: OpStretch,
-			ext:       "png",
-			want:      "http://generator/unsafe/stretch/64x32/filters:format(png)/",
-		},
-	}
+		Entry("empty means no limit", "", uint64(0), false),
+		Entry("plain bytes", "1234", uint64(1234), false),
+		Entry("KB is decimal", "50KB", uint64(50_000), false),
+		Entry("KiB is binary", "50KiB", uint64(50*1024), false),
+		Entry("MB is decimal", "5MB", uint64(5_000_000), false),
+		Entry("MiB is binary", "5MiB", uint64(5*1024*1024), false),
+		Entry("GB is decimal", "2GB", uint64(2_000_000_000), false),
+		Entry("GiB is binary", "2GiB", uint64(2*1024*1024*1024), false),
+		Entry("TB", "2TB", uint64(2_000_000_000_000), false),
+		Entry("whitespace around the value", "  5MB  ", uint64(5_000_000), false),
+		Entry("space before the suffix", "5 MB", uint64(5_000_000), false),
+		Entry("a lowercase unit", "50kB", uint64(0), true),
+		Entry("not a size", "abc", uint64(0), true),
+		Entry("a negative size", "-5MB", uint64(0), true),
+	)
+})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := BuildURL(tt.base, tt.width, tt.height, tt.operation, tt.ext, tt.noUpscale)
-			if got != tt.want {
-				t.Errorf("BuildURL() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
+var _ = Describe("Formats", func() {
+	DescribeTable("names the format the generator's filter uses for a type",
+		func(contentType, want string) {
+			Expect(generator.NewFormats(nil).For(contentType)).To(Equal(want))
+		},
+		Entry("png", "image/png", "png"),
+		Entry("gif", "image/gif", "gif"),
+		Entry("jpeg", "image/jpeg", "jpg"),
+		Entry("a type with parameters", "image/jpeg; q=1", "jpg"),
+		Entry("webp, which the built-in generator cannot write", "image/webp", ""),
+		Entry("an icon, which no generator writes", "image/vnd.microsoft.icon", ""),
+		Entry("nonsense", "not a mime type", ""),
+	)
+
+	It("takes a format the built-in generator cannot write, for a generator that can", func() {
+		formats := generator.NewFormats([]string{" Image/WEBP : WebP "})
+
+		Expect(formats.For("image/webp")).To(Equal("webp"))
+		Expect(formats.For("image/gif")).To(Equal("gif"), "a default nobody touched still answers")
+	})
+
+	It("takes an empty format as no format", func() {
+		Expect(generator.NewFormats([]string{"image/png:"}).For("image/png")).To(BeEmpty())
+	})
+})
+
+var _ = Describe("BuildURL", func() {
+	DescribeTable("renders the generator's image endpoint",
+		func(base string, width, height int32, operation, format string, noUpscale bool, want string) {
+			Expect(generator.BuildURL(base, width, height, operation, format, noUpscale)).To(Equal(want))
+		},
+		Entry("fill center-crops to the box",
+			"http://generator", int32(128), int32(128), generator.OpFill, "jpeg", false,
+			"http://generator/unsafe/128x128/filters:format(jpeg)/"),
+		Entry("fill with no_upscale caps the resize at the source size",
+			"http://generator", int32(128), int32(128), generator.OpFill, "jpeg", true,
+			"http://generator/unsafe/128x128/filters:no_upscale():format(jpeg)/"),
+		Entry("fit-in preserves the aspect ratio within the box",
+			"http://generator", int32(1024), int32(1024), generator.OpFitIn, "jpeg", false,
+			"http://generator/unsafe/fit-in/1024x1024/filters:format(jpeg)/"),
+		Entry("stretch resizes to the exact box",
+			"http://generator/", int32(64), int32(32), generator.OpStretch, "png", false,
+			"http://generator/unsafe/stretch/64x32/filters:format(png)/"),
+	)
+})

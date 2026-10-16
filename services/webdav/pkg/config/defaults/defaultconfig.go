@@ -8,6 +8,8 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/generator"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
 // FullDefaultConfig returns a fully initialized default configuration
@@ -48,6 +50,8 @@ func DefaultConfig() *config.Config {
 		ThumbnailGeneratorURL:     "http://127.0.0.1:9186",
 		ThumbnailGeneratorTimeout: "30s",
 		ThumbnailMaxInputFileSize: "50MB",
+		ThumbnailGeneratorFormats: generator.DefaultFormats,
+		ThumbnailTypeMapping:      thumbnail.DefaultTypeMapping,
 		ThumbnailCacheBackend:     "file",
 		ThumbnailCacheDir:         path.Join(cored.BaseDataPath(), "thumbnails", "files"),
 		ThumbnailResolutions: []string{

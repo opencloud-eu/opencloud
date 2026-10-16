@@ -194,6 +194,8 @@ func newThumbnailWorkflow(conf *config.Config, logger log.Logger, gatewaySelecto
 		workflow.WithHTTPClient(httpClient),
 		workflow.WithMaxInputSize(maxInputSize),
 		workflow.WithSizes(sizes),
+		workflow.WithFormats(generator.NewFormats(conf.ThumbnailGeneratorFormats)),
+		workflow.WithTypeMapping(thumbnail.NewTypeMapping(conf.ThumbnailTypeMapping)),
 		workflow.WithWebdavNamespace(conf.WebdavNamespace),
 		workflow.WithFontMapFile(conf.ThumbnailFontMapFile),
 		workflow.WithLogger(logger),
@@ -292,13 +294,13 @@ func (g Webdav) SpacesThumbnail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	auth := r.Header.Get(revactx.TokenHeader)
-	data, ext, aIgnored, err := g.workflow.Execute(r.Context(), tr, auth, logger)
+	data, contentType, aIgnored, err := g.workflow.Execute(r.Context(), tr, auth, logger)
 	if err != nil {
 		g.handleWorkflowError(w, r, err, tr, logger)
 		return
 	}
 	setAspectIgnoredHeader(w, aIgnored)
-	generator.WriteThumbnailResponse(w, data, ext)
+	generator.WriteThumbnailResponse(w, data, contentType)
 }
 
 func whoami(gatewayClient gatewayv1beta1.GatewayAPIClient, ctx context.Context, token string) (*userv1beta1.User, error) {
@@ -325,13 +327,13 @@ func (g Webdav) Thumbnail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	auth := r.Header.Get(revactx.TokenHeader)
-	data, ext, aIgnored, err := g.workflow.Execute(r.Context(), tr, auth, logger)
+	data, contentType, aIgnored, err := g.workflow.Execute(r.Context(), tr, auth, logger)
 	if err != nil {
 		g.handleWorkflowError(w, r, err, tr, logger)
 		return
 	}
 	setAspectIgnoredHeader(w, aIgnored)
-	generator.WriteThumbnailResponse(w, data, ext)
+	generator.WriteThumbnailResponse(w, data, contentType)
 }
 
 func (g Webdav) PublicThumbnail(w http.ResponseWriter, r *http.Request) {
@@ -349,13 +351,13 @@ func (g Webdav) PublicThumbnail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, ext, aIgnored, err := g.workflow.ExecutePublic(r.Context(), tr, auth, logger)
+	data, contentType, aIgnored, err := g.workflow.ExecutePublic(r.Context(), tr, auth, logger)
 	if err != nil {
 		g.handleWorkflowError(w, r, err, tr, logger)
 		return
 	}
 	setAspectIgnoredHeader(w, aIgnored)
-	generator.WriteThumbnailResponse(w, data, ext)
+	generator.WriteThumbnailResponse(w, data, contentType)
 }
 
 func (g Webdav) PublicThumbnailHead(w http.ResponseWriter, r *http.Request) {

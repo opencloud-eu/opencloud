@@ -39,6 +39,9 @@ type Config struct {
 	ThumbnailCacheS3Endpoint  string   `yaml:"thumbnail_cache_s3_endpoint" env:"WEBDAV_THUMBNAIL_CACHE_S3_ENDPOINT" desc:"S3 endpoint URL (for MinIO or compatible services) when ThumbnailCacheBackend is 's3'." introductionVersion:"%%NEXT%%"`
 	ThumbnailCacheS3AccessKey string   `yaml:"thumbnail_cache_s3_access_key" env:"WEBDAV_THUMBNAIL_CACHE_S3_ACCESS_KEY" desc:"S3 access key for thumbnail cache authentication." introductionVersion:"%%NEXT%%"`
 	ThumbnailCacheS3SecretKey string   `yaml:"thumbnail_cache_s3_secret_key" env:"WEBDAV_THUMBNAIL_CACHE_S3_SECRET_KEY" desc:"S3 secret key for thumbnail cache authentication." introductionVersion:"%%NEXT%%"`
+	ThumbnailGeneratorFormats []string `yaml:"thumbnail_generator_formats" env:"OC_THUMBNAIL_GENERATOR_FORMATS;WEBDAV_THUMBNAIL_GENERATOR_FORMATS" desc:"The formats the thumbnail generator writes, as mime:format entries, e.g. image/webp:webp. The format is the name the generator's own format filter uses. A type that is not listed is one the generator cannot write, and a thumbnail mapped to it becomes a JPEG instead." introductionVersion:"%%NEXT%%"`
+	ThumbnailTypeMapping      []string `yaml:"thumbnail_type_mapping" env:"OC_THUMBNAIL_TYPE_MAPPING;WEBDAV_THUMBNAIL_TYPE_MAPPING" desc:"The type a thumbnail is written in, per type of the image it is made from, as mime:mime entries, e.g. image/vnd.microsoft.icon:image/png. The target is asked for by the name WEBDAV_THUMBNAIL_GENERATOR_FORMATS gives it. A type that is not listed, and one whose target the generator cannot write, becomes a JPEG." introductionVersion:"%%NEXT%%"`
+
 	// the yaml key stays unprefixed, a config file written against it has to keep working
 	ThumbnailFontMapFile string `yaml:"font_map_file" env:"WEBDAV_THUMBNAILS_TXT_FONTMAP_FILE;THUMBNAILS_TXT_FONTMAP_FILE" desc:"The path to a font map file for txt thumbnails." introductionVersion:"%%NEXT%%"`
 

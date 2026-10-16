@@ -33,6 +33,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/constants"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/dav/requests"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/generator"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail/cache"
 )
 
@@ -187,6 +188,8 @@ func setupPreprocessTest(
 		WithCache(testCache),
 		WithHTTPClient(&http.Client{}),
 		WithWebdavNamespace("/users/{{.Id.OpaqueId}}"),
+		WithFormats(generator.NewFormats(nil)),
+		WithTypeMapping(thumbnail.NewTypeMapping(nil)),
 		WithLogger(logger),
 		WithStater(NewGatewayStater(pool.GetSelector[gatewayv1beta1.GatewayAPIClient](
 			"GatewaySelector", "test.gateway",
@@ -221,7 +224,7 @@ func setupPreprocessTest(
 			PermissionSet: &providerv1beta1.ResourcePermissions{InitiateFileDownload: true},
 			MimeType:      mimeType,
 			Size:          uint64(len(downloadBody)),
-			Checksum:      &providerv1beta1.ResourceChecksum{Sum: "ppchecksum"},
+			Checksum:      &providerv1beta1.ResourceChecksum{Sum: "1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b"},
 		},
 	}, nil)
 
@@ -300,6 +303,8 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			WithCache(testCache),
 			WithHTTPClient(&http.Client{}),
 			WithWebdavNamespace("/users/{{.Id.OpaqueId}}"),
+			WithFormats(generator.NewFormats(nil)),
+			WithTypeMapping(thumbnail.NewTypeMapping(nil)),
 			WithLogger(logger),
 			WithStater(NewGatewayStater(gatewaySelector)),
 			WithFileDownloader(NewGatewayFileDownloader(gatewaySelector, &http.Client{})),
@@ -392,18 +397,17 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			wf.generatorURL = generatorSrv.URL
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef("storageid$spaceid!opaqueid", "test.jpg"),
-				Filename:  "test.jpg",
-				Extension: ".jpg",
-				Width:     128,
-				Height:    128,
-				Aspect:    true,
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "test.jpg"),
+				Filename: "test.jpg",
+				Width:    128,
+				Height:   128,
+				Aspect:   true,
 			}
 
-			data, ext, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			data, contentType, _, err := wf.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(Equal(thumbBytes))
-			Expect(ext).To(Equal("jpg"))
+			Expect(contentType).To(Equal("image/jpeg"))
 
 			cached, err := testCache.Get("cb/56/752477cae6405f85b131872c60d21b967c6a/128x128-fill.jpg")
 			Expect(err).ToNot(HaveOccurred())
@@ -470,16 +474,15 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			wf.generatorURL = generatorSrv.URL
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       &providerv1beta1.Reference{Path: "photo.jpeg"},
-				Filename:  "photo.jpeg",
-				Extension: ".jpeg",
-				Width:     36,
-				Height:    36,
+				Ref:      &providerv1beta1.Reference{Path: "photo.jpeg"},
+				Filename: "photo.jpeg",
+				Width:    36,
+				Height:   36,
 			}
 
-			data, ext, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			data, contentType, _, err := wf.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(ext).To(Equal("jpg"))
+			Expect(contentType).To(Equal("image/jpeg"))
 			Expect(data).To(Equal([]byte("webdav-thumbnail")))
 
 			// No username in the URL: the token owner (test) is resolved via WhoAmI.
@@ -539,7 +542,6 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			tr := &requests.ThumbnailRequest{
 				Ref:        &providerv1beta1.Reference{Path: "parent.txt"},
 				Filename:   "parent.txt",
-				Extension:  ".txt",
 				Width:      32,
 				Height:     32,
 				Identifier: "Alice",
@@ -604,16 +606,15 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			wf.generatorURL = generatorSrv.URL
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef(ssid, "photo.jpeg"),
-				Filename:  "photo.jpeg",
-				Extension: ".jpeg",
-				Width:     36,
-				Height:    36,
+				Ref:      spaceRef(ssid, "photo.jpeg"),
+				Filename: "photo.jpeg",
+				Width:    36,
+				Height:   36,
 			}
 
-			data, ext, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			data, contentType, _, err := wf.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(ext).To(Equal("jpg"))
+			Expect(contentType).To(Equal("image/jpeg"))
 			Expect(data).To(Equal([]byte("space-thumbnail")))
 
 			Expect(downloadRef.GetResourceId().StorageId).To(Equal(storage))
@@ -683,16 +684,15 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			wf.generatorURL = generatorSrv.URL
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef(ssid, "lorem.txt"),
-				Filename:  "lorem.txt",
-				Extension: ".txt",
-				Width:     36,
-				Height:    36,
+				Ref:      spaceRef(ssid, "lorem.txt"),
+				Filename: "lorem.txt",
+				Width:    36,
+				Height:   36,
 			}
 
-			data, ext, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			data, contentType, _, err := wf.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(ext).To(Equal("jpg"))
+			Expect(contentType).To(Equal("image/jpeg"))
 			Expect(data).To(Equal([]byte("share-thumbnail")))
 
 			// The shares space ResourceId is used verbatim; no lookup was needed.
@@ -766,15 +766,14 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			tr := &requests.ThumbnailRequest{
 				Ref:        &providerv1beta1.Reference{Path: "photo.jpeg"},
 				Filename:   "photo.jpeg",
-				Extension:  ".jpeg",
 				Width:      36,
 				Height:     36,
 				Identifier: "alice",
 			}
 
-			data, ext, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			data, contentType, _, err := wf.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(ext).To(Equal("jpg"))
+			Expect(contentType).To(Equal("image/jpeg"))
 			Expect(data).To(Equal([]byte("user-thumbnail")))
 
 			// The username from the URL (alice) is resolved via GetUserByClaim and
@@ -794,11 +793,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "image/png", "img.png", pngBytes)
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef("storageid$spaceid!opaqueid", "img.png"),
-				Filename:  "img.png",
-				Extension: ".png",
-				Width:     64,
-				Height:    64,
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "img.png"),
+				Filename: "img.png",
+				Width:    64,
+				Height:   64,
 			}
 
 			_, _, _, err = wf2.Execute(context.Background(), tr, testToken, logger)
@@ -813,11 +811,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "song.mp3", mp3Bytes)
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef("storageid$spaceid!opaqueid", "song.mp3"),
-				Filename:  "song.mp3",
-				Extension: ".mp3",
-				Width:     64,
-				Height:    64,
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "song.mp3"),
+				Filename: "song.mp3",
+				Width:    64,
+				Height:   64,
 			}
 
 			_, _, _, err = wf2.Execute(context.Background(), tr, testToken, logger)
@@ -833,11 +830,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "application/vnd.geogebra.slides", "deck.ggs", ggsBytes)
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef("storageid$spaceid!opaqueid", "deck.ggs"),
-				Filename:  "deck.ggs",
-				Extension: ".ggs",
-				Width:     64,
-				Height:    64,
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "deck.ggs"),
+				Filename: "deck.ggs",
+				Width:    64,
+				Height:   64,
 			}
 
 			_, _, _, err = wf2.Execute(context.Background(), tr, testToken, logger)
@@ -852,11 +848,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "text/plain", "notes.txt", text)
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef("storageid$spaceid!opaqueid", "notes.txt"),
-				Filename:  "notes.txt",
-				Extension: ".txt",
-				Width:     64,
-				Height:    64,
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "notes.txt"),
+				Filename: "notes.txt",
+				Width:    64,
+				Height:   64,
 			}
 
 			_, _, _, err := wf2.Execute(context.Background(), tr, testToken, logger)
@@ -872,11 +867,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "image/gif", "anim.gif", gifBytes)
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef("storageid$spaceid!opaqueid", "anim.gif"),
-				Filename:  "anim.gif",
-				Extension: ".gif",
-				Width:     64,
-				Height:    64,
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "anim.gif"),
+				Filename: "anim.gif",
+				Width:    64,
+				Height:   64,
 			}
 
 			_, _, _, err = wf2.Execute(context.Background(), tr, testToken, logger)
@@ -890,17 +884,83 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			wf2, _ := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "bad.mp3", []byte("not a real audio file"))
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef("storageid$spaceid!opaqueid", "bad.mp3"),
-				Filename:  "bad.mp3",
-				Extension: ".mp3",
-				Width:     64,
-				Height:    64,
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "bad.mp3"),
+				Filename: "bad.mp3",
+				Width:    64,
+				Height:   64,
 			}
 
 			_, _, _, err := wf2.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).To(HaveOccurred())
 			Expect(errors.Is(err, ErrNotFound)).To(BeTrue())
 			Expect(err.Error()).To(ContainSubstring("could not get image"))
+		})
+	})
+
+	Describe("output format", func() {
+		DescribeTable("asks for the format the source type maps to",
+			func(mimeType, filename, wantFilter, wantType, wantKey string) {
+				wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, mimeType, filename, []byte("source-bytes"))
+
+				tr := &requests.ThumbnailRequest{
+					Ref:      spaceRef("storageid$spaceid!opaqueid", filename),
+					Filename: filename,
+					Width:    64,
+					Height:   64,
+				}
+
+				_, contentType, _, err := wf2.Execute(context.Background(), tr, testToken, logger)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(captured.path).To(ContainSubstring(wantFilter))
+				Expect(contentType).To(Equal(wantType))
+
+				_, err = testCache.Get(wantKey)
+				Expect(err).ToNot(HaveOccurred(), "the format belongs in the cache key")
+			},
+			Entry("a png keeps its alpha channel",
+				"image/png", "img.png", "filters:format(png)", "image/png",
+				"1f/0c/9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b/64x64-fill.png"),
+			Entry("a gif keeps its animation",
+				"image/gif", "anim.gif", "filters:format(gif)", "image/gif",
+				"1f/0c/9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b/64x64-stretch.gif"),
+			Entry("a bmp becomes a jpeg",
+				"image/bmp", "scan.bmp", "filters:format(jpg)", "image/jpeg",
+				"1f/0c/9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b/64x64-fill.jpg"),
+		)
+
+		It("follows a configured chain into a format the built-in generator cannot write", func() {
+			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "image/png", "img.png", []byte("source-bytes"))
+			wf2.typeMapping = thumbnail.NewTypeMapping([]string{"image/png:image/webp"})
+			wf2.formats = generator.NewFormats([]string{"image/webp:webp"})
+
+			tr := &requests.ThumbnailRequest{
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "img.png"),
+				Filename: "img.png",
+				Width:    64,
+				Height:   64,
+			}
+
+			_, contentType, _, err := wf2.Execute(context.Background(), tr, testToken, logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(captured.path).To(ContainSubstring("filters:format(webp)"))
+			Expect(contentType).To(Equal("image/webp"))
+		})
+
+		It("falls back to a jpeg when the generator cannot write the mapped target", func() {
+			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "image/png", "img.png", []byte("source-bytes"))
+			wf2.typeMapping = thumbnail.NewTypeMapping([]string{"image/png:image/vnd.microsoft.icon"})
+
+			tr := &requests.ThumbnailRequest{
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "img.png"),
+				Filename: "img.png",
+				Width:    64,
+				Height:   64,
+			}
+
+			_, contentType, _, err := wf2.Execute(context.Background(), tr, testToken, logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(captured.path).To(ContainSubstring("filters:format(jpg)"))
+			Expect(contentType).To(Equal("image/jpeg"))
 		})
 	})
 
@@ -913,18 +973,17 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			// No download expectations are set up. If the workflow tried to
 			// download the source on a cache hit, the gateway mock would fail.
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef("storageid$spaceid!opaqueid", "test.jpg"),
-				Filename:  "test.jpg",
-				Extension: ".jpg",
-				Width:     128,
-				Height:    128,
-				Aspect:    true,
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "test.jpg"),
+				Filename: "test.jpg",
+				Width:    128,
+				Height:   128,
+				Aspect:   true,
 			}
 
-			data, ext, _, err := wf.Execute(context.Background(), tr, testToken, logger)
+			data, contentType, _, err := wf.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(Equal(cachedThumb))
-			Expect(ext).To(Equal("jpg"))
+			Expect(contentType).To(Equal("image/jpeg"))
 		})
 	})
 
@@ -944,11 +1003,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			}, nil)
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef("storageid$spaceid!opaqueid", "document.pdf"),
-				Filename:  "document.pdf",
-				Extension: ".pdf",
-				Width:     64,
-				Height:    64,
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "document.pdf"),
+				Filename: "document.pdf",
+				Width:    64,
+				Height:   64,
 			}
 
 			_, _, _, err := wf.Execute(context.Background(), tr, testToken, logger)
@@ -969,11 +1027,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			}, nil)
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef("storageid$spaceid!opaqueid", "myfolder/"),
-				Filename:  "myfolder",
-				Extension: "",
-				Width:     64,
-				Height:    64,
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "myfolder/"),
+				Filename: "myfolder",
+				Width:    64,
+				Height:   64,
 			}
 
 			_, _, _, err := wf.Execute(context.Background(), tr, testToken, logger)
@@ -1025,11 +1082,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			}, nil)
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef("storageid$spaceid!opaqueid", "large.jpg"),
-				Filename:  "large.jpg",
-				Extension: ".jpg",
-				Width:     64,
-				Height:    64,
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "large.jpg"),
+				Filename: "large.jpg",
+				Width:    64,
+				Height:   64,
 			}
 
 			_, _, _, err = wfWithLimit.Execute(context.Background(), tr, testToken, logger)
@@ -1065,11 +1121,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			wf.generatorURL = generatorSrv.URL
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef("storageid$spaceid!opaqueid", "test.jpg"),
-				Filename:  "test.jpg",
-				Extension: ".jpg",
-				Width:     100,
-				Height:    100,
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "test.jpg"),
+				Filename: "test.jpg",
+				Width:    100,
+				Height:   100,
 			}
 
 			_, _, _, err := wf.Execute(context.Background(), tr, testToken, logger)
@@ -1105,11 +1160,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			wf.generatorURL = generatorSrv.URL
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef("storageid$spaceid!opaqueid", "test.jpg"),
-				Filename:  "test.jpg",
-				Extension: ".jpg",
-				Width:     64,
-				Height:    64,
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "test.jpg"),
+				Filename: "test.jpg",
+				Width:    64,
+				Height:   64,
 			}
 
 			_, _, _, err := wf.Execute(context.Background(), tr, testToken, logger)
@@ -1180,18 +1234,17 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       &providerv1beta1.Reference{Path: "/public/" + publicLinkToken + "/folder/photo.jpg"},
-				Filename:  "photo.jpg",
-				Extension: ".jpg",
-				Width:     64,
-				Height:    64,
-				Aspect:    true,
+				Ref:      &providerv1beta1.Reference{Path: "/public/" + publicLinkToken + "/folder/photo.jpg"},
+				Filename: "photo.jpg",
+				Width:    64,
+				Height:   64,
+				Aspect:   true,
 			}
 
-			data, ext, _, err := wf.ExecutePublic(req.Context(), tr, auth, logger)
+			data, contentType, _, err := wf.ExecutePublic(req.Context(), tr, auth, logger)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(Equal(thumbBytes))
-			Expect(ext).To(Equal("jpg"))
+			Expect(contentType).To(Equal("image/jpeg"))
 
 			cached, err := testCache.Get("5b/a1/b086d95a7e0fd8ff4323caee0c412ab07fc3/64x64-fill.jpg")
 			Expect(err).ToNot(HaveOccurred())
@@ -1258,11 +1311,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       &providerv1beta1.Reference{Path: "/public/" + publicLinkToken + "/photo.jpg"},
-				Filename:  "photo.jpg",
-				Extension: ".jpg",
-				Width:     64,
-				Height:    64,
+				Ref:      &providerv1beta1.Reference{Path: "/public/" + publicLinkToken + "/photo.jpg"},
+				Filename: "photo.jpg",
+				Width:    64,
+				Height:   64,
 			}
 
 			data, _, _, err := wf.ExecutePublic(req.Context(), tr, auth, logger)
@@ -1333,11 +1385,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       &providerv1beta1.Reference{Path: "/public/" + publicLinkToken + "/folder/photo.jpg"},
-				Filename:  "photo.jpg",
-				Extension: ".jpg",
-				Width:     64,
-				Height:    64,
+				Ref:      &providerv1beta1.Reference{Path: "/public/" + publicLinkToken + "/folder/photo.jpg"},
+				Filename: "photo.jpg",
+				Width:    64,
+				Height:   64,
 			}
 
 			err = wf.Head(req.Context(), tr, auth, logger)
@@ -1367,11 +1418,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       &providerv1beta1.Reference{Path: "/public/" + publicLinkToken + "/nonexistent.jpg"},
-				Filename:  "nonexistent.jpg",
-				Extension: ".jpg",
-				Width:     64,
-				Height:    64,
+				Ref:      &providerv1beta1.Reference{Path: "/public/" + publicLinkToken + "/nonexistent.jpg"},
+				Filename: "nonexistent.jpg",
+				Width:    64,
+				Height:   64,
 			}
 
 			err = wf.Head(req.Context(), tr, auth, logger)
@@ -1407,11 +1457,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       &providerv1beta1.Reference{Path: "/public/" + publicLinkToken + "/document.pdf"},
-				Filename:  "document.pdf",
-				Extension: ".pdf",
-				Width:     64,
-				Height:    64,
+				Ref:      &providerv1beta1.Reference{Path: "/public/" + publicLinkToken + "/document.pdf"},
+				Filename: "document.pdf",
+				Width:    64,
+				Height:   64,
 			}
 
 			err = wf.Head(req.Context(), tr, auth, logger)
@@ -1436,11 +1485,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			}, nil)
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef("storageid$spaceid!opaqueid", "restricted.jpg"),
-				Filename:  "restricted.jpg",
-				Extension: ".jpg",
-				Width:     64,
-				Height:    64,
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "restricted.jpg"),
+				Filename: "restricted.jpg",
+				Width:    64,
+				Height:   64,
 			}
 
 			_, _, _, err := wf.Execute(context.Background(), tr, testToken, logger)
@@ -1475,11 +1523,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       &providerv1beta1.Reference{Path: "/public/" + publicLinkToken + "/folder/restricted.jpg"},
-				Filename:  "restricted.jpg",
-				Extension: ".jpg",
-				Width:     64,
-				Height:    64,
+				Ref:      &providerv1beta1.Reference{Path: "/public/" + publicLinkToken + "/folder/restricted.jpg"},
+				Filename: "restricted.jpg",
+				Width:    64,
+				Height:   64,
 			}
 
 			err = wf.Head(req.Context(), tr, auth, logger)
@@ -1508,11 +1555,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			}, nil)
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef("storageid$spaceid!opaqueid", "processing.jpg"),
-				Filename:  "processing.jpg",
-				Extension: ".jpg",
-				Width:     64,
-				Height:    64,
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "processing.jpg"),
+				Filename: "processing.jpg",
+				Width:    64,
+				Height:   64,
 			}
 
 			_, _, _, err := wf.Execute(context.Background(), tr, testToken, logger)
@@ -1552,11 +1598,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       &providerv1beta1.Reference{Path: "/public/" + publicLinkToken + "/folder/photo.jpg"},
-				Filename:  "photo.jpg",
-				Extension: ".jpg",
-				Width:     64,
-				Height:    64,
+				Ref:      &providerv1beta1.Reference{Path: "/public/" + publicLinkToken + "/folder/photo.jpg"},
+				Filename: "photo.jpg",
+				Width:    64,
+				Height:   64,
 			}
 
 			err = wf.Head(req.Context(), tr, auth, logger)
@@ -1573,11 +1618,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			}, nil)
 
 			tr := &requests.ThumbnailRequest{
-				Ref:       spaceRef("storageid$spaceid!opaqueid", "otherusersfile.txt"),
-				Filename:  "otherusersfile.txt",
-				Extension: ".txt",
-				Width:     64,
-				Height:    64,
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "otherusersfile.txt"),
+				Filename: "otherusersfile.txt",
+				Width:    64,
+				Height:   64,
 			}
 
 			_, _, _, err := wf.Execute(context.Background(), tr, testToken, logger)
@@ -1602,9 +1646,10 @@ var _ = Describe("postToGenerator", func() {
 		defer srv.Close()
 
 		wf := &ThumbnailWorkflow{httpClient: srv.Client()}
-		out, err := wf.postToGenerator(context.Background(), srv.URL, strings.NewReader("payload"), `we"ird.png`, "image/png")
+		out, outType, err := wf.postToGenerator(context.Background(), srv.URL, strings.NewReader("payload"), `we"ird.png`, "image/png")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(out)).To(Equal("thumb"))
+		Expect(outType).To(HavePrefix("text/plain"), "the generator's own answer, whatever it says")
 		Expect(partType).To(Equal("image/png"), "application/octet-stream is rejected by imagor")
 		Expect(partDisposition).To(Equal(`form-data; name="image"; filename="we\"ird.png"`))
 	})
