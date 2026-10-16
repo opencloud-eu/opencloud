@@ -103,9 +103,12 @@ func ParseThumbnailRequest(r *http.Request) (*ThumbnailRequest, error) {
 	if width == 0 && height == 0 {
 		return nil, fmt.Errorf("Cannot leave both width and height unconstrained!")
 	}
-	if (width == 0 || height == 0) && cropsToBox(q.Get("processor")) {
-		// An unconstrained side has no target to crop to. The wording is the
-		// legacy one because clients assert on it.
+	processor := q.Get("processor")
+	if (width == 0 || height == 0) && processor != "" && cropsToBox(processor) {
+		// A processor that was asked for by name and crops has no target for an
+		// unconstrained side. Without a processor the axis decides and the
+		// workflow fits instead. The wording is the legacy one because clients
+		// assert on it.
 		name := "width"
 		if width != 0 {
 			name = "height"
@@ -118,7 +121,7 @@ func ParseThumbnailRequest(r *http.Request) (*ThumbnailRequest, error) {
 		Filename:   filepath.Base(fp),
 		Width:      int32(width),
 		Height:     int32(height),
-		Processor:  q.Get("processor"),
+		Processor:  processor,
 		Aspect:     q.Get("a") != "0",
 		AspectSet:  q.Has("a"),
 		Identifier: identifier,

@@ -67,7 +67,7 @@ func TestParseThumbnailRequestDimensions(t *testing.T) {
 		{name: "an omitted axis is unconstrained", query: "y=512&processor=fit", wantW: 0, wantH: 512},
 		{name: "an explicit zero is unconstrained", query: "x=0&y=512&processor=fit", wantW: 0, wantH: 512},
 		{name: "negative is rejected", query: "x=-1&y=512", wantErr: true},
-		{name: "cropping to an unconstrained axis is rejected", query: "y=512", wantErr: true},
+		{name: "an unconstrained axis without a processor is fitted, not rejected", query: "y=512", wantW: 0, wantH: 512},
 		{name: "both axes unconstrained is rejected", query: "x=0&y=0&processor=fit", wantErr: true},
 		{name: "cropping to an unconstrained axis is rejected explicitly", query: "y=512&processor=thumbnail", wantErr: true},
 	}

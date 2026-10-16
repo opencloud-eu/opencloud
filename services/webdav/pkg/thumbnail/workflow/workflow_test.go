@@ -105,16 +105,40 @@ var _ = Describe("matchOperation", func() {
 	})
 
 	It("defaults to fill for non-gif sources without a processor and allows upscaling", func() {
-		op, noUpscale, aIgnored := w.matchOperation(&requests.ThumbnailRequest{}, "image/jpeg")
+		op, noUpscale, aIgnored := w.matchOperation(&requests.ThumbnailRequest{Width: 64, Height: 64}, "image/jpeg")
 		Expect(op).To(Equal(generator.OpFill))
 		Expect(noUpscale).To(BeFalse())
 		Expect(aIgnored).To(BeFalse())
 	})
 
 	It("stretches gifs by default (resize for gifs) and allows upscaling", func() {
-		op, noUpscale, _ := w.matchOperation(&requests.ThumbnailRequest{}, "image/gif")
+		op, noUpscale, _ := w.matchOperation(&requests.ThumbnailRequest{Width: 64, Height: 64}, "image/gif")
 		Expect(op).To(Equal(generator.OpStretch))
 		Expect(noUpscale).To(BeFalse())
+	})
+
+	It("fits in when an axis is unconstrained, there is nothing to crop to", func() {
+		op, noUpscale, _ := w.matchOperation(&requests.ThumbnailRequest{Width: 0, Height: 512}, "image/jpeg")
+		Expect(op).To(Equal(generator.OpFitIn))
+		Expect(noUpscale).To(BeTrue())
+	})
+
+	DescribeTable("honours a when the client sent it and no processor",
+		func(aspect bool, want string) {
+			op, _, aIgnored := w.matchOperation(
+				&requests.ThumbnailRequest{Width: 64, Height: 64, Aspect: aspect, AspectSet: true}, "image/jpeg")
+			Expect(op).To(Equal(want))
+			Expect(aIgnored).To(BeFalse(), "nothing contradicted a")
+		},
+		Entry("a=1 preserves the aspect ratio", true, generator.OpFitIn),
+		Entry("a=0 fills the box", false, generator.OpFill),
+	)
+
+	It("reports aIgnored when an unconstrained axis overrules a=0", func() {
+		op, _, aIgnored := w.matchOperation(
+			&requests.ThumbnailRequest{Width: 0, Height: 512, Aspect: false, AspectSet: true}, "image/jpeg")
+		Expect(op).To(Equal(generator.OpFitIn))
+		Expect(aIgnored).To(BeTrue())
 	})
 
 	It("reports aIgnored when an explicit processor overrides the legacy a flag", func() {

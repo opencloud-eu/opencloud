@@ -590,28 +590,33 @@ func (w *ThumbnailWorkflow) matchOperation(tr *requests.ThumbnailRequest, mimeTy
 		operation = generator.OpFill
 	case "fit", "fit-in":
 		operation = generator.OpFitIn
-	default: // no processor: default behavior depends on source type
-		if strings.HasPrefix(mimeType, "image/gif") {
+	default: // no processor: a free axis, then "a", then the source type decide
+		switch {
+		case tr.Width == 0 || tr.Height == 0:
+			operation = generator.OpFitIn
+		case tr.AspectSet && tr.Aspect:
+			operation = generator.OpFitIn
+		case tr.AspectSet:
+			operation = generator.OpFill
+		case strings.HasPrefix(mimeType, "image/gif"):
 			operation = generator.OpStretch
-		} else {
+		default:
 			operation = generator.OpFill
 		}
 	}
 
 	noUpscale := operation == generator.OpFitIn
 
-	// The legacy "a" flag is a hint (a=1/absent -> preserve aspect / fit-in,
-	// a=0 -> fill). An explicit processor always wins over it; report when the
-	// processor's behavior contradicts what "a" asked so the client can be told
-	// via a response header. stretch is neutral (the box is distorted to fit) so
-	// "a" has no meaning for it and never counts as ignored.
+	// Report when what we resolved contradicts an "a" the client actually sent,
+	// so it can fix the request. stretch distorts either way, so "a" means
+	// nothing for it and never counts as ignored.
 	aIgnored := false
-	if proc != "" {
+	if tr.AspectSet {
 		switch operation {
 		case generator.OpFill:
-			aIgnored = tr.AspectSet && tr.Aspect // a asked for fit-in but we filled
+			aIgnored = tr.Aspect // a asked for fit-in but we fill
 		case generator.OpFitIn:
-			aIgnored = tr.AspectSet && !tr.Aspect // a asked for fill but we fit-in
+			aIgnored = !tr.Aspect // a asked for fill but we fit in
 		}
 	}
 
@@ -690,16 +695,14 @@ func (w *ThumbnailWorkflow) postToGenerator(ctx context.Context, url string, img
 		if httpRsp.StatusCode == http.StatusUnprocessableEntity {
 			return nil, "", ErrImageTooLarge
 		}
-		// The generator refuses what it cannot read: imagor answers 406, the
-		// built-in one 400. That is a missing preview, not a server fault, so
-		// the client gets a 404 and stops asking.
 		if httpRsp.StatusCode == http.StatusTooManyRequests {
 			retryAfter, _ := strconv.Atoi(httpRsp.Header.Get("Retry-After"))
 			return nil, "", &GeneratorBusyError{RetryAfterSeconds: retryAfter}
 		}
 
-		// Only a source the generator cannot read means "no preview"; a 400 is a
-		// request this service built wrong and must not read as one.
+		// A source the generator cannot read is a missing preview, not a server
+		// fault, so the client gets a 404 and stops asking. A 400 means this
+		// service built the request wrong and must not read as one.
 		if httpRsp.StatusCode == http.StatusNotAcceptable {
 			return nil, "", fmt.Errorf("%w: generator refused the source: %s", ErrUnsupportedFileType, strings.TrimSpace(string(respBody)))
 		}

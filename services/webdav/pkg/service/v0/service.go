@@ -177,6 +177,10 @@ func newThumbnailWorkflow(conf *config.Config, sourceTypes thumbnail.SourceTypes
 	if err != nil {
 		return nil, fmt.Errorf("parse thumbnail sizes: %w", err)
 	}
+	// without a ladder nothing snaps, and the client would pick the cache key
+	if sizes.Max() == 0 {
+		return nil, fmt.Errorf("thumbnail resolutions must name at least one edge length")
+	}
 
 	maxInputSize, err := generator.ParseMaxInputFileSize(conf.ThumbnailMaxInputFileSize)
 	if err != nil {
