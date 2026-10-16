@@ -1375,6 +1375,15 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 		infoMap[fileinfo.KeyUserExtraInfo] = extraInfo
 	}
 
+	// secure view exists to keep the original file from the user, so it gets no download link
+	if wopiContext.ViewOnlyToken == "" {
+		if du, err := f.createFileDownloadURL(wopiContext, collaborationURL); err == nil {
+			infoMap[fileinfo.KeyDownloadURL] = du
+		} else {
+			logger.Error().Err(err).Msg("CheckFileInfo: failed to create the download URL")
+		}
+	}
+
 	// if the file content is empty and a template reference is set, add the template source URL
 	if wopiContext.TemplateReference != nil && statRes.GetInfo().GetSize() == 0 {
 		if tu, err := f.createDownloadURL(wopiContext, collaborationURL); err == nil {
@@ -1405,6 +1414,25 @@ func (f *FileConnector) createDownloadURL(wopiContext middleware.WopiContext, co
 		collaborationURL.Path,
 		"wopi/templates/",
 		helpers.HashResourceId(templateContext.FileReference.GetResourceId()),
+	)
+	q := downloadURL.Query()
+	q.Add("access_token", token)
+	downloadURL.RawQuery = q.Encode()
+	return downloadURL.String(), nil
+}
+
+// createFileDownloadURL builds a URL to the WOPI contents of the file, authorized by a WOPI token.
+func (f *FileConnector) createFileDownloadURL(wopiContext middleware.WopiContext, collaborationURL *url.URL) (string, error) {
+	token, _, err := middleware.GenerateWopiToken(wopiContext, f.cfg, f.store)
+	if err != nil {
+		return "", err
+	}
+	downloadURL := *collaborationURL
+	downloadURL.Path = path.Join(
+		collaborationURL.Path,
+		"wopi/files/",
+		helpers.HashResourceId(wopiContext.FileReference.GetResourceId()),
+		"contents",
 	)
 	q := downloadURL.Query()
 	q.Add("access_token", token)

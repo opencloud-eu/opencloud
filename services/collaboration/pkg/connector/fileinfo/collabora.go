@@ -52,6 +52,8 @@ type Collabora struct {
 
 	// The page to navigate to when the editor closes or fails unrecoverably.
 	CloseURL string `json:"CloseUrl,omitempty"`
+	// A link to download the original file.
+	DownloadURL string `json:"DownloadUrl,omitempty"`
 	// The page that lets the user share the file.
 	FileSharingURL string `json:"FileSharingUrl,omitempty"`
 	// The page that shows the version history of the file.
@@ -170,6 +172,8 @@ func (cinfo *Collabora) SetProperties(props map[string]any) {
 
 		case KeyCloseURL:
 			cinfo.CloseURL = value.(string)
+		case KeyDownloadURL:
+			cinfo.DownloadURL = value.(string)
 		case KeyFileSharingURL:
 			cinfo.FileSharingURL = value.(string)
 		case KeyFileVersionURL:

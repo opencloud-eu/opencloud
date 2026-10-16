@@ -1768,6 +1768,10 @@ var _ = Describe("FileConnector", func() {
 			response, err := fc.CheckFileInfo(ctx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(response.Status).To(Equal(200))
+			// DownloadURL carries a fresh WOPI token, so check its shape separately
+			Expect(response.Body.(*fileinfo.Microsoft).DownloadURL).To(HavePrefix("https://wopi.opencloud.test/wopi/files/"))
+			Expect(response.Body.(*fileinfo.Microsoft).DownloadURL).To(ContainSubstring("/contents?access_token="))
+			response.Body.(*fileinfo.Microsoft).DownloadURL = ""
 			Expect(response.Body.(*fileinfo.Microsoft)).To(Equal(expectedFileInfo))
 		})
 
@@ -1862,6 +1866,10 @@ var _ = Describe("FileConnector", func() {
 			// overwrite UserID and UserFriendlyName here for easier matching
 			response.Body.(*fileinfo.Collabora).UserID = "guest-zzz000"
 			response.Body.(*fileinfo.Collabora).UserFriendlyName = "guest zzz000"
+			// DownloadURL carries a fresh WOPI token, so check its shape separately
+			Expect(response.Body.(*fileinfo.Collabora).DownloadURL).To(HavePrefix("https://wopi.opencloud.test/wopi/files/"))
+			Expect(response.Body.(*fileinfo.Collabora).DownloadURL).To(ContainSubstring("/contents?access_token="))
+			response.Body.(*fileinfo.Collabora).DownloadURL = ""
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(response.Status).To(Equal(200))
@@ -2182,6 +2190,10 @@ var _ = Describe("FileConnector", func() {
 			Expect(body.UserExtraInfo).ToNot(BeNil())
 			Expect(body.UserExtraInfo.Avatar).To(ContainSubstring("/wopi/avatars/aabbcc?access_token="))
 			Expect(body.UserExtraInfo.Mail).To(Equal("shaft@example.com"))
+			// DownloadURL carries a fresh WOPI token, so check its shape separately
+			Expect(body.DownloadURL).To(HavePrefix("https://wopi.opencloud.test/wopi/files/"))
+			Expect(body.DownloadURL).To(ContainSubstring("/contents?access_token="))
+			body.DownloadURL = ""
 			// Clear dynamic fields for struct comparison
 			body.UserExtraInfo.Avatar = ""
 			expectedFileInfo.UserExtraInfo.Avatar = ""
