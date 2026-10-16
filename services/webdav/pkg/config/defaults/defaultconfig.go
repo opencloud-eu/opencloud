@@ -47,7 +47,7 @@ func DefaultConfig() *config.Config {
 
 		ThumbnailGeneratorURL:     "http://127.0.0.1:9186",
 		ThumbnailGeneratorTimeout: "30s",
-		MaxInputFileSize:          "50MB",
+		ThumbnailMaxInputFileSize: "50MB",
 		ThumbnailCacheBackend:     "file",
 		ThumbnailCacheDir:         path.Join(cored.BaseDataPath(), "thumbnails", "files"),
 		ThumbnailResolutions: []string{

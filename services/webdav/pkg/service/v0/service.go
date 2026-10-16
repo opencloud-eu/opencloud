@@ -84,6 +84,83 @@ func NewService(opts ...Option) (Service, error) {
 		return nil, err
 	}
 
+	// with previews disabled nothing talks to the generator, so the workflow
+	// and its cache are never built
+	var wf *workflow.ThumbnailWorkflow
+	if !conf.DisablePreviews {
+		wf, err = newThumbnailWorkflow(conf, options.Logger, gatewaySelector)
+		if err != nil {
+			return nil, fmt.Errorf("create thumbnail workflow: %w", err)
+		}
+	}
+
+	svc := Webdav{
+		config:          conf,
+		log:             options.Logger,
+		mux:             m,
+		searchClient:    searchsvc.NewSearchProviderService("eu.opencloud.api.search", conf.GrpcClient),
+		workflow:        wf,
+		gatewaySelector: gatewaySelector,
+	}
+
+	m.Route(options.Config.HTTP.Root, func(r chi.Router) {
+		r.Group(func(r chi.Router) {
+			r.Use(svc.DavUserContext())
+
+			if !conf.DisablePreviews {
+				r.Get("/remote.php/dav/spaces/{id}", svc.SpacesThumbnail)
+				r.Get("/remote.php/dav/spaces/{id}/*", svc.SpacesThumbnail)
+				r.Get("/dav/spaces/{id}", svc.SpacesThumbnail)
+				r.Get("/dav/spaces/{id}/*", svc.SpacesThumbnail)
+
+				r.Get("/remote.php/dav/files/{id}", svc.Thumbnail)
+				r.Get("/remote.php/dav/files/{id}/*", svc.Thumbnail)
+				r.Get("/dav/files/{id}", svc.Thumbnail)
+				r.Get("/dav/files/{id}/*", svc.Thumbnail)
+			}
+
+			r.MethodFunc("REPORT", "/remote.php/dav/spaces*", svc.Search)
+			r.MethodFunc("REPORT", "/dav/spaces*", svc.Search)
+			r.MethodFunc("REPORT", "/remote.php/dav/files*", svc.Search)
+			r.MethodFunc("REPORT", "/dav/files*", svc.Search)
+		})
+
+		if !conf.DisablePreviews {
+			r.Group(func(r chi.Router) {
+				r.Use(svc.DavPublicContext())
+
+				r.Head("/remote.php/dav/public-files/{token}/*", svc.PublicThumbnailHead)
+				r.Head("/dav/public-files/{token}/*", svc.PublicThumbnailHead)
+
+				r.Get("/remote.php/dav/public-files/{token}/*", svc.PublicThumbnail)
+				r.Get("/dav/public-files/{token}/*", svc.PublicThumbnail)
+			})
+		}
+
+		r.Group(func(r chi.Router) {
+			r.Use(svc.WebDAVContext())
+
+			if !conf.DisablePreviews {
+				r.Get("/remote.php/webdav/*", svc.Thumbnail)
+				r.Get("/webdav/*", svc.Thumbnail)
+			}
+
+			r.MethodFunc("REPORT", "/remote.php/webdav*", svc.Search)
+			r.MethodFunc("REPORT", "/webdav*", svc.Search)
+		})
+	})
+
+	_ = chi.Walk(m, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		options.Logger.Debug().Str("method", method).Str("route", route).Int("middlewares", len(middlewares)).Msg("serving endpoint")
+		return nil
+	})
+
+	return svc, nil
+}
+
+// newThumbnailWorkflow wires the preview pipeline: the generator client, the
+// cache and the gateway-backed lookups.
+func newThumbnailWorkflow(conf *config.Config, logger log.Logger, gatewaySelector pool.Selectable[gatewayv1beta1.GatewayAPIClient]) (*workflow.ThumbnailWorkflow, error) {
 	genTimeout, _ := time.ParseDuration(conf.ThumbnailGeneratorTimeout)
 	if genTimeout == 0 {
 		genTimeout = 30 * time.Second
@@ -94,7 +171,7 @@ func NewService(opts ...Option) (Service, error) {
 		return nil, fmt.Errorf("parse thumbnail sizes: %w", err)
 	}
 
-	maxInputSize, err := generator.ParseMaxInputFileSize(conf.MaxInputFileSize)
+	maxInputSize, err := generator.ParseMaxInputFileSize(conf.ThumbnailMaxInputFileSize)
 	if err != nil {
 		return nil, fmt.Errorf("parse max input file size: %w", err)
 	}
@@ -111,79 +188,20 @@ func NewService(opts ...Option) (Service, error) {
 
 	httpClient := &http.Client{Timeout: genTimeout}
 
-	wf, err := workflow.NewWorkflow(
+	return workflow.NewWorkflow(
 		workflow.WithGeneratorURL(conf.ThumbnailGeneratorURL),
 		workflow.WithCache(c),
 		workflow.WithHTTPClient(httpClient),
 		workflow.WithMaxInputSize(maxInputSize),
 		workflow.WithSizes(sizes),
 		workflow.WithWebdavNamespace(conf.WebdavNamespace),
-		workflow.WithFontMapFile(conf.FontMapFile),
-		workflow.WithLogger(options.Logger),
+		workflow.WithFontMapFile(conf.ThumbnailFontMapFile),
+		workflow.WithLogger(logger),
 		workflow.WithStater(workflow.NewGatewayStater(gatewaySelector)),
 		workflow.WithFileDownloader(workflow.NewGatewayFileDownloader(gatewaySelector, httpClient)),
 		workflow.WithSpaceLookup(workflow.NewGatewaySpaceLookup(gatewaySelector)),
 		workflow.WithUserResolver(workflow.NewGatewayUserResolver(gatewaySelector)),
 	)
-	if err != nil {
-		return nil, fmt.Errorf("create thumbnail workflow: %w", err)
-	}
-
-	svc := Webdav{
-		config:          conf,
-		log:             options.Logger,
-		mux:             m,
-		searchClient:    searchsvc.NewSearchProviderService("eu.opencloud.api.search", conf.GrpcClient),
-		workflow:        wf,
-		gatewaySelector: gatewaySelector,
-	}
-
-	m.Route(options.Config.HTTP.Root, func(r chi.Router) {
-		r.Group(func(r chi.Router) {
-			r.Use(svc.DavUserContext())
-
-			r.Get("/remote.php/dav/spaces/{id}", svc.SpacesThumbnail)
-			r.Get("/remote.php/dav/spaces/{id}/*", svc.SpacesThumbnail)
-			r.Get("/dav/spaces/{id}", svc.SpacesThumbnail)
-			r.Get("/dav/spaces/{id}/*", svc.SpacesThumbnail)
-			r.MethodFunc("REPORT", "/remote.php/dav/spaces*", svc.Search)
-			r.MethodFunc("REPORT", "/dav/spaces*", svc.Search)
-
-			r.Get("/remote.php/dav/files/{id}", svc.Thumbnail)
-			r.Get("/remote.php/dav/files/{id}/*", svc.Thumbnail)
-			r.Get("/dav/files/{id}", svc.Thumbnail)
-			r.Get("/dav/files/{id}/*", svc.Thumbnail)
-
-			r.MethodFunc("REPORT", "/remote.php/dav/files*", svc.Search)
-			r.MethodFunc("REPORT", "/dav/files*", svc.Search)
-		})
-
-		r.Group(func(r chi.Router) {
-			r.Use(svc.DavPublicContext())
-
-			r.Head("/remote.php/dav/public-files/{token}/*", svc.PublicThumbnailHead)
-			r.Head("/dav/public-files/{token}/*", svc.PublicThumbnailHead)
-
-			r.Get("/remote.php/dav/public-files/{token}/*", svc.PublicThumbnail)
-			r.Get("/dav/public-files/{token}/*", svc.PublicThumbnail)
-		})
-
-		r.Group(func(r chi.Router) {
-			r.Use(svc.WebDAVContext())
-			r.Get("/remote.php/webdav/*", svc.Thumbnail)
-			r.Get("/webdav/*", svc.Thumbnail)
-
-			r.MethodFunc("REPORT", "/remote.php/webdav*", svc.Search)
-			r.MethodFunc("REPORT", "/webdav*", svc.Search)
-		})
-	})
-
-	_ = chi.Walk(m, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
-		options.Logger.Debug().Str("method", method).Str("route", route).Int("middlewares", len(middlewares)).Msg("serving endpoint")
-		return nil
-	})
-
-	return svc, nil
 }
 
 // Webdav implements the business logic for Service.

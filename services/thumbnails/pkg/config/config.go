@@ -36,5 +36,5 @@ type Thumbnail struct {
 	// decoded and resized in parallel. 0 (the default) means unlimited, matching
 	// main's THUMBNAILS_MAX_CONCURRENT_REQUESTS. Requests arriving while the limit
 	// is reached get HTTP 429 Too Many Requests.
-	MaxConcurrentRequests int `yaml:"max_concurrent_requests" env:"THUMBNAILS_MAX_CONCURRENT_REQUESTS" desc:"Maximum number of concurrent thumbnail generation requests. Default is 0 which is unlimited." introductionVersion:"1.0.0"`
+	MaxConcurrentRequests int `yaml:"max_concurrent_requests" env:"THUMBNAILS_MAX_CONCURRENT_REQUESTS" desc:"Maximum number of concurrent thumbnail generation requests. Default is 0 which is unlimited." introductionVersion:"%%NEXT%%"`
 }
