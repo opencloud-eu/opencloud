@@ -54,3 +54,39 @@ func TestParseThumbnailRequestProcessor(t *testing.T) {
 		t.Errorf("dimensions = %dx%d, want 320x320", tr.Width, tr.Height)
 	}
 }
+
+func TestParseThumbnailRequestDimensions(t *testing.T) {
+	tests := []struct {
+		name         string
+		query        string
+		wantW, wantH int32
+		wantErr      bool
+	}{
+		{name: "both given", query: "x=448&y=448", wantW: 448, wantH: 448},
+		{name: "neither given keeps the legacy default", query: "preview=1", wantW: DefaultWidth, wantH: DefaultHeight},
+		{name: "an omitted axis is unconstrained", query: "y=512&processor=fit", wantW: 0, wantH: 512},
+		{name: "an explicit zero is unconstrained", query: "x=0&y=512&processor=fit", wantW: 0, wantH: 512},
+		{name: "negative is rejected", query: "x=-1&y=512", wantErr: true},
+		{name: "cropping to an unconstrained axis is rejected", query: "y=512", wantErr: true},
+		{name: "both axes unconstrained is rejected", query: "x=0&y=0&processor=fit", wantErr: true},
+		{name: "cropping to an unconstrained axis is rejected explicitly", query: "y=512&processor=thumbnail", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tr, err := ParseThumbnailRequest(newThumbnailRequest(t, tt.query))
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("ParseThumbnailRequest() error = nil, want an error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ParseThumbnailRequest() error = %v", err)
+			}
+			if tr.Width != tt.wantW || tr.Height != tt.wantH {
+				t.Errorf("dimensions = %dx%d, want %dx%d", tr.Width, tr.Height, tt.wantW, tt.wantH)
+			}
+		})
+	}
+}

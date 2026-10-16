@@ -3,6 +3,7 @@ package thumbnail
 import (
 	"fmt"
 	"image"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -13,7 +14,7 @@ const (
 	_resolutionSeparator = "x"
 )
 
-// ParseResolution returns an image.Rectangle representing the resolution given as a string.
+// ParseResolution returns an image.Rectangle representing the resolution given as a string
 func ParseResolution(s string) (image.Rectangle, error) {
 	parts := strings.Split(s, _resolutionSeparator)
 	if len(parts) != 2 {
@@ -30,80 +31,77 @@ func ParseResolution(s string) (image.Rectangle, error) {
 	return image.Rect(0, 0, width, height), nil
 }
 
-// Resolutions is a list of supported target resolutions, split at parse time into
-// landscape (width >= height, including squares) and portrait (height > width)
-// groups so a request can be matched against the group that fits its orientation.
-type Resolutions struct {
-	landscape []image.Rectangle
-	portrait  []image.Rectangle
+// Sizes is the ladder of edge lengths a generated thumbnail may have. Each axis
+// of a request is snapped onto it separately, so the ladder stands for every
+// combination of its lengths without the orientation of the request mattering.
+type Sizes struct {
+	asc []int
 }
 
-// ParseResolutions creates a Resolutions instance from resolution strings,
-// partitioning each into the landscape or portrait group by its orientation.
-func ParseResolutions(strs []string) (*Resolutions, error) {
-	rs := &Resolutions{}
+// ParseSizes builds the ladder from configuration. An entry is either a plain
+// edge length ("512") or a legacy resolution ("500x280"), which contributes both
+// of its sides, so an existing box configuration keeps working.
+func ParseSizes(strs []string) (*Sizes, error) {
+	seen := map[int]struct{}{}
 	for _, s := range strs {
-		r, err := ParseResolution(s)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not parse resolutions")
-		}
-		if r.Dx() >= r.Dy() {
-			rs.landscape = append(rs.landscape, r)
-		} else {
-			rs.portrait = append(rs.portrait, r)
-		}
-	}
-	return rs, nil
-}
-
-// Match returns the target resolution to request from the generator for a given
-// requested size. It is source-less: the choice depends only on the requested
-// orientation and dominant dimension, never on the (unknown to webdav) source
-// size. The request's orientation selects the group (width >= height -> landscape,
-// else portrait); within that group the resolution whose dominant dimension is the
-// smallest one still at least the requested dominant dimension is returned (the
-// closest fit without going under), or the largest in the group if none qualifies.
-// An empty list yields the request itself.
-func (rs *Resolutions) Match(requested image.Rectangle) image.Rectangle {
-	group := rs.portrait
-	if requested.Dx() >= requested.Dy() {
-		group = rs.landscape
-	}
-
-	if len(group) == 0 {
-		return requested
-	}
-
-	reqDom := dominant(requested)
-
-	var match image.Rectangle
-	found := false
-	for _, current := range group {
-		cDom := dominant(current)
-		if cDom < reqDom {
+		s = strings.TrimSpace(s)
+		if s == "" {
 			continue
 		}
-		if !found || cDom < dominant(match) {
-			match = current
-			found = true
+		if strings.Contains(s, _resolutionSeparator) {
+			r, err := ParseResolution(s)
+			if err != nil {
+				return nil, errors.Wrap(err, "could not parse thumbnail sizes")
+			}
+			seen[r.Dx()] = struct{}{}
+			seen[r.Dy()] = struct{}{}
+			continue
 		}
+		v, err := strconv.Atoi(s)
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not parse thumbnail size %q", s)
+		}
+		seen[v] = struct{}{}
 	}
 
-	if !found {
-		for _, current := range group {
-			if !found || dominant(current) > dominant(match) {
-				match = current
-				found = true
-			}
+	sizes := &Sizes{}
+	for v := range seen {
+		if v > 0 {
+			sizes.asc = append(sizes.asc, v)
 		}
 	}
-	return match
+	sort.Ints(sizes.asc)
+	return sizes, nil
 }
 
-// dominant returns the longer dimension of a rectangle.
-func dominant(r image.Rectangle) int {
-	if r.Dx() > r.Dy() {
-		return r.Dx()
+// Snap returns the box to request from the generator. Both axes are rounded up
+// to the next configured length, so the result always covers what was asked for
+// and a client can do the last bit of cropping itself. An axis of zero is
+// unconstrained and takes the largest configured length, which keeps the output
+// bounded in both directions.
+func (s *Sizes) Snap(requested image.Rectangle) image.Rectangle {
+	return image.Rect(0, 0, s.snap(requested.Dx()), s.snap(requested.Dy()))
+}
+
+// Max returns the largest configured length, or zero when nothing is configured.
+func (s *Sizes) Max() int {
+	if len(s.asc) == 0 {
+		return 0
 	}
-	return r.Dy()
+	return s.asc[len(s.asc)-1]
+}
+
+func (s *Sizes) snap(v int) int {
+	if len(s.asc) == 0 {
+		return v
+	}
+	if v <= 0 {
+		return s.Max()
+	}
+	for _, c := range s.asc {
+		if c >= v {
+			return c
+		}
+	}
+	return s.Max()
 }

@@ -136,7 +136,7 @@ type ThumbnailWorkflow struct {
 	cache          cache.ThumbnailCache
 	httpClient     *http.Client
 	maxInputSize   uint64
-	resolutions    *thumbnail.Resolutions
+	sizes          *thumbnail.Sizes
 	webdavNS       string
 	fontMapFile    string
 	log            log.Logger
@@ -194,11 +194,11 @@ func WithMaxInputSize(size uint64) Option {
 	return func(w *ThumbnailWorkflow) { w.maxInputSize = size }
 }
 
-// WithResolutions sets the supported target resolutions used to snap a requested
-// size onto a generator box. The generator is a dumb executor, so webdav owns the
-// configured list and chooses the box; it only needs the list to pick the box.
-func WithResolutions(rs *thumbnail.Resolutions) Option {
-	return func(w *ThumbnailWorkflow) { w.resolutions = rs }
+// WithSizes sets the ladder of edge lengths a generated thumbnail may have. The
+// generator is a dumb executor, so webdav owns the configured ladder and decides
+// the box.
+func WithSizes(s *thumbnail.Sizes) Option {
+	return func(w *ThumbnailWorkflow) { w.sizes = s }
 }
 
 // WithWebdavNamespace sets the CS3 path layout for resolving user paths.
@@ -427,24 +427,24 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	// be told.
 	operation, noUpscale, aIgnored := w.matchOperation(tr, mimeType)
 
-	// The cache key uses the requested resolution (like main's PrepareRequest),
-	// so it can be computed before downloading. Checking the cache first means a
-	// hit returns without touching storage, matching main's fast path.
-	cacheKey := thumbnailStorageKey(checksum, int(tr.Width), int(tr.Height), outputExt, processorID(operation))
+	// webdav is the sizing brain: it snaps each axis of the requested size onto
+	// the configured ladder. It never inspects the image bytes; the generator is
+	// a dumb executor that just fits within the given box.
+	box := image.Rect(0, 0, int(tr.Width), int(tr.Height))
+	if w.sizes != nil {
+		box = w.sizes.Snap(box)
+	}
+
+	// The cache key uses the snapped box, not what the client asked for, so
+	// requests that produce the same image share one entry and the number of
+	// entries per file stays bounded by the ladder. It needs nothing but the
+	// request, so a hit still returns without touching storage.
+	cacheKey := thumbnailStorageKey(checksum, box.Dx(), box.Dy(), outputExt, processorID(operation))
 
 	if w.cache != nil {
 		if cached, err := w.cache.Get(cacheKey); err == nil {
 			return cached, outputExt, aIgnored, nil
 		}
-	}
-
-	// webdav is the sizing brain: it snaps the requested size onto a configured
-	// resolution (orientation-aware). It never inspects the image bytes; the
-	// generator is a dumb executor that just fits within the given box.
-	reqBox := image.Rect(0, 0, int(tr.Width), int(tr.Height))
-	box := reqBox
-	if w.resolutions != nil {
-		box = w.resolutions.Match(reqBox)
 	}
 
 	// webdav snaps the requested size onto a configured resolution and lets the

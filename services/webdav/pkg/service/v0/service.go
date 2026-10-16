@@ -89,9 +89,9 @@ func NewService(opts ...Option) (Service, error) {
 		genTimeout = 30 * time.Second
 	}
 
-	resolutions, err := thumbnail.ParseResolutions(conf.ThumbnailResolutions)
+	sizes, err := thumbnail.ParseSizes(conf.ThumbnailResolutions)
 	if err != nil {
-		return nil, fmt.Errorf("parse thumbnail resolutions: %w", err)
+		return nil, fmt.Errorf("parse thumbnail sizes: %w", err)
 	}
 
 	maxInputSize, err := generator.ParseMaxInputFileSize(conf.MaxInputFileSize)
@@ -116,7 +116,7 @@ func NewService(opts ...Option) (Service, error) {
 		workflow.WithCache(c),
 		workflow.WithHTTPClient(httpClient),
 		workflow.WithMaxInputSize(maxInputSize),
-		workflow.WithResolutions(resolutions),
+		workflow.WithSizes(sizes),
 		workflow.WithWebdavNamespace(conf.WebdavNamespace),
 		workflow.WithFontMapFile(conf.FontMapFile),
 		workflow.WithLogger(options.Logger),

@@ -18,8 +18,9 @@ Feature: sizing of previews of files downloaded through the webdav API
     Then the HTTP status code should be "200"
     And the downloaded image should be <return-width> pixels wide and <return-height> pixels high
     # No processor is given, so the default behavior applies: fill. The source
-    # preview of a text file is always 640x480 (landscape). The requested size is
-    # snapped onto a configured resolution (the box) and the image is center-cropped
+    # preview of a text file is always 640x480 (landscape). Each axis of the
+    # requested size is rounded up to the next configured edge length on its own,
+    # so an asymmetric request stays asymmetric, and the image is center-cropped
     # to fill that exact box. fill may upscale, so when the box is larger than the
     # source the 640x480 source is enlarged to cover it; only boxes smaller than
     # the source are downscaled.
@@ -28,18 +29,18 @@ Feature: sizing of previews of files downloaded through the webdav API
       | 1             | 1              | 16           | 16            | old              |
       | 32            | 32             | 32           | 32            | old              |
       | 1024          | 1024           | 1024         | 1024          | old              |
-      | 1             | 1024           | 1080         | 1920          | old              |
-      | 1024          | 1              | 1024         | 1024          | old              |
+      | 1             | 1024           | 16           | 1024          | old              |
+      | 1024          | 1              | 1024         | 16            | old              |
       | 1             | 1              | 16           | 16            | new              |
       | 32            | 32             | 32           | 32            | new              |
       | 1024          | 1024           | 1024         | 1024          | new              |
-      | 1             | 1024           | 1080         | 1920          | new              |
-      | 1024          | 1              | 1024         | 1024          | new              |
+      | 1             | 1024           | 16           | 1024          | new              |
+      | 1024          | 1              | 1024         | 16            | new              |
       | 1             | 1              | 16           | 16            | spaces           |
       | 32            | 32             | 32           | 32            | spaces           |
       | 1024          | 1024           | 1024         | 1024          | spaces           |
-      | 1             | 1024           | 1080         | 1920          | spaces           |
-      | 1024          | 1              | 1024         | 1024          | spaces           |
+      | 1             | 1024           | 16           | 1024          | spaces           |
+      | 1024          | 1              | 1024         | 16            | spaces           |
 
 
   Scenario Outline: download a preview with an explicit processor
@@ -49,8 +50,9 @@ Feature: sizing of previews of files downloaded through the webdav API
     Then the HTTP status code should be "200"
     And the downloaded image should be <return-width> pixels wide and <return-height> pixels high
     # An explicit processor overrides the default. The source preview of a text
-    # file is always 640x480 (landscape); the requested size is snapped onto a
-    # configured resolution (the box) and the operation is applied within it:
+    # file is always 640x480 (landscape); each axis of the requested size is
+    # rounded up to the next configured edge length and the operation is applied
+    # within the resulting box:
     #   fit  -> aspect-fit within the box, never upscaled (keeps source ratio)
     #   fill -> center-crop to the exact box (may upscale/downscale to cover)
     #   resize -> stretch to the exact box (distorts aspect ratio)
@@ -65,8 +67,8 @@ Feature: sizing of previews of files downloaded through the webdav API
       | 1             | 1              | fit       | 16           | 12            | spaces           |
       | 32            | 32             | fit       | 32           | 24            | spaces           |
       | 1024          | 1024           | fit       | 640          | 480           | spaces           |
-      | 1             | 1024           | fit       | 640          | 480           | spaces           |
-      | 1024          | 1              | fit       | 640          | 480           | spaces           |
+      | 1             | 1024           | fit       | 16           | 12            | spaces           |
+      | 1024          | 1              | fit       | 21           | 16            | spaces           |
       | 1             | 1              | fill      | 16           | 16            | spaces           |
       | 32            | 32             | fill      | 32           | 32            | spaces           |
       | 1024          | 1024           | fill      | 1024         | 1024          | spaces           |

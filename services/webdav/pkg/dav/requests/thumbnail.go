@@ -98,6 +98,18 @@ func ParseThumbnailRequest(r *http.Request) (*ThumbnailRequest, error) {
 	if err != nil {
 		return nil, err
 	}
+	if width == 0 && height == 0 {
+		return nil, fmt.Errorf("Cannot leave both width and height unconstrained!")
+	}
+	if (width == 0 || height == 0) && cropsToBox(q.Get("processor")) {
+		// An unconstrained side has no target to crop to. The wording is the
+		// legacy one because clients assert on it.
+		name := "width"
+		if width != 0 {
+			name = "height"
+		}
+		return nil, fmt.Errorf("Cannot set %s of 0 or smaller!", name)
+	}
 
 	return &ThumbnailRequest{
 		Ref:        ref,
@@ -122,26 +134,45 @@ func addMissingStorageID(id string) string {
 	return storagespace.FormatResourceID(rid)
 }
 
+// parseDimensions reads the requested box. Zero means "do not constrain this
+// axis", and an omitted axis is the same as zero, so a client that knows only
+// one side can ask for it alone. Only when both are absent does the legacy
+// default apply, which keeps the dimensionless OC10 call working.
 func parseDimensions(q url.Values) (int64, int64, error) {
-	width, err := parseDimension(q.Get("x"), "width", DefaultWidth)
+	x, y := q.Get("x"), q.Get("y")
+	if x == "" && y == "" {
+		return DefaultWidth, DefaultHeight, nil
+	}
+	width, err := parseDimension(x, "width")
 	if err != nil {
 		return 0, 0, err
 	}
-	height, err := parseDimension(q.Get("y"), "height", DefaultHeight)
+	height, err := parseDimension(y, "height")
 	if err != nil {
 		return 0, 0, err
 	}
 	return width, height, nil
 }
 
-func parseDimension(d, name string, defaultValue int64) (int64, error) {
+func parseDimension(d, name string) (int64, error) {
 	if d == "" {
-		return defaultValue, nil
+		return 0, nil
 	}
 	result, err := strconv.ParseInt(d, 10, 32)
-	if err != nil || result < 1 {
+	if err != nil || result < 0 {
 		// The error message doesn't fit but for OC10 API compatibility reasons we have to set this.
 		return 0, fmt.Errorf("Cannot set %s of 0 or smaller!", name)
 	}
 	return result, nil
+}
+
+// cropsToBox reports whether the processor produces exactly the requested box,
+// which an unconstrained axis cannot describe.
+func cropsToBox(processor string) bool {
+	switch strings.ToLower(strings.TrimSpace(processor)) {
+	case "fit", "fit-in":
+		return false
+	default:
+		return true
+	}
 }
