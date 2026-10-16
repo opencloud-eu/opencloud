@@ -295,11 +295,12 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 								},
 							},
 							"spaces": map[string]any{
-								"version":    "1.0.0",
-								"enabled":    true,
-								"projects":   true,
-								"share_jail": true,
-								"max_quota":  cfg.MaxQuota,
+								"version":       "1.0.0",
+								"enabled":       true,
+								"projects":      true,
+								"share_jail":    true,
+								"max_quota":     cfg.MaxQuota,
+								"default_quota": parseQuota(cfg.DefaultQuota),
 							},
 							"theme": capabilities.Default().Theme,
 							"search": map[string]any{
@@ -443,4 +444,14 @@ func passwordPolicyConfig(cfg *config.Config) (map[string]any, error) {
 		"min_special_characters":   cfg.PasswordPolicy.MinSpecialCharacters,
 		"banned_passwords_list":    bannedPasswordsList,
 	}, nil
+}
+
+// parseQuota parses a quota in bytes the same way the graph service does.
+// Empty, invalid or negative values result in 0, which means no default quota.
+func parseQuota(quota string) uint64 {
+	q, err := strconv.ParseInt(quota, 10, 64)
+	if err != nil || q < 0 {
+		return 0
+	}
+	return uint64(q)
 }
