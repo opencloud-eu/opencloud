@@ -206,6 +206,17 @@ func ClearCache() {
 	C.vips_cache_drop_all()
 }
 
+// SetPipeReadLimit sets the maximum number of bytes libvips will buffer
+// when loading from a non-seekable source (a reader without io.Seeker
+// passed to LoadImageFromReader). The default is approximately 1 GB.
+// Callers processing large non-seekable streams can lower this to bound
+// memory usage.
+//
+// Must be called before any streaming load operations.
+func SetPipeReadLimit(bytes int64) {
+	C.vips_pipe_read_limit_set(C.gint64(bytes))
+}
+
 // PrintCache prints the whole operation cache to stdout for debugging purposes.
 func PrintCache() {
 	C.vips_cache_print()

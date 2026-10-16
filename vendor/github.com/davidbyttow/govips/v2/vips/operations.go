@@ -37,7 +37,7 @@ func vipsGetPoint(in *C.VipsImage, n int, x int, y int) ([]float64, error) {
 
 	// Copy from C memory into a Go slice, then free the C allocation.
 	result := make([]float64, n)
-	copy(result, (*[4]float64)(unsafe.Pointer(out))[:n:n])
+	copy(result, unsafe.Slice((*float64)(unsafe.Pointer(out)), n))
 	gFreePointer(unsafe.Pointer(out))
 	return result, nil
 }
@@ -458,8 +458,11 @@ func vipsJoin(input1 *C.VipsImage, input2 *C.VipsImage, dir Direction) (*C.VipsI
 	incOpCounter("join")
 	var out *C.VipsImage
 
-	defer C.g_object_unref(C.gpointer(input1))
-	defer C.g_object_unref(C.gpointer(input2))
+	// NOTE: do NOT unref input1/input2 here. They are borrowed from the
+	// caller's ImageRefs, which own those references and unref them in
+	// Close/finalize. vips_join takes its own refs on its inputs for the
+	// lifetime of the output. Unref'ing here drops refs we never owned,
+	// which double-frees the inputs once their ImageRefs are collected.
 	if err := C.join(input1, input2, &out, C.int(dir)); err != 0 {
 		return nil, handleVipsError()
 	}
@@ -565,7 +568,9 @@ func vipsDrawRect(in *C.VipsImage, color ColorRGBA, left int, top int, width int
 
 	if err := C.draw_rect(in, C.double(color.R), C.double(color.G), C.double(color.B), C.double(color.A),
 		C.int(left), C.int(top), C.int(width), C.int(height), C.int(fillBit)); err != 0 {
-		return handleImageError(in)
+		// draw_rect works in place: there's no output image to release, and
+		// the ref on in belongs to the caller's ImageRef.
+		return handleVipsError()
 	}
 
 	return nil
@@ -777,12 +782,13 @@ func vipsDetermineImageTypeFromMetaLoader(in *C.VipsImage) ImageType {
 }
 
 func vipsImageSetBlob(in *C.VipsImage, name string, data []byte) {
-	cData := unsafe.Pointer(&data)
-	cDataLength := C.size_t(len(data))
+	if len(data) == 0 {
+		return
+	}
 
 	cField := C.CString(name)
 	defer freeCString(cField)
-	C.image_set_blob(in, cField, cData, cDataLength)
+	C.image_set_blob(in, cField, unsafe.Pointer(&data[0]), C.size_t(len(data)))
 }
 
 func vipsImageGetBlob(in *C.VipsImage, name string) []byte {
