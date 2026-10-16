@@ -313,8 +313,15 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	}
 	aggregation.Finalize(req.GetAggregations(), aggregations)
 
-	// compile one sorted list of matches from all spaces and apply from/limit if needed
-	sort.Sort(matches)
+	// every engine answers in order_by order (by score without one); the merge
+	// re-establishes it across spaces, ties by score and id
+	orderBy := req.GetOrderBy()
+	sort.SliceStable(matches, func(i, j int) bool {
+		if c := CompareMatches(matches[i], matches[j], orderBy); c != 0 {
+			return c < 0
+		}
+		return matches.Less(i, j)
+	})
 	limit := PageSizeOrDefault(req.PageSize)
 	if from := int(req.GetFrom()); from > 0 {
 		if from < len(matches) {
@@ -469,6 +476,7 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 		Query:              req.Query,
 		Aggregations:       req.GetAggregations(),
 		AggregationFilters: req.GetAggregationFilters(),
+		OrderBy:            req.GetOrderBy(),
 		Ref: &searchmsg.Reference{
 			ResourceId: searchRootID,
 			Path:       searchPathPrefix,

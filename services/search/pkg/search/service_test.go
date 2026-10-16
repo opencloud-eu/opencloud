@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -342,6 +343,48 @@ var _ = Describe("Searchprovider", func() {
 				Expect(res.Aggregations).To(BeComparableTo([]*searchsvc.AggregationResult{{Field: "audio.artist", Buckets: []*searchsvc.Bucket{
 					{Key: "Saxon", Count: 5}, {Key: "Led Zeppelin", Count: 1}, {Key: "Motörhead", Count: 1},
 				}}}, protocmp.Transform()))
+			})
+		})
+
+		Context("with two personal spaces returning photos", func() {
+			photoMatch := func(space, name string, taken int64, score float32) *searchmsg.Match {
+				return &searchmsg.Match{Score: score, Entity: &searchmsg.Entity{
+					Id:    &searchmsg.ResourceID{StorageId: "storageid", SpaceId: space, OpaqueId: name},
+					Ref:   &searchmsg.Reference{ResourceId: &searchmsg.ResourceID{StorageId: "storageid", SpaceId: space, OpaqueId: space}, Path: "./" + name},
+					Name:  name,
+					Photo: &searchmsg.Photo{TakenDateTime: &timestamppb.Timestamp{Seconds: taken}},
+				}}
+			}
+			names := func(req *searchsvc.SearchRequest) []string {
+				res, err := s.Search(ctx, req)
+				Expect(err).ToNot(HaveOccurred())
+				out := []string{}
+				for _, m := range res.Matches {
+					out = append(out, m.GetEntity().GetName())
+				}
+				return out
+			}
+
+			BeforeEach(func() {
+				listsSpacesAB()
+				searchOfSpace("a").Return(&searchsvc.SearchIndexResponse{TotalMatches: 2, Matches: []*searchmsg.Match{
+					photoMatch("a", "a-old.jpg", 100, 0.9), photoMatch("a", "a-new.jpg", 300, 0.1),
+				}}, nil)
+				searchOfSpace("b").Return(&searchsvc.SearchIndexResponse{TotalMatches: 2, Matches: []*searchmsg.Match{
+					photoMatch("b", "b-newest.jpg", 400, 0.5), photoMatch("b", "b-mid.jpg", 200, 0.4),
+				}}, nil)
+			})
+
+			It("forwards order_by to the engine and merges matches across spaces in that order", func() {
+				byTaken := []*searchsvc.SortProperty{{Name: "photo.takenDateTime", IsDescending: true}}
+				Expect(names(&searchsvc.SearchRequest{Query: "mediatype:image", OrderBy: byTaken})).To(Equal([]string{"b-newest.jpg", "a-new.jpg", "b-mid.jpg", "a-old.jpg"}))
+				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
+					return len(req.GetOrderBy()) == 1 && req.GetOrderBy()[0].GetName() == "photo.takenDateTime" && req.GetOrderBy()[0].GetIsDescending()
+				}))
+			})
+
+			It("merges matches by score when no order_by is given", func() {
+				Expect(names(&searchsvc.SearchRequest{Query: "mediatype:image"})).To(Equal([]string{"a-old.jpg", "b-newest.jpg", "b-mid.jpg", "a-new.jpg"}))
 			})
 		})
 
