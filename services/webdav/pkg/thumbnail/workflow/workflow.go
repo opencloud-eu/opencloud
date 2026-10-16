@@ -529,14 +529,19 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 		return nil, "", nil, fmt.Errorf("read source: %w", err)
 	}
 
-	ppOpts := map[string]any{"fontFileMap": w.fontMapFile}
-	img, err := preprocessor.ForType(mimeType, ppOpts).Convert(bytes.NewReader(fileBytes))
+	converter := preprocessor.ForType(mimeType, map[string]any{"fontFileMap": w.fontMapFile})
+	if converter == nil {
+		logger.Debug().Str("mimetype", mimeType).Msg("no converter for this type")
+		return nil, "", nil, fmt.Errorf("%w: no converter for %s", ErrNotFound, mimeType)
+	}
+
+	img, err := converter.Convert(bytes.NewReader(fileBytes))
 	if img == nil || err != nil {
 		logger.Debug().Err(err).Msg("could not convert file to image")
 		return nil, "", nil, fmt.Errorf("%w: could not get image", ErrNotFound)
 	}
 
-	data, contentType, err := encodeForUpload(img, mimeType)
+	data, contentType, err := encodeForUpload(img)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("encode converted image: %w", err)
 	}

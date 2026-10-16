@@ -8,10 +8,10 @@ import (
 	"encoding/json"
 	"image"
 	"image/draw"
-	"image/gif"
 	"io"
 	"math"
 	"mime"
+	"net/http"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -27,28 +27,24 @@ type FileConverter interface {
 	Convert(r io.Reader) (any, error)
 }
 
-// GifDecoder is a converter for the gif file
-type GifDecoder struct{}
-
-// Convert reads the gif file and returns the thumbnail image
-func (i GifDecoder) Convert(r io.Reader) (any, error) {
-	img, err := gif.DecodeAll(r)
-	if err != nil {
-		return nil, errors.Wrap(err, `could not decode the image`)
-	}
-	return img, nil
+// ImageFile is an image a converter hands on as it found it, together with the
+// type its bytes are in. webdav does not decode it: the generator does the
+// image work, so an embedded cover reaches it the way a plain image file does.
+type ImageFile struct {
+	ContentType string
+	Data        []byte
 }
 
+// FileConverter is the interface for the file converters
 // GgsDecoder is a converter for the geogebra slides file
 type GgsDecoder struct{ thumbnailpath string }
 
 // Convert reads the ggs file and returns the thumbnail image.
 //
 // TODO: this parses user-provided bytes in-process (archive/zip streams the
-// embedded thumbnail out of the .ggs container, which is then decoded and
-// re-encoded here). Tika is the intended out-of-process extractor for embedded
-// images; reading/re-encoding user-supplied embedded images in webdav is a
-// separate attack vector not addressed by this architecture change.
+// embedded thumbnail out of the .ggs container). The image itself is handed on
+// undecoded, but reading the container in webdav is an attack vector of its
+// own; Tika is the intended out-of-process extractor for embedded images.
 func (g GgsDecoder) Convert(r io.Reader) (any, error) {
 	var buf bytes.Buffer
 	_, err := io.Copy(&buf, r)
@@ -65,15 +61,12 @@ func (g GgsDecoder) Convert(r io.Reader) (any, error) {
 			if err != nil {
 				return nil, err
 			}
-			converter := ForType("image/png", nil)
-			if converter == nil {
-				return nil, ErrNoConverterForExtractedImageFromGgsFile
-			}
-			img, err := converter.Convert(thumbnail)
+			data, err := io.ReadAll(thumbnail)
 			if err != nil {
-				return nil, errors.Wrap(err, `could not decode the image`)
+				return nil, errors.Wrap(err, `could not read the embedded image`)
 			}
-			return img, nil
+
+			return ImageFile{ContentType: "image/png", Data: data}, nil
 		}
 	}
 	return nil, errors.Errorf("%s not found", g.thumbnailpath)
@@ -85,10 +78,9 @@ type AudioDecoder struct{}
 // Convert reads the audio file and extracts the thumbnail image from the id3 tag.
 //
 // TODO: this parses user-provided bytes in-process (dhowden/tag reads the audio
-// metadata and pulls the embedded APIC picture, which is then decoded and
-// re-encoded here). Tika is the intended out-of-process extractor for embedded
-// images; reading/re-encoding user-supplied embedded images in webdav is a
-// separate attack vector not addressed by this architecture change.
+// metadata and pulls the embedded APIC picture). The picture itself is handed
+// on undecoded, but reading the metadata in webdav is an attack vector of its
+// own; Tika is the intended out-of-process extractor for embedded images.
 func (i AudioDecoder) Convert(r io.Reader) (any, error) {
 	b, err := io.ReadAll(r)
 	if err != nil {
@@ -104,12 +96,11 @@ func (i AudioDecoder) Convert(r io.Reader) (any, error) {
 		return nil, ErrNoImageFromAudioFile
 	}
 
-	converter := ForType(picture.MIMEType, nil)
-	if converter == nil {
+	if !strings.HasPrefix(picture.MIMEType, "image/") {
 		return nil, ErrNoConverterForExtractedImageFromAudioFile
 	}
 
-	return converter.Convert(bytes.NewReader(picture.Data))
+	return ImageFile{ContentType: picture.MIMEType, Data: picture.Data}, nil
 }
 
 // TxtToImageConverter is a converter for the text file
@@ -215,10 +206,9 @@ type GgpDecoder struct{}
 // Convert reads the ggp file and returns the first thumbnail image.
 //
 // TODO: this parses user-provided bytes in-process (JSON/base64 extraction of
-// the embedded image, which is then decoded here). Tika is the intended
-// out-of-process extractor for embedded images; reading/re-encoding user-supplied
-// embedded images in webdav is a separate attack vector not addressed by this
-// architecture change.
+// the embedded image). The image itself is handed on undecoded, but reading the
+// document in webdav is an attack vector of its own; Tika is the intended
+// out-of-process extractor for embedded images.
 func (j GgpDecoder) Convert(r io.Reader) (any, error) {
 	ggp := &GGPStruct{}
 	err := json.NewDecoder(r).Decode(ggp)
@@ -236,8 +226,12 @@ func (j GgpDecoder) Convert(r io.Reader) (any, error) {
 		return nil, err
 	}
 
-	img, _, err := image.Decode(bytes.NewReader(b))
-	return img, err
+	contentType := http.DetectContentType(b)
+	if !strings.HasPrefix(contentType, "image/") {
+		return nil, ErrNoConverterForExtractedImageFromGgpFile
+	}
+
+	return ImageFile{ContentType: contentType, Data: b}, nil
 }
 
 func extractBase64ImageFromGGP(ggp *GGPStruct) (string, error) {
@@ -352,8 +346,6 @@ func ForType(mimeType string, opts map[string]any) FileConverter {
 		return GgsDecoder{"_slide0/geogebra_thumbnail.png"}
 	case "application/vnd.geogebra.pinboard":
 		return GgpDecoder{}
-	case "image/gif":
-		return GifDecoder{}
 	case "audio/flac":
 		fallthrough
 	case "audio/mpeg":
@@ -361,6 +353,9 @@ func ForType(mimeType string, opts map[string]any) FileConverter {
 	case "audio/ogg":
 		return AudioDecoder{}
 	default:
-		return ImageDecoder{}
+		// webdav decodes no image: an image/* source is streamed to the
+		// generator untouched, so a type without a converter here is one
+		// nobody can make a preview of.
+		return nil
 	}
 }

@@ -13,63 +13,12 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestImageDecoder(t *testing.T) {
-
+func TestPreprocessor(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ImageDecoder Suite")
+	RunSpecs(t, "Preprocessor Suite")
 }
 
-var _ = Describe("ImageDecoder", func() {
-	Describe("ImageDecoder", func() {
-		var fileReader io.Reader
-		BeforeEach(func() {
-			fileContent, err := os.ReadFile("test_assets/noise.png")
-			if err != nil {
-				panic(err)
-			}
-			fileReader = bytes.NewReader(fileContent)
-		})
-
-		It("should decode an image", func() {
-			decoder := ImageDecoder{}
-			img, err := decoder.Convert(fileReader)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(img).ToNot(BeNil())
-		})
-
-		It("should return an error if the image is invalid", func() {
-			decoder := ImageDecoder{}
-			img, err := decoder.Convert(bytes.NewReader([]byte("not an image")))
-			Expect(err).To(HaveOccurred())
-			Expect(img).To(BeNil())
-		})
-	})
-
-	Describe("GifDecoder", func() {
-		var fileReader io.Reader
-		BeforeEach(func() {
-			fileContent, err := os.ReadFile("test_assets/noise.gif")
-			if err != nil {
-				panic(err)
-			}
-			fileReader = bytes.NewReader(fileContent)
-		})
-
-		It("should decode a gif", func() {
-			decoder := GifDecoder{}
-			img, err := decoder.Convert(fileReader)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(img).ToNot(BeNil())
-		})
-
-		It("should return an error if the gif is invalid", func() {
-			decoder := GifDecoder{}
-			img, err := decoder.Convert(bytes.NewReader([]byte("not a gif")))
-			Expect(err).To(HaveOccurred())
-			Expect(img).To(BeNil())
-		})
-	})
-
+var _ = Describe("preprocessor", func() {
 	Describe("GgsDecoder", func() {
 		var fileReader io.Reader
 		BeforeEach(func() {
@@ -80,11 +29,13 @@ var _ = Describe("ImageDecoder", func() {
 			fileReader = bytes.NewReader(fileContent)
 		})
 
-		It("should decode a ggs", func() {
+		It("hands on the embedded thumbnail as the png it is", func() {
 			decoder := GgsDecoder{"_slide0/geogebra_thumbnail.png"}
 			img, err := decoder.Convert(fileReader)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(img).ToNot(BeNil())
+			Expect(img).To(BeAssignableToTypeOf(ImageFile{}))
+			Expect(img.(ImageFile).ContentType).To(Equal("image/png"))
+			Expect(img.(ImageFile).Data).ToNot(BeEmpty())
 		})
 
 		It("should return an error if the ggs is invalid", func() {
@@ -97,7 +48,7 @@ var _ = Describe("ImageDecoder", func() {
 
 	Describe("should decode audio", func() {
 		var fileReader io.Reader
-		It("should decode an audio", func() {
+		It("hands on the cover art in the type the tag declares", func() {
 			fileContent, err := os.ReadFile("test_assets/empty.mp3")
 			if err != nil {
 				panic(err)
@@ -106,7 +57,9 @@ var _ = Describe("ImageDecoder", func() {
 			decoder := AudioDecoder{}
 			img, err := decoder.Convert(fileReader)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(img).ToNot(BeNil())
+			Expect(img).To(BeAssignableToTypeOf(ImageFile{}))
+			Expect(img.(ImageFile).ContentType).To(HavePrefix("image/"))
+			Expect(img.(ImageFile).Data).ToNot(BeEmpty())
 		})
 		It("should decode an audio", func() {
 			fileContent, err := os.ReadFile("test_assets/empty_no_image.mp3")
@@ -162,36 +115,25 @@ var _ = Describe("ImageDecoder", func() {
 		})
 	})
 
-	Describe("test ForType", func() {
-		It("should return an ImageDecoder for image types", func() {
-			decoder := ForType("image/png", nil)
-			Expect(decoder).To(BeAssignableToTypeOf(ImageDecoder{}))
+	Describe("ForType", func() {
+		It("has no converter for an image, which never reaches the preprocessor", func() {
+			Expect(ForType("image/png", nil)).To(BeNil())
 		})
 
-		It("should return an GifDecoder for gif types", func() {
-			decoder := ForType("image/gif", nil)
-			Expect(decoder).To(BeAssignableToTypeOf(GifDecoder{}))
+		It("returns a GgsDecoder for a ggs", func() {
+			Expect(ForType("application/vnd.geogebra.slides", nil)).To(BeAssignableToTypeOf(GgsDecoder{}))
 		})
 
-		It("should return an GgsDecoder for ggs types", func() {
-			decoder := ForType("application/vnd.geogebra.ggs", nil)
-			// This will not return the expected ggsDecoder, but an ImageDecoder since ggs contains an embedded png.
-			Expect(decoder).To(BeAssignableToTypeOf(ImageDecoder{}))
+		It("returns an AudioDecoder for audio", func() {
+			Expect(ForType("audio/mpeg", nil)).To(BeAssignableToTypeOf(AudioDecoder{}))
 		})
 
-		It("should return an AudioDecoder for audio types", func() {
-			decoder := ForType("audio/mpeg", nil)
-			Expect(decoder).To(BeAssignableToTypeOf(AudioDecoder{}))
+		It("returns a TxtToImageConverter for text", func() {
+			Expect(ForType("text/plain", nil)).To(BeAssignableToTypeOf(TxtToImageConverter{}))
 		})
 
-		It("should return an TxtToImageConverter for text types", func() {
-			decoder := ForType("text/plain", nil)
-			Expect(decoder).To(BeAssignableToTypeOf(TxtToImageConverter{}))
-		})
-
-		It("should return an ImageDecoder for unknown types", func() {
-			decoder := ForType("unknown", nil)
-			Expect(decoder).To(BeAssignableToTypeOf(ImageDecoder{}))
+		It("has no converter for an unknown type", func() {
+			Expect(ForType("unknown", nil)).To(BeNil())
 		})
 	})
 })
