@@ -92,6 +92,41 @@ var _ = Describe("Response", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vars).To(HaveKey("user"))
 		})
+
+		It("uses the opaque id as display name for guests without a lookup", func() {
+			uid := &user.UserId{
+				OpaqueId: "guest@example.com",
+				Type:     user.UserType_USER_TYPE_GUEST,
+			}
+			vars := make(map[string]any)
+
+			opt := httpsvc.WithUser(uid, nil, nil)
+			err := opt(context.Background(), nil, vars)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vars["user"]).To(Equal(httpsvc.Actor{
+				ID:          "guest@example.com",
+				DisplayName: "guest@example.com",
+			}))
+		})
+	})
+
+	Describe("WithSharee", func() {
+		It("uses the opaque id as display name for guests without a lookup", func() {
+			uid := &user.UserId{
+				OpaqueId: "guest@example.com",
+				Type:     user.UserType_USER_TYPE_GUEST,
+			}
+			vars := make(map[string]any)
+
+			opt := httpsvc.WithSharee(uid, nil)
+			err := opt(context.Background(), nil, vars)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vars["sharee"]).To(Equal(httpsvc.Sharee{
+				ID:          "guest@example.com",
+				DisplayName: "guest@example.com",
+				ShareType:   "user",
+			}))
+		})
 	})
 
 	Describe("WithVar", func() {

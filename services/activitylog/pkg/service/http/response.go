@@ -176,6 +176,12 @@ func WithUser(uid *user.UserId, u *user.User, impersonator *user.User) ActivityO
 			target = impersonator
 		case u != nil:
 			target = u
+		case uid != nil && uid.GetType() == user.UserType_USER_TYPE_GUEST:
+			// Guests are not resolvable via the identity backend; their opaque id is the email.
+			target = &user.User{
+				Id:          uid,
+				DisplayName: uid.GetOpaqueId(),
+			}
 		case uid != nil:
 			us, err := utils.GetUserNoGroups(ctx, uid, gwc)
 			target = us
@@ -203,6 +209,13 @@ func WithUser(uid *user.UserId, u *user.User, impersonator *user.User) ActivityO
 func WithSharee(uid *user.UserId, gid *group.GroupId) ActivityOption {
 	return func(ctx context.Context, gwc gateway.GatewayAPIClient, vars map[string]any) error {
 		switch {
+		case uid != nil && uid.GetType() == user.UserType_USER_TYPE_GUEST:
+			// Guests are not resolvable via the identity backend; their opaque id is the email.
+			vars["sharee"] = Sharee{
+				ID:          uid.GetOpaqueId(),
+				DisplayName: uid.GetOpaqueId(),
+				ShareType:   "user",
+			}
 		case uid != nil:
 			u, err := utils.GetUserNoGroups(ctx, uid, gwc)
 			if err != nil {
