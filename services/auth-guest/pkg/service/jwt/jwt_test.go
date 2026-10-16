@@ -48,7 +48,7 @@ func TestParseExpired(t *testing.T) {
 func TestVerify(t *testing.T) {
 	m := NewJwtService("test-secret", time.Hour)
 
-	tok, err := m.Sign("share-id")
+	tok, _, err := m.Sign("share-id")
 	require.NoError(t, err)
 
 	shareID, err := m.Verify(tok)
@@ -59,7 +59,7 @@ func TestVerify(t *testing.T) {
 func TestVerifyExpired(t *testing.T) {
 	m := NewJwtService("test-secret", -time.Minute)
 
-	tok, err := m.Sign("share-id")
+	tok, _, err := m.Sign("share-id")
 	require.NoError(t, err)
 
 	shareID, err := m.Verify(tok)
@@ -70,10 +70,10 @@ func TestVerifyExpired(t *testing.T) {
 func TestVerifyInvalid(t *testing.T) {
 	m := NewJwtService("test-secret", time.Hour)
 
-	tok, err := m.Sign("share-id")
+	tok, _, err := m.Sign("share-id")
 	require.NoError(t, err)
 
-	other, err := NewJwtService("other-secret", time.Hour).Sign("share-id")
+	other, _, err := NewJwtService("other-secret", time.Hour).Sign("share-id")
 	require.NoError(t, err)
 
 	tests := []struct {

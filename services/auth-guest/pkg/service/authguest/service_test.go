@@ -432,7 +432,7 @@ func validShareResponse() *collaboration.GetShareResponse {
 
 func validSessionToken(t *testing.T) string {
 	t.Helper()
-	tok, err := jwt.NewJwtService("test-secret", time.Hour).Sign(testShareID)
+	tok, _, err := jwt.NewJwtService("test-secret", time.Hour).Sign(testShareID)
 	require.NoError(t, err)
 	return tok
 }
@@ -490,7 +490,7 @@ func TestRenewWithExpiredSessionToken(t *testing.T) {
 	require.NoError(t, store.Add(existingRecord()))
 
 	// Signed with the same secret the service uses, but already expired.
-	sessionToken, err := jwt.NewJwtService("test-secret", -time.Hour).Sign(testShareID)
+	sessionToken, _, err := jwt.NewJwtService("test-secret", -time.Hour).Sign(testShareID)
 	require.NoError(t, err)
 
 	publisher := &testPublisher{}
