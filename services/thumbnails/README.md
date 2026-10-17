@@ -65,10 +65,12 @@ its first frame, and a still source asked for `format(gif)` is palettised.
 Reading an ICO needs libvips with its magick loader; the pure Go build answers
 `406` for one.
 
-The answers are imagor's: `400` for a malformed request, `406` for a source it
-cannot read, for a format this build cannot write and for an upload part that
-is not typed `image/*`, `422` for an image above the configured maximum
-dimensions, `429` when the concurrency limit is reached.
+The answers are imagor's: `400` for a malformed request, which includes a
+`format` nobody writes (anything but `jpg`, `png`, `gif` and `webp`); `406` for a
+source it cannot read, for an upload part that is not typed `image/*`, and for a
+format this build has no encoder for (`webp` without libvips); `422` for an image
+above the configured maximum dimensions; `429` when the concurrency limit is
+reached.
 
 ## Configuration
 

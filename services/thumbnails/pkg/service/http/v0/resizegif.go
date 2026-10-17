@@ -14,8 +14,9 @@ import (
 // imaging either way, because neither libvips nor the pure Go path has anything
 // better for a paletted animation. Code adapted from
 // https://github.com/willnorris/gifresize.
-func resizeGIF(m *gif.GIF, width, height int, operation string, noUpscale bool) *gif.GIF {
+func resizeGIF(m *gif.GIF, req resizeRequest) *gif.GIF {
 	srcX, srcY := m.Config.Width, m.Config.Height
+	width, height, operation, noUpscale := req.Width, req.Height, req.Operation, req.NoUpscale
 
 	if width == 0 || height == 0 {
 		resolvedW, resolvedH, resize := autoAxis(srcX, srcY, width, height)

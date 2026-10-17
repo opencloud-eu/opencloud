@@ -1,10 +1,8 @@
 package defaults
 
 import (
-	"path"
 	"strings"
 
-	cored "github.com/opencloud-eu/opencloud/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/config"
@@ -49,7 +47,6 @@ func DefaultConfig() *config.Config {
 		ThumbnailGeneratorTimeout: "30s",
 		ThumbnailMaxInputFileSize: "50MB",
 		ThumbnailCacheBackend:     "file",
-		ThumbnailCacheDir:         path.Join(cored.BaseDataPath(), "thumbnails", "files"),
 		ThumbnailResolutions: []string{
 			"16", "32", "64", "128", "192", "256", "320", "384", "448",
 			"512", "640", "768", "1024", "1280", "1920", "2560", "3840", "7680",
@@ -77,5 +74,11 @@ func Sanitize(cfg *config.Config) {
 	// sanitize config
 	if cfg.HTTP.Root != "/" {
 		cfg.HTTP.Root = strings.TrimSuffix(cfg.HTTP.Root, "/")
+	}
+
+	// a yaml configuration that joined the resolutions into one entry kept
+	// working in the thumbnails service, so it keeps working here
+	if len(cfg.ThumbnailResolutions) == 1 && strings.Contains(cfg.ThumbnailResolutions[0], ",") {
+		cfg.ThumbnailResolutions = strings.Split(cfg.ThumbnailResolutions[0], ",")
 	}
 }

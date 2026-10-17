@@ -15,8 +15,8 @@ import (
 )
 
 // The backend this build resizes with. The implementations keep their own names
-// so both builds' versions stay reachable by symbol, the variables are what the
-// shared handler calls.
+// so a symbol search finds both builds' versions side by side, the variables are
+// what the shared handler calls.
 var (
 	loadSource         = loadSourceImaging
 	extForSourceFormat = extForSourceFormatImaging

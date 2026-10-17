@@ -181,9 +181,11 @@ func aspect(q url.Values) *bool {
 // unconstrained axis cannot describe. Only fit-in inscribes instead.
 func targetsExactBox(processor string) bool {
 	switch strings.ToLower(strings.TrimSpace(processor)) {
-	case "fit", "fit-in":
-		return false
-	default:
+	case "fill", "thumbnail", "resize":
 		return true
+	default:
+		// fit, fit-in, and any name nobody knows, which the workflow resolves
+		// the same way it resolves a request without a processor
+		return false
 	}
 }

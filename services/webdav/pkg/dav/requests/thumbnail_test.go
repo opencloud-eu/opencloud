@@ -55,6 +55,7 @@ var _ = Describe("ParseThumbnailRequest", func() {
 		Entry("keeps the legacy default when neither is given", "preview=1", int32(requests.DefaultWidth), int32(requests.DefaultHeight)),
 		Entry("leaves an omitted axis unconstrained", "y=512&processor=fit", int32(0), int32(512)),
 		Entry("fits an unconstrained axis without a processor", "y=512", int32(0), int32(512)),
+		Entry("treats a processor nobody knows like none at all", "y=512&processor=bogus", int32(0), int32(512)),
 	)
 
 	DescribeTable("a request it refuses",

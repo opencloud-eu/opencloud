@@ -111,17 +111,15 @@ func NewService(opts ...Option) (Service, error) {
 		r.Group(func(r chi.Router) {
 			r.Use(svc.DavUserContext())
 
-			if !conf.DisablePreviews {
-				r.Get("/remote.php/dav/spaces/{id}", svc.Thumbnail)
-				r.Get("/remote.php/dav/spaces/{id}/*", svc.Thumbnail)
-				r.Get("/dav/spaces/{id}", svc.Thumbnail)
-				r.Get("/dav/spaces/{id}/*", svc.Thumbnail)
+			r.Get("/remote.php/dav/spaces/{id}", svc.Thumbnail)
+			r.Get("/remote.php/dav/spaces/{id}/*", svc.Thumbnail)
+			r.Get("/dav/spaces/{id}", svc.Thumbnail)
+			r.Get("/dav/spaces/{id}/*", svc.Thumbnail)
 
-				r.Get("/remote.php/dav/files/{id}", svc.Thumbnail)
-				r.Get("/remote.php/dav/files/{id}/*", svc.Thumbnail)
-				r.Get("/dav/files/{id}", svc.Thumbnail)
-				r.Get("/dav/files/{id}/*", svc.Thumbnail)
-			}
+			r.Get("/remote.php/dav/files/{id}", svc.Thumbnail)
+			r.Get("/remote.php/dav/files/{id}/*", svc.Thumbnail)
+			r.Get("/dav/files/{id}", svc.Thumbnail)
+			r.Get("/dav/files/{id}/*", svc.Thumbnail)
 
 			r.MethodFunc("REPORT", "/remote.php/dav/spaces*", svc.Search)
 			r.MethodFunc("REPORT", "/dav/spaces*", svc.Search)
@@ -129,25 +127,21 @@ func NewService(opts ...Option) (Service, error) {
 			r.MethodFunc("REPORT", "/dav/files*", svc.Search)
 		})
 
-		if !conf.DisablePreviews {
-			r.Group(func(r chi.Router) {
-				r.Use(svc.DavPublicContext())
+		r.Group(func(r chi.Router) {
+			r.Use(svc.DavPublicContext())
 
-				r.Head("/remote.php/dav/public-files/{token}/*", svc.PublicThumbnailHead)
-				r.Head("/dav/public-files/{token}/*", svc.PublicThumbnailHead)
+			r.Head("/remote.php/dav/public-files/{token}/*", svc.PublicThumbnailHead)
+			r.Head("/dav/public-files/{token}/*", svc.PublicThumbnailHead)
 
-				r.Get("/remote.php/dav/public-files/{token}/*", svc.PublicThumbnail)
-				r.Get("/dav/public-files/{token}/*", svc.PublicThumbnail)
-			})
-		}
+			r.Get("/remote.php/dav/public-files/{token}/*", svc.PublicThumbnail)
+			r.Get("/dav/public-files/{token}/*", svc.PublicThumbnail)
+		})
 
 		r.Group(func(r chi.Router) {
 			r.Use(svc.WebDAVContext())
 
-			if !conf.DisablePreviews {
-				r.Get("/remote.php/webdav/*", svc.Thumbnail)
-				r.Get("/webdav/*", svc.Thumbnail)
-			}
+			r.Get("/remote.php/webdav/*", svc.Thumbnail)
+			r.Get("/webdav/*", svc.Thumbnail)
 
 			r.MethodFunc("REPORT", "/remote.php/webdav*", svc.Search)
 			r.MethodFunc("REPORT", "/webdav*", svc.Search)
@@ -201,6 +195,8 @@ func newThumbnailWorkflow(conf *config.Config, sourceTypes thumbnail.SourceTypes
 		conf.ThumbnailCacheS3SecretKey,
 	)
 
+	// the new setting wins, the deprecated one is the fallback, and an empty
+	// result lets the cache use its own default directory
 	cacheDir := conf.ThumbnailCacheDir
 	if cacheDir == "" {
 		cacheDir = conf.ThumbnailFilesystemStorageRoot
@@ -336,6 +332,15 @@ func (g Webdav) requestLogger(r *http.Request) log.Logger {
 // parseThumbnailRequest reads the request every thumbnail endpoint starts with.
 // It reports false when it already answered with a 400.
 func (g Webdav) parseThumbnailRequest(w http.ResponseWriter, r *http.Request, logger log.Logger) (*requests.ThumbnailRequest, bool) {
+	if g.config.DisablePreviews {
+		// every thumbnail path answers 404, which is what the setting promises.
+		// The routes stay registered: the REPORT patterns match the same paths,
+		// so without them chi would answer a thumbnail request with 405.
+		http.NotFound(w, r)
+
+		return nil, false
+	}
+
 	tr, err := requests.ParseThumbnailRequest(r)
 	if err != nil {
 		logger.Debug().Err(err).Msg("could not create Request")

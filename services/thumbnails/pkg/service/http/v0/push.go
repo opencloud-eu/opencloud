@@ -13,8 +13,8 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// gifMagic is the leading signature of a GIF file (GIF87a or GIF89a). It guards
-// against gif.DecodeAll panicking on non-GIF input.
+// gifMagic is the leading signature of a GIF file (GIF87a or GIF89a). It decides
+// whether a request takes the animation path.
 var gifMagic = []byte("GIF8")
 
 // Operations understood by the push endpoint. They map to imagor's resize/crop
@@ -36,9 +36,11 @@ var errFormatUnsupported = fmt.Errorf("format not supported by this build")
 //
 // The filters segment is captured whole and parsed by outputFormatFromFilters; only the
 // format filter is meaningful to this executor, other filters are ignored. When no format
-// filter is present the input's own format is preserved (detected via imaging), matching
-// imagor. It returns only imagor's defined status codes: 400 for invalid requests or a
-// file exceeding the max size, 422 for an image exceeding the max resolution.
+// filter is present the input's own format is preserved, as imagor does it, and the
+// backend that will decode the image says which format that is. The answers are imagor's:
+// 400 for a malformed request, 406 for a source it cannot read or a format it cannot
+// write, 422 for an image above the configured maximum dimensions, 429 when the
+// concurrency limit is reached.
 func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 	ok, retryAfter := s.limiter.acquire()
 	if !ok {
@@ -217,7 +219,7 @@ func (s Thumbnails) serveAnimation(w http.ResponseWriter, imgData []byte, req re
 	}
 
 	var buf bytes.Buffer
-	if err := gif.EncodeAll(&buf, resizeGIF(g, req.Width, req.Height, req.Operation, req.NoUpscale)); err != nil {
+	if err := gif.EncodeAll(&buf, resizeGIF(g, req)); err != nil {
 		s.logger.Error().Err(err).Msg("could not encode the gif")
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintln(w, "failed to encode image")
