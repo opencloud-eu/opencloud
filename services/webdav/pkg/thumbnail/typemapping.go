@@ -6,7 +6,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/generator"
 )
 
-// DefaultTypeMapping answers for every type in SupportedMimeTypes, so the
+// DefaultTypeMapping answers for every type in DefaultSourceTypes, so the
 // type a thumbnail is returned in can be read off here instead of being
 // guessed from a file name. Types that carry alpha or animation keep their own
 // format, everything else becomes a JPEG. An icon is the one type no generator
