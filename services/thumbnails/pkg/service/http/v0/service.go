@@ -42,19 +42,7 @@ func NewService(opts ...Option) Service {
 		limiter:   newConcurrencyLimiter(limits.MaxConcurrentRequests),
 	}
 
-	// Push-based thumbnail generation endpoint (imagor-compatible). The optional
-	// operation segment selects the resize/crop mode; its absence is the default
-	// center-crop fill. The filters segment is optional too, like imagor's, and
-	// is captured whole and parsed by the handler so any set and order of imagor
-	// filters is accepted.
-	handler := svc.pushHandler
-	// StripSlashes makes the trailing slash optional, the operation and filters
-	// segments are the four remaining combinations.
-	m.Use(middleware.StripSlashes)
-	m.Post("/unsafe/{operation}/{width}x{height}/filters:{filters}", handler)
-	m.Post("/unsafe/{width}x{height}/filters:{filters}", handler)
-	m.Post("/unsafe/{operation}/{width}x{height}", handler)
-	m.Post("/unsafe/{width}x{height}", handler)
+	mountPushRoutes(m, svc.pushHandler)
 
 	_ = chi.Walk(m, func(method string, route string, _ http.Handler, middlewares ...func(http.Handler) http.Handler) error {
 		options.Logger.Debug().Str("method", method).Str("route", route).Int("middlewares", len(middlewares)).Msg("serving endpoint")
@@ -62,6 +50,21 @@ func NewService(opts ...Option) Service {
 	})
 
 	return svc
+}
+
+// mountPushRoutes puts the imagor-compatible push endpoint on a mux. The
+// optional operation segment selects the resize/crop mode; its absence is the
+// default center-crop fill. Everything after the box is imagor's tail: an
+// optional filters segment, which may be empty, followed by an optional image
+// key, which an upload loader has no use for and which is ignored here too.
+// StripSlashes makes the trailing slash optional, the operation segment and the
+// tail are the four remaining combinations.
+func mountPushRoutes(m *chi.Mux, handler http.HandlerFunc) {
+	m.Use(middleware.StripSlashes)
+	m.Post("/unsafe/{operation}/{width}x{height}/*", handler)
+	m.Post("/unsafe/{width}x{height}/*", handler)
+	m.Post("/unsafe/{operation}/{width}x{height}", handler)
+	m.Post("/unsafe/{width}x{height}", handler)
 }
 
 // Thumbnails implements the business logic for Service.

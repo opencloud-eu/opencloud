@@ -94,7 +94,7 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filtersSegment := chi.URLParam(r, "filters")
+	filtersSegment := filtersFromTail(chi.URLParam(r, "*"))
 	ext, hasFormat, err := outputFormatFromFilters(filtersSegment)
 	if err != nil {
 		writeInvalid(w, err.Error())
@@ -183,10 +183,24 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 func parseDim(r *http.Request, name string) (int, error) {
 	v := chi.URLParam(r, name)
 	n, err := strconv.Atoi(v)
-	if err != nil || n <= 0 {
+	if err != nil || n < 0 {
 		return 0, fmt.Errorf("invalid %s: %s", name, v)
 	}
+
 	return n, nil
+}
+
+// filtersFromTail reads the filters out of imagor's path tail. The tail is the
+// optional "filters:..." segment plus an optional image key behind it; only the
+// filters segment is ours, and it may be empty.
+func filtersFromTail(tail string) string {
+	segment, _, _ := strings.Cut(tail, "/")
+	filters, ok := strings.CutPrefix(segment, "filters:")
+	if !ok {
+		return ""
+	}
+
+	return filters
 }
 
 // writeNotAcceptable responds with imagor's status for a source it cannot read

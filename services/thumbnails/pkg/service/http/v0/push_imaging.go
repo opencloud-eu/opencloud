@@ -10,7 +10,6 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
-	"math"
 
 	"github.com/kovidgoyal/imaging"
 )
@@ -25,10 +24,10 @@ func init() {
 
 // processImageImaging resizes the input using the imaging backend. The operation
 // selects the resize/crop mode: fill (center-crop to the box, upscaling by default
-// like real imagor's default resize), fit-in (fit within the box without cropping,
-// upscaling small sources by default like real imagor), or stretch (resize to the
-// exact box). noUpscale caps the
-// default fill at the source size, mirroring imagor's no_upscale() filter.
+// like real imagor's default resize), fit-in (fit within the box without cropping
+// and without ever enlarging the source, like imagor without its upscale()
+// filter), or stretch (resize to the exact box). noUpscale caps the default fill
+// at the source size, mirroring imagor's no_upscale() filter.
 func processImageImaging(r io.Reader, req resizeRequest) (any, error) {
 	if req.KeepAnimation && isGifReader(r) {
 		g, err := gif.DecodeAll(r)
@@ -43,6 +42,15 @@ func processImageImaging(r io.Reader, req resizeRequest) (any, error) {
 	}
 
 	srcBounds := img.Bounds()
+
+	if req.Width == 0 || req.Height == 0 {
+		boxW, boxH, resize := autoAxis(srcBounds.Dx(), srcBounds.Dy(), req.Width, req.Height)
+		if !resize {
+			return img, nil
+		}
+
+		return imaging.Resize(img, boxW, boxH, imaging.Lanczos), nil
+	}
 
 	switch req.Operation {
 	case OpStretch:
@@ -63,14 +71,6 @@ func processImageImaging(r io.Reader, req resizeRequest) (any, error) {
 		}
 		return imaging.Thumbnail(img, req.Width, req.Height, imaging.Lanczos), nil
 	}
-}
-
-// fitInBox is the size an image of srcW x srcH takes inside the box, aspect
-// ratio preserved and the scaled side rounded the way vips and imagor round it.
-func fitInBox(srcW, srcH, boxW, boxH int) (int, int) {
-	scale := math.Min(float64(boxW)/float64(srcW), float64(boxH)/float64(srcH))
-
-	return max(int(math.Round(float64(srcW)*scale)), 1), max(int(math.Round(float64(srcH)*scale)), 1)
 }
 
 // encodeJPEGImaging encodes the processed image as JPEG using the stdlib encoder.

@@ -21,10 +21,10 @@ func init() {
 
 // processImageVips resizes the input using libvips. The operation selects the
 // resize/crop mode: fill (center-crop to the box, upscaling by default like real
-// imagor's default resize), fit-in (fit within the box without cropping, upscaling
-// small sources by default like real imagor), or stretch (resize to the exact box).
-// noUpscale caps the upscaling at the source size, mirroring imagor's no_upscale()
-// filter.
+// imagor's default resize), fit-in (fit within the box without cropping and
+// without ever enlarging the source, like imagor without its upscale() filter),
+// or stretch (resize to the exact box). noUpscale caps the default fill at the
+// source size, mirroring imagor's no_upscale() filter.
 func processImageVips(r io.Reader, req resizeRequest) (any, error) {
 	if req.KeepAnimation && isGifReader(r) {
 		g, err := gif.DecodeAll(r)
@@ -47,6 +47,23 @@ func processImageVips(r io.Reader, req resizeRequest) (any, error) {
 	// encoded by encodeJPEGVips/encodePNGVips, which own its lifetime and close it
 	// after exporting. Closing it here would free the underlying C image before the
 	// export runs (use-after-free).
+
+	if req.Width == 0 || req.Height == 0 {
+		boxW, boxH, resize := autoAxis(m.Width(), m.Height(), req.Width, req.Height)
+		if resize {
+			hScale := float64(boxW) / float64(m.Width())
+			vScale := float64(boxH) / float64(m.Height())
+			if err := m.ResizeWithVScale(hScale, vScale, vips.KernelLanczos3); err != nil {
+				return nil, err
+			}
+		}
+
+		if err := m.RemoveMetadata(); err != nil {
+			return nil, err
+		}
+
+		return m, nil
+	}
 
 	switch req.Operation {
 	case OpStretch:

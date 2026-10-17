@@ -12,7 +12,7 @@ var _ = Describe("TypeMapping", func() {
 	m := thumbnail.NewTypeMapping(nil)
 
 	It("answers for every type a preview is made of", func() {
-		for mimeType := range thumbnail.NewSourceTypes(nil).All() {
+		for _, mimeType := range thumbnail.NewSourceTypes(nil).List() {
 			Expect(m.TargetFor(mimeType)).ToNot(BeEmpty(), "%s has no output type", mimeType)
 		}
 	})

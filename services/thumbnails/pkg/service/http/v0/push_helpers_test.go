@@ -13,7 +13,6 @@ import (
 	"net/textproto"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/image/bmp"
@@ -142,13 +141,8 @@ func multipartBody(source []byte, partType string) (*bytes.Buffer, string) {
 // testMux is the production route table with the configured input limits; 0
 // disables a bound.
 func testMux(maxWidth, maxHeight int) *chi.Mux {
-	mux := chi.NewRouter()
-	h := Thumbnails{maxWidth: maxWidth, maxHeight: maxHeight}.pushHandler
-	mux.Use(middleware.StripSlashes)
-	mux.Post("/unsafe/{operation}/{width}x{height}/filters:{filters}", h)
-	mux.Post("/unsafe/{width}x{height}/filters:{filters}", h)
-	mux.Post("/unsafe/{operation}/{width}x{height}", h)
-	mux.Post("/unsafe/{width}x{height}", h)
+	mux := chi.NewMux()
+	mountPushRoutes(mux, Thumbnails{maxWidth: maxWidth, maxHeight: maxHeight}.pushHandler)
 
 	return mux
 }

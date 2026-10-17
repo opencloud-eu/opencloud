@@ -16,6 +16,15 @@ import (
 // https://github.com/willnorris/gifresize.
 func resizeGIF(m *gif.GIF, width, height int, operation string, noUpscale bool) *gif.GIF {
 	srcX, srcY := m.Config.Width, m.Config.Height
+
+	if width == 0 || height == 0 {
+		resolvedW, resolvedH, resize := autoAxis(srcX, srcY, width, height)
+		if !resize {
+			return m
+		}
+		width, height, operation = resolvedW, resolvedH, OpStretch
+	}
+
 	b := image.Rect(0, 0, srcX, srcY)
 	tmp := image.NewRGBA(b)
 
@@ -29,10 +38,12 @@ func resizeGIF(m *gif.GIF, width, height int, operation string, noUpscale bool) 
 		case OpStretch:
 			processed = imaging.Resize(tmp, width, height, imaging.Lanczos)
 		case OpFitIn:
-			if noUpscale && srcX <= width && srcY <= height {
+			// not imaging.Fit: it truncates the scaled side, vips and imagor round
+			// it, and fit-in never enlarges whether no_upscale() was sent or not.
+			if fitW, fitH := fitInBox(srcX, srcY, width, height); fitW >= srcX && fitH >= srcY {
 				processed = tmp
 			} else {
-				processed = imaging.Fit(tmp, width, height, imaging.Lanczos)
+				processed = imaging.Resize(tmp, fitW, fitH, imaging.Lanczos)
 			}
 		default: // OpFill
 			if noUpscale && srcX <= width && srcY <= height {

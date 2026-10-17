@@ -37,7 +37,6 @@ type ThumbnailRequest struct {
 	Ref *providerv1beta1.Reference
 	// The file name of the source file including the extension
 	Filename string
-	// The file extension
 	// The requested width of the thumbnail
 	Width int32
 	// The requested height of the thumbnail

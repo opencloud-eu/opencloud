@@ -76,6 +76,7 @@ func parityGroups() []parityGroup {
 		limitsGroup(),
 		iconGroup(),
 		transparencyGroup(),
+		grammarGroup(),
 	}
 }
 

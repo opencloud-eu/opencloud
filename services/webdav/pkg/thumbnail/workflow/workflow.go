@@ -118,23 +118,14 @@ func fileIsProcessing(info *providerv1beta1.ResourceInfo) bool {
 	return utils.ReadPlainFromOpaque(info.GetOpaque(), "status") == "processing"
 }
 
-// processorID normalizes the requested processor to the identifier used in cache
-// keys, matching the legacy behavior where an empty processor resolved to "thumbnail".
-func processorID(processor string) string {
-	if processor == "" {
-		return "thumbnail"
-	}
-	return strings.ToLower(processor)
-}
-
 // thumbnailStorageKey builds the cache key: checksum[:2]/checksum[2:4]/checksum[4:]/wxh-<operation>.format.
 // The <operation> segment (fit-in, fill, stretch, ...) distinguishes requests that
 // share a size but produce different images, so they never share a cache entry.
 // The key carries the snapped box, not the requested size, so every request that
 // rounds to the same box shares one entry. Caches regenerate when the configured
 // resolutions or operations change.
-func thumbnailStorageKey(checksum string, w, h int, format, processor string) string {
-	name := fmt.Sprintf("%dx%d-%s.%s", w, h, processor, format)
+func thumbnailStorageKey(checksum string, w, h int, format, operation string) string {
+	name := fmt.Sprintf("%dx%d-%s.%s", w, h, operation, format)
 	if len(checksum) >= 6 {
 		return checksum[:2] + "/" + checksum[2:4] + "/" + checksum[4:] + "/" + name
 	}
@@ -295,38 +286,48 @@ func (w *ThumbnailWorkflow) Head(ctx context.Context, tr *requests.ThumbnailRequ
 		return err
 	}
 
+	_, err = w.statSource(ctx, ref, auth, logger)
+
+	return err
+}
+
+// statSource stats the source and reports whether a thumbnail may be made of it
+// at all, which is the same question for a HEAD and for a generation.
+func (w *ThumbnailWorkflow) statSource(ctx context.Context, ref *providerv1beta1.Reference, auth string, logger log.Logger) (*providerv1beta1.ResourceInfo, error) {
 	statRsp, err := w.stater.Stat(ctx, ref, auth)
 	if err != nil {
 		logger.Debug().Err(err).Msg("could not stat file")
-		return fmt.Errorf("stat: %w", err)
+
+		return nil, fmt.Errorf("stat: %w", err)
 	}
 
 	info := statRsp.GetInfo()
 
 	if fileIsProcessing(info) {
-		return ErrFileProcessing
+		return nil, ErrFileProcessing
 	}
 
 	if !info.GetPermissionSet().GetInitiateFileDownload() {
-		return ErrPermissionDenied
+		return nil, ErrPermissionDenied
 	}
 
 	if !w.sourceTypes.Supports(info.GetMimeType()) {
-		return fmt.Errorf("%w: %s", ErrUnsupportedFileType, info.GetMimeType())
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedFileType, info.GetMimeType())
 	}
 
 	if w.maxInputSize > 0 && info.GetSize() > w.maxInputSize {
 		logger.Debug().Uint64("size", info.GetSize()).Uint64("max", w.maxInputSize).Msg("file too large for thumbnail")
-		return ErrImageTooLarge
+
+		return nil, ErrImageTooLarge
 	}
 
-	return nil
+	return info, nil
 }
 
 // resolveReference turns the request's reference into a fully-anchored CS3
 // reference, mirroring reva's ocdav split of space-ID-based requests from
 // path-only requests:
-//   - If Ref carries a ResourceId (dav/spaces/{id}/...), it is used directly —
+//   - If Ref carries a ResourceId (dav/spaces/{id}/...), it is used directly,
 //     the URL already identifies the space root.
 //   - Otherwise (path-only request) the absolute CS3 path is resolved to the
 //     user's home-relative path and, when a SpaceLookup is configured, the
@@ -403,29 +404,9 @@ func (w *ThumbnailWorkflow) absolutizeUserPath(ctx context.Context, p, identifie
 }
 
 func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.Reference, auth string, tr *requests.ThumbnailRequest, logger log.Logger) (Thumbnail, error) {
-	statRsp, err := w.stater.Stat(ctx, ref, auth)
+	info, err := w.statSource(ctx, ref, auth, logger)
 	if err != nil {
-		logger.Debug().Err(err).Msg("could not stat file")
-		return Thumbnail{}, fmt.Errorf("stat: %w", err)
-	}
-
-	info := statRsp.GetInfo()
-
-	if fileIsProcessing(info) {
-		return Thumbnail{}, ErrFileProcessing
-	}
-
-	if !info.GetPermissionSet().GetInitiateFileDownload() {
-		return Thumbnail{}, ErrPermissionDenied
-	}
-
-	if !w.sourceTypes.Supports(info.GetMimeType()) {
-		return Thumbnail{}, fmt.Errorf("%w: %s", ErrUnsupportedFileType, info.GetMimeType())
-	}
-
-	if w.maxInputSize > 0 && info.GetSize() > w.maxInputSize {
-		logger.Debug().Uint64("size", info.GetSize()).Uint64("max", w.maxInputSize).Msg("file too large for thumbnail")
-		return Thumbnail{}, ErrImageTooLarge
+		return Thumbnail{}, err
 	}
 
 	checksum := info.GetChecksum().GetSum()
@@ -467,7 +448,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	// requests that produce the same image share one entry and the number of
 	// entries per file stays bounded by the ladder. It needs nothing but the
 	// request, so a hit still returns without touching storage.
-	cacheKey := thumbnailStorageKey(checksum, box.Dx(), box.Dy(), outputFormat, processorID(operation))
+	cacheKey := thumbnailStorageKey(checksum, box.Dx(), box.Dy(), outputFormat, operation)
 
 	if w.cache != nil {
 		if cached, err := w.cache.Get(cacheKey); err == nil {
@@ -499,8 +480,10 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	}
 	if thumbType != "" && thumbType != outputType {
 		// the answer is always the type we cache under, so the same request
-		// cannot report one type now and another one after a cache hit
-		logger.Debug().Str("asked", outputType).Str("answered", thumbType).
+		// cannot report one type now and another one after a cache hit. A
+		// generator that writes something else than it was asked for means the
+		// configured formats do not match it, which an operator has to fix.
+		logger.Warn().Str("asked", outputType).Str("answered", thumbType).
 			Msg("generator wrote a type we did not ask for")
 	}
 
@@ -569,10 +552,9 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 //   - (none), gif       -> stretch (resize for gifs)
 //   - (none), non-gif   -> fill (default = thumbnail = fill)
 //
-// "thumbnail" and "fit" are legacy aliases. They map onto the imagor operations
-// above but IGNORE the legacy "a" and "scalingup" query parameters — callers that
-// need aspect/upscaling control should use the imagor names directly ("fill",
-// "fit-in", "stretch"). The second return value reports whether upscaling must be
+// "thumbnail" and "fit" are legacy aliases for "fill" and "fit-in". Naming any
+// processor decides the behavior on its own, so "a" is overruled and "scalingup"
+// is ignored either way. The second return value reports whether upscaling must be
 // suppressed (no_upscale): only fit-in never enlarges its source, so it is true
 // exactly for the fit/fit-in processors; fill, thumbnail and resize all allow the
 // generator to enlarge a small source to fill the snapped box. The third return

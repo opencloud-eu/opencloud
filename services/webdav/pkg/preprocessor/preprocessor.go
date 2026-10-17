@@ -36,7 +36,6 @@ type Image struct {
 	Data        []byte
 }
 
-// FileConverter is the interface for the file converters
 // GgsDecoder is a converter for the geogebra slides file
 type GgsDecoder struct{ thumbnailpath string }
 

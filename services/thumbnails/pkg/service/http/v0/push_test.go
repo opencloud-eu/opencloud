@@ -121,6 +121,44 @@ var _ = Describe("the push endpoint", func() {
 		})
 	})
 
+	// Measured against shumc/imagor:1.9.11: everything behind the box is imagor's
+	// tail, and a side given as 0 is computed from the other one.
+	DescribeTable("reads imagor's path the way imagor reads it",
+		func(path string, source []byte, want image.Rectangle) {
+			rec := post(path, source)
+
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			Expect(decodedBounds(rec)).To(Equal(want))
+		},
+		Entry("an empty filters segment is a filters segment",
+			"/unsafe/50x50/filters:", pngSource(200, 200), image.Rect(0, 0, 50, 50)),
+		Entry("an empty filters segment with an operation",
+			"/unsafe/fit-in/50x50/filters:", pngSource(200, 100), image.Rect(0, 0, 50, 25)),
+		Entry("an image key behind the box is ignored",
+			"/unsafe/50x50/foo.png", pngSource(200, 200), image.Rect(0, 0, 50, 50)),
+		Entry("an image key behind the filters is ignored",
+			"/unsafe/50x50/filters:format(png)/foo.png", pngSource(200, 200), image.Rect(0, 0, 50, 50)),
+		Entry("a zero width follows the height",
+			"/unsafe/0x100/filters:format(png)/", pngSource(300, 200), image.Rect(0, 0, 150, 100)),
+		Entry("a zero height follows the width",
+			"/unsafe/100x0/filters:format(png)/", pngSource(300, 200), image.Rect(0, 0, 100, 67)),
+		Entry("a free axis ignores the operation, there is nothing to crop to",
+			"/unsafe/fit-in/0x100/filters:format(png)/", pngSource(300, 200), image.Rect(0, 0, 150, 100)),
+		Entry("a free axis enlarges, like imagor",
+			"/unsafe/0x200/filters:format(png)/", pngSource(150, 100), image.Rect(0, 0, 300, 200)),
+		Entry("a zero box leaves the source alone",
+			"/unsafe/0x0/filters:format(png)/", pngSource(300, 200), image.Rect(0, 0, 300, 200)),
+	)
+
+	It("keeps an animated gif animated on a free axis", func() {
+		rec := post("/unsafe/0x40/filters:format(gif)/", gifSource(200, 100, 3))
+
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		out := decodedGIF(rec)
+		Expect(out.Image).To(HaveLen(3))
+		Expect(out.Image[0].Bounds()).To(Equal(image.Rect(0, 0, 80, 40)))
+	})
+
 	DescribeTable("refuses what it cannot answer",
 		func(path string, source []byte, partType string, want int) {
 			rec := postTo(testMux(0, 0), path, source, partType)
@@ -129,8 +167,8 @@ var _ = Describe("the push endpoint", func() {
 		},
 		Entry("dimensions that are not numbers",
 			"/unsafe/fit-in/abcxdef/filters:format(jpeg)/", pngSource(100, 100), "image/png", http.StatusBadRequest),
-		Entry("a zero box",
-			"/unsafe/fit-in/0x0/filters:format(jpeg)/", pngSource(100, 100), "image/png", http.StatusBadRequest),
+		Entry("a negative box",
+			"/unsafe/fit-in/-50x50/filters:format(jpeg)/", pngSource(100, 100), "image/png", http.StatusBadRequest),
 		Entry("a format nobody writes",
 			"/unsafe/fit-in/50x50/filters:format(tiff)/", pngSource(100, 100), "image/png", http.StatusBadRequest),
 		Entry("bytes that are not an image",

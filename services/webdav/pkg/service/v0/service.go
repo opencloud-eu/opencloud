@@ -112,10 +112,10 @@ func NewService(opts ...Option) (Service, error) {
 			r.Use(svc.DavUserContext())
 
 			if !conf.DisablePreviews {
-				r.Get("/remote.php/dav/spaces/{id}", svc.SpacesThumbnail)
-				r.Get("/remote.php/dav/spaces/{id}/*", svc.SpacesThumbnail)
-				r.Get("/dav/spaces/{id}", svc.SpacesThumbnail)
-				r.Get("/dav/spaces/{id}/*", svc.SpacesThumbnail)
+				r.Get("/remote.php/dav/spaces/{id}", svc.Thumbnail)
+				r.Get("/remote.php/dav/spaces/{id}/*", svc.Thumbnail)
+				r.Get("/dav/spaces/{id}", svc.Thumbnail)
+				r.Get("/dav/spaces/{id}/*", svc.Thumbnail)
 
 				r.Get("/remote.php/dav/files/{id}", svc.Thumbnail)
 				r.Get("/remote.php/dav/files/{id}/*", svc.Thumbnail)
@@ -359,18 +359,8 @@ func (g Webdav) writeThumbnail(w http.ResponseWriter, r *http.Request, tr *reque
 	generator.WriteThumbnailResponse(w, thumb.Data, thumb.ContentType)
 }
 
-// SpacesThumbnail is the endpoint for retrieving thumbnails inside of spaces.
-func (g Webdav) SpacesThumbnail(w http.ResponseWriter, r *http.Request) {
-	logger := g.requestLogger(r)
-	tr, ok := g.parseThumbnailRequest(w, r, logger)
-	if !ok {
-		return
-	}
-
-	g.writeThumbnail(w, r, tr, r.Header.Get(revactx.TokenHeader), logger)
-}
-
-// Thumbnail implements the Service interface.
+// Thumbnail serves a thumbnail for every authenticated DAV path, spaces, files
+// and the legacy /webdav root alike: the reference is parsed from the request.
 func (g Webdav) Thumbnail(w http.ResponseWriter, r *http.Request) {
 	logger := g.requestLogger(r)
 	tr, ok := g.parseThumbnailRequest(w, r, logger)

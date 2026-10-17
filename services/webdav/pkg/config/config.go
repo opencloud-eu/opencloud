@@ -29,7 +29,7 @@ type Config struct {
 	ThumbnailGeneratorURL     string `yaml:"thumbnail_generator_url" env:"WEBDAV_THUMBNAIL_GENERATOR_URL" desc:"Base URL of the thumbnail generator service, e.g. http://thumbnails:9186" introductionVersion:"%%NEXT%%"`
 	ThumbnailGeneratorTimeout string `yaml:"thumbnail_generator_timeout" env:"WEBDAV_THUMBNAIL_GENERATOR_TIMEOUT" desc:"HTTP timeout for requests to the thumbnail generator, e.g. 30s" introductionVersion:"%%NEXT%%"`
 	// the yaml key stays unprefixed, a config file written against it has to keep working
-	ThumbnailMaxInputFileSize string `yaml:"max_input_file_size" env:"WEBDAV_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE;THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE" desc:"Maximum file size of an input image for thumbnail generation. Usable common abbreviations: [KB, KiB, MB, MiB, GB, GiB], example: 50MB" introductionVersion:"%%NEXT%%"`
+	ThumbnailMaxInputFileSize string `yaml:"max_input_file_size" env:"THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE;WEBDAV_THUMBNAIL_MAX_INPUT_IMAGE_FILE_SIZE" desc:"Maximum file size of an input image for thumbnail generation. Usable common abbreviations: [KB, KiB, MB, MiB, GB, GiB], example: 50MB" introductionVersion:"%%NEXT%%"`
 
 	ThumbnailCacheBackend string `yaml:"thumbnail_cache_backend" env:"WEBDAV_THUMBNAIL_CACHE_BACKEND" desc:"Cache backend for imagor thumbnails: 'none', 'memory', 'file', or 's3'. Default: file." introductionVersion:"%%NEXT%%"`
 	ThumbnailCacheDir     string `yaml:"thumbnail_cache_dir" env:"WEBDAV_THUMBNAIL_CACHE_DIR" desc:"Directory for file-based thumbnail cache (Default: $OC_BASE_DATA_PATH/thumbnails/files). Only used when ThumbnailCacheBackend is 'file'." introductionVersion:"%%NEXT%%"`
@@ -47,7 +47,7 @@ type Config struct {
 	ThumbnailTypeMapping      []string `yaml:"thumbnail_type_mapping" env:"OC_THUMBNAIL_TYPE_MAPPING;WEBDAV_THUMBNAIL_TYPE_MAPPING" desc:"The type a thumbnail is returned in, per type of the image it is made from, as mime:mime entries, e.g. image/vnd.microsoft.icon:image/png. The target is asked for by the name WEBDAV_THUMBNAIL_GENERATOR_FORMATS gives it. A type that is not listed, and one whose target the generator cannot write, becomes a JPEG." introductionVersion:"%%NEXT%%"`
 
 	// the yaml key stays unprefixed, a config file written against it has to keep working
-	ThumbnailFontMapFile string `yaml:"font_map_file" env:"WEBDAV_THUMBNAILS_TXT_FONTMAP_FILE;THUMBNAILS_TXT_FONTMAP_FILE" desc:"The path to a font map file for txt thumbnails." introductionVersion:"%%NEXT%%"`
+	ThumbnailFontMapFile string `yaml:"font_map_file" env:"THUMBNAILS_TXT_FONTMAP_FILE;WEBDAV_THUMBNAIL_TXT_FONTMAP_FILE" desc:"The path to a font map file for txt thumbnails." introductionVersion:"%%NEXT%%"`
 
 	Context context.Context `yaml:"-"`
 }

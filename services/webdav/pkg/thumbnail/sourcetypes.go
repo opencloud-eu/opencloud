@@ -45,9 +45,6 @@ func (t SourceTypes) Supports(contentType string) bool {
 	return supported
 }
 
-// All lists the types, so a caller can iterate them.
-func (t SourceTypes) All() map[string]struct{} { return t.byType }
-
 // List is the types as a slice, for a configuration that takes one.
 func (t SourceTypes) List() []string {
 	out := make([]string, 0, len(t.byType))

@@ -22,12 +22,21 @@ source file to this endpoint and receives the processed image back.
 | `POST /unsafe/fit-in/{width}x{height}/filters:{filters}`  | Scale to fit within width x height, preserving aspect ratio and never upscaling   |
 | `POST /unsafe/stretch/{width}x{height}/filters:{filters}` | Resize to the exact width x height without preserving aspect ratio (distorts)     |
 
-The filters segment is optional, like imagor's. Inside it, `format` and
-`no_upscale` are the filters this executor acts on, every other filter is
-ignored. `format` itself is optional: without it the input's own format is
+The path is imagor's. The filters segment is optional and may be empty
+(`filters:`), and an image key behind it is accepted and ignored, because the
+source arrives in the upload rather than being loaded by key. A bare box with
+nothing behind it is the one place this service and imagor part: imagor reads the
+last segment as the image key, so `/unsafe/100x100` is a key and nothing is
+resized, while this service treats it as the box. Inside the filters segment,
+`format` and `no_upscale` are the filters this executor acts on, every other
+filter is ignored. `format` itself is optional: without it the input's own format is
 preserved, the same way imagor does it. An input this service cannot write
 (tiff, bmp) becomes a JPEG; imagor writes tiff back in its own format and only
 falls back to JPEG for the ones it cannot write either.
+
+A side given as `0` is computed from the other one, so `/unsafe/0x100/` keeps the
+aspect ratio and `/unsafe/0x0/` returns the source at its own size. A free axis
+leaves nothing to crop to, so the operation makes no difference to it.
 
 Like real imagor, the default fill resize **upscales** small sources to fill
 the box exactly (a 100x100 source requested at `320x320` returns a 320x320

@@ -66,7 +66,7 @@ When what a request resolves to contradicts an `a` the client sent, the response
 
 #### Thumbnail Generator
 
-The thumbnails themselves are made by a generator the webdav service POSTs to, configured with `WEBDAV_THUMBNAIL_GENERATOR_URL` (and `WEBDAV_THUMBNAIL_GENERATOR_TIMEOUT`). The built-in thumbnails service speaks the imagor image endpoint, so a real [imagor](https://imagor.net) can be put in its place without changing anything else. A source the generator cannot read answers `404`, one that is too large `403`, and `WEBDAV_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE` caps what is sent at all. A generator that refuses because it is busy answers `429` with its own `Retry-After`, so a client can come back instead of treating it as a missing preview.
+The thumbnails themselves are made by a generator the webdav service POSTs to, configured with `WEBDAV_THUMBNAIL_GENERATOR_URL` (and `WEBDAV_THUMBNAIL_GENERATOR_TIMEOUT`). The built-in thumbnails service speaks the imagor image endpoint, so a real [imagor](https://imagor.net) can be put in its place without changing anything else. A source the generator cannot read answers `404`, one that is too large `403`, and `WEBDAV_THUMBNAIL_MAX_INPUT_IMAGE_FILE_SIZE` caps what is sent at all. A generator that refuses because it is busy answers `429` with its own `Retry-After`, so a client can come back instead of treating it as a missing preview.
 
 Three settings say what is made of what. They are merged onto the built-in defaults, so naming one type does not take the answer away from the others:
 

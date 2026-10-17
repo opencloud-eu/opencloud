@@ -20,7 +20,7 @@ const (
 // operationSegment maps an operation to its imagor URL path segment. The fill
 // operation is the bare WxH resize (imagor's default), so it contributes no
 // leading segment; stretch and fit-in use their imagor names. Note that real
-// imagor has no /fill/ route — "fill" is only our internal name for the default
+// imagor has no /fill/ route, "fill" is only our internal name for the default
 // center-crop resize.
 func operationSegment(op string) string {
 	switch op {
