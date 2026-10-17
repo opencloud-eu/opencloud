@@ -24,9 +24,9 @@ The following query parameters are supported:
 | x         | NO       | 32, when y is absent too                                   | horizontal target size, absent leaves the width unconstrained, `0` is an error  |
 | y         | NO       | 32, when x is absent too                                   | vertical target size, absent leaves the height unconstrained, `0` is an error   |
 | scalingup | NO       | 0                                                          | accepted for compatibility but ignored; not forwarded to the generator          |
-| a         | NO       | 1                                                          | aspect ratio (legacy; only honored when no explicit `processor` is given)       |
+| a         | NO       | none, the chain below decides                              | aspect ratio (legacy; only honored when no explicit `processor` is given)       |
 | c         | NO       | Caching string                                             | Clients should send the etag, so they get a fresh thumbnail after a file change |
-| processor | NO       | `resize` for gifs and `thumbnail` for all others           | preferred thumbnail processor                                                   |
+| processor | NO       | none, the chain below decides                              | preferred thumbnail processor                                                   |
 
 #### Thumbnail Resolution
 
@@ -41,6 +41,8 @@ Entries written as `WidthxHeight` are still accepted and contribute both of thei
 
 Rounding onto the ladder is also what the cache is keyed on, so requests that produce the same image share one entry.
 
+The response is therefore not exactly the requested box: rounding up makes it larger, and an aspect-preserving operation makes it smaller on one axis. A client has to scale what it gets instead of trusting its own numbers.
+
 #### Thumbnail Processors
 
 Normally, an image might get cropped when creating a preview, depending on the aspect ratio of the original image. This can have negative impacts on previews as only a part of the image will be shown. When using an _optional_ processor in the request, cropping can be avoided by defining on how the preview image generation will be done. The following processors are available:
@@ -49,10 +51,12 @@ Normally, an image might get cropped when creating a preview, depending on the a
 - `fit-in` scales the image down to fit within the specified maximum width and height, preserving aspect ratio and never upscaling (letterboxed).
 - `fill`: creates an image with the specified dimensions and fills it with the scaled source image. To achieve the correct aspect ratio without stretching, the source image will be cropped.
 
-The following are **legacy aliases** kept for compatibility. They map onto the processors above but **ignore the `a` and `scalingup` query parameters**; callers that need aspect or upscaling control should use the imagor names directly (`fill`, `fit-in`, `resize`):
+The following are **legacy aliases** kept for compatibility:
 
 - `thumbnail` is a legacy alias for `fill` (center-crop to the exact box, may upscale).
 - `fit` is a legacy alias for `fit-in`.
+
+Naming a processor decides the behavior on its own, legacy alias or imagor name: `a` is overruled and `scalingup` is ignored either way. A request that wants `a` to decide has to leave `processor` out.
 
 To apply one of those, a query parameter has to be added to the request, like `?processor=fit-in`.
 
@@ -68,13 +72,13 @@ Three settings say what is made of what. They are merged onto the built-in defau
 
 | Environment variable                 | Description                                                                                                                                                  |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `WEBDAV_THUMBNAIL_SOURCE_TYPES`      | Types a preview is announced and attempted for, e.g. `image/vnd.microsoft.icon` for a generator that reads icons                                             |
-| `WEBDAV_THUMBNAIL_TYPE_MAPPING`      | The type a thumbnail is returned in, per source type, as `mime:mime` entries, e.g. `image/vnd.microsoft.icon:image/png`                                      |
-| `WEBDAV_THUMBNAIL_GENERATOR_FORMATS` | The formats the generator writes, as `mime:format` entries, e.g. `image/webp:webp`. The format is the name its own `format(...)` filter uses                 |
+| `OC_THUMBNAIL_SOURCE_TYPES`          | Types a preview is announced and attempted for, e.g. `image/vnd.microsoft.icon` for a generator that reads icons. The webdav, graph and ocdav side all read this one name |
+| `OC_THUMBNAIL_TYPE_MAPPING`          | The type a thumbnail is returned in, per source type, as `mime:mime` entries, e.g. `image/vnd.microsoft.icon:image/png`                                      |
+| `OC_THUMBNAIL_GENERATOR_FORMATS`     | The formats the generator writes, as `mime:format` entries, e.g. `image/webp:webp`. The format is the name its own `format(...)` filter uses                 |
 
 Reading them as a chain: a source type is mapped to the type its thumbnail is returned in, and that type is asked for by the name the generator knows it under. An icon becomes `image/png`, which the generator is asked for as `format(png)`. A type nobody mapped becomes a JPEG, and a mapping onto a type the generator has no format name for is refused at startup.
 
-The defaults return `image/png` for png, gif and icon sources and `image/jpeg` for everything else, so a client must read the response's `Content-Type` instead of assuming the type it got before.
+The defaults return `image/png` for png and icon sources, keep `image/gif` for a gif and return `image/jpeg` for everything else, so a client must read the response's `Content-Type` instead of assuming the type it got before.
 
 Previews can be switched off entirely with `OC_DISABLE_PREVIEWS`. Search keeps working, every thumbnail path answers `404`.
 

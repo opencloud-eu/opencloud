@@ -22,8 +22,7 @@ source file to this endpoint and receives the processed image back.
 | `POST /unsafe/fit-in/{width}x{height}/filters:{filters}`  | Scale to fit within width x height, preserving aspect ratio and never upscaling   |
 | `POST /unsafe/stretch/{width}x{height}/filters:{filters}` | Resize to the exact width x height without preserving aspect ratio (distorts)     |
 
-The filters segment is optional, like imagor's, and may also be empty
-(`filters:`). Inside it, `format` and
+The filters segment is optional, like imagor's. Inside it, `format` and
 `no_upscale` are the filters this executor acts on, every other filter is
 ignored. `format` itself is optional: without it the input's own format is
 preserved, the same way imagor does it. An input this service cannot write
@@ -43,7 +42,7 @@ parameters that decide it, are the webdav service's business and documented in
 The request body is a `multipart/form-data` upload with a single file field
 named `image`, typed `image/*`; an untyped part is refused the way imagor's
 upload loader refuses it. Output formats are `jpg`, `png`, `gif` and, with
-libvips, `webp`; the pure Go build answers `400` for `format(webp)` because it
+libvips, `webp`; the pure Go build answers `406` for `format(webp)` because it
 has no webp encoder. An animated gif asked for a still format is flattened to
 its first frame, and a still source asked for `format(gif)` is palettised.
 
@@ -51,8 +50,9 @@ Reading an ICO needs libvips with its magick loader; the pure Go build answers
 `406` for one.
 
 The answers are imagor's: `400` for a malformed request, `406` for a source it
-cannot read, `422` for an image above the configured maximum dimensions, `429`
-when the concurrency limit is reached.
+cannot read, for a format this build cannot write and for an upload part that
+is not typed `image/*`, `422` for an image above the configured maximum
+dimensions, `429` when the concurrency limit is reached.
 
 ## Configuration
 
