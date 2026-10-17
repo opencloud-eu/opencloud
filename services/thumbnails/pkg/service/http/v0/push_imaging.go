@@ -97,15 +97,7 @@ func resizeSourceImaging(src *imagingSource, req resizeRequest) (image.Image, er
 	case OpStretch:
 		return imaging.Resize(img, req.Width, req.Height, imaging.Lanczos), nil
 	case OpFitIn:
-		// imagor's fit-in only enlarges with the upscale() filter, which webdav
-		// never sends, so a source smaller than the box is returned as it is.
-		// Not imaging.Fit: it truncates the scaled side, vips and imagor round it.
-		w, h := fitInBox(srcBounds.Dx(), srcBounds.Dy(), req.Width, req.Height)
-		if w >= srcBounds.Dx() && h >= srcBounds.Dy() {
-			return img, nil
-		}
-
-		return imaging.Resize(img, w, h, imaging.Lanczos), nil
+		return fitIn(img, req.Width, req.Height), nil
 	default: // OpFill
 		if req.NoUpscale && srcBounds.Dx() <= req.Width && srcBounds.Dy() <= req.Height {
 			// imagor no_upscale(): never enlarge the source.

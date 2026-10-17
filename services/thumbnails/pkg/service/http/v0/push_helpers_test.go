@@ -12,9 +12,11 @@ import (
 	"net/http/httptest"
 	"net/textproto"
 
-	"github.com/go-chi/chi/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/config/defaults"
 	"golang.org/x/image/bmp"
 )
 
@@ -138,24 +140,27 @@ func multipartBody(source []byte, partType string) (*bytes.Buffer, string) {
 	return body, writer.FormDataContentType()
 }
 
-// testMux is the production route table with the configured input limits; 0
-// disables a bound.
-func testMux(maxWidth, maxHeight int) *chi.Mux {
-	mux := chi.NewMux()
-	mountPushRoutes(mux, Thumbnails{maxWidth: maxWidth, maxHeight: maxHeight}.pushHandler)
+// testService is the real service with the configured input limits; 0 disables a
+// bound.
+func testService(maxWidth, maxHeight int) Service {
+	GinkgoHelper()
 
-	return mux
+	cfg := defaults.DefaultConfig()
+	defaults.EnsureDefaults(cfg)
+	cfg.Thumbnail.MaxInputWidth, cfg.Thumbnail.MaxInputHeight = maxWidth, maxHeight
+
+	return NewService(Logger(log.NopLogger()), Config(cfg))
 }
 
-// post sends a typed source to a path on a mux without input limits.
+// post sends a typed source to a path without input limits.
 func post(path string, source []byte) *httptest.ResponseRecorder {
 	GinkgoHelper()
 
-	return postTo(testMux(0, 0), path, source, "image/png")
+	return postTo(testService(0, 0), path, source, "image/png")
 }
 
-// postTo sends a source with an explicit part type to a path on the given mux.
-func postTo(mux *chi.Mux, path string, source []byte, partType string) *httptest.ResponseRecorder {
+// postTo sends a source with an explicit part type to a path on the given service.
+func postTo(handler http.Handler, path string, source []byte, partType string) *httptest.ResponseRecorder {
 	GinkgoHelper()
 
 	body, contentType := multipartBody(source, partType)
@@ -163,7 +168,7 @@ func postTo(mux *chi.Mux, path string, source []byte, partType string) *httptest
 	req.Header.Set("Content-Type", contentType)
 
 	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
+	handler.ServeHTTP(rec, req)
 
 	return rec
 }

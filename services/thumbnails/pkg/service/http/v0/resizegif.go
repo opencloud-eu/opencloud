@@ -39,13 +39,7 @@ func resizeGIF(m *gif.GIF, req resizeRequest) *gif.GIF {
 		case OpStretch:
 			processed = imaging.Resize(tmp, width, height, imaging.Lanczos)
 		case OpFitIn:
-			// not imaging.Fit: it truncates the scaled side, vips and imagor round
-			// it, and fit-in never enlarges whether no_upscale() was sent or not.
-			if fitW, fitH := fitInBox(srcX, srcY, width, height); fitW >= srcX && fitH >= srcY {
-				processed = tmp
-			} else {
-				processed = imaging.Resize(tmp, fitW, fitH, imaging.Lanczos)
-			}
+			processed = fitIn(tmp, width, height)
 		default: // OpFill
 			if noUpscale && srcX <= width && srcY <= height {
 				processed = tmp

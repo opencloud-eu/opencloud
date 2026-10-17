@@ -25,6 +25,17 @@ const (
 	OpStretch = "stretch"
 )
 
+// outputContentTypes are the formats a filters segment may ask for, by the name
+// its format filter uses, and the type the answer carries. A format that is not
+// in here at all is a bad request; one that is, but has no encoder in this
+// build, is a 406.
+var outputContentTypes = map[string]string{
+	"jpg":  "image/jpeg",
+	"png":  "image/png",
+	"gif":  "image/gif",
+	"webp": "image/webp",
+}
+
 // errFormatUnsupported is what an encoder returns for a format this build has no
 // encoder for, as opposed to an encode that went wrong.
 var errFormatUnsupported = fmt.Errorf("format not supported by this build")
@@ -152,27 +163,20 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var (
-		buf         bytes.Buffer
-		contentType string
-		encErr      error
+		buf    bytes.Buffer
+		encErr error
 	)
 	switch ext {
 	case "jpg":
-		contentType = "image/jpeg"
 		encErr = encodeJPEG(&buf, processed)
 	case "png":
-		contentType = "image/png"
 		encErr = encodePNG(&buf, processed)
 	case "webp":
-		contentType = "image/webp"
 		encErr = encodeWebP(&buf, processed)
 	case "gif":
-		contentType = "image/gif"
 		encErr = encodeGIF(&buf, processed)
 	default:
-		// unreachable today: the filters whitelist and the backends both answer
-		// in jpg, png, gif or webp. A format added to one of them without an
-		// encoder lands here, and that is this build's limit, not a bad request.
+		// a format in outputContentTypes that this build has no encoder for
 		writeNotAcceptable(w, fmt.Sprintf("this build writes no %s", ext))
 
 		return
@@ -189,7 +193,7 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeImage(w, contentType, buf.Bytes())
+	writeImage(w, outputContentTypes[ext], buf.Bytes())
 }
 
 // serveAnimation resizes every frame of an animated gif and writes it back. The
@@ -348,12 +352,11 @@ func outputFormatFromFilters(segment string) (ext string, hasFormat bool, err er
 			continue
 		}
 		mapped := mapFormatToExt(args)
-		switch mapped {
-		case "jpg", "png", "gif", "webp":
-			return mapped, true, nil
-		default:
+		if _, ok := outputContentTypes[mapped]; !ok {
 			return "", false, fmt.Errorf("unsupported output format: %s", args)
 		}
+
+		return mapped, true, nil
 	}
 	return "", false, nil
 }

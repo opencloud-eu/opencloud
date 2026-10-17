@@ -161,7 +161,7 @@ var _ = Describe("the push endpoint", func() {
 
 	DescribeTable("refuses what it cannot answer",
 		func(path string, source []byte, partType string, want int) {
-			rec := postTo(testMux(0, 0), path, source, partType)
+			rec := postTo(testService(0, 0), path, source, partType)
 
 			Expect(rec.Code).To(Equal(want), rec.Body.String())
 		},
@@ -180,7 +180,7 @@ var _ = Describe("the push endpoint", func() {
 	It("refuses a body that is not multipart", func() {
 		req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/50x50/filters:format(jpeg)/", bytes.NewReader([]byte("plain text")))
 		rec := httptest.NewRecorder()
-		testMux(0, 0).ServeHTTP(rec, req)
+		testService(0, 0).ServeHTTP(rec, req)
 
 		Expect(rec.Code).To(Equal(http.StatusBadRequest))
 	})
@@ -194,7 +194,7 @@ var _ = Describe("the push endpoint", func() {
 		req := httptest.NewRequest(http.MethodPost, "/unsafe/fit-in/50x50/filters:format(jpeg)/", body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 		rec := httptest.NewRecorder()
-		testMux(0, 0).ServeHTTP(rec, req)
+		testService(0, 0).ServeHTTP(rec, req)
 
 		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
 	})
@@ -202,7 +202,7 @@ var _ = Describe("the push endpoint", func() {
 	Describe("the configured maximum input resolution", func() {
 		DescribeTable("refuses an image above it before decoding",
 			func(source []byte) {
-				rec := postTo(testMux(100, 100), "/unsafe/64x64/filters:format(png)/", source, "image/png")
+				rec := postTo(testService(100, 100), "/unsafe/64x64/filters:format(png)/", source, "image/png")
 
 				Expect(rec.Code).To(Equal(http.StatusUnprocessableEntity), rec.Body.String())
 			},
@@ -211,7 +211,7 @@ var _ = Describe("the push endpoint", func() {
 		)
 
 		It("lets an image within it through", func() {
-			rec := postTo(testMux(100, 100), "/unsafe/32x32/filters:format(png)/", pngSource(50, 50), "image/png")
+			rec := postTo(testService(100, 100), "/unsafe/32x32/filters:format(png)/", pngSource(50, 50), "image/png")
 
 			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		})
@@ -219,7 +219,7 @@ var _ = Describe("the push endpoint", func() {
 		// a tiny file that declares huge dimensions must not reach a decoder
 		DescribeTable("refuses a dimension bomb from its header alone",
 			func(source []byte, path string) {
-				rec := postTo(testMux(7680, 7680), path, source, "image/png")
+				rec := postTo(testService(7680, 7680), path, source, "image/png")
 
 				Expect(rec.Code).To(Equal(http.StatusUnprocessableEntity), rec.Body.String())
 			},
