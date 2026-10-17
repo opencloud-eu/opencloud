@@ -1,8 +1,10 @@
-//go:build !enable_vips
-
 package thumbnail
 
-// SupportedMimeTypes contains all mimetypes which are supported by the thumbnailer.
+// SupportedMimeTypes are the types a preview is announced and attempted for
+// without further configuration. Both builds read all of them, webp included:
+// the pure Go build decodes it through the imaging library and answers the JPEG
+// the type mapping asks for. A generator that reads more than this is told so
+// with OC_THUMBNAIL_SOURCE_TYPES.
 var SupportedMimeTypes = map[string]struct{}{
 	"image/png":                         {},
 	"image/jpg":                         {},
@@ -11,6 +13,7 @@ var SupportedMimeTypes = map[string]struct{}{
 	"image/bmp":                         {},
 	"image/x-ms-bmp":                    {},
 	"image/tiff":                        {},
+	"image/webp":                        {},
 	"text/plain":                        {},
 	"audio/flac":                        {},
 	"audio/mpeg":                        {},

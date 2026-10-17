@@ -168,7 +168,10 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 		contentType = "image/gif"
 		encErr = encodeGIF(&buf, processed)
 	default:
-		writeInvalid(w, fmt.Sprintf("unsupported output format: %s", ext))
+		// unreachable today: the filters whitelist and the backends both answer
+		// in jpg, png, gif or webp. A format added to one of them without an
+		// encoder lands here, and that is this build's limit, not a bad request.
+		writeNotAcceptable(w, fmt.Sprintf("this build writes no %s", ext))
 
 		return
 	}

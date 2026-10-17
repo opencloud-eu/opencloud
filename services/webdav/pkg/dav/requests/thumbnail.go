@@ -98,7 +98,7 @@ func ParseThumbnailRequest(r *http.Request) (*ThumbnailRequest, error) {
 		return nil, err
 	}
 	processor := q.Get("processor")
-	if (width == 0 || height == 0) && processor != "" && cropsToBox(processor) {
+	if (width == 0 || height == 0) && processor != "" && targetsExactBox(processor) {
 		// A processor that was asked for by name and crops has no target for an
 		// unconstrained side. Without a processor the axis decides and the
 		// workflow fits instead. The wording is the legacy one because clients
@@ -176,9 +176,10 @@ func aspect(q url.Values) *bool {
 	return &preserve
 }
 
-// cropsToBox reports whether the processor produces exactly the requested box,
-// which an unconstrained axis cannot describe.
-func cropsToBox(processor string) bool {
+// targetsExactBox reports whether the processor produces exactly the requested
+// box, by cropping (fill, thumbnail) or by distorting (resize), which an
+// unconstrained axis cannot describe. Only fit-in inscribes instead.
+func targetsExactBox(processor string) bool {
 	switch strings.ToLower(strings.TrimSpace(processor)) {
 	case "fit", "fit-in":
 		return false
