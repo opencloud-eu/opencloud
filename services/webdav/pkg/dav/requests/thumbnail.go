@@ -98,9 +98,6 @@ func ParseThumbnailRequest(r *http.Request) (*ThumbnailRequest, error) {
 	if err != nil {
 		return nil, err
 	}
-	if width == 0 && height == 0 {
-		return nil, fmt.Errorf("Cannot leave both width and height unconstrained!")
-	}
 	processor := q.Get("processor")
 	if (width == 0 || height == 0) && processor != "" && cropsToBox(processor) {
 		// A processor that was asked for by name and crops has no target for an
@@ -136,10 +133,11 @@ func addMissingStorageID(id string) string {
 	return storagespace.FormatResourceID(rid)
 }
 
-// parseDimensions reads the requested box. Zero means "do not constrain this
-// axis", and an omitted axis is the same as zero, so a client that knows only
-// one side can ask for it alone. Only when both are absent does the legacy
-// default apply, which keeps the dimensionless OC10 call working.
+// parseDimensions reads the requested box. An omitted axis is left
+// unconstrained, so a client that knows only one side can ask for it alone,
+// while an explicit zero stays the error it has always been. Only when both are
+// absent does the legacy default apply, which keeps the dimensionless OC10 call
+// working.
 func parseDimensions(q url.Values) (int64, int64, error) {
 	x, y := q.Get("x"), q.Get("y")
 	if x == "" && y == "" {
@@ -161,7 +159,7 @@ func parseDimension(d, name string) (int64, error) {
 		return 0, nil
 	}
 	result, err := strconv.ParseInt(d, 10, 32)
-	if err != nil || result < 0 {
+	if err != nil || result <= 0 {
 		// The error message doesn't fit but for OC10 API compatibility reasons we have to set this.
 		return 0, fmt.Errorf("Cannot set %s of 0 or smaller!", name)
 	}
