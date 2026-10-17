@@ -178,7 +178,8 @@ func aspect(q url.Values) *bool {
 
 // targetsExactBox reports whether the processor produces exactly the requested
 // box, by cropping (fill, thumbnail) or by distorting (resize), which an
-// unconstrained axis cannot describe. Only fit-in inscribes instead.
+// unconstrained axis cannot describe. fit-in inscribes instead, and so does a
+// name nobody knows, which resolves like no processor at all.
 func targetsExactBox(processor string) bool {
 	switch strings.ToLower(strings.TrimSpace(processor)) {
 	case "fill", "thumbnail", "resize":

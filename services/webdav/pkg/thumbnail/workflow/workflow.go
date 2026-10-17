@@ -541,9 +541,9 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 }
 
 // matchOperation resolves the generator resize/crop operation for a request from
-// the client's processor and the legacy "a" flag. An explicit processor always
-// wins; when no processor is given the default depends on the source type (gifs
-// are resized, everything else is filled). webdav has already snapped the box
+// the client's processor and the legacy "a" flag. A processor it knows always
+// wins; without one, or with a name nobody knows, the default depends on the
+// source type (gifs are resized, everything else is filled). webdav has already snapped the box
 // onto a configured resolution; this only chooses how to fit within that box:
 //   - resize            -> stretch (distort to the exact box)
 //   - fill              -> fill (center-crop to the box)
@@ -552,9 +552,9 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 //   - (none), gif       -> stretch (resize for gifs)
 //   - (none), non-gif   -> fill (default = thumbnail = fill)
 //
-// "thumbnail" and "fit" are legacy aliases for "fill" and "fit-in". Naming any
-// processor decides the behavior on its own, so "a" is overruled and "scalingup"
-// is ignored either way. The second return value reports whether upscaling must be
+// "thumbnail" and "fit" are legacy aliases for "fill" and "fit-in". Naming one of
+// them decides the behavior on its own, so "a" is overruled and "scalingup" is
+// ignored either way. The second return value reports whether upscaling must be
 // suppressed (no_upscale): only fit-in never enlarges its source, so it is true
 // exactly for the fit/fit-in processors; fill, thumbnail and resize all allow the
 // generator to enlarge a small source to fill the snapped box. The third return

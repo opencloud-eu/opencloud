@@ -10,7 +10,7 @@ Currently, the webdav service handles request for two functionalities, which are
 
 The webdav service provides various `GET` endpoints to get the thumbnails of a file in authenticated and unauthenticated contexts. It also provides thumbnails for spaces on different endpoints.
 
-Generated thumbnails are cached by the webdav service itself. The cache backend defaults to `file`, storing entries under `$OC_BASE_DATA_PATH/thumbnails/files` (override with `WEBDAV_THUMBNAIL_CACHE_BACKEND` and `WEBDAV_THUMBNAIL_CACHE_DIR`). Use the `s3` backend when running multiple instances behind a load balancer so they share one cache. A backend nobody can serve, an unknown name or an `s3` backend without bucket, endpoint and credentials, fails at startup instead of serving without a cache. The `memory` backend is bounded and drops its oldest entries; `none` disables caching on purpose.
+Generated thumbnails are cached by the webdav service itself. The cache backend defaults to `file`, storing entries under `$OC_BASE_DATA_PATH/thumbnails/files` (override with `WEBDAV_THUMBNAIL_CACHE_BACKEND` and `WEBDAV_THUMBNAIL_CACHE_DIR`). Use the `s3` backend when running multiple instances behind a load balancer so they share one cache. A backend nobody can serve, an unknown name or an `s3` backend without bucket, region and credentials, fails at startup instead of serving without a cache. A service that is not AWS needs `WEBDAV_THUMBNAIL_CACHE_S3_ENDPOINT` too, and it is always addressed over https. The `memory` backend is bounded and drops its oldest entries; `none` disables caching on purpose.
 
 #### Thumbnail Query String Parameters
 
@@ -48,7 +48,7 @@ The response is therefore not exactly the requested box: rounding up makes it la
 Normally, an image might get cropped when creating a preview, depending on the aspect ratio of the original image. This can have negative impacts on previews as only a part of the image will be shown. When using an _optional_ processor in the request, cropping can be avoided by defining on how the preview image generation will be done. The following processors are available:
 
 - `resize` resizes the image to the specified width and height and returns the transformed image (distorts to the exact box).
-- `fit-in` scales the image down to fit within the specified maximum width and height, preserving aspect ratio and never upscaling (letterboxed).
+- `fit-in` scales the image down to fit within the specified maximum width and height, preserving aspect ratio and never upscaling. The result is smaller than the box on one axis, it is not padded to it.
 - `fill`: creates an image with the specified dimensions and fills it with the scaled source image. To achieve the correct aspect ratio without stretching, the source image will be cropped.
 
 The following are **legacy aliases** kept for compatibility:
@@ -56,7 +56,7 @@ The following are **legacy aliases** kept for compatibility:
 - `thumbnail` is a legacy alias for `fill` (center-crop to the exact box, may upscale).
 - `fit` is a legacy alias for `fit-in`.
 
-Naming a processor decides the behavior on its own, legacy alias or imagor name: `a` is overruled and `scalingup` is ignored either way. A request that wants `a` to decide has to leave `processor` out.
+Naming one of them decides the behavior on its own, legacy alias or imagor name: `a` is overruled and `scalingup` is ignored either way. A request that wants `a` to decide has to leave `processor` out, a name nobody knows is treated the same way.
 
 To apply one of those, a query parameter has to be added to the request, like `?processor=fit-in`.
 

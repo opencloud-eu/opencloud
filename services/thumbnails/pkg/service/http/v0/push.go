@@ -43,7 +43,7 @@ var errFormatUnsupported = fmt.Errorf("format not supported by this build")
 // pushHandler handles POST requests for the imagor-like push-based thumbnail endpoint.
 // Path patterns (operation and format are both optional; absent operation is the default
 // center-crop fill, absent format keeps the input's own format):
-//   - POST /unsafe(/fit-in|/stretch)/{W}x{H}(/filters:{filters})
+//   - POST /unsafe(/fill|/fit-in|/stretch)/{W}x{H}(/filters:{filters})
 //
 // The filters segment is captured whole and parsed by outputFormatFromFilters; only the
 // format filter is meaningful to this executor, other filters are ignored. When no format
@@ -176,8 +176,10 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 	case "gif":
 		encErr = encodeGIF(&buf, processed)
 	default:
-		// a format in outputContentTypes that this build has no encoder for
-		writeNotAcceptable(w, fmt.Sprintf("this build writes no %s", ext))
+		// unreachable by construction: ext is a key of outputContentTypes, and
+		// every key has an arm above. A fifth format would land here before it
+		// reaches a nil encoder.
+		writeNotAcceptable(w, fmt.Sprintf("no encoder for %s in this build", ext))
 
 		return
 	}

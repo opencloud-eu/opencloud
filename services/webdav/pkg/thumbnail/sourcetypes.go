@@ -2,6 +2,7 @@ package thumbnail
 
 import (
 	"mime"
+	"slices"
 	"strings"
 )
 
@@ -40,7 +41,7 @@ type SourceTypes struct {
 // NewSourceTypes merges the configured types onto the defaults.
 func NewSourceTypes(entries []string) SourceTypes {
 	t := SourceTypes{byType: make(map[string]struct{}, len(DefaultSourceTypes)+len(entries))}
-	for _, entry := range append(append([]string{}, DefaultSourceTypes...), entries...) {
+	for _, entry := range slices.Concat(DefaultSourceTypes, entries) {
 		if entry = strings.ToLower(strings.TrimSpace(entry)); entry != "" {
 			t.byType[entry] = struct{}{}
 		}
