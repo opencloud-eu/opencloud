@@ -2,6 +2,7 @@ package parity
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"image"
 	"image/color"
@@ -126,6 +127,22 @@ func icoSource(size int) source {
 	return source{
 		name: "ico", filename: "source.ico", partType: "image/vnd.microsoft.icon",
 		data: out.Bytes(),
+	}
+}
+
+// a lossless 300x200 webp, embedded because the pure Go build has no webp
+// encoder to make one with, and both builds have to be able to post it.
+const webpFixture = "UklGRiQAAABXRUJQVlA4TBgAAAAvK8ExAAdQvCoUuf8BAEX6/58i+p/6/zU="
+
+func webpSource() source {
+	GinkgoHelper()
+
+	data, err := base64.StdEncoding.DecodeString(webpFixture)
+	Expect(err).ToNot(HaveOccurred())
+
+	return source{
+		name: "webp", filename: "source.webp", partType: "image/webp",
+		data: data,
 	}
 }
 

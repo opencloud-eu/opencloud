@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"image"
+	"image/gif"
 	"io"
 	"net/http"
 	"strconv"
@@ -101,40 +101,49 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	noUpscale := filterPresent(filtersSegment, "no_upscale")
-	if !hasFormat {
-		// No format filter: preserve the input's own format (imagor default),
-		// detected via imaging. Only runs on this path, so the common webdav
-		// request (which always sends a format) pays no decode cost.
-		ext = inputFormatViaImaging(imgData)
-	}
-
-	// imagor ErrMaxResolutionExceeded: the declared input exceeds the configured
-	// maximum width or height. Checked against the image header BEFORE any
-	// decoding so a dimension bomb (a tiny file declaring huge dimensions) is
-	// rejected without allocating the pixel buffer. webdav translates the
-	// resulting 422 into its legacy 403 response.
-	if s.maxWidth > 0 || s.maxHeight > 0 {
-		cfg, _, err := image.DecodeConfig(bytes.NewReader(imgData))
-		if err != nil {
-			s.logger.Debug().Err(err).Msg("could not read the image header, skipping the dimension check")
-		}
-		if err == nil {
-			if (s.maxWidth > 0 && cfg.Width > s.maxWidth) || (s.maxHeight > 0 && cfg.Height > s.maxHeight) {
-				writeMaxResolution(w)
-				return
-			}
-		}
-	}
-
 	// The box and operation are chosen by webdav (the sizing brain); this service
 	// is a dumb, imagor-like executor that just fits within the given box.
-	processed, err := processImage(bytes.NewReader(imgData), resizeRequest{
-		Width:         width,
-		Height:        height,
-		Operation:     operation,
-		NoUpscale:     noUpscale,
-		KeepAnimation: ext == "gif",
-	})
+	req := resizeRequest{Width: width, Height: height, Operation: operation, NoUpscale: noUpscale}
+
+	// An animated gif is the one source both builds treat the same way: neither
+	// libvips nor the pure Go path has anything better for a paletted animation,
+	// so it never reaches a backend. Asking for a still format flattens it, and
+	// that is a backend's job again.
+	if bytes.HasPrefix(imgData, gifMagic) && (ext == "gif" || !hasFormat) {
+		s.serveAnimation(w, imgData, req)
+
+		return
+	}
+
+	// The backend that decodes the image is the one that answers for it: it reads
+	// the header here, and only the resize pulls pixels.
+	src, err := loadSource(imgData)
+	if err != nil {
+		s.logger.Debug().Err(err).Msg("could not read the image header")
+		writeNotAcceptable(w, "unreadable image")
+
+		return
+	}
+	defer src.Close()
+
+	// imagor ErrMaxResolutionExceeded: the declared input exceeds the configured
+	// maximum width or height. Checked on the header BEFORE any pixels exist, so
+	// a dimension bomb (a tiny file declaring huge dimensions) is rejected
+	// without allocating a frame buffer. webdav translates the resulting 422 into
+	// its legacy 403 response.
+	srcWidth, srcHeight := src.Width(), src.Height()
+	if (s.maxWidth > 0 && srcWidth > s.maxWidth) || (s.maxHeight > 0 && srcHeight > s.maxHeight) {
+		writeMaxResolution(w)
+
+		return
+	}
+
+	if !hasFormat {
+		// No format filter: preserve the input's own format, the way imagor does.
+		ext = extForSourceFormat(src)
+	}
+
+	processed, err := resizeSource(src, req)
 	if err != nil {
 		writeNotAcceptable(w, "failed to process image")
 		return
@@ -175,9 +184,52 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	writeImage(w, contentType, buf.Bytes())
+}
+
+// serveAnimation resizes every frame of an animated gif and writes it back. The
+// guard runs on the gif header first, so a gif that only declares huge frames
+// never reaches the frame decode.
+func (s Thumbnails) serveAnimation(w http.ResponseWriter, imgData []byte, req resizeRequest) {
+	config, err := gif.DecodeConfig(bytes.NewReader(imgData))
+	if err != nil {
+		s.logger.Debug().Err(err).Msg("could not read the gif header")
+		writeNotAcceptable(w, "unreadable image")
+
+		return
+	}
+
+	if (s.maxWidth > 0 && config.Width > s.maxWidth) || (s.maxHeight > 0 && config.Height > s.maxHeight) {
+		writeMaxResolution(w)
+
+		return
+	}
+
+	g, err := gif.DecodeAll(bytes.NewReader(imgData))
+	if err != nil || len(g.Image) == 0 {
+		s.logger.Debug().Err(err).Msg("could not decode the gif")
+		writeNotAcceptable(w, "unreadable image")
+
+		return
+	}
+
+	var buf bytes.Buffer
+	if err := gif.EncodeAll(&buf, resizeGIF(g, req.Width, req.Height, req.Operation, req.NoUpscale)); err != nil {
+		s.logger.Error().Err(err).Msg("could not encode the gif")
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintln(w, "failed to encode image")
+
+		return
+	}
+
+	writeImage(w, "image/gif", buf.Bytes())
+}
+
+// writeImage answers with the encoded image.
+func writeImage(w http.ResponseWriter, contentType string, data []byte) {
 	w.Header().Set("Content-Type", contentType)
 	w.WriteHeader(http.StatusOK)
-	buf.WriteTo(w)
+	_, _ = w.Write(data)
 }
 
 func parseDim(r *http.Request, name string) (int, error) {
@@ -282,7 +334,7 @@ func mapFormatToExt(format string) string {
 // reports the requested output extension. Only the format filter is meaningful to this
 // executor; other filters are ignored because the operation already governs
 // sizing/upscaling. It returns hasFormat=false when no format filter is present, in
-// which case the caller falls back to inputFormatViaImaging. An explicit but
+// which case the caller keeps the input's own format. An explicit but
 // unsupported format is an error.
 func outputFormatFromFilters(segment string) (ext string, hasFormat bool, err error) {
 	for _, token := range strings.Split(segment, ":") {
@@ -299,26 +351,6 @@ func outputFormatFromFilters(segment string) (ext string, hasFormat bool, err er
 		}
 	}
 	return "", false, nil
-}
-
-// inputFormatViaImaging detects the uploaded image's format with the stdlib
-// decoder registry (image.DecodeConfig reads only the header) and maps it to our
-// output extension. jpeg/png/gif are kept; anything else (webp, tiff, bmp, or an
-// undecodable body) falls back to jpeg, mirroring imagor's unsavable-source
-// default.
-func inputFormatViaImaging(imgData []byte) string {
-	_, format, err := image.DecodeConfig(bytes.NewReader(imgData))
-	if err != nil {
-		return "jpg"
-	}
-	switch format {
-	case "png":
-		return "png"
-	case "gif":
-		return "gif"
-	default: // jpeg, webp, tiff, bmp, ...
-		return "jpg"
-	}
 }
 
 // splitFilter splits a "name(args)" token into name and args. It returns ok=false for
@@ -342,61 +374,11 @@ func filterPresent(segment, name string) bool {
 	return false
 }
 
-// isGifReader reports whether the reader holds GIF data, based on the GIF magic
-// bytes. It peeks at the first 4 bytes and rewinds the stream so it can be read
-// again. This guard is required because gif.DecodeAll panics (nil dereference)
-// when handed a non-GIF image instead of returning an error.
-func isGifReader(r io.Reader) bool {
-	readSeeker, ok := r.(io.ReadSeeker)
-	if !ok {
-		return false
-	}
-
-	saved, err := readSeeker.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return false
-	}
-	buf := make([]byte, 4)
-	if _, err := io.ReadFull(readSeeker, buf); err != nil {
-		return false
-	}
-	_, _ = readSeeker.Seek(saved, io.SeekStart)
-
-	return bytes.HasPrefix(buf, gifMagic)
-}
-
-// Backend-specific function set in init() by push_imaging.go or push_vips.go.
-// For gif input it returns a *gif.GIF with every frame resized (preserving
-// animation) when keepAnimation is set; for other inputs it returns a single
-// image.Image. The operation
-// selects the resize/crop mode (fill, fit-in, stretch). noUpscale mirrors
-// imagor's no_upscale() filter: when set, fill and fit-in must not enlarge the
-// source (stretch is exact and ignores it).
-var processImage func(io.Reader, resizeRequest) (any, error)
-
 // resizeRequest is what the executor is asked to do. webdav chose the box and
-// the operation; noUpscale mirrors imagor's no_upscale() filter, and animation
-// is only kept when the output is a gif too.
+// the operation; noUpscale mirrors imagor's no_upscale() filter.
 type resizeRequest struct {
-	Width         int
-	Height        int
-	Operation     string
-	NoUpscale     bool
-	KeepAnimation bool
+	Width     int
+	Height    int
+	Operation string
+	NoUpscale bool
 }
-
-// encodeJPEG and encodePNG write the processed image to w in the requested
-// format. Set by init() in push_imaging.go / push_vips.go. The vips backend
-// encodes via libvips (ExportJpeg/ExportPng) so its output matches the legacy
-// pipeline (progressive JPEG, quality 80); the imaging backend uses the stdlib
-// encoders. GIF encoding stays in the common handler because both backends
-// return a *gif.GIF for animated input.
-var (
-	encodeJPEG func(w io.Writer, processed any) error
-	encodePNG  func(w io.Writer, processed any) error
-	// encodeGIF takes an animated gif as it is and palettes a still image.
-	encodeGIF func(w io.Writer, processed any) error
-	// encodeWebP is only answered by the libvips build; the pure Go one has no
-	// webp encoder.
-	encodeWebP func(w io.Writer, processed any) error
-)

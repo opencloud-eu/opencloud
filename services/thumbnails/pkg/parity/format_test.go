@@ -28,6 +28,13 @@ func formatGroup() parityGroup {
 				source: pngSource(300, 200), want: "200 50x50 png",
 			},
 			{
+				title: "no format filter keeps a webp a webp", path: "/unsafe/50x50/",
+				source: webpSource(), want: "200 50x50 webp",
+				generatorOverrides: map[string]override{
+					"imaging": {answers: "200 50x50 jpeg", because: "the pure Go build reads webp but cannot write it, so it falls back to a jpeg the way imagor does for a format it cannot write either"},
+				},
+			},
+			{
 				title: "no format filter keeps a gif a gif", path: "/unsafe/50x50/filters:no_upscale()/",
 				source: animatedGIFSource(300, 200, 3), want: "200 50x50 gif frames=3",
 			},

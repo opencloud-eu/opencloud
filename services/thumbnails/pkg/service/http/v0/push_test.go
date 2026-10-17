@@ -271,17 +271,38 @@ var _ = Describe("the push endpoint", func() {
 	})
 })
 
-var _ = Describe("inputFormatViaImaging", func() {
-	DescribeTable("names the format a body is in",
+var _ = Describe("the backend a build compiled in", func() {
+	DescribeTable("answers a request without a format filter in the input's own format, where it can write it",
 		func(source []byte, want string) {
-			Expect(inputFormatViaImaging(source)).To(Equal(want))
+			src, err := loadSource(source)
+			Expect(err).ToNot(HaveOccurred())
+			defer src.Close()
+
+			Expect(extForSourceFormat(src)).To(Equal(want))
 		},
 		Entry("png", pngSource(10, 10), "png"),
 		Entry("jpeg", jpegSource(10, 10), "jpg"),
 		Entry("gif", gifSource(10, 10, 1), "gif"),
-		Entry("a format it cannot write falls back to jpeg", bmpSource(10, 10), "jpg"),
-		Entry("something undecodable falls back to jpeg", []byte("nonsense"), "jpg"),
+		Entry("a format it cannot write becomes a jpeg", bmpSource(10, 10), "jpg"),
 	)
+
+	DescribeTable("reads the declared size off the header, before any pixel exists",
+		func(source []byte, wantWidth, wantHeight int) {
+			src, err := loadSource(source)
+			Expect(err).ToNot(HaveOccurred())
+			defer src.Close()
+
+			Expect(src.Width()).To(Equal(wantWidth))
+			Expect(src.Height()).To(Equal(wantHeight))
+		},
+		Entry("png", pngSource(300, 200), 300, 200),
+		Entry("jpeg", jpegSource(120, 90), 120, 90),
+	)
+
+	It("refuses a body it cannot read at all", func() {
+		_, err := loadSource([]byte("nonsense"))
+		Expect(err).To(HaveOccurred())
+	})
 })
 
 var _ = Describe("splitFilter", func() {

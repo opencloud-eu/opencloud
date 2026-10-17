@@ -32,7 +32,14 @@ resized, while this service treats it as the box. Inside the filters segment,
 filter is ignored. `format` itself is optional: without it the input's own format is
 preserved, the same way imagor does it. An input this service cannot write
 (tiff, bmp) becomes a JPEG; imagor writes tiff back in its own format and only
-falls back to JPEG for the ones it cannot write either.
+falls back to JPEG for the ones it cannot write either. Which formats those are
+depends on the build: with libvips a webp source stays a webp, the pure Go build
+answers it as a JPEG because it has no webp encoder.
+
+What a build can read is its own backend's answer rather than a list: the library
+that will decode the image reads the header first, so a source it cannot read
+answers `406` before anything is decoded, and the maximum dimensions are checked
+on that same header.
 
 A side given as `0` is computed from the other one, so `/unsafe/0x100/` keeps the
 aspect ratio and `/unsafe/0x0/` returns the source at its own size. A free axis
