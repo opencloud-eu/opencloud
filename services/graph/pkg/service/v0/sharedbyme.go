@@ -42,7 +42,7 @@ func (g Graph) GetSharedByMe(w http.ResponseWriter, r *http.Request) {
 	expandThumbnails := strings.Contains(expand, "thumbnails")
 	if expandThumbnails {
 		for k, item := range driveItems {
-			setShareThumbnails(&item, item.GetId(), g.config.Commons.OpenCloudURL)
+			setShareThumbnails(&item, item.GetId(), g.config.Commons.OpenCloudURL, g.sourceTypes)
 			driveItems[k] = item
 		}
 	}
