@@ -10,7 +10,7 @@ Currently, the webdav service handles request for two functionalities, which are
 
 The webdav service provides various `GET` endpoints to get the thumbnails of a file in authenticated and unauthenticated contexts. It also provides thumbnails for spaces on different endpoints.
 
-Generated thumbnails are cached by the webdav service itself. The cache backend defaults to `file`, storing entries under `$OC_BASE_DATA_PATH/thumbnails/files` (override with `WEBDAV_THUMBNAIL_CACHE_BACKEND` and `WEBDAV_THUMBNAIL_CACHE_DIR`). Use the `s3` backend when running multiple instances behind a load balancer so they share one cache. A backend nobody can serve, an unknown name or an `s3` backend without bucket, region and credentials, fails at startup instead of serving without a cache. A service that is not AWS needs `WEBDAV_THUMBNAIL_CACHE_S3_ENDPOINT` too, and it is always addressed over https. The `memory` backend is bounded and drops its oldest entries; `none` disables caching on purpose.
+Generated thumbnails are cached by the webdav service itself. The cache backend defaults to `file`, storing entries under `$OC_BASE_DATA_PATH/thumbnails/files` (override with `WEBDAV_THUMBNAIL_CACHE_BACKEND` and `WEBDAV_THUMBNAIL_CACHE_DIR`). Use the `s3` backend when running multiple instances behind a load balancer so they share one cache. A backend nobody can serve, an unknown name or an `s3` backend without bucket, region and credentials, fails at startup instead of serving without a cache, as long as previews are enabled. A service that is not AWS needs `WEBDAV_THUMBNAIL_CACHE_S3_ENDPOINT` too, and it is always addressed over https. The `memory` backend is bounded and drops its oldest entries; `none` disables caching on purpose.
 
 #### Thumbnail Query String Parameters
 
@@ -76,11 +76,11 @@ Three settings say what is made of what. They are merged onto the built-in defau
 | `OC_THUMBNAIL_TYPE_MAPPING`          | The type a thumbnail is returned in, per source type, as `mime:mime` entries, e.g. `image/vnd.microsoft.icon:image/png`                                      |
 | `OC_THUMBNAIL_GENERATOR_FORMATS`     | The formats the generator writes, as `mime:format` entries, e.g. `image/webp:webp`. The format is the name its own `format(...)` filter uses                 |
 
-Reading them as a chain: a source type is mapped to the type its thumbnail is returned in, and that type is asked for by the name the generator knows it under. An icon becomes `image/png`, which the generator is asked for as `format(png)`. A type nobody mapped becomes a JPEG, and a mapping onto a type the generator has no format name for is refused at startup.
+Reading them as a chain: a source type is mapped to the type its thumbnail is returned in, and that type is asked for by the name the generator knows it under. An icon becomes `image/png`, which the generator is asked for as `format(png)`. A type nobody mapped becomes a JPEG, and a mapping onto a type the generator has no format name for is refused at startup, as long as previews are enabled.
 
 The defaults return `image/png` for png and icon sources, keep `image/gif` for a gif and return `image/jpeg` for everything else, so a client must read the response's `Content-Type` instead of assuming the type it got before.
 
-Previews can be switched off entirely with `OC_DISABLE_PREVIEWS`. Search keeps working, every thumbnail path answers `404`.
+Previews can be switched off entirely with `OC_DISABLE_PREVIEWS`. Search keeps working, every thumbnail path answers `404`, and nothing here is read or checked: a typo in the resolutions, the cache backend or the type mapping surfaces when previews are switched back on, not before.
 
 In the single binary nothing has to be set: the generator URL defaults to the built-in thumbnails service. A deployment that runs the services in separate containers has to point `WEBDAV_THUMBNAIL_GENERATOR_URL` at its thumbnails service or at an imagor, because `127.0.0.1` no longer reaches it. The settings that used to live on the thumbnails service now belong to webdav, `THUMBNAILS_RESOLUTIONS` and `THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE` keep working there, and the thumbnail cache moves with them: the directory behind `THUMBNAILS_FILESYSTEMSTORAGE_ROOT`, now `WEBDAV_THUMBNAIL_CACHE_DIR`, has to be reachable by the webdav container.
 
