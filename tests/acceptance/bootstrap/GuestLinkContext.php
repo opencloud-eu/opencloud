@@ -29,6 +29,7 @@ use PHPUnit\Framework\Assert;
 use Psr\Http\Message\ResponseInterface;
 use TestHelpers\BehatHelper;
 use TestHelpers\EmailHelper;
+use TestHelpers\GraphHelper;
 use TestHelpers\GuestLinkHelper;
 use TestHelpers\HttpRequestHelper;
 use TestHelpers\WaitHelper;
@@ -156,9 +157,7 @@ class GuestLinkContext implements Context {
 			"Guest '$guest' was expected to have received a new email"
 		);
 		$this->readEmailCount[$guest] = \count($emails);
-		$body = EmailHelper::getBodyOfLastEmail($guest, $this->featureContext->getStepLineRef());
-		$this->rememberCredentialsFromEmail($guest, $body);
-		return $body;
+		return $this->getBodyOfLastEmail($guest);
 	}
 
 	/**
@@ -173,6 +172,16 @@ class GuestLinkContext implements Context {
 		if (($this->readEmailCount[$guest] ?? 0) === 0) {
 			return $this->readNewEmail($guest);
 		}
+		return $this->getBodyOfLastEmail($guest);
+	}
+
+	/**
+	 * @param string $guest
+	 *
+	 * @return string
+	 * @throws GuzzleException
+	 */
+	private function getBodyOfLastEmail(string $guest): string {
 		$body = EmailHelper::getBodyOfLastEmail($guest, $this->featureContext->getStepLineRef());
 		$this->rememberCredentialsFromEmail($guest, $body);
 		return $body;
@@ -185,11 +194,20 @@ class GuestLinkContext implements Context {
 	 * @throws GuzzleException
 	 */
 	private function getGuestLinkTokenFromLastEmail(string $guest): string {
-		$body = $this->readLastEmail($guest);
+		return $this->getGuestLinkToken($guest, $this->readLastEmail($guest));
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $body
+	 *
+	 * @return string
+	 */
+	private function getGuestLinkToken(string $guest, string $body): string {
 		Assert::assertMatchesRegularExpression(
 			GuestLinkHelper::TOKEN_IN_EMAIL_REGEX,
 			$body,
-			"The last email of guest '$guest' does not contain a guest link"
+			"The email of guest '$guest' does not contain a guest link"
 		);
 		\preg_match(GuestLinkHelper::TOKEN_IN_EMAIL_REGEX, $body, $matches);
 		return $matches[1];
@@ -285,12 +303,7 @@ class GuestLinkContext implements Context {
 	 */
 	#[Given('guest :guest has received a new guest link')]
 	public function guestHasReceivedANewGuestLink(string $guest): void {
-		$body = $this->readNewEmail($guest);
-		Assert::assertMatchesRegularExpression(
-			GuestLinkHelper::TOKEN_IN_EMAIL_REGEX,
-			$body,
-			"The new email of guest '$guest' does not contain a guest link"
-		);
+		$this->getGuestLinkToken($guest, $this->readNewEmail($guest));
 	}
 
 	/**
@@ -348,15 +361,25 @@ class GuestLinkContext implements Context {
 	 * @throws GuzzleException
 	 */
 	#[When('guest :guest downloads file :resource shared from space :space of user :owner using the WebDAV API')]
-	public function guestDownloadsSharedFile(string $guest, string $resource, string $space, string $owner): void {
+	public function guestDownloadsSharedFile(
+		string $guest,
+		string $resource,
+		string $space,
+		string $owner
+	): void {
 		$fileId = $this->spacesContext->getResourceId($owner, $space, $resource);
 		$this->featureContext->setResponse(
-			HttpRequestHelper::get(
-				$this->featureContext->getBaseUrl() . "/" . WebDavHelper::prefixRemotePhp("dav/spaces/$fileId"),
+			WebDavHelper::makeDavRequest(
+				$this->featureContext->getBaseUrl(),
+				null,
+				null,
+				'GET',
+				'',
+				\array_merge($this->getSessionHeaders($guest), []),
+				$fileId,
 				$this->featureContext->getStepLineRef(),
 				null,
-				null,
-				$this->getSessionHeaders($guest),
+				WebDavHelper::DAV_VERSION_SPACES
 			)
 		);
 	}
@@ -381,16 +404,250 @@ class GuestLinkContext implements Context {
 	): void {
 		$fileId = $this->spacesContext->getResourceId($owner, $space, $resource);
 		$this->featureContext->setResponse(
-			HttpRequestHelper::sendRequest(
-				$this->featureContext->getBaseUrl() . "/" . WebDavHelper::prefixRemotePhp("dav/spaces/$fileId"),
-				$this->featureContext->getStepLineRef(),
+			WebDavHelper::makeDavRequest(
+				$this->featureContext->getBaseUrl(),
+				null,
+				null,
 				'PUT',
+				'',
+				\array_merge($this->getSessionHeaders($guest), []),
+				$fileId,
+				$this->featureContext->getStepLineRef(),
+				$content,
+				WebDavHelper::DAV_VERSION_SPACES
+			)
+		);
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $folder
+	 * @param string $space
+	 * @param string $owner
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest lists the content of folder :folder of space :space of user :owner using the WebDAV API')]
+	public function guestListsTheContentOfFolder(
+		string $guest,
+		string $folder,
+		string $space,
+		string $owner
+	): void {
+		$folderId = $this->spacesContext->getResourceId($owner, $space, $folder);
+		$this->featureContext->setResponse(
+			WebDavHelper::makeDavRequest(
+				$this->featureContext->getBaseUrl(),
+				null,
+				null,
+				'PROPFIND',
+				'',
+				\array_merge($this->getSessionHeaders($guest), ['Depth' => '1']),
+				$folderId,
+				$this->featureContext->getStepLineRef(),
+				null,
+				WebDavHelper::DAV_VERSION_SPACES
+			)
+		);
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $content
+	 * @param string $path
+	 * @param string $folder
+	 * @param string $space
+	 * @param string $owner
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest uploads content :content to :path inside folder :folder of space :space of user :owner using the WebDAV API')]
+	public function guestUploadsContentInsideFolder(
+		string $guest,
+		string $content,
+		string $path,
+		string $folder,
+		string $space,
+		string $owner
+	): void {
+		$folderId = $this->spacesContext->getResourceId($owner, $space, $folder);
+		$this->featureContext->setResponse(
+			WebDavHelper::makeDavRequest(
+				$this->featureContext->getBaseUrl(),
+				null,
+				null,
+				'PUT',
+				$path,
+				\array_merge($this->getSessionHeaders($guest), []),
+				$folderId,
+				$this->featureContext->getStepLineRef(),
+				$content,
+				WebDavHelper::DAV_VERSION_SPACES
+			)
+		);
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $path
+	 * @param string $folder
+	 * @param string $space
+	 * @param string $owner
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest creates folder :path inside folder :folder of space :space of user :owner using the WebDAV API')]
+	public function guestCreatesFolderInsideFolder(
+		string $guest,
+		string $path,
+		string $folder,
+		string $space,
+		string $owner
+	): void {
+		$folderId = $this->spacesContext->getResourceId($owner, $space, $folder);
+		$this->featureContext->setResponse(
+			WebDavHelper::makeDavRequest(
+				$this->featureContext->getBaseUrl(),
+				null,
+				null,
+				'MKCOL',
+				$path,
+				\array_merge($this->getSessionHeaders($guest), []),
+				$folderId,
+				$this->featureContext->getStepLineRef(),
+				null,
+				WebDavHelper::DAV_VERSION_SPACES
+			)
+		);
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $path
+	 * @param string $folder
+	 * @param string $space
+	 * @param string $owner
+	 * @param string $newName
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest renames :path inside folder :folder of space :space of user :owner to :newName using the WebDAV API')]
+	public function guestRenamesInsideFolder(
+		string $guest,
+		string $path,
+		string $folder,
+		string $space,
+		string $owner,
+		string $newName
+	): void {
+		$folderId = $this->spacesContext->getResourceId($owner, $space, $folder);
+		$this->featureContext->setResponse(
+			WebDavHelper::makeDavRequest(
+				$this->featureContext->getBaseUrl(),
+				null,
+				null,
+				'MOVE',
+				$path,
+				\array_merge($this->getSessionHeaders($guest), ['Destination' => $this->featureContext->getBaseUrl() . '/' . WebDavHelper::getDavPath(WebDavHelper::DAV_VERSION_SPACES, $folderId) . '/' . $newName]),
+				$folderId,
+				$this->featureContext->getStepLineRef(),
+				null,
+				WebDavHelper::DAV_VERSION_SPACES
+			)
+		);
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $path
+	 * @param string $folder
+	 * @param string $space
+	 * @param string $owner
+	 * @param string $destination
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest tries to move :path inside folder :folder of space :space of user :owner to :destination in the root of that space using the WebDAV API')]
+	public function guestTriesToMoveOutOfTheSharedFolder(
+		string $guest,
+		string $path,
+		string $folder,
+		string $space,
+		string $owner,
+		string $destination
+	): void {
+		$folderId = $this->spacesContext->getResourceId($owner, $space, $folder);
+		$spaceRootId = $this->spacesContext->getResourceId($owner, $space, '');
+		$this->featureContext->setResponse(
+			WebDavHelper::makeDavRequest(
+				$this->featureContext->getBaseUrl(),
+				null,
+				null,
+				'MOVE',
+				$path,
+				\array_merge($this->getSessionHeaders($guest), ['Destination' => $this->featureContext->getBaseUrl() . '/' . WebDavHelper::getDavPath(WebDavHelper::DAV_VERSION_SPACES, $spaceRootId) . '/' . $destination]),
+				$folderId,
+				$this->featureContext->getStepLineRef(),
+				null,
+				WebDavHelper::DAV_VERSION_SPACES
+			)
+		);
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $method
+	 * @param string $endpoint e.g. "invite", "createLink" or "permissions"
+	 * @param string $resource
+	 * @param string $space
+	 * @param string $owner
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest sends HTTP method :method to the Graph endpoint :endpoint of resource :resource of space :space of user :owner')]
+	public function guestSendsHttpMethodToGraphEndpointOfResource(
+		string $guest,
+		string $method,
+		string $endpoint,
+		string $resource,
+		string $space,
+		string $owner
+	): void {
+		$spaceId = $this->spacesContext->getSpaceIdByName($owner, $space);
+		$itemId = $this->spacesContext->getResourceId($owner, $space, $resource);
+		$this->featureContext->setResponse(
+			HttpRequestHelper::sendRequest(
+				GraphHelper::getBetaFullUrl(
+					$this->featureContext->getBaseUrl(),
+					"drives/$spaceId/items/$itemId/$endpoint"
+				),
+				$this->featureContext->getStepLineRef(),
+				$method,
 				null,
 				null,
 				$this->getSessionHeaders($guest),
-				$content,
+				$method === 'GET' ? null : '{}',
 			)
 		);
+	}
+
+	/**
+	 * @param string $guest
+	 *
+	 * @return void
+	 */
+	#[Given('the signature of the guest session of guest :guest has been changed')]
+	public function theSignatureOfTheGuestSessionOfGuestHasBeenChanged(string $guest): void {
+		$session = $this->getGuestSession($guest);
+		// change the first character of the signature, the last one can carry only padding bits
+		$position = \strrpos($session, '.') + 1;
+		$this->guestSessions[$guest] = \substr_replace($session, $session[$position] === 'A' ? 'B' : 'A', $position, 1);
 	}
 
 	/**
@@ -415,7 +672,6 @@ class GuestLinkContext implements Context {
 			)
 		);
 	}
-
 
 	/**
 	 * @return void
