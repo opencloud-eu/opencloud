@@ -42,7 +42,7 @@ require_once 'bootstrap.php';
  * through a link (or PIN) received by email, without an OpenCloud account.
  *
  * The guest is treated like a browser: it keeps the session cookie set by verifying
- * a link and sends it back.
+ * a link or PIN and the nonce cookie set by renewing, and sends them back.
  */
 class GuestLinkContext implements Context {
 	private FeatureContext $featureContext;
@@ -56,11 +56,39 @@ class GuestLinkContext implements Context {
 	private array $guestLinkTokens = [];
 
 	/**
+	 * PINs received by each guest, in the order they were read from the emails
+	 *
+	 * @var array<string, string[]>
+	 */
+	private array $guestPins = [];
+
+	/**
 	 * guest session cookie of each guest
 	 *
 	 * @var array<string, string>
 	 */
 	private array $guestSessions = [];
+
+	/**
+	 * expiry of the guest session of each guest, as returned when verifying a link or PIN
+	 *
+	 * @var array<string, int>
+	 */
+	private array $guestSessionExpiry = [];
+
+	/**
+	 * nonce cookie (name => value) that binds the PIN of each guest to the "browser"
+	 *
+	 * @var array<string, array<string, string>>
+	 */
+	private array $guestNonces = [];
+
+	/**
+	 * expiry of the PIN of each guest, taken from the max-age of the nonce cookie
+	 *
+	 * @var array<string, int>
+	 */
+	private array $guestPinExpiry = [];
 
 	/**
 	 * number of emails of each guest that the scenario has already read
@@ -124,7 +152,7 @@ class GuestLinkContext implements Context {
 	}
 
 	/**
-	 * Remembers the guest link contained in an email
+	 * Remembers the guest link and the PIN contained in an email
 	 *
 	 * @param string $guest
 	 * @param string $body
@@ -136,6 +164,12 @@ class GuestLinkContext implements Context {
 			$knownTokens = $this->guestLinkTokens[$guest] ?? [];
 			if (\end($knownTokens) !== $matches[1]) {
 				$this->guestLinkTokens[$guest][] = $matches[1];
+			}
+		}
+		if (\preg_match(GuestLinkHelper::PIN_IN_EMAIL_REGEX, $body, $matches)) {
+			$knownPins = $this->guestPins[$guest] ?? [];
+			if (\end($knownPins) !== $matches[1]) {
+				$this->guestPins[$guest][] = $matches[1];
 			}
 		}
 	}
@@ -217,6 +251,23 @@ class GuestLinkContext implements Context {
 	 * @param string $guest
 	 *
 	 * @return string
+	 * @throws GuzzleException
+	 */
+	private function getPinFromLastEmail(string $guest): string {
+		$body = $this->readLastEmail($guest);
+		Assert::assertMatchesRegularExpression(
+			GuestLinkHelper::PIN_IN_EMAIL_REGEX,
+			$body,
+			"The last email of guest '$guest' does not contain a PIN"
+		);
+		\preg_match(GuestLinkHelper::PIN_IN_EMAIL_REGEX, $body, $matches);
+		return $matches[1];
+	}
+
+	/**
+	 * @param string $guest
+	 *
+	 * @return string
 	 */
 	private function getGuestSession(string $guest): string {
 		Assert::assertArrayHasKey(
@@ -248,6 +299,24 @@ class GuestLinkContext implements Context {
 		$sessionSetCookie = GuestLinkHelper::getSessionSetCookieHeader($response);
 		if ($sessionSetCookie !== null && GuestLinkHelper::getCookieValue($sessionSetCookie) !== null) {
 			$this->guestSessions[$guest] = GuestLinkHelper::getCookieValue($sessionSetCookie);
+			$body = \json_decode((string)$response->getBody(), true);
+			if (isset($body['expirationDateTime'])) {
+				$this->guestSessionExpiry[$guest] = \strtotime($body['expirationDateTime']);
+			}
+		}
+
+		$nonceSetCookie = GuestLinkHelper::getNonceSetCookieHeader($response);
+		if ($nonceSetCookie !== null) {
+			$name = \trim(\explode('=', $nonceSetCookie, 2)[0]);
+			$value = GuestLinkHelper::getCookieValue($nonceSetCookie);
+			if ($value === null) {
+				unset($this->guestNonces[$guest]);
+			} else {
+				$this->guestNonces[$guest] = [$name => $value];
+				if (\preg_match('/max-age=(\d+)/i', $nonceSetCookie, $matches)) {
+					$this->guestPinExpiry[$guest] = \time() + (int)$matches[1];
+				}
+			}
 		}
 	}
 
@@ -263,6 +332,48 @@ class GuestLinkContext implements Context {
 			$this->featureContext->getBaseUrl(),
 			$this->featureContext->getStepLineRef(),
 			$token
+		);
+		$this->rememberCookies($guest, $response);
+		return $response;
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $pin
+	 * @param bool $withNonce
+	 *
+	 * @return ResponseInterface
+	 * @throws GuzzleException
+	 */
+	public function verifyGuestPin(string $guest, string $pin, bool $withNonce = true): ResponseInterface {
+		$response = GuestLinkHelper::verifyPin(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			$this->featureContext->shareNgGetLastCreatedUserGroupShareID(),
+			$pin,
+			$withNonce ? ($this->guestNonces[$guest] ?? []) : []
+		);
+		$this->rememberCookies($guest, $response);
+		return $response;
+	}
+
+	/**
+	 * @param string $guest
+	 * @param bool $withSession
+	 * @param string|null $shareId defaults to the last created share
+	 *
+	 * @return ResponseInterface
+	 * @throws GuzzleException
+	 */
+	public function renewGuestLink(string $guest, bool $withSession, ?string $shareId = null): ResponseInterface {
+		$cookies = $withSession
+			? [GuestLinkHelper::SESSION_COOKIE_NAME => $this->getGuestSession($guest)]
+			: [];
+		$response = GuestLinkHelper::renew(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			$shareId ?? $this->featureContext->shareNgGetLastCreatedUserGroupShareID(),
+			$cookies
 		);
 		$this->rememberCookies($guest, $response);
 		return $response;
@@ -294,7 +405,7 @@ class GuestLinkContext implements Context {
 	}
 
 	/**
-	 * Waits for the next email of the guest and remembers its link without using it
+	 * Waits for the next email of the guest and remembers its link (and PIN) without using them
 	 *
 	 * @param string $guest
 	 *
@@ -331,6 +442,226 @@ class GuestLinkContext implements Context {
 	public function guestVerifiesTheGuestLinkToken(string $guest, string $token): void {
 		$this->featureContext->setResponse($this->verifyGuestLinkToken($guest, $token));
 	}
+
+	/**
+	 * @param string $guest
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest verifies the PIN from the last email using the Graph API')]
+	public function guestVerifiesThePinFromTheLastEmail(string $guest): void {
+		$pin = $this->getPinFromLastEmail($guest);
+		$this->featureContext->setResponse($this->verifyGuestPin($guest, $pin));
+	}
+
+	/**
+	 * @param string $guest
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest verifies the PIN from the last email without the nonce cookie using the Graph API')]
+	public function guestVerifiesThePinFromTheLastEmailWithoutTheNonceCookie(string $guest): void {
+		$pin = $this->getPinFromLastEmail($guest);
+		$this->featureContext->setResponse($this->verifyGuestPin($guest, $pin, false));
+	}
+
+	/**
+	 * @param string $guest
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[Given('guest :guest has verified the PIN from the last email')]
+	public function guestHasVerifiedThePinFromTheLastEmail(string $guest): void {
+		$pin = $this->getPinFromLastEmail($guest);
+		$response = $this->verifyGuestPin($guest, $pin);
+		$this->featureContext->theHTTPStatusCodeShouldBe(200, "", $response);
+	}
+
+	/**
+	 * @param string $guest
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest verifies the PIN from the previous email using the Graph API')]
+	public function guestVerifiesThePinFromThePreviousEmail(string $guest): void {
+		$this->readLastEmail($guest);
+		$pins = $this->guestPins[$guest] ?? [];
+		Assert::assertGreaterThanOrEqual(2, \count($pins), "Guest '$guest' has not received a previous PIN");
+		$this->featureContext->setResponse($this->verifyGuestPin($guest, $pins[\count($pins) - 2]));
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $pin
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest verifies the PIN :pin using the Graph API')]
+	public function guestVerifiesThePin(string $guest, string $pin): void {
+		$this->featureContext->setResponse($this->verifyGuestPin($guest, $pin));
+	}
+
+	/**
+	 * @param string $guest
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest requests a new guest link with the guest session using the Graph API')]
+	public function guestRequestsANewGuestLinkWithTheGuestSession(string $guest): void {
+		$this->featureContext->setResponse($this->renewGuestLink($guest, true));
+	}
+
+	/**
+	 * @param string $guest
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[Given('guest :guest has requested a new guest link with the guest session')]
+	public function guestHasRequestedANewGuestLinkWithTheGuestSession(string $guest): void {
+		$response = $this->renewGuestLink($guest, true);
+		$this->featureContext->theHTTPStatusCodeShouldBe(200, "", $response);
+		$this->guestHasReceivedANewGuestLink($guest);
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $resource
+	 * @param string $space
+	 * @param string $owner
+	 *
+	 * @return string the id of the share of the resource with the guest
+	 * @throws GuzzleException
+	 */
+	private function getGuestShareId(string $guest, string $resource, string $space, string $owner): string {
+		$response = GraphHelper::getPermissionsList(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			$this->featureContext->getActualUsername($owner),
+			$this->featureContext->getPasswordForUser($owner),
+			$this->spacesContext->getSpaceIdByName($owner, $space),
+			$this->spacesContext->getResourceId($owner, $space, $resource)
+		);
+		foreach ($this->featureContext->getJsonDecodedResponse($response)['value'] ?? [] as $permission) {
+			if (($permission['grantedToV2']['user']['id'] ?? null) === \strtolower($guest)) {
+				return $permission['id'];
+			}
+		}
+		Assert::fail("Resource '$resource' of user '$owner' is not shared with guest '$guest'");
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $resource
+	 * @param string $space
+	 * @param string $owner
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest requests a new guest link for resource :resource of space :space of user :owner with the guest session using the Graph API')]
+	public function guestRequestsANewGuestLinkForResourceWithTheGuestSession(
+		string $guest,
+		string $resource,
+		string $space,
+		string $owner
+	): void {
+		$shareId = $this->getGuestShareId($guest, $resource, $space, $owner);
+		$this->featureContext->setResponse($this->renewGuestLink($guest, true, $shareId));
+	}
+
+	/**
+	 * @param string $guest
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest requests a new guest link without a guest session using the Graph API')]
+	public function guestRequestsANewGuestLinkWithoutAGuestSession(string $guest): void {
+		$this->featureContext->setResponse($this->renewGuestLink($guest, false));
+	}
+
+	/**
+	 * @param string $guest
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[Given('guest :guest has requested a new guest link without a guest session')]
+	public function guestHasRequestedANewGuestLinkWithoutAGuestSession(string $guest): void {
+		$response = $this->renewGuestLink($guest, false);
+		$this->featureContext->theHTTPStatusCodeShouldBe(200, "", $response);
+		$this->guestHasReceivedANewGuestLink($guest);
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $pin
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[Given('guest :guest has tried to verify the PIN :pin')]
+	public function guestHasTriedToVerifyThePin(string $guest, string $pin): void {
+		$response = $this->verifyGuestPin($guest, $pin);
+		$this->featureContext->theHTTPStatusCodeShouldBe(401, "", $response);
+	}
+
+	/**
+	 * Waits until the guest session has expired according to the expiry returned by the server,
+	 * plus the leeway that the guestlinks auth manager of reva accepts for clock skew
+	 *
+	 * @param string $guest
+	 *
+	 * @return void
+	 */
+	#[Given('the guest session of guest :guest has expired')]
+	public function theGuestSessionOfGuestHasExpired(string $guest): void {
+		Assert::assertArrayHasKey($guest, $this->guestSessionExpiry, "Guest '$guest' has no guest session");
+		$this->waitUntilTimestampHasPassed(
+			$this->guestSessionExpiry[$guest] + GuestLinkHelper::SESSION_EXPIRY_LEEWAY_SECONDS
+		);
+	}
+
+	/**
+	 * Waits until the PIN has expired according to the max-age of the nonce cookie
+	 *
+	 * @param string $guest
+	 *
+	 * @return void
+	 */
+	#[Given('the PIN of guest :guest has expired')]
+	public function thePinOfGuestHasExpired(string $guest): void {
+		Assert::assertArrayHasKey($guest, $this->guestPinExpiry, "Guest '$guest' has not requested a PIN");
+		$this->waitUntilTimestampHasPassed($this->guestPinExpiry[$guest]);
+	}
+
+	/**
+	 * @param int $timestamp
+	 *
+	 * @return void
+	 */
+	private function waitUntilTimestampHasPassed(int $timestamp): void {
+		$timeoutSeconds = \max(1, $timestamp - \time() + 5);
+		Assert::assertLessThan(
+			120,
+			$timeoutSeconds,
+			"Refusing to wait $timeoutSeconds seconds, configure a shorter lifetime for this scenario"
+		);
+		WaitHelper::waitUntil(
+			fn () => \time(),
+			fn ($now) => $now > $timestamp,
+			500,
+			$timeoutSeconds
+		);
+	}
+
 
 	/**
 	 * @param string $guest
@@ -695,6 +1026,29 @@ class GuestLinkContext implements Context {
 	}
 
 	/**
+	 * @return void
+	 */
+	#[Then('the response should contain a nonce cookie')]
+	public function theResponseShouldContainANonceCookie(): void {
+		$setCookie = GuestLinkHelper::getNonceSetCookieHeader($this->featureContext->getResponse());
+		Assert::assertNotNull($setCookie, "The response does not set the nonce cookie");
+		Assert::assertNotNull(GuestLinkHelper::getCookieValue($setCookie), "The response clears the nonce cookie");
+		$this->assertCookieIsHardened($setCookie);
+	}
+
+	/**
+	 * @return void
+	 */
+	#[Then('the response should not contain a nonce cookie')]
+	public function theResponseShouldNotContainANonceCookie(): void {
+		$setCookie = GuestLinkHelper::getNonceSetCookieHeader($this->featureContext->getResponse());
+		Assert::assertTrue(
+			$setCookie === null || GuestLinkHelper::getCookieValue($setCookie) === null,
+			"The response was not expected to set the nonce cookie, but it sets '$setCookie'"
+		);
+	}
+
+	/**
 	 * @param string $setCookie
 	 *
 	 * @return void
@@ -711,7 +1065,8 @@ class GuestLinkContext implements Context {
 	}
 
 	/**
-	 * The guest link token is random, so it is compared as the placeholder %guest_link_token%
+	 * The guest link token and the PIN are random, so they are compared as
+	 * the placeholders %guest_link_token% and %guest_pin%
 	 *
 	 * @param string $guest
 	 * @param string $sender
@@ -732,6 +1087,7 @@ class GuestLinkContext implements Context {
 		);
 		$actualContent = $this->readNewEmail($guest);
 		$actualContent = \preg_replace(GuestLinkHelper::TOKEN_IN_EMAIL_REGEX, '/g/%guest_link_token%', $actualContent);
+		$actualContent = \preg_replace(GuestLinkHelper::PIN_IN_EMAIL_REGEX, 'Your PIN: %guest_pin%', $actualContent);
 		Assert::assertStringContainsString(
 			$expectedContent,
 			$actualContent,
@@ -740,4 +1096,18 @@ class GuestLinkContext implements Context {
 		);
 	}
 
+	/**
+	 * Waits a few seconds to make sure that no further email arrives
+	 *
+	 * @param string $guest
+	 * @param int $count
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[Then('/^guest "([^"]*)" should have received (\d+) emails? in total$/')]
+	public function guestShouldHaveReceivedEmailsInTotal(string $guest, int $count): void {
+		$emails = $this->waitForEmails($guest, $count + 1, 5);
+		Assert::assertCount($count, $emails, "Guest '$guest' was expected to have received $count email(s)");
+	}
 }

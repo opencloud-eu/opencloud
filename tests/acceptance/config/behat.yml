@@ -200,6 +200,7 @@ default:
         - SharingNgContext:
         - NotificationContext:
         - GuestLinkContext:
+        - OcConfigContext:
 
     apiAntivirus:
       paths:
