@@ -1765,6 +1765,11 @@ class GraphHelper {
 
 		foreach ($shareeIds as $index => $shareeId) {
 			$shareType = $shareTypes[$index];
+			if ($shareType === "guest") {
+				// guest invitation via email address
+				$body['recipients'][] = ["email" => $shareeId];
+				continue;
+			}
 			$body['recipients'][] = [
 				"@libre.graph.recipient.type" => $shareType,
 				"objectId" => $shareeId
@@ -1780,7 +1785,8 @@ class GraphHelper {
 			$body['@libre.graph.permissions.actions'] = ['libre.graph/driveItem/' . $permissionsAction];
 		}
 
-		if ($expirationDateTime !== null) {
+		if ($expirationDateTime !== null || \in_array("guest", $shareTypes, true)) {
+			// guest invitations always send expirationDateTime, like the web client does
 			$body['expirationDateTime'] = $expirationDateTime;
 		}
 		return $body;

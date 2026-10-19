@@ -250,6 +250,7 @@ config = {
         "notification": {
             "suites": [
                 "apiNotification",
+                "apiGuestLink",
             ],
             "skip": False,
             "withRemotePhp": False,
@@ -265,6 +266,7 @@ config = {
                 "NOTIFICATIONS_SMTP_INSECURE": True,
                 "NOTIFICATIONS_SMTP_SENDER": "ownCloud <noreply@example.com>",
                 "NOTIFICATIONS_DEBUG_ADDR": "0.0.0.0:9174",
+                "OC_ENABLE_GUEST_LINKS": True,
             },
         },
         "antivirus": {

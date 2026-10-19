@@ -189,6 +189,18 @@ default:
         - OcmContext:
         - CliContext:
 
+    apiGuestLink:
+      paths:
+        - "%paths.base%/../features/apiGuestLink"
+      context: *common_ldap_suite_context
+      contexts:
+        - FeatureContext: *common_feature_context_params
+        - SpacesContext:
+        - GraphContext:
+        - SharingNgContext:
+        - NotificationContext:
+        - GuestLinkContext:
+
     apiAntivirus:
       paths:
         - "%paths.base%/../features/apiAntivirus"

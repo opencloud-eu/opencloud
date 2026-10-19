@@ -37,7 +37,6 @@ func TestGuestLinkAuthenticator_Applicability(t *testing.T) {
 		{"disabled", false, "some-jwt", "/graph/users", AuthenticationNotApplicable},
 		{"no cookie", true, "", "/graph/users", AuthenticationNotApplicable},
 		{"empty cookie", true, "", "/graph/users", AuthenticationNotApplicable},
-		{"unsupported path - archiver", true, "some-jwt", "/archiver", AuthenticationNotApplicable},
 		{"unsupported path - root", true, "some-jwt", "/", AuthenticationNotApplicable},
 		{"unsupported path - ocs", true, "some-jwt", "/ocs/v2.php/cloud/user", AuthenticationNotApplicable},
 		{"supported path - graph", true, "some-jwt", "/graph/v1beta1/me/drive/sharedWithMe", AuthenticationFailed},
@@ -46,6 +45,7 @@ func TestGuestLinkAuthenticator_Applicability(t *testing.T) {
 		{"supported path - remote.php", true, "some-jwt", "/remote.php/dav/files/user", AuthenticationFailed},
 		{"supported path - app open", true, "some-jwt", "/app/open", AuthenticationFailed},
 		{"supported path - app new", true, "some-jwt", "/app/new", AuthenticationFailed},
+		{"supported path - archiver", true, "some-jwt", "/archiver?id=some-id", AuthenticationFailed},
 		{"unsupported path - app list", true, "some-jwt", "/app/list", AuthenticationNotApplicable},
 	}
 
@@ -85,7 +85,7 @@ func TestGuestLinkAuthenticator_Applicability(t *testing.T) {
 }
 
 func TestGuestLinkAuthenticator_SupportsPathPrefixes(t *testing.T) {
-	supportedPrefixes := []string{"/graph/v1beta1/me/drive/sharedWithMe", "/graph/v1beta1/roleManagement/permissions/roleDefinitions", "/dav/", "/webdav/", "/remote.php/dav/", "/remote.php/webdav/", "/ocs/v2.php/apps/notifications/api/v1/notifications/sse", "/app/open", "/app/new"}
+	supportedPrefixes := []string{"/graph/v1beta1/me/drive/sharedWithMe", "/graph/v1beta1/roleManagement/permissions/roleDefinitions", "/dav/", "/webdav/", "/remote.php/dav/", "/remote.php/webdav/", "/ocs/v2.php/apps/notifications/api/v1/notifications/sse", "/app/open", "/app/new", "/archiver"}
 	for _, prefix := range supportedPrefixes {
 		t.Run("path prefix "+prefix, func(t *testing.T) {
 			if !isGuestLinkPath(prefix + "test") {
@@ -94,11 +94,60 @@ func TestGuestLinkAuthenticator_SupportsPathPrefixes(t *testing.T) {
 		})
 	}
 
-	unsupportedPaths := []string{"/archiver", "/", "/graph/v1beta1/me/drives", "/ocs/", "/ocs/v2.php/apps/notifications/api/v1/notifications", "/konnect/", "/apps/", "/app/", "/app/list"}
+	unsupportedPaths := []string{"/", "/graph/v1beta1/me/drives", "/ocs/", "/ocs/v2.php/apps/notifications/api/v1/notifications", "/konnect/", "/apps/", "/app/", "/app/list"}
 	for _, path := range unsupportedPaths {
 		t.Run("unsupported "+path, func(t *testing.T) {
 			if isGuestLinkPath(path) {
 				t.Errorf("expected %s to not be a supported guest-link path", path)
+			}
+		})
+	}
+}
+
+func TestGuestLinkAuthenticator_PublicShareToken(t *testing.T) {
+	tests := []struct {
+		name   string
+		path   string
+		header string
+	}{
+		{"archiver with token in query", "/archiver?public-token=abc&id=some-id", ""},
+		{"archiver with token in header", "/archiver?id=some-id", "abc"},
+		{"public-files with token in header", "/dav/public-files/abc/file.txt", "abc"},
+		{"app open with token in query", "/app/open?public-token=abc", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool.RemoveSelector("GatewaySelector" + "eu.opencloud.api.gateway")
+			authenticator := &GuestLinkAuthenticator{
+				Logger: log.NewLogger(),
+				Config: GuestLinkAuthConfig{
+					CookieName: "__Host-oc_guest_session",
+				},
+				RevaGatewaySelector: pool.GetSelector[gateway.GatewayAPIClient](
+					"GatewaySelector",
+					"eu.opencloud.api.gateway",
+					func(cc grpc.ClientConnInterface) gateway.GatewayAPIClient {
+						return mockGatewayClient{
+							AuthenticateFunc: func(authType, clientID, clientSecret string) (string, rpcv1beta1.Code) {
+								t.Error("expected no guest authentication for public link requests")
+								return "", rpcv1beta1.Code_CODE_UNAUTHENTICATED
+							},
+						}
+					},
+				),
+			}
+
+			req := httptest.NewRequest(http.MethodGet, "http://example.com"+tt.path, http.NoBody)
+			req.AddCookie(getCookie("some-jwt"))
+			if tt.header != "" {
+				req.Header.Set("public-token", tt.header)
+			}
+
+			result := authenticator.Authenticate(req)
+
+			if result.State != AuthenticationNotApplicable {
+				t.Errorf("expected AuthenticationNotApplicable, got %v", result.State)
 			}
 		})
 	}

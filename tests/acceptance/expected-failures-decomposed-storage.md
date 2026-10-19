@@ -319,6 +319,10 @@ _ocdav: api compatibility, return correct status code_
 - [coreApiWebdavPreviews/previews.feature:250](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L250)
 - [coreApiWebdavPreviews/previews.feature:251](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L251)
 
+#### [Guest invited to a project space does not get a guest link email](https://github.com/opencloud-eu/opencloud/issues/3744)
+
+- [apiGuestLink/guestLinkProjectSpace.feature:98](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGuestLink/guestLinkProjectSpace.feature#L98)
+
 #### [Preview of text file truncated](https://github.com/opencloud-eu/opencloud/issues/1452)
 
 - [coreApiWebdavPreviews/previews.feature:263](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L263)

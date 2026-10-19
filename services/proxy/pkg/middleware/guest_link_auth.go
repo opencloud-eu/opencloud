@@ -40,6 +40,7 @@ var (
 		"/ocs/v2.php/apps/notifications/api/v1/notifications/sse",
 		"/app/open",
 		"/app/new",
+		"/archiver",
 	}
 
 	// unixEpoch is the zero time used for cookie expiration.
@@ -134,6 +135,12 @@ func (m *GuestLinkAuthenticator) Authenticate(r *http.Request) AuthenticationRes
 	}
 
 	if !isGuestLinkPath(r.URL.Path) {
+		return NotApplicable()
+	}
+
+	// Public link requests are left to the PublicShareAuthenticator, even if the
+	// browser also holds a guest session.
+	if r.URL.Query().Get(headerShareToken) != "" || r.Header.Get(headerShareToken) != "" {
 		return NotApplicable()
 	}
 
