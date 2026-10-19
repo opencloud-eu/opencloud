@@ -45,6 +45,23 @@ func (t Tika) Supports(mimeType string) bool {
 	return all
 }
 
+// ConfiguredFor reports whether OC_TIKA_THUMBNAIL_MIME_TYPES lists this type,
+// as opposed to the catch-all taking it. An image is only taken away from the
+// generator when the configuration asks for it, because the generator may well
+// read the type itself.
+func (t Tika) ConfiguredFor(mimeType string) bool {
+	if t.URL == "" {
+		return false
+	}
+	m, _, err := mime.ParseMediaType(mimeType)
+	if err != nil {
+		return false
+	}
+	_, named := t.mimeTypes[m]
+
+	return named
+}
+
 // ContentType is the type Tika is told, mapped where configured. Tika takes a
 // declared type only when it refines what it detected itself, so a mapping pins
 // a subtype its detector left at the parent type, a raw photo it only read as a
