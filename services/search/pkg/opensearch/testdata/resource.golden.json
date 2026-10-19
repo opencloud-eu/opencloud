@@ -283,6 +283,27 @@
           }
         }
       },
+      "preview": {
+        "properties": {
+          "height": {
+            "type": "integer"
+          },
+          "mimeType": {
+            "type": "keyword"
+          },
+          "mimeType_lowercase": {
+            "doc_values": false,
+            "type": "keyword"
+          },
+          "mimeType_words": {
+            "analyzer": "words",
+            "type": "text"
+          },
+          "width": {
+            "type": "integer"
+          }
+        }
+      },
       "video": {
         "properties": {
           "audioBitsPerSample": {

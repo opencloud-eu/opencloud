@@ -25,6 +25,7 @@ var _ = Describe("Tika", func() {
 		var (
 			body          string
 			fullResponse  string
+			presetCalls   int
 			language      string
 			tika4Language bool
 			version       string
@@ -38,6 +39,7 @@ var _ = Describe("Tika", func() {
 			tika4Language = false
 			version = ""
 			fullResponse = ""
+			presetCalls = 0
 			srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 				out := ""
 				switch req.URL.Path {
@@ -52,7 +54,8 @@ var _ = Describe("Tika", func() {
 					}
 				case "/language/string":
 					out = language
-				case "/rmeta/text":
+				case "/rmeta/preset/thumbnail/text":
+					presetCalls++
 					if fullResponse != "" {
 						out = fullResponse
 					} else {
@@ -170,19 +173,36 @@ var _ = Describe("Tika", func() {
 			Expect(doc.Content).To(Equal("body test stop words!!!"))
 		})
 
-		It("takes facets from the main document, not from an embedded resource", func() {
-			// metas[0] is the file (audio), metas[1] its embedded cover art. The
-			// cover must not give the track an image facet.
-			fullResponse = `[{"Content-Type": "audio/mpeg", "dc:title": "Sucker", "tk:content": "lyrics"}, {"Content-Type": "image/jpeg", "tiff:ImageWidth": "500"}]`
+		It("keeps the audio facet and captures the cover as preview", func() {
+			fullResponse = `[{"Content-Type": "audio/mpeg", "dc:title": "Sucker", "tk:content": "lyrics"}, {"Content-Type": "image/jpeg", "tiff:ImageWidth": "500", "tiff:ImageLength": "400", "tk:embedded-resource-type": "THUMBNAIL"}]`
 
 			doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
-				Type: provider.ResourceType_RESOURCE_TYPE_FILE,
-				Size: 1,
+				Type:     provider.ResourceType_RESOURCE_TYPE_FILE,
+				Size:     1,
+				MimeType: "audio/mpeg",
 			})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(doc.Audio).ToNot(BeNil())
 			Expect(doc.Audio.Title).To(Equal(libregraph.PtrString("Sucker")))
 			Expect(doc.Image).To(BeNil())
+			Expect(doc.Preview).ToNot(BeNil())
+			Expect(doc.Preview.Width).To(Equal(int32(500)))
+			Expect(doc.Preview.Height).To(Equal(int32(400)))
+		})
+
+		It("asks for the thumbnail preset, so Tika names the image", func() {
+			fullResponse = `[{"Content-Type": "application/pdf", "tk:content": "text"}, {"Content-Type": "image/png", "tiff:ImageWidth": "181", "tiff:ImageLength": "255", "tk:embedded-resource-type": "RENDERING"}]`
+
+			doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
+				Type:     provider.ResourceType_RESOURCE_TYPE_FILE,
+				Size:     1,
+				MimeType: "application/pdf",
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(presetCalls).To(Equal(1))
+			Expect(doc.Preview).ToNot(BeNil())
+			Expect(doc.Preview.Width).To(Equal(int32(181)))
+			Expect(doc.Preview.MimeType).To(Equal("image/png"))
 		})
 
 		It("adds no audio facet to non-audio documents", func() {

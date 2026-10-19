@@ -307,6 +307,9 @@
         },
         "livePhoto": {
           "$ref": "#/definitions/v0LivePhoto"
+        },
+        "preview": {
+          "$ref": "#/definitions/v0Preview"
         }
       }
     },
@@ -492,6 +495,23 @@
           "format": "date-time"
         }
       }
+    },
+    "v0Preview": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "height": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "mimeType": {
+          "type": "string"
+        }
+      },
+      "description": "Preview describes an embedded preview (e.g. audio cover art): its dimensions\nand the type it is in. Its presence signals that a preview is available for\nthe resource, its type says what a thumbnail of it is written in."
     },
     "v0Reference": {
       "type": "object",

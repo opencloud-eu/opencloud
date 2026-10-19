@@ -2,9 +2,11 @@ package content
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -16,6 +18,11 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 )
+
+// rmetaThumbnailPath asks for the recursive metadata with Tika's thumbnail
+// preset, so Tika names the image a client would show and renders one where
+// the format needs that, a pdf page for one.
+const rmetaThumbnailPath = "/rmeta/preset/thumbnail/text"
 
 // Tika is used to extract content from a resource,
 // it uses apache tika to retrieve all the data.
@@ -72,13 +79,7 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		return doc, nil
 	}
 
-	data, err := t.Retrieve(ctx, ri.Id)
-	if err != nil {
-		return doc, err
-	}
-	defer data.Close()
-
-	metas, err := t.tika.MetaRecursive(ctx, data)
+	metas, err := t.metaRecursive(ctx, ri.Id)
 	if err != nil {
 		return doc, err
 	}
@@ -118,11 +119,77 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		doc.MotionPhoto = t.getMotionPhoto(m0, metas[i+1])
 	}
 
+	doc.Preview = getPreview(metas)
+
 	if langCode := t.detectLanguage(ctx, doc.Content); langCode != "" && t.CleanStopWords {
 		doc.Content = CleanString(doc.Content, langCode)
 	}
 
 	return doc, nil
+}
+
+// metaRecursive is Tika's recursive metadata, asked for with the thumbnail
+// preset so the index learns about the same image the thumbnailer serves.
+func (t Tika) metaRecursive(ctx context.Context, id *provider.ResourceId) ([]map[string][]string, error) {
+	data, err := t.Retrieve(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	defer data.Close()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, t.tikaURL+rmetaThumbnailPath, data)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	switch res.StatusCode {
+	case http.StatusOK:
+	case http.StatusNotFound:
+		return nil, fmt.Errorf("tika serves no %s, its configuration has to activate the thumbnail preset", rmetaThumbnailPath)
+	default:
+		return nil, fmt.Errorf("tika %s: %s", rmetaThumbnailPath, res.Status)
+	}
+
+	return decodeMetas(res.Body)
+}
+
+// decodeMetas reads Tika's per-part metadata, whose values are a string or a
+// list of them.
+func decodeMetas(r io.Reader) ([]map[string][]string, error) {
+	var parts []map[string]any
+	if err := json.NewDecoder(r).Decode(&parts); err != nil {
+		return nil, err
+	}
+
+	metas := make([]map[string][]string, 0, len(parts))
+	for _, part := range parts {
+		meta := make(map[string][]string, len(part))
+		for key, value := range part {
+			switch typed := value.(type) {
+			case string:
+				meta[key] = []string{typed}
+			case []any:
+				for _, entry := range typed {
+					s, ok := entry.(string)
+					if !ok {
+						return nil, fmt.Errorf("field %q holds %v of type %T, want a string", key, entry, entry)
+					}
+					meta[key] = append(meta[key], s)
+				}
+			default:
+				return nil, fmt.Errorf("field %q holds %v of type %v, want a string or a list of them", key, value, reflect.TypeOf(value))
+			}
+		}
+		metas = append(metas, meta)
+	}
+
+	return metas, nil
 }
 
 // detectLanguage asks tika for the language of content. Tika 4 moved the

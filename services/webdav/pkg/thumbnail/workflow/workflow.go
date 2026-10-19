@@ -321,7 +321,7 @@ func (w *ThumbnailWorkflow) statSource(ctx context.Context, ref *providerv1beta1
 		return nil, ErrPermissionDenied
 	}
 
-	if !w.supportsMimeType(info.GetMimeType()) {
+	if !w.canPreview(info) {
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedFileType, info.GetMimeType())
 	}
 
@@ -429,12 +429,16 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	mimeType := info.GetMimeType()
 
 	// The thumbnail is returned in the type the source type maps to, asked for
-	// by the name the generator's filter uses. What an extractor hands on is
-	// re-encoded to that type, because the request has to decide it: a cache
-	// hit knows the key, not the bytes. Keeping a png cover a png needs the
-	// embedded type before the key is built, which is what the preview presence
-	// work puts into the file's metadata.
-	outputType, outputFormat := w.outputFor(mimeType)
+	// by the name the generator's filter uses. For a file that carries its
+	// preview inside, the type that counts is the embedded image's own, which
+	// the index stored when it saw it: that way a png cover stays a png, and
+	// the type is still known before the cache key is built. Without it, the
+	// container's type decides and the cover is re-encoded.
+	typeForOutput := mimeType
+	if embedded := thumbnail.PreviewMimeType(info); embedded != "" {
+		typeForOutput = embedded
+	}
+	outputType, outputFormat := w.outputFor(typeForOutput)
 
 	// The operation is resolved up front so it can be part of the cache key: a
 	// fill and a fit-in request with the same dimensions produce different images
@@ -567,9 +571,17 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 	return bytes.NewReader(img.Data), img.ContentType, func() {}, nil
 }
 
-// supportsMimeType reports whether a preview is attempted for the type: the
-// announced source types plus whatever a configured Tika takes.
-func (w *ThumbnailWorkflow) supportsMimeType(mimeType string) bool {
+// canPreview reports whether a preview is attempted for the resource. A type
+// that carries its preview inside the file needs the index to have seen it,
+// with the type it is in, because nothing else here could say what a thumbnail
+// of it would be. Everything else is answered by its type alone, the announced
+// source types plus whatever a configured Tika takes.
+func (w *ThumbnailWorkflow) canPreview(info *providerv1beta1.ResourceInfo) bool {
+	mimeType := info.GetMimeType()
+	if thumbnail.IsEmbeddedSourceType(mimeType) {
+		return w.sourceTypes.HasPreview(info)
+	}
+
 	return w.sourceTypes.Supports(mimeType) || w.tika.Supports(mimeType)
 }
 

@@ -6,6 +6,7 @@ import (
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -31,6 +32,7 @@ func metadataGroup() responseGroup {
 			TrackCount:        libregraph.PtrInt32(99),
 			Year:              libregraph.PtrInt32(2004),
 		}),
+		withPreview(&content.Preview{Width: 500, Height: 400}),
 	)
 
 	team := fixtureDoc("team.jpg",
@@ -113,6 +115,27 @@ func metadataGroup() responseGroup {
 				id: 3, query: `*team*`, reads: "Audio", want: []string{"none"},
 				read: reads(func(m *searchMessage.Match) string {
 					if m.GetEntity().GetAudio() == nil {
+						return "none"
+					}
+
+					return "set"
+				}),
+			},
+			{
+				id: 4, query: `*song*`, reads: "Preview", want: []string{"500x400"},
+				read: reads(func(m *searchMessage.Match) string {
+					preview := m.GetEntity().GetPreview()
+					if preview == nil {
+						return "none"
+					}
+
+					return fmt.Sprintf("%dx%d", preview.GetWidth(), preview.GetHeight())
+				}),
+			},
+			{
+				id: 5, query: `*team*`, reads: "Preview", want: []string{"none"},
+				read: reads(func(m *searchMessage.Match) string {
+					if m.GetEntity().GetPreview() == nil {
 						return "none"
 					}
 
