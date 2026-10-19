@@ -285,19 +285,19 @@
       },
       "preview": {
         "properties": {
-          "contentType": {
+          "height": {
+            "type": "integer"
+          },
+          "mimeType": {
             "type": "keyword"
           },
-          "contentType_lowercase": {
+          "mimeType_lowercase": {
             "doc_values": false,
             "type": "keyword"
           },
-          "contentType_words": {
+          "mimeType_words": {
             "analyzer": "words",
             "type": "text"
-          },
-          "height": {
-            "type": "integer"
           },
           "width": {
             "type": "integer"

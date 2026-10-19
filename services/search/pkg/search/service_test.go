@@ -211,7 +211,7 @@ var _ = Describe("Searchprovider", func() {
 			},
 			Entry("audio cover", content.Document{
 				MimeType: "audio/mpeg",
-				Preview:  &content.Preview{Width: 500, Height: 400, ContentType: "image/jpeg"},
+				Preview:  &content.Preview{Width: 500, Height: 400, MimeType: "image/jpeg"},
 			}, int32(500), int32(400)),
 			Entry("image", content.Document{
 				MimeType: "image/jpeg",

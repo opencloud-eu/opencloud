@@ -288,9 +288,9 @@ func setupPreprocessTest(
 // indexedCover is what the search extraction leaves on a file whose cover it saw.
 func indexedCover(contentType string) map[string]string {
 	return map[string]string{
-		thumbnail.PreviewWidthKey:       "600",
-		thumbnail.PreviewHeightKey:      "600",
-		thumbnail.PreviewContentTypeKey: contentType,
+		thumbnail.PreviewWidthKey:    "600",
+		thumbnail.PreviewHeightKey:   "600",
+		thumbnail.PreviewMimeTypeKey: contentType,
 	}
 }
 

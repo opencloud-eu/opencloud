@@ -507,7 +507,7 @@
           "type": "integer",
           "format": "int32"
         },
-        "contentType": {
+        "mimeType": {
           "type": "string"
         }
       },

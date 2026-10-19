@@ -47,7 +47,7 @@ message Image {
 message Preview {
 	optional int32 width = 1;
 	optional int32 height = 2;
-	optional string contentType = 3;
+	optional string mimeType = 3;
 }
 
 message GeoCoordinates {

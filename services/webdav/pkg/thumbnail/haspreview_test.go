@@ -27,9 +27,9 @@ var _ = Describe("HasPreview", func() {
 		Entry("audio without indexed dimensions has none", resource("audio/mpeg", nil), false),
 		Entry("audio the index saw, with its type, has one",
 			resource("audio/mpeg", map[string]string{
-				thumbnail.PreviewWidthKey:       "600",
-				thumbnail.PreviewHeightKey:      "600",
-				thumbnail.PreviewContentTypeKey: "image/png",
+				thumbnail.PreviewWidthKey:    "600",
+				thumbnail.PreviewHeightKey:   "600",
+				thumbnail.PreviewMimeTypeKey: "image/png",
 			}), true),
 		Entry("audio the index measured but could not type has none",
 			resource("audio/mpeg", map[string]string{

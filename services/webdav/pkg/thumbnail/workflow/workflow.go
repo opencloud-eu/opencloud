@@ -435,7 +435,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	// the type is still known before the cache key is built. Without it, the
 	// container's type decides and the cover is re-encoded.
 	typeForOutput := mimeType
-	if embedded := thumbnail.PreviewContentType(info); embedded != "" {
+	if embedded := thumbnail.PreviewMimeType(info); embedded != "" {
 		typeForOutput = embedded
 	}
 	outputType, outputFormat := w.outputFor(typeForOutput)

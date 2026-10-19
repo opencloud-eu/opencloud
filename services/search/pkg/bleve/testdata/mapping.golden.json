@@ -1057,7 +1057,20 @@
         "enabled": true,
         "dynamic": true,
         "properties": {
-          "contentType": {
+          "height": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "number",
+                "store": true,
+                "index": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "mimeType": {
             "enabled": true,
             "dynamic": true,
             "fields": [
@@ -1072,7 +1085,7 @@
               }
             ]
           },
-          "contentType_lowercase": {
+          "mimeType_lowercase": {
             "enabled": true,
             "dynamic": true,
             "fields": [
@@ -1084,7 +1097,7 @@
               }
             ]
           },
-          "contentType_words": {
+          "mimeType_words": {
             "enabled": true,
             "dynamic": true,
             "fields": [
@@ -1093,19 +1106,6 @@
                 "analyzer": "words",
                 "index": true,
                 "include_term_vectors": true
-              }
-            ]
-          },
-          "height": {
-            "enabled": true,
-            "dynamic": true,
-            "fields": [
-              {
-                "type": "number",
-                "store": true,
-                "index": true,
-                "include_in_all": true,
-                "docvalues": true
               }
             ]
           },

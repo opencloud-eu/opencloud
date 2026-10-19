@@ -37,9 +37,9 @@ type Document struct {
 // and the type it is in. Internal signal, not a Graph facet; its presence marks
 // that a preview exists, and the type says what a thumbnail of it is written in.
 type Preview struct {
-	Width       int32  `json:"width"`
-	Height      int32  `json:"height"`
-	ContentType string `json:"contentType,omitempty"`
+	Width    int32  `json:"width"`
+	Height   int32  `json:"height"`
+	MimeType string `json:"mimeType,omitempty"`
 }
 
 // ToMap flows Preview through the shared facet flattening, under oc.preview.
@@ -48,8 +48,8 @@ func (p Preview) ToMap() (map[string]interface{}, error) {
 		"width":  p.Width,
 		"height": p.Height,
 	}
-	if p.ContentType != "" {
-		m["contentType"] = p.ContentType
+	if p.MimeType != "" {
+		m["mimeType"] = p.MimeType
 	}
 
 	return m, nil

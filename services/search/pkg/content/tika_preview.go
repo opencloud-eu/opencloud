@@ -36,9 +36,9 @@ func getPreview(mimeType string, metas []map[string][]string) *Preview {
 		}
 
 		preview := &Preview{
-			Width:       conversions.StringToInt32(w, 0),
-			Height:      conversions.StringToInt32(h, 0),
-			ContentType: mediaType,
+			Width:    conversions.StringToInt32(w, 0),
+			Height:   conversions.StringToInt32(h, 0),
+			MimeType: mediaType,
 		}
 		if preview.Width <= 0 || preview.Height <= 0 {
 			continue
