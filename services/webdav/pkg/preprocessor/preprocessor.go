@@ -410,16 +410,14 @@ func ForType(mimeType string, opts Options) FileConverter {
 	case "audio/ogg":
 		return tikaOr(opts, mimeType, AudioDecoder{})
 	default:
-		// webdav decodes no image: an image/* source is streamed to the
-		// generator untouched, so a type without a converter here is one
-		// only Tika can make a preview of.
+		// an image reaches the generator as it is: it reads the common types and
+		// may read more, an imagor with ImageMagick reads heic where we do not.
+		// OC_TIKA_THUMBNAIL_MIME_TYPES is how a deployment hands an image type
+		// to Tika instead.
+		if strings.HasPrefix(mimeType, "image/") && !opts.Tika.ConfiguredFor(mimeType) {
+			return nil
+		}
+
 		return tikaOr(opts, mimeType, nil)
 	}
-}
-
-// Encoded is an image a converter hands on as it found it. The type decides
-// the format the thumbnail is written in.
-type Encoded struct {
-	ContentType string
-	Data        []byte
 }
