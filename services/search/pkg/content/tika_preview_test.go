@@ -25,23 +25,23 @@ var _ = Describe("getPreview", func() {
 	}
 
 	It("returns the cover Tika marks as the thumbnail", func() {
-		p := getPreview("audio/mpeg", []map[string][]string{audio, cover})
+		p := getPreview([]map[string][]string{audio, cover})
 		Expect(p).ToNot(BeNil())
 		Expect(*p).To(Equal(Preview{Width: 500, Height: 400, MimeType: "image/jpeg"}))
 	})
 
 	It("stores the media type without the parameters Tika sends", func() {
-		p := getPreview("audio/mpeg", []map[string][]string{audio, coverWithParams})
+		p := getPreview([]map[string][]string{audio, coverWithParams})
 		Expect(p).ToNot(BeNil())
 		Expect(p.MimeType).To(Equal("image/jpeg"))
 	})
 
 	It("returns nil when the audio has no cover", func() {
-		Expect(getPreview("audio/mpeg", []map[string][]string{audio})).To(BeNil())
+		Expect(getPreview([]map[string][]string{audio})).To(BeNil())
 	})
 
 	It("returns nil when the marked cover lacks dimensions", func() {
-		Expect(getPreview("audio/mpeg", []map[string][]string{audio, coverNoDims})).To(BeNil())
+		Expect(getPreview([]map[string][]string{audio, coverNoDims})).To(BeNil())
 	})
 
 	It("leaves the selection to Tika, whatever the order", func() {
@@ -55,7 +55,7 @@ var _ = Describe("getPreview", func() {
 			"tiff:ImageWidth": {"64"}, "tiff:ImageLength": {"40"},
 			"tk:embedded-resource-type": {"THUMBNAIL"},
 		}
-		p := getPreview("audio/mpeg", []map[string][]string{audio, inline, marked})
+		p := getPreview([]map[string][]string{audio, inline, marked})
 		Expect(p).ToNot(BeNil())
 		Expect(*p).To(Equal(Preview{Width: 64, Height: 40, MimeType: "image/png"}), "the type decides what a thumbnail of the cover is written in")
 	})
@@ -65,11 +65,22 @@ var _ = Describe("getPreview", func() {
 			"Content-Type":    {"image/jpeg"},
 			"tiff:ImageWidth": {"90"}, "tiff:ImageLength": {"90"},
 		}
-		Expect(getPreview("audio/mpeg", []map[string][]string{audio, unmarked})).To(BeNil())
+		Expect(getPreview([]map[string][]string{audio, unmarked})).To(BeNil())
 	})
 
-	It("is gated to embedded-preview types", func() {
-		// an image is unconditional; its preview is not driven by oc.preview.
-		Expect(getPreview("image/png", []map[string][]string{cover})).To(BeNil())
+	It("takes a document's stored thumbnail the same way", func() {
+		odt := map[string][]string{"Content-Type": {"application/vnd.oasis.opendocument.text"}}
+		stored := map[string][]string{
+			"Content-Type":    {"image/png"},
+			"tiff:ImageWidth": {"362"}, "tiff:ImageLength": {"512"},
+			"tk:embedded-resource-type": {"THUMBNAIL"},
+		}
+		p := getPreview([]map[string][]string{odt, stored})
+		Expect(p).ToNot(BeNil())
+		Expect(*p).To(Equal(Preview{Width: 362, Height: 512, MimeType: "image/png"}))
+	})
+
+	It("returns nil for a file Tika marks nothing in, an image for one", func() {
+		Expect(getPreview([]map[string][]string{{"Content-Type": {"image/png"}, "tiff:ImageWidth": {"10"}, "tiff:ImageLength": {"10"}}})).To(BeNil())
 	})
 })

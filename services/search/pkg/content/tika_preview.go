@@ -2,25 +2,26 @@ package content
 
 import (
 	"mime"
+	"slices"
 	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
-	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
-// thumbnailResourceType is how Tika marks the embedded image it considers the
-// file's thumbnail. The unpacker's thumbnail preset extracts that same image,
-// so the index reports what the thumbnailer serves.
-const thumbnailResourceType = "THUMBNAIL"
+// thumbnailResourceTypes are how Tika marks the image it considers the file's
+// thumbnail: one stored inside the file, an audio cover or a document's own
+// thumbnail, or one Tika rendered for the purpose, a pdf's first page. The
+// unpacker's thumbnail preset extracts that same image, so the index reports
+// what the thumbnailer serves. A file that needs no such image, an image
+// itself for one, has no marked part.
+var thumbnailResourceTypes = []string{"THUMBNAIL", "RENDERING"}
 
 // getPreview returns the size and type of the preview image Tika found inside
-// the file. It only runs for the types that carry their preview inside.
-func getPreview(mimeType string, metas []map[string][]string) *Preview {
-	if !thumbnail.IsEmbeddedSourceType(mimeType) {
-		return nil
-	}
+// the file, or nil when Tika marked none.
+func getPreview(metas []map[string][]string) *Preview {
 	for _, meta := range metas {
-		if resourceType, _ := getFirstValue(meta, "tk:embedded-resource-type"); resourceType != thumbnailResourceType {
+		resourceType, _ := getFirstValue(meta, "tk:embedded-resource-type")
+		if !slices.Contains(thumbnailResourceTypes, resourceType) {
 			continue
 		}
 		ct, err := getFirstValue(meta, "Content-Type")
