@@ -3,15 +3,15 @@ package svc
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
-	"io"
 	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	gatewayv1beta1 "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
@@ -20,20 +20,19 @@ import (
 	"github.com/go-chi/render"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/templates"
 	"github.com/riandyrn/otelchi"
-	merrors "go-micro.dev/v4/errors"
-	grpcmetadata "google.golang.org/grpc/metadata"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
-	thumbnailsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/thumbnails/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
-	thumbnailssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/thumbnails/v0"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/constants"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/dav/requests"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/generator"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail/cache"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail/workflow"
 )
 
 var (
@@ -71,6 +70,8 @@ func NewService(opts ...Option) (Service, error) {
 		),
 	)
 
+	sourceTypes := thumbnail.NewSourceTypes(conf.ThumbnailSourceTypes)
+
 	tm, err := pool.StringToTLSMode(conf.GRPCClientTLS.Mode)
 	if err != nil {
 		return nil, err
@@ -85,61 +86,65 @@ func NewService(opts ...Option) (Service, error) {
 		return nil, err
 	}
 
-	svc := Webdav{
-		config:           conf,
-		log:              options.Logger,
-		mux:              m,
-		searchClient:     searchsvc.NewSearchProviderService("eu.opencloud.api.search", conf.GrpcClient),
-		thumbnailsClient: thumbnailssvc.NewThumbnailService("eu.opencloud.api.thumbnails", conf.GrpcClient),
-		gatewaySelector:  gatewaySelector,
+	// with previews disabled nothing talks to the generator, so the workflow
+	// and its cache are never built
+	var wf *workflow.ThumbnailWorkflow
+	if !conf.DisablePreviews {
+		wf, err = newThumbnailWorkflow(conf, sourceTypes, options.Logger, gatewaySelector)
+		if err != nil {
+			return nil, fmt.Errorf("create thumbnail workflow: %w", err)
+		}
 	}
 
-	if svc.config.DisablePreviews {
-		svc.thumbnailsClient = nil
+	svc := Webdav{
+		config:          conf,
+		sourceTypes:     sourceTypes,
+		log:             options.Logger,
+		mux:             m,
+		searchClient:    searchsvc.NewSearchProviderService("eu.opencloud.api.search", conf.GrpcClient),
+		workflow:        wf,
+		gatewaySelector: gatewaySelector,
 	}
 
 	m.Route(options.Config.HTTP.Root, func(r chi.Router) {
+		r.Group(func(r chi.Router) {
+			r.Use(svc.DavUserContext())
 
-		if !svc.config.DisablePreviews {
-			r.Group(func(r chi.Router) {
-				r.Use(svc.DavUserContext())
+			r.Get("/remote.php/dav/spaces/{id}", svc.Thumbnail)
+			r.Get("/remote.php/dav/spaces/{id}/*", svc.Thumbnail)
+			r.Get("/dav/spaces/{id}", svc.Thumbnail)
+			r.Get("/dav/spaces/{id}/*", svc.Thumbnail)
 
-				r.Get("/remote.php/dav/spaces/{id}", svc.SpacesThumbnail)
-				r.Get("/remote.php/dav/spaces/{id}/*", svc.SpacesThumbnail)
-				r.Get("/dav/spaces/{id}", svc.SpacesThumbnail)
-				r.Get("/dav/spaces/{id}/*", svc.SpacesThumbnail)
-				r.MethodFunc("REPORT", "/remote.php/dav/spaces*", svc.Search)
-				r.MethodFunc("REPORT", "/dav/spaces*", svc.Search)
+			r.Get("/remote.php/dav/files/{id}", svc.Thumbnail)
+			r.Get("/remote.php/dav/files/{id}/*", svc.Thumbnail)
+			r.Get("/dav/files/{id}", svc.Thumbnail)
+			r.Get("/dav/files/{id}/*", svc.Thumbnail)
 
-				r.Get("/remote.php/dav/files/{id}", svc.Thumbnail)
-				r.Get("/remote.php/dav/files/{id}/*", svc.Thumbnail)
-				r.Get("/dav/files/{id}", svc.Thumbnail)
-				r.Get("/dav/files/{id}/*", svc.Thumbnail)
+			r.MethodFunc("REPORT", "/remote.php/dav/spaces*", svc.Search)
+			r.MethodFunc("REPORT", "/dav/spaces*", svc.Search)
+			r.MethodFunc("REPORT", "/remote.php/dav/files*", svc.Search)
+			r.MethodFunc("REPORT", "/dav/files*", svc.Search)
+		})
 
-				r.MethodFunc("REPORT", "/remote.php/dav/files*", svc.Search)
-				r.MethodFunc("REPORT", "/dav/files*", svc.Search)
-			})
+		r.Group(func(r chi.Router) {
+			r.Use(svc.DavPublicContext())
 
-			r.Group(func(r chi.Router) {
-				r.Use(svc.DavPublicContext())
+			r.Head("/remote.php/dav/public-files/{token}/*", svc.PublicThumbnailHead)
+			r.Head("/dav/public-files/{token}/*", svc.PublicThumbnailHead)
 
-				r.Head("/remote.php/dav/public-files/{token}/*", svc.PublicThumbnailHead)
-				r.Head("/dav/public-files/{token}/*", svc.PublicThumbnailHead)
+			r.Get("/remote.php/dav/public-files/{token}/*", svc.PublicThumbnail)
+			r.Get("/dav/public-files/{token}/*", svc.PublicThumbnail)
+		})
 
-				r.Get("/remote.php/dav/public-files/{token}/*", svc.PublicThumbnail)
-				r.Get("/dav/public-files/{token}/*", svc.PublicThumbnail)
-			})
+		r.Group(func(r chi.Router) {
+			r.Use(svc.WebDAVContext())
 
-			r.Group(func(r chi.Router) {
-				r.Use(svc.WebDAVContext())
-				r.Get("/remote.php/webdav/*", svc.Thumbnail)
-				r.Get("/webdav/*", svc.Thumbnail)
+			r.Get("/remote.php/webdav/*", svc.Thumbnail)
+			r.Get("/webdav/*", svc.Thumbnail)
 
-				r.MethodFunc("REPORT", "/remote.php/webdav*", svc.Search)
-				r.MethodFunc("REPORT", "/webdav*", svc.Search)
-			})
-		}
-
+			r.MethodFunc("REPORT", "/remote.php/webdav*", svc.Search)
+			r.MethodFunc("REPORT", "/webdav*", svc.Search)
+		})
 	})
 
 	_ = chi.Walk(m, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
@@ -150,14 +155,84 @@ func NewService(opts ...Option) (Service, error) {
 	return svc, nil
 }
 
+// newThumbnailWorkflow wires the preview pipeline: the generator client, the
+// cache and the gateway-backed lookups.
+func newThumbnailWorkflow(conf *config.Config, sourceTypes thumbnail.SourceTypes, logger log.Logger, gatewaySelector pool.Selectable[gatewayv1beta1.GatewayAPIClient]) (*workflow.ThumbnailWorkflow, error) {
+	genTimeout, err := time.ParseDuration(conf.ThumbnailGeneratorTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("parse thumbnail generator timeout: %w", err)
+	}
+	if genTimeout == 0 {
+		genTimeout = 30 * time.Second
+	}
+
+	sizes, err := thumbnail.ParseSizes(conf.ThumbnailResolutions)
+	if err != nil {
+		return nil, fmt.Errorf("parse thumbnail sizes: %w", err)
+	}
+	// without a ladder nothing snaps, and the client would pick the cache key
+	if sizes.Max() == 0 {
+		return nil, fmt.Errorf("thumbnail resolutions must name at least one edge length")
+	}
+
+	maxInputSize, err := generator.ParseMaxInputFileSize(conf.ThumbnailMaxInputFileSize)
+	if err != nil {
+		return nil, fmt.Errorf("parse max input file size: %w", err)
+	}
+
+	typeMapping := thumbnail.NewTypeMapping(conf.ThumbnailTypeMapping)
+	formats := generator.NewFormats(conf.ThumbnailGeneratorFormats)
+
+	s3cfg := cache.BuildS3CacheConfig(
+		conf.ThumbnailCacheS3Bucket,
+		conf.ThumbnailCacheS3Region,
+		conf.ThumbnailCacheS3Endpoint,
+		conf.ThumbnailCacheS3AccessKey,
+		conf.ThumbnailCacheS3SecretKey,
+	)
+
+	// the new setting wins, the deprecated one is the fallback, and an empty
+	// result lets the cache use its own default directory
+	cacheDir := conf.ThumbnailCacheDir
+	if cacheDir == "" {
+		cacheDir = conf.ThumbnailFilesystemStorageRoot
+	}
+
+	c, err := cache.NewThumbnailCache(conf.ThumbnailCacheBackend, cacheDir, s3cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	httpClient := &http.Client{Timeout: genTimeout}
+
+	return workflow.NewWorkflow(
+		workflow.WithGeneratorURL(conf.ThumbnailGeneratorURL),
+		workflow.WithCache(c),
+		workflow.WithHTTPClient(httpClient),
+		workflow.WithMaxInputSize(maxInputSize),
+		workflow.WithSizes(sizes),
+		workflow.WithSourceTypes(sourceTypes),
+		workflow.WithFormats(formats),
+		workflow.WithTypeMapping(typeMapping),
+		workflow.WithWebdavNamespace(conf.WebdavNamespace),
+		workflow.WithFontMapFile(conf.ThumbnailFontMapFile),
+		workflow.WithLogger(logger),
+		workflow.WithStater(workflow.NewGatewayStater(gatewaySelector)),
+		workflow.WithFileDownloader(workflow.NewGatewayFileDownloader(gatewaySelector, httpClient)),
+		workflow.WithSpaceLookup(workflow.NewGatewaySpaceLookup(gatewaySelector)),
+		workflow.WithUserResolver(workflow.NewGatewayUserResolver(gatewaySelector)),
+	)
+}
+
 // Webdav implements the business logic for Service.
 type Webdav struct {
-	config           *config.Config
-	log              log.Logger
-	mux              *chi.Mux
-	searchClient     searchsvc.SearchProviderService
-	thumbnailsClient thumbnailssvc.ThumbnailService
-	gatewaySelector  pool.Selectable[gatewayv1beta1.GatewayAPIClient]
+	sourceTypes     thumbnail.SourceTypes
+	config          *config.Config
+	log             log.Logger
+	mux             *chi.Mux
+	searchClient    searchsvc.SearchProviderService
+	workflow        *workflow.ThumbnailWorkflow
+	gatewaySelector pool.Selectable[gatewayv1beta1.GatewayAPIClient]
 }
 
 // ServeHTTP implements the Service interface.
@@ -227,61 +302,77 @@ func (g Webdav) WebDAVContext() func(next http.Handler) http.Handler {
 	}
 }
 
-// SpacesThumbnail is the endpoint for retrieving thumbnails inside of spaces.
-func (g Webdav) SpacesThumbnail(w http.ResponseWriter, r *http.Request) {
-	logger := g.log.SubloggerWithRequestID(r.Context())
+// requestLogger is the logger every thumbnail endpoint logs through.
+func (g Webdav) requestLogger(r *http.Request) log.Logger {
+	return g.log.SubloggerWithRequestID(r.Context())
+}
+
+// parseThumbnailRequest reads the request every thumbnail endpoint starts with.
+// It reports false when it already answered, with a 404 when previews are off
+// and a 400 when the request does not parse.
+func (g Webdav) parseThumbnailRequest(w http.ResponseWriter, r *http.Request, logger log.Logger) (*requests.ThumbnailRequest, bool) {
+	if g.config.DisablePreviews {
+		// every thumbnail path answers 404, which is what the setting promises.
+		// The routes stay registered: the REPORT patterns match the same paths,
+		// so without them chi would answer a thumbnail request with 405.
+		http.NotFound(w, r)
+
+		return nil, false
+	}
+
 	tr, err := requests.ParseThumbnailRequest(r)
 	if err != nil {
 		logger.Debug().Err(err).Msg("could not create Request")
 		renderError(w, r, errBadRequest(err.Error()))
-		return
-	}
-	t := r.Header.Get(revactx.TokenHeader)
 
-	fullPath := filepath.Join(tr.Identifier, tr.Filepath)
-	rsp, err := g.thumbnailsClient.GetThumbnail(r.Context(), &thumbnailssvc.GetThumbnailRequest{
-		Filepath:      strings.TrimLeft(tr.Filepath, "/"),
-		ThumbnailType: extensionToThumbnailType(strings.TrimLeft(tr.Extension, ".")),
-		Width:         tr.Width,
-		Height:        tr.Height,
-		Processor:     tr.Processor,
-		Source: &thumbnailssvc.GetThumbnailRequest_Cs3Source{
-			Cs3Source: &thumbnailsmsg.CS3Source{
-				Path:          fullPath,
-				Authorization: t,
-			},
-		},
-	})
+		return nil, false
+	}
+
+	return tr, true
+}
+
+// writeThumbnail runs the workflow and answers with the thumbnail it produced.
+func (g Webdav) writeThumbnail(w http.ResponseWriter, r *http.Request, tr *requests.ThumbnailRequest, auth string, logger log.Logger) {
+	thumb, err := g.workflow.Execute(r.Context(), tr, auth, logger)
 	if err != nil {
-		e := merrors.Parse(err.Error())
-		switch e.Code {
-		case http.StatusNotFound:
-			// StatusNotFound is expected for unsupported files
-			renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
-			return
-		case http.StatusTooEarly:
-			// StatusTooEarly if file is processing
-			renderError(w, r, errTooEarly(e.Detail))
-			return
-		case http.StatusTooManyRequests:
-			addRetryAfterHeader(w)
-			renderError(w, r, errTooManyRequests(e.Detail))
-		case http.StatusBadRequest:
-			renderError(w, r, errBadRequest(e.Detail))
-		case http.StatusForbidden:
-			renderError(w, r, errPermissionDenied(e.Detail))
-		default:
-			renderError(w, r, errInternalError(err.Error()))
-		}
-		logger.Debug().Err(err).Msg("could not get thumbnail")
+		g.handleWorkflowError(w, r, err, tr, logger, "thumbnail")
 		return
 	}
 
-	g.sendThumbnailResponse(rsp, w, r)
+	setAspectIgnoredHeader(w, thumb.AspectIgnored)
+	generator.WriteThumbnailResponse(w, thumb.Data, thumb.ContentType)
+}
+
+// Thumbnail serves a thumbnail for every authenticated DAV path, spaces, files
+// and the legacy /webdav root alike: the reference is parsed from the request.
+func (g Webdav) Thumbnail(w http.ResponseWriter, r *http.Request) {
+	logger := g.requestLogger(r)
+	tr, ok := g.parseThumbnailRequest(w, r, logger)
+	if !ok {
+		return
+	}
+
+	g.writeThumbnail(w, r, tr, r.Header.Get(revactx.TokenHeader), logger)
+}
+
+// PublicThumbnail serves a thumbnail for a file behind a public link.
+func (g Webdav) PublicThumbnail(w http.ResponseWriter, r *http.Request) {
+	logger := g.requestLogger(r)
+	tr, ok := g.parseThumbnailRequest(w, r, logger)
+	if !ok {
+		return
+	}
+
+	auth, err := workflow.ResolvePublicLinkAuth(r.Context(), r, chi.URLParam(r, "token"), g.gatewaySelector)
+	if err != nil {
+		g.handlePublicLinkAuthError(w, r, err, tr.Filename, logger)
+		return
+	}
+
+	g.writeThumbnail(w, r, tr, auth, logger)
 }
 
 func whoami(gatewayClient gatewayv1beta1.GatewayAPIClient, ctx context.Context, token string) (*userv1beta1.User, error) {
-	// look up user from token via WhoAmI
 	userRes, err := gatewayClient.WhoAmI(ctx, &gatewayv1beta1.WhoAmIRequest{
 		Token: token,
 	})
@@ -294,234 +385,93 @@ func whoami(gatewayClient gatewayv1beta1.GatewayAPIClient, ctx context.Context, 
 	return userRes.GetUser(), nil
 }
 
-// Thumbnail implements the Service interface.
-func (g Webdav) Thumbnail(w http.ResponseWriter, r *http.Request) {
-	logger := g.log.SubloggerWithRequestID(r.Context())
-	tr, err := requests.ParseThumbnailRequest(r)
-	if err != nil {
-		logger.Debug().Err(err).Msg("could not create Request")
-		renderError(w, r, errBadRequest(err.Error()))
-		return
-	}
-
-	t := r.Header.Get(revactx.TokenHeader)
-
-	gatewayClient, err := g.gatewaySelector.Next()
-	if err != nil {
-		logger.Error().Err(err).Msg("could not get reva gatewayClient")
-		renderError(w, r, errInternalError("could not get reva gatewayClient"))
-		return
-	}
-
-	var user *userv1beta1.User
-	if tr.Identifier == "" {
-		user, err = whoami(gatewayClient, r.Context(), t)
-		if err != nil {
-			logger.Error().Err(err).Msg("could not get user")
-			renderError(w, r, errInternalError("could not get user"))
-			return
-		}
-	} else {
-		// look up user from URL via GetUserByClaim
-		ctx := grpcmetadata.AppendToOutgoingContext(r.Context(), revactx.TokenHeader, t)
-		userRes, err := gatewayClient.GetUserByClaim(ctx, &userv1beta1.GetUserByClaimRequest{
-			Claim: "username",
-			Value: tr.Identifier,
-		})
-		if err != nil {
-			logger.Error().Err(err).Msg("could not get user: transport error")
-			renderError(w, r, errInternalError("could not get user"))
-			return
-		}
-		if userRes.Status.Code != rpcv1beta1.Code_CODE_OK {
-			logger.Debug().Str("grpcmessage", userRes.GetStatus().GetMessage()).Msg("could not get user")
-			renderError(w, r, errInternalError("could not get user"))
-			return
-		}
-		user = userRes.GetUser()
-	}
-
-	fullPath := filepath.Join(templates.WithUser(user, g.config.WebdavNamespace), tr.Filepath)
-	rsp, err := g.thumbnailsClient.GetThumbnail(r.Context(), &thumbnailssvc.GetThumbnailRequest{
-		Filepath:      strings.TrimLeft(tr.Filepath, "/"),
-		ThumbnailType: extensionToThumbnailType(strings.TrimLeft(tr.Extension, ".")),
-		Width:         tr.Width,
-		Height:        tr.Height,
-		Processor:     tr.Processor,
-		Source: &thumbnailssvc.GetThumbnailRequest_Cs3Source{
-			Cs3Source: &thumbnailsmsg.CS3Source{
-				Path:          fullPath,
-				Authorization: t,
-			},
-		},
-	})
-	if err != nil {
-		e := merrors.Parse(err.Error())
-		switch e.Code {
-		case http.StatusNotFound:
-			// StatusNotFound is expected for unsupported files
-			renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
-			return
-		case http.StatusTooEarly:
-			// StatusTooEarly if file is processing
-			renderError(w, r, errTooEarly(e.Detail))
-			return
-		case http.StatusTooManyRequests:
-			addRetryAfterHeader(w)
-			renderError(w, r, errTooManyRequests(e.Detail))
-		case http.StatusBadRequest:
-			renderError(w, r, errBadRequest(e.Detail))
-		case http.StatusForbidden:
-			renderError(w, r, errPermissionDenied(e.Detail))
-		default:
-			renderError(w, r, errInternalError(err.Error()))
-		}
-		g.log.Error().Err(err).Msg("could not get thumbnail")
-		return
-	}
-
-	g.sendThumbnailResponse(rsp, w, r)
-}
-
-func (g Webdav) PublicThumbnail(w http.ResponseWriter, r *http.Request) {
-	logger := g.log.SubloggerWithRequestID(r.Context())
-	tr, err := requests.ParseThumbnailRequest(r)
-	if err != nil {
-		logger.Debug().Err(err).Msg("could not create Request")
-		renderError(w, r, errBadRequest(err.Error()))
-		return
-	}
-
-	rsp, err := g.thumbnailsClient.GetThumbnail(r.Context(), &thumbnailssvc.GetThumbnailRequest{
-		Filepath:      strings.TrimLeft(tr.Filepath, "/"),
-		ThumbnailType: extensionToThumbnailType(strings.TrimLeft(tr.Extension, ".")),
-		Width:         tr.Width,
-		Height:        tr.Height,
-		Processor:     tr.Processor,
-		Source: &thumbnailssvc.GetThumbnailRequest_WebdavSource{
-			WebdavSource: &thumbnailsmsg.WebdavSource{
-				Url:             g.config.OpenCloudPublicURL + r.URL.RequestURI(),
-				IsPublicLink:    true,
-				PublicLinkToken: tr.PublicLinkToken,
-			},
-		},
-	})
-	if err != nil {
-		e := merrors.Parse(err.Error())
-		switch e.Code {
-		case http.StatusNotFound:
-			// StatusNotFound is expected for unsupported files
-			renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
-			return
-		case http.StatusBadRequest:
-			renderError(w, r, errBadRequest(e.Detail))
-		case http.StatusTooManyRequests:
-			addRetryAfterHeader(w)
-			renderError(w, r, errTooManyRequests(e.Detail))
-		default:
-			renderError(w, r, errInternalError(err.Error()))
-		}
-		g.log.Error().Err(err).Msg("could not get thumbnail")
-		return
-	}
-
-	g.sendThumbnailResponse(rsp, w, r)
-}
-
 func (g Webdav) PublicThumbnailHead(w http.ResponseWriter, r *http.Request) {
-	logger := g.log.SubloggerWithRequestID(r.Context())
-	tr, err := requests.ParseThumbnailRequest(r)
-	if err != nil {
-		logger.Debug().Err(err).Msg("could not create Request")
-		renderError(w, r, errBadRequest(err.Error()))
+	logger := g.requestLogger(r)
+	tr, ok := g.parseThumbnailRequest(w, r, logger)
+	if !ok {
 		return
 	}
 
-	_, err = g.thumbnailsClient.GetThumbnail(r.Context(), &thumbnailssvc.GetThumbnailRequest{
-		Filepath:      strings.TrimLeft(tr.Filepath, "/"),
-		ThumbnailType: extensionToThumbnailType(strings.TrimLeft(tr.Extension, ".")),
-		Width:         tr.Width,
-		Height:        tr.Height,
-		Processor:     tr.Processor,
-		Source: &thumbnailssvc.GetThumbnailRequest_WebdavSource{
-			WebdavSource: &thumbnailsmsg.WebdavSource{
-				Url:             g.config.OpenCloudPublicURL + r.URL.RequestURI(),
-				IsPublicLink:    true,
-				PublicLinkToken: tr.PublicLinkToken,
-			},
-		},
-	})
+	auth, err := workflow.ResolvePublicLinkAuth(r.Context(), r, chi.URLParam(r, "token"), g.gatewaySelector)
 	if err != nil {
-		e := merrors.Parse(err.Error())
-		switch e.Code {
-		case http.StatusNotFound:
-			// StatusNotFound is expected for unsupported files
-			renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
-			return
-		case http.StatusBadRequest:
-			renderError(w, r, errBadRequest(e.Detail))
-		case http.StatusTooManyRequests:
-			addRetryAfterHeader(w)
-			renderError(w, r, errTooManyRequests(e.Detail))
-		default:
-			renderError(w, r, errInternalError(err.Error()))
-		}
-		logger.Debug().Err(err).Msg("could not get thumbnail")
+		g.handlePublicLinkAuthError(w, r, err, tr.Filename, logger)
 		return
 	}
 
+	if err := g.workflow.Head(r.Context(), tr, auth, logger); err != nil {
+		g.handleWorkflowError(w, r, err, tr, logger, "thumbnail head check")
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 }
 
-func (g Webdav) sendThumbnailResponse(rsp *thumbnailssvc.GetThumbnailResponse, w http.ResponseWriter, r *http.Request) {
-	logger := g.log.SubloggerWithRequestID(r.Context())
-	client := &http.Client{
-		// Timeout: time.Second * 5,
-	}
+// aspectIgnoredHeader is set on thumbnail responses when what the request
+// resolved to contradicts the legacy "a" flag, so developers can tell their
+// client to send a consistent request (see the thumbnail docs).
+const aspectIgnoredHeader = "X-OpenCloud-Thumbnail-Aspect-Ignored"
 
-	dlReq, err := http.NewRequest(http.MethodGet, rsp.DataEndpoint, http.NoBody)
-	if err != nil {
-		renderError(w, r, errInternalError(err.Error()))
-		logger.Error().Err(err).Msg("could not create download thumbnail request")
+func setAspectIgnoredHeader(w http.ResponseWriter, ignored bool) {
+	if !ignored {
 		return
 	}
-	dlReq.Header.Set("Transfer-Token", rsp.TransferToken)
-
-	dlRsp, err := client.Do(dlReq)
-	if err != nil {
-		renderError(w, r, errInternalError(err.Error()))
-		logger.Error().Err(err).Msg("could not download thumbnail: transport error")
-		return
-	}
-	defer dlRsp.Body.Close()
-
-	if dlRsp.StatusCode != http.StatusOK {
-		logger.Debug().
-			Str("transfer_token", rsp.GetTransferToken()).
-			Str("data_endpoint", rsp.GetDataEndpoint()).
-			Str("response_status", dlRsp.Status).
-			Msg("could not download thumbnail")
-		renderError(w, r, newErrResponse(dlRsp.StatusCode, "could not download thumbnail"))
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", dlRsp.Header.Get("Content-Type"))
-	_, err = io.Copy(w, dlRsp.Body)
-	if err != nil {
-		logger.Error().Err(err).Msg("failed to write thumbnail to response writer")
-	}
+	w.Header().Set(aspectIgnoredHeader, "1; the processor or the requested box overruled the legacy 'a' flag, see the thumbnail docs")
 }
 
-func extensionToThumbnailType(ext string) thumbnailsmsg.ThumbnailType {
-	switch strings.ToUpper(ext) {
-	case "GIF":
-		return thumbnailsmsg.ThumbnailType_GIF
-	case "PNG":
-		return thumbnailsmsg.ThumbnailType_PNG
+// handleWorkflowError maps a workflow error onto the response. step names what
+// was attempted, for the log line.
+func (g Webdav) handleWorkflowError(w http.ResponseWriter, r *http.Request, err error, tr *requests.ThumbnailRequest, logger log.Logger, step string) {
+	var busy *workflow.GeneratorBusyError
+
+	logger = log.Logger{Logger: logger.With().Str("step", step).Logger()}
+
+	switch {
+	case errors.Is(err, workflow.ErrFileProcessing):
+		addRetryAfterHeader(w)
+		renderError(w, r, errTooEarly("file is being processed"))
+	case errors.As(err, &busy):
+		logger.Debug().Err(err).Msg("thumbnail generator is busy")
+		w.Header().Set("Retry-After", strconv.Itoa(max(busy.RetryAfterSeconds, 1)))
+		renderError(w, r, errTooManyRequests("the thumbnail generator is busy"))
+	case errors.Is(err, workflow.ErrImageTooLarge):
+		logger.Debug().Err(err).Msg("thumbnail input image too large")
+		renderError(w, r, errPermissionDenied(workflow.ErrImageTooLarge.Error()))
+	case errors.Is(err, workflow.ErrPermissionDenied):
+		logger.Debug().Err(err).Msg("user lacks download permission for thumbnail")
+		renderError(w, r, errPermissionDenied(workflow.ErrPermissionDenied.Error()))
+	case errors.Is(err, workflow.ErrNotAFile):
+		logger.Debug().Err(err).Msg("requested for a non-file resource")
+		renderError(w, r, errBadRequest("Unsupported file type"))
+	case errors.Is(err, workflow.ErrNotFound):
+		logger.Debug().Err(err).Msg("thumbnail source could not be located")
+		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
+	case errors.Is(err, workflow.ErrUnsupportedFileType):
+		logger.Debug().Err(err).Msg("requested for an unsupported file type")
+		renderError(w, r, errNotFound(notFoundMsg(tr.Filename)))
 	default:
-		return thumbnailsmsg.ThumbnailType_JPG
+		// Anything else (generator down, download failure, timeout, ...) is a
+		// server error: clients must not cache it as "no preview" the way they
+		// do 404s.
+		logger.Error().Err(err).Msg("failed")
+		renderError(w, r, errInternalError("could not generate thumbnail"))
 	}
+}
+
+func (g Webdav) handlePublicLinkAuthError(w http.ResponseWriter, r *http.Request, err error, filename string, logger log.Logger) {
+	if errors.Is(err, workflow.ErrPublicLinkPasswordRequired) {
+		// A password-protected public link accessed without (or with the wrong)
+		// password must not reveal that the resource exists, so it is hidden
+		// behind a 404 rather than a 403.
+		logger.Debug().Err(err).Msg("public link requires a password")
+		renderError(w, r, errNotFound(notFoundMsg(filename)))
+		return
+	}
+	if errors.Is(err, workflow.ErrPublicLinkExpired) {
+		logger.Debug().Err(err).Msg("public link has expired")
+		renderError(w, r, newErrResponse(http.StatusGone, "public link has expired"))
+		return
+	}
+	logger.Error().Err(err).Msg("could not authenticate public link")
+	renderError(w, r, errInternalError("could not authenticate public link"))
 }
 
 // http://www.webdav.org/specs/rfc4918.html#ELEMENT_error
@@ -564,12 +514,17 @@ func errNotFound(msg string) *errResponse {
 	return newErrResponse(http.StatusNotFound, msg)
 }
 
+func errTooManyRequests(msg string) *errResponse {
+	return newErrResponse(http.StatusTooManyRequests, msg)
+}
+
 func errTooEarly(msg string) *errResponse {
 	return newErrResponse(http.StatusTooEarly, msg)
 }
 
-func errTooManyRequests(msg string) *errResponse {
-	return newErrResponse(http.StatusTooManyRequests, msg)
+func addRetryAfterHeader(w http.ResponseWriter) {
+	after := rand.IntN(14) + 1
+	w.Header().Set("Retry-After", strconv.Itoa(after))
 }
 
 func renderError(w http.ResponseWriter, r *http.Request, err *errResponse) {
@@ -579,9 +534,4 @@ func renderError(w http.ResponseWriter, r *http.Request, err *errResponse) {
 
 func notFoundMsg(name string) string {
 	return "File with name " + name + " could not be located"
-}
-
-func addRetryAfterHeader(w http.ResponseWriter) {
-	after := rand.IntN(14) + 1
-	w.Header().Set("Retry-After", strconv.Itoa(after))
 }

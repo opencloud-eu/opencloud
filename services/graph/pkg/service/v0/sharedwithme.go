@@ -71,7 +71,7 @@ func (g Graph) listSharedWithMe(ctx context.Context, expandThumbnails bool) ([]l
 
 	if expandThumbnails {
 		for k, item := range driveItems {
-			setShareThumbnails(&item, item.RemoteItem.GetId(), g.config.Commons.OpenCloudURL)
+			setShareThumbnails(&item, item.RemoteItem.GetId(), g.config.Commons.OpenCloudURL, g.sourceTypes)
 			driveItems[k] = item
 		}
 	}

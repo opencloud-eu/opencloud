@@ -351,7 +351,7 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if driveItemRelationExpanded(r, _expandThumbnails) {
-		setDriveItemThumbnails(driveItem, res.GetInfo(), g.config.Commons.OpenCloudURL)
+		setDriveItemThumbnails(driveItem, res.GetInfo(), g.config.Commons.OpenCloudURL, g.sourceTypes)
 	}
 
 	render.Status(r, http.StatusOK)
