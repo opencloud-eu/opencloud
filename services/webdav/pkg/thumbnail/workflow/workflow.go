@@ -75,25 +75,6 @@ var ErrFileProcessing = fmt.Errorf("file is processing")
 // cached as an empty entry, so the next request does not ask Tika again.
 var ErrNoThumbnail = errors.New("thumbnails: the file has no thumbnail")
 
-// tikaFormatPlaceholder stands in the cache key for a format only Tika's answer
-// reveals, so the entry is found without downloading the file first.
-const tikaFormatPlaceholder = "tika"
-
-// typeOfThumbnail reads the type of bytes that were cached under the
-// placeholder, because the key cannot say what they turned out to be.
-func typeOfThumbnail(data []byte, fallback string) string {
-	switch {
-	case bytes.HasPrefix(data, []byte{0x89, 'P', 'N', 'G'}):
-		return "image/png"
-	case bytes.HasPrefix(data, []byte{0xff, 0xd8}):
-		return "image/jpeg"
-	case bytes.HasPrefix(data, []byte("GIF8")):
-		return "image/gif"
-	}
-
-	return fallback
-}
-
 // ErrImageTooLarge is returned when the input image exceeds the configured
 // maximum width/height. Callers should surface this as HTTP 403 Forbidden,
 // matching the legacy thumbnail service error message.
@@ -447,16 +428,13 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	}
 	mimeType := info.GetMimeType()
 
-	// The thumbnail is returned in the type the source type maps to, asked for by
-	// the name the generator's filter uses.
+	// The thumbnail is returned in the type the source type maps to, asked for
+	// by the name the generator's filter uses. What an extractor hands on is
+	// re-encoded to that type, because the request has to decide it: a cache
+	// hit knows the key, not the bytes. Keeping a png cover a png needs the
+	// embedded type before the key is built, which is what the preview presence
+	// work puts into the file's metadata.
 	outputType, outputFormat := w.outputFor(mimeType)
-
-	// What Tika answers with is only known once it has answered, so the entry is
-	// keyed under a placeholder until then.
-	fromTika := !strings.HasPrefix(mimeType, "image/") && w.tika.Supports(mimeType)
-	if fromTika {
-		outputFormat = tikaFormatPlaceholder
-	}
 
 	// The operation is resolved up front so it can be part of the cache key: a
 	// fill and a fit-in request with the same dimensions produce different images
@@ -485,10 +463,6 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 			// an empty entry is a file we know carries no thumbnail
 			if len(cached) == 0 {
 				return Thumbnail{}, ErrNoThumbnail
-			}
-			if fromTika {
-				// the format was not known when the entry was written
-				return Thumbnail{Data: cached, ContentType: typeOfThumbnail(cached, outputType), AspectIgnored: aIgnored}, nil
 			}
 
 			return Thumbnail{Data: cached, ContentType: outputType, AspectIgnored: aIgnored}, nil
@@ -521,11 +495,6 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 		return Thumbnail{}, err
 	}
 	defer cleanup()
-
-	if fromTika {
-		// only now is the type known that Tika answered with
-		outputType, outputFormat = w.outputFor(srcType)
-	}
 
 	genURL := generator.BuildURL(w.generatorURL, int32(box.Dx()), int32(box.Dy()), operation, outputFormat, noUpscale)
 	thumbBytes, thumbType, err := w.postToGenerator(ctx, genURL, imgStream, tr.Filename, srcType)
@@ -561,34 +530,29 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta1.Reference, auth, mimeType, filename string, logger log.Logger) (io.Reader, string, func(), error) {
 	m, _, _ := mime.ParseMediaType(mimeType)
 
-	if strings.HasPrefix(m, "image/") {
-		body, err := w.fileDownloader.DownloadStream(ctx, ref, auth)
-		if err != nil {
-			return nil, "", nil, fmt.Errorf("download: %w", err)
-		}
-		return body, m, func() { _ = body.Close() }, nil
-	}
-
-	body, err := w.fileDownloader.DownloadStream(ctx, ref, auth)
-	if err != nil {
-		return nil, "", nil, fmt.Errorf("download: %w", err)
-	}
-	defer body.Close()
-
-	fileBytes, err := io.ReadAll(body)
-	if err != nil {
-		return nil, "", nil, fmt.Errorf("read source: %w", err)
-	}
-
+	// the preprocessor decides what a type needs. No converter means the file
+	// is handed to the generator as it is, which is the case for every type it
+	// reads itself.
 	converter := preprocessor.ForType(mimeType, preprocessor.Options{
 		FontMapFile:  w.fontMapFile,
 		MaxImageSize: w.maxInputSize,
 		Tika:         w.tika,
 		Filename:     filename,
 	})
+
+	body, err := w.fileDownloader.DownloadStream(ctx, ref, auth)
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("download: %w", err)
+	}
+
 	if converter == nil {
-		logger.Debug().Str("mimetype", mimeType).Msg("no converter for this type")
-		return nil, "", nil, fmt.Errorf("%w: no converter for %s", ErrNotFound, mimeType)
+		return body, m, func() { _ = body.Close() }, nil
+	}
+	defer body.Close()
+
+	fileBytes, err := io.ReadAll(body)
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("read source: %w", err)
 	}
 
 	img, err := converter.Convert(bytes.NewReader(fileBytes))
