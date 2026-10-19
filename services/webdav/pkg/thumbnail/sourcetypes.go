@@ -6,11 +6,10 @@ import (
 	"strings"
 )
 
-// DefaultSourceTypes are the types a preview is announced and attempted for
-// without further configuration. The image types are what both resize backends
-// read; the others are converted to an image here, by a preprocessor, before a
-// generator ever sees them.
-var DefaultSourceTypes = []string{
+// GeneratorImageTypes are the image types both resize backends read, so webdav
+// hands the file to the generator as it is. Every other type needs something to
+// make an image of it first, a preprocessor here or a Tika server.
+var GeneratorImageTypes = []string{
 	"image/png",
 	"image/jpg",
 	"image/jpeg",
@@ -19,13 +18,18 @@ var DefaultSourceTypes = []string{
 	"image/x-ms-bmp",
 	"image/tiff",
 	"image/webp",
+}
+
+// DefaultSourceTypes are the types a preview is announced and attempted for
+// without further configuration.
+var DefaultSourceTypes = slices.Concat(GeneratorImageTypes, []string{
 	"text/plain",
 	"audio/flac",
 	"audio/mpeg",
 	"audio/ogg",
 	"application/vnd.geogebra.slides",
 	"application/vnd.geogebra.pinboard",
-}
+})
 
 // SourceTypes are the types a preview is announced and attempted for: the
 // defaults plus what a deployment configured, which is also the list the
