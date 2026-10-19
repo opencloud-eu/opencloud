@@ -107,7 +107,7 @@ As soon as Tika is installed and configured, the search service needs to be told
 The following settings must be set:
 
 *   `SEARCH_EXTRACTOR_TYPE=tika`
-*   `SEARCH_EXTRACTOR_TIKA_TIKA_URL=http://YOUR-TIKA.URL`
+*   `SEARCH_EXTRACTOR_TIKA_TIKA_URL=http://YOUR-TIKA.URL` (or the shared `OC_TIKA_URL`, which the webdav service reads for thumbnails too)
 
 Additionally, the following optional settings can be set:
 

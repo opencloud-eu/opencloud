@@ -47,7 +47,9 @@ type Config struct {
 	ThumbnailTypeMapping      []string `yaml:"thumbnail_type_mapping" env:"OC_THUMBNAIL_TYPE_MAPPING;WEBDAV_THUMBNAIL_TYPE_MAPPING" desc:"The type a thumbnail is returned in, per type of the image it is made from, as mime:mime entries, e.g. image/vnd.microsoft.icon:image/png. The target is asked for by the name WEBDAV_THUMBNAIL_GENERATOR_FORMATS gives it. A type that is not listed becomes a JPEG; a target this service has no format name for is asked for as a JPEG as well." introductionVersion:"%%NEXT%%"`
 
 	// the yaml key stays unprefixed, a config file written against it has to keep working
-	ThumbnailFontMapFile string `yaml:"font_map_file" env:"THUMBNAILS_TXT_FONTMAP_FILE;WEBDAV_THUMBNAIL_TXT_FONTMAP_FILE" desc:"The path to a font map file for txt thumbnails." introductionVersion:"%%NEXT%%"`
+	ThumbnailFontMapFile   string   `yaml:"font_map_file" env:"THUMBNAILS_TXT_FONTMAP_FILE;WEBDAV_THUMBNAIL_TXT_FONTMAP_FILE" desc:"The path to a font map file for txt thumbnails." introductionVersion:"%%NEXT%%"`
+	TikaURL                string   `yaml:"tika_url" env:"OC_TIKA_URL;WEBDAV_TIKA_URL" desc:"URL of an Apache Tika server. When set, thumbnails are generated for documents, raw photos, audio cover art and other formats Tika can extract a preview from." introductionVersion:"%%NEXT%%"`
+	TikaThumbnailMimeTypes []string `yaml:"tika_thumbnail_mime_types" env:"OC_TIKA_THUMBNAIL_MIME_TYPES;WEBDAV_TIKA_THUMBNAIL_MIME_TYPES" desc:"Restrict thumbnail generation via Tika to these mime types. Empty means all types that are not handled directly. An entry can map a type to the one Tika knows the format by, e.g. image/x-raw-samsung:image/x-samsung-srw." introductionVersion:"%%NEXT%%"`
 
 	Context context.Context `yaml:"-"`
 }

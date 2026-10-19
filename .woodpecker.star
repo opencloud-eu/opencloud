@@ -3408,6 +3408,17 @@ def tikaService():
         # tika 4 discovers its plugins relative to the image working directory,
         # the workspace default would leave the pipes fetchers empty
         "directory": "/opt/tika-server",
+        # the thumbnail preset ships inert; the config is what activates it
+        "entrypoint": [
+            "java",
+            "-cp",
+            "/opt/tika-server/*:/opt/tika-server/lib/*:/tika-extras/*",
+            "org.apache.tika.server.core.TikaServerCli",
+            "-h",
+            "0.0.0.0",
+            "-c",
+            "%s/tests/config/woodpecker/tika-config.json" % dirs["base"],
+        ],
         "detach": True,
     }, {
         "name": "wait-for-tika-service",

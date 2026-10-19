@@ -1,0 +1,12 @@
+{
+  // -h and -p still come from the command line; a config file has to carry the block
+  "server": {
+    "port": 9998,
+    "host": "0.0.0.0"
+  },
+  // the thumbnail preset ships inert in tika-pipes-core; activating it is what serves
+  // PUT /unpack/preset/thumbnail, which the webdav thumbnailer asks for
+  "presets": {
+    "thumbnail": true
+  }
+}
