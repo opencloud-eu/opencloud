@@ -329,7 +329,7 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 										"enabled": true,
 									},
 									"content": map[string]any{
-										"enabled": true,
+										"enabled": cfg.FullTextSearch,
 									},
 									"scope": map[string]any{
 										"enabled": true,
