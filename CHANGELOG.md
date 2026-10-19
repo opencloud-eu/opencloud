@@ -12,6 +12,7 @@
 
 ### ✅ Tests
 
+- tests: check that a guest can only access the shared resource [[#3752](https://github.com/opencloud-eu/opencloud/pull/3752)]
 - tests: add acceptance tests for sharing with guests via email [[#3751](https://github.com/opencloud-eu/opencloud/pull/3751)]
 - Bump reva and add some tests for new features [[#3715](https://github.com/opencloud-eu/opencloud/pull/3715)]
 - api-test: check PROPFIND/REPORT has-preview [[#3714](https://github.com/opencloud-eu/opencloud/pull/3714)]
