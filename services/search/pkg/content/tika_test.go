@@ -171,7 +171,7 @@ var _ = Describe("Tika", func() {
 		})
 
 		It("keeps the audio facet and captures the cover as preview", func() {
-			fullResponse = `[{"Content-Type": "audio/mpeg", "dc:title": "Sucker", "tk:content": "lyrics"}, {"Content-Type": "image/jpeg", "tiff:ImageWidth": "500", "tiff:ImageLength": "400"}]`
+			fullResponse = `[{"Content-Type": "audio/mpeg", "dc:title": "Sucker", "tk:content": "lyrics"}, {"Content-Type": "image/jpeg", "tiff:ImageWidth": "500", "tiff:ImageLength": "400", "tk:embedded-resource-type": "THUMBNAIL"}]`
 
 			doc, err := tika.Extract(context.TODO(), &provider.ResourceInfo{
 				Type:     provider.ResourceType_RESOURCE_TYPE_FILE,
