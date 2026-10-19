@@ -13,11 +13,22 @@ var _ = Describe("getPreview", func() {
 		"tiff:ImageLength": {"400"},
 	}
 	coverNoDims := map[string][]string{"Content-Type": {"image/jpeg"}}
+	coverWithParams := map[string][]string{
+		"Content-Type":     {"image/jpeg; quality=90"},
+		"tiff:ImageWidth":  {"80"},
+		"tiff:ImageLength": {"60"},
+	}
 
 	It("returns the embedded cover dimensions for audio", func() {
 		p := getPreview("audio/mpeg", []map[string][]string{audio, cover})
 		Expect(p).ToNot(BeNil())
 		Expect(*p).To(Equal(Preview{Width: 500, Height: 400, ContentType: "image/jpeg"}))
+	})
+
+	It("stores the media type without the parameters Tika sends", func() {
+		p := getPreview("audio/mpeg", []map[string][]string{audio, coverWithParams})
+		Expect(p).ToNot(BeNil())
+		Expect(p.ContentType).To(Equal("image/jpeg"))
 	})
 
 	It("returns nil when the audio has no cover", func() {
