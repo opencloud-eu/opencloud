@@ -39,13 +39,14 @@ type Metrics struct {
 
 	enabled    map[APIType]prometheus.Gauge
 	collectors []prometheus.Collector
-	custom     map[string]prometheus.Collector
+
+	serviceRegistered map[string]prometheus.Collector
 }
 
 // Option configures a Metrics container.
 type Option func(*Metrics)
 
-// ErrMetricNotFound is returned when a custom metric is looked up by a name
+// ErrMetricNotFound is returned when a registered metric is looked up by a name
 // that was not registered.
 var ErrMetricNotFound = errors.New("metric not found")
 
@@ -256,22 +257,21 @@ func WithEnabled(apis ...APIType) Option {
 }
 
 // WithMetric registers an additional service-specific metric into the container
-// under the given logical name. The metric is registered with the Registerer
-// passed to New and can be retrieved again with Metric.
+// under the given logical name.
 func WithMetric(name string, c prometheus.Collector) Option {
 	return func(m *Metrics) {
-		m.custom[name] = c
+		m.serviceRegistered[name] = c
 		m.collectors = append(m.collectors, c)
 	}
 }
 
 func New(reg prometheus.Registerer, logger *log.Logger, namespace, subsystem string, opts ...Option) (*Metrics, error) {
 	m := &Metrics{
-		namespace: namespace,
-		subsystem: subsystem,
-		BuildInfo: BuildInfo(namespace, subsystem),
-		enabled:   map[APIType]prometheus.Gauge{},
-		custom:    map[string]prometheus.Collector{},
+		namespace:         namespace,
+		subsystem:         subsystem,
+		BuildInfo:         BuildInfo(namespace, subsystem),
+		enabled:           map[APIType]prometheus.Gauge{},
+		serviceRegistered: map[string]prometheus.Collector{},
 	}
 	m.collectors = append(m.collectors, m.BuildInfo)
 
@@ -300,9 +300,9 @@ func (m *Metrics) SetDisabled(api APIType) {
 	g.Set(0)
 }
 
-// GetMetric returns the custom metric registered under the given name.
+// GetMetric returns the metric registered under the given name.
 func (m *Metrics) GetMetric(name string) (prometheus.Collector, error) {
-	c, ok := m.custom[name]
+	c, ok := m.serviceRegistered[name]
 	if !ok {
 		return nil, fmt.Errorf("%q: %w", name, ErrMetricNotFound)
 	}
