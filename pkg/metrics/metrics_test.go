@@ -315,6 +315,7 @@ func TestHTTPMetrics(t *testing.T) {
 	router.Get("/bar", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	})
+	router.Get("/empty", func(w http.ResponseWriter, r *http.Request) {})
 
 	srv := httptest.NewServer(router)
 	defer srv.Close()
@@ -327,6 +328,11 @@ func TestHTTPMetrics(t *testing.T) {
 	resp, err = http.Get(srv.URL + "/bar")
 	require.NoError(err)
 	require.Equal(http.StatusInternalServerError, resp.StatusCode)
+	require.NoError(resp.Body.Close())
+
+	resp, err = http.Get(srv.URL + "/empty")
+	require.NoError(err)
+	require.Equal(http.StatusOK, resp.StatusCode)
 	require.NoError(resp.Body.Close())
 
 	mfs := gatherByName(t, reg)
@@ -344,6 +350,7 @@ func TestHTTPMetrics(t *testing.T) {
 	}
 	require.Equal(1.0, counts[key{"GET", "/foo/{id}", "200", ResultSuccess}])
 	require.Equal(1.0, counts[key{"GET", "/bar", "500", ResultServerError}])
+	require.Equal(1.0, counts[key{"GET", "/empty", "200", ResultSuccess}])
 }
 
 func TestHTTPMetricsMiddlewareWithoutMetrics(t *testing.T) {

@@ -71,11 +71,15 @@ func Server(cfg *config.Config) *cobra.Command {
 			ctx, cancel := context.WithCancel(cmd.Context())
 			defer cancel()
 
-			mtrcs, err := ocmetrics.New(prometheus.DefaultRegisterer, &logger, "opencloud", "activitylog",
+			metricsOpts := []ocmetrics.Option{
 				ocmetrics.WithEnabled(ocmetrics.APIHTTP, ocmetrics.APIEvents),
 				ocmetrics.WithEventsProcessed(),
-				ocmetrics.WithHTTPMetrics(),
-			)
+			}
+			if !cfg.HTTP.Metrics.Disabled {
+				metricsOpts = append(metricsOpts, ocmetrics.WithHTTPMetrics())
+			}
+
+			mtrcs, err := ocmetrics.New(prometheus.DefaultRegisterer, &logger, "opencloud", "activitylog", metricsOpts...)
 			if err != nil {
 				return err
 			}

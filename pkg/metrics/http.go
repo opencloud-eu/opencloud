@@ -99,6 +99,12 @@ func (h *httpMetrics) Middleware(next http.Handler) http.Handler {
 				pattern = p
 			}
 		}
-		h.RecordDuration(r.Method, pattern, wrapper.Status(), time.Since(start))
+		status := wrapper.Status()
+		if status == 0 {
+			// chi's WrapResponseWriter reports 0 when the handler never called
+			// WriteHeader and wrote no body; net/http would have sent 200 OK.
+			status = http.StatusOK
+		}
+		h.RecordDuration(r.Method, pattern, status, time.Since(start))
 	})
 }
