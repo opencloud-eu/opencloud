@@ -136,6 +136,9 @@ func (s *EventConsumer) processEvent(e events.Event) error {
 		return s.handleShareRemoved(ctx, ev)
 	case events.ShareExpired:
 		return s.handleShareExpired(ctx, ev)
+	case events.SpaceShared:
+		s.log.Debug().Msg("space shared event received, not handled yet")
+		return nil
 	default:
 		s.log.Warn().
 			Str("eventtype", e.Type).
