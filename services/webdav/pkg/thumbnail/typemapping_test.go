@@ -11,9 +11,19 @@ import (
 var _ = Describe("TypeMapping", func() {
 	m := thumbnail.NewTypeMapping(nil)
 
-	It("answers for every type a preview is made of", func() {
+	It("answers for every type whose output does not depend on the file", func() {
 		for _, mimeType := range thumbnail.NewSourceTypes(nil).List() {
+			if thumbnail.IsEmbeddedSourceType(mimeType) {
+				continue
+			}
 			Expect(m.TargetFor(mimeType)).ToNot(BeEmpty(), "%s has no output type", mimeType)
+		}
+	})
+
+	It("says nothing about a type that carries its preview inside", func() {
+		// the embedded image's own type decides, and the index knows it
+		for _, mimeType := range thumbnail.EmbeddedSourceTypes {
+			Expect(m.TargetFor(mimeType)).To(BeEmpty(), "%s should follow the embedded type", mimeType)
 		}
 	})
 

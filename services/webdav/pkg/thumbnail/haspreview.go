@@ -47,14 +47,16 @@ func IsEmbeddedSourceType(contentType string) bool {
 
 // HasPreview reports whether a preview can be produced for the resource: a type
 // that always has one says so by itself, a type that carries its preview inside
-// the file only when the index saw one.
+// the file only when the index saw one, with its size and the type it is in.
+// Without that, nothing here could say what a thumbnail of it would be, and
+// guessing is what this replaces.
 func (t SourceTypes) HasPreview(md *provider.ResourceInfo) bool {
 	if md == nil {
 		return false
 	}
 	w, h := PreviewDimensions(md)
 
-	return t.HasPreviewForMimeType(md.GetMimeType(), w > 0 && h > 0)
+	return t.HasPreviewForMimeType(md.GetMimeType(), w > 0 && h > 0 && PreviewContentType(md) != "")
 }
 
 // HasPreviewForMimeType is HasPreview for callers that only have the mimetype

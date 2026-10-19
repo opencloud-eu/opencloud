@@ -25,11 +25,17 @@ var _ = Describe("HasPreview", func() {
 		Entry("an image always has one", resource("image/png", nil), true),
 		Entry("a type nobody makes a preview of has none", resource("application/zip", nil), false),
 		Entry("audio without indexed dimensions has none", resource("audio/mpeg", nil), false),
-		Entry("audio with indexed dimensions has one",
+		Entry("audio the index saw, with its type, has one",
+			resource("audio/mpeg", map[string]string{
+				thumbnail.PreviewWidthKey:       "600",
+				thumbnail.PreviewHeightKey:      "600",
+				thumbnail.PreviewContentTypeKey: "image/png",
+			}), true),
+		Entry("audio the index measured but could not type has none",
 			resource("audio/mpeg", map[string]string{
 				thumbnail.PreviewWidthKey:  "600",
 				thumbnail.PreviewHeightKey: "600",
-			}), true),
+			}), false),
 		Entry("audio with zero dimensions has none",
 			resource("audio/mpeg", map[string]string{
 				thumbnail.PreviewWidthKey:  "0",

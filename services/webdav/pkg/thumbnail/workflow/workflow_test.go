@@ -285,6 +285,15 @@ func setupPreprocessTest(
 	return wf, captured
 }
 
+// indexedCover is what the search extraction leaves on a file whose cover it saw.
+func indexedCover(contentType string) map[string]string {
+	return map[string]string{
+		thumbnail.PreviewWidthKey:       "600",
+		thumbnail.PreviewHeightKey:      "600",
+		thumbnail.PreviewContentTypeKey: contentType,
+	}
+}
+
 type capturedUpload struct {
 	path     string
 	filename string
@@ -834,7 +843,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			mp3Bytes, err := os.ReadFile(filepath.Join("..", "..", "preprocessor", "test_assets", "empty.mp3"))
 			Expect(err).ToNot(HaveOccurred())
 
-			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "song.mp3", mp3Bytes)
+			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "song.mp3", mp3Bytes, indexedCover("image/jpeg"))
 
 			tr := &requests.ThumbnailRequest{
 				Ref:      spaceRef("storageid$spaceid!opaqueid", "song.mp3"),
@@ -907,7 +916,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 		})
 
 		It("returns an error when the file cannot be converted to an image", func() {
-			wf2, _ := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "bad.mp3", []byte("not a real audio file"))
+			wf2, _ := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "bad.mp3", []byte("not a real audio file"), indexedCover("image/jpeg"))
 
 			tr := &requests.ThumbnailRequest{
 				Ref:      spaceRef("storageid$spaceid!opaqueid", "bad.mp3"),
@@ -961,8 +970,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			mp3Bytes, err := os.ReadFile(filepath.Join("..", "..", "preprocessor", "test_assets", "empty.mp3"))
 			Expect(err).ToNot(HaveOccurred())
 
-			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "cover.mp3", mp3Bytes,
-				map[string]string{thumbnail.PreviewContentTypeKey: "image/png"})
+			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "cover.mp3", mp3Bytes, indexedCover("image/png"))
 
 			tr := &requests.ThumbnailRequest{
 				Ref:      spaceRef("storageid$spaceid!opaqueid", "cover.mp3"),

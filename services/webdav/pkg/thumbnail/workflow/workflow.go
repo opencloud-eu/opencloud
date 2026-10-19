@@ -321,7 +321,7 @@ func (w *ThumbnailWorkflow) statSource(ctx context.Context, ref *providerv1beta1
 		return nil, ErrPermissionDenied
 	}
 
-	if !w.supportsMimeType(info.GetMimeType()) {
+	if !w.canPreview(info) {
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedFileType, info.GetMimeType())
 	}
 
@@ -571,9 +571,17 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 	return bytes.NewReader(img.Data), img.ContentType, func() {}, nil
 }
 
-// supportsMimeType reports whether a preview is attempted for the type: the
-// announced source types plus whatever a configured Tika takes.
-func (w *ThumbnailWorkflow) supportsMimeType(mimeType string) bool {
+// canPreview reports whether a preview is attempted for the resource. A type
+// that carries its preview inside the file needs the index to have seen it,
+// with the type it is in, because nothing else here could say what a thumbnail
+// of it would be. Everything else is answered by its type alone, the announced
+// source types plus whatever a configured Tika takes.
+func (w *ThumbnailWorkflow) canPreview(info *providerv1beta1.ResourceInfo) bool {
+	mimeType := info.GetMimeType()
+	if thumbnail.IsEmbeddedSourceType(mimeType) {
+		return w.sourceTypes.HasPreview(info)
+	}
+
 	return w.sourceTypes.Supports(mimeType) || w.tika.Supports(mimeType)
 }
 

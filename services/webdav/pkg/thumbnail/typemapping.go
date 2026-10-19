@@ -24,9 +24,6 @@ var DefaultTypeMapping = []string{
 	"image/vnd.microsoft.icon:image/png",
 	"image/x-icon:image/png",
 	"text/plain:image/jpeg",
-	"audio/flac:image/jpeg",
-	"audio/mpeg:image/jpeg",
-	"audio/ogg:image/jpeg",
 	"application/vnd.geogebra.slides:image/jpeg",
 	"application/vnd.geogebra.pinboard:image/jpeg",
 }
