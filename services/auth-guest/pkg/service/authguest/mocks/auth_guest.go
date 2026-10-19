@@ -7,6 +7,8 @@ package mocks
 import (
 	"context"
 
+	"github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	"github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/token"
 	mock "github.com/stretchr/testify/mock"
@@ -154,6 +156,80 @@ func (_c *AuthGuest_CreateToken_Call) Return(token1 *token.Token, err error) *Au
 }
 
 func (_c *AuthGuest_CreateToken_Call) RunAndReturn(run func(ctx context.Context, shareID string) (*token.Token, error)) *AuthGuest_CreateToken_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetShareForSpaceGrant provides a mock function for the type AuthGuest
+func (_mock *AuthGuest) GetShareForSpaceGrant(ctx context.Context, spaceID string, grantee *userv1beta1.UserId) (*collaborationv1beta1.Share, error) {
+	ret := _mock.Called(ctx, spaceID, grantee)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetShareForSpaceGrant")
+	}
+
+	var r0 *collaborationv1beta1.Share
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *userv1beta1.UserId) (*collaborationv1beta1.Share, error)); ok {
+		return returnFunc(ctx, spaceID, grantee)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *userv1beta1.UserId) *collaborationv1beta1.Share); ok {
+		r0 = returnFunc(ctx, spaceID, grantee)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*collaborationv1beta1.Share)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, *userv1beta1.UserId) error); ok {
+		r1 = returnFunc(ctx, spaceID, grantee)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// AuthGuest_GetShareForSpaceGrant_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetShareForSpaceGrant'
+type AuthGuest_GetShareForSpaceGrant_Call struct {
+	*mock.Call
+}
+
+// GetShareForSpaceGrant is a helper method to define mock.On call
+//   - ctx context.Context
+//   - spaceID string
+//   - grantee *userv1beta1.UserId
+func (_e *AuthGuest_Expecter) GetShareForSpaceGrant(ctx any, spaceID any, grantee any) *AuthGuest_GetShareForSpaceGrant_Call {
+	return &AuthGuest_GetShareForSpaceGrant_Call{Call: _e.mock.On("GetShareForSpaceGrant", ctx, spaceID, grantee)}
+}
+
+func (_c *AuthGuest_GetShareForSpaceGrant_Call) Run(run func(ctx context.Context, spaceID string, grantee *userv1beta1.UserId)) *AuthGuest_GetShareForSpaceGrant_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 *userv1beta1.UserId
+		if args[2] != nil {
+			arg2 = args[2].(*userv1beta1.UserId)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *AuthGuest_GetShareForSpaceGrant_Call) Return(share *collaborationv1beta1.Share, err error) *AuthGuest_GetShareForSpaceGrant_Call {
+	_c.Call.Return(share, err)
+	return _c
+}
+
+func (_c *AuthGuest_GetShareForSpaceGrant_Call) RunAndReturn(run func(ctx context.Context, spaceID string, grantee *userv1beta1.UserId) (*collaborationv1beta1.Share, error)) *AuthGuest_GetShareForSpaceGrant_Call {
 	_c.Call.Return(run)
 	return _c
 }

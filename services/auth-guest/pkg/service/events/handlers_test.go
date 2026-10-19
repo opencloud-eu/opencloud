@@ -149,3 +149,56 @@ func TestHandleShareExpiredSkipsNonGuest(t *testing.T) {
 
 	svcMock.AssertNotCalled(t, "CleanupShare", mock.Anything)
 }
+
+func TestHandleSpaceShared(t *testing.T) {
+	tok, err := token.NewTokenService().Generate(testShareID)
+	require.NoError(t, err)
+
+	share := &collaboration.Share{
+		Id:         &collaboration.ShareId{OpaqueId: testShareID},
+		ResourceId: &provider.ResourceId{StorageId: "storage", SpaceId: "space", OpaqueId: "space"},
+		Creator:    &user.UserId{OpaqueId: "sharer"},
+	}
+
+	svcMock := mocks.NewAuthGuest(t)
+	svcMock.On("GetShareForSpaceGrant", mock.Anything, "storage$space", mock.Anything).Return(share, nil)
+	svcMock.On("CreateToken", mock.Anything, testShareID).Return(tok, nil)
+
+	svc, bus := newConsumer(t, svcMock)
+
+	ev := events.SpaceShared{
+		ID:            &provider.StorageSpaceId{OpaqueId: "storage$space"},
+		Executant:     &user.UserId{OpaqueId: "executant"},
+		Creator:       &user.UserId{OpaqueId: "creator"},
+		GranteeUserID: &user.UserId{OpaqueId: "guest@example.org", Type: user.UserType_USER_TYPE_GUEST},
+	}
+
+	require.NoError(t, svc.handleSpaceShared(context.Background(), ev))
+
+	svcMock.AssertCalled(t, "CreateToken", mock.Anything, testShareID)
+
+	require.Len(t, bus.published, 1)
+	published, ok := bus.published[0].(ocEvents.GuestTokenCreated)
+	require.True(t, ok)
+	assert.Equal(t, testShareID, published.ShareID.GetOpaqueId())
+	assert.Equal(t, "guest@example.org", published.GranteeEmail)
+	assert.Equal(t, "space", published.ItemID.GetOpaqueId())
+	assert.Equal(t, "sharer", published.Sharer.GetOpaqueId())
+	assert.NotEmpty(t, published.Token)
+}
+
+func TestHandleSpaceSharedSkipsNonGuest(t *testing.T) {
+	svcMock := mocks.NewAuthGuest(t)
+	svc, bus := newConsumer(t, svcMock)
+
+	ev := events.SpaceShared{
+		ID:            &provider.StorageSpaceId{OpaqueId: "storage$space"},
+		GranteeUserID: &user.UserId{OpaqueId: "user", Type: user.UserType_USER_TYPE_PRIMARY},
+	}
+
+	require.NoError(t, svc.handleSpaceShared(context.Background(), ev))
+
+	svcMock.AssertNotCalled(t, "GetShareForSpaceGrant", mock.Anything, mock.Anything, mock.Anything)
+	svcMock.AssertNotCalled(t, "CreateToken", mock.Anything, mock.Anything)
+	assert.Empty(t, bus.published)
+}

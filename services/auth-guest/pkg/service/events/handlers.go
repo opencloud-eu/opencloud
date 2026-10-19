@@ -67,3 +67,38 @@ func (s *EventConsumer) handleShareExpired(ctx context.Context, ev events.ShareE
 
 	return s.authGuest.CleanupShare(ev.ShareID.GetOpaqueId())
 }
+
+// handleSpaceShared handles a space shared event.
+func (s *EventConsumer) handleSpaceShared(ctx context.Context, ev events.SpaceShared) error {
+	_, span := tracer.Start(ctx, "handleSpaceShared")
+	defer span.End()
+
+	if ev.GranteeUserID == nil || ev.GranteeUserID.GetType() != user.UserType_USER_TYPE_GUEST {
+		s.log.Debug().Msg("space shared event is not for a guest, skipping")
+		return nil
+	}
+
+	if ev.ID.GetOpaqueId() == "" {
+		s.log.Warn().Msg("space shared event without space id, skipping")
+		return nil
+	}
+
+	share, err := s.authGuest.GetShareForSpaceGrant(ctx, ev.ID.GetOpaqueId(), ev.GranteeUserID)
+	if err != nil {
+		return err
+	}
+
+	tok, err := s.authGuest.CreateToken(ctx, share.GetId().GetOpaqueId())
+	if err != nil {
+		return err
+	}
+
+	return events.Publish(ctx, s.stream, ocEvents.GuestTokenCreated{
+		ShareID:      share.GetId(),
+		Sharer:       share.GetCreator(),
+		GranteeEmail: ev.GranteeUserID.GetOpaqueId(),
+		ItemID:       share.GetResourceId(),
+		Token:        tok.String(),
+		Timestamp:    time.Now(),
+	})
+}

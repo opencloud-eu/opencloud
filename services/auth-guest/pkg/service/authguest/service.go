@@ -10,8 +10,10 @@ import (
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
+	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	collaboration "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
+	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
 	"github.com/opencloud-eu/opencloud/pkg/events"
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/config"
@@ -22,6 +24,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/token"
 	revaevents "github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
@@ -45,6 +48,7 @@ type AuthGuest interface {
 	Renew(ctx context.Context, shareID, sessionToken string) (string, error)
 	VerifyPin(ctx context.Context, shareID, pinValue, nonce string) (*SessionResponse, error)
 	CleanupShare(shareID string) error
+	GetShareForSpaceGrant(ctx context.Context, spaceID string, grantee *user.UserId) (*collaboration.Share, error)
 }
 
 var _ AuthGuest = (*AuthGuestService)(nil)
@@ -498,6 +502,61 @@ func (s *AuthGuestService) getShare(ctx context.Context, shareID string) (*colla
 		return nil, ErrShareNotFound
 	default:
 		return nil, fmt.Errorf("could not get share %s: %s", shareID, resp.GetStatus().GetMessage())
+	}
+
+	share := resp.GetShare()
+	if share == nil {
+		return nil, ErrShareNotFound
+	}
+
+	return share, nil
+}
+
+// GetShareForSpaceGrant fetches the share created for a grant on a space. The
+// space root node id is the space id, so the share is addressed by the space
+// root resource id and the grantee.
+func (s *AuthGuestService) GetShareForSpaceGrant(ctx context.Context, spaceID string, grantee *user.UserId) (*collaboration.Share, error) {
+	rid, err := storagespace.ParseID(spaceID)
+	if err != nil {
+		return nil, err
+	}
+	rid.OpaqueId = rid.SpaceId
+
+	gwc, err := s.gatewaySelector.Next()
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, err = utils.GetServiceUserContextWithContext(ctx, gwc, s.serviceAccount.ServiceAccountID, s.serviceAccount.ServiceAccountSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := gwc.GetShare(ctx, &collaboration.GetShareRequest{
+		Ref: &collaboration.ShareReference{
+			Spec: &collaboration.ShareReference_Key{
+				Key: &collaboration.ShareKey{
+					ResourceId: &rid,
+					Grantee: &provider.Grantee{
+						Type: provider.GranteeType_GRANTEE_TYPE_USER,
+						Id: &provider.Grantee_UserId{
+							UserId: grantee,
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	switch resp.GetStatus().GetCode() {
+	case rpc.Code_CODE_OK:
+	case rpc.Code_CODE_NOT_FOUND:
+		return nil, ErrShareNotFound
+	default:
+		return nil, fmt.Errorf("could not get share for space %s: %s", spaceID, resp.GetStatus().GetMessage())
 	}
 
 	share := resp.GetShare()
