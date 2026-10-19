@@ -506,9 +506,12 @@
         "height": {
           "type": "integer",
           "format": "int32"
+        },
+        "contentType": {
+          "type": "string"
         }
       },
-      "description": "Preview carries the dimensions of an embedded preview (e.g. audio cover art).\nIts presence signals that a preview is available for the resource."
+      "description": "Preview describes an embedded preview (e.g. audio cover art): its dimensions\nand the type it is in. Its presence signals that a preview is available for\nthe resource, its type says what a thumbnail of it is written in."
     },
     "v0Reference": {
       "type": "object",

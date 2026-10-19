@@ -192,6 +192,7 @@ func setupPreprocessTest(
 	mimeType string,
 	filePath string,
 	downloadBody []byte,
+	metadata ...map[string]string,
 ) (*ThumbnailWorkflow, *capturedUpload) {
 	wf, err := NewWorkflow(
 		WithGeneratorURL("http://generator-test"),
@@ -236,6 +237,15 @@ func setupPreprocessTest(
 			MimeType:      mimeType,
 			Size:          uint64(len(downloadBody)),
 			Checksum:      &providerv1beta1.ResourceChecksum{Sum: "1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b"},
+			ArbitraryMetadata: &providerv1beta1.ArbitraryMetadata{
+				Metadata: func() map[string]string {
+					if len(metadata) == 0 {
+						return nil
+					}
+
+					return metadata[0]
+				}(),
+			},
 		},
 	}, nil)
 
@@ -944,6 +954,28 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				"image/bmp", "scan.bmp", "smart/filters:format(jpg)", "image/jpeg",
 				"1f/0c/9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b/64x64-fill.jpg"),
 		)
+
+		It("writes a cover in the type the index saw it in", func() {
+			// an mp3 says nothing about its cover; the index does, so the png
+			// stays a png instead of being re-encoded to the container's jpeg
+			mp3Bytes, err := os.ReadFile(filepath.Join("..", "..", "preprocessor", "test_assets", "empty.mp3"))
+			Expect(err).ToNot(HaveOccurred())
+
+			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "cover.mp3", mp3Bytes,
+				map[string]string{thumbnail.PreviewContentTypeKey: "image/png"})
+
+			tr := &requests.ThumbnailRequest{
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "cover.mp3"),
+				Filename: "cover.mp3",
+				Width:    64,
+				Height:   64,
+			}
+
+			result, err := wf2.Execute(context.Background(), tr, testToken, logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(captured.path).To(ContainSubstring("filters:format(png)"))
+			Expect(result.ContentType).To(Equal("image/png"))
+		})
 
 		It("follows a configured chain into a format the built-in generator cannot write", func() {
 			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "image/png", "img.png", []byte("source-bytes"))

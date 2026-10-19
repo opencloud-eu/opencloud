@@ -27,7 +27,11 @@ func getPreview(mimeType string, metas []map[string][]string) *Preview {
 		}
 		w, _ := getFirstValue(meta, "tiff:ImageWidth")
 		h, _ := getFirstValue(meta, "tiff:ImageLength")
-		preview := &Preview{Width: conversions.StringToInt32(w, 0), Height: conversions.StringToInt32(h, 0)}
+		preview := &Preview{
+			Width:       conversions.StringToInt32(w, 0),
+			Height:      conversions.StringToInt32(h, 0),
+			ContentType: ct,
+		}
 		if preview.Width <= 0 || preview.Height <= 0 {
 			continue
 		}

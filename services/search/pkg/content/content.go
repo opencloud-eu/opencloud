@@ -33,19 +33,26 @@ type Document struct {
 	Preview     *Preview                   `json:"preview,omitempty"`
 }
 
-// Preview holds the dimensions of an embedded preview (e.g. audio cover art).
-// Internal signal, not a Graph facet; its presence marks that a preview exists.
+// Preview describes an embedded preview (e.g. audio cover art): its dimensions
+// and the type it is in. Internal signal, not a Graph facet; its presence marks
+// that a preview exists, and the type says what a thumbnail of it is written in.
 type Preview struct {
-	Width  int32 `json:"width"`
-	Height int32 `json:"height"`
+	Width       int32  `json:"width"`
+	Height      int32  `json:"height"`
+	ContentType string `json:"contentType,omitempty"`
 }
 
 // ToMap flows Preview through the shared facet flattening, under oc.preview.
 func (p Preview) ToMap() (map[string]interface{}, error) {
-	return map[string]interface{}{
+	m := map[string]interface{}{
 		"width":  p.Width,
 		"height": p.Height,
-	}, nil
+	}
+	if p.ContentType != "" {
+		m["contentType"] = p.ContentType
+	}
+
+	return m, nil
 }
 
 func CleanString(content, langCode string) string {

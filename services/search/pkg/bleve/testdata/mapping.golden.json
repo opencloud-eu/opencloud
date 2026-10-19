@@ -1057,6 +1057,45 @@
         "enabled": true,
         "dynamic": true,
         "properties": {
+          "contentType": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "text",
+                "analyzer": "keyword",
+                "store": true,
+                "index": true,
+                "include_term_vectors": true,
+                "include_in_all": true,
+                "docvalues": true
+              }
+            ]
+          },
+          "contentType_lowercase": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "text",
+                "analyzer": "keyword",
+                "index": true,
+                "include_term_vectors": true
+              }
+            ]
+          },
+          "contentType_words": {
+            "enabled": true,
+            "dynamic": true,
+            "fields": [
+              {
+                "type": "text",
+                "analyzer": "words",
+                "index": true,
+                "include_term_vectors": true
+              }
+            ]
+          },
           "height": {
             "enabled": true,
             "dynamic": true,

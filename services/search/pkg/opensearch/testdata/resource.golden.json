@@ -285,6 +285,17 @@
       },
       "preview": {
         "properties": {
+          "contentType": {
+            "type": "keyword"
+          },
+          "contentType_lowercase": {
+            "doc_values": false,
+            "type": "keyword"
+          },
+          "contentType_words": {
+            "analyzer": "words",
+            "type": "text"
+          },
           "height": {
             "type": "integer"
           },

@@ -41,11 +41,13 @@ message Image {
 	optional int32 height = 2;
 }
 
-// Preview carries the dimensions of an embedded preview (e.g. audio cover art).
-// Its presence signals that a preview is available for the resource.
+// Preview describes an embedded preview (e.g. audio cover art): its dimensions
+// and the type it is in. Its presence signals that a preview is available for
+// the resource, its type says what a thumbnail of it is written in.
 message Preview {
 	optional int32 width = 1;
 	optional int32 height = 2;
+	optional string contentType = 3;
 }
 
 message GeoCoordinates {

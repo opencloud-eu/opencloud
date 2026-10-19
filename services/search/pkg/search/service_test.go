@@ -26,7 +26,7 @@ import (
 	contentMocks "github.com/opencloud-eu/opencloud/services/search/pkg/content/mocks"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 	engineMocks "github.com/opencloud-eu/opencloud/services/search/pkg/search/mocks"
-	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
 var _ = Describe("Searchprovider", func() {
@@ -205,7 +205,7 @@ var _ = Describe("Searchprovider", func() {
 				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
 
 				info.ArbitraryMetadata = stored
-				Expect(thumbnail.HasPreview(info)).To(BeTrue())
+				Expect(thumbnail.NewSourceTypes(nil).HasPreview(info)).To(BeTrue())
 				w, h := thumbnail.SourceDimensions(info)
 				Expect([]int32{w, h}).To(Equal([]int32{wantWidth, wantHeight}))
 			},

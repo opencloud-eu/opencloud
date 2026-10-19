@@ -17,7 +17,7 @@ var _ = Describe("getPreview", func() {
 	It("returns the embedded cover dimensions for audio", func() {
 		p := getPreview("audio/mpeg", []map[string][]string{audio, cover})
 		Expect(p).ToNot(BeNil())
-		Expect(*p).To(Equal(Preview{Width: 500, Height: 400}))
+		Expect(*p).To(Equal(Preview{Width: 500, Height: 400, ContentType: "image/jpeg"}))
 	})
 
 	It("returns nil when the audio has no cover", func() {
@@ -39,7 +39,7 @@ var _ = Describe("getPreview", func() {
 		}
 		p := getPreview("audio/mpeg", []map[string][]string{audio, back, front})
 		Expect(p).ToNot(BeNil())
-		Expect(*p).To(Equal(Preview{Width: 64, Height: 40}))
+		Expect(*p).To(Equal(Preview{Width: 64, Height: 40, ContentType: "image/jpeg"}), "the type decides what a thumbnail of the cover is written in")
 	})
 
 	It("is gated to embedded-preview types", func() {

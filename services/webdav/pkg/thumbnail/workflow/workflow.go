@@ -429,12 +429,16 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	mimeType := info.GetMimeType()
 
 	// The thumbnail is returned in the type the source type maps to, asked for
-	// by the name the generator's filter uses. What an extractor hands on is
-	// re-encoded to that type, because the request has to decide it: a cache
-	// hit knows the key, not the bytes. Keeping a png cover a png needs the
-	// embedded type before the key is built, which is what the preview presence
-	// work puts into the file's metadata.
-	outputType, outputFormat := w.outputFor(mimeType)
+	// by the name the generator's filter uses. For a file that carries its
+	// preview inside, the type that counts is the embedded image's own, which
+	// the index stored when it saw it: that way a png cover stays a png, and
+	// the type is still known before the cache key is built. Without it, the
+	// container's type decides and the cover is re-encoded.
+	typeForOutput := mimeType
+	if embedded := thumbnail.PreviewContentType(info); embedded != "" {
+		typeForOutput = embedded
+	}
+	outputType, outputFormat := w.outputFor(typeForOutput)
 
 	// The operation is resolved up front so it can be part of the cache key: a
 	// fill and a fit-in request with the same dimensions produce different images

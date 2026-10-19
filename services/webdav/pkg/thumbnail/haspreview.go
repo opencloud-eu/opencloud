@@ -14,6 +14,9 @@ import (
 const (
 	PreviewWidthKey  = "oc.preview.width"
 	PreviewHeightKey = "oc.preview.height"
+	// the type of the embedded image itself, which decides what a thumbnail of
+	// it is written in
+	PreviewContentTypeKey = "oc.preview.contentType"
 )
 
 // the image facet an image writes about itself at index time
@@ -79,6 +82,12 @@ func SourceDimensions(md *provider.ResourceInfo) (int32, int32) {
 	meta := md.GetArbitraryMetadata().GetMetadata()
 
 	return conversions.StringToInt32(meta[imageWidthKey], 0), conversions.StringToInt32(meta[imageHeightKey], 0)
+}
+
+// PreviewContentType is the type of the embedded image the index saw, empty
+// when nothing is stored.
+func PreviewContentType(md *provider.ResourceInfo) string {
+	return md.GetArbitraryMetadata().GetMetadata()[PreviewContentTypeKey]
 }
 
 // PreviewDimensions returns the stored embedded-preview dimensions, or (0, 0).
