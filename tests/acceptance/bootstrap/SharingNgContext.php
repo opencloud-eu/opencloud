@@ -401,6 +401,9 @@ class SharingNgContext implements Context {
 					}
 				} elseif ($shareType === "group") {
 					$shareeId = $this->featureContext->getAttributeOfCreatedGroup($sharee, 'id');
+				} elseif ($shareType === "guest") {
+					$shareeId = $sharee;
+					$this->featureContext->pushEmailRecipientAsMailBox($sharee);
 				}
 				// for non-existing group or user, generate random id
 				$shareeIds[] = $shareeId ?: WebDavHelper::generateUUIDv4();
@@ -476,6 +479,9 @@ class SharingNgContext implements Context {
 				}
 			} elseif ($shareType === "group") {
 				$shareeId = $this->featureContext->getAttributeOfCreatedGroup($sharee, 'id');
+			} elseif ($shareType === "guest") {
+				$shareeId = $sharee;
+				$this->featureContext->pushEmailRecipientAsMailBox($sharee);
 			}
 			// for non-existing group or user, generate random id
 			$shareeIds[] = $shareeId ?: WebDavHelper::generateUUIDv4();
@@ -1131,7 +1137,7 @@ class SharingNgContext implements Context {
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
-	#[Given('/^user "([^"]*)" has removed the access of (user|group) "([^"]*)" from (?:file|folder|resource) "([^"]*)" of space "([^"]*)"$/')]
+	#[Given('/^user "([^"]*)" has removed the access of (user|group|guest) "([^"]*)" from (?:file|folder|resource) "([^"]*)" of space "([^"]*)"$/')]
 	public function userHasRemovedAccessOfUserOrGroupFromResourceOfSpace(
 		string $sharer,
 		string $recipientType,
@@ -1155,7 +1161,7 @@ class SharingNgContext implements Context {
 	 * @throws JsonException
 	 * @throws GuzzleException
 	 */
-	#[When('/^user "([^"]*)" removes the access of (user|group) "([^"]*)" from (?:file|folder|resource) "([^"]*)" of space "([^"]*)" using the Graph API$/')]
+	#[When('/^user "([^"]*)" removes the access of (user|group|guest) "([^"]*)" from (?:file|folder|resource) "([^"]*)" of space "([^"]*)" using the Graph API$/')]
 	public function userRemovesAccessOfUserOrGroupFromResourceOfSpaceUsingGraphAPI(
 		string $sharer,
 		string $recipientType,
