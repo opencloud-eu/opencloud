@@ -49,17 +49,6 @@ type Option func(*Metrics)
 // that was not registered.
 var ErrMetricNotFound = errors.New("metric not found")
 
-// Metric is a service-specific metric registered under a logical name.
-type metric struct {
-	name      string
-	collector prometheus.Collector
-}
-
-// NewMetric creates a named custom metric.
-func NewMetric(name string, c prometheus.Collector) metric {
-	return metric{name: name, collector: c}
-}
-
 // Create a BuildInfo metric for the specified namespace and subsystem.
 func BuildInfo(namespace, subsystem string) BuildInfoMetric {
 	return prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -266,13 +255,13 @@ func WithEnabled(apis ...APIType) Option {
 	}
 }
 
-// WithMetrics registers service-specific metrics under their logical names.
-func WithMetrics(metrics ...metric) Option {
+// WithMetric registers an additional service-specific metric into the container
+// under the given logical name. The metric is registered with the Registerer
+// passed to New and can be retrieved again with Metric.
+func WithMetric(name string, c prometheus.Collector) Option {
 	return func(m *Metrics) {
-		for _, metric := range metrics {
-			m.custom[metric.name] = metric.collector
-			m.collectors = append(m.collectors, metric.collector)
-		}
+		m.custom[name] = c
+		m.collectors = append(m.collectors, c)
 	}
 }
 
@@ -311,78 +300,13 @@ func (m *Metrics) SetDisabled(api APIType) {
 	g.Set(0)
 }
 
-// Metric returns the custom metric registered under the given name.
-func (m *Metrics) Metric(name string) (prometheus.Collector, error) {
+// GetMetric returns the custom metric registered under the given name.
+func (m *Metrics) GetMetric(name string) (prometheus.Collector, error) {
 	c, ok := m.custom[name]
 	if !ok {
 		return nil, fmt.Errorf("%q: %w", name, ErrMetricNotFound)
 	}
 	return c, nil
-}
-
-// Counter returns the custom counter registered under the given name.
-func (m *Metrics) Counter(name string) (prometheus.Counter, error) {
-	c, err := m.Metric(name)
-	if err != nil {
-		return nil, err
-	}
-	counter, ok := c.(prometheus.Counter)
-	if !ok {
-		return nil, fmt.Errorf("metric %q is not a Counter (%T)", name, c)
-	}
-	return counter, nil
-}
-
-// CounterVec returns the custom counter vector registered under the given name.
-func (m *Metrics) CounterVec(name string) (*prometheus.CounterVec, error) {
-	c, err := m.Metric(name)
-	if err != nil {
-		return nil, err
-	}
-	counterVec, ok := c.(*prometheus.CounterVec)
-	if !ok {
-		return nil, fmt.Errorf("metric %q is not a CounterVec (%T)", name, c)
-	}
-	return counterVec, nil
-}
-
-// Gauge returns the custom gauge registered under the given name.
-func (m *Metrics) Gauge(name string) (prometheus.Gauge, error) {
-	c, err := m.Metric(name)
-	if err != nil {
-		return nil, err
-	}
-	gauge, ok := c.(prometheus.Gauge)
-	if !ok {
-		return nil, fmt.Errorf("metric %q is not a Gauge (%T)", name, c)
-	}
-	return gauge, nil
-}
-
-// GaugeVec returns the custom gauge vector registered under the given name.
-func (m *Metrics) GaugeVec(name string) (*prometheus.GaugeVec, error) {
-	c, err := m.Metric(name)
-	if err != nil {
-		return nil, err
-	}
-	gaugeVec, ok := c.(*prometheus.GaugeVec)
-	if !ok {
-		return nil, fmt.Errorf("metric %q is not a GaugeVec (%T)", name, c)
-	}
-	return gaugeVec, nil
-}
-
-// HistogramVec returns the custom histogram vector registered under the given name.
-func (m *Metrics) HistogramVec(name string) (*prometheus.HistogramVec, error) {
-	c, err := m.Metric(name)
-	if err != nil {
-		return nil, err
-	}
-	histogramVec, ok := c.(*prometheus.HistogramVec)
-	if !ok {
-		return nil, fmt.Errorf("metric %q is not a HistogramVec (%T)", name, c)
-	}
-	return histogramVec, nil
 }
 
 func newEnabledGauge(namespace, subsystem string, api APIType) prometheus.Gauge {

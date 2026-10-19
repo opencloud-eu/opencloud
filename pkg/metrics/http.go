@@ -15,8 +15,8 @@ const (
 	LabelMethod       = "method"
 	LabelPath         = "path"
 	LabelCode         = "code"
-	ResultClientError = "clientError"
-	ResultServerError = "serverError"
+	ResultClientError = "client-error"
+	ResultServerError = "server-error"
 
 	unmatchedRoutePattern = "unknown"
 )

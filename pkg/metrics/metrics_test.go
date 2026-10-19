@@ -261,6 +261,43 @@ func TestServiceMetricsNoEventsCounter(t *testing.T) {
 	require.Nil(gatherByName(t, reg)[eventsName])
 }
 
+func TestServiceMetricsWithMetric(t *testing.T) {
+	require := require.New(t)
+
+	reg := prometheus.NewRegistry()
+	logger := log.NewLogger()
+	namespace := "name-" + randName()
+	subsystem := "sub-" + randName()
+
+	custom := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      "custom_thing",
+		Help:      "A service-specific metric.",
+	}, []string{"label"})
+
+	m, err := New(reg, &logger, namespace, subsystem,
+		WithEnabled(APIHTTP),
+		WithMetric("custom_thing", custom),
+	)
+	require.NoError(err)
+
+	// the custom metric is registered and exposed
+	custom.WithLabelValues("a").Set(1)
+	require.NotNil(gatherByName(t, reg)[namespace+"_"+subsystem+"_custom_thing"])
+
+	// it can be retrieved by name
+	c, err := m.GetMetric("custom_thing")
+	require.NoError(err)
+	got, ok := c.(*prometheus.GaugeVec)
+	require.True(ok)
+	require.Same(custom, got)
+
+	// unknown names return ErrMetricNotFound
+	_, err = m.GetMetric("nope")
+	require.ErrorIs(err, ErrMetricNotFound)
+}
+
 func TestServiceMetricsAlreadyRegistered(t *testing.T) {
 	require := require.New(t)
 
