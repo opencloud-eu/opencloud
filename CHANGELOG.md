@@ -10,6 +10,11 @@
 
 - feat(guestlinks)!: auth-guest service [[#3609](https://github.com/opencloud-eu/opencloud/pull/3609)]
 
+### 📚 Documentation
+
+- docs: update unified Roles [[#3738](https://github.com/opencloud-eu/opencloud/pull/3738)]
+- fix(proxy): make metrics table MDX-compatible [[#3680](https://github.com/opencloud-eu/opencloud/pull/3680)]
+
 ### ✅ Tests
 
 - tests: check that a guest can only access the shared resource [[#3752](https://github.com/opencloud-eu/opencloud/pull/3752)]
@@ -36,10 +41,6 @@
 - fix(collaboration): answer a wopi lock in a read-only session with 200 instead of locking [[#3711](https://github.com/opencloud-eu/opencloud/pull/3711)]
 - fix(collaboration): show the secure view watermark only for view-only tokens [[#3712](https://github.com/opencloud-eu/opencloud/pull/3712)]
 - fix: add restart command output [[#3706](https://github.com/opencloud-eu/opencloud/pull/3706)]
-
-### 📚 Documentation
-
-- fix(proxy): make metrics table MDX-compatible [[#3680](https://github.com/opencloud-eu/opencloud/pull/3680)]
 
 ### 📦️ Dependencies
 
