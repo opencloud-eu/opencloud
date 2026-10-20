@@ -455,27 +455,14 @@ var _ = Describe("FileCache", func() {
 		Expect(original).To(Equal([]byte("original")))
 	})
 
-	It("should be idempotent - Put is no-op if file already exists", func() {
+	It("should overwrite existing keys", func() {
 		key := "ab/cd/ef1234567890/400x400.jpg"
-		err := cache.Put(key, []byte("v1"))
-		Expect(err).ToNot(HaveOccurred())
-
-		info1, err := os.Stat(filepath.Join(tmpdir, "ab", "cd", "ef1234567890", "400x400.jpg"))
-		Expect(err).ToNot(HaveOccurred())
-		modTime1 := info1.ModTime()
-
-		time.Sleep(10 * time.Millisecond)
-
-		err = cache.Put(key, []byte("v2"))
-		Expect(err).ToNot(HaveOccurred())
+		Expect(cache.Put(key, []byte("v1"))).To(Succeed())
+		Expect(cache.Put(key, []byte("v2"))).To(Succeed())
 
 		data, err := cache.Get(key)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(data).To(Equal([]byte("v1")))
-
-		info2, err := os.Stat(filepath.Join(tmpdir, "ab", "cd", "ef1234567890", "400x400.jpg"))
-		Expect(err).ToNot(HaveOccurred())
-		Expect(info2.ModTime()).To(Equal(modTime1))
+		Expect(data).To(Equal([]byte("v2")), "a key whose value can change has to be replaceable")
 	})
 
 	It("should handle empty data", func() {
