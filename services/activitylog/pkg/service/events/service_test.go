@@ -19,8 +19,7 @@ import (
 func testMetrics() *ocmetrics.Metrics {
 	logger := log.NopLogger()
 	m, err := ocmetrics.New(prometheus.NewRegistry(), &logger, "opencloud", "activitylog",
-		ocmetrics.WithEnabled(ocmetrics.APIHTTP, ocmetrics.APIEvents),
-		ocmetrics.WithEventsProcessed(),
+		ocmetrics.WithEnabledAPIs(ocmetrics.APIHTTP, ocmetrics.APIEvents),
 	)
 	Expect(err).ToNot(HaveOccurred())
 	return m

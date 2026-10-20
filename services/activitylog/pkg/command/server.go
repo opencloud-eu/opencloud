@@ -72,8 +72,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			defer cancel()
 
 			metricsOpts := []ocmetrics.Option{
-				ocmetrics.WithEnabled(ocmetrics.APIHTTP, ocmetrics.APIEvents),
-				ocmetrics.WithEventsProcessed(),
+				ocmetrics.WithEnabledAPIs(ocmetrics.APIHTTP, ocmetrics.APIEvents),
 			}
 			if !cfg.HTTP.Metrics.Disabled {
 				metricsOpts = append(metricsOpts, ocmetrics.WithHTTPMetrics())
@@ -162,7 +161,7 @@ func Server(cfg *config.Config) *cobra.Command {
 
 				gr.Add(runner.NewGoMicroHttpServerRunner(cfg.Service.Name+".http", server))
 			} else {
-				mtrcs.SetDisabled(ocmetrics.APIHTTP)
+				mtrcs.HTTP.Disable()
 				logger.Info().Msg("HTTP server disabled, not starting HTTP service")
 			}
 
@@ -205,7 +204,7 @@ func Server(cfg *config.Config) *cobra.Command {
 					eventSvc.Close()
 				}))
 			} else {
-				mtrcs.SetDisabled(ocmetrics.APIEvents)
+				mtrcs.Events.Disable()
 				logger.Info().Msg("event listening disabled, not starting event service")
 			}
 

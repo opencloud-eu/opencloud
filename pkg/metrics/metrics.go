@@ -36,11 +36,9 @@ type Metrics struct {
 
 	Events *eventsMetrics
 	HTTP   *httpMetrics
+	GRPC   *grpcMetrics
 
-	enabled    map[APIType]prometheus.Gauge
-	collectors []prometheus.Collector
-
-	serviceRegistered map[string]prometheus.Collector
+	serviceMetrics map[string]prometheus.Collector
 }
 
 // Option configures a Metrics container.
@@ -241,17 +239,29 @@ func (r *LoggingPrometheusRegisterer) Unregister(c prometheus.Collector) bool {
 
 var _ prometheus.Registerer = &LoggingPrometheusRegisterer{}
 
-// WithEnabled enables the enabled gauges for the given APIs.
-func WithEnabled(apis ...APIType) Option {
+// WithEnabledAPIs declares the APIs served by this instance and initializes all
+// metrics associated with them. The enabled gauges are set to 1; call Disable()
+// on the relevant struct when an API is disabled by configuration.
+func WithEnabledAPIs(apis ...APIType) Option {
 	return func(m *Metrics) {
 		for _, api := range apis {
-			if _, ok := m.enabled[api]; ok {
-				continue
+			switch api {
+			case APIHTTP:
+				if m.HTTP == nil {
+					m.HTTP = newHTTPMetrics(m.namespace, m.subsystem)
+				}
+				m.HTTP.Enable()
+			case APIGRPC:
+				if m.GRPC == nil {
+					m.GRPC = newGRPCMetrics(m.namespace, m.subsystem)
+				}
+				m.GRPC.Enable()
+			case APIEvents:
+				if m.Events == nil {
+					m.Events = newEventsMetrics(m.namespace, m.subsystem)
+				}
+				m.Events.Enable()
 			}
-			g := newEnabledGauge(m.namespace, m.subsystem, api)
-			g.Set(1)
-			m.enabled[api] = g
-			m.collectors = append(m.collectors, g)
 		}
 	}
 }
@@ -260,20 +270,17 @@ func WithEnabled(apis ...APIType) Option {
 // under the given logical name.
 func WithMetric(name string, c prometheus.Collector) Option {
 	return func(m *Metrics) {
-		m.serviceRegistered[name] = c
-		m.collectors = append(m.collectors, c)
+		m.serviceMetrics[name] = c
 	}
 }
 
 func New(reg prometheus.Registerer, logger *log.Logger, namespace, subsystem string, opts ...Option) (*Metrics, error) {
 	m := &Metrics{
-		namespace:         namespace,
-		subsystem:         subsystem,
-		BuildInfo:         BuildInfo(namespace, subsystem),
-		enabled:           map[APIType]prometheus.Gauge{},
-		serviceRegistered: map[string]prometheus.Collector{},
+		namespace:      namespace,
+		subsystem:      subsystem,
+		BuildInfo:      BuildInfo(namespace, subsystem),
+		serviceMetrics: map[string]prometheus.Collector{},
 	}
-	m.collectors = append(m.collectors, m.BuildInfo)
 
 	for _, o := range opts {
 		o(m)
@@ -283,7 +290,7 @@ func New(reg prometheus.Registerer, logger *log.Logger, namespace, subsystem str
 
 	lr := NewLoggingPrometheusRegisterer(reg, logger)
 	var errs []error
-	for _, c := range m.collectors {
+	for _, c := range m.allCollectors() {
 		if err := lr.Register(c); err != nil {
 			errs = append(errs, err)
 		}
@@ -291,22 +298,31 @@ func New(reg prometheus.Registerer, logger *log.Logger, namespace, subsystem str
 	return m, errors.Join(errs...)
 }
 
-// SetDisabled marks the enabled gauge for the given API as disabled.
-func (m *Metrics) SetDisabled(api APIType) {
-	g, ok := m.enabled[api]
-	if !ok {
-		return
-	}
-	g.Set(0)
-}
-
 // GetMetric returns the metric registered under the given name.
 func (m *Metrics) GetMetric(name string) (prometheus.Collector, error) {
-	c, ok := m.serviceRegistered[name]
+	c, ok := m.serviceMetrics[name]
 	if !ok {
 		return nil, fmt.Errorf("%q: %w", name, ErrMetricNotFound)
 	}
 	return c, nil
+}
+
+// allCollectors returns every collector the container owns, for registration.
+func (m *Metrics) allCollectors() []prometheus.Collector {
+	collectors := []prometheus.Collector{m.BuildInfo}
+	if m.Events != nil {
+		collectors = append(collectors, m.Events.collectors()...)
+	}
+	if m.HTTP != nil {
+		collectors = append(collectors, m.HTTP.collectors()...)
+	}
+	if m.GRPC != nil {
+		collectors = append(collectors, m.GRPC.collectors()...)
+	}
+	for _, c := range m.serviceMetrics {
+		collectors = append(collectors, c)
+	}
+	return collectors
 }
 
 func newEnabledGauge(namespace, subsystem string, api APIType) prometheus.Gauge {

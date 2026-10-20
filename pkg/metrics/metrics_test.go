@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -13,6 +14,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func randName() string {
@@ -176,8 +179,7 @@ func TestServiceMetrics(t *testing.T) {
 	subsystem := "sub-" + randName()
 
 	m, err := New(reg, &logger, namespace, subsystem,
-		WithEnabled(APIHTTP, APIEvents),
-		WithEventsProcessed(),
+		WithEnabledAPIs(APIHTTP, APIEvents),
 	)
 	require.NoError(err)
 	require.NotNil(m)
@@ -211,9 +213,9 @@ func TestServiceMetrics(t *testing.T) {
 		require.Equal(1.0, mfs[eventsEnabledName].GetMetric()[0].GetGauge().GetValue())
 	}
 
-	// SetDisabled flips the gauges, and is a no-op for unrequested APIs
-	m.SetDisabled(APIEvents)
-	m.SetDisabled(APIGRPC)
+	// Disable() flips the gauges, and an undeclared API has no gauge
+	m.Events.Disable()
+	require.Nil(m.GRPC)
 	{
 		mfs := gatherByName(t, reg)
 		require.Equal(1.0, mfs[httpEnabledName].GetMetric()[0].GetGauge().GetValue())
@@ -242,6 +244,40 @@ func TestServiceMetrics(t *testing.T) {
 	}
 }
 
+func TestServiceMetricsGRPCEnabled(t *testing.T) {
+	require := require.New(t)
+
+	reg := prometheus.NewRegistry()
+	logger := log.NewLogger()
+	namespace := "name-" + randName()
+	subsystem := "sub-" + randName()
+
+	m, err := New(reg, &logger, namespace, subsystem, WithEnabledAPIs(APIGRPC))
+	require.NoError(err)
+
+	require.Equal(1.0, gaugeValue(t, m.GRPC.enabled))
+
+	m.GRPC.Disable()
+	require.Equal(0.0, gaugeValue(t, m.GRPC.enabled))
+
+	// still exposed on the registry
+	require.NotNil(gatherByName(t, reg)[namespace+"_"+subsystem+"_grpc_enabled"])
+
+	// an undeclared API has no metrics struct
+	require.Nil(m.HTTP)
+
+	// GetMetric only covers service metrics, not defaults
+	_, err = m.GetMetric("grpc_enabled")
+	require.ErrorIs(err, ErrMetricNotFound)
+}
+
+func gaugeValue(t *testing.T, g prometheus.Gauge) float64 {
+	t.Helper()
+	var dm dto.Metric
+	require.NoError(t, g.Write(&dm))
+	return dm.GetGauge().GetValue()
+}
+
 func TestServiceMetricsNoEventsCounter(t *testing.T) {
 	require := require.New(t)
 
@@ -250,7 +286,7 @@ func TestServiceMetricsNoEventsCounter(t *testing.T) {
 	namespace := "name-" + randName()
 	subsystem := "sub-" + randName()
 
-	m, err := New(reg, &logger, namespace, subsystem, WithEnabled(APIHTTP))
+	m, err := New(reg, &logger, namespace, subsystem, WithEnabledAPIs(APIHTTP))
 	require.NoError(err)
 
 	// recording is a no-op without the events counter
@@ -277,7 +313,7 @@ func TestServiceMetricsWithMetric(t *testing.T) {
 	}, []string{"label"})
 
 	m, err := New(reg, &logger, namespace, subsystem,
-		WithEnabled(APIHTTP),
+		WithEnabledAPIs(APIHTTP),
 		WithMetric("custom_thing", custom),
 	)
 	require.NoError(err)
@@ -307,15 +343,13 @@ func TestServiceMetricsAlreadyRegistered(t *testing.T) {
 	subsystem := "sub-" + randName()
 
 	_, err := New(reg, &logger, namespace, subsystem,
-		WithEnabled(APIHTTP, APIEvents),
-		WithEventsProcessed(),
+		WithEnabledAPIs(APIHTTP, APIEvents),
 	)
 	require.NoError(err)
 
 	// a second construction on the same registry must not fail
 	_, err = New(reg, &logger, namespace, subsystem,
-		WithEnabled(APIHTTP, APIEvents),
-		WithEventsProcessed(),
+		WithEnabledAPIs(APIHTTP, APIEvents),
 	)
 	require.NoError(err)
 }
@@ -328,7 +362,10 @@ func TestHTTPMetrics(t *testing.T) {
 	namespace := "name-" + randName()
 	subsystem := "sub-" + randName()
 
-	m, err := New(reg, &logger, namespace, subsystem, WithHTTPMetrics())
+	m, err := New(reg, &logger, namespace, subsystem,
+		WithEnabledAPIs(APIHTTP),
+		WithHTTPMetrics(),
+	)
 	require.NoError(err)
 
 	durationName := namespace + "_" + subsystem + "_http_request_duration_seconds"
@@ -390,7 +427,7 @@ func TestHTTPMetrics(t *testing.T) {
 	require.Equal(1.0, counts[key{"GET", "/empty", "200", ResultSuccess}])
 }
 
-func TestHTTPMetricsMiddlewareWithoutMetrics(t *testing.T) {
+func TestHTTPMetricsMiddlewareWithoutRequestMetrics(t *testing.T) {
 	require := require.New(t)
 
 	reg := prometheus.NewRegistry()
@@ -398,10 +435,11 @@ func TestHTTPMetricsMiddlewareWithoutMetrics(t *testing.T) {
 	namespace := "name-" + randName()
 	subsystem := "sub-" + randName()
 
-	m, err := New(reg, &logger, namespace, subsystem)
+	m, err := New(reg, &logger, namespace, subsystem, WithEnabledAPIs(APIHTTP))
 	require.NoError(err)
 
-	// without WithHTTPMetrics the middleware must be a pass-through
+	// without the request metrics enabled, the middleware must be a pass-through
+	require.NotNil(m.HTTP)
 	router := chi.NewRouter()
 	router.Use(m.HTTP.Middleware)
 	router.Get("/foo", func(w http.ResponseWriter, r *http.Request) {
@@ -417,4 +455,50 @@ func TestHTTPMetricsMiddlewareWithoutMetrics(t *testing.T) {
 	require.NoError(resp.Body.Close())
 
 	require.Nil(gatherByName(t, reg)[namespace+"_"+subsystem+"_http_requests"])
+}
+
+func TestGRPCMetrics(t *testing.T) {
+	require := require.New(t)
+
+	reg := prometheus.NewRegistry()
+	logger := log.NewLogger()
+	namespace := "name-" + randName()
+	subsystem := "sub-" + randName()
+
+	m, err := New(reg, &logger, namespace, subsystem,
+		WithEnabledAPIs(APIGRPC),
+		WithGRPCMetrics(),
+	)
+	require.NoError(err)
+
+	durationName := namespace + "_" + subsystem + "_grpc_request_duration_seconds"
+	requestsName := namespace + "_" + subsystem + "_grpc_requests_total"
+	inFlightName := namespace + "_" + subsystem + "_grpc_requests"
+
+	// the in-flight gauge is always exposed, the others only after a call
+	{
+		mfs := gatherByName(t, reg)
+		require.Nil(mfs[durationName])
+		require.Nil(mfs[requestsName])
+		require.NotNil(mfs[inFlightName])
+	}
+
+	m.GRPC.RecordDuration("/svc/Method", nil, 100*time.Millisecond)
+	m.GRPC.RecordDuration("/svc/Method", status.Error(codes.NotFound, "nope"), time.Millisecond)
+
+	mfs := gatherByName(t, reg)
+	require.NotNil(mfs[durationName])
+	require.NotNil(mfs[requestsName])
+
+	type key struct{ method, code, result string }
+	counts := map[key]float64{}
+	for _, ms := range mfs[requestsName].GetMetric() {
+		labels := map[string]string{}
+		for _, l := range ms.GetLabel() {
+			labels[l.GetName()] = l.GetValue()
+		}
+		counts[key{labels[LabelMethod], labels[LabelCode], labels[LabelResult]}] = ms.GetCounter().GetValue()
+	}
+	require.Equal(1.0, counts[key{"/svc/Method", "200", ResultSuccess}])
+	require.Equal(1.0, counts[key{"/svc/Method", "404", ResultClientError}])
 }
