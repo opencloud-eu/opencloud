@@ -26,6 +26,7 @@ type Config struct {
 	SkipUserGroupsInToken bool `yaml:"skip_user_groups_in_token" env:"FRONTEND_SKIP_USER_GROUPS_IN_TOKEN" desc:"Disables the loading of user's group memberships from the reva access token." introductionVersion:"1.0.0"`
 
 	MaxQuota                       uint64 `yaml:"max_quota" env:"OC_SPACES_MAX_QUOTA;FRONTEND_MAX_QUOTA" desc:"Set the global max quota value in bytes. A value of 0 equals unlimited. The value is provided via capabilities." introductionVersion:"1.0.0"`
+	DefaultQuota                   string `yaml:"default_quota" env:"OC_SPACES_DEFAULT_QUOTA" desc:"Set the default quota in bytes for new project spaces. A value of 0 or an invalid value means no default quota. The value is provided via capabilities and must match the default quota of the graph service." introductionVersion:"%%NEXT%%"`
 	UploadMaxChunkSize             int    `yaml:"upload_max_chunk_size" env:"FRONTEND_UPLOAD_MAX_CHUNK_SIZE" desc:"Sets the max chunk sizes in bytes for uploads via the clients." introductionVersion:"1.0.0"`
 	UploadHTTPMethodOverride       string `yaml:"upload_http_method_override" env:"FRONTEND_UPLOAD_HTTP_METHOD_OVERRIDE" desc:"Advise TUS to replace PATCH requests by POST requests." introductionVersion:"1.0.0"`
 	DefaultUploadProtocol          string `yaml:"default_upload_protocol" env:"FRONTEND_DEFAULT_UPLOAD_PROTOCOL" desc:"The default upload protocol to use in clients. Currently only 'tus' is available. See the developer API documentation for more details about TUS." introductionVersion:"1.0.0"`
