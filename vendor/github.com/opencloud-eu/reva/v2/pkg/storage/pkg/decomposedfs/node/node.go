@@ -89,6 +89,7 @@ const (
 // Blobstore defines an interface for storing blobs in a blobstore
 type Blobstore interface {
 	Upload(node *Node, source, copyTarget string) error
+	UploadFromReader(node *Node, r io.Reader, size int64) error
 	Download(node *Node) (io.ReadCloser, error)
 	Delete(node *Node) error
 }
@@ -133,6 +134,7 @@ type Tree interface {
 	RestoreRevision(ctx context.Context, source, target metadata.MetadataNode, mtime time.Time) (err error)
 
 	WriteBlob(node *Node, source string) error
+	WriteBlobFromReader(node *Node, r io.Reader, size int64) error
 	ReadBlob(node *Node) (io.ReadCloser, error)
 	DeleteBlob(node *Node) error
 

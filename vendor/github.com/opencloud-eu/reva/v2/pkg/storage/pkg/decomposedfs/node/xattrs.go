@@ -114,6 +114,21 @@ func (n *Node) RemoveXattr(ctx context.Context, key string) error {
 	return n.lu.MetadataBackend().Remove(ctx, n, key)
 }
 
+// ResetXattrsCache forces subsequent attribute reads to observe backend state.
+func (n *Node) ResetXattrsCache() {
+	n.xattrsCache = nil
+}
+
+// UpdateXattrsCache updates cached attributes without persisting them to storage.
+func (n *Node) UpdateXattrsCache(attribs map[string][]byte) {
+	if n.xattrsCache == nil {
+		n.xattrsCache = Attributes{}
+	}
+	for key, value := range attribs {
+		n.xattrsCache[key] = value
+	}
+}
+
 // loadXattrs reads and caches the node's extended attributes using the given load
 // function. It centralizes the empty-node guard and the write-through caching that
 // is shared by all the Xattrs accessors below.

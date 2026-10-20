@@ -324,6 +324,18 @@ type IsUnavailable interface {
 	error
 }
 
+// ResourceProcessing is the error to use when a resource is currently being processed (e.g. an upload in progress) and the requested operation cannot proceed.
+type ResourceProcessing string
+
+func (e ResourceProcessing) Error() string { return "error: resource is processing: " + string(e) }
+
+func (e ResourceProcessing) IsResourceProcessing() {}
+
+// IsResourceProcessing is the interface to implement to specify that a resource is currently being processed and the requested operation cannot proceed.
+type IsResourceProcessing interface {
+	IsResourceProcessing()
+}
+
 // NewErrtypeFromStatus maps a rpc status to an errtype
 func NewErrtypeFromStatus(status *rpc.Status) error {
 	switch status.Code {
@@ -436,6 +448,8 @@ func NewHTTPStatusCodeFromErrtype(err error) int {
 		return http.StatusTooEarly
 	case Unavailable:
 		return http.StatusServiceUnavailable
+	case ResourceProcessing:
+		return http.StatusTooEarly
 	case ChecksumMismatch:
 		return StatusChecksumMismatch
 	default:

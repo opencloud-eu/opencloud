@@ -96,6 +96,9 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 	if err := n.CheckLock(ctx); err != nil {
 		return err
 	}
+	if n.IsProcessing(ctx) {
+		return errtypes.ResourceProcessing(ref.String())
+	}
 
 	// write lock node before copying metadata
 	unlock, err := fs.lu.MetadataBackend().Lock(n)

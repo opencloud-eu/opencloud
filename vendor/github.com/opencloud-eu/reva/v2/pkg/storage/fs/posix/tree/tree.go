@@ -72,6 +72,14 @@ func init() {
 	tracer = otel.Tracer("github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/tree")
 }
 
+// Blobstore defines an interface for storing blobs in a blobstore
+type Blobstore interface {
+	Upload(node *node.Node, source, copyTarget string) error
+	UploadFromReader(node *node.Node, r io.Reader, size int64) error
+	Download(node *node.Node) (io.ReadCloser, error)
+	Delete(node *node.Node) error
+}
+
 type Watcher interface {
 	Watch(path string)
 }
@@ -742,6 +750,11 @@ func (t *Tree) WriteBlob(n *node.Node, source string) error {
 
 	err = t.blobstore.Upload(n, source, currentPath)
 	return err
+}
+
+// WriteBlobFromReader writes a blob to the blobstore from a reader
+func (t *Tree) WriteBlobFromReader(node *node.Node, r io.Reader, size int64) error {
+	return t.blobstore.UploadFromReader(node, r, size)
 }
 
 // ReadBlob reads a blob from the blobstore
