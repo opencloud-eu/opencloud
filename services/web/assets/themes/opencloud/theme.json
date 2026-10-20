@@ -2,7 +2,7 @@
   "common": {
     "name": "OpenCloud",
     "slogan": "OpenCloud – Excellent file sharing",
-    "logo": "themes/opencloud/assets/logo.svg",
+    "logo": "themes/opencloud/assets/logo-lilac.svg",
     "urls": {
       "accessDeniedHelp": "",
       "imprint": "",
@@ -50,8 +50,8 @@
     "ios": {},
     "web": {
       "defaults": {
-        "logo": "themes/opencloud/assets/logo.svg",
-        "logoMobile": "themes/opencloud/assets/logo-mobile.svg",
+        "logo": "themes/opencloud/assets/logo-petrol.svg",
+        "logoMobile": "themes/opencloud/assets/logo-petrol-mobile.svg",
         "favicon": "themes/opencloud/assets/favicon.svg"
       },
       "themes": [
@@ -108,8 +108,8 @@
         {
           "isDark": true,
           "label": "Dark Theme",
-          "logo": "themes/opencloud/assets/logo-dark-mode.svg",
-          "logoMobile": "themes/opencloud/assets/logo-dark-mode-mobile.svg",
+          "logo": "themes/opencloud/assets/logo-lilac.svg",
+          "logoMobile": "themes/opencloud/assets/logo-lilac-mobile.svg",
           "designTokens": {
             "roles": {
               "primary": "#e2baff",
