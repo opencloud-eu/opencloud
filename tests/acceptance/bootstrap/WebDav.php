@@ -2531,6 +2531,7 @@ trait WebDav {
 	 * @return void
 	 */
 	#[When('user :user deletes file :filename from space :space using file-id :fileId')]
+	#[When('user :user deletes folder :filename from space :space using file-id :fileId')]
 	public function userDeletesFileFromSpaceUsingFileIdPath(
 		string $user,
 		string $filename,
@@ -3898,11 +3899,12 @@ trait WebDav {
 	 * @param string $user
 	 * @param string $path
 	 *
-	 * @return void
+	 * @return string|null
 	 */
 	#[Given('/^user "([^"]*)" has stored id of (?:file|folder) "([^"]*)"$/')]
-	public function userStoresFileIdForPath(string $user, string $path): void {
+	public function userStoresFileIdForPath(string $user, string $path): ?string {
 		$this->storedFileID = $this->getFileIdForPath($user, $path);
+		return $this->storedFileID;
 	}
 
 	/**
