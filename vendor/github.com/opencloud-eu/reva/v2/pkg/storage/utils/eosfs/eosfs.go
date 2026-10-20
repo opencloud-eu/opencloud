@@ -1784,19 +1784,19 @@ func (fs *eosfs) deleteShadow(ctx context.Context, p string) error {
 	return errors.New("eosfs: shadow delete of share folder that is neither root nor child. path=" + p)
 }
 
-func (fs *eosfs) Move(ctx context.Context, oldRef, newRef *provider.Reference) error {
+func (fs *eosfs) Move(ctx context.Context, oldRef, newRef *provider.Reference) (*storage.MoveResult, error) {
 	oldPath, err := fs.resolve(ctx, oldRef)
 	if err != nil {
-		return errors.Wrap(err, "eosfs: error resolving reference")
+		return nil, errors.Wrap(err, "eosfs: error resolving reference")
 	}
 
 	newPath, err := fs.resolve(ctx, newRef)
 	if err != nil {
-		return errors.Wrap(err, "eosfs: error resolving reference")
+		return nil, errors.Wrap(err, "eosfs: error resolving reference")
 	}
 
 	if fs.isShareFolder(ctx, oldPath) || fs.isShareFolder(ctx, newPath) {
-		return fs.moveShadow(ctx, oldPath, newPath)
+		return nil, fs.moveShadow(ctx, oldPath, newPath)
 	}
 
 	oldFn := fs.wrap(ctx, oldPath)
@@ -1804,14 +1804,14 @@ func (fs *eosfs) Move(ctx context.Context, oldRef, newRef *provider.Reference) e
 
 	u, err := getUser(ctx)
 	if err != nil {
-		return errors.Wrap(err, "eosfs: no user in ctx")
+		return nil, errors.Wrap(err, "eosfs: no user in ctx")
 	}
 	auth, err := fs.getUserAuth(ctx, u, oldFn)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return fs.c.Rename(ctx, auth, oldFn, newFn)
+	return nil, fs.c.Rename(ctx, auth, oldFn, newFn)
 }
 
 func (fs *eosfs) moveShadow(ctx context.Context, oldPath, newPath string) error {

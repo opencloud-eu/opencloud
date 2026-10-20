@@ -22,12 +22,15 @@ import (
 	"context"
 
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+
+	"github.com/opencloud-eu/reva/v2/pkg/storage"
 )
 
 type key int
 
 const (
 	sendOwnerChanKey key = iota
+	moveResultSlotKey
 )
 
 // ContextSendSpaceOwnerID stores the space owner in the context.
@@ -44,4 +47,21 @@ func ContextSendSpaceOwnerID(ctx context.Context, id *userpb.UserId) {
 // ContextRegisterSendOwnerChan registers a channel to send the current space owner
 func ContextRegisterSendOwnerChan(ctx context.Context, ch chan<- *userpb.UserId) context.Context {
 	return context.WithValue(ctx, sendOwnerChanKey, ch)
+}
+
+// MoveResultSlot is a mutable container for a *storage.MoveResult.
+type MoveResultSlot struct {
+	Result *storage.MoveResult
+}
+
+// ContextRegisterMoveResultSlot stores an empty slot in ctx so the handler can fill it.
+func ContextRegisterMoveResultSlot(ctx context.Context, slot *MoveResultSlot) context.Context {
+	return context.WithValue(ctx, moveResultSlotKey, slot)
+}
+
+// ContextSetMoveResult fills the slot registered in ctx with the given result.
+func ContextSetMoveResult(ctx context.Context, r *storage.MoveResult) {
+	if slot, ok := ctx.Value(moveResultSlotKey).(*MoveResultSlot); ok {
+		slot.Result = r
+	}
 }

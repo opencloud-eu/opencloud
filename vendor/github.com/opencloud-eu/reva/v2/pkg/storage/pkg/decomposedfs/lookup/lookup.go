@@ -46,6 +46,8 @@ const (
 	_spaceTypePersonal = "personal"
 
 	IndexesDir = "indexes"
+	// PurgeDirPrefix prefixes the name a space root is renamed to while it is being purged
+	PurgeDirPrefix = ".oc-purge-"
 )
 
 func init() {

@@ -232,6 +232,11 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 		return err
 	}
 
+	// check processing
+	if n.IsProcessing(ctx) {
+		return errtypes.ResourceProcessing(ref.String())
+	}
+
 	// write lock node before copying metadata
 	f, err := lockedfile.OpenFile(fs.lu.MetadataBackend().LockfilePath(n.InternalPath()), os.O_RDWR|os.O_CREATE, 0600)
 	if err != nil {

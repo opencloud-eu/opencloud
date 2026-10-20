@@ -77,6 +77,15 @@ func NewUnavailable(ctx context.Context, msg string) *rpc.Status {
 	}
 }
 
+// NewTooEarly returns a Status with CODE_TOO_EARLY.
+func NewTooEarly(ctx context.Context, msg string) *rpc.Status {
+	return &rpc.Status{
+		Code:    rpc.Code_CODE_TOO_EARLY,
+		Message: msg,
+		Trace:   getTrace(ctx),
+	}
+}
+
 // NewUnauthenticated returns a Status with CODE_UNAUTHENTICATED.
 func NewUnauthenticated(ctx context.Context, err error, msg string) *rpc.Status {
 	return &rpc.Status{
@@ -197,6 +206,10 @@ func NewStatusFromErrType(ctx context.Context, msg string, err error) *rpc.Statu
 		return NewInvalid(ctx, msg+": "+e.Error())
 	case errtypes.IsUnavailable:
 		return NewUnavailable(ctx, msg+": "+e.Error())
+	case errtypes.TooEarly:
+		return NewTooEarly(ctx, msg+": "+e.Error())
+	case errtypes.ResourceProcessing:
+		return NewTooEarly(ctx, msg+": "+e.Error())
 	}
 
 	// map GRPC status codes coming from the auth middleware

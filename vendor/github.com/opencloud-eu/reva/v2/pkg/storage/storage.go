@@ -29,6 +29,13 @@ import (
 	tusd "github.com/tus/tusd/v2/pkg/handler"
 )
 
+// MoveResult carries the resolved references returned by a successful Move.
+type MoveResult struct {
+	SpaceOwner   *user.UserId
+	OldReference *provider.Reference
+	NewReference *provider.Reference
+}
+
 // FS is the interface to implement access to the storage.
 type FS interface {
 	// Minimal set for a readonly storage driver
@@ -62,18 +69,24 @@ type FS interface {
 	// CreateDir creates a resource of type container
 	CreateDir(ctx context.Context, ref *provider.Reference) error
 	// TouchFile sets the mtime of a resource, creating an empty file if it does not exist
-	// FIXME the markprocessing flag is an implementation detail of decomposedfs, remove it from the function
+	// FIXME(OCISDEV-900) remove markprocessing bool: coordinator calls MarkProcessing(true) explicitly after TouchFile
 	// FIXME the mtime should either be a time.Time or a CS3 Timestamp, not a string
 	TouchFile(ctx context.Context, ref *provider.Reference, markprocessing bool, mtime string) error
 	// Delete deletes a resource.
 	// If the storage driver supports a recycle bin it should moves it to the recycle bin
 	Delete(ctx context.Context, ref *provider.Reference) error
-	// Move changes the path of a resource
-	Move(ctx context.Context, oldRef, newRef *provider.Reference) error
+	// Move changes the path of a resource and returns resolved references and the
+	// space owner for event publication. Drivers without this metadata may return
+	// a nil result on success.
+	Move(ctx context.Context, oldRef, newRef *provider.Reference) (*MoveResult, error)
 	// InitiateUpload returns a list of protocols with urls that can be used to append bytes to a new upload session
 	InitiateUpload(ctx context.Context, ref *provider.Reference, uploadLength int64, metadata map[string]string) (map[string]string, error)
 	// Upload creates or updates a resource of type file with a new revision
 	Upload(ctx context.Context, req UploadRequest, uploadFunc UploadFinishedFunc) (*provider.ResourceInfo, error)
+	// MarkProcessing toggles a processing flag on the resource.
+	MarkProcessing(ctx context.Context, ref *provider.Reference, processing bool, sessionID string) error
+	// CommitUpload writes the staged bytes from source to the resource at ref.
+	CommitUpload(ctx context.Context, ref *provider.Reference, source UploadSource) (*provider.ResourceInfo, error)
 
 	// Revisions
 
@@ -156,6 +169,22 @@ type FS interface {
 // can list resources in disabled spaces.
 type SpaceDisabledListableFS interface {
 	WithDisabledSpaces() FS
+}
+
+// UploadChecksums holds pre-computed checksums for a CommitUpload call.
+// All three must be provided; the driver stores them as xattrs without recomputing.
+type UploadChecksums struct {
+	SHA1    []byte
+	MD5     []byte
+	Adler32 []byte
+}
+
+// UploadSource carries the staged bytes for a CommitUpload call.
+type UploadSource struct {
+	Body      io.ReadCloser
+	Length    int64
+	Metadata  map[string]string
+	Checksums UploadChecksums
 }
 
 // UnscopeFunc is a function that unscopes a user

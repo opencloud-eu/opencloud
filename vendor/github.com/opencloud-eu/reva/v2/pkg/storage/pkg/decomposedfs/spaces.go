@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"maps"
@@ -36,6 +37,7 @@ import (
 	v1beta11 "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
+	"github.com/google/uuid"
 	"github.com/opencloud-eu/reva/v2/internal/grpc/services/storageprovider"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	ocsconv "github.com/opencloud-eu/reva/v2/pkg/conversions"
@@ -45,6 +47,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	sdk "github.com/opencloud-eu/reva/v2/pkg/sdk/common"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
+	dfslookup "github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/lookup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/permissions"
@@ -876,7 +879,7 @@ func (fs *Decomposedfs) DeleteStorageSpace(ctx context.Context, req *provider.De
 		// remove space metadata
 		spaceRoot := fs.lu.InternalSpaceRoot(spaceID)
 		if spaceRoot != "" {
-			if err := os.RemoveAll(fs.lu.InternalSpaceRoot(spaceID)); err != nil {
+			if err := removeSpaceRoot(spaceRoot); err != nil {
 				return err
 			}
 		}
@@ -1215,6 +1218,29 @@ func isGrantExpired(g *provider.Grant) bool {
 		return false
 	}
 	return time.Now().After(time.Unix(int64(g.Expiration.Seconds), int64(g.Expiration.Nanos)))
+}
+
+// removeSpaceRoot moves the space root out of the way before deleting it. Concurrent requests may
+// still lock nodes of the space and recreate lock files inside it, which makes an in-place
+// RemoveAll fail with "directory not empty". Once the space root is gone they can't do that anymore.
+func removeSpaceRoot(spaceRoot string) error {
+	tombstone := filepath.Join(filepath.Dir(spaceRoot), dfslookup.PurgeDirPrefix+filepath.Base(spaceRoot)+"-"+uuid.NewString())
+	if err := os.Rename(spaceRoot, tombstone); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	// requests that resolved a path into the space root before the rename may still create lock
+	// files in the tombstone. Nothing new can reach it, so retry until they are done.
+	var err error
+	for i := range 10 {
+		if err = os.RemoveAll(tombstone); err == nil || !errors.Is(err, syscall.ENOTEMPTY) {
+			return err
+		}
+		time.Sleep(time.Duration(i+1) * 10 * time.Millisecond)
+	}
+	return err
 }
 
 // Space deletion can be tricky as there are lots of different cases:

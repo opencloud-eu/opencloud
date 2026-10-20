@@ -151,6 +151,14 @@ func (fs *localfs) InitiateUpload(ctx context.Context, ref *provider.Reference, 
 	}, nil
 }
 
+func (fs *localfs) MarkProcessing(ctx context.Context, ref *provider.Reference, processing bool, sessionID string) error {
+	return errtypes.NotSupported("op not supported")
+}
+
+func (fs *localfs) CommitUpload(ctx context.Context, ref *provider.Reference, source storage.UploadSource) (*provider.ResourceInfo, error) {
+	return nil, errtypes.NotSupported("op not supported")
+}
+
 // UseIn tells the tus upload middleware which extensions it supports.
 func (fs *localfs) UseIn(composer *tusd.StoreComposer) {
 	composer.UseCore(fs)

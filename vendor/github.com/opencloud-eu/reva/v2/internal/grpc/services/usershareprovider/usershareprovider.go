@@ -459,6 +459,7 @@ func (s *service) RemoveShare(ctx context.Context, req *collaboration.RemoveShar
 	} else {
 		opaque = utils.AppendJSONToOpaque(opaque, "granteegroupid", share.GetGrantee().GetGroupId())
 	}
+	opaque = utils.AppendJSONToOpaque(opaque, "shareid", share.GetId())
 
 	return &collaboration.RemoveShareResponse{
 		Opaque: opaque,

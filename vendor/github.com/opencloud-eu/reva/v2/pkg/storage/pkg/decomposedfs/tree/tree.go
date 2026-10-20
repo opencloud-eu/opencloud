@@ -792,6 +792,11 @@ func (t *Tree) WriteBlob(node *node.Node, source string) error {
 	return t.blobstore.Upload(node, source, "")
 }
 
+// WriteBlobFromReader writes a blob to the blobstore from a reader.
+func (t *Tree) WriteBlobFromReader(node *node.Node, r io.Reader, size int64) error {
+	return t.blobstore.UploadFromReader(node, r, size)
+}
+
 // ReadBlob reads a blob from the blobstore
 func (t *Tree) ReadBlob(node *node.Node) (io.ReadCloser, error) {
 	if node.BlobID == "" {
