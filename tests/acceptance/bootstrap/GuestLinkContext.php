@@ -21,6 +21,7 @@
 use Behat\Behat\Context\Context;
 use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use Behat\Gherkin\Node\PyStringNode;
+use Behat\Gherkin\Node\TableNode;
 use Behat\Step\Given;
 use Behat\Step\Then;
 use Behat\Step\When;
@@ -552,7 +553,7 @@ class GuestLinkContext implements Context {
 				null,
 				'MOVE',
 				$path,
-				\array_merge($this->getSessionHeaders($guest), ['Destination' => $this->featureContext->getBaseUrl() . '/' . WebDavHelper::getDavPath(WebDavHelper::DAV_VERSION_SPACES, $folderId) . '/' . $newName]),
+				\array_merge($this->getSessionHeaders($guest), ['Destination' => $this->getDavUrl($folderId, $newName)]),
 				$folderId,
 				$this->featureContext->getStepLineRef(),
 				null,
@@ -590,11 +591,260 @@ class GuestLinkContext implements Context {
 				null,
 				'MOVE',
 				$path,
-				\array_merge($this->getSessionHeaders($guest), ['Destination' => $this->featureContext->getBaseUrl() . '/' . WebDavHelper::getDavPath(WebDavHelper::DAV_VERSION_SPACES, $spaceRootId) . '/' . $destination]),
+				\array_merge($this->getSessionHeaders($guest), ['Destination' => $this->getDavUrl($spaceRootId, $destination)]),
 				$folderId,
 				$this->featureContext->getStepLineRef(),
 				null,
 				WebDavHelper::DAV_VERSION_SPACES
+			)
+		);
+	}
+
+	/**
+	 * @param string $id
+	 * @param string $name
+	 *
+	 * @return string the WebDAV URL of a resource inside the resource with the given id
+	 */
+	private function getDavUrl(string $id, string $name): string {
+		return $this->featureContext->getBaseUrl() . '/' . WebDavHelper::getDavPath(WebDavHelper::DAV_VERSION_SPACES, $id) . '/' . $name;
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $method COPY or MOVE
+	 * @param string $path
+	 * @param string $folderId
+	 * @param string $destinationFolderId
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	private function copyOrMoveIntoFolder(
+		string $guest,
+		string $method,
+		string $path,
+		string $folderId,
+		string $destinationFolderId
+	): void {
+		$this->featureContext->setResponse(
+			WebDavHelper::makeDavRequest(
+				$this->featureContext->getBaseUrl(),
+				null,
+				null,
+				$method,
+				$path,
+				\array_merge($this->getSessionHeaders($guest), ['Destination' => $this->getDavUrl($destinationFolderId, \basename($path))]),
+				$folderId,
+				$this->featureContext->getStepLineRef(),
+				null,
+				WebDavHelper::DAV_VERSION_SPACES
+			)
+		);
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $path
+	 * @param string $folder
+	 * @param string $space
+	 * @param string $owner
+	 * @param string $destinationFolder
+	 * @param string $destinationSpace
+	 * @param string $destinationOwner
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest copies :path inside folder :folder of space :space of user :owner to folder :destinationFolder of space :destinationSpace of user :destinationOwner using the WebDAV API')]
+	public function guestCopiesIntoFolder(
+		string $guest,
+		string $path,
+		string $folder,
+		string $space,
+		string $owner,
+		string $destinationFolder,
+		string $destinationSpace,
+		string $destinationOwner
+	): void {
+		$this->copyOrMoveIntoFolder(
+			$guest,
+			'COPY',
+			$path,
+			$this->spacesContext->getResourceId($owner, $space, $folder),
+			$this->spacesContext->getResourceId($destinationOwner, $destinationSpace, $destinationFolder)
+		);
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $path
+	 * @param string $folder
+	 * @param string $space
+	 * @param string $owner
+	 * @param string $destinationFolder
+	 * @param string $destinationSpace
+	 * @param string $destinationOwner
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest moves :path inside folder :folder of space :space of user :owner to folder :destinationFolder of space :destinationSpace of user :destinationOwner using the WebDAV API')]
+	public function guestMovesIntoFolder(
+		string $guest,
+		string $path,
+		string $folder,
+		string $space,
+		string $owner,
+		string $destinationFolder,
+		string $destinationSpace,
+		string $destinationOwner
+	): void {
+		$this->copyOrMoveIntoFolder(
+			$guest,
+			'MOVE',
+			$path,
+			$this->spacesContext->getResourceId($owner, $space, $folder),
+			$this->spacesContext->getResourceId($destinationOwner, $destinationSpace, $destinationFolder)
+		);
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $path
+	 * @param string $folder
+	 * @param string $space
+	 * @param string $owner
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest deletes :path inside folder :folder of space :space of user :owner using the WebDAV API')]
+	public function guestDeletesInsideFolder(string $guest, string $path, string $folder, string $space, string $owner): void {
+		$this->featureContext->setResponse(
+			WebDavHelper::makeDavRequest(
+				$this->featureContext->getBaseUrl(),
+				null,
+				null,
+				'DELETE',
+				$path,
+				$this->getSessionHeaders($guest),
+				$this->spacesContext->getResourceId($owner, $space, $folder),
+				$this->featureContext->getStepLineRef(),
+				null,
+				WebDavHelper::DAV_VERSION_SPACES
+			)
+		);
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $folder
+	 * @param string $space
+	 * @param string $owner
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest tries to delete the shared folder :folder of space :space of user :owner using the WebDAV API')]
+	public function guestTriesToDeleteTheSharedFolder(string $guest, string $folder, string $space, string $owner): void {
+		$this->featureContext->setResponse(
+			WebDavHelper::makeDavRequest(
+				$this->featureContext->getBaseUrl(),
+				null,
+				null,
+				'DELETE',
+				'',
+				$this->getSessionHeaders($guest),
+				$this->spacesContext->getResourceId($owner, $space, $folder),
+				$this->featureContext->getStepLineRef(),
+				null,
+				WebDavHelper::DAV_VERSION_SPACES
+			)
+		);
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $folder
+	 * @param string $space
+	 * @param string $owner
+	 * @param string $newName
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest tries to rename the shared folder :folder of space :space of user :owner to :newName using the WebDAV API')]
+	public function guestTriesToRenameTheSharedFolder(
+		string $guest,
+		string $folder,
+		string $space,
+		string $owner,
+		string $newName
+	): void {
+		$spaceRootId = $this->spacesContext->getResourceId($owner, $space, '');
+		$this->featureContext->setResponse(
+			WebDavHelper::makeDavRequest(
+				$this->featureContext->getBaseUrl(),
+				null,
+				null,
+				'MOVE',
+				'',
+				\array_merge($this->getSessionHeaders($guest), ['Destination' => $this->getDavUrl($spaceRootId, $newName)]),
+				$this->spacesContext->getResourceId($owner, $space, $folder),
+				$this->featureContext->getStepLineRef(),
+				null,
+				WebDavHelper::DAV_VERSION_SPACES
+			)
+		);
+	}
+
+	/**
+	 * @param string $guest
+	 * @param TableNode $resources with the columns resource, space and owner
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest downloads the archive of these resources using the archiver:')]
+	public function guestDownloadsTheArchiveOfTheseResources(string $guest, TableNode $resources): void {
+		$this->featureContext->verifyTableNodeColumns($resources, ['resource', 'space', 'owner']);
+		$ids = [];
+		foreach ($resources->getHash() as $row) {
+			$ids[] = 'id=' . \rawurlencode($this->spacesContext->getResourceId($row['owner'], $row['space'], $row['resource']));
+		}
+		$this->downloadArchive($guest, $ids);
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $space
+	 * @param string $owner
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest downloads the archive of space :space of user :owner using the archiver')]
+	public function guestDownloadsTheArchiveOfSpace(string $guest, string $space, string $owner): void {
+		$this->downloadArchive($guest, ['id=' . \rawurlencode($this->spacesContext->getSpaceIdByName($owner, $space))]);
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string[] $query
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	private function downloadArchive(string $guest, array $query): void {
+		$this->featureContext->setResponse(
+			HttpRequestHelper::sendRequest(
+				$this->featureContext->getBaseUrl() . '/archiver?' . \implode('&', $query),
+				$this->featureContext->getStepLineRef(),
+				'GET',
+				null,
+				null,
+				$this->getSessionHeaders($guest),
 			)
 		);
 	}
