@@ -34,7 +34,7 @@ links feature and start the service.
   PIN; redeeming a token or verifying a PIN sets a session cookie. `renew` and
   `verify/pin` are rate-limited.
 - Stores only hashes of the token secret, of the PIN and of the nonce, and
-  deletes the stored record when the share is removed or expires.
+  deletes the stored record when the share is removed or expires. 
 
 ## Guest links flow
 

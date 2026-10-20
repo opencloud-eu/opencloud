@@ -136,6 +136,9 @@ func (s *EventConsumer) processEvent(e events.Event) error {
 		return s.handleShareRemoved(ctx, ev)
 	case events.ShareExpired:
 		return s.handleShareExpired(ctx, ev)
+	case events.SpaceShared:
+		return s.handleSpaceShared(ctx, ev)
+	// Should we handle space share removed/expired events as well?
 	default:
 		s.log.Warn().
 			Str("eventtype", e.Type).
