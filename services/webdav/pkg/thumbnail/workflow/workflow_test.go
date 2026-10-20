@@ -797,6 +797,65 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			Expect(captured.data).ToNot(Equal(mp3Bytes))
 		})
 
+		It("keeps what an extractor found, under one key for the whole file", func() {
+			mp3Bytes, err := os.ReadFile(filepath.Join("..", "..", "preprocessor", "test_assets", "empty.mp3"))
+			Expect(err).ToNot(HaveOccurred())
+
+			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "song.mp3", mp3Bytes)
+
+			tr := &requests.ThumbnailRequest{
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "song.mp3"),
+				Filename: "song.mp3",
+				Width:    64,
+				Height:   64,
+			}
+
+			_, err = wf2.Execute(context.Background(), tr, testToken, logger)
+			Expect(err).ToNot(HaveOccurred())
+
+			cached, err := testCache.Get("1f/0c/9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b/source")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cached).To(Equal(captured.data), "the cover art is kept as the source, not per size")
+		})
+
+		It("sends the kept source instead of extracting a second time", func() {
+			pngBytes, err := os.ReadFile(filepath.Join("..", "..", "preprocessor", "test_assets", "noise.png"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(testCache.Put("1f/0c/9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b/source", pngBytes)).To(Succeed())
+
+			//the file itself is not an mp3: extracting it would fail, so what
+			//reaches the generator can only come from the cache
+			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "song.mp3", []byte("not an mp3"))
+
+			tr := &requests.ThumbnailRequest{
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "song.mp3"),
+				Filename: "song.mp3",
+				Width:    128,
+				Height:   128,
+			}
+
+			_, err = wf2.Execute(context.Background(), tr, testToken, logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(captured.data).To(Equal(pngBytes))
+		})
+
+		It("asks once for a file that carries nothing, whatever size follows", func() {
+			Expect(testCache.Put("1f/0c/9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b/source", nil)).To(Succeed())
+
+			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "song.mp3", []byte("not an mp3"))
+
+			tr := &requests.ThumbnailRequest{
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "song.mp3"),
+				Filename: "song.mp3",
+				Width:    256,
+				Height:   256,
+			}
+
+			_, err := wf2.Execute(context.Background(), tr, testToken, logger)
+			Expect(err).To(MatchError(ErrNoThumbnail))
+			Expect(captured.data).To(BeEmpty(), "the generator is not asked at all")
+		})
+
 		It("extracts the embedded thumbnail from geogebra slides", func() {
 			ggsBytes, err := os.ReadFile(filepath.Join("..", "..", "preprocessor", "test_assets", "ggs_test.ggs"))
 			Expect(err).ToNot(HaveOccurred())
