@@ -10,6 +10,15 @@
 
 - feat(guestlinks)!: auth-guest service [[#3609](https://github.com/opencloud-eu/opencloud/pull/3609)]
 
+### 🐛 Bug Fixes
+
+- fix(frontend): report content search only when full-text search is enabled [[#3760](https://github.com/opencloud-eu/opencloud/pull/3760)]
+- fix: allow guests to list role definitions [[#3729](https://github.com/opencloud-eu/opencloud/pull/3729)]
+- fix: nats checks were missing the configured auth [[#3724](https://github.com/opencloud-eu/opencloud/pull/3724)]
+- fix(collaboration): answer a wopi lock in a read-only session with 200 instead of locking [[#3711](https://github.com/opencloud-eu/opencloud/pull/3711)]
+- fix(collaboration): show the secure view watermark only for view-only tokens [[#3712](https://github.com/opencloud-eu/opencloud/pull/3712)]
+- fix: add restart command output [[#3706](https://github.com/opencloud-eu/opencloud/pull/3706)]
+
 ### 📈 Enhancement
 
 - feat: expose the default project space quota in the capabilities [[#3719](https://github.com/opencloud-eu/opencloud/pull/3719)]
@@ -34,14 +43,6 @@
 - test(api): simply HTTP request retry conditions [[#3696](https://github.com/opencloud-eu/opencloud/pull/3696)]
 - test: retry acceptance requests while share manager is migrating [[#3681](https://github.com/opencloud-eu/opencloud/pull/3681)]
 - api-test: extend search tests [[#3634](https://github.com/opencloud-eu/opencloud/pull/3634)]
-
-### 🐛 Bug Fixes
-
-- fix: allow guests to list role definitions [[#3729](https://github.com/opencloud-eu/opencloud/pull/3729)]
-- fix: nats checks were missing the configured auth [[#3724](https://github.com/opencloud-eu/opencloud/pull/3724)]
-- fix(collaboration): answer a wopi lock in a read-only session with 200 instead of locking [[#3711](https://github.com/opencloud-eu/opencloud/pull/3711)]
-- fix(collaboration): show the secure view watermark only for view-only tokens [[#3712](https://github.com/opencloud-eu/opencloud/pull/3712)]
-- fix: add restart command output [[#3706](https://github.com/opencloud-eu/opencloud/pull/3706)]
 
 ### 📦️ Dependencies
 
