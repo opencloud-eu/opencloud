@@ -113,6 +113,7 @@ strong {
 
 .oc-input:focus {
     outline: 2px solid #e2baff;
+    outline-offset: 0;
     border: 1px solid #fff;
 }
 
@@ -151,6 +152,21 @@ strong {
     color: #20434f !important;
     box-shadow: none !important;
     font-weight: 700 !important;
+}
+
+/*
+ * Keyboard focus for every control. Material UI shows it with its ripple and
+ * box-shadow, which are both switched off in this file.
+ */
+body :focus-visible {
+    outline: 2px solid #20434f;
+    outline-offset: 2px;
+}
+
+/* the logo link sits on the background, which can be dark or a light image */
+.oc-logo-container:focus-visible {
+    outline-color: #fff;
+    box-shadow: 0 0 0 6px #20434f;
 }
 
 .oc-button-secondary {
