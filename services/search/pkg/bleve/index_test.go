@@ -1,19 +1,24 @@
 package bleve_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 
 	bleveSearch "github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/analysis/analyzer/custom"
 	"github.com/blevesearch/bleve/v2/analysis/token/lowercase"
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/unicode"
+	"github.com/blevesearch/bleve/v2/index/scorch"
 	bleveMapping "github.com/blevesearch/bleve/v2/mapping"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rs/zerolog"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
@@ -46,6 +51,28 @@ var _ = Describe("Index", func() {
 			DeferCleanup(reopened.Close)
 
 			Expect(reopened.Name()).To(Equal(filepath.Join(root, fmt.Sprintf("bleve-v%d", search.SchemaVersion))))
+		})
+
+		It("logs the first of repeated background errors", func() {
+			// match log.NewLogger's global level
+			DeferCleanup(zerolog.SetGlobalLevel, zerolog.GlobalLevel())
+			zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+			var out bytes.Buffer
+			index, _, err := bleve.NewIndex(GinkgoT().TempDir(), log.Logger{Logger: zerolog.New(&out)})
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(index.Close)
+
+			metaB, err := os.ReadFile(filepath.Join(index.Name(), "index_meta.json"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(metaB)).To(ContainSubstring(`"asyncErrorCallbackName":"opencloud-search"`))
+
+			report := scorch.RegistryAsyncErrorCallbacks["opencloud-search"]
+			Expect(report).ToNot(BeNil())
+			report(errors.New("merging failed"), index.Name())
+			report(errors.New("merging failed"), index.Name())
+
+			Expect(strings.Count(out.String(), "merging failed")).To(Equal(1))
 		})
 	})
 })
