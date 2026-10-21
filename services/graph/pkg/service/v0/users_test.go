@@ -1065,6 +1065,113 @@ var _ = Describe("Users", func() {
 				Expect(rr.Code).To(Equal(http.StatusNoContent))
 				gatewayClient.AssertNumberOfCalls(GinkgoT(), "DeleteStorageSpace", 2) // 2 calls for the home space. first trash, then purge
 			})
+
+			It("aborts when the personal space cannot be deleted", func() {
+				otheruser := &userv1beta1.User{
+					Id: &userv1beta1.UserId{
+						OpaqueId: "otheruser",
+					},
+				}
+
+				lu := libregraph.User{}
+				lu.SetId(otheruser.Id.OpaqueId)
+				identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(&lu, nil)
+				gatewayClient.On("DeleteStorageSpace", mock.Anything, mock.Anything).Return(&provider.DeleteStorageSpaceResponse{
+					Status: status.NewInternal(ctx, "deleting the space failed"),
+				}, nil)
+				gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+					Status: status.NewOK(ctx),
+					StorageSpaces: []*provider.StorageSpace{
+						{
+							Opaque:    &typesv1beta1.Opaque{},
+							Id:        &provider.StorageSpaceId{OpaqueId: "drive1"},
+							Root:      &provider.ResourceId{SpaceId: "space", OpaqueId: "space"},
+							SpaceType: "personal",
+							Owner:     otheruser,
+						},
+					},
+				}, nil)
+
+				natsKeyValueMock.EXPECT().Get(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string) (jetstream.KeyValueEntry, error) {
+					byteRep, _ := json.Marshal(userstate.UserState{
+						UserId:          lu.GetId(),
+						State:           userstate.UserStateSoftDeleted,
+						TimeStamp:       time.Now().UTC(),
+						RetentionPeriod: 5 * time.Minute,
+						Reason:          "unit test",
+					})
+
+					kve := &mocks.KeyValueEntry{}
+					kve.On("Value").Return(byteRep)
+
+					return kve, nil
+				}).Maybe()
+				natsKeyValueMock.EXPECT().Put(mock.Anything, mock.Anything, mock.Anything).Return(1, nil).Maybe()
+
+				r := httptest.NewRequest(http.MethodDelete, "/graph/v1.0/users/{userid}", nil)
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("userID", lu.GetId())
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, currentUser), chi.RouteCtxKey, rctx))
+				svc.DeleteUser(rr, r)
+
+				Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+				gatewayClient.AssertNumberOfCalls(GinkgoT(), "DeleteStorageSpace", 1)
+				identityBackend.AssertNotCalled(GinkgoT(), "DeleteUser", mock.Anything, mock.Anything)
+			})
+
+			It("deletes the user when the personal space is already purged", func() {
+				otheruser := &userv1beta1.User{
+					Id: &userv1beta1.UserId{
+						OpaqueId: "otheruser",
+					},
+				}
+
+				lu := libregraph.User{}
+				lu.SetId(otheruser.Id.OpaqueId)
+				identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(&lu, nil)
+				identityBackend.On("DeleteUser", mock.Anything, mock.Anything).Return(nil)
+				gatewayClient.On("DeleteStorageSpace", mock.Anything, mock.Anything).Return(&provider.DeleteStorageSpaceResponse{
+					Status: status.NewNotFound(ctx, "space is gone"),
+				}, nil)
+				gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+					Status: status.NewOK(ctx),
+					StorageSpaces: []*provider.StorageSpace{
+						{
+							Opaque:    &typesv1beta1.Opaque{Map: map[string]*typesv1beta1.OpaqueEntry{"trashed": {Decoder: "plain", Value: []byte("trashed")}}},
+							Id:        &provider.StorageSpaceId{OpaqueId: "drive1"},
+							Root:      &provider.ResourceId{SpaceId: "space", OpaqueId: "space"},
+							SpaceType: "personal",
+							Owner:     otheruser,
+						},
+					},
+				}, nil)
+
+				natsKeyValueMock.EXPECT().Get(mock.Anything, mock.Anything).RunAndReturn(func(_ context.Context, key string) (jetstream.KeyValueEntry, error) {
+					byteRep, _ := json.Marshal(userstate.UserState{
+						UserId:          lu.GetId(),
+						State:           userstate.UserStateSoftDeleted,
+						TimeStamp:       time.Now().UTC(),
+						RetentionPeriod: 5 * time.Minute,
+						Reason:          "unit test",
+					})
+
+					kve := &mocks.KeyValueEntry{}
+					kve.On("Value").Return(byteRep)
+
+					return kve, nil
+				}).Maybe()
+				natsKeyValueMock.EXPECT().Put(mock.Anything, mock.Anything, mock.Anything).Return(1, nil).Maybe()
+
+				r := httptest.NewRequest(http.MethodDelete, "/graph/v1.0/users/{userid}", nil)
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("userID", lu.GetId())
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, currentUser), chi.RouteCtxKey, rctx))
+				svc.DeleteUser(rr, r)
+
+				Expect(rr.Code).To(Equal(http.StatusNoContent))
+				gatewayClient.AssertNumberOfCalls(GinkgoT(), "DeleteStorageSpace", 1) // already trashed, so only the purge
+				identityBackend.AssertCalled(GinkgoT(), "DeleteUser", mock.Anything, mock.Anything)
+			})
 		})
 
 		Describe("SoftDeleteUser", func() {
