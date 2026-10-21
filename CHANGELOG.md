@@ -12,6 +12,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(idp): show keyboard focus on every control [[#3732](https://github.com/opencloud-eu/opencloud/pull/3732)]
 - fix: show the lilac logo on the login page [[#3773](https://github.com/opencloud-eu/opencloud/pull/3773)]
 - fix(frontend): report content search only when full-text search is enabled [[#3760](https://github.com/opencloud-eu/opencloud/pull/3760)]
 - fix: allow guests to list role definitions [[#3729](https://github.com/opencloud-eu/opencloud/pull/3729)]
