@@ -153,9 +153,19 @@ Feature: renew a guest link
     Given guest "guest@example.org" has verified the guest link from the last email
     And guest "guest@example.org" has requested a new guest link with the guest session
     And guest "guest@example.org" has verified the PIN from the last email
-    When guest "guest@example.org" verifies the PIN from the last email using the Graph API
-    Then the HTTP status code should be "400"
+    When guest "guest@example.org" verifies the PIN from the last email again with the same nonce cookie using the Graph API
+    Then the HTTP status code should be "401"
     And the response should not contain a guest session cookie
+    And the JSON data of the response should match
+      """
+      {
+        "type": "object",
+        "required": ["errorType"],
+        "properties": {
+          "errorType": { "const": "nonceInvalid" }
+        }
+      }
+      """
 
   @email
   Scenario: previous guest link is invalid after renewal

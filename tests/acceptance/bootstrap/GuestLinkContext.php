@@ -84,6 +84,14 @@ class GuestLinkContext implements Context {
 	private array $guestNonces = [];
 
 	/**
+	 * nonce cookie (name => value) of the last successful PIN verification of each guest,
+	 * the server clears the cookie then, but a client can still replay it
+	 *
+	 * @var array<string, array<string, string>>
+	 */
+	private array $usedGuestNonces = [];
+
+	/**
 	 * expiry of the PIN of each guest, taken from the max-age of the nonce cookie
 	 *
 	 * @var array<string, int>
@@ -346,15 +354,30 @@ class GuestLinkContext implements Context {
 	 * @throws GuzzleException
 	 */
 	public function verifyGuestPin(string $guest, string $pin, bool $withNonce = true): ResponseInterface {
-		$response = GuestLinkHelper::verifyPin(
+		$nonce = $withNonce ? ($this->guestNonces[$guest] ?? []) : [];
+		$response = $this->sendVerifyPinRequest($pin, $nonce);
+		if ($response->getStatusCode() === 200) {
+			$this->usedGuestNonces[$guest] = $nonce;
+		}
+		$this->rememberCookies($guest, $response);
+		return $response;
+	}
+
+	/**
+	 * @param string $pin
+	 * @param array<string, string> $nonce
+	 *
+	 * @return ResponseInterface
+	 * @throws GuzzleException
+	 */
+	private function sendVerifyPinRequest(string $pin, array $nonce): ResponseInterface {
+		return GuestLinkHelper::verifyPin(
 			$this->featureContext->getBaseUrl(),
 			$this->featureContext->getStepLineRef(),
 			$this->featureContext->shareNgGetLastCreatedUserGroupShareID(),
 			$pin,
-			$withNonce ? ($this->guestNonces[$guest] ?? []) : []
+			$nonce
 		);
-		$this->rememberCookies($guest, $response);
-		return $response;
 	}
 
 	/**
@@ -465,6 +488,29 @@ class GuestLinkContext implements Context {
 	public function guestVerifiesThePinFromTheLastEmailWithoutTheNonceCookie(string $guest): void {
 		$pin = $this->getPinFromLastEmail($guest);
 		$this->featureContext->setResponse($this->verifyGuestPin($guest, $pin, false));
+	}
+
+	/**
+	 * Replays the PIN and the nonce cookie of the last successful PIN verification,
+	 * so the request fails only because they were already used
+	 *
+	 * @param string $guest
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest verifies the PIN from the last email again with the same nonce cookie using the Graph API')]
+	public function guestVerifiesThePinFromTheLastEmailAgainWithTheSameNonceCookie(string $guest): void {
+		Assert::assertArrayHasKey(
+			$guest,
+			$this->usedGuestNonces,
+			"Guest '$guest' has not verified a PIN successfully"
+		);
+		Assert::assertNotEmpty($this->usedGuestNonces[$guest], "Guest '$guest' verified the PIN without a nonce cookie");
+		$pin = $this->getPinFromLastEmail($guest);
+		$response = $this->sendVerifyPinRequest($pin, $this->usedGuestNonces[$guest]);
+		$this->rememberCookies($guest, $response);
+		$this->featureContext->setResponse($response);
 	}
 
 	/**
