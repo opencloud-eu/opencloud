@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	group "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
@@ -17,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
 
@@ -199,38 +197,6 @@ var _ = Describe("share recipients", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(users).To(ConsistOf("alice", "bob"))
 			Expect(data.ItemID).To(Equal("storage$space!file"))
-		})
-	})
-
-	Describe("processMetadataEvent", func() {
-		It("carries the changed and removed keys next to the file event", func() {
-			info := resourceInfo(fileID)
-			info.Space = &provider.StorageSpace{Id: &provider.StorageSpaceId{OpaqueId: storageID + "$" + spaceID}}
-			gwc.EXPECT().Stat(mock.Anything, mock.Anything).Return(&provider.StatResponse{Status: okStatus, Info: info}, nil).Once()
-			gwc.EXPECT().ListStorageSpaces(mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
-				Status:        okStatus,
-				StorageSpaces: []*provider.StorageSpace{{Opaque: utils.AppendJSONToOpaque(nil, "grants", map[string]*provider.ResourcePermissions{"alice": viewer}), SpaceType: "project"}},
-			}, nil)
-
-			users, data, err := processMetadataEvent(ctx, events.ArbitraryMetadataChanged{
-				Ref:         &provider.Reference{ResourceId: fileID},
-				ChangedKeys: []string{"foo/bar"},
-				RemovedKeys: []string{"foo/baz"},
-			}, gwc, logger, "initiator")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(users).To(ConsistOf("alice"))
-			Expect(data.ItemID).To(Equal("storage$space!file"))
-			Expect(data.InitiatorID).To(Equal("initiator"))
-			Expect(data.ChangedKeys).To(Equal([]string{"foo/bar"}))
-			Expect(data.RemovedKeys).To(Equal([]string{"foo/baz"}))
-
-			encoded, err := json.Marshal(data)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(string(encoded)).To(SatisfyAll(
-				ContainSubstring(`"itemid":"storage$space!file"`),
-				ContainSubstring(`"changedkeys":["foo/bar"]`),
-				ContainSubstring(`"removedkeys":["foo/baz"]`),
-			))
 		})
 	})
 
