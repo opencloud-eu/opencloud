@@ -57,7 +57,9 @@ func init() {
 
 // Blobstore defines an interface for storing blobs in a blobstore
 type Blobstore interface {
+	// TODO(OCISDEV-901): remove Upload once FinishUploadDecomposed is replaced by the upload coordinator (OCISDEV-900).
 	Upload(node *node.Node, source string) error
+	UploadFromReader(node *node.Node, r io.Reader, size int64) error
 	Download(node *node.Node) (io.ReadCloser, error)
 	Delete(node *node.Node) error
 }
@@ -811,8 +813,14 @@ func (t *Tree) Propagate(ctx context.Context, n *node.Node, sizeDiff int64) (err
 }
 
 // WriteBlob writes a blob to the blobstore
+// TODO(OCISDEV-901): remove once FinishUploadDecomposed is replaced by the upload coordinator (OCISDEV-900).
 func (t *Tree) WriteBlob(node *node.Node, source string) error {
 	return t.blobstore.Upload(node, source)
+}
+
+// WriteBlobFromReader writes a blob to the blobstore from a reader
+func (t *Tree) WriteBlobFromReader(node *node.Node, r io.Reader, size int64) error {
+	return t.blobstore.UploadFromReader(node, r, size)
 }
 
 // ReadBlob reads a blob from the blobstore

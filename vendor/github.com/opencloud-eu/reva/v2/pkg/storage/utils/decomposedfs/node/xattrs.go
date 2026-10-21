@@ -102,6 +102,11 @@ func (n *Node) SetXattrString(ctx context.Context, key, val string) (err error) 
 	return n.lu.MetadataBackend().Set(ctx, n.InternalPath(), key, []byte(val))
 }
 
+// ResetXattrsCache clears the in-process xattr cache so the next read fetches from disk.
+func (n *Node) ResetXattrsCache() {
+	n.xattrsCache = nil
+}
+
 // RemoveXattr removes an extended attribute from the write-through cache/node
 func (n *Node) RemoveXattr(ctx context.Context, key string, acquireLock bool) error {
 	if n.xattrsCache != nil {

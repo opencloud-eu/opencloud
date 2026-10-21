@@ -103,6 +103,44 @@ func (bs *Blobstore) Upload(node *node.Node, source, _copyTarget string) (err er
 	return nil
 }
 
+// UploadFromReader stores data from a reader under the given blob key.
+func (bs *Blobstore) UploadFromReader(n *node.Node, r io.Reader, size int64) error {
+	if n.BlobID == "" {
+		return ErrBlobIDEmpty
+	}
+	dest := bs.Path(n)
+	if err := os.MkdirAll(filepath.Dir(dest), 0700); err != nil {
+		return errors.Wrap(err, "Decomposed blobstore: error creating parent folders for blob")
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(dest), ".upload-*")
+	if err != nil {
+		return errors.Wrap(err, "Decomposed blobstore: could not create temporary blob")
+	}
+	tmpPath := tmp.Name()
+	defer func() { _ = os.Remove(tmpPath) }()
+
+	written, err := io.Copy(tmp, r)
+	if err != nil {
+		_ = tmp.Close()
+		return errors.Wrap(err, "Decomposed blobstore: could not write blob")
+	}
+	if written != size {
+		_ = tmp.Close()
+		return io.ErrUnexpectedEOF
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return errors.Wrap(err, "Decomposed blobstore: could not sync blob")
+	}
+	if err := tmp.Close(); err != nil {
+		return errors.Wrap(err, "Decomposed blobstore: could not close blob")
+	}
+	if err := os.Rename(tmpPath, dest); err != nil {
+		return errors.Wrap(err, "Decomposed blobstore: could not move blob into place")
+	}
+	return nil
+}
+
 // Download retrieves a blob from the blobstore for reading
 func (bs *Blobstore) Download(node *node.Node) (io.ReadCloser, error) {
 	if node.BlobID == "" {

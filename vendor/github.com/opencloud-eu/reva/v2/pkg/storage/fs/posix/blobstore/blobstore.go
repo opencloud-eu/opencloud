@@ -188,6 +188,38 @@ func (bs *Blobstore) Upload(n *node.Node, source, copyTarget string) error {
 	return nil
 }
 
+// UploadFromReader stages data on the space filesystem before atomically replacing the node.
+func (bs *Blobstore) UploadFromReader(n *node.Node, r io.Reader, size int64) error {
+	if n.SpaceRoot == nil {
+		return errors.New("node has no space root")
+	}
+	f, err := os.CreateTemp(n.SpaceRoot.InternalPath(), ".upload-*")
+	if err != nil {
+		return errors.Wrap(err, "could not create temporary upload file")
+	}
+	tempPath := f.Name()
+	defer func() { _ = os.Remove(tempPath) }()
+
+	written, err := io.Copy(f, r)
+	if err != nil {
+		_ = f.Close()
+		return errors.Wrap(err, "could not write temporary upload file")
+	}
+	if written != size {
+		_ = f.Close()
+		return fmt.Errorf("unexpected upload length: expected %d bytes, got %d", size, written)
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return errors.Wrap(err, "could not sync temporary upload file")
+	}
+	if err := f.Close(); err != nil {
+		return errors.Wrap(err, "could not close temporary upload file")
+	}
+
+	return bs.Upload(n, tempPath, "")
+}
+
 // Download retrieves a blob from the blobstore for reading
 func (bs *Blobstore) Download(node *node.Node) (io.ReadCloser, error) {
 	file, err := os.Open(node.InternalPath())

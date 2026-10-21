@@ -49,9 +49,10 @@ import (
 var tracer trace.Tracer
 
 const (
-	IndexesDir  = dfslookup.IndexesDir
-	MetadataDir = ".oc-nodes"
-	TrashDir    = ".Trash"
+	IndexesDir     = dfslookup.IndexesDir
+	PurgeDirPrefix = dfslookup.PurgeDirPrefix
+	MetadataDir    = ".oc-nodes"
+	TrashDir       = ".Trash"
 )
 
 var _spaceTypePersonal = "personal"

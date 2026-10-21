@@ -509,13 +509,13 @@ func (b HybridBackend) Lock(n MetadataNode) (UnlockFunc, error) {
 			if base == "" {
 				return nil, err
 			}
-			// base is the space's metadata directory (e.g. <spaceRoot>/.oc-nodes),
-			// so its parent is the space's base directory.
-			if _, statErr := os.Stat(filepath.Dir(base)); statErr != nil {
-				return nil, statErr
-			}
-			if err = os.MkdirAll(filepath.Dir(metaLockPath), 0700); err != nil {
-				return nil, err
+			// base is the space's metadata directory (e.g. <spaceRoot>/.oc-nodes).
+			// Create it and the locks directory one level at a time: unlike MkdirAll,
+			// Mkdir fails when the space root is removed concurrently.
+			for _, dir := range []string{base, filepath.Dir(metaLockPath)} {
+				if err = os.Mkdir(dir, 0700); err != nil && !errors.Is(err, os.ErrExist) {
+					return nil, err
+				}
 			}
 			mlock, err = lockedfile.OpenFile(metaLockPath, os.O_RDWR|os.O_CREATE, 0600)
 			if err != nil {
