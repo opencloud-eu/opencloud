@@ -12,6 +12,13 @@ type FileEvent struct {
 	AffectedUserIDs []string `json:"affecteduserids"`
 }
 
+// MetadataEvent is emitted when arbitrary metadata keys were set or unset on a resource
+type MetadataEvent struct {
+	FileEvent
+	ChangedKeys []string `json:"changedkeys"`
+	RemovedKeys []string `json:"removedkeys"`
+}
+
 // BackchannelLogout is emitted when the callback revived from the identity provider
 type BackchannelLogout struct {
 	UserID    string `json:"userid"`

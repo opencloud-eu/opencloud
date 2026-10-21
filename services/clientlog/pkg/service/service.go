@@ -172,6 +172,9 @@ func (cl *ClientlogService) processEvent(event events.Event) {
 		fileEv("file-unlocked", e.Ref)
 	case events.FileTouched:
 		fileEv("file-touched", e.Ref)
+	case events.ArbitraryMetadataChanged:
+		evType = "item-metadata-changed"
+		users, data, err = processMetadataEvent(ctx, e, gwc, cl.log, event.InitiatorID)
 	case events.LabelAdded:
 		labelEv("item-favorite-added", e.Ref, e.UserID)
 	case events.LabelRemoved:
@@ -267,6 +270,12 @@ func processFileEvent(ctx context.Context, ref *provider.Reference, gwc gateway.
 	}
 
 	return addShareRecipients(ctx, gwc, logger, users, info), data, nil
+}
+
+// process metadata events like file events, additionally carrying the affected keys
+func processMetadataEvent(ctx context.Context, e events.ArbitraryMetadataChanged, gwc gateway.GatewayAPIClient, logger log.Logger, initiatorid string) ([]string, MetadataEvent, error) {
+	users, data, err := processFileEvent(ctx, e.Ref, gwc, logger, initiatorid)
+	return users, MetadataEvent{FileEvent: data, ChangedKeys: e.ChangedKeys, RemovedKeys: e.RemovedKeys}, err
 }
 
 // process move events, additionally notifying the share recipients of the old location
