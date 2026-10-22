@@ -2,10 +2,12 @@ package opensearch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/opensearch-project/opensearch-go/v4"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
@@ -17,6 +19,8 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/aggs"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/convert"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
@@ -80,6 +84,12 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 		return nil, fmt.Errorf("failed to convert KQL query to OpenSearch bool query: %w", err)
 	}
 
+	filters, err := aggregationFilterQueries(sir.GetAggregationFilters())
+	if err != nil {
+		return nil, errtypes.BadRequest(err.Error())
+	}
+	boolQuery.Filter(filters...)
+
 	// filter out deleted resources
 	boolQuery.Filter(
 		osu.NewTermQuery[bool]("Deleted").Value(false),
@@ -109,17 +119,24 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 		}
 	}
 
-	searchParams := opensearchgoAPI.SearchParams{
-		SourceExcludes: []string{"Content"}, // Do not send back the full content in the search response, as it is only needed for highlighting and can be large. The highlighted snippets will be sent back in the response instead.
+	size, err := search.EnginePageSize(sir.PageSize, 1000)
+	if err != nil {
+		return nil, err
 	}
 
-	switch {
-	case sir.PageSize == -1:
-		searchParams.Size = conversions.ToPointer(1000)
-	case sir.PageSize == 0:
-		searchParams.Size = conversions.ToPointer(200)
-	default:
-		searchParams.Size = conversions.ToPointer(int(sir.PageSize))
+	searchParams := opensearchgoAPI.SearchParams{
+		SourceExcludes: []string{"Content"}, // Do not send back the full content in the search response, as it is only needed for highlighting and can be large. The highlighted snippets will be sent back in the response instead.
+		// ties by id, like the cross-space merge
+		Sort:        []string{"_score:desc", "ID:asc"},
+		TrackScores: conversions.ToPointer(true),
+		// count every match, the default stops at 10000
+		TrackTotalHits: true,
+		Size:           conversions.ToPointer(size),
+	}
+
+	aggregationsBody, err := aggs.Build(sir.GetAggregations())
+	if err != nil {
+		return nil, errtypes.BadRequest(err.Error())
 	}
 
 	req, err := osu.BuildSearchReq(&opensearchgoAPI.SearchReq{
@@ -140,6 +157,7 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 					},
 				},
 			},
+			Aggs: aggregationsBody,
 		},
 	)
 	if err != nil {
@@ -147,7 +165,10 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 	}
 
 	resp, err := b.client.Search(ctx, req)
-	if err != nil {
+	switch {
+	case tooManyBuckets(err):
+		return nil, errtypes.BadRequest(aggregation.ErrTooManyBuckets.Error())
+	case err != nil:
 		return nil, fmt.Errorf("failed to search: %w", err)
 	}
 
@@ -162,10 +183,38 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 		matches = append(matches, match)
 	}
 
+	aggregations, err := aggs.Parse(sir.GetAggregations(), resp.Aggregations)
+	if err == nil {
+		err = aggregation.CheckBuckets(aggregations)
+	}
+	switch {
+	case errors.Is(err, aggregation.ErrTooManyBuckets):
+		return nil, errtypes.BadRequest(err.Error())
+	case err != nil:
+		return nil, fmt.Errorf("failed to parse aggregations: %w", err)
+	}
+
 	return &searchService.SearchIndexResponse{
 		Matches:      matches,
 		TotalMatches: int32(totalMatches),
+		Aggregations: aggregations,
 	}, nil
+}
+
+// tooManyBuckets tells whether OpenSearch refused the aggregations for their
+// bucket count (search.max_buckets); the cause sits below the search phase
+// error.
+func tooManyBuckets(err error) bool {
+	var structErr *opensearch.StructError
+	if !errors.As(err, &structErr) {
+		return false
+	}
+	for cause := structErr.Err.CausedBy; cause != nil; cause = cause.CausedBy {
+		if cause.Type == "too_many_buckets_exception" {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *Backend) DocCount() (uint64, error) {

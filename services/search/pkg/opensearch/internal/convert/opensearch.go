@@ -11,19 +11,9 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
-
-// copyFacet converts a typed pointer from the indexed shape (libregraph) to
-// the protobuf shape via conversions.To. Returns nil when src is nil so the
-// enclosing Match.Entity field stays nil.
-func copyFacet[Dst, Src any](src *Src) *Dst {
-	if src == nil {
-		return nil
-	}
-	dst, _ := conversions.To[*Dst](src)
-	return dst
-}
 
 func OpenSearchHitToMatch(hit opensearchgoAPI.SearchHit) (*searchMessage.Match, error) {
 	resource, err := conversions.To[search.Resource](hit.Source)
@@ -79,13 +69,13 @@ func OpenSearchHitToMatch(hit opensearchgoAPI.SearchHit) (*searchMessage.Match, 
 
 				return strings.Join(contentHighlights[:], "; ")
 			}(),
-			Audio:       copyFacet[searchMessage.Audio](resource.Audio),
-			Image:       copyFacet[searchMessage.Image](resource.Image),
-			Location:    copyFacet[searchMessage.GeoCoordinates](resource.Location),
-			Photo:       copyFacet[searchMessage.Photo](resource.Photo),
-			Video:       copyFacet[searchMessage.Video](resource.Video),
-			MotionPhoto: copyFacet[searchMessage.MotionPhoto](resource.MotionPhoto),
-			LivePhoto:   copyFacet[searchMessage.LivePhoto](resource.LivePhoto),
+			Audio:       mapping.ToProto[searchMessage.Audio](resource.Audio),
+			Image:       mapping.ToProto[searchMessage.Image](resource.Image),
+			Location:    mapping.ToProto[searchMessage.GeoCoordinates](resource.Location),
+			Photo:       mapping.ToProto[searchMessage.Photo](resource.Photo),
+			Video:       mapping.ToProto[searchMessage.Video](resource.Video),
+			MotionPhoto: mapping.ToProto[searchMessage.MotionPhoto](resource.MotionPhoto),
+			LivePhoto:   mapping.ToProto[searchMessage.LivePhoto](resource.LivePhoto),
 		},
 	}
 

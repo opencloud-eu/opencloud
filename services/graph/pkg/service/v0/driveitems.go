@@ -500,6 +500,15 @@ func cs3TimestampToTime(t *types.Timestamp) time.Time {
 	return time.Unix(int64(t.GetSeconds()), int64(t.GetNanos()))
 }
 
+func webURLForID(publicBaseURL *url.URL, id string) *string {
+	if publicBaseURL == nil {
+		return nil
+	}
+	u := *publicBaseURL
+	u.Path = path.Join(u.Path, "f", id)
+	return libregraph.PtrString(u.String())
+}
+
 func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *storageprovider.ResourceInfo) (*libregraph.DriveItem, error) {
 	size := new(int64)
 	*size = int64(res.GetSize()) // TODO lurking overflow: make size of libregraph drive item use uint64
@@ -509,9 +518,7 @@ func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *sto
 		Size: size,
 	}
 
-	webURL := *publicBaseURL
-	webURL.Path = path.Join(webURL.Path, "f", storagespace.FormatResourceID(res.GetId()))
-	driveItem.WebUrl = libregraph.PtrString(webURL.String())
+	driveItem.WebUrl = webURLForID(publicBaseURL, storagespace.FormatResourceID(res.GetId()))
 
 	if name := path.Base(res.GetPath()); name != "" {
 		driveItem.Name = &name
