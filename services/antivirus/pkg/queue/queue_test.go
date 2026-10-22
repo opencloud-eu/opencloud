@@ -21,6 +21,115 @@ import (
 	revaevents "github.com/opencloud-eu/reva/v2/pkg/events"
 )
 
+func startTestNATS(t *testing.T) (*server.Server, *nats.Conn) {
+	t.Helper()
+	natsServer, err := server.NewServer(&server.Options{
+		Host:      "127.0.0.1",
+		Port:      -1,
+		JetStream: true,
+		StoreDir:  t.TempDir(),
+		NoSigs:    true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	go natsServer.Start()
+	t.Cleanup(natsServer.Shutdown)
+	if !natsServer.ReadyForConnections(10 * time.Second) {
+		t.Fatal("embedded NATS server did not become ready")
+	}
+	conn, err := nats.Connect(natsServer.ClientURL())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(conn.Close)
+	return natsServer, conn
+}
+
+func testQueueConfig(endpoint string) *config.Config {
+	return &config.Config{
+		Service:                     config.Service{Name: "antivirus-test"},
+		Events:                      config.Events{Endpoint: endpoint},
+		Workers:                     10,
+		QueueIntakeWorkers:          10,
+		HighPriorityReservedWorkers: 1,
+		PriorityEnabled:             true,
+		PriorityThreshold:           2,
+		PriorityWindow:              100 * time.Millisecond,
+		PriorityCooldown:            time.Minute,
+		PriorityMaxOutstandingJobs:  1000,
+		PriorityMaxOutstandingBytes: "1GB",
+		QueueAckWait:                5 * time.Second,
+		QueueReplicas:               1,
+	}
+}
+
+func publishStartEvent(t *testing.T, js nats.JetStreamContext, eventID, uploadID, userName string, filesize uint64) {
+	t.Helper()
+	start := revaevents.StartPostprocessingStep{
+		UploadID:      uploadID,
+		ExecutingUser: &user.User{Id: &user.UserId{Idp: "test", OpaqueId: userName}},
+		ResourceID:    &provider.ResourceId{StorageId: "test-storage", SpaceId: "test-space", OpaqueId: uploadID},
+		Filename:      uploadID + ".xlsx",
+		Filesize:      filesize,
+		StepToStart:   revaevents.PPStepAntivirus,
+	}
+	payload, err := json.Marshal(start)
+	if err != nil {
+		t.Fatal(err)
+	}
+	envelope, err := json.Marshal(microevents.Event{
+		ID:        eventID,
+		Topic:     revaevents.MainQueueName,
+		Timestamp: time.Now().UTC(),
+		Metadata: map[string]string{
+			revaevents.MetadatakeyEventType: reflect.TypeFor[revaevents.StartPostprocessingStep]().String(),
+			revaevents.MetadatakeyEventID:   eventID,
+		},
+		Payload: payload,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := js.Publish(revaevents.MainQueueName, envelope); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func waitForOutstanding(t *testing.T, q *Queue, want uint64) {
+	t.Helper()
+	ctx := context.Background()
+	// Use dedicated consumer handles: nats.go Consumer.Info mutates per-handle
+	// state and the monitor goroutine uses the queue's own handles.
+	high, err := q.js.Consumer(ctx, jobStream, highConsumer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	low, err := q.js.Consumer(ctx, jobStream, lowConsumer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		highInfo, err := high.Info(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		lowInfo, err := low.Info(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		outstanding := highInfo.NumPending + uint64(highInfo.NumAckPending) + lowInfo.NumPending + uint64(lowInfo.NumAckPending)
+		if outstanding == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("priority consumers have %d outstanding jobs, want %d", outstanding, want)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 func TestOpenWaitsForNATSConnectionUntilContextCancellation(t *testing.T) {
 	cfg := defaults.FullDefaultConfig()
 	cfg.Events.Endpoint = "nats://127.0.0.1:1"
@@ -44,40 +153,18 @@ func TestQueueClassifiesHeavyUserAndAlwaysSelectsHighFirst(t *testing.T) {
 		}
 	}
 
-	natsServer, err := server.NewServer(&server.Options{
-		Host:      "127.0.0.1",
-		Port:      -1,
-		JetStream: true,
-		StoreDir:  t.TempDir(),
-		NoSigs:    true,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	go natsServer.Start()
-	t.Cleanup(natsServer.Shutdown)
-	if !natsServer.ReadyForConnections(10 * time.Second) {
-		t.Fatal("embedded NATS server did not become ready")
-	}
-
-	cfg := &config.Config{
-		Service:                     config.Service{Name: "antivirus-test"},
-		Events:                      config.Events{Endpoint: natsServer.ClientURL()},
-		Workers:                     10,
-		QueueIntakeWorkers:          10,
-		HighPriorityReservedWorkers: 1,
-		PriorityThreshold:           2,
-		PriorityWindow:              100 * time.Millisecond,
-		PriorityCooldown:            time.Minute,
-		QueueAckWait:                5 * time.Second,
-		QueueReplicas:               1,
-	}
+	natsServer, publisher := startTestNATS(t)
+	_ = natsServer
+	cfg := testQueueConfig(publisher.ConnectedUrl())
 	q, err := Open(ctx, cfg, reportError)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(q.Close)
-	replicaConnection, err := nats.Connect(natsServer.ClientURL())
+
+	// The classifier state is shared through JetStream KV, so a second replica
+	// must see the same per-user budget.
+	replicaConnection, err := nats.Connect(publisher.ConnectedUrl())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,140 +177,48 @@ func TestQueueClassifiesHeavyUserAndAlwaysSelectsHighFirst(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	secondReplicaClassifier := newClassifier(sharedRateStore, cfg.PriorityThreshold, cfg.PriorityWindow, cfg.PriorityCooldown)
+	secondReplicaClassifier := newClassifier(sharedRateStore, cfg.PriorityThreshold, cfg.PriorityWindow, cfg.PriorityCooldown, int64(cfg.PriorityMaxOutstandingJobs), 1<<30, true)
 	classifyAt := time.Now().UTC()
-	if priority, err := q.classifier.Classify(ctx, "shared-classifier-user", "classify-1", classifyAt, classifyAt); err != nil || priority != PriorityHigh {
+	if priority, err := q.classifier.Classify(ctx, "shared-classifier-user", "classify-1", classifyAt, classifyAt, 1); err != nil || priority != PriorityHigh {
 		t.Fatalf("first replica classification = %q, err=%v; want high", priority, err)
 	}
-	if priority, err := secondReplicaClassifier.Classify(ctx, "shared-classifier-user", "classify-2", classifyAt.Add(10*time.Millisecond), classifyAt.Add(10*time.Millisecond)); err != nil || priority != PriorityHigh {
+	if priority, err := secondReplicaClassifier.Classify(ctx, "shared-classifier-user", "classify-2", classifyAt.Add(10*time.Millisecond), classifyAt.Add(10*time.Millisecond), 1); err != nil || priority != PriorityHigh {
 		t.Fatalf("second replica classification = %q, err=%v; want high", priority, err)
 	}
-	if priority, err := q.classifier.Classify(ctx, "shared-classifier-user", "classify-3", classifyAt.Add(20*time.Millisecond), classifyAt.Add(20*time.Millisecond)); err != nil || priority != PriorityLow {
+	if priority, err := q.classifier.Classify(ctx, "shared-classifier-user", "classify-3", classifyAt.Add(20*time.Millisecond), classifyAt.Add(20*time.Millisecond), 1); err != nil || priority != PriorityLow {
 		t.Fatalf("shared rate classification = %q, err=%v; want low", priority, err)
 	}
-	if priority, err := q.classifier.Classify(ctx, "shared-classifier-user", "classify-1", classifyAt, classifyAt.Add(30*time.Millisecond)); err != nil || priority != PriorityHigh {
+	if priority, err := q.classifier.Classify(ctx, "shared-classifier-user", "classify-1", classifyAt, classifyAt.Add(30*time.Millisecond), 1); err != nil || priority != PriorityHigh {
 		t.Fatalf("redelivered event classification = %q, err=%v; want its original high classification", priority, err)
 	}
 
-	publisher, err := nats.Connect(natsServer.ClientURL())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(publisher.Close)
 	js, err := publisher.JetStream()
 	if err != nil {
 		t.Fatal(err)
 	}
-	startedAt := time.Now().UTC()
 	for _, upload := range []struct {
-		id         string
-		user       string
-		resourceID string
+		id   string
+		user string
 	}{
-		{id: "alice-1", user: "alice", resourceID: "shared-sheet"},
-		{id: "alice-2", user: "alice", resourceID: "shared-sheet"},
-		{id: "alice-3", user: "alice", resourceID: "shared-sheet"},
-		{id: "bob-1", user: "bob", resourceID: "bob-file"},
-		{id: "bob-2", user: "bob", resourceID: "shared-sheet"},
+		{id: "alice-1", user: "alice"},
+		{id: "alice-2", user: "alice"},
+		{id: "alice-3", user: "alice"},
+		{id: "bob-1", user: "bob"},
+		{id: "bob-2", user: "bob"},
 	} {
-		start := revaevents.StartPostprocessingStep{
-			UploadID:      upload.id,
-			ExecutingUser: &user.User{Id: &user.UserId{Idp: "test", OpaqueId: upload.user}},
-			ResourceID:    &provider.ResourceId{StorageId: "test-storage", SpaceId: "test-space", OpaqueId: upload.resourceID},
-			Filename:      upload.id + ".xlsx",
-			StepToStart:   revaevents.PPStepAntivirus,
-		}
-		payload, err := json.Marshal(start)
-		if err != nil {
-			t.Fatal(err)
-		}
-		eventID := "event-" + upload.id
-		envelope, err := json.Marshal(microevents.Event{
-			ID:        eventID,
-			Topic:     revaevents.MainQueueName,
-			Timestamp: startedAt,
-			Metadata: map[string]string{
-				revaevents.MetadatakeyEventType: reflect.TypeOf(revaevents.StartPostprocessingStep{}).String(),
-				revaevents.MetadatakeyEventID:   eventID,
-			},
-			Payload: payload,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := js.Publish(revaevents.MainQueueName, envelope); err != nil {
-			t.Fatal(err)
-		}
+		publishStartEvent(t, js, "event-"+upload.id, upload.id, upload.user, 1024)
 	}
-
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		highInfo, err := q.high.Info(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		lowInfo, err := q.low.Info(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		outstanding := highInfo.NumPending + uint64(highInfo.NumAckPending) + lowInfo.NumPending + uint64(lowInfo.NumAckPending)
-		if outstanding == 5 {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("priority consumers have %d outstanding jobs, want 5", outstanding)
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	time.Sleep(150 * time.Millisecond) // Allow the rate window to close before workers dispatch jobs.
+	waitForOutstanding(t, q, 5)
+	time.Sleep(150 * time.Millisecond) // Let the rate window close before workers dispatch jobs.
 
 	gotHighByUser := map[string]int{}
 	gotLowByUser := map[string]int{}
-	var selectedUploads []string
-	publishUploadReady := func(uploadID string) {
-		readyID := "ready-" + uploadID
-		payload, err := json.Marshal(revaevents.UploadReady{UploadID: uploadID})
-		if err != nil {
-			t.Fatal(err)
-		}
-		envelope, err := json.Marshal(microevents.Event{
-			ID:        readyID,
-			Topic:     revaevents.MainQueueName,
-			Timestamp: time.Now().UTC(),
-			Metadata: map[string]string{
-				revaevents.MetadatakeyEventType: reflect.TypeOf(revaevents.UploadReady{}).String(),
-				revaevents.MetadatakeyEventID:   readyID,
-			},
-			Payload: payload,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := js.Publish(revaevents.MainQueueName, envelope); err != nil {
-			t.Fatal(err)
-		}
-		deadline := time.Now().Add(5 * time.Second)
-		for {
-			_, err := q.resourceOrder.store.Get(ctx, uploadOrderKey(uploadID))
-			if errors.Is(err, jetstream.ErrKeyNotFound) {
-				return
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-			if time.Now().After(deadline) {
-				t.Fatalf("UploadReady did not release the resource queue for %q", uploadID)
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-	}
 	for i := 0; i < 5; i++ {
 		lease, err := q.Next(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
 		userID := lease.Job.Event.ExecutingUser.GetId().GetOpaqueId()
-		selectedUploads = append(selectedUploads, lease.Job.Event.UploadID)
 		if lease.Job.Priority == PriorityHigh {
 			gotHighByUser[userID]++
 		} else {
@@ -232,16 +227,9 @@ func TestQueueClassifiesHeavyUserAndAlwaysSelectsHighFirst(t *testing.T) {
 		if err := lease.Ack(); err != nil {
 			t.Fatal(fmt.Errorf("ack %s: %w", lease.Job.Event.UploadID, err))
 		}
-		publishUploadReady(lease.Job.Event.UploadID)
 	}
 	if gotHighByUser["alice"] != 0 || gotHighByUser["bob"] != 2 || gotLowByUser["alice"] != 3 {
 		t.Fatalf("priority jobs by user: high=%v low=%v, want bob high and all alice jobs low", gotHighByUser, gotLowByUser)
-	}
-	wantUploads := []string{"bob-1", "alice-1", "alice-2", "alice-3", "bob-2"}
-	for index := range wantUploads {
-		if selectedUploads[index] != wantUploads[index] {
-			t.Fatalf("scan order = %v, want %v (preserve same-resource FIFO)", selectedUploads, wantUploads)
-		}
 	}
 
 	finished := revaevents.PostprocessingStepFinished{
@@ -263,9 +251,10 @@ func TestQueueClassifiesHeavyUserAndAlwaysSelectsHighFirst(t *testing.T) {
 	if mainInfo.Config.Duplicates < duplicateWindow {
 		t.Fatalf("main event stream duplicate window = %s, want at least %s", mainInfo.Config.Duplicates, duplicateWindow)
 	}
-	if got, want := mainInfo.State.Msgs, uint64(11); got != want {
+	if got, want := mainInfo.State.Msgs, uint64(6); got != want {
 		t.Fatalf("main stream contains %d messages after completions, want %d", got, want)
 	}
+
 	lowJob := Job{
 		ID:         "low-only-job",
 		Priority:   PriorityLow,
@@ -289,75 +278,11 @@ func TestQueueClassifiesHeavyUserAndAlwaysSelectsHighFirst(t *testing.T) {
 	if err := lease.Ack(); err != nil {
 		t.Fatal(err)
 	}
-	retryResource := classifierKey("resource-order-retry-test")
-	if err := q.resourceOrder.Register(ctx, retryResource, "attempt-1", "retry-upload", 100); err != nil {
-		t.Fatal(err)
-	}
-	if err := q.resourceOrder.Register(ctx, retryResource, "later-upload", "later-upload", 101); err != nil {
-		t.Fatal(err)
-	}
-	if err := q.resourceOrder.Register(ctx, retryResource, "attempt-2", "retry-upload", 200); err != nil {
-		t.Fatal(err)
-	}
-	retryJob := Job{ID: "attempt-2", ResourceKey: retryResource, SourceSequence: 200, Event: revaevents.StartPostprocessingStep{UploadID: "retry-upload"}}
-	claim, token, err := q.resourceOrder.Claim(ctx, retryJob)
-	if err != nil || claim != resourceReady || token == "" {
-		t.Fatalf("retry claim = (%v, %q, %v), want ready with a lease", claim, token, err)
-	}
-	laterJob := Job{ID: "later-upload", ResourceKey: retryResource, SourceSequence: 101, Event: revaevents.StartPostprocessingStep{UploadID: "later-upload"}}
-	claim, _, err = q.resourceOrder.Claim(ctx, laterJob)
-	if err != nil || claim != resourceBlocked {
-		t.Fatalf("later resource claim = (%v, %v), want blocked behind retry", claim, err)
-	}
-	if err := q.resourceOrder.Release(ctx, retryJob, token); err != nil {
-		t.Fatal(err)
-	}
-	finalRetry := Job{ID: "attempt-3", ResourceKey: retryResource, SourceSequence: 300, Event: revaevents.StartPostprocessingStep{UploadID: "retry-upload"}}
-	if err := q.resourceOrder.Register(ctx, retryResource, finalRetry.ID, finalRetry.Event.UploadID, finalRetry.SourceSequence); err != nil {
-		t.Fatal(err)
-	}
-	claim, token, err = q.resourceOrder.Claim(ctx, finalRetry)
-	if err != nil || claim != resourceReady || token == "" {
-		t.Fatalf("final retry claim = (%v, %q, %v), want ready", claim, token, err)
-	}
-	if err := q.resourceOrder.FinishUpload(ctx, finalRetry.Event.UploadID); err != nil {
-		t.Fatal(err)
-	}
-	claim, token, err = q.resourceOrder.Claim(ctx, laterJob)
-	if err != nil || claim != resourceReady || token == "" {
-		t.Fatalf("later resource claim after retry = (%v, %q, %v), want ready", claim, token, err)
-	}
-	if err := q.resourceOrder.Complete(ctx, laterJob, token); err != nil {
-		t.Fatal(err)
-	}
 
-	contextJob := Job{
-		ID:          "context-cancel-job",
-		ResourceKey: classifierKey("context-cancel-resource"),
-		Priority:    PriorityLow,
-		EnqueuedAt:  time.Now().UTC(),
-	}
-	if err := q.resourceOrder.Register(ctx, contextJob.ResourceKey, contextJob.ID, "", 0); err != nil {
-		t.Fatal(err)
-	}
-	if err := q.enqueue(ctx, contextJob); err != nil {
-		t.Fatal(err)
-	}
-	var contextLease *Lease
-	deadline = time.Now().Add(5 * time.Second)
-	for contextLease == nil {
-		select {
-		case contextLease = <-q.lowReady:
-		case <-time.After(10 * time.Millisecond):
-			if time.Now().After(deadline) {
-				t.Fatal("timed out waiting for context-check job")
-			}
-		}
-	}
 	canceledCtx, cancelContext := context.WithCancel(ctx)
 	cancelContext()
-	if _, _, err := q.claimResource(canceledCtx, contextLease); !errors.Is(err, context.Canceled) {
-		t.Fatalf("resource claim error = %v, want canceled caller context", err)
+	if lease, err := q.Next(canceledCtx); lease != nil || !errors.Is(err, context.Canceled) {
+		t.Fatalf("Next with canceled context = (%v, %v), want context.Canceled", lease, err)
 	}
 
 	q.Close()
@@ -365,5 +290,147 @@ func TestQueueClassifiesHeavyUserAndAlwaysSelectsHighFirst(t *testing.T) {
 	case err := <-callbackErrors:
 		t.Errorf("queue callback reported an error: %v", err)
 	default:
+	}
+}
+
+func TestQueueDemotesSlowBulkUploadByOutstandingBacklog(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	natsServer, publisher := startTestNATS(t)
+	_ = natsServer
+	cfg := testQueueConfig(publisher.ConnectedUrl())
+	cfg.PriorityThreshold = 1000
+	cfg.PriorityMaxOutstandingJobs = 2
+	cfg.PriorityMaxOutstandingBytes = "1GB"
+	q, err := Open(ctx, cfg, func(err error) { t.Logf("queue error: %v", err) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(q.Close)
+
+	js, err := publisher.JetStream()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 4; i++ {
+		publishStartEvent(t, js, fmt.Sprintf("slow-%d", i), fmt.Sprintf("slow-upload-%d", i), "slow-user", 1024)
+	}
+	waitForOutstanding(t, q, 4)
+
+	high, low := 0, 0
+	for i := 0; i < 4; i++ {
+		lease, err := q.Next(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if lease.Job.Priority == PriorityHigh {
+			high++
+		} else {
+			low++
+		}
+		if err := lease.Ack(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if high != 0 || low != 4 {
+		t.Fatalf("slow bulk upload priorities: high=%d low=%d, want all jobs demoted once the backlog budget is exceeded", high, low)
+	}
+
+	// Once the backlog has drained the user is eligible for the high lane again.
+	publishStartEvent(t, js, "after-drain", "after-drain-upload", "slow-user", 1024)
+	waitForOutstanding(t, q, 1)
+	lease, err := q.Next(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lease.Job.Priority != PriorityHigh {
+		t.Fatalf("job after backlog drain priority = %q, want high", lease.Job.Priority)
+	}
+	if err := lease.Ack(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestQueueDemotesLargeUploadByOutstandingBytes(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	natsServer, publisher := startTestNATS(t)
+	_ = natsServer
+	cfg := testQueueConfig(publisher.ConnectedUrl())
+	cfg.PriorityThreshold = 1000
+	cfg.PriorityMaxOutstandingJobs = 1000
+	cfg.PriorityMaxOutstandingBytes = "1MB"
+	q, err := Open(ctx, cfg, func(err error) { t.Logf("queue error: %v", err) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(q.Close)
+
+	js, err := publisher.JetStream()
+	if err != nil {
+		t.Fatal(err)
+	}
+	publishStartEvent(t, js, "small", "small-upload", "size-user", 1024)
+	waitForOutstanding(t, q, 1)
+	smallLease, err := q.Next(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if smallLease.Job.Event.UploadID != "small-upload" || smallLease.Job.Priority != PriorityHigh {
+		t.Fatalf("small upload = (%q, %q), want (small-upload, high)", smallLease.Job.Event.UploadID, smallLease.Job.Priority)
+	}
+	if err := smallLease.Ack(); err != nil {
+		t.Fatal(err)
+	}
+
+	publishStartEvent(t, js, "large", "large-upload", "size-user", 2<<20)
+	waitForOutstanding(t, q, 1)
+	largeLease, err := q.Next(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if largeLease.Job.Event.UploadID != "large-upload" || largeLease.Job.Priority != PriorityLow {
+		t.Fatalf("large upload = (%q, %q), want (large-upload, low)", largeLease.Job.Event.UploadID, largeLease.Job.Priority)
+	}
+	if err := largeLease.Ack(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestQueuePriorityDisabledUsesHighLane(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	natsServer, publisher := startTestNATS(t)
+	_ = natsServer
+	cfg := testQueueConfig(publisher.ConnectedUrl())
+	cfg.PriorityEnabled = false
+	cfg.PriorityThreshold = 1
+	cfg.PriorityMaxOutstandingJobs = 1
+	q, err := Open(ctx, cfg, func(err error) { t.Logf("queue error: %v", err) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(q.Close)
+
+	js, err := publisher.JetStream()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		publishStartEvent(t, js, fmt.Sprintf("disabled-%d", i), fmt.Sprintf("disabled-upload-%d", i), "disabled-user", 2<<30)
+	}
+	waitForOutstanding(t, q, 3)
+
+	for i := 0; i < 3; i++ {
+		lease, err := q.Next(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if lease.Job.Priority != PriorityHigh {
+			t.Fatalf("disabled priority mode returned %q, want high", lease.Job.Priority)
+		}
+		if err := lease.Ack(); err != nil {
+			t.Fatal(err)
+		}
 	}
 }

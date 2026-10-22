@@ -176,6 +176,9 @@ func (av Antivirus) processLease(ctx context.Context, q *queue.Queue, lease *que
 	av.log.Info().Str("traceID", span.SpanContext().TraceID().String()).Msg("TraceID")
 
 	// Keep the JetStream lease alive for scans that take longer than AckWait.
+	// The heartbeat deliberately ignores context cancellation: a scan that is
+	// already running should finish and publish its result during shutdown
+	// instead of being redelivered and scanned a second time.
 	heartbeatDone := make(chan struct{})
 	heartbeatStopped := make(chan struct{})
 	leaseLost := new(atomic.Bool)
@@ -190,8 +193,6 @@ func (av Antivirus) processLease(ctx context.Context, q *queue.Queue, lease *que
 		for {
 			select {
 			case <-heartbeatDone:
-				return
-			case <-ctx.Done():
 				return
 			case <-ticker.C:
 				if err := lease.InProgress(); err != nil {
@@ -208,22 +209,16 @@ func (av Antivirus) processLease(ctx context.Context, q *queue.Queue, lease *que
 
 	ev := job.Event
 	av.log.Debug().Str("uploadid", ev.UploadID).Str("priority", string(job.Priority)).Dur("queue_wait", time.Since(job.EnqueuedAt)).Msg("Starting virus scan")
-	validateLease := func() error {
-		if leaseLost.Load() {
-			return errors.New("antivirus job lease was lost while scanning")
-		}
-		if err := lease.Validate(ctx); err != nil {
-			return fmt.Errorf("validate antivirus job lease: %w", err)
-		}
-		return nil
-	}
 
 	if av.config.DebugScanOutcome != "" {
 		av.log.Warn().Str("antivir, clamav", ">>>>>>> ANTIVIRUS_DEBUG_SCAN_OUTCOME IS SET NO ACTUAL VIRUS SCAN IS PERFORMED!").Send()
-		if err := validateLease(); err != nil {
-			return err
+		if leaseLost.Load() {
+			return errors.New("antivirus job lease was lost while scanning")
 		}
-		if err := q.PublishFinished(ctx, job, events.PostprocessingStepFinished{
+		// Use a context that survives service shutdown so a finished scan is not
+		// discarded and rescanned after a restart.
+		publishCtx := context.WithoutCancel(ctx)
+		if err := q.PublishFinished(publishCtx, job, events.PostprocessingStepFinished{
 			FinishedStep:  events.PPStepAntivirus,
 			Outcome:       events.PostprocessingOutcome(av.config.DebugScanOutcome),
 			UploadID:      ev.UploadID,
@@ -249,8 +244,8 @@ func (av Antivirus) processLease(ctx context.Context, q *queue.Queue, lease *que
 		errmsg = err.Error()
 	}
 	duration := time.Since(start)
-	if err := validateLease(); err != nil {
-		return err
+	if leaseLost.Load() {
+		return errors.New("antivirus job lease was lost while scanning")
 	}
 
 	var outcome events.PostprocessingOutcome
@@ -266,7 +261,8 @@ func (av Antivirus) processLease(ctx context.Context, q *queue.Queue, lease *que
 		outcome = events.PPOutcomeAbort
 	}
 	av.log.Info().Str("uploadid", ev.UploadID).Interface("resourceID", ev.ResourceID).Str("virus", res.Description).Str("outcome", string(outcome)).Str("filename", ev.Filename).Str("user", ev.ExecutingUser.GetId().GetOpaqueId()).Bool("infected", res.Infected).Dur("duration", duration).Msg("File scanned")
-	if err := q.PublishFinished(ctx, job, events.PostprocessingStepFinished{
+	publishCtx := context.WithoutCancel(ctx)
+	if err := q.PublishFinished(publishCtx, job, events.PostprocessingStepFinished{
 		FinishedStep:  events.PPStepAntivirus,
 		Outcome:       outcome,
 		UploadID:      ev.UploadID,

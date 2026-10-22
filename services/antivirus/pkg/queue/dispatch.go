@@ -14,6 +14,8 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 )
 
+// Next returns a high-priority job whenever one is available. Low-priority
+// work is only selected when the local high-priority lane is empty.
 func (q *Queue) Next(ctx context.Context) (*Lease, error) {
 	for {
 		if err := ctx.Err(); err != nil {
@@ -32,24 +34,6 @@ func (q *Queue) Next(ctx context.Context) (*Lease, error) {
 			return ready, nil
 		default:
 		}
-		if q.highPriorityPending() {
-			select {
-			case lease := <-q.highReady:
-				ready, handled, err := q.claimHigh(ctx, lease)
-				if err != nil {
-					return nil, err
-				}
-				if handled {
-					continue
-				}
-				q.recordClaim(ready)
-				return ready, nil
-			case <-time.After(consumerPollWait):
-				continue
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			}
-		}
 		select {
 		case lease := <-q.highReady:
 			ready, handled, err := q.claimHigh(ctx, lease)
@@ -62,23 +46,12 @@ func (q *Queue) Next(ctx context.Context) (*Lease, error) {
 			q.recordClaim(ready)
 			return ready, nil
 		case lease := <-q.lowReady:
-			ready, handled, claimErr := q.claimResource(ctx, lease)
-			if claimErr != nil {
-				return nil, claimErr
-			}
-			if handled {
-				continue
-			}
-			q.recordClaim(ready)
-			return ready, nil
+			q.recordClaim(lease)
+			return lease, nil
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
 	}
-}
-
-func (q *Queue) highPriorityPending() bool {
-	return len(q.highReady) > 0 || q.highPending.Load()
 }
 
 // NextHighPriority is used by reserved workers that must never start a
@@ -106,16 +79,13 @@ func (q *Queue) NextHighPriority(ctx context.Context) (*Lease, error) {
 	}
 }
 
+// claimHigh returns (lease, false, nil) when the job may run, or
+// (nil, true, nil) when the user turned out to be a heavy uploader and the job
+// was moved to the low-priority lane.
 func (q *Queue) claimHigh(ctx context.Context, lease *Lease) (*Lease, bool, error) {
-	if !lease.Job.EnqueuedAt.IsZero() {
-		if delay := time.Until(lease.Job.EnqueuedAt.Add(q.priorityWindow)); delay > 0 {
-			if err := lease.NakWithDelay(delay); err != nil {
-				return nil, false, fmt.Errorf("defer antivirus job until its rate window closes: %w", err)
-			}
-			return nil, true, nil
-		}
+	if !q.priorityEnabled {
+		return lease, false, nil
 	}
-
 	priority, err := q.classifier.CurrentPriority(ctx, userIdentity(lease.Job.Event.ExecutingUser), time.Now())
 	if err != nil {
 		_ = lease.NakWithDelay(inputRetryDelay)
@@ -128,50 +98,32 @@ func (q *Queue) claimHigh(ctx context.Context, lease *Lease) (*Lease, bool, erro
 			_ = lease.NakWithDelay(inputRetryDelay)
 			return nil, false, err
 		}
-		if err := lease.Ack(); err != nil {
+		q.metrics.JobsDemoted.WithLabelValues(string(PriorityHigh)).Inc()
+		if err := lease.ackRaw(); err != nil {
 			q.report(fmt.Errorf("acknowledge demoted antivirus job: %w", err))
 		}
 		return nil, true, nil
 	}
-	ready, handled, err := q.claimResource(ctx, lease)
-	return ready, handled, err
+	return lease, false, nil
 }
 
 func (q *Queue) recordClaim(lease *Lease) {
+	if lease.Job.EnqueuedAt.IsZero() {
+		return
+	}
 	q.metrics.QueueWait.WithLabelValues(string(lease.Job.Priority)).Observe(time.Since(lease.Job.EnqueuedAt).Seconds())
 }
 
-func (q *Queue) claimResource(ctx context.Context, lease *Lease) (*Lease, bool, error) {
-	if lease.Job.ResourceKey != "" && lease.Job.SourceSequence > 0 {
-		if q.inputAckFloor.Load() < lease.Job.SourceSequence {
-			if err := lease.NakWithDelay(resourceBlockedWait); err != nil {
-				return nil, false, err
-			}
-			return nil, true, nil
-		}
+// finishOutstanding removes a finished scan from the per-user backlog
+// accounting. Failures are reported but never block the acknowledgement.
+func (q *Queue) finishOutstanding(job Job) {
+	if q.classifier == nil || !q.classifier.enabled {
+		return
 	}
-	claim, token, err := q.resourceOrder.Claim(ctx, lease.Job)
-	if err != nil {
-		_ = lease.NakWithDelay(inputRetryDelay)
-		return nil, false, err
-	}
-	switch claim {
-	case resourceBlocked:
-		if err := lease.NakWithDelay(resourceBlockedWait); err != nil {
-			return nil, false, err
-		}
-		return nil, true, nil
-	case resourceCompleted:
-		if err := lease.msg.Ack(); err != nil {
-			return nil, false, err
-		}
-		return nil, true, nil
-	default:
-		if token != "" {
-			lease.resourceOrder = q.resourceOrder
-			lease.resourceToken = token
-		}
-		return lease, false, nil
+	ctx, cancel := context.WithTimeout(context.Background(), classifierOpTimeout)
+	defer cancel()
+	if err := q.classifier.Complete(ctx, userIdentity(job.Event.ExecutingUser), job.Event.Filesize); err != nil {
+		q.report(fmt.Errorf("update antivirus rate state: %w", err))
 	}
 }
 
@@ -189,7 +141,7 @@ func (q *Queue) PublishFinished(ctx context.Context, job Job, ev revaevents.Post
 	initiatorID, _ := ctxpkg.ContextGetInitiator(ctx)
 	eventID := job.ID + "-finished"
 	metadata := map[string]string{
-		revaevents.MetadatakeyEventType:   reflect.TypeOf(ev).String(),
+		revaevents.MetadatakeyEventType:   reflect.TypeFor[revaevents.PostprocessingStepFinished]().String(),
 		revaevents.MetadatakeyEventID:     eventID,
 		revaevents.MetadatakeyTraceParent: carrier.Get("traceparent"),
 		revaevents.MetadatakeyInitiatorID: initiatorID,
@@ -232,6 +184,7 @@ func (q *Queue) reportMonitor(err error) {
 	q.report(err)
 }
 
+// AckWait returns the configured JetStream acknowledgement timeout.
 func (q *Queue) AckWait() time.Duration { return q.ackWait }
 
 // Close releases the input subscription and NATS connection.

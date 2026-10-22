@@ -33,3 +33,17 @@ func TestValidateRejectsQueueAckWaitBeyondDedupWindow(t *testing.T) {
 		t.Fatal("expected queue ack wait at or above the deduplication window to be rejected")
 	}
 }
+
+func TestValidateRejectsInvalidOutstandingBudgets(t *testing.T) {
+	cfg := defaults.FullDefaultConfig()
+	cfg.PriorityMaxOutstandingJobs = 0
+	if err := Validate(cfg); err == nil {
+		t.Fatal("expected a zero outstanding job budget to be rejected")
+	}
+
+	cfg = defaults.FullDefaultConfig()
+	cfg.PriorityMaxOutstandingBytes = "not-a-size"
+	if err := Validate(cfg); err == nil {
+		t.Fatal("expected an invalid outstanding byte budget to be rejected")
+	}
+}
