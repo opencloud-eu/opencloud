@@ -434,3 +434,17 @@ func TestQueuePriorityDisabledUsesHighLane(t *testing.T) {
 		}
 	}
 }
+
+func TestJobUnmarshalAcceptsLegacyCapitalizedFields(t *testing.T) {
+	legacy := []byte(`{"ID":"legacy-job","Event":{"UploadID":"legacy-upload","StepToStart":"virusscan"},"TraceParent":"00-abc","InitiatorID":"user-1","Priority":"high","EnqueuedAt":"2026-10-05T12:00:00Z","SourceSequence":42,"ResourceKey":"resource-key"}`)
+	var job Job
+	if err := json.Unmarshal(legacy, &job); err != nil {
+		t.Fatal(err)
+	}
+	if job.ID != "legacy-job" || job.Event.UploadID != "legacy-upload" || job.Priority != PriorityHigh || job.InitiatorID != "user-1" {
+		t.Fatalf("legacy job = %#v, want fields populated from capitalized keys", job)
+	}
+	if job.EnqueuedAt.IsZero() {
+		t.Fatal("legacy job EnqueuedAt was not populated")
+	}
+}

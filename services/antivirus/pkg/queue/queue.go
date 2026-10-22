@@ -4,6 +4,7 @@ package queue
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -46,6 +47,44 @@ type Job struct {
 	InitiatorID string                             `json:"initiator_id,omitempty"`
 	Priority    Priority                           `json:"priority"`
 	EnqueuedAt  time.Time                          `json:"enqueued_at"`
+}
+
+// UnmarshalJSON accepts the legacy capitalized job format that earlier
+// versions of the priority queue wrote, in addition to the current format.
+func (j *Job) UnmarshalJSON(data []byte) error {
+	var rawKeys map[string]json.RawMessage
+	if err := json.Unmarshal(data, &rawKeys); err != nil {
+		return err
+	}
+	if _, legacy := rawKeys["EnqueuedAt"]; legacy {
+		var legacyJob struct {
+			ID          string                             `json:"ID"`
+			Event       revaevents.StartPostprocessingStep `json:"Event"`
+			TraceParent string                             `json:"TraceParent"`
+			InitiatorID string                             `json:"InitiatorID"`
+			Priority    Priority                           `json:"Priority"`
+			EnqueuedAt  time.Time                          `json:"EnqueuedAt"`
+		}
+		if err := json.Unmarshal(data, &legacyJob); err != nil {
+			return err
+		}
+		*j = Job{
+			ID:          legacyJob.ID,
+			Event:       legacyJob.Event,
+			TraceParent: legacyJob.TraceParent,
+			InitiatorID: legacyJob.InitiatorID,
+			Priority:    legacyJob.Priority,
+			EnqueuedAt:  legacyJob.EnqueuedAt,
+		}
+		return nil
+	}
+	type jobAlias Job
+	var decoded jobAlias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	*j = Job(decoded)
+	return nil
 }
 
 // Lease is a claimed scan job. The message remains unacknowledged until the
