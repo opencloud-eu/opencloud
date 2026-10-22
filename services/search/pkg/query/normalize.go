@@ -36,6 +36,12 @@ func normalizeNodes(nodes []ast.Node, resolve func(string) string, defaultKey st
 		switch node := n.(type) {
 		case *ast.StringNode:
 			node.Key = resolveKey(node.Key)
+			if FieldIsPath(node.Key) {
+				node.Value = strings.TrimSuffix(node.Value, "/")
+				if node.Value == "" {
+					node.Value = "."
+				}
+			}
 			if FieldValueIsNormalized(node.Key) {
 				node.Value = strings.ToLower(node.Value)
 			}
