@@ -58,12 +58,12 @@ Antivirus requests are copied from the existing event stream into durable
 JetStream high- and low-priority queues. A user is moved to the low-priority
 lane when any of the following is true:
 
-  -   they submit more than `ANTIVIRUS_PRIORITY_THRESHOLD` scan requests inside
-      `ANTIVIRUS_PRIORITY_WINDOW` (more than 10 requests per second by default),
-  -   they have more than `ANTIVIRUS_PRIORITY_MAX_OUTSTANDING_JOBS` queued or
-      running scan requests (50 by default), or
-  -   their queued and running scan requests exceed
-      `ANTIVIRUS_PRIORITY_MAX_OUTSTANDING_BYTES` (5GB by default).
+- they submit more than `ANTIVIRUS_PRIORITY_THRESHOLD` scan requests inside
+  `ANTIVIRUS_PRIORITY_WINDOW` (more than 10 requests per second by default),
+- they have more than `ANTIVIRUS_PRIORITY_MAX_OUTSTANDING_JOBS` queued or
+  running scan requests (50 by default), or
+- their queued and running scan requests exceed
+  `ANTIVIRUS_PRIORITY_MAX_OUTSTANDING_BYTES` (5GB by default).
 
 The outstanding backlog limits catch bulk uploads that stay below the rate
 threshold, for example a few very large files or a long, slow sync. Once
@@ -110,25 +110,25 @@ a retry happens beyond that window.
 
 Configuration:
 
--   `ANTIVIRUS_PRIORITY_ENABLED` (default `true`): enable per-user
-    prioritization.
--   `ANTIVIRUS_PRIORITY_THRESHOLD` (default `10`): requests per user allowed
-    in the priority window before new requests are demoted.
--   `ANTIVIRUS_PRIORITY_WINDOW` (default `1s`): rolling rate window.
--   `ANTIVIRUS_PRIORITY_COOLDOWN` (default `30s`): low-priority cooldown.
--   `ANTIVIRUS_PRIORITY_MAX_OUTSTANDING_JOBS` (default `50`): queued or
-    running jobs per user before new jobs are demoted.
--   `ANTIVIRUS_PRIORITY_MAX_OUTSTANDING_BYTES` (default `5GB`): queued or
-    running bytes per user before new jobs are demoted.
--   `ANTIVIRUS_QUEUE_INTAKE_WORKERS` (default `10`): event intake workers,
-    independent of scan concurrency.
--   `ANTIVIRUS_HIGH_PRIORITY_RESERVED_WORKERS` (default `1`, or `0` with one
-    scan worker): reserved high-priority workers. Must be less than
-    `ANTIVIRUS_WORKERS`.
--   `ANTIVIRUS_QUEUE_ACK_WAIT` (default `1m`): job redelivery timeout. Workers
-    send lease heartbeats; this value must stay below `2m`.
--   `ANTIVIRUS_QUEUE_REPLICAS` (default `1`): replication factor for queue
-    state.
+- `ANTIVIRUS_PRIORITY_ENABLED` (default `true`): enable per-user
+  prioritization.
+- `ANTIVIRUS_PRIORITY_THRESHOLD` (default `10`): requests per user allowed
+  in the priority window before new requests are demoted.
+- `ANTIVIRUS_PRIORITY_WINDOW` (default `1s`): rolling rate window.
+- `ANTIVIRUS_PRIORITY_COOLDOWN` (default `30s`): low-priority cooldown.
+- `ANTIVIRUS_PRIORITY_MAX_OUTSTANDING_JOBS` (default `50`): queued or
+  running jobs per user before new jobs are demoted.
+- `ANTIVIRUS_PRIORITY_MAX_OUTSTANDING_BYTES` (default `5GB`): queued or
+  running bytes per user before new jobs are demoted.
+- `ANTIVIRUS_QUEUE_INTAKE_WORKERS` (default `10`): event intake workers,
+  independent of scan concurrency.
+- `ANTIVIRUS_HIGH_PRIORITY_RESERVED_WORKERS` (default `1`, or `0` with one
+  scan worker): reserved high-priority workers. Must be less than
+  `ANTIVIRUS_WORKERS`.
+- `ANTIVIRUS_QUEUE_ACK_WAIT` (default `1m`): job redelivery timeout. Workers
+  send lease heartbeats; this value must stay below `2m`.
+- `ANTIVIRUS_QUEUE_REPLICAS` (default `1`): replication factor for queue
+  state.
 
 Metrics are available without user-ID labels:
 `opencloud_antivirus_jobs_pending{priority}`,
