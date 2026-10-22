@@ -51,12 +51,18 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 		return nil, err
 	}
 
+	// Exclude documents that have been explicitly marked as deleted.
+	// We use a negation (MustNot) rather than matching Deleted==false,
+	// because bleve does not index zero-value bools, so documents where
+	// Deleted was never explicitly set would be excluded from results.
+	deletedQuery := bleve.NewBooleanQuery()
+	deletedQuery.AddMustNot(&query.BoolFieldQuery{
+		Bool:     true,
+		FieldVal: "Deleted",
+	})
+
 	q := bleve.NewConjunctionQuery(
-		// Skip documents that have been marked as deleted
-		&query.BoolFieldQuery{
-			Bool:     false,
-			FieldVal: "Deleted",
-		},
+		deletedQuery,
 		createdQuery,
 	)
 
