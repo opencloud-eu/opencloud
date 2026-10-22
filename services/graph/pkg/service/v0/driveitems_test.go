@@ -90,7 +90,9 @@ var _ = Describe("Driveitems", func() {
 		cfg = defaults.FullDefaultConfig()
 		cfg.Identity.LDAP.CACert = "" // skip the startup checks, we don't use LDAP at all in this tests
 		cfg.TokenManager.JWTSecret = "loremipsum"
-		cfg.Commons = &shared.Commons{}
+		cfg.Commons = &shared.Commons{
+			URLSigningSecret: urlSigningSecret,
+		}
 		cfg.GRPCClientTLS = &shared.GRPCClientTLS{}
 
 		var err error
@@ -277,6 +279,70 @@ var _ = Describe("Driveitems", func() {
 				unifiedrole.DriveItemContentRead,
 			))
 		})
+
+		It("adds @microsoft.graph.downloadUrl when selected via $select", func() {
+			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+				Status:        status.NewOK(ctx),
+				StorageSpaces: []*provider.StorageSpace{{Owner: currentUser, Root: &provider.ResourceId{}}},
+			}, nil)
+			gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+				Status: status.NewOK(ctx),
+				Infos: []*provider.ResourceInfo{
+					{
+						Type:  provider.ResourceType_RESOURCE_TYPE_FILE,
+						Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+						Etag:  "etag",
+						Mtime: utils.TimeToTS(time.Now()),
+					},
+				},
+			}, nil)
+			r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/me/drive/root/children?$select=@microsoft.graph.downloadUrl", nil)
+			r = r.WithContext(revactx.ContextSetUser(ctx, currentUser))
+			svc.GetRootDriveChildren(rr, r)
+			Expect(rr.Code).To(Equal(http.StatusOK))
+			data, err := io.ReadAll(rr.Body)
+			Expect(err).ToNot(HaveOccurred())
+
+			res := itemsList{}
+			Expect(json.Unmarshal(data, &res)).To(Succeed())
+			Expect(res.Value).To(HaveLen(1))
+			target := verifySignedDownloadURL(res.Value[0].GetMicrosoftGraphDownloadUrl(), "user")
+			Expect(target.Path).To(Equal("/dav/spaces/storageid$spaceid!opaqueid"))
+		})
+
+		It("honours @microsoft.graph.downloadUrl in a combined $select", func() {
+			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+				Status:        status.NewOK(ctx),
+				StorageSpaces: []*provider.StorageSpace{{Owner: currentUser, Root: &provider.ResourceId{}}},
+			}, nil)
+			gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+				Status: status.NewOK(ctx),
+				Infos: []*provider.ResourceInfo{
+					{
+						Type:          provider.ResourceType_RESOURCE_TYPE_FILE,
+						Id:            &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+						Etag:          "etag",
+						Mtime:         utils.TimeToTS(time.Now()),
+						PermissionSet: &provider.ResourcePermissions{GetPath: true, InitiateFileDownload: true},
+					},
+				},
+			}, nil)
+			r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/me/drive/root/children?$select=@libre.graph.permissions.actions.allowedValues,@microsoft.graph.downloadUrl", nil)
+			r = r.WithContext(revactx.ContextSetUser(ctx, currentUser))
+			svc.GetRootDriveChildren(rr, r)
+			Expect(rr.Code).To(Equal(http.StatusOK))
+			data, err := io.ReadAll(rr.Body)
+			Expect(err).ToNot(HaveOccurred())
+
+			res := itemsList{}
+			Expect(json.Unmarshal(data, &res)).To(Succeed())
+			Expect(res.Value).To(HaveLen(1))
+			Expect(res.Value[0].MicrosoftGraphDownloadUrl).ToNot(BeNil())
+			Expect(res.Value[0].GetLibreGraphPermissionsActionsAllowedValues()).To(ConsistOf(
+				unifiedrole.DriveItemPathRead,
+				unifiedrole.DriveItemContentRead,
+			))
+		})
 	})
 
 	Describe("GetDriveItem", func() {
@@ -388,6 +454,21 @@ var _ = Describe("Driveitems", func() {
 				Expect(item.Children).To(HaveLen(1))
 				Expect(item.Children[0].Thumbnails).To(HaveLen(1))
 			})
+		})
+
+		It("adds @microsoft.graph.downloadUrl to a file when selected via $select", func() {
+			folderInfo.Type = provider.ResourceType_RESOURCE_TYPE_FILE
+
+			Expect(getItem(newRequest("")).MicrosoftGraphDownloadUrl).To(BeNil())
+
+			rr = httptest.NewRecorder()
+			item := getItem(newRequest("?$select=@microsoft.graph.downloadUrl"))
+			target := verifySignedDownloadURL(item.GetMicrosoftGraphDownloadUrl(), "user")
+			Expect(target.Path).To(Equal("/dav/spaces/storageid$spaceid!nodeid"))
+		})
+
+		It("omits @microsoft.graph.downloadUrl for a folder when selected via $select", func() {
+			Expect(getItem(newRequest("?$select=@microsoft.graph.downloadUrl")).MicrosoftGraphDownloadUrl).To(BeNil())
 		})
 	})
 
@@ -510,6 +591,7 @@ var _ = Describe("Driveitems", func() {
 				res := assertItemsList(1)
 				Expect(res.Value[0].Audio).To(BeNil())
 				Expect(res.Value[0].Location).To(BeNil())
+				Expect(res.Value[0].MicrosoftGraphDownloadUrl).To(BeNil())
 				Expect(res.Value[0].LibreGraphMeFollowing).To(BeNil())
 				Expect(res.Value[0].LibreGraphTags).To(BeNil())
 				Expect(res.Value[0].PendingOperations).To(BeNil())
@@ -748,6 +830,60 @@ var _ = Describe("Driveitems", func() {
 				res := assertItemsList(1)
 				Expect(res.Value[0].LibreGraphMeFollowing).ToNot(BeNil())
 				Expect(res.Value[0].GetLibreGraphMeFollowing()).To(BeFalse())
+			})
+
+			It("adds @microsoft.graph.downloadUrl to files when selected via $select", func() {
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:  provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:  "etag",
+							Mtime: utils.TimeToTS(mtime),
+						},
+					},
+				}, nil)
+
+				r = httptest.NewRequest(http.MethodGet, "/graph/v1.0/drives/storageid$spaceid/items/storageid$spaceid!nodeid/children?$select=@microsoft.graph.downloadUrl", nil)
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("driveID", "storageid$spaceid")
+				rctx.URLParams.Add("driveItemID", "storageid$spaceid!nodeid")
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, currentUser), chi.RouteCtxKey, rctx))
+
+				res := assertItemsList(1)
+				target := verifySignedDownloadURL(res.Value[0].GetMicrosoftGraphDownloadUrl(), "user")
+				Expect(target.Path).To(Equal("/dav/spaces/storageid$spaceid!opaqueid"))
+			})
+
+			It("omits @microsoft.graph.downloadUrl for folders when selected via $select", func() {
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:  provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:  "etag",
+							Mtime: utils.TimeToTS(mtime),
+						},
+						{
+							Type:  provider.ResourceType_RESOURCE_TYPE_CONTAINER,
+							Id:    &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "folderid"},
+							Etag:  "etag",
+							Mtime: utils.TimeToTS(mtime),
+						},
+					},
+				}, nil)
+
+				r = httptest.NewRequest(http.MethodGet, "/graph/v1.0/drives/storageid$spaceid/items/storageid$spaceid!nodeid/children?$select=@microsoft.graph.downloadUrl", nil)
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("driveID", "storageid$spaceid")
+				rctx.URLParams.Add("driveItemID", "storageid$spaceid!nodeid")
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, currentUser), chi.RouteCtxKey, rctx))
+
+				res := assertItemsList(2)
+				Expect(res.Value[0].MicrosoftGraphDownloadUrl).ToNot(BeNil())
+				Expect(res.Value[1].MicrosoftGraphDownloadUrl).To(BeNil())
 			})
 
 			It("returns the audio facet if metadata is available", func() {

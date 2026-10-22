@@ -416,6 +416,9 @@ func (api DrivesDriveItemApi) GetDriveItem(w http.ResponseWriter, r *http.Reques
 		ErrDriveItemConversion.Render(w, r)
 		return
 	}
+	if driveItemPropertySelected(r, _selectDownloadURL) {
+		api.baseGraphService.SetDriveItemsDownloadURL(r, driveItems)
+	}
 
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, driveItems[0])
