@@ -117,6 +117,7 @@ const (
 // OIDC is the config for the OpenID-Connect middleware. If set the proxy will try to authenticate every request
 // with the configured oidc-provider
 type OIDC struct {
+	PictureClaim            string   `yaml:"picture_claim" env:"PROXY_OIDC_PICTURE_CLAIM" desc:"The name of the OIDC claim that holds the profile picture URL. Defaults to picture (the standard OIDC claim). Set to an empty string to disable profile picture sync. Independent of account auto-provisioning." introductionVersion:"%%NEXT%%"`
 	Audiences               []string `yaml:"audiences" env:"PROXY_OIDC_AUDIENCES" desc:"Optional comma-separated list of allowed audiences for OIDC access tokens. Empty disables audience validation for compatibility. Configuring audiences is recommended for production and requires PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD=jwt. Tokens must contain at least one exactly matching, case-sensitive audience in their aud claim." introductionVersion:"8.1.0"`
 	Issuer                  string   `yaml:"issuer" env:"OC_URL;OC_OIDC_ISSUER;PROXY_OIDC_ISSUER" desc:"URL of the OIDC issuer. It defaults to URL of the builtin IDP." introductionVersion:"1.0.0"`
 	Insecure                bool     `yaml:"insecure" env:"OC_INSECURE;PROXY_OIDC_INSECURE" desc:"Disable TLS certificate validation for connections to the IDP. Note that this is not recommended for production environments." introductionVersion:"1.0.0"`
