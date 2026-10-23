@@ -28,6 +28,10 @@ type Config struct {
 
 	Thumbnails Thumbnails `yaml:"thumbnails"`
 
+	TikaURL                          string   `yaml:"tika_url" env:"OC_TIKA_URL;WEBDAV_TIKA_URL" desc:"URL of an Apache Tika server. When set, thumbnails are generated for documents, raw photos, audio cover art and other formats Tika can extract a preview from. Needs Tika 4.2.0 or newer, started with TIKA_PRESETS=thumbnail. A 4.1.x server works as well, with the preset activated in its config file instead." introductionVersion:"%%NEXT%%"`
+	TikaThumbnailMimeTypes           []string `yaml:"tika_thumbnail_mime_types" env:"OC_TIKA_THUMBNAIL_MIME_TYPES;WEBDAV_TIKA_THUMBNAIL_MIME_TYPES" desc:"The mime types sent to Tika for their thumbnail, which replaces the built-in list of the formats a Tika release serves one for. The camera raws are in that list because reva types them as images and an image is handed to the generator as it is unless something claims it. A single '*' sends every type that nothing else claims, and an empty list sends nothing at all, which leaves a Tika shared with the search service to the search service alone. An entry can map a type to the one Tika knows the format by, e.g. image/x-nikon-nef:image/x-raw-nikon. Tika takes a declared type only when it refines what it detected itself, so an entry pins the leaf type its detector left at the parent, a raw photo it only read as a plain tiff. The type decides which parser reads the file, so a raw read as a tiff loses its maker notes and with them the embedded preview; the formats shipped here are detected down to the leaf type, so no entry is needed for them." introductionVersion:"%%NEXT%%"`
+	AdditionalTikaThumbnailMimeTypes []string `yaml:"additional_tika_thumbnail_mime_types" env:"OC_TIKA_ADDITIONAL_THUMBNAIL_MIME_TYPES;WEBDAV_TIKA_ADDITIONAL_THUMBNAIL_MIME_TYPES" desc:"Additional mime types sent to Tika for their thumbnail, on top of the built-in list or of whatever OC_TIKA_THUMBNAIL_MIME_TYPES names instead. An entry carries a type hint the same way." introductionVersion:"%%NEXT%%"`
+
 	Context context.Context `yaml:"-"`
 }
 

@@ -73,6 +73,10 @@ type UserResolver interface {
 // surface this as HTTP 425 Too Early with a Retry-After header.
 var ErrFileProcessing = fmt.Errorf("file is processing")
 
+// ErrNoThumbnail is the answer for a file that carries none at all. It is
+// cached as an empty entry, so the next request does not ask Tika again.
+var ErrNoThumbnail = errors.New("thumbnails: the file has no thumbnail")
+
 // ErrImageTooLarge is returned when the input image exceeds the configured
 // maximum width/height. Callers should surface this as HTTP 403 Forbidden.
 var ErrImageTooLarge = errors.New("thumbnails: image is too large")
@@ -138,6 +142,17 @@ func thumbnailStorageKey(checksum, mimeType string, w, h int, format, operation 
 	return hash[:2] + "/" + hash[2:4] + "/" + hash[4:] + "/" + fmt.Sprintf("%dx%d-%s.%s", w, h, operation, format)
 }
 
+// sourceStorageKey is where the image an extractor made of a file is
+// remembered. What an extractor finds does not depend on the size that was
+// asked for, so this one entry answers every request for the file, and an
+// empty entry says the file carries no image at all.
+func sourceStorageKey(checksum string) string {
+	if len(checksum) >= 6 {
+		return checksum[:2] + "/" + checksum[2:4] + "/" + checksum[4:] + "/source"
+	}
+	return checksum + "/source"
+}
+
 // ThumbnailWorkflow owns the complete thumbnail generation pipeline:
 // stat → validate → cache check → download → preprocess → generate → cache → respond.
 type ThumbnailWorkflow struct {
@@ -148,6 +163,7 @@ type ThumbnailWorkflow struct {
 	sizes          *thumbnail.Sizes
 	typeMapping    thumbnail.TypeMapping
 	sourceTypes    thumbnail.SourceTypes
+	tika           thumbnail.Tika
 	formats        generator.Formats
 	webdavNS       string
 	fontMapFile    string
@@ -233,6 +249,11 @@ func WithTypeMapping(m thumbnail.TypeMapping) Option {
 	return func(w *ThumbnailWorkflow) { w.typeMapping = m }
 }
 
+// WithTika sets the Tika server that thumbnails what webdav cannot read itself.
+func WithTika(t thumbnail.Tika) Option {
+	return func(w *ThumbnailWorkflow) { w.tika = t }
+}
+
 // WithFontMapFile sets the font map file used for text thumbnail rendering.
 func WithFontMapFile(file string) Option {
 	return func(w *ThumbnailWorkflow) { w.fontMapFile = file }
@@ -315,7 +336,7 @@ func (w *ThumbnailWorkflow) statSource(ctx context.Context, ref *providerv1beta1
 		return nil, ErrPermissionDenied
 	}
 
-	if !w.sourceTypes.Supports(info.GetMimeType()) {
+	if !w.supportsMimeType(info.GetMimeType()) {
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedFileType, info.GetMimeType())
 	}
 
@@ -422,15 +443,13 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	}
 	mimeType := info.GetMimeType()
 
-	// The thumbnail is returned in the type the source type maps to, asked for by
-	// the name the generator's filter uses. A type nobody mapped, and one whose
-	// target the generator cannot write, becomes a JPEG.
-	outputType, outputFormat := "image/jpeg", "jpg"
-	if target := w.typeMapping.TargetFor(mimeType); target != "" {
-		if format := w.formats.For(target); format != "" {
-			outputType, outputFormat = target, format
-		}
-	}
+	// The thumbnail is returned in the type the source type maps to, asked for
+	// by the name the generator's filter uses. What an extractor hands on is
+	// re-encoded to that type, because the request has to decide it: a cache
+	// hit knows the key, not the bytes. Keeping a png cover a png needs the
+	// embedded type before the key is built, which is what the preview presence
+	// work puts into the file's metadata.
+	outputType, outputFormat := w.outputFor(mimeType)
 
 	// The operation is resolved up front so it can be part of the cache key: a
 	// fill and a fit-in request with the same dimensions produce different images
@@ -456,6 +475,11 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 		cached, err := w.cache.Get(cacheKey)
 		switch {
 		case err == nil:
+			// an empty entry is a file we know carries no thumbnail
+			if len(cached) == 0 {
+				return Thumbnail{}, ErrNoThumbnail
+			}
+
 			return Thumbnail{Data: cached, ContentType: outputType}, nil
 		case !errors.Is(err, cache.ErrCacheMiss):
 			// a miss is the normal answer; anything else is the cache itself
@@ -464,24 +488,35 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 		}
 	}
 
+	// Produce the source image to send to the generator, never decoding an image
+	// in webdav: real images (incl. gif) are streamed straight through undecoded;
+	// non-image sources are converted to image bytes here so the generator always
+	// receives an image.
+	imgStream, srcType, cleanup, err := w.sourceImage(ctx, ref, auth, mimeType, tr.Filename, checksum, logger)
+	if err != nil {
+		if errors.Is(err, ErrNoThumbnail) {
+			// a file that carries no thumbnail is an answer, not a failure, and
+			// the empty entry keeps the next request from asking again
+			logger.Debug().Err(err).Msg("no source image for thumbnail")
+			if w.cache != nil {
+				_ = w.cache.Put(cacheKey, nil)
+			}
+
+			return Thumbnail{}, err
+		}
+
+		logger.Error().Err(err).Msg("could not obtain source image for thumbnail")
+
+		return Thumbnail{}, err
+	}
+	defer cleanup()
+
 	// webdav snaps the requested size onto a configured resolution and lets the
 	// generator fill that box. Only fit-in suppresses upscaling (noUpscale); for
 	// fill/thumbnail/resize the generator may enlarge a small source (e.g. a text
 	// file rendered at a fixed canvas) to fill the snapped box, which is what
 	// imagor's default resize does.
 	genURL := generator.BuildURL(w.generatorURL, int32(box.Dx()), int32(box.Dy()), operation, outputFormat, noUpscale)
-
-	// Produce the source image to send to the generator, never decoding an image
-	// in webdav: real images (incl. gif) are streamed straight through undecoded;
-	// non-image sources are converted to image bytes here so the generator always
-	// receives an image.
-	imgStream, srcType, cleanup, err := w.sourceImage(ctx, ref, auth, mimeType, tr.Filename, logger)
-	if err != nil {
-		logger.Error().Err(err).Msg("could not obtain source image for thumbnail")
-		return Thumbnail{}, err
-	}
-	defer cleanup()
-
 	thumbBytes, thumbType, err := w.postToGenerator(ctx, genURL, imgStream, tr.Filename, srcType)
 	if err != nil {
 		logger.Error().Err(err).Msg("could not generate thumbnail")
@@ -512,20 +547,49 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 //     undecoded; the generator handles decoding and multi-frame gifs itself.
 //   - text/plain is rendered to an image here (the only true conversion).
 //   - audio and geogebra sources have their embedded image extracted to bytes.
-func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta1.Reference, auth, mimeType, filename string, logger log.Logger) (io.Reader, string, func(), error) {
+func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta1.Reference, auth, mimeType, filename, checksum string, logger log.Logger) (io.Reader, string, func(), error) {
 	m, _, _ := mime.ParseMediaType(mimeType)
 
-	if strings.HasPrefix(m, "image/") {
-		body, err := w.fileDownloader.DownloadStream(ctx, ref, auth)
-		if err != nil {
-			return nil, "", nil, fmt.Errorf("download: %w", err)
+	// the preprocessor decides what a type needs. No converter means the file
+	// is handed to the generator as it is, which is the case for every type it
+	// reads itself.
+	converter, err := preprocessor.ForType(mimeType, preprocessor.Options{
+		FontMapFile:  w.fontMapFile,
+		MaxImageSize: w.maxInputSize,
+		Tika:         w.tika,
+		SourceTypes:  w.sourceTypes,
+		Filename:     filename,
+	})
+	if err != nil {
+		// nothing can make an image of this type, so there is nothing to fetch
+		logger.Debug().Str("mimetype", mimeType).Msg("no preview for this type")
+
+		return nil, "", nil, ErrNoThumbnail
+	}
+
+	// what the extraction found is remembered per file, so a second size does
+	// not send the file to Tika again, and a file that carries nothing is only
+	// asked once. The answer is read before the file is downloaded at all.
+	sourceKey := sourceStorageKey(checksum)
+	if converter != nil && w.cache != nil {
+		if cached, err := w.cache.Get(sourceKey); err == nil {
+			if len(cached) == 0 {
+				return nil, "", nil, ErrNoThumbnail
+			}
+
+			//the cache holds bytes, so the type comes from them: the generator
+			//sniffs them too, this only tells it what to expect
+			return bytes.NewReader(cached), http.DetectContentType(cached), func() {}, nil
 		}
-		return body, m, func() { _ = body.Close() }, nil
 	}
 
 	body, err := w.fileDownloader.DownloadStream(ctx, ref, auth)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("download: %w", err)
+	}
+
+	if converter == nil {
+		return body, m, func() { _ = body.Close() }, nil
 	}
 	defer body.Close()
 
@@ -534,19 +598,59 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 		return nil, "", nil, fmt.Errorf("read source: %w", err)
 	}
 
-	converter := preprocessor.ForType(mimeType, preprocessor.Options{FontMapFile: w.fontMapFile, MaxImageSize: w.maxInputSize})
-	if converter == nil {
-		logger.Debug().Str("mimetype", mimeType).Msg("no converter for this type")
-		return nil, "", nil, fmt.Errorf("%w: no converter for %s", ErrNotFound, mimeType)
-	}
-
 	img, err := converter.Convert(bytes.NewReader(fileBytes))
+	if errors.Is(err, preprocessor.ErrNoThumbnail) {
+		//the file carries no image, which is an answer and worth remembering;
+		//a failed extraction is not, it may succeed on the next try
+		w.rememberSource(sourceKey, nil)
+		return nil, "", nil, ErrNoThumbnail
+	}
 	if err != nil || img == nil {
 		logger.Debug().Err(err).Msg("could not convert file to image")
 		return nil, "", nil, fmt.Errorf("%w: could not get image", ErrNotFound)
 	}
+	w.rememberSource(sourceKey, img.Data)
 
 	return bytes.NewReader(img.Data), img.ContentType, func() {}, nil
+}
+
+// maxCachedSourceBytes bounds one remembered source image. A preview a camera
+// embeds is about a megabyte, a rendered page a few; the limit is what keeps
+// the memory backend, which evicts in insertion order, from throwing out the
+// thumbnails it serves to make room for one source.
+const maxCachedSourceBytes = 8 << 20
+
+// rememberSource keeps what an extractor made of a file, or the empty entry
+// that says it made nothing. An image too large to keep is simply not kept:
+// the extraction runs again next time, which costs time, not correctness.
+func (w *ThumbnailWorkflow) rememberSource(key string, data []byte) {
+	if w.cache == nil || len(data) > maxCachedSourceBytes {
+		return
+	}
+	if w.maxInputSize > 0 && uint64(len(data)) > w.maxInputSize {
+		return
+	}
+	_ = w.cache.Put(key, data)
+}
+
+// supportsMimeType reports whether a preview is attempted for the type: the
+// announced source types plus whatever a configured Tika takes.
+func (w *ThumbnailWorkflow) supportsMimeType(mimeType string) bool {
+	return w.sourceTypes.Supports(mimeType) || w.tika.Supports(mimeType)
+}
+
+// outputFor is the type a thumbnail of this source is written in and the name
+// the generator's format filter has for it. A type nobody mapped, and one whose
+// target the generator cannot write, becomes a JPEG.
+func (w *ThumbnailWorkflow) outputFor(mimeType string) (outputType, outputFormat string) {
+	outputType, outputFormat = "image/jpeg", "jpg"
+	if target := w.typeMapping.TargetFor(mimeType); target != "" {
+		if format := w.formats.For(target); format != "" {
+			outputType, outputFormat = target, format
+		}
+	}
+
+	return outputType, outputFormat
 }
 
 // matchOperation picks how to fit within the box webdav already snapped. A
