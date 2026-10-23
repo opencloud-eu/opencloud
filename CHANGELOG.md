@@ -1,13 +1,14 @@
 # Changelog
 
-## [9.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.0) - 2026-10-21
+## [9.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.0) - 2026-10-23
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@AlexAndBear, @JammingBen, @Svanvith, @aduffeck, @dragonchaser, @fschade, @maki5, @micbar, @rhafer, @saw-jan, @v-scharf
+@AlexAndBear, @JammingBen, @Svanvith, @aduffeck, @butonic, @dragonchaser, @fschade, @maki5, @micbar, @rhafer, @saw-jan, @v-scharf
 
 ### 💥 Breaking changes
 
+- Push based thumbnailer architecture [[#3397](https://github.com/opencloud-eu/opencloud/pull/3397)]
 - feat(guestlinks)!: auth-guest service [[#3609](https://github.com/opencloud-eu/opencloud/pull/3609)]
 
 ### 🐛 Bug Fixes
