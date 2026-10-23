@@ -19,11 +19,9 @@ package decomposedfs
 
 import (
 	"context"
-	"os"
 	"time"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
@@ -31,7 +29,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
 // MarkProcessing toggles the processing marker on a resource for a single upload session.
@@ -48,11 +45,18 @@ func (fs *Decomposedfs) MarkProcessing(ctx context.Context, ref *provider.Refere
 	if err != nil {
 		return err
 	}
-	defer func() {
+	// released before the revision cleanup, or on any return before that
+	unlocked := false
+	unlockNode := func() {
+		if unlocked {
+			return
+		}
+		unlocked = true
 		if err := unlock(); err != nil {
 			appctx.GetLogger(ctx).Error().Err(err).Str("nodeid", n.ID).Msg("could not close mark-processing lock")
 		}
-	}()
+	}
+	defer unlockNode()
 
 	if !processing {
 		if !n.IsProcessing(ctx) {
@@ -62,7 +66,15 @@ func (fs *Decomposedfs) MarkProcessing(ctx context.Context, ref *provider.Refere
 		if id != sessionID {
 			return nil
 		}
-		return n.RemoveXattr(ctx, prefixes.StatusPrefix)
+		if err := n.RemoveXattr(ctx, prefixes.StatusPrefix); err != nil {
+			return err
+		}
+		// The upload of this session is done: apply the revision cleanup strategy (see package
+		// revisioncleanup), which skipped the node while it was marked. It never fails clearing
+		// the mark. The node lock is released first, for the reasons given in RestoreRevision.
+		unlockNode()
+		fs.revisionsCleanup.HandleRevisionCreated(ctx, n)
+		return nil
 	}
 
 	if n.IsProcessing(ctx) {
@@ -73,135 +85,45 @@ func (fs *Decomposedfs) MarkProcessing(ctx context.Context, ref *provider.Refere
 	})
 }
 
-// CommitUpload writes staged bytes and their supplied metadata to an existing node.
-func (fs *Decomposedfs) CommitUpload(ctx context.Context, ref *provider.Reference, source storage.UploadSource) (*provider.ResourceInfo, error) {
+// CommitUpload writes the staged bytes from source to the resource at ref.
+// sessionID is used to identify the correct blob slot prepared before postprocessing.
+// Caller owns source.Body and must close it after CommitUpload returns.
+func (fs *Decomposedfs) CommitUpload(ctx context.Context, ref *provider.Reference, sessionID string, source storage.UploadSource) error {
 	if source.Body == nil {
-		return nil, errtypes.BadRequest("Decomposedfs: source body is nil")
+		return errtypes.BadRequest("Decomposedfs: source body is nil")
 	}
-	defer source.Body.Close()
-
-	if len(source.Checksums.SHA1) == 0 || len(source.Checksums.MD5) == 0 || len(source.Checksums.Adler32) == 0 {
-		return nil, errtypes.BadRequest("Decomposedfs: pre-computed checksums missing from source")
+	if sessionID == "" {
+		return errtypes.BadRequest("Decomposedfs: sessionID is empty")
 	}
 
-	resolved, err := fs.lu.NodeFromResource(ctx, ref)
+	n, err := fs.lu.NodeFromResource(ctx, ref)
 	if err != nil {
-		return nil, err
+		appctx.GetLogger(ctx).Error().Err(err).Msg("CommitUpload: unexpected NodeFromResource failure")
+		return errtypes.InternalError("CommitUpload: node lookup failed unexpectedly")
 	}
-	if !resolved.Exists {
-		return nil, errtypes.NotFound(ref.String())
-	}
-
-	n, unlock, err := node.LockAndReadNode(ctx, fs.lu, resolved.SpaceID, resolved.ID, "", false, resolved.SpaceRoot, false)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := unlock(); err != nil {
-			appctx.GetLogger(ctx).Error().Err(err).Str("nodeid", n.ID).Msg("could not close commit-upload lock")
-		}
-	}()
-
-	if err := n.CheckLock(ctx); err != nil {
-		return nil, err
+	if !n.Exists {
+		return errtypes.NotFound(ref.String())
 	}
 
-	mtime := time.Now()
-	if mts := source.Metadata["mtime"]; mts != "" {
-		parsed, err := utils.MTimeToTime(mts)
-		if err != nil {
-			return nil, errtypes.BadRequest("invalid mtime: " + mts)
-		}
-		mtime = parsed
-	}
-
-	if fs.um != nil {
-		if gid, ok := ctx.Value(CtxKeySpaceGID).(uint32); ok {
-			unscope, err := fs.um.ScopeUserByIds(-1, int(gid))
-			if err != nil {
-				return nil, errors.Wrap(err, "Decomposedfs: failed to scope user")
-			}
-			if unscope != nil {
-				defer func() { _ = unscope() }()
-			}
-		}
-	}
-
-	if _, err := node.CheckQuota(ctx, n.SpaceRoot, n.BlobID != "", uint64(n.Blobsize), uint64(source.Length)); err != nil {
-		return nil, err
-	}
-
-	oldMtime, err := n.GetMTime(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "Decomposedfs: failed to read old mtime")
-	}
-	if !fs.o.DisableVersioning && n.BlobID != "" {
-		versionPath, err := fs.tp.CreateRevision(ctx, n, oldMtime.UTC().Format(time.RFC3339Nano))
-		if err != nil {
-			return nil, errors.Wrap(err, "Decomposedfs: failed to create revision")
-		}
-		if err := os.Chtimes(versionPath, oldMtime, oldMtime); err != nil {
-			return nil, errors.Wrap(err, "Decomposedfs: failed to set revision mtime")
-		}
-	}
-
-	oldSize := n.Blobsize
-	n.BlobID = uuid.New().String()
-	n.Blobsize = source.Length
-
-	attrs := node.Attributes{
-		prefixes.ChecksumPrefix + "sha1":    source.Checksums.SHA1,
-		prefixes.ChecksumPrefix + "md5":     source.Checksums.MD5,
-		prefixes.ChecksumPrefix + "adler32": source.Checksums.Adler32,
-	}
-	attrs.SetString(prefixes.IDAttr, n.ID)
-	attrs.SetInt64(prefixes.TypeAttr, int64(provider.ResourceType_RESOURCE_TYPE_FILE))
-	attrs.SetString(prefixes.ParentidAttr, n.ParentID)
-	attrs.SetString(prefixes.NameAttr, n.Name)
-	attrs.SetString(prefixes.BlobIDAttr, n.BlobID)
-	attrs.SetInt64(prefixes.BlobsizeAttr, n.Blobsize)
-	if err := fs.lu.TimeManager().OverrideMtime(ctx, n, &attrs, mtime); err != nil {
-		return nil, errors.Wrap(err, "Decomposedfs: failed to set the mtime")
-	}
-
-	newNode := node.New(n.SpaceID, n.ID, n.ParentID, n.Name, n.Blobsize, n.BlobID,
+	blobNode := node.New(n.SpaceID, n.ID, "", "", source.Length, sessionID,
 		provider.ResourceType_RESOURCE_TYPE_FILE, nil, fs.lu)
-	newNode.SpaceRoot = n.SpaceRoot
-	if _, err := newNode.Xattrs(ctx); err != nil {
-		return nil, errors.Wrap(err, "Decomposedfs: failed to read node metadata before writing blob")
-	}
-	newNode.UpdateXattrsCache(attrs)
-	if err := fs.tp.WriteBlobFromReader(newNode, source.Body, source.Length); err != nil {
-		return nil, errors.Wrap(err, "Decomposedfs: failed to write blob")
-	}
 
-	committed := false
-	defer func() {
-		if committed {
-			return
+	if err := fs.tp.WriteBlobFromReader(blobNode, source.Body, source.Length); err != nil {
+		if derr := fs.tp.DeleteBlob(blobNode); derr != nil {
+			appctx.GetLogger(ctx).Error().Err(derr).Str("nodeid", n.ID).Str("blobid", sessionID).Msg("could not clean up orphaned blob after failed write")
 		}
-		if err := fs.tp.DeleteBlob(newNode); err != nil {
-			appctx.GetLogger(ctx).Error().Err(err).Str("nodeid", n.ID).Str("blobid", n.BlobID).Msg("could not clean up blob after failed upload commit")
+		return errors.Wrap(err, "Decomposedfs: failed to write blob")
+	}
+
+	now := time.Now()
+	if p, err := n.Parent(ctx); err != nil {
+		appctx.GetLogger(ctx).Error().Err(err).Str("nodeid", n.ID).Msg("could not read parent for etag propagation")
+	} else {
+		_ = p.SetTMTime(ctx, &now)
+		if err := fs.tp.Propagate(ctx, p, 0); err != nil {
+			appctx.GetLogger(ctx).Error().Err(err).Str("nodeid", n.ID).Msg("could not propagate etag change")
 		}
-	}()
-
-	if err := n.SetXattrsWithContext(ctx, attrs); err != nil {
-		return nil, errors.Wrap(err, "Decomposedfs: failed to write metadata")
-	}
-	committed = true
-
-	if err := fs.tp.Propagate(ctx, n, source.Length-oldSize); err != nil {
-		return nil, errors.Wrap(err, "Decomposedfs: failed to propagate")
 	}
 
-	etag, _ := node.CalculateEtag(n.ID, mtime)
-	return &provider.ResourceInfo{
-		Id: &provider.ResourceId{
-			StorageId: source.Metadata["providerID"],
-			SpaceId:   n.SpaceID,
-			OpaqueId:  n.ID,
-		},
-		Etag:  etag,
-		Mtime: utils.TimeToTS(mtime),
-	}, nil
+	return nil
 }

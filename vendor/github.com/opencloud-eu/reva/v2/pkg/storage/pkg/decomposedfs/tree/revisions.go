@@ -154,6 +154,13 @@ func (tp *Tree) ListRevisions(ctx context.Context, ref *provider.Reference) (rev
 		return nil, errtypes.NotFound(f)
 	}
 
+	return tp.ListRevisionsUnchecked(ctx, n)
+}
+
+// ListRevisionsUnchecked lists all revisions of the given node without checking permissions.
+// ListRevisions checks the permissions of the requesting user before delegating here,
+// the revision cleanup calls it directly as it is not acting on behalf of a user.
+func (tp *Tree) ListRevisionsUnchecked(ctx context.Context, n *node.Node) (revisions []*provider.FileVersion, err error) {
 	revisions = []*provider.FileVersion{}
 	np := n.InternalPath()
 	if items, err := filepath.Glob(np + node.RevisionIDDelimiter + "*"); err == nil {

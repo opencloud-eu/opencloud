@@ -240,7 +240,7 @@ opencloud storage-users blobstore get --space-id=b19ec764-5398-458a-8ff1-1925bd9
 
 ### Manage Trash-Bin Items
 
-This command set provides commands to get an overview of trash-bin items, restore items and purge old items of `personal` spaces and `project` spaces (spaces that have been created manually). `trash-bin` commands require a `spaceID` as parameter. 
+This command set provides commands to get an overview of trash-bin items, restore items and purge old items of `personal` spaces and `project` spaces (spaces that have been created manually). `trash-bin` commands require a `spaceID` as parameter.
 
 ```bash
 opencloud storage-users trash-bin <command>
@@ -306,6 +306,127 @@ When the CLI tool restores the item with the `replace` option, the existing item
     ```bash
     opencloud storage-users trash-bin restore [command options] ['spaceID' required] ['itemID' required]
     ```
+
+### Clean Up Old Revisions
+
+Every change to a file keeps its previous content as a revision (version). With `OC_REVISIONS_CLEANUP_STRATEGY`, the `storage-users` service deletes old revisions according to a cleanup strategy, whenever a file gets a new revision. The `decomposed`, `decomposeds3` and `posix` storage drivers are supported, with `posix` also for the revisions created from changes on disk. The default strategy `disabled` keeps all revisions and, as one would expect, does not perform any cleanup process for revisions at all.
+
+The service only cleans up a file when it gets a new revision, so files that are never changed again keep their revisions. The `revisions cleanup` command cleans up the revisions of whole spaces, folders or files on demand, to cover those files as well, or to apply a different strategy once, e.g. after changing the strategy or to free storage.
+
+```bash
+opencloud storage-users revisions cleanup [flags]
+```
+
+The command uses the storage directly, with the configuration of the `storage-users` service, and can run while the service is running. It needs access to the storage and, for the `posix` driver, to NATS. It needs no service account.
+
+#### Strategies
+
+A strategy is a comma-separated list of up to three parts.
+
+Each `X` is either
+* a number, which is a number of revisions, always counting from the newest one,
+* or a duration with one of the units `w` (weeks), `d` (days), `h` (hours), `m` (minutes) or `s` (seconds).
+
+Durations in days or weeks can use an uppercase unit, `D` or `W`, to count from midnight (server time) instead of from now: `1d` means the last 24 hours, `1D` since yesterday 00:00.
+
+| Strategy | Meaning | Examples |
+|---|---|---|
+| `auto` | Thin out revisions the older they get: one per 10 seconds in the last minute, one per minute in the last hour, one per hour in the last 24 hours, one per day in the last 30 days, one per week beyond | `auto` |
+| `X` | Delete everything beyond `X` | `10`, `30d`, `0` deletes all revisions |
+| `X, auto` | Keep everything within `X`, thin out the older revisions | `14d, auto` |
+| `auto, X` | Delete everything beyond `X`, thin out the rest | `auto, 90d`, `auto, 50` |
+| `X1, X2` | Keep everything within `X1`, delete everything beyond `X2`; one must be a number, the other a duration | `5, 30d`, `7d, 10` |
+| `X1, auto, X2` | Keep everything within `X1`, delete everything beyond `X2`, thin out in between | `7d, auto, 90d`, `1D, auto, 30d` |
+| `disabled` | Never delete revisions | `disabled` |
+
+Note that the age of a revision is the time its content was written, i.e. the modification time the file had before it was changed, which is also the date the version list shows for it. It is not the time the file was changed, which turned that content into a revision. A document that was unchanged for two months gets a revision that is two months old when it is changed, and e.g. `30d` deletes that revision right away. Combine a duration with a number of revisions, e.g. `5, 30d`, to always keep the newest ones.
+
+#### Selecting the Files
+
+Exactly one of these selects the files to clean up:
+
+* `--space <id>`: all files of a space. It can be given several times. The space IDs are accepted as the APIs show them, e.g. `<storage id>$<space id>`.
+* `--space <id> --path <path>`: only a file or a folder (recursively) within one space, e.g. `--path /Documents`.
+* `--all` (`-a`): all files of all spaces, including disabled spaces, which are skipped.
+* `--fs-path <path>` (`-p`): a file or a folder (recursively) by its path on disk. Only supported by the `posix` driver.
+
+#### Options
+
+The strategy and the settings of the background workers default to the configured ones and can be overridden for a run. Only `--queue-full` defaults to `block` without a timeout, whatever is configured: the command finds files faster than the workers clean them up, so dropping the files that find the queue full would skip most of them.
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--strategy`, `-s` | `OC_REVISIONS_CLEANUP_STRATEGY` | The strategy, see above. The command fails if there is none. |
+| `--async` | `OC_REVISIONS_CLEANUP_ASYNC` | Clean up files in background workers while looking for more. |
+| `--workers` | `OC_REVISIONS_CLEANUP_ASYNC_WORKERS` | The number of background workers, `0` for half the available CPUs, at least 2. |
+| `--queue-size` | `OC_REVISIONS_CLEANUP_ASYNC_QUEUE_SIZE` | The number of files that can wait for a worker, `0` for 64 per worker. |
+| `--queue-full` | `block` | `block` waits for room in a full queue, `drop` skips the file. |
+| `--queue-full-timeout` | `0` | With `block`, skip a file after waiting this long for room, e.g. `10s`. `0` waits as long as it takes. |
+| `--dry-run`, `-n` | off | Delete nothing, only print what would be deleted. |
+| `--verbose`, `-v` | off | Print every file and every revision, with what was decided about it and why. |
+| `--json`, `-j` | off | Print JSON objects, one per line, instead of text. |
+| `--timeout`, `-t` | none | Stop the cleanup gracefully after this time, e.g. `30m` or `2h`. |
+| `--shuffle` | off | Clean up the spaces, and the files within each folder, in a random order. |
+
+By default, the command prints a line for every file whose revisions it deleted, that it could not clean up or that it skipped, with the space ID and the path of the file within the space, and a summary:
+
+```plaintext
+25b69780-5f39-43be-a7ac-a9b9e9fe4230 /Documents/report.odt: deleted 3 of 12 revisions (4.2 MiB)
+25b69780-5f39-43be-a7ac-a9b9e9fe4230 /Photos/holiday.jpg: skipped: an upload to the file is still being processed
+1520 files in 3 spaces: deleted 3 revisions (4.2 MiB) of 1 file, 1 skipped, 0 failed
+```
+
+With `--verbose`, every revision is listed with the decision (`deleted`, `kept` or `protected`), its time, its size and the reason:
+
+```plaintext
+25b69780-5f39-43be-a7ac-a9b9e9fe4230 /dir1/file1 (node 43ca5408-c77b-4d9a-8a3b-d4470b1253b8): would delete 1 of 3 revisions (1.2 KiB)
+  protected 2026-10-15T13:24:35+02:00   1.2 KiB  protected by "1": one of the 1 newest
+  kept      2026-10-13T15:24:35+02:00   1.2 KiB  kept by "30d": not older than 2026-09-15T15:24:35+02:00
+  deleted   2026-03-29T15:24:35+02:00   1.2 KiB  deleted by "30d": older than 2026-09-15T15:24:35+02:00
+```
+
+With `--json`, every file is an object of the `type` `file`, with the revisions in `details` when `--verbose` is set, and the last line is an object of the `type` `summary`. The sizes are in bytes. The same run as above:
+
+```json
+{"type":"file","space_id":"25b69780-5f39-43be-a7ac-a9b9e9fe4230","node_id":"8a1c0e2f-6b4d-4f7a-9c3e-2d5b7f1a0c94","path":"/Documents/report.odt","dry_run":false,"revisions":12,"deleted":3,"deleted_bytes":4404019,"failed":0}
+{"type":"file","space_id":"25b69780-5f39-43be-a7ac-a9b9e9fe4230","node_id":"f3e9d2c1-0a7b-4c8e-b6d5-9e4f1a2b3c7d","path":"/Photos/holiday.jpg","dry_run":false,"skipped":"an upload to the file is still being processed","revisions":0,"deleted":0,"deleted_bytes":0,"failed":0}
+{"type":"summary","dry_run":false,"spaces":3,"files":1520,"cleaned":1,"deleted":3,"deleted_bytes":4404019,"skipped":1,"failed":0}
+```
+
+With `--verbose` as well, a file object lists its revisions in `details`, here from the dry run above:
+
+```json
+{"type":"file","space_id":"25b69780-5f39-43be-a7ac-a9b9e9fe4230","node_id":"43ca5408-c77b-4d9a-8a3b-d4470b1253b8","path":"/dir1/file1","dry_run":true,"revisions":3,"deleted":1,"deleted_bytes":1234,"failed":0,"details":[{"key":"43ca5408-c77b-4d9a-8a3b-d4470b1253b8.REV.2026-10-15T11:24:35.118424081Z","time":"2026-10-15T11:24:35.118424081Z","size":1234,"decision":"protected","reason":"protected by \"1\": one of the 1 newest"},{"key":"43ca5408-c77b-4d9a-8a3b-d4470b1253b8.REV.2026-10-13T13:24:35.118424081Z","time":"2026-10-13T13:24:35.118424081Z","size":1234,"decision":"kept","reason":"kept by \"30d\": not older than 2026-09-15T15:24:35+02:00"},{"key":"43ca5408-c77b-4d9a-8a3b-d4470b1253b8.REV.2026-03-29T13:24:35.118424081Z","time":"2026-03-29T13:24:35.118424081Z","size":1234,"decision":"deleted","reason":"deleted by \"30d\": older than 2026-09-15T15:24:35+02:00"}]}
+```
+
+A file that failed has an `error`, and so has a revision in `details` that could not be deleted. When `--timeout` stopped the cleanup, the summary has a `stopped` field with the reason.
+
+Things to keep in mind:
+
+*   **A dry run deletes nothing**, but it still takes the locks of the files, which can create lock files.
+*   **`--timeout` stops the cleanup gracefully:** the files being cleaned up are finished, the files still waiting for a worker are skipped. It can't interrupt a file that waits for a lock held by another process, though, so the command can run longer than the timeout. Ctrl-C stops the cleanup the same way.
+*   **Every run starts over from the beginning.** For regular runs with a timeout, e.g. by a cron job, add `--shuffle`, so that every run starts in a different place and the runs eventually reach all files, also in spaces too large for a single run.
+
+The exit code is `0` when the cleanup is done, `1` if the cleanup or any file failed, and `2` if `--timeout` stopped the cleanup before all files were cleaned up, and nothing failed.
+
+#### Command Examples
+
+```bash
+# show what a strategy would delete in all spaces, with the reason for every revision
+opencloud storage-users revisions cleanup --all --strategy "auto, 90d" --dry-run --verbose
+
+# keep only the 10 newest revisions of the files in a folder of a space
+opencloud storage-users revisions cleanup --space 25b69780-5f39-43be-a7ac-a9b9e9fe4230 --path /Documents --strategy 10
+
+# clean up a folder by its path on disk, with the posix driver
+opencloud storage-users revisions cleanup --fs-path /var/lib/opencloud/storage/users/projects/25b69780-5f39-43be-a7ac-a9b9e9fe4230/Documents
+
+# a nightly cron job: the configured strategy, at most one hour, in a random order
+opencloud storage-users revisions cleanup --all --timeout 1h --shuffle
+
+# the same with the short flags
+opencloud storage-users revisions cleanup -a -t 1h --shuffle
+```
 
 ## Caching
 

@@ -4,6 +4,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/mtimesyncedcache"
@@ -47,6 +49,22 @@ func (i *Index) Load(index string) (map[string]string, error) {
 		return nil, err
 	}
 	return i.readSpaceIndex(indexPath, i.name+":"+index, fi.ModTime())
+}
+
+// Indexes returns the names of the indexes, sorted, e.g. the space types of an index by type.
+func (i *Index) Indexes() ([]string, error) {
+	entries, err := os.ReadDir(filepath.Join(i.root, i.name))
+	if err != nil {
+		return nil, err
+	}
+	names := []string{}
+	for _, e := range entries {
+		if name, ok := strings.CutSuffix(e.Name(), ".mpk"); ok && e.Type().IsRegular() {
+			names = append(names, name)
+		}
+	}
+	slices.Sort(names)
+	return names, nil
 }
 
 // Add adds an entry to an index

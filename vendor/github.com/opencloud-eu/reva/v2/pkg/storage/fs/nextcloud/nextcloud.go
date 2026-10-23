@@ -406,8 +406,8 @@ func (nc *StorageDriver) MarkProcessing(ctx context.Context, ref *provider.Refer
 }
 
 // CommitUpload as defined in the storage.FS interface
-func (nc *StorageDriver) CommitUpload(ctx context.Context, ref *provider.Reference, source storage.UploadSource) (*provider.ResourceInfo, error) {
-	return nil, errtypes.NotSupported("nextcloud: commit upload not supported")
+func (nc *StorageDriver) CommitUpload(_ context.Context, _ *provider.Reference, _ string, _ storage.UploadSource) error {
+	return errtypes.NotSupported("nextcloud: commit upload not supported")
 }
 
 // Upload as defined in the storage.FS interface

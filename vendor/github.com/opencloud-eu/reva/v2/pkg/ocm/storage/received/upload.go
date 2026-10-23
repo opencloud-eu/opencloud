@@ -80,8 +80,8 @@ func (d *driver) MarkProcessing(ctx context.Context, ref *provider.Reference, pr
 	return errtypes.NotSupported("op not supported")
 }
 
-func (d *driver) CommitUpload(ctx context.Context, ref *provider.Reference, source storage.UploadSource) (*provider.ResourceInfo, error) {
-	return nil, errtypes.NotSupported("op not supported")
+func (d *driver) CommitUpload(_ context.Context, _ *provider.Reference, _ string, _ storage.UploadSource) error {
+	return errtypes.NotSupported("op not supported")
 }
 
 func (d *driver) Upload(ctx context.Context, req storage.UploadRequest, _ storage.UploadFinishedFunc) (*provider.ResourceInfo, error) {

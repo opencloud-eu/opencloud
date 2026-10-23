@@ -262,6 +262,17 @@ func (session *DecomposedFsSession) FinishUploadDecomposed(ctx context.Context) 
 			return err
 		}
 		metrics.UploadSessionsFinalized.Inc()
+
+		// Apply the revision cleanup strategy (see package revisioncleanup), but only if
+		// this upload replaced an existing file and thus created a revision, recorded in
+		// versionID by DecomposedFsStore.updateExistingNode. It runs only now, after
+		// Finalize wrote the blob and session.Cleanup removed the processing mark: from
+		// that point on this upload no longer needs any revision to write into or to
+		// roll back to. Async uploads get the same treatment in
+		// Decomposedfs.Postprocessing once their postprocessing finished.
+		if session.info.MetaData["versionID"] != "" {
+			session.store.CleanupRevisions(ctx, n)
+		}
 	}
 
 	return session.store.tp.Propagate(ctx, n, session.SizeDiff())
