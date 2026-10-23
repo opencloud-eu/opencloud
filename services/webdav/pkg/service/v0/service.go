@@ -215,7 +215,7 @@ func newThumbnailWorkflow(conf *config.Config, sourceTypes thumbnail.SourceTypes
 		workflow.WithMaxInputSize(maxInputSize),
 		workflow.WithSizes(sizes),
 		workflow.WithSourceTypes(sourceTypes),
-		workflow.WithTika(thumbnail.NewTika(conf.TikaURL, conf.TikaThumbnailMimeTypes)),
+		workflow.WithTika(thumbnail.NewTika(conf.TikaURL, conf.TikaThumbnailMimeTypes, conf.AdditionalTikaThumbnailMimeTypes)),
 		workflow.WithFormats(formats),
 		workflow.WithTypeMapping(typeMapping),
 		workflow.WithWebdavNamespace(conf.WebdavNamespace),
