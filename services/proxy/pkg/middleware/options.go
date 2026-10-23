@@ -55,8 +55,6 @@ type Options struct {
 	// PictureClaim names the OIDC claim used for profile picture sync.
 	PictureClaim string
 
-	// AutoProvisionClaims to read the user info from the oidc claims
-	AutoProvisionClaims config.AutoProvisionClaims
 	// AutoprovisionAccounts when an accountResolver does not exist.
 	AutoprovisionAccounts bool
 	// EnableBasicAuth to allow basic auth
@@ -190,13 +188,6 @@ func UserCS3Claim(val string) Option {
 func TenantOIDCClaim(val string) Option {
 	return func(o *Options) {
 		o.TenantOIDCClaim = val
-	}
-}
-
-// AutoProvisionClaims provides a function to set the AutoProvisionClaims config
-func AutoProvisionClaims(cfg config.AutoProvisionClaims) Option {
-	return func(o *Options) {
-		o.AutoProvisionClaims = cfg
 	}
 }
 

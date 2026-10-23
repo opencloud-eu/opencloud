@@ -56,7 +56,6 @@ func AccountResolver(optionSetters ...Option) func(next http.Handler) http.Handl
 			userOIDCClaim:          options.UserOIDCClaim,
 			userCS3Claim:           options.UserCS3Claim,
 			tenantOIDCClaim:        options.TenantOIDCClaim,
-			autoProvisionClaims:    options.AutoProvisionClaims,
 			pictureClaim:           options.PictureClaim,
 			tenantIDMappingEnabled: options.TenantIDMappingEnabled,
 			gatewaySelector:        options.RevaGatewaySelector,
@@ -85,7 +84,6 @@ type accountResolver struct {
 	userOIDCClaim          string
 	userCS3Claim           string
 	tenantOIDCClaim        string
-	autoProvisionClaims    config.AutoProvisionClaims
 	pictureClaim           string
 	// lastGroupSyncCache is used to keep track of when the last sync of group
 	// memberships was done for a specific user. This is used to trigger a sync
