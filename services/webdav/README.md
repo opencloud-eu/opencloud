@@ -14,6 +14,21 @@ When `OC_TIKA_URL` (or `WEBDAV_TIKA_URL`) is set, an Apache Tika server (4.2.0 o
 
 Generated thumbnails are cached by the webdav service itself. The cache backend defaults to `file`, storing entries under `$OC_BASE_DATA_PATH/thumbnails/cache` (override with `WEBDAV_THUMBNAILS_CACHE_BACKEND` and `WEBDAV_THUMBNAILS_CACHE_DIR`). Use the `s3` backend when running multiple instances behind a load balancer so they share one cache. A backend nobody can serve, an unknown name or an `s3` backend without bucket, region and credentials, fails at startup instead of serving without a cache, as long as previews are enabled. A service that is not AWS needs `WEBDAV_THUMBNAILS_CACHE_S3_ENDPOINT` too, and it is always addressed over https. The `memory` backend is bounded and drops its oldest entries; `none` disables caching on purpose. The cache also keeps the image an extractor made of a file, under one entry per file, so a second size does not extract again and a file that carries no image is only asked once. Nothing expires: a changed file is a new entry because the key carries its checksum, but an extractor that learns to read a format it could not read before does not reach the files it already answered for. After such an upgrade, an Apache Tika release among them, empty the cache (`WEBDAV_THUMBNAILS_CACHE_DIR`, or the bucket) to have them asked again.
 
+#### Tika Before 4.2.0
+
+`TIKA_PRESETS` is read by Tika 4.2.0 and newer. A 4.1.x server serves the same
+route when its config file activates the preset:
+
+```json
+{
+  "server": { "port": 9998, "host": "0.0.0.0" },
+  "presets": { "thumbnail": true }
+}
+```
+
+It is passed with `-c /tika-config.json`, and the `server` block has to be in
+there because the file replaces what the command line would say.
+
 #### Thumbnail Query String Parameters
 
 Clients can request thumbnail previews for files by adding `?preview=1` to the file URL. Requests for files with no thumbnail available respond with HTTP status `404`.

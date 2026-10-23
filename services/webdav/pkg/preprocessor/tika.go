@@ -45,9 +45,9 @@ func (t TikaThumbnail) Convert(r io.Reader) (*Image, error) {
 // content type. The thumbnail catalog preset (TIKA-4856) unpacks exactly the
 // raster image a client would show for the document, a stored thumbnail such as
 // a raw photo's embedded preview or an audio file's cover, the rendering of an
-// office document's metafile thumbnail, or the rendered first page of a PDF, so
-// the zip carries that one image and nothing else. The server has to run with
-// TIKA_PRESETS=thumbnail, which needs Tika 4.2.0 or newer.
+// office document's metafile thumbnail, or the rendered first page of a PDF.
+// The server has to run with the preset active: Tika 4.2.0 or newer takes
+// TIKA_PRESETS=thumbnail, a 4.1.x server activates it in its config file.
 func tikaThumbnail(tikaURL, filename, contentType string, data []byte) (string, []byte, error) {
 	if contentType == "" {
 		contentType = "application/octet-stream"
@@ -75,7 +75,7 @@ func tikaThumbnail(tikaURL, filename, contentType string, data []byte) (string, 
 		return "", nil, ErrNoThumbnail
 	case http.StatusNotFound:
 		// the route exists once the catalog preset is active
-		return "", nil, fmt.Errorf(`tika unpack returned %s: the "thumbnail" preset needs Tika >= 4.2.0 started with TIKA_PRESETS=thumbnail`, resp.Status)
+		return "", nil, fmt.Errorf(`tika unpack returned %s: the "thumbnail" preset is not active, start Tika 4.2.0 or newer with TIKA_PRESETS=thumbnail, or a 4.1.x server with "presets": {"thumbnail": true} in its config`, resp.Status)
 	default:
 		return "", nil, fmt.Errorf("tika unpack returned %s", resp.Status)
 	}
@@ -91,8 +91,6 @@ func tikaThumbnail(tikaURL, filename, contentType string, data []byte) (string, 
 	return thumbnailFromZip(zr)
 }
 
-// thumbnailFromZip takes the one image the preset unpacked. Lenient about the
-// shape: the first regular file that is not a metadata sidecar wins.
 // thumbnailFromZip takes the first image in the package Tika answers with.
 // What else lies in there is the package's own bookkeeping, and it has been
 // renamed before (TIKA-4971 made it datapackage.json and rmeta.json beside an
@@ -116,8 +114,8 @@ func thumbnailFromZip(zr *zip.Reader) (string, []byte, error) {
 	return "", nil, ErrNoThumbnail
 }
 
-// entryContentType names the image's type. The preset zip carries no metadata
-// entries, so the extension decides and the bytes break the tie.
+// entryContentType names the image's type: the extension decides and the bytes
+// break the tie.
 func entryContentType(name string, data []byte) string {
 	if byExt := mime.TypeByExtension(filepath.Ext(name)); byExt != "" {
 		return byExt
