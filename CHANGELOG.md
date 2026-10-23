@@ -11,6 +11,17 @@
 - Push based thumbnailer architecture [[#3397](https://github.com/opencloud-eu/opencloud/pull/3397)]
 - feat(guestlinks)!: auth-guest service [[#3609](https://github.com/opencloud-eu/opencloud/pull/3609)]
 
+### ✅ Tests
+
+- tests: add acceptance tests for renewing guest links [[#3753](https://github.com/opencloud-eu/opencloud/pull/3753)]
+- tests: check that a guest can only access the shared resource [[#3752](https://github.com/opencloud-eu/opencloud/pull/3752)]
+- tests: add acceptance tests for sharing with guests via email [[#3751](https://github.com/opencloud-eu/opencloud/pull/3751)]
+- Bump reva and add some tests for new features [[#3715](https://github.com/opencloud-eu/opencloud/pull/3715)]
+- api-test: check PROPFIND/REPORT has-preview [[#3714](https://github.com/opencloud-eu/opencloud/pull/3714)]
+- test(api): simply HTTP request retry conditions [[#3696](https://github.com/opencloud-eu/opencloud/pull/3696)]
+- test: retry acceptance requests while share manager is migrating [[#3681](https://github.com/opencloud-eu/opencloud/pull/3681)]
+- api-test: extend search tests [[#3634](https://github.com/opencloud-eu/opencloud/pull/3634)]
+
 ### 🐛 Bug Fixes
 
 - fix(idp): show keyboard focus on every control [[#3732](https://github.com/opencloud-eu/opencloud/pull/3732)]
@@ -36,16 +47,6 @@
 
 - docs: update unified Roles [[#3738](https://github.com/opencloud-eu/opencloud/pull/3738)]
 - fix(proxy): make metrics table MDX-compatible [[#3680](https://github.com/opencloud-eu/opencloud/pull/3680)]
-
-### ✅ Tests
-
-- tests: check that a guest can only access the shared resource [[#3752](https://github.com/opencloud-eu/opencloud/pull/3752)]
-- tests: add acceptance tests for sharing with guests via email [[#3751](https://github.com/opencloud-eu/opencloud/pull/3751)]
-- Bump reva and add some tests for new features [[#3715](https://github.com/opencloud-eu/opencloud/pull/3715)]
-- api-test: check PROPFIND/REPORT has-preview [[#3714](https://github.com/opencloud-eu/opencloud/pull/3714)]
-- test(api): simply HTTP request retry conditions [[#3696](https://github.com/opencloud-eu/opencloud/pull/3696)]
-- test: retry acceptance requests while share manager is migrating [[#3681](https://github.com/opencloud-eu/opencloud/pull/3681)]
-- api-test: extend search tests [[#3634](https://github.com/opencloud-eu/opencloud/pull/3634)]
 
 ### 📦️ Dependencies
 
