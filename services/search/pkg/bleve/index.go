@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -25,19 +26,25 @@ import (
 
 // bolt_timeout makes a second process on the same datapath fail after 5s
 // instead of blocking forever on the file lock.
-var openRuntimeConfig = map[string]any{"bolt_timeout": "5s"}
+var runtimeConfig = map[string]any{
+	"bolt_timeout":           "5s",
+	"asyncErrorCallbackName": asyncErrorCallbackName,
+}
 
 // NewIndex opens (or creates) the bleve index at root and reconciles its schema
 // against NewMapping() via searchmapping.Reconcile.
 func NewIndex(root string, logger log.Logger) (bleve.Index, searchmapping.Classification, error) {
+	asyncErrors.logger.Store(&logger)
+
 	destination := filepath.Join(root, fmt.Sprintf("bleve-v%d", search.SchemaVersion))
-	index, err := bleve.OpenUsing(destination, openRuntimeConfig)
+	index, err := bleve.OpenUsing(destination, runtimeConfig)
 	if errors.Is(err, bleve.ErrorIndexPathDoesNotExist) {
 		indexMapping, err := NewMapping()
 		if err != nil {
 			return nil, searchmapping.Classification{}, err
 		}
-		index, err = bleve.New(destination, indexMapping)
+		// NewUsing adds create-only keys to the map it gets.
+		index, err = bleve.NewUsing(destination, indexMapping, bleve.Config.DefaultIndexType, bleve.Config.DefaultKVStore, maps.Clone(runtimeConfig))
 		if err != nil {
 			return nil, searchmapping.Classification{}, err
 		}
@@ -87,7 +94,7 @@ func (r *bleveReconciler) ApplyAdditive() (bool, error) {
 		r.index = nil
 		return true, err
 	}
-	index, err := bleve.OpenUsing(r.destination, openRuntimeConfig)
+	index, err := bleve.OpenUsing(r.destination, runtimeConfig)
 	if err != nil {
 		r.index = nil
 		return true, err
