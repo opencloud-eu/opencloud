@@ -2,23 +2,79 @@ package thumbnail
 
 import (
 	"mime"
+	"slices"
 	"strings"
 )
 
+// DefaultTikaTypes are the types sent to a Tika server for their thumbnail,
+// the formats a Tika release serves one for. The camera raws have to be named
+// because reva types them as images, and an image is handed to the generator
+// as it is unless something claims it.
+var DefaultTikaTypes = []string{
+	"application/pdf",
+	"application/epub+zip",
+	"application/vnd.ms-xpsdocument",
+
+	"application/msword",
+	"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+	"application/vnd.ms-powerpoint",
+	"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+	"application/vnd.ms-excel",
+	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+	"application/vnd.oasis.opendocument.text",
+	"application/vnd.oasis.opendocument.spreadsheet",
+	"application/vnd.oasis.opendocument.presentation",
+	"application/vnd.apple.pages",
+	"application/vnd.apple.numbers",
+	"application/vnd.apple.keynote",
+
+	"application/vnd.geogebra.file",
+	"application/vnd.geogebra.slides",
+	"application/vnd.geogebra.pinboard",
+
+	"audio/flac",
+	"audio/mpeg",
+	"audio/ogg",
+	"audio/x-flac",
+	"audio/x-m4a",
+
+	"application/x-msdownload",
+
+	"image/x-adobe-dng",
+	"image/x-canon-cr2",
+	"image/x-canon-crw",
+	"image/x-epson-erf",
+	"image/x-fuji-raf",
+	"image/x-kodak-dcr",
+	"image/x-kodak-kdc",
+	"image/x-minolta-mrw",
+	"image/x-nikon-nef",
+	"image/x-nikon-nrw",
+	"image/x-olympus-orf",
+	"image/x-panasonic-raw",
+	"image/x-panasonic-rw2",
+	"image/x-pentax-pef",
+	"image/x-sigma-x3f",
+	"image/x-sony-arw",
+	"image/x-sony-sr2",
+	"image/x-sony-srf",
+}
+
 // Tika is the configured Tika server: its URL and the types it is asked for.
 // It only decides which file goes there, the call lives in the preprocessor.
-// The default list is a single "*", so every non-image file is sent and Tika
-// decides; a list that names types restricts it, an empty one sends nothing.
 type Tika struct {
 	URL string
 	// our mime type -> Tika's, "" when equal; "*" means every type
 	mimeTypes map[string]string
 }
 
-// NewTika parses "mime[:tika-mime]" entries, "*" being every type.
-func NewTika(url string, mimeTypes []string) Tika {
+// NewTika parses "mime[:tika-mime]" entries. mimeTypes is the configured list,
+// which the default config fills with DefaultTikaTypes, additional adds to it,
+// and "*" in either sends every type that nothing else claims. An empty list
+// sends nothing, which leaves a shared Tika server to the search service.
+func NewTika(url string, mimeTypes, additional []string) Tika {
 	t := Tika{URL: url, mimeTypes: map[string]string{}}
-	for _, entry := range mimeTypes {
+	for _, entry := range slices.Concat(mimeTypes, additional) {
 		ours, theirs, _ := strings.Cut(strings.ToLower(strings.TrimSpace(entry)), ":")
 		if ours = strings.TrimSpace(ours); ours != "" {
 			t.mimeTypes[ours] = strings.TrimSpace(theirs)
