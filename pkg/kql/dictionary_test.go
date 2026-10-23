@@ -33,13 +33,13 @@ func TestParse_Spec(t *testing.T) {
 		},
 		{
 			name: `AND`,
-			error: kql.StartsWithBinaryOperatorError{
+			error: kql.DanglingOperatorError{
 				Node: &ast.OperatorNode{Value: kql.BoolAND},
 			},
 		},
 		{
 			name: `AND cat AND dog`,
-			error: kql.StartsWithBinaryOperatorError{
+			error: kql.DanglingOperatorError{
 				Node: &ast.OperatorNode{Value: kql.BoolAND},
 			},
 		},
@@ -79,13 +79,13 @@ func TestParse_Spec(t *testing.T) {
 		},
 		{
 			name: `OR`,
-			error: kql.StartsWithBinaryOperatorError{
+			error: kql.DanglingOperatorError{
 				Node: &ast.OperatorNode{Value: kql.BoolOR},
 			},
 		},
 		{
 			name: `OR cat AND dog`,
-			error: kql.StartsWithBinaryOperatorError{
+			error: kql.DanglingOperatorError{
 				Node: &ast.OperatorNode{Value: kql.BoolOR},
 			},
 		},
@@ -941,26 +941,56 @@ func TestParse_Errors(t *testing.T) {
 		},
 		{
 			query: "animal:(AND cat)",
-			error: kql.StartsWithBinaryOperatorError{
+			error: kql.DanglingOperatorError{
 				Node: &ast.OperatorNode{Value: kql.BoolAND},
 			},
 		},
 		{
 			query: "animal:(OR cat)",
-			error: kql.StartsWithBinaryOperatorError{
+			error: kql.DanglingOperatorError{
 				Node: &ast.OperatorNode{Value: kql.BoolOR},
 			},
 		},
 		{
 			query: "(AND cat)",
-			error: kql.StartsWithBinaryOperatorError{
+			error: kql.DanglingOperatorError{
 				Node: &ast.OperatorNode{Value: kql.BoolAND},
 			},
 		},
 		{
 			query: "(OR cat)",
-			error: kql.StartsWithBinaryOperatorError{
+			error: kql.DanglingOperatorError{
 				Node: &ast.OperatorNode{Value: kql.BoolOR},
+			},
+		},
+		{
+			query: `cat AND`,
+			error: kql.DanglingOperatorError{
+				Node: &ast.OperatorNode{Value: kql.BoolAND},
+			},
+		},
+		{
+			query: `cat NOT`,
+			error: kql.DanglingOperatorError{
+				Node: &ast.OperatorNode{Value: kql.BoolNOT},
+			},
+		},
+		{
+			query: `cat AND OR dog`,
+			error: kql.DanglingOperatorError{
+				Node: &ast.OperatorNode{Value: kql.BoolOR},
+			},
+		},
+		{
+			query: `cat NOT AND dog`,
+			error: kql.DanglingOperatorError{
+				Node: &ast.OperatorNode{Value: kql.BoolAND},
+			},
+		},
+		{
+			query: `cat AND (dog NOT)`,
+			error: kql.DanglingOperatorError{
+				Node: &ast.OperatorNode{Value: kql.BoolNOT},
 			},
 		},
 		{

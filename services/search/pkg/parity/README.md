@@ -321,6 +321,23 @@ Fixtures:
 | VISIBILITY-06 | `hidden:banana` | no match | no match | no match | ✅ |
 | VISIBILITY-07 | `hidden:"true"` | .private, dotfile.txt, secret.txt | .private, dotfile.txt, secret.txt | .private, dotfile.txt, secret.txt | ✅ |
 
+### filter
+
+Fixtures:
+
+- `alice`, ID = 1$1!1, folder, Path = .
+- `.space`, ID = 1$1!.space, folder
+- `readme.md`, ID = 1$1!readme.md, Path = ./.space/readme.md
+- `.spaces`, ID = 1$1!.spaces, folder
+- `notes.md`, ID = 1$1!notes.md
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| FILTER-01 | `path:"./.space"` | .space, readme.md | .space, readme.md | .space, readme.md | ✅ |
+| FILTER-02 | `(name:"*.md") AND (NOT path:"./....NOT id:"none$none!none")` | notes.md | notes.md | notes.md | ✅ |
+| FILTER-03 | `(name:"alice" OR name:".spaces")...ace" AND NOT id:"1$1!1")` | .spaces | .spaces | .spaces | ✅ |
+| FILTER-04 | `(name:"alice") AND (NOT path:"./...NOT id:"none$none!none")` | alice | alice | alice | ✅ |
+
 ### boolean
 
 Fixtures:
@@ -448,7 +465,11 @@ Fixtures:
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
 | INVALID-01 | `AND mediatype:document` | bad request | bad request | bad request | ✅ |
-| INVALID-02 | `mediatype:document AND` | alpha.txt | alpha.txt | alpha.txt | ✅ |
+| INVALID-02 | `mediatype:document AND` | bad request | bad request | bad request | ✅ |
+| INVALID-03 | `mediatype:document NOT` | bad request | bad request | bad request | ✅ |
+| INVALID-04 | `mediatype:document AND OR name:alpha` | bad request | bad request | bad request | ✅ |
+| INVALID-05 | `(mediatype:document` | bad request | bad request | bad request | ✅ |
+| INVALID-06 | `mediatype:document) OR (name:alpha` | bad request | bad request | bad request | ✅ |
 
 ## Operations
 

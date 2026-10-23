@@ -30,6 +30,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
+	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
@@ -75,6 +76,8 @@ type Service struct {
 	serviceAccountSecret string
 
 	batchSize int
+
+	queryTemplate string
 }
 
 var errSkipSpace error
@@ -92,9 +95,31 @@ func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng E
 		serviceAccountSecret: cfg.ServiceAccount.ServiceAccountSecret,
 
 		batchSize: cfg.BatchSize,
+
+		queryTemplate: cfg.QueryTemplate,
 	}
 
 	return s
+}
+
+// ExpandQueryTemplate fills {{.QUERY}} with the user query and the space-root placeholders per space.
+func ExpandQueryTemplate(template, query string, space *provider.StorageSpace) string {
+	if template == "" {
+		return query
+	}
+
+	rootID := func(spaceType string) string {
+		if space.GetSpaceType() == spaceType {
+			return `"` + storagespace.FormatResourceID(space.GetRoot()) + `"`
+		}
+		return `"` + config.NoResourceID + `"`
+	}
+
+	return strings.NewReplacer(
+		config.QueryPlaceholder, query,
+		config.PersonalSpaceRootPlaceholder, rootID(_spaceTypePersonal),
+		config.ProjectSpaceRootPlaceholder, rootID(_spaceTypeProject),
+	).Replace(template)
 }
 
 // Search processes a search request and passes it down to the engine.
@@ -122,19 +147,20 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	}
 	currentUser := revactx.ContextMustGetUser(ctx)
 
-	// Handle flags
-	query, flags := ParseFlags(req.Query)
-	for _, flag := range flags {
-		switch flag {
-		case "is:favorite":
-			query += " Favorites:\"" + currentUser.GetId().GetOpaqueId() + "\""
-		}
-	}
+	// is:favorite expands in place to the user's favorites field, so it keeps its position and joining operator
+	query := strings.ReplaceAll(req.Query, "is:favorite", `Favorites:"`+currentUser.GetId().GetOpaqueId()+`"`)
 
 	// Extract scope from query if set
 	query, scope := ParseScope(query)
 	if query == "" {
 		return nil, errtypes.BadRequest("empty query provided")
+	}
+	queryAst, err := kql.Builder{}.Build(query)
+	if err != nil {
+		if kql.IsValidationError(err) {
+			return nil, errtypes.BadRequest(err.Error())
+		}
+		return nil, err
 	}
 	req.Query = query
 	if len(scope) > 0 {
@@ -174,7 +200,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	// stays in the query, mountpoints are kept for path mapping
 	var pinnedRoot *provider.ResourceId
 	if req.Ref == nil {
-		if pinned := PinnedRootID(req.Query); pinned != "" {
+		if pinned := pinnedRootID(queryAst); pinned != "" {
 			if rid, err := storagespace.ParseID(pinned); err == nil {
 				pinnedRoot = &rid
 			}
@@ -413,7 +439,7 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 	}
 
 	searchRequest := &searchsvc.SearchIndexRequest{
-		Query: req.Query,
+		Query: ExpandQueryTemplate(s.queryTemplate, req.Query, space),
 		Ref: &searchmsg.Reference{
 			ResourceId: searchRootID,
 			Path:       searchPathPrefix,

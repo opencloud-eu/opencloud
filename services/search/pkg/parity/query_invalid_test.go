@@ -12,7 +12,11 @@ func invalidGroup() queryGroup {
 		},
 		cases: []queryCase{
 			{id: 1, query: `AND mediatype:document`, wantBadRequest: true},
-			{id: 2, query: `mediatype:document AND`, want: []string{"alpha.txt"}},
+			{id: 2, query: `mediatype:document AND`, wantBadRequest: true},
+			{id: 3, query: `mediatype:document NOT`, wantBadRequest: true},
+			{id: 4, query: `mediatype:document AND OR name:alpha`, wantBadRequest: true},
+			{id: 5, query: `(mediatype:document`, wantBadRequest: true},
+			{id: 6, query: `mediatype:document) OR (name:alpha`, wantBadRequest: true},
 		},
 	}
 }

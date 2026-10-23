@@ -104,6 +104,7 @@ func queryGroups() []queryGroup {
 		fieldsGroup(),
 		deletedGroup(),
 		visibilityGroup(),
+		filterGroup(),
 		booleanGroup(),
 		samenameGroup(),
 		stressGroup(),
