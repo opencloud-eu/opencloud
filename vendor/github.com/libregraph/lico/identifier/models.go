@@ -55,6 +55,7 @@ type HelloRequest struct {
 	RawRedirectURI string `json:"redirect_uri"`
 	RawIDTokenHint string `json:"id_token_hint"`
 	RawMaxAge      string `json:"max_age"`
+	RawResource    string `json:"resource"`
 
 	Scopes      map[string]bool `json:"-"`
 	Prompts     map[string]bool `json:"-"`
@@ -105,8 +106,15 @@ type HelloResponse struct {
 	ContinueURI   string           `json:"continue_uri,omitempty"`
 	Scopes        map[string]bool  `json:"scopes,omitempty"`
 	ClientDetails *clients.Details `json:"client,omitempty"`
+	Resource      *ResourceDetails `json:"resource,omitempty"`
 	Meta          *meta.Meta       `json:"meta,omitempty"`
 	Branding      *meta.Branding   `json:"branding,omitempty"`
+}
+
+// ResourceDetails names the protected resource a consent is for.
+type ResourceDetails struct {
+	ID   string `json:"id"`
+	Name string `json:"name,omitempty"`
 }
 
 // A StateRequest is a general request with a state.

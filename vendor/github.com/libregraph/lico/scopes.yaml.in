@@ -10,3 +10,24 @@ scopes:
 
 #  another-scope:
 #    description: "This is the another scope"
+
+# The scopes a protected resource accepts are defined here like any other, and
+# they have to be, or the resource registration is refused on startup.
+
+# The description above is what the consent screen shows, and it is used as is.
+# Add a descriptions block to have it shown in the visitor's language instead.
+# Keys are locale tags as the web app knows them (de, fr, zh-CN); matching is
+# case insensitive and falls back on the primary subtag, so a de-DE entry also
+# serves a visitor whose language is de. Prefer plain language keys unless a
+# region really needs its own wording: with two variants of one language and no
+# exact match, the alphabetically first one is used.
+#
+# description stays the fallback for every locale the block does not cover. An
+# en entry, if present, covers all of them, since the web app falls back to
+# English last.
+
+#  translated-scope:
+#    description: "Access your calendar"
+#    descriptions:
+#      de: "Auf Ihren Kalender zugreifen"
+#      fr: "Accéder à votre agenda"

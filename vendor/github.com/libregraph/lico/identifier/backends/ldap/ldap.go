@@ -38,6 +38,7 @@ import (
 	"github.com/libregraph/lico/config"
 	"github.com/libregraph/lico/identifier/backends"
 	"github.com/libregraph/lico/identifier/meta/scopes"
+	"github.com/libregraph/lico/identity"
 )
 
 const ldapIdentifierBackendName = "identifier-ldap"
@@ -459,7 +460,7 @@ func (b *LDAPIdentifierBackend) ResolveUserByUsername(ctx context.Context, usern
 // GetUser implements the Backend interface, providing user meta data retrieval
 // for the user specified by the userID. Requests are bound to the provided
 // context.
-func (b *LDAPIdentifierBackend) GetUser(ctx context.Context, entryID string, sessionRef *string, requestedScopes map[string]bool) (backends.UserFromBackend, error) {
+func (b *LDAPIdentifierBackend) GetUser(ctx context.Context, entryID string, sessionRef *string, requestedScopes map[string]bool, lookup *identity.LookupContext) (backends.UserFromBackend, error) {
 	l, err := b.connect(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("ldap identifier backend get user connect error: %v", err)
