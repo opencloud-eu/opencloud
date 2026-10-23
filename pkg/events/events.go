@@ -55,14 +55,14 @@ func (GuestTokenRenewed) Unmarshal(v []byte) (interface{}, error) {
 	return e, err
 }
 
-type ProfilePictureSyncRequested struct {
+type UserProfilePictureSyncRequested struct {
 	Executant  *user.UserId
 	PictureURL string `json:",omitempty"`
 	Timestamp  *types.Timestamp
 }
 
-func (ProfilePictureSyncRequested) Unmarshal(v []byte) (interface{}, error) {
-	e := ProfilePictureSyncRequested{}
+func (UserProfilePictureSyncRequested) Unmarshal(v []byte) (interface{}, error) {
+	e := UserProfilePictureSyncRequested{}
 	err := json.Unmarshal(v, &e)
 	return e, err
 }

@@ -473,7 +473,7 @@ func (g *Graph) StartListenForLogonEvents(ctx context.Context, l log.Logger) err
 	}
 	var _registeredEvents = []events.Unmarshaller{
 		events.UserSignedIn{},
-		ocevents.ProfilePictureSyncRequested{},
+		ocevents.UserProfilePictureSyncRequested{},
 	}
 	evChannel, err := events.Consume(g.eventsConsumer, "graph", _registeredEvents...)
 	if err != nil {
@@ -491,7 +491,7 @@ func (g *Graph) StartListenForLogonEvents(ctx context.Context, l log.Logger) err
 					if err := g.identityBackend.UpdateLastSignInDate(ctx, ev.Executant.OpaqueId, utils.TSToTime(ev.Timestamp)); err != nil {
 						l.Error().Err(err).Str("userid", ev.Executant.OpaqueId).Msg("Error updating last sign in date")
 					}
-				case ocevents.ProfilePictureSyncRequested:
+				case ocevents.UserProfilePictureSyncRequested:
 					if err := g.userProfilePhotoService.SyncPhotoFromURL(ctx, ev.Executant.GetOpaqueId(), ev.PictureURL); err != nil {
 						l.Warn().Err(err).Str("userid", ev.Executant.GetOpaqueId()).Msg("Failed to sync profile picture from OIDC claim")
 					} else if g.eventsPublisher != nil {

@@ -254,7 +254,7 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			// If the OIDC claims contain a profile picture URL, request
 			// the graph service to sync it.
 			if pictureURL := m.readProfilePictureURL(claims); pictureURL != "" {
-				if err := events.Publish(req.Context(), m.eventsPublisher, ocevents.ProfilePictureSyncRequested{
+				if err := events.Publish(req.Context(), m.eventsPublisher, ocevents.UserProfilePictureSyncRequested{
 					Executant:  user.Id,
 					PictureURL: pictureURL,
 					Timestamp:  utils.TimeToTS(time.Now()),
