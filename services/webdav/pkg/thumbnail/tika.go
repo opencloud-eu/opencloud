@@ -7,14 +7,15 @@ import (
 
 // Tika is the configured Tika server: its URL and the types it is asked for.
 // It only decides which file goes there, the call lives in the preprocessor.
-// By default every non-image file is sent and Tika decides.
+// The default list is a single "*", so every non-image file is sent and Tika
+// decides; a list that names types restricts it, an empty one sends nothing.
 type Tika struct {
 	URL string
 	// our mime type -> Tika's, "" when equal; "*" means every type
 	mimeTypes map[string]string
 }
 
-// NewTika parses "mime[:tika-mime]" entries; empty means every type.
+// NewTika parses "mime[:tika-mime]" entries, "*" being every type.
 func NewTika(url string, mimeTypes []string) Tika {
 	t := Tika{URL: url, mimeTypes: map[string]string{}}
 	for _, entry := range mimeTypes {
@@ -23,9 +24,7 @@ func NewTika(url string, mimeTypes []string) Tika {
 			t.mimeTypes[ours] = strings.TrimSpace(theirs)
 		}
 	}
-	if len(t.mimeTypes) == 0 {
-		t.mimeTypes["*"] = ""
-	}
+
 	return t
 }
 
