@@ -57,6 +57,7 @@ func AccountResolver(optionSetters ...Option) func(next http.Handler) http.Handl
 			userCS3Claim:           options.UserCS3Claim,
 			tenantOIDCClaim:        options.TenantOIDCClaim,
 			autoProvisionClaims:    options.AutoProvisionClaims,
+			pictureClaim:           options.PictureClaim,
 			tenantIDMappingEnabled: options.TenantIDMappingEnabled,
 			gatewaySelector:        options.RevaGatewaySelector,
 			serviceAccount:         options.ServiceAccount,
@@ -85,6 +86,7 @@ type accountResolver struct {
 	userCS3Claim           string
 	tenantOIDCClaim        string
 	autoProvisionClaims    config.AutoProvisionClaims
+	pictureClaim           string
 	// lastGroupSyncCache is used to keep track of when the last sync of group
 	// memberships was done for a specific user. This is used to trigger a sync
 	// with every single request.
@@ -130,12 +132,12 @@ func readStringClaim(path string, claims map[string]any) (string, error) {
 }
 
 func (m accountResolver) readProfilePictureURL(claims map[string]any) string {
-	if m.autoProvisionClaims.Picture == "" {
+	if m.pictureClaim == "" {
 		return ""
 	}
-	pictureURL, err := readStringClaim(m.autoProvisionClaims.Picture, claims)
+	pictureURL, err := readStringClaim(m.pictureClaim, claims)
 	if err != nil {
-		m.logger.Debug().Err(err).Str("claim", m.autoProvisionClaims.Picture).Msg("no profile picture claim found in OIDC claims")
+		m.logger.Debug().Err(err).Str("claim", m.pictureClaim).Msg("no profile picture claim found in OIDC claims")
 		return ""
 	}
 	return pictureURL

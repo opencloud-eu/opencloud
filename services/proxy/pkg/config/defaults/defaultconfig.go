@@ -50,7 +50,8 @@ func DefaultConfig() *config.Config {
 			Name: "proxy",
 		},
 		OIDC: config.OIDC{
-			Issuer: "https://localhost:9200",
+			PictureClaim: "picture",
+			Issuer:       "https://localhost:9200",
 
 			AccessTokenVerifyMethod: config.AccessTokenVerificationJWT,
 			SkipUserInfo:            false,
@@ -101,7 +102,6 @@ func DefaultConfig() *config.Config {
 			Username:    "preferred_username",
 			Email:       "email",
 			DisplayName: "name",
-			Picture:     "picture",
 			Groups:      "groups",
 		},
 		EnableBasicAuth:               false,
