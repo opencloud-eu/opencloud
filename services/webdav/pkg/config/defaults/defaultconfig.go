@@ -7,6 +7,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
 // FullDefaultConfig returns a fully initialized default configuration
@@ -44,7 +45,7 @@ func DefaultConfig() *config.Config {
 		WebdavNamespace:    "/users/{{.Id.OpaqueId}}",
 		RevaGateway:        shared.DefaultRevaConfig().Address,
 
-		TikaThumbnailMimeTypes: []string{"*"},
+		TikaThumbnailMimeTypes: thumbnail.DefaultTikaTypes,
 
 		Thumbnails: config.Thumbnails{
 			GeneratorURL:     "http://127.0.0.1:9186",

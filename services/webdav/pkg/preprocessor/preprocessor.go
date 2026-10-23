@@ -362,6 +362,7 @@ type Options struct {
 	FontFace     *opentype.FaceOptions
 	MaxImageSize uint64
 	Tika         thumbnail.Tika
+	SourceTypes  thumbnail.SourceTypes
 	Filename     string
 }
 
@@ -374,11 +375,32 @@ func tikaOr(opts Options, mimeType string, fallback FileConverter) FileConverter
 	return TikaThumbnail{tikaURL: opts.Tika.URL, filename: opts.Filename, contentType: opts.Tika.ContentType(mimeType)}
 }
 
-// ForType returns the converter for the specified mimeType
-func ForType(mimeType string, opts Options) FileConverter {
-	// We can ignore the error here because we parse it in IsMimeTypeSupported before and if it fails
-	// return the service call. So we should only get here when the mimeType parses fine.
+// ForType says what has to happen to a file of this type before the generator
+// sees it: a converter to run, nil when the generator reads the file as it is,
+// and ErrNoThumbnail when nothing here can make an image of it.
+//
+// The order is the answer to two questions that look the same and are not, what
+// a type is and who can serve it:
+//  1. a type the configuration names for Tika goes to Tika, an image too, which
+//     is how a raw photo is extracted instead of being handed to a generator
+//     that cannot read it
+//  2. an image the generator reads is handed over untouched
+//  3. a type with a converter here is converted here
+//  4. what is left goes to Tika when it was told to take everything
+//  5. and otherwise nothing can make a preview of it
+func ForType(mimeType string, opts Options) (FileConverter, error) {
+	// We can ignore the error here because the caller parses it as well, so we
+	// only get here when the mimeType parses fine.
 	mimeType, _, _ = mime.ParseMediaType(mimeType)
+
+	if opts.Tika.ConfiguredFor(mimeType) {
+		return tikaOr(opts, mimeType, nil), nil
+	}
+
+	if opts.SourceTypes.GeneratorReads(mimeType) {
+		return nil, nil
+	}
+
 	switch mimeType {
 	case "text/plain":
 		fontFace := opts.FontFace
@@ -396,28 +418,19 @@ func ForType(mimeType string, opts Options) FileConverter {
 			// try to use the default font
 			fontLoader, _ = NewFontLoader("", fontFace)
 		}
-		return TxtToImageConverter{
-			fontLoader: fontLoader,
-		}
-	case "application/vnd.geogebra.slides":
-		return tikaOr(opts, mimeType, GgsDecoder{thumbnailpath: "_slide0/geogebra_thumbnail.png", maxSize: maxExtractedSize(opts)})
-	case "application/vnd.geogebra.pinboard":
-		return tikaOr(opts, mimeType, GgpDecoder{})
-	case "audio/flac":
-		fallthrough
-	case "audio/mpeg":
-		fallthrough
-	case "audio/ogg":
-		return tikaOr(opts, mimeType, AudioDecoder{})
-	default:
-		// an image reaches the generator as it is: it reads the common types and
-		// may read more, an imagor with ImageMagick reads heic where we do not.
-		// OC_TIKA_THUMBNAIL_MIME_TYPES is how a deployment hands an image type
-		// to Tika instead.
-		if strings.HasPrefix(mimeType, "image/") && !opts.Tika.ConfiguredFor(mimeType) {
-			return nil
-		}
 
-		return tikaOr(opts, mimeType, nil)
+		return TxtToImageConverter{fontLoader: fontLoader}, nil
+	case "application/vnd.geogebra.slides":
+		return tikaOr(opts, mimeType, GgsDecoder{thumbnailpath: "_slide0/geogebra_thumbnail.png", maxSize: maxExtractedSize(opts)}), nil
+	case "application/vnd.geogebra.pinboard":
+		return tikaOr(opts, mimeType, GgpDecoder{}), nil
+	case "audio/flac", "audio/mpeg", "audio/ogg":
+		return tikaOr(opts, mimeType, AudioDecoder{}), nil
 	}
+
+	if converter := tikaOr(opts, mimeType, nil); converter != nil {
+		return converter, nil
+	}
+
+	return nil, ErrNoThumbnail
 }
