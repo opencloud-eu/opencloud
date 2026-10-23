@@ -416,7 +416,7 @@ func (im *GuestIdentityManager) ApprovedScopes(ctx context.Context, sub string, 
 }
 
 // Fetch implements the identity.Manager interface.
-func (im *GuestIdentityManager) Fetch(ctx context.Context, userID string, sessionRef *string, scopes map[string]bool, requestedClaimsMaps []*payload.ClaimsRequestMap, requestedScopes map[string]bool) (identity.AuthRecord, bool, error) {
+func (im *GuestIdentityManager) Fetch(ctx context.Context, userID string, sessionRef *string, scopes map[string]bool, requestedClaimsMaps []*payload.ClaimsRequestMap, requestedScopes map[string]bool, lookup *identity.LookupContext) (identity.AuthRecord, bool, error) {
 	var user identity.PublicUser
 
 	for {
