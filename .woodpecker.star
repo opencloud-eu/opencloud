@@ -2929,7 +2929,8 @@ def litmus(ctx, storage):
         "name": "test-litmus",
         "steps": evaluateWorkflowStep() +
                  restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
-                 opencloudServer(storage) +
+                 # litmus does a GET right after a PUT, which fails with 425 Too Early while postprocessing is still running
+                 opencloudServer(storage, extra_server_environment = {"OC_ASYNC_UPLOADS": False}) +
                  setupForLitmus() +
                  [
                      {
