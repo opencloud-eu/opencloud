@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"path"
 	"strings"
 
 	"github.com/go-chi/render"
@@ -176,7 +175,7 @@ func (s UsersUserProfilePhotoService) fetchProfilePicture(ctx context.Context, r
 
 func (s UsersUserProfilePhotoService) isProfilePictureURLAllowed(rawURL string) bool {
 	parsedURL, err := url.Parse(rawURL)
-	if err != nil || parsedURL.Host == "" {
+	if err != nil || parsedURL.Host == "" || parsedURL.User != nil {
 		return false
 	}
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
@@ -184,9 +183,6 @@ func (s UsersUserProfilePhotoService) isProfilePictureURLAllowed(rawURL string) 
 	}
 
 	for _, pattern := range s.profilePictureAllowlistPatterns() {
-		if pattern == "*" {
-			return true
-		}
 		if urlPatternMatches(pattern, parsedURL) {
 			return true
 		}
@@ -205,37 +201,40 @@ func (s UsersUserProfilePhotoService) profilePictureAllowlistPatterns() []string
 	return []string{fmt.Sprintf("%s://%s", issuerURL.Scheme, issuerURL.Host)}
 }
 
+// urlPatternMatches accepts HTTP(S) URL patterns with host globs and an optional
+// exact path or trailing path wildcard. Empty and root paths allow any path.
+// Query strings and fragments do not restrict targets and are invalid in patterns.
 func urlPatternMatches(pattern string, target *url.URL) bool {
-	if target == nil {
+	if target == nil || target.Host == "" || target.User != nil ||
+		(target.Scheme != "http" && target.Scheme != "https") {
 		return false
 	}
-	parsedPattern, err := url.Parse(pattern)
-	if err == nil && parsedPattern.Host != "" {
-		if parsedPattern.Scheme != "" && !strings.EqualFold(parsedPattern.Scheme, target.Scheme) {
-			return false
-		}
-		hostMatcher, err := glob.Compile(strings.ToLower(parsedPattern.Host))
-		if err != nil {
-			return false
-		}
-		if !hostMatcher.Match(strings.ToLower(target.Host)) {
-			return false
-		}
-		if parsedPattern.Path == "" || parsedPattern.Path == "/" {
-			return true
-		}
-		if strings.HasSuffix(parsedPattern.Path, "*") {
-			prefix := strings.TrimSuffix(parsedPattern.Path, "*")
-			return strings.HasPrefix(target.Path, prefix)
-		}
-		return path.Clean(parsedPattern.Path) == path.Clean(target.Path)
+	if pattern == "*" {
+		return true
 	}
 
-	hostMatcher, err := glob.Compile(strings.ToLower(pattern))
-	if err != nil {
+	parsedPattern, err := url.Parse(pattern)
+	if err != nil || parsedPattern.Host == "" || parsedPattern.User != nil ||
+		(parsedPattern.Scheme != "http" && parsedPattern.Scheme != "https") ||
+		parsedPattern.RawQuery != "" || parsedPattern.ForceQuery || parsedPattern.Fragment != "" || strings.Contains(pattern, "#") {
 		return false
 	}
-	return hostMatcher.Match(strings.ToLower(target.Host))
+	if parsedPattern.Scheme != target.Scheme {
+		return false
+	}
+	hostMatcher, err := glob.Compile(strings.ToLower(parsedPattern.Host))
+	if err != nil || !hostMatcher.Match(strings.ToLower(target.Host)) {
+		return false
+	}
+
+	patternPath := parsedPattern.EscapedPath()
+	if patternPath == "" || patternPath == "/" {
+		return true
+	}
+	if strings.HasSuffix(patternPath, "*") {
+		return strings.HasPrefix(target.EscapedPath(), strings.TrimSuffix(patternPath, "*"))
+	}
+	return patternPath == target.EscapedPath()
 }
 
 // UsersUserProfilePhotoApi contains all photo related api endpoints

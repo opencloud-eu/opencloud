@@ -63,6 +63,33 @@ func TestURLPatternMatches(t *testing.T) {
 		{"root path matches any path", "https://example.com", "https://example.com/any/path", true},
 		{"root path slash matches any path", "https://example.com/", "https://example.com/any/path", true},
 
+		// Only complete HTTP(S) URL patterns and the explicit wildcard are accepted.
+		{"bare host rejected", "example.com", "https://example.com/avatar.png", false},
+		{"bare host glob rejected", "*.example.com", "https://cdn.example.com/avatar.png", false},
+		{"relative URL rejected", "//example.com", "https://example.com/avatar.png", false},
+		{"invalid URL pattern", "https://example.com/%zz", "https://example.com/avatar.png", false},
+		{"invalid host glob", "https://[*.example.com", "https://example.com/avatar.png", false},
+		{"unsupported pattern scheme", "ftp://example.com", "https://example.com/avatar.png", false},
+		{"unsupported target scheme", "*", "ftp://example.com/avatar.png", false},
+		{"relative target rejected", "*", "/avatar.png", false},
+		{"target credentials rejected", "*", "https://user:password@example.com/avatar.png", false},
+		{"pattern credentials rejected", "https://user@example.com", "https://example.com/avatar.png", false},
+		{"query in pattern rejected", "https://example.com?token=secret", "https://example.com/avatar.png", false},
+		{"empty query in pattern rejected", "https://example.com?", "https://example.com/avatar.png", false},
+		{"fragment in pattern rejected", "https://example.com#avatar", "https://example.com/avatar.png", false},
+		{"empty fragment in pattern rejected", "https://example.com#", "https://example.com/avatar.png", false},
+		{"target query ignored", "https://example.com/avatar.png", "https://example.com/avatar.png?size=128#photo", true},
+
+		// Ports are part of the host pattern; paths retain their literal encoding.
+		{"port match", "https://example.com:8443", "https://example.com:8443/avatar.png", true},
+		{"port mismatch", "https://example.com:8443", "https://example.com/avatar.png", false},
+		{"explicit default port differs", "https://example.com", "https://example.com:443/avatar.png", false},
+		{"path prefix boundary", "https://example.com/img/*", "https://example.com/images/avatar.png", false},
+		{"path case sensitive", "https://example.com/Avatar.png", "https://example.com/avatar.png", false},
+		{"path not normalized", "https://example.com/avatar.png", "https://example.com/other/../avatar.png", false},
+		{"encoded separator differs", "https://example.com/img/*", "https://example.com/img%2Favatar.png", false},
+		{"encoded path exact", "https://example.com/my%20avatar.png", "https://example.com/my%20avatar.png", true},
+
 		// Case insensitivity
 		{"case insensitive host", "https://*.Example.COM", "https://cdn.example.com", true},
 	}
@@ -74,6 +101,10 @@ func TestURLPatternMatches(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestURLPatternMatchesNilTarget(t *testing.T) {
+	assert.False(t, urlPatternMatches("*", nil))
 }
 
 func TestIsProfilePictureURLAllowed(t *testing.T) {
@@ -124,6 +155,24 @@ func TestIsProfilePictureURLAllowed(t *testing.T) {
 			allowlist:  []string{"*"},
 			oidcIssuer: "",
 			targetURL:  "://not-a-url",
+			want:       false,
+		},
+		{
+			name:      "wildcard rejects credentials",
+			allowlist: []string{"*"},
+			targetURL: "https://user:password@example.com/avatar.png",
+			want:      false,
+		},
+		{
+			name:       "issuer path does not restrict photo paths",
+			oidcIssuer: "https://idp.example.com/realms/opencloud",
+			targetURL:  "https://idp.example.com/avatar.png",
+			want:       true,
+		},
+		{
+			name:       "issuer scheme is enforced",
+			oidcIssuer: "https://idp.example.com",
+			targetURL:  "http://idp.example.com/avatar.png",
 			want:       false,
 		},
 		{
