@@ -292,10 +292,24 @@ func (idp *IDP) initMux(ctx context.Context, r []server.WithRoutes, h http.Handl
 		),
 	)
 
-	// handle / | index.html with a template that needs to have the BASE_PREFIX replaced
-	idp.mux.Get("/signin/v1/identifier", idp.Index())
-	idp.mux.Get("/signin/v1/identifier/", idp.Index())
-	idp.mux.Get("/signin/v1/identifier/index.html", idp.Index())
+	// handle / | index.html with a template that needs to have the BASE_PREFIX replaced.
+	//
+	// This covers every route the vendored lico library registers for its own
+	// built-in identifier webapp (vendor/github.com/libregraph/lico/identifier/identifier.go's
+	// `r.Handle("/<path>", i)` calls), not just "identifier" -- lico's own
+	// webappIndexHTML is only ever populated when IdentifierClientDisabled is
+	// false, which it never is here (that's the whole point of running our own,
+	// correctly-templated identifier app instead). Without an override, hitting
+	// any of these directly (e.g. after a SAML logout redirect, or a bookmarked
+	// URL) reached lico's handler, which serves that permanently-empty template:
+	// HTTP 200 with a literally empty body. All five are routes the identifier
+	// app's own client-side router (services/idp/src/Routes.jsx) recognizes, so
+	// serving our real index.html for them is all that's needed.
+	for _, path := range []string{"identifier", "chooseaccount", "consent", "welcome", "goodbye"} {
+		idp.mux.Get("/signin/v1/"+path, idp.Index())
+		idp.mux.Get("/signin/v1/"+path+"/", idp.Index())
+		idp.mux.Get("/signin/v1/"+path+"/index.html", idp.Index())
+	}
 
 	idp.mux.Mount("/", gm)
 
