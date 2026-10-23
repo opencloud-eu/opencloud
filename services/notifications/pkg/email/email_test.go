@@ -23,3 +23,27 @@ func TestEscapeStringMapDoesNotMutateInput(t *testing.T) {
 			input["SpaceName"], raw)
 	}
 }
+
+// Regression: the ScienceMesh subject showed the literal {InitiatorName} placeholder.
+func TestScienceMeshSubjectNamesInitiator(t *testing.T) {
+	vars := map[string]string{
+		"ShareSharer":     "Anna",
+		"InitiatorName":   "Anna",
+		"ShareSharerMail": "anna@example.org",
+		"ShareLink":       "https://cloud.example.org/accept",
+		"Token":           "token",
+		"ProviderDomain":  "cloud.example.org",
+	}
+	for locale, want := range map[string]string{
+		"en": "ScienceMesh: Anna wants to collaborate with you",
+		"es": "ScienceMesh: Anna quiere colaborar contigo",
+	} {
+		msg, err := RenderEmailTemplate(ScienceMeshInviteTokenGenerated, locale, "en", "", "", vars)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if msg.Subject != want {
+			t.Errorf("%s: got subject %q, want %q", locale, msg.Subject, want)
+		}
+	}
+}

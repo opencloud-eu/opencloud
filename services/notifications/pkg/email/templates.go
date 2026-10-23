@@ -4,7 +4,13 @@ import "github.com/opencloud-eu/opencloud/pkg/l10n"
 
 const (
 	_textTemplate = "templates/text/email.text.tmpl"
-	_htmlTemplate = "templates/html/email.html.tmpl"
+	// _htmlLayout is the parent of every html email, the children fill its "content" block
+	_htmlLayout   = "templates/html/layout.html.tmpl"
+	_htmlTemplate = "templates/html/message.html.tmpl"
+	_htmlDigest   = "templates/html/digest.html.tmpl"
+	// _htmlLegacyTemplate is the single html template used before the layout was split,
+	// custom template folders that only contain this file keep working with it
+	_htmlLegacyTemplate = "templates/html/email.html.tmpl"
 )
 
 // the available templates
@@ -21,6 +27,10 @@ var (
 		MessageBody: l10n.Template(`{ShareSharer} has shared "{ShareFolder}" with you.`),
 		// ShareCreated email template, resolves via {{ .CallToAction }}
 		CallToAction: l10n.Template(`Click here to view it: {ShareLink}`),
+		// ShareCreated email template, label of the button in the html email
+		ActionLabel:   l10n.Template(`View shares`),
+		actionLink:    `{ShareLink}`,
+		digestLinkVar: "ShareFolder",
 	}
 
 	ShareRemoved = MessageTemplate{
@@ -34,6 +44,7 @@ var (
 		MessageBody: l10n.Template(`{ShareSharer} has unshared '{ShareFolder}' with you.
 
 Even though this share has been revoked you still might have access through other shares and/or space memberships.`),
+		bodyLayout: []paragraphRole{paragraphText, paragraphHint},
 	}
 
 	ShareExpired = MessageTemplate{
@@ -47,6 +58,7 @@ Even though this share has been revoked you still might have access through othe
 		MessageBody: l10n.Template(`Your share to {ShareFolder} has expired at {ExpiredAt}
 
 Even though this share has been revoked you still might have access through other shares and/or space memberships.`),
+		bodyLayout: []paragraphRole{paragraphText, paragraphHint},
 	}
 
 	// Guest link templates
@@ -65,6 +77,10 @@ The link below is personal and can only be used once. Please do not forward it.
 The link is only valid for 30 minutes.`),
 		// GuestLinkShareCreated email template, resolves via {{ .CallToAction }}
 		CallToAction: l10n.Template(`Click here to view it: {ShareLink}`),
+		// GuestLinkShareCreated email template, label of the button in the html email
+		ActionLabel: l10n.Template(`Open link`),
+		actionLink:  `{ShareLink}`,
+		bodyLayout:  []paragraphRole{paragraphText, paragraphText, paragraphNote},
 	}
 
 	GuestLinkShareRenewed = MessageTemplate{
@@ -84,6 +100,10 @@ Open the link below or enter the PIN on the page where you requested the new lin
 The link and the PIN are only valid for 30 minutes.`),
 		// GuestLinkShareRenewed email template, resolves via {{ .CallToAction }}
 		CallToAction: l10n.Template(`Click here to view it: {ShareLink}`),
+		// GuestLinkShareRenewed email template, label of the button in the html email
+		ActionLabel: l10n.Template(`Open link`),
+		actionLink:  `{ShareLink}`,
+		bodyLayout:  []paragraphRole{paragraphText, paragraphCode, paragraphText, paragraphNote},
 	}
 
 	GuestLinkShareRenewedWithoutPin = MessageTemplate{
@@ -101,6 +121,10 @@ The link below is personal and can only be used once. Please do not forward it.
 The link is only valid for 30 minutes.`),
 		// GuestLinkShareRenewedWithoutPin email template, resolves via {{ .CallToAction }}
 		CallToAction: l10n.Template(`Click here to view it: {ShareLink}`),
+		// GuestLinkShareRenewedWithoutPin email template, label of the button in the html email
+		ActionLabel: l10n.Template(`Open link`),
+		actionLink:  `{ShareLink}`,
+		bodyLayout:  []paragraphRole{paragraphText, paragraphText, paragraphNote},
 	}
 
 	// Spaces templates
@@ -115,6 +139,10 @@ The link is only valid for 30 minutes.`),
 		MessageBody: l10n.Template(`{SpaceSharer} has invited you to join "{SpaceName}".`),
 		// SharedSpace email template, resolves via {{ .CallToAction }}
 		CallToAction: l10n.Template(`Click here to view it: {ShareLink}`),
+		// SharedSpace email template, label of the button in the html email
+		ActionLabel:   l10n.Template(`Open space`),
+		actionLink:    `{ShareLink}`,
+		digestLinkVar: "SpaceName",
 	}
 
 	UnsharedSpace = MessageTemplate{
@@ -130,6 +158,11 @@ The link is only valid for 30 minutes.`),
 You might still have access through your other groups or direct membership.`),
 		// UnsharedSpace email template, resolves via {{ .CallToAction }}
 		CallToAction: l10n.Template(`Click here to check it: {ShareLink}`),
+		// UnsharedSpace email template, label of the button in the html email
+		ActionLabel:   l10n.Template(`Check access`),
+		actionLink:    `{ShareLink}`,
+		bodyLayout:    []paragraphRole{paragraphText, paragraphHint},
+		digestLinkVar: "SpaceName",
 	}
 
 	MembershipExpired = MessageTemplate{
@@ -143,6 +176,7 @@ You might still have access through your other groups or direct membership.`),
 		MessageBody: l10n.Template(`Your membership of space {SpaceName} has expired at {ExpiredAt}
 
 Even though this membership has expired you still might have access through other shares and/or space memberships`),
+		bodyLayout: []paragraphRole{paragraphText, paragraphHint},
 	}
 
 	ScienceMeshInviteTokenGenerated = MessageTemplate{
@@ -176,15 +210,28 @@ Please visit your federation settings and use the following details:
   ProviderDomain: {ProviderDomain}`),
 	}
 
-	Grouped = GroupedMessageTemplate{
+	GroupedDaily = GroupedMessageTemplate{
 		textTemplate: _textTemplate,
-		htmlTemplate: _htmlTemplate,
-		// Grouped email template, Subject field (resolves directly)
-		Subject: l10n.Template(`Report`), // TODO find meaningful subject
-		// Grouped email template, resolves via {{ .Greeting }}
+		htmlTemplate: _htmlDigest,
+		// GroupedDaily email template, Subject field (resolves directly)
+		Subject: l10n.Template(`Your daily notifications`),
+		// GroupedDaily email template, resolves via {{ .Greeting }}
 		Greeting:    l10n.Template(`Hi {DisplayName},`),
 		MessageBody: "", // is generated using the GroupedTemplates
 	}
+
+	GroupedWeekly = GroupedMessageTemplate{
+		textTemplate: _textTemplate,
+		htmlTemplate: _htmlDigest,
+		// GroupedWeekly email template, Subject field (resolves directly)
+		Subject: l10n.Template(`Your weekly notifications`),
+		// GroupedWeekly email template, resolves via {{ .Greeting }}
+		Greeting:    l10n.Template(`Hi {DisplayName},`),
+		MessageBody: "", // is generated using the GroupedTemplates
+	}
+
+	// fallbackLinkLabel introduces the plain link below the button of the html email
+	_fallbackLinkLabel = l10n.Template(`Or open this link:`)
 
 	Mention = MessageTemplate{
 		textTemplate: _textTemplate,
@@ -193,6 +240,9 @@ Please visit your federation settings and use the following details:
 		Greeting:     l10n.Template(`Hello {RecipientName},`),
 		MessageBody:  l10n.Template(`{AuthorName} mentioned you in "{ResourceName}".`),
 		CallToAction: l10n.Template(`You can view the mention here: {ResourceLink}`),
+		// Mention email template, label of the button in the html email
+		ActionLabel: l10n.Template(`View mention`),
+		actionLink:  `{ResourceLink}`,
 	}
 )
 
@@ -208,6 +258,7 @@ var _placeholders = map[string]string{
 	"{SpaceSharer}":     "{{ .SpaceSharer }}",
 	"{ExpiredAt}":       "{{ .ExpiredAt }}",
 	"{ShareSharerMail}": "{{ .ShareSharerMail }}",
+	"{InitiatorName}":   "{{ .InitiatorName }}",
 	"{ProviderDomain}":  "{{ .ProviderDomain }}",
 	"{Token}":           "{{ .Token }}",
 	"{DisplayName}":     "{{ .DisplayName }}",
@@ -216,6 +267,20 @@ var _placeholders = map[string]string{
 	"{ResourceName}":    "{{ .ResourceName }}",
 	"{ResourceLink}":    "{{ .ResourceLink }}",
 }
+
+// paragraphRole tells the html template how to show a paragraph of the message body
+type paragraphRole int
+
+const (
+	// paragraphText is a regular paragraph
+	paragraphText paragraphRole = iota
+	// paragraphHint is a secondary paragraph shown in a muted color
+	paragraphHint
+	// paragraphCode holds a "label: value" pair, the value is shown large in a box
+	paragraphCode
+	// paragraphNote is shown in small print below the button
+	paragraphNote
+)
 
 // MessageTemplate is the data structure for the email
 type MessageTemplate struct {
@@ -228,6 +293,17 @@ type MessageTemplate struct {
 	Greeting     string
 	MessageBody  string
 	CallToAction string
+	// ActionLabel is the label of the button in the html email
+	ActionLabel string
+	// actionLink is the placeholder of the link the button opens
+	actionLink string
+	// digestLinkVar names the variable that is shown as the link to the resource in the
+	// timeline of a grouped email
+	digestLinkVar string
+	// bodyLayout gives the role of each paragraph of the message body in the html email,
+	// paragraphs are separated by an empty line. Without a layout, or if a translation has a
+	// different number of paragraphs, all paragraphs are regular text.
+	bodyLayout []paragraphRole
 }
 
 // GroupedMessageTemplate is the data structure for the email

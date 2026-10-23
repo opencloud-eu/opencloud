@@ -34,6 +34,7 @@ func (s eventsNotifier) handleScienceMeshInviteTokenGenerated(e events.ScienceMe
 
 	msgENV := map[string]string{
 		"ShareSharer":     owner.GetDisplayName(),
+		"InitiatorName":   owner.GetDisplayName(),
 		"ShareSharerMail": owner.GetMail(),
 		"ShareLink":       e.InviteLink,
 		"Token":           e.Token,

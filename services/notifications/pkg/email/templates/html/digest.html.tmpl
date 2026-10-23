@@ -1,0 +1,39 @@
+{{ define "content" }}
+                <tr>
+                    <td class="oc-pad oc-text" style="padding: 16px 40px 24px; font-size: 14px; line-height: 21px; color: #191c1d;">
+                        <p style="margin: 0;">{{ .Greeting }}</p>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="oc-pad" style="padding: 0 40px 32px;">
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+{{- range $i, $entry := .Entries }}
+                            <tr>
+                                <td colspan="3" width="12" valign="middle" style="width: 12px;"><div class="oc-dot" style="width: 12px; height: 12px; border-radius: 6px; background-color: #00677f;"></div></td>
+                                <td width="16" style="width: 16px;"></td>
+                                <td class="oc-muted" style="font-size: 12.25px; line-height: 17.5px; color: #40484c;">{{ $entry.Time }}</td>
+                            </tr>
+                            <tr>
+                                <td width="5" style="width: 5px;"></td>
+{{- if $entry.Last }}
+                                <td width="2" style="width: 2px;"></td>
+{{- else }}
+                                <td class="oc-line" width="2" style="width: 2px; background-color: #dbe4e8;"></td>
+{{- end }}
+                                <td width="5" style="width: 5px;"></td>
+                                <td width="16" style="width: 16px;"></td>
+                                <td class="oc-text" style="padding: 4px 0 {{ if $entry.Last }}0{{ else }}24px{{ end }}; font-size: 14px; line-height: 21px; color: #191c1d;">
+{{- range $entry.Paragraphs }}
+{{- if eq .Kind "hint" }}
+                                    <p class="oc-muted" style="margin: 8px 0 0; color: #40484c;">{{ .Text }}</p>
+{{- else }}
+                                    <p style="margin: 0;">{{ .Text }}</p>
+{{- end }}
+{{- end }}
+                                </td>
+                            </tr>
+{{- end }}
+                        </table>
+                    </td>
+                </tr>
+{{ end }}

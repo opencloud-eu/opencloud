@@ -1,0 +1,49 @@
+{{ define "content" }}
+                <tr>
+                    <td class="oc-pad oc-text" style="padding: 16px 40px 0; font-size: 14px; line-height: 21px; color: #191c1d;">
+                        <p style="margin: 0;">{{ .Greeting }}</p>
+{{- range .Paragraphs }}
+{{- if eq .Kind "code" }}
+                        <table role="presentation" class="oc-box" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 16px 0 0; background-color: #f6f8fa; border-radius: 7px;">
+                            <tr>
+                                <td align="center" style="padding: 16px;">
+                                    <div class="oc-muted" style="font-size: 12.25px; line-height: 17.5px; color: #40484c;">{{ .Label }}</div>
+                                    <div class="oc-text" style="font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 26.25px; line-height: 31.5px; font-weight: 700; letter-spacing: 6px; color: #191c1d;">{{ .Value }}</div>
+                                </td>
+                            </tr>
+                        </table>
+{{- else if eq .Kind "hint" }}
+                        <p class="oc-muted" style="margin: 12px 0 0; color: #40484c;">{{ .Text }}</p>
+{{- else }}
+                        <p style="margin: 12px 0 0;">{{ .Text }}</p>
+{{- end }}
+{{- end }}
+                    </td>
+                </tr>
+{{- if .ActionLink }}
+                <tr>
+                    <td class="oc-pad" style="padding: 24px 40px 0;">
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                            <tr>
+                                <td class="oc-button" style="background-color: #00677f; border-radius: 3.5px;">
+                                    <a class="oc-button-text" href="{{ .ActionLink }}" style="display: inline-block; padding: 8px 20px; font-size: 14px; line-height: 21px; font-weight: 600; color: #ffffff; text-decoration: none;">{{ .ActionLabel }}</a>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="oc-pad oc-muted" style="padding: 16px 40px 0; font-size: 12.25px; line-height: 17.5px; color: #40484c;">
+                        {{ .FallbackLinkLabel }} <a class="oc-link" href="{{ .ActionLink }}" style="color: #00677f; word-break: break-all;">{{ .ActionLink }}</a>
+                    </td>
+                </tr>
+{{- end }}
+{{- range .Notes }}
+                <tr>
+                    <td class="oc-pad oc-muted" style="padding: 16px 40px 0; font-size: 12.25px; line-height: 17.5px; color: #40484c;">{{ .Text }}</td>
+                </tr>
+{{- end }}
+                <tr>
+                    <td style="height: 32px; font-size: 0; line-height: 0;">&nbsp;</td>
+                </tr>
+{{ end }}

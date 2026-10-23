@@ -2,12 +2,14 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/l10n"
 	ehmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/eventhistory/v0"
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/channels"
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/email"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/rs/zerolog"
 )
 
@@ -39,11 +41,11 @@ func (s eventsNotifier) sendGroupedEmailsJob(sendEmailsEvent events.SendEmailsEv
 	}()
 
 	for job := range jobs {
-		go s.createGroupedMail(ctx, logger, job)
+		go s.createGroupedMail(ctx, logger, sendEmailsEvent.Interval, job)
 	}
 }
 
-func (s eventsNotifier) createGroupedMail(ctx context.Context, logger zerolog.Logger, key string) {
+func (s eventsNotifier) createGroupedMail(ctx context.Context, logger zerolog.Logger, interval, key string) {
 	userEvents, err := s.userEventStore.pop(ctx, key)
 	if err != nil {
 		logger.Error().Err(err).Str("key", key).Msg("could not pop user events")
@@ -52,6 +54,7 @@ func (s eventsNotifier) createGroupedMail(ctx context.Context, logger zerolog.Lo
 
 	var mts []email.MessageTemplate
 	var mtsVars []map[string]string
+	var times []time.Time
 	locale := l10n.MustGetUserLocale(ctx, userEvents.User.GetId().GetOpaqueId(), "", s.valueService)
 
 	for _, e := range userEvents.Events {
@@ -74,6 +77,7 @@ func (s eventsNotifier) createGroupedMail(ctx context.Context, logger zerolog.Lo
 				"SpaceName":   spaceName,
 				"ShareLink":   shareLink,
 			})
+			times = append(times, te.Timestamp)
 		case events.SpaceUnshared:
 			logger := logger.With().
 				Str("event", "SpaceUnshared").
@@ -91,12 +95,14 @@ func (s eventsNotifier) createGroupedMail(ctx context.Context, logger zerolog.Lo
 				"SpaceName":   spaceName,
 				"ShareLink":   shareLink,
 			})
+			times = append(times, te.Timestamp)
 		case events.SpaceMembershipExpired:
 			mts = append(mts, email.MembershipExpired)
 			mtsVars = append(mtsVars, map[string]string{
 				"SpaceName": te.SpaceName,
 				"ExpiredAt": te.ExpiredAt.Format("2006-01-02 15:04:05"),
 			})
+			times = append(times, te.ExpiredAt)
 		case events.ShareCreated:
 			logger := logger.With().
 				Str("event", "ShareCreated").
@@ -114,6 +120,7 @@ func (s eventsNotifier) createGroupedMail(ctx context.Context, logger zerolog.Lo
 				"ShareFolder": shareFolder,
 				"ShareLink":   shareLink,
 			})
+			times = append(times, utils.TSToTime(te.CTime))
 		case events.ShareExpired:
 			logger := logger.With().
 				Str("event", "ShareCreated").
@@ -130,6 +137,7 @@ func (s eventsNotifier) createGroupedMail(ctx context.Context, logger zerolog.Lo
 				"ShareFolder": shareFolder,
 				"ExpiredAt":   te.ExpiredAt.Format("2006-01-02 15:04:05"),
 			})
+			times = append(times, te.ExpiredAt)
 		case events.ShareRemoved:
 			logger := logger.With().
 				Str("event", "ShareRemoved").
@@ -147,14 +155,19 @@ func (s eventsNotifier) createGroupedMail(ctx context.Context, logger zerolog.Lo
 				"ShareSharer": executant.GetDisplayName(),
 				"ShareFolder": shareFolder,
 			})
+			times = append(times, te.Timestamp)
 		default:
 			logger.Error().Str("eventType", e.Type).Msg("unsupported event type for grouped email")
 		}
 	}
 
-	rendered, err := email.RenderGroupedEmailTemplate(email.Grouped, map[string]string{
+	grouped := email.GroupedDaily
+	if interval == _intervalWeekly {
+		grouped = email.GroupedWeekly
+	}
+	rendered, err := email.RenderGroupedEmailTemplate(grouped, map[string]string{
 		"DisplayName": userEvents.User.GetDisplayName(),
-	}, locale, s.defaultLanguage, s.emailTemplatePath, s.translationPath, mts, mtsVars)
+	}, locale, s.defaultLanguage, s.emailTemplatePath, s.translationPath, mts, mtsVars, times)
 	if err != nil {
 		logger.Error().Err(err).Msg("could not render template")
 		return

@@ -87,6 +87,13 @@ func NewGroupedTextTemplate(gmt GroupedMessageTemplate, vars map[string]string, 
 		if err != nil {
 			return gmt, err
 		}
+		callToAction, err := composeMessage(t.Get(mt.CallToAction, []any{}...), mtsVars[i])
+		if err != nil {
+			return gmt, err
+		}
+		if callToAction = strings.TrimSpace(callToAction); callToAction != "" {
+			bodyPart += "\n\n" + callToAction
+		}
 		bodyParts = append(bodyParts, bodyPart)
 	}
 	gmt.MessageBody = strings.Join(bodyParts, "\n\n\n")
@@ -112,9 +119,16 @@ func NewGroupedHTMLTemplate(gmt GroupedMessageTemplate, vars map[string]string, 
 
 	bodyParts := make([]string, 0, len(mtsVars))
 	for i, mt := range mts {
-		bodyPart, err := composeMessage(t.Get(mt.MessageBody, []any{}...), mtsVars[i])
+		bodyPart, err := composeMessage(newlineToBr(t.Get(mt.MessageBody, []any{}...)), mtsVars[i])
 		if err != nil {
 			return gmt, err
+		}
+		callToAction, err := composeMessage(callToActionToHTML(t.Get(mt.CallToAction, []any{}...)), mtsVars[i])
+		if err != nil {
+			return gmt, err
+		}
+		if callToAction = strings.TrimSpace(callToAction); callToAction != "" {
+			bodyPart += "<br><br>" + callToAction
 		}
 		bodyParts = append(bodyParts, bodyPart)
 	}
