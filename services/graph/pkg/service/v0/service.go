@@ -492,16 +492,7 @@ func (g *Graph) StartListenForLogonEvents(ctx context.Context, l log.Logger) err
 						l.Error().Err(err).Str("userid", ev.Executant.OpaqueId).Msg("Error updating last sign in date")
 					}
 				case ocevents.UserProfilePictureSyncRequested:
-					if err := g.userProfilePhotoService.SyncPhotoFromURL(ctx, ev.Executant.GetOpaqueId(), ev.PictureURL); err != nil {
-						l.Warn().Err(err).Str("userid", ev.Executant.GetOpaqueId()).Msg("Failed to sync profile picture from OIDC claim")
-					} else if g.eventsPublisher != nil {
-						if err := events.Publish(ctx, g.eventsPublisher, ocevents.UserProfilePictureUpdated{
-							Executant: ev.Executant,
-							Timestamp: utils.TimeToTS(time.Now()),
-						}); err != nil {
-							l.Warn().Err(err).Str("userid", ev.Executant.GetOpaqueId()).Msg("Failed to publish profile picture updated event")
-						}
-					}
+					go g.syncProfilePicture(ctx, l, ev)
 				}
 			case <-ctx.Done():
 				l.Info().Msg("context cancelled")
@@ -510,6 +501,26 @@ func (g *Graph) StartListenForLogonEvents(ctx context.Context, l log.Logger) err
 		}
 	}()
 	return nil
+}
+
+// syncProfilePicture runs outside the event loop so downloads do not delay sign-in events.
+func (g *Graph) syncProfilePicture(ctx context.Context, l log.Logger, ev ocevents.UserProfilePictureSyncRequested) {
+	if ctx.Err() != nil {
+		return
+	}
+	if err := g.userProfilePhotoService.SyncPhotoFromURL(ctx, ev.Executant.GetOpaqueId(), ev.PictureURL); err != nil {
+		l.Warn().Err(err).Str("userid", ev.Executant.GetOpaqueId()).Msg("Failed to sync profile picture from OIDC claim")
+		return
+	}
+	if ctx.Err() != nil || g.eventsPublisher == nil {
+		return
+	}
+	if err := events.Publish(ctx, g.eventsPublisher, ocevents.UserProfilePictureUpdated{
+		Executant: ev.Executant,
+		Timestamp: utils.TimeToTS(time.Now()),
+	}); err != nil {
+		l.Warn().Err(err).Str("userid", ev.Executant.GetOpaqueId()).Msg("Failed to publish profile picture updated event")
+	}
 }
 
 // parseHeaderPurge parses the 'Purge' header.
