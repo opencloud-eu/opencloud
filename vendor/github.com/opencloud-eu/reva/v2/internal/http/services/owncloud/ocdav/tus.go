@@ -192,9 +192,16 @@ func (s *svc) handleTusPost(ctx context.Context, w http.ResponseWriter, r *http.
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	mtime := meta["mtime"]
 	if uploadLength == 0 {
+		opaque := &typespb.Opaque{}
+		// Some web clients send "null", and the storages fail the touch on an unparsable mtime.
+		if _, err := utils.MTimeToTime(mtime); err == nil {
+			utils.AppendPlainToOpaque(opaque, net.HeaderOCMtime, mtime)
+		}
 		tfRes, err := client.TouchFile(ctx, &provider.TouchFileRequest{
-			Ref: ref,
+			Opaque: opaque,
+			Ref:    ref,
 		})
 		if err != nil {
 			log.Error().Err(err).Msg("error sending grpc stat request")
@@ -228,7 +235,6 @@ func (s *svc) handleTusPost(ctx context.Context, w http.ResponseWriter, r *http.
 			Value:   []byte(checksum),
 		}
 	}
-	mtime := meta["mtime"]
 	if mtime != "" {
 		opaqueMap[net.HeaderOCMtime] = &typespb.OpaqueEntry{
 			Decoder: "plain",

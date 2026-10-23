@@ -86,7 +86,8 @@ type FS interface {
 	// MarkProcessing toggles a processing flag on the resource.
 	MarkProcessing(ctx context.Context, ref *provider.Reference, processing bool, sessionID string) error
 	// CommitUpload writes the staged bytes from source to the resource at ref.
-	CommitUpload(ctx context.Context, ref *provider.Reference, source UploadSource) (*provider.ResourceInfo, error)
+	// Caller owns source.Body and must close it after CommitUpload returns.
+	CommitUpload(ctx context.Context, ref *provider.Reference, sessionID string, source UploadSource) error
 
 	// Revisions
 
@@ -171,20 +172,10 @@ type SpaceDisabledListableFS interface {
 	WithDisabledSpaces() FS
 }
 
-// UploadChecksums holds pre-computed checksums for a CommitUpload call.
-// All three must be provided; the driver stores them as xattrs without recomputing.
-type UploadChecksums struct {
-	SHA1    []byte
-	MD5     []byte
-	Adler32 []byte
-}
-
 // UploadSource carries the staged bytes for a CommitUpload call.
 type UploadSource struct {
-	Body      io.ReadCloser
-	Length    int64
-	Metadata  map[string]string
-	Checksums UploadChecksums
+	Body   io.ReadCloser
+	Length int64
 }
 
 // UnscopeFunc is a function that unscopes a user

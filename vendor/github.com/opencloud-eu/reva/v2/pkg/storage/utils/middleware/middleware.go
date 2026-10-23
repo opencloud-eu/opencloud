@@ -408,7 +408,7 @@ func (f *FS) MarkProcessing(ctx context.Context, ref *provider.Reference, proces
 	return res
 }
 
-func (f *FS) CommitUpload(ctx context.Context, ref *provider.Reference, source storage.UploadSource) (*provider.ResourceInfo, error) {
+func (f *FS) CommitUpload(ctx context.Context, ref *provider.Reference, sessionID string, source storage.UploadSource) error {
 	var (
 		err     error
 		unhook  UnHook
@@ -417,22 +417,22 @@ func (f *FS) CommitUpload(ctx context.Context, ref *provider.Reference, source s
 	for _, hook := range f.hooks {
 		ctx, unhook, err = hook("CommitUpload", ctx, ref.GetResourceId().GetSpaceId())
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if unhook != nil {
 			unhooks = append(unhooks, unhook)
 		}
 	}
 
-	res0, res1 := f.next.CommitUpload(ctx, ref, source)
+	err = f.next.CommitUpload(ctx, ref, sessionID, source)
 
 	for _, unhook := range unhooks {
-		if err := unhook(); err != nil {
-			return nil, err
+		if uerr := unhook(); uerr != nil {
+			return uerr
 		}
 	}
 
-	return res0, res1
+	return err
 }
 
 func (f *FS) Download(ctx context.Context, ref *provider.Reference, openReaderFunc func(md *provider.ResourceInfo) bool) (*provider.ResourceInfo, io.ReadCloser, error) {

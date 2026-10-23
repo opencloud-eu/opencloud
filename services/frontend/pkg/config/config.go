@@ -159,6 +159,8 @@ type OCDav struct {
 	// PublicURL used to redirect /s/{token} URLs to
 	PublicURL string `yaml:"public_url" env:"OC_URL;OCDAV_PUBLIC_URL;FRONTENT_OCDAV_PUBLIC_URL" desc:"URL where OpenCloud is reachable for users." introductionVersion:"1.0.0"`
 
+	Thumbnails Thumbnails `yaml:"thumbnails"`
+
 	// Insecure certificates allowed when making requests to the gateway
 	Insecure      bool `yaml:"insecure" env:"OC_INSECURE;OCDAV_INSECURE;FRONTENT_OCDAV_INSECURE" desc:"Allow insecure connections to the GATEWAY service." introductionVersion:"1.0.0"`
 	EnableHTTPTPC bool `yaml:"enable_http_tpc" env:"OCDAV_ENABLE_HTTP_TPC;FRONTENT_OCDAV_ENABLE_HTTP_TPC" desc:"Enable HTTP / WebDAV Third-Party-Copy support." introductionVersion:"6.0.0"`
@@ -225,4 +227,10 @@ type PasswordPolicy struct {
 
 type Groupware struct {
 	Enabled bool `yaml:"enabled" env:"FRONTEND_GROUPWARE_ENABLED" desc:"Enable groupware features. Defaults to false." introductionVersion:"3.7.0"`
+}
+
+// Thumbnails is what oc:has-preview is answered with. The names match the ones
+// the webdav service uses for the same list.
+type Thumbnails struct {
+	AdditionalSourceTypes []string `yaml:"additional_source_types" env:"OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES;FRONTEND_THUMBNAILS_ADDITIONAL_SOURCE_TYPES" desc:"Additional mime types oc:has-preview is answered with 1 for, the same list the webdav service attempts previews for. The types the build ships are included; this only adds to them." introductionVersion:"%%NEXT%%"`
 }

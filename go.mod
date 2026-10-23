@@ -55,6 +55,7 @@ require (
 	github.com/leonelquinteros/gotext v1.7.3-0.20260422134830-b012b4ccae69
 	github.com/libregraph/idm v0.5.0
 	github.com/libregraph/lico v0.67.0
+	github.com/minio/minio-go/v7 v7.2.1
 	github.com/mna/pigeon v1.3.0
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
 	github.com/nats-io/nats-server/v2 v2.15.0
@@ -67,7 +68,7 @@ require (
 	github.com/open-policy-agent/opa v1.21.1
 	github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89
 	github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261016073229-17ed3d5dd346
-	github.com/opencloud-eu/reva/v2 v2.51.1-0.20261021052306-7983cec1cd3a
+	github.com/opencloud-eu/reva/v2 v2.51.1-0.20261023103014-40a03d16bc92
 	github.com/opensearch-project/opensearch-go/v4 v4.7.3
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/pkg/errors v0.9.1
@@ -282,7 +283,6 @@ require (
 	github.com/minio/crc64nvme v1.1.1 // indirect
 	github.com/minio/highwayhash v1.0.4 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
-	github.com/minio/minio-go/v7 v7.2.1 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect

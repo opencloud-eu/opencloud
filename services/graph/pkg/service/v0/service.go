@@ -22,6 +22,7 @@ import (
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	graphm "github.com/opencloud-eu/opencloud/services/graph/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
 const (
@@ -183,6 +184,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 
 	svc := Graph{
 		BaseGraphService:         baseGraphService,
+		sourceTypes:              thumbnail.NewSourceTypes(options.Config.Thumbnails.AdditionalSourceTypes),
 		mux:                      m,
 		specialDriveItemsCache:   spacePropertiesCache,
 		eventsPublisher:          options.EventsPublisher,

@@ -155,8 +155,8 @@ func (fs *localfs) MarkProcessing(ctx context.Context, ref *provider.Reference, 
 	return errtypes.NotSupported("op not supported")
 }
 
-func (fs *localfs) CommitUpload(ctx context.Context, ref *provider.Reference, source storage.UploadSource) (*provider.ResourceInfo, error) {
-	return nil, errtypes.NotSupported("op not supported")
+func (fs *localfs) CommitUpload(_ context.Context, _ *provider.Reference, _ string, _ storage.UploadSource) error {
+	return errtypes.NotSupported("op not supported")
 }
 
 // UseIn tells the tus upload middleware which extensions it supports.

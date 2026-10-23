@@ -91,8 +91,8 @@ func (fs *hellofs) MarkProcessing(ctx context.Context, ref *provider.Reference, 
 }
 
 // CommitUpload writes the staged bytes from source to the resource at ref.
-func (fs *hellofs) CommitUpload(ctx context.Context, ref *provider.Reference, source storage.UploadSource) (*provider.ResourceInfo, error) {
-	return nil, errtypes.NotSupported("hellofs: commit upload not supported")
+func (fs *hellofs) CommitUpload(_ context.Context, _ *provider.Reference, _ string, _ storage.UploadSource) error {
+	return errtypes.NotSupported("hellofs: commit upload not supported")
 }
 
 // grants

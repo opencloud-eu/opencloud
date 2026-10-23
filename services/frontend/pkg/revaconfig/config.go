@@ -15,6 +15,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/frontend/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
 // FrontendConfigFromStruct will adapt an OpenCloud config struct into a reva mapstructure to start a reva service.
@@ -369,6 +370,9 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 					"insecure":         cfg.OCDav.Insecure,
 					"enable_http_tpc":  cfg.OCDav.EnableHTTPTPC,
 					"public_url":       cfg.OCDav.PublicURL,
+					// what oc:has-preview is answered from, the same set the
+					// webdav service attempts previews for
+					"preview_mime_types": thumbnail.NewSourceTypes(cfg.OCDav.Thumbnails.AdditionalSourceTypes).List(),
 					// still not supported
 					//"favorite_storage_driver":   unused,
 					//"favorite_storage_drivers":  unused,
