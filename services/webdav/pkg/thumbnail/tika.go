@@ -62,9 +62,16 @@ func (t Tika) ConfiguredFor(mimeType string) bool {
 }
 
 // ContentType is the type Tika is told, mapped where configured. Tika takes a
-// declared type only when it refines what it detected itself, so a mapping pins
-// a subtype its detector left at the parent type, a raw photo it only read as a
-// tiff. It cannot overrule a type Tika detected.
+// declared type only when it refines what it detected itself, so a mapping
+// cannot overrule it; what it can do is pin the leaf type a detector left at
+// the parent, a raw photo it only read as a plain tiff.
+//
+// That is the point of the mapping, and it is worth keeping even while nothing
+// uses it: the type decides which parser reads the file, so a raw read as a
+// tiff is parsed as a tiff, its maker notes stay unread, and the embedded
+// preview the thumbnail is made of is never found. Every raw format shipped
+// here is detected down to the leaf type today, so no entry is needed; the next
+// format whose detection stops one level short needs exactly this.
 func (t Tika) ContentType(mimeType string) string {
 	m, _, err := mime.ParseMediaType(mimeType)
 	if err != nil {
