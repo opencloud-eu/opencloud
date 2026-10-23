@@ -12,6 +12,12 @@ import (
 
 const (
 	_resolutionSeparator = "x"
+
+	// legacyMaxEdge caps a side a legacy resolution contributes. Those boxes were
+	// written for the old service, which had no ceiling and listed boxes up to
+	// 7680x4320 by default, and 2048 is the largest box the built-in generator
+	// accepts by default (THUMBNAILS_MAX_OUTPUT_WIDTH and _HEIGHT).
+	legacyMaxEdge = 2048
 )
 
 // ParseResolution returns an image.Rectangle representing the resolution given as a string
@@ -40,7 +46,8 @@ type Sizes struct {
 
 // ParseSizes builds the ladder from configuration. An entry is either a plain
 // edge length ("512") or a legacy resolution ("500x280"), which contributes both
-// of its sides, so an existing box configuration keeps working.
+// of its sides, capped at legacyMaxEdge, so an existing box configuration keeps
+// working against the default generator.
 func ParseSizes(strs []string) (*Sizes, error) {
 	seen := map[int]struct{}{}
 	for _, s := range strs {
@@ -53,8 +60,8 @@ func ParseSizes(strs []string) (*Sizes, error) {
 			if err != nil {
 				return nil, errors.Wrap(err, "could not parse thumbnail sizes")
 			}
-			seen[r.Dx()] = struct{}{}
-			seen[r.Dy()] = struct{}{}
+			seen[min(r.Dx(), legacyMaxEdge)] = struct{}{}
+			seen[min(r.Dy(), legacyMaxEdge)] = struct{}{}
 			continue
 		}
 		v, err := strconv.Atoi(s)

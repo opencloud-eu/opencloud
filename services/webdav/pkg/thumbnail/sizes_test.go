@@ -29,6 +29,16 @@ var _ = Describe("Sizes", func() {
 			Expect(s.Snap(box(100, 100))).To(Equal(box(280, 280)))
 		})
 
+		It("caps the sides of a legacy resolution at what the default generator accepts", func() {
+			s := sizes("16x16", "1920x1080", "3840x2160", "7680x4320")
+			Expect(s.Max()).To(Equal(2048))
+			Expect(s.Snap(box(0, 1000))).To(Equal(box(2048, 1080)))
+		})
+
+		It("takes a plain length above that as it is", func() {
+			Expect(sizes("16", "4096").Max()).To(Equal(4096))
+		})
+
 		It("rejects an entry that is not a number", func() {
 			_, err := thumbnail.ParseSizes([]string{"large"})
 			Expect(err).To(HaveOccurred())

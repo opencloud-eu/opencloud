@@ -1,6 +1,7 @@
 package svc
 
 import (
+	"errors"
 	"image"
 	"math"
 
@@ -29,6 +30,23 @@ func autoAxis(srcW, srcH, boxW, boxH int) (int, int, bool) {
 	default:
 		return boxW, max(int(math.Round(float64(srcH)*float64(boxW)/float64(srcW))), 1), true
 	}
+}
+
+// errBoxTooLarge is what a resize answers when a free axis resolves past the
+// configured maximum thumbnail size.
+var errBoxTooLarge = errors.New("the resolved box exceeds the maximum thumbnail size")
+
+// freeAxis is autoAxis for the request, held to the maximum thumbnail size. The
+// box the request names was checked before anything was read, but a side the
+// aspect ratio decides is only known once the image is: 0x2048 on a 7680x1
+// source is a box of 15728640x2048.
+func (r resizeRequest) freeAxis(srcW, srcH int) (int, int, bool, error) {
+	w, h, resize := autoAxis(srcW, srcH, r.Width, r.Height)
+	if resize && ((r.MaxOutWidth > 0 && w > r.MaxOutWidth) || (r.MaxOutHeight > 0 && h > r.MaxOutHeight)) {
+		return 0, 0, false, errBoxTooLarge
+	}
+
+	return w, h, resize, nil
 }
 
 // fitIn scales img into the box with its aspect ratio kept and never enlarges

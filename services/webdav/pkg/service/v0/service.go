@@ -194,11 +194,12 @@ func newThumbnailWorkflow(conf *config.Config, sourceTypes thumbnail.SourceTypes
 
 	// the new setting wins, the deprecated one is the fallback, and an empty
 	// result lets the cache use its own default directory. The old setting named
-	// the root the thumbnails service kept a files/ directory in, so that
-	// deployment's thumbnails are still found where they were written.
+	// the root the thumbnails service kept a files/ directory in. The cache goes
+	// next to it, not into it, because nothing in files/ is read again and that
+	// directory can then be deleted as a whole.
 	cacheDir := conf.Thumbnails.CacheDir
 	if cacheDir == "" && conf.Thumbnails.FilesystemStorageRoot != "" {
-		cacheDir = filepath.Join(conf.Thumbnails.FilesystemStorageRoot, "files")
+		cacheDir = filepath.Join(conf.Thumbnails.FilesystemStorageRoot, "cache")
 	}
 
 	c, err := cache.NewThumbnailCache(conf.Thumbnails.CacheBackend, cacheDir, s3cfg)

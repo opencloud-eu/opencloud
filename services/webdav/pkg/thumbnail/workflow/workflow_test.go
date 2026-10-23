@@ -28,6 +28,7 @@ import (
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
+	grpcmetadata "google.golang.org/grpc/metadata"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/constants"
@@ -680,9 +681,15 @@ var _ = Describe("ThumbnailWorkflow", func() {
 
 	Describe("username-scoped reference", func() {
 		It("resolves a username identifier to the user's home path via GetUserByClaim", func() {
-			var statRef *providerv1beta1.Reference
+			var (
+				statRef  *providerv1beta1.Reference
+				claimCtx context.Context
+			)
 
-			gatewayClient.On("GetUserByClaim", mock.Anything, mock.MatchedBy(func(req *userv1beta1.GetUserByClaimRequest) bool {
+			gatewayClient.On("GetUserByClaim", mock.MatchedBy(func(ctx context.Context) bool {
+				claimCtx = ctx
+				return true
+			}), mock.MatchedBy(func(req *userv1beta1.GetUserByClaimRequest) bool {
 				return req.GetClaim() == "username" && req.GetValue() == "alice"
 			})).Return(&userv1beta1.GetUserByClaimResponse{
 				Status: status.NewOK(context.Background()),
@@ -752,6 +759,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 
 			// The username from the URL (alice) is resolved via GetUserByClaim and
 			// the path is absolutized under alice's home, not the token owner's.
+			// The lookup carries the requester's token, because the user provider
+			// searches the requester's tenant.
+			md, _ := grpcmetadata.FromOutgoingContext(claimCtx)
+			Expect(md.Get(revactx.TokenHeader)).To(ConsistOf(testToken))
 			Expect(statRef.GetResourceId()).ToNot(BeNil())
 			Expect(statRef.GetPath()).To(Equal("./users/alice-opaque/photo.jpeg"))
 			Expect(downloadRef.GetResourceId()).ToNot(BeNil())

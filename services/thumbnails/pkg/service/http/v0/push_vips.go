@@ -53,7 +53,10 @@ func extForSourceFormatVips(src *vips.ImageRef) string {
 // imagor's no_upscale() filter.
 func resizeSourceVips(src *vips.ImageRef, req resizeRequest) (*vips.ImageRef, error) {
 	if req.Width == 0 || req.Height == 0 {
-		boxW, boxH, resize := autoAxis(src.Width(), src.Height(), req.Width, req.Height)
+		boxW, boxH, resize, err := req.freeAxis(src.Width(), src.Height())
+		if err != nil {
+			return nil, err
+		}
 		if resize {
 			if err := scaleTo(src, boxW, boxH); err != nil {
 				return nil, err

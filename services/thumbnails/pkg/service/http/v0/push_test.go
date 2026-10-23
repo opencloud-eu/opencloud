@@ -42,6 +42,22 @@ var _ = Describe("the push endpoint", func() {
 
 			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		})
+
+		DescribeTable("refuses a free axis the aspect ratio takes above it",
+			func(source []byte, partType string) {
+				rec := postTo(testServiceOutput(100, 100), "/unsafe/0x50/", source, partType)
+
+				Expect(rec.Code).To(Equal(http.StatusUnprocessableEntity), rec.Body.String())
+			},
+			Entry("a still image", pngSource(400, 10), "image/png"),
+			Entry("an animation", gifSource(400, 10, 2), "image/gif"),
+		)
+
+		It("lets a free axis within it through", func() {
+			rec := postTo(testServiceOutput(100, 100), "/unsafe/0x20/", pngSource(40, 10), "image/png")
+
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		})
 	})
 
 	Describe("the configured maximum posted image size", func() {
