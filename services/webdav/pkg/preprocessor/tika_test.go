@@ -138,26 +138,45 @@ var _ = Describe("TikaThumbnail", func() {
 })
 
 var _ = Describe("ForType with a Tika server", func() {
-	It("routes everything Tika is asked for to Tika, text and gif stay native", func() {
-		opts := Options{Tika: thumbnail.NewTika("http://tika:9998", []string{"*"}), Filename: "song.mp3"}
+	sourceTypes := thumbnail.NewSourceTypes(nil)
+
+	It("sends what the list names to Tika, even an image, and leaves the generator its own", func() {
+		opts := Options{Tika: thumbnail.NewTika("http://tika:9998", thumbnail.DefaultTikaTypes, nil), SourceTypes: sourceTypes, Filename: "song.mp3"}
 		Expect(ForType("audio/mpeg", opts)).To(BeAssignableToTypeOf(TikaThumbnail{}))
 		Expect(ForType("application/vnd.geogebra.slides", opts)).To(BeAssignableToTypeOf(TikaThumbnail{}))
 		Expect(ForType("application/pdf", opts)).To(BeAssignableToTypeOf(TikaThumbnail{}))
+		Expect(ForType("image/x-nikon-nef", opts)).To(BeAssignableToTypeOf(TikaThumbnail{}), "a raw is named, so it is extracted instead of handed over")
 		Expect(ForType("text/plain", opts)).To(BeAssignableToTypeOf(TxtToImageConverter{}))
 		Expect(ForType("image/png", opts)).To(BeNil(), "the generator reads a png itself")
-		Expect(ForType("image/x-nikon-nef", opts)).To(BeNil(), "an image type the catch-all does not take, the generator may read it")
+	})
+
+	It("hands an image type the deployment announced to the generator", func() {
+		opts := Options{
+			Tika:        thumbnail.NewTika("http://tika:9998", thumbnail.DefaultTikaTypes, nil),
+			SourceTypes: thumbnail.NewSourceTypes([]string{"image/heic"}),
+		}
+		Expect(ForType("image/heic", opts)).To(BeNil(), "a generator that reads heic is told so through the source types")
+	})
+
+	It("takes what nothing else claims when it is told to take everything", func() {
+		opts := Options{Tika: thumbnail.NewTika("http://tika:9998", []string{"*"}, nil), SourceTypes: sourceTypes}
+		Expect(ForType("application/x-anything", opts)).To(BeAssignableToTypeOf(TikaThumbnail{}))
+		Expect(ForType("image/x-nikon-nef", opts)).To(BeAssignableToTypeOf(TikaThumbnail{}), "an image the generator does not read is not an exception")
+		Expect(ForType("image/jpeg", opts)).To(BeNil(), "but one it reads never travels to Tika")
 	})
 
 	It("keeps the in-process converters without a Tika server", func() {
 		Expect(ForType("audio/mpeg", Options{})).To(BeAssignableToTypeOf(AudioDecoder{}))
 		Expect(ForType("application/vnd.geogebra.slides", Options{})).To(BeAssignableToTypeOf(GgsDecoder{}))
-		Expect(ForType("image/x-nikon-nef", Options{})).To(BeNil(), "an image reaches the generator undecoded")
 	})
 
-	It("follows a configured list and hands the mapped type to Tika", func() {
-		opts := Options{Tika: thumbnail.NewTika("http://tika:9998", []string{"application/pdf", "image/x-nikon-nef:image/x-raw-nikon"})}
+	It("hands the mapped type to Tika", func() {
+		opts := Options{Tika: thumbnail.NewTika("http://tika:9998", []string{"application/pdf", "image/x-nikon-nef:image/x-raw-nikon"}, nil), SourceTypes: sourceTypes}
 		Expect(ForType("application/pdf", opts)).To(BeAssignableToTypeOf(TikaThumbnail{}))
 		Expect(ForType("audio/mpeg", opts)).To(BeAssignableToTypeOf(AudioDecoder{}), "not in the configured list")
-		Expect(ForType("image/x-nikon-nef", opts).(TikaThumbnail).contentType).To(Equal("image/x-raw-nikon"), "a named image type does go to Tika")
+
+		converter, err := ForType("image/x-nikon-nef", opts)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(converter.(TikaThumbnail).contentType).To(Equal("image/x-raw-nikon"))
 	})
 })
