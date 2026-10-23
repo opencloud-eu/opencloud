@@ -156,31 +156,17 @@ func Server(identityBackend identity.Backend, eduBackend identity.EducationBacke
 
 		photoOpts := []svc.UserProfilePhotoOption{}
 		// The profile picture sync is always enabled; the proxy decides
-		// whether to emit sync events based on PROXY_AUTOPROVISION_CLAIM_PICTURE.
+		// whether to emit sync events based on PROXY_OIDC_PICTURE_CLAIM.
 		// The default allowlist uses the OpenCloud URL host.
-		oidcIssuer := ""
+		openCloudURL := ""
 		if options.Config.Commons != nil {
-			oidcIssuer = options.Config.Commons.OpenCloudURL
+			openCloudURL = options.Config.Commons.OpenCloudURL
 		}
-		// HTTP client for downloading profile pictures from OIDC claims.
-		// Respects OC_INSECURE for TLS certificate validation and
-		// honours HTTP_PROXY/HTTPS_PROXY environment variables.
-		profilePictureHTTPClient := &stdhttp.Client{
-			Timeout: 10 * time.Second,
-			Transport: &stdhttp.Transport{
-				Proxy: stdhttp.ProxyFromEnvironment,
-				//nolint:gosec // We need the ability to run with "insecure" (dev/testing)
-				TLSClientConfig: &tls.Config{
-					MinVersion:         tls.VersionTLS12,
-					InsecureSkipVerify: options.Config.Events.TLSInsecure,
-				},
-				DisableKeepAlives: true,
-			},
-		}
+		profilePictureHTTPClient := newProfilePictureHTTPClient(options.Config.ProfilePictureInsecure)
 		photoOpts = append(photoOpts, svc.WithProfilePictureSync(
 			profilePictureHTTPClient,
 			options.Config.ProfilePictureURLAllowlist,
-			oidcIssuer,
+			openCloudURL,
 		))
 
 		userProfilePhotoService, err = svc.NewUsersUserProfilePhotoService(photoStorage, photoOpts...)
@@ -220,4 +206,21 @@ func Server(identityBackend identity.Backend, eduBackend identity.EducationBacke
 	}
 
 	return service, nil
+}
+
+// newProfilePictureHTTPClient keeps download TLS settings independent of the event bus.
+func newProfilePictureHTTPClient(insecure bool) *stdhttp.Client {
+	transport := stdhttp.DefaultTransport.(*stdhttp.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{
+		MinVersion:         tls.VersionTLS12,
+		InsecureSkipVerify: insecure, //nolint:gosec // Configurable for development and testing.
+	}
+	return &stdhttp.Client{
+		Timeout:   10 * time.Second,
+		Transport: transport,
+		// Redirect targets have not passed the profile picture URL allowlist.
+		CheckRedirect: func(_ *stdhttp.Request, _ []*stdhttp.Request) error {
+			return stdhttp.ErrUseLastResponse
+		},
+	}
 }
