@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
@@ -54,10 +53,7 @@ func Index(cfg *config.Config) *cobra.Command {
 
 			c := searchsvc.NewSearchProviderClient(conn)
 
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-			defer cancel()
-
-			_, err = c.IndexSpace(ctx, &searchsvc.IndexSpaceRequest{
+			_, err = c.IndexSpace(context.Background(), &searchsvc.IndexSpaceRequest{
 				SpaceId:      spaceFlag,
 				ForceReindex: forceRescanFlag,
 			})
