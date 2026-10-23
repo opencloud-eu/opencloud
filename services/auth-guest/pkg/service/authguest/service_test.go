@@ -27,7 +27,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/token"
 	revaevents "github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
 	"github.com/stretchr/testify/assert"
@@ -306,91 +305,6 @@ func TestValidateShare(t *testing.T) {
 			assert.Equal(t, tt.response.GetShare(), got)
 		})
 	}
-}
-
-func TestGetShareForSpaceGrant(t *testing.T) {
-	share := &collaboration.Share{
-		Id:         &collaboration.ShareId{OpaqueId: testShareID},
-		ResourceId: &provider.ResourceId{StorageId: "storage", SpaceId: "space", OpaqueId: "space"},
-	}
-
-	tests := []struct {
-		name     string
-		spaceID  string
-		response *collaboration.GetShareResponse
-		wantErr  error
-	}{
-		{
-			name:     "valid",
-			spaceID:  "storage$space",
-			response: &collaboration.GetShareResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}, Share: share},
-		},
-		{
-			name:     "not found",
-			spaceID:  "storage$space",
-			response: &collaboration.GetShareResponse{Status: &rpc.Status{Code: rpc.Code_CODE_NOT_FOUND}},
-			wantErr:  ErrShareNotFound,
-		},
-		{
-			name:     "nil share",
-			spaceID:  "storage$space",
-			response: &collaboration.GetShareResponse{Status: &rpc.Status{Code: rpc.Code_CODE_OK}},
-			wantErr:  ErrShareNotFound,
-		},
-		{
-			name:    "malformed space id",
-			spaceID: "",
-			wantErr: storagespace.ErrInvalidSpaceID,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := newShareService(t, newGatewayMock(tt.response))
-
-			got, err := s.GetShareForSpaceGrant(context.Background(), tt.spaceID, &user.UserId{OpaqueId: "guest@example.com", Type: user.UserType_USER_TYPE_GUEST})
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Equal(t, tt.response.GetShare(), got)
-		})
-	}
-}
-
-func TestGetShareForSpaceGrantRequest(t *testing.T) {
-	share := &collaboration.Share{
-		Id:         &collaboration.ShareId{OpaqueId: testShareID},
-		ResourceId: &provider.ResourceId{StorageId: "storage", SpaceId: "space", OpaqueId: "space"},
-	}
-
-	gwc := &cs3mocks.GatewayAPIClient{}
-	gwc.On("Authenticate", mock.Anything, mock.Anything).
-		Return(&gateway.AuthenticateResponse{
-			Status: &rpc.Status{Code: rpc.Code_CODE_OK},
-			Token:  "token",
-		}, nil)
-	gwc.On("GetShare", mock.Anything, mock.MatchedBy(func(req *collaboration.GetShareRequest) bool {
-		key := req.GetRef().GetKey()
-		rid := key.GetResourceId()
-		grantee := key.GetGrantee()
-		return rid.GetStorageId() == "storage" &&
-			rid.GetSpaceId() == "space" &&
-			rid.GetOpaqueId() == "space" &&
-			grantee.GetUserId().GetOpaqueId() == "guest@example.com"
-	})).Return(&collaboration.GetShareResponse{
-		Status: &rpc.Status{Code: rpc.Code_CODE_OK},
-		Share:  share,
-	}, nil)
-
-	s := newShareService(t, gwc)
-
-	got, err := s.GetShareForSpaceGrant(context.Background(), "storage$space", &user.UserId{OpaqueId: "guest@example.com", Type: user.UserType_USER_TYPE_GUEST})
-	require.NoError(t, err)
-	assert.Equal(t, testShareID, got.GetId().GetOpaqueId())
-	gwc.AssertExpectations(t)
 }
 
 func TestVerifyTokenSuccess(t *testing.T) {

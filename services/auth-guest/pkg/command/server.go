@@ -38,6 +38,8 @@ var _registeredEvents = []events.Unmarshaller{
 	events.ShareRemoved{},
 	events.ShareExpired{},
 	events.SpaceShared{},
+	events.SpaceUnshared{},
+	events.SpaceMembershipExpired{},
 }
 
 // Server is the entrypoint for the server command.

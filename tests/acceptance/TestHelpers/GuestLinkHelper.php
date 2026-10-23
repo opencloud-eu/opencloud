@@ -30,9 +30,24 @@ class GuestLinkHelper {
 	public const SESSION_COOKIE_NAME = '__Host-oc_guest_session';
 
 	/**
+	 * the nonce cookie that binds a PIN to the browser is named "<base name>_<share id hash>"
+	 */
+	public const NONCE_COOKIE_BASE_NAME = '__Host-oc_guest_nonce';
+
+	/**
+	 * the guestlinks auth manager of reva still accepts a guest session for this long after it expired
+	 */
+	public const SESSION_EXPIRY_LEEWAY_SECONDS = 30;
+
+	/**
 	 * matches the guest link token in a guest link email, e.g. "/g/v1.<share id hash>.<secret>"
 	 */
 	public const TOKEN_IN_EMAIL_REGEX = '/\/g\/(v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/';
+
+	/**
+	 * matches the PIN in a renewed guest link email
+	 */
+	public const PIN_IN_EMAIL_REGEX = '/Your PIN: (\d{6})/';
 
 	/**
 	 * @param string $baseUrl
@@ -80,6 +95,58 @@ class GuestLinkHelper {
 	}
 
 	/**
+	 * @param string $baseUrl
+	 * @param string $xRequestId
+	 * @param string $permissionId
+	 * @param string $pin
+	 * @param array<string, string> $cookies the nonce cookie set by renew
+	 *
+	 * @return ResponseInterface
+	 * @throws GuzzleException
+	 */
+	public static function verifyPin(
+		string $baseUrl,
+		string $xRequestId,
+		string $permissionId,
+		string $pin,
+		array $cookies = []
+	): ResponseInterface {
+		return HttpRequestHelper::post(
+			self::getUrl($baseUrl, 'verify/pin'),
+			$xRequestId,
+			null,
+			null,
+			self::getHeaders($cookies),
+			\json_encode(['pin' => $pin, 'permissionId' => $permissionId])
+		);
+	}
+
+	/**
+	 * @param string $baseUrl
+	 * @param string $xRequestId
+	 * @param string $permissionId
+	 * @param array<string, string> $cookies the guest session cookie, if any
+	 *
+	 * @return ResponseInterface
+	 * @throws GuzzleException
+	 */
+	public static function renew(
+		string $baseUrl,
+		string $xRequestId,
+		string $permissionId,
+		array $cookies = []
+	): ResponseInterface {
+		return HttpRequestHelper::post(
+			self::getUrl($baseUrl, 'renew'),
+			$xRequestId,
+			null,
+			null,
+			self::getHeaders($cookies),
+			\json_encode(['permissionId' => $permissionId])
+		);
+	}
+
+	/**
 	 * Returns the Set-Cookie headers of the response, keyed by the cookie name
 	 *
 	 * @param ResponseInterface $response
@@ -122,4 +189,19 @@ class GuestLinkHelper {
 		return self::getSetCookieHeaders($response)[self::SESSION_COOKIE_NAME] ?? null;
 	}
 
+	/**
+	 * Returns the raw Set-Cookie header of the nonce cookie, or null
+	 *
+	 * @param ResponseInterface $response
+	 *
+	 * @return string|null
+	 */
+	public static function getNonceSetCookieHeader(ResponseInterface $response): ?string {
+		foreach (self::getSetCookieHeaders($response) as $name => $setCookie) {
+			if (\str_starts_with($name, self::NONCE_COOKIE_BASE_NAME)) {
+				return $setCookie;
+			}
+		}
+		return null;
+	}
 }

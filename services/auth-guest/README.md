@@ -25,8 +25,8 @@ links feature and start the service.
 
 ## Overview
 
-- **Consumes** the share lifecycle events `ShareCreated`, `ShareRemoved` and
-  `ShareExpired`.
+- **Consumes** the share lifecycle events `ShareCreated`, `ShareRemoved`,
+  `ShareExpired`, `SpaceShared`, `SpaceUnshared` and `SpaceMembershipExpired`.
 - **Publishes** the `GuestTokenCreated` event (initial token) and the
   `GuestTokenRenewed` event (refresh, carrying the new token and, when
   authorized by a session, the PIN).
