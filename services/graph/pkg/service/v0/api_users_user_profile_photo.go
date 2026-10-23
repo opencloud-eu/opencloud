@@ -222,9 +222,15 @@ func urlPatternMatches(pattern string, target *url.URL) bool {
 	if parsedPattern.Scheme != target.Scheme {
 		return false
 	}
-	hostMatcher, err := glob.Compile(strings.ToLower(parsedPattern.Host))
-	if err != nil || !hostMatcher.Match(strings.ToLower(target.Host)) {
-		return false
+	if !strings.EqualFold(parsedPattern.Host, target.Host) {
+		// IPv6 brackets are literal host delimiters, not glob character classes.
+		if strings.HasPrefix(parsedPattern.Host, "[") {
+			return false
+		}
+		hostMatcher, err := glob.Compile(strings.ToLower(parsedPattern.Host))
+		if err != nil || !hostMatcher.Match(strings.ToLower(target.Host)) {
+			return false
+		}
 	}
 
 	patternPath := parsedPattern.EscapedPath()

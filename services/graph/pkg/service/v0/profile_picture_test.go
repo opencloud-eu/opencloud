@@ -90,6 +90,16 @@ func TestURLPatternMatches(t *testing.T) {
 		{"encoded separator differs", "https://example.com/img/*", "https://example.com/img%2Favatar.png", false},
 		{"encoded path exact", "https://example.com/my%20avatar.png", "https://example.com/my%20avatar.png", true},
 
+		// IPv6 literals must not be interpreted as glob character classes.
+		{"IPv6 literal", "https://[::1]", "https://[::1]/avatar.png", true},
+		{"IPv6 port match", "https://[::1]:9200", "https://[::1]:9200/avatar.png", true},
+		{"IPv6 port mismatch", "https://[::1]:9200", "https://[::1]:9201/avatar.png", false},
+		{"IPv6 path match", "https://[2001:db8::1]:9200/img/*", "https://[2001:db8::1]:9200/img/avatar.png", true},
+		{"IPv6 path mismatch", "https://[2001:db8::1]:9200/img/*", "https://[2001:db8::1]:9200/other/avatar.png", false},
+		{"IPv6 host mismatch", "https://[::1]", "https://[::2]/avatar.png", false},
+		{"IPv6 brackets do not match DNS host", "https://[::1]", "https://1/avatar.png", false},
+		{"IPv6 case insensitive", "https://[2001:DB8::1]", "https://[2001:db8::1]/avatar.png", true},
+
 		// Case insensitivity
 		{"case insensitive host", "https://*.Example.COM", "https://cdn.example.com", true},
 	}
