@@ -1,5 +1,64 @@
 # Changelog
 
+## [9.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.0) - 2026-10-23
+
+### ❤️ Thanks to all contributors! ❤️
+
+@AlexAndBear, @JammingBen, @Svanvith, @aduffeck, @butonic, @dragonchaser, @fschade, @maki5, @micbar, @rhafer, @saw-jan, @v-scharf
+
+### 💥 Breaking changes
+
+- Push based thumbnailer architecture [[#3397](https://github.com/opencloud-eu/opencloud/pull/3397)]
+- feat(guestlinks)!: auth-guest service [[#3609](https://github.com/opencloud-eu/opencloud/pull/3609)]
+
+### 🐛 Bug Fixes
+
+- fix(cli): detect storage driver from storage path in revisions and trash commands [[#3776](https://github.com/opencloud-eu/opencloud/pull/3776)]
+- fix(idp): show keyboard focus on every control [[#3732](https://github.com/opencloud-eu/opencloud/pull/3732)]
+- fix: show the lilac logo on the login page [[#3773](https://github.com/opencloud-eu/opencloud/pull/3773)]
+- fix(frontend): report content search only when full-text search is enabled [[#3760](https://github.com/opencloud-eu/opencloud/pull/3760)]
+- fix: allow guests to list role definitions [[#3729](https://github.com/opencloud-eu/opencloud/pull/3729)]
+- fix: nats checks were missing the configured auth [[#3724](https://github.com/opencloud-eu/opencloud/pull/3724)]
+- fix(collaboration): answer a wopi lock in a read-only session with 200 instead of locking [[#3711](https://github.com/opencloud-eu/opencloud/pull/3711)]
+- fix(collaboration): show the secure view watermark only for view-only tokens [[#3712](https://github.com/opencloud-eu/opencloud/pull/3712)]
+- fix: add restart command output [[#3706](https://github.com/opencloud-eu/opencloud/pull/3706)]
+
+### 📈 Enhancement
+
+- feat(search): configurable query filter, leaves the personal space root and .space out by default [[#3787](https://github.com/opencloud-eu/opencloud/pull/3787)]
+- feat: expose the default project space quota in the capabilities [[#3719](https://github.com/opencloud-eu/opencloud/pull/3719)]
+- feat(collaboration): close the CheckFileInfo gaps for the office apps [[#3730](https://github.com/opencloud-eu/opencloud/pull/3730)]
+- fix(proxy): allow guest link auth for app open and new endpoints [[#3737](https://github.com/opencloud-eu/opencloud/pull/3737)]
+- feat: make space2share migration repeatable [[#3669](https://github.com/opencloud-eu/opencloud/pull/3669)]
+- feat: run the decomposed drivers on foreign metadata via metadata_prefix [[#3670](https://github.com/opencloud-eu/opencloud/pull/3670)]
+- feat: add more cli options to unified roles [[#3658](https://github.com/opencloud-eu/opencloud/pull/3658)]
+- feat(web): use the OpenCloud brand colors for the primary color role [[#3631](https://github.com/opencloud-eu/opencloud/pull/3631)]
+
+### ✅ Tests
+
+- tests: add acceptance tests for renewing guest links [[#3753](https://github.com/opencloud-eu/opencloud/pull/3753)]
+- tests: check that a guest can only access the shared resource [[#3752](https://github.com/opencloud-eu/opencloud/pull/3752)]
+- tests: add acceptance tests for sharing with guests via email [[#3751](https://github.com/opencloud-eu/opencloud/pull/3751)]
+- Bump reva and add some tests for new features [[#3715](https://github.com/opencloud-eu/opencloud/pull/3715)]
+- api-test: check PROPFIND/REPORT has-preview [[#3714](https://github.com/opencloud-eu/opencloud/pull/3714)]
+- test(api): simply HTTP request retry conditions [[#3696](https://github.com/opencloud-eu/opencloud/pull/3696)]
+- test: retry acceptance requests while share manager is migrating [[#3681](https://github.com/opencloud-eu/opencloud/pull/3681)]
+- api-test: extend search tests [[#3634](https://github.com/opencloud-eu/opencloud/pull/3634)]
+
+### 📚 Documentation
+
+- docs: update unified Roles [[#3738](https://github.com/opencloud-eu/opencloud/pull/3738)]
+- fix(proxy): make metrics table MDX-compatible [[#3680](https://github.com/opencloud-eu/opencloud/pull/3680)]
+
+### 📦️ Dependencies
+
+- chore: bump reva to latest main [[#3720](https://github.com/opencloud-eu/opencloud/pull/3720)]
+- chore: bump reva to latest main [[#3713](https://github.com/opencloud-eu/opencloud/pull/3713)]
+- chore: bump reva to latest main [[#3700](https://github.com/opencloud-eu/opencloud/pull/3700)]
+- chore: bump reva to latest main [[#3685](https://github.com/opencloud-eu/opencloud/pull/3685)]
+- build(deps): bump github.com/onsi/ginkgo/v2 from 2.32.1 to 2.33.0 [[#3596](https://github.com/opencloud-eu/opencloud/pull/3596)]
+- build(deps): bump github.com/open-policy-agent/opa from 1.19.1 to 1.21.1 [[#3599](https://github.com/opencloud-eu/opencloud/pull/3599)]
+
 ## [8.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v8.1.0) - 2026-10-05
 
 ### ❤️ Thanks to all contributors! ❤️
