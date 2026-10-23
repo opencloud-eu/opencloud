@@ -1,4 +1,4 @@
-package http
+package svc
 
 import (
 	"crypto/tls"

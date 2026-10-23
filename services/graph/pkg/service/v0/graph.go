@@ -65,7 +65,6 @@ type Graph struct {
 	permissionsService       Permissions
 	valueService             settingssvc.ValueService
 	specialDriveItemsCache   *ttlcache.Cache[string, any]
-	userProfilePhotoService  UsersUserProfilePhotoProvider
 	eventsPublisher          events.Publisher
 	searchService            searchsvc.SearchProviderService
 	keycloakClient           keycloak.Client

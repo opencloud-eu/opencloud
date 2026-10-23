@@ -1,8 +1,6 @@
 package svc
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -12,7 +10,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jellydator/ttlcache/v3"
-	ocevents "github.com/opencloud-eu/opencloud/pkg/events"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity/cache"
 	"github.com/riandyrn/otelchi"
 	microstore "go-micro.dev/v4/store"
@@ -190,7 +187,6 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 		sourceTypes:              thumbnail.NewSourceTypes(options.Config.Thumbnails.AdditionalSourceTypes),
 		mux:                      m,
 		specialDriveItemsCache:   spacePropertiesCache,
-		userProfilePhotoService:  options.UserProfilePhotoService,
 		eventsPublisher:          options.EventsPublisher,
 		searchService:            options.SearchService,
 		identityBackend:          options.IdentityBackend,
@@ -465,62 +461,6 @@ func DecomposeGraphApiRequestPattern(pieces []string) (string, string) {
 	}
 	return version, resource
 
-}
-
-func (g *Graph) StartListenForLogonEvents(ctx context.Context, l log.Logger) error {
-	if g.eventsConsumer == nil {
-		return nil
-	}
-	var _registeredEvents = []events.Unmarshaller{
-		events.UserSignedIn{},
-		ocevents.UserProfilePictureSyncRequested{},
-	}
-	evChannel, err := events.Consume(g.eventsConsumer, "graph", _registeredEvents...)
-	if err != nil {
-		l.Error().Err(err).Msg("cannot consume from nats")
-		return err
-	}
-	go func() {
-		for loop := true; loop; {
-			select {
-			case e := <-evChannel:
-				switch ev := e.Event.(type) {
-				default:
-					l.Error().Interface("event", e).Msg("unhandled event")
-				case events.UserSignedIn:
-					if err := g.identityBackend.UpdateLastSignInDate(ctx, ev.Executant.OpaqueId, utils.TSToTime(ev.Timestamp)); err != nil {
-						l.Error().Err(err).Str("userid", ev.Executant.OpaqueId).Msg("Error updating last sign in date")
-					}
-				case ocevents.UserProfilePictureSyncRequested:
-					go g.syncProfilePicture(ctx, l, ev)
-				}
-			case <-ctx.Done():
-				l.Info().Msg("context cancelled")
-				loop = false
-			}
-		}
-	}()
-	return nil
-}
-
-// syncProfilePicture runs outside the event loop so downloads do not delay sign-in events.
-func (g *Graph) syncProfilePicture(ctx context.Context, l log.Logger, ev ocevents.UserProfilePictureSyncRequested) {
-	if ctx.Err() != nil {
-		return
-	}
-	if err := g.userProfilePhotoService.SyncPhotoFromURL(ctx, ev.Executant.GetOpaqueId(), ev.PictureURL); err != nil {
-		l.Warn().Err(err).Str("userid", ev.Executant.GetOpaqueId()).Msg("Failed to sync profile picture from OIDC claim")
-		return
-	}
-	if ctx.Err() != nil || g.eventsPublisher == nil {
-		return
-	}
-	if err := events.Publish(ctx, g.eventsPublisher, ocevents.UserProfilePictureUpdated{
-		Executant: ev.Executant,
-		Timestamp: utils.TimeToTS(time.Now()),
-	}); err != nil {
-		l.Warn().Err(err).Str("userid", ev.Executant.GetOpaqueId()).Msg("Failed to publish profile picture updated event")
-	}
 }
 
 // parseHeaderPurge parses the 'Purge' header.
