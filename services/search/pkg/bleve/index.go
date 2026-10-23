@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/analysis/analyzer/custom"
@@ -16,10 +15,8 @@ import (
 	"github.com/blevesearch/bleve/v2/analysis/char/regexp"
 	"github.com/blevesearch/bleve/v2/analysis/token/lowercase"
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/unicode"
-	"github.com/blevesearch/bleve/v2/index/scorch"
 	"github.com/blevesearch/bleve/v2/mapping"
 	"github.com/blevesearch/bleve/v2/search/query"
-	"github.com/rs/zerolog"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve/hierarchy"
@@ -27,35 +24,27 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
-const asyncErrorCallbackName = "opencloud-search"
-
-// runtimeConfig logs the errors of bleve's merger and persister, which bleve
-// drops otherwise, at most once a minute since a failing merge retries several
-// times a second. bolt_timeout makes a second process on the same datapath fail
-// after 5s instead of blocking forever on the file lock. The search service
-// builds a single index per process, so setting bleve's global callback
-// registry here does not race.
-func runtimeConfig(logger log.Logger) map[string]any {
-	sampled := logger.Sample(&zerolog.BurstSampler{Burst: 1, Period: time.Minute})
-	scorch.RegistryAsyncErrorCallbacks[asyncErrorCallbackName] = func(err error, path string) {
-		sampled.Error().Err(err).Str("path", path).Msg("bleve index background error")
-	}
-	return map[string]any{"bolt_timeout": "5s", "asyncErrorCallbackName": asyncErrorCallbackName}
+// bolt_timeout makes a second process on the same datapath fail after 5s
+// instead of blocking forever on the file lock.
+var runtimeConfig = map[string]any{
+	"bolt_timeout":           "5s",
+	"asyncErrorCallbackName": asyncErrorCallbackName,
 }
 
 // NewIndex opens (or creates) the bleve index at root and reconciles its schema
 // against NewMapping() via searchmapping.Reconcile.
 func NewIndex(root string, logger log.Logger) (bleve.Index, searchmapping.Classification, error) {
+	asyncErrors.logger.Store(&logger)
+
 	destination := filepath.Join(root, fmt.Sprintf("bleve-v%d", search.SchemaVersion))
-	config := runtimeConfig(logger)
-	index, err := bleve.OpenUsing(destination, config)
+	index, err := bleve.OpenUsing(destination, runtimeConfig)
 	if errors.Is(err, bleve.ErrorIndexPathDoesNotExist) {
 		indexMapping, err := NewMapping()
 		if err != nil {
 			return nil, searchmapping.Classification{}, err
 		}
 		// NewUsing adds create-only keys to the map it gets.
-		index, err = bleve.NewUsing(destination, indexMapping, bleve.Config.DefaultIndexType, bleve.Config.DefaultKVStore, maps.Clone(config))
+		index, err = bleve.NewUsing(destination, indexMapping, bleve.Config.DefaultIndexType, bleve.Config.DefaultKVStore, maps.Clone(runtimeConfig))
 		if err != nil {
 			return nil, searchmapping.Classification{}, err
 		}
@@ -67,7 +56,7 @@ func NewIndex(root string, logger log.Logger) (bleve.Index, searchmapping.Classi
 		return nil, searchmapping.Classification{}, err
 	}
 
-	r := &bleveReconciler{index: index, destination: destination, config: config}
+	r := &bleveReconciler{index: index, destination: destination}
 	classification, err := searchmapping.Reconcile(destination, r, logger)
 	if err != nil {
 		if r.index != nil {
@@ -83,7 +72,6 @@ func NewIndex(root string, logger log.Logger) (bleve.Index, searchmapping.Classi
 type bleveReconciler struct {
 	index       bleve.Index
 	destination string
-	config      map[string]any
 	codeB       []byte // marshaled code mapping, produced by Classify, used by ApplyAdditive
 }
 
@@ -106,7 +94,7 @@ func (r *bleveReconciler) ApplyAdditive() (bool, error) {
 		r.index = nil
 		return true, err
 	}
-	index, err := bleve.OpenUsing(r.destination, r.config)
+	index, err := bleve.OpenUsing(r.destination, runtimeConfig)
 	if err != nil {
 		r.index = nil
 		return true, err

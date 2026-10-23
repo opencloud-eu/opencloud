@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
+	"sync"
 
 	bleveSearch "github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/analysis/analyzer/custom"
@@ -53,7 +53,7 @@ var _ = Describe("Index", func() {
 			Expect(reopened.Name()).To(Equal(filepath.Join(root, fmt.Sprintf("bleve-v%d", search.SchemaVersion))))
 		})
 
-		It("logs the first of repeated background errors", func() {
+		It("reports background errors to the logger it was given", func() {
 			// match log.NewLogger's global level
 			DeferCleanup(zerolog.SetGlobalLevel, zerolog.GlobalLevel())
 			zerolog.SetGlobalLevel(zerolog.TraceLevel)
@@ -69,10 +69,39 @@ var _ = Describe("Index", func() {
 
 			report := scorch.RegistryAsyncErrorCallbacks["opencloud-search"]
 			Expect(report).ToNot(BeNil())
-			report(errors.New("merging failed"), index.Name())
-			report(errors.New("merging failed"), index.Name())
+			report(scorch.NewScorchError("merger", "panic: boom", scorch.ErrAsyncPanic), index.Name())
 
-			Expect(strings.Count(out.String(), "merging failed")).To(Equal(1))
+			Expect(out.String()).To(ContainSubstring(`"source":"merger"`))
+			Expect(out.String()).To(ContainSubstring(`"err_type":"async panic error"`))
+		})
+
+		It("leaves bleve's callback registry alone", func() {
+			registered := scorch.RegistryAsyncErrorCallbacks["opencloud-search"]
+			Expect(registered).ToNot(BeNil())
+			DeferCleanup(func() { scorch.RegistryAsyncErrorCallbacks["opencloud-search"] = registered })
+
+			var reported error
+			scorch.RegistryAsyncErrorCallbacks["opencloud-search"] = func(err error, _ string) { reported = err }
+
+			index, _, err := bleve.NewIndex(GinkgoT().TempDir(), log.NopLogger())
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(index.Close)
+
+			scorch.RegistryAsyncErrorCallbacks["opencloud-search"](errors.New("merging failed"), index.Name())
+			Expect(reported).To(MatchError("merging failed"))
+		})
+
+		It("opens two indexes at the same time", func() {
+			var wg sync.WaitGroup
+			for _, root := range []string{GinkgoT().TempDir(), GinkgoT().TempDir()} {
+				wg.Go(func() {
+					defer GinkgoRecover()
+					index, _, err := bleve.NewIndex(root, log.NopLogger())
+					Expect(err).ToNot(HaveOccurred())
+					Expect(index.Close()).To(Succeed())
+				})
+			}
+			wg.Wait()
 		})
 	})
 })
