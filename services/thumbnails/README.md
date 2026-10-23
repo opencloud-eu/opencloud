@@ -105,6 +105,8 @@ webdav decides which size is asked for, keeps the thumbnail cache and holds the 
 
 The source and the thumbnail have ceilings of their own, for different reasons. How large a preview may be is webdav's decision, and its largest configured resolution is what it ever asks for; `THUMBNAILS_MAX_OUTPUT_*` is the net under that for anything else reaching this endpoint, because `fill` and `stretch` enlarge a small source to fill the box. How large a source may be is this service's decision, since it is the one that sees the pixels: webdav knows a file's type, size and checksum, not its dimensions.
 
+The two sides are configured apart and nothing couples them, so a ladder that reaches past `THUMBNAILS_MAX_OUTPUT_WIDTH` or `THUMBNAILS_MAX_OUTPUT_HEIGHT` asks for a box this endpoint refuses, and the rung above the ceiling answers with an error rather than an image. A deployment that raises `WEBDAV_THUMBNAILS_RESOLUTIONS` past 2048 has to raise the ceiling with it.
+
 A real imagor has one pair of knobs for both, `-vips-max-width` and `-vips-max-height`, which bound every image in its pipeline, the loaded source as well as the result. Set them to the source ceiling. They are also more forgiving than this service for formats libvips can shrink while loading: a 9000 pixel wide JPEG passes a 2048 limit there, where this service refuses it on the header.
 
 ## Using libvips for Image Processing
