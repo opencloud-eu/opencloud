@@ -44,6 +44,11 @@ func DefaultConfig() *config.Config {
 			Addr:      "127.0.0.1:9195",
 			Root:      "/",
 			Namespace: "eu.opencloud.web",
+			Metrics: config.HTTPMetrics{
+				// disabling inbound HTTP metrics collection by default for now, since the runtime performance impact is currently unclear;
+				// it is most likely to be negligible, but has not been measured yet to confirm
+				Disabled: true,
+			},
 			CORS: config.CORS{
 				AllowedOrigins:   []string{"*"},
 				AllowedMethods:   []string{"GET"},

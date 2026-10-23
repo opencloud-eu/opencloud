@@ -77,6 +77,11 @@ type CORS struct {
 	AllowCredentials bool     `yaml:"allow_credentials" env:"OC_CORS_ALLOW_CREDENTIALS;ACTIVITYLOG_CORS_ALLOW_CREDENTIALS" desc:"Allow credentials for CORS.See following chapter for more details: *Access-Control-Allow-Credentials* at https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Credentials." introductionVersion:"1.0.0"`
 }
 
+// HTTPMetrics defines the available http metrics configuration.
+type HTTPMetrics struct {
+	Disabled bool `yaml:"disabled" env:"ACTIVITYLOG_HTTP_METRICS_DISABLE" desc:"Disables the metrics for the HTTP service." introductionVersion:"%%NEXT%%"`
+}
+
 // HTTP defines the available http configuration.
 type HTTP struct {
 	Disabled  bool                  `yaml:"disabled" env:"ACTIVITYLOG_HTTP_DISABLED" desc:"Disables the HTTP service. Set this to true if the service should only handle events." introductionVersion:"1.0.0"`
@@ -85,6 +90,7 @@ type HTTP struct {
 	Root      string                `yaml:"root" env:"ACTIVITYLOG_HTTP_ROOT" desc:"Subdirectory that serves as the root for this HTTP service." introductionVersion:"1.0.0"`
 	CORS      CORS                  `yaml:"cors"`
 	TLS       shared.HTTPServiceTLS `yaml:"tls"`
+	Metrics   HTTPMetrics           `yaml:"metrics"`
 }
 
 // TokenManager is the config for using the reva token manager

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	ocmetrics "github.com/opencloud-eu/opencloud/pkg/metrics"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config"
 	"github.com/spf13/pflag"
@@ -25,6 +26,7 @@ type Options struct {
 	Service       ActivityLogService
 	TraceProvider trace.TracerProvider
 	ValueClient   settingssvc.ValueService
+	Metrics       *ocmetrics.Metrics
 }
 
 // newOptions initializes the available default options.
@@ -88,5 +90,12 @@ func TraceProvider(traceProvider trace.TracerProvider) Option {
 func ValueClient(vs settingssvc.ValueService) Option {
 	return func(o *Options) {
 		o.ValueClient = vs
+	}
+}
+
+// Metrics configures the metrics to record the inbound HTTP requests with
+func Metrics(m *ocmetrics.Metrics) Option {
+	return func(o *Options) {
+		o.Metrics = m
 	}
 }

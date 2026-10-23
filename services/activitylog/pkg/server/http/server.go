@@ -80,6 +80,10 @@ func Server(opts ...Option) (ohttp.Service, error) {
 		),
 	}
 
+	if !options.Config.HTTP.Metrics.Disabled && options.Metrics != nil && options.Metrics.HTTP != nil {
+		middlewares = append(middlewares, options.Metrics.HTTP.Middleware)
+	}
+
 	mux := chi.NewMux()
 	mux.Use(middlewares...)
 

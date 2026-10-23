@@ -13,6 +13,41 @@ import (
 
 type BuildInfoMetric = *prometheus.GaugeVec
 
+// APIType identifies an API that a service instance can serve.
+type APIType string
+
+const (
+	ResultSuccess = "success"
+	LabelResult   = "result"
+	ResultFailure = "failure"
+	LabelEvent    = "event"
+
+	APIHTTP   APIType = "http"
+	APIGRPC   APIType = "grpc"
+	APIEvents APIType = "events"
+)
+
+// Metrics is a container for the metrics of a service instance.
+type Metrics struct {
+	namespace string
+	subsystem string
+
+	BuildInfo *prometheus.GaugeVec
+
+	Events *eventsMetrics
+	HTTP   *httpMetrics
+	GRPC   *grpcMetrics
+
+	serviceMetrics map[string]prometheus.Collector
+}
+
+// Option configures a Metrics container.
+type Option func(*Metrics)
+
+// ErrMetricNotFound is returned when a registered metric is looked up by a name
+// that was not registered.
+var ErrMetricNotFound = errors.New("metric not found")
+
 // Create a BuildInfo metric for the specified namespace and subsystem.
 func BuildInfo(namespace, subsystem string) BuildInfoMetric {
 	return prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -203,3 +238,106 @@ func (r *LoggingPrometheusRegisterer) Unregister(c prometheus.Collector) bool {
 }
 
 var _ prometheus.Registerer = &LoggingPrometheusRegisterer{}
+
+// WithEnabledAPIs declares the APIs served by this instance and initializes all
+// metrics associated with them. The enabled gauges are set to 1; call Disable()
+// on the relevant struct when an API is disabled by configuration.
+func WithEnabledAPIs(apis ...APIType) Option {
+	return func(m *Metrics) {
+		for _, api := range apis {
+			switch api {
+			case APIHTTP:
+				if m.HTTP == nil {
+					m.HTTP = newHTTPMetrics(m.namespace, m.subsystem)
+				}
+				m.HTTP.Enable()
+			case APIGRPC:
+				if m.GRPC == nil {
+					m.GRPC = newGRPCMetrics(m.namespace, m.subsystem)
+				}
+				m.GRPC.Enable()
+			case APIEvents:
+				if m.Events == nil {
+					m.Events = newEventsMetrics(m.namespace, m.subsystem)
+				}
+				m.Events.Enable()
+			}
+		}
+	}
+}
+
+// WithMetric registers an additional service-specific metric into the container
+// under the given logical name.
+func WithMetric(name string, c prometheus.Collector) Option {
+	return func(m *Metrics) {
+		m.serviceMetrics[name] = c
+	}
+}
+
+func New(reg prometheus.Registerer, logger *log.Logger, namespace, subsystem string, opts ...Option) (*Metrics, error) {
+	m := &Metrics{
+		namespace:      namespace,
+		subsystem:      subsystem,
+		BuildInfo:      BuildInfo(namespace, subsystem),
+		serviceMetrics: map[string]prometheus.Collector{},
+	}
+
+	for _, o := range opts {
+		o(m)
+	}
+
+	m.BuildInfo.WithLabelValues(version.GetString()).Set(1)
+
+	lr := NewLoggingPrometheusRegisterer(reg, logger)
+	var errs []error
+	for _, c := range m.allCollectors() {
+		if err := lr.Register(c); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return m, errors.Join(errs...)
+}
+
+// GetMetric returns the metric registered under the given name.
+func (m *Metrics) GetMetric(name string) (prometheus.Collector, error) {
+	c, ok := m.serviceMetrics[name]
+	if !ok {
+		return nil, fmt.Errorf("%q: %w", name, ErrMetricNotFound)
+	}
+	return c, nil
+}
+
+// allCollectors returns every collector the container owns, for registration.
+func (m *Metrics) allCollectors() []prometheus.Collector {
+	collectors := []prometheus.Collector{m.BuildInfo}
+	if m.Events != nil {
+		collectors = append(collectors, m.Events.collectors()...)
+	}
+	if m.HTTP != nil {
+		collectors = append(collectors, m.HTTP.collectors()...)
+	}
+	if m.GRPC != nil {
+		collectors = append(collectors, m.GRPC.collectors()...)
+	}
+	for _, c := range m.serviceMetrics {
+		collectors = append(collectors, c)
+	}
+	return collectors
+}
+
+func newEnabledGauge(namespace, subsystem string, api APIType) prometheus.Gauge {
+	name := string(api) + "_enabled"
+	display := string(api)
+	switch api {
+	case APIHTTP:
+		display = "HTTP"
+	case APIGRPC:
+		display = "gRPC"
+	}
+	return prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      name,
+		Help:      "Whether this instance processes " + display + " API calls (1) or not (0)",
+	})
+}
