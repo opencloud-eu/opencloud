@@ -9,7 +9,8 @@ import (
 
 var _ = Describe("Tika", func() {
 	none := thumbnail.NewTika("", nil)
-	all := thumbnail.NewTika("http://tika:9998", nil)
+	all := thumbnail.NewTika("http://tika:9998", []string{"*"})
+	nothing := thumbnail.NewTika("http://tika:9998", nil)
 	some := thumbnail.NewTika("http://tika:9998", []string{" Application/PDF ", "audio/mpeg", "image/x-nikon-nef:image/x-raw-nikon"})
 
 	DescribeTable("Supports",
@@ -17,7 +18,8 @@ var _ = Describe("Tika", func() {
 			Expect(tika.Supports(mimeType)).To(Equal(want))
 		},
 		Entry("nothing without a server", none, "application/pdf", false),
-		Entry("everything by default", all, "application/x-anything; charset=binary", true),
+		Entry("nothing with an empty list", nothing, "application/pdf", false),
+		Entry("everything with the default list", all, "application/x-anything; charset=binary", true),
 		Entry("but no directories", all, "httpd/unix-directory", false),
 		Entry("nor an unparsable type", all, "not a mime", false),
 		Entry("a listed type", some, "application/pdf", true),
@@ -32,6 +34,6 @@ var _ = Describe("Tika", func() {
 		},
 		Entry("maps a type to the one Tika knows", some, "image/x-nikon-nef", "image/x-raw-nikon"),
 		Entry("passes an unmapped type through, without parameters", some, "application/pdf; charset=binary", "application/pdf"),
-		Entry("passes everything through by default", all, "audio/mpeg", "audio/mpeg"),
+		Entry("passes everything through with the default list", all, "audio/mpeg", "audio/mpeg"),
 	)
 })
