@@ -43,6 +43,8 @@ func DefaultConfig() *config.Config {
 		WebdavNamespace:    "/users/{{.Id.OpaqueId}}",
 		RevaGateway:        shared.DefaultRevaConfig().Address,
 
+		TikaThumbnailMimeTypes: []string{"*"},
+
 		Thumbnails: config.Thumbnails{
 			GeneratorURL:     "http://127.0.0.1:9186",
 			GeneratorTimeout: "30s",

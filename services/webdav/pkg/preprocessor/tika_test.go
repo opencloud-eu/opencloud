@@ -139,7 +139,7 @@ var _ = Describe("TikaThumbnail", func() {
 
 var _ = Describe("ForType with a Tika server", func() {
 	It("routes everything Tika is asked for to Tika, text and gif stay native", func() {
-		opts := Options{Tika: thumbnail.NewTika("http://tika:9998", nil), Filename: "song.mp3"}
+		opts := Options{Tika: thumbnail.NewTika("http://tika:9998", []string{"*"}), Filename: "song.mp3"}
 		Expect(ForType("audio/mpeg", opts)).To(BeAssignableToTypeOf(TikaThumbnail{}))
 		Expect(ForType("application/vnd.geogebra.slides", opts)).To(BeAssignableToTypeOf(TikaThumbnail{}))
 		Expect(ForType("application/pdf", opts)).To(BeAssignableToTypeOf(TikaThumbnail{}))
