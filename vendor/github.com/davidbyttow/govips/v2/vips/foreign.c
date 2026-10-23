@@ -310,6 +310,10 @@ int set_webpsave_options(VipsOperation *operation, SaveParams *params) {
     ret = vips_object_set(VIPS_OBJECT(operation), "Q", params->quality, NULL);
   }
 
+  if (!ret && params->webpTargetSize) {
+    ret = vips_object_set(VIPS_OBJECT(operation), "target_size", params->webpTargetSize, NULL);
+  }
+
   return ret;
 }
 
@@ -572,6 +576,7 @@ static SaveParams defaultSaveParams = {
     .webpKMax = 0,
     .webpKMin = 0,
     .webpMinSize = FALSE,
+    .webpTargetSize = 0,
 
     .heifBitdepth = 8,
     .heifLossless = FALSE,
