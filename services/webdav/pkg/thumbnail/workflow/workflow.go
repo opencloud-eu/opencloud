@@ -553,12 +553,19 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 	// the preprocessor decides what a type needs. No converter means the file
 	// is handed to the generator as it is, which is the case for every type it
 	// reads itself.
-	converter := preprocessor.ForType(mimeType, preprocessor.Options{
+	converter, err := preprocessor.ForType(mimeType, preprocessor.Options{
 		FontMapFile:  w.fontMapFile,
 		MaxImageSize: w.maxInputSize,
 		Tika:         w.tika,
+		SourceTypes:  w.sourceTypes,
 		Filename:     filename,
 	})
+	if err != nil {
+		// nothing can make an image of this type, so there is nothing to fetch
+		logger.Debug().Str("mimetype", mimeType).Msg("no preview for this type")
+
+		return nil, "", nil, ErrNoThumbnail
+	}
 
 	// what the extraction found is remembered per file, so a second size does
 	// not send the file to Tika again, and a file that carries nothing is only
