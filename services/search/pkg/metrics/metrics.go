@@ -50,6 +50,12 @@ var (
 		Help:      "Duration of indexing operations in seconds",
 		Buckets:   []float64{0.1, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300, 600, 1200},
 	}, []string{"status"})
+	bleveAsyncErrors = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: Namespace,
+		Subsystem: Subsystem,
+		Name:      "bleve_async_errors_total",
+		Help:      "Number of errors reported by the background goroutines of the bleve index",
+	}, []string{"source", "err_type"})
 )
 
 // Metrics defines the available metrics of this service.
@@ -61,6 +67,7 @@ type Metrics struct {
 	EventsRedelivered     prometheus.Gauge
 	SearchDuration        *prometheus.HistogramVec
 	IndexDuration         *prometheus.HistogramVec
+	BleveAsyncErrors      *prometheus.CounterVec
 }
 
 // New initializes the available metrics.
@@ -72,6 +79,7 @@ func New() *Metrics {
 		EventsRedelivered:     eventsRedelivered,
 		SearchDuration:        searchDuration,
 		IndexDuration:         indexDuration,
+		BleveAsyncErrors:      bleveAsyncErrors,
 	}
 
 	return m
