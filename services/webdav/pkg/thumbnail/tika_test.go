@@ -32,7 +32,7 @@ var _ = Describe("Tika", func() {
 		func(tika thumbnail.Tika, mimeType, want string) {
 			Expect(tika.ContentType(mimeType)).To(Equal(want))
 		},
-		Entry("maps a type to the one Tika knows", some, "image/x-nikon-nef", "image/x-raw-nikon"),
+		Entry("pins the leaf type, so the detector does not stop at tiff and lose the embedded preview", some, "image/x-nikon-nef", "image/x-raw-nikon"),
 		Entry("passes an unmapped type through, without parameters", some, "application/pdf; charset=binary", "application/pdf"),
 		Entry("passes everything through with the default list", all, "audio/mpeg", "audio/mpeg"),
 	)
