@@ -69,7 +69,7 @@ func TestGroupwareVacation(t *testing.T) {
 		}
 		gput(g, "set-vacation", u, "/accounts/_/vacation", req, &resp)
 		require.Equal("singleton", resp.Id)
-		require.False(*resp.IsEnabled) // TODO should be true: this is a bug in Stalwart up to 0.16.12, see https://support.stalw.art/t/vacationresponse-jmap-api-isenabled-reset-to-false-whenever-properties-are-changed/992
+		require.True(*resp.IsEnabled) // was reset to false by Stalwart up to 0.16.12, see https://support.stalw.art/t/vacationresponse-jmap-api-isenabled-reset-to-false-whenever-properties-are-changed/992
 		require.Equal("testing", resp.Subject)
 		require.Equal("text", resp.TextBody)
 		require.Equal("html", resp.HtmlBody)
