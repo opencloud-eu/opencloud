@@ -942,7 +942,7 @@ Output:
   "quotas": {},
   "aliases": {},
   "description": "An English mathematician, computer scientist, logician, cryptanalyst, philosopher and theoretical biologist. He was highly influential in the development of theoretical computer science, providing a formalisation of the concepts of algorithm and computation with the Turing machine.",
-  "locale": "en_US",
+  "locale": "en-US",
   "timeZone": null,
   "encryptionAtRest": {
     "@type": "Disabled"
