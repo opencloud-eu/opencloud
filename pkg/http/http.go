@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
+	"slices"
 )
 
 type readCloser struct {
@@ -82,6 +84,18 @@ func PeekResponse(body io.ReadCloser, size int64) (io.ReadCloser, []byte, bool, 
 	}
 }
 
+// Writes the headers sorted by name, so that the output doesn't depend on the map iteration order.
+func writeHeaders(w io.Writer, header http.Header, skip ...string) {
+	for _, key := range slices.Sorted(maps.Keys(header)) {
+		if slices.Contains(skip, key) {
+			continue
+		}
+		for _, value := range header[key] {
+			fmt.Fprintf(w, "%s: %s\n", key, value)
+		}
+	}
+}
+
 // Extracts information from an HTTP request and passes it to a function, typically for logging.
 //
 // It also extracts the <maxBodySize> first bytes of the request body, if maxBodySize is > 0.
@@ -92,14 +106,7 @@ func DumpHttpRequest(req *http.Request, maxBodySize int64, closure func(method s
 		uri = req.URL.String()
 	}
 	fmt.Fprintf(&logBuilder, "%s %s\n", req.Method, uri)
-	for key, values := range req.Header {
-		if key == "Authorization" {
-			continue
-		}
-		for _, value := range values {
-			fmt.Fprintf(&logBuilder, "%s: %s\n", key, value)
-		}
-	}
+	writeHeaders(&logBuilder, req.Header, "Authorization")
 	truncated := false
 	if maxBodySize >= 0 && req.Body != nil && req.Body != http.NoBody {
 		peekBuffer := new(bytes.Buffer)
@@ -128,11 +135,7 @@ func DumpHttpResponse(resp *http.Response, body io.ReadCloser, maxBodySize int64
 ) (io.ReadCloser, error) {
 	var logBuilder bytes.Buffer
 	fmt.Fprintf(&logBuilder, "%s\n", resp.Status)
-	for key, values := range resp.Header {
-		for _, value := range values {
-			fmt.Fprintf(&logBuilder, "%s: %s\n", key, value)
-		}
-	}
+	writeHeaders(&logBuilder, resp.Header)
 
 	var peekBuffer *bytes.Buffer = nil
 	truncated := false
