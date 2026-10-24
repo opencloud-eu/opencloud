@@ -108,6 +108,8 @@ default:
         - OcConfigContext:
         - TrashbinContext:
         - SharingNgContext:
+        - FavoritesContext:
+        - WebDavPropertiesContext:
 
     apiGraphUserGroup:
       paths:
@@ -185,6 +187,20 @@ default:
         - OcConfigContext:
         - SharingNgContext:
         - OcmContext:
+        - CliContext:
+
+    apiGuestLink:
+      paths:
+        - "%paths.base%/../features/apiGuestLink"
+      context: *common_ldap_suite_context
+      contexts:
+        - FeatureContext: *common_feature_context_params
+        - SpacesContext:
+        - GraphContext:
+        - SharingNgContext:
+        - NotificationContext:
+        - GuestLinkContext:
+        - OcConfigContext:
 
     apiAntivirus:
       paths:
@@ -324,6 +340,7 @@ default:
         - SharingNgContext:
         - OcConfigContext:
         - SettingsContext:
+        - FilesVersionsContext:
 
     apiSharingNg2:
       paths:
@@ -344,6 +361,9 @@ default:
         - FeatureContext: *common_feature_context_params
         - GraphContext:
         - SettingsContext:
+        - SpacesContext:
+        - SharingNgContext:
+        - NotificationContext:
 
     apiSharingNgShareInvitation:
       paths:
@@ -353,6 +373,7 @@ default:
         - FeatureContext: *common_feature_context_params
         - SpacesContext:
         - SharingNgContext:
+        - OcConfigContext:
 
     apiSharingNgLinkSharePermission:
       paths:
@@ -374,6 +395,18 @@ default:
         - SpacesContext:
         - SharingNgContext:
         - PublicWebDavContext:
+        - OcConfigContext:
+    
+    apiSharingNgAdditionalShareRole:
+      paths:
+        - "%paths.base%/../features/apiSharingNgAdditionalShareRole"
+      context: *common_ldap_suite_context
+      contexts:
+        - FeatureContext: *common_feature_context_params
+        - SpacesContext:
+        - GraphContext:
+        - SharingNgContext:
+        - FilesVersionsContext:
         - OcConfigContext:
 
     apiOcm:

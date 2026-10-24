@@ -9,10 +9,11 @@ package opensearchapi
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // UpdateByQueryRethrottle executes a / request with the optional UpdateByQueryRethrottleReq
@@ -21,7 +22,7 @@ func (c Client) UpdateByQueryRethrottle(ctx context.Context, req UpdateByQueryRe
 		data UpdateByQueryRethrottleResp
 		err  error
 	)
-	if data.response, err = c.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, &c, http.MethodPost, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -37,14 +38,13 @@ type UpdateByQueryRethrottleReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r UpdateByQueryRethrottleReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"POST",
-		fmt.Sprintf("/_update_by_query/%s/_rethrottle", r.TaskID),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+func (r UpdateByQueryRethrottleReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.UpdateByQueryRethrottlePath{TaskID: r.TaskID}.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // UpdateByQueryRethrottleResp represents the returned struct of the / response

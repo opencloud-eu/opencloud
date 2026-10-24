@@ -85,6 +85,10 @@ func DefaultConfig() *config.Config {
 			ThemesPath: filepath.Join(defaults.BaseDataPath(), "web/assets/themes"),
 		},
 		GatewayAddress: "eu.opencloud.api.gateway",
+		Store: config.Store{
+			Nodes:    []string{"127.0.0.1:9233"},
+			Database: "web",
+		},
 		Web: config.Web{
 			ThemeServer: "https://localhost:9200",
 			ThemePath:   "/themes/opencloud/theme.json",
@@ -98,7 +102,7 @@ func DefaultConfig() *config.Config {
 					ResponseType: "code",
 					Scope:        "openid profile email",
 				},
-				Apps: []string{"files", "search", "text-editor", "pdf-viewer", "external", "admin-settings", "epub-reader", "preview", "app-store"},
+				Apps: []string{"files", "search", "text-editor", "pdf-viewer", "external", "admin-settings", "epub-reader", "preview", "app-store", "rclone-crypt"},
 				Options: config.Options{
 					ContextHelpersReadMore: true,
 					AccountEditLink:        &config.AccountEditLink{},

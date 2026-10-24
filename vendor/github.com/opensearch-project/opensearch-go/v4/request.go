@@ -25,7 +25,9 @@ import (
 	"net/http"
 )
 
-// Request represents a requests the client can execute
+// Request represents a request the client can execute. Implementations build
+// the URL path and body from structured fields; the HTTP method is provided by
+// the caller (the client method that knows the operation's semantics).
 type Request interface {
-	GetRequest() (*http.Request, error)
+	GetRequest(method string) (*http.Request, error)
 }

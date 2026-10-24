@@ -1,9 +1,10 @@
 - [User Guide](#user-guide)
-	- [Example](#example)
-	- [Amazon OpenSearch Service](#amazon-opensearch-service)
-		- [AWS SDK v1](#aws-sdk-v1)
-		- [AWS SDK v2](#aws-sdk-v2)
-	- [Guides by Topic](#guides-by-topic)
+  - [Example](#example)
+  - [Amazon OpenSearch Service](#amazon-opensearch-service)
+    - [AWS SDK v1](#aws-sdk-v1)
+    - [AWS SDK v2](#aws-sdk-v2)
+  - [Custom Transport](#custom-transport)
+  - [Guides by Topic](#guides-by-topic)
 
 # User Guide
 
@@ -16,15 +17,16 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/errmask"
 	"github.com/opensearch-project/opensearch-go/v4/opensearchapi"
+	"github.com/opensearch-project/opensearch-go/v4/opensearchtransport"
 	"github.com/opensearch-project/opensearch-go/v4/opensearchutil"
 )
 
@@ -39,16 +41,34 @@ func main() {
 
 func example() error {
 	// Initialize the client with SSL/TLS enabled.
+	router, err := opensearchtransport.NewDefaultRouter()
+	if err != nil {
+		return err
+	}
+
+	// Surface partial failures (bulk item errors, shard failures) as Go
+	// errors. See guides/error_handling.md for the per-category bitmask.
+	errMask := errmask.Empty
+	discoverOnStart := true
 	client, err := opensearchapi.NewClient(
 		opensearchapi.Config{
 			Client: opensearch.Config{
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // For testing only. Use certificate for validation.
-				},
-				Addresses: []string{"https://localhost:9200"},
-				Username:  "admin", // For testing only. Don't store credentials in code.
-				Password:  "myStrongPassword123!",
+				InsecureSkipVerify: true, // For testing only. Use certificate for validation.
+				Addresses:          []string{"https://localhost:9200"},
+				Username:           "admin", // For testing only. Don't store credentials in code.
+				Password:           "myStrongPassword123!",
+
+				// Optional: Enable node discovery
+				DiscoverNodesOnStart:  &discoverOnStart,
+				DiscoverNodesInterval: 5 * time.Minute,
+
+				// Optional: Enable intelligent request routing
+				Router: router,
 			},
+
+			// Optional: Surface partial failures (bulk item errors, shard failures)
+			// as Go errors. See guides/error_handling.md for details.
+			Errors: &errMask,
 		},
 	)
 	if err != nil {
@@ -85,7 +105,7 @@ func example() error {
 
 	var opensearchError *opensearch.StructError
 
-	// Load err into opensearch.Error to access the fields and tolerate if the index already exists
+	// Load err into opensearch.StructError to access the fields and tolerate if the index already exists
 	if err != nil {
 		if errors.As(err, &opensearchError) {
 			if opensearchError.Err.Type != "resource_already_exists_exception" {
@@ -187,7 +207,7 @@ func example() error {
 	// Try to delete the index again which fails as it does not exist
 	_, err = client.Indices.Delete(ctx, deleteIndex)
 
-	// Load err into opensearchapi.Error to access the fields and tolerate if the index is missing
+	// Load err into opensearch.StructError to access the fields and tolerate if the index is missing
 	if err != nil {
 		if errors.As(err, &opensearchError) {
 			if opensearchError.Err.Type != "index_not_found_exception" {
@@ -210,13 +230,19 @@ Before starting, we strongly recommend reading the full AWS documentation regard
 >
 > See [Managed Domains signing-service requests.](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/ac.html#managedomains-signing-service-requests)
 
-Depending on the version of AWS SDK used, import the v1 or v2 request signer from `signer/aws` or `signer/awsv2` respectively. Both signers are equivalent in their functionality, they provide AWS Signature Version 4 (SigV4).
+Depending on the version of AWS SDK used, import the request signer from `signer/aws` (recommended) or `signer/awsv2`. Both signers use AWS SDK v2 and provide AWS Signature Version 4 (SigV4).
+
+**BREAKING CHANGE**: As of this version, the main `signer/aws` package has been migrated from AWS SDK v1 to AWS SDK v2 due to AWS SDK v1 reaching end-of-support on July 31, 2025.
 
 To read more about SigV4 see [Signature Version 4 signing process](https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html)
 
 Here are some Go samples that show how to sign each OpenSearch request and automatically search for AWS credentials from the ~/.aws folder or environment variables:
 
-### AWS SDK v1
+### AWS SDK v2 (Recommended)
+
+**Migration Note**: If you were previously using `signer/aws` with AWS SDK v1, you need to update your imports and configuration as shown below.
+
+**Credential Caching**: The signer automatically enables credential caching for improved performance, especially when using STS credentials (assume role, web identity, etc.). This reduces API calls to AWS STS and improves signing performance.
 
 ```go
 package main
@@ -226,7 +252,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
 	requestsigner "github.com/opensearch-project/opensearch-go/v4/signer/aws"
 
 	"github.com/opensearch-project/opensearch-go/v4"
@@ -245,16 +272,22 @@ func main() {
 const endpoint = "" // e.g. https://opensearch-domain.region.com
 
 func example() error {
-	// Create an AWS request Signer and load AWS configuration using default config folder or env vars.
-	// See https://docs.aws.amazon.com/opensearch-service/latest/developerguide/request-signing.html#request-signing-go
-	signer, err := requestsigner.NewSignerWithService(
-		session.Options{SharedConfigState: session.SharedConfigEnable},
-		requestsigner.OpenSearchService, // Use requestsigner.OpenSearchServerless for Amazon OpenSearch Serverless.
-	)
+	ctx := context.Background()
+
+	// Load AWS configuration
+	awsCfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		return err
 	}
-	// Create an opensearch client and use the request-signer.
+
+	// Create an AWS request Signer
+	signer, err := requestsigner.NewSignerWithService(awsCfg, requestsigner.OpenSearchService)
+	// Use requestsigner.OpenSearchServerless for Amazon OpenSearch Serverless
+	if err != nil {
+		return err
+	}
+
+	// Create an opensearch client and use the request-signer
 	client, err := opensearchapi.NewClient(
 		opensearchapi.Config{
 			Client: opensearch.Config{
@@ -267,20 +300,18 @@ func example() error {
 		return err
 	}
 
-	ctx := context.Background()
-    
     ping, err := client.Ping(ctx, nil)
     if err != nil {
         return err
     }
 
-    fmt.Println(ping)
+	fmt.Println(ping)
 
 	return nil
 }
 ```
 
-### AWS SDK v2
+### Alternative: Using signer/awsv2
 
 Use the AWS SDK v2 for Go to authenticate with Amazon OpenSearch service.
 
@@ -387,8 +418,158 @@ func getCredentialProvider(accessKey, secretAccessKey, token string) aws.Credent
 }
 ```
 
+## Custom Transport
+
+For common TLS options, prefer the built-in config fields (`InsecureSkipVerify`, `CACert`) over constructing a custom `http.Transport`. These options clone the default transport internally, preserving connection pooling, HTTP/2, and timeout defaults.
+
+If you need a custom transport (e.g. for mutual TLS or a corporate proxy), **always clone `http.DefaultTransport` rather than constructing a bare `&http.Transport{}`**. A bare transport defaults to `MaxIdleConnsPerHost: 2`, disables HTTP/2 multiplexing, and has no dialer timeouts -- causing excessive TLS handshakes and connection churn under concurrency.
+
+```go
+// Good: clone DefaultTransport, then customize.
+tp := http.DefaultTransport.(*http.Transport).Clone()
+tp.TLSClientConfig.Certificates = []tls.Certificate{cert}
+
+client, err := opensearch.NewClient(opensearch.Config{
+    Addresses: []string{"https://localhost:9200"},
+    Transport: tp,
+})
+```
+
+```go
+// Bad: bare transport loses all DefaultTransport defaults.
+client, err := opensearch.NewClient(opensearch.Config{
+    Addresses: []string{"https://localhost:9200"},
+    Transport: &http.Transport{
+        TLSClientConfig: &tls.Config{
+            Certificates: []tls.Certificate{cert},
+        },
+    },
+    // MaxIdleConnsPerHost = 2, no HTTP/2, no dialer timeouts!
+})
+```
+
+Key settings to verify on any custom transport:
+
+| Setting                | `DefaultTransport` | Bare `&http.Transport{}` |
+| ---------------------- | ------------------ | ------------------------ |
+| `MaxIdleConns`         | 100                | 0 (unlimited)            |
+| `MaxIdleConnsPerHost`  | 2                  | 2                        |
+| `ForceAttemptHTTP2`    | true               | false                    |
+| `IdleConnTimeout`      | 90s                | 0 (no timeout)           |
+| `TLSHandshakeTimeout`  | 10s                | 0 (no timeout)           |
+| `DialContext` timeouts | 30s                | none                     |
+
+`Clone()` copies all of these. If you must build from scratch (e.g. for a non-`*http.Transport` round tripper), set at minimum `ForceAttemptHTTP2: true` and `MaxIdleConnsPerHost` >= your expected concurrency.
+
+## Operation Classifier
+
+The `opensearchtransport.OperationClassifier` maps HTTP method+path pairs to structured `OperationID` values. This enables transparent metrics, tracing, or access-control middleware at the `http.RoundTripper` layer without per-operation wrapper code.
+
+```go
+import "github.com/opensearch-project/opensearch-go/v4/opensearchtransport"
+
+// Build once, reuse across requests. Safe for concurrent use.
+classifier := opensearchtransport.NewOperationClassifier()
+
+// In an http.RoundTripper:
+func (t *MetricsTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+    op := t.classifier.Classify(req.Method, req.URL.Path)
+
+    start := time.Now()
+    resp, err := t.next.RoundTrip(req)
+    duration := time.Since(start)
+
+    status := 0
+    if resp != nil {
+        status = resp.StatusCode
+    }
+    t.histogram.WithLabelValues(op.String(), strconv.Itoa(status)).Observe(
+        float64(duration.Milliseconds()),
+    )
+    return resp, err
+}
+```
+
+`OperationID` is a bit-packed `int64` with masking helpers:
+
+```go
+op := classifier.Classify("POST", "/my-index/_search")
+op.String()     // "search"
+op.IsWrite()    // false
+op.IsRead()     // true
+op.Category()   // CatSearch
+```
+
+Returns `OpOther` for unrecognized patterns.
+
+## Debugging
+
+Set the `OPENSEARCH_GO_DEBUG` environment variable to enable debug logging for connection management, node discovery, and request routing. Debug output is written to stderr.
+
+```bash
+OPENSEARCH_GO_DEBUG=true go run myapp.go
+```
+
+For programmatic control, set `EnableDebugLogger: true` in the client configuration:
+
+```go
+client, err := opensearchapi.NewClient(
+    opensearchapi.Config{
+        Client: opensearch.Config{
+            Addresses:         []string{"http://localhost:9200"},
+            EnableDebugLogger: true,
+        },
+    },
+)
+```
+
+In tests, use the `testutil.IsDebugEnabled(t)` helper which also reads `OPENSEARCH_GO_DEBUG`:
+
+```bash
+OPENSEARCH_GO_DEBUG=true go test ./...
+```
+
+## Policy Overrides
+
+Disable specific routing policies at startup via environment variables for debugging, A/B testing, or emergency overrides:
+
+```bash
+# Disable all connection scoring (fall back to plain role-based)
+OPENSEARCH_GO_POLICY_ROUTER=false myapp
+
+# Disable a specific policy instance by path
+OPENSEARCH_GO_POLICY_ROLE=chain[0].mux[0].role[0]=false myapp
+
+# Regex path matching
+OPENSEARCH_GO_POLICY_ROLE=.*mux.*role.*=false myapp
+```
+
+Set `OPENSEARCH_GO_DEBUG=true` to see policy paths and override actions. See [Request Routing](guides/routing.md#policy-override-variables) for full documentation.
+
+## Environment Variables
+
+All `OPENSEARCH_GO_*` environment variables are evaluated once at client initialization. A complete reference is in [Request Routing: Configuration Reference](guides/routing.md#14-configuration-reference). Quick summary:
+
+| Variable                            | Default       | Description                                                                 |
+| ----------------------------------- | ------------- | --------------------------------------------------------------------------- |
+| `OPENSEARCH_GO_REQUEST_TIMEOUT`     | 0 (none)      | Per-attempt HTTP request timeout (duration or secs)                         |
+| `OPENSEARCH_GO_DEBUG`               | `false`       | Debug logging to stderr                                                     |
+| `OPENSEARCH_GO_ROUTER`              | `false`       | Auto-construct DefaultRouter when no Router is set                          |
+| `OPENSEARCH_GO_ROUTING_CONFIG`      | (all enabled) | Shard-exact routing (`-shard_exact`)                                        |
+| `OPENSEARCH_GO_SHARD_REQUESTS`      | `true`        | Adaptive `max_concurrent_shard_requests` bounds                             |
+| `OPENSEARCH_GO_SHARD_COST`          | (defaults)    | Shard cost multipliers for connection scoring                               |
+| `OPENSEARCH_GO_DISCOVERY_CONFIG`    | (all enabled) | Skip specific discovery calls                                               |
+| `OPENSEARCH_GO_FALLBACK`            | `true`        | Seed URL fallback when all pools exhausted                                  |
+| `OPENSEARCH_GO_NODE_STATS_INTERVAL` | auto (5s-30s) | Stats polling interval                                                      |
+| `OPENSEARCH_GO_POLICY_*`            | (all enabled) | Disable specific routing policies (10 variables)                            |
+| `OPENSEARCH_GO_ACTIVE_LIST_CAP`     | auto          | Max active connections per pool                                             |
+| `OPENSEARCH_GO_STANDBY_*`           | (see guide)   | Standby rotation and promotion tuning (3 variables)                         |
+| `OPENSEARCH_GO_OVERLOADED_*`        | (see guide)   | JVM heap and breaker thresholds (2 variables)                               |
+| `OPENSEARCH_GO_ERROR_MASK`          | (version-dep) | Mask partial-failure categories (`+`/`-` tokens; overrides `Config.Errors`) |
+
 ## Guides by Topic
 
+- [**Security**](guides/security.md) - TLS, credentials, input validation, index patterns, error disclosure
 - [Index Lifecycle](guides/index_lifecycle.md)
 - [Document Lifecycle](guides/document_lifecycle.md)
 - [Search](guides/search.md)
@@ -396,4 +577,10 @@ func getCredentialProvider(accessKey, secretAccessKey, token string) aws.Credent
 - [Advanced Index Actions](guides/advanced_index_actions.md)
 - [Index Templates](guides/index_template.md)
 - [Data Streams](guides/data_streams.md)
+- [Making Raw JSON REST Requests](guides/json.md)
+- [Request Routing](guides/routing.md)
+- [Cluster Health Checking](guides/cluster_health_checking.md)
+- [Node Discovery and Role Management](guides/node_discovery_and_roles.md)
+- [Response Body Buffering](guides/response_buffering.md)
 - [Retry and Backoff](guides/retry_backoff.md)
+- [Error Handling](guides/error_handling.md)

@@ -14,6 +14,8 @@ OpenSearch Go Client
 
 **opensearch-go** is [a community-driven, open source fork](https://aws.amazon.com/blogs/opensource/introducing-opensearch/) of go-elasticsearch licensed under the [Apache v2.0 License](LICENSE.txt). For more information, see [opensearch.org](https://opensearch.org/).
 
+The client supports automatic node discovery, request-based connection routing, and role-aware node selection. See the [User Guide](USER_GUIDE.md) and [guides](guides/) for usage examples and configuration options.
+
 ## Project Resources
 
 - [Project Website](https://opensearch.org/)

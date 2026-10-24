@@ -44,8 +44,17 @@ var maxKeys atomic.Int64
 // Tunable via WithRejectDuplicateKID / Configure(WithRejectDuplicateKID(...)).
 var rejectDuplicateKID atomic.Bool
 
+// strictKeySetParsing controls how Parse/UnmarshalJSON treat an entry in
+// a JWKS "keys" array that cannot be parsed. Default is true (fail-fast):
+// the first unparseable entry fails the whole set, preserving v3's
+// historical behavior. When false, the entry is retained as an
+// UnsupportedKey placeholder (unless WithIgnoreParseError drops it).
+// Tunable via WithStrictKeySetParsing / Configure(WithStrictKeySetParsing(...)).
+var strictKeySetParsing atomic.Bool
+
 func init() {
 	maxKeys.Store(1000)
+	strictKeySetParsing.Store(true)
 
 	if err := RegisterProbeField(reflect.StructField{
 		Name: "Kty",
@@ -118,11 +127,16 @@ func Import(raw any) (Key, error) {
 // to remove any fields, if necessary.
 func PublicSetOf(v Set, options ...PublicSetOption) (Set, error) {
 	var allowSymmetric bool
+	var omitUnsupported bool
 	for _, option := range options {
 		switch option.Ident() {
 		case identAllowSymmetric{}:
 			if err := option.Value(&allowSymmetric); err != nil {
 				return nil, fmt.Errorf(`failed to retrieve AllowSymmetric option value: %w`, err)
+			}
+		case identOmitUnsupportedKeys{}:
+			if err := option.Value(&omitUnsupported); err != nil {
+				return nil, fmt.Errorf(`failed to retrieve OmitUnsupportedKeys option value: %w`, err)
 			}
 		}
 	}
@@ -134,6 +148,13 @@ func PublicSetOf(v Set, options ...PublicSetOption) (Set, error) {
 		k, ok := v.Key(i)
 		if !ok {
 			return nil, fmt.Errorf(`key not found`)
+		}
+		if uk, ok := k.(UnsupportedKey); ok {
+			if omitUnsupported {
+				continue
+			}
+			kid, _ := uk.KeyID()
+			return nil, fmt.Errorf(`jwk.PublicSetOf: input set contains an unsupported key (kty=%q, kid=%q, index=%d) that could not be parsed; there is no way to prove it holds no private material, so it is not passed through. Pass jwk.WithOmitUnsupportedKeys(true) to drop such entries from the output: %w`, uk.KeyType().String(), kid, i, uk.Reason())
 		}
 		if k.KeyType() == jwa.OctetSeq() && !allowSymmetric {
 			kid, _ := k.KeyID()
@@ -363,6 +384,7 @@ func Parse(src []byte, options ...ParseOption) (Set, error) {
 	var pemDecoder PEMDecoder
 	maxK := int(maxKeys.Load())
 	rejectDupKid := rejectDuplicateKID.Load()
+	strict := strictKeySetParsing.Load()
 	for _, option := range options {
 		switch option.Ident() {
 		case identPEM{}:
@@ -393,6 +415,10 @@ func Parse(src []byte, options ...ParseOption) (Set, error) {
 		case identRejectDuplicateKID{}:
 			if err := option.Value(&rejectDupKid); err != nil {
 				return nil, parseerr(`failed to retrieve RejectDuplicateKID option value: %w`, err)
+			}
+		case identStrictKeySetParsing{}:
+			if err := option.Value(&strict); err != nil {
+				return nil, parseerr(`failed to retrieve StrictKeySetParsing option value: %w`, err)
 			}
 		case identTypedField{}:
 			var pair typedFieldPair // temporary var needed for typed field
@@ -459,9 +485,20 @@ func Parse(src []byte, options ...ParseOption) (Set, error) {
 		setter.setMaxKeys(maxK)
 		defer setter.setMaxKeys(0)
 	}
-	if setter, ok := s.(interface{ setRejectDuplicateKID(bool) }); ok && rejectDupKid {
-		setter.setRejectDuplicateKID(true)
-		defer setter.setRejectDuplicateKID(false)
+	// Propagate the resolved reject-duplicate-KID flag. A pointer
+	// distinguishes "not set by Parse" (nil → Set.UnmarshalJSON uses the
+	// global default) from an explicit per-call true/false, so a per-call
+	// false overrides a global true.
+	if setter, ok := s.(interface{ setRejectDuplicateKID(*bool) }); ok {
+		setter.setRejectDuplicateKID(&rejectDupKid)
+		defer setter.setRejectDuplicateKID(nil)
+	}
+	// Propagate the resolved strict flag. A pointer distinguishes "not
+	// set by Parse" (nil → Set.UnmarshalJSON uses the global default of
+	// true) from an explicit per-call true/false.
+	if setter, ok := s.(interface{ setStrictKeySetParsing(*bool) }); ok {
+		setter.setStrictKeySetParsing(&strict)
+		defer setter.setStrictKeySetParsing(nil)
 	}
 
 	// Dispatch JWK-vs-JWKS up front. Set.UnmarshalJSON requires JWKS
@@ -541,6 +578,11 @@ func ParseString(s string, options ...ParseOption) (Set, error) {
 // recomputation (for example, when upgrading to a stronger thumbprint hash
 // via `jwk.WithThumbprintHash`).
 func AssignKeyID(key Key, options ...AssignKeyIDOption) error {
+	if uk, ok := key.(UnsupportedKey); ok {
+		kid, _ := uk.KeyID()
+		return fmt.Errorf(`jwk.AssignKeyID: cannot assign a key ID to an unsupported key (kty=%q, kid=%q) that could not be parsed; its thumbprint cannot be computed: %w`, uk.KeyType().String(), kid, uk.Reason())
+	}
+
 	hash := crypto.SHA256
 	var force bool
 	for _, option := range options {
@@ -845,6 +887,12 @@ func Configure(options ...GlobalOption) {
 				continue
 			}
 			rejectDuplicateKID.Store(v)
+		case identStrictKeySetParsing{}:
+			var v bool
+			if err := option.Value(&v); err != nil {
+				continue
+			}
+			strictKeySetParsing.Store(v)
 		}
 	}
 

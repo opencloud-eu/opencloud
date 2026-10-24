@@ -1,14 +1,16 @@
 package ldap
 
 import (
+	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	ber "github.com/go-asn1-ber/asn1-ber"
 	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
 // AttributeTypeAndValue represents an attributeTypeAndValue from https://tools.ietf.org/html/rfc4514
@@ -94,9 +96,21 @@ func (d *DN) String() string {
 func stripLeadingAndTrailingSpaces(inVal string) string {
 	noSpaces := strings.Trim(inVal, " ")
 
-	// Re-add the trailing space if it was an escaped space
-	if len(noSpaces) > 0 && noSpaces[len(noSpaces)-1] == '\\' && inVal[len(inVal)-1] == ' ' {
-		noSpaces = noSpaces + " "
+	// Re-add the trailing space only if it was escaped. A trailing space is
+	// escaped when it is preceded by an odd number of backslashes; an even
+	// number leaves the space unescaped (each "\\" is a literal backslash), so
+	// the space is insignificant and stays stripped. Counting only the final
+	// backslash treated "\\ " (a literal backslash plus an insignificant
+	// space) as an escaped space, keeping a spurious trailing space in the
+	// decoded value.
+	if len(noSpaces) > 0 && inVal[len(inVal)-1] == ' ' {
+		backslashes := 0
+		for i := len(noSpaces) - 1; i >= 0 && noSpaces[i] == '\\'; i-- {
+			backslashes++
+		}
+		if backslashes%2 == 1 {
+			noSpaces = noSpaces + " "
+		}
 	}
 
 	return noSpaces
@@ -116,6 +130,16 @@ func decodeString(str string) (string, error) {
 		// If the character is not an escape character, just add it to the
 		// builder and continue
 		if char != '\\' {
+			// RFC 4514 section 2.4: these characters must appear escaped
+			// (either as "\X" or as "\XX" hex) when present in an AttributeValue.
+			// Reject the raw form here so that callers don't silently accept
+			// input that violates the grammar.
+			switch char {
+			case '"', ';', '<', '>':
+				return "", fmt.Errorf("got unescaped character: '%s'", string(char))
+			case 0:
+				return "", fmt.Errorf("got unescaped NULL character")
+			}
 			builder.WriteRune(char)
 			continue
 		}
@@ -233,9 +257,17 @@ func decodeEncodedString(str string) (string, error) {
 		return "", fmt.Errorf("failed to decode BER encoding: %w", err)
 	}
 
-	packet, err := ber.DecodePacketErr(decoded)
+	// RFC 4514 section 2.4: the value following '#' is the hex encoding of the
+	// BER encoding of a single AttributeValue. Read exactly one element and
+	// reject any leftover octets, otherwise bytes appended after the value are
+	// silently dropped and two different DN strings decode to the same value.
+	reader := bytes.NewBuffer(decoded)
+	packet, err := ber.ReadPacket(reader)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode BER encoding: %w", err)
+	}
+	if reader.Len() != 0 {
+		return "", errors.New("failed to decode BER encoding: trailing bytes after value")
 	}
 
 	return packet.Data.String(), nil
@@ -352,10 +384,19 @@ func (r *RelativeDN) Equal(other *RelativeDN) bool {
 }
 
 func (r *RelativeDN) hasAllAttributes(attrs []*AttributeTypeAndValue) bool {
+	// Each candidate attribute must match a distinct attribute of the receiver.
+	// Without consuming matches this is a set containment test, so a multi-valued
+	// RDN that repeats an attributeTypeAndValue would compare equal to one that
+	// repeats a different pair the same number of times.
+	matched := make([]bool, len(r.Attributes))
 	for _, attr := range attrs {
 		found := false
-		for _, myattr := range r.Attributes {
+		for i, myattr := range r.Attributes {
+			if matched[i] {
+				continue
+			}
 			if myattr.Equal(attr) {
+				matched[i] = true
 				found = true
 				break
 			}
@@ -415,10 +456,16 @@ func (r *RelativeDN) EqualFold(other *RelativeDN) bool {
 }
 
 func (r *RelativeDN) hasAllAttributesFold(attrs []*AttributeTypeAndValue) bool {
+	// See hasAllAttributes: matches are consumed so multiplicity is respected.
+	matched := make([]bool, len(r.Attributes))
 	for _, attr := range attrs {
 		found := false
-		for _, myattr := range r.Attributes {
+		for i, myattr := range r.Attributes {
+			if matched[i] {
+				continue
+			}
 			if myattr.EqualFold(attr) {
+				matched[i] = true
 				found = true
 				break
 			}

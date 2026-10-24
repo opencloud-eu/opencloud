@@ -226,6 +226,42 @@ func (m *Photo) UnmarshalJSON(b []byte) error {
 
 var _ json.Unmarshaler = (*Photo)(nil)
 
+// VideoJSONMarshaler describes the default jsonpb.Marshaler used by all
+// instances of Video. This struct is safe to replace or modify but
+// should not be done so concurrently.
+var VideoJSONMarshaler = new(jsonpb.Marshaler)
+
+// MarshalJSON satisfies the encoding/json Marshaler interface. This method
+// uses the more correct jsonpb package to correctly marshal the message.
+func (m *Video) MarshalJSON() ([]byte, error) {
+	if m == nil {
+		return json.Marshal(nil)
+	}
+
+	buf := &bytes.Buffer{}
+
+	if err := VideoJSONMarshaler.Marshal(buf, m); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+var _ json.Marshaler = (*Video)(nil)
+
+// VideoJSONUnmarshaler describes the default jsonpb.Unmarshaler used by all
+// instances of Video. This struct is safe to replace or modify but
+// should not be done so concurrently.
+var VideoJSONUnmarshaler = new(jsonpb.Unmarshaler)
+
+// UnmarshalJSON satisfies the encoding/json Unmarshaler interface. This method
+// uses the more correct jsonpb package to correctly unmarshal the message.
+func (m *Video) UnmarshalJSON(b []byte) error {
+	return VideoJSONUnmarshaler.Unmarshal(bytes.NewReader(b), m)
+}
+
+var _ json.Unmarshaler = (*Video)(nil)
+
 // EntityJSONMarshaler describes the default jsonpb.Marshaler used by all
 // instances of Entity. This struct is safe to replace or modify but
 // should not be done so concurrently.

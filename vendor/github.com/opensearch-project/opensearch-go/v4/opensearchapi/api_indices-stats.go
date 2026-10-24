@@ -9,9 +9,10 @@ package opensearchapi
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // IndicesStatsReq represents possible options for the index shrink request
@@ -24,28 +25,15 @@ type IndicesStatsReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r IndicesStatsReq) GetRequest() (*http.Request, error) {
-	indices := strings.Join(r.Indices, ",")
-	metrics := strings.Join(r.Metrics, ",")
-
-	var path strings.Builder
-	path.Grow(9 + len(indices) + len(metrics))
-	if len(indices) > 0 {
-		path.WriteString("/")
-		path.WriteString(indices)
+func (r IndicesStatsReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.IndicesStatsPath{
+		Index:  r.Indices,
+		Metric: r.Metrics,
+	}.Build()
+	if err != nil {
+		return nil, err
 	}
-	path.WriteString("/_stats")
-	if len(metrics) > 0 {
-		path.WriteString("/")
-		path.WriteString(metrics)
-	}
-	return opensearch.BuildRequest(
-		"GET",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // IndicesStatsResp represents the returned struct of the index shrink response
@@ -83,17 +71,18 @@ type IndicesStatsStore struct {
 
 // IndicesStatsIndexing is a sub type of IndicesStatsInfo containing stats about document indexing
 type IndicesStatsIndexing struct {
-	IndexTotal           int            `json:"index_total"`
-	IndexTimeInMillis    int            `json:"index_time_in_millis"`
-	IndexCurrent         int            `json:"index_current"`
-	IndexFailed          int            `json:"index_failed"`
-	DeleteTotal          int            `json:"delete_total"`
-	DeleteTimeInMillis   int            `json:"delete_time_in_millis"`
-	DeleteCurrent        int            `json:"delete_current"`
-	NoopUpdateTotal      int            `json:"noop_update_total"`
-	IsThrottled          bool           `json:"is_throttled"`
-	ThrottleTimeInMillis int            `json:"throttle_time_in_millis"`
-	DocStatus            map[string]int `json:"doc_status"`
+	IndexTotal                   int            `json:"index_total"`
+	IndexTimeInMillis            int            `json:"index_time_in_millis"`
+	IndexCurrent                 int            `json:"index_current"`
+	IndexFailed                  int            `json:"index_failed"`
+	DeleteTotal                  int            `json:"delete_total"`
+	DeleteTimeInMillis           int            `json:"delete_time_in_millis"`
+	DeleteCurrent                int            `json:"delete_current"`
+	NoopUpdateTotal              int            `json:"noop_update_total"`
+	IsThrottled                  bool           `json:"is_throttled"`
+	ThrottleTimeInMillis         int            `json:"throttle_time_in_millis"`
+	DocStatus                    map[string]int `json:"doc_status"`
+	MaxLastIndexRequestTimestamp int64          `json:"max_last_index_request_timestamp"` // Available in OpenSearch 3.2.0+
 }
 
 // IndicesStatsGet is a sub type of IndicesStatsInfo containing stats about index get
@@ -114,10 +103,15 @@ type IndicesStatsSearch struct {
 	QueryTotal                  int     `json:"query_total"`
 	QueryTimeInMillis           int     `json:"query_time_in_millis"`
 	QueryCurrent                int     `json:"query_current"`
+	QueryFailed                 int     `json:"query_failed"` // Available in OpenSearch 3.3.0+
 	ConcurrentQueryTotal        int     `json:"concurrent_query_total"`
 	ConcurrentQueryTimeInMillis int     `json:"concurrent_query_time_in_millis"`
 	ConcurrentQueryCurrent      int     `json:"concurrent_query_current"`
 	ConcurrentAVGSliceCount     float32 `json:"concurrent_avg_slice_count"`
+	StartreeQueryTotal          int     `json:"startree_query_total"`          // Available in OpenSearch 3.2.0+
+	StartreeQueryTimeInMillis   int     `json:"startree_query_time_in_millis"` // Available in OpenSearch 3.2.0+
+	StartreeQueryCurrent        int     `json:"startree_query_current"`        // Available in OpenSearch 3.2.0+
+	StartreeQueryFailed         int     `json:"startree_query_failed"`         // Available in OpenSearch 3.3.0+
 	FetchTotal                  int     `json:"fetch_total"`
 	FetchTimeInMillis           int     `json:"fetch_time_in_millis"`
 	FetchCurrent                int     `json:"fetch_current"`
@@ -146,6 +140,17 @@ type IndicesStatsMerges struct {
 	TotalThrottledTimeInMillis        int   `json:"total_throttled_time_in_millis"`
 	TotalAutoThrottleInBytes          int   `json:"total_auto_throttle_in_bytes"`
 	UnreferencedFileCleanupsPerformed int   `json:"unreferenced_file_cleanups_performed"`
+	// Warmer field added in OpenSearch 3.4.0+
+	Warmer *struct {
+		TotalInvocationsCount  int `json:"total_invocations_count"`
+		TotalTimeMillis        int `json:"total_time_millis"`
+		TotalFailureCount      int `json:"total_failure_count"`
+		TotalBytesSent         int `json:"total_bytes_sent"`
+		TotalBytesReceived     int `json:"total_bytes_received"`
+		TotalSendTimeMillis    int `json:"total_send_time_millis"`
+		TotalReceiveTimeMillis int `json:"total_receive_time_millis"`
+		OngoingCount           int `json:"ongoing_count"`
+	} `json:"warmer,omitempty"`
 }
 
 // IndicesStatsRefresh is a sub type of IndicesStatsInfo containing stats about index refresh

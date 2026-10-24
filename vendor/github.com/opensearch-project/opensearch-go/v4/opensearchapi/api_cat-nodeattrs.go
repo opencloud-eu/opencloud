@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // CatNodeAttrsReq represent possible options for the /_cat/nodeattrs request
@@ -19,9 +20,9 @@ type CatNodeAttrsReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r CatNodeAttrsReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"GET",
+func (r CatNodeAttrsReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_cat/nodeattrs",
 		nil,
 		r.Params.get(),

@@ -21,7 +21,7 @@ func NewIndexFlat(d int, metric int) (*IndexFlat, error) {
 		C.idx_t(d),
 		C.FaissMetricType(metric),
 	); c != 0 {
-		return nil, getLastError()
+		return nil, newFaissError(ErrCreateIndexFailed, getLastError(), int(c))
 	}
 	return &IndexFlat{&idx}, nil
 }

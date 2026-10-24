@@ -66,12 +66,28 @@ func (r *searchResponse) Next() bool {
 	return true
 }
 
+// send enqueues a result on the result channel, giving up when ctx is
+// cancelled so an abandoned consumer cannot block the search goroutine
+// forever on a full buffer. It reports whether the result was handed off to
+// the channel; a true return does not mean the consumer received it. The
+// give-up is best-effort: if ctx is already cancelled but buffer space is
+// available, the result may still be enqueued. Callers that terminate the
+// stream regardless of the outcome may ignore the return value.
+func (r *searchResponse) send(ctx context.Context, res *SearchSingleResult) bool {
+	select {
+	case r.ch <- res:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
 func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest) {
 	go func() {
 		defer func() {
 			close(r.ch)
 			if err := recover(); err != nil {
-				r.conn.err = fmt.Errorf("ldap: recovered panic in searchResponse: %v", err)
+				r.conn.setError(fmt.Errorf("ldap: recovered panic in searchResponse: %v", err))
 			}
 		}()
 
@@ -84,14 +100,14 @@ func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest
 		// encode search request
 		err := searchRequest.appendTo(packet)
 		if err != nil {
-			r.ch <- &SearchSingleResult{Error: err}
+			r.send(ctx, &SearchSingleResult{Error: err})
 			return
 		}
 		r.conn.Debug.PrintPacket(packet)
 
 		msgCtx, err := r.conn.sendMessage(packet)
 		if err != nil {
-			r.ch <- &SearchSingleResult{Error: err}
+			r.send(ctx, &SearchSingleResult{Error: err})
 			return
 		}
 		defer r.conn.finishMessage(msgCtx)
@@ -106,19 +122,19 @@ func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest
 			case packetResponse, ok := <-msgCtx.responses:
 				if !ok {
 					err := NewError(ErrorNetwork, errors.New("ldap: response channel closed"))
-					r.ch <- &SearchSingleResult{Error: err}
+					r.send(ctx, &SearchSingleResult{Error: err})
 					return
 				}
 				packet, err = packetResponse.ReadPacket()
 				r.conn.Debug.Printf("%d: got response %p", msgCtx.id, packet)
 				if err != nil {
-					r.ch <- &SearchSingleResult{Error: err}
+					r.send(ctx, &SearchSingleResult{Error: err})
 					return
 				}
 
 				if r.conn.Debug {
 					if err := addLDAPDescriptions(packet); err != nil {
-						r.ch <- &SearchSingleResult{Error: err}
+						r.send(ctx, &SearchSingleResult{Error: err})
 						return
 					}
 					ber.PrintPacket(packet)
@@ -133,22 +149,26 @@ func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest
 						},
 					}
 					if len(packet.Children) != 3 {
-						r.ch <- result
+						if !r.send(ctx, result) {
+							return
+						}
 						continue
 					}
 					decoded, err := DecodeControl(packet.Children[2].Children[0])
 					if err != nil {
 						werr := fmt.Errorf("failed to decode search result entry: %w", err)
 						result.Error = werr
-						r.ch <- result
+						r.send(ctx, result)
 						return
 					}
 					result.Controls = append(result.Controls, decoded)
-					r.ch <- result
+					if !r.send(ctx, result) {
+						return
+					}
 
 				case ApplicationSearchResultDone:
 					if err := GetLDAPError(packet); err != nil {
-						r.ch <- &SearchSingleResult{Error: err}
+						r.send(ctx, &SearchSingleResult{Error: err})
 						return
 					}
 					if len(packet.Children) == 3 {
@@ -157,33 +177,37 @@ func (r *searchResponse) start(ctx context.Context, searchRequest *SearchRequest
 							decodedChild, err := DecodeControl(child)
 							if err != nil {
 								werr := fmt.Errorf("failed to decode child control: %w", err)
-								r.ch <- &SearchSingleResult{Error: werr}
+								r.send(ctx, &SearchSingleResult{Error: werr})
 								return
 							}
 							result.Controls = append(result.Controls, decodedChild)
 						}
-						r.ch <- result
+						r.send(ctx, result)
 					}
 					foundSearchSingleResultDone = true
 
 				case ApplicationSearchResultReference:
 					ref := packet.Children[1].Children[0].Value.(string)
-					r.ch <- &SearchSingleResult{Referral: ref}
+					if !r.send(ctx, &SearchSingleResult{Referral: ref}) {
+						return
+					}
 
 				case ApplicationIntermediateResponse:
 					decoded, err := DecodeControl(packet.Children[1])
 					if err != nil {
 						werr := fmt.Errorf("failed to decode intermediate response: %w", err)
-						r.ch <- &SearchSingleResult{Error: werr}
+						r.send(ctx, &SearchSingleResult{Error: werr})
 						return
 					}
 					result := &SearchSingleResult{}
 					result.Controls = append(result.Controls, decoded)
-					r.ch <- result
+					if !r.send(ctx, result) {
+						return
+					}
 
 				default:
 					err := fmt.Errorf("unknown tag: %d", packet.Children[1].Tag)
-					r.ch <- &SearchSingleResult{Error: err}
+					r.send(ctx, &SearchSingleResult{Error: err})
 					return
 				}
 			}

@@ -13,6 +13,7 @@ import (
 	"github.com/lestrrat-go/jwx/v3/internal/json"
 	"github.com/lestrrat-go/jwx/v3/internal/pool"
 	"github.com/lestrrat-go/jwx/v3/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/lestrrat-go/jwx/v3/jws/jwsbb"
 )
 
@@ -287,6 +288,15 @@ func (vc *verifyContext) VerifyMessage(buf []byte) ([]byte, error) {
 }
 
 func (vc *verifyContext) tryKey(verifyBuf []byte, alg jwa.SignatureAlgorithm, key any, msg *Message, sig *Signature) error {
+	// Reject placeholders before any verifier — including a custom
+	// Verifier2 — can see them. A custom KeyProvider can sink an
+	// (alg, key) pair directly, bypassing keySetProvider.selectKey and
+	// validateAlgorithmForKey, so this is the last chokepoint before
+	// key material is used.
+	if uk, ok := key.(jwk.UnsupportedKey); ok {
+		return unsupportedKeyError(uk, `signature verification`)
+	}
+
 	if vc.validateKey {
 		if err := validateKeyBeforeUse(key); err != nil {
 			return fmt.Errorf(`failed to validate key before verification: %w`, err)

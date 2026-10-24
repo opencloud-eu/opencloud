@@ -22,10 +22,6 @@ import (
 func Server(opts ...Option) (http.Service, error) {
 	options := newOptions(opts...)
 
-	if options.NotificationService == nil {
-		options.Logger.Warn().Msg("running without notification service: no notifications will be sent, set the events endpoint to enable them")
-	}
-
 	service, err := http.NewService(
 		http.TLSConfig(options.Config.HTTP.TLS),
 		http.Logger(options.Logger),
@@ -100,7 +96,6 @@ func Server(opts ...Option) (http.Service, error) {
 // prepareRoutes will prepare all the implemented routes
 func prepareRoutes(r *chi.Mux, options Options) {
 	fontService := options.FontService
-	notificationService := options.NotificationService
 	adapter := options.Adapter
 	logger := options.Logger
 	// prepare basic logger for the request
@@ -226,17 +221,11 @@ func prepareRoutes(r *chi.Mux, options Options) {
 		r.Route("/fonts", func(r chi.Router) {
 			r.Get("/", fontService.ListFonts)
 			r.Get("/{id}", fontService.GetFont)
-			r.Get("/preview/{id}", fontService.PreviewFont)
+			r.With(auth).Get("/preview/{id}", fontService.PreviewFont)
 			r.With(auth).Route("/manage", func(r chi.Router) {
 				r.Post("/", fontService.UploadFont)
 				r.Delete("/{id}", fontService.DeleteFont)
 			})
 		})
-
-		if notificationService != nil { // optional
-			r.With(auth).Route("/notify", func(r chi.Router) {
-				r.Post("/", notificationService.HandleNotification)
-			})
-		}
 	})
 }

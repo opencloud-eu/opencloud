@@ -7,22 +7,49 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
+	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/convert"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/test"
 )
 
 func TestTranspileKQLToOpenSearch(t *testing.T) {
 	tests := []opensearchtest.TableTest[*ast.Ast, osu.Builder]{
 		// kql to os dsl - type tests
 		{
-			Name: "term query - string node",
+			Name: "word-broken field matches the value as a phrase on its words sibling",
 			Got: &ast.Ast{
 				Nodes: []ast.Node{
 					&ast.StringNode{Key: "Name", Value: "openCloud"},
 				},
 			},
-			Want: osu.NewTermQuery[string]("Name").Value("openCloud"),
+			Want: osu.NewMatchPhraseQuery("Name_words").Query("openCloud"),
+		},
+		{
+			Name: "case-insensitive term routes to the lowercased sibling",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Tags", Value: "openCloud", CaseInsensitive: true},
+				},
+			},
+			Want: osu.NewTermQuery[string]("Tags_lowercase").Value("opencloud"),
+		},
+		{
+			Name: "case-insensitive wildcard routes to the lowercased sibling",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Name", Value: "Open*", CaseInsensitive: true},
+				},
+			},
+			Want: osu.NewWildcardQuery("Name_lowercase").Value("open*"),
+		},
+		{
+			Name: "full-text field uses an analyzed match query, not an unanalyzed term",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Content", Value: "Running"},
+				},
+			},
+			Want: osu.NewMatchPhraseQuery("Content").Query("Running"),
 		},
 		{
 			Name: "term query - boolean node - true",
@@ -49,7 +76,7 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 					&ast.StringNode{Key: "Name", Value: "open cloud"},
 				},
 			},
-			Want: osu.NewMatchPhraseQuery("Name").Query(`open cloud`),
+			Want: osu.NewMatchPhraseQuery("Name_words").Query(`open cloud`),
 		},
 		{
 			Name: "wildcard query - string node",
@@ -59,6 +86,35 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 				},
 			},
 			Want: osu.NewWildcardQuery("Name").Value("open*"),
+		},
+		{
+			Name: "wildcard query - fulltext field",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Content", Value: "open*"},
+				},
+			},
+			Want: osu.NewWildcardQuery("Content").Value("open*"),
+		},
+		{
+			// a phrase match would analyze the query with path_hierarchy and match
+			// everything under the root
+			Name: "path with spaces stays an unanalyzed term query",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Path", Value: "./parent d!r/child.pdf"},
+				},
+			},
+			Want: osu.NewTermQuery[string]("Path").Value("./parent d!r/child.pdf"),
+		},
+		{
+			Name: "case-insensitive path with spaces routes to the lowercased sibling as a term query",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Path", Value: "./Parent Dir", CaseInsensitive: true},
+				},
+			},
+			Want: osu.NewTermQuery[string]("Path_lowercase").Value("./parent dir"),
 		},
 		{
 			Name: "bool query",
@@ -71,8 +127,8 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 				},
 			},
 			Want: osu.NewBoolQuery().Must(
-				osu.NewTermQuery[string]("Name").Value("a"),
-				osu.NewTermQuery[string]("Name").Value("b"),
+				osu.NewMatchPhraseQuery("Name_words").Query("a"),
+				osu.NewMatchPhraseQuery("Name_words").Query("b"),
 			),
 		},
 		{
@@ -84,7 +140,7 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 					}},
 				},
 			},
-			Want: osu.NewTermQuery[string]("Name").Value("any"),
+			Want: osu.NewMatchPhraseQuery("Name_words").Query("any"),
 		},
 		{
 			Name: "range query >",
@@ -146,7 +202,7 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 					&ast.StringNode{Key: "Name", Value: "openCloud"},
 				},
 			},
-			Want: osu.NewTermQuery[string]("Name").Value("openCloud"),
+			Want: osu.NewMatchPhraseQuery("Name_words").Query("openCloud"),
 		},
 		{
 			Name: "[* *]",
@@ -158,7 +214,7 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 			},
 			Want: osu.NewBoolQuery().
 				Must(
-					osu.NewTermQuery[string]("Name").Value("openCloud"),
+					osu.NewMatchPhraseQuery("Name_words").Query("openCloud"),
 					osu.NewTermQuery[string]("age").Value("32"),
 				),
 		},
@@ -173,7 +229,7 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 			},
 			Want: osu.NewBoolQuery().
 				Must(
-					osu.NewTermQuery[string]("Name").Value("openCloud"),
+					osu.NewMatchPhraseQuery("Name_words").Query("openCloud"),
 					osu.NewTermQuery[string]("age").Value("32"),
 				),
 		},
@@ -189,7 +245,7 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 			Want: osu.NewBoolQuery().
 				Params(&osu.BoolQueryParams{MinimumShouldMatch: 1}).
 				Should(
-					osu.NewTermQuery[string]("Name").Value("openCloud"),
+					osu.NewMatchPhraseQuery("Name_words").Query("openCloud"),
 					osu.NewTermQuery[string]("age").Value("32"),
 				),
 		},
@@ -217,10 +273,30 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 			},
 			Want: osu.NewBoolQuery().
 				Must(
-					osu.NewTermQuery[string]("Name").Value("openCloud"),
+					osu.NewMatchPhraseQuery("Name_words").Query("openCloud"),
 				).
 				MustNot(
 					osu.NewTermQuery[string]("age").Value("32"),
+				),
+		},
+		{
+			// NOT binds to the node directly after it, not to whatever operator
+			// follows that node: NOT x AND y is (NOT x) AND y.
+			Name: "[NOT * AND *]",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.OperatorNode{Value: "NOT"},
+					&ast.StringNode{Key: "age", Value: "32"},
+					&ast.OperatorNode{Value: "AND"},
+					&ast.StringNode{Key: "Name", Value: "openCloud"},
+				},
+			},
+			Want: osu.NewBoolQuery().
+				MustNot(
+					osu.NewTermQuery[string]("age").Value("32"),
+				).
+				Must(
+					osu.NewMatchPhraseQuery("Name_words").Query("openCloud"),
 				),
 		},
 		{
@@ -237,7 +313,7 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 			Want: osu.NewBoolQuery().
 				Params(&osu.BoolQueryParams{MinimumShouldMatch: 1}).
 				Should(
-					osu.NewTermQuery[string]("Name").Value("openCloud"),
+					osu.NewMatchPhraseQuery("Name_words").Query("openCloud"),
 					osu.NewTermQuery[string]("age").Value("32"),
 					osu.NewTermQuery[string]("age").Value("44"),
 				),

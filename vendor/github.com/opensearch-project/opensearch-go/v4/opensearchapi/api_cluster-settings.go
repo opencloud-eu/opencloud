@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // ClusterGetSettingsReq represents possible options for the /_cluster/settings request
@@ -21,9 +22,9 @@ type ClusterGetSettingsReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r ClusterGetSettingsReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"GET",
+func (r ClusterGetSettingsReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_cluster/settings",
 		nil,
 		r.Params.get(),
@@ -52,9 +53,9 @@ type ClusterPutSettingsReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r ClusterPutSettingsReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"PUT",
+func (r ClusterPutSettingsReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_cluster/settings",
 		r.Body,
 		r.Params.get(),

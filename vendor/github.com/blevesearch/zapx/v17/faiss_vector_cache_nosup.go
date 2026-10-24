@@ -25,3 +25,14 @@ func newVectorIndexCache() *vectorIndexCache {
 }
 
 func (v *vectorIndexCache) Clear() {}
+
+// -----------------------------------------------------------------------------
+
+type trainedIndexCache struct {
+}
+
+func newTrainedIndexCache() *trainedIndexCache {
+	return nil
+}
+
+func (v *trainedIndexCache) Clear() {}

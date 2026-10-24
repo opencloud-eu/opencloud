@@ -20,7 +20,6 @@ package metadata
 
 import (
 	"context"
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -89,7 +88,7 @@ func (b XattrsBackend) GetInt64(ctx context.Context, n MetadataNode, key string)
 
 func (b XattrsBackend) list(ctx context.Context, n MetadataNode, acquireLock bool) (attribs []string, err error) {
 	filePath := n.InternalPath()
-	attrs, err := xattr.List(filePath)
+	attrs, err := listXattr(filePath)
 	if err == nil {
 		return attrs, nil
 	}
@@ -100,17 +99,21 @@ func (b XattrsBackend) list(ctx context.Context, n MetadataNode, acquireLock boo
 		if err != nil {
 			return nil, err
 		}
+		n.SetLockHeld(true)
 		// Warning: do not remove the lockfile or we may lock the same file more than once, https://github.com/opencloud-eu/opencloud/issues/1793
-		defer f.Close()
+		defer func() {
+			n.SetLockHeld(false)
+			_ = f.Close()
+		}()
 
 	}
-	return xattr.List(filePath)
+	return listXattr(filePath)
 }
 
-// All reads all extended attributes for a node, protected by a
-// shared file lock
+// All reads all extended attributes for a node. It acquires a shared file lock
+// unless the caller already holds the node's metadata lock (n.LockHeld()).
 func (b XattrsBackend) All(ctx context.Context, n MetadataNode) (map[string][]byte, error) {
-	return b.getAll(ctx, n, false, true)
+	return b.getAll(ctx, n, false, !n.LockHeld())
 }
 
 func (b XattrsBackend) getAll(ctx context.Context, n MetadataNode, skipCache, acquireLock bool) (map[string][]byte, error) {
@@ -163,13 +166,13 @@ func (b XattrsBackend) getAll(ctx context.Context, n MetadataNode, skipCache, ac
 
 // Set sets one attribute for the given path
 func (b XattrsBackend) Set(ctx context.Context, n MetadataNode, key string, val []byte) (err error) {
-	return b.SetMultiple(ctx, n, map[string][]byte{key: val}, true)
+	return b.SetMultiple(ctx, n, map[string][]byte{key: val})
 }
 
 // SetMultiple sets a set of attribute for the given path
-func (b XattrsBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs map[string][]byte, acquireLock bool) (err error) {
+func (b XattrsBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs map[string][]byte) (err error) {
 	path := n.InternalPath()
-	if acquireLock {
+	if !n.LockHeld() {
 		err := os.MkdirAll(filepath.Dir(path), 0700)
 		if err != nil {
 			return err
@@ -178,8 +181,12 @@ func (b XattrsBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs 
 		if err != nil {
 			return err
 		}
+		n.SetLockHeld(true)
 		// Warning: do not remove the lockfile or we may lock the same file more than once, https://github.com/opencloud-eu/opencloud/issues/1793
-		defer lockedFile.Close()
+		defer func() {
+			n.SetLockHeld(false)
+			_ = lockedFile.Close()
+		}()
 	}
 
 	// error handling: Count if there are errors while setting the attribs.
@@ -206,15 +213,19 @@ func (b XattrsBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs 
 }
 
 // Remove an extended attribute key
-func (b XattrsBackend) Remove(ctx context.Context, n MetadataNode, key string, acquireLock bool) error {
+func (b XattrsBackend) Remove(ctx context.Context, n MetadataNode, key string) error {
 	path := n.InternalPath()
-	if acquireLock {
+	if !n.LockHeld() {
 		lockedFile, err := lockedfile.OpenFile(path+filelocks.LockFileSuffix, os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
 			return err
 		}
+		n.SetLockHeld(true)
 		// Warning: do not remove the lockfile or we may lock the same file more than once, https://github.com/opencloud-eu/opencloud/issues/1793
-		defer lockedFile.Close()
+		defer func() {
+			n.SetLockHeld(false)
+			_ = lockedFile.Close()
+		}()
 	}
 
 	err := xattr.Remove(path, key)
@@ -275,36 +286,21 @@ func (XattrsBackend) LockfilePath(n MetadataNode) string { return n.InternalPath
 
 // Lock locks the metadata for the given path
 func (b XattrsBackend) Lock(n MetadataNode) (UnlockFunc, error) {
+	if n.LockHeld() {
+		return func() error { return nil }, nil
+	}
+
 	metaLockPath := b.LockfilePath(n)
 	mlock, err := lockedfile.OpenFile(metaLockPath, os.O_RDWR|os.O_CREATE, 0600)
 	if err != nil {
 		return nil, err
 	}
+	n.SetLockHeld(true)
 	return func() error {
+		n.SetLockHeld(false)
 		// Warning: do not remove the lockfile or we may lock the same file more than once, https://github.com/opencloud-eu/opencloud/issues/1793
 		return mlock.Close()
 	}, nil
-}
-
-// LockAndRead locks the metadata for reading
-func (b XattrsBackend) LockAndRead(n MetadataNode) (UnlockFunc, io.Reader, error) {
-	unlock, err := b.Lock(n)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	f, err := os.Open(b.MetadataPath(n))
-	if err != nil {
-		_ = unlock()
-		return nil, nil, err
-	}
-	return unlock, f, nil
-}
-
-// AllWithLockedSource reads all extended attributes from the given reader.
-// The path argument is used for storing the data in the cache
-func (b XattrsBackend) AllWithLockedSource(ctx context.Context, n MetadataNode, _ io.Reader) (map[string][]byte, error) {
-	return b.All(ctx, n)
 }
 
 func (b XattrsBackend) cacheKey(n MetadataNode) string {

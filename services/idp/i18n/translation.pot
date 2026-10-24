@@ -3,192 +3,187 @@ msgstr ""
 "Project-Id-Version: LibreGraph Connect Identifier\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2022-03-09T19:33:04.641Z\n"
+"POT-Creation-Date: 2026-07-08T15:11:00.860Z\n"
 "MIME-Version: 1.0\n"
 
-#. From: konnect##loading##error##headline
-#: konnect##loading##error##headline
-msgid "Failed to connect to server"
-msgstr ""
-
-#. From: konnect##login##retryButton##label
-#: konnect##login##retryButton##label
-msgid "Retry"
-msgstr ""
-
-#. From: konnect##login##usernameField##placeholder##email
-#: konnect##login##usernameField##placeholder##email
-msgid "Email"
-msgstr ""
-
-#. From: konnect##login##usernameField##placeholder##identity
-#: konnect##login##usernameField##placeholder##identity
-msgid "Identity"
-msgstr ""
-
-#. From: konnect##login##usernameField##placeholder##username
-#: konnect##login##usernameField##placeholder##username
-msgid "Username"
-msgstr ""
-
-#. From: konnect##login##headline
-#: konnect##login##headline
-msgid "Sign in"
-msgstr ""
-
-#. From: konnect##login##passwordField##label
-#: konnect##login##passwordField##label
-msgid "Password"
-msgstr ""
-
-#. From: konnect##login##nextButton##label
-#: konnect##login##nextButton##label
-msgid "Next"
-msgstr ""
-
-#. From: konnect##scopeDescription##aliasBasic
-#: konnect##scopeDescription##aliasBasic
-msgid "Access your basic account information"
-msgstr ""
-
-#. From: konnect##scopeDescription##offlineAccess
-#: konnect##scopeDescription##offlineAccess
-msgid "Keep the allowed access persistently and forever"
-msgstr ""
-
-#. From: konnect##scopeDescription##scope
-#: konnect##scopeDescription##scope
-msgid "Scope: {{scope}}"
-msgstr ""
-
-#. From: konnect##goodbye##headline
-#: konnect##goodbye##headline
-msgid "Goodbye"
-msgstr ""
-
-#. From: konnect##goodbye##subHeader
-#: konnect##goodbye##subHeader
-msgid "you have been signed out from your account"
-msgstr ""
-
-#. From: konnect##goodbye##message##close
-#: konnect##goodbye##message##close
-msgid "You can close this window now."
-msgstr ""
-
-#. From: konnect##goodbye##message##confirm
-#: konnect##goodbye##message##confirm
-msgid "Press the button below, to sign out from your account now."
-msgstr ""
-
-#. From: konnect##goodbye##confirm##headline
-#: konnect##goodbye##confirm##headline
-msgid "Hello {{displayName}}"
-msgstr ""
-
-#. From: konnect##goodbye##confirm##subHeader
-#: konnect##goodbye##confirm##subHeader
-msgid "please confirm sign out"
-msgstr ""
-
-#. From: konnect##goodbye##signoutButton##label
-#. konnect##welcome##signoutButton##label
-#: konnect##goodbye##signoutButton##label
-#: konnect##welcome##signoutButton##label
-msgid "Sign out"
-msgstr ""
-
-#. From: konnect##chooseaccount##headline
-#: konnect##chooseaccount##headline
+#. From: translation##konnect##chooseaccount##headline
+#: translation##konnect##chooseaccount##headline
 msgid "Choose an account"
 msgstr ""
 
-#. From: konnect##chooseaccount##subHeader
-#: konnect##chooseaccount##subHeader
+#. From: translation##konnect##chooseaccount##subHeader
+#: translation##konnect##chooseaccount##subHeader
 msgid "to sign in"
 msgstr ""
 
-#. From: konnect##chooseaccount##useOther##persona##label
-#: konnect##chooseaccount##useOther##persona##label
-msgid "?"
-msgstr ""
-
-#. From: konnect##chooseaccount##useOther##label
-#: konnect##chooseaccount##useOther##label
+#. From: translation##konnect##chooseaccount##useOther##label
+#: translation##konnect##chooseaccount##useOther##label
 msgid "Use another account"
 msgstr ""
 
-#. From: konnect##consent##headline
-#: konnect##consent##headline
-msgid "Hi {{displayName}}"
+#. From: translation##konnect##chooseaccount##useOther##persona##label
+#: translation##konnect##chooseaccount##useOther##persona##label
+msgid "?"
 msgstr ""
 
-#. From: konnect##consent##message
-#: konnect##consent##message
-msgid "<0><0><0></0></0></0> wants to"
-msgstr ""
-
-#. From: konnect##consent##tooltip##client
-#: konnect##consent##tooltip##client
-msgid "Clicking \"Allow\" will redirect you to: {{redirectURI}}"
-msgstr ""
-
-#. From: konnect##consent##question
-#: konnect##consent##question
-msgid "Allow <1><0></0></1> to do this?"
-msgstr ""
-
-#. From: konnect##consent##consequence
-#: konnect##consent##consequence
-msgid "By clicking Allow, you allow this app to use your information."
-msgstr ""
-
-#. From: konnect##consent##cancelButton##label
-#: konnect##consent##cancelButton##label
-msgid "Cancel"
-msgstr ""
-
-#. From: konnect##consent##allowButton##label
-#: konnect##consent##allowButton##label
+#. From: translation##konnect##consent##allowButton##label
+#: translation##konnect##consent##allowButton##label
 msgid "Allow"
 msgstr ""
 
-#. From: konnect##welcome##headline
-#: konnect##welcome##headline
-msgid "Welcome {{displayName}}"
+#. From: translation##konnect##consent##cancelButton##label
+#: translation##konnect##consent##cancelButton##label
+msgid "Cancel"
 msgstr ""
 
-#. From: konnect##welcome##message
-#: konnect##welcome##message
-msgid "You are signed in - awesome!"
+#. From: translation##konnect##consent##consequence
+#: translation##konnect##consent##consequence
+msgid "By clicking Allow, you allow this app to use your information."
 msgstr ""
 
-#. From: konnect##error##login##validate##missingUsername
-#: konnect##error##login##validate##missingUsername
-msgid "Enter a valid value."
+#. From: translation##konnect##consent##headline
+#: translation##konnect##consent##headline
+msgid "Hi {{displayName}}"
 msgstr ""
 
-#. From: konnect##error##login##validate##missingPassword
-#: konnect##error##login##validate##missingPassword
-msgid "Enter your password."
+#. From: translation##konnect##consent##message
+#: translation##konnect##consent##message
+msgid "<0><0><0></0></0></0> wants to"
 msgstr ""
 
-#. From: konnect##error##login##failed
-#: konnect##error##login##failed
-msgid "Logon failed. Please verify your credentials and try again."
+#. From: translation##konnect##consent##question
+#: translation##konnect##consent##question
+msgid "Allow <1><0></0></1> to do this?"
 msgstr ""
 
-#. From: konnect##error##http##networkError
-#: konnect##error##http##networkError
+#. From: translation##konnect##consent##tooltip##client
+#: translation##konnect##consent##tooltip##client
+msgid "Clicking \"Allow\" will redirect you to: {{redirectURI}}"
+msgstr ""
+
+#. From: translation##konnect##error##http##networkError
+#: translation##konnect##error##http##networkError
 msgid "Network error. Please check your connection and try again."
 msgstr ""
 
-#. From: konnect##error##http##unexpectedResponseStatus
-#: konnect##error##http##unexpectedResponseStatus
+#. From: translation##konnect##error##http##unexpectedResponseState
+#: translation##konnect##error##http##unexpectedResponseState
+msgid "Unexpected response state: {{state}}"
+msgstr ""
+
+#. From: translation##konnect##error##http##unexpectedResponseStatus
+#: translation##konnect##error##http##unexpectedResponseStatus
 msgid "Unexpected HTTP response: {{status}}. Please check your connection and try again."
 msgstr ""
 
-#. From: konnect##error##http##unexpectedResponseState
-#: konnect##error##http##unexpectedResponseState
-msgid "Unexpected response state: {{state}}"
+#. From: translation##konnect##error##login##failed
+#: translation##konnect##error##login##failed
+msgid "Logon failed. Please verify your credentials and try again."
+msgstr ""
+
+#. From: translation##konnect##error##login##validate##missingPassword
+#: translation##konnect##error##login##validate##missingPassword
+msgid "Enter your password."
+msgstr ""
+
+#. From: translation##konnect##error##login##validate##missingUsername
+#: translation##konnect##error##login##validate##missingUsername
+msgid "Enter a valid value."
+msgstr ""
+
+#. From: translation##konnect##footer##slogan
+#: translation##konnect##footer##slogan
+msgid "<strong>OpenCloud</strong> - excellent file sharing"
+msgstr ""
+
+#. From: translation##konnect##goodbye##confirm##headline
+#: translation##konnect##goodbye##confirm##headline
+msgid "Hello {{displayName}}"
+msgstr ""
+
+#. From: translation##konnect##goodbye##confirm##subHeader
+#: translation##konnect##goodbye##confirm##subHeader
+msgid "please confirm sign out"
+msgstr ""
+
+#. From: translation##konnect##goodbye##headline
+#: translation##konnect##goodbye##headline
+msgid "Goodbye"
+msgstr ""
+
+#. From: translation##konnect##goodbye##message##close
+#: translation##konnect##goodbye##message##close
+msgid "You can close this window now."
+msgstr ""
+
+#. From: translation##konnect##goodbye##message##confirm
+#: translation##konnect##goodbye##message##confirm
+msgid "Press the button below, to sign out from your account now."
+msgstr ""
+
+#. From: translation##konnect##goodbye##signoutButton##label
+#. translation##konnect##welcome##signoutButton##label
+#: translation##konnect##goodbye##signoutButton##label
+#: translation##konnect##welcome##signoutButton##label
+msgid "Sign out"
+msgstr ""
+
+#. From: translation##konnect##goodbye##subHeader
+#: translation##konnect##goodbye##subHeader
+msgid "you have been signed out from your account"
+msgstr ""
+
+#. From: translation##konnect##loading##error##headline
+#: translation##konnect##loading##error##headline
+msgid "Failed to connect to server"
+msgstr ""
+
+#. From: translation##konnect##login##headline
+#: translation##konnect##login##headline
+msgid "Sign in"
+msgstr ""
+
+#. From: translation##konnect##login##nextButton##label
+#: translation##konnect##login##nextButton##label
+msgid "Log in"
+msgstr ""
+
+#. From: translation##konnect##login##passwordField##label
+#: translation##konnect##login##passwordField##label
+msgid "Password"
+msgstr ""
+
+#. From: translation##konnect##login##retryButton##label
+#: translation##konnect##login##retryButton##label
+msgid "Retry"
+msgstr ""
+
+#. From: translation##konnect##login##usernameField##label
+#: translation##konnect##login##usernameField##label
+msgid "Username"
+msgstr ""
+
+#. From: translation##konnect##scopeDescription##aliasBasic
+#: translation##konnect##scopeDescription##aliasBasic
+msgid "Access your basic account information"
+msgstr ""
+
+#. From: translation##konnect##scopeDescription##offlineAccess
+#: translation##konnect##scopeDescription##offlineAccess
+msgid "Keep the allowed access persistently and forever"
+msgstr ""
+
+#. From: translation##konnect##scopeDescription##scope
+#: translation##konnect##scopeDescription##scope
+msgid "Scope: {{scope}}"
+msgstr ""
+
+#. From: translation##konnect##welcome##headline
+#: translation##konnect##welcome##headline
+msgid "Welcome {{displayName}}"
+msgstr ""
+
+#. From: translation##konnect##welcome##message
+#: translation##konnect##welcome##message
+msgid "You are signed in - awesome!"
 msgstr ""

@@ -27,23 +27,28 @@ import (
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
-	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
-	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/connector/fileinfo"
-	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/helpers"
-	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/middleware"
-	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/wopisrc"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/rs/zerolog"
 	microstore "go-micro.dev/v4/store"
+
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/connector/fileinfo"
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/helpers"
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/middleware"
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/wopisrc"
 )
 
 const (
 	// WOPI Locks generally have a lock duration of 30 minutes and will be refreshed before expiration if needed
 	// https://docs.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/concepts#lock
 	lockDuration time.Duration = 30 * time.Minute
+
+	// LastModifiedTime has to be ISO 8601 round-trip formatted
+	// https://learn.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/files/checkfileinfo/checkfileinfo-other#lastmodifiedtime
+	lastModifiedTimeFormat = "2006-01-02T15:04:05.0000000Z"
 )
 
 // FileConnectorService is the interface to implement the "Files"
@@ -215,6 +220,14 @@ func (f *FileConnector) Lock(ctx context.Context, lockID, oldLockID string) (*Co
 	if lockID == "" {
 		logger.Error().Msg("Lock failed due to empty lockID")
 		return NewResponse(400), nil
+	}
+
+	// OnlyOffice locks on every open, a SetLock with a read-only token fails and the 500 becomes an error dialog
+	// in OnlyOffice, so read-only and view-only sessions get their 200 without a lock
+	if wopiContext.ViewMode == appproviderv1beta1.ViewMode_VIEW_MODE_READ_ONLY ||
+		wopiContext.ViewMode == appproviderv1beta1.ViewMode_VIEW_MODE_VIEW_ONLY {
+		logger.Debug().Msg("Lock: read-only session, skipping the lock")
+		return NewResponseWithVersion(nil), nil
 	}
 
 	var setOrRefreshStatus *rpcv1beta1.Status
@@ -1259,17 +1272,32 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 			logger.Error().Err(err).Msg("CheckFileInfo: error getting scopes from the context")
 		}
 	}
+	// the space root id must not reach a public share, like the parent folder link above
+	breadcrumbBrandURL := ""
+	if spaceRoot := statRes.GetInfo().GetSpace().GetRoot(); !isPublicShare && spaceRoot != nil {
+		brandURL := *ocURL
+		brandURL.Path = path.Join(ocURL.Path, "f", storagespace.FormatResourceID(spaceRoot))
+		breadcrumbBrandURL = brandURL.String()
+	}
+	lastModifiedTime := time.Now().UTC().Format(lastModifiedTimeFormat)
+	if mtime := statRes.GetInfo().GetMtime(); mtime != nil {
+		lastModifiedTime = utils.TSToTime(mtime).UTC().Format(lastModifiedTimeFormat)
+	}
+
 	// fileinfo map
 	infoMap := map[string]any{
 		fileinfo.KeyOwnerID:           hexEncodedOwnerId,
-		fileinfo.KeySize:              int64(statRes.GetInfo().GetSize()),
 		fileinfo.KeyVersion:           getVersion(statRes.GetInfo().GetMtime()),
+		fileinfo.KeyLastModifiedTime:  lastModifiedTime,
 		fileinfo.KeyBaseFileName:      path.Base(statRes.GetInfo().GetPath()),
 		fileinfo.KeyBreadcrumbDocName: path.Base(statRes.GetInfo().GetPath()),
 		// to get the folder we actually need to do a GetPath() request
 		fileinfo.KeyBreadcrumbFolderName: breadcrumbFolderName,
 		fileinfo.KeyBreadcrumbFolderURL:  parentFolderURL.String(),
+		fileinfo.KeyBreadcrumbBrandName:  statRes.GetInfo().GetSpace().GetName(),
+		fileinfo.KeyBreadcrumbBrandURL:   breadcrumbBrandURL,
 
+		fileinfo.KeyCloseURL:       parentFolderURL.String(),
 		fileinfo.KeyHostViewURL:    createHostUrl("view", ocURL, f.cfg.App.Name, statRes.GetInfo()),
 		fileinfo.KeyHostEditURL:    createHostUrl("write", ocURL, f.cfg.App.Name, statRes.GetInfo()),
 		fileinfo.KeyFileSharingURL: createShareUrl(privateLinkURL),
@@ -1297,6 +1325,23 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 		fileinfo.KeyUserCanNotWriteRelative: false,
 	}
 
+	// EuroOffice needs the size on an empty pdf to open the form editor, but
+	// breaks on a zero size for ods, odt and odp
+	size := int64(statRes.GetInfo().GetSize()) //nolint:gosec // a byte count never reaches the int64 ceiling
+	omitSize := size == 0 &&
+		strings.ToLower(f.cfg.App.Product) == "onlyoffice" &&
+		strings.ToLower(path.Ext(statRes.GetInfo().GetPath())) != ".pdf"
+	if !omitSize {
+		infoMap[fileinfo.KeySize] = size
+	}
+
+	infoMap[fileinfo.KeyReadOnly] = wopiContext.ViewMode != appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE
+
+	// only the collabora integration in web handles UI_Edit, the other office apps would post into the void
+	if strings.ToLower(f.cfg.App.Product) == "collabora" {
+		infoMap[fileinfo.KeyEditModePostMessage] = true
+	}
+
 	switch wopiContext.ViewMode {
 	case appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE:
 		infoMap[fileinfo.KeyUserCanWrite] = true
@@ -1309,8 +1354,12 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 		infoMap[fileinfo.KeyDisableExport] = true // only for collabora
 		infoMap[fileinfo.KeyDisableCopy] = true   // only for collabora
 		infoMap[fileinfo.KeyDisablePrint] = true
-		if !isPublicShare {
-			infoMap[fileinfo.KeyWatermarkText] = f.watermarkText(user) // only for collabora
+		// a viewer role opens the document view only as well, lock and watermark are for secure view
+		if wopiContext.ViewOnlyToken != "" {
+			infoMap[fileinfo.KeyIsUserLocked] = true // only for collabora
+			if !isPublicShare {
+				infoMap[fileinfo.KeyWatermarkText] = f.watermarkText(user) // only for collabora
+			}
 		}
 	}
 
@@ -1324,6 +1373,15 @@ func (f *FileConnector) CheckFileInfo(ctx context.Context) (*ConnectorResponse, 
 			extraInfo.Avatar = avatarURL
 		}
 		infoMap[fileinfo.KeyUserExtraInfo] = extraInfo
+	}
+
+	// secure view exists to keep the original file from the user, so it gets no download link
+	if wopiContext.ViewOnlyToken == "" {
+		if du, err := f.createFileDownloadURL(wopiContext, collaborationURL); err == nil {
+			infoMap[fileinfo.KeyDownloadURL] = du
+		} else {
+			logger.Error().Err(err).Msg("CheckFileInfo: failed to create the download URL")
+		}
 	}
 
 	// if the file content is empty and a template reference is set, add the template source URL
@@ -1356,6 +1414,25 @@ func (f *FileConnector) createDownloadURL(wopiContext middleware.WopiContext, co
 		collaborationURL.Path,
 		"wopi/templates/",
 		helpers.HashResourceId(templateContext.FileReference.GetResourceId()),
+	)
+	q := downloadURL.Query()
+	q.Add("access_token", token)
+	downloadURL.RawQuery = q.Encode()
+	return downloadURL.String(), nil
+}
+
+// createFileDownloadURL builds a URL to the WOPI contents of the file, authorized by a WOPI token.
+func (f *FileConnector) createFileDownloadURL(wopiContext middleware.WopiContext, collaborationURL *url.URL) (string, error) {
+	token, _, err := middleware.GenerateWopiToken(wopiContext, f.cfg, f.store)
+	if err != nil {
+		return "", err
+	}
+	downloadURL := *collaborationURL
+	downloadURL.Path = path.Join(
+		collaborationURL.Path,
+		"wopi/files/",
+		helpers.HashResourceId(wopiContext.FileReference.GetResourceId()),
+		"contents",
 	)
 	q := downloadURL.Query()
 	q.Add("access_token", token)
@@ -1578,7 +1655,6 @@ func (f *FileConnector) GetAvatar(ctx context.Context, userID string) (*Connecto
 		}
 		return nil, NewConnectorError(http.StatusBadGateway, "failed to fetch avatar")
 	}
-	defer photoFile.Close()
 
 	data, err := io.ReadAll(photoFile)
 	if err != nil {

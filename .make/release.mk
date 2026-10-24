@@ -1,7 +1,3 @@
-.PHONY: changelog
-changelog: $(CALENS) ## generate changelog
-	$(CALENS) -i ../changelog -t ../changelog/CHANGELOG.tmpl >| ../CHANGELOG.md
-
 .PHONY: release
 release: release-dirs release-linux release-darwin release-copy release-check
 

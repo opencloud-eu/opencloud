@@ -37,7 +37,7 @@ type DocumentExistsParams struct {
 	Realtime       *bool
 	Refresh        *bool
 	Routing        string
-	Source         interface{}
+	Source         any
 	SourceExcludes []string
 	SourceIncludes []string
 	StoredFields   []string

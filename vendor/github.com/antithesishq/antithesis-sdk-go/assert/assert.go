@@ -6,7 +6,7 @@
 //
 // These functions are no-ops with minimal performance overhead when called outside of the Antithesis environment. However, if the environment variable ANTITHESIS_SDK_LOCAL_OUTPUT is set, these functions will log to the file pointed to by that variable using a structured JSON format defined [here]. This allows you to make use of the Antithesis assertions package in your regular testing, or even in production. In particular, very few assertions frameworks offer a convenient way to define [Sometimes assertions], but they can be quite useful even outside Antithesis.
 //
-// Each function in this package takes a parameter called message, which is a human readable identifier used to aggregate assertions. Antithesis generates one test property per unique message and this test property will be named "<message>" in the [triage report].
+// Each function in this package takes a parameter called message, which is a human readable identifier used to aggregate assertions. Antithesis generates one test property per unique message and this test property will be named "<message>" in the [triage report]. Message must be provided as a string literal.
 //
 // This test property either passes or fails, which depends upon the evaluation of every assertion that shares its message. Different assertions in different parts of the code should have different message, but the same assertion should always have the same message even if it is moved to a different file.
 //
@@ -129,6 +129,9 @@ const (
 
 // Always asserts that condition is true every time this function is called, and that it is called at least once. The corresponding test property will be viewable in the Antithesis SDK: Always group of your triage report.
 func Always(condition bool, message string, details map[string]any) {
+	if trackerEmitted(message, condition) {
+		return
+	}
 	locationInfo := newLocationInfo(offsetAPICaller)
 	id := makeKey(message, locationInfo)
 	assertImpl(condition, message, details, locationInfo, wasHit, mustBeHit, universalTest, alwaysDisplay, id)
@@ -136,6 +139,9 @@ func Always(condition bool, message string, details map[string]any) {
 
 // AlwaysOrUnreachable asserts that condition is true every time this function is called. The corresponding test property will pass if the assertion is never encountered (unlike Always assertion types). This test property will be viewable in the “Antithesis SDK: Always” group of your triage report.
 func AlwaysOrUnreachable(condition bool, message string, details map[string]any) {
+	if trackerEmitted(message, condition) {
+		return
+	}
 	locationInfo := newLocationInfo(offsetAPICaller)
 	id := makeKey(message, locationInfo)
 	assertImpl(condition, message, details, locationInfo, wasHit, optionallyHit, universalTest, alwaysOrUnreachableDisplay, id)
@@ -143,6 +149,9 @@ func AlwaysOrUnreachable(condition bool, message string, details map[string]any)
 
 // Sometimes asserts that condition is true at least one time that this function was called. (If the assertion is never encountered, the test property will therefore fail.) This test property will be viewable in the “Antithesis SDK: Sometimes” group.
 func Sometimes(condition bool, message string, details map[string]any) {
+	if trackerEmitted(message, condition) {
+		return
+	}
 	locationInfo := newLocationInfo(offsetAPICaller)
 	id := makeKey(message, locationInfo)
 	assertImpl(condition, message, details, locationInfo, wasHit, mustBeHit, existentialTest, sometimesDisplay, id)
@@ -150,6 +159,9 @@ func Sometimes(condition bool, message string, details map[string]any) {
 
 // Unreachable asserts that a line of code is never reached. The corresponding test property will fail if this function is ever called. (If it is never called the test property will therefore pass.) This test property will be viewable in the “Antithesis SDK: Reachablity assertions” group.
 func Unreachable(message string, details map[string]any) {
+	if trackerEmitted(message, false) {
+		return
+	}
 	locationInfo := newLocationInfo(offsetAPICaller)
 	id := makeKey(message, locationInfo)
 	assertImpl(false, message, details, locationInfo, wasHit, optionallyHit, reachabilityTest, unreachableDisplay, id)
@@ -157,6 +169,9 @@ func Unreachable(message string, details map[string]any) {
 
 // Reachable asserts that a line of code is reached at least once. The corresponding test property will pass if this function is ever called. (If it is never called the test property will therefore fail.) This test property will be viewable in the “Antithesis SDK: Reachablity assertions” group.
 func Reachable(message string, details map[string]any) {
+	if trackerEmitted(message, true) {
+		return
+	}
 	locationInfo := newLocationInfo(offsetAPICaller)
 	id := makeKey(message, locationInfo)
 	assertImpl(true, message, details, locationInfo, wasHit, mustBeHit, reachabilityTest, reachableDisplay, id)
@@ -164,13 +179,13 @@ func Reachable(message string, details map[string]any) {
 
 // AssertRaw is a low-level method designed to be used by third-party frameworks. Regular users of the assert package should not call it.
 func AssertRaw(cond bool, message string, details map[string]any,
-	classname, funcname, filename string, line int,
+	classname, funcname, filename string, line int, column int,
 	hit bool, mustHit bool,
 	assertType string, displayType string,
 	id string,
 ) {
 	assertImpl(cond, message, details,
-		&locationInfo{classname, funcname, filename, line, columnUnknown},
+		&locationInfo{classname, funcname, filename, line, column},
 		hit, mustHit,
 		assertType, displayType,
 		id)
@@ -182,7 +197,7 @@ func assertImpl(cond bool, message string, details map[string]any,
 	assertType string, displayType string,
 	id string,
 ) {
-	trackerEntry := assertTracker.getTrackerEntry(id, loc.Filename, loc.Classname)
+	trackerEntry := getTrackerEntry(id, loc.Filename, loc.Classname)
 
 	// Always grab the Filename and Classname captured when the trackerEntry was established
 	// This provides the consistency needed between instrumentation-time and runtime

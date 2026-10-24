@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // CatPluginsReq represent possible options for the /_cat/plugins request
@@ -19,9 +20,9 @@ type CatPluginsReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r CatPluginsReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"GET",
+func (r CatPluginsReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_cat/plugins",
 		nil,
 		r.Params.get(),

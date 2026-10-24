@@ -3,7 +3,6 @@ package bleve
 import (
 	"context"
 	"math"
-	"strings"
 	"time"
 
 	"github.com/blevesearch/bleve/v2"
@@ -14,6 +13,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 
@@ -45,7 +45,7 @@ func NewBackend(index bleve.Index, queryCreator searchQuery.Creator[query.Query]
 func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
 	createdQuery, err := b.queryCreator.Create(sir.Query)
 	if err != nil {
-		if searchQuery.IsValidationError(err) {
+		if kql.IsValidationError(err) {
 			return nil, errtypes.BadRequest(err.Error())
 		}
 		return nil, err
@@ -74,6 +74,12 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 				),
 			},
 		)
+		// Scope below the space root: restrict at query level so totals and
+		// paging respect the path too. The folder term matches the folder and
+		// its descendants (see PathAnalyzer).
+		if requestedPath := utils.MakeRelativePath(sir.Ref.Path); requestedPath != "." {
+			q.Conjuncts = append(q.Conjuncts, &query.TermQuery{FieldVal: "Path", Term: requestedPath})
+		}
 	}
 
 	bleveReq := bleve.NewSearchRequest(q)
@@ -97,17 +103,6 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 	matches := make([]*searchMessage.Match, 0, len(res.Hits))
 	totalMatches := res.Total
 	for _, hit := range res.Hits {
-		if sir.Ref != nil {
-			hitPath := strings.TrimSuffix(getFieldValue[string](hit.Fields, "Path"), "/")
-			requestedPath := utils.MakeRelativePath(sir.Ref.Path)
-			isRoot := hitPath == requestedPath
-
-			if !isRoot && requestedPath != "." && !strings.HasPrefix(hitPath, requestedPath+"/") {
-				totalMatches--
-				continue
-			}
-		}
-
 		rootID, err := storagespace.ParseID(getFieldValue[string](hit.Fields, "RootID"))
 		if err != nil {
 			return nil, err
@@ -126,20 +121,23 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 					ResourceId: resourceIDtoSearchID(rootID),
 					Path:       getFieldValue[string](hit.Fields, "Path"),
 				},
-				Id:         resourceIDtoSearchID(rID),
-				Name:       getFieldValue[string](hit.Fields, "Name"),
-				ParentId:   resourceIDtoSearchID(pID),
-				Size:       uint64(getFieldValue[float64](hit.Fields, "Size")),
-				Type:       uint64(getFieldValue[float64](hit.Fields, "Type")),
-				MimeType:   getFieldValue[string](hit.Fields, "MimeType"),
-				Deleted:    getFieldValue[bool](hit.Fields, "Deleted"),
-				Tags:       getFieldSliceValue[string](hit.Fields, "Tags"),
-				Favorites:  getFieldSliceValue[string](hit.Fields, "Favorites"),
-				Highlights: getFragmentValue(hit.Fragments, "Content", 0),
-				Audio:      getAudioValue[searchMessage.Audio](hit.Fields),
-				Image:      getImageValue[searchMessage.Image](hit.Fields),
-				Location:   getLocationValue[searchMessage.GeoCoordinates](hit.Fields),
-				Photo:      getPhotoValue[searchMessage.Photo](hit.Fields),
+				Id:          resourceIDtoSearchID(rID),
+				Name:        getFieldValue[string](hit.Fields, "Name"),
+				ParentId:    resourceIDtoSearchID(pID),
+				Size:        uint64(getFieldValue[float64](hit.Fields, "Size")),
+				Type:        uint64(getFieldValue[float64](hit.Fields, "Type")),
+				MimeType:    getFieldValue[string](hit.Fields, "MimeType"),
+				Deleted:     getFieldValue[bool](hit.Fields, "Deleted"),
+				Tags:        getFieldSliceValue[string](hit.Fields, "Tags"),
+				Favorites:   getFieldSliceValue[string](hit.Fields, "Favorites"),
+				Highlights:  getFragmentValue(hit.Fragments, "Content", 0),
+				Audio:       hitToFacet[searchMessage.Audio](hit.Fields, "audio"),
+				Image:       hitToFacet[searchMessage.Image](hit.Fields, "image"),
+				Location:    hitToFacet[searchMessage.GeoCoordinates](hit.Fields, "location"),
+				Photo:       hitToFacet[searchMessage.Photo](hit.Fields, "photo"),
+				Video:       hitToFacet[searchMessage.Video](hit.Fields, "video"),
+				MotionPhoto: hitToFacet[searchMessage.MotionPhoto](hit.Fields, "motionPhoto"),
+				LivePhoto:   hitToFacet[searchMessage.LivePhoto](hit.Fields, "livePhoto"),
 			},
 		}
 
@@ -173,13 +171,13 @@ func (b *Backend) Upsert(id string, r search.Resource) error {
 	return batch.Push()
 }
 
-func (b *Backend) Move(rootID, parentID, location string) error {
+func (b *Backend) Move(id, parentID, targetPath string) error {
 	batch, err := b.NewBatch(defaultBatchSize)
 	if err != nil {
 		return err
 	}
 
-	if err := batch.Move(rootID, parentID, location); err != nil {
+	if err := batch.Move(id, parentID, targetPath); err != nil {
 		return err
 	}
 
@@ -223,6 +221,31 @@ func (b *Backend) Purge(id string, onlyDeleted bool) error {
 	}
 
 	return batch.Push()
+}
+
+func (b *Backend) PurgeSpace(rootID string) error {
+	for {
+		req := bleve.NewSearchRequest(&query.TermQuery{FieldVal: "RootID", Term: rootID})
+		req.Size = defaultBatchSize
+
+		res, err := b.index.Search(req)
+		if err != nil {
+			return err
+		}
+
+		if res.Hits.Len() == 0 {
+			return nil
+		}
+
+		batch := b.index.NewBatch()
+		for _, hit := range res.Hits {
+			batch.Delete(hit.ID)
+		}
+
+		if err := b.index.Batch(batch); err != nil {
+			return err
+		}
+	}
 }
 
 func (b *Backend) NewBatch(size int) (search.BatchOperator, error) {

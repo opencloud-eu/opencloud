@@ -6,7 +6,6 @@ package copypropagation
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/open-policy-agent/opa/v1/ast"
 	"github.com/open-policy-agent/opa/v1/util"
@@ -34,6 +33,9 @@ type CopyPropagator struct {
 	ensureNonEmptyBody bool
 	compiler           *ast.Compiler
 	localvargen        *localVarGenerator
+	// placeholders holds vars synthesized to keep a ref alive for its definedness.
+	// They appear nowhere else, so their bindings can be emitted as the bare ref.
+	placeholders ast.VarSet
 }
 
 type localVarGenerator struct {
@@ -47,10 +49,17 @@ func (l *localVarGenerator) Generate() ast.Var {
 
 }
 
+// generatePlaceholder returns a fresh local variable, recorded as a placeholder.
+func (p *CopyPropagator) generatePlaceholder() ast.Var {
+	v := p.localvargen.Generate()
+	p.placeholders.Add(v)
+	return v
+}
+
 // New returns a new CopyPropagator that optimizes queries while preserving vars
 // in the livevars set.
 func New(livevars ast.VarSet) *CopyPropagator {
-	return &CopyPropagator{livevars: livevars, sorted: util.KeysSorted(livevars), localvargen: &localVarGenerator{}}
+	return &CopyPropagator{livevars: livevars, sorted: util.KeysSorted(livevars), localvargen: &localVarGenerator{}, placeholders: ast.NewVarSet()}
 }
 
 // WithEnsureNonEmptyBody configures p to ensure that results are always non-empty.
@@ -68,9 +77,6 @@ func (p *CopyPropagator) WithCompiler(c *ast.Compiler) *CopyPropagator {
 
 // Apply executes the copy propagation optimization and returns a new query.
 func (p *CopyPropagator) Apply(query ast.Body) ast.Body {
-
-	result := ast.NewBody()
-
 	uf, ok := makeDisjointSets(p.livevars, query)
 	if !ok {
 		return query
@@ -93,6 +99,7 @@ func (p *CopyPropagator) Apply(query ast.Body) ast.Body {
 		return false
 	})
 
+	result := ast.NewBody()
 	removedEqs := ast.NewValueMap()
 
 	for _, expr := range query {
@@ -188,7 +195,14 @@ func (p *CopyPropagator) Apply(query ast.Body) ast.Body {
 		}
 
 		if providesSafety || (!safevarRef && !containedIn(b.v, result)) {
-			result.Append(removedEq)
+			// For a placeholder key, emit the bare ref rather than `__localcp0__ =
+			// input.project`: both only require the ref to be defined, but the
+			// equality leaks the internal var into results (#6378).
+			if expr := p.placeholderRef(b); expr != nil {
+				result.Append(expr)
+			} else {
+				result.Append(removedEq)
+			}
 			safe.Update(outputVars)
 		}
 	}
@@ -244,11 +258,10 @@ func (t bindingPlugTransform) Transform(x any) (any, error) {
 }
 
 func (bindingPlugTransform) plugBindingsVar(pctx *plugContext, v ast.Var) ast.Value {
-
 	var result ast.Value = v
 
 	// Apply union-find to remove redundant variables from input.
-	root, ok := pctx.uf.Find(v)
+	root, ok := pctx.uf.Find(result)
 	if ok {
 		result = root.Value()
 	}
@@ -258,7 +271,7 @@ func (bindingPlugTransform) plugBindingsVar(pctx *plugContext, v ast.Var) ast.Va
 	if !ok {
 		return result
 	}
-	b := pctx.removedEqs.Get(v)
+	b := pctx.removedEqs.Get(result)
 	if b == nil {
 		return result
 	}
@@ -266,7 +279,7 @@ func (bindingPlugTransform) plugBindingsVar(pctx *plugContext, v ast.Var) ast.Va
 		return result
 	}
 
-	if r, ok := b.(ast.Ref); ok && r.OutputVars().Contains(v) {
+	if ast.NewTerm(b).Vars().Contains(v) {
 		return result
 	}
 
@@ -311,7 +324,7 @@ func (p *CopyPropagator) updateBindings(pctx *plugContext, expr *ast.Expr) bool 
 		a, b := expr.Operand(0), expr.Operand(1)
 		if a.Equal(b) {
 			if p.livevarRef(a) {
-				pctx.removedEqs.Put(p.localvargen.Generate(), a.Value)
+				pctx.removedEqs.Put(p.generatePlaceholder(), a.Value)
 			}
 			return false
 		}
@@ -349,6 +362,19 @@ func (p *CopyPropagator) livevarRef(a *ast.Term) bool {
 	}
 
 	return false
+}
+
+// placeholderRef returns the ref a placeholder binding maps to, wrapped as a
+// bare expression, or nil if b is not a placeholder-to-ref binding.
+func (p *CopyPropagator) placeholderRef(b *binding) *ast.Expr {
+	k, ok := b.k.(ast.Var)
+	if !ok || !p.placeholders.Contains(k) {
+		return nil
+	}
+	if _, ok = b.v.(ast.Ref); !ok {
+		return nil
+	}
+	return ast.NewExpr(ast.NewTerm(b.v))
 }
 
 func (p *CopyPropagator) updateBindingsEq(a, b *ast.Term) (ast.Var, ast.Value, bool) {
@@ -445,10 +471,9 @@ func sortbindings(bindings *ast.ValueMap) []*binding {
 		sorted = append(sorted, &binding{k, v})
 		return false
 	})
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].k.Compare(sorted[j].k) > 0
+	return util.SortedFunc(sorted, func(a, b *binding) int {
+		return b.k.Compare(a.k)
 	})
-	return sorted
 }
 
 // makeDisjointSets builds the union-find structure for the query. The structure
@@ -467,24 +492,22 @@ func makeDisjointSets(livevars ast.VarSet, query ast.Body) (*unionFind, bool) {
 	for _, expr := range query {
 		if expr.IsEquality() && !expr.Negated && len(expr.With) == 0 {
 			a, b := expr.Operand(0), expr.Operand(1)
-			varA, ok1 := a.Value.(ast.Var)
-			varB, ok2 := b.Value.(ast.Var)
+			_, aIsVar := a.Value.(ast.Var)
+			_, bIsVar := b.Value.(ast.Var)
 
 			switch {
-			case ok1 && ok2:
-				if _, ok := uf.Merge(varA, varB); !ok {
+			case aIsVar && bIsVar:
+				if _, ok := uf.Merge(a.Value, b.Value); !ok {
 					return nil, false
 				}
-
-			case ok1 && ast.IsConstant(b.Value):
-				root := uf.MakeSet(varA)
+			case aIsVar && ast.IsConstant(b.Value):
+				root := uf.MakeSet(a.Value)
 				if root.constant != nil && !root.constant.Equal(b) {
 					return nil, false
 				}
 				root.constant = b
-
-			case ok2 && ast.IsConstant(a.Value):
-				root := uf.MakeSet(varB)
+			case bIsVar && ast.IsConstant(a.Value):
+				root := uf.MakeSet(b.Value)
 				if root.constant != nil && !root.constant.Equal(a) {
 					return nil, false
 				}
@@ -497,19 +520,20 @@ func makeDisjointSets(livevars ast.VarSet, query ast.Body) (*unionFind, bool) {
 }
 
 func isNoop(expr *ast.Expr) bool {
-
-	if !expr.IsCall() && !expr.IsEvery() {
-		term := expr.Terms.(*ast.Term)
-		if !ast.IsConstant(term.Value) {
+	switch t := expr.Terms.(type) {
+	case []*ast.Term:
+		// A==A can be ignored
+		if expr.Operator().Equal(ast.Interned.Refs.Equal) {
+			return expr.Operand(0).Equal(expr.Operand(1))
+		}
+		return false
+	case *ast.Term:
+		if !ast.IsConstant(t.Value) {
 			return false
 		}
-		return !ast.Boolean(false).Equal(term.Value)
+		return !ast.Boolean(false).Equal(t.Value)
+	default:
+		// *ast.Every, *ast.Not, *ast.LogicalAnd, *ast.LogicalOr — none are no-ops.
+		return false
 	}
-
-	// A==A can be ignored
-	if expr.Operator().Equal(ast.Equal.Ref()) {
-		return expr.Operand(0).Equal(expr.Operand(1))
-	}
-
-	return false
 }

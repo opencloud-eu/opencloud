@@ -2,7 +2,7 @@
 
 The collaboration service connects opencloud with document servers such as Collabora, ONLYOFFICE or Microsoft using the WOPI protocol.
 
-Since this service requires an external document server, it won't start by default when using `opencloud server`. You must start it manually with the `opencloud collaboration server` command.
+Since this service requires an external document server, it is not enabled by default. You need to add it to `OC_RUN_SERVICES`, `OC_ADD_RUN_SERVICES` or start it in a separate process with the `opencloud collaboration server` command.
 
 Because the collaboration service needs to be started manually, the following prerequisite applies: On collaboration service startup, particular environment variables are required to be populated. If environment variables have a default like the `MICRO_REGISTRY_ADDRESS`, the default will be used, if not set otherwise. Use for all others the instance values as defined. If these environment variables are not provided or misconfigured, the collaboration service will not start up.
 
@@ -14,9 +14,8 @@ Required environment variables:
 
 ## Requirements
 
-The collaboration service requires the target document server (ONLYOFFICE, Collabora, etc.) to be up and running. Additionally, some OpenCloud services are also required to be running in order to register the GRPC service for the `open in app` action in the webUI. The following internal and external services need to be available:
+The collaboration periodically checks the target document server (ONLYOFFICE, Collabora, etc.) to update the available edit options. Additionally, some OpenCloud services are required to be running in order to register the GRPC service for the `open in app` action in the webUI. The following internal and external services need to be available:
 
-* External document server.
 * The gateway service.
 * The app-registry service.
 
@@ -33,6 +32,9 @@ There are a few variables that you need to set:
   The product name of the connected WebOffice app, which can be one of the following:\
   `Collabora`, `OnlyOffice`, `Microsoft365` or `MicrosoftOfficeOnline`. This is used to internally control the behavior according to the different features of the used products.
 
+* `COLLABORATION_APP_PRODUCT_EDITION`:\
+  The edition of the connected WebOffice app, it decides which features the app offers. Only used for EuroOffice, which supports `ce` (community edition), `de` (developer edition) and `ee` (enterprise edition). An empty value is the same as `ce`.
+
 * `COLLABORATION_APP_ADDR`:\
   The URL of the collaborative editing app (onlyoffice, collabora, etc).\
   For example: `https://office.example.com`.
@@ -46,6 +48,14 @@ There are a few variables that you need to set:
 
 * `COLLABORATION_WOPI_SHORTTOKENS`:\
   Needs to be set if the office application like `Microsoft Office Online` complains about the URL is too long  (which contains the access token) and refuses to work. If enabled, a store must be configured.
+
+* `COLLABORATION_WOPI_ENABLE_MOBILE`:\
+  Enables the mobile web view of the office web frontend. Only applies to EuroOffice. `ce` offers the mobile view for reading only, `de` and `ee` also for editing, so set `COLLABORATION_APP_PRODUCT_EDITION` accordingly.
+
+* `COLLABORATION_WOPI_DISABLED_EXTENSIONS`:\
+  A comma separated list of file extensions the app must not offer, even though the document server announces them.\
+  The webUI offers no editor of this app for them and opening such a file with it fails.\
+  For example: `COLLABORATION_WOPI_DISABLED_EXTENSIONS=docx,xlsx,pptx`.
 
 The application can be customized further by changing the `COLLABORATION_APP_*` options to better describe the application.
 

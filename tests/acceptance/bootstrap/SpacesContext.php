@@ -32,6 +32,10 @@ use TestHelpers\WebDavHelper;
 use TestHelpers\GraphHelper;
 use TestHelpers\OcHelper;
 use TestHelpers\BehatHelper;
+use TestHelpers\WaitHelper;
+use Behat\Step\Given;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -43,15 +47,18 @@ class SpacesContext implements Context {
 	private OCSContext $ocsContext;
 	private TrashbinContext $trashbinContext;
 	private WebDavPropertiesContext $webDavPropertiesContext;
-	private FavoritesContext $favoritesContext;
 	private ChecksumContext $checksumContext;
 	private FilesVersionsContext $filesVersionsContext;
 	private ArchiverContext $archiverContext;
+	private SearchContext $searchContext;
 
 	/**
 	 * key is space name and value is the username that created the space
 	 */
 	private array $createdSpaces = [];
+	// the request of the last driveItem GET, so a later "should eventually
+	// match" step can re-run it (the counterpart of the stored response)
+	private array $lastDriveItemRequest = [];
 	private string $ocsApiUrl = '/ocs/v2.php/apps/files_sharing/api/v1/shares';
 
 	/**
@@ -301,6 +308,69 @@ class SpacesContext implements Context {
 	}
 
 	/**
+	 * @param string $user
+	 * @param string $share
+	 *
+	 * @return string
+	 *
+	 * @throws Exception|GuzzleException
+	 */
+	public function getSharesRemoteItemParentDriveId(string $user, string $share): string {
+		$credentials = $this->featureContext->graphContext->getAdminOrUserCredentials($user);
+		$response = GraphHelper::getSharesSharedWithMe(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			$credentials['username'],
+			$credentials['password']
+		);
+
+		$jsonBody = $this->featureContext->getJsonDecodedResponseBodyContent($response);
+
+		// Search parent driveId of a given share's remoteItem
+		foreach ($jsonBody->value as $item) {
+			if (isset($item->name) && $item->name === $share) {
+				if (isset($item->remoteItem->parentReference->driveId)) {
+					return $item->remoteItem->parentReference->driveId;
+				}
+				throw new Exception("Failed to find remoteItem parent driveId for share: $share");
+			}
+		}
+
+		throw new Exception("Cannot find share: $share");
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $share
+	 *
+	 * @return string
+	 *
+	 * @throws Exception|GuzzleException
+	 */
+	public function getSharesMountId(string $user, string $share): string {
+		$credentials = $this->featureContext->graphContext->getAdminOrUserCredentials($user);
+		$response = GraphHelper::getSharesSharedWithMe(
+			$this->featureContext->getBaseUrl(),
+			$this->featureContext->getStepLineRef(),
+			$credentials['username'],
+			$credentials['password']
+		);
+
+		$jsonBody = $this->featureContext->getJsonDecodedResponseBodyContent($response);
+
+		foreach ($jsonBody->value as $item) {
+			if (isset($item->name) && $item->name === $share) {
+				if (isset($item->id)) {
+					return $item->id;
+				}
+				throw new Exception("Failed to find mount ID for share: $share");
+			}
+		}
+
+		throw new Exception("Cannot find share: $share");
+	}
+
+	/**
 	 * The method finds file by fileName and spaceName and returns data of file which contains in responseHeader
 	 * fileName contains the path, if the file is in the folder
 	 *
@@ -472,10 +542,10 @@ class SpacesContext implements Context {
 		$this->ocsContext = BehatHelper::getContext($scope, $environment, 'OCSContext');
 		$this->trashbinContext = BehatHelper::getContext($scope, $environment, 'TrashbinContext');
 		$this->webDavPropertiesContext = BehatHelper::getContext($scope, $environment, 'WebDavPropertiesContext');
-		$this->favoritesContext = BehatHelper::getContext($scope, $environment, 'FavoritesContext');
 		$this->checksumContext = BehatHelper::getContext($scope, $environment, 'ChecksumContext');
 		$this->filesVersionsContext = BehatHelper::getContext($scope, $environment, 'FilesVersionsContext');
 		$this->archiverContext = BehatHelper::getContext($scope, $environment, 'ArchiverContext');
+		$this->searchContext = BehatHelper::getContext($scope, $environment, 'SearchContext');
 	}
 
 	/**
@@ -594,8 +664,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" lists all available spaces via the Graph API$/
-	 * @When /^user "([^"]*)" lists all available spaces via the Graph API with query "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $query
@@ -605,12 +673,13 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :user lists all available spaces via the Graph API')]
+	#[When('user :user lists all available spaces via the Graph API with query :query')]
 	public function theUserListsAllHisAvailableSpacesUsingTheGraphApi(string $user, string $query = ''): void {
 		$this->featureContext->setResponse($this->listAllAvailableSpacesOfUser($user, $query));
 	}
 
 	/**
-	 * @When /^user "([^"]*)" lists all available spaces with headers using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param TableNode $headersTable
@@ -620,6 +689,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :user lists all available spaces with headers using the Graph API')]
 	public function theUserListsAllHisAvailableSpacesWithHeadersUsingTheGraphApi(
 		string $user,
 		TableNode $headersTable
@@ -659,9 +729,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" lists all spaces via the Graph API$/
-	 * @When /^user "([^"]*)" lists all spaces via the Graph API with query "([^"]*)"$/
-	 * @When /^user "([^"]*)" tries to list all spaces via the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $query
@@ -671,6 +738,9 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :user lists all spaces via the Graph API')]
+	#[When('user :user lists all spaces via the Graph API with query :query')]
+	#[When('user :user tries to list all spaces via the Graph API')]
 	public function theUserListsAllAvailableSpacesUsingTheGraphApi(string $user, string $query = ''): void {
 		$this->featureContext->setResponse(
 			$this->listAllAvailableSpaces($user, $query)
@@ -678,8 +748,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" looks up the single space "([^"]*)" via the Graph API by using its id$/
-	 * @When /^user "([^"]*)" tries to look up the single space "([^"]*)" owned by the user "([^"]*)" by using its id$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -688,6 +756,8 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user looks up the single space :spaceName via the Graph API by using its id')]
+	#[When('user :user tries to look up the single space :spaceName owned by the user :ownerUser by using its id')]
 	public function theUserLooksUpTheSingleSpaceUsingTheGraphApiByUsingItsId(
 		string $user,
 		string $spaceName,
@@ -709,8 +779,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" (?:creates|tries to create) a space "([^"]*)" of type "([^"]*)" with quota "([^"]*)" using the Graph API$/
-	 * @When /^user "([^"]*)" (?:creates|tries to create) a space "([^"]*)" of type "([^"]*)" with the default quota using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -722,6 +790,8 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" (?:creates|tries to create) a space "([^"]*)" of type "([^"]*)" with quota "([^"]*)" using the Graph API$/')]
+	#[When('/^user "([^"]*)" (?:creates|tries to create) a space "([^"]*)" of type "([^"]*)" with the default quota using the Graph API$/')]
 	public function theUserCreatesASpaceWithQuotaUsingTheGraphApi(
 		string $user,
 		string $spaceName,
@@ -790,7 +860,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" lists the content of the space with the name "([^"]*)" using the WebDav Api$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -799,6 +868,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user lists the content of the space with the name :spaceName using the WebDav Api')]
 	public function theUserListsTheContentOfAPersonalSpaceRootUsingTheWebDAvApi(
 		string $user,
 		string $spaceName,
@@ -808,7 +878,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" sends PATCH request to the space "([^"]*)" of user "([^"]*)" with data "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -818,6 +887,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user sends PATCH request to the space :spaceName of user :owner with data :data')]
 	public function userSendsPatchRequestToTheSpaceOfUserWithData(
 		string $user,
 		string $spaceName,
@@ -842,27 +912,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then /^the (?:propfind|search) result of the space should (not|)\s?contain these (?:files|entries):$/
-	 *
-	 * @param string    $shouldOrNot   (not|)
-	 * @param TableNode $expectedFiles
-	 *
-	 * @return void
-	 *
-	 * @throws Exception
-	 */
-	public function thePropfindResultShouldContainEntries(
-		string $shouldOrNot,
-		TableNode $expectedFiles
-	): void {
-		$this->featureContext->propfindResultShouldContainEntries(
-			$shouldOrNot,
-			$expectedFiles,
-		);
-	}
-
-	/**
-	 * @Then /^for user "([^"]*)" the space "([^"]*)" should (not|)\s?contain these (?:files|entries):$/
 	 *
 	 * @param string    $user
 	 * @param string    $spaceName
@@ -873,6 +922,7 @@ class SpacesContext implements Context {
 	 *
 	 * @throws Exception|GuzzleException
 	 */
+	#[Then('/^for user "([^"]*)" the space "([^"]*)" should (not|)\\s?contain these (?:files|entries):$/')]
 	public function userTheSpaceShouldContainEntries(
 		string $user,
 		string $spaceName,
@@ -892,7 +942,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then /^for user "([^"]*)" folder "([^"]*)" of the space "([^"]*)" should (not|)\s?contain these (?:files|entries):$/
 	 *
 	 * @param string    $user
 	 * @param string    $folderPath
@@ -904,6 +953,7 @@ class SpacesContext implements Context {
 	 *
 	 * @throws Exception|GuzzleException
 	 */
+	#[Then('/^for user "([^"]*)" folder "([^"]*)" of the space "([^"]*)" should (not|)\\s?contain these (?:files|entries):$/')]
 	public function folderOfTheSpaceShouldContainEntries(
 		string $user,
 		string $folderPath,
@@ -924,7 +974,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then /^for user "([^"]*)" the content of the file "([^"]*)" of the space "([^"]*)" should be "([^"]*)"$/
 	 *
 	 * @param string    $user
 	 * @param string    $file
@@ -935,6 +984,7 @@ class SpacesContext implements Context {
 	 *
 	 * @throws Exception|GuzzleException
 	 */
+	#[Then('for user :user the content of the file :file of the space :spaceName should be :fileContent')]
 	public function checkFileContent(
 		string $user,
 		string $file,
@@ -946,7 +996,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then /^for user "([^"]*)" the content of file "([^"]*)" of federated share "([^"]*)" should be "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -957,6 +1006,7 @@ class SpacesContext implements Context {
 	 *
 	 * @throws Exception|GuzzleException
 	 */
+	#[Then('for user :user the content of file :file of federated share :share should be :fileContent')]
 	public function forUserTheContentOfFileOfFederatedShareShouldBe(
 		string $user,
 		string $file,
@@ -973,7 +1023,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then /^the JSON response should contain space called "([^"]*)" (?:|(?:owned by|granted to) "([^"]*)" )(?:|(?:with description file|with space image) "([^"]*)" )and match$/
 	 *
 	 * @param string $spaceName
 	 * @param string|null $userName
@@ -982,6 +1031,7 @@ class SpacesContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[Then('/^the JSON response should contain space called "([^"]*)" (?:|(?:owned by|granted to) "([^"]*)" )(?:|(?:with description file|with space image) "([^"]*)" )and match$/')]
 	public function theJsonDataFromLastResponseShouldMatch(
 		string $spaceName,
 		?string $userName = null,
@@ -1046,7 +1096,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then /^the user "([^"]*)" should have a space called "([^"]*)" granted to "([^"]*)" with role "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -1056,6 +1105,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[Then('the user :user should have a space called :spaceName granted to :grantedUser with role :role')]
 	public function checkPermissionsInResponse(
 		string $user,
 		string $spaceName,
@@ -1087,13 +1137,13 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then /^the json response should not contain a space with name "([^"]*)"$/
 	 *
 	 * @param string $spaceName
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the json response should not contain a space with name :spaceName')]
 	public function jsonRespondedShouldNotContain(
 		string $spaceName
 	): void {
@@ -1104,7 +1154,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then /^the user "([^"]*)" should (not |)have a space called "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $shouldOrNot
@@ -1113,6 +1162,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^the user "([^"]*)" should (not |)have a space called "([^"]*)"$/')]
 	public function userShouldNotHaveSpace(
 		string $user,
 		string $shouldOrNot,
@@ -1138,7 +1188,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then /^the user "([^"]*)" should have a space "([^"]*)" in the disable state$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -1146,6 +1195,7 @@ class SpacesContext implements Context {
 	 * @return mixed
 	 * @throws Exception
 	 */
+	#[Then('the user :user should have a space :spaceName in the disable state')]
 	public function theUserShouldHaveASpaceInTheDisableState(
 		string $user,
 		string $spaceName
@@ -1173,7 +1223,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then /^the json response should (not|only|)\s?contain spaces of type "([^"]*)"$/
 	 *
 	 * @param string $onlyOrNot (not|only|)
 	 * @param string $type
@@ -1181,6 +1230,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^the json response should (not|only|)\\s?contain spaces of type "([^"]*)"$/')]
 	public function jsonRespondedShouldNotContainSpaceType(
 		string $onlyOrNot,
 		string $type
@@ -1249,7 +1299,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" creates a (?:folder|subfolder) "([^"]*)" in space "([^"]*)" using the WebDav Api$/
 	 *
 	 * @param string $user
 	 * @param string $folder
@@ -1259,6 +1308,7 @@ class SpacesContext implements Context {
 	 *
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" creates a (?:folder|subfolder) "([^"]*)" in space "([^"]*)" using the WebDav Api$/')]
 	public function theUserCreatesAFolderUsingTheGraphApi(
 		string $user,
 		string $folder,
@@ -1275,7 +1325,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" tries to create subfolder "([^"]*)" in a nonexistent folder of the space "([^"]*)" using the WebDav Api$/
 	 *
 	 * @param string $user
 	 * @param string $subfolder
@@ -1285,6 +1334,7 @@ class SpacesContext implements Context {
 	 *
 	 * @throws GuzzleException
 	 */
+	#[When('user :user tries to create subfolder :subfolder in a nonexistent folder of the space :spaceName using the WebDav Api')]
 	public function theUserTriesToCreateASubFolderUsingTheGraphApi(
 		string $user,
 		string $subfolder,
@@ -1295,7 +1345,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has created a (?:folder|subfolder) "([^"]*)" in space "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $folder
@@ -1305,6 +1354,7 @@ class SpacesContext implements Context {
 	 *
 	 * @throws GuzzleException
 	 */
+	#[Given('/^user "([^"]*)" has created a (?:folder|subfolder) "([^"]*)" in space "([^"]*)"$/')]
 	public function userHasCreatedAFolderInSpace(
 		string $user,
 		string $folder,
@@ -1348,7 +1398,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" creates a folder "([^"]*)" in space "([^"]*)" owned by the user "([^"]*)" using the WebDav Api$/
 	 *
 	 * @param string $user
 	 * @param string $folder
@@ -1359,6 +1408,7 @@ class SpacesContext implements Context {
 	 *
 	 * @throws GuzzleException
 	 */
+	#[When('user :user creates a folder :folder in space :spaceName owned by the user :ownerUser using the WebDav Api')]
 	public function theUserCreatesAFolderToAnotherOwnerSpaceUsingTheGraphApi(
 		string $user,
 		string $folder,
@@ -1370,7 +1420,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" uploads a file inside space "([^"]*)" with content "([^"]*)" to "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -1381,6 +1430,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :user uploads a file inside space :spaceName with content :content to :destination using the WebDAV API')]
 	public function theUserUploadsAFileToSpace(
 		string $user,
 		string $spaceName,
@@ -1393,7 +1443,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When user :user updates the content of federated share :share with :content using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $share
@@ -1403,6 +1452,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :user updates the content of federated share :share with :content using the WebDAV API')]
 	public function userUpdatesTheContentOfFederatedShareWithUsingTheWebdavApi(
 		string $user,
 		string $share,
@@ -1420,7 +1470,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" uploads a file "([^"]*)" to "([^"]*)" in space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -1431,6 +1480,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :user uploads a file :source to :destination in space :spaceName using the WebDAV API')]
 	public function theUserUploadsALocalFileToSpace(
 		string $user,
 		string $source,
@@ -1443,7 +1493,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has uploaded a file :source to :destination in space :spaceName
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -1454,6 +1503,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[Given('user :user has uploaded a file :source to :destination in space :spaceName')]
 	public function userHasUploadedAFileToInSpaceUsingTheWebdavApi(
 		string $user,
 		string $source,
@@ -1470,7 +1520,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" uploads a file inside space "([^"]*)" owned by the user "([^"]*)" with content "([^"]*)" to "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -1482,6 +1531,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :user uploads a file inside space :spaceName owned by the user :ownerUser with content :content to :destination using the WebDAV API')]
 	public function theUserUploadsAFileToAnotherOwnerSpace(
 		string $user,
 		string $spaceName,
@@ -1562,8 +1612,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" (?:changes|tries to change) the name of the "([^"]*)" space to "([^"]*)"$/
-	 * @When /^user "([^"]*)" (?:changes|tries to change) the name of the "([^"]*)" space to "([^"]*)" owned by user "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -1574,6 +1622,8 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" (?:changes|tries to change) the name of the "([^"]*)" space to "([^"]*)"$/')]
+	#[When('/^user "([^"]*)" (?:changes|tries to change) the name of the "([^"]*)" space to "([^"]*)" owned by user "([^"]*)"$/')]
 	public function updateSpaceName(
 		string $user,
 		string $spaceName,
@@ -1587,8 +1637,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" (?:changes|tries to change) the description of the "([^"]*)" space to "([^"]*)"$/
-	 * @When /^user "([^"]*)" (?:changes|tries to change) the description of the "([^"]*)" space to "([^"]*)" owned by user "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -1599,6 +1647,8 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[When('/^user "([^"]*)" (?:changes|tries to change) the description of the "([^"]*)" space to "([^"]*)"$/')]
+	#[When('/^user "([^"]*)" (?:changes|tries to change) the description of the "([^"]*)" space to "([^"]*)" owned by user "([^"]*)"$/')]
 	public function updateSpaceDescription(
 		string $user,
 		string $spaceName,
@@ -1612,7 +1662,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has changed the description of the "([^"]*)" space to "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -1622,6 +1671,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[Given('user :user has changed the description of the :spaceName space to :newDescription')]
 	public function userHasChangedDescription(
 		string $user,
 		string $spaceName,
@@ -1637,8 +1687,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" (?:changes|tries to change) the quota of the "([^"]*)" space to "([^"]*)"$/
-	 * @When /^user "([^"]*)" (?:changes|tries to change) the quota of the "([^"]*)" space to "([^"]*)" owned by user "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -1649,6 +1697,8 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" (?:changes|tries to change) the quota of the "([^"]*)" space to "([^"]*)"$/')]
+	#[When('/^user "([^"]*)" (?:changes|tries to change) the quota of the "([^"]*)" space to "([^"]*)" owned by user "([^"]*)"$/')]
 	public function updateSpaceQuota(
 		string $user,
 		string $spaceName,
@@ -1662,7 +1712,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When user :user changes the quota of the personal space of user :targetUser to :newQuota using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $targetUser
@@ -1672,6 +1721,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :user changes the quota of the personal space of user :targetUser to :newQuota using the Graph API')]
 	public function updatePersonalSpaceQuota(
 		string $user,
 		string $targetUser,
@@ -1684,7 +1734,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has changed the quota of the personal space of user :targetUser to :newQuota
 	 *
 	 * @param string $user
 	 * @param string $targetUser
@@ -1694,6 +1743,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[Given('user :user has changed the quota of the personal space of user :targetUser to :newQuota')]
 	public function userHasChangedTheQuotaOfTheSpaceTo(
 		string $user,
 		string $targetUser,
@@ -1747,7 +1797,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" sets the file "([^"]*)" as a (description|space image)\s? in a special section of the "([^"]*)" space$/
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -1758,6 +1807,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" sets the file "([^"]*)" as a (description|space image)\\s? in a special section of the "([^"]*)" space$/')]
 	public function userSetsFileAsDescriptionOrImageInSpecialSectionOfSpace(
 		string $user,
 		string $file,
@@ -1775,7 +1825,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has set the file "([^"]*)" as a (description|space image)\s? in a special section of the "([^"]*)" space$/
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -1786,6 +1835,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[Given('/^user "([^"]*)" has set the file "([^"]*)" as a (description|space image)\\s? in a special section of the "([^"]*)" space$/')]
 	public function userHasUpdatedSpaceSpecialSection(
 		string $user,
 		string $file,
@@ -1801,7 +1851,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has created a space "([^"]*)" of type "([^"]*)" with quota "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -1811,6 +1860,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has created a space :spaceName of type :spaceType with quota :quota')]
 	public function userHasCreatedSpace(
 		string $user,
 		string $spaceName,
@@ -1827,7 +1877,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has created a space "([^"]*)" with the default quota using the Graph API$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -1837,6 +1886,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[Given('user :user has created a space :spaceName with the default quota using the Graph API')]
 	public function theUserHasCreatedASpaceByDefaultUsingTheGraphApi(
 		string $user,
 		string $spaceName
@@ -1879,7 +1929,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" copies (?:file|folder) "([^"]*)" to "([^"]*)" inside space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $fileSource
@@ -1889,6 +1938,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" copies (?:file|folder) "([^"]*)" to "([^"]*)" inside space "([^"]*)" using the WebDAV API$/')]
 	public function userCopiesFileWithinSpaceUsingTheWebDAVAPI(
 		string $user,
 		string $fileSource,
@@ -1942,7 +1992,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" moves (?:file|folder) "([^"]*)" to "([^"]*)" in space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $fileSource
@@ -1952,6 +2001,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" moves (?:file|folder) "([^"]*)" to "([^"]*)" in space "([^"]*)" using the WebDAV API$/')]
 	public function userMovesFileWithinSpaceUsingTheWebDAVAPI(
 		string $user,
 		string $fileSource,
@@ -1970,7 +2020,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has moved (?:file|folder) "([^"]*)" to "([^"]*)" in space "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $fileSource
@@ -1980,6 +2029,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Given('/^user "([^"]*)" has moved (?:file|folder) "([^"]*)" to "([^"]*)" in space "([^"]*)"$/')]
 	public function userHasMovedFileWithinSpaceUsingTheWebDAVAPI(
 		string $user,
 		string $fileSource,
@@ -2023,8 +2073,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" copies (?:file|folder) "([^"]*)" from space "([^"]*)" to "([^"]*)" inside space "([^"]*)" using the WebDAV API$/
-	 * @When /^user "([^"]*)" copies (?:file|folder) "([^"]*)" from space "([^"]*)" to "([^"]*)" inside space "([^"]*)"(?: with following headers) using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $fileSource
@@ -2036,6 +2084,8 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" copies (?:file|folder) "([^"]*)" from space "([^"]*)" to "([^"]*)" inside space "([^"]*)" using the WebDAV API$/')]
+	#[When('/^user "([^"]*)" copies (?:file|folder) "([^"]*)" from space "([^"]*)" to "([^"]*)" inside space "([^"]*)"(?: with following headers) using the WebDAV API$/')]
 	public function userCopiesFileFromAndToSpaceBetweenSpaces(
 		string $user,
 		string $fileSource,
@@ -2070,7 +2120,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" overwrites file "([^"]*)" from space "([^"]*)" to "([^"]*)" inside space "([^"]*)" while (copying|moving)\s? using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $fileSource
@@ -2082,6 +2131,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" overwrites file "([^"]*)" from space "([^"]*)" to "([^"]*)" inside space "([^"]*)" while (copying|moving)\\s? using the WebDAV API$/')]
 	public function userOverwritesFileFromAndToSpaceBetweenSpaces(
 		string $user,
 		string $fileSource,
@@ -2113,7 +2163,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" (should|should not) be able to download file "([^"]*)" from space "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $shouldOrNot
@@ -2123,6 +2172,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Then('/^user "([^"]*)" (should|should not) be able to download file "([^"]*)" from space "([^"]*)"$/')]
 	public function userShouldOrShouldNotBeAbleToDownloadFileFromSpace(
 		string $user,
 		string $shouldOrNot,
@@ -2148,20 +2198,19 @@ class SpacesContext implements Context {
 				400,
 				$response->getStatusCode(),
 				__METHOD__
-				. ' download must fail'
+				. '  download must fail'
 			);
 			Assert::assertLessThanOrEqual(
 				499,
 				$response->getStatusCode(),
 				__METHOD__
-				. ' 4xx error expected but got status code "'
+				. '  4xx error expected but got status code "'
 				. $response->getStatusCode() . '"'
 			);
 		}
 	}
 
 	/**
-	 * @When /^user "([^"]*)" moves (?:file|folder) "([^"]*)" from space "([^"]*)" to "([^"]*)" inside space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $fileSource
@@ -2172,6 +2221,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" moves (?:file|folder) "([^"]*)" from space "([^"]*)" to "([^"]*)" inside space "([^"]*)" using the WebDAV API$/')]
 	public function userMovesFileFromAndToSpaceBetweenSpaces(
 		string $user,
 		string $fileSource,
@@ -2241,7 +2291,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" (copies|moves) file with id "([^"]*)" as "([^"]*)" into folder "([^"]*)" inside space "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $actionType
@@ -2253,6 +2302,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" (copies|moves) file with id "([^"]*)" as "([^"]*)" into folder "([^"]*)" inside space "([^"]*)"$/')]
 	public function userCopiesOrMovesFileWithIdAsIntoFolderInsideSpace(
 		string $user,
 		string $actionType,
@@ -2291,7 +2341,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" renames file with id "([^"]*)" to "([^"]*)" inside space "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $fileId
@@ -2301,6 +2350,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @return void
 	 */
+	#[Given('user :user renames file with id :fileId to :destinationFile inside space :spaceName')]
 	public function userRenamesFileWithIdToInsideSpace(
 		string $user,
 		string $fileId,
@@ -2330,7 +2380,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has (copied|moved) file with id "([^"]*)" as "([^"]*)" into folder "([^"]*)" inside space "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $actionType
@@ -2342,6 +2391,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @return void
 	 */
+	#[Given('/^user "([^"]*)" has (copied|moved) file with id "([^"]*)" as "([^"]*)" into folder "([^"]*)" inside space "([^"]*)"$/')]
 	public function userHasCopiedOrMovedFileInsideSpaceUsingFileId(
 		string $user,
 		string $actionType,
@@ -2383,7 +2433,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has renamed file with id "([^"]*)" to "([^"]*)" inside space "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $fileId
@@ -2393,6 +2442,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @return void
 	 */
+	#[Given('user :user has renamed file with id :fileId to :destinationFile inside space :spaceName')]
 	public function userHasRenamedFileInsideSpaceUsingFileId(
 		string $user,
 		string $fileId,
@@ -2427,8 +2477,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" tries to move (?:file|folder) "([^"]*)" of space "([^"]*)" to (space|folder) "([^"]*)" using its id in destination path$/
-	 * @When /^user "([^"]*)" moves (?:file|folder) "([^"]*)" of space "([^"]*)" to (folder) "([^"]*)" using its id in destination path$/
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -2439,6 +2487,8 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" tries to move (?:file|folder) "([^"]*)" of space "([^"]*)" to (space|folder) "([^"]*)" using its id in destination path$/')]
+	#[When('/^user "([^"]*)" moves (?:file|folder) "([^"]*)" of space "([^"]*)" to (folder) "([^"]*)" using its id in destination path$/')]
 	public function userMovesFileToResourceUsingItsIdAsDestinationPath(
 		string $user,
 		string $source,
@@ -2469,7 +2519,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has uploaded a file inside space "([^"]*)" with content "([^"]*)" to "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -2479,6 +2528,7 @@ class SpacesContext implements Context {
 	 * @return array
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has uploaded a file inside space :spaceName with content :fileContent to :destination')]
 	public function userHasUploadedFile(
 		string $user,
 		string $spaceName,
@@ -2500,8 +2550,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" shares a space "([^"]*)" with settings:$/
-	 * @When /^user "([^"]*)" updates the space "([^"]*)" with settings:$/
 	 *
 	 * @param  string $user
 	 * @param  string $spaceName
@@ -2510,6 +2558,8 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user shares a space :spaceName with settings:')]
+	#[When('user :user updates the space :spaceName with settings:')]
 	public function sendShareSpaceRequest(
 		string $user,
 		string $spaceName,
@@ -2558,7 +2608,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" expires the (user|group) share of space "([^"]*)" for (?:user|group) "([^"]*)"$/
 	 *
 	 * @param  string $user
 	 * @param  string $shareType
@@ -2568,6 +2617,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" expires the (user|group) share of space "([^"]*)" for (?:user|group) "([^"]*)"$/')]
 	public function userExpiresTheShareOfSpaceForUser(
 		string $user,
 		string $shareType,
@@ -2628,7 +2678,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" creates a share inside of space "([^"]*)" with settings:$/
 	 *
 	 * @param  string $user
 	 * @param  string $spaceName
@@ -2637,6 +2686,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user creates a share inside of space :spaceName with settings:')]
 	public function userCreatesShareInsideOfSpaceWithSettings(
 		string $user,
 		string $spaceName,
@@ -2648,26 +2698,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has created a share inside of space "([^"]*)" with settings:$/
-	 *
-	 * @param  string $user
-	 * @param  string $spaceName
-	 * @param TableNode $table
-	 *
-	 * @return void
-	 * @throws GuzzleException
-	 */
-	public function userHasSharedTheFollowingEntityInsideOfSpace(
-		string $user,
-		string $spaceName,
-		TableNode $table
-	): void {
-		$response = $this->createShareResource($user, $spaceName, $table);
-		$this->featureContext->theHTTPStatusCodeShouldBe(200, "", $response);
-	}
-
-	/**
-	 * @When /^user "([^"]*)" changes the last share with settings:$/
 	 *
 	 * @param  string $user
 	 * @param TableNode $table
@@ -2675,6 +2705,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user changes the last share with settings:')]
 	public function changeShareResourceWithSettings(
 		string $user,
 		TableNode $table
@@ -2709,7 +2740,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When user :user expires the last share of resource :resource inside of the space :spaceName
 	 *
 	 * @param string $user
 	 * @param string $resource
@@ -2718,6 +2748,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException|JsonException
 	 */
+	#[When('user :user expires the last share of resource :resource inside of the space :spaceName')]
 	public function userExpiresTheLastShareOfResourceInsideOfTheSpace(
 		string $user,
 		string $resource,
@@ -2797,7 +2828,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" creates a public link share inside of space "([^"]*)" with settings:$/
 	 *
 	 * @param  string $user
 	 * @param  string $spaceName
@@ -2806,6 +2836,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user creates a public link share inside of space :spaceName with settings:')]
 	public function userCreatesPublicLinkShareInsideOfSpaceWithSettings(
 		string $user,
 		string $spaceName,
@@ -2813,53 +2844,6 @@ class SpacesContext implements Context {
 	): void {
 		$this->featureContext->setResponse(
 			$this->createPublicLinkToEntityInsideOfSpaceRequest($user, $spaceName, $table)
-		);
-	}
-
-	/**
-	 * @Given /^user "([^"]*)" has created a public link share inside of space "([^"]*)" with settings:$/
-	 *
-	 * @param  string $user
-	 * @param  string $spaceName
-	 * @param TableNode $table
-	 *
-	 * @return void
-	 * @throws GuzzleException
-	 */
-	public function userHasCreatedPublicLinkToEntityInsideOfSpaceRequest(
-		string $user,
-		string $spaceName,
-		TableNode $table
-	): void {
-		$response = $this->createPublicLinkToEntityInsideOfSpaceRequest($user, $spaceName, $table);
-
-		$this->featureContext->theHTTPStatusCodeShouldBe(
-			200,
-			"Expected response status code should be 200",
-			$response
-		);
-	}
-
-	/**
-	 * @Given user :user has unshared a space :spaceName shared with :recipient
-	 *
-	 * @param  string $user
-	 * @param  string $spaceName
-	 * @param  string $recipient
-	 *
-	 * @return void
-	 * @throws GuzzleException
-	 */
-	public function userHasUnsharedASpaceSharedWith(
-		string $user,
-		string $spaceName,
-		string $recipient
-	): void {
-		$response = $this->sendUnshareSpaceRequest($user, $spaceName, $recipient);
-		$this->featureContext->theHTTPStatusCodeShouldBe(
-			200,
-			"Expected response status code should be 200",
-			$response
 		);
 	}
 
@@ -2889,7 +2873,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" unshares a space "([^"]*)" to (?:user|group) "([^"]*)"$/
 	 *
 	 * @param  string $user
 	 * @param  string $spaceName
@@ -2898,6 +2881,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" unshares a space "([^"]*)" to (?:user|group) "([^"]*)"$/')]
 	public function userUnsharesSpace(
 		string $user,
 		string $spaceName,
@@ -2937,7 +2921,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" removes the (?:file|folder) "([^"]*)" from space "([^"]*)"$/
 	 *
 	 * @param  string $user
 	 * @param  string $object
@@ -2946,6 +2929,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" removes the (?:file|folder) "([^"]*)" from space "([^"]*)"$/')]
 	public function userRemovesFileOrFolderFromSpace(
 		string $user,
 		string $object,
@@ -2957,7 +2941,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has deleted a space "([^"]*)"$/
 	 *
 	 * @param  string $user
 	 * @param  string $spaceName
@@ -2965,6 +2948,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has deleted a space :spaceName')]
 	public function userHasDeletedASpaceOwnedByUser(
 		string $user,
 		string $spaceName
@@ -3001,8 +2985,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" disables a space "([^"]*)"$/
-	 * @When /^user "([^"]*)" (?:disables|tries to disable) a space "([^"]*)" owned by user "([^"]*)"$/
 	 *
 	 * @param  string $user
 	 * @param  string $spaceName
@@ -3011,6 +2993,8 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user disables a space :spaceName')]
+	#[When('/^user "([^"]*)" (?:disables|tries to disable) a space "([^"]*)" owned by user "([^"]*)"$/')]
 	public function userDisablesSpace(
 		string $user,
 		string $spaceName,
@@ -3022,7 +3006,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has removed the (?:file|folder) "([^"]*)" from space "([^"]*)"$/
 	 *
 	 * @param  string $user
 	 * @param  string $object
@@ -3031,6 +3014,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Given('/^user "([^"]*)" has removed the (?:file|folder) "([^"]*)" from space "([^"]*)"$/')]
 	public function userHasRemovedFileOrFolderFromSpace(
 		string $user,
 		string $object,
@@ -3046,7 +3030,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has disabled a space "([^"]*)"$/
 	 *
 	 * @param  string $user
 	 * @param  string $spaceName
@@ -3054,6 +3037,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has disabled a space :spaceName')]
 	public function sendUserHasDisabledSpaceRequest(
 		string $user,
 		string $spaceName
@@ -3092,8 +3076,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" deletes a space "([^"]*)"$/
-	 * @When /^user "([^"]*)" (?:deletes|tries to delete) a space "([^"]*)" owned by user "([^"]*)"$/
 	 *
 	 * @param  string $user
 	 * @param  string $spaceName
@@ -3102,6 +3084,8 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user deletes a space :spaceName')]
+	#[When('/^user "([^"]*)" (?:deletes|tries to delete) a space "([^"]*)" owned by user "([^"]*)"$/')]
 	public function userDeletesSpace(
 		string $user,
 		string $spaceName,
@@ -3136,8 +3120,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" restores a disabled space "([^"]*)"$/
-	 * @When /^user "([^"]*)" (?:restores|tries to restore) a disabled space "([^"]*)" owned by user "([^"]*)"$/
 	 *
 	 * @param  string $user
 	 * @param  string $spaceName
@@ -3146,6 +3128,8 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user restores a disabled space :spaceName')]
+	#[When('/^user "([^"]*)" (?:restores|tries to restore) a disabled space "([^"]*)" owned by user "([^"]*)"$/')]
 	public function userRestoresADisabledSpace(
 		string $user,
 		string $spaceName,
@@ -3153,28 +3137,6 @@ class SpacesContext implements Context {
 	): void {
 		$this->featureContext->setResponse(
 			$this->restoreSpace($user, $spaceName, $owner)
-		);
-	}
-
-	/**
-	 * @Given /^user "([^"]*)" has restored a disabled space "([^"]*)"$/
-	 *
-	 * @param  string $user
-	 * @param  string $spaceName
-	 *
-	 * @return void
-	 * @throws GuzzleException
-	 */
-	public function userHasRestoredSpaceRequest(
-		string $user,
-		string $spaceName
-	): void {
-		$response = $this->restoreSpace($user, $spaceName);
-		$expectedHTTPStatus = "200";
-		$this->featureContext->theHTTPStatusCodeShouldBe(
-			$expectedHTTPStatus,
-			"Expected response status code should be $expectedHTTPStatus",
-			$response
 		);
 	}
 
@@ -3207,7 +3169,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" lists all deleted files in the trash bin of the space "([^"]*)"$/
 	 *
 	 * @param  string $user
 	 * @param  string $spaceName
@@ -3215,6 +3176,8 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user lists all deleted files in the trash bin of the space :spaceName')]
+	#[When('user :user tries to list all deleted files in the trash bin of the space :spaceName')]
 	public function userListAllDeletedFilesInTrash(
 		string $user,
 		string $spaceName
@@ -3225,7 +3188,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" with admin permission lists all deleted files in the trash bin of the space "([^"]*)"$/
 	 *
 	 * @param  string $user
 	 * @param  string $spaceName
@@ -3233,6 +3195,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user with admin permission lists all deleted files in the trash bin of the space :spaceName')]
 	public function adminListAllDeletedFilesInTrash(
 		string $user,
 		string $spaceName
@@ -3291,7 +3254,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then /^as "([^"]*)" (?:file|folder|entry) "([^"]*)" should (not|)\s?exist in the trashbin of the space "([^"]*)"$/
 	 *
 	 * @param  string $user
 	 * @param  string $object
@@ -3301,6 +3263,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Then('/^as "([^"]*)" (?:file|folder|entry) "([^"]*)" should (not|)\\s?exist in the trashbin of the space "([^"]*)"$/')]
 	public function checkExistenceOfObjectsInTrashbin(
 		string $user,
 		string $object,
@@ -3323,7 +3286,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" restores the (?:file|folder) "([^"]*)" from the trash of the space "([^"]*)" to "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $object
@@ -3334,6 +3296,8 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" restores the (?:file|folder) "([^"]*)" from the trash of the space "([^"]*)" to "([^"]*)"$/')]
+	#[When('/^user "([^"]*)" tries to restore the (?:file|folder) "([^"]*)" from the trash of the space "([^"]*)" to "([^"]*)"$/')]
 	public function userRestoresSpaceObjectsFromTrashRequest(
 		string $user,
 		string $object,
@@ -3341,9 +3305,10 @@ class SpacesContext implements Context {
 		string $destination
 	): void {
 		$space = $this->getSpaceByName($user, $spaceName);
+		$spaceOwner = $this->getSpaceCreator($spaceName);
 
 		// find object in trash
-		$objectsInTrash = $this->getObjectsInTrashbin($user, $spaceName);
+		$objectsInTrash = $this->getObjectsInTrashbin($spaceOwner, $spaceName);
 		$pathToDeletedObject = "";
 		foreach ($objectsInTrash as $objectInTrash) {
 			if ($objectInTrash["name"] === $object) {
@@ -3377,8 +3342,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When user :user deletes the file/folder :resource from the trash of the space :spaceName
-	 * @When user :user tries to delete the file/folder :resource from the trash of the space :spaceName
 	 *
 	 * @param string $user
 	 * @param string $object
@@ -3388,6 +3351,8 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('user :user deletes the file/folder :resource from the trash of the space :spaceName')]
+	#[When('user :user tries to delete the file/folder :resource from the trash of the space :spaceName')]
 	public function userDeletesObjectsFromTrashRequest(
 		string $user,
 		string $object,
@@ -3425,8 +3390,6 @@ class SpacesContext implements Context {
 	/**
 	 * User downloads a preview of the file inside the project space
 	 *
-	 * @When /^user "([^"]*)" downloads the preview of "([^"]*)" of the space "([^"]*)" with width "([^"]*)" and height "([^"]*)" using the WebDAV API$/
-	 *
 	 * @param  string $user
 	 * @param  string $fileName
 	 * @param  string $spaceName
@@ -3436,6 +3399,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user downloads the preview of :fileName of the space :spaceName with width :width and height :height using the WebDAV API')]
 	public function downloadPreview(
 		string $user,
 		string $fileName,
@@ -3469,7 +3433,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" downloads the file "([^"]*)" of the space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param  string $user
 	 * @param  string $fileName
@@ -3478,6 +3441,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user downloads the file :fileName of the space :spaceName using the WebDAV API')]
 	public function downloadFile(
 		string $user,
 		string $fileName,
@@ -3495,7 +3459,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" requests the checksum of (?:file|folder|entry) "([^"]*)" in space "([^"]*)" via propfind using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -3504,6 +3467,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('/^user "([^"]*)" requests the checksum of (?:file|folder|entry) "([^"]*)" in space "([^"]*)" via propfind using the WebDAV API$/')]
 	public function userRequestsTheChecksumViaPropfindInSpace(
 		string $user,
 		string $path,
@@ -3516,7 +3480,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" uploads file with checksum "([^"]*)" and content "([^"]*)" to "([^"]*)" in space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $checksum
@@ -3527,6 +3490,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user uploads file with checksum :checksum and content :content to :destination in space :spaceName using the WebDAV API')]
 	public function userUploadsFileWithChecksumWithContentInSpace(
 		string $user,
 		string $checksum,
@@ -3548,8 +3512,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" downloads version of the file "([^"]*)" with the index "([^"]*)" of the space "([^"]*)" using the WebDAV API$/
-	 * @When /^user "([^"]*)" tries to download version of the file "([^"]*)" with the index "([^"]*)" of the space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param  string $user
 	 * @param  string $fileName
@@ -3559,6 +3521,8 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user downloads version of the file :fileName with the index :index of the space :spaceName using the WebDAV API')]
+	#[When('user :user tries to download version of the file :fileName with the index :index of the space :spaceName using the WebDAV API')]
 	public function downloadVersionOfTheFile(
 		string $user,
 		string $fileName,
@@ -3572,7 +3536,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to get versions of the file :file from the space :space using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -3581,6 +3544,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user tries to get versions of the file :file from the space :space using the WebDAV API')]
 	public function userTriesToDownloadFileVersions(string $user, string $file, string $spaceName): void {
 		$spaceId = $this->getSpaceIdByName($user, $spaceName);
 		$this->featureContext->setResponse(
@@ -3664,7 +3628,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then /^these etags (should|should not) have changed$/
 	 *
 	 * @param string $action
 	 * @param TableNode $table
@@ -3672,6 +3635,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Then('/^these etags (should|should not) have changed$/')]
 	public function theseEtagsShouldShouldNotHaveChanged(string $action, TableNode $table): void {
 		$this->featureContext->verifyTableNodeColumns($table, ["user", "path", "space"]);
 		$this->featureContext->verifyTableNodeColumnsCount($table, 3);
@@ -3699,7 +3663,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has stored etag of element "([^"]*)" inside space "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -3708,6 +3671,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException | Exception
 	 */
+	#[Given('user :user has stored etag of element :path inside space :space')]
 	public function userHasStoredEtagOfElementFromSpace(string $user, string $path, string $space): void {
 		$user = $this->featureContext->getActualUsername($user);
 		$this->storeEtagOfElementInSpaceForUser(
@@ -3721,7 +3685,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has stored etag of element "([^"]*)" on path "([^"]*)" inside space "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $path
@@ -3731,6 +3694,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws Exception | GuzzleException
 	 */
+	#[Given('user :user has stored etag of element :path on path :storePath inside space :space')]
 	public function userHasStoredEtagOfElementOnPathFromSpace(
 		string $user,
 		string $path,
@@ -3800,7 +3764,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" creates a public link share of the space "([^"]*)" with settings:$/
 	 *
 	 * @param  string $user
 	 * @param  string $spaceName
@@ -3809,6 +3772,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user creates a public link share of the space :spaceName with settings:')]
 	public function userCreatesAPublicLinkShareOfSpaceWithSettings(
 		string $user,
 		string $spaceName,
@@ -3824,33 +3788,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has created a public link share of the space "([^"]*)" with settings:$/
-	 *
-	 * @param  string $user
-	 * @param  string $spaceName
-	 * @param TableNode|null $table
-	 *
-	 * @return void
-	 * @throws GuzzleException
-	 */
-	public function userHasCreatedPublicLinkShareOfSpace(
-		string $user,
-		string $spaceName,
-		?TableNode $table
-	): void {
-		$response = $this->sendShareSpaceViaLinkRequest($user, $spaceName, $table);
-
-		$expectedHTTPStatus = "200";
-		$this->featureContext->theHTTPStatusCodeShouldBe(
-			$expectedHTTPStatus,
-			"Expected response status code should be $expectedHTTPStatus",
-			$response
-		);
-	}
-
-	/**
-	 * @Then /^for user "([^"]*)" the space "([^"]*)" should (not|)\s?contain the last created public link$/
-	 * @Then /^for user "([^"]*)" the space "([^"]*)" should (not|)\s?contain the last created (public link|share) of the file "([^"]*)"$/
 	 *
 	 * @param string    $user
 	 * @param string    $spaceName
@@ -3862,6 +3799,8 @@ class SpacesContext implements Context {
 	 *
 	 * @throws Exception|GuzzleException
 	 */
+	#[Then('/^for user "([^"]*)" the space "([^"]*)" should (not|)\\s?contain the last created public link$/')]
+	#[Then('/^for user "([^"]*)" the space "([^"]*)" should (not|)\\s?contain the last created (public link|share) of the file "([^"]*)"$/')]
 	public function forUserSpaceShouldContainLinks(
 		string $user,
 		string $spaceName,
@@ -3913,7 +3852,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" gets the following properties of (?:file|folder|entry|resource) "([^"]*)" inside space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string    $user
 	 * @param string    $resourceName
@@ -3924,6 +3862,7 @@ class SpacesContext implements Context {
 	 *
 	 * @throws Exception|GuzzleException
 	 */
+	#[When('/^user "([^"]*)" gets the following properties of (?:file|folder|entry|resource) "([^"]*)" inside space "([^"]*)" using the WebDAV API$/')]
 	public function userGetsTheFollowingPropertiesOfFileInsideSpaceUsingTheWebdavApi(
 		string $user,
 		string $resourceName,
@@ -3941,7 +3880,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" gets the following extracted properties of (?:file|folder|entry|resource) "([^"]*)" inside space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string    $user
 	 * @param string    $resourceName
@@ -3952,27 +3890,40 @@ class SpacesContext implements Context {
 	 *
 	 * @throws Exception|GuzzleException
 	 */
+	#[When('/^user "([^"]*)" gets the following extracted properties of (?:file|folder|entry|resource) "([^"]*)" inside space "([^"]*)" using the WebDAV API$/')]
 	public function userGetsTheFollowingExtractedPropertiesOfFileInsideSpaceUsingTheWebdavApi(
 		string $user,
 		string $resourceName,
 		string $spaceName,
 		TableNode $propertiesTable
 	): void {
-		// NOTE: extracting properties occurs asynchronously
-		// short wait is necessary before getting those properties
-		sleep(2);
+		// NOTE: extracting properties occurs asynchronously after upload, so we need to wait until the properties are available
 		$spaceId = $this->getSpaceIdByName($user, $spaceName);
-		$response = $this->webDavPropertiesContext->getPropertiesOfFolder(
-			$user,
-			$resourceName,
-			$spaceId,
-			$propertiesTable
+		$response = WaitHelper::waitUntil(
+			fn () => $this->webDavPropertiesContext->getPropertiesOfFolder(
+				$user,
+				$resourceName,
+				$spaceId,
+				$propertiesTable
+			),
+			function ($response) {
+				// check if the response body contains any of the extracted-property leaf names
+				$body = (string) $response->getBody();
+				$response->getBody()->rewind();
+				foreach (["camera-make", "latitude", "longitude", "album", "artist", "width", "height"] as $leaf) {
+					if (\str_contains($body, $leaf)) {
+						return true;
+					}
+				}
+				return false;
+			},
+			2000,
+			30
 		);
 		$this->featureContext->setResponse($response);
 	}
 
 	/**
-	 * @Then /^as user "([^"]*)" (?:file|folder|entry|resource) "([^"]*)" inside space "([^"]*)" should contain a property "([^"]*)" with value "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $resourceName
@@ -3984,6 +3935,7 @@ class SpacesContext implements Context {
 	 *
 	 * @throws Exception|GuzzleException
 	 */
+	#[Then('/^as user "([^"]*)" (?:file|folder|entry|resource) "([^"]*)" inside space "([^"]*)" should contain a property "([^"]*)" with value "([^"]*)"$/')]
 	public function userGetsTheFollowingPropertiesOfFileInsideSpaceWithValueUsingTheWebdavApi(
 		string $user,
 		string $resourceName,
@@ -4003,95 +3955,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then /^as user "([^"]*)" (?:file|folder|entry) "([^"]*)" inside space "([^"]*)" (should|should not) be favorited$/
-	 *
-	 * @param string $user
-	 * @param string $path
-	 * @param string $spaceName
-	 * @param string $shouldOrNot
-	 *
-	 * @return void
-	 */
-	public function asUserFileOrFolderInsideSpaceShouldOrNotBeFavorited(
-		string $user,
-		string $path,
-		string $spaceName,
-		string $shouldOrNot
-	): void {
-		$spaceId = $this->getSpaceIdByName($user, $spaceName);
-		$this->favoritesContext->asUserFileOrFolderShouldBeFavorited(
-			$user,
-			$path,
-			($shouldOrNot === 'should') ? 1 : 0,
-			$spaceId
-		);
-	}
-
-	/**
-	 * @When /^user "([^"]*)" favorites element "([^"]*)" in space "([^"]*)" using the WebDAV API$/
-	 *
-	 * @param string $user
-	 * @param string $path
-	 * @param string $spaceName
-	 *
-	 * @return void
-	 * @throws GuzzleException
-	 */
-	public function userFavoritesElementInSpaceUsingTheWebdavApi(string $user, string $path, string $spaceName): void {
-		$spaceId = $this->getSpaceIdByName($user, $spaceName);
-		$this->featureContext->setResponse($this->favoritesContext->userFavoritesElement($user, $path, $spaceId));
-	}
-
-	/**
-	 * @Given /^user "([^"]*)" has stored id of (?:file|folder) "([^"]*)" of the space "([^"]*)"$/
-	 *
-	 * @param string $user
-	 * @param string $path
-	 * @param string $spaceName
-	 *
-	 * @return void
-	 *
-	 * @throws GuzzleException
-	 */
-	public function userHasStoredIdOfPathOfTheSpace(string $user, string $path, string $spaceName): void {
-		$this->getSpaceIdByName($user, $spaceName);
-		$this->featureContext->setStoredFileID($this->featureContext->getFileIdForPath($user, $path));
-	}
-
-	/**
-	 * @Then /^user "([^"]*)" (folder|file) "([^"]*)" of the space "([^"]*)" should have the previously stored id$/
-	 *
-	 * @param string $user
-	 * @param string $fileOrFolder
-	 * @param string $path
-	 * @param string $spaceName
-	 *
-	 * @return void
-	 *
-	 * @throws GuzzleException
-	 * @throws JsonException
-	 */
-	public function userFolderOfTheSpaceShouldHaveThePreviouslyStoredId(
-		string $user,
-		string $fileOrFolder,
-		string $path,
-		string $spaceName
-	): void {
-		$this->getSpaceIdByName($user, $spaceName);
-		$user = $this->featureContext->getActualUsername($user);
-		$currentFileID = $this->featureContext->getFileIdForPath($user, $path);
-		$storedFileID = $this->featureContext->getStoredFileID();
-		Assert::assertEquals(
-			$currentFileID,
-			$storedFileID,
-			__METHOD__
-			. " User '$user' $fileOrFolder '$path' does not have the previously stored id '"
-			. $storedFileID . "', but has '$currentFileID'."
-		);
-	}
-
-	/**
-	 * @Then /^for user "([^"]*)" the search result should contain space "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -4099,47 +3962,52 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Then('for user :user the search result should contain space :spaceName')]
 	public function searchResultShouldContainSpace(string $user, string $spaceName): void {
-		$responseArray = json_decode(
-			json_encode(
-				HttpRequestHelper::getResponseXml($this->featureContext->getResponse())->xpath("//d:response/d:href")
-			),
-			true,
-			512,
-			JSON_THROW_ON_ERROR
-		);
-		Assert::assertNotEmpty($responseArray, "search result is empty");
+		// searching a space by name goes through the asynchronous file index, so
+		// re-run the search until the space shows up (or the timeout elapses).
+		$assert = function () use ($user, $spaceName): void {
+			$responseArray = json_decode(
+				json_encode(
+					HttpRequestHelper::getResponseXml($this->featureContext->getResponse())->xpath("//d:response/d:href")
+				),
+				true,
+				512,
+				JSON_THROW_ON_ERROR
+			);
+			Assert::assertNotEmpty($responseArray, "search result is empty");
 
-		// for mountpoint, id looks a little different than for project space
-		if (str_contains($spaceName, 'mountpoint')) {
-			$splitSpaceName = explode("/", $spaceName);
-			$space = $this->getSpaceByName($user, $splitSpaceName[1]);
-			$splitSpaceId = explode("$", $space['id']);
-			$spaceId = str_replace('!', '%21', $splitSpaceId[1]);
-		} else {
-			$space = $this->getSpaceByName($user, $spaceName);
-			$spaceId = $space['id'];
-		}
-		$suffixPath = $user;
-		$davPathVersion = $this->featureContext->getDavPathVersion();
-		if ($davPathVersion === WebDavHelper::DAV_VERSION_SPACES) {
-			$suffixPath = $spaceId;
-		}
-
-		$topWebDavPath = "/" . WebDavHelper::getDavPath($davPathVersion, $suffixPath);
-
-		$spaceFound = false;
-		foreach ($responseArray as $value) {
-			if ($topWebDavPath === $value[0]) {
-				$spaceFound = true;
+			// for mountpoint, id looks a little different than for project space
+			if (str_contains($spaceName, 'mountpoint')) {
+				$splitSpaceName = explode("/", $spaceName);
+				$space = $this->getSpaceByName($user, $splitSpaceName[1]);
+				$splitSpaceId = explode("$", $space['id']);
+				$spaceId = str_replace('!', '%21', $splitSpaceId[1]);
+			} else {
+				$space = $this->getSpaceByName($user, $spaceName);
+				$spaceId = $space['id'];
 			}
-		}
-		Assert::assertTrue($spaceFound, "response does not contain the space '$spaceName'");
+			$suffixPath = $user;
+			$davPathVersion = $this->featureContext->getDavPathVersion();
+			if ($davPathVersion === WebDavHelper::DAV_VERSION_SPACES) {
+				$suffixPath = $spaceId;
+			}
+
+			$topWebDavPath = "/" . WebDavHelper::getDavPath($davPathVersion, $suffixPath);
+
+			$spaceFound = false;
+			foreach ($responseArray as $value) {
+				if ($topWebDavPath === $value[0]) {
+					$spaceFound = true;
+				}
+			}
+			Assert::assertTrue($spaceFound, "response does not contain the space '$spaceName'");
+		};
+		$this->searchContext->retrySearchUntilSatisfied($assert);
+		$assert();
 	}
 
 	/**
-	 * @When /^user "([^"]*)" sends PROPFIND request to space "([^"]*)" using the WebDAV API$/
-	 * @When /^user "([^"]*)" sends PROPFIND request to space "([^"]*)" with depth "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -4151,6 +4019,8 @@ class SpacesContext implements Context {
 	 *
 	 * @throws GuzzleException
 	 */
+	#[When('user :user sends PROPFIND request to space :spaceName using the WebDAV API')]
+	#[When('user :user sends PROPFIND request to space :spaceName with depth :folderDepth using the WebDAV API')]
 	public function userSendsPropfindRequestToSpaceUsingTheWebdavApi(
 		string $user,
 		string $spaceName,
@@ -4162,8 +4032,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" sends PROPFIND request from the space "([^"]*)" to the resource "([^"]*)" with depth "([^"]*)" using the WebDAV API$/
-	 * @When user :user sends PROPFIND request from the space :spaceName to the resource :resource using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -4176,6 +4044,8 @@ class SpacesContext implements Context {
 	 *
 	 * @throws GuzzleException
 	 */
+	#[When('user :user sends PROPFIND request from the space :spaceName to the resource :resource with depth :folderDepth using the WebDAV API')]
+	#[When('user :user sends PROPFIND request from the space :spaceName to the resource :resource using the WebDAV API')]
 	public function userSendsPropfindRequestFromTheSpaceToTheResourceWithDepthUsingTheWebdavApi(
 		string $user,
 		string $spaceName,
@@ -4187,7 +4057,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" sends PROPFIND request to space "([^"]*)" with headers using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -4199,6 +4068,7 @@ class SpacesContext implements Context {
 	 *
 	 * @throws GuzzleException
 	 */
+	#[When('user :user sends PROPFIND request to space :spaceName with headers using the WebDAV API')]
 	public function userSendsPropfindRequestToSpaceWithHeaders(
 		string $user,
 		string $spaceName,
@@ -4256,7 +4126,8 @@ class SpacesContext implements Context {
 			'oc:privatelink',
 			'd:getcontenttype',
 			'd:lockdiscovery',
-			'd:activelock'
+			'd:activelock',
+			'oc:has-preview'
 		];
 
 		$davPathVersion = $this->featureContext->getDavPathVersion();
@@ -4286,7 +4157,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then /^as user "([^"]*)" the (?:PROPFIND|REPORT) response should contain a (resource|space) "([^"]*)" with these key and value pairs:$/
 	 *
 	 * @param string $user
 	 * @param string $type	# type should be either resource or space
@@ -4297,6 +4167,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[Then('/^as user "([^"]*)" the (?:PROPFIND|REPORT) response should contain a (resource|space) "([^"]*)" with these key and value pairs:$/')]
 	public function asUsertheXMLResponseShouldContainMountpointWithTheseKeyAndValuePair(
 		string $user,
 		string $type,
@@ -4536,7 +4407,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then as user :user the key :key from PROPFIND response should match with shared-with-me drive-item-id of share :resource
 	 *
 	 * @param string $user
 	 * @param string $key
@@ -4545,6 +4415,7 @@ class SpacesContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Then('as user :user the key :key from PROPFIND response should match with shared-with-me drive-item-id of share :resource')]
 	public function asUserTheKeyFromPropfindResponseShouldMatchWithSharedwithmeDriveitemidOfShare(
 		string $user,
 		string $key,
@@ -4573,7 +4444,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When /^public downloads the folder "([^"]*)" from the last created public link using the public files API$/
 	 *
 	 * @param string $resource
 	 *
@@ -4581,6 +4451,7 @@ class SpacesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws Exception
 	 */
+	#[When('public downloads the folder :resource from the last created public link using the public files API')]
 	public function publicDownloadsTheFolderFromTheLastCreatedPublicLink(string $resource) {
 		$token = ($this->featureContext->isUsingSharingNG())
 		? $this->featureContext->shareNgGetLastCreatedLinkShareToken()
@@ -4609,13 +4480,13 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then the relative quota amount should be :quota_amount
 	 *
 	 * @param string $quotaAmount
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the relative quota amount should be :quota_amount')]
 	public function theRelativeQuotaAmountShouldBe(string $quotaAmount): void {
 		$data = $this->ocsContext->getOCSResponseData($this->featureContext->getResponse());
 		if (isset($data->quota, $data->quota->relative)) {
@@ -4630,8 +4501,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Then /^the user "([^"]*)" should have a space called "([^"]*)" granted to (user|group)\s? "([^"]*)" with role "([^"]*)"$/
-	 * @Then /^the user "([^"]*)" should have a space called "([^"]*)" granted to (user|group)\s? "([^"]*)" with role "([^"]*)" and expiration date "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -4644,6 +4513,8 @@ class SpacesContext implements Context {
 	 *
 	 * @throws GuzzleException
 	 */
+	#[Then('/^the user "([^"]*)" should have a space called "([^"]*)" granted to (user|group)\\s? "([^"]*)" with role "([^"]*)"$/')]
+	#[Then('/^the user "([^"]*)" should have a space called "([^"]*)" granted to (user|group)\\s? "([^"]*)" with role "([^"]*)" and expiration date "([^"]*)"$/')]
 	public function theUserShouldHaveSpaceWithRecipient(
 		string $user,
 		string $spaceName,
@@ -4686,8 +4557,6 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to download the space :spaceName owned by user :owner using the WebDAV API
-	 * @When /^user "([^"]*)" (?:downloads|tries to download) the space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -4697,6 +4566,8 @@ class SpacesContext implements Context {
 	 *
 	 * @throws GuzzleException
 	 */
+	#[When('user :user tries to download the space :spaceName owned by user :owner using the WebDAV API')]
+	#[When('/^user "([^"]*)" (?:downloads|tries to download) the space "([^"]*)" using the WebDAV API$/')]
 	public function userDownloadsTheSpaceUsingTheWebdavApi(string $user, string $spaceName, string $owner = ''): void {
 		$space = $this->getSpaceByName($owner ?: $user, $spaceName);
 		$url = $this->archiverContext->getArchiverUrl('id=' . $space['id']);
@@ -4711,61 +4582,16 @@ class SpacesContext implements Context {
 	}
 
 	/**
-	 * @Given user :sharer has shared resource :path inside space :space with user :sharee
-	 *
-	 * @param $sharer string
-	 * @param $path string
-	 * @param $space string
-	 * @param $sharee string
-	 *
-	 * @return void
-	 * @throws GuzzleException
-	 */
-	public function userHasSharedResourceInsideSpaceWithUser(
-		string $sharer,
-		string $path,
-		string $space,
-		string $sharee
-	): void {
-		$sharer = $this->featureContext->getActualUsername($sharer);
-		$resource_id = $this->getResourceId($sharer, $space, $path);
-		$response = $this->featureContext->createShare(
-			$sharer,
-			$path,
-			'0',
-			$this->featureContext->getActualUsername($sharee),
-			null,
-			null,
-			null,
-			null,
-			null,
-			$resource_id
-		);
-		$this->featureContext->theHTTPStatusCodeShouldBe(200, "", $response);
-		$responseStatusCode = $this->ocsContext->getOCSResponseStatusCode(
-			$response
-		);
-		$statusCodes = ["100", "200"];
-		Assert::assertContainsEquals(
-			$responseStatusCode,
-			$statusCodes,
-			"OCS status code is not any of the expected values "
-			. \implode(",", $statusCodes) . " got " . $responseStatusCode
-		);
-	}
-
-	/**
-	 * @When user :user gets the file :file from space :space using the Graph API
+	 * resolve the Graph URL of a file in a space
 	 *
 	 * @param string $user
 	 * @param string $file
 	 * @param string $space
 	 *
-	 * @return void
+	 * @return string
 	 */
-	public function userGetsTheDriveItemInSpace(string $user, string $file, string $space): void {
+	private function getDriveItemUrl(string $user, string $file, string $space): string {
 		$spaceId = ($this->getSpaceByName($user, $space))["id"];
-		$itemId = '';
 		if ($space === "Shares") {
 			$itemId = GraphHelper::getShareMountId(
 				$this->featureContext->getBaseUrl(),
@@ -4777,17 +4603,76 @@ class SpacesContext implements Context {
 		} else {
 			$itemId = $this->getFileId($user, $space, $file);
 		}
-		$url = $this->featureContext->getBaseUrl() . "/graph/v1.0/drives/$spaceId/items/$itemId";
-		// NOTE: extracting properties occurs asynchronously
-		// short wait is necessary before getting those properties
-		sleep(2);
-		$this->featureContext->setResponse(
-			HttpRequestHelper::get(
+		return $this->featureContext->getBaseUrl() . "/graph/v1.0/drives/$spaceId/items/$itemId";
+	}
+
+	/**
+	 *
+	 * @param string $user
+	 * @param string $file
+	 * @param string $space
+	 *
+	 * @return void
+	 */
+	#[When('user :user gets the file :file from space :space using the Graph API')]
+	public function userGetsTheDriveItemInSpace(string $user, string $file, string $space): void {
+		$this->lastDriveItemRequest = [
+			"url" => $this->getDriveItemUrl($user, $file, $space),
+			"user" => $user,
+		];
+		$response = HttpRequestHelper::get(
+			$this->lastDriveItemRequest["url"],
+			$this->featureContext->getStepLineRef(),
+			$user,
+			$this->featureContext->getPasswordForUser($user),
+		);
+		$this->featureContext->setResponse($response);
+	}
+
+	/**
+	 *
+	 * @param PyStringNode $schemaString
+	 *
+	 * @return void
+	 */
+	#[Then('the JSON data of the response should eventually match')]
+	public function theJsonDataOfTheResponseShouldEventuallyMatch(PyStringNode $schemaString): void {
+		Assert::assertNotEmpty(
+			$this->lastDriveItemRequest,
+			'no driveItem request to repeat, get the file using the Graph API first'
+		);
+		$url = $this->lastDriveItemRequest["url"];
+		$user = $this->lastDriveItemRequest["user"];
+		$schema = $this->featureContext->getJSONSchema($schemaString);
+
+		// Extraction is asynchronous, so re-fetch until the response satisfies the
+		// expected schema (a partial payload never matches) or the WaitHelper
+		// timeout elapses.
+		$response = WaitHelper::waitUntil(
+			fn () => HttpRequestHelper::get(
 				$url,
 				$this->featureContext->getStepLineRef(),
 				$user,
 				$this->featureContext->getPasswordForUser($user),
-			)
+			),
+			function ($response) use ($schema) {
+				if ($response->getStatusCode() !== 200) {
+					return false;
+				}
+				try {
+					$body = $this->featureContext->getJsonDecodedResponseBodyContent($response);
+					$this->featureContext->assertJsonDocumentMatchesSchema($body, $schema);
+					return true;
+				} catch (\Throwable $e) {
+					return false;
+				}
+			}
+		);
+
+		$this->featureContext->setResponse($response);
+		$this->featureContext->assertJsonDocumentMatchesSchema(
+			$this->featureContext->getJsonDecodedResponseBodyContent($response),
+			$schema
 		);
 	}
 }

@@ -130,6 +130,25 @@ func (s eventsNotifier) createGroupedMail(ctx context.Context, logger zerolog.Lo
 				"ShareFolder": shareFolder,
 				"ExpiredAt":   te.ExpiredAt.Format("2006-01-02 15:04:05"),
 			})
+		case events.ShareRemoved:
+			logger := logger.With().
+				Str("event", "ShareRemoved").
+				Str("eventId", te.ItemID.OpaqueId).
+				Logger()
+
+			executant, shareFolder, _, err := s.prepareShareRemoved(logger, te)
+			if err != nil {
+				logger.Error().Err(err).Msg("could not prepare vars for grouped email")
+				continue
+			}
+
+			mts = append(mts, email.ShareRemoved)
+			mtsVars = append(mtsVars, map[string]string{
+				"ShareSharer": executant.GetDisplayName(),
+				"ShareFolder": shareFolder,
+			})
+		default:
+			logger.Error().Str("eventType", e.Type).Msg("unsupported event type for grouped email")
 		}
 	}
 

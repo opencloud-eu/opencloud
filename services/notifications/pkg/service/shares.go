@@ -161,3 +161,73 @@ func (s eventsNotifier) prepareShareExpired(logger zerolog.Logger, e events.Shar
 
 	return shareFolder, ctx, err
 }
+
+func (s eventsNotifier) handleShareRemoved(e events.ShareRemoved, eventId string) {
+	logger := s.logger.With().
+		Str("event", "ShareRemoved").
+		Str("itemid", e.ItemID.OpaqueId).
+		Logger()
+
+	executant, shareFolder, ctx, err := s.prepareShareRemoved(logger, e)
+	if err != nil {
+		logger.Error().Err(err).Msg("could not prepare vars for email")
+		return
+	}
+
+	granteeList := s.ensureGranteeList(ctx, executant.GetId(), e.GranteeUserID, e.GranteeGroupID)
+	filteredGrantees := s.filter.execute(ctx, granteeList, defaults.SettingUUIDProfileEventShareRemoved)
+
+	recipientsInstant, recipientsDaily, recipientsInstantWeekly := s.splitter.execute(ctx, filteredGrantees)
+	recipientsInstant = append(recipientsInstant, s.userEventStore.persist(_intervalDaily, eventId, recipientsDaily)...)
+	recipientsInstant = append(recipientsInstant, s.userEventStore.persist(_intervalWeekly, eventId, recipientsInstantWeekly)...)
+	if recipientsInstant == nil {
+		return
+	}
+
+	sharerDisplayName := executant.GetDisplayName()
+
+	emails, err := s.render(ctx, email.ShareRemoved,
+		"ShareGrantee",
+		map[string]string{
+			"ShareSharer": sharerDisplayName,
+			"ShareFolder": shareFolder,
+		}, recipientsInstant, sharerDisplayName)
+	if err != nil {
+		logger.Error().Err(err).Msg("could not get render the email")
+		return
+	}
+	s.send(ctx, emails)
+}
+
+func (s eventsNotifier) prepareShareRemoved(logger zerolog.Logger, e events.ShareRemoved) (executant *user.User, shareFolder string, ctx context.Context, err error) {
+	gatewayClient, err := s.gatewaySelector.Next()
+	if err != nil {
+		logger.Error().Err(err).Msg("could not select next gateway client")
+		return executant, shareFolder, ctx, err
+	}
+
+	ctx, err = utils.GetServiceUserContextWithContext(context.Background(), gatewayClient, s.serviceAccountID, s.serviceAccountSecret)
+	if err != nil {
+		logger.Error().Err(err).Msg("could not get service user context")
+		return executant, shareFolder, ctx, err
+	}
+
+	resourceInfo, err := s.getResourceInfo(ctx, e.ItemID, &fieldmaskpb.FieldMask{Paths: []string{"name"}})
+	if err != nil {
+		logger.Error().
+			Err(err).
+			Msg("could not stat resource")
+		return executant, shareFolder, ctx, err
+	}
+	shareFolder = resourceInfo.Name
+
+	executant, err = utils.GetUserNoGroups(ctx, e.Executant, gatewayClient)
+	if err != nil {
+		logger.Error().
+			Err(err).
+			Msg("could not get user")
+		return executant, shareFolder, ctx, err
+	}
+
+	return executant, shareFolder, ctx, err
+}

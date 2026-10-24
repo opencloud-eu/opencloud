@@ -8,9 +8,9 @@ package opensearchapi
 
 import (
 	"net/http"
-	"strings"
 
-	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // NodesHotThreadsReq represents possible options for the /_nodes request
@@ -22,23 +22,10 @@ type NodesHotThreadsReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r NodesHotThreadsReq) GetRequest() (*http.Request, error) {
-	nodes := strings.Join(r.NodeID, ",")
-
-	var path strings.Builder
-	path.Grow(len("/_nodes//hot_threads") + len(nodes))
-	path.WriteString("/_nodes/")
-	if len(r.NodeID) > 0 {
-		path.WriteString(nodes)
-		path.WriteString("/")
+func (r NodesHotThreadsReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.NodesHotThreadsPath{NodeID: r.NodeID}.Build()
+	if err != nil {
+		return nil, err
 	}
-	path.WriteString("hot_threads")
-
-	return opensearch.BuildRequest(
-		"GET",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }

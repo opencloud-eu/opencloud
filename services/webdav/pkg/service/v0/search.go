@@ -25,11 +25,11 @@ import (
 
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
-	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/constants"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/net"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/prop"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/propfind"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
 const (
@@ -117,7 +117,7 @@ func (g Webdav) Search(w http.ResponseWriter, r *http.Request) {
 
 func (g Webdav) sendSearchResponse(davPrefix string, rsp *searchsvc.SearchResponse, w http.ResponseWriter, r *http.Request, user *userv1beta1.User) {
 	logger := g.log.SubloggerWithRequestID(r.Context())
-	responsesXML, err := multistatusResponse(r.Context(), davPrefix, g.config.OpenCloudPublicURL, rsp.Matches, user)
+	responsesXML, err := multistatusResponse(r.Context(), davPrefix, g.config.OpenCloudPublicURL, rsp.Matches, user, g.sourceTypes)
 	if err != nil {
 		logger.Error().Err(err).Msg("error formatting propfind")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -135,10 +135,10 @@ func (g Webdav) sendSearchResponse(davPrefix string, rsp *searchsvc.SearchRespon
 }
 
 // multistatusResponse converts a list of matches into a multistatus response string
-func multistatusResponse(ctx context.Context, davPrefix, publicURL string, matches []*searchmsg.Match, user *userv1beta1.User) ([]byte, error) {
+func multistatusResponse(ctx context.Context, davPrefix, publicURL string, matches []*searchmsg.Match, user *userv1beta1.User, sourceTypes thumbnail.SourceTypes) ([]byte, error) {
 	responses := make([]*propfind.ResponseXML, 0, len(matches))
 	for i := range matches {
-		res, err := matchToPropResponse(ctx, davPrefix, publicURL, matches[i], user)
+		res, err := matchToPropResponse(ctx, davPrefix, publicURL, matches[i], user, sourceTypes)
 		if err != nil {
 			return nil, err
 		}
@@ -154,7 +154,7 @@ func multistatusResponse(ctx context.Context, davPrefix, publicURL string, match
 	return msg, nil
 }
 
-func matchToPropResponse(ctx context.Context, davPrefix, publicURL string, match *searchmsg.Match, user *userv1beta1.User) (*propfind.ResponseXML, error) {
+func matchToPropResponse(ctx context.Context, davPrefix, publicURL string, match *searchmsg.Match, user *userv1beta1.User, sourceTypes thumbnail.SourceTypes) (*propfind.ResponseXML, error) {
 	// unfortunately, search uses own versions of ResourceId and Ref. So we need to assert them here
 	var (
 		ref string
@@ -222,7 +222,7 @@ func matchToPropResponse(ctx context.Context, davPrefix, publicURL string, match
 	propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:permissions", match.Entity.Permissions))
 	propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:highlights", match.Entity.Highlights))
 	propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("d:getcontenttype", match.Entity.MimeType))
-	_, isSupportedMimeType := thumbnail.SupportedMimeTypes[match.Entity.MimeType]
+	isSupportedMimeType := sourceTypes.Supports(match.Entity.MimeType)
 	if isSupportedMimeType {
 		propstatOK.Prop = append(propstatOK.Prop, prop.Escaped("oc:has-preview", "1"))
 	} else {
@@ -267,15 +267,6 @@ func matchToPropResponse(ctx context.Context, davPrefix, publicURL string, match
 	}
 
 	return &response, nil
-}
-
-func hasPreview(md *provider.ResourceInfo, appendToOK func(p ...prop.PropertyXML)) {
-	_, match := thumbnail.SupportedMimeTypes[md.MimeType]
-	if match {
-		appendToOK(prop.Escaped("oc:has-preview", "1"))
-	} else {
-		appendToOK(prop.Escaped("oc:has-preview", "0"))
-	}
 }
 
 type report struct {

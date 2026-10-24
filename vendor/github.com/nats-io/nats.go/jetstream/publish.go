@@ -33,6 +33,8 @@ type (
 	asyncPublisherOpts struct {
 		// For async publish error handling.
 		aecb MsgErrHandler
+		// For async publish ack handling.
+		ackcb MsgAckHandler
 		// Max async pub ack in flight
 		maxpa int
 		// ackTimeout is the max time to wait for an ack.
@@ -55,6 +57,7 @@ type (
 		scheduleSource string        // Source subject for sampling
 		scheduleTTL    string        // TTL for generated messages
 		scheduleTZ     string        // Time zone for cron schedules
+		scheduleRollup string        // Rollup for generated messages
 
 		// Publish retries for NoResponders err.
 		retryWait     time.Duration // Retry wait between attempts
@@ -103,6 +106,16 @@ type (
 	// PublishAsync. It will return the original message sent to the server for
 	// possible retransmitting and the error encountered.
 	MsgErrHandler func(JetStream, *nats.Msg, error)
+
+	// MsgAckHandler is used to process asynchronous acks from JetStream
+	// PublishAsync. It will return the original message sent to the server
+	// and the resulting PubAck.
+	//
+	// The handler is invoked synchronously on the ack-processing goroutine,
+	// so it must not block or call methods on the PubAckFuture returned by
+	// the corresponding PublishAsync/PublishMsgAsync call, as doing so may
+	// deadlock.
+	MsgAckHandler func(JetStream, *nats.Msg, *PubAck)
 
 	asyncPublishContext struct {
 		sync.RWMutex
@@ -225,6 +238,9 @@ func (js *jetStream) PublishMsg(ctx context.Context, m *nats.Msg, opts ...Publis
 	if o.scheduleTZ != "" {
 		m.Header.Set(ScheduleTimeZoneHeader, o.scheduleTZ)
 	}
+	if o.scheduleRollup != "" {
+		m.Header.Set(ScheduleRollupHeader, o.scheduleRollup)
+	}
 
 	var resp *nats.Msg
 	var err error
@@ -329,6 +345,9 @@ func (js *jetStream) PublishMsgAsync(m *nats.Msg, opts ...PublishOpt) (PubAckFut
 	}
 	if o.scheduleTZ != "" {
 		m.Header.Set(ScheduleTimeZoneHeader, o.scheduleTZ)
+	}
+	if o.scheduleRollup != "" {
+		m.Header.Set(ScheduleRollupHeader, o.scheduleRollup)
 	}
 
 	paf := o.pafRetry
@@ -448,6 +467,7 @@ func (js *jetStream) newAsyncReply() (string, error) {
 		go js.resetPendingAcksOnReconnect()
 	}
 	var sb strings.Builder
+	sb.Grow(len(js.publisher.replyPrefix) + aReplyTokensize)
 	sb.WriteString(js.publisher.replyPrefix)
 	for {
 		rn := js.publisher.rr.Int63()
@@ -507,18 +527,6 @@ func (js *jetStream) handleAsyncReply(m *nats.Msg) {
 		}
 	}
 
-	doErr := func(err error) {
-		paf.err = err
-		if paf.errCh != nil {
-			paf.errCh <- paf.err
-		}
-		cb := js.publisher.asyncPublisherOpts.aecb
-		js.publisher.Unlock()
-		if cb != nil {
-			cb(js, paf.msg, err)
-		}
-	}
-
 	if paf.timeout != nil {
 		paf.timeout.Stop()
 	}
@@ -540,7 +548,7 @@ func (js *jetStream) handleAsyncReply(m *nats.Msg) {
 				})
 				if err != nil {
 					js.publisher.Lock()
-					doErr(err)
+					js.handleAsyncErrAndUnlock(paf, err)
 				}
 			})
 			js.publisher.Unlock()
@@ -549,7 +557,7 @@ func (js *jetStream) handleAsyncReply(m *nats.Msg) {
 		delete(js.publisher.acks, id)
 		closeStc()
 		defer closeDchFn()()
-		doErr(ErrNoStreamResponse)
+		js.handleAsyncErrAndUnlock(paf, ErrNoStreamResponse)
 		return
 	}
 
@@ -560,15 +568,15 @@ func (js *jetStream) handleAsyncReply(m *nats.Msg) {
 
 	var pa pubAckResponse
 	if err := json.Unmarshal(m.Data, &pa); err != nil {
-		doErr(ErrInvalidJSAck)
+		js.handleAsyncErrAndUnlock(paf, ErrInvalidJSAck)
 		return
 	}
 	if pa.Error != nil {
-		doErr(pa.Error)
+		js.handleAsyncErrAndUnlock(paf, pa.Error)
 		return
 	}
 	if pa.PubAck == nil || pa.PubAck.Stream == "" {
-		doErr(ErrInvalidJSAck)
+		js.handleAsyncErrAndUnlock(paf, ErrInvalidJSAck)
 		return
 	}
 
@@ -577,7 +585,23 @@ func (js *jetStream) handleAsyncReply(m *nats.Msg) {
 	if paf.doneCh != nil {
 		paf.doneCh <- paf.ack
 	}
+	cb := js.publisher.asyncPublisherOpts.ackcb
 	js.publisher.Unlock()
+	if cb != nil {
+		cb(js, paf.msg, paf.ack)
+	}
+}
+
+func (js *jetStream) handleAsyncErrAndUnlock(paf *pubAckFuture, err error) {
+	paf.err = err
+	if paf.errCh != nil {
+		paf.errCh <- paf.err
+	}
+	cb := js.publisher.asyncPublisherOpts.aecb
+	js.publisher.Unlock()
+	if cb != nil {
+		cb(js, paf.msg, err)
+	}
 }
 
 func (js *jetStream) resetPendingAcksOnReconnect() {

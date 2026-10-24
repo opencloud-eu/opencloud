@@ -85,7 +85,7 @@ func PurgeExpiredResources(cfg *config.Config) *cobra.Command {
 
 func listTrashBinItems(cfg *config.Config) *cobra.Command {
 	listTrashBinItemsCmd := &cobra.Command{
-		Use:   "list",
+		Use:   "list <space-id>",
 		Short: "Print a list of all trash-bin items of a space.",
 		// TODO: n might need to equal 2 not sure.
 		Args: cobra.ExactArgs(1),
@@ -143,7 +143,7 @@ func listTrashBinItems(cfg *config.Config) *cobra.Command {
 func restoreAllTrashBinItems(cfg *config.Config) *cobra.Command {
 	var overwriteOption int
 	restoreAllTrashBinItemsCmd := &cobra.Command{
-		Use:   "restore-all",
+		Use:   "restore-all <space-id>",
 		Short: "Restore all trash-bin items for a space.",
 		// TODO: not sure this could also be 2
 		Args: cobra.ExactArgs(1),
@@ -253,7 +253,7 @@ func restoreAllTrashBinItems(cfg *config.Config) *cobra.Command {
 func restoreTrashBinItem(cfg *config.Config) *cobra.Command {
 	var overwriteOption int
 	restoreTrashBinItemCmd := &cobra.Command{
-		Use:   "restore",
+		Use:   "restore <space-id> <item-id>",
 		Short: "Restore a trash-bin item by ID.",
 		Args:  cobra.ExactArgs(2),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
@@ -306,8 +306,13 @@ func restoreTrashBinItem(cfg *config.Config) *cobra.Command {
 
 			var found bool
 			var itemRef *provider.RecycleItem
+			rid, err := storagespace.ParseID(itemID)
+			if err != nil {
+				return err
+			}
+			opaqueID := rid.GetOpaqueId()
 			for _, item := range res.GetRecycleItems() {
-				if item.GetKey() == itemID {
+				if item.GetKey() == opaqueID {
 					itemRef = item
 					found = true
 					break
@@ -349,10 +354,6 @@ func listRecycle(ctx context.Context, client gateway.GatewayAPIClient, ref provi
 	}
 	if res.Status.Code != rpc.Code_CODE_OK {
 		return nil, fmt.Errorf("%s %s", _retrievingErrorMsg, res.Status.Code)
-	}
-	if len(res.GetRecycleItems()) == 0 {
-		fmt.Errorf("The trash-bin is empty. Nothing to restore")
-		os.Exit(0)
 	}
 	return res, nil
 }

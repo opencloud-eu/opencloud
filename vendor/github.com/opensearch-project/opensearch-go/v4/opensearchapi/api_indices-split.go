@@ -7,11 +7,12 @@
 package opensearchapi
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // IndicesSplitReq represents possible options for the index split request
@@ -26,14 +27,15 @@ type IndicesSplitReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r IndicesSplitReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"POST",
-		fmt.Sprintf("/%s/_split/%s", r.Index, r.Target),
-		r.Body,
-		r.Params.get(),
-		r.Header,
-	)
+func (r IndicesSplitReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.IndicesSplitPath{
+		Index:  r.Index,
+		Target: r.Target,
+	}.Build()
+	if err != nil {
+		return nil, err
+	}
+	return build.Request(method, path, r.Body, r.Params.get(), r.Header)
 }
 
 // IndicesSplitResp represents the returned struct of the index split response

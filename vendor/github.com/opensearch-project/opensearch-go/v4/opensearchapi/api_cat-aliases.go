@@ -8,9 +8,10 @@ package opensearchapi
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // CatAliasesReq represent possible options for the /_cat/aliases request
@@ -21,22 +22,12 @@ type CatAliasesReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r CatAliasesReq) GetRequest() (*http.Request, error) {
-	aliases := strings.Join(r.Aliases, ",")
-	var path strings.Builder
-	path.Grow(len("/_cat/aliases/") + len(aliases))
-	path.WriteString("/_cat/aliases")
-	if len(r.Aliases) > 0 {
-		path.WriteString("/")
-		path.WriteString(aliases)
+func (r CatAliasesReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.CatAliasesPath{Name: r.Aliases}.Build()
+	if err != nil {
+		return nil, err
 	}
-	return opensearch.BuildRequest(
-		"GET",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // CatAliasesResp represents the returned struct of the /_cat/aliases response

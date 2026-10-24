@@ -27,6 +27,7 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	tusd "github.com/tus/tusd/v2/pkg/handler"
 
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/upload"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
@@ -61,6 +62,17 @@ func (fs *FS) WithDisabledSpaces() storage.FS {
 // ListUploadSessions returns the upload sessions matching the given filter
 func (f *FS) ListUploadSessions(ctx context.Context, filter storage.UploadSessionFilter) ([]storage.UploadSession, error) {
 	return f.next.(storage.UploadSessionLister).ListUploadSessions(ctx, filter)
+}
+
+// ResolveUpload resolves a finished upload to the resource it produced, read as the upload's
+// executant. It is best effort: if the wrapped storage does not resolve uploads it returns
+// NotSupported rather than panicking, so the tus finalize falls back to no headers.
+func (f *FS) ResolveUpload(ctx context.Context, info tusd.FileInfo) (*provider.ResourceInfo, context.Context, error) {
+	r, ok := f.next.(storage.UploadSessionResolver)
+	if !ok {
+		return nil, ctx, errtypes.NotSupported("storage does not resolve upload sessions")
+	}
+	return r.ResolveUpload(ctx, info)
 }
 
 // UseIn tells the tus upload middleware which extensions it supports.
@@ -234,7 +246,7 @@ func (f *FS) Delete(ctx context.Context, ref *provider.Reference) error {
 	return res0
 }
 
-func (f *FS) Move(ctx context.Context, oldRef, newRef *provider.Reference) error {
+func (f *FS) Move(ctx context.Context, oldRef, newRef *provider.Reference) (*storage.MoveResult, error) {
 	var (
 		err     error
 		unhook  UnHook
@@ -243,22 +255,22 @@ func (f *FS) Move(ctx context.Context, oldRef, newRef *provider.Reference) error
 	for _, hook := range f.hooks {
 		ctx, unhook, err = hook("Move", ctx, oldRef.GetResourceId().GetSpaceId())
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if unhook != nil {
 			unhooks = append(unhooks, unhook)
 		}
 	}
 
-	res0 := f.next.Move(ctx, oldRef, newRef)
+	res0, res1 := f.next.Move(ctx, oldRef, newRef)
 
 	for _, unhook := range unhooks {
 		if err := unhook(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return res0
+	return res0, res1
 }
 
 func (f *FS) GetMD(ctx context.Context, ref *provider.Reference, mdKeys, fieldMask []string) (*provider.ResourceInfo, error) {
@@ -367,6 +379,60 @@ func (f *FS) Upload(ctx context.Context, req storage.UploadRequest, uploadFunc s
 	}
 
 	return res0, res1
+}
+
+func (f *FS) MarkProcessing(ctx context.Context, ref *provider.Reference, processing bool, sessionID string) error {
+	var (
+		err     error
+		unhook  UnHook
+		unhooks []UnHook
+	)
+	for _, hook := range f.hooks {
+		ctx, unhook, err = hook("MarkProcessing", ctx, ref.GetResourceId().GetSpaceId())
+		if err != nil {
+			return err
+		}
+		if unhook != nil {
+			unhooks = append(unhooks, unhook)
+		}
+	}
+
+	res := f.next.MarkProcessing(ctx, ref, processing, sessionID)
+
+	for _, unhook := range unhooks {
+		if err := unhook(); err != nil {
+			return err
+		}
+	}
+
+	return res
+}
+
+func (f *FS) CommitUpload(ctx context.Context, ref *provider.Reference, sessionID string, source storage.UploadSource) error {
+	var (
+		err     error
+		unhook  UnHook
+		unhooks []UnHook
+	)
+	for _, hook := range f.hooks {
+		ctx, unhook, err = hook("CommitUpload", ctx, ref.GetResourceId().GetSpaceId())
+		if err != nil {
+			return err
+		}
+		if unhook != nil {
+			unhooks = append(unhooks, unhook)
+		}
+	}
+
+	err = f.next.CommitUpload(ctx, ref, sessionID, source)
+
+	for _, unhook := range unhooks {
+		if uerr := unhook(); uerr != nil {
+			return uerr
+		}
+	}
+
+	return err
 }
 
 func (f *FS) Download(ctx context.Context, ref *provider.Reference, openReaderFunc func(md *provider.ResourceInfo) bool) (*provider.ResourceInfo, io.ReadCloser, error) {

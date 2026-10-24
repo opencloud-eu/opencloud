@@ -24,7 +24,6 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/user"
 	"path"
@@ -33,6 +32,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	appprovider "github.com/cs3org/go-cs3apis/cs3/app/provider/v1beta1"
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -47,7 +47,6 @@ import (
 var (
 	matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
 	matchAllCap   = regexp.MustCompile("([a-z0-9])([A-Z])")
-	matchEmail    = regexp.MustCompile(`^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$`)
 
 	// ShareStorageProviderID is the provider id used by the sharestorageprovider
 	ShareStorageProviderID = "a0ca6a90-a365-4782-871e-d44447bbc668"
@@ -220,12 +219,54 @@ func ExtractGranteeID(grantee *provider.Grantee) (*userpb.UserId, *grouppb.Group
 
 // UserEqual returns whether two users have the same field values.
 func UserEqual(u, v *userpb.UserId) bool {
-	return u != nil && v != nil && u.Idp == v.Idp && u.OpaqueId == v.OpaqueId
+	return u != nil && v != nil && u.Idp == v.Idp && UserIDEqual(u, v)
 }
 
 // UserIDEqual returns whether two users have the same opaqueid values. The idp is ignored
 func UserIDEqual(u, v *userpb.UserId) bool {
-	return u != nil && v != nil && u.OpaqueId == v.OpaqueId
+	if u == nil || v == nil {
+		return false
+	}
+	return CanonicalUserID(u) == CanonicalUserID(v)
+}
+
+// CanonicalUserID returns the stable representation of a UserId as e.g. used for user storage keys.
+// Currently this is only relevant for UserId of the USER_TYPE_GUEST, which are matched case-insensitively.
+func CanonicalUserID(id *userpb.UserId) string {
+	if id == nil {
+		return ""
+	}
+	if id.GetType() == userpb.UserType_USER_TYPE_GUEST {
+		// Guest user IDs are lowercased to enable case insensitive
+		// comparisons: those are email addresses, and while RFC 5321 states
+		// that the local-part is case sensitive, in practice, it's a de facto
+		// standard that email providers consider them to be case insensitive.
+		return LowerASCII(id.GetOpaqueId())
+	}
+	return id.GetOpaqueId()
+}
+
+// LowerASCII lowercases only the ASCII letters A-Z in s and leaves all other
+// characters untouched. Unlike strings.ToLower it never maps a non-ASCII
+// character to an ASCII one (e.g. 'İ' -> 'i' or the Kelvin sign 'K' -> 'k'),
+// so two different email addresses can't end up with the same canonical form.
+func LowerASCII(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= 'A' && r <= 'Z' {
+			return r + ('a' - 'A')
+		}
+		return r
+	}, s)
+}
+
+// IsASCII returns true if s contains only ASCII characters.
+func IsASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= utf8.RuneSelf {
+			return false
+		}
+	}
+	return true
 }
 
 // GroupEqual returns whether two groups have the same field values.
@@ -251,32 +292,6 @@ func GranteeEqual(u, v *provider.Grantee) bool {
 	uu, ug := ExtractGranteeID(u)
 	vu, vg := ExtractGranteeID(v)
 	return u.Type == v.Type && (UserEqual(uu, vu) || GroupEqual(ug, vg))
-}
-
-// IsEmailValid checks whether the provided email has a valid format.
-func IsEmailValid(e string) bool {
-	if len(e) < 3 || len(e) > 254 {
-		return false
-	}
-	return matchEmail.MatchString(e)
-}
-
-// IsValidWebAddress checks whether the provided address is a valid URL.
-func IsValidWebAddress(address string) bool {
-	_, err := url.ParseRequestURI(address)
-	return err == nil
-}
-
-// IsValidPhoneNumber checks whether the provided phone number has a valid format.
-func IsValidPhoneNumber(number string) bool {
-	re := regexp.MustCompile(`^(?:(?:\(?(?:00|\+)([1-4]\d\d|[1-9]\d?)\)?)?[\-\.\ \\\/]?)?((?:\(?\d{1,}\)?[\-\.\ \\\/]?){0,})(?:[\-\.\ \\\/]?(?:#|ext\.?|extension|x)[\-\.\ \\\/]?(\d+))?$`)
-	return re.MatchString(number)
-}
-
-// IsValidName cheks if the given name doesn't contain any non-alpha, space or dash characters.
-func IsValidName(name string) bool {
-	re := regexp.MustCompile(`^[A-Za-z\s\-]*$`)
-	return re.MatchString(name)
 }
 
 // MarshalProtoV1ToJSON marshals a proto V1 message to a JSON byte array
@@ -433,6 +448,41 @@ func AppendJSONToOpaque(o *types.Opaque, key string, value interface{}) *types.O
 		Value:   b,
 	}
 	return o
+}
+
+// AncestorGrantsKey is the field mask path to request the active grants on a resource and its
+// ancestors from a storage, and the opaque key they are returned under (see ReadGrantsFromOpaque).
+const AncestorGrantsKey = "ancestor-grants"
+
+// AppendGrantsToOpaque adds the grants as json on the given opaque and returns it.
+// If the grants can't be marshaled, e.g. because an id is not valid UTF-8, the opaque is returned unchanged.
+func AppendGrantsToOpaque(o *types.Opaque, key string, grants []*provider.Grant) (*types.Opaque, error) {
+	// grantees are oneofs, which only protojson can marshal
+	b, err := MarshalProtoV1ToJSON(&provider.ListGrantsResponse{Grants: grants})
+	if err != nil {
+		return o, err
+	}
+
+	o = ensureOpaque(o)
+	o.Map[key] = &types.OpaqueEntry{
+		Decoder: "json",
+		Value:   b,
+	}
+	return o, nil
+}
+
+// ReadGrantsFromOpaque reads grants added with AppendGrantsToOpaque from the given opaque map
+func ReadGrantsFromOpaque(o *types.Opaque, key string) ([]*provider.Grant, error) {
+	e, ok := o.GetMap()[key]
+	if !ok || e.Decoder != "json" {
+		return nil, errors.New("not found")
+	}
+
+	res := &provider.ListGrantsResponse{}
+	if err := UnmarshalJSONToProtoV1(e.Value, res); err != nil {
+		return nil, err
+	}
+	return res.GetGrants(), nil
 }
 
 // ReadPlainFromOpaque reads a plain string from the given opaque map

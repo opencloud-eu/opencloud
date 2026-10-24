@@ -66,7 +66,10 @@ func (session *OcisSession) WriteChunk(ctx context.Context, offset int64, src io
 	_, subspan := tracer.Start(ctx, "os.OpenFile")
 	file, err := os.OpenFile(session.binPath(), os.O_WRONLY|os.O_APPEND, defaultFilePerm)
 	subspan.End()
+
+	log := appctx.GetLogger(ctx)
 	if err != nil {
+		log.Error().Err(err).Msg("WriteChunk: error opening upload file")
 		return 0, err
 	}
 	defer file.Close()
@@ -84,6 +87,7 @@ func (session *OcisSession) WriteChunk(ctx context.Context, offset int64, src io
 	// However, for the ocis driver it's not important whether the stream has ended
 	// on purpose or accidentally.
 	if err != nil && err != io.ErrUnexpectedEOF {
+		log.Error().Err(err).Msg("WriteChunk: error copying data to upload file")
 		return n, err
 	}
 
@@ -111,6 +115,13 @@ func (session *OcisSession) GetReader(ctx context.Context) (io.ReadCloser, error
 // returns tusd errors
 func (session *OcisSession) FinishUpload(ctx context.Context) error {
 	err := session.FinishUploadDecomposed(ctx)
+
+	if err != nil {
+		// this is part of the tusd integration and we might be able to
+		// log the error in another place
+		log := appctx.GetLogger(ctx)
+		log.Error().Err(err).Msg("failed to finish upload")
+	}
 
 	//  we need to return a tusd error here to make the tusd handler return the correct status code
 	switch err.(type) {
@@ -156,7 +167,7 @@ func (session *OcisSession) FinishUploadDecomposed(ctx context.Context) error {
 			err = errtypes.BadRequest("unsupported checksum algorithm: " + parts[0])
 		}
 		if err != nil {
-			session.store.Cleanup(ctx, session, true, false, false)
+			session.Cleanup(false, true, true, false)
 			return err
 		}
 	}
@@ -227,7 +238,7 @@ func (session *OcisSession) FinishUploadDecomposed(ctx context.Context) error {
 	if !session.store.async || session.info.Size == 0 {
 		// handle postprocessing synchronously
 		err = session.Finalize(ctx)
-		session.store.Cleanup(ctx, session, err != nil, false, err == nil)
+		session.Cleanup(err != nil, true, true, true)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to upload")
 			return err
@@ -240,7 +251,7 @@ func (session *OcisSession) FinishUploadDecomposed(ctx context.Context) error {
 
 // Terminate terminates the upload
 func (session *OcisSession) Terminate(_ context.Context) error {
-	session.Cleanup(true, true, true)
+	session.Cleanup(true, true, true, true)
 	return nil
 }
 
@@ -305,56 +316,9 @@ func checkHash(expected string, h hash.Hash) error {
 	return nil
 }
 
-func (session *OcisSession) removeNode(ctx context.Context) {
-	n, err := session.Node(ctx)
-	if err != nil {
-		appctx.GetLogger(ctx).Error().Str("session", session.ID()).Err(err).Msg("getting node from session failed")
-		return
-	}
-	if err := n.Purge(ctx); err != nil {
-		appctx.GetLogger(ctx).Error().Str("nodepath", n.InternalPath()).Err(err).Msg("purging node failed")
-	}
-}
-
 // cleanup cleans up after the upload is finished
-func (session *OcisSession) Cleanup(revertNodeMetadata, cleanBin, cleanInfo bool) {
+func (session *OcisSession) Cleanup(revertNodeMetadata, cleanBin, cleanInfo, unmarkPostprocessing bool) {
 	ctx := session.Context(context.Background())
-
-	if revertNodeMetadata {
-		n, err := session.Node(ctx)
-		if err != nil {
-			appctx.GetLogger(ctx).Error().Err(err).Str("sessionid", session.ID()).Msg("reading node for session failed")
-		} else {
-			if session.NodeExists() && session.info.MetaData["versionsPath"] != "" {
-				p := session.info.MetaData["versionsPath"]
-				if err := session.store.lu.CopyMetadata(ctx, p, n.InternalPath(), func(attributeName string, value []byte) (newValue []byte, copy bool) {
-					return value, strings.HasPrefix(attributeName, prefixes.ChecksumPrefix) ||
-						attributeName == prefixes.TypeAttr ||
-						attributeName == prefixes.BlobIDAttr ||
-						attributeName == prefixes.BlobsizeAttr ||
-						attributeName == prefixes.MTimeAttr
-				}, true); err != nil {
-					appctx.GetLogger(ctx).Info().Str("versionpath", p).Str("nodepath", n.InternalPath()).Err(err).Msg("renaming version node failed")
-				}
-
-				if err := os.RemoveAll(p); err != nil {
-					appctx.GetLogger(ctx).Info().Str("versionpath", p).Str("nodepath", n.InternalPath()).Err(err).Msg("error removing version")
-				}
-
-			} else {
-				// if no other upload session is in progress (processing id != session id) or has finished (processing id == "")
-				latestSession, err := n.ProcessingID(ctx)
-				if err != nil {
-					appctx.GetLogger(ctx).Error().Err(err).Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Str("uploadid", session.ID()).Msg("reading processingid for session failed")
-				}
-				if latestSession == session.ID() {
-					// actually delete the node
-					session.removeNode(ctx)
-				}
-				// FIXME else if the upload has become a revision, delete the revision, or if it is the last one, delete the node
-			}
-		}
-	}
 
 	if cleanBin {
 		if err := os.Remove(session.binPath()); err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -363,20 +327,69 @@ func (session *OcisSession) Cleanup(revertNodeMetadata, cleanBin, cleanInfo bool
 	}
 
 	if cleanInfo {
-		if err := session.Purge(ctx); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		if err := os.Remove(session.infoPath()); err != nil {
 			appctx.GetLogger(ctx).Error().Err(err).Str("session", session.ID()).Msg("removing upload info failed")
+		}
+	}
+
+	if revertNodeMetadata {
+		n, err := session.Node(ctx)
+		if err != nil {
+			appctx.GetLogger(ctx).Error().Err(err).Str("sessionid", session.ID()).Msg("reading node for session failed")
+			return
+		}
+
+		versionID := strings.TrimPrefix(session.info.MetaData["versionsPath"], n.InternalPath()+node.RevisionIDDelimiter)
+		if session.NodeExists() && versionID != "" {
+			if err := n.RevertUpload(ctx, versionID); err != nil {
+				appctx.GetLogger(ctx).Error().Err(err).Str("nodepath", n.InternalPath()).Msg("reverting node metadata failed")
+				return
+			}
+		} else {
+			// if no other upload session is in progress (processing id != session id) or has finished (processing id == "")
+			latestSession, err := n.ProcessingID(ctx)
+			if err != nil {
+				appctx.GetLogger(ctx).Error().Err(err).Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Str("uploadid", session.ID()).Msg("reading processingid for session failed")
+			}
+			if latestSession == session.ID() {
+				// actually delete the node
+				if err := n.Purge(ctx); err != nil {
+					appctx.GetLogger(ctx).Error().Err(err).Str("nodepath", n.InternalPath()).Msg("purging node failed")
+					return
+				}
+			}
+			// FIXME else if the upload has become a revision, delete the revision, or if it is the last one, delete the node
+		}
+	}
+
+	if unmarkPostprocessing {
+		n, err := session.Node(ctx)
+		if err != nil {
+			appctx.GetLogger(ctx).Info().Str("session", session.ID()).Err(err).Msg("could not read node")
+			return
+		}
+		// FIXME: after cleanup the node might already be deleted ...
+		if n != nil { // node can be nil when there was an error before it was created (eg. checksum-mismatch)
+			if err := n.UnmarkProcessing(ctx, session.ID()); err != nil {
+				appctx.GetLogger(ctx).Info().Str("path", n.InternalPath()).Err(err).Msg("unmarking processing failed")
+			}
 		}
 	}
 }
 
 // URL returns a url to download an upload
 func (session *OcisSession) URL(_ context.Context) (string, error) {
+	u := joinurl(session.store.tknopts.DownloadEndpoint, "tus/", session.ID())
+	if session.store.tknopts.DataGatewayEndpoint == "" {
+		return u, nil
+	}
+
+	// we need to create a token
 	type transferClaims struct {
 		jwt.RegisteredClaims
 		Target string `json:"target"`
 	}
 
-	u := joinurl(session.store.tknopts.DownloadEndpoint, "tus/", session.ID())
 	ttl := time.Duration(session.store.tknopts.TransferExpires) * time.Second
 	claims := transferClaims{
 		RegisteredClaims: jwt.RegisteredClaims{

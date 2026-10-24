@@ -136,7 +136,7 @@ func MatchesFilter(share *link.PublicShare, filter *link.ListPublicSharesRequest
 	case link.ListPublicSharesRequest_Filter_TYPE_RESOURCE_ID:
 		return utils.ResourceIDEqual(share.ResourceId, filter.GetResourceId())
 	case StorageIDFilterType:
-		return share.ResourceId.StorageId == filter.GetResourceId().GetStorageId()
+		return share.GetResourceId().GetStorageId() == filter.GetResourceId().GetStorageId()
 	default:
 		return false
 	}

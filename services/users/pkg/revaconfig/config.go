@@ -103,5 +103,6 @@ func ldapConfigFromString(cfg config.LDAPDriver) map[string]any {
 			"externalId": cfg.TenantSchema.ExternalID,
 			"name":       cfg.TenantSchema.Name,
 		},
+		"lookup_cache_ttl": cfg.LookupCacheTTL,
 	}
 }

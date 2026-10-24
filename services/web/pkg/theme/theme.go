@@ -33,6 +33,10 @@ var themeDefaults = KV{
 				"label":    "UnifiedRoleSpaceViewer",
 				"iconName": "eye",
 			},
+			unifiedrole.UnifiedRoleSpaceViewerWithVersionsID: KV{
+				"label":    "UnifiedRoleSpaceViewerWithVersions",
+				"iconName": "eye",
+			},
 			unifiedrole.UnifiedRoleFileEditorID: KV{
 				"label":    "UnifiedRoleFileEditor",
 				"iconName": "pencil",

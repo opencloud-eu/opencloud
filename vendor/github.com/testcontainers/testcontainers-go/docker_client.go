@@ -9,7 +9,9 @@ import (
 	"github.com/moby/moby/client"
 
 	"github.com/testcontainers/testcontainers-go/internal"
+	"github.com/testcontainers/testcontainers-go/internal/config"
 	"github.com/testcontainers/testcontainers-go/internal/core"
+	"github.com/testcontainers/testcontainers-go/internal/core/bootstrap"
 	"github.com/testcontainers/testcontainers-go/log"
 )
 
@@ -17,6 +19,8 @@ import (
 // It implements the SystemAPIClient interface in order to cache the docker info and reuse it.
 type DockerClient struct {
 	*client.Client // client is embedded into our own client
+
+	config config.Config
 }
 
 var (
@@ -85,8 +89,8 @@ func (c *DockerClient) Info(ctx context.Context, options client.InfoOptions) (cl
 		internal.Version,
 		host,
 		core.MustExtractDockerSocket(ctx),
-		core.SessionID(),
-		core.ProcessID(),
+		c.config.SessionID,
+		bootstrap.ProcessID(),
 	)
 
 	return dockerInfo, nil
@@ -125,6 +129,7 @@ func NewDockerClientWithOpts(ctx context.Context, opt ...client.Opt) (*DockerCli
 
 	tcClient := DockerClient{
 		Client: dockerClient,
+		config: config.Read(),
 	}
 
 	if _, err = tcClient.Info(ctx, client.InfoOptions{}); err != nil {

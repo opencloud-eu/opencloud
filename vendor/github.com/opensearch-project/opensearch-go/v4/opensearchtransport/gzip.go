@@ -48,14 +48,17 @@ func (pg *gzipCompressor) compress(rc io.ReadCloser) (*bytes.Buffer, error) {
 	writer.Reset(buf)
 
 	if _, err := io.Copy(writer, rc); err != nil {
-		return nil, fmt.Errorf("failed to compress request body: %w", err)
+		return buf, fmt.Errorf("failed to compress request body: %w", err)
 	}
 	if err := writer.Close(); err != nil {
-		return nil, fmt.Errorf("failed to compress request body (during close): %w", err)
+		return buf, fmt.Errorf("failed to compress request body (during close): %w", err)
 	}
 	return buf, nil
 }
 
 func (pg *gzipCompressor) collectBuffer(buf *bytes.Buffer) {
+	if buf == nil {
+		return
+	}
 	pg.bufferPool.Put(buf)
 }

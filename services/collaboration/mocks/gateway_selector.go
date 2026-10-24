@@ -77,9 +77,9 @@ type Selectable_Next_Call[T any] struct {
 
 // Next is a helper method to define mock.On call
 //   - opts ...pool.Option
-func (_e *Selectable_Expecter[T]) Next(opts ...interface{}) *Selectable_Next_Call[T] {
+func (_e *Selectable_Expecter[T]) Next(opts ...any) *Selectable_Next_Call[T] {
 	return &Selectable_Next_Call[T]{Call: _e.mock.On("Next",
-		append([]interface{}{}, opts...)...)}
+		append([]any{}, opts...)...)}
 }
 
 func (_c *Selectable_Next_Call[T]) Run(run func(opts ...pool.Option)) *Selectable_Next_Call[T] {

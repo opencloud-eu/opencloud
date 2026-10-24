@@ -27,6 +27,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -42,6 +43,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/internal/goroutinelock"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
@@ -66,24 +68,37 @@ type queueItem struct {
 	timer *time.Timer
 }
 
-const dirtyFlag = prefixes.OcPrefix + "dirty"
+func dirtyFlag() string { return prefixes.OcPrefix + "dirty" }
 
 type assimilationNode struct {
 	path    string
 	nodeId  string
 	spaceID string
+	lock    goroutinelock.Lock
 }
 
-func (d assimilationNode) GetID() string {
+func (d *assimilationNode) GetID() string {
 	return d.nodeId
 }
 
-func (d assimilationNode) GetSpaceID() string {
+func (d *assimilationNode) GetSpaceID() string {
 	return d.spaceID
 }
 
-func (d assimilationNode) InternalPath() string {
+func (d *assimilationNode) InternalPath() string {
 	return d.path
+}
+
+func (d *assimilationNode) LockHeld() bool {
+	return d.lock.Held()
+}
+
+func (d *assimilationNode) SetLockHeld(held bool) {
+	if held {
+		d.lock.Hold()
+		return
+	}
+	d.lock.Release()
 }
 
 // NewScanDebouncer returns a new SpaceDebouncer instance
@@ -424,7 +439,7 @@ func (t *Tree) assimilate(item scanItem) error {
 	t.log.Debug().Str("path", item.Path).Bool("recurse", item.Recurse).Msg("assimilate")
 	var err error
 
-	spaceID, id, parentID, mtime, err := t.lookup.MetadataBackend().IdentifyPath(context.Background(), item.Path)
+	spaceID, id, _, _, err := t.lookup.MetadataBackend().IdentifyPath(context.Background(), item.Path)
 	if err != nil {
 		return err
 	}
@@ -472,14 +487,26 @@ func (t *Tree) assimilate(item scanItem) error {
 			_ = unlock()
 		}()
 
+		// read the metadata and the file again now that we hold the lock. The previous holder may have changed
+		// both, e.g. an upload sets the mtime on disk before it writes the mtime attribute.
+		_, _, parentID, mtime, err := t.lookup.MetadataBackend().IdentifyPath(context.Background(), item.Path)
+		if err != nil {
+			return err
+		}
+		fi, err = os.Lstat(item.Path)
+		if err != nil {
+			return err
+		}
+
 		previousPath, err := t.lookup.GetCachedID(context.Background(), spaceID, id)
 		if previousPath == "" || err != nil {
 			previousPath, err = t.lookup.IDHistoryCache.Get(context.Background(), spaceID, id)
 		}
 
 		// compare metadata mtime with actual mtime. if it matches AND the path hasn't changed (move operation)
-		// we can skip the assimilation because the file was handled by us
-		if previousPath == item.Path && mtime.Equal(fi.ModTime()) {
+		// we can skip the assimilation because the file was handled by us. A stored name or parent that differs from
+		// the disk means a rename or a move was missed, even if the id cache already has the new path.
+		if previousPath == item.Path && mtime.Equal(fi.ModTime()) && !t.metadataIsStale(item.Path) {
 			return _errSkipAlreadyKnown
 		}
 
@@ -523,7 +550,7 @@ func (t *Tree) assimilate(item scanItem) error {
 				if fi.IsDir() {
 					// if it was moved and it is a directory we need to propagate the move
 					go func() {
-						if err := t.WarmupIDCache(item.Path, false, true); err != nil {
+						if err := t.WarmupIDCache(item.Path, false, false); err != nil {
 							t.log.Error().Err(err).Str("path", item.Path).Msg("could not warmup id cache")
 						}
 					}()
@@ -587,10 +614,11 @@ func (t *Tree) assimilate(item scanItem) error {
 					})
 				} else {
 					t.PublishEvent(events.UploadReady{
-						FileRef:   ref,
-						ParentID:  parentResourceID,
-						Timestamp: utils.TSNow(),
-						IsVersion: true,
+						FileRef:    ref,
+						ParentID:   parentResourceID,
+						ResourceID: ref.ResourceId,
+						Timestamp:  utils.TSNow(),
+						IsVersion:  true,
 					})
 				}
 			}
@@ -657,10 +685,11 @@ func (t *Tree) assimilate(item scanItem) error {
 				})
 			} else {
 				t.PublishEvent(events.UploadReady{
-					FileRef:   ref,
-					ParentID:  parentId,
-					Timestamp: utils.TSNow(),
-					IsVersion: false,
+					FileRef:    ref,
+					ParentID:   parentId,
+					ResourceID: ref.ResourceId,
+					Timestamp:  utils.TSNow(),
+					IsVersion:  false,
 				})
 			}
 		}
@@ -673,7 +702,8 @@ func (t *Tree) assimilate(item scanItem) error {
 func (t *Tree) updateFile(path, id, spaceID string, fi fs.FileInfo) (fs.FileInfo, node.Attributes, error) {
 	retries := 1
 	parentID := ""
-	bn := assimilationNode{spaceID: spaceID, nodeId: id, path: path}
+	bn := &assimilationNode{spaceID: spaceID, nodeId: id, path: path}
+	bn.SetLockHeld(true)
 assimilate:
 	if id != spaceID {
 		// read parent
@@ -714,7 +744,7 @@ assimilate:
 		}
 	}
 
-	attrs, err := t.lookup.MetadataBackend().AllWithLockedSource(context.Background(), bn, nil)
+	attrs, err := t.lookup.MetadataBackend().All(context.Background(), bn)
 	if err != nil && !metadata.IsAttrUnset(err) {
 		return nil, nil, errors.Wrap(err, "failed to get item attribs")
 	}
@@ -752,6 +782,14 @@ assimilate:
 		}
 		n = node.New(spaceID, id, parentID, filepath.Base(path), treeSize, "", provider.ResourceType_RESOURCE_TYPE_CONTAINER, nil, t.lookup)
 	} else {
+		// CalculateChecksums reads the whole file, so skip an unchanged file that recently failed after
+		// this point, e.g. because the service user can't set its xattrs
+		if err := t.assimilationFailures.Recent(path, fi); err != nil {
+			return nil, nil, err
+		}
+		// Record sees err because every failure below assigns it before returning
+		defer func() { t.assimilationFailures.Record(path, fi, err) }()
+
 		sha1h, md5h, adler32h, err := node.CalculateChecksums(context.Background(), path)
 		if err == nil {
 			attributes[prefixes.ChecksumPrefix+"sha1"] = sha1h.Sum(nil)
@@ -788,6 +826,8 @@ assimilate:
 		go func() {
 			// Copy the previous current version to a revision
 			currentNode := node.NewBaseNode(n.SpaceID, n.ID+node.CurrentIDDelimiter, t.lookup)
+			currentNode.SetLockHeld(true)
+
 			currentPath := currentNode.InternalPath()
 			stat, err := os.Stat(currentPath)
 			if err == nil {
@@ -834,7 +874,7 @@ assimilate:
 					attributeName == prefixes.TypeAttr ||
 					attributeName == prefixes.BlobIDAttr ||
 					attributeName == prefixes.BlobsizeAttr
-			}, false)
+			})
 			if err != nil {
 				t.log.Error().Err(err).Str("currentPath", currentPath).Str("path", path).Msg("failed to copy xattrs to 'current' file")
 				return
@@ -842,21 +882,23 @@ assimilate:
 		}()
 	}
 
+	t.log.Debug().Str("path", path).Interface("attributes", attributes).Msg("setting attributes")
+	err = t.lookup.MetadataBackend().SetMultiple(context.Background(), bn, attributes)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to set attributes")
+	}
+
+	// only propagate once the attributes are stored. If storing them failed after propagating, the file
+	// would still have no blobsize and the next attempt would propagate its whole size again.
 	err = t.Propagate(context.Background(), n, sizeDiff)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to propagate")
 	}
 
-	t.log.Debug().Str("path", path).Interface("attributes", attributes).Msg("setting attributes")
-	err = t.lookup.MetadataBackend().SetMultiple(context.Background(), bn, attributes, false)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to set attributes")
-	}
-
 	// clear the status attribute if it was set before, if there was any upload to this file in progress
 	// it needs notice that this file was changes meanwhile.
 	if _, ok := previousAttribs[prefixes.StatusPrefix]; ok {
-		err = t.lookup.MetadataBackend().Remove(context.Background(), bn, prefixes.StatusPrefix, false)
+		err = t.lookup.MetadataBackend().Remove(context.Background(), bn, prefixes.StatusPrefix)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "failed to clear status attribute")
 		}
@@ -891,20 +933,31 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 	}
 
 	sizes := make(map[string]int64)
+	addToParents := func(path string, size int64) {
+		for dir := path; dir != root; {
+			dir = filepath.Clean(filepath.Dir(dir))
+			sizes[dir] += size
+		}
+	}
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
 		// skip irrelevant files
-		if !t.Ignorer.IsSpaceRoot(path) && t.Ignorer.IsIgnored(path) {
-			if info.IsDir() {
+		if t.Ignorer.IsIgnored(path) {
+			switch {
+			case t.Ignorer.IsSpaceRoot(path):
+				// ignore the space root itself, but do not skip the whole tree
+				return nil
+			case t.Ignorer.IsRootPath(path):
+				// ignor the root path itself, but do not skip the whole tree
+				return nil
+			case info.IsDir():
 				return filepath.SkipDir
+			default:
+				return nil
 			}
-			return nil
-		}
-		if t.Ignorer.IsRootPath(path) {
-			return nil // ignore the root paths
 		}
 
 		if !info.IsDir() && !info.Mode().IsRegular() {
@@ -914,25 +967,27 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 
 		// calculate tree sizes
 		if !info.IsDir() {
-			dir := path
-			for dir != root {
-				dir = filepath.Clean(filepath.Dir(dir))
-				sizes[dir] += info.Size()
-			}
+			addToParents(path, info.Size())
 		} else {
-			sizes[path] += 0 // Make sure to set the size to 0 for empty directories
 			if onlyDirty {
 				dirty, err := t.isDirty(path)
 				if err != nil {
 					return err
 				}
 				if !dirty {
-					return filepath.SkipDir
+					// the stored tree size of a clean directory is still valid. Count it for the
+					// parents instead of overwriting it with the size of the files we skip.
+					if size, ok := t.storedTreeSize(path); ok {
+						addToParents(path, size)
+						return filepath.SkipDir
+					}
+					// without a valid stored tree size, walk the directory to calculate it
 				}
 			}
+			sizes[path] += 0 // Make sure to set the size to 0 for empty directories
 		}
 
-		nodeSpaceID, id, _, _, err := t.lookup.MetadataBackend().IdentifyPath(context.Background(), path)
+		nodeSpaceID, id, parentID, mtime, err := t.lookup.MetadataBackend().IdentifyPath(context.Background(), path)
 		if err == nil && len(id) > 0 {
 			if len(nodeSpaceID) > 0 {
 				spaceID = nodeSpaceID
@@ -972,6 +1027,7 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 			if id != "" {
 				// Check if the item on the previous path still exists. In this case it might have been a copy with extended attributes -> set new ID
 				isCopy := false
+				isMove := false
 				previousPath, err := t.lookup.GetCachedID(context.Background(), spaceID, id)
 				switch err.(type) {
 				case errtypes.NotFound:
@@ -979,18 +1035,38 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 				case nil:
 					if previousPath != path {
 						_, err := os.Stat(previousPath)
-						if err == nil {
+						switch {
+						case err == nil:
 							// previous path (using the same id) still exists -> this is a copy
 							isCopy = true
+						case os.IsNotExist(err):
+							// the item is gone from the previous path. It needs to be assimilated
+							// again only when its own name or parent changed. When an ancestor was
+							// renamed the item itself stayed as it was and the stale cache entry
+							// is all there is to fix.
+							// The walk visits a directory before its children, so a parent created since the
+							// last scan already has its id here.
+							_, parentOnDisk, _, _, perr := t.lookup.MetadataBackend().IdentifyPath(context.Background(), filepath.Dir(path))
+							isMove = filepath.Base(previousPath) != filepath.Base(path) ||
+								(perr == nil && len(parentOnDisk) > 0 && len(parentID) > 0 && parentID != parentOnDisk)
 						}
 					}
 				default:
 					return errors.Wrap(err, "failed to get previous path from cache")
 				}
 
-				if isCopy {
-					// copy detected -> re-assimilate
-					_ = t.assimilate(scanItem{Path: path})
+				// the metadata mtime lags behind the one on disk when a file changed outside of
+				// opencloud. Directories are left out because their mtime on disk also changes
+				// when a child is added or removed, and the walk visits those children anyway.
+				isChanged := !info.IsDir() && !mtime.IsZero() && !mtime.Equal(info.ModTime())
+
+				if isCopy || (assimilate && (isMove || isChanged || t.metadataIsStale(path))) {
+					// a copy with a clashing id, a move or a change on disk -> re-assimilate.
+					// assimilate skips items whose path and mtime still match the metadata
+					err := t.assimilate(scanItem{Path: path})
+					if err != nil && !errors.Is(err, _errSkipAlreadyKnown) {
+						t.log.Error().Err(err).Str("path", path).Msg("could not assimilate item")
+					}
 				} else {
 					// update cached id with new path
 					if err := t.lookup.CacheID(context.Background(), spaceID, id, path); err != nil {
@@ -1042,6 +1118,24 @@ func (t *Tree) WarmupIDCache(root string, assimilate, onlyDirty bool) error {
 	return nil
 }
 
+// metadataIsStale reports whether the name or the parent id stored for an item differ from where the item is on
+// disk. It reads the attributes from disk, like IdentifyPath, so a cached copy can't hide or fake a difference.
+// Space roots are left out, because their name doesn't have to match the name of their directory.
+func (t *Tree) metadataIsStale(path string) bool {
+	if t.Ignorer.IsSpaceRoot(path) {
+		return false
+	}
+	if name, err := xattr.Get(path, prefixes.NameAttr); err == nil && string(name) != filepath.Base(path) {
+		return true
+	}
+	parentID, err := xattr.Get(path, prefixes.ParentidAttr)
+	if err != nil || len(parentID) == 0 {
+		return false
+	}
+	parentOnDisk, err := xattr.Get(filepath.Dir(path), prefixes.IDAttr)
+	return err == nil && len(parentOnDisk) > 0 && string(parentID) != string(parentOnDisk)
+}
+
 func (t *Tree) propagateSizeDiff(n *node.Node, size int64) error {
 	attrs, err := t.lookup.MetadataBackend().All(context.Background(), n)
 	if err != nil {
@@ -1056,11 +1150,20 @@ func (t *Tree) propagateSizeDiff(n *node.Node, size int64) error {
 }
 
 func (t *Tree) setDirty(path string, dirty bool) error {
-	return xattr.Set(path, dirtyFlag, []byte(fmt.Sprintf("%t", dirty)))
+	return xattr.Set(path, dirtyFlag(), []byte(fmt.Sprintf("%t", dirty)))
+}
+
+func (t *Tree) storedTreeSize(path string) (int64, bool) {
+	b, err := xattr.Get(path, prefixes.TreesizeAttr)
+	if err != nil {
+		return 0, false
+	}
+	size, err := strconv.ParseInt(string(b), 10, 64)
+	return size, err == nil && size >= 0
 }
 
 func (t *Tree) isDirty(path string) (bool, error) {
-	dirtyAttr, err := xattr.Get(path, dirtyFlag)
+	dirtyAttr, err := xattr.Get(path, dirtyFlag())
 	if err != nil {
 		if metadata.IsAttrUnset(err) {
 			return true, nil

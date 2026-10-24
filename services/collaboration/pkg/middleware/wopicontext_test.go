@@ -2,15 +2,19 @@ package middleware_test
 
 import (
 	"context"
+	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path"
 	"strconv"
+	"strings"
+	"time"
 
 	appprovider "github.com/cs3org/go-cs3apis/cs3/app/provider/v1beta1"
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	providerv1beta1 "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/golang-jwt/jwt/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
@@ -29,6 +33,7 @@ var _ = Describe("Wopi Context Middleware", func() {
 		rid     *providerv1beta1.ResourceId
 		tknMngr token.Manager
 		user    *userv1beta1.User
+		owner   *userv1beta1.User
 		src     *url.URL
 	)
 
@@ -63,6 +68,16 @@ var _ = Describe("Wopi Context Middleware", func() {
 			},
 			Username: "admin",
 			Mail:     "admin@example.com",
+		}
+
+		owner = &userv1beta1.User{
+			Id: &userv1beta1.UserId{
+				Idp:      "example.com",
+				OpaqueId: "67890",
+				Type:     userv1beta1.UserType_USER_TYPE_PRIMARY,
+			},
+			Username: "alice",
+			Mail:     "alice@example.com",
 		}
 
 		rid = &providerv1beta1.ResourceId{
@@ -130,9 +145,12 @@ var _ = Describe("Wopi Context Middleware", func() {
 			AccessToken: token,
 		}
 		// use wrong wopi secret when generating the wopi token
-		wopiToken, ttl, err := middleware.GenerateWopiToken(wopiContext, &config.Config{Wopi: config.Wopi{
-			Secret: "wrongSecret",
-		}}, nil)
+		wopiToken, ttl, err := middleware.GenerateWopiToken(wopiContext, &config.Config{
+			TokenManager: &config.TokenManager{JWTSecret: cfg.TokenManager.JWTSecret},
+			Wopi: config.Wopi{
+				Secret: "wrongSecret",
+			},
+		}, nil)
 		q := req.URL.Query()
 		q.Add("access_token", wopiToken)
 		q.Add("access_token_ttl", strconv.FormatInt(ttl, 10))
@@ -286,5 +304,98 @@ var _ = Describe("Wopi Context Middleware", func() {
 		resp := httptest.NewRecorder()
 		mw.ServeHTTP(resp, req)
 		Expect(resp.Code).To(Equal(http.StatusOK))
+	})
+	It("Should not carry the view only token in plaintext", func() {
+		accessToken, err := tknMngr.MintToken(ctx, user, nil)
+		Expect(err).ToNot(HaveOccurred())
+		viewOnlyToken, err := tknMngr.MintToken(ctx, owner, nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		wopiContext := middleware.WopiContext{
+			AccessToken:   accessToken,
+			ViewOnlyToken: viewOnlyToken,
+			ViewMode:      appprovider.ViewMode_VIEW_MODE_VIEW_ONLY,
+			FileReference: &providerv1beta1.Reference{
+				ResourceId: rid,
+				Path:       ".",
+			},
+		}
+		wopiToken, _, err := middleware.GenerateWopiToken(wopiContext, cfg, nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		parts := strings.Split(wopiToken, ".")
+		Expect(parts).To(HaveLen(3))
+		payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(payload)).ToNot(ContainSubstring(viewOnlyToken))
+	})
+	It("Should hand the decrypted view only token to the next handler", func() {
+		accessToken, err := tknMngr.MintToken(ctx, user, nil)
+		Expect(err).ToNot(HaveOccurred())
+		viewOnlyToken, err := tknMngr.MintToken(ctx, owner, nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		var seen middleware.WopiContext
+		var seenErr error
+		capturing := middleware.WopiContextAuthMiddleware(cfg, nil, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			seen, seenErr = middleware.WopiContextFromCtx(r.Context())
+			w.WriteHeader(http.StatusOK)
+		}))
+
+		wopiContext := middleware.WopiContext{
+			AccessToken:   accessToken,
+			ViewOnlyToken: viewOnlyToken,
+			ViewMode:      appprovider.ViewMode_VIEW_MODE_VIEW_ONLY,
+			FileReference: &providerv1beta1.Reference{
+				ResourceId: rid,
+				Path:       ".",
+			},
+		}
+		wopiToken, ttl, err := middleware.GenerateWopiToken(wopiContext, cfg, nil)
+		Expect(err).ToNot(HaveOccurred())
+
+		req := httptest.NewRequest("GET", src.String(), nil).WithContext(ctx)
+		q := req.URL.Query()
+		q.Add("access_token", wopiToken)
+		q.Add("access_token_ttl", strconv.FormatInt(ttl, 10))
+		req.URL.RawQuery = q.Encode()
+		resp := httptest.NewRecorder()
+
+		capturing.ServeHTTP(resp, req)
+		Expect(resp.Code).To(Equal(http.StatusOK))
+		Expect(seenErr).ToNot(HaveOccurred())
+		Expect(seen.ViewOnlyToken).To(Equal(viewOnlyToken))
+	})
+	It("Should not authorize a token signed with another hmac variant", func() {
+		accessToken, err := tknMngr.MintToken(ctx, user, nil)
+		Expect(err).ToNot(HaveOccurred())
+		cryptedAccessToken, err := middleware.EncryptAES([]byte(cfg.Wopi.Secret), accessToken)
+		Expect(err).ToNot(HaveOccurred())
+
+		// valid apart from the algorithm
+		claims := &middleware.Claims{
+			WopiContext: middleware.WopiContext{
+				AccessToken: cryptedAccessToken,
+				ViewMode:    appprovider.ViewMode_VIEW_MODE_READ_WRITE,
+				FileReference: &providerv1beta1.Reference{
+					ResourceId: rid,
+					Path:       ".",
+				},
+			},
+			RegisteredClaims: jwt.RegisteredClaims{
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+			},
+		}
+		forged, err := jwt.NewWithClaims(jwt.SigningMethodHS512, claims).SignedString([]byte(cfg.Wopi.Secret))
+		Expect(err).ToNot(HaveOccurred())
+
+		req := httptest.NewRequest("GET", src.String(), nil).WithContext(ctx)
+		q := req.URL.Query()
+		q.Add("access_token", forged)
+		req.URL.RawQuery = q.Encode()
+		resp := httptest.NewRecorder()
+
+		mw.ServeHTTP(resp, req)
+		Expect(resp.Code).To(Equal(http.StatusUnauthorized))
 	})
 })

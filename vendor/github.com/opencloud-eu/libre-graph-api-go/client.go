@@ -75,6 +75,10 @@ type APIClient struct {
 
 	GroupsApi *GroupsApiService
 
+	GuestLinksApi *GuestLinksApiService
+
+	InvitationsApi *InvitationsApiService
+
 	MeChangepasswordApi *MeChangepasswordApiService
 
 	MeDriveApi *MeDriveApiService
@@ -91,6 +95,8 @@ type APIClient struct {
 
 	RoleManagementApi *RoleManagementApiService
 
+	SearchApi *SearchApiService
+
 	TagsApi *TagsApiService
 
 	UserApi *UserApiService
@@ -98,6 +104,8 @@ type APIClient struct {
 	UserAppRoleAssignmentApi *UserAppRoleAssignmentApiService
 
 	UserPhotoApi *UserPhotoApiService
+
+	UserTeamworkApi *UserTeamworkApiService
 
 	UsersApi *UsersApiService
 }
@@ -131,6 +139,8 @@ func NewAPIClient(cfg *Configuration) *APIClient {
 	c.EducationUserApi = (*EducationUserApiService)(&c.common)
 	c.GroupApi = (*GroupApiService)(&c.common)
 	c.GroupsApi = (*GroupsApiService)(&c.common)
+	c.GuestLinksApi = (*GuestLinksApiService)(&c.common)
+	c.InvitationsApi = (*InvitationsApiService)(&c.common)
 	c.MeChangepasswordApi = (*MeChangepasswordApiService)(&c.common)
 	c.MeDriveApi = (*MeDriveApiService)(&c.common)
 	c.MeDriveRootApi = (*MeDriveRootApiService)(&c.common)
@@ -139,10 +149,12 @@ func NewAPIClient(cfg *Configuration) *APIClient {
 	c.MePhotoApi = (*MePhotoApiService)(&c.common)
 	c.MeUserApi = (*MeUserApiService)(&c.common)
 	c.RoleManagementApi = (*RoleManagementApiService)(&c.common)
+	c.SearchApi = (*SearchApiService)(&c.common)
 	c.TagsApi = (*TagsApiService)(&c.common)
 	c.UserApi = (*UserApiService)(&c.common)
 	c.UserAppRoleAssignmentApi = (*UserAppRoleAssignmentApiService)(&c.common)
 	c.UserPhotoApi = (*UserPhotoApiService)(&c.common)
+	c.UserTeamworkApi = (*UserTeamworkApiService)(&c.common)
 	c.UsersApi = (*UsersApiService)(&c.common)
 
 	return c
@@ -519,6 +531,15 @@ func (c *APIClient) decode(v interface{}, b []byte, contentType string) (err err
 		*s = string(b)
 		return nil
 	}
+	if r, ok := v.(*io.Reader); ok {
+		*r = bytes.NewReader(b)
+		return nil
+	}
+	// Must stay before the JSON branch: json.Unmarshal would base64-decode into *[]byte.
+	if p, ok := v.(*[]byte); ok {
+		*p = b
+		return nil
+	}
 	if f, ok := v.(*os.File); ok {
 		f, err = os.CreateTemp("", "HttpClientFile")
 		if err != nil {
@@ -572,10 +593,7 @@ func addFile(w *multipart.Writer, fieldName, path string) error {
 	if err != nil {
 		return err
 	}
-	err = file.Close()
-	if err != nil {
-		return err
-	}
+	defer file.Close()
 
 	part, err := w.CreateFormFile(fieldName, filepath.Base(path))
 	if err != nil {

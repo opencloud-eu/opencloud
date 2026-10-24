@@ -76,7 +76,7 @@ type BaseGraphProvider_CS3ReceivedOCMSharesToDriveItems_Call struct {
 // CS3ReceivedOCMSharesToDriveItems is a helper method to define mock.On call
 //   - ctx context.Context
 //   - receivedOCMShares []*ocmv1beta1.ReceivedShare
-func (_e *BaseGraphProvider_Expecter) CS3ReceivedOCMSharesToDriveItems(ctx interface{}, receivedOCMShares interface{}) *BaseGraphProvider_CS3ReceivedOCMSharesToDriveItems_Call {
+func (_e *BaseGraphProvider_Expecter) CS3ReceivedOCMSharesToDriveItems(ctx any, receivedOCMShares any) *BaseGraphProvider_CS3ReceivedOCMSharesToDriveItems_Call {
 	return &BaseGraphProvider_CS3ReceivedOCMSharesToDriveItems_Call{Call: _e.mock.On("CS3ReceivedOCMSharesToDriveItems", ctx, receivedOCMShares)}
 }
 
@@ -144,7 +144,7 @@ type BaseGraphProvider_CS3ReceivedSharesToDriveItems_Call struct {
 // CS3ReceivedSharesToDriveItems is a helper method to define mock.On call
 //   - ctx context.Context
 //   - receivedShares []*collaborationv1beta1.ReceivedShare
-func (_e *BaseGraphProvider_Expecter) CS3ReceivedSharesToDriveItems(ctx interface{}, receivedShares interface{}) *BaseGraphProvider_CS3ReceivedSharesToDriveItems_Call {
+func (_e *BaseGraphProvider_Expecter) CS3ReceivedSharesToDriveItems(ctx any, receivedShares any) *BaseGraphProvider_CS3ReceivedSharesToDriveItems_Call {
 	return &BaseGraphProvider_CS3ReceivedSharesToDriveItems_Call{Call: _e.mock.On("CS3ReceivedSharesToDriveItems", ctx, receivedShares)}
 }
 

@@ -24,12 +24,15 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
 	"go-micro.dev/v4/client"
 	"google.golang.org/grpc"
 
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/userstate"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	settings "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
@@ -57,6 +60,7 @@ var _ = Describe("Users", func() {
 		valueService      *settingsmocks.ValueService
 		permissionService *mocks.Permissions
 		identityBackend   *identitymocks.Backend
+		mtrics            *metrics.Metrics
 		natsKeyValueMock  *mocks.KeyValue
 
 		rr *httptest.ResponseRecorder
@@ -81,11 +85,13 @@ var _ = Describe("Users", func() {
 			},
 		)
 
+		logger := log.NewLogger()
 		identityBackend = &identitymocks.Backend{}
 		roleService = &mocks.RoleService{}
 		natsKeyValueMock = &mocks.KeyValue{}
 		valueService = &settingsmocks.ValueService{}
 		permissionService = &mocks.Permissions{}
+		mtrics, _ = metrics.New(prometheus.NewRegistry(), &logger, func([]string) (string, string) { return "", "" })
 
 		rr = httptest.NewRecorder()
 		ctx = context.Background()
@@ -104,6 +110,7 @@ var _ = Describe("Users", func() {
 			var err error
 			svc, err = service.NewService(
 				service.Config(cfg),
+				service.Metrics(mtrics),
 				service.WithGatewaySelector(gatewaySelector),
 				service.EventsPublisher(&eventsPublisher),
 				service.WithIdentityBackend(identityBackend),
@@ -916,6 +923,7 @@ var _ = Describe("Users", func() {
 
 						localSvc, err := service.NewService(
 							service.Config(localCfg),
+							service.Metrics(mtrics),
 							service.WithGatewaySelector(gatewaySelector),
 							service.EventsPublisher(&eventsPublisher),
 							service.WithIdentityBackend(identityBackend),
@@ -1091,7 +1099,7 @@ var _ = Describe("Users", func() {
 				lu := libregraph.User{}
 				lu.SetId(otheruser.Id.OpaqueId)
 				identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(&lu, nil)
-				//identityBackend.On("DeleteUser", mock.Anything, mock.Anything).Return(nil)
+				//identityBackend.On("DeleteUser", mock.Anything, mock.Anything).Return(IsFound, nil)
 				identityBackend.On("UpdateUser", mock.Anything, mock.Anything, mock.Anything).Return(&lu, nil)
 				gatewayClient.On("DeleteStorageSpace", mock.Anything, mock.Anything).Return(&provider.DeleteStorageSpaceResponse{
 					Status: status.NewOK(ctx),
@@ -1307,7 +1315,89 @@ var _ = Describe("Users", func() {
 				Expect(unmarshaledUser.GetDisplayName()).To(Equal("New Display Name"))
 			})
 		})
+
+		Describe("PatchMe", func() {
+			var (
+				user         *libregraph.User
+				userUpdate   *libregraph.UserUpdate
+				expectedUser *libregraph.User
+
+				assertRejected = func(update *libregraph.UserUpdate, msg string) {
+					data, err := json.Marshal(update)
+					Expect(err).ToNot(HaveOccurred())
+
+					r := httptest.NewRequest(http.MethodPatch, "/graph/v1.0/me", bytes.NewBuffer(data))
+					r = r.WithContext(revactx.ContextSetUser(ctx, currentUser))
+					svc.PatchMe(rr, r)
+
+					Expect(rr.Code).To(Equal(http.StatusForbidden))
+					Expect(rr.Body.String()).To(ContainSubstring(msg))
+					identityBackend.AssertNumberOfCalls(GinkgoT(), "UpdateUser", 0)
+				}
+			)
+
+			BeforeEach(func() {
+				user = libregraph.NewUser("Display Name", "user")
+				user.SetMail("mail@mail.test")
+				user.SetId("user")
+				userUpdate = libregraph.NewUserUpdate()
+				expectedUser = libregraph.NewUser("Display Name", "user")
+				expectedUser.SetMail(user.GetMail())
+				expectedUser.SetId(user.GetId())
+			})
+
+			It("handles missing user ids", func() {
+				r := httptest.NewRequest(http.MethodPatch, "/graph/v1.0/me", nil)
+				r = r.WithContext(revactx.ContextSetUser(ctx, &userv1beta1.User{}))
+				svc.PatchMe(rr, r)
+
+				Expect(rr.Code).To(Equal(http.StatusBadRequest))
+			})
+
+			It("handles invalid request bodies", func() {
+				r := httptest.NewRequest(http.MethodPatch, "/graph/v1.0/me", bytes.NewBufferString("{invalid"))
+				r = r.WithContext(revactx.ContextSetUser(ctx, currentUser))
+				svc.PatchMe(rr, r)
+
+				Expect(rr.Code).To(Equal(http.StatusBadRequest))
+			})
+
+			It("rejects changing the own display name", func() {
+				userUpdate.SetDisplayName("New Display Name")
+				assertRejected(userUpdate, "user is not allowed to change own displayname")
+			})
+
+			It("rejects changing the own mail", func() {
+				userUpdate.SetMail("mail@mail.test")
+				assertRejected(userUpdate, "user is not allowed to change own mail")
+			})
+
+			It("rejects changing the own password profile", func() {
+				pwProfile := libregraph.NewPasswordProfile()
+				pwProfile.SetPassword("newpassword")
+				userUpdate.SetPasswordProfile(*pwProfile)
+				assertRejected(userUpdate, "user is not allowed to change own password profile")
+			})
+
+			It("still updates allowed attributes", func() {
+				identityBackend.On("GetUser", mock.Anything, mock.Anything, mock.Anything).Return(user, nil)
+
+				userUpdate.SetGivenName("New Given Name")
+				expectedUser.SetGivenName("New Given Name")
+				identityBackend.On("UpdateUser", mock.Anything, user.GetId(), mock.Anything).Return(expectedUser, nil)
+
+				data, err := json.Marshal(userUpdate)
+				Expect(err).ToNot(HaveOccurred())
+
+				r := httptest.NewRequest(http.MethodPatch, "/graph/v1.0/me", bytes.NewBuffer(data))
+				r = r.WithContext(revactx.ContextSetUser(ctx, currentUser))
+				svc.PatchMe(rr, r)
+
+				Expect(rr.Code).To(Equal(http.StatusOK))
+			})
+		})
 	})
+
 	When("OCM is enabled", func() {
 		BeforeEach(func() {
 			cfg.IncludeOCMSharees = true
@@ -1315,6 +1405,7 @@ var _ = Describe("Users", func() {
 			var err error
 			svc, err = service.NewService(
 				service.Config(cfg),
+				service.Metrics(mtrics),
 				service.WithGatewaySelector(gatewaySelector),
 				service.EventsPublisher(&eventsPublisher),
 				service.WithIdentityBackend(identityBackend),

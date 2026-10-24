@@ -111,9 +111,9 @@ type Store_Delete_Call struct {
 // Delete is a helper method to define mock.On call
 //   - key string
 //   - opts ...store.DeleteOption
-func (_e *Store_Expecter) Delete(key interface{}, opts ...interface{}) *Store_Delete_Call {
+func (_e *Store_Expecter) Delete(key any, opts ...any) *Store_Delete_Call {
 	return &Store_Delete_Call{Call: _e.mock.On("Delete",
-		append([]interface{}{key}, opts...)...)}
+		append([]any{key}, opts...)...)}
 }
 
 func (_c *Store_Delete_Call) Run(run func(key string, opts ...store.DeleteOption)) *Store_Delete_Call {
@@ -176,9 +176,9 @@ type Store_Init_Call struct {
 
 // Init is a helper method to define mock.On call
 //   - options ...store.Option
-func (_e *Store_Expecter) Init(options ...interface{}) *Store_Init_Call {
+func (_e *Store_Expecter) Init(options ...any) *Store_Init_Call {
 	return &Store_Init_Call{Call: _e.mock.On("Init",
-		append([]interface{}{}, options...)...)}
+		append([]any{}, options...)...)}
 }
 
 func (_c *Store_Init_Call) Run(run func(options ...store.Option)) *Store_Init_Call {
@@ -247,9 +247,9 @@ type Store_List_Call struct {
 
 // List is a helper method to define mock.On call
 //   - opts ...store.ListOption
-func (_e *Store_Expecter) List(opts ...interface{}) *Store_List_Call {
+func (_e *Store_Expecter) List(opts ...any) *Store_List_Call {
 	return &Store_List_Call{Call: _e.mock.On("List",
-		append([]interface{}{}, opts...)...)}
+		append([]any{}, opts...)...)}
 }
 
 func (_c *Store_List_Call) Run(run func(opts ...store.ListOption)) *Store_List_Call {
@@ -363,9 +363,9 @@ type Store_Read_Call struct {
 // Read is a helper method to define mock.On call
 //   - key string
 //   - opts ...store.ReadOption
-func (_e *Store_Expecter) Read(key interface{}, opts ...interface{}) *Store_Read_Call {
+func (_e *Store_Expecter) Read(key any, opts ...any) *Store_Read_Call {
 	return &Store_Read_Call{Call: _e.mock.On("Read",
-		append([]interface{}{key}, opts...)...)}
+		append([]any{key}, opts...)...)}
 }
 
 func (_c *Store_Read_Call) Run(run func(key string, opts ...store.ReadOption)) *Store_Read_Call {
@@ -473,9 +473,9 @@ type Store_Write_Call struct {
 // Write is a helper method to define mock.On call
 //   - r *store.Record
 //   - opts ...store.WriteOption
-func (_e *Store_Expecter) Write(r interface{}, opts ...interface{}) *Store_Write_Call {
+func (_e *Store_Expecter) Write(r any, opts ...any) *Store_Write_Call {
 	return &Store_Write_Call{Call: _e.mock.On("Write",
-		append([]interface{}{r}, opts...)...)}
+		append([]any{r}, opts...)...)}
 }
 
 func (_c *Store_Write_Call) Run(run func(r *store.Record, opts ...store.WriteOption)) *Store_Write_Call {

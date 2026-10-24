@@ -26,7 +26,7 @@ func (s eventsNotifier) handleResourceMention(e ocEvents.ResourceMention, eventI
 
 	ctx, err := utils.GetServiceUserContextWithContext(context.Background(), gatewayClient, s.serviceAccountID, s.serviceAccountSecret)
 	if err != nil {
-		logger.Error().Err(err).Msg("could not select next gateway client")
+		logger.Error().Err(err).Msg("could not get service user context")
 		return
 	}
 
@@ -51,7 +51,14 @@ func (s eventsNotifier) handleResourceMention(e ocEvents.ResourceMention, eventI
 			return
 		}
 
+		// the event is not necessarily deduped, a recipient listed twice would be mailed twice
+		seen := make(map[string]struct{}, len(e.UserIDs)+1)
 		for _, userID := range append([]*user.UserId{e.Executant}, e.UserIDs...) {
+			if _, ok := seen[userID.GetOpaqueId()]; ok {
+				continue
+			}
+			seen[userID.GetOpaqueId()] = struct{}{}
+
 			switch u, err := s.getUser(ctx, userID); {
 			case err != nil:
 				logger.Error().Err(err).Msg("could not get user")

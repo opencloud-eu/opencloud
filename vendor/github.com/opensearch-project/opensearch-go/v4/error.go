@@ -7,6 +7,7 @@
 package opensearch
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -145,9 +146,18 @@ func ParseError(resp *Response) error {
 	}
 
 	body, err := io.ReadAll(resp.Body)
+	resp.Body.Close()
 	if err != nil {
+		// Restore Body so callers don't see a closed reader. The partial
+		// bytes are intentionally dropped because the underlying read
+		// already failed; what matters is keeping the Body field
+		// consistent with the success branch below (an in-memory
+		// NopCloser the caller can safely Read or Close).
+		resp.Body = io.NopCloser(bytes.NewReader(body))
 		return fmt.Errorf("%w: %w", ErrReadBody, err)
 	}
+
+	resp.Body = io.NopCloser(bytes.NewReader(body))
 
 	var testResp struct {
 		Status  any `json:"status"`
@@ -156,7 +166,7 @@ func ParseError(resp *Response) error {
 		Reason  any `json:"reason"`
 	}
 	if err = json.Unmarshal(body, &testResp); err != nil {
-		return fmt.Errorf("%w: %w", ErrJSONUnmarshalBody, err)
+		return fmt.Errorf("%w, status: %d, body: %q", ErrJSONUnmarshalBody, resp.StatusCode, string(body))
 	}
 
 	// Check for errors where status is a number

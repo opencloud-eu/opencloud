@@ -10,7 +10,7 @@ import (
 	"github.com/open-policy-agent/opa/v1/util"
 )
 
-// ValueMap represents a key/value map between AST term values. Any type of term
+// ValueMap represents a key/value map between AST term values. Any type of value
 // can be used as a key in the map.
 type ValueMap struct {
 	hashMap *util.TypedHashMap[Value, Value]
@@ -26,7 +26,7 @@ func NewValueMap() *ValueMap {
 // MarshalJSON provides a custom marshaller for the ValueMap which
 // will include the key, value, and value type.
 func (vs *ValueMap) MarshalJSON() ([]byte, error) {
-	var tmp []map[string]any
+	tmp := make([]map[string]any, 0, vs.Len())
 	vs.Iter(func(k Value, v Value) bool {
 		tmp = append(tmp, map[string]any{
 			"name":  k.String(),

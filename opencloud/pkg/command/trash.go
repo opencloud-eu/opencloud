@@ -16,7 +16,7 @@ func TrashCommand(cfg *config.Config) *cobra.Command {
 	trashCmd := &cobra.Command{
 		Use:   "trash",
 		Short: "OpenCloud trash functionality",
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			return configlog.ReturnError(parser.ParseConfig(cfg, true))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -36,7 +36,8 @@ func TrashPurgeEmptyDirsCommand(cfg *config.Config) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			basePath, _ := cmd.Flags().GetString("basepath")
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			if err := trash.PurgeTrashEmptyPaths(basePath, dryRun); err != nil {
+			posix := isPosixStorage(basePath, cfg.StorageUsers.Driver)
+			if err := trash.PurgeTrashEmptyPaths(basePath, dryRun, posix); err != nil {
 				fmt.Println(err)
 				return err
 			}

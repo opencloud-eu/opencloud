@@ -63,7 +63,7 @@ type Engine_Delete_Call struct {
 
 // Delete is a helper method to define mock.On call
 //   - id string
-func (_e *Engine_Expecter) Delete(id interface{}) *Engine_Delete_Call {
+func (_e *Engine_Expecter) Delete(id any) *Engine_Delete_Call {
 	return &Engine_Delete_Call{Call: _e.mock.On("Delete", id)}
 }
 
@@ -144,8 +144,8 @@ func (_c *Engine_DocCount_Call) RunAndReturn(run func() (uint64, error)) *Engine
 }
 
 // Move provides a mock function for the type Engine
-func (_mock *Engine) Move(id string, parentid string, target string) error {
-	ret := _mock.Called(id, parentid, target)
+func (_mock *Engine) Move(id string, parentID string, targetPath string) error {
+	ret := _mock.Called(id, parentID, targetPath)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Move")
@@ -153,7 +153,7 @@ func (_mock *Engine) Move(id string, parentid string, target string) error {
 
 	var r0 error
 	if returnFunc, ok := ret.Get(0).(func(string, string, string) error); ok {
-		r0 = returnFunc(id, parentid, target)
+		r0 = returnFunc(id, parentID, targetPath)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -167,13 +167,13 @@ type Engine_Move_Call struct {
 
 // Move is a helper method to define mock.On call
 //   - id string
-//   - parentid string
-//   - target string
-func (_e *Engine_Expecter) Move(id interface{}, parentid interface{}, target interface{}) *Engine_Move_Call {
-	return &Engine_Move_Call{Call: _e.mock.On("Move", id, parentid, target)}
+//   - parentID string
+//   - targetPath string
+func (_e *Engine_Expecter) Move(id any, parentID any, targetPath any) *Engine_Move_Call {
+	return &Engine_Move_Call{Call: _e.mock.On("Move", id, parentID, targetPath)}
 }
 
-func (_c *Engine_Move_Call) Run(run func(id string, parentid string, target string)) *Engine_Move_Call {
+func (_c *Engine_Move_Call) Run(run func(id string, parentID string, targetPath string)) *Engine_Move_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 string
 		if args[0] != nil {
@@ -201,7 +201,7 @@ func (_c *Engine_Move_Call) Return(err error) *Engine_Move_Call {
 	return _c
 }
 
-func (_c *Engine_Move_Call) RunAndReturn(run func(id string, parentid string, target string) error) *Engine_Move_Call {
+func (_c *Engine_Move_Call) RunAndReturn(run func(id string, parentID string, targetPath string) error) *Engine_Move_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -241,7 +241,7 @@ type Engine_NewBatch_Call struct {
 
 // NewBatch is a helper method to define mock.On call
 //   - batchSize int
-func (_e *Engine_Expecter) NewBatch(batchSize interface{}) *Engine_NewBatch_Call {
+func (_e *Engine_Expecter) NewBatch(batchSize any) *Engine_NewBatch_Call {
 	return &Engine_NewBatch_Call{Call: _e.mock.On("NewBatch", batchSize)}
 }
 
@@ -293,7 +293,7 @@ type Engine_Purge_Call struct {
 // Purge is a helper method to define mock.On call
 //   - id string
 //   - onlyDeleted bool
-func (_e *Engine_Expecter) Purge(id interface{}, onlyDeleted interface{}) *Engine_Purge_Call {
+func (_e *Engine_Expecter) Purge(id any, onlyDeleted any) *Engine_Purge_Call {
 	return &Engine_Purge_Call{Call: _e.mock.On("Purge", id, onlyDeleted)}
 }
 
@@ -325,6 +325,57 @@ func (_c *Engine_Purge_Call) RunAndReturn(run func(id string, onlyDeleted bool) 
 	return _c
 }
 
+// PurgeSpace provides a mock function for the type Engine
+func (_mock *Engine) PurgeSpace(rootID string) error {
+	ret := _mock.Called(rootID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PurgeSpace")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(string) error); ok {
+		r0 = returnFunc(rootID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// Engine_PurgeSpace_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PurgeSpace'
+type Engine_PurgeSpace_Call struct {
+	*mock.Call
+}
+
+// PurgeSpace is a helper method to define mock.On call
+//   - rootID string
+func (_e *Engine_Expecter) PurgeSpace(rootID any) *Engine_PurgeSpace_Call {
+	return &Engine_PurgeSpace_Call{Call: _e.mock.On("PurgeSpace", rootID)}
+}
+
+func (_c *Engine_PurgeSpace_Call) Run(run func(rootID string)) *Engine_PurgeSpace_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 string
+		if args[0] != nil {
+			arg0 = args[0].(string)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *Engine_PurgeSpace_Call) Return(err error) *Engine_PurgeSpace_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *Engine_PurgeSpace_Call) RunAndReturn(run func(rootID string) error) *Engine_PurgeSpace_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Restore provides a mock function for the type Engine
 func (_mock *Engine) Restore(id string) error {
 	ret := _mock.Called(id)
@@ -349,7 +400,7 @@ type Engine_Restore_Call struct {
 
 // Restore is a helper method to define mock.On call
 //   - id string
-func (_e *Engine_Expecter) Restore(id interface{}) *Engine_Restore_Call {
+func (_e *Engine_Expecter) Restore(id any) *Engine_Restore_Call {
 	return &Engine_Restore_Call{Call: _e.mock.On("Restore", id)}
 }
 
@@ -412,7 +463,7 @@ type Engine_Search_Call struct {
 // Search is a helper method to define mock.On call
 //   - ctx context.Context
 //   - req *v0.SearchIndexRequest
-func (_e *Engine_Expecter) Search(ctx interface{}, req interface{}) *Engine_Search_Call {
+func (_e *Engine_Expecter) Search(ctx any, req any) *Engine_Search_Call {
 	return &Engine_Search_Call{Call: _e.mock.On("Search", ctx, req)}
 }
 
@@ -469,7 +520,7 @@ type Engine_Upsert_Call struct {
 // Upsert is a helper method to define mock.On call
 //   - id string
 //   - r search.Resource
-func (_e *Engine_Expecter) Upsert(id interface{}, r interface{}) *Engine_Upsert_Call {
+func (_e *Engine_Expecter) Upsert(id any, r any) *Engine_Upsert_Call {
 	return &Engine_Upsert_Call{Call: _e.mock.On("Upsert", id, r)}
 }
 

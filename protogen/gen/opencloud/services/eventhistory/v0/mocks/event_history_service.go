@@ -82,9 +82,9 @@ type EventHistoryService_GetEvents_Call struct {
 //   - ctx context.Context
 //   - in *v0.GetEventsRequest
 //   - opts ...client.CallOption
-func (_e *EventHistoryService_Expecter) GetEvents(ctx interface{}, in interface{}, opts ...interface{}) *EventHistoryService_GetEvents_Call {
+func (_e *EventHistoryService_Expecter) GetEvents(ctx any, in any, opts ...any) *EventHistoryService_GetEvents_Call {
 	return &EventHistoryService_GetEvents_Call{Call: _e.mock.On("GetEvents",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *EventHistoryService_GetEvents_Call) Run(run func(ctx context.Context, in *v0.GetEventsRequest, opts ...client.CallOption)) *EventHistoryService_GetEvents_Call {
@@ -165,9 +165,9 @@ type EventHistoryService_GetEventsForUser_Call struct {
 //   - ctx context.Context
 //   - in *v0.GetEventsForUserRequest
 //   - opts ...client.CallOption
-func (_e *EventHistoryService_Expecter) GetEventsForUser(ctx interface{}, in interface{}, opts ...interface{}) *EventHistoryService_GetEventsForUser_Call {
+func (_e *EventHistoryService_Expecter) GetEventsForUser(ctx any, in any, opts ...any) *EventHistoryService_GetEventsForUser_Call {
 	return &EventHistoryService_GetEventsForUser_Call{Call: _e.mock.On("GetEventsForUser",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *EventHistoryService_GetEventsForUser_Call) Run(run func(ctx context.Context, in *v0.GetEventsForUserRequest, opts ...client.CallOption)) *EventHistoryService_GetEventsForUser_Call {

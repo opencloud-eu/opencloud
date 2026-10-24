@@ -1,4 +1,4 @@
-// Copyright 2012-2025 The NATS Authors
+// Copyright 2012-2026 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -129,19 +129,22 @@ func (s *Server) SetLoggerV2(logger Logger, debugFlag, traceFlag, sysTrace bool)
 	} else {
 		atomic.StoreInt32(&s.logging.traceSysAcc, 0)
 	}
+	var prevLoggerErr error
 	s.logging.Lock()
 	if s.logging.logger != nil {
 		// Check to see if the logger implements io.Closer.  This could be a
 		// logger from another process embedding the NATS server or a dummy
 		// test logger that may not implement that interface.
 		if l, ok := s.logging.logger.(io.Closer); ok {
-			if err := l.Close(); err != nil {
-				s.Errorf("Error closing logger: %v", err)
-			}
+			prevLoggerErr = l.Close()
 		}
 	}
 	s.logging.logger = logger
 	s.logging.Unlock()
+
+	if prevLoggerErr != nil {
+		s.Errorf("Error closing logger: %v", prevLoggerErr)
+	}
 }
 
 // ReOpenLogFile if the logger is a file based logger, close and re-open the file.

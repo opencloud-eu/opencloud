@@ -8,9 +8,10 @@ package opensearchapi
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // CatFieldDataReq represent possible options for the /_cat/fielddata request
@@ -21,22 +22,12 @@ type CatFieldDataReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r CatFieldDataReq) GetRequest() (*http.Request, error) {
-	fielddata := strings.Join(r.FieldData, ",")
-	var path strings.Builder
-	path.Grow(len("/_cat/fielddata/") + len(fielddata))
-	path.WriteString("/_cat/fielddata")
-	if len(r.FieldData) > 0 {
-		path.WriteString("/")
-		path.WriteString(fielddata)
+func (r CatFieldDataReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.CatFielddataPath{Fields: r.FieldData}.Build()
+	if err != nil {
+		return nil, err
 	}
-	return opensearch.BuildRequest(
-		"GET",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // CatFieldDataResp represents the returned struct of the /_cat/fielddata response

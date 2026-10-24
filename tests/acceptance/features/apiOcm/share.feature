@@ -970,7 +970,7 @@ Feature: an user shares resources using ScienceMesh application
     When user "Alice" downloads the preview of federated share image "testavatar.jpg" with width "32" and height "32" using the WebDAV API
     Then the HTTP status code should be "200"
     And the downloaded image should be "32" pixels wide and "32" pixels high
-    And the downloaded preview content should match with "thumbnail.png" fixtures preview content
+    And the downloaded preview content should match with "thumbnail.jpg" fixtures preview content
 
   @issue-10358
   Scenario: user edits content of a federated share file

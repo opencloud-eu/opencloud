@@ -224,10 +224,10 @@ Feature: content search
       | technical task.txt | test    |
     When user "Alice" searches for '<pattern>' using the WebDAV API
     Then the HTTP status code should be "207"
-    And the search result should contain "<result-count>" entries
     And the search result of user "Alice" should contain these entries:
       | <search-result-1> |
       | <search-result-2> |
+    And the search result should contain "<result-count>" entries
     Examples:
       | pattern                                     | result-count | search-result-1    | search-result-2   |
       | Content:hello                               | 1            | technical task.txt |                   |

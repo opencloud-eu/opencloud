@@ -27,6 +27,8 @@ use TestHelpers\OcHelper;
 use TestHelpers\OcmHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\BehatHelper;
+use Behat\Step\Given;
+use Behat\Step\When;
 
 /**
  * Acceptance test steps related to testing federation share(ocm) features
@@ -88,8 +90,6 @@ class OcmContext implements Context {
 	}
 
 	/**
-	 * @When :user creates the federation share invitation
-	 * @When :user creates the federation share invitation with email :email and description :description
 	 *
 	 * @param string $user
 	 * @param string $email
@@ -98,13 +98,13 @@ class OcmContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When(':user creates the federation share invitation')]
+	#[When(':user creates the federation share invitation with email :email and description :description')]
 	public function userCreatesTheFederationShareInvitation(string $user, $email = null, $description = null): void {
 		$this->featureContext->setResponse($this->createInvitation($user, $email, $description));
 	}
 
 	/**
-	 * @Given :user has created the federation share invitation
-	 * @Given :user has created the federation share invitation with email :email and description :description
 	 *
 	 * @param string $user
 	 * @param string $email
@@ -113,6 +113,8 @@ class OcmContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Given(':user has created the federation share invitation')]
+	#[Given(':user has created the federation share invitation with email :email and description :description')]
 	public function userHasCreatedTheFederationShareInvitation(string $user, $email = null, $description = null): void {
 		$response = $this->createInvitation($user, $email, $description);
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, '', $response);
@@ -141,38 +143,38 @@ class OcmContext implements Context {
 	}
 
 	/**
-	 * @When :user accepts the last federation share invitation
-	 * @When :user tries to accept the last federation share invitation
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When(':user accepts the last federation share invitation')]
+	#[When(':user tries to accept the last federation share invitation')]
 	public function userAcceptsTheLastFederationShareInvitation(string $user): void {
 		$this->featureContext->setResponse($this->acceptInvitation($user));
 	}
 
 	/**
-	 * @When :user tries to accept the invitation with invalid token
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When(':user tries to accept the invitation with invalid token')]
 	public function userTriesToAcceptInvitationWithInvalidToken(string $user): void {
 		$this->featureContext->setResponse($this->acceptInvitation($user, WebDavHelper::generateUUIDv4()));
 	}
 
 	/**
-	 * @Given :user has accepted invitation
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Given(':user has accepted invitation')]
 	public function userHasAcceptedTheLastFederationShareInvitation(string $user): void {
 		$response = $this->acceptInvitation($user);
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, '', $response);
@@ -194,13 +196,13 @@ class OcmContext implements Context {
 	}
 
 	/**
-	 * @When :user searches for accepted users
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When(':user searches for accepted users')]
 	public function userFindsAcceptedUsers(string $user): void {
 		$this->featureContext->setResponse($this->findAcceptedUsers($user));
 	}
@@ -239,31 +241,30 @@ class OcmContext implements Context {
 	}
 
 	/**
-	 * @When :user lists the created invitations
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When(':user lists the created invitations')]
 	public function userListsCreatedInvitations(string $user): void {
 		$this->featureContext->setResponse($this->listInvitations($user));
 	}
 
 	/**
-	 * @When the user waits :number seconds for the invitation token to expire
 	 *
 	 * @param int $number
 	 *
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('the user waits :number seconds for the invitation token to expire')]
 	public function theUserWaitsForTokenToExpire(int $number): void {
 		\sleep($number);
 	}
 
 	/**
-	 * @When user :user deletes federated connection with user :ocmUser using the Graph API
 	 *
 	 * @param string $user
 	 * @param string $ocmUser
@@ -271,12 +272,12 @@ class OcmContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user deletes federated connection with user :ocmUser using the Graph API')]
 	public function userDeletesFederatedConnectionWithUserUsingTheGraphApi(string $user, string $ocmUser): void {
 		$this->featureContext->setResponse($this->deleteConnection($user, $ocmUser));
 	}
 
 	/**
-	 * @When user :user has deleted federated connection with user :ocmUser
 	 *
 	 * @param string $user
 	 * @param string $ocmUser
@@ -284,6 +285,7 @@ class OcmContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user has deleted federated connection with user :ocmUser')]
 	public function userHasDeletedFederatedConnectionWithUser(string $user, string $ocmUser): void {
 		$response = $this->deleteConnection($user, $ocmUser);
 		$this->featureContext->theHTTPStatusCodeShouldBe(

@@ -7,11 +7,10 @@
 package opensearchapi
 
 import (
-	"fmt"
 	"net/http"
-	"strings"
 
-	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // IndicesExistsReq represents possible options for the index exists request
@@ -22,12 +21,11 @@ type IndicesExistsReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r IndicesExistsReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"HEAD",
-		fmt.Sprintf("%s%s", "/", strings.Join(r.Indices, ",")),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+func (r IndicesExistsReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.IndicesExistsPath{Index: r.Indices}.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }

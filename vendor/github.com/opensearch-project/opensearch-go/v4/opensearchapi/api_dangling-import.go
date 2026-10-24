@@ -7,10 +7,11 @@
 package opensearchapi
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // DanglingImportReq represents possible options for the dangling import request
@@ -22,14 +23,13 @@ type DanglingImportReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r DanglingImportReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"POST",
-		fmt.Sprintf("/_dangling/%s", r.IndexUUID),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+func (r DanglingImportReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.DanglingIndicesImportDanglingIndexPath{IndexUUID: r.IndexUUID}.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // DanglingImportResp represents the returned struct of thedangling import response

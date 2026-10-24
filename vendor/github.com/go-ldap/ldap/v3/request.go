@@ -101,6 +101,14 @@ func getReferral(err error, packet *ber.Packet) (referral string) {
 			continue
 		}
 
+		// A Referral is a SEQUENCE SIZE (1..MAX) OF uri, but a non-conforming or
+		// malicious server can send an empty SEQUENCE. Skip it instead of indexing
+		// child.Children[0], which would panic the goroutine that called Modify or
+		// PasswordModify.
+		if len(child.Children) == 0 {
+			continue
+		}
+
 		if referral, ok = child.Children[0].Value.(string); ok {
 			return referral
 		}

@@ -13,6 +13,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // ClusterAllocationExplainReq represents possible options for the /_nodes request
@@ -23,7 +24,7 @@ type ClusterAllocationExplainReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r ClusterAllocationExplainReq) GetRequest() (*http.Request, error) {
+func (r ClusterAllocationExplainReq) GetRequest(method string) (*http.Request, error) {
 	var reader io.Reader
 
 	if r.Body != nil {
@@ -35,8 +36,8 @@ func (r ClusterAllocationExplainReq) GetRequest() (*http.Request, error) {
 		reader = bytes.NewReader(body)
 	}
 
-	return opensearch.BuildRequest(
-		"GET",
+	return build.Request(
+		method,
 		"/_cluster/allocation/explain",
 		reader,
 		r.Params.get(),
@@ -53,22 +54,29 @@ type ClusterAllocationExplainBody struct {
 
 // ClusterAllocationExplainResp represents the returned struct of the /_nodes response
 type ClusterAllocationExplainResp struct {
-	Index          string                       `json:"index"`
-	Shard          int                          `json:"shard"`
-	Primary        bool                         `json:"primary"`
-	CurrentState   string                       `json:"current_state"`
-	CurrentNode    ClusterAllocationCurrentNode `json:"current_node"`
+	Index          string                       `json:"index"`         // Available since OpenSearch 1.0.0
+	Shard          int                          `json:"shard"`         // Available since OpenSearch 1.0.0
+	Primary        bool                         `json:"primary"`       // Available since OpenSearch 1.0.0
+	CurrentState   string                       `json:"current_state"` // Available since OpenSearch 1.0.0
+	CurrentNode    ClusterAllocationCurrentNode `json:"current_node"`  // Available since OpenSearch 1.0.0
+	TargetNode     ClusterAllocationCurrentNode `json:"target_node"`   // Available since OpenSearch 1.0.0
+	Explanation    string                       `json:"explanation"`   // Available since OpenSearch 1.0.0
 	UnassignedInfo struct {
-		Reason               string `json:"reason"`
-		At                   string `json:"at"`
-		LastAllocationStatus string `json:"last_allocation_status"`
+		Reason               string  `json:"reason"`
+		At                   string  `json:"at"`
+		LastAllocationStatus string  `json:"last_allocation_status"`
+		Details              *string `json:"details,omitempty"` // Available since OpenSearch 1.0.0
 	} `json:"unassigned_info"`
-	CanAllocate                  string                             `json:"can_allocate"`
-	CanRemainOnCurrentNode       string                             `json:"can_remain_on_current_node"`
-	CanRebalanceCluster          string                             `json:"can_rebalance_cluster"`
-	CanRebalanceToOtherNode      string                             `json:"can_rebalance_to_other_node"`
-	RebalanceExplanation         string                             `json:"rebalance_explanation"`
-	AllocateExplanation          string                             `json:"allocate_explanation"`
+	CanAllocate             string `json:"can_allocate"`
+	CanRemainOnCurrentNode  string `json:"can_remain_on_current_node"`
+	CanRebalanceCluster     string `json:"can_rebalance_cluster"`
+	CanRebalanceToOtherNode string `json:"can_rebalance_to_other_node"`
+	RebalanceExplanation    string `json:"rebalance_explanation"`
+	AllocateExplanation     string `json:"allocate_explanation"`
+	// Available since OpenSearch 1.0; only present when allocation_status is DELAYED_ALLOCATION
+	ConfiguredDelayInMillis *int64 `json:"configured_delay_in_millis,omitempty"`
+	// Available since OpenSearch 1.0; only present when allocation_status is DELAYED_ALLOCATION
+	RemainingDelayInMillis       *int64                             `json:"remaining_delay_in_millis,omitempty"`
 	NodeAllocationDecisions      []ClusterAllocationNodeDecisions   `json:"node_allocation_decisions"`
 	CanRebalanceClusterDecisions []ClusterAllocationExplainDeciders `json:"can_rebalance_cluster_decisions"`
 	response                     *opensearch.Response
@@ -98,9 +106,13 @@ type ClusterAllocationNodeDecisions struct {
 	NodeAttributes   struct {
 		ShardIndexingPressureEnabled string `json:"shard_indexing_pressure_enabled"`
 	} `json:"node_attributes"`
-	NodeDecision  string                             `json:"node_decision"`
-	WeightRanking int                                `json:"weight_ranking"`
-	Deciders      []ClusterAllocationExplainDeciders `json:"deciders"`
+	NodeDecision  string `json:"node_decision"`
+	WeightRanking int    `json:"weight_ranking"`
+	Store         *struct {
+		Found               bool   `json:"found"`
+		MatchingSizeInBytes *int64 `json:"matching_size_in_bytes,omitempty"` // Added in OpenSearch 2.0+
+	} `json:"store,omitempty"` // Available since OpenSearch 1.0.0
+	Deciders []ClusterAllocationExplainDeciders `json:"deciders"`
 }
 
 // ClusterAllocationExplainDeciders is a sub type of ClusterAllocationExplainResp and

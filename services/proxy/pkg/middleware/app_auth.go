@@ -19,21 +19,21 @@ type AppAuthAuthenticator struct {
 }
 
 // Authenticate implements the authenticator interface to authenticate requests via app auth.
-func (m AppAuthAuthenticator) Authenticate(r *http.Request) (*http.Request, bool) {
+func (m AppAuthAuthenticator) Authenticate(r *http.Request) AuthenticationResult {
 	if isPublicPath(r.URL.Path) {
 		// The authentication of public path requests is handled by another authenticator.
 		// Since we can't guarantee the order of execution of the authenticators, we better
 		// implement an early return here for paths we can't authenticate in this authenticator.
-		return nil, false
+		return NotApplicable()
 	}
 
 	username, password, ok := r.BasicAuth()
 	if !ok {
-		return nil, false
+		return NotApplicable()
 	}
 	next, err := m.RevaGatewaySelector.Next()
 	if err != nil {
-		return nil, false
+		return AuthenticationErrorResult(err)
 	}
 
 	authenticateResponse, err := next.Authenticate(r.Context(), &gateway.AuthenticateRequest{
@@ -42,17 +42,17 @@ func (m AppAuthAuthenticator) Authenticate(r *http.Request) (*http.Request, bool
 		ClientSecret: password,
 	})
 	if err != nil {
-		return nil, false
+		return AuthenticationErrorResult(err)
 	}
 	if authenticateResponse.GetStatus().GetCode() != cs3rpc.Code_CODE_OK {
 		m.Logger.Debug().Str("msg", authenticateResponse.GetStatus().GetMessage()).Str("clientid", username).Msg("app auth failed")
-		return nil, false
+		return Failed()
 	}
 
 	user := authenticateResponse.GetUser()
 	if user, err = m.UserRoleAssigner.ApplyUserRole(r.Context(), user); err != nil {
 		m.Logger.Error().Err(err).Str("clientid", username).Msg("app auth: failed to load user roles")
-		return nil, false
+		return FailedWithErr(err)
 	}
 
 	ctx := revactx.ContextSetUser(r.Context(), user)
@@ -60,5 +60,5 @@ func (m AppAuthAuthenticator) Authenticate(r *http.Request) (*http.Request, bool
 
 	r = r.WithContext(ctx)
 
-	return r, true
+	return Succeeded(r)
 }

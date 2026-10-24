@@ -60,6 +60,13 @@ options:
     skip_option: true
   - ident: ProtectedHeaders
     skip_option: true
+  - ident: AuthenticateData
+    skip_option: true
+    interface: EncryptOption
+    argument_type: '[]byte'
+    comment: |
+      WithAuthenticateData specifies the external Additional Authenticated Data
+      to use when encrypting a JSON JWE.
   - ident: PerRecipientHeaders
     skip_option: true
   - ident: KeyProvider

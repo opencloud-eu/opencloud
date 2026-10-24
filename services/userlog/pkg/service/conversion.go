@@ -108,7 +108,7 @@ func (c *Converter) ConvertEvent(eventid string, event any) (OC10Notification, e
 	case events.SpaceUnshared:
 		return c.spaceMessage(eventid, SpaceUnshared, ev.Executant, ev.ID.GetOpaqueId(), ev.Timestamp)
 	case events.SpaceMembershipExpired:
-		return c.spaceMessage(eventid, SpaceMembershipExpired, ev.SpaceOwner, ev.SpaceID.GetOpaqueId(), ev.ExpiredAt)
+		return c.spaceMembershipExpiredMessage(eventid, SpaceMembershipExpired, ev.SpaceID.GetOpaqueId(), ev.ExpiredAt)
 
 	// share related
 	case events.ShareCreated:
@@ -203,6 +203,40 @@ func (c *Converter) spaceMessage(eventid string, nt NotificationTemplate, execut
 		Message:        msg,
 		MessageRaw:     msgraw,
 		MessageDetails: generateDetails(usr, space, nil, nil),
+	}, nil
+}
+
+func (c *Converter) spaceMembershipExpiredMessage(eventid string, nt NotificationTemplate, spaceid string, ts time.Time) (OC10Notification, error) {
+	space, err := c.getSpace(c.serviceAccountContext, spaceid)
+	if err != nil {
+		return OC10Notification{}, err
+	}
+
+	subj, subjraw, msg, msgraw, err := composeMessage(nt, c.locale, c.defaultLanguage, c.translationPath, map[string]any{
+		"spacename": space.GetName(),
+	})
+	if err != nil {
+		return OC10Notification{}, err
+	}
+
+	dets := map[string]any{
+		"space": map[string]string{
+			"id":   space.GetId().GetOpaqueId(),
+			"name": space.GetName(),
+		},
+	}
+
+	return OC10Notification{
+		EventID:        eventid,
+		Service:        c.serviceName,
+		Timestamp:      ts.Format(time.RFC3339Nano),
+		ResourceID:     spaceid,
+		ResourceType:   _resourceTypeSpace,
+		Subject:        subj,
+		SubjectRaw:     subjraw,
+		Message:        msg,
+		MessageRaw:     msgraw,
+		MessageDetails: dets,
 	}, nil
 }
 

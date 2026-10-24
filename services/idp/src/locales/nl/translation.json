@@ -30,23 +30,6 @@
             "offlineAccess": "De toestemming voor altijd onthouden",
             "scope": "Scope: {{scope}}"
         },
-        "login": {
-            "usernameField": {
-                "placeholder": {
-                    "username": "Gebruikersnaam"
-                }
-            },
-            "nextButton": {
-                "label": "Volgende"
-            },
-            "passwordField": {
-                "label": "Wachtwoord"
-            },
-            "retryButton": {
-                "label": "Opnieuw"
-            },
-            "headline": "Aanmelden"
-        },
         "error": {
             "login": {
                 "validate": {
@@ -79,6 +62,21 @@
                 "label": "Afmelden"
             },
             "subHeader": "je bent afgemeld van je account"
+        },
+        "login": {
+            "nextButton": {
+                "label": "Volgende"
+            },
+            "passwordField": {
+                "label": "Wachtwoord"
+            },
+            "retryButton": {
+                "label": "Opnieuw"
+            },
+            "headline": "Aanmelden",
+            "usernameField": {
+                "label": "Gebruikersnaam"
+            }
         },
         "welcome": {
             "signoutButton": {

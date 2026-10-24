@@ -57,11 +57,6 @@ msgstr ""
 msgid "Clicking \"Allow\" will redirect you to: {{redirectURI}}"
 msgstr ""
 
-#. From: konnect##login##usernameField##placeholder##email
-#: konnect##login##usernameField##placeholder##email
-msgid "Email"
-msgstr ""
-
 #. From: konnect##error##login##validate##missingUsername
 #: konnect##error##login##validate##missingUsername
 msgid "Enter a valid value."
@@ -90,11 +85,6 @@ msgstr ""
 #. From: konnect##consent##headline
 #: konnect##consent##headline
 msgid "Hi {{displayName}}"
-msgstr ""
-
-#. From: konnect##login##usernameField##placeholder##identity
-#: konnect##login##usernameField##placeholder##identity
-msgid "Identity"
 msgstr ""
 
 #. From: konnect##scopeDescription##offlineAccess
@@ -164,8 +154,8 @@ msgstr ""
 msgid "Use another account"
 msgstr ""
 
-#. From: konnect##login##usernameField##placeholder##username
-#: konnect##login##usernameField##placeholder##username
+#. From: konnect##login##usernameField##label
+#: konnect##login##usernameField##label
 msgid "Username"
 msgstr ""
 

@@ -3,7 +3,7 @@ package jmap
 var NS_ADDRESSBOOKS = ns(JmapContacts)
 
 func (j *Client) GetAddressbooks(accountId AccountId, ids []string, ctx Context) (Result[AddressBookGetResponse], error) {
-	return get(j, "GetAddressbooks", MailboxType,
+	return get(j, "GetAddressbooks", AddressBookType,
 		func(accountId AccountId, ids []string) AddressBookGetCommand {
 			return AddressBookGetCommand{AccountId: accountId, Ids: ids}
 		},
@@ -28,7 +28,7 @@ func (c AddressBookChanges) GetDestroyed() []string    { return c.Destroyed }
 // Retrieve Address Book changes since a given state.
 // @apidoc addressbook,changes
 func (j *Client) GetAddressbookChanges(accountId AccountId, sinceState State, maxChanges uint, ctx Context) (Result[AddressBookChanges], error) {
-	return changesA(j, "GetAddressbookChanges", MailboxType,
+	return changesA(j, "GetAddressbookChanges", AddressBookType,
 		func() AddressBookChangesCommand {
 			return AddressBookChangesCommand{AccountId: accountId, SinceState: sinceState, MaxChanges: uintPtr(maxChanges)}
 		},
@@ -59,7 +59,7 @@ func (j *Client) GetAddressbookChanges(accountId AccountId, sinceState State, ma
 }
 
 func (j *Client) CreateAddressBook(accountId AccountId, addressbook AddressBookChange, ctx Context) (Result[*AddressBook], error) {
-	return create(j, "CreateAddressBook", MailboxType,
+	return create(j, "CreateAddressBook", AddressBookType,
 		func(accountId AccountId, create map[string]AddressBookChange) AddressBookSetCommand {
 			return AddressBookSetCommand{AccountId: accountId, Create: create}
 		},
@@ -78,7 +78,7 @@ func (j *Client) CreateAddressBook(accountId AccountId, addressbook AddressBookC
 }
 
 func (j *Client) DeleteAddressBook(accountId AccountId, destroyIds []string, ctx Context) (Result[map[string]SetError], error) {
-	return destroy(j, "DeleteAddressBook", MailboxType,
+	return destroy(j, "DeleteAddressBook", AddressBookType,
 		func(accountId AccountId, destroy []string) AddressBookSetCommand {
 			return AddressBookSetCommand{AccountId: accountId, Destroy: destroy}
 		},
@@ -89,7 +89,7 @@ func (j *Client) DeleteAddressBook(accountId AccountId, destroyIds []string, ctx
 }
 
 func (j *Client) UpdateAddressBook(accountId AccountId, id string, changes AddressBookChange, ctx Context) (Result[AddressBook], error) {
-	return update(j, "UpdateAddressBook", MailboxType,
+	return update(j, "UpdateAddressBook", AddressBookType,
 		func(update map[string]PatchObject) AddressBookSetCommand {
 			return AddressBookSetCommand{AccountId: accountId, Update: update}
 		},

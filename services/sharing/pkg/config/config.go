@@ -20,6 +20,8 @@ type Config struct {
 
 	ServiceAccount        ServiceAccount `yaml:"service_account"`
 	SkipUserGroupsInToken bool           `yaml:"skip_user_groups_in_token" env:"SHARING_SKIP_USER_GROUPS_IN_TOKEN" desc:"Disables the loading of user's group memberships from the reva access token." introductionVersion:"1.0.0"`
+	AutoAcceptShares      bool           `yaml:"auto_accept_shares" env:"FRONTEND_AUTO_ACCEPT_SHARES;SHARING_AUTO_ACCEPT_SHARES" desc:"Defines if shares should be auto accepted by default. Users can change this setting individually in their profile." introductionVersion:"8.0.0"`
+	MaxConcurrency        int            `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;FRONTEND_MAX_CONCURRENCY;SHARING_MAX_CONCURRENCY" desc:"Maximum number of concurrent go-routines. Higher values can potentially get work done faster but will also cause more load on the system. Values of 0 or below will be ignored and the default value will be used." introductionVersion:"8.0.0"`
 
 	UserSharingDriver              string               `yaml:"user_sharing_driver" env:"SHARING_USER_DRIVER" desc:"Driver to be used to persist shares. Supported values are 'jsoncs3', 'json', 'cs3' (deprecated) and 'owncloudsql'." introductionVersion:"1.0.0"`
 	UserSharingDrivers             UserSharingDrivers   `yaml:"user_sharing_drivers"`
@@ -100,6 +102,7 @@ type UserSharingJSONCS3Driver struct {
 	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY;SHARING_USER_JSONCS3_SYSTEM_USER_API_KEY" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
 	CacheTTL         int    `yaml:"cache_ttl" env:"SHARING_USER_JSONCS3_CACHE_TTL" desc:"TTL for the internal caches in seconds." introductionVersion:"1.0.0"`
 	MaxConcurrency   int    `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;SHARING_USER_JSONCS3_MAX_CONCURRENCY" desc:"Maximum number of concurrent go-routines. Higher values can potentially get work done faster but will also cause more load on the system. Values of 0 or below will be ignored and the default value will be used." introductionVersion:"1.0.0"`
+	SkipMigrations   bool   `yaml:"skip_migrations" env:"SHARING_USER_JSONCS3_SKIP_MIGRATIONS" desc:"Do not run the share manager data migrations on startup. Only meant for test environments, skipped migrations are not applied later." introductionVersion:"%%NEXT%%"`
 }
 
 // ServiceAccount is the configuration for the used service account

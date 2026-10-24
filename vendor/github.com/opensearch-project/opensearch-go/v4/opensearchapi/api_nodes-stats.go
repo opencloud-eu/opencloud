@@ -9,9 +9,10 @@ package opensearchapi
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // NodesStatsReq represents possible options for the /_nodes request
@@ -24,39 +25,16 @@ type NodesStatsReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r NodesStatsReq) GetRequest() (*http.Request, error) {
-	var path strings.Builder
-
-	path.Grow(13 + len(strings.Join(r.NodeID, ",")) + 1 + len(strings.Join(r.Metric, ",")) + 1 + len(strings.Join(r.IndexMetric, ",")))
-
-	path.WriteString("/")
-	path.WriteString("_nodes")
-
-	if len(r.NodeID) > 0 {
-		path.WriteString("/")
-		path.WriteString(strings.Join(r.NodeID, ","))
+func (r NodesStatsReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.NodesStatsPath{
+		IndexMetric: r.IndexMetric,
+		Metric:      r.Metric,
+		NodeID:      r.NodeID,
+	}.Build()
+	if err != nil {
+		return nil, err
 	}
-
-	path.WriteString("/")
-	path.WriteString("stats")
-
-	if len(r.Metric) > 0 {
-		path.WriteString("/")
-		path.WriteString(strings.Join(r.Metric, ","))
-	}
-
-	if len(r.IndexMetric) > 0 {
-		path.WriteString("/")
-		path.WriteString(strings.Join(r.IndexMetric, ","))
-	}
-
-	return opensearch.BuildRequest(
-		"GET",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // NodesStatsResp represents the returned struct of the /_nodes response
@@ -126,17 +104,18 @@ type NodesStatsIndices struct {
 		ReservedInBytes int `json:"reserved_in_bytes"`
 	} `json:"store"`
 	Indexing struct {
-		IndexTotal           int            `json:"index_total"`
-		IndexTimeInMillis    int            `json:"index_time_in_millis"`
-		IndexCurrent         int            `json:"index_current"`
-		IndexFailed          int            `json:"index_failed"`
-		DeleteTotal          int            `json:"delete_total"`
-		DeleteTimeInMillis   int            `json:"delete_time_in_millis"`
-		DeleteCurrent        int            `json:"delete_current"`
-		NoopUpdateTotal      int            `json:"noop_update_total"`
-		IsThrottled          bool           `json:"is_throttled"`
-		ThrottleTimeInMillis int            `json:"throttle_time_in_millis"`
-		DocStatus            map[string]int `json:"doc_status"`
+		IndexTotal                   int            `json:"index_total"`
+		IndexTimeInMillis            int            `json:"index_time_in_millis"`
+		IndexCurrent                 int            `json:"index_current"`
+		IndexFailed                  int            `json:"index_failed"`
+		DeleteTotal                  int            `json:"delete_total"`
+		DeleteTimeInMillis           int            `json:"delete_time_in_millis"`
+		DeleteCurrent                int            `json:"delete_current"`
+		NoopUpdateTotal              int            `json:"noop_update_total"`
+		IsThrottled                  bool           `json:"is_throttled"`
+		ThrottleTimeInMillis         int            `json:"throttle_time_in_millis"`
+		DocStatus                    map[string]int `json:"doc_status"`
+		MaxLastIndexRequestTimestamp int64          `json:"max_last_index_request_timestamp"` // Available in OpenSearch 3.2.0+
 	} `json:"indexing"`
 	Get struct {
 		Total               int    `json:"total"`
@@ -153,10 +132,15 @@ type NodesStatsIndices struct {
 		QueryTotal                  int     `json:"query_total"`
 		QueryTimeInMillis           int     `json:"query_time_in_millis"`
 		QueryCurrent                int     `json:"query_current"`
+		QueryFailed                 int     `json:"query_failed"` // Available in OpenSearch 3.3.0+
 		ConcurrentQueryTotal        int     `json:"concurrent_query_total"`
 		ConcurrentQueryTimeInMillis int     `json:"concurrent_query_time_in_millis"`
 		ConcurrentQueryCurrent      int     `json:"concurrent_query_current"`
-		ConcurrentAVGSliceCount     float32 `json:"concurrent_avg_slice_count"`
+		ConcurrentAVGSliceCount     float64 `json:"concurrent_avg_slice_count"`
+		StartreeQueryTotal          int     `json:"startree_query_total"`          // Available in OpenSearch 3.2.0+
+		StartreeQueryTimeInMillis   int     `json:"startree_query_time_in_millis"` // Available in OpenSearch 3.2.0+
+		StartreeQueryCurrent        int     `json:"startree_query_current"`        // Available in OpenSearch 3.2.0+
+		StartreeQueryFailed         int     `json:"startree_query_failed"`         // Available in OpenSearch 3.3.0+
 		FetchTotal                  int     `json:"fetch_total"`
 		FetchTimeInMillis           int     `json:"fetch_time_in_millis"`
 		FetchCurrent                int     `json:"fetch_current"`
@@ -192,6 +176,17 @@ type NodesStatsIndices struct {
 		TotalThrottledTimeInMillis        int `json:"total_throttled_time_in_millis"`
 		TotalAutoThrottleInBytes          int `json:"total_auto_throttle_in_bytes"`
 		UnreferencedFileCleanupsPerformed int `json:"unreferenced_file_cleanups_performed"`
+		// Warmer field added in OpenSearch 3.4.0+
+		Warmer *struct {
+			TotalInvocationsCount  int `json:"total_invocations_count"`
+			TotalTimeMillis        int `json:"total_time_millis"`
+			TotalFailureCount      int `json:"total_failure_count"`
+			TotalBytesSent         int `json:"total_bytes_sent"`
+			TotalBytesReceived     int `json:"total_bytes_received"`
+			TotalSendTimeMillis    int `json:"total_send_time_millis"`
+			TotalReceiveTimeMillis int `json:"total_receive_time_millis"`
+			OngoingCount           int `json:"ongoing_count"`
+		} `json:"warmer,omitempty"`
 	} `json:"merges"`
 	Refresh struct {
 		Total                     int `json:"total"`
@@ -305,6 +300,19 @@ type NodesStatsIndices struct {
 		CurrentAsTarget      int `json:"current_as_target"`
 		ThrottleTimeInMillis int `json:"throttle_time_in_millis"`
 	} `json:"recovery"`
+	// StatusCounter field added in OpenSearch 3.4.0+
+	StatusCounter *struct {
+		DocStatus struct {
+			Success       int `json:"success"`
+			UserError     int `json:"user_error"`
+			SystemFailure int `json:"system_failure"`
+		} `json:"doc_status"`
+		SearchResponseStatus struct {
+			Success       int `json:"success"`
+			UserError     int `json:"user_error"`
+			SystemFailure int `json:"system_failure"`
+		} `json:"search_response_status"`
+	} `json:"status_counter,omitempty"`
 }
 
 // NodesStatsOS is a sub type of NodesStats representing operating system information of the node
@@ -422,37 +430,45 @@ type NodesStatsThreadPool map[string]NodesStatsThreadPoolValues
 
 // NodesStatsFS is a sub type of NodesStats representing filesystem information of the node
 type NodesStatsFS struct {
-	Timestamp int `json:"timestamp"`
+	Timestamp int `json:"timestamp"` // Available since OpenSearch 1.0.0
 	Total     struct {
-		TotalInBytes         int `json:"total_in_bytes"`
-		FreeInBytes          int `json:"free_in_bytes"`
-		AvailableInBytes     int `json:"available_in_bytes"`
-		CacheReservedInBytes int `json:"cache_reserved_in_bytes"`
+		TotalInBytes         int  `json:"total_in_bytes"`                    // Available since OpenSearch 1.0.0
+		FreeInBytes          int  `json:"free_in_bytes"`                     // Available since OpenSearch 1.0.0
+		AvailableInBytes     int  `json:"available_in_bytes"`                // Available since OpenSearch 1.0.0
+		CacheReservedInBytes *int `json:"cache_reserved_in_bytes,omitempty"` // Available in OpenSearch 2.7.0+
 	} `json:"total"`
 	Data []struct {
-		Path                 string `json:"path"`
-		Mount                string `json:"mount"`
-		Type                 string `json:"type"`
-		TotalInBytes         int    `json:"total_in_bytes"`
-		FreeInBytes          int    `json:"free_in_bytes"`
-		AvailableInBytes     int    `json:"available_in_bytes"`
-		CacheReservedInBytes int    `json:"cache_reserved_in_bytes"`
+		Path                 string `json:"path"`                              // Available since OpenSearch 1.0.0
+		Mount                string `json:"mount"`                             // Available since OpenSearch 1.0.0
+		Type                 string `json:"type"`                              // Available since OpenSearch 1.0.0
+		TotalInBytes         int    `json:"total_in_bytes"`                    // Available since OpenSearch 1.0.0
+		FreeInBytes          int    `json:"free_in_bytes"`                     // Available since OpenSearch 1.0.0
+		AvailableInBytes     int    `json:"available_in_bytes"`                // Available since OpenSearch 1.0.0
+		CacheReservedInBytes *int   `json:"cache_reserved_in_bytes,omitempty"` // Available in OpenSearch 2.7.0+
 	} `json:"data"`
 	IoStats struct {
 		Devices []struct {
-			DeviceName      string `json:"device_name"`
-			Operations      int    `json:"operations"`
-			ReadOperations  int    `json:"read_operations"`
-			WriteOperations int    `json:"write_operations"`
-			ReadKilobytes   int    `json:"read_kilobytes"`
-			WriteKilobytes  int    `json:"write_kilobytes"`
+			DeviceName      string `json:"device_name"`                 // Available since OpenSearch 1.0.0
+			Operations      int    `json:"operations"`                  // Available since OpenSearch 1.0.0
+			ReadOperations  int    `json:"read_operations"`             // Available since OpenSearch 1.0.0
+			WriteOperations int    `json:"write_operations"`            // Available since OpenSearch 1.0.0
+			ReadKilobytes   int    `json:"read_kilobytes"`              // Available since OpenSearch 1.0.0
+			WriteKilobytes  int    `json:"write_kilobytes"`             // Available since OpenSearch 1.0.0
+			IoTimeInMillis  *int   `json:"io_time_in_millis,omitempty"` // Available in OpenSearch 2.12.0+
+			QueueSize       *int   `json:"queue_size,omitempty"`        // Available in OpenSearch 2.12.0+
+			ReadTime        *int   `json:"read_time,omitempty"`         // Available in OpenSearch 2.12.0+
+			WriteTime       *int   `json:"write_time,omitempty"`        // Available in OpenSearch 2.12.0+
 		} `json:"devices"`
 		Total struct {
-			Operations      int `json:"operations"`
-			ReadOperations  int `json:"read_operations"`
-			WriteOperations int `json:"write_operations"`
-			ReadKilobytes   int `json:"read_kilobytes"`
-			WriteKilobytes  int `json:"write_kilobytes"`
+			Operations      int  `json:"operations"`                  // Available since OpenSearch 1.0.0
+			ReadOperations  int  `json:"read_operations"`             // Available since OpenSearch 1.0.0
+			WriteOperations int  `json:"write_operations"`            // Available since OpenSearch 1.0.0
+			ReadKilobytes   int  `json:"read_kilobytes"`              // Available since OpenSearch 1.0.0
+			WriteKilobytes  int  `json:"write_kilobytes"`             // Available since OpenSearch 1.0.0
+			IoTimeInMillis  *int `json:"io_time_in_millis,omitempty"` // Available in OpenSearch 2.12.0+
+			QueueSize       *int `json:"queue_size,omitempty"`        // Available in OpenSearch 2.12.0+
+			ReadTime        *int `json:"read_time,omitempty"`         // Available in OpenSearch 2.12.0+
+			WriteTime       *int `json:"write_time,omitempty"`        // Available in OpenSearch 2.12.0+
 		} `json:"total"`
 	} `json:"io_stats"`
 }
@@ -490,6 +506,7 @@ type NodesStatsBreakers struct {
 	Fielddata        NodesStatsBreaker `json:"fielddata"`
 	InFlightRequests NodesStatsBreaker `json:"in_flight_requests"`
 	Parent           NodesStatsBreaker `json:"parent"`
+	NeuralSearch     NodesStatsBreaker `json:"neural_search"` // Available in OpenSearch 3.3.0+
 }
 
 // NodesStatsScript is a sub type of NodesStats representing script information of the node
@@ -675,7 +692,9 @@ type NodesStatsSearchPipeline struct {
 		Current      int `json:"current"`
 		Failed       int `json:"failed"`
 	} `json:"total_response"`
-	Pipelines json.RawMessage `json:"pipelines"`
+	Pipelines                 json.RawMessage `json:"pipelines"`
+	SystemGeneratedProcessors json.RawMessage `json:"system_generated_processors"` // Available in OpenSearch 3.3.0+
+	SystemGeneratedFactories  json.RawMessage `json:"system_generated_factories"`  // Available in OpenSearch 3.3.0+
 }
 
 // NodesStatsTaskCancellation is a sub type of NodesStats containing stats about canceled tasks

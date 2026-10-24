@@ -65,7 +65,7 @@ type ContentConnectorService_GetFile_Call struct {
 // GetFile is a helper method to define mock.On call
 //   - ctx context.Context
 //   - w http.ResponseWriter
-func (_e *ContentConnectorService_Expecter) GetFile(ctx interface{}, w interface{}) *ContentConnectorService_GetFile_Call {
+func (_e *ContentConnectorService_Expecter) GetFile(ctx any, w any) *ContentConnectorService_GetFile_Call {
 	return &ContentConnectorService_GetFile_Call{Call: _e.mock.On("GetFile", ctx, w)}
 }
 
@@ -135,7 +135,7 @@ type ContentConnectorService_PutFile_Call struct {
 //   - stream io.Reader
 //   - streamLength int64
 //   - lockID string
-func (_e *ContentConnectorService_Expecter) PutFile(ctx interface{}, stream interface{}, streamLength interface{}, lockID interface{}) *ContentConnectorService_PutFile_Call {
+func (_e *ContentConnectorService_Expecter) PutFile(ctx any, stream any, streamLength any, lockID any) *ContentConnectorService_PutFile_Call {
 	return &ContentConnectorService_PutFile_Call{Call: _e.mock.On("PutFile", ctx, stream, streamLength, lockID)}
 }
 

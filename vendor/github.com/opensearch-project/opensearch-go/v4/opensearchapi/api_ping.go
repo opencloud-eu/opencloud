@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // Ping executes a / request with the optional PingReq
@@ -19,7 +20,7 @@ func (c Client) Ping(ctx context.Context, req *PingReq) (*opensearch.Response, e
 		req = &PingReq{}
 	}
 
-	return c.do(ctx, req, nil)
+	return do(ctx, &c, http.MethodHead, req, noBody)
 }
 
 // PingReq represents possible options for the / request
@@ -29,9 +30,9 @@ type PingReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r PingReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"HEAD",
+func (r PingReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/",
 		nil,
 		r.Params.get(),

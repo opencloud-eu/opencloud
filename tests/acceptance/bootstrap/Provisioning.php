@@ -20,7 +20,6 @@
  */
 
 use Behat\Gherkin\Node\TableNode;
-use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\GuzzleException;
 use Psr\Http\Message\ResponseInterface;
 use PHPUnit\Framework\Assert;
@@ -32,6 +31,9 @@ use TestHelpers\GraphHelper;
 use Laminas\Ldap\Exception\LdapException;
 use Laminas\Ldap\Ldap;
 use TestHelpers\TokenHelper;
+use Behat\Step\Given;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 /**
  * Functions for provisioning of users and groups
@@ -188,13 +190,13 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Given user :user has been created with default attributes
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[Given('user :user has been created with default attributes')]
 	public function userHasBeenCreatedWithDefaultAttributes(
 		string $user
 	): void {
@@ -202,13 +204,13 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Given these users have been created without being initialized:
 	 *
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[Given('these users have been created without being initialized:')]
 	public function userHasBeenCreatedWithDefaultAttributesAndNotInitialized(
 		TableNode $table
 	): void {
@@ -216,7 +218,6 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Given these users have been created with default attributes:
 	 * expects a table of users with the heading
 	 * "|username|"
 	 *
@@ -225,12 +226,12 @@ trait Provisioning {
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[Given('these users have been created with default attributes:')]
 	public function theseUsersHaveBeenCreatedWithDefaultAttributesAndWithoutSkeletonFiles(TableNode $table): void {
 		$this->usersHaveBeenCreated($table);
 	}
 
 	/**
-	 * @Given the user :byUser has created a new user with the following attributes:
 	 *
 	 * @param string $byUser
 	 * @param TableNode $table
@@ -238,6 +239,7 @@ trait Provisioning {
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[Given('the user :byUser has created a new user with the following attributes:')]
 	public function theAdministratorHasCreatedANewUserWithFollowingSettings(string $byUser, TableNode $table): void {
 		$rows = $table->getRowsHash();
 		$this->userHasBeenCreated(
@@ -725,13 +727,13 @@ trait Provisioning {
 	}
 
 	/**
-	 * @When /^the administrator deletes user "([^"]*)" using the provisioning API$/
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('the administrator deletes user :user using the provisioning API')]
 	public function theAdminDeletesUserUsingTheProvisioningApi(string $user): void {
 		$user = $this->getActualUsername($user);
 		$this->setResponse($this->deleteUser($user));
@@ -739,13 +741,13 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" should exist$/
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws JsonException
 	 */
+	#[Then('user :user should exist')]
 	public function userShouldExist(string $user): void {
 		Assert::assertTrue(
 			$this->userExists($user),
@@ -754,13 +756,13 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" should not exist$/
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws JsonException
 	 */
+	#[Then('user :user should not exist')]
 	public function userShouldNotExist(string $user): void {
 		$user = $this->getActualUsername($user);
 		Assert::assertFalse(
@@ -771,7 +773,6 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Then /^group "([^"]*)" should exist$/
 	 *
 	 * @param string $group
 	 *
@@ -779,6 +780,7 @@ trait Provisioning {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Then('group :group should exist')]
 	public function groupShouldExist(string $group): void {
 		Assert::assertTrue(
 			$this->groupExists($group),
@@ -787,7 +789,6 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Then /^group "([^"]*)" should not exist$/
 	 *
 	 * @param string $group
 	 *
@@ -795,6 +796,7 @@ trait Provisioning {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Then('group :group should not exist')]
 	public function groupShouldNotExist(string $group): void {
 		Assert::assertFalse(
 			$this->groupExists($group),
@@ -803,7 +805,6 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Then /^these groups should (not|)\s?exist:$/
 	 * expects a table of groups with the heading "groupname"
 	 *
 	 * @param string $shouldOrNot (not|)
@@ -812,6 +813,7 @@ trait Provisioning {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^these groups should (not|)\\s?exist:$/')]
 	public function theseGroupsShouldNotExist(string $shouldOrNot, TableNode $table): void {
 		$should = ($shouldOrNot !== "not");
 		$this->verifyTableNodeColumns($table, ['groupname']);
@@ -832,13 +834,13 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has been deleted$/
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('user :user has been deleted')]
 	public function userHasBeenDeleted(string $user): void {
 		$user = $this->getActualUsername($user);
 		if ($this->isTestingWithLdap() && \in_array($user, $this->ldapCreatedUsers)) {
@@ -882,20 +884,6 @@ trait Provisioning {
 			$this->getStepLineRef(),
 			$actualUser,
 			$actualPassword
-		);
-	}
-
-	/**
-	 * @When user :user gets the list of all users using the provisioning API
-	 *
-	 * @param string $user
-	 *
-	 * @return void
-	 * @throws Exception
-	 */
-	public function userGetsTheListOfAllUsersUsingTheProvisioningApi(string $user): void {
-		$this->featureContext->setResponse(
-			$this->userGetsTheListOfAllUsers($user)
 		);
 	}
 
@@ -1121,7 +1109,6 @@ trait Provisioning {
 	}
 
 	/**
-	 * @When the administrator removes user :user from group :group using the provisioning API
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -1129,6 +1116,7 @@ trait Provisioning {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('the administrator removes user :user from group :group using the provisioning API')]
 	public function adminRemovesUserFromGroupUsingTheProvisioningApi(string $user, string $group): void {
 		$user = $this->getActualUsername($user);
 		if (OcHelper::isTestingOnReva()) {
@@ -1154,13 +1142,13 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Then /^the extra groups returned by the API should be$/
 	 *
 	 * @param TableNode $groupsList
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the extra groups returned by the API should be')]
 	public function theExtraGroupsShouldBe(TableNode $groupsList): void {
 		$this->verifyTableNodeColumnsCount($groupsList, 1);
 		$groups = $groupsList->getRows();
@@ -1248,7 +1236,6 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Then /^user "([^"]*)" should belong to group "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -1256,6 +1243,7 @@ trait Provisioning {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('user :user should belong to group :group')]
 	public function userShouldBelongToGroup(string $user, string $group): void {
 		$user = $this->getActualUsername($user);
 		if (OcHelper::isTestingOnReva()) {
@@ -1286,13 +1274,13 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Then the following users should not belong to the following groups
 	 *
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the following users should not belong to the following groups')]
 	public function theTheFollowingUserShouldNotBelongToTheFollowingGroup(TableNode $table): void {
 		$this->verifyTableNodeColumns($table, ["username", "groupname"]);
 		$rows = $table->getHash();
@@ -1321,27 +1309,6 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Then group :group should not contain user :username
-	 *
-	 * @param string $group
-	 * @param string $username
-	 *
-	 * @return void
-	 */
-	public function groupShouldNotContainUser(string $group, string $username): void {
-		$username = $this->getActualUsername($username);
-		$fullUrl = $this->getBaseUrl() . "/ocs/v2.php/cloud/groups/$group";
-		$response = HttpRequestHelper::get(
-			$fullUrl,
-			$this->getStepLineRef(),
-			$this->getAdminUsername(),
-			$this->getAdminPassword()
-		);
-		Assert::assertNotContains($username, $this->getArrayOfUsersResponded($response));
-	}
-
-	/**
-	 * @When /^the administrator adds user "([^"]*)" to group "([^"]*)" using the provisioning API$/
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -1349,13 +1316,13 @@ trait Provisioning {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('the administrator adds user :user to group :group using the provisioning API')]
 	public function adminAddsUserToGroupUsingTheProvisioningApi(string $user, string $group): void {
 		$response = $this->graphContext->addUserToGroup($group, $user);
 		$this->setResponse($response);
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has been added to group "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -1363,6 +1330,7 @@ trait Provisioning {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('user :user has been added to group :group')]
 	public function userHasBeenAddedToGroup(string $user, string $group): void {
 		$user = $this->getActualUsername($user);
 		if ($this->isTestingWithLdap()) {
@@ -1383,13 +1351,13 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Given the following users have been added to the following groups
 	 *
 	 * @param TableNode $table
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('the following users have been added to the following groups')]
 	public function theFollowingUserHaveBeenAddedToTheFollowingGroup(TableNode $table): void {
 		$this->verifyTableNodeColumns($table, ['username', 'groupname']);
 		foreach ($table as $row) {
@@ -1461,7 +1429,6 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Given /^group "([^"]*)" has been created$/
 	 *
 	 * @param string $group
 	 *
@@ -1469,6 +1436,7 @@ trait Provisioning {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Given('group :group has been created')]
 	public function groupHasBeenCreated(string $group): void {
 		$this->createTheGroup($group);
 		Assert::assertTrue(
@@ -1478,7 +1446,6 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Given these groups have been created:
 	 * expects a table of groups with the heading "groupname"
 	 *
 	 * @param TableNode $table
@@ -1486,6 +1453,7 @@ trait Provisioning {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('these groups have been created:')]
 	public function theseGroupsHaveBeenCreated(TableNode $table): void {
 		$this->verifyTableNodeColumns($table, ['groupname'], ['comment']);
 		foreach ($table as $row) {
@@ -1687,13 +1655,13 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has been disabled$/
 	 *
 	 * @param string|null $user
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('user :user has been disabled')]
 	public function adminHasDisabledUserUsingTheProvisioningApi(?string $user): void {
 		$user = $this->getActualUsername($user);
 		if (OcHelper::isTestingOnReva()) {
@@ -1742,7 +1710,6 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Given /^group "([^"]*)" has been deleted$/
 	 *
 	 * @param string $group
 	 *
@@ -1750,6 +1717,7 @@ trait Provisioning {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Given('group :group has been deleted')]
 	public function groupHasBeenDeleted(string $group): void {
 		if ($this->isTestingWithLdap()) {
 			$this->deleteLdapGroup($group);
@@ -1795,7 +1763,6 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Given user :user has been removed from group :group
 	 *
 	 * @param string $user
 	 * @param string $group
@@ -1803,6 +1770,7 @@ trait Provisioning {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Given('user :user has been removed from group :group')]
 	public function adminHasRemovedUserFromGroup(string $user, string $group): void {
 		$user = $this->getActualUsername($user);
 		if ($this->isTestingWithLdap()
@@ -1836,13 +1804,13 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Then /^the users returned by the API should be$/
 	 *
 	 * @param TableNode $usersList
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the users returned by the API should be')]
 	public function theUsersShouldBe(TableNode $usersList): void {
 		$this->verifyTableNodeColumnsCount($usersList, 1);
 		$users = $usersList->getRows();
@@ -1906,11 +1874,11 @@ trait Provisioning {
 	}
 
 	/**
-	 * @Then /^the API should not return any data$/
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the API should not return any data')]
 	public function theApiShouldNotReturnAnyData(): void {
 		$responseData = HttpRequestHelper::getResponseXml($this->response, __METHOD__)->data[0];
 		Assert::assertEmpty(

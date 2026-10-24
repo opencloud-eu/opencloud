@@ -1,4 +1,4 @@
-@env-config @skipOnOpencloud-posix-Storage
+@env-config
 Feature: delete empty trash bin folder via CLI command
 
 

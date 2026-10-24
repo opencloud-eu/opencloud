@@ -9,7 +9,7 @@ package opensearchapi
 import (
 	"net/http"
 
-	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // ClusterPostVotingConfigExclusionsReq represents possible options for the /_cluster/voting_config_exclusions request
@@ -19,9 +19,9 @@ type ClusterPostVotingConfigExclusionsReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r ClusterPostVotingConfigExclusionsReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"POST",
+func (r ClusterPostVotingConfigExclusionsReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_cluster/voting_config_exclusions",
 		nil,
 		r.Params.get(),
@@ -36,9 +36,9 @@ type ClusterDeleteVotingConfigExclusionsReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r ClusterDeleteVotingConfigExclusionsReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"DELETE",
+func (r ClusterDeleteVotingConfigExclusionsReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_cluster/voting_config_exclusions",
 		nil,
 		r.Params.get(),

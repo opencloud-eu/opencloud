@@ -288,7 +288,7 @@ func (nc *StorageDriver) Delete(ctx context.Context, ref *provider.Reference) er
 }
 
 // Move as defined in the storage.FS interface
-func (nc *StorageDriver) Move(ctx context.Context, oldRef, newRef *provider.Reference) error {
+func (nc *StorageDriver) Move(ctx context.Context, oldRef, newRef *provider.Reference) (*storage.MoveResult, error) {
 	type paramsObj struct {
 		OldRef *provider.Reference `json:"oldRef"`
 		NewRef *provider.Reference `json:"newRef"`
@@ -302,7 +302,7 @@ func (nc *StorageDriver) Move(ctx context.Context, oldRef, newRef *provider.Refe
 	log.Info().Msgf("Move %s", bodyStr)
 
 	_, _, err := nc.do(ctx, Action{"Move", string(bodyStr)})
-	return err
+	return nil, err
 }
 
 // GetMD as defined in the storage.FS interface
@@ -398,6 +398,16 @@ func (nc *StorageDriver) InitiateUpload(ctx context.Context, ref *provider.Refer
 		return nil, err
 	}
 	return respMap, err
+}
+
+// MarkProcessing as defined in the storage.FS interface
+func (nc *StorageDriver) MarkProcessing(ctx context.Context, ref *provider.Reference, processing bool, sessionID string) error {
+	return errtypes.NotSupported("nextcloud: mark processing not supported")
+}
+
+// CommitUpload as defined in the storage.FS interface
+func (nc *StorageDriver) CommitUpload(_ context.Context, _ *provider.Reference, _ string, _ storage.UploadSource) error {
+	return errtypes.NotSupported("nextcloud: commit upload not supported")
 }
 
 // Upload as defined in the storage.FS interface

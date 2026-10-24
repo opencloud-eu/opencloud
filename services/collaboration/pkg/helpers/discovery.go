@@ -59,13 +59,16 @@ func (a *AppURLs) GetMimeTypes() []string {
 }
 
 // GetAppURLFor gets the appURL from the list of appURLs based on the
-// action and file extension provided. If there is no match, an empty
-// string will be returned.
+// action and file extension provided. The extension is matched without
+// case, so a "report.DOCX" opens in the same app as a "report.docx".
+// If there is no match, an empty string will be returned.
 func (a *AppURLs) GetAppURLFor(action, fileExt string) string {
 	currentURLs := a.urls.Load()
 	if currentURLs == nil {
 		return ""
 	}
+
+	fileExt = strings.ToLower(fileExt)
 
 	if actionURL, ok := (*currentURLs)[action]; ok {
 		if actionExtensionURL, ok := actionURL[fileExt]; ok {
@@ -107,7 +110,7 @@ func GetAppURLs(cfg *config.Config, logger log.Logger) (map[string]map[string]st
 
 	var appURLs map[string]map[string]string
 
-	appURLs, err = parseWopiDiscovery(httpResp.Body)
+	appURLs, err = parseWopiDiscovery(httpResp.Body, cfg.Wopi.DisabledExtensions)
 	if err != nil {
 		logger.Error().
 			Err(err).
@@ -120,9 +123,15 @@ func GetAppURLs(cfg *config.Config, logger log.Logger) (map[string]map[string]st
 	return appURLs, nil
 }
 
-// parseWopiDiscovery parses the response of the "/hosting/discovery" endpoint
-func parseWopiDiscovery(body io.Reader) (map[string]map[string]string, error) {
+// parseWopiDiscovery parses the response of the "/hosting/discovery" endpoint.
+// Extensions listed in disabledExtensions are left out.
+func parseWopiDiscovery(body io.Reader, disabledExtensions []string) (map[string]map[string]string, error) {
 	appURLs := make(map[string]map[string]string)
+
+	disabled := make(map[string]struct{}, len(disabledExtensions))
+	for _, ext := range disabledExtensions {
+		disabled[strings.ToLower(strings.TrimPrefix(strings.TrimSpace(ext), "."))] = struct{}{}
+	}
 
 	doc := etree.NewDocument()
 	if _, err := doc.ReadFrom(body); err != nil {
@@ -144,6 +153,10 @@ func parseWopiDiscovery(body io.Reader) (map[string]map[string]string, error) {
 							continue
 						}
 
+						if _, ok := disabled[strings.ToLower(ext)]; ok {
+							continue
+						}
+
 						u, err := url.Parse(urlString)
 						if err != nil {
 							continue
@@ -162,7 +175,8 @@ func parseWopiDiscovery(body io.Reader) (map[string]map[string]string, error) {
 						if _, ok := appURLs[access]; !ok {
 							appURLs[access] = make(map[string]string)
 						}
-						appURLs[access]["."+ext] = u.String()
+						// the extensions are stored in lower case, GetAppURLFor looks them up that way
+						appURLs[access]["."+strings.ToLower(ext)] = u.String()
 					}
 				}
 			}

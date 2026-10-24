@@ -95,11 +95,12 @@ type CapabilitiesSearchPropertyExtended struct {
 
 // Spaces lets a service configure its advertised options related to Storage Spaces.
 type Spaces struct {
-	Version   string `json:"version" xml:"version" mapstructure:"version"`
-	Enabled   bool   `json:"enabled" xml:"enabled" mapstructure:"enabled"`
-	Projects  bool   `json:"projects" xml:"projects" mapstructure:"projects"`
-	ShareJail bool   `json:"share_jail" xml:"share_jail" mapstructure:"share_jail"`
-	MaxQuota  uint64 `json:"max_quota" xml:"max_quota" mapstructure:"max_quota"`
+	Version      string `json:"version" xml:"version" mapstructure:"version"`
+	Enabled      bool   `json:"enabled" xml:"enabled" mapstructure:"enabled"`
+	Projects     bool   `json:"projects" xml:"projects" mapstructure:"projects"`
+	ShareJail    bool   `json:"share_jail" xml:"share_jail" mapstructure:"share_jail"`
+	MaxQuota     uint64 `json:"max_quota" xml:"max_quota" mapstructure:"max_quota"`
+	DefaultQuota uint64 `json:"default_quota" xml:"default_quota" mapstructure:"default_quota"`
 }
 
 // CapabilitiesCore holds webdav config
@@ -225,6 +226,7 @@ type CapabilitiesFilesSharing struct {
 	DefaultPermissions            int                                      `json:"default_permissions" xml:"default_permissions" mapstructure:"default_permissions"`
 	UserEnumeration               *CapabilitiesFilesSharingUserEnumeration `json:"user_enumeration" xml:"user_enumeration" mapstructure:"user_enumeration"`
 	Federation                    *CapabilitiesFilesSharingFederation      `json:"federation" xml:"federation"`
+	GuestLinks                    *CapabilitiesFilesSharingGuestLinks      `json:"guest_links" xml:"guest_links" mapstructure:"guest_links"`
 	Public                        *CapabilitiesFilesSharingPublic          `json:"public" xml:"public"`
 	User                          *CapabilitiesFilesSharingUser            `json:"user" xml:"user"`
 	// TODO: Remove next line once web defaults to resharing=false
@@ -289,6 +291,11 @@ type CapabilitiesFilesSharingUserEnumeration struct {
 type CapabilitiesFilesSharingFederation struct {
 	Outgoing ocsBool `json:"outgoing" xml:"outgoing"`
 	Incoming ocsBool `json:"incoming" xml:"incoming"`
+}
+
+// CapabilitiesFilesSharingGuestLinks holds the guest links capabilities
+type CapabilitiesFilesSharingGuestLinks struct {
+	Enabled ocsBool `json:"enabled" xml:"enabled" mapstructure:"enabled"`
 }
 
 // CapabilitiesNotifications holds a list of notification endpoints

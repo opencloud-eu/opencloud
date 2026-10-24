@@ -9,6 +9,13 @@
 // implementing the golang.org/x/image/font.Face interface.
 //
 // The sibling golang.org/x/image/font/sfnt package provides a low-level API.
+//
+// # Security Considerations
+//
+// This package is not hardened against malicious inputs.
+// Crashes, excessive CPU or memory consumption, or similar misbehavior
+// caused by malicious or corrupt inputs will be handled as ordinary bugs,
+// not vulnerabilities.
 package opentype // import "golang.org/x/image/font/opentype"
 
 import (

@@ -8,18 +8,22 @@ docker_repo_slug = "opencloudeu/opencloud"
 
 # images
 ALPINE_GIT = "alpine/git:latest"
-APACHE_TIKA = "apache/tika:3.2.3.0-full"
+APACHE_TIKA = "apache/tika:4.1.0-full"
 CHKO_DOCKER_PUSHRM = "chko/docker-pushrm:1"
 CODACY_COVERAGE_REPORTER = "codacy/codacy-coverage-reporter:14.1.3"
 COLLABORA_CODE = "collabora/code:24.04.5.1.1"
 OPEN_SEARCH = "opensearchproject/opensearch:2"
+
+# imagor for the thumbnail parity suite, keep equal to imagortest.Variants
+IMAGOR = "shumc/imagor:1.9.11"
+IMAGOR_MAGICK = "ghcr.io/cshum/imagor-magick:1.9.11"
 INBUCKET_INBUCKET = "inbucket/inbucket"
-MINIO_MC = "minio/mc:RELEASE.2021-10-07T04-19-58Z"
+MINIO_MC = "quay.io/opencloudeu/minio-mc-ci:1.0"
 OC_CI_ALPINE = "owncloudci/alpine:latest"
 OC_CI_BAZEL_BUILDIFIER = "quay.io/opencloudeu/bazel-buildifier-ci:latest"
 OC_CI_CLAMAVD = "quay.io/opencloudeu/clamav-ci:latest"
 OC_CI_DRONE_ANSIBLE = "owncloudci/drone-ansible:latest"
-OC_CI_GOLANG = "quay.io/opencloudeu/golang-ci:1.25"
+OC_CI_GOLANG = "quay.io/opencloudeu/golang-ci:1.26"
 OC_CI_NODEJS = "quay.io/opencloudeu/nodejs-ci:24"
 OC_CI_NODEJS_ALPINE = "quay.io/opencloudeu/nodejs-alpine-ci:24"
 OC_CI_PHP = "quay.io/opencloudeu/php-alpine-ci:%s"
@@ -81,6 +85,15 @@ event = {
     "cron": {
         "event": "cron",
         "branch": "main",
+        "cron": "nightly*",
+    },
+    "translation_sync": {
+        "event": "cron",
+        "cron": "translation-sync",
+    },
+    "purge_cache": {
+        "event": "cron",
+        "cron": "purge-cache",
     },
     "pull_request": {
         "event": "pull_request",
@@ -202,12 +215,14 @@ config = {
                 "apiSearch1",
             ],
             "skip": False,
+            "openSearch": True,
         },
         "search2": {
             "suites": [
                 "apiSearch2",
             ],
             "skip": False,
+            "openSearch": True,
         },
         "sharingNg": {
             "suites": [
@@ -230,9 +245,16 @@ config = {
             ],
             "skip": False,
         },
+        "sharingNgAdditionalShareRole": {
+            "suites": [
+                "apiSharingNgAdditionalShareRole",
+            ],
+            "skip": False,
+        },
         "notification": {
             "suites": [
                 "apiNotification",
+                "apiGuestLink",
             ],
             "skip": False,
             "withRemotePhp": False,
@@ -248,6 +270,7 @@ config = {
                 "NOTIFICATIONS_SMTP_INSECURE": True,
                 "NOTIFICATIONS_SMTP_SENDER": "ownCloud <noreply@example.com>",
                 "NOTIFICATIONS_DEBUG_ADDR": "0.0.0.0:9174",
+                "OC_ENABLE_GUEST_LINKS": True,
             },
         },
         "antivirus": {
@@ -271,6 +294,7 @@ config = {
             ],
             "skip": False,
             "tikaNeeded": True,
+            "openSearch": True,
         },
         "ocm": {
             "suites": [
@@ -328,6 +352,8 @@ config = {
                 "ANTIVIRUS_CLAMAV_SOCKET": "tcp://clamav:3310",
                 "OC_ASYNC_UPLOADS": True,
                 "OC_ADD_RUN_SERVICES": "antivirus",
+                "OC_SERVICE_ACCOUNT_ID": "service-account-id",
+                "OC_SERVICE_ACCOUNT_SECRET": "service-account-secret",
             },
         },
         "multiTenancy": {
@@ -375,44 +401,55 @@ config = {
         "1": {
             "skip": False,
             "suites": [
-                "journeys",
-                "smoke",
+                "journeys/",
+                "smoke/",
             ],
         },
         "2": {
             "skip": False,
             "suites": [
-                "admin-settings",
-                "spaces",
+                "admin-settings/",
+                "spaces/",
+                "rclone-crypt/",
             ],
         },
         "3": {
             "skip": False,
             "suites": [
-                "shares",
-                "search",
+                "shares/",
+                "search/",
             ],
             "tikaNeeded": True,
         },
         "4": {
             "skip": False,
             "suites": [
-                "user-settings",
-                #"fileaction",
+                "user-settings/",
+                "fileaction/",
                 "embed",
             ],
+        },
+        # Runs the search-related e2e-tests against an OpenSearch search-engine.
+        "search": {
+            "skip": False,
+            "suites": [
+                "search/",
+                "file-action/favorites.feature",
+            ],
+            "tikaNeeded": True,
+            "openSearch": True,
         },
     },
     "e2eMultiService": {
         "testSuites": {
             "skip": False,
             "suites": [
-                "smoke",
-                "shares",
-                "search",
-                "journeys",
-                #"file-action",
-                "spaces",
+                "smoke/",
+                "shares/",
+                "search/",
+                "journeys/",
+                "file-action/",
+                "spaces/",
             ],
             "tikaNeeded": True,
         },
@@ -489,34 +526,23 @@ def prefixStepCommands(pipeline, commands = [], skip_steps = []):
         if "commands" in step.keys() and step["name"] not in skip_steps:
             step["commands"] = commands + step["commands"]
 
-def pipelineDependsOn(pipeline, dependant_pipelines):
+def pipelineDependsOn(pipeline, dependant_pipelines, optional = False):
     if type(pipeline) == "list":
         pipeline = pipeline[0]
+    depends = getPipelineNames(dependant_pipelines, optional = optional)
     if "depends_on" in pipeline.keys():
-        pipeline["depends_on"] = pipeline["depends_on"] + getPipelineNames(dependant_pipelines)
+        pipeline["depends_on"] = pipeline["depends_on"] + depends
     else:
-        pipeline["depends_on"] = getPipelineNames(dependant_pipelines)
+        pipeline["depends_on"] = depends
     return pipeline
 
-def pipelinesDependsOn(pipelines, dependant_pipelines):
-    pipes = []
-    for pipeline in pipelines:
-        pipes.append(pipelineDependsOn(pipeline, dependant_pipelines))
-
-    return pipes
-
-def getPipelineNames(pipelines = []):
-    """getPipelineNames returns names of pipelines as a string array
-
-    Args:
-      pipelines: array of woodpecker pipelines
-
-    Returns:
-      names of the given pipelines as string array
-    """
+def getPipelineNames(pipelines = [], optional = False):
     names = []
     for pipeline in pipelines:
-        names.append(pipeline["name"])
+        if optional:
+            names.append({"name": pipeline["name"], "optional": True})
+        else:
+            names.append(pipeline["name"])
     return names
 
 def main(ctx):
@@ -531,6 +557,9 @@ def main(ctx):
 
     if ctx.build.event == "cron" and ctx.build.cron == "translation-sync":
         return translation_sync(ctx)
+
+    if ctx.build.event == "cron" and ctx.build.cron == "purge-cache":
+        return [purgeS3Cache()]
 
     is_release_pr = (ctx.build.event == "pull_request" and "🎉 release" in ctx.build.title.lower())
     if is_release_pr:
@@ -552,10 +581,10 @@ def main(ctx):
         codestyle(ctx) + \
         checkGherkinLint(ctx) + \
         checkTestSuitesInExpectedFailures(ctx) + \
-        pipelinesDependsOn(buildWebCache(ctx), savePipelineNumber(ctx)) + \
-        pipelinesDependsOn(cacheBrowsers(ctx), savePipelineNumber(ctx)) + \
+        buildWebCache(ctx) + \
+        cacheBrowsers(ctx) + \
         getGoBinForTesting(ctx) + \
-        pipelinesDependsOn(buildOpencloudBinaryForTesting(ctx), savePipelineNumber(ctx)) + \
+        buildOpencloudBinaryForTesting(ctx) + \
         checkStarlark(ctx) + \
         build_release_helpers + \
         testOpencloudAndUploadResults(ctx) + \
@@ -565,78 +594,25 @@ def main(ctx):
         dockerReleases(ctx) + \
         binaryReleases(ctx)
 
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeBuildArtifactCache(ctx),
-            testPipelines(ctx),
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeBrowserCache(ctx),
-            testPipelines(ctx),
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeTracingCache(ctx),
-            testPipelines(ctx),
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeOpencloudWebBuildCache(ctx),
-            testPipelines(ctx),
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeGoBinCache(ctx),
-            testPipelines(ctx),
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgePipelineInfoCache(),
-            testPipelines(ctx),
-        ),
-    )
-
-    pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + notifyMatrixCheckSteps(ctx, getPipelineNames(testPipelines(ctx)))
+    pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + serverTestingDocs(ctx) + notifyMatrixCheckSteps(ctx, getPipelineNames(testPipelines(ctx), optional = True))
 
     pipelineSanityChecks(pipelines)
-    return savePipelineNumber(ctx) + pipelines
+    return pipelines
 
-def savePipelineNumber(ctx):
+def savePipelineInfoStep(ctx):
     base_url = "https://raw.githubusercontent.com/%s" % repo_slug
     script_link = "%s/%s/tests/config/woodpecker/upload_pipeline_info.sh" % (base_url, ctx.build.commit)
-    return [{
-        "name": "save-pipeline-info",
-        "skip_clone": True,
-        "steps": [{
-            "name": "upload-info",
+    return [
+        {
+            "name": "save-pipeline-info",
             "image": MINIO_MC,
             "environment": MINIO_MC_ENV,
             "commands": [
                 "curl -s -o upload_pipeline_info.sh %s" % script_link,
                 "bash -x upload_pipeline_info.sh",
             ],
-        }],
-        "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": ["main", "stable-*"],
-            },
-            event["tag"],
-            event["cron"],
-            event["pull_request"],
-        ],
-    }]
+        },
+    ]
 
 def evaluateWorkflowStep():
     return [{
@@ -648,7 +624,6 @@ def evaluateWorkflowStep():
     }]
 
 def cachePipeline(ctx, name, steps):
-    steps = skipCheckStep(ctx, "base") + steps
     pipeline = {
         "name": "cache-%s" % name,
         "steps": steps,
@@ -658,13 +633,14 @@ def cachePipeline(ctx, name, steps):
                 "branch": ["main", "stable-*"],
             },
             event["cron"],
-            event["pull_request"],
+            {
+                "event": "pull_request",
+                "path": {
+                    "exclude": skipIfUnchanged(ctx, "base"),
+                },
+            },
         ],
     }
-    prefixStepCommands(pipeline, [
-        ". ./.woodpecker.env",
-        '[ "$SKIP_WORKFLOW" = "true" ] && exit 0',
-    ])
     return pipeline
 
 def buildWebCache(ctx):
@@ -713,8 +689,7 @@ def testPipelines(ctx):
 def getGoBinForTesting(ctx):
     pipeline = {
         "name": "get-go-bin-cache",
-        "steps": skipCheckStep(ctx, "base") +
-                 checkGoBinCache() +
+        "steps": checkGoBinCache() +
                  cacheGoBin(),
         "when": [
             event["tag"],
@@ -723,14 +698,15 @@ def getGoBinForTesting(ctx):
                 "event": ["push", "manual"],
                 "branch": ["main", "stable-*"],
             },
-            event["pull_request"],
+            {
+                "event": "pull_request",
+                "path": {
+                    "exclude": skipIfUnchanged(ctx, "unit-tests"),
+                },
+            },
         ],
         "workspace": workspace,
     }
-    prefixStepCommands(pipeline, [
-        ". ./.woodpecker.env",
-        '[ "$SKIP_WORKFLOW" = "true" ] && exit 0',
-    ])
     return [pipeline]
 
 def checkGoBinCache():
@@ -803,7 +779,6 @@ def restoreGoBinCache():
     ]
 
 def testOpencloud(ctx):
-    #steps = skipCheckStep(ctx, "unit-tests") + evaluateWorkflowStep() + restoreGoBinCache() + makeGoGenerate("") + [
     steps = evaluateWorkflowStep() + restoreGoBinCache() + makeGoGenerate("") + [
         {
             "name": "golangci-lint",
@@ -815,39 +790,32 @@ def testOpencloud(ctx):
             ],
             "environment": CI_HTTP_PROXY_ENV,
         },
-        {
-            "name": "open-search",
-            "image": OPEN_SEARCH,
-            "detach": True,
-            "environment": {
-                "discovery.type": "single-node",
-                "DISABLE_INSTALL_DEMO_CONFIG": True,
-                "DISABLE_SECURITY_PLUGIN": True,
-            },
-            "entrypoint": ["/usr/share/opensearch/opensearch-docker-entrypoint.sh", "opensearch"],
-        },
-        {
-            "name": "wait-for-open-search",
-            "image": OC_CI_ALPINE,
-            "commands": [
-                "bash -c '" +
-                "until curl -sS \"http://open-search:9200/_cat/health?h=status\" | grep \"green\\|yellow\"; do\n" +
-                "  echo \"Waiting for http://open-search:9200 to be healthy...\"\n" +
-                "  sleep 5\n" +
-                "done\n" +
-                "echo \"http://open-search:9200 healthy...\"\n" +
-                "'",
-            ],
-        },
+    ] + waitForOpenSearch() + waitForImagor() + [
         {
             "name": "test",
             "image": OC_CI_GOLANG,
             "environment": {
                 "SEARCH_ENGINE_OPEN_SEARCH_CLIENT_ADDRESSES": "http://open-search:9200",
+                "THUMBNAILS_PARITY_IMAGOR_URL": "http://imagor:8000",
+                "THUMBNAILS_PARITY_IMAGOR_MAGICK_URL": "http://imagor-magick:8000",
             },
             "commands": [
                 "make test",
                 "mv coverage.out unit.coverage.out",
+            ],
+        },
+        {
+            # the only run that covers the resize code the official docker
+            # images ship
+            # FIXME: run it with the libvips those images ship, see issue 3746
+            "name": "test-thumbnail-parity-vips",
+            "image": OC_CI_GOLANG,
+            "environment": {
+                "THUMBNAILS_PARITY_IMAGOR_URL": "http://imagor:8000",
+                "THUMBNAILS_PARITY_IMAGOR_MAGICK_URL": "http://imagor-magick:8000",
+            },
+            "commands": [
+                "go test -tags enable_vips ./services/thumbnails/pkg/parity/...",
             ],
         },
         {
@@ -870,10 +838,16 @@ def testOpencloud(ctx):
     pipeline = {
         "name": "test-lint-unit",
         "steps": steps,
+        "services": openSearchService() + imagorServices(),
         "when": [
             event["base"],
             event["cron"],
-            event["pull_request"],
+            {
+                "event": "pull_request",
+                "path": {
+                    "exclude": skipIfUnchanged(ctx, "unit-tests"),
+                },
+            },
         ],
         "depends_on": getPipelineNames(getGoBinForTesting(ctx)),
         "workspace": workspace,
@@ -887,7 +861,7 @@ def testOpencloud(ctx):
     return [pipeline]
 
 def scanOpencloud(ctx):
-    steps = skipCheckStep(ctx, "base") + restoreGoBinCache() + makeGoGenerate("") + [
+    steps = restoreGoBinCache() + makeGoGenerate("") + [
         {
             "name": "govulncheck",
             "image": OC_CI_GOLANG,
@@ -898,27 +872,28 @@ def scanOpencloud(ctx):
         },
     ]
 
-    pipeline = {
+    return {
         "name": "go-vulnerability-scanning",
         "steps": steps,
         "when": [
             event["base"],
             event["cron"],
-            event["pull_request"],
+            {
+                "event": "pull_request",
+                "path": {
+                    "exclude": skipIfUnchanged(ctx, "acceptance-tests"),
+                },
+            },
         ],
         "depends_on": getPipelineNames(getGoBinForTesting(ctx)),
         "workspace": workspace,
     }
-    prefixStepCommands(pipeline, [
-        ". ./.woodpecker.env",
-        '[ "$SKIP_WORKFLOW" = "true" ] && exit 0',
-    ])
-    return [pipeline]
 
 def buildOpencloudBinaryForTesting(ctx):
     pipeline = {
         "name": "build-opencloud-for-testing",
-        "steps": makeNodeGenerate("") +
+        "steps": savePipelineInfoStep(ctx) +
+                 makeNodeGenerate("") +
                  makeGoGenerate("") +
                  build() +
                  rebuildBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]),
@@ -930,30 +905,6 @@ def buildOpencloudBinaryForTesting(ctx):
         "workspace": workspace,
     }
     return [pipeline]
-
-def vendorbinCodestyle(phpVersion):
-    return [{
-        "name": "vendorbin-codestyle",
-        "image": OC_CI_PHP % phpVersion,
-        "environment": {
-            "COMPOSER_HOME": "%s/.cache/composer" % dirs["base"],
-        },
-        "commands": [
-            "make vendor-bin-codestyle",
-        ],
-    }]
-
-def vendorbinCodesniffer(phpVersion):
-    return [{
-        "name": "vendorbin-codesniffer",
-        "image": OC_CI_PHP % phpVersion,
-        "environment": {
-            "COMPOSER_HOME": "%s/.cache/composer" % dirs["base"],
-        },
-        "commands": [
-            "make vendor-bin-codesniffer",
-        ],
-    }]
 
 def checkTestSuitesInExpectedFailures(ctx):
     return [{
@@ -970,7 +921,12 @@ def checkTestSuitesInExpectedFailures(ctx):
         "when": [
             event["base"],
             event["cron"],
-            event["pull_request"],
+            {
+                "event": "pull_request",
+                "path": {
+                    "exclude": skipIfUnchanged(ctx, "acceptance-tests"),
+                },
+            },
         ],
     }]
 
@@ -990,7 +946,12 @@ def checkGherkinLint(ctx):
         "when": [
             event["base"],
             event["cron"],
-            event["pull_request"],
+            {
+                "event": "pull_request",
+                "path": {
+                    "exclude": skipIfUnchanged(ctx, "lint"),
+                },
+            },
         ],
     }]
 
@@ -1032,29 +993,32 @@ def codestyle(ctx):
 
             result = {
                 "name": name,
-                "steps": vendorbinCodestyle(phpVersion) +
-                         vendorbinCodesniffer(phpVersion) +
-                         [
-                             {
-                                 "name": "php-style",
-                                 "image": OC_CI_PHP % phpVersion,
-                                 "commands": [
-                                     "make test-php-style",
-                                 ],
-                             },
-                             {
-                                 "name": "check-env-var-annotations",
-                                 "image": OC_CI_PHP % phpVersion,
-                                 "commands": [
-                                     "make check-env-var-annotations",
-                                 ],
-                             },
-                         ],
+                "steps": [
+                    {
+                        "name": "php-style",
+                        "image": OC_CI_PHP % phpVersion,
+                        "commands": [
+                            "make test-php-style",
+                        ],
+                    },
+                    {
+                        "name": "check-env-var-annotations",
+                        "image": OC_CI_PHP % phpVersion,
+                        "commands": [
+                            "make check-env-var-annotations",
+                        ],
+                    },
+                ],
                 "depends_on": [],
                 "when": [
                     event["base"],
                     event["cron"],
-                    event["pull_request"],
+                    {
+                        "event": "pull_request",
+                        "path": {
+                            "exclude": skipIfUnchanged(ctx, "lint"),
+                        },
+                    },
                 ],
             }
 
@@ -1065,8 +1029,7 @@ def codestyle(ctx):
 def cs3ApiTests(ctx, storage):
     pipeline = {
         "name": "test-cs3-API-%s" % storage,
-        "steps": skipCheckStep(ctx, "acceptance-tests") +
-                 evaluateWorkflowStep() +
+        "steps": evaluateWorkflowStep() +
                  restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                  opencloudServer(storage, deploy_type = "cs3api_validator") +
                  [
@@ -1085,7 +1048,12 @@ def cs3ApiTests(ctx, storage):
         "when": [
             event["base"],
             event["cron"],
-            event["pull_request"],
+            {
+                "event": "pull_request",
+                "path": {
+                    "exclude": skipIfUnchanged(ctx, "acceptance-tests"),
+                },
+            },
         ],
     }
     prefixStepCommands(pipeline, [
@@ -1169,8 +1137,7 @@ def wopiValidatorTests(ctx, storage, wopiServerType):
     pipeline = {
         "name": "test-wopi-validator-%s-%s" % (wopiServerType, storage),
         "services": fakeOffice(),
-        "steps": skipCheckStep(ctx, "acceptance-tests") +
-                 evaluateWorkflowStep() +
+        "steps": evaluateWorkflowStep() +
                  restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                  waitForServices("fake-office", ["fakeoffice:8080"]) +
                  opencloudServer(storage, deploy_type = "wopi_validator", extra_server_environment = extra_server_environment) +
@@ -1201,7 +1168,12 @@ def wopiValidatorTests(ctx, storage, wopiServerType):
         "when": [
             event["base"],
             event["cron"],
-            event["pull_request"],
+            {
+                "event": "pull_request",
+                "path": {
+                    "exclude": skipIfUnchanged(ctx, "acceptance-tests"),
+                },
+            },
         ],
     }
     prefixStepCommands(pipeline, [
@@ -1254,14 +1226,29 @@ def build_api_test_workflow_matrix(ctx, storage, suite_cfg, default_cfg):
         matrix = {
             "withRemotePhp": m["withRemotePhp"],
             "enableWatchFs": m["enableWatchFs"],
+            "openSearch": False,
         }
         if override_with_remote_php != None:
             matrix["withRemotePhp"] = override_with_remote_php
         if override_enable_watch_fs != None:
             matrix["enableWatchFs"] = override_enable_watch_fs
 
-        if matrix not in workflow_metrices and matrix in matrices:
+        base = {
+            "withRemotePhp": matrix["withRemotePhp"],
+            "enableWatchFs": matrix["enableWatchFs"],
+        }
+        if matrix not in workflow_metrices and base in matrices:
             workflow_metrices.append(matrix)
+
+    # Add an OpenSearch search-engine variant for the search test suites.
+    if storage == "posix" and suite_cfg.get("openSearch", False):
+        os_matrix = {
+            "withRemotePhp": False,
+            "enableWatchFs": False,
+            "openSearch": True,
+        }
+        if os_matrix not in workflow_metrices:
+            workflow_metrices.append(os_matrix)
     return workflow_metrices
 
 def localApiTestPipeline(ctx):
@@ -1282,6 +1269,7 @@ def localApiTestPipeline(ctx):
         "withRemotePhp": False,
         "enableWatchFs": False,
         "ldapNeeded": False,
+        "openSearch": False,
     }
 
     if "localApiTests" in config:
@@ -1294,9 +1282,9 @@ def localApiTestPipeline(ctx):
                 if ctx.build.event == "cron":
                     params["storages"] = OPENCLOUD_STORAGES
 
-                    # skip CLI tests in nightly pipeline
+                    # run CLI tests only with decomposed storage in the nightly
                     if name.startswith("cli"):
-                        continue
+                        params["storages"] = ["decomposed"]
 
                 # use decomposed storage if specified in the PR title
                 if "[decomposed]" in ctx.build.title.lower():
@@ -1307,6 +1295,7 @@ def localApiTestPipeline(ctx):
                     for m in matrices:
                         run_with_remote_php = m["withRemotePhp"]
                         run_with_watch_fs = m["enableWatchFs"]
+                        run_with_open_search = m["openSearch"]
 
                         pipeline_name = "test-API"
                         if name.startswith("cli"):
@@ -1316,12 +1305,20 @@ def localApiTestPipeline(ctx):
                         if run_with_remote_php:
                             pipeline_name += "-withRemotePhp"
                         if run_with_watch_fs:
-                            pipeline_name += "-watchfs"
+                            pipeline_name = "watchfs-" + pipeline_name
+                        if run_with_open_search:
+                            pipeline_name += "-opensearch"
+
+                        server_environment = dict(params["extraServerEnvironment"])
+                        if run_with_open_search:
+                            server_environment["SEARCH_ENGINE_TYPE"] = "open-search"
+                            server_environment["SEARCH_ENGINE_OPEN_SEARCH_CLIENT_ADDRESSES"] = "http://open-search:9200"
 
                         pipeline = {
                             "name": pipeline_name,
-                            "steps": skipCheckStep(ctx, "acceptance-tests") + evaluateWorkflowStep() + restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
+                            "steps": evaluateWorkflowStep() + restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                                      (tikaService() if params["tikaNeeded"] else []) +
+                                     (waitForOpenSearch() if run_with_open_search else []) +
                                      (waitForWebOffices(["https://collabora:9980", "https://onlyoffice", "http://fakeoffice:8080"]) if params["collaborationServiceNeeded"] else []) +
                                      (waitForClamavService() if params["antivirusNeeded"] else []) +
                                      (waitForEmailService() if params["emailNeeded"] else []) +
@@ -1329,7 +1326,7 @@ def localApiTestPipeline(ctx):
                                      (waitForLdapService() if params["ldapNeeded"] else []) +
                                      opencloudServer(
                                          storage,
-                                         extra_server_environment = params["extraServerEnvironment"],
+                                         extra_server_environment = server_environment,
                                          with_wrapper = True,
                                          tika_enabled = params["tikaNeeded"],
                                          watch_fs_enabled = run_with_watch_fs,
@@ -1341,12 +1338,18 @@ def localApiTestPipeline(ctx):
                                      logRequests(),
                             "services": (emailService() if params["emailNeeded"] else []) +
                                         (clamavService() if params["antivirusNeeded"] else []) +
+                                        (openSearchService() if run_with_open_search else []) +
                                         ((fakeOffice() + collaboraService() + onlyofficeService()) if params["collaborationServiceNeeded"] else []),
                             "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx)),
                             "when": [
                                 event["base"],
                                 event["cron"],
-                                event["pull_request"],
+                                {
+                                    "event": "pull_request",
+                                    "path": {
+                                        "exclude": skipIfUnchanged(ctx, "acceptance-tests"),
+                                    },
+                                },
                             ],
                         }
                         prefixStepCommands(pipeline, [
@@ -1437,12 +1440,11 @@ def coreApiTestPipeline(ctx):
                         if run_with_remote_php:
                             pipeline_name += "-withRemotePhp"
                         if run_with_watch_fs:
-                            pipeline_name += "-watchfs"
+                            pipeline_name = "watchfs-" + pipeline_name
 
                         pipeline = {
                             "name": pipeline_name,
-                            "steps": skipCheckStep(ctx, "acceptance-tests") +
-                                     evaluateWorkflowStep() +
+                            "steps": evaluateWorkflowStep() +
                                      restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                                      opencloudServer(
                                          storage,
@@ -1461,7 +1463,12 @@ def coreApiTestPipeline(ctx):
                             "when": [
                                 event["base"],
                                 event["cron"],
-                                event["pull_request"],
+                                {
+                                    "event": "pull_request",
+                                    "path": {
+                                        "exclude": skipIfUnchanged(ctx, "acceptance-tests"),
+                                    },
+                                },
                             ],
                         }
                         prefixStepCommands(pipeline, [
@@ -1508,6 +1515,7 @@ def e2eTestPipeline(ctx):
         "reportTracing": False,
         "enableWatchFs": [False],
         "storages": ["posix"],
+        "openSearch": False,
     }
 
     extra_server_environment = {
@@ -1520,7 +1528,12 @@ def e2eTestPipeline(ctx):
     e2e_trigger = [
         event["base"],
         event["cron"],
-        event["pull_request"],
+        {
+            "event": "pull_request",
+            "path": {
+                "exclude": skipIfUnchanged(ctx, "e2e-tests"),
+            },
+        },
         {
             "event": "tag",
             "ref": "refs/tags/**",
@@ -1546,24 +1559,43 @@ def e2eTestPipeline(ctx):
         if "[decomposed]" in ctx.build.title.lower():
             params["storages"] = ["decomposed"]
 
-        e2e_args = "--suites %s" % ",".join(params["suites"]) if params["suites"] else ""
-
         if "with-tracing" in ctx.build.title.lower():
             params["reportTracing"] = True
 
+        e2e_args = " ".join(params["suites"]) if params["suites"] else ""
+
+        # OpenSearch search-engine suites run posix-only without the watchfs matrix.
+        run_with_open_search = params["openSearch"]
+        if run_with_open_search:
+            params["storages"] = ["posix"]
+            params["enableWatchFs"] = [False]
+
         for storage in params["storages"]:
             for watch_fs_enabled in params["enableWatchFs"]:
+                pipeline_name = "test-e2e-%s-%s%s" % (
+                    name,
+                    storage,
+                    "-opensearch" if run_with_open_search else "",
+                )
+                if watch_fs_enabled:
+                    pipeline_name = "watchfs-" + pipeline_name
+
+                server_environment = dict(extra_server_environment)
+                if run_with_open_search:
+                    server_environment["SEARCH_ENGINE_TYPE"] = "open-search"
+                    server_environment["SEARCH_ENGINE_OPEN_SEARCH_CLIENT_ADDRESSES"] = "http://open-search:9200"
+
                 steps = \
-                    skipCheckStep(ctx, "e2e-tests") + \
                     evaluateWorkflowStep() + \
                     restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBin"]) + \
                     restoreWebCache() + \
                     restoreWebPnpmCache() + \
                     restoreBrowsersCache() + \
                     (tikaService() if params["tikaNeeded"] else []) + \
+                    (waitForOpenSearch() if run_with_open_search else []) + \
                     opencloudServer(
                         storage,
-                        extra_server_environment = extra_server_environment,
+                        extra_server_environment = server_environment,
                         tika_enabled = params["tikaNeeded"],
                         watch_fs_enabled = watch_fs_enabled,
                     ) + \
@@ -1572,25 +1604,25 @@ def e2eTestPipeline(ctx):
                         "image": OC_CI_NODEJS,
                         "environment": {
                             "OC_BASE_URL": OC_DOMAIN,
-                            "HEADLESS": True,
                             "RETRY": "1",
                             "WEB_UI_CONFIG_FILE": "%s/%s" % (dirs["base"], dirs["opencloudConfig"]),
                             "LOCAL_UPLOAD_DIR": "/uploads",
                             "PLAYWRIGHT_BROWSERS_PATH": "%s/%s" % (dirs["base"], ".playwright"),
-                            "BROWSER": "chromium",
-                            "REPORT_TRACING": params["reportTracing"],
                             "SLOW_MO": "300",
                         },
                         "commands": [
                             "cd %s/tests/e2e" % dirs["web"],
-                            "bash run-e2e.sh %s" % e2e_args,
+                            "pnpm playwright install chromium",
+                            "pnpm bddgen",
+                            "pnpm playwright test %s --project=chromium" % e2e_args,
                         ],
                     }] + \
-                    uploadTracingResult(ctx)
+                    uploadTestArtifacts(pipeline_name)
 
                 pipeline = {
-                    "name": "test-e2e-%s-%s%s" % (name, storage, "-watchfs" if watch_fs_enabled else ""),
+                    "name": pipeline_name,
                     "steps": steps,
+                    "services": openSearchService() if run_with_open_search else [],
                     "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
                     "when": e2e_trigger,
                 }
@@ -1608,7 +1640,6 @@ def multiServiceE2ePipeline(ctx):
     defaults = {
         "skip": False,
         "suites": [],
-        "xsuites": [],
         "tikaNeeded": False,
         "reportTracing": False,
         "enableWatchFs": [False],
@@ -1618,7 +1649,12 @@ def multiServiceE2ePipeline(ctx):
     e2e_trigger = [
         event["base"],
         event["cron"],
-        event["pull_request"],
+        {
+            "event": "pull_request",
+            "path": {
+                "exclude": skipIfUnchanged(ctx, "e2e-tests"),
+            },
+        },
     ]
 
     if "skip-e2e" in ctx.build.title.lower():
@@ -1692,24 +1728,19 @@ def multiServiceE2ePipeline(ctx):
         if "[decomposed]" in ctx.build.title.lower():
             params["storages"] = ["decomposed"]
 
-        e2e_args = ""
-        if params["suites"]:
-            e2e_args = "--suites %s" % ",".join(params["suites"])
-
-        # suites to skip
-        if params["xsuites"]:
-            e2e_args += " --xsuites %s" % ",".join(params["xsuites"])
+        e2e_args = " ".join(params["suites"]) if params["suites"] else ""
 
         if "with-tracing" in ctx.build.title.lower():
             params["reportTracing"] = True
 
         for storage in params["storages"]:
             for watch_fs_enabled in params["enableWatchFs"]:
+                pipeline_name = "test-e2e-multi-service"
                 if watch_fs_enabled:
+                    pipeline_name = "watchfs-" + pipeline_name
                     extra_server_environment["STORAGE_USERS_POSIX_WATCH_FS"] = True
 
                 steps = \
-                    skipCheckStep(ctx, "e2e-tests") + \
                     evaluateWorkflowStep() + \
                     restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBin"]) + \
                     restoreWebCache() + \
@@ -1723,21 +1754,20 @@ def multiServiceE2ePipeline(ctx):
                         "image": OC_CI_NODEJS,
                         "environment": {
                             "OC_BASE_URL": OC_DOMAIN,
-                            "HEADLESS": True,
                             "RETRY": "1",
-                            "REPORT_TRACING": params["reportTracing"],
                             "PLAYWRIGHT_BROWSERS_PATH": "%s/%s" % (dirs["base"], ".playwright"),
-                            "BROWSER": "chromium",
                         },
                         "commands": [
                             "cd %s/tests/e2e" % dirs["web"],
-                            "bash run-e2e.sh %s" % e2e_args,
+                            "pnpm playwright install chromium",
+                            "pnpm bddgen",
+                            "pnpm playwright test %s --project=chromium" % e2e_args,
                         ],
                     }] + \
-                    uploadTracingResult(ctx)
+                    uploadTestArtifacts(pipeline_name)
 
                 pipeline = {
-                    "name": "test-e2e-multi-service%s" % ("-watchfs" if watch_fs_enabled else ""),
+                    "name": pipeline_name,
                     "steps": steps,
                     "depends_on": getPipelineNames(buildOpencloudBinaryForTesting(ctx) + buildWebCache(ctx)),
                     "when": e2e_trigger,
@@ -1749,24 +1779,19 @@ def multiServiceE2ePipeline(ctx):
                 pipelines.append(pipeline)
     return pipelines
 
-def uploadTracingResult(ctx):
-    status = ["failure"]
-    if "with-tracing" in ctx.build.title.lower():
-        status = ["failure", "success"]
-
+def uploadTestArtifacts(pipeline_name):
     return [{
-        "name": "upload-tracing-result",
+        "name": "upload-test-artifacts",
         "image": MINIO_MC,
         "environment": MINIO_MC_ENV,
         "commands": [
             "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
-            "mc cp -a %s/reports/e2e/playwright/tracing/* s3/$PUBLIC_BUCKET/web/tracing/$CI_REPO_NAME/$CI_PIPELINE_NUMBER/" % dirs["web"],
-            "cd %s/reports/e2e/playwright/tracing/" % dirs["web"],
-            'echo "To see the trace, please open the following link in the console"',
-            'for f in *.zip; do echo "npx playwright show-trace $MC_HOST/$PUBLIC_BUCKET/web/tracing/$CI_REPO_NAME/$CI_PIPELINE_NUMBER/$f \n"; done',
+            "cd %s/tests/e2e/playwright-report && zip -r /tmp/playwright-report.zip ." % dirs["web"],
+            "mc cp /tmp/playwright-report.zip s3/$PUBLIC_BUCKET/web/artifacts/$CI_REPO_NAME/$CI_PIPELINE_NUMBER/%s/playwright-report.zip" % pipeline_name,
+            'printf "=== HTML Report ===\ncurl -O $MC_HOST/$PUBLIC_BUCKET/web/artifacts/$CI_REPO_NAME/$CI_PIPELINE_NUMBER/%s/playwright-report.zip && npx playwright show-report playwright-report.zip\n"' % pipeline_name,
         ],
         "when": {
-            "status": status,
+            "status": ["failure", "success"],
         },
     }]
 
@@ -1867,6 +1892,9 @@ def dockerRelease(ctx, repo, build_type):
         "VERSION": "%s" % (ctx.build.ref.replace("refs/tags/", "") if ctx.build.event == "tag" else "daily"),
         "EDITION": "stable" if build_type == "production" else "rolling",
     }
+
+    if ctx.build.event != "tag":
+        build_args["STRING"] = ctx.build.commit[:8]
 
     # if no additional tag is given, the build-plugin adds latest
     hard_tag = "daily"
@@ -2257,7 +2285,7 @@ def genDocsPr(ctx):
         "steps": [
             {
                 "name": "make-docs-pr",
-                "image": "quay.io/opencloudeu/golang-ci",
+                "image": OC_CI_GOLANG,
                 "pull": True,
                 "environment": {
                     "GH_TOKEN": {
@@ -2305,11 +2333,56 @@ def genDocsPr(ctx):
         ],
     }]
 
+def serverTestingDocs(ctx):
+    return [{
+        "name": "server-testing-docs",
+        "steps": [
+            {
+                "name": "build",
+                "image": OC_CI_NODEJS,
+                "commands": [
+                    "node tests/scripts/generate-docs.mjs",
+                    # add dummy woodpecker config to disable CI on push to the docs branch
+                    "printf 'def main(ctx):\n    return [{\n        \"name\":\"dummy-pipeline\",\n" +
+                    "        \"steps\":[{\"name\":\"dummy-step\",\"image\":\"alpine:latest\"}],\n" +
+                    "        \"when\":[{\"branch\":[\"main\"]}],\n    }]\n' > tests/.docs-dist/.woodpecker.star",
+                ],
+            },
+            {
+                "name": "publish",
+                "image": "plugins/gh-pages:1",
+                "settings": {
+                    "username": {
+                        "from_secret": "github_username",
+                    },
+                    "password": {
+                        "from_secret": "github_token",
+                    },
+                    "pages_directory": "tests/.docs-dist/",
+                    "copy_contents": True,
+                    "target_branch": "server-testing-docs",
+                    "delete": True,
+                },
+                "when": [
+                    {
+                        "event": ["push"],
+                        "branch": "${CI_REPO_DEFAULT_BRANCH}",
+                    },
+                ],
+            },
+        ],
+        "when": [
+            {
+                "event": ["push", "pull_request"],
+                "path": "tests/README.md",
+            },
+        ],
+    }]
+
 def notifyMatrixCheckSteps(ctx, depends_on):
     result = [{
         "name": "all-checks-finished",
         "skip_clone": True,
-        "runs_on": ["success", "failure"],
         "depends_on": depends_on,
         "steps": [
             {
@@ -2348,9 +2421,9 @@ def notifyMatrixCheckSteps(ctx, depends_on):
             },
         ],
         "when": [
-            event["cron"],
-            event["base"],
-            event["pull_request"],
+            dict(event["cron"], status = ["success", "failure"]),
+            dict(event["base"], status = ["success", "failure"]),
+            dict(event["pull_request"], status = ["success", "failure"]),
         ],
     }]
 
@@ -2377,6 +2450,8 @@ def opencloudServer(storage = "decomposed", depends_on = [], deploy_type = "", e
         "EVENTHISTORY_STORE": "memory",
         "OC_TRANSLATION_PATH": "%s/tests/config/translations" % dirs["base"],
         "ACTIVITYLOG_WRITE_BUFFER_DURATION": "0",  # Disable write buffer so that test expectations are met in time
+        "OC_LDAP_LOOKUP_CACHE_TTL": "0",  # disable ldap lookup cache so that test fixture change are applied right away
+        "OC_ENABLE_GUEST_LINKS": True,
         # search grpc port needed for index cli tests
         "SEARCH_GRPC_ADDR": "0.0.0.0:9220",
         # debug addresses required for running services health tests
@@ -2403,6 +2478,8 @@ def opencloudServer(storage = "decomposed", depends_on = [], deploy_type = "", e
         "SEARCH_DEBUG_ADDR": "0.0.0.0:9224",
         "SETTINGS_DEBUG_ADDR": "0.0.0.0:9194",
         "SHARING_DEBUG_ADDR": "0.0.0.0:9151",
+        # the ocwrapper restarts the server mid-migration and leaves a stale migration lock behind
+        "SHARING_USER_JSONCS3_SKIP_MIGRATIONS": True,
         "SSE_DEBUG_ADDR": "0.0.0.0:9139",
         "STORAGE_PUBLICLINK_DEBUG_ADDR": "0.0.0.0:9179",
         "STORAGE_SHARES_DEBUG_ADDR": "0.0.0.0:9156",
@@ -2429,10 +2506,14 @@ def opencloudServer(storage = "decomposed", depends_on = [], deploy_type = "", e
 
     if deploy_type == "cs3api_validator":
         environment["GATEWAY_GRPC_ADDR"] = "0.0.0.0:9142"  #  make gateway available to cs3api-validator
+        environment["STORAGE_USERS_HTTP_ADDR"] = "0.0.0.0:9158"  # make dataprovider available to wopi server
+        environment["STORAGE_USERS_DATA_SERVER_URL"] = "http://opencloud-server:9158/data"  # make dataprovider routable by wopi server
         environment["OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD"] = False
 
     if deploy_type == "wopi_validator":
         environment["GATEWAY_GRPC_ADDR"] = "0.0.0.0:9142"  # make gateway available to wopi server
+        environment["STORAGE_USERS_HTTP_ADDR"] = "0.0.0.0:9158"  # make dataprovider available to wopi server
+        environment["STORAGE_USERS_DATA_SERVER_URL"] = "http://opencloud-server:9158/data"  # make dataprovider routable by wopi server
         environment["APP_PROVIDER_EXTERNAL_ADDR"] = "eu.opencloud.api.app-provider"
         environment["APP_PROVIDER_DRIVER"] = "wopi"
         environment["APP_PROVIDER_WOPI_APP_NAME"] = "FakeOffice"
@@ -2573,14 +2654,18 @@ def skipIfUnchanged(ctx, type):
         return []
 
     base = [
+        ".agents/**",
+        ".claude/**",
         ".github/**",
         ".vscode/**",
         "docs/**",
         "deployments/**",
+        ".codacy.yml",
         "CHANGELOG.md",
         "CONTRIBUTING.md",
         "LICENSE",
         "README.md",
+        "release-config.ts",
     ]
     unit = [
         "**/*_test.go",
@@ -2644,10 +2729,7 @@ def translation_sync(ctx):
             },
         ],
         "when": [
-            {
-                "event": "cron",
-                "cron": "translation-sync",
-            },
+            event["translation_sync"],
         ],
     }]
 
@@ -2680,7 +2762,12 @@ def checkStarlark(ctx):
         "when": [
             event["cron"],
             event["base"],
-            event["pull_request"],
+            {
+                "event": "pull_request",
+                "path": {
+                    "exclude": skipIfUnchanged(ctx, "base"),
+                },
+            },
         ],
     }]
 
@@ -2715,27 +2802,32 @@ def genericCache(name, action, mounts, cache_path):
     }
     return step
 
-def purgeCache(name, flush_path, flush_age):
+PURGE_TARGETS = [
+    # short lived build artifacts (binaries, s3-cache)
+    ("cache", 1),
+    # reusable build caches and debug artifacts (reports, traces, logs)
+    ("dev", 14),
+    ("public", 14),
+]
+
+def purgeS3Cache():
+    commands = ["mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY"]
+    for bucket, flush_age in PURGE_TARGETS:
+        commands.append("to_delete=$(mc find s3/%s/ --older-than %sd || true)" % (bucket, flush_age))
+        commands.append('if [ -n "$to_delete" ]; then mc rm $to_delete; fi')
+
     return {
-        "name": name,
+        "name": "purge_ci_cache",
         "skip_clone": True,
         "when": [
-            event["cron"],
-            event["base"],
-            event["pull_request"],
+            event["purge_cache"],
         ],
-        "runs_on": ["success", "failure"],
         "steps": [
             {
                 "name": "purge",
                 "image": MINIO_MC,
                 "environment": MINIO_MC_ENV,
-                "commands": [
-                    "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
-                    "to_delete=$(mc find s3/%s/ --older-than %sd)" % (flush_path, flush_age),
-                    'if [ -z "$to_delete" ]; then exit 0; fi',
-                    "mc rm $to_delete",
-                ],
+                "commands": commands,
             },
         ],
     }
@@ -2746,8 +2838,6 @@ def genericBuildArtifactCache(ctx, name, action, path):
         name = "%s_build_artifact_cache" % name
         return genericCache(name, action, [path], cache_path)
 
-    if action == "purge":
-        return purgeCache("purge_opencloud_build_artifact_cache", "cache/%s" % repo_slug, 1)
     return []
 
 def restoreBuildArtifactCache(ctx, name, path):
@@ -2755,24 +2845,6 @@ def restoreBuildArtifactCache(ctx, name, path):
 
 def rebuildBuildArtifactCache(ctx, name, path):
     return [genericBuildArtifactCache(ctx, name, "rebuild", path)]
-
-def purgeBuildArtifactCache(ctx):
-    return genericBuildArtifactCache(ctx, "", "purge", [])
-
-def purgeBrowserCache(ctx):
-    return purgeCache("purge_browser_build_cache", "dev/web", 14)
-
-def purgeTracingCache(ctx):
-    return purgeCache("purge_playwright_tracing_cache", "public/web/tracing", 14)
-
-def purgeOpencloudWebBuildCache(ctx):
-    return purgeCache("purge_opencloud_web_build_cache", "dev/opencloud/web-test-runner", 14)
-
-def purgeGoBinCache(ctx):
-    return purgeCache("purge_go_bin_cache", "dev/opencloud/go-bin", 14)
-
-def purgePipelineInfoCache():
-    return purgeCache("purge_pipeline_info_cache", "public/opencloud/pipelines", 14)
 
 def pipelineSanityChecks(pipelines):
     """pipelineSanityChecks helps the CI developers to find errors before running it
@@ -2807,8 +2879,9 @@ def pipelineSanityChecks(pipelines):
     for pipeline in pipelines:
         if "depends_on" in pipeline.keys():
             for depends in pipeline["depends_on"]:
-                if not depends in possible_depends:
-                    print("Error: depends_on %s for pipeline %s is not defined" % (depends, pipeline["name"]))
+                depends_name = depends["name"] if type(depends) == "dict" else depends
+                if not depends_name in possible_depends:
+                    print("Error: depends_on %s for pipeline %s is not defined" % (depends_name, pipeline["name"]))
 
     # check for non declared volumes
     # for pipeline in pipelines:
@@ -2854,8 +2927,7 @@ def litmus(ctx, storage):
 
     pipeline = {
         "name": "test-litmus",
-        "steps": skipCheckStep(ctx, "litmus") +
-                 evaluateWorkflowStep() +
+        "steps": evaluateWorkflowStep() +
                  restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
                  opencloudServer(storage) +
                  setupForLitmus() +
@@ -2930,7 +3002,12 @@ def litmus(ctx, storage):
         "when": [
             event["cron"],
             event["base"],
-            event["pull_request"],
+            {
+                "event": "pull_request",
+                "path": {
+                    "exclude": skipIfUnchanged(ctx, "litmus"),
+                },
+            },
         ],
     }
 
@@ -3034,7 +3111,12 @@ def cacheBrowsers(ctx):
     e2e_trigger = [
         event["base"],
         event["cron"],
-        event["pull_request"],
+        {
+            "event": "pull_request",
+            "path": {
+                "exclude": skipIfUnchanged(ctx, "e2e-tests"),
+            },
+        },
         {
             "event": "tag",
             "ref": "refs/tags/**",
@@ -3323,12 +3405,89 @@ def tikaService():
     return [{
         "name": "tika",
         "image": APACHE_TIKA,
+        # tika 4 discovers its plugins relative to the image working directory,
+        # the workspace default would leave the pipes fetchers empty
+        "directory": "/opt/tika-server",
         "detach": True,
     }, {
         "name": "wait-for-tika-service",
         "image": OC_CI_WAIT_FOR,
         "commands": [
             "wait-for -host tika -port 9998 -timeout 300",
+        ],
+    }]
+
+def openSearchService():
+    return [{
+        "name": "open-search",
+        "image": OPEN_SEARCH,
+        "environment": {
+            "discovery.type": "single-node",
+            "DISABLE_INSTALL_DEMO_CONFIG": True,
+            "DISABLE_SECURITY_PLUGIN": True,
+        },
+        "entrypoint": ["/usr/share/opensearch/opensearch-docker-entrypoint.sh", "opensearch"],
+    }]
+
+def waitForOpenSearch():
+    return [{
+        "name": "wait-for-open-search",
+        "image": OC_CI_ALPINE,
+        "commands": [
+            "bash -c '" +
+            "until curl -sS \"http://open-search:9200/_cat/health?h=status\" | grep \"green\\|yellow\"; do\n" +
+            "  echo \"Waiting for http://open-search:9200 to be healthy...\"\n" +
+            "  sleep 5\n" +
+            "done\n" +
+            "echo \"http://open-search:9200 healthy...\"\n" +
+            "'",
+        ],
+    }]
+
+def imagorServices():
+    environment = {
+        # the parity suite posts every image, and there is nothing to sign with
+        "IMAGOR_UNSAFE": True,
+        "UPLOAD_LOADER_ENABLE": True,
+        "HTTP_LOADER_DISABLE": True,
+        # the limits of the thumbnails service, so both sides refuse the same
+        # requests; keep in step with imagortest.Args, which configures imagor
+        # the same way when the suite starts it through testcontainers
+        "VIPS_MAX_WIDTH": 7680,
+        "VIPS_MAX_HEIGHT": 7680,
+        "VIPS_MAX_ANIMATION_FRAMES": 100,
+        # quoted: a number this large reaches the container as 5e+07, which imagor cannot parse
+        "UPLOAD_LOADER_MAX_ALLOWED_SIZE": "50000000",
+        "IMAGOR_PROCESS_CONCURRENCY": -1,
+    }
+
+    return [
+        {
+            "name": "imagor",
+            "image": IMAGOR,
+            "environment": environment,
+        },
+        {
+            "name": "imagor-magick",
+            "image": IMAGOR_MAGICK,
+            "environment": environment,
+        },
+    ]
+
+def waitForImagor():
+    return [{
+        "name": "wait-for-imagor",
+        "image": OC_CI_ALPINE,
+        "commands": [
+            "bash -c '" +
+            "for host in imagor imagor-magick; do\n" +
+            "  until curl -sS -o /dev/null \"http://$host:8000/\"; do\n" +
+            "    echo \"Waiting for http://$host:8000 to be healthy...\"\n" +
+            "    sleep 2\n" +
+            "  done\n" +
+            "  echo \"http://$host:8000 healthy...\"\n" +
+            "done\n" +
+            "'",
         ],
     }]
 
@@ -3431,16 +3590,3 @@ def waitForWebOffices(services = []):
             "commands": commands,
         },
     ]
-
-def skipCheckStep(ctx, type):
-    if ("full-ci" in ctx.build.title.lower() or ctx.build.event == "tag" or ctx.build.event == "cron"):
-        return []
-
-    return [{
-        "name": "skip-check",
-        "image": OC_CI_NODEJS_ALPINE,
-        "commands": [
-            "npm install minimatch",
-            "node tests/config/woodpecker/skip_if_unchanged.js %s" % type,
-        ],
-    }]

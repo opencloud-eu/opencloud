@@ -43,7 +43,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			{
 				svc, err := service.NewAntivirus(cfg, logger, traceProvider)
 				if err != nil {
-					fmt.Errorf("failed to initialize antivirus service: %v", err)
+					logger.Error().Err(err).Str("server", "antivirus").Msg("Failed to initialize antivirus service")
 					os.Exit(1)
 				}
 

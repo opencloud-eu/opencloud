@@ -95,6 +95,15 @@ func Server(cfg *config.Config) *cobra.Command {
 				gr.Add(runner.NewGolangHttpServerRunner(cfg.Service.Name+".debug", debugServer))
 			}
 
+			// add event handler
+			gr.Add(runner.New(cfg.Service.Name+".event",
+				func() error {
+					return ListenForEvents(ctx, cfg, logger)
+				}, func() {
+					logger.Info().Msg("stopping event handler")
+				},
+			))
+
 			grpcSvc := registry.BuildGRPCService(cfg.GRPC.Namespace+"."+cfg.Service.Name, cfg.GRPC.Protocol, cfg.GRPC.Addr, version.GetString())
 			if err := registry.RegisterService(ctx, logger, grpcSvc, cfg.Debug.Addr); err != nil {
 				logger.Fatal().Err(err).Msg("failed to register the grpc service")

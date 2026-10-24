@@ -57,11 +57,6 @@ msgstr "Konto auswählen"
 msgid "Clicking \"Allow\" will redirect you to: {{redirectURI}}"
 msgstr "Wenn Sie \"Einverstanden\" klicken werden Sie zu {{redirectURI}} weitergeleitet"
 
-#. From: konnect##login##usernameField##placeholder##email
-#: konnect##login##usernameField##placeholder##email
-msgid "Email"
-msgstr "E-Mail"
-
 #. From: konnect##error##login##validate##missingUsername
 #: konnect##error##login##validate##missingUsername
 msgid "Enter a valid value."
@@ -91,11 +86,6 @@ msgstr "Hallo {{displayName}}"
 #: konnect##consent##headline
 msgid "Hi {{displayName}}"
 msgstr "Hallo {{displayName}}"
-
-#. From: konnect##login##usernameField##placeholder##identity
-#: konnect##login##usernameField##placeholder##identity
-msgid "Identity"
-msgstr "Identität"
 
 #. From: konnect##scopeDescription##offlineAccess
 #: konnect##scopeDescription##offlineAccess
@@ -164,8 +154,8 @@ msgstr "Unerwarteter Antwort-Status: {{state}}"
 msgid "Use another account"
 msgstr "Anderes Konto"
 
-#. From: konnect##login##usernameField##placeholder##username
-#: konnect##login##usernameField##placeholder##username
+#. From: konnect##login##usernameField##label
+#: konnect##login##usernameField##label
 msgid "Username"
 msgstr "Benutzername"
 

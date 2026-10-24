@@ -46,6 +46,12 @@ type DecomposedFsSession struct {
 	info tusd.FileInfo
 }
 
+const (
+	SessionStatusUploading  = "uploading"
+	SessionStatusProcessing = "processing"
+	SessionStatusFailed     = "failed"
+)
+
 // Context returns a context with the user, logger and lockid used when initiating the upload session
 func (session *DecomposedFsSession) Context(ctx context.Context) context.Context { // restore logger from file info
 	sub := session.store.log.With().Int("pid", os.Getpid()).Logger()
@@ -74,17 +80,10 @@ func (session *DecomposedFsSession) executantUser() *userpb.User {
 }
 
 // Purge deletes the upload session metadata and written binary data
-func (session *DecomposedFsSession) Purge(ctx context.Context) error {
+func (session *DecomposedFsSession) Purge(ctx context.Context) {
 	_, span := tracer.Start(ctx, "Purge")
 	defer span.End()
-	sessionPath := sessionPath(session.store.root, session.info.ID)
-	if err := os.Remove(sessionPath); err != nil {
-		return err
-	}
-	if err := os.Remove(session.binPath()); err != nil {
-		return err
-	}
-	return nil
+	session.Cleanup(true, true, true, true)
 }
 
 // TouchBin creates a file to contain the binary data. It's size will be used to keep track of the tus upload offset.
@@ -102,9 +101,9 @@ func (session *DecomposedFsSession) TouchBin() error {
 func (session *DecomposedFsSession) Persist(ctx context.Context) error {
 	_, span := tracer.Start(ctx, "Persist")
 	defer span.End()
-	sessionPath := sessionPath(session.store.root, session.info.ID)
+	infoPath := session.infoPath()
 	// create folder structure (if needed)
-	if err := os.MkdirAll(filepath.Dir(sessionPath), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(infoPath), 0700); err != nil {
 		return err
 	}
 
@@ -113,7 +112,7 @@ func (session *DecomposedFsSession) Persist(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return renameio.WriteFile(sessionPath, d, 0600)
+	return renameio.WriteFile(infoPath, d, 0600)
 }
 
 // ToFileInfo returns tus compatible FileInfo so the tus handler can access the upload offset
@@ -307,15 +306,19 @@ func (session *DecomposedFsSession) MTime() time.Time {
 	return t
 }
 
-// IsProcessing returns true if all bytes have been received. The session then has entered postprocessing state.
+// IsProcessing returns true if the upload is in the processing state, meaning that the upload has finished and postprocessing is still running.
 func (session *DecomposedFsSession) IsProcessing() bool {
-	// We might need a more sophisticated way to determine processing status soon
-	return session.info.Size == session.info.Offset && session.info.MetaData["scanResult"] == ""
+	return session.info.MetaData["status"] == SessionStatusProcessing
 }
 
 // binPath returns the path to the file storing the binary data.
 func (session *DecomposedFsSession) binPath() string {
 	return filepath.Join(session.store.root, "uploads", session.info.ID)
+}
+
+// infoPath returns the path to the .info file storing the file's info.
+func (session *DecomposedFsSession) infoPath() string {
+	return sessionPath(session.store.root, session.info.ID)
 }
 
 // InitiatorID returns the id of the initiating client
@@ -337,6 +340,22 @@ func (session *DecomposedFsSession) ScanData() (string, time.Time) {
 	}
 	d, _ := time.Parse(time.RFC3339, date)
 	return session.info.MetaData["scanResult"], d
+}
+
+// SetStatus sets the status of the upload session
+func (session *DecomposedFsSession) SetStatus(status, msg string) {
+	session.info.MetaData["status"] = status
+	session.info.MetaData["statusMessage"] = msg
+}
+
+// Status returns the status of the upload session
+func (session *DecomposedFsSession) Status() string {
+	return session.info.MetaData["status"]
+}
+
+// StatusMessage returns the status message of the upload session
+func (session *DecomposedFsSession) StatusMessage() string {
+	return session.info.MetaData["statusMessage"]
 }
 
 // sessionPath returns the path to the .info file storing the file's info.

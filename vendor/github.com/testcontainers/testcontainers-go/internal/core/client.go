@@ -8,6 +8,7 @@ import (
 
 	"github.com/testcontainers/testcontainers-go/internal"
 	"github.com/testcontainers/testcontainers-go/internal/config"
+	"github.com/testcontainers/testcontainers-go/internal/core/bootstrap"
 )
 
 // NewClient returns a new docker client extracting the docker host from the different alternatives
@@ -35,8 +36,8 @@ func NewClient(ctx context.Context, ops ...client.Opt) (*client.Client, error) {
 
 	opts = append(opts, client.WithHTTPHeaders(
 		map[string]string{
-			"x-tc-pp":    ProjectPath(),
-			"x-tc-sid":   SessionID(),
+			"x-tc-pp":    bootstrap.ProjectPath(),
+			"x-tc-sid":   tcConfig.SessionID,
 			"User-Agent": "tc-go/" + internal.Version,
 		}),
 	)

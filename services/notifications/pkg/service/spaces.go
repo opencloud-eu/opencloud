@@ -187,30 +187,13 @@ func (s eventsNotifier) handleSpaceMembershipExpired(e events.SpaceMembershipExp
 		Str("itemid", e.SpaceID.GetOpaqueId()).
 		Logger()
 
-	gatewayClient, err := s.gatewaySelector.Next()
+	spaceName, ctx, err := s.prepareSpaceMembershipExpired(logger, e)
 	if err != nil {
-		logger.Error().Err(err).Msg("could not select next gateway client")
+		logger.Error().Err(err).Msg("could not prepare vars for email")
 		return
 	}
 
-	ctx, err := utils.GetServiceUserContext(s.serviceAccountID, gatewayClient, s.serviceAccountSecret)
-	if err != nil {
-		logger.Error().Err(err).Msg("Could not impersonate sharer")
-		return
-	}
-
-	owner, err := utils.GetUserNoGroups(ctx, e.SpaceOwner, gatewayClient)
-	if err != nil {
-		logger.Error().
-			Err(err).
-			Msg("could not get user")
-		return
-	}
-
-	granteeList := s.ensureGranteeList(ctx, owner.GetId(), e.GranteeUserID, e.GranteeGroupID)
-	if granteeList == nil {
-		return
-	}
+	granteeList := s.ensureGranteeList(ctx, nil, e.GranteeUserID, e.GranteeGroupID)
 	filteredGrantees := s.filter.execute(ctx, granteeList, defaults.SettingUUIDProfileEventSpaceMembershipExpired)
 
 	recipientsInstant, recipientsDaily, recipientsInstantWeekly := s.splitter.execute(ctx, filteredGrantees)
@@ -223,12 +206,43 @@ func (s eventsNotifier) handleSpaceMembershipExpired(e events.SpaceMembershipExp
 	emails, err := s.render(ctx, email.MembershipExpired,
 		"SpaceGrantee",
 		map[string]string{
-			"SpaceName": e.SpaceName,
+			"SpaceName": spaceName,
 			"ExpiredAt": e.ExpiredAt.Format("2006-01-02 15:04:05"),
-		}, recipientsInstant, owner.GetDisplayName())
+		}, recipientsInstant, s.defaultEmailSender)
 	if err != nil {
 		logger.Error().Err(err).Msg("could not get render the email")
 		return
 	}
 	s.send(ctx, emails)
+}
+
+func (s eventsNotifier) prepareSpaceMembershipExpired(logger zerolog.Logger, e events.SpaceMembershipExpired) (spaceName string, ctx context.Context, err error) {
+	gatewayClient, err := s.gatewaySelector.Next()
+	if err != nil {
+		logger.Error().Err(err).Msg("could not select next gateway client")
+		return spaceName, ctx, err
+	}
+
+	ctx, err = utils.GetServiceUserContextWithContext(context.Background(), gatewayClient, s.serviceAccountID, s.serviceAccountSecret)
+	if err != nil {
+		logger.Error().Err(err).Msg("could not get service user context")
+		return spaceName, ctx, err
+	}
+
+	resourceID, err := storagespace.ParseID(e.SpaceID.GetOpaqueId())
+	if err != nil {
+		logger.Error().Err(err).Msg("could not parse SpaceID")
+		return spaceName, ctx, err
+	}
+
+	resourceInfo, err := s.getResourceInfo(ctx, &resourceID, nil)
+	if err != nil {
+		logger.Error().
+			Err(err).
+			Msg("could not get space info")
+		return spaceName, ctx, err
+	}
+	spaceName = resourceInfo.GetSpace().GetName()
+
+	return spaceName, ctx, err
 }

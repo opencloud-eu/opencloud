@@ -1,4 +1,4 @@
-// Copyright 2016-2025 The NATS Authors
+// Copyright 2016-2026 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -1288,6 +1288,8 @@ func ValidateMapping(src string, dest string) error {
 				!sliceFromLeftMappingFunctionRegEx.MatchString(t) &&
 				!sliceFromRightMappingFunctionRegEx.MatchString(t) &&
 				!splitMappingFunctionRegEx.MatchString(t) &&
+				!leftMappingFunctionRegEx.MatchString(t) &&
+				!rightMappingFunctionRegEx.MatchString(t) &&
 				!randomMappingFunctionRegEx.MatchString(t) {
 				return &mappingDestinationErr{t, ErrUnknownMappingDestinationFunction}
 			} else {

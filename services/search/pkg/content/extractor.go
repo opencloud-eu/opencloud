@@ -2,7 +2,6 @@ package content
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
@@ -13,19 +12,13 @@ type Extractor interface {
 	Extract(ctx context.Context, ri *provider.ResourceInfo) (Document, error)
 }
 
-func getFirstValue(m map[string][]string, key string) (string, error) {
-	if m == nil {
-		return "", errors.New("undefined map")
+// getFirstValue returns the first metadata value present among keys, trying them
+// in order. It errors when the map is nil or none of the keys holds a value.
+func getFirstValue(m map[string][]string, keys ...string) (string, error) {
+	for _, key := range keys {
+		if v, ok := m[key]; ok && len(v) > 0 {
+			return v[0], nil
+		}
 	}
-
-	v, ok := m[key]
-	if !ok {
-		return "", fmt.Errorf("unknown key: %v", key)
-	}
-
-	if len(m) == 0 {
-		return "", fmt.Errorf("no values for: %v", key)
-	}
-
-	return v[0], nil
+	return "", fmt.Errorf("no value for keys: %v", keys)
 }

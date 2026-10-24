@@ -3,16 +3,18 @@ package opensearch
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
+	"github.com/opencloud-eu/opencloud/pkg/kql"
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/convert"
@@ -31,8 +33,11 @@ type Backend struct {
 	client *opensearchgoAPI.Client
 }
 
-func NewBackend(index string, client *opensearchgoAPI.Client) (*Backend, error) {
-	pingResp, err := client.Ping(context.TODO(), &opensearchgoAPI.PingReq{})
+// NewBackend creates a backend on the versioned generation of the named index.
+func NewBackend(ctx context.Context, name string, client *opensearchgoAPI.Client, logger log.Logger) (*Backend, error) {
+	index := VersionedIndexName(name)
+
+	pingResp, err := client.Ping(ctx, &opensearchgoAPI.PingReq{})
 	switch {
 	case err != nil:
 		return nil, fmt.Errorf("%w, failed to ping opensearch: %w", ErrUnhealthyCluster, err)
@@ -41,13 +46,13 @@ func NewBackend(index string, client *opensearchgoAPI.Client) (*Backend, error) 
 	}
 
 	// apply the index template
-	if err := IndexManagerLatest.Apply(context.TODO(), index, client); err != nil {
+	if err := IndexManagerLatest.Apply(ctx, index, client, logger); err != nil {
 		return nil, fmt.Errorf("failed to apply index template: %w", err)
 	}
 
 	// first check if the cluster is healthy
 
-	resp, err := client.Cluster.Health(context.TODO(), &opensearchgoAPI.ClusterHealthReq{
+	resp, err := client.Cluster.Health(ctx, &opensearchgoAPI.ClusterHealthReq{
 		Indices: []string{index},
 		Params: opensearchgoAPI.ClusterHealthParams{
 			Local:   opensearchgoAPI.ToPointer(true),
@@ -68,7 +73,10 @@ func NewBackend(index string, client *opensearchgoAPI.Client) (*Backend, error) 
 
 func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
 	boolQuery, err := convert.KQLToOpenSearchBoolQuery(sir.Query)
-	if err != nil {
+	switch {
+	case kql.IsValidationError(err):
+		return nil, errtypes.BadRequest(err.Error())
+	case err != nil:
 		return nil, fmt.Errorf("failed to convert KQL query to OpenSearch bool query: %w", err)
 	}
 
@@ -90,6 +98,15 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 				),
 			),
 		)
+		// Scope below the space root: restrict at query level so totals and
+		// paging respect the path too. Path uses the case-preserving
+		// path_hierarchy analyzer, so the folder path is an indexed token of
+		// the folder itself and every descendant.
+		if requestedPath := utils.MakeRelativePath(sir.Ref.Path); requestedPath != "." {
+			boolQuery.Filter(
+				osu.NewTermQuery[string]("Path").Value(requestedPath),
+			)
+		}
 	}
 
 	searchParams := opensearchgoAPI.SearchParams{
@@ -142,17 +159,6 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 			return nil, fmt.Errorf("failed to convert hit to match: %w", err)
 		}
 
-		if sir.Ref != nil {
-			hitPath := strings.TrimSuffix(match.GetEntity().GetRef().GetPath(), "/")
-			requestedPath := utils.MakeRelativePath(sir.Ref.Path)
-			isRoot := hitPath == requestedPath
-
-			if !isRoot && requestedPath != "." && !strings.HasPrefix(hitPath, requestedPath+"/") {
-				totalMatches--
-				continue
-			}
-		}
-
 		matches = append(matches, match)
 	}
 
@@ -167,7 +173,7 @@ func (b *Backend) DocCount() (uint64, error) {
 		&opensearchgoAPI.IndicesCountReq{
 			Indices: []string{b.index},
 		},
-		osu.NewTermQuery[bool]("Deleted").Value(false),
+		osu.NewMatchAllQuery(),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("failed to build count request: %w", err)
@@ -194,13 +200,13 @@ func (b *Backend) Upsert(id string, r search.Resource) error {
 	return batch.Push()
 }
 
-func (b *Backend) Move(id string, parentID string, target string) error {
+func (b *Backend) Move(id string, parentID string, targetPath string) error {
 	batch, err := b.NewBatch(defaultBatchSize)
 	if err != nil {
 		return err
 	}
 
-	if err := batch.Move(id, parentID, target); err != nil {
+	if err := batch.Move(id, parentID, targetPath); err != nil {
 		return err
 	}
 
@@ -244,6 +250,32 @@ func (b *Backend) Purge(id string, onlyDeleted bool) error {
 	}
 
 	return batch.Push()
+}
+
+func (b *Backend) PurgeSpace(rootID string) error {
+	req, err := osu.BuildDocumentDeleteByQueryReq(
+		opensearchgoAPI.DocumentDeleteByQueryReq{
+			Indices: []string{b.index},
+			Params: opensearchgoAPI.DocumentDeleteByQueryParams{
+				WaitForCompletion: conversions.ToPointer(true),
+				Refresh:           conversions.ToPointer(true),
+			},
+		},
+		osu.NewBoolQuery().Must(osu.NewTermQuery[string]("RootID").Value(rootID)),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to build the space purge request %s: %w", rootID, err)
+	}
+
+	resp, err := b.client.Document.DeleteByQuery(context.TODO(), req)
+	switch {
+	case err != nil:
+		return fmt.Errorf("failed to purge space %s: %w", rootID, err)
+	case len(resp.Failures) != 0:
+		return fmt.Errorf("failed to purge space %s: %v", rootID, resp.Failures)
+	}
+
+	return nil
 }
 
 func (b *Backend) NewBatch(size int) (search.BatchOperator, error) {

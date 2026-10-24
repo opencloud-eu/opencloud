@@ -1,0 +1,5 @@
+services:
+  opencloud-server:
+    environment:
+      OC_SERVICE_ACCOUNT_ID: "service-account-id"
+      OC_SERVICE_ACCOUNT_SECRET: "service-account-secret"

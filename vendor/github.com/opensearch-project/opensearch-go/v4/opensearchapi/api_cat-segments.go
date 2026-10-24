@@ -8,9 +8,10 @@ package opensearchapi
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // CatSegmentsReq represent possible options for the /_cat/segments request
@@ -21,22 +22,12 @@ type CatSegmentsReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r CatSegmentsReq) GetRequest() (*http.Request, error) {
-	indices := strings.Join(r.Indices, ",")
-	var path strings.Builder
-	path.Grow(len("/_cat/segments/") + len(indices))
-	path.WriteString("/_cat/segments")
-	if len(r.Indices) > 0 {
-		path.WriteString("/")
-		path.WriteString(indices)
+func (r CatSegmentsReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.CatSegmentsPath{Index: r.Indices}.Build()
+	if err != nil {
+		return nil, err
 	}
-	return opensearch.BuildRequest(
-		"GET",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // CatSegmentsResp represents the returned struct of the /_cat/segments response

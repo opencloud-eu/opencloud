@@ -5,6 +5,7 @@ import (
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+
 	"github.com/opencloud-eu/reva/v2/pkg/conversions"
 )
 
@@ -210,22 +211,32 @@ func cs3RoleToDisplayName(role *conversions.Role) string {
 		return _viewerListGrantsUnifiedRoleDisplayName
 	case conversions.RoleSpaceViewer:
 		return _spaceViewerUnifiedRoleDisplayName
+	case conversions.RoleSpaceViewerWithVersions:
+		return _spaceViewerWithVersionsUnifiedRoleDisplayName
 	case conversions.RoleEditor:
 		return _editorUnifiedRoleDisplayName
 	case conversions.RoleEditorWithVersions:
 		return _editorWithVersionsUnifiedRoleDisplayName
 	case conversions.RoleEditorListGrants:
 		return _editorListGrantsUnifiedRoleDisplayName
+	case conversions.RoleEditorListGrantsWithVersions:
+		return _editorListGrantsWithVersionsUnifiedRoleDisplayName
 	case conversions.RoleSpaceEditor:
 		return _spaceEditorUnifiedRoleDisplayName
 	case conversions.RoleSpaceEditorWithoutVersions:
 		return _spaceEditorWithoutVersionsUnifiedRoleDisplayName
+	case conversions.RoleSpaceEditorWithoutTrashbin:
+		return _spaceEditorWithoutTrashbinUnifiedRoleDisplayName
+	case conversions.RoleSpaceEditorWithoutVersionsWithoutTrashbin:
+		return _spaceEditorWithoutVersionsWithoutTrashbinUnifiedRoleDisplayName
 	case conversions.RoleFileEditor:
 		return _fileEditorUnifiedRoleDisplayName
 	case conversions.RoleFileEditorWithVersions:
 		return _fileEditorWithVersionsUnifiedRoleDisplayName
 	case conversions.RoleFileEditorListGrants:
 		return _fileEditorListGrantsUnifiedRoleDisplayName
+	case conversions.RoleFileEditorListGrantsWithVersions:
+		return _fileEditorListGrantsWithVersionsUnifiedRoleDisplayName
 	case conversions.RoleEditorLite:
 		return _editorLiteUnifiedRoleDisplayName
 	case conversions.RoleManager:

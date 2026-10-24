@@ -213,9 +213,11 @@ type identMaxFetchBodySize struct{}
 type identMaxKeys struct{}
 type identMinRSAModulusBits struct{}
 type identMinRSAPublicExponent struct{}
+type identOmitUnsupportedKeys struct{}
 type identPEM struct{}
 type identPEMDecoder struct{}
 type identRejectDuplicateKID struct{}
+type identStrictKeySetParsing struct{}
 type identStrictKeyUsage struct{}
 type identThumbprintHash struct{}
 type identWaitReady struct{}
@@ -265,6 +267,10 @@ func (identMinRSAPublicExponent) String() string {
 	return "WithMinRSAPublicExponent"
 }
 
+func (identOmitUnsupportedKeys) String() string {
+	return "WithOmitUnsupportedKeys"
+}
+
 func (identPEM) String() string {
 	return "WithPEM"
 }
@@ -275,6 +281,10 @@ func (identPEMDecoder) String() string {
 
 func (identRejectDuplicateKID) String() string {
 	return "WithRejectDuplicateKID"
+}
+
+func (identStrictKeySetParsing) String() string {
+	return "WithStrictKeySetParsing"
 }
 
 func (identStrictKeyUsage) String() string {
@@ -448,6 +458,21 @@ func WithMinRSAPublicExponent(v int) GlobalOption {
 	return &globalOption{option.New(identMinRSAPublicExponent{}, v)}
 }
 
+// WithOmitUnsupportedKeys controls how `jwk.PublicSetOf` treats
+// `jwk.UnsupportedKey` placeholders in the input set.
+//
+// By default this option is false: a placeholder in the input is an
+// error, because there is no way to prove that an unparseable entry
+// contains no private material, and passing it through would risk
+// republishing a private key.
+//
+// Pass `WithOmitUnsupportedKeys(true)` to drop placeholders from the
+// output set instead. Use this when you intend to publish the public
+// set and want unparseable entries silently excluded.
+func WithOmitUnsupportedKeys(v bool) PublicSetOption {
+	return &publicSetOption{option.New(identOmitUnsupportedKeys{}, v)}
+}
+
 // WithPEM specifies that the input to `Parse()` is a PEM encoded key.
 //
 // This option is planned to be deprecated in the future. The plan is to
@@ -486,6 +511,39 @@ func WithPEMDecoder(v PEMDecoder) ParseOption {
 // remain permissive (AddKey dedupes only by pointer identity).
 func WithRejectDuplicateKID(v bool) GlobalParseOption {
 	return &globalParseOption{option.New(identRejectDuplicateKID{}, v)}
+}
+
+// WithStrictKeySetParsing controls what happens when an entry in a
+// JWK Set's "keys" array cannot be parsed.
+//
+// In v3 the default is true (strict): the first unparseable entry
+// fails the entire set, exactly as older v3 releases did. Existing
+// callers therefore see no change in behavior.
+//
+// Pass `WithStrictKeySetParsing(false)` to opt into retention. In
+// that mode an unparseable entry is neither dropped nor fatal — it
+// is kept in the set as a `jwk.UnsupportedKey` placeholder that
+// preserves the entry's original JSON and the error that prevented
+// parsing (RFC 7517 §5). This lets a set that mixes understood and
+// not-yet-understood keys (for example, post-quantum keys published
+// by an identity provider) remain usable for the keys you do
+// understand.
+//
+// Note the cross-version difference: v4 defaults to false (retain),
+// while v3 defaults to true (fail-fast). The option means the same
+// thing in both — only the default differs — so call sites that pass
+// it explicitly are source-compatible across the v3→v4 migration.
+//
+// This option is distinct from `WithIgnoreParseError`, which silently
+// *drops* unparseable entries instead of retaining placeholders.
+// `WithIgnoreParseError(true)` takes precedence regardless of the
+// strict setting: the entry is dropped rather than failing the set
+// or being retained.
+//
+// Can be set globally via `jwk.Configure()` or per-call on
+// `jwk.Parse()` / `jwk.ParseReader()` / `jwk.ParseString()`.
+func WithStrictKeySetParsing(v bool) GlobalParseOption {
+	return &globalParseOption{option.New(identStrictKeySetParsing{}, v)}
 }
 
 // WithStrictKeyUsage specifies if during JWK parsing, the "use" field

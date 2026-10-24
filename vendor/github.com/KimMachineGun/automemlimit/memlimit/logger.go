@@ -5,9 +5,18 @@ import (
 	"log/slog"
 )
 
-type noopLogger struct{}
+var _ slog.Handler = discardHandler{}
 
-func (noopLogger) Enabled(context.Context, slog.Level) bool  { return false }
-func (noopLogger) Handle(context.Context, slog.Record) error { return nil }
-func (d noopLogger) WithAttrs([]slog.Attr) slog.Handler      { return d }
-func (d noopLogger) WithGroup(string) slog.Handler           { return d }
+type discardHandler struct{}
+
+func (discardHandler) Enabled(context.Context, slog.Level) bool  { return false }
+func (discardHandler) Handle(context.Context, slog.Record) error { return nil }
+func (dh discardHandler) WithAttrs([]slog.Attr) slog.Handler     { return dh }
+func (dh discardHandler) WithGroup(string) slog.Handler          { return dh }
+
+func memlimitLogger(logger *slog.Logger) *slog.Logger {
+	if logger == nil {
+		return slog.New(discardHandler{})
+	}
+	return logger.With(slog.String("package", "github.com/KimMachineGun/automemlimit/memlimit"))
+}

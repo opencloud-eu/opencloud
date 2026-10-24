@@ -124,12 +124,17 @@ func (cl *ClientlogService) processEvent(event events.Event) {
 
 	fileEv := func(typ string, ref *provider.Reference) {
 		evType = typ
-		users, data, err = processFileEvent(ctx, ref, gwc, event.InitiatorID)
+		users, data, err = processFileEvent(ctx, ref, gwc, cl.log, event.InitiatorID)
 	}
 
 	shareEv := func(typ string, ref *provider.Reference, uid *user.UserId, gid *group.GroupId) {
 		evType = typ
-		users, data, err = processShareEvent(ctx, ref, gwc, event.InitiatorID, uid, gid)
+		users, data, err = processShareEvent(ctx, ref, gwc, cl.log, event.InitiatorID, uid, gid)
+	}
+
+	labelEv := func(typ string, ref *provider.Reference, uid *user.UserId) {
+		evType = typ
+		users, data, err = processLabelEvent(ctx, ref, gwc, event.InitiatorID, uid)
 	}
 
 	spaceEv := func(typ string, id *provider.StorageSpaceId, uids []string) {
@@ -148,7 +153,7 @@ func (cl *ClientlogService) processEvent(event events.Event) {
 		fileEv("postprocessing-finished", e.FileRef)
 	case events.ItemTrashed:
 		evType = "item-trashed"
-		users, data, err = processItemTrashedEvent(ctx, e.Ref, gwc, event.InitiatorID, e.ID)
+		users, data, err = processItemTrashedEvent(ctx, e.Ref, gwc, cl.log, event.InitiatorID, e.ID)
 	case events.ItemRestored:
 		fileEv("item-restored", e.Ref)
 	case events.ContainerCreated:
@@ -158,7 +163,8 @@ func (cl *ClientlogService) processEvent(event events.Event) {
 		if isRename(e.OldReference, e.Ref) {
 			fileEv("item-renamed", e.Ref)
 		} else {
-			fileEv("item-moved", e.Ref)
+			evType = "item-moved"
+			users, data, err = processItemMovedEvent(ctx, e.Ref, e.OldReference, gwc, cl.log, event.InitiatorID)
 		}
 	case events.FileLocked:
 		fileEv("file-locked", e.Ref)
@@ -166,6 +172,10 @@ func (cl *ClientlogService) processEvent(event events.Event) {
 		fileEv("file-unlocked", e.Ref)
 	case events.FileTouched:
 		fileEv("file-touched", e.Ref)
+	case events.LabelAdded:
+		labelEv("item-favorite-added", e.Ref, e.UserID)
+	case events.LabelRemoved:
+		labelEv("item-favorite-removed", e.Ref, e.UserID)
 	case events.SpaceCreated:
 		spaceEv("space-created", e.ID, []string{e.Executant.GetOpaqueId()})
 	case events.SpaceDisabled:
@@ -236,9 +246,9 @@ func (cl *ClientlogService) sendSSE(userIDs []string, evType string, data any) e
 	})
 }
 
-// process file related events
-func processFileEvent(ctx context.Context, ref *provider.Reference, gwc gateway.GatewayAPIClient, initiatorid string) ([]string, FileEvent, error) {
-	info, err := utils.GetResource(ctx, ref, gwc)
+// process file related events, notifying the space members and the recipients of shares on the resource or its ancestors
+func processFileEvent(ctx context.Context, ref *provider.Reference, gwc gateway.GatewayAPIClient, logger log.Logger, initiatorid string) ([]string, FileEvent, error) {
+	info, err := stat(ctx, gwc, ref, resourceFieldMask)
 	if err != nil {
 		return nil, FileEvent{}, err
 	}
@@ -252,12 +262,47 @@ func processFileEvent(ctx context.Context, ref *provider.Reference, gwc gateway.
 	}
 
 	users, err := utils.GetSpaceMembers(ctx, info.GetSpace().GetId().GetOpaqueId(), gwc, utils.ViewerRole)
-	return users, data, err
+	if err != nil {
+		return users, data, err
+	}
+
+	return addShareRecipients(ctx, gwc, logger, users, info), data, nil
+}
+
+// process move events, additionally notifying the share recipients of the old location
+func processItemMovedEvent(ctx context.Context, ref, oldRef *provider.Reference, gwc gateway.GatewayAPIClient, logger log.Logger, initiatorid string) ([]string, FileEvent, error) {
+	users, data, err := processFileEvent(ctx, ref, gwc, logger, initiatorid)
+	if err != nil {
+		return users, data, err
+	}
+
+	for _, u := range addParentShareRecipients(ctx, gwc, logger, nil, oldRef) {
+		users = appendUnique(users, u)
+	}
+	return users, data, nil
+}
+
+// process label (e.g. favorite) related events, notifying only the user the label belongs to
+func processLabelEvent(ctx context.Context, ref *provider.Reference, gwc gateway.GatewayAPIClient, initiatorid string, uid *user.UserId) ([]string, FileEvent, error) {
+	info, err := utils.GetResource(ctx, ref, gwc)
+	if err != nil {
+		return nil, FileEvent{}, err
+	}
+
+	data := FileEvent{
+		ParentItemID: storagespace.FormatResourceID(info.GetParentId()),
+		ItemID:       storagespace.FormatResourceID(info.GetId()),
+		SpaceID:      storagespace.FormatStorageID(info.GetSpace().GetRoot().GetStorageId(), info.GetSpace().GetRoot().GetSpaceId()),
+		InitiatorID:  initiatorid,
+		Etag:         info.GetEtag(),
+	}
+
+	return []string{uid.GetOpaqueId()}, data, nil
 }
 
 // process share related events
-func processShareEvent(ctx context.Context, ref *provider.Reference, gwc gateway.GatewayAPIClient, initiatorid string, shareeID *user.UserId, shareeGroupID *group.GroupId) ([]string, FileEvent, error) {
-	users, data, err := processFileEvent(ctx, ref, gwc, initiatorid)
+func processShareEvent(ctx context.Context, ref *provider.Reference, gwc gateway.GatewayAPIClient, logger log.Logger, initiatorid string, shareeID *user.UserId, shareeGroupID *group.GroupId) ([]string, FileEvent, error) {
+	users, data, err := processFileEvent(ctx, ref, gwc, logger, initiatorid)
 	if err != nil {
 		return users, data, err
 	}
@@ -274,7 +319,7 @@ func processSpaceEvent(ctx context.Context, id *provider.StorageSpaceId, gwc gat
 }
 
 // custom logic for item trashed event
-func processItemTrashedEvent(ctx context.Context, ref *provider.Reference, gwc gateway.GatewayAPIClient, initiatorid string, itemID *provider.ResourceId) ([]string, FileEvent, error) {
+func processItemTrashedEvent(ctx context.Context, ref *provider.Reference, gwc gateway.GatewayAPIClient, logger log.Logger, initiatorid string, itemID *provider.ResourceId) ([]string, FileEvent, error) {
 	data := FileEvent{
 		ItemID: storagespace.FormatResourceID(itemID),
 		// TODO: check with web if parentID is needed
@@ -284,7 +329,12 @@ func processItemTrashedEvent(ctx context.Context, ref *provider.Reference, gwc g
 	}
 
 	users, err := utils.GetSpaceMembers(ctx, itemID.GetSpaceId(), gwc, utils.ViewerRole)
-	return users, data, err
+	if err != nil {
+		return users, data, err
+	}
+
+	// the item is gone, so we look for shares starting at its parent
+	return addParentShareRecipients(ctx, gwc, logger, users, ref), data, nil
 }
 
 // adds share related data to the FileEvent

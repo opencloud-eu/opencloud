@@ -6,7 +6,8 @@ import (
 	"time"
 )
 
-type RangeQuery[T time.Time | string] struct {
+// RangeQuery matches documents whose field value lies inside the bounds.
+type RangeQuery[T time.Time | string | float64] struct {
 	field  string
 	gt     T
 	gte    T
@@ -22,7 +23,8 @@ type RangeQueryParams struct {
 	TimeZone string  `json:"time_zone,omitempty"`
 }
 
-func NewRangeQuery[T time.Time | string](field string) *RangeQuery[T] {
+// NewRangeQuery creates a range query for the given field.
+func NewRangeQuery[T time.Time | string | float64](field string) *RangeQuery[T] {
 	return &RangeQuery[T]{field: field}
 }
 

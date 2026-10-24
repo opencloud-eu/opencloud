@@ -9,10 +9,11 @@ package opensearchapi
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // ReindexRethrottle executes a / request with the optional ReindexRethrottleReq
@@ -21,7 +22,7 @@ func (c Client) ReindexRethrottle(ctx context.Context, req ReindexRethrottleReq)
 		data ReindexRethrottleResp
 		err  error
 	)
-	if data.response, err = c.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, &c, http.MethodPost, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -37,14 +38,13 @@ type ReindexRethrottleReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r ReindexRethrottleReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"POST",
-		fmt.Sprintf("/_reindex/%s/_rethrottle", r.TaskID),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+func (r ReindexRethrottleReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.ReindexRethrottlePath{TaskID: r.TaskID}.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // ReindexRethrottleResp represents the returned struct of the / response

@@ -14,6 +14,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
@@ -43,7 +44,7 @@ func NewBatch(client *opensearchgoAPI.Client, index string, size int) (*Batch, e
 
 func (b *Batch) Upsert(id string, r search.Resource) error {
 	return b.withSizeLimit(func() error {
-		body, err := conversions.To[map[string]any](r)
+		body, err := mapping.PrepareForIndex(r, r.SearchFieldOverrides())
 		if err != nil {
 			return fmt.Errorf("failed to marshal resource: %w", err)
 		}
@@ -67,18 +68,42 @@ func (b *Batch) Move(id, parentID, location string) error {
 	return b.withSizeLimit(func() error {
 		op := func() error {
 			return updateSelfAndDescendants(context.Background(), b.client, b.index, id, func(rootResource search.Resource) *osu.BodyParamScript {
+				newPath := utils.MakeRelativePath(location)
+				newName := path.Base(newPath)
 				return &osu.BodyParamScript{
-					Source: `
-					if (ctx._source.ID == params.id ) { ctx._source.Name = params.newName; ctx._source.ParentID = params.parentID; }
-					ctx._source.Path = ctx._source.Path.replace(params.oldPath, params.newPath)
-				`,
+					// Keep Name and its search siblings in sync; Path has
+					// no sibling (case-sensitive by design). Only the leading
+					// oldPath is replaced (startsWith + substring, not
+					// String.replace, which would also rewrite a repeated segment
+					// deeper in a descendant's path, e.g. /Music/Music.m3u). The
+					// lowercased new name comes from Go's strings.ToLower via
+					// params, so the sibling stays byte-identical to what
+					// PrepareForIndex writes on upsert (painless toLowerCase would
+					// lowercase differently than Go).
+					Source: fmt.Sprintf(`
+						if (ctx._source.ID == params.id) {
+							ctx._source.Name = params.newName;
+							ctx._source.ParentID = params.parentID;
+							if (ctx._source.Name%[1]s != null) { ctx._source.Name%[1]s = params.newNameLower; }
+							if (ctx._source.Name%[2]s != null) { ctx._source.Name%[2]s = params.newName; }
+						}
+						if (ctx._source.Path != null && ctx._source.Path.startsWith(params.oldPath)) {
+							ctx._source.Path = params.newPath + ctx._source.Path.substring(params.oldPath.length());
+						}
+						boolean hidden = false;
+						for (String name : ctx._source.Path.splitOnToken('/')) {
+							if (!name.equals('.') && !name.equals('..') && name.startsWith('.')) { hidden = true; break; }
+						}
+						ctx._source.Hidden = hidden;
+					`, mapping.LowercaseSuffix, mapping.WordsSuffix),
 					Lang: "painless",
 					Params: map[string]any{
-						"id":       id,
-						"parentID": parentID,
-						"oldPath":  rootResource.Path,
-						"newPath":  utils.MakeRelativePath(location),
-						"newName":  path.Base(utils.MakeRelativePath(location)),
+						"id":           id,
+						"parentID":     parentID,
+						"oldPath":      rootResource.Path,
+						"newPath":      newPath,
+						"newName":      newName,
+						"newNameLower": strings.ToLower(newName),
 					},
 				}
 			})
@@ -143,16 +168,21 @@ func (b *Batch) Purge(id string, onlyDeleted bool) error {
 			return fmt.Errorf("failed to get resource: %w", err)
 		}
 
-		query := osu.NewBoolQuery().Must(osu.NewTermQuery[string]("Path").Value(resource.Path))
-		if onlyDeleted {
-			query.Must(osu.NewTermQuery[bool]("Deleted").Value(true))
-		}
+		// scope to the resource's space: the same path exists in other spaces;
+		// and to its trash state: a trashed folder keeps its path, so a live
+		// folder can take the same one (onlyDeleted takes the trashed ones only)
+		query := osu.NewBoolQuery().Must(
+			osu.NewTermQuery[string]("RootID").Value(resource.RootID),
+			osu.NewTermQuery[string]("Path").Value(resource.Path),
+			osu.NewTermQuery[bool]("Deleted").Value(resource.Deleted || onlyDeleted),
+		)
 
 		req, err := osu.BuildDocumentDeleteByQueryReq(
 			opensearchgoAPI.DocumentDeleteByQueryReq{
 				Indices: []string{b.index},
 				Params: opensearchgoAPI.DocumentDeleteByQueryParams{
 					WaitForCompletion: conversions.ToPointer(true),
+					Refresh:           conversions.ToPointer(true),
 				},
 			},
 			query,
@@ -205,7 +235,8 @@ func (b *Batch) Push() error {
 		}
 
 		if _, err := b.client.Bulk(context.Background(), opensearchgoAPI.BulkReq{
-			Body: strings.NewReader(body.String()),
+			Body:   strings.NewReader(body.String()),
+			Params: opensearchgoAPI.BulkParams{Refresh: "wait_for"},
 		}); err != nil {
 			return fmt.Errorf("failed to execute bulk operations: %w", err)
 		}

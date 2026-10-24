@@ -28,7 +28,9 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SearchProviderClient interface {
 	Search(ctx context.Context, in *SearchRequest, opts ...grpc.CallOption) (*SearchResponse, error)
-	IndexSpace(ctx context.Context, in *IndexSpaceRequest, opts ...grpc.CallOption) (*IndexSpaceResponse, error)
+	// IndexSpace (re)indexes one or all spaces. The response is streamed, sending
+	// progress information after each space has been indexed.
+	IndexSpace(ctx context.Context, in *IndexSpaceRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[IndexSpaceResponse], error)
 }
 
 type searchProviderClient struct {
@@ -49,22 +51,33 @@ func (c *searchProviderClient) Search(ctx context.Context, in *SearchRequest, op
 	return out, nil
 }
 
-func (c *searchProviderClient) IndexSpace(ctx context.Context, in *IndexSpaceRequest, opts ...grpc.CallOption) (*IndexSpaceResponse, error) {
+func (c *searchProviderClient) IndexSpace(ctx context.Context, in *IndexSpaceRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[IndexSpaceResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(IndexSpaceResponse)
-	err := c.cc.Invoke(ctx, SearchProvider_IndexSpace_FullMethodName, in, out, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &SearchProvider_ServiceDesc.Streams[0], SearchProvider_IndexSpace_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &grpc.GenericClientStream[IndexSpaceRequest, IndexSpaceResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SearchProvider_IndexSpaceClient = grpc.ServerStreamingClient[IndexSpaceResponse]
 
 // SearchProviderServer is the server API for SearchProvider service.
 // All implementations must embed UnimplementedSearchProviderServer
 // for forward compatibility.
 type SearchProviderServer interface {
 	Search(context.Context, *SearchRequest) (*SearchResponse, error)
-	IndexSpace(context.Context, *IndexSpaceRequest) (*IndexSpaceResponse, error)
+	// IndexSpace (re)indexes one or all spaces. The response is streamed, sending
+	// progress information after each space has been indexed.
+	IndexSpace(*IndexSpaceRequest, grpc.ServerStreamingServer[IndexSpaceResponse]) error
 	mustEmbedUnimplementedSearchProviderServer()
 }
 
@@ -78,8 +91,8 @@ type UnimplementedSearchProviderServer struct{}
 func (UnimplementedSearchProviderServer) Search(context.Context, *SearchRequest) (*SearchResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Search not implemented")
 }
-func (UnimplementedSearchProviderServer) IndexSpace(context.Context, *IndexSpaceRequest) (*IndexSpaceResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method IndexSpace not implemented")
+func (UnimplementedSearchProviderServer) IndexSpace(*IndexSpaceRequest, grpc.ServerStreamingServer[IndexSpaceResponse]) error {
+	return status.Error(codes.Unimplemented, "method IndexSpace not implemented")
 }
 func (UnimplementedSearchProviderServer) mustEmbedUnimplementedSearchProviderServer() {}
 func (UnimplementedSearchProviderServer) testEmbeddedByValue()                        {}
@@ -120,23 +133,16 @@ func _SearchProvider_Search_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SearchProvider_IndexSpace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IndexSpaceRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _SearchProvider_IndexSpace_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(IndexSpaceRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(SearchProviderServer).IndexSpace(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: SearchProvider_IndexSpace_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SearchProviderServer).IndexSpace(ctx, req.(*IndexSpaceRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(SearchProviderServer).IndexSpace(m, &grpc.GenericServerStream[IndexSpaceRequest, IndexSpaceResponse]{ServerStream: stream})
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type SearchProvider_IndexSpaceServer = grpc.ServerStreamingServer[IndexSpaceResponse]
 
 // SearchProvider_ServiceDesc is the grpc.ServiceDesc for SearchProvider service.
 // It's only intended for direct use with grpc.RegisterService,
@@ -149,12 +155,14 @@ var SearchProvider_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Search",
 			Handler:    _SearchProvider_Search_Handler,
 		},
+	},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "IndexSpace",
-			Handler:    _SearchProvider_IndexSpace_Handler,
+			StreamName:    "IndexSpace",
+			Handler:       _SearchProvider_IndexSpace_Handler,
+			ServerStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "opencloud/services/search/v0/search.proto",
 }
 

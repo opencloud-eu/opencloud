@@ -16,6 +16,7 @@ import (
 	"github.com/lestrrat-go/jwx/v3/internal/tokens"
 	"github.com/lestrrat-go/jwx/v3/jwa"
 	"github.com/lestrrat-go/jwx/v3/jwk"
+	jwsbbi "github.com/lestrrat-go/jwx/v3/jws/internal/jwsbb"
 	"github.com/lestrrat-go/jwx/v3/jws/jwsbb"
 )
 
@@ -83,6 +84,14 @@ func (sc *signContext) signStreaming() ([]byte, error) {
 		rawKey, err := convertStreamingSignKey(sb.key, dsigInfo.Family)
 		if err != nil {
 			return nil, makeSignError(prefixJwsSign, `failed to convert key for signature %d: %w`, idx, err)
+		}
+
+		// The non-streaming path runs the same check from
+		// signatureBuilder.Build, which this path does not go through.
+		if sc.strictECDSA && dsigInfo.Family == dsig.ECDSA {
+			if err := jwsbbi.RequireECDSACurve(alg.String(), dsigInfo.Name, rawKey); err != nil {
+				return nil, makeSignError(prefixJwsSign, `signature %d: %w`, idx, err)
+			}
 		}
 
 		protected, err := cloneOrNewHeaders(sb.protected)

@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-07-01 23:15+0000\n"
+"POT-Creation-Date: 2026-10-16 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
 "Last-Translator: Efstathios Iosifidis <eiosifidis@gmail.com>, 2026\n"
 "Language-Team: Greek (https://app.transifex.com/opencloud-eu/teams/204053/el/)\n"
@@ -21,41 +21,80 @@ msgstr ""
 "Language: el\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
+#. GuestLinkShareRenewedWithoutPin email template, resolves via {{
+#. .MessageBody }}
+#: pkg/email/templates.go:97
+msgid ""
+"A new link to \"{ShareFolder}\", shared with you by {ShareSharer}, has been requested.\n"
+"\n"
+"The link below is personal and can only be used once. Please do not forward it.\n"
+"\n"
+"The link is only valid for 30 minutes."
+msgstr ""
+
+#. GuestLinkShareRenewed email template, resolves via {{ .MessageBody }}
+#: pkg/email/templates.go:78
+msgid ""
+"A new link to \"{ShareFolder}\", shared with you by {ShareSharer}, has been requested.\n"
+"\n"
+"Your PIN: {SharePin}\n"
+"\n"
+"Open the link below or enter the PIN on the page where you requested the new link. The link and the PIN are personal and can only be used once. Please do not forward them.\n"
+"\n"
+"The link and the PIN are only valid for 30 minutes."
+msgstr ""
+
 #. UnsharedSpace email template, resolves via {{ .CallToAction }}
-#: pkg/email/templates.go:65
+#: pkg/email/templates.go:132
 msgid "Click here to check it: {ShareLink}"
 msgstr "Κάντε κλικ εδώ για έλεγχο: {ShareLink}"
 
 #. ShareCreated email template, resolves via {{ .CallToAction }}
+#. GuestLinkShareCreated email template, resolves via {{ .CallToAction }}
+#. GuestLinkShareRenewed email template, resolves via {{ .CallToAction }}
+#. GuestLinkShareRenewedWithoutPin email template, resolves via {{
+#. .CallToAction }}
 #. SharedSpace email template, resolves via {{ .CallToAction }}
-#: pkg/email/templates.go:23 pkg/email/templates.go:50
+#: pkg/email/templates.go:23 pkg/email/templates.go:67
+#: pkg/email/templates.go:86 pkg/email/templates.go:103
+#: pkg/email/templates.go:117
 msgid "Click here to view it: {ShareLink}"
 msgstr "Κάντε κλικ εδώ για προβολή: {ShareLink}"
 
-#: pkg/email/templates.go:126
+#: pkg/email/templates.go:193
 msgid "Hello {RecipientName},"
-msgstr ""
+msgstr "Γεια σας {RecipientName},"
 
 #. ShareCreated email template, resolves via {{ .Greeting }}
 #: pkg/email/templates.go:19
 msgid "Hello {ShareGrantee}"
 msgstr "Γεια σας {ShareGrantee}"
 
+#. ShareRemoved email template, resolves via {{ .Greeting }}
 #. ShareExpired email template, resolves via {{ .Greeting }}
-#: pkg/email/templates.go:32
+#: pkg/email/templates.go:32 pkg/email/templates.go:45
 msgid "Hello {ShareGrantee},"
 msgstr "Γεια σας {ShareGrantee},"
 
 #. SharedSpace email template, resolves via {{ .Greeting }}
 #. UnsharedSpace email template, resolves via {{ .Greeting }}
 #. MembershipExpired email template, resolves via {{ .Greeting }}
-#: pkg/email/templates.go:46 pkg/email/templates.go:59
-#: pkg/email/templates.go:74
+#: pkg/email/templates.go:113 pkg/email/templates.go:126
+#: pkg/email/templates.go:141
 msgid "Hello {SpaceGrantee},"
 msgstr "Γεια σας {SpaceGrantee},"
 
+#. GuestLinkShareCreated email template, resolves via {{ .Greeting }}
+#. GuestLinkShareRenewed email template, resolves via {{ .Greeting }}
+#. GuestLinkShareRenewedWithoutPin email template, resolves via {{ .Greeting
+#. }}
+#: pkg/email/templates.go:59 pkg/email/templates.go:76
+#: pkg/email/templates.go:95
+msgid "Hello,"
+msgstr ""
+
 #. Grouped email template, resolves via {{ .Greeting }}
-#: pkg/email/templates.go:118
+#: pkg/email/templates.go:185
 msgid "Hi {DisplayName},"
 msgstr "Γεια σου {DisplayName},"
 
@@ -63,17 +102,17 @@ msgstr "Γεια σου {DisplayName},"
 #. }}
 #. ScienceMeshInviteTokenGeneratedWithoutShareLink email template, resolves
 #. via {{ .Greeting }}
-#: pkg/email/templates.go:87 pkg/email/templates.go:104
+#: pkg/email/templates.go:154 pkg/email/templates.go:171
 msgid "Hi,"
 msgstr "Γεια σας,"
 
 #. MembershipExpired email template, Subject field (resolves directly)
-#: pkg/email/templates.go:72
+#: pkg/email/templates.go:139
 msgid "Membership of '{SpaceName}' expired at {ExpiredAt}"
 msgstr "Η ιδιότητα μέλους στο '{SpaceName}' έληξε στις {ExpiredAt}"
 
 #. Grouped email template, Subject field (resolves directly)
-#: pkg/email/templates.go:116
+#: pkg/email/templates.go:183
 msgid "Report"
 msgstr "Αναφορά"
 
@@ -81,25 +120,25 @@ msgstr "Αναφορά"
 #. directly)
 #. ScienceMeshInviteTokenGeneratedWithoutShareLink email template, Subject
 #. field (resolves directly)
-#: pkg/email/templates.go:85 pkg/email/templates.go:102
+#: pkg/email/templates.go:152 pkg/email/templates.go:169
 msgid "ScienceMesh: {InitiatorName} wants to collaborate with you"
 msgstr "ScienceMesh: Ο/Η {InitiatorName} θέλει να συνεργαστεί μαζί σας"
 
 #. ShareExpired email template, Subject field (resolves directly)
-#: pkg/email/templates.go:30
+#: pkg/email/templates.go:43
 msgid "Share to '{ShareFolder}' expired at {ExpiredAt}"
 msgstr "Ο διαμοιρασμός του '{ShareFolder}' έληξε στις {ExpiredAt}"
 
-#: pkg/email/templates.go:128
+#: pkg/email/templates.go:195
 msgid "You can view the mention here: {ResourceLink}"
-msgstr ""
+msgstr "Μπορείτε να δείτε την αναφορά εδώ: {ResourceLink}"
 
-#: pkg/email/templates.go:125
+#: pkg/email/templates.go:192
 msgid "You were mentioned in '{ResourceName}'"
-msgstr ""
+msgstr "Αναφερθήκατε στο '{ResourceName}'"
 
 #. MembershipExpired email template, resolves via {{ .MessageBody }}
-#: pkg/email/templates.go:76
+#: pkg/email/templates.go:143
 msgid ""
 "Your membership of space {SpaceName} has expired at {ExpiredAt}\n"
 "\n"
@@ -109,8 +148,15 @@ msgstr ""
 "\n"
 "Παρόλο που αυτή η ιδιότητα μέλους έχει λήξει, ενδέχεται να εξακολουθείτε να έχετε πρόσβαση μέσω άλλων κοινόχρηστων στοιχείων ή/και συμμετοχών σε χώρους."
 
+#. GuestLinkShareRenewed email template, Subject field (resolves directly)
+#. GuestLinkShareRenewedWithoutPin email template, Subject field (resolves
+#. directly)
+#: pkg/email/templates.go:74 pkg/email/templates.go:93
+msgid "Your new link to '{ShareFolder}'"
+msgstr ""
+
 #. ShareExpired email template, resolves via {{ .MessageBody }}
-#: pkg/email/templates.go:34
+#: pkg/email/templates.go:47
 msgid ""
 "Your share to {ShareFolder} has expired at {ExpiredAt}\n"
 "\n"
@@ -120,13 +166,13 @@ msgstr ""
 "\n"
 "Παρόλο που αυτός ο διαμοιρασμός έχει ανακληθεί, ενδέχεται να εξακολουθείτε να έχετε πρόσβαση μέσω άλλων κοινόχρηστων στοιχείων ή/και συμμετοχών σε χώρους."
 
-#: pkg/email/templates.go:127
+#: pkg/email/templates.go:194
 msgid "{AuthorName} mentioned you in \"{ResourceName}\"."
-msgstr ""
+msgstr "Ο/Η {AuthorName} σας ανέφερε στο \"{ResourceName}\"."
 
 #. ScienceMeshInviteTokenGeneratedWithoutShareLink email template, resolves
 #. via {{ .MessageBody }}
-#: pkg/email/templates.go:106
+#: pkg/email/templates.go:173
 msgid ""
 "{ShareSharer} ({ShareSharerMail}) wants to start sharing collaboration resources with you.\n"
 "Please visit your federation settings and use the following details:\n"
@@ -140,7 +186,7 @@ msgstr ""
 
 #. ScienceMeshInviteTokenGenerated email template, resolves via {{
 #. .MessageBody }}
-#: pkg/email/templates.go:89
+#: pkg/email/templates.go:156
 msgid ""
 "{ShareSharer} ({ShareSharerMail}) wants to start sharing collaboration resources with you.\n"
 "To accept the invite, please visit the following URL:\n"
@@ -163,18 +209,46 @@ msgstr ""
 msgid "{ShareSharer} has shared \"{ShareFolder}\" with you."
 msgstr "Ο/Η {ShareSharer} διαμοιράστηκε το στοιχείο \"{ShareFolder}\" μαζί σας."
 
+#. GuestLinkShareCreated email template, resolves via {{ .MessageBody }}
+#: pkg/email/templates.go:61
+msgid ""
+"{ShareSharer} has shared \"{ShareFolder}\" with you.\n"
+"\n"
+"The link below is personal and can only be used once. Please do not forward it.\n"
+"\n"
+"The link is only valid for 30 minutes."
+msgstr ""
+
+#. ShareRemoved email template, resolves via {{ .MessageBody }}
+#: pkg/email/templates.go:34
+msgid ""
+"{ShareSharer} has unshared '{ShareFolder}' with you.\n"
+"\n"
+"Even though this share has been revoked you still might have access through other shares and/or space memberships."
+msgstr ""
+"Ο/Η {ShareSharer} κατάργησε τον διαμοιρασμό του '{ShareFolder}' μαζί σας.\n"
+"\n"
+"Παρόλο που αυτός ο διαμοιρασμός έχει ανακληθεί, ενδέχεται να εξακολουθείτε να έχετε πρόσβαση μέσω άλλων κοινόχρηστων στοιχείων ή/και συμμετοχών σε χώρους."
+
 #. ShareCreated email template, Subject field (resolves directly)
-#: pkg/email/templates.go:17
+#. GuestLinkShareCreated email template, Subject field (resolves directly)
+#: pkg/email/templates.go:17 pkg/email/templates.go:57
 msgid "{ShareSharer} shared '{ShareFolder}' with you"
 msgstr "Ο/Η {ShareSharer} διαμοιράστηκε το '{ShareFolder}' μαζί σας"
 
+#. ShareRemoved email template, Subject field (resolves directly)
+#: pkg/email/templates.go:30
+msgid "{ShareSharer} unshared '{ShareFolder}' with you"
+msgstr ""
+"Ο/Η {ShareSharer} κατάργησε τον διαμοιρασμό του '{ShareFolder}' μαζί σας"
+
 #. SharedSpace email template, resolves via {{ .MessageBody }}
-#: pkg/email/templates.go:48
+#: pkg/email/templates.go:115
 msgid "{SpaceSharer} has invited you to join \"{SpaceName}\"."
 msgstr "Ο/Η {SpaceSharer} σας προσκάλεσε να συμμετάσχετε στο \"{SpaceName}\"."
 
 #. UnsharedSpace email template, resolves via {{ .MessageBody }}
-#: pkg/email/templates.go:61
+#: pkg/email/templates.go:128
 msgid ""
 "{SpaceSharer} has removed you from \"{SpaceName}\".\n"
 "\n"
@@ -185,11 +259,11 @@ msgstr ""
 "Ενδέχεται να εξακολουθείτε να έχετε πρόσβαση μέσω άλλων ομάδων ή απευθείας συμμετοχής."
 
 #. SharedSpace email template, Subject field (resolves directly)
-#: pkg/email/templates.go:44
+#: pkg/email/templates.go:111
 msgid "{SpaceSharer} invited you to join {SpaceName}"
 msgstr "Ο/Η {SpaceSharer} σας προσκάλεσε να συμμετάσχετε στο {SpaceName}"
 
 #. UnsharedSpace email template, Subject field (resolves directly)
-#: pkg/email/templates.go:57
+#: pkg/email/templates.go:124
 msgid "{SpaceSharer} removed you from {SpaceName}"
 msgstr "Ο/Η {SpaceSharer} σας αφαίρεσε από το {SpaceName}"

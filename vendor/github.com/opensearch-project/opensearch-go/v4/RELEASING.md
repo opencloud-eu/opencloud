@@ -41,21 +41,23 @@ The release process is standard across repositories in this org and is run by a 
 6. Create a tag, e.g. `v4.3.0`, and push it to the GitHub repo. This [makes the new version available](https://go.dev/doc/modules/publishing) on [pkg.go.dev](https://pkg.go.dev/github.com/opensearch-project/opensearch-go/v4).
 7. Draft and publish a [new GitHub release](https://github.com/opensearch-project/opensearch-go/releases/new) from the newly created tag.
 8. Create a new `Unreleased` section in the [CHANGELOG](CHANGELOG.md), increment version in [version.go](internal/version/version.go) to the next developer iteration (e.g. `4.3.1`), and make a pull request with this change into `main`, e.g. [opensearch-go#448](https://github.com/opensearch-project/opensearch-go/pull/448).
-    ```
-    ## [Unreleased]
 
-    ### Added
+   ```
+   ## [Unreleased]
 
-    ### Changed
+   ### Added
 
-    ### Deprecated
+   ### Changed
 
-    ### Removed
+   ### Deprecated
 
-    ### Fixed
+   ### Removed
 
-    ### Security
+   ### Fixed
 
-    ### Dependencies
-    ```
+   ### Security
+
+   ### Dependencies
+   ```
+
 9. Run `go list` with the new version to refresh [pkg.go.dev](https://pkg.go.dev/github.com/opensearch-project/opensearch-go/v4), e.g. `go list -m github.com/opensearch-project/opensearch-go/v4@v4.3.0`.

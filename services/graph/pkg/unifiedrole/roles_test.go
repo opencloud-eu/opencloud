@@ -38,6 +38,10 @@ func TestGetDefinition(t *testing.T) {
 			ids:                   []string{unifiedrole.UnifiedRoleFileEditorWithVersionsID},
 			unifiedRoleDefinition: unifiedrole.RoleFileEditorWithVersions,
 		},
+		"pass space-viewer-with-versions": {
+			ids:                   []string{unifiedrole.UnifiedRoleSpaceViewerWithVersionsID},
+			unifiedRoleDefinition: unifiedrole.RoleSpaceViewerWithVersions,
+		},
 		"fail unknown": {
 			ids:         []string{"unknown"},
 			expectError: unifiedrole.ErrUnknownRole,
@@ -181,6 +185,7 @@ func TestGetRolesByPermissions(t *testing.T) {
 				unifiedrole.RoleFileEditor,
 				unifiedrole.RoleFileEditorWithVersions,
 				unifiedrole.RoleFileEditorListGrants,
+				unifiedrole.RoleFileEditorListGrantsWithVersions,
 			},
 		},
 		"BuildInRoles | folder": {
@@ -195,6 +200,7 @@ func TestGetRolesByPermissions(t *testing.T) {
 				unifiedrole.RoleEditor,
 				unifiedrole.RoleEditorListGrants,
 				unifiedrole.RoleEditorWithVersions,
+				unifiedrole.RoleEditorListGrantsWithVersions,
 				unifiedrole.RoleDenied,
 			},
 		},
@@ -203,8 +209,11 @@ func TestGetRolesByPermissions(t *testing.T) {
 			constraints:  unifiedrole.UnifiedRoleConditionDrive,
 			unifiedRoleDefinition: []*libregraph.UnifiedRoleDefinition{
 				unifiedrole.RoleSpaceViewer,
-				unifiedrole.RoleSpaceEditorWithoutVersions,
+				unifiedrole.RoleSpaceViewerWithVersions,
+				unifiedrole.RoleSpaceEditorWithoutVersionsWithoutTrashbin,
 				unifiedrole.RoleSpaceEditor,
+				unifiedrole.RoleSpaceEditorWithoutTrashbin,
+				unifiedrole.RoleSpaceEditorWithVersions,
 				unifiedrole.RoleManager,
 			},
 		},

@@ -118,7 +118,7 @@ func (s *service) Start() error {
 	s.Status("starting", nil)
 
 	// TODO: pull source & build binary
-	s.Logger.Log(log.DebugLevel, "Runtime service %s forking new process", s.Service.Name)
+	s.Logger.Logf(log.DebugLevel, "Runtime service %s forking new process", s.Service.Name)
 
 	p, err := s.Process.Fork(s.Exec)
 	if err != nil {

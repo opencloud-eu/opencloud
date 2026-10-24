@@ -139,8 +139,12 @@ func (s *service) Authenticate(ctx context.Context, req *provider.AuthenticateRe
 	u, scope, err := s.authmgr.Authenticate(ctx, username, password)
 	if err != nil {
 		log.Debug().Str("client_id", username).Err(err).Msg("authsvc: error in Authenticate")
+		st := status.NewStatusFromErrType(ctx, "authsvc: error in Authenticate", err)
+		if entry := status.InnerErrorFromErr(err); entry != nil {
+			st.InnerError = entry
+		}
 		return &provider.AuthenticateResponse{
-			Status: status.NewStatusFromErrType(ctx, "authsvc: error in Authenticate", err),
+			Status: st,
 		}, nil
 	}
 	log.Info().Msgf("user %s authenticated", u.Id)

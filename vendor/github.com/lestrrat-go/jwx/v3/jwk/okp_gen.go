@@ -684,9 +684,9 @@ func (h *okpPublicKey) MarshalJSON() ([]byte, error) {
 		if i > 0 {
 			buf.WriteByte(tokens.Comma)
 		}
-		buf.WriteByte('"')
-		buf.WriteString(pair.Name)
-		buf.WriteString(`": `)
+		if err := json.WriteQuotedKey(buf, pair.Name); err != nil {
+			return nil, fmt.Errorf(`failed to encode field name %q: %w`, pair.Name, err)
+		}
 		buf.Write(pair.Value.([]byte))
 	}
 	buf.WriteByte(tokens.CloseCurlyBracket)
@@ -1454,9 +1454,9 @@ func (h *okpPrivateKey) MarshalJSON() ([]byte, error) {
 		if i > 0 {
 			buf.WriteByte(tokens.Comma)
 		}
-		buf.WriteByte('"')
-		buf.WriteString(pair.Name)
-		buf.WriteString(`": `)
+		if err := json.WriteQuotedKey(buf, pair.Name); err != nil {
+			return nil, fmt.Errorf(`failed to encode field name %q: %w`, pair.Name, err)
+		}
 		buf.Write(pair.Value.([]byte))
 	}
 	buf.WriteByte(tokens.CloseCurlyBracket)

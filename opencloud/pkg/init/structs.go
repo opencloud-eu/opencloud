@@ -33,8 +33,8 @@ type OpenCloudConfig struct {
 	Users             UsersAndGroupsService `yaml:"users"`
 	Groups            UsersAndGroupsService `yaml:"groups"`
 	Groupware         GroupwareService      `yaml:"groupware"`
+	AuthGuest         AuthGuest             `yaml:"auth_guest"`
 	Ocm               OcmService            `yaml:"ocm"`
-	Thumbnails        ThumbnailService      `yaml:"thumbnails"`
 	Search            Search                `yaml:"search"`
 	Audit             Audit                 `yaml:"audit"`
 	Settings          SettingsService       `yaml:"settings"`
@@ -51,6 +51,11 @@ type OpenCloudConfig struct {
 
 // Activitylog is the configuration for the activitylog service
 type Activitylog struct {
+	ServiceAccount ServiceAccount `yaml:"service_account"`
+}
+
+// AuthGuest is the configuration for the auth-guest service
+type AuthGuest struct {
 	ServiceAccount ServiceAccount `yaml:"service_account"`
 }
 
@@ -230,18 +235,6 @@ type StorageUsers struct {
 	Events         Events
 	MountID        string         `yaml:"mount_id"`
 	ServiceAccount ServiceAccount `yaml:"service_account"`
-}
-
-// ThumbnailSettings is the configuration for the thumbnail settings
-type ThumbnailSettings struct {
-	TransferSecret      string `yaml:"transfer_secret"`
-	WebdavAllowInsecure bool   `yaml:"webdav_allow_insecure"`
-	Cs3AllowInsecure    bool   `yaml:"cs3_allow_insecure"`
-}
-
-// ThumbnailService is the configuration for the thumbnail service
-type ThumbnailService struct {
-	Thumbnail ThumbnailSettings
 }
 
 // TokenManager is the configuration for the token manager

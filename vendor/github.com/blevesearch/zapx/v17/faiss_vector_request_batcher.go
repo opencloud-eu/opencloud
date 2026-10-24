@@ -19,12 +19,25 @@ package zap
 
 import (
 	"errors"
+	"reflect"
 	"sync"
 )
 
 var (
 	errBatcherStopped error = errors.New("batcher has been stopped")
 )
+
+var (
+	reflectStaticSizeRequestBatcher uint64
+	reflectStaticSizeCoalesceQueue  uint64
+)
+
+func init() {
+	var b requestBatcher
+	reflectStaticSizeRequestBatcher = uint64(reflect.TypeOf(b).Size())
+	var cq coalesceQueue
+	reflectStaticSizeCoalesceQueue = uint64(reflect.TypeOf(cq).Size())
+}
 
 // The requestBatcher is responsible for batching search requests to a Faiss index.
 // It will accumulate incoming search requests and execute them in batches to improve performance.
@@ -63,6 +76,11 @@ func (b *requestBatcher) search(qVector *vectorSet, k int64) ([]float32, []int64
 
 func (b *requestBatcher) stop() {
 	b.cq.stop()
+}
+
+func (b *requestBatcher) size() uint64 {
+	return reflectStaticSizeRequestBatcher +
+		b.cq.size()
 }
 
 // --------------------------------------------------
@@ -289,4 +307,8 @@ func (q *coalesceQueue) executeBatch(batch []*batchRequest) {
 	}
 	// recycle the batch slice back into the pool
 	q.batchManager.putBatch(batch)
+}
+
+func (q *coalesceQueue) size() uint64 {
+	return reflectStaticSizeCoalesceQueue
 }

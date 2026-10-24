@@ -75,7 +75,7 @@ type Client_CreateUser_Call struct {
 //   - realm string
 //   - user *libregraph.User
 //   - userActions []keycloak.UserAction
-func (_e *Client_Expecter) CreateUser(ctx interface{}, realm interface{}, user interface{}, userActions interface{}) *Client_CreateUser_Call {
+func (_e *Client_Expecter) CreateUser(ctx any, realm any, user any, userActions any) *Client_CreateUser_Call {
 	return &Client_CreateUser_Call{Call: _e.mock.On("CreateUser", ctx, realm, user, userActions)}
 }
 
@@ -154,7 +154,7 @@ type Client_GetPIIReport_Call struct {
 //   - ctx context.Context
 //   - realm string
 //   - username string
-func (_e *Client_Expecter) GetPIIReport(ctx interface{}, realm interface{}, username interface{}) *Client_GetPIIReport_Call {
+func (_e *Client_Expecter) GetPIIReport(ctx any, realm any, username any) *Client_GetPIIReport_Call {
 	return &Client_GetPIIReport_Call{Call: _e.mock.On("GetPIIReport", ctx, realm, username)}
 }
 
@@ -228,7 +228,7 @@ type Client_GetUserByUsername_Call struct {
 //   - ctx context.Context
 //   - realm string
 //   - username string
-func (_e *Client_Expecter) GetUserByUsername(ctx interface{}, realm interface{}, username interface{}) *Client_GetUserByUsername_Call {
+func (_e *Client_Expecter) GetUserByUsername(ctx any, realm any, username any) *Client_GetUserByUsername_Call {
 	return &Client_GetUserByUsername_Call{Call: _e.mock.On("GetUserByUsername", ctx, realm, username)}
 }
 
@@ -292,7 +292,7 @@ type Client_SendActionsMail_Call struct {
 //   - realm string
 //   - userID string
 //   - userActions []keycloak.UserAction
-func (_e *Client_Expecter) SendActionsMail(ctx interface{}, realm interface{}, userID interface{}, userActions interface{}) *Client_SendActionsMail_Call {
+func (_e *Client_Expecter) SendActionsMail(ctx any, realm any, userID any, userActions any) *Client_SendActionsMail_Call {
 	return &Client_SendActionsMail_Call{Call: _e.mock.On("SendActionsMail", ctx, realm, userID, userActions)}
 }
 

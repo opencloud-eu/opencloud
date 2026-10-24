@@ -30,23 +30,6 @@
             "offlineAccess": "Conserver les autorisations d'accès à l'avenir",
             "scope": "Portée : {{scope}}"
         },
-        "login": {
-            "usernameField": {
-                "placeholder": {
-                    "username": "Utilisateur"
-                }
-            },
-            "nextButton": {
-                "label": "Suivant"
-            },
-            "passwordField": {
-                "label": "Mot de passe"
-            },
-            "retryButton": {
-                "label": "Réessayer"
-            },
-            "headline": "Identification"
-        },
         "error": {
             "login": {
                 "validate": {
@@ -79,6 +62,21 @@
                 "label": "Quitter"
             },
             "subHeader": "vous avez été déconnecté"
+        },
+        "login": {
+            "nextButton": {
+                "label": "Suivant"
+            },
+            "passwordField": {
+                "label": "Mot de passe"
+            },
+            "retryButton": {
+                "label": "Réessayer"
+            },
+            "headline": "Identification",
+            "usernameField": {
+                "label": "Utilisateur"
+            }
         },
         "welcome": {
             "signoutButton": {

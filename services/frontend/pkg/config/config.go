@@ -26,6 +26,7 @@ type Config struct {
 	SkipUserGroupsInToken bool `yaml:"skip_user_groups_in_token" env:"FRONTEND_SKIP_USER_GROUPS_IN_TOKEN" desc:"Disables the loading of user's group memberships from the reva access token." introductionVersion:"1.0.0"`
 
 	MaxQuota                       uint64 `yaml:"max_quota" env:"OC_SPACES_MAX_QUOTA;FRONTEND_MAX_QUOTA" desc:"Set the global max quota value in bytes. A value of 0 equals unlimited. The value is provided via capabilities." introductionVersion:"1.0.0"`
+	DefaultQuota                   string `yaml:"default_quota" env:"OC_SPACES_DEFAULT_QUOTA" desc:"Set the default quota in bytes for new project spaces. A value of 0 or an invalid value means no default quota. The value is provided via capabilities and must match the default quota of the graph service." introductionVersion:"%%NEXT%%"`
 	UploadMaxChunkSize             int    `yaml:"upload_max_chunk_size" env:"FRONTEND_UPLOAD_MAX_CHUNK_SIZE" desc:"Sets the max chunk sizes in bytes for uploads via the clients." introductionVersion:"1.0.0"`
 	UploadHTTPMethodOverride       string `yaml:"upload_http_method_override" env:"FRONTEND_UPLOAD_HTTP_METHOD_OVERRIDE" desc:"Advise TUS to replace PATCH requests by POST requests." introductionVersion:"1.0.0"`
 	DefaultUploadProtocol          string `yaml:"default_upload_protocol" env:"FRONTEND_DEFAULT_UPLOAD_PROTOCOL" desc:"The default upload protocol to use in clients. Currently only 'tus' is available. See the developer API documentation for more details about TUS." introductionVersion:"1.0.0"`
@@ -36,25 +37,24 @@ type Config struct {
 	DisableRadicale                bool   `yaml:"disable_radicale" env:"FRONTEND_DISABLE_RADICALE" desc:"When set to true, clients are informed that the Radicale (CalDAV/CardDAV) is not accessible." introductionVersion:"4.0.0"`
 	DefaultLinkPermissions         int    `yaml:"default_link_permissions" env:"FRONTEND_DEFAULT_LINK_PERMISSIONS" desc:"Defines the default permissions a link is being created with. Possible values are 0 (= internal link, for instance members only) and 1 (= public link with viewer permissions). Defaults to 1." introductionVersion:"1.0.0"`
 
-	PublicURL                string      `yaml:"public_url" env:"OC_URL;FRONTEND_PUBLIC_URL" desc:"The public facing URL of the OpenCloud frontend." introductionVersion:"1.0.0"`
-	MaxConcurrency           int         `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;FRONTEND_MAX_CONCURRENCY" desc:"Maximum number of concurrent go-routines. Higher values can potentially get work done faster but will also cause more load on the system. Values of 0 or below will be ignored and the default value will be used." introductionVersion:"1.0.0"`
-	AppHandler               AppHandler  `yaml:"app_handler"`
-	Archiver                 Archiver    `yaml:"archiver"`
-	DataGateway              DataGateway `yaml:"data_gateway"`
-	OCS                      OCS         `yaml:"ocs"`
-	OCDav                    OCDav       `yaml:"ocdav"`
-	Checksums                Checksums   `yaml:"checksums"`
-	ReadOnlyUserAttributes   []string    `yaml:"read_only_user_attributes" env:"FRONTEND_READONLY_USER_ATTRIBUTES" desc:"A list of user attributes to indicate as read-only. Supported values: 'user.onPremisesSamAccountName' (username), 'user.displayName', 'user.mail', 'user.passwordProfile' (password), 'user.appRoleAssignments' (role), 'user.memberOf' (groups), 'user.accountEnabled' (login allowed), 'drive.quota' (quota). See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
-	LDAPServerWriteEnabled   bool        `yaml:"ldap_server_write_enabled" env:"OC_LDAP_SERVER_WRITE_ENABLED;FRONTEND_LDAP_SERVER_WRITE_ENABLED" desc:"Allow creating, modifying and deleting LDAP users via the GRAPH API. This can only be set to 'true' when keeping default settings for the LDAP user and group attribute types (the 'OC_LDAP_USER_SCHEMA_* and 'OC_LDAP_GROUP_SCHEMA_* variables)." introductionVersion:"1.0.0"`
-	EditLoginAllowedDisabled bool        `yaml:"edit_login_allowed_disabled" env:"FRONTEND_EDIT_LOGIN_ALLOWED_DISABLED" desc:"Used to set if login is allowed/forbidden for for User." introductionVersion:"3.4.0"`
-	FullTextSearch           bool        `yaml:"full_text_search" env:"FRONTEND_FULL_TEXT_SEARCH_ENABLED" desc:"Set to true to signal the web client that full-text search is enabled." introductionVersion:"1.0.0"`
-	CheckForUpdates          bool        `yaml:"check_for_updates" env:"FRONTEND_CHECK_FOR_UPDATES" desc:"Enable automatic checking for updates. Defaults to true." introductionVersion:"3.6.0"`
+	PublicURL                string     `yaml:"public_url" env:"OC_URL;FRONTEND_PUBLIC_URL" desc:"The public facing URL of the OpenCloud frontend." introductionVersion:"1.0.0"`
+	MaxConcurrency           int        `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;FRONTEND_MAX_CONCURRENCY" desc:"Maximum number of concurrent go-routines. Higher values can potentially get work done faster but will also cause more load on the system. Values of 0 or below will be ignored and the default value will be used." introductionVersion:"1.0.0" deprecationVersion:"8.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_MAX_CONCURRENCY is deprecated and will be removed in a future version. Please use SHARING_MAX_CONCURRENCY (sharing service) instead." deprecationReplacement:"SHARING_MAX_CONCURRENCY"`
+	AppHandler               AppHandler `yaml:"app_handler"`
+	Archiver                 Archiver   `yaml:"archiver"`
+	OCS                      OCS        `yaml:"ocs"`
+	OCDav                    OCDav      `yaml:"ocdav"`
+	Checksums                Checksums  `yaml:"checksums"`
+	ReadOnlyUserAttributes   []string   `yaml:"read_only_user_attributes" env:"FRONTEND_READONLY_USER_ATTRIBUTES" desc:"A list of user attributes to indicate as read-only. Supported values: 'user.onPremisesSamAccountName' (username), 'user.displayName', 'user.mail', 'user.passwordProfile' (password), 'user.appRoleAssignments' (role), 'user.memberOf' (groups), 'user.accountEnabled' (login allowed), 'drive.quota' (quota). See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
+	LDAPServerWriteEnabled   bool       `yaml:"ldap_server_write_enabled" env:"OC_LDAP_SERVER_WRITE_ENABLED;FRONTEND_LDAP_SERVER_WRITE_ENABLED" desc:"Allow creating, modifying and deleting LDAP users via the GRAPH API. This can only be set to 'true' when keeping default settings for the LDAP user and group attribute types (the 'OC_LDAP_USER_SCHEMA_* and 'OC_LDAP_GROUP_SCHEMA_* variables)." introductionVersion:"1.0.0"`
+	EditLoginAllowedDisabled bool       `yaml:"edit_login_allowed_disabled" env:"FRONTEND_EDIT_LOGIN_ALLOWED_DISABLED" desc:"Used to set if login is allowed/forbidden for for User." introductionVersion:"3.4.0"`
+	FullTextSearch           bool       `yaml:"full_text_search" env:"FRONTEND_FULL_TEXT_SEARCH_ENABLED" desc:"Set to true to signal the web client that full-text search is enabled." introductionVersion:"1.0.0"`
+	CheckForUpdates          bool       `yaml:"check_for_updates" env:"FRONTEND_CHECK_FOR_UPDATES" desc:"Enable automatic checking for updates. Defaults to true." introductionVersion:"3.6.0"`
 
 	Middleware Middleware `yaml:"middleware"`
 
 	Events           Events                `yaml:"events"`
-	GRPCClientTLS    *shared.GRPCClientTLS `yaml:"grpc_client_tls"`
-	AutoAcceptShares bool                  `yaml:"auto_accept_shares" env:"FRONTEND_AUTO_ACCEPT_SHARES" desc:"Defines if shares should be auto accepted by default. Users can change this setting individually in their profile." introductionVersion:"1.0.0"`
+	GRPCClientTLS    *shared.GRPCClientTLS `yaml:"grpc_client_tls" deprecationVersion:"8.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"The GRPC client TLS configuration is deprecated and will be removed in a future version. The auto-accept shares event handler now lives in the sharing service. Please use the 'reva.tls' configuration of the sharing service instead." deprecationReplacement:""`
+	AutoAcceptShares bool                  `yaml:"auto_accept_shares" env:"FRONTEND_AUTO_ACCEPT_SHARES" desc:"Defines if shares should be auto accepted by default. Users can change this setting individually in their profile." introductionVersion:"1.0.0" deprecationVersion:"8.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_AUTO_ACCEPT_SHARES is deprecated and will be removed in a future version. Please use SHARING_AUTO_ACCEPT_SHARES (sharing service) instead." deprecationReplacement:"SHARING_AUTO_ACCEPT_SHARES"`
 	ServiceAccount   ServiceAccount        `yaml:"service_account"`
 
 	PasswordPolicy PasswordPolicy `yaml:"password_policy"`
@@ -133,9 +133,9 @@ type OCS struct {
 	StatCacheDisablePersistence   bool          `yaml:"stat_cache_disable_persistence" env:"OC_CACHE_DISABLE_PERSISTENCE;FRONTEND_OCS_STAT_CACHE_DISABLE_PERSISTENCE" desc:"Disable persistence of the cache. Only applies when using the 'nats-js-kv' store type. Defaults to false." introductionVersion:"1.0.0" deprecationVersion:"1.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_OCS_STAT_CACHE_DISABLE_PERSISTENCE, the OCS API is deprecated" deprecationReplacement:""`
 	StatCacheAuthUsername         string        `yaml:"stat_cache_auth_username" env:"OC_CACHE_AUTH_USERNAME;FRONTEND_OCS_STAT_CACHE_AUTH_USERNAME" desc:"The username to use for authentication. Only applies when using the 'nats-js-kv' store type." introductionVersion:"1.0.0" deprecationVersion:"1.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_OCS_STAT_CACHE_AUTH_USERNAME, the OCS API is deprecated" deprecationReplacement:""`
 	StatCacheAuthPassword         string        `yaml:"stat_cache_auth_password" env:"OC_CACHE_AUTH_PASSWORD;FRONTEND_OCS_STAT_CACHE_AUTH_PASSWORD" desc:"The password to use for authentication. Only applies when using the 'nats-js-kv' store type." introductionVersion:"1.0.0" deprecationVersion:"1.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_OCS_STAT_CACHE_AUTH_PASSWORD, the OCS API is deprecated" deprecationReplacement:""`
-	StatCacheEnableTLS            bool          `yaml:"stat_cache_enable_tls" env:"OC_CACHE_ENABLE_TLS;FRONTEND_OCS_STAT_CACHE_ENABLE_TLS" desc:"Enable TLS for the connection to file metadata cache." introductionVersion:"%%NEXT%%"`
-	StatCacheTLSInsecure          bool          `yaml:"stat_cache_tls_insecure" env:"OC_INSECURE;OC_CACHE_TLS_INSECURE;FRONTEND_OCS_STAT_CACHE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"%%NEXT%%"`
-	StatCacheTLSRootCACertificate string        `yaml:"stat_cache_tls_root_ca_certificate" env:"OC_CACHE_TLS_ROOT_CA_CERTIFICATE;FRONTEND_OCS_STAT_CACHE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided FRONTEND_OCS_STAT_CACHE_TLS_INSECURE will be seen as false." introductionVersion:"%%NEXT%%"`
+	StatCacheEnableTLS            bool          `yaml:"stat_cache_enable_tls" env:"OC_CACHE_ENABLE_TLS;FRONTEND_OCS_STAT_CACHE_ENABLE_TLS" desc:"Enable TLS for the connection to file metadata cache." introductionVersion:"7.3.0"`
+	StatCacheTLSInsecure          bool          `yaml:"stat_cache_tls_insecure" env:"OC_INSECURE;OC_CACHE_TLS_INSECURE;FRONTEND_OCS_STAT_CACHE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"7.3.0"`
+	StatCacheTLSRootCACertificate string        `yaml:"stat_cache_tls_root_ca_certificate" env:"OC_CACHE_TLS_ROOT_CA_CERTIFICATE;FRONTEND_OCS_STAT_CACHE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided FRONTEND_OCS_STAT_CACHE_TLS_INSECURE will be seen as false." introductionVersion:"7.3.0"`
 
 	CacheWarmupDriver                    string             `yaml:"cache_warmup_driver,omitempty"`  // not supported by the OpenCloud product, therefore not part of docs
 	CacheWarmupDrivers                   CacheWarmupDrivers `yaml:"cache_warmup_drivers,omitempty"` // not supported by the OpenCloud product, therefore not part of docs
@@ -158,6 +158,8 @@ type OCDav struct {
 	OCMNamespace    string `yaml:"ocm_namespace" env:"OCDAV_OCM_NAMESPACE;FRONTENT_OCDAV_OCM_NAMESPACE" desc:"The human readable path prefix for the ocm shares." introductionVersion:"1.0.0"`
 	// PublicURL used to redirect /s/{token} URLs to
 	PublicURL string `yaml:"public_url" env:"OC_URL;OCDAV_PUBLIC_URL;FRONTENT_OCDAV_PUBLIC_URL" desc:"URL where OpenCloud is reachable for users." introductionVersion:"1.0.0"`
+
+	Thumbnails Thumbnails `yaml:"thumbnails"`
 
 	// Insecure certificates allowed when making requests to the gateway
 	Insecure      bool `yaml:"insecure" env:"OC_INSECURE;OCDAV_INSECURE;FRONTENT_OCDAV_INSECURE" desc:"Allow insecure connections to the GATEWAY service." introductionVersion:"1.0.0"`
@@ -197,19 +199,19 @@ type Checksums struct {
 
 // Events combines the configuration options for the event bus.
 type Events struct {
-	Endpoint             string `yaml:"endpoint" env:"OC_EVENTS_ENDPOINT;FRONTEND_EVENTS_ENDPOINT" desc:"The address of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture." introductionVersion:"1.0.0"`
-	Cluster              string `yaml:"cluster" env:"OC_EVENTS_CLUSTER;FRONTEND_EVENTS_CLUSTER" desc:"The clusterID of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture. Mandatory when using NATS as event system." introductionVersion:"1.0.0"`
-	TLSInsecure          bool   `yaml:"tls_insecure" env:"OC_INSECURE;OC_EVENTS_TLS_INSECURE;FRONTEND_EVENTS_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"1.0.0"`
-	TLSRootCACertificate string `yaml:"tls_root_ca_certificate" env:"OC_EVENTS_TLS_ROOT_CA_CERTIFICATE;FRONTEND_EVENTS_TLS_ROOT_CA_CERTIFICATE;OCS_EVENTS_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided NOTIFICATIONS_EVENTS_TLS_INSECURE will be seen as false." introductionVersion:"1.0.0"`
-	EnableTLS            bool   `yaml:"enable_tls" env:"OC_EVENTS_ENABLE_TLS;FRONTEND_EVENTS_ENABLE_TLS" desc:"Enable TLS for the connection to the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
-	AuthUsername         string `yaml:"username" env:"OC_EVENTS_AUTH_USERNAME;FRONTEND_EVENTS_AUTH_USERNAME" desc:"The username to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
-	AuthPassword         string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD;FRONTEND_EVENTS_AUTH_PASSWORD" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
+	Endpoint             string `yaml:"endpoint" env:"OC_EVENTS_ENDPOINT;FRONTEND_EVENTS_ENDPOINT" desc:"The address of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture." introductionVersion:"1.0.0" deprecationVersion:"8.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_EVENTS_ENDPOINT is deprecated and will be removed in a future version. Please use SHARING_EVENTS_ENDPOINT (sharing service) instead." deprecationReplacement:"SHARING_EVENTS_ENDPOINT"`
+	Cluster              string `yaml:"cluster" env:"OC_EVENTS_CLUSTER;FRONTEND_EVENTS_CLUSTER" desc:"The clusterID of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture. Mandatory when using NATS as event system." introductionVersion:"1.0.0" deprecationVersion:"8.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_EVENTS_CLUSTER is deprecated and will be removed in a future version. Please use SHARING_EVENTS_CLUSTER (sharing service) instead." deprecationReplacement:"SHARING_EVENTS_CLUSTER"`
+	TLSInsecure          bool   `yaml:"tls_insecure" env:"OC_INSECURE;OC_EVENTS_TLS_INSECURE;FRONTEND_EVENTS_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"1.0.0" deprecationVersion:"8.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_EVENTS_TLS_INSECURE is deprecated and will be removed in a future version. Please use SHARING_EVENTS_TLS_INSECURE (sharing service) instead." deprecationReplacement:"SHARING_EVENTS_TLS_INSECURE"`
+	TLSRootCACertificate string `yaml:"tls_root_ca_certificate" env:"OC_EVENTS_TLS_ROOT_CA_CERTIFICATE;FRONTEND_EVENTS_TLS_ROOT_CA_CERTIFICATE;OCS_EVENTS_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided NOTIFICATIONS_EVENTS_TLS_INSECURE will be seen as false." introductionVersion:"1.0.0" deprecationVersion:"8.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_EVENTS_TLS_ROOT_CA_CERTIFICATE is deprecated and will be removed in a future version. Please use SHARING_EVENTS_TLS_ROOT_CA_CERTIFICATE (sharing service) instead." deprecationReplacement:"SHARING_EVENTS_TLS_ROOT_CA_CERTIFICATE"`
+	EnableTLS            bool   `yaml:"enable_tls" env:"OC_EVENTS_ENABLE_TLS;FRONTEND_EVENTS_ENABLE_TLS" desc:"Enable TLS for the connection to the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0" deprecationVersion:"8.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_EVENTS_ENABLE_TLS is deprecated and will be removed in a future version. Please use SHARING_EVENTS_ENABLE_TLS (sharing service) instead." deprecationReplacement:"SHARING_EVENTS_ENABLE_TLS"`
+	AuthUsername         string `yaml:"username" env:"OC_EVENTS_AUTH_USERNAME;FRONTEND_EVENTS_AUTH_USERNAME" desc:"The username to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0" deprecationVersion:"8.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_EVENTS_AUTH_USERNAME is deprecated and will be removed in a future version. Please use SHARING_EVENTS_AUTH_USERNAME (sharing service) instead." deprecationReplacement:"SHARING_EVENTS_AUTH_USERNAME"`
+	AuthPassword         string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD;FRONTEND_EVENTS_AUTH_PASSWORD" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0" deprecationVersion:"8.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_EVENTS_AUTH_PASSWORD is deprecated and will be removed in a future version. Please use SHARING_EVENTS_AUTH_PASSWORD (sharing service) instead." deprecationReplacement:"SHARING_EVENTS_AUTH_PASSWORD"`
 }
 
 // ServiceAccount is the configuration for the used service account
 type ServiceAccount struct {
-	ServiceAccountID     string `yaml:"service_account_id" env:"OC_SERVICE_ACCOUNT_ID;FRONTEND_SERVICE_ACCOUNT_ID" desc:"The ID of the service account the service should use. See the 'auth-service' service description for more details." introductionVersion:"1.0.0"`
-	ServiceAccountSecret string `yaml:"service_account_secret" env:"OC_SERVICE_ACCOUNT_SECRET;FRONTEND_SERVICE_ACCOUNT_SECRET" desc:"The service account secret." introductionVersion:"1.0.0"`
+	ServiceAccountID     string `yaml:"service_account_id" env:"OC_SERVICE_ACCOUNT_ID;FRONTEND_SERVICE_ACCOUNT_ID" desc:"The ID of the service account the service should use. See the 'auth-service' service description for more details." introductionVersion:"1.0.0" deprecationVersion:"8.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_SERVICE_ACCOUNT_ID is deprecated and will be removed in a future version. Please use SHARING_SERVICE_ACCOUNT (sharing service) instead." deprecationReplacement:"SHARING_SERVICE_ACCOUNT"`
+	ServiceAccountSecret string `yaml:"service_account_secret" env:"OC_SERVICE_ACCOUNT_SECRET;FRONTEND_SERVICE_ACCOUNT_SECRET" desc:"The service account secret." introductionVersion:"1.0.0" deprecationVersion:"8.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_SERVICE_ACCOUNT_SECRET is deprecated and will be removed in a future version. Please use SHARING_SERVICE_ACCOUNT_SECRET (sharing service) instead." deprecationReplacement:"SHARING_SERVICE_ACCOUNT_SECRET"`
 }
 
 // PasswordPolicy configures reva password policy
@@ -225,4 +227,10 @@ type PasswordPolicy struct {
 
 type Groupware struct {
 	Enabled bool `yaml:"enabled" env:"FRONTEND_GROUPWARE_ENABLED" desc:"Enable groupware features. Defaults to false." introductionVersion:"3.7.0"`
+}
+
+// Thumbnails is what oc:has-preview is answered with. The names match the ones
+// the webdav service uses for the same list.
+type Thumbnails struct {
+	AdditionalSourceTypes []string `yaml:"additional_source_types" env:"OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES;FRONTEND_THUMBNAILS_ADDITIONAL_SOURCE_TYPES" desc:"Additional mime types oc:has-preview is answered with 1 for, the same list the webdav service attempts previews for. The types the build ships are included; this only adds to them." introductionVersion:"%%NEXT%%"`
 }

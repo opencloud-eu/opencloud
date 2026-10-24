@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
@@ -15,13 +16,24 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/grants"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
+	"github.com/opencloud-eu/opencloud/pkg/ast"
+	"github.com/opencloud-eu/opencloud/pkg/kql"
+
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 )
 
-var scopeRegex = regexp.MustCompile(`scope:\s*([^" "\n\r]*)`)
+// SchemaVersion is the shared schema version for both search backends. Bump it
+// on a breaking mapping change: each version gets its own index (OpenSearch name
+// suffix, bleve path suffix), so the service builds a fresh index instead of
+// colliding with the old one. No migration; reindex to populate.
+const SchemaVersion = 5
+
+// the scope clause is removed together with the boolean operator that joins it to the rest of the query.
+var scopeRegex = regexp.MustCompile(`(?:(?:AND|OR)\s+)?scope:\s*([^" "\n\r]*)(?:\s+(?:AND|OR)\b)?`)
 
 // Engine is the interface to the search engine
 type Engine interface {
@@ -29,17 +41,18 @@ type Engine interface {
 	DocCount() (uint64, error)
 
 	Upsert(id string, r Resource) error
-	Move(id string, parentid string, target string) error
+	Move(id string, parentID string, targetPath string) error
 	Delete(id string) error
 	Restore(id string) error
 	Purge(id string, onlyDeleted bool) error
+	PurgeSpace(rootID string) error
 
 	NewBatch(batchSize int) (BatchOperator, error)
 }
 
 type BatchOperator interface {
 	Upsert(id string, r Resource) error
-	Move(rootID, parentID, location string) error
+	Move(id string, parentID string, targetPath string) error
 	Delete(id string) error
 	Restore(id string) error
 	Purge(id string, onlyDeleted bool) error
@@ -51,13 +64,41 @@ type BatchOperator interface {
 type Resource struct {
 	content.Document
 
-	ID       string
-	RootID   string
-	Path     string
-	ParentID string
-	Type     uint64
-	Deleted  bool
-	Hidden   bool
+	ID       string `json:"ID"`
+	RootID   string `json:"RootID"`
+	Path     string `json:"Path"`
+	ParentID string `json:"ParentID"`
+	Type     uint64 `json:"Type"`
+	Deleted  bool   `json:"Deleted"`
+	Hidden   bool   `json:"Hidden"`
+}
+
+// resourceFieldOverrides is built once (it never changes) and reused on hot
+// paths instead of reallocating per call.
+var resourceFieldOverrides = sync.OnceValue(func() map[string]mapping.FieldOpts {
+	True, False := true, false
+	return map[string]mapping.FieldOpts{
+		// every keyword field searches case-insensitively and by word (name,
+		// title, the facets) unless opted out: ids are opaque, paths are POSIX,
+		// the mime type is normalized already, a tag is one label
+		"ID":                  {CaseInsensitive: &False, NoWordBreaker: &True},
+		"RootID":              {CaseInsensitive: &False, NoWordBreaker: &True},
+		"ParentID":            {CaseInsensitive: &False, NoWordBreaker: &True},
+		"Path":                {Type: mapping.TypePath, CaseInsensitive: &False},
+		"MimeType":            {CaseInsensitive: &False, NoWordBreaker: &True},
+		"Content":             {Type: mapping.TypeFulltext},
+		"Tags":                {NoWordBreaker: &True, IncludeInAll: &False},
+		"Favorites":           {NoWordBreaker: &True, IncludeInAll: &False, CaseInsensitive: &False}, // opaque user ids
+		"livePhoto.contentId": {NoWordBreaker: &True, CaseInsensitive: &False},                       // opaque pairing uuid
+		"location":            {Type: mapping.TypeGeopoint},
+	}
+})
+
+// SearchFieldOverrides returns the field options the mapping package needs to
+// build per-backend index mappings for a Resource (keys are json-tag names).
+// The map is shared and read-only; clone it before mutating.
+func (Resource) SearchFieldOverrides() map[string]mapping.FieldOpts {
+	return resourceFieldOverrides()
 }
 
 // ResolveReference makes sure the path is relative to the space root
@@ -187,6 +228,73 @@ func convertToWebDAVPermissions(isShared, isMountpoint, isDir bool, p *provider.
 	return b.String()
 }
 
+// CompleteRootID completes a bare driveId ("storage$space") to the root
+// resource id stored in the index. Assumes a space root's opaque id equals
+// its space id (true for decomposedfs); elsewhere a bare driveId matches
+// nothing, the pinning stays safe either way.
+func CompleteRootID(v string) string {
+	// leave wildcards alone, "1$*!*" would match nothing
+	if strings.Contains(v, "!") || strings.ContainsAny(v, "*?") {
+		return v
+	}
+	if i := strings.LastIndex(v, "$"); i >= 0 && i+1 < len(v) {
+		return v + "!" + v[i+1:]
+	}
+	return v
+}
+
+// PinnedRootID returns the single space root the query is pinned to via
+// top-level AND driveId/RootID conjuncts, or "". OR, NOT and group-nested
+// restrictions never pin: skipping a space would be wrong.
+func PinnedRootID(query string) string {
+	a, err := kql.Builder{}.Build(query)
+	if err != nil {
+		return ""
+	}
+	return pinnedRootID(a)
+}
+
+func pinnedRootID(a *ast.Ast) string {
+	pinned := ""
+	negated := false
+	for _, n := range a.Nodes {
+		switch node := n.(type) {
+		case *ast.OperatorNode:
+			if strings.EqualFold(node.Value, "OR") {
+				return ""
+			}
+			negated = strings.EqualFold(node.Value, "NOT")
+			continue
+		case ast.OperatorNode:
+			if strings.EqualFold(node.Value, "OR") {
+				return ""
+			}
+			negated = strings.EqualFold(node.Value, "NOT")
+			continue
+		}
+		var key, value string
+		switch node := n.(type) {
+		case *ast.StringNode:
+			key, value = node.Key, node.Value
+		case ast.StringNode:
+			key, value = node.Key, node.Value
+		}
+		if strings.EqualFold(key, "driveid") || strings.EqualFold(key, "rootid") {
+			// a negated or wildcard restriction cannot pin a single space
+			if negated || strings.ContainsAny(value, "*?") {
+				return ""
+			}
+			v := CompleteRootID(value)
+			if pinned != "" && pinned != v {
+				return ""
+			}
+			pinned = v
+		}
+		negated = false
+	}
+	return pinned
+}
+
 // ParseScope extract a scope value from the query string and returns search, scope strings
 func ParseScope(query string) (string, string) {
 	match := scopeRegex.FindStringSubmatch(query)
@@ -195,18 +303,4 @@ func ParseScope(query string) (string, string) {
 		return strings.TrimSpace(strings.ReplaceAll(query, cut, "")), strings.TrimSpace(match[1])
 	}
 	return query, ""
-}
-
-// ParseFlags extracts supported flags from the query string and returns the cleaned query and a map of flags
-func ParseFlags(query string) (string, []string) {
-	supportedFlags := []string{"is:favorite"}
-	flags := []string{}
-	for _, flag := range supportedFlags {
-		if strings.Contains(query, flag) {
-			flags = append(flags, flag)
-			query = strings.ReplaceAll(query, flag, "")
-		}
-	}
-
-	return strings.TrimSpace(query), flags
 }

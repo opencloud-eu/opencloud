@@ -1164,11 +1164,11 @@ func relatedEmailsFilter(email jmap.Email, beacon time.Time, days uint) jmap.Ema
 
 	var timeFilter jmap.EmailFilterCondition
 	{
-		if days > math.MaxInt64 {
-			days = math.MaxInt64 // avoid gosec G115 (CWE-190)
-		}
-		hours := int64(days) * 24
-		delta := time.Duration(hours) * time.Hour
+		// cap the days so that the duration doesn't overflow, which also avoids gosec G115 (CWE-190),
+		// compared as uint64 as uint is only 32 bits wide on 32-bit platforms
+		const day = 24 * time.Hour
+		const maxDays = uint64(math.MaxInt64 / int64(day))
+		delta := time.Duration(min(uint64(days), maxDays)) * day
 		timeFilter = jmap.EmailFilterCondition{
 			Before: beacon.Add(delta),
 			After:  beacon.Add(-delta),

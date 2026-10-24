@@ -39,9 +39,6 @@ use Symfony\Component\HttpFoundation\Response;
  * Helper for HTTP requests
  */
 class HttpRequestHelper {
-	public const HTTP_TOO_EARLY = 425;
-	public const HTTP_CONFLICT = 409;
-
 	/**
 	 * Some systems-under-test do async post-processing of operations like upload,
 	 * move, etc. If a client does a request on the resource before the post-processing
@@ -256,9 +253,7 @@ class HttpRequestHelper {
 			$debugResponses = false;
 		}
 
-		$sendRetryLimit = self::numRetriesOnHttpTooEarly();
 		$sendCount = 0;
-		$sendExceptionHappened = false;
 		do {
 			$response = self::sendRequestOnce(
 				$url,
@@ -275,36 +270,36 @@ class HttpRequestHelper {
 				$client,
 			);
 
-			if ($response->getStatusCode() >= 400
-				&& $response->getStatusCode() !== self::HTTP_TOO_EARLY
-				&& $response->getStatusCode() !== self::HTTP_CONFLICT
-			) {
-				$sendExceptionHappened = true;
-			}
-
 			if ($debugResponses) {
 				self::debugResponse($response);
 			}
-			$sendCount = $sendCount + 1;
-			// Here we check if the response has status code 425 or is a 409 gotten from a Given step
-			// HTTP_TOO_EARLY (425) can happen if async processing of a previous request is still happening.
-			// For example, if a test uploads a file and then immediately tries to download it.
-			// HTTP_CONFLICT (409) can happen if the user has just been created in the previous step.
-			// The OCS API might not "realize" yet that the user exists. A folder creation (MKCOL) or maybe even
-			// a file upload might return 409.
-			// In all these cases we can try the API request again after a short time.
-			$loopAgain = !$sendExceptionHappened && ($response->getStatusCode() === self::HTTP_TOO_EARLY ||
-						($response->getStatusCode() === self::HTTP_CONFLICT && $isGivenStep)) &&
-						$sendCount <= $sendRetryLimit;
-			if ($loopAgain) {
-				// we need to repeat the send request, because we got HTTP_TOO_EARLY or HTTP_CONFLICT
-				// wait 1 second before sending again, to give the server some time
-				// to finish whatever post-processing it might be doing.
-				echo "[INFO] Received '" . $response->getStatusCode() .
-					"' status code, retrying request ($sendCount)...\n";
-				\sleep(1);
+
+			$statusCode = $response->getStatusCode();
+			$tooEarly = $statusCode === Response::HTTP_TOO_EARLY;
+			$conflict = $statusCode === Response::HTTP_CONFLICT;
+			$retryOnConflict = $conflict && $isGivenStep;
+			$isShareMigrating = $statusCode === Response::HTTP_INTERNAL_SERVER_ERROR
+				&& self::responseIndicatesShareManagerMigrating($response);
+
+			// Retry request only if:
+			// 1. we get HTTP_TOO_EARLY (425) - can happen if async processing is still happening.
+			//    For example, if a test uploads a file and then immediately tries to download it.
+			// 2. we get HTTP_CONFLICT (409) and is Given step - can happen if the user has just been created.
+			//    The OCS API might not "realize" yet that the user exists. A folder creation (MKCOL) or maybe even
+			//    a file upload might return 409.
+			// 3. share manager is migrating (500) - can happen right after oc_wrapper restarts server
+			//    while the jsoncs3 share manager is still running its data migrations.
+			if (!($tooEarly || $retryOnConflict || $isShareMigrating)) {
+				break;
 			}
-		} while ($loopAgain);
+
+			$sendCount = $sendCount + 1;
+			echo "[INFO] Received '" . $statusCode .
+				"' status code, retrying request ($sendCount)...\n";
+			// wait 1 second before sending again, to give the server some time
+			// to finish whatever post-processing it might be doing.
+			\sleep(1);
+		} while ($sendCount <= self::numRetriesOnHttpTooEarly());
 		return $response;
 	}
 
@@ -338,6 +333,19 @@ class HttpRequestHelper {
 		self::printHeaders($response->getHeaders());
 		self::printBody($response->getBody());
 		print("\n### END RESPONSE\n");
+	}
+
+	/**
+	 * Checks whether the response body indicates that the share manager is currently migrating.
+	 *
+	 * @param ResponseInterface $response
+	 *
+	 * @return bool
+	 */
+	private static function responseIndicatesShareManagerMigrating(ResponseInterface $response): bool {
+		$body = $response->getBody()->getContents();
+		$response->getBody()->rewind();
+		return \str_contains($body, 'share manager is currently migrating');
 	}
 
 	/**
@@ -463,6 +471,10 @@ class HttpRequestHelper {
 		if ($xRequestId !== '') {
 			$headers['X-Request-ID'] = $xRequestId;
 		}
+
+		// Guzzle 8 expects all header values to be strings or arrays of strings.
+		$headers = array_map('strval', $headers);
+
 		if (\is_array($body)) {
 			// When creating the client, it is possible to set 'form_params' and
 			// the Client constructor sorts out doing this http_build_query stuff.

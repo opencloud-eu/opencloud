@@ -53,7 +53,7 @@ func New(root string) (*Blobstore, error) {
 }
 
 // Upload stores some data in the blobstore under the given key
-func (bs *Blobstore) Upload(node *node.Node, source, _copyTarget string) error {
+func (bs *Blobstore) Upload(node *node.Node, source, _copyTarget string) (err error) {
 	if node.BlobID == "" {
 		return ErrBlobIDEmpty
 	}
@@ -80,14 +80,65 @@ func (bs *Blobstore) Upload(node *node.Node, source, _copyTarget string) error {
 	if err != nil {
 		return errors.Wrapf(err, "could not open blob '%s' for writing", dest)
 	}
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = errors.Wrapf(cerr, "could not close blob '%s'", dest)
+		}
+	}()
 
 	w := bufio.NewWriter(f)
-	_, err = w.ReadFrom(file)
-	if err != nil {
+	if _, err = w.ReadFrom(file); err != nil {
 		return errors.Wrapf(err, "could not write blob '%s'", dest)
 	}
 
-	return w.Flush()
+	if err = w.Flush(); err != nil {
+		return errors.Wrapf(err, "could not flush blob '%s'", dest)
+	}
+
+	// Ensure data is synced to disk before returning
+	if err = f.Sync(); err != nil {
+		return errors.Wrapf(err, "could not sync blob '%s' to disk", dest)
+	}
+
+	return nil
+}
+
+// UploadFromReader stores data from a reader under the given blob key.
+func (bs *Blobstore) UploadFromReader(n *node.Node, r io.Reader, size int64) error {
+	if n.BlobID == "" {
+		return ErrBlobIDEmpty
+	}
+	dest := bs.Path(n)
+	if err := os.MkdirAll(filepath.Dir(dest), 0700); err != nil {
+		return errors.Wrap(err, "Decomposed blobstore: error creating parent folders for blob")
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(dest), ".upload-*")
+	if err != nil {
+		return errors.Wrap(err, "Decomposed blobstore: could not create temporary blob")
+	}
+	tmpPath := tmp.Name()
+	defer func() { _ = os.Remove(tmpPath) }()
+
+	written, err := io.Copy(tmp, r)
+	if err != nil {
+		_ = tmp.Close()
+		return errors.Wrap(err, "Decomposed blobstore: could not write blob")
+	}
+	if written != size {
+		_ = tmp.Close()
+		return io.ErrUnexpectedEOF
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return errors.Wrap(err, "Decomposed blobstore: could not sync blob")
+	}
+	if err := tmp.Close(); err != nil {
+		return errors.Wrap(err, "Decomposed blobstore: could not close blob")
+	}
+	if err := os.Rename(tmpPath, dest); err != nil {
+		return errors.Wrap(err, "Decomposed blobstore: could not move blob into place")
+	}
+	return nil
 }
 
 // Download retrieves a blob from the blobstore for reading

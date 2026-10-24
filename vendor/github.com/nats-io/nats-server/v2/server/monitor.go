@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"expvar"
 	"fmt"
 	"maps"
@@ -276,6 +277,8 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 
 	// Open clients
 	var openClients []*client
+	// Selected client
+	var cidClient *client
 	// Hold for closed clients if requested.
 	var closedClients []*closedClient
 
@@ -297,7 +300,7 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 		a.mu.RUnlock()
 	}
 
-	// Walk the open client list with server lock held.
+	// Snapshot server connection state.
 	s.mu.RLock()
 	// Default to all client unless filled in above.
 	if clist == nil {
@@ -308,6 +311,11 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 
 	// copy the server id for monitoring
 	c.ID = s.info.ID
+	// select client by CID
+	if cid > 0 {
+		cidClient = s.clients[cid]
+	}
+	s.mu.RUnlock()
 
 	// Number of total clients. The resulting ConnInfo array
 	// may be smaller if pagination is used.
@@ -364,8 +372,8 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 		// Let's first check if user also selects on ConnOpen or ConnAll
 		// and look for opened connections.
 		if state == ConnOpen || state == ConnAll {
-			if client := s.clients[cid]; client != nil {
-				openClients = append(openClients, client)
+			if cidClient != nil {
+				openClients = append(openClients, cidClient)
 				closedClients = nil
 			}
 		}
@@ -411,7 +419,6 @@ func (s *Server) Connz(opts *ConnzOptions) (*Connz, error) {
 			}
 		}
 	}
-	s.mu.RUnlock()
 
 	// Filter by subject now if needed. We do this outside of server lock.
 	if filter != _EMPTY_ {
@@ -1290,6 +1297,7 @@ type Varz struct {
 	OCSPResponseCache     *OCSPResponseCacheVarz `json:"ocsp_peer_cache,omitempty"`         // OCSPResponseCache is the state of the OCSP cache
 	SlowConsumersStats    *SlowConsumersStats    `json:"slow_consumer_stats"`               // SlowConsumersStats are statistics about all detected Slow Consumer
 	StaleConnectionStats  *StaleConnectionStats  `json:"stale_connection_stats,omitempty"`  // StaleConnectionStats are statistics about all detected Stale Connections
+	DiskIOWaitStats       *DiskIOWaitStats       `json:"disk_io_wait_stats"`                // DiskIOWaitStats are statistics about disk I/O semaphore contention
 	Proxies               *ProxiesOptsVarz       `json:"proxies,omitempty"`                 // Proxies hold information about network proxy devices
 	TLSCertNotAfter       time.Time              `json:"tls_cert_not_after,omitzero"`       // TLSCertNotAfter is the expiration date of the TLS certificate of this server
 }
@@ -1449,6 +1457,14 @@ type StaleConnectionStats struct {
 	Leafs    uint64 `json:"leafs"`    // Leafs is how many Leafnode connections became stale connections
 }
 
+// DiskIOWaitStats contains information about disk I/O semaphore contention.
+type DiskIOWaitStats struct {
+	Waiters     int64  `json:"waiters"`       // Waiters is the number of goroutines waiting on the dios
+	Waits       uint64 `json:"waits"`         // Waits is the number of dios acquires that had to wait
+	WaitTime    uint64 `json:"wait_time"`     // WaitTime is the cumulative time spent waiting for dios
+	MaxWaitTime uint64 `json:"max_wait_time"` // MaxWaitTime is the longest observed wait
+}
+
 func myUptime(d time.Duration) string {
 	// Just use total seconds for uptime, and display days / years
 	tsecs := d / time.Second
@@ -1577,9 +1593,16 @@ func (s *Server) updateJszVarz(js *jetStream, v *JetStreamVarz, doConfig bool) {
 	v.Limits = &s.getOpts().JetStreamLimits
 	if mg := js.getMetaGroup(); mg != nil {
 		if ci := s.raftNodeToClusterInfo(mg); ci != nil {
-			v.Meta = &MetaClusterInfo{Name: ci.Name, Leader: ci.Leader, Peer: getHash(ci.Leader), Size: mg.ClusterSize()}
-			if ci.Leader == s.info.Name {
-				v.Meta.Replicas = ci.Replicas
+			v.Meta = &MetaClusterInfo{
+				Name:         ci.Name,
+				Leader:       ci.Leader,
+				Replicas:     ci.Replicas,
+				Size:         mg.ClusterSize(),
+				QuorumNeeded: mg.QuorumNeeded(),
+				Rescue:       mg.InRescue(),
+			}
+			if ci.Leader != _EMPTY_ {
+				v.Meta.Peer = getHash(ci.Leader)
 			}
 			if ipq := s.jsAPIRoutedReqs; ipq != nil {
 				v.Meta.PendingRequests = ipq.len()
@@ -1845,6 +1868,15 @@ func (s *Server) updateVarzConfigReloadableFields(v *Varz) {
 	} else {
 		v.Proxies = nil
 	}
+
+	if cfg := v.JetStream.Config; cfg != nil {
+		if opts.JetStreamMaxMemory > 0 {
+			cfg.MaxMemory = opts.JetStreamMaxMemory
+		}
+		if opts.JetStreamMaxStore > 0 {
+			cfg.MaxStore = opts.JetStreamMaxStore
+		}
+	}
 }
 
 func getPinnedCertsAsSlice(certs PinnedCertSet) []string {
@@ -1968,6 +2000,19 @@ func (s *Server) updateVarzRuntimeFields(v *Varz, forceUpdate bool, pcpu float64
 				stats.Unknowns,
 			}
 		}
+	}
+	v.DiskIOWaitStats = diskIOWaitStats(s.dios)
+}
+
+func diskIOWaitStats(d *diskIOSemaphore) *DiskIOWaitStats {
+	if d == nil {
+		return &DiskIOWaitStats{}
+	}
+	return &DiskIOWaitStats{
+		Waiters:     d.waiters.Load(),
+		Waits:       d.waits.Load(),
+		WaitTime:    d.waitNanos.Load(),
+		MaxWaitTime: d.maxWaitNanos.Load(),
 	}
 }
 
@@ -3060,6 +3105,8 @@ type MetaClusterInfo struct {
 	Peer            string             `json:"peer,omitempty"`     // Peer is unique ID of the leader
 	Replicas        []*PeerInfo        `json:"replicas,omitempty"` // Replicas is a list of known peers
 	Size            int                `json:"cluster_size"`       // Size is the known size of the cluster
+	QuorumNeeded    int                `json:"quorum_needed"`      // QuorumNeeded is this server's current effective quorum size
+	Rescue          bool               `json:"rescue,omitempty"`   // Rescue indicates the quorum is unsafely lowered by an active rescue
 	Pending         int                `json:"pending"`            // Pending is how many RAFT messages are not yet processed
 	PendingRequests int                `json:"pending_requests"`   // PendingRequests is how many CRUD operations are queued for processing
 	PendingInfos    int                `json:"pending_infos"`      // PendingInfos is how many info operations are queued for processing
@@ -3128,7 +3175,9 @@ func (s *Server) accountDetail(jsa *jsAccount, optStreams, optConsumers, optDire
 			ci := js.clusterInfo(rgroup)
 			var cfg *StreamConfig
 			if optCfg {
-				c := stream.config()
+				// Report the config as requested, the stream can still be running at its origin.
+				// Must be consistent with the desired state reported as part of the cluster info.
+				c := js.targetStreamConfig(stream, stream.config())
 				cfg = &c
 			}
 			// Skip if we are only looking for stream leaders.
@@ -3280,9 +3329,16 @@ func (s *Server) Jsz(opts *JSzOptions) (*JSInfo, error) {
 
 	if mg := js.getMetaGroup(); mg != nil {
 		if ci := s.raftNodeToClusterInfo(mg); ci != nil {
-			jsi.Meta = &MetaClusterInfo{Name: ci.Name, Leader: ci.Leader, Peer: getHash(ci.Leader), Size: mg.ClusterSize()}
-			if isLeader {
-				jsi.Meta.Replicas = ci.Replicas
+			jsi.Meta = &MetaClusterInfo{
+				Name:         ci.Name,
+				Leader:       ci.Leader,
+				Replicas:     ci.Replicas,
+				Size:         mg.ClusterSize(),
+				QuorumNeeded: mg.QuorumNeeded(),
+				Rescue:       mg.InRescue(),
+			}
+			if ci.Leader != _EMPTY_ {
+				jsi.Meta.Peer = getHash(ci.Leader)
 			}
 			if ipq := s.jsAPIRoutedReqs; ipq != nil {
 				jsi.Meta.PendingRequests = ipq.len()
@@ -3691,6 +3747,29 @@ func (s *Server) healthz(opts *HealthzOptions) *HealthStatus {
 				accFound = true
 			}
 			acc, err := s.LookupAccount(fi.Name())
+			// Expired accounts are not a JetStream health problem; skip them when
+			// scanning all accounts. Still surface an error if this account was
+			// explicitly requested — including the err==nil + IsExpired() case.
+			expired := (err != nil && errors.Is(err, ErrAccountExpired)) || (err == nil && acc.IsExpired())
+			if expired {
+				if opts.Account == _EMPTY_ {
+					continue
+				}
+				msg := fmt.Sprintf("JetStream account '%s' is expired", fi.Name())
+				if !details {
+					health.Status = na
+					health.Error = msg
+					return health
+				}
+				health.Errors = append(health.Errors, HealthzError{
+					Type:    HealthzErrorAccount,
+					Account: fi.Name(),
+					Error:   msg,
+				})
+				// Return so later stream/consumer not-found checks do not
+				// replace this with a misleading 404 for assets we skipped.
+				return health
+			}
 			if err != nil {
 				if !details {
 					health.Status = na
@@ -3824,11 +3903,16 @@ func (s *Server) healthz(opts *HealthzOptions) *HealthStatus {
 		metaUnhealthy = !meta.Healthy()
 		metaWerr = meta.GetWriteErr()
 	}
+	// Surface an application-level meta write error (e.g. an undecodable meta entry)
+	// in addition to the node-level write error above.
+	metaApplyErr := js.getMetaWriteErr()
 	metaRecovering := js.isMetaRecovering()
-	if meta == nil || metaNoLeader || metaClosed || metaUnhealthy || metaWerr != nil || metaRecovering {
+	if meta == nil || metaNoLeader || metaClosed || metaUnhealthy || metaWerr != nil || metaApplyErr != nil || metaRecovering {
 		var desc string
 		if metaWerr != nil {
 			desc = fmt.Sprintf("JetStream meta layer write error: %v", metaWerr)
+		} else if metaApplyErr != nil {
+			desc = fmt.Sprintf("JetStream meta layer apply error: %v", metaApplyErr)
 		} else if metaClosed {
 			desc = "JetStream meta layer is not running"
 		} else if meta != nil && metaRecovering {
@@ -3986,6 +4070,28 @@ func (s *Server) healthz(opts *HealthzOptions) *HealthStatus {
 	// Use our copy to traverse so we do not need to hold the js lock.
 	for accName, asa := range streams {
 		acc, err := s.LookupAccount(accName)
+		// Expired accounts are not a JetStream health problem; skip them when
+		// scanning all accounts. Still surface an error if this account was
+		// explicitly requested — including the err==nil + IsExpired() case.
+		expired := (err != nil && errors.Is(err, ErrAccountExpired)) || (err == nil && acc.IsExpired())
+		if expired {
+			if opts.Account == _EMPTY_ {
+				continue
+			}
+			msg := fmt.Sprintf("JetStream account %q is expired", accName)
+			if !details {
+				health.Status = na
+				health.Error = msg
+				return health
+			}
+			health.Errors = append(health.Errors, HealthzError{
+				Type:    HealthzErrorAccount,
+				Account: accName,
+				Error:   msg,
+			})
+			// Return so later health checks do not obscure the expired account.
+			return health
+		}
 		if err != nil && len(asa) > 0 {
 			if !details {
 				health.Status = na
@@ -4022,7 +4128,7 @@ func (s *Server) healthz(opts *HealthzOptions) *HealthStatus {
 			mset, _ := acc.lookupStream(stream)
 			// Now check consumers.
 			for consumer, ca := range sa.consumers {
-				if err := js.isConsumerHealthy(mset, consumer, ca); err != nil {
+				if err := js.isConsumerHealthy(mset, sa, consumer, ca); err != nil {
 					if !details {
 						health.Status = na
 						health.Error = fmt.Sprintf("JetStream consumer '%s > %s > %s' is not current: %s", acc, stream, consumer, err)
@@ -4245,7 +4351,7 @@ func (s *Server) Raftz(opts *RaftzOptions) *RaftzStatus {
 			PTerm:         n.pterm,
 			PIndex:        n.pindex,
 			SystemAcc:     n.IsSystemAccount(),
-			TrafficAcc:    n.acc.GetName(),
+			TrafficAcc:    n.t.Account().GetName(),
 			IPQPropLen:    n.prop.len(),
 			IPQEntryLen:   n.entry.len(),
 			IPQRespLen:    n.resp.len(),

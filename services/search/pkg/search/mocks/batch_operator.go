@@ -60,7 +60,7 @@ type BatchOperator_Delete_Call struct {
 
 // Delete is a helper method to define mock.On call
 //   - id string
-func (_e *BatchOperator_Expecter) Delete(id interface{}) *BatchOperator_Delete_Call {
+func (_e *BatchOperator_Expecter) Delete(id any) *BatchOperator_Delete_Call {
 	return &BatchOperator_Delete_Call{Call: _e.mock.On("Delete", id)}
 }
 
@@ -88,8 +88,8 @@ func (_c *BatchOperator_Delete_Call) RunAndReturn(run func(id string) error) *Ba
 }
 
 // Move provides a mock function for the type BatchOperator
-func (_mock *BatchOperator) Move(rootID string, parentID string, location string) error {
-	ret := _mock.Called(rootID, parentID, location)
+func (_mock *BatchOperator) Move(id string, parentID string, targetPath string) error {
+	ret := _mock.Called(id, parentID, targetPath)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Move")
@@ -97,7 +97,7 @@ func (_mock *BatchOperator) Move(rootID string, parentID string, location string
 
 	var r0 error
 	if returnFunc, ok := ret.Get(0).(func(string, string, string) error); ok {
-		r0 = returnFunc(rootID, parentID, location)
+		r0 = returnFunc(id, parentID, targetPath)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -110,14 +110,14 @@ type BatchOperator_Move_Call struct {
 }
 
 // Move is a helper method to define mock.On call
-//   - rootID string
+//   - id string
 //   - parentID string
-//   - location string
-func (_e *BatchOperator_Expecter) Move(rootID interface{}, parentID interface{}, location interface{}) *BatchOperator_Move_Call {
-	return &BatchOperator_Move_Call{Call: _e.mock.On("Move", rootID, parentID, location)}
+//   - targetPath string
+func (_e *BatchOperator_Expecter) Move(id any, parentID any, targetPath any) *BatchOperator_Move_Call {
+	return &BatchOperator_Move_Call{Call: _e.mock.On("Move", id, parentID, targetPath)}
 }
 
-func (_c *BatchOperator_Move_Call) Run(run func(rootID string, parentID string, location string)) *BatchOperator_Move_Call {
+func (_c *BatchOperator_Move_Call) Run(run func(id string, parentID string, targetPath string)) *BatchOperator_Move_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 string
 		if args[0] != nil {
@@ -145,7 +145,7 @@ func (_c *BatchOperator_Move_Call) Return(err error) *BatchOperator_Move_Call {
 	return _c
 }
 
-func (_c *BatchOperator_Move_Call) RunAndReturn(run func(rootID string, parentID string, location string) error) *BatchOperator_Move_Call {
+func (_c *BatchOperator_Move_Call) RunAndReturn(run func(id string, parentID string, targetPath string) error) *BatchOperator_Move_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -175,7 +175,7 @@ type BatchOperator_Purge_Call struct {
 // Purge is a helper method to define mock.On call
 //   - id string
 //   - onlyDeleted bool
-func (_e *BatchOperator_Expecter) Purge(id interface{}, onlyDeleted interface{}) *BatchOperator_Purge_Call {
+func (_e *BatchOperator_Expecter) Purge(id any, onlyDeleted any) *BatchOperator_Purge_Call {
 	return &BatchOperator_Purge_Call{Call: _e.mock.On("Purge", id, onlyDeleted)}
 }
 
@@ -275,7 +275,7 @@ type BatchOperator_Restore_Call struct {
 
 // Restore is a helper method to define mock.On call
 //   - id string
-func (_e *BatchOperator_Expecter) Restore(id interface{}) *BatchOperator_Restore_Call {
+func (_e *BatchOperator_Expecter) Restore(id any) *BatchOperator_Restore_Call {
 	return &BatchOperator_Restore_Call{Call: _e.mock.On("Restore", id)}
 }
 
@@ -327,7 +327,7 @@ type BatchOperator_Upsert_Call struct {
 // Upsert is a helper method to define mock.On call
 //   - id string
 //   - r search.Resource
-func (_e *BatchOperator_Expecter) Upsert(id interface{}, r interface{}) *BatchOperator_Upsert_Call {
+func (_e *BatchOperator_Expecter) Upsert(id any, r any) *BatchOperator_Upsert_Call {
 	return &BatchOperator_Upsert_Call{Call: _e.mock.On("Upsert", id, r)}
 }
 

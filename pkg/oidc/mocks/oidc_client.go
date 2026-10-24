@@ -76,7 +76,7 @@ type OIDCClient_UserInfo_Call struct {
 // UserInfo is a helper method to define mock.On call
 //   - ctx context.Context
 //   - ts oauth2.TokenSource
-func (_e *OIDCClient_Expecter) UserInfo(ctx interface{}, ts interface{}) *OIDCClient_UserInfo_Call {
+func (_e *OIDCClient_Expecter) UserInfo(ctx any, ts any) *OIDCClient_UserInfo_Call {
 	return &OIDCClient_UserInfo_Call{Call: _e.mock.On("UserInfo", ctx, ts)}
 }
 
@@ -150,7 +150,7 @@ type OIDCClient_VerifyAccessToken_Call struct {
 // VerifyAccessToken is a helper method to define mock.On call
 //   - ctx context.Context
 //   - token string
-func (_e *OIDCClient_Expecter) VerifyAccessToken(ctx interface{}, token interface{}) *OIDCClient_VerifyAccessToken_Call {
+func (_e *OIDCClient_Expecter) VerifyAccessToken(ctx any, token any) *OIDCClient_VerifyAccessToken_Call {
 	return &OIDCClient_VerifyAccessToken_Call{Call: _e.mock.On("VerifyAccessToken", ctx, token)}
 }
 
@@ -218,7 +218,7 @@ type OIDCClient_VerifyLogoutToken_Call struct {
 // VerifyLogoutToken is a helper method to define mock.On call
 //   - ctx context.Context
 //   - token string
-func (_e *OIDCClient_Expecter) VerifyLogoutToken(ctx interface{}, token interface{}) *OIDCClient_VerifyLogoutToken_Call {
+func (_e *OIDCClient_Expecter) VerifyLogoutToken(ctx any, token any) *OIDCClient_VerifyLogoutToken_Call {
 	return &OIDCClient_VerifyLogoutToken_Call{Call: _e.mock.On("VerifyLogoutToken", ctx, token)}
 }
 

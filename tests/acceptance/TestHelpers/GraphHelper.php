@@ -40,8 +40,19 @@ class GraphHelper {
 
 	public const ADDITIONAL_PERMISSIONS_ROLES = [
 		'Secure Viewer' => 'aa97fe03-7980-45ac-9e50-b325749fd7e6',
+		'Viewer With Versions' => 'd1e2218d-eef8-4d4c-b82d-0f1a1b48f3b5',
+		'Viewer List Grants' => 'd5041006-ebb3-4b4a-b6a4-7c180ecfb17d',
+		'Space Viewer With Versions' => '3de465fc-6e17-4839-8b8a-a77cc497878b',
+		'Editor With Versions' => 'b8c6e1c9-5d2a-4f0e-9c3b-1a2b3c4d5e6f',
+		'Editor List Grants' => 'e8ea8b21-abd4-45d2-b893-8d1546378e9e',
 		'Space Editor Without Versions' => '3284f2d5-0070-4ad8-ac40-c247f7c1fb27',
+		'File Editor With Versions' => '3d00ce52-1fc2-4dbc-8b95-a73b73395f5a',
+		'File Editor List Grants' => 'c1235aea-d106-42db-8458-7d5610fb0a67',
 		'Denied' => '63e64e19-8d43-42ec-a738-2b6af2610efa',
+		'Editor List Grants With Versions' => '0911d62b-1e3f-4778-8b1b-903b7e4e8476',
+		'Space Editor Without Trashbin' => '8f4701d9-c68f-4109-a482-88e22ee32805',
+		'Space Editor Without Versions Without Trashbin' => 'a5f73816-4d4b-452d-8973-3b61c3d0bed4',
+		'File Editor List Grants With Versions' => 'b173329d-cf2e-42f0-a595-ee410645d840',
 	];
 
 	public const SHARES_SPACE_ID = 'a0ca6a90-a365-4782-871e-d44447bbc668$a0ca6a90-a365-4782-871e-d44447bbc668';
@@ -1754,6 +1765,11 @@ class GraphHelper {
 
 		foreach ($shareeIds as $index => $shareeId) {
 			$shareType = $shareTypes[$index];
+			if ($shareType === "guest") {
+				// guest invitation via email address
+				$body['recipients'][] = ["email" => $shareeId];
+				continue;
+			}
 			$body['recipients'][] = [
 				"@libre.graph.recipient.type" => $shareType,
 				"objectId" => $shareeId
@@ -1769,7 +1785,8 @@ class GraphHelper {
 			$body['@libre.graph.permissions.actions'] = ['libre.graph/driveItem/' . $permissionsAction];
 		}
 
-		if ($expirationDateTime !== null) {
+		if ($expirationDateTime !== null || \in_array("guest", $shareTypes, true)) {
+			// guest invitations always send expirationDateTime, like the web client does
 			$body['expirationDateTime'] = $expirationDateTime;
 		}
 		return $body;

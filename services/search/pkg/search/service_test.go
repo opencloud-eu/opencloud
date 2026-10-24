@@ -95,7 +95,7 @@ var _ = Describe("Searchprovider", func() {
 
 		gatewayClient.On("Authenticate", mock.Anything, mock.Anything).Return(&gateway.AuthenticateResponse{
 			Status: status.NewOK(ctx),
-			Token:  "authtoken",
+			Token:  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjQxMDI0NDQ4MDB9.c2lnbmF0dXJl",
 		}, nil)
 		gatewayClient.On("GetPath", mock.Anything, mock.MatchedBy(func(req *sprovider.GetPathRequest) bool {
 			return req.ResourceId.OpaqueId == ri.Id.OpaqueId
@@ -137,6 +137,71 @@ var _ = Describe("Searchprovider", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})
+
+	Describe("UpsertItem", func() {
+		DescribeTable("marks a resource hidden when a dot starts one of its names",
+			func(path string, hidden bool) {
+				info := &sprovider.ResourceInfo{
+					Id:       &sprovider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "hidden-opaqueid"},
+					ParentId: &sprovider.ResourceId{StorageId: "storageid", OpaqueId: "parentopaqueid"},
+					Path:     path,
+				}
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
+					Status: status.NewOK(context.Background()),
+					Info:   info,
+				}, nil)
+				gatewayClient.On("GetPath", mock.Anything, mock.MatchedBy(func(req *sprovider.GetPathRequest) bool {
+					return req.GetResourceId().GetOpaqueId() == info.GetId().GetOpaqueId()
+				})).Return(&sprovider.GetPathResponse{
+					Status: status.NewOK(context.Background()),
+					Path:   path,
+				}, nil)
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, nil)
+
+				var indexed search.Resource
+				indexClient.On("Upsert", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+					indexed = args.Get(1).(search.Resource)
+				}).Return(nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				Expect(indexed.Hidden).To(Equal(hidden))
+			},
+			Entry("./documents/notes.txt", "./documents/notes.txt", false),
+			Entry("./documents/.notes.txt", "./documents/.notes.txt", true),
+			Entry("documents/.notes.txt", "documents/.notes.txt", true),
+			Entry("./.git/config", "./.git/config", true),
+			Entry(".git/config", ".git/config", true),
+			Entry("/.git/config", "/.git/config", true),
+			Entry("./", "./", false),
+			Entry("/", "/", false),
+		)
+	})
+
+	DescribeTable("ExpandQueryTemplate",
+		func(spaceType, expected string) {
+			space := &sprovider.StorageSpace{
+				SpaceType: spaceType,
+				Root:      &sprovider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "spaceid"},
+			}
+			Expect(search.ExpandQueryTemplate(`({{.QUERY}}) AND NOT id:{{.SPACE_ROOT_PERSONAL}} AND NOT id:{{.SPACE_ROOT_PROJECT}}`, "foo", space)).To(Equal(expected))
+		},
+		Entry("a personal space fills the personal placeholder", "personal", `(foo) AND NOT id:"storageid$spaceid!spaceid" AND NOT id:"none$none!none"`),
+		Entry("a project space fills the project placeholder", "project", `(foo) AND NOT id:"none$none!none" AND NOT id:"storageid$spaceid!spaceid"`),
+		Entry("a share fills neither", "grant", `(foo) AND NOT id:"none$none!none" AND NOT id:"none$none!none"`),
+	)
+
+	DescribeTable("IsHidden",
+		func(path string, hidden bool) {
+			Expect(search.IsHidden(path)).To(Equal(hidden))
+		},
+		Entry("a plain path", "./documents/notes.txt", false),
+		Entry("a dot file", "./documents/.notes.txt", true),
+		Entry("a dot folder above it", "./.git/config", true),
+		Entry("the current folder", ".", false),
+		Entry("a leading traversal", "../documents/notes.txt", false),
+		Entry("a traversal in the middle", "./documents/../notes.txt", false),
+		Entry("a traversal out of a dot folder", "./.git/../notes.txt", false),
+	)
 
 	Describe("Search", func() {
 		It("fails when an empty query is given", func() {
@@ -189,6 +254,17 @@ var _ = Describe("Searchprovider", func() {
 				Expect(err).ToNot(HaveOccurred())
 				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
 					return req.Query == "Size:<10"
+				}))
+			})
+
+			It("adds the query filter with the personal space root filled in", func() {
+				s := search.NewService(gatewaySelector, indexClient, extractor, nil, logger, &config.Config{
+					QueryTemplate: `({{.QUERY}}) AND (NOT path:"./.space" AND NOT id:{{.SPACE_ROOT_PERSONAL}})`,
+				})
+				_, err := s.Search(ctx, &searchsvc.SearchRequest{Query: "foo"})
+				Expect(err).ToNot(HaveOccurred())
+				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
+					return req.Query == `(foo) AND (NOT path:"./.space" AND NOT id:"storageid$personalspace!personalspace")`
 				}))
 			})
 
@@ -446,6 +522,27 @@ var _ = Describe("Searchprovider", func() {
 					}, nil)
 				})
 
+				It("prunes the fan-out when the query pins a drive", func() {
+					res, err := s.Search(ctx, &searchsvc.SearchRequest{
+						Query: `driveId:"storageid$personalspace" AND foo`,
+					})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(res).ToNot(BeNil())
+					Expect(len(res.Matches)).To(Equal(1))
+					Expect(res.Matches[0].Entity.Id.OpaqueId).To(Equal("foo-id"))
+					indexClient.AssertNumberOfCalls(GinkgoT(), "Search", 1)
+				})
+
+				It("keeps the full fan-out for an OR query", func() {
+					res, err := s.Search(ctx, &searchsvc.SearchRequest{
+						Query: `driveId:"storageid$personalspace" OR foo`,
+					})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(res).ToNot(BeNil())
+					Expect(len(res.Matches)).To(Equal(3))
+					indexClient.AssertNumberOfCalls(GinkgoT(), "Search", 2)
+				})
+
 				It("considers the search Ref parameter", func() {
 					res, err := s.Search(ctx, &searchsvc.SearchRequest{
 						Query: "foo",
@@ -535,5 +632,10 @@ var _ = DescribeTable("Parse Scope",
 		`+Name:*file* +Tags:&quot;foo&quot;`,
 		`+Name:*file* +Tags:&quot;foo&quot;`,
 		``,
+	),
+	Entry("When scope is joined with AND, the operator goes with it",
+		`name:"*mediaTest*" AND mtime:last 30 days AND scope:1234$5678!90`,
+		`name:"*mediaTest*" AND mtime:last 30 days`,
+		`1234$5678!90`,
 	),
 )

@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // DanglingGetReq represents possible options for the dangling get request
@@ -19,9 +20,9 @@ type DanglingGetReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r DanglingGetReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"GET",
+func (r DanglingGetReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_dangling",
 		nil,
 		r.Params.get(),

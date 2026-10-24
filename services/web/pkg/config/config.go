@@ -25,7 +25,20 @@ type Config struct {
 	TokenManager *TokenManager `yaml:"token_manager"`
 
 	GatewayAddress string          `yaml:"gateway_addr" env:"WEB_GATEWAY_GRPC_ADDR" desc:"The bind address of the GRPC service." introductionVersion:"1.0.0"`
+	Store          Store           `yaml:"store"`
 	Context        context.Context `yaml:"-"`
+}
+
+// Store configures the NATS JetStream key-value store used to keep runtime managed web settings,
+// e.g. the announcement banner.
+type Store struct {
+	Nodes                []string `yaml:"nodes" env:"OC_PERSISTENT_STORE_NODES;WEB_STORE_NODES" desc:"A list of nodes to access the NATS JetStream store. See the Environment Variable Types description for more details." introductionVersion:"7.4.0"`
+	Database             string   `yaml:"database" env:"WEB_STORE_DATABASE" desc:"The bucket name the store should use." introductionVersion:"7.4.0"`
+	AuthUsername         string   `yaml:"username" env:"OC_PERSISTENT_STORE_AUTH_USERNAME;WEB_STORE_AUTH_USERNAME" desc:"The username to authenticate with the store." introductionVersion:"7.4.0"`
+	AuthPassword         string   `yaml:"password" env:"OC_PERSISTENT_STORE_AUTH_PASSWORD;WEB_STORE_AUTH_PASSWORD" desc:"The password to authenticate with the store." introductionVersion:"7.4.0"`
+	EnableTLS            bool     `yaml:"enable_tls" env:"OC_PERSISTENT_STORE_ENABLE_TLS;WEB_STORE_ENABLE_TLS" desc:"Enable TLS for the connection to the store." introductionVersion:"7.4.0"`
+	TLSInsecure          bool     `yaml:"tls_insecure" env:"OC_INSECURE;OC_PERSISTENT_STORE_TLS_INSECURE;WEB_STORE_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"7.4.0"`
+	TLSRootCACertificate string   `yaml:"tls_root_ca_certificate" env:"OC_PERSISTENT_STORE_TLS_ROOT_CA_CERTIFICATE;WEB_STORE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided WEB_STORE_TLS_INSECURE will be seen as false." introductionVersion:"7.4.0"`
 }
 
 // Asset defines the available asset configuration.
@@ -56,7 +69,7 @@ type WebConfig struct {
 	Server        string              `json:"server,omitempty" yaml:"server" env:"OC_URL;WEB_UI_CONFIG_SERVER" desc:"URL, where the OpenCloud APIs are reachable for OpenCloud Web." introductionVersion:"1.0.0"`
 	Theme         string              `json:"theme,omitempty" yaml:"-"`
 	OpenIDConnect OIDC                `json:"openIdConnect,omitempty" yaml:"oidc"`
-	Apps          []string            `json:"apps" yaml:"apps" env:"WEB_UI_CORE_APPS" desc:"Allows to override the default list of core apps in OpenCloud Web." introductionVersion:"%%NEXT%%"`
+	Apps          []string            `json:"apps" yaml:"apps" env:"WEB_UI_CORE_APPS" desc:"Allows to override the default list of core apps in OpenCloud Web." introductionVersion:"7.3.0"`
 	Applications  []Application       `json:"applications,omitempty" yaml:"applications"`
 	ExternalApps  []ExternalApp       `json:"external_apps,omitempty" yaml:"external_apps"`
 	Options       Options             `json:"options,omitempty" yaml:"options"`
@@ -94,8 +107,9 @@ type Application struct {
 //		  }
 //	 }
 type ExternalApp struct {
-	ID   string `json:"id,omitempty" yaml:"id"`
-	Path string `json:"path,omitempty" yaml:"path"`
+	ID      string `json:"id,omitempty" yaml:"id"`
+	Path    string `json:"path,omitempty" yaml:"path"`
+	Version string `json:"version,omitempty" yaml:"version"`
 	// Config is completely dynamic, because it depends on the extension
 	Config map[string]any `json:"config,omitempty" yaml:"config"`
 }

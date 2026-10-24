@@ -216,6 +216,11 @@ func (g Graph) DeleteEducationSchool(w http.ResponseWriter, r *http.Request) {
 		errorcode.RenderError(w, r, err)
 		return
 	}
+	if school == nil {
+		logger.Debug().Str("school-id", schoolID).Msg("failed to find school")
+		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "failed to find school")
+		return
+	}
 	termination, ok := school.GetTerminationDateOk()
 	if !ok {
 		logger.Debug().Msg("cannot delete school: not termination date set")
@@ -246,15 +251,14 @@ func (g Graph) DeleteEducationSchool(w http.ResponseWriter, r *http.Request) {
 			}
 			logger.Debug().Err(err).Msg("could not delete school member: backend error")
 			errorcode.RenderError(w, r, err)
-			// TODO Do we need return right hear?
+			return
 		}
 	}
 
 	logger.Debug().Str("id", schoolID).Msg("calling delete school on backend")
 	err = g.identityEducationBackend.DeleteEducationSchool(r.Context(), schoolID)
-
 	if err != nil {
-		logger.Debug().Err(err).Msg("could not delete school: backend error")
+		logger.Debug().Err(err).Str("school-id", schoolID).Msg("could not delete school: backend error")
 		errorcode.RenderError(w, r, err)
 		return
 	}
@@ -354,9 +358,8 @@ func (g Graph) PostEducationSchoolUser(w http.ResponseWriter, r *http.Request) {
 
 	logger.Debug().Str("memberType", memberType).Str("id", id).Msg("calling add user on backend")
 	err = g.identityEducationBackend.AddUsersToEducationSchool(r.Context(), schoolID, []string{id})
-
 	if err != nil {
-		logger.Debug().Err(err).Msg("could not add school user: backend error")
+		logger.Debug().Err(err).Str("school-id", schoolID).Msg("could not add school user: backend error")
 		errorcode.RenderError(w, r, err)
 		return
 	}
@@ -407,9 +410,8 @@ func (g Graph) DeleteEducationSchoolUser(w http.ResponseWriter, r *http.Request)
 	}
 	logger.Debug().Str("schoolID", schoolID).Str("userID", userID).Msg("calling delete member on backend")
 	err = g.identityEducationBackend.RemoveUserFromEducationSchool(r.Context(), schoolID, userID)
-
 	if err != nil {
-		logger.Debug().Err(err).Msg("could not delete school member: backend error")
+		logger.Debug().Err(err).Str("school-id", schoolID).Msg("could not delete school member: backend error")
 		errorcode.RenderError(w, r, err)
 		return
 	}

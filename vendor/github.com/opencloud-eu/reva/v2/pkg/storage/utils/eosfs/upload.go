@@ -98,3 +98,11 @@ func (fs *eosfs) InitiateUpload(ctx context.Context, ref *provider.Reference, up
 		"simple": p,
 	}, nil
 }
+
+func (fs *eosfs) MarkProcessing(ctx context.Context, ref *provider.Reference, processing bool, sessionID string) error {
+	return errtypes.NotSupported("op not supported")
+}
+
+func (fs *eosfs) CommitUpload(_ context.Context, _ *provider.Reference, _ string, _ storage.UploadSource) error {
+	return errtypes.NotSupported("op not supported")
+}

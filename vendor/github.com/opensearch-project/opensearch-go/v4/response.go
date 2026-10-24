@@ -34,6 +34,47 @@ type Response struct {
 	StatusCode int
 	Header     http.Header
 	Body       io.ReadCloser
+	rawBody    []byte
+}
+
+// RawBody returns the buffered response bytes for inspection or
+// comparison testing.
+//
+// The returned slice aliases memory owned by Response and may be backed
+// by pooled storage in future implementations. Callers must NOT mutate
+// the slice and must NOT retain it past the lifetime of the request
+// handling: copy with bytes.Clone if either is needed, or use
+// HijackBody to transfer ownership to the caller.
+//
+// Populated only for non-error responses where Client.Do successfully
+// decoded the body into a typed dataPointer. Returns nil when:
+//
+//   - The response was streamed without buffering (no dataPointer).
+//   - The response was an error (4xx/5xx); read Body directly for
+//     error-response bodies, or use ParseError to extract a typed error.
+func (r *Response) RawBody() []byte {
+	return r.rawBody
+}
+
+// HijackBody returns the buffered response bytes and transfers
+// ownership to the caller, clearing r.rawBody so the Response no
+// longer references the buffer. After Hijack the caller may mutate
+// or retain the slice indefinitely; subsequent RawBody calls return
+// nil. Use this when the buffer outlives the Response (logging,
+// background processing, test fixtures).
+func (r *Response) HijackBody() []byte {
+	body := r.rawBody
+	r.rawBody = nil
+	return body
+}
+
+// NewResponse creates a Response with the given status, body, and headers.
+func NewResponse(statusCode int, body io.ReadCloser, header http.Header) *Response {
+	return &Response{
+		StatusCode: statusCode,
+		Body:       body,
+		Header:     header,
+	}
 }
 
 // String returns the response as a string.

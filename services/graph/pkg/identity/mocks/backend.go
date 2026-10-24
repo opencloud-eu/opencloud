@@ -67,7 +67,7 @@ type Backend_AddMembersToGroup_Call struct {
 //   - ctx context.Context
 //   - groupID string
 //   - memberID []string
-func (_e *Backend_Expecter) AddMembersToGroup(ctx interface{}, groupID interface{}, memberID interface{}) *Backend_AddMembersToGroup_Call {
+func (_e *Backend_Expecter) AddMembersToGroup(ctx any, groupID any, memberID any) *Backend_AddMembersToGroup_Call {
 	return &Backend_AddMembersToGroup_Call{Call: _e.mock.On("AddMembersToGroup", ctx, groupID, memberID)}
 }
 
@@ -140,7 +140,7 @@ type Backend_CreateGroup_Call struct {
 // CreateGroup is a helper method to define mock.On call
 //   - ctx context.Context
 //   - group libregraph.Group
-func (_e *Backend_Expecter) CreateGroup(ctx interface{}, group interface{}) *Backend_CreateGroup_Call {
+func (_e *Backend_Expecter) CreateGroup(ctx any, group any) *Backend_CreateGroup_Call {
 	return &Backend_CreateGroup_Call{Call: _e.mock.On("CreateGroup", ctx, group)}
 }
 
@@ -208,7 +208,7 @@ type Backend_CreateUser_Call struct {
 // CreateUser is a helper method to define mock.On call
 //   - ctx context.Context
 //   - user libregraph.User
-func (_e *Backend_Expecter) CreateUser(ctx interface{}, user interface{}) *Backend_CreateUser_Call {
+func (_e *Backend_Expecter) CreateUser(ctx any, user any) *Backend_CreateUser_Call {
 	return &Backend_CreateUser_Call{Call: _e.mock.On("CreateUser", ctx, user)}
 }
 
@@ -265,7 +265,7 @@ type Backend_DeleteGroup_Call struct {
 // DeleteGroup is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id string
-func (_e *Backend_Expecter) DeleteGroup(ctx interface{}, id interface{}) *Backend_DeleteGroup_Call {
+func (_e *Backend_Expecter) DeleteGroup(ctx any, id any) *Backend_DeleteGroup_Call {
 	return &Backend_DeleteGroup_Call{Call: _e.mock.On("DeleteGroup", ctx, id)}
 }
 
@@ -322,7 +322,7 @@ type Backend_DeleteUser_Call struct {
 // DeleteUser is a helper method to define mock.On call
 //   - ctx context.Context
 //   - nameOrID string
-func (_e *Backend_Expecter) DeleteUser(ctx interface{}, nameOrID interface{}) *Backend_DeleteUser_Call {
+func (_e *Backend_Expecter) DeleteUser(ctx any, nameOrID any) *Backend_DeleteUser_Call {
 	return &Backend_DeleteUser_Call{Call: _e.mock.On("DeleteUser", ctx, nameOrID)}
 }
 
@@ -391,7 +391,7 @@ type Backend_FilterUsers_Call struct {
 //   - ctx context.Context
 //   - oreq *godata.GoDataRequest
 //   - filter *godata.ParseNode
-func (_e *Backend_Expecter) FilterUsers(ctx interface{}, oreq interface{}, filter interface{}) *Backend_FilterUsers_Call {
+func (_e *Backend_Expecter) FilterUsers(ctx any, oreq any, filter any) *Backend_FilterUsers_Call {
 	return &Backend_FilterUsers_Call{Call: _e.mock.On("FilterUsers", ctx, oreq, filter)}
 }
 
@@ -465,7 +465,7 @@ type Backend_GetGroup_Call struct {
 //   - ctx context.Context
 //   - nameOrID string
 //   - queryParam url.Values
-func (_e *Backend_Expecter) GetGroup(ctx interface{}, nameOrID interface{}, queryParam interface{}) *Backend_GetGroup_Call {
+func (_e *Backend_Expecter) GetGroup(ctx any, nameOrID any, queryParam any) *Backend_GetGroup_Call {
 	return &Backend_GetGroup_Call{Call: _e.mock.On("GetGroup", ctx, nameOrID, queryParam)}
 }
 
@@ -539,7 +539,7 @@ type Backend_GetGroupMembers_Call struct {
 //   - ctx context.Context
 //   - id string
 //   - oreq *godata.GoDataRequest
-func (_e *Backend_Expecter) GetGroupMembers(ctx interface{}, id interface{}, oreq interface{}) *Backend_GetGroupMembers_Call {
+func (_e *Backend_Expecter) GetGroupMembers(ctx any, id any, oreq any) *Backend_GetGroupMembers_Call {
 	return &Backend_GetGroupMembers_Call{Call: _e.mock.On("GetGroupMembers", ctx, id, oreq)}
 }
 
@@ -612,7 +612,7 @@ type Backend_GetGroups_Call struct {
 // GetGroups is a helper method to define mock.On call
 //   - ctx context.Context
 //   - oreq *godata.GoDataRequest
-func (_e *Backend_Expecter) GetGroups(ctx interface{}, oreq interface{}) *Backend_GetGroups_Call {
+func (_e *Backend_Expecter) GetGroups(ctx any, oreq any) *Backend_GetGroups_Call {
 	return &Backend_GetGroups_Call{Call: _e.mock.On("GetGroups", ctx, oreq)}
 }
 
@@ -681,7 +681,7 @@ type Backend_GetUser_Call struct {
 //   - ctx context.Context
 //   - nameOrID string
 //   - oreq *godata.GoDataRequest
-func (_e *Backend_Expecter) GetUser(ctx interface{}, nameOrID interface{}, oreq interface{}) *Backend_GetUser_Call {
+func (_e *Backend_Expecter) GetUser(ctx any, nameOrID any, oreq any) *Backend_GetUser_Call {
 	return &Backend_GetUser_Call{Call: _e.mock.On("GetUser", ctx, nameOrID, oreq)}
 }
 
@@ -754,7 +754,7 @@ type Backend_GetUsers_Call struct {
 // GetUsers is a helper method to define mock.On call
 //   - ctx context.Context
 //   - oreq *godata.GoDataRequest
-func (_e *Backend_Expecter) GetUsers(ctx interface{}, oreq interface{}) *Backend_GetUsers_Call {
+func (_e *Backend_Expecter) GetUsers(ctx any, oreq any) *Backend_GetUsers_Call {
 	return &Backend_GetUsers_Call{Call: _e.mock.On("GetUsers", ctx, oreq)}
 }
 
@@ -812,7 +812,7 @@ type Backend_RemoveMemberFromGroup_Call struct {
 //   - ctx context.Context
 //   - groupID string
 //   - memberID string
-func (_e *Backend_Expecter) RemoveMemberFromGroup(ctx interface{}, groupID interface{}, memberID interface{}) *Backend_RemoveMemberFromGroup_Call {
+func (_e *Backend_Expecter) RemoveMemberFromGroup(ctx any, groupID any, memberID any) *Backend_RemoveMemberFromGroup_Call {
 	return &Backend_RemoveMemberFromGroup_Call{Call: _e.mock.On("RemoveMemberFromGroup", ctx, groupID, memberID)}
 }
 
@@ -875,7 +875,7 @@ type Backend_UpdateGroupName_Call struct {
 //   - ctx context.Context
 //   - groupID string
 //   - groupName string
-func (_e *Backend_Expecter) UpdateGroupName(ctx interface{}, groupID interface{}, groupName interface{}) *Backend_UpdateGroupName_Call {
+func (_e *Backend_Expecter) UpdateGroupName(ctx any, groupID any, groupName any) *Backend_UpdateGroupName_Call {
 	return &Backend_UpdateGroupName_Call{Call: _e.mock.On("UpdateGroupName", ctx, groupID, groupName)}
 }
 
@@ -938,7 +938,7 @@ type Backend_UpdateLastSignInDate_Call struct {
 //   - ctx context.Context
 //   - userID string
 //   - timestamp time.Time
-func (_e *Backend_Expecter) UpdateLastSignInDate(ctx interface{}, userID interface{}, timestamp interface{}) *Backend_UpdateLastSignInDate_Call {
+func (_e *Backend_Expecter) UpdateLastSignInDate(ctx any, userID any, timestamp any) *Backend_UpdateLastSignInDate_Call {
 	return &Backend_UpdateLastSignInDate_Call{Call: _e.mock.On("UpdateLastSignInDate", ctx, userID, timestamp)}
 }
 
@@ -1012,7 +1012,7 @@ type Backend_UpdateUser_Call struct {
 //   - ctx context.Context
 //   - nameOrID string
 //   - user libregraph.UserUpdate
-func (_e *Backend_Expecter) UpdateUser(ctx interface{}, nameOrID interface{}, user interface{}) *Backend_UpdateUser_Call {
+func (_e *Backend_Expecter) UpdateUser(ctx any, nameOrID any, user any) *Backend_UpdateUser_Call {
 	return &Backend_UpdateUser_Call{Call: _e.mock.On("UpdateUser", ctx, nameOrID, user)}
 }
 

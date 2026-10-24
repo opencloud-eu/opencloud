@@ -1,0 +1,169 @@
+// Copyright 2026 OpenCloud GmbH <mail@opencloud.eu>
+// SPDX-License-Identifier: Apache-2.0
+
+package config
+
+import (
+	"context"
+	"crypto/hkdf"
+	"crypto/sha256"
+	"encoding/hex"
+	"time"
+
+	"github.com/opencloud-eu/opencloud/pkg/shared"
+)
+
+// Config combines all available configuration parts.
+type Config struct {
+	Commons *shared.Commons `yaml:"-"` // don't use this directly as configuration for a service
+
+	Service Service `yaml:"-"`
+
+	LogLevel string `yaml:"loglevel" env:"OC_LOG_LEVEL;AUTH_GUEST_LOG_LEVEL" desc:"The log level. Valid values are: 'panic', 'fatal', 'error', 'warn', 'info', 'debug', 'trace'." introductionVersion:"%%NEXT%%"`
+
+	Debug Debug `yaml:"debug"`
+
+	Events Events `yaml:"events"`
+
+	RevaGateway   string                `yaml:"reva_gateway" env:"OC_REVA_GATEWAY" desc:"CS3 gateway used to look up user metadata" introductionVersion:"%%NEXT%%"`
+	GRPCClientTLS *shared.GRPCClientTLS `yaml:"grpc_client_tls"`
+
+	GRPC                GRPCConfig          `yaml:"grpc"`
+	HTTP                HTTP                `yaml:"http"`
+	Storage             Storage             `yaml:"storage"`
+	TokenManager        *TokenManager       `yaml:"token_manager"`
+	JWT                 JWT                 `yaml:"jwt"`
+	Nonce               Nonce               `yaml:"nonce"`
+	PinAndNonceTTL      time.Duration       `yaml:"pin_and_nonce_ttl" env:"AUTH_GUEST_PIN_AND_NONCE_TTL" desc:"The lifetime of the one-time PIN and of the nonce that binds it to the browser. After it expires the PIN has to be renewed again. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	BackoffLimiter      BackoffLimiter      `yaml:"backoff_limiter"`
+	QuotaLimiter        QuotaLimiter        `yaml:"quota_limiter"`
+	SessionQuotaLimiter SessionQuotaLimiter `yaml:"session_quota_limiter"`
+
+	ServiceAccount ServiceAccount `yaml:"service_account"`
+
+	NumConsumers int `yaml:"num_consumers" env:"AUTH_GUEST_NUM_CONSUMERS" desc:"The amount of concurrent event consumers to start. Event consumers are used for processing events. Multiple consumers increase parallelisation, but will also increase CPU and memory demands." introductionVersion:"%%NEXT%%"`
+
+	Context context.Context `yaml:"-"`
+}
+
+// Events combines the configuration options for the event bus.
+type Events struct {
+	Disabled             bool   `yaml:"disabled" env:"AUTH_GUEST_EVENTS_DISABLED" desc:"Disables listening for events. Set this to true if the service should only handle HTTP requests." introductionVersion:"%%NEXT%%"`
+	Endpoint             string `yaml:"endpoint" env:"OC_EVENTS_ENDPOINT" desc:"The address of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture." introductionVersion:"%%NEXT%%"`
+	Cluster              string `yaml:"cluster" env:"OC_EVENTS_CLUSTER" desc:"The clusterID of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture. Mandatory when using NATS as event system." introductionVersion:"%%NEXT%%"`
+	TLSInsecure          bool   `yaml:"tls_insecure" env:"OC_INSECURE;OC_EVENTS_TLS_INSECURE" desc:"Whether to verify the server TLS certificates." introductionVersion:"%%NEXT%%"`
+	TLSRootCACertificate string `yaml:"tls_root_ca_certificate" env:"OC_EVENTS_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided AUTH_GUEST_EVENTS_TLS_INSECURE will be seen as false." introductionVersion:"%%NEXT%%"`
+	EnableTLS            bool   `yaml:"enable_tls" env:"OC_EVENTS_ENABLE_TLS" desc:"Enable TLS for the connection to the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"%%NEXT%%"`
+	AuthUsername         string `yaml:"username" env:"OC_EVENTS_AUTH_USERNAME" desc:"The username to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"%%NEXT%%"`
+	AuthPassword         string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"%%NEXT%%"`
+}
+
+// ServiceAccount is the configuration for the used service account
+type ServiceAccount struct {
+	ServiceAccountID     string `yaml:"service_account_id" env:"OC_SERVICE_ACCOUNT_ID;AUTH_GUEST_SERVICE_ACCOUNT_ID" desc:"The ID of the service account the service should use. See the 'auth-service' service description for more details." introductionVersion:"%%NEXT%%"`
+	ServiceAccountSecret string `yaml:"service_account_secret" env:"OC_SERVICE_ACCOUNT_SECRET;AUTH_GUEST_SERVICE_ACCOUNT_SECRET" desc:"The service account secret." introductionVersion:"%%NEXT%%"`
+}
+
+// CORS defines the available cors configuration.
+type CORS struct {
+	AllowedOrigins   []string `yaml:"allow_origins" env:"OC_CORS_ALLOW_ORIGINS;AUTH_GUEST_CORS_ALLOW_ORIGINS" desc:"A list of allowed CORS origins. See following chapter for more details: *Access-Control-Allow-Origin* at https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	AllowedMethods   []string `yaml:"allow_methods" env:"OC_CORS_ALLOW_METHODS;AUTH_GUEST_CORS_ALLOW_METHODS" desc:"A list of allowed CORS methods. See following chapter for more details: *Access-Control-Request-Method* at https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Request-Method. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	AllowedHeaders   []string `yaml:"allow_headers" env:"OC_CORS_ALLOW_HEADERS;AUTH_GUEST_CORS_ALLOW_HEADERS" desc:"A list of allowed CORS headers. See following chapter for more details: *Access-Control-Request-Headers* at https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Request-Headers. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	AllowCredentials bool     `yaml:"allow_credentials" env:"OC_CORS_ALLOW_CREDENTIALS;AUTH_GUEST_CORS_ALLOW_CREDENTIALS" desc:"Allow credentials for CORS.See following chapter for more details: *Access-Control-Allow-Credentials* at https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Credentials." introductionVersion:"%%NEXT%%"`
+}
+
+// HTTP defines the available http configuration.
+type HTTP struct {
+	Disabled  bool                  `yaml:"disabled" env:"AUTH_GUEST_HTTP_DISABLED" desc:"Disables the HTTP service. Set this to true if the service should only handle events." introductionVersion:"%%NEXT%%"`
+	Addr      string                `yaml:"addr" env:"AUTH_GUEST_HTTP_ADDR" desc:"The bind address of the HTTP service." introductionVersion:"%%NEXT%%"`
+	Namespace string                `yaml:"-"`
+	Root      string                `yaml:"root" env:"AUTH_GUEST_HTTP_ROOT" desc:"Subdirectory that serves as the root for this HTTP service." introductionVersion:"%%NEXT%%"`
+	CORS      CORS                  `yaml:"cors"`
+	TLS       shared.HTTPServiceTLS `yaml:"tls"`
+}
+
+// GRPCConfig defines the GRPC configuration
+type GRPCConfig struct {
+	Addr      string                 `yaml:"addr" env:"AUTH_GUEST_GRPC_ADDR" desc:"The bind address of the GRPC service." introductionVersion:"%%NEXT%%"`
+	TLS       *shared.GRPCServiceTLS `yaml:"tls"`
+	Namespace string                 `yaml:"-"`
+	Protocol  string                 `yaml:"protocol" env:"OC_GRPC_PROTOCOL;AUTH_GUEST_GRPC_PROTOCOL" desc:"The transport protocol of the GRPC service." introductionVersion:"%%NEXT%%"`
+}
+
+// Storage defines the configuration for the token storage.
+type Storage struct {
+	RootDirectory string `yaml:"root_directory" env:"AUTH_GUEST_TOKENS_STORAGE_ROOT" desc:"The directory where the guest share tokens are stored. If not defined, the root directory derives from $OC_BASE_DATA_PATH/auth-guest." introductionVersion:"%%NEXT%%"`
+}
+
+// TokenManager is the config for using the reva token manager
+type TokenManager struct {
+	JWTSecret string `yaml:"jwt_secret" env:"OC_JWT_SECRET;AUTH_GUEST_JWT_SECRET" desc:"The secret to mint and validate jwt tokens." introductionVersion:"%%NEXT%%"`
+}
+
+// JWT defines the configuration for guest session tokens.
+type JWT struct {
+	CookieName string        `yaml:"cookie_name" env:"AUTH_GUEST_JWT_COOKIE_NAME" desc:"The name of the session cookie set when a guest token is redeemed." introductionVersion:"%%NEXT%%"`
+	TTL        time.Duration `yaml:"ttl" env:"AUTH_GUEST_JWT_TTL" desc:"The lifetime of a redeemed guest session token." introductionVersion:"%%NEXT%%"`
+}
+
+// Nonce defines the configuration of the browser-bound nonce that is
+// created on renewal and required to verify a PIN. Its lifetime is shared
+// with the PIN and configured via PinAndNonceTTL.
+type Nonce struct {
+	CookieBaseName string `yaml:"cookie_base_name" env:"AUTH_GUEST_NONCE_COOKIE_BASE_NAME" desc:"The base name of the cookie that binds a nonce to the browser that requested the renewal. A short hash of the share id is appended per share, so the actual cookie is e.g. __Host-oc_guest_nonce_<hash>." introductionVersion:"%%NEXT%%"`
+}
+
+// BackoffLimiter defines the configuration of a limiter that counts events,
+// blocks after a maximum number of them and increases the wait between events
+// exponentially.
+type BackoffLimiter struct {
+	MaxAttempts int           `yaml:"max_attempts" env:"AUTH_GUEST_BACKOFF_MAX_ATTEMPTS" desc:"The maximum number of failed attempts before the PIN is invalidated." introductionVersion:"%%NEXT%%"`
+	BackoffBase time.Duration `yaml:"backoff_base" env:"AUTH_GUEST_BACKOFF_BASE" desc:"The base duration for the exponential backoff between failed attempts. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	BackoffCap  time.Duration `yaml:"backoff_cap" env:"AUTH_GUEST_BACKOFF_CAP" desc:"The maximum duration for the exponential backoff between failed attempts. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+}
+
+// QuotaLimiter defines the configuration of a limiter that allows a maximum
+// number of events per window with a minimum cooldown between them. It limits
+// renewals without a valid session.
+type QuotaLimiter struct {
+	DailyCap int           `yaml:"daily_cap" env:"AUTH_GUEST_QUOTA_DAILY_CAP" desc:"The maximum number of renewals without a valid session for the same share within the window." introductionVersion:"%%NEXT%%"`
+	Cooldown time.Duration `yaml:"cooldown" env:"AUTH_GUEST_QUOTA_COOLDOWN" desc:"The minimum time between two renewals without a valid session for the same share. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	Window   time.Duration `yaml:"window" env:"AUTH_GUEST_QUOTA_WINDOW" desc:"The window over which the quota for renewals without a valid session is counted. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+}
+
+// SessionQuotaLimiter defines the quota for renewals authorized by a valid
+// session, which issue a new PIN. It is counted separately from QuotaLimiter,
+// so renewals without a session cannot use it up.
+type SessionQuotaLimiter struct {
+	DailyCap int           `yaml:"daily_cap" env:"AUTH_GUEST_SESSION_QUOTA_DAILY_CAP" desc:"The maximum number of renewals authorized by a valid session for the same share within the window. Each of these renewals issues a new PIN." introductionVersion:"%%NEXT%%"`
+	Cooldown time.Duration `yaml:"cooldown" env:"AUTH_GUEST_SESSION_QUOTA_COOLDOWN" desc:"The minimum time between two renewals authorized by a valid session for the same share. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	Window   time.Duration `yaml:"window" env:"AUTH_GUEST_SESSION_QUOTA_WINDOW" desc:"The window over which the quota for renewals authorized by a valid session is counted. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+}
+
+const (
+	// sessionSecretInfo binds the derived guest session key to its purpose. Changing it
+	// invalidates all existing guest sessions.
+	sessionSecretInfo = "opencloud auth-guest session jwt v1"
+	// sessionSecretLength is the length of the derived key in bytes.
+	sessionSecretLength = 32
+)
+
+// SessionSecret returns the key used to sign and validate guest session tokens.
+// The guest session token and the reva access token are both HS256 JWTs, so they must
+// not share a key, otherwise they would be interchangeable. The key is derived from the
+// reva JWT secret with HKDF-SHA256 to keep them apart without requiring an additional
+// secret.
+//
+// An empty reva secret yields an empty session key rather than a key anyone could
+// compute from the info string alone. The guestlinks auth manager refuses an empty key.
+func (c *Config) SessionSecret() string {
+	if c.TokenManager == nil || c.TokenManager.JWTSecret == "" {
+		return ""
+	}
+	key, err := hkdf.Key(sha256.New, []byte(c.TokenManager.JWTSecret), nil, sessionSecretInfo, sessionSecretLength)
+	if err != nil {
+		// Only possible for an invalid key length, which is a constant here.
+		return ""
+	}
+	return hex.EncodeToString(key)
+}

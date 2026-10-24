@@ -10,7 +10,9 @@ The below matrix shows the compatibility of the [`opensearch-go`](https://pkg.go
 | 1.x.0          | 1.x                |
 | 2.x.0          | 1.3.13-2.11.0      |
 | 3.x.0          | 1.3.13-2.12.0      |
-| 4.x.0          | 1.3.20-3.0.0       |
+| 4.x.0          | 1.3.20-3.6.x       |
+
+The 4.x client is tested through OpenSearch 3.6.x. Versions beyond that are supported on a best-effort basis.
 
 ## Upgrading
 

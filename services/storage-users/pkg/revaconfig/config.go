@@ -36,7 +36,7 @@ func StorageUsersConfigFromStruct(cfg *config.Config) map[string]any {
 					"driver":             cfg.Driver,
 					"drivers":            StorageProviderDrivers(cfg),
 					"mount_id":           cfg.MountID,
-					"expose_data_server": cfg.ExposeDataServer,
+					"expose_data_server": true,
 					"data_server_url":    cfg.DataServerURL,
 					"upload_expiration":  cfg.UploadExpiration,
 					"events": map[string]any{

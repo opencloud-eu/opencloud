@@ -355,7 +355,7 @@ Feature: check file info with different wopi apps
             "const": "Alice Hansen"
           },
           "ReadOnly": {
-            "const": false
+            "const": <read-only>
           },
           "UserCanNotWriteRelative": {
             "const": false
@@ -394,10 +394,10 @@ Feature: check file info with different wopi apps
       }
       """
     Examples:
-      | mode  | disable-print | user-can-write | user-can-rename |
-      | view  | true          | false          | false           |
-      | read  | false         | false          | false           |
-      | write | false         | true           | true            |
+      | mode  | disable-print | user-can-write | user-can-rename | read-only |
+      | view  | true          | false          | false           | true      |
+      | read  | false         | false          | false           | true      |
+      | write | false         | true           | true            | false     |
 
 
   Scenario Outline: check file info with different mode (fakeOffice)
@@ -492,7 +492,7 @@ Feature: check file info with different wopi apps
             "const": "Alice Hansen"
           },
           "ReadOnly": {
-            "const": false
+            "const": <read-only>
           },
           "RestrictedWebViewOnly": {
             "const": false
@@ -531,10 +531,10 @@ Feature: check file info with different wopi apps
       }
       """
     Examples:
-      | mode  | disable-print | user-can-write | user-can-rename |
-      | view  | true          | false          | false           |
-      | read  | false         | false          | false           |
-      | write | false         | true           | true            |
+      | mode  | disable-print | user-can-write | user-can-rename | read-only |
+      | view  | true          | false          | false           | true      |
+      | read  | false         | false          | false           | true      |
+      | write | false         | true           | true            | false     |
 
 
   Scenario Outline: check file info with different view-mode (collabora)
@@ -1587,7 +1587,7 @@ Feature: check file info with different wopi apps
             "const": "Alice Hansen"
           },
           "ReadOnly": {
-            "const": false
+            "const": <read-only>
           },
           "UserCanNotWriteRelative": {
             "const": false
@@ -1617,10 +1617,10 @@ Feature: check file info with different wopi apps
       }
       """
     Examples:
-      | mode  | disable-print | user-can-write | user-can-rename |
-      | view  | true          | false          | false           |
-      | read  | false         | false          | false           |
-      | write | false         | true           | true            |
+      | mode  | disable-print | user-can-write | user-can-rename | read-only |
+      | view  | true          | false          | false           | true      |
+      | read  | false         | false          | false           | true      |
+      | write | false         | true           | true            | false     |
 
 
   Scenario Outline: check the information of a project space file with different modes (fakeOffice)
@@ -1718,7 +1718,7 @@ Feature: check file info with different wopi apps
             "const": "Alice Hansen"
           },
           "ReadOnly": {
-            "const": false
+            "const": <read-only>
           },
           "RestrictedWebViewOnly": {
             "const": false
@@ -1757,10 +1757,10 @@ Feature: check file info with different wopi apps
       }
       """
     Examples:
-      | mode  | disable-print | user-can-write | user-can-rename |
-      | view  | true          | false          | false           |
-      | read  | false         | false          | false           |
-      | write | false         | true           | true            |
+      | mode  | disable-print | user-can-write | user-can-rename | read-only |
+      | view  | true          | false          | false           | true      |
+      | read  | false         | false          | false           | true      |
+      | write | false         | true           | true            | false     |
 
 
   Scenario Outline: check the information of a project space file with different modes (collabora)

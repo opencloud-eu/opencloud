@@ -75,7 +75,7 @@ func NewSearchParams(idx Index, params json.RawMessage, selector Selector,
 		rv := &SearchParams{}
 		// Create standard SearchParameters for non-IVF index
 		if c := C.faiss_SearchParameters_new(&rv.sp, sel); c != 0 {
-			return nil, fmt.Errorf("failed to create faiss search params")
+			return nil, ErrCreateParamsFailed
 		}
 		return rv, nil
 	}
@@ -133,7 +133,7 @@ func buildIVFSearchParams(maxCodes, nprobe int, sel *C.FaissIDSelector) (*Search
 		C.size_t(nprobe),
 		C.size_t(maxCodes),
 	); c != 0 {
-		return nil, fmt.Errorf("failed to create faiss IVF search params")
+		return nil, ErrCreateParamsFailed
 	}
 
 	return sp, nil
@@ -147,7 +147,7 @@ func buildRaBitQSearchParams(maxCodes, nprobe int, sel *C.FaissIDSelector) (*Sea
 		C.size_t(nprobe),
 		C.size_t(maxCodes),
 	); c != 0 {
-		return nil, fmt.Errorf("failed to create faiss IVF RaBitQ search params")
+		return nil, ErrCreateParamsFailed
 	}
 
 	return sp, nil
@@ -163,7 +163,7 @@ func NewStandardSearchParams(selector Selector) (*SearchParams, error) {
 	}
 	rv := &SearchParams{}
 	if c := C.faiss_SearchParameters_new(&rv.sp, sel); c != 0 {
-		return nil, fmt.Errorf("failed to create faiss search params")
+		return nil, ErrCreateParamsFailed
 	}
 	return rv, nil
 }
@@ -185,7 +185,7 @@ func NewBinarySearchParams(idx BinaryIndex, params json.RawMessage, selector Sel
 		rv := &SearchParams{}
 		// Create standard SearchParameters for non-IVF index
 		if c := C.faiss_SearchParameters_new(&rv.sp, sel); c != 0 {
-			return nil, fmt.Errorf("failed to create faiss search params")
+			return nil, ErrCreateParamsFailed
 		}
 		return rv, nil
 	}

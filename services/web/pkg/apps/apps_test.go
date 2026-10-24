@@ -17,6 +17,7 @@ func TestApplication_ToExternal(t *testing.T) {
 	app := apps.Application{
 		ID:         "app",
 		Entrypoint: "entrypoint.js",
+		Version:    "1.0.0",
 		Config: map[string]any{
 			"foo": "bar",
 		},
@@ -26,6 +27,7 @@ func TestApplication_ToExternal(t *testing.T) {
 
 	g.Expect(externalApp.ID).To(gomega.Equal("app"))
 	g.Expect(externalApp.Path).To(gomega.Equal("path/entrypoint.js"))
+	g.Expect(externalApp.Version).To(gomega.Equal("1.0.0"))
 	g.Expect(externalApp.Config).To(gomega.Equal(app.Config))
 }
 
@@ -105,7 +107,7 @@ func TestBuild(t *testing.T) {
 			"app":               dir,
 			"app/entrypoint.js": &fstest.MapFile{},
 			"app/manifest.json": &fstest.MapFile{
-				Data: []byte(`{"id":"app", "entrypoint":"entrypoint.js", "config": {"k1": "1", "k2": "2", "k3": "3"}}`),
+				Data: []byte(`{"id":"app", "entrypoint":"entrypoint.js", "version": "2.1.0", "config": {"k1": "1", "k2": "2", "k3": "3"}}`),
 			},
 			"app/config.json": &fstest.MapFile{
 				Data: []byte(`{"config": {"k2": "overwritten-from-config.json", "injected_from_config_json": "11"}}`),
@@ -114,6 +116,7 @@ func TestBuild(t *testing.T) {
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 
 		g.Expect(application.Entrypoint).To(gomega.Equal("app/entrypoint.js"))
+		g.Expect(application.Version).To(gomega.Equal("2.1.0"))
 		g.Expect(application.Config).To(gomega.Equal(map[string]any{
 			"k1": "1", "k2": "overwritten-from-config.json", "k3": "overwritten-from-apps.yaml", "injected_from_config_json": "11", "injected_from_apps_yaml": "22",
 		}))

@@ -86,7 +86,17 @@ func (pp *Postprocessing) Delay(f func(next any)) {
 
 // BackoffDuration calculates the duration for exponential backoff based on the number of failures.
 func (pp *Postprocessing) BackoffDuration() time.Duration {
-	return pp.config.RetryBackoffDuration * time.Duration(math.Pow(2, float64(pp.Failures-1)))
+	return BackoffDuration(pp.config.RetryBackoffDuration, pp.Failures)
+}
+
+// BackoffDuration calculates an exponential backoff duration from a base duration and the
+// number of failures that happened so far. The first failure waits the base duration, every
+// subsequent one waits twice as long as the previous one.
+func BackoffDuration(base time.Duration, failures int) time.Duration {
+	if failures < 1 {
+		return 0
+	}
+	return base * time.Duration(math.Pow(2, float64(failures-1)))
 }
 
 func (pp *Postprocessing) next(current events.Postprocessingstep) any {

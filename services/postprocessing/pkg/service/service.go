@@ -203,8 +203,15 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 			ImpersonatingUser: ev.ImpersonatingUser,
 			StartTime:         time.Now(),
 		}
+		pps.log.Info().Str("UploadID", ev.UploadID).Msg("processing init")
 		next = pp.Init(ev)
 	case events.PostprocessingStepFinished:
+		sublog := pps.log.Debug()
+		if ev.Outcome == events.PPOutcomeRetry {
+			sublog = pps.log.Error()
+		}
+		sublog.Str("UploadID", ev.UploadID).Str("step", string(ev.FinishedStep)).Str("outcome", string(ev.Outcome)).Msg("processing step finished")
+
 		if ev.UploadID == "" {
 			// no current upload - this was an on demand scan
 			return nil
@@ -216,10 +223,10 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 		}
 		next = pp.NextStep(ev)
 
-		switch pp.Status.Outcome {
-		case events.PPOutcomeRetry:
+		if pp.Status.Outcome == events.PPOutcomeRetry {
 			// schedule retry
 			backoff := pp.BackoffDuration()
+			pps.log.Info().Str("UploadID", ev.UploadID).Str("step", string(ev.FinishedStep)).Err(ev.Error).Msg("retrying step in " + backoff.String())
 			go func() {
 				time.Sleep(backoff)
 				retryEvent := events.StartPostprocessingStep{
@@ -238,7 +245,13 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 				}
 			}()
 		}
+
+		if pp.Status.CurrentStep == events.PPStepFinished {
+			pps.log.Info().Str("UploadID", e.ID).Msg("processing finished")
+		}
+
 	case events.StartPostprocessingStep:
+		pps.log.Debug().Str("UploadID", ev.UploadID).Str("step", string(ev.StepToStart)).Msg("processing step started")
 		if ev.StepToStart != events.PPStepDelay {
 			return nil
 		}
@@ -253,6 +266,7 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 			}
 		})
 	case events.UploadReady:
+		pps.log.Debug().Str("UploadID", e.ID).Str("filename", ev.Filename).Msg("processing UploadReady")
 		// the upload failed - let's keep it around for a while - but mark it as finished
 		pp, err = pps.getPP(pps.store, ev.UploadID)
 		if err != nil {
@@ -279,6 +293,7 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 			return fmt.Errorf("%w: cannot delete upload", ErrEvent)
 		}
 	case events.ResumePostprocessing:
+		pps.log.Info().Str("UploadID", ev.UploadID).Str("step", string(ev.Step)).Msg("processing resumed")
 		return pps.handleResumePPEvent(ctx, ev)
 	}
 
@@ -293,34 +308,91 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 	}
 
 	if next != nil {
-		if err := events.Publish(ctx, pps.pub, next); err != nil {
+		if err := pps.publishWithRetry(ctx, &e, next); err != nil {
+			// The successor event never made it onto the bus. Don't ack the source event so
+			// jetstream redelivers it and the upload can continue instead of being stuck in
+			// the store forever.
+			ackEvent = false
 			pps.log.Error().Err(err).Msg("unable to publish event")
+
+			if pps.stopped.Load() || ctx.Err() != nil {
+				// we are shutting down anyway, no need to take the whole process down with us
+				return fmt.Errorf("%w: unable to publish event", ErrEvent)
+			}
 			return fmt.Errorf("%w: unable to publish event", ErrFatal) // we can't publish -> we are screwed
 		}
 	}
 	return nil
 }
 
+// publishWithRetry publishes an event, retrying transient failures of the event system with
+// the same exponential backoff that is used for failed postprocessing steps. Between the
+// attempts the source event is marked as in progress and the wait is capped to half the ack
+// wait, so jetstream should not hand the source event to a second worker while we are still
+// retrying. Note that marking the event as in progress is best effort: it is a fire and forget
+// publish, so it can be lost exactly when the event system is unhealthy. A redelivery during a
+// retry is therefore possible, it is just unlikely. If all attempts fail, the last error is
+// returned.
+func (pps *PostprocessingService) publishWithRetry(ctx context.Context, e *raw.Event, ev any) error {
+	for attempt := 0; ; attempt++ {
+		err := events.Publish(ctx, pps.pub, ev)
+		if err == nil {
+			return nil
+		}
+
+		if attempt >= pps.c.PublishMaxRetries {
+			return err
+		}
+
+		backoff := postprocessing.BackoffDuration(pps.c.RetryBackoffDuration, attempt+1)
+		// Never wait longer than half the ack wait. We only refresh the redelivery timer
+		// between the attempts, so a longer wait would let jetstream hand the source event
+		// to a second worker while we are still retrying here.
+		if maxBackoff := pps.c.Events.AckWait / 2; maxBackoff > 0 && backoff > maxBackoff {
+			backoff = maxBackoff
+		}
+		pps.log.Warn().Err(err).Int("attempt", attempt+1).Dur("backoff", backoff).Msg("unable to publish event, retrying")
+
+		// tell jetstream that we are still working on the source event
+		if ipErr := e.InProgress(); ipErr != nil {
+			pps.log.Debug().Err(ipErr).Msg("unable to mark event as in progress")
+		}
+
+		select {
+		case <-ctx.Done():
+			return err
+		case <-pps.stopCh:
+			return err
+		case <-time.After(backoff):
+		}
+	}
+}
+
 func (pps *PostprocessingService) getPP(sto store.Store, uploadID string) (*postprocessing.Postprocessing, error) {
 	recs, err := sto.Read(uploadID)
 	if err != nil {
 		if err == store.ErrNotFound {
+			pps.log.Error().Str("uploadID", uploadID).Err(err).Msg("reading from store: upload not found in the store")
 			return nil, ErrNotFound
 		}
+		pps.log.Error().Str("uploadID", uploadID).Err(err).Msg("reading from store: upload store read error")
 		return nil, err
 	}
 
 	if len(recs) == 0 {
+		pps.log.Error().Str("uploadID", uploadID).Err(err).Msg("reading from store: empty upload records in the store")
 		return nil, ErrNotFound
 	}
 
 	if len(recs) > 1 {
+		pps.log.Error().Str("uploadID", uploadID).Int("records", len(recs)).Err(err).Msg("reading from store: expected only one result")
 		return nil, fmt.Errorf("expected only one result for '%s', got %d", uploadID, len(recs))
 	}
 
 	pp := postprocessing.New(pps.c)
 	err = json.Unmarshal(recs[0].Value, pp)
 	if err != nil {
+		pps.log.Error().Str("uploadID", uploadID).Err(err).Msg("reading from store: unmarshaling error")
 		return nil, err
 	}
 

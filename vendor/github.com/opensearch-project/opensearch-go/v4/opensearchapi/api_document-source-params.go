@@ -38,7 +38,7 @@ type DocumentSourceParams struct {
 	Refresh    *bool
 	Routing    string
 	// Deprecated: This parameter is similar to SourceIncludes, please use that instead.
-	Source         interface{}
+	Source         any
 	SourceExcludes []string
 	SourceIncludes []string
 	Version        *int

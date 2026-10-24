@@ -7,10 +7,10 @@
 package opensearchapi
 
 import (
-	"fmt"
 	"net/http"
 
-	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // TemplateExistsReq represents possible options for the index create request
@@ -22,12 +22,11 @@ type TemplateExistsReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r TemplateExistsReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"HEAD",
-		fmt.Sprintf("/_template/%s", r.Template),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+func (r TemplateExistsReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.IndicesExistsTemplatePath{Name: []string{r.Template}}.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }

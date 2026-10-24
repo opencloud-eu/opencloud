@@ -6,7 +6,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
-var NS_IDENTITY = ns(JmapMail)
+var NS_IDENTITY = ns(JmapMail, JmapSubmission)
 
 func (j *Client) GetIdentities(accountId AccountId, identityIds []string, ctx Context) (Result[IdentityGetResponse], error) {
 	return get(j, "GetIdentities", IdentityType,

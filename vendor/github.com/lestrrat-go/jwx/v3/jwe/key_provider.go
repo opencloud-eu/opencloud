@@ -108,6 +108,11 @@ type keySetProvider struct {
 }
 
 func (kp *keySetProvider) selectKey(sink KeySink, key jwk.Key, r Recipient, msg *Message) error {
+	if uk, ok := key.(jwk.UnsupportedKey); ok {
+		kid, _ := uk.KeyID()
+		return fmt.Errorf(`key %q has unsupported key type %q and cannot be used for decryption; an extension module may be required to parse it: %w`, kid, uk.KeyType().String(), uk.Reason())
+	}
+
 	if usage, ok := key.KeyUsage(); ok {
 		if usage != "" && usage != jwk.ForEncryption.String() {
 			kid, _ := key.KeyID()

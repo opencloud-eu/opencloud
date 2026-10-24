@@ -8,9 +8,10 @@ package opensearchapi
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // DataStreamStatsReq represents possible options for the _data_stream stats request
@@ -22,25 +23,12 @@ type DataStreamStatsReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r DataStreamStatsReq) GetRequest() (*http.Request, error) {
-	dataStreams := strings.Join(r.DataStreams, ",")
-
-	var path strings.Builder
-	path.Grow(len("/_data_stream//_stats") + len(dataStreams))
-	path.WriteString("/_data_stream/")
-	if len(r.DataStreams) > 0 {
-		path.WriteString(dataStreams)
-		path.WriteString("/")
+func (r DataStreamStatsReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.IndicesDataStreamsStatsPath{Name: r.DataStreams}.Build()
+	if err != nil {
+		return nil, err
 	}
-	path.WriteString("_stats")
-
-	return opensearch.BuildRequest(
-		"GET",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // DataStreamStatsResp represents the returned struct of the _data_stream stats response

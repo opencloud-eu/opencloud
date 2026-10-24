@@ -172,3 +172,18 @@ Feature: download multiple resources bundled into an archive
       | user-agent | archive-type |
       | Linux      | tar          |
       | Windows NT | zip          |
+
+
+  Scenario Outline: download a single folder into an archive named after it
+    Given user "Alice" has created folder "my_data"
+    And user "Alice" has uploaded file with content "some data" to "my_data/textfile0.txt"
+    When user "Alice" downloads the <archive-type> archive of "my_data" using the resource id and setting these headers:
+      | header     | value |
+      | User-Agent | Linux |
+    Then the HTTP status code should be "200"
+    And the following headers should match these regular expressions
+      | Content-Disposition | /filename="my_data\.<archive-type>"/ |
+    Examples:
+      | archive-type |
+      | zip          |
+      | tar          |

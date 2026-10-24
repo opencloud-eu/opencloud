@@ -25,6 +25,7 @@
     "pdf-viewer",
     "search",
     "admin-settings",
-    "app-store"
+    "app-store",
+    "rclone-crypt"
   ]
 }

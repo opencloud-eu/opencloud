@@ -26,28 +26,34 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/pkg/xattr"
 
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/disk"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 )
 
 const (
-	TMPDir = ".oc-tmp"
+	TMPDir     = ".oc-tmp"
+	fsyncEvery = 16 << 20 // 16 MiB
 )
 
 // Blobstore provides an interface to an filesystem based blobstore
 type Blobstore struct {
 	root string
+
+	canUseRenameForUpload bool
 }
 
 // New returns a new Blobstore
 func New(root string) (*Blobstore, error) {
 	return &Blobstore{
-		root: root,
+		root:                  root,
+		canUseRenameForUpload: true, // let's assume the upload area is on the same device as the blobstore root by default
 	}, nil
 }
 
@@ -61,29 +67,41 @@ func (bs *Blobstore) Upload(n *node.Node, source, copyTarget string) error {
 		return err
 	}
 
-	sourceFile, err := os.Open(source)
-	if err != nil {
-		return fmt.Errorf("failed to open source file '%s': %v", source, err)
-	}
-	defer func() {
-		_ = sourceFile.Close()
-	}()
-
-	tempFile, err := os.OpenFile(tempName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
-	if err != nil {
-		return fmt.Errorf("unable to create temp file '%s': %v", tempName, err)
-	}
-
-	if _, err := tempFile.ReadFrom(sourceFile); err != nil {
-		return fmt.Errorf("failed to write data from source file '%s' to temp file '%s' - %v", source, tempName, err)
+	if bs.canUseRenameForUpload {
+		err := os.Rename(source, tempName)
+		switch {
+		case err == nil:
+			// continue
+		case errors.Is(err, syscall.EXDEV):
+			// the upload and target file are on different devices, we need to copy the file instead of renaming it
+			bs.canUseRenameForUpload = false
+		default:
+			return fmt.Errorf("failed to move source file '%s' to temp file '%s' - %v", source, tempName, err)
+		}
 	}
 
-	if err := tempFile.Sync(); err != nil {
-		return fmt.Errorf("failed to sync temp file '%s' - %v", tempName, err)
-	}
+	if !bs.canUseRenameForUpload {
+		sourceFile, err := os.Open(source)
+		if err != nil {
+			return fmt.Errorf("failed to open source file '%s': %v", source, err)
+		}
+		defer func() {
+			_ = sourceFile.Close()
+		}()
 
-	if err := tempFile.Close(); err != nil {
-		return fmt.Errorf("failed to close temp file '%s' - %v", tempName, err)
+		tempFile, err := os.OpenFile(tempName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
+		if err != nil {
+			return fmt.Errorf("unable to create temp file '%s': %v", tempName, err)
+		}
+
+		if err := copyWithPeriodicSync(tempFile, sourceFile); err != nil {
+			_ = tempFile.Close()
+			return fmt.Errorf("failed to copy source file '%s' to temp file '%s' - %v", source, tempName, err)
+		}
+
+		if err := tempFile.Close(); err != nil {
+			return fmt.Errorf("failed to close temp file '%s' - %v", tempName, err)
+		}
 	}
 
 	nodeAttributes, err := n.Xattrs(context.Background())
@@ -125,6 +143,20 @@ func (bs *Blobstore) Upload(n *node.Node, source, copyTarget string) error {
 		return fmt.Errorf("failed to set mtime on temp file '%s' - %v", tempName, err)
 	}
 
+	// keep a handle on the blob before it moves to its final location. the handle stays valid
+	// across the rename, so the copy below needs neither the source file, which the rename above
+	// may have consumed, nor a second lookup of the final path
+	var blobFile *os.File
+	if copyTarget != "" {
+		blobFile, err = os.Open(tempName)
+		if err != nil {
+			return errors.Wrapf(err, "could not open temp file '%s' for reading", tempName)
+		}
+		defer func() {
+			_ = blobFile.Close()
+		}()
+	}
+
 	// atomically move the file to its final location,
 	// on Windows systems (unsupported oc os) os.Rename is not atomic
 	if err := os.Rename(tempName, n.InternalPath()); err != nil {
@@ -141,10 +173,6 @@ func (bs *Blobstore) Upload(n *node.Node, source, copyTarget string) error {
 		return err
 	}
 
-	if _, err := sourceFile.Seek(0, 0); err != nil {
-		return err
-	}
-
 	copyFile, err := os.OpenFile(copyTarget, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
 		return errors.Wrapf(err, "could not open copy target '%s' for writing", copyTarget)
@@ -153,11 +181,43 @@ func (bs *Blobstore) Upload(n *node.Node, source, copyTarget string) error {
 		_ = copyFile.Close()
 	}()
 
-	if _, err := copyFile.ReadFrom(sourceFile); err != nil {
+	if err := copyWithPeriodicSync(copyFile, blobFile); err != nil {
 		return errors.Wrapf(err, "could not write blob copy of '%s' to '%s'", n.InternalPath(), copyTarget)
 	}
 
 	return nil
+}
+
+// UploadFromReader stages data on the space filesystem before atomically replacing the node.
+func (bs *Blobstore) UploadFromReader(n *node.Node, r io.Reader, size int64) error {
+	if n.SpaceRoot == nil {
+		return errors.New("node has no space root")
+	}
+	f, err := os.CreateTemp(n.SpaceRoot.InternalPath(), ".upload-*")
+	if err != nil {
+		return errors.Wrap(err, "could not create temporary upload file")
+	}
+	tempPath := f.Name()
+	defer func() { _ = os.Remove(tempPath) }()
+
+	written, err := io.Copy(f, r)
+	if err != nil {
+		_ = f.Close()
+		return errors.Wrap(err, "could not write temporary upload file")
+	}
+	if written != size {
+		_ = f.Close()
+		return fmt.Errorf("unexpected upload length: expected %d bytes, got %d", size, written)
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return errors.Wrap(err, "could not sync temporary upload file")
+	}
+	if err := f.Close(); err != nil {
+		return errors.Wrap(err, "could not close temporary upload file")
+	}
+
+	return bs.Upload(n, tempPath, "")
 }
 
 // Download retrieves a blob from the blobstore for reading
@@ -172,4 +232,21 @@ func (bs *Blobstore) Download(node *node.Node) (io.ReadCloser, error) {
 // Delete deletes a blob from the blobstore
 func (bs *Blobstore) Delete(node *node.Node) error {
 	return nil
+}
+
+func copyWithPeriodicSync(dst, src *os.File) error {
+	for {
+		n, err := io.CopyN(dst, src, fsyncEvery)
+		if n > 0 {
+			if serr := disk.Fdatasync(dst); serr != nil {
+				return serr
+			}
+		}
+		if err == io.EOF {
+			return dst.Sync()
+		}
+		if err != nil {
+			return err
+		}
+	}
 }

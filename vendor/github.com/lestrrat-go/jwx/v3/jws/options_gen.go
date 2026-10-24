@@ -223,6 +223,7 @@ type identProtectedHeaders struct{}
 type identPublicHeaders struct{}
 type identRequireKid struct{}
 type identSerialization struct{}
+type identStrictECDSA struct{}
 type identUseDefault struct{}
 type identValidateKey struct{}
 
@@ -304,6 +305,10 @@ func (identRequireKid) String() string {
 
 func (identSerialization) String() string {
 	return "WithSerialization"
+}
+
+func (identStrictECDSA) String() string {
+	return "WithStrictECDSA"
 }
 
 func (identUseDefault) String() string {
@@ -603,6 +608,28 @@ func WithRequireKid(v bool) WithKeySetSuboption {
 // do not need to specify this option other than to be explicit about it
 func WithCompact() SignVerifyParseOption {
 	return &signVerifyParseOption{option.New(identSerialization{}, fmtCompact)}
+}
+
+// WithStrictECDSA makes `jws.Sign()` reject anything RFC 7518 forbids for
+// an ECDSA signature. Today that is exactly one rule: Section 3.4 binds
+// ES256 to P-256, ES384 to P-384, and ES512 to P-521, so signing with a
+// key on any other curve fails instead of producing a JWS that strict
+// JOSE implementations reject.
+//
+// Future releases may enforce further RFC 7518 ECDSA rules under this
+// same option, so enabling it means "be strict about ECDSA", not "check
+// the curve and nothing else".
+//
+// Extension algorithms on their own curves, such as ES256K, are not
+// affected. Only the three curves the RFC names are checked.
+//
+// This option is sign-side only. `jws.Verify()` is unaffected and keeps
+// inferring algorithms from a key's curve exactly as before, so a JWS
+// produced without this option still verifies.
+//
+// By default, the curve is not checked.
+func WithStrictECDSA(v bool) SignOption {
+	return &signOption{option.New(identStrictECDSA{}, v)}
 }
 
 // WithUseDefault specifies that if and only if a jwk.Key contains

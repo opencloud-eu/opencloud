@@ -18,15 +18,18 @@ import (
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/graph/mocks"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	identitymocks "github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
 	service "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
 )
 
@@ -64,8 +67,10 @@ var _ = Describe("EducationClass", func() {
 			},
 		)
 
+		logger := log.NewLogger()
 		identityEducationBackend = &identitymocks.EducationBackend{}
 		identityBackend = &identitymocks.Backend{}
+		metrics, _ := metrics.New(prometheus.NewRegistry(), &logger, func([]string) (string, string) { return "", "" })
 		newClass = libregraph.NewEducationClass("math", "course")
 		newClass.SetMembersodataBind([]string{"/users/user1"})
 		newClass.SetId("math")
@@ -82,6 +87,7 @@ var _ = Describe("EducationClass", func() {
 		var err error
 		svc, err = service.NewService(
 			service.Config(cfg),
+			service.Metrics(metrics),
 			service.WithGatewaySelector(gatewaySelector),
 			service.EventsPublisher(&eventsPublisher),
 			service.WithIdentityBackend(identityBackend),
@@ -328,10 +334,14 @@ var _ = Describe("EducationClass", func() {
 				updatedClassJson, err := json.Marshal(updatedClass)
 				Expect(err).ToNot(HaveOccurred())
 
+				logger := log.NewLogger()
+				metrics, _ := metrics.New(prometheus.NewRegistry(), &logger, func([]string) (string, string) { return "", "" })
+
 				cfg.API.GroupMembersPatchLimit = 21
 
 				svc, err = service.NewService(
 					service.Config(cfg),
+					service.Metrics(metrics),
 					service.WithGatewaySelector(gatewaySelector),
 					service.EventsPublisher(&eventsPublisher),
 					service.WithIdentityBackend(identityBackend),

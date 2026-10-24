@@ -1,0 +1,16 @@
+{
+  "cucumberautocomplete.steps": [
+    "tests/acceptance/bootstrap/*.php"
+  ],
+  "cucumberautocomplete.syncfeatures": "tests/acceptance/features/**/*.feature",
+  "cucumberautocomplete.strictGherkinCompletion": false,
+  "cucumberautocomplete.strictGherkinValidation": false,
+  "cucumberautocomplete.customParameters": [
+    { "parameter": ":string", "value": "\"([^\"]*)\"" },
+    { "parameter": "'/\\^(.*)\\$/'", "value": "'^$1$$'", "isRegex": true, "flags": "g" },
+    { "parameter": "\\$\\w+", "value": "(.*)", "isRegex": true, "flags": "g" },
+    { "parameter": "(?<!\\?):[a-zA-Z_][a-zA-Z0-9_]*", "value": "\"([^\"]*)\"", "isRegex": true, "flags": "g" }
+  ],
+  "cucumberautocomplete.gherkinDefinitionPart": "(Given|When|Then|But)\\(",
+  "cucumberautocomplete.pureTextSteps": false
+}

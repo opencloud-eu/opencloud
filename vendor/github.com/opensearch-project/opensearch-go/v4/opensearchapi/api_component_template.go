@@ -8,6 +8,7 @@ package opensearchapi
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
 )
@@ -22,7 +23,7 @@ func (c componentTemplateClient) Create(ctx context.Context, req ComponentTempla
 		data ComponentTemplateCreateResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodPut, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -35,7 +36,7 @@ func (c componentTemplateClient) Delete(ctx context.Context, req ComponentTempla
 		data ComponentTemplateDeleteResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodDelete, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -52,7 +53,7 @@ func (c componentTemplateClient) Get(ctx context.Context, req *ComponentTemplate
 		data ComponentTemplateGetResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -61,5 +62,5 @@ func (c componentTemplateClient) Get(ctx context.Context, req *ComponentTemplate
 
 // Exists executes a exists componentTemplate request with the required ComponentTemplatExistsReq
 func (c componentTemplateClient) Exists(ctx context.Context, req ComponentTemplateExistsReq) (*opensearch.Response, error) {
-	return c.apiClient.do(ctx, req, nil)
+	return do(ctx, c.apiClient, http.MethodHead, req, noBody)
 }

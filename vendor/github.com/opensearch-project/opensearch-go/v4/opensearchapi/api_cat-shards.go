@@ -8,9 +8,10 @@ package opensearchapi
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // CatShardsReq represent possible options for the /_cat/shards request
@@ -21,22 +22,12 @@ type CatShardsReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r CatShardsReq) GetRequest() (*http.Request, error) {
-	indices := strings.Join(r.Indices, ",")
-	var path strings.Builder
-	path.Grow(len("/_cat/shards/") + len(indices))
-	path.WriteString("/_cat/shards")
-	if len(r.Indices) > 0 {
-		path.WriteString("/")
-		path.WriteString(indices)
+func (r CatShardsReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.CatShardsPath{Index: r.Indices}.Build()
+	if err != nil {
+		return nil, err
 	}
-	return opensearch.BuildRequest(
-		"GET",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // CatShardsResp represents the returned struct of the /_cat/shards response
@@ -47,49 +38,58 @@ type CatShardsResp struct {
 
 // CatShardResp represents one index of the CatShardsResp
 type CatShardResp struct {
-	Index                          string  `json:"index"`
-	Shard                          int     `json:"shard,string"`
-	Prirep                         string  `json:"prirep"`
-	State                          string  `json:"state"`
-	Docs                           *string `json:"docs"`
-	Store                          *string `json:"store"`
-	IP                             *string `json:"ip"`
-	ID                             *string `json:"id"`
-	Node                           *string `json:"node"`
-	SyncID                         *string `json:"sync_id"`
-	UnassignedReason               *string `json:"unassigned.reason"`
-	UnassignedAt                   *string `json:"unassigned.at"`
-	UnassignedFor                  *string `json:"unassigned.for"`
-	UnassignedDetails              *string `json:"unassigned.details"`
-	RecoverysourceType             *string `json:"recoverysource.type"`
-	CompletionSize                 *string `json:"completion.size"`
-	FielddataMemorySize            *string `json:"fielddata.memory_size"`
-	FielddataEvictions             *int    `json:"fielddata.evictions,string"`
-	QueryCacheMemorySize           *string `json:"query_cache.memory_size"`
-	QueryCacheEvictions            *int    `json:"query_cache.evictions,string"`
-	FlushTotal                     *int    `json:"flush.total,string"`
-	FlushTotalTime                 *string `json:"flush.total_time"`
-	GetCurrent                     *int    `json:"get.current,string"`
-	GetTime                        *string `json:"get.time"`
-	GetTotal                       *int    `json:"get.total,string"`
-	GetExistsTime                  *string `json:"get.exists_time"`
-	GetExistsTotal                 *int    `json:"get.exists_total,string"`
-	GetMissingTime                 *string `json:"get.missing_time"`
-	GetMissingTotal                *int    `json:"get.missing_total,string"`
-	IndexingDeleteCurrent          *int    `json:"indexing.delete_current,string"`
-	IndexingDeleteTime             *string `json:"indexing.delete_time"`
-	IndexingDeleteTotal            *string `json:"indexing.delete_total"`
-	IndexingIndexCurrent           *int    `json:"indexing.index_current,string"`
-	IndexingIndexTime              *string `json:"indexing.index_time"`
-	IndexingIndexTotal             *int    `json:"indexing.index_total,string"`
-	IndexingIndexFailed            *int    `json:"indexing.index_failed,string"`
-	MergesCurrent                  *int    `json:"merges.current,string"`
-	MergesCurrentDocs              *int    `json:"merges.current_docs,string"`
-	MergesCurrentSize              *string `json:"merges.current_size"`
-	MergesTotal                    *int    `json:"merges.total,string"`
-	MergesTotalDocs                *int    `json:"merges.total_docs,string"`
-	MergesTotalSize                *string `json:"merges.total_size"`
-	MergesTotalTime                *string `json:"merges.total_time"`
+	Index                 string  `json:"index"`
+	Shard                 int     `json:"shard,string"`
+	Prirep                string  `json:"prirep"`
+	State                 string  `json:"state"`
+	Docs                  *string `json:"docs"`
+	Store                 *string `json:"store"`
+	IP                    *string `json:"ip"`
+	ID                    *string `json:"id"`
+	Node                  *string `json:"node"`
+	SyncID                *string `json:"sync_id"`
+	UnassignedReason      *string `json:"unassigned.reason"`
+	UnassignedAt          *string `json:"unassigned.at"`
+	UnassignedFor         *string `json:"unassigned.for"`
+	UnassignedDetails     *string `json:"unassigned.details"`
+	RecoverysourceType    *string `json:"recoverysource.type"`
+	CompletionSize        *string `json:"completion.size"`
+	FielddataMemorySize   *string `json:"fielddata.memory_size"`
+	FielddataEvictions    *int    `json:"fielddata.evictions,string"`
+	QueryCacheMemorySize  *string `json:"query_cache.memory_size"`
+	QueryCacheEvictions   *int    `json:"query_cache.evictions,string"`
+	FlushTotal            *int    `json:"flush.total,string"`
+	FlushTotalTime        *string `json:"flush.total_time"`
+	GetCurrent            *int    `json:"get.current,string"`
+	GetTime               *string `json:"get.time"`
+	GetTotal              *int    `json:"get.total,string"`
+	GetExistsTime         *string `json:"get.exists_time"`
+	GetExistsTotal        *int    `json:"get.exists_total,string"`
+	GetMissingTime        *string `json:"get.missing_time"`
+	GetMissingTotal       *int    `json:"get.missing_total,string"`
+	IndexingDeleteCurrent *int    `json:"indexing.delete_current,string"`
+	IndexingDeleteTime    *string `json:"indexing.delete_time"`
+	IndexingDeleteTotal   *string `json:"indexing.delete_total"`
+	IndexingIndexCurrent  *int    `json:"indexing.index_current,string"`
+	IndexingIndexTime     *string `json:"indexing.index_time"`
+	IndexingIndexTotal    *int    `json:"indexing.index_total,string"`
+	IndexingIndexFailed   *int    `json:"indexing.index_failed,string"`
+	MergesCurrent         *int    `json:"merges.current,string"`
+	MergesCurrentDocs     *int    `json:"merges.current_docs,string"`
+	MergesCurrentSize     *string `json:"merges.current_size"`
+	MergesTotal           *int    `json:"merges.total,string"`
+	MergesTotalDocs       *int    `json:"merges.total_docs,string"`
+	MergesTotalSize       *string `json:"merges.total_size"`
+	MergesTotalTime       *string `json:"merges.total_time"`
+	// Merges warmer fields added in OpenSearch 3.4.0+
+	MergesWarmerOngoingCount       *int    `json:"merges.warmer.ongoing_count,string"`
+	MergesWarmerTotalInvocations   *int    `json:"merges.warmer.total_invocations,string"`
+	MergesWarmerTotalTime          *string `json:"merges.warmer.total_time"`
+	MergesWarmerTotalFailureCount  *int    `json:"merges.warmer.total_failure_count,string"`
+	MergesWarmerTotalBytesSent     *string `json:"merges.warmer.total_bytes_sent"`
+	MergesWarmerTotalBytesReceived *string `json:"merges.warmer.total_bytes_received"`
+	MergesWarmerTotalSendTime      *string `json:"merges.warmer.total_send_time"`
+	MergesWarmerTotalReceiveTime   *string `json:"merges.warmer.total_receive_time"`
 	RefreshTotal                   *int    `json:"refresh.total,string"`
 	RefreshTime                    *string `json:"refresh.time"`
 	RefreshExternalTotal           *int    `json:"refresh.external_total,string"`
@@ -102,10 +102,15 @@ type CatShardResp struct {
 	SearchQueryCurrent             *int    `json:"search.query_current,string"`
 	SearchQueryTime                *string `json:"search.query_time"`
 	SearchQueryTotal               *int    `json:"search.query_total,string"`
+	SearchQueryFailed              *int    `json:"search.query_failed,string"` // Available in OpenSearch 3.3.0+
 	SearchConcurrentQueryCurrent   *int    `json:"search.concurrent_query_current,string"`
 	SearchConcurrentQueryTime      *string `json:"search.concurrent_query_time"`
 	SearchConcurrentQueryTotal     *int    `json:"search.concurrent_query_total,string"`
 	SearchConcurrentAvgSliceCount  *string `json:"search.concurrent_avg_slice_count"`
+	SearchStartreeQueryCurrent     *int    `json:"search.startree_query_current,string"` // Available in OpenSearch 3.2.0+
+	SearchStartreeQueryTime        *string `json:"search.startree_query_time"`           // Available in OpenSearch 3.2.0+
+	SearchStartreeQueryTotal       *int    `json:"search.startree_query_total,string"`   // Available in OpenSearch 3.2.0+
+	SearchStartreeQueryFailed      *int    `json:"search.startree_query_failed,string"`  // Available in OpenSearch 3.3.0+
 	SearchScrollCurrent            *int    `json:"search.scroll_current,string"`
 	SearchScrollTime               *string `json:"search.scroll_time"`
 	SearchScrollTotal              *int    `json:"search.scroll_total,string"`

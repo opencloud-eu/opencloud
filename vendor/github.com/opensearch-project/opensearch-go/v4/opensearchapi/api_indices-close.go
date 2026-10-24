@@ -7,10 +7,11 @@
 package opensearchapi
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // IndicesCloseReq represents possible options for the index close request
@@ -22,14 +23,12 @@ type IndicesCloseReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r IndicesCloseReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"POST",
-		fmt.Sprintf("/%s/_close", r.Index),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+func (r IndicesCloseReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.IndicesClosePath{Index: []string{r.Index}}.Build()
+	if err != nil {
+		return nil, err
+	}
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // IndicesCloseResp represents the returned struct of the index close response

@@ -9,6 +9,7 @@ import (
 	_ "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	proto "google.golang.org/protobuf/proto"
+	_ "google.golang.org/protobuf/types/known/durationpb"
 	_ "google.golang.org/protobuf/types/known/fieldmaskpb"
 	math "math"
 )
@@ -45,6 +46,7 @@ func NewSearchProviderEndpoints() []*api.Endpoint {
 			Name:    "SearchProvider.IndexSpace",
 			Path:    []string{"/api/v0/search/index-space"},
 			Method:  []string{"POST"},
+			Stream:  true,
 			Handler: "rpc",
 		},
 	}
@@ -54,7 +56,9 @@ func NewSearchProviderEndpoints() []*api.Endpoint {
 
 type SearchProviderService interface {
 	Search(ctx context.Context, in *SearchRequest, opts ...client.CallOption) (*SearchResponse, error)
-	IndexSpace(ctx context.Context, in *IndexSpaceRequest, opts ...client.CallOption) (*IndexSpaceResponse, error)
+	// IndexSpace (re)indexes one or all spaces. The response is streamed, sending
+	// progress information after each space has been indexed.
+	IndexSpace(ctx context.Context, in *IndexSpaceRequest, opts ...client.CallOption) (SearchProvider_IndexSpaceService, error)
 }
 
 type searchProviderService struct {
@@ -79,27 +83,73 @@ func (c *searchProviderService) Search(ctx context.Context, in *SearchRequest, o
 	return out, nil
 }
 
-func (c *searchProviderService) IndexSpace(ctx context.Context, in *IndexSpaceRequest, opts ...client.CallOption) (*IndexSpaceResponse, error) {
-	req := c.c.NewRequest(c.name, "SearchProvider.IndexSpace", in)
-	out := new(IndexSpaceResponse)
-	err := c.c.Call(ctx, req, out, opts...)
+func (c *searchProviderService) IndexSpace(ctx context.Context, in *IndexSpaceRequest, opts ...client.CallOption) (SearchProvider_IndexSpaceService, error) {
+	req := c.c.NewRequest(c.name, "SearchProvider.IndexSpace", &IndexSpaceRequest{})
+	stream, err := c.c.Stream(ctx, req, opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	if err := stream.Send(in); err != nil {
+		return nil, err
+	}
+	return &searchProviderServiceIndexSpace{stream}, nil
+}
+
+type SearchProvider_IndexSpaceService interface {
+	Context() context.Context
+	SendMsg(interface{}) error
+	RecvMsg(interface{}) error
+	CloseSend() error
+	Close() error
+	Recv() (*IndexSpaceResponse, error)
+}
+
+type searchProviderServiceIndexSpace struct {
+	stream client.Stream
+}
+
+func (x *searchProviderServiceIndexSpace) CloseSend() error {
+	return x.stream.CloseSend()
+}
+
+func (x *searchProviderServiceIndexSpace) Close() error {
+	return x.stream.Close()
+}
+
+func (x *searchProviderServiceIndexSpace) Context() context.Context {
+	return x.stream.Context()
+}
+
+func (x *searchProviderServiceIndexSpace) SendMsg(m interface{}) error {
+	return x.stream.Send(m)
+}
+
+func (x *searchProviderServiceIndexSpace) RecvMsg(m interface{}) error {
+	return x.stream.Recv(m)
+}
+
+func (x *searchProviderServiceIndexSpace) Recv() (*IndexSpaceResponse, error) {
+	m := new(IndexSpaceResponse)
+	err := x.stream.Recv(m)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // Server API for SearchProvider service
 
 type SearchProviderHandler interface {
 	Search(context.Context, *SearchRequest, *SearchResponse) error
-	IndexSpace(context.Context, *IndexSpaceRequest, *IndexSpaceResponse) error
+	// IndexSpace (re)indexes one or all spaces. The response is streamed, sending
+	// progress information after each space has been indexed.
+	IndexSpace(context.Context, *IndexSpaceRequest, SearchProvider_IndexSpaceStream) error
 }
 
 func RegisterSearchProviderHandler(s server.Server, hdlr SearchProviderHandler, opts ...server.HandlerOption) error {
 	type searchProvider interface {
 		Search(ctx context.Context, in *SearchRequest, out *SearchResponse) error
-		IndexSpace(ctx context.Context, in *IndexSpaceRequest, out *IndexSpaceResponse) error
+		IndexSpace(ctx context.Context, stream server.Stream) error
 	}
 	type SearchProvider struct {
 		searchProvider
@@ -115,6 +165,7 @@ func RegisterSearchProviderHandler(s server.Server, hdlr SearchProviderHandler, 
 		Name:    "SearchProvider.IndexSpace",
 		Path:    []string{"/api/v0/search/index-space"},
 		Method:  []string{"POST"},
+		Stream:  true,
 		Handler: "rpc",
 	}))
 	return s.Handle(s.NewHandler(&SearchProvider{h}, opts...))
@@ -128,8 +179,44 @@ func (h *searchProviderHandler) Search(ctx context.Context, in *SearchRequest, o
 	return h.SearchProviderHandler.Search(ctx, in, out)
 }
 
-func (h *searchProviderHandler) IndexSpace(ctx context.Context, in *IndexSpaceRequest, out *IndexSpaceResponse) error {
-	return h.SearchProviderHandler.IndexSpace(ctx, in, out)
+func (h *searchProviderHandler) IndexSpace(ctx context.Context, stream server.Stream) error {
+	m := new(IndexSpaceRequest)
+	if err := stream.Recv(m); err != nil {
+		return err
+	}
+	return h.SearchProviderHandler.IndexSpace(ctx, m, &searchProviderIndexSpaceStream{stream})
+}
+
+type SearchProvider_IndexSpaceStream interface {
+	Context() context.Context
+	SendMsg(interface{}) error
+	RecvMsg(interface{}) error
+	Close() error
+	Send(*IndexSpaceResponse) error
+}
+
+type searchProviderIndexSpaceStream struct {
+	stream server.Stream
+}
+
+func (x *searchProviderIndexSpaceStream) Close() error {
+	return x.stream.Close()
+}
+
+func (x *searchProviderIndexSpaceStream) Context() context.Context {
+	return x.stream.Context()
+}
+
+func (x *searchProviderIndexSpaceStream) SendMsg(m interface{}) error {
+	return x.stream.Send(m)
+}
+
+func (x *searchProviderIndexSpaceStream) RecvMsg(m interface{}) error {
+	return x.stream.Recv(m)
+}
+
+func (x *searchProviderIndexSpaceStream) Send(m *IndexSpaceResponse) error {
+	return x.stream.Send(m)
 }
 
 // Api Endpoints for IndexProvider service

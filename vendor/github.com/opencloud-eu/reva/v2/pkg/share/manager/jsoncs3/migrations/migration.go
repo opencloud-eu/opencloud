@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/signal"
 	"slices"
+	"strings"
 	"syscall"
 	"time"
 
@@ -44,6 +45,7 @@ const (
 	lockFile              = "migrations/lock.json"
 	lockTTL               = time.Minute
 	lockHeartbeatInterval = 20 * time.Second
+	lockReleaseTimeout    = 10 * time.Second
 )
 
 // lockPollInterval is how long acquireLock sleeps between retries when the
@@ -137,6 +139,40 @@ func New(logger zerolog.Logger,
 		state{},
 		instanceID,
 	}
+}
+
+// LatestVersion returns the version of the most recent registered migration.
+func LatestVersion() int {
+	version := 0
+	for _, mig := range migrations {
+		if mig.Version() > version {
+			version = mig.Version()
+		}
+	}
+	return version
+}
+
+// MarkAllApplied records every registered migration as applied without running
+// any of them. It is meant for fresh deployments, where there is no data to
+// migrate and running the migrations would needlessly block write operations
+// while depending on services that may not be up yet.
+//
+// The state file is created atomically and an existing state file is never
+// overwritten, so instances starting in parallel converge on the same state.
+func MarkAllApplied(ctx context.Context, storage metadata.Storage) error {
+	data, err := json.Marshal(persistedState{Version: LatestVersion()})
+	if err != nil {
+		return err
+	}
+	_, err = storage.Upload(ctx, metadata.UploadRequest{
+		Path:        stateFile,
+		Content:     data,
+		IfNoneMatch: []string{"*"},
+	})
+	if err != nil && !isConflict(err) {
+		return err
+	}
+	return nil
 }
 
 // acquireLock tries to atomically create the lock file, blocking until the lock
@@ -267,8 +303,11 @@ func (m *Migrations) startHeartbeat(ctx context.Context, etag string) context.Ca
 	return cancel
 }
 
-// releaseLock deletes the lock file unconditionally.
+// releaseLock deletes the lock file unconditionally. It ignores the
+// cancellation of ctx, so a shutdown signal does not leave the lock behind.
 func (m *Migrations) releaseLock(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), lockReleaseTimeout)
+	defer cancel()
 	if err := m.storage.Delete(ctx, lockFile); err != nil {
 		m.logger.Warn().Err(err).Msg("failed to release migration lock")
 	}
@@ -313,14 +352,80 @@ func (m *Migrations) saveState(ctx context.Context) error {
 	return m.storage.SimpleUpload(ctx, stateFile, data)
 }
 
+// RunMigrations runs every migration that has not been applied yet, as
+// recorded in the share manager's state.
 func (m *Migrations) RunMigrations() {
+	// errors are logged by runMigrations; the startup path has nowhere to
+	// report them to and must not block the manager from coming up
+	_ = m.runMigrations()
+}
+
+// Names returns the names of the registered migrations, in the order they
+// would be applied.
+func Names() []string {
+	names := make([]string, 0, len(migrations))
+	for _, mig := range migrations {
+		names = append(names, mig.Name())
+	}
+	return names
+}
+
+// RunMigration runs the named migration, whether or not it has been applied
+// before. It exists so that an operator can repeat a migration: the
+// import_space_members migration for instance imports space grants that were
+// written outside of the share manager, and has to be repeatable.
+//
+// The recorded version is raised if the migration is newer than it, and never
+// lowered.
+func (m *Migrations) RunMigration(name string) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	var mig migration
+	for _, candidate := range migrations {
+		if candidate.Name() == name {
+			mig = candidate
+			break
+		}
+	}
+	if mig == nil {
+		return fmt.Errorf("unknown migration %q, available: %s", name, strings.Join(Names(), ", "))
+	}
+
+	etag, err := m.acquireLock(ctx)
+	if err != nil {
+		return err
+	}
+	cancelHB := m.startHeartbeat(ctx, etag)
+	defer cancelHB()
+	defer m.releaseLock(ctx)
+
+	if err := m.loadState(ctx); err != nil {
+		return err
+	}
+
+	m.logger.Info().Str("migration", mig.Name()).Int("version", mig.Version()).Msg("running migration")
+	mig.Initialize(m.config)
+	if err := mig.Migrate(); err != nil {
+		return err
+	}
+
+	if mig.Version() > m.state.version {
+		m.state.version = mig.Version()
+		return m.saveState(ctx)
+	}
+	return nil
+}
+
+// runMigrations applies the migrations above the current base version.// runMigrations applies the migrations above the current base version.
+func (m *Migrations) runMigrations() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	etag, err := m.acquireLock(ctx)
 	if err != nil {
 		m.logger.Error().Err(err).Msg("failed to acquire migration lock; skipping migrations")
-		return
+		return err
 	}
 	cancelHB := m.startHeartbeat(ctx, etag)
 	defer cancelHB()
@@ -328,7 +433,7 @@ func (m *Migrations) RunMigrations() {
 
 	if err := m.loadState(ctx); err != nil {
 		m.logger.Error().Err(err).Msg("failed to load migration state; skipping migrations")
-		return
+		return err
 	}
 
 	m.logger.Info().Int("current state", m.state.version).Msg("checking migrations")
@@ -339,15 +444,17 @@ func (m *Migrations) RunMigrations() {
 			mig.Initialize(m.config)
 			if err := mig.Migrate(); err != nil {
 				m.logger.Error().Err(err).Str("migration", mig.Name()).Msg("migration failed; stopping")
-				return
+				return err
 			}
 			m.state.version = mig.Version()
 			if err := m.saveState(ctx); err != nil {
 				m.logger.Error().Err(err).Msg("failed to save migration state; stopping")
-				return
+				return err
 			}
 		} else {
 			m.logger.Info().Str("migration", mig.Name()).Int("version", mig.Version()).Msg("skipping migration")
 		}
 	}
+
+	return nil
 }

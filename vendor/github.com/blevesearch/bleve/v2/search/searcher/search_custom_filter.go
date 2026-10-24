@@ -31,15 +31,18 @@ func init() {
 }
 
 // CustomFilterFunc decides whether a hit (with doc-value fields populated)
-// should be kept. Unlike FilterFunc it does not receive a SearchContext since
-// custom-query callbacks only need the DocumentMatch.
-type CustomFilterFunc func(d *search.DocumentMatch) bool
+// should be kept. It receives the search's context so a long-running callback
+// (e.g. a JS UDF) can honor the query deadline/cancellation. A non-nil error
+// aborts the search so the failure can be surfaced to the caller rather than
+// silently dropping the hit.
+type CustomFilterFunc func(ctx context.Context, d *search.DocumentMatch) (bool, error)
 
 // CustomFilterSearcher wraps a child searcher, optionally loads doc values
 // into each DocumentMatch, then applies a CustomFilterFunc to decide whether
 // to keep the hit. Unlike FilteringSearcher this variant is purpose-built for
 // custom queries that need field values at callback time.
 type CustomFilterSearcher struct {
+	ctx         context.Context
 	child       search.Searcher
 	accept      CustomFilterFunc
 	dvReader    index.DocValueReader
@@ -52,6 +55,7 @@ func NewCustomFilterSearcher(ctx context.Context, child search.Searcher,
 	indexReader index.IndexReader,
 	fieldTypes map[string]string) *CustomFilterSearcher {
 	return &CustomFilterSearcher{
+		ctx:         ctx,
 		child:       child,
 		accept:      filter,
 		dvReader:    dvReader,
@@ -68,12 +72,23 @@ func (f *CustomFilterSearcher) Size() int {
 func (f *CustomFilterSearcher) Next(ctx *search.SearchContext) (*search.DocumentMatch, error) {
 	next, err := f.child.Next(ctx)
 	for next != nil && err == nil {
-		if err = loadDocValuesOnHitWithTypes(next, f.dvReader, f.indexReader, f.fieldTypes); err != nil {
-			return nil, err
+		// Put the loaded fields on the hit only for the callback, so UDF-input
+		// fields don't override SearchRequest.Fields in the response.
+		udfFields, lerr := loadDocValuesOnHitWithTypes(next, f.dvReader, f.indexReader, f.fieldTypes)
+		if lerr != nil {
+			return nil, lerr
 		}
-		if f.accept(next) {
+		priorFields := next.Fields
+		next.Fields = udfFields
+		keep, ferr := f.accept(f.ctx, next)
+		next.Fields = priorFields
+		if ferr != nil {
+			return nil, ferr
+		}
+		if keep {
 			return next, nil
 		}
+		ctx.DocumentMatchPool.Put(next)
 		next, err = f.child.Next(ctx)
 	}
 	return nil, err
@@ -87,12 +102,22 @@ func (f *CustomFilterSearcher) Advance(ctx *search.SearchContext, ID index.Index
 	if adv == nil {
 		return nil, nil
 	}
-	if err = loadDocValuesOnHitWithTypes(adv, f.dvReader, f.indexReader, f.fieldTypes); err != nil {
-		return nil, err
+	// See Next: put the loaded fields on the hit only for the callback.
+	udfFields, lerr := loadDocValuesOnHitWithTypes(adv, f.dvReader, f.indexReader, f.fieldTypes)
+	if lerr != nil {
+		return nil, lerr
 	}
-	if f.accept(adv) {
+	priorFields := adv.Fields
+	adv.Fields = udfFields
+	keep, ferr := f.accept(f.ctx, adv)
+	adv.Fields = priorFields
+	if ferr != nil {
+		return nil, ferr
+	}
+	if keep {
 		return adv, nil
 	}
+	ctx.DocumentMatchPool.Put(adv)
 	return f.Next(ctx)
 }
 

@@ -5,20 +5,26 @@ package errors
 
 import "runtime"
 
-// setupCleanup configures a finalizer for an *Error to auto-return it to the pool.
-// Only active for Go versions < 1.24; enables automatic cleanup when autoFree is set and pooling is enabled.
+// setupCleanup registers a finalizer that returns e to the pool when the GC
+// collects it — only when AutoFree is enabled.
+//
+// Finalizer limitation: the GC may not collect the object promptly, and
+// finalizers run in a separate goroutine. This is acceptable for pool returns
+// since Put() is safe to call from any goroutine and Reset() is idempotent.
 func (ep *ErrorPool) setupCleanup(e *Error) {
-	if currentConfig.autoFree {
-		runtime.SetFinalizer(e, func(e *Error) {
-			if !currentConfig.disablePooling {
-				ep.Put(e) // Return to pool when garbage collected
-			}
-		})
+	if !currentConfig.autoFree || currentConfig.disablePooling {
+		return
 	}
+	runtime.SetFinalizer(e, func(target *Error) {
+		if !currentConfig.disablePooling {
+			ep.Put(target)
+		}
+	})
 }
 
-// clearCleanup removes any finalizer set on an *Error.
-// Only active for Go versions < 1.24; ensures no cleanup action occurs on garbage collection.
+// clearCleanup removes the finalizer so explicit Free() calls do not race
+// with a pending GC-triggered pool return (double-put).
+// This is the correct approach for pre-1.24 Go where finalizers can be cleared.
 func (ep *ErrorPool) clearCleanup(e *Error) {
-	runtime.SetFinalizer(e, nil) // Disable finalizer
+	runtime.SetFinalizer(e, nil)
 }

@@ -2,6 +2,8 @@ package jsoncs3
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"sync"
@@ -14,6 +16,7 @@ import (
 	typespb "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/google/uuid"
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/opencloud-eu/reva/v2/pkg/appauth"
 	"github.com/opencloud-eu/reva/v2/pkg/appauth/manager/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
@@ -43,6 +46,7 @@ type manager struct {
 	store               *metadatacache.Store[string, map[string]*apppb.AppPassword]
 	generator           PasswordGenerator
 	uTimeUpdateInterval time.Duration
+	authCache           *expirable.LRU[string, *apppb.AppPassword]
 	initialized         bool
 }
 
@@ -59,7 +63,10 @@ type config struct {
 	UpdateRetryCount    int `mapstructure:"update_retry_count"`
 }
 
-const tracerName = "jsoncs3"
+const (
+	tracerName      = "jsoncs3"
+	defaultCacheTTL = 60 * time.Second
+)
 
 func New(m map[string]any) (appauth.Manager, error) {
 	c := &config{}
@@ -131,11 +138,13 @@ func NewWithOptions(mds metadata.Storage, generator PasswordGenerator, uTimeUpda
 		Retries: updateRetries,
 		Init:    func() map[string]*apppb.AppPassword { return map[string]*apppb.AppPassword{} },
 	})
+
 	return &manager{
 		mds:                 mds,
 		store:               store,
 		generator:           generator,
 		uTimeUpdateInterval: uTimeUpdateInterval,
+		authCache:           expirable.NewLRU[string, *apppb.AppPassword](0, nil, defaultCacheTTL),
 	}, nil
 }
 
@@ -289,8 +298,10 @@ func (m *manager) InvalidateAppPassword(ctx context.Context, secretOrId string) 
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("store.Update failed")
-		return errtypes.NotFound("password not found")
+		return err
 	}
+
+	m.removeFromAuthCache(userID.GetOpaqueId(), secretOrId)
 	return nil
 }
 
@@ -310,42 +321,84 @@ func (m *manager) GetAppPassword(ctx context.Context, user *userpb.UserId, secre
 		matchedID string
 	)
 
+	// A cached authentication result avoids recomputing the Argon2id hash, but
+	// the token ID still needs to be validated against synchronized storage.
+	cacheKey := createAuthCacheKey(user.GetOpaqueId(), secret)
+	cached, cacheHit := m.authCache.Get(cacheKey)
+
 	err := m.store.Update(ctx, user.GetOpaqueId(), false, func(a map[string]*apppb.AppPassword) (map[string]*apppb.AppPassword, bool, error) {
 		matchedPw = nil
-		for id, pw := range a {
-			ok, err := argon2id.ComparePasswordAndHash(secret, pw.Password)
-			switch {
-			case err != nil:
-				log.Debug().Err(err).Msg("Error comparing password and hash")
-			case ok:
-				// password found
-				if pw.Expiration != nil && pw.Expiration.Seconds != 0 && uint64(time.Now().Unix()) > pw.Expiration.Seconds {
-					log.Debug().Str("AppPasswordId", id).Msg("password expired")
-					return nil, false, errtypes.NotFound("password not found")
+		if cacheHit {
+			matchedID = cached.Password
+			matchedPw = a[matchedID]
+		} else {
+			for id, pw := range a {
+				ok, err := argon2id.ComparePasswordAndHash(secret, pw.Password)
+				switch {
+				case err != nil:
+					log.Debug().Err(err).Msg("Error comparing password and hash")
+				case ok:
+					matchedPw = pw
+					matchedID = id
 				}
-
-				matchedPw = pw
-				matchedID = id
-				// Updating the Utime will cause an Upload for every single GetAppPassword request. We are limiting this to one
-				// update per 'uTimeUpdateInterval' (default 5 min) otherwise this backend will become unusable.
-				if time.Since(utils.TSToTime(pw.Utime)) > m.uTimeUpdateInterval {
-					a[id].Utime = utils.TSNow()
-					return a, true, nil
+				if matchedPw != nil {
+					break
 				}
-				return a, false, nil
 			}
 		}
-		return nil, false, errtypes.NotFound("password not found")
+
+		if matchedPw == nil {
+			return nil, false, errtypes.NotFound("password not found")
+		}
+		if isAppPasswordExpired(matchedPw) {
+			log.Debug().Str("AppPasswordId", matchedID).Msg("password expired")
+			return nil, false, errtypes.NotFound("password not found")
+		}
+
+		// Updating the Utime will cause an Upload for every single GetAppPassword request. We are limiting this to one
+		// update per 'uTimeUpdateInterval' (default 5 min) otherwise this backend will become unusable.
+		if time.Since(utils.TSToTime(matchedPw.Utime)) > m.uTimeUpdateInterval {
+			a[matchedID].Utime = utils.TSNow()
+			return a, true, nil
+		}
+		return a, false, nil
 	})
 	if err != nil {
-		return nil, errtypes.NotFound("password not found")
+		if cacheHit {
+			m.authCache.Remove(cacheKey)
+		}
+		return nil, err
 	}
 
 	// Return a clone with the ID in the password field so the cached entry
 	// is not corrupted.
 	result := proto.Clone(matchedPw).(*apppb.AppPassword)
 	result.Password = matchedID
+	if !cacheHit {
+		m.authCache.Add(cacheKey, result)
+	}
+
 	return result, nil
+}
+
+// removeFromAuthCache removes the cached entry matching the app password.
+// secretOrIdis actually a password which is coming to the InvalidateAppPassword method
+// and then is propagated here, just keeped the same naming
+func (m *manager) removeFromAuthCache(userID, secretOrId string) {
+	key := createAuthCacheKey(userID, secretOrId)
+	if m.authCache.Remove(key) {
+		return
+	}
+	for _, k := range m.authCache.Keys() {
+		v, ok := m.authCache.Peek(k)
+		if ok && v.Password == secretOrId {
+			m.authCache.Remove(k)
+		}
+	}
+}
+
+func isAppPasswordExpired(pw *apppb.AppPassword) bool {
+	return pw.Expiration != nil && pw.Expiration.Seconds != 0 && uint64(time.Now().Unix()) > pw.Expiration.Seconds
 }
 
 func (m *manager) initialize(ctx context.Context) error {
@@ -423,4 +476,12 @@ func (d dicewarePassword) GeneratePassword() (string, error) {
 		return "", errors.Wrap(err, "error creating new token")
 	}
 	return strings.Join(token, " "), nil
+}
+
+func createAuthCacheKey(userID, secret string) string {
+	h := sha256.New()
+	_, _ = h.Write([]byte(userID))
+	_, _ = h.Write([]byte{0})
+	_, _ = h.Write([]byte(secret))
+	return hex.EncodeToString(h.Sum(nil))
 }

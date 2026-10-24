@@ -44,7 +44,10 @@ func (l *testWsPushListener) OnNotification(username string, pushState StateChan
 		}
 		l.m.Unlock()
 
-		unsupportedKeys := structs.Filter(structs.Keys(changed), func(o ObjectTypeName) bool { return o != EmailName && o != ThreadName && o != MailboxName })
+		// Stalwart also announces new mail with EmailDelivery since 0.16.16 (RFC 8621 section 1.5)
+		unsupportedKeys := structs.Filter(structs.Keys(changed), func(o ObjectTypeName) bool {
+			return o != EmailName && o != ThreadName && o != MailboxName && o != EmailDeliveryName
+		})
 		assert.Empty(l.t, unsupportedKeys)
 	}
 	unsupportedAccounts := structs.Filter(structs.Keys(pushState.Changed), func(s AccountId) bool { return s != l.mailAccountId })
@@ -110,7 +113,9 @@ func TestWs(t *testing.T) {
 		require.NoError(err)
 		require.Equal(session.State, result.GetSessionState())
 		require.Equal(initialState, result.GetState())
-		require.Equal(initialState, result.Payload.NewState)
+		// Stalwart may answer with a different but equivalent newState when nothing
+		// changed, e.g. "sae" for "n", so only check that there are no changes
+		require.NotEmpty(result.Payload.NewState)
 		require.Empty(result.Payload.Created)
 		require.Empty(result.Payload.Destroyed)
 		require.Empty(result.Payload.Updated)

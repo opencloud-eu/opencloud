@@ -22,6 +22,7 @@ import (
 	"github.com/moby/patternmatcher/ignorefile"
 
 	tcexec "github.com/testcontainers/testcontainers-go/exec"
+	"github.com/testcontainers/testcontainers-go/internal/config"
 	"github.com/testcontainers/testcontainers-go/internal/core"
 	"github.com/testcontainers/testcontainers-go/log"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -176,7 +177,7 @@ func (c *ContainerRequest) sessionID() string {
 		return sessionID
 	}
 
-	return core.SessionID()
+	return config.Read().SessionID
 }
 
 // containerOptions functional options for a container
