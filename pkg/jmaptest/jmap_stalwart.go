@@ -46,6 +46,9 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
 
+// 20 GB, as int64 so that the constant also fits on 32-bit platforms
+const testUserMaxDiskQuota int64 = 20_000_000_000
+
 const (
 	// When enabled, creates a new temporary Docker network to run the Stalwart and
 	// CLI containers in, which might be necessary in some environments for both
@@ -994,7 +997,7 @@ func NewStalwartTest(t *testing.T, options ...func(*importSettings)) (*StalwartT
 				"permissions":      map[string]any{"@type": "Inherit"},
 				"quotas": map[string]any{
 					"maxEmails":    200000,
-					"maxDiskQuota": 20000000000,
+					"maxDiskQuota": testUserMaxDiskQuota,
 				},
 				"roles": map[string]any{"@type": "User"},
 			})
