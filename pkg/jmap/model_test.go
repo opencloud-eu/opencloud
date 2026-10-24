@@ -21,6 +21,21 @@ func TestObjectNames(t *testing.T) { //NOSONAR
 	}
 }
 
+func TestObjectTypeNamespaces(t *testing.T) {
+	// servers reject methods whose capability is missing in "using" (RFC 8620 3.6.2)
+	for _, test := range []struct {
+		objectType ObjectType
+		namespace  JmapNamespace
+	}{
+		{IdentityType, JmapSubmission},
+		{EmailSubmissionType, JmapSubmission},
+		{AddressBookType, JmapContacts},
+		{CalendarType, JmapCalendars},
+	} {
+		require.Contains(t, test.objectType.Namespaces, test.namespace, string(test.objectType.Name))
+	}
+}
+
 func jsoneq[X any](t *testing.T, expected string, object X) {
 	data, err := json.MarshalIndent(object, "", "")
 	require.NoError(t, err)
