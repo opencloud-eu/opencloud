@@ -9,7 +9,7 @@ type AccountBootstrapResult struct {
 	Quotas     []Quota    `json:"quotas,omitempty"`
 }
 
-var NS_MAIL_QUOTA = ns(JmapMail, JmapQuota)
+var NS_MAIL_QUOTA = ns(JmapMail, JmapSubmission, JmapQuota)
 
 func (j *Client) GetBootstrap(accountIds []AccountId, ctx Context) (Result[map[AccountId]AccountBootstrapResult], error) { //NOSONAR
 	uniqueAccountIds := structs.Uniq(accountIds)

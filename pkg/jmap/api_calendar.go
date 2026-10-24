@@ -80,7 +80,7 @@ func (j *Client) GetCalendarChanges(accountId AccountId, sinceState State, maxCh
 }
 
 func (j *Client) CreateCalendar(accountId AccountId, calendar CalendarChange, ctx Context) (Result[*Calendar], error) {
-	return create(j, "CreateCalendar", CalendarEventType,
+	return create(j, "CreateCalendar", CalendarType,
 		func(accountId AccountId, create map[string]CalendarChange) CalendarSetCommand {
 			return CalendarSetCommand{AccountId: accountId, Create: create}
 		},
@@ -99,7 +99,7 @@ func (j *Client) CreateCalendar(accountId AccountId, calendar CalendarChange, ct
 }
 
 func (j *Client) DeleteCalendar(accountId AccountId, destroyIds []string, ctx Context) (Result[map[string]SetError], error) {
-	return destroy(j, "DeleteCalendar", CalendarEventType,
+	return destroy(j, "DeleteCalendar", CalendarType,
 		func(accountId AccountId, destroy []string) CalendarSetCommand {
 			return CalendarSetCommand{AccountId: accountId, Destroy: destroy}
 		},
@@ -110,7 +110,7 @@ func (j *Client) DeleteCalendar(accountId AccountId, destroyIds []string, ctx Co
 }
 
 func (j *Client) UpdateCalendar(accountId AccountId, id string, changes CalendarChange, ctx Context) (Result[Calendar], error) {
-	return update(j, "UpdateCalendar", CalendarEventType,
+	return update(j, "UpdateCalendar", CalendarType,
 		func(update map[string]PatchObject) CalendarSetCommand {
 			return CalendarSetCommand{AccountId: accountId, Update: update}
 		},
