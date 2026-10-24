@@ -98,10 +98,14 @@ func gput[B any, T any](g GroupwareTest, id string, user jmaptest.User, path str
 }
 
 func newGroupwareTest(t *testing.T) (GroupwareTest, error) {
+	// same conditions as the JMAP integration tests, e.g. there is no Docker in the CI
+	if jmaptest.Skip(t) {
+		return GroupwareTest{}, nil
+	}
 	require := require.New(t)
 	s, err := jmaptest.NewStalwartTest(t)
-	t.Cleanup(func() { s.Close() })
 	require.NoError(err)
+	t.Cleanup(func() { s.Close() })
 
 	root := ""
 	{
