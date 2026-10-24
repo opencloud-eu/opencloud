@@ -2,6 +2,7 @@ package decoding
 
 import (
 	"encoding/binary"
+	"math"
 	"reflect"
 	"sync"
 
@@ -199,7 +200,11 @@ func (d *decoder) jumpOffset() error {
 		if err != nil {
 			return err
 		}
-		_, err = d.readSizeN(int(binary.BigEndian.Uint32(bs)))
+		l, err := lengthFromUint32(binary.BigEndian.Uint32(bs))
+		if err != nil {
+			return err
+		}
+		_, err = d.readSizeN(l)
 		return err
 
 	case d.isFixSlice(code):
@@ -225,7 +230,10 @@ func (d *decoder) jumpOffset() error {
 		if err != nil {
 			return err
 		}
-		l := int(binary.BigEndian.Uint32(bs))
+		l, err := lengthFromUint32(binary.BigEndian.Uint32(bs))
+		if err != nil {
+			return err
+		}
 		for i := 0; i < l; i++ {
 			if err = d.jumpOffset(); err != nil {
 				return err
@@ -255,8 +263,16 @@ func (d *decoder) jumpOffset() error {
 		if err != nil {
 			return err
 		}
-		l := int(binary.BigEndian.Uint32(bs))
-		for i := 0; i < l*2; i++ {
+		l, err := lengthFromUint32(binary.BigEndian.Uint32(bs))
+		if err != nil {
+			return err
+		}
+		// skip key and value separately: multiplying the pair count would
+		// overflow on 32-bit platforms
+		for i := 0; i < l; i++ {
+			if err = d.jumpOffset(); err != nil {
+				return err
+			}
 			if err = d.jumpOffset(); err != nil {
 				return err
 			}
@@ -297,7 +313,14 @@ func (d *decoder) jumpOffset() error {
 		if err != nil {
 			return err
 		}
-		_, err = d.readSizeN(def.Byte1 + int(binary.BigEndian.Uint32(bs)))
+		l, err := lengthFromUint32(binary.BigEndian.Uint32(bs))
+		if err != nil {
+			return err
+		}
+		if l >= math.MaxInt { // Byte1 + l must not overflow
+			return errDeclaredLengthTooLarge
+		}
+		_, err = d.readSizeN(def.Byte1 + l)
 		return err
 	}
 	return nil

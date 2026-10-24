@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
@@ -112,6 +113,13 @@ func Policies(qs string, opts ...Option) func(next http.Handler) http.Handler {
 						ResourceId: &resourceID,
 					},
 				})
+
+				// the name stays empty and the policy judges
+				if err != nil {
+					logger.Err(err).Msg("error stating the resource")
+				} else if code := sRes.GetStatus().GetCode(); code != rpc.Code_CODE_OK {
+					logger.Debug().Str("code", code.String()).Msg("unexpected status stating the resource")
+				}
 
 				resource.Name = sRes.GetInfo().GetName()
 			}

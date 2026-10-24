@@ -53,6 +53,22 @@ func arithFloor(a *big.Float) (*big.Float, error) {
 	return new(big.Float).Sub(f, big.NewFloat(1.0)), nil
 }
 
+// exactIntArith applies op to n1 and n2 as exact big.Ints when both are integers.
+//
+// The big.Float path used otherwise carries the default mantissa, so integers needing more
+// significant bits than that are silently rounded before the operation is applied.
+func exactIntArith(n1, n2 ast.Number, op func(z, x, y *big.Int) *big.Int) (ast.Number, bool) {
+	x, err := builtins.NumberToInt(n1)
+	if err != nil {
+		return "", false
+	}
+	y, err := builtins.NumberToInt(n2)
+	if err != nil {
+		return "", false
+	}
+	return builtins.IntToNumber(op(new(big.Int), x, y)), true
+}
+
 func builtinPlus(_ BuiltinContext, operands []*ast.Term, iter func(*ast.Term) error) error {
 	n1, err := builtins.NumberOperand(operands[0].Value, 1)
 	if err != nil {
@@ -68,6 +84,10 @@ func builtinPlus(_ BuiltinContext, operands []*ast.Term, iter func(*ast.Term) er
 
 	if ok1 && ok2 && inSmallIntRange(x) && inSmallIntRange(y) {
 		return iter(ast.InternedTerm(x + y))
+	}
+
+	if n, ok := exactIntArith(n1, n2, (*big.Int).Add); ok {
+		return iter(ast.NewTerm(n))
 	}
 
 	f := new(big.Float).Add(builtins.NumberToFloat(n1), builtins.NumberToFloat(n2))
@@ -92,6 +112,10 @@ func builtinMultiply(_ BuiltinContext, operands []*ast.Term, iter func(*ast.Term
 		return iter(ast.InternedTerm(x * y))
 	}
 
+	if n, ok := exactIntArith(n1, n2, (*big.Int).Mul); ok {
+		return iter(ast.NewTerm(n))
+	}
+
 	f := new(big.Float).Mul(builtins.NumberToFloat(n1), builtins.NumberToFloat(n2))
 
 	return iter(ast.NewTerm(builtins.FloatToNumber(f)))
@@ -106,7 +130,10 @@ func arithDivide(a, b *big.Float) (*big.Float, error) {
 }
 
 func arithRem(a, b *big.Int) (*big.Int, error) {
-	if b.Int64() == 0 {
+	// Sign, not Int64: Int64 returns the low 64 bits when b does not fit in an
+	// int64, so any nonzero multiple of 2^64 (e.g. 10 % 18446744073709551616)
+	// would be misreported as modulo by zero.
+	if b.Sign() == 0 {
 		return nil, errors.New("modulo by zero")
 	}
 	return new(big.Int).Rem(a, b), nil
@@ -156,6 +183,10 @@ func builtinMinus(_ BuiltinContext, operands []*ast.Term, iter func(*ast.Term) e
 
 		if okx && oky && inSmallIntRange(x) && inSmallIntRange(y) {
 			return iter(ast.InternedTerm(x - y))
+		}
+
+		if n, ok := exactIntArith(n1, n2, (*big.Int).Sub); ok {
+			return iter(ast.NewTerm(n))
 		}
 
 		f := new(big.Float).Sub(builtins.NumberToFloat(n1), builtins.NumberToFloat(n2))

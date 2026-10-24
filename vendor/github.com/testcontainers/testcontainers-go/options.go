@@ -53,19 +53,38 @@ func WithDockerfile(df FromDockerfile) CustomizeRequestOption {
 }
 
 // WithConfigModifier allows to override the default container config
+// New in v0.43.1: The method can be called multiple times and the method will run sequentially with the last call
+// being called last.
 func WithConfigModifier(modifier func(config *container.Config)) CustomizeRequestOption {
 	return func(req *GenericContainerRequest) error {
-		req.ConfigModifier = modifier
+		if req.ConfigModifier == nil {
+			req.ConfigModifier = modifier
+		} else {
+			fn := req.ConfigModifier
+			req.ConfigModifier = func(config *container.Config) {
+				fn(config)
+				modifier(config)
+			}
+		}
 
 		return nil
 	}
 }
 
 // WithEndpointSettingsModifier allows to override the default endpoint settings
+// New in v0.43.1: The method can be called multiple times and the method will run sequentially with the last call
+// being called last.
 func WithEndpointSettingsModifier(modifier func(settings map[string]*network.EndpointSettings)) CustomizeRequestOption {
 	return func(req *GenericContainerRequest) error {
-		req.EndpointSettingsModifier = modifier
-
+		if req.EndpointSettingsModifier == nil {
+			req.EndpointSettingsModifier = modifier
+		} else {
+			fn := req.EndpointSettingsModifier
+			req.EndpointSettingsModifier = func(settings map[string]*network.EndpointSettings) {
+				fn(settings)
+				modifier(settings)
+			}
+		}
 		return nil
 	}
 }
@@ -85,9 +104,19 @@ func WithEnv(envs map[string]string) CustomizeRequestOption {
 }
 
 // WithHostConfigModifier allows to override the default host config
+// New in v0.43.1: The method can be called multiple times and the method will run sequentially with the last call
+// being called last.
 func WithHostConfigModifier(modifier func(hostConfig *container.HostConfig)) CustomizeRequestOption {
 	return func(req *GenericContainerRequest) error {
-		req.HostConfigModifier = modifier
+		if req.HostConfigModifier == nil {
+			req.HostConfigModifier = modifier
+		} else {
+			fn := req.HostConfigModifier
+			req.HostConfigModifier = func(hostConfig *container.HostConfig) {
+				fn(hostConfig)
+				modifier(hostConfig)
+			}
+		}
 
 		return nil
 	}

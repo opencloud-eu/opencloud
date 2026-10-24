@@ -180,8 +180,20 @@ func (s *service) CreateShare(ctx context.Context, req *collaboration.CreateShar
 				Status: status.NewPermissionDenied(ctx, nil, "user tenantId does not match the target user tenantId"),
 			}, nil
 		}
-	}
 
+		if req.GetGrant().GetGrantee().GetUserId().GetType() == userpb.UserType_USER_TYPE_GUEST {
+			// guests are identified by their mail address, lets be strict here and only accept bare mail addresses
+			// and store them in their canonical form
+			guestID := req.GetGrant().GetGrantee().GetUserId()
+			canonical, err := utils.CanonicalMail(guestID.GetOpaqueId())
+			if err != nil {
+				return &collaboration.CreateShareResponse{
+					Status: status.NewInvalidArg(ctx, "invalid mail address for guest grantee: "+err.Error()),
+				}, nil
+			}
+			guestID.OpaqueId = canonical
+		}
+	}
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
 		return nil, err
@@ -200,13 +212,28 @@ func (s *service) CreateShare(ctx context.Context, req *collaboration.CreateShar
 		}, nil
 	}
 
+	// guest shares (shares to a mail address) require an additional permission
+	if req.GetGrant().GetGrantee().GetUserId().GetType() == userpb.UserType_USER_TYPE_GUEST {
+		ok, err := utils.CheckPermission(ctx, permission.GuestMailWrite, gatewayClient)
+		if err != nil {
+			return &collaboration.CreateShareResponse{
+				Status: status.NewInternal(ctx, "failed check user permission to invite guests"),
+			}, err
+		}
+		if !ok {
+			return &collaboration.CreateShareResponse{
+				Status: status.NewPermissionDenied(ctx, nil, "no permission to invite guests"),
+			}, nil
+		}
+	}
+
 	// use logged in user Idp as default, if the Grantee does not have an IDP set.
 	if req.GetGrant().GetGrantee().GetType() == provider.GranteeType_GRANTEE_TYPE_USER && req.GetGrant().GetGrantee().GetUserId().GetIdp() == "" {
 		req.GetGrant().GetGrantee().Id = &provider.Grantee_UserId{
 			UserId: &userpb.UserId{
 				OpaqueId: req.GetGrant().GetGrantee().GetUserId().GetOpaqueId(),
 				Idp:      user.GetId().GetIdp(),
-				Type:     userpb.UserType_USER_TYPE_PRIMARY},
+				Type:     req.GetGrant().GetGrantee().GetUserId().GetType()},
 		}
 	}
 	// some for group grantees
@@ -365,8 +392,15 @@ func (s *service) RemoveShare(ctx context.Context, req *collaboration.RemoveShar
 	user := ctxpkg.ContextMustGetUser(ctx)
 	share, err := s.sm.GetShare(ctx, req.Ref)
 	if err != nil {
+		var st *rpc.Status
+		switch err.(type) {
+		case errtypes.IsNotFound:
+			st = status.NewNotFound(ctx, err.Error())
+		default:
+			st = status.NewInternal(ctx, "error getting share")
+		}
 		return &collaboration.RemoveShareResponse{
-			Status: status.NewInternal(ctx, "error getting share"),
+			Status: st,
 		}, nil
 	}
 
@@ -425,6 +459,7 @@ func (s *service) RemoveShare(ctx context.Context, req *collaboration.RemoveShar
 	} else {
 		opaque = utils.AppendJSONToOpaque(opaque, "granteegroupid", share.GetGrantee().GetGroupId())
 	}
+	opaque = utils.AppendJSONToOpaque(opaque, "shareid", share.GetId())
 
 	return &collaboration.RemoveShareResponse{
 		Opaque: opaque,
@@ -510,6 +545,21 @@ func (s *service) UpdateShare(ctx context.Context, req *collaboration.UpdateShar
 		return &collaboration.UpdateShareResponse{
 			Status: st,
 		}, nil
+	}
+
+	// guest shares (shares to a mail address) require an additional permission
+	if currentShare.GetGrantee().GetUserId().GetType() == userpb.UserType_USER_TYPE_GUEST {
+		ok, err := utils.CheckPermission(ctx, permission.GuestMailWrite, gatewayClient)
+		if err != nil {
+			return &collaboration.UpdateShareResponse{
+				Status: status.NewInternal(ctx, "failed check user permission to invite guests"),
+			}, err
+		}
+		if !ok {
+			return &collaboration.UpdateShareResponse{
+				Status: status.NewPermissionDenied(ctx, nil, "no permission to invite guests"),
+			}, nil
+		}
 	}
 
 	sRes, err := gatewayClient.Stat(ctx, &provider.StatRequest{Ref: &provider.Reference{ResourceId: currentShare.GetResourceId()}})

@@ -15,27 +15,31 @@ POS ?= $(wildcard *.po)
 .PHONY: build
 build: json
 
-.PYTHON: json
+.PHONY: json
 json:
 	@for po in $(POS); do \
 		lang=$$(echo $$po | sed "s/\.po//"); \
-		$(PNPM) i18next-conv -K --skipUntranslated -l $$lang -s i18n/$$po -t ../src/locales/$$lang/translation.json; \
+		$(PNPM) i18next-conv -K --skipUntranslated -l $$lang -s $$po -t ../src/locales/$$lang/translation.json; \
 	done
-	$(PNPM) node i18n/build-json.js ../src/locales/locales.json $(POS)
+	$(PNPM) node build-json.js ../src/locales/locales.json $(POS)
 
-dev-translation.json: FORCE
-	$(PNPM) i18next --fail-on-warnings
+.PHONY: extract-keys
+extract-keys:
+	$(PNPM) i18next-cli extract -q || true
+
+translation.en.json: FORCE
+	$(MAKE) extract-keys
 
 .PHONY: extract
 extract: pot
 
 .PHONY: pot
-pot: dev-translation.json
+pot: translation.en.json
 	@tmpfile1=$(shell mktemp).po; \
 	tmpfile2=$(shell mktemp).po; \
 	trap 'rm -f "$$tmpfile1" "$$tmpfile2"' EXIT; \
-	$(PNPM) i18next-conv --project "LibreGraph Connect Identifier" -K -l en -s i18n/dev-translation.json -t $$tmpfile1; \
-	$(PNPM) node i18n/build-pot.js $$tmpfile1 $$tmpfile2; \
+	$(PNPM) i18next-conv --project "LibreGraph Connect Identifier" -K -l en -s translation.en.json -t $$tmpfile1; \
+	$(PNPM) node build-pot.js $$tmpfile1 $$tmpfile2; \
 	$(MSGCAT) --no-wrap -o $(POT) $$tmpfile2
 
 .PHONY: merge

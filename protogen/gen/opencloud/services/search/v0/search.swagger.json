@@ -34,18 +34,28 @@
   "paths": {
     "/api/v0/search/index-space": {
       "post": {
+        "summary": "IndexSpace (re)indexes one or all spaces. The response is streamed, sending\nprogress information after each space has been indexed.",
         "operationId": "SearchProvider_IndexSpace",
         "responses": {
           "200": {
-            "description": "A successful response.",
+            "description": "A successful response.(streaming responses)",
             "schema": {
-              "$ref": "#/definitions/v0IndexSpaceResponse"
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/v0IndexSpaceResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/googlerpcStatus"
+                }
+              },
+              "title": "Stream result of v0IndexSpaceResponse"
             }
           },
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/rpcStatus"
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -77,7 +87,7 @@
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/rpcStatus"
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -109,7 +119,7 @@
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/rpcStatus"
+              "$ref": "#/definitions/googlerpcStatus"
             }
           }
         },
@@ -130,16 +140,7 @@
     }
   },
   "definitions": {
-    "protobufAny": {
-      "type": "object",
-      "properties": {
-        "@type": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": {}
-    },
-    "rpcStatus": {
+    "googlerpcStatus": {
       "type": "object",
       "properties": {
         "code": {
@@ -156,6 +157,15 @@
           }
         }
       }
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
     },
     "v0Audio": {
       "type": "object",
@@ -288,6 +298,15 @@
           "items": {
             "type": "string"
           }
+        },
+        "motionPhoto": {
+          "$ref": "#/definitions/v0MotionPhoto"
+        },
+        "video": {
+          "$ref": "#/definitions/v0Video"
+        },
+        "livePhoto": {
+          "$ref": "#/definitions/v0LivePhoto"
         }
       }
     },
@@ -332,11 +351,77 @@
         },
         "forceReindex": {
           "type": "boolean"
+        },
+        "concurrency": {
+          "type": "integer",
+          "format": "int32"
         }
       }
     },
     "v0IndexSpaceResponse": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "spaceId": {
+          "type": "string",
+          "description": "The id of the space that has just been indexed."
+        },
+        "spaceDuration": {
+          "type": "string",
+          "description": "The duration it took to index this space."
+        },
+        "indexedSpaces": {
+          "type": "string",
+          "format": "int64",
+          "description": "The number of spaces that have been indexed so far."
+        },
+        "totalSpaces": {
+          "type": "string",
+          "format": "int64",
+          "description": "The total number of spaces that are being indexed."
+        },
+        "error": {
+          "type": "string",
+          "description": "Contains an error message in case indexing this particular space failed."
+        },
+        "status": {
+          "$ref": "#/definitions/v0IndexSpaceResponseStatus",
+          "description": "The outcome of indexing this particular space."
+        }
+      }
+    },
+    "v0IndexSpaceResponseStatus": {
+      "type": "string",
+      "enum": [
+        "STATUS_UNKNOWN",
+        "STATUS_SUCCESS",
+        "STATUS_SKIPPED",
+        "STATUS_ERROR"
+      ],
+      "default": "STATUS_UNKNOWN",
+      "description": " - STATUS_SUCCESS: The space has been indexed successfully.\n - STATUS_SKIPPED: The space has been skipped because it is disabled. It will be indexed\nonce it gets enabled again.\n - STATUS_ERROR: Indexing the space failed, see the error field for details."
+    },
+    "v0LivePhoto": {
+      "type": "object",
+      "properties": {
+        "contentId": {
+          "type": "string"
+        },
+        "stillImageTimeUs": {
+          "type": "string",
+          "format": "int64"
+        },
+        "auto": {
+          "type": "boolean"
+        },
+        "vitalityScore": {
+          "type": "number",
+          "format": "double"
+        },
+        "vitalityScoringVersion": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
     },
     "v0Match": {
       "type": "object",
@@ -349,6 +434,23 @@
           "type": "number",
           "format": "float",
           "title": "the match score"
+        }
+      }
+    },
+    "v0MotionPhoto": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "presentationTimestampUs": {
+          "type": "string",
+          "format": "int64"
+        },
+        "videoSize": {
+          "type": "string",
+          "format": "int64"
         }
       }
     },
@@ -489,6 +591,49 @@
           "title": "Token to retrieve the next page of results, or empty if there are no\nmore results in the list"
         },
         "totalMatches": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "v0Video": {
+      "type": "object",
+      "properties": {
+        "audioBitsPerSample": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "audioChannels": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "audioFormat": {
+          "type": "string"
+        },
+        "audioSamplesPerSecond": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "bitrate": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "duration": {
+          "type": "string",
+          "format": "int64"
+        },
+        "fourCC": {
+          "type": "string"
+        },
+        "frameRate": {
+          "type": "number",
+          "format": "double"
+        },
+        "height": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "width": {
           "type": "integer",
           "format": "int32"
         }

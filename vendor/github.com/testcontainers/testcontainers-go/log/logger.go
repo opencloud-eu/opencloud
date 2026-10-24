@@ -19,16 +19,21 @@ type Logger interface {
 	Printf(format string, v ...any)
 }
 
-// defaultLogger is the default Logger instance.
-var defaultLogger Logger = &noopLogger{}
+// defaultLogger would print available information to stderr
+var defaultLogger Logger = log.New(os.Stderr, "", log.LstdFlags)
+
+func NewNoopLogger() Logger {
+	return &noopLogger{}
+}
 
 func init() {
-	// Enable default logger in the testing with a verbose flag.
+	// Disable default logger in testing mode if explicitly disabled via -test.v=false.
 	if testing.Testing() {
-		// Parse manually because testing.Verbose() panics unless flag.Parse() has done.
+		// Disable logging if explicitly disabled via -test.v=false
 		for _, arg := range os.Args {
-			if strings.EqualFold(arg, "-test.v=true") || strings.EqualFold(arg, "-v") {
-				defaultLogger = log.New(os.Stderr, "", log.LstdFlags)
+			if strings.EqualFold(arg, "-test.v=false") {
+				defaultLogger = NewNoopLogger()
+				break
 			}
 		}
 	}

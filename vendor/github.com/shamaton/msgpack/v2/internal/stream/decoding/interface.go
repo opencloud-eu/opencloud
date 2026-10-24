@@ -15,6 +15,10 @@ func (d *decoder) asInterface(k reflect.Kind) (interface{}, error) {
 	return d.asInterfaceWithCode(code, k)
 }
 
+// typeInterfaceValue is the reflect.Type of interface{}; used to size the
+// element budget when pre-allocating []interface{}.
+var typeInterfaceValue = reflect.TypeOf((*interface{})(nil)).Elem()
+
 func (d *decoder) asInterfaceWithCode(code byte, k reflect.Kind) (interface{}, error) {
 	switch {
 	case code == def.Nil:
@@ -110,13 +114,13 @@ func (d *decoder) asInterfaceWithCode(code byte, k reflect.Kind) (interface{}, e
 			return nil, err
 		}
 
-		v := make([]interface{}, l)
+		v := make([]interface{}, 0, initialSliceCap(l, typeInterfaceValue))
 		for i := 0; i < l; i++ {
 			vv, err := d.asInterface(k)
 			if err != nil {
 				return nil, err
 			}
-			v[i] = vv
+			v = append(v, vv)
 		}
 		return v, nil
 
@@ -126,7 +130,7 @@ func (d *decoder) asInterfaceWithCode(code byte, k reflect.Kind) (interface{}, e
 			return nil, err
 		}
 
-		v := make(map[interface{}]interface{}, l)
+		v := make(map[interface{}]interface{}, initialMapCap(l))
 		for i := 0; i < l; i++ {
 			keyCode, err := d.readSize1()
 			if err != nil {

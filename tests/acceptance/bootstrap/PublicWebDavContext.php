@@ -27,6 +27,9 @@ use TestHelpers\HttpRequestHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\BehatHelper;
 use TestHelpers\UploadHelper;
+use Behat\Step\Given;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -60,37 +63,35 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @When /^the public downloads the last public link shared file using the public WebDAV API$/
-	 * @When /^the public tries to download the last public link shared file using the public WebDAV API$/
 	 *
 	 * @return void
 	 */
+	#[When('the public tries to download the last public link shared file using the public WebDAV API')]
 	public function downloadPublicFile(): void {
 		$response = $this->downloadPublicFileWithRange("");
 		$this->featureContext->setResponse($response);
 	}
 
 	/**
-	 * @When /^the public downloads the last public link shared file with password "([^"]*)" using the public WebDAV API$/
-	 * @When /^the public tries to download the last public link shared file with password "([^"]*)" using the public WebDAV API$/
 	 *
 	 * @param string $password
 	 *
 	 * @return void
 	 */
+	#[When('the public tries to download the last public link shared file with password :password using the public WebDAV API')]
 	public function downloadPublicFileWithPassword(string $password): void {
 		$response = $this->downloadPublicFileWithRange("", $password);
 		$this->featureContext->setResponse($response);
 	}
 
 	/**
-	 * @When /^user "([^"]*)" tries to download file "([^"]*)" from the last public link using own basic auth and public WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $path
 	 *
 	 * @return void
 	 */
+	#[When('user :user tries to download file :path from the last public link using own basic auth and public WebDAV API')]
 	public function userTriesToDownloadFileFromPublicLinkUsingBasicAuthAndPublicWebdav(
 		string $user,
 		string $path
@@ -100,12 +101,12 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @When /^the public deletes (?:file|folder|entry) "([^"]*)" from the last public link share using the public WebDAV API$/
 	 *
 	 * @param string $fileName
 	 *
 	 * @return void
 	 */
+	#[When('/^the public deletes (?:file|folder|entry) "([^"]*)" from the last public link share using the public WebDAV API$/')]
 	public function thePublicDeletesFileFolderFromTheLastPublicLinkShareUsingThePublicWebdavApi(
 		string $fileName
 	): void {
@@ -147,13 +148,13 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @Given /^the public has deleted (?:file|folder|entry) "([^"]*)" from the last link share with password "([^"]*)" using the public WebDAV API$/
 	 *
 	 * @param string $file
 	 * @param string $password
 	 *
 	 * @return void
 	 */
+	#[Given('/^the public has deleted (?:file|folder|entry) "([^"]*)" from the last link share with password "([^"]*)" using the public WebDAV API$/')]
 	public function thePublicHasDeletedFileFromTheLastLinkShareWithPasswordUsingPublicWebdavApi(
 		string $file,
 		string $password
@@ -163,13 +164,13 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @When /^the public deletes (?:file|folder|entry) "([^"]*)" from the last link share with password "([^"]*)" using the public WebDAV API$/
 	 *
 	 * @param string $file
 	 * @param string $password
 	 *
 	 * @return void
 	 */
+	#[When('/^the public deletes (?:file|folder|entry) "([^"]*)" from the last link share with password "([^"]*)" using the public WebDAV API$/')]
 	public function thePublicDeletesFileFromTheLastLinkShareWithPasswordUsingPublicWebdavApi(
 		string $file,
 		string $password
@@ -219,7 +220,6 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @When /^the public renames (?:file|folder|entry) "([^"]*)" to "([^"]*)" from the last public link share using the password "([^"]*)" and the public WebDAV API$/
 	 *
 	 * @param string $fileName
 	 * @param string $toName
@@ -227,6 +227,7 @@ class PublicWebDavContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('/^the public renames (?:file|folder|entry) "([^"]*)" to "([^"]*)" from the last public link share using the password "([^"]*)" and the public WebDAV API$/')]
 	public function thePublicRenamesFileFromTheLastPublicShareUsingThePasswordPasswordAndOldPublicWebdavApi(
 		string $fileName,
 		string $toName,
@@ -239,14 +240,14 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @When /^the public downloads file "([^"]*)" from inside the last public link shared folder with password "([^"]*)" using the public WebDAV API$/
-	 * @When /^the public tries to download file "([^"]*)" from inside the last public link shared folder with password "([^"]*)" using the public WebDAV API$/
 	 *
 	 * @param string $path
 	 * @param string $password
 	 *
 	 * @return void
 	 */
+	#[When('the public downloads file :path from inside the last public link shared folder with password :password using the public WebDAV API')]
+	#[When('the public tries to download file :path from inside the last public link shared folder with password :password using the public WebDAV API')]
 	public function publicDownloadsFileFromInsideLastPublicSharedFolderWithPassword(
 		string $path,
 		string $password = ""
@@ -376,13 +377,13 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @When /^the public copies (?:file|folder) "([^"]*)" to "([^"]*)" using the public WebDAV API$/
 	 *
 	 * @param string $source
 	 * @param string $destination
 	 *
 	 * @return void
 	 */
+	#[When('/^the public copies (?:file|folder) "([^"]*)" to "([^"]*)" using the public WebDAV API$/')]
 	public function thePublicCopiesFileUsingTheWebDAVApi(string $source, string $destination): void {
 		$token = ($this->featureContext->isUsingSharingNG())
 		? $this->featureContext->shareNgGetLastCreatedLinkShareToken()
@@ -424,7 +425,6 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @Given /^the public has uploaded file "([^"]*)" with content "([^"]*)" and password "([^"]*)" to the last link share using the public WebDAV API$/
 	 *
 	 * @param string $filename
 	 * @param string $content
@@ -432,6 +432,7 @@ class PublicWebDavContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[Given('the public has uploaded file :filename with content :content and password :password to the last link share using the public WebDAV API')]
 	public function thePublicHasUploadedFileWithContentAndPasswordToLastLinkShareUsingPublicWebdavApi(
 		string $filename,
 		string $content = 'test',
@@ -446,7 +447,6 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @When /^the public uploads file "([^"]*)" with password "([^"]*)" and content "([^"]*)" using the public WebDAV API$/
 	 *
 	 * @param string $filename target file name
 	 * @param string $password
@@ -454,6 +454,7 @@ class PublicWebDavContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('the public uploads file :filename with password :password and content :body using the public WebDAV API')]
 	public function thePublicUploadsFileWithPasswordAndContentUsingPublicWebDAVApi(
 		string $filename,
 		string $password,
@@ -468,26 +469,26 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @When the public overwrites file :filename with content :body using the public WebDAV API
 	 *
 	 * @param string $filename target file name
 	 * @param string $body content to upload
 	 *
 	 * @return void
 	 */
+	#[When('the public overwrites file :filename with content :body using the public WebDAV API')]
 	public function thePublicOverwritesFileWithContentUsingWebDavApi(string $filename, string $body): void {
 		$response = $this->publicUploadContent($filename, '', $body);
 		$this->featureContext->setResponse($response);
 	}
 
 	/**
-	 * @When /^the public uploads file "([^"]*)" with content "([^"]*)" using the public WebDAV API$/
 	 *
 	 * @param string $filename target file name
 	 * @param string $body content to upload
 	 *
 	 * @return void
 	 */
+	#[When('the public uploads file :filename with content :body using the public WebDAV API')]
 	public function thePublicUploadsFileWithContentUsingThePublicWebDavApi(
 		string $filename,
 		string $body = 'test'
@@ -498,20 +499,6 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @Given the public has uploaded file :filename with content :body
-	 *
-	 * @param string $filename target file name
-	 * @param string $body content to upload
-	 *
-	 * @return void
-	 */
-	public function thePublicHasUploadedFileWithContent(string $filename, string $body): void {
-		$response = $this->publicUploadContent($filename, '', $body);
-		$this->featureContext->theHTTPStatusCodeShouldBe([201, 204], "", $response);
-	}
-
-	/**
-	 * @Then /^the public should be able to download the last publicly shared file using the public WebDAV API with password "([^"]*)" and the content should be "([^"]*)"$/
 	 *
 	 * @param string $password
 	 * @param string $expectedContent
@@ -519,6 +506,7 @@ class PublicWebDavContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the public should be able to download the last publicly shared file using the public WebDAV API with password :password and the content should be :expectedContent')]
 	public function checkLastPublicSharedFileWithPasswordDownload(
 		string $password,
 		string $expectedContent
@@ -538,14 +526,13 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @Then /^the public should not be able to download file "([^"]*)" from inside the last public link shared folder using the public WebDAV API without a password$/
-	 * @Then /^the public download of file "([^"]*)" from inside the last public link shared folder using the public WebDAV API should fail with HTTP status code "([^"]*)"$/
 	 *
 	 * @param string $path
 	 * @param string $expectedHttpCode
 	 *
 	 * @return void
 	 */
+	#[Then('the public should not be able to download file :path from inside the last public link shared folder using the public WebDAV API without a password')]
 	public function shouldNotBeAbleToDownloadFileInsidePublicSharedFolder(
 		string $path,
 		string $expectedHttpCode = "401"
@@ -560,13 +547,13 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @Then /^the public should be able to download file "([^"]*)" from inside the last public link shared folder using the public WebDAV API with password "([^"]*)"$/
 	 *
 	 * @param string $path
 	 * @param string $password
 	 *
 	 * @return void
 	 */
+	#[Then('the public should be able to download file :path from inside the last public link shared folder using the public WebDAV API with password :password')]
 	public function shouldBeAbleToDownloadFileInsidePublicSharedFolderWithPassword(
 		string $path,
 		string $password
@@ -581,7 +568,6 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @Then /^the public should be able to download file "([^"]*)" from inside the last public link shared folder using the public WebDAV API with password "([^"]*)" and the content should be "([^"]*)"$/
 	 *
 	 * @param string $path
 	 * @param string $password
@@ -590,6 +576,7 @@ class PublicWebDavContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the public should be able to download file :path from inside the last public link shared folder using the public WebDAV API with password :password and the content should be :content')]
 	public function shouldBeAbleToDownloadFileInsidePublicSharedFolderWithPasswordAndContentShouldBe(
 		string $path,
 		string $password,
@@ -606,7 +593,6 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @Then /^the public should be able to download file "([^"]*)" from the last link share with password "([^"]*)" and the content should be "([^"]*)"$/
 	 *
 	 * @param string $path
 	 * @param string $password
@@ -615,6 +601,7 @@ class PublicWebDavContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the public should be able to download file :path from the last link share with password :password and the content should be :content')]
 	public function shouldBeAbleToDownloadFileInsidePublicSharedFolderWithPasswordForSharingNGAndContentShouldBe(
 		string $path,
 		string $password,
@@ -632,8 +619,6 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @Then /^the public should not be able to download file "([^"]*)" from inside the last public link shared folder using the public WebDAV API with password "([^"]*)"$/
-	 * @Then /^the public download of file "([^"]*)" from inside the last public link shared folder using the public WebDAV API with password "([^"]*)" should fail with HTTP status code "([^"]*)"$/
 	 *
 	 * @param string $path
 	 * @param string $password
@@ -641,6 +626,7 @@ class PublicWebDavContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[Then('the public should not be able to download file :path from inside the last public link shared folder using the public WebDAV API with password :password')]
 	public function shouldNotBeAbleToDownloadFileInsidePublicSharedFolderWithPassword(
 		string $path,
 		string $password,
@@ -656,7 +642,6 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @Then /^the public download of file "([^"]*)" from the last link share with password "([^"]*)" should fail with HTTP status code "([^"]*)" using shareNg$/
 	 *
 	 * @param string $path
 	 * @param string $password
@@ -664,6 +649,7 @@ class PublicWebDavContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[Then('the public download of file :path from the last link share with password :password should fail with HTTP status code :expectedHttpCode using shareNg')]
 	public function shouldNotBeAbleToDownloadFileWithPasswordForShareNg(
 		string $path,
 		string $password,
@@ -704,7 +690,6 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @Then /^the public upload to the last publicly shared file using the public WebDAV API with password "([^"]*)" should (?:fail|pass) with HTTP status code "([^"]*)"$/
 	 *
 	 * @param string $password
 	 * @param string $expectedHttpCode
@@ -712,6 +697,7 @@ class PublicWebDavContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^the public upload to the last publicly shared file using the public WebDAV API with password "([^"]*)" should (?:fail|pass) with HTTP status code "([^"]*)"$/')]
 	public function publiclyUploadingShouldToSharedFileShouldFail(
 		string $password,
 		string $expectedHttpCode
@@ -727,13 +713,13 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @Then /^the public upload to the last publicly shared folder using the public WebDAV API with password "([^"]*)" should fail with HTTP status code "([^"]*)"$/
 	 *
 	 * @param string $password
 	 * @param string|null $expectedHttpCode
 	 *
 	 * @return void
 	 */
+	#[Then('the public upload to the last publicly shared folder using the public WebDAV API with password :password should fail with HTTP status code :expectedHttpCode')]
 	public function publiclyUploadingWithPasswordShouldNotWork(
 		string $password,
 		string $expectedHttpCode = null
@@ -750,13 +736,13 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @Then /^the public should be able to upload file "([^"]*)" into the last public link shared folder using the public WebDAV API with password "([^"]*)"$/
 	 *
 	 * @param string $filename
 	 * @param string $password
 	 *
 	 * @return void
 	 */
+	#[Then('the public should be able to upload file :filename into the last public link shared folder using the public WebDAV API with password :password')]
 	public function publiclyUploadingIntoFolderWithPasswordShouldWork(
 		string $filename,
 		string $password
@@ -770,13 +756,13 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @Then /^uploading a file with password "([^"]*)" should work using the public WebDAV API$/
 	 *
 	 * @param string $password
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('uploading a file with password :password should work using the public WebDAV API')]
 	public function publiclyUploadingShouldWork(string $password): void {
 		$path = "whateverfilefortesting-publicWebDAVAPI.txt";
 		$content = "test";
@@ -802,7 +788,6 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @Then /^uploading content to a public link shared file with password "([^"]*)" should (not|)\s?work using the public WebDAV API$/
 	 *
 	 * @param string $password
 	 * @param string $shouldOrNot (not|)
@@ -810,6 +795,7 @@ class PublicWebDavContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('/^uploading content to a public link shared file with password "([^"]*)" should (not|)\\s?work using the public WebDAV API$/')]
 	public function publiclyUploadingToPublicLinkSharedFileShouldWork(
 		string $password,
 		string $shouldOrNot,
@@ -851,13 +837,13 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @When the public uploads file :source to :destination inside last link shared folder using the public WebDAV API
 	 *
 	 * @param string $source
 	 * @param string $destination
 	 *
 	 * @return void
 	 */
+	#[When('the public uploads file :source to :destination inside last link shared folder using the public WebDAV API')]
 	public function thePublicUploadsFileToInsideLastLinkSharedFolderUsingThePublicWebdavApi(
 		string $source,
 		string $destination,
@@ -875,7 +861,6 @@ class PublicWebDavContext implements Context {
 
 	/**
 	 *
-	 * @When the public uploads file :source to :destination inside last link shared folder with password :password using the public WebDAV API
 	 *
 	 * @param string $source
 	 * @param string $destination
@@ -883,6 +868,7 @@ class PublicWebDavContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('the public uploads file :source to :destination inside last link shared folder with password :password using the public WebDAV API')]
 	public function thePublicUploadsFileToInsideLastLinkSharedFolderWithPasswordUsingThePublicWebdavApi(
 		string $source,
 		string $destination,
@@ -900,7 +886,6 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @When the public uploads file :fileName to the last public link shared folder with password :password with mtime :mtime using the public WebDAV API
 	 *
 	 * @param string $fileName
 	 * @param string $password
@@ -909,6 +894,7 @@ class PublicWebDavContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('the public uploads file :fileName to the last public link shared folder with password :password with mtime :mtime using the public WebDAV API')]
 	public function thePublicUploadsFileToLastSharedFolderWithMtimeUsingTheWebdavApi(
 		string $fileName,
 		string $password,
@@ -964,57 +950,17 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @When the public creates folder :destination using the public WebDAV API
 	 *
 	 * @param String $destination
 	 *
 	 * @return void
 	 */
+	#[When('the public creates folder :destination using the public WebDAV API')]
 	public function publicCreatesFolder(string $destination): void {
 		$this->featureContext->setResponse($this->publicCreatesFolderUsingPassword($destination, ''));
 	}
 
 	/**
-	 * @Then /^the public should be able to create folder "([^"]*)" in the last public link shared folder using the new public WebDAV API with password "([^"]*)"$/
-	 *
-	 * @param string $foldername
-	 * @param string $password
-	 *
-	 * @return void
-	 */
-	public function publicShouldBeAbleToCreateFolderWithPassword(
-		string $foldername,
-		string $password
-	): void {
-		$response = $this->publicCreatesFolderUsingPassword($foldername, $password);
-		$this->featureContext->theHTTPStatusCodeShouldBe(201, "", $response);
-	}
-
-	/**
-	 * @Then /^the public creation of folder "([^"]*)" in the last public link shared folder using the new public WebDAV API with password "([^"]*)" should fail with HTTP status code "([^"]*)"$/
-	 *
-	 * @param string $foldername
-	 * @param string $password
-	 * @param string $expectedHttpCode
-	 *
-	 * @return void
-	 */
-	public function publicCreationOfFolderWithPasswordShouldFail(
-		string $foldername,
-		string $password,
-		string $expectedHttpCode
-	): void {
-		$response = $this->publicCreatesFolderUsingPassword($foldername, $password);
-		$this->featureContext->theHTTPStatusCodeShouldBe(
-			$expectedHttpCode,
-			"creation of $foldername in the last publicly shared folder should have failed with code " .
-			$expectedHttpCode,
-			$response
-		);
-	}
-
-	/**
-	 * @Then the mtime of file :fileName in the last shared public link using the WebDAV API should be :mtime
 	 *
 	 * @param string $fileName
 	 * @param string $mtime
@@ -1022,6 +968,7 @@ class PublicWebDavContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the mtime of file :fileName in the last shared public link using the WebDAV API should be :mtime')]
 	public function theMtimeOfFileInTheLastSharedPublicLinkUsingTheWebdavApiShouldBe(
 		string $fileName,
 		string $mtime
@@ -1034,32 +981,6 @@ class PublicWebDavContext implements Context {
 		\array_pop($mtime);
 		$mtime = \implode(" ", $mtime);
 		Assert::assertStringContainsString(
-			$mtime,
-			WebDavHelper::getMtimeOfFileInPublicLinkShare(
-				$baseUrl,
-				$fileName,
-				$token,
-				$this->featureContext->getStepLineRef()
-			)
-		);
-	}
-
-	/**
-	 * @Then the mtime of file :fileName in the last shared public link using the WebDAV API should not be :mtime
-	 *
-	 * @param string $fileName
-	 * @param string $mtime
-	 *
-	 * @return void
-	 * @throws Exception
-	 */
-	public function theMtimeOfFileInTheLastSharedPublicLinkUsingTheWebdavApiShouldNotBe(
-		string $fileName,
-		string $mtime
-	): void {
-		$token = $this->featureContext->getLastCreatedPublicShareToken();
-		$baseUrl = $this->featureContext->getBaseUrl();
-		Assert::assertNotEquals(
 			$mtime,
 			WebDavHelper::getMtimeOfFileInPublicLinkShare(
 				$baseUrl,
@@ -1158,7 +1079,6 @@ class PublicWebDavContext implements Context {
 	}
 
 	/**
-	 * @When /^the public sends "([^"]*)" request to the last public link share using the public WebDAV API(?: with password "([^"]*)")?$/
 	 *
 	 * @param string $method
 	 * @param string|null $password
@@ -1166,6 +1086,7 @@ class PublicWebDavContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('/^the public sends "([^"]*)" request to the last public link share using the public WebDAV API(?: with password "([^"]*)")?$/')]
 	public function publicSendsRequestToLastPublicShare(string $method, ?string $password = ''): void {
 		if ($method === "PROPFIND") {
 			$body = '<?xml version="1.0"?>

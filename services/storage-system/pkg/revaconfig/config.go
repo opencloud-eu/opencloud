@@ -151,6 +151,7 @@ func StorageSystemFromStruct(cfg *config.Config) map[string]any {
 func metadataDrivers(localEndpoint string, cfg *config.Config) map[string]any {
 	m := map[string]any{
 		"metadata_backend":           "messagepack",
+		"metadata_prefix":            cfg.Drivers.Decomposed.MetadataPrefix,
 		"root":                       cfg.Drivers.Decomposed.Root,
 		"user_layout":                "{{.Id.OpaqueId}}",
 		"treetime_accounting":        false,

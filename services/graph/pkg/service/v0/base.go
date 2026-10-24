@@ -416,13 +416,13 @@ func (g BaseGraphService) cs3UserSharesToDriveItems(ctx context.Context, shares 
 				}
 				for _, share := range sharesByResource.Shares {
 					perm, err := g.cs3UserShareToPermission(ctx, share, condition)
-					var errcode errorcode.Error
-					switch {
-					case errors.As(err, &errcode) && errcode.GetCode() == errorcode.ItemNotFound:
-						// The Grantee couldn't be found (user/group does not exist anymore)
-						continue
-					case err != nil:
-						return err
+					if err != nil {
+						if errorcode.IsErrorCode(err, errorcode.ItemNotFound) {
+							// The Grantee couldn't be found (user/group does not exist anymore)
+							continue
+						} else {
+							return err
+						}
 					}
 					item.Permissions = append(item.Permissions, *perm)
 				}
@@ -516,13 +516,13 @@ func (g BaseGraphService) cs3OCMSharesToDriveItems(ctx context.Context, shares [
 				for _, share := range sharesByResource.Shares {
 					perm, err := g.cs3OCMShareToPermission(ctx, share, condition)
 
-					var errcode errorcode.Error
-					switch {
-					case errors.As(err, &errcode) && errcode.GetCode() == errorcode.ItemNotFound:
-						// The Grantee couldn't be found (user/group does not exist anymore)
-						continue
-					case err != nil:
-						return err
+					if err != nil {
+						if errorcode.IsErrorCode(err, errorcode.ItemNotFound) {
+							// The Grantee couldn't be found (user/group does not exist anymore)
+							continue
+						} else {
+							return err
+						}
 					}
 					item.Permissions = append(item.Permissions, *perm)
 				}
@@ -1014,7 +1014,6 @@ func (g BaseGraphService) getOCMPermissionByID(ctx context.Context, permissionID
 }
 
 func (g BaseGraphService) getPermissionByID(ctx context.Context, permissionID string, itemID *storageprovider.ResourceId) (*libregraph.Permission, *storageprovider.ResourceId, error) {
-	var errcode errorcode.Error
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
 		g.logger.Debug().Err(err).Msg("selecting gatewaySelector failed")
@@ -1045,7 +1044,7 @@ func (g BaseGraphService) getPermissionByID(ctx context.Context, permissionID st
 				}
 			}
 		}
-	case errors.As(err, &errcode) && errcode.GetCode() == errorcode.ItemNotFound:
+	case errorcode.IsErrorCode(err, errorcode.ItemNotFound):
 		// there is no public link with that id, check if this is a user share
 		cs3Share, err := g.getCS3UserShareByID(ctx, permissionID)
 		if err != nil {

@@ -8,11 +8,12 @@ package opensearchapi
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // IndexTemplateSimulateReq represents possible options for the index create request
@@ -26,14 +27,13 @@ type IndexTemplateSimulateReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r IndexTemplateSimulateReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"POST",
-		fmt.Sprintf("/_index_template/_simulate/%s", r.IndexTemplate),
-		r.Body,
-		r.Params.get(),
-		r.Header,
-	)
+func (r IndexTemplateSimulateReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.IndicesSimulateTemplatePath{Name: r.IndexTemplate}.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	return build.Request(method, path, r.Body, r.Params.get(), r.Header)
 }
 
 // IndexTemplateSimulateResp represents the returned struct of the index create response

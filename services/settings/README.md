@@ -104,7 +104,9 @@ The `OC_DEFAULT_LANGUAGE` setting impacts the `notification` and `userlog` servi
 
 ## Custom Roles
 
-It is possible to replace the default OpenCloud roles (`admin`, `user`) with custom roles that contain custom permissions. One can set `SETTINGS_BUNDLES_PATH` to the path of a `json` file containing the new roles.
+It is possible to define custom roles that contain custom permissions. Set `SETTINGS_BUNDLES_PATH` to the path of a `json` file containing the roles.
+
+The roles are bootstrapped when OpenCloud starts for the first time. To prevent the default OpenCloud roles (`admin`, `user`) from being created, `SETTINGS_BUNDLES_PATH` must be configured before that first start. If OpenCloud has already been started without `SETTINGS_BUNDLES_PATH`, configuring it later does not remove the existing default roles. On subsequent starts, roles defined in the referenced file are added or updated, but roles that already exist in the system and are omitted from the file are not deleted. This avoids dangling role assignments for users whose assigned role would otherwise no longer exist.
 
 Role Example:
 ```json
@@ -128,7 +130,7 @@ To create custom roles:
 * Copy the role example to a `json` file.
 * Change `id`, `name`, and `displayName` to your liking.
 * Copy the desired permissions from the `user-all-permissions` example below to the `settings` array of the role.
-* Set the `SETTINGS_BUNDLE_PATH` envvar to the path of the json file and start OpenCloud
+* Set the `SETTINGS_BUNDLES_PATH` envvar to the path of the json file and start OpenCloud.
 
 Example File:
 ```json

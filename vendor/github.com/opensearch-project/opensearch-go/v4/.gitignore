@@ -1,5 +1,7 @@
 tmp/
 *.test
+coverage.out
+test-*.log
 
 # editors
 .idea
@@ -7,3 +9,9 @@ tmp/
 bin/
 
 .DS_Store
+# Admin certificates for testing
+admin.pem
+admin.key
+
+# Compiled generator binaries
+cmd/osgen/osgen

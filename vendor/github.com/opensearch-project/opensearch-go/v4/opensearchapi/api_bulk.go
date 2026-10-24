@@ -10,9 +10,10 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // Bulk executes a /_bulk request with the needed BulkReq
@@ -21,10 +22,13 @@ func (c Client) Bulk(ctx context.Context, req BulkReq) (*BulkResp, error) {
 		data BulkResp
 		err  error
 	)
-	if data.response, err = c.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, &c, http.MethodPost, req, &data); err != nil {
 		return &data, err
 	}
 
+	if errs := data.PartialFailures(c.errors); len(errs) > 0 {
+		return &data, errs[0]
+	}
 	return &data, nil
 }
 
@@ -37,25 +41,12 @@ type BulkReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r BulkReq) GetRequest() (*http.Request, error) {
-	var path strings.Builder
-	//nolint:gomnd // 7 is the max number of static chars
-	path.Grow(7 + len(r.Index))
-
-	if len(r.Index) > 0 {
-		path.WriteString("/")
-		path.WriteString(r.Index)
+func (r BulkReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.BulkPath{Index: r.Index}.Build()
+	if err != nil {
+		return nil, err
 	}
-
-	path.WriteString("/_bulk")
-
-	return opensearch.BuildRequest(
-		"POST",
-		path.String(),
-		r.Body,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, r.Body, r.Params.get(), r.Header)
 }
 
 // BulkResp represents the returned struct of the /_bulk response
@@ -71,7 +62,7 @@ type BulkRespItem struct {
 	Index   string `json:"_index"`
 	ID      string `json:"_id"`
 	Version int    `json:"_version"`
-	Type    string `json:"_type"` // Deprecated field
+	Type    string `json:"_type,omitempty"` // Deprecated: ES 6.0, removed in OS 2.0
 	Result  string `json:"result"`
 	Shards  struct {
 		Total      int `json:"total"`
@@ -99,7 +90,7 @@ type BulkRespItem struct {
 				Type   string  `json:"type"`
 				Reason *string `json:"reason"`
 			} `json:"caused_by"`
-		} `json:"caused_by,omitempty"`
+		} `json:"caused_by,omitzero"`
 	} `json:"error,omitempty"`
 }
 

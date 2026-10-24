@@ -39,7 +39,10 @@ To enable OpenSearch as a backend, the following settings must be set:
 
 Additionally, the following optional settings can be set:
 
-*   `SEARCH_ENGINE_OPEN_SEARCH_RESOURCE_INDEX_NAME=val` (default: `opencloud-resource`): Name of the OpenSearch index
+*   `SEARCH_ENGINE_OPEN_SEARCH_RESOURCE_INDEX_NAME=val` (default:
+    `opencloud-resource`): base name of the OpenSearch index. The running
+    index is suffixed with the current schema version; a breaking schema
+    change targets a fresh index, the old one stays in place.
 *   `SEARCH_ENGINE_OPEN_SEARCH_CLIENT_USERNAME=val`: Username for HTTP Basic Authentication.
 *   `SEARCH_ENGINE_OPEN_SEARCH_CLIENT_PASSWORD=val`: Password for HTTP Basic Authentication.
 *   `SEARCH_ENGINE_OPEN_SEARCH_CLIENT_HEADER=val`: HTTP headers to include in requests.
@@ -54,6 +57,12 @@ Additionally, the following optional settings can be set:
 *   `SEARCH_ENGINE_OPEN_SEARCH_CLIENT_ENABLE_METRICS=val`: Enable metrics collection.
 *   `SEARCH_ENGINE_OPEN_SEARCH_CLIENT_ENABLE_DEBUG_LOGGER=val`: Enable debug logging.
 *   `SEARCH_ENGINE_OPEN_SEARCH_CLIENT_INSECURE=val`: Skip TLS certificate verification.
+
+### Bringing an existing index over
+
+A version that changes how resources are indexed works on a new index and leaves the old one untouched.
+The new index starts empty and has to be filled, see [MIGRATION.md](MIGRATION.md). New installations are
+not affected.
 
 ## Query language
 
@@ -70,6 +79,19 @@ Not all parts are supported, the following list gives an overview of parts that 
 *   Date intervals
 
 In [this ADR](https://github.com/owncloud/ocis/blob/docs/ocis/adr/0020-file-search-query-language.md) you can read why KQL was chosen.
+
+## Query template
+
+`SEARCH_QUERY_TEMPLATE` is a KQL template every search runs through. Default:
+
+```
+({{.QUERY}}) AND (NOT path:"./.space" AND NOT id:{{.SPACE_ROOT_PERSONAL}})
+```
+
+*   `({{.QUERY}})` the user's search. Keep the parentheses.
+*   `{{.SPACE_ROOT_PERSONAL}}` / `{{.SPACE_ROOT_PROJECT}}` become the current space root, else a non-matching id.
+
+Empty turns it off. The service checks the template at startup.
 
 ## Content analysis / Extraction
 
@@ -90,7 +112,7 @@ It does not do any further content analysis.
 
 The main difference is that this extractor is able to analyze and extract data from more advanced file types like PDF, DOCX, PPTX, etc.
 However, [Apache Tika](https://tika.apache.org/) is required for this task.
-Read the [Getting Started with Apache Tika](https://tika.apache.org/2.6.0/gettingstarted.html) guide on how to install and run Tika or use a ready to run [Tika container](https://hub.docker.com/r/apache/tika).
+Read the [Getting Started with Apache Tika](https://tika.apache.org/) guide on how to install and run Tika or use a ready to run [Tika container](https://hub.docker.com/r/apache/tika).
 See the [Tika container usage document](https://github.com/apache/tika-docker#usage) for a quickstart.
 
 As soon as Tika is installed and configured, the search service needs to be told to use it.
@@ -115,14 +137,14 @@ opencloud search index --space $SPACE_ID
 It can also be used to re-index all spaces:
 
 ```shell
-opencloud search index --all-spaces
+opencloud search index --all-spaces --insecure
 ```
 
 Please note that a reindex only picks up new or changed files. Files that have already been indexed are not scanned again, even if the configuration or the whole extractor has been changed. To force a full rescan (re-running the extractor on every file) you need to use the `force-rescan` flag:
 
 
 ```shell
-opencloud search index --all-spaces --force-rescan
+opencloud search index --all-spaces --force-rescan --insecure
 ```
 
 ## Metrics

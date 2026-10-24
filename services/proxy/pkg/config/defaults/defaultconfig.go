@@ -35,6 +35,16 @@ func DefaultConfig() *config.Config {
 			TLSCert:   path.Join(defaults.BaseDataPath(), "proxy", "server.crt"),
 			TLSKey:    path.Join(defaults.BaseDataPath(), "proxy", "server.key"),
 			TLS:       true,
+			Client: config.Client{
+				ForceAttemptHTTP2:     false,
+				DialTimeout:           30 * time.Second,
+				DialKeepAlive:         30 * time.Second,
+				MaxIdleConns:          100,
+				MaxIdleConnsPerHost:   100,
+				IdleConnTimeout:       90 * time.Second,
+				TLSHandshakeTimeout:   10 * time.Second,
+				ExpectContinueTimeout: 1 * time.Second,
+			},
 		},
 		Service: config.Service{
 			Name: "proxy",
@@ -82,6 +92,7 @@ func DefaultConfig() *config.Config {
 				DisablePersistence: true,
 			},
 		},
+		TransferTimeout:       24 * time.Hour,
 		AccountBackend:        "cs3",
 		UserOIDCClaim:         "preferred_username",
 		UserCS3Claim:          "username",
@@ -103,6 +114,9 @@ func DefaultConfig() *config.Config {
 		},
 		AuthMiddleware: config.AuthMiddleware{
 			AllowAppAuth: true,
+		},
+		GuestLinkAuth: config.GuestLinkAuth{
+			CookieName: "__Host-oc_guest_session",
 		},
 	}
 }
@@ -135,6 +149,10 @@ func DefaultPolicies() []config.Policy {
 				},
 				{
 					Endpoint: "/branding/logo",
+					Service:  "eu.opencloud.web.web",
+				},
+				{
+					Endpoint: "/announcement",
 					Service:  "eu.opencloud.web.web",
 				},
 				{
@@ -252,11 +270,6 @@ func DefaultPolicies() []config.Policy {
 					Service:  "eu.opencloud.web.frontend",
 				},
 				{
-					Endpoint:    "/data",
-					Service:     "eu.opencloud.web.frontend",
-					Unprotected: true,
-				},
-				{
 					Endpoint:    "/app/list",
 					Service:     "eu.opencloud.web.frontend",
 					Unprotected: true,
@@ -272,6 +285,11 @@ func DefaultPolicies() []config.Policy {
 				{
 					Endpoint: "/graph/v1.0/invitations",
 					Service:  "eu.opencloud.web.invitations",
+				},
+				{
+					Endpoint:    "/graph/v1beta1/extensions/org.libregraph/guestLinks",
+					Service:     "eu.opencloud.web.auth-guest",
+					Unprotected: true,
 				},
 				{
 					Endpoint: "/graph/",
@@ -292,18 +310,8 @@ func DefaultPolicies() []config.Policy {
 					SkipXAccessToken: true,
 				},
 				{
-					Endpoint: "/collaboration/fonts/manage",
+					Endpoint: "/collaboration",
 					Service:  "eu.opencloud.web.collaboration",
-					// Method: "POST" // toDo: fails with method, WHY???
-				},
-				{
-					Endpoint: "/collaboration/notify",
-					Service:  "eu.opencloud.web.collaboration",
-					// Method: "POST" // toDo: fails with method, WHY???
-				},
-				{
-					Endpoint:    "/collaboration",
-					Service:     "eu.opencloud.web.collaboration",
 				},
 				{
 					Endpoint: "/groupware/",
@@ -345,6 +353,10 @@ func EnsureDefaults(cfg *config.Config) {
 
 	if cfg.Reva == nil && cfg.Commons != nil {
 		cfg.Reva = structs.CopyOrZeroValue(cfg.Commons.Reva)
+	}
+
+	if cfg.TransferSecret == "" && cfg.Commons != nil && cfg.Commons.TransferSecret != "" {
+		cfg.TransferSecret = cfg.Commons.TransferSecret
 	}
 
 	if cfg.GRPCClientTLS == nil && cfg.Commons != nil {

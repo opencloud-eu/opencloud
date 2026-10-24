@@ -11,22 +11,32 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
-// MSearch executes a /_msearch request with the optional MSearchReq
+// MSearch executes a /_msearch request with the optional MSearchReq.
+//
+// Partial-failure detection: MSearch declares two wrappers in
+// `x-error-responses` (SearchShards and MultiSearchItems). Each fires
+// independently; results are collapsed per [collapsePerOpErrors]:
+//   - 0 sub-errors: returns nil
+//   - 1 sub-error: returns the sub-error directly
+//   - 2+ sub-errors: returns *MSearchErrors aggregating them
 func (c Client) MSearch(ctx context.Context, req MSearchReq) (*MSearchResp, error) {
 	var (
 		data MSearchResp
 		err  error
 	)
-	if data.response, err = c.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, &c, http.MethodPost, req, &data); err != nil {
 		return &data, err
 	}
 
-	return &data, nil
+	return &data, collapsePerOpErrors(data.PartialFailures(c.errors), func(errs []error) error {
+		return &MSearchErrors{errs: errs}
+	})
 }
 
 // MSearchReq represents possible options for the /_msearch request
@@ -40,22 +50,12 @@ type MSearchReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r MSearchReq) GetRequest() (*http.Request, error) {
-	indices := strings.Join(r.Indices, ",")
-	var path strings.Builder
-	path.Grow(len("//_msearch") + len(indices))
-	if len(r.Indices) > 0 {
-		path.WriteString("/")
-		path.WriteString(indices)
+func (r MSearchReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.MsearchPath{Index: r.Indices}.Build()
+	if err != nil {
+		return nil, err
 	}
-	path.WriteString("/_msearch")
-	return opensearch.BuildRequest(
-		"POST",
-		path.String(),
-		r.Body,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, r.Body, r.Params.get(), r.Header)
 }
 
 // MSearchResp represents the returned struct of the /_msearch response
@@ -75,6 +75,7 @@ type MSearchResp struct {
 		} `json:"hits"`
 		Status       int             `json:"status"`
 		Aggregations json.RawMessage `json:"aggregations"`
+		Error        *DocumentError  `json:"error,omitempty"`
 	} `json:"responses"`
 	response *opensearch.Response
 }

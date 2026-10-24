@@ -7,10 +7,11 @@
 package opensearchapi
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // DataStreamCreateReq represents possible options for the _data_stream create request
@@ -22,14 +23,13 @@ type DataStreamCreateReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r DataStreamCreateReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"PUT",
-		fmt.Sprintf("/_data_stream/%s", r.DataStream),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+func (r DataStreamCreateReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.IndicesCreateDataStreamPath{Name: r.DataStream}.Build()
+	if err != nil {
+		return nil, err
+	}
+
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // DataStreamCreateResp represents the returned struct of the _data_stream create response

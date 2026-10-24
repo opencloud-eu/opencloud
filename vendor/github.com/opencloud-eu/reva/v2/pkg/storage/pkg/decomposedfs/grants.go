@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/internal/grpc/services/storageprovider"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
@@ -87,6 +88,10 @@ func (fs *Decomposedfs) AddGrant(ctx context.Context, ref *provider.Reference, g
 	defer func() {
 		_ = unlockFunc()
 	}()
+
+	if grantNode.IsProcessing(ctx) {
+		return errtypes.ResourceProcessing(ref.String())
+	}
 
 	if grant != nil {
 		return errtypes.AlreadyExists(filepath.Join(grantNode.ParentID, grantNode.Name))
@@ -223,7 +228,7 @@ func (fs *Decomposedfs) RemoveGrant(ctx context.Context, ref *provider.Reference
 		}
 	}
 
-	if err := grantNode.DeleteGrant(ctx, g, false); err != nil {
+	if err := grantNode.DeleteGrant(ctx, g); err != nil {
 		return err
 	}
 
@@ -234,9 +239,15 @@ func (fs *Decomposedfs) RemoveGrant(ctx context.Context, ref *provider.Reference
 		// invalidate space grant
 		switch g.Grantee.Type {
 		case provider.GranteeType_GRANTEE_TYPE_USER:
-			// remove from user index
-			if err := fs.userSpaceIndex.Remove(g.Grantee.GetUserId().GetOpaqueId(), grantNode.SpaceID); err != nil {
-				return err
+			filename := utils.NewFSSafeUserID(g.Grantee.GetUserId()).SafeFilename()
+			if g.Grantee.GetUserId().GetType() == userpb.UserType_USER_TYPE_GUEST {
+				if err := fs.mailSpaceIndex.Remove(filename, grantNode.SpaceID); err != nil {
+					return err
+				}
+			} else {
+				if err := fs.userSpaceIndex.Remove(filename, grantNode.SpaceID); err != nil {
+					return err
+				}
 			}
 		case provider.GranteeType_GRANTEE_TYPE_GROUP:
 			// remove from group index
@@ -320,7 +331,7 @@ func (fs *Decomposedfs) loadGrant(ctx context.Context, ref *provider.Reference, 
 	for _, grant := range grants {
 		switch grant.Grantee.GetType() {
 		case provider.GranteeType_GRANTEE_TYPE_USER:
-			if g.Grantee.GetUserId().GetOpaqueId() == grant.Grantee.GetUserId().GetOpaqueId() {
+			if utils.UserIDEqual(g.Grantee.GetUserId(), grant.Grantee.GetUserId()) {
 				return n, unlockFunc, grant, nil
 			}
 		case provider.GranteeType_GRANTEE_TYPE_GROUP:
@@ -349,7 +360,7 @@ func (fs *Decomposedfs) storeGrant(ctx context.Context, n *node.Node, g *provide
 	attribs := node.Attributes{
 		prefixes.GrantPrefix + principal: value,
 	}
-	if err := n.SetXattrsWithContext(ctx, attribs, false); err != nil {
+	if err := n.SetXattrsWithContext(ctx, attribs); err != nil {
 		appctx.GetLogger(ctx).Error().Err(err).
 			Str("principal", principal).Msg("Could not set grant for principal")
 		return err

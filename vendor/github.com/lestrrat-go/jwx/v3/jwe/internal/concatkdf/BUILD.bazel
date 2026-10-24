@@ -9,7 +9,10 @@ go_library(
 
 go_test(
     name = "concatkdf_test",
-    srcs = ["concatkdf_test.go"],
+    srcs = [
+        "bench_test.go",
+        "concatkdf_test.go",
+    ],
     embed = [":concatkdf"],
     deps = [
         "//jwa",

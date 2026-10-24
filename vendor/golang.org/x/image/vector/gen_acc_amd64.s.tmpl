@@ -51,15 +51,6 @@ GLOBL gather<>(SB), (NOPTR+RODATA), $16
 GLOBL fxAlmost65536<>(SB), (NOPTR+RODATA), $16
 GLOBL inverseFFFF<>(SB), (NOPTR+RODATA), $16
 
-// func haveSSE4_1() bool
-TEXT ·haveSSE4_1(SB), NOSPLIT, $0
-	MOVQ $1, AX
-	CPUID
-	SHRQ $19, CX
-	ANDQ $1, CX
-	MOVB CX, ret+0(FP)
-	RET
-
 // ----------------------------------------------------------------------------
 
 // func {{.LongName}}SIMD({{.Args}})

@@ -146,7 +146,10 @@ func (d *decoder) readIfExtType(code byte) (innerType int8, data []byte, err err
 		if err != nil {
 			return 0, nil, err
 		}
-		size := int(binary.BigEndian.Uint32(bs))
+		size, err := lengthFromUint32(binary.BigEndian.Uint32(bs))
+		if err != nil {
+			return 0, nil, err
+		}
 
 		typ, err := d.readSize1()
 		if err != nil {

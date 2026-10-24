@@ -955,6 +955,7 @@ func (s *service) RestoreFileVersion(ctx context.Context, req *provider.RestoreF
 	return gatewayClient.RestoreFileVersion(ctx, &provider.RestoreFileVersionRequest{
 		Opaque: req.Opaque,
 		Ref:    buildReferenceInShare(req.Ref, receivedShare),
+		Key:    req.Key,
 	})
 }
 

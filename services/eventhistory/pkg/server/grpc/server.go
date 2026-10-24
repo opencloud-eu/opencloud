@@ -3,8 +3,6 @@ package grpc
 import (
 	"github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/version"
-	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
-	svc "github.com/opencloud-eu/opencloud/services/eventhistory/pkg/service"
 )
 
 // NewService initializes the grpc service and server.
@@ -31,17 +29,6 @@ func NewService(opts ...Option) grpc.Service {
 		options.Logger.Fatal().Err(err).Msg("Error creating event history service")
 		return grpc.Service{}
 	}
-
-	eh, err := svc.NewEventHistoryService(options.Config, options.Consumer, options.Persistence, options.Logger)
-	if err != nil {
-		options.Logger.Fatal().Err(err).Msg("Error creating event history service")
-		return grpc.Service{}
-	}
-
-	_ = ehsvc.RegisterEventHistoryServiceHandler(
-		service.Server(),
-		eh,
-	)
 
 	return service
 }

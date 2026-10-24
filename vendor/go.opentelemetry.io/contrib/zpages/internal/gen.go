@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package internal provides non-public types for the zpages package.
-package internal // import "go.opentelemetry.io/contrib/zpages/internal"
+package internal
 
 import "embed"
 

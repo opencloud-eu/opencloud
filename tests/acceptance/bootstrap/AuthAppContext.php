@@ -22,6 +22,8 @@ use Behat\Behat\Context\Context;
 use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use TestHelpers\BehatHelper;
 use TestHelpers\AuthAppHelper;
+use Behat\Step\Given;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -46,13 +48,13 @@ class AuthAppContext implements Context {
 	}
 
 	/**
-	 * @When user :user creates app token with expiration time :expiration using the auth-app API
 	 *
 	 * @param string $user
 	 * @param string $expiration
 	 *
 	 * @return void
 	 */
+	#[When('user :user creates app token with expiration time :expiration using the auth-app API')]
 	public function userCreatesAppTokenWithExpirationTimeUsingTheAuthAppApi(string $user, string $expiration): void {
 		$this->featureContext->setResponse(
 			AuthAppHelper::createAppAuthToken(
@@ -65,13 +67,13 @@ class AuthAppContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has created app token with expiration time :expiration using the auth-app API
 	 *
 	 * @param string $user
 	 * @param string $expiration
 	 *
 	 * @return void
 	 */
+	#[Given('user :user has created app token with expiration time :expiration using the auth-app API')]
 	public function userHasCreatedAppTokenWithExpirationTime(string $user, string $expiration): void {
 		$response = AuthAppHelper::createAppAuthToken(
 			$this->featureContext->getBaseUrl(),
@@ -83,12 +85,12 @@ class AuthAppContext implements Context {
 	}
 
 	/**
-	 * @When user :user lists all created tokens using the auth-app API
 	 *
 	 * @param string $user
 	 *
 	 * @return void
 	 */
+	#[When('user :user lists all created tokens using the auth-app API')]
 	public function userListsAllCreatedTokensUsingTheAuthAppApi(string $user): void {
 		$this->featureContext->setResponse(
 			AuthAppHelper::listAllAppAuthTokensForUser(
@@ -100,13 +102,13 @@ class AuthAppContext implements Context {
 	}
 
 	/**
-	 * @Given the administrator has created app token for user :impersonatedUser with expiration time :expiration using the auth-app API
 	 *
 	 * @param string $impersonatedUser
 	 * @param string $expiration
 	 *
 	 * @return void
 	 */
+	#[Given('the administrator has created app token for user :impersonatedUser with expiration time :expiration using the auth-app API')]
 	public function theAdministratorHasCreatedAppTokenWithExpirationTimeImpersonatingUserUsingTheAuthAppApi(
 		string $impersonatedUser,
 		string $expiration,
@@ -129,13 +131,13 @@ class AuthAppContext implements Context {
 	}
 
 	/**
-	 * @When the administrator creates app token for user :impersonatedUser with expiration time :expiration using the auth-app API
 	 *
 	 * @param string $impersonatedUser
 	 * @param string $expiration
 	 *
 	 * @return void
 	 */
+	#[When('the administrator creates app token for user :impersonatedUser with expiration time :expiration using the auth-app API')]
 	public function theAdministratorCreatesAppTokenForUserWithExpirationTimeViaAuthAppApi(
 		string $impersonatedUser,
 		string $expiration,

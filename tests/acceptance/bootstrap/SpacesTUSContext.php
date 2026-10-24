@@ -14,6 +14,9 @@ use GuzzleHttp\Exception\GuzzleException;
 use PHPUnit\Framework\Assert;
 use TestHelpers\WebDavHelper;
 use TestHelpers\BehatHelper;
+use Behat\Step\Given;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -45,7 +48,6 @@ class SpacesTUSContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has uploaded a file from "([^"]*)" to "([^"]*)" via TUS inside of the space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -57,6 +59,7 @@ class SpacesTUSContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has uploaded a file from :source to :destination via TUS inside of the space :spaceName using the WebDAV API')]
 	public function userHasUploadedFileViaTusInSpace(
 		string $user,
 		string $source,
@@ -69,7 +72,6 @@ class SpacesTUSContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" uploads a file from "([^"]*)" to "([^"]*)" via TUS inside of the space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -80,6 +82,7 @@ class SpacesTUSContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :user uploads a file from :source to :destination via TUS inside of the space :spaceName using the WebDAV API')]
 	public function userUploadsAFileViaTusInsideOfTheSpaceUsingTheWebdavApi(
 		string $user,
 		string $source,
@@ -92,7 +95,6 @@ class SpacesTUSContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has created a new TUS resource in the space :spaceName with the following headers:
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -103,6 +105,7 @@ class SpacesTUSContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has created a new TUS resource in the space :spaceName with the following headers:')]
 	public function userHasCreatedANewTusResourceForTheSpaceUsingTheWebdavApiWithTheseHeaders(
 		string $user,
 		string $spaceName,
@@ -114,7 +117,6 @@ class SpacesTUSContext implements Context {
 	}
 
 	/**
-	 * @When user :user creates a new TUS resource for the space :spaceName with content :content using the WebDAV API with these headers:
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -126,6 +128,7 @@ class SpacesTUSContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :user creates a new TUS resource for the space :spaceName with content :content using the WebDAV API with these headers:')]
 	public function userCreatesANewTusResourceForTheSpaceUsingTheWebdavApiWithTheseHeaders(
 		string $user,
 		string $spaceName,
@@ -166,7 +169,6 @@ class SpacesTUSContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" uploads a file with content "([^"]*)" to "([^"]*)" inside federated share "([^"]*)" via TUS using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $content
@@ -176,6 +178,7 @@ class SpacesTUSContext implements Context {
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[When('user :user uploads a file with content :content to :file inside federated share :destination via TUS using the WebDAV API')]
 	public function userUploadsAFileWithContentToInsideFederatedShareViaTusUsingTheWebdavApi(
 		string $user,
 		string $content,
@@ -196,7 +199,6 @@ class SpacesTUSContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" uploads a file with content "([^"]*)" to "([^"]*)" via TUS inside of the space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $content
@@ -206,6 +208,7 @@ class SpacesTUSContext implements Context {
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[When('user :user uploads a file with content :content to :resource via TUS inside of the space :spaceName using the WebDAV API')]
 	public function userUploadsAFileWithContentToViaTusInsideOfTheSpaceUsingTheWebdavApi(
 		string $user,
 		string $content,
@@ -216,7 +219,6 @@ class SpacesTUSContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has uploaded a file with content "([^"]*)" to "([^"]*)" via TUS inside of the space "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $content
@@ -226,6 +228,7 @@ class SpacesTUSContext implements Context {
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[Given('user :user has uploaded a file with content :content to :resource via TUS inside of the space :spaceName')]
 	public function userHasUploadedAFileWithContentToViaTusInsideOfTheSpace(
 		string $user,
 		string $content,
@@ -236,7 +239,6 @@ class SpacesTUSContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" uploads a file "([^"]*)" to "([^"]*)" with mtime "([^"]*)" via TUS inside of the space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $source
@@ -249,6 +251,7 @@ class SpacesTUSContext implements Context {
 	 * @throws Exception
 	 * @throws GuzzleException
 	 */
+	#[When('user :user uploads a file :source to :destination with mtime :mtime via TUS inside of the space :spaceName using the WebDAV API')]
 	public function userUploadsAFileToWithMtimeViaTusInsideOfTheSpaceUsingTheWebdavApi(
 		string $user,
 		string $source,
@@ -289,7 +292,6 @@ class SpacesTUSContext implements Context {
 	}
 
 	/**
-	 * @Given /^user "([^"]*)" has uploaded file with checksum "([^"]*)" to the last created TUS Location with offset "([^"]*)" and content "([^"]*)" via TUS inside of the space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $checksum
@@ -301,6 +303,7 @@ class SpacesTUSContext implements Context {
 	 * @throws Exception|GuzzleException
 	 * @codingStandardsIgnoreStart
 	 */
+	#[Given('user :user has uploaded file with checksum :checksum to the last created TUS Location with offset :offset and content :content via TUS inside of the space :spaceName using the WebDAV API')]
 	public function userHasUploadedFileWithChecksumToTheLastCreatedTusLocationWithOffsetAndContentViaTusInsideOfTheSpaceUsingTheWebdavApi(
 		// @codingStandardsIgnoreEnd
 		string $user,
@@ -315,7 +318,6 @@ class SpacesTUSContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" uploads file with checksum "([^"]*)" to the last created TUS Location with offset "([^"]*)" and content "([^"]*)" via TUS inside of the space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $checksum
@@ -327,6 +329,7 @@ class SpacesTUSContext implements Context {
 	 * @throws Exception|GuzzleException
 	 * @codingStandardsIgnoreStart
 	 */
+	#[When('user :user uploads file with checksum :checksum to the last created TUS Location with offset :offset and content :content via TUS inside of the space :spaceName using the WebDAV API')]
 	public function userUploadsFileWithChecksumToTheLastCreatedTusLocationWithOffsetAndContentViaTusInsideOfTheSpaceUsingTheWebdavApi(
 		// @codingStandardsIgnoreEnd
 		string $user,
@@ -341,7 +344,6 @@ class SpacesTUSContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" sends a chunk to the last created TUS Location with offset "([^"]*)" and data "([^"]*)" with checksum "([^"]*)" via TUS inside of the space "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $offset
@@ -353,6 +355,7 @@ class SpacesTUSContext implements Context {
 	 * @throws Exception|GuzzleException
 	 * @codingStandardsIgnoreStart
 	 */
+	#[When('user :user sends a chunk to the last created TUS Location with offset :offset and data :data with checksum :checksum via TUS inside of the space :spaceName using the WebDAV API')]
 	public function userSendsAChunkToTheLastCreatedTusLocationWithOffsetAndDataWithChecksumViaTusInsideOfTheSpaceUsingTheWebdavApi(
 		// @codingStandardsIgnoreEnd
 		string $user,
@@ -367,7 +370,6 @@ class SpacesTUSContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" sends a chunk to the last created TUS Location with data "([^"]*)" with the following headers:$/
 	 *
 	 * @param string $user
 	 * @param string $data
@@ -376,6 +378,7 @@ class SpacesTUSContext implements Context {
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[When('user :user sends a chunk to the last created TUS Location with data :data with the following headers:')]
 	public function userSendsAChunkToTheLastCreatedTusLocationWithDataInsideOfTheSpaceWithHeaders(
 		string $user,
 		string $data,
@@ -395,7 +398,6 @@ class SpacesTUSContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" overwrites recently shared file with offset "([^"]*)" and data "([^"]*)" with checksum "([^"]*)" via TUS inside of the space "([^"]*)" using the WebDAV API with these headers:$/
 	 *
 	 * @param string $user
 	 * @param string $offset
@@ -408,6 +410,7 @@ class SpacesTUSContext implements Context {
 	 * @throws GuzzleException
 	 * @codingStandardsIgnoreStart
 	 */
+	#[When('user :user overwrites recently shared file with offset :offset and data :data with checksum :checksum via TUS inside of the space :spaceName using the WebDAV API with these headers:')]
 	public function userOverwritesRecentlySharedFileWithOffsetAndDataWithChecksumViaTusInsideOfTheSpaceUsingTheWebdavApiWithTheseHeaders(
 		// @codingStandardsIgnoreEnd
 		string $user,
@@ -426,7 +429,6 @@ class SpacesTUSContext implements Context {
 	}
 
 	/**
-	 * @Then /^as "([^"]*)" the mtime of the file "([^"]*)" in space "([^"]*)" should be "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $resource
@@ -436,6 +438,7 @@ class SpacesTUSContext implements Context {
 	 * @return void
 	 * @throws Exception|GuzzleException
 	 */
+	#[Then('as :user the mtime of the file :resource in space :spaceName should be :mtime')]
 	public function theMtimeOfTheFileInSpaceShouldBe(
 		string $user,
 		string $resource,

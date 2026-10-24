@@ -37,21 +37,21 @@ It is an error to set both environment variable.
 
 To configure the client, pass a Config object to the NewClient function:
 
+	// Clone DefaultTransport to preserve connection pooling, HTTP/2, and timeouts.
+	tp := http.DefaultTransport.(*http.Transport).Clone()
+	tp.MaxIdleConnsPerHost = 10
+	tp.ResponseHeaderTimeout = time.Second
+	tp.DialContext = (&net.Dialer{Timeout: time.Second}).DialContext
+	tp.TLSClientConfig.MinVersion = tls.VersionTLS11
+
 	cfg := opensearch.Config{
 	  Addresses: []string{
 	    "http://localhost:9200",
 	    "http://localhost:9201",
 	  },
-	  Username: "foo",
-	  Password: "bar",
-	  Transport: &http.Transport{
-	    MaxIdleConnsPerHost:   10,
-	    ResponseHeaderTimeout: time.Second,
-	    DialContext:           (&net.Dialer{Timeout: time.Second}).DialContext,
-	    TLSClientConfig: &tls.Config{
-	      MinVersion:         tls.VersionTLS11,
-	    },
-	  },
+	  Username:  "foo",
+	  Password:  "bar",
+	  Transport: tp,
 	}
 
 	opensearch.NewClient(cfg)

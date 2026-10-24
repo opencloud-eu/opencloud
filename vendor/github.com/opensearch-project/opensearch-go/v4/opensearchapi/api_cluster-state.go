@@ -9,9 +9,10 @@ package opensearchapi
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // ClusterStateReq represents possible options for the /_cluster/state request
@@ -24,29 +25,15 @@ type ClusterStateReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r ClusterStateReq) GetRequest() (*http.Request, error) {
-	indices := strings.Join(r.Indices, ",")
-	metrics := strings.Join(r.Metrics, ",")
-
-	var path strings.Builder
-	path.Grow(17 + len(indices) + len(metrics))
-	path.WriteString("/_cluster/state")
-	if len(metrics) > 0 {
-		path.WriteString("/")
-		path.WriteString(metrics)
-		if len(indices) > 0 {
-			path.WriteString("/")
-			path.WriteString(indices)
-		}
+func (r ClusterStateReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.ClusterStatePath{
+		Index:  r.Indices,
+		Metric: r.Metrics,
+	}.Build()
+	if err != nil {
+		return nil, err
 	}
-
-	return opensearch.BuildRequest(
-		"GET",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // ClusterStateResp represents the returned struct of the ClusterStateReq response
@@ -90,6 +77,7 @@ func (r ClusterStateResp) Inspect() Inspect {
 
 // ClusterStateBlocksIndex is a sub type of ClusterStateResp
 type ClusterStateBlocksIndex struct {
+	UUID        *string  `json:"uuid,omitempty"`
 	Description string   `json:"description"`
 	Retryable   bool     `json:"retryable"`
 	Levels      []string `json:"levels"`
@@ -140,8 +128,11 @@ type ClusterStateMetaData struct {
 		IndexTemplate map[string]json.RawMessage `json:"index_template"`
 	} `json:"index_template"`
 	StoredScripts map[string]struct {
-		Lang   string `json:"lang"`
-		Source string `json:"source"`
+		Lang    string `json:"lang"`
+		Source  string `json:"source"`
+		Options *struct {
+			ContentType string `json:"content_type,omitempty"`
+		} `json:"options,omitempty"` // Present since OpenSearch 1.0.0
 	} `json:"stored_scripts"`
 	Ingest struct {
 		Pipeline []struct {
@@ -174,7 +165,34 @@ type ClusterStateMetaDataIndex struct {
 		MetConditions map[string]string `json:"met_conditions"`
 		Time          int               `json:"time"`
 	} `json:"rollover_info"`
-	System bool `json:"system"`
+	System          bool            `json:"system"`
+	IngestionStatus json.RawMessage `json:"ingestion_status"` // Available in OpenSearch 3.3.0+
+
+	// Added in OpenSearch 3.6.0 (opensearch-project/OpenSearch@ed2e1006,
+	// server/src/main/java/org/opensearch/cluster/metadata/IndexMetadata.java:1057-1059).
+	PrimaryTermsMap     map[string]int               `json:"primary_terms_map,omitempty"`
+	SplitShardsMetadata *ClusterStateSplitShardsMeta `json:"split_shards_metadata,omitempty"`
+}
+
+// ClusterStateSplitShardsMeta contains shard-split metadata for an index.
+// Added in OpenSearch 3.6.0 (opensearch-project/OpenSearch@ed2e1006,
+// server/src/main/java/org/opensearch/cluster/metadata/SplitShardsMetadata.java).
+type ClusterStateSplitShardsMeta struct {
+	NumOfRootShards         int                                 `json:"num_of_root_shards"`
+	MaxShardID              int                                 `json:"max_shard_id"`
+	InProgressSplitShardID  []int                               `json:"in_progress_split_shard_id,omitempty"`
+	ActiveShardIDs          []int                               `json:"active_shard_ids"`
+	RootShardsToAllChildren map[string][]ClusterStateShardRange `json:"root_shards_to_all_children"`
+	ParentToChildShards     map[string][]ClusterStateShardRange `json:"parent_to_child_shards"`
+}
+
+// ClusterStateShardRange describes the hash-range owned by a single shard.
+// Added in OpenSearch 3.6.0 (opensearch-project/OpenSearch@ed2e1006,
+// server/src/main/java/org/opensearch/cluster/metadata/ShardRange.java).
+type ClusterStateShardRange struct {
+	ShardID int `json:"shard_id"`
+	Start   int `json:"start"`
+	End     int `json:"end"`
 }
 
 // ClusterStateMetaDataStream is a sub type of ClusterStateMetaData containing information about a data stream
@@ -201,10 +219,12 @@ type ClusterStateRoutingIndex struct {
 	Index                    string  `json:"index"`
 	ExpectedShardSizeInBytes int     `json:"expected_shard_size_in_bytes"`
 	AllocationID             *struct {
-		ID string `json:"id"`
+		ID           string  `json:"id"`
+		RelocationID *string `json:"relocation_id,omitempty"` // Available since OpenSearch 1.0.0 (during shard relocation)
 	} `json:"allocation_id,omitempty"`
 	RecoverySource *struct {
-		Type string `json:"type"`
+		Type                    string `json:"type"`
+		BootstrapNewHistoryUUID *bool  `json:"bootstrap_new_history_uuid,omitempty"` // Present since OpenSearch 1.0.0
 	} `json:"recovery_source,omitempty"`
 	UnassignedInfo *struct {
 		Reason           string `json:"reason"`

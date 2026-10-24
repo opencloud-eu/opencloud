@@ -22,6 +22,10 @@ func (c Creator[T]) Create(qs string) (T, error) {
 		return t, err
 	}
 
+	// shared KQL lowering pass: resolve field names + expand media-type aliases
+	// once, so the compiler below sees only canonical field:value nodes.
+	builderAst = query.Normalize(builderAst, query.ResolveField)
+
 	t, err = c.compiler.Compile(builderAst)
 	if err != nil {
 		return t, err

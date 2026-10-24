@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // CatMasterReq represent possible options for the /_cat/master request
@@ -19,9 +20,9 @@ type CatMasterReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r CatMasterReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"GET",
+func (r CatMasterReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_cat/master",
 		nil,
 		r.Params.get(),

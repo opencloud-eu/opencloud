@@ -565,12 +565,20 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 	case 1:
 		// just type, no criticality or value
 		packet.Children[0].Description = "Control Type (" + ControlTypeMap[ControlType] + ")"
-		ControlType = packet.Children[0].Value.(string)
+		ct, ok := packet.Children[0].Value.(string)
+		if !ok {
+			return nil, fmt.Errorf("control type is not a string: %T", packet.Children[0].Value)
+		}
+		ControlType = ct
 
 	case 2:
 		packet.Children[0].Description = "Control Type (" + ControlTypeMap[ControlType] + ")"
 		if packet.Children[0].Value != nil {
-			ControlType = packet.Children[0].Value.(string)
+			ct, ok := packet.Children[0].Value.(string)
+			if !ok {
+				return nil, fmt.Errorf("control type is not a string: %T", packet.Children[0].Value)
+			}
+			ControlType = ct
 		} else if packet.Children[0].Data != nil {
 			ControlType = packet.Children[0].Data.String()
 		} else {
@@ -579,9 +587,9 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 
 		// Children[1] could be criticality or value (both are optional)
 		// duck-type on whether this is a boolean
-		if _, ok := packet.Children[1].Value.(bool); ok {
+		if crit, ok := packet.Children[1].Value.(bool); ok {
 			packet.Children[1].Description = "Criticality"
-			Criticality = packet.Children[1].Value.(bool)
+			Criticality = crit
 		} else {
 			packet.Children[1].Description = "Control Value"
 			value = packet.Children[1]
@@ -589,10 +597,18 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 
 	case 3:
 		packet.Children[0].Description = "Control Type (" + ControlTypeMap[ControlType] + ")"
-		ControlType = packet.Children[0].Value.(string)
+		ct, ok := packet.Children[0].Value.(string)
+		if !ok {
+			return nil, fmt.Errorf("control type is not a string: %T", packet.Children[0].Value)
+		}
+		ControlType = ct
 
 		packet.Children[1].Description = "Criticality"
-		Criticality = packet.Children[1].Value.(bool)
+		crit, ok := packet.Children[1].Value.(bool)
+		if !ok {
+			return nil, fmt.Errorf("criticality is not a bool: %T", packet.Children[1].Value)
+		}
+		Criticality = crit
 
 		packet.Children[2].Description = "Control Value"
 		value = packet.Children[2]
@@ -606,6 +622,9 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 	case ControlTypeManageDsaIT:
 		return NewControlManageDsaIT(Criticality), nil
 	case ControlTypePaging:
+		if value == nil {
+			return nil, fmt.Errorf("paging control value is missing")
+		}
 		value.Description += " (Paging)"
 		c := new(ControlPaging)
 		if value.Value != nil {
@@ -617,11 +636,21 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 			value.Value = nil
 			value.AppendChild(valueChildren)
 		}
+		if len(value.Children) == 0 {
+			return nil, fmt.Errorf("paging control value is empty")
+		}
 		value = value.Children[0]
 		value.Description = "Search Control Value"
+		if len(value.Children) < 2 {
+			return nil, fmt.Errorf("paging control value has %d children, expected 2", len(value.Children))
+		}
 		value.Children[0].Description = "Paging Size"
 		value.Children[1].Description = "Cookie"
-		c.PagingSize = uint32(value.Children[0].Value.(int64))
+		pagingSize, ok := value.Children[0].Value.(int64)
+		if !ok {
+			return nil, fmt.Errorf("paging size is not an integer: %T", value.Children[0].Value)
+		}
+		c.PagingSize = uint32(pagingSize)
 		c.Cookie = value.Children[1].Data.Bytes()
 		value.Children[1].Value = c.Cookie
 		return c, nil
@@ -729,7 +758,16 @@ func DecodeControl(packet *ber.Packet) (Control, error) {
 		c.ControlType = ControlType
 		c.Criticality = Criticality
 		if value != nil {
-			c.ControlValue = value.Value.(string)
+			// A non-conforming or malicious server can send a non-string
+			// (or nil) value here; the previous unchecked cast panicked
+			// the calling goroutine, see #561. Fall back to the raw bytes
+			// when the value isn't a string so we surface an error
+			// instead of crashing.
+			if s, ok := value.Value.(string); ok {
+				c.ControlValue = s
+			} else if value.Data != nil {
+				c.ControlValue = value.Data.String()
+			}
 		}
 		return c, nil
 	}
@@ -921,28 +959,44 @@ func (c *ControlServerSideSorting) GetControlType() string {
 }
 
 func NewControlServerSideSorting(value *ber.Packet) (*ControlServerSideSorting, error) {
-	sortKeys := []*SortKey{}
+	val, err := ber.DecodePacketErr(value.Data.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("decode packet err: %s", err)
+	}
 
-	val := value.Children[1].Children
-
-	if len(val) != 1 {
+	if len(val.Children) == 0 {
 		return nil, fmt.Errorf("no sequence value in packet")
 	}
 
-	sequences := val[0].Children
+	var sortKeys []*SortKey
 
-	for i, sequence := range sequences {
-		sortKey := new(SortKey)
-
-		if len(sequence.Children) < 2 {
-			return nil, fmt.Errorf("attributeType or matchingRule is missing from sequence %d", i)
+	for i, sequence := range val.Children {
+		if len(sequence.Children) < 1 || len(sequence.Children) > 3 {
+			return nil, fmt.Errorf("attributeType is missing from sequence %d", i)
 		}
 
-		sortKey.AttributeType = sequence.Children[0].Value.(string)
-		sortKey.MatchingRule = sequence.Children[1].Value.(string)
+		sortKey := new(SortKey)
 
-		if len(sequence.Children) == 3 {
-			sortKey.Reverse = sequence.Children[2].Value.(bool)
+		for _, child := range sequence.Children {
+			switch {
+			case child.ClassType == ber.ClassUniversal && child.Tag == ber.TagOctetString:
+				// A constructed-form OCTET STRING matches this case but leaves
+				// Value nil; guard the assertion so a malformed attributeType is
+				// rejected below rather than panicking.
+				if attrType, ok := child.Value.(string); ok {
+					sortKey.AttributeType = attrType
+				}
+
+			case child.ClassType == ber.ClassContext && child.Tag == 0:
+				sortKey.MatchingRule = child.Data.String()
+
+			case child.ClassType == ber.ClassContext && child.Tag == 1:
+				b := child.Data.Bytes()
+				sortKey.Reverse = len(b) > 0 && b[0] != 0
+			}
+		}
+		if sortKey.AttributeType == "" {
+			return nil, fmt.Errorf("attributeType is missing from sequence %d", i)
 		}
 
 		sortKeys = append(sortKeys, sortKey)
@@ -959,7 +1013,6 @@ func (c *ControlServerSideSorting) Encode() *ber.Packet {
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Control")
 	control := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, c.GetControlType(), "Control Type")
 
-	value := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, nil, "Control Value")
 	seqs := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "SortKeyList")
 
 	for _, f := range c.SortKeys {
@@ -968,9 +1021,11 @@ func (c *ControlServerSideSorting) Encode() *ber.Packet {
 		seq.AppendChild(
 			ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, f.AttributeType, "attributeType"),
 		)
-		seq.AppendChild(
-			ber.NewString(ber.ClassContext, ber.TypePrimitive, 0, f.MatchingRule, "orderingRule"),
-		)
+		if f.MatchingRule != "" {
+			seq.AppendChild(
+				ber.NewString(ber.ClassContext, ber.TypePrimitive, 0, f.MatchingRule, "orderingRule"),
+			)
+		}
 		if f.Reverse {
 			seq.AppendChild(
 				ber.NewBoolean(ber.ClassContext, ber.TypePrimitive, 1, f.Reverse, "reverseOrder"),
@@ -980,7 +1035,7 @@ func (c *ControlServerSideSorting) Encode() *ber.Packet {
 		seqs.AppendChild(seq)
 	}
 
-	value.AppendChild(seqs)
+	value := ber.Encode(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, string(seqs.Bytes()), "Control Value")
 
 	packet.AppendChild(control)
 	packet.AppendChild(value)
@@ -1059,6 +1114,8 @@ func NewControlServerSideSortingResult(pkt *ber.Packet) (*ControlServerSideSorti
 	if err = ControlServerSideSortingCode(codeInt).Valid(); err != nil {
 		return nil, err
 	}
+
+	control.Result = ControlServerSideSortingCode(codeInt)
 
 	return control, nil
 }

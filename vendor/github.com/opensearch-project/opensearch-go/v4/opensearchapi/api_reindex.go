@@ -8,11 +8,11 @@ package opensearchapi
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // Reindex executes a / request with the optional ReindexReq
@@ -21,7 +21,7 @@ func (c Client) Reindex(ctx context.Context, req ReindexReq) (*ReindexResp, erro
 		data ReindexResp
 		err  error
 	)
-	if data.response, err = c.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, &c, http.MethodPost, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -37,9 +37,9 @@ type ReindexReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r ReindexReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"POST",
+func (r ReindexReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_reindex",
 		r.Body,
 		r.Params.get(),
@@ -62,11 +62,11 @@ type ReindexResp struct {
 		Bulk   int `json:"bulk"`
 		Search int `json:"search"`
 	} `json:"retries"`
-	ThrottledMillis      int               `json:"throttled_millis"`
-	RequestsPerSecond    float64           `json:"requests_per_second"`
-	ThrottledUntilMillis int               `json:"throttled_until_millis"`
-	Failures             []json.RawMessage `json:"failures"`
-	Task                 string            `json:"task"`
+	ThrottledMillis      int                   `json:"throttled_millis"`
+	RequestsPerSecond    float64               `json:"requests_per_second"`
+	ThrottledUntilMillis int                   `json:"throttled_until_millis"`
+	Failures             []BulkByScrollFailure `json:"failures"`
+	Task                 string                `json:"task"`
 	response             *opensearch.Response
 }
 

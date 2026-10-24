@@ -13,6 +13,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // PointInTimeDeleteReq represents possible options for the index create request
@@ -24,7 +25,7 @@ type PointInTimeDeleteReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r PointInTimeDeleteReq) GetRequest() (*http.Request, error) {
+func (r PointInTimeDeleteReq) GetRequest(method string) (*http.Request, error) {
 	var body io.Reader
 	if len(r.PitID) > 0 {
 		bodyStruct := PointInTimeDeleteRequestBody{PitID: r.PitID}
@@ -35,8 +36,8 @@ func (r PointInTimeDeleteReq) GetRequest() (*http.Request, error) {
 		body = bytes.NewBuffer(bodyJSON)
 	}
 
-	return opensearch.BuildRequest(
-		"DELETE",
+	return build.Request(
+		method,
 		"/_search/point_in_time",
 		body,
 		r.Params.get(),

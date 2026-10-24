@@ -89,6 +89,14 @@ func (l *Conn) Extended(er *ExtendedRequest) (*ExtendedResponse, error) {
 	}
 
 	for _, child := range extResp.Children {
+		// responseName [10] and responseValue [11] are context-class and
+		// optional. The preceding resultCode is a universal ENUMERATED whose
+		// tag number (10) is the same as responseName, so a child must be
+		// matched on its class as well, otherwise the resultCode is read as
+		// the responseName whenever the server omits the latter.
+		if child.ClassType != ber.ClassContext {
+			continue
+		}
 		switch child.Tag {
 		case ber.TagEnumerated:
 			response.Name = child.Data.String()

@@ -16,6 +16,7 @@ import (
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
@@ -115,7 +116,7 @@ func (g Graph) PostEducationUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		u.SetUserType("Member")
+		u.SetUserType(identity.UserTypeMember)
 	}
 
 	logger.Debug().Interface("user", u).Msg("calling create education user on backend")

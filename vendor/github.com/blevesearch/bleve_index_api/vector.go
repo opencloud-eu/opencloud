@@ -95,6 +95,10 @@ func OptimizationRequiresBinaryIndex(optimization string) bool {
 const TrainedIndexFileName = "trained_index"
 const TrainingKey = "_training"
 
+type TrainingParams struct {
+	NumCentroids int
+}
+
 const TrainedIndexCallback = "_trained_index_callback"
 
 type TrainedIndexCallbackFn func(string) (interface{}, error)

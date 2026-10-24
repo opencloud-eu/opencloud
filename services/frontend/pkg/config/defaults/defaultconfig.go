@@ -82,6 +82,7 @@ func DefaultConfig() *config.Config {
 		Reva:                     shared.DefaultRevaConfig(),
 		PublicURL:                "https://localhost:9200",
 		UploadMaxChunkSize:       1e+7,
+		DefaultQuota:             "1000000000",
 		UploadHTTPMethodOverride: "",
 		DefaultUploadProtocol:    "tus",
 		DefaultLinkPermissions:   1,
@@ -100,9 +101,6 @@ func DefaultConfig() *config.Config {
 			Prefix:      "archiver",
 			MaxNumFiles: 10000,
 			MaxSize:     1073741824,
-		},
-		DataGateway: config.DataGateway{
-			Prefix: "data",
 		},
 		OCS: config.OCS{
 			Prefix:                      "ocs",
@@ -141,13 +139,6 @@ func DefaultConfig() *config.Config {
 			},
 		},
 		LDAPServerWriteEnabled: true,
-		AutoAcceptShares:       true,
-		Events: config.Events{
-			Endpoint:  "127.0.0.1:9233",
-			Cluster:   "opencloud-cluster",
-			EnableTLS: false,
-		},
-		MaxConcurrency: 1,
 		PasswordPolicy: config.PasswordPolicy{
 			MinCharacters:          8,
 			MinLowerCaseCharacters: 1,
@@ -158,6 +149,7 @@ func DefaultConfig() *config.Config {
 		Groupware: config.Groupware{
 			Enabled: false,
 		},
+		ConfigurableNotifications: true,
 	}
 }
 
@@ -197,7 +189,5 @@ func EnsureDefaults(cfg *config.Config) {
 
 // Sanitize sanitized the configuration
 func Sanitize(cfg *config.Config) {
-	if cfg.MaxConcurrency <= 0 {
-		cfg.MaxConcurrency = 5
-	}
+	// nothing to sanitize here atm
 }

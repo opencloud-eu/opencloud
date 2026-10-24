@@ -9,7 +9,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/pkg/ast/test"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/query"
 	tAssert "github.com/stretchr/testify/assert"
 )
 
@@ -34,13 +33,13 @@ func TestParse_Spec(t *testing.T) {
 		},
 		{
 			name: `AND`,
-			error: query.StartsWithBinaryOperatorError{
+			error: kql.DanglingOperatorError{
 				Node: &ast.OperatorNode{Value: kql.BoolAND},
 			},
 		},
 		{
 			name: `AND cat AND dog`,
-			error: query.StartsWithBinaryOperatorError{
+			error: kql.DanglingOperatorError{
 				Node: &ast.OperatorNode{Value: kql.BoolAND},
 			},
 		},
@@ -80,13 +79,13 @@ func TestParse_Spec(t *testing.T) {
 		},
 		{
 			name: `OR`,
-			error: query.StartsWithBinaryOperatorError{
+			error: kql.DanglingOperatorError{
 				Node: &ast.OperatorNode{Value: kql.BoolOR},
 			},
 		},
 		{
 			name: `OR cat AND dog`,
-			error: query.StartsWithBinaryOperatorError{
+			error: kql.DanglingOperatorError{
 				Node: &ast.OperatorNode{Value: kql.BoolOR},
 			},
 		},
@@ -142,6 +141,22 @@ func TestParse_Spec(t *testing.T) {
 					}},
 					&ast.OperatorNode{Value: kql.BoolAND},
 					&ast.StringNode{Value: "fox"},
+				},
+			},
+		},
+		{
+			name: `author="John Smith"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "author", Value: "John Smith", Exact: true},
+				},
+			},
+		},
+		{
+			name: `filename=budget.xlsx`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "filename", Value: "budget.xlsx", Exact: true},
 				},
 			},
 		},
@@ -410,6 +425,60 @@ func TestParse_Spec(t *testing.T) {
 						Key:      "Modified",
 						Operator: &ast.OperatorNode{Value: "<="},
 						Value:    mustParseTime(t, "2023-09-10 23:59:59.999999999"),
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			testKQL(t, tc)
+		})
+	}
+}
+
+func TestParse_NumberRestrictionNode(t *testing.T) {
+	tests := []testCase{
+		{
+			name: "format",
+			query: join([]string{
+				`size>100`,
+				`size>"100"`,
+				`size>=15.5`,
+				`size<100`,
+				`size<=100`,
+			}),
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.NumberNode{
+						Key:      "size",
+						Operator: &ast.OperatorNode{Value: ">"},
+						Value:    100,
+					},
+					&ast.OperatorNode{Value: kql.BoolAND},
+					&ast.NumberNode{
+						Key:      "size",
+						Operator: &ast.OperatorNode{Value: ">"},
+						Value:    100,
+					},
+					&ast.OperatorNode{Value: kql.BoolAND},
+					&ast.NumberNode{
+						Key:      "size",
+						Operator: &ast.OperatorNode{Value: ">="},
+						Value:    15.5,
+					},
+					&ast.OperatorNode{Value: kql.BoolAND},
+					&ast.NumberNode{
+						Key:      "size",
+						Operator: &ast.OperatorNode{Value: "<"},
+						Value:    100,
+					},
+					&ast.OperatorNode{Value: kql.BoolAND},
+					&ast.NumberNode{
+						Key:      "size",
+						Operator: &ast.OperatorNode{Value: "<="},
+						Value:    100,
 					},
 				},
 			},
@@ -860,38 +929,68 @@ func TestParse_Errors(t *testing.T) {
 	tests := []testCase{
 		{
 			query: "animal:(mammal:cat mammal:dog reptile:turtle)",
-			error: query.NamedGroupInvalidNodesError{
+			error: kql.NamedGroupInvalidNodesError{
 				Node: &ast.StringNode{Key: "mammal", Value: "cat"},
 			},
 		},
 		{
 			query: "animal:(cat mammal:dog turtle)",
-			error: query.NamedGroupInvalidNodesError{
+			error: kql.NamedGroupInvalidNodesError{
 				Node: &ast.StringNode{Key: "mammal", Value: "dog"},
 			},
 		},
 		{
 			query: "animal:(AND cat)",
-			error: query.StartsWithBinaryOperatorError{
+			error: kql.DanglingOperatorError{
 				Node: &ast.OperatorNode{Value: kql.BoolAND},
 			},
 		},
 		{
 			query: "animal:(OR cat)",
-			error: query.StartsWithBinaryOperatorError{
+			error: kql.DanglingOperatorError{
 				Node: &ast.OperatorNode{Value: kql.BoolOR},
 			},
 		},
 		{
 			query: "(AND cat)",
-			error: query.StartsWithBinaryOperatorError{
+			error: kql.DanglingOperatorError{
 				Node: &ast.OperatorNode{Value: kql.BoolAND},
 			},
 		},
 		{
 			query: "(OR cat)",
-			error: query.StartsWithBinaryOperatorError{
+			error: kql.DanglingOperatorError{
 				Node: &ast.OperatorNode{Value: kql.BoolOR},
+			},
+		},
+		{
+			query: `cat AND`,
+			error: kql.DanglingOperatorError{
+				Node: &ast.OperatorNode{Value: kql.BoolAND},
+			},
+		},
+		{
+			query: `cat NOT`,
+			error: kql.DanglingOperatorError{
+				Node: &ast.OperatorNode{Value: kql.BoolNOT},
+			},
+		},
+		{
+			query: `cat AND OR dog`,
+			error: kql.DanglingOperatorError{
+				Node: &ast.OperatorNode{Value: kql.BoolOR},
+			},
+		},
+		{
+			query: `cat NOT AND dog`,
+			error: kql.DanglingOperatorError{
+				Node: &ast.OperatorNode{Value: kql.BoolAND},
+			},
+		},
+		{
+			query: `cat AND (dog NOT)`,
+			error: kql.DanglingOperatorError{
+				Node: &ast.OperatorNode{Value: kql.BoolNOT},
 			},
 		},
 		{

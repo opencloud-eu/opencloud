@@ -20,11 +20,13 @@ package jsoncs3
 
 import (
 	"context"
+	stderrors "errors"
 	"strings"
 	"sync"
 	"time"
 
 	gatewayv1beta1 "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
+	grouppb "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpcv1beta1 "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	collaboration "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
@@ -137,6 +139,9 @@ type config struct {
 	ProviderRegistryAddr string       `mapstructure:"provider_registry_addr"`
 	CacheTTL             int          `mapstructure:"ttl"`
 	Events               EventOptions `mapstructure:"events"`
+	// SkipMigrations does not run the data migrations on startup. Only meant for
+	// test environments, skipped migrations are not applied later.
+	SkipMigrations bool `mapstructure:"skip_migrations"`
 }
 
 // EventOptions are the configurable options for events
@@ -168,6 +173,10 @@ type Manager struct {
 	gatewaySelector pool.Selectable[gatewayv1beta1.GatewayAPIClient]
 	eventStream     events.Stream
 	logger          *zerolog.Logger
+
+	// migrationCfg is kept so that migrations can be run again later, see
+	// RunMigrationsFrom.
+	migrationCfg migration.MigrationConfig
 }
 
 // NewDefault returns a new manager instance with default dependencies
@@ -199,6 +208,11 @@ func NewDefault(m map[string]interface{}, logger *zerolog.Logger) (share.Manager
 	mgr, err := New(s, logger, gatewaySelector, c.CacheTTL, es, c.MaxConcurrency)
 	if err != nil {
 		return nil, err
+	}
+	if c.SkipMigrations {
+		mgr.logger.Warn().Msg("share manager: skipping data migrations")
+		mgr.SkipMigrations()
+		return mgr, nil
 	}
 	providerRegistryAddr := c.ProviderRegistryAddr
 	if providerRegistryAddr == "" {
@@ -288,6 +302,34 @@ func (m *Manager) initialize(ctx context.Context) error {
 		return err
 	}
 
+	err = m.storage.MakeDirIfNotExist(ctx, "migrations")
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
+	// A missing "storages" directory means nobody has ever used this metadata
+	// tree, so there is nothing to migrate. Record all migrations as applied
+	// before creating "storages": any instance that observes "storages" is then
+	// guaranteed to also observe the state file, which keeps instances starting
+	// in parallel from disagreeing about whether migrations have to run.
+	_, err = m.storage.Stat(ctx, "storages")
+	switch err.(type) {
+	case nil:
+		// existing deployment, leave the migration state untouched
+	case errtypes.IsNotFound:
+		if err = migration.MarkAllApplied(ctx, m.storage); err != nil {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+			return err
+		}
+	default:
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
+	}
+
 	err = m.storage.MakeDirIfNotExist(ctx, "storages")
 	if err != nil {
 		span.RecordError(err)
@@ -306,15 +348,15 @@ func (m *Manager) initialize(ctx context.Context) error {
 		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
-	err = m.storage.MakeDirIfNotExist(ctx, "migrations")
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return err
-	}
 
 	span.SetStatus(codes.Ok, "initialized")
 	return nil
+}
+
+// Ready returns a channel that is closed once the background initialization
+// goroutine has successfully connected to the metadata storage.
+func (m *Manager) Ready() <-chan struct{} {
+	return m.ready
 }
 
 // waitForInit blocks until the background initialization goroutine has
@@ -342,7 +384,33 @@ func (m *Manager) migrationsRunning() bool {
 // called once after New() in production server startup. Callers that do not
 // need migrations should call SkipMigrations instead to unblock write operations.
 func (m *Manager) RunMigrations(cfg migration.MigrationConfig) {
+	m.migrationCfg = cfg
 	go m.doMigrations(cfg)
+}
+
+// RunMigration runs the named migration whether or not it has already been
+// applied, and blocks until it is done. It is meant for operators repeating a
+// migration; the ordinary startup path is RunMigrations.
+func (m *Manager) RunMigration(ctx context.Context, name string) error {
+	if err := m.waitForInit(ctx); err != nil {
+		return err
+	}
+	// the startup run holds the migration lock; waiting for it to finish keeps
+	// this from being silently skipped
+	if err := m.waitForMigrations(ctx); err != nil {
+		return err
+	}
+	migrations := migration.New(*m.logger, m.gatewaySelector, m.storage, m.migrationCfg, m, m)
+	return migrations.RunMigration(name)
+}
+
+func (m *Manager) waitForMigrations(ctx context.Context) error {
+	select {
+	case <-m.migrationsDone:
+		return nil
+	case <-ctx.Done():
+		return errors.Wrap(ctx.Err(), "share manager migrations did not complete")
+	}
 }
 
 // SkipMigrations unblocks write operations on this instance without running
@@ -444,7 +512,7 @@ func (m *Manager) Share(ctx context.Context, md *provider.ResourceInfo, g *colla
 	})
 
 	eg.Go(func() error {
-		err := m.CreatedCache.Add(ctx, s.GetCreator().GetOpaqueId(), shareID)
+		err := m.CreatedCache.Add(ctx, utils.NewFSSafeUserID(s.GetCreator()), shareID)
 		if err != nil {
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
@@ -458,13 +526,12 @@ func (m *Manager) Share(ctx context.Context, md *provider.ResourceInfo, g *colla
 	switch g.Grantee.Type {
 	case provider.GranteeType_GRANTEE_TYPE_USER:
 		eg.Go(func() error {
-			userid := g.Grantee.GetUserId().GetOpaqueId()
 
 			rs := &collaboration.ReceivedShare{
 				Share: s,
 				State: collaboration.ShareState_SHARE_STATE_PENDING,
 			}
-			err := m.UserReceivedStates.Add(ctx, userid, spaceID, rs)
+			err := m.UserReceivedStates.Add(ctx, utils.NewFSSafeUserID(g.GetGrantee().GetUserId()), spaceID, rs)
 			if err != nil {
 				span.RecordError(err)
 				span.SetStatus(codes.Error, err.Error())
@@ -474,8 +541,7 @@ func (m *Manager) Share(ctx context.Context, md *provider.ResourceInfo, g *colla
 		})
 	case provider.GranteeType_GRANTEE_TYPE_GROUP:
 		eg.Go(func() error {
-			groupid := g.Grantee.GetGroupId().GetOpaqueId()
-			err := m.GroupReceivedCache.Add(ctx, groupid, shareID)
+			err := m.GroupReceivedCache.Add(ctx, utils.FSSafeGroupID{ID: g.GetGrantee().GetGroupId()}, shareID)
 			if err != nil {
 				span.RecordError(err)
 				span.SetStatus(codes.Error, err.Error())
@@ -553,16 +619,30 @@ func (m *Manager) GetShare(ctx context.Context, ref *collaboration.ShareReferenc
 			sublog.Error().Err(err).
 				Msg("failed to unshare expired share")
 		}
-		if err := events.Publish(ctx, m.eventStream, events.ShareExpired{
-			ShareID:        s.GetId(),
-			ShareOwner:     s.GetOwner(),
-			ItemID:         s.GetResourceId(),
-			ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
-			GranteeUserID:  s.GetGrantee().GetUserId(),
-			GranteeGroupID: s.GetGrantee().GetGroupId(),
-		}); err != nil {
-			sublog.Error().Err(err).
-				Msg("failed to publish share expired event")
+		if s.ResourceId.SpaceId == s.ResourceId.OpaqueId {
+			if err := events.Publish(ctx, m.eventStream, events.SpaceMembershipExpired{
+				ShareID:        s.GetId(),
+				SpaceOwner:     s.GetOwner(),
+				SpaceID:        &provider.StorageSpaceId{OpaqueId: storagespace.FormatStorageID(s.ResourceId.StorageId, s.ResourceId.SpaceId)},
+				ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
+				GranteeUserID:  s.GetGrantee().GetUserId(),
+				GranteeGroupID: s.GetGrantee().GetGroupId(),
+			}); err != nil {
+				sublog.Error().Err(err).
+					Msg("failed to publish space membership expired event")
+			}
+		} else {
+			if err := events.Publish(ctx, m.eventStream, events.ShareExpired{
+				ShareID:        s.GetId(),
+				ShareOwner:     s.GetOwner(),
+				ItemID:         s.GetResourceId(),
+				ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
+				GranteeUserID:  s.GetGrantee().GetUserId(),
+				GranteeGroupID: s.GetGrantee().GetGroupId(),
+			}); err != nil {
+				sublog.Error().Err(err).
+					Msg("failed to publish share expired event")
+			}
 		}
 	}
 	// check if we are the creator or the grantee
@@ -610,7 +690,32 @@ func (m *Manager) Unshare(ctx context.Context, ref *collaboration.ShareReference
 		return err
 	}
 
+	// only the creator or a user with RemoveGrant on the resource may unshare
+	user := ctxpkg.ContextMustGetUser(ctx)
+	if !share.IsCreatedByUser(s, user) && !m.userHasRemoveGrantPermission(ctx, s) {
+		// TODO why not permission denied?
+		return errtypes.NotFound(ref.String())
+	}
+
 	return m.removeShare(ctx, s, false)
+}
+
+// userHasRemoveGrantPermission reports whether the context user holds RemoveGrant on the share's resource.
+func (m *Manager) userHasRemoveGrantPermission(ctx context.Context, s *collaboration.Share) bool {
+	req := &provider.StatRequest{
+		Ref: &provider.Reference{ResourceId: s.ResourceId},
+		FieldMask: &fieldmaskpb.FieldMask{
+			Paths: []string{"permissions"},
+		},
+	}
+	client, err := m.gatewaySelector.Next()
+	if err != nil {
+		return false
+	}
+	res, err := client.Stat(ctx, req)
+	return err == nil &&
+		res.Status.Code == rpcv1beta1.Code_CODE_OK &&
+		res.Info.PermissionSet.RemoveGrant
 }
 
 // UpdateShare updates the mode of the given share.
@@ -754,15 +859,29 @@ func (m *Manager) listSharesByIDs(ctx context.Context, user *userv1beta1.User, f
 						sublog.Error().Err(err).
 							Msg("failed to unshare expired share")
 					}
-					if err := events.Publish(ctx, m.eventStream, events.ShareExpired{
-						ShareOwner:     s.GetOwner(),
-						ItemID:         resourceID,
-						ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
-						GranteeUserID:  s.GetGrantee().GetUserId(),
-						GranteeGroupID: s.GetGrantee().GetGroupId(),
-					}); err != nil {
-						sublog.Error().Err(err).
-							Msg("failed to publish share expired event")
+					if s.ResourceId.SpaceId == s.ResourceId.OpaqueId {
+						if err := events.Publish(ctx, m.eventStream, events.SpaceMembershipExpired{
+							ShareID:        s.GetId(),
+							SpaceOwner:     s.GetOwner(),
+							SpaceID:        &provider.StorageSpaceId{OpaqueId: storagespace.FormatStorageID(s.ResourceId.StorageId, s.ResourceId.SpaceId)},
+							ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
+							GranteeUserID:  s.GetGrantee().GetUserId(),
+							GranteeGroupID: s.GetGrantee().GetGroupId(),
+						}); err != nil {
+							sublog.Error().Err(err).
+								Msg("failed to publish space membership expired event")
+						}
+					} else {
+						if err := events.Publish(ctx, m.eventStream, events.ShareExpired{
+							ShareOwner:     s.GetOwner(),
+							ItemID:         resourceID,
+							ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
+							GranteeUserID:  s.GetGrantee().GetUserId(),
+							GranteeGroupID: s.GetGrantee().GetGroupId(),
+						}); err != nil {
+							sublog.Error().Err(err).
+								Msg("failed to publish share expired event")
+						}
 					}
 					continue
 				}
@@ -815,7 +934,7 @@ func (m *Manager) listCreatedShares(ctx context.Context, user *userv1beta1.User,
 	defer span.End()
 	sublog := appctx.GetLogger(ctx).With().Str("userid", user.GetId().GetOpaqueId()).Str("useridp", user.GetId().GetIdp()).Str("driver", "jsoncs3").Str("handler", "listCreatedShares").Logger()
 
-	list, err := m.CreatedCache.List(ctx, user.Id.OpaqueId)
+	list, err := m.CreatedCache.List(ctx, utils.NewFSSafeUserID(user.GetId()))
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
@@ -872,15 +991,29 @@ func (m *Manager) listCreatedShares(ctx context.Context, user *userv1beta1.User,
 							sublog.Error().Err(err).
 								Msg("failed to unshare expired share")
 						}
-						if err := events.Publish(ctx, m.eventStream, events.ShareExpired{
-							ShareOwner:     s.GetOwner(),
-							ItemID:         s.GetResourceId(),
-							ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
-							GranteeUserID:  s.GetGrantee().GetUserId(),
-							GranteeGroupID: s.GetGrantee().GetGroupId(),
-						}); err != nil {
-							sublog.Error().Err(err).
-								Msg("failed to publish share expired event")
+						if s.ResourceId.SpaceId == s.ResourceId.OpaqueId {
+							if err := events.Publish(ctx, m.eventStream, events.SpaceMembershipExpired{
+								ShareID:        s.GetId(),
+								SpaceOwner:     s.GetOwner(),
+								SpaceID:        &provider.StorageSpaceId{OpaqueId: storagespace.FormatStorageID(s.ResourceId.StorageId, s.ResourceId.SpaceId)},
+								ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
+								GranteeUserID:  s.GetGrantee().GetUserId(),
+								GranteeGroupID: s.GetGrantee().GetGroupId(),
+							}); err != nil {
+								sublog.Error().Err(err).
+									Msg("failed to publish space membership expired event")
+							}
+						} else {
+							if err := events.Publish(ctx, m.eventStream, events.ShareExpired{
+								ShareOwner:     s.GetOwner(),
+								ItemID:         s.GetResourceId(),
+								ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
+								GranteeUserID:  s.GetGrantee().GetUserId(),
+								GranteeGroupID: s.GetGrantee().GetGroupId(),
+							}); err != nil {
+								sublog.Error().Err(err).
+									Msg("failed to publish share expired event")
+							}
 						}
 						continue
 					}
@@ -947,7 +1080,10 @@ func (m *Manager) ListReceivedShares(ctx context.Context, filters []*collaborati
 
 	// first collect all spaceids the user has access to as a group member
 	for _, group := range user.Groups {
-		list, err := m.GroupReceivedCache.List(ctx, group)
+		groupid := grouppb.GroupId{
+			OpaqueId: group,
+		}
+		list, err := m.GroupReceivedCache.List(ctx, utils.FSSafeGroupID{ID: &groupid})
 		if err != nil {
 			continue // ignore error, cache will be updated on next read
 		}
@@ -972,7 +1108,7 @@ func (m *Manager) ListReceivedShares(ctx context.Context, filters []*collaborati
 	}
 
 	// add all spaces the user has receved shares for, this includes mount points and share state for groups
-	spaces, err := m.UserReceivedStates.List(ctx, user.Id.OpaqueId)
+	spaces, err := m.UserReceivedStates.List(ctx, utils.NewFSSafeUserID(user.GetId()))
 	if err != nil {
 		return nil, err
 	}
@@ -1035,7 +1171,7 @@ func (m *Manager) ListReceivedShares(ctx context.Context, filters []*collaborati
 					}
 					if s == nil {
 						sublogr.Warn().Str("shareid", shareID).Msg("share not found. cleaning up")
-						_ = m.UserReceivedStates.Remove(ctx, user.Id.OpaqueId, w.ssid, shareID)
+						_ = m.UserReceivedStates.Remove(ctx, utils.NewFSSafeUserID(user.GetId()), w.ssid, shareID)
 						continue
 					}
 					sublogr = sublogr.With().Str("shareid", shareID).Logger()
@@ -1044,15 +1180,29 @@ func (m *Manager) ListReceivedShares(ctx context.Context, filters []*collaborati
 							sublogr.Error().Err(err).
 								Msg("failed to unshare expired share")
 						}
-						if err := events.Publish(ctx, m.eventStream, events.ShareExpired{
-							ShareOwner:     s.GetOwner(),
-							ItemID:         s.GetResourceId(),
-							ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
-							GranteeUserID:  s.GetGrantee().GetUserId(),
-							GranteeGroupID: s.GetGrantee().GetGroupId(),
-						}); err != nil {
-							sublogr.Error().Err(err).
-								Msg("failed to publish share expired event")
+						if s.ResourceId.SpaceId == s.ResourceId.OpaqueId {
+							if err := events.Publish(ctx, m.eventStream, events.SpaceMembershipExpired{
+								ShareID:        s.GetId(),
+								SpaceOwner:     s.GetOwner(),
+								SpaceID:        &provider.StorageSpaceId{OpaqueId: storagespace.FormatStorageID(s.ResourceId.StorageId, s.ResourceId.SpaceId)},
+								ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
+								GranteeUserID:  s.GetGrantee().GetUserId(),
+								GranteeGroupID: s.GetGrantee().GetGroupId(),
+							}); err != nil {
+								sublogr.Error().Err(err).
+									Msg("failed to publish space membership expired event")
+							}
+						} else {
+							if err := events.Publish(ctx, m.eventStream, events.ShareExpired{
+								ShareOwner:     s.GetOwner(),
+								ItemID:         s.GetResourceId(),
+								ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
+								GranteeUserID:  s.GetGrantee().GetUserId(),
+								GranteeGroupID: s.GetGrantee().GetGroupId(),
+							}); err != nil {
+								sublogr.Error().Err(err).
+									Msg("failed to publish share expired event")
+							}
 						}
 						continue
 					}
@@ -1100,7 +1250,7 @@ func (m *Manager) ListReceivedShares(ctx context.Context, filters []*collaborati
 }
 
 // convert must be called in a lock-controlled block.
-func (m *Manager) convert(ctx context.Context, userID string, s *collaboration.Share) *collaboration.ReceivedShare {
+func (m *Manager) convert(ctx context.Context, userID *userv1beta1.UserId, s *collaboration.Share) *collaboration.ReceivedShare {
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "convert")
 	defer span.End()
 
@@ -1111,7 +1261,7 @@ func (m *Manager) convert(ctx context.Context, userID string, s *collaboration.S
 
 	storageID, spaceID, _ := shareid.Decode(s.Id.OpaqueId)
 
-	state, err := m.UserReceivedStates.Get(ctx, userID, storageID+shareid.IDDelimiter+spaceID, s.Id.GetOpaqueId())
+	state, err := m.UserReceivedStates.Get(ctx, utils.NewFSSafeUserID(userID), storageID+shareid.IDDelimiter+spaceID, s.Id.GetOpaqueId())
 	if err == nil && state != nil {
 		rs.State = state.State
 		rs.MountPoint = state.MountPoint
@@ -1147,18 +1297,32 @@ func (m *Manager) getReceived(ctx context.Context, ref *collaboration.ShareRefer
 			sublog.Error().Err(err).
 				Msg("failed to unshare expired share")
 		}
-		if err := events.Publish(ctx, m.eventStream, events.ShareExpired{
-			ShareOwner:     s.GetOwner(),
-			ItemID:         s.GetResourceId(),
-			ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
-			GranteeUserID:  s.GetGrantee().GetUserId(),
-			GranteeGroupID: s.GetGrantee().GetGroupId(),
-		}); err != nil {
-			sublog.Error().Err(err).
-				Msg("failed to publish share expired event")
+		if s.ResourceId.SpaceId == s.ResourceId.OpaqueId {
+			if err := events.Publish(ctx, m.eventStream, events.SpaceMembershipExpired{
+				ShareID:        s.GetId(),
+				SpaceOwner:     s.GetOwner(),
+				SpaceID:        &provider.StorageSpaceId{OpaqueId: storagespace.FormatStorageID(s.ResourceId.StorageId, s.ResourceId.SpaceId)},
+				ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
+				GranteeUserID:  s.GetGrantee().GetUserId(),
+				GranteeGroupID: s.GetGrantee().GetGroupId(),
+			}); err != nil {
+				sublog.Error().Err(err).
+					Msg("failed to publish space membership expired event")
+			}
+		} else {
+			if err := events.Publish(ctx, m.eventStream, events.ShareExpired{
+				ShareOwner:     s.GetOwner(),
+				ItemID:         s.GetResourceId(),
+				ExpiredAt:      time.Unix(int64(s.GetExpiration().GetSeconds()), int64(s.GetExpiration().GetNanos())),
+				GranteeUserID:  s.GetGrantee().GetUserId(),
+				GranteeGroupID: s.GetGrantee().GetGroupId(),
+			}); err != nil {
+				sublog.Error().Err(err).
+					Msg("failed to publish share expired event")
+			}
 		}
 	}
-	return m.convert(ctx, user.Id.GetOpaqueId(), s), nil
+	return m.convert(ctx, user.GetId(), s), nil
 }
 
 // UpdateReceivedShare updates the received share with share state.
@@ -1193,12 +1357,12 @@ func (m *Manager) UpdateReceivedShare(ctx context.Context, receivedShare *collab
 
 	// write back
 	u := ctxpkg.ContextMustGetUser(ctx)
-	uid := u.GetId().GetOpaqueId()
+	uid := u.GetId()
 	if u.GetId().GetType() == userv1beta1.UserType_USER_TYPE_SERVICE {
-		uid = forUser.GetOpaqueId()
+		uid = forUser
 	}
 
-	err = m.UserReceivedStates.Add(ctx, uid, rs.Share.ResourceId.StorageId+shareid.IDDelimiter+rs.Share.ResourceId.SpaceId, rs)
+	err = m.UserReceivedStates.Add(ctx, utils.NewFSSafeUserID(uid), rs.Share.ResourceId.StorageId+shareid.IDDelimiter+rs.Share.ResourceId.SpaceId, rs)
 	if err != nil {
 		return nil, err
 	}
@@ -1236,7 +1400,7 @@ func (m *Manager) Load(ctx context.Context, shareChan <-chan *collaboration.Shar
 			} else {
 				l.Debug().Str("storageid", s.GetResourceId().GetStorageId()).Str("spaceid", s.GetResourceId().GetSpaceId()).Str("shareid", s.Id.OpaqueId).Msg("imported share")
 			}
-			if err := m.CreatedCache.Add(ctx, s.GetCreator().GetOpaqueId(), s.Id.OpaqueId); err != nil {
+			if err := m.CreatedCache.Add(ctx, utils.NewFSSafeUserID(s.GetCreator()), s.Id.OpaqueId); err != nil {
 				l.Error().Err(err).Interface("share", s).Msg("error persisting created cache")
 			} else {
 				l.Debug().Str("creatorid", s.GetCreator().GetOpaqueId()).Str("shareid", s.Id.OpaqueId).Msg("updated created cache")
@@ -1252,14 +1416,14 @@ func (m *Manager) Load(ctx context.Context, shareChan <-chan *collaboration.Shar
 				}
 				if s.UserID != nil {
 					spaceid := s.ReceivedShare.GetShare().GetResourceId().GetStorageId() + shareid.IDDelimiter + s.ReceivedShare.GetShare().GetResourceId().GetSpaceId()
-					if err := m.UserReceivedStates.Add(context.Background(), s.UserID.GetOpaqueId(), spaceid, s.ReceivedShare); err != nil {
+					if err := m.UserReceivedStates.Add(context.Background(), utils.NewFSSafeUserID(s.UserID), spaceid, s.ReceivedShare); err != nil {
 						l.Error().Err(err).Interface("received share", s).Msg("error persisting received share for user")
 					} else {
 						l.Debug().Str("userid", s.UserID.GetOpaqueId()).Str("spaceid", spaceid).Str("shareid", s.ReceivedShare.GetShare().Id.OpaqueId).Msg("updated received share userdata")
 					}
 				}
 				if s.ReceivedShare.Share.Grantee.Type == provider.GranteeType_GRANTEE_TYPE_GROUP && s.UserID == nil {
-					if err := m.GroupReceivedCache.Add(context.Background(), s.ReceivedShare.GetShare().GetGrantee().GetGroupId().GetOpaqueId(), s.ReceivedShare.GetShare().GetId().GetOpaqueId()); err != nil {
+					if err := m.GroupReceivedCache.Add(context.Background(), utils.FSSafeGroupID{ID: s.ReceivedShare.GetShare().GetGrantee().GetGroupId()}, s.ReceivedShare.GetShare().GetId().GetOpaqueId()); err != nil {
 						l.Error().Err(err).Interface("received share", s).Msg("error persisting received share to group cache")
 					} else {
 						l.Debug().Str("groupid", s.ReceivedShare.GetShare().GetGrantee().GetGroupId().GetOpaqueId()).Str("shareid", s.ReceivedShare.GetShare().Id.OpaqueId).Msg("updated received share group cache")
@@ -1315,15 +1479,15 @@ func (m *Manager) removeShare(ctx context.Context, s *collaboration.Share, skipS
 
 	eg.Go(func() error {
 		// remove from created cache
-		return m.CreatedCache.Remove(ctx, s.GetCreator().GetOpaqueId(), s.Id.OpaqueId)
+		return m.CreatedCache.Remove(ctx, utils.NewFSSafeUserID(s.GetCreator()), s.Id.OpaqueId)
 	})
 
 	eg.Go(func() error {
 		// remove from user received states
 		if s.GetGrantee().Type == provider.GranteeType_GRANTEE_TYPE_USER {
-			return m.UserReceivedStates.Remove(ctx, s.GetGrantee().GetUserId().GetOpaqueId(), s.GetResourceId().GetStorageId()+shareid.IDDelimiter+s.GetResourceId().GetSpaceId(), s.Id.OpaqueId)
+			return m.UserReceivedStates.Remove(ctx, utils.NewFSSafeUserID(s.GetGrantee().GetUserId()), s.GetResourceId().GetStorageId()+shareid.IDDelimiter+s.GetResourceId().GetSpaceId(), s.Id.OpaqueId)
 		} else if s.GetGrantee().Type == provider.GranteeType_GRANTEE_TYPE_GROUP {
-			return m.GroupReceivedCache.Remove(ctx, s.GetGrantee().GetGroupId().GetOpaqueId(), s.Id.OpaqueId)
+			return m.GroupReceivedCache.Remove(ctx, utils.FSSafeGroupID{ID: s.GetGrantee().GetGroupId()}, s.Id.OpaqueId)
 		}
 		return nil
 	})
@@ -1331,27 +1495,28 @@ func (m *Manager) removeShare(ctx context.Context, s *collaboration.Share, skipS
 	return eg.Wait()
 }
 
-func (m *Manager) CleanupStaleShares(ctx context.Context) {
+func (m *Manager) CleanupStaleShares(ctx context.Context) error {
 	log := appctx.GetLogger(ctx)
 
 	if err := m.waitForInit(ctx); err != nil {
-		return
+		return err
 	}
-	if m.migrationsRunning() {
-		return
+
+	if err := m.waitForMigrations(ctx); err != nil {
+		return errors.Wrap(err, "wait for share manager migrations")
 	}
 
 	// list all shares
 	providers, err := m.Cache.All(ctx)
 	if err != nil {
-		log.Error().Err(err).Msg("error listing all shares")
-		return
+		return errors.Wrap(err, "list all shares")
 	}
 
 	client, err := m.gatewaySelector.Next()
 	if err != nil {
-		log.Error().Err(err).Msg("could not get gateway client")
+		return errors.Wrap(err, "get gateway client")
 	}
+	var cleanupErrors []error
 
 	providers.Range(func(storage string, spaces *providercache.Spaces) bool {
 		log.Info().Str("storage", storage).Interface("spaceCount", spaces.Spaces.Count()).Msg("checking storage")
@@ -1365,12 +1530,13 @@ func (m *Manager) CleanupStaleShares(ctx context.Context) {
 				}
 				res, err := client.Stat(ctx, req)
 				if err != nil {
-					log.Error().Err(err).Str("storage", storage).Str("space", space).Msg("could not stat shared resource")
+					cleanupErrors = append(cleanupErrors, errors.Wrapf(err, "stat shared resource in storage %q and space %q", storage, space))
+					continue
 				}
 				if res.Status.Code == rpcv1beta1.Code_CODE_NOT_FOUND {
 					log.Info().Str("storage", storage).Str("space", space).Msg("shared resource does not exist anymore. cleaning up shares")
 					if err := m.removeShare(ctx, s, false); err != nil {
-						log.Error().Err(err).Str("storage", storage).Str("space", space).Msg("could not remove share")
+						cleanupErrors = append(cleanupErrors, errors.Wrapf(err, "remove stale share in storage %q and space %q", storage, space))
 					}
 				}
 			}
@@ -1380,4 +1546,6 @@ func (m *Manager) CleanupStaleShares(ctx context.Context) {
 
 		return true
 	})
+
+	return stderrors.Join(cleanupErrors...)
 }

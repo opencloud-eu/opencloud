@@ -40,7 +40,7 @@ func (_m *SearchProviderService) EXPECT() *SearchProviderService_Expecter {
 }
 
 // IndexSpace provides a mock function for the type SearchProviderService
-func (_mock *SearchProviderService) IndexSpace(ctx context.Context, in *v0.IndexSpaceRequest, opts ...client.CallOption) (*v0.IndexSpaceResponse, error) {
+func (_mock *SearchProviderService) IndexSpace(ctx context.Context, in *v0.IndexSpaceRequest, opts ...client.CallOption) (v0.SearchProvider_IndexSpaceService, error) {
 	var tmpRet mock.Arguments
 	if len(opts) > 0 {
 		tmpRet = _mock.Called(ctx, in, opts)
@@ -53,16 +53,16 @@ func (_mock *SearchProviderService) IndexSpace(ctx context.Context, in *v0.Index
 		panic("no return value specified for IndexSpace")
 	}
 
-	var r0 *v0.IndexSpaceResponse
+	var r0 v0.SearchProvider_IndexSpaceService
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v0.IndexSpaceRequest, ...client.CallOption) (*v0.IndexSpaceResponse, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *v0.IndexSpaceRequest, ...client.CallOption) (v0.SearchProvider_IndexSpaceService, error)); ok {
 		return returnFunc(ctx, in, opts...)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v0.IndexSpaceRequest, ...client.CallOption) *v0.IndexSpaceResponse); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *v0.IndexSpaceRequest, ...client.CallOption) v0.SearchProvider_IndexSpaceService); ok {
 		r0 = returnFunc(ctx, in, opts...)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*v0.IndexSpaceResponse)
+			r0 = ret.Get(0).(v0.SearchProvider_IndexSpaceService)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, *v0.IndexSpaceRequest, ...client.CallOption) error); ok {
@@ -82,9 +82,9 @@ type SearchProviderService_IndexSpace_Call struct {
 //   - ctx context.Context
 //   - in *v0.IndexSpaceRequest
 //   - opts ...client.CallOption
-func (_e *SearchProviderService_Expecter) IndexSpace(ctx interface{}, in interface{}, opts ...interface{}) *SearchProviderService_IndexSpace_Call {
+func (_e *SearchProviderService_Expecter) IndexSpace(ctx any, in any, opts ...any) *SearchProviderService_IndexSpace_Call {
 	return &SearchProviderService_IndexSpace_Call{Call: _e.mock.On("IndexSpace",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *SearchProviderService_IndexSpace_Call) Run(run func(ctx context.Context, in *v0.IndexSpaceRequest, opts ...client.CallOption)) *SearchProviderService_IndexSpace_Call {
@@ -112,12 +112,12 @@ func (_c *SearchProviderService_IndexSpace_Call) Run(run func(ctx context.Contex
 	return _c
 }
 
-func (_c *SearchProviderService_IndexSpace_Call) Return(indexSpaceResponse *v0.IndexSpaceResponse, err error) *SearchProviderService_IndexSpace_Call {
-	_c.Call.Return(indexSpaceResponse, err)
+func (_c *SearchProviderService_IndexSpace_Call) Return(searchProvider_IndexSpaceService v0.SearchProvider_IndexSpaceService, err error) *SearchProviderService_IndexSpace_Call {
+	_c.Call.Return(searchProvider_IndexSpaceService, err)
 	return _c
 }
 
-func (_c *SearchProviderService_IndexSpace_Call) RunAndReturn(run func(ctx context.Context, in *v0.IndexSpaceRequest, opts ...client.CallOption) (*v0.IndexSpaceResponse, error)) *SearchProviderService_IndexSpace_Call {
+func (_c *SearchProviderService_IndexSpace_Call) RunAndReturn(run func(ctx context.Context, in *v0.IndexSpaceRequest, opts ...client.CallOption) (v0.SearchProvider_IndexSpaceService, error)) *SearchProviderService_IndexSpace_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -165,9 +165,9 @@ type SearchProviderService_Search_Call struct {
 //   - ctx context.Context
 //   - in *v0.SearchRequest
 //   - opts ...client.CallOption
-func (_e *SearchProviderService_Expecter) Search(ctx interface{}, in interface{}, opts ...interface{}) *SearchProviderService_Search_Call {
+func (_e *SearchProviderService_Expecter) Search(ctx any, in any, opts ...any) *SearchProviderService_Search_Call {
 	return &SearchProviderService_Search_Call{Call: _e.mock.On("Search",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *SearchProviderService_Search_Call) Run(run func(ctx context.Context, in *v0.SearchRequest, opts ...client.CallOption)) *SearchProviderService_Search_Call {

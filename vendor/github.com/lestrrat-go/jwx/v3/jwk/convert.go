@@ -409,6 +409,11 @@ func bytesToKey(src any) (Key, error) {
 // especially when the object implements the `jwk.Key` interface via
 // embedding.
 func Export(key Key, dst any) error {
+	if uk, ok := key.(UnsupportedKey); ok {
+		kid, _ := uk.KeyID()
+		return fmt.Errorf(`jwk.Export: cannot export an unsupported key (kty=%q, kid=%q) that could not be parsed; an extension module may be required: %w`, uk.KeyType().String(), kid, uk.Reason())
+	}
+
 	// dst better be a pointer
 	rv := reflect.ValueOf(dst)
 	if rv.Kind() != reflect.Ptr {

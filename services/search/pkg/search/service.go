@@ -2,8 +2,10 @@ package search
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,7 +16,9 @@ import (
 	rpcv1beta1 "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	collaborationv1beta1 "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/golang-jwt/jwt/v5"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"github.com/opencloud-eu/reva/v2/pkg/auth"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -23,8 +27,10 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
+	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
@@ -46,11 +52,12 @@ const (
 type Searcher interface {
 	Search(ctx context.Context, req *searchsvc.SearchRequest) (*searchsvc.SearchResponse, error)
 
-	IndexSpace(rID *provider.StorageSpaceId, forceRescan bool) error
+	IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool) error
+	PurgeSpace(spaceID *provider.StorageSpaceId) error
 	PurgeDeleted(spaceID *provider.StorageSpaceId) error
 
-	TrashItem(rID *provider.ResourceId)
-	PurgeItem(rID *provider.Reference)
+	TrashItem(resourceID *provider.ResourceId)
+	PurgeItem(ref *provider.Reference)
 	UpsertItem(ref *provider.Reference)
 	RestoreItem(ref *provider.Reference)
 	MoveItem(ref *provider.Reference)
@@ -69,6 +76,8 @@ type Service struct {
 	serviceAccountSecret string
 
 	batchSize int
+
+	queryTemplate string
 }
 
 var errSkipSpace error
@@ -86,9 +95,31 @@ func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng E
 		serviceAccountSecret: cfg.ServiceAccount.ServiceAccountSecret,
 
 		batchSize: cfg.BatchSize,
+
+		queryTemplate: cfg.QueryTemplate,
 	}
 
 	return s
+}
+
+// ExpandQueryTemplate fills {{.QUERY}} with the user query and the space-root placeholders per space.
+func ExpandQueryTemplate(template, query string, space *provider.StorageSpace) string {
+	if template == "" {
+		return query
+	}
+
+	rootID := func(spaceType string) string {
+		if space.GetSpaceType() == spaceType {
+			return `"` + storagespace.FormatResourceID(space.GetRoot()) + `"`
+		}
+		return `"` + config.NoResourceID + `"`
+	}
+
+	return strings.NewReplacer(
+		config.QueryPlaceholder, query,
+		config.PersonalSpaceRootPlaceholder, rootID(_spaceTypePersonal),
+		config.ProjectSpaceRootPlaceholder, rootID(_spaceTypeProject),
+	).Replace(template)
 }
 
 // Search processes a search request and passes it down to the engine.
@@ -116,19 +147,20 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	}
 	currentUser := revactx.ContextMustGetUser(ctx)
 
-	// Handle flags
-	query, flags := ParseFlags(req.Query)
-	for _, flag := range flags {
-		switch flag {
-		case "is:favorite":
-			query += " Favorites:\"" + currentUser.GetId().GetOpaqueId() + "\""
-		}
-	}
+	// is:favorite expands in place to the user's favorites field, so it keeps its position and joining operator
+	query := strings.ReplaceAll(req.Query, "is:favorite", `Favorites:"`+currentUser.GetId().GetOpaqueId()+`"`)
 
 	// Extract scope from query if set
 	query, scope := ParseScope(query)
 	if query == "" {
 		return nil, errtypes.BadRequest("empty query provided")
+	}
+	queryAst, err := kql.Builder{}.Build(query)
+	if err != nil {
+		if kql.IsValidationError(err) {
+			return nil, errtypes.BadRequest(err.Error())
+		}
+		return nil, err
 	}
 	req.Query = query
 	if len(scope) > 0 {
@@ -164,6 +196,17 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 			Path: gpRes.Path,
 		}
 	}
+	// drive-pinned queries only need that space's index; the restriction
+	// stays in the query, mountpoints are kept for path mapping
+	var pinnedRoot *provider.ResourceId
+	if req.Ref == nil {
+		if pinned := pinnedRootID(queryAst); pinned != "" {
+			if rid, err := storagespace.ParseID(pinned); err == nil {
+				pinnedRoot = &rid
+			}
+		}
+	}
+
 	filters := []*provider.ListStorageSpacesRequest_Filter{
 		{
 			Type: provider.ListStorageSpacesRequest_Filter_TYPE_USER,
@@ -190,6 +233,9 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		if space.SpaceType != "mountpoint" && req.Ref != nil && (req.Ref.GetResourceId().GetSpaceId() != space.Root.GetSpaceId()) {
 			// Do not search (non-mountpoint) spaces that do not match the given scope (if a scope is set)
 			// We still need the mountpoint in order to map the result paths to the according share
+			continue
+		}
+		if pinnedRoot != nil && space.SpaceType != _spaceTypeMountpoint && pinnedRoot.GetSpaceId() != space.Root.GetSpaceId() {
 			continue
 		}
 		spaces = append(spaces, space)
@@ -393,7 +439,7 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 	}
 
 	searchRequest := &searchsvc.SearchIndexRequest{
-		Query: req.Query,
+		Query: ExpandQueryTemplate(s.queryTemplate, req.Query, space),
 		Ref: &searchmsg.Reference{
 			ResourceId: searchRootID,
 			Path:       searchPathPrefix,
@@ -444,10 +490,14 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 
 // IndexSpace (re)indexes all resources of a given space.
 func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool) error {
-	ownerCtx, err := getAuthContext(s.serviceAccountID, s.gatewaySelector, s.serviceAccountSecret, s.logger)
+	// Indexing a space can take longer than the lifetime of a single auth token,
+	// so use an AuthSession that authenticates up front and refreshes the token in
+	// the background before it expires. Its Ctx() always returns a valid context.
+	session, err := s.newAuthSession()
 	if err != nil {
 		return err
 	}
+	defer session.Close()
 
 	rootID, err := storagespace.ParseID(spaceID.OpaqueId)
 	if err != nil {
@@ -485,8 +535,15 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 		}
 		logDocCount(s.engine, s.logger)
 	}()
-	err = w.Walk(ownerCtx, &rootID, func(wd string, info *provider.ResourceInfo, err error) error {
+
+	err = w.Walk(session, &rootID, func(wd string, info *provider.ResourceInfo, err error) error {
 		if err != nil {
+			var notFoundErr errtypes.IsNotFound
+			if errors.As(err, &notFoundErr) {
+				// The resource disappeared while walking the tree. E.g. the underlying file/directory/space
+				// might just have been deleted meanwhile. We can just ignore this error.
+				return nil
+			}
 			s.logger.Error().Err(err).Msg("error walking the tree")
 			return err
 		}
@@ -502,11 +559,11 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 		s.logger.Debug().Str("path", ref.Path).Msg("Walking tree")
 
 		if forceRescan {
-			s.doUpsertItem(ref, batch)
+			s.doUpsertItem(session.Ctx(), ref, batch)
 			return nil
 		}
 
-		searchRes, err := s.engine.Search(ownerCtx, &searchsvc.SearchIndexRequest{
+		searchRes, err := s.engine.Search(session.Ctx(), &searchsvc.SearchIndexRequest{
 			Query: "id:" + storagespace.FormatResourceID(info.Id) + ` mtime>=` + utils.TSToTime(info.Mtime).Format(time.RFC3339Nano),
 		})
 
@@ -519,7 +576,7 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 			return nil
 		}
 
-		s.doUpsertItem(ref, batch)
+		s.doUpsertItem(session.Ctx(), ref, batch)
 
 		return nil
 	})
@@ -533,9 +590,9 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 }
 
 // TrashItem marks the item as deleted.
-func (s *Service) TrashItem(rID *provider.ResourceId) {
-	if err := s.engine.Delete(storagespace.FormatResourceID(rID)); err != nil {
-		s.logger.Info().Err(err).Interface("Id", rID).Msg("failed to remove item from index")
+func (s *Service) TrashItem(resourceID *provider.ResourceId) {
+	if err := s.engine.Delete(storagespace.FormatResourceID(resourceID)); err != nil {
+		s.logger.Info().Err(err).Interface("Id", resourceID).Msg("failed to remove item from index")
 	}
 }
 
@@ -552,6 +609,31 @@ func (s *Service) PurgeItem(ref *provider.Reference) {
 	}
 	s.logger.Info().Interface("Id", ref.ResourceId).Msg("purged item from index")
 	logDocCount(s.engine, s.logger)
+}
+
+func (s *Service) PurgeSpace(spaceID *provider.StorageSpaceId) error {
+	if spaceID == nil {
+		return fmt.Errorf("spaceID must not be nil")
+	}
+
+	rootID, err := storagespace.ParseID(spaceID.GetOpaqueId())
+	if err != nil {
+		s.logger.Error().Err(err).Str("space_id", spaceID.GetOpaqueId()).Msg("invalid space id")
+		return err
+	}
+	if rootID.StorageId == "" || rootID.SpaceId == "" {
+		return fmt.Errorf("invalid space id %s", spaceID.GetOpaqueId())
+	}
+	rootID.OpaqueId = rootID.SpaceId
+
+	if err := s.engine.PurgeSpace(storagespace.FormatResourceID(&rootID)); err != nil {
+		s.logger.Error().Err(err).Str("space_id", spaceID.GetOpaqueId()).Msg("failed to purge the space from the index")
+		return err
+	}
+
+	logDocCount(s.engine, s.logger)
+
+	return nil
 }
 
 func (s *Service) PurgeDeleted(spaceID *provider.StorageSpaceId) error {
@@ -582,13 +664,23 @@ func (s *Service) PurgeDeleted(spaceID *provider.StorageSpaceId) error {
 
 // UpsertItem indexes or stores Resource data fields.
 func (s *Service) UpsertItem(ref *provider.Reference) {
-	s.doUpsertItem(ref, nil)
+	ctx, err := getAuthContext(s.serviceAccountID, s.gatewaySelector, s.serviceAccountSecret, s.logger)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to get auth context")
+		return
+	}
+	s.doUpsertItem(ctx, ref, nil)
 }
 
 // doUpsertItem indexes or stores Resource data fields.
-func (s *Service) doUpsertItem(ref *provider.Reference, batch BatchOperator) {
-	ctx, stat, path := s.resInfo(ref)
-	if ctx == nil || stat == nil || path == "" {
+func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, batch BatchOperator) {
+	stat, path := s.resInfo(ctx, ref)
+	if stat == nil || path == "" {
+		return
+	}
+
+	if utils.IsProcessing(stat.Info) {
+		s.logger.Debug().Str("path", path).Msg("resource is still being processed. Skipping.")
 		return
 	}
 
@@ -609,7 +701,7 @@ func (s *Service) doUpsertItem(ref *provider.Reference, batch BatchOperator) {
 		Type:     uint64(stat.Info.Type),
 		Document: doc,
 	}
-	r.Hidden = strings.HasPrefix(r.Path, ".")
+	r.Hidden = IsHidden(r.Path)
 
 	if parentID := stat.GetInfo().GetParentId(); parentID != nil {
 		r.ParentID = storagespace.FormatResourceID(parentID)
@@ -628,10 +720,13 @@ func (s *Service) doUpsertItem(ref *provider.Reference, batch BatchOperator) {
 
 	// determine if metadata needs to be stored in storage as well
 	metadata := map[string]string{}
-	addAudioMetadata(metadata, doc.Audio)
-	addImageMetadata(metadata, doc.Image)
-	addLocationMetadata(metadata, doc.Location)
-	addPhotoMetadata(metadata, doc.Photo)
+	facetToMetadata(metadata, doc.Audio, "libre.graph.audio.")
+	facetToMetadata(metadata, doc.Image, "libre.graph.image.")
+	facetToMetadata(metadata, doc.Location, "libre.graph.location.")
+	facetToMetadata(metadata, doc.Photo, "libre.graph.photo.")
+	facetToMetadata(metadata, doc.Video, "libre.graph.video.")
+	facetToMetadata(metadata, doc.MotionPhoto, "libre.graph.motionPhoto.")
+	facetToMetadata(metadata, doc.LivePhoto, "libre.graph.livePhoto.")
 	if len(metadata) == 0 {
 		return
 	}
@@ -656,43 +751,36 @@ func (s *Service) doUpsertItem(ref *provider.Reference, batch BatchOperator) {
 	}
 }
 
-func addAudioMetadata(metadata map[string]string, audio *libregraph.Audio) {
-	if audio == nil {
-		return
+// IsHidden identifies if a node is hidden or not based on its name & path.
+func IsHidden(path string) bool {
+	for name := range strings.SplitSeq(filepath.Clean(path), string(filepath.Separator)) {
+		if name != "." && name != ".." && strings.HasPrefix(name, ".") {
+			return true
+		}
 	}
-	marshalToStringMap(audio, metadata, "libre.graph.audio.")
+
+	return false
 }
 
-func addImageMetadata(metadata map[string]string, image *libregraph.Image) {
-	if image == nil {
-		return
+// facetToMetadata flattens a libregraph facet (Audio / Image / Location / Photo
+// pointer) into the metadata map under the given prefix via the model's ToMap.
+// No-op when the facet is nil.
+func facetToMetadata[T libregraph.MappedNullable](metadata map[string]string, facet T, prefix string) {
+	// Only nilable kinds can be nil; IsNil panics on a value type (some
+	// libregraph models satisfy MappedNullable with a value receiver).
+	switch v := reflect.ValueOf(facet); v.Kind() {
+	case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Interface, reflect.Chan, reflect.Func:
+		if v.IsNil() {
+			return
+		}
 	}
-	marshalToStringMap(image, metadata, "libre.graph.image.")
-}
-
-func addLocationMetadata(metadata map[string]string, location *libregraph.GeoCoordinates) {
-	if location == nil {
-		return
-	}
-	marshalToStringMap(location, metadata, "libre.graph.location.")
-}
-
-func addPhotoMetadata(metadata map[string]string, photo *libregraph.Photo) {
-	if photo == nil {
-		return
-	}
-	marshalToStringMap(photo, metadata, "libre.graph.photo.")
-}
-
-func marshalToStringMap[T libregraph.MappedNullable](source T, target map[string]string, prefix string) {
-	// ToMap never returns a non-nil error ...
-	m, _ := source.ToMap()
-
+	// ToMap never returns a non-nil error.
+	m, _ := facet.ToMap()
 	for k, v := range m {
 		if v == nil {
 			continue
 		}
-		target[prefix+k] = valueToString(v)
+		metadata[prefix+k] = valueToString(v)
 	}
 }
 
@@ -723,8 +811,13 @@ func valueToString(value any) string {
 
 // RestoreItem makes the item available again.
 func (s *Service) RestoreItem(ref *provider.Reference) {
-	ctx, stat, path := s.resInfo(ref)
-	if ctx == nil || stat == nil || path == "" {
+	ctx, err := getAuthContext(s.serviceAccountID, s.gatewaySelector, s.serviceAccountSecret, s.logger)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to get auth context")
+		return
+	}
+	stat, path := s.resInfo(ctx, ref)
+	if stat == nil || path == "" {
 		return
 	}
 
@@ -735,8 +828,13 @@ func (s *Service) RestoreItem(ref *provider.Reference) {
 
 // MoveItem updates the resource location and all of its necessary fields.
 func (s *Service) MoveItem(ref *provider.Reference) {
-	ctx, stat, path := s.resInfo(ref)
-	if ctx == nil || stat == nil || path == "" {
+	ctx, err := getAuthContext(s.serviceAccountID, s.gatewaySelector, s.serviceAccountSecret, s.logger)
+	if err != nil {
+		s.logger.Error().Err(err).Msg("failed to get auth context")
+		return
+	}
+	stat, path := s.resInfo(ctx, ref)
+	if stat == nil || path == "" {
 		return
 	}
 
@@ -745,21 +843,57 @@ func (s *Service) MoveItem(ref *provider.Reference) {
 	}
 }
 
-func (s *Service) resInfo(ref *provider.Reference) (context.Context, *provider.StatResponse, string) {
-	ownerCtx, err := getAuthContext(s.serviceAccountID, s.gatewaySelector, s.serviceAccountSecret, s.logger)
+func (s *Service) resInfo(ctx context.Context, ref *provider.Reference) (*provider.StatResponse, string) {
+	statRes, err := statResource(ctx, ref, s.gatewaySelector, s.logger)
 	if err != nil {
-		return nil, nil, ""
+		return nil, ""
 	}
 
-	statRes, err := statResource(ownerCtx, ref, s.gatewaySelector, s.logger)
+	r, err := ResolveReference(ctx, ref, statRes.GetInfo(), s.gatewaySelector)
 	if err != nil {
-		return nil, nil, ""
+		return nil, ""
 	}
 
-	r, err := ResolveReference(ownerCtx, ref, statRes.GetInfo(), s.gatewaySelector)
-	if err != nil {
-		return nil, nil, ""
-	}
+	return statRes, r.GetPath()
+}
 
-	return ownerCtx, statRes, r.GetPath()
+func (s *Service) newAuthSession() (*auth.Session, error) {
+	return auth.NewSession(context.Background(), func(ctx context.Context) (context.Context, time.Time, error) {
+		newCtx, err := getAuthContext(s.serviceAccountID, s.gatewaySelector, s.serviceAccountSecret, s.logger)
+		if err != nil {
+			return nil, time.Time{}, err
+		}
+		expiry, err := tokenExpiry(newCtx)
+		if err != nil {
+			return nil, time.Time{}, err
+		}
+		return newCtx, expiry, nil
+	})
+}
+
+func tokenFromContext(ctx context.Context) string {
+	if tkn, ok := revactx.ContextGetToken(ctx); ok && tkn != "" {
+		return tkn
+	}
+	if md, ok := metadata.FromOutgoingContext(ctx); ok {
+		if vals := md.Get(revactx.TokenHeader); len(vals) > 0 {
+			return vals[0]
+		}
+	}
+	return ""
+}
+
+func tokenExpiry(ctx context.Context) (time.Time, error) {
+	tkn := tokenFromContext(ctx)
+	if tkn == "" {
+		return time.Time{}, errors.New("no auth token in context")
+	}
+	var claims jwt.RegisteredClaims
+	if _, _, err := jwt.NewParser().ParseUnverified(tkn, &claims); err != nil {
+		return time.Time{}, err
+	}
+	if claims.ExpiresAt == nil {
+		return time.Time{}, errors.New("token has no expiry")
+	}
+	return claims.ExpiresAt.Time, nil
 }

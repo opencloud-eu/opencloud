@@ -3,4 +3,4 @@
 
 // Package zpages implements a collection of HTML pages that display
 // telemetry stats.
-package zpages // import "go.opentelemetry.io/contrib/zpages"
+package zpages

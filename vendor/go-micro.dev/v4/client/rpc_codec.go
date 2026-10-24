@@ -197,7 +197,7 @@ func (c *rpcCodec) Write(message *codec.Message, body interface{}) error {
 		} else {
 			// write to codec
 			if err := c.codec.Write(message, body); err != nil {
-				return errors.InternalServerError("go.micro.client.codec", err.Error())
+				return errors.InternalServerError("go.micro.client.codec", "%s", err)
 			}
 			// set body
 			message.Body = c.buf.wbuf.Bytes()
@@ -212,7 +212,7 @@ func (c *rpcCodec) Write(message *codec.Message, body interface{}) error {
 
 	// send the request
 	if err := c.client.Send(&msg); err != nil {
-		return errors.InternalServerError("go.micro.client.transport", err.Error())
+		return errors.InternalServerError("go.micro.client.transport", "%s", err)
 	}
 
 	return nil
@@ -223,7 +223,7 @@ func (c *rpcCodec) ReadHeader(msg *codec.Message, r codec.MessageType) error {
 
 	// read message from transport
 	if err := c.client.Recv(&tm); err != nil {
-		return errors.InternalServerError("go.micro.client.transport", err.Error())
+		return errors.InternalServerError("go.micro.client.transport", "%s", err)
 	}
 
 	c.buf.rbuf.Reset()
@@ -240,7 +240,7 @@ func (c *rpcCodec) ReadHeader(msg *codec.Message, r codec.MessageType) error {
 
 	// return header error
 	if err != nil {
-		return errors.InternalServerError("go.micro.client.codec", err.Error())
+		return errors.InternalServerError("go.micro.client.codec", "%s", err)
 	}
 
 	return nil
@@ -255,7 +255,7 @@ func (c *rpcCodec) ReadBody(b interface{}) error {
 	}
 
 	if err := c.codec.ReadBody(b); err != nil {
-		return errors.InternalServerError("go.micro.client.codec", err.Error())
+		return errors.InternalServerError("go.micro.client.codec", "%s", err)
 	}
 
 	return nil
@@ -271,7 +271,7 @@ func (c *rpcCodec) Close() error {
 	}
 
 	if err := c.client.Close(); err != nil {
-		return errors.InternalServerError("go.micro.client.transport", err.Error())
+		return errors.InternalServerError("go.micro.client.transport", "%s", err)
 	}
 
 	return nil

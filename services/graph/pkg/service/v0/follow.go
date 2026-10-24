@@ -12,7 +12,11 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 )
 
-const _favoriteLabel = "favorite"
+const (
+	_favoriteLabel = "favorite"
+	// deliberately not using the existing node.FavoriteKey constant to avoid importing a specific storage driver package
+	_favoriteMetadataKey = "http://owncloud.org/ns/favorite"
+)
 
 // FollowDriveItem marks a drive item as favorite.
 func (g Graph) FollowDriveItem(w http.ResponseWriter, r *http.Request) {
@@ -99,6 +103,7 @@ func (g Graph) FollowDriveItem(w http.ResponseWriter, r *http.Request) {
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
+	driveItem.SetLibreGraphMeFollowing(true)
 
 	render.Status(r, http.StatusCreated)
 	render.JSON(w, r, &driveItem)

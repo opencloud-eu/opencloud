@@ -241,9 +241,9 @@ Feature: previews of files downloaded through the webdav API
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/lorem.txt" to "/lorem.txt"
     And user "Alice" has uploaded file with content "ओनक्लाउड फाएल शेरिङ्ग एन्ड सिन्किङ" to "/lorem.txt"
-    When user "Alice" downloads the preview of "/lorem.txt" with width "1200" and height "1200" using the WebDAV API
+    When user "Alice" downloads the preview of "/lorem.txt" with width "1024" and height "1024" using the WebDAV API
     Then the HTTP status code should be "200"
-    And the downloaded preview content should match with "unicode-fixture.png" fixtures preview content
+    And the downloaded preview content should match with "unicode-fixture.jpg" fixtures preview content
     Examples:
       | dav-path-version |
       | old              |
@@ -254,10 +254,10 @@ Feature: previews of files downloaded through the webdav API
   Scenario Outline: download preview of the text file
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file "filesForUpload/lorem.txt" to "/lorem.txt"
-    When user "Alice" downloads the preview of "/lorem.txt" with width "1200" and height "1200" and processor "thumbnail" using the WebDAV API
+    When user "Alice" downloads the preview of "/lorem.txt" with width "1024" and height "1024" and processor "thumbnail" using the WebDAV API
     Then the HTTP status code should be "200"
-    And the downloaded image should be "1200" pixels wide and "1200" pixels high
-    And the downloaded preview content should match with "text-file-fixture.png" fixtures preview content
+    And the downloaded image should be "1024" pixels wide and "1024" pixels high
+    And the downloaded preview content should match with "text-file-fixture.jpg" fixtures preview content
     Examples:
       | dav-path-version |
       | old              |
@@ -368,18 +368,18 @@ Feature: previews of files downloaded through the webdav API
     And the downloaded preview content should match with <expected-image> fixtures preview content
     Examples:
       | dav-path-version | processor | expected-image |
-      | old              | fit       | fit.png        |
-      | old              | fill      | fill.png       |
-      | old              | resize    | resize.png     |
-      | old              | thumbnail | thumbnail.png  |
-      | new              | fit       | fit.png        |
-      | new              | fill      | fill.png       |
-      | new              | resize    | resize.png     |
-      | new              | thumbnail | thumbnail.png  |
-      | spaces           | fit       | fit.png        |
-      | spaces           | fill      | fill.png       |
-      | spaces           | resize    | resize.png     |
-      | spaces           | thumbnail | thumbnail.png  |
+      | old              | fit       | fit.jpg        |
+      | old              | fill      | fill.jpg       |
+      | old              | resize    | resize.jpg     |
+      | old              | thumbnail | thumbnail.jpg  |
+      | new              | fit       | fit.jpg        |
+      | new              | fill      | fill.jpg       |
+      | new              | resize    | resize.jpg     |
+      | new              | thumbnail | thumbnail.jpg  |
+      | spaces           | fit       | fit.jpg        |
+      | spaces           | fill      | fill.jpg       |
+      | spaces           | resize    | resize.jpg     |
+      | spaces           | thumbnail | thumbnail.jpg  |
 
   @issue-10589 @env-config
   Scenario Outline: try to download an image preview when the maximum thumbnail input value in the environment is set to a small value

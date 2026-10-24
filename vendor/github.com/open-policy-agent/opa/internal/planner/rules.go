@@ -2,9 +2,10 @@ package planner
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/open-policy-agent/opa/v1/ast"
+	"github.com/open-policy-agent/opa/v1/util"
 )
 
 // funcstack implements a simple map structure used to keep track of virtual
@@ -241,10 +242,7 @@ func (t *ruletrie) Children() []ast.Value {
 			sorted = append(sorted, key)
 		}
 	}
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].Compare(sorted[j]) < 0
-	})
-	return sorted
+	return util.SortedFunc(sorted, ast.Value.Compare)
 }
 
 func (t *ruletrie) Get(k ast.Value) *ruletrie {
@@ -270,18 +268,23 @@ func (t *ruletrie) DepthFirst(f func(*ruletrie) bool) {
 }
 
 func (t *ruletrie) Depth() int {
-	if len(t.Children()) == 0 {
-		return 0
-	}
-	c := make([]int, 0, len(t.Children()))
-	for _, nodes := range t.children {
-		c = append(c, nodes[len(nodes)-1].Depth())
-	}
+	// Avoid Children()'s slice allocation and sort: we only need the max
+	// depth over the child nodes. A nil last element is a pushed but
+	// not-yet-inserted node (see Push), matching Children()'s filter.
 	max := 0
-	for i := range c {
-		if max < c[i] {
-			max = c[i]
+	found := false
+	for _, nodes := range t.children {
+		last := nodes[len(nodes)-1]
+		if last == nil {
+			continue
 		}
+		found = true
+		if d := last.Depth(); d > max {
+			max = d
+		}
+	}
+	if !found {
+		return 0
 	}
 	return max + 1
 }
@@ -291,10 +294,8 @@ func (t *ruletrie) String() string {
 }
 
 type functionMocksStack struct {
-	stack []*functionMocksElem
+	stack util.GroupStack[frame]
 }
-
-type functionMocksElem []frame
 
 type frame map[string]*ast.Term
 
@@ -304,32 +305,26 @@ func newFunctionMocksStack() *functionMocksStack {
 	return stack
 }
 
-func newFunctionMocksElem() *functionMocksElem {
-	return &functionMocksElem{}
-}
-
 func (s *functionMocksStack) Push() {
-	s.stack = append(s.stack, newFunctionMocksElem())
+	s.stack.PushGroup(nil)
 }
 
 func (s *functionMocksStack) Pop() {
-	s.stack = s.stack[:len(s.stack)-1]
+	s.stack.PopGroup()
 }
 
 func (s *functionMocksStack) PushFrame(f frame) {
-	current := s.stack[len(s.stack)-1]
-	*current = append(*current, f)
+	s.stack.Push(f)
 }
 
 func (s *functionMocksStack) PopFrame() {
-	current := s.stack[len(s.stack)-1]
-	*current = (*current)[:len(*current)-1]
+	s.stack.Pop()
 }
 
 func (s *functionMocksStack) Lookup(f string) *ast.Term {
-	current := *s.stack[len(s.stack)-1]
-	for i := len(current) - 1; i >= 0; i-- {
-		if t, ok := current[i][f]; ok {
+	current := s.stack.PeekGroup()
+	for _, c := range slices.Backward(current) {
+		if t, ok := c[f]; ok {
 			return t
 		}
 	}

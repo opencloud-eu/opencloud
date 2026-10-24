@@ -20,15 +20,76 @@ package zap
 import (
 	"encoding/json"
 	"errors"
+	"reflect"
 
 	"github.com/blevesearch/go-faiss"
+	seg "github.com/blevesearch/scorch_segment_api/v2"
 )
 
 var (
-	errNilConfig    error = errors.New("faiss index config is nil")
 	errNilIndex     error = errors.New("faiss index is nil")
+	errNilParams    error = errors.New("faiss index params is nil")
 	errNotSupported error = errors.New("operation not supported")
 )
+
+var reflectStaticSizeFaissIndexParams uint64
+
+func init() {
+	var f faissIndexParams
+	reflectStaticSizeFaissIndexParams = uint64(reflect.TypeOf(f).Size())
+}
+
+// -------------------------------------------
+// Parameters for constructing a Faiss index
+// -------------------------------------------
+// faissIndexParams holds the construction-time parameters required by a
+// faissIndex implementation that cannot be derived from the underlying
+// faiss index objects themselves (e.g. dimension and metric type are
+// already available on the faiss index).
+type faissIndexParams struct {
+	// optimization is the index optimization type string (e.g. latency,
+	// recall, memory-efficient, BIVF flavours).
+	optimization string
+	// numVecs is the number of vectors expected to populate the index.
+	// It is needed at construction time because the underlying faiss
+	// index reports zero vectors until trainAndAdd/add is called, but
+	// some construction-time decisions (e.g. whether to clone to GPU)
+	// depend on the eventual vector count.
+	numVecs int
+	// nlist is the number of centroids the index is being built with.
+	// zero during query time.
+	nlist int
+	// ioFlags used to read the index from bytes
+	ioFlags int
+	stats   *seg.Stats
+}
+
+// newFaissIndexParams constructs a faissIndexParams with the given optimization
+// type, expected vector count and centroid count.
+func newFaissIndexParams(optimization string, numVecs, nlist, ioFlags int) *faissIndexParams {
+	return &faissIndexParams{
+		optimization: optimization,
+		numVecs:      numVecs,
+		nlist:        nlist,
+		ioFlags:      ioFlags,
+	}
+}
+
+// numTrainingVecs returns how many of the availableVecs vectors to train on.
+func (p *faissIndexParams) numTrainingVecs(availableVecs int) int {
+	if p.nlist <= 0 {
+		return availableVecs
+	}
+	return min(p.nlist*trainingPointsPerCentroid, availableVecs)
+}
+
+func (p *faissIndexParams) size() uint64 {
+	return reflectStaticSizeFaissIndexParams + uint64(len(p.optimization))
+}
+
+// -------------------------------------------
+// Faiss Index Interface
+// -------------------------------------------
 
 // Abstract interface for Faiss vector indices, which are returned by the go-faiss library.
 type faissIndex interface {

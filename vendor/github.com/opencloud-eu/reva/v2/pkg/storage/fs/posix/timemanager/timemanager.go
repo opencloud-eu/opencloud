@@ -68,7 +68,7 @@ func (m *Manager) TMTime(ctx context.Context, n *node.Node) (time.Time, error) {
 // If tmtime is nil, the tmtime attribute is removed.
 func (m *Manager) SetTMTime(ctx context.Context, n *node.Node, tmtime *time.Time) error {
 	if tmtime == nil {
-		return n.RemoveXattr(ctx, prefixes.TreeMTimeAttr, true)
+		return n.RemoveXattr(ctx, prefixes.TreeMTimeAttr)
 	}
 	return n.SetXattrString(ctx, prefixes.TreeMTimeAttr, tmtime.UTC().Format(time.RFC3339Nano))
 }
@@ -113,7 +113,7 @@ func (m *Manager) DTime(ctx context.Context, n *node.Node) (tmTime time.Time, er
 // If t is nil, the dtime attribute is removed.
 func (m *Manager) SetDTime(ctx context.Context, n *node.Node, t *time.Time) (err error) {
 	if t == nil {
-		return n.RemoveXattr(ctx, prefixes.DTimeAttr, true)
+		return n.RemoveXattr(ctx, prefixes.DTimeAttr)
 	}
 	return n.SetXattrString(ctx, prefixes.DTimeAttr, t.UTC().Format(time.RFC3339Nano))
 }

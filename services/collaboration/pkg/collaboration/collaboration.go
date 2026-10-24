@@ -14,8 +14,7 @@ import (
 type Permission string
 
 const (
-	PermissionCollaborationManageFonts         Permission = "Collaboration.Fonts.Manage"
-	PermissionCollaborationPublishNotification Permission = "Collaboration.Notification.Publish"
+	PermissionCollaborationManageFonts Permission = "Collaboration.Fonts.Manage"
 )
 
 func CheckPermissions(gatewayClient gateway.GatewayAPIClient, ctx context.Context, permission Permission) (*userpb.User, bool, error) {

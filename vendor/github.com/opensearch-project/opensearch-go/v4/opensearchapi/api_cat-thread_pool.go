@@ -8,9 +8,10 @@ package opensearchapi
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // CatThreadPoolReq represent possible options for the /_cat/thread_pool request
@@ -21,22 +22,12 @@ type CatThreadPoolReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r CatThreadPoolReq) GetRequest() (*http.Request, error) {
-	pools := strings.Join(r.Pools, ",")
-	var path strings.Builder
-	path.Grow(len("/_cat/thread_pool/") + len(pools))
-	path.WriteString("/_cat/thread_pool")
-	if len(r.Pools) > 0 {
-		path.WriteString("/")
-		path.WriteString(pools)
+func (r CatThreadPoolReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.CatThreadPoolPath{ThreadPoolPatterns: r.Pools}.Build()
+	if err != nil {
+		return nil, err
 	}
-	return opensearch.BuildRequest(
-		"GET",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // CatThreadPoolResp represents the returned struct of the /_cat/thread_pool response
@@ -68,6 +59,8 @@ type CatThreadPoolItemResp struct {
 	Size            *int    `json:"size,string"`
 	KeepAlive       *string `json:"keep_alive"`
 	TotalWaitTime   string  `json:"total_wait_time"`
+	// Parallelism field added in OpenSearch 3.4.0+
+	Parallelism *int `json:"parallelism,string"`
 }
 
 // Inspect returns the Inspect type containing the raw *opensearch.Response

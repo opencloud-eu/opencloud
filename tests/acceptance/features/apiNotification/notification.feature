@@ -3,6 +3,17 @@ Feature: Notification
   I want to be notified of various events
   So that I can stay updated about the information
 
+  | Event                    | In-App received                               | Mail received                                 |
+  | Share Received           | apiNotification/notification.feature:27       | apiNotification/emailNotification.feature:33  |
+  | Share Removed            | apiNotification/notification.feature:145      | apiNotification/emailNotification.feature:298 |
+  | Share Expired            | apiNotification/notification.feature:346      | apiNotification/emailNotification.feature:262 |
+  | Added as space member    | apiNotification/spaceNotification.feature:21  | apiNotification/emailNotification.feature:14  |
+  | Removed as space member  | apiNotification/spaceNotification.feature:150 | apiNotification/emailNotification.feature:183 |
+  | Space membership expired | apiNotification/spaceNotification.feature:463 | apiNotification/emailNotification.feature:280 |
+  | Space disabled           | apiNotification/spaceNotification.feature:280 | not implemented in backend                    |
+  | Space deleted            | apiNotification/spaceNotification.feature:455 | not implemented in backend                    |
+  | File rejected            | apiAntivirus/antivirus.feature:29             | not implemented in backend                    |
+
   Background:
     Given these users have been created with default attributes:
       | username |
@@ -326,6 +337,26 @@ Feature: Notification
     When user "Brian" lists all notifications
     Then the HTTP status code should be "200"
     And the notifications should be empty
+    Examples:
+      | resource      |
+      | textfile1.txt |
+      | my_data       |
+
+
+  Scenario Outline: user gets an in-app notification when a received share expires
+    Given using SharingNG
+    And user "Alice" has sent the following resource share invitation:
+      | resource        | <resource> |
+      | space           | Personal   |
+      | sharee          | Brian      |
+      | shareType       | user       |
+      | permissionsRole | Viewer     |
+    When user "Alice" expires the last share of resource "<resource>" inside of the space "Personal"
+    Then the HTTP status code should be "200"
+    When user "Brian" lists the shares shared with him using the Graph API
+    Then user "Brian" should get a notification with subject "Share expired" and message:
+      | message                      |
+      | Access to <resource> expired |
     Examples:
       | resource      |
       | textfile1.txt |

@@ -23,6 +23,19 @@ var (
 		CallToAction: l10n.Template(`Click here to view it: {ShareLink}`),
 	}
 
+	ShareRemoved = MessageTemplate{
+		textTemplate: _textTemplate,
+		htmlTemplate: _htmlTemplate,
+		// ShareRemoved email template, Subject field (resolves directly)
+		Subject: l10n.Template(`{ShareSharer} unshared '{ShareFolder}' with you`),
+		// ShareRemoved email template, resolves via {{ .Greeting }}
+		Greeting: l10n.Template(`Hello {ShareGrantee},`),
+		// ShareRemoved email template, resolves via {{ .MessageBody }}
+		MessageBody: l10n.Template(`{ShareSharer} has unshared '{ShareFolder}' with you.
+
+Even though this share has been revoked you still might have access through other shares and/or space memberships.`),
+	}
+
 	ShareExpired = MessageTemplate{
 		textTemplate: _textTemplate,
 		htmlTemplate: _htmlTemplate,
@@ -34,6 +47,60 @@ var (
 		MessageBody: l10n.Template(`Your share to {ShareFolder} has expired at {ExpiredAt}
 
 Even though this share has been revoked you still might have access through other shares and/or space memberships.`),
+	}
+
+	// Guest link templates
+	GuestLinkShareCreated = MessageTemplate{
+		textTemplate: _textTemplate,
+		htmlTemplate: _htmlTemplate,
+		// GuestLinkShareCreated email template, Subject field (resolves directly)
+		Subject: l10n.Template(`{ShareSharer} shared '{ShareFolder}' with you`),
+		// GuestLinkShareCreated email template, resolves via {{ .Greeting }}
+		Greeting: l10n.Template(`Hello,`),
+		// GuestLinkShareCreated email template, resolves via {{ .MessageBody }}
+		MessageBody: l10n.Template(`{ShareSharer} has shared "{ShareFolder}" with you.
+
+The link below is personal and can only be used once. Please do not forward it.
+
+The link is only valid for 30 minutes.`),
+		// GuestLinkShareCreated email template, resolves via {{ .CallToAction }}
+		CallToAction: l10n.Template(`Click here to view it: {ShareLink}`),
+	}
+
+	GuestLinkShareRenewed = MessageTemplate{
+		textTemplate: _textTemplate,
+		htmlTemplate: _htmlTemplate,
+		// GuestLinkShareRenewed email template, Subject field (resolves directly)
+		Subject: l10n.Template(`Your new link to '{ShareFolder}'`),
+		// GuestLinkShareRenewed email template, resolves via {{ .Greeting }}
+		Greeting: l10n.Template(`Hello,`),
+		// GuestLinkShareRenewed email template, resolves via {{ .MessageBody }}
+		MessageBody: l10n.Template(`A new link to "{ShareFolder}", shared with you by {ShareSharer}, has been requested.
+
+Your PIN: {SharePin}
+
+Open the link below or enter the PIN on the page where you requested the new link. The link and the PIN are personal and can only be used once. Please do not forward them.
+
+The link and the PIN are only valid for 30 minutes.`),
+		// GuestLinkShareRenewed email template, resolves via {{ .CallToAction }}
+		CallToAction: l10n.Template(`Click here to view it: {ShareLink}`),
+	}
+
+	GuestLinkShareRenewedWithoutPin = MessageTemplate{
+		textTemplate: _textTemplate,
+		htmlTemplate: _htmlTemplate,
+		// GuestLinkShareRenewedWithoutPin email template, Subject field (resolves directly)
+		Subject: l10n.Template(`Your new link to '{ShareFolder}'`),
+		// GuestLinkShareRenewedWithoutPin email template, resolves via {{ .Greeting }}
+		Greeting: l10n.Template(`Hello,`),
+		// GuestLinkShareRenewedWithoutPin email template, resolves via {{ .MessageBody }}
+		MessageBody: l10n.Template(`A new link to "{ShareFolder}", shared with you by {ShareSharer}, has been requested.
+
+The link below is personal and can only be used once. Please do not forward it.
+
+The link is only valid for 30 minutes.`),
+		// GuestLinkShareRenewedWithoutPin email template, resolves via {{ .CallToAction }}
+		CallToAction: l10n.Template(`Click here to view it: {ShareLink}`),
 	}
 
 	// Spaces templates
@@ -135,6 +202,7 @@ var _placeholders = map[string]string{
 	"{ShareFolder}":     "{{ .ShareFolder }}",
 	"{ShareGrantee}":    "{{ .ShareGrantee }}",
 	"{ShareLink}":       "{{ .ShareLink }}",
+	"{SharePin}":        "{{ .SharePin }}",
 	"{SpaceName}":       "{{ .SpaceName }}",
 	"{SpaceGrantee}":    "{{ .SpaceGrantee }}",
 	"{SpaceSharer}":     "{{ .SpaceSharer }}",

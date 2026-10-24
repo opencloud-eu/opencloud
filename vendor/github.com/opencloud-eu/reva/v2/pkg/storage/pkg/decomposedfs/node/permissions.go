@@ -134,10 +134,6 @@ func (p *Permissions) assemblePermissions(ctx context.Context, n *Node, failOnTr
 		return NoPermissions(), nil
 	}
 
-	if u.GetId().GetType() == userpb.UserType_USER_TYPE_SERVICE {
-		return ServiceAccountPermissions(), nil
-	}
-
 	// are we reading a revision?
 	if strings.Contains(n.ID, RevisionIDDelimiter) {
 		// verify revision key format
@@ -202,6 +198,11 @@ func (p *Permissions) assemblePermissions(ctx context.Context, n *Node, failOnTr
 	// check if the current user is the owner
 	if utils.UserIDEqual(u.Id, n.Owner()) {
 		return OwnerPermissions(), nil
+	}
+
+	// merge in the general service account permissions; grants can only add to them
+	if u.GetId().GetType() == userpb.UserType_USER_TYPE_SERVICE {
+		AddPermissions(ap, ServiceAccountPermissions())
 	}
 
 	appctx.GetLogger(ctx).Debug().Interface("permissions", ap).Str("spaceid", n.SpaceID).Str("nodeid", n.ID).Interface("user", u).Msg("returning agregated permissions")

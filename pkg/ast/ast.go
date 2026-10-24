@@ -43,6 +43,10 @@ type StringNode struct {
 	*Base
 	Key   string
 	Value string
+	Exact bool
+	// CaseInsensitive marks a case-insensitive restriction; set by the search
+	// lowering pass, a backend routes it to the field's lowercased form.
+	CaseInsensitive bool
 }
 
 // BooleanNode represents a bool value
@@ -58,6 +62,14 @@ type DateTimeNode struct {
 	Key      string
 	Operator *OperatorNode
 	Value    time.Time
+}
+
+// NumberNode represents a numeric value
+type NumberNode struct {
+	*Base
+	Key      string
+	Operator *OperatorNode
+	Value    float64
 }
 
 // OperatorNode represents an operator value like

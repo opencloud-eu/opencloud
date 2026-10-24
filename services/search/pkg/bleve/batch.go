@@ -10,6 +10,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -36,136 +37,116 @@ func NewBatch(index bleve.Index, size int) (*Batch, error) {
 
 func (b *Batch) Upsert(id string, r search.Resource) error {
 	return b.withSizeLimit(func() error {
-		return b.batch.Index(id, r)
+		return b.indexResource(id, r)
 	})
+}
+
+// indexResource prepares r for bleve (resolving json tags and splicing in
+// type-specific adaptations via the mapping package) and appends it to the
+// batch under id.
+func (b *Batch) indexResource(id string, r search.Resource) error {
+	doc, err := mapping.PrepareForIndex(r, r.SearchFieldOverrides())
+	if err != nil {
+		return err
+	}
+	return b.batch.Index(id, doc)
 }
 
 func (b *Batch) Move(id, parentID, location string) error {
 	return b.withSizeLimit(func() error {
-		rootResource, err := searchResourceByID(id, b.index)
-		if err != nil {
-			return err
-		}
-		currentPath := rootResource.Path
 		nextPath := utils.MakeRelativePath(location)
-
-		rootResource.Path = nextPath
-		rootResource.Name = path.Base(nextPath)
-		rootResource.ParentID = parentID
-
-		resources := []*search.Resource{rootResource}
-
-		if rootResource.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER) {
-			descendantResources, err := searchResourcesByPath(rootResource.RootID, currentPath, b.index)
-			if err != nil {
-				return err
+		var currentPath string
+		return b.forSelfAndDescendants(id, func(resource *search.Resource) error {
+			if resource.ID == id {
+				currentPath = resource.Path
+				resource.Path = nextPath
+				resource.Name = path.Base(nextPath)
+				resource.ParentID = parentID
+			} else {
+				resource.Path = strings.Replace(resource.Path, currentPath, nextPath, 1)
 			}
-
-			for _, descendantResource := range descendantResources {
-				descendantResource.Path = strings.Replace(descendantResource.Path, currentPath, nextPath, 1)
-				resources = append(resources, descendantResource)
-			}
-		}
-
-		for _, resource := range resources {
-			if err := b.batch.Index(resource.ID, resource); err != nil {
-				return err
-			}
-			if b.batch.Size() >= b.size {
-				if err := b.Push(); err != nil {
-					return err
-				}
-			}
-		}
-
-		return nil
+			resource.Hidden = search.IsHidden(resource.Path)
+			return b.indexResource(resource.ID, *resource)
+		})
 	})
 }
 
 func (b *Batch) Delete(id string) error {
 	return b.withSizeLimit(func() error {
-		affectedResources, err := searchAndUpdateResourcesDeletionState(id, true, b.index)
-		if err != nil {
-			return err
-		}
-
-		for _, resource := range affectedResources {
-			if err := b.batch.Index(resource.ID, resource); err != nil {
-				return err
-			}
-			if b.batch.Size() >= b.size {
-				if err := b.Push(); err != nil {
-					return err
-				}
-			}
-		}
-
-		return nil
+		return b.setDeleted(id, true)
 	})
 }
 
 func (b *Batch) Restore(id string) error {
 	return b.withSizeLimit(func() error {
-		affectedResources, err := searchAndUpdateResourcesDeletionState(id, false, b.index)
-		if err != nil {
-			return err
-		}
+		return b.setDeleted(id, false)
+	})
+}
 
-		for _, resource := range affectedResources {
-			if err := b.batch.Index(resource.ID, resource); err != nil {
-				return err
-			}
-			if b.batch.Size() >= b.size {
-				if err := b.Push(); err != nil {
-					return err
-				}
-			}
-		}
-
-		return nil
+func (b *Batch) setDeleted(id string, deleted bool) error {
+	return b.forSelfAndDescendants(id, func(resource *search.Resource) error {
+		resource.Deleted = deleted
+		return b.indexResource(resource.ID, *resource)
 	})
 }
 
 func (b *Batch) Purge(id string, onlyDeleted bool) error {
 	return b.withSizeLimit(func() error {
-		rootResource, err := searchResourceByID(id, b.index)
+		purge := func(resource *search.Resource) error {
+			b.batch.Delete(resource.ID)
+			return nil
+		}
+		if !onlyDeleted {
+			return b.forSelfAndDescendants(id, purge)
+		}
+
+		root, err := searchResourceByID(id, b.index)
 		if err != nil {
 			return err
 		}
-
-		var affectResources []*search.Resource
-		add := func(resource *search.Resource) {
-			if onlyDeleted && !resource.Deleted {
-				return
-			}
-
-			affectResources = append(affectResources, resource)
-		}
-
-		add(rootResource)
-
-		if rootResource.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER) {
-			descendantResources, err := searchResourcesByPath(rootResource.RootID, rootResource.Path, b.index)
-			if err != nil {
-				return err
-			}
-
-			for _, descendantResource := range descendantResources {
-				add(descendantResource)
-			}
-		}
-
-		for _, resource := range affectResources {
-			b.batch.Delete(resource.ID)
-			if b.batch.Size() >= b.size {
-				if err := b.Push(); err != nil {
-					return err
-				}
-			}
-		}
-
-		return nil
+		// the Path term matches the root too: a trashed root is purged, a live one kept
+		return forEachMatch(trashedTreeQuery(root), b.index, b.pushing(purge))
 	})
+}
+
+// fn sees the root first; the root's original path and trash state drive the
+// descendant lookup. A trashed folder keeps its path, so a live folder can take
+// the same one: the descendants are the ones in the root's trash state.
+func (b *Batch) forSelfAndDescendants(id string, fn func(*search.Resource) error) error {
+	root, err := searchResourceByID(id, b.index)
+	if err != nil {
+		return err
+	}
+	// built before fn changes the root's path or trash state
+	q := treeQuery(root)
+	isContainer := root.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER)
+
+	apply := b.pushing(fn)
+	if err := apply(root); err != nil {
+		return err
+	}
+	if !isContainer {
+		return nil
+	}
+	return forEachMatch(q, b.index, func(resource *search.Resource) error {
+		if resource.ID == id {
+			return nil
+		}
+		return apply(resource)
+	})
+}
+
+// pushing wraps fn to push the batch whenever it is full
+func (b *Batch) pushing(fn func(*search.Resource) error) func(*search.Resource) error {
+	return func(resource *search.Resource) error {
+		if err := fn(resource); err != nil {
+			return err
+		}
+		if b.batch.Size() >= b.size {
+			return b.Push()
+		}
+		return nil
+	}
 }
 
 func (b *Batch) Push() error {

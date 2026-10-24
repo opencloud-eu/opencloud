@@ -141,6 +141,7 @@ var DefaultBuiltins = [...]*Builtin{
 	StartsWith,
 	EndsWith,
 	Split,
+	SplitN,
 	Replace,
 	ReplaceN,
 	Trim,
@@ -940,18 +941,20 @@ var ArrayReverse = &Builtin{
 var conversions = category("conversions")
 
 var ToNumber = &Builtin{
-	Name:        "to_number",
-	Description: "Converts a string, bool, or number value to a number: Strings are converted to numbers using `strconv.Atoi`, Boolean `false` is converted to 0 and `true` is converted to 1.",
+	Name: "to_number",
+	Description: "Converts value of type string, null or boolean to number. Numeric strings converts to the " +
+		"corresponding number when possible. Null and boolean `false` converts to 0 and boolean `true` to 1. " +
+		"Numbers are returned without conversion.",
 	Decl: types.NewFunction(
 		types.Args(
-			types.Named("x", types.NewAny(
+			types.Named("value", types.NewAny(
 				types.N,
 				types.S,
 				types.B,
 				types.Nl,
 			)).Description("value to convert"),
 		),
-		types.Named("num", types.N).Description("the numeric representation of `x`"),
+		types.Named("num", types.N).Description("the numeric representation of `value`"),
 	),
 	Categories:  conversions,
 	CanSkipBctx: true,
@@ -1001,7 +1004,7 @@ var RegexFindAllStringSubmatch = &Builtin{
 
 var RegexTemplateMatch = &Builtin{
 	Name:        "regex.template_match",
-	Description: "Matches a string against a pattern, where there pattern may be glob-like",
+	Description: "Matches a string against a pattern, where the pattern may be glob-like",
 	Decl: types.NewFunction(
 		types.Args(
 			types.Named("template", types.S).Description("template expression containing `0..n` regular expressions"),
@@ -1274,6 +1277,21 @@ var Split = &Builtin{
 		types.Args(
 			types.Named("x", types.S).Description("string that is split"),
 			types.Named("delimiter", types.S).Description("delimiter used for splitting"),
+		),
+		types.Named("ys", types.NewArray(nil, types.S)).Description("split parts"),
+	),
+	Categories:  stringsCat,
+	CanSkipBctx: true,
+}
+
+var SplitN = &Builtin{
+	Name:        "strings.split_n",
+	Description: "Returns an array of at most `n` parts of `x` split on `delimiter`. If `n` is positive, returns the first `n` parts. If `n` is negative, returns the last `abs(n)` parts. If `n` is zero, returns an empty array. If `abs(n)` exceeds the number of parts, all parts are returned.",
+	Decl: types.NewFunction(
+		types.Args(
+			types.Named("x", types.S).Description("string that is split"),
+			types.Named("delimiter", types.S).Description("delimiter used for splitting"),
+			types.Named("n", types.N).Description("number of parts to return; positive selects from the left, negative from the right, zero returns an empty array"),
 		),
 		types.Named("ys", types.NewArray(nil, types.S)).Description("split parts"),
 	),
@@ -1624,7 +1642,10 @@ var JSONFilter = &Builtin{
 				),
 			)).Description("JSON string paths"),
 		),
-		types.Named("filtered", types.A).Description("remaining data from `object` with only keys specified in `paths`"),
+		types.Named("filtered", types.NewObject(
+			nil,
+			types.NewDynamicProperty(types.A, types.A),
+		)).Description("remaining data from `object` with only keys specified in `paths`"),
 	),
 	Categories:  objectCat,
 	CanSkipBctx: true,
@@ -1663,7 +1684,10 @@ var JSONRemove = &Builtin{
 				),
 			)).Description("JSON string paths"),
 		),
-		types.Named("output", types.A).Description("result of removing all keys specified in `paths`"),
+		types.Named("output", types.NewObject(
+			nil,
+			types.NewDynamicProperty(types.A, types.A),
+		)).Description("result of removing all keys specified in `paths`"),
 	),
 	Categories:  objectCat,
 	CanSkipBctx: true,
@@ -1724,7 +1748,7 @@ var ObjectSubset = &Builtin{
 				types.NewArray(nil, types.A),
 			)).Description("object to test if super is a superset of"),
 		),
-		types.Named("result", types.A).Description("`true` if `sub` is a subset of `super`"),
+		types.Named("result", types.B).Description("`true` if `sub` is a subset of `super`, otherwise undefined"),
 	),
 	CanSkipBctx: true,
 }
@@ -1744,8 +1768,11 @@ var ObjectUnion = &Builtin{
 				types.NewDynamicProperty(types.A, types.A),
 			)).Description("right-hand object"),
 		),
-		types.Named("output", types.A).Description("a new object which is the result of an asymmetric recursive union of two objects where conflicts are resolved by choosing the key from the right-hand object `b`"),
-	), // TODO(sr): types.A?  ^^^^^^^ (also below)
+		types.Named("output", types.NewObject(
+			nil,
+			types.NewDynamicProperty(types.A, types.A),
+		)).Description("a new object which is the result of an asymmetric recursive union of two objects where conflicts are resolved by choosing the key from the right-hand object `b`"),
+	),
 	CanSkipBctx: true,
 }
 
@@ -1760,7 +1787,10 @@ var ObjectUnionN = &Builtin{
 				types.NewObject(nil, types.NewDynamicProperty(types.A, types.A)),
 			)).Description("list of objects to merge"),
 		),
-		types.Named("output", types.A).Description("asymmetric recursive union of all objects in `objects`, merged from left to right, where conflicts are resolved by choosing the key from the right-hand object"),
+		types.Named("output", types.NewObject(
+			nil,
+			types.NewDynamicProperty(types.A, types.A),
+		)).Description("asymmetric recursive union of all objects in `objects`, merged from left to right, where conflicts are resolved by choosing the key from the right-hand object"),
 	),
 	CanSkipBctx: true,
 }
@@ -1780,7 +1810,10 @@ var ObjectRemove = &Builtin{
 				types.NewObject(nil, types.NewDynamicProperty(types.A, types.A)),
 			)).Description("keys to remove from x"),
 		),
-		types.Named("output", types.A).Description("result of removing the specified `keys` from `object`"),
+		types.Named("output", types.NewObject(
+			nil,
+			types.NewDynamicProperty(types.A, types.A),
+		)).Description("result of removing the specified `keys` from `object`"),
 	),
 	CanSkipBctx: true,
 }
@@ -1801,7 +1834,10 @@ var ObjectFilter = &Builtin{
 				types.NewObject(nil, types.NewDynamicProperty(types.A, types.A)),
 			)).Description("keys to keep in `object`"),
 		),
-		types.Named("filtered", types.A).Description("remaining data from `object` with only keys specified in `keys`"),
+		types.Named("filtered", types.NewObject(
+			nil,
+			types.NewDynamicProperty(types.A, types.A),
+		)).Description("remaining data from `object` with only keys specified in `keys`"),
 	),
 	CanSkipBctx: true,
 }
@@ -3089,8 +3125,12 @@ var JSONSchemaVerify = &Builtin{
 		}, nil)).
 			Description("`output` is of the form `[valid, error]`. If the schema is valid, then `valid` is `true`, and `error` is `null`. Otherwise, `valid` is `false` and `error` is a string describing the error."),
 	),
-	Categories:  objectCat,
-	CanSkipBctx: true,
+	Categories: objectCat,
+	// `$ref`s are dereferenced at evaluation time, so the result depends on what those URLs serve.
+	Nondeterministic: true,
+	// Needs the BuiltinContext to read the allow_net capability, which
+	// restricts the hosts that remote `$ref`s may be fetched from.
+	CanSkipBctx: false,
 }
 
 // JSONMatchSchema returns empty array if the document matches the JSON schema,
@@ -3121,8 +3161,10 @@ var JSONMatchSchema = &Builtin{
 		}, nil)).
 			Description("`output` is of the form `[match, errors]`. If the document is valid given the schema, then `match` is `true`, and `errors` is an empty array. Otherwise, `match` is `false` and `errors` is an array of objects describing the error(s)."),
 	),
-	Categories:  objectCat,
-	CanSkipBctx: false,
+	Categories: objectCat,
+	// `$ref`s are dereferenced at evaluation time, so the result depends on what those URLs serve.
+	Nondeterministic: true,
+	CanSkipBctx:      false,
 }
 
 /**
@@ -3642,12 +3684,8 @@ func (b *Builtin) IsNondeterministic() bool {
 func (b *Builtin) Expr(operands ...*Term) *Expr {
 	ts := make([]*Term, len(operands)+1)
 	ts[0] = NewTerm(b.Ref())
-	for i := range operands {
-		ts[i+1] = operands[i]
-	}
-	return &Expr{
-		Terms: ts,
-	}
+	copy(ts[1:], operands)
+	return &Expr{Terms: ts}
 }
 
 // Call creates a new term for the built-in with the given operands.

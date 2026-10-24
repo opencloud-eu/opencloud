@@ -16,6 +16,7 @@ import (
 	authapp "github.com/opencloud-eu/opencloud/services/auth-app/pkg/command"
 	authbasic "github.com/opencloud-eu/opencloud/services/auth-basic/pkg/command"
 	authbearer "github.com/opencloud-eu/opencloud/services/auth-bearer/pkg/command"
+	authguest "github.com/opencloud-eu/opencloud/services/auth-guest/pkg/command"
 	authmachine "github.com/opencloud-eu/opencloud/services/auth-machine/pkg/command"
 	authservice "github.com/opencloud-eu/opencloud/services/auth-service/pkg/command"
 	clientlog "github.com/opencloud-eu/opencloud/services/clientlog/pkg/command"
@@ -143,6 +144,11 @@ var serviceCommands = []register.Command{
 	func(cfg *config.Config) *cobra.Command {
 		return ServiceCommand(cfg, cfg.Groupware.Service.Name, groupware.GetCommands(cfg.Groupware), func(c *config.Config) {
 			cfg.Groupware.Commons = cfg.Commons
+		})
+	},
+	func(cfg *config.Config) *cobra.Command {
+		return ServiceCommand(cfg, cfg.AuthGuest.Service.Name, authguest.GetCommands(cfg.AuthGuest), func(c *config.Config) {
+			cfg.AuthGuest.Commons = cfg.Commons
 		})
 	},
 	func(cfg *config.Config) *cobra.Command {

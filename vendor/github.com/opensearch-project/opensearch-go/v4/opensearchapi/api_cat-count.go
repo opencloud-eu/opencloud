@@ -8,9 +8,10 @@ package opensearchapi
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // CatCountReq represent possible options for the /_cat/count request
@@ -21,22 +22,12 @@ type CatCountReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r CatCountReq) GetRequest() (*http.Request, error) {
-	indices := strings.Join(r.Indices, ",")
-	var path strings.Builder
-	path.Grow(len("/_cat/count/") + len(indices))
-	path.WriteString("/_cat/count")
-	if len(r.Indices) > 0 {
-		path.WriteString("/")
-		path.WriteString(indices)
+func (r CatCountReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.CatCountPath{Index: r.Indices}.Build()
+	if err != nil {
+		return nil, err
 	}
-	return opensearch.BuildRequest(
-		"GET",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // CatCountsResp represents the returned struct of the /_cat/count response

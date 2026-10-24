@@ -30,26 +30,6 @@
             "offlineAccess": "Dauerhaften Zugriff (läuft nicht ab)",
             "scope": "Geltungsbereich: {{scope}}"
         },
-        "login": {
-            "usernameField": {
-                "label": "Benutzername",
-                "placeholder": {
-                    "email": "E-Mail",
-                    "identity": "Identität",
-                    "username": "Benutzername"
-                }
-            },
-            "nextButton": {
-                "label": "Weiter"
-            },
-            "passwordField": {
-                "label": "Passwort"
-            },
-            "retryButton": {
-                "label": "Wiederholen"
-            },
-            "headline": "Anmelden"
-        },
         "error": {
             "login": {
                 "validate": {
@@ -83,6 +63,21 @@
                 "label": "Abmelden"
             },
             "subHeader": "sie sind jetzt abgemeldet"
+        },
+        "login": {
+            "nextButton": {
+                "label": "Weiter"
+            },
+            "passwordField": {
+                "label": "Passwort"
+            },
+            "retryButton": {
+                "label": "Wiederholen"
+            },
+            "headline": "Anmelden",
+            "usernameField": {
+                "label": "Benutzername"
+            }
         },
         "welcome": {
             "signoutButton": {

@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // ClusterRerouteReq represents possible options for the /_cluster/reroute request
@@ -23,9 +24,9 @@ type ClusterRerouteReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r ClusterRerouteReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"POST",
+func (r ClusterRerouteReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_cluster/reroute",
 		r.Body,
 		r.Params.get(),

@@ -73,6 +73,38 @@ export default {
     const latestTag = tags.pop() || "v0.0.0";
     return compareVersions(latestTag, nextVersion) === -1;
   },
+  getReleaseDescription: async ({ nextVersion }) => {
+    const note =
+      "> [!IMPORTANT]\n" +
+      "> This is a rolling release. Learn here about the [release types and lifecycle](https://docs.opencloud.eu/docs/admin/resources/lifecycle#release-types).\n\n";
+
+    // Exclude the "📦️ Dependencies" section from the release description
+    const section = removeChangelogSubsection(
+      await getChangelogSection(nextVersion),
+      "📦️ Dependencies"
+    );
+
+    return `${note}${section}`;
+  },
+};
+// helper functions
+const getChangelogSection = async (nextVersion: string) => {
+  const { promises: fs } = await import("fs");
+  const changelog = await fs.readFile("CHANGELOG.md", "utf-8").catch(() => "");
+
+  const section = changelog
+    .split(/\n(?=## \[)/)
+    .find((s) => s.startsWith(`## [${nextVersion}]`));
+
+  return section?.trim() ?? "";
+};
+
+const removeChangelogSubsection = (section: string, heading: string) => {
+  return section
+    .split(/\n(?=### )/)
+    .filter((s) => !s.startsWith(`### ${heading}`))
+    .join("\n")
+    .trim();
 };
 
 const parseVersion = (tag: string) => {

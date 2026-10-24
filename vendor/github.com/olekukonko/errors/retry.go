@@ -198,7 +198,7 @@ func (r *Retry) ExecuteContext(ctx context.Context, fn func() error) error {
 			break
 		}
 
-		// --- Calculate and apply delay ---
+		// Calculate and apply delay
 		currentDelay := r.backoff.Backoff(attempt, r.delay)
 		if r.maxDelay > 0 && currentDelay > r.maxDelay { // Check maxDelay > 0 before capping
 			currentDelay = r.maxDelay
@@ -209,7 +209,7 @@ func (r *Retry) ExecuteContext(ctx context.Context, fn func() error) error {
 		if currentDelay < 0 { // Ensure delay isn't negative after jitter
 			currentDelay = 0
 		}
-		// --- Wait for the delay or context cancellation ---
+		// Wait for the delay or context cancellation
 		select {
 		case <-execCtx.Done():
 			// If context is cancelled during the wait, return the context error

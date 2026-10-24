@@ -8,18 +8,10 @@ package faiss
 #cgo LDFLAGS: -lfaiss_c
 
 #include <faiss/c_api/Index_c.h>
-#include <faiss/c_api/error_c.h>
 #include <faiss/c_api/utils/distances_c.h>
+#include <faiss/c_api/utils/utils_c.h>
 */
 import "C"
-import (
-	"errors"
-	"fmt"
-)
-
-func getLastError() error {
-	return errors.New(C.GoString(C.faiss_get_last_error()))
-}
 
 // Metric type
 const (
@@ -43,10 +35,18 @@ func NormalizeVector(vector []float32) []float32 {
 	return vector
 }
 
-var (
-	errNotIVFIndex           = fmt.Errorf("index is not of ivf type")
-	errMergeFromNotSupported = fmt.Errorf("merge api not supported")
-	errNotBIVFIndex          = fmt.Errorf("index is not of bivf type")
-	errFailedToSetQuantizers = fmt.Errorf("couldn't set the quantizers")
-	errSourceIndexNil        = fmt.Errorf("source index is nil")
-)
+// RealToBinary converts n real-valued vectors into binary vectors.
+// Each output bit is 1 if the corresponding input value is > 0,
+// and 0 otherwise. d must be a multiple of 8.
+// The returned slice has length n * (d / 8).
+func RealToBinary(x []float32, d int) []uint8 {
+	n := len(x) / d
+	out := make([]uint8, n*(d/8))
+	C.faiss_real_to_binary(
+		C.size_t(n),
+		C.size_t(d),
+		(*C.float)(&x[0]),
+		(*C.uint8_t)(&out[0]),
+	)
+	return out
+}

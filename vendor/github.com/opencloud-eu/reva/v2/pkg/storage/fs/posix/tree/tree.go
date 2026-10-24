@@ -48,6 +48,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/trashbin"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/tree/assimilation"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher/natswatcher"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
@@ -69,6 +70,14 @@ var (
 
 func init() {
 	tracer = otel.Tracer("github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/tree")
+}
+
+// Blobstore defines an interface for storing blobs in a blobstore
+type Blobstore interface {
+	Upload(node *node.Node, source, copyTarget string) error
+	UploadFromReader(node *node.Node, r io.Reader, size int64) error
+	Download(node *node.Node) (io.ReadCloser, error)
+	Delete(node *node.Node) error
 }
 
 type Watcher interface {
@@ -104,6 +113,8 @@ type Tree struct {
 	watcher       Watcher
 	scanQueue     chan scanItem
 	scanDebouncer *ScanDebouncer
+	// files that failed to assimilate, keyed by path, see updateFile()
+	assimilationFailures *assimilation.Failures
 
 	es  events.Stream
 	log *zerolog.Logger
@@ -130,9 +141,10 @@ func New(lu node.PathLookup, bs node.Blobstore, um usermapper.Mapper, trashbin *
 		scanDebouncer: NewScanDebouncer(o.ScanDebounceDelay, func(item scanItem) {
 			scanQueue <- item
 		}),
-		es:      es,
-		log:     log,
-		Ignorer: ignore.NewIgnorer(o, log),
+		assimilationFailures: assimilation.NewFailures(),
+		es:                   es,
+		log:                  log,
+		Ignorer:              ignore.NewIgnorer(o, log),
 	}
 	t.idResolver = t.lookup
 	t.assimilateFunc = t.assimilate
@@ -176,6 +188,9 @@ func New(lu node.PathLookup, bs node.Blobstore, um usermapper.Mapper, trashbin *
 			watchPath = o.Root
 		}
 
+		if o.ScanDebounceDelay == 0 {
+			log.Warn().Msg("'scan_debounce_delay' is set to 0. This is not recommended for production setups.")
+		}
 		go t.watcher.Watch(watchPath)
 		go t.workScanQueue()
 	}
@@ -394,7 +409,7 @@ func (t *Tree) TouchFile(ctx context.Context, n *node.Node, markprocessing bool,
 		attributes[prefixes.MTimeAttr] = []byte(mtime.UTC().Format(time.RFC3339Nano))
 	}
 
-	err = n.SetXattrsWithContext(ctx, attributes, false)
+	err = n.SetXattrsWithContext(ctx, attributes)
 	if err != nil {
 		return err
 	}
@@ -477,7 +492,7 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 	attribs := node.Attributes{}
 	attribs.SetString(prefixes.ParentidAttr, newNode.ParentID)
 	attribs.SetString(prefixes.NameAttr, newNode.Name)
-	if err := newNode.SetXattrsWithContext(ctx, attribs, true); err != nil {
+	if err := newNode.SetXattrsWithContext(ctx, attribs); err != nil {
 		return errors.Wrap(err, "posixfs: could not update node attributes")
 	}
 
@@ -726,7 +741,7 @@ func (t *Tree) WriteBlob(n *node.Node, source string) error {
 			attrs.SetString(prefixes.BlobIDAttr, n.BlobID)
 			attrs.SetInt64(prefixes.BlobsizeAttr, n.Blobsize)
 
-			err := t.lookup.MetadataBackend().SetMultiple(context.Background(), node.NewBaseNode(n.SpaceID, n.ID+node.CurrentIDDelimiter, t.lookup), attrs, true)
+			err := t.lookup.MetadataBackend().SetMultiple(context.Background(), node.NewBaseNode(n.SpaceID, n.ID+node.CurrentIDDelimiter, t.lookup), attrs)
 			if err != nil {
 				t.log.Error().Err(err).Str("spaceID", n.SpaceID).Str("id", n.ID).Msg("could not copy metadata to current revision")
 			}
@@ -735,6 +750,11 @@ func (t *Tree) WriteBlob(n *node.Node, source string) error {
 
 	err = t.blobstore.Upload(n, source, currentPath)
 	return err
+}
+
+// WriteBlobFromReader writes a blob to the blobstore from a reader
+func (t *Tree) WriteBlobFromReader(node *node.Node, r io.Reader, size int64) error {
+	return t.blobstore.UploadFromReader(node, r, size)
 }
 
 // ReadBlob reads a blob from the blobstore
@@ -796,7 +816,7 @@ func (t *Tree) InitNewNode(ctx context.Context, n *node.Node, fsize uint64) (met
 	mtime := fi.ModTime()
 	err = n.SetXattrsWithContext(ctx, map[string][]byte{
 		prefixes.MTimeAttr: []byte(mtime.UTC().Format(time.RFC3339Nano)),
-	}, false)
+	})
 	if err != nil {
 		t.log.Error().Err(err).Str("path", n.InternalPath()).Msg("could not set mtime attribute on new node")
 	}
@@ -868,5 +888,5 @@ func (t *Tree) createDirNode(ctx context.Context, n *node.Node) (err error) {
 	if t.options.TreeTimeAccounting || t.options.TreeSizeAccounting {
 		attributes[prefixes.PropagationAttr] = []byte("1") // mark the node for propagation
 	}
-	return n.SetXattrsWithContext(ctx, attributes, false)
+	return n.SetXattrsWithContext(ctx, attributes)
 }

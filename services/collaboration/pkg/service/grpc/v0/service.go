@@ -108,8 +108,8 @@ func (s *Service) OpenInApp(
 	// get the appURL we need to use
 	appURL := s.getAppUrl(fileExt, req.GetViewMode())
 	if appURL == "" {
-		logger.Error().Msg("OpenInApp: neither edit nor view app URL found")
-		return nil, errors.New("neither edit nor view app URL found")
+		logger.Error().Str("FileExtension", fileExt).Msg("OpenInApp: neither edit nor view app URL found")
+		return nil, errors.New("neither edit nor view app URL found for " + fileExt)
 	}
 
 	// append the parameters we need
@@ -237,6 +237,20 @@ func (s *Service) addQueryToURL(baseURL string, req *appproviderv1beta1.OpenInAp
 
 	if s.config.Wopi.DisableChat {
 		q.Add("dchat", "1")
+	}
+
+	// EuroOffice ce offers the mobile view for reading only, ee and de also for editing.
+	if s.config.Wopi.EnableMobile && strings.ToLower(s.config.App.Product) == "onlyoffice" {
+		if mobile := utils.ReadPlainFromOpaque(req.GetOpaque(), "mobile"); mobile != "" {
+			switch strings.ToLower(s.config.App.ProductEdition) {
+			case "ee", "de":
+				q.Add("mobile", mobile)
+			default:
+				if req.GetViewMode() != appproviderv1beta1.ViewMode_VIEW_MODE_READ_WRITE {
+					q.Add("mobile", mobile)
+				}
+			}
+		}
 	}
 
 	lang := utils.ReadPlainFromOpaque(req.GetOpaque(), "lang")

@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
+	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/eventhistory/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/eventhistory/pkg/config/defaults"
 
@@ -34,5 +35,9 @@ func ParseConfig(cfg *config.Config) error {
 
 // Validate validates the config
 func Validate(cfg *config.Config) error {
+	if cfg.Events.Disabled && cfg.GRPC.Disabled {
+		return shared.AllComponentsDisabledError(cfg.Service.Name)
+	}
+
 	return nil
 }

@@ -82,9 +82,9 @@ type Permissions_GetPermissionByID_Call struct {
 //   - ctx context.Context
 //   - request *v0.GetPermissionByIDRequest
 //   - opts ...client.CallOption
-func (_e *Permissions_Expecter) GetPermissionByID(ctx interface{}, request interface{}, opts ...interface{}) *Permissions_GetPermissionByID_Call {
+func (_e *Permissions_Expecter) GetPermissionByID(ctx any, request any, opts ...any) *Permissions_GetPermissionByID_Call {
 	return &Permissions_GetPermissionByID_Call{Call: _e.mock.On("GetPermissionByID",
-		append([]interface{}{ctx, request}, opts...)...)}
+		append([]any{ctx, request}, opts...)...)}
 }
 
 func (_c *Permissions_GetPermissionByID_Call) Run(run func(ctx context.Context, request *v0.GetPermissionByIDRequest, opts ...client.CallOption)) *Permissions_GetPermissionByID_Call {
@@ -165,9 +165,9 @@ type Permissions_ListPermissions_Call struct {
 //   - ctx context.Context
 //   - req *v0.ListPermissionsRequest
 //   - opts ...client.CallOption
-func (_e *Permissions_Expecter) ListPermissions(ctx interface{}, req interface{}, opts ...interface{}) *Permissions_ListPermissions_Call {
+func (_e *Permissions_Expecter) ListPermissions(ctx any, req any, opts ...any) *Permissions_ListPermissions_Call {
 	return &Permissions_ListPermissions_Call{Call: _e.mock.On("ListPermissions",
-		append([]interface{}{ctx, req}, opts...)...)}
+		append([]any{ctx, req}, opts...)...)}
 }
 
 func (_c *Permissions_ListPermissions_Call) Run(run func(ctx context.Context, req *v0.ListPermissionsRequest, opts ...client.CallOption)) *Permissions_ListPermissions_Call {
@@ -248,9 +248,9 @@ type Permissions_ListPermissionsByResource_Call struct {
 //   - ctx context.Context
 //   - in *v0.ListPermissionsByResourceRequest
 //   - opts ...client.CallOption
-func (_e *Permissions_Expecter) ListPermissionsByResource(ctx interface{}, in interface{}, opts ...interface{}) *Permissions_ListPermissionsByResource_Call {
+func (_e *Permissions_Expecter) ListPermissionsByResource(ctx any, in any, opts ...any) *Permissions_ListPermissionsByResource_Call {
 	return &Permissions_ListPermissionsByResource_Call{Call: _e.mock.On("ListPermissionsByResource",
-		append([]interface{}{ctx, in}, opts...)...)}
+		append([]any{ctx, in}, opts...)...)}
 }
 
 func (_c *Permissions_ListPermissionsByResource_Call) Run(run func(ctx context.Context, in *v0.ListPermissionsByResourceRequest, opts ...client.CallOption)) *Permissions_ListPermissionsByResource_Call {

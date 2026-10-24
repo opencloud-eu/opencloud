@@ -5,7 +5,6 @@ import (
 
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
-	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/frontend/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/frontend/pkg/config/defaults"
 
@@ -47,20 +46,9 @@ func Validate(cfg *config.Config) error {
 		return shared.MissingMachineAuthApiKeyError(cfg.Service.Name)
 	}
 
-	if cfg.GRPCClientTLS == nil && cfg.Commons != nil {
-		cfg.GRPCClientTLS = structs.CopyOrZeroValue(cfg.Commons.GRPCClientTLS)
-	}
-
 	// Set password enforcement on all public links when config is set
 	if cfg.OCS.PublicShareMustHavePassword {
 		cfg.OCS.WriteablePublicShareMustHavePassword = true
-	}
-
-	if cfg.ServiceAccount.ServiceAccountID == "" {
-		return shared.MissingServiceAccountID(cfg.Service.Name)
-	}
-	if cfg.ServiceAccount.ServiceAccountSecret == "" {
-		return shared.MissingServiceAccountSecret(cfg.Service.Name)
 	}
 
 	return nil

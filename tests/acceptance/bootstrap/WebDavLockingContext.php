@@ -28,6 +28,9 @@ use TestHelpers\HttpRequestHelper;
 use TestHelpers\WebDavHelper;
 use TestHelpers\OcHelper;
 use TestHelpers\BehatHelper;
+use Behat\Step\Given;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -134,7 +137,6 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @When user :user locks file :file using the WebDAV API setting the following properties
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -142,6 +144,7 @@ class WebDavLockingContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :user locks file :file using the WebDAV API setting the following properties')]
 	public function userLocksFileSettingPropertiesUsingWebDavAPI(string $user, string $file, TableNode $properties) {
 		$spaceId = null;
 		if (\str_starts_with($file, "Shares/")
@@ -155,7 +158,6 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to lock file/folder :file using the WebDAV API setting the following properties
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -163,6 +165,7 @@ class WebDavLockingContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :user tries to lock file/folder :file using the WebDAV API setting the following properties')]
 	public function userTriesToLockFileSettingPropertiesUsingWebDavAPI(
 		string $user,
 		string $file,
@@ -173,7 +176,6 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @When user :user locks file :file inside the space :space using the WebDAV API setting the following properties
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -183,6 +185,7 @@ class WebDavLockingContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[When('user :user locks file :file inside the space :space using the WebDAV API setting the following properties')]
 	public function userLocksFileInProjectSpaceUsingWebDavAPI(
 		string $user,
 		string $file,
@@ -222,7 +225,6 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has locked file :file inside the space :space setting the following properties
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -232,6 +234,7 @@ class WebDavLockingContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Given('user :user has locked file :file inside the space :space setting the following properties')]
 	public function userHasLockedFileInProjectSpaceUsingWebDavAPI(
 		string $user,
 		string $file,
@@ -243,7 +246,6 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to lock file :file inside the space :space using the WebDAV API setting the following properties
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -252,6 +254,7 @@ class WebDavLockingContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :user tries to lock file :file inside the space :space using the WebDAV API setting the following properties')]
 	public function userTriesToLockFileInProjectSpaceUsingWebDavAPI(
 		string $user,
 		string $file,
@@ -272,7 +275,6 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @When user :user locks file :file using file-id :fileId using the WebDAV API setting the following properties
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -281,6 +283,7 @@ class WebDavLockingContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :user locks file :file using file-id :fileId using the WebDAV API setting the following properties')]
 	public function userLocksFileUsingFileIdUsingWebDavAPISettingFollowingProperties(
 		string $user,
 		string $file,
@@ -295,7 +298,6 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @When user :user tries to lock file :file using file-id :fileId using the WebDAV API setting the following properties
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -304,6 +306,7 @@ class WebDavLockingContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :user tries to lock file :file using file-id :fileId using the WebDAV API setting the following properties')]
 	public function userTriesToLockFileUsingFileIdUsingWebDavAPI(
 		string $user,
 		string $file,
@@ -318,7 +321,6 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has locked file :file setting the following properties
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -326,13 +328,13 @@ class WebDavLockingContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[Given('user :user has locked file :file setting the following properties')]
 	public function userHasLockedFile(string $user, string $file, TableNode $properties) {
 		$response = $this->lockFile($user, $file, $properties);
 		$this->featureContext->theHTTPStatusCodeShouldBe(200, '', $response);
 	}
 
 	/**
-	 * @Given user :user has locked file :file inside space :spaceName setting the following properties
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -341,6 +343,7 @@ class WebDavLockingContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[Given('user :user has locked file :file inside space :spaceName setting the following properties')]
 	public function userHasLockedFileInsideSpaceSettingTheFollowingProperties(
 		string $user,
 		string $file,
@@ -353,7 +356,6 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @Given user :user has locked file :file using file-id :fileId setting the following properties
 	 *
 	 * @param string $user
 	 * @param string $file
@@ -362,6 +364,7 @@ class WebDavLockingContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[Given('user :user has locked file :file using file-id :fileId setting the following properties')]
 	public function userHasLockedFileUsingFileId(string $user, string $file, string $fileId, TableNode $properties) {
 		$davPath = WebdavHelper::getDavPath($this->featureContext->getDavPathVersion());
 		$davPath = \rtrim($davPath, '/');
@@ -371,31 +374,13 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @Given the public has locked the last public link shared file/folder setting the following properties
 	 *
 	 * @param TableNode $properties
 	 *
 	 * @return void
 	 */
-	public function publicHasLockedLastSharedFile(TableNode $properties) {
-		$response = $this->lockFile(
-			$this->featureContext->getLastCreatedPublicShareToken(),
-			"/",
-			$properties,
-			null,
-			true
-		);
-		$this->featureContext->theHTTPStatusCodeShouldBe(200, '', $response);
-	}
-
-	/**
-	 * @When the public locks the last public link shared file using the WebDAV API setting the following properties
-	 * @When the public tries to lock the last public link shared file using the WebDAV API setting the following properties
-	 *
-	 * @param TableNode $properties
-	 *
-	 * @return void
-	 */
+	#[When('the public locks the last public link shared file using the WebDAV API setting the following properties')]
+	#[When('the public tries to lock the last public link shared file using the WebDAV API setting the following properties')]
 	public function publicLocksLastSharedFile(TableNode $properties) {
 		$token = ($this->featureContext->isUsingSharingNG())
 		? $this->featureContext->shareNgGetLastCreatedLinkShareToken()
@@ -412,13 +397,13 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @Given the public has locked :file in the last public link shared folder setting the following properties
 	 *
 	 * @param string $file
 	 * @param TableNode $properties
 	 *
 	 * @return void
 	 */
+	#[Given('the public has locked :file in the last public link shared folder setting the following properties')]
 	public function publicHasLockedFileLastSharedFolder(
 		string    $file,
 		TableNode $properties
@@ -437,14 +422,14 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @When /^the public locks "([^"]*)" in the last public link shared folder using the public WebDAV API setting the following properties$/
-	 * @When /^the public tries to lock "([^"]*)" in the last public link shared folder using the public WebDAV API setting the following properties$/
 	 *
 	 * @param string $file
 	 * @param TableNode $properties
 	 *
 	 * @return void
 	 */
+	#[When('the public locks :file in the last public link shared folder using the public WebDAV API setting the following properties')]
+	#[When('the public tries to lock :file in the last public link shared folder using the public WebDAV API setting the following properties')]
 	public function publicLocksFileLastSharedFolder(
 		string $file,
 		TableNode $properties
@@ -464,13 +449,13 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @When user :user unlocks the last created lock of file :file using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $file
 	 *
 	 * @return void
 	 */
+	#[When('user :user unlocks the last created lock of file :file using the WebDAV API')]
 	public function unlockLastLockUsingWebDavAPI(string $user, string $file) {
 		$response = $this->unlockItemWithLastLockOfUserAndItemUsingWebDavAPI(
 			$user,
@@ -482,7 +467,6 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @When user :user unlocks the last created lock of file :file inside space :spaceName using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $spaceName
@@ -490,6 +474,7 @@ class WebDavLockingContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :user unlocks the last created lock of file :file inside space :spaceName using the WebDAV API')]
 	public function userUnlocksTheLastCreatedLockOfFileInsideSpaceUsingTheWebdavApi(
 		string $user,
 		string $spaceName,
@@ -509,7 +494,6 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @When user :user unlocks the last created lock of file :itemToUnlock using file-id :fileId using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $itemToUnlock
@@ -517,6 +501,7 @@ class WebDavLockingContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :user unlocks the last created lock of file :itemToUnlock using file-id :fileId using the WebDAV API')]
 	public function userUnlocksTheLastCreatedLockOfFileWithFileIdPathUsingTheWebdavApi(
 		string $user,
 		string $itemToUnlock,
@@ -532,53 +517,6 @@ class WebDavLockingContext implements Context {
 			$itemToUnlock,
 			false,
 			$fullUrl
-		);
-		$this->featureContext->setResponse($response);
-	}
-
-	/**
-	 * @When user :user unlocks file :itemToUnlock with the last created lock of file :itemToUseLockOf using the WebDAV API
-	 *
-	 * @param string $user
-	 * @param string $itemToUnlock
-	 * @param string $itemToUseLockOf
-	 *
-	 * @return void
-	 */
-	public function unlockItemWithLastLockOfOtherItemUsingWebDavAPI(
-		string $user,
-		string $itemToUnlock,
-		string $itemToUseLockOf
-	) {
-		$response = $this->unlockItemWithLastLockOfUserAndItemUsingWebDavAPI(
-			$user,
-			$itemToUnlock,
-			$user,
-			$itemToUseLockOf
-		);
-		$this->featureContext->setResponse($response);
-	}
-
-	/**
-	 * @When user :user unlocks file :itemToUnlock with the last created public lock of file :itemToUseLockOf using the WebDAV API
-	 *
-	 * @param string $user
-	 * @param string $itemToUnlock
-	 * @param string $itemToUseLockOf
-	 *
-	 * @return void
-	 */
-	public function unlockItemWithLastPublicLockOfOtherItemUsingWebDavAPI(
-		string $user,
-		string $itemToUnlock,
-		string $itemToUseLockOf
-	) {
-		$lockOwner = $this->featureContext->getLastCreatedPublicShareToken();
-		$response = $this->unlockItemWithLastLockOfUserAndItemUsingWebDavAPI(
-			$user,
-			$itemToUnlock,
-			$lockOwner,
-			$itemToUseLockOf
 		);
 		$this->featureContext->setResponse($response);
 	}
@@ -623,45 +561,6 @@ class WebDavLockingContext implements Context {
 		} else {
 			throw new Exception("xmlPart for 'd:activelock' was expected to be array but found: $xmlPart");
 		}
-	}
-
-	/**
-	 * @Given user :user has unlocked file :itemToUnlock with the last created lock of file :itemToUseLockOf of user :lockOwner using the WebDAV API
-	 *
-	 * @param string $user
-	 * @param string $itemToUnlock
-	 * @param string $lockOwner
-	 * @param string $itemToUseLockOf
-	 * @param boolean $public
-	 *
-	 * @return void
-	 * @throws Exception|GuzzleException
-	 */
-	public function hasUnlockItemWithTheLastCreatedLock(
-		string $user,
-		string $itemToUnlock,
-		string $lockOwner,
-		string $itemToUseLockOf,
-		bool $public = false
-	) {
-		$lockCount = $this->countLockOfResources($user, $itemToUnlock);
-
-		$response = $this->unlockItemWithLastLockOfUserAndItemUsingWebDavAPI(
-			$user,
-			$itemToUnlock,
-			$lockOwner,
-			$itemToUseLockOf,
-			$public
-		);
-		$this->featureContext->theHTTPStatusCodeShouldBe(204, "", $response);
-
-		$lockCountAfterUnlock = $this->countLockOfResources($user, $itemToUnlock);
-
-		Assert::assertEquals(
-			$lockCount - 1,
-			$lockCountAfterUnlock,
-			"Expected $lockCount lock(s) for '$itemToUnlock' but found '$lockCount'"
-		);
 	}
 
 	/**
@@ -733,7 +632,6 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @When user :user unlocks file :itemToUnlock with the last created lock of file :itemToUseLockOf of user :lockOwner using the WebDAV API
 	 *
 	 * @param string $user
 	 * @param string $itemToUnlock
@@ -742,6 +640,7 @@ class WebDavLockingContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :user unlocks file :itemToUnlock with the last created lock of file :itemToUseLockOf of user :lockOwner using the WebDAV API')]
 	public function userUnlocksItemWithLastLockOfUserAndItemUsingWebDavAPI(
 		string $user,
 		string $itemToUnlock,
@@ -758,7 +657,6 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @When the public unlocks file :itemToUnlock with the last created lock of file :itemToUseLockOf of user :lockOwner using the WebDAV API
 	 *
 	 * @param string $itemToUnlock
 	 * @param string $lockOwner
@@ -766,6 +664,7 @@ class WebDavLockingContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('the public unlocks file :itemToUnlock with the last created lock of file :itemToUseLockOf of user :lockOwner using the WebDAV API')]
 	public function unlockItemAsPublicWithLastLockOfUserAndItemUsingWebDavAPI(
 		string $itemToUnlock,
 		string $lockOwner,
@@ -785,12 +684,12 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @When the public unlocks file :itemToUnlock using the WebDAV API
 	 *
 	 * @param string $itemToUnlock
 	 *
 	 * @return void
 	 */
+	#[When('the public unlocks file :itemToUnlock using the WebDAV API')]
 	public function unlockItemAsPublicUsingWebDavAPI(string $itemToUnlock) {
 		$token = ($this->featureContext->isUsingSharingNG())
 		? $this->featureContext->shareNgGetLastCreatedLinkShareToken()
@@ -806,96 +705,6 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" moves (?:file|folder|entry) "([^"]*)" to "([^"]*)" sending the locktoken of (?:file|folder|entry) "([^"]*)" using the WebDAV API$/
-	 *
-	 * @param string $user
-	 * @param string $fileSource
-	 * @param string $fileDestination
-	 * @param string $itemToUseLockOf
-	 *
-	 * @return void
-	 */
-	public function moveItemSendingLockToken(
-		string $user,
-		string $fileSource,
-		string $fileDestination,
-		string $itemToUseLockOf
-	) {
-		$response = $this->moveItemSendingLockTokenOfUser(
-			$user,
-			$fileSource,
-			$fileDestination,
-			$itemToUseLockOf,
-			$user
-		);
-		$this->featureContext->setResponse($response);
-	}
-
-	/**
-	 * @param string $user
-	 * @param string $fileSource
-	 * @param string $fileDestination
-	 * @param string $itemToUseLockOf
-	 * @param string $lockOwner
-	 *
-	 * @return ResponseInterface
-	 */
-	public function moveItemSendingLockTokenOfUser(
-		string $user,
-		string $fileSource,
-		string $fileDestination,
-		string $itemToUseLockOf,
-		string $lockOwner
-	): ResponseInterface {
-		$user = $this->featureContext->getActualUsername($user);
-		$lockOwner = $this->featureContext->getActualUsername($lockOwner);
-		$destination = $this->featureContext->destinationHeaderValue(
-			$user,
-			$fileDestination
-		);
-		$token = $this->tokenOfLastLock[$lockOwner][$itemToUseLockOf];
-		$headers = [
-			"Destination" => $destination,
-			"If" => "(<$token>)"
-		];
-		return $this->featureContext->makeDavRequest(
-			$user,
-			"MOVE",
-			$fileSource,
-			$headers
-		);
-	}
-
-	/**
-	 * @When /^user "([^"]*)" moves (?:file|folder|entry) "([^"]*)" to "([^"]*)" sending the locktoken of (?:file|folder|entry) "([^"]*)" of user "([^"]*)" using the WebDAV API$/
-	 *
-	 * @param string $user
-	 * @param string $fileSource
-	 * @param string $fileDestination
-	 * @param string $itemToUseLockOf
-	 * @param string $lockOwner
-	 *
-	 * @return void
-	 */
-	public function userMovesItemSendingLockTokenOfUser(
-		string $user,
-		string $fileSource,
-		string $fileDestination,
-		string $itemToUseLockOf,
-		string $lockOwner
-	) {
-		$response = $this->moveItemSendingLockTokenOfUser(
-			$user,
-			$fileSource,
-			$fileDestination,
-			$itemToUseLockOf,
-			$lockOwner
-		);
-		$this->featureContext->setResponse($response);
-	}
-
-	/**
-	 * @When /^user "([^"]*)" uploads file with content "([^"]*)" to "([^"]*)" sending the locktoken of (?:file|folder|entry) "([^"]*)" using the WebDAV API$/
 	 *
 	 * @param string $user
 	 * @param string $content
@@ -904,6 +713,7 @@ class WebDavLockingContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('/^user "([^"]*)" uploads file with content "([^"]*)" to "([^"]*)" sending the locktoken of (?:file|folder|entry) "([^"]*)" using the WebDAV API$/')]
 	public function userUploadsAFileWithContentTo(
 		string $user,
 		string $content,
@@ -925,7 +735,6 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @Then :count locks should be reported for file :file of user :user by the WebDAV API
 	 *
 	 * @param int $count
 	 * @param string $file
@@ -934,6 +743,7 @@ class WebDavLockingContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Then(':count locks should be reported for file :file of user :user by the WebDAV API')]
 	public function numberOfLockShouldBeReported(int $count, string $file, string $user) {
 		$lockCount = $this->countLockOfResources($user, $file);
 		Assert::assertEquals(
@@ -944,18 +754,17 @@ class WebDavLockingContext implements Context {
 	}
 
 	/**
-	 * @When the user waits for :time seconds to expire the lock
 	 *
 	 * @param int $time
 	 *
 	 * @return void
 	 */
+	#[When('the user waits for :time seconds to expire the lock')]
 	public function waitForCertainSecondsToExpireTheLock(int $time): void {
 		\sleep($time);
 	}
 
 	/**
-	 * @Then :count locks should be reported for file :file inside the space :space of user :user
 	 *
 	 * @param int $count
 	 * @param string $file
@@ -965,6 +774,7 @@ class WebDavLockingContext implements Context {
 	 * @return void
 	 * @throws GuzzleException
 	 */
+	#[Then(':count locks should be reported for file :file inside the space :space of user :user')]
 	public function numberOfLockShouldBeReportedInProjectSpace(
 		int $count,
 		string $file,

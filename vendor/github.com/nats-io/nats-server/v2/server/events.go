@@ -1,4 +1,4 @@
-// Copyright 2018-2025 The NATS Authors
+// Copyright 2018-2026 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -22,7 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"net/http"
 	"runtime"
 	"runtime/debug"
@@ -1044,21 +1044,29 @@ func (s *Server) sendStatsz(subj string) {
 			if mg.Leader() {
 				if ci := s.raftNodeToClusterInfo(mg); ci != nil {
 					jStat.Meta = &MetaClusterInfo{
-						Name:     ci.Name,
-						Leader:   ci.Leader,
-						Peer:     getHash(ci.Leader),
-						Replicas: ci.Replicas,
-						Size:     mg.ClusterSize(),
+						Name:         ci.Name,
+						Leader:       ci.Leader,
+						Replicas:     ci.Replicas,
+						Size:         mg.ClusterSize(),
+						QuorumNeeded: mg.QuorumNeeded(),
+						Rescue:       mg.InRescue(),
+					}
+					if ci.Leader != _EMPTY_ {
+						jStat.Meta.Peer = getHash(ci.Leader)
 					}
 				}
 			} else {
 				// non leader only include a shortened version without peers
 				leader := s.serverNameForNode(mg.GroupLeader())
 				jStat.Meta = &MetaClusterInfo{
-					Name:   mg.Group(),
-					Leader: leader,
-					Peer:   getHash(leader),
-					Size:   mg.ClusterSize(),
+					Name:         mg.Group(),
+					Leader:       leader,
+					Size:         mg.ClusterSize(),
+					QuorumNeeded: mg.QuorumNeeded(),
+					Rescue:       mg.InRescue(),
+				}
+				if leader != _EMPTY_ {
+					jStat.Meta.Peer = getHash(leader)
 				}
 			}
 			if jStat.Meta != nil {
@@ -1765,7 +1773,7 @@ func (s *Server) remoteServerUpdate(sub *subscription, c *client, _ *Account, su
 
 	node := getHash(si.Name)
 	accountNRG := si.AccountNRG()
-	oldInfo, _ := s.nodeToInfo.Swap(node, nodeInfo{
+	newInfo := nodeInfo{
 		name:            si.Name,
 		version:         si.Version,
 		cluster:         si.Cluster,
@@ -1778,12 +1786,20 @@ func (s *Server) remoteServerUpdate(sub *subscription, c *client, _ *Account, su
 		js:              si.JetStreamEnabled(),
 		binarySnapshots: si.BinaryStreamSnapshot(),
 		accountNRG:      accountNRG,
-	})
+	}
+	oldInfo, _ := s.nodeToInfo.Swap(node, newInfo)
 	if oldInfo == nil || accountNRG != oldInfo.(nodeInfo).accountNRG {
 		// One of the servers we received statsz from changed its mind about
 		// whether or not it supports in-account NRG, so update the groups
 		// with this information.
 		s.updateNRGAccountStatus()
+	}
+
+	// Process a peer's statsz when it has sufficient information.
+	if newInfo.selectable() {
+		if js := s.getJetStream(); js != nil {
+			js.processPeerStatsz(node)
+		}
 	}
 }
 
@@ -2545,21 +2561,23 @@ func (s *Server) accConnsUpdate(a *Account) {
 	s.sendAccConnsUpdate(a, fmt.Sprintf(accConnsEventSubjOld, a.Name), fmt.Sprintf(accConnsEventSubjNew, a.Name))
 }
 
-// server lock should be held
 func (s *Server) nextEventID() string {
-	return s.eventIds.Next()
+	s.eventIdsMu.Lock()
+	id := s.eventIds.Next()
+	s.eventIdsMu.Unlock()
+	return id
 }
 
 // accountConnectEvent will send an account client connect event if there is interest.
 // This is a billing event.
 func (s *Server) accountConnectEvent(c *client) {
-	s.mu.Lock()
-	if !s.eventsEnabled() {
-		s.mu.Unlock()
+	s.mu.RLock()
+	eventsEnabled := s.eventsEnabled()
+	s.mu.RUnlock()
+	if !eventsEnabled {
 		return
 	}
 	eid := s.nextEventID()
-	s.mu.Unlock()
 
 	c.mu.Lock()
 	if c.acc == nil {
@@ -2600,13 +2618,13 @@ func (s *Server) accountConnectEvent(c *client) {
 // accountDisconnectEvent will send an account client disconnect event if there is interest.
 // This is a billing event.
 func (s *Server) accountDisconnectEvent(c *client, now time.Time, reason string) {
-	s.mu.Lock()
-	if !s.eventsEnabled() {
-		s.mu.Unlock()
+	s.mu.RLock()
+	eventsEnabled := s.eventsEnabled()
+	s.mu.RUnlock()
+	if !eventsEnabled {
 		return
 	}
 	eid := s.nextEventID()
-	s.mu.Unlock()
 
 	c.mu.Lock()
 
@@ -2662,13 +2680,13 @@ func (s *Server) accountDisconnectEvent(c *client, now time.Time, reason string)
 
 // This is the system level event sent to the system account for operators.
 func (s *Server) sendAuthErrorEvent(c *client, reason string) {
-	s.mu.Lock()
-	if !s.eventsEnabled() {
-		s.mu.Unlock()
+	s.mu.RLock()
+	eventsEnabled := s.eventsEnabled()
+	s.mu.RUnlock()
+	if !eventsEnabled {
 		return
 	}
 	eid := s.nextEventID()
-	s.mu.Unlock()
 
 	now := time.Now().UTC()
 	c.mu.Lock()
@@ -2724,13 +2742,13 @@ func (s *Server) sendAccountAuthErrorEvent(c *client, acc *Account, reason strin
 	if acc == nil {
 		return
 	}
-	s.mu.Lock()
-	if !s.eventsEnabled() {
-		s.mu.Unlock()
+	s.mu.RLock()
+	eventsEnabled := s.eventsEnabled()
+	s.mu.RUnlock()
+	if !eventsEnabled {
 		return
 	}
 	eid := s.nextEventID()
-	s.mu.Unlock()
 
 	now := time.Now().UTC()
 	c.mu.Lock()
@@ -2987,7 +3005,7 @@ func (s *Server) newRespInbox() string {
 	var b [respInboxPrefixLen + replySuffixLen]byte
 	pres := b[:respInboxPrefixLen]
 	copy(pres, s.sys.inboxPre)
-	rn := rand.Int63()
+	rn := rand.Int64()
 	for i, l := respInboxPrefixLen, rn; i < len(b); i++ {
 		b[i] = digits[l%base]
 		l /= base
@@ -3298,9 +3316,11 @@ func (s *Server) wrapChk(f func()) func() {
 // sendOCSPPeerRejectEvent sends a system level event to system account when a peer connection is
 // rejected due to OCSP invalid status of its trust chain(s).
 func (s *Server) sendOCSPPeerRejectEvent(kind string, peer *x509.Certificate, reason string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if !s.eventsEnabled() {
+	s.mu.RLock()
+	eventsEnabled := s.eventsEnabled()
+	serverID := s.info.ID
+	s.mu.RUnlock()
+	if !eventsEnabled {
 		return
 	}
 	if peer == nil {
@@ -3324,16 +3344,18 @@ func (s *Server) sendOCSPPeerRejectEvent(kind string, peer *x509.Certificate, re
 		},
 		Reason: reason,
 	}
-	subj := fmt.Sprintf(ocspPeerRejectEventSubj, s.info.ID)
-	s.sendInternalMsg(subj, _EMPTY_, &m.Server, &m)
+	subj := fmt.Sprintf(ocspPeerRejectEventSubj, serverID)
+	s.sendInternalMsgLocked(subj, _EMPTY_, &m.Server, &m)
 }
 
 // sendOCSPPeerChainlinkInvalidEvent sends a system level event to system account when a link in a peer's trust chain
 // is OCSP invalid.
 func (s *Server) sendOCSPPeerChainlinkInvalidEvent(peer *x509.Certificate, link *x509.Certificate, reason string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if !s.eventsEnabled() {
+	s.mu.RLock()
+	eventsEnabled := s.eventsEnabled()
+	serverID := s.info.ID
+	s.mu.RUnlock()
+	if !eventsEnabled {
 		return
 	}
 	if peer == nil || link == nil {
@@ -3362,6 +3384,6 @@ func (s *Server) sendOCSPPeerChainlinkInvalidEvent(peer *x509.Certificate, link 
 		},
 		Reason: reason,
 	}
-	subj := fmt.Sprintf(ocspPeerChainlinkInvalidEventSubj, s.info.ID)
-	s.sendInternalMsg(subj, _EMPTY_, &m.Server, &m)
+	subj := fmt.Sprintf(ocspPeerChainlinkInvalidEventSubj, serverID)
+	s.sendInternalMsgLocked(subj, _EMPTY_, &m.Server, &m)
 }

@@ -65,6 +65,58 @@ If the values obtained from the headers fall within that range, the value from t
 used. If the value is larger than the maximum, the maximum is used. If the value is lower
 than the minimum, the minimum is used.
 
+# Whitelisting URLs
+
+By default the client allows all URLs. If you store resources whose URLs come from
+untrusted sources, you should restrict what can be fetched by passing a whitelist
+via `httprc.WithWhitelist`. Several implementations are provided: `BlockAllWhitelist`,
+`InsecureWhitelist` (allow all), `MapWhitelist` (exact string match), and
+`RegexpWhitelist`.
+
+## A note on `RegexpWhitelist` patterns
+
+`RegexpWhitelist` matches each URL with `(*regexp.Regexp).MatchString`, which returns
+true when the pattern matches **any substring** of the URL. Patterns are **not**
+anchored for you, so a naive pattern can allow far more than you intend.
+
+Consider the difference between these two patterns:
+
+```go
+// BAD: unanchored, dots unescaped
+regexp.MustCompile(`http://example.com`)
+
+// GOOD: anchored at the start, dots escaped, host terminated with `/`
+regexp.MustCompile(`^https://example\.com/`)
+```
+
+The unanchored `http://example.com` pattern will happily allow URLs such as:
+
+- `http://example.com.attacker.com/evil` — the real host is `attacker.com`; the
+  pattern only required `example.com` to appear *somewhere*, and without a trailing
+  `/` it does not stop at the end of the host.
+- `http://attacker.com/?redirect=http://example.com` — the pattern appears inside
+  the query string, so the match succeeds even though the host is `attacker.com`.
+- `httpsX//exampleYcom` — `.` is the regular-expression "any character"
+  metacharacter, so the dots match more than literal dots.
+
+To pin a pattern to a specific origin:
+
+1. **Anchor the start** with `^` so the match must begin at the start of the URL.
+2. **Escape the dots** (`\.`) so they only match a literal `.`.
+3. **Terminate the host** with `/` so `example.com` cannot be extended into
+   `example.com.attacker.com`.
+
+A couple of edge cases to keep in mind:
+
+- Requiring the trailing `/` means the bare origin `https://example.com` (no path)
+  will not match. Add a second pattern such as `^https://example\.com$` if you need
+  to allow it.
+- If your URLs may include a port, allow for it explicitly, e.g.
+  `^https://example\.com(:\d+)?/`.
+
+See `ExampleRegexpWhitelist` in `whitelist_example_test.go` for a runnable
+demonstration of the difference between anchored and unanchored patterns.
+
 # SYNOPSIS
 
 <!-- INCLUDE(client_example_test.go) -->

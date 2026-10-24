@@ -167,11 +167,14 @@ func (v logoutVerificationTest) runGetToken(t *testing.T) (*oidc.LogoutToken, er
 	}
 
 	pm := oidc.ProviderMetadata{}
-	verifier := oidc.NewOIDCClient(
+	verifier, err := oidc.NewOIDCClient(
 		oidc.WithOidcIssuer(issuer),
 		oidc.WithJWKS(jwks),
 		oidc.WithProviderMetadata(&pm),
 	)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	return verifier.VerifyLogoutToken(ctx, token)
 }

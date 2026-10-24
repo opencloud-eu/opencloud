@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // CatNodesReq represent possible options for the /_cat/nodes request
@@ -19,9 +20,9 @@ type CatNodesReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r CatNodesReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"GET",
+func (r CatNodesReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_cat/nodes",
 		nil,
 		r.Params.get(),
@@ -37,72 +38,81 @@ type CatNodesResp struct {
 
 // CatNodesItemResp represents one index of the CatNodesResp
 type CatNodesItemResp struct {
-	ID                              string  `json:"id"`
-	PID                             *string `json:"pid"`
-	IP                              string  `json:"ip"`
-	Port                            int     `json:"port,string"`
-	HTTPAddress                     string  `json:"http_address"`
-	Version                         string  `json:"version"`
-	Type                            *string `json:"type"`
-	Build                           *string `json:"build"`
-	JDK                             *string `json:"jdk"`
-	DiskTotal                       *string `json:"disk.total"`
-	DiskUsed                        *string `json:"disk.used"`
-	DiskAvail                       *string `json:"disk.avail"`
-	DiskUsedPercent                 *string `json:"disk.used_percent"`
-	HeapCurrent                     *string `json:"heap.current"`
-	HeapPercent                     *int    `json:"heap.percent,string"`
-	HeapMax                         *string `json:"heap.max"`
-	RAMCurrent                      *string `json:"ram.current"`
-	RAMPercent                      *int    `json:"ram.percent,string"`
-	RAMMax                          *string `json:"ram.max"`
-	FileDescCurrent                 *int    `json:"file_desc.current,string"`
-	FileDescPercent                 *int    `json:"file_desc.percent,string"`
-	FileDescMax                     *int    `json:"file_desc.max,string"`
-	CPU                             *int    `json:"cpu,string"`
-	Load1M                          *string `json:"load_1m"`
-	Load5M                          *string `json:"load_5m"`
-	Load15M                         *string `json:"load_15m"`
-	Uptime                          *string `json:"uptime"`
-	Role                            string  `json:"node.role"`
-	Roles                           string  `json:"node.roles"`
-	Master                          string  `json:"master"`
-	ClusterManager                  string  `json:"cluster_manager"`
-	Name                            string  `json:"name"`
-	CompletionSize                  *string `json:"completion.size"`
-	FieldDataMemorySize             *string `json:"fielddata.memory_size"`
-	FileldDataEvictions             *int    `json:"fielddata.evictions,string"`
-	QueryCacheMemorySize            *string `json:"query_cache.memory_size"`
-	QueryCacheEvictions             *int    `json:"query_cache.evictions,string"`
-	QueryCacheHitCount              *int    `json:"query_cache.hit_count,string"`
-	QueryCacheMissCount             *int    `json:"query_cache.miss_count,string"`
-	RequestCacheMemorySize          *string `json:"request_cache.memory_size"`
-	RequestCacheEvictions           *int    `json:"request_cache.evictions,string"`
-	RequestCacheHitCount            *int    `json:"request_cache.hit_count,string"`
-	RequestCacheMissCount           *int    `json:"request_cache.miss_count,string"`
-	FlushTotal                      *int    `json:"flush.total,string"`
-	FlushTotalTime                  *string `json:"flush.total_time"`
-	GetCurrent                      *int    `json:"get.current,string"`
-	GetTime                         *string `json:"get.time"`
-	GetTotal                        *int    `json:"get.total,string"`
-	GetExistsTime                   *string `json:"get.exists_time"`
-	GetExistsTotal                  *int    `json:"get.exists_total,string"`
-	GetMissingTime                  *string `json:"get.missing_time"`
-	GetMissingTotal                 *int    `json:"get.missing_total,string"`
-	IndexingDeleteCurrent           *int    `json:"indexing.delete_current,string"`
-	IndexingDeleteTime              *string `json:"indexing.delete_time"`
-	IndexingDeleteTotal             *int    `json:"indexing.delete_total,string"`
-	IndexingIndexCurrent            *int    `json:"indexing.index_current,string"`
-	IndexingIndexTime               *string `json:"indexing.index_time"`
-	IndexingIndexTotal              *int    `json:"indexing.index_total,string"`
-	IndexingIndexFailed             *int    `json:"indexing.index_failed,string"`
-	MergesCurrent                   *int    `json:"merges.current,string"`
-	MergesCurrentDoc                *int    `json:"merges.current_docs,string"`
-	MergesCurrentSize               *string `json:"merges.current_size"`
-	MergesTotal                     *int    `json:"merges.total,string"`
-	MergesTotalDocs                 *int    `json:"merges.total_docs,string"`
-	MergesTotalSize                 *string `json:"merges.total_size"`
-	MergesTotalTime                 *string `json:"merges.total_time"`
+	ID                     string  `json:"id"`
+	PID                    *string `json:"pid"`
+	IP                     string  `json:"ip"`
+	Port                   int     `json:"port,string"`
+	HTTPAddress            string  `json:"http_address"`
+	Version                string  `json:"version"`
+	Type                   *string `json:"type"`
+	Build                  *string `json:"build"`
+	JDK                    *string `json:"jdk"`
+	DiskTotal              *string `json:"disk.total"`
+	DiskUsed               *string `json:"disk.used"`
+	DiskAvail              *string `json:"disk.avail"`
+	DiskUsedPercent        *string `json:"disk.used_percent"`
+	HeapCurrent            *string `json:"heap.current"`
+	HeapPercent            *int    `json:"heap.percent,string"`
+	HeapMax                *string `json:"heap.max"`
+	RAMCurrent             *string `json:"ram.current"`
+	RAMPercent             *int    `json:"ram.percent,string"`
+	RAMMax                 *string `json:"ram.max"`
+	FileDescCurrent        *int    `json:"file_desc.current,string"`
+	FileDescPercent        *int    `json:"file_desc.percent,string"`
+	FileDescMax            *int    `json:"file_desc.max,string"`
+	CPU                    *int    `json:"cpu,string"`
+	Load1M                 *string `json:"load_1m"`
+	Load5M                 *string `json:"load_5m"`
+	Load15M                *string `json:"load_15m"`
+	Uptime                 *string `json:"uptime"`
+	Role                   string  `json:"node.role"`
+	Roles                  string  `json:"node.roles"`
+	Master                 string  `json:"master"`
+	ClusterManager         string  `json:"cluster_manager"`
+	Name                   string  `json:"name"`
+	CompletionSize         *string `json:"completion.size"`
+	FieldDataMemorySize    *string `json:"fielddata.memory_size"`
+	FileldDataEvictions    *int    `json:"fielddata.evictions,string"`
+	QueryCacheMemorySize   *string `json:"query_cache.memory_size"`
+	QueryCacheEvictions    *int    `json:"query_cache.evictions,string"`
+	QueryCacheHitCount     *int    `json:"query_cache.hit_count,string"`
+	QueryCacheMissCount    *int    `json:"query_cache.miss_count,string"`
+	RequestCacheMemorySize *string `json:"request_cache.memory_size"`
+	RequestCacheEvictions  *int    `json:"request_cache.evictions,string"`
+	RequestCacheHitCount   *int    `json:"request_cache.hit_count,string"`
+	RequestCacheMissCount  *int    `json:"request_cache.miss_count,string"`
+	FlushTotal             *int    `json:"flush.total,string"`
+	FlushTotalTime         *string `json:"flush.total_time"`
+	GetCurrent             *int    `json:"get.current,string"`
+	GetTime                *string `json:"get.time"`
+	GetTotal               *int    `json:"get.total,string"`
+	GetExistsTime          *string `json:"get.exists_time"`
+	GetExistsTotal         *int    `json:"get.exists_total,string"`
+	GetMissingTime         *string `json:"get.missing_time"`
+	GetMissingTotal        *int    `json:"get.missing_total,string"`
+	IndexingDeleteCurrent  *int    `json:"indexing.delete_current,string"`
+	IndexingDeleteTime     *string `json:"indexing.delete_time"`
+	IndexingDeleteTotal    *int    `json:"indexing.delete_total,string"`
+	IndexingIndexCurrent   *int    `json:"indexing.index_current,string"`
+	IndexingIndexTime      *string `json:"indexing.index_time"`
+	IndexingIndexTotal     *int    `json:"indexing.index_total,string"`
+	IndexingIndexFailed    *int    `json:"indexing.index_failed,string"`
+	MergesCurrent          *int    `json:"merges.current,string"`
+	MergesCurrentDoc       *int    `json:"merges.current_docs,string"`
+	MergesCurrentSize      *string `json:"merges.current_size"`
+	MergesTotal            *int    `json:"merges.total,string"`
+	MergesTotalDocs        *int    `json:"merges.total_docs,string"`
+	MergesTotalSize        *string `json:"merges.total_size"`
+	MergesTotalTime        *string `json:"merges.total_time"`
+	// Merges warmer fields added in OpenSearch 3.4.0+
+	MergesWarmerOngoingCount        *int    `json:"merges.warmer.ongoing_count,string"`
+	MergesWarmerTotalInvocations    *int    `json:"merges.warmer.total_invocations,string"`
+	MergesWarmerTotalTime           *string `json:"merges.warmer.total_time"`
+	MergesWarmerTotalFailureCount   *int    `json:"merges.warmer.total_failure_count,string"`
+	MergesWarmerTotalBytesSent      *string `json:"merges.warmer.total_bytes_sent"`
+	MergesWarmerTotalBytesReceived  *string `json:"merges.warmer.total_bytes_received"`
+	MergesWarmerTotalSendTime       *string `json:"merges.warmer.total_send_time"`
+	MergesWarmerTotalReceiveTime    *string `json:"merges.warmer.total_receive_time"`
 	RefreshTotal                    *int    `json:"refresh.total,string"`
 	RefreshTime                     *string `json:"refresh.time"`
 	RefreshExternalTotal            *int    `json:"refresh.external_total,string"`
@@ -118,10 +128,15 @@ type CatNodesItemResp struct {
 	SearchQueryCurrent              *int    `json:"search.query_current,string"`
 	SearchQueryTime                 *string `json:"search.query_time"`
 	SearchQueryTotal                *int    `json:"search.query_total,string"`
+	SearchQueryFailed               *int    `json:"search.query_failed,string"` // Available in OpenSearch 3.3.0+
 	SearchConcurrentQueryCurrent    *int    `json:"search.concurrent_query_current,string"`
 	SearchConcurrentQueryTime       *string `json:"search.concurrent_query_time"`
 	SearchConcurrentQueryTotal      *int    `json:"search.concurrent_query_total,string"`
 	SearchConcurrentAvgSliceCount   *string `json:"search.concurrent_avg_slice_count"`
+	SearchStartreeQueryCurrent      *int    `json:"search.startree_query_current,string"` // Available in OpenSearch 3.2.0+
+	SearchStartreeQueryTime         *string `json:"search.startree_query_time"`           // Available in OpenSearch 3.2.0+
+	SearchStartreeQueryTotal        *int    `json:"search.startree_query_total,string"`   // Available in OpenSearch 3.2.0+
+	SearchStartreeQueryFailed       *int    `json:"search.startree_query_failed,string"`  // Available in OpenSearch 3.3.0+
 	SearchScrollCurrent             *int    `json:"search.scroll_current,string"`
 	SearchScrollTime                *string `json:"search.scroll_time"`
 	SearchScrollTotal               *int    `json:"search.scroll_total,string"`

@@ -58,15 +58,15 @@ func EnsureDefaults(cfg *config.Config) {
 	if cfg.Reva == nil {
 		cfg.Reva = &shared.Reva{}
 	}
-}
 
-// EnsureCommons copies applicable parts of the OpenCloud config into the commons part
-func EnsureCommons(cfg *config.Config) {
 	// ensure the commons part is initialized
 	if cfg.Commons == nil {
 		cfg.Commons = &shared.Commons{}
 	}
+}
 
+// EnsureCommons copies applicable parts of the OpenCloud config into the commons part
+func EnsureCommons(cfg *config.Config) {
 	cfg.Commons.Log = structs.CopyOrZeroValue(cfg.Log)
 	cfg.Commons.Cache = structs.CopyOrZeroValue(cfg.Cache)
 

@@ -28,6 +28,12 @@ const (
 	ECDSA
 	EdDSAFamily
 	Custom
+	// MLDSAFamily covers the ML-DSA parameter sets. It is deliberately not
+	// Custom: Custom means this library knows nothing about the algorithm,
+	// which would be false here and misleads callers that switch on Family.
+	//
+	// It sits after Custom so the values earlier releases assigned stay put.
+	MLDSAFamily
 	maxFamily
 )
 
@@ -44,6 +50,8 @@ func (f Family) String() string {
 		return "EdDSA"
 	case Custom:
 		return "Custom"
+	case MLDSAFamily:
+		return "ML-DSA"
 	default:
 		return "InvalidFamily"
 	}
@@ -85,12 +93,34 @@ type Signer interface {
 	Sign(key any, payload []byte, rand io.Reader) ([]byte, error)
 }
 
+// SignerWithOpts is an optional interface that Custom-family signers
+// can implement to receive a per-call [crypto.SignerOpts]. The
+// canonical use case is ML-DSA, whose Sign method accepts an
+// *mldsa.Options carrying a domain-separation context that the plain
+// [Signer] interface cannot convey. Custom Meta values that do not
+// implement this interface still work with [SignWithOpts]: the
+// dispatcher falls back to the plain [Signer.Sign] method and the opts
+// argument is dropped.
+//
+// Implementing both [Signer] and SignerWithOpts is supported, but
+// implementing only SignerWithOpts is sufficient because the dispatcher
+// checks for it first.
+type SignerWithOpts interface {
+	SignWithOpts(key any, payload []byte, opts crypto.SignerOpts, rand io.Reader) ([]byte, error)
+}
+
 // Verifier is an interface for custom verification implementations.
 // For the Custom algorithm family, info.Meta must implement this interface
 // to support verification. The implementation struct can carry any additional
 // metadata it needs (hash functions, curves, etc.).
 type Verifier interface {
 	Verify(key any, payload, signature []byte) error
+}
+
+// VerifierWithOpts is the verification counterpart of [SignerWithOpts].
+// See [SignerWithOpts] for usage notes.
+type VerifierWithOpts interface {
+	VerifyWithOpts(key any, payload, signature []byte, opts crypto.SignerOpts) error
 }
 
 var algorithms = make(map[string]AlgorithmInfo)
@@ -102,7 +132,8 @@ var muAlgorithms sync.RWMutex
 // info.Meta should contain extra metadata for some algorithms. HMAC, RSA, and ECDSA
 // families need their respective metadata (HMACFamilyMeta, RSAFamilyMeta, and
 // ECDSAFamilyMeta). Metadata for EdDSA is optional. For the Custom family, Meta
-// must implement at least one of the Signer or Verifier interfaces.
+// must implement at least one of the Signer, SignerWithOpts, Verifier, or
+// VerifierWithOpts interfaces.
 //
 // Re-registration of an already-registered algorithm name is rejected. Use
 // UnregisterAlgorithm to remove it first if you need to replace it.
@@ -130,11 +161,17 @@ func RegisterAlgorithm(name string, info AlgorithmInfo) error {
 		}
 	case EdDSAFamily:
 		// EdDSA metadata is optional for now
-	case Custom:
+	case Custom, MLDSAFamily:
+		// Both families carry their implementation in Meta. The other families
+		// put passive metadata there. For ML-DSA this is forced: crypto/mldsa
+		// exists only from Go 1.27, so the algorithm cannot be described by a
+		// value type this file could name.
 		_, isSigner := info.Meta.(Signer)
+		_, isSignerWithOpts := info.Meta.(SignerWithOpts)
 		_, isVerifier := info.Meta.(Verifier)
-		if !isSigner && !isVerifier {
-			return fmt.Errorf("custom algorithm %s: Meta must implement Signer and/or Verifier", name)
+		_, isVerifierWithOpts := info.Meta.(VerifierWithOpts)
+		if !isSigner && !isSignerWithOpts && !isVerifier && !isVerifierWithOpts {
+			return fmt.Errorf("%s algorithm %s: Meta must implement Signer, SignerWithOpts, Verifier, or VerifierWithOpts", info.Family, name)
 		}
 	default:
 		return fmt.Errorf("unsupported algorithm family %s for algorithm %s", info.Family, name)
@@ -272,4 +309,3 @@ func init() {
 		builtinAlgorithms[name] = struct{}{}
 	}
 }
-

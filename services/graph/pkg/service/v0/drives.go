@@ -433,6 +433,10 @@ func (g Graph) CreateDrive(w http.ResponseWriter, r *http.Request) {
 		csr.Opaque = utils.AppendPlainToOpaque(csr.Opaque, "description", *drive.Description)
 	}
 
+	if drive.LibreGraphContentType != nil {
+		csr.Opaque = utils.AppendPlainToOpaque(csr.Opaque, "contentType", *drive.LibreGraphContentType)
+	}
+
 	if drive.DriveAlias != nil {
 		csr.Opaque = utils.AppendPlainToOpaque(csr.Opaque, "spaceAlias", *drive.DriveAlias)
 	}
@@ -560,6 +564,10 @@ func (g Graph) UpdateDrive(w http.ResponseWriter, r *http.Request) {
 
 	if drive.Description != nil {
 		updateSpaceRequest.StorageSpace.Opaque = utils.AppendPlainToOpaque(updateSpaceRequest.StorageSpace.Opaque, "description", *drive.Description)
+	}
+
+	if drive.LibreGraphContentType != nil {
+		updateSpaceRequest.StorageSpace.Opaque = utils.AppendPlainToOpaque(updateSpaceRequest.StorageSpace.Opaque, "contentType", *drive.LibreGraphContentType)
 	}
 
 	if drive.DriveAlias != nil {
@@ -827,6 +835,10 @@ func (g Graph) cs3StorageSpaceToDrive(ctx context.Context, baseURL *url.URL, spa
 	if space.Opaque != nil {
 		if description, ok := space.Opaque.Map["description"]; ok {
 			drive.Description = libregraph.PtrString(string(description.Value))
+		}
+
+		if contentType, ok := space.Opaque.Map["contentType"]; ok {
+			drive.LibreGraphContentType = libregraph.PtrString(string(contentType.Value))
 		}
 
 		if alias, ok := space.Opaque.Map["spaceAlias"]; ok {

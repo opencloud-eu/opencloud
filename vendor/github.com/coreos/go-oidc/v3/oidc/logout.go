@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -37,7 +38,7 @@ type LogoutToken struct {
 	Expiry time.Time
 	// Optional session ID claim ("sid").
 	//
-	// The exact semantics of session IDs very between identity providers. Use
+	// The exact semantics of session IDs vary between identity providers. Use
 	// your provider's documentation to determine what this correlates to and
 	// how it should be handled.
 	SessionID string
@@ -98,7 +99,7 @@ type logoutTokenJSON struct {
 //	}
 //	verifier := provider.Verifier(oidcConfig)
 //
-//	mux.HandleFunc("POST /logout", func(w http.ResponseWriter, r *http.Reequest) {
+//	mux.HandleFunc("POST /logout", func(w http.ResponseWriter, r *http.Request) {
 //		rawLogoutToken := r.PostFormValue("logout_token")
 //		if rawLogoutToken == "" {
 //			// ...
@@ -163,7 +164,7 @@ func (v *IDTokenVerifier) VerifyLogout(ctx context.Context, rawLogoutToken strin
 
 	if !v.config.SkipClientIDCheck {
 		if v.config.ClientID != "" {
-			if !contains(t.Audience, v.config.ClientID) {
+			if !slices.Contains(t.Audience, v.config.ClientID) {
 				return nil, fmt.Errorf("oidc: expected logout token audience %q got %q", v.config.ClientID, t.Audience)
 			}
 		} else {

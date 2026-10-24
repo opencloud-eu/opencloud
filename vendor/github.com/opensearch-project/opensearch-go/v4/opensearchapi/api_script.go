@@ -8,6 +8,7 @@ package opensearchapi
 
 import (
 	"context"
+	"net/http"
 )
 
 type scriptClient struct {
@@ -20,7 +21,7 @@ func (c scriptClient) Delete(ctx context.Context, req ScriptDeleteReq) (*ScriptD
 		data ScriptDeleteResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodDelete, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -33,7 +34,7 @@ func (c scriptClient) Put(ctx context.Context, req ScriptPutReq) (*ScriptPutResp
 		data ScriptPutResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodPut, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -46,7 +47,7 @@ func (c scriptClient) Get(ctx context.Context, req ScriptGetReq) (*ScriptGetResp
 		data ScriptGetResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -63,7 +64,7 @@ func (c scriptClient) Context(ctx context.Context, req *ScriptContextReq) (*Scri
 		data ScriptContextResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -80,7 +81,7 @@ func (c scriptClient) Language(ctx context.Context, req *ScriptLanguageReq) (*Sc
 		data ScriptLanguageResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -93,7 +94,7 @@ func (c scriptClient) PainlessExecute(ctx context.Context, req ScriptPainlessExe
 		data ScriptPainlessExecuteResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodPost, req, &data); err != nil {
 		return &data, err
 	}
 

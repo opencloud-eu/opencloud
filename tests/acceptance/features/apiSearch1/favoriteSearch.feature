@@ -114,7 +114,7 @@ Feature: search for favorites
     Then the HTTP status code should be "207"
     And the search result should contain "0" entries
 
-
+  @issue-3309
   Scenario: search for favorite files after deleting a file
     Given user "Alice" has uploaded file "filesForUpload/textfile.txt" to "textfile.txt"
     And user "Alice" has marked file "textfile.txt" as favorite from space "Personal"

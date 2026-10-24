@@ -8,55 +8,28 @@ import (
 	"github.com/antithesishq/antithesis-sdk-go/internal"
 )
 
-// TODO: Tracker is intended to prevent sending the same guidance
-// more than once.  In this case, we always send, so the tracker
-// is not presently used.
-type booleanGuidance struct {
-	n int
-}
+// TODO: Someday this tracker should also start deduplicating
+// guidance, but there are some complicated policy questions
+// to settle before we do that.
+type booleanGuidance struct{}
 
-type booleanGuidanceTracker map[string]*booleanGuidance
+// booleanGuidanceTracker keeps the per-id entries: a grow-only map with
+// stable keys, read on every rich-assert evaluation and written once per
+// guidance id.
+var booleanGuidanceTracker sync.Map // message key -> *booleanGuidance
 
-var (
-	boolean_guidance_tracker       booleanGuidanceTracker = make(booleanGuidanceTracker)
-	boolean_guidance_tracker_mutex sync.Mutex
-	boolean_guidance_info_mutex    sync.Mutex
-)
-
-func (tracker booleanGuidanceTracker) getTrackerEntry(messageKey string) *booleanGuidance {
-	var trackerEntry *booleanGuidance
-	var ok bool
-
-	if tracker == nil {
-		return nil
+func getBooleanGuidanceEntry(messageKey string) *booleanGuidance {
+	if entry, ok := booleanGuidanceTracker.Load(messageKey); ok {
+		return entry.(*booleanGuidance)
 	}
-
-	boolean_guidance_tracker_mutex.Lock()
-	defer boolean_guidance_tracker_mutex.Unlock()
-	if trackerEntry, ok = boolean_guidance_tracker[messageKey]; !ok {
-		trackerEntry = newBooleanGuidance()
-		tracker[messageKey] = trackerEntry
-	}
-
-	return trackerEntry
-}
-
-// Create a boolean guidance tracker
-func newBooleanGuidance() *booleanGuidance {
-	trackerInfo := booleanGuidance{}
-	return &trackerInfo
+	entry, _ := booleanGuidanceTracker.LoadOrStore(messageKey, &booleanGuidance{})
+	return entry.(*booleanGuidance)
 }
 
 func (tI *booleanGuidance) send_value(bgI *booleanGuidanceInfo) {
 	if tI == nil {
 		return
 	}
-
-	boolean_guidance_info_mutex.Lock()
-	defer boolean_guidance_info_mutex.Unlock()
-
-	// The tracker entry should be consulted to determine
-	// if this Guidance info has already been sent, or not.
 
 	emitBooleanGuidance(bgI)
 }

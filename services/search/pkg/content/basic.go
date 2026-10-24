@@ -3,9 +3,9 @@ package content
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/reva/v2/pkg/tags"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
@@ -54,7 +54,7 @@ func (b Basic) Extract(_ context.Context, ri *storageProvider.ResourceInfo) (Doc
 	}
 
 	if ri.Mtime != nil {
-		doc.Mtime = utils.TSToTime(ri.Mtime).UTC().Format(time.RFC3339Nano)
+		doc.Mtime = conversions.ToPointer(utils.TSToTime(ri.Mtime).UTC())
 	}
 
 	return doc, nil

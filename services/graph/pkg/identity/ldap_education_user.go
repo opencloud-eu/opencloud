@@ -25,7 +25,7 @@ func newEducationUserAttributeMap() educationUserAttributeMap {
 // CreateEducationUser creates a given education user in the identity backend.
 func (i *LDAP) CreateEducationUser(ctx context.Context, user libregraph.EducationUser) (*libregraph.EducationUser, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("CreateEducationUser")
+	logger.Debug().Msg("CreateEducationUser")
 	if !i.writeEnabled {
 		return nil, ErrReadOnly
 	}
@@ -51,13 +51,13 @@ func (i *LDAP) CreateEducationUser(ctx context.Context, user libregraph.Educatio
 	if err != nil {
 		return nil, err
 	}
-	return i.createEducationUserModelFromLDAP(e), nil
+	return i.createEducationUserModelFromLDAP(e)
 }
 
 // DeleteEducationUser deletes a given education user, identified by username or id, from the backend
 func (i *LDAP) DeleteEducationUser(ctx context.Context, nameOrID string) error {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("DeleteEducationUser")
+	logger.Debug().Msg("DeleteEducationUser")
 	if !i.writeEnabled {
 		return ErrReadOnly
 	}
@@ -77,7 +77,7 @@ func (i *LDAP) DeleteEducationUser(ctx context.Context, nameOrID string) error {
 // UpdateEducationUser applies changes to given education user, identified by username or id
 func (i *LDAP) UpdateEducationUser(ctx context.Context, nameOrID string, user libregraph.EducationUser) (*libregraph.EducationUser, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("UpdateEducationUser")
+	logger.Debug().Msg("UpdateEducationUser")
 	if !i.writeEnabled {
 		return nil, ErrReadOnly
 	}
@@ -180,7 +180,10 @@ func (i *LDAP) UpdateEducationUser(ctx context.Context, nameOrID string, user li
 		return nil, err
 	}
 
-	returnUser := i.createEducationUserModelFromLDAP(e)
+	returnUser, err := i.createEducationUserModelFromLDAP(e)
+	if err != nil {
+		return nil, err
+	}
 
 	// To avoid a ldap lookup for group membership, set the enabled flag to same as input value
 	// since this would have been updated with group membership from the input anyway.
@@ -194,14 +197,14 @@ func (i *LDAP) UpdateEducationUser(ctx context.Context, nameOrID string, user li
 // GetEducationUser implements the EducationBackend interface for the LDAP backend.
 func (i *LDAP) GetEducationUser(ctx context.Context, nameOrID string) (*libregraph.EducationUser, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("GetEducationUser")
+	logger.Debug().Msg("GetEducationUser")
 	e, err := i.getEducationUserByNameOrID(nameOrID)
 	if err != nil {
 		return nil, err
 	}
-	u := i.createEducationUserModelFromLDAP(e)
-	if u == nil {
-		return nil, ErrNotFound
+	u, err := i.createEducationUserModelFromLDAP(e)
+	if err != nil {
+		return nil, err
 	}
 	return u, nil
 }
@@ -219,7 +222,7 @@ func (i *LDAP) GetEducationUsers(ctx context.Context) ([]*libregraph.EducationUs
 
 func (i *LDAP) FilterEducationUsersByAttribute(ctx context.Context, attr, value string) ([]*libregraph.EducationUser, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx).With().Str("func", "FilterEducationUsersByAttribute").Logger()
-	logger.Debug().Str("backend", "ldap").Str("attribute", attr).Str("value", value).Msg("")
+	logger.Debug().Str("attribute", attr).Str("value", value).Msg("")
 
 	var ldapAttr string
 	switch attr {
@@ -251,7 +254,7 @@ func (i *LDAP) searchEducationUsers(ctx context.Context, filter string) ([]*libr
 		nil,
 	)
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").
+	logger.Debug().
 		Str("base", searchRequest.BaseDN).
 		Str("filter", searchRequest.Filter).
 		Int("scope", searchRequest.Scope).
@@ -266,12 +269,12 @@ func (i *LDAP) searchEducationUsers(ctx context.Context, filter string) ([]*libr
 
 	users := make([]*libregraph.EducationUser, 0, len(res.Entries))
 	for _, e := range res.Entries {
-		u := i.createEducationUserModelFromLDAP(e)
-		// Skip invalid LDAP users
-		if u == nil {
-			continue
+		if u, err := i.createEducationUserModelFromLDAP(e); u != nil && err == nil {
+			users = append(users, u)
+		} else {
+			// Skip invalid LDAP users
+			// TODO: is it really the best idea to silently skip education user LDAP data that is invalid, rather than returning an error?
 		}
-		users = append(users, u)
 	}
 	return users, nil
 }
@@ -288,7 +291,7 @@ func (i *LDAP) educationUserToUser(eduUser libregraph.EducationUser) *libregraph
 	return user
 }
 
-func (i *LDAP) userToEducationUser(user libregraph.User, e *ldap.Entry) *libregraph.EducationUser {
+func (i *LDAP) userToEducationUser(user libregraph.User, e *ldap.Entry) (*libregraph.EducationUser, error) {
 	eduUser := libregraph.NewEducationUser()
 	eduUser.Id = user.Id
 	eduUser.OnPremisesSamAccountName = &user.OnPremisesSamAccountName
@@ -310,7 +313,7 @@ func (i *LDAP) userToEducationUser(user libregraph.User, e *ldap.Entry) *libregr
 		}
 	}
 
-	return eduUser
+	return eduUser, nil
 }
 
 func (i *LDAP) educationUserToLDAPAttrValues(user libregraph.EducationUser, attrs ldapAttributeValues) (ldapAttributeValues, error) {
@@ -344,8 +347,11 @@ func (i *LDAP) educationUserToAddRequest(user libregraph.EducationUser) (*ldap.A
 	return ar, nil
 }
 
-func (i *LDAP) createEducationUserModelFromLDAP(e *ldap.Entry) *libregraph.EducationUser {
-	user := i.createUserModelFromLDAP(e)
+func (i *LDAP) createEducationUserModelFromLDAP(e *ldap.Entry) (*libregraph.EducationUser, error) {
+	user, err := i.createUserModelFromLDAP(e)
+	if err != nil {
+		return nil, err
+	}
 	return i.userToEducationUser(*user, e)
 }
 
@@ -376,6 +382,12 @@ func (i *LDAP) getEducationUserByDN(dn string) (*ldap.Entry, error) {
 	return i.getEntryByDN(dn, i.getEducationUserAttrTypes(), filter)
 }
 
+// Retrieves a single education user from LDAP by its namd or id.
+//
+// It never returns nil for the *ldap.Entry:
+//   - if no object is found, it returns a ErrNotFound error
+//   - if more than one object is found, it returns a ErrTooManyResults error
+//   - if exactly one object is found, it returns that entry and no error
 func (i *LDAP) getEducationUserByNameOrID(nameOrID string) (*ldap.Entry, error) {
 	return i.getEducationObjectByNameOrID(
 		nameOrID,
@@ -388,12 +400,24 @@ func (i *LDAP) getEducationUserByNameOrID(nameOrID string) (*ldap.Entry, error) 
 	)
 }
 
+// Retrieves a single object from LDAP by its namd or id.
+//
+// It never returns nil for the *ldap.Entry:
+//   - if no object is found, it returns a ErrNotFound error
+//   - if more than one object is found, it returns a ErrTooManyResults error
+//   - if exactly one object is found, it returns that entry and no error
 func (i *LDAP) getEducationObjectByNameOrID(nameOrID, nameAttribute, idAttribute, objectFilter, objectClass, baseDN string, attributes []string) (*ldap.Entry, error) {
 	nameOrID = ldap.EscapeFilter(nameOrID)
 	filter := fmt.Sprintf("(|(%s=%s)(%s=%s))", nameAttribute, nameOrID, idAttribute, nameOrID)
 	return i.getEducationObjectByFilter(filter, baseDN, objectFilter, objectClass, attributes)
 }
 
+// Retrieves a single object from LDAP by a filter.
+//
+// It never returns nil for the *ldap.Entry:
+//   - if no object is found, it returns a ErrNotFound error
+//   - if more than one object is found, it returns a ErrTooManyResults error
+//   - if exactly one object is found, it returns that entry and no error
 func (i *LDAP) getEducationObjectByFilter(filter, baseDN, objectFilter, objectClass string, attributes []string) (*ldap.Entry, error) {
 	filter = fmt.Sprintf("(&%s(objectClass=%s)%s)", objectFilter, objectClass, filter)
 	return i.searchLDAPEntryByFilter(baseDN, attributes, filter)

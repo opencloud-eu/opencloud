@@ -26,7 +26,8 @@ const RFC3339NanoFixed = "2006-01-02T15:04:05.000000000Z07:00"
 type DisplayOpt func(*displayOpts) error
 
 type displayOpts struct {
-	auxCallback func(jsonstream.Message)
+	auxCallback    func(jsonstream.Message)
+	messagePrinter func(jsonstream.Message, io.Writer) error
 }
 
 // WithAuxCallback registers a callback that is invoked for auxiliary
@@ -35,6 +36,18 @@ type displayOpts struct {
 func WithAuxCallback(fn func(jsonstream.Message)) DisplayOpt {
 	return func(opts *displayOpts) error {
 		opts.auxCallback = fn
+		return nil
+	}
+}
+
+// WithMessagePrinter sets a custom printer for non-auxiliary messages.
+// If set, [DisplayStream] and [DisplayMessages] pass each message to fn instead
+// of using the default terminal-aware presentation. The caller is responsible
+// for handling errors reported through [jsonstream.Message.Error] and any
+// terminal handling, including progress rendering and terminal-width detection.
+func WithMessagePrinter(fn func(jsonstream.Message, io.Writer) error) DisplayOpt {
+	return func(opts *displayOpts) error {
+		opts.messagePrinter = fn
 		return nil
 	}
 }
@@ -128,7 +141,7 @@ func cursorDown(out io.Writer, l uint) {
 
 // Display prints the JSONMessage to out. If isTerminal is true, it erases
 // the entire current line when displaying the progressbar. It returns an
-// error if the [JSONMessage.Error] field is non-nil.
+// error if [jsonstream.Message.Error] is non-nil.
 func Display(jm jsonstream.Message, out io.Writer, isTerminal bool, width uint16) error {
 	if jm.Error != nil {
 		return jm.Error
@@ -232,13 +245,19 @@ func displayJSONMessages(messages iter.Seq2[jsonstream.Message, error], out io.W
 		}
 	}
 	auxCallback := cfg.auxCallback
+	messagePrinter := cfg.messagePrinter
 
-	ids := make(map[string]uint)
-	var width uint16 = 200
-	if isTerminal {
-		ws, err := term.GetWinsize(terminalFd)
-		if err == nil {
-			width = ws.Width
+	var (
+		ids   map[string]uint
+		width uint16 = 200
+	)
+	if messagePrinter == nil {
+		ids = make(map[string]uint)
+		if isTerminal {
+			ws, err := term.GetWinsize(terminalFd)
+			if err == nil {
+				width = ws.Width
+			}
 		}
 	}
 
@@ -251,6 +270,13 @@ func displayJSONMessages(messages iter.Seq2[jsonstream.Message, error], out io.W
 		if jm.Aux != nil {
 			if auxCallback != nil {
 				auxCallback(jm)
+			}
+			continue
+		}
+
+		if messagePrinter != nil {
+			if err := messagePrinter(jm, out); err != nil {
+				return err
 			}
 			continue
 		}

@@ -139,13 +139,13 @@ func behavior_to_guidance(behavior string) guidanceFnType {
 }
 
 func numericGuidanceImpl[T Number](left, right T, message, id string, loc *locationInfo, guidanceFn guidanceFnType, hit bool) {
-	tI := numeric_guidance_tracker.getTrackerEntry(id, gapTypeForOperand(left), uses_maximize(guidanceFn))
+	tI := getNumericGuidanceEntry(id, gapTypeForOperand(left), uses_maximize(guidanceFn))
 	gI := build_numeric_guidance(guidanceFn, message, left, right, loc, id, hit)
 	send_value_if_needed(tI, gI)
 }
 
 func booleanGuidanceImpl(named_bools []NamedBool, message, id string, loc *locationInfo, guidanceFn guidanceFnType, hit bool) {
-	tI := boolean_guidance_tracker.getTrackerEntry(id)
+	tI := getBooleanGuidanceEntry(id)
 	bgI := build_boolean_guidance(guidanceFn, message, named_bools, loc, id, hit)
 	tI.send_value(bgI)
 }
@@ -207,8 +207,27 @@ func add_boolean_details(details map[string]any, named_bools []NamedBool) map[st
 	return enhancedDetails
 }
 
+// Whether a numeric rich-assert evaluation can return before capturing its
+// location or building its details: the assertion side has already emitted
+// for this condition, and the guidance side does not improve the tracked
+// extremum. Both checks are lock-free loads. False while the guidance entry
+// does not exist, so the first evaluation still takes the full path.
+func numericRichAssertSettled[T Number](left, right T, message string, condition bool) bool {
+	if !trackerEmitted(message, condition) {
+		return false
+	}
+	entry, ok := numericGuidanceTracker.Load(message)
+	if !ok {
+		return false
+	}
+	return !entry.(*numericGuidanceInfo).improves(candidateGap(newOperands(left, right)))
+}
+
 // Equivalent to asserting Always(left > right, message, details). Information about left and right will automatically be added to the details parameter, with keys left and right. If you use this function for assertions that compare numeric quantities, you may help Antithesis find more bugs.
 func AlwaysGreaterThan[T Number](left, right T, message string, details map[string]any) {
+	if numericRichAssertSettled(left, right, message, left > right) {
+		return
+	}
 	loc := newLocationInfo(offsetAPICaller)
 	id := makeKey(message, loc)
 	condition := left > right
@@ -220,6 +239,9 @@ func AlwaysGreaterThan[T Number](left, right T, message string, details map[stri
 
 // Equivalent to asserting Always(left >= right, message, details). Information about left and right will automatically be added to the details parameter, with keys left and right. If you use this function for assertions that compare numeric quantities, you may help Antithesis find more bugs.
 func AlwaysGreaterThanOrEqualTo[T Number](left, right T, message string, details map[string]any) {
+	if numericRichAssertSettled(left, right, message, left >= right) {
+		return
+	}
 	loc := newLocationInfo(offsetAPICaller)
 	id := makeKey(message, loc)
 	condition := left >= right
@@ -231,6 +253,9 @@ func AlwaysGreaterThanOrEqualTo[T Number](left, right T, message string, details
 
 // Equivalent to asserting Sometimes(T left > T right, message, details). Information about left and right will automatically be added to the details parameter, with keys left and right. If you use this function for assertions that compare numeric quantities, you may help Antithesis find more bugs.
 func SometimesGreaterThan[T Number](left, right T, message string, details map[string]any) {
+	if numericRichAssertSettled(left, right, message, left > right) {
+		return
+	}
 	loc := newLocationInfo(offsetAPICaller)
 	id := makeKey(message, loc)
 	condition := left > right
@@ -242,6 +267,9 @@ func SometimesGreaterThan[T Number](left, right T, message string, details map[s
 
 // Equivalent to asserting Sometimes(T left >= T right, message, details). Information about left and right will automatically be added to the details parameter, with keys left and right. If you use this function for assertions that compare numeric quantities, you may help Antithesis find more bugs.
 func SometimesGreaterThanOrEqualTo[T Number](left, right T, message string, details map[string]any) {
+	if numericRichAssertSettled(left, right, message, left >= right) {
+		return
+	}
 	loc := newLocationInfo(offsetAPICaller)
 	id := makeKey(message, loc)
 	condition := left >= right
@@ -253,6 +281,9 @@ func SometimesGreaterThanOrEqualTo[T Number](left, right T, message string, deta
 
 // Equivalent to asserting Always(left < right, message, details). Information about left and right will automatically be added to the details parameter, with keys left and right. If you use this function for assertions that compare numeric quantities, you may help Antithesis find more bugs.
 func AlwaysLessThan[T Number](left, right T, message string, details map[string]any) {
+	if numericRichAssertSettled(left, right, message, left < right) {
+		return
+	}
 	loc := newLocationInfo(offsetAPICaller)
 	id := makeKey(message, loc)
 	condition := left < right
@@ -264,6 +295,9 @@ func AlwaysLessThan[T Number](left, right T, message string, details map[string]
 
 // Equivalent to asserting Always(left <= right, message, details). Information about left and right will automatically be added to the details parameter, with keys left and right. If you use this function for assertions that compare numeric quantities, you may help Antithesis find more bugs.
 func AlwaysLessThanOrEqualTo[T Number](left, right T, message string, details map[string]any) {
+	if numericRichAssertSettled(left, right, message, left <= right) {
+		return
+	}
 	loc := newLocationInfo(offsetAPICaller)
 	id := makeKey(message, loc)
 	condition := left <= right
@@ -275,6 +309,9 @@ func AlwaysLessThanOrEqualTo[T Number](left, right T, message string, details ma
 
 // Equivalent to asserting Sometimes(T left < T right, message, details). Information about left and right will automatically be added to the details parameter, with keys left and right. If you use this function for assertions that compare numeric quantities, you may help Antithesis find more bugs.
 func SometimesLessThan[T Number](left, right T, message string, details map[string]any) {
+	if numericRichAssertSettled(left, right, message, left < right) {
+		return
+	}
 	loc := newLocationInfo(offsetAPICaller)
 	id := makeKey(message, loc)
 	condition := left < right
@@ -286,6 +323,9 @@ func SometimesLessThan[T Number](left, right T, message string, details map[stri
 
 // Equivalent to asserting Sometimes(T left <= T right, message, details). Information about left and right will automatically be added to the details parameter, with keys left and right. If you use this function for assertions that compare numeric quantities, you may help Antithesis find more bugs.
 func SometimesLessThanOrEqualTo[T Number](left, right T, message string, details map[string]any) {
+	if numericRichAssertSettled(left, right, message, left <= right) {
+		return
+	}
 	loc := newLocationInfo(offsetAPICaller)
 	id := makeKey(message, loc)
 	condition := left <= right

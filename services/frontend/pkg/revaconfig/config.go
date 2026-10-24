@@ -15,6 +15,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/frontend/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
 // FrontendConfigFromStruct will adapt an OpenCloud config struct into a reva mapstructure to start a reva service.
@@ -153,12 +154,6 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 					"max_num_files": cfg.Archiver.MaxNumFiles,
 					"max_size":      cfg.Archiver.MaxSize,
 				},
-				"datagateway": map[string]any{
-					"prefix":                 cfg.DataGateway.Prefix,
-					"transfer_shared_secret": cfg.TransferSecret,
-					"timeout":                86400,
-					"insecure":               true,
-				},
 				"ocs": map[string]any{
 					"storage_registry_svc": cfg.Reva.Address,
 					"share_prefix":         cfg.OCS.SharePrefix,
@@ -296,13 +291,17 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 									"outgoing": cfg.EnableFederatedSharingOutgoing,
 									"incoming": cfg.EnableFederatedSharingIncoming,
 								},
+								"guest_links": map[string]any{
+									"enabled": cfg.Commons.EnableGuestLinks,
+								},
 							},
 							"spaces": map[string]any{
-								"version":    "1.0.0",
-								"enabled":    true,
-								"projects":   true,
-								"share_jail": true,
-								"max_quota":  cfg.MaxQuota,
+								"version":       "1.0.0",
+								"enabled":       true,
+								"projects":      true,
+								"share_jail":    true,
+								"max_quota":     cfg.MaxQuota,
+								"default_quota": parseQuota(cfg.DefaultQuota),
 							},
 							"theme": capabilities.Default().Theme,
 							"search": map[string]any{
@@ -331,7 +330,7 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 										"enabled": true,
 									},
 									"content": map[string]any{
-										"enabled": true,
+										"enabled": cfg.FullTextSearch,
 									},
 									"scope": map[string]any{
 										"enabled": true,
@@ -371,6 +370,9 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 					"insecure":         cfg.OCDav.Insecure,
 					"enable_http_tpc":  cfg.OCDav.EnableHTTPTPC,
 					"public_url":       cfg.OCDav.PublicURL,
+					// what oc:has-preview is answered from, the same set the
+					// webdav service attempts previews for
+					"preview_mime_types": thumbnail.NewSourceTypes(cfg.OCDav.Thumbnails.AdditionalSourceTypes).List(),
 					// still not supported
 					//"favorite_storage_driver":   unused,
 					//"favorite_storage_drivers":  unused,
@@ -446,4 +448,14 @@ func passwordPolicyConfig(cfg *config.Config) (map[string]any, error) {
 		"min_special_characters":   cfg.PasswordPolicy.MinSpecialCharacters,
 		"banned_passwords_list":    bannedPasswordsList,
 	}, nil
+}
+
+// parseQuota parses a quota in bytes the same way the graph service does.
+// Empty, invalid or negative values result in 0, which means no default quota.
+func parseQuota(quota string) uint64 {
+	q, err := strconv.ParseInt(quota, 10, 64)
+	if err != nil || q < 0 {
+		return 0
+	}
+	return uint64(q)
 }

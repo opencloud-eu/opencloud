@@ -261,5 +261,4 @@ Feature: tag search
       | (tag:mathe OR tag:klass10) NOT tag:physik | 2            | answers           | verification work |
       | tag:mathe NOT name:exercises              | 1            | answers           |                   |
       | tag:mathe AND NOT name:exercises          | 1            | answers           |                   |
-      # The third finding is the personal space itself
-      | NOT tag:mathe                             | 3            | verification work | withoutTagFolder  |
+      | NOT tag:mathe                             | 2            | verification work | withoutTagFolder  |

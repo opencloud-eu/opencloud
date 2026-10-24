@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // Aliases executes an /_aliases request with the required AliasesReq
@@ -20,7 +21,7 @@ func (c Client) Aliases(ctx context.Context, req AliasesReq) (*AliasesResp, erro
 		data AliasesResp
 		err  error
 	)
-	if data.response, err = c.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, &c, http.MethodPost, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -36,9 +37,9 @@ type AliasesReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r AliasesReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"POST",
+func (r AliasesReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_aliases",
 		r.Body,
 		r.Params.get(),

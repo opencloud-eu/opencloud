@@ -46,7 +46,7 @@ func NewIDSelectorRange(imin, imax int64) (Selector, error) {
 	var sel *C.FaissIDSelectorRange
 	c := C.faiss_IDSelectorRange_new(&sel, C.idx_t(imin), C.idx_t(imax))
 	if c != 0 {
-		return nil, getLastError()
+		return nil, newFaissError(ErrCreateSelectorFailed, getLastError(), int(c))
 	}
 	return &IDSelector{sel: (*C.FaissIDSelector)(sel)}, nil
 }
@@ -59,7 +59,7 @@ func NewIDSelectorBatch(indices []int64) (Selector, error) {
 		C.size_t(len(indices)),
 		(*C.idx_t)(&indices[0]),
 	); c != 0 {
-		return nil, getLastError()
+		return nil, newFaissError(ErrCreateSelectorFailed, getLastError(), int(c))
 	}
 	return &IDSelector{sel: (*C.FaissIDSelector)(sel)}, nil
 }
@@ -78,7 +78,7 @@ func NewIDSelectorBatchNot(exclude []int64) (Selector, error) {
 		batchSelector.Get(),
 	); c != 0 {
 		batchSelector.Delete()
-		return nil, getLastError()
+		return nil, newFaissError(ErrCreateSelectorFailed, getLastError(), int(c))
 	}
 	return &IDSelector{exclude: true,
 		sel:   (*C.FaissIDSelector)(sel),
@@ -98,7 +98,7 @@ func NewIDSelectorBitmap(bitmap []byte) (Selector, error) {
 		C.size_t(len(bitmap)),
 		(*C.uint8_t)(&bitmap[0]),
 	); c != 0 {
-		return nil, getLastError()
+		return nil, newFaissError(ErrCreateSelectorFailed, getLastError(), int(c))
 	}
 	return &IDSelector{sel: (*C.FaissIDSelector)(sel)}, nil
 }
@@ -120,7 +120,7 @@ func NewIDSelectorBitmapNot(bitmap []byte) (Selector, error) {
 		bitmapSelector.Get(),
 	); c != 0 {
 		bitmapSelector.Delete()
-		return nil, getLastError()
+		return nil, newFaissError(ErrCreateSelectorFailed, getLastError(), int(c))
 	}
 	return &IDSelector{exclude: true,
 		sel:   (*C.FaissIDSelector)(sel),

@@ -20,6 +20,35 @@ func NewMapper[K comparable, V any]() Mapper[K, V] {
 	return make(Mapper[K, V])
 }
 
+// NewMapperWithKeys creates a Mapper with the given keys and zero values
+func NewMapperWithKeys[K comparable, V any](keys ...K) Mapper[K, V] {
+	m := make(Mapper[K, V], len(keys))
+	for _, k := range keys {
+		m[k] = *new(V)
+	}
+	return m
+}
+
+// NewMapperFromPairs creates a Mapper from alternating key-value pairs
+func NewMapperFromPairs[K comparable, V any](pairs ...any) Mapper[K, V] {
+	m := make(Mapper[K, V])
+	for i := 0; i < len(pairs); i += 2 {
+		if i+1 >= len(pairs) {
+			break
+		}
+		k, ok := pairs[i].(K)
+		if !ok {
+			continue
+		}
+		v, ok := pairs[i+1].(V)
+		if !ok {
+			continue
+		}
+		m[k] = v
+	}
+	return m
+}
+
 // Get returns the value associated with the key.
 // If the key doesn't exist or the map is nil, it returns the zero value for the value type.
 func (m Mapper[K, V]) Get(key K) V {

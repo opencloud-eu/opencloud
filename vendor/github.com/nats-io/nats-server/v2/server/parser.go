@@ -1,4 +1,4 @@
-// Copyright 2012-2025 The NATS Authors
+// Copyright 2012-2026 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -181,14 +181,24 @@ func (c *client) parse(buf []byte) error {
 							s.mu.Lock()
 							user, exists := s.users[noAuthUser]
 							s.mu.Unlock()
-							// Enforce the same connection restrictions as CONNECT before allowing.
+							// Run the same authentication pipeline as CONNECT. In addition to
+							// the connection restrictions checked here, this delegates the
+							// decision to auth callouts or custom authenticators.
 							if exists && !user.ProxyRequired && c.connectionTypeAllowed(user.AllowedConnectionTypes) {
-								c.RegisterUser(user)
+								// Mirror processConnect: clear the auth-timeout timer and
+								// mark CONNECT received *before* authenticating. Auth may
+								// install a JWT/callout expiration timer into the same c.atmr
+								// slot, so clearing it afterwards would drop the expiration
+								// and leave the client connected past expiry. Setting
+								// connectReceived first also lets the expiration deadline be
+								// recorded on c.expires.
 								c.mu.Lock()
 								c.clearAuthTimer()
 								c.flags.set(connectReceived)
 								c.mu.Unlock()
-								authSet, ok = false, true
+								if s.checkAuthentication(c) {
+									authSet, ok = false, true
+								}
 							}
 						}
 					case LEAF:
@@ -681,12 +691,12 @@ func (c *client) parse(buf []byte) error {
 						if trace {
 							c.traceInOp("RS+", arg)
 						}
-						err = c.processRemoteSub(arg, false)
+						err = c.processRemoteSub(arg, false, false)
 					case 'L', 'l':
 						if trace {
 							c.traceInOp("LS+", arg)
 						}
-						err = c.processRemoteSub(arg, true)
+						err = c.processRemoteSub(arg, true, true)
 					}
 				case GATEWAY:
 					if trace {

@@ -225,16 +225,15 @@ Feature: add users to group
 
 
   Scenario: add multiple users to a group at once
-    Given the administrator has assigned the role "Admin" to user "Alice" using the Graph API
-    And these users have been created with default attributes:
+    Given these users have been created with default attributes:
       | username |
       | Brian    |
       | Carol    |
-    And user "Alice" has created a group "grp1" using the Graph API
-    When the administrator "Alice" adds the following users to a group "grp1" at once using the Graph API
-      | username |
-      | Brian    |
-      | Carol    |
+    And the administrator has created a group "grp1" using the Graph API
+    When the administrator adds the following users to the following groups using the Graph API
+      | username | groupname |
+      | Brian    | grp1      |
+      | Carol    | grp1      |
     Then the HTTP status code should be "204"
     And the following users should be listed in the following groups
       | username | groupname |

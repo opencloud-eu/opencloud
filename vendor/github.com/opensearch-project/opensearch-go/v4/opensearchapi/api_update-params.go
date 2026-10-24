@@ -41,7 +41,7 @@ type UpdateParams struct {
 	RequireAlias        *bool
 	RetryOnConflict     *int
 	Routing             string
-	Source              interface{}
+	Source              any
 	SourceExcludes      []string
 	SourceIncludes      []string
 	Timeout             time.Duration

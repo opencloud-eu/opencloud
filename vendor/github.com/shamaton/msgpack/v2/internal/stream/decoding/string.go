@@ -41,7 +41,7 @@ func (d *decoder) stringByteLength(code byte, k reflect.Kind) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		return int(binary.BigEndian.Uint32(b)), nil
+		return lengthFromUint32(binary.BigEndian.Uint32(b))
 	} else if code == def.Nil {
 		return 0, nil
 	}

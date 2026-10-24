@@ -91,8 +91,7 @@ func WopiContextAuthMiddleware(cfg *config.Config, st microstore.Store, next htt
 
 		claims := &Claims{}
 		_, err := jwt.ParseWithClaims(accessToken, claims, func(token *jwt.Token) (any, error) {
-
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			if token.Method != jwt.SigningMethodHS256 {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
 
@@ -128,6 +127,17 @@ func WopiContextAuthMiddleware(cfg *config.Config, st microstore.Store, next htt
 		}
 
 		claims.WopiContext.AccessToken = wopiContextAccessToken
+
+		// encrypted in GenerateWopiToken, only set for view only shares
+		if claims.WopiContext.ViewOnlyToken != "" {
+			wopiContextViewOnlyToken, err := DecryptAES([]byte(cfg.Wopi.Secret), claims.WopiContext.ViewOnlyToken)
+			if err != nil {
+				wopiLogger.Error().Err(err).Msg("failed to decrypt view only token")
+				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+				return
+			}
+			claims.WopiContext.ViewOnlyToken = wopiContextViewOnlyToken
+		}
 
 		ctx = context.WithValue(ctx, wopiContextKey, claims.WopiContext)
 		// authentication for the CS3 api
@@ -203,9 +213,24 @@ func GenerateWopiToken(wopiContext WopiContext, cfg *config.Config, st microstor
 		return "", 0, err
 	}
 
+	// impersonates the owner, and the wopi token payload is readable
+	if wopiContext.ViewOnlyToken != "" {
+		cryptedViewOnlyToken, err := EncryptAES([]byte(cfg.Wopi.Secret), wopiContext.ViewOnlyToken)
+		if err != nil {
+			return "", 0, err
+		}
+		wopiContext.ViewOnlyToken = cryptedViewOnlyToken
+	}
+
+	// the wopi token inherits this expiry, so verify instead of just decoding
 	cs3Claims := &jwt.RegisteredClaims{}
-	cs3JWTparser := jwt.Parser{}
-	_, _, err = cs3JWTparser.ParseUnverified(wopiContext.AccessToken, cs3Claims)
+	_, err = jwt.ParseWithClaims(wopiContext.AccessToken, cs3Claims, func(token *jwt.Token) (any, error) {
+		if token.Method != jwt.SigningMethodHS256 {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+
+		return []byte(cfg.TokenManager.JWTSecret), nil
+	})
 	if err != nil {
 		return "", 0, err
 	}
@@ -249,7 +274,10 @@ func parseWopiFileID(cfg *config.Config, path string) string {
 	}
 	// check if the fileid is a jwt
 	if strings.Contains(s[3], ".") {
-		token, err := jwt.Parse(s[3], func(_ *jwt.Token) (any, error) {
+		token, err := jwt.Parse(s[3], func(token *jwt.Token) (any, error) {
+			if token.Method != jwt.SigningMethodHS256 {
+				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			}
 			return []byte(cfg.Wopi.ProxySecret), nil
 		})
 		if err != nil {

@@ -9,6 +9,7 @@ This document contains a list of maintainers in this repo. See [opensearch-proje
 | Jakob Hahn              | [Jakob3xD](https://github.com/Jakob3xD)   | Hetzner Online GmbH |
 | Vacha Shah              | [VachaShah](https://github.com/VachaShah) | Amazon              |
 | Vijayan Balasubramanian | [VijayanB](https://github.com/VijayanB)   | Amazon              |
+| Sean Chittenden         | [sean-](https://github.com/sean-)         | CrowdStrike              |
 
 ## Emeritus
 

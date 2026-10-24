@@ -1,10 +1,15 @@
 package command
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/test-go/testify/require"
+	"github.com/vmihailenco/msgpack/v5"
+
+	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
 )
 
 func TestBuildInfo(t *testing.T) {
@@ -74,6 +79,22 @@ func TestBuildInfo(t *testing.T) {
 			require.Equal(t, expectedInfo, buildInfo(filter))
 		})
 	}
+}
+
+func TestDeleteStaleNodesHonoursMetadataPrefix(t *testing.T) {
+	root := t.TempDir()
+	nodePath := filepath.Join(root, "spaces", "ab", "cdef", "nodes", "12", "34", "56", "78", "-9abc")
+	require.NoError(t, os.MkdirAll(filepath.Dir(nodePath), 0700))
+
+	b, err := msgpack.Marshal(map[string][]byte{"user.foreign.nodestatus": []byte("processing:upload-1")})
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(nodePath+".mpk", b, 0600))
+
+	// the prefix is process wide, this test fixes it for the whole package
+	cfg := &config.Config{Drivers: config.Drivers{Decomposed: config.DecomposedDriver{Root: root, MetadataPrefix: "user.foreign."}}}
+	cmd := DeleteStaleProcessingNodes(cfg)
+	require.NoError(t, cmd.RunE(cmd, nil))
+	require.Equal(t, 1, deleteStaleNode(cfg, nodePath+".mpk", true, false, nil))
 }
 
 func boolPtr(b bool) *bool {

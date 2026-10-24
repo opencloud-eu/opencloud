@@ -100,17 +100,39 @@ Feature: Search
   @issue-10329
   Scenario Outline: user can search hidden files
     Given using <dav-path-version> DAV path
-    And user "Alice" has created a folder ".space" in space "project101"
-    When user "Alice" searches for "*.sp*" using the WebDAV API
+    And user "Alice" has created a folder ".hidden" in space "project101"
+    When user "Alice" searches for "*.hid*" using the WebDAV API
     Then the HTTP status code should be "207"
     And the search result should contain "1" entries
     And the search result of user "Alice" should contain these entries:
-      | /.space |
+      | /.hidden |
     Examples:
       | dav-path-version |
       | old              |
       | new              |
       | spaces           |
+
+
+  Scenario Outline: user cannot search the .space folder of a space
+    Given using <dav-path-version> DAV path
+    And user "Alice" has created a folder ".space" in space "project101"
+    When user "Alice" searches for "*.sp*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result should contain "0" entries
+    Examples:
+      | dav-path-version |
+      | old              |
+      | new              |
+      | spaces           |
+
+
+  Scenario: user cannot search files inside the .space folder of a space
+    Given using spaces DAV path
+    And user "Alice" has created a folder ".space" in space "project101"
+    And user "Alice" has uploaded a file inside space "project101" with content "hidden content" to ".space/spaceInternal.txt"
+    When user "Alice" searches for "*spaceInternal*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result should contain "0" entries
 
 
   Scenario Outline: user cannot search pending share
@@ -326,7 +348,7 @@ Feature: Search
     And user "Alice" has uploaded file with content "test file" to "testFile.txt"
     When user "Alice" searches for 'AND mediatype:document' using the WebDAV API
     Then the HTTP status code should be "400"
-    And the value of the item "/d:error/s:message" in the response should be "error: bad request: the expression can't begin from a binary operator: 'AND'"
+    And the value of the item "/d:error/s:message" in the response should be "error: bad request: the operator 'AND' is missing an operand"
 
   @issue-10329
   Scenario Outline: search a file globally (in all spaces)
@@ -409,7 +431,7 @@ Feature: Search
       | new              |
       | spaces           |
 
-  @issue-4712 @issue-9780 @issue-9781 @issue-9783 @issue-10329
+  @skip @issue-3501 @issue-9780
   Scenario Outline: report extra properties in search entries for a file
     Given using <dav-path-version> DAV path
     When user "Alice" searches for "*insideTheFo*" using the WebDAV API requesting these properties:
@@ -438,7 +460,7 @@ Feature: Search
       | new              |
       | spaces           |
 
-  @issue-4712 @issue-9780 @issue-9781 @issue-9783 @issue-10329
+  @skip @issue-3501 @issue-9780
   Scenario Outline: report extra properties in search entries for a folder
     Given using <dav-path-version> DAV path
     When user "Alice" searches for "*folderMain*" using the WebDAV API requesting these properties:
@@ -465,3 +487,100 @@ Feature: Search
       | old              |
       | new              |
       | spaces           |
+
+  @issue-internal-326
+  Scenario Outline: deleting a resource in one space does not remove identically-named paths from other spaces from the search index
+    Given user "Alice" has created a folder "foo" in space "Personal"
+    And user "Alice" has uploaded a file inside space "Personal" with content "alice content" to "foo/alice-file.txt"
+    And user "Brian" has created a folder "foo" in space "Personal"
+    And user "Brian" has uploaded a file inside space "Personal" with content "brian content" to "foo/brian-file.txt"
+    And user "Brian" has removed the folder "foo" from space "Personal"
+    And using <dav-path-version> DAV path
+    When user "Alice" searches for "*file.txt*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result should contain "1" entries
+    And the search result of user "Alice" should contain these entries:
+      | alice-file.txt |
+    Examples:
+      | dav-path-version |
+      | old              |
+      | new              |
+      | spaces           |
+
+  @issue-internal-326
+  Scenario Outline: deleting a resource in one project space does not remove identically-named paths from other project spaces from the search index
+    Given user "Alice" has created a space "project-1" with the default quota using the Graph API
+    And user "Alice" has created a folder "folderMain/folder" in space "project-1"
+    And user "Alice" has removed the folder "folderMain" from space "project-1"
+    And using <dav-path-version> DAV path
+    When user "Alice" searches for "*insideTheFolder*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result should contain "1" entries
+    And the search result of user "Alice" should contain these entries:
+      | insideTheFolder.txt |
+    Examples:
+      | dav-path-version |
+      | old              |
+      | new              |
+      | spaces           |
+
+  @issue-internal-326
+  Scenario: purging a trashed folder keeps an identically-named live folder at the same path in the search index
+    Given using spaces DAV path
+    And user "Alice" has created a folder "foo" in space "Personal"
+    And user "Alice" has uploaded a file inside space "Personal" with content "trashed content" to "foo/trashed-file.txt"
+    And user "Alice" has removed the folder "foo" from space "Personal"
+    And user "Alice" has created a folder "foo" in space "Personal"
+    And user "Alice" has uploaded a file inside space "Personal" with content "live content" to "foo/live-file.txt"
+    And user "Alice" has deleted the folder with original path "foo" from the trashbin
+    When user "Alice" searches for "*-file.txt*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result should contain "1" entries
+    And the search result of user "Alice" should contain these entries:
+      | live-file.txt |
+    But the search result of user "Alice" should not contain these entries:
+      | trashed-file.txt |
+
+
+  Scenario: searching for a folder after moving it in one space but not the other
+    Given using spaces DAV path
+    And user "Alice" has created a folder "foo" in space "Personal"
+    And user "Brian" has created a folder "foo" in space "Personal"
+    And user "Alice" has moved folder "foo" to "bar" in space "Personal"
+    When user "Brian" searches for "*foo*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result should contain "1" entries
+    And the search result of user "Brian" should contain these entries:
+      | foo |
+
+
+  Scenario: searching for a file after removing its folder in one space but not the other
+    Given using spaces DAV path
+    And user "Alice" has created a space "project-a" with the default quota using the Graph API
+    And user "Alice" has created a space "project-b" with the default quota using the Graph API
+    And user "Alice" has created a folder "foo" in space "project-a"
+    And user "Alice" has created a folder "foo" in space "project-b"
+    And user "Alice" has uploaded a file inside space "project-a" with content "a content" to "foo/file-a.txt"
+    And user "Alice" has uploaded a file inside space "project-b" with content "b content" to "foo/file-b.txt"
+    And user "Alice" has removed the folder "foo" from space "project-a"
+    When user "Alice" searches for "*file*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result should contain "1" entries
+    And the search result of user "Alice" should contain these entries:
+      | file-b.txt |
+
+
+  Scenario: a deleted space leaves the search index
+    Given using spaces DAV path
+    And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
+    And user "Alice" has created a space "index-space" with the default quota using the Graph API
+    And user "Alice" has uploaded a file inside space "index-space" with content "some data" to "inSpace.txt"
+    When user "Alice" searches for "*inSpace*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result of user "Alice" should contain these entries:
+      | inSpace.txt |
+    When user "Alice" has disabled a space "index-space"
+    And user "Alice" has deleted a space "index-space"
+    And user "Alice" searches for "*inSpace*" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result should contain "0" entries

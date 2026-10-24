@@ -28,7 +28,7 @@ func Server(opts ...Option) (*http.Server, error) {
 		options.Config.Events.TLSRootCACertificate,
 	)
 	readyHandlerConfiguration := healthHandlerConfiguration.
-		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Endpoint, secureOption))
+		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Endpoint, secureOption, nats.Auth(options.Config.Events.AuthUsername, options.Config.Events.AuthPassword)))
 
 	var configDumpFunc http.HandlerFunc = configDump(options.Config)
 	return debug.NewService(

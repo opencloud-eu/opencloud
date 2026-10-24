@@ -44,13 +44,13 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/mime"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx/metrics"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/internal/goroutinelock"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/ace"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/grants"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/pkg/errors"
-	"github.com/rogpeppe/go-internal/lockedfile"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -89,6 +89,7 @@ const (
 // Blobstore defines an interface for storing blobs in a blobstore
 type Blobstore interface {
 	Upload(node *Node, source, copyTarget string) error
+	UploadFromReader(node *Node, r io.Reader, size int64) error
 	Download(node *Node) (io.ReadCloser, error)
 	Delete(node *Node) error
 }
@@ -133,13 +134,14 @@ type Tree interface {
 	RestoreRevision(ctx context.Context, source, target metadata.MetadataNode, mtime time.Time) (err error)
 
 	WriteBlob(node *Node, source string) error
+	WriteBlobFromReader(node *Node, r io.Reader, size int64) error
 	ReadBlob(node *Node) (io.ReadCloser, error)
 	DeleteBlob(node *Node) error
 
 	BuildSpaceIDIndexEntry(spaceID string) string
 	ResolveSpaceIDIndexEntry(spaceID string) (string, error)
 
-	CreateRevision(ctx context.Context, n *Node, version string, f *lockedfile.File) (string, error)
+	CreateRevision(ctx context.Context, n *Node, version string) (string, error)
 	ListRevisions(ctx context.Context, ref *provider.Reference) ([]*provider.FileVersion, error)
 	DownloadRevision(ctx context.Context, ref *provider.Reference, revisionKey string, openReaderFunc func(md *provider.ResourceInfo) bool) (*provider.ResourceInfo, io.ReadCloser, error)
 
@@ -166,8 +168,7 @@ type PathLookup interface {
 	MetadataBackend() metadata.Backend
 	TimeManager() TimeManager
 	ReadBlobIDAndSizeAttr(ctx context.Context, n metadata.MetadataNode, attrs Attributes) (string, int64, error)
-	CopyMetadataWithSourceLock(ctx context.Context, sourceNode, targetNode metadata.MetadataNode, filter func(attributeName string, value []byte) (newValue []byte, copy bool), lockedSource *lockedfile.File, acquireTargetLock bool) (err error)
-	CopyMetadata(ctx context.Context, sourceNode, targetNode metadata.MetadataNode, filter func(attributeName string, value []byte) (newValue []byte, copy bool), acquireTargetLock bool) (err error)
+	CopyMetadata(ctx context.Context, sourceNode, targetNode metadata.MetadataNode, filter func(attributeName string, value []byte) (newValue []byte, copy bool)) (err error)
 
 	PurgeNode(n *Node) error
 }
@@ -180,6 +181,12 @@ type IDCacher interface {
 type BaseNode struct {
 	SpaceID string
 	ID      string
+
+	// lock records which goroutine (if any) holds this node's metadata lock, so the
+	// metadata backend must not (re-)acquire it when reading attributes. Ownership is
+	// scoped to the acquiring goroutine: a node leaked into another goroutine reports
+	// LockHeld() == false there and takes its own lock rather than riding a stale flag.
+	lock goroutinelock.Lock
 
 	lu             PathLookup
 	internalPathID string
@@ -196,6 +203,19 @@ func NewBaseNode(spaceID, nodeID string, lu PathLookup) *BaseNode {
 
 func (n *BaseNode) GetSpaceID() string { return n.SpaceID }
 func (n *BaseNode) GetID() string      { return n.ID }
+
+// LockHeld reports whether the calling goroutine holds this node's metadata lock.
+func (n *BaseNode) LockHeld() bool { return n.lock.Held() }
+
+// SetLockHeld records whether the calling goroutine holds this node's metadata
+// lock
+func (n *BaseNode) SetLockHeld(held bool) {
+	if held {
+		n.lock.Hold()
+		return
+	}
+	n.lock.Release()
+}
 
 // InternalPath returns the internal path of the Node
 func (n *BaseNode) InternalPath() string {
@@ -355,15 +375,15 @@ func LockAndReadNode(ctx context.Context, lu PathLookup, spaceID, nodeID, intern
 	ctx, span := tracer.Start(ctx, "LockAndReadNode")
 	defer span.End()
 
-	_, subspan := tracer.Start(ctx, "lockedfile.OpenFile")
+	_, subspan := tracer.Start(ctx, "MetadataBackend.Lock")
 	bn := NewBaseNode(spaceID, nodeID, lu)
-	unlock, r, err := lu.MetadataBackend().LockAndRead(bn)
+	unlock, err := lu.MetadataBackend().Lock(bn)
 	subspan.End()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	n, err := readNode(ctx, lu, spaceID, nodeID, internalPath, canListDisabledSpace, spaceRoot, skipParentCheck, r)
+	n, err := readNode(ctx, lu, spaceID, nodeID, internalPath, canListDisabledSpace, spaceRoot, skipParentCheck, true)
 	if err != nil {
 		_ = unlock()
 		return nil, nil, err
@@ -373,17 +393,22 @@ func LockAndReadNode(ctx context.Context, lu PathLookup, spaceID, nodeID, intern
 		return n, nil, errtypes.NotFound(filepath.Join(n.ParentID, n.Name))
 	}
 
-	return n, unlock, nil
+	n.SetLockHeld(true)
+	return n, func() error {
+		n.SetLockHeld(false)
+		return unlock()
+	}, nil
 }
 
 // ReadNode creates a new instance from an id and checks if it exists
 func ReadNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath string, canListDisabledSpace bool, spaceRoot *Node, skipParentCheck bool) (*Node, error) {
-	return readNode(ctx, lu, spaceID, nodeID, internalPath, canListDisabledSpace, spaceRoot, skipParentCheck, nil)
+	return readNode(ctx, lu, spaceID, nodeID, internalPath, canListDisabledSpace, spaceRoot, skipParentCheck, false)
 }
 
-// readNode reads a node by its id. If a reader is provided, it will be passed to the metadata backend to read the metadata.
-// This is useful when the caller already holds a lock to prevent deadlocks when reading the metadata.
-func readNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath string, canListDisabledSpace bool, spaceRoot *Node, skipParentCheck bool, r io.Reader) (*Node, error) {
+// readNode reads a node by its id. When alreadyLocked is true the caller already
+// holds the node's metadata lock, so the attributes are read without re-acquiring it
+// (which would dead-lock e.g. the hybrid backend).
+func readNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath string, canListDisabledSpace bool, spaceRoot *Node, skipParentCheck bool, alreadyLocked bool) (*Node, error) {
 	ctx, span := tracer.Start(ctx, "ReadNode")
 	defer span.End()
 	var err error
@@ -398,12 +423,15 @@ func readNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath 
 			},
 		}
 		spaceRoot.SpaceRoot = spaceRoot
+		if alreadyLocked && nodeID == spaceID {
+			spaceRoot.SetLockHeld(true)
+		}
 
 		// If we hold the lock on the space root itself, prime its attribute cache
 		// through the no-lock path so the owner/name/disabled reads below do not try
 		// to re-acquire the already-held lock and self-deadlock.
-		if r != nil && nodeID == spaceID {
-			_, err = spaceRoot.XattrsWithReader(ctx, r)
+		if alreadyLocked && nodeID == spaceID {
+			_, err = spaceRoot.Xattrs(ctx)
 			switch {
 			case metadata.IsNotExist(err):
 				return spaceRoot, nil // swallow not found, the node defaults to exists = false
@@ -464,6 +492,9 @@ func readNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath 
 		},
 		SpaceRoot: spaceRoot,
 	}
+	if alreadyLocked {
+		n.SetLockHeld(true)
+	}
 	if internalPath != "" {
 		n.internalPath = internalPath
 	}
@@ -477,7 +508,7 @@ func readNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath 
 	}()
 
 	var attrs Attributes
-	attrs, err = n.XattrsWithReader(ctx, r)
+	attrs, err = n.Xattrs(ctx)
 	switch {
 	case metadata.IsNotExist(err):
 		return n, nil // swallow not found, the node defaults to exists = false
@@ -570,9 +601,9 @@ func (n *Node) Child(ctx context.Context, name string) (*Node, error) {
 	return readNode, nil
 }
 
-// ParentWithReader returns the parent node
-func (n *Node) ParentWithReader(ctx context.Context, r io.Reader) (*Node, error) {
-	_, span := tracer.Start(ctx, "ParentWithReader")
+// Parent returns the parent node
+func (n *Node) Parent(ctx context.Context) (*Node, error) {
+	_, span := tracer.Start(ctx, "Parent")
 	defer span.End()
 	if n.ParentID == "" {
 		return nil, fmt.Errorf("decomposedfs: root has no parent")
@@ -586,8 +617,7 @@ func (n *Node) ParentWithReader(ctx context.Context, r io.Reader) (*Node, error)
 		SpaceRoot: n.SpaceRoot,
 	}
 
-	// fill metadata cache using the reader
-	attrs, err := p.XattrsWithReader(ctx, r)
+	attrs, err := p.Xattrs(ctx)
 	switch {
 	case metadata.IsNotExist(err):
 		return p, nil // swallow not found, the node defaults to exists = false
@@ -600,11 +630,6 @@ func (n *Node) ParentWithReader(ctx context.Context, r io.Reader) (*Node, error)
 	p.ParentID = attrs.String(prefixes.ParentidAttr)
 
 	return p, err
-}
-
-// Parent returns the parent node
-func (n *Node) Parent(ctx context.Context) (p *Node, err error) {
-	return n.ParentWithReader(ctx, nil)
 }
 
 // Owner returns the space owner
@@ -740,7 +765,7 @@ func (n *Node) SetMtimeString(ctx context.Context, mtime string) error {
 // SetMTime writes the UTC mtime to the extended attributes or removes the attribute if nil is passed
 func (n *Node) SetMtime(ctx context.Context, t *time.Time) (err error) {
 	if t == nil {
-		return n.RemoveXattr(ctx, prefixes.MTimeAttr, true)
+		return n.RemoveXattr(ctx, prefixes.MTimeAttr)
 	}
 	return n.SetXattrString(ctx, prefixes.MTimeAttr, t.UTC().Format(time.RFC3339Nano))
 }
@@ -780,7 +805,7 @@ func (n *Node) SetFavorite(ctx context.Context, uid *userpb.UserId) error {
 func (n *Node) UnsetFavorite(ctx context.Context, uid *userpb.UserId) error {
 	// the favorite flag is specific to the user, so we need to incorporate the userid
 	fa := prefixes.FavoriteKey(uid)
-	return n.RemoveXattr(ctx, fa, true)
+	return n.RemoveXattr(ctx, fa)
 }
 
 // IsDir returns true if the node is a directory
@@ -941,6 +966,16 @@ func (n *Node) AsResourceInfo(ctx context.Context, rp *provider.ResourcePermissi
 				s.WriteString(strconv.Itoa(int(t)))
 			}
 			ri.Opaque = utils.AppendPlainToOpaque(ri.Opaque, "share-types", s.String())
+		}
+	}
+
+	// grants on the node and its ancestors, which tell who has access to it through a share.
+	// Only service accounts get them, users must not learn about grants on ancestors.
+	if _, ok := fieldMaskKeysMap[utils.AncestorGrantsKey]; ok && isServiceAccount(ctx) {
+		if grants, err := n.ancestorGrants(ctx); err != nil {
+			sublog.Error().Err(err).Msg("could not read ancestor grants")
+		} else if ri.Opaque, err = utils.AppendGrantsToOpaque(ri.Opaque, utils.AncestorGrantsKey, grants); err != nil {
+			sublog.Error().Err(err).Msg("could not add ancestor grants")
 		}
 	}
 
@@ -1117,7 +1152,7 @@ func (n *Node) SetChecksum(ctx context.Context, csType string, h hash.Hash) (err
 
 // UnsetTempEtag removes the temporary etag attribute
 func (n *Node) UnsetTempEtag(ctx context.Context) (err error) {
-	return n.RemoveXattr(ctx, prefixes.TmpEtagAttr, true)
+	return n.RemoveXattr(ctx, prefixes.TmpEtagAttr)
 }
 
 func isGrantExpired(g *provider.Grant) bool {
@@ -1215,7 +1250,7 @@ func (n *Node) IsDenied(ctx context.Context) bool {
 	isExecutant := func(g *provider.Grantee) bool {
 		switch g.GetType() {
 		case provider.GranteeType_GRANTEE_TYPE_USER:
-			return g.GetUserId().GetOpaqueId() == u.GetId().GetOpaqueId()
+			return utils.UserIDEqual(g.GetUserId(), u.GetId())
 		case provider.GranteeType_GRANTEE_TYPE_GROUP:
 			// check gid
 			gid := g.GetGroupId().GetOpaqueId()
@@ -1277,17 +1312,22 @@ func (n *Node) ReadGrant(ctx context.Context, grantee string) (g *provider.Grant
 	return e.Grant(), nil
 }
 
-// ReadGrant reads a CS3 grant
-func (n *Node) DeleteGrant(ctx context.Context, g *provider.Grant, acquireLock bool) (err error) {
+// DeleteGrant reads a CS3 grant
+func (n *Node) DeleteGrant(ctx context.Context, g *provider.Grant) (err error) {
 
 	var attr string
-	if g.Grantee.Type == provider.GranteeType_GRANTEE_TYPE_GROUP {
+	switch g.Grantee.Type {
+	case provider.GranteeType_GRANTEE_TYPE_GROUP:
 		attr = prefixes.GrantGroupAcePrefix + g.Grantee.GetGroupId().OpaqueId
-	} else {
-		attr = prefixes.GrantUserAcePrefix + g.Grantee.GetUserId().OpaqueId
+	case provider.GranteeType_GRANTEE_TYPE_USER:
+		attr = prefixes.GrantPrefix + ace.UserAce(g.Grantee.GetUserId())
+	default:
+		// Note: We shouldn't actually get here as this is already caught in the upper
+		// layers (e.g. the storage provider)
+		return errors.New("grantee type is invalid")
 	}
 
-	if err = n.RemoveXattr(ctx, attr, acquireLock); err != nil {
+	if err = n.RemoveXattr(ctx, attr); err != nil {
 		return err
 	}
 
@@ -1296,7 +1336,12 @@ func (n *Node) DeleteGrant(ctx context.Context, g *provider.Grant, acquireLock b
 
 // Purge removes a node from disk. It does not move it to the trash
 func (n *Node) Purge(ctx context.Context) error {
-	return n.lu.PurgeNode(n)
+	if err := n.lu.PurgeNode(n); err != nil {
+		return err
+	}
+
+	// remove .mpk and .mlock files
+	return n.lu.MetadataBackend().Purge(ctx, n)
 }
 
 // ListGrants lists all grants of the current node.
@@ -1330,7 +1375,7 @@ func (n *Node) getGranteeTypes(ctx context.Context) []provider.GranteeType {
 		hasUserShares, hasGroupShares := false, false
 		for i := range g {
 			switch {
-			case !hasUserShares && strings.HasPrefix(g[i], prefixes.GrantUserAcePrefix):
+			case !hasUserShares && (strings.HasPrefix(g[i], prefixes.GrantUserAcePrefix) || strings.HasPrefix(g[i], prefixes.GrantMailAcePrefix)):
 				hasUserShares = true
 			case !hasGroupShares && strings.HasPrefix(g[i], prefixes.GrantGroupAcePrefix):
 				hasGroupShares = true
@@ -1346,6 +1391,33 @@ func (n *Node) getGranteeTypes(ctx context.Context) []provider.GranteeType {
 		}
 	}
 	return types
+}
+
+// ancestorGrants returns the active grants on the node and all its ancestors. The grants on the
+// space root are not included, they are the space memberships.
+func (n *Node) ancestorGrants(ctx context.Context) ([]*provider.Grant, error) {
+	grants := []*provider.Grant{}
+	for cn := n; !cn.IsSpaceRoot(ctx); {
+		gs, err := cn.ListGrants(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, g := range gs {
+			if !isGrantExpired(g) {
+				grants = append(grants, g)
+			}
+		}
+
+		if cn, err = cn.Parent(ctx); err != nil {
+			return nil, err
+		}
+	}
+	return grants, nil
+}
+
+func isServiceAccount(ctx context.Context) bool {
+	u, ok := ctxpkg.ContextGetUser(ctx)
+	return ok && u.GetId().GetType() == userpb.UserType_USER_TYPE_SERVICE
 }
 
 // FindStorageSpaceRoot calls n.Parent() and climbs the tree
@@ -1379,7 +1451,7 @@ func (n *Node) UnmarkProcessing(ctx context.Context, uploadID string) error {
 		// file started another postprocessing later - do not remove
 		return nil
 	}
-	return n.RemoveXattr(ctx, prefixes.StatusPrefix, true)
+	return n.RemoveXattr(ctx, prefixes.StatusPrefix)
 }
 
 // IsProcessing returns true if the node is currently being processed
@@ -1404,7 +1476,7 @@ func (n *Node) SetScanData(ctx context.Context, info string, date time.Time) err
 	attribs := Attributes{}
 	attribs.SetString(prefixes.ScanStatusPrefix, info)
 	attribs.SetString(prefixes.ScanDatePrefix, date.Format(time.RFC3339Nano))
-	return n.SetXattrsWithContext(ctx, attribs, true)
+	return n.SetXattrsWithContext(ctx, attribs)
 }
 
 // ScanData returns scanning information of the node
@@ -1521,6 +1593,173 @@ func (n *Node) GetDTime(ctx context.Context) (time.Time, error) {
 // SetDTime writes the UTC dmtime to the extended attributes or removes the attribute if nil is passed
 func (n *Node) SetDTime(ctx context.Context, t *time.Time) (err error) {
 	return n.lu.TimeManager().SetDTime(ctx, n, t)
+}
+
+// RevertUpload reverts the upload that created the given revision: it
+// restores the revision onto the node and removes the revision, including its
+// metadata sidecars. The node's metadata lock is held for the duration of the
+// operation.
+func (n *Node) RevertUpload(ctx context.Context, versionID string) error {
+	if versionID == "" {
+		return errors.New("empty versionID")
+	}
+
+	unlock, err := n.lu.MetadataBackend().Lock(n)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = unlock()
+	}()
+
+	revisionNode := NewBaseNode(n.SpaceID, n.ID+RevisionIDDelimiter+versionID, n.lu)
+	revisionPath := revisionNode.InternalPath()
+	if _, err := os.Stat(revisionPath); err != nil {
+		appctx.GetLogger(ctx).Error().Str("versionpath", revisionPath).Err(err).Msg("revision does not exist")
+		return err
+	}
+
+	if err := n.lu.CopyMetadata(ctx, revisionNode, n, func(attributeName string, value []byte) (newValue []byte, copy bool) {
+		return value, strings.HasPrefix(attributeName, prefixes.ChecksumPrefix) ||
+			attributeName == prefixes.TypeAttr ||
+			attributeName == prefixes.BlobIDAttr ||
+			attributeName == prefixes.BlobsizeAttr ||
+			attributeName == prefixes.MTimeAttr
+	}); err != nil {
+		appctx.GetLogger(ctx).Info().Str("versionpath", revisionPath).Str("nodepath", n.InternalPath()).Err(err).Msg("restoring revision metadata failed")
+		return err
+	}
+
+	if err := os.RemoveAll(revisionPath); err != nil {
+		appctx.GetLogger(ctx).Info().Str("versionpath", revisionPath).Str("nodepath", n.InternalPath()).Err(err).Msg("error removing version")
+		return err
+	}
+
+	// remove the revision's metadata sidecars
+	if err := os.Remove(n.lu.MetadataBackend().MetadataPath(revisionNode)); err != nil {
+		appctx.GetLogger(ctx).Warn().Err(err).Str("versionpath", revisionPath).Msg("could not delete revision metadata, continuing")
+	}
+	if err := os.Remove(n.lu.MetadataBackend().LockfilePath(revisionNode)); err != nil {
+		appctx.GetLogger(ctx).Warn().Err(err).Str("versionpath", revisionPath).Msg("could not delete revision metadata lockfile, continuing")
+	}
+	if err := n.lu.MetadataBackend().Purge(ctx, revisionNode); err != nil {
+		appctx.GetLogger(ctx).Warn().Err(err).Str("versionpath", revisionPath).Msg("could not purge revision from cache, continuing")
+	}
+	return nil
+}
+
+// DeleteRevision deletes a revision of the node and returns the blob id of the
+// deleted revision, so that the caller can delete the blob. If versionID is
+// empty the node's current revision is deleted: the latest stored revision is
+// restored onto the node (or the node is purged when there is none) and the
+// processing flag is removed, unstalling the node. No blob is returned in that
+// case.
+func (n *Node) DeleteRevision(ctx context.Context, versionID string) (string, error) {
+	if versionID != "" {
+		return n.deleteRevision(ctx, n.ID+RevisionIDDelimiter+versionID)
+	}
+
+	revisionPath, err := n.getLatestRevision(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	if revisionPath == "" {
+		// there is no revision - delete the node
+		unlock, err := n.lu.MetadataBackend().Lock(n)
+		if err != nil {
+			return "", err
+		}
+		defer func() {
+			_ = unlock()
+		}()
+		if err := n.Purge(ctx); err != nil {
+			appctx.GetLogger(ctx).Info().Str("nodepath", n.InternalPath()).Err(err).Msg("error purging node")
+			return "", err
+		}
+		return "", nil
+	}
+
+	latestID := strings.TrimPrefix(revisionPath, n.lu.VersionPath(n.SpaceID, n.ID, ""))
+	if err := n.RevertUpload(ctx, latestID); err != nil {
+		return "", err
+	}
+
+	// we just deleted the current revision - remove processing flag if set
+	if uploadid, err := n.ProcessingID(ctx); err == nil {
+		return "", n.UnmarkProcessing(ctx, uploadid)
+	}
+	return "", nil
+}
+
+// deleteRevision deletes the revision node identified by revisionID (the node's
+// ID + RevisionIDDelimiter + timestamp) together with its metadata sidecars
+// and returns its blob id. It is a no-op if the revision does not exist.
+func (n *Node) deleteRevision(ctx context.Context, revisionID string) (string, error) {
+	log := appctx.GetLogger(ctx)
+
+	revisionNode := NewBaseNode(n.SpaceID, revisionID, n.lu)
+	revisionPath := revisionNode.InternalPath()
+	if _, err := os.Stat(revisionPath); err != nil {
+		log.Warn().Str("nodeid", n.ID).Str("revisionid", revisionID).Msg("revision does not exist, nothing to delete")
+		return "", nil
+	}
+
+	unlock, err := n.lu.MetadataBackend().Lock(n)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		_ = unlock()
+	}()
+
+	blobID, _, err := n.lu.ReadBlobIDAndSizeAttr(ctx, revisionNode, nil)
+	if err != nil {
+		return "", err
+	}
+
+	if err := os.RemoveAll(revisionPath); err != nil {
+		return "", err
+	}
+
+	if err := os.Remove(n.lu.MetadataBackend().MetadataPath(revisionNode)); err != nil {
+		log.Warn().Err(err).Str("nodeid", n.ID).Str("revisionid", revisionID).Msg("could not delete revision metadata, continuing")
+	}
+	if err := os.Remove(n.lu.MetadataBackend().LockfilePath(revisionNode)); err != nil {
+		log.Warn().Err(err).Str("nodeid", n.ID).Str("revisionid", revisionID).Msg("could not delete revision metadata lockfile, continuing")
+	}
+	if err := n.lu.MetadataBackend().Purge(ctx, revisionNode); err != nil {
+		log.Warn().Err(err).Str("nodeid", n.ID).Str("revisionid", revisionID).Msg("could not purge revision from cache, continuing")
+	}
+
+	return blobID, nil
+}
+
+func (n *Node) getLatestRevision(ctx context.Context) (string, error) {
+	revPrefix := n.lu.VersionPath(n.SpaceID, n.ID, "")
+	revisions, err := filepath.Glob(n.lu.VersionPath(n.SpaceID, n.ID, "*"))
+	if err != nil {
+		appctx.GetLogger(ctx).Error().Str("nodepath", n.InternalPath()).Err(err).Msg("error reading revisions")
+		return "", err
+	}
+
+	revPath, latest := "", time.Time{}
+	for _, rev := range revisions {
+		if strings.HasSuffix(rev, ".mpk") || strings.HasSuffix(rev, ".mlock") {
+			continue
+		}
+		revDate, err := time.Parse(time.RFC3339Nano, strings.TrimPrefix(rev, revPrefix))
+		if err != nil {
+			appctx.GetLogger(ctx).Error().Str("nodepath", n.InternalPath()).Err(err).Msg("error parsing revision date")
+			continue
+		}
+
+		if revDate.After(latest) {
+			latest = revDate
+			revPath = rev
+		}
+	}
+	return revPath, nil
 }
 
 // ReadChildNodeFromLink reads the child node id from a link

@@ -1,0 +1,102 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
+# Translators:
+# tammi23, 2026
+# 
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: EMAIL\n"
+"POT-Creation-Date: 2026-10-08 23:16+0000\n"
+"PO-Revision-Date: 2025-01-27 10:17+0000\n"
+"Last-Translator: tammi23, 2026\n"
+"Language-Team: German (Germany) (https://app.transifex.com/opencloud-eu/teams/204053/de_DE/)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: de_DE\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: pkg/service/http/response.go:44
+msgid "description"
+msgstr "Beschreibung"
+
+#: pkg/service/http/response.go:43
+msgid "display name"
+msgstr "Anzeigename"
+
+#: pkg/service/http/response.go:42
+msgid "expiration date"
+msgstr "Ablaufdatum"
+
+#: pkg/service/http/response.go:41
+msgid "password"
+msgstr "Passwort"
+
+#: pkg/service/http/response.go:40
+msgid "permission"
+msgstr "Berechtigung"
+
+#: pkg/service/http/response.go:39
+msgid "some field"
+msgstr "ein Bereich"
+
+#: pkg/service/http/response.go:26
+msgid "{resource} was downloaded via public link {token}"
+msgstr "{resource} wurde via öffentlichem Link {token} heruntergeladen"
+
+#: pkg/service/http/response.go:24
+msgid "{user} added {resource} to {folder}"
+msgstr "{user} hat {resource} zu {folder} hinzugefügt"
+
+#: pkg/service/http/response.go:36
+msgid "{user} added {sharee} as member of {space}"
+msgstr "{user} hat {sharee} als Mitglied zu {space} hinzugefügt"
+
+#: pkg/service/http/response.go:27
+msgid "{user} deleted {resource} from {folder}"
+msgstr "{user} hat {resource} von {folder} gelöscht"
+
+#: pkg/service/http/response.go:28
+msgid "{user} moved {resource} to {folder}"
+msgstr "{user} hat {resource} nach {folder} verschoben"
+
+#: pkg/service/http/response.go:35
+msgid "{user} removed link to {resource}"
+msgstr "{user} hat den Link zu {resource} entfernt"
+
+#: pkg/service/http/response.go:32
+msgid "{user} removed {sharee} from {resource}"
+msgstr "{user} hat {sharee} von {resource} entfernt"
+
+#: pkg/service/http/response.go:37
+msgid "{user} removed {sharee} from {space}"
+msgstr "{user} hat {sharee} von {space} entfernt"
+
+#: pkg/service/http/response.go:29
+msgid "{user} renamed {oldResource} to {resource}"
+msgstr "{user} hat {oldResource} zu {resource} umbenannt"
+
+#: pkg/service/http/response.go:33
+msgid "{user} shared {resource} via link"
+msgstr "{user} hat {resource} via Link geteilt"
+
+#: pkg/service/http/response.go:30
+msgid "{user} shared {resource} with {sharee}"
+msgstr "{user} hat {resource} mit {sharee} geteilt"
+
+#: pkg/service/http/response.go:34
+msgid "{user} updated {field} for a link {token} on {resource}"
+msgstr "{user} hat {field} für einen Link {token} bei {resource} aktualisiert"
+
+#: pkg/service/http/response.go:31
+msgid "{user} updated {field} for the {resource}"
+msgstr "{user} hat {field} für die {resource} aktualisiert"
+
+#: pkg/service/http/response.go:25
+msgid "{user} updated {resource} in {folder}"
+msgstr "{user} hat {resource} im {folder} aktualisiert"

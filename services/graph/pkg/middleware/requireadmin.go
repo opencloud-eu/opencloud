@@ -12,15 +12,16 @@ import (
 
 // RequireAdmin middleware is used to require the user in context to be an admin / have account management permissions
 func RequireAdmin(rm *roles.Manager, logger log.Logger) func(next http.Handler) http.Handler {
+	l := log.Logger{Logger: logger.With().Str("middleware", "requireAdmin").Logger()}
 	return func(next http.Handler) http.Handler {
-		l := logger.With().Str("middleware", "requireAdmin").Logger()
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			u, ok := revactx.ContextGetUser(r.Context())
 			if !ok {
 				errorcode.AccessDenied.Render(w, r, http.StatusUnauthorized, "Unauthorized")
 				return
 			}
-			if u.Id == nil || u.Id.OpaqueId == "" {
+			if u.GetId().GetOpaqueId() == "" {
+				l.Debug().Msg("Bad request: user does not have an id")
 				errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "user is missing an id")
 				return
 			}
@@ -48,6 +49,7 @@ func RequireAdmin(rm *roles.Manager, logger log.Logger) func(next http.Handler) 
 				return
 			}
 
+			l.Debug().Str("userid", u.Id.OpaqueId).Str("permission", settings.AccountManagementPermissionID).Msg("Access denied: necessary permission not present in user's roles")
 			errorcode.AccessDenied.Render(w, r, http.StatusForbidden, "Forbidden")
 		})
 	}

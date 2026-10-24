@@ -8,6 +8,7 @@ package opensearchapi
 
 import (
 	"context"
+	"net/http"
 )
 
 type repositoryClient struct {
@@ -20,7 +21,7 @@ func (c repositoryClient) Create(ctx context.Context, req SnapshotRepositoryCrea
 		data SnapshotRepositoryCreateResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodPut, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -33,7 +34,7 @@ func (c repositoryClient) Delete(ctx context.Context, req SnapshotRepositoryDele
 		data SnapshotRepositoryDeleteResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodDelete, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -49,7 +50,7 @@ func (c repositoryClient) Get(ctx context.Context, req *SnapshotRepositoryGetReq
 		data SnapshotRepositoryGetResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data.Repos); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodGet, req, &data.Repos); err != nil {
 		return &data, err
 	}
 
@@ -62,7 +63,7 @@ func (c repositoryClient) Cleanup(ctx context.Context, req SnapshotRepositoryCle
 		data SnapshotRepositoryCleanupResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodPost, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -75,7 +76,7 @@ func (c repositoryClient) Verify(ctx context.Context, req SnapshotRepositoryVeri
 		data SnapshotRepositoryVerifyResp
 		err  error
 	)
-	if data.response, err = c.apiClient.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, c.apiClient, http.MethodPost, req, &data); err != nil {
 		return &data, err
 	}
 

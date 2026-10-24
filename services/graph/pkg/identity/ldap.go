@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/CiscoM31/godata"
@@ -15,10 +16,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/libregraph/idm/pkg/ldapdn"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/odata"
 )
 
@@ -74,8 +77,11 @@ type LDAP struct {
 	educationConfig educationConfig
 
 	logger *log.Logger
-	conn   ldap.Client
+	conn   LdapClient
 }
+
+var _ Backend = &LDAP{}
+var _ EducationBackend = &LDAP{}
 
 type userAttributeMap struct {
 	displayName    string
@@ -107,11 +113,33 @@ func ParseDisableMechanismType(disableMechanism string) (DisableUserMechanismTyp
 	return t, nil
 }
 
-func NewLDAPBackend(lc ldap.Client, config config.LDAP, logger *log.Logger) (*LDAP, error) {
+const (
+	MetricResultSuccess  = "success"
+	MetricResultFailure  = "failure"
+	MetricResultNotFound = "not-found"
+	MetricResultReadOnly = "read-only"
+)
+
+const (
+	MetricLabelOperation = "operation"
+	MetricLabelType      = "type"
+	MetricLabelUri       = "uri"
+	MetricLabelWrite     = "write"
+)
+
+func NewLDAPBackend(lc ldap.Client, config config.LDAP, logger *log.Logger, namespace string, subsystem string, registry prometheus.Registerer) (*LDAP, error) {
 	if config.UserDisplayNameAttribute == "" || config.UserIDAttribute == "" ||
 		config.UserEmailAttribute == "" || config.UserNameAttribute == "" {
 		return nil, errors.New("invalid user attribute mappings")
 	}
+
+	logger = &log.Logger{Logger: logger.With().
+		// Str("backend", "ldap"). // already added upstream
+		Bool("write", config.WriteEnabled).
+		Bool("refint", config.RefintEnabled).
+		Logger(),
+	}
+
 	uam := userAttributeMap{
 		displayName:    config.UserDisplayNameAttribute,
 		id:             config.UserIDAttribute,
@@ -154,6 +182,65 @@ func NewLDAPBackend(lc ldap.Client, config config.LDAP, logger *log.Logger) (*LD
 		return nil, fmt.Errorf("error configuring disable user mechanism: %w", err)
 	}
 
+	var client LdapClient
+	client = NewGoLdapLdapClient(lc)
+	if !config.Metrics.Disabled && registry != nil {
+		// metrics are enabled for the LDAP identity backend
+
+		// use a 'write' label to indicate whether this instance is read-only
+		// (write=="0") or allowed to make changes (wrote=="1")
+		write := "0"
+		if config.WriteEnabled {
+			write = "1"
+		}
+
+		// a metric that tracks the duration of the LDAP operations we perform as an LDAP client,
+		// will be passed to a Prometheus wrapper around LdapClient below
+		ldapEgressDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "ldap_client_operation_duration_seconds",
+			Help:      "Duration of LDAP operations performed by the Graph service in seconds.",
+			Buckets:   prometheus.DefBuckets,
+			ConstLabels: prometheus.Labels{
+				MetricLabelUri:   config.URI,
+				MetricLabelWrite: write,
+			},
+		}, []string{MetricLabelOperation, metrics.LabelResult})
+		if err := registry.Register(ldapEgressDuration); err != nil {
+			logger.Warn().Err(err).Msg("failed to register LDAP egress duration metric")
+		}
+
+		// a metric that tracks the number of ongoing concurrent LDAP operations, will also be
+		// passed to a Prometheus wrapper around LdapClient below;
+		// note that we use an atomic int as a gauge to count operations up and down using the
+		// wrapper, and then a gauge func that retrieves the current value of that atomic int
+		// whenever scraped by Prometheus, as that approach performs better than calling inc/dec
+		// on a Gauge object directly:
+		var inFlight atomic.Int64
+		ldapEgressInFlight := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "ldap_client_operations",
+			Help:      "Number of LDAP client operations in-flight in the Graph service.",
+			Unit:      "operation",
+			ConstLabels: prometheus.Labels{
+				MetricLabelUri:   config.URI,
+				MetricLabelWrite: write,
+			},
+		}, func() float64 {
+			// when scraped, we simply read the current value of the atomic int:
+			return float64(inFlight.Load())
+		})
+		if err := registry.Register(ldapEgressInFlight); err != nil {
+			logger.Warn().Err(err).Msg("failed to register LDAP egress in-flight metric")
+		}
+
+		// we sill use an LdapClient that wraps the "proper" LdapClient with recording the
+		// metrics referenced above:
+		client = NewPrometheusLdapClient(client, ldapEgressDuration, &inFlight)
+	}
+
 	return &LDAP{
 		useServerUUID:           config.UseServerUUID,
 		usePwModifyExOp:         config.UsePasswordModExOp,
@@ -174,7 +261,7 @@ func NewLDAPBackend(lc ldap.Client, config config.LDAP, logger *log.Logger) (*LD
 		disableUserMechanism:    disableMechanismType,
 		localUserDisableGroupDN: config.LdapDisabledUsersGroupDN,
 		logger:                  logger,
-		conn:                    lc,
+		conn:                    client,
 		writeEnabled:            config.WriteEnabled,
 		refintEnabled:           config.RefintEnabled,
 	}, nil
@@ -185,7 +272,7 @@ func NewLDAPBackend(lc ldap.Client, config config.LDAP, logger *log.Logger) (*LD
 // configured LDAP server
 func (i *LDAP) CreateUser(ctx context.Context, user libregraph.User) (*libregraph.User, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("CreateUser")
+	logger.Debug().Msg("CreateUser")
 	if !i.writeEnabled {
 		return nil, ErrReadOnly
 	}
@@ -222,14 +309,14 @@ func (i *LDAP) CreateUser(ctx context.Context, user libregraph.User) (*libregrap
 	if err != nil {
 		return nil, err
 	}
-	return i.createUserModelFromLDAP(e), nil
+	return i.createUserModelFromLDAP(e)
 }
 
 // DeleteUser implements the Backend Interface. It permanently deletes a User identified
 // by name or id from the LDAP server
 func (i *LDAP) DeleteUser(ctx context.Context, nameOrID string) error {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("DeleteUser")
+	logger.Debug().Msg("DeleteUser")
 	if !i.writeEnabled {
 		return ErrReadOnly
 	}
@@ -237,6 +324,7 @@ func (i *LDAP) DeleteUser(ctx context.Context, nameOrID string) error {
 	if err != nil {
 		return err
 	}
+
 	dr := ldap.DelRequest{DN: e.DN}
 	if err = i.conn.Del(&dr); err != nil {
 		msg := "error deleting user"
@@ -272,11 +360,11 @@ func (i *LDAP) DeleteUser(ctx context.Context, nameOrID string) error {
 // UpdateUser implements the Backend Interface for the LDAP Backend
 func (i *LDAP) UpdateUser(ctx context.Context, nameOrID string, user libregraph.UserUpdate) (*libregraph.User, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("UpdateUser")
+	logger.Debug().Msg("UpdateUser")
 	if !i.writeEnabled {
 		// still allow to enable/disable user when using DisableMechanismGroup
 		if i.disableUserMechanism == DisableMechanismGroup && isUserEnabledUpdate(user) {
-			logger.Error().Str("backend", "ldap").Msg("Allowing accountEnabled Update on read-only backend")
+			logger.Error().Msg("Allowing accountEnabled Update on read-only backend")
 		} else {
 			return nil, ErrReadOnly
 		}
@@ -396,12 +484,16 @@ func (i *LDAP) UpdateUser(ctx context.Context, nameOrID string, user libregraph.
 		return nil, err
 	}
 
-	returnUser := i.createUserModelFromLDAP(e)
-
-	// To avoid a ldap lookup for group membership, set the enabled flag to same as input value
-	// since this would have been updated with group membership from the input anyway.
-	if user.AccountEnabled != nil && i.disableUserMechanism == DisableMechanismGroup {
-		returnUser.AccountEnabled = user.AccountEnabled
+	returnUser, err := i.createUserModelFromLDAP(e)
+	if err != nil {
+		return nil, err
+	}
+	if returnUser != nil {
+		// To avoid a ldap lookup for group membership, set the enabled flag to same as input value
+		// since this would have been updated with group membership from the input anyway.
+		if user.AccountEnabled != nil && i.disableUserMechanism == DisableMechanismGroup {
+			returnUser.AccountEnabled = user.AccountEnabled
+		}
 	}
 
 	return returnUser, nil
@@ -445,7 +537,7 @@ func (i *LDAP) getEntryByDN(dn string, attrs []string, filter string) (*ldap.Ent
 		nil,
 	)
 
-	i.logger.Debug().Str("backend", "ldap").
+	i.logger.Debug().
 		Str("base", searchRequest.BaseDN).
 		Str("filter", searchRequest.Filter).
 		Int("scope", searchRequest.Scope).
@@ -454,16 +546,34 @@ func (i *LDAP) getEntryByDN(dn string, attrs []string, filter string) (*ldap.Ent
 		Msg("getEntryByDN")
 	res, err := i.conn.Search(searchRequest)
 	if err != nil {
-		i.logger.Error().Err(err).Str("backend", "ldap").Str("dn", dn).Msg("Search ldap by DN failed")
-		return nil, errorcode.New(errorcode.ItemNotFound, "user lookup failed")
-	}
-	if len(res.Entries) == 0 {
-		return nil, ErrNotFound
+		i.logger.Error().Err(err).Str("dn", dn).Msg("Search ldap by DN failed")
+		msg := "user lookup failed"
+		errMap := ldapResultToErrMap{
+			ldap.LDAPResultNoSuchObject:             errorcode.New(errorcode.ItemNotFound, msg),
+			ldap.LDAPResultUnwillingToPerform:       errorcode.New(errorcode.NotAllowed, msg),
+			ldap.LDAPResultInsufficientAccessRights: errorcode.New(errorcode.NotAllowed, msg),
+			ldap.LDAPResultSizeLimitExceeded:        errorcode.New(errorcode.TooManyResults, msg),
+			ldapGenericErr:                          errorcode.New(errorcode.GeneralException, msg),
+		}
+		return nil, i.mapLDAPError(err, errMap)
 	}
 
-	return res.Entries[0], nil
+	switch len(res.Entries) {
+	case 0:
+		return nil, ErrNotFound
+	case 1:
+		return res.Entries[0], nil
+	default:
+		return nil, ErrTooManyResults
+	}
 }
 
+// Retrieves a single entry from LDAP.
+//
+// It never returns nil for the *ldap.Entry:
+//   - if no object is found, it returns a ErrNotFound error
+//   - if more than one object is found, it returns a ErrTooManyResults error
+//   - if exactly one object is found, it returns that entry and no error
 func (i *LDAP) searchLDAPEntryByFilter(basedn string, attrs []string, filter string) (*ldap.Entry, error) {
 	if filter == "" {
 		filter = "(objectclass=*)"
@@ -478,7 +588,7 @@ func (i *LDAP) searchLDAPEntryByFilter(basedn string, attrs []string, filter str
 		nil,
 	)
 
-	i.logger.Debug().Str("backend", "ldap").
+	i.logger.Debug().
 		Str("base", searchRequest.BaseDN).
 		Str("filter", searchRequest.Filter).
 		Int("scope", searchRequest.Scope).
@@ -487,14 +597,25 @@ func (i *LDAP) searchLDAPEntryByFilter(basedn string, attrs []string, filter str
 		Msg("getEntryByFilter")
 	res, err := i.conn.Search(searchRequest)
 	if err != nil {
-		i.logger.Error().Err(err).Str("backend", "ldap").Str("dn", basedn).Str("filter", filter).Msg("Search user by filter failed")
-		return nil, errorcode.New(errorcode.ItemNotFound, "user search failed")
+		i.logger.Error().Err(err).Str("dn", basedn).Str("filter", filter).Msg("Search user by filter failed")
+		msg := "user search failed"
+		errMap := ldapResultToErrMap{
+			ldap.LDAPResultNoSuchObject:             errorcode.New(errorcode.ItemNotFound, msg),
+			ldap.LDAPResultUnwillingToPerform:       errorcode.New(errorcode.NotAllowed, msg),
+			ldap.LDAPResultInsufficientAccessRights: errorcode.New(errorcode.NotAllowed, msg),
+			ldap.LDAPResultSizeLimitExceeded:        errorcode.New(errorcode.TooManyResults, msg),
+			ldapGenericErr:                          errorcode.New(errorcode.GeneralException, msg),
+		}
+		return nil, i.mapLDAPError(err, errMap)
 	}
-	if len(res.Entries) == 0 {
+	switch len(res.Entries) {
+	case 0:
 		return nil, ErrNotFound
+	case 1:
+		return res.Entries[0], nil
+	default:
+		return nil, ErrTooManyResults
 	}
-
-	return res.Entries[0], nil
 }
 
 func filterEscapeAttribute(attribute string, binary bool, id string) (string, error) {
@@ -572,16 +693,16 @@ func (i *LDAP) getLDAPUserByFilter(filter string) (*ldap.Entry, error) {
 // GetUser implements the Backend Interface.
 func (i *LDAP) GetUser(ctx context.Context, nameOrID string, oreq *godata.GoDataRequest) (*libregraph.User, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("GetUser")
+	logger.Debug().Msg("GetUser")
 
 	e, err := i.getLDAPUserByNameOrID(nameOrID)
 	if err != nil {
 		return nil, err
 	}
 
-	u := i.createUserModelFromLDAP(e)
-	if u == nil {
-		return nil, ErrNotFound
+	u, err := i.createUserModelFromLDAP(e)
+	if err != nil {
+		return nil, err
 	}
 
 	if i.disableUserMechanism != DisableMechanismNone {
@@ -601,7 +722,11 @@ func (i *LDAP) GetUser(ctx context.Context, nameOrID string, oreq *godata.GoData
 		if err != nil {
 			return nil, err
 		}
-		u.MemberOf = i.groupsFromLDAPEntries(userGroups)
+		if memberOf, err := i.groupsFromLDAPEntries(userGroups); err != nil {
+			// TODO: should we really just silently skip LDAP data model errors here, or rather return this as an error?
+		} else {
+			u.MemberOf = memberOf
+		}
 	}
 	return u, nil
 }
@@ -614,7 +739,7 @@ func (i *LDAP) GetUsers(ctx context.Context, oreq *godata.GoDataRequest) ([]*lib
 // FilterUsers implements the Backend Interface.
 func (i *LDAP) FilterUsers(ctx context.Context, oreq *godata.GoDataRequest, filter *godata.ParseNode) ([]*libregraph.User, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("GetUsers")
+	logger.Debug().Msg("GetUsers")
 
 	queryFilter, err := i.oDataFilterToLDAPFilter(filter)
 	if err != nil {
@@ -648,7 +773,7 @@ func (i *LDAP) FilterUsers(ctx context.Context, oreq *godata.GoDataRequest, filt
 		i.getUserAttrTypesForSearch(),
 		nil,
 	)
-	logger.Debug().Str("backend", "ldap").
+	logger.Debug().
 		Str("base", searchRequest.BaseDN).
 		Str("filter", searchRequest.Filter).
 		Int("scope", searchRequest.Scope).
@@ -676,9 +801,9 @@ func (i *LDAP) usersFromLDAPEntries(entries []*ldap.Entry, exp []string) ([]*lib
 	}
 	users := make([]*libregraph.User, 0, len(entries))
 	for _, e := range entries {
-		u := i.createUserModelFromLDAP(e)
-		// Skip invalid LDAP users
-		if u == nil {
+		u, err := i.createUserModelFromLDAP(e)
+		if u == nil || err != nil {
+			// Skip invalid LDAP users
 			continue
 		}
 
@@ -692,7 +817,11 @@ func (i *LDAP) usersFromLDAPEntries(entries []*ldap.Entry, exp []string) ([]*lib
 			if err != nil {
 				return nil, err
 			}
-			u.MemberOf = i.groupsFromLDAPEntries(userGroups)
+			if memberOf, err := i.groupsFromLDAPEntries(userGroups); err != nil {
+				// TODO: should we really just silently skip LDAP data model errors here, or rather return this as an error?
+			} else {
+				u.MemberOf = memberOf
+			}
 		}
 		users = append(users, u)
 	}
@@ -702,14 +831,15 @@ func (i *LDAP) usersFromLDAPEntries(entries []*ldap.Entry, exp []string) ([]*lib
 // UpdateLastSignInDate implements the Backend Interface.
 func (i *LDAP) UpdateLastSignInDate(ctx context.Context, userID string, timestamp time.Time) error {
 	if !i.writeEnabled {
-		i.logger.Debug().Str("backend", "ldap").Msg("The LDAP Server is readonly. Skipping update of last sign in date")
-		return nil
+		i.logger.Debug().Msg("The LDAP Server is readonly. Skipping update of last sign in date")
+		return nil // TODO: do we really want to just silently do nothing here, rather than returning an error?
 	}
+
 	e, err := i.getLDAPUserByID(userID)
 	switch {
 	case errors.Is(err, ErrNotFound):
 		i.logger.Warn().Err(err).Str("userID", userID).Msg("Failed to update last sign in date for user")
-		return nil
+		return nil // TODO questionable whether this should just fail silently because the user was not found
 	case err != nil:
 		return err
 	}
@@ -819,7 +949,7 @@ func (i *LDAP) renameMemberInGroup(ctx context.Context, group *ldap.Entry, oldMe
 
 func (i *LDAP) updateUserPassword(ctx context.Context, dn, password string) error {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("updateUserPassword")
+	logger.Debug().Msg("updateUserPassword")
 	pwMod := ldap.PasswordModifyRequest{
 		UserIdentity: dn,
 		NewPassword:  password,
@@ -860,9 +990,9 @@ func (i *LDAP) ldapUUIDtoString(e *ldap.Entry, attribute string, binary bool) (s
 	return e.GetEqualFoldAttributeValue(attribute), nil
 }
 
-func (i *LDAP) createUserModelFromLDAP(e *ldap.Entry) *libregraph.User {
+func (i *LDAP) createUserModelFromLDAP(e *ldap.Entry) (*libregraph.User, error) {
 	if e == nil {
-		return nil
+		return nil, nil
 	}
 
 	opsan := e.GetEqualFoldAttributeValue(i.userAttributeMap.userName)
@@ -910,10 +1040,12 @@ func (i *LDAP) createUserModelFromLDAP(e *ldap.Entry) *libregraph.User {
 		case !errors.Is(err, errNotSet):
 			i.logger.Warn().Err(err).Str("dn", e.DN).Msg("Error getting last signin timestamp")
 		}
-		return user
+		return user, nil
 	}
+
+	err = errorcode.New(errorcode.GeneralException, "Invalid User. Missing username or id attribute")
 	i.logger.Warn().Str("dn", e.DN).Str("id", id).Str("username", opsan).Msg("Invalid User. Missing username or id attribute")
-	return nil
+	return nil, err
 }
 
 func (i *LDAP) userToLDAPAttrValues(user libregraph.User) (map[string][]string, error) {
@@ -1082,7 +1214,7 @@ func (i *LDAP) removeEntryByDNAndAttributeFromEntry(entry *ldap.Entry, dn string
 		}
 	}
 	if !found {
-		i.logger.Error().Str("backend", "ldap").Str("entry", entry.DN).Str("target", dn).
+		i.logger.Error().Str("entry", entry.DN).Str("target", dn).
 			Msg("The target value is not present in the attribute list")
 		return ErrNotFound
 	}
@@ -1126,7 +1258,7 @@ func (i *LDAP) removeEntryByDNAndAttributeFromEntry(entry *ldap.Entry, dn string
 // expandLDAPAttributeEntries reads an attribute from a ldap entry and expands to users
 func (i *LDAP) expandLDAPAttributeEntries(ctx context.Context, e *ldap.Entry, attribute, searchTerm string) ([]*ldap.Entry, error) {
 	logger := i.logger.SubloggerWithRequestID(ctx)
-	logger.Debug().Str("backend", "ldap").Msg("ExpandLDAPAttributeEntries")
+	logger.Debug().Msg("ExpandLDAPAttributeEntries")
 	result := []*ldap.Entry{}
 
 	for _, entryDN := range e.GetEqualFoldAttributeValues(attribute) {

@@ -172,21 +172,9 @@ func (m *memoryStore) Read(key string, opts ...ReadOption) ([]*Record, error) {
 
 	// Handle Prefix / suffix
 	if readOpts.Prefix || readOpts.Suffix {
-		k := m.list(prefix, 0, 0)
-		limit := int(readOpts.Limit)
-		offset := int(readOpts.Offset)
+		var filtered []string
 
-		if limit > len(k) {
-			limit = len(k)
-		}
-
-		if offset > len(k) {
-			offset = len(k)
-		}
-
-		for i := offset; i < limit; i++ {
-			kk := k[i]
-
+		for _, kk := range m.list(prefix, 0, 0) {
 			if readOpts.Prefix && !strings.HasPrefix(kk, key) {
 				continue
 			}
@@ -195,8 +183,24 @@ func (m *memoryStore) Read(key string, opts ...ReadOption) ([]*Record, error) {
 				continue
 			}
 
-			keys = append(keys, kk)
+			filtered = append(filtered, kk)
 		}
+
+		// sort for deterministic pagination
+		sort.Strings(filtered)
+
+		limit := int(readOpts.Limit)
+		offset := int(readOpts.Offset)
+
+		if limit > len(filtered) {
+			limit = len(filtered)
+		}
+
+		if offset > len(filtered) {
+			offset = len(filtered)
+		}
+
+		keys = filtered[offset:limit]
 	} else {
 		keys = []string{key}
 	}

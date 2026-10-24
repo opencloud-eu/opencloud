@@ -1,6 +1,10 @@
 package util
 
 import (
+	"bytes"
+	"cmp"
+	"encoding"
+	"io"
 	"slices"
 	"strconv"
 	"strings"
@@ -8,17 +12,19 @@ import (
 	"unsafe"
 )
 
+var emptyByteSlice = []byte{}
+
 // SyncPool is a generic sync.Pool for type T, providing some convenience
 // over sync.Pool directly: [SyncPool.Put] ensures that nil values are not
 // put into the pool, and [SyncPool.Get] returns a pointer to T without having
 // to do a type assertion at the call site.
 type SyncPool[T any] struct {
-	pool sync.Pool
+	Pool sync.Pool
 }
 
 func NewSyncPool[T any]() *SyncPool[T] {
 	return &SyncPool[T]{
-		pool: sync.Pool{
+		Pool: sync.Pool{
 			New: func() any {
 				return new(T)
 			},
@@ -27,11 +33,48 @@ func NewSyncPool[T any]() *SyncPool[T] {
 }
 
 func (p *SyncPool[T]) Get() *T {
-	return p.pool.Get().(*T)
+	return p.Pool.Get().(*T)
 }
 
 func (p *SyncPool[T]) Put(x *T) {
 	if x != nil {
+		p.Pool.Put(x)
+	}
+}
+
+// resettable is implemented by *T when used with [ResettablePool], allowing
+// pooled values to clear their internal state (e.g. drop pointers so they
+// don't outlive their useful life) before being returned to the pool.
+type resettable[T any] interface {
+	*T
+	Reset()
+}
+
+// ResettablePool is like [SyncPool], but for types whose pointer clears its
+// own fields via a Reset method before being pooled. Unlike a runtime
+// interface check on every Put, the PT type parameter is resolved at compile
+// time, so there's no extra dispatch cost over a hand-written pool.
+type ResettablePool[T any, PT resettable[T]] struct {
+	pool sync.Pool
+}
+
+func NewResettablePool[T any, PT resettable[T]]() *ResettablePool[T, PT] {
+	return &ResettablePool[T, PT]{
+		pool: sync.Pool{
+			New: func() any {
+				return new(T)
+			},
+		},
+	}
+}
+
+func (p *ResettablePool[T, PT]) Get() *T {
+	return p.pool.Get().(*T)
+}
+
+func (p *ResettablePool[T, PT]) Put(x *T) {
+	if x != nil {
+		PT(x).Reset()
 		p.pool.Put(x)
 	}
 }
@@ -64,8 +107,15 @@ func ByteSliceToString(bs []byte) string {
 }
 
 // Allocation free conversion from ~string to []byte (unsafe)
-// Note that the byte slice must not be modified after conversion
+// Note that the byte slice must not be modified after conversion, and that it
+// aliases the string's memory: it is a view of s, not a copy like []byte(s).
 func StringToByteSlice[T ~string](s T) []byte {
+	if len(s) == 0 {
+		// unsafe.StringData's return value is unspecified for the empty string,
+		// so don't build a slice on top of it. Doing so currently yields a nil
+		// slice, which callers may treat differently from an empty one.
+		return emptyByteSlice
+	}
 	return unsafe.Slice(unsafe.StringData(string(s)), len(s))
 }
 
@@ -110,13 +160,103 @@ func NumDigitsUint(n uint64) int {
 }
 
 // AppendInt is a less messy version of strconv.AppendInt for base 10 ints.
-func AppendInt(buf []byte, n int) []byte {
+func AppendInt[T Integer](buf []byte, n T) []byte {
 	return strconv.AppendInt(buf, int64(n), 10)
+}
+
+// WriteInt writes the string form of n to out.
+func WriteInt[T Integer](out io.Writer, n T) (int, error) {
+	var buf []byte
+	if b, ok := out.(*bytes.Buffer); ok {
+		buf = b.AvailableBuffer()
+	}
+	return out.Write(AppendInt(buf, n))
+}
+
+// WriteAppender writes the appended text of appender to out.
+func WriteAppender[T encoding.TextAppender](out io.Writer, appender T) (int, error) {
+	var buf []byte
+	if b, ok := out.(*bytes.Buffer); ok {
+		buf = b.AvailableBuffer()
+	}
+	b, err := appender.AppendText(buf)
+	if err != nil {
+		return 0, err
+	}
+	return out.Write(b)
+}
+
+// Atoi is a convenience function for [Atoi64] where an int is preferable to an int64.
+// See the documentation of [Atoi64] for details on the performance benefits of this
+// function over strconv.Atoi.
+func Atoi(s string) (int, bool) {
+	if i, ok := Atoi64(s); ok {
+		return int(i), true
+	}
+	return 0, false
+}
+
+// Atoi64 is an alternative implementation of strconv.Atoi which is slightly faster for the
+// (for our use case) common case of a successful conversion, and crucially — *much* faster
+// for the failure case, as this function allocates nothing for any given input string, while
+// strconv.Atoi performs 1-2 allocations on failure in its error handling. The callers in this
+// codebase — most notably ast.Number's Int() and Int64() methods — have no interest in the
+// details of the failure, and keeping this allocation free means both methods can be used
+// not only for conversion, but as a most efficient "IsInt64" check.
+// Additionally this function accepts trailing decimal zeroes ("10.00", not "10.01") as that
+// makes sense in the context of us using JSON numbers.
+func Atoi64(s string) (int64, bool) {
+	sLen := len(s)
+	if sLen > 0 {
+		negative := s[0] == '-'
+		if negative || s[0] == '+' {
+			s = s[1:]
+			sLen--
+		}
+		if sLen == 0 || sLen > 19 {
+			return 0, false
+		}
+
+		var pastDecimal bool
+		var n int64
+		for _, ch := range []byte(s) {
+			if ch == '.' {
+				if !pastDecimal {
+					pastDecimal = true
+					continue
+				}
+				return 0, false
+			}
+			ch -= '0'
+			if pastDecimal {
+				if ch == 0 {
+					continue
+				}
+				return 0, false
+			}
+			if ch > 9 {
+				return 0, false
+			}
+			n = n*10 + int64(ch)
+		}
+		if !negative && n < 0 {
+			return 0, false // overflow
+		}
+		if negative {
+			n = -n
+			if n > 0 {
+				return 0, false // underflow
+			}
+		}
+		return n, true
+	}
+
+	return 0, false
 }
 
 // SplitMap calls fn for each delim-separated part of text and returns a slice of the results.
 // Cheaper than calling fn on strings.Split(text, delim), as it avoids allocating an intermediate slice of strings.
-func SplitMap[T any](text string, delim string, fn func(string) T) []T {
+func SplitMap[T any](text, delim string, fn func(string) T) []T {
 	sl := make([]T, 0, strings.Count(text, delim)+1)
 	for s := range strings.SplitSeq(text, delim) {
 		sl = append(sl, fn(s))
@@ -174,5 +314,17 @@ func (sp *SlicePool[T]) Put(s *[]T) {
 // SortedFunc is simply a shorthand for [slices.SortFunc] which also returns the sorted slice.
 func SortedFunc[T any, S ~[]T](s S, cmp func(a, b T) int) S {
 	slices.SortFunc(s, cmp)
+	return s
+}
+
+// SortedStableFunc is simply a shorthand for [slices.SortStableFunc] which also returns the sorted slice.
+func SortedStableFunc[T any, S ~[]T](s S, cmp func(a, b T) int) S {
+	slices.SortStableFunc(s, cmp)
+	return s
+}
+
+// Sorted is simply a shorthand for [slices.Sort] which also returns the sorted slice.
+func Sorted[T cmp.Ordered, S ~[]T](s S) S {
+	slices.Sort(s)
 	return s
 }

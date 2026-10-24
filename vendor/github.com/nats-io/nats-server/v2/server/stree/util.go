@@ -1,4 +1,4 @@
-// Copyright 2023-2025 The NATS Authors
+// Copyright 2023-2026 The NATS Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -30,16 +30,6 @@ func commonPrefixLen(s1, s2 []byte) int {
 		}
 	}
 	return i
-}
-
-// Helper to copy bytes.
-func copyBytes(src []byte) []byte {
-	if len(src) == 0 {
-		return nil
-	}
-	dst := make([]byte, len(src))
-	copy(dst, src)
-	return dst
 }
 
 type position interface{ int | uint16 }

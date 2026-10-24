@@ -30,7 +30,6 @@ import (
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/pkg/errors"
-	"github.com/rogpeppe/go-internal/lockedfile"
 
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
@@ -49,8 +48,10 @@ import (
 // We can add a background process to move old revisions to a slower storage
 // and replace the revision file with a symbolic link in the future, if necessary.
 
-// CreateVersion creates a new version of the node
-func (tp *Tree) CreateRevision(ctx context.Context, n *node.Node, version string, f *lockedfile.File) (string, error) {
+// CreateRevision creates a new version of the node. The caller MUST already hold the
+// metadata lock of n, as the node's metadata is read (without re-locking) to copy the
+// blob metadata onto the new revision.
+func (tp *Tree) CreateRevision(ctx context.Context, n *node.Node, version string) (string, error) {
 	versionNode := node.NewBaseNode(n.SpaceID, n.ID+node.RevisionIDDelimiter+version, tp.lookup)
 	versionPath := versionNode.InternalPath()
 
@@ -116,13 +117,13 @@ func (tp *Tree) CreateRevision(ctx context.Context, n *node.Node, version string
 	defer vf.Close()
 
 	// copy blob metadata to version node
-	if err := tp.lookup.CopyMetadataWithSourceLock(ctx, n, versionNode, func(attributeName string, value []byte) (newValue []byte, copy bool) {
+	if err := tp.lookup.CopyMetadata(ctx, n, versionNode, func(attributeName string, value []byte) (newValue []byte, copy bool) {
 		return value, strings.HasPrefix(attributeName, prefixes.ChecksumPrefix) ||
 			attributeName == prefixes.TypeAttr ||
 			attributeName == prefixes.BlobIDAttr ||
 			attributeName == prefixes.BlobsizeAttr ||
 			attributeName == prefixes.MTimeAttr
-	}, f, true); err != nil {
+	}); err != nil {
 		return "", err
 	}
 
@@ -274,69 +275,13 @@ func (tp *Tree) DownloadRevision(ctx context.Context, ref *provider.Reference, r
 	return ri, reader, nil
 }
 
-// DeleteRevision deletes the specified revision of the resource
-func (tp *Tree) DeleteRevision(ctx context.Context, ref *provider.Reference, revisionKey string) error {
-	_, span := tracer.Start(ctx, "DeleteRevision")
-	defer span.End()
-	n, err := tp.getRevisionNode(ctx, ref, revisionKey, func(rp *provider.ResourcePermissions) bool {
-		return rp.RestoreFileVersion
-	})
-	if err != nil {
-		return err
-	}
-
-	if err := os.RemoveAll(tp.lookup.InternalPath(n.SpaceID, revisionKey)); err != nil {
-		return err
-	}
-
-	return tp.DeleteBlob(n)
-}
-
-func (tp *Tree) getRevisionNode(ctx context.Context, ref *provider.Reference, revisionKey string, hasPermission func(*provider.ResourcePermissions) bool) (*node.Node, error) {
-	_, span := tracer.Start(ctx, "getRevisionNode")
-	defer span.End()
-	log := appctx.GetLogger(ctx)
-
-	// verify revision key format
-	kp := strings.SplitN(revisionKey, node.RevisionIDDelimiter, 2)
-	if len(kp) != 2 {
-		log.Error().Str("revisionKey", revisionKey).Msg("malformed revisionKey")
-		return nil, errtypes.NotFound(revisionKey)
-	}
-	log.Debug().Str("revisionKey", revisionKey).Msg("DownloadRevision")
-
-	spaceID := ref.ResourceId.SpaceId
-	// check if the node is available and has not been deleted
-	n, err := node.ReadNode(ctx, tp.lookup, spaceID, kp[0], "", false, nil, false)
-	if err != nil {
-		return nil, err
-	}
-	if !n.Exists {
-		err = errtypes.NotFound(filepath.Join(n.ParentID, n.Name))
-		return nil, err
-	}
-
-	p, err := tp.permissions.AssemblePermissions(ctx, n)
-	switch {
-	case err != nil:
-		return nil, err
-	case !hasPermission(p):
-		return nil, errtypes.PermissionDenied(filepath.Join(n.ParentID, n.Name))
-	}
-
-	// Set space owner in context
-	storagespace.ContextSendSpaceOwnerID(ctx, n.SpaceOwnerOrManager(ctx))
-
-	return n, nil
-}
-
 func (tp *Tree) RestoreRevision(ctx context.Context, sourceNode, targetNode metadata.MetadataNode, mtime time.Time) error {
 	err := tp.lookup.CopyMetadata(ctx, sourceNode, targetNode, func(attributeName string, value []byte) (newValue []byte, copy bool) {
 		return value, strings.HasPrefix(attributeName, prefixes.ChecksumPrefix) ||
 			attributeName == prefixes.TypeAttr ||
 			attributeName == prefixes.BlobIDAttr ||
 			attributeName == prefixes.BlobsizeAttr
-	}, false)
+	})
 	if err != nil {
 		return errtypes.InternalError("failed to copy blob xattrs to old revision to node: " + err.Error())
 	}
@@ -347,8 +292,7 @@ func (tp *Tree) RestoreRevision(ctx context.Context, sourceNode, targetNode meta
 	err = tp.lookup.MetadataBackend().SetMultiple(ctx, targetNode,
 		map[string][]byte{
 			prefixes.MTimeAttr: []byte(mtime.UTC().Format(time.RFC3339Nano)),
-		},
-		false)
+		})
 	if err != nil {
 		return errtypes.InternalError("failed to set mtime attribute on node: " + err.Error())
 	}

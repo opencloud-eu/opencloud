@@ -20,7 +20,6 @@
 
 use Behat\Behat\Context\Context;
 use Behat\Behat\Hook\Scope\BeforeScenarioScope;
-use Behat\Gherkin\Node\PyStringNode;
 use Behat\Gherkin\Node\TableNode;
 use Psr\Http\Message\ResponseInterface;
 use PHPUnit\Framework\Assert;
@@ -28,6 +27,8 @@ use TestHelpers\HttpRequestHelper;
 use TestHelpers\OcsApiHelper;
 use TestHelpers\TranslationHelper;
 use TestHelpers\BehatHelper;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -38,21 +39,6 @@ class OCSContext implements Context {
 	private FeatureContext $featureContext;
 
 	/**
-	 * @When /^the user sends HTTP method "([^"]*)" to OCS API endpoint "([^"]*)"$/
-	 *
-	 * @param string $verb
-	 * @param string $url
-	 *
-	 * @return void
-	 */
-	public function theUserSendsToOcsApiEndpoint(string $verb, string $url): void {
-		$response = $this->theUserSendsToOcsApiEndpointWithBody($verb, $url);
-		$this->featureContext->setResponse($response);
-	}
-
-	/**
-	 * @When /^user "([^"]*)" sends HTTP method "([^"]*)" to OCS API endpoint "([^"]*)"$/
-	 * @When /^user "([^"]*)" sends HTTP method "([^"]*)" to OCS API endpoint "([^"]*)" using password "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $verb
@@ -61,6 +47,7 @@ class OCSContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :user sends HTTP method :verb to OCS API endpoint :url')]
 	public function userSendsToOcsApiEndpoint(string $user, string $verb, string $url, ?string $password = null): void {
 		$response = $this->sendRequestToOcsEndpoint(
 			$user,
@@ -143,27 +130,6 @@ class OCSContext implements Context {
 	}
 
 	/**
-	 * @param string $verb
-	 * @param string $url
-	 * @param TableNode|null $body
-	 *
-	 * @return ResponseInterface
-	 */
-	public function theUserSendsToOcsApiEndpointWithBody(
-		string $verb,
-		string $url,
-		?TableNode $body = null
-	): ResponseInterface {
-		return $this->sendRequestToOcsEndpoint(
-			$this->featureContext->getCurrentUser(),
-			$verb,
-			$url,
-			$body
-		);
-	}
-
-	/**
-	 * @When /^user "([^"]*)" sends HTTP method "([^"]*)" to OCS API endpoint "([^"]*)" with headers$/
 	 *
 	 * @param string $user
 	 * @param string $verb
@@ -173,6 +139,7 @@ class OCSContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user sends HTTP method :verb to OCS API endpoint :url with headers')]
 	public function userSendsToOcsApiEndpointWithHeaders(
 		string $user,
 		string $verb,
@@ -194,7 +161,6 @@ class OCSContext implements Context {
 	}
 
 	/**
-	 * @Then /^the OCS status code should be "([^"]*)"$/
 	 *
 	 * @param string $statusCode
 	 * @param string $message
@@ -203,6 +169,7 @@ class OCSContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the OCS status code should be :statusCode')]
 	public function theOCSStatusCodeShouldBe(
 		string $statusCode,
 		string $message = "",
@@ -238,40 +205,14 @@ class OCSContext implements Context {
 	}
 
 	/**
-	 * @Then /^the OCS status code should be "([^"]*)" or "([^"]*)"$/
-	 *
-	 * @param string $statusCode1
-	 * @param string $statusCode2
-	 *
-	 * @return void
-	 * @throws Exception
-	 */
-	public function theOcsStatusCodeShouldBeOr(string $statusCode1, string $statusCode2): void {
-		$statusCodes = [$statusCode1,$statusCode1];
-		$response = $this->featureContext->getResponse();
-		$responseStatusCode = $this->getOCSResponseStatusCode(
-			$response
-		);
-		Assert::assertContainsEquals(
-			$responseStatusCode,
-			$statusCodes,
-			"OCS status code is not any of the expected values "
-			. \implode(",", $statusCodes) . " got " . $responseStatusCode
-		);
-		$this->featureContext->emptyLastOCSStatusCodesArray();
-	}
-
-	/**
 	 * Check the text in an OCS status message
-	 *
-	 * @Then /^the OCS status message should be "([^"]*)"$/
-	 * @Then /^the OCS status message should be "([^"]*)" in language "([^"]*)"$/
 	 *
 	 * @param string $statusMessage
 	 * @param string|null $language
 	 *
 	 * @return void
 	 */
+	#[Then('the OCS status message should be :statusMessage')]
 	public function theOCSStatusMessageShouldBe(string $statusMessage, ?string $language = null): void {
 		$language = TranslationHelper::getLanguage($language);
 		$statusMessage = $this->getActualStatusMessage($statusMessage, $language);
@@ -282,38 +223,6 @@ class OCSContext implements Context {
 				$this->featureContext->getResponse()
 			),
 			'Unexpected OCS status message :"' . $this->getOCSResponseStatusMessage(
-				$this->featureContext->getResponse()
-			) . '" in response'
-		);
-	}
-
-	/**
-	 * Check the text in an OCS status message.
-	 * Use this step form if the expected text contains double quotes,
-	 * single quotes and other content that theOCSStatusMessageShouldBe()
-	 * cannot handle.
-	 *
-	 * After the step, write the expected text in PyString form like:
-	 *
-	 * """
-	 * File "abc.txt" can't be shared due to reason "xyz"
-	 * """
-	 *
-	 * @Then /^the OCS status message should be:$/
-	 *
-	 * @param PyStringNode $statusMessage
-	 *
-	 * @return void
-	 */
-	public function theOCSStatusMessageShouldBePyString(
-		PyStringNode $statusMessage
-	): void {
-		Assert::assertEquals(
-			$statusMessage->getRaw(),
-			$this->getOCSResponseStatusMessage(
-				$this->featureContext->getResponse()
-			),
-			'Unexpected OCS status message: "' . $this->getOCSResponseStatusMessage(
 				$this->featureContext->getResponse()
 			) . '" in response'
 		);

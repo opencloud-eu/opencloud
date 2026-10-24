@@ -2,11 +2,11 @@ package kql
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/jinzhu/now"
 	"github.com/opencloud-eu/opencloud/pkg/ast"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/query"
 )
 
 func toNode[T ast.Node](in any) (T, error) {
@@ -84,7 +84,7 @@ func toTimeRange(in any) (*time.Time, *time.Time, error) {
 
 	value, err := toString(in)
 	if err != nil {
-		return &from, &to, &query.UnsupportedTimeRangeError{}
+		return &from, &to, &UnsupportedTimeRangeError{}
 	}
 
 	c := &now.Config{
@@ -131,8 +131,17 @@ func toTimeRange(in any) (*time.Time, *time.Time, error) {
 	}
 
 	if from.IsZero() || to.IsZero() {
-		return nil, nil, &query.UnsupportedTimeRangeError{}
+		return nil, nil, &UnsupportedTimeRangeError{}
 	}
 
 	return &from, &to, nil
+}
+
+func toFloat(v any) (float64, error) {
+	value, err := toString(v)
+	if err != nil {
+		return 0, err
+	}
+
+	return strconv.ParseFloat(value, 64)
 }

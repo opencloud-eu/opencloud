@@ -49,16 +49,12 @@
 
 #### [Same users can be added in a group multiple time](https://github.com/owncloud/ocis/issues/5702)
 
-- [apiGraphUserGroup/addUserToGroup.feature:295](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L295)
+- [apiGraphUserGroup/addUserToGroup.feature:294](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L294)
 
 #### [Users are added in a group with wrong host in host-part of user](https://github.com/owncloud/ocis/issues/5871)
 
-- [apiGraphUserGroup/addUserToGroup.feature:379](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L379)
-- [apiGraphUserGroup/addUserToGroup.feature:393](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L393)
-
-#### [Adding the same user as multiple members in a single request results in listing the same user twice in the group](https://github.com/owncloud/ocis/issues/5855)
-
-- [apiGraphUserGroup/addUserToGroup.feature:430](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L430)
+- [apiGraphUserGroup/addUserToGroup.feature:378](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L378)
+- [apiGraphUserGroup/addUserToGroup.feature:392](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGraphUserGroup/addUserToGroup.feature#L392)
 
 #### [Shared file locking is not possible using different path](https://github.com/owncloud/ocis/issues/7599)
 
@@ -190,15 +186,6 @@
 
 - [apiServiceAvailability/serviceAvailabilityCheck.feature:123](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiServiceAvailability/serviceAvailabilityCheck.feature#L123)
 
-#### [Missing properties in REPORT response](https://github.com/owncloud/ocis/issues/9780), [d:getetag property has empty value in REPORT response](https://github.com/owncloud/ocis/issues/9783)
-
-- [apiSearch1/search.feature:437](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L437)
-- [apiSearch1/search.feature:438](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L438)
-- [apiSearch1/search.feature:439](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L439)
-- [apiSearch1/search.feature:465](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L465)
-- [apiSearch1/search.feature:466](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L466)
-- [apiSearch1/search.feature:467](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSearch1/search.feature#L467)
-
 ## Scenarios from core API tests that are expected to fail with decomposed storage
 
 ### File
@@ -325,29 +312,6 @@ _ocdav: api compatibility, return correct status code_
 #### [Trying to restore personal file to file of share received folder returns 403 but the share file is deleted (new dav path)](https://github.com/owncloud/ocis/issues/10356)
 
 - [coreApiTrashbin/trashbinSharingToShares.feature:277](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiTrashbin/trashbinSharingToShares.feature#L277)
-
-#### [Preview. UTF characters do not display on prievew](https://github.com/opencloud-eu/opencloud/issues/1451)
-
-- [coreApiWebdavPreviews/previews.feature:249](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L249)
-- [coreApiWebdavPreviews/previews.feature:250](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L250)
-- [coreApiWebdavPreviews/previews.feature:251](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L251)
-
-#### [Preview of text file truncated](https://github.com/opencloud-eu/opencloud/issues/1452)
-
-- [coreApiWebdavPreviews/previews.feature:263](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L263)
-- [coreApiWebdavPreviews/previews.feature:264](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L264)
-- [coreApiWebdavPreviews/previews.feature:265](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/coreApiWebdavPreviews/previews.feature#L265)
-
-
-#### [500 when user tries to delete group from space](https://github.com/opencloud-eu/opencloud/issues/2799)
-
-- [apiSharingNg1/removeAccessToDrive.feature:145](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSharingNg1/removeAccessToDrive.feature#L145)
-
-#### [POSIX: failing CLI commands](https://github.com/opencloud-eu/opencloud/issues/3095)
-
-- [cliCommands/restoreTrashBinItems.feature:11](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/cliCommands/restoreTrashBinItems.feature#L11)
-- [cliCommands/restoreTrashBinItems.feature:23](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/cliCommands/restoreTrashBinItems.feature#L23)
-- [cliCommands/sharesCleanup.feature:12](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/cliCommands/sharesCleanup.feature#L12)
 
 ### Won't fix
 

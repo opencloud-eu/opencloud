@@ -33,6 +33,7 @@ import (
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/graph/mocks"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
@@ -165,6 +166,54 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Expect(permission.GetExpirationDateTime().Equal(*driveItemInvite.ExpirationDateTime)).To(BeTrue())
 			Expect(permission.GrantedToV2.Group.GetDisplayName()).To(Equal(getGroupResponse.Group.DisplayName))
 			Expect(permission.GrantedToV2.Group.GetId()).To(Equal("2"))
+		})
+
+		It("creates guest share using an email address", func() {
+			cfg.Commons = &shared.Commons{EnableGuestLinks: true}
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
+			gatewayClient.On("CreateShare", mock.Anything, mock.Anything).Return(createShareResponse, nil)
+			driveItemInvite.Recipients = []libregraph.DriveRecipient{
+				{Email: libregraph.PtrString("guest@example.com")},
+			}
+			createShareResponse.Share = &collaboration.Share{
+				Id:      &collaboration.ShareId{OpaqueId: "guest123"},
+				Grantee: guestGrantee("guest@example.com"),
+			}
+
+			permission, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(permission.GetId()).To(Equal("guest123"))
+			Expect(permission.GrantedToV2.User.GetDisplayName()).To(Equal("guest@example.com"))
+			Expect(permission.GrantedToV2.User.GetId()).To(Equal("guest@example.com"))
+			Expect(permission.GrantedToV2.User.GetLibreGraphUserType()).To(Equal("Guest"))
+		})
+
+		It("returns the guest id as stored by the share provider", func() {
+			cfg.Commons = &shared.Commons{EnableGuestLinks: true}
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
+			gatewayClient.On("CreateShare", mock.Anything, mock.Anything).Return(createShareResponse, nil)
+			driveItemInvite.Recipients = []libregraph.DriveRecipient{
+				{Email: libregraph.PtrString("Guest@\u0130nfocorp.com")},
+			}
+			createShareResponse.Share = &collaboration.Share{
+				Id:      &collaboration.ShareId{OpaqueId: "guest123"},
+				Grantee: guestGrantee("guest@xn--infocorp-o0e.com"),
+			}
+
+			permission, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(permission.GrantedToV2.User.GetId()).To(Equal("guest@xn--infocorp-o0e.com"))
+		})
+
+		It("rejects guest shares when guest invites are disabled by default", func() {
+			driveItemInvite.Recipients = []libregraph.DriveRecipient{
+				{Email: libregraph.PtrString("guest@example.com")},
+			}
+
+			_, err := driveItemPermissionsService.Invite(ctx, driveItemId, driveItemInvite)
+
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("not enabled"))
 		})
 
 		It("succeeds with file roles (happy path)", func() {
@@ -326,6 +375,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(listSpacesResponse, nil)
 			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
 			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil)
 			gatewayClient.On("CreateShare", mock.Anything, mock.Anything).Return(createShareResponse, nil)
 			driveItemInvite.Recipients = []libregraph.DriveRecipient{
 				{ObjectId: libregraph.PtrString("1"), LibreGraphRecipientType: libregraph.PtrString("user")},
@@ -1445,3 +1495,12 @@ var _ = Describe("DriveItemPermissionsApi", func() {
 		})
 	})
 })
+
+func guestGrantee(mail string) *provider.Grantee {
+	return &provider.Grantee{
+		Type: provider.GranteeType_GRANTEE_TYPE_USER,
+		Id: &provider.Grantee_UserId{
+			UserId: &userpb.UserId{Type: userpb.UserType_USER_TYPE_GUEST, OpaqueId: mail},
+		},
+	}
+}

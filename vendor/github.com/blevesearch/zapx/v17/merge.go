@@ -22,6 +22,7 @@ import (
 	"math"
 	"os"
 	"sort"
+	"sync/atomic"
 
 	"github.com/RoaringBitmap/roaring/v2"
 	index "github.com/blevesearch/bleve_index_api"
@@ -51,6 +52,25 @@ func (z *ZapPlugin) MergeUsing(segments []seg.Segment, drops []*roaring.Bitmap, 
 func (*ZapPlugin) merge(segments []seg.Segment, drops []*roaring.Bitmap, path string,
 	closeCh chan struct{}, s seg.StatsReporter, config map[string]interface{}) (
 	[][]uint64, uint64, error) {
+	var totalDocs, droppedDocs uint64
+	var err error
+
+	zapStats, ok := config[seg.StatsKey].(*seg.Stats)
+	if !ok || zapStats == nil {
+		zapStats = new(seg.Stats)
+	}
+
+	atomic.AddUint64(&zapStats.TotMergesBeg, 1)
+	defer func() {
+		if err == nil {
+			atomic.AddUint64(&zapStats.TotMergeDroppedDocs, droppedDocs)
+			atomic.AddUint64(&zapStats.TotMergeOutputDocs, totalDocs)
+		} else {
+			atomic.AddUint64(&zapStats.TotMergesErrors, 1)
+		}
+		atomic.AddUint64(&zapStats.TotMergesEnd, 1)
+	}()
+
 	segmentBases := make([]*SegmentBase, len(segments))
 	for segmenti, segment := range segments {
 		switch segmentx := segment.(type) {
@@ -62,11 +82,19 @@ func (*ZapPlugin) merge(segments []seg.Segment, drops []*roaring.Bitmap, path st
 			panic(fmt.Sprintf("oops, unexpected segment type: %T", segment))
 		}
 	}
-	return mergeSegmentBases(segmentBases, drops, path, DefaultChunkMode, closeCh, s, config)
+	atomic.AddUint64(&zapStats.TotMergeInputSegments, uint64(len(segments)))
+	totalDocs, droppedDocs = computeNewDocCount(segmentBases, drops)
+
+	newDocNums, size, err := mergeSegmentBases(segmentBases, drops, path, DefaultChunkMode, closeCh, s, config, zapStats)
+	if err != nil {
+		return nil, 0, err
+	}
+	return newDocNums, size, nil
 }
 
 func mergeSegmentBases(segmentBases []*SegmentBase, drops []*roaring.Bitmap, path string,
-	chunkMode uint32, closeCh chan struct{}, s seg.StatsReporter, config map[string]interface{}) (
+	chunkMode uint32, closeCh chan struct{}, s seg.StatsReporter, config map[string]interface{},
+	stats *seg.Stats) (
 	[][]uint64, uint64, error) {
 	flag := os.O_RDWR | os.O_CREATE
 
@@ -92,7 +120,7 @@ func mergeSegmentBases(segmentBases []*SegmentBase, drops []*roaring.Bitmap, pat
 	}
 
 	newDocNums, numDocs, storedIndexOffset, _, _, sectionsIndexOffset, err :=
-		mergeToWriter(segmentBases, drops, chunkMode, w, closeCh, config)
+		mergeToWriter(segmentBases, drops, chunkMode, w, closeCh, config, stats)
 	if err != nil {
 		cleanup()
 		return nil, 0, err
@@ -171,7 +199,8 @@ func finalizeFieldOptions(fieldOptions map[string]index.FieldIndexingOptions,
 }
 
 func mergeToWriter(segments []*SegmentBase, drops []*roaring.Bitmap,
-	chunkMode uint32, w *FileWriter, closeCh chan struct{}, config map[string]interface{}) (
+	chunkMode uint32, w *FileWriter, closeCh chan struct{}, config map[string]interface{},
+	stats *seg.Stats) (
 	newDocNums [][]uint64, numDocs, storedIndexOffset uint64,
 	fieldsInv []string, fieldsMap map[string]uint16, sectionsIndexOffset uint64,
 	err error) {
@@ -189,7 +218,7 @@ func mergeToWriter(segments []*SegmentBase, drops []*roaring.Bitmap,
 		fieldsSame = false
 	}
 
-	numDocs = computeNewDocCount(segments, drops)
+	numDocs, _ = computeNewDocCount(segments, drops)
 
 	if isClosed(closeCh) {
 		return nil, 0, 0, nil, nil, 0, seg.ErrClosed
@@ -205,7 +234,10 @@ func mergeToWriter(segments []*SegmentBase, drops []*roaring.Bitmap,
 		"fieldsMap":     fieldsMap,
 		"numDocs":       numDocs,
 		"fieldsOptions": fieldsOptions,
-		"config":        config,
+		"stats":         stats,
+	}
+	if config != nil {
+		args["config"] = config
 	}
 
 	if numDocs > 0 {
@@ -247,15 +279,17 @@ func mapFields(fields []string) map[string]uint16 {
 
 // computeNewDocCount determines how many documents will be in the newly
 // merged segment when obsoleted docs are dropped
-func computeNewDocCount(segments []*SegmentBase, drops []*roaring.Bitmap) uint64 {
+func computeNewDocCount(segments []*SegmentBase, drops []*roaring.Bitmap) (uint64, uint64) {
 	var newDocCount uint64
+	var droppedCount uint64
 	for segI, segment := range segments {
 		newDocCount += segment.numDocs
 		if drops[segI] != nil {
 			newDocCount -= drops[segI].GetCardinality()
+			droppedCount += drops[segI].GetCardinality()
 		}
 	}
-	return newDocCount
+	return newDocCount, droppedCount
 }
 
 func mergeTermFreqNormLocsByCopying(term []byte, postItr *PostingsIterator,
@@ -645,13 +679,13 @@ func mergeStoredAndRemap(segments []*SegmentBase, drops []*roaring.Bitmap,
 			return 0, nil, seg.ErrClosed
 		}
 		// get the edgeList for this segment
-		edgeList := segment.EdgeList()
+		edgeList := segment.edgeList()
 		// if no edgeList, nothing to do
 		if edgeList == nil {
 			continue
 		}
 		newSegDocNums := rv[segI]
-		edgeList.Iterate(func(oldChild uint64, oldParent uint64) bool {
+		edgeList.iterate(func(oldChild uint64, oldParent uint64) bool {
 			newParent := newSegDocNums[oldParent]
 			newChild := newSegDocNums[oldChild]
 			if newParent != docDropped &&

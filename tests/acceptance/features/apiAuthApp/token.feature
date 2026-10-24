@@ -22,7 +22,7 @@ Feature: create auth-app token
         ],
         "properties": {
           "token": {
-            "pattern": "^([a-zA-Z]+ ){5}[a-zA-Z]+$"
+            "pattern": "^([a-z-]+ ){5}[a-z-]+$"
           },
           "label": {
             "const": "Generated via API"
@@ -58,7 +58,7 @@ Feature: create auth-app token
               ],
               "properties": {
                 "token": {
-                  "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$"
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
                 },
                 "label": {
                   "const": "Generated via API"
@@ -75,7 +75,7 @@ Feature: create auth-app token
               ],
               "properties": {
                 "token": {
-                  "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$"
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
                 },
                 "label": {
                   "const": "Generated via CLI"
@@ -92,7 +92,7 @@ Feature: create auth-app token
               ],
               "properties": {
                 "token": {
-                  "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-4[0-9A-Fa-f]{3}-[89ABab][0-9A-Fa-f]{3}-[0-9A-Fa-f]{12}$"
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
                 },
                 "label": {
                   "const": "Generated via API (Impersonation)"
@@ -121,7 +121,7 @@ Feature: create auth-app token
         ],
         "properties": {
           "token": {
-            "pattern": "^([a-zA-Z]+ ){5}[a-zA-Z]+$"
+            "pattern": "^([a-z-]+ ){5}[a-z-]+$"
           },
           "label": {
             "const": "Generated via API (Impersonation)"

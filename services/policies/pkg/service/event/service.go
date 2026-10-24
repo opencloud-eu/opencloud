@@ -6,6 +6,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/policies/pkg/engine"
+	"github.com/opencloud-eu/opencloud/services/policies/pkg/metrics"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -17,19 +18,21 @@ type Service struct {
 	log     log.Logger
 	stream  events.Stream
 	engine  engine.Engine
+	metrics *metrics.Metrics
 	tp      trace.TracerProvider
 	stopCh  chan struct{}
 	stopped *atomic.Bool
 }
 
 // New returns a service implementation for Service.
-func New(ctx context.Context, stream events.Stream, logger log.Logger, tp trace.TracerProvider, engine engine.Engine, query string) (Service, error) {
+func New(ctx context.Context, stream events.Stream, logger log.Logger, tp trace.TracerProvider, engine engine.Engine, query string, metrics *metrics.Metrics) (Service, error) {
 	svc := Service{
 		ctx:     ctx,
 		log:     logger,
 		query:   query,
 		tp:      tp,
 		engine:  engine,
+		metrics: metrics,
 		stream:  stream,
 		stopCh:  make(chan struct{}, 1),
 		stopped: new(atomic.Bool),
@@ -86,6 +89,8 @@ func (s Service) processEvent(e events.Event) error {
 	ctx, span := s.tp.Tracer("policies").Start(ctx, "processEvent")
 	defer span.End()
 
+	s.metrics.EventsReceived.WithLabelValues().Inc()
+
 	switch ev := e.Event.(type) {
 	case events.StartPostprocessingStep:
 		if ev.StepToStart != events.PPStepPolicies {
@@ -114,7 +119,14 @@ func (s Service) processEvent(e events.Event) error {
 
 			result, err := s.engine.Evaluate(context.TODO(), s.query, env)
 			if err != nil {
+				s.metrics.FailedEventEvaluations.WithLabelValues().Inc()
 				s.log.Error().Err(err).Msg("unable evaluate policy")
+			} else {
+				if result {
+					s.metrics.EventEvaluationsThatAllow.WithLabelValues().Inc()
+				} else {
+					s.metrics.EventEvaluationsThatDontAllow.WithLabelValues().Inc()
+				}
 			}
 
 			if !result {

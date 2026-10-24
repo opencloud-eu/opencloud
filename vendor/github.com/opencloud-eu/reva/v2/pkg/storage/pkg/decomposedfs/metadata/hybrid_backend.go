@@ -3,7 +3,6 @@ package metadata
 import (
 	"context"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -22,7 +21,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 )
 
-var _metadataOffloadedAttr = prefixes.OcPrefix + "metadata_offloaded"
+func metadataOffloadedAttr() string { return prefixes.OcPrefix + "metadata_offloaded" }
 
 type MetadataPathFunc func(MetadataNode) string
 
@@ -73,7 +72,7 @@ func (b HybridBackend) Get(ctx context.Context, n MetadataNode, key string) ([]b
 
 	if isOffloadingAttribute(key) {
 		// check if key is offloaded
-		offloaded, err := xattr.Get(n.InternalPath(), _metadataOffloadedAttr)
+		offloaded, err := xattr.Get(n.InternalPath(), metadataOffloadedAttr())
 		if err == nil && string(offloaded) == "1" {
 			msgpackAttribs := map[string][]byte{}
 			msgBytes, err := os.ReadFile(b.MetadataPath(n))
@@ -114,11 +113,11 @@ func (b HybridBackend) list(ctx context.Context, n MetadataNode) (attribs []stri
 		return nil, &xattr.Error{Op: "HybridBackend.list", Path: n.InternalPath(), Err: syscall.ENOENT} // attribute not found
 	}
 
-	return xattr.List(filePath)
+	return listXattr(filePath)
 }
 
-// All reads all extended attributes for a node, protected by a
-// shared file lock
+// All reads all extended attributes for a node. It acquires a shared file lock
+// unless the caller already holds the node's metadata lock (n.LockHeld()).
 func (b HybridBackend) All(ctx context.Context, n MetadataNode) (map[string][]byte, error) {
 	attribs := map[string][]byte{}
 
@@ -127,29 +126,18 @@ func (b HybridBackend) All(ctx context.Context, n MetadataNode) (map[string][]by
 		return attribs, err
 	}
 
-	unlock, err := b.Lock(n)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = unlock() }()
-
-	return b.getAll(ctx, n, false, false)
-}
-
-// AllWithLockedSource reads all extended attributes from the given reader.
-// The path argument is used for storing the data in the cache
-func (b HybridBackend) AllWithLockedSource(ctx context.Context, n MetadataNode, _ io.Reader) (map[string][]byte, error) {
-	attribs := map[string][]byte{}
-
-	err := b.metaCache.PullFromCache(b.cacheKey(n), &attribs)
-	if err == nil {
-		return attribs, err
+	if !n.LockHeld() {
+		unlock, err := b.Lock(n)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = unlock() }()
 	}
 
-	return b.getAll(ctx, n, false, false)
+	return b.getAll(ctx, n, false)
 }
 
-func (b HybridBackend) getAll(ctx context.Context, n MetadataNode, skipCache, skipOffloaded bool) (map[string][]byte, error) {
+func (b HybridBackend) getAll(ctx context.Context, n MetadataNode, skipOffloaded bool) (map[string][]byte, error) {
 	attribs := map[string][]byte{}
 	attrNames, err := b.list(ctx, n)
 	if err != nil {
@@ -186,7 +174,7 @@ func (b HybridBackend) getAll(ctx context.Context, n MetadataNode, skipCache, sk
 	}
 
 	// merge the attributes from the offload file
-	offloaded, err := xattr.Get(path, _metadataOffloadedAttr)
+	offloaded, err := xattr.Get(path, metadataOffloadedAttr())
 	if err != nil && !IsAttrUnset(err) {
 		return nil, err
 	}
@@ -215,13 +203,13 @@ func (b HybridBackend) getAll(ctx context.Context, n MetadataNode, skipCache, sk
 
 // Set sets one attribute for the given path
 func (b HybridBackend) Set(ctx context.Context, n MetadataNode, key string, val []byte) (err error) {
-	return b.SetMultiple(ctx, n, map[string][]byte{key: val}, true)
+	return b.SetMultiple(ctx, n, map[string][]byte{key: val})
 }
 
 // SetMultiple sets a set of attribute for the given path
-func (b HybridBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs map[string][]byte, acquireLock bool) (err error) {
+func (b HybridBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs map[string][]byte) (err error) {
 	path := n.InternalPath()
-	if acquireLock {
+	if !n.LockHeld() {
 		unlock, err := b.Lock(n)
 		if err != nil {
 			return err
@@ -229,7 +217,7 @@ func (b HybridBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs 
 		defer func() { _ = unlock() }()
 	}
 
-	offloadAttr, err := xattr.Get(path, _metadataOffloadedAttr)
+	offloadAttr, err := xattr.Get(path, metadataOffloadedAttr())
 	offloaded := err == nil && string(offloadAttr) == "1"
 
 	// offload if the offloading metadata size exceeds the limit
@@ -247,7 +235,7 @@ func (b HybridBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs 
 				mdSize += len(attribs[key]) + len(key)
 			}
 		}
-		existingAttribs, err := b.getAll(ctx, n, true, true)
+		existingAttribs, err := b.getAll(ctx, n, true)
 		if err != nil {
 			return err
 		}
@@ -320,7 +308,7 @@ func (b HybridBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs 
 	}
 
 	// Update the cache with the new values
-	_, err = b.getAll(ctx, n, true, false)
+	_, err = b.getAll(ctx, n, false)
 	return err
 }
 
@@ -331,7 +319,7 @@ func (b HybridBackend) offloadMetadata(ctx context.Context, n MetadataNode) erro
 	var xerr error
 
 	// collect attributes to move
-	existingAttribs, err := b.getAll(ctx, n, true, true)
+	existingAttribs, err := b.getAll(ctx, n, true)
 	if err != nil {
 		return err
 	}
@@ -358,7 +346,7 @@ func (b HybridBackend) offloadMetadata(ctx context.Context, n MetadataNode) erro
 	}
 
 	// set the metadata offloaded attribute
-	err = xattr.Set(path, _metadataOffloadedAttr, []byte("1"))
+	err = xattr.Set(path, metadataOffloadedAttr(), []byte("1"))
 	if err != nil {
 		return err
 	}
@@ -377,9 +365,9 @@ func (b HybridBackend) offloadMetadata(ctx context.Context, n MetadataNode) erro
 }
 
 // Remove an extended attribute key
-func (b HybridBackend) Remove(ctx context.Context, n MetadataNode, key string, acquireLock bool) error {
+func (b HybridBackend) Remove(ctx context.Context, n MetadataNode, key string) error {
 	path := n.InternalPath()
-	if acquireLock {
+	if !n.LockHeld() {
 		unlock, err := b.Lock(n)
 		if err != nil {
 			return err
@@ -388,7 +376,7 @@ func (b HybridBackend) Remove(ctx context.Context, n MetadataNode, key string, a
 	}
 
 	if isOffloadingAttribute(key) {
-		offloadAttr, err := xattr.Get(path, _metadataOffloadedAttr)
+		offloadAttr, err := xattr.Get(path, metadataOffloadedAttr())
 		offloaded := err == nil && string(offloadAttr) == "1"
 		if offloaded {
 			// remove from offloaded metadata
@@ -444,7 +432,7 @@ func (b HybridBackend) Remove(ctx context.Context, n MetadataNode, key string, a
 	}
 
 	// Update the cache with the new values
-	_, err := b.getAll(ctx, n, true, false)
+	_, err := b.getAll(ctx, n, false)
 	return err
 }
 
@@ -462,7 +450,7 @@ func (b HybridBackend) Purge(ctx context.Context, n MetadataNode) error {
 		}
 		defer func() { _ = unlock() }()
 
-		attribs, err := b.getAll(ctx, n, true, false)
+		attribs, err := b.getAll(ctx, n, false)
 		if err == nil {
 			for attr := range attribs {
 				if strings.HasPrefix(attr, prefixes.OcPrefix) {
@@ -504,32 +492,45 @@ func (b HybridBackend) LockfilePath(n MetadataNode) string {
 
 // Lock locks the metadata for the given path
 func (b HybridBackend) Lock(n MetadataNode) (UnlockFunc, error) {
-	f, _, err := b.LockAndRead(n)
-	return f, err
-}
+	if n.LockHeld() {
+		return func() error { return nil }, nil
+	}
 
-func (b HybridBackend) LockAndRead(n MetadataNode) (UnlockFunc, io.Reader, error) {
 	metaLockPath := b.LockfilePath(n)
 	mlock, err := lockedfile.OpenFile(metaLockPath, os.O_RDWR|os.O_CREATE, 0600)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			// create the parent directory
-			err = os.MkdirAll(filepath.Dir(metaLockPath), 0700)
-			if err != nil {
-				return nil, nil, err
+			// The lock file's parent directories don't exist yet (or anymore).
+			// We may only create the space's metadata directories, never the
+			// space's base directory itself: locking a node (i.e. the space
+			// root) whose space has been removed (or has not been created yet)
+			// must not resurrect the spaca.
+			base := b.metadataPathFunc(n)
+			if base == "" {
+				return nil, err
+			}
+			// base is the space's metadata directory (e.g. <spaceRoot>/.oc-nodes).
+			// Create it and the locks directory one level at a time: unlike MkdirAll,
+			// Mkdir fails when the space root is removed concurrently.
+			for _, dir := range []string{base, filepath.Dir(metaLockPath)} {
+				if err = os.Mkdir(dir, 0700); err != nil && !errors.Is(err, os.ErrExist) {
+					return nil, err
+				}
 			}
 			mlock, err = lockedfile.OpenFile(metaLockPath, os.O_RDWR|os.O_CREATE, 0600)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		} else {
-			return nil, nil, err
+			return nil, err
 		}
 	}
+	n.SetLockHeld(true)
 	return func() error {
+		n.SetLockHeld(false)
 		// Warning: do not remove the lockfile or we may lock the same file more than once, https://github.com/opencloud-eu/opencloud/issues/1793
 		return mlock.Close()
-	}, mlock, nil
+	}, nil
 }
 
 func (b HybridBackend) cacheKey(n MetadataNode) string {

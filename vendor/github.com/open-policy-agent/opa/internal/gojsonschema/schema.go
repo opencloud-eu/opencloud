@@ -31,7 +31,10 @@ import (
 	"errors"
 	"math/big"
 	"regexp"
-	"text/template"
+
+	// Method-less copy of text/template; see the import note in errors.go
+	// (golang/go#72895, #7903). ErrorTemplateFuncs below is its FuncMap.
+	template "github.com/open-policy-agent/opa/internal/methodlesstemplate"
 
 	"github.com/xeipuuv/gojsonreference"
 )
@@ -673,18 +676,24 @@ func (d *Schema) parseSchema(documentNode any, currentSchema *SubSchema) error {
 	if err != nil {
 		return err
 	}
-	for _, v := range enum {
-		is, err := marshalWithoutNumber(v)
-		if err != nil {
-			return err
+	// Distinguish a present empty enum from a missing enum keyword.
+	// JSON Schema: enum validation succeeds only if the instance equals one of
+	// the listed values, so {"enum": []} is unsatisfiable (always fails).
+	if enum != nil {
+		currentSchema.enum = make([]string, 0, len(enum))
+		for _, v := range enum {
+			is, err := marshalWithoutNumber(v)
+			if err != nil {
+				return err
+			}
+			if isStringInSlice(currentSchema.enum, *is) {
+				return errors.New(formatErrorDescription(
+					Locale.KeyItemsMustBeUnique(),
+					ErrorDetails{"key": KeyEnum},
+				))
+			}
+			currentSchema.enum = append(currentSchema.enum, *is)
 		}
-		if isStringInSlice(currentSchema.enum, *is) {
-			return errors.New(formatErrorDescription(
-				Locale.KeyItemsMustBeUnique(),
-				ErrorDetails{"key": KeyEnum},
-			))
-		}
-		currentSchema.enum = append(currentSchema.enum, *is)
 	}
 
 	// validation : SubSchema

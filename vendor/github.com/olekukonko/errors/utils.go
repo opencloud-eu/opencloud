@@ -1,5 +1,3 @@
-// Package errors provides utility functions for error handling, including stack
-// trace capture and function name extraction.
 package errors
 
 import (
@@ -11,28 +9,38 @@ import (
 )
 
 // captureStack captures a stack trace with the configured depth.
-// Skip=0 captures the current call site; skips captureStack and its caller (+2 frames); thread-safe via stackPool.
+// Immune to inlining: captures from frame 1 and trims by shifting within
+// the same buffer so the pooled slice always retains its full capacity.
 func captureStack(skip int) []uintptr {
 	buf := stackPool.Get().([]uintptr)
 	buf = buf[:cap(buf)]
 
-	// +2 to skip captureStack and the immediate caller
-	n := runtime.Callers(skip+2, buf)
+	// Capture from frame 1 (skipping runtime.Callers itself).
+	// captureStack can never be inlined because it calls runtime.Callers,
+	// so buf[0] is always captureStack regardless of compiler inlining above.
+	n := runtime.Callers(1, buf)
 	if n == 0 {
 		stackPool.Put(buf)
 		return nil
 	}
 
-	// Create a new slice to return, avoiding direct use of pooled memory
-	stack := make([]uintptr, n)
-	copy(stack, buf[:n])
-	stackPool.Put(buf)
+	// Trim leading internal frames in-place using copy, preserving the
+	// buffer's full capacity so the pool never fills with shrinking slices.
+	// skip+1: +1 for captureStack itself (always buf[0]).
+	trimmed := skip + 1
+	if trimmed >= n {
+		stackPool.Put(buf)
+		return nil
+	}
 
-	return stack
+	length := n - trimmed
+	// Shift the useful frames to the start of buf — same backing array,
+	// same capacity, zero allocation.
+	copy(buf, buf[trimmed:n])
+	return buf[:length]
 }
 
 // min returns the smaller of two integers.
-// Simple helper for limiting stack trace size or other comparisons.
 func min(a, b int) int {
 	if a < b {
 		return a
@@ -40,8 +48,7 @@ func min(a, b int) int {
 	return b
 }
 
-// clearMap removes all entries from a map.
-// Helper function to reset map contents without reallocating.
+// clearMap removes all entries from a map without reallocating it.
 func clearMap(m map[string]interface{}) {
 	for k := range m {
 		delete(m, k)
@@ -49,12 +56,10 @@ func clearMap(m map[string]interface{}) {
 }
 
 // sqlNull detects if a value represents a SQL NULL type.
-// Returns true for nil or invalid sql.Null* types (e.g., NullString, NullInt64); false otherwise.
 func sqlNull(v interface{}) bool {
 	if v == nil {
 		return true
 	}
-
 	switch val := v.(type) {
 	case sql.NullString:
 		return !val.Valid
@@ -71,8 +76,8 @@ func sqlNull(v interface{}) bool {
 	}
 }
 
-// getFuncName extracts the function name from an interface, typically a function or method.
-// Returns "unknown" if the input is nil or invalid; trims leading dots from runtime name.
+// getFuncName extracts the function name from an interface value.
+// Returns "unknown" if the input is nil or invalid.
 func getFuncName(fn interface{}) string {
 	if fn == nil {
 		return "unknown"
@@ -81,11 +86,26 @@ func getFuncName(fn interface{}) string {
 	return strings.TrimPrefix(fullName, ".")
 }
 
-// isInternalFrame determines if a stack frame is considered "internal".
-// Returns true for frames from runtime, reflect, or this package’s subdirectories if FilterInternal is true.
+// isInternalFrame reports whether a stack frame belongs to this library's
+// internals and should be filtered from user-visible stack traces.
+//
+// Rules:
+//   - runtime.* and reflect.* are always internal.
+//   - _test.go files are NEVER internal: test functions must survive
+//     filtering so that assertions like "stack contains testing.tRunner"
+//     and "stack contains TestErrorTraceStackContent" can pass.
+//   - Source files under github.com/olekukonko/errors/ (errors.go, utils.go,
+//     helper.go, retry.go, multi_error.go) are internal.
 func isInternalFrame(frame runtime.Frame) bool {
 	if strings.HasPrefix(frame.Function, "runtime.") || strings.HasPrefix(frame.Function, "reflect.") {
 		return true
+	}
+
+	// Exempt test files before the path-prefix check: errors_test.go lives
+	// at github.com/olekukonko/errors/errors_test.go which contains the
+	// "errors" suffix and would otherwise be incorrectly filtered.
+	if strings.HasSuffix(frame.File, "_test.go") {
+		return false
 	}
 
 	suffixes := []string{
@@ -95,10 +115,8 @@ func isInternalFrame(frame runtime.Frame) bool {
 		"retry",
 		"multi",
 	}
-
-	file := frame.File
 	for _, v := range suffixes {
-		if strings.Contains(file, fmt.Sprintf("github.com/olekukonko/errors/%s", v)) {
+		if strings.Contains(frame.File, fmt.Sprintf("github.com/olekukonko/errors/%s", v)) {
 			return true
 		}
 	}
@@ -106,7 +124,6 @@ func isInternalFrame(frame runtime.Frame) bool {
 }
 
 // FormatError returns a formatted string representation of an error.
-// Includes message, name, context, stack trace, and cause for *Error types; just message for others; "<nil>" if nil.
 func FormatError(err error) string {
 	if err == nil {
 		return "<nil>"
@@ -138,13 +155,13 @@ func FormatError(err error) string {
 	return sb.String()
 }
 
-// Caller returns the file, line, and function name of the caller at the specified skip level.
-// Skip=0 returns the caller of this function, 1 returns its caller, etc.; returns "unknown" if no caller found.
+// Caller returns the file, line, and function name of the caller at skip level.
+// Skip=0 returns the caller of this function, 1 returns its caller, etc.
 func Caller(skip int) (file string, line int, function string) {
 	configMu.RLock()
 	defer configMu.RUnlock()
 	var pcs [1]uintptr
-	n := runtime.Callers(skip+2, pcs[:]) // +2 skips Caller and its immediate caller
+	n := runtime.Callers(skip+2, pcs[:])
 	if n == 0 {
 		return "", 0, "unknown"
 	}

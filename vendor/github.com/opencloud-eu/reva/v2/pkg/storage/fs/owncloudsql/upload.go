@@ -169,6 +169,14 @@ func (fs *owncloudsqlfs) InitiateUpload(ctx context.Context, ref *provider.Refer
 	}, nil
 }
 
+func (fs *owncloudsqlfs) MarkProcessing(ctx context.Context, ref *provider.Reference, processing bool, sessionID string) error {
+	return errtypes.NotSupported("op not supported")
+}
+
+func (fs *owncloudsqlfs) CommitUpload(_ context.Context, _ *provider.Reference, _ string, _ storage.UploadSource) error {
+	return errtypes.NotSupported("op not supported")
+}
+
 // UseIn tells the tus upload middleware which extensions it supports.
 func (fs *owncloudsqlfs) UseIn(composer *tusd.StoreComposer) {
 	composer.UseCore(fs)

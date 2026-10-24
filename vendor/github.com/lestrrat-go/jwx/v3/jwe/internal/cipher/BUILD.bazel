@@ -9,10 +9,9 @@ go_library(
     importpath = "github.com/lestrrat-go/jwx/v3/jwe/internal/cipher",
     visibility = ["//:__subpackages__"],
     deps = [
-        "//jwa",
+        "//internal/tokens",
         "//jwe/internal/aescbc",
         "//jwe/internal/keygen",
-        "//internal/tokens",
     ],
 )
 
@@ -21,7 +20,6 @@ go_test(
     srcs = ["cipher_test.go"],
     deps = [
         ":cipher",
-        "//jwa",
         "//internal/tokens",
         "@com_github_stretchr_testify//require",
     ],

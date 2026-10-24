@@ -252,6 +252,12 @@ func IsSpaceRoot(ri *storageprovider.ResourceInfo) bool {
 	return f.GetOpaqueId() == s.GetOpaqueId() && f.GetSpaceId() == s.GetSpaceId()
 }
 
+// IsProcessing checks if the given resource info is still being processed
+// (e.g. postprocessing after an upload has not finished yet).
+func IsProcessing(ri *storageprovider.ResourceInfo) bool {
+	return ReadPlainFromOpaque(ri.GetOpaque(), "status") == "processing"
+}
+
 func checkStatusCode(reason, message string, code rpc.Code) error {
 	if code == rpc.Code_CODE_OK {
 		return nil

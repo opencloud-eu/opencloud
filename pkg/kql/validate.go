@@ -2,34 +2,47 @@ package kql
 
 import (
 	"github.com/opencloud-eu/opencloud/pkg/ast"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/query"
 )
 
 func validateAst(a *ast.Ast) error {
-	switch node := a.Nodes[0].(type) {
-	case *ast.OperatorNode:
-		switch node.Value {
-		case BoolAND, BoolOR:
-			return &query.StartsWithBinaryOperatorError{Node: node}
-		}
-	}
-	return nil
+	return validateOperators(a.Nodes)
 }
 
 func validateGroupNode(n *ast.GroupNode) error {
-	switch node := n.Nodes[0].(type) {
-	case *ast.OperatorNode:
-		switch node.Value {
-		case BoolAND, BoolOR:
-			return &query.StartsWithBinaryOperatorError{Node: node}
-		}
+	if err := validateOperators(n.Nodes); err != nil {
+		return err
 	}
 
 	if n.Key != "" {
 		for _, node := range n.Nodes {
 			if ast.NodeKey(node) != "" {
-				return &query.NamedGroupInvalidNodesError{Node: node}
+				return &NamedGroupInvalidNodesError{Node: node}
 			}
+		}
+	}
+
+	return nil
+}
+
+func validateOperators(nodes []ast.Node) error {
+	for i, node := range nodes {
+		op, ok := node.(*ast.OperatorNode)
+		if !ok {
+			continue
+		}
+
+		switch op.Value {
+		case BoolAND, BoolOR:
+			if i == 0 {
+				return &DanglingOperatorError{Node: op}
+			}
+			if _, prevIsOperator := nodes[i-1].(*ast.OperatorNode); prevIsOperator {
+				return &DanglingOperatorError{Node: op}
+			}
+		}
+
+		if i == len(nodes)-1 {
+			return &DanglingOperatorError{Node: op}
 		}
 	}
 

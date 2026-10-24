@@ -6,10 +6,12 @@
 package planner
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
-	"sort"
+	"slices"
+	"strings"
 
 	"github.com/open-policy-agent/opa/internal/debug"
 	"github.com/open-policy-agent/opa/v1/ast"
@@ -47,6 +49,12 @@ type Planner struct {
 	lnext   ir.Local                // next variable to use
 	loc     *location.Location      // location currently "being planned"
 	debug   debug.Debug             // debug information produced during planning
+
+	allRules     map[*ast.Rule]bool // all rules parsed from input modules, used to track unplanned rules for additional reporting (e.g. coverage)
+	plannedRules map[*ast.Rule]bool
+	planning     map[string]struct{} // ground path prefixes currently being planned
+
+	unplannedRules bool // whether to populate policy.UnplannedRules
 }
 
 // debugf prepends the planner location. We're passing callstack depth 2 because
@@ -81,6 +89,10 @@ func New() *Planner {
 		funcs: newFuncstack(),
 		mocks: newFunctionMocksStack(),
 		debug: debug.Discard(),
+
+		allRules:     map[*ast.Rule]bool{},
+		plannedRules: map[*ast.Rule]bool{},
+		planning:     map[string]struct{}{},
 	}
 }
 
@@ -113,26 +125,51 @@ func (p *Planner) WithDebug(sink io.Writer) *Planner {
 	return p
 }
 
+// WithUnplannedRules controls whether the resulting policy includes the
+// list of rules that were parsed but never planned (i.e. not reachable
+// from any entrypoint). Disabled by default.
+func (p *Planner) WithUnplannedRules(yes bool) *Planner {
+	p.unplannedRules = yes
+	return p
+}
+
 // Plan returns a IR plan for the policy query.
 func (p *Planner) Plan() (*ir.Policy, error) {
-
-	if err := p.buildFunctrie(); err != nil {
-		return nil, err
-	}
+	p.buildFunctrie()
 
 	if err := p.planQueries(); err != nil {
 		return nil, err
 	}
 
-	if err := p.planExterns(); err != nil {
-		return nil, err
+	p.planExterns()
+
+	if p.unplannedRules {
+		p.buildUnplannedRules()
 	}
 
 	return p.policy, nil
 }
 
-func (p *Planner) buildFunctrie() error {
+// buildUnplannedRules populates policy.UnplannedRules with the rules that
+// were parsed but never planned (i.e. not reachable from any entrypoint),
+// for coverage reporting purposes.
+func (p *Planner) buildUnplannedRules() {
+	for rule := range p.allRules {
+		if p.plannedRules[rule] {
+			continue
+		}
+		p.policy.UnplannedRules = append(p.policy.UnplannedRules, &ir.UnplannedRule{
+			Path:     rule.Ref().String(),
+			Location: p.newLocation(rule.Loc()),
+		})
+	}
 
+	slices.SortFunc(p.policy.UnplannedRules, func(a, b *ir.UnplannedRule) int {
+		return strings.Compare(a.Path, b.Path)
+	})
+}
+
+func (p *Planner) buildFunctrie() {
 	for _, module := range p.modules {
 
 		// Create functrie node for empty packages so that extent queries return
@@ -149,6 +186,8 @@ func (p *Planner) buildFunctrie() error {
 		}
 
 		for _, rule := range module.Rules {
+			p.allRules[rule] = true
+
 			r := rule.Ref().StringPrefix()
 			val := p.rules.LookupOrInsert(r)
 
@@ -157,19 +196,22 @@ func (p *Planner) buildFunctrie() error {
 			val.children = nil
 		}
 	}
-	return nil
 }
 
 func (p *Planner) planRules(rules []*ast.Rule) (string, error) {
+	for _, rule := range rules {
+		p.plannedRules[rule] = true
+	}
+
 	// We sort rules, first by ref length, and then using the
 	// Ref.Compare method to break ties. This yields a stable
 	// sorting order for the slice of rules to be planned.
-	sort.Slice(rules, func(i, j int) bool {
-		li, lj := len(rules[i].Ref()), len(rules[j].Ref())
-		if li != lj {
-			return li > lj
+	slices.SortFunc(rules, func(a, b *ast.Rule) int {
+		aRef, bRef := a.Ref(), b.Ref()
+		if c := cmp.Compare(len(aRef), len(bRef)); c != 0 {
+			return -c
 		}
-		return rules[i].Ref().Compare(rules[j].Ref()) < 0
+		return aRef.Compare(bRef)
 	})
 
 	// We know the rules that are closer to the root (shorter static path) are ordered first.
@@ -204,6 +246,23 @@ func (p *Planner) planRules(rules []*ast.Rule) (string, error) {
 	if funcName, ok := p.funcs.Get(path); ok {
 		return funcName, nil
 	}
+
+	// One function is planned per ground path prefix, so rules whose refs only
+	// differ past a variable share a function. A reference from one of those
+	// rule bodies back into the same prefix is not recursion the compiler would
+	// reject, but the planner has no way to evaluate part of a function that is
+	// still being planned. The generation is left out of the key on purpose: a
+	// 'with' statement that shadows planned functions bumps it, and keying on
+	// it would let the same prefix re-enter planning forever.
+	if _, ok := p.planning[path]; ok {
+		err := fmt.Errorf("reference to %v is not supported: rules sharing that path prefix are planned as a single function", path)
+		if p.loc != nil {
+			return "", fmt.Errorf("%v: %w", p.loc, err)
+		}
+		return "", err
+	}
+	p.planning[path] = struct{}{}
+	defer delete(p.planning, path)
 
 	// Save current state of planner.
 	//
@@ -533,7 +592,6 @@ func (p *Planner) planFuncParams(params []ir.Local, args ast.Args, idx int, iter
 }
 
 func (p *Planner) planQueries() error {
-
 	for _, qs := range p.queries {
 
 		// Initialize the plan with a block that prepares the query result.
@@ -616,7 +674,6 @@ func (p *Planner) planQueries() error {
 }
 
 func (p *Planner) planQuery(q ast.Body, index int, iter planiter) error {
-
 	if index >= len(q) {
 		return iter()
 	}
@@ -648,6 +705,12 @@ func (p *Planner) planExpr(e *ast.Expr, iter planiter) error {
 	case e.IsNegated():
 		return p.planNot(e, iter)
 
+	case e.IsAnd():
+		return p.planExprLogicalAnd(e, iter)
+
+	case e.IsOr():
+		return p.planExprLogicalOr(e, iter)
+
 	case e.IsCall():
 		return p.planExprCall(e, iter)
 
@@ -659,40 +722,153 @@ func (p *Planner) planExpr(e *ast.Expr, iter planiter) error {
 }
 
 func (p *Planner) planNot(e *ast.Expr, iter planiter) error {
-	not := &ir.NotStmt{
-		Block: &ir.Block{},
-	}
-
-	prev := p.curr
-	p.curr = not.Block
-
 	if n, ok := e.Terms.(*ast.Not); ok {
-		cond := p.newLocal() // success condition
+		// We're constructing the following plan:
+		//
+		// | not
+		// | | <plan(body)>                            # assigns Local<cond> = true at each success point
+		// | | is_defined &{Source:Local<cond>}        # aborts inner block if body produced no success
+		// | iter()                                    # caller's continuation
 
-		err := p.planQuery(n.Body, 0, func() error {
-			p.appendStmt(&ir.AssignVarStmt{
-				Source: op(ir.Bool(true)),
-				Target: cond,
-			})
-			return nil
-		})
+		cond := p.newLocal()
+		sub, err := p.planBodyAsScope(n.Body, cond)
 		if err != nil {
 			return err
 		}
 
-		p.appendStmt(&ir.IsDefinedStmt{
-			Source: cond,
-		})
-	} else {
-		if err := p.planExpr(e.Complement(), func() error { return nil }); err != nil {
-			return err
-		}
+		sub.Stmts = append(sub.Stmts, &ir.IsDefinedStmt{Source: cond})
+		p.appendStmt(&ir.NotStmt{Block: sub})
+
+		return iter()
+	}
+
+	// Legacy negation
+
+	not := &ir.NotStmt{Block: &ir.Block{}}
+	prev := p.curr
+	p.curr = not.Block
+
+	if err := p.planExpr(e.Complement(), func() error { return nil }); err != nil {
+		return err
 	}
 
 	p.curr = prev
 	p.appendStmt(not)
 
 	return iter()
+}
+
+func (p *Planner) planExprLogicalAnd(e *ast.Expr, iter planiter) error {
+	// We're constructing the following plan:
+	//
+	// | reset &{Target:Local<cond>}
+	// | block lhs
+	// | | <plan(LHS body)>
+	// | | assign_var &{Target:Local<cond>}        # Local<cond> = true on success
+	// | is_defined &{Source:Local<cond>}          # aborts outer if LHS produced no success
+	// | reset &{Target:Local<cond>}               # clear before RHS
+	// | block rhs
+	// | | <plan(RHS body)>
+	// | | assign_var &{Target:Local<cond>}        # Local<cond> = true on success
+	// | is_defined &{Source:Local<cond>}          # aborts outer if RHS produced no success
+	// | iter()                                    # caller's continuation
+
+	and := e.Terms.(*ast.LogicalAnd)
+	cond := p.newLocal() // success condition
+
+	if err := planLogicalOperand(p, and.Lhs, cond); err != nil {
+		return err
+	}
+
+	if err := planLogicalOperand(p, and.Rhs, cond); err != nil {
+		return err
+	}
+
+	return iter()
+}
+
+func planLogicalOperand(p *Planner, body ast.Body, cond ir.Local) error {
+	p.appendStmt(&ir.ResetLocalStmt{Target: cond})
+
+	sub, err := p.planBodyAsScope(body, cond)
+	if err != nil {
+		return err
+	}
+
+	p.appendStmt(&ir.BlockStmt{Blocks: []*ir.Block{sub}})
+	p.appendStmt(&ir.IsDefinedStmt{Source: cond})
+
+	return nil
+}
+
+func (p *Planner) planExprLogicalOr(e *ast.Expr, iter planiter) error {
+	// We're constructing the following plan:
+	//
+	// | reset &{Target:Local<cond>}
+	// | block lhs
+	// | | <plan(LHS body)>
+	// | | assign_var &{Target:Local<cond>}      # Local<cond> = true on success
+	// | block outer
+	// | | block skip
+	// | | | is_defined &{Source:Local<cond>}    # if defined ..
+	// | | | break &{Index:1}                    # .. break past RHS
+	// | | block rhs
+	// | | | <plan(RHS body)>
+	// | | | assign_var &{Target:Local<cond>}    # Local<cond> = true on success
+	// | is_defined &{Source:Local<cond>}        # aborts outer if neither produced a success
+	// | iter()                                  # caller's continuation
+
+	or := e.Terms.(*ast.LogicalOr)
+
+	cond := p.newLocal() // success condition
+	p.appendStmt(&ir.ResetLocalStmt{Target: cond})
+
+	lhsBlock, err := p.planBodyAsScope(or.Lhs, cond)
+	if err != nil {
+		return err
+	}
+	p.appendStmt(&ir.BlockStmt{Blocks: []*ir.Block{lhsBlock}})
+
+	rhsBlock, err := p.planBodyAsScope(or.Rhs, cond)
+	if err != nil {
+		return err
+	}
+
+	// skip-rhs-if-lhs-succeeded: if cond is defined, break out past the
+	// RHS block; otherwise this inner block aborts and the outer block
+	// falls through into the RHS plan.
+	skip := &ir.Block{Stmts: []ir.Stmt{
+		&ir.IsDefinedStmt{Source: cond},
+		&ir.BreakStmt{Index: 1},
+	}}
+	outer := &ir.Block{Stmts: []ir.Stmt{
+		&ir.BlockStmt{Blocks: []*ir.Block{skip}},
+		&ir.BlockStmt{Blocks: []*ir.Block{rhsBlock}},
+	}}
+	p.appendStmt(&ir.BlockStmt{Blocks: []*ir.Block{outer}})
+
+	p.appendStmt(&ir.IsDefinedStmt{Source: cond})
+	return iter()
+}
+
+func (p *Planner) planBodyAsScope(body ast.Body, cond ir.Local) (*ir.Block, error) {
+	sub := &ir.Block{}
+	prev := p.curr
+	p.curr = sub
+	p.vars.Push(map[ast.Var]ir.Local{})
+
+	err := p.planQuery(body, 0, func() error {
+		p.appendStmt(&ir.AssignVarStmt{
+			Source: op(ir.Bool(true)),
+			Target: cond,
+		})
+		return nil
+	})
+
+	p.vars.Pop()
+	p.curr = prev
+
+	return sub, err
 }
 
 func (p *Planner) planWith(e *ast.Expr, iter planiter) error {
@@ -779,8 +955,8 @@ func (p *Planner) planWith(e *ast.Expr, iter planiter) error {
 			p.mocks.PopFrame()
 			if shadowing {
 				p.funcs.Pop()
-				for i := len(dataRefs) - 1; i >= 0; i-- {
-					p.rules.Pop(dataRefs[i])
+				for _, dataRef := range slices.Backward(dataRefs) {
+					p.rules.Pop(dataRef)
 				}
 			}
 
@@ -804,8 +980,8 @@ func (p *Planner) planWith(e *ast.Expr, iter planiter) error {
 		p.mocks.PopFrame()
 		if shadowing {
 			p.funcs.Pop()
-			for i := len(dataRefs) - 1; i >= 0; i-- {
-				p.rules.Pop(dataRefs[i])
+			for _, dataRef := range slices.Backward(dataRefs) {
+				p.rules.Pop(dataRef)
 			}
 		}
 		return err
@@ -2321,19 +2497,16 @@ func (p *Planner) planTermSliceRec(terms []*ast.Term, locals []ir.Operand, index
 	})
 }
 
-func (p *Planner) planExterns() error {
-
+func (p *Planner) planExterns() {
 	p.policy.Static.BuiltinFuncs = make([]*ir.BuiltinFunc, 0, len(p.externs))
 
 	for name, decl := range p.externs {
 		p.policy.Static.BuiltinFuncs = append(p.policy.Static.BuiltinFuncs, &ir.BuiltinFunc{Name: name, Decl: decl.Decl})
 	}
 
-	sort.Slice(p.policy.Static.BuiltinFuncs, func(i, j int) bool {
-		return p.policy.Static.BuiltinFuncs[i].Name < p.policy.Static.BuiltinFuncs[j].Name
+	slices.SortFunc(p.policy.Static.BuiltinFuncs, func(a, b *ir.BuiltinFunc) int {
+		return strings.Compare(a.Name, b.Name)
 	})
-
-	return nil
 }
 
 func (p *Planner) getStringConst(s string) int {
@@ -2360,6 +2533,18 @@ func (p *Planner) getFileConst(s string) int {
 	return index
 }
 
+// newLocation builds a fresh *ir.Location from an ast.Location. It lives on
+// Planner because it needs p.getFileConst to resolve the file constant index.
+func (p *Planner) newLocation(loc *location.Location) *ir.Location {
+	str := loc.File
+	if str == "" {
+		str = `<query>`
+	}
+	l := &ir.Location{}
+	l.SetLocation(p.getFileConst(str), loc.Row, loc.Col, str, loc.Text)
+	return l
+}
+
 func (p *Planner) appendStmt(s ir.Stmt) {
 	p.appendStmtToBlock(s, p.curr)
 }
@@ -2370,7 +2555,7 @@ func (p *Planner) appendStmtToBlock(s ir.Stmt, b *ir.Block) {
 		if str == "" {
 			str = `<query>`
 		}
-		s.SetLocation(p.getFileConst(str), p.loc.Row, p.loc.Col, str, string(p.loc.Text))
+		s.SetLocation(p.getFileConst(str), p.loc.Row, p.loc.Col, str, p.loc.Text)
 	}
 	b.Stmts = append(b.Stmts, s)
 }

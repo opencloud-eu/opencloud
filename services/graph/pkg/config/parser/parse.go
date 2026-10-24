@@ -39,6 +39,10 @@ func ParseConfig(cfg *config.Config) error {
 }
 
 func Validate(cfg *config.Config) error {
+	if cfg.HTTP.Disabled && cfg.Events.DisabledConsumer {
+		return shared.AllComponentsDisabledError(cfg.Service.Name)
+	}
+
 	if cfg.TokenManager.JWTSecret == "" {
 		return shared.MissingJWTTokenError(cfg.Service.Name)
 	}

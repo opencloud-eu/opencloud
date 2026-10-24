@@ -11,6 +11,11 @@ First you will need to build and install Faiss:
 ```
 git clone https://github.com/blevesearch/faiss.git
 cd faiss
+# Install minimal build dependencies
+# Ubuntu/Debian based systems: apt-get install libblas-dev liblapack-dev swig build-essential
+
+export Python_INCLUDE_DIRS=<PYTHON_INSTALLED_DIR>/include
+export Python_LIBRARIES=<PYTHON_INSTALLED_DIR>/lib/libpython3.so
 cmake -B build -DFAISS_ENABLE_GPU=OFF -DFAISS_ENABLE_C_API=ON -DBUILD_SHARED_LIBS=ON .
 make -C build
 sudo make -C build install

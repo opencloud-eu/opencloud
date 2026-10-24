@@ -31,7 +31,9 @@ plugins:
          opencloud.services.eventhistory.v0;\
          opencloud.messages.eventhistory.v0;\
          opencloud.services.policies.v0;\
-         opencloud.messages.policies.v0"
+         opencloud.messages.policies.v0;\
+         opencloud.services.search.v0;\
+         opencloud.messages.search.v0"
 
   - name: openapiv2
     path: ../../.bingo/protoc-gen-openapiv2

@@ -25,10 +25,12 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
 	"github.com/tidwall/gjson"
 	"google.golang.org/grpc"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	v0 "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
@@ -36,6 +38,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
 	service "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 )
@@ -61,6 +64,9 @@ var _ = Describe("Graph", func() {
 	BeforeEach(func() {
 		rr = httptest.NewRecorder()
 
+		logger := log.NewLogger()
+		metrics, _ := metrics.New(prometheus.NewRegistry(), &logger, func([]string) (string, string) { return "", "" })
+
 		ctx = revactx.ContextSetUser(context.Background(), &userprovider.User{Id: &userprovider.UserId{Type: userprovider.UserType_USER_TYPE_PRIMARY, OpaqueId: "testuser"}, Username: "testuser"})
 		cfg = defaults.FullDefaultConfig()
 		cfg.Identity.LDAP.CACert = "" // skip the startup checks, we don't use LDAP at all in this tests
@@ -84,6 +90,7 @@ var _ = Describe("Graph", func() {
 		var err error
 		svc, err = service.NewService(
 			service.Config(cfg),
+			service.Metrics(metrics),
 			service.WithGatewaySelector(gatewaySelector),
 			service.EventsPublisher(&eventsPublisher),
 			service.PermissionService(&permissionService),
@@ -802,6 +809,7 @@ var _ = Describe("Graph", func() {
 							Map: map[string]*typesv1beta1.OpaqueEntry{
 								"description": {Decoder: "plain", Value: []byte("This space is for testing")},
 								"spaceAlias":  {Decoder: "plain", Value: []byte("project/testspace")},
+								"contentType": {Decoder: "plain", Value: []byte("application/vnd.opencloud.test")},
 							},
 						},
 					},
@@ -819,7 +827,7 @@ var _ = Describe("Graph", func() {
 					TotalBytes: 500,
 				}, nil)
 
-				jsonBody := []byte(`{"name": "Test Space", "driveType": "project", "description": "This space is for testing", "DriveAlias": "project/testspace"}`)
+				jsonBody := []byte(`{"name": "Test Space", "driveType": "project", "description": "This space is for testing", "DriveAlias": "project/testspace", "@libre.graph.contentType": "application/vnd.opencloud.test"}`)
 				r := httptest.NewRequest(http.MethodPost, "/graph/v1.0/drives", bytes.NewBuffer(jsonBody)).WithContext(ctx)
 				rr := httptest.NewRecorder()
 				svc.CreateDrive(rr, r)
@@ -833,6 +841,7 @@ var _ = Describe("Graph", func() {
 				Expect(*response.DriveType).To(Equal("project"))
 				Expect(*response.DriveAlias).To(Equal("project/testspace"))
 				Expect(*response.Description).To(Equal("This space is for testing"))
+				Expect(*response.LibreGraphContentType).To(Equal("application/vnd.opencloud.test"))
 			})
 			It("Incomplete space", func() {
 				gatewayClient.On("CreateStorageSpace", mock.Anything, mock.Anything).Return(&provider.CreateStorageSpaceResponse{
@@ -1134,11 +1143,12 @@ var _ = Describe("Graph", func() {
 			Expect(rr.Code).To(Equal(http.StatusBadRequest))
 		})
 
-		It("sets the description, alias and name", func() {
+		It("sets the description, alias, name and content type", func() {
 			drive := libregraph.NewDrive("thename")
 			drive.SetDriveAlias("thealias")
 			drive.SetDescription("thedescription")
 			drive.SetName("thename")
+			drive.SetLibreGraphContentType("thecontenttype")
 			driveJson, err := json.Marshal(drive)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1162,7 +1172,8 @@ var _ = Describe("Graph", func() {
 			gatewayClient.AssertCalled(GinkgoT(), "UpdateStorageSpace", mock.Anything, mock.MatchedBy(func(req *provider.UpdateStorageSpaceRequest) bool {
 				return req.StorageSpace.Id.OpaqueId == "spaceid" &&
 					utils.ReadPlainFromOpaque(req.StorageSpace.Opaque, "description") == drive.GetDescription() &&
-					utils.ReadPlainFromOpaque(req.StorageSpace.Opaque, "spaceAlias") == drive.GetDriveAlias()
+					utils.ReadPlainFromOpaque(req.StorageSpace.Opaque, "spaceAlias") == drive.GetDriveAlias() &&
+					utils.ReadPlainFromOpaque(req.StorageSpace.Opaque, "contentType") == drive.GetLibreGraphContentType()
 			}))
 		})
 

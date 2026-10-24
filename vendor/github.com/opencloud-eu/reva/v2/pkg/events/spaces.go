@@ -24,6 +24,7 @@ import (
 
 	group "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
 	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	collaboration "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 )
@@ -112,6 +113,7 @@ func (SpaceDeleted) Unmarshal(v []byte) (interface{}, error) {
 
 // SpaceShared is emitted when a space is shared
 type SpaceShared struct {
+	ShareID        *collaboration.ShareId
 	Executant      *user.UserId
 	GranteeUserID  *user.UserId
 	GranteeGroupID *group.GroupId
@@ -129,6 +131,7 @@ func (SpaceShared) Unmarshal(v []byte) (interface{}, error) {
 
 // SpaceShareUpdated is emitted when a space share is updated
 type SpaceShareUpdated struct {
+	ShareID        *collaboration.ShareId
 	Executant      *user.UserId
 	GranteeUserID  *user.UserId
 	GranteeGroupID *group.GroupId
@@ -145,6 +148,7 @@ func (SpaceShareUpdated) Unmarshal(v []byte) (interface{}, error) {
 
 // SpaceUnshared is emitted when a space is unshared
 type SpaceUnshared struct {
+	ShareID        *collaboration.ShareId
 	Executant      *user.UserId
 	GranteeUserID  *user.UserId
 	GranteeGroupID *group.GroupId
@@ -176,6 +180,7 @@ func (SpaceUpdated) Unmarshal(v []byte) (interface{}, error) {
 
 // SpaceMembershipExpired is emitted when a space membership expires
 type SpaceMembershipExpired struct {
+	ShareID    *collaboration.ShareId
 	SpaceOwner *user.UserId
 	SpaceID    *provider.StorageSpaceId
 	SpaceName  string

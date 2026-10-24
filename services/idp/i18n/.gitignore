@@ -1,2 +1,4 @@
 *.mo
-dev-translation.json
+
+# i18next-cli extracted keys (intermediate, regenerated on demand)
+translation.*.json

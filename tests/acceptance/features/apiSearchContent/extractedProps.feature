@@ -131,7 +131,7 @@ Feature: propfind extracted props
     Given user "Alice" has uploaded a file "filesForUpload/testaudio.mp3" to "testaudio.mp3" in space "Personal"
     When user "Alice" gets the file "testaudio.mp3" from space "Personal" using the Graph API
     Then the HTTP status code should be "200"
-    And the JSON data of the response should match
+    And the JSON data of the response should eventually match
       """
         {
           "type": "object",
@@ -179,7 +179,7 @@ Feature: propfind extracted props
     Given user "Alice" has uploaded a file "filesForUpload/testavatar.jpg" to "testavatar.jpg" in space "Personal"
     When user "Alice" gets the file "testavatar.jpg" from space "Personal" using the Graph API
     Then the HTTP status code should be "200"
-    And the JSON data of the response should match
+    And the JSON data of the response should eventually match
       """
         {
           "type": "object",
@@ -251,7 +251,7 @@ Feature: propfind extracted props
     And user "Alice" has uploaded a file "filesForUpload/testaudio.mp3" to "testaudio.mp3" in space "new-space"
     When user "Alice" gets the file "testaudio.mp3" from space "new-space" using the Graph API
     Then the HTTP status code should be "200"
-    And the JSON data of the response should match
+    And the JSON data of the response should eventually match
       """
         {
           "type": "object",
@@ -301,7 +301,7 @@ Feature: propfind extracted props
     And user "Alice" has uploaded a file "filesForUpload/testavatar.jpg" to "testavatar.jpg" in space "new-space"
     When user "Alice" gets the file "testavatar.jpg" from space "new-space" using the Graph API
     Then the HTTP status code should be "200"
-    And the JSON data of the response should match
+    And the JSON data of the response should eventually match
       """
         {
           "type": "object",
@@ -379,7 +379,7 @@ Feature: propfind extracted props
     And user "Brian" has a share "testaudio.mp3" synced
     When user "Brian" gets the file "testaudio.mp3" from space "Shares" using the Graph API
     Then the HTTP status code should be "200"
-    And the JSON data of the response should match
+    And the JSON data of the response should eventually match
       """
         {
           "type": "object",
@@ -435,7 +435,7 @@ Feature: propfind extracted props
     And user "Brian" has a share "testavatar.jpg" synced
     When user "Brian" gets the file "testavatar.jpg" from space "Shares" using the Graph API
     Then the HTTP status code should be "200"
-    And the JSON data of the response should match
+    And the JSON data of the response should eventually match
       """
         {
           "type": "object",

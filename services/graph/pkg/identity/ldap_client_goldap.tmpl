@@ -1,0 +1,25 @@
+import (
+	"github.com/go-ldap/ldap/v3"
+)
+
+{{ $decorator := (or .Vars.DecoratorName (printf "GoLdap%s" .Interface.Name)) }}
+
+// implementation that adapts the go-ldap ldap.Client interface
+// and delegates everything to a proper LDAP client
+type {{$decorator}} struct {
+	delegate ldap.Client
+}
+
+var _ {{.Interface.Type}} = &{{$decorator}}{}
+
+func New{{$decorator}}(delegate ldap.Client) *GoLdapLdapClient {
+	return &{{$decorator}}{delegate: delegate}
+}
+
+{{range $method := .Interface.Methods}}
+    // {{$method.Name}} implements {{$.Interface.Type}}.{{$method.Name}}
+    // and delegates to ldap.Client.{{$method.Name}}
+	func (_d {{$decorator}}) {{$method.Declaration}} {
+        {{$method.Pass "_d.delegate."}}
+    }
+{{end}}

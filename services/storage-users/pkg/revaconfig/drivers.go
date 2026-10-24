@@ -100,6 +100,7 @@ func Posix(cfg *config.Config, enableFSScan, enableFSWatch bool) map[string]any 
 		"scan_debounce_delay":         cfg.Drivers.Posix.ScanDebounceDelay,
 		"max_quota":                   cfg.Drivers.Posix.MaxQuota,
 		"disable_versioning":          cfg.Drivers.Posix.DisableVersioning,
+		"metadata_prefix":             cfg.Drivers.Posix.MetadataPrefix,
 		"multi_tenant_enabled":        cfg.Commons.MultiTenantEnabled,
 		"propagator":                  cfg.Drivers.Posix.Propagator,
 		"async_propagator_options": map[string]any{
@@ -136,10 +137,7 @@ func Posix(cfg *config.Config, enableFSScan, enableFSWatch bool) map[string]any 
 			"numconsumers": cfg.Events.NumConsumers,
 		},
 		"tokens": map[string]any{
-			"transfer_shared_secret": cfg.Commons.TransferSecret,
-			"transfer_expires":       cfg.TransferExpires,
-			"download_endpoint":      cfg.DataServerURL,
-			"datagateway_endpoint":   cfg.DataGatewayURL,
+			"download_endpoint": cfg.DataServerURL,
 		},
 		"use_space_groups":           cfg.Drivers.Posix.UseSpaceGroups,
 		"enable_fs_revisions":        cfg.Drivers.Posix.EnableFSRevisions,
@@ -177,10 +175,7 @@ func OwnCloudSQL(cfg *config.Config) map[string]any {
 		"dbname":          cfg.Drivers.OwnCloudSQL.DBName,
 		"userprovidersvc": cfg.Drivers.OwnCloudSQL.UsersProviderEndpoint,
 		"tokens": map[string]any{
-			"download_endpoint":      cfg.DataServerURL,
-			"datagateway_endpoint":   cfg.DataGatewayURL,
-			"transfer_shared_secret": cfg.Commons.TransferSecret,
-			"transfer_expires":       cfg.TransferExpires,
+			"download_endpoint": cfg.DataServerURL,
 		},
 	}
 }
@@ -189,6 +184,7 @@ func OwnCloudSQL(cfg *config.Config) map[string]any {
 func Decomposed(cfg *config.Config) map[string]any {
 	return map[string]any{
 		"metadata_backend": "messagepack",
+		"metadata_prefix":  cfg.Drivers.Decomposed.MetadataPrefix,
 		"propagator":       cfg.Drivers.Decomposed.Propagator,
 		"async_propagator_options": map[string]any{
 			"propagation_delay": cfg.Drivers.Decomposed.AsyncPropagatorOptions.PropagationDelay,
@@ -239,10 +235,7 @@ func Decomposed(cfg *config.Config) map[string]any {
 			"numconsumers": cfg.Events.NumConsumers,
 		},
 		"tokens": map[string]any{
-			"transfer_shared_secret": cfg.Commons.TransferSecret,
-			"transfer_expires":       cfg.TransferExpires,
-			"download_endpoint":      cfg.DataServerURL,
-			"datagateway_endpoint":   cfg.DataGatewayURL,
+			"download_endpoint": cfg.DataServerURL,
 		},
 	}
 }
@@ -251,6 +244,7 @@ func Decomposed(cfg *config.Config) map[string]any {
 func DecomposedNoEvents(cfg *config.Config) map[string]any {
 	return map[string]any{
 		"metadata_backend": "messagepack",
+		"metadata_prefix":  cfg.Drivers.Decomposed.MetadataPrefix,
 		"propagator":       cfg.Drivers.Decomposed.Propagator,
 		"async_propagator_options": map[string]any{
 			"propagation_delay": cfg.Drivers.Decomposed.AsyncPropagatorOptions.PropagationDelay,
@@ -303,6 +297,7 @@ func DecomposedNoEvents(cfg *config.Config) map[string]any {
 func DecomposedS3(cfg *config.Config) map[string]any {
 	return map[string]any{
 		"metadata_backend": "messagepack",
+		"metadata_prefix":  cfg.Drivers.DecomposedS3.MetadataPrefix,
 		"propagator":       cfg.Drivers.DecomposedS3.Propagator,
 		"async_propagator_options": map[string]any{
 			"propagation_delay": cfg.Drivers.DecomposedS3.AsyncPropagatorOptions.PropagationDelay,
@@ -363,10 +358,7 @@ func DecomposedS3(cfg *config.Config) map[string]any {
 			"numconsumers": cfg.Events.NumConsumers,
 		},
 		"tokens": map[string]any{
-			"transfer_shared_secret": cfg.Commons.TransferSecret,
-			"transfer_expires":       cfg.TransferExpires,
-			"download_endpoint":      cfg.DataServerURL,
-			"datagateway_endpoint":   cfg.DataGatewayURL,
+			"download_endpoint": cfg.DataServerURL,
 		},
 	}
 }
@@ -375,6 +367,7 @@ func DecomposedS3(cfg *config.Config) map[string]any {
 func DecomposedS3NoEvents(cfg *config.Config) map[string]any {
 	return map[string]any{
 		"metadata_backend": "messagepack",
+		"metadata_prefix":  cfg.Drivers.DecomposedS3.MetadataPrefix,
 		"propagator":       cfg.Drivers.DecomposedS3.Propagator,
 		"async_propagator_options": map[string]any{
 			"propagation_delay": cfg.Drivers.DecomposedS3.AsyncPropagatorOptions.PropagationDelay,

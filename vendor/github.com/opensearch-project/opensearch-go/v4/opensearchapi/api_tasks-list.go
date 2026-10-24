@@ -7,9 +7,11 @@
 package opensearchapi
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // TasksListReq represents possible options for the index create request
@@ -19,9 +21,9 @@ type TasksListReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r TasksListReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"GET",
+func (r TasksListReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_tasks",
 		nil,
 		r.Params.get(),
@@ -55,19 +57,21 @@ type TasksListNodes struct {
 
 // TasksListTask is a sub type of TaskListResp, TaskListNodes containing information about a task
 type TasksListTask struct {
-	Node               string                 `json:"node"`
-	ID                 int                    `json:"id"`
-	Type               string                 `json:"type"`
-	Action             string                 `json:"action"`
-	Description        string                 `json:"description"`
-	StartTimeInMillis  int64                  `json:"start_time_in_millis"`
-	RunningTimeInNanos int64                  `json:"running_time_in_nanos"`
-	Cancellable        bool                   `json:"cancellable"`
-	Cancelled          bool                   `json:"cancelled"`
-	Headers            map[string]string      `json:"headers"`
-	ResourceStats      TasksListResourceStats `json:"resource_stats"`
-	ParentTaskID       string                 `json:"parent_task_id"`
-	Children           []TasksListTask        `json:"children,omitempty"`
+	Node                   string                 `json:"node"`
+	ID                     int                    `json:"id"`
+	Type                   string                 `json:"type"`
+	Action                 string                 `json:"action"`
+	Description            string                 `json:"description"`
+	StartTimeInMillis      int64                  `json:"start_time_in_millis"`
+	RunningTimeInNanos     int64                  `json:"running_time_in_nanos"`
+	Cancellable            bool                   `json:"cancellable"`
+	Cancelled              bool                   `json:"cancelled"`
+	CancellationTimeMillis *int64                 `json:"cancellation_time_millis,omitempty"` // Added in OpenSearch 2.8.0
+	Headers                map[string]string      `json:"headers"`
+	ResourceStats          TasksListResourceStats `json:"resource_stats"`
+	Status                 json.RawMessage        `json:"status,omitempty"` // Polymorphic; shape depends on task action.
+	ParentTaskID           string                 `json:"parent_task_id"`
+	Children               []TasksListTask        `json:"children,omitempty"`
 }
 
 // TasksListResourceStats is a sub type of TaskListTask containing information about task stats

@@ -24,10 +24,17 @@ func (l *Conn) Unbind() error {
 		return ErrConnUnbound
 	}
 
-	_, err := l.doRequest(unbindRequest{})
+	msgCtx, err := l.doRequest(unbindRequest{})
 	if err != nil {
 		return err
 	}
+
+	// Finish the message context so its done channel is closed. Without
+	// this, a server-initiated disconnect racing with Close can deadlock:
+	// processMessages cleanup tries to deliver closeErr to the orphaned
+	// context via sendResponse, which blocks forever on the unclosed done
+	// channel, preventing chanConfirm from being signalled.
+	l.finishMessage(msgCtx)
 
 	// Sending an unbindRequest will make the connection unusable.
 	// Pending requests will fail with:

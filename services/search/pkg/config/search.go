@@ -2,6 +2,13 @@ package config
 
 import "time"
 
+const (
+	QueryPlaceholder             = "{{.QUERY}}"
+	PersonalSpaceRootPlaceholder = "{{.SPACE_ROOT_PERSONAL}}"
+	ProjectSpaceRootPlaceholder  = "{{.SPACE_ROOT_PROJECT}}"
+	NoResourceID                 = "none$none!none"
+)
+
 // Events combines the configuration options for the event bus.
 type Events struct {
 	Disabled         bool   `yaml:"disabled" env:"SEARCH_EVENTS_DISABLED" desc:"Disables listening for events. Set this to true if the service should only handle GRPC requests." introductionVersion:"4.0.0"`

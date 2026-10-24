@@ -1,8 +1,0 @@
-## Release, Date, Type, Title, Primary ID, Primary URL
-{{ range . -}}
-{{ $v := .Version -}}
-{{ $d := .Date -}}
-{{ range $entry := .Entries -}}
-{{ $v }},{{ $d }},{{ .Type }},'{{ .Title }}',{{ .PrimaryID }},{{ .PrimaryURL }}
-{{ end -}}
-{{ end -}}

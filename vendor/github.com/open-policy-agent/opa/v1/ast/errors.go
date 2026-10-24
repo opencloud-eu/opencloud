@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/open-policy-agent/opa/v1/util"
 )
 
 // Errors represents a series of errors encountered during parsing, compiling,
@@ -16,21 +18,14 @@ import (
 type Errors []*Error
 
 func (e Errors) Error() string {
-
 	if len(e) == 0 {
 		return "no error(s)"
 	}
-
 	if len(e) == 1 {
-		return fmt.Sprintf("1 error occurred: %v", e[0].Error())
+		return "1 error occurred: " + e[0].Error()
 	}
 
-	s := make([]string, len(e))
-	for i, err := range e {
-		s[i] = err.Error()
-	}
-
-	return fmt.Sprintf("%d errors occurred:\n%s", len(e), strings.Join(s, "\n"))
+	return fmt.Sprintf("%d errors occurred:\n%s", len(e), strings.Join(util.Map(e, (*Error).Error), "\n"))
 }
 
 // Sort sorts the error slice by location. If the locations are equal then the
@@ -67,10 +62,8 @@ const (
 
 // IsError returns true if err is an AST error with code.
 func IsError(code string, err error) bool {
-	if err, ok := err.(*Error); ok {
-		return err.Code == code
-	}
-	return false
+	e, ok := err.(*Error)
+	return ok && e.Code == code
 }
 
 // ErrorDetails defines the interface for detailed error messages.
@@ -87,11 +80,9 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
-
 	var prefix string
 
 	if e.Location != nil {
-
 		if len(e.Location.File) > 0 {
 			prefix += e.Location.File + ":" + strconv.Itoa(e.Location.Row)
 		} else {
@@ -117,6 +108,34 @@ func (e *Error) Error() string {
 	}
 
 	return sb.String()
+}
+
+func (e *Error) Equal(other *Error) bool {
+	if e == other {
+		return true
+	}
+
+	if e == nil || other == nil {
+		return false
+	}
+
+	if e.Code != other.Code || e.Message != other.Message {
+		return false
+	}
+
+	if !e.Location.Equal(other.Location) {
+		return false
+	}
+
+	if (e.Details == nil) != (other.Details == nil) {
+		return false
+	}
+
+	if e.Details != nil && !slices.Equal(e.Details.Lines(), other.Details.Lines()) {
+		return false
+	}
+
+	return true
 }
 
 // NewError returns a new Error object.

@@ -8,6 +8,7 @@ import (
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
 )
 
 const (
@@ -240,9 +241,9 @@ func (g Graph) applyFilterEq(ctx context.Context, req *godata.GoDataRequest, ope
 	// unquote
 	value := strings.Trim(operand2.Token.Value, "'")
 	switch value {
-	case "Member", "Guest":
+	case identity.UserTypeMember, identity.UserTypeGuest:
 		return g.identityBackend.GetUsers(ctx, req)
-	case "Federated":
+	case identity.UserTypeFederated:
 		return g.searchOCMAcceptedUsers(ctx, req)
 	}
 	return users, unsupportedFilterError()

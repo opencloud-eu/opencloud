@@ -27,6 +27,7 @@ use TestHelpers\HttpRequestHelper;
 use TestHelpers\BehatHelper;
 use TestHelpers\TokenHelper;
 use TestHelpers\WebDavHelper;
+use Behat\Step\When;
 
 /**
  * Authentication functions
@@ -135,19 +136,18 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When a user requests :url with :method and no authentication
 	 *
 	 * @param string $url
 	 * @param string $method
 	 *
 	 * @return void
 	 */
+	#[When('a user requests :url with :method and no authentication')]
 	public function userRequestsURLWithNoAuth(string $url, string $method): void {
 		$this->featureContext->setResponse($this->sendRequest($url, $method));
 	}
 
 	/**
-	 * @When a user requests these endpoints with :method with body :body and no authentication about user :user
 	 *
 	 * @param string $method
 	 * @param string $body
@@ -157,6 +157,7 @@ class AuthContext implements Context {
 	 * @return void
 	 * @throws JsonException
 	 */
+	#[When('a user requests these endpoints with :method with body :body and no authentication about user :user')]
 	public function userRequestsEndpointsWithBodyAndNoAuthThenStatusCodeAboutUser(
 		string $method,
 		string $body,
@@ -177,7 +178,6 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When a user requests these endpoints with :method with no authentication about user :user
 	 *
 	 * @param string $method
 	 * @param string $ofUser
@@ -186,6 +186,7 @@ class AuthContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('a user requests these endpoints with :method with no authentication about user :user')]
 	public function userRequestsEndpointsWithoutBodyAndNoAuthAboutUser(
 		string $method,
 		string $ofUser,
@@ -205,7 +206,6 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When a user requests these endpoints with :method and no authentication
 	 *
 	 * @param string $method
 	 * @param TableNode $table
@@ -213,6 +213,7 @@ class AuthContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('a user requests these endpoints with :method and no authentication')]
 	public function userRequestsEndpointsWithNoAuthentication(string $method, TableNode $table): void {
 		$this->featureContext->verifyTableNodeColumns($table, ['endpoint']);
 		foreach ($table->getHash() as $row) {
@@ -227,7 +228,6 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When a user requests these URLs with :method and no authentication
 	 *
 	 * @param $method
 	 * @param TableNode $table
@@ -235,6 +235,7 @@ class AuthContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('a user requests these URLs with :method and no authentication')]
 	public function aUserRequestsTheseUrlsWithAndNoAuthentication($method, TableNode $table): void {
 		$this->featureContext->verifyTableNodeColumns($table, ['endpoint'], ['service']);
 		foreach ($table->getHash() as $row) {
@@ -250,7 +251,6 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When the user :user requests these endpoints with :method with basic auth
 	 *
 	 * @param string $user
 	 * @param string $method
@@ -259,6 +259,7 @@ class AuthContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('the user :user requests these endpoints with :method with basic auth')]
 	public function userRequestsEndpointsWithBasicAuth(string $user, string $method, TableNode $table): void {
 		$this->featureContext->verifyTableNodeColumns($table, ['endpoint']);
 		foreach ($table->getHash() as $row) {
@@ -269,7 +270,6 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When /^user "([^"]*)" requests these endpoints with "([^"]*)" to (?:get|set) property "([^"]*)" about user "([^"]*)"$/
 	 *
 	 * @param string $user
 	 * @param string $method
@@ -280,6 +280,7 @@ class AuthContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('/^user "([^"]*)" requests these endpoints with "([^"]*)" to (?:get|set) property "([^"]*)" about user "([^"]*)"$/')]
 	public function theUserRequestsTheseEndpointsToGetOrSetPropertyAboutUser(
 		string $user,
 		string $method,
@@ -301,7 +302,6 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When the administrator requests these endpoints with :method
 	 *
 	 * @param string $method
 	 * @param TableNode $table
@@ -309,6 +309,7 @@ class AuthContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('the administrator requests these endpoints with :method')]
 	public function theAdminRequestsTheseEndpointsWithMethod(string $method, TableNode $table): void {
 		$this->featureContext->verifyTableNodeColumns($table, ['endpoint']);
 		foreach ($table->getHash() as $row) {
@@ -323,7 +324,6 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When user :user requests :url with :method using basic auth
 	 *
 	 * @param string $user
 	 * @param string $url
@@ -331,6 +331,7 @@ class AuthContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :user requests :url with :method using basic auth')]
 	public function userRequestsURLUsingBasicAuth(
 		string $user,
 		string $url,
@@ -341,7 +342,6 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When user :user requests :url with :method using basic auth and with headers
 	 *
 	 * @param string $user
 	 * @param string $url
@@ -351,6 +351,7 @@ class AuthContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user requests :url with :method using basic auth and with headers')]
 	public function userRequestsURLWithUsingBasicAuthAndDepthHeader(
 		string $user,
 		string $url,
@@ -382,7 +383,6 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When user :user requests these endpoints with :method using password :password
 	 *
 	 * @param string $user
 	 * @param string $method
@@ -392,6 +392,7 @@ class AuthContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user requests these endpoints with :method using password :password')]
 	public function userRequestsTheseEndpointsWithPassword(
 		string $user,
 		string $method,
@@ -411,7 +412,6 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When user :user requests these endpoints with :method using password :password about user :ofUser
 	 *
 	 * @param string $user
 	 * @param string $method
@@ -422,6 +422,7 @@ class AuthContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user requests these endpoints with :method using password :password about user :ofUser')]
 	public function userRequestsTheseEndpointsUsingPasswordAboutUser(
 		string $user,
 		string $method,
@@ -460,7 +461,6 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When user :user requests these endpoints with :method including body :body using password :password about user :ofUser
 	 *
 	 * @param string $user
 	 * @param string $method
@@ -472,6 +472,7 @@ class AuthContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user requests these endpoints with :method including body :body using password :password about user :ofUser')]
 	public function userRequestsTheseEndpointsWithBodyUsingPasswordAboutUser(
 		string $user,
 		string $method,
@@ -511,7 +512,6 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When user :user requests these endpoints with :method including body :body about user :ofUser
 	 *
 	 * @param string $user
 	 * @param string $method
@@ -522,6 +522,7 @@ class AuthContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user requests these endpoints with :method including body :body about user :ofUser')]
 	public function userRequestsTheseEndpointsIncludingBodyAboutUser(
 		string $user,
 		string $method,
@@ -556,7 +557,6 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When user :asUser requests these endpoints with :method using the password of user :ofUser
 	 *
 	 * @param string $asUser
 	 * @param string $method
@@ -566,6 +566,7 @@ class AuthContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :asUser requests these endpoints with :method using the password of user :ofUser')]
 	public function userRequestsTheseEndpointsWithoutBodyUsingThePasswordOfUser(
 		string $asUser,
 		string $method,
@@ -596,7 +597,6 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When user :asUser requests these endpoints with :method including body :body using the password of user :user
 	 *
 	 * @param string $asUser
 	 * @param string $method
@@ -607,6 +607,7 @@ class AuthContext implements Context {
 	 * @return void
 	 * @throws JsonException
 	 */
+	#[When('user :asUser requests these endpoints with :method including body :body using the password of user :user')]
 	public function userRequestsTheseEndpointsIncludingBodyUsingPasswordOfUser(
 		string $asUser,
 		string $method,
@@ -638,7 +639,6 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When user :user requests these endpoints with :method about user :ofUser
 	 *
 	 * @param string $user
 	 * @param string $method
@@ -648,6 +648,7 @@ class AuthContext implements Context {
 	 * @return void
 	 * @throws Exception
 	 */
+	#[When('user :user requests these endpoints with :method about user :ofUser')]
 	public function userRequestsTheseEndpointsAboutUser(
 		string $user,
 		string $method,
@@ -683,7 +684,6 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When user :user requests :endpoint with :method without retrying
 	 *
 	 * @param string $user
 	 * @param string $endpoint
@@ -691,6 +691,7 @@ class AuthContext implements Context {
 	 *
 	 * @return void
 	 */
+	#[When('user :user requests :endpoint with :method without retrying')]
 	public function userRequestsURLWithoutRetry(
 		string $user,
 		string $endpoint,
@@ -717,13 +718,13 @@ class AuthContext implements Context {
 	}
 
 	/**
-	 * @When user :user should not be able to log in with wrong password :password
 	 *
 	 * @param string $user
 	 * @param string $password
 	 *
 	 * @return void
 	 */
+	#[When('user :user should not be able to log in with wrong password :password')]
 	public function userShouldNotBeAbleToLogInWithWrongPassword(
 		string $user,
 		string $password

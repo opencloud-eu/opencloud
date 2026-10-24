@@ -84,12 +84,15 @@ func Server(cfg *config.Config) *cobra.Command {
 			evs := []events.Unmarshaller{
 				events.ShareCreated{},
 				events.ShareExpired{},
+				events.ShareRemoved{},
 				events.SpaceShared{},
 				events.SpaceUnshared{},
 				events.SpaceMembershipExpired{},
 				events.ScienceMeshInviteTokenGenerated{},
 				events.SendEmailsEvent{},
 				ocEvents.ResourceMention{},
+				ocEvents.GuestTokenCreated{},
+				ocEvents.GuestTokenRenewed{},
 			}
 			registeredEvents := make(map[string]events.Unmarshaller)
 			for _, e := range evs {

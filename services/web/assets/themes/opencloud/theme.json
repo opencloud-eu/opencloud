@@ -2,7 +2,7 @@
   "common": {
     "name": "OpenCloud",
     "slogan": "OpenCloud – Excellent file sharing",
-    "logo": "themes/opencloud/assets/logo.svg",
+    "logo": "themes/opencloud/assets/logo-lilac.svg",
     "urls": {
       "accessDeniedHelp": "",
       "imprint": "",
@@ -50,8 +50,8 @@
     "ios": {},
     "web": {
       "defaults": {
-        "logo": "themes/opencloud/assets/logo.svg",
-        "logoMobile": "themes/opencloud/assets/logo-mobile.svg",
+        "logo": "themes/opencloud/assets/logo-petrol.svg",
+        "logoMobile": "themes/opencloud/assets/logo-petrol-mobile.svg",
         "favicon": "themes/opencloud/assets/favicon.svg"
       },
       "themes": [
@@ -60,8 +60,8 @@
           "label": "Light Theme",
           "designTokens": {
             "roles": {
-              "primary": "#00677f",
-              "onPrimary": "#ffffff",
+              "primary": "#e2baff",
+              "onPrimary": "#20434f",
               "primaryContainer": "#b7eaff",
               "onPrimaryContainer": "#001f28",
               "secondary": "#20434f",
@@ -102,30 +102,18 @@
               "surfaceContainer": "#f6f8fa",
               "surfaceContainerHigh": "#f2f4f5",
               "surfaceContainerHighest": "#eceef0"
-            },
-            "colorPalette": {
-              "icon-archive": "#fbbe54",
-              "icon-audio": "#700460",
-              "icon-document": "#3b44a6",
-              "icon-folder": "#4d7eaf",
-              "icon-image": "#ee6b3b",
-              "icon-medical": "#0984db",
-              "icon-pdf": "#ec0d47",
-              "icon-presentation": "#ee6b3b",
-              "icon-spreadsheet": "#15c286",
-              "icon-video": "#045459"
             }
           }
         },
         {
           "isDark": true,
           "label": "Dark Theme",
-          "logo": "themes/opencloud/assets/logo-dark-mode.svg",
-          "logoMobile": "themes/opencloud/assets/logo-dark-mode-mobile.svg",
+          "logo": "themes/opencloud/assets/logo-lilac.svg",
+          "logoMobile": "themes/opencloud/assets/logo-lilac-mobile.svg",
           "designTokens": {
             "roles": {
-              "primary": "#5cd5fb",
-              "onPrimary": "#003543",
+              "primary": "#e2baff",
+              "onPrimary": "#20434f",
               "primaryContainer": "#004e60",
               "onPrimaryContainer": "#b7eaff",
               "secondary": "#b3cad4",

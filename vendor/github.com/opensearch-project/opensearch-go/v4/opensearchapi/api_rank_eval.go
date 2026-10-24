@@ -11,9 +11,10 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // RankEval executes a /_rank_eval request with the required RankEvalReq
@@ -22,7 +23,7 @@ func (c Client) RankEval(ctx context.Context, req RankEvalReq) (*RankEvalResp, e
 		data RankEvalResp
 		err  error
 	)
-	if data.response, err = c.do(ctx, req, &data); err != nil {
+	if data.response, err = do(ctx, &c, http.MethodGet, req, &data); err != nil {
 		return &data, err
 	}
 
@@ -40,22 +41,12 @@ type RankEvalReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r RankEvalReq) GetRequest() (*http.Request, error) {
-	indices := strings.Join(r.Indices, ",")
-	var path strings.Builder
-	path.Grow(len("//_rank_eval") + len(indices))
-	if len(r.Indices) > 0 {
-		path.WriteString("/")
-		path.WriteString(indices)
+func (r RankEvalReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.RankEvalPath{Index: r.Indices}.Build()
+	if err != nil {
+		return nil, err
 	}
-	path.WriteString("/_rank_eval")
-	return opensearch.BuildRequest(
-		"GET",
-		path.String(),
-		r.Body,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, r.Body, r.Params.get(), r.Header)
 }
 
 // RankEvalResp represents the returned struct of the /_rank_eval response

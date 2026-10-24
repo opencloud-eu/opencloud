@@ -28,6 +28,8 @@ use PHPUnit\Framework\Assert;
 use TestHelpers\OcsApiHelper;
 use TestHelpers\BehatHelper;
 use TestHelpers\HttpRequestHelper;
+use Behat\Step\Then;
+use Behat\Step\When;
 
 require_once 'bootstrap.php';
 
@@ -133,7 +135,6 @@ class CapabilitiesContext implements Context {
 	}
 
 	/**
-	 * @When user :username retrieves the capabilities using the capabilities API
 	 *
 	 * @param string $username
 	 *
@@ -141,27 +142,28 @@ class CapabilitiesContext implements Context {
 	 * @throws GuzzleException
 	 * @throws JsonException
 	 */
+	#[When('user :username retrieves the capabilities using the capabilities API')]
 	public function userRetrievesCapabilities(string $username): void {
 		$user = $this->featureContext->getActualUsername($username);
 		$this->featureContext->setResponse($this->userGetsCapabilities($user, true));
 	}
 
 	/**
-	 * @When the administrator retrieves the capabilities using the capabilities API
 	 *
 	 * @return void
 	 */
+	#[When('the administrator retrieves the capabilities using the capabilities API')]
 	public function theAdministratorGetsCapabilities(): void {
 		$user = $this->getAdminUsernameForCapabilitiesCheck();
 		$this->featureContext->setResponse($this->userGetsCapabilities($user, true));
 	}
 
 	/**
-	 * @Then the major-minor-micro version data in the response should match the version string
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the major-minor-micro version data in the response should match the version string')]
 	public function checkVersionMajorMinorMicroResponse(): void {
 		$jsonResponse = $this->featureContext->getJsonDecodedResponseBodyContent();
 		$versionData = $jsonResponse->ocs->data->version;
@@ -199,13 +201,13 @@ class CapabilitiesContext implements Context {
 	}
 
 	/**
-	 * @Then the status.php response should include
 	 *
 	 * @param PyStringNode $jsonExpected
 	 *
 	 * @return void
 	 * @throws Exception
 	 */
+	#[Then('the status.php response should include')]
 	public function statusPhpRespondedShouldMatch(PyStringNode $jsonExpected): void {
 		$jsonExpectedDecoded = \json_decode($jsonExpected->getRaw(), true);
 		$jsonRespondedDecoded = $this->featureContext->getJsonDecodedResponse();

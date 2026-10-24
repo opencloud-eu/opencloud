@@ -26,7 +26,7 @@ func Server(opts ...Option) (*http.Server, error) {
 		options.Config.Events.TLSRootCACertificate,
 	)
 	readyHandlerConfiguration := healthHandlerConfiguration.
-		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Endpoint, secureOption)).
+		WithCheck("nats reachability", checks.NewNatsCheck(options.Config.Events.Endpoint, secureOption, nats.Auth(options.Config.Events.AuthUsername, options.Config.Events.AuthPassword))).
 		WithCheck("tika-check", func(ctx context.Context) error {
 			if options.Config.Extractor.Type == "tika" {
 				u, err := url.Parse(options.Config.Extractor.Tika.TikaURL)

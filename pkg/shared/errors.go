@@ -101,3 +101,11 @@ func MissingURLSigningSecret(service string) error {
 		"the config/corresponding environment variable).",
 		service, defaults.BaseConfigPath())
 }
+
+func AllComponentsDisabledError(service string) error {
+	return fmt.Errorf("All request handlers and event consumers are disabled for %s; at least one component must be enabled."+
+		"Make sure your %s config contains the proper values "+
+		"(e.g. by using 'opencloud init --diff' and applying the patch or setting a value manually in "+
+		"the config/corresponding environment variable).", 
+		service, defaults.BaseConfigPath())
+}

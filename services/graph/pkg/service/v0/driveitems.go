@@ -9,26 +9,67 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	cs3rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
+	link "github.com/cs3org/go-cs3apis/cs3/sharing/link/v1beta1"
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/go-chi/render"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"golang.org/x/crypto/sha3"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	"github.com/opencloud-eu/reva/v2/pkg/publicshare"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v2/pkg/tags"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 )
+
+// opt-in driveItem instance annotations, returned only when requested via $select
+const (
+	_selectAllowedValues = "@libre.graph.permissions.actions.allowedValues"
+	_selectShareTypes    = "@libre.graph.shareTypes"
+)
+
+// without it the provider leaves the share-types opaque empty
+var shareTypesFieldMask = &fieldmaskpb.FieldMask{Paths: []string{"share-types"}}
+
+// opt-in driveItem relations, returned only when requested via $expand
+const (
+	_expandChildren   = "children"
+	_expandThumbnails = "thumbnails"
+)
+
+func odataListContains(r *http.Request, parameter, value string) bool {
+	for _, values := range r.URL.Query()[parameter] {
+		for _, v := range strings.Split(values, ",") {
+			if v == value {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// driveItemPropertySelected reports whether the given opt-in property was requested via $select
+func driveItemPropertySelected(r *http.Request, property string) bool {
+	return odataListContains(r, "$select", property)
+}
+
+// driveItemRelationExpanded reports whether the relation was requested via $expand
+func driveItemRelationExpanded(r *http.Request, relation string) bool {
+	return odataListContains(r, "$expand", relation)
+}
 
 // CreateUploadSession create an upload session to allow your app to upload files up to the maximum file size.
 // An upload session allows your app to upload ranges of the file in sequential API requests, which allows the
@@ -181,9 +222,14 @@ func (g Graph) GetRootDriveChildren(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	lRes, err := gatewayClient.ListContainer(ctx, &storageprovider.ListContainerRequest{
+	listRequest := &storageprovider.ListContainerRequest{
 		Ref: &storageprovider.Reference{ResourceId: space.GetRoot()},
-	})
+	}
+	if driveItemPropertySelected(r, _selectShareTypes) {
+		listRequest.FieldMask = shareTypesFieldMask
+	}
+
+	lRes, err := gatewayClient.ListContainer(ctx, listRequest)
 	switch {
 	case err != nil:
 		g.logger.Error().Err(err).Msg("error making ListContainer grpc call")
@@ -209,6 +255,17 @@ func (g Graph) GetRootDriveChildren(w http.ResponseWriter, r *http.Request) {
 		g.logger.Error().Err(err).Msg("error encoding response as json")
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
 		return
+	}
+	g.setDriveItemsThumbnails(r, files, lRes.GetInfos())
+
+	if driveItemPropertySelected(r, _selectAllowedValues) {
+		for i, info := range lRes.GetInfos() {
+			files[i].LibreGraphPermissionsActionsAllowedValues = unifiedrole.CS3ResourcePermissionsToLibregraphActions(info.GetPermissionSet())
+		}
+	}
+
+	if driveItemPropertySelected(r, _selectShareTypes) {
+		g.addShareTypes(ctx, files, lRes.GetInfos())
 	}
 
 	render.Status(r, http.StatusOK)
@@ -275,6 +332,28 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if driveItemPropertySelected(r, _selectAllowedValues) {
+		driveItem.LibreGraphPermissionsActionsAllowedValues = unifiedrole.CS3ResourcePermissionsToLibregraphActions(res.GetInfo().GetPermissionSet())
+	}
+
+	// only containers have children
+	if res.GetInfo().GetType() == storageprovider.ResourceType_RESOURCE_TYPE_CONTAINER && driveItemRelationExpanded(r, _expandChildren) {
+		children, ok := g.listDriveItemChildren(w, r, &driveItemID)
+		if !ok {
+			return
+		}
+		driveItem.Children = children
+	}
+
+	if driveItemPropertySelected(r, _selectShareTypes) {
+		infos := []*storageprovider.ResourceInfo{res.GetInfo()}
+		driveItem.LibreGraphShareTypes = shareTypesOf(res.GetInfo(), g.listLinkShares(ctx, infos))
+	}
+
+	if driveItemRelationExpanded(r, _expandThumbnails) {
+		setDriveItemThumbnails(driveItem, res.GetInfo(), g.config.Commons.OpenCloudURL, g.sourceTypes)
+	}
+
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, &driveItem)
 }
@@ -282,7 +361,6 @@ func (g Graph) GetDriveItem(w http.ResponseWriter, r *http.Request) {
 // GetDriveItemChildren lists the children of a driveItem
 func (g Graph) GetDriveItemChildren(w http.ResponseWriter, r *http.Request) {
 	g.logger.Info().Msg("Calling GetDriveItemChildren")
-	ctx := r.Context()
 
 	driveID, err := parseIDParam(r, "driveID")
 	if err != nil {
@@ -308,43 +386,63 @@ func (g Graph) GetDriveItemChildren(w http.ResponseWriter, r *http.Request) {
 		}
 	*/
 
-	gatewayClient, err := g.gatewaySelector.Next()
-	if err != nil {
-		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	res, err := gatewayClient.ListContainer(ctx, &storageprovider.ListContainerRequest{
-		Ref: &storageprovider.Reference{ResourceId: &driveItemID},
-	})
-	switch {
-	case err != nil:
-		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
-		return
-	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_OK:
-		// ok
-	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_NOT_FOUND:
-		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, res.GetStatus().GetMessage())
-		return
-	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_PERMISSION_DENIED:
-		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, res.GetStatus().GetMessage()) // do not leak existence? check what graph does
-		return
-	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_UNAUTHENTICATED:
-		errorcode.Unauthenticated.Render(w, r, http.StatusUnauthorized, res.GetStatus().GetMessage()) // do not leak existence? check what graph does
-		return
-	default:
-		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, res.GetStatus().GetMessage())
-		return
-	}
-
-	files, err := formatDriveItems(g.logger, g.publicBaseURL, res.GetInfos())
-	if err != nil {
-		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
+	files, ok := g.listDriveItemChildren(w, r, &driveItemID)
+	if !ok {
 		return
 	}
 
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, &ListResponse{Value: files})
+}
+
+func (g Graph) listDriveItemChildren(w http.ResponseWriter, r *http.Request, driveItemID *storageprovider.ResourceId) ([]libregraph.DriveItem, bool) {
+	gatewayClient, err := g.gatewaySelector.Next()
+	if err != nil {
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
+		return nil, false
+	}
+
+	childrenRequest := &storageprovider.ListContainerRequest{
+		Ref: &storageprovider.Reference{ResourceId: driveItemID},
+	}
+	if driveItemPropertySelected(r, _selectShareTypes) {
+		childrenRequest.FieldMask = shareTypesFieldMask
+	}
+
+	res, err := gatewayClient.ListContainer(r.Context(), childrenRequest)
+	switch {
+	case err != nil:
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
+		return nil, false
+	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_OK:
+		// ok
+	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_NOT_FOUND:
+		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, res.GetStatus().GetMessage())
+		return nil, false
+	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_PERMISSION_DENIED:
+		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, res.GetStatus().GetMessage()) // do not leak existence? check what graph does
+		return nil, false
+	case res.GetStatus().GetCode() == cs3rpc.Code_CODE_UNAUTHENTICATED:
+		errorcode.Unauthenticated.Render(w, r, http.StatusUnauthorized, res.GetStatus().GetMessage()) // do not leak existence? check what graph does
+		return nil, false
+	default:
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, res.GetStatus().GetMessage())
+		return nil, false
+	}
+
+	files, err := formatDriveItems(g.logger, g.publicBaseURL, res.GetInfos())
+	if err != nil {
+		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
+		return nil, false
+	}
+
+	if driveItemPropertySelected(r, _selectShareTypes) {
+		g.addShareTypes(r.Context(), files, res.GetInfos())
+	}
+
+	g.setDriveItemsThumbnails(r, files, res.GetInfos())
+
+	return files, true
 }
 
 func (g Graph) getRemoteItem(ctx context.Context, root *storageprovider.ResourceId, baseURL *url.URL) (*libregraph.RemoteItem, error) {
@@ -385,14 +483,14 @@ func (g Graph) getRemoteItem(ctx context.Context, root *storageprovider.Resource
 	return item, nil
 }
 
-func formatDriveItems(logger *log.Logger, publicBaseURL *url.URL, mds []*storageprovider.ResourceInfo) ([]*libregraph.DriveItem, error) {
-	responses := make([]*libregraph.DriveItem, 0, len(mds))
+func formatDriveItems(logger *log.Logger, publicBaseURL *url.URL, mds []*storageprovider.ResourceInfo) ([]libregraph.DriveItem, error) {
+	responses := make([]libregraph.DriveItem, 0, len(mds))
 	for i := range mds {
 		res, err := cs3ResourceToDriveItem(logger, publicBaseURL, mds[i])
 		if err != nil {
 			return nil, err
 		}
-		responses = append(responses, res)
+		responses = append(responses, *res)
 	}
 
 	return responses, nil
@@ -452,130 +550,133 @@ func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *sto
 		}
 	}
 
-	if res.GetArbitraryMetadata() != nil {
-		driveItem.Audio = cs3ResourceToDriveItemAudioFacet(logger, res)
-		driveItem.Image = cs3ResourceToDriveItemImageFacet(logger, res)
-		driveItem.Location = cs3ResourceToDriveItemLocationFacet(logger, res)
-		driveItem.Photo = cs3ResourceToDriveItemPhotoFacet(logger, res)
+	if metadata := res.GetArbitraryMetadata().GetMetadata(); metadata != nil {
+		driveItem.Audio = metadataToFacet[libregraph.Audio](metadata, "audio")
+		driveItem.Image = metadataToFacet[libregraph.Image](metadata, "image")
+		driveItem.Location = metadataToFacet[libregraph.GeoCoordinates](metadata, "location")
+		driveItem.Photo = metadataToFacet[libregraph.Photo](metadata, "photo")
+		driveItem.Video = metadataToFacet[libregraph.Video](metadata, "video")
+		driveItem.LibreGraphMotionPhoto = metadataToFacet[libregraph.MotionPhoto](metadata, "motionPhoto")
+		driveItem.LibreGraphLivePhoto = metadataToFacet[libregraph.LivePhoto](metadata, "livePhoto")
+		driveItem.LibreGraphMeFollowing = libregraph.PtrBool(metadata[_favoriteMetadataKey] == "1")
+		if t := metadata["tags"]; t != "" {
+			driveItem.LibreGraphTags = tags.New(t).AsSlice()
+		}
+	}
+
+	driveItem.LockInfo = lockToFacet(res.GetLock())
+
+	if utils.IsProcessing(res) {
+		// queuedDateTime stays absent, we do not track when postprocessing started
+		driveItem.PendingOperations = &libregraph.PendingOperations{
+			PendingContentUpdate: &libregraph.PendingOperationsPendingContentUpdate{},
+		}
 	}
 
 	return driveItem, nil
 }
 
-func cs3ResourceToDriveItemAudioFacet(logger *log.Logger, res *storageprovider.ResourceInfo) *libregraph.Audio {
-	if !strings.HasPrefix(res.GetMimeType(), "audio/") {
+// lockToFacet maps a CS3 lock; WebDAV renders the same state as d:lockdiscovery.
+// Only exclusive locks are reported, that is all OpenCloud issues.
+func lockToFacet(lock *storageprovider.Lock) *libregraph.LockInfo {
+	switch lock.GetType() {
+	case storageprovider.LockType_LOCK_TYPE_EXCL, storageprovider.LockType_LOCK_TYPE_WRITE:
+	default:
 		return nil
 	}
 
-	k := res.GetArbitraryMetadata().GetMetadata()
-	if k == nil {
-		return nil
+	info := libregraph.NewLockInfo()
+	info.SetLockType("exclusive")
+
+	if appName := lock.GetAppName(); appName != "" {
+		info.SetLibreGraphAppName(appName)
 	}
 
-	var audio = &libregraph.Audio{}
-	if ok := unmarshalStringMap(logger, audio, k, "libre.graph.audio."); ok {
-		return audio
+	if user := lock.GetUser(); user != nil {
+		info.SetOwners([]libregraph.Identity{{
+			Id:          libregraph.PtrString(user.GetOpaqueId()),
+			DisplayName: utils.ReadPlainFromOpaque(lock.GetOpaque(), "lockownername"),
+		}})
 	}
 
-	return nil
+	if lockTime, err := time.Parse(time.RFC3339, utils.ReadPlainFromOpaque(lock.GetOpaque(), "locktime")); err == nil {
+		info.SetCreatedDateTime(lockTime.UTC())
+	}
+
+	if expiration := lock.GetExpiration(); expiration != nil {
+		info.SetExpirationDateTime(time.Unix(int64(expiration.GetSeconds()), 0).UTC())
+	}
+
+	return info
 }
 
-func cs3ResourceToDriveItemImageFacet(logger *log.Logger, res *storageprovider.ResourceInfo) *libregraph.Image {
-	k := res.GetArbitraryMetadata().GetMetadata()
-	if k == nil {
-		return nil
-	}
+// addShareTypes reads user and group shares off the grants, links from the share
+// manager. Links are not stored as grants, so they need one filter per item,
+// which is why the whole annotation is only built when it is selected.
+func (g Graph) addShareTypes(ctx context.Context, items []libregraph.DriveItem, infos []*storageprovider.ResourceInfo) {
+	linkShares := g.listLinkShares(ctx, infos)
 
-	var image = &libregraph.Image{}
-	if ok := unmarshalStringMap(logger, image, k, "libre.graph.image."); ok {
-		return image
-	}
+	for i, info := range infos {
+		if i >= len(items) {
+			break
+		}
 
-	return nil
+		items[i].LibreGraphShareTypes = shareTypesOf(info, linkShares)
+	}
 }
 
-func cs3ResourceToDriveItemLocationFacet(logger *log.Logger, res *storageprovider.ResourceInfo) *libregraph.GeoCoordinates {
-	k := res.GetArbitraryMetadata().GetMetadata()
-	if k == nil {
-		return nil
-	}
-
-	var location = &libregraph.GeoCoordinates{}
-	if ok := unmarshalStringMap(logger, location, k, "libre.graph.location."); ok {
-		return location
-	}
-
-	return nil
-}
-
-func cs3ResourceToDriveItemPhotoFacet(logger *log.Logger, res *storageprovider.ResourceInfo) *libregraph.Photo {
-	k := res.GetArbitraryMetadata().GetMetadata()
-	if k == nil {
-		return nil
-	}
-
-	var photo = &libregraph.Photo{}
-	if ok := unmarshalStringMap(logger, photo, k, "libre.graph.photo."); ok {
-		return photo
-	}
-
-	return nil
-}
-
-func getFieldName(structField reflect.StructField) string {
-	tag := structField.Tag.Get("json")
-	if tag == "" {
-		return structField.Name
-	}
-
-	return strings.Split(tag, ",")[0]
-}
-
-func unmarshalStringMap(logger *log.Logger, out any, flatMap map[string]string, prefix string) bool {
-	nonEmpty := false
-	obj := reflect.ValueOf(out).Elem()
-	timeKind := reflect.TypeOf(&time.Time{}).Elem().Kind()
-	for i := 0; i < obj.NumField(); i++ {
-		field := obj.Field(i)
-		structField := obj.Type().Field(i)
-		mapKey := prefix + getFieldName(structField)
-
-		if value, ok := flatMap[mapKey]; ok {
-			if field.Kind() == reflect.Ptr {
-				newValue := reflect.New(field.Type().Elem())
-				var tmp any
-				var err error
-				switch t := newValue.Type().Elem().Kind(); t {
-				case reflect.String:
-					tmp = value
-				case reflect.Int32:
-					tmp, err = strconv.ParseInt(value, 10, 32)
-				case reflect.Int64:
-					tmp, err = strconv.ParseInt(value, 10, 64)
-				case reflect.Float32:
-					tmp, err = strconv.ParseFloat(value, 32)
-				case reflect.Float64:
-					tmp, err = strconv.ParseFloat(value, 64)
-				case reflect.Bool:
-					tmp, err = strconv.ParseBool(value)
-				case timeKind:
-					tmp, err = time.Parse(time.RFC3339, value)
-				default:
-					err = errors.New("unsupported type")
-					logger.Error().Err(err).Str("type", t.String()).Str("mapKey", mapKey).Msg("target field type for value of mapKey is not supported")
-				}
-				if err != nil {
-					logger.Error().Err(err).Str("mapKey", mapKey).Msg("unmarshalling failed")
-					continue
-				}
-				newValue.Elem().Set(reflect.ValueOf(tmp).Convert(field.Type().Elem()))
-				field.Set(newValue)
-				nonEmpty = true
-			}
+// shareTypesOf maps the grants on a resource, plus a hit in the link lookup, to
+// the annotation values.
+func shareTypesOf(info *storageprovider.ResourceInfo, linkShares map[string]struct{}) []string {
+	var types []string
+	for _, grant := range strings.Split(utils.ReadPlainFromOpaque(info.GetOpaque(), "share-types"), ",") {
+		switch grant {
+		case strconv.Itoa(int(storageprovider.GranteeType_GRANTEE_TYPE_USER)):
+			types = append(types, "user")
+		case strconv.Itoa(int(storageprovider.GranteeType_GRANTEE_TYPE_GROUP)):
+			types = append(types, "group")
 		}
 	}
 
-	return nonEmpty
+	if _, ok := linkShares[info.GetId().GetOpaqueId()]; ok {
+		types = append(types, "link")
+	}
+
+	return types
+}
+
+// listLinkShares returns the resource ids that carry a public link. A failed
+// lookup is logged and treated as "no links", same as the WebDAV PROPFIND.
+func (g Graph) listLinkShares(ctx context.Context, infos []*storageprovider.ResourceInfo) map[string]struct{} {
+	gatewayClient, err := g.gatewaySelector.Next()
+	if err != nil {
+		g.logger.Error().Err(err).Msg("could not select gateway client for public shares")
+		return nil
+	}
+
+	filters := make([]*link.ListPublicSharesRequest_Filter, 0, len(infos))
+	for _, info := range infos {
+		filters = append(filters, publicshare.ResourceIDFilter(info.GetId()))
+	}
+
+	res, err := gatewayClient.ListPublicShares(ctx, &link.ListPublicSharesRequest{Filters: filters})
+	if err != nil || res.GetStatus().GetCode() != cs3rpc.Code_CODE_OK {
+		g.logger.Error().Err(err).Msg("could not list public shares")
+		return nil
+	}
+
+	linkShares := make(map[string]struct{}, len(res.GetShare()))
+	for _, share := range res.GetShare() {
+		linkShares[share.GetResourceId().GetOpaqueId()] = struct{}{}
+	}
+
+	return linkShares
+}
+
+// metadataToFacet builds a DriveItem facet *T from CS3 arbitrary metadata under
+// the "libre.graph.<facet>." key prefix. Nil when no such keys are present.
+func metadataToFacet[T any](metadata map[string]string, facet string) *T {
+	return mapping.DeserializeStringsAt[T](metadata, "libre.graph."+facet+".")
 }
 
 func cs3ResourceToRemoteItem(res *storageprovider.ResourceInfo) (*libregraph.RemoteItem, error) {

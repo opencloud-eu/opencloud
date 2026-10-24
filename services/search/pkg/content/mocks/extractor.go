@@ -73,7 +73,7 @@ type Extractor_Extract_Call struct {
 // Extract is a helper method to define mock.On call
 //   - ctx context.Context
 //   - ri *providerv1beta1.ResourceInfo
-func (_e *Extractor_Expecter) Extract(ctx interface{}, ri interface{}) *Extractor_Extract_Call {
+func (_e *Extractor_Expecter) Extract(ctx any, ri any) *Extractor_Extract_Call {
 	return &Extractor_Extract_Call{Call: _e.mock.On("Extract", ctx, ri)}
 }
 

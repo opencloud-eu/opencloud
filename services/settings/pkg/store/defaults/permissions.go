@@ -29,6 +29,25 @@ func AccountManagementPermission(c settingsmsg.Permission_Constraint) *settingsm
 	}
 }
 
+// AnnouncementReadWritePermission is the permission to read and manage the web announcement banner
+func AnnouncementReadWritePermission(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
+	return &settingsmsg.Setting{
+		Id:          "52b1994b-1bdb-4c8d-a887-1967dbe8cb11",
+		Name:        "Announcement.ReadWrite",
+		DisplayName: "Manage announcement",
+		Description: "This permission permits to read and manage the announcement banner shown to all users.",
+		Resource: &settingsmsg.Resource{
+			Type: settingsmsg.Resource_TYPE_SYSTEM,
+		},
+		Value: &settingsmsg.Setting_PermissionValue{
+			PermissionValue: &settingsmsg.Permission{
+				Operation:  settingsmsg.Permission_OPERATION_READWRITE,
+				Constraint: c,
+			},
+		},
+	}
+}
+
 // AutoAcceptSharesPermission is the permission to enable share auto-accept
 func AutoAcceptSharesPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
 	return &settingsmsg.Setting{
@@ -70,7 +89,7 @@ func ChangeLogoPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Sett
 // CollaborationManageFontsPermission is the permission to manage fonts
 func CollaborationManageFontsPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
 	return &settingsmsg.Setting{
-		Id:          "ed83fc10-1f54-4a9e-b5a7-fb517f5f3e01",
+		Id:          "0cbb6276-fbcd-4594-a2b7-ea96812f2968",
 		Name:        "Collaboration.Fonts.Manage",
 		DisplayName: "Manage fonts",
 		Description: "This permission permits to manage the collaboration fonts.",
@@ -131,6 +150,25 @@ func CreateSharePermission(c settingsmsg.Permission_Constraint) *settingsmsg.Set
 		Name:        "Shares.Write",
 		DisplayName: "Write share",
 		Description: "This permission allows creating shares.",
+		Resource: &settingsmsg.Resource{
+			Type: settingsmsg.Resource_TYPE_SHARE,
+		},
+		Value: &settingsmsg.Setting_PermissionValue{
+			PermissionValue: &settingsmsg.Permission{
+				Operation:  settingsmsg.Permission_OPERATION_WRITE,
+				Constraint: c,
+			},
+		},
+	}
+}
+
+// CreateGuestInvitePermission is the permission to create guest (mail) invites.
+func CreateGuestInvitePermission(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
+	return &settingsmsg.Setting{
+		Id:          "54ca22e9-8b30-4826-b9b6-284b62b69289",
+		Name:        "Shares.GuestMailWrite",
+		DisplayName: "Invite guests by email",
+		Description: "This permission allows creating guest (mail) invites.",
 		Resource: &settingsmsg.Resource{
 			Type: settingsmsg.Resource_TYPE_SHARE,
 		},

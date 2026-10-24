@@ -44,6 +44,7 @@ var ErrClosed = fmt.Errorf("scorch closed")
 type Scorch struct {
 	nextSegmentID uint64
 	stats         Stats
+	zapStats      segment.Stats
 	iStats        internalStats
 
 	readOnly      bool
@@ -69,6 +70,9 @@ type Scorch struct {
 	// operation. Counts decrement upon successful copy, allowing removal of segments with zero or absent counts.
 	// must be accessed within the rootLock as it is accessed by the asynchronous cleanup routine.
 	copyScheduled map[string]int
+
+	persisterOptions    *persisterOptions
+	mergePlannerOptions *mergeplan.MergePlanOptions
 
 	numSnapshotsToKeep       int
 	rollbackRetentionFactor  float64
@@ -120,6 +124,9 @@ type trainer interface {
 	// trainer specific file transfer operations
 	copyFileLOCKED(file string, d index.IndexDirectory) error
 	updateBolt(snapshotsBucket *util.BoltBucketImpl, key []byte, value []byte) error
+
+	dropFileWriterIDs(ids map[string]struct{}) error
+	fileWriterIDsInUse() (map[string]struct{}, error)
 }
 
 type ScorchErrorType string
@@ -130,10 +137,9 @@ func (t ScorchErrorType) Error() string {
 
 // ErrType values for ScorchError
 const (
-	ErrAsyncPanic   = ScorchErrorType("async panic error")
-	ErrPersist      = ScorchErrorType("persist error")
-	ErrCleanup      = ScorchErrorType("cleanup error")
-	ErrOptionsParse = ScorchErrorType("options parse error")
+	ErrAsyncPanic = ScorchErrorType("async panic error")
+	ErrPersist    = ScorchErrorType("persist error")
+	ErrCleanup    = ScorchErrorType("cleanup error")
 )
 
 // ScorchError is passed to onAsyncError when errors are
@@ -208,6 +214,9 @@ func NewScorch(storeName string,
 		rv.segmentConfig = segConfig
 	}
 
+	// NOTE: always register the stats handler in the config map to track zap layer stats
+	rv.segmentConfig[segment.StatsKey] = &rv.zapStats
+
 	typ, ok := config["spatialPlugin"].(string)
 	if ok {
 		if err := rv.loadSpatialAnalyzerPlugin(typ); err != nil {
@@ -232,18 +241,53 @@ func NewScorch(storeName string,
 	if ok {
 		rv.onAsyncError = RegistryAsyncErrorCallbacks[aecbName]
 	}
-	// validate any custom persistor options to
-	// prevent an async error in the persistor routine
-	_, err = rv.parsePersisterOptions()
+
+	rv.numSnapshotsToKeep = NumSnapshotsToKeep
+	if v, ok := rv.config["numSnapshotsToKeep"]; ok {
+		var n int
+		var err error
+		if n, err = parseToInteger(v); err != nil {
+			return nil, fmt.Errorf("numSnapshotsToKeep parse err: %v", err)
+		}
+		if n > 0 {
+			rv.numSnapshotsToKeep = n
+		}
+	}
+
+	rv.rollbackSamplingInterval = RollbackSamplingInterval
+	if v, ok := rv.config["rollbackSamplingInterval"]; ok {
+		var d time.Duration
+		var err error
+		if d, err = parseToTimeDuration(v); err != nil {
+			return nil, fmt.Errorf("rollbackSamplingInterval parse err: %v", err)
+		}
+		rv.rollbackSamplingInterval = d
+	}
+
+	rv.rollbackRetentionFactor = RollbackRetentionFactor
+	if v, ok := rv.config["rollbackRetentionFactor"]; ok {
+		var r float64
+		var err error
+		if r, err = parseToFloat(v); err != nil {
+			return nil, fmt.Errorf("rollbackRetentionFactor parse err: %v", err)
+		}
+		if r < 0 || r > 1 {
+			return nil, fmt.Errorf("rollbackRetentionFactor must be between 0 and 1")
+		}
+		rv.rollbackRetentionFactor = r
+	}
+
+	po, err := rv.parsePersisterOptions()
 	if err != nil {
 		return nil, err
 	}
-	// validate any custom merge planner options to
-	// prevent an async error in the merger routine
-	_, err = rv.parseMergePlannerOptions()
+	rv.persisterOptions = po
+
+	mpo, err := rv.parseMergePlannerOptions(po)
 	if err != nil {
 		return nil, err
 	}
+	rv.mergePlannerOptions = mpo
 
 	if trainer := initTrainer(rv, config); trainer != nil {
 		rv.trainer = trainer
@@ -328,6 +372,7 @@ func (s *Scorch) openBolt() error {
 		s.unsafeBatch = true
 	}
 
+	// bolt options
 	rootBoltOpt := *bolt.DefaultOptions
 	if s.readOnly {
 		rootBoltOpt.ReadOnly = true
@@ -388,42 +433,6 @@ func (s *Scorch) openBolt() error {
 		err := s.removeOldZapFiles() // Before persister or merger create any new files.
 		if err != nil {
 			_ = s.Close()
-			return err
-		}
-	}
-
-	s.numSnapshotsToKeep = NumSnapshotsToKeep
-	if v, ok := s.config["numSnapshotsToKeep"]; ok {
-		var t int
-		if t, err = parseToInteger(v); err != nil {
-			return fmt.Errorf("numSnapshotsToKeep parse err: %v", err)
-		}
-		if t > 0 {
-			s.numSnapshotsToKeep = t
-		}
-	}
-
-	s.rollbackSamplingInterval = RollbackSamplingInterval
-	if v, ok := s.config["rollbackSamplingInterval"]; ok {
-		var t time.Duration
-		if t, err = parseToTimeDuration(v); err != nil {
-			return fmt.Errorf("rollbackSamplingInterval parse err: %v", err)
-		}
-		s.rollbackSamplingInterval = t
-	}
-
-	s.rollbackRetentionFactor = RollbackRetentionFactor
-	if v, ok := s.config["rollbackRetentionFactor"]; ok {
-		var r float64
-		if r, ok = v.(float64); ok {
-			return fmt.Errorf("rollbackRetentionFactor parse err: %v", err)
-		}
-		s.rollbackRetentionFactor = r
-	}
-
-	typ, ok := s.config["spatialPlugin"].(string)
-	if ok {
-		if err := s.loadSpatialAnalyzerPlugin(typ); err != nil {
 			return err
 		}
 	}
@@ -570,7 +579,6 @@ func (s *Scorch) Batch(batch *index.Batch) (err error) {
 
 	var newSegment segment.Segment
 	var bufBytes uint64
-	stats := newFieldStats()
 
 	if len(analysisResults) > 0 {
 		newSegment, bufBytes, err = s.segPlugin.NewUsing(analysisResults, s.segmentConfig)
@@ -582,14 +590,11 @@ func (s *Scorch) Batch(batch *index.Batch) (err error) {
 				segB.BytesWritten())
 		}
 		atomic.AddUint64(&s.iStats.newSegBufBytesAdded, bufBytes)
-		if fsr, ok := newSegment.(segment.FieldStatsReporter); ok {
-			fsr.UpdateFieldStats(stats)
-		}
 	} else {
 		atomic.AddUint64(&s.stats.TotBatchesEmpty, 1)
 	}
 
-	err = s.prepareSegment(newSegment, ids, batch.InternalOps, batch.PersistedCallback(), stats)
+	err = s.prepareSegment(newSegment, ids, batch.InternalOps, batch.PersistedCallback())
 	if err != nil {
 		if newSegment != nil {
 			_ = newSegment.Close()
@@ -632,15 +637,13 @@ func (s *Scorch) Train(batch *index.Batch) error {
 }
 
 func (s *Scorch) prepareSegment(newSegment segment.Segment, ids []string,
-	internalOps map[string][]byte, persistedCallback index.BatchCallback, stats *fieldStats,
-) error {
+	internalOps map[string][]byte, persistedCallback index.BatchCallback) error {
 	// new introduction
 	introduction := &segmentIntroduction{
 		id:                atomic.AddUint64(&s.nextSegmentID, 1),
 		data:              newSegment,
 		ids:               ids,
 		internal:          internalOps,
-		stats:             stats,
 		applied:           make(chan error),
 		persistedCallback: persistedCallback,
 	}
@@ -854,6 +857,9 @@ func (s *Scorch) StatsMap() map[string]interface{} {
 			m["field:"+fieldName+":"+statName] = val
 		}
 	}
+
+	// zap layer stats that are continously updated throughout the index lifecycle
+	m[segment.StatsKey] = s.zapStats.StatsMap()
 	return m
 }
 
@@ -1009,6 +1015,20 @@ func parseToInteger(i interface{}) (int, error) {
 	}
 }
 
+func parseToFloat(i interface{}) (float64, error) {
+	switch v := i.(type) {
+	case float64:
+		return v, nil
+	case float32:
+		return float64(v), nil
+	case int:
+		return float64(v), nil
+
+	default:
+		return 0, fmt.Errorf("expects float64, float32 or int value")
+	}
+}
+
 // Holds Zap's field level stats at a segment level
 type fieldStats struct {
 	// StatName -> FieldName -> value
@@ -1106,10 +1126,12 @@ func (s *Scorch) SetPathInBolt(key []byte, value []byte) error {
 		return err
 	}
 
-	// currently this is specific to trained index file update
-	err = s.trainer.updateBolt(snapshotsBucket, key, value)
-	if err != nil {
-		return err
+	if s.trainer != nil {
+		// currently this is specific to trained index file update
+		err = s.trainer.updateBolt(snapshotsBucket, key, value)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = tx.Commit()
@@ -1322,6 +1344,16 @@ func (s *Scorch) FileWriterIDsInUse() (map[string]struct{}, error) {
 		}
 	}
 
+	if s.trainer != nil {
+		trainerKeys, err := s.trainer.fileWriterIDsInUse()
+		if err != nil {
+			return nil, err
+		}
+		for k, _ := range trainerKeys {
+			keyMap[k] = struct{}{}
+		}
+	}
+
 	boltKeys, err := s.boltFileWriterIDsInUse()
 	if err != nil {
 		return nil, err
@@ -1344,6 +1376,13 @@ func (s *Scorch) DropFileWriterIDs(ids map[string]struct{}) error {
 		return err
 	}
 
+	if s.trainer != nil {
+		err := s.trainer.dropFileWriterIDs(ids)
+		if err != nil {
+			return err
+		}
+	}
+
 	s.rootLock.Lock()
 	// create a done channel to ensure success of merge
 	ctx := context.Background()
@@ -1357,6 +1396,12 @@ func (s *Scorch) DropFileWriterIDs(ids map[string]struct{}) error {
 	// data with writer ids that have been removed
 	prevNumSnapshotsToKeep := s.numSnapshotsToKeep
 	s.numSnapshotsToKeep = 1
+	defer func() {
+		// reset rollback snapshot retention
+		s.rootLock.Lock()
+		s.numSnapshotsToKeep = prevNumSnapshotsToKeep
+		s.rootLock.Unlock()
+	}()
 
 	// track the zapx files that are expected to be removed after
 	// the merge so that we can block until they are removed by the persister
@@ -1365,10 +1410,6 @@ func (s *Scorch) DropFileWriterIDs(ids map[string]struct{}) error {
 	var mergePlanner mergePlanFunc = func(ourSnapshot *IndexSnapshot) (*mergeplan.MergePlan, error) {
 		// Create a merge plan with the filtered segments and force a merge
 		// to remove the callback from the segments.
-		mergePlannerOptions, err := s.parseMergePlannerOptions()
-		if err != nil {
-			return nil, fmt.Errorf("mergePlannerOption json parsing err: %v", err)
-		}
 		atomic.AddUint64(&s.stats.TotFileMergePlan, 1)
 
 		// filter all segments that have callbacks that need to be removed
@@ -1387,7 +1428,7 @@ func (s *Scorch) DropFileWriterIDs(ids map[string]struct{}) error {
 		}
 
 		// attempt a merge plan with the default merge planner options
-		mergePlan, err := mergeplan.Plan(segsToCompact, mergePlannerOptions)
+		mergePlan, err := mergeplan.Plan(segsToCompact, s.mergePlannerOptions)
 		if err != nil {
 			atomic.AddUint64(&s.stats.TotFileMergePlanErr, 1)
 			return nil, fmt.Errorf("merge plan creation err: %v", err)
@@ -1449,11 +1490,6 @@ func (s *Scorch) DropFileWriterIDs(ids map[string]struct{}) error {
 	if err != nil {
 		return err
 	}
-
-	// reset rollback snapshot retention
-	s.rootLock.Lock()
-	s.numSnapshotsToKeep = prevNumSnapshotsToKeep
-	s.rootLock.Unlock()
 
 	return nil
 }

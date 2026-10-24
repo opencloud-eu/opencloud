@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
 )
 
 // ScrollGetReq represents possible options for the index create request
@@ -23,9 +24,9 @@ type ScrollGetReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r ScrollGetReq) GetRequest() (*http.Request, error) {
-	return opensearch.BuildRequest(
-		"POST",
+func (r ScrollGetReq) GetRequest(method string) (*http.Request, error) {
+	return build.Request(
+		method,
 		"/_search/scroll",
 		strings.NewReader(fmt.Sprintf(`{"scroll_id":"%s"}`, r.ScrollID)),
 		r.Params.get(),

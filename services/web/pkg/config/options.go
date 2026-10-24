@@ -2,9 +2,10 @@ package config
 
 // Options are the option for the web
 type Options struct {
+	Announcement           *Announcement       `json:"announcement,omitempty" yaml:"-"`
 	AccountEditLink        *AccountEditLink    `json:"accountEditLink,omitempty" yaml:"accountEditLink"`
 	DisableFeedbackLink    bool                `json:"disableFeedbackLink,omitempty" yaml:"disableFeedbackLink" env:"WEB_OPTION_DISABLE_FEEDBACK_LINK" desc:"Set this option to 'true' to disable the feedback link in the top bar. Keeping it enabled by setting the value to 'false' or with the absence of the option, allows OpenCloud to get feedback from your user base through a dedicated survey website." introductionVersion:"1.0.0"`
-	DisableSponsorLink     bool                `json:"disableSponsorLink,omitempty" yaml:"disableSponsorLink" env:"WEB_OPTION_DISABLE_SPONSOR_LINK" desc:"Set this option to 'true' to disable the sponsor link in the left sidebar. Keeping it enabled by setting the value to 'false' or by leaving the option unset allows OpenCloud to get support from the community through a dedicated sponsorship program on GitHub." introductionVersion:"%%NEXT%%"`
+	DisableSponsorLink     bool                `json:"disableSponsorLink,omitempty" yaml:"disableSponsorLink" env:"WEB_OPTION_DISABLE_SPONSOR_LINK" desc:"Set this option to 'true' to disable the sponsor link in the left sidebar. Keeping it enabled by setting the value to 'false' or by leaving the option unset allows OpenCloud to get support from the community through a dedicated sponsorship program on GitHub." introductionVersion:"7.3.0"`
 	FeedbackLink           *FeedbackLink       `json:"feedbackLink,omitempty" yaml:"feedbackLink"`
 	RunningOnEOS           bool                `json:"runningOnEos,omitempty" yaml:"runningOnEos" env:"WEB_OPTION_RUNNING_ON_EOS" desc:"Set this option to 'true' if running on an EOS storage backend (https://eos-web.web.cern.ch/eos-web/) to enable its specific features. Defaults to 'false'." introductionVersion:"1.0.0" deprecationVersion:"6.2.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"WEB_OPTION_RUNNING_ON_EOS is deprecated and will be removed in a future release."`
 	CernFeatures           bool                `json:"cernFeatures,omitempty" yaml:"cernFeatures" deprecationVersion:"6.2.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%"`
@@ -21,6 +22,17 @@ type Options struct {
 	ConcurrentRequests     *ConcurrentRequests `json:"concurrentRequests,omitempty" yaml:"concurrentRequests"`
 	DefaultAppID           string              `json:"defaultAppId,omitempty" yaml:"defaultAppId" env:"WEB_OPTION_DEFAULT_APP_ID" desc:"Defines the entrypoint for the web ui." introductionVersion:"4.0.0"`
 	OxAppSuite             *OxAppSuite         `json:"oxAppSuite,omitempty" yaml:"oxAppSuite"`
+	YjsServerUrl           string              `json:"yjsServerUrl,omitempty" yaml:"yjsServerUrl" env:"WEB_OPTION_YJS_SERVER_URL" desc:"The URL of the Yjs server used for collaborative editing. This feature is disabled as long as no URL is given." introductionVersion:"7.5.0"`
+}
+
+// Announcement is a banner message shown above the top bar to all users. It is managed at runtime
+// (via the web service's store and the admin settings UI) and injected into config.json here; a
+// value configured statically is ignored.
+type Announcement struct {
+	// BannerText is the short line shown in the banner.
+	BannerText string `json:"bannerText,omitempty" yaml:"-"`
+	// InfoText is the (Markdown) detail shown in a dialog when the banner is clicked.
+	InfoText string `json:"infoText,omitempty" yaml:"-"`
 }
 
 // AccountEditLink are the AccountEditLink options
@@ -69,6 +81,6 @@ type ConcurrentRequestsShares struct {
 }
 
 type OxAppSuite struct {
-	Enabled bool   `json:"enabled,omitempty" yaml:"enabled" env:"WEB_OPTION_OX_APP_SUITE_ENABLED" desc:"Enables the OX App Suite. Defaults to false." introductionVersion:"%%NEXT%%"`
-	ApiUrl  string `json:"apiUrl,omitempty" yaml:"apiUrl" env:"WEB_OPTION_OX_APP_SUITE_API_URL" desc:"The API URL for the OX App Suite. Defaults to an empty string." introductionVersion:"%%NEXT%%"`
+	Enabled bool   `json:"enabled,omitempty" yaml:"enabled" env:"WEB_OPTION_OX_APP_SUITE_ENABLED" desc:"Enables the OX App Suite. Defaults to false." introductionVersion:"7.3.0"`
+	ApiUrl  string `json:"apiUrl,omitempty" yaml:"apiUrl" env:"WEB_OPTION_OX_APP_SUITE_API_URL" desc:"The API URL for the OX App Suite. Defaults to an empty string." introductionVersion:"7.3.0"`
 }

@@ -7,15 +7,16 @@
 # Jörn Friedrich Dreyer <jfd@butonic.de>, 2025
 # Jonas, 2025
 # Jannik Stehle, 2026
+# Jannick Kuhr, 2026
 # 
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: EMAIL\n"
-"POT-Creation-Date: 2026-07-01 23:15+0000\n"
+"POT-Creation-Date: 2026-10-17 23:16+0000\n"
 "PO-Revision-Date: 2025-01-27 10:17+0000\n"
-"Last-Translator: Jannik Stehle, 2026\n"
+"Last-Translator: Jannick Kuhr, 2026\n"
 "Language-Team: German (https://app.transifex.com/opencloud-eu/teams/204053/de/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -23,18 +24,59 @@ msgstr ""
 "Language: de\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
+#. GuestLinkShareRenewedWithoutPin email template, resolves via {{
+#. .MessageBody }}
+#: pkg/email/templates.go:97
+msgid ""
+"A new link to \"{ShareFolder}\", shared with you by {ShareSharer}, has been requested.\n"
+"\n"
+"The link below is personal and can only be used once. Please do not forward it.\n"
+"\n"
+"The link is only valid for 30 minutes."
+msgstr ""
+"Es wurde ein neuer Link für »{ShareFolder}« angefordert, der Ihnen von {ShareSharer} geteilt wurde.\n"
+"\n"
+"Der unten stehende Link ist persönlich und kann nur ein einziges Mal verwendet werden. Bitte leiten Sie ihn nicht weiter.\n"
+"\n"
+"Der Link ist nur 30 Minuten lang gültig."
+
+#. GuestLinkShareRenewed email template, resolves via {{ .MessageBody }}
+#: pkg/email/templates.go:78
+msgid ""
+"A new link to \"{ShareFolder}\", shared with you by {ShareSharer}, has been requested.\n"
+"\n"
+"Your PIN: {SharePin}\n"
+"\n"
+"Open the link below or enter the PIN on the page where you requested the new link. The link and the PIN are personal and can only be used once. Please do not forward them.\n"
+"\n"
+"The link and the PIN are only valid for 30 minutes."
+msgstr ""
+"Es wurde ein neuer Link für »{ShareFolder}« angefordert, der Ihnen von {ShareSharer} bereitgestellt wurde.\n"
+"\n"
+"Ihre PIN: {SharePin}\n"
+"\n"
+"Öffnen Sie den untenstehenden Link oder geben Sie die PIN auf der Seite ein, auf der Sie den neuen Link angefordert haben. Der Link und die PIN sind persönlich und können nur einmal verwendet werden. Bitte leiten Sie diese nicht weiter.\n"
+"\n"
+"Der Link und die PIN sind nur 30 Minuten lang gültig."
+
 #. UnsharedSpace email template, resolves via {{ .CallToAction }}
-#: pkg/email/templates.go:65
+#: pkg/email/templates.go:132
 msgid "Click here to check it: {ShareLink}"
 msgstr "Zum Überprüfen hier klicken: {ShareLink}"
 
 #. ShareCreated email template, resolves via {{ .CallToAction }}
+#. GuestLinkShareCreated email template, resolves via {{ .CallToAction }}
+#. GuestLinkShareRenewed email template, resolves via {{ .CallToAction }}
+#. GuestLinkShareRenewedWithoutPin email template, resolves via {{
+#. .CallToAction }}
 #. SharedSpace email template, resolves via {{ .CallToAction }}
-#: pkg/email/templates.go:23 pkg/email/templates.go:50
+#: pkg/email/templates.go:23 pkg/email/templates.go:67
+#: pkg/email/templates.go:86 pkg/email/templates.go:103
+#: pkg/email/templates.go:117
 msgid "Click here to view it: {ShareLink}"
 msgstr "Zum Ansehen hier klicken: {ShareLink}"
 
-#: pkg/email/templates.go:126
+#: pkg/email/templates.go:193
 msgid "Hello {RecipientName},"
 msgstr "Hallo {RecipientName},"
 
@@ -43,21 +85,31 @@ msgstr "Hallo {RecipientName},"
 msgid "Hello {ShareGrantee}"
 msgstr "Hallo {ShareGrantee}"
 
+#. ShareRemoved email template, resolves via {{ .Greeting }}
 #. ShareExpired email template, resolves via {{ .Greeting }}
-#: pkg/email/templates.go:32
+#: pkg/email/templates.go:32 pkg/email/templates.go:45
 msgid "Hello {ShareGrantee},"
 msgstr "Hallo {ShareGrantee},"
 
 #. SharedSpace email template, resolves via {{ .Greeting }}
 #. UnsharedSpace email template, resolves via {{ .Greeting }}
 #. MembershipExpired email template, resolves via {{ .Greeting }}
-#: pkg/email/templates.go:46 pkg/email/templates.go:59
-#: pkg/email/templates.go:74
+#: pkg/email/templates.go:113 pkg/email/templates.go:126
+#: pkg/email/templates.go:141
 msgid "Hello {SpaceGrantee},"
 msgstr "Hallo {SpaceGrantee},"
 
+#. GuestLinkShareCreated email template, resolves via {{ .Greeting }}
+#. GuestLinkShareRenewed email template, resolves via {{ .Greeting }}
+#. GuestLinkShareRenewedWithoutPin email template, resolves via {{ .Greeting
+#. }}
+#: pkg/email/templates.go:59 pkg/email/templates.go:76
+#: pkg/email/templates.go:95
+msgid "Hello,"
+msgstr "Hallo,"
+
 #. Grouped email template, resolves via {{ .Greeting }}
-#: pkg/email/templates.go:118
+#: pkg/email/templates.go:185
 msgid "Hi {DisplayName},"
 msgstr "Hallo {DisplayName},"
 
@@ -65,17 +117,17 @@ msgstr "Hallo {DisplayName},"
 #. }}
 #. ScienceMeshInviteTokenGeneratedWithoutShareLink email template, resolves
 #. via {{ .Greeting }}
-#: pkg/email/templates.go:87 pkg/email/templates.go:104
+#: pkg/email/templates.go:154 pkg/email/templates.go:171
 msgid "Hi,"
 msgstr "Hallo,"
 
 #. MembershipExpired email template, Subject field (resolves directly)
-#: pkg/email/templates.go:72
+#: pkg/email/templates.go:139
 msgid "Membership of '{SpaceName}' expired at {ExpiredAt}"
 msgstr "Die Mitgliedschaft für '{SpaceName}' ist am {ExpiredAt} abgelaufen."
 
 #. Grouped email template, Subject field (resolves directly)
-#: pkg/email/templates.go:116
+#: pkg/email/templates.go:183
 msgid "Report"
 msgstr "Bericht"
 
@@ -83,25 +135,25 @@ msgstr "Bericht"
 #. directly)
 #. ScienceMeshInviteTokenGeneratedWithoutShareLink email template, Subject
 #. field (resolves directly)
-#: pkg/email/templates.go:85 pkg/email/templates.go:102
+#: pkg/email/templates.go:152 pkg/email/templates.go:169
 msgid "ScienceMesh: {InitiatorName} wants to collaborate with you"
 msgstr "ScienceMesh: {InitiatorName} möchte mir Ihnen gerne zusammenarbeiten"
 
 #. ShareExpired email template, Subject field (resolves directly)
-#: pkg/email/templates.go:30
+#: pkg/email/templates.go:43
 msgid "Share to '{ShareFolder}' expired at {ExpiredAt}"
 msgstr "Die Freigabe für '{ShareFolder}' ist am {ExpiredAt} abgelaufen."
 
-#: pkg/email/templates.go:128
+#: pkg/email/templates.go:195
 msgid "You can view the mention here: {ResourceLink}"
 msgstr "Sie können die Erwähnung hier ansehen: {ResourceLink}"
 
-#: pkg/email/templates.go:125
+#: pkg/email/templates.go:192
 msgid "You were mentioned in '{ResourceName}'"
 msgstr "Sie wurden in '{ResourceName}' erwähnt."
 
 #. MembershipExpired email template, resolves via {{ .MessageBody }}
-#: pkg/email/templates.go:76
+#: pkg/email/templates.go:143
 msgid ""
 "Your membership of space {SpaceName} has expired at {ExpiredAt}\n"
 "\n"
@@ -110,8 +162,15 @@ msgstr ""
 "Ihre Mitgliedschaft im Space {SpaceName} ist am {ExpiredAt} abgelaufen.\n"
 "Über eventuelle weitere Freigaben oder Space-Mitgliedschaften kann der Zugriff trotzdem weiterhin möglich sein."
 
+#. GuestLinkShareRenewed email template, Subject field (resolves directly)
+#. GuestLinkShareRenewedWithoutPin email template, Subject field (resolves
+#. directly)
+#: pkg/email/templates.go:74 pkg/email/templates.go:93
+msgid "Your new link to '{ShareFolder}'"
+msgstr "Ihr neuer Link zu »{Shared Folder}«"
+
 #. ShareExpired email template, resolves via {{ .MessageBody }}
-#: pkg/email/templates.go:34
+#: pkg/email/templates.go:47
 msgid ""
 "Your share to {ShareFolder} has expired at {ExpiredAt}\n"
 "\n"
@@ -121,13 +180,13 @@ msgstr ""
 "\n"
 "Über eventuelle weitere Freigaben oder Space-Mitgliedschaften kann der Zugriff trotzdem weiterhin möglich sein."
 
-#: pkg/email/templates.go:127
+#: pkg/email/templates.go:194
 msgid "{AuthorName} mentioned you in \"{ResourceName}\"."
 msgstr "{AuthorName} hat Sie in \"{ResourceName}\" erwähnt."
 
 #. ScienceMeshInviteTokenGeneratedWithoutShareLink email template, resolves
 #. via {{ .MessageBody }}
-#: pkg/email/templates.go:106
+#: pkg/email/templates.go:173
 msgid ""
 "{ShareSharer} ({ShareSharerMail}) wants to start sharing collaboration resources with you.\n"
 "Please visit your federation settings and use the following details:\n"
@@ -141,7 +200,7 @@ msgstr ""
 
 #. ScienceMeshInviteTokenGenerated email template, resolves via {{
 #. .MessageBody }}
-#: pkg/email/templates.go:89
+#: pkg/email/templates.go:156
 msgid ""
 "{ShareSharer} ({ShareSharerMail}) wants to start sharing collaboration resources with you.\n"
 "To accept the invite, please visit the following URL:\n"
@@ -165,18 +224,51 @@ msgstr ""
 msgid "{ShareSharer} has shared \"{ShareFolder}\" with you."
 msgstr "{ShareSharer} hat \"{ShareFolder}\" mit Ihnen geteilt."
 
+#. GuestLinkShareCreated email template, resolves via {{ .MessageBody }}
+#: pkg/email/templates.go:61
+msgid ""
+"{ShareSharer} has shared \"{ShareFolder}\" with you.\n"
+"\n"
+"The link below is personal and can only be used once. Please do not forward it.\n"
+"\n"
+"The link is only valid for 30 minutes."
+msgstr ""
+"{ShareSharer} hat »{ShareFolder}« mit Ihnen geteilt.\n"
+"\n"
+"Der untenstehende Link ist persönlich und kann nur einmal verwendet werden. Bitte leiten Sie ihn nicht weiter.\n"
+"\n"
+"Der Link ist nur 30 Minuten lang gültig."
+
+#. ShareRemoved email template, resolves via {{ .MessageBody }}
+#: pkg/email/templates.go:34
+msgid ""
+"{ShareSharer} has unshared '{ShareFolder}' with you.\n"
+"\n"
+"Even though this share has been revoked you still might have access through other shares and/or space memberships."
+msgstr ""
+"{ShareSharer} hat die Freigabe für »{ShareFolder}« für Sie aufgehoben.\n"
+"\n"
+"Auch wenn diese Freigabe widerrufen wurde, haben Sie möglicherweise weiterhin Zugriff über andere Freigaben und/oder Mitgliedschaften in Bereichen."
+
 #. ShareCreated email template, Subject field (resolves directly)
-#: pkg/email/templates.go:17
+#. GuestLinkShareCreated email template, Subject field (resolves directly)
+#: pkg/email/templates.go:17 pkg/email/templates.go:57
 msgid "{ShareSharer} shared '{ShareFolder}' with you"
 msgstr "{ShareSharer} hat \"{ShareFolder}\" mit Ihnen geteilt"
 
+#. ShareRemoved email template, Subject field (resolves directly)
+#: pkg/email/templates.go:30
+msgid "{ShareSharer} unshared '{ShareFolder}' with you"
+msgstr ""
+"{ShareSharer} hat die Freigabe von »{ShareFolder}« für Sie aufgehoben."
+
 #. SharedSpace email template, resolves via {{ .MessageBody }}
-#: pkg/email/templates.go:48
+#: pkg/email/templates.go:115
 msgid "{SpaceSharer} has invited you to join \"{SpaceName}\"."
 msgstr "{SpaceSharer} hat Sie eingeladen, dem Space \"{SpaceName}\" beizutreten."
 
 #. UnsharedSpace email template, resolves via {{ .MessageBody }}
-#: pkg/email/templates.go:61
+#: pkg/email/templates.go:128
 msgid ""
 "{SpaceSharer} has removed you from \"{SpaceName}\".\n"
 "\n"
@@ -187,11 +279,11 @@ msgstr ""
 "Über eventuelle weitere Freigaben oder Space-Mitgliedschaften kann der Zugriff trotzdem weiterhin möglich sein."
 
 #. SharedSpace email template, Subject field (resolves directly)
-#: pkg/email/templates.go:44
+#: pkg/email/templates.go:111
 msgid "{SpaceSharer} invited you to join {SpaceName}"
 msgstr "{SpaceSharer} hat Sie eingeladen, dem Space {SpaceName} beizutreten."
 
 #. UnsharedSpace email template, Subject field (resolves directly)
-#: pkg/email/templates.go:57
+#: pkg/email/templates.go:124
 msgid "{SpaceSharer} removed you from {SpaceName}"
 msgstr "{SpaceSharer} hat Sie aus dem Space {SpaceName} entfernt."

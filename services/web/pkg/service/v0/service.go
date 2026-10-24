@@ -1,6 +1,7 @@
 package svc
 
 import (
+	"context"
 	"encoding/json"
 	"io/fs"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
+	"github.com/opencloud-eu/opencloud/services/web/pkg/announcement"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/assets"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/web/pkg/theme"
@@ -50,15 +52,26 @@ func NewService(opts ...Option) (Service, error) {
 	)
 
 	svc := Web{
-		logger:          options.Logger,
-		config:          options.Config,
-		mux:             m,
-		gatewaySelector: options.GatewaySelector,
+		logger:            options.Logger,
+		config:            options.Config,
+		mux:               m,
+		gatewaySelector:   options.GatewaySelector,
+		announcementStore: options.AnnouncementStore,
 	}
 
 	themeService, err := theme.NewService(
 		theme.ServiceOptions{}.
 			WithThemeFS(options.ThemeFS).
+			WithGatewaySelector(options.GatewaySelector),
+	)
+	if err != nil {
+		return svc, err
+	}
+
+	announcementService, err := announcement.NewService(
+		announcement.ServiceOptions{}.
+			WithLogger(options.Logger).
+			WithStore(options.AnnouncementStore).
 			WithGatewaySelector(options.GatewaySelector),
 	)
 	if err != nil {
@@ -74,6 +87,14 @@ func NewService(opts ...Option) (Service, error) {
 			))
 			r.Post("/", themeService.LogoUpload)
 			r.Delete("/", themeService.LogoReset)
+		})
+		r.Route("/announcement", func(r chi.Router) {
+			r.Use(middleware.ExtractAccountUUID(
+				account.Logger(options.Logger),
+				account.JWTSecret(options.Config.TokenManager.JWTSecret),
+			))
+			r.Get("/", announcementService.Get)
+			r.Put("/", announcementService.Set)
 		})
 		r.Route("/themes", func(r chi.Router) {
 			r.Get("/{id}/theme.json", themeService.Get)
@@ -104,10 +125,11 @@ func NewService(opts ...Option) (Service, error) {
 
 // Web defines the handlers for the web service.
 type Web struct {
-	logger          log.Logger
-	config          *config.Config
-	mux             *chi.Mux
-	gatewaySelector pool.Selectable[gateway.GatewayAPIClient]
+	logger            log.Logger
+	config            *config.Config
+	mux               *chi.Mux
+	gatewaySelector   pool.Selectable[gateway.GatewayAPIClient]
+	announcementStore *announcement.Store
 }
 
 // ServeHTTP implements the Service interface.
@@ -115,31 +137,58 @@ func (p Web) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p.mux.ServeHTTP(w, r)
 }
 
-func (p Web) getPayload() (payload []byte, err error) {
-	// render dynamically using config
+func (p Web) getPayload(ctx context.Context) (payload []byte, err error) {
+	// render dynamically using a copy of the config, so per-request values (e.g. the
+	// announcement) are not written into the shared config concurrently.
+	webConfig := p.config.Web.Config
 
 	// build theme url
 	if themeServer, err := url.Parse(p.config.Web.ThemeServer); err == nil {
-		p.config.Web.Config.Theme = themeServer.String() + p.config.Web.ThemePath
+		webConfig.Theme = themeServer.String() + p.config.Web.ThemePath
 	} else {
-		p.config.Web.Config.Theme = p.config.Web.ThemePath
+		webConfig.Theme = p.config.Web.ThemePath
 	}
 
 	// make apps render as empty array if it is empty
 	// TODO remove once https://github.com/golang/go/issues/27589 is fixed
-	if len(p.config.Web.Config.Apps) == 0 {
-		p.config.Web.Config.Apps = make([]string, 0)
+	if len(webConfig.Apps) == 0 {
+		webConfig.Apps = make([]string, 0)
 	}
 
 	// ensure that the server url has a trailing slash
-	p.config.Web.Config.Server = strings.TrimRight(p.config.Web.Config.Server, "/") + "/"
+	webConfig.Server = strings.TrimRight(webConfig.Server, "/") + "/"
 
-	return json.Marshal(p.config.Web.Config)
+	// the runtime store is the single source of truth for the announcement banner: expose it
+	// when live, clear it otherwise. A statically configured value is not supported.
+	webConfig.Options.Announcement = p.currentAnnouncement(ctx)
+
+	return json.Marshal(webConfig)
+}
+
+// currentAnnouncement returns the stored announcement for config.json, or nil if unset, disabled
+// or unavailable.
+func (p Web) currentAnnouncement(ctx context.Context) *config.Announcement {
+	if p.announcementStore == nil {
+		return nil
+	}
+
+	a, err := p.announcementStore.Get(ctx)
+	if err != nil {
+		p.logger.Error().Err(err).Msg("could not read announcement from store")
+		return nil
+	}
+
+	// only live (enabled) announcements with a banner line are exposed in the public config.json
+	if !a.Enabled || a.BannerText == "" {
+		return nil
+	}
+
+	return &config.Announcement{BannerText: a.BannerText, InfoText: a.InfoText}
 }
 
 // Config implements the Service interface.
-func (p Web) Config(w http.ResponseWriter, _ *http.Request) {
-	payload, err := p.getPayload()
+func (p Web) Config(w http.ResponseWriter, r *http.Request) {
+	payload, err := p.getPayload(r.Context())
 	if err != nil {
 		http.Error(w, ErrConfigInvalid, http.StatusUnprocessableEntity)
 		return

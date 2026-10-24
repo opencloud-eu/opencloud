@@ -81,7 +81,7 @@ type UserBackend_Authenticate_Call struct {
 //   - ctx context.Context
 //   - username string
 //   - password string
-func (_e *UserBackend_Expecter) Authenticate(ctx interface{}, username interface{}, password interface{}) *UserBackend_Authenticate_Call {
+func (_e *UserBackend_Expecter) Authenticate(ctx any, username any, password any) *UserBackend_Authenticate_Call {
 	return &UserBackend_Authenticate_Call{Call: _e.mock.On("Authenticate", ctx, username, password)}
 }
 
@@ -154,7 +154,7 @@ type UserBackend_CreateUserFromClaims_Call struct {
 // CreateUserFromClaims is a helper method to define mock.On call
 //   - ctx context.Context
 //   - claims map[string]any
-func (_e *UserBackend_Expecter) CreateUserFromClaims(ctx interface{}, claims interface{}) *UserBackend_CreateUserFromClaims_Call {
+func (_e *UserBackend_Expecter) CreateUserFromClaims(ctx any, claims any) *UserBackend_CreateUserFromClaims_Call {
 	return &UserBackend_CreateUserFromClaims_Call{Call: _e.mock.On("CreateUserFromClaims", ctx, claims)}
 }
 
@@ -229,7 +229,7 @@ type UserBackend_GetUserByClaims_Call struct {
 //   - ctx context.Context
 //   - claim string
 //   - value string
-func (_e *UserBackend_Expecter) GetUserByClaims(ctx interface{}, claim interface{}, value interface{}) *UserBackend_GetUserByClaims_Call {
+func (_e *UserBackend_Expecter) GetUserByClaims(ctx any, claim any, value any) *UserBackend_GetUserByClaims_Call {
 	return &UserBackend_GetUserByClaims_Call{Call: _e.mock.On("GetUserByClaims", ctx, claim, value)}
 }
 
@@ -292,7 +292,7 @@ type UserBackend_SyncGroupMemberships_Call struct {
 //   - ctx context.Context
 //   - user *userv1beta1.User
 //   - claims map[string]any
-func (_e *UserBackend_Expecter) SyncGroupMemberships(ctx interface{}, user interface{}, claims interface{}) *UserBackend_SyncGroupMemberships_Call {
+func (_e *UserBackend_Expecter) SyncGroupMemberships(ctx any, user any, claims any) *UserBackend_SyncGroupMemberships_Call {
 	return &UserBackend_SyncGroupMemberships_Call{Call: _e.mock.On("SyncGroupMemberships", ctx, user, claims)}
 }
 
@@ -355,7 +355,7 @@ type UserBackend_UpdateUserIfNeeded_Call struct {
 //   - ctx context.Context
 //   - user *userv1beta1.User
 //   - claims map[string]any
-func (_e *UserBackend_Expecter) UpdateUserIfNeeded(ctx interface{}, user interface{}, claims interface{}) *UserBackend_UpdateUserIfNeeded_Call {
+func (_e *UserBackend_Expecter) UpdateUserIfNeeded(ctx any, user any, claims any) *UserBackend_UpdateUserIfNeeded_Call {
 	return &UserBackend_UpdateUserIfNeeded_Call{Call: _e.mock.On("UpdateUserIfNeeded", ctx, user, claims)}
 }
 

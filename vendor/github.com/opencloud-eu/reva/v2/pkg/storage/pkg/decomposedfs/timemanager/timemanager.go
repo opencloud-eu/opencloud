@@ -54,7 +54,7 @@ func (dtm *Manager) MTime(ctx context.Context, n *node.Node) (time.Time, error) 
 // If the time is nil, the attribute is removed.
 func (dtm *Manager) SetMTime(ctx context.Context, n *node.Node, mtime *time.Time) error {
 	if mtime == nil {
-		return n.RemoveXattr(ctx, prefixes.MTimeAttr, true)
+		return n.RemoveXattr(ctx, prefixes.MTimeAttr)
 	}
 	return n.SetXattrString(ctx, prefixes.MTimeAttr, mtime.UTC().Format(time.RFC3339Nano))
 }
@@ -75,7 +75,7 @@ func (dtm *Manager) TMTime(ctx context.Context, n *node.Node) (time.Time, error)
 // If the time is nil, the attribute is removed.
 func (dtm *Manager) SetTMTime(ctx context.Context, n *node.Node, tmtime *time.Time) error {
 	if tmtime == nil {
-		return n.RemoveXattr(ctx, prefixes.TreeMTimeAttr, true)
+		return n.RemoveXattr(ctx, prefixes.TreeMTimeAttr)
 	}
 	return n.SetXattrString(ctx, prefixes.TreeMTimeAttr, tmtime.UTC().Format(time.RFC3339Nano))
 }
@@ -121,7 +121,7 @@ func (dtm *Manager) DTime(ctx context.Context, n *node.Node) (tmTime time.Time, 
 // If the time is nil, the attribute is removed.
 func (dtm *Manager) SetDTime(ctx context.Context, n *node.Node, t *time.Time) (err error) {
 	if t == nil {
-		return n.RemoveXattr(ctx, prefixes.DTimeAttr, true)
+		return n.RemoveXattr(ctx, prefixes.DTimeAttr)
 	}
 	return n.SetXattrString(ctx, prefixes.DTimeAttr, t.UTC().Format(time.RFC3339Nano))
 }

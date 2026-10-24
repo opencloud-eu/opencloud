@@ -27,6 +27,7 @@ import (
 	authapi "github.com/opencloud-eu/opencloud/services/auth-api/pkg/command"
 	authapp "github.com/opencloud-eu/opencloud/services/auth-app/pkg/command"
 	authbasic "github.com/opencloud-eu/opencloud/services/auth-basic/pkg/command"
+	authguest "github.com/opencloud-eu/opencloud/services/auth-guest/pkg/command"
 	authmachine "github.com/opencloud-eu/opencloud/services/auth-machine/pkg/command"
 	authservice "github.com/opencloud-eu/opencloud/services/auth-service/pkg/command"
 	clientlog "github.com/opencloud-eu/opencloud/services/clientlog/pkg/command"
@@ -200,6 +201,13 @@ func NewService(ctx context.Context, options ...Option) (*Service, error) {
 		cfg.Groups.Commons = cfg.Commons
 		return groups.Execute(cfg.Groups)
 	})
+	if opts.Config.Commons != nil && opts.Config.Commons.EnableGuestLinks {
+		reg(3, opts.Config.AuthGuest.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
+			cfg.AuthGuest.Context = ctx
+			cfg.AuthGuest.Commons = cfg.Commons
+			return authguest.Execute(cfg.AuthGuest)
+		})
+	}
 	reg(3, opts.Config.IDM.Service.Name, func(ctx context.Context, cfg *occfg.Config) error {
 		cfg.IDM.Context = ctx
 		cfg.IDM.Commons = cfg.Commons
@@ -401,9 +409,16 @@ func Start(ctx context.Context, o ...Option) error {
 				if ev.Restarting {
 					l = s.Log.Error()
 				}
-				l.Str("event", e.String()).Str("service", ev.ServiceName).Str("supervisor", ev.SupervisorName).
-					Bool("restarting", ev.Restarting).Float64("failures", ev.CurrentFailures).Float64("threshold", ev.FailureThreshold).
-					Interface("error", ev.Err).Msg("service terminated")
+				l = l.Str("event", e.String()).Str("service", ev.ServiceName).Str("supervisor", ev.SupervisorName).
+					Bool("restarting", ev.Restarting).Float64("failures", ev.CurrentFailures).Float64("threshold", ev.FailureThreshold)
+				// ev.Err is an interface{}: marshaling an error yields {} because
+				// its fields are unexported, so the message has to go through Err
+				if err, ok := ev.Err.(error); ok {
+					l = l.Err(err)
+				} else {
+					l = l.Interface("error", ev.Err)
+				}
+				l.Msg("service terminated")
 			case suture.EventBackoff:
 				s.Log.Warn().Str("event", e.String()).Str("supervisor", ev.SupervisorName).Msg("service backoff")
 			case suture.EventResume:

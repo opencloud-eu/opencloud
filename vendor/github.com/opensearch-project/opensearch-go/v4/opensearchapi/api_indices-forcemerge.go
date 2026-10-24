@@ -8,9 +8,10 @@ package opensearchapi
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/opensearch-project/opensearch-go/v4"
+	"github.com/opensearch-project/opensearch-go/v4/internal/build"
+	ospath "github.com/opensearch-project/opensearch-go/v4/internal/path"
 )
 
 // IndicesForcemergeReq represents possible options for the <index>/_forcemerge request
@@ -22,23 +23,12 @@ type IndicesForcemergeReq struct {
 }
 
 // GetRequest returns the *http.Request that gets executed by the client
-func (r IndicesForcemergeReq) GetRequest() (*http.Request, error) {
-	indices := strings.Join(r.Indices, ",")
-
-	var path strings.Builder
-	path.Grow(len("//_forcemerge") + len(indices))
-	if len(indices) > 0 {
-		path.WriteString("/")
-		path.WriteString(indices)
+func (r IndicesForcemergeReq) GetRequest(method string) (*http.Request, error) {
+	path, err := ospath.IndicesForcemergePath{Index: r.Indices}.Build()
+	if err != nil {
+		return nil, err
 	}
-	path.WriteString("/_forcemerge")
-	return opensearch.BuildRequest(
-		"POST",
-		path.String(),
-		nil,
-		r.Params.get(),
-		r.Header,
-	)
+	return build.Request(method, path, nil, r.Params.get(), r.Header)
 }
 
 // IndicesForcemergeResp represents the returned struct of the flush indices response

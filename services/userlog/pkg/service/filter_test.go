@@ -174,5 +174,11 @@ var _ = Describe("NotificationFilter", func() {
 
 			Expect(ulf.execute(context.TODO(), events.Event{Event: events.SpaceDeleted{}}, nil, []string{"foo"})).To(BeEmpty())
 		})
+
+		It("handles PostprocessingStepFinished disabled", func() {
+			ulf.valueClient = setupMockValueService(false)
+
+			Expect(ulf.execute(context.TODO(), events.Event{Event: events.PostprocessingStepFinished{}}, nil, []string{"foo"})).To(BeEmpty())
+		})
 	})
 })

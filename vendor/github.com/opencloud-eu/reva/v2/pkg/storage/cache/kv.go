@@ -27,15 +27,15 @@ func NewNatsKeyValue(c Config, log *zerolog.Logger) (jetstream.KeyValue, error) 
 	}
 	opts := []nats.Option{
 		nats.DisconnectErrHandler(func(nc *nats.Conn, err error) {
-			log.Error().Err(err).Msg("Disconnected from NATS. Trying to reconnect...")
+			log.Error().Err(err).Str("database", c.Database).Msg("Disconnected from NATS. Trying to reconnect...")
 		}),
 		nats.ReconnectHandler(func(nc *nats.Conn) {
-			log.Error().Msgf("Successfully reconnected to NATS at: %s", nc.ConnectedUrl())
+			log.Error().Str("database", c.Database).Msgf("Successfully reconnected to NATS at: %s", nc.ConnectedUrl())
 		}),
 		nats.ClosedHandler(func(nc *nats.Conn) {
 			// Alright, it's time to give up. Send ourselves a SIGTERM to trigger a graceful
 			// shutdown of the service.
-			log.Error().Msg("NATS connection closed permanently. Shutting down...")
+			log.Error().Str("database", c.Database).Msg("NATS connection closed permanently. Shutting down...")
 
 			pid := os.Getpid()
 			process, err := os.FindProcess(pid)

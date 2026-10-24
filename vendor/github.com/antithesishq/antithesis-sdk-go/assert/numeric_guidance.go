@@ -5,6 +5,7 @@ package assert
 import (
 	"math"
 	"sync"
+	"sync/atomic"
 
 	"github.com/antithesishq/antithesis-sdk-go/internal"
 )
@@ -45,35 +46,26 @@ func gapTypeForOperand[T Number](num T) numericGapType {
 //
 // --------------------------------------------------------------------------------
 type numericGuidanceInfo struct {
-	gap           any
 	descriminator numericGapType
 	maximize      bool
+	// The best gap sent so far (a gapValue[uint64] or gapValue[float64],
+	// fixed per entry). Read lock-free on every evaluation; updated under mu.
+	gap atomic.Value
+	// Serializes improvements (compare, update, emit) so guidance emissions
+	// form an ordered monotone chain; the no-improvement fast path never
+	// takes it.
+	mu sync.Mutex
 }
 
-type numericGuidanceTracker map[string]*numericGuidanceInfo
+var numericGuidanceTracker sync.Map // message key -> *numericGuidanceInfo
 
-var (
-	numeric_guidance_tracker       numericGuidanceTracker = make(numericGuidanceTracker)
-	numeric_guidance_tracker_mutex sync.Mutex
-	numeric_guidance_info_mutex    sync.Mutex
-)
-
-func (tracker numericGuidanceTracker) getTrackerEntry(messageKey string, trackerType numericGapType, maximize bool) *numericGuidanceInfo {
-	var trackerEntry *numericGuidanceInfo
-	var ok bool
-
-	if tracker == nil {
-		return nil
+func getNumericGuidanceEntry(messageKey string, trackerType numericGapType, maximize bool) *numericGuidanceInfo {
+	if entry, ok := numericGuidanceTracker.Load(messageKey); ok {
+		return entry.(*numericGuidanceInfo)
 	}
-
-	numeric_guidance_tracker_mutex.Lock()
-	defer numeric_guidance_tracker_mutex.Unlock()
-	if trackerEntry, ok = numeric_guidance_tracker[messageKey]; !ok {
-		trackerEntry = newNumericGuidanceInfo(trackerType, maximize)
-		tracker[messageKey] = trackerEntry
-	}
-
-	return trackerEntry
+	entry, _ := numericGuidanceTracker.LoadOrStore(messageKey,
+		newNumericGuidanceInfo(trackerType, maximize))
+	return entry.(*numericGuidanceInfo)
 }
 
 // Create an numeric guidance entry
@@ -88,8 +80,8 @@ func newNumericGuidanceInfo(trackerType numericGapType, maximize bool) *numericG
 	trackerInfo := numericGuidanceInfo{
 		maximize:      maximize,
 		descriminator: trackerType,
-		gap:           gap,
 	}
+	trackerInfo.gap.Store(gap)
 	return &trackerInfo
 }
 
@@ -175,13 +167,50 @@ func is_less_than[T numConstraint](left gapValue[T], right gapValue[T]) bool {
 	return true
 }
 
+// The candidate gap for a pair of guidance operands, in the tracker's
+// representation (nil when the operand type resolves to none).
+func candidateGap(data any) any {
+	// Needs to have individual case statements to assist
+	// the compiler to infer the actual type of the var named 'operands'
+	switch operands := data.(type) {
+	case numericOperands[int32]:
+		return makeGap(operands)
+	case numericOperands[int64]:
+		return makeGap(operands)
+	case numericOperands[uint64]:
+		return makeGap(operands)
+	case numericOperands[float64]:
+		return makeFloatGap(operands)
+	}
+	return nil
+}
+
+// Whether candidate improves on the entry's tracked extremum.
+func (tI *numericGuidanceInfo) improves(candidate any) bool {
+	maximize := tI.should_maximize()
+	switch prev := tI.gap.Load().(type) {
+	case gapValue[uint64]:
+		if gap, ok := candidate.(gapValue[uint64]); ok {
+			if maximize {
+				return is_greater_than(gap, prev)
+			}
+			return is_less_than(gap, prev)
+		}
+	case gapValue[float64]:
+		if gap, ok := candidate.(gapValue[float64]); ok {
+			if maximize {
+				return is_greater_than(gap, prev)
+			}
+			return is_less_than(gap, prev)
+		}
+	}
+	return false
+}
+
 func send_value_if_needed(tI *numericGuidanceInfo, gI *guidanceInfo) {
 	if tI == nil {
 		return
 	}
-
-	numeric_guidance_info_mutex.Lock()
-	defer numeric_guidance_info_mutex.Unlock()
 
 	// if this is a catalog entry (gI.hit is false)
 	// do not update the reference gap in the tracker (tI *numericGuidanceInfo)
@@ -190,59 +219,19 @@ func send_value_if_needed(tI *numericGuidanceInfo, gI *guidanceInfo) {
 		return
 	}
 
-	should_send := false
-	maximize := tI.should_maximize()
-
-	var gap gapValue[uint64]
-	var float_gap gapValue[float64]
-
-	// Needs to have individual case statements to assist
-	// the compiler to infer the actual type of the var named 'operands'
-	switch operands := (gI.Data).(type) {
-	case numericOperands[int32]:
-		gap = makeGap(operands)
-	case numericOperands[int64]:
-		gap = makeGap(operands)
-	case numericOperands[uint64]:
-		gap = makeGap(operands)
-	case numericOperands[float64]:
-		float_gap = makeFloatGap(operands)
+	// Most evaluations do not improve on the tracked extremum; that path is
+	// a lock-free load and compare. The mutex serializes only improvements.
+	candidate := candidateGap(gI.Data)
+	if !tI.improves(candidate) {
+		return
 	}
-
-	var prev_gap gapValue[uint64]
-	var prev_float_gap gapValue[float64]
-	has_prev_gap := false
-	has_prev_float_gap := false
-
-	prev_gap, has_prev_gap = tI.gap.(gapValue[uint64])
-	if !has_prev_gap {
-		prev_float_gap, has_prev_float_gap = tI.gap.(gapValue[float64])
+	tI.mu.Lock()
+	defer tI.mu.Unlock()
+	if !tI.improves(candidate) {
+		return
 	}
-
-	if has_prev_gap {
-		if maximize {
-			should_send = is_greater_than(gap, prev_gap)
-		} else {
-			should_send = is_less_than(gap, prev_gap)
-		}
-	}
-
-	if has_prev_float_gap {
-		if maximize {
-			should_send = is_greater_than(float_gap, prev_float_gap)
-		} else {
-			should_send = is_less_than(float_gap, prev_float_gap)
-		}
-	}
-
-	if should_send {
-		if tI.is_integer_gap() {
-			tI.gap = gap
-		} else {
-			tI.gap = float_gap
-		}
-		emitGuidance(gI)
-	}
+	tI.gap.Store(candidate)
+	emitGuidance(gI)
 }
 
 func emitGuidance(gI *guidanceInfo) error {

@@ -38,7 +38,6 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/iancoleman/strcase"
-	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail"
 	"github.com/opencloud-eu/reva/v2/internal/grpc/services/storageprovider"
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/config"
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/errors"
@@ -95,6 +94,30 @@ var (
 	imageKeys = []string{
 		"width",
 		"height",
+	}
+	videoKeys = []string{
+		"audioBitsPerSample",
+		"audioChannels",
+		"audioFormat",
+		"audioSamplesPerSecond",
+		"bitrate",
+		"duration",
+		"fourCC",
+		"frameRate",
+		"height",
+		"width",
+	}
+	motionPhotoKeys = []string{
+		"presentationTimestampUs",
+		"version",
+		"videoSize",
+	}
+	livePhotoKeys = []string{
+		"auto",
+		"contentId",
+		"stillImageTimeUs",
+		"vitalityScore",
+		"vitalityScoringVersion",
 	}
 	photoKeys = []string{
 		"cameraMake",
@@ -212,19 +235,32 @@ func NewMultiStatusResponseXML() *MultiStatusResponseXML {
 
 // Handler handles propfind requests
 type Handler struct {
-	PublicURL string
-	selector  pool.Selectable[gateway.GatewayAPIClient]
-	c         *config.Config
-	urlSigner signedurl.Signer
+	PublicURL        string
+	selector         pool.Selectable[gateway.GatewayAPIClient]
+	c                *config.Config
+	urlSigner        signedurl.Signer
+	previewMimeTypes map[string]struct{}
+}
+
+// PreviewMimeTypes turns the configured list into a set, for the handlers that
+// build a propfind response themselves.
+func PreviewMimeTypes(c *config.Config) map[string]struct{} {
+	types := make(map[string]struct{}, len(c.PreviewMimeTypes))
+	for _, mimeType := range c.PreviewMimeTypes {
+		types[mimeType] = struct{}{}
+	}
+
+	return types
 }
 
 // NewHandler returns a new PropfindHandler instance
 func NewHandler(publicURL string, selector pool.Selectable[gateway.GatewayAPIClient], signer signedurl.Signer, c *config.Config) *Handler {
 	return &Handler{
-		PublicURL: publicURL,
-		selector:  selector,
-		c:         c,
-		urlSigner: signer,
+		PublicURL:        publicURL,
+		selector:         selector,
+		c:                c,
+		urlSigner:        signer,
+		previewMimeTypes: PreviewMimeTypes(c),
 	}
 }
 
@@ -497,7 +533,7 @@ func (p *Handler) propfindResponse(ctx context.Context, w http.ResponseWriter, r
 	prefer := net.ParsePrefer(r.Header.Get(net.HeaderPrefer))
 	returnMinimal := prefer[net.HeaderPreferReturn] == "minimal"
 
-	propRes, err := MultistatusResponse(ctx, &pf, resourceInfos, p.PublicURL, namespace, linkshares, returnMinimal, p.urlSigner)
+	propRes, err := MultistatusResponse(ctx, &pf, resourceInfos, p.PublicURL, namespace, linkshares, returnMinimal, p.urlSigner, p.previewMimeTypes)
 	if err != nil {
 		log.Error().Err(err).Msg("error formatting propfind")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -887,6 +923,12 @@ func metadataKeys(pf XML) ([]string, []string) {
 					metadataKeys = append(metadataKeys, metadataKeysWithPrefix("libre.graph.image", imageKeys)...)
 				case "http://owncloud.org/ns/photo":
 					metadataKeys = append(metadataKeys, metadataKeysWithPrefix("libre.graph.photo", photoKeys)...)
+				case "http://owncloud.org/ns/video":
+					metadataKeys = append(metadataKeys, metadataKeysWithPrefix("libre.graph.video", videoKeys)...)
+				case "http://owncloud.org/ns/motion-photo":
+					metadataKeys = append(metadataKeys, metadataKeysWithPrefix("libre.graph.motionPhoto", motionPhotoKeys)...)
+				case "http://owncloud.org/ns/live-photo":
+					metadataKeys = append(metadataKeys, metadataKeysWithPrefix("libre.graph.livePhoto", livePhotoKeys)...)
 				default:
 					metadataKeys = append(metadataKeys, key)
 				}
@@ -944,7 +986,7 @@ func requiresExplicitFetching(n *xml.Name) bool {
 		}
 	case net.NsOwncloud:
 		switch n.Local {
-		case "favorite", "share-types", "checksums", "size", "tags", "audio", "location", "image", "photo":
+		case "favorite", "share-types", "checksums", "size", "tags", "audio", "location", "image", "photo", "video", "motion-photo", "live-photo":
 			return true
 		default:
 			return false
@@ -988,7 +1030,7 @@ func ReadPropfind(r io.Reader) (pf XML, status int, err error) {
 }
 
 // MultistatusResponse converts a list of resource infos into a multistatus response string
-func MultistatusResponse(ctx context.Context, pf *XML, mds []*provider.ResourceInfo, publicURL, ns string, linkshares map[string]struct{}, returnMinimal bool, downloadURLSigner signedurl.Signer) ([]byte, error) {
+func MultistatusResponse(ctx context.Context, pf *XML, mds []*provider.ResourceInfo, publicURL, ns string, linkshares map[string]struct{}, returnMinimal bool, downloadURLSigner signedurl.Signer, previewMimeTypes map[string]struct{}) ([]byte, error) {
 	g, ctx := errgroup.WithContext(ctx)
 
 	type work struct {
@@ -1023,7 +1065,7 @@ func MultistatusResponse(ctx context.Context, pf *XML, mds []*provider.ResourceI
 	for i := 0; i < numWorkers; i++ {
 		g.Go(func() error {
 			for work := range workChan {
-				res, err := mdToPropResponse(ctx, pf, work.info, publicURL, ns, linkshares, returnMinimal, downloadURLSigner)
+				res, err := mdToPropResponse(ctx, pf, work.info, publicURL, ns, linkshares, returnMinimal, downloadURLSigner, previewMimeTypes)
 				if err != nil {
 					return err
 				}
@@ -1064,7 +1106,7 @@ func MultistatusResponse(ctx context.Context, pf *XML, mds []*provider.ResourceI
 // mdToPropResponse converts the CS3 metadata into a webdav PropResponse
 // ns is the CS3 namespace that needs to be removed from the CS3 path before
 // prefixing it with the baseURI
-func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, publicURL, ns string, linkshares map[string]struct{}, returnMinimal bool, urlSigner signedurl.Signer) (*ResponseXML, error) {
+func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, publicURL, ns string, linkshares map[string]struct{}, returnMinimal bool, urlSigner signedurl.Signer, previewMimeTypes map[string]struct{}) (*ResponseXML, error) {
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "md_to_prop_response")
 	span.SetAttributes(attribute.KeyValue{Key: "publicURL", Value: attribute.StringValue(publicURL)})
 	span.SetAttributes(attribute.KeyValue{Key: "ns", Value: attribute.StringValue(ns)})
@@ -1292,13 +1334,16 @@ func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, p
 			appendMetadataProp(k, "oc", "location", "libre.graph.location", locationKeys)
 			appendMetadataProp(k, "oc", "image", "libre.graph.image", imageKeys)
 			appendMetadataProp(k, "oc", "photo", "libre.graph.photo", photoKeys)
+			appendMetadataProp(k, "oc", "video", "libre.graph.video", videoKeys)
+			appendMetadataProp(k, "oc", "motion-photo", "libre.graph.motionPhoto", motionPhotoKeys)
+			appendMetadataProp(k, "oc", "live-photo", "libre.graph.livePhoto", livePhotoKeys)
 		}
 
 		if md.Type == provider.ResourceType_RESOURCE_TYPE_CONTAINER {
 			// directories have no preview
 			appendToNotFound(prop.NotFound("oc:has-preview"))
 		} else if md.MimeType != "" {
-			hasPreview(md, appendToOK)
+			hasPreview(md, appendToOK, previewMimeTypes)
 		}
 
 		// ls do not report any properties as missing by default
@@ -1579,6 +1624,18 @@ func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, p
 					if k := md.GetArbitraryMetadata().GetMetadata(); k != nil {
 						appendMetadataProp(k, "oc", "photo", "libre.graph.photo", photoKeys)
 					}
+				case "video":
+					if k := md.GetArbitraryMetadata().GetMetadata(); k != nil {
+						appendMetadataProp(k, "oc", "video", "libre.graph.video", videoKeys)
+					}
+				case "motion-photo":
+					if k := md.GetArbitraryMetadata().GetMetadata(); k != nil {
+						appendMetadataProp(k, "oc", "motion-photo", "libre.graph.motionPhoto", motionPhotoKeys)
+					}
+				case "live-photo":
+					if k := md.GetArbitraryMetadata().GetMetadata(); k != nil {
+						appendMetadataProp(k, "oc", "live-photo", "libre.graph.livePhoto", livePhotoKeys)
+					}
 				case "name":
 					appendToOK(prop.Escaped("oc:name", md.Name))
 				case "shareid":
@@ -1599,7 +1656,7 @@ func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, p
 						// directories have no preview
 						appendToNotFound(prop.NotFound("oc:has-preview"))
 					} else if md.MimeType != "" {
-						hasPreview(md, appendToOK)
+						hasPreview(md, appendToOK, previewMimeTypes)
 					}
 				default:
 					appendToNotFound(prop.NotFound("oc:" + pf.Prop[i].Local))
@@ -1726,8 +1783,8 @@ func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, p
 	return &response, nil
 }
 
-func hasPreview(md *provider.ResourceInfo, appendToOK func(p ...prop.PropertyXML)) {
-	_, match := thumbnail.SupportedMimeTypes[md.MimeType]
+func hasPreview(md *provider.ResourceInfo, appendToOK func(p ...prop.PropertyXML), previewMimeTypes map[string]struct{}) {
+	_, match := previewMimeTypes[md.MimeType]
 	if match {
 		appendToOK(prop.Escaped("oc:has-preview", "1"))
 	} else {

@@ -34,6 +34,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/mtimesyncedcache"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/metadata"
+	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 )
@@ -82,8 +83,8 @@ func New(s metadata.Storage, ttl time.Duration) Cache {
 	}
 }
 
-func (c *Cache) lockUser(userID string) func() {
-	v, _ := c.lockMap.LoadOrStore(userID, &sync.Mutex{})
+func (c *Cache) lockUser(userID utils.FilenameEncoder) func() {
+	v, _ := c.lockMap.LoadOrStore(userID.SafeFilename(), &sync.Mutex{})
 	lock := v.(*sync.Mutex)
 
 	lock.Lock()
@@ -91,14 +92,15 @@ func (c *Cache) lockUser(userID string) func() {
 }
 
 // Add adds a new entry to the cache
-func (c *Cache) Add(ctx context.Context, userID, spaceID string, rs *collaboration.ReceivedShare) error {
+func (c *Cache) Add(ctx context.Context, userID utils.FilenameEncoder, spaceID string, rs *collaboration.ReceivedShare) error {
+	userIDKey := userID.SafeFilename()
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "Grab lock")
 	unlock := c.lockUser(userID)
 	span.End()
-	span.SetAttributes(attribute.String("cs3.userid", userID))
+	span.SetAttributes(attribute.String("cs3.userid.key", userIDKey))
 	defer unlock()
 
-	if _, ok := c.ReceivedSpaces.Load(userID); !ok {
+	if _, ok := c.ReceivedSpaces.Load(userIDKey); !ok {
 		err := c.syncWithLock(ctx, userID)
 		if err != nil {
 			return err
@@ -107,12 +109,12 @@ func (c *Cache) Add(ctx context.Context, userID, spaceID string, rs *collaborati
 
 	ctx, span = appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "Add")
 	defer span.End()
-	span.SetAttributes(attribute.String("cs3.userid", userID), attribute.String("cs3.spaceid", spaceID))
+	span.SetAttributes(attribute.String("cs3.userid.key", userIDKey), attribute.String("cs3.spaceid", spaceID))
 
 	persistFunc := func() error {
-		c.initializeIfNeeded(userID, spaceID)
+		c.initializeIfNeeded(userIDKey, spaceID)
 
-		rss, _ := c.ReceivedSpaces.Load(userID)
+		rss, _ := c.ReceivedSpaces.Load(userIDKey)
 		receivedSpace := rss.Spaces[spaceID]
 		if receivedSpace.States == nil {
 			receivedSpace.States = map[string]*State{}
@@ -128,7 +130,7 @@ func (c *Cache) Add(ctx context.Context, userID, spaceID string, rs *collaborati
 
 	log := appctx.GetLogger(ctx).With().
 		Str("hostname", os.Getenv("HOSTNAME")).
-		Str("userID", userID).
+		Str("userIDKey", userIDKey).
 		Str("spaceID", spaceID).Logger()
 
 	var err error
@@ -167,18 +169,19 @@ func (c *Cache) Add(ctx context.Context, userID, spaceID string, rs *collaborati
 }
 
 // Get returns one entry from the cache
-func (c *Cache) Get(ctx context.Context, userID, spaceID, shareID string) (*State, error) {
+func (c *Cache) Get(ctx context.Context, userID utils.FilenameEncoder, spaceID, shareID string) (*State, error) {
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "Grab lock")
+	userIDKey := userID.SafeFilename()
 	unlock := c.lockUser(userID)
 	span.End()
-	span.SetAttributes(attribute.String("cs3.userid", userID))
+	span.SetAttributes(attribute.String("cs3.userid.key", userIDKey))
 	defer unlock()
 
 	err := c.syncWithLock(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	rss, ok := c.ReceivedSpaces.Load(userID)
+	rss, ok := c.ReceivedSpaces.Load(userIDKey)
 	if !ok || rss.Spaces[spaceID] == nil {
 		return nil, nil
 	}
@@ -186,21 +189,22 @@ func (c *Cache) Get(ctx context.Context, userID, spaceID, shareID string) (*Stat
 }
 
 // Remove removes an entry from the cache
-func (c *Cache) Remove(ctx context.Context, userID, spaceID, shareID string) error {
+func (c *Cache) Remove(ctx context.Context, userID utils.FilenameEncoder, spaceID, shareID string) error {
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "Grab lock")
+	userIDKey := userID.SafeFilename()
 	unlock := c.lockUser(userID)
 	span.End()
-	span.SetAttributes(attribute.String("cs3.userid", userID))
+	span.SetAttributes(attribute.String("cs3.userid.key", userIDKey))
 	defer unlock()
 
 	ctx, span = appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "Add")
 	defer span.End()
-	span.SetAttributes(attribute.String("cs3.userid", userID), attribute.String("cs3.spaceid", spaceID))
+	span.SetAttributes(attribute.String("cs3.userid.key", userIDKey), attribute.String("cs3.spaceid", spaceID))
 
 	persistFunc := func() error {
-		c.initializeIfNeeded(userID, spaceID)
+		c.initializeIfNeeded(userIDKey, spaceID)
 
-		rss, _ := c.ReceivedSpaces.Load(userID)
+		rss, _ := c.ReceivedSpaces.Load(userIDKey)
 		receivedSpace := rss.Spaces[spaceID]
 		if receivedSpace.States == nil {
 			receivedSpace.States = map[string]*State{}
@@ -215,7 +219,7 @@ func (c *Cache) Remove(ctx context.Context, userID, spaceID, shareID string) err
 
 	log := appctx.GetLogger(ctx).With().
 		Str("hostname", os.Getenv("HOSTNAME")).
-		Str("userID", userID).
+		Str("userIDKey", userIDKey).
 		Str("spaceID", spaceID).Logger()
 
 	var err error
@@ -255,11 +259,12 @@ func (c *Cache) Remove(ctx context.Context, userID, spaceID, shareID string) err
 
 // List returns a list of received shares for a given user
 // The return list is guaranteed to be thread-safe
-func (c *Cache) List(ctx context.Context, userID string) (map[string]*Space, error) {
+func (c *Cache) List(ctx context.Context, userID utils.FilenameEncoder) (map[string]*Space, error) {
+	userIDKey := userID.SafeFilename()
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "Grab lock")
 	unlock := c.lockUser(userID)
 	span.End()
-	span.SetAttributes(attribute.String("cs3.userid", userID))
+	span.SetAttributes(attribute.String("cs3.userid.key", userIDKey))
 	defer unlock()
 
 	err := c.syncWithLock(ctx, userID)
@@ -268,7 +273,7 @@ func (c *Cache) List(ctx context.Context, userID string) (map[string]*Space, err
 	}
 
 	spaces := map[string]*Space{}
-	rss, _ := c.ReceivedSpaces.Load(userID)
+	rss, _ := c.ReceivedSpaces.Load(userIDKey)
 	for spaceID, space := range rss.Spaces {
 		spaceCopy := &Space{
 			States: map[string]*State{},
@@ -285,19 +290,20 @@ func (c *Cache) List(ctx context.Context, userID string) (map[string]*Space, err
 	return spaces, nil
 }
 
-func (c *Cache) syncWithLock(ctx context.Context, userID string) error {
+func (c *Cache) syncWithLock(ctx context.Context, userID utils.FilenameEncoder) error {
+	userIDKey := userID.SafeFilename()
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "Sync")
 	defer span.End()
-	span.SetAttributes(attribute.String("cs3.userid", userID))
+	span.SetAttributes(attribute.String("cs3.userid.key", userIDKey))
 
-	log := appctx.GetLogger(ctx).With().Str("userID", userID).Logger()
+	log := appctx.GetLogger(ctx).With().Str("userIDKey", userIDKey).Logger()
 
-	c.initializeIfNeeded(userID, "")
+	c.initializeIfNeeded(userIDKey, "")
 
-	jsonPath := userJSONPath(userID)
+	jsonPath := userJSONPath(userIDKey)
 	span.AddEvent("updating cache")
 	//  - update cached list of created shares for the user in memory if changed
-	rss, _ := c.ReceivedSpaces.Load(userID)
+	rss, _ := c.ReceivedSpaces.Load(userIDKey)
 	dlres, err := c.storage.Download(ctx, metadata.DownloadRequest{
 		Path:        jsonPath,
 		IfNoneMatch: []string{rss.etag},
@@ -326,18 +332,19 @@ func (c *Cache) syncWithLock(ctx context.Context, userID string) error {
 	}
 	newSpaces.etag = dlres.Etag
 
-	c.ReceivedSpaces.Store(userID, newSpaces)
+	c.ReceivedSpaces.Store(userIDKey, newSpaces)
 	span.SetStatus(codes.Ok, "")
 	return nil
 }
 
 // persist persists the data for one user to the storage
-func (c *Cache) persist(ctx context.Context, userID string) error {
+func (c *Cache) persist(ctx context.Context, userID utils.FilenameEncoder) error {
+	userIDKey := userID.SafeFilename()
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "Persist")
 	defer span.End()
-	span.SetAttributes(attribute.String("cs3.userid", userID))
+	span.SetAttributes(attribute.String("cs3.userid.key", userIDKey))
 
-	rss, ok := c.ReceivedSpaces.Load(userID)
+	rss, ok := c.ReceivedSpaces.Load(userIDKey)
 	if !ok {
 		span.SetStatus(codes.Ok, "no received shares")
 		return nil
@@ -349,7 +356,7 @@ func (c *Cache) persist(ctx context.Context, userID string) error {
 		span.SetStatus(codes.Error, err.Error())
 		return err
 	}
-	jsonPath := userJSONPath(userID)
+	jsonPath := userJSONPath(userIDKey)
 	if err := c.storage.MakeDirIfNotExist(ctx, path.Dir(jsonPath)); err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())

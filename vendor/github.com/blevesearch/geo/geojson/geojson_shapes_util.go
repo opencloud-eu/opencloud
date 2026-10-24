@@ -48,7 +48,7 @@ type GeoShape struct {
 func FilterGeoShapesOnRelation(shape index.GeoJSON, targetShapeBytes []byte,
 	relation string, reader **bytes.Reader, bufPool *s2.GeoBufferPool) (bool, error) {
 
-	shapeInDoc, err := extractShapesFromBytes(targetShapeBytes, reader, bufPool)
+	shapeInDoc, err := ExtractShapesFromBytes(targetShapeBytes, reader, bufPool)
 	if err != nil {
 		return false, err
 	}
@@ -56,9 +56,9 @@ func FilterGeoShapesOnRelation(shape index.GeoJSON, targetShapeBytes []byte,
 	return filterShapes(shape, shapeInDoc, relation)
 }
 
-// extractShapesFromBytes unmarshal the bytes to retrieve the
+// ExtractShapesFromBytes unmarshal the bytes to retrieve the
 // embedded geojson shape.
-func extractShapesFromBytes(targetShapeBytes []byte, r **bytes.Reader, bufPool *s2.GeoBufferPool) (
+func ExtractShapesFromBytes(targetShapeBytes []byte, r **bytes.Reader, bufPool *s2.GeoBufferPool) (
 	index.GeoJSON, error) {
 	if (*r) == nil {
 		*r = bytes.NewReader(targetShapeBytes[1:])
@@ -171,7 +171,7 @@ func extractShapesFromBytes(targetShapeBytes []byte, r **bytes.Reader, bufPool *
 		gc := &GeometryCollection{Shapes: make([]index.GeoJSON, numShapes)}
 
 		for i := int32(0); i < numShapes; i++ {
-			shape, err := extractShapesFromBytes(inputBytes[:lengths[i]], r, nil)
+			shape, err := ExtractShapesFromBytes(inputBytes[:lengths[i]], r, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -327,8 +327,6 @@ func ParseGeoJSONShape(input []byte) (index.GeoJSON, error) {
 	default:
 		return nil, fmt.Errorf("unknown shape type: %s", sType)
 	}
-
-	return nil, err
 }
 
 // NewGeoJsonShape instantiate a geojson shape/circle or
@@ -408,7 +406,7 @@ var GlueBytes = []byte("##")
 
 // NewGeometryCollection instantiate a geometrycollection
 // and prefix the byte contents with certain glue bytes that
-// can be used later while filering the doc values.
+// can be used later while filtering the doc values.
 func NewGeometryCollection(shapes []*GeoShape) (
 	index.GeoJSON, []byte, error) {
 	for _, shape := range shapes {
@@ -454,7 +452,7 @@ func NewGeometryCollection(shapes []*GeoShape) (
 
 // NewGeoCircleShape instantiate a circle shape and
 // prefix the byte contents with certain glue bytes that
-// can be used later while filering the doc values.
+// can be used later while filtering the doc values.
 func NewGeoCircleShape(cp []float64,
 	radius string) (*Circle, []byte, error) {
 	r, err := ParseDistance(radius)
@@ -471,146 +469,4 @@ func NewGeoCircleShape(cp []float64,
 	}
 
 	return rv, vbytes, nil
-}
-
-// ------------------------------------------------------------------------
-
-func (p *Point) IndexTokens(s *s2.RegionTermIndexer) []string {
-	p.init()
-	terms := s.GetIndexTermsForPoint(*p.s2point, "")
-	return StripCoveringTerms(terms)
-}
-
-func (p *Point) QueryTokens(s *s2.RegionTermIndexer) []string {
-	p.init()
-	terms := s.GetQueryTermsForPoint(*p.s2point, "")
-	return StripCoveringTerms(terms)
-}
-
-// ------------------------------------------------------------------------
-
-func (mp *MultiPoint) IndexTokens(s *s2.RegionTermIndexer) []string {
-	mp.init()
-	var rv []string
-	for _, s2point := range mp.s2points {
-		terms := s.GetIndexTermsForPoint(*s2point, "")
-		rv = append(rv, terms...)
-	}
-	return StripCoveringTerms(rv)
-}
-
-func (mp *MultiPoint) QueryTokens(s *s2.RegionTermIndexer) []string {
-	mp.init()
-	var rv []string
-	for _, s2point := range mp.s2points {
-		terms := s.GetQueryTermsForPoint(*s2point, "")
-		rv = append(rv, terms...)
-	}
-
-	return StripCoveringTerms(rv)
-}
-
-// ------------------------------------------------------------------------
-
-func (ls *LineString) IndexTokens(s *s2.RegionTermIndexer) []string {
-	ls.init()
-	terms := s.GetIndexTermsForRegion(ls.pl.CapBound(), "")
-	return StripCoveringTerms(terms)
-}
-
-func (ls *LineString) QueryTokens(s *s2.RegionTermIndexer) []string {
-	ls.init()
-	terms := s.GetQueryTermsForRegion(ls.pl.CapBound(), "")
-	return StripCoveringTerms(terms)
-}
-
-// ------------------------------------------------------------------------
-
-func (mls *MultiLineString) IndexTokens(s *s2.RegionTermIndexer) []string {
-	mls.init()
-	var rv []string
-	for _, ls := range mls.pls {
-		terms := s.GetIndexTermsForRegion(ls.CapBound(), "")
-		rv = append(rv, terms...)
-	}
-
-	return StripCoveringTerms(rv)
-}
-
-func (mls *MultiLineString) QueryTokens(s *s2.RegionTermIndexer) []string {
-	mls.init()
-
-	var rv []string
-	for _, ls := range mls.pls {
-		terms := s.GetQueryTermsForRegion(ls.CapBound(), "")
-		rv = append(rv, terms...)
-	}
-
-	return StripCoveringTerms(rv)
-}
-
-// ------------------------------------------------------------------------
-
-func (mp *MultiPolygon) IndexTokens(s *s2.RegionTermIndexer) []string {
-	mp.init()
-
-	var rv []string
-	for _, s2pgn := range mp.s2pgns {
-		terms := s.GetIndexTermsForRegion(s2pgn.CapBound(), "")
-		rv = append(rv, terms...)
-	}
-
-	return StripCoveringTerms(rv)
-}
-
-func (mp *MultiPolygon) QueryTokens(s *s2.RegionTermIndexer) []string {
-	mp.init()
-
-	var rv []string
-	for _, s2pgn := range mp.s2pgns {
-		terms := s.GetQueryTermsForRegion(s2pgn.CapBound(), "")
-		rv = append(rv, terms...)
-	}
-
-	return StripCoveringTerms(rv)
-}
-
-// ------------------------------------------------------------------------
-
-func (pgn *Polygon) IndexTokens(s *s2.RegionTermIndexer) []string {
-	pgn.init()
-	terms := s.GetIndexTermsForRegion(
-		pgn.s2pgn.CapBound(), "")
-	return StripCoveringTerms(terms)
-}
-
-func (pgn *Polygon) QueryTokens(s *s2.RegionTermIndexer) []string {
-	pgn.init()
-	terms := s.GetQueryTermsForRegion(
-		pgn.s2pgn.CapBound(), "")
-	return StripCoveringTerms(terms)
-}
-
-// ------------------------------------------------------------------------
-
-func (c *Circle) IndexTokens(s *s2.RegionTermIndexer) []string {
-	c.init()
-	return StripCoveringTerms(s.GetIndexTermsForRegion(c.s2cap.CapBound(), ""))
-}
-
-func (c *Circle) QueryTokens(s *s2.RegionTermIndexer) []string {
-	c.init()
-	return StripCoveringTerms(s.GetQueryTermsForRegion(c.s2cap.CapBound(), ""))
-}
-
-// ------------------------------------------------------------------------
-
-func (e *Envelope) IndexTokens(s *s2.RegionTermIndexer) []string {
-	e.init()
-	return StripCoveringTerms(s.GetIndexTermsForRegion(e.r.CapBound(), ""))
-}
-
-func (e *Envelope) QueryTokens(s *s2.RegionTermIndexer) []string {
-	e.init()
-	return StripCoveringTerms(s.GetQueryTermsForRegion(e.r.CapBound(), ""))
 }

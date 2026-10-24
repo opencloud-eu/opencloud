@@ -26,9 +26,11 @@ import (
 	"syscall"
 	"time"
 
+	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/rs/zerolog"
 	tusd "github.com/tus/tusd/v2/pkg/handler"
 
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
@@ -44,6 +46,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/aspects"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/permissions"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/upload"
@@ -102,6 +105,9 @@ func New(o *options.Options, stream events.Stream, cache, historyCache *idcache.
 	}
 	if o.FileMetadataCache.Store == "noop" {
 		return nil, fmt.Errorf("the posix driver requires a file metadata cache")
+	}
+	if err := prefixes.SetOcPrefix(o.MetadataPrefix); err != nil {
+		return nil, err
 	}
 
 	var err error
@@ -242,6 +248,17 @@ func (fs *posixFS) WarmupIDCache(root string, assimilate, onlyDirty bool) error 
 // ListUploadSessions returns the upload sessions matching the given filter
 func (fs *posixFS) ListUploadSessions(ctx context.Context, filter storage.UploadSessionFilter) ([]storage.UploadSession, error) {
 	return fs.FS.(storage.UploadSessionLister).ListUploadSessions(ctx, filter)
+}
+
+// ResolveUpload resolves a finished upload to the resource it produced, read as the upload's
+// executant. It is best effort: if the wrapped storage does not resolve uploads it returns
+// NotSupported rather than panicking, so the tus finalize falls back to no headers.
+func (fs *posixFS) ResolveUpload(ctx context.Context, info tusd.FileInfo) (*provider.ResourceInfo, context.Context, error) {
+	r, ok := fs.FS.(storage.UploadSessionResolver)
+	if !ok {
+		return nil, ctx, errtypes.NotSupported("storage does not resolve upload sessions")
+	}
+	return r.ResolveUpload(ctx, info)
 }
 
 // UseIn tells the tus upload middleware which extensions it supports.

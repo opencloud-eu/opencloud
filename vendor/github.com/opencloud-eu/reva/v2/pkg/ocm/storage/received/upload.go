@@ -76,6 +76,14 @@ func (d *driver) InitiateUpload(ctx context.Context, ref *provider.Reference, up
 	}, nil
 }
 
+func (d *driver) MarkProcessing(ctx context.Context, ref *provider.Reference, processing bool, sessionID string) error {
+	return errtypes.NotSupported("op not supported")
+}
+
+func (d *driver) CommitUpload(_ context.Context, _ *provider.Reference, _ string, _ storage.UploadSource) error {
+	return errtypes.NotSupported("op not supported")
+}
+
 func (d *driver) Upload(ctx context.Context, req storage.UploadRequest, _ storage.UploadFinishedFunc) (*provider.ResourceInfo, error) {
 	shareID, _ := shareInfoFromReference(req.Ref)
 	u, err := d.GetUpload(ctx, shareID.OpaqueId)

@@ -117,7 +117,10 @@ func (fs *Decomposedfs) AddGrant(ctx context.Context, ref *provider.Reference, g
 			return errtypes.NotFound(f)
 		}
 	}
-
+	// check processing
+	if grantNode.IsProcessing(ctx) {
+		return errtypes.ResourceProcessing(ref.String())
+	}
 	return fs.storeGrant(ctx, grantNode, g)
 }
 
@@ -208,7 +211,10 @@ func (fs *Decomposedfs) RemoveGrant(ctx context.Context, ref *provider.Reference
 			return errtypes.NotFound(f)
 		}
 	}
-
+	// check processing
+	if grantNode.IsProcessing(ctx) {
+		return errtypes.ResourceProcessing(ref.String())
+	}
 	if err := grantNode.DeleteGrant(ctx, g, false); err != nil {
 		return err
 	}
@@ -277,6 +283,10 @@ func (fs *Decomposedfs) UpdateGrant(ctx context.Context, ref *provider.Reference
 		}
 	}
 
+	// check processing
+	if grantNode.IsProcessing(ctx) {
+		return errtypes.ResourceProcessing(ref.String())
+	}
 	return fs.storeGrant(ctx, grantNode, g)
 }
 

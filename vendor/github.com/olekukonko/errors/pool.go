@@ -1,4 +1,3 @@
-// pool.go
 package errors
 
 import (
@@ -42,11 +41,16 @@ func (ep *ErrorPool) Get() *Error {
 	e := ep.pool.Get().(*Error)
 	if e == nil { // Pool returned nil (unlikely due to New func, but handled for safety)
 		ep.poolStats.misses.Add(1)
-		return &Error{
+		e = &Error{
 			smallContext: [contextSize]contextItem{},
 		}
+		ep.setupCleanup(e)
+		return e
 	}
 	ep.poolStats.hits.Add(1)
+	// Register auto-cleanup so GC can return the error to the pool if the
+	// caller forgets to call Free(). If AutoFree is false this is a no-op.
+	ep.setupCleanup(e)
 	return e
 }
 
