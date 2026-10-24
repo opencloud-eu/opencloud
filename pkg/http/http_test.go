@@ -47,9 +47,9 @@ func TestDumpHttpResponse(t *testing.T) {
 	body, err := DumpHttpResponse(resp, io.NopCloser(strings.NewReader(text)), int64(n), func(method, uri, content string, truncated bool) {
 		require.True(truncated)
 		require.Equal(fmt.Sprintf(`200 OK
-Testing: true
 Aaa: 1
 Aaa: 2
+Testing: true
 %s`, text[:n]), content)
 	})
 	require.NoError(err)
@@ -79,9 +79,9 @@ func TestDumpHttpRequest(t *testing.T) {
 	err := DumpHttpRequest(req, int64(n), func(method, uri, content string, truncated bool) {
 		require.True(truncated)
 		require.Equal(fmt.Sprintf(`GET https://example.com/testing
-Testing: true
 Aaa: 1
 Aaa: 2
+Testing: true
 %s`, text[:n]), content)
 	})
 	require.NoError(err)
