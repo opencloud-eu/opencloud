@@ -38,6 +38,9 @@ type Options struct {
 	// AccessTokenAudiences requires at least one matching audience in access tokens.
 	// An empty list disables audience validation.
 	AccessTokenAudiences []string
+	// AccessTokenClientIDs requires the client an access token was issued to
+	// (client_id, else azp) to be one of these. An empty list disables the check.
+	AccessTokenClientIDs []string
 	// Config to use
 	Config *goidc.Config
 
@@ -82,6 +85,14 @@ func WithAccessTokenVerifyMethod(val string) Option {
 func WithAccessTokenAudiences(val []string) Option {
 	return func(o *Options) {
 		o.AccessTokenAudiences = append([]string(nil), val...)
+	}
+}
+
+// WithAccessTokenClientIDs sets the clients whose access tokens are accepted.
+// An empty list disables client validation.
+func WithAccessTokenClientIDs(val []string) Option {
+	return func(o *Options) {
+		o.AccessTokenClientIDs = append([]string(nil), val...)
 	}
 }
 
