@@ -137,11 +137,9 @@ function Login(props) {
         {t("konnect.login.headline", "Sign in")}
       </h1>
       {signinPageText && (
-        <Typography
-          className={classes.signinPageText}
-          variant="body2"
-          dangerouslySetInnerHTML={{ __html: signinPageText }}
-        />
+        <Typography className={classes.signinPageText} variant="body2">
+          {signinPageText}
+        </Typography>
       )}
       <form
         action=""

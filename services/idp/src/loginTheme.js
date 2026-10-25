@@ -9,18 +9,40 @@ import { themeOptions } from './theme';
 
 const IDP_CSS_PREFIX = '--oc-idp-';
 
-const toCssProperty = (key) => IDP_CSS_PREFIX + key.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase());
+function toCssProperty(key) {
+  let name = '';
+  for (let i = 0; i < key.length; i++) {
+    const ch = key.charAt(i);
+    if (ch >= 'A' && ch <= 'Z') {
+      name += '-' + ch.toLowerCase();
+    } else {
+      name += ch;
+    }
+  }
+  return IDP_CSS_PREFIX + name;
+}
 
-const isAbsoluteUrl = (url) => /^(https?:)?\/\/|^data:/i.test(url);
+function isAbsoluteUrl(url) {
+  return (
+    url.startsWith('http://') ||
+    url.startsWith('https://') ||
+    url.startsWith('//') ||
+    url.startsWith('data:')
+  );
+}
 
-export const resolveThemeUrl = (url) => {
+export function resolveThemeUrl(url) {
   if (!url || isAbsoluteUrl(url)) {
     return url;
   }
-  return '/' + url.replace(/^\/+/, '');
-};
+  let path = url;
+  while (path.startsWith('/')) {
+    path = path.slice(1);
+  }
+  return '/' + path;
+}
 
-export const extractIdpTheme = (theme) => {
+export function extractIdpTheme(theme) {
   const idp = (theme && theme.clients && theme.clients.idp) || {};
   const colors = idp.colors || {};
   return {
@@ -32,16 +54,17 @@ export const extractIdpTheme = (theme) => {
     signinPageText: idp.signinPageText,
     themeColor: idp.themeColor,
   };
-};
+}
 
-export const applyLoginTheme = (idp, common) => {
+export function applyLoginTheme(idp, common) {
   const rootStyle = document.documentElement.style;
 
-  Object.entries(idp.colors).forEach(([key, value]) => {
+  for (const key in idp.colors) {
+    const value = idp.colors[key];
     if (value) {
       rootStyle.setProperty(toCssProperty(key), value);
     }
-  });
+  }
 
   if (idp.themeColor) {
     const meta = document.querySelector('meta[name="theme-color"]');
@@ -58,13 +81,13 @@ export const applyLoginTheme = (idp, common) => {
   }
 
   if (common && common.name) {
-    document.title = `Sign in - ${common.name}`;
+    document.title = 'Sign in - ' + common.name;
   }
-};
+}
 
-export const buildMuiTheme = (idp) => {
+export function buildMuiTheme(idp) {
   const c = idp.colors || {};
-  const palette = { ...themeOptions.palette };
+  const palette = Object.assign({}, themeOptions.palette);
   if (c.primary) {
     palette.primary = { main: c.primary, contrastText: c.onPrimary || '#ffffff' };
   }
@@ -77,5 +100,5 @@ export const buildMuiTheme = (idp) => {
   if (c.background) {
     palette.background = { default: c.background, paper: c.surface || '#ffffff' };
   }
-  return createMuiTheme({ ...themeOptions, palette });
-};
+  return createMuiTheme(Object.assign({}, themeOptions, { palette: palette }));
+}

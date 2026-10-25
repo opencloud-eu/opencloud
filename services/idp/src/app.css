@@ -60,7 +60,14 @@ strong {
 }
 
 .oc-logo {
+    /* rendered as a background image; the intrinsic size of the default
+       theme logo (170x35) is used as the aspect ratio and scaled by height */
+    display: inline-block;
     height: 80px;
+    aspect-ratio: 170 / 35;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
     z-index: 0;
 }
 

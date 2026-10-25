@@ -80,7 +80,12 @@ const ResponsiveScreen = (props) => {
     theme?.clients?.idp?.signinPageLogoURI || branding?.signinPageLogoURI;
 
   const logo = (theme && !withoutLogo) ? (
-        <img src={resolveThemeUrl(theme.common?.logo)} className="oc-logo" alt={theme.common?.name || 'OpenCloud Logo'}/>
+        <div
+          role="img"
+          aria-label={theme.common?.name || 'OpenCloud Logo'}
+          className="oc-logo"
+          style={{ backgroundImage: `url(${resolveThemeUrl(theme.common?.logo)})` }}
+        />
     ) : null;
 
   const content = loading ? <Loading/> : (withoutPadding ? children : <DialogContent>{children}</DialogContent>);

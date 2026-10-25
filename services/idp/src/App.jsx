@@ -1,4 +1,4 @@
-import React, {ReactElement, Suspense, lazy, useState, useEffect, useMemo} from 'react';
+import React, {Suspense, lazy, useState, useEffect, useMemo} from 'react';
 import PropTypes from 'prop-types';
 
 import {MuiThemeProvider} from '@material-ui/core/styles';
@@ -12,7 +12,7 @@ const LazyMain = lazy(() => import(/* webpackChunkName: "identifier-main" */ './
 
 console.info(`Kopano Identifier build version: ${version.build}`); // eslint-disable-line no-console
 
-const App = ({ bgImg }): ReactElement => {
+function App({ bgImg }) {
     const [theme, setTheme] = useState(null);
     const [config, setConfig] = useState(null);
     const [loading, setLoading] = useState(true);

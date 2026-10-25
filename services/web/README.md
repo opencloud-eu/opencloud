@@ -110,8 +110,8 @@ keys are available in addition:
     empty, the icon bundled with the login UI is used; relative paths are resolved
     against the instance root.
 *   `signinPageText`\
-    Optional text shown on the sign in card, HTML is allowed. When empty, the text
-    configured via `IDP_DEFAULT_SIGNIN_PAGE_TEXT` (delivered by the IDP) is used;
+    Optional text shown on the sign in card, rendered as plain text. When empty, the
+    text configured via `IDP_DEFAULT_SIGNIN_PAGE_TEXT` (delivered by the IDP) is used;
     a value set here takes precedence.
 *   `signinPageLogoURI`\
     Optional URL the login page logo links to. When empty, the URI configured via
