@@ -7,21 +7,6 @@ import { unstable_createMuiStrictModeTheme as createMuiTheme } from '@material-u
 
 import { themeOptions } from './theme';
 
-const IDP_CSS_PREFIX = '--oc-idp-';
-
-function toCssProperty(key) {
-  let name = '';
-  for (let i = 0; i < key.length; i++) {
-    const ch = key.charAt(i);
-    if (ch >= 'A' && ch <= 'Z') {
-      name += '-' + ch.toLowerCase();
-    } else {
-      name += ch;
-    }
-  }
-  return IDP_CSS_PREFIX + name;
-}
-
 function isAbsoluteUrl(url) {
   return (
     url.startsWith('http://') ||
@@ -59,10 +44,33 @@ export function extractIdpTheme(theme) {
 export function applyLoginTheme(idp, common) {
   const rootStyle = document.documentElement.style;
 
-  for (const key in idp.colors) {
-    const value = idp.colors[key];
-    if (value) {
-      rootStyle.setProperty(toCssProperty(key), value);
+  const {
+    background,
+    error,
+    onBackground,
+    onPrimary,
+    onSecondary,
+    onSurface,
+    primary,
+    secondary,
+    surface,
+  } = idp.colors;
+
+  const colorRoles = [
+    [background, '--oc-idp-background'],
+    [error, '--oc-idp-error'],
+    [onBackground, '--oc-idp-on-background'],
+    [onPrimary, '--oc-idp-on-primary'],
+    [onSecondary, '--oc-idp-on-secondary'],
+    [onSurface, '--oc-idp-on-surface'],
+    [primary, '--oc-idp-primary'],
+    [secondary, '--oc-idp-secondary'],
+    [surface, '--oc-idp-surface'],
+  ];
+
+  for (let i = 0; i < colorRoles.length; i++) {
+    if (colorRoles[i][0]) {
+      rootStyle.setProperty(colorRoles[i][1], colorRoles[i][0]);
     }
   }
 
@@ -87,7 +95,9 @@ export function applyLoginTheme(idp, common) {
 
 export function buildMuiTheme(idp) {
   const c = idp.colors || {};
-  const palette = Object.assign({}, themeOptions.palette);
+  const palette = {
+    ...themeOptions.palette,
+  };
   if (c.primary) {
     palette.primary = { main: c.primary, contrastText: c.onPrimary || '#ffffff' };
   }
@@ -100,5 +110,8 @@ export function buildMuiTheme(idp) {
   if (c.background) {
     palette.background = { default: c.background, paper: c.surface || '#ffffff' };
   }
-  return createMuiTheme(Object.assign({}, themeOptions, { palette: palette }));
+  return createMuiTheme({
+    ...themeOptions,
+    palette: palette,
+  });
 }
