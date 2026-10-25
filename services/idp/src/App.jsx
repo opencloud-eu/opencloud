@@ -41,9 +41,9 @@ const App = ({ bgImg }): ReactElement => {
 
     useEffect(() => {
         if (theme) {
-            applyLoginTheme(idpTheme);
+            applyLoginTheme(idpTheme, theme.common);
         }
-    }, [idpTheme]);
+    }, [idpTheme, theme]);
 
     const muiTheme = useMemo(() => buildMuiTheme(idpTheme), [idpTheme]);
 
@@ -69,7 +69,7 @@ const App = ({ bgImg }): ReactElement => {
                 </MuiThemeProvider>
                 {!background &&
                     <img
-                        src={`${process.env.PUBLIC_URL}/static/icon-lilac.svg`}
+                        src={idpTheme.bgIcon || `${process.env.PUBLIC_URL}/static/icon-lilac.svg`}
                         className={'oc-login-bg-icon'}
                         alt=''
                     />

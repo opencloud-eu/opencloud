@@ -74,6 +74,9 @@ func TestService_Get(t *testing.T) {
 	// themeDefaults include login page defaults for the IDP login UI
 	assert.Equal(t, jsonData.Get("clients.idp.colors.primary").String(), "#e2baff")
 	assert.Equal(t, jsonData.Get("clients.idp.themeColor").String(), "#20434f")
+	assert.Equal(t, jsonData.Get("clients.idp.signinPageText").String(), "")
+	assert.Equal(t, jsonData.Get("clients.idp.signinPageLogoURI").String(), "")
+	assert.True(t, jsonData.Get("clients.idp.bgIcon").Exists())
 }
 
 func TestService_GetWithoutThemes(t *testing.T) {

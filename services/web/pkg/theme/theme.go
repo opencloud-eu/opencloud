@@ -93,6 +93,7 @@ var themeDefaults = KV{
 	"clients": KV{
 		"idp": KV{
 			"backgroundImage": "",
+			"bgIcon":          "",
 			"colors": KV{
 				"background":   "#20434f",
 				"error":        "#fe4600",
@@ -104,8 +105,10 @@ var themeDefaults = KV{
 				"secondary":    "#f1f3f4",
 				"surface":      "#ffffff",
 			},
-			"favicon":    "themes/opencloud/assets/favicon.svg",
-			"themeColor": "#20434f",
+			"favicon":           "themes/opencloud/assets/favicon.svg",
+			"signinPageLogoURI": "",
+			"signinPageText":    "",
+			"themeColor":        "#20434f",
 		},
 	},
 }

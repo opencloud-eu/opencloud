@@ -25,13 +25,16 @@ export const extractIdpTheme = (theme) => {
   const colors = idp.colors || {};
   return {
     backgroundImage: resolveThemeUrl(idp.backgroundImage),
+    bgIcon: resolveThemeUrl(idp.bgIcon),
     colors: colors,
     favicon: resolveThemeUrl(idp.favicon),
+    signinPageLogoURI: resolveThemeUrl(idp.signinPageLogoURI),
+    signinPageText: idp.signinPageText,
     themeColor: idp.themeColor,
   };
 };
 
-export const applyLoginTheme = (idp) => {
+export const applyLoginTheme = (idp, common) => {
   const rootStyle = document.documentElement.style;
 
   Object.entries(idp.colors).forEach(([key, value]) => {
@@ -52,6 +55,10 @@ export const applyLoginTheme = (idp) => {
     if (link) {
       link.setAttribute('href', idp.favicon);
     }
+  }
+
+  if (common && common.name) {
+    document.title = `Sign in - ${common.name}`;
   }
 };
 

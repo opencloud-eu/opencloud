@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useContext, useEffect, useMemo } from "react";
 import PropTypes from "prop-types";
 import { connect } from "react-redux";
 
@@ -11,6 +11,7 @@ import Typography from "@material-ui/core/Typography";
 import Link from "@material-ui/core/Link";
 
 import TextInput from "../../components/TextInput";
+import { OpenCloudContext } from "../../openCloudContext";
 
 import {
   updateInput,
@@ -64,6 +65,13 @@ function Login(props) {
     passwordResetLink,
     branding,
   } = props;
+
+  const { theme } = useContext(OpenCloudContext);
+  const idpTheme = theme?.clients?.idp;
+
+  // the theme.json sign in page text takes precedence over the branding
+  // delivered through the IDP hello endpoint
+  const signinPageText = idpTheme?.signinPageText || branding?.signinPageText;
 
   const { t } = useTranslation();
   const loginFailed = errors.http;
@@ -128,11 +136,11 @@ function Login(props) {
         {" "}
         {t("konnect.login.headline", "Sign in")}
       </h1>
-      {branding?.signinPageText && (
+      {signinPageText && (
         <Typography
           className={classes.signinPageText}
           variant="body2"
-          dangerouslySetInnerHTML={{ __html: branding.signinPageText }}
+          dangerouslySetInnerHTML={{ __html: signinPageText }}
         />
       )}
       <form

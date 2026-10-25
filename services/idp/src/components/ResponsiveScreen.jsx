@@ -51,6 +51,34 @@ const ResponsiveScreen = (props) => {
   const productName = theme?.common?.name;
   const productSlogan = theme?.common?.slogan;
 
+  // footer: use the themable product name and slogan. The name is bolded when
+  // the slogan starts with it, otherwise it is prepended. Missing values fall
+  // back to the translated default.
+  let footer = null;
+  if (productSlogan) {
+    if (productName && productSlogan.startsWith(productName)) {
+      footer = (
+        <>
+          <strong>{productName}</strong>
+          {productSlogan.slice(productName.length)}
+        </>
+      );
+    } else if (productName && !productSlogan.includes(productName)) {
+      footer = (
+        <>
+          <strong>{productName}</strong> - {productSlogan}
+        </>
+      );
+    } else {
+      footer = productSlogan;
+    }
+  }
+
+  // the theme.json logo target URI takes precedence over the branding
+  // delivered through the IDP hello endpoint
+  const logoTargetURI =
+    theme?.clients?.idp?.signinPageLogoURI || branding?.signinPageLogoURI;
+
   const logo = (theme && !withoutLogo) ? (
         <img src={resolveThemeUrl(theme.common?.logo)} className="oc-logo" alt={theme.common?.name || 'OpenCloud Logo'}/>
     ) : null;
@@ -69,9 +97,9 @@ const ResponsiveScreen = (props) => {
     >
       <div className={classes.wrapper}>
         <div className={classes.content}>
-          {branding?.signinPageLogoURI ? (
+          {logoTargetURI ? (
             <a
-              href={branding.signinPageLogoURI}
+              href={resolveThemeUrl(logoTargetURI)}
               target="_blank"
               rel="noopener noreferrer"
               className='oc-logo-container'
@@ -89,11 +117,7 @@ const ResponsiveScreen = (props) => {
         </div>
       </div>
       <footer className="oc-footer-message">
-        {productName && productSlogan ? (
-          <>
-            <strong>{productName}</strong> {'-'} {productSlogan}
-          </>
-        ) : (
+        {footer || (
           <Trans i18nKey="konnect.footer.slogan">
             <strong>OpenCloud</strong> - excellent file sharing
           </Trans>

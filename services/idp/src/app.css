@@ -59,12 +59,6 @@ strong {
     background-position: center;
 }
 
-#loader {
-    /* NOTE(longsleep): White here needed because of the background image */
-    color: white;
-    text-shadow: #000 0 0 1px;
-}
-
 .oc-logo {
     height: 80px;
     z-index: 0;
@@ -126,7 +120,7 @@ strong {
 }
 
 .oc-card {
-    background: white;
+    background: var(--oc-idp-surface, white);
     display: inline-flex;
     width: 500px;
 }
@@ -179,7 +173,7 @@ body :focus-visible {
 }
 
 .oc-footer-message {
-    color: white;
+    color: var(--oc-idp-on-background, white);
     padding: 10px;
     font-size: 0.8rem;
 }

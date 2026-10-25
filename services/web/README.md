@@ -77,6 +77,7 @@ keys are available in addition:
   "clients": {
     "idp": {
       "backgroundImage": "",
+      "bgIcon": "",
       "colors": {
         "background": "#20434f",
         "error": "#fe4600",
@@ -89,6 +90,8 @@ keys are available in addition:
         "surface": "#ffffff"
       },
       "favicon": "themes/opencloud/assets/favicon.svg",
+      "signinPageLogoURI": "",
+      "signinPageText": "",
       "themeColor": "#20434f"
     }
   }
@@ -102,9 +105,25 @@ keys are available in addition:
 *   `backgroundImage`\
     Optional URL (absolute or relative to the instance root) of a background image
     for the login page. When set, it takes precedence over `IDP_LOGIN_BACKGROUND_URL`.
+*   `bgIcon`\
+    Optional URL of the decorative icon shown on the login page background. When
+    empty, the icon bundled with the login UI is used; relative paths are resolved
+    against the instance root.
+*   `signinPageText`\
+    Optional text shown on the sign in card, HTML is allowed. When empty, the text
+    configured via `IDP_DEFAULT_SIGNIN_PAGE_TEXT` (delivered by the IDP) is used;
+    a value set here takes precedence.
+*   `signinPageLogoURI`\
+    Optional URL the login page logo links to. When empty, the URI configured via
+    `IDP_DEFAULT_LOGO_TARGET_URI` (delivered by the IDP) is used; a value set here
+    takes precedence.
 *   `favicon` and `themeColor`\
     Browser tab favicon and browser chrome color of the login page; relative paths
     are resolved against the instance root, so theme assets can be referenced directly.
+
+The login page logo reuses the theme wide `common.logo` value and the footer the
+`common.slogan` value; when the slogan does not already contain `common.name` it
+is prepended to the footer, the browser tab title is derived from `common.name`.
 
 All values can be overridden like any other theme key via `WEB_ASSET_THEMES_PATH`
 and the `_branding/theme.json` runtime theme.
