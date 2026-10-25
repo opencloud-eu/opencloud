@@ -78,5 +78,9 @@ clients:
   application_type: native
 ```
 
+## Login Page Theming
 
-
+The login UI is themed through the `clients.idp` section of the `theme.json`
+served by the web service. See the
+[Themeing the Login Page](../web/README.md#themeing-the-login-page)
+section in the web service README for the available keys.

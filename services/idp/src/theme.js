@@ -10,7 +10,7 @@ const errorColor = red;
 
 // All the following keys are optional.
 // We try our best to provide a great default value.
-const theme = createMuiTheme({
+export const themeOptions = {
   palette: {
     primary: primaryColor,
     secondary: secondaryColor,
@@ -34,6 +34,8 @@ const theme = createMuiTheme({
       textTransform: 'none',
     },
   },
-});
+};
+
+const theme = createMuiTheme(themeOptions);
 
 export default theme;

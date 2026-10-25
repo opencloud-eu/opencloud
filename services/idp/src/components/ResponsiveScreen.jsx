@@ -8,6 +8,7 @@ import DialogContent from '@material-ui/core/DialogContent';
 
 import Loading from './Loading';
 import { OpenCloudContext } from "../openCloudContext";
+import { resolveThemeUrl } from "../loginTheme";
 
 const styles = theme => ({
   root: {
@@ -47,8 +48,11 @@ const ResponsiveScreen = (props) => {
   } = props;
   const { theme } = useContext(OpenCloudContext);
 
+  const productName = theme?.common?.name;
+  const productSlogan = theme?.common?.slogan;
+
   const logo = (theme && !withoutLogo) ? (
-        <img src={'/' + theme.common?.logo} className="oc-logo" alt="OpenCloud Logo"/>
+        <img src={resolveThemeUrl(theme.common?.logo)} className="oc-logo" alt={theme.common?.name || 'OpenCloud Logo'}/>
     ) : null;
 
   const content = loading ? <Loading/> : (withoutPadding ? children : <DialogContent>{children}</DialogContent>);
@@ -85,9 +89,15 @@ const ResponsiveScreen = (props) => {
         </div>
       </div>
       <footer className="oc-footer-message">
-        <Trans i18nKey="konnect.footer.slogan">
-          <strong>OpenCloud</strong> - excellent file sharing
-        </Trans>
+        {productName && productSlogan ? (
+          <>
+            <strong>{productName}</strong> {'-'} {productSlogan}
+          </>
+        ) : (
+          <Trans i18nKey="konnect.footer.slogan">
+            <strong>OpenCloud</strong> - excellent file sharing
+          </Trans>
+        )}
       </footer>
     </Grid>
   );

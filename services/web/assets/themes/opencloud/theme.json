@@ -47,6 +47,22 @@
   "clients": {
     "android": {},
     "desktop": {},
+    "idp": {
+      "backgroundImage": "",
+      "colors": {
+        "background": "#20434f",
+        "error": "#fe4600",
+        "onBackground": "#ffffff",
+        "onPrimary": "#20434f",
+        "onSecondary": "#20434f",
+        "onSurface": "#20434f",
+        "primary": "#e2baff",
+        "secondary": "#f1f3f4",
+        "surface": "#ffffff"
+      },
+      "favicon": "themes/opencloud/assets/favicon.svg",
+      "themeColor": "#20434f"
+    },
     "ios": {},
     "web": {
       "defaults": {

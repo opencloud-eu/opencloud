@@ -7,7 +7,6 @@ import { useTranslation } from "react-i18next";
 import { withStyles } from "@material-ui/core/styles";
 import Button from "@material-ui/core/Button";
 import CircularProgress from "@material-ui/core/CircularProgress";
-import green from "@material-ui/core/colors/green";
 import Typography from "@material-ui/core/Typography";
 import Link from "@material-ui/core/Link";
 
@@ -22,7 +21,7 @@ import { ErrorMessage } from "../../errors";
 
 const styles = (theme) => ({
   buttonProgress: {
-    color: green[500],
+    color: theme.palette.primary.contrastText,
     position: "absolute",
     top: "50%",
     left: "50%",

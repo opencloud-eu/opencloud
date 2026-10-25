@@ -71,4 +71,59 @@ func TestService_Get(t *testing.T) {
 	assert.Equal(t, jsonData.Get("_branding").String(), "_branding")
 	// themeDefaults
 	assert.Equal(t, jsonData.Get("common.shareRoles."+unifiedrole.UnifiedRoleViewerID+".name").String(), "UnifiedRoleViewer")
+	// themeDefaults include login page defaults for the IDP login UI
+	assert.Equal(t, jsonData.Get("clients.idp.colors.primary").String(), "#e2baff")
+	assert.Equal(t, jsonData.Get("clients.idp.themeColor").String(), "#20434f")
+}
+
+func TestService_GetWithoutThemes(t *testing.T) {
+	service, _ := theme.NewService(
+		theme.ServiceOptions{}.
+			WithThemeFS(fsx.NewFallbackFS(fsx.NewMemMapFs(), fsx.NewMemMapFs())).
+			WithGatewaySelector(mocks.NewSelectable[gateway.GatewayAPIClient](t)),
+	)
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r.SetPathValue("id", "nonexistent")
+
+	w := httptest.NewRecorder()
+	service.Get(w, r)
+
+	jsonData := gjson.Parse(w.Body.String())
+	// themeDefaults provide the login page defaults even without any theme files
+	assert.Equal(t, jsonData.Get("clients.idp.colors.primary").String(), "#e2baff")
+	assert.Equal(t, jsonData.Get("clients.idp.colors.onPrimary").String(), "#20434f")
+}
+
+func TestService_GetLoginThemeOverride(t *testing.T) {
+	primaryFS := fsx.NewMemMapFs()
+	fallbackFS := fsx.NewFallbackFS(primaryFS, fsx.NewMemMapFs())
+
+	content, err := json.Marshal(map[string]any{
+		"clients": map[string]any{
+			"idp": map[string]any{
+				"colors": map[string]any{
+					"primary": "#ff0000",
+				},
+			},
+		},
+	})
+	assert.Nil(t, err)
+	assert.Nil(t, afero.WriteFile(primaryFS, "_branding/theme.json", content, 0644))
+
+	service, _ := theme.NewService(
+		theme.ServiceOptions{}.
+			WithThemeFS(fallbackFS).
+			WithGatewaySelector(mocks.NewSelectable[gateway.GatewayAPIClient](t)),
+	)
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r.SetPathValue("id", "nonexistent")
+
+	w := httptest.NewRecorder()
+	service.Get(w, r)
+
+	jsonData := gjson.Parse(w.Body.String())
+	// brandingTheme overrides single login page default values
+	assert.Equal(t, jsonData.Get("clients.idp.colors.primary").String(), "#ff0000")
+	// untouched values keep the defaults
+	assert.Equal(t, jsonData.Get("clients.idp.colors.onPrimary").String(), "#20434f")
 }
