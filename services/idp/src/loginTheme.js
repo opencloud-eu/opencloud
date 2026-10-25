@@ -56,22 +56,32 @@ export function applyLoginTheme(idp, common) {
     surface,
   } = idp.colors;
 
-  const colorRoles = [
-    [background, '--oc-idp-background'],
-    [error, '--oc-idp-error'],
-    [onBackground, '--oc-idp-on-background'],
-    [onPrimary, '--oc-idp-on-primary'],
-    [onSecondary, '--oc-idp-on-secondary'],
-    [onSurface, '--oc-idp-on-surface'],
-    [primary, '--oc-idp-primary'],
-    [secondary, '--oc-idp-secondary'],
-    [surface, '--oc-idp-surface'],
-  ];
-
-  for (let i = 0; i < colorRoles.length; i++) {
-    if (colorRoles[i][0]) {
-      rootStyle.setProperty(colorRoles[i][1], colorRoles[i][0]);
-    }
+  if (background) {
+    rootStyle.setProperty('--oc-idp-background', background);
+  }
+  if (error) {
+    rootStyle.setProperty('--oc-idp-error', error);
+  }
+  if (onBackground) {
+    rootStyle.setProperty('--oc-idp-on-background', onBackground);
+  }
+  if (onPrimary) {
+    rootStyle.setProperty('--oc-idp-on-primary', onPrimary);
+  }
+  if (onSecondary) {
+    rootStyle.setProperty('--oc-idp-on-secondary', onSecondary);
+  }
+  if (onSurface) {
+    rootStyle.setProperty('--oc-idp-on-surface', onSurface);
+  }
+  if (primary) {
+    rootStyle.setProperty('--oc-idp-primary', primary);
+  }
+  if (secondary) {
+    rootStyle.setProperty('--oc-idp-secondary', secondary);
+  }
+  if (surface) {
+    rootStyle.setProperty('--oc-idp-surface', surface);
   }
 
   if (idp.themeColor) {
