@@ -54,6 +54,7 @@
 
 ### 📦️ Dependencies
 
+- [full-ci] chore: bump web to v8.2.0 [[#3816](https://github.com/opencloud-eu/opencloud/pull/3816)]
 - chore: bump reva to latest main [[#3720](https://github.com/opencloud-eu/opencloud/pull/3720)]
 - chore: bump reva to latest main [[#3713](https://github.com/opencloud-eu/opencloud/pull/3713)]
 - chore: bump reva to latest main [[#3700](https://github.com/opencloud-eu/opencloud/pull/3700)]
