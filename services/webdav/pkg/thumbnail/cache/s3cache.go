@@ -3,18 +3,24 @@ package cache
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	minio "github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/minio/minio-go/v7/pkg/encrypt"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/s3utils"
 )
 
 // S3CacheConfig holds the configuration for an S3 cache backend.
 type S3CacheConfig struct {
+	SSECKey     string
 	Bucket      string
 	Region      string
 	Endpoint    string
@@ -49,15 +55,33 @@ func (r *realS3Client) GetObject(ctx context.Context, bucketName, objectName str
 
 // S3Cache stores thumbnails in an S3-compatible bucket.
 type S3Cache struct {
-	config  S3CacheConfig
-	client  s3Client
-	once    sync.Once
-	initErr error
-	newFunc func(cfg S3CacheConfig) (s3Client, error)
+	encryption encrypt.ServerSide
+	config     S3CacheConfig
+	client     s3Client
+	once       sync.Once
+	initErr    error
+	newFunc    func(cfg S3CacheConfig) (s3Client, error)
 }
 
 func NewS3Cache(cfg S3CacheConfig) *S3Cache {
-	c := &S3Cache{config: cfg}
+	// MinIO expects a host:port endpoint and a separate TLS flag. Accept the
+	// URL form documented by the service as well as an SDK-style bare host.
+	var configErr error
+	if strings.Contains(cfg.Endpoint, "://") {
+		u, err := url.Parse(cfg.Endpoint)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
+			configErr = fmt.Errorf("invalid S3 thumbnail cache endpoint")
+		} else {
+			cfg.Endpoint = u.Host
+			cfg.Secure = u.Scheme == "https"
+		}
+	}
+	encryption, err := s3utils.NewSSEC(cfg.SSECKey, cfg.Secure)
+	if configErr == nil {
+		configErr = err
+	}
+	cfg.SSECKey = ""
+	c := &S3Cache{config: cfg, encryption: encryption, initErr: configErr}
 	c.newFunc = func(cfg S3CacheConfig) (s3Client, error) {
 		cl, err := minio.New(cfg.Endpoint, &minio.Options{
 			Creds:  cfg.Credentials,
@@ -75,6 +99,9 @@ func NewS3Cache(cfg S3CacheConfig) *S3Cache {
 // initClient lazily initializes the S3 client on first access.
 func (c *S3Cache) initClient() error {
 	c.once.Do(func() {
+		if c.initErr != nil {
+			return
+		}
 		cl, err := c.newFunc(c.config)
 		if err != nil {
 			c.initErr = err
@@ -90,7 +117,7 @@ func (c *S3Cache) Get(key string) ([]byte, error) {
 		return nil, err
 	}
 
-	obj, err := c.client.GetObject(context.Background(), c.config.Bucket, key, minio.GetObjectOptions{})
+	obj, err := c.client.GetObject(context.Background(), c.config.Bucket, key, minio.GetObjectOptions{ServerSideEncryption: c.encryption})
 	if err != nil {
 		return nil, asCacheError(err)
 	}
@@ -139,7 +166,8 @@ func (c *S3Cache) Put(key string, data []byte) error {
 		bytes.NewReader(data),
 		int64(len(data)),
 		minio.PutObjectOptions{
-			ContentType: contentType,
+			ContentType:          contentType,
+			ServerSideEncryption: c.encryption,
 		},
 	)
 	return err

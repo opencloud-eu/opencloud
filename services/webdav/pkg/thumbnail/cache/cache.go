@@ -44,18 +44,23 @@ func NewThumbnailCache(backend string, cacheDir string, s3cfg *S3CacheConfig) (T
 		if s3cfg == nil || !s3cfg.IsComplete() {
 			return nil, errors.New("s3 thumbnail cache needs a bucket, a region and credentials")
 		}
-		return NewS3Cache(*s3cfg), nil
+		c := NewS3Cache(*s3cfg)
+		if c.initErr != nil {
+			return nil, c.initErr
+		}
+		return c, nil
 	default:
 		return nil, fmt.Errorf("unknown thumbnail cache backend %q, expected none, memory, file or s3", backend)
 	}
 }
 
 // BuildS3CacheConfig creates an S3CacheConfig from raw config fields.
-func BuildS3CacheConfig(bucket, region, endpoint, accessKey, secretKey string) *S3CacheConfig {
+func BuildS3CacheConfig(bucket, region, endpoint, accessKey, secretKey, ssecKey string) *S3CacheConfig {
 	cfg := &S3CacheConfig{
 		Bucket:   bucket,
 		Region:   region,
 		Endpoint: endpoint,
+		SSECKey:  ssecKey,
 		Secure:   true,
 	}
 	if accessKey != "" && secretKey != "" {

@@ -1,6 +1,8 @@
 package command
 
 import (
+	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
+	"strings"
 	"testing"
 )
 
@@ -98,6 +100,26 @@ func Test_parseBlobPath(t *testing.T) {
 			}
 			if gotBlobID != tt.wantBlobID {
 				t.Errorf("parseBlobPath(%q) blobID = %q, want %q", tt.path, gotBlobID, tt.wantBlobID)
+			}
+		})
+	}
+}
+
+func TestInitBlobstoreValidatesSSEC(t *testing.T) {
+	for _, driver := range []string{"s3ng", "decomposeds3"} {
+		t.Run(driver, func(t *testing.T) {
+			cfg := &config.Config{Driver: driver}
+			cfg.Drivers.DecomposedS3 = config.DecomposedS3Driver{Endpoint: "https://localhost:9000", Region: "us-east-1", Bucket: "bucket", AccessKey: "ak", SecretKey: "sk", SSECKey: "invalid-secret!"}
+			_, err := initBlobstore(cfg)
+			if err == nil || !strings.Contains(err.Error(), "SSE-C") {
+				t.Fatalf("CLI ignored invalid SSE-C key: %v", err)
+			}
+			if strings.Contains(err.Error(), cfg.Drivers.DecomposedS3.SSECKey) {
+				t.Fatal("error exposes key")
+			}
+			cfg.Drivers.DecomposedS3.SSECKey = ""
+			if _, err := initBlobstore(cfg); err != nil {
+				t.Fatal(err)
 			}
 		})
 	}

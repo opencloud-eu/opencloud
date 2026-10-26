@@ -54,7 +54,7 @@ func New(m map[string]interface{}, stream events.Stream, log *zerolog.Logger) (s
 		PartSize:              o.PartSize,
 	}
 
-	bs, err := blobstore.New(o.S3Endpoint, o.S3Region, o.S3Bucket, o.S3AccessKey, o.S3SecretKey, defaultPutOptions)
+	bs, err := blobstore.New(o.S3Endpoint, o.S3Region, o.S3Bucket, o.S3AccessKey, o.S3SecretKey, o.S3SSECKey, defaultPutOptions)
 	if err != nil {
 		return nil, err
 	}

@@ -325,3 +325,34 @@ Store specific notes:
   -   When using `redis-sentinel`, the Redis master to use is configured via e.g. `OC_CACHE_STORE_NODES` in the form of `<sentinel-host>:<sentinel-port>/<redis-master>` like `10.10.0.200:26379/mymaster`.
   -   When using `nats-js-kv` it is recommended to set `OC_CACHE_STORE_NODES` to the same value as `OC_EVENTS_ENDPOINT`. That way the cache uses the same nats instance as the event bus.
   -   When using the `nats-js-kv` store, it is possible to set `OC_CACHE_DISABLE_PERSISTENCE` to instruct nats to not persist cache data on disc.
+
+## S3 customer-provided encryption keys (SSE-C)
+
+For the `decomposeds3` driver (also exposed as the legacy `s3ng` alias), set an
+optional encryption key beside the bucket declaration:
+
+```yaml
+storage_users:
+  driver: decomposeds3
+  drivers:
+    decomposeds3:
+      endpoint: https://s3.example.com
+      region: us-east-1
+      bucket: files
+      access_key: <access-key>
+      secret_key: <secret-key>
+      sse_c_key: <base64-encoded-32-byte-key>
+```
+
+The equivalent environment variable is `STORAGE_USERS_DECOMPOSEDS3_SSE_C_KEY`.
+Generate a random key with `openssl rand -base64 32` and store it as a secret.
+An empty key preserves existing behavior. A configured key enables SSE-C for
+uploads, including multipart uploads, and is supplied when reading blobs and
+their metadata. The blobstore maintenance commands use the same setting.
+HTTPS is required, and the S3 service must allow SSE-C uploads.
+
+Back up and retain the encryption key: it is required to read objects and file
+versions encrypted with it. Changing the setting does not re-encrypt existing
+objects. Migration and key rotation must be handled separately before changing
+the key or enabling SSE-C on an existing bucket. Missing or incorrect keys cause
+reads to fail; OpenCloud does not retry without encryption.

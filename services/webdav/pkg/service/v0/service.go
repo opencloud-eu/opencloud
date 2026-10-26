@@ -190,6 +190,7 @@ func newThumbnailWorkflow(conf *config.Config, sourceTypes thumbnail.SourceTypes
 		conf.Thumbnails.CacheS3Endpoint,
 		conf.Thumbnails.CacheS3AccessKey,
 		conf.Thumbnails.CacheS3SecretKey,
+		conf.Thumbnails.CacheS3SSECKey,
 	)
 
 	// the new setting wins, the deprecated one is the fallback, and an empty

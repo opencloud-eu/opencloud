@@ -162,16 +162,17 @@ var _ = Describe("NewThumbnailCache", func() {
 	})
 
 	It("should build S3CacheConfig from env var fields via BuildS3CacheConfig", func() {
-		cfg := BuildS3CacheConfig("my-bucket", "us-east-1", "http://minio:9000", "ak", "sk")
+		cfg := BuildS3CacheConfig("my-bucket", "us-east-1", "http://minio:9000", "ak", "sk", "sse-c-key")
 		Expect(cfg.Bucket).To(Equal("my-bucket"))
 		Expect(cfg.Region).To(Equal("us-east-1"))
 		Expect(cfg.Endpoint).To(Equal("http://minio:9000"))
+		Expect(cfg.SSECKey).To(Equal("sse-c-key"))
 		Expect(cfg.Secure).To(BeTrue())
 		Expect(cfg.Credentials).ToNot(BeNil())
 	})
 
 	It("should build incomplete S3CacheConfig when credentials are missing", func() {
-		cfg := BuildS3CacheConfig("my-bucket", "us-east-1", "", "", "")
+		cfg := BuildS3CacheConfig("my-bucket", "us-east-1", "", "", "", "")
 		Expect(cfg.IsComplete()).To(BeFalse())
 	})
 })

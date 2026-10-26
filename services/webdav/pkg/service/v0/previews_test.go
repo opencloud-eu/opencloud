@@ -1,14 +1,19 @@
 package svc
 
 import (
+	"github.com/opencloud-eu/opencloud/pkg/config/envdecode"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/config/defaults"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
 var _ = Describe("with previews disabled", func() {
@@ -25,3 +30,21 @@ var _ = Describe("with previews disabled", func() {
 		Expect(rec.Code).To(Equal(http.StatusNotFound))
 	})
 })
+
+func TestThumbnailWorkflowValidatesSSEC(t *testing.T) {
+	t.Setenv("WEBDAV_THUMBNAILS_CACHE_S3_SSE_C_KEY", "invalid-secret!")
+	cfg := defaults.FullDefaultConfig()
+	cfg.Thumbnails.CacheBackend = "s3"
+	cfg.Thumbnails.CacheS3Bucket = "bucket"
+	cfg.Thumbnails.CacheS3Region = "us-east-1"
+	cfg.Thumbnails.CacheS3Endpoint = "https://localhost:9000"
+	cfg.Thumbnails.CacheS3AccessKey = "ak"
+	cfg.Thumbnails.CacheS3SecretKey = "sk"
+	if err := envdecode.Decode(cfg); err != nil {
+		t.Fatal(err)
+	}
+	_, err := newThumbnailWorkflow(cfg, thumbnail.NewSourceTypes(nil), log.NopLogger(), nil)
+	if err == nil || !strings.Contains(err.Error(), "SSE-C key must be base64-encoded") {
+		t.Fatalf("thumbnail workflow ignored invalid SSE-C key: %v", err)
+	}
+}

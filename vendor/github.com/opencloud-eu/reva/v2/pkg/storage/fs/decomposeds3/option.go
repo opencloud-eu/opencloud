@@ -38,6 +38,9 @@ type Options struct {
 	// Bucket of the s3 blobstore
 	S3Bucket string `mapstructure:"s3.bucket"`
 
+	// Base64-encoded AES-256 customer key for server-side encryption (optional)
+	S3SSECKey string `mapstructure:"s3.sse_c_key"`
+
 	// Access key for the s3 blobstore
 	S3AccessKey string `mapstructure:"s3.access_key"`
 

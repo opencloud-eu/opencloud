@@ -91,3 +91,32 @@ See the [search](https://github.com/opencloud-eu/opencloud/tree/main/services/se
 ## Scalability
 
 The webdav service persists generated thumbnails to its thumbnail cache (file backend by default). When running multiple instances behind a load balancer, point `WEBDAV_THUMBNAILS_CACHE_BACKEND` at a shared `s3` bucket so all instances read and write the same cache; otherwise each instance keeps its own on-disk cache.
+
+### SSE-C for the S3 thumbnail cache
+
+The S3 thumbnail cache accepts a customer-provided encryption key beside its
+bucket declaration:
+
+```yaml
+webdav:
+  thumbnails:
+    cache_backend: s3
+    cache_s3_endpoint: https://s3.example.com
+    cache_s3_region: us-east-1
+    cache_s3_bucket: thumbnails
+    cache_s3_access_key: <access-key>
+    cache_s3_secret_key: <secret-key>
+    cache_s3_sse_c_key: <base64-encoded-32-byte-key>
+```
+
+Alternatively, set `WEBDAV_THUMBNAILS_CACHE_S3_SSE_C_KEY`. This key is independent
+of the user-file bucket key. Generate one with `openssl rand -base64 32` and
+retain a secure backup. All instances sharing the cache bucket must use the
+same key. The endpoint must use HTTPS and the S3 service must permit SSE-C.
+
+An empty setting preserves current behavior. A configured key is sent on reads
+and writes, including multipart uploads. Invalid keys are rejected when the S3
+cache is configured. Missing or incorrect keys are errors, not cache misses.
+Changing the setting does not migrate or re-encrypt cached objects; plan cache
+recreation or migration separately before switching keys. Non-S3 cache backends
+ignore this setting.
