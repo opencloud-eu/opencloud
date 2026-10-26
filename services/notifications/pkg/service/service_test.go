@@ -284,48 +284,13 @@ Click here to view it: https://cloud.example.com/g/v1.sharehash.secret
 OpenCloud - a safe home for all your data
 https://opencloud.eu
 `,
-			expectedHTMLBody: `<!DOCTYPE html>
-<html>
-<body>
-<table cellspacing="0" cellpadding="0" border="0" width="100%">
-    <tr>
-        <td>
-            <table cellspacing="0" cellpadding="0" border="0" width="600px">
-                <tr>
-                    <td width="20px">&nbsp;</td>
-                    <td style="font-weight:normal; font-size:0.8em; line-height:1.2em; font-family:verdana,'arial',sans;">
-                        Hello,
-                        <br><br>
-                        Dr. S. Harer has shared "guest folder" with you.<br><br>The link below is personal and can only be used once. Please do not forward it.<br><br>The link is only valid for 30 minutes.
-                        <br><br>
-                        Click here to view it: <a href="https://cloud.example.com/g/v1.sharehash.secret">https://cloud.example.com/g/v1.sharehash.secret</a>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2">&nbsp;</td>
-                </tr>
-                <tr>
-                    <td width="20px">&nbsp;</td>
-                    <td style="font-weight:normal; font-size:0.8em; line-height:1.2em; font-family:verdana,'arial',sans;">
-                        <footer>
-                            <br>
-                            <br>
-                            --- <br>
-                            OpenCloud - a safe home for all your data<br>
-                            <a href="https://opencloud.eu">https://opencloud.eu</a>
-                        </footer>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2">&nbsp;</td>
-                </tr>
-            </table>
-        </td>
-    </tr>
-</table>
-</body>
-</html>
-`,
+			expectedHTMLParts: []string{
+				`<p style="margin: 0;">Hello,</p>`,
+				`<p style="margin: 12px 0 0;">Dr. S. Harer has shared &#34;guest folder&#34; with you.</p>`,
+				`<p style="margin: 12px 0 0;">The link below is personal and can only be used once. Please do not forward it.</p>`,
+				`>Open link</a>`,
+				`The link is only valid for 30 minutes.</td>`,
+			},
 			expectedSender: sharer.GetDisplayName(),
 			expectedLink:   testOpenCloudURL + "/g/v1.sharehash.secret",
 			done:           make(chan struct{}),
@@ -506,48 +471,11 @@ Click here to view it: https://cloud.example.com/files/shares/with-me
 OpenCloud - a safe home for all your data
 https://opencloud.eu
 `,
-			expectedHTMLBody: `<!DOCTYPE html>
-<html>
-<body>
-<table cellspacing="0" cellpadding="0" border="0" width="100%">
-    <tr>
-        <td>
-            <table cellspacing="0" cellpadding="0" border="0" width="600px">
-                <tr>
-                    <td width="20px">&nbsp;</td>
-                    <td style="font-weight:normal; font-size:0.8em; line-height:1.2em; font-family:verdana,'arial',sans;">
-                        Hello &lt;script&gt;alert(&#39;Eric Expireling&#39;);&lt;/script&gt;
-                        <br><br>
-                        Dr. O&#39;reilly has shared "&lt;script&gt;alert(&#39;secrets of the board&#39;);&lt;/script&gt;" with you.
-                        <br><br>
-                        Click here to view it: <a href="https://cloud.example.com/files/shares/with-me">https://cloud.example.com/files/shares/with-me</a>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2">&nbsp;</td>
-                </tr>
-                <tr>
-                    <td width="20px">&nbsp;</td>
-                    <td style="font-weight:normal; font-size:0.8em; line-height:1.2em; font-family:verdana,'arial',sans;">
-                        <footer>
-                            <br>
-                            <br>
-                            --- <br>
-                            OpenCloud - a safe home for all your data<br>
-                            <a href="https://opencloud.eu">https://opencloud.eu</a>
-                        </footer>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2">&nbsp;</td>
-                </tr>
-            </table>
-        </td>
-    </tr>
-</table>
-</body>
-</html>
-`,
+			expectedHTMLParts: []string{
+				`<p style="margin: 0;">Hello &lt;script&gt;alert(&#39;Eric Expireling&#39;);&lt;/script&gt;</p>`,
+				`<p style="margin: 12px 0 0;">Dr. O&#39;reilly has shared &#34;&lt;script&gt;alert(&#39;secrets of the board&#39;);&lt;/script&gt;&#34; with you.</p>`,
+				`>View shares</a>`,
+			},
 			expectedSender: sharer.GetDisplayName(),
 
 			expectedLink: testOpenCloudURL + "/files/shares/with-me",
@@ -576,48 +504,11 @@ OpenCloud - a safe home for all your data
 https://opencloud.eu
 `,
 			expectedSender: sharer.GetDisplayName(),
-			expectedHTMLBody: `<!DOCTYPE html>
-<html>
-<body>
-<table cellspacing="0" cellpadding="0" border="0" width="100%">
-    <tr>
-        <td>
-            <table cellspacing="0" cellpadding="0" border="0" width="600px">
-                <tr>
-                    <td width="20px">&nbsp;</td>
-                    <td style="font-weight:normal; font-size:0.8em; line-height:1.2em; font-family:verdana,'arial',sans;">
-                        Hello &lt;script&gt;alert(&#39;Eric Expireling&#39;);&lt;/script&gt;,
-                        <br><br>
-                        Dr. O&#39;reilly has invited you to join "&lt;script&gt;alert(&#39;secret space&#39;);&lt;/script&gt;".
-                        <br><br>
-                        Click here to view it: <a href="https://cloud.example.com/f/spaceid">https://cloud.example.com/f/spaceid</a>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2">&nbsp;</td>
-                </tr>
-                <tr>
-                    <td width="20px">&nbsp;</td>
-                    <td style="font-weight:normal; font-size:0.8em; line-height:1.2em; font-family:verdana,'arial',sans;">
-                        <footer>
-                            <br>
-                            <br>
-                            --- <br>
-                            OpenCloud - a safe home for all your data<br>
-                            <a href="https://opencloud.eu">https://opencloud.eu</a>
-                        </footer>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2">&nbsp;</td>
-                </tr>
-            </table>
-        </td>
-    </tr>
-</table>
-</body>
-</html>
-`,
+			expectedHTMLParts: []string{
+				`<p style="margin: 0;">Hello &lt;script&gt;alert(&#39;Eric Expireling&#39;);&lt;/script&gt;,</p>`,
+				`<p style="margin: 12px 0 0;">Dr. O&#39;reilly has invited you to join &#34;&lt;script&gt;alert(&#39;secret space&#39;);&lt;/script&gt;&#34;.</p>`,
+				`>Open space</a>`,
+			},
 			expectedLink: testOpenCloudURL + "/f/spaceid",
 			done:         make(chan struct{}),
 		}, events.Event{
@@ -637,7 +528,7 @@ type testChannel struct {
 	expectedReceipients []string
 	expectedSubject     string
 	expectedTextBody    string
-	expectedHTMLBody    string
+	expectedHTMLParts   []string
 	expectedSender      string
 	// expectedLink, if set, must be an absolute URL on the OpenCloud instance
 	// and must be linked in the HTML body.
@@ -653,13 +544,15 @@ func (tc testChannel) SendMessage(ctx context.Context, m *channels.Message) erro
 	Expect(tc.expectedTextBody).To(Equal(m.TextBody))
 	Expect(tc.expectedSender).To(Equal(m.Sender))
 	Expect(m.HTMLBody).ToNot(BeEmpty())
-	if tc.expectedHTMLBody != "" {
-		Expect(tc.expectedHTMLBody).To(Equal(m.HTMLBody))
+	for _, part := range tc.expectedHTMLParts {
+		Expect(m.HTMLBody).To(ContainSubstring(part))
 	}
+	// user input must never reach the html body unescaped
+	Expect(m.HTMLBody).ToNot(ContainSubstring("<script>"))
 	if tc.expectedLink != "" {
 		Expect(tc.expectedLink).To(HavePrefix(testOpenCloudURL + "/"))
 		Expect(m.TextBody).To(ContainSubstring(tc.expectedLink))
-		Expect(m.HTMLBody).To(ContainSubstring(`<a href="` + tc.expectedLink + `">`))
+		Expect(m.HTMLBody).To(ContainSubstring(`href="` + tc.expectedLink + `"`))
 	}
 	tc.done <- struct{}{}
 	return nil

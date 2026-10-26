@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>{{ .Subject }}</title>
+<style>
+:root { color-scheme: light dark; supported-color-schemes: light dark; }
+@media (prefers-color-scheme: dark) {
+    .oc-bg { background-color: #1d2021 !important; }
+    .oc-card { background-color: #191c1d !important; border-color: #323537 !important; }
+    .oc-text { color: #e1e3e4 !important; }
+    .oc-muted { color: #bfc8cc !important; }
+    .oc-link { color: #5cd5fb !important; }
+    .oc-button { background-color: #5cd5fb !important; }
+    .oc-button-text { color: #003543 !important; }
+    .oc-box { background-color: #272a2c !important; }
+    .oc-dot { background-color: #5cd5fb !important; }
+    .oc-line { background-color: #40484c !important; }
+    .oc-logo-light { display: none !important; }
+    .oc-logo-dark { display: block !important; max-height: none !important; overflow: visible !important; }
+}
+[data-ogsc] .oc-text { color: #e1e3e4 !important; }
+[data-ogsc] .oc-muted { color: #bfc8cc !important; }
+[data-ogsc] .oc-link { color: #5cd5fb !important; }
+[data-ogsc] .oc-button-text { color: #003543 !important; }
+[data-ogsb] .oc-bg { background-color: #1d2021 !important; }
+[data-ogsb] .oc-card { background-color: #191c1d !important; }
+[data-ogsb] .oc-button { background-color: #5cd5fb !important; }
+[data-ogsb] .oc-box { background-color: #272a2c !important; }
+[data-ogsc] .oc-logo-light { display: none !important; }
+[data-ogsc] .oc-logo-dark { display: block !important; max-height: none !important; overflow: visible !important; }
+@media only screen and (max-width: 640px) {
+    .oc-outer { padding: 16px 8px !important; }
+    .oc-pad { padding-left: 24px !important; padding-right: 24px !important; }
+}
+</style>
+</head>
+<body class="oc-bg" style="margin: 0; padding: 0; background-color: #f6f8fa;">
+<table role="presentation" class="oc-bg" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f6f8fa; font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">
+    <tr>
+        <td class="oc-outer" align="center" valign="top" style="padding: 40px 16px 32px;">
+            <table role="presentation" class="oc-card" cellspacing="0" cellpadding="0" border="0" width="600" style="width: 100%; max-width: 600px; background-color: #ffffff; border: 1px solid #eceef0; border-radius: 10.5px;">
+                <tr>
+                    <td class="oc-pad" style="padding: 32px 40px 0;">
+                        <img class="oc-logo-light" src="cid:opencloud-logo.png" width="136" height="38" alt="OpenCloud" style="display: block; width: 136px; height: 38px; border: 0;">
+                        <div class="oc-logo-dark" style="display: none; max-height: 0; overflow: hidden; mso-hide: all;">
+                            <img src="cid:opencloud-logo-dark.png" width="136" height="38" alt="OpenCloud" style="display: block; width: 136px; height: 38px; border: 0;">
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="oc-pad" style="padding: 32px 40px 0;">
+                        <h1 class="oc-text" style="margin: 0; font-size: 21px; line-height: 28px; font-weight: 700; color: #191c1d;">{{ .Subject }}</h1>
+                    </td>
+                </tr>
+{{ block "content" . }}{{ end }}
+            </table>
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="width: 100%; max-width: 600px;">
+                <tr>
+                    <td class="oc-pad oc-muted" style="padding: 24px 40px 0; font-size: 12.25px; line-height: 17.5px; color: #40484c;">
+                        OpenCloud - a safe home for all your data<br>
+                        <a class="oc-link" href="https://opencloud.eu" style="color: #00677f;">opencloud.eu</a>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>

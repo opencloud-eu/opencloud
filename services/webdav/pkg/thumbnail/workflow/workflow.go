@@ -62,10 +62,10 @@ type SpaceLookup interface {
 // UserResolver resolves users for path-only thumbnail requests. WhoAmI maps an
 // auth token to its user (used for /webdav/... where the URL carries no
 // username); GetUserByClaim maps a username from /dav/files/{user}/... to its
-// user.
+// user, looked up as the requester, whose tenant the user provider searches.
 type UserResolver interface {
 	WhoAmI(ctx context.Context, auth string) (*userv1beta1.User, error)
-	GetUserByClaim(ctx context.Context, claim, value string) (*userv1beta1.User, error)
+	GetUserByClaim(ctx context.Context, claim, value, auth string) (*userv1beta1.User, error)
 }
 
 // ErrFileProcessing is returned when the file is still being processed by the
@@ -394,7 +394,7 @@ func (w *ThumbnailWorkflow) absolutizeUserPath(ctx context.Context, p, identifie
 	)
 	if identifier != "" {
 		// /dav/files/{user}/...: honor the username from the URL.
-		user, err = w.userResolver.GetUserByClaim(ctx, "username", identifier)
+		user, err = w.userResolver.GetUserByClaim(ctx, "username", identifier, auth)
 	} else {
 		// /webdav/...: resolve the token owner.
 		user, err = w.userResolver.WhoAmI(ctx, auth)
@@ -709,11 +709,13 @@ func (g *gatewayUserResolver) WhoAmI(ctx context.Context, auth string) (*userv1b
 	return userRes.GetUser(), nil
 }
 
-func (g *gatewayUserResolver) GetUserByClaim(ctx context.Context, claim, value string) (*userv1beta1.User, error) {
+func (g *gatewayUserResolver) GetUserByClaim(ctx context.Context, claim, value, auth string) (*userv1beta1.User, error) {
 	client, err := g.selector.Next()
 	if err != nil {
 		return nil, fmt.Errorf("get gateway client: %w", err)
 	}
+
+	ctx = grpcmetadata.AppendToOutgoingContext(ctx, revactx.TokenHeader, auth)
 
 	userRes, err := client.GetUserByClaim(ctx, &userv1beta1.GetUserByClaimRequest{Claim: claim, Value: value})
 	if err != nil {

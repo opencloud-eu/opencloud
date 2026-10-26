@@ -10,7 +10,7 @@ Currently, the webdav service handles request for two functionalities, which are
 
 The webdav service provides various `GET` endpoints to get the thumbnails of a file in authenticated and unauthenticated contexts. It also provides thumbnails for spaces on different endpoints.
 
-Generated thumbnails are cached by the webdav service itself. The cache backend defaults to `file`, storing entries under `$OC_BASE_DATA_PATH/thumbnails/files` (override with `WEBDAV_THUMBNAILS_CACHE_BACKEND` and `WEBDAV_THUMBNAILS_CACHE_DIR`). Use the `s3` backend when running multiple instances behind a load balancer so they share one cache. A backend nobody can serve, an unknown name or an `s3` backend without bucket, region and credentials, fails at startup instead of serving without a cache, as long as previews are enabled. A service that is not AWS needs `WEBDAV_THUMBNAILS_CACHE_S3_ENDPOINT` too, and it is always addressed over https. The `memory` backend is bounded and drops its oldest entries; `none` disables caching on purpose.
+Generated thumbnails are cached by the webdav service itself. The cache backend defaults to `file`, storing entries under `$OC_BASE_DATA_PATH/thumbnails/cache` (override with `WEBDAV_THUMBNAILS_CACHE_BACKEND` and `WEBDAV_THUMBNAILS_CACHE_DIR`). Use the `s3` backend when running multiple instances behind a load balancer so they share one cache. A backend nobody can serve, an unknown name or an `s3` backend without bucket, region and credentials, fails at startup instead of serving without a cache, as long as previews are enabled. A service that is not AWS needs `WEBDAV_THUMBNAILS_CACHE_S3_ENDPOINT` too, and it is always addressed over https. The `memory` backend is bounded and drops its oldest entries; `none` disables caching on purpose.
 
 #### Thumbnail Query String Parameters
 
@@ -37,7 +37,7 @@ Example with the default ladder (16, 32, 64, 128, 192, 256, 320, 384, 448, 512, 
 Requested: 18x12\
 Returned: 32x16
 
-Entries written as `WidthxHeight` are still accepted and contribute both of their sides to the ladder, so a configuration written for the old box list keeps working.
+Entries written as `WidthxHeight` are still accepted and contribute both of their sides to the ladder, each capped at 2048, the largest box the built-in generator accepts by default. A configuration written for the old box list, which reached 7680x4320, keeps working that way. A larger length has to be a plain one, with the generator's `THUMBNAILS_MAX_OUTPUT_WIDTH` and `THUMBNAILS_MAX_OUTPUT_HEIGHT` raised to match.
 
 Rounding onto the ladder is also what the cache is keyed on, so requests that produce the same image share one entry.
 

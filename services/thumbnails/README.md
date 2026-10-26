@@ -45,7 +45,9 @@ on that same header.
 
 A side given as `0` is computed from the other one, so `/unsafe/0x100/` keeps the
 aspect ratio and `/unsafe/0x0/` returns the source at its own size. A free axis
-leaves nothing to crop to, so the operation makes no difference to it.
+leaves nothing to crop to, so the operation makes no difference to it. The box it
+resolves to is held to `THUMBNAILS_MAX_OUTPUT_*` like any other, and a larger one
+is refused with `422`.
 
 Like real imagor, the default fill resize **upscales** small sources to fill
 the box exactly (a 100x100 source requested at `320x320` returns a 320x320

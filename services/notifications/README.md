@@ -6,7 +6,7 @@ The notification service is responsible for sending emails to users informing th
 
 The `notifications` service has embedded email text and html body templates.
 
-Email templates can use the placeholders `{{ .Greeting }}`, `{{ .MessageBody }}` and `{{ .CallToAction }}` which are replaced with translations when sent, see the [Translations](#translations) section for more details. Though the email subject is also part of translations, it has no placeholder as it is a mandatory email component.
+The text template can use the placeholders `{{ .Greeting }}`, `{{ .MessageBody }}` and `{{ .CallToAction }}` which are replaced with translations when sent, see the [Translations](#translations) section for more details. Though the email subject is also part of translations, it has no placeholder as it is a mandatory email component.
 
 Depending on the email purpose, placeholders will contain different strings. An individual translatable string is available for each purpose, finally resolved by the placeholder. The embedded templates are available for all deployment scenarios.
 
@@ -17,33 +17,89 @@ template
 final output
 ```
 
-In addition, the notifications service supports custom templates. Custom email templates take precedence over the embedded ones. If a custom email template exists, the embedded templates are not used. To configure custom email templates, the `NOTIFICATIONS_EMAIL_TEMPLATE_PATH` environment variable needs to point to a base folder that will contain the email templates and follow the [templates subfolder hierarchy](#templates-subfolder-hierarchy).This path must be available from all instances of the notifications service, a shared storage is recommended.
+### HTML Templates
+
+The html emails are built from a parent template and two child templates:
+
+- `layout.html.tmpl` holds everything all emails share: the logo, the heading,
+  the card around the content, the footer and the styles for dark mode. The
+  children fill its `content` block.
+- `message.html.tmpl` is the content of all emails about a single event.
+- `digest.html.tmpl` is the content of the grouped daily and weekly emails, a
+  timeline of the events.
+
+The html templates get these values:
+
+| Value | Content |
+| --- | --- |
+| `{{ .Subject }}` | The translated subject, shown as the heading. |
+| `{{ .Greeting }}` | The translated greeting. |
+| `{{ .Paragraphs }}` | The paragraphs of the message shown before the button. Each has a `.Kind` (`text`, `hint` or `code`) and its `.Lines`; a `code` paragraph has a `.Label` and a `.Value` instead, such as the PIN of a guest link. |
+| `{{ .ActionLabel }}`, `{{ .ActionLink }}` | The label and the link of the button, empty if the email has no button. |
+| `{{ .FallbackLinkLabel }}` | The text in front of the plain link below the button. |
+| `{{ .Notes }}` | The paragraphs shown in small print below the button. |
+| `{{ .Entries }}` | The events of a grouped email, each with a `.Time` in UTC, its `.Paragraphs` and `.Last` for the last event. In the paragraphs, the name of the shared resource or space is a link to it. |
+| `{{ .MessageBody }}`, `{{ .CallToAction }}` | Only for custom folders with the legacy `email.html.tmpl`: the whole message and the call to action as html. In a grouped email, `{{ .MessageBody }}` holds all events, each with its call to action. |
+
+All values are plain text, `html/template` escapes them. A paragraph is a
+list of lines, and a line is a list of segments with a `.Text` and, for a
+link, a `.Href`. Both child templates define a `lines` template that renders
+them, with a `<br>` between the lines. A custom child template needs to
+define it as well:
+
+```text
+{{ define "lines" }}
+{{- range $i, $line := . }}{{ if $i }}<br>{{ end }}
+{{- range $line }}
+{{- if .Href }}<a href="{{ .Href }}">{{ .Text }}</a>
+{{- else }}{{ .Text }}{{ end }}
+{{- end }}
+{{- end }}
+{{- end }}
+```
+
+The emails show the OpenCloud logo as an inline image, `opencloud-logo.png` in the light and `opencloud-logo-dark.png` in the dark mode of mail clients that support it.
+
+### Custom Templates
+
+The notifications service supports custom templates. Custom email templates take precedence over the embedded ones. If a custom email template exists, the embedded templates are not used. To configure custom email templates, the `NOTIFICATIONS_EMAIL_TEMPLATE_PATH` environment variable needs to point to a base folder that will contain the email templates and follow the [templates subfolder hierarchy](#templates-subfolder-hierarchy).This path must be available from all instances of the notifications service, a shared storage is recommended.
 ```text
 {NOTIFICATIONS_EMAIL_TEMPLATE_PATH}/templates/text/email.text.tmpl
-{NOTIFICATIONS_EMAIL_TEMPLATE_PATH}/templates/html/email.html.tmpl
+{NOTIFICATIONS_EMAIL_TEMPLATE_PATH}/templates/html/layout.html.tmpl
+{NOTIFICATIONS_EMAIL_TEMPLATE_PATH}/templates/html/message.html.tmpl
+{NOTIFICATIONS_EMAIL_TEMPLATE_PATH}/templates/html/digest.html.tmpl
 {NOTIFICATIONS_EMAIL_TEMPLATE_PATH}/templates/html/img/
 ```
 The source templates provided by OpenCloud you can derive from are located in the following base folder [https://github.com/opencloud-eu/opencloud/tree/main/services/notifications/pkg/email/templates](https://github.com/opencloud-eu/opencloud/tree/main/services/notifications/pkg/email/templates) with subfolders `templates/text` and `templates/html`.
 
 -   [text/email.text.tmpl](https://github.com/opencloud-eu/opencloud/blob/main/services/notifications/pkg/email/templates/text/email.text.tmpl)
--   [html/email.html.tmpl](https://github.com/opencloud-eu/opencloud/blob/main/services/notifications/pkg/email/templates/html/email.html.tmpl)
+-   [html/layout.html.tmpl](https://github.com/opencloud-eu/opencloud/blob/main/services/notifications/pkg/email/templates/html/layout.html.tmpl)
+-   [html/message.html.tmpl](https://github.com/opencloud-eu/opencloud/blob/main/services/notifications/pkg/email/templates/html/message.html.tmpl)
+-   [html/digest.html.tmpl](https://github.com/opencloud-eu/opencloud/blob/main/services/notifications/pkg/email/templates/html/digest.html.tmpl)
+
+To only change the look shared by all emails, such as the logo or the colors, a custom `layout.html.tmpl` is enough, but the custom folder still needs all three html templates.
+
+A custom folder made for earlier versions, with a single `templates/html/email.html.tmpl` and no `layout.html.tmpl`, keeps working: the notifications service then uses `email.html.tmpl` with the `{{ .Greeting }}`, `{{ .MessageBody }}` and `{{ .CallToAction }}` placeholders for all html emails.
 
 ### Templates subfolder hierarchy
 ```text
 templates
 │
 └───html
-│   │   email.html.tmpl
+│   │   layout.html.tmpl
+│   │   message.html.tmpl
+│   │   digest.html.tmpl
 │   │
 │   └───img
-│       │   logo-mail.gif
+│       │   opencloud-logo.png
+│       │   opencloud-logo-dark.png
 │
 └───text
     │   email.text.tmpl
 ```
 
 Custom email templates referenced via `NOTIFICATIONS_EMAIL_TEMPLATE_PATH` must also be located in subfolder `templates/text` and `templates/html` and must have the same names as the embedded templates. It is important that the names of these files and folders match the embedded ones.
-The `templates/html` subfolder contains a default HTML template provided by OpenCloud. When using a custom HTML template, hosted images can either be linked with standard HTML code like ```<img src="https://raw.githubusercontent.com/opencloud-eu/opencloud/master/opencloud/img/logo-mail.gif" alt="logo-mail"/>``` or embedded as a CID source ```<img src="cid:logo-mail.gif" alt="logo-mail"/>```. In the latter case, image files must be located in the `templates/html/img` subfolder. Supported embedded image types are png, jpeg, and gif.
+When using a custom HTML template, hosted images can either be linked with standard HTML code like ```<img src="https://raw.githubusercontent.com/opencloud-eu/opencloud/master/opencloud/img/logo-mail.gif" alt="logo-mail"/>``` or embedded as a CID source ```<img src="cid:logo-mail.gif" alt="logo-mail"/>```. In the latter case, image files must be located in the `templates/html/img` subfolder. Supported embedded image types are png, jpeg, and gif.
 Consider that embedding images via a CID resource may not be fully supported in all email web clients.
 
 ## Sending Grouped Emails
@@ -55,6 +111,8 @@ Grouped events are stored for the TTL defined in `OC_PERSISTENT_STORE_TTL`. This
 Grouped events that have passed the TTL are removed automatically without further notice or sending!
 
 To initiate sending grouped emails like via a cron job, use the `opencloud notifications send-email` command. Note that the command mandatory requires at least one option which is `--daily` or `--weekly`. Note that both options can be used together.
+
+A grouped email has the subject "Your daily notifications" or "Your weekly notifications". The html email shows the events as a timeline, oldest first, each with the time of the event in UTC, as the notifications service does not know the time zone of the recipient. Where an event has a link, the name of the shared resource or space is the link. The text email lists the events with their call to action.
 
 ### Storing
 

@@ -138,7 +138,10 @@ func resizeSourceImaging(src *imagingSource, req resizeRequest) (image.Image, er
 	srcBounds := img.Bounds()
 
 	if req.Width == 0 || req.Height == 0 {
-		boxW, boxH, resize := autoAxis(srcBounds.Dx(), srcBounds.Dy(), req.Width, req.Height)
+		boxW, boxH, resize, err := req.freeAxis(srcBounds.Dx(), srcBounds.Dy())
+		if err != nil {
+			return nil, err
+		}
 		if !resize {
 			return img, nil
 		}
