@@ -248,5 +248,5 @@ type Events struct {
 
 // GuestLinkAuth configures the guest-link cookie authentication flow.
 type GuestLinkAuth struct {
-	CookieName string `yaml:"cookie_name" env:"PROXY_GUEST_LINK_COOKIE_NAME" desc:"The name of the guest-session cookie. Defaults to __Host-opencloud-guest." introductionVersion:"%%NEXT%%"`
+	CookieName string `yaml:"cookie_name" env:"PROXY_GUEST_LINK_COOKIE_NAME" desc:"The name of the guest-session cookie. Defaults to __Host-opencloud-guest." introductionVersion:"9.0.0"`
 }

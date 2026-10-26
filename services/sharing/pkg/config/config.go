@@ -102,7 +102,7 @@ type UserSharingJSONCS3Driver struct {
 	SystemUserAPIKey string `yaml:"system_user_api_key" env:"OC_SYSTEM_USER_API_KEY;SHARING_USER_JSONCS3_SYSTEM_USER_API_KEY" desc:"API key for the STORAGE-SYSTEM system user." introductionVersion:"1.0.0"`
 	CacheTTL         int    `yaml:"cache_ttl" env:"SHARING_USER_JSONCS3_CACHE_TTL" desc:"TTL for the internal caches in seconds." introductionVersion:"1.0.0"`
 	MaxConcurrency   int    `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;SHARING_USER_JSONCS3_MAX_CONCURRENCY" desc:"Maximum number of concurrent go-routines. Higher values can potentially get work done faster but will also cause more load on the system. Values of 0 or below will be ignored and the default value will be used." introductionVersion:"1.0.0"`
-	SkipMigrations   bool   `yaml:"skip_migrations" env:"SHARING_USER_JSONCS3_SKIP_MIGRATIONS" desc:"Do not run the share manager data migrations on startup. Only meant for test environments, skipped migrations are not applied later." introductionVersion:"%%NEXT%%"`
+	SkipMigrations   bool   `yaml:"skip_migrations" env:"SHARING_USER_JSONCS3_SKIP_MIGRATIONS" desc:"Do not run the share manager data migrations on startup. Only meant for test environments, skipped migrations are not applied later." introductionVersion:"9.0.0"`
 }
 
 // ServiceAccount is the configuration for the used service account

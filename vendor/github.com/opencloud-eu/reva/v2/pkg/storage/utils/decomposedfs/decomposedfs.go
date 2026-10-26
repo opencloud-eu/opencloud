@@ -840,7 +840,12 @@ func (fs *Decomposedfs) TouchFile(ctx context.Context, ref *provider.Reference, 
 		return errtypes.InternalError(err.Error())
 	}
 
-	rp, err := fs.p.AssemblePermissions(ctx, n)
+	// new file: check write permission on parent, not the not-yet-existing node
+	permNode := n
+	if !n.Exists {
+		permNode = parent
+	}
+	rp, err := fs.p.AssemblePermissions(ctx, permNode)
 	switch {
 	case err != nil:
 		return err

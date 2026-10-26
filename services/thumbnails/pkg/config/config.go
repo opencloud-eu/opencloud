@@ -32,15 +32,15 @@ type Config struct {
 // webdav decides what size is asked for.
 type Thumbnail struct {
 	MaxInputWidth   int `yaml:"max_input_width" env:"THUMBNAILS_MAX_INPUT_WIDTH" desc:"The maximum width of an input image which is being processed." introductionVersion:"1.0.0"`
-	MaxOutputWidth  int `yaml:"max_output_width" env:"THUMBNAILS_MAX_OUTPUT_WIDTH" desc:"The maximum width of a thumbnail that may be asked for. A larger box is refused with HTTP 422. webdav never asks for more than its largest configured resolution, so this bounds everything else that reaches the endpoint." introductionVersion:"%%NEXT%%"`
-	MaxOutputHeight int `yaml:"max_output_height" env:"THUMBNAILS_MAX_OUTPUT_HEIGHT" desc:"The maximum height of a thumbnail that may be asked for." introductionVersion:"%%NEXT%%"`
+	MaxOutputWidth  int `yaml:"max_output_width" env:"THUMBNAILS_MAX_OUTPUT_WIDTH" desc:"The maximum width of a thumbnail that may be asked for. A larger box is refused with HTTP 422. webdav never asks for more than its largest configured resolution, so this bounds everything else that reaches the endpoint." introductionVersion:"9.0.0"`
+	MaxOutputHeight int `yaml:"max_output_height" env:"THUMBNAILS_MAX_OUTPUT_HEIGHT" desc:"The maximum height of a thumbnail that may be asked for." introductionVersion:"9.0.0"`
 	MaxInputHeight  int `yaml:"max_input_height" env:"THUMBNAILS_MAX_INPUT_HEIGHT" desc:"The maximum height of an input image which is being processed." introductionVersion:"1.0.0"`
 	// 0 (the default) means unlimited; a request arriving while the limit is
 	// reached gets HTTP 429 with a Retry-After.
-	MaxConcurrentRequests int    `yaml:"max_concurrent_requests" env:"THUMBNAILS_MAX_CONCURRENT_REQUESTS" desc:"Maximum number of concurrent thumbnail generation requests. Default is 0 which is unlimited." introductionVersion:"%%NEXT%%"`
+	MaxConcurrentRequests int    `yaml:"max_concurrent_requests" env:"THUMBNAILS_MAX_CONCURRENT_REQUESTS" desc:"Maximum number of concurrent thumbnail generation requests. Default is 0 which is unlimited." introductionVersion:"9.0.0"`
 	MaxInputImageFileSize string `yaml:"max_input_image_file_size" env:"OC_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE;THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE" desc:"The maximum size of an image posted to the generator. Usable common abbreviations: [KB, KiB, MB, MiB, GB, GiB], example: 50MB. An empty value means unlimited." introductionVersion:"1.0.0"`
 	// together with the resolution limits this bounds the memory one request can ask for
-	MaxAnimationFrames int `yaml:"max_animation_frames" env:"THUMBNAILS_MAX_ANIMATION_FRAMES" desc:"The maximum number of frames an animated image may have. A file with more frames is refused before any of them is decoded. Default is 100, 0 is unlimited." introductionVersion:"%%NEXT%%"`
+	MaxAnimationFrames int `yaml:"max_animation_frames" env:"THUMBNAILS_MAX_ANIMATION_FRAMES" desc:"The maximum number of frames an animated image may have. A file with more frames is refused before any of them is decoded. Default is 100, 0 is unlimited." introductionVersion:"9.0.0"`
 }
 
 // MaxInputBytes is the configured maximum size of a posted image, 0 for unlimited.

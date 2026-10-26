@@ -888,7 +888,12 @@ func (fs *Decomposedfs) TouchFile(ctx context.Context, ref *provider.Reference, 
 		return errtypes.InternalError(err.Error())
 	}
 
-	rp, err := fs.p.AssemblePermissions(ctx, n)
+	// new file: check write permission on parent, not the not-yet-existing node
+	permNode := n
+	if !n.Exists {
+		permNode = parent
+	}
+	rp, err := fs.p.AssemblePermissions(ctx, permNode)
 	switch {
 	case err != nil:
 		return err
@@ -943,6 +948,12 @@ func (fs *Decomposedfs) Move(ctx context.Context, oldRef, newRef *provider.Refer
 			return nil, errtypes.PermissionDenied(f)
 		}
 		return nil, errtypes.NotFound(f)
+	}
+	parentAllowsMove := func(parentPerms *provider.ResourcePermissions) bool {
+		return parentPerms.GetMove()
+	}
+	if err := fs.checkParentPermission(ctx, oldNode, oldRef, parentAllowsMove); err != nil {
+		return nil, err
 	}
 
 	if newNode, err = fs.lu.NodeFromResource(ctx, newRef); err != nil {
@@ -1216,6 +1227,12 @@ func (fs *Decomposedfs) Delete(ctx context.Context, ref *provider.Reference) (er
 			return errtypes.PermissionDenied(f)
 		}
 		return errtypes.NotFound(f)
+	}
+	parentAllowsDelete := func(parentPerms *provider.ResourcePermissions) bool {
+		return parentPerms.GetDelete()
+	}
+	if err := fs.checkParentPermission(ctx, node, ref, parentAllowsDelete); err != nil {
+		return err
 	}
 
 	// Set space owner in context
@@ -1562,6 +1579,28 @@ func (fs *Decomposedfs) EmptyRecycle(ctx context.Context, space *provider.Refere
 		return errtypes.NotFound(spaceID)
 	}
 	return fs.trashbin.EmptyRecycle(ctx, spaceID)
+}
+
+// checkParentPermission checks the permission to take n out of its parent, by
+// deleting or moving it. A grant on n itself, like a share, does not allow
+// that, the permission has to come from the parent or above.
+func (fs *Decomposedfs) checkParentPermission(ctx context.Context, n *node.Node, ref *provider.Reference, allowed func(*provider.ResourcePermissions) bool) error {
+	if n.IsSpaceRoot(ctx) {
+		return nil
+	}
+	parent, err := n.Parent(ctx)
+	if err != nil {
+		return err
+	}
+	pp, err := fs.p.AssemblePermissions(ctx, parent)
+	if err != nil {
+		return err
+	}
+	if !allowed(pp) {
+		f, _ := storagespace.FormatReference(ref)
+		return errtypes.PermissionDenied(f)
+	}
+	return nil
 }
 
 func (fs *Decomposedfs) getNodePath(ctx context.Context, n *node.Node, perms *provider.ResourcePermissions) (string, error) {

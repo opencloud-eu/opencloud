@@ -78,27 +78,47 @@ func (um *UnixMapper) ScopeUser(ctx context.Context) (func() error, error) {
 
 // ScopeUserByIds scopes the current user to the given uid and gid returning a function that can be used to restore the previous scope
 func (um *UnixMapper) ScopeUserByIds(uid, gid int) (func() error, error) {
-	runtime.LockOSThread() // Lock this Goroutine to the current OS thread
+	// The fsuid and the fsgid belong to the OS thread, not to the goroutine: lock the goroutine to
+	// its thread, so that it keeps running with them, and no other goroutine runs on the thread
+	// with them, until the returned function restores them and unlocks it again.
+	runtime.LockOSThread()
 
 	var err error
 	var prevUid int
 	var prevGid int
+	uidSwitched := false
+	// fail restores the fsuid if it was switched already, and unlocks the goroutine from its
+	// thread again: on an error, the caller gets no function to restore the previous scope, so
+	// without this, the goroutine would stay locked to its thread for good. That matters for
+	// long-lived goroutines, e.g. background workers that switch for every item they process:
+	// they would stay pinned to their thread after a single failure, with one more lock nested
+	// for every further one.
+	fail := func(err error) (func() error, error) {
+		if uidSwitched {
+			_ = unix.Setfsuid(prevUid)
+		}
+		runtime.UnlockOSThread()
+		return nil, err
+	}
 	if uid >= 0 {
 		prevUid, err = unix.SetfsuidRetUid(uid)
 		if err != nil {
-			return nil, err
+			return fail(err)
 		}
+		uidSwitched = true
 		if testUid, _ := unix.SetfsuidRetUid(-1); testUid != uid {
-			return nil, fmt.Errorf("failed to setfsuid to %d", uid)
+			return fail(fmt.Errorf("failed to setfsuid to %d", uid))
 		}
 	}
 	if gid >= 0 {
 		prevGid, err = unix.SetfsgidRetGid(gid)
 		if err != nil {
-			return nil, err
+			return fail(err)
 		}
 		if testGid, _ := unix.SetfsgidRetGid(-1); testGid != gid {
-			return nil, fmt.Errorf("failed to setfsgid to %d", gid)
+			// the kernel refused it, setting it back only makes sure
+			_ = unix.Setfsgid(prevGid)
+			return fail(fmt.Errorf("failed to setfsgid to %d", gid))
 		}
 	}
 
@@ -109,6 +129,7 @@ func (um *UnixMapper) ScopeUserByIds(uid, gid int) (func() error, error) {
 		if gid >= 0 {
 			_ = unix.Setfsgid(prevGid)
 		}
+		// undo the runtime.LockOSThread above, the thread has its previous fsuid and fsgid again
 		runtime.UnlockOSThread()
 		return nil
 	}, nil

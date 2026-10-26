@@ -53,7 +53,7 @@ type Config struct {
 type Spaces struct {
 	WebDavBase                      string `yaml:"webdav_base" env:"OC_URL;GRAPH_SPACES_WEBDAV_BASE" desc:"The public facing URL of WebDAV." introductionVersion:"1.0.0"`
 	WebDavPath                      string `yaml:"webdav_path" env:"GRAPH_SPACES_WEBDAV_PATH" desc:"The WebDAV sub-path for spaces." introductionVersion:"1.0.0"`
-	DefaultQuota                    string `yaml:"default_quota" env:"OC_SPACES_DEFAULT_QUOTA;GRAPH_SPACES_DEFAULT_QUOTA" desc:"The default quota in bytes." introductionVersion:"1.0.0" deprecationVersion:"%%NEXT%%" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"GRAPH_SPACES_DEFAULT_QUOTA is deprecated and will be removed in a future version. Please use OC_SPACES_DEFAULT_QUOTA instead." deprecationReplacement:"OC_SPACES_DEFAULT_QUOTA"`
+	DefaultQuota                    string `yaml:"default_quota" env:"OC_SPACES_DEFAULT_QUOTA;GRAPH_SPACES_DEFAULT_QUOTA" desc:"The default quota in bytes." introductionVersion:"1.0.0" deprecationVersion:"9.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"GRAPH_SPACES_DEFAULT_QUOTA is deprecated and will be removed in a future version. Please use OC_SPACES_DEFAULT_QUOTA instead." deprecationReplacement:"OC_SPACES_DEFAULT_QUOTA"`
 	ExtendedSpacePropertiesCacheTTL int    `yaml:"extended_space_properties_cache_ttl" env:"GRAPH_SPACES_EXTENDED_SPACE_PROPERTIES_CACHE_TTL" desc:"Max TTL in seconds for the spaces property cache." introductionVersion:"1.0.0"`
 	UsersCacheTTL                   int    `yaml:"users_cache_ttl" env:"GRAPH_SPACES_USERS_CACHE_TTL" desc:"Max TTL in seconds for the spaces users cache." introductionVersion:"1.0.0"`
 	GroupsCacheTTL                  int    `yaml:"groups_cache_ttl" env:"GRAPH_SPACES_GROUPS_CACHE_TTL" desc:"Max TTL in seconds for the spaces groups cache." introductionVersion:"1.0.0"`
@@ -213,5 +213,5 @@ type Store struct {
 // Thumbnails is what this service announces a preview for. The names match the
 // ones the webdav service uses for the same list.
 type Thumbnails struct {
-	AdditionalSourceTypes []string `yaml:"additional_source_types" env:"OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES;GRAPH_THUMBNAILS_ADDITIONAL_SOURCE_TYPES" desc:"Additional mime types a preview is announced for, the same list the webdav service attempts previews for. The types the build ships are included; this only adds to them." introductionVersion:"%%NEXT%%"`
+	AdditionalSourceTypes []string `yaml:"additional_source_types" env:"OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES;GRAPH_THUMBNAILS_ADDITIONAL_SOURCE_TYPES" desc:"Additional mime types a preview is announced for, the same list the webdav service attempts previews for. The types the build ships are included; this only adds to them." introductionVersion:"9.0.0"`
 }
