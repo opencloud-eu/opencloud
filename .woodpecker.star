@@ -8,7 +8,7 @@ docker_repo_slug = "opencloudeu/opencloud"
 
 # images
 ALPINE_GIT = "alpine/git:latest"
-APACHE_TIKA = "apache/tika:4.1.0-full"
+APACHE_TIKA = "apache/tika:4.2.1-SNAPSHOT"
 CHKO_DOCKER_PUSHRM = "chko/docker-pushrm:1"
 CODACY_COVERAGE_REPORTER = "codacy/codacy-coverage-reporter:14.1.3"
 COLLABORA_CODE = "collabora/code:24.04.5.1.1"
@@ -1523,6 +1523,8 @@ def e2eTestPipeline(ctx):
         "OC_SHOW_USER_EMAIL_IN_RESULTS": True,
         # Needed for enabling all roles
         "GRAPH_AVAILABLE_ROLES": "%s" % GRAPH_AVAILABLE_ROLES,
+        # keep the indexed content as written, the e2e tests check the found content in the search
+        "SEARCH_EXTRACTOR_TIKA_CLEAN_STOP_WORDS": False,
     }
 
     e2e_trigger = [
@@ -1676,6 +1678,8 @@ def multiServiceE2ePipeline(ctx):
         "OC_SHOW_USER_EMAIL_IN_RESULTS": True,
         # Needed for enabling all roles
         "GRAPH_AVAILABLE_ROLES": "%s" % GRAPH_AVAILABLE_ROLES,
+        # keep the indexed content as written, the e2e tests check the found content in the search
+        "SEARCH_EXTRACTOR_TIKA_CLEAN_STOP_WORDS": False,
     }
 
     storage_users_environment = {
