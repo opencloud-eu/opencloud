@@ -1,6 +1,8 @@
 package revaconfig
 
 import (
+	"bytes"
+	"encoding/base64"
 	"testing"
 
 	"github.com/test-go/testify/require"
@@ -25,4 +27,14 @@ func TestMetadataPrefixReachesAllDrivers(t *testing.T) {
 	} {
 		require.Equal(t, "user.foreign.", driver["metadata_prefix"], name)
 	}
+}
+
+func TestSSECKeyReachesS3Drivers(t *testing.T) {
+	key := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{42}, 32))
+	t.Setenv("STORAGE_USERS_DECOMPOSEDS3_SSE_C_KEY", key)
+	cfg := defaults.FullDefaultConfig()
+	cfg.Commons = &shared.Commons{GRPCClientTLS: &shared.GRPCClientTLS{}}
+	require.NoError(t, envdecode.Decode(cfg))
+	require.Equal(t, key, DecomposedS3(cfg)["s3.sse_c_key"])
+	require.Equal(t, key, DecomposedS3NoEvents(cfg)["s3.sse_c_key"])
 }

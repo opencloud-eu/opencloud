@@ -29,14 +29,17 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/minio/minio-go/v7/pkg/encrypt"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/lookup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/node"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/s3utils"
 	"github.com/pkg/errors"
 )
 
 // Blobstore provides an interface to an s3 compatible blobstore
 type Blobstore struct {
-	client *minio.Client
+	client     *minio.Client
+	encryption encrypt.ServerSide
 
 	defaultPutOptions Options
 
@@ -53,12 +56,17 @@ type Options struct {
 }
 
 // New returns a new Blobstore
-func New(endpoint, region, bucket, accessKey, secretKey string, defaultPutOptions Options) (*Blobstore, error) {
+// ssecKey is an optional base64-encoded 32-byte customer encryption key.
+func New(endpoint, region, bucket, accessKey, secretKey, ssecKey string, defaultPutOptions Options) (*Blobstore, error) {
 	u, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse s3 endpoint")
 	}
 
+	encryption, err := s3utils.NewSSEC(ssecKey, u.Scheme == "https")
+	if err != nil {
+		return nil, err
+	}
 	useSSL := u.Scheme != "http"
 	client, err := minio.New(u.Host, &minio.Options{
 		Region: region,
@@ -71,6 +79,7 @@ func New(endpoint, region, bucket, accessKey, secretKey string, defaultPutOption
 
 	return &Blobstore{
 		client:            client,
+		encryption:        encryption,
 		bucket:            bucket,
 		defaultPutOptions: defaultPutOptions,
 	}, nil
@@ -87,6 +96,7 @@ func (bs *Blobstore) Upload(node *node.Node, source string) error {
 
 	_, err = bs.client.PutObject(context.Background(), bs.bucket, bs.Path(node), reader, node.Blobsize, minio.PutObjectOptions{
 		ContentType:           "application/octet-stream",
+		ServerSideEncryption:  bs.encryption,
 		SendContentMd5:        bs.defaultPutOptions.SendContentMd5,
 		ConcurrentStreamParts: bs.defaultPutOptions.ConcurrentStreamParts,
 		NumThreads:            bs.defaultPutOptions.NumThreads,
@@ -105,6 +115,7 @@ func (bs *Blobstore) Upload(node *node.Node, source string) error {
 func (bs *Blobstore) UploadFromReader(node *node.Node, r io.Reader, size int64) error {
 	_, err := bs.client.PutObject(context.Background(), bs.bucket, bs.Path(node), r, size, minio.PutObjectOptions{
 		ContentType:           "application/octet-stream",
+		ServerSideEncryption:  bs.encryption,
 		SendContentMd5:        bs.defaultPutOptions.SendContentMd5,
 		ConcurrentStreamParts: bs.defaultPutOptions.ConcurrentStreamParts,
 		NumThreads:            bs.defaultPutOptions.NumThreads,
@@ -120,17 +131,19 @@ func (bs *Blobstore) UploadFromReader(node *node.Node, r io.Reader, size int64) 
 
 // Download retrieves a blob from the blobstore for reading
 func (bs *Blobstore) Download(node *node.Node) (io.ReadCloser, error) {
-	reader, err := bs.client.GetObject(context.Background(), bs.bucket, bs.Path(node), minio.GetObjectOptions{})
+	reader, err := bs.client.GetObject(context.Background(), bs.bucket, bs.Path(node), minio.GetObjectOptions{ServerSideEncryption: bs.encryption})
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not download object '%s' from bucket '%s'", bs.Path(node), bs.bucket)
 	}
 
 	stat, err := reader.Stat()
 	if err != nil {
+		reader.Close()
 		return nil, errors.Wrapf(err, "blob path: %s", bs.Path(node))
 	}
 
 	if node.Blobsize != stat.Size {
+		reader.Close()
 		return nil, fmt.Errorf("blob has unexpected size. %d bytes expected, got %d bytes", node.Blobsize, stat.Size)
 	}
 

@@ -60,6 +60,7 @@ func PurgeRevisionsCommand(cfg *config.Config) *cobra.Command {
 					cfg.StorageUsers.Drivers.DecomposedS3.Bucket,
 					cfg.StorageUsers.Drivers.DecomposedS3.AccessKey,
 					cfg.StorageUsers.Drivers.DecomposedS3.SecretKey,
+					cfg.StorageUsers.Drivers.DecomposedS3.SSECKey,
 					decomposeds3bs.Options{},
 				)
 			case "decomposed":

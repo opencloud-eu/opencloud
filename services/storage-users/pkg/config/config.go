@@ -140,6 +140,7 @@ type DecomposedS3Driver struct {
 	SecretKey             string `yaml:"secret_key" env:"STORAGE_USERS_DECOMPOSEDS3_SECRET_KEY" desc:"Secret key for the S3 bucket." introductionVersion:"1.0.0"`
 	Endpoint              string `yaml:"endpoint" env:"STORAGE_USERS_DECOMPOSEDS3_ENDPOINT" desc:"Endpoint for the S3 bucket." introductionVersion:"1.0.0"`
 	Bucket                string `yaml:"bucket" env:"STORAGE_USERS_DECOMPOSEDS3_BUCKET" desc:"Name of the S3 bucket." introductionVersion:"1.0.0"`
+	SSECKey               string `yaml:"sse_c_key" env:"STORAGE_USERS_DECOMPOSEDS3_SSE_C_KEY" desc:"Optional base64-encoded 32-byte SSE-C encryption key for this S3 bucket. Requires HTTPS. Retain this key to read existing objects; changing it does not re-encrypt them." introductionVersion:"%%NEXT%%"`
 	DisableContentSha256  bool   `yaml:"put_object_disable_content_sha254" env:"STORAGE_USERS_DECOMPOSEDS3_PUT_OBJECT_DISABLE_CONTENT_SHA256" desc:"Disable sending content sha256 when copying objects to S3." introductionVersion:"1.0.0"`
 	DisableMultipart      bool   `yaml:"put_object_disable_multipart" env:"STORAGE_USERS_DECOMPOSEDS3_PUT_OBJECT_DISABLE_MULTIPART" desc:"Disable multipart uploads when copying objects to S3." introductionVersion:"1.0.0"`
 	SendContentMd5        bool   `yaml:"put_object_send_content_md5" env:"STORAGE_USERS_DECOMPOSEDS3_PUT_OBJECT_SEND_CONTENT_MD5" desc:"Send a Content-MD5 header when copying objects to S3." introductionVersion:"1.0.0"`

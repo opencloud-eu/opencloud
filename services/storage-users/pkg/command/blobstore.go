@@ -164,6 +164,7 @@ func initBlobstore(cfg *config.Config) (tree.Blobstore, error) {
 			cfg.Drivers.DecomposedS3.Bucket,
 			cfg.Drivers.DecomposedS3.AccessKey,
 			cfg.Drivers.DecomposedS3.SecretKey,
+			cfg.Drivers.DecomposedS3.SSECKey,
 			s3bs.Options{
 				DisableContentSha256:  cfg.Drivers.DecomposedS3.DisableContentSha256,
 				DisableMultipart:      cfg.Drivers.DecomposedS3.DisableMultipart,
