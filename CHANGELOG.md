@@ -11,6 +11,18 @@
 - Push based thumbnailer architecture [[#3397](https://github.com/opencloud-eu/opencloud/pull/3397)]
 - feat(guestlinks)!: auth-guest service [[#3609](https://github.com/opencloud-eu/opencloud/pull/3609)]
 
+### 📈 Enhancement
+
+- feat: new mail notifications based on design system [[#3789](https://github.com/opencloud-eu/opencloud/pull/3789)]
+- feat(search): configurable query filter, leaves the personal space root and .space out by default [[#3787](https://github.com/opencloud-eu/opencloud/pull/3787)]
+- feat: expose the default project space quota in the capabilities [[#3719](https://github.com/opencloud-eu/opencloud/pull/3719)]
+- feat(collaboration): close the CheckFileInfo gaps for the office apps [[#3730](https://github.com/opencloud-eu/opencloud/pull/3730)]
+- fix(proxy): allow guest link auth for app open and new endpoints [[#3737](https://github.com/opencloud-eu/opencloud/pull/3737)]
+- feat: make space2share migration repeatable [[#3669](https://github.com/opencloud-eu/opencloud/pull/3669)]
+- feat: run the decomposed drivers on foreign metadata via metadata_prefix [[#3670](https://github.com/opencloud-eu/opencloud/pull/3670)]
+- feat: add more cli options to unified roles [[#3658](https://github.com/opencloud-eu/opencloud/pull/3658)]
+- feat(web): use the OpenCloud brand colors for the primary color role [[#3631](https://github.com/opencloud-eu/opencloud/pull/3631)]
+
 ### ✅ Tests
 
 - ci: disable async uploads for litmus tests [[#3777](https://github.com/opencloud-eu/opencloud/pull/3777)]
@@ -34,17 +46,6 @@
 - fix(collaboration): answer a wopi lock in a read-only session with 200 instead of locking [[#3711](https://github.com/opencloud-eu/opencloud/pull/3711)]
 - fix(collaboration): show the secure view watermark only for view-only tokens [[#3712](https://github.com/opencloud-eu/opencloud/pull/3712)]
 - fix: add restart command output [[#3706](https://github.com/opencloud-eu/opencloud/pull/3706)]
-
-### 📈 Enhancement
-
-- feat(search): configurable query filter, leaves the personal space root and .space out by default [[#3787](https://github.com/opencloud-eu/opencloud/pull/3787)]
-- feat: expose the default project space quota in the capabilities [[#3719](https://github.com/opencloud-eu/opencloud/pull/3719)]
-- feat(collaboration): close the CheckFileInfo gaps for the office apps [[#3730](https://github.com/opencloud-eu/opencloud/pull/3730)]
-- fix(proxy): allow guest link auth for app open and new endpoints [[#3737](https://github.com/opencloud-eu/opencloud/pull/3737)]
-- feat: make space2share migration repeatable [[#3669](https://github.com/opencloud-eu/opencloud/pull/3669)]
-- feat: run the decomposed drivers on foreign metadata via metadata_prefix [[#3670](https://github.com/opencloud-eu/opencloud/pull/3670)]
-- feat: add more cli options to unified roles [[#3658](https://github.com/opencloud-eu/opencloud/pull/3658)]
-- feat(web): use the OpenCloud brand colors for the primary color role [[#3631](https://github.com/opencloud-eu/opencloud/pull/3631)]
 
 ### 📚 Documentation
 
