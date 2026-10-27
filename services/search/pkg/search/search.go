@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -30,9 +29,6 @@ import (
 // suffix, bleve path suffix), so the service builds a fresh index instead of
 // colliding with the old one. No migration; reindex to populate.
 const SchemaVersion = 5
-
-// the scope clause is removed together with the boolean operator that joins it to the rest of the query.
-var scopeRegex = regexp.MustCompile(`(?:(?:AND|OR)\s+)?scope:\s*([^" "\n\r]*)(?:\s+(?:AND|OR)\b)?`)
 
 // IndexQuery is one search against the index. The engine owns the query it
 // is given and may rewrite it while compiling.
@@ -309,14 +305,4 @@ func PinnedRootID(a *ast.Ast) string {
 		negated = false
 	}
 	return pinned
-}
-
-// ParseScope extract a scope value from the query string and returns search, scope strings
-func ParseScope(query string) (string, string) {
-	match := scopeRegex.FindStringSubmatch(query)
-	if len(match) >= 2 {
-		cut := match[0]
-		return strings.TrimSpace(strings.ReplaceAll(query, cut, "")), strings.TrimSpace(match[1])
-	}
-	return query, ""
 }
