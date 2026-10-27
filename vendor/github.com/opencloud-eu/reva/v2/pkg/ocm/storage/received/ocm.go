@@ -507,7 +507,8 @@ func (d *driver) GetLock(ctx context.Context, ref *provider.Reference) (*provide
 	if err != nil {
 		return nil, err
 	}
-	if token == "" {
+	// gowebdav formats a missing lockdiscovery property as "<nil>"
+	if token == "" || token == "<nil>" {
 		return nil, errtypes.NotFound("no lock found")
 	}
 

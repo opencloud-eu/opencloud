@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	tusd "github.com/tus/tusd/v2/pkg/handler"
 
@@ -32,6 +33,18 @@ func (u *tusAdapter) GetReader(ctx context.Context) (io.ReadCloser, error) {
 	return u.session.GetReader(ctx)
 }
 
+// ServeContent serves the staged bytes, honouring a Range header: postprocessing reads
+// only the first bytes of a file larger than it scans.
+func (u *tusAdapter) ServeContent(_ context.Context, w http.ResponseWriter, r *http.Request) error {
+	f, err := os.Open(u.session.BinPath())
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	http.ServeContent(w, r, "", time.Time{}, f)
+	return nil
+}
+
 func (u *tusAdapter) WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error) {
 	return u.session.WriteChunk(ctx, offset, src)
 }
@@ -39,6 +52,10 @@ func (u *tusAdapter) WriteChunk(ctx context.Context, offset int64, src io.Reader
 // FinishUpload runs the coordinator's finish path once all bytes have arrived.
 func (u *tusAdapter) FinishUpload(ctx context.Context) error {
 	_, err := u.coord.finishUpload(u.session.Context(ctx), u.session)
+	if err != nil {
+		// tusd only answers the client, so log the cause here
+		appctx.GetLogger(ctx).Error().Err(err).Str("uploadid", u.session.ID()).Msg("failed to finish upload")
+	}
 
 	// tusd answers an error type it does not recognise with a bare 500.
 	switch err.(type) {
@@ -125,6 +142,7 @@ func (c *coordinator) UseIn(composer *tusd.StoreComposer) {
 	composer.UseTerminater(c)
 	composer.UseConcater(c)
 	composer.UseLengthDeferrer(c)
+	composer.UseContentServer(c)
 }
 
 // NewUpload is unsupported: uploads always start through the CS3 InitiateUpload call.
@@ -152,5 +170,9 @@ func (c *coordinator) AsLengthDeclarableUpload(up tusd.Upload) tusd.LengthDeclar
 }
 
 func (c *coordinator) AsConcatableUpload(up tusd.Upload) tusd.ConcatableUpload {
+	return up.(*tusAdapter)
+}
+
+func (c *coordinator) AsServableUpload(up tusd.Upload) tusd.ServableUpload {
 	return up.(*tusAdapter)
 }

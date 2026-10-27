@@ -31,6 +31,7 @@ import (
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/disk"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
@@ -109,14 +110,22 @@ func (s *FileSession) GetReader(_ context.Context) (io.ReadCloser, error) {
 }
 
 func (s *FileSession) WriteChunk(ctx context.Context, offset int64, src io.Reader) (int64, error) {
+	log := appctx.GetLogger(ctx)
 	file, err := os.OpenFile(s.binPath(), os.O_WRONLY|os.O_APPEND, defaultFilePerm)
 	if err != nil {
+		log.Error().Err(err).Str("uploadid", s.info.ID).Msg("WriteChunk: error opening upload file")
 		return 0, err
 	}
-	defer file.Close()
+	defer func() {
+		// sync each chunk right away: the upload can be resumed after a crash, and slow
+		// disks are spared one large flush at the end of the upload
+		_ = disk.Fdatasync(file)
+		_ = file.Close()
+	}()
 
 	n, err := io.Copy(file, src)
 	if err != nil && err != io.ErrUnexpectedEOF {
+		log.Error().Err(err).Str("uploadid", s.info.ID).Msg("WriteChunk: error copying data to upload file")
 		return n, err
 	}
 	s.info.Offset += n

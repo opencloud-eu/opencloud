@@ -289,6 +289,8 @@ func (c *coordinator) Upload(ctx context.Context, req Request, uff FinishedFunc)
 // finishUpload creates the node, validates the staged bytes and commits them, or
 // hands them to postprocessing.
 func (c *coordinator) finishUpload(ctx context.Context, session Session) (*provider.ResourceInfo, error) {
+	// a client that goes away must not leave the upload half finished
+	ctx = context.WithoutCancel(ctx)
 	// Only the staged bytes are read, so a mismatch has no node to undo.
 	if err := verifyAndStoreChecksums(ctx, session); err != nil {
 		session.Cleanup(ctx, true, true)
@@ -556,7 +558,10 @@ func verifyAndStoreChecksums(ctx context.Context, session Session) error {
 func (c *coordinator) finishSync(ctx context.Context, session Session) (*provider.ResourceInfo, error) {
 	ri, err := c.commit(ctx, session)
 	if err != nil {
-		c.rollbackPrepared(ctx, session, session.SizeDiff())
+		// Keep the staged bytes: they are the only copy of the upload, and the
+		// failure may be transient.
+		c.rollbackNode(ctx, session, "commit failed: "+err.Error())
+		metrics.UploadProcessing.Dec()
 		return nil, err
 	}
 	return ri, nil
