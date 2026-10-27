@@ -15,7 +15,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
-	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -36,7 +35,7 @@ var _ = Describe("Bleve", func() {
 		idx, err = bleveSearch.NewMemOnly(mapping)
 		Expect(err).ToNot(HaveOccurred())
 
-		eng = bleve.NewBackend(idx, bleveQuery.Compiler{}, log.Logger{})
+		eng = bleve.NewBackend(idx, log.Logger{})
 		Expect(err).ToNot(HaveOccurred())
 
 		rootResource = search.Resource{
@@ -153,7 +152,7 @@ var _ = Describe("Bleve", func() {
 
 	Describe("New", func() {
 		It("returns a new index instance", func() {
-			b := bleve.NewBackend(idx, bleveQuery.Compiler{}, log.Logger{})
+			b := bleve.NewBackend(idx, log.Logger{})
 			Expect(b).ToNot(BeNil())
 		})
 	})

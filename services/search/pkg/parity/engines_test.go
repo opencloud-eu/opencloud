@@ -18,7 +18,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
 	bleveEngine "github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
-	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -81,7 +80,7 @@ func newBleve(fixtures []search.Resource) testEngine {
 	Expect(err).NotTo(HaveOccurred(), "failed to create the bleve index")
 	DeferCleanup(func() { _ = idx.Close() })
 
-	backend := bleveEngine.NewBackend(idx, bleveQuery.Compiler{}, log.Logger{})
+	backend := bleveEngine.NewBackend(idx, log.Logger{})
 	load(backend, fixtures)
 
 	return testEngine{name: "bleve", backend: backend, settle: func() {}}
