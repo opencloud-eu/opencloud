@@ -47,6 +47,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v2/pkg/upload"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -71,6 +72,7 @@ type config struct {
 	MountID             string                            `mapstructure:"mount_id"`
 	UploadExpiration    int64                             `mapstructure:"upload_expiration" docs:"0;Duration for how long uploads will be valid."`
 	Events              eventconfig                       `mapstructure:"events" docs:"0;Event stream configuration"`
+	UploadDirectory     string                            `mapstructure:"upload_directory" docs:";Local directory for staging upload sessions. Overrides the driver's root. Required for drivers that have no local filesystem root."`
 }
 
 type eventconfig struct {
@@ -106,6 +108,7 @@ func (c *config) init() {
 type Service struct {
 	conf          *config
 	Storage       storage.FS
+	Coordinator   upload.Coordinator
 	dataServerURL *url.URL
 	availableXS   []*provider.ResourceChecksumPriority
 }
@@ -175,7 +178,14 @@ func New(m map[string]interface{}, ss *grpc.Server, log *zerolog.Logger) (rgrpc.
 
 	c.init()
 
-	fs, err := getFS(c, log)
+	// One stream for both the driver and the coordinator: a second one would open a
+	// second nats connection for the same events.
+	evstream, err := estreamFromConfig(c.Events)
+	if err != nil {
+		return nil, err
+	}
+
+	fs, err := getFS(c, evstream, log)
 	if err != nil {
 		return nil, err
 	}
@@ -202,9 +212,16 @@ func New(m map[string]interface{}, ss *grpc.Server, log *zerolog.Logger) (rgrpc.
 		return nil, err
 	}
 
+	// storageprovider only initiates uploads; the data path assembles chunks, so no chunking here.
+	coord, err := upload.NewCoordinatorFromConfig(c.UploadDirectory, c.Drivers[c.Driver], fs, evstream, log, false)
+	if err != nil {
+		return nil, fmt.Errorf("storageprovider: %w", err)
+	}
+
 	service := &Service{
 		conf:          c,
 		Storage:       fs,
+		Coordinator:   coord,
 		dataServerURL: u,
 		availableXS:   xsTypes,
 	}
@@ -414,7 +431,7 @@ func (s *Service) InitiateFileUpload(ctx context.Context, req *provider.Initiate
 		metadata["expires"] = strconv.Itoa(int(expirationTimestamp.Seconds))
 	}
 
-	uploadIDs, err := s.Storage.InitiateUpload(ctx, req.Ref, uploadLength, metadata)
+	uploadIDs, err := s.Coordinator.InitiateUpload(ctx, req.Ref, uploadLength, metadata)
 	if err != nil {
 		var st *rpc.Status
 		switch err.(type) {
@@ -1330,12 +1347,7 @@ func (s *Service) addMissingStorageProviderID(resourceID *provider.ResourceId, s
 	}
 }
 
-func getFS(c *config, log *zerolog.Logger) (storage.FS, error) {
-	evstream, err := estreamFromConfig(c.Events)
-	if err != nil {
-		return nil, err
-	}
-
+func getFS(c *config, evstream events.Stream, log *zerolog.Logger) (storage.FS, error) {
 	if f, ok := registry.NewFuncs[c.Driver]; ok {
 		driverConf := c.Drivers[c.Driver]
 		driverConf["mount_id"] = c.MountID // pass the mount id to the driver

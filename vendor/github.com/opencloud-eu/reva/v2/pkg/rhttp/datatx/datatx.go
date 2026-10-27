@@ -28,12 +28,15 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
+	"github.com/opencloud-eu/reva/v2/pkg/upload"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
 // DataTX provides an abstraction around various data transfer protocols.
 type DataTX interface {
-	Handler(fs storage.FS) (http.Handler, error)
+	// Handler serves the protocol's data path. Uploads go through coord, which
+	// owns the upload lifecycle for every driver; downloads read from driver.
+	Handler(coord upload.Coordinator, driver storage.FS) (http.Handler, error)
 }
 
 // EmitFileUploadedEvent is a helper function which publishes a FileUploaded event

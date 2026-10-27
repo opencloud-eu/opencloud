@@ -218,7 +218,7 @@ func (d *driver) CreateDir(ctx context.Context, ref *provider.Reference) error {
 }
 
 func (d *driver) Delete(ctx context.Context, ref *provider.Reference) error {
-	client, _, rel, err := d.webdavClient(ctx, nil, ref)
+	client, _, rel, err := d.serviceWebdavClient(ctx, ref)
 	if err != nil {
 		return err
 	}
@@ -226,7 +226,7 @@ func (d *driver) Delete(ctx context.Context, ref *provider.Reference) error {
 }
 
 func (d *driver) TouchFile(ctx context.Context, ref *provider.Reference, markprocessing bool, mtime string) error {
-	client, _, rel, err := d.webdavClient(ctx, nil, ref)
+	client, _, rel, err := d.serviceWebdavClient(ctx, ref)
 	if err != nil {
 		return err
 	}
@@ -616,4 +616,12 @@ func (d *driver) AddLabel(ctx context.Context, ref *provider.Reference, userID *
 
 func (d *driver) RemoveLabel(ctx context.Context, ref *provider.Reference, userID *userpb.UserId, label string) error {
 	return errtypes.NotSupported("RemoveLabel not implemented")
+}
+
+func (d *driver) PrepareUpload(_ context.Context, _ *provider.Reference, _ string, info storage.UploadInfo) (*storage.PrepareUploadResult, error) {
+	return &storage.PrepareUploadResult{VersionCreated: info.NodeExisted}, nil
+}
+
+func (d *driver) RollbackUpload(_ context.Context, _ *provider.Reference, _ string, _ storage.RollbackInfo) error {
+	return nil
 }

@@ -21,7 +21,6 @@ package nextcloud
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -271,7 +270,20 @@ func (nc *StorageDriver) CreateDir(ctx context.Context, ref *provider.Reference)
 
 // TouchFile as defined in the storage.FS interface
 func (nc *StorageDriver) TouchFile(ctx context.Context, ref *provider.Reference, markprocessing bool, mtime string) error {
-	return fmt.Errorf("unimplemented: TouchFile")
+	type paramsObj struct {
+		Ref            *provider.Reference `json:"ref"`
+		MarkProcessing bool                `json:"markprocessing"`
+		MTime          string              `json:"mtime"`
+	}
+	bodyStr, err := json.Marshal(&paramsObj{Ref: ref, MarkProcessing: markprocessing, MTime: mtime})
+	if err != nil {
+		return err
+	}
+	log := appctx.GetLogger(ctx)
+	log.Info().Msgf("TouchFile %s", bodyStr)
+
+	_, _, err = nc.do(ctx, Action{"TouchFile", string(bodyStr)})
+	return err
 }
 
 // Delete as defined in the storage.FS interface
@@ -372,58 +384,28 @@ func (nc *StorageDriver) ListFolder(ctx context.Context, ref *provider.Reference
 	return pointers, err
 }
 
-// InitiateUpload as defined in the storage.FS interface
-func (nc *StorageDriver) InitiateUpload(ctx context.Context, ref *provider.Reference, uploadLength int64, metadata map[string]string) (map[string]string, error) {
-	type paramsObj struct {
-		Ref          *provider.Reference `json:"ref"`
-		UploadLength int64               `json:"uploadLength"`
-		Metadata     map[string]string   `json:"metadata"`
-	}
-	bodyObj := &paramsObj{
-		Ref:          ref,
-		UploadLength: uploadLength,
-		Metadata:     metadata,
-	}
-	bodyStr, _ := json.Marshal(bodyObj)
-	log := appctx.GetLogger(ctx)
-	log.Info().Msgf("InitiateUpload %s", bodyStr)
-
-	_, respBody, err := nc.do(ctx, Action{"InitiateUpload", string(bodyStr)})
-	if err != nil {
-		return nil, err
-	}
-	respMap := make(map[string]string)
-	err = json.Unmarshal(respBody, &respMap)
-	if err != nil {
-		return nil, err
-	}
-	return respMap, err
-}
-
-// MarkProcessing as defined in the storage.FS interface
-func (nc *StorageDriver) MarkProcessing(ctx context.Context, ref *provider.Reference, processing bool, sessionID string) error {
-	return errtypes.NotSupported("nextcloud: mark processing not supported")
+// MarkProcessing as defined in the storage.FS interface.
+// No sciencemesh endpoint toggles the flag alone. A no-op, not NotSupported:
+// the coordinator treats a failed mark as fatal.
+func (nc *StorageDriver) MarkProcessing(_ context.Context, _ *provider.Reference, _ bool, _ string) error {
+	return nil
 }
 
 // CommitUpload as defined in the storage.FS interface
-func (nc *StorageDriver) CommitUpload(_ context.Context, _ *provider.Reference, _ string, _ storage.UploadSource) error {
-	return errtypes.NotSupported("nextcloud: commit upload not supported")
+func (nc *StorageDriver) CommitUpload(ctx context.Context, ref *provider.Reference, _ string, source storage.UploadSource) error {
+	if source.Body == nil {
+		// A nil body would PUT an empty request and truncate the file.
+		return errtypes.BadRequest("nextcloud: source body is nil")
+	}
+	return nc.doUpload(ctx, ref.GetPath(), source.Body)
 }
 
-// Upload as defined in the storage.FS interface
-func (nc *StorageDriver) Upload(ctx context.Context, req storage.UploadRequest, _ storage.UploadFinishedFunc) (*provider.ResourceInfo, error) {
-	err := nc.doUpload(ctx, req.Ref.Path, req.Body)
-	if err != nil {
-		return &provider.ResourceInfo{}, err
-	}
+func (nc *StorageDriver) PrepareUpload(_ context.Context, _ *provider.Reference, _ string, info storage.UploadInfo) (*storage.PrepareUploadResult, error) {
+	return &storage.PrepareUploadResult{VersionCreated: info.NodeExisted}, nil
+}
 
-	// return id, etag and mtime
-	ri, err := nc.GetMD(ctx, req.Ref, []string{}, []string{"id", "etag", "mtime"})
-	if err != nil {
-		return &provider.ResourceInfo{}, err
-	}
-
-	return ri, nil
+func (nc *StorageDriver) RollbackUpload(_ context.Context, _ *provider.Reference, _ string, _ storage.RollbackInfo) error {
+	return nil
 }
 
 // Download as defined in the storage.FS interface

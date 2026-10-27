@@ -28,9 +28,7 @@ import (
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/rs/zerolog"
-	tusd "github.com/tus/tusd/v2/pkg/handler"
 
-	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
@@ -49,7 +47,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/permissions"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/upload"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/usermapper"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/middleware"
 	"github.com/pkg/errors"
@@ -179,13 +176,12 @@ func New(o *options.Options, stream events.Stream, cache, historyCache *idcache.
 	}
 
 	aspects := aspects.Aspects{
-		Lookup:            lu,
-		Tree:              tp,
-		Permissions:       p,
-		EventStream:       stream,
-		UserMapper:        um,
-		DisableVersioning: o.DisableVersioning,
-		Trashbin:          trashbin,
+		Lookup:      lu,
+		Tree:        tp,
+		Permissions: p,
+		EventStream: stream,
+		UserMapper:  um,
+		Trashbin:    trashbin,
 	}
 
 	dfs, err := decomposedfs.New(&o.Options, aspects, log)
@@ -245,54 +241,14 @@ func (fs *posixFS) WarmupIDCache(root string, assimilate, onlyDirty bool) error 
 	return fs.tree.WarmupIDCache(root, assimilate, onlyDirty)
 }
 
-// ListUploadSessions returns the upload sessions matching the given filter
-func (fs *posixFS) ListUploadSessions(ctx context.Context, filter storage.UploadSessionFilter) ([]storage.UploadSession, error) {
-	return fs.FS.(storage.UploadSessionLister).ListUploadSessions(ctx, filter)
+// PrepareCreatesNode reports whether the wrapped driver's PrepareUpload creates a
+// new file's node.
+func (fs *posixFS) PrepareCreatesNode() bool {
+	nc, ok := fs.FS.(storage.NodeCreator)
+	return ok && nc.PrepareCreatesNode()
 }
 
-// ResolveUpload resolves a finished upload to the resource it produced, read as the upload's
-// executant. It is best effort: if the wrapped storage does not resolve uploads it returns
-// NotSupported rather than panicking, so the tus finalize falls back to no headers.
-func (fs *posixFS) ResolveUpload(ctx context.Context, info tusd.FileInfo) (*provider.ResourceInfo, context.Context, error) {
-	r, ok := fs.FS.(storage.UploadSessionResolver)
-	if !ok {
-		return nil, ctx, errtypes.NotSupported("storage does not resolve upload sessions")
-	}
-	return r.ResolveUpload(ctx, info)
-}
-
-// UseIn tells the tus upload middleware which extensions it supports.
-func (fs *posixFS) UseIn(composer *tusd.StoreComposer) {
-	fs.FS.(storage.ComposableFS).UseIn(composer)
-}
-
-// NewUpload returns a new tus Upload instance
-func (fs *posixFS) NewUpload(ctx context.Context, info tusd.FileInfo) (upload tusd.Upload, err error) {
-	return fs.FS.(tusd.DataStore).NewUpload(ctx, info)
-}
-
-// NewUpload returns a new tus Upload instance
-func (fs *posixFS) GetUpload(ctx context.Context, id string) (upload tusd.Upload, err error) {
-	return fs.FS.(tusd.DataStore).GetUpload(ctx, id)
-}
-
-// AsTerminatableUpload returns a TerminatableUpload
-// To implement the termination extension as specified in https://tus.io/protocols/resumable-upload.html#termination
-// the storage needs to implement AsTerminatableUpload
-func (fs *posixFS) AsTerminatableUpload(up tusd.Upload) tusd.TerminatableUpload {
-	return up.(*upload.DecomposedFsSession)
-}
-
-// AsLengthDeclarableUpload returns a LengthDeclarableUpload
-// To implement the creation-defer-length extension as specified in https://tus.io/protocols/resumable-upload.html#creation
-// the storage needs to implement AsLengthDeclarableUpload
-func (fs *posixFS) AsLengthDeclarableUpload(up tusd.Upload) tusd.LengthDeclarableUpload {
-	return up.(*upload.DecomposedFsSession)
-}
-
-// AsConcatableUpload returns a ConcatableUpload
-// To implement the concatenation extension as specified in https://tus.io/protocols/resumable-upload.html#concatenation
-// the storage needs to implement AsConcatableUpload
-func (fs *posixFS) AsConcatableUpload(up tusd.Upload) tusd.ConcatableUpload {
-	return up.(*upload.DecomposedFsSession)
+// IsOrphaned reports whether the referenced resource exists but its metadata is unreadable.
+func (fs *posixFS) IsOrphaned(ctx context.Context, ref *provider.Reference) bool {
+	return fs.FS.(storage.OrphanChecker).IsOrphaned(ctx, ref)
 }
