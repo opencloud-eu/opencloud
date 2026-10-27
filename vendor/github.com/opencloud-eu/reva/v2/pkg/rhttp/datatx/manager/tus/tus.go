@@ -89,7 +89,12 @@ func New(m map[string]interface{}, publisher events.Publisher, log *zerolog.Logg
 	}, nil
 }
 
-func (m *manager) Handler(coord upload.Coordinator, _ storage.FS) (http.Handler, error) {
+func (m *manager) Handler(coord upload.Coordinator, fs storage.FS) (http.Handler, error) {
+	// such a driver creates a new file under the id minted at initiate, so that id is
+	// already the file's
+	nc, ok := fs.(storage.NodeCreator)
+	createsNode := ok && nc.PrepareCreatesNode()
+
 	// A storage backend for tusd may consist of multiple different parts which
 	// handle upload creation, locking, termination and so on. The composer is a
 	// place where all those separated pieces are joined together.
@@ -169,7 +174,7 @@ func (m *manager) Handler(coord upload.Coordinator, _ storage.FS) (http.Handler,
 				metrics.UploadsActive.Sub(1)
 			}()
 			// set etag, mtime and file id
-			setHeaders(coord, w, r)
+			setHeaders(coord, createsNode, w, r)
 			handler.PostFile(w, r)
 		case "HEAD":
 			handler.HeadFile(w, r)
@@ -179,7 +184,7 @@ func (m *manager) Handler(coord upload.Coordinator, _ storage.FS) (http.Handler,
 				metrics.UploadsActive.Sub(1)
 			}()
 			// set etag, mtime and file id
-			setHeaders(coord, w, r)
+			setHeaders(coord, createsNode, w, r)
 			handler.PatchFile(w, r)
 		case "DELETE":
 			handler.DelFile(w, r)
@@ -236,7 +241,7 @@ func (m *manager) preFinishResponseCallback(r any) func(tusd.HookEvent) (tusd.HT
 	}
 }
 
-func setHeaders(coord upload.Coordinator, w http.ResponseWriter, r *http.Request) {
+func setHeaders(coord upload.Coordinator, createsNode bool, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := path.Base(r.URL.Path)
 	upload, err := coord.GetUpload(ctx, id)
@@ -253,16 +258,23 @@ func setHeaders(coord upload.Coordinator, w http.ResponseWriter, r *http.Request
 	if expires != "" {
 		w.Header().Set(net.HeaderTusUploadExpires, expires)
 	}
-	// the node id is only valid once the upload commits; skip the header for new files
-	if info.Storage["NodeExists"] != "true" {
-		return
+	if id := fileID(info, createsNode); id != "" {
+		w.Header().Set(net.HeaderOCFileID, id)
 	}
-	resourceid := &provider.ResourceId{
+}
+
+// fileID returns the id of the file an upload writes, or "" while it is not known yet:
+// a new file's id is only valid once the upload commits, unless the driver creates the
+// file under the id minted at initiate.
+func fileID(info tusd.FileInfo, createsNode bool) string {
+	if info.Storage["NodeExists"] != "true" && !createsNode {
+		return ""
+	}
+	return storagespace.FormatResourceID(&provider.ResourceId{
 		StorageId: info.MetaData["providerID"],
 		SpaceId:   info.Storage["SpaceRoot"],
 		OpaqueId:  info.Storage["NodeId"],
-	}
-	w.Header().Set(net.HeaderOCFileID, storagespace.FormatResourceID(resourceid))
+	})
 }
 
 // tusdLogger is a logger implementation (slog) for tusd that uses zerolog.

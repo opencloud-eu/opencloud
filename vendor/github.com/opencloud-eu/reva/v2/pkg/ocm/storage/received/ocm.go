@@ -40,6 +40,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/studio-b12/gowebdav"
 
+	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/mime"
@@ -327,7 +328,19 @@ func extractChecksum(props gowebdav.Props) *provider.ResourceChecksum {
 }
 
 func (d *driver) GetMD(ctx context.Context, ref *provider.Reference, _ []string, _ []string) (*provider.ResourceInfo, error) {
-	client, share, rel, err := d.webdavClient(ctx, nil, ref)
+	var (
+		client *gowebdav.Client
+		share  *ocmpb.ReceivedShare
+		rel    string
+		err    error
+	)
+	if token, ok := ctxpkg.ContextGetToken(ctx); ok && token != "" {
+		client, share, rel, err = d.webdavClient(ctx, nil, ref)
+	} else {
+		// the upload coordinator stats an upload it finishes with the context of the
+		// upload's executant, whose request, and with it the token, is gone by then
+		client, share, rel, err = d.serviceWebdavClient(ctx, ref)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -493,6 +506,9 @@ func (d *driver) GetLock(ctx context.Context, ref *provider.Reference) (*provide
 	token, err := client.GetLock(rel)
 	if err != nil {
 		return nil, err
+	}
+	if token == "" {
+		return nil, errtypes.NotFound("no lock found")
 	}
 
 	return &provider.Lock{LockId: token, Type: provider.LockType_LOCK_TYPE_EXCL}, nil

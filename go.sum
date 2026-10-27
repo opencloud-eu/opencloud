@@ -164,8 +164,8 @@ github.com/bufbuild/protocompile v0.14.1 h1:iA73zAf/fyljNjQKwYzUHD6AD4R8KMasmwa/
 github.com/bufbuild/protocompile v0.14.1/go.mod h1:ppVdAIhbr2H8asPk6k4pY7t9zB1OU5DoEw9xY/FUi1c=
 github.com/butonic/go-micro/v4 v4.11.4-0.20260929213538-cd412c159a26 h1:DtJ8z75PCgVcghoDE0KoTVWc0xp1mN9xyvDebMPB688=
 github.com/butonic/go-micro/v4 v4.11.4-0.20260929213538-cd412c159a26/go.mod h1:Pxkj/TW2+3WWT0h0JVdMi+DUjvLWAF+tR/vymiXea2Q=
-github.com/butonic/reva/v2 v2.0.0-20261027142752-ae105babefbd h1:lVCGDwzstgNdilZd2PUn2PiP+5dkZN0jVJPAFDd3+vo=
-github.com/butonic/reva/v2 v2.0.0-20261027142752-ae105babefbd/go.mod h1:T70r///qUxRpr05tyZANmcRa/jrQVT+tWx/KKlMJ348=
+github.com/butonic/reva/v2 v2.0.0-20261027171141-b04998c54a6e h1:XVDPaWum3Tz8zXjad56s3uUlgF8yqRKp3m7bue3p8EM=
+github.com/butonic/reva/v2 v2.0.0-20261027171141-b04998c54a6e/go.mod h1:T70r///qUxRpr05tyZANmcRa/jrQVT+tWx/KKlMJ348=
 github.com/cenkalti/backoff v2.2.1+incompatible h1:tNowT99t7UNflLxfYYSlKYsBpXdEet03Pg2g16Swow4=
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=

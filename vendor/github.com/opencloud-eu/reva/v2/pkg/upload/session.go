@@ -408,8 +408,10 @@ func (s *FileSession) Context(ctx context.Context) context.Context {
 	return ctxpkg.ContextSetInitiator(ctx, s.info.MetaData["initiatorid"])
 }
 
-// URL returns a signed JWT URL that the postprocessing service can use to
-// download the staged binary via the data gateway.
+// URL returns the URL that the postprocessing service can use to download the
+// staged binary: a signed JWT URL via the data gateway, or the data server's own
+// URL when no data gateway is configured, because the proxy signs data URLs at
+// the edge.
 func (s *FileSession) URL(_ context.Context) (string, error) {
 	type transferClaims struct {
 		jwt.RegisteredClaims
@@ -417,6 +419,9 @@ func (s *FileSession) URL(_ context.Context) (string, error) {
 	}
 
 	target := joinURLParts(s.store.opts.DownloadEndpoint, "tus/", s.info.ID)
+	if s.store.opts.DataGatewayEndpoint == "" {
+		return target, nil
+	}
 	ttl := time.Duration(s.store.opts.TransferExpires) * time.Second
 	claims := transferClaims{
 		RegisteredClaims: jwt.RegisteredClaims{

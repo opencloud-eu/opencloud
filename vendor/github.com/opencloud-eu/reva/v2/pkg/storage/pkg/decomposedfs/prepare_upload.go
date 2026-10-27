@@ -228,9 +228,12 @@ func (fs *Decomposedfs) PrepareUpload(ctx context.Context, ref *provider.Referen
 				return nil, errtypes.InternalError(fmt.Sprintf("failed to set mtime on version node: %s", err))
 			}
 			if superseding {
-				if err := fs.lu.MetadataBackend().SetMultiple(ctx, versionNode, map[string][]byte{
-					prefixes.StatusPrefix: supersededMark,
-				}); err != nil {
+				revisionAttrs := map[string][]byte{prefixes.StatusPrefix: supersededMark}
+				if fs.o.DisableVersioning {
+					// not a version, only kept for a rollback: a live commit removes it
+					revisionAttrs[uploadSnapshotAttr] = []byte("1")
+				}
+				if err := fs.lu.MetadataBackend().SetMultiple(ctx, versionNode, revisionAttrs); err != nil {
 					return nil, err
 				}
 			}
@@ -448,6 +451,10 @@ func (fs *Decomposedfs) restoreLatestRevision(ctx context.Context, n *node.Node)
 // purgeOnRestoreAttr marks a revision kept for an upload that created the file and was
 // rolled back while a newer upload was processing: restoring it removes the file.
 var purgeOnRestoreAttr = prefixes.OcPrefix + "purgeonrestore"
+
+// uploadSnapshotAttr marks a revision PrepareUpload kept with versioning disabled, only so
+// that a rollback can hand the node back to the upload it superseded. It is not a version.
+var uploadSnapshotAttr = prefixes.OcPrefix + "uploadsnapshot"
 
 // retireUploadRevision handles the revision a newer upload kept of the upload sessionID,
 // which is being rolled back. If that upload overwrote the file, the revision is dropped:

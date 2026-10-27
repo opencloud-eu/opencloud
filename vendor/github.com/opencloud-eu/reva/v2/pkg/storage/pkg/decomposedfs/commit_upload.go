@@ -160,9 +160,9 @@ func (fs *Decomposedfs) CommitUpload(ctx context.Context, ref *provider.Referenc
 			appctx.GetLogger(ctx).Error().Err(err).Str("nodeid", target.ID).Msg("could not remove the processing mark from the revision")
 		}
 	} else {
-		// revisions of superseded uploads only served a rollback of this one; with
-		// versioning enabled the ones of finished uploads stay as versions
-		fs.removeRevisions(ctx, n, fs.o.DisableVersioning)
+		// revisions kept only for a rollback of this upload served their purpose; versions
+		// stay, also the ones created before versioning was disabled
+		fs.removeRevisions(ctx, n)
 	}
 
 	now := time.Now()
@@ -178,9 +178,10 @@ func (fs *Decomposedfs) CommitUpload(ctx context.Context, ref *provider.Referenc
 	return nil
 }
 
-// removeRevisions deletes the revisions of n, with their blobs, while the caller holds the
-// node lock: all of them, or only the ones of uploads that were rolled back.
-func (fs *Decomposedfs) removeRevisions(ctx context.Context, n *node.Node, all bool) {
+// removeRevisions deletes the revisions of n that were kept only for a rollback, with their
+// blobs, while the caller holds the node lock: the ones of uploads that were rolled back,
+// and the snapshots taken with versioning disabled.
+func (fs *Decomposedfs) removeRevisions(ctx context.Context, n *node.Node) {
 	revPrefix := fs.lu.VersionPath(n.SpaceID, n.ID, "")
 	revisions, err := filepath.Glob(fs.lu.VersionPath(n.SpaceID, n.ID, "*"))
 	if err != nil {
@@ -192,10 +193,8 @@ func (fs *Decomposedfs) removeRevisions(ctx context.Context, n *node.Node, all b
 			continue
 		}
 		revisionNode := node.NewBaseNode(n.SpaceID, n.ID+node.RevisionIDDelimiter+strings.TrimPrefix(rev, revPrefix), fs.lu)
-		if !all {
-			if _, err := fs.lu.MetadataBackend().Get(ctx, revisionNode, purgeOnRestoreAttr); err != nil {
-				continue
-			}
+		if !fs.keptForRollback(ctx, revisionNode) {
+			continue
 		}
 		blobID, err := fs.lu.MetadataBackend().Get(ctx, revisionNode, prefixes.BlobIDAttr)
 		if err == nil && len(blobID) > 0 && string(blobID) != n.BlobID {
@@ -206,6 +205,17 @@ func (fs *Decomposedfs) removeRevisions(ctx context.Context, n *node.Node, all b
 		}
 		removeRevision(ctx, fs.lu, revisionNode)
 	}
+}
+
+// keptForRollback reports whether a revision exists only for a rollback, rather than as a
+// version.
+func (fs *Decomposedfs) keptForRollback(ctx context.Context, revision metadata.MetadataNode) bool {
+	for _, attr := range []string{purgeOnRestoreAttr, uploadSnapshotAttr} {
+		if _, err := fs.lu.MetadataBackend().Get(ctx, revision, attr); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // uploadRevision returns the locked revision of n that holds the upload sessionID,
