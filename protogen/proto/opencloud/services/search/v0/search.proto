@@ -73,27 +73,6 @@ message SearchResponse {
   int32 total_matches = 3;
 }
 
-message SearchIndexRequest {
-  // Optional. The maximum number of entries to return in the response
-  int32 page_size = 1 [(google.api.field_behavior) = OPTIONAL];
-
-  // Optional. A pagination token returned from a previous call to `Get`
-  // that indicates from where search should continue
-  string page_token = 2 [(google.api.field_behavior) = OPTIONAL];
-
-	string query = 3;
-  opencloud.messages.search.v0.Reference ref = 4 [(google.api.field_behavior) = OPTIONAL];
-}
-
-message SearchIndexResponse {
-  repeated opencloud.messages.search.v0.Match matches = 1;
-
-  // Token to retrieve the next page of results, or empty if there are no
-  // more results in the list
-  string next_page_token = 2;
-  int32 total_matches = 3;
-}
-
 message IndexSpaceRequest {
   string space_id = 1;
   string user_id = 2;
