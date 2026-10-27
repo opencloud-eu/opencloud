@@ -133,22 +133,22 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	}
 	currentUser := revactx.ContextMustGetUser(ctx)
 
-	// is:favorite expands in place to the user's favorites field, so it keeps its position and joining operator
-	query := strings.ReplaceAll(req.Query, "is:favorite", `Favorites:"`+currentUser.GetId().GetOpaqueId()+`"`)
-
-	// Extract scope from query if set
-	query, scope := ParseScope(query)
-	if query == "" {
-		return nil, errtypes.BadRequest("empty query provided")
-	}
-	queryAst, err := kql.Builder{}.Build(query)
+	queryAst, err := kql.Builder{}.Build(req.Query)
 	if err != nil {
 		if kql.IsValidationError(err) {
 			return nil, errtypes.BadRequest(err.Error())
 		}
 		return nil, err
 	}
-	req.Query = query
+	ExpandFavorites(queryAst.Nodes, currentUser.GetId().GetOpaqueId())
+	nodes, scope, err := ExtractScope(queryAst.Nodes)
+	if err != nil {
+		return nil, errtypes.BadRequest(err.Error())
+	}
+	queryAst.Nodes = nodes
+	if len(queryAst.Nodes) == 0 {
+		return nil, errtypes.BadRequest("empty query provided")
+	}
 	if len(scope) > 0 {
 		scopedID, err := storagespace.ParseID(scope)
 		if err != nil {
