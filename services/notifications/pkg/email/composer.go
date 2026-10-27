@@ -6,6 +6,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/leonelquinteros/gotext"
 	"github.com/pkg/errors"
 
 	"github.com/opencloud-eu/opencloud/pkg/l10n"
@@ -21,19 +22,19 @@ var (
 func NewTextTemplate(mt MessageTemplate, locale, defaultLocale string, translationPath string, vars map[string]string) (MessageTemplate, error) {
 	var err error
 	t := l10n.NewTranslatorFromCommonConfig(defaultLocale, _domain, translationPath, _translationFS, "l10n/locale").Locale(locale)
-	mt.Subject, err = composeMessage(t.Get(mt.Subject, []any{}...), vars)
+	mt.Subject, err = composeMessage(translate(t, mt.Subject), vars)
 	if err != nil {
 		return mt, err
 	}
-	mt.Greeting, err = composeMessage(t.Get(mt.Greeting, []any{}...), vars)
+	mt.Greeting, err = composeMessage(translate(t, mt.Greeting), vars)
 	if err != nil {
 		return mt, err
 	}
-	mt.MessageBody, err = composeMessage(t.Get(mt.MessageBody, []any{}...), vars)
+	mt.MessageBody, err = composeMessage(translate(t, mt.MessageBody), vars)
 	if err != nil {
 		return mt, err
 	}
-	mt.CallToAction, err = composeMessage(t.Get(mt.CallToAction, []any{}...), vars)
+	mt.CallToAction, err = composeMessage(translate(t, mt.CallToAction), vars)
 	if err != nil {
 		return mt, err
 	}
@@ -44,19 +45,19 @@ func NewTextTemplate(mt MessageTemplate, locale, defaultLocale string, translati
 func NewHTMLTemplate(mt MessageTemplate, locale, defaultLocale string, translationPath string, vars map[string]string) (MessageTemplate, error) {
 	var err error
 	t := l10n.NewTranslatorFromCommonConfig(defaultLocale, _domain, translationPath, _translationFS, "l10n/locale").Locale(locale)
-	mt.Subject, err = composeMessage(t.Get(mt.Subject, []any{}...), vars)
+	mt.Subject, err = composeMessage(translate(t, mt.Subject), vars)
 	if err != nil {
 		return mt, err
 	}
-	mt.Greeting, err = composeMessage(newlineToBr(t.Get(mt.Greeting, []any{}...)), vars)
+	mt.Greeting, err = composeMessage(newlineToBr(translate(t, mt.Greeting)), vars)
 	if err != nil {
 		return mt, err
 	}
-	mt.MessageBody, err = composeMessage(newlineToBr(t.Get(mt.MessageBody, []any{}...)), vars)
+	mt.MessageBody, err = composeMessage(newlineToBr(translate(t, mt.MessageBody)), vars)
 	if err != nil {
 		return mt, err
 	}
-	mt.CallToAction, err = composeMessage(callToActionToHTML(t.Get(mt.CallToAction, []any{}...)), vars)
+	mt.CallToAction, err = composeMessage(callToActionToHTML(translate(t, mt.CallToAction)), vars)
 	if err != nil {
 		return mt, err
 	}
@@ -71,18 +72,18 @@ func NewGroupedTextTemplate(gmt GroupedMessageTemplate, vars map[string]string, 
 
 	var err error
 	t := l10n.NewTranslatorFromCommonConfig(defaultLocale, _domain, translationPath, _translationFS, "l10n/locale").Locale(locale)
-	gmt.Subject, err = composeMessage(t.Get(gmt.Subject, []any{}...), vars)
+	gmt.Subject, err = composeMessage(translate(t, gmt.Subject), vars)
 	if err != nil {
 		return gmt, err
 	}
-	gmt.Greeting, err = composeMessage(t.Get(gmt.Greeting, []any{}...), vars)
+	gmt.Greeting, err = composeMessage(translate(t, gmt.Greeting), vars)
 	if err != nil {
 		return gmt, err
 	}
 
 	bodyParts := make([]string, 0, len(mtsVars))
 	for i, mt := range mts {
-		bodyPart, err := composeMessage(t.Get(mt.MessageBody, []any{}...), mtsVars[i])
+		bodyPart, err := composeMessage(translate(t, mt.MessageBody), mtsVars[i])
 		if err != nil {
 			return gmt, err
 		}
@@ -100,18 +101,18 @@ func NewGroupedHTMLTemplate(gmt GroupedMessageTemplate, vars map[string]string, 
 
 	var err error
 	t := l10n.NewTranslatorFromCommonConfig(defaultLocale, _domain, translationPath, _translationFS, "l10n/locale").Locale(locale)
-	gmt.Subject, err = composeMessage(t.Get(gmt.Subject, []any{}...), vars)
+	gmt.Subject, err = composeMessage(translate(t, gmt.Subject), vars)
 	if err != nil {
 		return gmt, err
 	}
-	gmt.Greeting, err = composeMessage(newlineToBr(t.Get(gmt.Greeting, []any{}...)), vars)
+	gmt.Greeting, err = composeMessage(newlineToBr(translate(t, gmt.Greeting)), vars)
 	if err != nil {
 		return gmt, err
 	}
 
 	bodyParts := make([]string, 0, len(mtsVars))
 	for i, mt := range mts {
-		bodyPart, err := composeMessage(t.Get(mt.MessageBody, []any{}...), mtsVars[i])
+		bodyPart, err := composeMessage(translate(t, mt.MessageBody), mtsVars[i])
 		if err != nil {
 			return gmt, err
 		}
@@ -120,6 +121,15 @@ func NewGroupedHTMLTemplate(gmt GroupedMessageTemplate, vars map[string]string, 
 	gmt.MessageBody = strings.Join(bodyParts, "<br><br><br>")
 
 	return gmt, nil
+}
+
+// translate returns the translation of s. An empty string stays empty: gotext returns the
+// header of the .po file for it.
+func translate(t *gotext.Locale, s string) string {
+	if s == "" {
+		return ""
+	}
+	return t.Get(s)
 }
 
 // composeMessage renders the message based on template
