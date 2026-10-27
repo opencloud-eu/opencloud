@@ -17,12 +17,10 @@ import (
 // nodes where the user's query and the space roots go. An empty template
 // expands to the bare query.
 type QueryTemplate struct {
-	nodes    []ast.Node
-	query    *ast.GroupNode
-	queries  int
-	stray    bool
-	personal *ast.StringNode
-	project  *ast.StringNode
+	nodes   []ast.Node
+	query   *ast.GroupNode
+	queries int
+	stray   bool
 }
 
 const (
@@ -75,13 +73,8 @@ func (t *QueryTemplate) findMarkers(nodes []ast.Node) {
 			}
 			t.findMarkers(node.Nodes)
 		case *ast.StringNode:
-			switch node.Value {
-			case queryMarker:
+			if node.Value == queryMarker {
 				t.stray = true
-			case personalRootMarker:
-				t.personal = node
-			case projectRootMarker:
-				t.project = node
 			}
 		}
 	}
@@ -102,20 +95,25 @@ func (t *QueryTemplate) Expand(query *ast.Ast, space *provider.StorageSpace) *as
 		return config.NoResourceID
 	}
 
+	// the user's nodes are copied without replace, so a marker in the user's
+	// query stays what it is
 	return &ast.Ast{Nodes: cloneNodes(t.nodes, func(n ast.Node) ast.Node {
-		switch n {
-		case t.query:
+		if n == ast.Node(t.query) {
 			c := *t.query
 			c.Nodes = cloneNodes(query.Nodes, nil)
 			return &c
-		case t.personal:
-			c := *t.personal
-			c.Value = rootID(_spaceTypePersonal)
-			return &c
-		case t.project:
-			c := *t.project
-			c.Value = rootID(_spaceTypeProject)
-			return &c
+		}
+		if s, ok := n.(*ast.StringNode); ok {
+			switch s.Value {
+			case personalRootMarker:
+				c := *s
+				c.Value = rootID(_spaceTypePersonal)
+				return &c
+			case projectRootMarker:
+				c := *s
+				c.Value = rootID(_spaceTypeProject)
+				return &c
+			}
 		}
 		return nil
 	})}

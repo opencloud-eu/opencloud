@@ -8,17 +8,31 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 )
 
-// ErrNestedScope is returned when the scope sits inside a group: it narrows
-// the whole search to a folder and cannot take part in a boolean expression.
-var ErrNestedScope = errors.New("scope: must be a top-level restriction")
+// A scope narrows the whole search to one folder, so it cannot take part in a
+// boolean expression and cannot be given twice.
+var (
+	ErrNestedScope   = errors.New("scope: must be a top-level restriction")
+	ErrRepeatedScope = errors.New("scope: must be given once")
+)
 
 // ExtractScope takes the scope restriction out of the query, together with
 // the operator that joined it, and returns the remaining nodes and the scope.
 func ExtractScope(nodes []ast.Node) ([]ast.Node, string, error) {
+	scopes := 0
 	for _, n := range nodes {
-		if group, ok := n.(*ast.GroupNode); ok && hasKey(group.Nodes, "scope") {
-			return nil, "", ErrNestedScope
+		switch node := n.(type) {
+		case *ast.GroupNode:
+			if strings.EqualFold(node.Key, "scope") || hasKey(node.Nodes, "scope") {
+				return nil, "", ErrNestedScope
+			}
+		case *ast.StringNode:
+			if strings.EqualFold(node.Key, "scope") {
+				scopes++
+			}
 		}
+	}
+	if scopes > 1 {
+		return nil, "", ErrRepeatedScope
 	}
 
 	for i, n := range nodes {
@@ -67,7 +81,7 @@ func hasKey(nodes []ast.Node, key string) bool {
 				return true
 			}
 		case *ast.GroupNode:
-			if hasKey(node.Nodes, key) {
+			if strings.EqualFold(node.Key, key) || hasKey(node.Nodes, key) {
 				return true
 			}
 		}
