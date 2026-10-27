@@ -30,12 +30,15 @@ var _ = DescribeTable("ExtractScope",
 	Entry("a quoted value is not a scope", `name:"scope:1$2!3"`, `name:"scope:1$2!3"`, ``),
 )
 
-var _ = Describe("ExtractScope", func() {
-	It("rejects a scope inside a group", func() {
-		_, _, err := search.ExtractScope(parse(`name:x AND (scope:1$2!3 OR tag:y)`).Nodes)
+var _ = DescribeTable("ExtractScope rejects a nested scope",
+	func(query string) {
+		_, _, err := search.ExtractScope(parse(query).Nodes)
 		Expect(err).To(MatchError(search.ErrNestedScope))
-	})
-})
+	},
+	Entry("inside a group", `name:x AND (scope:1$2!3 OR tag:y)`),
+	Entry("inside a nested group", `name:x AND (tag:y OR (scope:1$2!3))`),
+	Entry("after a top-level scope", `scope:1$2!3 AND (scope:1$2!4)`),
+)
 
 var _ = DescribeTable("ExpandFavorites",
 	func(query, want string) {
