@@ -65,6 +65,69 @@ If the administrator provides a custom theme via the `WEB_ASSET_THEMES_PATH` dir
 Some theme keys are mandatory, like the `common.shareRoles` settings.
 Such mandatory keys are injected automatically at runtime if not provided.
 
+### Themeing the Login Page
+
+The login page shipped with the IDP service is themed through the same `theme.json`
+via the `clients.idp` section. Logo (`common.logo`) as well as product name and slogan
+(`common.name`, `common.slogan`) are shared with the rest of theming, the following
+keys are available in addition:
+
+```json
+{
+  "clients": {
+    "idp": {
+      "backgroundImage": "",
+      "bgIcon": "",
+      "colors": {
+        "background": "#20434f",
+        "error": "#fe4600",
+        "onBackground": "#ffffff",
+        "onPrimary": "#20434f",
+        "onSecondary": "#20434f",
+        "onSurface": "#20434f",
+        "primary": "#e2baff",
+        "secondary": "#f1f3f4",
+        "surface": "#ffffff"
+      },
+      "favicon": "themes/opencloud/assets/favicon.svg",
+      "signinPageLogoURI": "",
+      "signinPageText": "",
+      "themeColor": "#20434f"
+    }
+  }
+}
+```
+
+*   `colors`\
+    Color roles used by the login card, buttons, inputs and error messages. The
+    `on*` variants define the colors of content rendered on top of the respective
+    role. All colors are optional, missing ones fall back to the defaults above.
+*   `backgroundImage`\
+    Optional URL (absolute or relative to the instance root) of a background image
+    for the login page. When set, it takes precedence over `IDP_LOGIN_BACKGROUND_URL`.
+*   `bgIcon`\
+    Optional URL of the decorative icon shown on the login page background. When
+    empty, the icon bundled with the login UI is used; relative paths are resolved
+    against the instance root.
+*   `signinPageText`\
+    Optional text shown on the sign in card, rendered as plain text. When empty, the
+    text configured via `IDP_DEFAULT_SIGNIN_PAGE_TEXT` (delivered by the IDP) is used;
+    a value set here takes precedence.
+*   `signinPageLogoURI`\
+    Optional URL the login page logo links to. When empty, the URI configured via
+    `IDP_DEFAULT_LOGO_TARGET_URI` (delivered by the IDP) is used; a value set here
+    takes precedence.
+*   `favicon` and `themeColor`\
+    Browser tab favicon and browser chrome color of the login page; relative paths
+    are resolved against the instance root, so theme assets can be referenced directly.
+
+The login page logo reuses the theme wide `common.logo` value and the footer the
+`common.slogan` value; when the slogan does not already contain `common.name` it
+is prepended to the footer, the browser tab title is derived from `common.name`.
+
+All values can be overridden like any other theme key via `WEB_ASSET_THEMES_PATH`
+and the `_branding/theme.json` runtime theme.
+
 ### Loading Applications
 
 Web applications are loaded, if added in the OpenCloud source code, at build-time from

@@ -15,7 +15,7 @@
 
 html {
     font-feature-settings: "cv11";
-    color: #20434f !important;
+    color: var(--oc-idp-on-surface, #20434f) !important;
     height: 100%;
 }
 
@@ -40,7 +40,7 @@ strong {
 }
 
 .oc-login-bg {
-    background: #20434F;
+    background: var(--oc-idp-background, #20434F);
     display: flex;
     width: 100%;
 }
@@ -59,14 +59,15 @@ strong {
     background-position: center;
 }
 
-#loader {
-    /* NOTE(longsleep): White here needed because of the background image */
-    color: white;
-    text-shadow: #000 0 0 1px;
-}
-
 .oc-logo {
+    /* rendered as a background image; the intrinsic size of the default
+       theme logo (170x35) is used as the aspect ratio and scaled by height */
+    display: inline-block;
     height: 80px;
+    aspect-ratio: 170 / 35;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
     z-index: 0;
 }
 
@@ -76,18 +77,18 @@ strong {
 
 .oc-progress {
     /* Needs to be important to overwrite material-ui */
-    background-color: rgba(78, 133, 200, 0.8) !important;
+    background-color: var(--oc-idp-primary, rgba(78, 133, 200, 0.8)) !important;
     height: 4px;
     width: 100px;
 }
 
 .oc-progress > div {
     /* Needs to be important to overwrite material-ui */
-    background-color: #4a76ac !important;
+    background-color: var(--oc-idp-on-primary, #4a76ac) !important;
 }
 
 .oc-input {
-    border: 1px solid #20434f;
+    border: 1px solid var(--oc-idp-on-surface, #20434f);
     border-radius: 4px;
     height: 45px;
     width: 100%;
@@ -104,17 +105,17 @@ strong {
 
 .oc-input.error {
     outline: none;
-    border: 1px solid #fe4600;
+    border: 1px solid var(--oc-idp-error, #fe4600);
 }
 
 .MuiTypography-colorError {
-    color: #fe4600 !important;
+    color: var(--oc-idp-error, #fe4600) !important;
 }
 
 .oc-input:focus {
-    outline: 2px solid #e2baff;
+    outline: 2px solid var(--oc-idp-primary, #e2baff);
     outline-offset: 0;
-    border: 1px solid #fff;
+    border: 1px solid var(--oc-idp-surface, #fff);
 }
 
 .oc-input + .oc-input {
@@ -126,7 +127,7 @@ strong {
 }
 
 .oc-card {
-    background: white;
+    background: var(--oc-idp-surface, white);
     display: inline-flex;
     width: 500px;
 }
@@ -147,9 +148,9 @@ strong {
 .oc-button-primary {
     /* Needs to be important to overwrite material-ui */
     width: 100%;
-    background: #e2baff !important;
+    background: var(--oc-idp-primary, #e2baff) !important;
     border-radius: 100px !important;
-    color: #20434f !important;
+    color: var(--oc-idp-on-primary, #20434f) !important;
     box-shadow: none !important;
     font-weight: 700 !important;
 }
@@ -159,27 +160,27 @@ strong {
  * box-shadow, which are both switched off in this file.
  */
 body :focus-visible {
-    outline: 2px solid #20434f;
+    outline: 2px solid var(--oc-idp-on-surface, #20434f);
     outline-offset: 2px;
 }
 
 /* the logo link sits on the background, which can be dark or a light image */
 .oc-logo-container:focus-visible {
-    outline-color: #fff;
-    box-shadow: 0 0 0 6px #20434f;
+    outline-color: var(--oc-idp-on-background, #fff);
+    box-shadow: 0 0 0 6px var(--oc-idp-background, #20434f);
 }
 
 .oc-button-secondary {
     /* Needs to be important to overwrite material-ui */
     width: 100%;
     border-radius: 100px !important;
-    background: #F1F3F4 !important;
-    color: #20434f !important;
+    background: var(--oc-idp-secondary, #F1F3F4) !important;
+    color: var(--oc-idp-on-secondary, #20434f) !important;
     box-shadow: none !important;
 }
 
 .oc-footer-message {
-    color: white;
+    color: var(--oc-idp-on-background, white);
     padding: 10px;
     font-size: 0.8rem;
 }

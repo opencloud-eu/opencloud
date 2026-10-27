@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useContext, useEffect, useMemo } from "react";
 import PropTypes from "prop-types";
 import { connect } from "react-redux";
 
@@ -7,11 +7,11 @@ import { useTranslation } from "react-i18next";
 import { withStyles } from "@material-ui/core/styles";
 import Button from "@material-ui/core/Button";
 import CircularProgress from "@material-ui/core/CircularProgress";
-import green from "@material-ui/core/colors/green";
 import Typography from "@material-ui/core/Typography";
 import Link from "@material-ui/core/Link";
 
 import TextInput from "../../components/TextInput";
+import { OpenCloudContext } from "../../openCloudContext";
 
 import {
   updateInput,
@@ -22,7 +22,7 @@ import { ErrorMessage } from "../../errors";
 
 const styles = (theme) => ({
   buttonProgress: {
-    color: green[500],
+    color: theme.palette.primary.contrastText,
     position: "absolute",
     top: "50%",
     left: "50%",
@@ -65,6 +65,13 @@ function Login(props) {
     passwordResetLink,
     branding,
   } = props;
+
+  const { theme } = useContext(OpenCloudContext);
+  const idpTheme = theme?.clients?.idp;
+
+  // the theme.json sign in page text takes precedence over the branding
+  // delivered through the IDP hello endpoint
+  const signinPageText = idpTheme?.signinPageText || branding?.signinPageText;
 
   const { t } = useTranslation();
   const loginFailed = errors.http;
@@ -129,12 +136,10 @@ function Login(props) {
         {" "}
         {t("konnect.login.headline", "Sign in")}
       </h1>
-      {branding?.signinPageText && (
-        <Typography
-          className={classes.signinPageText}
-          variant="body2"
-          dangerouslySetInnerHTML={{ __html: branding.signinPageText }}
-        />
+      {signinPageText && (
+        <Typography className={classes.signinPageText} variant="body2">
+          {signinPageText}
+        </Typography>
       )}
       <form
         action=""

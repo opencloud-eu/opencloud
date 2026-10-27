@@ -87,6 +87,30 @@ var themeDefaults = KV{
 			},
 		},
 	},
+	// clients.idp contains the defaults for the login UI shipped with the IDP service.
+	// It is themed through the same theme.json as all other clients, see
+	// services/idp/src/loginTheme.js for how the values are consumed.
+	"clients": KV{
+		"idp": KV{
+			"backgroundImage": "",
+			"bgIcon":          "",
+			"colors": KV{
+				"background":   "#20434f",
+				"error":        "#fe4600",
+				"onBackground": "#ffffff",
+				"onPrimary":    "#20434f",
+				"onSecondary":  "#20434f",
+				"onSurface":    "#20434f",
+				"primary":      "#e2baff",
+				"secondary":    "#f1f3f4",
+				"surface":      "#ffffff",
+			},
+			"favicon":           "themes/opencloud/assets/favicon.svg",
+			"signinPageLogoURI": "",
+			"signinPageText":    "",
+			"themeColor":        "#20434f",
+		},
+	},
 }
 
 // isFiletypePermitted checks if the given file extension is allowed.
