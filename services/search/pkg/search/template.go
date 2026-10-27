@@ -14,10 +14,13 @@ import (
 )
 
 // QueryTemplate is the parsed SEARCH_QUERY_TEMPLATE: a KQL tree with marker
-// nodes where the user's query and the space roots go.
+// nodes where the user's query and the space roots go. An empty template
+// expands to the bare query.
 type QueryTemplate struct {
 	nodes    []ast.Node
 	query    *ast.GroupNode
+	queries  int
+	stray    bool
 	personal *ast.StringNode
 	project  *ast.StringNode
 }
@@ -28,19 +31,10 @@ const (
 	projectRootMarker  = "opencloudprojectrootmarker"
 )
 
-// ParseQueryTemplate parses the template once. An empty template is allowed
-// and expands to the bare query.
+// ParseQueryTemplate parses the template once.
 func ParseQueryTemplate(template string) (*QueryTemplate, error) {
 	if template == "" {
-		return nil, nil
-	}
-
-	if strings.Count(template, config.QueryPlaceholder) != 1 {
-		return nil, errors.New("search query template: must contain " + config.QueryPlaceholder + " exactly once")
-	}
-	wrapped := "(" + config.QueryPlaceholder + ")"
-	if !strings.Contains(template, wrapped) {
-		return nil, errors.New("search query template: " + config.QueryPlaceholder + " must be wrapped as " + wrapped)
+		return &QueryTemplate{}, nil
 	}
 
 	source := strings.NewReplacer(
@@ -59,8 +53,11 @@ func ParseQueryTemplate(template string) (*QueryTemplate, error) {
 
 	t := &QueryTemplate{nodes: parsed.Nodes}
 	t.findMarkers(parsed.Nodes)
-	if t.query == nil {
-		return nil, errors.New("search query template: " + config.QueryPlaceholder + " must be wrapped as " + wrapped)
+	switch {
+	case t.stray && t.queries == 0:
+		return nil, errors.New("search query template: " + config.QueryPlaceholder + " must be wrapped as (" + config.QueryPlaceholder + ")")
+	case t.queries != 1 || t.stray:
+		return nil, errors.New("search query template: must contain " + config.QueryPlaceholder + " exactly once")
 	}
 	return t, nil
 }
@@ -72,12 +69,15 @@ func (t *QueryTemplate) findMarkers(nodes []ast.Node) {
 			if len(node.Nodes) == 1 {
 				if s, ok := node.Nodes[0].(*ast.StringNode); ok && s.Key == "" && s.Value == queryMarker {
 					t.query = node
+					t.queries++
 					continue
 				}
 			}
 			t.findMarkers(node.Nodes)
 		case *ast.StringNode:
 			switch node.Value {
+			case queryMarker:
+				t.stray = true
 			case personalRootMarker:
 				t.personal = node
 			case projectRootMarker:
@@ -91,7 +91,7 @@ func (t *QueryTemplate) findMarkers(nodes []ast.Node) {
 // the user's query and the space roots filled in. Every node is a copy, so the
 // engine may rewrite the result and the inputs stay untouched.
 func (t *QueryTemplate) Expand(query *ast.Ast, space *provider.StorageSpace) *ast.Ast {
-	if t == nil {
+	if t.query == nil {
 		return &ast.Ast{Base: query.Base, Nodes: cloneNodes(query.Nodes, nil)}
 	}
 
@@ -105,7 +105,9 @@ func (t *QueryTemplate) Expand(query *ast.Ast, space *provider.StorageSpace) *as
 	return &ast.Ast{Nodes: cloneNodes(t.nodes, func(n ast.Node) ast.Node {
 		switch n {
 		case t.query:
-			return &ast.GroupNode{Base: t.query.Base, Nodes: cloneNodes(query.Nodes, nil)}
+			c := *t.query
+			c.Nodes = cloneNodes(query.Nodes, nil)
+			return &c
 		case t.personal:
 			c := *t.personal
 			c.Value = rootID(_spaceTypePersonal)

@@ -12,11 +12,13 @@ import (
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v3/pkg/conversions"
+	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v3/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v3/pkg/storage/utils/grants"
 	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
+	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
@@ -279,6 +281,23 @@ func CompleteRootID(v string) string {
 		return v + "!" + v[i+1:]
 	}
 	return v
+}
+
+// ParseQuery parses a KQL query; what the parser rejects is a bad request.
+func ParseQuery(query string) (*ast.Ast, error) {
+	if strings.TrimSpace(query) == "" {
+		return nil, errtypes.BadRequest("empty query provided")
+	}
+
+	a, err := kql.Builder{}.Build(query)
+	if err != nil {
+		if kql.IsValidationError(err) {
+			return nil, errtypes.BadRequest(err.Error())
+		}
+		return nil, err
+	}
+
+	return a, nil
 }
 
 // PinnedRootID returns the single space root the query is pinned to via
