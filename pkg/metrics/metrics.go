@@ -37,16 +37,10 @@ type Metrics struct {
 	Events *eventsMetrics
 	HTTP   *httpMetrics
 	GRPC   *grpcMetrics
-
-	serviceMetrics map[string]prometheus.Collector
 }
 
 // Option configures a Metrics container.
 type Option func(*Metrics)
-
-// ErrMetricNotFound is returned when a registered metric is looked up by a name
-// that was not registered.
-var ErrMetricNotFound = errors.New("metric not found")
 
 // Create a BuildInfo metric for the specified namespace and subsystem.
 func BuildInfo(namespace, subsystem string) BuildInfoMetric {
@@ -114,6 +108,26 @@ func RegisterAll(registerer prometheus.Registerer, m any, logger *log.Logger) er
 		r = r.Elem()
 	}
 
+	// register a single collector, recording the outcome under name and using
+	// failureKey for failures so several failures don't overwrite each other
+	register := func(name, failureKey string, c prometheus.Collector) {
+		total++
+		if err := registerer.Register(c); err != nil {
+			switch err.(type) {
+			case prometheus.AlreadyRegisteredError:
+				// silently ignore this error, as this case can happen when the suture service decides to restart
+				succeeded = append(succeeded, name)
+			default:
+				failed[failureKey] = err
+			}
+		} else {
+			succeeded = append(succeeded, name)
+			if err := postProcess(c); err != nil {
+				failed[failureKey] = err
+			}
+		}
+	}
+
 	for i := 0; i < r.NumField(); i++ {
 		t := r.Type().Field(i)
 		n := t.Name // the name of the attribute (not the name of the metric)
@@ -124,21 +138,13 @@ func RegisterAll(registerer prometheus.Registerer, m any, logger *log.Logger) er
 		v := f.Interface()
 		switch c := v.(type) {
 		case prometheus.Collector:
-			total++
-			if err := registerer.Register(c); err != nil {
-				switch err.(type) {
-				case prometheus.AlreadyRegisteredError:
-					// silently ignore this error, as this case can happen when the suture service decides to restart
-					err = nil
-					succeeded = append(succeeded, n)
-				default:
-					failed[n] = err
-				}
-			} else {
-				succeeded = append(succeeded, n)
-				if err := postProcess(c); err != nil {
-					failed[n] = err
-				}
+			register(n, n, c)
+		case *Metrics:
+			if c == nil {
+				continue // a struct may embed a nil container, its own fields still register
+			}
+			for j, collector := range c.Collectors() {
+				register(n, fmt.Sprintf("%s[%d]", n, j), collector)
 			}
 		case *prometheus.Desc,
 			prometheus.GaugeOpts,
@@ -266,20 +272,11 @@ func WithEnabledAPIs(apis ...APIType) Option {
 	}
 }
 
-// WithMetric registers an additional service-specific metric into the container
-// under the given logical name.
-func WithMetric(name string, c prometheus.Collector) Option {
-	return func(m *Metrics) {
-		m.serviceMetrics[name] = c
-	}
-}
-
 func New(reg prometheus.Registerer, logger *log.Logger, namespace, subsystem string, opts ...Option) (*Metrics, error) {
 	m := &Metrics{
-		namespace:      namespace,
-		subsystem:      subsystem,
-		BuildInfo:      BuildInfo(namespace, subsystem),
-		serviceMetrics: map[string]prometheus.Collector{},
+		namespace: namespace,
+		subsystem: subsystem,
+		BuildInfo: BuildInfo(namespace, subsystem),
 	}
 
 	for _, o := range opts {
@@ -290,7 +287,7 @@ func New(reg prometheus.Registerer, logger *log.Logger, namespace, subsystem str
 
 	lr := NewLoggingPrometheusRegisterer(reg, logger)
 	var errs []error
-	for _, c := range m.allCollectors() {
+	for _, c := range m.Collectors() {
 		if err := lr.Register(c); err != nil {
 			errs = append(errs, err)
 		}
@@ -298,17 +295,8 @@ func New(reg prometheus.Registerer, logger *log.Logger, namespace, subsystem str
 	return m, errors.Join(errs...)
 }
 
-// GetMetric returns the metric registered under the given name.
-func (m *Metrics) GetMetric(name string) (prometheus.Collector, error) {
-	c, ok := m.serviceMetrics[name]
-	if !ok {
-		return nil, fmt.Errorf("%q: %w", name, ErrMetricNotFound)
-	}
-	return c, nil
-}
-
-// allCollectors returns every collector the container owns, for registration.
-func (m *Metrics) allCollectors() []prometheus.Collector {
+// Collectors returns every collector the container owns, for registration.
+func (m *Metrics) Collectors() []prometheus.Collector {
 	collectors := []prometheus.Collector{m.BuildInfo}
 	if m.Events != nil {
 		collectors = append(collectors, m.Events.collectors()...)
@@ -318,9 +306,6 @@ func (m *Metrics) allCollectors() []prometheus.Collector {
 	}
 	if m.GRPC != nil {
 		collectors = append(collectors, m.GRPC.collectors()...)
-	}
-	for _, c := range m.serviceMetrics {
-		collectors = append(collectors, c)
 	}
 	return collectors
 }

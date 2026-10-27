@@ -159,6 +159,113 @@ func TestRegisterAll(t *testing.T) {
 	}
 }
 
+func TestRegisterAllEmbeddedContainer(t *testing.T) {
+	require := require.New(t)
+
+	reg := prometheus.NewRegistry()
+	logger := log.NewLogger()
+	namespace := "name-" + randName()
+	subsystem := "sub-" + randName()
+
+	m, err := New(reg, &logger, namespace, subsystem,
+		WithEnabledAPIs(APIHTTP, APIEvents),
+		WithHTTPMetrics(),
+	)
+	require.NoError(err)
+	require.NotNil(m)
+
+	// a service can embed the container to register its own metrics with it
+	type svcMetrics struct {
+		*Metrics
+		Foo *prometheus.CounterVec
+	}
+	svc := svcMetrics{
+		Metrics: m,
+		Foo: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "foo_total",
+			Help:      "A service-specific metric.",
+		}, []string{"label"}),
+	}
+	require.NoError(RegisterAll(reg, svc, &logger))
+
+	svc.Foo.WithLabelValues("a").Inc()
+
+	fooName := namespace + "_" + subsystem + "_foo_total"
+	{
+		mfs := gatherByName(t, reg)
+		mf := mfs[fooName]
+		require.NotNil(mf, "expected metric %q", fooName)
+		ms := mf.GetMetric()
+		require.Len(ms, 1)
+		labels := ms[0].GetLabel()
+		require.Len(labels, 1)
+		require.Equal("label", labels[0].GetName())
+		require.Equal("a", labels[0].GetValue())
+		require.Equal(1.0, ms[0].GetCounter().GetValue())
+	}
+
+	// the embedded container's own metrics are still exposed exactly once
+	{
+		mfs := gatherByName(t, reg)
+		for _, name := range []string{
+			namespace + "_" + subsystem + "_build_info",
+			namespace + "_" + subsystem + "_http_enabled",
+			namespace + "_" + subsystem + "_events_enabled",
+		} {
+			mf := mfs[name]
+			require.NotNil(mf, "expected metric %q", name)
+			require.Len(mf.GetMetric(), 1, "expected exactly one series for %q", name)
+		}
+	}
+
+	// the middleware promoted from the embedded container is usable
+	router := chi.NewRouter()
+	router.Use(svc.HTTP.Middleware)
+	router.Get("/foo", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	srv := httptest.NewServer(router)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/foo")
+	require.NoError(err)
+	require.Equal(http.StatusOK, resp.StatusCode)
+	require.NoError(resp.Body.Close())
+
+	require.NotNil(gatherByName(t, reg)[namespace+"_"+subsystem+"_http_requests_total"])
+}
+
+func TestRegisterAllEmbeddedNilContainer(t *testing.T) {
+	require := require.New(t)
+
+	reg := prometheus.NewRegistry()
+	logger := log.NewLogger()
+	namespace := "name-" + randName()
+	subsystem := "sub-" + randName()
+
+	type svcMetrics struct {
+		*Metrics
+		Bar prometheus.Counter
+	}
+	svc := svcMetrics{
+		Bar: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      "bar",
+			Help:      "A service-specific metric.",
+		}),
+	}
+
+	// a nil embedded container is skipped, the struct's own fields still register
+	require.NoError(RegisterAll(reg, svc, &logger))
+
+	barName := namespace + "_" + subsystem + "_bar"
+	require.NotNil(gatherByName(t, reg)[barName], "expected metric %q", barName)
+}
+
 func gatherByName(t *testing.T, reg *prometheus.Registry) map[string]*dto.MetricFamily {
 	t.Helper()
 	mfs, err := reg.Gather()
@@ -265,10 +372,6 @@ func TestServiceMetricsGRPCEnabled(t *testing.T) {
 
 	// an undeclared API has no metrics struct
 	require.Nil(m.HTTP)
-
-	// GetMetric only covers service metrics, not defaults
-	_, err = m.GetMetric("grpc_enabled")
-	require.ErrorIs(err, ErrMetricNotFound)
 }
 
 func gaugeValue(t *testing.T, g prometheus.Gauge) float64 {
@@ -295,43 +398,6 @@ func TestServiceMetricsNoEventsCounter(t *testing.T) {
 
 	eventsName := namespace + "_" + subsystem + "_events"
 	require.Nil(gatherByName(t, reg)[eventsName])
-}
-
-func TestServiceMetricsWithMetric(t *testing.T) {
-	require := require.New(t)
-
-	reg := prometheus.NewRegistry()
-	logger := log.NewLogger()
-	namespace := "name-" + randName()
-	subsystem := "sub-" + randName()
-
-	custom := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: namespace,
-		Subsystem: subsystem,
-		Name:      "custom_thing",
-		Help:      "A service-specific metric.",
-	}, []string{"label"})
-
-	m, err := New(reg, &logger, namespace, subsystem,
-		WithEnabledAPIs(APIHTTP),
-		WithMetric("custom_thing", custom),
-	)
-	require.NoError(err)
-
-	// the custom metric is registered and exposed
-	custom.WithLabelValues("a").Set(1)
-	require.NotNil(gatherByName(t, reg)[namespace+"_"+subsystem+"_custom_thing"])
-
-	// it can be retrieved by name
-	c, err := m.GetMetric("custom_thing")
-	require.NoError(err)
-	got, ok := c.(*prometheus.GaugeVec)
-	require.True(ok)
-	require.Same(custom, got)
-
-	// unknown names return ErrMetricNotFound
-	_, err = m.GetMetric("nope")
-	require.ErrorIs(err, ErrMetricNotFound)
 }
 
 func TestServiceMetricsAlreadyRegistered(t *testing.T) {
