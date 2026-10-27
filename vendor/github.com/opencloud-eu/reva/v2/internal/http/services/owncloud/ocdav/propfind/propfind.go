@@ -1538,6 +1538,8 @@ func mdToPropResponse(ctx context.Context, pf *XML, md *provider.ResourceInfo, p
 							types.WriteString("<oc:share-type>" + strconv.Itoa(int(conversions.ShareTypeUser)) + "</oc:share-type>")
 						case "2": // provider.GranteeType_GRANTEE_TYPE_GROUP
 							types.WriteString("<oc:share-type>" + strconv.Itoa(int(conversions.ShareTypeGroup)) + "</oc:share-type>")
+						case "4": // conversions.ShareTypeGuest, guest shares are stored as user grants
+							types.WriteString("<oc:share-type>" + strconv.Itoa(int(conversions.ShareTypeGuest)) + "</oc:share-type>")
 						default:
 							sublog.Debug().Interface("shareType", shareType).Msg("unknown share type, ignoring")
 						}

@@ -2707,3 +2707,4 @@ stash.kopano.io/kgol/rndm
 # github.com/unrolled/secure => github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4
 # go-micro.dev/v4 => github.com/butonic/go-micro/v4 v4.11.4-0.20260929213538-cd412c159a26
 # github.com/go-micro/plugins/v4/store/nats-js-kv => github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a
+# github.com/opencloud-eu/reva/v2 => ../reva
