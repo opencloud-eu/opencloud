@@ -151,7 +151,17 @@
 #### [sharee (editor role) MOVE a file by file-id into shared sub-folder returns 502](https://github.com/owncloud/ocis/issues/7617)
 
 - [apiSpacesDavOperation/moveByFileId.feature:368](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesDavOperation/moveByFileId.feature#L368)
-- [apiSpacesDavOperation/moveByFileId.feature:591](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesDavOperation/moveByFileId.feature#L591)
+- [apiSpacesDavOperation/moveByFileId.feature:620](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesDavOperation/moveByFileId.feature#L620)
+
+#### [MOVE between spaces returns 502 but deletes the existing destination file](https://github.com/opencloud-eu/opencloud/issues/3767)
+
+- [apiGuestLink/guestLinkFileOperations.feature:242](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGuestLink/guestLinkFileOperations.feature#L242)
+- [apiSpacesDavOperation/moveByFileId.feature:471](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesDavOperation/moveByFileId.feature#L471)
+
+#### [Sharee with the Editor role can delete the shared folder of the owner using file-id](https://github.com/opencloud-eu/opencloud/issues/3770)
+
+- [apiGuestLink/guestLinkFileOperations.feature:110](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiGuestLink/guestLinkFileOperations.feature#L110)
+- [apiSpacesDavOperation/deleteByFileId.feature:14](https://github.com/opencloud-eu/opencloud/blob/main/tests/acceptance/features/apiSpacesDavOperation/deleteByFileId.feature#L14)
 
 #### [MOVE a file into same folder with same name returns 404 instead of 403](https://github.com/owncloud/ocis/issues/1976)
 
