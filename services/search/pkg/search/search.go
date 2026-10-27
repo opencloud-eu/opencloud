@@ -19,8 +19,6 @@ import (
 	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
-	"github.com/opencloud-eu/opencloud/pkg/kql"
-
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
@@ -47,9 +45,10 @@ var ErrOptimizeUnsupported = errors.New("the search engine merges its index on i
 // ErrOptimizeInProgress is returned while another optimization of the index runs
 var ErrOptimizeInProgress = errors.New("the index is being optimized already")
 
-// IndexQuery is one search against the index.
+// IndexQuery is one search against the index. The engine owns the query it
+// is given and may rewrite it while compiling.
 type IndexQuery struct {
-	Query              string
+	Query              *ast.Ast
 	Ref                *searchmsg.Reference
 	PageSize           *int32
 	Aggregations       []*searchsvc.AggregationOption
@@ -322,15 +321,7 @@ func CompleteRootID(v string) string {
 // PinnedRootID returns the single space root the query is pinned to via
 // top-level AND driveId/RootID conjuncts, or "". OR, NOT and group-nested
 // restrictions never pin: skipping a space would be wrong.
-func PinnedRootID(query string) string {
-	a, err := kql.Builder{}.Build(query)
-	if err != nil {
-		return ""
-	}
-	return pinnedRootID(a)
-}
-
-func pinnedRootID(a *ast.Ast) string {
+func PinnedRootID(a *ast.Ast) string {
 	pinned := ""
 	negated := false
 	for _, n := range a.Nodes {

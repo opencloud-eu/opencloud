@@ -34,7 +34,7 @@ var _ = Describe("Optimize", func() {
 		idx, _, err := bleve.NewIndex(GinkgoT().TempDir(), log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(idx.Close)
-		return bleve.NewBackend(idx, bleveQuery.DefaultCreator, log.NopLogger()), idx
+		return bleve.NewBackend(idx, bleveQuery.Compiler{}, log.NopLogger()), idx
 	}
 
 	It("merges the segments of the index into one and keeps the documents", func() {
@@ -79,7 +79,7 @@ var _ = Describe("Optimize", func() {
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(idx.Close)
 
-		eng := bleve.NewBackend(idx, bleveQuery.DefaultCreator, log.NopLogger())
+		eng := bleve.NewBackend(idx, bleveQuery.Compiler{}, log.NopLogger())
 		Expect(eng.Optimize(context.Background())).To(MatchError(search.ErrOptimizeUnsupported))
 	})
 })

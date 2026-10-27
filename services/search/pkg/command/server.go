@@ -80,7 +80,7 @@ func Server(cfg *config.Config) *cobra.Command {
 					}
 				}()
 
-				eng = bleve.NewBackend(idx, bleveQuery.DefaultCreator, logger)
+				eng = bleve.NewBackend(idx, bleveQuery.Compiler{}, logger)
 			case "open-search":
 				client, err := opensearch.NewClient(cfg.Engine.OpenSearch.Client)
 				if err != nil {
@@ -122,7 +122,10 @@ func Server(cfg *config.Config) *cobra.Command {
 				return fmt.Errorf("unknown search extractor: %s", cfg.Extractor.Type)
 			}
 
-			ss := search.NewService(selector, eng, extractor, mtrcs, logger, cfg)
+			ss, err := search.NewService(selector, eng, extractor, mtrcs, logger, cfg)
+			if err != nil {
+				return err
+			}
 
 			// The KV bucket is used to remember spaces that were skipped during
 			// (re)indexing because they were disabled. It is shared between the gRPC

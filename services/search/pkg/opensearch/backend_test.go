@@ -15,6 +15,7 @@ import (
 
 	revactx "github.com/opencloud-eu/reva/v3/pkg/ctx"
 
+	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
@@ -151,7 +152,9 @@ var _ = Describe("Backend", func() {
 		})
 
 		tagHits := func(tag string) int {
-			res, err := backend.Search(context.Background(), &search.IndexQuery{Query: `tag:("` + tag + `")`})
+			query, err := kql.Builder{}.Build(`tag:("` + tag + `")`)
+			Expect(err).ToNot(HaveOccurred())
+			res, err := backend.Search(context.Background(), &search.IndexQuery{Query: query})
 			Expect(err).ToNot(HaveOccurred())
 			return len(res.Matches)
 		}
@@ -215,9 +218,13 @@ var _ = Describe("Backend", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			ctx := revactx.ContextSetUser(context.Background(), &userv1beta1.User{Id: &userv1beta1.UserId{OpaqueId: "einstein"}})
-			_, err = backend.Search(ctx, &search.IndexQuery{Query: "name:a"})
+			query, err := kql.Builder{}.Build("name:a")
 			Expect(err).ToNot(HaveOccurred())
-			_, err = backend.Search(context.Background(), &search.IndexQuery{Query: "name:a"})
+			_, err = backend.Search(ctx, &search.IndexQuery{Query: query})
+			Expect(err).ToNot(HaveOccurred())
+			query, err = kql.Builder{}.Build("name:a")
+			Expect(err).ToNot(HaveOccurred())
+			_, err = backend.Search(context.Background(), &search.IndexQuery{Query: query})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(searches.preferences).To(Equal([]string{"user-einstein", ""}))

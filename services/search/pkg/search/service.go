@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
+	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -88,7 +89,7 @@ type Service struct {
 
 	batchSize int
 
-	queryTemplate string
+	queryTemplate *QueryTemplate
 }
 
 var errSkipSpace error
@@ -110,9 +111,13 @@ var (
 const unreachableStreakLimit = 5
 
 // NewService creates a new Provider instance.
-func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng Engine, extractor content.Extractor, metrics *metrics.Metrics, logger log.Logger, cfg *config.Config) *Service {
+func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng Engine, extractor content.Extractor, metrics *metrics.Metrics, logger log.Logger, cfg *config.Config) (*Service, error) {
 	// NewBasicExtractor has no failure path
 	basic, _ := content.NewBasicExtractor(logger)
+	queryTemplate, err := ParseQueryTemplate(cfg.QueryTemplate)
+	if err != nil {
+		return nil, err
+	}
 
 	var s = &Service{
 		gatewaySelector: gatewaySelector,
@@ -127,30 +132,10 @@ func NewService(gatewaySelector pool.Selectable[gateway.GatewayAPIClient], eng E
 
 		batchSize: cfg.BatchSize,
 
-		queryTemplate: cfg.QueryTemplate,
+		queryTemplate: queryTemplate,
 	}
 
-	return s
-}
-
-// ExpandQueryTemplate fills {{.QUERY}} with the user query and the space-root placeholders per space.
-func ExpandQueryTemplate(template, query string, space *provider.StorageSpace) string {
-	if template == "" {
-		return query
-	}
-
-	rootID := func(spaceType string) string {
-		if space.GetSpaceType() == spaceType {
-			return `"` + storagespace.FormatResourceID(space.GetRoot()) + `"`
-		}
-		return `"` + config.NoResourceID + `"`
-	}
-
-	return strings.NewReplacer(
-		config.QueryPlaceholder, query,
-		config.PersonalSpaceRootPlaceholder, rootID(_spaceTypePersonal),
-		config.ProjectSpaceRootPlaceholder, rootID(_spaceTypeProject),
-	).Replace(template)
+	return s, nil
 }
 
 // Search processes a search request and passes it down to the engine.
@@ -243,7 +228,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	// stays in the query, mountpoints are kept for path mapping
 	var pinnedRoot *provider.ResourceId
 	if req.Ref == nil {
-		if pinned := pinnedRootID(queryAst); pinned != "" {
+		if pinned := PinnedRootID(queryAst); pinned != "" {
 			if rid, err := storagespace.ParseID(pinned); err == nil {
 				pinnedRoot = &rid
 			}
@@ -326,7 +311,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	for i := 0; i < numWorkers; i++ {
 		errg.Go(func() error {
 			for space := range work {
-				res, err := s.searchIndex(ctx, req, space, mountpointMap[space.Id.OpaqueId], scopeRoot)
+				res, err := s.searchIndex(ctx, req, queryAst, space, mountpointMap[space.Id.OpaqueId], scopeRoot)
 				if err != nil && err != errSkipSpace {
 					return err
 				}
@@ -427,7 +412,7 @@ func engineFetchSize(from int32, pageSize *int32) int32 {
 	return math.MaxInt32
 }
 
-func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, space *provider.StorageSpace, mountpointID string, scopeRoot *provider.ResourceId) (res *IndexResult, err error) {
+func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, query *ast.Ast, space *provider.StorageSpace, mountpointID string, scopeRoot *provider.ResourceId) (res *IndexResult, err error) {
 	// the workers run in an errgroup, which does not recover, one failing space must not affect the others
 	defer func() {
 		if r := recover(); r != nil {
@@ -531,14 +516,19 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 		permissions = space.GetRootInfo().GetPermissionSet()
 	}
 
-	query := ExpandQueryTemplate(s.queryTemplate, req.Query, space)
+	expanded := s.queryTemplate.Expand(query, space)
 	if scopeRoot != nil {
 		// the path filter of the engines matches the scope folder as well
-		query = fmt.Sprintf(`(%s) AND NOT id:"%s"`, query, storagespace.FormatResourceID(scopeRoot))
+		expanded = &ast.Ast{Nodes: []ast.Node{
+			&ast.GroupNode{Nodes: expanded.Nodes},
+			&ast.OperatorNode{Value: kql.BoolAND},
+			&ast.OperatorNode{Value: kql.BoolNOT},
+			&ast.StringNode{Key: "id", Value: storagespace.FormatResourceID(scopeRoot), Exact: true},
+		}}
 	}
 
 	searchRequest := &IndexQuery{
-		Query:              query,
+		Query:              expanded,
 		Aggregations:       req.GetAggregations(),
 		AggregationFilters: req.GetAggregationFilters(),
 		Ref: &searchmsg.Reference{
@@ -560,9 +550,9 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 		return nil, err
 	}
 	if duration > _slowQueryDuration {
-		s.logger.Info().Interface("searchRequest", searchRequest).Str("duration", fmt.Sprint(duration)).Str("space", space.Id.OpaqueId).Int("hits", len(res.Matches)).Msg("slow space search")
+		s.logger.Info().Str("query", req.Query).Str("duration", fmt.Sprint(duration)).Str("space", space.Id.OpaqueId).Int("hits", len(res.Matches)).Msg("slow space search")
 	} else {
-		s.logger.Debug().Interface("searchRequest", searchRequest).Str("duration", fmt.Sprint(duration)).Str("space", space.Id.OpaqueId).Int("hits", len(res.Matches)).Msg("space search done")
+		s.logger.Debug().Str("query", req.Query).Str("duration", fmt.Sprint(duration)).Str("space", space.Id.OpaqueId).Int("hits", len(res.Matches)).Msg("space search done")
 	}
 
 	matches := make([]*searchmsg.Match, 0, len(res.Matches))

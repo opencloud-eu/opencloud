@@ -11,7 +11,6 @@ import (
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
 
-	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/aggregation"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
@@ -451,14 +450,10 @@ var _ = Describe("Aggregations", func() {
 								Skip(e.unavailable)
 							}
 
-							request := &search.IndexQuery{
-								Query:              c.query,
-								Aggregations:       c.aggs,
-								AggregationFilters: c.filters,
-							}
-							if c.pageSize != 0 {
-								request.PageSize = conversions.ToPointer(c.pageSize)
-							}
+							request, err := query(c.query, nil, c.pageSize)
+							Expect(err).NotTo(HaveOccurred(), "the query of an aggregation case has to parse")
+							request.Aggregations = c.aggs
+							request.AggregationFilters = c.filters
 							resp, err := e.backend.Search(context.Background(), request)
 							answer := renderAggregations(resp, err)
 							if err == nil && (len(c.filters) > 0 || c.listMatches) {
