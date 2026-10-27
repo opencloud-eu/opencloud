@@ -94,10 +94,12 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 				// We need to init the posix driver with 'scanfs' disabled
 				posixDrivers := revaconfig.Posix(cfg, false, false)
 				// Disable async file uploads: this command only lists sessions and publishes
-				// events, but with async uploads enabled the driver would join the "dcfs"
-				// JetStream queue group. Events routed to this short-lived CLI member are
-				// auto-acked by the nats client and lost when the process exits, so the
-				// clean/restart/resume events published below would never reach the daemon.
+				// events, but with async uploads enabled the driver would join the
+				// "dcfs-revisions" JetStream queue group. Events routed to this short-lived
+				// CLI member are auto-acked by the nats client and lost when the process
+				// exits, so the daemon would miss them. The coordinator built below does not
+				// subscribe to postprocessing events, so the clean/restart/resume events
+				// published below reach the daemon.
 				posixDrivers["asyncfileuploads"] = false
 				drivers["posix"] = posixDrivers
 				// Also posix refuses to start without an events stream
