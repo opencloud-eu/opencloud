@@ -19,6 +19,7 @@ import (
 
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query"
+	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
 )
 
 const defaultBatchSize = 50
@@ -26,16 +27,14 @@ const defaultBatchSize = 50
 var _ search.Engine = (*Backend)(nil) // ensure Backend implements Engine
 
 type Backend struct {
-	index    *serialIndex
-	compiler searchQuery.Compiler[query.Query]
-	log      log.Logger
+	index *serialIndex
+	log   log.Logger
 }
 
-func NewBackend(index bleve.Index, compiler searchQuery.Compiler[query.Query], log log.Logger) *Backend {
+func NewBackend(index bleve.Index, log log.Logger) *Backend {
 	return &Backend{
-		index:    &serialIndex{bleveIndex: index},
-		compiler: compiler,
-		log:      log,
+		index: &serialIndex{bleveIndex: index},
+		log:   log,
 	}
 }
 
@@ -60,7 +59,7 @@ func (i *serialIndex) Batch(b *bleve.Batch) error {
 
 // Search executes a search request operation within the index.
 func (b *Backend) Search(_ context.Context, sir *search.IndexQuery) (*search.IndexResult, error) {
-	createdQuery, err := b.compiler.Compile(searchQuery.Normalize(sir.Query, searchQuery.ResolveField))
+	createdQuery, err := bleveQuery.Compiler{}.Compile(searchQuery.Normalize(sir.Query, searchQuery.ResolveField))
 	if err != nil {
 		return nil, err
 	}
