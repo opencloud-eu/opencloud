@@ -95,9 +95,18 @@ var _ = Describe("QueryTemplate", func() {
 		Expect(render(expanded.Nodes)).To(Equal(render(parse(`(NOT mediatype:folder AND (name:x OR name:y)) OR tag:keep`).Nodes)))
 	})
 
+	It("keeps the key of the query group", func() {
+		t, err := search.ParseQueryTemplate(`name:({{.QUERY}})`)
+		Expect(err).ToNot(HaveOccurred())
+
+		expanded := t.Expand(parse(`x OR y`), &sprovider.StorageSpace{})
+		Expect(render(expanded.Nodes)).To(Equal(render(parse(`name:(x OR y)`).Nodes)))
+	})
+
 	It("expands an empty template to the query itself", func() {
-		var t *search.QueryTemplate
-		query := parse(`name:x AND mtime>=2024-01-02T03:04:05Z`)
+		t, err := search.ParseQueryTemplate("")
+		Expect(err).ToNot(HaveOccurred())
+		query := parse(`name:x AND mtime>=2024-01-02T03:04:05Z AND size>1 AND hidden:true`)
 
 		Expect(render(t.Expand(query, &sprovider.StorageSpace{}).Nodes)).To(Equal(render(query.Nodes)))
 	})

@@ -172,11 +172,8 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	}
 	currentUser := revactx.ContextMustGetUser(ctx)
 
-	queryAst, err := kql.Builder{}.Build(req.Query)
+	queryAst, err := ParseQuery(req.Query)
 	if err != nil {
-		if kql.IsValidationError(err) {
-			return nil, errtypes.BadRequest(err.Error())
-		}
 		return nil, err
 	}
 	ExpandFavorites(queryAst.Nodes, currentUser.GetId().GetOpaqueId())
