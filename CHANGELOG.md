@@ -1,13 +1,14 @@
 # Changelog
 
-## [7.2.5](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.5) - 2026-10-12
+## [7.2.5](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.5) - 2026-10-27
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@rhafer, @v-scharf
+@micbar, @rhafer, @v-scharf
 
 ### 🐛 Bug Fixes
 
+- [stable-7.2] fix empty call to action translations [[#3833](https://github.com/opencloud-eu/opencloud/pull/3833)]
 - [stable-7.2] fix(thumbnails): bound declared image dimensions before decoding [[#3489](https://github.com/opencloud-eu/opencloud/pull/3489)]
 
 ## [7.2.4](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.4) - 2026-08-20
