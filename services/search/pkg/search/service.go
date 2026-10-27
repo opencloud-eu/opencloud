@@ -31,7 +31,6 @@ import (
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
-	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
@@ -133,11 +132,8 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	}
 	currentUser := revactx.ContextMustGetUser(ctx)
 
-	queryAst, err := kql.Builder{}.Build(req.Query)
+	queryAst, err := ParseQuery(req.Query)
 	if err != nil {
-		if kql.IsValidationError(err) {
-			return nil, errtypes.BadRequest(err.Error())
-		}
 		return nil, err
 	}
 	ExpandFavorites(queryAst.Nodes, currentUser.GetId().GetOpaqueId())

@@ -10,11 +10,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
-	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
@@ -172,18 +170,14 @@ func resourceID(id *searchMessage.ResourceID) string {
 // query parses KQL the way the service does: what the parser rejects is a bad
 // request before any engine sees it.
 func query(kqlQuery string, ref *searchMessage.Reference, limit int32) (*search.IndexQuery, error) {
-	a, err := kql.Builder{}.Build(kqlQuery)
+	a, err := search.ParseQuery(kqlQuery)
 	if err != nil {
-		if kql.IsValidationError(err) {
-			return nil, errtypes.BadRequest(err.Error())
-		}
 		return nil, err
 	}
 
 	return &search.IndexQuery{Query: a, Ref: ref, PageSize: limit}, nil
 }
 
-// run runs a query against an engine.
 func run(e search.Engine, kqlQuery string, ref *searchMessage.Reference, limit int32) (*search.IndexResult, error) {
 	request, err := query(kqlQuery, ref, limit)
 	if err != nil {

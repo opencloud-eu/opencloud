@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	sprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	opensearchgo "github.com/opensearch-project/opensearch-go/v4"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/config/defaults"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
@@ -74,6 +77,29 @@ var _ = Describe("Backend", func() {
 			res, err = backend.Search(context.Background(), &search.IndexQuery{Query: search.UpToDateQuery(document.ID, document.Mtime.Add(time.Second))})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.Matches).To(BeEmpty())
+		})
+
+		It("applies the default query template", func() {
+			keep := func(id, path, name string) search.Resource {
+				return search.Resource{ID: id, RootID: "1$2!2", Path: path, Document: content.Document{Name: name, Tags: []string{"keep"}}}
+			}
+			for _, r := range []search.Resource{
+				keep("1$2!2", ".", "root"),
+				keep("1$2!5", "./.space/readme.md", "readme.md"),
+				keep("1$2!6", "./child.pdf", "child.pdf"),
+			} {
+				Expect(backend.Upsert(r.ID, r)).To(Succeed())
+			}
+			template, err := search.ParseQueryTemplate(defaults.DefaultConfig().QueryTemplate)
+			Expect(err).ToNot(HaveOccurred())
+			query, err := search.ParseQuery(`tag:keep`)
+			Expect(err).ToNot(HaveOccurred())
+			space := &sprovider.StorageSpace{SpaceType: "personal", Root: &sprovider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "2"}}
+
+			res, err := backend.Search(context.Background(), &search.IndexQuery{Query: template.Expand(query, space)})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Matches).To(HaveLen(1))
+			Expect(res.Matches[0].Entity.Name).To(Equal("child.pdf"))
 		})
 	})
 

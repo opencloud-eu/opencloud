@@ -12,6 +12,7 @@ import (
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/conversions"
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/grants"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
@@ -251,6 +252,23 @@ func CompleteRootID(v string) string {
 		return v + "!" + v[i+1:]
 	}
 	return v
+}
+
+// ParseQuery parses a KQL query; what the parser rejects is a bad request.
+func ParseQuery(query string) (*ast.Ast, error) {
+	if strings.TrimSpace(query) == "" {
+		return nil, errtypes.BadRequest("empty query provided")
+	}
+
+	a, err := kql.Builder{}.Build(query)
+	if err != nil {
+		if kql.IsValidationError(err) {
+			return nil, errtypes.BadRequest(err.Error())
+		}
+		return nil, err
+	}
+
+	return a, nil
 }
 
 // UpToDateQuery matches the indexed document when it is at least as new as
