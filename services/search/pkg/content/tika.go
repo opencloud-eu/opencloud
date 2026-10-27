@@ -63,12 +63,12 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		return doc, nil
 	}
 
-	if ri.Size > t.ContentExtractionSizeLimit {
-		t.logger.Info().Interface("ResourceID", ri.Id).Str("Name", ri.Name).Msg("file exceeds content extraction size limit. skipping.")
+	if ri.Type != provider.ResourceType_RESOURCE_TYPE_FILE {
 		return doc, nil
 	}
 
-	if ri.Type != provider.ResourceType_RESOURCE_TYPE_FILE {
+	if ri.Size > t.ContentExtractionSizeLimit {
+		t.logger.Info().Interface("ResourceID", ri.Id).Str("Name", ri.Name).Msg("file exceeds content extraction size limit. skipping.")
 		return doc, nil
 	}
 
