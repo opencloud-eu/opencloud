@@ -9,12 +9,10 @@ import (
 	"github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/search/query"
 	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/opencloud-eu/reva/v3/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v3/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v3/pkg/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
@@ -28,16 +26,16 @@ const defaultBatchSize = 50
 var _ search.Engine = (*Backend)(nil) // ensure Backend implements Engine
 
 type Backend struct {
-	index        *serialIndex
-	queryCreator searchQuery.Creator[query.Query]
-	log          log.Logger
+	index    *serialIndex
+	compiler searchQuery.Compiler[query.Query]
+	log      log.Logger
 }
 
-func NewBackend(index bleve.Index, queryCreator searchQuery.Creator[query.Query], log log.Logger) *Backend {
+func NewBackend(index bleve.Index, compiler searchQuery.Compiler[query.Query], log log.Logger) *Backend {
 	return &Backend{
-		index:        &serialIndex{bleveIndex: index},
-		queryCreator: queryCreator,
-		log:          log,
+		index:    &serialIndex{bleveIndex: index},
+		compiler: compiler,
+		log:      log,
 	}
 }
 
@@ -62,11 +60,8 @@ func (i *serialIndex) Batch(b *bleve.Batch) error {
 
 // Search executes a search request operation within the index.
 func (b *Backend) Search(_ context.Context, sir *search.IndexQuery) (*search.IndexResult, error) {
-	createdQuery, err := b.queryCreator.Create(sir.Query)
+	createdQuery, err := b.compiler.Compile(searchQuery.Normalize(sir.Query, searchQuery.ResolveField))
 	if err != nil {
-		if kql.IsValidationError(err) {
-			return nil, errtypes.BadRequest(err.Error())
-		}
 		return nil, err
 	}
 

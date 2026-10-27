@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
@@ -34,7 +35,7 @@ var _ = Describe("Bleve", func() {
 		idx, err = bleveSearch.NewMemOnly(mapping)
 		Expect(err).ToNot(HaveOccurred())
 
-		eng = bleve.NewBackend(idx, bleveQuery.DefaultCreator, log.Logger{})
+		eng = bleve.NewBackend(idx, bleveQuery.Compiler{}, log.Logger{})
 		Expect(err).ToNot(HaveOccurred())
 
 		rootResource = search.Resource{
@@ -140,7 +141,9 @@ var _ = Describe("Bleve", func() {
 
 	Describe("Update", func() {
 		tagHits := func(tag string) []string {
-			res, err := eng.Search(context.Background(), &search.IndexQuery{Query: `tag:("` + tag + `")`})
+			query, err := kql.Builder{}.Build(`tag:("` + tag + `")`)
+			Expect(err).ToNot(HaveOccurred())
+			res, err := eng.Search(context.Background(), &search.IndexQuery{Query: query})
 			Expect(err).ToNot(HaveOccurred())
 			var ids []string
 			for _, match := range res.Matches {
@@ -189,7 +192,7 @@ var _ = Describe("Bleve", func() {
 
 	Describe("New", func() {
 		It("returns a new index instance", func() {
-			b := bleve.NewBackend(idx, bleveQuery.DefaultCreator, log.Logger{})
+			b := bleve.NewBackend(idx, bleveQuery.Compiler{}, log.Logger{})
 			Expect(b).ToNot(BeNil())
 		})
 	})

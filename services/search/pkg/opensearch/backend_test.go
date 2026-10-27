@@ -10,6 +10,7 @@ import (
 	opensearchgo "github.com/opensearch-project/opensearch-go/v4"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
+	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
@@ -146,7 +147,9 @@ var _ = Describe("Backend", func() {
 		})
 
 		tagHits := func(tag string) int {
-			res, err := backend.Search(context.Background(), &search.IndexQuery{Query: `tag:("` + tag + `")`})
+			query, err := kql.Builder{}.Build(`tag:("` + tag + `")`)
+			Expect(err).ToNot(HaveOccurred())
+			res, err := backend.Search(context.Background(), &search.IndexQuery{Query: query})
 			Expect(err).ToNot(HaveOccurred())
 			return len(res.Matches)
 		}

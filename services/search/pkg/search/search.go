@@ -18,8 +18,6 @@ import (
 	"github.com/opencloud-eu/reva/v3/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
-	"github.com/opencloud-eu/opencloud/pkg/kql"
-
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
@@ -38,9 +36,10 @@ var scopeRegex = regexp.MustCompile(`(?:(?:AND|OR)\s+)?scope:\s*([^" "\n\r]*)(?:
 // ErrResourceNotFound is returned when the index holds no document with the requested id
 var ErrResourceNotFound = errors.New("resource not found")
 
-// IndexQuery is one search against the index.
+// IndexQuery is one search against the index. The engine owns the query it
+// is given and may rewrite it while compiling.
 type IndexQuery struct {
-	Query    string
+	Query    *ast.Ast
 	Ref      *searchmsg.Reference
 	PageSize int32
 }
@@ -289,15 +288,7 @@ func CompleteRootID(v string) string {
 // PinnedRootID returns the single space root the query is pinned to via
 // top-level AND driveId/RootID conjuncts, or "". OR, NOT and group-nested
 // restrictions never pin: skipping a space would be wrong.
-func PinnedRootID(query string) string {
-	a, err := kql.Builder{}.Build(query)
-	if err != nil {
-		return ""
-	}
-	return pinnedRootID(a)
-}
-
-func pinnedRootID(a *ast.Ast) string {
+func PinnedRootID(a *ast.Ast) string {
 	pinned := ""
 	negated := false
 	for _, n := range a.Nodes {
