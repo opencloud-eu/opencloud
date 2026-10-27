@@ -13,6 +13,9 @@ import (
 
 type BuildInfoMetric = *prometheus.GaugeVec
 
+// Namespace is the Prometheus namespace shared by all OpenCloud metrics.
+const Namespace = "opencloud"
+
 // APIType identifies an API that a service instance can serve.
 type APIType string
 
@@ -245,38 +248,14 @@ func (r *LoggingPrometheusRegisterer) Unregister(c prometheus.Collector) bool {
 
 var _ prometheus.Registerer = &LoggingPrometheusRegisterer{}
 
-// WithEnabledAPIs declares the APIs served by this instance and initializes all
-// metrics associated with them. The enabled gauges are set to 1; call Disable()
-// on the relevant struct when an API is disabled by configuration.
-func WithEnabledAPIs(apis ...APIType) Option {
-	return func(m *Metrics) {
-		for _, api := range apis {
-			switch api {
-			case APIHTTP:
-				if m.HTTP == nil {
-					m.HTTP = newHTTPMetrics(m.namespace, m.subsystem)
-				}
-				m.HTTP.Enable()
-			case APIGRPC:
-				if m.GRPC == nil {
-					m.GRPC = newGRPCMetrics(m.namespace, m.subsystem)
-				}
-				m.GRPC.Enable()
-			case APIEvents:
-				if m.Events == nil {
-					m.Events = newEventsMetrics(m.namespace, m.subsystem)
-				}
-				m.Events.Enable()
-			}
-		}
-	}
-}
-
-func New(reg prometheus.Registerer, logger *log.Logger, namespace, subsystem string, opts ...Option) (*Metrics, error) {
+func New(reg prometheus.Registerer, logger *log.Logger, service string, opts ...Option) (*Metrics, error) {
 	m := &Metrics{
-		namespace: namespace,
-		subsystem: subsystem,
-		BuildInfo: BuildInfo(namespace, subsystem),
+		namespace: Namespace,
+		subsystem: service,
+		BuildInfo: BuildInfo(Namespace, service),
+		HTTP:      newHTTPMetrics(Namespace, service),
+		GRPC:      newGRPCMetrics(Namespace, service),
+		Events:    newEventsMetrics(Namespace, service),
 	}
 
 	for _, o := range opts {
@@ -310,19 +289,41 @@ func (m *Metrics) Collectors() []prometheus.Collector {
 	return collectors
 }
 
+// EnableHTTP sets whether this instance serves the HTTP API.
+func (m *Metrics) EnableHTTP(enabled bool) { m.HTTP.setEnabled(enabled) }
+
+// EnableGRPC sets whether this instance serves the gRPC API.
+func (m *Metrics) EnableGRPC(enabled bool) { m.GRPC.setEnabled(enabled) }
+
+// EnableEvents sets whether this instance consumes events.
+func (m *Metrics) EnableEvents(enabled bool) { m.Events.setEnabled(enabled) }
+
 func newEnabledGauge(namespace, subsystem string, api APIType) prometheus.Gauge {
-	name := string(api) + "_enabled"
-	display := string(api)
-	switch api {
-	case APIHTTP:
-		display = "HTTP"
-	case APIGRPC:
-		display = "gRPC"
-	}
 	return prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
-		Name:      name,
-		Help:      "Whether this instance processes " + display + " API calls (1) or not (0)",
+		Name:      string(api) + "_enabled",
+		Help:      "Whether this instance processes " + api.display() + " (1) or not (0)",
 	})
+}
+
+// display returns the human-readable API name for the gauge help text.
+func (a APIType) display() string {
+	switch a {
+	case APIHTTP:
+		return "HTTP API calls"
+	case APIGRPC:
+		return "gRPC API calls"
+	case APIEvents:
+		return "events"
+	default:
+		return string(a)
+	}
+}
+
+func boolToFloat64(b bool) float64 {
+	if b {
+		return 1
+	}
+	return 0
 }

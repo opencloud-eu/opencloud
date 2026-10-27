@@ -71,17 +71,17 @@ func Server(cfg *config.Config) *cobra.Command {
 			ctx, cancel := context.WithCancel(cmd.Context())
 			defer cancel()
 
-			metricsOpts := []ocmetrics.Option{
-				ocmetrics.WithEnabledAPIs(ocmetrics.APIHTTP, ocmetrics.APIEvents),
-			}
+			metricsOpts := []ocmetrics.Option{}
 			if !cfg.HTTP.Metrics.Disabled {
 				metricsOpts = append(metricsOpts, ocmetrics.WithHTTPMetrics())
 			}
 
-			mtrcs, err := ocmetrics.New(prometheus.DefaultRegisterer, &logger, "opencloud", "activitylog", metricsOpts...)
+			mtrcs, err := ocmetrics.New(prometheus.DefaultRegisterer, &logger, cfg.Service.Name, metricsOpts...)
 			if err != nil {
 				return err
 			}
+			mtrcs.EnableHTTP(!cfg.HTTP.Disabled)
+			mtrcs.EnableEvents(!cfg.Events.Disabled)
 
 			tm, err := pool.StringToTLSMode(cfg.GRPCClientTLS.Mode)
 			if err != nil {
@@ -161,7 +161,6 @@ func Server(cfg *config.Config) *cobra.Command {
 
 				gr.Add(runner.NewGoMicroHttpServerRunner(cfg.Service.Name+".http", server))
 			} else {
-				mtrcs.HTTP.Disable()
 				logger.Info().Msg("HTTP server disabled, not starting HTTP service")
 			}
 
@@ -204,7 +203,6 @@ func Server(cfg *config.Config) *cobra.Command {
 					eventSvc.Close()
 				}))
 			} else {
-				mtrcs.Events.Disable()
 				logger.Info().Msg("event listening disabled, not starting event service")
 			}
 

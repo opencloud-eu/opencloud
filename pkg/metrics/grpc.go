@@ -35,15 +35,9 @@ func newGRPCMetrics(namespace, subsystem string) *grpcMetrics {
 // WithGRPCMetrics enables the inbound gRPC request metrics.
 func WithGRPCMetrics() Option {
 	return func(m *Metrics) {
-		if m.GRPC == nil {
-			m.GRPC = newGRPCMetrics(m.namespace, m.subsystem)
-		}
 		m.GRPC.enableRequestMetrics(m.namespace, m.subsystem)
 	}
 }
-
-func (g *grpcMetrics) Enable()  { g.enabled.Set(1) }
-func (g *grpcMetrics) Disable() { g.enabled.Set(0) }
 
 // HandlerWrapper returns a go-micro handler wrapper that records the gRPC
 // requests served by this instance.
@@ -101,6 +95,13 @@ func grpcStatusCode(err error) int {
 	default:
 		return http.StatusInternalServerError
 	}
+}
+
+func (g *grpcMetrics) setEnabled(enabled bool) {
+	if g == nil {
+		return
+	}
+	g.enabled.Set(boolToFloat64(enabled))
 }
 
 func (g *grpcMetrics) enableRequestMetrics(namespace, subsystem string) {

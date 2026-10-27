@@ -19,9 +19,6 @@ func newEventsMetrics(namespace, subsystem string) *eventsMetrics {
 	}
 }
 
-func (e *eventsMetrics) Enable()  { e.enabled.Set(1) }
-func (e *eventsMetrics) Disable() { e.enabled.Set(0) }
-
 func (e *eventsMetrics) RecordSuccess(event string) {
 	if e == nil {
 		return
@@ -34,6 +31,13 @@ func (e *eventsMetrics) RecordFailure(event string) {
 		return
 	}
 	e.processed.WithLabelValues(event, ResultFailure).Inc()
+}
+
+func (e *eventsMetrics) setEnabled(enabled bool) {
+	if e == nil {
+		return
+	}
+	e.enabled.Set(boolToFloat64(enabled))
 }
 
 func (e *eventsMetrics) collectors() []prometheus.Collector {

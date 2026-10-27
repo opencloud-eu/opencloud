@@ -42,15 +42,9 @@ func newHTTPMetrics(namespace, subsystem string) *httpMetrics {
 // WithHTTPMetrics enables the inbound HTTP request metrics.
 func WithHTTPMetrics() Option {
 	return func(m *Metrics) {
-		if m.HTTP == nil {
-			m.HTTP = newHTTPMetrics(m.namespace, m.subsystem)
-		}
 		m.HTTP.enableRequestMetrics(m.namespace, m.subsystem)
 	}
 }
-
-func (h *httpMetrics) Enable()  { h.enabled.Set(1) }
-func (h *httpMetrics) Disable() { h.enabled.Set(0) }
 
 func (h *httpMetrics) RecordDuration(method, pattern string, statusCode int, duration time.Duration) {
 	if h == nil || h.requests == nil {
@@ -96,6 +90,13 @@ func (h *httpMetrics) Middleware(next http.Handler) http.Handler {
 		}
 		h.RecordDuration(r.Method, pattern, status, time.Since(start))
 	})
+}
+
+func (h *httpMetrics) setEnabled(enabled bool) {
+	if h == nil {
+		return
+	}
+	h.enabled.Set(boolToFloat64(enabled))
 }
 
 func (h *httpMetrics) enableRequestMetrics(namespace, subsystem string) {
