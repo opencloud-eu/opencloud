@@ -1,6 +1,9 @@
 package bleve_test
 
 import (
+	"context"
+	"time"
+
 	"fmt"
 
 	bleveSearch "github.com/blevesearch/bleve/v2"
@@ -32,7 +35,7 @@ var _ = Describe("Bleve", func() {
 		idx, err = bleveSearch.NewMemOnly(mapping)
 		Expect(err).ToNot(HaveOccurred())
 
-		eng = bleve.NewBackend(idx, bleveQuery.DefaultCreator, log.Logger{})
+		eng = bleve.NewBackend(idx, bleveQuery.Compiler{}, log.Logger{})
 		Expect(err).ToNot(HaveOccurred())
 
 		rootResource = search.Resource{
@@ -60,6 +63,22 @@ var _ = Describe("Bleve", func() {
 			Document: content.Document{Name: "child.pdf"},
 		}
 
+	})
+
+	Describe("Search", func() {
+		It("answers the indexer's up-to-date check", func() {
+			mtime := time.Date(2025, 7, 24, 15, 15, 1, 0, time.UTC)
+			childResource.Mtime = &mtime
+			Expect(eng.Upsert(childResource.ID, childResource)).To(Succeed())
+
+			res, err := eng.Search(context.Background(), &search.IndexQuery{Query: search.UpToDateQuery(childResource.ID, mtime)})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Matches).To(HaveLen(1))
+
+			res, err = eng.Search(context.Background(), &search.IndexQuery{Query: search.UpToDateQuery(childResource.ID, mtime.Add(time.Second))})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Matches).To(BeEmpty())
+		})
 	})
 
 	Describe("PurgeSpace", func() {
@@ -110,7 +129,7 @@ var _ = Describe("Bleve", func() {
 
 	Describe("New", func() {
 		It("returns a new index instance", func() {
-			b := bleve.NewBackend(idx, bleveQuery.DefaultCreator, log.Logger{})
+			b := bleve.NewBackend(idx, bleveQuery.Compiler{}, log.Logger{})
 			Expect(b).ToNot(BeNil())
 		})
 	})

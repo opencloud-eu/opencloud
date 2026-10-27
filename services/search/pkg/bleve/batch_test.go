@@ -126,7 +126,7 @@ var _ = Describe("Batch", func() {
 	Describe("Push", func() {
 		It("runs one batch at a time when several are pushed together", func() {
 			probe := &batchProbe{bleveIndex: idx}
-			eng := bleve.NewBackend(probe, bleveQuery.DefaultCreator, log.NopLogger())
+			eng := bleve.NewBackend(probe, bleveQuery.Compiler{}, log.NopLogger())
 
 			var wg sync.WaitGroup
 			for i := range 4 {

@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
@@ -18,7 +19,6 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
-
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
@@ -34,9 +34,10 @@ const SchemaVersion = 5
 // the scope clause is removed together with the boolean operator that joins it to the rest of the query.
 var scopeRegex = regexp.MustCompile(`(?:(?:AND|OR)\s+)?scope:\s*([^" "\n\r]*)(?:\s+(?:AND|OR)\b)?`)
 
-// IndexQuery is one search against the index.
+// IndexQuery is one search against the index. The engine owns the query it
+// is given and may rewrite it while compiling.
 type IndexQuery struct {
-	Query    string
+	Query    *ast.Ast
 	Ref      *searchmsg.Reference
 	PageSize int32
 }
@@ -256,18 +257,20 @@ func CompleteRootID(v string) string {
 	return v
 }
 
+// UpToDateQuery matches the indexed document when it is at least as new as
+// mtime, which is what the indexer asks before it extracts a resource again.
+func UpToDateQuery(id string, mtime time.Time) *ast.Ast {
+	return &ast.Ast{Nodes: []ast.Node{
+		&ast.StringNode{Key: "id", Value: id},
+		&ast.OperatorNode{Value: kql.BoolAND},
+		&ast.DateTimeNode{Key: "mtime", Operator: &ast.OperatorNode{Value: ">="}, Value: mtime},
+	}}
+}
+
 // PinnedRootID returns the single space root the query is pinned to via
 // top-level AND driveId/RootID conjuncts, or "". OR, NOT and group-nested
 // restrictions never pin: skipping a space would be wrong.
-func PinnedRootID(query string) string {
-	a, err := kql.Builder{}.Build(query)
-	if err != nil {
-		return ""
-	}
-	return pinnedRootID(a)
-}
-
-func pinnedRootID(a *ast.Ast) string {
+func PinnedRootID(a *ast.Ast) string {
 	pinned := ""
 	negated := false
 	for _, n := range a.Nodes {
