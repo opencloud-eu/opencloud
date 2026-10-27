@@ -87,6 +87,7 @@ func Local(cfg *config.Config) map[string]any {
 // Posix is the config mapping for the Posix storage driver
 func Posix(cfg *config.Config, enableFSScan, enableFSWatch bool) map[string]any {
 	return map[string]any{
+		"mount_id":                    cfg.MountID,
 		"root":                        cfg.Drivers.Posix.Root,
 		"personalspacepath_template":  cfg.Drivers.Posix.PersonalSpacePathTemplate,
 		"personalspacealias_template": cfg.Drivers.Posix.PersonalSpaceAliasTemplate,
