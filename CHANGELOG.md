@@ -1,6 +1,6 @@
 # Changelog
 
-## [9.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.0) - 2026-10-26
+## [9.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.0) - 2026-10-27
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -13,6 +13,7 @@
 
 ### 🐛 Bug Fixes
 
+- Skip extraction for directories before checking the size limit [[#3832](https://github.com/opencloud-eu/opencloud/pull/3832)]
 - log errors when a personal space is deleted [[#3710](https://github.com/opencloud-eu/opencloud/pull/3710)]
 - fix(cli): detect storage driver from storage path in revisions and trash commands [[#3776](https://github.com/opencloud-eu/opencloud/pull/3776)]
 - fix(idp): show keyboard focus on every control [[#3732](https://github.com/opencloud-eu/opencloud/pull/3732)]
