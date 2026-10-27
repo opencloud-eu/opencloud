@@ -15,15 +15,15 @@ var ErrNestedScope = errors.New("scope: must be a top-level restriction")
 // ExtractScope takes the scope restriction out of the query, together with
 // the operator that joined it, and returns the remaining nodes and the scope.
 func ExtractScope(nodes []ast.Node) ([]ast.Node, string, error) {
+	for _, n := range nodes {
+		if group, ok := n.(*ast.GroupNode); ok && hasKey(group.Nodes, "scope") {
+			return nil, "", ErrNestedScope
+		}
+	}
+
 	for i, n := range nodes {
 		node, ok := n.(*ast.StringNode)
-		if !ok {
-			if group, isGroup := n.(*ast.GroupNode); isGroup && hasKey(group.Nodes, "scope") {
-				return nil, "", ErrNestedScope
-			}
-			continue
-		}
-		if !strings.EqualFold(node.Key, "scope") {
+		if !ok || !strings.EqualFold(node.Key, "scope") {
 			continue
 		}
 
