@@ -10,9 +10,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	opensearchgoAPI "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
+	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
@@ -81,7 +83,7 @@ func newBleve(fixtures []search.Resource) testEngine {
 	Expect(err).NotTo(HaveOccurred(), "failed to create the bleve index")
 	DeferCleanup(func() { _ = idx.Close() })
 
-	backend := bleveEngine.NewBackend(idx, bleveQuery.DefaultCreator, log.Logger{})
+	backend := bleveEngine.NewBackend(idx, bleveQuery.Compiler{}, log.Logger{})
 	load(backend, fixtures)
 
 	return testEngine{name: "bleve", backend: backend, settle: func() {}}
@@ -167,10 +169,34 @@ func resourceID(id *searchMessage.ResourceID) string {
 	})
 }
 
-// ask runs a query and returns the matched names; an engine error is the
-// answer "error", so a query the engine rejects still shows in the matrix.
-func ask(e search.Engine, request *search.IndexQuery) ([]string, error) {
-	resp, err := e.Search(context.Background(), request)
+// query parses KQL the way the service does: what the parser rejects is a bad
+// request before any engine sees it.
+func query(kqlQuery string, ref *searchMessage.Reference, limit int32) (*search.IndexQuery, error) {
+	a, err := kql.Builder{}.Build(kqlQuery)
+	if err != nil {
+		if kql.IsValidationError(err) {
+			return nil, errtypes.BadRequest(err.Error())
+		}
+		return nil, err
+	}
+
+	return &search.IndexQuery{Query: a, Ref: ref, PageSize: limit}, nil
+}
+
+// run runs a query against an engine.
+func run(e search.Engine, kqlQuery string, ref *searchMessage.Reference, limit int32) (*search.IndexResult, error) {
+	request, err := query(kqlQuery, ref, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return e.Search(context.Background(), request)
+}
+
+// ask runs a query and returns the matched names; an error is the answer
+// "error", so a query that is rejected still shows in the matrix.
+func ask(e search.Engine, kqlQuery string, ref *searchMessage.Reference, limit int32) ([]string, error) {
+	resp, err := run(e, kqlQuery, ref, limit)
 	if err != nil {
 		return []string{"error"}, err
 	}

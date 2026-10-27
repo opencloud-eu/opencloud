@@ -91,7 +91,9 @@ var _ = Describe("Searchprovider", func() {
 		indexClient = &engineMocks.Engine{}
 		extractor = &contentMocks.Extractor{}
 
-		s = search.NewService(gatewaySelector, indexClient, extractor, nil, logger, &config.Config{})
+		var err error
+		s, err = search.NewService(gatewaySelector, indexClient, extractor, nil, logger, &config.Config{})
+		Expect(err).ToNot(HaveOccurred())
 
 		gatewayClient.On("Authenticate", mock.Anything, mock.Anything).Return(&gateway.AuthenticateResponse{
 			Status: status.NewOK(ctx),
@@ -111,7 +113,8 @@ var _ = Describe("Searchprovider", func() {
 
 	Describe("New", func() {
 		It("returns a new instance", func() {
-			s := search.NewService(gatewaySelector, indexClient, extractor, nil, logger, &config.Config{})
+			s, err := search.NewService(gatewaySelector, indexClient, extractor, nil, logger, &config.Config{})
+			Expect(err).ToNot(HaveOccurred())
 			Expect(s).ToNot(BeNil())
 		})
 	})
@@ -177,19 +180,6 @@ var _ = Describe("Searchprovider", func() {
 		)
 	})
 
-	DescribeTable("ExpandQueryTemplate",
-		func(spaceType, expected string) {
-			space := &sprovider.StorageSpace{
-				SpaceType: spaceType,
-				Root:      &sprovider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "spaceid"},
-			}
-			Expect(search.ExpandQueryTemplate(`({{.QUERY}}) AND NOT id:{{.SPACE_ROOT_PERSONAL}} AND NOT id:{{.SPACE_ROOT_PROJECT}}`, "foo", space)).To(Equal(expected))
-		},
-		Entry("a personal space fills the personal placeholder", "personal", `(foo) AND NOT id:"storageid$spaceid!spaceid" AND NOT id:"none$none!none"`),
-		Entry("a project space fills the project placeholder", "project", `(foo) AND NOT id:"none$none!none" AND NOT id:"storageid$spaceid!spaceid"`),
-		Entry("a share fills neither", "grant", `(foo) AND NOT id:"none$none!none" AND NOT id:"none$none!none"`),
-	)
-
 	DescribeTable("IsHidden",
 		func(path string, hidden bool) {
 			Expect(search.IsHidden(path)).To(Equal(hidden))
@@ -253,18 +243,19 @@ var _ = Describe("Searchprovider", func() {
 				})
 				Expect(err).ToNot(HaveOccurred())
 				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *search.IndexQuery) bool {
-					return req.Query == "Size:<10"
+					return render(req.Query.Nodes) == render(parse("Size:<10").Nodes)
 				}))
 			})
 
 			It("adds the query filter with the personal space root filled in", func() {
-				s := search.NewService(gatewaySelector, indexClient, extractor, nil, logger, &config.Config{
+				s, err := search.NewService(gatewaySelector, indexClient, extractor, nil, logger, &config.Config{
 					QueryTemplate: `({{.QUERY}}) AND (NOT path:"./.space" AND NOT id:{{.SPACE_ROOT_PERSONAL}})`,
 				})
-				_, err := s.Search(ctx, &searchsvc.SearchRequest{Query: "foo"})
+				Expect(err).ToNot(HaveOccurred())
+				_, err = s.Search(ctx, &searchsvc.SearchRequest{Query: "foo"})
 				Expect(err).ToNot(HaveOccurred())
 				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *search.IndexQuery) bool {
-					return req.Query == `(foo) AND (NOT path:"./.space" AND NOT id:"storageid$personalspace!personalspace")`
+					return render(req.Query.Nodes) == render(parse(`(foo) AND (NOT path:"./.space" AND NOT id:"storageid$personalspace!personalspace")`).Nodes)
 				}))
 			})
 

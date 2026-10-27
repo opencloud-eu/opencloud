@@ -3,6 +3,7 @@ package opensearch_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,6 +13,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
+	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
 func TestOpenSearchBackend(t *testing.T) {
@@ -38,6 +40,40 @@ var _ = Describe("Backend", func() {
 			backend, err := opensearch.NewBackend(context.Background(), "test-engine-new-engine", client, log.NopLogger())
 			Expect(backend).To(BeNil())
 			Expect(err).To(MatchError(opensearch.ErrUnhealthyCluster))
+		})
+	})
+
+	Describe("Search", func() {
+		const indexName = "opencloud-test-engine-search"
+
+		var (
+			tc      *opensearchtest.TestClient
+			backend *opensearch.Backend
+		)
+
+		BeforeEach(func() {
+			physical := opensearch.VersionedIndexName(indexName)
+
+			tc = opensearchtest.NewDefaultTestClient(GinkgoTB(), defaultConfig.Engine.OpenSearch.Client)
+			tc.Require.IndicesReset([]string{physical})
+			deleteIndexOnCleanup(tc, physical)
+
+			var err error
+			backend, err = opensearch.NewBackend(context.Background(), indexName, tc.Client(), log.NopLogger())
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("answers the indexer's up-to-date check", func() {
+			document := opensearchtest.Testdata.Resources.File
+			Expect(backend.Upsert(document.ID, document)).To(Succeed())
+
+			res, err := backend.Search(context.Background(), &search.IndexQuery{Query: search.UpToDateQuery(document.ID, *document.Mtime)})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Matches).To(HaveLen(1))
+
+			res, err = backend.Search(context.Background(), &search.IndexQuery{Query: search.UpToDateQuery(document.ID, document.Mtime.Add(time.Second))})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Matches).To(BeEmpty())
 		})
 	})
 
