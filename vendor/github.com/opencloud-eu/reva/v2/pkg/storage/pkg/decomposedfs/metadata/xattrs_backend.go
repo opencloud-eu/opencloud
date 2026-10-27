@@ -88,9 +88,16 @@ func (b XattrsBackend) GetInt64(ctx context.Context, n MetadataNode, key string)
 
 func (b XattrsBackend) list(ctx context.Context, n MetadataNode, acquireLock bool) (attribs []string, err error) {
 	filePath := n.InternalPath()
-	attrs, err := listXattr(filePath)
+	attrs, err := listXattr(ctx, filePath)
 	if err == nil {
 		return attrs, nil
+	}
+
+	// E2BIG means the attribute name list exceeds the maximum size the kernel
+	// returns (64KiB VFS limit, e.g. on XFS). It is not transient: fail fast
+	// instead of paying for the locked retry below.
+	if isTooBigError(err) {
+		return nil, err
 	}
 
 	// listing xattrs failed, try again, either with lock or without
@@ -107,7 +114,7 @@ func (b XattrsBackend) list(ctx context.Context, n MetadataNode, acquireLock boo
 		}()
 
 	}
-	return listXattr(filePath)
+	return listXattr(ctx, filePath)
 }
 
 // All reads all extended attributes for a node. It acquires a shared file lock

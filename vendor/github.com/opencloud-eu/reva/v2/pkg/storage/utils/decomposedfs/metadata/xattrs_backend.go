@@ -83,9 +83,16 @@ func (b XattrsBackend) List(ctx context.Context, filePath string) (attribs []str
 }
 
 func (b XattrsBackend) list(ctx context.Context, filePath string, acquireLock bool) (attribs []string, err error) {
-	attrs, err := xattr.List(filePath)
+	attrs, err := listXattr(ctx, filePath)
 	if err == nil {
 		return attrs, nil
+	}
+
+	// E2BIG means the attribute name list exceeds the maximum size the kernel
+	// returns (64KiB VFS limit, e.g. on XFS). It is not transient: fail fast
+	// instead of paying for the locked retry below.
+	if IsErrTooBig(err) {
+		return nil, err
 	}
 
 	// listing xattrs failed, try again, either with lock or without
@@ -97,7 +104,7 @@ func (b XattrsBackend) list(ctx context.Context, filePath string, acquireLock bo
 		defer cleanupLockfile(ctx, f)
 
 	}
-	return xattr.List(filePath)
+	return listXattr(ctx, filePath)
 }
 
 // All reads all extended attributes for a node, protected by a

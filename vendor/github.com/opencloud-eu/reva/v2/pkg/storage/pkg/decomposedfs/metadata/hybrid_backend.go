@@ -113,7 +113,7 @@ func (b HybridBackend) list(ctx context.Context, n MetadataNode) (attribs []stri
 		return nil, &xattr.Error{Op: "HybridBackend.list", Path: n.InternalPath(), Err: syscall.ENOENT} // attribute not found
 	}
 
-	return listXattr(filePath)
+	return listXattr(ctx, filePath)
 }
 
 // All reads all extended attributes for a node. It acquires a shared file lock

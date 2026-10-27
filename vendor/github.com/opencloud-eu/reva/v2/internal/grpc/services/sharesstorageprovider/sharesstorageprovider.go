@@ -593,8 +593,8 @@ func (s *service) Delete(ctx context.Context, req *provider.DeleteRequest) (*pro
 		}, nil
 	}
 
-	// the root of a share always has the path "."
-	if req.Ref.ResourceId.StorageId == utils.ShareStorageProviderID && req.Ref.ResourceId.SpaceId == utils.ShareStorageSpaceID && req.Ref.Path == "." {
+	// deleting the root of a share rejects it instead of deleting the owner's resource
+	if isShareRoot(req.Ref, receivedShare) {
 		err := s.rejectReceivedShare(ctx, receivedShare)
 		if err != nil {
 			return &provider.DeleteResponse{
@@ -1335,6 +1335,16 @@ func isRename(s, d *provider.Reference) bool {
 		(isShareJailRoot(s.ResourceId) && len(strings.SplitN(s.Path, "/", 3)) == 2)) &&
 		// and if the destination is the share jail a single path segment, e.g. './new'
 		isShareJailRoot(d.ResourceId) && len(strings.SplitN(d.Path, "/", 3)) == 2
+}
+
+// isShareRoot checks if the reference points at the root of the received share,
+// either by the share id with the path "." or by its mount point relative to the share jail, e.g. './renamed'
+func isShareRoot(ref *provider.Reference, s *collaboration.ReceivedShare) bool {
+	if isShareJailChild(ref.ResourceId) {
+		return ref.Path == "."
+	}
+	return isShareJailRoot(ref.ResourceId) &&
+		filepath.Clean(strings.TrimPrefix(ref.Path, "./")) == filepath.Clean(strings.TrimPrefix(s.GetMountPoint().GetPath(), "./"))
 }
 
 func isShareJailChild(id *provider.ResourceId) bool {

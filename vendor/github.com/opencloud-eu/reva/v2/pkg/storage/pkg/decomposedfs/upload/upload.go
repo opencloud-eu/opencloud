@@ -136,6 +136,8 @@ func (session *DecomposedFsSession) FinishUpload(ctx context.Context) error {
 		return tusd.NewError("ERR_ALREADY_EXISTS", err.Error(), http.StatusConflict)
 	case errtypes.Aborted:
 		return tusd.NewError("ERR_PRECONDITION_FAILED", err.Error(), http.StatusPreconditionFailed)
+	case errtypes.InsufficientStorage:
+		return tusd.NewError("ERR_INSUFFICIENT_STORAGE", err.Error(), http.StatusInsufficientStorage)
 	default:
 		return err
 	}

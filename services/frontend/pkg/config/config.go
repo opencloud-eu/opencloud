@@ -26,7 +26,7 @@ type Config struct {
 	SkipUserGroupsInToken bool `yaml:"skip_user_groups_in_token" env:"FRONTEND_SKIP_USER_GROUPS_IN_TOKEN" desc:"Disables the loading of user's group memberships from the reva access token." introductionVersion:"1.0.0"`
 
 	MaxQuota                       uint64 `yaml:"max_quota" env:"OC_SPACES_MAX_QUOTA;FRONTEND_MAX_QUOTA" desc:"Set the global max quota value in bytes. A value of 0 equals unlimited. The value is provided via capabilities." introductionVersion:"1.0.0"`
-	DefaultQuota                   string `yaml:"default_quota" env:"OC_SPACES_DEFAULT_QUOTA" desc:"Set the default quota in bytes for new project spaces. A value of 0 or an invalid value means no default quota. The value is provided via capabilities and must match the default quota of the graph service." introductionVersion:"%%NEXT%%"`
+	DefaultQuota                   string `yaml:"default_quota" env:"OC_SPACES_DEFAULT_QUOTA" desc:"Set the default quota in bytes for new project spaces. A value of 0 or an invalid value means no default quota. The value is provided via capabilities and must match the default quota of the graph service." introductionVersion:"9.0.0"`
 	UploadMaxChunkSize             int    `yaml:"upload_max_chunk_size" env:"FRONTEND_UPLOAD_MAX_CHUNK_SIZE" desc:"Sets the max chunk sizes in bytes for uploads via the clients." introductionVersion:"1.0.0"`
 	UploadHTTPMethodOverride       string `yaml:"upload_http_method_override" env:"FRONTEND_UPLOAD_HTTP_METHOD_OVERRIDE" desc:"Advise TUS to replace PATCH requests by POST requests." introductionVersion:"1.0.0"`
 	DefaultUploadProtocol          string `yaml:"default_upload_protocol" env:"FRONTEND_DEFAULT_UPLOAD_PROTOCOL" desc:"The default upload protocol to use in clients. Currently only 'tus' is available. See the developer API documentation for more details about TUS." introductionVersion:"1.0.0"`
@@ -232,5 +232,5 @@ type Groupware struct {
 // Thumbnails is what oc:has-preview is answered with. The names match the ones
 // the webdav service uses for the same list.
 type Thumbnails struct {
-	AdditionalSourceTypes []string `yaml:"additional_source_types" env:"OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES;FRONTEND_THUMBNAILS_ADDITIONAL_SOURCE_TYPES" desc:"Additional mime types oc:has-preview is answered with 1 for, the same list the webdav service attempts previews for. The types the build ships are included; this only adds to them." introductionVersion:"%%NEXT%%"`
+	AdditionalSourceTypes []string `yaml:"additional_source_types" env:"OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES;FRONTEND_THUMBNAILS_ADDITIONAL_SOURCE_TYPES" desc:"Additional mime types oc:has-preview is answered with 1 for, the same list the webdav service attempts previews for. The types the build ships are included; this only adds to them." introductionVersion:"9.0.0"`
 }
