@@ -2,6 +2,7 @@ package svc
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/nats-io/nats.go/jetstream"
@@ -55,4 +56,28 @@ func TestCurrentAnnouncement(t *testing.T) {
 		s := storeReturning(t, `{"enabled":true,"bannerText":"hi","infoText":"info"}`)
 		require.Equal(t, &config.Announcement{BannerText: "hi", InfoText: "info"}, newWeb(s).currentAnnouncement(context.Background()))
 	})
+}
+
+func TestGetPayloadServer(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		server string
+		want   any
+	}{
+		// An empty server must stay unset so the client falls back to the browser origin.
+		{name: "empty", server: "", want: nil},
+		{name: "without trailing slash", server: "https://cloud.example.com", want: "https://cloud.example.com/"},
+		{name: "with trailing slashes", server: "https://cloud.example.com///", want: "https://cloud.example.com/"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.Config{}
+			cfg.Web.Config.Server = tt.server
+			payload, err := Web{logger: log.NopLogger(), config: cfg}.getPayload(context.Background())
+			require.NoError(t, err)
+
+			var got map[string]any
+			require.NoError(t, json.Unmarshal(payload, &got))
+			require.Equal(t, tt.want, got["server"])
+		})
+	}
 }
