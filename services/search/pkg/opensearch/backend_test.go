@@ -56,6 +56,25 @@ func otherRoot(r search.Resource) search.Resource {
 	return r
 }
 
+// samePath returns a trashed folder and the live folder that took its path,
+// with a file in each.
+func samePath() (trashed, trashedFile, live, liveFile search.Resource) {
+	folder := opensearchtest.Testdata.Resources.Folder
+	file := opensearchtest.Testdata.Resources.File
+
+	trashed = folder
+	trashed.ID, trashed.Path, trashed.Name, trashed.Deleted = "1$1!trashed", "./a", "a", true
+	trashedFile = file
+	trashedFile.ID, trashedFile.ParentID, trashedFile.Path, trashedFile.Name, trashedFile.Deleted = "1$1!trashed-x", trashed.ID, "./a/x.txt", "x.txt", true
+
+	live = folder
+	live.ID, live.Path, live.Name = "1$1!live", "./a", "a"
+	liveFile = file
+	liveFile.ID, liveFile.ParentID, liveFile.Path, liveFile.Name = "1$1!live-y", live.ID, "./a/y.txt", "y.txt"
+
+	return trashed, trashedFile, live, liveFile
+}
+
 func newBackend(indexName string, resources ...search.Resource) (*opensearch.Backend, *opensearchtest.TestClient) {
 	GinkgoHelper()
 
@@ -212,6 +231,24 @@ var _ = Describe("Backend", func() {
 			Expect(resources).To(HaveLen(1))
 			Expect(resources[0].Path).To(Equal(document.Path))
 		})
+
+		It("leaves a trashed folder that shares the path where it is", func() {
+			trashed, trashedFile, live, liveFile := samePath()
+			for _, r := range []search.Resource{trashed, trashedFile, live, liveFile} {
+				tc.Require.DocumentCreate(indexName, r.ID, strings.NewReader(opensearchtest.JSONMustMarshal(GinkgoTB(), r)))
+			}
+			tc.Require.IndicesCount([]string{indexName}, nil, 4)
+
+			Expect(backend.Move(live.ID, live.ParentID, "./b")).To(Succeed())
+			tc.Require.IndicesRefresh([]string{indexName}, nil)
+			Expect(backend.Restore(trashed.ID)).To(Succeed())
+
+			Expect(resourceByID(tc, indexName, trashed.ID).Path).To(Equal("./a"))
+			Expect(resourceByID(tc, indexName, trashedFile.ID).Path).To(Equal("./a/x.txt"))
+			Expect(resourceByID(tc, indexName, trashedFile.ID).Deleted).To(BeFalse(), "the restore takes the trashed folder's tree along")
+			Expect(resourceByID(tc, indexName, live.ID).Path).To(Equal("./b"))
+			Expect(resourceByID(tc, indexName, liveFile.ID).Path).To(Equal("./b/y.txt"))
+		})
 	})
 
 	Describe("Delete", func() {
@@ -354,6 +391,34 @@ var _ = Describe("Backend", func() {
 			Expect(backend.Purge(resourceFolder.ID, true)).To(Succeed())
 
 			tc.Require.IndicesCount([]string{indexName}, nil, 1)
+		})
+
+		It("leaves the live folder that took the trashed one's path alone", func() {
+			trashed, trashedFile, live, liveFile := samePath()
+			for _, r := range []search.Resource{trashed, trashedFile, live, liveFile} {
+				tc.Require.DocumentCreate(indexName, r.ID, strings.NewReader(opensearchtest.JSONMustMarshal(GinkgoTB(), r)))
+			}
+			tc.Require.IndicesCount([]string{indexName}, nil, 4)
+
+			Expect(backend.Purge(trashed.ID, false)).To(Succeed())
+
+			tc.Require.IndicesCount([]string{indexName}, nil, 2)
+			Expect(resourceByID(tc, indexName, live.ID).Path).To(Equal("./a"))
+			Expect(resourceByID(tc, indexName, liveFile.ID).Path).To(Equal("./a/y.txt"))
+		})
+
+		It("purges only the resource in the target root", func() {
+			target := opensearchtest.Testdata.Resources.File
+			other := otherRoot(target)
+			for _, r := range []search.Resource{target, other} {
+				tc.Require.DocumentCreate(indexName, r.ID, strings.NewReader(opensearchtest.JSONMustMarshal(GinkgoTB(), r)))
+			}
+			tc.Require.IndicesCount([]string{indexName}, nil, 2)
+
+			Expect(backend.Purge(target.ID, false)).To(Succeed())
+
+			tc.Require.IndicesCount([]string{indexName}, nil, 1)
+			Expect(resourceByID(tc, indexName, other.ID).Path).To(Equal(other.Path), "resource in a different root must not be purged")
 		})
 	})
 
