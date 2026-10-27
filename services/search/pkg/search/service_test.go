@@ -785,7 +785,7 @@ var _ = Describe("Searchprovider", func() {
 					Status:        status.NewOK(ctx),
 					StorageSpaces: []*sprovider.StorageSpace{personalSpace},
 				}, nil)
-				indexClient.On("Search", mock.Anything, mock.Anything).Return(&searchsvc.SearchIndexResponse{
+				indexClient.On("Search", mock.Anything, mock.Anything).Return(&search.IndexResult{
 					TotalMatches: 1,
 					Matches: []*searchmsg.Match{
 						{
@@ -829,7 +829,7 @@ var _ = Describe("Searchprovider", func() {
 					Query: "Size:<10",
 				})
 				Expect(err).ToNot(HaveOccurred())
-				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
+				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *search.IndexQuery) bool {
 					return req.Query == "Size:<10"
 				}))
 			})
@@ -840,7 +840,7 @@ var _ = Describe("Searchprovider", func() {
 				})
 				_, err := s.Search(ctx, &searchsvc.SearchRequest{Query: "foo"})
 				Expect(err).ToNot(HaveOccurred())
-				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
+				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *search.IndexQuery) bool {
 					return req.Query == `(foo) AND (NOT path:"./.space" AND NOT id:"storageid$personalspace!personalspace")`
 				}))
 			})
@@ -894,7 +894,7 @@ var _ = Describe("Searchprovider", func() {
 					Status: status.NewOK(ctx),
 					Path:   "/path",
 				}, nil)
-				indexClient.On("Search", mock.Anything, mock.Anything).Return(&searchsvc.SearchIndexResponse{
+				indexClient.On("Search", mock.Anything, mock.Anything).Return(&search.IndexResult{
 					TotalMatches: 1,
 					Matches: []*searchmsg.Match{
 						{
@@ -993,7 +993,7 @@ var _ = Describe("Searchprovider", func() {
 					Status:        status.NewOK(ctx),
 					StorageSpaces: []*sprovider.StorageSpace{grantSpace, mountpointSpace},
 				}, nil)
-				indexClient.On("Search", mock.Anything, mock.Anything).Return(&searchsvc.SearchIndexResponse{
+				indexClient.On("Search", mock.Anything, mock.Anything).Return(&search.IndexResult{
 					TotalMatches: 1,
 					Matches: []*searchmsg.Match{
 						{
@@ -1040,10 +1040,10 @@ var _ = Describe("Searchprovider", func() {
 						Status:        status.NewOK(ctx),
 						StorageSpaces: []*sprovider.StorageSpace{personalSpace, grantSpace, mountpointSpace},
 					}, nil)
-					indexClient.On("Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
+					indexClient.On("Search", mock.Anything, mock.MatchedBy(func(req *search.IndexQuery) bool {
 						return req.Ref.ResourceId.OpaqueId == grantSpace.Root.SpaceId &&
 							req.Ref.ResourceId.SpaceId == grantSpace.Root.SpaceId
-					})).Return(&searchsvc.SearchIndexResponse{
+					})).Return(&search.IndexResult{
 						TotalMatches: 2,
 						Matches: []*searchmsg.Match{
 							{
@@ -1084,10 +1084,10 @@ var _ = Describe("Searchprovider", func() {
 							},
 						},
 					}, nil)
-					indexClient.On("Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
+					indexClient.On("Search", mock.Anything, mock.MatchedBy(func(req *search.IndexQuery) bool {
 						return req.Ref.ResourceId.OpaqueId == personalSpace.Root.OpaqueId &&
 							req.Ref.ResourceId.SpaceId == personalSpace.Root.SpaceId
-					})).Return(&searchsvc.SearchIndexResponse{
+					})).Return(&search.IndexResult{
 						TotalMatches: 1,
 						Matches: []*searchmsg.Match{
 							{
