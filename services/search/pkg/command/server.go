@@ -20,7 +20,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
-	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/server/grpc"
@@ -80,7 +79,7 @@ func Server(cfg *config.Config) *cobra.Command {
 					}
 				}()
 
-				eng = bleve.NewBackend(idx, bleveQuery.Compiler{}, logger)
+				eng = bleve.NewBackend(idx, logger)
 			case "open-search":
 				client, err := opensearch.NewClient(cfg.Engine.OpenSearch.Client)
 				if err != nil {

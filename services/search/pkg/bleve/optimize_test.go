@@ -12,7 +12,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
-	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -34,7 +33,7 @@ var _ = Describe("Optimize", func() {
 		idx, _, err := bleve.NewIndex(GinkgoT().TempDir(), log.NopLogger())
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(idx.Close)
-		return bleve.NewBackend(idx, bleveQuery.Compiler{}, log.NopLogger()), idx
+		return bleve.NewBackend(idx, log.NopLogger()), idx
 	}
 
 	It("merges the segments of the index into one and keeps the documents", func() {
@@ -79,7 +78,7 @@ var _ = Describe("Optimize", func() {
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(idx.Close)
 
-		eng := bleve.NewBackend(idx, bleveQuery.Compiler{}, log.NopLogger())
+		eng := bleve.NewBackend(idx, log.NopLogger())
 		Expect(eng.Optimize(context.Background())).To(MatchError(search.ErrOptimizeUnsupported))
 	})
 })
