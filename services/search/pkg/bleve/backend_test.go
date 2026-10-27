@@ -11,7 +11,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
@@ -141,10 +140,10 @@ var _ = Describe("Bleve", func() {
 
 	Describe("Update", func() {
 		tagHits := func(tag string) []string {
-			res, err := eng.Search(context.Background(), &searchService.SearchIndexRequest{Query: `tag:("` + tag + `")`})
+			res, err := eng.Search(context.Background(), &search.IndexQuery{Query: `tag:("` + tag + `")`})
 			Expect(err).ToNot(HaveOccurred())
 			var ids []string
-			for _, match := range res.GetMatches() {
+			for _, match := range res.Matches {
 				ids = append(ids, match.GetEntity().GetId().GetOpaqueId())
 			}
 			return ids
