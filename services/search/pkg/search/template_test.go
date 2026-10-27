@@ -95,6 +95,23 @@ var _ = Describe("QueryTemplate", func() {
 		Expect(render(expanded.Nodes)).To(Equal(render(parse(`(NOT mediatype:folder AND (name:x OR name:y)) OR tag:keep`).Nodes)))
 	})
 
+	It("fills a root placeholder that is used twice", func() {
+		t, err := search.ParseQueryTemplate(`({{.QUERY}}) AND NOT id:{{.SPACE_ROOT_PERSONAL}} AND NOT parentid:{{.SPACE_ROOT_PERSONAL}}`)
+		Expect(err).ToNot(HaveOccurred())
+		space := &sprovider.StorageSpace{SpaceType: "personal", Root: &sprovider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "2"}}
+
+		expanded := t.Expand(parse(`name:x`), space)
+		Expect(render(expanded.Nodes)).To(Equal(render(parse(`(name:x) AND NOT id:"1$2!2" AND NOT parentid:"1$2!2"`).Nodes)))
+	})
+
+	It("leaves a marker in the user's query alone", func() {
+		t, err := search.ParseQueryTemplate(`({{.QUERY}}) AND NOT id:{{.SPACE_ROOT_PERSONAL}}`)
+		Expect(err).ToNot(HaveOccurred())
+
+		expanded := t.Expand(parse(`name:opencloudpersonalrootmarker`), &sprovider.StorageSpace{})
+		Expect(render(expanded.Nodes)).To(Equal(render(parse(`(name:opencloudpersonalrootmarker) AND NOT id:"none$none!none"`).Nodes)))
+	})
+
 	It("keeps the key of the query group", func() {
 		t, err := search.ParseQueryTemplate(`name:({{.QUERY}})`)
 		Expect(err).ToNot(HaveOccurred())
