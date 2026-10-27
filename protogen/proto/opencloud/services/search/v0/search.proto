@@ -52,16 +52,6 @@ service SearchProvider {
   }
 }
 
-service IndexProvider {
-	rpc Search(SearchIndexRequest) returns (SearchIndexResponse) {
-    option (google.api.http) = {
-        post: "/api/v0/search/index/search",
-        body: "*"
-    };
-  };
-	// rpc Remove(RemoveRequest) returns (RemoveResponse) {};
-}
-
 message SearchRequest {
   // Optional. The maximum number of entries to return in the response
   int32 page_size = 1 [(google.api.field_behavior) = OPTIONAL];
