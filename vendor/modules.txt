@@ -1360,7 +1360,7 @@ github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261016073229-17ed3d5dd346
 ## explicit; go 1.23
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.52.1
+# github.com/opencloud-eu/reva/v2 v2.52.1 => github.com/pbleser-oc/reva/v2 v2.0.0-20261028165100-414fb6332286
 ## explicit; go 1.26.0
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -1650,6 +1650,7 @@ github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/mtimesyncedcache
 github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node
 github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/options
 github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/permissions
+github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/revisioncleanup
 github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/spaceidindex
 github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/timemanager
 github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/trashbin
@@ -1661,6 +1662,7 @@ github.com/opencloud-eu/reva/v2/pkg/storage/registry/loader
 github.com/opencloud-eu/reva/v2/pkg/storage/registry/registry
 github.com/opencloud-eu/reva/v2/pkg/storage/registry/spaces
 github.com/opencloud-eu/reva/v2/pkg/storage/registry/static
+github.com/opencloud-eu/reva/v2/pkg/storage/revisions
 github.com/opencloud-eu/reva/v2/pkg/storage/utils/ace
 github.com/opencloud-eu/reva/v2/pkg/storage/utils/acl
 github.com/opencloud-eu/reva/v2/pkg/storage/utils/chunking
@@ -2708,3 +2710,4 @@ stash.kopano.io/kgol/rndm
 # github.com/unrolled/secure => github.com/opencloud-eu/secure v0.0.0-20260312082735-b6f5cb2244e4
 # go-micro.dev/v4 => github.com/butonic/go-micro/v4 v4.11.4-0.20260929213538-cd412c159a26
 # github.com/go-micro/plugins/v4/store/nats-js-kv => github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a
+# github.com/opencloud-eu/reva/v2 => github.com/pbleser-oc/reva/v2 v2.0.0-20261028165100-414fb6332286

@@ -42,6 +42,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/options"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/revisioncleanup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/usermapper"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -66,7 +67,9 @@ type DecomposedFsStore struct {
 	async             bool
 	tknopts           options.TokenOptions
 	disableVersioning bool
-	log               *zerolog.Logger
+	// deletes old revisions after an upload created a new one, disabled without a strategy
+	revisionsCleanup *revisioncleanup.Service
+	log              *zerolog.Logger
 }
 
 // NewSessionStore returns a new DecomposedFsStore
@@ -80,9 +83,18 @@ func NewSessionStore(fs storage.FS, aspects aspects.Aspects, root string, async 
 		async:             async,
 		tknopts:           tknopts,
 		disableVersioning: aspects.DisableVersioning,
+		revisionsCleanup:  aspects.RevisionsCleanup,
 		um:                aspects.UserMapper,
 		log:               log,
 	}
+}
+
+// CleanupRevisions deletes old revisions of the node according to the configured strategy,
+// right away or in the background (see revisioncleanup.Service).
+// It is a noop if no strategy is configured or while an upload to the node is still processing.
+// See package revisioncleanup for when and why it is called.
+func (store DecomposedFsStore) CleanupRevisions(ctx context.Context, n *node.Node) {
+	store.revisionsCleanup.HandleRevisionCreated(ctx, n)
 }
 
 // New returns a new upload session
@@ -349,6 +361,9 @@ func (store DecomposedFsStore) updateExistingNode(ctx context.Context, session *
 
 	if !store.disableVersioning {
 		span.AddEvent("CreateVersion")
+		// the revision is named after the mtime of the content it preserves, not after the
+		// time it is created; the revision cleanup takes the age of a revision from this
+		// name (see revisioncleanup.revisionTime)
 		timestamp := oldNodeMtime.UTC().Format(time.RFC3339Nano)
 		versionID := n.ID + node.RevisionIDDelimiter + timestamp
 		versionPath, err := session.store.tp.CreateRevision(ctx, n, timestamp)

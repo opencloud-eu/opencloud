@@ -45,11 +45,18 @@ func (fs *Decomposedfs) MarkProcessing(ctx context.Context, ref *provider.Refere
 	if err != nil {
 		return err
 	}
-	defer func() {
+	// released before the revision cleanup, or on any return before that
+	unlocked := false
+	unlockNode := func() {
+		if unlocked {
+			return
+		}
+		unlocked = true
 		if err := unlock(); err != nil {
 			appctx.GetLogger(ctx).Error().Err(err).Str("nodeid", n.ID).Msg("could not close mark-processing lock")
 		}
-	}()
+	}
+	defer unlockNode()
 
 	if !processing {
 		if !n.IsProcessing(ctx) {
@@ -59,7 +66,15 @@ func (fs *Decomposedfs) MarkProcessing(ctx context.Context, ref *provider.Refere
 		if id != sessionID {
 			return nil
 		}
-		return n.RemoveXattr(ctx, prefixes.StatusPrefix)
+		if err := n.RemoveXattr(ctx, prefixes.StatusPrefix); err != nil {
+			return err
+		}
+		// The upload of this session is done: apply the revision cleanup strategy (see package
+		// revisioncleanup), which skipped the node while it was marked. It never fails clearing
+		// the mark. The node lock is released first, for the reasons given in RestoreRevision.
+		unlockNode()
+		fs.revisionsCleanup.HandleRevisionCreated(ctx, n)
+		return nil
 	}
 
 	if n.IsProcessing(ctx) {

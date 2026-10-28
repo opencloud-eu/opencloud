@@ -16,6 +16,10 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+// Package decomposedfs is the shared core of the decomposed, decomposeds3 and posix
+// storage drivers. Each driver supplies its storage layout through aspects.Aspects,
+// see README.md in this directory for how the drivers are built and how they
+// delegate to and override the shared code.
 package decomposedfs
 
 import (
@@ -56,6 +60,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/options"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/permissions"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/revisioncleanup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/spaceidindex"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/timemanager"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/trashbin"
@@ -129,6 +134,10 @@ type Decomposedfs struct {
 	stream       events.Stream
 	sessionStore SessionStore
 
+	// deletes old revisions after uploads and restores created new ones, nil if
+	// disabled. Shared with the upload session store, see aspects.Aspects.
+	revisionsCleanup *revisioncleanup.Service
+
 	UserCache       *ttlcache.Cache
 	userSpaceIndex  *spaceidindex.Index
 	groupSpaceIndex *spaceidindex.Index
@@ -183,6 +192,13 @@ func NewDefault(m map[string]interface{}, bs node.Blobstore, es events.Stream, l
 		store.TLSRootCA(o.IDCache.TLSRootCACertificate),
 	), log)
 
+	// fail at startup on an invalid strategy or async settings rather than silently keeping
+	// or deleting revisions the admin did not expect. The posix driver does the same in tree.New.
+	revisionsCleanup, err := revisioncleanup.NewServiceFromOptions(o, lu, tp, log)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid revisions cleanup configuration")
+	}
+
 	aspects := aspects.Aspects{
 		Lookup:            lu,
 		Tree:              tp,
@@ -190,9 +206,16 @@ func NewDefault(m map[string]interface{}, bs node.Blobstore, es events.Stream, l
 		EventStream:       es,
 		DisableVersioning: o.DisableVersioning,
 		Trashbin:          &DecomposedfsTrashbin{},
+		RevisionsCleanup:  revisionsCleanup,
 	}
 
-	return New(o, aspects, log)
+	fs, err := New(o, aspects, log)
+	if err != nil {
+		// stop the workers of the revision cleanup again
+		_ = revisionsCleanup.Shutdown(context.Background())
+		return nil, err
+	}
+	return fs, nil
 }
 
 // New returns an implementation of the storage.FS interface that talks to
@@ -245,20 +268,21 @@ func New(o *options.Options, aspects aspects.Aspects, log *zerolog.Logger) (stor
 	}
 
 	fs := &Decomposedfs{
-		tp:              aspects.Tree,
-		lu:              aspects.Lookup,
-		trashbin:        aspects.Trashbin,
-		o:               o,
-		p:               aspects.Permissions,
-		um:              aspects.UserMapper,
-		chunkHandler:    chunking.NewChunkHandler(filepath.Join(o.Root, "uploads")),
-		stream:          aspects.EventStream,
-		UserCache:       ttlcache.NewCache(),
-		userSpaceIndex:  userSpaceIndex,
-		groupSpaceIndex: groupSpaceIndex,
-		mailSpaceIndex:  mailSpaceIndex,
-		spaceTypeIndex:  spaceTypeIndex,
-		log:             log,
+		tp:               aspects.Tree,
+		lu:               aspects.Lookup,
+		trashbin:         aspects.Trashbin,
+		o:                o,
+		p:                aspects.Permissions,
+		um:               aspects.UserMapper,
+		chunkHandler:     chunking.NewChunkHandler(filepath.Join(o.Root, "uploads")),
+		stream:           aspects.EventStream,
+		UserCache:        ttlcache.NewCache(),
+		revisionsCleanup: aspects.RevisionsCleanup,
+		userSpaceIndex:   userSpaceIndex,
+		groupSpaceIndex:  groupSpaceIndex,
+		mailSpaceIndex:   mailSpaceIndex,
+		spaceTypeIndex:   spaceTypeIndex,
+		log:              log,
 	}
 	fs.sessionStore = upload.NewSessionStore(fs, aspects, o.Root, o.AsyncFileUploads, o.Tokens, log)
 	if err = fs.trashbin.Setup(fs); err != nil {
@@ -405,6 +429,18 @@ func (fs *Decomposedfs) handlePostprocessingEvent(ctx context.Context, event eve
 			}
 		}
 
+		// Apply the revision cleanup strategy (see package revisioncleanup) for async
+		// uploads that replaced an existing file and thus created a revision. It only
+		// runs now that postprocessing finished: until then the upload may still roll
+		// back to the revision recorded in versionID, or write its blob into a revision
+		// node created by a newer upload. Failed uploads are skipped, as they just
+		// restored their previous revision instead of creating a new one.
+		// Cleanup itself skips the node if another upload is still processing it.
+		// Pass sublog on, so that the cleanup logs with the event's context.
+		if !failed && isVersion {
+			fs.revisionsCleanup.HandleRevisionCreated(appctx.WithLogger(ctx, &sublog), n)
+		}
+
 		if err := events.Publish(
 			ctx,
 			fs.stream,
@@ -493,7 +529,7 @@ func (fs *Decomposedfs) handlePostprocessingEvent(ctx context.Context, event eve
 				sublog.Debug().Msg("node is not stuck, ignoring")
 				return
 			}
-			_, deleteErr = n.DeleteRevision(ctx, "")
+			_, deleteErr = n.DeleteRevisionUnchecked(ctx, "")
 		} else {
 			versionID := time.Unix(int64(ev.Timestamp.Seconds), int64(ev.Timestamp.Nanos)).UTC().Format(time.RFC3339Nano)
 			deleteErr = fs.deleteRevisionFile(ctx, n, n.ID+node.RevisionIDDelimiter+versionID)
@@ -661,7 +697,8 @@ func (fs *Decomposedfs) WithDisabledSpaces() storage.FS {
 
 // Shutdown shuts down the storage
 func (fs *Decomposedfs) Shutdown(ctx context.Context) error {
-	return nil
+	// stop the background revision cleanup workers, see revisioncleanup.Service.Shutdown
+	return fs.revisionsCleanup.Shutdown(ctx)
 }
 
 // GetQuota returns the quota available
