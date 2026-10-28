@@ -76,6 +76,15 @@ func (h *httpMetrics) Middleware(next http.Handler) http.Handler {
 		wrapper := chimiddleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		next.ServeHTTP(wrapper, r)
 
+		// To avoid having a high cardinality on the path label, which may include
+		// different identifiers and query parameters and would result in a very
+		// high number of individual values for the path label, we are using chi to
+		// resolve the path against the pattern that it matches in its route
+		// configuration, and we are using that as the value for the path label, as
+		// the cardinality for those will remain quite small, since it uses the
+		// placeholders for values instead of the actual values, so e.g. something
+		// like "/resource/child/{id}" instead of
+		// "/resource/child/d6b60c20-8711-4921-9cd6-b45a6a5b6ce1".
 		pattern := unmatchedRoutePattern
 		if rctx := chi.RouteContext(r.Context()); rctx != nil {
 			if p := rctx.RoutePattern(); p != "" {
@@ -104,6 +113,9 @@ func (h *httpMetrics) enableRequestMetrics(namespace, subsystem string) {
 		return
 	}
 	h.requests = &httpRequestMetrics{
+		// TODO(pbleser-oc): use Prometheus native histograms instead once the
+		// minimum supported Prometheus (and Grafana) version allows it; track both
+		// for now to remain backwards compatible.
 		duration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
