@@ -25,7 +25,8 @@ func (d *decoder) readSize8(index int) ([]byte, int, error) {
 }
 
 func (d *decoder) readSizeN(index, n int) ([]byte, int, error) {
-	if len(d.data) < index+n {
+	// written to avoid index+n overflowing on 32-bit platforms
+	if n < 0 || len(d.data)-index < n {
 		return emptyBytes, 0, def.ErrTooShortBytes
 	}
 	return d.data[index : index+n], index + n, nil

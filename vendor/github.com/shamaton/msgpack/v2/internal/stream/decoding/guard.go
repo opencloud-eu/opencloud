@@ -1,10 +1,9 @@
 package decoding
 
 import (
-	"errors"
-	"fmt"
-	"math"
 	"reflect"
+
+	"github.com/shamaton/msgpack/v2/internal/common/decodingutil"
 )
 
 const (
@@ -19,17 +18,10 @@ const (
 	maxPreallocMapSize = 8192
 )
 
-// errDeclaredLengthTooLarge is returned when a declared 32-bit length cannot
-// be represented as a non-negative int (32-bit platforms).
-var errDeclaredLengthTooLarge = errors.New("declared length is too large")
-
 // lengthFromUint32 converts a MessagePack-declared 32-bit length to int,
 // rejecting values that are not representable as a non-negative int.
 func lengthFromUint32(u uint32) (int, error) {
-	if int64(u) > int64(math.MaxInt) {
-		return 0, fmt.Errorf("%w: %d", errDeclaredLengthTooLarge, u)
-	}
-	return int(u), nil // #nosec G115 -- checked above
+	return decodingutil.LengthFromUint32(u)
 }
 
 // initialByteCap returns the capacity to reserve for a declared byte length
