@@ -8,6 +8,9 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/davidbyttow/govips/v2 from 2.19.0 to 2.20.0 [[#3847](https://github.com/opencloud-eu/opencloud/pull/3847)]
+- build(deps): bump github.com/onsi/ginkgo/v2 from 2.33.0 to 2.33.1 [[#3846](https://github.com/opencloud-eu/opencloud/pull/3846)]
+- build(deps): bump github.com/shamaton/msgpack/v2 from 2.4.2 to 2.4.4 [[#3848](https://github.com/opencloud-eu/opencloud/pull/3848)]
 - build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.30.0 to 2.31.0 [[#3676](https://github.com/opencloud-eu/opencloud/pull/3676)]
 - chore(deps): bump github.com/beevik/etree from 1.8.0 to 1.8.1 [[#3675](https://github.com/opencloud-eu/opencloud/pull/3675)]
 - build(deps): bump github.com/davidbyttow/govips/v2 from 2.18.0 to 2.19.0 [[#3597](https://github.com/opencloud-eu/opencloud/pull/3597)]
