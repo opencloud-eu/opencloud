@@ -35,13 +35,30 @@ import (
 
 // MakeAccessToken implements the oidc.AccessTokenProvider interface.
 func (p *Provider) MakeAccessToken(ctx context.Context, audience string, auth identity.AuthRecord) (string, error) {
-	return p.makeAccessToken(ctx, audience, auth, nil, nil)
+	return p.makeAccessToken(ctx, audience, "", auth, nil, nil, "")
 }
 
-func (p *Provider) makeAccessToken(ctx context.Context, audience string, auth identity.AuthRecord, signingMethod jwt.SigningMethod, refreshTokenClaims *konnect.RefreshTokenClaims) (string, error) {
+// makeAccessToken creates an access token for the provided client. When a
+// resource indicator is given, the token is bound to that resource as its
+// audience and names the client in the azp claim instead, as required by
+// https://www.rfc-editor.org/rfc/rfc8707.html#section-2.
+func (p *Provider) makeAccessToken(ctx context.Context, clientID string, resource string, auth identity.AuthRecord, signingMethod jwt.SigningMethod, refreshTokenClaims *konnect.RefreshTokenClaims, tokenID string) (string, error) {
 	sk, ok := p.getSigningKey(signingMethod)
 	if !ok {
 		return "", fmt.Errorf("no signing key")
+	}
+
+	// Use the token ID provided by the caller, or generate one when it was not
+	// pre-generated.
+	if tokenID == "" {
+		tokenID = rndm.GenerateRandomString(24)
+	}
+
+	audience := clientID
+	authorizedParty := ""
+	if resource != "" {
+		audience = resource
+		authorizedParty = clientID
 	}
 
 	authorizedScopes := auth.AuthorizedScopes()
@@ -49,6 +66,7 @@ func (p *Provider) makeAccessToken(ctx context.Context, audience string, auth id
 
 	accessTokenClaims := konnect.AccessTokenClaims{
 		TokenType:               konnect.TokenTypeAccessToken,
+		AuthorizedParty:         authorizedParty,
 		AuthorizedScopesList:    authorizedScopesList,
 		AuthorizedClaimsRequest: auth.AuthorizedClaims(),
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -57,7 +75,7 @@ func (p *Provider) makeAccessToken(ctx context.Context, audience string, auth id
 			Audience:  jwt.ClaimStrings{audience},
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(p.accessTokenDuration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ID:        rndm.GenerateRandomString(24),
+			ID:        tokenID,
 		},
 	}
 
@@ -217,7 +235,9 @@ func (p *Provider) makeIDToken(ctx context.Context, ar *payload.AuthenticationRe
 
 		authorizedScopes := auth.AuthorizedScopes()
 
-		freshAuth, found, fetchErr := auth.Manager().Fetch(ctx, userID, sessionRef, authorizedScopes, requestedClaimsMap, authorizedScopes)
+		freshAuth, found, fetchErr := auth.Manager().Fetch(ctx, userID, sessionRef, authorizedScopes, requestedClaimsMap, authorizedScopes, &identity.LookupContext{
+			Audience: ar.ClientID,
+		})
 		if fetchErr != nil {
 			p.logger.WithFields(utils.ErrorAsFields(fetchErr)).Errorln("identity manager fetch failed")
 			found = false
@@ -302,15 +322,35 @@ func (p *Provider) makeIDToken(ctx context.Context, ar *payload.AuthenticationRe
 	return idToken.SignedString(sk.PrivateKey)
 }
 
-func (p *Provider) makeRefreshToken(ctx context.Context, audience string, auth identity.AuthRecord, signingMethod jwt.SigningMethod) (string, error) {
+// makeRefreshToken creates a refresh token for the provided client. Its
+// audience is always the client, the resource indicator the access tokens of
+// this grant are bound to travels as a claim so it survives a refresh.
+//
+// The grantedScopes are the scopes the resource owner approved, which is what
+// the new token carries as the grant. A caller which has them passes them, and
+// one which does not passes nil to use the scopes of the record: a request may
+// ask for less than the grant, see
+// https://tools.ietf.org/html/rfc6749#section-6, and that narrows the tokens it
+// answers with rather than the grant they come from.
+func (p *Provider) makeRefreshToken(ctx context.Context, audience string, resource string, auth identity.AuthRecord, grantedScopes map[string]bool, signingMethod jwt.SigningMethod, tokenID string) (string, error) {
 	sk, ok := p.getSigningKey(signingMethod)
 	if !ok {
 		return "", fmt.Errorf("no signing key")
 	}
 
+	// Use the token ID provided by the caller, or generate one when it was not
+	// pre-generated.
+	if tokenID == "" {
+		tokenID = rndm.GenerateRandomString(24)
+	}
+
+	if grantedScopes == nil {
+		grantedScopes = auth.AuthorizedScopes()
+	}
+
 	approvedScopesList := []string{}
 	approvedScopes := make(map[string]bool)
-	for scope, granted := range auth.AuthorizedScopes() {
+	for scope, granted := range grantedScopes {
 		if granted {
 			approvedScopesList = append(approvedScopesList, scope)
 			approvedScopes[scope] = true
@@ -327,13 +367,14 @@ func (p *Provider) makeRefreshToken(ctx context.Context, audience string, auth i
 		ApprovedScopesList:    approvedScopesList,
 		ApprovedClaimsRequest: auth.AuthorizedClaims(),
 		Ref:                   ref,
+		Resource:              resource,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    p.issuerIdentifier,
 			Subject:   auth.Subject(),
 			Audience:  jwt.ClaimStrings{audience},
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(p.refreshTokenDuration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ID:        rndm.GenerateRandomString(24),
+			ID:        tokenID,
 		},
 	}
 
@@ -343,6 +384,21 @@ func (p *Provider) makeRefreshToken(ctx context.Context, audience string, auth i
 			refreshTokenClaims.IdentityClaims = userWithClaims.Claims()
 		}
 		refreshTokenClaims.IdentityProvider = auth.Manager().Name()
+
+		if userWithSessionRef, ok := user.(identity.UserWithSessionRef); ok {
+			if sessionRef := userWithSessionRef.SessionRef(); sessionRef != nil {
+				// Remember the session of the backend, so it survives refresh.
+				// Refs generated by us are left out, as those are recreated on
+				// demand and mean that the backend has no session. Sessions of
+				// external authorities are left out as well, as they belong to
+				// the authority and not to our backend.
+				if identity.IsBackendSessionRef(auth.Manager().Name(), *sessionRef) {
+					refreshTokenClaims.SessionClaims = &konnectoidc.SessionClaims{
+						SessionID: *sessionRef,
+					}
+				}
+			}
+		}
 	}
 
 	refreshToken := jwt.NewWithClaims(sk.SigningMethod, refreshTokenClaims)

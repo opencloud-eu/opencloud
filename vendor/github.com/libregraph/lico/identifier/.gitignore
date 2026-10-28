@@ -2,11 +2,12 @@
 
 # dependencies
 /node_modules
-/.yarninstall
+
+# The root .gitignore ignores every dot-file, so this one needs saying twice.
+!/.bun-version
 
 # testing
 /coverage
-.eslintcache
 
 # production
 /build
@@ -19,20 +20,8 @@
 .env.production.local
 
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
 # i18n
 src/locales/*.json
 src/locales/**/*.json
 
-# yarn
-.pnp.*
-!.yarnrc.yml
-!.yarn/
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions

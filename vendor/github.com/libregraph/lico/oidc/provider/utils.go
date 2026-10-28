@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"time"
 )
 
@@ -40,6 +41,20 @@ func uniqueStrings(s []string) []string {
 	}
 
 	return res
+}
+
+// makePathSet returns a set of the provided paths, skipping empty ones. It is
+// used for endpoints which are served under more than one path.
+func makePathSet(path string, alias []string) map[string]bool {
+	set := make(map[string]bool, len(alias)+1)
+	for _, p := range append([]string{path}, alias...) {
+		if p == "" {
+			continue
+		}
+		set[p] = true
+	}
+
+	return set
 }
 
 func getRequestURL(req *http.Request, isTrustedSource bool) *url.URL {
@@ -73,6 +88,9 @@ func addResponseHeaders(header http.Header) {
 	header.Set("Referrer-Policy", "origin")
 }
 
+// makeArrayFromBoolMap returns the keys with a true value of the provided map,
+// sorted, so that the same set of scopes or claims always produces the same
+// list in a response or a token.
 func makeArrayFromBoolMap(m map[string]bool) []string {
 	result := []string{}
 	for k, v := range m {
@@ -80,6 +98,7 @@ func makeArrayFromBoolMap(m map[string]bool) []string {
 			result = append(result, k)
 		}
 	}
+	slices.Sort(result)
 
 	return result
 }
