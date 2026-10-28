@@ -1,12 +1,16 @@
 # Changelog
 
-## [9.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.1) - 2026-10-27
+## [9.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.1) - 2026-10-28
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @pascalwengerter
 
+### 📦️ Dependencies
 
+- build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.30.0 to 2.31.0 [[#3676](https://github.com/opencloud-eu/opencloud/pull/3676)]
+- chore(deps): bump github.com/beevik/etree from 1.8.0 to 1.8.1 [[#3675](https://github.com/opencloud-eu/opencloud/pull/3675)]
+- build(deps): bump github.com/davidbyttow/govips/v2 from 2.18.0 to 2.19.0 [[#3597](https://github.com/opencloud-eu/opencloud/pull/3597)]
 
 ## [9.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.0) - 2026-10-27
 
