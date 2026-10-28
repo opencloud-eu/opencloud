@@ -37,6 +37,14 @@ Default values may be provided by appending ",default=value" to the
 struct tag. Required values may be marked by appending ",required" to the
 struct tag. Strict values may be marked by appending ",strict" which will
 return an error on Decode if there is an error while parsing.
+In addition to any defined environment variable the same environment variable
+suffixed with `_FILE` can be used with the following semantics: instead of
+taking its value directly as the configuration parameter it is interpreted as a
+path to a file whose content (modulo trailing newlines) is interpreted as the
+value for the configuration parameter. E.g. instead of setting the access key
+directly with `AWS_SECRET_ACCESS_KEY` securely store the access key in a file and
+provide the path to the file with `AWS_SECRET_ACCESS_KEY_FILE`. Note:
+environment variables not suffixed with `_FILE` have precendence.
 
 Then call `envdecode.Decode`:
 
