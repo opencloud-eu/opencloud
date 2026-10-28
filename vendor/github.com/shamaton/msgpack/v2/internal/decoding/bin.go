@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/shamaton/msgpack/v2/def"
+	"github.com/shamaton/msgpack/v2/internal/common/decodingutil"
 )
 
 func (d *decoder) isCodeBin(v byte) bool {
@@ -48,7 +49,11 @@ func (d *decoder) asBin(offset int, k reflect.Kind) ([]byte, int, error) {
 		if err != nil {
 			return emptyBytes, 0, err
 		}
-		v, offset, err := d.readSizeN(offset, int(binary.BigEndian.Uint32(bs)))
+		l, err := decodingutil.LengthFromUint32(binary.BigEndian.Uint32(bs))
+		if err != nil {
+			return emptyBytes, 0, err
+		}
+		v, offset, err := d.readSizeN(offset, l)
 		if err != nil {
 			return emptyBytes, 0, err
 		}

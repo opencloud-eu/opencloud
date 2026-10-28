@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/shamaton/msgpack/v2/def"
+	"github.com/shamaton/msgpack/v2/internal/common/decodingutil"
 )
 
 var (
@@ -52,7 +53,11 @@ func (d *decoder) sliceLength(offset int, k reflect.Kind) (int, int, error) {
 		if err != nil {
 			return 0, 0, err
 		}
-		return int(binary.BigEndian.Uint32(bs)), offset, nil
+		l, err := decodingutil.LengthFromUint32(binary.BigEndian.Uint32(bs))
+		if err != nil {
+			return 0, 0, err
+		}
+		return l, offset, nil
 	}
 	return 0, 0, d.errorTemplate(code, k)
 }

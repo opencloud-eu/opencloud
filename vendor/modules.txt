@@ -1954,12 +1954,13 @@ github.com/sethvargo/go-diceware/diceware
 # github.com/sethvargo/go-password v0.4.0
 ## explicit; go 1.25
 github.com/sethvargo/go-password/password
-# github.com/shamaton/msgpack/v2 v2.4.2
+# github.com/shamaton/msgpack/v2 v2.4.4
 ## explicit; go 1.20
 github.com/shamaton/msgpack/v2
 github.com/shamaton/msgpack/v2/def
 github.com/shamaton/msgpack/v2/ext
 github.com/shamaton/msgpack/v2/internal/common
+github.com/shamaton/msgpack/v2/internal/common/decodingutil
 github.com/shamaton/msgpack/v2/internal/decoding
 github.com/shamaton/msgpack/v2/internal/encoding
 github.com/shamaton/msgpack/v2/internal/stream/decoding
