@@ -65,6 +65,14 @@ func Validate(cfg *config.Config) error {
 			return fmt.Errorf("OIDC audiences (PROXY_OIDC_AUDIENCES) in service %s must not contain empty or whitespace-only entries", cfg.Service.Name)
 		}
 	}
+	if len(cfg.OIDC.AllowedClientIDs) > 0 && cfg.OIDC.AccessTokenVerifyMethod != config.AccessTokenVerificationJWT {
+		return fmt.Errorf("OIDC allowed client ids (PROXY_OIDC_ALLOWED_CLIENT_IDS) in service %s require access_token_verify_method to be 'jwt'", cfg.Service.Name)
+	}
+	for _, clientID := range cfg.OIDC.AllowedClientIDs {
+		if strings.TrimSpace(clientID) == "" {
+			return fmt.Errorf("OIDC allowed client ids (PROXY_OIDC_ALLOWED_CLIENT_IDS) in service %s must not contain empty or whitespace-only entries", cfg.Service.Name)
+		}
+	}
 
 	if cfg.ServiceAccount.ServiceAccountID == "" {
 		return shared.MissingServiceAccountID(cfg.Service.Name)

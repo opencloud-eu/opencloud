@@ -265,6 +265,7 @@ func newOIDCAuthenticator(logger log.Logger, cfg *config.Config, userInfoCache m
 	oidcClient, err := oidc.NewOIDCClient(
 		oidc.WithAccessTokenVerifyMethod(cfg.OIDC.AccessTokenVerifyMethod),
 		oidc.WithAccessTokenAudiences(cfg.OIDC.Audiences),
+		oidc.WithAccessTokenClientIDs(cfg.OIDC.AllowedClientIDs),
 		oidc.WithLogger(logger),
 		oidc.WithHTTPClient(httpClient),
 		oidc.WithOidcIssuer(cfg.OIDC.Issuer),
