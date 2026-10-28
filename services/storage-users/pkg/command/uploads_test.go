@@ -68,6 +68,26 @@ func TestBuildInfo(t *testing.T) {
 			filter:       storage.UploadSessionFilter{Processing: boolPtr(true), Expired: boolPtr(false), HasVirus: boolPtr(true), ID: strPtr("123")},
 			expectedInfo: "Processing, not expired, virusinfected session with id '123':",
 		},
+		{
+			alias:        "orphaned",
+			filter:       storage.UploadSessionFilter{Orphaned: boolPtr(true)},
+			expectedInfo: "Orphaned sessions:",
+		},
+		{
+			alias:        "not orphaned",
+			filter:       storage.UploadSessionFilter{Orphaned: boolPtr(false)},
+			expectedInfo: "Not orphaned sessions:",
+		},
+		{
+			alias:        "processing and orphaned",
+			filter:       storage.UploadSessionFilter{Processing: boolPtr(true), Orphaned: boolPtr(true)},
+			expectedInfo: "Processing, orphaned sessions:",
+		},
+		{
+			alias:        "expired, not virus infected and orphaned",
+			filter:       storage.UploadSessionFilter{Expired: boolPtr(true), HasVirus: boolPtr(false), Orphaned: boolPtr(true)},
+			expectedInfo: "Expired, not virusinfected, orphaned sessions:",
+		},
 	}
 
 	for _, tc := range testCases {

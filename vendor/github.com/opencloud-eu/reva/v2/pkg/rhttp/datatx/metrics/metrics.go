@@ -42,6 +42,11 @@ var (
 		Name: "reva_upload_sessions_aborted",
 		Help: "Number of uploads sessions that have aborted by postprocessing",
 	})
+	// UploadSessionsCommitFailed is the number of upload sessions whose blob commit failed after retries and were reverted
+	UploadSessionsCommitFailed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "reva_upload_sessions_commit_failed",
+		Help: "Number of upload sessions whose blob commit failed after retries and were reverted",
+	})
 	// UploadSessionsDeleted is the number of upload sessions that have been deleted
 	UploadSessionsDeleted = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "reva_upload_sessions_deleted",

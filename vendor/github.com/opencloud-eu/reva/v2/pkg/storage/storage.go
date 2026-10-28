@@ -22,11 +22,11 @@ import (
 	"context"
 	"io"
 	"net/url"
+	"time"
 
 	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	registry "github.com/cs3org/go-cs3apis/cs3/storage/registry/v1beta1"
-	tusd "github.com/tus/tusd/v2/pkg/handler"
 )
 
 // MoveResult carries the resolved references returned by a successful Move.
@@ -34,6 +34,44 @@ type MoveResult struct {
 	SpaceOwner   *user.UserId
 	OldReference *provider.Reference
 	NewReference *provider.Reference
+}
+
+type UploadChecksums struct {
+	SHA1    []byte
+	MD5     []byte
+	Adler32 []byte
+}
+
+type UploadInfo struct {
+	NodeExisted       bool // true when the target node existed before the upload started
+	Size              int64
+	MTime             time.Time
+	Checksums         UploadChecksums
+	IfMatch           string
+	IfNoneMatch       string
+	IfUnmodifiedSince time.Time
+	// Where a new file goes, for a driver whose PrepareUpload creates it. Empty
+	// leaves a missing node NotFound.
+	ParentID string
+	Name     string
+}
+
+type PrepareUploadResult struct {
+	VersionCreated bool
+	SizeDiff       int64
+	SpaceOwner     *user.UserId // the space owner or a manager, for a new node; nil keeps the one already known
+}
+
+// RollbackInfo carries what a driver needs to undo PrepareUpload. NodeID and
+// ParentID come from the upload session rather than the node, so a rollback can
+// still release the quota of a node whose own metadata has become unreadable.
+type RollbackInfo struct {
+	NodeExisted bool // true when the target node had a prior version; drivers with nothing to undo for new nodes may no-op
+	SizeDiff    int64
+	NodeID      string
+	ParentID    string
+	Filename    string
+	Size        int64
 }
 
 // FS is the interface to implement access to the storage.
@@ -69,7 +107,7 @@ type FS interface {
 	// CreateDir creates a resource of type container
 	CreateDir(ctx context.Context, ref *provider.Reference) error
 	// TouchFile sets the mtime of a resource, creating an empty file if it does not exist
-	// FIXME(OCISDEV-900) remove markprocessing bool: coordinator calls MarkProcessing(true) explicitly after TouchFile
+	// FIXME(OCISDEV-900) remove markprocessing bool: PrepareUpload marks the node the coordinator touched
 	// FIXME the mtime should either be a time.Time or a CS3 Timestamp, not a string
 	TouchFile(ctx context.Context, ref *provider.Reference, markprocessing bool, mtime string) error
 	// Delete deletes a resource.
@@ -79,15 +117,24 @@ type FS interface {
 	// space owner for event publication. Drivers without this metadata may return
 	// a nil result on success.
 	Move(ctx context.Context, oldRef, newRef *provider.Reference) (*MoveResult, error)
-	// InitiateUpload returns a list of protocols with urls that can be used to append bytes to a new upload session
-	InitiateUpload(ctx context.Context, ref *provider.Reference, uploadLength int64, metadata map[string]string) (map[string]string, error)
-	// Upload creates or updates a resource of type file with a new revision
-	Upload(ctx context.Context, req UploadRequest, uploadFunc UploadFinishedFunc) (*provider.ResourceInfo, error)
 	// MarkProcessing toggles a processing flag on the resource.
 	MarkProcessing(ctx context.Context, ref *provider.Reference, processing bool, sessionID string) error
 	// CommitUpload writes the staged bytes from source to the resource at ref.
-	// Caller owns source.Body and must close it after CommitUpload returns.
+	// source carries a Body, a Path or both. Caller owns source.Body and must close it
+	// after CommitUpload returns.
 	CommitUpload(ctx context.Context, ref *provider.Reference, sessionID string, source UploadSource) error
+	// PrepareUpload is called after all bytes are received and before postprocessing begins.
+	// Implementations may lock the target node, snapshot the previous version, write new metadata,
+	// mark the node as processing for sessionID, and propagate size changes. Drivers that do not
+	// require any of these steps may return immediately.
+	PrepareUpload(ctx context.Context, ref *provider.Reference, sessionID string, info UploadInfo) (*PrepareUploadResult, error)
+	// RollbackUpload reverts node state after a failed or aborted postprocessing run.
+	// It is the inverse of PrepareUpload: restores previous metadata and reverts the optimistic
+	// size propagation. The caller (coordinator) is responsible for unmarking the processing flag
+	// and deleting the upload session files. Drivers that performed no work in PrepareUpload may return nil.
+	// Callers must keep the session on a returned error: the rollback is retryable and info
+	// carries state the driver cannot recover once the session files are gone.
+	RollbackUpload(ctx context.Context, ref *provider.Reference, sessionID string, info RollbackInfo) error
 
 	// Revisions
 
@@ -176,16 +223,18 @@ type SpaceDisabledListableFS interface {
 type UploadSource struct {
 	Body   io.ReadCloser
 	Length int64
+	// Path is the staged file, if the caller has one. Drivers may move it into
+	// place instead of copying Body; the file is gone after a successful commit.
+	Path string
+
+	// ScanResult is the antivirus verdict: empty means clean.
+	ScanResult string
+	// ScanDate is zero when the upload was not scanned.
+	ScanDate time.Time
 }
 
 // UnscopeFunc is a function that unscopes a user
 type UnscopeFunc func()
-
-// Composable is the interface that a struct needs to implement
-// to be composable, so that it can support the TUS methods
-type ComposableFS interface {
-	UseIn(composer *tusd.StoreComposer)
-}
 
 // Registry is the interface that storage registries implement
 // for discovering storage providers

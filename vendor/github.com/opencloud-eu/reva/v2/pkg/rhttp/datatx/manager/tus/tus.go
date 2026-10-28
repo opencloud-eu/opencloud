@@ -35,13 +35,13 @@ import (
 
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/net"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
-	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx/manager/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx/metrics"
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v2/pkg/upload"
 )
 
 func init() {
@@ -89,20 +89,19 @@ func New(m map[string]interface{}, publisher events.Publisher, log *zerolog.Logg
 	}, nil
 }
 
-func (m *manager) Handler(fs storage.FS) (http.Handler, error) {
-	composable, ok := fs.(storage.ComposableFS)
-	if !ok {
-		return nil, errtypes.NotSupported("file system does not support the tus protocol")
-	}
+func (m *manager) Handler(coord upload.Coordinator, fs storage.FS) (http.Handler, error) {
+	// such a driver creates a new file under the id minted at initiate, so that id is
+	// already the file's
+	nc, ok := fs.(storage.NodeCreator)
+	createsNode := ok && nc.PrepareCreatesNode()
 
 	// A storage backend for tusd may consist of multiple different parts which
 	// handle upload creation, locking, termination and so on. The composer is a
-	// place where all those separated pieces are joined together. In this example
-	// we only use the file store but you may plug in multiple.
+	// place where all those separated pieces are joined together.
 	composer := tusd.NewStoreComposer()
 
-	// let the composable storage tell tus which extensions it supports
-	composable.UseIn(composer)
+	// the coordinator serves the tus protocol on behalf of every driver
+	coord.UseIn(composer)
 
 	config := tusd.Config{
 		StoreComposer:         composer,
@@ -110,7 +109,7 @@ func (m *manager) Handler(fs storage.FS) (http.Handler, error) {
 		Logger:                slog.New(tusdLogger{log: m.log}),
 		// Add the finalized resource's etag and permissions to the last chunk's response
 		// (see preFinishResponseCallback). https://github.com/opencloud-eu/opencloud/issues/2409
-		PreFinishResponseCallback: m.preFinishResponseCallback(fs),
+		PreFinishResponseCallback: m.preFinishResponseCallback(coord),
 	}
 
 	if m.conf.CorsEnabled {
@@ -135,33 +134,29 @@ func (m *manager) Handler(fs storage.FS) (http.Handler, error) {
 		return nil, err
 	}
 
-	if usl, ok := fs.(storage.UploadSessionLister); ok {
-		// We can currently only send updates if the fs is decomposedfs as we read very specific keys from the storage map of the tus info
-		go func() {
-			for {
-				ev := <-handler.CompleteUploads
-				// We should be able to get the upload progress with fs.GetUploadProgress, but currently tus will erase the info files
-				// so we create a Progress instance here that is used to read the correct properties
-				ups, err := usl.ListUploadSessions(context.Background(), storage.UploadSessionFilter{ID: &ev.Upload.ID})
-				if err != nil {
-					appctx.GetLogger(context.Background()).Error().Err(err).Str("session", ev.Upload.ID).Msg("failed to list upload session")
-				} else {
-					if len(ups) < 1 {
-						appctx.GetLogger(context.Background()).Error().Str("session", ev.Upload.ID).Msg("upload session not found")
-						continue
-					}
-					up := ups[0]
-					executant := up.Executant()
-					ref := up.Reference()
-					if m.publisher != nil {
-						if err := datatx.EmitFileUploadedEvent(up.SpaceOwner(), &executant, &ref, m.publisher); err != nil {
-							appctx.GetLogger(context.Background()).Error().Err(err).Msg("failed to publish FileUploaded event")
-						}
-					}
+	go func() {
+		for {
+			ev := <-handler.CompleteUploads
+			// tus erases its info files, so read the session back for the event's properties
+			ups, err := coord.ListUploadSessions(context.Background(), storage.UploadSessionFilter{ID: &ev.Upload.ID})
+			if err != nil {
+				appctx.GetLogger(context.Background()).Error().Err(err).Str("session", ev.Upload.ID).Msg("failed to list upload session")
+				continue
+			}
+			if len(ups) < 1 {
+				appctx.GetLogger(context.Background()).Error().Str("session", ev.Upload.ID).Msg("upload session not found")
+				continue
+			}
+			up := ups[0]
+			executant := up.Executant()
+			ref := up.Reference()
+			if m.publisher != nil {
+				if err := datatx.EmitFileUploadedEvent(up.SpaceOwner(), &executant, &ref, m.publisher); err != nil {
+					appctx.GetLogger(context.Background()).Error().Err(err).Msg("failed to publish FileUploaded event")
 				}
 			}
-		}()
-	}
+		}
+	}()
 
 	h := handler.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sublog := m.log.With().Str("uploadid", r.URL.Path).Logger()
@@ -179,7 +174,7 @@ func (m *manager) Handler(fs storage.FS) (http.Handler, error) {
 				metrics.UploadsActive.Sub(1)
 			}()
 			// set etag, mtime and file id
-			setHeaders(fs, w, r)
+			setHeaders(coord, createsNode, w, r)
 			handler.PostFile(w, r)
 		case "HEAD":
 			handler.HeadFile(w, r)
@@ -189,7 +184,7 @@ func (m *manager) Handler(fs storage.FS) (http.Handler, error) {
 				metrics.UploadsActive.Sub(1)
 			}()
 			// set etag, mtime and file id
-			setHeaders(fs, w, r)
+			setHeaders(coord, createsNode, w, r)
 			handler.PatchFile(w, r)
 		case "DELETE":
 			handler.DelFile(w, r)
@@ -214,16 +209,16 @@ func (m *manager) Handler(fs storage.FS) (http.Handler, error) {
 // the final response is written, it looks up the finalized resource and attaches its etag and
 // WebDAV permissions to the response headers, so clients do not need a follow-up PROPFIND after
 // the last chunk. It mirrors the etag and permissions the ocdav gateway already produces for the
-// creation-with-upload path. The storage driver resolves the resource as the upload's executant
-// (the data path's transfer token carries no user identity), so this layer does not reconstruct
-// the user. It is best effort: it logs any lookup failure and still completes the upload (the
+// creation-with-upload path. The upload coordinator resolves the resource as the upload's
+// executant (the data path's transfer token carries no user identity), so this layer does not
+// reconstruct the user. It is best effort: it logs any lookup failure and still completes the upload (the
 // client falls back to a PROPFIND). https://github.com/opencloud-eu/opencloud/issues/2409
-func (m *manager) preFinishResponseCallback(fs storage.FS) func(tusd.HookEvent) (tusd.HTTPResponse, error) {
-	resolver, ok := fs.(storage.UploadSessionResolver)
+func (m *manager) preFinishResponseCallback(r any) func(tusd.HookEvent) (tusd.HTTPResponse, error) {
+	resolver, ok := r.(storage.UploadSessionResolver)
 	return func(hook tusd.HookEvent) (tusd.HTTPResponse, error) {
 		resp := tusd.HTTPResponse{Header: tusd.HTTPHeader{}}
 		if !ok {
-			// the storage driver cannot resolve the upload; the client falls back to a PROPFIND
+			// nothing resolves the upload; the client falls back to a PROPFIND
 			return resp, nil
 		}
 
@@ -246,15 +241,10 @@ func (m *manager) preFinishResponseCallback(fs storage.FS) func(tusd.HookEvent) 
 	}
 }
 
-func setHeaders(fs storage.FS, w http.ResponseWriter, r *http.Request) {
+func setHeaders(coord upload.Coordinator, createsNode bool, w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := path.Base(r.URL.Path)
-	datastore, ok := fs.(tusd.DataStore)
-	if !ok {
-		appctx.GetLogger(ctx).Error().Interface("fs", fs).Msg("storage is not a tus datastore")
-		return
-	}
-	upload, err := datastore.GetUpload(ctx, id)
+	upload, err := coord.GetUpload(ctx, id)
 	if err != nil {
 		appctx.GetLogger(ctx).Error().Err(err).Msg("could not get upload from storage")
 		return
@@ -268,12 +258,23 @@ func setHeaders(fs storage.FS, w http.ResponseWriter, r *http.Request) {
 	if expires != "" {
 		w.Header().Set(net.HeaderTusUploadExpires, expires)
 	}
-	resourceid := &provider.ResourceId{
+	if id := fileID(info, createsNode); id != "" {
+		w.Header().Set(net.HeaderOCFileID, id)
+	}
+}
+
+// fileID returns the id of the file an upload writes, or "" while it is not known yet:
+// a new file's id is only valid once the upload commits, unless the driver creates the
+// file under the id minted at initiate.
+func fileID(info tusd.FileInfo, createsNode bool) string {
+	if info.Storage["NodeExists"] != "true" && !createsNode {
+		return ""
+	}
+	return storagespace.FormatResourceID(&provider.ResourceId{
 		StorageId: info.MetaData["providerID"],
 		SpaceId:   info.Storage["SpaceRoot"],
 		OpaqueId:  info.Storage["NodeId"],
-	}
-	w.Header().Set(net.HeaderOCFileID, storagespace.FormatResourceID(resourceid))
+	})
 }
 
 // tusdLogger is a logger implementation (slog) for tusd that uses zerolog.

@@ -20,6 +20,7 @@ import (
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
+	olog "github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/event"
@@ -30,6 +31,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/lookup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
+	"github.com/opencloud-eu/reva/v2/pkg/upload"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
@@ -92,10 +94,12 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 				// We need to init the posix driver with 'scanfs' disabled
 				posixDrivers := revaconfig.Posix(cfg, false, false)
 				// Disable async file uploads: this command only lists sessions and publishes
-				// events, but with async uploads enabled the driver would join the "dcfs"
-				// JetStream queue group. Events routed to this short-lived CLI member are
-				// auto-acked by the nats client and lost when the process exits, so the
-				// clean/restart/resume events published below would never reach the daemon.
+				// events, but with async uploads enabled the driver would join the
+				// "dcfs-revisions" JetStream queue group. Events routed to this short-lived
+				// CLI member are auto-acked by the nats client and lost when the process
+				// exits, so the daemon would miss them. The coordinator built below does not
+				// subscribe to postprocessing events, so the clean/restart/resume events
+				// published below reach the daemon.
 				posixDrivers["asyncfileuploads"] = false
 				drivers["posix"] = posixDrivers
 				// Also posix refuses to start without an events stream
@@ -106,15 +110,21 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 				}
 			}
 
-			fs, err := f(drivers[cfg.Driver].(map[string]any), fsStream, nil)
+			driverConf, ok := drivers[cfg.Driver].(map[string]any)
+			if !ok {
+				fmt.Fprintf(os.Stderr, "No configuration found for filesystem driver '%s'\n", cfg.Driver)
+				os.Exit(1)
+			}
+			fs, err := f(driverConf, fsStream, nil)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to initialize filesystem driver '%s'\n", cfg.Driver)
 				return err
 			}
 
-			managingFS, ok := fs.(storage.UploadSessionLister)
-			if !ok {
-				fmt.Fprintf(os.Stderr, "'%s' storage does not support listing upload sessions\n", cfg.Driver)
+			logger := olog.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
+			coord, err := upload.NewCoordinatorFromConfig("", driverConf, fs, nil, &logger.Logger, false)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to initialize the upload coordinator: %v\n", err)
 				os.Exit(1)
 			}
 
@@ -133,7 +143,7 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 			}
 
 			filter := buildFilter(cmd)
-			uploads, err := managingFS.ListUploadSessions(cmd.Context(), filter)
+			uploads, err := coord.ListUploadSessions(cmd.Context(), filter)
 			if err != nil {
 				return err
 			}
@@ -238,6 +248,7 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 	listUploadSessionsCmd.Flags().Bool("processing", false, "filter sessions by processing status")
 	listUploadSessionsCmd.Flags().Bool("expired", false, "filter sessions by expired status")
 	listUploadSessionsCmd.Flags().Bool("has-virus", false, "filter sessions by virus scan result")
+	listUploadSessionsCmd.Flags().Bool("orphaned", false, "filter sessions by whether their node metadata is unreadable. Such sessions can never finish processing and can be removed with --clean")
 	listUploadSessionsCmd.Flags().Bool("json", false, "output as json")
 	listUploadSessionsCmd.Flags().Bool("restart", false, "send restart event for all listed sessions. Only one of resume/restart/clean can be set.")
 	listUploadSessionsCmd.Flags().Bool("resume", false, "send resume event for all listed sessions. Only one of resume/restart/clean can be set.")
@@ -258,6 +269,10 @@ func buildFilter(cmd *cobra.Command) storage.UploadSessionFilter {
 	if cmd.Flag("has-virus").Changed {
 		infectedValue, _ := cmd.Flags().GetBool("has-virus")
 		filter.HasVirus = &infectedValue
+	}
+	if cmd.Flag("orphaned").Changed {
+		orphanedValue, _ := cmd.Flags().GetBool("orphaned")
+		filter.Orphaned = &orphanedValue
 	}
 	if cmd.Flag("id").Changed {
 		idValue, _ := cmd.Flags().GetString("id")
@@ -314,6 +329,24 @@ func buildInfo(filter storage.UploadSessionFilter) string {
 			b.WriteString("Virusinfected")
 		} else {
 			b.WriteString("virusinfected")
+		}
+	}
+
+	if filter.Orphaned != nil {
+		if b.Len() != 0 {
+			b.WriteString(", ")
+		}
+		if !*filter.Orphaned {
+			if b.Len() == 0 {
+				b.WriteString("Not ")
+			} else {
+				b.WriteString("not ")
+			}
+		}
+		if b.Len() == 0 {
+			b.WriteString("Orphaned")
+		} else {
+			b.WriteString("orphaned")
 		}
 	}
 

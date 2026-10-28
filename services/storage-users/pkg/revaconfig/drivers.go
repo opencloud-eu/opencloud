@@ -87,6 +87,7 @@ func Local(cfg *config.Config) map[string]any {
 // Posix is the config mapping for the Posix storage driver
 func Posix(cfg *config.Config, enableFSScan, enableFSWatch bool) map[string]any {
 	return map[string]any{
+		"mount_id":                    cfg.MountID,
 		"root":                        cfg.Drivers.Posix.Root,
 		"personalspacepath_template":  cfg.Drivers.Posix.PersonalSpacePathTemplate,
 		"personalspacealias_template": cfg.Drivers.Posix.PersonalSpaceAliasTemplate,
@@ -183,6 +184,7 @@ func OwnCloudSQL(cfg *config.Config) map[string]any {
 // Decomposed is the config mapping for the Decomposed storage driver
 func Decomposed(cfg *config.Config) map[string]any {
 	return map[string]any{
+		"mount_id":         cfg.MountID,
 		"metadata_backend": "messagepack",
 		"metadata_prefix":  cfg.Drivers.Decomposed.MetadataPrefix,
 		"propagator":       cfg.Drivers.Decomposed.Propagator,
@@ -243,6 +245,7 @@ func Decomposed(cfg *config.Config) map[string]any {
 // DecomposedsNoEvents is the config mapping for the Decomposed storage driver emitting no events
 func DecomposedNoEvents(cfg *config.Config) map[string]any {
 	return map[string]any{
+		"mount_id":         cfg.MountID,
 		"metadata_backend": "messagepack",
 		"metadata_prefix":  cfg.Drivers.Decomposed.MetadataPrefix,
 		"propagator":       cfg.Drivers.Decomposed.Propagator,
@@ -296,6 +299,7 @@ func DecomposedNoEvents(cfg *config.Config) map[string]any {
 // DecomposedS3 is the config mapping for the decomposeds3 storage driver
 func DecomposedS3(cfg *config.Config) map[string]any {
 	return map[string]any{
+		"mount_id":         cfg.MountID,
 		"metadata_backend": "messagepack",
 		"metadata_prefix":  cfg.Drivers.DecomposedS3.MetadataPrefix,
 		"propagator":       cfg.Drivers.DecomposedS3.Propagator,
@@ -366,6 +370,7 @@ func DecomposedS3(cfg *config.Config) map[string]any {
 // DecomposedS3NoEvents is the config mapping for the decomposeds3 storage driver emitting no events
 func DecomposedS3NoEvents(cfg *config.Config) map[string]any {
 	return map[string]any{
+		"mount_id":         cfg.MountID,
 		"metadata_backend": "messagepack",
 		"metadata_prefix":  cfg.Drivers.DecomposedS3.MetadataPrefix,
 		"propagator":       cfg.Drivers.DecomposedS3.Propagator,

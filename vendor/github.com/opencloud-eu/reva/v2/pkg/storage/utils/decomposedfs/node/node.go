@@ -1532,6 +1532,37 @@ func (n *Node) deleteRevision(ctx context.Context, versionID string) (string, er
 	return blobID, nil
 }
 
+// RevertCurrentRevision reverts an upload by either deleting the node or restoring the latest version
+func (n *Node) RevertCurrentRevision(ctx context.Context, unmarkProcessing bool) error {
+	revisionPath, err := n.getLatestRevision(ctx)
+	if err != nil {
+		return err
+	}
+
+	if revisionPath == "" {
+		// there is no revision - delete the node
+		if err := n.Purge(ctx); err != nil {
+			appctx.GetLogger(ctx).Info().Str("nodepath", n.InternalPath()).Err(err).Msg("error purging node")
+			return err
+		}
+		return nil
+	}
+
+	if err := n.RevertUpload(ctx, strings.TrimPrefix(revisionPath, n.InternalPath()+RevisionIDDelimiter)); err != nil {
+		return err
+	}
+
+	if unmarkProcessing {
+		if uploadid, err := n.ProcessingID(ctx); err == nil {
+			if err := n.UnmarkProcessing(ctx, uploadid); err != nil {
+				appctx.GetLogger(ctx).Info().Str("path", n.InternalPath()).Err(err).Msg("unmarking processing failed")
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (n *Node) getLatestRevision(ctx context.Context) (string, error) {
 	revPrefix := n.InternalPath() + RevisionIDDelimiter
 	revisions, err := filepath.Glob(revPrefix + "*")

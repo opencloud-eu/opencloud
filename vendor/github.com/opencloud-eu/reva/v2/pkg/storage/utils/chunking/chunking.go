@@ -201,6 +201,45 @@ func (c *ChunkHandler) saveChunk(path string, r io.ReadCloser) (bool, string, er
 	return true, assembledFileName, nil
 }
 
+// Assemble saves an intermediate chunk and, once all chunks have arrived,
+// assembles them into a single temp file. Returns (reader, size, true, nil)
+// when the transfer is complete. Returns (nil, 0, false, nil) when more
+// chunks are still expected (partial transfer)
+// the returned reader removes the temp file on Close
+func (c *ChunkHandler) Assemble(chunkName string, body io.ReadCloser) (io.ReadCloser, int64, bool, error) {
+	origPath, assembledPath, err := c.WriteChunk(chunkName, body)
+	if err != nil {
+		return nil, 0, false, err
+	}
+	if origPath == "" {
+		return nil, 0, false, nil // partial
+	}
+	f, err := os.Open(assembledPath)
+	if err != nil {
+		_ = os.RemoveAll(assembledPath)
+		return nil, 0, false, err
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		_ = os.RemoveAll(assembledPath)
+		return nil, 0, false, err
+	}
+	return &assembledFile{File: f, path: assembledPath}, fi.Size(), true, nil
+}
+
+// assembledFile wraps an *os.File and removes the temp file on Close.
+type assembledFile struct {
+	*os.File
+	path string
+}
+
+func (a *assembledFile) Close() error {
+	err := a.File.Close()
+	_ = os.RemoveAll(a.path)
+	return err
+}
+
 // WriteChunk saves an intermediate chunk temporarily and assembles all chunks
 // once the final one is received.
 func (c *ChunkHandler) WriteChunk(fn string, r io.ReadCloser) (string, string, error) {
