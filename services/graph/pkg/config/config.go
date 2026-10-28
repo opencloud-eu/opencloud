@@ -26,15 +26,16 @@ type Config struct {
 	TokenManager  *TokenManager         `yaml:"token_manager"`
 	GRPCClientTLS *shared.GRPCClientTLS `yaml:"grpc_client_tls"`
 
-	Application       Application  `yaml:"application"`
-	Spaces            Spaces       `yaml:"spaces"`
-	Identity          Identity     `yaml:"identity"`
-	IncludeOCMSharees bool         `yaml:"include_ocm_sharees" env:"OC_ENABLE_OCM;GRAPH_INCLUDE_OCM_SHAREES" desc:"Include OCM sharees when listing users." introductionVersion:"1.0.0"`
-	Events            Events       `yaml:"events"`
-	UnifiedRoles      UnifiedRoles `yaml:"unified_roles"`
-	Thumbnails        Thumbnails   `yaml:"thumbnails"`
-
-	MaxConcurrency int `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;GRAPH_MAX_CONCURRENCY" desc:"The maximum number of concurrent requests the service will handle." introductionVersion:"1.0.0"`
+	Application                Application  `yaml:"application"`
+	Spaces                     Spaces       `yaml:"spaces"`
+	Identity                   Identity     `yaml:"identity"`
+	ProfilePictureURLAllowlist []string     `yaml:"profile_picture_url_allowlist" env:"GRAPH_PROFILE_PICTURE_URL_ALLOWLIST" desc:"A comma separated allowlist of HTTP(S) URL patterns accepted for profile picture sync events. Host globs are case insensitive and include any explicit port. An omitted path or / allows every path; other paths match their escaped representation exactly, with an optional trailing * for prefix matching. Target query strings and fragments are ignored; patterns containing credentials, query strings or fragments are rejected. Use * to allow all HTTP(S) URLs (dangerous: only use if the IdP is fully trusted to provide safe URLs, otherwise this is an SSRF attack vector). If empty, the OpenCloud URL scheme and host are allowed by default. Redirects are not followed." introductionVersion:"%%NEXT%%"`
+	ProfilePictureInsecure     bool         `yaml:"profile_picture_insecure" env:"OC_INSECURE;GRAPH_PROFILE_PICTURE_INSECURE" desc:"Disable TLS certificate validation when downloading OIDC profile pictures. Do not enable in production environments." introductionVersion:"%%NEXT%%"`
+	IncludeOCMSharees          bool         `yaml:"include_ocm_sharees" env:"OC_ENABLE_OCM;GRAPH_INCLUDE_OCM_SHAREES" desc:"Include OCM sharees when listing users." introductionVersion:"1.0.0"`
+	Events                     Events       `yaml:"events"`
+	UnifiedRoles               UnifiedRoles `yaml:"unified_roles"`
+	MaxConcurrency             int          `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;GRAPH_MAX_CONCURRENCY" desc:"The maximum number of concurrent requests the service will handle." introductionVersion:"1.0.0"`
+	Thumbnails                 Thumbnails   `yaml:"thumbnails"`
 
 	Keycloak       Keycloak       `yaml:"keycloak"`
 	ServiceAccount ServiceAccount `yaml:"service_account"`
