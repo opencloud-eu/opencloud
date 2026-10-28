@@ -20,6 +20,7 @@ package scope
 
 import (
 	"context"
+	"path"
 	"strings"
 
 	appprovider "github.com/cs3org/go-cs3apis/cs3/app/provider/v1beta1"
@@ -34,6 +35,7 @@ import (
 	registry "github.com/cs3org/go-cs3apis/cs3/storage/registry/v1beta1"
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/rs/zerolog"
 )
@@ -143,12 +145,50 @@ func publicshareScope(ctx context.Context, scope *authpb.Scope, resource interfa
 		// public links must not leak info about collaborative shares
 		return false, nil
 	case string:
-		return checkResourcePath(v), nil
+		return checkResourcePath(v) || checkGraphDrivesPath(v, &share), nil
 	}
 
 	msg := "public resource type assertion failed"
 	logger.Debug().Str("scope", "publicshareScope").Interface("resource", resource).Msg(msg)
 	return false, errtypes.InternalError(msg)
+}
+
+var graphDrivesRoutes = []string{"/graph/v1.0/drives/", "/graph/v1beta1/drives/"}
+
+// checkGraphDrivesPath opens the graph routes of the link's own public drive and
+// the item routes of the space the link points into.
+func checkGraphDrivesPath(p string, share *link.PublicShare) bool {
+	if share.GetToken() == "" {
+		return false
+	}
+	p = path.Clean(p)
+	publicDrive := storagespace.FormatResourceID(&provider.ResourceId{
+		StorageId: utils.PublicStorageProviderID,
+		SpaceId:   utils.PublicStorageSpaceID,
+		OpaqueId:  share.GetToken(),
+	})
+	var targetDrives []string
+	if target := share.GetResourceId(); target.GetSpaceId() != "" {
+		targetDrives = []string{
+			storagespace.FormatStorageID(target.GetStorageId(), target.GetSpaceId()),
+			storagespace.FormatResourceID(&provider.ResourceId{
+				StorageId: target.GetStorageId(),
+				SpaceId:   target.GetSpaceId(),
+				OpaqueId:  target.GetSpaceId(),
+			}),
+		}
+	}
+	for _, route := range graphDrivesRoutes {
+		if p == route+publicDrive || strings.HasPrefix(p, route+publicDrive+"/") {
+			return true
+		}
+		for _, drive := range targetDrives {
+			if strings.HasPrefix(p, route+drive+"/items/") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func checkStorageRef(ctx context.Context, s *link.PublicShare, r *provider.Reference) bool {

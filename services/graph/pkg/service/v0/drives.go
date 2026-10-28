@@ -35,6 +35,7 @@ import (
 	v0 "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	graphm "github.com/opencloud-eu/opencloud/services/graph/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/odata"
 	settingsServiceExt "github.com/opencloud-eu/opencloud/services/settings/pkg/store/defaults"
 )
@@ -336,6 +337,9 @@ func (g Graph) GetSingleDrive(w http.ResponseWriter, r *http.Request) {
 		errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "no drive returned from storage")
 		return
 	case num == 1:
+		if l, ok := publicLinkOf(r); ok && spaces[0].Root != nil {
+			spaces[0].Root.RemoteItem = publicLinkRemoteItem(l.root)
+		}
 		render.Status(r, http.StatusOK)
 		render.JSON(w, r, spaces[0])
 	default:
@@ -880,6 +884,17 @@ func (g Graph) cs3StorageSpaceToDrive(ctx context.Context, baseURL *url.URL, spa
 				Id: &space.Owner.Id.OpaqueId,
 				// DisplayName: , TODO read and cache from users provider
 			},
+		}
+	} else if graphm.IsPublicLinkDrive(space.GetRoot()) {
+		// a public share mountpoint has no space owner; the request runs as the sharer
+		if u, ok := revactx.ContextGetUser(ctx); ok && u.GetId().GetOpaqueId() != "" {
+			id := u.GetId().GetOpaqueId()
+			drive.Owner = &libregraph.IdentitySet{
+				User: &libregraph.Identity{
+					Id:          &id,
+					DisplayName: u.GetDisplayName(),
+				},
+			}
 		}
 	}
 	if space.Mtime != nil {
