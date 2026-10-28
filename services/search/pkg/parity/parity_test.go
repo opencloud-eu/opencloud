@@ -1,7 +1,6 @@
 package parity
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -284,13 +283,11 @@ var _ = Describe("Queries", func() {
 								Skip(e.unavailable)
 							}
 
-							request := &search.IndexQuery{Query: c.query, PageSize: c.limit, Ref: c.ref}
-
 							expected := override{want: c.want, wantCount: c.wantCount, wantBadRequest: c.wantBadRequest}
 							_, overridden := c.engineOverrides[name]
 
 							if c.wantBadRequest {
-								_, err := e.backend.Search(context.Background(), request)
+								_, err := run(e.backend, c.query, c.ref, c.limit)
 								answer := badRequestAnswer(err)
 								recordAnswer(row, name, answer)
 								if !overridden {
@@ -302,7 +299,7 @@ var _ = Describe("Queries", func() {
 								return
 							}
 
-							answer, err := ask(e.backend, request)
+							answer, err := ask(e.backend, c.query, c.ref, c.limit)
 							recordAnswer(row, name, answer)
 							if !overridden {
 								Expect(err).NotTo(HaveOccurred(), "the query has to answer, an empty result is an answer")
@@ -365,7 +362,7 @@ var _ = Describe("Operations", func() {
 							answers := make([][]string, len(c.expect))
 							errs := make([]error, len(c.expect))
 							for i, expect := range c.expect {
-								answers[i], errs[i] = ask(e.backend, &search.IndexQuery{Query: expect.query})
+								answers[i], errs[i] = ask(e.backend, expect.query, nil, 0)
 								recordAnswer(rows[i], name, answers[i])
 							}
 
@@ -442,7 +439,7 @@ var _ = Describe("Response", func() {
 								e.settle()
 							}
 
-							resp, err := e.backend.Search(context.Background(), &search.IndexQuery{Query: c.query})
+							resp, err := run(e.backend, c.query, nil, 0)
 							if err != nil {
 								recordAnswer(row, name, []string{"error"})
 							}

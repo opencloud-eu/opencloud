@@ -18,7 +18,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
 	bleveEngine "github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
-	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -81,7 +80,7 @@ func newBleve(fixtures []search.Resource) testEngine {
 	Expect(err).NotTo(HaveOccurred(), "failed to create the bleve index")
 	DeferCleanup(func() { _ = idx.Close() })
 
-	backend := bleveEngine.NewBackend(idx, bleveQuery.DefaultCreator, log.Logger{})
+	backend := bleveEngine.NewBackend(idx, log.Logger{})
 	load(backend, fixtures)
 
 	return testEngine{name: "bleve", backend: backend, settle: func() {}}
@@ -167,10 +166,30 @@ func resourceID(id *searchMessage.ResourceID) string {
 	})
 }
 
-// ask runs a query and returns the matched names; an engine error is the
-// answer "error", so a query the engine rejects still shows in the matrix.
-func ask(e search.Engine, request *search.IndexQuery) ([]string, error) {
-	resp, err := e.Search(context.Background(), request)
+// query parses KQL the way the service does: what the parser rejects is a bad
+// request before any engine sees it.
+func query(kqlQuery string, ref *searchMessage.Reference, limit int32) (*search.IndexQuery, error) {
+	a, err := search.ParseQuery(kqlQuery)
+	if err != nil {
+		return nil, err
+	}
+
+	return &search.IndexQuery{Query: a, Ref: ref, PageSize: limit}, nil
+}
+
+func run(e search.Engine, kqlQuery string, ref *searchMessage.Reference, limit int32) (*search.IndexResult, error) {
+	request, err := query(kqlQuery, ref, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return e.Search(context.Background(), request)
+}
+
+// ask runs a query and returns the matched names; an error is the answer
+// "error", so a query that is rejected still shows in the matrix.
+func ask(e search.Engine, kqlQuery string, ref *searchMessage.Reference, limit int32) ([]string, error) {
+	resp, err := run(e, kqlQuery, ref, limit)
 	if err != nil {
 		return []string{"error"}, err
 	}

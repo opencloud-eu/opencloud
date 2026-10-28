@@ -9,7 +9,7 @@ import (
 
 var _ = DescribeTable("PinnedRootID",
 	func(query, want string) {
-		Expect(search.PinnedRootID(query)).To(Equal(want))
+		Expect(search.PinnedRootID(parse(query))).To(Equal(want))
 	},
 	Entry("bare driveId is completed to the root id", `driveId:"1$2"`, "1$2!2"),
 	Entry("full root id passes through", `driveId:"1$2!4" name:x`, "1$2!4"),
@@ -24,7 +24,6 @@ var _ = DescribeTable("PinnedRootID",
 	Entry("a negated restriction disables pruning", `NOT driveId:"1$2" AND name:x`, ""),
 	Entry("restrictions inside groups do not pin", `(driveId:"1$2") AND name:x`, ""),
 	Entry("two different roots disable pruning", `driveId:"1$2" AND driveId:"1$3"`, ""),
-	Entry("invalid query, no pin", `((`, ""),
 	Entry("a wildcard drive id does not pin", `driveId:"1$*" AND name:x`, ""),
 	Entry("a wildcard space id does not pin", `driveId:"1$2*"`, ""),
 )

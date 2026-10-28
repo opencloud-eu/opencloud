@@ -3,7 +3,7 @@ package convert
 import (
 	"fmt"
 
-	"github.com/opencloud-eu/opencloud/pkg/kql"
+	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/query"
 )
@@ -12,12 +12,7 @@ var (
 	ErrUnsupportedNodeType = fmt.Errorf("unsupported node type")
 )
 
-func KQLToOpenSearchBoolQuery(kqlQuery string) (*osu.BoolQuery, error) {
-	kqlAst, err := kql.Builder{}.Build(kqlQuery)
-	if err != nil {
-		return nil, err
-	}
-
+func KQLToOpenSearchBoolQuery(kqlAst *ast.Ast) (*osu.BoolQuery, error) {
 	// shared lowering: field resolution, media-type expansion, value lowercasing.
 	kqlAst = query.Normalize(kqlAst, query.ResolveField)
 
