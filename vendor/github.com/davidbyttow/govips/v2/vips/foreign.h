@@ -82,6 +82,10 @@ typedef struct SaveParams {
   size_t outputLen;
 
   BOOL stripMetadata;
+  // libvips "keep" flags (VipsForeignKeep, 8.15+). Plain int so the header
+  // still compiles against libvips 8.14; only applied when keepSet.
+  int keep;
+  BOOL keepSet;
   int quality;
   BOOL interlace;
 

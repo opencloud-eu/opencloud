@@ -371,26 +371,43 @@ func vipsExtractArea(in *C.VipsImage, left, top, width, height int) (*C.VipsImag
 func vipsExtractAreaMultiPage(in *C.VipsImage, left, top, width, height int) (*C.VipsImage, error) {
 	incOpCounter("extractAreaMultiPage")
 
+	return vipsMapPages(in, func(page *C.VipsImage) (*C.VipsImage, error) {
+		return vipsGenExtractArea(page, left, top, width, height)
+	})
+}
+
+// vipsMapPages applies op to each loaded page of a multi-page image and
+// restacks the results. Operations that act on the whole strip (flip,
+// rot180, resize) would otherwise reorder or merge the frames. The page
+// height of the result is taken from the first mapped page.
+func vipsMapPages(in *C.VipsImage, op func(page *C.VipsImage) (*C.VipsImage, error)) (*C.VipsImage, error) {
 	pageHeight := vipsGetPageHeight(in)
 	nPages := int(in.Ysize) / pageHeight
+	if nPages < 1 {
+		nPages, pageHeight = 1, int(in.Ysize)
+	}
 
-	pages := make([]*C.VipsImage, nPages)
+	pages := make([]*C.VipsImage, 0, nPages)
+	defer func() {
+		for _, p := range pages {
+			clearImage(p)
+		}
+	}()
 	for i := 0; i < nPages; i++ {
-		page, err := vipsGenExtractArea(in, left, pageHeight*i+top, width, height)
+		page, err := vipsGenExtractArea(in, 0, pageHeight*i, int(in.Xsize), pageHeight)
 		if err != nil {
-			for j := 0; j < i; j++ {
-				clearImage(pages[j])
-			}
 			return nil, err
 		}
-		pages[i] = page
+		mapped, err := op(page)
+		clearImage(page)
+		if err != nil {
+			return nil, err
+		}
+		pages = append(pages, mapped)
 	}
 
 	across := 1
 	joined, err := vipsGenArrayjoin(pages, &ArrayjoinOptions{Across: &across})
-	for _, p := range pages {
-		clearImage(p)
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -401,7 +418,7 @@ func vipsExtractAreaMultiPage(in *C.VipsImage, left, top, width, height int) (*C
 		return nil, err
 	}
 
-	vipsSetPageHeight(out, height)
+	vipsSetPageHeight(out, int(pages[0].Ysize))
 	return out, nil
 }
 
