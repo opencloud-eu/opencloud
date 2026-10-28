@@ -91,7 +91,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/testcontainers/testcontainers-go/modules/opensearch v0.44.0
 	github.com/thejerf/suture/v4 v4.0.6
-	github.com/tidwall/gjson v1.19.0
+	github.com/tidwall/gjson v1.20.0
 	github.com/tidwall/sjson v1.2.5
 	github.com/tus/tusd/v2 v2.10.0
 	github.com/unrolled/secure v1.16.0
