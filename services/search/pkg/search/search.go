@@ -21,7 +21,6 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
-	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/mapping"
 )
@@ -35,9 +34,23 @@ const SchemaVersion = 5
 // the scope clause is removed together with the boolean operator that joins it to the rest of the query.
 var scopeRegex = regexp.MustCompile(`(?:(?:AND|OR)\s+)?scope:\s*([^" "\n\r]*)(?:\s+(?:AND|OR)\b)?`)
 
+// IndexQuery is one search against the index.
+type IndexQuery struct {
+	Query    string
+	Ref      *searchmsg.Reference
+	PageSize int32
+}
+
+// IndexResult is what the engine answers: the matches of one space and how
+// many there are in total.
+type IndexResult struct {
+	Matches      []*searchmsg.Match
+	TotalMatches int32
+}
+
 // Engine is the interface to the search engine
 type Engine interface {
-	Search(ctx context.Context, req *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error)
+	Search(ctx context.Context, req *IndexQuery) (*IndexResult, error)
 	DocCount() (uint64, error)
 
 	Upsert(id string, r Resource) error

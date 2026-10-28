@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
-	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
@@ -73,8 +72,8 @@ func entityGroup() responseGroup {
 			},
 			{
 				id: 11, query: `path:"./parent"`, reads: "TotalMatches", want: []string{"2"},
-				read: func(resp *searchService.SearchIndexResponse) []string {
-					return []string{fmt.Sprint(resp.GetTotalMatches())}
+				read: func(resp *search.IndexResult) []string {
+					return []string{fmt.Sprint(resp.TotalMatches)}
 				},
 			},
 			{

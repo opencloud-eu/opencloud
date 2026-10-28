@@ -260,7 +260,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 
 	errg, ctx := errgroup.WithContext(ctx)
 	work := make(chan *provider.StorageSpace, len(spaces))
-	results := make(chan *searchsvc.SearchIndexResponse, len(spaces))
+	results := make(chan *IndexResult, len(spaces))
 
 	// Distribute work
 	errg.Go(func() error {
@@ -304,7 +304,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 		close(results)
 	}()
 
-	responses := make([]*searchsvc.SearchIndexResponse, len(spaces))
+	responses := make([]*IndexResult, len(spaces))
 	i := 0
 	for r := range results {
 		responses[i] = r
@@ -342,7 +342,7 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	}, nil
 }
 
-func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, space *provider.StorageSpace, mountpointID string) (*searchsvc.SearchIndexResponse, error) {
+func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, space *provider.StorageSpace, mountpointID string) (*IndexResult, error) {
 	if req.Ref != nil &&
 		(req.Ref.ResourceId.StorageId != space.Root.StorageId ||
 			req.Ref.ResourceId.SpaceId != space.Root.SpaceId) {
@@ -438,7 +438,7 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 		permissions = space.GetRootInfo().GetPermissionSet()
 	}
 
-	searchRequest := &searchsvc.SearchIndexRequest{
+	searchRequest := &IndexQuery{
 		Query: ExpandQueryTemplate(s.queryTemplate, req.Query, space),
 		Ref: &searchmsg.Reference{
 			ResourceId: searchRootID,
@@ -563,7 +563,7 @@ func (s *Service) IndexSpace(spaceID *provider.StorageSpaceId, forceRescan bool)
 			return nil
 		}
 
-		searchRes, err := s.engine.Search(session.Ctx(), &searchsvc.SearchIndexRequest{
+		searchRes, err := s.engine.Search(session.Ctx(), &IndexQuery{
 			Query: "id:" + storagespace.FormatResourceID(info.Id) + ` mtime>=` + utils.TSToTime(info.Mtime).Format(time.RFC3339Nano),
 		})
 

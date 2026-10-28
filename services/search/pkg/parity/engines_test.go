@@ -15,7 +15,6 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
-	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/internal/opensearchtest"
 	bleveEngine "github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch"
@@ -146,12 +145,12 @@ func badRequestAnswer(err error) []string {
 	return []string{"bad request"}
 }
 
-func reads(read func(*searchMessage.Match) string) func(*searchService.SearchIndexResponse) []string {
+func reads(read func(*searchMessage.Match) string) func(*search.IndexResult) []string {
 	return readsMany(func(m *searchMessage.Match) []string { return []string{read(m)} })
 }
 
-func readsMany(read func(*searchMessage.Match) []string) func(*searchService.SearchIndexResponse) []string {
-	return func(resp *searchService.SearchIndexResponse) []string {
+func readsMany(read func(*searchMessage.Match) []string) func(*search.IndexResult) []string {
+	return func(resp *search.IndexResult) []string {
 		if len(resp.Matches) != 1 {
 			return []string{fmt.Sprintf("%d matches", len(resp.Matches))}
 		}
@@ -170,7 +169,7 @@ func resourceID(id *searchMessage.ResourceID) string {
 
 // ask runs a query and returns the matched names; an engine error is the
 // answer "error", so a query the engine rejects still shows in the matrix.
-func ask(e search.Engine, request *searchService.SearchIndexRequest) ([]string, error) {
+func ask(e search.Engine, request *search.IndexQuery) ([]string, error) {
 	resp, err := e.Search(context.Background(), request)
 	if err != nil {
 		return []string{"error"}, err
