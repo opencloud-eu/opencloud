@@ -86,6 +86,24 @@ func isGuestLinkPath(path string) bool {
 	return false
 }
 
+// hasOtherCredentials reports whether the request carries credentials that are
+// handled by other authenticators. A guest session is a fallback identity: it
+// must never shadow an explicitly sent Authorization header, a public share
+// token or a signed URL.
+func hasOtherCredentials(r *http.Request) bool {
+	query := r.URL.Query()
+
+	if r.Header.Get(_headerAuthorization) != "" {
+		return true
+	}
+
+	if query.Get(headerShareToken) != "" || r.Header.Get(headerShareToken) != "" {
+		return true
+	}
+
+	return query.Get(_paramOCJWTSig) != "" || query.Get(_paramOCSignature) != ""
+}
+
 // readGuestCookie reads the guest-session cookie from the request.
 // Returns empty string if the cookie is missing or empty.
 func readGuestCookie(r *http.Request, name string) (string, error) {
@@ -113,12 +131,21 @@ func clearGuestCookie(name string) *http.Cookie {
 
 // SuppressAuthenticationChallenge prevents other authentication mechanisms from challenging guest-cookie requests.
 func (m *GuestLinkAuthenticator) SuppressAuthenticationChallenge(req *http.Request) bool {
-	name := guestLinkCookieName(m.Config)
-	cookie, err := req.Cookie(name)
-	if err != nil {
+	if !isGuestLinkPath(req.URL.Path) {
 		return false
 	}
-	return cookie.Value != ""
+
+	if hasOtherCredentials(req) {
+		return false
+	}
+
+	name := guestLinkCookieName(m.Config)
+	cookie, err := req.Cookie(name)
+	if err != nil || cookie.Value == "" {
+		return false
+	}
+
+	return true
 }
 
 // Authenticate implements the Authenticator interface for guest-link cookie authentication.
@@ -138,13 +165,9 @@ func (m *GuestLinkAuthenticator) Authenticate(r *http.Request) AuthenticationRes
 		return NotApplicable()
 	}
 
-	// A guest session is a fallback identity: requests carrying their own
-	// credentials are authenticated (or rejected) by the respective authenticator.
-	query := r.URL.Query()
-	hasAuthHeader := r.Header.Get(_headerAuthorization) != ""
-	hasPublicToken := query.Get(headerShareToken) != "" || r.Header.Get(headerShareToken) != ""
-	hasSignedURL := query.Get(_paramOCJWTSig) != "" || query.Get(_paramOCSignature) != ""
-	if hasAuthHeader || hasPublicToken || hasSignedURL {
+	// Requests carrying their own credentials are authenticated (or rejected) by
+	// the respective authenticator, even if the browser also holds a guest session.
+	if hasOtherCredentials(r) {
 		return NotApplicable()
 	}
 
