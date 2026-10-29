@@ -34,7 +34,7 @@ links feature and start the service.
   PIN; redeeming a token or verifying a PIN sets a session cookie. `renew` and
   `verify/pin` are rate-limited.
 - Stores only hashes of the token secret, of the PIN and of the nonce, and
-  deletes the stored record when the share is removed or expires. 
+  deletes the stored record when the share is removed or expires.
 
 ## Guest links flow
 
@@ -209,9 +209,11 @@ sequenceDiagram
    publishes `GuestTokenRenewed` without a PIN; no nonce cookie is set. Each
    path is limited per share by its own quota (cooldown plus daily cap), and an
    exceeded limit fails with `429`. Without a valid session nothing happens
-   while the newest link is neither used nor expired. Both paths require an
-   existing record; otherwise the request fails with `tokenNotFound`. If
-   publishing fails, the previous record is restored.
+   while the newest link is neither used nor expired. The response body's
+   `withPin` reports whether the mail carries a PIN, which tells the
+   session-authorized path apart from the silent renewal. Both paths require an
+   existing record; otherwise the request fails with `tokenNotFound`.
+   If publishing fails, the previous record is restored.
 4. **Verify PIN** — the guest posts the PIN, the `permissionId` and the nonce
    cookie to
    `POST /graph/v1beta1/extensions/org.libregraph/guestLinks/verify/pin`.
@@ -245,10 +247,12 @@ Rate-limited responses (`429`) also carry a `retryAfter` field (seconds) and a
 - **Authorization:** the session cookie, when it carries a valid, unexpired
   session token for the given share; without it the renewal is silent (no PIN,
   no nonce cookie)
-- **Success:** `200`, no session cookie. With a valid session a new link and
-  PIN are sent by mail and the nonce cookie is set. Without one a new link is
-  sent by mail, unless the newest link can still be redeemed, in which case
-  nothing happens; the response is the same either way.
+- **Success:** `200`, no session cookie, `{ "withPin": <bool> }`. `withPin` is
+  `true` only when a valid session authorized the renewal and a new link and PIN
+  were sent by mail (the nonce cookie is set as well). In every other successful
+  case — silent rotation without a PIN, or nothing sent because the newest link
+  can still be redeemed — it is `false`, which keeps those cases
+  indistinguishable to callers without a session.
 - **Errors:** `400 invalidRequest`, `404 tokenNotFound`, `404 shareNotFound`,
   `409 conflict`, `410 shareExpired`, `429 tooManyRequests` (with
   `Retry-After`), `503 serviceUnavailable`, `500 internalError`
