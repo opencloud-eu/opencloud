@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 )
@@ -13,7 +14,12 @@ type Config struct {
 	LogLevel string          `yaml:"loglevel" env:"OC_LOG_LEVEL;AUDIT_LOG_LEVEL" desc:"The log level. Valid values are: 'panic', 'fatal', 'error', 'warn', 'info', 'debug', 'trace'." introductionVersion:"1.0.0"`
 	Debug    Debug           `yaml:"debug"`
 
-	Events   Events   `yaml:"events"`
+	Events Events `yaml:"events"`
+	Stream Stream `yaml:"stream"`
+	Output Output `yaml:"output"`
+
+	// Legacy runs the old audit log on the domain events instead of the audit stream.
+	Legacy   Legacy   `yaml:"legacy"`
 	Auditlog Auditlog `yaml:"auditlog"`
 
 	Context context.Context `yaml:"-"`
@@ -30,7 +36,30 @@ type Events struct {
 	AuthPassword         string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD;AUDIT_EVENTS_AUTH_PASSWORD" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 }
 
-// Auditlog holds audit log information
+// Stream configures the JetStream stream "audit", the buffer between the services and the audit service.
+type Stream struct {
+	Replicas int           `yaml:"replicas" env:"AUDIT_STREAM_REPLICAS" desc:"Number of replicas of the audit stream in a clustered NATS. Use 3 in production clusters." introductionVersion:"%%NEXT%%"`
+	MaxAge   time.Duration `yaml:"max_age" env:"AUDIT_STREAM_MAX_AGE" desc:"How long audit events stay in the stream. The stream is a buffer for outages of the audit service, not the archive. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+}
+
+// Output configures where the audit service writes the audit records.
+type Output struct {
+	Stdout bool `yaml:"stdout" env:"AUDIT_OUTPUT_STDOUT" desc:"Write the audit records to stdout, one JSON record per line." introductionVersion:"%%NEXT%%"`
+	OTLP   OTLP `yaml:"otlp"`
+}
+
+// OTLP configures the output to an OpenTelemetry Collector.
+type OTLP struct {
+	Endpoint string `yaml:"endpoint" env:"AUDIT_OUTPUT_OTLP_ENDPOINT" desc:"Address of an OpenTelemetry Collector to send the audit records to as OTLP logs over gRPC, e.g. 'otel-collector:4317'. Empty disables the output." introductionVersion:"%%NEXT%%"`
+	Insecure bool   `yaml:"insecure" env:"AUDIT_OUTPUT_OTLP_INSECURE" desc:"Connect to the OpenTelemetry Collector without TLS." introductionVersion:"%%NEXT%%"`
+}
+
+// Legacy configures the legacy audit log.
+type Legacy struct {
+	Enabled bool `yaml:"enabled" env:"AUDIT_LEGACY_ENABLED" desc:"Run the legacy audit log on the domain events instead of the audit stream. It uses the AUDIT_LOG_TO_CONSOLE, AUDIT_LOG_TO_FILE, AUDIT_FILEPATH and AUDIT_FORMAT settings." introductionVersion:"%%NEXT%%" deprecationVersion:"%%NEXT%%" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"The legacy audit log is replaced by the audit stream and will be removed." deprecationReplacement:"AUDIT_OUTPUT_STDOUT"`
+}
+
+// Auditlog holds audit log information, only used by the legacy audit log.
 type Auditlog struct {
 	LogToConsole bool   `yaml:"log_to_console" env:"AUDIT_LOG_TO_CONSOLE" desc:"Logs to stdout if set to 'true'. Independent of the LOG_TO_FILE option." introductionVersion:"1.0.0"`
 	LogToFile    bool   `yaml:"log_to_file" env:"AUDIT_LOG_TO_FILE" desc:"Logs to file if set to 'true'. Independent of the LOG_TO_CONSOLE option." introductionVersion:"1.0.0"`
