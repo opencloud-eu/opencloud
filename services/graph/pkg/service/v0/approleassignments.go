@@ -6,13 +6,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	settingsmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/settings/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	"github.com/opencloud-eu/reva/v2/pkg/audit"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	merrors "go-micro.dev/v4/errors"
 )
 
@@ -128,9 +129,11 @@ func (g Graph) DeleteAppRoleAssignment(w http.ResponseWriter, r *http.Request) {
 	appRoleAssignmentID := chi.URLParam(r, "appRoleAssignmentID")
 
 	assignmentFound := false
+	var removedRole string
 	for _, roleAssignment := range lrar.GetAssignments() {
 		if roleAssignment.Id == appRoleAssignmentID {
 			assignmentFound = true
+			removedRole = roleAssignment.GetRoleId()
 		}
 	}
 	if !assignmentFound {
@@ -150,6 +153,14 @@ func (g Graph) DeleteAppRoleAssignment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// role removals publish no domain event, so they are audited here
+	if err := g.emitAudit(r.Context(), audit.Event{
+		Definition: audit.AppRoleUnassign,
+		Target:     audit.Target{ID: userID},
+		Change:     &audit.Change{Before: map[string]any{"app_role": removedRole}},
+	}); err != nil {
+		logger.Error().Err(err).Msg("could not emit audit event")
+	}
 	render.NoContent(w, r)
 }
 

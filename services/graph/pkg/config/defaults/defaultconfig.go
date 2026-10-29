@@ -138,6 +138,9 @@ func DefaultConfig() *config.Config {
 			Database: "cache-roles",
 			TTL:      time.Hour * 24,
 		},
+		Audit: config.Audit{
+			Mode: "best_effort",
+		},
 		Events: config.Events{
 			DisabledConsumer: false,
 			Endpoint:         "127.0.0.1:9233",
