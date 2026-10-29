@@ -153,6 +153,54 @@ func TestGuestLinkAuthenticator_PublicShareToken(t *testing.T) {
 	}
 }
 
+func TestGuestLinkAuthenticator_OtherCredentials(t *testing.T) {
+	tests := []struct {
+		name       string
+		path       string
+		authHeader string
+	}{
+		{"bearer token in header", "/dav/files/user/file.txt", "Bearer expired-token"},
+		{"signed url with OC-Signature", "/dav/files/user/file.txt?OC-Signature=abc", ""},
+		{"signed url with oc-jwt-sig", "/dav/files/user/file.txt?oc-jwt-sig=abc", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool.RemoveSelector("GatewaySelector" + "eu.opencloud.api.gateway")
+			authenticator := &GuestLinkAuthenticator{
+				Logger: log.NewLogger(),
+				Config: GuestLinkAuthConfig{
+					CookieName: "__Host-oc_guest_session",
+				},
+				RevaGatewaySelector: pool.GetSelector[gateway.GatewayAPIClient](
+					"GatewaySelector",
+					"eu.opencloud.api.gateway",
+					func(cc grpc.ClientConnInterface) gateway.GatewayAPIClient {
+						return mockGatewayClient{
+							AuthenticateFunc: func(authType, clientID, clientSecret string) (string, rpcv1beta1.Code) {
+								t.Error("expected no guest authentication when other credentials are present")
+								return "", rpcv1beta1.Code_CODE_UNAUTHENTICATED
+							},
+						}
+					},
+				),
+			}
+
+			req := httptest.NewRequest(http.MethodGet, "http://example.com"+tt.path, http.NoBody)
+			req.AddCookie(getCookie("some-jwt"))
+			if tt.authHeader != "" {
+				req.Header.Set("Authorization", tt.authHeader)
+			}
+
+			result := authenticator.Authenticate(req)
+
+			if result.State != AuthenticationNotApplicable {
+				t.Errorf("expected AuthenticationNotApplicable, got %v", result.State)
+			}
+		})
+	}
+}
+
 func TestGuestLinkAuthenticator_Success(t *testing.T) {
 	pool.RemoveSelector("GatewaySelector" + "eu.opencloud.api.gateway")
 	authenticator := &GuestLinkAuthenticator{

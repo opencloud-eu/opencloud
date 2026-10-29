@@ -138,9 +138,13 @@ func (m *GuestLinkAuthenticator) Authenticate(r *http.Request) AuthenticationRes
 		return NotApplicable()
 	}
 
-	// Public link requests are left to the PublicShareAuthenticator, even if the
-	// browser also holds a guest session.
-	if r.URL.Query().Get(headerShareToken) != "" || r.Header.Get(headerShareToken) != "" {
+	// A guest session is a fallback identity: requests carrying their own
+	// credentials are authenticated (or rejected) by the respective authenticator.
+	query := r.URL.Query()
+	hasAuthHeader := r.Header.Get(_headerAuthorization) != ""
+	hasPublicToken := query.Get(headerShareToken) != "" || r.Header.Get(headerShareToken) != ""
+	hasSignedURL := query.Get(_paramOCJWTSig) != "" || query.Get(_paramOCSignature) != ""
+	if hasAuthHeader || hasPublicToken || hasSignedURL {
 		return NotApplicable()
 	}
 
