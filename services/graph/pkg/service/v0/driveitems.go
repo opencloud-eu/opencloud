@@ -637,7 +637,7 @@ func shareTypesOf(info *storageprovider.ResourceInfo, linkShares map[string]stru
 		case strconv.Itoa(int(storageprovider.GranteeType_GRANTEE_TYPE_GROUP)):
 			types = append(types, "group")
 		case strconv.Itoa(int(conversions.ShareTypeGuest)):
-			types = append(types, "user")
+			types = append(types, "guest")
 		}
 	}
 
