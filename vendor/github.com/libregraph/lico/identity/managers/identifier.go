@@ -251,7 +251,13 @@ func (im *IdentifierIdentityManager) Authenticate(ctx context.Context, rw http.R
 			// to ensure that the user data is refreshed and that the user still
 			// exists.
 			var found bool
-			auth, found, err = im.Fetch(ctx, user.Raw(), user.SessionRef(), nil, nil, ar.Scopes)
+			// NOTE(longsleep): The new grant signal uses the requested scopes, as
+			// approval happens after this lookup and no other backend request is
+			// made for the grant.
+			auth, found, err = im.Fetch(ctx, user.Raw(), user.SessionRef(), nil, nil, ar.Scopes, &identity.LookupContext{
+				Audience: ar.ClientID,
+				NewGrant: ar.Scopes[oidc.ScopeOfflineAccess],
+			})
 			if !found {
 				err = konnectoidc.NewOAuth2Error(oidc.ErrorCodeOAuth2ServerError, "user not found")
 			} else {
@@ -513,8 +519,12 @@ func (im *IdentifierIdentityManager) authenticateSignedLogin(ctx context.Context
 		return nil, ar.NewBadRequest(oidc.ErrorCodeOAuth2InvalidRequest, err.Error())
 	}
 
-	// Look up user from the scoped backend.
-	u, err := im.identifier.GetUserFromID(ctx, loginHint, nil, ar.Scopes)
+	// Look up user from the scoped backend. This is the only backend request
+	// made for the grant, so the new grant signal uses the requested scopes.
+	u, err := im.identifier.GetUserFromID(ctx, loginHint, nil, ar.Scopes, &identity.LookupContext{
+		Audience: ar.ClientID,
+		NewGrant: ar.Scopes[oidc.ScopeOfflineAccess],
+	})
 	if err != nil {
 		im.logger.WithError(err).Errorln("IdentifierIdentityManager: signed login backend error")
 		return nil, ar.NewError(oidc.ErrorCodeOAuth2ServerError, "IdentifierIdentityManager: backend error")
@@ -690,8 +700,8 @@ func (im *IdentifierIdentityManager) ApprovedScopes(ctx context.Context, sub str
 }
 
 // Fetch implements the identity.Manager interface.
-func (im *IdentifierIdentityManager) Fetch(ctx context.Context, userID string, sessionRef *string, scopes map[string]bool, requestedClaimsMaps []*payload.ClaimsRequestMap, requestedScopes map[string]bool) (identity.AuthRecord, bool, error) {
-	u, err := im.identifier.GetUserFromID(ctx, userID, sessionRef, requestedScopes)
+func (im *IdentifierIdentityManager) Fetch(ctx context.Context, userID string, sessionRef *string, scopes map[string]bool, requestedClaimsMaps []*payload.ClaimsRequestMap, requestedScopes map[string]bool, lookup *identity.LookupContext) (identity.AuthRecord, bool, error) {
+	u, err := im.identifier.GetUserFromID(ctx, userID, sessionRef, requestedScopes, lookup)
 	if err != nil {
 		im.logger.WithError(err).Errorln("IdentifierIdentityManager: fetch failed to get user from userID")
 		return nil, false, fmt.Errorf("IdentifierIdentityManager: identifier error")

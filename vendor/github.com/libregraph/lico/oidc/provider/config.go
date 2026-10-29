@@ -28,8 +28,15 @@ import (
 type Config struct {
 	Config *config.Config
 
-	IssuerIdentifier       string
-	WellKnownPath          string
+	IssuerIdentifier string
+
+	// WellKnownPath is the OpenID Connect Discovery 1.0 provider meta data
+	// path, WellKnownAliasPaths are additional paths which serve the very same
+	// document, for example the OAuth 2.0 Authorization Server Metadata path
+	// defined in RFC 8414.
+	WellKnownPath       string
+	WellKnownAliasPaths []string
+
 	JwksPath               string
 	AuthorizationPath      string
 	TokenPath              string

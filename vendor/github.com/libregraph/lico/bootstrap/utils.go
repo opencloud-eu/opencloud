@@ -406,3 +406,32 @@ func getCommonURLPathPrefix(p1, p2 string) (string, error) {
 
 	return strings.Join(common, "/"), nil
 }
+
+const (
+	openIDConfigurationWellKnownPath = "/.well-known/openid-configuration"
+	authorizationServerWellKnownPath = "/.well-known/oauth-authorization-server"
+)
+
+// getWellKnownPaths returns the path of the OpenID Connect Discovery 1.0
+// provider meta data document, together with the additional paths under which
+// the very same document is served for the provided issuer path.
+//
+// The additional paths always include the OAuth 2.0 Authorization Server
+// Metadata path of RFC 8414 section 3. When the issuer carries a path
+// component, that component is inserted into the well-known path as required
+// by RFC 8414 section 3.1, and appended to the issuer path as described in the
+// compatibility notes of RFC 8414 section 5. Clients try each of those forms,
+// so all of them are served.
+func getWellKnownPaths(issuerPath string) (string, []string) {
+	alias := []string{authorizationServerWellKnownPath}
+
+	if issuerPath = strings.TrimSuffix(issuerPath, "/"); issuerPath != "" {
+		alias = append(alias,
+			authorizationServerWellKnownPath+issuerPath,
+			openIDConfigurationWellKnownPath+issuerPath,
+			issuerPath+openIDConfigurationWellKnownPath,
+		)
+	}
+
+	return openIDConfigurationWellKnownPath, alias
+}
