@@ -1,6 +1,9 @@
 package metrics
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	ocmetrics "github.com/opencloud-eu/opencloud/pkg/metrics"
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 var (
 	// Namespace defines the namespace for the defines metrics.
@@ -41,12 +44,12 @@ func New(opts ...Option) *Metrics {
 			Name:      "invitation_latency_microseconds",
 			Help:      "Invitation request latencies in microseconds",
 		}, []string{}),
-		Duration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Duration: prometheus.NewHistogramVec(ocmetrics.DualHistogramOpts(prometheus.HistogramOpts{
 			Namespace: Namespace,
 			Subsystem: Subsystem,
 			Name:      "invitation_duration_seconds",
 			Help:      "Invitation request time in seconds",
-		}, []string{}),
+		}), []string{}),
 	}
 
 	if err := prometheus.Register(m.BuildInfo); err != nil {

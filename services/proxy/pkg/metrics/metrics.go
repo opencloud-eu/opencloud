@@ -93,13 +93,12 @@ func New(routes iter.Seq[config.Route], logger *log.Logger) (*Metrics, error) {
 		// as singular samples, instead of a matrix of
 		//  method ⨯ service ⨯ result ⨯ bucket
 		// where bucket is going to have about a dozen values.
-		duration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Namespace:                   Namespace,
-			Subsystem:                   Subsystem,
-			Name:                        "request_duration_seconds",
-			Help:                        "request duration in seconds",
-			NativeHistogramBucketFactor: 1.1, // native exponential histograms with a 10% maximum bucket width
-		}, []string{LabelMethod, LabelService, LabelResult}),
+		duration: prometheus.NewHistogramVec(ocmetrics.NativeHistogramOpts(prometheus.HistogramOpts{
+			Namespace: Namespace,
+			Subsystem: Subsystem,
+			Name:      "request_duration_seconds",
+			Help:      "request duration in seconds",
+		}), []string{LabelMethod, LabelService, LabelResult}),
 
 		// In order to still make those measures available to Prometheus scrapers that are
 		// not configured to support native histograms (https://prometheus.io/docs/specs/native_histograms/),
