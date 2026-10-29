@@ -61,11 +61,12 @@ func statResponse(code cs3rpc.Code, withInfo bool) *storageprovider.StatResponse
 // the middleware rewrote chi's route path correctly and the request reached the
 // intended /items/{itemID}... handler with the resolved id bound as a param.
 type leafCapture struct {
-	hit      string // which leaf was reached ("" = none)
-	urlPath  string // r.URL.Path as seen by the handler (must stay the original)
-	driveID  string // chi.URLParam(driveID)
-	itemID   string // resolved item id, decoded via PathUnescape
-	original any    // OriginalPathContextKey value
+	hit        string // which leaf was reached ("" = none)
+	urlPath    string // r.URL.Path as seen by the handler (must stay the original)
+	driveID    string // chi.URLParam(driveID)
+	itemID     string // resolved item id, decoded via PathUnescape
+	original   any    // OriginalPathContextKey value
+	parentPath string // ParentPath(ctx) as seen by the handler
 }
 
 // newGraphTestRouter wires ResolveGraphPath into a chi router that mirrors the
@@ -94,6 +95,7 @@ func newGraphTestRouter(t *testing.T, gw *cs3mocks.GatewayAPIClient) (http.Handl
 			// mirror that here so we assert on the recovered id.
 			cap.itemID, _ = url.PathUnescape(raw)
 			cap.original = r.Context().Value(middleware.OriginalPathContextKey)
+			cap.parentPath = middleware.ParentPath(r.Context())
 			w.WriteHeader(http.StatusOK)
 		}
 	}
@@ -115,6 +117,7 @@ func newGraphTestRouter(t *testing.T, gw *cs3mocks.GatewayAPIClient) (http.Handl
 			r.Use(middleware.ResolveGraphPath(selector, log.NopLogger()))
 			r.Route("/items/{itemID}", func(r chi.Router) {
 				r.Get("/", leaf("item"))
+				r.Post("/children", leaf("createChild"))
 				r.Post("/createLink", leaf("createLink"))
 				r.Route("/permissions", func(r chi.Router) {
 					r.Get("/", leaf("permissions"))
@@ -468,4 +471,45 @@ func TestResolveGraphPath_OriginalPathContext(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, original, cap.original, "original URL must be available via OriginalPathContextKey")
 	assert.Equal(t, original, cap.urlPath, "r.URL.Path must remain the original request path")
+}
+
+// TestResolveGraphPath_DeferredChildrenPost pins that POST .../children colon
+// requests are never resolved in the middleware: no CS3 calls, the rewrite
+// targets the anchor item and the handler receives the parent path via
+// ParentPathContextKey.
+func TestResolveGraphPath_DeferredChildrenPost(t *testing.T) {
+	// the root-anchored form rewrites to the space root item id
+	rootItemID := testDriveID + "!f503f6fe-2656-4b0f-8289-fb3184962dfd"
+
+	t.Run("root-anchored rewrites to the root anchor and passes the path unresolved", func(t *testing.T) {
+		gw := cs3mocks.NewGatewayAPIClient(t) // no CS3 calls expected
+
+		router, cap := newGraphTestRouter(t, gw)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, httptest.NewRequest(
+			http.MethodPost, "/graph/v1beta1/drives/"+testDriveID+"/root:/a/b:/children", nil,
+		))
+
+		assert.Equal(t, http.StatusOK, rr.Code)
+		assert.Equal(t, "createChild", cap.hit)
+		assert.Equal(t, rootItemID, cap.itemID)
+		assert.Equal(t, "/a/b", cap.parentPath)
+	})
+
+	t.Run("item-anchored rewrites to the item anchor and passes the path unresolved", func(t *testing.T) {
+		gw := cs3mocks.NewGatewayAPIClient(t) // no CS3 calls expected
+
+		router, cap := newGraphTestRouter(t, gw)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, httptest.NewRequest(
+			http.MethodPost,
+			"/graph/v1beta1/drives/"+testDriveID+"/items/"+testItemID+":/a/b:/children",
+			nil,
+		))
+
+		assert.Equal(t, http.StatusOK, rr.Code)
+		assert.Equal(t, "createChild", cap.hit)
+		assert.Equal(t, testItemID, cap.itemID)
+		assert.Equal(t, "/a/b", cap.parentPath)
+	})
 }
