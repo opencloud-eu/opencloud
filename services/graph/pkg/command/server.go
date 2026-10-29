@@ -12,6 +12,7 @@ import (
 	natspkg "github.com/opencloud-eu/opencloud/pkg/nats"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
+	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
@@ -20,7 +21,9 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/server/http"
 	evc "github.com/opencloud-eu/opencloud/services/graph/pkg/service/events"
 	svc "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
+	"github.com/opencloud-eu/reva/v2/pkg/audit"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
 	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -123,6 +126,30 @@ func Server(cfg *config.Config) *cobra.Command {
 				}
 			}
 
+			var auditEmitter audit.Emitter = audit.Discard{}
+			if cfg.Audit.Enabled && cfg.Events.Endpoint != "" {
+				connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
+				e, err := audit.NewNatsEmitter(ctx, connName+"-audit", raw.Config{
+					Endpoint:             cfg.Events.Endpoint,
+					Cluster:              cfg.Events.Cluster,
+					TLSInsecure:          cfg.Events.TLSInsecure,
+					TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
+					EnableTLS:            cfg.Events.EnableTLS,
+					AuthUsername:         cfg.Events.AuthUsername,
+					AuthPassword:         cfg.Events.AuthPassword,
+				}, audit.Options{
+					Service: audit.Service{Name: cfg.Service.Name, Version: version.GetString()},
+					Mode:    audit.Mode(cfg.Audit.Mode),
+					Logger:  &logger.Logger,
+				})
+				if err != nil {
+					logger.Error().Err(err).Msg("Error initializing the audit emitter")
+					return fmt.Errorf("could not initialize audit emitter: %w", err)
+				}
+				defer e.Close()
+				auditEmitter = e
+			}
+
 			gr := runner.NewGroup()
 
 			if !cfg.HTTP.Disabled {
@@ -138,6 +165,7 @@ func Server(cfg *config.Config) *cobra.Command {
 					http.Metrics(mtrcs),
 					http.TraceProvider(traceProvider),
 					http.NatsKeyValue(kv),
+					http.AuditEmitter(auditEmitter),
 				)
 				if err != nil {
 					logger.Error().Err(err).Str("transport", "http").Msg("Failed to initialize server")
