@@ -27,14 +27,33 @@ import (
 // and exposes the remainder via chi.RouteContext().RoutePath. parseColonPath
 // therefore only needs to handle the part below the drive:
 //
-//	root-anchored: /root:/<path>[:/<suffix>][:]
-//	item-anchored: /items/{itemID}:/<path>[:/<suffix>][:]
+//	root-anchored:    /root:/<path>[:/<suffix>][:]
+//	item-anchored:    /items/{itemID}:/<path>[:/<suffix>][:]
+//	special-anchored: /special/{specialName}:/<path>[:/<suffix>][:]
 
 type contextKey string
 
 // OriginalPathContextKey holds the pre-rewrite request path for downstream
 // tracing/logging consumers.
 const OriginalPathContextKey contextKey = "graph.original_path"
+
+// specialPathContextKey holds the decoded path below a special folder for the
+// special-anchored colon form. Special folders are not part of the item tree,
+// so the path cannot be resolved to an item id here; the handler interprets it.
+const specialPathContextKey contextKey = "graph.special_path"
+
+// SpecialFolderPath returns the path below the special folder for a request
+// that arrived in the special-anchored colon form, e.g. "/key/sub" for
+// /special/recyclebin:/key/sub:/children. ok is false for plain requests.
+func SpecialFolderPath(ctx context.Context) (string, bool) {
+	p, ok := ctx.Value(specialPathContextKey).(string)
+	return p, ok
+}
+
+// WithSpecialFolderPath stores the decoded path below a special folder, see SpecialFolderPath.
+func WithSpecialFolderPath(ctx context.Context, p string) context.Context {
+	return context.WithValue(ctx, specialPathContextKey, p)
+}
 
 // Sentinels distinguishing the resolution outcomes that map to specific HTTP
 // statuses. Anything else surfaces as 500.
@@ -64,12 +83,17 @@ var (
 // descended into a sub-router, routeHTTP matches against rctx.RoutePath and
 // ignores r.URL.Path.)
 //
-// Two URL shapes are recognized:
+// Three URL shapes are recognized:
 //
 //	/drives/{driveID}/root:/<path>[:/<suffix>][:]
 //	/drives/{driveID}/items/{itemID}:/<path>[:/<suffix>][:]
+//	/drives/{driveID}/special/{specialName}:/<path>[:/<suffix>][:]
 //
-// Path resolution runs as the request user via CS3 Stat. NOT_FOUND and
+// The special-anchored form is rewritten to /special/{specialName}{suffix}
+// without a lookup; the decoded path travels in the context (see
+// SpecialFolderPath) because special folders live outside the item tree.
+//
+// Path resolution for the other two runs as the request user via CS3 Stat. NOT_FOUND and
 // PERMISSION_DENIED collapse to 404 (no existence disclosure); operational
 // failures (gateway selection, RPC transport, unexpected status) surface
 // as 5xx so outages aren't masked.
@@ -89,9 +113,30 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 				return
 			}
 
+			match, ok := parseColonPath(rctx.RoutePath)
+			if !ok {
+				// No colon-syntax match - pass through untouched.
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			driveID := chi.URLParam(r, "driveID")
 			original := r.URL.Path
-			rewritten, err := rewriteColonPath(r.Context(), gws, l, driveID, rctx.RoutePath)
+			var rewritten string
+			var err error
+			if match.specialName != "" {
+				var specialPath string
+				specialPath, err = url.PathUnescape(match.relPath)
+				if err != nil {
+					l.Debug().Err(err).Str("relPath", match.relPath).Msg("undecodable path in special colon path")
+					err = errInvalidRequest
+				} else {
+					r = r.WithContext(WithSpecialFolderPath(r.Context(), specialPath))
+					rewritten = "/special/" + match.specialName + match.suffix
+				}
+			} else {
+				rewritten, err = rewriteColonPath(r.Context(), gws, l, driveID, match)
+			}
 			switch {
 			case errors.Is(err, errPathNotFound):
 				l.Debug().Str("original", original).Msg("colon-path resolution: not found")
@@ -110,10 +155,6 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 				errorcode.GeneralException.Render(
 					w, r, http.StatusInternalServerError, "internal error resolving path",
 				)
-				return
-			case rewritten == "":
-				// No colon-syntax match - pass through untouched.
-				next.ServeHTTP(w, r)
 				return
 			}
 
@@ -141,32 +182,26 @@ func ResolveGraphPath(gws pool.Selectable[gateway.GatewayAPIClient], logger log.
 type colonMatch struct {
 	isItemAnchored bool   // item-anchored form: anchor is itemAnchorID, validate against driveID
 	itemAnchorID   string // itemID from the path for the item-anchored form (empty for root-anchored)
+	specialName    string // special-anchored form: the special folder name (empty otherwise)
 	relPath        string // relative path with leading slash
 	suffix         string // suffix with leading slash (e.g. "/children"); may be empty
 }
 
-// rewriteColonPath returns:
-//   - ""        + nil                - no colon-syntax pattern matched (passthrough)
-//   - rewritten + nil                - matched and resolved to a canonical RoutePath
+// rewriteColonPath resolves a root- or item-anchored match and returns:
+//   - rewritten + nil                - resolved to a canonical RoutePath
 //   - ""        + errPathNotFound    - path doesn't exist or user lacks permission (404)
 //   - ""        + errInvalidRequest  - malformed input (400)
 //   - ""        + errUnauthenticated - gateway said caller isn't authenticated (401)
 //   - ""        + other error        - operational / internal failure (5xx)
 //
-// driveIDParam is the {driveID} route param (raw chi.URLParam value); routePath
-// is chi.RouteContext().RoutePath (the part below /drives/{driveID}).
+// driveIDParam is the {driveID} route param (raw chi.URLParam value).
 func rewriteColonPath(
 	ctx context.Context,
 	gws pool.Selectable[gateway.GatewayAPIClient],
 	logger zerolog.Logger,
 	driveIDParam string,
-	routePath string,
+	match colonMatch,
 ) (string, error) {
-	match, ok := parseColonPath(routePath)
-	if !ok {
-		return "", nil
-	}
-
 	// RoutePath follows chi's RawPath, i.e. the percent-encoded wire form
 	// (e.g. "/Documents/My%20File"). A single PathUnescape reproduces exactly
 	// what net/http put in r.URL.Path; it is NOT a double-decode (a crafted
@@ -233,6 +268,7 @@ func rewriteColonPath(
 //
 //	/root:/<path>[:/<suffix>][:]
 //	/items/<itemID>:/<path>[:/<suffix>][:]
+//	/special/<specialName>:/<path>[:/<suffix>][:]
 //
 // The structural delimiter is ":/" (a colon immediately followed by the
 // leading slash of the path or suffix); a trailing ":" is the no-suffix
@@ -279,6 +315,13 @@ func parseColonPath(routePath string) (colonMatch, bool) {
 		}
 		m.isItemAnchored = true
 		m.itemAnchorID = itemID
+	case strings.HasPrefix(anchor, "/special/"):
+		// Special-anchored: /special/{specialName} with a single-segment name.
+		name := strings.TrimPrefix(anchor, "/special/")
+		if name == "" || strings.Contains(name, "/") {
+			return m, false
+		}
+		m.specialName = name
 	default:
 		return m, false
 	}
