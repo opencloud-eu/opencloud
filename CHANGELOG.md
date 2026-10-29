@@ -1,13 +1,15 @@
 # Changelog
 
-## [9.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.1) - 2026-10-28
+## [9.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.1) - 2026-10-29
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@pascalwengerter
+@pascalwengerter, @rhafer
 
 ### 📦️ Dependencies
 
+- build(deps): bump go.opentelemetry.io/otel/sdk from 1.46.0 to 1.47.0 [[#3850](https://github.com/opencloud-eu/opencloud/pull/3850)]
+- build(deps): bump github.com/tidwall/gjson from 1.19.0 to 1.20.0 [[#3852](https://github.com/opencloud-eu/opencloud/pull/3852)]
 - build(deps): bump github.com/davidbyttow/govips/v2 from 2.19.0 to 2.20.0 [[#3847](https://github.com/opencloud-eu/opencloud/pull/3847)]
 - build(deps): bump github.com/onsi/ginkgo/v2 from 2.33.0 to 2.33.1 [[#3846](https://github.com/opencloud-eu/opencloud/pull/3846)]
 - build(deps): bump github.com/shamaton/msgpack/v2 from 2.4.2 to 2.4.4 [[#3848](https://github.com/opencloud-eu/opencloud/pull/3848)]
