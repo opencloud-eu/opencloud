@@ -14,10 +14,9 @@ import (
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config/parser"
 	"github.com/opencloud-eu/reva/v2/pkg/bytesize"
-	ocisbs "github.com/opencloud-eu/reva/v2/pkg/storage/fs/ocis/blobstore"
-	s3bs "github.com/opencloud-eu/reva/v2/pkg/storage/fs/s3ng/blobstore"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/node"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/tree"
+	decomposedbs "github.com/opencloud-eu/reva/v2/pkg/storage/fs/decomposed/blobstore"
+	s3bs "github.com/opencloud-eu/reva/v2/pkg/storage/fs/decomposeds3/blobstore"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/spf13/cobra"
 )
 
@@ -152,11 +151,11 @@ func depathify(path string, depth int) string {
 	return strings.Join(parts, "")
 }
 
-// initBlobstore builds a tree.Blobstore from the service configuration.
-func initBlobstore(cfg *config.Config) (tree.Blobstore, error) {
+// initBlobstore builds a node.Blobstore from the service configuration.
+func initBlobstore(cfg *config.Config) (node.Blobstore, error) {
 	switch cfg.Driver {
 	case "ocis", "decomposed":
-		return ocisbs.New(cfg.Drivers.Decomposed.Root)
+		return decomposedbs.New(cfg.Drivers.Decomposed.Root)
 	case "s3ng", "decomposeds3":
 		return s3bs.New(
 			cfg.Drivers.DecomposedS3.Endpoint,
@@ -186,10 +185,10 @@ var blobSizeMismatchRe = regexp.MustCompile(`blob has unexpected size\. \d+ byte
 // to surface any streaming errors, then closes it.
 // If the s3ng blobstore rejects the download due to a size mismatch, the actual
 // size is extracted from the error and the download is retried with the correct value.
-func downloadBlob(bs tree.Blobstore, blobID, spaceID string, blobSize int64) error {
+func downloadBlob(bs node.Blobstore, blobID, spaceID string, blobSize int64) error {
 	n := &node.Node{
+		BaseNode: node.BaseNode{SpaceID: spaceID},
 		BlobID:   blobID,
-		SpaceID:  spaceID,
 		Blobsize: blobSize,
 	}
 	rc, err := bs.Download(n)
@@ -218,17 +217,17 @@ func downloadBlob(bs tree.Blobstore, blobID, spaceID string, blobSize int64) err
 
 // runBlobstoreRoundTrip uploads random data, verifies it can be retrieved, and
 // then removes it again.  All three steps must succeed for the check to pass.
-func runBlobstoreRoundTrip(bs tree.Blobstore, blobSize int) error {
+func runBlobstoreRoundTrip(bs node.Blobstore, blobSize int) error {
 	// 1. Generate random bytes that serve as the test payload.
 	data := make([]byte, blobSize)
 	if _, err := rand.Read(data); err != nil {
 		return fmt.Errorf("failed to generate random data: %w", err)
 	}
 
-	// Write the payload to a temporary file.  The OCIS blobstore may rename
+	// Write the payload to a temporary file. The decomposed blobstore may rename
 	// (move) this file into the blobstore, so os.Remove in the defer is a
 	// no-op for that driver – which is fine.
-	tmpFile, err := os.CreateTemp("", "ocis-blobstore-check-*")
+	tmpFile, err := os.CreateTemp("", "decomposed-blobstore-check-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
@@ -245,14 +244,14 @@ func runBlobstoreRoundTrip(bs tree.Blobstore, blobSize int) error {
 
 	// 2. Build a test node with random identifiers.
 	testNode := &node.Node{
-		SpaceID:  uuid.New().String(),
+		BaseNode: node.BaseNode{SpaceID: uuid.New().String()},
 		BlobID:   uuid.New().String(),
 		Blobsize: int64(len(data)),
 	}
 	fmt.Printf("Uploading test blob: spaceID=%s blobID=%s\n", testNode.SpaceID, testNode.BlobID)
 
 	// 3. Upload.
-	if err := bs.Upload(testNode, tmpPath); err != nil {
+	if err := bs.Upload(testNode, tmpPath, ""); err != nil {
 		return fmt.Errorf("upload failed: %w", err)
 	}
 	fmt.Println("Upload: OK")
@@ -287,7 +286,7 @@ func runBlobstoreRoundTrip(bs tree.Blobstore, blobSize int) error {
 	return nil
 }
 
-func roundTripFailure(bs tree.Blobstore, n *node.Node, cause error) error {
+func roundTripFailure(bs node.Blobstore, n *node.Node, cause error) error {
 	if err := bs.Delete(n); err != nil {
 		return fmt.Errorf("%w (also failed to clean up test blob: %v)", cause, err)
 	}

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/opencloud-eu/opencloud/pkg/generators"
+	"github.com/opencloud-eu/opencloud/pkg/storage"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
 )
 
@@ -33,7 +34,7 @@ func StorageUsersConfigFromStruct(cfg *config.Config) map[string]any {
 			// TODO build services dynamically
 			"services": map[string]any{
 				"storageprovider": map[string]any{
-					"driver":             cfg.Driver,
+					"driver":             storage.EffectiveDriver(cfg.Driver),
 					"drivers":            StorageProviderDrivers(cfg),
 					"mount_id":           cfg.MountID,
 					"expose_data_server": true,
@@ -79,7 +80,7 @@ func StorageUsersConfigFromStruct(cfg *config.Config) map[string]any {
 			"services": map[string]any{
 				"dataprovider": map[string]any{
 					"prefix":                 cfg.HTTP.Prefix,
-					"driver":                 cfg.Driver,
+					"driver":                 storage.EffectiveDriver(cfg.Driver),
 					"drivers":                DataProviderDrivers(cfg),
 					"nats_address":           cfg.Events.Addr,
 					"nats_clusterID":         cfg.Events.ClusterID,

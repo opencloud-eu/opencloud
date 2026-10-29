@@ -20,6 +20,7 @@ import (
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
+	opencloudstorage "github.com/opencloud-eu/opencloud/pkg/storage"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/event"
@@ -81,7 +82,8 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var err error
-			f, ok := registry.NewFuncs[cfg.Driver]
+			driver := opencloudstorage.EffectiveDriver(cfg.Driver)
+			f, ok := registry.NewFuncs[driver]
 			if !ok {
 				fmt.Fprintf(os.Stderr, "Unknown filesystem driver '%s'\n", cfg.Driver)
 				os.Exit(1)
@@ -106,7 +108,7 @@ func ListUploadSessions(cfg *config.Config) *cobra.Command {
 				}
 			}
 
-			fs, err := f(drivers[cfg.Driver].(map[string]any), fsStream, nil)
+			fs, err := f(drivers[driver].(map[string]any), fsStream, nil)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to initialize filesystem driver '%s'\n", cfg.Driver)
 				return err
@@ -343,8 +345,12 @@ func DeleteStaleProcessingNodes(cfg *config.Config) *cobra.Command {
 			return configlog.ReturnFatal(parser.ParseConfig(cfg))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			root, prefix, err := staleNodesStorage(cfg)
+			if err != nil {
+				return err
+			}
 			// the command reads the node metadata itself, without starting the driver that sets the prefix
-			if err := prefixes.SetOcPrefix(cfg.Drivers.Decomposed.MetadataPrefix); err != nil {
+			if err := prefixes.SetOcPrefix(prefix); err != nil {
 				return err
 			}
 
@@ -359,7 +365,7 @@ func DeleteStaleProcessingNodes(cfg *config.Config) *cobra.Command {
 				spaceIDs = append(spaceIDs, spaceID)
 			} else {
 				fmt.Println("Scanning all spaces for stale processing nodes...")
-				spaceIDs = globSpaceIDs(cfg)
+				spaceIDs = globSpaceIDs(root)
 			}
 
 			if verbose {
@@ -380,7 +386,7 @@ func DeleteStaleProcessingNodes(cfg *config.Config) *cobra.Command {
 
 			staleCount := 0
 			for _, spaceID := range spaceIDs {
-				staleCount += deleteStaleUploads(cfg, spaceID, dryRun, verbose, stream)
+				staleCount += deleteStaleUploads(root, spaceID, dryRun, verbose, stream)
 			}
 
 			if verbose {
@@ -397,12 +403,28 @@ func DeleteStaleProcessingNodes(cfg *config.Config) *cobra.Command {
 	return deleteStaleNodesCmd
 }
 
+// staleNodesStorage selects the on-disk metadata location and namespace for the configured driver.
+func staleNodesStorage(cfg *config.Config) (string, string, error) {
+	switch cfg.Driver {
+	case "decomposed":
+		return cfg.Drivers.Decomposed.Root, cfg.Drivers.Decomposed.MetadataPrefix, nil
+	case "decomposeds3":
+		return cfg.Drivers.DecomposedS3.Root, cfg.Drivers.DecomposedS3.MetadataPrefix, nil
+	case "ocis":
+		return cfg.Drivers.Decomposed.Root, opencloudstorage.LegacyMetadataPrefix(), nil
+	case "s3ng":
+		return cfg.Drivers.DecomposedS3.Root, opencloudstorage.LegacyMetadataPrefix(), nil
+	default:
+		return "", "", fmt.Errorf("stale node cleanup is not supported for driver %q", cfg.Driver)
+	}
+}
+
 // globSpaceIDs returns a list of all space IDs in the storage root
-func globSpaceIDs(cfg *config.Config) []string {
-	fsys := os.DirFS(cfg.Drivers.Decomposed.Root)
+func globSpaceIDs(root string) []string {
+	fsys := os.DirFS(root)
 	dirs, err := fs.Glob(fsys, "spaces/*/*/nodes")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error globbing spaces root directory %s: %v\n", cfg.Drivers.Decomposed.Root, err)
+		fmt.Fprintf(os.Stderr, "Error globbing spaces root directory %s: %v\n", root, err)
 		return []string{}
 	}
 
@@ -416,13 +438,13 @@ func globSpaceIDs(cfg *config.Config) []string {
 }
 
 // delete stale processing nodes for a given spaceID
-func deleteStaleUploads(cfg *config.Config, spaceID string, dryRun bool, verbose bool, stream events.Stream) int {
+func deleteStaleUploads(root string, spaceID string, dryRun bool, verbose bool, stream events.Stream) int {
 	if verbose {
 		fmt.Printf("\nDeleting stale processing nodes for space: %s\n", spaceID)
 	}
 
 	// Find .mpk files in space directory
-	spaceRoot := filepath.Join(cfg.Drivers.Decomposed.Root, "spaces", lookup.Pathify(spaceID, 1, 2))
+	spaceRoot := filepath.Join(root, "spaces", lookup.Pathify(spaceID, 1, 2))
 	mpkFiles := []string{}
 	err := filepath.Walk(spaceRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -446,7 +468,7 @@ func deleteStaleUploads(cfg *config.Config, spaceID string, dryRun bool, verbose
 
 	staleCount := 0
 	for _, path := range mpkFiles {
-		staleCount += deleteStaleNode(cfg, path, dryRun, verbose, stream)
+		staleCount += deleteStaleNode(root, path, dryRun, verbose, stream)
 	}
 
 	if verbose {
@@ -458,7 +480,7 @@ func deleteStaleUploads(cfg *config.Config, spaceID string, dryRun bool, verbose
 
 // deleteStaleNode deletes a stale node: if it is not referenced by any upload session
 // returns 1 if the node stale node was detected for deletion, 0 otherwise, for counting purposes
-func deleteStaleNode(cfg *config.Config, path string, dryRun bool, verbose bool, stream events.Stream) int {
+func deleteStaleNode(root string, path string, dryRun bool, verbose bool, stream events.Stream) int {
 	nodeDir := filepath.Dir(path)
 
 	// Read .mpk file to get processing info
@@ -481,7 +503,7 @@ func deleteStaleNode(cfg *config.Config, path string, dryRun bool, verbose bool,
 	// Construct path to upload info file:
 	// i.e. ~/.ocis/storage/users/uploads/5329c14b-b786-4b27-8f7d-7429f03009d7.info
 	// And pass only the .info file not exists: err is ErrNotExist
-	pathUploadInfo := filepath.Join(cfg.Drivers.Decomposed.Root, "uploads", processingID) + ".info"
+	pathUploadInfo := filepath.Join(root, "uploads", processingID) + ".info"
 	_, infoStatErr := os.Stat(pathUploadInfo)
 	if infoStatErr == nil {
 		return 0

@@ -2,7 +2,21 @@ package command
 
 import (
 	"testing"
+
+	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
+	"github.com/test-go/testify/require"
 )
+
+func TestLocalBlobstoreRoundTrip(t *testing.T) {
+	for _, driver := range []string{"ocis", "decomposed"} {
+		t.Run(driver, func(t *testing.T) {
+			cfg := &config.Config{Driver: driver, Drivers: config.Drivers{Decomposed: config.DecomposedDriver{Root: t.TempDir()}}}
+			bs, err := initBlobstore(cfg)
+			require.NoError(t, err)
+			require.NoError(t, runBlobstoreRoundTrip(bs, 64))
+		})
+	}
+}
 
 func Test_depathify(t *testing.T) {
 	tests := []struct {

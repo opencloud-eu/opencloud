@@ -9,6 +9,7 @@ import (
 	"github.com/test-go/testify/require"
 	"github.com/vmihailenco/msgpack/v5"
 
+	opencloudstorage "github.com/opencloud-eu/opencloud/pkg/storage"
 	"github.com/opencloud-eu/opencloud/services/storage-users/pkg/config"
 )
 
@@ -91,10 +92,34 @@ func TestDeleteStaleNodesHonoursMetadataPrefix(t *testing.T) {
 	require.NoError(t, os.WriteFile(nodePath+".mpk", b, 0600))
 
 	// the prefix is process wide, this test fixes it for the whole package
-	cfg := &config.Config{Drivers: config.Drivers{Decomposed: config.DecomposedDriver{Root: root, MetadataPrefix: "user.foreign."}}}
+	cfg := &config.Config{Driver: "decomposed", Drivers: config.Drivers{Decomposed: config.DecomposedDriver{Root: root, MetadataPrefix: "user.foreign."}}}
 	cmd := DeleteStaleProcessingNodes(cfg)
 	require.NoError(t, cmd.RunE(cmd, nil))
-	require.Equal(t, 1, deleteStaleNode(cfg, nodePath+".mpk", true, false, nil))
+	require.Equal(t, 1, deleteStaleNode(root, nodePath+".mpk", true, false, nil))
+}
+
+func TestStaleNodesStorage(t *testing.T) {
+	cfg := &config.Config{Drivers: config.Drivers{
+		Decomposed:   config.DecomposedDriver{Root: "/local", MetadataPrefix: "user.local."},
+		DecomposedS3: config.DecomposedS3Driver{Root: "/s3", MetadataPrefix: "user.s3."},
+	}}
+	for _, tc := range []struct{ driver, root, prefix string }{
+		{"decomposed", "/local", "user.local."},
+		{"decomposeds3", "/s3", "user.s3."},
+		{"ocis", "/local", opencloudstorage.LegacyMetadataPrefix()},
+		{"s3ng", "/s3", opencloudstorage.LegacyMetadataPrefix()},
+	} {
+		t.Run(tc.driver, func(t *testing.T) {
+			cfg.Driver = tc.driver
+			root, prefix, err := staleNodesStorage(cfg)
+			require.NoError(t, err)
+			require.Equal(t, tc.root, root)
+			require.Equal(t, tc.prefix, prefix)
+		})
+	}
+	cfg.Driver = "posix"
+	_, _, err := staleNodesStorage(cfg)
+	require.Error(t, err)
 }
 
 func boolPtr(b bool) *bool {
