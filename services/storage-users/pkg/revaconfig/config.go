@@ -63,6 +63,9 @@ func StorageUsersConfigFromStruct(cfg *config.Config) map[string]any {
 					"name":             generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus),
 					"username":         cfg.Events.AuthUsername,
 					"password":         cfg.Events.AuthPassword,
+					"audit_enabled":    cfg.Audit.Enabled,
+					"audit_mode":       cfg.Audit.Mode,
+					"audit_service":    cfg.Service.Name,
 				},
 				"prometheus": map[string]any{
 					"namespace": "opencloud",
@@ -89,6 +92,9 @@ func StorageUsersConfigFromStruct(cfg *config.Config) map[string]any {
 					"nats_enable_tls":        cfg.Events.EnableTLS,
 					"nats_username":          cfg.Events.AuthUsername,
 					"nats_password":          cfg.Events.AuthPassword,
+					"audit_enabled":          cfg.Audit.Enabled,
+					"audit_mode":             cfg.Audit.Mode,
+					"audit_service":          cfg.Service.Name,
 					"data_txs": map[string]any{
 						"simple": map[string]any{
 							"cache_store":    "noop",

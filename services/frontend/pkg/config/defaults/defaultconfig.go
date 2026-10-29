@@ -96,6 +96,9 @@ func DefaultConfig() *config.Config {
 			Prefix:            "app",
 			SecureViewAppAddr: "eu.opencloud.api.collaboration",
 		},
+		Audit: config.Audit{
+			Mode: "best_effort",
+		},
 		Archiver: config.Archiver{
 			Insecure:    false,
 			Prefix:      "archiver",
