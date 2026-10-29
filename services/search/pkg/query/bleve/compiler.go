@@ -16,7 +16,9 @@ import (
 
 // The following quoted string enumerates the characters which may be escaped: "+-=&|><!(){}[]^\"~*?:\\/ "
 // based on bleve docs https://blevesearch.com/docs/Query-String-Query/
-// Wildcards * and ? are excluded
+// Wildcards * and ? are excluded. So is /, it is a plain character in a term
+// and escaping it would not keep a value wrapped in slashes from being read as
+// a regular expression, see fieldQuery.
 var bleveEscaper = strings.NewReplacer(
 	`+`, `\+`,
 	`-`, `\-`,
@@ -37,9 +39,33 @@ var bleveEscaper = strings.NewReplacer(
 	`~`, `\~`,
 	`:`, `\:`,
 	`\`, `\\`,
-	`/`, `\/`,
 	` `, `\ `,
 )
+
+// phraseEscaper escapes a value for a quoted bleve phrase, where only the
+// quote and the backslash are special
+var phraseEscaper = strings.NewReplacer(
+	`\`, `\\`,
+	`"`, `\"`,
+)
+
+// fieldQuery matches value on field through the query string field:value, so
+// a value with * or ? is a wildcard and a number also matches a numeric field.
+// A query string can't carry an empty value, and it reads a value wrapped in
+// slashes as a regular expression whether escaped or not; those two get the
+// match or wildcard query the string stands for built directly.
+func fieldQuery(field, value string) bleveQuery.Query {
+	if value != "" && !(strings.HasPrefix(value, "/") && strings.HasSuffix(value, "/")) {
+		return bleveQuery.NewQueryStringQuery(field + ":" + bleveEscaper.Replace(value))
+	}
+
+	var q bleveQuery.FieldableQuery = bleveQuery.NewMatchQuery(value)
+	if strings.ContainsAny(value, "*?") {
+		q = bleveQuery.NewWildcardQuery(value)
+	}
+	q.SetField(field)
+	return q
+}
 
 // Compiler represents a KQL query search string to the bleve query formatter.
 type Compiler struct{}
@@ -90,38 +116,20 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 				break
 			}
 
-			// keys are resolved and media-type expanded by normalize. MimeType
-			// skips the escaper so the category wildcards (image/*) keep their `*`;
-			// bleve treats `/` and `+` as literals mid-term, so a literal MIME like
-			// image/svg+xml still matches exactly.
+			// keys are resolved and media-type expanded by normalize
 			val := n.Value
 			if searchQuery.FieldIsPath(n.Key) {
 				val = strings.TrimSuffix(val, "/")
 			}
 			k := n.Key
-			v := val
-			if k != "ID" && k != "Size" && k != "MimeType" {
-				v = bleveEscaper.Replace(val)
-			}
 			if n.CaseInsensitive {
 				k += mapping.LowercaseSuffix
-				v = strings.ToLower(v)
 				val = strings.ToLower(val)
 			}
 
 			isWildcard := strings.ContainsAny(val, "*?")
 
-			// a word-broken field matches the value as a phrase of its words on the
-			// _words sibling (a quoted query string term is a match phrase query
-			// run through the field's analyzer); wildcards stay on _lowercase.
-			// A fulltext field is its own words field, the phrase runs on it.
-			if searchQuery.FieldIsWordBroken(n.Key) && !isWildcard && !n.Exact {
-				k, v = n.Key+mapping.WordsSuffix, `"`+strings.ReplaceAll(val, `"`, `\"`)+`"`
-			} else if searchQuery.FieldIsFulltext(n.Key) && !isWildcard && !n.Exact {
-				v = `"` + strings.ReplaceAll(val, `"`, `\"`) + `"`
-			}
-
-			var q bleveQuery.Query = bleveQuery.NewQueryStringQuery(k + ":" + v)
+			var q bleveQuery.Query
 			switch {
 			case searchQuery.FieldIsPath(n.Key) && !isWildcard:
 				// the folder term matches the folder itself and its descendants
@@ -136,16 +144,23 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 				tq := bleveQuery.NewTermQuery(val)
 				tq.SetField(k)
 				q = tq
+			case searchQuery.FieldIsWordBroken(n.Key) && !isWildcard:
+				// a word-broken field matches the value as a phrase of its words on the
+				// _words sibling (a quoted query string term is a match phrase query
+				// run through the field's analyzer); wildcards stay on _lowercase.
+				q = bleveQuery.NewQueryStringQuery(n.Key + mapping.WordsSuffix + `:"` + phraseEscaper.Replace(val) + `"`)
+			case searchQuery.FieldIsFulltext(n.Key) && !isWildcard:
+				// a fulltext field is its own words field, the phrase runs on it
+				q = bleveQuery.NewQueryStringQuery(k + `:"` + phraseEscaper.Replace(val) + `"`)
 			case isWildcard && searchQuery.FieldIsWordBroken(n.Key) && !strings.HasSuffix(val, "*"):
 				// a wildcard on a word-broken field forgives a missing extension:
 				// *report also matches Report.txt
 				bq := bleve.NewBooleanQuery()
-				bq.AddShould(
-					bleveQuery.NewQueryStringQuery(k+":"+v),
-					bleveQuery.NewQueryStringQuery(k+":"+v+".*"),
-				)
+				bq.AddShould(fieldQuery(k, val), fieldQuery(k, val+".*"))
 				bq.SetMinShould(1)
 				q = bq
+			default:
+				q = fieldQuery(k, val)
 			}
 			if prev == nil {
 				prev = q

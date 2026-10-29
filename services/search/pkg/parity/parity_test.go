@@ -112,6 +112,7 @@ func queryGroups() []queryGroup {
 		rangeGroup(),
 		scopeGroup(),
 		invalidGroup(),
+		quotingGroup(),
 	}
 }
 

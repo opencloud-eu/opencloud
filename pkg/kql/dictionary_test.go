@@ -1066,6 +1066,129 @@ func TestParse_DottedKey(t *testing.T) {
 	}
 }
 
+func TestParse_Quoting(t *testing.T) {
+	tests := []testCase{
+		// 2.3.1 String Tokens: a double quote inside the quotes is written as two
+		{
+			name: `name:"*""Quote""*"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: `*"Quote"*`},
+				},
+			},
+		},
+		{
+			name: `content:"""Quotewort"""`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "content", Value: `"Quotewort"`},
+				},
+			},
+		},
+		{
+			name: `name=""""`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: `"`, Exact: true},
+				},
+			},
+		},
+		{
+			name: `"say ""hi"" twice"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Value: `say "hi" twice`},
+				},
+			},
+		},
+		// two quotes right after each other are one value, not two phrases
+		{
+			name: `"a""b"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Value: `a"b`},
+				},
+			},
+		},
+		{
+			name: `"a" "b"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Value: "a"},
+					&ast.OperatorNode{Value: kql.BoolAND},
+					&ast.StringNode{Value: "b"},
+				},
+			},
+		},
+		{
+			name: `name:""`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: ""},
+				},
+			},
+		},
+		// a backslash is a plain character, it escapes nothing
+		{
+			name: `content:"foo\"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "content", Value: `foo\`},
+				},
+			},
+		},
+		{
+			name: `name:"C:\temp\new"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: `C:\temp\new`},
+				},
+			},
+		},
+		{
+			name: `name:back\slash`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: `back\slash`},
+				},
+			},
+		},
+		// so is a slash
+		{
+			name: `mediatype:image/png`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "mediatype", Value: "image/png"},
+				},
+			},
+		},
+		{
+			name: `path:"./a/b c"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "path", Value: "./a/b c"},
+				},
+			},
+		},
+		// quotes keep spaces, parentheses, colons and operator words in the value
+		{
+			name: `name:"a (b) c:d OR e"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: "a (b) c:d OR e"},
+				},
+			},
+		},
+		// a quote inside an unquoted value is an error, see TestBuild_ValidationErrors
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			testKQL(t, tc)
+		})
+	}
+}
+
 func TestParse_Stress(t *testing.T) {
 	tests := []testCase{
 		{

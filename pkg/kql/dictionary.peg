@@ -84,10 +84,10 @@ NumberRestrictionNode <-
     }
 
 TextPropertyRestrictionNode <-
-    k:Key OperatorEqualNode v:(String / [^ ()]+) {
+    k:Key OperatorEqualNode v:(String / [^ ()"]+) {
         return buildStringNode(k, v, true, c.text, c.pos)
     } /
-    k:Key OperatorColonNode v:(String / [^ ()]+) {
+    k:Key OperatorColonNode v:(String / [^ ()"]+) {
         return buildStringNode(k, v, false, c.text, c.pos)
     }
 
@@ -105,7 +105,7 @@ PhraseNode <-
     }
 
 WordNode <-
-     OperatorColonNode? _ v:[^ :()]+ _ OperatorColonNode? {
+     OperatorColonNode? _ v:[^ :()"]+ _ OperatorColonNode? {
         return buildStringNode("", v, false, c.text, c.pos)
     }
 
@@ -241,9 +241,11 @@ Key <-
         return c.text, nil
     }
 
+// a double quote inside the quotes is written as two double quotes, nothing
+// else is special in there (MS-KQL 2.3.1)
 String <-
-    '"' v:[^"]* '"' {
-        return v, nil
+    '"' (`""` / [^"])* '"' {
+        return unquote(c.text), nil
     }
 
 Number <-

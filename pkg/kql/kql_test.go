@@ -65,6 +65,14 @@ func TestBuild_ValidationErrors(t *testing.T) {
 		"cat)",
 		"()",
 		"cat) OR (dog",
+		`"cat`,
+		`cat"`,
+		`ca"t`,
+		`name:ca"t`,
+		`name=ca"t`,
+		`"""`,
+		`name:"cat""`,
+		`content:"foo\""`,
 	} {
 		got, err := kql.Builder{}.Build(q)
 		assert.Nil(got, q)
