@@ -11,7 +11,9 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/justinas/alice"
 
+	"github.com/opencloud-eu/reva/v2/pkg/audit"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v2/pkg/events/raw"
 	"github.com/opencloud-eu/reva/v2/pkg/events/stream"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
@@ -26,6 +28,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	"github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
+	"github.com/opencloud-eu/opencloud/pkg/version"
 	policiessvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/policies/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
@@ -192,6 +195,30 @@ func Server(cfg *config.Config) *cobra.Command {
 				}
 			}
 
+			var auditEmitter audit.Emitter = audit.Discard{}
+			if cfg.Audit.Enabled && cfg.Events.Endpoint != "" {
+				connName := generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus)
+				e, err := audit.NewNatsEmitter(cfg.Context, connName+"-audit", raw.Config{
+					Endpoint:             cfg.Events.Endpoint,
+					Cluster:              cfg.Events.Cluster,
+					TLSInsecure:          cfg.Events.TLSInsecure,
+					TLSRootCACertificate: cfg.Events.TLSRootCACertificate,
+					EnableTLS:            cfg.Events.EnableTLS,
+					AuthUsername:         cfg.Events.AuthUsername,
+					AuthPassword:         cfg.Events.AuthPassword,
+				}, audit.Options{
+					Service: audit.Service{Name: cfg.Service.Name, Version: version.GetString()},
+					Mode:    audit.Mode(cfg.Audit.Mode),
+					Logger:  &logger.Logger,
+				})
+				if err != nil {
+					logger.Error().Err(err).Msg("Error initializing the audit emitter")
+					return fmt.Errorf("could not initialize audit emitter: %w", err)
+				}
+				defer e.Close()
+				auditEmitter = e
+			}
+
 			lh := staticroutes.StaticRouteHandler{
 				Prefix:          cfg.HTTP.Root,
 				UserInfoCache:   userInfoCache,
@@ -201,6 +228,7 @@ func Server(cfg *config.Config) *cobra.Command {
 				OidcHttpClient:  oidcHTTPClient,
 				Proxy:           rp,
 				EventsPublisher: publisher,
+				AuditEmitter:    auditEmitter,
 				UserProvider:    userProvider,
 			}
 			if err != nil {
@@ -209,7 +237,7 @@ func Server(cfg *config.Config) *cobra.Command {
 
 			gr := runner.NewGroup()
 			{
-				middlewares, err := loadMiddlewares(logger, cfg, userInfoCache, signingKeyStore, traceProvider, *m, userProvider, publisher, gatewaySelector, serviceSelector)
+				middlewares, err := loadMiddlewares(logger, cfg, userInfoCache, signingKeyStore, traceProvider, *m, userProvider, publisher, auditEmitter, gatewaySelector, serviceSelector)
 				if err != nil {
 					return err
 				}
@@ -293,7 +321,7 @@ func newOIDCAuthenticator(logger log.Logger, cfg *config.Config, userInfoCache m
 func loadMiddlewares(logger log.Logger, cfg *config.Config,
 	userInfoCache, signingKeyStore microstore.Store,
 	traceProvider trace.TracerProvider, metrics metrics.Metrics,
-	userProvider backend.UserBackend, publisher events.Publisher,
+	userProvider backend.UserBackend, publisher events.Publisher, auditEmitter audit.Emitter,
 	gatewaySelector pool.Selectable[gateway.GatewayAPIClient], serviceSelector selector.Selector) (alice.Chain, error) {
 
 	rolesClient := settingssvc.NewRoleService("eu.opencloud.api.settings", cfg.GrpcClient)
@@ -425,7 +453,10 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 			middleware.OIDCIss(cfg.OIDC.Issuer),
 			middleware.EnableBasicAuth(cfg.EnableBasicAuth || cfg.AuthMiddleware.AllowAppAuth),
 			middleware.TraceProvider(traceProvider),
+			middleware.AuditEmitter(auditEmitter),
 		),
+		// after Authentication: needs the auth method and the OIDC claims
+		middleware.AuditContext,
 		middleware.AccountResolver(
 			middleware.Logger(logger),
 			middleware.TraceProvider(traceProvider),
@@ -441,6 +472,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 			middleware.AutoprovisionAccounts(cfg.AutoprovisionAccounts),
 			middleware.MultiTenantEnabled(cfg.Commons.MultiTenantEnabled),
 			middleware.EventsPublisher(publisher),
+			middleware.AuditEmitter(auditEmitter),
 		),
 		middleware.SelectorCookie(
 			middleware.Logger(logger),

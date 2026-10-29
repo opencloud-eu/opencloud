@@ -164,12 +164,18 @@ func Authentication(auths []Authenticator, opts ...Option) func(next http.Handle
 
 			suppressAuthenticationChallenge := false
 			var terminalResult AuthenticationResult
+			// the first authenticator that rejected the credentials, for the audit log
+			var failedAuth Authenticator
+			var failedResult AuthenticationResult
 			for _, a := range auths {
 				result := a.Authenticate(r)
 				if result.State == AuthenticationSucceeded {
 					span.End()
-					next.ServeHTTP(w, result.Request)
+					next.ServeHTTP(w, withAuthMethod(result.Request, a))
 					return
+				}
+				if result.State == AuthenticationFailed && failedAuth == nil {
+					failedAuth, failedResult = a, result
 				}
 				if suppressor, ok := a.(authenticationChallengeSuppressor); ok && suppressor.SuppressAuthenticationChallenge(r) {
 					suppressAuthenticationChallenge = true
@@ -178,6 +184,10 @@ func Authentication(auths []Authenticator, opts ...Option) func(next http.Handle
 					terminalResult = result
 					break
 				}
+			}
+
+			if failedAuth != nil {
+				auditLoginFailure(r, options.AuditEmitter, failedAuth, failedResult)
 			}
 
 			// Handle terminal failures with error details (e.g., expired guest sessions).
