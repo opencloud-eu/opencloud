@@ -452,15 +452,40 @@ func TestGuestLinkAuthenticator_ChallengeSuppression(t *testing.T) {
 		},
 	}
 
-	reqNoCookie := httptest.NewRequest(http.MethodGet, testEndpoint, http.NoBody)
-	if authenticator.SuppressAuthenticationChallenge(reqNoCookie) {
-		t.Error("expected challenge not to be suppressed when no cookie present")
+	tests := []struct {
+		name        string
+		url         string
+		cookie      bool
+		authHeader  string
+		publicToken string
+		expect      bool
+	}{
+		{"no cookie", testEndpoint, false, "", "", false},
+		{"cookie on guest path", testEndpoint, true, "", "", true},
+		{"cookie on non-guest path", "http://example.com/graph/v1.0/me", true, "", "", false},
+		{"cookie with auth header", testEndpoint, true, "Bearer token", "", false},
+		{"cookie with public token header", testEndpoint, true, "", "abc", false},
+		{"cookie with OC-Signature query", testEndpoint + "?OC-Signature=abc", true, "", "", false},
+		{"cookie with oc-jwt-sig query", testEndpoint + "?oc-jwt-sig=abc", true, "", "", false},
 	}
 
-	reqWithCookie := httptest.NewRequest(http.MethodGet, testEndpoint, http.NoBody)
-	reqWithCookie.AddCookie(getCookie("some-jwt"))
-	if !authenticator.SuppressAuthenticationChallenge(reqWithCookie) {
-		t.Error("expected challenge to be suppressed when cookie present")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.url, http.NoBody)
+			if tt.cookie {
+				req.AddCookie(getCookie("some-jwt"))
+			}
+			if tt.authHeader != "" {
+				req.Header.Set(_headerAuthorization, tt.authHeader)
+			}
+			if tt.publicToken != "" {
+				req.Header.Set(headerShareToken, tt.publicToken)
+			}
+
+			if got := authenticator.SuppressAuthenticationChallenge(req); got != tt.expect {
+				t.Errorf("expected challenge suppression %v, got %v", tt.expect, got)
+			}
+		})
 	}
 }
 
