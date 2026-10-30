@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/defaults"
+	"github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
@@ -47,9 +48,8 @@ func DefaultConfig() *config.Config {
 			},
 		},
 		ClientIP: config.ClientIP{
-			Strategy:    config.ClientIPStrategyRemoteAddr,
-			Header:      "X-Real-IP",
-			TrustedHops: 1, // this might need to be adjusted
+			TrustedProxies: middleware.DefaultTrustedProxies(),
+			Header:         middleware.DefaultClientIPHeader,
 		},
 		Service: config.Service{
 			Name: "proxy",

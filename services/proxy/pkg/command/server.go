@@ -384,13 +384,16 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		URLVerifier:        signURLVerifier,
 	})
 
+	// validated by the config parser
+	trustedProxies, _ := pkgmiddleware.ParseTrustedProxies(cfg.ClientIP.TrustedProxies)
+
 	cspConfig, err := middleware.LoadCSPConfig(cfg)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to load CSP configuration.")
 	}
 
 	return alice.New(
-		clientIPMiddleware(cfg),
+		pkgmiddleware.ClientIP(trustedProxies, cfg.ClientIP.Header),
 		chimiddleware.RequestID,
 
 		// 1. Logging & Tracing first
@@ -459,21 +462,4 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 			middleware.RoleQuotas(cfg.RoleQuotas),
 		),
 	), nil
-}
-
-// clientIPMiddleware returns the chi ClientIPFrom* middleware matching the
-// configured client IP strategy.
-func clientIPMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
-	switch cfg.ClientIP.Strategy {
-	case config.ClientIPStrategyHeader:
-		return chimiddleware.ClientIPFromHeader(cfg.ClientIP.Header)
-	case config.ClientIPStrategyXFF:
-		return chimiddleware.ClientIPFromXFF(cfg.ClientIP.TrustedPrefixes...)
-	case config.ClientIPStrategyXFFTrustedHops:
-		return chimiddleware.ClientIPFromXFFTrustedProxies(cfg.ClientIP.TrustedHops)
-	case config.ClientIPStrategyRemoteAddr:
-		fallthrough
-	default:
-		return chimiddleware.ClientIPFromRemoteAddr
-	}
 }

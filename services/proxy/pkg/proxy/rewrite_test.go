@@ -9,65 +9,56 @@ import (
 	"net/http/httputil"
 	"testing"
 
-	chimiddleware "github.com/go-chi/chi/v5/middleware"
-
 	pkgmiddleware "github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/middleware"
 	"gotest.tools/v3/assert"
 )
 
-// TestRewriteForwardsClientIP verifies that the proxy overwrites the forwarded
-// IP header on the outbound request with the client IP resolved by the
-// ClientIPFrom* middleware, so downstream services can trust it.
-func TestRewriteForwardsClientIP(t *testing.T) {
-	cfg := testConfig(nil)
-
-	rp := newTestProxy(cfg, func(req *http.Request) *http.Response {
+func rewrite(t *testing.T, in *http.Request) *http.Request {
+	t.Helper()
+	rp := newTestProxy(testConfig(nil), func(req *http.Request) *http.Response {
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewBufferString("OK")), Header: make(http.Header)}
 	})
-
-	inReq := httptest.NewRequest(http.MethodGet, "/", nil)
-	inReq.RemoteAddr = "192.0.2.1:1234"
-
-	// Resolve the client IP into the request context via a chi middleware.
-	var withCtx *http.Request
-	chimiddleware.ClientIPFromRemoteAddr(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		withCtx = r
-	})).ServeHTTP(httptest.NewRecorder(), inReq)
 
 	// Take the datagateway skip path so Rewrite does not need routing info.
-	ctx := context.WithValue(withCtx.Context(), middleware.DatagatewaySkipRoutingKey, true)
-	withCtx = withCtx.WithContext(ctx)
-
+	in = in.WithContext(context.WithValue(in.Context(), middleware.DatagatewaySkipRoutingKey, true))
 	pr := &httputil.ProxyRequest{
-		In:  withCtx,
-		Out: withCtx.Clone(context.Background()),
+		In:  in,
+		Out: in.Clone(context.Background()),
 	}
 	rp.Rewrite(pr)
-
-	assert.Equal(t, pr.Out.Header.Get(pkgmiddleware.DefaultClientIPHeader), "192.0.2.1")
+	return pr.Out
 }
 
-// TestRewriteDoesNotForwardEmptyClientIP verifies the header is left unset when
-// the client IP could not be resolved (no middleware populated the context).
-func TestRewriteDoesNotForwardEmptyClientIP(t *testing.T) {
-	cfg := testConfig(nil)
+// TestRewriteForwardsClientIP verifies that the services get the client
+// address in X-Forwarded-For, not the reverse proxy in front of us.
+func TestRewriteForwardsClientIP(t *testing.T) {
+	trusted, err := pkgmiddleware.ParseTrustedProxies([]string{"10.0.0.0/8"})
+	assert.NilError(t, err)
 
-	rp := newTestProxy(cfg, func(req *http.Request) *http.Response {
-		return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewBufferString("OK")), Header: make(http.Header)}
-	})
+	in := httptest.NewRequest(http.MethodGet, "/", nil)
+	in.RemoteAddr = "10.0.0.5:443"
+	in.Header.Set("X-Forwarded-For", "198.51.100.1, 203.0.113.7")
 
-	inReq := httptest.NewRequest(http.MethodGet, "/", nil)
-	inReq.RemoteAddr = "192.0.2.1:1234"
+	var withCtx *http.Request
+	pkgmiddleware.ClientIP(trusted, pkgmiddleware.DefaultClientIPHeader)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		withCtx = r
+	})).ServeHTTP(httptest.NewRecorder(), in)
 
-	ctx := context.WithValue(inReq.Context(), middleware.DatagatewaySkipRoutingKey, true)
-	inReq = inReq.WithContext(ctx)
+	out := rewrite(t, withCtx)
 
-	pr := &httputil.ProxyRequest{
-		In:  inReq,
-		Out: inReq.Clone(context.Background()),
-	}
-	rp.Rewrite(pr)
+	assert.Equal(t, out.Header.Get("X-Forwarded-For"), "203.0.113.7")
+}
 
-	assert.Equal(t, pr.Out.Header.Get(pkgmiddleware.DefaultClientIPHeader), "")
+// TestRewriteForwardsPeerWithoutClientIP verifies the peer is forwarded when
+// the client IP middleware did not run, and a header sent by the client is
+// replaced.
+func TestRewriteForwardsPeerWithoutClientIP(t *testing.T) {
+	in := httptest.NewRequest(http.MethodGet, "/", nil)
+	in.RemoteAddr = "192.0.2.1:1234"
+	in.Header.Set("X-Forwarded-For", "203.0.113.9")
+
+	out := rewrite(t, in)
+
+	assert.Equal(t, out.Header.Get("X-Forwarded-For"), "192.0.2.1")
 }
