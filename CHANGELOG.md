@@ -1,10 +1,10 @@
 # Changelog
 
-## [9.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.1) - 2026-10-29
+## [9.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.1) - 2026-10-30
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@pascalwengerter, @rhafer
+@aduffeck, @pascalwengerter, @rhafer
 
 ### 📦️ Dependencies
 
