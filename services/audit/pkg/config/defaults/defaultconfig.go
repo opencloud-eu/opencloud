@@ -1,6 +1,8 @@
 package defaults
 
 import (
+	"time"
+
 	"github.com/opencloud-eu/opencloud/services/audit/pkg/config"
 )
 
@@ -27,6 +29,13 @@ func DefaultConfig() *config.Config {
 			Endpoint:  "127.0.0.1:9233",
 			Cluster:   "opencloud-cluster",
 			EnableTLS: false,
+		},
+		Stream: config.Stream{
+			Replicas: 1,
+			MaxAge:   7 * 24 * time.Hour,
+		},
+		Output: config.Output{
+			Stdout: true,
 		},
 		Auditlog: config.Auditlog{
 			LogToConsole: true,

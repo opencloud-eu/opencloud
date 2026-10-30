@@ -6,6 +6,8 @@ import (
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	ocmiddleware "github.com/opencloud-eu/opencloud/pkg/middleware"
+	"github.com/opencloud-eu/reva/v2/pkg/audit"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"go.opentelemetry.io/otel/attribute"
@@ -105,7 +107,10 @@ func (a PublicShareAuthenticator) Authenticate(r *http.Request) AuthenticationRe
 		return AuthenticationErrorResult(err)
 	}
 
-	authResp, err := client.Authenticate(r.Context(), &gateway.AuthenticateRequest{
+	// the token lookup behind this call is audited, it needs the client address;
+	// AuditContext only runs after the authentication
+	auditCtx := audit.ContextSetRequest(r.Context(), audit.RequestContext{ClientAddress: ocmiddleware.ClientAddress(r), AuthMethod: AuthMethodPublicLink})
+	authResp, err := client.Authenticate(auditCtx, &gateway.AuthenticateRequest{
 		Type:         authenticationType,
 		ClientId:     shareToken,
 		ClientSecret: sharePassword,

@@ -300,6 +300,27 @@ In a production deployment, you want to have basic authentication (`PROXY_ENABLE
 Configure `PROXY_OIDC_AUDIENCES` as described in [OIDC Access Token Audiences](#oidc-access-token-audiences).
 Enabling this check is strongly recommended for production deployments.
 
+Check `PROXY_TRUSTED_PROXIES` as described in [Trusted Reverse Proxies](#trusted-reverse-proxies) if your reverse proxy is not in a private network.
+
+### Trusted Reverse Proxies
+
+Behind a reverse proxy, the proxy service sees the address of the reverse proxy, the address of the client comes in the `X-Forwarded-For` header. Any client can send this header, so the proxy service only uses it when the request comes from a trusted reverse proxy. The client address is used in the access log and in the audit log.
+
+`PROXY_TRUSTED_PROXIES` takes a list of IP addresses and CIDR ranges. The default trusts the loopback and the private network ranges: `127.0.0.0/8`, `::1/128`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` and `fc00::/7`. This works for a reverse proxy in the same Docker network or a Kubernetes ingress.
+
+Change the setting in these cases:
+
+- Your reverse proxy reaches OpenCloud from a public address, e.g. Cloudflare, a load balancer of a cloud provider or a proxy on another server. With the default its headers are ignored, every request then has the address of the reverse proxy. Add the addresses of your reverse proxy, for Cloudflare its published IP ranges.
+- Clients can reach OpenCloud from a private network without passing your reverse proxy. With the default they can set their address themselves. Set the addresses of your reverse proxies only.
+
+`PROXY_TRUSTED_PROXIES` replaces the default, list the loopback and private ranges again if you still need them.
+
+`X-Forwarded-For` is read from the right: the first address that is not a trusted proxy is the client, addresses a client added in front of it are ignored. If your reverse proxy sends the client address in another header, e.g. `X-Real-IP` or `CF-Connecting-IP`, set `PROXY_CLIENT_IP_HEADER`. A request from a trusted proxy without a usable header gets the address of the proxy.
+
+The proxy service passes the client address on to the other services in `X-Forwarded-For`.
+
+`OC_TRUSTED_PROXIES` and `OC_CLIENT_IP_HEADER` set both values for the proxy and the collaboration service.
+
 ### Content Security Policy
 
 For OpenCloud, external resources like an IDP (e.g. Keycloak) or when using web office documents or web apps, require defining a CSP. If not defined, the referenced services will not work.

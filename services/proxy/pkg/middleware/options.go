@@ -12,6 +12,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles"
+	"github.com/opencloud-eu/reva/v2/pkg/audit"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"go-micro.dev/v4/store"
@@ -23,6 +24,8 @@ type Option func(o *Options)
 
 // Options defines the available options for this package.
 type Options struct {
+	// AuditEmitter reports logins and failed logins
+	AuditEmitter audit.Emitter
 	// Logger to use for logging, must be set
 	Logger log.Logger
 	// PolicySelectorConfig for using the policy selector
@@ -278,6 +281,14 @@ func ServiceAccount(sa config.ServiceAccount) Option {
 func TenantIDMappingEnabled(val bool) Option {
 	return func(o *Options) {
 		o.TenantIDMappingEnabled = val
+	}
+}
+
+// EventsPublisher sets the events publisher.
+// AuditEmitter sets the emitter for audit events.
+func AuditEmitter(e audit.Emitter) Option {
+	return func(o *Options) {
+		o.AuditEmitter = e
 	}
 }
 

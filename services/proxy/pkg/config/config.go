@@ -19,6 +19,8 @@ type Config struct {
 
 	HTTP HTTP `yaml:"http"`
 
+	ClientIP ClientIP `yaml:"client_ip"`
+
 	Reva          *shared.Reva          `yaml:"reva"`
 	GRPCClientTLS *shared.GRPCClientTLS `yaml:"grpc_client_tls"`
 	GrpcClient    client.Client         `yaml:"-"`
@@ -49,6 +51,7 @@ type Config struct {
 	CSPConfigFileLocation         string              `yaml:"csp_config_file_location" env:"PROXY_CSP_CONFIG_FILE_LOCATION" desc:"The location of the CSP configuration file." introductionVersion:"1.0.0"`
 	CSPConfigFileOverrideLocation string              `yaml:"csp_config_file_override_location" env:"PROXY_CSP_CONFIG_FILE_OVERRIDE_LOCATION" desc:"The location of the CSP configuration file override." introductionVersion:"4.0.0"`
 	Events                        Events              `yaml:"events"`
+	Audit                         Audit               `yaml:"audit"`
 	GuestLinkAuth                 GuestLinkAuth       `yaml:"guest_link_auth"`
 
 	Context context.Context `json:"-" yaml:"-"`
@@ -95,6 +98,12 @@ var (
 	// RouteTypes is an array of the available route types
 	RouteTypes = []RouteType{QueryRoute, RegexRoute, PrefixRoute}
 )
+
+// ClientIP configures how the proxy determines the address of the client.
+type ClientIP struct {
+	TrustedProxies []string `yaml:"trusted_proxies" env:"OC_TRUSTED_PROXIES;PROXY_TRUSTED_PROXIES" desc:"IP addresses and CIDR ranges of the reverse proxies in front of OpenCloud. The client address is only taken from the header set in PROXY_CLIENT_IP_HEADER if the request comes from one of these. Defaults to the loopback and private network ranges. Set it to the addresses of your reverse proxies if clients can reach OpenCloud from a private network. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	Header         string   `yaml:"header" env:"OC_CLIENT_IP_HEADER;PROXY_CLIENT_IP_HEADER" desc:"The header a trusted reverse proxy sends the client address in, e.g. X-Real-IP or CF-Connecting-IP. X-Forwarded-For is read from the right, the first address that is not a trusted proxy is the client." introductionVersion:"%%NEXT%%"`
+}
 
 // AuthMiddleware configures the proxy http auth middleware.
 type AuthMiddleware struct {
@@ -236,6 +245,12 @@ type ServiceAccount struct {
 }
 
 // Events combines the configuration options for the event bus.
+// Audit configures the audit events of the service.
+type Audit struct {
+	Enabled bool   `yaml:"enabled" env:"OC_AUDIT_ENABLED;PROXY_AUDIT_ENABLED" desc:"Emit audit events for logins and failed logins to the audit stream." introductionVersion:"%%NEXT%%"`
+	Mode    string `yaml:"mode" env:"OC_AUDIT_MODE;PROXY_AUDIT_MODE" desc:"What happens when an audit event can't be stored. 'best_effort' never blocks a request and counts dropped events, 'strict' waits until the event is stored." introductionVersion:"%%NEXT%%"`
+}
+
 type Events struct {
 	Endpoint             string `yaml:"endpoint" env:"OC_EVENTS_ENDPOINT;PROXY_EVENTS_ENDPOINT" desc:"The address of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture. Set to a empty string to disable emitting events." introductionVersion:"1.0.0"`
 	Cluster              string `yaml:"cluster" env:"OC_EVENTS_CLUSTER;PROXY_EVENTS_CLUSTER" desc:"The clusterID of the event system. The event system is the message queuing service. It is used as message broker for the microservice architecture." introductionVersion:"1.0.0"`

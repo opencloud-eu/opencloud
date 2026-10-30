@@ -157,6 +157,9 @@ func DefaultConfig() *config.Config {
 				InotifyStatsFrequency:      5 * time.Minute,
 			},
 		},
+		Audit: config.Audit{
+			Mode: "best_effort",
+		},
 		Events: config.Events{
 			Addr:      "127.0.0.1:9233",
 			ClusterID: "opencloud-cluster",

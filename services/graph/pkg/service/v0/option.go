@@ -6,6 +6,7 @@ import (
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/nats-io/nats.go/jetstream"
+	"github.com/opencloud-eu/reva/v2/pkg/audit"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"go.opentelemetry.io/otel/trace"
@@ -41,6 +42,7 @@ type Options struct {
 	ValueService             settingssvc.ValueService
 	RoleManager              *roles.Manager
 	EventsPublisher          events.Publisher
+	AuditEmitter             audit.Emitter
 	SearchService            searchsvc.SearchProviderService
 	KeycloakClient           keycloak.Client
 	EventHistoryClient       ehsvc.EventHistoryService
@@ -168,6 +170,13 @@ func RoleManager(val *roles.Manager) Option {
 func EventsPublisher(val events.Publisher) Option {
 	return func(o *Options) {
 		o.EventsPublisher = val
+	}
+}
+
+// AuditEmitter provides a function to set the AuditEmitter option.
+func AuditEmitter(val audit.Emitter) Option {
+	return func(o *Options) {
+		o.AuditEmitter = val
 	}
 }
 

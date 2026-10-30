@@ -28,6 +28,7 @@ type Config struct {
 	DataServerURL string  `yaml:"data_server_url" env:"STORAGE_USERS_DATA_SERVER_URL" desc:"URL of the data server, needs to be reachable by the data gateway provided by the frontend service or the user if directly exposed." introductionVersion:"1.0.0"`
 
 	Events            Events            `yaml:"events"`
+	Audit             Audit             `yaml:"audit"`
 	FilemetadataCache FilemetadataCache `yaml:"filemetadata_cache"`
 	IDCache           IDCache           `yaml:"id_cache"`
 	MountID           string            `yaml:"mount_id" env:"STORAGE_USERS_MOUNT_ID" desc:"Mount ID of this storage." introductionVersion:"1.0.0"`
@@ -211,6 +212,12 @@ type PosixDriver struct {
 	WatchNotificationBrokers string        `yaml:"watch_notification_brokers" env:"STORAGE_USERS_POSIX_WATCH_NOTIFICATION_BROKERS,STORAGE_USERS_POSIX_WATCH_FOLDER_KAFKA_BROKERS" desc:"Comma-separated list of kafka brokers to read the watchfolder events from." introductionVersion:"1.0.0" deprecationVersion:"4.0.0" deprecationInfo:"STORAGE_USERS_POSIX_WATCH_FOLDER_KAFKA_BROKERS is deprecated and will be removed in a future version. Please use STORAGE_USERS_POSIX_WATCH_NOTIFICATION_BROKERS instead."`
 	WatchRoot                string        `yaml:"watch_root" env:"STORAGE_USERS_POSIX_WATCH_ROOT" desc:"Path to the watch root directory. Event paths will be considered relative to this path. Only applies to the 'gpswatchfolder' and 'cephfs' watchers." introductionVersion:"4.0.0"`
 	InotifyStatsFrequency    time.Duration `yaml:"inotify_stats_frequency" env:"STORAGE_USERS_POSIX_INOTIFY_STATS_FREQUENCY" desc:"Frequency to log inotify stats." introductionVersion:"4.0.0"`
+}
+
+// Audit configures the audit events of the service.
+type Audit struct {
+	Enabled bool   `yaml:"enabled" env:"OC_AUDIT_ENABLED;STORAGE_USERS_AUDIT_ENABLED" desc:"Emit audit events for the CS3 calls of the service to the audit stream." introductionVersion:"%%NEXT%%"`
+	Mode    string `yaml:"mode" env:"OC_AUDIT_MODE;STORAGE_USERS_AUDIT_MODE" desc:"What happens when an audit event can't be stored. 'best_effort' never blocks a request and counts dropped events, 'strict' waits until the event is stored." introductionVersion:"%%NEXT%%"`
 }
 
 // Events combines the configuration options for the event bus.

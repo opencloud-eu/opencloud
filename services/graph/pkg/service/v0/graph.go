@@ -17,6 +17,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/opencloud-eu/reva/v2/pkg/audit"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 
@@ -66,6 +67,7 @@ type Graph struct {
 	valueService             settingssvc.ValueService
 	specialDriveItemsCache   *ttlcache.Cache[string, any]
 	eventsPublisher          events.Publisher
+	auditEmitter             audit.Emitter
 	searchService            searchsvc.SearchProviderService
 	keycloakClient           keycloak.Client
 	historyClient            ehsvc.EventHistoryService
@@ -95,6 +97,10 @@ func (g Graph) publishEvent(ctx context.Context, ev any) {
 				Err(err).
 				Msg("could not publish user created event")
 		}
+	}
+	// the change is done already, an audit error must not fail the request now
+	if err := g.emitAudit(ctx, auditEvents(ev)...); err != nil {
+		g.logger.Error().Err(err).Msg("could not emit audit event")
 	}
 }
 

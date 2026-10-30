@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/defaults"
+	"github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
@@ -52,8 +53,10 @@ func DefaultConfig() *config.Config {
 			Namespace: "eu.opencloud.api",
 		},
 		HTTP: config.HTTP{
-			Addr:      "127.0.0.1:9300",
-			Namespace: "eu.opencloud.web",
+			Addr:           "127.0.0.1:9300",
+			Namespace:      "eu.opencloud.web",
+			TrustedProxies: middleware.DefaultTrustedProxies(),
+			ClientIPHeader: middleware.DefaultClientIPHeader,
 		},
 		Debug: config.Debug{
 			Addr:   "127.0.0.1:9304",

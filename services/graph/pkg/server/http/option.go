@@ -6,6 +6,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
+	"github.com/opencloud-eu/reva/v2/pkg/audit"
 
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/spf13/pflag"
@@ -25,6 +26,7 @@ type Options struct {
 	Namespace     string
 	TraceProvider trace.TracerProvider
 	NatsKeyValue  jetstream.KeyValue
+	AuditEmitter  audit.Emitter
 }
 
 // newOptions initializes the available default options.
@@ -84,6 +86,13 @@ func Namespace(val string) Option {
 func TraceProvider(val trace.TracerProvider) Option {
 	return func(o *Options) {
 		o.TraceProvider = val
+	}
+}
+
+// AuditEmitter provides a function to set the AuditEmitter option.
+func AuditEmitter(val audit.Emitter) Option {
+	return func(o *Options) {
+		o.AuditEmitter = val
 	}
 }
 
