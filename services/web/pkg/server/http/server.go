@@ -118,7 +118,6 @@ func Server(opts ...Option) (http.Service, error) {
 		svc.Config(options.Config),
 		svc.GatewaySelector(gatewaySelector),
 		svc.Middleware(
-			chimiddleware.ClientIPFromHeader(middleware.DefaultClientIPHeader),
 			chimiddleware.RequestID,
 			chimiddleware.Compress(5),
 			middleware.NoCache,

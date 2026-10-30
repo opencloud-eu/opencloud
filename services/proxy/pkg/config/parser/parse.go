@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
+	"github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config/defaults"
@@ -66,14 +67,8 @@ func Validate(cfg *config.Config) error {
 		}
 	}
 
-	if cfg.ClientIP.Strategy != config.ClientIPStrategyRemoteAddr && cfg.ClientIP.Strategy != config.ClientIPStrategyHeader &&
-		cfg.ClientIP.Strategy != config.ClientIPStrategyXFF && cfg.ClientIP.Strategy != config.ClientIPStrategyXFFTrustedHops {
-		return fmt.Errorf(
-			"Invalid value '%s' for 'client_ip.strategy' in service %s. Possible values are: '%s', '%s', '%s' or '%s'.",
-			cfg.ClientIP.Strategy, cfg.Service.Name,
-			config.ClientIPStrategyRemoteAddr, config.ClientIPStrategyHeader,
-			config.ClientIPStrategyXFF, config.ClientIPStrategyXFFTrustedHops,
-		)
+	if _, err := middleware.ParseTrustedProxies(cfg.ClientIP.TrustedProxies); err != nil {
+		return fmt.Errorf("invalid PROXY_TRUSTED_PROXIES in service %s: %w", cfg.Service.Name, err)
 	}
 
 	if cfg.ServiceAccount.ServiceAccountID == "" {
