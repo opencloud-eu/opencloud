@@ -1066,6 +1066,192 @@ func TestParse_DottedKey(t *testing.T) {
 	}
 }
 
+func TestParse_Quoting(t *testing.T) {
+	tests := []testCase{
+		// 2.3.1 String Tokens: a double quote inside the quotes is written as two
+		{
+			name: `name:"*""Quote""*"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: `*"Quote"*`},
+				},
+			},
+		},
+		{
+			name: `content:"""Quotewort"""`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "content", Value: `"Quotewort"`},
+				},
+			},
+		},
+		{
+			name: `name=""""`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: `"`, Exact: true},
+				},
+			},
+		},
+		{
+			name: `"say ""hi"" twice"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Value: `say "hi" twice`},
+				},
+			},
+		},
+		// two quotes right after each other are one value, not two phrases
+		{
+			name: `"a""b"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Value: `a"b`},
+				},
+			},
+		},
+		{
+			name: `"a" "b"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Value: "a"},
+					&ast.OperatorNode{Value: kql.BoolAND},
+					&ast.StringNode{Value: "b"},
+				},
+			},
+		},
+		{
+			name: `name:""`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: ""},
+				},
+			},
+		},
+		// a backslash is a plain character, it escapes nothing
+		{
+			name: `content:"foo\"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "content", Value: `foo\`},
+				},
+			},
+		},
+		{
+			name: `name:"C:\temp\new"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: `C:\temp\new`},
+				},
+			},
+		},
+		{
+			name: `name:back\slash`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: `back\slash`},
+				},
+			},
+		},
+		// so is a slash
+		{
+			name: `mediatype:image/png`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "mediatype", Value: "image/png"},
+				},
+			},
+		},
+		{
+			name: `path:"./a/b c"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "path", Value: "./a/b c"},
+				},
+			},
+		},
+		// quotes keep spaces, parentheses, colons and operator words in the value
+		{
+			name: `name:"a (b) c:d OR e"`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: "a (b) c:d OR e"},
+				},
+			},
+		},
+		// a date, number or boolean has to be the whole value, otherwise it's text
+		{
+			name: `name:"2024-01-01""foo"""`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: `2024-01-01"foo"`},
+				},
+			},
+		},
+		{
+			name: `name:"today""s"""`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: `today"s"`},
+				},
+			},
+		},
+		{
+			name: `name:2024-01-01foo`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: "2024-01-01foo"},
+				},
+			},
+		},
+		{
+			name: `name:todays_report`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: "todays_report"},
+				},
+			},
+		},
+		{
+			name: `name:trueish`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: "trueish"},
+				},
+			},
+		},
+		{
+			name: `size>100abc`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Value: "size>100abc"},
+				},
+			},
+		},
+		{
+			name: `Modified:"2023-09-05"foo`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.DateTimeNode{
+						Key:      "Modified",
+						Operator: &ast.OperatorNode{Value: ":"},
+						Value:    mustParseTime(t, "2023-09-05"),
+					},
+					&ast.OperatorNode{Value: kql.BoolAND},
+					&ast.StringNode{Value: "foo"},
+				},
+			},
+		},
+		// a quote inside an unquoted value is an error, see TestBuild_ValidationErrors
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			testKQL(t, tc)
+		})
+	}
+}
+
 func TestParse_Stress(t *testing.T) {
 	tests := []testCase{
 		{
