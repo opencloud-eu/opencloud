@@ -46,6 +46,10 @@ const (
 	_spaceTypeProject    = "project"
 	_spaceTypeGrant      = "grant"
 	_slowQueryDuration   = 500 * time.Millisecond
+
+	// facetKeyPrefix is the arbitrary metadata namespace the facets are stored
+	// under. The indexer owns all of it and removes keys it no longer writes.
+	facetKeyPrefix = "libre.graph."
 )
 
 // Searcher is the interface to the SearchService
@@ -720,18 +724,25 @@ func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, bat
 
 	// determine if metadata needs to be stored in storage as well
 	metadata := map[string]string{}
-	facetToMetadata(metadata, doc.Audio, "libre.graph.audio.")
-	facetToMetadata(metadata, doc.Image, "libre.graph.image.")
-	facetToMetadata(metadata, doc.Location, "libre.graph.location.")
-	facetToMetadata(metadata, doc.Photo, "libre.graph.photo.")
-	facetToMetadata(metadata, doc.Video, "libre.graph.video.")
-	facetToMetadata(metadata, doc.MotionPhoto, "libre.graph.motionPhoto.")
-	facetToMetadata(metadata, doc.LivePhoto, "libre.graph.livePhoto.")
-	if len(metadata) == 0 {
+	facetToMetadata(metadata, doc.Audio, facetKeyPrefix+"audio.")
+	facetToMetadata(metadata, doc.Image, facetKeyPrefix+"image.")
+	facetToMetadata(metadata, doc.Location, facetKeyPrefix+"location.")
+	facetToMetadata(metadata, doc.Photo, facetKeyPrefix+"photo.")
+	facetToMetadata(metadata, doc.Video, facetKeyPrefix+"video.")
+	facetToMetadata(metadata, doc.MotionPhoto, facetKeyPrefix+"motionPhoto.")
+	facetToMetadata(metadata, doc.LivePhoto, facetKeyPrefix+"livePhoto.")
+
+	// the facet keys are ours, so the ones this extraction did not produce
+	// describe content the resource no longer has
+	var stale []string
+	for k := range stat.GetInfo().GetArbitraryMetadata().GetMetadata() {
+		if _, ok := metadata[k]; !ok && strings.HasPrefix(k, facetKeyPrefix) {
+			stale = append(stale, k)
+		}
+	}
+	if len(metadata) == 0 && len(stale) == 0 {
 		return
 	}
-
-	s.logger.Trace().Str("name", doc.Name).Interface("metadata", metadata).Msg("Storing metadata")
 
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
@@ -739,15 +750,31 @@ func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, bat
 		return
 	}
 
-	resp, err := gatewayClient.SetArbitraryMetadata(ctx, &provider.SetArbitraryMetadataRequest{
-		Ref: ref,
-		ArbitraryMetadata: &provider.ArbitraryMetadata{
-			Metadata: metadata,
-		},
-	})
-	if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
-		s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error storing metadata")
-		return
+	if len(metadata) > 0 {
+		s.logger.Trace().Str("name", doc.Name).Interface("metadata", metadata).Msg("Storing metadata")
+
+		resp, err := gatewayClient.SetArbitraryMetadata(ctx, &provider.SetArbitraryMetadataRequest{
+			Ref: ref,
+			ArbitraryMetadata: &provider.ArbitraryMetadata{
+				Metadata: metadata,
+			},
+		})
+		if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+			s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error storing metadata")
+			return
+		}
+	}
+
+	if len(stale) > 0 {
+		s.logger.Trace().Str("name", doc.Name).Strs("keys", stale).Msg("Removing stale metadata")
+
+		resp, err := gatewayClient.UnsetArbitraryMetadata(ctx, &provider.UnsetArbitraryMetadataRequest{
+			Ref:                   ref,
+			ArbitraryMetadataKeys: stale,
+		})
+		if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+			s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error removing stale metadata")
+		}
 	}
 }
 

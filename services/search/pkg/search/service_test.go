@@ -10,6 +10,7 @@ import (
 	typesv1beta1 "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -175,6 +176,92 @@ var _ = Describe("Searchprovider", func() {
 			Entry("./", "./", false),
 			Entry("/", "/", false),
 		)
+
+		Context("with facets stored on the resource", func() {
+			var (
+				info  *sprovider.ResourceInfo
+				calls []string
+				set   map[string]string
+				unset []string
+			)
+
+			BeforeEach(func() {
+				calls, set, unset = nil, nil, nil
+				info = &sprovider.ResourceInfo{
+					Id:       &sprovider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "photo-opaqueid"},
+					ParentId: &sprovider.ResourceId{StorageId: "storageid", OpaqueId: "parentopaqueid"},
+					Path:     "./photo.jpg",
+					ArbitraryMetadata: &sprovider.ArbitraryMetadata{
+						Metadata: map[string]string{
+							"libre.graph.photo.cameraMake":    "Canon",
+							"libre.graph.photo.iso":           "100",
+							"libre.graph.location.altitude":   "12",
+							"http://owncloud.org/ns/favorite": "1",
+						},
+					},
+				}
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&sprovider.StatResponse{
+					Status: status.NewOK(context.Background()),
+					Info:   info,
+				}, nil)
+				gatewayClient.On("GetPath", mock.Anything, mock.MatchedBy(func(req *sprovider.GetPathRequest) bool {
+					return req.GetResourceId().GetOpaqueId() == info.GetId().GetOpaqueId()
+				})).Return(&sprovider.GetPathResponse{
+					Status: status.NewOK(context.Background()),
+					Path:   info.GetPath(),
+				}, nil)
+				indexClient.On("Upsert", mock.Anything, mock.Anything).Return(nil)
+				gatewayClient.On("SetArbitraryMetadata", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+					calls = append(calls, "set")
+					set = args.Get(1).(*sprovider.SetArbitraryMetadataRequest).GetArbitraryMetadata().GetMetadata()
+				}).Return(&sprovider.SetArbitraryMetadataResponse{Status: status.NewOK(context.Background())}, nil)
+				gatewayClient.On("UnsetArbitraryMetadata", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+					calls = append(calls, "unset")
+					unset = args.Get(1).(*sprovider.UnsetArbitraryMetadataRequest).GetArbitraryMetadataKeys()
+				}).Return(&sprovider.UnsetArbitraryMetadataResponse{Status: status.NewOK(context.Background())}, nil)
+			})
+
+			It("removes the facets the extraction no longer produces after storing the new ones", func() {
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{
+					Photo: &libregraph.Photo{CameraMake: libregraph.PtrString("Nikon")},
+				}, nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				Expect(calls).To(Equal([]string{"set", "unset"}))
+				Expect(set).To(Equal(map[string]string{"libre.graph.photo.cameraMake": "Nikon"}))
+				Expect(unset).To(ConsistOf("libre.graph.photo.iso", "libre.graph.location.altitude"))
+			})
+
+			It("removes all facets when the extraction produces none", func() {
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{}, nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				Expect(calls).To(Equal([]string{"unset"}))
+				Expect(unset).To(ConsistOf("libre.graph.photo.cameraMake", "libre.graph.photo.iso", "libre.graph.location.altitude"))
+			})
+
+			It("removes keys of facets the indexer no longer knows", func() {
+				info.ArbitraryMetadata.Metadata["libre.graph.retiredFacet.field"] = "value"
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{
+					Photo:    &libregraph.Photo{CameraMake: libregraph.PtrString("Canon"), Iso: libregraph.PtrInt32(100)},
+					Location: &libregraph.GeoCoordinates{Altitude: libregraph.PtrFloat64(12)},
+				}, nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				Expect(calls).To(Equal([]string{"set", "unset"}))
+				Expect(unset).To(ConsistOf("libre.graph.retiredFacet.field"))
+			})
+
+			It("removes nothing when the extraction still produces every stored facet", func() {
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{
+					Photo:    &libregraph.Photo{CameraMake: libregraph.PtrString("Canon"), Iso: libregraph.PtrInt32(100)},
+					Location: &libregraph.GeoCoordinates{Altitude: libregraph.PtrFloat64(12)},
+				}, nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				Expect(calls).To(Equal([]string{"set"}))
+			})
+		})
 	})
 
 	DescribeTable("ExpandQueryTemplate",
