@@ -64,8 +64,8 @@ func authMethodOf(a Authenticator) string {
 }
 
 // AuditContext collects what the audit records need about the request and
-// no other header carries: client address, auth method, session and OIDC
-// client. It stores them in the context, which also adds them to outgoing
+// no other header carries: client address, user agent, auth method, session
+// and OIDC client. It stores them in the context, which also adds them to outgoing
 // gRPC calls, and sets the X-Audit-Context header for the upstream HTTP
 // services. A value sent by the client is always dropped.
 //
@@ -79,6 +79,7 @@ func AuditContext(next http.Handler) http.Handler {
 		rc := audit.RequestContext{
 			ClientAddress: ocmiddleware.ClientAddress(r),
 			AuthMethod:    authMethodFromContext(ctx),
+			UserAgent:     r.UserAgent(),
 		}
 		if rc.AuthMethod == AuthMethodOIDC {
 			claims := oidc.FromContext(ctx)
@@ -148,7 +149,7 @@ func auditLoginFailure(r *http.Request, emitter audit.Emitter, a Authenticator, 
 		target = audit.Target{ID: login, Name: login}
 	}
 
-	ctx := audit.ContextSetRequest(r.Context(), audit.RequestContext{ClientAddress: ocmiddleware.ClientAddress(r), AuthMethod: method})
+	ctx := audit.ContextSetRequest(r.Context(), audit.RequestContext{ClientAddress: ocmiddleware.ClientAddress(r), AuthMethod: method, UserAgent: r.UserAgent()})
 	_ = emitter.Emit(ctx, audit.Event{
 		Definition: audit.AuthLogin,
 		Outcome:    audit.OutcomeFailure,

@@ -40,12 +40,13 @@ func TestAuditContextDropsClientHeader(t *testing.T) {
 func TestAuditContextOIDC(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/me", nil)
 	r.RemoteAddr = "203.0.113.7"
+	r.Header.Set("User-Agent", "Safari")
 	r = r.WithContext(oidc.NewContext(r.Context(), map[string]any{"sid": "s-1", "azp": "web"}))
 	r = withAuthMethod(r, &OIDCAuthenticator{})
 
 	got := serve(t, r)
 
-	want := audit.RequestContext{ClientAddress: "203.0.113.7", AuthMethod: AuthMethodOIDC, SessionID: "s-1", ClientID: "web"}
+	want := audit.RequestContext{ClientAddress: "203.0.113.7", AuthMethod: AuthMethodOIDC, SessionID: "s-1", ClientID: "web", UserAgent: "Safari"}
 	rc, ok := audit.ContextGetRequest(got.Context())
 	require.True(t, ok)
 	assert.Equal(t, want, rc)
