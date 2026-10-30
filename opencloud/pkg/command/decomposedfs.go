@@ -283,8 +283,6 @@ func setCmd(_ *config.Config) *cobra.Command {
 
 func backend(backend string) metadata.Backend {
 	switch backend {
-	case "xattrs":
-		return metadata.NewXattrsBackend(cache.Config{})
 	case "mpk":
 		return metadata.NewMessagePackBackend(cache.Config{})
 	}
