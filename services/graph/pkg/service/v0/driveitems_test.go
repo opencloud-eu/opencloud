@@ -563,6 +563,56 @@ var _ = Describe("Driveitems", func() {
 				Expect(res.Value[0].LibreGraphShareTypes).To(ConsistOf("user", "group", "link"))
 			})
 
+			It("reports a guest share as a guest share type", func() {
+				q := r.URL.Query()
+				q.Add("$select", "@libre.graph.shareTypes")
+				r.URL.RawQuery = q.Encode()
+
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:   provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:     &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:   "etag",
+							Mtime:  utils.TimeToTS(mtime),
+							Opaque: utils.AppendPlainToOpaque(nil, "share-types", "4"),
+						},
+					},
+				}, nil)
+				gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(&link.ListPublicSharesResponse{
+					Status: status.NewOK(ctx),
+				}, nil)
+
+				res := assertItemsList(1)
+				Expect(res.Value[0].LibreGraphShareTypes).To(ConsistOf("guest"))
+			})
+
+			It("reports user and guest shares as separate share types", func() {
+				q := r.URL.Query()
+				q.Add("$select", "@libre.graph.shareTypes")
+				r.URL.RawQuery = q.Encode()
+
+				gatewayClient.On("ListContainer", mock.Anything, mock.Anything).Return(&provider.ListContainerResponse{
+					Status: status.NewOK(ctx),
+					Infos: []*provider.ResourceInfo{
+						{
+							Type:   provider.ResourceType_RESOURCE_TYPE_FILE,
+							Id:     &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"},
+							Etag:   "etag",
+							Mtime:  utils.TimeToTS(mtime),
+							Opaque: utils.AppendPlainToOpaque(nil, "share-types", "1,4"),
+						},
+					},
+				}, nil)
+				gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(&link.ListPublicSharesResponse{
+					Status: status.NewOK(ctx),
+				}, nil)
+
+				res := assertItemsList(1)
+				Expect(res.Value[0].LibreGraphShareTypes).To(Equal([]string{"user", "guest"}))
+			})
+
 			It("reports only the link when the item has no grants", func() {
 				q := r.URL.Query()
 				q.Add("$select", "@libre.graph.shareTypes")

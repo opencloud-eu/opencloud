@@ -67,8 +67,8 @@ require (
 	github.com/onsi/gomega v1.43.1
 	github.com/open-policy-agent/opa v1.21.1
 	github.com/opencloud-eu/icap-client v0.0.0-20250930132611-28a2afe62d89
-	github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261016073229-17ed3d5dd346
-	github.com/opencloud-eu/reva/v2 v2.52.1
+	github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261030081330-a3e403417c95
+	github.com/opencloud-eu/reva/v2 v2.52.2-0.20261028080921-ba73828ef109
 	github.com/opensearch-project/opensearch-go/v4 v4.7.3
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/pkg/errors v0.9.1
