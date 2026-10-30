@@ -210,7 +210,7 @@ func (n *storeregistry) storeOptions(opts registry.Options) []store.Option {
 
 	natsOptions := nats.GetDefaultOptions()
 	natsOptions.Name = generators.GenerateConnectionName(serviceName, generators.NTypeRegistry)
-	natsOptions.User, natsOptions.Password = getAuth()
+	natsOptions.User, natsOptions.Password = getAuth(opts)
 	natsOptions.ReconnectedCB = func(_ *nats.Conn) {
 		if err := n.Init(); err != nil {
 			fmt.Println("cannot reconnect to nats")
@@ -230,6 +230,9 @@ func (n *storeregistry) storeOptions(opts registry.Options) []store.Option {
 	return storeoptions
 }
 
-func getAuth() (string, string) {
+func getAuth(opts registry.Options) (string, string) {
+	if a, ok := opts.Context.Value(authKey{}).(auth); ok {
+		return a.username, a.password
+	}
 	return os.Getenv(_registryUsernameEnv), os.Getenv(_registryPasswordEnv)
 }

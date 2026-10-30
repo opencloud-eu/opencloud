@@ -20,7 +20,7 @@ func RegisterService(ctx context.Context, logger log.Logger, service *mRegistry.
 
 	rOpts := []mRegistry.RegisterOption{mRegistry.RegisterTTL(GetRegisterTTL())}
 	if err := registry.Register(service, rOpts...); err != nil {
-		logger.Fatal().Err(err).Msgf("Registration error for external service %v", service.Name)
+		logger.Fatal().Err(err).Strs("registry_addresses", registry.Options().Addrs).Msgf("Registration error for external service %v", service.Name)
 	}
 
 	t := time.NewTicker(GetRegisterInterval())

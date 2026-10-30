@@ -57,6 +57,10 @@ func DefaultConfig() *Config {
 		Reva: &shared.Reva{
 			Address: "eu.opencloud.api.gateway",
 		},
+		ServiceRegistry: &shared.Registry{
+			Type:      "nats-js-kv",
+			Addresses: []string{"127.0.0.1:9233"},
+		},
 
 		Activitylog:       activitylog.DefaultConfig(),
 		Antivirus:         antivirus.DefaultConfig(),

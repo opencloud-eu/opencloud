@@ -73,7 +73,7 @@ type Config struct {
 	File         string
 	OpenCloudURL string `yaml:"opencloud_url" env:"OC_URL" desc:"URL, where OpenCloudURL is reachable for users." introductionVersion:"1.0.0"`
 
-	Registry          string               `yaml:"registry"`
+	ServiceRegistry   *shared.Registry     `yaml:"service_registry"`
 	TokenManager      *shared.TokenManager `yaml:"token_manager"`
 	MachineAuthAPIKey string               `yaml:"machine_auth_api_key" env:"OC_MACHINE_AUTH_API_KEY" desc:"Machine auth API key used to validate internal requests necessary for the access to resources from other services." introductionVersion:"1.0.0"`
 	TransferSecret    string               `yaml:"transfer_secret" env:"OC_TRANSFER_SECRET" desc:"Transfer secret for signing file up- and download requests." introductionVersion:"1.0.0"`

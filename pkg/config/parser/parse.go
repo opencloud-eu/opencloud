@@ -5,6 +5,7 @@ import (
 
 	"github.com/opencloud-eu/opencloud/pkg/config"
 	"github.com/opencloud-eu/opencloud/pkg/config/envdecode"
+	"github.com/opencloud-eu/opencloud/pkg/registry"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 )
@@ -29,6 +30,9 @@ func ParseConfig(cfg *config.Config, skipValidate bool) error {
 	}
 
 	EnsureCommons(cfg)
+
+	// the service registry is shared by all services in the process
+	registry.Configure(*cfg.ServiceRegistry)
 
 	if skipValidate {
 		return nil
@@ -57,6 +61,9 @@ func EnsureDefaults(cfg *config.Config) {
 	}
 	if cfg.Reva == nil {
 		cfg.Reva = &shared.Reva{}
+	}
+	if cfg.ServiceRegistry == nil {
+		cfg.ServiceRegistry = &shared.Registry{}
 	}
 
 	// ensure the commons part is initialized
