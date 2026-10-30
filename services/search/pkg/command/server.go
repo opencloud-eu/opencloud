@@ -100,6 +100,9 @@ func Server(cfg *config.Config) *cobra.Command {
 				return fmt.Errorf("unknown search engine: %s", cfg.Engine.Type)
 			}
 
+			// a wrapper for the engine that recovers from panics
+			eng = search.NewRecoveringEngine(eng, logger)
+
 			// initialize gateway selector
 			selector, err := pool.GatewaySelector(cfg.Reva.Address, pool.WithRegistry(registry.GetRegistry()), pool.WithTracerProvider(traceProvider))
 			if err != nil {
