@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(search): index resources with out-of-range coordinates without a geopoint [[#3496](https://github.com/opencloud-eu/opencloud/pull/3496)]
 - perf(search): skip unchanged facet keys when storing metadata [[#3682](https://github.com/opencloud-eu/opencloud/pull/3682)]
 
 ### 📦️ Dependencies
