@@ -1179,6 +1179,69 @@ func TestParse_Quoting(t *testing.T) {
 				},
 			},
 		},
+		// a date, number or boolean has to be the whole value, otherwise it's text
+		{
+			name: `name:"2024-01-01""foo"""`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: `2024-01-01"foo"`},
+				},
+			},
+		},
+		{
+			name: `name:"today""s"""`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: `today"s"`},
+				},
+			},
+		},
+		{
+			name: `name:2024-01-01foo`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: "2024-01-01foo"},
+				},
+			},
+		},
+		{
+			name: `name:todays_report`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: "todays_report"},
+				},
+			},
+		},
+		{
+			name: `name:trueish`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: "trueish"},
+				},
+			},
+		},
+		{
+			name: `size>100abc`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Value: "size>100abc"},
+				},
+			},
+		},
+		{
+			name: `Modified:"2023-09-05"foo`,
+			ast: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.DateTimeNode{
+						Key:      "Modified",
+						Operator: &ast.OperatorNode{Value: ":"},
+						Value:    mustParseTime(t, "2023-09-05"),
+					},
+					&ast.OperatorNode{Value: kql.BoolAND},
+					&ast.StringNode{Value: "foo"},
+				},
+			},
+		},
 		// a quote inside an unquoted value is an error, see TestBuild_ValidationErrors
 	}
 

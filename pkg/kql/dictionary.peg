@@ -47,7 +47,7 @@ PropertyRestrictionNodes <-
     TextPropertyRestrictionNode
 
 YesNoPropertyRestrictionNode <-
-    k:Key (OperatorColonNode / OperatorEqualNode) v:("true" / "false"){
+    k:Key (OperatorColonNode / OperatorEqualNode) v:("true" / "false") ValueEnd {
         return buildBooleanNode(k, v, c.text, c.pos)
     }
 
@@ -59,17 +59,13 @@ DateTimeRestrictionNode <-
         OperatorLessNode /
         OperatorEqualNode /
         OperatorColonNode
-    ) '"'? v:(
-        DateTime /
-        FullDate /
-        FullTime
-    ) '"'? {
+    ) v:DateTimeValue {
         return buildDateTimeNode(k, o, v, c.text, c.pos)
     } /
     k:Key (
         OperatorEqualNode /
         OperatorColonNode
-    ) '"'? v:NaturalLanguageDateTime '"'? {
+    ) v:NaturalLanguageDateTimeValue {
         return buildNaturalLanguageDateTimeNodes(k, v, c.text, c.pos)
     }
 
@@ -79,7 +75,7 @@ NumberRestrictionNode <-
         OperatorLessOrEqualNode /
         OperatorGreaterNode /
         OperatorLessNode
-    ) '"'? v:Number '"'? {
+    ) v:NumberValue {
         return buildNumberNode(k, o, v, c.text, c.pos)
     }
 
@@ -247,6 +243,37 @@ String <-
     '"' (`""` / [^"])* '"' {
         return unquote(c.text), nil
     }
+
+// a date or number only counts if it is the whole value, quoted or not.
+// Otherwise the value is text: name:todays_report is not the date today
+// followed by _report, and name:"2024-01-01""x""" is not a date followed by x"
+DateTimeValue <-
+    '"' v:(DateTime / FullDate / FullTime) '"' !'"' {
+        return v, nil
+    } /
+    v:(DateTime / FullDate / FullTime) ValueEnd {
+        return v, nil
+    }
+
+NaturalLanguageDateTimeValue <-
+    '"' v:NaturalLanguageDateTime '"' !'"' {
+        return v, nil
+    } /
+    v:NaturalLanguageDateTime ValueEnd {
+        return v, nil
+    }
+
+NumberValue <-
+    '"' v:Number '"' !'"' {
+        return v, nil
+    } /
+    v:Number ValueEnd {
+        return v, nil
+    }
+
+// where an unquoted date, number or boolean ends
+ValueEnd <-
+    &[ \t()"] / EOF
 
 Number <-
     [0-9]+ ("." [0-9]+)? {
