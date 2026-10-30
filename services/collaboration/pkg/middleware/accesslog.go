@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	ocmiddleware "github.com/opencloud-eu/opencloud/pkg/middleware"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -25,7 +26,7 @@ func AccessLog(logger log.Logger) func(http.Handler) http.Handler {
 				Str("proto", r.Proto).
 				Str(log.RequestIDString, requestID).
 				Str("traceid", spanContext.TraceID().String()).
-				Str("remote-addr", r.RemoteAddr).
+				Str("remote-addr", ocmiddleware.ClientAddress(r)).
 				Str("method", r.Method).
 				Str("wopi-action", r.Header.Get("X-WOPI-Override")).
 				Int("status", wrap.Status()).

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	ocmiddleware "github.com/opencloud-eu/opencloud/pkg/middleware"
 )
 
 // ContextLogger is a middleware to use a logger associated with the request's
@@ -12,7 +13,7 @@ func ContextLogger(logger log.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := logger.With().
-				Str("remoteAddr", r.RemoteAddr).
+				Str("remoteAddr", ocmiddleware.ClientAddress(r)).
 				Str(log.RequestIDString, r.Header.Get("X-Request-ID")).
 				Str("proto", r.Proto).
 				Str("method", r.Method).

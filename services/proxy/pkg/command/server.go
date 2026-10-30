@@ -384,13 +384,16 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 		URLVerifier:        signURLVerifier,
 	})
 
+	// validated by the config parser
+	trustedProxies, _ := pkgmiddleware.ParseTrustedProxies(cfg.ClientIP.TrustedProxies)
+
 	cspConfig, err := middleware.LoadCSPConfig(cfg)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to load CSP configuration.")
 	}
 
 	return alice.New(
-		chimiddleware.RealIP,
+		pkgmiddleware.ClientIP(trustedProxies, cfg.ClientIP.Header),
 		chimiddleware.RequestID,
 
 		// 1. Logging & Tracing first
