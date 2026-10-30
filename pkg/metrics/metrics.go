@@ -13,6 +13,38 @@ import (
 
 type BuildInfoMetric = *prometheus.GaugeVec
 
+// Namespace is the Prometheus namespace shared by all OpenCloud metrics.
+const Namespace = "opencloud"
+
+// APIType identifies an API that a service instance can serve.
+type APIType string
+
+const (
+	ResultSuccess = "success"
+	LabelResult   = "result"
+	ResultFailure = "failure"
+	LabelEvent    = "event"
+
+	APIHTTP   APIType = "http"
+	APIGRPC   APIType = "grpc"
+	APIEvents APIType = "events"
+)
+
+// Metrics is a container for the metrics of a service instance.
+type Metrics struct {
+	namespace string
+	subsystem string
+
+	BuildInfo *prometheus.GaugeVec
+
+	Events *eventsMetrics
+	HTTP   *httpMetrics
+	GRPC   *grpcMetrics
+}
+
+// Option configures a Metrics container.
+type Option func(*Metrics)
+
 // Create a BuildInfo metric for the specified namespace and subsystem.
 func BuildInfo(namespace, subsystem string) BuildInfoMetric {
 	return prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -79,6 +111,26 @@ func RegisterAll(registerer prometheus.Registerer, m any, logger *log.Logger) er
 		r = r.Elem()
 	}
 
+	// register a single collector, recording the outcome under name and using
+	// failureKey for failures so several failures don't overwrite each other
+	register := func(name, failureKey string, c prometheus.Collector) {
+		total++
+		if err := registerer.Register(c); err != nil {
+			switch err.(type) {
+			case prometheus.AlreadyRegisteredError:
+				// silently ignore this error, as this case can happen when the suture service decides to restart
+				succeeded = append(succeeded, name)
+			default:
+				failed[failureKey] = err
+			}
+		} else {
+			succeeded = append(succeeded, name)
+			if err := postProcess(c); err != nil {
+				failed[failureKey] = err
+			}
+		}
+	}
+
 	for i := 0; i < r.NumField(); i++ {
 		t := r.Type().Field(i)
 		n := t.Name // the name of the attribute (not the name of the metric)
@@ -89,21 +141,13 @@ func RegisterAll(registerer prometheus.Registerer, m any, logger *log.Logger) er
 		v := f.Interface()
 		switch c := v.(type) {
 		case prometheus.Collector:
-			total++
-			if err := registerer.Register(c); err != nil {
-				switch err.(type) {
-				case prometheus.AlreadyRegisteredError:
-					// silently ignore this error, as this case can happen when the suture service decides to restart
-					err = nil
-					succeeded = append(succeeded, n)
-				default:
-					failed[n] = err
-				}
-			} else {
-				succeeded = append(succeeded, n)
-				if err := postProcess(c); err != nil {
-					failed[n] = err
-				}
+			register(n, n, c)
+		case *Metrics:
+			if c == nil {
+				continue // a struct may embed a nil container, its own fields still register
+			}
+			for j, collector := range c.Collectors() {
+				register(n, fmt.Sprintf("%s[%d]", n, j), collector)
 			}
 		case *prometheus.Desc,
 			prometheus.GaugeOpts,
@@ -203,3 +247,83 @@ func (r *LoggingPrometheusRegisterer) Unregister(c prometheus.Collector) bool {
 }
 
 var _ prometheus.Registerer = &LoggingPrometheusRegisterer{}
+
+func New(reg prometheus.Registerer, logger *log.Logger, service string, opts ...Option) (*Metrics, error) {
+	m := &Metrics{
+		namespace: Namespace,
+		subsystem: service,
+		BuildInfo: BuildInfo(Namespace, service),
+		HTTP:      newHTTPMetrics(Namespace, service),
+		GRPC:      newGRPCMetrics(Namespace, service),
+		Events:    newEventsMetrics(Namespace, service),
+	}
+
+	for _, o := range opts {
+		o(m)
+	}
+
+	m.BuildInfo.WithLabelValues(version.GetString()).Set(1)
+
+	lr := NewLoggingPrometheusRegisterer(reg, logger)
+	var errs []error
+	for _, c := range m.Collectors() {
+		if err := lr.Register(c); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return m, errors.Join(errs...)
+}
+
+// Collectors returns every collector the container owns, for registration.
+func (m *Metrics) Collectors() []prometheus.Collector {
+	collectors := []prometheus.Collector{m.BuildInfo}
+	if m.Events != nil {
+		collectors = append(collectors, m.Events.collectors()...)
+	}
+	if m.HTTP != nil {
+		collectors = append(collectors, m.HTTP.collectors()...)
+	}
+	if m.GRPC != nil {
+		collectors = append(collectors, m.GRPC.collectors()...)
+	}
+	return collectors
+}
+
+// EnableHTTP sets whether this instance serves the HTTP API.
+func (m *Metrics) EnableHTTP(enabled bool) { m.HTTP.setEnabled(enabled) }
+
+// EnableGRPC sets whether this instance serves the gRPC API.
+func (m *Metrics) EnableGRPC(enabled bool) { m.GRPC.setEnabled(enabled) }
+
+// EnableEvents sets whether this instance consumes events.
+func (m *Metrics) EnableEvents(enabled bool) { m.Events.setEnabled(enabled) }
+
+func newEnabledGauge(namespace, subsystem string, api APIType) prometheus.Gauge {
+	return prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      string(api) + "_enabled",
+		Help:      "Whether this instance processes " + api.display() + " (1) or not (0)",
+	})
+}
+
+// display returns the human-readable API name for the gauge help text.
+func (a APIType) display() string {
+	switch a {
+	case APIHTTP:
+		return "HTTP API calls"
+	case APIGRPC:
+		return "gRPC API calls"
+	case APIEvents:
+		return "events"
+	default:
+		return string(a)
+	}
+}
+
+func boolToFloat64(b bool) float64 {
+	if b {
+		return 1
+	}
+	return 0
+}
