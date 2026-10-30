@@ -19,6 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	ocmetrics "github.com/opencloud-eu/opencloud/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
@@ -207,7 +208,8 @@ func NewLDAPBackend(lc ldap.Client, config config.LDAP, logger *log.Logger, name
 				MetricLabelWrite: write,
 			},
 		}, []string{MetricLabelOperation, metrics.LabelResult})
-		if err := registry.Register(ldapEgressDuration); err != nil {
+		// no logger, as the error is logged here
+		if err := ocmetrics.RegisterMetrics(registry, nil, ocmetrics.WithVecRef(&ldapEgressDuration)); err != nil {
 			logger.Warn().Err(err).Msg("failed to register LDAP egress duration metric")
 		}
 
@@ -232,7 +234,7 @@ func NewLDAPBackend(lc ldap.Client, config config.LDAP, logger *log.Logger, name
 			// when scraped, we simply read the current value of the atomic int:
 			return float64(inFlight.Load())
 		})
-		if err := registry.Register(ldapEgressInFlight); err != nil {
+		if err := ocmetrics.RegisterMetrics(registry, nil, ocmetrics.WithFunc(ldapEgressInFlight)); err != nil {
 			logger.Warn().Err(err).Msg("failed to register LDAP egress in-flight metric")
 		}
 
