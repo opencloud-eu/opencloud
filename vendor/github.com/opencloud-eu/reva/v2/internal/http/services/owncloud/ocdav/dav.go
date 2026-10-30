@@ -20,7 +20,6 @@ package ocdav
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"path"
 	"path/filepath"
@@ -35,6 +34,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/errors"
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/net"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
+	"github.com/opencloud-eu/reva/v2/pkg/auth"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp/router"
@@ -438,7 +438,7 @@ func handleBasicAuth(ctx context.Context, selector pool.Selectable[gatewayv1beta
 }
 
 func authChallenge(scheme, realm string) string {
-	return fmt.Sprintf("%s realm=\"%s\", charset=\"UTF-8\"", scheme, realm)
+	return auth.Challenge(scheme, realm, `charset="UTF-8"`)
 }
 
 func handleSignatureAuth(ctx context.Context, selector pool.Selectable[gatewayv1beta1.GatewayAPIClient], token, sig, expiration string) (*gatewayv1beta1.AuthenticateResponse, error) {

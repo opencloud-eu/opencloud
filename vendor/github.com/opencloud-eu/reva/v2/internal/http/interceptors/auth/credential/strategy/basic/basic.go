@@ -52,5 +52,5 @@ func (s *strategy) AddWWWAuthenticate(w http.ResponseWriter, r *http.Request, re
 		// fall back to hostname if not configured
 		realm = r.Host
 	}
-	w.Header().Add("WWW-Authenticate", fmt.Sprintf(`Basic realm="%s"`, realm))
+	w.Header().Add("WWW-Authenticate", auth.Challenge("Basic", realm))
 }

@@ -45,9 +45,9 @@ type Options struct {
 	// the attribute key prefix of the metadata on disk, process wide, see prefixes.SetOcPrefix
 	MetadataPrefix string `mapstructure:"metadata_prefix"`
 
-	// the propagator to use for this fs. currently only `sync` is fully supported, `async` is available as an experimental feature
+	// the propagator to use for this fs. currently only `sync` is fully supported, `async` is deprecated and will be removed in a future release
 	Propagator string `mapstructure:"propagator"`
-	// Options specific to the async propagator
+	// Options specific to the async propagator, which is deprecated
 	AsyncPropagatorOptions AsyncPropagatorOptions `mapstructure:"async_propagator_options"`
 
 	// decomposedfs fs works on top of a dir of uuid nodes

@@ -1,6 +1,3 @@
-// Copyright 2026 OpenCloud GmbH <mail@opencloud.eu>
-// SPDX-License-Identifier: Apache-2.0
-
 // This file holds the postprocessing result collector: the second half of an
 // async upload. finishUpload stages the bytes and publishes BytesReceived; the
 // postprocessing service scans them and reports back here, and only then are the
