@@ -524,6 +524,25 @@ func ListFavoritesPermission(c settingsmsg.Permission_Constraint) *settingsmsg.S
 	}
 }
 
+// ListPersonalSpacesPermission is the permission to list personal spaces
+func ListPersonalSpacesPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
+	return &settingsmsg.Setting{
+		Id:          "b7c1f1d6-64fb-4c42-aad1-928aca0970e8",
+		Name:        "Drives.ListPersonal",
+		DisplayName: "List All Personal Spaces",
+		Description: "This permission allows listing all personal spaces.",
+		Resource: &settingsmsg.Resource{
+			Type: settingsmsg.Resource_TYPE_SYSTEM,
+		},
+		Value: &settingsmsg.Setting_PermissionValue{
+			PermissionValue: &settingsmsg.Permission{
+				Operation:  settingsmsg.Permission_OPERATION_READ,
+				Constraint: c,
+			},
+		},
+	}
+}
+
 // ListSpacesPermission is the permission to list spaces
 func ListSpacesPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
 	return &settingsmsg.Setting{
@@ -537,6 +556,25 @@ func ListSpacesPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Sett
 		Value: &settingsmsg.Setting_PermissionValue{
 			PermissionValue: &settingsmsg.Permission{
 				Operation:  settingsmsg.Permission_OPERATION_READ,
+				Constraint: c,
+			},
+		},
+	}
+}
+
+// ManagePersonalSpacePropertiesPermission is the permission to manage personal space properties
+func ManagePersonalSpacePropertiesPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Setting {
+	return &settingsmsg.Setting{
+		Id:          "1759d0ab-201b-4e22-af09-992531cbdf92",
+		Name:        "Drives.ReadWritePersonal",
+		DisplayName: "Manage personal space properties",
+		Description: "This permission allows managing personal space properties such as name and description.",
+		Resource: &settingsmsg.Resource{
+			Type: settingsmsg.Resource_TYPE_SYSTEM,
+		},
+		Value: &settingsmsg.Setting_PermissionValue{
+			PermissionValue: &settingsmsg.Permission{
+				Operation:  settingsmsg.Permission_OPERATION_READWRITE,
 				Constraint: c,
 			},
 		},
