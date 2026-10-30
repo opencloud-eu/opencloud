@@ -1,7 +1,7 @@
 ---
 services:
   traefik:
-    image: traefik:v3.3.1
+    image: traefik:v3.7.5
     # release notes: https://github.com/traefik/traefik/releases
     networks:
       opencloud-net:
@@ -36,6 +36,9 @@ services:
       - "--accessLog=true"
       - "--accessLog.format=json"
       - "--accessLog.fields.headers.names.X-Request-Id=keep"
+      - "--accessLog.fields.headers.names.Trace-Id=keep"
+      # enable the ping endpoint for monitoring
+      - "--ping=true"
     ports:
       - "80:80"
       - "443:443"
@@ -54,6 +57,12 @@ services:
     logging:
       driver: ${LOG_DRIVER:-local}
     restart: always
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping=true"]
+      interval: 10s
+      retries: 5
+      start_period: 3s
+      timeout: 3s
 
 volumes:
   certs:

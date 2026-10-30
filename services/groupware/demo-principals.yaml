@@ -1,0 +1,23 @@
+alan:
+  quota: 20GB
+lynn:
+  quota: 5GB
+mary:
+  quota: 500MB
+programmers:
+  type: group
+  description: Programmers
+  emails:
+    - programmers@example.org
+  members:
+    - alan
+    - lynn
+news:
+  type: list
+  description: "Get your daily science news"
+  members:
+    - alan
+    - lynn
+  emails:
+    - news@example.org
+

@@ -21,7 +21,7 @@ services:
       # enable services that are not started automatically
       OC_ADD_RUN_SERVICES: ${START_ADDITIONAL_SERVICES}
       OC_URL: https://${OC_DOMAIN:-cloud.opencloud.test}
-      OC_LOG_LEVEL: ${LOG_LEVEL:-info}
+      OC_LOG_LEVEL: "${LOG_LEVEL:-info}"
       OC_LOG_COLOR: "${LOG_PRETTY:-false}"
       OC_LOG_PRETTY: "${LOG_PRETTY:-false}"
       # do not use SSL between Traefik and OpenCloud
@@ -58,10 +58,23 @@ services:
       COMPANION_DOMAIN: ${COMPANION_DOMAIN:-companion.opencloud.test}
       # enable to allow using the banned passwords list
       OC_PASSWORD_POLICY_BANNED_PASSWORDS_LIST: banned-password-list.txt
+      IDM_REVASVC_PASSWORD: "admin"
+      AUTH_BASIC_LDAP_BIND_PASSWORD: "admin"
+      USERS_LDAP_BIND_PASSWORD: "admin"
+      GROUPS_LDAP_BIND_PASSWORD: "admin"
+      IDM_LDAPS_ADDR: 0.0.0.0:9235
+      IDM_LDAPS_CERT: /etc/opencloud/certs/ldaps.crt
+      IDM_LDAPS_KEY: /etc/opencloud/certs/ldaps.key
+      OC_LDAP_CACERT: /etc/opencloud/certs/ldaps.crt
+      GROUPWARE_JMAP_BASE_URL: https://${STALWART_DOMAIN:-stalwart.opencloud.test}
+      GROUPWARE_JMAP_MASTER_USERNAME: "admin@example.org"
+      GROUPWARE_JMAP_MASTER_PASSWORD: "admin"
+      GROUPWARE_TLS_INSECURE: "true"
     volumes:
       - ./config/opencloud/app-registry.yaml:/etc/opencloud/app-registry.yaml
       - ./config/opencloud/csp.yaml:/etc/opencloud/csp.yaml
       - ./config/opencloud/banned-password-list.txt:/etc/opencloud/banned-password-list.txt
+      - ./config/opencloud/certs:/etc/opencloud/certs
       # configure the .env file to use own paths instead of docker internal volumes
       - ${OC_CONFIG_DIR:-opencloud-config}:/etc/opencloud
       - ${OC_DATA_DIR:-opencloud-data}:/var/lib/opencloud
@@ -76,6 +89,27 @@ services:
     logging:
       driver: ${LOG_DRIVER:-local}
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "test $(curl -sSf http://localhost:9104/healthz) == 'OK'"]
+      interval: 10s
+      retries: 5
+      start_period: 3s
+      timeout: 3s
+
+  opencloud-certs:
+    image: alpine/openssl:latest
+    environment:
+      CERTS: /certs
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ ! -f "$$CERTS/ldaps.key" ]; then
+          mkdir -p "$$CERTS"
+          /usr/bin/openssl req -subj '/CN=opencloud.test' -x509 -newkey rsa:4096 -sha256 -days 3650 -batch -nodes -keyout "$$CERTS/ldaps.key" -out "$$CERTS/ldaps.crt"
+        fi
+        chmod 666 "$$CERTS"/ldaps.*
+    volumes:
+      - ./config/opencloud/certs:/certs
 
 volumes:
   opencloud-config:
