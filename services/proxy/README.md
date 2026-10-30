@@ -304,7 +304,7 @@ Check `PROXY_TRUSTED_PROXIES` as described in [Trusted Reverse Proxies](#trusted
 
 ### Trusted Reverse Proxies
 
-Behind a reverse proxy, the proxy service sees the address of the reverse proxy, the address of the client comes in the `X-Forwarded-For` header. Any client can send this header, so the proxy service only uses it when the request comes from a trusted reverse proxy. The client address is used in the access log.
+Behind a reverse proxy, the proxy service sees the address of the reverse proxy, the address of the client comes in the `X-Forwarded-For` header. Any client can send this header, so the proxy service only uses it when the request comes from a trusted reverse proxy. The client address is used in the access log and in the audit log.
 
 `PROXY_TRUSTED_PROXIES` takes a list of IP addresses and CIDR ranges. The default trusts the loopback and the private network ranges: `127.0.0.0/8`, `::1/128`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` and `fc00::/7`. This works for a reverse proxy in the same Docker network or a Kubernetes ingress.
 

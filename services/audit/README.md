@@ -107,7 +107,7 @@ The audit service acknowledges an event only after it was written. If it stops o
 
 ## Client Address
 
-The proxy determines the client address. It only uses the `X-Forwarded-For` and `X-Real-IP` headers when the request comes from a trusted reverse proxy, see `PROXY_TRUSTED_PROXIES`. The default trusts the loopback and the private network ranges. This also changes the client address in the access log.
+The proxy determines the client address. It only uses the `X-Forwarded-For` header, or the header set in `PROXY_CLIENT_IP_HEADER`, when the request comes from a trusted reverse proxy, see `PROXY_TRUSTED_PROXIES`. The default trusts the loopback and the private network ranges.
 
 Check the setting if your reverse proxy is not in a private network:
 
