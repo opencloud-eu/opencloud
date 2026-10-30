@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @pascalwengerter, @rhafer
+@aduffeck, @dschmidt, @pascalwengerter, @rhafer
+
+### 🐛 Bug Fixes
+
+- perf(search): skip unchanged facet keys when storing metadata [[#3682](https://github.com/opencloud-eu/opencloud/pull/3682)]
 
 ### 📦️ Dependencies
 
