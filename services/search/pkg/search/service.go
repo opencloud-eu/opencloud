@@ -735,8 +735,12 @@ func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, bat
 	// the facet keys are ours, so the ones this extraction did not produce
 	// describe content the resource no longer has
 	var stale []string
-	for k := range stat.GetInfo().GetArbitraryMetadata().GetMetadata() {
-		if _, ok := metadata[k]; !ok && strings.HasPrefix(k, facetKeyPrefix) {
+	for k, stored := range stat.GetInfo().GetArbitraryMetadata().GetMetadata() {
+		value, ok := metadata[k]
+		switch {
+		case ok && value == stored:
+			delete(metadata, k)
+		case !ok && strings.HasPrefix(k, facetKeyPrefix):
 			stale = append(stale, k)
 		}
 	}

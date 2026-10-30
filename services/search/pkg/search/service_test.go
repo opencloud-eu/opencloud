@@ -248,18 +248,32 @@ var _ = Describe("Searchprovider", func() {
 				}, nil)
 
 				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
-				Expect(calls).To(Equal([]string{"set", "unset"}))
+				Expect(calls).To(Equal([]string{"unset"}))
 				Expect(unset).To(ConsistOf("libre.graph.retiredFacet.field"))
 			})
 
-			It("removes nothing when the extraction still produces every stored facet", func() {
+			It("writes only the keys whose value changed", func() {
+				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{
+					Photo:    &libregraph.Photo{CameraMake: libregraph.PtrString("Canon"), Iso: libregraph.PtrInt32(200)},
+					Location: &libregraph.GeoCoordinates{Altitude: libregraph.PtrFloat64(12), Latitude: libregraph.PtrFloat64(48.1)},
+				}, nil)
+
+				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
+				Expect(calls).To(Equal([]string{"set"}))
+				Expect(set).To(Equal(map[string]string{
+					"libre.graph.photo.iso":         "200",
+					"libre.graph.location.latitude": "48.1",
+				}))
+			})
+
+			It("does not touch the storage when the extraction still produces every stored facet unchanged", func() {
 				extractor.On("Extract", mock.Anything, mock.Anything, mock.Anything).Return(content.Document{
 					Photo:    &libregraph.Photo{CameraMake: libregraph.PtrString("Canon"), Iso: libregraph.PtrInt32(100)},
 					Location: &libregraph.GeoCoordinates{Altitude: libregraph.PtrFloat64(12)},
 				}, nil)
 
 				s.UpsertItem(&sprovider.Reference{ResourceId: info.GetId()})
-				Expect(calls).To(Equal([]string{"set"}))
+				Expect(calls).To(BeEmpty())
 			})
 		})
 	})
