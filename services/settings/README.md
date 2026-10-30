@@ -352,10 +352,36 @@ Example File:
                 }
             },
             {
+                "id": "b7c1f1d6-64fb-4c42-aad1-928aca0970e8",
+                "name": "Drives.ListPersonal",
+                "displayName": "List All Personal Spaces",
+                "description": "This permission allows listing all personal spaces.",
+                "permissionValue": {
+                    "operation": "OPERATION_READ",
+                    "constraint": "CONSTRAINT_ALL"
+                },
+                "resource": {
+                    "type": "TYPE_SYSTEM"
+                }
+            },
+            {
                 "id": "b44b4054-31a2-42b8-bb71-968b15cfbd4f",
                 "name": "Drives.ReadWrite",
                 "displayName": "Manage space properties",
                 "description": "This permission allows managing space properties such as name and description.",
+                "permissionValue": {
+                    "operation": "OPERATION_READWRITE",
+                    "constraint": "CONSTRAINT_ALL"
+                },
+                "resource": {
+                    "type": "TYPE_SYSTEM"
+                }
+            },
+            {
+                "id": "1759d0ab-201b-4e22-af09-992531cbdf92",
+                "name": "Drives.ReadWritePersonal",
+                "displayName": "Manage personal space properties",
+                "description": "This permission allows managing personal space properties such as name and description.",
                 "permissionValue": {
                     "operation": "OPERATION_READWRITE",
                     "constraint": "CONSTRAINT_ALL"
