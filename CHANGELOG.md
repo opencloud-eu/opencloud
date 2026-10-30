@@ -4,7 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @dschmidt, @pascalwengerter, @rhafer
+@aduffeck, @dragotin, @dschmidt, @pascalwengerter, @rhafer
+
+### 🔒 Security
+
+- Add files for the Anthropic OSS-Scanner to run [[#3865](https://github.com/opencloud-eu/opencloud/pull/3865)]
 
 ### 🐛 Bug Fixes
 
