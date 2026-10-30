@@ -1,19 +1,24 @@
 package bleve_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync"
 
 	bleveSearch "github.com/blevesearch/bleve/v2"
 	"github.com/blevesearch/bleve/v2/analysis/analyzer/custom"
 	"github.com/blevesearch/bleve/v2/analysis/token/lowercase"
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/unicode"
+	"github.com/blevesearch/bleve/v2/index/scorch"
 	bleveMapping "github.com/blevesearch/bleve/v2/mapping"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/rs/zerolog"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
@@ -46,6 +51,57 @@ var _ = Describe("Index", func() {
 			DeferCleanup(reopened.Close)
 
 			Expect(reopened.Name()).To(Equal(filepath.Join(root, fmt.Sprintf("bleve-v%d", search.SchemaVersion))))
+		})
+
+		It("reports background errors to the logger it was given", func() {
+			// match log.NewLogger's global level
+			DeferCleanup(zerolog.SetGlobalLevel, zerolog.GlobalLevel())
+			zerolog.SetGlobalLevel(zerolog.TraceLevel)
+
+			var out bytes.Buffer
+			index, _, err := bleve.NewIndex(GinkgoT().TempDir(), log.Logger{Logger: zerolog.New(&out)})
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(index.Close)
+
+			metaB, err := os.ReadFile(filepath.Join(index.Name(), "index_meta.json"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(metaB)).To(ContainSubstring(`"asyncErrorCallbackName":"opencloud-search"`))
+
+			report := scorch.RegistryAsyncErrorCallbacks["opencloud-search"]
+			Expect(report).ToNot(BeNil())
+			report(scorch.NewScorchError("merger", "panic: boom", scorch.ErrAsyncPanic), index.Name())
+
+			Expect(out.String()).To(ContainSubstring(`"source":"merger"`))
+			Expect(out.String()).To(ContainSubstring(`"err_type":"async panic error"`))
+		})
+
+		It("leaves bleve's callback registry alone", func() {
+			registered := scorch.RegistryAsyncErrorCallbacks["opencloud-search"]
+			Expect(registered).ToNot(BeNil())
+			DeferCleanup(func() { scorch.RegistryAsyncErrorCallbacks["opencloud-search"] = registered })
+
+			var reported error
+			scorch.RegistryAsyncErrorCallbacks["opencloud-search"] = func(err error, _ string) { reported = err }
+
+			index, _, err := bleve.NewIndex(GinkgoT().TempDir(), log.NopLogger())
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(index.Close)
+
+			scorch.RegistryAsyncErrorCallbacks["opencloud-search"](errors.New("merging failed"), index.Name())
+			Expect(reported).To(MatchError("merging failed"))
+		})
+
+		It("opens two indexes at the same time", func() {
+			var wg sync.WaitGroup
+			for _, root := range []string{GinkgoT().TempDir(), GinkgoT().TempDir()} {
+				wg.Go(func() {
+					defer GinkgoRecover()
+					index, _, err := bleve.NewIndex(root, log.NopLogger())
+					Expect(err).ToNot(HaveOccurred())
+					Expect(index.Close()).To(Succeed())
+				})
+			}
+			wg.Wait()
 		})
 	})
 })
