@@ -197,7 +197,12 @@ func (b *Batch) Purge(id string, onlyDeleted bool) error {
 			case err != nil:
 				return fmt.Errorf("failed to delete by query: %w", err)
 			case len(resp.Failures) != 0:
-				return fmt.Errorf("failed to delete by query, failures: %v", resp.Failures)
+				failures, err := json.Marshal(resp.Failures)
+				if err != nil {
+					return fmt.Errorf("failed to marshal delete by query failures: %w", err)
+				}
+
+				return fmt.Errorf("failed to delete by query, failures: %s", failures)
 			}
 
 			return nil
@@ -223,6 +228,7 @@ func (b *Batch) Push() error {
 		if len(bulkOperations) == 0 {
 			return nil
 		}
+		defer func() { bulkOperations = nil }()
 
 		var body strings.Builder
 		for _, operation := range bulkOperations {
@@ -234,14 +240,31 @@ func (b *Batch) Push() error {
 			body.WriteString("\n")
 		}
 
-		if _, err := b.client.Bulk(context.Background(), opensearchgoAPI.BulkReq{
+		resp, err := b.client.Bulk(context.Background(), opensearchgoAPI.BulkReq{
 			Body:   strings.NewReader(body.String()),
 			Params: opensearchgoAPI.BulkParams{Refresh: "wait_for"},
-		}); err != nil {
+		})
+		switch {
+		case err != nil:
 			return fmt.Errorf("failed to execute bulk operations: %w", err)
+		case resp.Errors:
+			var failed []opensearchgoAPI.BulkRespItem
+			for _, item := range resp.Items {
+				for _, result := range item {
+					if result.Error != nil {
+						failed = append(failed, result)
+					}
+				}
+			}
+
+			failures, err := json.Marshal(failed)
+			if err != nil {
+				return fmt.Errorf("failed to marshal bulk failures: %w", err)
+			}
+
+			return fmt.Errorf("failed to execute bulk operations, failures: %s", failures)
 		}
 
-		bulkOperations = nil
 		return nil
 	}
 
@@ -249,21 +272,25 @@ func (b *Batch) Push() error {
 	//  unfortunately, operations like DeleteByQuery cannot be part of the bulk API,
 	//  so we need to push the previous bulk operations before executing such operations
 	//  this might lead to smaller bulks than the configured size, but ensures correct order
+	var errs []error
 	for _, operation := range b.operations {
 		switch op := operation.(type) {
 		case func() []map[string]any:
 			bulkOperations = append(bulkOperations, op()...)
 		case func() error:
 			if err := pushBulkOperations(); err != nil {
-				return fmt.Errorf("failed to push operations: %w", err)
+				errs = append(errs, fmt.Errorf("failed to push operations: %w", err))
 			}
 			if err := op(); err != nil {
-				return fmt.Errorf("failed to execute operation: %w", err)
+				errs = append(errs, fmt.Errorf("failed to execute operation: %w", err))
 			}
 		}
 	}
+	if err := pushBulkOperations(); err != nil {
+		errs = append(errs, fmt.Errorf("failed to push operations: %w", err))
+	}
 
-	return pushBulkOperations()
+	return errors.Join(errs...)
 }
 
 func (b *Batch) withSizeLimit(f func() error) error {

@@ -59,7 +59,7 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: func() query.Query {
-				tq := query.NewTermQuery("/Foo")
+				tq := query.NewTermQuery("./Foo")
 				tq.SetField("Path")
 				return query.NewConjunctionQuery([]query.Query{tq})
 			}(),
