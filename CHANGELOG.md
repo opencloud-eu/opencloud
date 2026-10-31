@@ -1,6 +1,6 @@
 # Changelog
 
-## [9.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.1) - 2026-10-30
+## [9.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.1) - 2026-10-31
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -12,6 +12,8 @@
 
 ### 🐛 Bug Fixes
 
+- fix(search): normalize KQL path once [[#3516](https://github.com/opencloud-eu/opencloud/pull/3516)]
+- fix(search): report rejected documents when indexing to OpenSearch [[#3142](https://github.com/opencloud-eu/opencloud/pull/3142)]
 - fix(graph): expose allowedValues on driveItem children [[#3476](https://github.com/opencloud-eu/opencloud/pull/3476)]
 - fix(search): index resources with out-of-range coordinates without a geopoint [[#3496](https://github.com/opencloud-eu/opencloud/pull/3496)]
 - perf(search): skip unchanged facet keys when storing metadata [[#3682](https://github.com/opencloud-eu/opencloud/pull/3682)]
