@@ -12,6 +12,7 @@ import (
 	appprovider "github.com/opencloud-eu/opencloud/services/app-provider/pkg/command"
 	appregistry "github.com/opencloud-eu/opencloud/services/app-registry/pkg/command"
 	audit "github.com/opencloud-eu/opencloud/services/audit/pkg/command"
+	authapi "github.com/opencloud-eu/opencloud/services/auth-api/pkg/command"
 	authapp "github.com/opencloud-eu/opencloud/services/auth-app/pkg/command"
 	authbasic "github.com/opencloud-eu/opencloud/services/auth-basic/pkg/command"
 	authbearer "github.com/opencloud-eu/opencloud/services/auth-bearer/pkg/command"
@@ -25,6 +26,7 @@ import (
 	gateway "github.com/opencloud-eu/opencloud/services/gateway/pkg/command"
 	graph "github.com/opencloud-eu/opencloud/services/graph/pkg/command"
 	groups "github.com/opencloud-eu/opencloud/services/groups/pkg/command"
+	groupware "github.com/opencloud-eu/opencloud/services/groupware/pkg/command"
 	idm "github.com/opencloud-eu/opencloud/services/idm/pkg/command"
 	idp "github.com/opencloud-eu/opencloud/services/idp/pkg/command"
 	invitations "github.com/opencloud-eu/opencloud/services/invitations/pkg/command"
@@ -145,6 +147,11 @@ var serviceCommands = []register.Command{
 		})
 	},
 	func(cfg *config.Config) *cobra.Command {
+		return ServiceCommand(cfg, cfg.Groupware.Service.Name, groupware.GetCommands(cfg.Groupware), func(c *config.Config) {
+			cfg.Groupware.Commons = cfg.Commons
+		})
+	},
+	func(cfg *config.Config) *cobra.Command {
 		return ServiceCommand(cfg, cfg.IDM.Service.Name, idm.GetCommands(cfg.IDM), func(c *config.Config) {
 			cfg.IDM.Commons = cfg.Commons
 		})
@@ -262,6 +269,11 @@ var serviceCommands = []register.Command{
 	func(cfg *config.Config) *cobra.Command {
 		return ServiceCommand(cfg, cfg.Webfinger.Service.Name, webfinger.GetCommands(cfg.Webfinger), func(c *config.Config) {
 			cfg.Webfinger.Commons = cfg.Commons
+		})
+	},
+	func(cfg *config.Config) *cobra.Command {
+		return ServiceCommand(cfg, cfg.AuthApi.Service.Name, authapi.GetCommands(cfg.AuthApi), func(c *config.Config) {
+			cfg.AuthApi.Commons = cfg.Commons
 		})
 	},
 }

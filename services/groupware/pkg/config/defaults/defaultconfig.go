@@ -1,0 +1,100 @@
+package defaults
+
+import (
+	"strings"
+	"time"
+
+	"github.com/opencloud-eu/opencloud/services/groupware/pkg/config"
+)
+
+// FullDefaultConfig returns a fully initialized default configuration
+func FullDefaultConfig() *config.Config {
+	cfg := DefaultConfig()
+	EnsureDefaults(cfg)
+	Sanitize(cfg)
+	return cfg
+}
+
+// DefaultConfig returns a basic default configuration
+func DefaultConfig() *config.Config {
+	return &config.Config{
+		Debug: config.Debug{
+			Addr:   "127.0.0.1:9292",
+			Token:  "",
+			Pprof:  false,
+			Zpages: false,
+		},
+		Mail: config.Mail{
+			Master: config.MailMasterAuth{
+				Username: "",
+				Password: "",
+			},
+			BaseUrl:               "https://stalwart.opencloud.test",
+			Timeout:               30 * time.Second,
+			DefaultEmailLimit:     uint(0),
+			MaxBodyValueBytes:     uint(0),
+			DefaultContactLimit:   uint(0),
+			ResponseHeaderTimeout: 10 * time.Second,
+			PushHandshakeTimeout:  10 * time.Second,
+			SessionCache: config.MailSessionCache{
+				Ttl:         5 * time.Minute,
+				FailureTtl:  15 * time.Second,
+				MaxCapacity: 10_000,
+			},
+		},
+		HTTP: config.HTTP{
+			Addr:      "127.0.0.1:9276",
+			Root:      "/groupware",
+			Namespace: "eu.opencloud.web",
+			CORS: config.CORS{
+				AllowedOrigins:   []string{"*"},
+				AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "REPORT"},
+				AllowedHeaders:   []string{"Authorization", "Origin", "Content-Type", "Accept", "X-Requested-With", "X-Request-Id", "Trace-Id", "Cache-Control"},
+				AllowCredentials: true,
+			},
+			OpenCloudPublicURL:       "https://localhost:9200/",
+			SendDurationsResponse:    false,
+			Insecure:                 false,
+			TraceRequests:            true,
+			TraceMaxRequestBodySize:  4 * 1024,
+			TraceResponses:           true,
+			TraceMaxResponseBodySize: 4 * 1024,
+		},
+		Service: config.Service{
+			Name: "groupware",
+		},
+		EnableMockData: false,
+	}
+}
+
+// EnsureDefaults adds default values to the configuration if they are not set yet
+func EnsureDefaults(cfg *config.Config) {
+	// provide with defaults for shared logging, since we need a valid destination address for "envdecode".
+	if cfg.Log == nil && cfg.Commons != nil && cfg.Commons.Log != nil {
+		cfg.Log = &config.Log{
+			Level:  cfg.Commons.Log.Level,
+			Pretty: cfg.Commons.Log.Pretty,
+			Color:  cfg.Commons.Log.Color,
+			File:   cfg.Commons.Log.File,
+		}
+	} else if cfg.Log == nil {
+		cfg.Log = &config.Log{}
+	}
+	if cfg.TokenManager == nil && cfg.Commons != nil && cfg.Commons.TokenManager != nil {
+		cfg.TokenManager = &config.TokenManager{
+			JWTSecret: cfg.Commons.TokenManager.JWTSecret,
+		}
+	} else if cfg.TokenManager == nil {
+		cfg.TokenManager = &config.TokenManager{}
+	}
+	if cfg.Commons != nil {
+		cfg.HTTP.TLS = cfg.Commons.HTTPServiceTLS
+	}
+}
+
+// Sanitize sanitized the configuration
+func Sanitize(cfg *config.Config) {
+	if cfg.HTTP.Root != "/" {
+		cfg.HTTP.Root = strings.TrimSuffix(cfg.HTTP.Root, "/")
+	}
+}

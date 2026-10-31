@@ -7,6 +7,7 @@ import (
 	appProvider "github.com/opencloud-eu/opencloud/services/app-provider/pkg/config"
 	appRegistry "github.com/opencloud-eu/opencloud/services/app-registry/pkg/config"
 	audit "github.com/opencloud-eu/opencloud/services/audit/pkg/config"
+	authapi "github.com/opencloud-eu/opencloud/services/auth-api/pkg/config"
 	authapp "github.com/opencloud-eu/opencloud/services/auth-app/pkg/config"
 	authbasic "github.com/opencloud-eu/opencloud/services/auth-basic/pkg/config"
 	authbearer "github.com/opencloud-eu/opencloud/services/auth-bearer/pkg/config"
@@ -20,6 +21,7 @@ import (
 	gateway "github.com/opencloud-eu/opencloud/services/gateway/pkg/config"
 	graph "github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	groups "github.com/opencloud-eu/opencloud/services/groups/pkg/config"
+	groupware "github.com/opencloud-eu/opencloud/services/groupware/pkg/config"
 	idm "github.com/opencloud-eu/opencloud/services/idm/pkg/config"
 	idp "github.com/opencloud-eu/opencloud/services/idp/pkg/config"
 	invitations "github.com/opencloud-eu/opencloud/services/invitations/pkg/config"
@@ -88,6 +90,7 @@ type Config struct {
 	AppProvider       *appProvider.Config    `yaml:"app_provider"`
 	AppRegistry       *appRegistry.Config    `yaml:"app_registry"`
 	Audit             *audit.Config          `yaml:"audit"`
+	AuthApi           *authapi.Config        `yaml:"auth_api"`
 	AuthApp           *authapp.Config        `yaml:"auth_app"`
 	AuthBasic         *authbasic.Config      `yaml:"auth_basic"`
 	AuthBearer        *authbearer.Config     `yaml:"auth_bearer"`
@@ -101,6 +104,7 @@ type Config struct {
 	Graph             *graph.Config          `yaml:"graph"`
 	Groups            *groups.Config         `yaml:"groups"`
 	AuthGuest         *authguest.Config      `yaml:"auth_guest"`
+	Groupware         *groupware.Config      `yaml:"groupware"`
 	IDM               *idm.Config            `yaml:"idm"`
 	IDP               *idp.Config            `yaml:"idp"`
 	Invitations       *invitations.Config    `yaml:"invitations"`

@@ -1,0 +1,112 @@
+openapi: 3.0.4
+info:
+  title: OpenCloud Groupware API
+  summary: OpenCloud Groupware API
+  description: |-
+    This is the API documentation for the OpenCloud Groupware service.
+servers:
+  - url: https://localhost:9200/
+    description: Local Development Server
+tags:
+  - name: untagged
+    x-displayName: Uncategorized
+    description: APIs that are not categorized yet
+  - name: bootstrap
+    x-displayName: Bootstrapping
+    description: |-
+      APIs that are used to bootstrap clients, providing required initial information about the user,
+      such as capabilities and limits.
+  - name: account
+    x-displayName: Accounts
+    description: APIs for accounts
+  - name: identity
+    x-displayName: Identities
+    description: APIs for identities
+  - name: mailbox
+    x-displayName: Mailboxes
+    description: APIs that pertain to mailboxes
+  - name: email
+    x-displayName: Emails
+    description: APIs about emails
+  - name: addressbook
+    x-displayName: Address Books
+    description: APIs about address books
+  - name: contact
+    x-displayName: Contacts
+    description: APIs about contacts
+  - name: calendar
+    x-displayName: Calendars
+    description: APIs about calendars
+  - name: event
+    x-displayName: Events
+    description: APIs about calendar events
+  - name: tasklist
+    x-displayName: TaskLists
+    description: APIs about task lists
+  - name: task
+    x-displayName: Tasks
+    description: APIs about tasks
+  - name: quota
+    x-displayName: Quota
+    description: |-
+      Quotas are objects that display the limits set to an account usage.
+
+      They also indicate the current usage in regard to those limits.
+
+      JMAP Quotas are defined in [RFC9524](https://www.rfc-editor.org/rfc/rfc9425.html).
+
+      This sectiong roups the APIs that pertain to retrieving and modifying quotas.
+  - name: vacation
+    x-displayName: Vacation Responses
+    description: APIs about vacation responses
+  - name: blob
+    x-displayName: BLOBs
+    description: APIs about binary large objects
+  - name: changes
+    x-displayName: Changes
+    description: APIs for retrieving changes to objects
+x-tagGroups:
+  - name: Bootstrapping
+    tags:
+      - bootstrap
+  - name: Accounts
+    tags:
+      - account
+  - name: Emails
+    tags:
+      - identity
+      - mailbox
+      - email
+      - vacation
+  - name: Contacts
+    tags:
+      - addressbook
+      - contact
+  - name: Events
+    tags:
+      - calendar
+      - event
+  - name: Tasks
+    tags:
+      - tasklist
+      - task
+  - name: Quotas
+    tags:
+      - quota
+  - name: Blobs
+    tags:
+      - blob
+  - name: changes
+    tags:
+      - changes
+  - name: Uncategorized
+    tags:
+      - untagged
+components:
+  securitySchemes:
+    api:
+      description: Authentication for API Calls
+      type: openIdConnect
+      openIdConnectUrl: https://keycloak.opencloud.test/realms/openCloud/.well-known/openid-configuration
+  security:
+    - api

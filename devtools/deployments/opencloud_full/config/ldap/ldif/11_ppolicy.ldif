@@ -1,0 +1,26 @@
+dn: ou=policies,dc=opencloud,dc=eu
+objectClass: organizationalUnit
+objectClass: top
+ou: policies
+
+dn: cn=default,ou=policies,dc=opencloud,dc=eu
+cn: default
+objectClass: pwdPolicy
+objectClass: person
+objectClass: top
+pwdAllowUserChange: TRUE
+pwdAttribute: userPassword
+pwdCheckQuality: 0
+pwdExpireWarning: 600
+pwdFailureCountInterval: 30
+pwdGraceAuthNLimit: 5
+pwdInHistory: 5
+pwdLockout: FALSE
+pwdLockoutDuration: 0
+pwdMaxAge: 0
+pwdMaxFailure: 5
+pwdMinAge: 0
+pwdMinLength: 1
+pwdMustChange: FALSE
+pwdSafeModify: FALSE
+sn: default

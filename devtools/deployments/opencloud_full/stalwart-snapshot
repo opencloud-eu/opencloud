@@ -1,0 +1,27 @@
+#!/bin/bash
+# Snapshots the current configuration of a Stalwart >= 0.16 server.
+# Requires having stalwart-cli installed.
+set -euo pipefail
+exec stalwart-cli -k --url 'https://stalwart.opencloud.test' --user admin --password secret snapshot \
+  --include-secrets \
+  Tenant \
+  Domain \
+  Directory \
+  Authentication \
+  DkimSignature \
+  AcmeProvider \
+  Certificate \
+  DnsServer \
+  Role \
+  Authentication \
+  Account \
+  NetworkListener \
+  Tracer \
+  Sharing \
+  SystemSettings \
+  DataRetention \
+  BlobStore \
+  InMemoryStore \
+  SearchStore \
+  --allow-unresolved PublicKey \
+  "$@"

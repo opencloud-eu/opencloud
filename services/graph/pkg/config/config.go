@@ -215,3 +215,4 @@ type Store struct {
 type Thumbnails struct {
 	AdditionalSourceTypes []string `yaml:"additional_source_types" env:"OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES;GRAPH_THUMBNAILS_ADDITIONAL_SOURCE_TYPES" desc:"Additional mime types a preview is announced for, the same list the webdav service attempts previews for. The types the build ships are included; this only adds to them." introductionVersion:"9.0.0"`
 }
+
