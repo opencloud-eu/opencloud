@@ -1,13 +1,12 @@
 package middleware
 
 import (
-	"testing"
-
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/stretchr/testify/assert"
 )
 
-func TestReadProfilePictureURL(t *testing.T) {
+var _ = Describe("reading the profile picture claim", func() {
 	tests := []struct {
 		name  string
 		claim string
@@ -46,13 +45,13 @@ func TestReadProfilePictureURL(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		It(tt.name, func() {
 			m := accountResolver{
 				logger:       log.NopLogger(),
 				pictureClaim: tt.claim,
 			}
 			got := m.readProfilePictureURL(tt.input)
-			assert.Equal(t, tt.want, got)
+			Expect(got).To(Equal(tt.want))
 		})
 	}
-}
+})

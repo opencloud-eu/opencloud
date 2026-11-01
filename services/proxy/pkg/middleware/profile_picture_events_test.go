@@ -2,9 +2,10 @@ package middleware
 
 import (
 	"net/http"
-	"testing"
 
 	userv1beta1 "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	ocevents "github.com/opencloud-eu/opencloud/pkg/events"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
@@ -13,9 +14,7 @@ import (
 	rolemocks "github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles/mocks"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	microevents "go-micro.dev/v4/events"
 )
 
@@ -28,7 +27,7 @@ func (p *profilePictureEventPublisher) Publish(_ string, event any, _ ...microev
 	return nil
 }
 
-func TestAccountResolverPublishesProfilePictureSync(t *testing.T) {
+var _ = Describe("profile picture sync events from the account resolver", func() {
 	const pictureURL = "https://idp.example.com/avatar.png"
 	for _, tt := range []struct {
 		name         string
@@ -47,7 +46,7 @@ func TestAccountResolverPublishesProfilePictureSync(t *testing.T) {
 		{name: "nonstring claim does not sync", newSession: true, pictureClaim: "picture", picture: 42, wantEvents: 1},
 		{name: "disabled account does not sync", newSession: true, pictureClaim: "picture", picture: pictureURL, accountError: backend.ErrAccountDisabled},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
+		It(tt.name, func() {
 			user := &userv1beta1.User{
 				Id:       &userv1beta1.UserId{Idp: testIdP, OpaqueId: "profile-picture-user"},
 				Username: "foo",
@@ -71,7 +70,7 @@ func TestAccountResolverPublishesProfilePictureSync(t *testing.T) {
 				EventsPublisher(publisher),
 			)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				nextCalled = true
-				assert.Equal(t, "access-token", r.Header.Get(revactx.TokenHeader))
+				Expect(r.Header.Get(revactx.TokenHeader)).To(Equal("access-token"))
 			}))
 			req, recorder := mockRequest(map[string]any{
 				oidc.Iss:               testIdP,
@@ -82,30 +81,30 @@ func TestAccountResolverPublishesProfilePictureSync(t *testing.T) {
 
 			handler.ServeHTTP(recorder, req)
 
-			require.Len(t, publisher.events, tt.wantEvents)
+			Expect(publisher.events).To(HaveLen(tt.wantEvents))
 			if tt.wantEvents > 0 {
 				_, ok := publisher.events[0].(events.UserSignedIn)
-				assert.True(t, ok, "the normal sign-in event is still published")
+				Expect(ok).To(BeTrue(), "the normal sign-in event is still published")
 			}
 			if tt.wantSync {
 				event, ok := publisher.events[1].(ocevents.UserProfilePictureSyncRequested)
-				require.True(t, ok)
-				assert.Equal(t, user.Id, event.Executant)
-				assert.Equal(t, pictureURL, event.PictureURL)
-				assert.NotNil(t, event.Timestamp)
+				Expect(ok).To(BeTrue())
+				Expect(event.Executant).To(Equal(user.Id))
+				Expect(event.PictureURL).To(Equal(pictureURL))
+				Expect(event.Timestamp).NotTo(BeNil())
 			}
 			if tt.accountError != nil {
-				assert.False(t, nextCalled)
-				assert.Equal(t, http.StatusUnauthorized, recorder.Code)
+				Expect(nextCalled).To(BeFalse())
+				Expect(recorder.Code).To(Equal(http.StatusUnauthorized))
 			} else {
-				assert.True(t, nextCalled)
-				assert.Equal(t, http.StatusOK, recorder.Code)
+				Expect(nextCalled).To(BeTrue())
+				Expect(recorder.Code).To(Equal(http.StatusOK))
 			}
-			userProvider.AssertExpectations(t)
-			userProvider.AssertNotCalled(t, "CreateUserFromClaims", mock.Anything, mock.Anything)
-			userProvider.AssertNotCalled(t, "UpdateUserIfNeeded", mock.Anything, mock.Anything, mock.Anything)
-			userProvider.AssertNotCalled(t, "SyncGroupMemberships", mock.Anything, mock.Anything, mock.Anything)
-			roleAssigner.AssertExpectations(t)
+			userProvider.AssertExpectations(GinkgoT())
+			userProvider.AssertNotCalled(GinkgoT(), "CreateUserFromClaims", mock.Anything, mock.Anything)
+			userProvider.AssertNotCalled(GinkgoT(), "UpdateUserIfNeeded", mock.Anything, mock.Anything, mock.Anything)
+			userProvider.AssertNotCalled(GinkgoT(), "SyncGroupMemberships", mock.Anything, mock.Anything, mock.Anything)
+			roleAssigner.AssertExpectations(GinkgoT())
 		})
 	}
-}
+})

@@ -8,10 +8,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // minimalPNG is a valid 1×1 PNG used for testing image downloads.
@@ -38,7 +37,7 @@ func testPhotoService(httpClient HTTPClient, urlAllowlist []string, oidcIssuer s
 	}
 }
 
-func TestURLPatternMatches(t *testing.T) {
+var _ = ginkgo.Describe("profile picture URL pattern matching", func() {
 	tests := []struct {
 		name    string
 		pattern string
@@ -104,20 +103,20 @@ func TestURLPatternMatches(t *testing.T) {
 		{"case insensitive host", "https://*.Example.COM", "https://cdn.example.com", true},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		ginkgo.It(tt.name, func() {
 			parsed, err := url.Parse(tt.target)
-			require.NoError(t, err)
+			Expect(err).To(Succeed())
 			got := urlPatternMatches(tt.pattern, parsed)
-			assert.Equal(t, tt.want, got)
+			Expect(got).To(Equal(tt.want))
 		})
 	}
-}
+})
 
-func TestURLPatternMatchesNilTarget(t *testing.T) {
-	assert.False(t, urlPatternMatches("*", nil))
-}
+var _ = ginkgo.It("rejects a nil profile picture URL", func() {
+	Expect(urlPatternMatches("*", nil)).To(BeFalse())
+})
 
-func TestIsProfilePictureURLAllowed(t *testing.T) {
+var _ = ginkgo.Describe("profile picture URL allowlist", func() {
 	tests := []struct {
 		name       string
 		allowlist  []string
@@ -194,56 +193,54 @@ func TestIsProfilePictureURLAllowed(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		ginkgo.It(tt.name, func() {
 			s := testPhotoService(http.DefaultClient, tt.allowlist, tt.oidcIssuer)
 			got := s.isProfilePictureURLAllowed(tt.targetURL)
-			assert.Equal(t, tt.want, got)
+			Expect(got).To(Equal(tt.want))
 		})
 	}
-}
+})
 
-func TestSyncPhotoFromURL(t *testing.T) {
-	t.Run("rejects disallowed URL", func(t *testing.T) {
+var _ = ginkgo.Describe("syncing a profile picture from a URL", func() {
+	ginkgo.It("rejects disallowed URL", func() {
 		s := testPhotoService(http.DefaultClient, nil, "https://idp.example.com")
 		err := s.SyncPhotoFromURL(context.Background(), "user123", "https://evil.com/img.png")
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "not allowed")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("not allowed"))
 	})
 
-	t.Run("returns error for empty user ID", func(t *testing.T) {
+	ginkgo.It("returns error for empty user ID", func() {
 		s := testPhotoService(http.DefaultClient, []string{"*"}, "")
 		err := s.SyncPhotoFromURL(context.Background(), "", "https://example.com/img.png")
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "required argument is missing")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("required argument is missing"))
 	})
 
-	t.Run("rejects non-image content type", func(t *testing.T) {
+	ginkgo.It("rejects non-image content type", func() {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "text/html")
-			w.Write([]byte("<html>not an image</html>"))
+			http.Error(w, "not an image", http.StatusOK)
 		}))
 		defer srv.Close()
 
 		s := testPhotoService(srv.Client(), []string{"*"}, "")
 		err := s.SyncPhotoFromURL(context.Background(), "user123", srv.URL)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "content type")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("content type"))
 	})
 
-	t.Run("rejects empty response", func(t *testing.T) {
+	ginkgo.It("rejects empty response", func() {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "image/png")
-			w.Write([]byte{})
 		}))
 		defer srv.Close()
 
 		s := testPhotoService(srv.Client(), []string{"*"}, "")
 		err := s.SyncPhotoFromURL(context.Background(), "user123", srv.URL)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "empty")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("empty"))
 	})
 
-	t.Run("rejects error status code", func(t *testing.T) {
+	ginkgo.It("rejects error status code", func() {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "not found", http.StatusNotFound)
 		}))
@@ -251,24 +248,24 @@ func TestSyncPhotoFromURL(t *testing.T) {
 
 		s := testPhotoService(srv.Client(), []string{"*"}, "")
 		err := s.SyncPhotoFromURL(context.Background(), "user123", srv.URL)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "404")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("404"))
 	})
-}
+})
 
-func TestFetchProfilePictureSizeLimit(t *testing.T) {
+var _ = ginkgo.It("rejects profile pictures larger than the download size limit", func() {
 	oversized := bytes.Repeat(minimalPNG, (maxProfilePhotoBytes/len(minimalPNG))+1)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "image/png")
-		w.Write(oversized)
+		_, _ = io.Copy(w, bytes.NewReader(oversized))
 	}))
 	defer srv.Close()
 
 	s := testPhotoService(srv.Client(), []string{"*"}, "")
 	_, err := s.fetchProfilePicture(context.Background(), srv.URL)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "exceeds")
-}
+	Expect(err).To(HaveOccurred())
+	Expect(err.Error()).To(ContainSubstring("exceeds"))
+})
 
 // fakePhotoService is a test double for UsersUserProfilePhotoProvider.
 type fakePhotoService struct {

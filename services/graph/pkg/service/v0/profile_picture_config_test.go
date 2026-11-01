@@ -4,15 +4,15 @@ import (
 	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
-	"testing"
 	"time"
 
+	"github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/opencloud-eu/opencloud/pkg/config/envdecode"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
-	"github.com/stretchr/testify/require"
 )
 
-func TestProfilePictureClientTLS(t *testing.T) {
+var _ = ginkgo.It("verifies TLS unless picture downloads explicitly allow insecure connections", func() {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
 	defer server.Close()
 	for _, insecure := range []bool{false, true} {
@@ -20,20 +20,20 @@ func TestProfilePictureClientTLS(t *testing.T) {
 		defer client.CloseIdleConnections()
 		response, err := client.Get(server.URL)
 		if insecure {
-			require.NoError(t, err)
+			Expect(err).To(Succeed())
 			response.Body.Close()
 		} else {
-			require.Error(t, err)
+			Expect(err).To(HaveOccurred())
 		}
-		require.Equal(t, 10*time.Second, client.Timeout)
+		Expect(client.Timeout).To(Equal(10 * time.Second))
 		transport := client.Transport.(*http.Transport)
-		require.Equal(t, uint16(tls.VersionTLS12), transport.TLSClientConfig.MinVersion)
-		require.NotNil(t, transport.Proxy)
-		require.NotNil(t, transport.DialContext)
+		Expect(transport.TLSClientConfig.MinVersion).To(Equal(uint16(tls.VersionTLS12)))
+		Expect(transport.Proxy).NotTo(BeNil())
+		Expect(transport.DialContext).NotTo(BeNil())
 	}
-}
+})
 
-func TestProfilePictureClientDoesNotFollowRedirects(t *testing.T) {
+var _ = ginkgo.It("does not follow picture download redirects", func() {
 	reached := false
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { reached = true }))
 	defer target.Close()
@@ -42,24 +42,24 @@ func TestProfilePictureClientDoesNotFollowRedirects(t *testing.T) {
 	client := newProfilePictureHTTPClient(false)
 	defer client.CloseIdleConnections()
 	response, err := client.Get(source.URL)
-	require.NoError(t, err)
+	Expect(err).To(Succeed())
 	defer response.Body.Close()
-	require.Equal(t, http.StatusFound, response.StatusCode)
-	require.False(t, reached)
-}
+	Expect(response.StatusCode).To(Equal(http.StatusFound))
+	Expect(reached).To(BeFalse())
+})
 
-func TestProfilePictureTLSConfiguration(t *testing.T) {
-	t.Setenv("OC_INSECURE", "false")
-	t.Setenv("GRAPH_EVENTS_TLS_INSECURE", "true")
+var _ = ginkgo.It("keeps picture TLS configuration independent from event TLS", func() {
+	ginkgo.GinkgoT().Setenv("OC_INSECURE", "false")
+	ginkgo.GinkgoT().Setenv("GRAPH_EVENTS_TLS_INSECURE", "true")
 	var cfg config.Config
-	require.NoError(t, envdecode.Decode(&cfg))
-	require.True(t, cfg.Events.TLSInsecure)
-	require.False(t, cfg.ProfilePictureInsecure)
-	t.Setenv("GRAPH_PROFILE_PICTURE_INSECURE", "true")
-	require.NoError(t, envdecode.Decode(&cfg))
-	require.True(t, cfg.ProfilePictureInsecure)
-	t.Setenv("OC_INSECURE", "true")
-	t.Setenv("GRAPH_PROFILE_PICTURE_INSECURE", "false")
-	require.NoError(t, envdecode.Decode(&cfg))
-	require.False(t, cfg.ProfilePictureInsecure)
-}
+	Expect(envdecode.Decode(&cfg)).To(Succeed())
+	Expect(cfg.Events.TLSInsecure).To(BeTrue())
+	Expect(cfg.ProfilePictureInsecure).To(BeFalse())
+	ginkgo.GinkgoT().Setenv("GRAPH_PROFILE_PICTURE_INSECURE", "true")
+	Expect(envdecode.Decode(&cfg)).To(Succeed())
+	Expect(cfg.ProfilePictureInsecure).To(BeTrue())
+	ginkgo.GinkgoT().Setenv("OC_INSECURE", "true")
+	ginkgo.GinkgoT().Setenv("GRAPH_PROFILE_PICTURE_INSECURE", "false")
+	Expect(envdecode.Decode(&cfg)).To(Succeed())
+	Expect(cfg.ProfilePictureInsecure).To(BeFalse())
+})

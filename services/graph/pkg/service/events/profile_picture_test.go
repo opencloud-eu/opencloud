@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
-	"testing"
 	"time"
 
 	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	ocevents "github.com/opencloud-eu/opencloud/pkg/events"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/identity"
@@ -16,7 +17,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/stretchr/testify/require"
 	microevents "go-micro.dev/v4/events"
 )
 
@@ -55,7 +55,7 @@ func (i profilePictureIdentity) UpdateLastSignInDate(_ context.Context, id strin
 	return nil
 }
 
-func TestProfilePictureSyncDoesNotBlockSignInEvents(t *testing.T) {
+var _ = It("does not block sign-in events while syncing a profile picture", func() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	input := make(chan microevents.Event, 2)
@@ -65,7 +65,7 @@ func TestProfilePictureSyncDoesNotBlockSignInEvents(t *testing.T) {
 	published := make(chan interface{}, 1)
 	logger := log.NewLogger()
 	m, err := metrics.New(prometheus.NewRegistry(), &logger, func(_ []string) (string, string) { return "", "" })
-	require.NoError(t, err)
+	Expect(err).To(Succeed())
 	syncer := profilePictureProvider{sync: func(ctx context.Context, id, url string) error {
 		close(started)
 		select {
@@ -77,50 +77,34 @@ func TestProfilePictureSyncDoesNotBlockSignInEvents(t *testing.T) {
 	}}
 	service, err := NewService(ctx, profilePictureConsumer{input}, profilePictureIdentity{signedIn: signedIn}, m, &logger,
 		WithProfilePictureSync(syncer, profilePicturePublisher{published}))
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, service.Close()) })
+	Expect(err).To(Succeed())
+	DeferCleanup(service.Close)
 	go func() { _ = service.Start() }()
 	send := func(event interface{}) {
 		payload, err := json.Marshal(event)
-		require.NoError(t, err)
+		Expect(err).To(Succeed())
 		input <- microevents.Event{Payload: payload, Metadata: map[string]string{
 			events.MetadatakeyEventType: reflect.TypeOf(event).String(),
 		}}
 	}
 	id := &user.UserId{OpaqueId: "user123"}
 	send(ocevents.UserProfilePictureSyncRequested{Executant: id, PictureURL: "https://example.com/photo.png"})
-	select {
-	case <-started:
-	case <-time.After(5 * time.Second):
-		t.Fatal("profile picture sync did not start")
-	}
+	Eventually(started, 5*time.Second).Should(BeClosed(), "profile picture sync did not start")
 	send(events.UserSignedIn{Executant: id, Timestamp: utils.TimeToTS(time.Now())})
-	select {
-	case got := <-signedIn:
-		require.Equal(t, id.OpaqueId, got)
-	case <-time.After(5 * time.Second):
-		t.Fatal("sign-in event blocked by profile picture sync")
-	}
-	select {
-	case <-published:
-		t.Fatal("published an update before sync completed")
-	default:
-	}
+	Eventually(signedIn, 5*time.Second).Should(Receive(Equal(id.OpaqueId)), "sign-in event blocked by profile picture sync")
+	Expect(published).NotTo(Receive(), "published an update before sync completed")
 	close(release)
-	select {
-	case event := <-published:
-		updated, ok := event.(ocevents.UserProfilePictureUpdated)
-		require.True(t, ok)
-		require.Equal(t, id, updated.Executant)
-		require.NotNil(t, updated.Timestamp)
-	case <-time.After(5 * time.Second):
-		t.Fatal("successful sync did not publish an update")
-	}
-}
+	var event interface{}
+	Eventually(published, 5*time.Second).Should(Receive(&event), "successful sync did not publish an update")
+	updated, ok := event.(ocevents.UserProfilePictureUpdated)
+	Expect(ok).To(BeTrue())
+	Expect(updated.Executant).To(Equal(id))
+	Expect(updated.Timestamp).NotTo(BeNil())
+})
 
-func TestProfilePictureSyncDoesNotPublishFailedOrCancelledUpdates(t *testing.T) {
+var _ = Describe("failed or cancelled profile picture sync", func() {
 	for _, tc := range []string{"failed", "cancelled", "already cancelled"} {
-		t.Run(tc, func(t *testing.T) {
+		It(tc, func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			published := make(chan interface{}, 1)
@@ -128,7 +112,7 @@ func TestProfilePictureSyncDoesNotPublishFailedOrCancelledUpdates(t *testing.T) 
 			publisher := profilePicturePublisher{published}
 			syncer := profilePictureProvider{sync: func(gotCtx context.Context, _, _ string) error {
 				called = true
-				require.Equal(t, ctx, gotCtx)
+				Expect(gotCtx).To(Equal(ctx))
 				if tc == "cancelled" {
 					cancel()
 					return nil
@@ -142,13 +126,13 @@ func TestProfilePictureSyncDoesNotPublishFailedOrCancelledUpdates(t *testing.T) 
 			syncProfilePicture(ctx, &logger, syncer, publisher, ocevents.UserProfilePictureSyncRequested{
 				Executant: &user.UserId{OpaqueId: "user123"}, PictureURL: "https://example.com/photo.png",
 			})
-			require.Equal(t, tc != "already cancelled", called)
-			require.Empty(t, published)
+			Expect(called).To(Equal(tc != "already cancelled"))
+			Expect(published).To(BeEmpty())
 		})
 	}
-}
+})
 
-func TestProfilePictureSyncCancelsDownload(t *testing.T) {
+var _ = It("cancels a profile picture download with its context", func() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	started := make(chan struct{})
@@ -167,24 +151,16 @@ func TestProfilePictureSyncCancelsDownload(t *testing.T) {
 			Executant: &user.UserId{OpaqueId: "user123"}, PictureURL: "https://example.com/photo.png",
 		})
 	}()
-	select {
-	case <-started:
-	case <-time.After(5 * time.Second):
-		t.Fatal("download did not start")
-	}
+	Eventually(started, 5*time.Second).Should(BeClosed(), "download did not start")
 	cancel()
-	select {
-	case <-finished:
-	case <-time.After(5 * time.Second):
-		t.Fatal("download did not stop after cancellation")
-	}
-	require.Empty(t, published)
-}
+	Eventually(finished, 5*time.Second).Should(BeClosed(), "download did not stop after cancellation")
+	Expect(published).To(BeEmpty())
+})
 
-func TestClosingConsumerCancelsProfilePictureDownload(t *testing.T) {
+var _ = It("cancels profile picture downloads when the consumer closes", func() {
 	logger := log.NewLogger()
 	m, err := metrics.New(prometheus.NewRegistry(), &logger, func(_ []string) (string, string) { return "", "" })
-	require.NoError(t, err)
+	Expect(err).To(Succeed())
 	input := make(chan microevents.Event, 1)
 	started := make(chan struct{})
 	cancelled := make(chan struct{})
@@ -194,34 +170,21 @@ func TestClosingConsumerCancelsProfilePictureDownload(t *testing.T) {
 		close(cancelled)
 		return ctx.Err()
 	}}
-	service, err := NewService(t.Context(), profilePictureConsumer{input}, nil, m, &logger, WithProfilePictureSync(syncer, nil))
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, service.Close()) })
+	service, err := NewService(GinkgoT().Context(), profilePictureConsumer{input}, nil, m, &logger, WithProfilePictureSync(syncer, nil))
+	Expect(err).To(Succeed())
+	DeferCleanup(service.Close)
 	finished := make(chan error, 1)
 	go func() { finished <- service.Start() }()
 	event := ocevents.UserProfilePictureSyncRequested{
 		Executant: &user.UserId{OpaqueId: "user123"}, PictureURL: "https://example.com/photo.png",
 	}
 	payload, err := json.Marshal(event)
-	require.NoError(t, err)
+	Expect(err).To(Succeed())
 	input <- microevents.Event{Payload: payload, Metadata: map[string]string{
 		events.MetadatakeyEventType: reflect.TypeOf(event).String(),
 	}}
-	select {
-	case <-started:
-	case <-time.After(5 * time.Second):
-		t.Fatal("download did not start")
-	}
-	require.NoError(t, service.Close())
-	select {
-	case <-cancelled:
-	case <-time.After(5 * time.Second):
-		t.Fatal("closing the event consumer did not cancel the download")
-	}
-	select {
-	case err := <-finished:
-		require.NoError(t, err)
-	case <-time.After(5 * time.Second):
-		t.Fatal("event consumer did not stop")
-	}
-}
+	Eventually(started, 5*time.Second).Should(BeClosed(), "download did not start")
+	Expect(service.Close()).To(Succeed())
+	Eventually(cancelled, 5*time.Second).Should(BeClosed(), "closing the event consumer did not cancel the download")
+	Eventually(finished, 5*time.Second).Should(Receive(Succeed()), "event consumer did not stop")
+})
