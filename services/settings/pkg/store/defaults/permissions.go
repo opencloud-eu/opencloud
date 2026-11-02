@@ -548,8 +548,8 @@ func ListSpacesPermission(c settingsmsg.Permission_Constraint) *settingsmsg.Sett
 	return &settingsmsg.Setting{
 		Id:          "016f6ddd-9501-4a0a-8ebe-64a20ee8ec82",
 		Name:        "Drives.List",
-		DisplayName: "List All Spaces",
-		Description: "This permission allows listing all spaces.",
+		DisplayName: "List All Project Spaces",
+		Description: "This permission allows listing all project spaces.",
 		Resource: &settingsmsg.Resource{
 			Type: settingsmsg.Resource_TYPE_SYSTEM,
 		},
@@ -586,8 +586,8 @@ func ManageSpacePropertiesPermission(c settingsmsg.Permission_Constraint) *setti
 	return &settingsmsg.Setting{
 		Id:          "b44b4054-31a2-42b8-bb71-968b15cfbd4f",
 		Name:        "Drives.ReadWrite",
-		DisplayName: "Manage space properties",
-		Description: "This permission allows managing space properties such as name and description.",
+		DisplayName: "Manage project space properties",
+		Description: "This permission allows managing project space properties such as name and description.",
 		Resource: &settingsmsg.Resource{
 			Type: settingsmsg.Resource_TYPE_SYSTEM,
 		},
