@@ -24,9 +24,9 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
-// bolt_timeout makes a second process on the same datapath fail after 5s
-// instead of blocking forever on the file lock.
 var runtimeConfig = map[string]any{
+	// make a second process on the same datapath fail after 5s instead of
+	// blocking forever on the file lock
 	"bolt_timeout":           "5s",
 	"asyncErrorCallbackName": asyncErrorCallbackName,
 }

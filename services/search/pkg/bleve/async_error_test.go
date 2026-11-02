@@ -2,6 +2,7 @@ package bleve
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 
 	"github.com/blevesearch/bleve/v2/index/scorch"
@@ -90,5 +91,13 @@ var _ = Describe("asyncErrorReporter", func() {
 		Expect(count("persister", scorch.ErrPersist)).To(Equal(1.0))
 		Expect(count("merger", scorch.ErrAsyncPanic)).To(Equal(1.0))
 		Expect(count("persister", scorch.ErrCleanup)).To(BeZero())
+	})
+
+	It("reports an error without source or type as unknown", func() {
+		reporter.report(errors.New("boom"), "/index")
+
+		Expect(count("unknown", "unknown")).To(Equal(1.0))
+		Expect(out.String()).To(ContainSubstring(`"source":"unknown"`))
+		Expect(out.String()).To(ContainSubstring(`"err_type":"unknown"`))
 	})
 })
