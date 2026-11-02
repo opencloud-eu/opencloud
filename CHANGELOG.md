@@ -24,6 +24,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump golang.org/x/image from 0.46.0 to 0.47.0 [[#3861](https://github.com/opencloud-eu/opencloud/pull/3861)]
 - build(deps): bump golang.org/x/net from 0.61.0 to 0.62.0 [[#3880](https://github.com/opencloud-eu/opencloud/pull/3880)]
 - build(deps): bump golang.org/x/net from 0.59.0 to 0.61.0 [[#3851](https://github.com/opencloud-eu/opencloud/pull/3851)]
 - build(deps): bump go.opentelemetry.io/otel/sdk from 1.46.0 to 1.47.0 [[#3850](https://github.com/opencloud-eu/opencloud/pull/3850)]
