@@ -54,16 +54,19 @@ func ParseTrustedProxies(list []string) ([]netip.Prefix, error) {
 // address, whatever headers they send.
 //
 // From a trusted proxy the address is taken from header. For X-Forwarded-For
-// it is the first address from the right that is not a trusted proxy, for any
-// other header, e.g. X-Real-IP or CF-Connecting-IP, its value. Without a
-// usable header, e.g. on health checks, it is the address of the proxy.
+// it is the first address from the right that is not a trusted proxy. When all
+// of them are trusted, e.g. for a client in the company network, it is the
+// leftmost one, like nginx does with real_ip_recursive. For any other header,
+// e.g. X-Real-IP or CF-Connecting-IP, it is its value. Without a usable
+// header, e.g. on health checks, it is the address of the proxy.
 func ClientIP(trusted []netip.Prefix, header string) func(http.Handler) http.Handler {
 	cidrs := make([]string, len(trusted))
 	for i, p := range trusted {
 		cidrs[i] = p.String()
 	}
+	xff := header == "" || http.CanonicalHeaderKey(header) == DefaultClientIPHeader
 	fromHeader := chimiddleware.ClientIPFromXFF(cidrs...)
-	if header != "" && http.CanonicalHeaderKey(header) != DefaultClientIPHeader {
+	if !xff {
 		fromHeader = chimiddleware.ClientIPFromHeader(header)
 	}
 
@@ -73,13 +76,41 @@ func ClientIP(trusted []netip.Prefix, header string) func(http.Handler) http.Han
 		direct := chimiddleware.ClientIPFromRemoteAddr(next)
 
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if peer, ok := parseAddr(r.RemoteAddr); ok && isTrusted(peer, trusted) {
+			peer, ok := parseAddr(r.RemoteAddr)
+			switch {
+			case !ok || !isTrusted(peer, trusted):
+				direct.ServeHTTP(w, r)
+			case xff:
+				if n, ok := onlyTrustedHops(r, trusted); ok {
+					// the nth entry from the right is the leftmost
+					chimiddleware.ClientIPFromRemoteAddr(chimiddleware.ClientIPFromXFFTrustedProxies(n)(next)).ServeHTTP(w, r)
+					return
+				}
 				fromProxy.ServeHTTP(w, r)
-				return
+			default:
+				fromProxy.ServeHTTP(w, r)
 			}
-			direct.ServeHTTP(w, r)
 		})
 	}
+}
+
+// onlyTrustedHops returns the number of entries in X-Forwarded-For if all of
+// them are valid addresses of trusted proxies.
+func onlyTrustedHops(r *http.Request, trusted []netip.Prefix) (int, bool) {
+	n := 0
+	for _, h := range r.Header.Values(DefaultClientIPHeader) {
+		for _, v := range strings.Split(h, ",") {
+			if v = strings.TrimSpace(v); v == "" {
+				continue
+			}
+			a, err := netip.ParseAddr(v)
+			if err != nil || !isTrusted(a.Unmap().WithZone(""), trusted) {
+				return 0, false
+			}
+			n++
+		}
+	}
+	return n, n > 0
 }
 
 // ClientAddress returns the client address ClientIP determined, the network

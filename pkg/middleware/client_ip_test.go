@@ -10,7 +10,7 @@ import (
 )
 
 func TestClientIP(t *testing.T) {
-	trusted, err := ParseTrustedProxies([]string{"10.0.0.0/8", "192.0.2.10", "fd00::/8"})
+	trusted, err := ParseTrustedProxies([]string{"10.0.0.0/8", "192.0.2.10", "fd00::/8", "127.0.0.1", "192.168.0.0/16"})
 	require.NoError(t, err)
 
 	for _, tc := range []struct {
@@ -27,7 +27,9 @@ func TestClientIP(t *testing.T) {
 		{name: "one trusted proxy", remote: "10.0.0.5:443", xff: []string{"203.0.113.7"}, want: "203.0.113.7"},
 		{name: "client prepends a fake address", remote: "10.0.0.5:443", xff: []string{"198.51.100.1, 203.0.113.7"}, want: "203.0.113.7"},
 		{name: "chain of trusted proxies", remote: "10.0.0.5:443", xff: []string{"203.0.113.7, 192.0.2.10", "10.1.2.3"}, want: "203.0.113.7"},
-		{name: "only trusted addresses", remote: "10.0.0.5:443", xff: []string{"10.9.9.9, 10.1.2.3"}, want: "10.0.0.5"},
+		{name: "client in a private network", remote: "10.0.0.5:443", xff: []string{"192.168.1.10"}, want: "192.168.1.10"},
+		{name: "only trusted addresses take the leftmost", remote: "10.0.0.5:443", xff: []string{"10.9.9.9, 10.1.2.3", "192.0.2.10"}, want: "10.9.9.9"},
+		{name: "behind the proxy service", remote: "127.0.0.1:41234", xff: []string{"203.0.113.7"}, want: "203.0.113.7"},
 		{name: "broken entry", remote: "10.0.0.5:443", xff: []string{"203.0.113.7, garbage"}, want: "10.0.0.5"},
 		{name: "trusted proxy without a header", remote: "10.0.0.5:443", want: "10.0.0.5"},
 		{name: "X-Real-IP is ignored by default", remote: "10.0.0.5:443", xRealIP: "203.0.113.7", want: "10.0.0.5"},

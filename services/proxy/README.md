@@ -315,9 +315,9 @@ Change the setting in these cases:
 
 `PROXY_TRUSTED_PROXIES` replaces the default, list the loopback and private ranges again if you still need them.
 
-`X-Forwarded-For` is read from the right: the first address that is not a trusted proxy is the client, addresses a client added in front of it are ignored. If your reverse proxy sends the client address in another header, e.g. `X-Real-IP` or `CF-Connecting-IP`, set `PROXY_CLIENT_IP_HEADER`. A request from a trusted proxy without a usable header gets the address of the proxy.
+`X-Forwarded-For` is read from the right: the first address that is not a trusted proxy is the client, addresses a client added in front of it are ignored. If all addresses are trusted, e.g. for a client in your company network, the leftmost one is the client. If your reverse proxy sends the client address in another header, e.g. `X-Real-IP` or `CF-Connecting-IP`, set `PROXY_CLIENT_IP_HEADER`. A request from a trusted proxy without a usable header gets the address of the proxy.
 
-The proxy service passes the client address on to the other services in `X-Forwarded-For`.
+The proxy service passes the client address on to the other services in `X-Forwarded-For` and, if set, in the header from `PROXY_CLIENT_IP_HEADER`.
 
 `OC_TRUSTED_PROXIES` and `OC_CLIENT_IP_HEADER` set both values for the proxy and the collaboration service.
 

@@ -55,7 +55,13 @@ func NewMultiHostReverseProxy(opts ...Option) (*MultiHostReverseProxy, error) {
 
 		// SetXForwarded uses the peer, which is the reverse proxy in front of us.
 		// Tell the services who the client is, reva reads it e.g. for OCM.
-		r.Out.Header.Set("X-Forwarded-For", pkgmiddleware.ClientAddress(r.In))
+		client := pkgmiddleware.ClientAddress(r.In)
+		r.Out.Header.Set("X-Forwarded-For", client)
+		// a service behind us reading the same header, e.g. collaboration with
+		// OC_CLIENT_IP_HEADER, must not get a value we ignored
+		if h := options.Config.ClientIP.Header; h != "" {
+			r.Out.Header.Set(h, client)
+		}
 	}
 
 	rp.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, err error) {

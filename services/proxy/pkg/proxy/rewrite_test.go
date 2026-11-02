@@ -14,9 +14,13 @@ import (
 	"gotest.tools/v3/assert"
 )
 
-func rewrite(t *testing.T, in *http.Request) *http.Request {
+func rewrite(t *testing.T, in *http.Request, header ...string) *http.Request {
 	t.Helper()
-	rp := newTestProxy(testConfig(nil), func(req *http.Request) *http.Response {
+	cfg := testConfig(nil)
+	if len(header) > 0 {
+		cfg.ClientIP.Header = header[0]
+	}
+	rp := newTestProxy(cfg, func(req *http.Request) *http.Response {
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewBufferString("OK")), Header: make(http.Header)}
 	})
 
@@ -60,5 +64,19 @@ func TestRewriteForwardsPeerWithoutClientIP(t *testing.T) {
 
 	out := rewrite(t, in)
 
+	assert.Equal(t, out.Header.Get("X-Forwarded-For"), "192.0.2.1")
+}
+
+// TestRewriteReplacesTheClientIPHeader verifies that a custom client IP header
+// sent by an untrusted client does not reach the services, they may read it
+// too.
+func TestRewriteReplacesTheClientIPHeader(t *testing.T) {
+	in := httptest.NewRequest(http.MethodGet, "/", nil)
+	in.RemoteAddr = "192.0.2.1:1234"
+	in.Header.Set("CF-Connecting-IP", "203.0.113.9")
+
+	out := rewrite(t, in, "CF-Connecting-IP")
+
+	assert.Equal(t, out.Header.Get("CF-Connecting-IP"), "192.0.2.1")
 	assert.Equal(t, out.Header.Get("X-Forwarded-For"), "192.0.2.1")
 }
