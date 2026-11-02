@@ -341,8 +341,8 @@ Example File:
             {
                 "id": "016f6ddd-9501-4a0a-8ebe-64a20ee8ec82",
                 "name": "Drives.List",
-                "displayName": "List All Spaces",
-                "description": "This permission allows listing all spaces.",
+                "displayName": "List All Project Spaces",
+                "description": "This permission allows listing all project spaces.",
                 "permissionValue": {
                     "operation": "OPERATION_READ",
                     "constraint": "CONSTRAINT_ALL"
@@ -367,8 +367,8 @@ Example File:
             {
                 "id": "b44b4054-31a2-42b8-bb71-968b15cfbd4f",
                 "name": "Drives.ReadWrite",
-                "displayName": "Manage space properties",
-                "description": "This permission allows managing space properties such as name and description.",
+                "displayName": "Manage project space properties",
+                "description": "This permission allows managing project space properties such as name and description.",
                 "permissionValue": {
                     "operation": "OPERATION_READWRITE",
                     "constraint": "CONSTRAINT_ALL"
