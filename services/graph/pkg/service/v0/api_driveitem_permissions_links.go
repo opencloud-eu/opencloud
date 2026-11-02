@@ -13,11 +13,11 @@ import (
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
+	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/linktype"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 )
 
 func (s DriveItemPermissionsService) CreateLink(ctx context.Context, driveItemID *storageprovider.ResourceId, createLink libregraph.DriveItemCreateLink) (libregraph.Permission, error) {
@@ -230,6 +230,8 @@ func (api DriveItemPermissionsApi) SetLinkPassword(w http.ResponseWriter, r *htt
 
 	newPermission, err := api.driveItemPermissionsService.SetPublicLinkPassword(ctx, itemID, permissionID, password.GetPassword())
 	if err != nil {
+		logger := api.logger.SubloggerWithRequestID(ctx)
+		errorEvent(&logger, err).Str("itemID", storagespace.FormatResourceID(itemID)).Str("permissionID", permissionID).Msg("could not set link password")
 		errorcode.RenderError(w, r, err)
 		return
 	}
@@ -264,6 +266,8 @@ func (api DriveItemPermissionsApi) SetSpaceRootLinkPassword(w http.ResponseWrite
 	ctx := r.Context()
 	newPermission, err := api.driveItemPermissionsService.SetPublicLinkPasswordOnSpaceRoot(ctx, &driveID, permissionID, password.GetPassword())
 	if err != nil {
+		logger := api.logger.SubloggerWithRequestID(ctx)
+		errorEvent(&logger, err).Str("driveID", storagespace.FormatResourceID(&driveID)).Str("permissionID", permissionID).Msg("could not set link password")
 		errorcode.RenderError(w, r, err)
 		return
 	}
@@ -275,7 +279,7 @@ func (api DriveItemPermissionsApi) SetSpaceRootLinkPassword(w http.ResponseWrite
 func (s DriveItemPermissionsService) updatePublicLinkPermission(ctx context.Context, permissionID string, itemID *storageprovider.ResourceId, newPermission *libregraph.Permission) (perm *libregraph.Permission, err error) {
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
-		s.logger.Error().Err(err).Msg("could not select next gateway client")
+		s.logger.Debug().Err(err).Msg("could not select next gateway client")
 		return nil, errorcode.New(errorcode.GeneralException, err.Error())
 	}
 

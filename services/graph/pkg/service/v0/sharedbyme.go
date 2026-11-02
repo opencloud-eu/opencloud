@@ -15,11 +15,13 @@ type driveItemsByResourceID map[string]libregraph.DriveItem
 
 // GetSharedByMe implements the Service interface (/me/drives/sharedByMe endpoint)
 func (g Graph) GetSharedByMe(w http.ResponseWriter, r *http.Request) {
-	g.logger.Debug().Msg("Calling GetRootDriveChildren")
 	ctx := r.Context()
+	logger := g.logger.SubloggerWithRequestID(ctx)
+	logger.Debug().Msg("Calling GetRootDriveChildren")
 
 	driveItems, err := g.listUserShares(ctx, nil, make(driveItemsByResourceID))
 	if err != nil {
+		errorEvent(&logger, err).Msg("could not list shares")
 		errorcode.RenderError(w, r, err)
 		return
 	}
@@ -27,6 +29,7 @@ func (g Graph) GetSharedByMe(w http.ResponseWriter, r *http.Request) {
 	if g.config.IncludeOCMSharees {
 		driveItems, err = g.listOCMShares(ctx, nil, driveItems)
 		if err != nil {
+			errorEvent(&logger, err).Msg("could not list shares")
 			errorcode.RenderError(w, r, err)
 			return
 		}
@@ -34,6 +37,7 @@ func (g Graph) GetSharedByMe(w http.ResponseWriter, r *http.Request) {
 
 	driveItems, err = g.listPublicShares(ctx, nil, driveItems)
 	if err != nil {
+		errorEvent(&logger, err).Msg("could not list shares")
 		errorcode.RenderError(w, r, err)
 		return
 	}
