@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	stdmail "net/mail"
+	"net/textproto"
 	"strings"
 	"time"
 
@@ -115,7 +116,7 @@ func (m Mail) SendMessage(_ context.Context, message *Message) error {
 
 	smtpClient, err := m.getMailClient()
 	if err != nil {
-		return err
+		return m.encryptionHint(err)
 	}
 
 	email := mail.NewMSG()
@@ -130,7 +131,18 @@ func (m Mail) SendMessage(_ context.Context, message *Message) error {
 		}
 	}
 
-	return email.Send(smtpClient)
+	return m.encryptionHint(email.Send(smtpClient))
+}
+
+// encryptionHint points to the encryption setting when the server rejects an
+// unencrypted session with 530. That is what servers requiring STARTTLS answer
+// to AUTH or MAIL FROM, which otherwise gives no clue about the misconfiguration.
+func (m Mail) encryptionHint(err error) error {
+	var tpErr *textproto.Error
+	if strings.ToLower(m.conf.Notifications.SMTP.Encryption) == "none" && errors.As(err, &tpErr) && tpErr.Code == 530 {
+		return fmt.Errorf("the SMTP server requires an encrypted connection, set NOTIFICATIONS_SMTP_ENCRYPTION to 'starttls' or 'ssltls': %w", err)
+	}
+	return err
 }
 
 func appendSender(sender string, a stdmail.Address) string {
