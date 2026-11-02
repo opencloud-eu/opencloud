@@ -27,7 +27,6 @@ func init() {
 // asyncErrorReporter logs and counts the errors of scorch's merger, persister
 // and introducer, which bleve drops otherwise. A failing merge retries several
 // times a second, so each source and error type logs at most once a minute.
-// Panics always log, and the counter sees every error.
 type asyncErrorReporter struct {
 	logger  atomic.Pointer[log.Logger]
 	counter *prometheus.CounterVec
@@ -51,7 +50,7 @@ func newAsyncErrorReporter(counter *prometheus.CounterVec) *asyncErrorReporter {
 }
 
 func (r *asyncErrorReporter) report(err error, path string) {
-	var key asyncErrorKey
+	key := asyncErrorKey{source: "unknown", errType: "unknown"}
 	var scorchErr *scorch.ScorchError
 	if errors.As(err, &scorchErr) {
 		key = asyncErrorKey{source: scorchErr.Source, errType: string(scorchErr.ErrType)}
