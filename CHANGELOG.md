@@ -4,11 +4,15 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @dragotin, @dschmidt, @pascalwengerter, @rhafer
+@aduffeck, @dragotin, @dschmidt, @micbar, @pascalwengerter, @rhafer
 
 ### 🔒 Security
 
 - Add files for the Anthropic OSS-Scanner to run [[#3865](https://github.com/opencloud-eu/opencloud/pull/3865)]
+
+### 📚 Documentation
+
+- docs: add audit logging ADR [[#3855](https://github.com/opencloud-eu/opencloud/pull/3855)]
 
 ### 🐛 Bug Fixes
 
