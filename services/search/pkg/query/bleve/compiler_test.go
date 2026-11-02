@@ -1,6 +1,7 @@
 package bleve
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -300,7 +301,7 @@ func Test_compile(t *testing.T) {
 				},
 			},
 			want: query.NewConjunctionQuery([]query.Query{
-				query.NewQueryStringQuery(`ID:b27d3bf1-b254-459f-92e8-bdba668d6d3f$d0648459-25fb-4ed8-8684-bc62c7dca29c!d0648459-25fb-4ed8-8684-bc62c7dca29c`),
+				query.NewQueryStringQuery(`ID:b27d3bf1\-b254\-459f\-92e8\-bdba668d6d3f$d0648459\-25fb\-4ed8\-8684\-bc62c7dca29c\!d0648459\-25fb\-4ed8\-8684\-bc62c7dca29c`),
 				func() query.Query {
 					q := query.NewDateRangeInclusiveQuery(timeMustParse(t, "2023-09-05T08:42:11.23554+02:00"), time.Time{}, &[]bool{true}[0], nil)
 					q.FieldVal = "Mtime"
@@ -422,8 +423,8 @@ func Test_compile(t *testing.T) {
 			},
 			want: query.NewDisjunctionQuery([]query.Query{
 				query.NewQueryStringQuery(`MimeType:application/msword`),
-				query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats-officedocument.wordprocessingml.document`),
-				query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats-officedocument.wordprocessingml.form`),
+				query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats\-officedocument.wordprocessingml.document`),
+				query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats\-officedocument.wordprocessingml.form`),
 				query.NewQueryStringQuery(`MimeType:application/vnd.oasis.opendocument.text`),
 				query.NewQueryStringQuery(`MimeType:text/plain`),
 				query.NewQueryStringQuery(`MimeType:text/markdown`),
@@ -444,8 +445,8 @@ func Test_compile(t *testing.T) {
 			want: query.NewConjunctionQuery([]query.Query{
 				query.NewDisjunctionQuery([]query.Query{
 					query.NewQueryStringQuery(`MimeType:application/msword`),
-					query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats-officedocument.wordprocessingml.document`),
-					query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats-officedocument.wordprocessingml.form`),
+					query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats\-officedocument.wordprocessingml.document`),
+					query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats\-officedocument.wordprocessingml.form`),
 					query.NewQueryStringQuery(`MimeType:application/vnd.oasis.opendocument.text`),
 					query.NewQueryStringQuery(`MimeType:text/plain`),
 					query.NewQueryStringQuery(`MimeType:text/markdown`),
@@ -469,8 +470,8 @@ func Test_compile(t *testing.T) {
 			},
 			want: query.NewDisjunctionQuery([]query.Query{
 				query.NewQueryStringQuery(`MimeType:application/msword`),
-				query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats-officedocument.wordprocessingml.document`),
-				query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats-officedocument.wordprocessingml.form`),
+				query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats\-officedocument.wordprocessingml.document`),
+				query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats\-officedocument.wordprocessingml.form`),
 				query.NewQueryStringQuery(`MimeType:application/vnd.oasis.opendocument.text`),
 				query.NewQueryStringQuery(`MimeType:text/plain`),
 				query.NewQueryStringQuery(`MimeType:text/markdown`),
@@ -499,8 +500,8 @@ func Test_compile(t *testing.T) {
 			want: query.NewConjunctionQuery([]query.Query{
 				query.NewDisjunctionQuery([]query.Query{
 					query.NewQueryStringQuery(`MimeType:application/msword`),
-					query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats-officedocument.wordprocessingml.document`),
-					query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats-officedocument.wordprocessingml.form`),
+					query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats\-officedocument.wordprocessingml.document`),
+					query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats\-officedocument.wordprocessingml.form`),
 					query.NewQueryStringQuery(`MimeType:application/vnd.oasis.opendocument.text`),
 					query.NewQueryStringQuery(`MimeType:text/plain`),
 					query.NewQueryStringQuery(`MimeType:text/markdown`),
@@ -529,8 +530,8 @@ func Test_compile(t *testing.T) {
 				query.NewDisjunctionQuery([]query.Query{
 					query.NewQueryStringQuery(`MimeType:application/pdf`),
 					query.NewQueryStringQuery(`MimeType:application/msword`),
-					query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats-officedocument.wordprocessingml.document`),
-					query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats-officedocument.wordprocessingml.form`),
+					query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats\-officedocument.wordprocessingml.document`),
+					query.NewQueryStringQuery(`MimeType:application/vnd.openxmlformats\-officedocument.wordprocessingml.form`),
 					query.NewQueryStringQuery(`MimeType:application/vnd.oasis.opendocument.text`),
 					query.NewQueryStringQuery(`MimeType:text/plain`),
 					query.NewQueryStringQuery(`MimeType:text/markdown`),
@@ -553,6 +554,75 @@ func Test_compile(t *testing.T) {
 			}),
 			wantErr: false,
 		},
+		{
+			name: `quotes and backslashes in a phrase`,
+			args: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: `"Quote" C:\temp\`},
+					&ast.OperatorNode{Value: "AND"},
+					&ast.StringNode{Key: "content", Value: `foo\`},
+				},
+			},
+			want: query.NewConjunctionQuery([]query.Query{
+				query.NewQueryStringQuery(`Name_words:"\"quote\" c:\\temp\\"`),
+				query.NewQueryStringQuery(`Content:"foo\\"`),
+			}),
+			wantErr: false,
+		},
+		{
+			name: `quotes and backslashes in a wildcard`,
+			args: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "name", Value: `*"Quote"\*`},
+				},
+			},
+			want: query.NewConjunctionQuery([]query.Query{
+				query.NewQueryStringQuery(`Name_lowercase:*\"quote\"\\*`),
+			}),
+			wantErr: false,
+		},
+		{
+			name: `quotes and backslashes in a term`,
+			args: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "id", Value: `a"b\`},
+				},
+			},
+			want: query.NewConjunctionQuery([]query.Query{
+				query.NewQueryStringQuery(`ID:a\"b\\`),
+			}),
+			wantErr: false,
+		},
+		{
+			name: `values a query string can't carry`,
+			args: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "tag", Value: `/`},
+					&ast.OperatorNode{Value: "AND"},
+					&ast.StringNode{Key: "tag", Value: `/a*/`},
+					&ast.OperatorNode{Value: "AND"},
+					&ast.StringNode{Key: "tag", Value: ``},
+				},
+			},
+			want: query.NewConjunctionQuery([]query.Query{
+				func() query.Query {
+					q := query.NewMatchQuery(`/`)
+					q.SetField("Tags_lowercase")
+					return q
+				}(),
+				func() query.Query {
+					q := query.NewWildcardQuery(`/a*/`)
+					q.SetField("Tags_lowercase")
+					return q
+				}(),
+				func() query.Query {
+					q := query.NewMatchQuery(``)
+					q.SetField("Tags_lowercase")
+					return q
+				}(),
+			}),
+			wantErr: false,
+		},
 	}
 
 	assert := tAssert.New(t)
@@ -570,6 +640,32 @@ func Test_compile(t *testing.T) {
 	}
 }
 
+// whatever a KQL value holds, the compiled query has to be one bleve can parse;
+// a quote or a trailing backslash must not break out of a phrase or term
+func Test_compileQuotesAndBackslashes(t *testing.T) {
+	keys := []string{"name", "content", "tag", "title", "mediatype", "path", "id", "driveid", "favorite", "audio.artist"}
+	values := []string{
+		``, `"`, `""`, `\`, `\\`, `foo\`, `\foo`, `\"`, `"\`, `a"b`, `"quoted"`, `C:\temp\new`,
+		`a/b`, `/`, `./a/b/`, `*"x"*`, `*\`, `*\*`, `foo\*`, `a b\`, `a:b`, `(a)`, `+-=&|><!{}[]^~`, ` `,
+	}
+
+	for _, key := range keys {
+		for _, value := range values {
+			for _, exact := range []bool{false, true} {
+				node := &ast.StringNode{Key: key, Value: value, Exact: exact}
+				t.Run(fmt.Sprintf("%s %t %s", key, exact, value), func(t *testing.T) {
+					got, err := compile(searchquery.Normalize(&ast.Ast{Nodes: []ast.Node{node}}, searchquery.ResolveField))
+					tAssert.NoError(t, err)
+
+					validatable, ok := got.(query.ValidatableQuery)
+					tAssert.True(t, ok)
+					tAssert.NoError(t, validatable.Validate())
+				})
+			}
+		}
+	}
+}
+
 func Test_escape(t *testing.T) {
 	type args struct {
 		str string
@@ -582,16 +678,16 @@ func Test_escape(t *testing.T) {
 		{
 			name: "all escaped",
 			args: args{
-				`+-=&|><!(){}[]^"~:\/ `,
+				`+-=&|><!(){}[]^"~:\ `,
 			},
-			want: `\+\-\=\&\|\>\<\!\(\)\{\}\[\]\^\"\~\:\\\/\ `,
+			want: `\+\-\=\&\|\>\<\!\(\)\{\}\[\]\^\"\~\:\\\ `,
 		},
 		{
 			name: "no one escaped",
 			args: args{
-				`@#$%`,
+				`@#$%/*?`,
 			},
-			want: `@#$%`,
+			want: `@#$%/*?`,
 		},
 	}
 	for _, tt := range tests {
