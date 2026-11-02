@@ -3,6 +3,8 @@ package registry
 import (
 	"context"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	mRegistry "go-micro.dev/v4/registry"
@@ -20,7 +22,7 @@ func RegisterService(ctx context.Context, logger log.Logger, service *mRegistry.
 
 	rOpts := []mRegistry.RegisterOption{mRegistry.RegisterTTL(GetRegisterTTL())}
 	if err := registry.Register(service, rOpts...); err != nil {
-		logger.Fatal().Err(err).Strs("registry_addresses", registry.Options().Addrs).Msgf("Registration error for external service %v", service.Name)
+		logger.Fatal().Err(err).Strs("registry_addresses", redactAddrs(registry.Options().Addrs)).Msgf("Registration error for external service %v", service.Name)
 	}
 
 	t := time.NewTicker(GetRegisterInterval())
@@ -58,4 +60,34 @@ func RegisterService(ctx context.Context, logger log.Logger, service *mRegistry.
 	}()
 
 	return nil
+}
+
+// redactAddrs masks passwords in registry addresses like nats://user:pass@host:9233
+func redactAddrs(addrs []string) []string {
+	redacted := make([]string, 0, len(addrs))
+	for _, a := range addrs {
+		redacted = append(redacted, redactAddr(a))
+	}
+	return redacted
+}
+
+func redactAddr(addr string) string {
+	// nats adds the scheme to addresses without one, so user:pass@host:9233 is valid
+	prefix := ""
+	if !strings.Contains(addr, "://") {
+		prefix = "nats://"
+	}
+
+	u, err := url.Parse(prefix + addr)
+	if err != nil {
+		// we can't tell where the password is, so hide everything before the host
+		if i := strings.LastIndex(addr, "@"); i >= 0 {
+			return "xxxxx" + addr[i:]
+		}
+		return addr
+	}
+	if u.User == nil {
+		return addr
+	}
+	return strings.TrimPrefix(u.Redacted(), prefix)
 }

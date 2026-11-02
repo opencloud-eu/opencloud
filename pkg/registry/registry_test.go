@@ -63,3 +63,16 @@ var _ = Describe("Registry config", func() {
 		Expect(registry.GetConfig(registry.Inmemory()).Type).To(Equal("memory"))
 	})
 })
+
+var _ = DescribeTable("redactAddrs",
+	func(addr, expected string) {
+		Expect(registry.RedactAddrs([]string{addr})).To(Equal([]string{expected}))
+	},
+	Entry("host and port", "127.0.0.1:9233", "127.0.0.1:9233"),
+	Entry("hostname and port", "nats:9233", "nats:9233"),
+	Entry("url without credentials", "nats://nats:9233", "nats://nats:9233"),
+	Entry("url with credentials", "nats://user:secret@nats:9233", "nats://user:xxxxx@nats:9233"),
+	Entry("url with username only", "nats://user@nats:9233", "nats://user@nats:9233"),
+	Entry("credentials without scheme", "user:secret@nats:9233", "user:xxxxx@nats:9233"),
+	Entry("unparsable url with credentials", "nats://user:sec%ret@nats:9233", "xxxxx@nats:9233"),
+)

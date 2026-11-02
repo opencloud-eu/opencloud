@@ -5,6 +5,8 @@ package registry
 
 var GetConfig = getConfig
 
+var RedactAddrs = redactAddrs
+
 // ResetConfigure drops the configuration set by Configure
 func ResetConfigure() {
 	_configured = nil
