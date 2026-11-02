@@ -66,15 +66,16 @@ func GetRegistry(opts ...Option) mRegistry.Registry {
 			fmt.Println("Attention: unknown registry type, using default nats-js-kv")
 			fallthrough
 		case "natsjs", "nats-js", "nats-js-kv": // for backwards compatibility - we will stick with one of those
-			natsOpts := []mRegistry.Option{
-				mRegistry.Addrs(cfg.Addresses...),
+			connOpts := []mRegistry.Option{mRegistry.Addrs(cfg.Addresses...)}
+			if cfg.Username != "" || cfg.Password != "" {
+				connOpts = append(connOpts, natsjsregistry.Authenticate(cfg.Username, cfg.Password))
+			}
+			natsjsregistry.SetMicroOptions(connOpts...)
+
+			_reg = natsjsregistry.NewRegistry(append(connOpts,
 				natsjsregistry.DefaultTTL(cfg.RegisterTTL),
 				natsjsregistry.ServiceName("_oc"),
-			}
-			if cfg.Username != "" || cfg.Password != "" {
-				natsOpts = append(natsOpts, natsjsregistry.Authenticate(cfg.Username, cfg.Password))
-			}
-			_reg = natsjsregistry.NewRegistry(natsOpts...)
+			)...)
 		case "memory":
 			_reg = memr.NewRegistry()
 			cfg.DisableCache = true // no cache needed for in-memory registry
