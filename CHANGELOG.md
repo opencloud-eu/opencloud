@@ -1,13 +1,14 @@
 # Changelog
 
-## [9.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.1) - 2026-11-02
+## [9.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.1) - 2026-11-03
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @dragotin, @dschmidt, @micbar, @pascalwengerter, @rhafer
+@aduffeck, @dragotin, @dschmidt, @maki5, @micbar, @pascalwengerter, @rhafer
 
 ### 🔒 Security
 
+- fix(chore): upd deprecated chi RealIP middelware [[#3464](https://github.com/opencloud-eu/opencloud/pull/3464)]
 - Add files for the Anthropic OSS-Scanner to run [[#3865](https://github.com/opencloud-eu/opencloud/pull/3865)]
 
 ### 📚 Documentation
