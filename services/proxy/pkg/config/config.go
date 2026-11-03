@@ -19,6 +19,8 @@ type Config struct {
 
 	HTTP HTTP `yaml:"http"`
 
+	ClientIP ClientIP `yaml:"client_ip"`
+
 	Reva          *shared.Reva          `yaml:"reva"`
 	GRPCClientTLS *shared.GRPCClientTLS `yaml:"grpc_client_tls"`
 	GrpcClient    client.Client         `yaml:"-"`
@@ -95,6 +97,12 @@ var (
 	// RouteTypes is an array of the available route types
 	RouteTypes = []RouteType{QueryRoute, RegexRoute, PrefixRoute}
 )
+
+// ClientIP configures how the proxy determines the address of the client.
+type ClientIP struct {
+	TrustedProxies []string `yaml:"trusted_proxies" env:"OC_TRUSTED_PROXIES;PROXY_TRUSTED_PROXIES" desc:"IP addresses and CIDR ranges of the reverse proxies in front of OpenCloud. The client address is only taken from the header set in PROXY_CLIENT_IP_HEADER if the request comes from one of these. Defaults to the loopback and private network ranges. Set it to the addresses of your reverse proxies if clients can reach OpenCloud from a private network. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	Header         string   `yaml:"header" env:"OC_CLIENT_IP_HEADER;PROXY_CLIENT_IP_HEADER" desc:"The header a trusted reverse proxy sends the client address in, e.g. X-Real-IP or CF-Connecting-IP. X-Forwarded-For is read from the right, the first address that is not a trusted proxy is the client." introductionVersion:"%%NEXT%%"`
+}
 
 // AuthMiddleware configures the proxy http auth middleware.
 type AuthMiddleware struct {

@@ -8,6 +8,7 @@ import (
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
 	ocdefaults "github.com/opencloud-eu/opencloud/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/pkg/config/envdecode"
+	"github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config/defaults"
@@ -42,6 +43,9 @@ func Validate(cfg *config.Config) error {
 	}
 	if cfg.Wopi.Secret == "" {
 		return shared.MissingWOPISecretError(cfg.Service.Name)
+	}
+	if _, err := middleware.ParseTrustedProxies(cfg.HTTP.TrustedProxies); err != nil {
+		return fmt.Errorf("invalid COLLABORATION_HTTP_TRUSTED_PROXIES in service %s: %w", cfg.Service.Name, err)
 	}
 	url, err := url.Parse(cfg.Wopi.WopiSrc)
 	if err != nil {
