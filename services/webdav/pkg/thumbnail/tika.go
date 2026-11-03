@@ -37,6 +37,7 @@ var DefaultTikaTypes = []string{
 	"audio/ogg",
 	"audio/x-flac",
 	"audio/x-m4a",
+	"audio/x-m4b",
 
 	"application/x-msdownload",
 
