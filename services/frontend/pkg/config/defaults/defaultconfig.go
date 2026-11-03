@@ -3,6 +3,7 @@ package defaults
 import (
 	"time"
 
+	ocdefaults "github.com/opencloud-eu/opencloud/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/frontend/pkg/config"
@@ -145,6 +146,9 @@ func DefaultConfig() *config.Config {
 			MinUpperCaseCharacters: 1,
 			MinDigits:              1,
 			MinSpecialCharacters:   1,
+		},
+		Validation: config.Validation{
+			MaxTagLength: ocdefaults.MaxTagLength,
 		},
 		Groupware: config.Groupware{
 			Enabled: false,

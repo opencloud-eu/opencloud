@@ -227,6 +227,9 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 									"change_password_self_disabled": changePasswordDisabled,
 									"edit_login_allowed_disabled":   cfg.EditLoginAllowedDisabled,
 								},
+								"tags": map[string]any{
+									"max_tag_length": cfg.Validation.MaxTagLength,
+								},
 							},
 							"checksums": map[string]any{
 								"supported_types":       cfg.Checksums.SupportedTypes,

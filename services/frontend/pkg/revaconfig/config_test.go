@@ -47,3 +47,19 @@ func dig(t *testing.T, m map[string]any, keys ...string) map[string]any {
 	}
 	return m
 }
+
+func TestMaxTagLengthCapability(t *testing.T) {
+	for _, maxTagLength := range []int{100, 20, 0} {
+		cfg := defaults.FullDefaultConfig()
+		cfg.Commons = &shared.Commons{}
+		if maxTagLength != 100 {
+			cfg.Validation.MaxTagLength = maxTagLength
+		}
+
+		rcfg, err := FrontendConfigFromStruct(cfg, log.NopLogger())
+		require.NoError(t, err)
+
+		got := dig(t, rcfg, "http", "services", "ocs", "capabilities", "capabilities", "graph", "tags")["max_tag_length"]
+		require.Equal(t, maxTagLength, got)
+	}
+}
