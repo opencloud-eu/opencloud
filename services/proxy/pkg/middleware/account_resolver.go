@@ -223,6 +223,11 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		user, err = m.userRoleAssigner.UpdateUserRoleAssignment(ctx, user, claims)
 		if err != nil {
 			m.logger.Error().Err(err).Msg("Could not get user roles")
+			if errors.Is(err, userroles.ErrRoleClaim) {
+				// the token has no usable role claim: the user is not authorized, OpenCloud did not fail
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
