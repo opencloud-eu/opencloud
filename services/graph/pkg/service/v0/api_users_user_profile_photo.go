@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 
 	"github.com/go-chi/render"
@@ -115,12 +116,9 @@ func (s UsersUserProfilePhotoService) UpdatePhoto(ctx context.Context, id string
 	return s.storage.SimpleUpload(ctx, id, photo)
 }
 
-// maxProfilePhotoBytes limits the size of downloaded profile pictures.
 const maxProfilePhotoBytes = 10 << 20 // 10 MiB
 
-// SyncPhotoFromURL downloads a profile picture from the given URL and
-// stores it for the specified user. The URL is validated against the
-// configured allowlist before downloading.
+// SyncPhotoFromURL implements UsersUserProfilePhotoProvider.
 func (s UsersUserProfilePhotoService) SyncPhotoFromURL(ctx context.Context, userID, rawURL string) error {
 	if userID == "" {
 		return fmt.Errorf("%w: %s", ErrMissingArgument, "userID")
@@ -202,7 +200,8 @@ func (s UsersUserProfilePhotoService) profilePictureAllowlistPatterns() []string
 }
 
 // urlPatternMatches accepts HTTP(S) URL patterns with host globs and an optional
-// exact path or trailing path wildcard. Empty and root paths allow any path.
+// exact path or trailing path wildcard after decoding and cleaning dot segments.
+// Empty and root paths allow any path.
 // Query strings and fragments do not restrict targets and are invalid in patterns.
 func urlPatternMatches(pattern string, target *url.URL) bool {
 	if target == nil || target.Host == "" || target.User != nil ||
@@ -233,14 +232,15 @@ func urlPatternMatches(pattern string, target *url.URL) bool {
 		}
 	}
 
-	patternPath := parsedPattern.EscapedPath()
-	if patternPath == "" || patternPath == "/" {
+	patternPath := path.Clean(parsedPattern.Path)
+	if parsedPattern.Path == "" || patternPath == "/" {
 		return true
 	}
+	targetPath := path.Clean(target.Path)
 	if strings.HasSuffix(patternPath, "*") {
-		return strings.HasPrefix(target.EscapedPath(), strings.TrimSuffix(patternPath, "*"))
+		return strings.HasPrefix(targetPath, strings.TrimSuffix(patternPath, "*"))
 	}
-	return patternPath == target.EscapedPath()
+	return patternPath == targetPath
 }
 
 // UsersUserProfilePhotoApi contains all photo related api endpoints

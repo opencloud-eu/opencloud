@@ -101,6 +101,12 @@ func NewService(ctx context.Context, consumer events.Consumer, backend identity.
 	}
 }
 
+// Bound both active downloads and queued requests during login bursts.
+const (
+	maxConcurrentProfilePictureSyncs = 4
+	profilePictureSyncQueueSize      = 32
+)
+
 func processEvents(ctx context.Context, consumer events.Consumer, stop *atomic.Bool, stopCh chan struct{},
 	backend identity.Backend, m *metrics.Metrics, logger *log.Logger, photoSyncer PhotoSyncer, publisher events.Publisher) error {
 	var _registeredEvents = []events.Unmarshaller{
@@ -111,6 +117,23 @@ func processEvents(ctx context.Context, consumer events.Consumer, stop *atomic.B
 	if err != nil {
 		logger.Error().Err(err).Msg("cannot consume from nats")
 		return err
+	}
+	syncCtx, cancelSync := context.WithCancel(ctx)
+	defer cancelSync()
+	syncRequests := make(chan ocevents.UserProfilePictureSyncRequested, profilePictureSyncQueueSize)
+	if photoSyncer != nil {
+		for range maxConcurrentProfilePictureSyncs {
+			go func() {
+				for {
+					select {
+					case <-syncCtx.Done():
+						return
+					case ev := <-syncRequests:
+						syncProfilePicture(syncCtx, logger, photoSyncer, publisher, ev)
+					}
+				}
+			}()
+		}
 	}
 	logger.Debug().Msg("listening for events")
 	for loop := true; loop; {
@@ -129,7 +152,13 @@ func processEvents(ctx context.Context, consumer events.Consumer, stop *atomic.B
 					continue
 				}
 				if photoSyncer != nil {
-					go syncProfilePicture(ctx, logger, photoSyncer, publisher, ev)
+					select {
+					case syncRequests <- ev:
+					case <-stopCh:
+						return nil
+					case <-ctx.Done():
+						return nil
+					}
 				}
 			case events.UserSignedIn:
 				name := "UserSignedIn"

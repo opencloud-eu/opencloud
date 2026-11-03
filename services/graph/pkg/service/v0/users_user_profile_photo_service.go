@@ -34,22 +34,15 @@ func NewConfiguredUserProfilePhotoService(ctx context.Context, cfg *config.Confi
 		return nil, fmt.Errorf("could not initialize metadata storage: %w", err)
 	}
 
-	photoOpts := []UserProfilePhotoOption{}
-	// The profile picture sync is always enabled; the proxy decides
-	// whether to emit sync events based on PROXY_OIDC_PICTURE_CLAIM.
-	// The default allowlist uses the OpenCloud URL host.
-	openCloudURL := ""
-	if cfg.Commons != nil {
-		openCloudURL = cfg.Commons.OpenCloudURL
+	oidcIssuer := cfg.OIDCIssuer
+	if oidcIssuer == "" && cfg.Commons != nil {
+		oidcIssuer = cfg.Commons.OpenCloudURL
 	}
-	profilePictureHTTPClient := newProfilePictureHTTPClient(cfg.ProfilePictureInsecure)
-	photoOpts = append(photoOpts, WithProfilePictureSync(
-		profilePictureHTTPClient,
+	userProfilePhotoService, err := NewUsersUserProfilePhotoService(photoStorage, WithProfilePictureSync(
+		newProfilePictureHTTPClient(cfg.ProfilePictureInsecure),
 		cfg.ProfilePictureURLAllowlist,
-		openCloudURL,
+		oidcIssuer,
 	))
-
-	userProfilePhotoService, err := NewUsersUserProfilePhotoService(photoStorage, photoOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize user profile photo service: %w", err)
 	}

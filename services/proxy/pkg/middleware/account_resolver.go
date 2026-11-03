@@ -129,13 +129,13 @@ func readStringClaim(path string, claims map[string]any) (string, error) {
 	return value, fmt.Errorf("claim path '%s' not set or empty", path)
 }
 
-func (m accountResolver) readProfilePictureURL(claims map[string]any) string {
+func (m accountResolver) readProfilePictureURL(claims map[string]any, userID string) string {
 	if m.pictureClaim == "" {
 		return ""
 	}
 	pictureURL, err := readStringClaim(m.pictureClaim, claims)
 	if err != nil {
-		m.logger.Debug().Err(err).Str("claim", m.pictureClaim).Msg("no profile picture claim found in OIDC claims")
+		m.logger.Debug().Err(err).Str("claim", m.pictureClaim).Str("userid", userID).Msg("no profile picture claim found in OIDC claims")
 		return ""
 	}
 	return pictureURL
@@ -253,7 +253,7 @@ func (m accountResolver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 			// If the OIDC claims contain a profile picture URL, request
 			// the graph service to sync it.
-			if pictureURL := m.readProfilePictureURL(claims); pictureURL != "" {
+			if pictureURL := m.readProfilePictureURL(claims, user.Id.GetOpaqueId()); pictureURL != "" {
 				if err := events.Publish(req.Context(), m.eventsPublisher, ocevents.UserProfilePictureSyncRequested{
 					Executant:  user.Id,
 					PictureURL: pictureURL,
