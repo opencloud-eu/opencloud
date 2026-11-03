@@ -295,21 +295,26 @@ func getRootClosestMountCandidates(
 }
 
 // getLimit may return found=false to skip a candidate or [ErrNoLimit] for no usable limit.
+// Permission errors are returned only if no candidate returns a limit or [ErrNoLimit].
 // Other errors and conflicting concrete limits are returned.
 func getMemoryLimitFromMountCandidates(
 	mis []mountInfo,
 	getLimit func(mi mountInfo) (uint64, bool, error),
 ) (uint64, bool, error) {
 	var (
-		firstErr, conflictErr  error
-		sawNoLimit, limitFound bool
-		firstLimit             uint64
+		firstErr, permissionErr, conflictErr error
+		sawNoLimit, limitFound               bool
+		firstLimit                           uint64
 	)
 	for _, mi := range mis {
 		limit, found, err := getLimit(mi)
 		if err != nil {
 			if errors.Is(err, ErrNoLimit) {
 				sawNoLimit = true
+			} else if errors.Is(err, os.ErrPermission) {
+				if permissionErr == nil {
+					permissionErr = err
+				}
 			} else if firstErr == nil {
 				firstErr = err
 			}
@@ -337,6 +342,9 @@ func getMemoryLimitFromMountCandidates(
 	}
 	if sawNoLimit {
 		return 0, false, ErrNoLimit
+	}
+	if permissionErr != nil {
+		return 0, false, permissionErr
 	}
 
 	return 0, false, nil
