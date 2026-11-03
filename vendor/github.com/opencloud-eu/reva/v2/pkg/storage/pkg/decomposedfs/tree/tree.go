@@ -40,6 +40,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/options"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/permissions"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/revisioncleanup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/tree/propagator"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/pkg/errors"
@@ -67,6 +68,8 @@ type Tree struct {
 
 	idCache store.Store
 }
+
+var _ node.Tree = &Tree{}
 
 // PermissionCheckFunc defined a function used to check resource permissions
 type PermissionCheckFunc func(rp *provider.ResourcePermissions) bool
@@ -321,6 +324,24 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 
 // ListFolder lists the content of a folder node
 func (t *Tree) ListFolder(ctx context.Context, n *node.Node) ([]*node.Node, error) {
+	return t.listFolder(ctx, n, true)
+}
+
+var _ revisioncleanup.Walker = (*Tree)(nil)
+
+// ListFolderKnownUnchecked lists the children of n that are known to the storage, for
+// maintenance, see revisioncleanup.Walker. Unlike ListFolder, it checks no permissions, so it
+// needs no user in the context. Known children are the files and folders the storage has
+// registered with a node id; it never assimilates (registers) unknown ones. In this tree, every
+// child is known, as all files are created through the storage, so it lists all children. The
+// distinction matters for posix, where files can be created on disk directly.
+func (t *Tree) ListFolderKnownUnchecked(ctx context.Context, n *node.Node) ([]*node.Node, error) {
+	return t.listFolder(ctx, n, false)
+}
+
+// listFolder lists the children of n, leaving out the ones denied to the user in ctx if
+// forUser.
+func (t *Tree) listFolder(ctx context.Context, n *node.Node, forUser bool) ([]*node.Node, error) {
 	ctx, span := tracer.Start(ctx, "ListFolder")
 	defer span.End()
 	dir := n.InternalPath()
@@ -391,8 +412,10 @@ func (t *Tree) ListFolder(ctx context.Context, n *node.Node) ([]*node.Node, erro
 					continue
 				}
 
-				// prevent listing denied resources
-				if !child.IsDenied(ctx) {
+				// prevent listing denied resources, for users only: a listing for maintenance
+				// (ListFolderKnownUnchecked) has no user in the context, IsDenied would panic
+				// without one, and it must see all children, also the ones denied to users
+				if !forUser || !child.IsDenied(ctx) {
 					if child.SpaceRoot == nil {
 						child.SpaceRoot = n.SpaceRoot
 					}
