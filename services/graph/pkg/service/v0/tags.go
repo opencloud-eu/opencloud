@@ -1,12 +1,16 @@
 package svc
 
 import (
+	"cmp"
+	"maps"
 	"net/http"
+	"slices"
 	"strings"
 
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/go-chi/render"
+	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	searchsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	revaCtx "github.com/opencloud-eu/reva/v2/pkg/ctx"
@@ -17,7 +21,36 @@ import (
 	"go-micro.dev/v4/metadata"
 )
 
-// GetTags returns all available tags
+// maxListedTags is the maximum number of tags that GetTags returns. It keeps
+// the response small when many distinct tags are in use. Since the tags are
+// sorted before the list is cut, the same tags are always the ones returned.
+const maxListedTags = 100
+
+// listedTags returns the distinct tags of the given search matches, sorted
+// case-insensitively (ties in exact byte order, so the order is
+// deterministic), and cut at maxListedTags.
+func listedTags(matches []*searchmsg.Match) []string {
+	distinct := make(map[string]struct{})
+	for _, match := range matches {
+		for _, tag := range match.GetEntity().GetTags() {
+			if tag != "" {
+				distinct[tag] = struct{}{}
+			}
+		}
+	}
+
+	// never nil: an empty list is rendered as "value": [], not left out
+	list := slices.AppendSeq(make([]string, 0, len(distinct)), maps.Keys(distinct))
+	slices.SortFunc(list, func(a, b string) int {
+		if c := cmp.Compare(strings.ToLower(a), strings.ToLower(b)); c != 0 {
+			return c
+		}
+		return cmp.Compare(a, b)
+	})
+	return list[:min(len(list), maxListedTags)]
+}
+
+// GetTags returns the tags in use, see listedTags
 func (g Graph) GetTags(w http.ResponseWriter, r *http.Request) {
 	th := r.Header.Get(revaCtx.TokenHeader)
 	ctx := revaCtx.ContextSetToken(r.Context(), th)
@@ -32,15 +65,8 @@ func (g Graph) GetTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tagList := tags.New("")
-	for _, match := range sr.Matches {
-		for _, tag := range match.Entity.Tags {
-			tagList.Add(tag)
-		}
-	}
-
 	tagCollection := libregraph.NewCollectionOfTags()
-	tagCollection.Value = tagList.AsSlice()
+	tagCollection.Value = listedTags(sr.GetMatches())
 
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, tagCollection)
