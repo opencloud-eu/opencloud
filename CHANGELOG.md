@@ -26,6 +26,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/KimMachineGun/automemlimit from 1.0.0 to 1.0.1 [[#3886](https://github.com/opencloud-eu/opencloud/pull/3886)]
 - build(deps): bump github.com/go-ldap/ldap/v3 from 3.4.14 to 3.4.15 [[#3887](https://github.com/opencloud-eu/opencloud/pull/3887)]
 - build(deps): bump go.opentelemetry.io/otel/exporters/stdout/stdouttrace from 1.46.0 to 1.47.0 [[#3860](https://github.com/opencloud-eu/opencloud/pull/3860)]
 - build(deps): bump golang.org/x/image from 0.46.0 to 0.47.0 [[#3861](https://github.com/opencloud-eu/opencloud/pull/3861)]
