@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -16,6 +18,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend/mocks"
+	"github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles"
 	userRoleMocks "github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles/mocks"
 	"github.com/opencloud-eu/reva/v2/pkg/auth/scope"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
@@ -463,6 +466,57 @@ func TestTenantIDMapping(t *testing.T) {
 			}
 			assert.Equal(t, tc.wantStatusCode, rw.Code)
 			gwc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestRoleAssignmentErrors(t *testing.T) {
+	tests := []struct {
+		name           string
+		roleErr        error
+		wantStatusCode int
+	}{
+		{
+			name:           "role claim missing is forbidden",
+			roleErr:        fmt.Errorf("%w: unsupported type '<nil>'", userroles.ErrRoleClaim),
+			wantStatusCode: http.StatusForbidden,
+		},
+		{
+			name:           "settings service failure stays an internal error",
+			roleErr:        errors.New("settings service unavailable"),
+			wantStatusCode: http.StatusInternalServerError,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			user := &userv1beta1.User{Id: &userv1beta1.UserId{OpaqueId: "user-id"}}
+
+			ub := mocks.UserBackend{}
+			ub.On("GetUserByClaims", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(user, "", nil)
+
+			ra := userRoleMocks.UserRoleAssigner{}
+			ra.On("UpdateUserRoleAssignment", mock.Anything, mock.Anything, mock.Anything).Return(nil, tc.roleErr)
+
+			called := false
+			next := http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called = true })
+			sut := AccountResolver(
+				Logger(log.NewLogger()),
+				UserProvider(&ub),
+				UserRoleAssigner(&ra),
+				SkipUserInfo(false),
+				UserOIDCClaim(oidc.PreferredUsername),
+				UserCS3Claim("username"),
+				AutoprovisionAccounts(false),
+			)(next)
+
+			req, rw := mockRequest(map[string]any{
+				oidc.Iss:               testIdP,
+				oidc.PreferredUsername: "foo",
+			})
+			sut.ServeHTTP(rw, req)
+
+			assert.Equal(t, tc.wantStatusCode, rw.Code)
+			assert.False(t, called, "the request must not reach the next handler")
 		})
 	}
 }
