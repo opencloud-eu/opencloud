@@ -471,10 +471,9 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	// imagor's default resize does.
 	genURL := generator.BuildURL(w.generatorURL, int32(box.Dx()), int32(box.Dy()), operation, outputFormat, noUpscale)
 
-	// Produce the source image to send to the generator, never decoding an image
-	// in webdav: real images (incl. gif) are streamed straight through undecoded;
-	// non-image sources are converted to image bytes here so the generator always
-	// receives an image.
+	// Produce the source to send to the generator, never decoding an image in
+	// webdav: anything without a converter is streamed straight through undecoded,
+	// the few types with one (text, audio, geogebra) are turned into image bytes here.
 	imgStream, srcType, cleanup, err := w.sourceImage(ctx, ref, auth, mimeType, tr.Filename, logger)
 	if err != nil {
 		logger.Error().Err(err).Msg("could not obtain source image for thumbnail")
@@ -505,17 +504,19 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	return Thumbnail{Data: thumbBytes, ContentType: outputType}, nil
 }
 
-// sourceImage returns a reader over the source image to send to the generator,
-// plus a cleanup func to release any resources (download body, temp buffer). It
-// never decodes an image in webdav:
-//   - real images (image/*, incl. gif) are streamed straight through from storage
-//     undecoded; the generator handles decoding and multi-frame gifs itself.
+// sourceImage returns a reader over the source to send to the generator, plus a
+// cleanup func to release any resources (download body, temp buffer). It never
+// decodes an image in webdav:
+//   - a type without a converter (image/*, incl. gif, and whatever else the source
+//     types announce) is streamed straight through from storage undecoded; the
+//     generator decides whether it can read it.
 //   - text/plain is rendered to an image here (the only true conversion).
 //   - audio and geogebra sources have their embedded image extracted to bytes.
 func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta1.Reference, auth, mimeType, filename string, logger log.Logger) (io.Reader, string, func(), error) {
 	m, _, _ := mime.ParseMediaType(mimeType)
 
-	if strings.HasPrefix(m, "image/") {
+	converter := preprocessor.ForType(m, preprocessor.Options{FontMapFile: w.fontMapFile, MaxImageSize: w.maxInputSize})
+	if converter == nil {
 		body, err := w.fileDownloader.DownloadStream(ctx, ref, auth)
 		if err != nil {
 			return nil, "", nil, fmt.Errorf("download: %w", err)
@@ -532,12 +533,6 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 	fileBytes, err := io.ReadAll(body)
 	if err != nil {
 		return nil, "", nil, fmt.Errorf("read source: %w", err)
-	}
-
-	converter := preprocessor.ForType(mimeType, preprocessor.Options{FontMapFile: w.fontMapFile, MaxImageSize: w.maxInputSize})
-	if converter == nil {
-		logger.Debug().Str("mimetype", mimeType).Msg("no converter for this type")
-		return nil, "", nil, fmt.Errorf("%w: no converter for %s", ErrNotFound, mimeType)
 	}
 
 	img, err := converter.Convert(bytes.NewReader(fileBytes))
