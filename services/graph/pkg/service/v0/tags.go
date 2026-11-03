@@ -1,7 +1,6 @@
 package svc
 
 import (
-	"cmp"
 	"maps"
 	"net/http"
 	"slices"
@@ -26,9 +25,19 @@ import (
 // sorted before the list is cut, the same tags are always the ones returned.
 const maxListedTags = 100
 
-// listedTags returns the distinct tags of the given search matches, sorted
-// case-insensitively (ties in exact byte order, so the order is
-// deterministic), and cut at maxListedTags.
+// listedTags returns the distinct tags of the given search matches, sorted in
+// byte order, and cut at maxListedTags.
+//
+// Byte order means that upper case comes before lower case ("Banana" before
+// "apple"). It is used on purpose instead of a case-insensitive order, which
+// would be nicer to read, because it is the order in which search engines sort
+// keyword values, e.g. an OpenSearch terms aggregation ordered by key. With the
+// same order here, the search can return just the first maxListedTags tags of
+// every space, and merging those lists still gives exactly the first
+// maxListedTags tags overall. With a case-insensitive order, that only works by
+// aggregating on a lowercased copy of the field, which needs a mapping change
+// and a reindex, and loses the original casing of the tags. Clients that want
+// another order for display can sort the list themselves.
 func listedTags(matches []*searchmsg.Match) []string {
 	distinct := make(map[string]struct{})
 	for _, match := range matches {
@@ -41,12 +50,7 @@ func listedTags(matches []*searchmsg.Match) []string {
 
 	// never nil: an empty list is rendered as "value": [], not left out
 	list := slices.AppendSeq(make([]string, 0, len(distinct)), maps.Keys(distinct))
-	slices.SortFunc(list, func(a, b string) int {
-		if c := cmp.Compare(strings.ToLower(a), strings.ToLower(b)); c != 0 {
-			return c
-		}
-		return cmp.Compare(a, b)
-	})
+	slices.Sort(list)
 	return list[:min(len(list), maxListedTags)]
 }
 

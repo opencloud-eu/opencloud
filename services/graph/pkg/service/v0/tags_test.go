@@ -96,12 +96,12 @@ var _ = Describe("GetTags", func() {
 		Expect(getTags()).To(Equal([]string{"draft", "work"}))
 	})
 
-	It("sorts the tags case-insensitively, with a fixed order for tags differing only in case", func() {
+	It("sorts the tags in byte order, upper case before lower case", func() {
 		searchService.EXPECT().Search(mock.Anything, mock.Anything).Return(&searchsvc.SearchResponse{
 			Matches: matchesWithTags([]string{"cherry", "apple"}, []string{"Banana", "Apple"}),
 		}, nil)
 
-		Expect(getTags()).To(Equal([]string{"Apple", "apple", "Banana", "cherry"}))
+		Expect(getTags()).To(Equal([]string{"Apple", "Banana", "apple", "cherry"}))
 	})
 
 	It("returns the same list for the same tags, whatever the order of the search results", func() {
