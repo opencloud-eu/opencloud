@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/defaults"
+	"github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
@@ -45,6 +46,10 @@ func DefaultConfig() *config.Config {
 				TLSHandshakeTimeout:   10 * time.Second,
 				ExpectContinueTimeout: 1 * time.Second,
 			},
+		},
+		ClientIP: config.ClientIP{
+			TrustedProxies: middleware.DefaultTrustedProxies(),
+			Header:         middleware.DefaultClientIPHeader,
 		},
 		Service: config.Service{
 			Name: "proxy",
