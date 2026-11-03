@@ -93,29 +93,48 @@ func (l *Conn) PasswordModify(passwordModifyRequest *PasswordModifyRequest) (*Pa
 
 	result := &PasswordModifyResult{}
 
-	if len(packet.Children) < 2 {
-		return nil, fmt.Errorf("ldap: malformed response: expected at least 2 children, got %d", len(packet.Children))
+	extendedResponse, err := packetChild(packet, 1)
+	if err != nil {
+		return nil, err
 	}
-	if packet.Children[1].Tag == ApplicationExtendedResponse {
+	if extendedResponse.Tag == ApplicationExtendedResponse {
 		if err = GetLDAPError(packet); err != nil {
 			result.Referral = getReferral(err, packet)
 
 			return result, err
 		}
 	} else {
-		return nil, NewError(ErrorUnexpectedResponse, fmt.Errorf("unexpected Response: %d", packet.Children[1].Tag))
+		return nil, NewError(ErrorUnexpectedResponse, fmt.Errorf("unexpected Response: %d", extendedResponse.Tag))
 	}
 
-	extendedResponse := packet.Children[1]
 	for _, child := range extendedResponse.Children {
+		if child == nil {
+			continue
+		}
 		if child.Tag == ber.TagEmbeddedPDV {
-			passwordModifyResponseValue, err := ber.DecodePacketErr(child.Data.Bytes())
+			data, err := packetData(child)
 			if err != nil {
-				return nil, fmt.Errorf("ldap: failed to decode PasswordModifyResponseValue: %s", err)
+				return nil, fmt.Errorf("ldap: failed to decode PasswordModifyResponseValue: %w", err)
 			}
-			if len(passwordModifyResponseValue.Children) == 1 {
-				if passwordModifyResponseValue.Children[0].Tag == ber.TagEOC {
-					result.GeneratedPassword = ber.DecodeString(passwordModifyResponseValue.Children[0].Data.Bytes())
+			passwordModifyResponseValue, err := ber.DecodePacketErr(data)
+			if err != nil {
+				return nil, fmt.Errorf("ldap: failed to decode PasswordModifyResponseValue: %w", err)
+			}
+			pwChildren, err := packetChildCount(passwordModifyResponseValue, 0, 1, "password modify response value")
+			if err != nil {
+				return nil, err
+			}
+			if len(pwChildren) == 1 {
+				generatedPasswordValue, err := packetChild(passwordModifyResponseValue, 0)
+				if err != nil {
+					return nil, err
+				}
+				if generatedPasswordValue.Tag == ber.TagEOC {
+					pw, err := packetData(generatedPasswordValue)
+					if err != nil {
+						return nil, err
+					}
+					result.GeneratedPassword = ber.DecodeString(pw)
 				}
 			}
 		}
