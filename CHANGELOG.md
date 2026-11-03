@@ -11,17 +11,18 @@
 - fix(chore): upd deprecated chi RealIP middelware [[#3464](https://github.com/opencloud-eu/opencloud/pull/3464)]
 - Add files for the Anthropic OSS-Scanner to run [[#3865](https://github.com/opencloud-eu/opencloud/pull/3865)]
 
-### 📚 Documentation
-
-- docs: add audit logging ADR [[#3855](https://github.com/opencloud-eu/opencloud/pull/3855)]
-
 ### 🐛 Bug Fixes
 
+- fix(webdav): stream announced types without a converter to the generator [[#3884](https://github.com/opencloud-eu/opencloud/pull/3884)]
 - fix(search): normalize KQL path once [[#3516](https://github.com/opencloud-eu/opencloud/pull/3516)]
 - fix(search): report rejected documents when indexing to OpenSearch [[#3142](https://github.com/opencloud-eu/opencloud/pull/3142)]
 - fix(graph): expose allowedValues on driveItem children [[#3476](https://github.com/opencloud-eu/opencloud/pull/3476)]
 - fix(search): index resources with out-of-range coordinates without a geopoint [[#3496](https://github.com/opencloud-eu/opencloud/pull/3496)]
 - perf(search): skip unchanged facet keys when storing metadata [[#3682](https://github.com/opencloud-eu/opencloud/pull/3682)]
+
+### 📚 Documentation
+
+- docs: add audit logging ADR [[#3855](https://github.com/opencloud-eu/opencloud/pull/3855)]
 
 ### 📦️ Dependencies
 
