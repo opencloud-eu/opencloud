@@ -109,6 +109,9 @@ func (p *Pipeline) insert(idx int, c ChannelTransformer) {
 }
 
 func (p *Pipeline) Insert(idx int, c ChannelTransformer) {
+	if is_nil(c) {
+		return
+	}
 	s := slices.Collect(c.Iter)
 	if idx > -1 {
 		slices.Reverse(s)
@@ -237,6 +240,10 @@ func (p *Pipeline) IsXYZSRGB() bool {
 				}
 			}
 			if is_srgb {
+				if g, ok := p.transformers[1].(*GrayToPCS); ok {
+					// monochrome profile with the sRGB TRC, the gray values are already sRGB
+					return *g == *NewGrayToXYZ()
+				}
 				if c, ok := p.transformers[1].(AsMatrix3); ok {
 					q := c.AsMatrix3()
 					var expected_matrix = Matrix3{{0.218036, 0.192576, 0.0715343}, {0.111246, 0.358442, 0.0303044}, {0.00695811, 0.0485389, 0.357053}}

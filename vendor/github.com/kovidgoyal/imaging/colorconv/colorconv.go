@@ -23,7 +23,56 @@ import (
 type Vec3 [3]float64
 type Mat3 [3][3]float64
 
-var whiteD65 = Vec3{0.95047, 1.00000, 1.08883}
+// The sRGB primaries and white point chromaticities from IEC 61966-2-1, the
+// matrices and D65 white point are derived from these at full precision, the
+// same way lcms does in cmsCreate_sRGBProfile()
+var srgb_primaries = [3][2]float64{{0.64, 0.33}, {0.30, 0.60}, {0.15, 0.06}}
+
+const d65_x, d65_y = 0.3127, 0.3290
+
+var whiteD65 = xy_to_XYZ(d65_x, d65_y)
+
+// linear sRGB to XYZ (D65) and its inverse
+var srgbToXYZMatrix, xyzToSRGBMatrix = srgb_matrices()
+
+func xy_to_XYZ(x, y float64) Vec3 { return Vec3{x / y, 1, (1 - x - y) / y} }
+
+func srgb_matrices() (to_xyz, from_xyz Mat3) {
+	// columns are the XYZ of the primaries scaled so that RGB = 1 gives the white point
+	var p Mat3
+	for c, xy := range srgb_primaries {
+		v := xy_to_XYZ(xy[0], xy[1])
+		for r := range 3 {
+			p[r][c] = v[r]
+		}
+	}
+	pi, ok := invertMat3(p)
+	if !ok {
+		panic("sRGB primaries matrix is not invertible")
+	}
+	sr, sg, sb := mulMat3Vec(pi, whiteD65)
+	for r := range 3 {
+		to_xyz[r] = [3]float64{p[r][0] * sr, p[r][1] * sg, p[r][2] * sb}
+	}
+	if from_xyz, ok = invertMat3(to_xyz); !ok {
+		panic("sRGB matrix is not invertible")
+	}
+	return
+}
+
+func invertMat3(m Mat3) (ans Mat3, ok bool) {
+	det := m[0][0]*(m[1][1]*m[2][2]-m[1][2]*m[2][1]) - m[0][1]*(m[1][0]*m[2][2]-m[1][2]*m[2][0]) + m[0][2]*(m[1][0]*m[2][1]-m[1][1]*m[2][0])
+	if det == 0 {
+		return ans, false
+	}
+	inv := 1 / det
+	ans = Mat3{
+		{(m[1][1]*m[2][2] - m[1][2]*m[2][1]) * inv, (m[0][2]*m[2][1] - m[0][1]*m[2][2]) * inv, (m[0][1]*m[1][2] - m[0][2]*m[1][1]) * inv},
+		{(m[1][2]*m[2][0] - m[1][0]*m[2][2]) * inv, (m[0][0]*m[2][2] - m[0][2]*m[2][0]) * inv, (m[0][2]*m[1][0] - m[0][0]*m[1][2]) * inv},
+		{(m[1][0]*m[2][1] - m[1][1]*m[2][0]) * inv, (m[0][1]*m[2][0] - m[0][0]*m[2][1]) * inv, (m[0][0]*m[1][1] - m[0][1]*m[1][0]) * inv},
+	}
+	return ans, true
+}
 
 func (m *Mat3) String() string {
 	return fmt.Sprintf("Matrix3{ %.6v %.6v %.6v }", m[0], m[1], m[2])
@@ -56,10 +105,11 @@ func NewConvertColor(whitepoint_x, whitepoint_y, whitepoint_z, scale float64) (a
 	ans = &ConvertColor{whitepoint: Vec3{whitepoint_x, whitepoint_y, whitepoint_z}}
 	adapt := chromaticAdaptationMatrix(ans.whitepoint, whiteD65)
 	// sRGB (linear) transform matrix from CIE XYZ (D65)
-	var srgbFromXYZ = Mat3{
-		{3.2406 * scale, -1.5372 * scale, -0.4986 * scale},
-		{-0.9689 * scale, 1.8758 * scale, 0.0415 * scale},
-		{0.0557 * scale, -0.2040 * scale, 1.0570 * scale},
+	srgbFromXYZ := xyzToSRGBMatrix
+	for r := range 3 {
+		for c := range 3 {
+			srgbFromXYZ[r][c] *= scale
+		}
 	}
 	ans.combined_XYZ_to_linear_SRGB = mulMat3(srgbFromXYZ, adapt)
 	ans.previous_matrices[0][0] = 1
@@ -253,11 +303,7 @@ func srgbToLinear(c float64) float64 {
 // Converts linear RGB to CIE XYZ using sRGB D65 matrix.
 // Input r,g,b must be linear-light (not gamma-encoded).
 func rgbToXYZ(r, g, b float64) (x, y, z float64) {
-	// sRGB (linear) to XYZ (D65), matrix from IEC 61966-2-1
-	x = 0.4124564*r + 0.3575761*g + 0.1804375*b
-	y = 0.2126729*r + 0.7151522*g + 0.0721750*b
-	z = 0.0193339*r + 0.1191920*g + 0.9503041*b
-	return
+	return mulMat3Vec(srgbToXYZMatrix, Vec3{r, g, b})
 }
 
 func SrgbToLab(r, g, b float64) (L, a, B float64) {

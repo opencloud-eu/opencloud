@@ -597,8 +597,8 @@ github.com/kovidgoyal/go-parallel v1.1.1 h1:1OzpNjtrUkBPq3UaqrnvOoB2F9RttSt811ui
 github.com/kovidgoyal/go-parallel v1.1.1/go.mod h1:BJNIbe6+hxyFWv7n6oEDPj3PA5qSw5OCtf0hcVxWJiw=
 github.com/kovidgoyal/go-shm v1.0.0 h1:HJEel9D1F9YhULvClEHJLawoRSj/1u/EDV7MJbBPgQo=
 github.com/kovidgoyal/go-shm v1.0.0/go.mod h1:Yzb80Xf9L3kaoB2RGok9hHwMIt7Oif61kT6t3+VnZds=
-github.com/kovidgoyal/imaging v1.8.23 h1:4WsboyQ/E8tic2kX49P93Rvscg33SPsCwTBG5EZZF54=
-github.com/kovidgoyal/imaging v1.8.23/go.mod h1:k3Iot3H0v2rSWXIxQISfT3e9wIryqzAHLHCuhG7z9lM=
+github.com/kovidgoyal/imaging v1.9.0 h1:TxHvhClPANvDW7eLm7PYDTZU1KE15xbqlFv95DA6DmY=
+github.com/kovidgoyal/imaging v1.9.0/go.mod h1:t2vWMc3uISm/jMP87nBCcZUcAK6EDUdgumwaXSuz0Jc=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pretty v0.2.0/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=

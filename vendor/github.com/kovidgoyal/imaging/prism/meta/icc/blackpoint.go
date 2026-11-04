@@ -19,11 +19,18 @@ func (p *Profile) IsMatrixShaper() bool {
 }
 
 func (p *Profile) BlackPoint(intent RenderingIntent, debug General_debug_callback) (ans XYZType) {
-	if q := p.blackpoints[intent]; q != nil {
+	// The lock is not held during the computation as it can recurse via
+	// CreateTransformerToDevice()
+	p.blackpoints_lock.Lock()
+	q := p.blackpoints[intent]
+	p.blackpoints_lock.Unlock()
+	if q != nil {
 		return *q
 	}
 	defer func() {
+		p.blackpoints_lock.Lock()
 		p.blackpoints[intent] = &ans
+		p.blackpoints_lock.Unlock()
 	}()
 	if p.Header.DeviceClass == DeviceClassLink || p.Header.DeviceClass == DeviceClassAbstract || p.Header.DeviceClass == DeviceClassNamedColor {
 		return
@@ -43,9 +50,28 @@ func (p *Profile) BlackPoint(intent RenderingIntent, debug General_debug_callbac
 	return p.black_point_as_darker_colorant(intent, debug)
 }
 
+// See cmsIsIntentSupported() in cmsio1.c
+func (p *Profile) is_intent_supported_as_input(intent RenderingIntent) bool {
+	var sig Signature
+	switch intent {
+	case PerceptualRenderingIntent:
+		sig = AToB0TagSignature
+	case RelativeColorimetricRenderingIntent, AbsoluteColorimetricRenderingIntent:
+		sig = AToB1TagSignature
+	case SaturationRenderingIntent:
+		sig = AToB2TagSignature
+	default:
+		return false
+	}
+	return p.TagTable.Has(sig) || p.IsMatrixShaper()
+}
+
 func (p *Profile) black_point_as_darker_colorant(intent RenderingIntent, debug General_debug_callback) XYZType {
+	if !p.is_intent_supported_as_input(intent) {
+		return XYZType{}
+	}
 	bp := p.Header.DataColorSpace.BlackPoint()
-	if bp == nil || (len(bp) != 3 && len(bp) != 4) {
+	if bp == nil || (len(bp) != 1 && len(bp) != 3 && len(bp) != 4) {
 		return XYZType{}
 	}
 	tr, err := p.CreateTransformerToPCS(intent, len(bp), debug == nil)
@@ -56,18 +82,18 @@ func (p *Profile) black_point_as_darker_colorant(intent RenderingIntent, debug G
 		tr.Append(NewXYZtoLAB(p.PCSIlluminant))
 	}
 	var l, a, b unit_float
+	var out, inp [4]unit_float
+	copy(inp[:], bp)
 	if debug == nil {
 		if len(bp) == 3 {
 			l, a, b = tr.Transform(bp[0], bp[1], bp[2])
 		} else {
-			var x [4]unit_float
-			tr.TransformGeneral(x[:], bp)
-			l, a, b = x[0], x[1], x[2]
+			tr.TransformGeneral(out[:], inp[:])
+			l, a, b = out[0], out[1], out[2]
 		}
 	} else {
-		var x [4]unit_float
-		tr.TransformGeneralDebug(x[:], bp, debug)
-		l, a, b = x[0], x[1], x[2]
+		tr.TransformGeneralDebug(out[:], inp[:], debug)
+		l, a, b = out[0], out[1], out[2]
 	}
 	a, b = 0, 0
 	if l < 0 || l > 50 {
