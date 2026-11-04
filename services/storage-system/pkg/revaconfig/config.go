@@ -3,6 +3,7 @@ package revaconfig
 import (
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	pkgconfig "github.com/opencloud-eu/opencloud/pkg/config"
+	"github.com/opencloud-eu/opencloud/pkg/storage"
 	"github.com/opencloud-eu/opencloud/services/storage-system/pkg/config"
 )
 
@@ -97,7 +98,7 @@ func StorageSystemFromStruct(cfg *config.Config) map[string]any {
 					},
 				},
 				"storageprovider": map[string]any{
-					"driver":          cfg.Driver,
+					"driver":          storage.EffectiveDriver(cfg.Driver),
 					"drivers":         metadataDrivers(localEndpoint, cfg),
 					"data_server_url": cfg.DataServerURL,
 				},
@@ -116,7 +117,7 @@ func StorageSystemFromStruct(cfg *config.Config) map[string]any {
 			"services": map[string]any{
 				"dataprovider": map[string]any{
 					"prefix":  "data",
-					"driver":  cfg.Driver,
+					"driver":  storage.EffectiveDriver(cfg.Driver),
 					"drivers": metadataDrivers(localEndpoint, cfg),
 					"data_txs": map[string]any{
 						"simple": map[string]any{
@@ -151,7 +152,7 @@ func StorageSystemFromStruct(cfg *config.Config) map[string]any {
 func metadataDrivers(localEndpoint string, cfg *config.Config) map[string]any {
 	m := map[string]any{
 		"metadata_backend":           "messagepack",
-		"metadata_prefix":            cfg.Drivers.Decomposed.MetadataPrefix,
+		"metadata_prefix":            storage.EffectiveMetadataPrefix(cfg.Driver, cfg.Drivers.Decomposed.MetadataPrefix),
 		"root":                       cfg.Drivers.Decomposed.Root,
 		"user_layout":                "{{.Id.OpaqueId}}",
 		"treetime_accounting":        false,
@@ -180,7 +181,6 @@ func metadataDrivers(localEndpoint string, cfg *config.Config) map[string]any {
 	}
 
 	return map[string]any{
-		"ocis":       m, // deprecated: use decomposed
 		"decomposed": m,
 	}
 }

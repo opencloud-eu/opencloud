@@ -9,6 +9,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
+	"github.com/opencloud-eu/opencloud/pkg/storage"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	"github.com/opencloud-eu/opencloud/services/storage-system/pkg/config"
@@ -30,6 +31,9 @@ func Server(cfg *config.Config) *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := log.Configure(cfg.Service.Name, cfg.Commons, cfg.LogLevel)
+			if cfg.Driver == "ocis" {
+				logger.Warn().Str("driver", cfg.Driver).Str("effective_driver", "decomposed").Str("metadata_prefix", storage.LegacyMetadataPrefix()).Msg("deprecated storage driver alias; retain the metadata prefix when switching driver names")
+			}
 			traceProvider, err := tracing.GetTraceProvider(cmd.Context(), cfg.Commons.TracesExporter, cfg.Service.Name)
 			if err != nil {
 				return err

@@ -637,7 +637,8 @@ func (r *ImageRef) SaveToWriterJpeg(w io.Writer, params *JpegExportParams) error
 	}
 	p := *params
 	return r.saveToWriter(w, ImageTypeJPEG, func(in *C.VipsImage) (C.struct_SaveParams, func(), error) {
-		return newSaveParamsJPEG(in, p), func() {}, nil
+		sp, err := newSaveParamsJPEG(in, p)
+		return sp, func() {}, err
 	})
 }
 
@@ -651,7 +652,8 @@ func (r *ImageRef) SaveToWriterPng(w io.Writer, params *PngExportParams) error {
 	}
 	p := *params
 	return r.saveToWriter(w, ImageTypePNG, func(in *C.VipsImage) (C.struct_SaveParams, func(), error) {
-		return newSaveParamsPNG(in, p), func() {}, nil
+		sp, err := newSaveParamsPNG(in, p)
+		return sp, func() {}, err
 	})
 }
 
@@ -680,7 +682,8 @@ func (r *ImageRef) SaveToWriterTiff(w io.Writer, params *TiffExportParams) error
 	}
 	p := *params
 	return r.saveToWriter(w, ImageTypeTIFF, func(in *C.VipsImage) (C.struct_SaveParams, func(), error) {
-		return newSaveParamsTIFF(in, p), func() {}, nil
+		sp, err := newSaveParamsTIFF(in, p)
+		return sp, func() {}, err
 	})
 }
 
@@ -693,7 +696,8 @@ func (r *ImageRef) SaveToWriterHeif(w io.Writer, params *HeifExportParams) error
 	}
 	p := *params
 	return r.saveToWriter(w, ImageTypeHEIF, func(in *C.VipsImage) (C.struct_SaveParams, func(), error) {
-		return newSaveParamsHEIF(in, p), func() {}, nil
+		sp, err := newSaveParamsHEIF(in, p)
+		return sp, func() {}, err
 	})
 }
 
@@ -707,7 +711,8 @@ func (r *ImageRef) SaveToWriterGif(w io.Writer, params *GifExportParams) error {
 	}
 	p := *params
 	return r.saveToWriter(w, ImageTypeGIF, func(in *C.VipsImage) (C.struct_SaveParams, func(), error) {
-		return newSaveParamsGIF(in, p), func() {}, nil
+		sp, err := newSaveParamsGIF(in, p)
+		return sp, func() {}, err
 	})
 }
 
@@ -806,17 +811,22 @@ func streamSaveParams(in *C.VipsImage, format ImageType, params *ExportParams) (
 
 	switch format {
 	case ImageTypeJPEG:
-		return newSaveParamsJPEG(in, *jpegParamsFromExport(params)), noop, nil
+		p, err := newSaveParamsJPEG(in, *jpegParamsFromExport(params))
+		return p, noop, err
 	case ImageTypePNG:
-		return newSaveParamsPNG(in, *pngParamsFromExport(params)), noop, nil
+		p, err := newSaveParamsPNG(in, *pngParamsFromExport(params))
+		return p, noop, err
 	case ImageTypeWEBP:
 		return newSaveParamsWebP(in, *webpParamsFromExport(params))
 	case ImageTypeHEIF:
-		return newSaveParamsHEIF(in, *heifParamsFromExport(params)), noop, nil
+		p, err := newSaveParamsHEIF(in, *heifParamsFromExport(params))
+		return p, noop, err
 	case ImageTypeTIFF:
-		return newSaveParamsTIFF(in, *tiffParamsFromExport(params)), noop, nil
+		p, err := newSaveParamsTIFF(in, *tiffParamsFromExport(params))
+		return p, noop, err
 	case ImageTypeGIF:
-		return newSaveParamsGIF(in, *gifParamsFromExport(params)), noop, nil
+		p, err := newSaveParamsGIF(in, *gifParamsFromExport(params))
+		return p, noop, err
 	default:
 		return C.struct_SaveParams{}, noop, fmt.Errorf("streaming save does not support format %q", ImageTypes[format])
 	}

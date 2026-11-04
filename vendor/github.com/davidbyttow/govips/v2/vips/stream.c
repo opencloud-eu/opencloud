@@ -257,6 +257,13 @@ static int save_target(const char *operationName, SaveParams *params,
     return 1;
   }
 
+  // Same as save_buffer: "keep" overrides the deprecated "strip".
+  if (params->keepSet &&
+      vips_object_set(VIPS_OBJECT(operation), "keep", params->keep, NULL)) {
+    g_object_unref(operation);
+    return 1;
+  }
+
   // Build uncached, mirroring load_from_source: the unique target
   // object makes cache hits impossible.
   if (vips_object_build(VIPS_OBJECT(operation))) {

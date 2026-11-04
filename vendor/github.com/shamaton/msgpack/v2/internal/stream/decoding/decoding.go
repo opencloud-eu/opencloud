@@ -7,12 +7,14 @@ import (
 
 	"github.com/shamaton/msgpack/v2/def"
 	"github.com/shamaton/msgpack/v2/internal/common"
+	"github.com/shamaton/msgpack/v2/internal/common/decodingutil"
 )
 
 type decoder struct {
 	r       io.Reader
-	asArray bool
 	buf     *common.Buffer
+	asArray bool
+	depth   int32
 	common.Common
 }
 
@@ -145,6 +147,9 @@ func (d *decoder) decodeWithCode(code byte, rv reflect.Value) error {
 		}
 
 		// create slice dynamically
+		if err = d.enter(); err != nil {
+			return err
+		}
 		tmpSlice := reflect.MakeSlice(rv.Type(), 0, initialSliceCap(l, rv.Type().Elem()))
 		for i := 0; i < l; i++ {
 			tmpSlice = reflect.Append(tmpSlice, reflect.Zero(rv.Type().Elem()))
@@ -164,6 +169,7 @@ func (d *decoder) decodeWithCode(code byte, rv reflect.Value) error {
 			}
 		}
 		rv.Set(tmpSlice)
+		d.depth--
 
 	case reflect.Complex64:
 		v, err := d.asComplex64(code, k)
@@ -228,12 +234,16 @@ func (d *decoder) decodeWithCode(code byte, rv reflect.Value) error {
 		}
 
 		// create array dynamically
+		if err = d.enter(); err != nil {
+			return err
+		}
 		for i := 0; i < l; i++ {
 			err = d.decode(rv.Index(i))
 			if err != nil {
 				return err
 			}
 		}
+		d.depth--
 
 	case reflect.Map:
 		// nil
@@ -257,15 +267,32 @@ func (d *decoder) decodeWithCode(code byte, rv reflect.Value) error {
 		}
 
 		// create dynamically
+		if err = d.enter(); err != nil {
+			return err
+		}
 		key := rv.Type().Key()
 		value := rv.Type().Elem()
+		ifaceKey := key.Kind() == reflect.Interface
+		checkKey := decodingutil.MapKeyNeedsCheck(key)
 		if rv.IsNil() {
 			rv.Set(reflect.MakeMapWithSize(rv.Type(), initialMapCapForType(l, key, value)))
 		}
 		for i := 0; i < l; i++ {
 			k := reflect.New(key).Elem()
 			v := reflect.New(value).Elem()
-			err = d.decode(k)
+			var keyCode byte
+			keyCode, err = d.readSize1()
+			if err != nil {
+				return err
+			}
+			extKey := false
+			if ifaceKey {
+				if err = d.canSetAsMapKey(keyCode); err != nil {
+					return err
+				}
+				extKey = decodingutil.IsExtCode(keyCode)
+			}
+			err = d.decodeWithCode(keyCode, k)
 			if err != nil {
 				return err
 			}
@@ -274,8 +301,14 @@ func (d *decoder) decodeWithCode(code byte, rv reflect.Value) error {
 				return err
 			}
 
+			if checkKey || extKey {
+				if err = decodingutil.CheckMapKeyValue(k); err != nil {
+					return err
+				}
+			}
 			rv.SetMapIndex(k, v)
 		}
+		d.depth--
 
 	case reflect.Struct:
 		err := d.setStruct(code, rv, k)
@@ -317,6 +350,16 @@ func (d *decoder) decodeWithCode(code byte, rv reflect.Value) error {
 
 	default:
 		return fmt.Errorf("%v is %w type", rv.Kind(), def.ErrUnsupportedType)
+	}
+	return nil
+}
+
+// enter increments the nesting depth. Callers decrement d.depth on success;
+// on error the whole decode is aborted, so no decrement is needed.
+func (d *decoder) enter() error {
+	d.depth++
+	if d.depth > decodingutil.MaxDepth {
+		return decodingutil.DepthError()
 	}
 	return nil
 }

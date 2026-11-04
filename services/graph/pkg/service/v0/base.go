@@ -267,7 +267,7 @@ func (g BaseGraphService) listSpaceRootUserShares(ctx context.Context, filters [
 func (g BaseGraphService) listSharesWithSpaceRootFilter(ctx context.Context, spaceRoot bool, filters []*collaboration.Filter, driveItems driveItemsByResourceID) (driveItemsByResourceID, error) {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Error().Err(err).Msg("could not select next gateway client")
+		g.logger.Debug().Err(err).Msg("could not select next gateway client")
 		return driveItems, errorcode.New(errorcode.GeneralException, err.Error())
 	}
 
@@ -299,7 +299,7 @@ func (g BaseGraphService) listSharesWithSpaceRootFilter(ctx context.Context, spa
 func (g BaseGraphService) listOCMShares(ctx context.Context, filters []*ocm.ListOCMSharesRequest_Filter, driveItems driveItemsByResourceID) (driveItemsByResourceID, error) {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Error().Err(err).Msg("could not select next gateway client")
+		g.logger.Debug().Err(err).Msg("could not select next gateway client")
 		return driveItems, errorcode.New(errorcode.GeneralException, err.Error())
 	}
 
@@ -328,7 +328,7 @@ func (g BaseGraphService) listPublicShares(ctx context.Context, filters []*link.
 
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Error().Err(err).Msg("could not select next gateway client")
+		g.logger.Debug().Err(err).Msg("could not select next gateway client")
 		return driveItems, errorcode.New(errorcode.GeneralException, err.Error())
 	}
 
