@@ -341,9 +341,8 @@ var _ = Describe("Discovery", func() {
 	Describe("GetAppURLs", func() {
 		It("Doesn't leave idle connections open after the call", func() {
 			var open atomic.Int64
-			connSrv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				w.Write([]byte(discoveryContent1))
-			}))
+			// same handler as srv, plus a hook that counts open connections
+			connSrv := httptest.NewUnstartedServer(srv.Config.Handler)
 			connSrv.Config.ConnState = func(_ net.Conn, state http.ConnState) {
 				switch state {
 				case http.StateNew:
@@ -357,7 +356,7 @@ var _ = Describe("Discovery", func() {
 
 			cfg := &config.Config{
 				App: config.App{
-					Addr: connSrv.URL,
+					Addr: connSrv.URL + "/good",
 				},
 			}
 
