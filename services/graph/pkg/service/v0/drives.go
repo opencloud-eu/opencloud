@@ -20,6 +20,7 @@ import (
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	"github.com/go-chi/render"
+	"github.com/google/uuid"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
@@ -429,6 +430,17 @@ func (g Graph) CreateDrive(w http.ResponseWriter, r *http.Request) {
 		Quota: getQuota(drive.Quota, g.config.Spaces.DefaultQuota),
 	}
 
+	if id := drive.GetId(); id != "" {
+		// the id ends up in storage paths and in "storageid$spaceid!opaqueid" references,
+		// so only accept the canonical form of the uuids the storage drivers generate themselves
+		if u, err := uuid.Parse(id); err != nil || u.String() != id {
+			log.Debug().Str("id", id).Msg("could not create drive: id is not a canonical uuid")
+			errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "invalid drive id: must be a canonical UUID")
+			return
+		}
+		csr.Opaque = utils.AppendPlainToOpaque(csr.Opaque, "spaceid", id)
+	}
+
 	if drive.Description != nil {
 		csr.Opaque = utils.AppendPlainToOpaque(csr.Opaque, "description", *drive.Description)
 	}
@@ -461,6 +473,11 @@ func (g Graph) CreateDrive(w http.ResponseWriter, r *http.Request) {
 		if resp.GetStatus().GetCode() == cs3rpc.Code_CODE_INVALID_ARGUMENT {
 			log.Debug().Str("grpcmessage", resp.GetStatus().GetMessage()).Msg("could not create drive: bad request")
 			errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, resp.GetStatus().GetMessage())
+			return
+		}
+		if resp.GetStatus().GetCode() == cs3rpc.Code_CODE_ALREADY_EXISTS {
+			log.Debug().Str("grpcmessage", resp.GetStatus().GetMessage()).Msg("could not create drive: already exists")
+			errorcode.NameAlreadyExists.Render(w, r, http.StatusConflict, "drive already exists")
 			return
 		}
 		log.Debug().Interface("grpcmessage", csr).Str("grpc", resp.GetStatus().GetMessage()).Msg("could not create drive: grpc error")

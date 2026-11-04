@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -842,6 +843,115 @@ var _ = Describe("Graph", func() {
 				Expect(*response.DriveAlias).To(Equal("project/testspace"))
 				Expect(*response.Description).To(Equal("This space is for testing"))
 				Expect(*response.LibreGraphContentType).To(Equal("application/vnd.opencloud.test"))
+			})
+			Context("drive id handling", func() {
+				const spaceID = "0b9a7b84-3e71-4a4e-9c34-0e6a4c3f5f21"
+
+				// csr captures the request the handler sends to the gateway
+				var csr *provider.CreateStorageSpaceRequest
+				mockSuccessfulCreate := func(createdSpaceID string) {
+					gatewayClient.On("CreateStorageSpace", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+						csr = args.Get(1).(*provider.CreateStorageSpaceRequest)
+					}).Return(&provider.CreateStorageSpaceResponse{
+						Status: status.NewOK(ctx),
+						StorageSpace: &provider.StorageSpace{
+							Id:        &provider.StorageSpaceId{OpaqueId: "pro-1$" + createdSpaceID},
+							Name:      "Test Space",
+							SpaceType: "project",
+							Root:      &provider.ResourceId{StorageId: "pro-1", SpaceId: createdSpaceID, OpaqueId: createdSpaceID},
+						},
+					}, nil)
+					gatewayClient.On("GetQuota", mock.Anything, mock.Anything).Return(&provider.GetQuotaResponse{
+						Status:     status.NewOK(ctx),
+						TotalBytes: 500,
+					}, nil)
+				}
+
+				BeforeEach(func() {
+					csr = nil
+					permissionService.On("GetPermissionByID", mock.Anything, mock.Anything).Return(&settingssvc.GetPermissionByIDResponse{
+						Permission: &v0.Permission{
+							Operation:  v0.Permission_OPERATION_READWRITE,
+							Constraint: v0.Permission_CONSTRAINT_ALL,
+						},
+					}, nil)
+				})
+
+				DescribeTable("lets the storage provider generate the id when none is supplied",
+					func(jsonBody string) {
+						mockSuccessfulCreate("generated-id")
+
+						r := httptest.NewRequest(http.MethodPost, "/graph/v1.0/drives", bytes.NewBufferString(jsonBody)).WithContext(ctx)
+						rr := httptest.NewRecorder()
+						svc.CreateDrive(rr, r)
+						Expect(rr.Code).To(Equal(http.StatusCreated))
+						Expect(csr).ToNot(BeNil())
+						Expect(csr.GetOpaque().GetMap()).ToNot(HaveKey("spaceid"))
+					},
+					Entry("absent id", `{"name": "Test Space"}`),
+					Entry("empty id", `{"name": "Test Space", "id": ""}`),
+				)
+
+				It("forwards the id to the storage provider", func() {
+					mockSuccessfulCreate(spaceID)
+
+					jsonBody := []byte(`{"name": "Test Space", "id": "` + spaceID + `"}`)
+					r := httptest.NewRequest(http.MethodPost, "/graph/v1.0/drives", bytes.NewBuffer(jsonBody)).WithContext(ctx)
+					rr := httptest.NewRecorder()
+					svc.CreateDrive(rr, r)
+					Expect(rr.Code).To(Equal(http.StatusCreated))
+					Expect(utils.ReadPlainFromOpaque(csr.GetOpaque(), "spaceid")).To(Equal(spaceID))
+
+					var response libregraph.Drive
+					Expect(json.Unmarshal(rr.Body.Bytes(), &response)).To(Succeed())
+					Expect(response.GetId()).To(Equal("pro-1$" + spaceID))
+				})
+
+				DescribeTable("rejects ids that are not canonical UUIDs before calling the storage provider",
+					func(id string) {
+						gatewayClient.On("CreateStorageSpace", mock.Anything, mock.Anything).Return(&provider.CreateStorageSpaceResponse{
+							Status: status.NewInternal(ctx, "storage provider must not be called"),
+						}, nil).Maybe()
+
+						body, err := json.Marshal(map[string]string{"name": "Test Space", "id": id})
+						Expect(err).ToNot(HaveOccurred())
+						r := httptest.NewRequest(http.MethodPost, "/graph/v1.0/drives", bytes.NewBuffer(body)).WithContext(ctx)
+						rr := httptest.NewRecorder()
+						svc.CreateDrive(rr, r)
+						Expect(rr.Code).To(Equal(http.StatusBadRequest))
+
+						var libreError libregraph.OdataError
+						Expect(json.Unmarshal(rr.Body.Bytes(), &libreError)).To(Succeed())
+						Expect(libreError.Error.Code).To(Equal(errorcode.InvalidRequest.String()))
+						Expect(libreError.Error.Message).To(Equal("invalid drive id: must be a canonical UUID"))
+						gatewayClient.AssertNotCalled(GinkgoT(), "CreateStorageSpace", mock.Anything, mock.Anything)
+					},
+					Entry("path traversal", "../../x"),
+					Entry("storage id delimiter", "pro-1$"+spaceID),
+					Entry("opaque id delimiter", spaceID+"!"+spaceID),
+					Entry("arbitrary string", "not-a-uuid"),
+					Entry("uppercase", strings.ToUpper(spaceID)),
+					Entry("braces", "{"+spaceID+"}"),
+					Entry("urn", "urn:uuid:"+spaceID),
+					Entry("no hyphens", strings.ReplaceAll(spaceID, "-", "")),
+				)
+
+				It("returns 409 Conflict when the storage provider reports that the space already exists", func() {
+					gatewayClient.On("CreateStorageSpace", mock.Anything, mock.Anything).Return(&provider.CreateStorageSpaceResponse{
+						Status: status.NewAlreadyExists(ctx, nil, "decomposedfs: spaces: space already exists"),
+					}, nil)
+
+					jsonBody := []byte(`{"name": "Test Space", "id": "` + spaceID + `"}`)
+					r := httptest.NewRequest(http.MethodPost, "/graph/v1.0/drives", bytes.NewBuffer(jsonBody)).WithContext(ctx)
+					rr := httptest.NewRecorder()
+					svc.CreateDrive(rr, r)
+					Expect(rr.Code).To(Equal(http.StatusConflict))
+
+					var libreError libregraph.OdataError
+					Expect(json.Unmarshal(rr.Body.Bytes(), &libreError)).To(Succeed())
+					Expect(libreError.Error.Code).To(Equal(errorcode.NameAlreadyExists.String()))
+					Expect(libreError.Error.Message).To(Equal("drive already exists"))
+				})
 			})
 			It("Incomplete space", func() {
 				gatewayClient.On("CreateStorageSpace", mock.Anything, mock.Anything).Return(&provider.CreateStorageSpaceResponse{
