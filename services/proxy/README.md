@@ -343,6 +343,23 @@ Other store types may work but are not supported currently.
 
 Note: The service can only be scaled if not using `memory` store and the stores are configured identically over all instances!
 
+### Backchannel Logout
+
+When the IDP sends a backchannel logout, the `proxy` service stores a logout marker and checks it on every authenticated request. Tokens issued at or before the logout are rejected, even if the service has not seen them before. Tokens issued later stay valid, because the IDP only issues them for sessions it still considers alive, for example for a client with an offline token.
+
+This requires the following:
+  -   `PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD` must be set to `jwt`.
+  -   Access tokens must contain the `sid`, `sub` and `iat` claims. A token without `sid` is not covered by a logout of its session. A token without `iat` is rejected if a logout covers its session or subject.
+  -   The IDP must support backchannel logout for the client, and the client must be configured with the `/backchannel_logout` URL of the `proxy` service.
+
+Logout markers use the store configured via `PROXY_OIDC_USERINFO_CACHE_STORE`, in a separate database named after the cache database with the suffix `-logout-markers`. With the `noop` store, they are kept in memory. With the `memory` store, they are lost on restart and not shared between instances, so a logged out token that has not expired yet becomes valid again after a restart.
+
+Markers are kept for `PROXY_OIDC_MAX_ACCESS_TOKEN_LIFETIME` plus a small buffer. Access tokens with a longer lifetime or without an expiration are rejected, so this value must not be shorter than the access token lifetime configured at the IDP.
+
+If a marker cannot be read, the request is rejected, so an outage of the store causes authentication failures.
+
+The IDP decides when a logout is sent. For example, Keycloak does not send one for clients without a backchannel logout URL or for a realm-wide logout of all sessions.
+
 Note that if you have used one of the deprecated stores, you should reconfigure to one of the supported ones as the deprecated stores will be removed in a later version.
 
 Store specific notes:
