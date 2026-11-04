@@ -66,6 +66,9 @@ func postProcess(c prometheus.Collector) error {
 
 // Take a struct that contains metrics as attributes and register all of them
 // with the specified Registerer.
+//
+// Metrics that are already registered are reused when m is a pointer to the
+// struct, and replaced otherwise, see Register.
 func RegisterAll(registerer prometheus.Registerer, m any, logger *log.Logger) error {
 	// we go over all of them, use this to keep track of succeesses and failures
 	total := 0
@@ -90,20 +93,10 @@ func RegisterAll(registerer prometheus.Registerer, m any, logger *log.Logger) er
 		switch c := v.(type) {
 		case prometheus.Collector:
 			total++
-			if err := registerer.Register(c); err != nil {
-				switch err.(type) {
-				case prometheus.AlreadyRegisteredError:
-					// silently ignore this error, as this case can happen when the suture service decides to restart
-					err = nil
-					succeeded = append(succeeded, n)
-				default:
-					failed[n] = err
-				}
+			if err := register(registerer, c, f); err != nil {
+				failed[n] = err
 			} else {
 				succeeded = append(succeeded, n)
-				if err := postProcess(c); err != nil {
-					failed[n] = err
-				}
 			}
 		case *prometheus.Desc,
 			prometheus.GaugeOpts,
@@ -134,26 +127,129 @@ func RegisterAll(registerer prometheus.Registerer, m any, logger *log.Logger) er
 	}
 }
 
-// Register all the metrics that are contained as public attributes in the struct,
-// and log any errors that might occur while doing so.
-func Register[M any](reg prometheus.Registerer, m M, logger *log.Logger) (M, error) {
+// Register all the metrics that are contained as public attributes in the struct, as
+// well as the additional metrics that are passed individually, such as the ones that
+// are not exported, and log any errors that might occur while doing so.
+//
+// When the suture supervisor restarts a service, which it does within the same process,
+// the service creates and registers its metrics again, while those of its previous run
+// are still registered. Ignoring that would leave the service updating its new metrics,
+// while only the old ones are exported, and never change anymore. Instead, the metrics
+// that are already registered are handed back and reused, so that their values continue
+// across such restarts: they replace the attributes of the struct when m is a pointer to
+// it, and the variables or attributes that additional metrics refer to, see WithRef.
+//
+// Metrics whose value is computed by a function, such as GaugeFuncs, can't be reused,
+// as the function of the registered one reads the state of the previous run of the
+// service: they replace the ones that are registered instead, see WithFunc. That is also
+// why they must not be public attributes of the struct.
+func Register[M any](reg prometheus.Registerer, m M, logger *log.Logger, metrics ...Metric) (M, error) {
 	lr := NewLoggingPrometheusRegisterer(reg, logger)
-	err := RegisterAll(lr, m, logger)
+	err := errors.Join(RegisterAll(lr, m, logger), registerMetrics(lr, metrics...))
 	return m, err
 }
 
-// Register individual metrics.
-func RegisterMetrics(reg prometheus.Registerer, logger *log.Logger, metrics ...prometheus.Collector) error {
-	lreg := NewLoggingPrometheusRegisterer(reg, logger)
+// Register individual metrics, see Register.
+func RegisterMetrics(reg prometheus.Registerer, logger *log.Logger, metrics ...Metric) error {
+	return registerMetrics(NewLoggingPrometheusRegisterer(reg, logger), metrics...)
+}
+
+func registerMetrics(registerer prometheus.Registerer, metrics ...Metric) error {
 	errs := []error{}
-	for _, c := range metrics {
-		if err := lreg.Register(c); err != nil {
-			errs = append(errs, err)
-		} else {
-			errs = append(errs, postProcess(c))
-		}
+	for _, m := range metrics {
+		errs = append(errs, m.register(registerer))
 	}
 	return errors.Join(errs...)
+}
+
+// A metric that is passed individually to Register or RegisterMetrics, created with
+// WithRef, WithVecRef or WithFunc.
+type Metric interface {
+	register(registerer prometheus.Registerer) error
+}
+
+// Refer to the variable or attribute that holds a metric, such as a prometheus.Counter,
+// so that it can be set to the metric that is already registered, which is then
+// reused, see Register. Use WithVecRef for metric vectors, such as *prometheus.CounterVec.
+//
+// The constraints let the compiler reject a metric that is passed without its address,
+// which could not be handed back.
+func WithRef[C interface {
+	prometheus.Metric
+	prometheus.Collector
+}](c *C) Metric {
+	return ref[C]{c: c}
+}
+
+// Same as WithRef, for metric vectors, such as *prometheus.CounterVec.
+//
+// Those need their own function, as the vector types embed a pointer, which makes their
+// values metrics as well: with a single function, the compiler would accept a vector
+// that is passed without its address.
+func WithVecRef[V any, C interface {
+	*V
+	prometheus.Collector
+}](c *C) Metric {
+	return ref[C]{c: c}
+}
+
+type ref[C prometheus.Collector] struct {
+	c *C
+}
+
+func (r ref[C]) register(registerer prometheus.Registerer) error {
+	if r.c == nil {
+		return fmt.Errorf("cannot register a nil reference to a metric of type %T", r.c)
+	}
+	target := reflect.ValueOf(r.c).Elem()
+	if k := target.Kind(); (k == reflect.Pointer || k == reflect.Interface) && target.IsNil() {
+		return fmt.Errorf("cannot register a nil metric of type %T", *r.c)
+	}
+	return register(registerer, *r.c, target)
+}
+
+// A metric whose value is computed by a function, such as a GaugeFunc, which replaces
+// the metric that is already registered, as that one can't be reused, see Register.
+func WithFunc(c prometheus.Collector) Metric {
+	return fn{c: c}
+}
+
+type fn struct {
+	c prometheus.Collector
+}
+
+func (f fn) register(registerer prometheus.Registerer) error {
+	if f.c == nil {
+		return fmt.Errorf("cannot register a nil metric")
+	}
+	return register(registerer, f.c, reflect.Value{})
+}
+
+// Register a metric, and if a metric with the same descriptors is already registered,
+// reuse it by setting target to it when target can be set, or replace it otherwise,
+// see Register.
+func register(registerer prometheus.Registerer, c prometheus.Collector, target reflect.Value) error {
+	err := registerer.Register(c)
+	var are prometheus.AlreadyRegisteredError
+	switch {
+	case err == nil:
+		return postProcess(c)
+	case !errors.As(err, &are):
+		return err
+	case target.CanSet():
+		existing := reflect.ValueOf(are.ExistingCollector)
+		if !existing.Type().AssignableTo(target.Type()) {
+			return fmt.Errorf("cannot reuse the already registered metric of type %T: %w", are.ExistingCollector, err)
+		}
+		target.Set(existing)
+		return nil
+	default:
+		registerer.Unregister(are.ExistingCollector)
+		if err := registerer.Register(c); err != nil {
+			return err
+		}
+		return postProcess(c)
+	}
 }
 
 // Prometheus Registerer wrapper that logs every error that occurs when registering
@@ -172,18 +268,13 @@ func NewLoggingPrometheusRegisterer(delegate prometheus.Registerer, logger *log.
 	}
 }
 
+// Register a metric with the delegate, and log the errors, except when the metric is
+// already registered, as that case is handled by the caller, see Register.
 func (r *LoggingPrometheusRegisterer) Register(c prometheus.Collector) error {
 	err := r.delegate.Register(c)
-	if err != nil {
-		switch err.(type) {
-		case prometheus.AlreadyRegisteredError:
-			// silently ignore this error, as this case can happen when the suture service decides to restart
-			err = nil
-		default:
-			if r.logger != nil {
-				r.logger.Warn().Err(err).Msgf("failed to register metric")
-			}
-		}
+	var are prometheus.AlreadyRegisteredError
+	if err != nil && !errors.As(err, &are) && r.logger != nil {
+		r.logger.Warn().Err(err).Msgf("failed to register metric")
 	}
 	return err
 }

@@ -128,6 +128,23 @@ func New(routes iter.Seq[config.Route], logger *log.Logger) (*Metrics, error) {
 		}, []string{LabelService}),
 	}
 
+	buildInfo := ocmetrics.BuildInfo(Namespace, Subsystem)
+
+	// register the metrics before initializing them below, as the ones that are already
+	// registered by a previous run of the service (after a restart) are reused instead
+	_, err := ocmetrics.Register(prometheus.DefaultRegisterer, m, logger,
+		// need to pass the unexported metrics as well:
+		ocmetrics.WithVecRef(&buildInfo),
+		ocmetrics.WithRef(&m.routingFailures),
+		ocmetrics.WithVecRef(&m.duration),
+		ocmetrics.WithVecRef(&m.legacyServiceCount),
+		ocmetrics.WithVecRef(&m.legacyServiceDuration),
+		ocmetrics.WithVecRef(&m.legacyMethodDuration),
+		ocmetrics.WithVecRef(&m.legacyMethodRequests),
+		ocmetrics.WithVecRef(&m.legacyMethodErrors),
+	)
+	errs := []error{err}
+
 	// Initialize the metrics with 0 so that they immediately show up in the list of
 	// scraped metrics, instead of only showing up on-demand when they first collect
 	// a value later on, and possibly never
@@ -164,28 +181,11 @@ func New(routes iter.Seq[config.Route], logger *log.Logger) (*Metrics, error) {
 
 	m.inflightByService = inflightByService
 
-	buildInfo := ocmetrics.BuildInfo(Namespace, Subsystem)
-
-	errs := []error{}
-	// registers all the exported metrics:
-	errs = append(errs, ocmetrics.RegisterAll(prometheus.DefaultRegisterer, m, logger))
-	// need an additional call for the unexported ones:
-	errs = append(errs, ocmetrics.RegisterMetrics(prometheus.DefaultRegisterer, logger,
-		// need to list unexported metrics here:
-		buildInfo,
-		m.routingFailures,
-		m.duration,
-		m.legacyServiceCount,
-		m.legacyServiceDuration,
-		m.legacyMethodDuration,
-		m.legacyMethodRequests,
-		m.legacyMethodErrors,
-	))
 	// need to iterate over these as the number of entries is dynamic:
 	{
-		collectors := make([]prometheus.Collector, 0, len(inflightByServiceGaugeFuncs))
+		collectors := make([]ocmetrics.Metric, 0, len(inflightByServiceGaugeFuncs))
 		for _, c := range inflightByServiceGaugeFuncs {
-			collectors = append(collectors, c)
+			collectors = append(collectors, ocmetrics.WithFunc(c))
 		}
 		errs = append(errs, ocmetrics.RegisterMetrics(prometheus.DefaultRegisterer, logger, collectors...))
 	}
