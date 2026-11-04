@@ -166,7 +166,7 @@ func TestAccessTokenAudiencesDoNotApplyToLogoutTokens(t *testing.T) {
 	client := newAccessTokenTestClient(t, key, []string{"opencloud"}, &oidc.ProviderMetadata{})
 	token := signAccessToken(t, key, jwt.MapClaims{
 		"iss": "https://issuer.example",
-		"sub": "alice",
+		"sub": "alice", "iat": time.Now().Unix(),
 		"aud": "web-client",
 		"events": map[string]any{
 			"http://schemas.openid.net/event/backchannel-logout": map[string]any{},

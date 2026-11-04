@@ -10,6 +10,7 @@ import (
 	policiessvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/policies/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
+	bcl "github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/backchannellogout"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/userroles"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
@@ -60,6 +61,10 @@ type Options struct {
 	DefaultAccessTokenTTL time.Duration
 	// UserInfoCache sets the access token cache store
 	UserInfoCache store.Store
+	// LogoutMarkers holds the verified backchannel logouts that access tokens are checked against
+	LogoutMarkers *bcl.LogoutMarkers
+	// MaxAccessTokenLifetime is the longest accepted lifetime of a JWT access token
+	MaxAccessTokenLifetime time.Duration
 	// CredentialsByUserAgent sets the auth challenges on a per user-agent basis
 	CredentialsByUserAgent map[string]string
 	// AccessTokenVerifyMethod configures how access_tokens should be verified but the oidc_auth middleware.
@@ -206,6 +211,20 @@ func EnableBasicAuth(enableBasicAuth bool) Option {
 func DefaultAccessTokenTTL(ttl time.Duration) Option {
 	return func(o *Options) {
 		o.DefaultAccessTokenTTL = ttl
+	}
+}
+
+// LogoutMarkers provides a function to set the LogoutMarkers
+func LogoutMarkers(val *bcl.LogoutMarkers) Option {
+	return func(o *Options) {
+		o.LogoutMarkers = val
+	}
+}
+
+// MaxAccessTokenLifetime provides a function to set the MaxAccessTokenLifetime
+func MaxAccessTokenLifetime(val time.Duration) Option {
+	return func(o *Options) {
+		o.MaxAccessTokenLifetime = val
 	}
 }
 
