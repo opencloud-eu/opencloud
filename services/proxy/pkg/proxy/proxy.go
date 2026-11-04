@@ -16,6 +16,8 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/proxy/policy"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/router"
 	"github.com/rs/zerolog"
+
+	pkgmiddleware "github.com/opencloud-eu/opencloud/pkg/middleware"
 )
 
 // MultiHostReverseProxy extends "httputil" to support multiple hosts with different policies
@@ -45,12 +47,21 @@ func NewMultiHostReverseProxy(opts ...Option) (*MultiHostReverseProxy, error) {
 		// Check if datagateway middleware already handled this request
 		if skip, _ := r.In.Context().Value(middleware.DatagatewaySkipRoutingKey).(bool); skip {
 			r.SetXForwarded()
-			return
+		} else {
+			// Fallback to standard service routing logic
+			ri := router.ContextRoutingInfo(r.In.Context())
+			ri.Rewrite()(r)
 		}
 
-		// Fallback to standard service routing logic
-		ri := router.ContextRoutingInfo(r.In.Context())
-		ri.Rewrite()(r)
+		// SetXForwarded uses the peer, which is the reverse proxy in front of us.
+		// Tell the services who the client is, reva reads it e.g. for OCM.
+		client := pkgmiddleware.ClientAddress(r.In)
+		r.Out.Header.Set("X-Forwarded-For", client)
+		// a service behind us reading the same header, e.g. collaboration with
+		// OC_CLIENT_IP_HEADER, must not get a value we ignored
+		if h := options.Config.ClientIP.Header; h != "" {
+			r.Out.Header.Set(h, client)
+		}
 	}
 
 	rp.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, err error) {

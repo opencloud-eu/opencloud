@@ -255,6 +255,13 @@ type JpegExportParams struct {
 	OvershootDeringing bool
 	OptimizeScans      bool
 	QuantTable         int
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewJpegExportParams creates default values for an export of a JPEG image.
@@ -277,6 +284,13 @@ type PngExportParams struct {
 	Dither        float64
 	Bitdepth      int
 	Profile       string
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewPngExportParams creates default values for an export of a PNG image.
@@ -314,6 +328,23 @@ type WebpExportParams struct {
 	// Requires libvips 8.17.4+ (when target_size was added to webpsave);
 	// ExportWebp returns an error if TargetSize is set on an older libvips.
 	TargetSize int
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata decides,
+	// as for the other formats: the source image's ICC profile is kept
+	// unless StripMetadata is set. A profile from IccProfile or
+	// OptimizeICCProfile replaces the source profile and is embedded even
+	// when StripMetadata is set. When set, Keep takes precedence over
+	// StripMetadata, and it
+	// alone decides whether an ICC profile is written: without
+	// ForeignKeepIcc no profile is embedded, whatever its source. With
+	// ForeignKeepIcc, the embedded profile is the one the path already
+	// chooses: ExportWebp uses the profile picked by OptimizeICCProfile
+	// (and ignores IccProfile, as before), while SaveToWriterWebp uses
+	// IccProfile. With neither, the source image's profile is kept.
+	// Requires libvips 8.15+; saving returns an error if Keep is set on an
+	// older libvips.
+	Keep ForeignKeep
 }
 
 // NewWebpExportParams creates default values for an export of a WEBP image.
@@ -337,6 +368,13 @@ type TiffExportParams struct {
 	Tile          bool
 	TileHeight    int
 	TileWidth     int
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewTiffExportParams creates default values for an export of a TIFF image.
@@ -370,6 +408,13 @@ type GifExportParams struct {
 	Dither   float64
 	Effort   int
 	Bitdepth int
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewGifExportParams creates default values for an export of a GIF image.
@@ -387,6 +432,13 @@ type HeifExportParams struct {
 	Bitdepth int
 	Effort   int
 	Lossless bool
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewHeifExportParams creates default values for an export of a HEIF image.
@@ -409,6 +461,13 @@ type AvifExportParams struct {
 
 	// DEPRECATED - Use Effort instead.
 	Speed int
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewAvifExportParams creates default values for an export of an AVIF image.
@@ -428,6 +487,13 @@ type Jp2kExportParams struct {
 	TileWidth     int
 	TileHeight    int
 	SubsampleMode SubsampleMode
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewJp2kExportParams creates default values for an export of an JPEG2000 image.
@@ -447,6 +513,13 @@ type JxlExportParams struct {
 	Tier     int
 	Distance float64
 	Effort   int
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewJxlExportParams creates default values for an export of an JXL image.
@@ -466,6 +539,13 @@ type MagickExportParams struct {
 	OptimizeGifFrames       bool
 	OptimizeGifTransparency bool
 	BitDepth                int
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewMagickExportParams creates default values for an export of an image by ImageMagick.

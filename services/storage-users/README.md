@@ -2,6 +2,14 @@
 
 Purpose and description to be added
 
+## Legacy storage drivers
+
+The deprecated `STORAGE_USERS_DRIVER=ocis` and `STORAGE_USERS_DRIVER=s3ng` settings use the `decomposed` and `decomposeds3` drivers respectively, with the legacy metadata prefix (`user.ocis.` on Linux, `ocis.` on FreeBSD). This prefix takes precedence over `OC_METADATA_PREFIX` for these aliases. The legacy `STORAGE_SYSTEM_DRIVER=ocis` setting is treated similarly.
+
+The metadata prefix is process-wide. Services sharing a process must use the same prefix; an installation with legacy user storage and system storage using the native `user.oc.` prefix must run these services in separate processes or otherwise arrange for their metadata prefixes to match before upgrading. Conflicting prefixes fail at startup.
+
+When replacing a legacy driver name in configuration, also configure the legacy metadata prefix explicitly. Do not change the prefix of existing data without migrating it. For separate service processes, configure the prefix on the appropriate service; `OC_METADATA_PREFIX` applies to every service that receives it.
+
 ## Graceful Shutdown
 
 You can define a graceful shutdown period for the `storage-users` service.

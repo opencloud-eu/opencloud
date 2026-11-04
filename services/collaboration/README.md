@@ -59,6 +59,12 @@ There are a few variables that you need to set:
 
 The application can be customized further by changing the `COLLABORATION_APP_*` options to better describe the application.
 
+## Client Address
+
+The WOPI requests reach the collaboration service either directly from your reverse proxy or through the proxy service. The collaboration service determines the client address in its access log itself, with `COLLABORATION_HTTP_TRUSTED_PROXIES` and `COLLABORATION_HTTP_CLIENT_IP_HEADER`. They work like `PROXY_TRUSTED_PROXIES` and `PROXY_CLIENT_IP_HEADER`, see [Trusted Reverse Proxies](../proxy/README.md#trusted-reverse-proxies) in the proxy service.
+
+Behind the proxy service, the address of the proxy service must be trusted, which the default does when both run on the same host or in the same network. The proxy service passes the client address in `X-Forwarded-For` and in the header set in `PROXY_CLIENT_IP_HEADER`.
+
 ## Storing
 
 The `collaboration` service persists information via the configured store in `COLLABORATION_STORE`. Possible stores are:

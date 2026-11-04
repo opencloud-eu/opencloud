@@ -393,9 +393,8 @@ func ForType(mimeType string, opts Options) FileConverter {
 	case "audio/ogg":
 		return AudioDecoder{}
 	default:
-		// webdav decodes no image: an image/* source is streamed to the
-		// generator untouched, so a type without a converter here is one
-		// nobody can make a preview of.
+		// webdav decodes no image: a type without a converter is streamed to
+		// the generator untouched, which answers whether it can read it.
 		return nil
 	}
 }

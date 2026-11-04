@@ -9,6 +9,7 @@ The following spec parts are supported and tested:
   - 2.1.6 NOT Operator
   - 2.1.8 OR Operator
   - 2.1.12 Parentheses
+  - 2.3.1 String Tokens
   - 2.3.5 Date Tokens
   - 3.1.11 Implicit Operator
   - 3.1.12 Parentheses
@@ -18,6 +19,10 @@ The following spec parts are supported and tested:
   - 3.2.3 Implicit Operator for Property Restriction
   - 3.3.1.1.1 Implicit AND Operator
   - 3.3.5 Date Tokens
+
+A double quote inside a quoted value is written as two double quotes, `"say ""hi"""`
+is the value `say "hi"`. Nothing else is special inside the quotes, a backslash
+escapes nothing. An unquoted value can't contain a double quote.
 
 References:
   - https://learn.microsoft.com/en-us/sharepoint/dev/general-development/keyword-query-language-kql-syntax-reference

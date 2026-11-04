@@ -25,6 +25,74 @@ const (
 	VipsForeignSubsampleLast SubsampleMode = C.VIPS_FOREIGN_SUBSAMPLE_LAST
 )
 
+// ForeignKeep flags select which metadata a saver retains (libvips's "keep"
+// save option, libvips 8.15+). Values may be combined with |.
+//
+// The values are libvips's VipsForeignKeep bits written as literals rather
+// than C.VIPS_FOREIGN_KEEP_* because those macros don't exist in the
+// libvips 8.14 headers govips still builds against.
+const (
+	// ForeignKeepNone keeps no metadata. It is a Go-only sentinel (like
+	// KernelAuto) translated to VIPS_FOREIGN_KEEP_NONE (0) before reaching
+	// libvips, because the zero value of the Keep fields means "unset".
+	// It is a high bit rather than -1 so that it still composes with |.
+	ForeignKeepNone  ForeignKeep = 1 << 30
+	ForeignKeepExif  ForeignKeep = 1 << 0
+	ForeignKeepXmp   ForeignKeep = 1 << 1
+	ForeignKeepIptc  ForeignKeep = 1 << 2
+	ForeignKeepIcc   ForeignKeep = 1 << 3
+	ForeignKeepOther ForeignKeep = 1 << 4
+	// ForeignKeepGainmap keeps the UltraHDR gain map (libvips 8.18+). Older
+	// libvips cannot load gain maps, so the bit is dropped there: combined
+	// with other flags it changes nothing, but on its own it keeps no
+	// metadata at all, exactly like ForeignKeepNone.
+	ForeignKeepGainmap ForeignKeep = 1 << 5
+	// ForeignKeepAll keeps all metadata the running libvips supports.
+	ForeignKeepAll = ForeignKeepExif | ForeignKeepXmp | ForeignKeepIptc |
+		ForeignKeepIcc | ForeignKeepOther | ForeignKeepGainmap
+)
+
+// errKeepUnsupported is returned by resolveKeep when the libvips version
+// predates the "keep" save option.
+var errKeepUnsupported = errors.New("keep requires libvips 8.15+")
+
+// resolveKeep maps a ForeignKeep value to the libvips "keep" flags for the
+// given libvips version. set is false when k is unset (zero), in which case
+// the caller must not pass "keep" at all and StripMetadata decides.
+func resolveKeep(k ForeignKeep, major, minor int) (flags int, set bool, err error) {
+	if k == 0 {
+		return 0, false, nil
+	}
+	if major < 8 || (major == 8 && minor < 15) {
+		return 0, false, errKeepUnsupported
+	}
+	if unknown := k &^ (ForeignKeepAll | ForeignKeepNone); unknown != 0 {
+		return 0, false, fmt.Errorf("unknown ForeignKeep bits: %#x", int(unknown))
+	}
+	k &^= ForeignKeepNone
+	if major == 8 && minor < 18 {
+		// libvips before 8.18 doesn't know VIPS_FOREIGN_KEEP_GAINMAP.
+		k &^= ForeignKeepGainmap
+	}
+	return int(k), true, nil
+}
+
+// applyKeep validates k against the running libvips and stores it in p.
+// Every save-param builder calls it, so the buffer and streaming paths
+// share one version guard.
+func applyKeep(p *C.struct_SaveParams, k ForeignKeep) error {
+	flags, set, err := resolveKeep(k, MajorVersion, MinorVersion)
+	if errors.Is(err, errKeepUnsupported) {
+		return fmt.Errorf("Keep requires libvips 8.15+, found %s", Version)
+	}
+	if err != nil {
+		return err
+	}
+	p.keep = C.int(flags)
+	p.keepSet = C.int(boolToInt(set))
+	return nil
+}
+
 // ImageType represents an image type
 type ImageType int
 
@@ -398,7 +466,7 @@ func createImportParams(format ImageType, params *ImportParams) C.LoadParams {
 	return p
 }
 
-func newSaveParamsJPEG(in *C.VipsImage, params JpegExportParams) C.struct_SaveParams {
+func newSaveParamsJPEG(in *C.VipsImage, params JpegExportParams) (C.struct_SaveParams, error) {
 	p := C.create_save_params(C.JPEG)
 	p.inputImage = in
 	p.stripMetadata = C.int(boolToInt(params.StripMetadata))
@@ -410,16 +478,23 @@ func newSaveParamsJPEG(in *C.VipsImage, params JpegExportParams) C.struct_SavePa
 	p.jpegOvershootDeringing = C.int(boolToInt(params.OvershootDeringing))
 	p.jpegOptimizeScans = C.int(boolToInt(params.OptimizeScans))
 	p.jpegQuantTable = C.int(params.QuantTable)
-	return p
+	if err := applyKeep(&p, params.Keep); err != nil {
+		return p, err
+	}
+	return p, nil
 }
 
 func vipsSaveJPEGToBuffer(in *C.VipsImage, params JpegExportParams) ([]byte, error) {
 	incOpCounter("save_jpeg_buffer")
 
-	return vipsSaveToBuffer(newSaveParamsJPEG(in, params))
+	p, err := newSaveParamsJPEG(in, params)
+	if err != nil {
+		return nil, err
+	}
+	return vipsSaveToBuffer(p)
 }
 
-func newSaveParamsPNG(in *C.VipsImage, params PngExportParams) C.struct_SaveParams {
+func newSaveParamsPNG(in *C.VipsImage, params PngExportParams) (C.struct_SaveParams, error) {
 	p := C.create_save_params(C.PNG)
 	p.inputImage = in
 	p.quality = C.int(params.Quality)
@@ -430,13 +505,20 @@ func newSaveParamsPNG(in *C.VipsImage, params PngExportParams) C.struct_SavePara
 	p.pngPalette = C.int(boolToInt(params.Palette))
 	p.pngDither = C.double(params.Dither)
 	p.pngBitdepth = C.int(params.Bitdepth)
-	return p
+	if err := applyKeep(&p, params.Keep); err != nil {
+		return p, err
+	}
+	return p, nil
 }
 
 func vipsSavePNGToBuffer(in *C.VipsImage, params PngExportParams) ([]byte, error) {
 	incOpCounter("save_png_buffer")
 
-	return vipsSaveToBuffer(newSaveParamsPNG(in, params))
+	p, err := newSaveParamsPNG(in, params)
+	if err != nil {
+		return nil, err
+	}
+	return vipsSaveToBuffer(p)
 }
 
 // newSaveParamsWebP returns the populated params and a cleanup function
@@ -468,9 +550,20 @@ func newSaveParamsWebP(in *C.VipsImage, params WebpExportParams) (C.struct_SaveP
 		p.webpTargetSize = C.int(params.TargetSize)
 	}
 
+	if err := applyKeep(&p, params.Keep); err != nil {
+		return p, noop, err
+	}
+
+	iccProfile := params.IccProfile
+	if p.keepSet != 0 && ForeignKeep(p.keep)&ForeignKeepIcc == 0 {
+		// An explicit Keep without ICC wins over any profile: libvips
+		// would otherwise embed a supplied profile regardless of keep.
+		iccProfile = ""
+	}
+
 	cleanup := noop
-	if params.IccProfile != "" {
-		p.webpIccProfile = C.CString(params.IccProfile)
+	if iccProfile != "" {
+		p.webpIccProfile = C.CString(iccProfile)
 		profile := p.webpIccProfile
 		cleanup = func() { C.free(unsafe.Pointer(profile)) }
 	}
@@ -489,7 +582,7 @@ func vipsSaveWebPToBuffer(in *C.VipsImage, params WebpExportParams) ([]byte, err
 	return vipsSaveToBuffer(p)
 }
 
-func newSaveParamsTIFF(in *C.VipsImage, params TiffExportParams) C.struct_SaveParams {
+func newSaveParamsTIFF(in *C.VipsImage, params TiffExportParams) (C.struct_SaveParams, error) {
 	p := C.create_save_params(C.TIFF)
 	p.inputImage = in
 	p.stripMetadata = C.int(boolToInt(params.StripMetadata))
@@ -507,16 +600,23 @@ func newSaveParamsTIFF(in *C.VipsImage, params TiffExportParams) C.struct_SavePa
 	}
 	p.tiffTileHeight = C.int(tileHeight)
 	p.tiffTileWidth = C.int(tileWidth)
-	return p
+	if err := applyKeep(&p, params.Keep); err != nil {
+		return p, err
+	}
+	return p, nil
 }
 
 func vipsSaveTIFFToBuffer(in *C.VipsImage, params TiffExportParams) ([]byte, error) {
 	incOpCounter("save_tiff_buffer")
 
-	return vipsSaveToBuffer(newSaveParamsTIFF(in, params))
+	p, err := newSaveParamsTIFF(in, params)
+	if err != nil {
+		return nil, err
+	}
+	return vipsSaveToBuffer(p)
 }
 
-func newSaveParamsHEIF(in *C.VipsImage, params HeifExportParams) C.struct_SaveParams {
+func newSaveParamsHEIF(in *C.VipsImage, params HeifExportParams) (C.struct_SaveParams, error) {
 	p := C.create_save_params(C.HEIF)
 	p.inputImage = in
 	p.outputFormat = C.HEIF
@@ -524,13 +624,20 @@ func newSaveParamsHEIF(in *C.VipsImage, params HeifExportParams) C.struct_SavePa
 	p.heifLossless = C.int(boolToInt(params.Lossless))
 	p.heifBitdepth = C.int(params.Bitdepth)
 	p.heifEffort = C.int(params.Effort)
-	return p
+	if err := applyKeep(&p, params.Keep); err != nil {
+		return p, err
+	}
+	return p, nil
 }
 
 func vipsSaveHEIFToBuffer(in *C.VipsImage, params HeifExportParams) ([]byte, error) {
 	incOpCounter("save_heif_buffer")
 
-	return vipsSaveToBuffer(newSaveParamsHEIF(in, params))
+	p, err := newSaveParamsHEIF(in, params)
+	if err != nil {
+		return nil, err
+	}
+	return vipsSaveToBuffer(p)
 }
 
 func vipsSaveAVIFToBuffer(in *C.VipsImage, params AvifExportParams) ([]byte, error) {
@@ -550,6 +657,9 @@ func vipsSaveAVIFToBuffer(in *C.VipsImage, params AvifExportParams) ([]byte, err
 	p.heifLossless = C.int(boolToInt(params.Lossless))
 	p.heifBitdepth = C.int(params.Bitdepth)
 	p.heifEffort = C.int(effort)
+	if err := applyKeep(&p, params.Keep); err != nil {
+		return nil, err
+	}
 
 	return vipsSaveToBuffer(p)
 }
@@ -565,24 +675,34 @@ func vipsSaveJP2KToBuffer(in *C.VipsImage, params Jp2kExportParams) ([]byte, err
 	p.jp2kTileWidth = C.int(params.TileWidth)
 	p.jp2kTileHeight = C.int(params.TileHeight)
 	p.jpegSubsample = C.VipsForeignSubsample(params.SubsampleMode)
+	if err := applyKeep(&p, params.Keep); err != nil {
+		return nil, err
+	}
 
 	return vipsSaveToBuffer(p)
 }
 
-func newSaveParamsGIF(in *C.VipsImage, params GifExportParams) C.struct_SaveParams {
+func newSaveParamsGIF(in *C.VipsImage, params GifExportParams) (C.struct_SaveParams, error) {
 	p := C.create_save_params(C.GIF)
 	p.inputImage = in
 	p.quality = C.int(params.Quality)
 	p.gifDither = C.double(params.Dither)
 	p.gifEffort = C.int(params.Effort)
 	p.gifBitdepth = C.int(params.Bitdepth)
-	return p
+	if err := applyKeep(&p, params.Keep); err != nil {
+		return p, err
+	}
+	return p, nil
 }
 
 func vipsSaveGIFToBuffer(in *C.VipsImage, params GifExportParams) ([]byte, error) {
 	incOpCounter("save_gif_buffer")
 
-	return vipsSaveToBuffer(newSaveParamsGIF(in, params))
+	p, err := newSaveParamsGIF(in, params)
+	if err != nil {
+		return nil, err
+	}
+	return vipsSaveToBuffer(p)
 }
 
 func vipsSaveJxlToBuffer(in *C.VipsImage, params JxlExportParams) ([]byte, error) {
@@ -596,6 +716,9 @@ func vipsSaveJxlToBuffer(in *C.VipsImage, params JxlExportParams) ([]byte, error
 	p.jxlTier = C.int(params.Tier)
 	p.jxlDistance = C.double(params.Distance)
 	p.jxlEffort = C.int(params.Effort)
+	if err := applyKeep(&p, params.Keep); err != nil {
+		return nil, err
+	}
 
 	return vipsSaveToBuffer(p)
 }
@@ -617,6 +740,9 @@ func vipsSaveMagickToBuffer(in *C.VipsImage, params MagickExportParams) ([]byte,
 	p.magickOptimizeGifFrames = C.int(boolToInt(params.OptimizeGifFrames))
 	p.magickOptimizeGifTransparency = C.int(boolToInt(params.OptimizeGifTransparency))
 	p.magickBitDepth = C.int(params.BitDepth)
+	if err := applyKeep(&p, params.Keep); err != nil {
+		return nil, err
+	}
 
 	return vipsSaveToBuffer(p)
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
+	"github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config/defaults"
@@ -64,6 +65,10 @@ func Validate(cfg *config.Config) error {
 		if strings.TrimSpace(audience) == "" {
 			return fmt.Errorf("OIDC audiences (PROXY_OIDC_AUDIENCES) in service %s must not contain empty or whitespace-only entries", cfg.Service.Name)
 		}
+	}
+
+	if _, err := middleware.ParseTrustedProxies(cfg.ClientIP.TrustedProxies); err != nil {
+		return fmt.Errorf("invalid PROXY_TRUSTED_PROXIES in service %s: %w", cfg.Service.Name, err)
 	}
 
 	if cfg.ServiceAccount.ServiceAccountID == "" {

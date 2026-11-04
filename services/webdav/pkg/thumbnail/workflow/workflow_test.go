@@ -217,6 +217,7 @@ func setupPreprocessTest(
 		if err := r.ParseMultipartForm(10 << 20); err == nil {
 			for _, fh := range r.MultipartForm.File["image"] {
 				captured.filename = filepath.Base(fh.Filename)
+				captured.contentType = fh.Header.Get("Content-Type")
 				file, ferr := fh.Open()
 				if ferr != nil {
 					continue
@@ -235,9 +236,10 @@ func setupPreprocessTest(
 }
 
 type capturedUpload struct {
-	path     string
-	filename string
-	data     []byte
+	path        string
+	filename    string
+	contentType string
+	data        []byte
 }
 
 var _ = Describe("ThumbnailWorkflow", func() {
@@ -789,6 +791,25 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			Expect(captured.data).To(Equal(pngBytes))
 		})
 
+		It("streams an announced type without a converter through untouched", func() {
+			pdfBytes := []byte("%PDF-1.4 not really a pdf")
+
+			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "application/pdf", "doc.pdf", pdfBytes)
+			wf2.sourceTypes = thumbnail.NewSourceTypes([]string{"application/pdf"})
+
+			tr := &requests.ThumbnailRequest{
+				Ref:      spaceRef("storageid$spaceid!opaqueid", "doc.pdf"),
+				Filename: "doc.pdf",
+				Width:    64,
+				Height:   64,
+			}
+
+			_, err := wf2.Execute(context.Background(), tr, testToken, logger)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(captured.data).To(Equal(pdfBytes))
+			Expect(captured.contentType).To(Equal("application/pdf"), "the generator sees the file's own type, not a guess")
+		})
+
 		It("converts audio to cover art before posting", func() {
 			mp3Bytes, err := os.ReadFile(filepath.Join("..", "..", "preprocessor", "test_assets", "empty.mp3"))
 			Expect(err).ToNot(HaveOccurred())
@@ -996,6 +1017,13 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Width:    64,
 				Height:   64,
 			}
+
+			untouched := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+				defer GinkgoRecover()
+				Fail("a type outside the source types must never reach the generator")
+			}))
+			defer untouched.Close()
+			wf.generatorURL = untouched.URL
 
 			_, err := wf.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).To(HaveOccurred())
