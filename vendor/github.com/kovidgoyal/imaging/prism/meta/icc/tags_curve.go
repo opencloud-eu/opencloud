@@ -51,6 +51,9 @@ func (c CurveTransformer) IOSig() (int, int) {
 }
 
 func (c CurveTransformer) Transform(r, g, b unit_float) (unit_float, unit_float, unit_float) {
+	if len(c.curves) == 1 {
+		return c.curves[0].Transform(r), g, b
+	}
 	return c.curves[0].Transform(r), c.curves[1].Transform(g), c.curves[2].Transform(b)
 }
 func (c CurveTransformer) TransformGeneral(o, i []unit_float) {
@@ -64,11 +67,14 @@ func (c InverseCurveTransformer) IOSig() (int, int) {
 }
 func (c InverseCurveTransformer) Transform(r, g, b unit_float) (unit_float, unit_float, unit_float) {
 	// we need to clamp as per spec section F.3 of ICC.1-2202-05.pdf
+	if len(c.curves) == 1 {
+		return c.curves[0].InverseTransform(clamp01(r)), g, b
+	}
 	return c.curves[0].InverseTransform(clamp01(r)), c.curves[1].InverseTransform(clamp01(g)), c.curves[2].InverseTransform(clamp01(b))
 }
 func (c InverseCurveTransformer) TransformGeneral(o, i []unit_float) {
 	for n, c := range c.curves {
-		o[n] = c.InverseTransform(i[n])
+		o[n] = c.InverseTransform(clamp01(i[n]))
 	}
 }
 
@@ -129,10 +135,11 @@ type Curves interface {
 
 func NewCurveTransformer(name string, curves ...Curve1D) Curves {
 	all_identity := true
-	for _, c := range curves {
+	for i, c := range curves {
 		if c == nil {
 			ident := IdentityCurve(0)
 			c = &ident
+			curves[i] = c
 		}
 		if _, is_ident := c.(*IdentityCurve); !is_ident {
 			all_identity = false
@@ -150,10 +157,11 @@ func NewCurveTransformer(name string, curves ...Curve1D) Curves {
 }
 func NewInverseCurveTransformer(name string, curves ...Curve1D) Curves {
 	all_identity := true
-	for _, c := range curves {
+	for i, c := range curves {
 		if c == nil {
 			ident := IdentityCurve(0)
 			c = &ident
+			curves[i] = c
 		}
 		if _, is_ident := c.(*IdentityCurve); !is_ident {
 			all_identity = false
