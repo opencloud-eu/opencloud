@@ -1,10 +1,10 @@
 # Changelog
 
-## [9.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.1) - 2026-11-03
+## [9.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.1) - 2026-11-04
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @dragotin, @dschmidt, @maki5, @micbar, @pascalwengerter, @rhafer
+@RyoKusnadi, @aduffeck, @dragotin, @dschmidt, @maki5, @micbar, @pascalwengerter, @rhafer
 
 ### 🔒 Security
 
@@ -13,6 +13,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(proxy): answer 403 instead of 500 when the role claim is missing [[#3894](https://github.com/opencloud-eu/opencloud/pull/3894)]
 - fix(webdav): stream announced types without a converter to the generator [[#3884](https://github.com/opencloud-eu/opencloud/pull/3884)]
 - fix(search): normalize KQL path once [[#3516](https://github.com/opencloud-eu/opencloud/pull/3516)]
 - fix(search): report rejected documents when indexing to OpenSearch [[#3142](https://github.com/opencloud-eu/opencloud/pull/3142)]
