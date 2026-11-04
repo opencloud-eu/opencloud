@@ -153,3 +153,44 @@ Feature: create space
       | user-role   |
       | Admin       |
       | Space Admin |
+
+
+  Scenario: space admin creates a project space with a client-supplied id via the Graph API
+    Given the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
+    When user "Alice" creates a space "Project Mars" of type "project" with id "4e3b1a52-8f0d-4c6e-9a71-2d5f6b8c9e10" using the Graph API
+    Then the HTTP status code should be "201"
+    And the JSON response should contain space called "Project Mars" and match
+      """
+      {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "\\$4e3b1a52-8f0d-4c6e-9a71-2d5f6b8c9e10$"
+          }
+        }
+      }
+      """
+    When user "Alice" looks up the single space "Project Mars" via the Graph API by using its id
+    Then the HTTP status code should be "200"
+    And the JSON response should contain space called "Project Mars" and match
+      """
+      {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "\\$4e3b1a52-8f0d-4c6e-9a71-2d5f6b8c9e10$"
+          },
+          "name": {
+            "type": "string",
+            "enum": ["Project Mars"]
+          }
+        }
+      }
+      """
+    When user "Alice" tries to create a space "Project Venus" of type "project" with id "4e3b1a52-8f0d-4c6e-9a71-2d5f6b8c9e10" using the Graph API
+    Then the HTTP status code should be "409"
+    And the user "Alice" should not have a space called "Project Venus"
