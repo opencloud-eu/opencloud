@@ -729,6 +729,112 @@ class GuestLinkContext implements Context {
 	}
 
 	/**
+	 * Sends the guest session together with an Authorization header, like a browser
+	 * that still holds the guest session cookie when a user token was sent
+	 *
+	 * @param string $guest
+	 * @param string $authorization
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest lists the shares shared with them with authorization header :authorization using the Graph API')]
+	public function guestListsTheSharesSharedWithThemWithAuthorizationHeader(
+		string $guest,
+		string $authorization
+	): void {
+		$this->featureContext->setResponse(
+			HttpRequestHelper::get(
+				$this->featureContext->getBaseUrl() . '/graph/v1beta1/me/drive/sharedWithMe',
+				$this->featureContext->getStepLineRef(),
+				null,
+				null,
+				\array_merge($this->getSessionHeaders($guest), ['Authorization' => $authorization]),
+			)
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $guest
+	 * @param string|null $password
+	 *
+	 * @return ResponseInterface
+	 * @throws GuzzleException
+	 */
+	private function listSharesSharedWithUserWithGuestSession(
+		string $user,
+		string $guest,
+		?string $password = null
+	): ResponseInterface {
+		return HttpRequestHelper::get(
+			$this->featureContext->getBaseUrl() . '/graph/v1beta1/me/drive/sharedWithMe',
+			$this->featureContext->getStepLineRef(),
+			$this->featureContext->getActualUsername($user),
+			$password ?? $this->featureContext->getPasswordForUser($user),
+			$this->getSessionHeaders($guest),
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $guest
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user lists the shares shared with them with the guest session of guest :guest using the Graph API')]
+	public function userListsTheSharesSharedWithThemWithTheGuestSession(string $user, string $guest): void {
+		$this->featureContext->setResponse($this->listSharesSharedWithUserWithGuestSession($user, $guest));
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $password
+	 * @param string $guest
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user lists the shares shared with them with password :password and the guest session of guest :guest using the Graph API')]
+	public function userListsTheSharesSharedWithThemWithPasswordAndTheGuestSession(
+		string $user,
+		string $password,
+		string $guest
+	): void {
+		$this->featureContext->setResponse(
+			$this->listSharesSharedWithUserWithGuestSession($user, $guest, $password)
+		);
+	}
+
+	/**
+	 * @param string $guest
+	 * @param string $resource
+	 * @param string $password
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('guest :guest downloads file :resource from the last public link share with password :password and the guest session using the public WebDAV API')]
+	public function guestDownloadsFileFromTheLastPublicLinkShareWithTheGuestSession(
+		string $guest,
+		string $resource,
+		string $password
+	): void {
+		$token = $this->featureContext->shareNgGetLastCreatedLinkShareToken();
+		$davPath = WebDavHelper::getDavPath(WebDavHelper::DAV_VERSION_NEW, $token, 'public-files');
+		$this->featureContext->setResponse(
+			HttpRequestHelper::get(
+				$this->featureContext->getBaseUrl() . "/$davPath/$resource",
+				$this->featureContext->getStepLineRef(),
+				'public',
+				$this->featureContext->getActualPassword($password),
+				\array_merge($this->getSessionHeaders($guest), ['public-token' => $token]),
+			)
+		);
+	}
+
+	/**
 	 * @param string $guest
 	 * @param string $resource
 	 * @param string $space
