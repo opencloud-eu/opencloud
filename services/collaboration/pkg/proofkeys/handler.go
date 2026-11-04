@@ -206,6 +206,8 @@ func (vh *VerifyHandler) fetchPublicKeys(logger *zerolog.Logger) (*PubKeys, erro
 			},
 		},
 	}
+	// the client is only used for this call, don't leave its idle connection open
+	defer httpClient.CloseIdleConnections()
 
 	httpResp, err := httpClient.Get(vh.discoveryURL)
 	if err != nil {

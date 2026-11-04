@@ -1,8 +1,10 @@
 package helpers_test
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -337,6 +339,37 @@ var _ = Describe("Discovery", func() {
 	})
 
 	Describe("GetAppURLs", func() {
+		It("Doesn't leave idle connections open after the call", func() {
+			var open atomic.Int64
+			connSrv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				w.Write([]byte(discoveryContent1))
+			}))
+			connSrv.Config.ConnState = func(_ net.Conn, state http.ConnState) {
+				switch state {
+				case http.StateNew:
+					open.Add(1)
+				case http.StateClosed, http.StateHijacked:
+					open.Add(-1)
+				}
+			}
+			connSrv.Start()
+			defer connSrv.Close()
+
+			cfg := &config.Config{
+				App: config.App{
+					Addr: connSrv.URL,
+				},
+			}
+
+			for i := 0; i < 5; i++ {
+				_, err := helpers.GetAppURLs(cfg, log.NopLogger())
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			// the server notices the closed connections a moment later
+			Eventually(open.Load).Should(BeZero())
+		})
+
 		It("Good discovery URL", func() {
 			cfg := &config.Config{
 				App: config.App{

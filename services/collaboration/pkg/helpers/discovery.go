@@ -92,6 +92,10 @@ func GetAppURLs(cfg *config.Config, logger log.Logger) (map[string]map[string]st
 			},
 		},
 	}
+	// The client and its transport only live for this call. Close the idle
+	// connection when we are done, otherwise it stays open until the server
+	// closes it and a new one piles up on every periodic fetch.
+	defer httpClient.CloseIdleConnections()
 
 	httpResp, err := httpClient.Get(wopiAppUrl)
 	if err != nil {
