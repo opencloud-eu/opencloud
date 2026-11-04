@@ -6,28 +6,48 @@ package bleve_test
 import (
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	bleveSearch "github.com/blevesearch/bleve/v2"
 	sprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
+	bleveQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query/bleve"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 )
 
 type bleveIndex = bleveSearch.Index
 
-// batchProbe records the batches written to the index
+// batchProbe records the batches written to the index and how many ran at the
+// same time
 type batchProbe struct {
 	bleveIndex
-	sizes []int
+	mu      sync.Mutex
+	sizes   []int
+	running int
+	peak    int
 }
 
 func (p *batchProbe) Batch(b *bleveSearch.Batch) error {
+	p.mu.Lock()
 	p.sizes = append(p.sizes, b.Size())
-	return p.bleveIndex.Batch(b)
+	p.running++
+	p.peak = max(p.peak, p.running)
+	p.mu.Unlock()
+
+	// long enough for batches pushed together to overlap if nothing serializes them
+	time.Sleep(20 * time.Millisecond)
+	err := p.bleveIndex.Batch(b)
+
+	p.mu.Lock()
+	p.running--
+	p.mu.Unlock()
+	return err
 }
 
 var _ = Describe("Batch", func() {
@@ -100,6 +120,26 @@ var _ = Describe("Batch", func() {
 			r := file(2, "lorem ipsum")
 			Expect(batch.Upsert(r.ID, r)).To(Succeed())
 			Expect(idx.DocCount()).To(Equal(uint64(3)))
+		})
+	})
+
+	Describe("Push", func() {
+		It("runs one batch at a time when several are pushed together", func() {
+			probe := &batchProbe{bleveIndex: idx}
+			eng := bleve.NewBackend(probe, bleveQuery.DefaultCreator, log.NopLogger())
+
+			var wg sync.WaitGroup
+			for i := range 4 {
+				wg.Go(func() {
+					defer GinkgoRecover()
+					r := file(i, "lorem ipsum")
+					Expect(eng.Upsert(r.ID, r)).To(Succeed())
+				})
+			}
+			wg.Wait()
+
+			Expect(probe.peak).To(Equal(1))
+			Expect(eng.DocCount()).To(Equal(uint64(4)))
 		})
 	})
 })
