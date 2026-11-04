@@ -362,43 +362,36 @@ type Options struct {
 	FontFace     *opentype.FaceOptions
 	MaxImageSize uint64
 	Tika         thumbnail.Tika
-	SourceTypes  thumbnail.SourceTypes
 	Filename     string
 }
 
-// tikaOr prefers a configured Tika server, else the fallback
-func tikaOr(opts Options, mimeType string, fallback FileConverter) FileConverter {
-	if !opts.Tika.Supports(mimeType) {
-		return fallback
-	}
-
+func toTika(opts Options, mimeType string) FileConverter {
 	return TikaThumbnail{tikaURL: opts.Tika.URL, filename: opts.Filename, contentType: opts.Tika.ContentType(mimeType)}
 }
 
 // ForType says what has to happen to a file of this type before the generator
-// sees it: a converter to run, nil when the generator reads the file as it is,
-// and ErrNoThumbnail when nothing here can make an image of it.
+// sees it: a converter to run, or nil when the file goes to the generator as it
+// is, which answers whether it can read it. Only types that passed the gate
+// get here: announced ones, and those the Tika list takes.
 //
-// The order is the answer to two questions that look the same and are not, what
-// a type is and who can serve it:
-//  1. a type the configuration names for Tika goes to Tika, an image too, which
-//     is how a raw photo is extracted instead of being handed to a generator
-//     that cannot read it
-//  2. an image the generator reads is handed over untouched
-//  3. a type with a converter here is converted here
+// Every type has exactly one taker, the first that applies:
+//  1. a type the Tika list names goes to Tika, an image too, which is how a raw
+//     photo is extracted instead of being handed to a generator that cannot
+//     read it
+//  2. a type with a converter here is converted here
+//  3. an image goes to the generator
 //  4. what is left goes to Tika when it was told to take everything
-//  5. and otherwise nothing can make a preview of it
-func ForType(mimeType string, opts Options) (FileConverter, error) {
+//  5. and otherwise to the generator
+//
+// So "*" never sends an image: images belong to the generator, and sending one
+// to Tika would move the file for nothing.
+func ForType(mimeType string, opts Options) FileConverter {
 	// We can ignore the error here because the caller parses it as well, so we
 	// only get here when the mimeType parses fine.
 	mimeType, _, _ = mime.ParseMediaType(mimeType)
 
 	if opts.Tika.ConfiguredFor(mimeType) {
-		return tikaOr(opts, mimeType, nil), nil
-	}
-
-	if opts.SourceTypes.GeneratorReads(mimeType) {
-		return nil, nil
+		return toTika(opts, mimeType)
 	}
 
 	switch mimeType {
@@ -419,18 +412,22 @@ func ForType(mimeType string, opts Options) (FileConverter, error) {
 			fontLoader, _ = NewFontLoader("", fontFace)
 		}
 
-		return TxtToImageConverter{fontLoader: fontLoader}, nil
+		return TxtToImageConverter{fontLoader: fontLoader}
 	case "application/vnd.geogebra.slides":
-		return tikaOr(opts, mimeType, GgsDecoder{thumbnailpath: "_slide0/geogebra_thumbnail.png", maxSize: maxExtractedSize(opts)}), nil
+		return GgsDecoder{thumbnailpath: "_slide0/geogebra_thumbnail.png", maxSize: maxExtractedSize(opts)}
 	case "application/vnd.geogebra.pinboard":
-		return tikaOr(opts, mimeType, GgpDecoder{}), nil
+		return GgpDecoder{}
 	case "audio/flac", "audio/mpeg", "audio/ogg":
-		return tikaOr(opts, mimeType, AudioDecoder{}), nil
+		return AudioDecoder{}
 	}
 
-	if converter := tikaOr(opts, mimeType, nil); converter != nil {
-		return converter, nil
+	if strings.HasPrefix(mimeType, "image/") {
+		return nil
 	}
 
-	return nil, ErrNoThumbnail
+	if opts.Tika.TakesAll() {
+		return toTika(opts, mimeType)
+	}
+
+	return nil
 }

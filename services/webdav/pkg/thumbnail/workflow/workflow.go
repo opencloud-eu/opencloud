@@ -488,10 +488,9 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 		}
 	}
 
-	// Produce the source image to send to the generator, never decoding an image
-	// in webdav: real images (incl. gif) are streamed straight through undecoded;
-	// non-image sources are converted to image bytes here so the generator always
-	// receives an image.
+	// Produce the source to send to the generator, never decoding an image in
+	// webdav: what Tika or a converter here takes is turned into image bytes, the
+	// rest is streamed straight through undecoded.
 	imgStream, srcType, cleanup, err := w.sourceImage(ctx, ref, auth, mimeType, tr.Filename, checksum, logger)
 	if err != nil {
 		if errors.Is(err, ErrNoThumbnail) {
@@ -543,30 +542,24 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 // sourceImage returns a reader over the source to send to the generator, plus a
 // cleanup func to release any resources (download body, temp buffer). It never
 // decodes an image in webdav:
-//   - a type without a converter (image/*, incl. gif, and whatever else the source
-//     types announce) is streamed straight through from storage undecoded; the
-//     generator decides whether it can read it.
-//   - text/plain is rendered to an image here (the only true conversion).
-//   - audio and geogebra sources have their embedded image extracted to bytes.
+//   - a type preprocessor.ForType gives no converter (images, and whatever else
+//     is announced and not taken by Tika) is streamed straight through from
+//     storage undecoded; the generator decides whether it can read it.
+//   - a type Tika takes has its image extracted there.
+//   - text/plain is rendered to an image here, audio and geogebra sources have
+//     their embedded image extracted to bytes.
 func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta1.Reference, auth, mimeType, filename, checksum string, logger log.Logger) (io.Reader, string, func(), error) {
 	m, _, _ := mime.ParseMediaType(mimeType)
 
 	// the preprocessor decides what a type needs. No converter means the file
 	// is handed to the generator as it is, which is the case for every type it
 	// reads itself.
-	converter, err := preprocessor.ForType(mimeType, preprocessor.Options{
+	converter := preprocessor.ForType(mimeType, preprocessor.Options{
 		FontMapFile:  w.fontMapFile,
 		MaxImageSize: w.maxInputSize,
 		Tika:         w.tika,
-		SourceTypes:  w.sourceTypes,
 		Filename:     filename,
 	})
-	if err != nil {
-		// nothing can make an image of this type, so there is nothing to fetch
-		logger.Debug().Str("mimetype", mimeType).Msg("no preview for this type")
-
-		return nil, "", nil, ErrNoThumbnail
-	}
 
 	// what the extraction found is remembered per file, so a second size does
 	// not send the file to Tika again, and a file that carries nothing is only

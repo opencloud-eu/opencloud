@@ -165,7 +165,7 @@ var _ = Describe("preprocessor", func() {
 	})
 
 	Describe("ForType", func() {
-		It("has no converter for an image, which never reaches the preprocessor", func() {
+		It("hands an image to the generator as it is", func() {
 			Expect(ForType("image/png", Options{})).To(BeNil())
 		})
 
@@ -181,16 +181,8 @@ var _ = Describe("preprocessor", func() {
 			Expect(ForType("text/plain", Options{})).To(BeAssignableToTypeOf(TxtToImageConverter{}))
 		})
 
-		It("refuses a type nothing here can read", func() {
-			converter, err := ForType("application/pdf", Options{})
-			Expect(err).To(MatchError(ErrNoThumbnail), "without a Tika server nothing makes an image of a pdf")
-			Expect(converter).To(BeNil())
-		})
-
-		It("refuses an image the generator does not read, instead of handing it over", func() {
-			converter, err := ForType("image/x-nikon-nef", Options{})
-			Expect(err).To(MatchError(ErrNoThumbnail))
-			Expect(converter).To(BeNil())
+		It("hands an announced type without a converter to the generator, which says whether it reads it", func() {
+			Expect(ForType("application/pdf", Options{})).To(BeNil())
 		})
 	})
 })
