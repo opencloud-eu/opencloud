@@ -101,10 +101,9 @@ func (t Tika) Supports(mimeType string) bool {
 	return all
 }
 
-// ConfiguredFor reports whether OC_TIKA_THUMBNAIL_MIME_TYPES lists this type,
-// as opposed to the catch-all taking it. An image is only taken away from the
-// generator when the configuration asks for it, because the generator may well
-// read the type itself.
+// ConfiguredFor reports whether the Tika list names this type, as opposed to
+// the catch-all taking it. Only a named type is taken away from a converter or
+// the generator.
 func (t Tika) ConfiguredFor(mimeType string) bool {
 	if t.URL == "" {
 		return false
@@ -116,6 +115,17 @@ func (t Tika) ConfiguredFor(mimeType string) bool {
 	_, named := t.mimeTypes[m]
 
 	return named
+}
+
+// TakesAll reports whether the Tika list has the catch-all "*", which takes
+// every announced type that is neither an image nor has a converter.
+func (t Tika) TakesAll() bool {
+	if t.URL == "" {
+		return false
+	}
+	_, all := t.mimeTypes["*"]
+
+	return all
 }
 
 // ContentType is the type Tika is told, mapped where configured. Tika takes a

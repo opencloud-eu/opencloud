@@ -6,9 +6,8 @@ import (
 	"strings"
 )
 
-// GeneratorImageTypes are the image types both resize backends read, so webdav
-// hands the file to the generator as it is. Every other type needs something to
-// make an image of it first, a preprocessor here or a Tika server.
+// GeneratorImageTypes are the image types both resize backends read, announced
+// without further configuration.
 var GeneratorImageTypes = []string{
 	"image/png",
 	"image/jpg",
@@ -52,22 +51,6 @@ func NewSourceTypes(entries []string) SourceTypes {
 	}
 
 	return t
-}
-
-// GeneratorReads reports whether the generator is handed a file of this type as
-// it is. Only images are, and which ones is what the source types say: the
-// built-in list is what both resize backends read, a deployment adds the types
-// its own generator reads on top of it.
-func (t SourceTypes) GeneratorReads(contentType string) bool {
-	parsed, _, err := mime.ParseMediaType(contentType)
-	if err != nil || !strings.HasPrefix(parsed, "image/") {
-		return false
-	}
-	if len(t.byType) == 0 {
-		return slices.Contains(GeneratorImageTypes, parsed)
-	}
-
-	return t.Supports(parsed)
 }
 
 // Supports reports whether a preview is made of this type.
