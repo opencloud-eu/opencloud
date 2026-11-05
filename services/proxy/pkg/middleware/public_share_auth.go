@@ -109,7 +109,7 @@ func (a PublicShareAuthenticator) Authenticate(r *http.Request) AuthenticationRe
 
 	// the token lookup behind this call is audited, it needs the client address;
 	// AuditContext only runs after the authentication
-	auditCtx := audit.ContextSetRequest(r.Context(), audit.RequestContext{ClientAddress: ocmiddleware.ClientAddress(r), AuthMethod: AuthMethodPublicLink})
+	auditCtx := audit.ContextSetRequest(r.Context(), audit.RequestContext{ClientAddress: ocmiddleware.ClientAddress(r), AuthMethod: AuthMethodPublicLink, UserAgent: r.UserAgent()})
 	authResp, err := client.Authenticate(auditCtx, &gateway.AuthenticateRequest{
 		Type:         authenticationType,
 		ClientId:     shareToken,
