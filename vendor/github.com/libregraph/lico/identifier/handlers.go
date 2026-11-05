@@ -34,13 +34,18 @@ import (
 	"github.com/libregraph/lico/utils"
 )
 
-func (i *Identifier) staticHandler(handler http.Handler, cache bool) http.Handler {
+// staticHandler serves the built web app assets. Everything under the assets
+// folder carries a content hash in its name, so it can be cached indefinitely.
+// The rest of the static folder is addressed by a stable name a deployment is
+// meant to be able to replace, so it gets a lifetime short enough that a
+// replacement is picked up without a rebuild, a restart or a cache clear.
+func (i *Identifier) staticHandler(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		addCommonResponseHeaders(rw.Header())
-		if cache {
+		if strings.Contains(req.URL.Path, "/static/assets/") {
 			rw.Header().Set("Cache-Control", "max-age=3153600, public")
 		} else {
-			rw.Header().Set("Cache-Control", "no-cache, max-age=0, public")
+			rw.Header().Set("Cache-Control", "max-age=300, public")
 		}
 		if strings.HasSuffix(req.URL.Path, "/") {
 			// Do not serve folder-ish resources.
@@ -206,7 +211,7 @@ func (i *Identifier) handleLogon(rw http.ResponseWriter, req *http.Request) {
 		paramSize := len(params)
 		if paramSize == 0 {
 			i.ErrorPage(rw, http.StatusBadRequest, "", "params required")
-			break
+			return
 		}
 
 		if paramSize >= 3 && params[1] == "" && params[2] == ModeLogonUsernameEmptyPasswordCookie {
@@ -250,7 +255,7 @@ func (i *Identifier) handleLogon(rw http.ResponseWriter, req *http.Request) {
 			user = logonedUser
 
 		default:
-			i.logger.Debugln("identifier unknown logon mode: %v", params[2])
+			i.logger.WithField("mode", params[2]).Debugln("identifier unknown logon mode")
 		}
 
 		break

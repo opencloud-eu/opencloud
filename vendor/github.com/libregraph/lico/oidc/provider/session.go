@@ -112,15 +112,21 @@ func (p *Provider) unserializeSession(value string) (*payload.Session, error) {
 	return &session, nil
 }
 
-func (p *Provider) getUserIDAndSessionRefFromClaims(claims *jwt.RegisteredClaims, sessionClaims *oidc.SessionClaims, identityClaims jwt.MapClaims) (string, *string) {
+// getUserIDAndSessionRefFromClaims returns the user id and the session ref of
+// the provided claims. The authorizedParty is the client the token was issued
+// to, which is the audience unless the token is bound to a resource.
+func (p *Provider) getUserIDAndSessionRefFromClaims(claims *jwt.RegisteredClaims, authorizedParty string, sessionClaims *oidc.SessionClaims, identityClaims jwt.MapClaims) (string, *string) {
 	if claims == nil || identityClaims == nil {
 		return "", nil
 	}
 
-	if len(claims.Audience) != 1 {
-		return "", nil
+	audience := authorizedParty
+	if audience == "" {
+		if len(claims.Audience) != 1 {
+			return "", nil
+		}
+		audience = claims.Audience[0]
 	}
-	audience := claims.Audience[0]
 
 	userIDClaim, _ := identityClaims[konnect.IdentifiedUserIDClaim].(string)
 	if userIDClaim == "" {

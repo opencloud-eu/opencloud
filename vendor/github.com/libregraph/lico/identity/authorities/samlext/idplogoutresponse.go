@@ -18,14 +18,11 @@
 package samlext
 
 import (
-	"bytes"
-	"compress/flate"
 	"crypto"
 
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -61,7 +58,7 @@ func NewIdpLogoutResponse(r *http.Request) (*IdpLogoutResponse, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot decode response: %w", err)
 		}
-		res.ResponseBuffer, err = ioutil.ReadAll(flate.NewReader(bytes.NewReader(compressedResponse)))
+		res.ResponseBuffer, err = inflateMessage(compressedResponse)
 		if err != nil {
 			return nil, fmt.Errorf("cannot decompress response: %w", err)
 		}

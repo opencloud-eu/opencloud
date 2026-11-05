@@ -26,6 +26,33 @@ import (
 	"github.com/libregraph/lico/oidc/payload"
 )
 
+// LookupContext carries additional context of the request which triggered a
+// user lookup. Backends can use it to decide how to treat their own sessions.
+// All fields are optional, a zero value means that the value is not known at
+// the place of the lookup.
+type LookupContext struct {
+	// Audience is the client ID this lookup is made for.
+	Audience string
+
+	// NewGrant is true when the lookup belongs to an authorization which
+	// creates a new grant, which means that a refresh token was requested.
+	// Backends can use this to hand out a new session per grant.
+	NewGrant bool
+
+	// RefreshTokenID is the ID of the refresh token which is currently
+	// exchanged, if any.
+	RefreshTokenID string
+
+	// NewAccessTokenID is the ID of the access token which is about to be
+	// issued for this lookup, if any.
+	NewAccessTokenID string
+
+	// NewRefreshTokenID is the ID of the refresh token which is about to be
+	// issued for this lookup. Empty when this lookup issues no refresh token,
+	// so backends can tell a rotating grant from a one shot lookup.
+	NewRefreshTokenID string
+}
+
 // Manager is a interface to define a identity manager.
 type Manager interface {
 	Authenticate(ctx context.Context, rw http.ResponseWriter, req *http.Request, ar *payload.AuthenticationRequest, next Manager) (AuthRecord, error)
@@ -35,7 +62,7 @@ type Manager interface {
 	ApproveScopes(ctx context.Context, sub string, audience string, approvedScopesList map[string]bool) (string, error)
 	ApprovedScopes(ctx context.Context, sub string, audience string, ref string) (map[string]bool, error)
 
-	Fetch(ctx context.Context, userID string, sessionRef *string, scopes map[string]bool, requestedClaimsMaps []*payload.ClaimsRequestMap, requestedScopes map[string]bool) (AuthRecord, bool, error)
+	Fetch(ctx context.Context, userID string, sessionRef *string, scopes map[string]bool, requestedClaimsMaps []*payload.ClaimsRequestMap, requestedScopes map[string]bool, lookup *LookupContext) (AuthRecord, bool, error)
 
 	Name() string
 	ScopesSupported(scopes map[string]bool) []string

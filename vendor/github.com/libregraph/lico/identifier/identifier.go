@@ -44,6 +44,7 @@ import (
 	"github.com/libregraph/lico/identity"
 	"github.com/libregraph/lico/identity/authorities"
 	"github.com/libregraph/lico/identity/clients"
+	"github.com/libregraph/lico/identity/resources"
 	"github.com/libregraph/lico/managers"
 	"github.com/libregraph/lico/utils"
 )
@@ -82,6 +83,7 @@ type Identifier struct {
 	backend     backends.Backend
 	clients     *clients.Registry
 	authorities *authorities.Registry
+	resources   *resources.Registry
 
 	meta *meta.Meta
 
@@ -94,6 +96,31 @@ type Identifier struct {
 	logger logrus.FieldLogger
 
 	router *mux.Router
+}
+
+// backgroundImageName is the file a deployment drops into the webapp's static
+// folder to take the sign-in page's background over. It is looked for once, at
+// startup, because the answer is substituted into the document: the webapp has
+// to know before it paints anything, or it shows its own background until the
+// image arrives and then replaces it.
+const backgroundImageName = "background.png"
+
+// substituteWebappIndexHTML fills in the placeholders the built document
+// carries. The background preload is a comment in the source so that it stays
+// invisible when nothing substitutes it, which is what the dev server does.
+func substituteWebappIndexHTML(document []byte, pathPrefix string, hasBackgroundImage bool) []byte {
+	background := ""
+	preload := ""
+	if hasBackgroundImage {
+		background = backgroundImageName
+		preload = fmt.Sprintf(`<link rel="preload" as="image" href="./static/%s">`, backgroundImageName)
+	}
+
+	document = bytes.Replace(document, []byte("__PATH_PREFIX__"), []byte(pathPrefix), 1)
+	document = bytes.Replace(document, []byte("__BACKGROUND_IMAGE__"), []byte(background), 1)
+	document = bytes.Replace(document, []byte("<!--__BACKGROUND_PRELOAD__-->"), []byte(preload), 1)
+
+	return document
 }
 
 // NewIdentifier returns a new Identifier.
@@ -110,7 +137,9 @@ func NewIdentifier(c *Config) (*Identifier, error) {
 		if readErr != nil {
 			return nil, fmt.Errorf("identifier failed to read client index.html: %w", readErr)
 		}
-		webappIndexHTML = bytes.Replace(readData, []byte("__PATH_PREFIX__"), []byte(c.PathPrefix), 1)
+
+		_, bgErr := os.Stat(staticFolder + "/static/" + backgroundImageName)
+		webappIndexHTML = substituteWebappIndexHTML(readData, c.PathPrefix, bgErr == nil)
 	}
 
 	oauth2CbEndpointURI, _ := url.Parse(c.BaseURI.String())
@@ -169,6 +198,10 @@ func NewIdentifier(c *Config) (*Identifier, error) {
 func (i *Identifier) RegisterManagers(mgrs *managers.Managers) error {
 	i.clients = mgrs.Must("clients").(*clients.Registry)
 	i.authorities = mgrs.Must("authorities").(*authorities.Registry)
+	// Optional, it only names the resource a consent is for.
+	if resourceRegistry, _ := mgrs.Get("resources"); resourceRegistry != nil {
+		i.resources = resourceRegistry.(*resources.Registry)
+	}
 
 	if service, ok := i.backend.(managers.ServiceUsesManagers); ok {
 		err := service.RegisterManagers(mgrs)
@@ -185,14 +218,12 @@ func (i *Identifier) RegisterManagers(mgrs *managers.Managers) error {
 func (i *Identifier) AddRoutes(ctx context.Context, router *mux.Router) {
 	r := router.PathPrefix(i.pathPrefix).Subrouter()
 
-	r.PathPrefix("/static/").Handler(i.staticHandler(http.StripPrefix(i.pathPrefix, http.FileServer(http.Dir(i.staticFolder))), true))
-	r.Handle("/service-worker.js", i.staticHandler(http.StripPrefix(i.pathPrefix, http.FileServer(http.Dir(i.staticFolder))), false))
+	r.PathPrefix("/static/").Handler(i.staticHandler(http.StripPrefix(i.pathPrefix, http.FileServer(http.Dir(i.staticFolder)))))
 	r.Handle("/identifier", http.HandlerFunc(i.handleIdentifier)).Methods(http.MethodGet).Name("index")
 	r.Handle("/chooseaccount", i).Methods(http.MethodGet).Name("chooseaccount")
 	r.Handle("/consent", i).Methods(http.MethodGet).Name("consent")
 	r.Handle("/welcome", i).Methods(http.MethodGet).Name("welcome")
 	r.Handle("/goodbye", i).Methods(http.MethodGet).Name("goodbye")
-	r.Handle("/index.html", i).Methods(http.MethodGet) // For service worker.
 	r.Handle("/identifier/_/logon", i.secureHandler(http.HandlerFunc(i.handleLogon))).Methods(http.MethodPost)
 	r.Handle("/identifier/_/logoff", i.secureHandler(http.HandlerFunc(i.handleLogoff))).Methods(http.MethodPost)
 	r.Handle("/identifier/_/hello", i.secureHandler(http.HandlerFunc(i.handleHello))).Methods(http.MethodPost)
@@ -583,13 +614,22 @@ func (i *Identifier) GetUserFromLogonCookie(ctx context.Context, req *http.Reque
 
 // GetUserFromID looks up the user identified by the provided userID by
 // requesting the associated backend.
-func (i *Identifier) GetUserFromID(ctx context.Context, userID string, sessionRef *string, requestedScopes map[string]bool) (*IdentifiedUser, error) {
-	user, err := i.backend.GetUser(ctx, userID, sessionRef, requestedScopes)
+func (i *Identifier) GetUserFromID(ctx context.Context, userID string, sessionRef *string, requestedScopes map[string]bool, lookup *identity.LookupContext) (*IdentifiedUser, error) {
+	user, err := i.backend.GetUser(ctx, userID, sessionRef, requestedScopes, lookup)
 	if err != nil {
 		return nil, err
 	}
 	if user == nil {
 		return nil, nil
+	}
+
+	// Prefer the session of the backend response over the one which was sent,
+	// as the backend can decide to hand out another session, for example when a
+	// new grant is created or when the sent session is no longer valid.
+	if userWithSessionRef, ok := user.(backends.UserFromBackendWithSessionRef); ok {
+		if backendSessionRef := userWithSessionRef.SessionRef(); backendSessionRef != nil {
+			sessionRef = backendSessionRef
+		}
 	}
 
 	// XXX(longsleep): This is quite crappy. Move IdentifiedUser to a package

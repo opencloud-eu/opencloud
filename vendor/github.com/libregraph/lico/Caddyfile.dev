@@ -15,6 +15,9 @@
 	proxy /.well-known/openid-configuration 127.0.0.1:8777 {
 		transparent
 	}
+	proxy /.well-known/oauth-authorization-server 127.0.0.1:8777 {
+		transparent
+	}
 	proxy /konnect/v1/jwks.json 127.0.0.1:8777 {
 		transparent
 	}

@@ -30,7 +30,7 @@ type Backend interface {
 	RunWithContext(context.Context) error
 
 	Logon(ctx context.Context, audience string, username string, password string) (success bool, userID *string, sessionRef *string, user UserFromBackend, err error)
-	GetUser(ctx context.Context, userID string, sessionRef *string, requestedScopes map[string]bool) (user UserFromBackend, err error)
+	GetUser(ctx context.Context, userID string, sessionRef *string, requestedScopes map[string]bool, lookup *identity.LookupContext) (user UserFromBackend, err error)
 
 	ResolveUserByUsername(ctx context.Context, username string) (user UserFromBackend, err error)
 
@@ -51,4 +51,11 @@ type UserFromBackend interface {
 	BackendClaims() map[string]interface{}
 	BackendScopes() []string
 	RequiredScopes() []string
+}
+
+// UserFromBackendWithSessionRef are users as provided by backends which know
+// the session of the backend they belong to.
+type UserFromBackendWithSessionRef interface {
+	UserFromBackend
+	SessionRef() *string
 }
