@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	ocmetrics "github.com/opencloud-eu/opencloud/pkg/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -36,20 +37,20 @@ var (
 		Name:      "events_redelivered",
 		Help:      "Number of redelivered events",
 	})
-	searchDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	searchDuration = promauto.NewHistogramVec(ocmetrics.DualHistogramOpts(prometheus.HistogramOpts{
 		Namespace: Namespace,
 		Subsystem: Subsystem,
 		Name:      "search_duration_seconds",
 		Help:      "Duration of search operations in seconds",
 		Buckets:   []float64{0.1, 0.5, 1, 2.5, 5, 10, 30, 60},
-	}, []string{"status"})
-	indexDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	}), []string{"status"})
+	indexDuration = promauto.NewHistogramVec(ocmetrics.DualHistogramOpts(prometheus.HistogramOpts{
 		Namespace: Namespace,
 		Subsystem: Subsystem,
 		Name:      "index_duration_seconds",
 		Help:      "Duration of indexing operations in seconds",
 		Buckets:   []float64{0.1, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300, 600, 1200},
-	}, []string{"status"})
+	}), []string{"status"})
 )
 
 // Metrics defines the available metrics of this service.
