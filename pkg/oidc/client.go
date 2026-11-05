@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -58,6 +59,7 @@ type oidcClient struct {
 	skipIssuerValidation    bool
 	accessTokenVerifyMethod string
 	accessTokenAudiences    []string
+	accessTokenClientIDs    []string
 	remoteKeySet            KeySet
 	algorithms              []string
 
@@ -95,6 +97,14 @@ func NewOIDCClient(opts ...Option) (OIDCClient, error) {
 			return nil, errors.New("access token audiences must not contain empty or whitespace-only entries")
 		}
 	}
+	if len(options.AccessTokenClientIDs) > 0 && options.AccessTokenVerifyMethod != config.AccessTokenVerificationJWT {
+		return nil, errors.New("access token client id validation requires the jwt verification method")
+	}
+	for _, clientID := range options.AccessTokenClientIDs {
+		if strings.TrimSpace(clientID) == "" {
+			return nil, errors.New("access token client ids must not contain empty or whitespace-only entries")
+		}
+	}
 
 	return &oidcClient{
 		Logger:                  options.Logger,
@@ -102,6 +112,7 @@ func NewOIDCClient(opts ...Option) (OIDCClient, error) {
 		httpClient:              options.HTTPClient,
 		accessTokenVerifyMethod: options.AccessTokenVerifyMethod,
 		accessTokenAudiences:    options.AccessTokenAudiences,
+		accessTokenClientIDs:    options.AccessTokenClientIDs,
 		JWKSOptions:             options.JWKSOptions, // TODO I don't like that we pass down config options ...
 		JWKS:                    options.JWKS,
 		providerLock:            &sync.Mutex{},
@@ -323,8 +334,48 @@ func (c *oidcClient) verifyAccessTokenJWT(token string) (RegClaimsWithSID, jwt.M
 		c.Logger.Info().Err(err).Msg("Failed to parse/verify the access token.")
 		return claims, mapClaims, err
 	}
+	if err := c.verifyClientID(mapClaims); err != nil {
+		c.Logger.Info().Err(err).Msg("Rejected the access token's client.")
+		return RegClaimsWithSID{}, jwt.MapClaims{}, err
+	}
 
 	return claims, mapClaims, nil
+}
+
+// ErrTokenInvalidClientID is returned when an access token was issued to a
+// client that is not in the configured list of allowed client ids.
+var ErrTokenInvalidClientID = errors.New("token was issued to a client that is not allowed")
+
+// verifyClientID checks the client the access token was issued to against the
+// configured allow list. Audiences cannot do this: a client can usually ask for
+// any audience, so a token minted through another client of the same IDP, with
+// that client's weaker login policy (MFA, allowed users, networks), carries the
+// expected aud just as well. The client id is assigned by the IDP.
+//
+// The client is read from client_id (RFC 9068, JWT access tokens) and, if that
+// is absent, from azp (OpenID Connect, e.g. Keycloak).
+func (c *oidcClient) verifyClientID(claims jwt.MapClaims) error {
+	if len(c.accessTokenClientIDs) == 0 {
+		return nil
+	}
+	raw, ok := claims["client_id"]
+	if !ok {
+		raw, ok = claims["azp"]
+	}
+	if !ok || raw == nil {
+		return fmt.Errorf("%w: client_id/azp", jwt.ErrTokenRequiredClaimMissing)
+	}
+	clientID, ok := raw.(string)
+	if !ok {
+		return fmt.Errorf("%w: client_id/azp is not a string", jwt.ErrTokenMalformed)
+	}
+	if clientID == "" {
+		return fmt.Errorf("%w: client_id/azp", jwt.ErrTokenRequiredClaimMissing)
+	}
+	if !slices.Contains(c.accessTokenClientIDs, clientID) {
+		return ErrTokenInvalidClientID
+	}
+	return nil
 }
 
 func (c *oidcClient) VerifyLogoutToken(ctx context.Context, rawToken string) (*LogoutToken, error) {
