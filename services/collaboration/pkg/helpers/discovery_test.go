@@ -339,16 +339,13 @@ var _ = Describe("Discovery", func() {
 	})
 
 	Describe("GetAppURLs", func() {
-		It("Doesn't leave idle connections open after the call", func() {
-			var open atomic.Int64
-			// same handler as srv, plus a hook that counts open connections
+		It("Reuses one connection across calls", func() {
+			var opened atomic.Int64
+			// same handler as srv, plus a hook that counts new connections
 			connSrv := httptest.NewUnstartedServer(srv.Config.Handler)
 			connSrv.Config.ConnState = func(_ net.Conn, state http.ConnState) {
-				switch state {
-				case http.StateNew:
-					open.Add(1)
-				case http.StateClosed, http.StateHijacked:
-					open.Add(-1)
+				if state == http.StateNew {
+					opened.Add(1)
 				}
 			}
 			connSrv.Start()
@@ -360,13 +357,14 @@ var _ = Describe("Discovery", func() {
 				},
 			}
 
+			client := helpers.NewDiscoveryClient(false)
+			defer client.CloseIdleConnections()
 			for i := 0; i < 5; i++ {
-				_, err := helpers.GetAppURLs(cfg, log.NopLogger())
+				_, err := helpers.GetAppURLs(client, cfg, log.NopLogger())
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			// the server notices the closed connections a moment later
-			Eventually(open.Load).Should(BeZero())
+			Expect(opened.Load()).To(Equal(int64(1)))
 		})
 
 		It("Good discovery URL", func() {
@@ -378,7 +376,7 @@ var _ = Describe("Discovery", func() {
 			}
 			logger := log.NopLogger()
 
-			appUrls, err := helpers.GetAppURLs(cfg, logger)
+			appUrls, err := helpers.GetAppURLs(helpers.NewDiscoveryClient(false), cfg, logger)
 
 			expectedAppUrls := map[string]map[string]string{
 				"view": map[string]string{
@@ -411,7 +409,7 @@ var _ = Describe("Discovery", func() {
 			}
 			logger := log.NopLogger()
 
-			appUrls, err := helpers.GetAppURLs(cfg, logger)
+			appUrls, err := helpers.GetAppURLs(helpers.NewDiscoveryClient(false), cfg, logger)
 
 			expectedAppUrls := map[string]map[string]string{
 				"view": {
@@ -433,7 +431,7 @@ var _ = Describe("Discovery", func() {
 			}
 			logger := log.NopLogger()
 
-			appUrls, err := helpers.GetAppURLs(cfg, logger)
+			appUrls, err := helpers.GetAppURLs(helpers.NewDiscoveryClient(false), cfg, logger)
 			Expect(err).To(HaveOccurred())
 			Expect(appUrls).To(BeNil())
 		})
@@ -447,7 +445,7 @@ var _ = Describe("Discovery", func() {
 			}
 			logger := log.NopLogger()
 
-			appUrls, err := helpers.GetAppURLs(cfg, logger)
+			appUrls, err := helpers.GetAppURLs(helpers.NewDiscoveryClient(false), cfg, logger)
 			Expect(err).To(HaveOccurred())
 			Expect(appUrls).To(BeNil())
 		})
