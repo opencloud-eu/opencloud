@@ -16,9 +16,6 @@
   "tags": [
     {
       "name": "SearchProvider"
-    },
-    {
-      "name": "IndexProvider"
     }
   ],
   "schemes": [
@@ -71,38 +68,6 @@
         ],
         "tags": [
           "SearchProvider"
-        ]
-      }
-    },
-    "/api/v0/search/index/search": {
-      "post": {
-        "operationId": "IndexProvider_Search",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v0SearchIndexResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/googlerpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/v0SearchIndexRequest"
-            }
-          }
-        ],
-        "tags": [
-          "IndexProvider"
         ]
       }
     },
@@ -515,45 +480,6 @@
         },
         "spaceId": {
           "type": "string"
-        }
-      }
-    },
-    "v0SearchIndexRequest": {
-      "type": "object",
-      "properties": {
-        "pageSize": {
-          "type": "integer",
-          "format": "int32",
-          "title": "Optional. The maximum number of entries to return in the response"
-        },
-        "pageToken": {
-          "type": "string",
-          "title": "Optional. A pagination token returned from a previous call to `Get`\nthat indicates from where search should continue"
-        },
-        "query": {
-          "type": "string"
-        },
-        "ref": {
-          "$ref": "#/definitions/v0Reference"
-        }
-      }
-    },
-    "v0SearchIndexResponse": {
-      "type": "object",
-      "properties": {
-        "matches": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/v0Match"
-          }
-        },
-        "nextPageToken": {
-          "type": "string",
-          "title": "Token to retrieve the next page of results, or empty if there are no\nmore results in the list"
-        },
-        "totalMatches": {
-          "type": "integer",
-          "format": "int32"
         }
       }
     },

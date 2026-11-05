@@ -16,7 +16,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
-	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/convert"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/opensearch/internal/osu"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
@@ -71,7 +70,7 @@ func NewBackend(ctx context.Context, name string, client *opensearchgoAPI.Client
 	return &Backend{index: index, client: client}, nil
 }
 
-func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
+func (b *Backend) Search(ctx context.Context, sir *search.IndexQuery) (*search.IndexResult, error) {
 	boolQuery, err := convert.KQLToOpenSearchBoolQuery(sir.Query)
 	switch {
 	case kql.IsValidationError(err):
@@ -162,7 +161,7 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 		matches = append(matches, match)
 	}
 
-	return &searchService.SearchIndexResponse{
+	return &search.IndexResult{
 		Matches:      matches,
 		TotalMatches: int32(totalMatches),
 	}, nil

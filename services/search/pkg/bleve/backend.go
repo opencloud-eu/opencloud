@@ -18,7 +18,6 @@ import (
 	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 
 	searchMessage "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
-	searchService "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/search/v0"
 	searchQuery "github.com/opencloud-eu/opencloud/services/search/pkg/query"
 )
 
@@ -41,8 +40,7 @@ func NewBackend(index bleve.Index, queryCreator searchQuery.Creator[query.Query]
 }
 
 // Search executes a search request operation within the index.
-// Returns a SearchIndexResponse object or an error.
-func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexRequest) (*searchService.SearchIndexResponse, error) {
+func (b *Backend) Search(_ context.Context, sir *search.IndexQuery) (*search.IndexResult, error) {
 	createdQuery, err := b.queryCreator.Create(sir.Query)
 	if err != nil {
 		if kql.IsValidationError(err) {
@@ -148,7 +146,7 @@ func (b *Backend) Search(_ context.Context, sir *searchService.SearchIndexReques
 		matches = append(matches, match)
 	}
 
-	return &searchService.SearchIndexResponse{
+	return &search.IndexResult{
 		Matches:      matches,
 		TotalMatches: int32(totalMatches),
 	}, nil
