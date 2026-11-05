@@ -172,6 +172,8 @@ func (cl *ClientlogService) processEvent(event events.Event) {
 		fileEv("file-unlocked", e.Ref)
 	case events.FileTouched:
 		fileEv("file-touched", e.Ref)
+	case events.ArbitraryMetadataChanged:
+		fileEv("item-metadata-changed", e.Ref)
 	case events.LabelAdded:
 		labelEv("item-favorite-added", e.Ref, e.UserID)
 	case events.LabelRemoved:
