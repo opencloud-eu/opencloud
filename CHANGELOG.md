@@ -1,6 +1,6 @@
 # Changelog
 
-## [9.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.1) - 2026-11-04
+## [9.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.1) - 2026-11-05
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -27,6 +27,7 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump google.golang.org/grpc from 1.84.0 to 1.85.0 [[#3885](https://github.com/opencloud-eu/opencloud/pull/3885)]
 - build(deps): bump github.com/KimMachineGun/automemlimit from 1.0.0 to 1.0.1 [[#3886](https://github.com/opencloud-eu/opencloud/pull/3886)]
 - build(deps): bump github.com/go-ldap/ldap/v3 from 3.4.14 to 3.4.15 [[#3887](https://github.com/opencloud-eu/opencloud/pull/3887)]
 - build(deps): bump go.opentelemetry.io/otel/exporters/stdout/stdouttrace from 1.46.0 to 1.47.0 [[#3860](https://github.com/opencloud-eu/opencloud/pull/3860)]
