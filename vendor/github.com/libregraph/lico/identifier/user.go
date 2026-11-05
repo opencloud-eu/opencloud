@@ -241,7 +241,7 @@ func (i *Identifier) updateUser(ctx context.Context, user *IdentifiedUser, exter
 		return errors.New("no id claim in user identity claims")
 	}
 
-	u, err := i.backend.GetUser(ctx, userID, user.sessionRef, nil)
+	u, err := i.backend.GetUser(ctx, userID, user.sessionRef, nil, nil)
 	if err != nil {
 		return err
 	}

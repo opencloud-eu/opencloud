@@ -18,7 +18,9 @@
 package scopes
 
 import (
-	"io/ioutil"
+	"os"
+	"sort"
+	"strings"
 
 	"github.com/libregraph/oidc-go"
 	"github.com/sirupsen/logrus"
@@ -103,7 +105,7 @@ func NewScopesFromFile(scopesConfFilepath string, logger logrus.FieldLogger) (*S
 
 	if scopesConfFilepath != "" {
 		logger.Debugf("parsing scopes conf from %v", scopesConfFilepath)
-		confFile, err := ioutil.ReadFile(scopesConfFilepath)
+		confFile, err := os.ReadFile(scopesConfFilepath)
 		if err != nil {
 			return nil, err
 		}
@@ -114,9 +116,31 @@ func NewScopesFromFile(scopesConfFilepath string, logger logrus.FieldLogger) (*S
 		}
 
 		for id, definition := range scopes.Definitions {
+			// A blank translation would win over the plain description and
+			// render an empty row, and an empty map would be marshalled into
+			// every hello response, so both are dropped here rather than
+			// guarded against per request.
+			for locale, text := range definition.Descriptions {
+				if strings.TrimSpace(text) == "" {
+					delete(definition.Descriptions, locale)
+				}
+			}
+			if len(definition.Descriptions) == 0 {
+				definition.Descriptions = nil
+			}
+
+			locales := make([]string, 0, len(definition.Descriptions))
+			for locale := range definition.Descriptions {
+				locales = append(locales, locale)
+			}
+			sort.Strings(locales)
+
 			fields := logrus.Fields{
 				"id":       id,
 				"priority": definition.Priority,
+				// Yaml is parsed leniently, so a mistyped translations key is
+				// silently ignored. This is where an operator sees what landed.
+				"translations": strings.Join(locales, ","),
 			}
 
 			logger.WithFields(fields).Debugln("registered scope")
