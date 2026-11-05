@@ -108,10 +108,8 @@ func DefaultConfig() *config.Config {
 			DisplayName: "name",
 			Groups:      "groups",
 		},
-		EnableBasicAuth:               false,
-		InsecureBackends:              false,
-		CSPConfigFileLocation:         "",
-		CSPConfigFileOverrideLocation: "",
+		EnableBasicAuth:  false,
+		InsecureBackends: false,
 		Events: config.Events{
 			Endpoint:  "127.0.0.1:9233",
 			Cluster:   "opencloud-cluster",
@@ -374,10 +372,10 @@ func Sanitize(cfg *config.Config) {
 	}
 
 	// if the CSP config file path is not set, we check if the default file exists and set it if it does
-	if cfg.CSPConfigFileLocation == "" {
+	if len(cfg.CSPConfigFileLocation) == 0 {
 		defaultCSPConfigFilePath := filepath.Join(defaults.BaseDataPath(), "proxy", "csp.yaml")
 		if _, err := os.Stat(defaultCSPConfigFilePath); err == nil {
-			cfg.CSPConfigFileLocation = defaultCSPConfigFilePath
+			cfg.CSPConfigFileLocation = []string{defaultCSPConfigFilePath}
 		}
 	}
 }
