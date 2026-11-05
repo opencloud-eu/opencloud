@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@RyoKusnadi, @aduffeck, @dragotin, @dschmidt, @maki5, @micbar, @pascalwengerter, @rhafer
+@RyoKusnadi, @aduffeck, @butonic, @dragotin, @dschmidt, @maki5, @micbar, @pascalwengerter, @rhafer
 
 ### 🔒 Security
 
@@ -13,6 +13,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(tracing): set the global text map propagator [[#3906](https://github.com/opencloud-eu/opencloud/pull/3906)]
 - fix(proxy): answer 403 instead of 500 when the role claim is missing [[#3894](https://github.com/opencloud-eu/opencloud/pull/3894)]
 - fix(webdav): stream announced types without a converter to the generator [[#3884](https://github.com/opencloud-eu/opencloud/pull/3884)]
 - fix(search): normalize KQL path once [[#3516](https://github.com/opencloud-eu/opencloud/pull/3516)]
