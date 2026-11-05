@@ -92,6 +92,21 @@ var _ = Describe("PostprocessingService", func() {
 		}
 	}
 
+	uploadReady := func(uploadID string, failed bool) raw.Event {
+		ev := events.UploadReady{
+			UploadID: uploadID,
+			Failed:   failed,
+			Filename: "test.txt",
+		}
+		return raw.Event{
+			Event: events.Event{
+				ID:    uuid.New().String(),
+				Type:  reflect.TypeOf(ev).String(),
+				Event: ev,
+			},
+		}
+	}
+
 	BeforeEach(func() {
 		cfg = config.Postprocessing{
 			Steps:                []string{"virusscan"},
@@ -195,6 +210,27 @@ var _ = Describe("PostprocessingService", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(errors.Is(err, ErrEvent)).To(BeTrue())
 			Expect(errors.Is(err, ErrFatal)).To(BeFalse())
+		})
+	})
+
+	Describe("handling UploadReady", func() {
+		It("marks a failed upload as finished", func() {
+			pps = newService()
+			started := bytesReceived()
+			uploadID := started.Event.Event.(events.BytesReceived).UploadID
+			Expect(pps.processEvent(started)).To(Succeed())
+
+			Expect(pps.processEvent(uploadReady(uploadID, true))).To(Succeed())
+
+			pp, err := pps.getPP(pps.store, uploadID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pp.Finished).To(BeTrue())
+		})
+
+		It("ignores a file that the storage assimilated without an upload", func() {
+			pps = newService()
+
+			Expect(pps.processEvent(uploadReady("", false))).To(Succeed())
 		})
 	})
 })
