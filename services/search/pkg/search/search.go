@@ -4,21 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/conversions"
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/grants"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
-
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/content"
@@ -31,12 +31,10 @@ import (
 // colliding with the old one. No migration; reindex to populate.
 const SchemaVersion = 5
 
-// the scope clause is removed together with the boolean operator that joins it to the rest of the query.
-var scopeRegex = regexp.MustCompile(`(?:(?:AND|OR)\s+)?scope:\s*([^" "\n\r]*)(?:\s+(?:AND|OR)\b)?`)
-
-// IndexQuery is one search against the index.
+// IndexQuery is one search against the index. The engine owns the query it
+// is given and may rewrite it while compiling.
 type IndexQuery struct {
-	Query    string
+	Query    *ast.Ast
 	Ref      *searchmsg.Reference
 	PageSize int32
 }
@@ -256,18 +254,37 @@ func CompleteRootID(v string) string {
 	return v
 }
 
+// ParseQuery parses a KQL query; what the parser rejects is a bad request.
+func ParseQuery(query string) (*ast.Ast, error) {
+	if strings.TrimSpace(query) == "" {
+		return nil, errtypes.BadRequest("empty query provided")
+	}
+
+	a, err := kql.Builder{}.Build(query)
+	if err != nil {
+		if kql.IsValidationError(err) {
+			return nil, errtypes.BadRequest(err.Error())
+		}
+		return nil, err
+	}
+
+	return a, nil
+}
+
+// UpToDateQuery matches the indexed document when it is at least as new as
+// mtime, which is what the indexer asks before it extracts a resource again.
+func UpToDateQuery(id string, mtime time.Time) *ast.Ast {
+	return &ast.Ast{Nodes: []ast.Node{
+		&ast.StringNode{Key: "id", Value: id},
+		&ast.OperatorNode{Value: kql.BoolAND},
+		&ast.DateTimeNode{Key: "mtime", Operator: &ast.OperatorNode{Value: ">="}, Value: mtime},
+	}}
+}
+
 // PinnedRootID returns the single space root the query is pinned to via
 // top-level AND driveId/RootID conjuncts, or "". OR, NOT and group-nested
 // restrictions never pin: skipping a space would be wrong.
-func PinnedRootID(query string) string {
-	a, err := kql.Builder{}.Build(query)
-	if err != nil {
-		return ""
-	}
-	return pinnedRootID(a)
-}
-
-func pinnedRootID(a *ast.Ast) string {
+func PinnedRootID(a *ast.Ast) string {
 	pinned := ""
 	negated := false
 	for _, n := range a.Nodes {
@@ -306,14 +323,4 @@ func pinnedRootID(a *ast.Ast) string {
 		negated = false
 	}
 	return pinned
-}
-
-// ParseScope extract a scope value from the query string and returns search, scope strings
-func ParseScope(query string) (string, string) {
-	match := scopeRegex.FindStringSubmatch(query)
-	if len(match) >= 2 {
-		cut := match[0]
-		return strings.TrimSpace(strings.ReplaceAll(query, cut, "")), strings.TrimSpace(match[1])
-	}
-	return query, ""
 }

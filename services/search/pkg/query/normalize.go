@@ -1,3 +1,4 @@
+// Package query provides functions to work with the different search query flavours.
 package query
 
 import (

@@ -2,17 +2,11 @@ package parser
 
 import (
 	"errors"
-	"fmt"
-	"strings"
-
-	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
 	occfg "github.com/opencloud-eu/opencloud/pkg/config"
-	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/config/defaults"
-	"github.com/opencloud-eu/opencloud/services/search/pkg/search"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/envdecode"
 )
@@ -53,32 +47,6 @@ func Validate(cfg *config.Config) error {
 	}
 	if cfg.ServiceAccount.ServiceAccountSecret == "" {
 		return shared.MissingServiceAccountSecret(cfg.Service.Name)
-	}
-
-	return validateQueryTemplate(cfg.QueryTemplate)
-}
-
-func validateQueryTemplate(template string) error {
-	if template == "" {
-		return nil
-	}
-
-	if strings.Count(template, config.QueryPlaceholder) != 1 {
-		return errors.New("search query template: must contain " + config.QueryPlaceholder + " exactly once")
-	}
-	wrapped := "(" + config.QueryPlaceholder + ")"
-	if !strings.Contains(template, wrapped) {
-		return errors.New("search query template: " + config.QueryPlaceholder + " must be wrapped as " + wrapped)
-	}
-
-	expanded := search.ExpandQueryTemplate(template, "a", &provider.StorageSpace{})
-
-	if strings.Contains(expanded, "{{") || strings.Contains(expanded, "}}") {
-		return errors.New("search query template: unknown placeholder")
-	}
-
-	if _, err := (kql.Builder{}).Build(expanded); err != nil {
-		return fmt.Errorf("search query template: %w", err)
 	}
 
 	return nil
