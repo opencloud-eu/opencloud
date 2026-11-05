@@ -325,17 +325,15 @@ func (idp IDP) Index() http.HandlerFunc {
 		idp.logger.Fatal().Err(err).Msg("Could not close body")
 	}
 
-	// TODO add environment variable to make the path prefix configurable
-	pp := "/signin/v1"
-	indexHTML := bytes.Replace(template, []byte("__PATH_PREFIX__"), []byte(pp), 1)
-
-	background := idp.config.Asset.LoginBackgroundUrl
-	indexHTML = bytes.Replace(template, []byte("__BG_IMG_URL__"), []byte(background), 1)
-
-	nonce := rndm.GenerateRandomString(32)
-	indexHTML = bytes.Replace(indexHTML, []byte("__CSP_NONCE__"), []byte(nonce), 1)
-
-	indexHTML = bytes.Replace(indexHTML, []byte("__PASSWORD_RESET_LINK__"), []byte(idp.config.Service.PasswordResetURI), 1)
+	for placeholder, replacement := range map[string]string{
+		"__PATH_PREFIX__":         "/signin/v1",
+		"__BG_IMG_URL__":          idp.config.Asset.LoginBackgroundUrl,
+		"__CSP_NONCE__":           rndm.GenerateRandomString(32),
+		"__PASSWORD_RESET_LINK__": idp.config.Service.PasswordResetURI,
+	} {
+		template = bytes.ReplaceAll(template, []byte(placeholder), []byte(replacement))
+	}
+	indexHTML := template
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
