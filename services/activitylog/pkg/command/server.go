@@ -7,22 +7,22 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/olekukonko/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	ocmetrics "github.com/opencloud-eu/opencloud/pkg/metrics"
 	natspkg "github.com/opencloud-eu/opencloud/pkg/nats"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	"github.com/opencloud-eu/opencloud/pkg/runner"
 	ogrpc "github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
-	"github.com/opencloud-eu/opencloud/pkg/version"
 	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config/parser"
-	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/server/http"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/activitylog"
@@ -71,8 +71,17 @@ func Server(cfg *config.Config) *cobra.Command {
 			ctx, cancel := context.WithCancel(cmd.Context())
 			defer cancel()
 
-			mtrcs := metrics.New()
-			mtrcs.BuildInfo.WithLabelValues(version.GetString()).Set(1)
+			metricsOpts := []ocmetrics.Option{}
+			if !cfg.HTTP.Metrics.Disabled {
+				metricsOpts = append(metricsOpts, ocmetrics.WithHTTPMetrics())
+			}
+
+			mtrcs, err := ocmetrics.New(prometheus.DefaultRegisterer, &logger, cfg.Service.Name, metricsOpts...)
+			if err != nil {
+				return err
+			}
+			mtrcs.EnableHTTP(!cfg.HTTP.Disabled)
+			mtrcs.EnableEvents(!cfg.Events.Disabled)
 
 			tm, err := pool.StringToTLSMode(cfg.GRPCClientTLS.Mode)
 			if err != nil {
@@ -139,6 +148,7 @@ func Server(cfg *config.Config) *cobra.Command {
 					http.Context(ctx),
 					http.Config(cfg),
 					http.Service(svc),
+					http.Metrics(mtrcs),
 				)
 				if err != nil {
 					logger.Info().
@@ -180,6 +190,7 @@ func Server(cfg *config.Config) *cobra.Command {
 					svcEvents.GatewaySelector(gatewaySelector),
 					svcEvents.RegisteredEvents(_registeredEvents),
 					svcEvents.NumConsumers(cfg.NumConsumers),
+					svcEvents.Metrics(mtrcs),
 				)
 				if err != nil {
 					logger.Error().Err(err).Str("transport", "event").Msg("Failed to initialize server")

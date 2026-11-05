@@ -7,12 +7,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	ocmetrics "github.com/opencloud-eu/opencloud/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/activitylog"
 	eventssvc "github.com/opencloud-eu/opencloud/services/activitylog/pkg/service/events"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/prometheus/client_golang/prometheus"
 )
+
+func testMetrics() *ocmetrics.Metrics {
+	logger := log.NopLogger()
+	m, err := ocmetrics.New(prometheus.NewRegistry(), &logger, "activitylog")
+	Expect(err).ToNot(HaveOccurred())
+	return m
+}
 
 var _ = Describe("ActivitylogService", func() {
 	Describe("New", func() {
@@ -71,7 +80,13 @@ var _ = Describe("ActivitylogService", func() {
 		})
 
 		It("creates a service with num consumers option", func() {
-			svc, err := eventssvc.New(al, stream, eventssvc.NumConsumers(5))
+			svc, err := eventssvc.New(al, stream, eventssvc.NumConsumers(5), eventssvc.Metrics(testMetrics()))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(svc).ToNot(BeNil())
+		})
+
+		It("creates a service with metrics option", func() {
+			svc, err := eventssvc.New(al, stream, eventssvc.Metrics(testMetrics()))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(svc).ToNot(BeNil())
 		})
@@ -95,6 +110,7 @@ var _ = Describe("ActivitylogService", func() {
 				eventssvc.RegisteredEvents(evts),
 				eventssvc.GatewaySelector(gs),
 				eventssvc.NumConsumers(3),
+				eventssvc.Metrics(testMetrics()),
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(svc).ToNot(BeNil())
