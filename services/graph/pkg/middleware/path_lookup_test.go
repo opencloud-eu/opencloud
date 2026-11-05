@@ -66,6 +66,10 @@ type leafCapture struct {
 	driveID  string // chi.URLParam(driveID)
 	itemID   string // resolved item id, decoded via PathUnescape
 	original any    // OriginalPathContextKey value
+
+	specialName    string // chi.URLParam(specialName) for the special leaves
+	specialPath    string // middleware.SpecialFolderPath value
+	specialPathSet bool   // whether SpecialFolderPath reported ok
 }
 
 // newGraphTestRouter wires ResolveGraphPath into a chi router that mirrors the
@@ -94,6 +98,8 @@ func newGraphTestRouter(t *testing.T, gw *cs3mocks.GatewayAPIClient) (http.Handl
 			// mirror that here so we assert on the recovered id.
 			cap.itemID, _ = url.PathUnescape(raw)
 			cap.original = r.Context().Value(middleware.OriginalPathContextKey)
+			cap.specialName = chi.URLParam(r, "specialName")
+			cap.specialPath, cap.specialPathSet = middleware.SpecialFolderPath(r.Context())
 			w.WriteHeader(http.StatusOK)
 		}
 	}
@@ -127,6 +133,10 @@ func newGraphTestRouter(t *testing.T, gw *cs3mocks.GatewayAPIClient) (http.Handl
 			r.Route("/items/{driveItemID}", func(r chi.Router) {
 				r.Get("/", leaf("item"))
 				r.Get("/children", leaf("children"))
+			})
+			r.Route("/special/{specialName}", func(r chi.Router) {
+				r.Get("/", leaf("special"))
+				r.Get("/children", leaf("specialChildren"))
 			})
 		})
 	})
@@ -468,4 +478,97 @@ func TestResolveGraphPath_OriginalPathContext(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, original, cap.original, "original URL must be available via OriginalPathContextKey")
 	assert.Equal(t, original, cap.urlPath, "r.URL.Path must remain the original request path")
+}
+
+// TestResolveGraphPath_SpecialFolder pins the special-anchored colon form:
+// no CS3 lookup (special folders live outside the item tree), the request is
+// re-routed to /special/{specialName}{suffix} and the decoded path below the
+// special folder reaches the handler through SpecialFolderPath.
+func TestResolveGraphPath_SpecialFolder(t *testing.T) {
+	tests := []struct {
+		name           string
+		urlPath        string
+		expectStatus   int
+		expectHit      string
+		expectPath     string
+		expectPathSet  bool
+		expectSpecName string
+	}{
+		{
+			name:           "plain special route passes through without a path",
+			urlPath:        "/graph/v1.0/drives/" + testDriveID + "/special/recyclebin/children",
+			expectStatus:   http.StatusOK,
+			expectHit:      "specialChildren",
+			expectPathSet:  false,
+			expectSpecName: "recyclebin",
+		},
+		{
+			name:           "special-anchored with /children rewrites and carries the path",
+			urlPath:        "/graph/v1.0/drives/" + testDriveID + "/special/recyclebin:/key/sub:/children",
+			expectStatus:   http.StatusOK,
+			expectHit:      "specialChildren",
+			expectPath:     "/key/sub",
+			expectPathSet:  true,
+			expectSpecName: "recyclebin",
+		},
+		{
+			name:           "special-anchored without suffix rewrites to the bare special URL",
+			urlPath:        "/graph/v1.0/drives/" + testDriveID + "/special/recyclebin:/key",
+			expectStatus:   http.StatusOK,
+			expectHit:      "special",
+			expectPath:     "/key",
+			expectPathSet:  true,
+			expectSpecName: "recyclebin",
+		},
+		{
+			name:           "special-anchored with trailing colon rewrites to the bare special URL",
+			urlPath:        "/graph/v1.0/drives/" + testDriveID + "/special/recyclebin:/key:",
+			expectStatus:   http.StatusOK,
+			expectHit:      "special",
+			expectPath:     "/key",
+			expectPathSet:  true,
+			expectSpecName: "recyclebin",
+		},
+		{
+			name:           "percent-encoded path is decoded once",
+			urlPath:        "/graph/v1.0/drives/" + testDriveID + "/special/recyclebin:/key/My%20File:/children",
+			expectStatus:   http.StatusOK,
+			expectHit:      "specialChildren",
+			expectPath:     "/key/My File",
+			expectPathSet:  true,
+			expectSpecName: "recyclebin",
+		},
+		{
+			// The name is a single segment; a slash inside means this is not the
+			// colon form and chi decides (here: no such route).
+			name:         "multi-segment special name is not colon syntax",
+			urlPath:      "/graph/v1.0/drives/" + testDriveID + "/special/recyclebin/x:/key:/children",
+			expectStatus: http.StatusNotFound,
+			expectHit:    "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gw := &cs3mocks.GatewayAPIClient{}
+			router, cap := newGraphTestRouter(t, gw)
+			req := httptest.NewRequest(http.MethodGet, "http://localhost"+tt.urlPath, nil)
+			rr := httptest.NewRecorder()
+			router.ServeHTTP(rr, req)
+
+			assert.Equal(t, tt.expectStatus, rr.Code, "status code")
+			assert.Equal(t, tt.expectHit, cap.hit, "leaf handler reached")
+			gw.AssertNotCalled(t, "Stat", mock.Anything, mock.Anything)
+
+			if tt.expectHit != "" {
+				assert.Equal(t, testDriveID, cap.driveID, "driveID param")
+				assert.Equal(t, tt.expectSpecName, cap.specialName, "specialName param")
+				assert.Equal(t, tt.expectPathSet, cap.specialPathSet, "SpecialFolderPath ok")
+				assert.Equal(t, tt.expectPath, cap.specialPath, "SpecialFolderPath value")
+				// r.URL.Path is the decoded form; only chi's RoutePath is rewritten.
+				decoded, _ := url.PathUnescape(tt.urlPath)
+				assert.Equal(t, decoded, cap.urlPath, "r.URL.Path must remain the original request path")
+			}
+		})
+	}
 }
