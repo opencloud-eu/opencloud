@@ -4675,4 +4675,250 @@ class SpacesContext implements Context {
 			$schema
 		);
 	}
+
+	/**
+	 * Sends a WebDAV request to the space of the owner of a received share,
+	 * using the drive id that the sharee gets from the sharedWithMe list
+	 *
+	 * @param string $user
+	 * @param string $method
+	 * @param string $share
+	 * @param string $path
+	 * @param array $headers
+	 * @param string|null $body
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	private function sendRequestToSpaceOfShareOwner(
+		string $user,
+		string $method,
+		string $share,
+		string $path,
+		array $headers = [],
+		?string $body = null
+	): void {
+		$this->featureContext->setResponse(
+			WebDavHelper::makeDavRequest(
+				$this->featureContext->getBaseUrl(),
+				$this->featureContext->getActualUsername($user),
+				$this->featureContext->getPasswordForUser($user),
+				$method,
+				$path,
+				$headers,
+				$this->getSharesRemoteItemParentDriveId($user, $share),
+				$this->featureContext->getStepLineRef(),
+				$body,
+				WebDavHelper::DAV_VERSION_SPACES
+			)
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $share
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user lists the content of the space of the owner of share :share using the WebDAV API')]
+	public function userListsTheContentOfTheSpaceOfTheOwnerOfShare(string $user, string $share): void {
+		$this->sendRequestToSpaceOfShareOwner($user, 'PROPFIND', $share, '', ['Depth' => '1']);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $file
+	 * @param string $share
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user downloads file :file from the space of the owner of share :share using the WebDAV API')]
+	public function userDownloadsFileFromTheSpaceOfTheOwnerOfShare(string $user, string $file, string $share): void {
+		$this->sendRequestToSpaceOfShareOwner($user, 'GET', $share, $file);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $content
+	 * @param string $file
+	 * @param string $share
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user uploads content :content to file :file in the space of the owner of share :share using the WebDAV API')]
+	public function userUploadsContentToFileInTheSpaceOfTheOwnerOfShare(
+		string $user,
+		string $content,
+		string $file,
+		string $share
+	): void {
+		$this->sendRequestToSpaceOfShareOwner($user, 'PUT', $share, $file, [], $content);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $folder
+	 * @param string $share
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user creates folder :folder in the space of the owner of share :share using the WebDAV API')]
+	public function userCreatesFolderInTheSpaceOfTheOwnerOfShare(string $user, string $folder, string $share): void {
+		$this->sendRequestToSpaceOfShareOwner($user, 'MKCOL', $share, $folder);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $file
+	 * @param string $share
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user deletes file :file from the space of the owner of share :share using the WebDAV API')]
+	public function userDeletesFileFromTheSpaceOfTheOwnerOfShare(string $user, string $file, string $share): void {
+		$this->sendRequestToSpaceOfShareOwner($user, 'DELETE', $share, $file);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $method COPY or MOVE
+	 * @param string $file
+	 * @param string $share
+	 * @param string $destination
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	private function copyOrMoveOutOfShareToSpaceOfShareOwner(
+		string $user,
+		string $method,
+		string $file,
+		string $share,
+		string $destination
+	): void {
+		$driveId = $this->getSharesRemoteItemParentDriveId($user, $share);
+		$destinationUrl = $this->featureContext->getBaseUrl() . '/'
+			. WebDavHelper::getDavPath(WebDavHelper::DAV_VERSION_SPACES, $driveId) . '/' . $destination;
+		$this->featureContext->setResponse(
+			WebDavHelper::makeDavRequest(
+				$this->featureContext->getBaseUrl(),
+				$this->featureContext->getActualUsername($user),
+				$this->featureContext->getPasswordForUser($user),
+				$method,
+				$file,
+				['Destination' => $destinationUrl],
+				$this->getSharesRemoteItemId($user, $share),
+				$this->featureContext->getStepLineRef(),
+				null,
+				WebDavHelper::DAV_VERSION_SPACES
+			)
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $file
+	 * @param string $share
+	 * @param string $destination
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user tries to copy file :file from share :share to :destination in the space of the owner using the WebDAV API')]
+	public function userTriesToCopyFileFromShareToTheSpaceOfTheOwner(
+		string $user,
+		string $file,
+		string $share,
+		string $destination
+	): void {
+		$this->copyOrMoveOutOfShareToSpaceOfShareOwner($user, 'COPY', $file, $share, $destination);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $file
+	 * @param string $share
+	 * @param string $destination
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user tries to move file :file from share :share to :destination in the space of the owner using the WebDAV API')]
+	public function userTriesToMoveFileFromShareToTheSpaceOfTheOwner(
+		string $user,
+		string $file,
+		string $share,
+		string $destination
+	): void {
+		$this->copyOrMoveOutOfShareToSpaceOfShareOwner($user, 'MOVE', $file, $share, $destination);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $file
+	 * @param string $share
+	 * @param string $destination
+	 * @param string $destinationShare
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user moves file :file from share :share to :destination in share :destinationShare using the WebDAV API')]
+	public function userMovesFileFromShareToShare(
+		string $user,
+		string $file,
+		string $share,
+		string $destination,
+		string $destinationShare
+	): void {
+		$destinationUrl = $this->featureContext->getBaseUrl() . '/'
+			. WebDavHelper::getDavPath(
+				WebDavHelper::DAV_VERSION_SPACES,
+				$this->getSharesRemoteItemId($user, $destinationShare)
+			) . '/' . $destination;
+		$this->featureContext->setResponse(
+			WebDavHelper::makeDavRequest(
+				$this->featureContext->getBaseUrl(),
+				$this->featureContext->getActualUsername($user),
+				$this->featureContext->getPasswordForUser($user),
+				'MOVE',
+				$file,
+				['Destination' => $destinationUrl],
+				$this->getSharesRemoteItemId($user, $share),
+				$this->featureContext->getStepLineRef(),
+				null,
+				WebDavHelper::DAV_VERSION_SPACES
+			)
+		);
+	}
+
+	/**
+	 * @param string $user
+	 * @param string $share
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 */
+	#[When('user :user tries to delete the shared folder :share using the WebDAV API')]
+	public function userTriesToDeleteTheSharedFolder(string $user, string $share): void {
+		$this->featureContext->setResponse(
+			WebDavHelper::makeDavRequest(
+				$this->featureContext->getBaseUrl(),
+				$this->featureContext->getActualUsername($user),
+				$this->featureContext->getPasswordForUser($user),
+				'DELETE',
+				'',
+				[],
+				$this->getSharesRemoteItemId($user, $share),
+				$this->featureContext->getStepLineRef(),
+				null,
+				WebDavHelper::DAV_VERSION_SPACES
+			)
+		);
+	}
 }
