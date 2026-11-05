@@ -188,3 +188,4 @@ The search service exposes the following prometheus metrics at `<debug_endpoint>
 | `opencloud_search_events_redelivered` | Gauge | Number of redelivered events | |
 | `opencloud_search_search_duration_seconds` | Histogram | Duration of search operations in seconds | `status` |
 | `opencloud_search_index_duration_seconds` | Histogram | Duration of indexing operations in seconds | `status` |
+| `opencloud_search_bleve_async_errors_total` | Counter | Number of errors reported by the background goroutines of the bleve index | `source`, `err_type` |
