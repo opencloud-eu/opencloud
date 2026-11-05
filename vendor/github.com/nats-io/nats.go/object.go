@@ -893,7 +893,7 @@ func (obs *obs) PutFile(file string, opts ...ObjectOpt) (*ObjectInfo, error) {
 // GetFile is a convenience function to pull and object and place in a file.
 func (obs *obs) GetFile(name, file string, opts ...GetObjectOpt) error {
 	// Expect file to be new.
-	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE, 0600)
+	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
@@ -1081,19 +1081,19 @@ func (obs *obs) Watch(opts ...WatchOpt) (ObjectWatcher, error) {
 		if err := json.Unmarshal(m.Data, &info); err != nil {
 			return // TODO(dlc) - Communicate this upwards?
 		}
-		meta, err := m.Metadata()
+		tokens, err := parser.GetMetadataFields(m.Reply)
 		if err != nil {
 			return
 		}
 
 		if !o.ignoreDeletes || !info.Deleted {
-			info.ModTime = meta.Timestamp
+			info.ModTime = time.Unix(0, int64(parser.ParseNum(tokens[parser.AckTimestampSeqTokenPos])))
 			w.updates <- &info
 		}
 
 		// if UpdatesOnly is set, no not send nil to the channel
 		// as it would always be triggered after initializing the watcher
-		if !initDoneMarker && meta.NumPending == 0 {
+		if !initDoneMarker && parser.ParseNum(tokens[parser.AckNumPendingTokenPos]) == 0 {
 			initDoneMarker = true
 			w.updates <- nil
 		}

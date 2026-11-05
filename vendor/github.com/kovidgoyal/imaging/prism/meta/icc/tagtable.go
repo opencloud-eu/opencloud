@@ -1,7 +1,6 @@
 package icc
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 )
@@ -261,22 +260,6 @@ func array_to_matrix(a []unit_float) *Matrix3 {
 		return nil
 	}
 	return &m
-}
-
-func (p *TagTable) get_chromatic_adaption() (*Matrix3, error) {
-	x, err := p.get_parsed(ChromaticAdaptationTagSignature, ColorSpaceRGB, ColorSpaceXYZ)
-	if err != nil {
-		var nf *not_found
-		if errors.As(err, &nf) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	a, ok := x.([]unit_float)
-	if !ok {
-		return nil, fmt.Errorf("chad tag is not an ArrayType")
-	}
-	return array_to_matrix(a), nil
 }
 
 func emptyTagTable() TagTable {
