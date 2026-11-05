@@ -27,6 +27,9 @@
 
 ### 📦️ Dependencies
 
+- build(deps): bump github.com/prometheus/client_golang from 1.24.1 to 1.25.0 [[#3897](https://github.com/opencloud-eu/opencloud/pull/3897)]
+- build(deps): bump github.com/nats-io/nats.go from 1.54.0 to 1.55.0 [[#3904](https://github.com/opencloud-eu/opencloud/pull/3904)]
+- build(deps): bump github.com/kovidgoyal/imaging from 1.8.23 to 1.9.0 [[#3898](https://github.com/opencloud-eu/opencloud/pull/3898)]
 - build(deps): bump google.golang.org/grpc from 1.84.0 to 1.85.0 [[#3885](https://github.com/opencloud-eu/opencloud/pull/3885)]
 - build(deps): bump github.com/KimMachineGun/automemlimit from 1.0.0 to 1.0.1 [[#3886](https://github.com/opencloud-eu/opencloud/pull/3886)]
 - build(deps): bump github.com/go-ldap/ldap/v3 from 3.4.14 to 3.4.15 [[#3887](https://github.com/opencloud-eu/opencloud/pull/3887)]
