@@ -34,6 +34,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/lookup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
@@ -177,6 +178,9 @@ func (t *Tree) TouchFile(ctx context.Context, n *node.Node, markprocessing bool,
 		}
 	}
 
+	if storage.SkipTouchPropagation(ctx) {
+		return nil
+	}
 	return t.Propagate(ctx, n, 0)
 }
 
@@ -485,14 +489,13 @@ func (t *Tree) Delete(ctx context.Context, n *node.Node) (err error) {
 	trashPath := trashNode.InternalPath()
 	err = os.Rename(nodePath, trashPath)
 	if err != nil {
-		// To roll back changes
-		// TODO remove symlink
-		// Roll back changes
+		_ = os.Remove(trashLink)
 		_ = n.RemoveXattr(ctx, prefixes.TrashOriginAttr)
 		return
 	}
 	err = t.lookup.MetadataBackend().Rename(n, trashNode)
 	if err != nil {
+		_ = os.Remove(trashLink)
 		_ = n.RemoveXattr(ctx, prefixes.TrashOriginAttr)
 		_ = os.Rename(trashPath, nodePath)
 		return
@@ -506,10 +509,9 @@ func (t *Tree) Delete(ctx context.Context, n *node.Node) (err error) {
 
 	// finally remove the entry from the parent dir
 	if err = os.Remove(path); err != nil {
-		// To roll back changes
-		// TODO revert the rename
-		// TODO remove symlink
-		// Roll back changes
+		_ = t.lookup.MetadataBackend().Rename(trashNode, n)
+		_ = os.Rename(trashPath, nodePath)
+		_ = os.Remove(trashLink)
 		_ = n.RemoveXattr(ctx, prefixes.TrashOriginAttr)
 		return
 	}
@@ -670,15 +672,31 @@ func (t *Tree) InitNewNode(ctx context.Context, n *node.Node, fsize uint64) (met
 	h, err := os.OpenFile(n.InternalPath(), os.O_CREATE|os.O_EXCL, 0600)
 	subspan.End()
 	if err != nil {
-		return unlock, err
+		// the node file is not ours, so there is nothing of ours to remove
+		releaseNewNodeLock(ctx, n, unlock)
+		if errors.Is(err, fs.ErrExist) {
+			return nil, errtypes.AlreadyExists(n.Name)
+		}
+		return nil, err
 	}
 	h.Close()
+
+	// from here the node file is ours, but the name may not be: a failure removes the
+	// node file and leaves the name to whichever upload linked it. Removed before
+	// unlocking, so nothing can open the node in between.
+	fail := func(err error) (metadata.UnlockFunc, error) {
+		if rErr := os.Remove(n.InternalPath()); rErr != nil {
+			appctx.GetLogger(ctx).Error().Err(rErr).Str("nodeid", n.ID).Msg("could not remove new node file")
+		}
+		releaseNewNodeLock(ctx, n, unlock)
+		return nil, err
+	}
 
 	_, subspan = tracer.Start(ctx, "node.CheckQuota")
 	_, err = node.CheckQuota(ctx, n.SpaceRoot, false, 0, fsize)
 	subspan.End()
 	if err != nil {
-		return unlock, err
+		return fail(err)
 	}
 
 	// link child name to parent if it is new
@@ -694,13 +712,20 @@ func (t *Tree) InitNewNode(ctx context.Context, n *node.Node, fsize uint64) (met
 		log.Info().Err(err).Msg("initNewNode: symlink failed")
 		if errors.Is(err, fs.ErrExist) {
 			log.Info().Err(err).Msg("initNewNode: symlink already exists")
-			return unlock, errtypes.AlreadyExists(n.Name)
+			return fail(errtypes.AlreadyExists(n.Name))
 		}
-		return unlock, errors.Wrap(err, "Decomposedfs: could not symlink child entry")
+		return fail(errors.Wrap(err, "Decomposedfs: could not symlink child entry"))
 	}
 	log.Info().Msg("initNewNode: symlink created")
 
 	return unlock, nil
+}
+
+// releaseNewNodeLock releases the lock of a node InitNewNode failed to create.
+func releaseNewNodeLock(ctx context.Context, n *node.Node, unlock metadata.UnlockFunc) {
+	if err := unlock(); err != nil {
+		appctx.GetLogger(ctx).Error().Err(err).Str("nodeid", n.ID).Msg("could not release new node lock")
+	}
 }
 
 func (t *Tree) removeNode(ctx context.Context, n *node.Node) error {

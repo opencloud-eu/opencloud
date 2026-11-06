@@ -40,6 +40,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/studio-b12/gowebdav"
 
+	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/mime"
@@ -218,7 +219,7 @@ func (d *driver) CreateDir(ctx context.Context, ref *provider.Reference) error {
 }
 
 func (d *driver) Delete(ctx context.Context, ref *provider.Reference) error {
-	client, _, rel, err := d.webdavClient(ctx, nil, ref)
+	client, _, rel, err := d.serviceWebdavClient(ctx, ref)
 	if err != nil {
 		return err
 	}
@@ -226,7 +227,7 @@ func (d *driver) Delete(ctx context.Context, ref *provider.Reference) error {
 }
 
 func (d *driver) TouchFile(ctx context.Context, ref *provider.Reference, markprocessing bool, mtime string) error {
-	client, _, rel, err := d.webdavClient(ctx, nil, ref)
+	client, _, rel, err := d.serviceWebdavClient(ctx, ref)
 	if err != nil {
 		return err
 	}
@@ -327,7 +328,19 @@ func extractChecksum(props gowebdav.Props) *provider.ResourceChecksum {
 }
 
 func (d *driver) GetMD(ctx context.Context, ref *provider.Reference, _ []string, _ []string) (*provider.ResourceInfo, error) {
-	client, share, rel, err := d.webdavClient(ctx, nil, ref)
+	var (
+		client *gowebdav.Client
+		share  *ocmpb.ReceivedShare
+		rel    string
+		err    error
+	)
+	if token, ok := ctxpkg.ContextGetToken(ctx); ok && token != "" {
+		client, share, rel, err = d.webdavClient(ctx, nil, ref)
+	} else {
+		// the upload coordinator stats an upload it finishes with the context of the
+		// upload's executant, whose request, and with it the token, is gone by then
+		client, share, rel, err = d.serviceWebdavClient(ctx, ref)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -494,6 +507,10 @@ func (d *driver) GetLock(ctx context.Context, ref *provider.Reference) (*provide
 	if err != nil {
 		return nil, err
 	}
+	// gowebdav formats a missing lockdiscovery property as "<nil>"
+	if token == "" || token == "<nil>" {
+		return nil, errtypes.NotFound("no lock found")
+	}
 
 	return &provider.Lock{LockId: token, Type: provider.LockType_LOCK_TYPE_EXCL}, nil
 }
@@ -616,4 +633,12 @@ func (d *driver) AddLabel(ctx context.Context, ref *provider.Reference, userID *
 
 func (d *driver) RemoveLabel(ctx context.Context, ref *provider.Reference, userID *userpb.UserId, label string) error {
 	return errtypes.NotSupported("RemoveLabel not implemented")
+}
+
+func (d *driver) PrepareUpload(_ context.Context, _ *provider.Reference, _ string, info storage.UploadInfo) (*storage.PrepareUploadResult, error) {
+	return &storage.PrepareUploadResult{VersionCreated: info.NodeExisted}, nil
+}
+
+func (d *driver) RollbackUpload(_ context.Context, _ *provider.Reference, _ string, _ storage.RollbackInfo) error {
+	return nil
 }

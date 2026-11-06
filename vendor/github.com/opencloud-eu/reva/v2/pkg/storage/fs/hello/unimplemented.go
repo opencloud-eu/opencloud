@@ -75,16 +75,6 @@ func (fs *hellofs) Move(ctx context.Context, oldRef, newRef *provider.Reference)
 	return nil, errtypes.NotSupported("unimplemented")
 }
 
-// Upload creates or updates a resource of type file with a new revision
-func (fs *hellofs) Upload(ctx context.Context, req storage.UploadRequest, uff storage.UploadFinishedFunc) (*provider.ResourceInfo, error) {
-	return nil, errtypes.NotSupported("hellofs: upload not supported")
-}
-
-// InitiateUpload returns a list of protocols with urls that can be used to append bytes to a new upload session
-func (fs *hellofs) InitiateUpload(ctx context.Context, ref *provider.Reference, uploadLength int64, metadata map[string]string) (map[string]string, error) {
-	return nil, errtypes.NotSupported("hellofs: initiate upload not supported")
-}
-
 // MarkProcessing toggles a processing flag on the resource.
 func (fs *hellofs) MarkProcessing(ctx context.Context, ref *provider.Reference, processing bool, sessionID string) error {
 	return errtypes.NotSupported("hellofs: mark processing not supported")
@@ -93,6 +83,14 @@ func (fs *hellofs) MarkProcessing(ctx context.Context, ref *provider.Reference, 
 // CommitUpload writes the staged bytes from source to the resource at ref.
 func (fs *hellofs) CommitUpload(_ context.Context, _ *provider.Reference, _ string, _ storage.UploadSource) error {
 	return errtypes.NotSupported("hellofs: commit upload not supported")
+}
+
+func (fs *hellofs) PrepareUpload(_ context.Context, _ *provider.Reference, _ string, info storage.UploadInfo) (*storage.PrepareUploadResult, error) {
+	return &storage.PrepareUploadResult{VersionCreated: info.NodeExisted}, nil
+}
+
+func (fs *hellofs) RollbackUpload(_ context.Context, _ *provider.Reference, _ string, _ storage.RollbackInfo) error {
+	return nil
 }
 
 // grants

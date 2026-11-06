@@ -44,6 +44,8 @@ const (
 var _propagationGracePeriod = 3 * time.Minute
 
 // AsyncPropagator implements asynchronous treetime & treesize propagation
+//
+// Deprecated: the async propagator will be removed in a future release. Use the sync propagator instead.
 type AsyncPropagator struct {
 	treeSizeAccounting bool
 	treeTimeAccounting bool
@@ -59,6 +61,8 @@ type Change struct {
 }
 
 // NewAsyncPropagator returns a new AsyncPropagator instance
+//
+// Deprecated: the async propagator will be removed in a future release. Use the sync propagator instead.
 func NewAsyncPropagator(treeSizeAccounting, treeTimeAccounting bool, o options.AsyncPropagatorOptions, lookup node.PathLookup, log *zerolog.Logger) AsyncPropagator {
 	p := AsyncPropagator{
 		treeSizeAccounting: treeSizeAccounting,
@@ -69,6 +73,7 @@ func NewAsyncPropagator(treeSizeAccounting, treeTimeAccounting bool, o options.A
 	}
 
 	log.Info().Msg("async propagator starting up...")
+	log.Warn().Msg("the async propagator is deprecated and will be removed in a future release, please switch to the sync propagator")
 
 	// spawn a goroutine that watches for stale .processing dirs and fixes them
 	go func() {
