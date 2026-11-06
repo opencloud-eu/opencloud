@@ -14,6 +14,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/webdav"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
+	"github.com/opencloud-eu/reva/v2/pkg/signedurl"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
@@ -69,6 +70,7 @@ type GuestLinkAuthenticator struct {
 	RevaGatewaySelector pool.Selectable[gateway.GatewayAPIClient]
 	Config              GuestLinkAuthConfig
 	Tracer              trace.Tracer
+	URLVerifier         signedurl.Verifier
 }
 
 // guestLinkCookieName returns the configured cookie name, defaulting to __Host-opencloud-guest.
@@ -88,8 +90,8 @@ func isGuestLinkPath(path string) bool {
 
 // hasOtherCredentials reports whether the request carries credentials that are
 // handled by other authenticators. A guest session is a fallback identity: it
-// must never shadow an explicitly sent Authorization header, a public share
-// token or a signed URL.
+// must never shadow an explicitly sent Authorization header or a public share
+// token. Signed URLs are handled by signedURLSubject.
 func hasOtherCredentials(r *http.Request) bool {
 	query := r.URL.Query()
 
@@ -101,7 +103,39 @@ func hasOtherCredentials(r *http.Request) bool {
 		return true
 	}
 
-	return query.Get(_paramOCJWTSig) != "" || query.Get(_paramOCSignature) != ""
+	return false
+}
+
+// signedURLSubject returns the subject a signed URL was issued for. The subject
+// is empty when the request carries no signed URL. ok is false when the request
+// carries a signed URL that cannot be verified (legacy scheme, invalid signature
+// or no verifier configured); such requests are handled by other authenticators.
+func (m *GuestLinkAuthenticator) signedURLSubject(r *http.Request) (subject string, ok bool) {
+	query := r.URL.Query()
+
+	if query.Get(_paramOCSignature) != "" {
+		return "", false
+	}
+
+	if query.Get(_paramOCJWTSig) == "" {
+		return "", true
+	}
+
+	if m.URLVerifier == nil {
+		return "", false
+	}
+
+	u := r.URL.String()
+	if !r.URL.IsAbs() {
+		u = "https://" + r.Host + u
+	}
+
+	subject, err := m.URLVerifier.Verify(u)
+	if err != nil {
+		return "", false
+	}
+
+	return subject, true
 }
 
 // readGuestCookie reads the guest-session cookie from the request.
@@ -171,6 +205,13 @@ func (m *GuestLinkAuthenticator) Authenticate(r *http.Request) AuthenticationRes
 		return NotApplicable()
 	}
 
+	// Signed URL requests are guest requests only when the URL was signed for the
+	// guest holding this session.
+	subject, ok := m.signedURLSubject(r)
+	if !ok {
+		return NotApplicable()
+	}
+
 	// Call Reva gateway Authenticate API.
 	gatewayClient, err := m.RevaGatewaySelector.Next()
 	if err != nil {
@@ -194,6 +235,9 @@ func (m *GuestLinkAuthenticator) Authenticate(r *http.Request) AuthenticationRes
 
 	switch authResp.GetStatus().GetCode() {
 	case rpcv1beta1.Code_CODE_OK:
+		if subject != "" && authResp.GetUser().GetId().GetOpaqueId() != subject {
+			return NotApplicable()
+		}
 		return m.handleOK(r, authResp, span)
 	case rpcv1beta1.Code_CODE_UNAUTHENTICATED:
 		return m.handleUnauthenticated(r, authResp, span)

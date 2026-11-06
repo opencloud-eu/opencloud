@@ -384,6 +384,7 @@ func loadMiddlewares(logger log.Logger, cfg *config.Config,
 			Config: middleware.GuestLinkAuthConfig{
 				CookieName: cfg.GuestLinkAuth.CookieName,
 			},
+			URLVerifier: signURLVerifier,
 		})
 	}
 
