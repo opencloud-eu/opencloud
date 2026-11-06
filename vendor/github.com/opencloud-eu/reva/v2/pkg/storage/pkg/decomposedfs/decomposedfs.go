@@ -41,6 +41,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
@@ -687,7 +688,7 @@ func (fs *Decomposedfs) GetQuota(ctx context.Context, ref *provider.Reference) (
 	switch {
 	case err != nil:
 		return 0, 0, 0, err
-	case !rp.GetQuota && !fs.p.ListAllSpaces(ctx):
+	case !rp.GetQuota && !fs.canListAllSpaces(ctx, n):
 		f, _ := storagespace.FormatReference(ref)
 		if rp.Stat {
 			return 0, 0, 0, errtypes.PermissionDenied(f)
@@ -1113,7 +1114,8 @@ func (fs *Decomposedfs) ListFolder(ctx context.Context, ref *provider.Reference,
 	for i := 0; i < numWorkers; i++ {
 		g.Go(func() error {
 			for child := range work {
-				np := rp
+				// copy the parent's permissions: the workers must not share them
+				np := proto.Clone(rp).(*provider.ResourcePermissions)
 				// add this childs permissions
 				pset, _ := child.PermissionSet(ctx)
 				node.AddPermissions(np, pset)

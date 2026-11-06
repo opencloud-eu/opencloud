@@ -61,6 +61,9 @@ const (
 	// ShareTypeSpaceMembershipGroup represents an action regarding group type space members
 	ShareTypeSpaceMembershipGroup ShareType = 8
 
+	// ShareTypeGuest represents a guest share
+	ShareTypeGuest ShareType = 4
+
 	// ShareWithUserTypeUser represents a normal user
 	ShareWithUserTypeUser ShareWithUserType = 0
 

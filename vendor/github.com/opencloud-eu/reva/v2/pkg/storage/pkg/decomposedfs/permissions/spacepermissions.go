@@ -83,8 +83,13 @@ func (p Permissions) SetSpaceQuota(ctx context.Context, spaceid string, spaceTyp
 }
 
 // ManageSpaceProperties returns true when the user is allowed to change space properties (name/subtitle)
-func (p Permissions) ManageSpaceProperties(ctx context.Context, spaceid string) bool {
-	return p.checkPermission(ctx, "Drives.ReadWrite", spaceRef(spaceid))
+func (p Permissions) ManageSpaceProperties(ctx context.Context, spaceid string, spaceType string) bool {
+	switch spaceType {
+	case _spaceTypePersonal:
+		return p.checkPermission(ctx, "Drives.ReadWritePersonal", spaceRef(spaceid))
+	default:
+		return p.checkPermission(ctx, "Drives.ReadWrite", spaceRef(spaceid))
+	}
 }
 
 // SpaceAbility returns true when the user is allowed to enable/disable the space
@@ -92,9 +97,24 @@ func (p Permissions) SpaceAbility(ctx context.Context, spaceid string) bool {
 	return p.checkPermission(ctx, "Drives.ReadWriteEnabled", spaceRef(spaceid))
 }
 
-// ListAllSpaces returns true when the user is allowed to list all spaces
+// RestoreSpace returns true when the user is allowed to restore a disabled space
+func (p Permissions) RestoreSpace(ctx context.Context, spaceid string, spaceType string) bool {
+	switch spaceType {
+	case _spaceTypePersonal:
+		return p.DeleteAllHomeSpaces(ctx)
+	default:
+		return p.SpaceAbility(ctx, spaceid)
+	}
+}
+
+// ListAllSpaces returns true when the user is allowed to list all project spaces
 func (p Permissions) ListAllSpaces(ctx context.Context) bool {
 	return p.checkPermission(ctx, "Drives.List", nil)
+}
+
+// ListAllPersonalSpaces returns true when the user is allowed to list all personal spaces
+func (p Permissions) ListAllPersonalSpaces(ctx context.Context) bool {
+	return p.checkPermission(ctx, "Drives.ListPersonal", nil)
 }
 
 // ListSpacesOfUser returns true when the user is allowed to list the spaces of the given user
@@ -106,7 +126,7 @@ func (p Permissions) ListSpacesOfUser(ctx context.Context, userid *userv1beta1.U
 	case utils.UserIDEqual(ctxpkg.ContextMustGetUser(ctx).GetId(), userid):
 		return true
 	default:
-		return p.ListAllSpaces(ctx)
+		return p.ListAllSpaces(ctx) || p.ListAllPersonalSpaces(ctx)
 	}
 }
 
