@@ -86,7 +86,7 @@ func (g GgsDecoder) Convert(r io.Reader) (*Image, error) {
 			return &Image{ContentType: "image/png", Data: data}, nil
 		}
 	}
-	return nil, errors.Errorf("%s not found", g.thumbnailpath)
+	return nil, ErrNoThumbnail
 }
 
 // AudioDecoder is a converter for the audio file.
@@ -111,12 +111,8 @@ func (i AudioDecoder) Convert(r io.Reader) (*Image, error) {
 	}
 
 	picture := m.Picture()
-	if picture == nil {
-		return nil, ErrNoImageFromAudioFile
-	}
-
-	if !strings.HasPrefix(picture.MIMEType, "image/") {
-		return nil, ErrNoConverterForExtractedImageFromAudioFile
+	if picture == nil || !strings.HasPrefix(picture.MIMEType, "image/") {
+		return nil, ErrNoThumbnail
 	}
 
 	return &Image{ContentType: picture.MIMEType, Data: picture.Data}, nil
@@ -260,7 +256,7 @@ func (j GgpDecoder) Convert(r io.Reader) (*Image, error) {
 
 	contentType := http.DetectContentType(b)
 	if !strings.HasPrefix(contentType, "image/") {
-		return nil, ErrNoConverterForExtractedImageFromGgpFile
+		return nil, ErrNoThumbnail
 	}
 
 	return &Image{ContentType: contentType, Data: b}, nil
@@ -268,12 +264,12 @@ func (j GgpDecoder) Convert(r io.Reader) (*Image, error) {
 
 func extractBase64ImageFromGGP(ggp *GGPStruct) (string, error) {
 	if len(ggp.Sections) < 1 || len(ggp.Sections[0].Cards) < 1 {
-		return "", errors.New("cant find thumbnail in ggp file")
+		return "", ErrNoThumbnail
 	}
 
 	raw := strings.Split(ggp.Sections[0].Cards[0].Element.Image.Base64Image, "base64,")
 	if len(raw) < 2 {
-		return "", errors.New("cant decode ggp thumbnail")
+		return "", ErrNoThumbnail
 	}
 
 	return raw[1], nil
