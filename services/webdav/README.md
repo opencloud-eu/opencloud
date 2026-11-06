@@ -10,22 +10,55 @@ Currently, the webdav service handles request for two functionalities, which are
 
 The webdav service provides various `GET` endpoints to get the thumbnails of a file in authenticated and unauthenticated contexts. It also provides thumbnails for spaces on different endpoints.
 
-When `OC_TIKA_URL` (or `WEBDAV_TIKA_URL`) is set, an Apache Tika server (4.2.0 or newer) supplies the preview image for documents, raw photos, audio cover art and other types. Which types go there is a list, and the default is the formats a Tika release serves a thumbnail for: documents, ebooks, office and iWork files, audio cover art and the camera raws. `OC_TIKA_THUMBNAIL_MIME_TYPES` (or `WEBDAV_TIKA_THUMBNAIL_MIME_TYPES`) replaces that list, `OC_TIKA_ADDITIONAL_THUMBNAIL_MIME_TYPES` adds to it, a single `*` in either sends every type that nothing else claims, and an empty list sends nothing at all, which leaves a Tika server shared with the search service to the search service alone. An entry like `image/x-nikon-nef:image/x-raw-nikon` maps a type to the one Tika knows the format by. Tika takes a declared type only when it refines what it detected itself, so an entry pins the leaf type its detector left at the parent, a raw photo it only read as a plain tiff. The type decides which parser reads the file: a raw read as a tiff is parsed as a tiff, its maker notes stay unread, and the embedded preview a thumbnail would be made of is never found. The formats in the default list are detected down to the leaf type, so none of them needs the hint, and it is there for the next format whose detection stops one level short. The webdav service calls `PUT /unpack/preset/thumbnail`, so the Tika server has to run with the `thumbnail` catalog preset active: start it with `TIKA_PRESETS=thumbnail`, a comma separated list of the presets to activate. Without Tika, audio cover art and GeoGebra thumbnails are still extracted by the webdav service itself; those built-in extractors are deprecated. A type Tika takes is attempted even when `OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES` does not announce it, so a direct request can get a preview that a listing reports as absent. Who gets a file is decided in one order, first match wins, and every type has exactly one taker:
+#### Who Makes a Thumbnail
 
-1. a type the Tika list names goes to Tika, an image too, which is why the camera raws are named there: reva types them as images and no generator reads them
-2. text, audio and GeoGebra go to the built-in extractors
-3. an image goes to the generator as it is; whether it can read it is the generator's answer, an imagor with ImageMagick reads heic where the built-in one does not
-4. anything else goes to Tika when the Tika list has `*`
-5. and otherwise to the generator as it is
+Three parties can turn a file into a thumbnail:
 
-So `*` never sends an image: images belong to the generator, and sending one to Tika would only move the file. An image type that only Tika can read has to be named in the Tika list. Announcing a type in `OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES` and sending it to Tika are separate decisions: the announcement is what `oc:has-preview` reports, the Tika list says who makes the image. Naming a type also restricts Tika to the named ones, so a deployment that sends raw photos to Tika has to name the document types it wants from Tika as well, and an empty list sends nothing at all, which leaves the Tika server to the search service alone. The thumbnail is written in the type the **file's** own type maps to (`OC_THUMBNAILS_ADDITIONAL_OUTPUT_TYPES`), not in whatever type Tika hands back, so the answer is the same before and after a cache hit. That is also why a windows binary is mapped to `image/png` by default: the icon Tika reads out of it carries transparency that a JPEG would flatten onto black.
+- the **generator** (imagor, or the thumbnails service in its place) scales images
+- the **built-in converters** in the webdav service render plain text and extract audio cover art and GeoGebra thumbnails. The audio and GeoGebra extractors are deprecated in favour of Tika.
+- an **Apache Tika server**, when configured, extracts a preview image from documents, ebooks, office files, audio, camera raws and more
 
-Generated thumbnails are cached by the webdav service itself. The cache backend defaults to `file`, storing entries under `$OC_BASE_DATA_PATH/thumbnails/cache` (override with `WEBDAV_THUMBNAILS_CACHE_BACKEND` and `WEBDAV_THUMBNAILS_CACHE_DIR`). Use the `s3` backend when running multiple instances behind a load balancer so they share one cache. A backend nobody can serve, an unknown name or an `s3` backend without bucket, region and credentials, fails at startup instead of serving without a cache, as long as previews are enabled. A service that is not AWS needs `WEBDAV_THUMBNAILS_CACHE_S3_ENDPOINT` too, and it is always addressed over https. The `memory` backend is bounded and drops its oldest entries; `none` disables caching on purpose. The cache also keeps the image an extractor made of a file, under one entry per file, so a second size does not extract again and a file that carries no image is only asked once. Nothing expires: a changed file is a new entry because the key carries its checksum, but an extractor that learns to read a format it could not read before does not reach the files it already answered for. After such an upgrade, an Apache Tika release among them, empty the cache (`WEBDAV_THUMBNAILS_CACHE_DIR`, or the bucket) to have them asked again.
+A thumbnail is only attempted for a type that is announced (`OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES` plus the built-in list) or that Tika takes (named in the Tika list, or any type when the list contains `*`). Every other type answers `404` without the file being read. For the types that pass, the first rule that applies wins:
 
-#### Tika Before 4.2.0
+1. a type the Tika list names goes to Tika, even an image (that is how camera raws get a preview: reva types them as images, and no generator reads them)
+2. text, audio and GeoGebra go to the built-in converters
+3. an image goes to the generator as it is
+4. anything else goes to Tika if the Tika list contains `*`
+5. what is left is an announced type, and it goes to the generator as it is, which answers whether it can read it
 
-`TIKA_PRESETS` is read by Tika 4.2.0 and newer. A 4.1.x server serves the same
-route when its config file activates the preset:
+So `*` never sends an image to Tika. An image type that only Tika can read has to be named in the Tika list.
+
+#### Typical Setups
+
+| File                  | No Tika          | Tika, default list | Default list plus `*` | List is only `*`         | Empty list       |
+| --------------------- | ---------------- | ------------------ | --------------------- | ------------------------ | ---------------- |
+| `photo.jpg`           | generator        | generator          | generator             | generator                | generator        |
+| `photo.nef` (raw)     | no preview       | Tika               | Tika                  | generator, 404           | no preview       |
+| `report.pdf`, `.docx` | no preview       | Tika               | Tika                  | Tika                     | no preview       |
+| `song.mp3`            | built-in         | Tika               | Tika                  | built-in                 | built-in         |
+| `board.ggs`           | built-in         | Tika               | Tika                  | built-in                 | built-in         |
+| `notes.txt`           | built-in         | built-in           | built-in              | built-in                 | built-in         |
+| `archive.zip`         | no preview       | no preview         | Tika                  | Tika                     | no preview       |
+
+- **Default list plus `*`**: `OC_TIKA_ADDITIONAL_THUMBNAIL_MIME_TYPES=*`
+- **List is only `*`**: `OC_TIKA_THUMBNAIL_MIME_TYPES=*`. This replaces the default list, so the raws are no longer named and fall to the generator.
+- **Empty list**: `OC_TIKA_THUMBNAIL_MIME_TYPES=""`. This keeps a Tika server that is shared with the search service for search alone.
+- "no preview" means no attempt is made, and the request answers `404`.
+
+#### Tika and Thumbnails
+
+Set `OC_TIKA_URL` (or `WEBDAV_TIKA_URL`) to an Apache Tika server 4.2.0 or newer, started with `TIKA_PRESETS=thumbnail`. The webdav service calls `PUT /unpack/preset/thumbnail`, which only exists with that preset active.
+
+The Tika list starts from a default list: the formats a Tika release serves a thumbnail for, which are documents, ebooks, office and iWork files, GeoGebra, audio cover art and camera raws. It is configured with these variables:
+
+- `OC_TIKA_ADDITIONAL_THUMBNAIL_MIME_TYPES` adds to the default list. This is the usual way to send more to Tika, including `*` for every type that no other rule claims.
+- `OC_TIKA_THUMBNAIL_MIME_TYPES` replaces the default list. Use it to remove types from the default list, or set it empty to send nothing. Whatever it holds is the whole list, so a value of `*` alone drops the camera raws (see the table above).
+
+An entry can map a type to the name Tika uses for it, for example `image/x-nikon-nef:image/x-raw-nikon`. That name decides which Tika parser reads the file. A raw photo that Tika only detects as a plain tiff is parsed as a tiff, and its embedded preview is never found. Every format in the default list is detected correctly without a mapping. The mapping is meant for the next format whose detection stops one level short.
+
+##### Tika Before 4.2.0
+
+`TIKA_PRESETS` is read by Tika 4.2.0 and newer. A 4.1.x server serves the same route when its config file activates the preset:
 
 ```json
 {
@@ -34,8 +67,43 @@ route when its config file activates the preset:
 }
 ```
 
-It is passed with `-c /tika-config.json`, and the `server` block has to be in
-there because the file replaces what the command line would say.
+It is passed with `-c /tika-config.json`. The `server` block has to be in the file, because the file replaces what the command line would set.
+
+#### Announced Types and Output Types
+
+Announcing a type and sending it to Tika are separate settings:
+
+- `OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES` decides what `oc:has-preview` reports in a listing.
+- The Tika list decides who makes the image.
+
+A type that Tika takes is attempted even when it is not announced. A direct request can therefore get a preview that a listing reports as absent.
+
+The thumbnail is written in the type that the **file's** own type maps to (`OC_THUMBNAILS_ADDITIONAL_OUTPUT_TYPES`), not in whatever Tika returns. The answer is the same before and after a cache hit. A Windows binary maps to `image/png` by default, because the icon Tika reads from it has transparency that a JPEG would flatten onto black.
+
+#### Thumbnail Cache
+
+The webdav service caches the thumbnails it generates. Choose a backend with `WEBDAV_THUMBNAILS_CACHE_BACKEND`:
+
+| Backend          | Use case                                                                   |
+| ---------------- | -------------------------------------------------------------------------- |
+| `file` (default) | single instance, entries under `$OC_BASE_DATA_PATH/thumbnails/cache`, change with `WEBDAV_THUMBNAILS_CACHE_DIR` |
+| `s3`             | several instances behind a load balancer that share one cache              |
+| `memory`         | bounded, drops its oldest entries first                                    |
+| `none`           | turns caching off on purpose                                               |
+
+`s3` needs a bucket, a region and credentials. A service other than AWS also needs `WEBDAV_THUMBNAILS_CACHE_S3_ENDPOINT`, and it is always addressed over https. While previews are enabled, an unknown backend or an incomplete `s3` configuration fails at startup rather than running without a cache.
+
+##### What Is Cached
+
+- every generated thumbnail, one entry per size
+- once per file, the image an extractor (Tika or a built-in converter) got from it, so a second size does not extract again
+- the fact that a file holds no image at all, so the extractor is asked only once
+
+A failed extraction (Tika unreachable, preset not active, a broken file) is not cached and is retried on the next request.
+
+##### Expiry
+
+Entries never expire. A changed file gets new entries, because the key contains the file's checksum. An extractor that learns a new format, however, does not revisit files it has already answered for. After such an upgrade (a new Apache Tika release, for example), empty the cache (`WEBDAV_THUMBNAILS_CACHE_DIR`, or the bucket) so those files are asked again.
 
 #### Thumbnail Query String Parameters
 
