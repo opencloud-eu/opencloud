@@ -78,6 +78,21 @@ func TestRecoveringEngineUpsertRecoversPanic(t *testing.T) {
 	}
 }
 
+func TestRecoveringEngineDocCountRecoversPanic(t *testing.T) {
+	engine := mocks.NewEngine(t)
+	engine.EXPECT().DocCount().Run(func() {
+		panic("assignment to entry in nil map")
+	})
+
+	_, err := search.NewRecoveringEngine(engine, log.NopLogger()).DocCount()
+	if err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "search engine panic") {
+		t.Errorf("expected the error to name the engine panic, got %q", err.Error())
+	}
+}
+
 func TestRecoveringEnginePassThrough(t *testing.T) {
 	sentinel := errors.New("index closed")
 
@@ -139,6 +154,29 @@ func TestRecoveringBatchPushPassThrough(t *testing.T) {
 
 	if err := got.Push(); !errors.Is(err, sentinel) {
 		t.Errorf("expected %v, got %v", sentinel, err)
+	}
+}
+
+func TestRecoveringBatchUpsertRecoversPanic(t *testing.T) {
+	batch := mocks.NewBatchOperator(t)
+	batch.EXPECT().Upsert(mock.Anything, mock.Anything).Run(func(string, search.Resource) {
+		panic("assignment to entry in nil map")
+	})
+
+	engine := mocks.NewEngine(t)
+	engine.EXPECT().NewBatch(mock.Anything).Return(batch, nil)
+
+	got, err := search.NewRecoveringEngine(engine, log.NopLogger()).NewBatch(10)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	err = got.Upsert("id", search.Resource{})
+	if err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "search engine panic") {
+		t.Errorf("expected the error to name the engine panic, got %q", err.Error())
 	}
 }
 
