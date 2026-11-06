@@ -600,9 +600,6 @@ func (w *ThumbnailWorkflow) rememberSource(key string, data []byte) {
 	if w.cache == nil || len(data) > maxCachedSourceBytes {
 		return
 	}
-	if w.maxInputSize > 0 && uint64(len(data)) > w.maxInputSize {
-		return
-	}
 	_ = w.cache.Put(key, data)
 }
 
