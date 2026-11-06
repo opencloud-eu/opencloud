@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -845,7 +846,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			_, err = wf2.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).ToNot(HaveOccurred())
 
-			cached, err := testCache.Get("1f/0c/9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b/source")
+			cached, err := testCache.Get(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cached).To(Equal(captured.data), "the cover art is kept as the source, not per size")
 		})
@@ -853,7 +854,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 		It("sends the kept source instead of extracting a second time", func() {
 			pngBytes, err := os.ReadFile(filepath.Join("..", "..", "preprocessor", "test_assets", "noise.png"))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(testCache.Put("1f/0c/9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b/source", pngBytes)).To(Succeed())
+			Expect(testCache.Put(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg"), pngBytes)).To(Succeed())
 
 			//the file itself is not an mp3: extracting it would fail, so what
 			//reaches the generator can only come from the cache
@@ -872,7 +873,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 		})
 
 		It("asks once for a file that carries nothing, whatever size follows", func() {
-			Expect(testCache.Put("1f/0c/9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b/source", nil)).To(Succeed())
+			Expect(testCache.Put(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg"), nil)).To(Succeed())
 
 			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "song.mp3", []byte("not an mp3"))
 
@@ -1729,5 +1730,23 @@ var _ = Describe("postToGenerator", func() {
 		Expect(outType).To(HavePrefix("text/plain"), "the generator's own answer, whatever it says")
 		Expect(partType).To(Equal("image/png"), "application/octet-stream is rejected by imagor")
 		Expect(partDisposition).To(Equal(`form-data; name="image"; filename="we\"ird.png"`))
+	})
+})
+
+var _ = Describe("storage keys", func() {
+	It("keeps a checksum from leaving the cache directory", func() {
+		key := sourceStorageKey("../../../../../tmp/x", "audio/mpeg")
+		Expect(key).To(MatchRegexp(`^[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f]{60}/source$`))
+	})
+
+	It("gives the same bytes under two types two source entries", func() {
+		Expect(sourceStorageKey("cb56752477cae6405f85b131872c60d21b967c6a", "application/pdf")).
+			ToNot(Equal(sourceStorageKey("cb56752477cae6405f85b131872c60d21b967c6a", "text/plain")))
+	})
+
+	It("files a thumbnail and its source under one prefix", func() {
+		source := sourceStorageKey("cb56752477cae6405f85b131872c60d21b967c6a", "image/x-nikon-nef")
+		thumb := thumbnailStorageKey("cb56752477cae6405f85b131872c60d21b967c6a", "image/x-nikon-nef", 64, 64, "jpg", "fill")
+		Expect(path.Dir(thumb)).To(Equal(path.Dir(source)))
 	})
 })
