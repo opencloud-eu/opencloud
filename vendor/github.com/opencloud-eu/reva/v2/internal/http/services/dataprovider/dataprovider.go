@@ -33,6 +33,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp/router"
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/registry"
+	"github.com/opencloud-eu/reva/v2/pkg/upload"
 )
 
 func init() {
@@ -51,6 +52,7 @@ type config struct {
 	NatsEnableTLS      bool                              `mapstructure:"nats_enable_tls"`
 	NatsUsername       string                            `mapstructure:"nats_username"`
 	NatsPassword       string                            `mapstructure:"nats_password"`
+	UploadDirectory    string                            `mapstructure:"upload_directory" docs:";Local directory for staging upload sessions. Overrides the driver's root. Required for drivers that have no local filesystem root."`
 }
 
 func (c *config) init() {
@@ -104,7 +106,21 @@ func New(m map[string]interface{}, log *zerolog.Logger) (global.Service, error) 
 		return nil, err
 	}
 
-	dataTXs, err := getDataTXs(conf, fs, evstream, log)
+	// the data path assembles chunks, so enable chunking
+	coord, err := upload.NewCoordinatorFromConfig(conf.UploadDirectory, conf.Drivers[conf.Driver], fs, evstream, log, true)
+	if err != nil {
+		return nil, fmt.Errorf("dataprovider: %w", err)
+	}
+
+	// only the data path consumes postprocessing results: one consumer group gets
+	// one copy of each event, so a second subscriber would take half of them
+	if ac := upload.AsyncConfFromDriverConf(conf.Drivers[conf.Driver]); ac.Enabled {
+		if err := coord.StartPostprocessing(evstream, ac); err != nil {
+			return nil, fmt.Errorf("dataprovider: could not start postprocessing: %w", err)
+		}
+	}
+
+	dataTXs, err := getDataTXs(conf, coord, fs, evstream, log)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +142,7 @@ func getFS(c *config, stream events.Stream, log *zerolog.Logger) (storage.FS, er
 	return nil, fmt.Errorf("driver not found: %s", c.Driver)
 }
 
-func getDataTXs(c *config, fs storage.FS, publisher events.Publisher, log *zerolog.Logger) (map[string]http.Handler, error) {
+func getDataTXs(c *config, coord upload.Coordinator, fs storage.FS, publisher events.Publisher, log *zerolog.Logger) (map[string]http.Handler, error) {
 	if c.DataTXs == nil {
 		c.DataTXs = make(map[string]map[string]interface{})
 	}
@@ -146,7 +162,7 @@ func getDataTXs(c *config, fs storage.FS, publisher events.Publisher, log *zerol
 	for t := range c.DataTXs {
 		if f, ok := datatxregistry.NewFuncs[t]; ok {
 			if tx, err := f(c.DataTXs[t], publisher, log); err == nil {
-				if handler, err := tx.Handler(fs); err == nil {
+				if handler, err := tx.Handler(coord, fs); err == nil {
 					txs[t] = handler
 				}
 			}

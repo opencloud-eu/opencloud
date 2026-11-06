@@ -31,9 +31,7 @@ import (
 	_ "github.com/opencloud-eu/reva/v2/pkg/storage/fs/local"
 	_ "github.com/opencloud-eu/reva/v2/pkg/storage/fs/localhome"
 	_ "github.com/opencloud-eu/reva/v2/pkg/storage/fs/nextcloud"
-	_ "github.com/opencloud-eu/reva/v2/pkg/storage/fs/ocis"
 	_ "github.com/opencloud-eu/reva/v2/pkg/storage/fs/owncloudsql"
 	_ "github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix"
-	_ "github.com/opencloud-eu/reva/v2/pkg/storage/fs/s3ng"
 	// Add your own here
 )

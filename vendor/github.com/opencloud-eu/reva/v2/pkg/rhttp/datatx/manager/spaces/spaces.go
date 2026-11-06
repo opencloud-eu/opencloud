@@ -42,6 +42,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/cache"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
+	"github.com/opencloud-eu/reva/v2/pkg/upload"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
 
@@ -80,7 +81,7 @@ func New(m map[string]interface{}, publisher events.Publisher, log *zerolog.Logg
 	}, nil
 }
 
-func (m *manager) Handler(fs storage.FS) (http.Handler, error) {
+func (m *manager) Handler(coord upload.Coordinator, driver storage.FS) (http.Handler, error) {
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var spaceID string
 		spaceID, r.URL.Path = router.ShiftPath(r.URL.Path)
@@ -97,7 +98,7 @@ func (m *manager) Handler(fs storage.FS) (http.Handler, error) {
 					metrics.DownloadsActive.Sub(1)
 				}()
 			}
-			download.GetOrHeadFile(w, r, fs, spaceID)
+			download.GetOrHeadFile(w, r, driver, spaceID)
 		case "PUT":
 			metrics.UploadsActive.Add(1)
 			defer func() {
@@ -117,7 +118,7 @@ func (m *manager) Handler(fs storage.FS) (http.Handler, error) {
 				Path:       fn,
 			}
 			var info *provider.ResourceInfo
-			info, err = fs.Upload(ctx, storage.UploadRequest{
+			info, err = coord.Upload(ctx, upload.Request{
 				Ref:    ref,
 				Body:   r.Body,
 				Length: r.ContentLength,

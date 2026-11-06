@@ -103,6 +103,7 @@ type PostprocessingStepFinished struct {
 	UploadID      string
 	ExecutingUser *user.User
 	Filename      string
+	ResourceID    *provider.ResourceId
 
 	FinishedStep Postprocessingstep    // name of the step
 	Result       interface{}           // result information see VirusscanResult for example
@@ -145,6 +146,7 @@ type VirusscanResult struct {
 type PostprocessingFinished struct {
 	UploadID          string
 	Filename          string
+	ResourceID        *provider.ResourceId
 	SpaceOwner        *user.UserId
 	ExecutingUser     *user.User
 	Result            map[Postprocessingstep]interface{} // it is a map[step]Event

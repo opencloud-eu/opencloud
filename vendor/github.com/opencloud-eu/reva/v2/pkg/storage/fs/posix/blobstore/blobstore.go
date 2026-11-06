@@ -67,7 +67,10 @@ func (bs *Blobstore) Upload(n *node.Node, source, copyTarget string) error {
 		return err
 	}
 
-	if bs.canUseRenameForUpload {
+	// a source staged in the tmp dir already is the temp file (see UploadFromReader)
+	staged := filepath.Clean(source) == tempName
+
+	if !staged && bs.canUseRenameForUpload {
 		err := os.Rename(source, tempName)
 		switch {
 		case err == nil:
@@ -80,7 +83,7 @@ func (bs *Blobstore) Upload(n *node.Node, source, copyTarget string) error {
 		}
 	}
 
-	if !bs.canUseRenameForUpload {
+	if !staged && !bs.canUseRenameForUpload {
 		sourceFile, err := os.Open(source)
 		if err != nil {
 			return fmt.Errorf("failed to open source file '%s': %v", source, err)
@@ -193,7 +196,12 @@ func (bs *Blobstore) UploadFromReader(n *node.Node, r io.Reader, size int64) err
 	if n.SpaceRoot == nil {
 		return errors.New("node has no space root")
 	}
-	f, err := os.CreateTemp(n.SpaceRoot.InternalPath(), ".upload-*")
+	// stage in the space's tmp dir, which the watcher ignores
+	tmpDir := filepath.Join(n.SpaceRoot.InternalPath(), TMPDir)
+	if err := os.MkdirAll(tmpDir, 0700); err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(tmpDir, ".upload-*")
 	if err != nil {
 		return errors.Wrap(err, "could not create temporary upload file")
 	}

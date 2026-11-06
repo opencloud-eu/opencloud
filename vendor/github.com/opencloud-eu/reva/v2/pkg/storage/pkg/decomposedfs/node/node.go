@@ -40,6 +40,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/opencloud-eu/reva/v2/internal/grpc/services/storageprovider"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
+	"github.com/opencloud-eu/reva/v2/pkg/conversions"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/mime"
@@ -56,6 +57,10 @@ import (
 )
 
 var tracer trace.Tracer
+
+// ErrMissingParentID is returned when a node exists on disk but has no parent id,
+// which means its metadata is gone and the node can no longer be resolved.
+var ErrMissingParentID = errtypes.InternalError("Missing parent ID on node")
 
 func init() {
 	tracer = otel.Tracer("github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/node")
@@ -524,7 +529,7 @@ func readNode(ctx context.Context, lu PathLookup, spaceID, nodeID, internalPath 
 		if _, ok := lu.MetadataBackend().(metadata.MessagePackBackend); ok {
 			appctx.GetLogger(ctx).Error().Str("path", n.InternalPath()).Str("nodeid", n.ID).Interface("attrs", attrs).Bytes("messagepack", d).Msg("missing parent id")
 		}
-		return nil, errtypes.InternalError("Missing parent ID on node")
+		return nil, ErrMissingParentID
 	}
 
 	if n.Type(ctx) == provider.ResourceType_RESOURCE_TYPE_FILE {
@@ -952,8 +957,8 @@ func (n *Node) AsResourceInfo(ctx context.Context, rp *provider.ResourcePermissi
 
 	// share indicator
 	if _, ok := fieldMaskKeysMap["share-types"]; returnAllFields || ok {
-		granteeTypes := n.getGranteeTypes(ctx)
-		if len(granteeTypes) > 0 {
+		granteeTypes, hasGuestShares := n.getGranteeTypes(ctx)
+		if len(granteeTypes) > 0 || hasGuestShares {
 			// TODO add optional property to CS3 ResourceInfo to transport grants?
 			var s strings.Builder
 			first := true
@@ -964,6 +969,12 @@ func (n *Node) AsResourceInfo(ctx context.Context, rp *provider.ResourcePermissi
 					first = false
 				}
 				s.WriteString(strconv.Itoa(int(t)))
+			}
+			if hasGuestShares {
+				if !first {
+					s.WriteString(",")
+				}
+				s.WriteString(strconv.Itoa(int(conversions.ShareTypeGuest)))
 			}
 			ri.Opaque = utils.AppendPlainToOpaque(ri.Opaque, "share-types", s.String())
 		}
@@ -1369,17 +1380,25 @@ func (n *Node) ListGrants(ctx context.Context) ([]*provider.Grant, error) {
 	return grants, nil
 }
 
-func (n *Node) getGranteeTypes(ctx context.Context) []provider.GranteeType {
+// getGranteeTypes returns the grantee types of the node's grants. The second
+// return value reports whether the node has guest shares, which are stored as
+// user grants with a mail ACE prefix.
+func (n *Node) getGranteeTypes(ctx context.Context) ([]provider.GranteeType, bool) {
 	types := []provider.GranteeType{}
+	hasGuestShares := false
 	if g, err := n.ListGrantees(ctx); err == nil {
 		hasUserShares, hasGroupShares := false, false
 		for i := range g {
 			switch {
-			case !hasUserShares && (strings.HasPrefix(g[i], prefixes.GrantUserAcePrefix) || strings.HasPrefix(g[i], prefixes.GrantMailAcePrefix)):
+			case !hasGuestShares && strings.HasPrefix(g[i], prefixes.GrantMailAcePrefix):
+				hasGuestShares = true
+			case !hasUserShares && strings.HasPrefix(g[i], prefixes.GrantUserAcePrefix):
 				hasUserShares = true
 			case !hasGroupShares && strings.HasPrefix(g[i], prefixes.GrantGroupAcePrefix):
 				hasGroupShares = true
-			case hasUserShares && hasGroupShares:
+			}
+
+			if hasUserShares && hasGroupShares && hasGuestShares {
 				break
 			}
 		}
@@ -1390,7 +1409,7 @@ func (n *Node) getGranteeTypes(ctx context.Context) []provider.GranteeType {
 			types = append(types, provider.GranteeType_GRANTEE_TYPE_GROUP)
 		}
 	}
-	return types
+	return types, hasGuestShares
 }
 
 // ancestorGrants returns the active grants on the node and all its ancestors. The grants on the
@@ -1659,12 +1678,12 @@ func (n *Node) DeleteRevision(ctx context.Context, versionID string) (string, er
 		return n.deleteRevision(ctx, n.ID+RevisionIDDelimiter+versionID)
 	}
 
-	revisionPath, err := n.getLatestRevision(ctx)
+	reverted, err := n.RevertLatestRevision(ctx)
 	if err != nil {
 		return "", err
 	}
 
-	if revisionPath == "" {
+	if !reverted {
 		// there is no revision - delete the node
 		unlock, err := n.lu.MetadataBackend().Lock(n)
 		if err != nil {
@@ -1678,11 +1697,6 @@ func (n *Node) DeleteRevision(ctx context.Context, versionID string) (string, er
 			return "", err
 		}
 		return "", nil
-	}
-
-	latestID := strings.TrimPrefix(revisionPath, n.lu.VersionPath(n.SpaceID, n.ID, ""))
-	if err := n.RevertUpload(ctx, latestID); err != nil {
-		return "", err
 	}
 
 	// we just deleted the current revision - remove processing flag if set
@@ -1733,6 +1747,32 @@ func (n *Node) deleteRevision(ctx context.Context, revisionID string) (string, e
 	}
 
 	return blobID, nil
+}
+
+// RevertLatestRevision reverts the upload that created the node's latest
+// revision: the revision is restored onto the node and removed. Unlike
+// DeleteRevision it neither purges the node when there is no revision nor
+// touches the processing flag. It returns false if there is no revision to
+// restore.
+func (n *Node) RevertLatestRevision(ctx context.Context) (bool, error) {
+	revisionPath, err := n.getLatestRevision(ctx)
+	if err != nil {
+		return false, err
+	}
+	if revisionPath == "" {
+		return false, nil
+	}
+	return true, n.RevertUpload(ctx, strings.TrimPrefix(revisionPath, n.lu.VersionPath(n.SpaceID, n.ID, "")))
+}
+
+// LatestRevisionKey returns the version key of the node's latest revision, or "" if it has
+// none.
+func (n *Node) LatestRevisionKey(ctx context.Context) (string, error) {
+	revisionPath, err := n.getLatestRevision(ctx)
+	if err != nil || revisionPath == "" {
+		return "", err
+	}
+	return strings.TrimPrefix(revisionPath, n.lu.VersionPath(n.SpaceID, n.ID, "")), nil
 }
 
 func (n *Node) getLatestRevision(ctx context.Context) (string, error) {
