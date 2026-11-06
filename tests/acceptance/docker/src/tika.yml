@@ -5,4 +5,6 @@ services:
       - tika
     command: tika:9998
   tika:
-    image: apache/tika:4.1.0-full
+    image: apache/tika:4.2.0-SNAPSHOT-full
+    environment:
+      TIKA_PRESETS: thumbnail

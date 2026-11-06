@@ -3,15 +3,17 @@ package preprocessor
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"io"
 	"os"
+	"strings"
 	"testing"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -77,6 +79,19 @@ var _ = Describe("preprocessor", func() {
 			Expect(img).To(BeNil())
 		})
 
+		It("reports a ggs without a thumbnail as having none", func() {
+			var buf bytes.Buffer
+			w := zip.NewWriter(&buf)
+			_, err := w.Create("geogebra.xml")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(w.Close()).To(Succeed())
+
+			decoder := GgsDecoder{thumbnailpath: ggsThumbnailPath, maxSize: defaultMaxExtractedSize}
+			img, err := decoder.Convert(bytes.NewReader(buf.Bytes()))
+			Expect(err).To(MatchError(ErrNoThumbnail))
+			Expect(img).To(BeNil())
+		})
+
 		It("refuses an entry that expands past the limit", func() {
 			decoder := GgsDecoder{thumbnailpath: ggsThumbnailPath, maxSize: 1 << 20}
 
@@ -109,7 +124,7 @@ var _ = Describe("preprocessor", func() {
 			Expect(img.ContentType).To(HavePrefix("image/"))
 			Expect(img.Data).ToNot(BeEmpty())
 		})
-		It("should decode an audio", func() {
+		It("reports an audio without cover art as having none", func() {
 			fileContent, err := os.ReadFile("test_assets/empty_no_image.mp3")
 			if err != nil {
 				panic(err)
@@ -117,13 +132,46 @@ var _ = Describe("preprocessor", func() {
 			fileReader = bytes.NewReader(fileContent)
 			decoder := AudioDecoder{}
 			img, err := decoder.Convert(fileReader)
-			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(ErrNoThumbnail))
 			Expect(img).To(BeNil())
 		})
 		It("should return an error if the audio is invalid", func() {
 			decoder := AudioDecoder{}
 			img, err := decoder.Convert(bytes.NewReader([]byte("not an audio")))
 			Expect(err).To(HaveOccurred())
+			Expect(err).ToNot(MatchError(ErrNoThumbnail))
+			Expect(img).To(BeNil())
+		})
+	})
+
+	Describe("GgpDecoder", func() {
+		It("hands on the embedded thumbnail", func() {
+			data, err := os.ReadFile("test_assets/noise.png")
+			Expect(err).ToNot(HaveOccurred())
+			ggp := `{"sections":[{"cards":[{"element":{"image":{"base64Image":"data:image/png;base64,` + base64.StdEncoding.EncodeToString(data) + `"}}}]}]}`
+
+			img, err := GgpDecoder{}.Convert(strings.NewReader(ggp))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(img.ContentType).To(Equal("image/png"))
+			Expect(img.Data).To(Equal(data))
+		})
+
+		DescribeTable("reports a ggp without a thumbnail as having none",
+			func(ggp string) {
+				img, err := GgpDecoder{}.Convert(strings.NewReader(ggp))
+				Expect(err).To(MatchError(ErrNoThumbnail))
+				Expect(img).To(BeNil())
+			},
+			Entry("no sections", `{}`),
+			Entry("no cards", `{"sections":[{"cards":[]}]}`),
+			Entry("no base64 image", `{"sections":[{"cards":[{"element":{"image":{"base64Image":""}}}]}]}`),
+			Entry("not an image", `{"sections":[{"cards":[{"element":{"image":{"base64Image":"data:text/plain;base64,aGVsbG8="}}}]}]}`),
+		)
+
+		It("should return an error if the ggp is invalid", func() {
+			img, err := GgpDecoder{}.Convert(strings.NewReader("not a ggp"))
+			Expect(err).To(HaveOccurred())
+			Expect(err).ToNot(MatchError(ErrNoThumbnail))
 			Expect(img).To(BeNil())
 		})
 	})
@@ -165,7 +213,7 @@ var _ = Describe("preprocessor", func() {
 	})
 
 	Describe("ForType", func() {
-		It("has no converter for an image, which never reaches the preprocessor", func() {
+		It("hands an image to the generator as it is", func() {
 			Expect(ForType("image/png", Options{})).To(BeNil())
 		})
 
@@ -181,8 +229,8 @@ var _ = Describe("preprocessor", func() {
 			Expect(ForType("text/plain", Options{})).To(BeAssignableToTypeOf(TxtToImageConverter{}))
 		})
 
-		It("has no converter for an unknown type", func() {
-			Expect(ForType("unknown", Options{})).To(BeNil())
+		It("hands an announced type without a converter to the generator, which says whether it reads it", func() {
+			Expect(ForType("application/pdf", Options{})).To(BeNil())
 		})
 	})
 })

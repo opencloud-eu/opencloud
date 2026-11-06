@@ -36,10 +36,6 @@ func (c *FileCache) Put(key string, data []byte) error {
 	imgPath := filepath.Join(c.dir, key)
 	dir := filepath.Dir(imgPath)
 
-	if _, err := os.Stat(imgPath); err == nil {
-		return nil
-	}
-
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
