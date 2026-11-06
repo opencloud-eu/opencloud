@@ -400,6 +400,21 @@ var _ = Describe("Authenticating guest session requests", Label("Authentication"
 		Expect(guestAuthCalls).To(BeZero())
 	})
 
+	It("authenticates a TUS upload creation with an unusable Authorization header as the guest", func() {
+		req := httptest.NewRequest(http.MethodPost, "http://example.com/dav/spaces/space-id/", http.NoBody)
+		req.AddCookie(&http.Cookie{Name: cookieName, Value: "valid-guest-session"})
+		req.Header.Set(_headerAuthorization, "undefined")
+		req.Header.Set("Tus-Resumable", "1.0.0")
+		rr, seen := serve(req)
+
+		Expect(rr).To(HaveHTTPStatus(http.StatusOK))
+		Expect(seen).ToNot(BeNil())
+		user, ok := revactx.ContextGetUser(seen.Context())
+		Expect(ok).To(BeTrue())
+		Expect(user.GetId().GetOpaqueId()).To(Equal(guestID))
+		Expect(seen.Header.Get(revactx.TokenHeader)).To(Equal(guestToken))
+	})
+
 	It("authenticates a guest cookie with a public share token as the public share", func() {
 		req := guestGet("http://example.com/dav/public-files/sharetoken/file.txt")
 		req.Header.Set(headerShareToken, "sharetoken")

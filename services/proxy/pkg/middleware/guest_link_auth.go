@@ -90,12 +90,17 @@ func isGuestLinkPath(path string) bool {
 
 // hasOtherCredentials reports whether the request carries credentials that are
 // handled by other authenticators. A guest session is a fallback identity: it
-// must never shadow an explicitly sent Authorization header or a public share
-// token. Signed URLs are handled by signedURLSubject.
+// must never shadow an explicitly sent bearer or basic Authorization header or a
+// public share token. Signed URLs are handled by signedURLSubject.
 func hasOtherCredentials(r *http.Request) bool {
 	query := r.URL.Query()
 
-	if r.Header.Get(_headerAuthorization) != "" {
+	authorization := r.Header.Get(_headerAuthorization)
+	if strings.HasPrefix(authorization, _bearerPrefix) && len(authorization) > len(_bearerPrefix) {
+		return true
+	}
+
+	if _, _, ok := r.BasicAuth(); ok {
 		return true
 	}
 

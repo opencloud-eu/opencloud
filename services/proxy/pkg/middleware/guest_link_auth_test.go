@@ -162,6 +162,7 @@ func TestGuestLinkAuthenticator_OtherCredentials(t *testing.T) {
 		authHeader string
 	}{
 		{"bearer token in header", "/dav/files/user/file.txt", "Bearer expired-token"},
+		{"basic auth in header", "/dav/files/user/file.txt", "Basic dXNlcjpwYXNz"},
 		{"signed url with OC-Signature", "/dav/files/user/file.txt?OC-Signature=abc", ""},
 		{"signed url with oc-jwt-sig", "/dav/files/user/file.txt?oc-jwt-sig=abc", ""},
 	}
@@ -414,6 +415,70 @@ func TestGuestLinkAuthenticator_Success(t *testing.T) {
 	}
 }
 
+func TestGuestLinkAuthenticator_UnusableAuthorizationHeader(t *testing.T) {
+	tests := []struct {
+		name       string
+		authHeader string
+	}{
+		{"undefined", "undefined"},
+		{"empty bearer token", "Bearer "},
+		{"unsupported scheme", "Digest abc"},
+		{"malformed basic", "Basic !!not-base64"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool.RemoveSelector("GatewaySelector" + "eu.opencloud.api.gateway")
+			authenticator := &GuestLinkAuthenticator{
+				Logger: log.NewLogger(),
+				Config: GuestLinkAuthConfig{
+					CookieName: "__Host-oc_guest_session",
+				},
+				RevaGatewaySelector: pool.GetSelector[gateway.GatewayAPIClient](
+					"GatewaySelector",
+					"eu.opencloud.api.gateway",
+					func(cc grpc.ClientConnInterface) gateway.GatewayAPIClient {
+						return mockGatewayClientWithUser{
+							AuthenticateFunc: func(authType, clientID, clientSecret string) (string, *userpb.User, rpcv1beta1.Code) {
+								if authType != "guestlinks" || clientSecret != "valid-jwt-token" {
+									return "", nil, rpcv1beta1.Code_CODE_UNAUTHENTICATED
+								}
+								guestUser := &userpb.User{
+									Id: &userpb.UserId{OpaqueId: "guest-user-123", Type: userpb.UserType_USER_TYPE_GUEST},
+								}
+								return "reva-guest-token", guestUser, rpcv1beta1.Code_CODE_OK
+							},
+						}
+					},
+				),
+			}
+
+			req := httptest.NewRequest(http.MethodGet, testEndpoint, http.NoBody)
+			req.AddCookie(getCookie("valid-jwt-token"))
+			req.Header.Set(_headerAuthorization, tt.authHeader)
+
+			result := authenticator.Authenticate(req)
+
+			if result.State != AuthenticationSucceeded {
+				t.Errorf("expected AuthenticationSucceeded, got %v", result.State)
+				return
+			}
+
+			user, ok := revactx.ContextGetUser(result.Request.Context())
+			if !ok || user == nil {
+				t.Error("expected user in context")
+			}
+			if user != nil && user.GetId().GetOpaqueId() != "guest-user-123" {
+				t.Errorf("expected user ID 'guest-user-123', got '%s'", user.GetId().GetOpaqueId())
+			}
+
+			if req.Header.Get(revactx.TokenHeader) != "reva-guest-token" {
+				t.Errorf("expected x-access-token header to be 'reva-guest-token'")
+			}
+		})
+	}
+}
+
 func TestGuestLinkAuthenticator_MissingUserOnOK(t *testing.T) {
 	pool.RemoveSelector("GatewaySelector" + "eu.opencloud.api.gateway")
 	authenticator := &GuestLinkAuthenticator{
@@ -617,6 +682,7 @@ func TestGuestLinkAuthenticator_ChallengeSuppression(t *testing.T) {
 		{"cookie on guest path", testEndpoint, true, "", "", true},
 		{"cookie on non-guest path", "http://example.com/graph/v1.0/me", true, "", "", false},
 		{"cookie with auth header", testEndpoint, true, "Bearer token", "", false},
+		{"cookie with unusable auth header", testEndpoint, true, "undefined", "", true},
 		{"cookie with public token header", testEndpoint, true, "", "abc", false},
 		{"cookie with OC-Signature query", testEndpoint + "?OC-Signature=abc", true, "", "", true},
 		{"cookie with oc-jwt-sig query", testEndpoint + "?oc-jwt-sig=abc", true, "", "", true},
