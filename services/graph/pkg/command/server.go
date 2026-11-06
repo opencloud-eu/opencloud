@@ -123,6 +123,14 @@ func Server(cfg *config.Config) *cobra.Command {
 				}
 			}
 
+			var photoService svc.UsersUserProfilePhotoProvider
+			if !cfg.HTTP.Disabled || (!cfg.Events.DisabledConsumer && eventsStream != nil) {
+				photoService, err = svc.NewConfiguredUserProfilePhotoService(ctx, cfg)
+				if err != nil {
+					return err
+				}
+			}
+
 			gr := runner.NewGroup()
 
 			if !cfg.HTTP.Disabled {
@@ -135,6 +143,7 @@ func Server(cfg *config.Config) *cobra.Command {
 					http.Logger(logger),
 					http.Context(ctx),
 					http.Config(cfg),
+					http.UserProfilePhotoService(photoService),
 					http.Metrics(mtrcs),
 					http.TraceProvider(traceProvider),
 					http.NatsKeyValue(kv),
@@ -158,7 +167,7 @@ func Server(cfg *config.Config) *cobra.Command {
 				// for context, see https://github.com/opencloud-eu/opencloud/issues/1312
 
 				logger := &log.Logger{Logger: logger.With().Str("transport", "events").Logger()}
-				eventConsumer, err := evc.NewService(cfg.Context, eventsStream, identityBackend, mtrcs, logger)
+				eventConsumer, err := evc.NewService(cfg.Context, eventsStream, identityBackend, mtrcs, logger, evc.WithProfilePictureSync(photoService, eventsStream))
 				if err != nil {
 					return fmt.Errorf("could not initialize events consumer: %w", err)
 				}
