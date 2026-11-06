@@ -79,6 +79,10 @@ type testConfigOverride struct {
 	OverrideString string `env:"TEST_OVERRIDE_A;TEST_OVERRIDE_B,default=override_default"`
 }
 
+type testConfigFileEnv struct {
+	SensitiveValueString string `env:"SENSITIVE_VALUE"`
+}
+
 type testNoExportedFields struct {
 	// following unexported fields are used for tests
 	aString  string  `env:"TEST_STRING"`  //nolint:structcheck,unused
@@ -354,6 +358,130 @@ func TestDecode(t *testing.T) {
 	if tco.OverrideString != "override_b" {
 		t.Fatalf(`Expected "override_b" but got %s`, tco.OverrideString)
 	}
+}
+
+func TestDecodeFileEnv(t *testing.T) {
+	os.Setenv("SENSITIVE_VALUE", "foo")
+
+	// test retrieving value directly from environment variable
+	tcfe := testConfigFileEnv{}
+	err := Decode(&tcfe)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if tcfe.SensitiveValueString != "foo" {
+		t.Fatalf(`Expected "foo" but got "%s"`, tcfe.SensitiveValueString)
+	}
+
+	// test retrieving value from file pointed to by environment variable suffixed with `_FILE`
+	os.Unsetenv("SENSITIVE_VALUE")
+	secretFile := createFileWithContent(t, "sensitive secret")
+	os.Setenv("SENSITIVE_VALUE_FILE", secretFile)
+
+	tcfe = testConfigFileEnv{}
+	err = Decode(&tcfe)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if tcfe.SensitiveValueString != "sensitive secret" {
+		t.Fatalf(`Expected "sensitive secret" but got "%s"`, tcfe.SensitiveValueString)
+	}
+
+	// test precedence: retrieve value directly from environment
+	os.Setenv("SENSITIVE_VALUE", "foo")
+	secretFile = createFileWithContent(t, "sensitive secret")
+	os.Setenv("SENSITIVE_VALUE_FILE", secretFile)
+
+	tcfe = testConfigFileEnv{}
+	err = Decode(&tcfe)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if tcfe.SensitiveValueString != "foo" {
+		t.Fatalf(`Expected "foo" but got "%s"`, tcfe.SensitiveValueString)
+	}
+
+	// test trimming carriage return from parsed file
+	os.Unsetenv("SENSITIVE_VALUE")
+	secretFile = createFileWithContent(t, "sensitive secret CR\r")
+	os.Setenv("SENSITIVE_VALUE_FILE", secretFile)
+
+	tcfe = testConfigFileEnv{}
+	err = Decode(&tcfe)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if tcfe.SensitiveValueString != "sensitive secret CR" {
+		t.Fatalf(`Expected "foo" but got "%s"`, tcfe.SensitiveValueString)
+	}
+
+	// test trimming line feed from parsed file
+	secretFile = createFileWithContent(t, "sensitive secret LF\n")
+	os.Setenv("SENSITIVE_VALUE_FILE", secretFile)
+
+	tcfe = testConfigFileEnv{}
+	err = Decode(&tcfe)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if tcfe.SensitiveValueString != "sensitive secret LF" {
+		t.Fatalf(`Expected "foo" but got "%s"`, tcfe.SensitiveValueString)
+	}
+
+	// test trimming carriage return and line feed from parsed file
+	secretFile = createFileWithContent(t, "sensitive secret CR LF\r\n")
+	os.Setenv("SENSITIVE_VALUE_FILE", secretFile)
+
+	tcfe = testConfigFileEnv{}
+	err = Decode(&tcfe)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if tcfe.SensitiveValueString != "sensitive secret CR LF" {
+		t.Fatalf(`Expected "foo" but got "%s"`, tcfe.SensitiveValueString)
+	}
+
+	// (error) test referencing non-existent file
+	os.Setenv("SENSITIVE_VALUE_FILE", "/path/that/does/not/exist")
+
+	tcfe = testConfigFileEnv{}
+	err = Decode(&tcfe)
+	if err == nil {
+		t.Fatal("Expected to fail at reading non-existing file")
+	}
+
+	// (error) test referencing ""
+	os.Setenv("SENSITIVE_VALUE_FILE", "")
+
+	tcfe = testConfigFileEnv{}
+	err = Decode(&tcfe)
+	if err == nil {
+		t.Fatal("Expected to fail at reading not provided file")
+	}
+}
+
+func createFileWithContent(t *testing.T, content string) string {
+	t.Helper()
+
+	file, err := os.CreateTemp(t.TempDir(), "secret")
+	if err != nil {
+		t.Fatal("Failed to write temporary file")
+	}
+	_, err = file.WriteString(content)
+	if err != nil {
+		t.Fatal("Failed to write content to temporary file")
+	}
+	err = file.Close()
+	if err != nil {
+		t.Fatal("Failed to close temporary file")
+	}
+	return file.Name()
 }
 
 func TestDecodeErrors(t *testing.T) {
