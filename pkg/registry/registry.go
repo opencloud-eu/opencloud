@@ -9,6 +9,7 @@ import (
 
 	memr "github.com/go-micro/plugins/v4/registry/memory"
 	"github.com/opencloud-eu/opencloud/pkg/natsjsregistry"
+	"github.com/opencloud-eu/opencloud/pkg/shared"
 	rRegistry "github.com/opencloud-eu/reva/v2/pkg/registry"
 	mRegistry "go-micro.dev/v4/registry"
 	"go-micro.dev/v4/registry/cache"
@@ -20,8 +21,9 @@ const (
 )
 
 var (
-	_once sync.Once
-	_reg  mRegistry.Registry
+	_once       sync.Once
+	_reg        mRegistry.Registry
+	_configured *shared.Registry
 )
 
 // Config is the config for a registry
@@ -44,23 +46,36 @@ func Inmemory() Option {
 	}
 }
 
-// GetRegistry returns a configured micro registry based on Micro env vars.
+// Configure sets the registry configuration from the OpenCloud config, which
+// already includes the MICRO_REGISTRY* env vars. It has no effect once
+// GetRegistry has been called.
+func Configure(cfg shared.Registry) {
+	_configured = &cfg
+}
+
+// GetRegistry returns a micro registry based on the config passed to Configure
+// or the Micro env vars.
 // It defaults to mDNS, so mind that systems with mDNS disabled by default (i.e SUSE) will have a hard time
 // and it needs to explicitly use etcd. Os awareness for providing a working registry out of the box should be done.
 func GetRegistry(opts ...Option) mRegistry.Registry {
 	_once.Do(func() {
-		cfg := getEnvs(opts...)
+		cfg := getConfig(opts...)
 
 		switch cfg.Type {
 		default:
 			fmt.Println("Attention: unknown registry type, using default nats-js-kv")
 			fallthrough
 		case "natsjs", "nats-js", "nats-js-kv": // for backwards compatibility - we will stick with one of those
-			_reg = natsjsregistry.NewRegistry(
-				mRegistry.Addrs(cfg.Addresses...),
+			connOpts := []mRegistry.Option{mRegistry.Addrs(cfg.Addresses...)}
+			if cfg.Username != "" || cfg.Password != "" {
+				connOpts = append(connOpts, natsjsregistry.Authenticate(cfg.Username, cfg.Password))
+			}
+			natsjsregistry.SetMicroOptions(connOpts...)
+
+			_reg = natsjsregistry.NewRegistry(append(connOpts,
 				natsjsregistry.DefaultTTL(cfg.RegisterTTL),
 				natsjsregistry.ServiceName("_oc"),
-			)
+			)...)
 		case "memory":
 			_reg = memr.NewRegistry()
 			cfg.DisableCache = true // no cache needed for in-memory registry
@@ -79,7 +94,7 @@ func GetRegistry(opts ...Option) mRegistry.Registry {
 	return _reg
 }
 
-func getEnvs(opts ...Option) *Config {
+func getConfig(opts ...Option) *Config {
 	cfg := &Config{
 		Type:      "nats-js-kv",
 		Addresses: []string{"127.0.0.1:9233"},
@@ -91,6 +106,17 @@ func getEnvs(opts ...Option) *Config {
 
 	if s := strings.Split(os.Getenv(_registryAddressEnv), ","); len(s) > 0 && s[0] != "" {
 		cfg.Addresses = s
+	}
+
+	if c := _configured; c != nil {
+		if c.Type != "" {
+			cfg.Type = c.Type
+		}
+		if len(c.Addresses) > 0 {
+			cfg.Addresses = c.Addresses
+		}
+		cfg.Username = c.AuthUsername
+		cfg.Password = c.AuthPassword
 	}
 
 	cfg.RegisterTTL = GetRegisterTTL()

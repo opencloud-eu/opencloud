@@ -8,6 +8,8 @@ import (
 
 	"github.com/opencloud-eu/opencloud/opencloud/pkg/register"
 	"github.com/opencloud-eu/opencloud/pkg/config"
+	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
+	"github.com/opencloud-eu/opencloud/pkg/config/parser"
 	"github.com/opencloud-eu/opencloud/pkg/registry"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 
@@ -38,6 +40,7 @@ func VersionCommand(cfg *config.Config) *cobra.Command {
 
 			fmt.Print("\n")
 
+			configlog.Error(parser.ParseConfig(cfg, true))
 			reg := registry.GetRegistry()
 			serviceList, err := reg.ListServices()
 			if err != nil {

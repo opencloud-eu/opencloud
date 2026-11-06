@@ -61,6 +61,14 @@ type Cache struct {
 	TLSRootCACertificate string        `yaml:"tls_root_ca_certificate" env:"OC_CACHE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided OC_CACHE_TLS_INSECURE will be seen as false." introductionVersion:"7.3.0"`
 }
 
+// Registry defines the configuration of the service registry
+type Registry struct {
+	Type         string   `yaml:"type" env:"MICRO_REGISTRY" desc:"The type of the service registry. Supported values are 'nats-js-kv' and 'memory'. 'memory' only works when all services run in the same process." introductionVersion:"1.0.0"`
+	Addresses    []string `yaml:"addresses" env:"MICRO_REGISTRY_ADDRESS" desc:"The NATS addresses the service registry connects to, comma separated when set via the environment variable. This is configured separately from the events endpoint and has to be set on every service that does not run in the same process as the nats service. Only applies when the registry type is 'nats-js-kv'." introductionVersion:"1.0.0"`
+	AuthUsername string   `yaml:"auth_username" env:"MICRO_REGISTRY_AUTH_USERNAME" desc:"The username to authenticate with NATS. Only applies when the registry type is 'nats-js-kv'." introductionVersion:"1.0.0"`
+	AuthPassword string   `mask:"password" yaml:"auth_password" env:"MICRO_REGISTRY_AUTH_PASSWORD" desc:"The password to authenticate with NATS. Only applies when the registry type is 'nats-js-kv'." introductionVersion:"1.0.0"`
+}
+
 // Commons holds configuration that are common to all extensions. Each extension can then decide whether
 // to overwrite its values.
 type Commons struct {
