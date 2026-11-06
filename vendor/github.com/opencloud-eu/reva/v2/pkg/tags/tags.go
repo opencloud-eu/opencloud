@@ -69,6 +69,7 @@ func (t *Tags) Remove(s ...string) bool {
 			}
 
 			delete(t.exists, tag)
+			t.numtags--
 			removed = true
 		}
 	}

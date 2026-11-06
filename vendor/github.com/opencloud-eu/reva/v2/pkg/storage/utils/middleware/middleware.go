@@ -29,7 +29,6 @@ import (
 
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/upload"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 )
 
@@ -94,21 +93,21 @@ func (f *FS) GetUpload(ctx context.Context, id string) (upload tusd.Upload, err 
 // To implement the termination extension as specified in https://tus.io/protocols/resumable-upload.html#termination
 // the storage needs to implement AsTerminatableUpload
 func (f *FS) AsTerminatableUpload(up tusd.Upload) tusd.TerminatableUpload {
-	return up.(*upload.OcisSession)
+	return f.next.(tusd.TerminaterDataStore).AsTerminatableUpload(up)
 }
 
 // AsLengthDeclarableUpload returns a LengthDeclarableUpload
 // To implement the creation-defer-length extension as specified in https://tus.io/protocols/resumable-upload.html#creation
 // the storage needs to implement AsLengthDeclarableUpload
 func (f *FS) AsLengthDeclarableUpload(up tusd.Upload) tusd.LengthDeclarableUpload {
-	return up.(*upload.OcisSession)
+	return f.next.(tusd.LengthDeferrerDataStore).AsLengthDeclarableUpload(up)
 }
 
 // AsConcatableUpload returns a ConcatableUpload
 // To implement the concatenation extension as specified in https://tus.io/protocols/resumable-upload.html#concatenation
 // the storage needs to implement AsConcatableUpload
 func (f *FS) AsConcatableUpload(up tusd.Upload) tusd.ConcatableUpload {
-	return up.(*upload.OcisSession)
+	return f.next.(tusd.ConcaterDataStore).AsConcatableUpload(up)
 }
 
 func (f *FS) GetHome(ctx context.Context) (string, error) {
