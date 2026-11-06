@@ -62,9 +62,10 @@ func DefaultConfig() *config.Config {
 			UserinfoCache: &config.Cache{
 				Store:    "memory",
 				Nodes:    []string{"127.0.0.1:9233"},
-				Database: "cache-userinfo",
+				Database: "cache-oidc-tokens",
 				TTL:      time.Second * 10,
 			},
+			MaxAccessTokenLifetime: time.Hour * 24,
 			JWKS: config.JWKS{
 				RefreshInterval:   60, // minutes
 				RefreshRateLimit:  60, // seconds
