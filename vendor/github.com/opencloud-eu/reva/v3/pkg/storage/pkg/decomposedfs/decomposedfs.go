@@ -376,7 +376,7 @@ func (fs *Decomposedfs) GetQuota(ctx context.Context, ref *provider.Reference) (
 	switch {
 	case err != nil:
 		return 0, 0, 0, err
-	case !rp.GetQuota && !fs.p.ListAllSpaces(ctx):
+	case !rp.GetQuota && !fs.canListAllSpaces(ctx, n):
 		f, _ := storagespace.FormatReference(ref)
 		if rp.Stat {
 			return 0, 0, 0, errtypes.PermissionDenied(f)
