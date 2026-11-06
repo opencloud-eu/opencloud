@@ -48,15 +48,33 @@ func NewHTTPCheck(url string) func(context.Context) error {
 
 // IsLocalHealthCheck reports whether r is a request of NewHTTPCheck, so an
 // access log can leave it out. The user agent alone would let any client hide
-// its requests, so the request must also come from the loopback address.
+// its requests, so the connection must also come from the server's own
+// address: the check calls the address the server listens on, for 0.0.0.0
+// that is the IP of the host or pod, not the loopback address.
 func IsLocalHealthCheck(r *http.Request) bool {
 	if r.UserAgent() != HealthCheckUserAgent {
 		return false
 	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
+	local, ok := r.Context().Value(http.LocalAddrContextKey).(net.Addr)
+	if !ok {
 		return false
 	}
+	peer, ok := addrIP(r.RemoteAddr)
+	if !ok {
+		return false
+	}
+	own, ok := addrIP(local.String())
+	return ok && peer == own
+}
+
+func addrIP(hostport string) (netip.Addr, bool) {
+	host, _, err := net.SplitHostPort(hostport)
+	if err != nil {
+		return netip.Addr{}, false
+	}
 	a, err := netip.ParseAddr(host)
-	return err == nil && a.Unmap().IsLoopback()
+	if err != nil {
+		return netip.Addr{}, false
+	}
+	return a.Unmap().WithZone(""), true
 }

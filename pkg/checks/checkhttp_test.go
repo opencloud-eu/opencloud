@@ -2,6 +2,7 @@ package checks
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -25,16 +26,20 @@ func TestNewHTTPCheck(t *testing.T) {
 
 func TestIsLocalHealthCheck(t *testing.T) {
 	for name, tc := range map[string]struct {
-		remoteAddr, userAgent string
-		want                  bool
+		localAddr, remoteAddr, userAgent string
+		want                             bool
 	}{
-		"check from ipv4 loopback": {"127.0.0.1:51234", HealthCheckUserAgent, true},
-		"check from ipv6 loopback": {"[::1]:51234", HealthCheckUserAgent, true},
-		"client sending the agent": {"203.0.113.7:51234", HealthCheckUserAgent, false},
-		"proxy in front":           {"10.0.0.5:51234", HealthCheckUserAgent, false},
-		"local browser":            {"127.0.0.1:51234", "Mozilla/5.0", false},
+		"check to the pod ip":       {"10.21.130.74:9200", "10.21.130.74:51234", HealthCheckUserAgent, true},
+		"check to the loopback":     {"127.0.0.1:9200", "127.0.0.1:51234", HealthCheckUserAgent, true},
+		"check to ipv6":             {"[fd00::5]:9200", "[fd00::5]:51234", HealthCheckUserAgent, true},
+		"ingress sending the agent": {"10.21.130.74:9200", "10.21.64.12:51234", HealthCheckUserAgent, false},
+		"client sending the agent":  {"10.21.130.74:9200", "203.0.113.7:51234", HealthCheckUserAgent, false},
+		"local browser":             {"127.0.0.1:9200", "127.0.0.1:51234", "Mozilla/5.0", false},
 	} {
 		r := httptest.NewRequest(http.MethodHead, "/", nil)
+		local, err := net.ResolveTCPAddr("tcp", tc.localAddr)
+		require.NoError(t, err)
+		r = r.WithContext(context.WithValue(r.Context(), http.LocalAddrContextKey, local))
 		r.RemoteAddr = tc.remoteAddr
 		r.Header.Set("User-Agent", tc.userAgent)
 		assert.Equal(t, tc.want, IsLocalHealthCheck(r), name)
