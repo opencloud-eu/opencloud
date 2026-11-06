@@ -236,7 +236,7 @@ var _ = Describe("Authenticating guest session requests", Label("Authentication"
 
 	guestGet := func(target string) *http.Request {
 		req := httptest.NewRequest(http.MethodGet, target, http.NoBody)
-		req.AddCookie(&http.Cookie{Name: cookieName, Value: "valid-guest-session"})
+		req.AddCookie(getCookie("valid-guest-session"))
 		return req
 	}
 
@@ -402,7 +402,7 @@ var _ = Describe("Authenticating guest session requests", Label("Authentication"
 
 	It("authenticates a TUS upload creation with an unusable Authorization header as the guest", func() {
 		req := httptest.NewRequest(http.MethodPost, "http://example.com/dav/spaces/space-id/", http.NoBody)
-		req.AddCookie(&http.Cookie{Name: cookieName, Value: "valid-guest-session"})
+		req.AddCookie(getCookie("valid-guest-session"))
 		req.Header.Set(_headerAuthorization, "undefined")
 		req.Header.Set("Tus-Resumable", "1.0.0")
 		rr, seen := serve(req)
