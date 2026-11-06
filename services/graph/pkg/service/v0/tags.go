@@ -109,7 +109,25 @@ func (g Graph) AssignTags(w http.ResponseWriter, r *http.Request) {
 	}
 
 	allTags := tags.New(currentTags)
-	if !allTags.Add(assignment.Tags...) {
+	existingCount := len(allTags.AsSlice())
+	// tags.Add drops the tags beyond the maximum without telling us and only
+	// reports whether at least one was added. Collect the distinct new tags
+	// ourselves and reject the request unless all of them fit.
+	var added []string
+	seen := make(map[string]bool, existingCount)
+	for _, tag := range allTags.AsSlice() {
+		seen[tag] = true
+	}
+	for _, t := range assignment.Tags {
+		for _, tag := range strings.Split(t, ",") {
+			if tag == "" || seen[tag] {
+				continue
+			}
+			seen[tag] = true
+			added = append(added, tag)
+		}
+	}
+	if !allTags.Add(added...) || len(allTags.AsSlice()) != existingCount+len(added) {
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "no new tags in createtagsrequest or maximum reached")
 		return
 	}
@@ -134,7 +152,7 @@ func (g Graph) AssignTags(w http.ResponseWriter, r *http.Request) {
 
 	if g.eventsPublisher != nil {
 		ev := events.TagsAdded{
-			Tags: strings.Join(assignment.Tags, ","),
+			Tags: strings.Join(added, ","),
 			Ref: &provider.Reference{
 				ResourceId: &rid,
 				Path:       ".",
