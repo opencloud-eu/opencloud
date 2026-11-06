@@ -41,8 +41,10 @@ import (
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
+	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/idcache"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/ignore"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
@@ -414,6 +416,9 @@ func (t *Tree) TouchFile(ctx context.Context, n *node.Node, markprocessing bool,
 		return err
 	}
 
+	if storage.SkipTouchPropagation(ctx) {
+		return nil
+	}
 	return t.Propagate(ctx, n, 0)
 }
 
@@ -788,8 +793,12 @@ func (t *Tree) InitNewNode(ctx context.Context, n *node.Node, fsize uint64) (met
 
 	_, span := tracer.Start(ctx, "InitNewNode")
 	defer span.End()
+
+	// the node may not be cached yet, so its path comes from the parent and the name
+	nodePath := filepath.Join(n.ParentPath(), n.Name)
+
 	// create folder structure (if needed)
-	if err := os.MkdirAll(filepath.Dir(n.InternalPath()), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(nodePath), 0700); err != nil {
 		return nil, err
 	}
 
@@ -800,34 +809,61 @@ func (t *Tree) InitNewNode(ctx context.Context, n *node.Node, fsize uint64) (met
 	}
 
 	// we also need to touch the actual node file here it stores the mtime of the resource
-	h, err := os.OpenFile(n.InternalPath(), os.O_CREATE|os.O_EXCL, 0600)
+	h, err := os.OpenFile(nodePath, os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
+		// the file is not ours: leave it, and its cache entry, alone
+		releaseNewNodeLock(ctx, n, unlock)
 		if os.IsExist(err) {
-			return unlock, errtypes.AlreadyExists(n.InternalPath())
+			// the name only: the message reaches the client, the path is the server's
+			return nil, errtypes.AlreadyExists(n.Name)
 		}
-		return unlock, err
+		return nil, err
+	}
+	defer func() { _ = h.Close() }()
+
+	// from here the file is ours. A failure removes it and our cache entry before
+	// unlocking, so nothing can open the node in between.
+	fail := func(err error) (metadata.UnlockFunc, error) {
+		if rErr := os.Remove(nodePath); rErr != nil {
+			t.log.Error().Err(rErr).Str("nodeid", n.ID).Msg("could not remove new node file")
+		}
+		if dErr := t.lookup.IDCache.Delete(ctx, n.SpaceID, n.ID); dErr != nil {
+			t.log.Error().Err(dErr).Str("nodeid", n.ID).Msg("could not remove new node from the id cache")
+		}
+		releaseNewNodeLock(ctx, n, unlock)
+		return nil, err
+	}
+
+	// cached only now that the name is ours, so a losing upload cannot point it at its id
+	if err := t.lookup.CacheID(ctx, n.SpaceID, n.ID, nodePath); err != nil {
+		return fail(err)
 	}
 
 	// Set known mtime from filesystem to metadata to preven re-assimilation
 	fi, err := h.Stat()
 	if err != nil {
-		return nil, err
+		return fail(err)
 	}
 	mtime := fi.ModTime()
 	err = n.SetXattrsWithContext(ctx, map[string][]byte{
 		prefixes.MTimeAttr: []byte(mtime.UTC().Format(time.RFC3339Nano)),
 	})
 	if err != nil {
-		t.log.Error().Err(err).Str("path", n.InternalPath()).Msg("could not set mtime attribute on new node")
+		t.log.Error().Err(err).Str("path", nodePath).Msg("could not set mtime attribute on new node")
 	}
 
-	_ = h.Close()
-
 	if _, err := node.CheckQuota(ctx, n.SpaceRoot, false, 0, fsize); err != nil {
-		return unlock, err
+		return fail(err)
 	}
 
 	return unlock, nil
+}
+
+// releaseNewNodeLock releases the lock of a node InitNewNode failed to create.
+func releaseNewNodeLock(ctx context.Context, n *node.Node, unlock metadata.UnlockFunc) {
+	if err := unlock(); err != nil {
+		appctx.GetLogger(ctx).Error().Err(err).Str("nodeid", n.ID).Msg("could not release new node lock")
+	}
 }
 
 // TODO check if node exists?

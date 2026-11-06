@@ -20,6 +20,10 @@ package ocs
 
 import (
 	"encoding/xml"
+	"maps"
+	"slices"
+
+	"github.com/opencloud-eu/reva/v2/pkg/storage"
 )
 
 // ocsBool implements the xml/json Marshaler interface. The OCS API inconsistency require us to parse boolean values
@@ -62,6 +66,63 @@ type Capabilities struct {
 	Theme          *CapabilitiesTheme          `json:"theme,omitempty" xml:"theme,omitempty" mapstructure:"theme"`
 	Notifications  *CapabilitiesNotifications  `json:"notifications,omitempty" xml:"notifications,omitempty"`
 	Groupware      *CapabilitiesGroupware      `json:"groupware,omitempty" xml:"groupware,omitempty" mapstructure:"groupware"`
+	// Providers is the per-provider capability section, keyed by provider ID. It
+	// supersedes the deprecated global storage keys under Files/Dav; there is no
+	// fallback between them.
+	Providers ProviderCapabilitiesMap `json:"providers,omitempty" xml:"providers,omitempty" mapstructure:"providers"`
+}
+
+// ProviderCapabilitiesMap is the per-provider section keyed by provider ID.
+type ProviderCapabilitiesMap map[string]*ProviderCapabilities
+
+// MarshalXML renders the map as <providers><provider id="...">...</provider>...</providers>,
+// ordered by id. encoding/xml cannot marshal a Go map, so XML output is produced
+// explicitly; JSON uses the default map encoding.
+func (m ProviderCapabilitiesMap) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	if len(m) == 0 {
+		return nil
+	}
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	for _, id := range slices.Sorted(maps.Keys(m)) {
+		el := xml.StartElement{
+			Name: xml.Name{Local: "provider"},
+			Attr: []xml.Attr{{Name: xml.Name{Local: "id"}, Value: id}},
+		}
+		if err := e.EncodeElement(m[id], el); err != nil {
+			return err
+		}
+	}
+	return e.EncodeToken(start.End())
+}
+
+// ProviderCapabilities is the wire form of a provider's declared capabilities.
+type ProviderCapabilities struct {
+	Upload            ocsBool `json:"upload" xml:"upload"`
+	CreateContainer   ocsBool `json:"create_container" xml:"create_container"`
+	Delete            ocsBool `json:"delete" xml:"delete"`
+	Move              ocsBool `json:"move" xml:"move"`
+	Versioning        ocsBool `json:"versioning" xml:"versioning"`
+	Trash             ocsBool `json:"trash" xml:"trash"`
+	Locking           ocsBool `json:"locking" xml:"locking"`
+	Sharing           ocsBool `json:"sharing" xml:"sharing"`
+	ArbitraryMetadata ocsBool `json:"arbitrary_metadata" xml:"arbitrary_metadata"`
+}
+
+// NewProviderCapabilities maps a driver's declaration onto the OCS response type.
+func NewProviderCapabilities(c storage.Capabilities) *ProviderCapabilities {
+	return &ProviderCapabilities{
+		Upload:            ocsBool(c.Upload),
+		CreateContainer:   ocsBool(c.CreateContainer),
+		Delete:            ocsBool(c.Delete),
+		Move:              ocsBool(c.Move),
+		Versioning:        ocsBool(c.Versioning),
+		Trash:             ocsBool(c.Trash),
+		Locking:           ocsBool(c.Locking),
+		Sharing:           ocsBool(c.Sharing),
+		ArbitraryMetadata: ocsBool(c.ArbitraryMetadata),
+	}
 }
 
 // CapabilitiesSearch holds the search capabilities
@@ -192,10 +253,13 @@ type CapabilitiesAppProvider struct {
 
 // CapabilitiesFiles TODO this is storage specific, not global. What effect do these options have on the clients?
 type CapabilitiesFiles struct {
-	PrivateLinks     ocsBool                      `json:"privateLinks" xml:"privateLinks" mapstructure:"private_links"`
-	BigFileChunking  ocsBool                      `json:"bigfilechunking" xml:"bigfilechunking"`
-	Undelete         ocsBool                      `json:"undelete" xml:"undelete"`
-	Versioning       ocsBool                      `json:"versioning" xml:"versioning"`
+	PrivateLinks    ocsBool `json:"privateLinks" xml:"privateLinks" mapstructure:"private_links"`
+	BigFileChunking ocsBool `json:"bigfilechunking" xml:"bigfilechunking"`
+	// Deprecated: use capabilities.providers[<id>].trash.
+	Undelete ocsBool `json:"undelete" xml:"undelete"`
+	// Deprecated: use capabilities.providers[<id>].versioning.
+	Versioning ocsBool `json:"versioning" xml:"versioning"`
+	// Deprecated: use capabilities.providers[<id>].arbitrary_metadata.
 	Favorites        ocsBool                      `json:"favorites" xml:"favorites"`
 	FullTextSearch   ocsBool                      `json:"full_text_search" xml:"full_text_search" mapstructure:"full_text_search"`
 	Tags             ocsBool                      `json:"tags" xml:"tags"`
@@ -207,7 +271,8 @@ type CapabilitiesFiles struct {
 
 // CapabilitiesDav holds dav endpoint config
 type CapabilitiesDav struct {
-	Chunking                       string   `json:"chunking" xml:"chunking"`
+	Chunking string `json:"chunking" xml:"chunking"`
+	// Deprecated: use capabilities.providers[<id>].trash.
 	Trashbin                       string   `json:"trashbin" xml:"trashbin"`
 	Reports                        []string `json:"reports" xml:"reports>element" mapstructure:"reports"`
 	ChunkingParallelUploadDisabled bool     `json:"chunkingParallelUploadDisabled" xml:"chunkingParallelUploadDisabled"`
