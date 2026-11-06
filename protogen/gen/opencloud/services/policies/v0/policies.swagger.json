@@ -134,6 +134,16 @@
         },
         "path": {
           "type": "string"
+        },
+        "contentLength": {
+          "type": "string",
+          "format": "uint64",
+          "title": "Content-Length of the request body, 0 if unknown"
+        },
+        "uploadLength": {
+          "type": "string",
+          "format": "uint64",
+          "title": "TUS Upload-Length header, the declared total size of an upload, 0 if absent"
         }
       }
     },
