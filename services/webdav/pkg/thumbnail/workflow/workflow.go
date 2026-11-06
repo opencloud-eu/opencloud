@@ -129,8 +129,8 @@ func thumbnailStorageKey(checksum, mimeType string, w, h int, format, operation 
 }
 
 // sourceStorageKey holds the extracted image for all sizes; empty means the file has none.
-func sourceStorageKey(checksum, mimeType string) string {
-	return storageKeyPrefix(checksum, mimeType) + "/source"
+func sourceStorageKey(checksum, mimeType, extractor string) string {
+	return storageKeyPrefix(checksum, mimeType) + "/source-" + extractor
 }
 
 // storageKeyPrefix hashes the checksum because it is untrusted (OCM takes it from a
@@ -464,11 +464,6 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 		cached, err := w.cache.Get(cacheKey)
 		switch {
 		case err == nil:
-			// an empty entry is a file we know carries no thumbnail
-			if len(cached) == 0 {
-				return Thumbnail{}, ErrNoThumbnail
-			}
-
 			return Thumbnail{Data: cached, ContentType: outputType}, nil
 		case !errors.Is(err, cache.ErrCacheMiss):
 			// a miss is the normal answer; anything else is the cache itself
@@ -483,13 +478,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	imgStream, srcType, cleanup, err := w.sourceImage(ctx, ref, auth, mimeType, tr.Filename, checksum, logger)
 	if err != nil {
 		if errors.Is(err, ErrNoThumbnail) {
-			// a file that carries no thumbnail is an answer, not a failure, and
-			// the empty entry keeps the next request from asking again
 			logger.Debug().Err(err).Msg("no source image for thumbnail")
-			if w.cache != nil {
-				_ = w.cache.Put(cacheKey, nil)
-			}
-
 			return Thumbnail{}, err
 		}
 
@@ -553,8 +542,9 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 	// what the extraction found is remembered per file, so a second size does
 	// not send the file to Tika again, and a file that carries nothing is only
 	// asked once. The answer is read before the file is downloaded at all.
-	sourceKey := sourceStorageKey(checksum, mimeType)
+	var sourceKey string
 	if converter != nil && w.cache != nil {
+		sourceKey = sourceStorageKey(checksum, mimeType, converter.Name())
 		if cached, err := w.cache.Get(sourceKey); err == nil {
 			if len(cached) == 0 {
 				return nil, "", nil, ErrNoThumbnail

@@ -25,6 +25,8 @@ type TikaThumbnail struct {
 	contentType string
 }
 
+func (TikaThumbnail) Name() string { return "tika" }
+
 // Convert hands the thumbnail on undecoded: the generator reads formats webdav
 // cannot, an .ico icon group out of a PE binary for one.
 func (t TikaThumbnail) Convert(r io.Reader) (*Image, error) {

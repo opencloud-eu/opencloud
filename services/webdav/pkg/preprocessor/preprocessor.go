@@ -27,6 +27,8 @@ import (
 // FileConverter is the interface for the file converter
 type FileConverter interface {
 	Convert(r io.Reader) (*Image, error)
+	// Name tells cached results of different extractors apart.
+	Name() string
 }
 
 // Image is what a converter hands on: the bytes and the type they are in.
@@ -46,6 +48,8 @@ type GgsDecoder struct {
 	// a deflated entry expands by orders of magnitude, so its own size says nothing
 	maxSize uint64
 }
+
+func (GgsDecoder) Name() string { return "oc-ggs" }
 
 // Convert reads the ggs file and returns the thumbnail image.
 //
@@ -94,6 +98,8 @@ func (g GgsDecoder) Convert(r io.Reader) (*Image, error) {
 // Deprecated: Tika provides the cover art; kept for setups without Tika.
 type AudioDecoder struct{}
 
+func (AudioDecoder) Name() string { return "oc-audio" }
+
 // Convert reads the audio file and extracts the thumbnail image from the id3 tag.
 //
 // TODO: this parses user-provided bytes in-process (dhowden/tag reads the audio
@@ -122,6 +128,8 @@ func (i AudioDecoder) Convert(r io.Reader) (*Image, error) {
 type TxtToImageConverter struct {
 	fontLoader *FontLoader
 }
+
+func (TxtToImageConverter) Name() string { return "oc-text" }
 
 // Convert reads the text file and renders it into a thumbnail image
 func (t TxtToImageConverter) Convert(r io.Reader) (*Image, error) {
@@ -230,6 +238,8 @@ type GGPStruct struct {
 //
 // Deprecated: see GgsDecoder.
 type GgpDecoder struct{}
+
+func (GgpDecoder) Name() string { return "oc-ggp" }
 
 // Convert reads the ggp file and returns the first thumbnail image.
 //
