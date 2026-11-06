@@ -23,7 +23,10 @@ WEBDAV_THUMBNAILS_GENERATOR_URL=http://thumbnails:9186
 ```
 
 Nothing has to be set in the single binary. The URL may also point at a real
-[imagor](https://imagor.net), which speaks the same endpoint.
+[imagor](https://imagor.net), which speaks the same endpoint. Imagor is an image
+processing server built on libvips; compared with the basic thumbnailer, it can
+support additional formats such as TIFF, BMP, WebP, SVG, PDF, and HEIF/AVIF when
+the corresponding loaders are available in its build.
 
 ### Settings that changed service
 
