@@ -1,5 +1,54 @@
 # Changelog
 
+## [9.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.1) - 2026-11-06
+
+### ❤️ Thanks to all contributors! ❤️
+
+@RyoKusnadi, @aduffeck, @butonic, @dragotin, @dschmidt, @maki5, @micbar, @pascalwengerter, @rhafer
+
+### 🔒 Security
+
+- fix(chore): upd deprecated chi RealIP middelware [[#3464](https://github.com/opencloud-eu/opencloud/pull/3464)]
+- Add files for the Anthropic OSS-Scanner to run [[#3865](https://github.com/opencloud-eu/opencloud/pull/3865)]
+
+### 🐛 Bug Fixes
+
+- fix: filter health checks from the pod ip [[#3914](https://github.com/opencloud-eu/opencloud/pull/3914)]
+- fix: keep the health checks out of the access log [[#3908](https://github.com/opencloud-eu/opencloud/pull/3908)]
+- fix(tracing): set the global text map propagator [[#3906](https://github.com/opencloud-eu/opencloud/pull/3906)]
+- fix(proxy): answer 403 instead of 500 when the role claim is missing [[#3894](https://github.com/opencloud-eu/opencloud/pull/3894)]
+- fix(webdav): stream announced types without a converter to the generator [[#3884](https://github.com/opencloud-eu/opencloud/pull/3884)]
+- fix(search): normalize KQL path once [[#3516](https://github.com/opencloud-eu/opencloud/pull/3516)]
+- fix(search): report rejected documents when indexing to OpenSearch [[#3142](https://github.com/opencloud-eu/opencloud/pull/3142)]
+- fix(graph): expose allowedValues on driveItem children [[#3476](https://github.com/opencloud-eu/opencloud/pull/3476)]
+- fix(search): index resources with out-of-range coordinates without a geopoint [[#3496](https://github.com/opencloud-eu/opencloud/pull/3496)]
+- perf(search): skip unchanged facet keys when storing metadata [[#3682](https://github.com/opencloud-eu/opencloud/pull/3682)]
+
+### 📚 Documentation
+
+- docs: add audit logging ADR [[#3855](https://github.com/opencloud-eu/opencloud/pull/3855)]
+
+### 📦️ Dependencies
+
+- build(deps): bump github.com/prometheus/client_golang from 1.24.1 to 1.25.0 [[#3897](https://github.com/opencloud-eu/opencloud/pull/3897)]
+- build(deps): bump github.com/nats-io/nats.go from 1.54.0 to 1.55.0 [[#3904](https://github.com/opencloud-eu/opencloud/pull/3904)]
+- build(deps): bump github.com/kovidgoyal/imaging from 1.8.23 to 1.9.0 [[#3898](https://github.com/opencloud-eu/opencloud/pull/3898)]
+- build(deps): bump google.golang.org/grpc from 1.84.0 to 1.85.0 [[#3885](https://github.com/opencloud-eu/opencloud/pull/3885)]
+- build(deps): bump github.com/KimMachineGun/automemlimit from 1.0.0 to 1.0.1 [[#3886](https://github.com/opencloud-eu/opencloud/pull/3886)]
+- build(deps): bump github.com/go-ldap/ldap/v3 from 3.4.14 to 3.4.15 [[#3887](https://github.com/opencloud-eu/opencloud/pull/3887)]
+- build(deps): bump go.opentelemetry.io/otel/exporters/stdout/stdouttrace from 1.46.0 to 1.47.0 [[#3860](https://github.com/opencloud-eu/opencloud/pull/3860)]
+- build(deps): bump golang.org/x/image from 0.46.0 to 0.47.0 [[#3861](https://github.com/opencloud-eu/opencloud/pull/3861)]
+- build(deps): bump golang.org/x/net from 0.61.0 to 0.62.0 [[#3880](https://github.com/opencloud-eu/opencloud/pull/3880)]
+- build(deps): bump golang.org/x/net from 0.59.0 to 0.61.0 [[#3851](https://github.com/opencloud-eu/opencloud/pull/3851)]
+- build(deps): bump go.opentelemetry.io/otel/sdk from 1.46.0 to 1.47.0 [[#3850](https://github.com/opencloud-eu/opencloud/pull/3850)]
+- build(deps): bump github.com/tidwall/gjson from 1.19.0 to 1.20.0 [[#3852](https://github.com/opencloud-eu/opencloud/pull/3852)]
+- build(deps): bump github.com/davidbyttow/govips/v2 from 2.19.0 to 2.20.0 [[#3847](https://github.com/opencloud-eu/opencloud/pull/3847)]
+- build(deps): bump github.com/onsi/ginkgo/v2 from 2.33.0 to 2.33.1 [[#3846](https://github.com/opencloud-eu/opencloud/pull/3846)]
+- build(deps): bump github.com/shamaton/msgpack/v2 from 2.4.2 to 2.4.4 [[#3848](https://github.com/opencloud-eu/opencloud/pull/3848)]
+- build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.30.0 to 2.31.0 [[#3676](https://github.com/opencloud-eu/opencloud/pull/3676)]
+- chore(deps): bump github.com/beevik/etree from 1.8.0 to 1.8.1 [[#3675](https://github.com/opencloud-eu/opencloud/pull/3675)]
+- build(deps): bump github.com/davidbyttow/govips/v2 from 2.18.0 to 2.19.0 [[#3597](https://github.com/opencloud-eu/opencloud/pull/3597)]
+
 ## [9.0.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.0) - 2026-10-27
 
 ### ❤️ Thanks to all contributors! ❤️
