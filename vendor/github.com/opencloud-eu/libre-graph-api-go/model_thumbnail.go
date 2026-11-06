@@ -29,6 +29,8 @@ type Thumbnail struct {
 	Url *string `json:"url,omitempty"`
 	// The width of the thumbnail, in pixels.
 	Width *int32 `json:"width,omitempty"`
+	// The mime type the thumbnail is served in, e.g. `image/png`. It can differ from the mime type of the item the thumbnail belongs to, for example when the thumbnail is an image taken from inside the item, such as the cover art of an audio file. 
+	LibreGraphMimeType *string `json:"@libre.graph.mimeType,omitempty"`
 }
 
 // NewThumbnail instantiates a new Thumbnail object
@@ -208,6 +210,38 @@ func (o *Thumbnail) SetWidth(v int32) {
 	o.Width = &v
 }
 
+// GetLibreGraphMimeType returns the LibreGraphMimeType field value if set, zero value otherwise.
+func (o *Thumbnail) GetLibreGraphMimeType() string {
+	if o == nil || IsNil(o.LibreGraphMimeType) {
+		var ret string
+		return ret
+	}
+	return *o.LibreGraphMimeType
+}
+
+// GetLibreGraphMimeTypeOk returns a tuple with the LibreGraphMimeType field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *Thumbnail) GetLibreGraphMimeTypeOk() (*string, bool) {
+	if o == nil || IsNil(o.LibreGraphMimeType) {
+		return nil, false
+	}
+	return o.LibreGraphMimeType, true
+}
+
+// HasLibreGraphMimeType returns a boolean if a field has been set.
+func (o *Thumbnail) HasLibreGraphMimeType() bool {
+	if o != nil && !IsNil(o.LibreGraphMimeType) {
+		return true
+	}
+
+	return false
+}
+
+// SetLibreGraphMimeType gets a reference to the given string and assigns it to the LibreGraphMimeType field.
+func (o *Thumbnail) SetLibreGraphMimeType(v string) {
+	o.LibreGraphMimeType = &v
+}
+
 func (o Thumbnail) MarshalJSON() ([]byte, error) {
 	toSerialize,err := o.ToMap()
 	if err != nil {
@@ -232,6 +266,9 @@ func (o Thumbnail) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.Width) {
 		toSerialize["width"] = o.Width
+	}
+	if !IsNil(o.LibreGraphMimeType) {
+		toSerialize["@libre.graph.mimeType"] = o.LibreGraphMimeType
 	}
 	return toSerialize, nil
 }

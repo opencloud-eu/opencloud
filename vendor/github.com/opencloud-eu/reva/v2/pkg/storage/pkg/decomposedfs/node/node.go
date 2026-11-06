@@ -40,6 +40,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/opencloud-eu/reva/v2/internal/grpc/services/storageprovider"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
+	"github.com/opencloud-eu/reva/v2/pkg/conversions"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/mime"
@@ -952,8 +953,8 @@ func (n *Node) AsResourceInfo(ctx context.Context, rp *provider.ResourcePermissi
 
 	// share indicator
 	if _, ok := fieldMaskKeysMap["share-types"]; returnAllFields || ok {
-		granteeTypes := n.getGranteeTypes(ctx)
-		if len(granteeTypes) > 0 {
+		granteeTypes, hasGuestShares := n.getGranteeTypes(ctx)
+		if len(granteeTypes) > 0 || hasGuestShares {
 			// TODO add optional property to CS3 ResourceInfo to transport grants?
 			var s strings.Builder
 			first := true
@@ -964,6 +965,12 @@ func (n *Node) AsResourceInfo(ctx context.Context, rp *provider.ResourcePermissi
 					first = false
 				}
 				s.WriteString(strconv.Itoa(int(t)))
+			}
+			if hasGuestShares {
+				if !first {
+					s.WriteString(",")
+				}
+				s.WriteString(strconv.Itoa(int(conversions.ShareTypeGuest)))
 			}
 			ri.Opaque = utils.AppendPlainToOpaque(ri.Opaque, "share-types", s.String())
 		}
@@ -1369,17 +1376,25 @@ func (n *Node) ListGrants(ctx context.Context) ([]*provider.Grant, error) {
 	return grants, nil
 }
 
-func (n *Node) getGranteeTypes(ctx context.Context) []provider.GranteeType {
+// getGranteeTypes returns the grantee types of the node's grants. The second
+// return value reports whether the node has guest shares, which are stored as
+// user grants with a mail ACE prefix.
+func (n *Node) getGranteeTypes(ctx context.Context) ([]provider.GranteeType, bool) {
 	types := []provider.GranteeType{}
+	hasGuestShares := false
 	if g, err := n.ListGrantees(ctx); err == nil {
 		hasUserShares, hasGroupShares := false, false
 		for i := range g {
 			switch {
-			case !hasUserShares && (strings.HasPrefix(g[i], prefixes.GrantUserAcePrefix) || strings.HasPrefix(g[i], prefixes.GrantMailAcePrefix)):
+			case !hasGuestShares && strings.HasPrefix(g[i], prefixes.GrantMailAcePrefix):
+				hasGuestShares = true
+			case !hasUserShares && strings.HasPrefix(g[i], prefixes.GrantUserAcePrefix):
 				hasUserShares = true
 			case !hasGroupShares && strings.HasPrefix(g[i], prefixes.GrantGroupAcePrefix):
 				hasGroupShares = true
-			case hasUserShares && hasGroupShares:
+			}
+
+			if hasUserShares && hasGroupShares && hasGuestShares {
 				break
 			}
 		}
@@ -1390,7 +1405,7 @@ func (n *Node) getGranteeTypes(ctx context.Context) []provider.GranteeType {
 			types = append(types, provider.GranteeType_GRANTEE_TYPE_GROUP)
 		}
 	}
-	return types
+	return types, hasGuestShares
 }
 
 // ancestorGrants returns the active grants on the node and all its ancestors. The grants on the

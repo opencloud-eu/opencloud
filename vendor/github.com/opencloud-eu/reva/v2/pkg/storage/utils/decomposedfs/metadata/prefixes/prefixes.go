@@ -53,6 +53,7 @@ const (
 	GrantPrefix         string = OcisPrefix + "grant."
 	GrantUserAcePrefix  string = OcisPrefix + "grant." + ace.UserAcePrefix
 	GrantGroupAcePrefix string = OcisPrefix + "grant." + ace.GroupAcePrefix
+	GrantMailAcePrefix  string = OcisPrefix + "grant." + ace.MailAcePrefix
 	MetadataPrefix      string = OcisPrefix + "md."
 
 	// favorite flag, per user
