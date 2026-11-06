@@ -153,6 +153,18 @@ func FrontendConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string
 					"insecure":      cfg.Archiver.Insecure,
 					"max_num_files": cfg.Archiver.MaxNumFiles,
 					"max_size":      cfg.Archiver.MaxSize,
+					"audit": map[string]any{
+						"enabled":          cfg.Audit.Enabled,
+						"mode":             cfg.Audit.Mode,
+						"service":          cfg.Service.Name,
+						"address":          cfg.Events.Endpoint,
+						"clusterID":        cfg.Events.Cluster,
+						"tls-insecure":     cfg.Events.TLSInsecure,
+						"tls-root-ca-cert": cfg.Events.TLSRootCACertificate,
+						"enable-tls":       cfg.Events.EnableTLS,
+						"username":         cfg.Events.AuthUsername,
+						"password":         cfg.Events.AuthPassword,
+					},
 				},
 				"ocs": map[string]any{
 					"storage_registry_svc": cfg.Reva.Address,

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
+	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/go-chi/render"
+	"github.com/opencloud-eu/reva/v2/pkg/audit"
 	"github.com/pkg/errors"
 	"github.com/vmihailenco/msgpack/v5"
 	microstore "go-micro.dev/v4/store"
@@ -50,6 +52,7 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		msg := "failed to verify logout token"
 		logger.Warn().Err(err).Msg(msg)
+		s.auditLogout(r.Context(), nil, "", audit.OutcomeFailure, "invalid_token")
 		render.Status(r, http.StatusBadRequest)
 		render.JSON(w, r, jse{Error: "invalid_request", ErrorDescription: msg})
 		return
@@ -112,7 +115,13 @@ func (s *StaticRouteHandler) backchannelLogout(w http.ResponseWriter, r *http.Re
 			}
 		}
 
+		// resolve the user before the claims are deleted
+		user := s.logoutUser(r.Context(), value)
+
 		err = s.UserInfoCache.Delete(value)
+		if err == nil || errors.Is(err, microstore.ErrNotFound) {
+			s.auditLogout(r.Context(), user, session, audit.OutcomeSuccess, "")
+		}
 		if err != nil && !errors.Is(err, microstore.ErrNotFound) {
 			// we have to return a 400 BadRequest when we fail to delete the session
 			// https://openid.net/specs/openid-connect-backchannel-1_0.html#rfc.section.2.8
@@ -140,27 +149,9 @@ func (s *StaticRouteHandler) publishBackchannelLogoutEvent(ctx context.Context, 
 		return errors.New("events publisher not set")
 	}
 
-	claimRecords, err := s.UserInfoCache.Read(claimKey)
-	switch {
-	case err != nil:
-		return fmt.Errorf("failed to read userinfo cache: %w", err)
-	case len(claimRecords) == 0:
-		return fmt.Errorf("no claim found for key: %s", claimKey)
-	}
-
-	var claims map[string]any
-	if err = msgpack.Unmarshal(claimRecords[0].Value, &claims); err != nil {
-		return fmt.Errorf("failed to unmarshal claims: %w", err)
-	}
-
-	oidcClaim, ok := claims[s.Config.UserOIDCClaim].(string)
-	if !ok {
-		return fmt.Errorf("failed to get claim %w", err)
-	}
-
-	user, _, err := s.UserProvider.GetUserByClaims(ctx, s.Config.UserCS3Claim, oidcClaim)
-	if err != nil || user.GetId() == nil {
-		return fmt.Errorf("failed to get user by claims: %w", err)
+	user, err := s.userForClaimKey(ctx, claimKey)
+	if err != nil {
+		return err
 	}
 
 	e := events.BackchannelLogout{
@@ -173,4 +164,71 @@ func (s *StaticRouteHandler) publishBackchannelLogoutEvent(ctx context.Context, 
 		return fmt.Errorf("failed to publish user logout event %w", err)
 	}
 	return nil
+}
+
+// userForClaimKey resolves the user of a session from the claims stored for it.
+func (s *StaticRouteHandler) userForClaimKey(ctx context.Context, claimKey string) (*userpb.User, error) {
+	claimRecords, err := s.UserInfoCache.Read(claimKey)
+	switch {
+	case err != nil:
+		return nil, fmt.Errorf("failed to read userinfo cache: %w", err)
+	case len(claimRecords) == 0:
+		return nil, fmt.Errorf("no claim found for key: %s", claimKey)
+	}
+
+	var claims map[string]any
+	if err = msgpack.Unmarshal(claimRecords[0].Value, &claims); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal claims: %w", err)
+	}
+
+	oidcClaim, ok := claims[s.Config.UserOIDCClaim].(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to get claim %w", err)
+	}
+
+	user, _, err := s.UserProvider.GetUserByClaims(ctx, s.Config.UserCS3Claim, oidcClaim)
+	if err != nil || user.GetId() == nil {
+		return nil, fmt.Errorf("failed to get user by claims: %w", err)
+	}
+	return user, nil
+}
+
+// logoutUser returns the user of a session for the audit log, nil if unknown.
+func (s *StaticRouteHandler) logoutUser(ctx context.Context, claimKey string) *userpb.User {
+	if _, off := s.AuditEmitter.(audit.Discard); off || s.AuditEmitter == nil {
+		return nil
+	}
+	user, err := s.userForClaimKey(ctx, claimKey)
+	if err != nil {
+		return nil
+	}
+	return user
+}
+
+// auditLogout reports a session the identity provider ended. The request
+// comes from the identity provider, the session belongs to the user.
+func (s *StaticRouteHandler) auditLogout(ctx context.Context, user *userpb.User, session string, outcome audit.Outcome, reason string) {
+	if s.AuditEmitter == nil {
+		return
+	}
+	ev := audit.Event{
+		Definition: audit.AuthBackchannelLogout,
+		Outcome:    outcome,
+		Reason:     reason,
+		Actor:      &audit.Actor{Type: audit.ActorAnonymous},
+		Target:     audit.Target{ID: "unknown"},
+	}
+	if user != nil {
+		ev.Actor = &audit.Actor{Type: audit.ActorUser, ID: user.GetId().GetOpaqueId(), Name: user.GetDisplayName()}
+		ev.Target = audit.Target{ID: user.GetId().GetOpaqueId(), Name: user.GetUsername()}
+		ev.Tenant = user.GetId().GetTenantId()
+	}
+	if session != "" {
+		rc, _ := audit.ContextGetRequest(ctx)
+		rc.SessionID = session
+		ctx = audit.ContextSetRequest(ctx, rc)
+	}
+	if err := s.AuditEmitter.Emit(ctx, ev); err != nil {
+		s.Logger.Error().Err(err).Msg("could not emit audit event")
+	}
 }

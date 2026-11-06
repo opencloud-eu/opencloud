@@ -14,6 +14,7 @@ import (
 	"github.com/riandyrn/otelchi"
 	microstore "go-micro.dev/v4/store"
 
+	"github.com/opencloud-eu/reva/v2/pkg/audit"
 	"github.com/opencloud-eu/reva/v2/pkg/store"
 
 	"github.com/opencloud-eu/opencloud/pkg/roles"
@@ -188,6 +189,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 		mux:                      m,
 		specialDriveItemsCache:   spacePropertiesCache,
 		eventsPublisher:          options.EventsPublisher,
+		auditEmitter:             options.AuditEmitter,
 		searchService:            options.SearchService,
 		identityBackend:          options.IdentityBackend,
 		identityEducationBackend: options.IdentityEducationBackend,
@@ -312,7 +314,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 					r.Delete("/following/{itemID}", svc.UnfollowDriveItem)
 				})
 				r.Get("/drives", svc.GetDrives(APIVersion_1))
-				r.Post("/changePassword", svc.ChangeOwnPassword)
+				r.With(svc.auditOnError(audit.UserPasswordChange, "")).Post("/changePassword", svc.ChangeOwnPassword)
 				r.Route("/photo/$value", func(r chi.Router) {
 					r.Get("/", usersUserProfilePhotoApi.GetProfilePhoto(GetUserIDFromCTX))
 					r.Put("/", usersUserProfilePhotoApi.UpsertProfilePhoto(GetUserIDFromCTX))
@@ -322,37 +324,38 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 			})
 			r.Route("/users", func(r chi.Router) {
 				r.Get("/", svc.GetUsers)
-				r.With(requireAdmin).Post("/", svc.PostUser)
+				r.With(svc.auditOnError(audit.UserCreate, ""), requireAdmin).Post("/", svc.PostUser)
 				r.Route("/{userID}", func(r chi.Router) {
 					r.Get("/", svc.GetUser)
 					r.Get("/drive", svc.GetUserDrive)
-					r.Post("/exportPersonalData", svc.ExportPersonalData)
+					// graph publishes no event for the export, successes are audited here too
+					r.With(svc.auditAlways(audit.PersonalDataExport, "userID")).Post("/exportPersonalData", svc.ExportPersonalData)
 					r.Post("/teamwork/sendActivityNotification", svc.SendActivityNotification)
 					r.Route("/photo/$value", func(r chi.Router) {
 						r.Get("/", usersUserProfilePhotoApi.GetProfilePhoto(GetSlugValue("userID")))
 					})
-					r.With(requireAdmin).Delete("/", svc.DeleteUser)
-					r.With(requireAdmin).Patch("/", svc.PatchUser)
+					r.With(svc.auditOnError(audit.UserDelete, "userID"), requireAdmin).Delete("/", svc.DeleteUser)
+					r.With(svc.auditOnError(audit.UserUpdate, "userID"), requireAdmin).Patch("/", svc.PatchUser)
 					if svc.roleService != nil {
-						r.With(requireAdmin).Route("/appRoleAssignments", func(r chi.Router) {
-							r.Get("/", svc.ListAppRoleAssignments)
-							r.Post("/", svc.CreateAppRoleAssignment)
-							r.Delete("/{appRoleAssignmentID}", svc.DeleteAppRoleAssignment)
+						r.Route("/appRoleAssignments", func(r chi.Router) {
+							r.With(requireAdmin).Get("/", svc.ListAppRoleAssignments)
+							r.With(svc.auditOnError(audit.AppRoleAssign, "userID"), requireAdmin).Post("/", svc.CreateAppRoleAssignment)
+							r.With(svc.auditOnError(audit.AppRoleUnassign, "userID"), requireAdmin).Delete("/{appRoleAssignmentID}", svc.DeleteAppRoleAssignment)
 						})
 					}
 				})
 			})
 			r.Route("/groups", func(r chi.Router) {
 				r.Get("/", svc.GetGroups)
-				r.With(requireAdmin).Post("/", svc.PostGroup)
+				r.With(svc.auditOnError(audit.GroupCreate, ""), requireAdmin).Post("/", svc.PostGroup)
 				r.Route("/{groupID}", func(r chi.Router) {
 					r.Get("/", svc.GetGroup)
-					r.With(requireAdmin).Delete("/", svc.DeleteGroup)
-					r.With(requireAdmin).Patch("/", svc.PatchGroup)
+					r.With(svc.auditOnError(audit.GroupDelete, "groupID"), requireAdmin).Delete("/", svc.DeleteGroup)
+					r.With(svc.auditOnError(audit.GroupUpdate, "groupID"), requireAdmin).Patch("/", svc.PatchGroup)
 					r.Route("/members", func(r chi.Router) {
 						r.With(requireAdmin).Get("/", svc.GetGroupMembers)
-						r.With(requireAdmin).Post("/$ref", svc.PostGroupMember)
-						r.With(requireAdmin).Delete("/{memberID}/$ref", svc.DeleteGroupMember)
+						r.With(svc.auditOnError(audit.GroupMemberAdd, "groupID"), requireAdmin).Post("/$ref", svc.PostGroupMember)
+						r.With(svc.auditOnError(audit.GroupMemberRemove, "groupID"), requireAdmin).Delete("/{memberID}/$ref", svc.DeleteGroupMember)
 					})
 				})
 			})
