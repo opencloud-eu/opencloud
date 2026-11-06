@@ -16,6 +16,10 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+// Package decomposeds3 implements the "decomposeds3" storage driver: decomposedfs with
+// a blobstore in an S3 bucket. It only creates the blobstore and hands over to
+// decomposedfs.NewDefault, see pkg/storage/pkg/decomposedfs/README.md for how the
+// decomposedfs based drivers are structured.
 package decomposeds3
 
 import (

@@ -85,6 +85,36 @@ class FilesVersionsContext implements Context {
 	}
 
 	/**
+	 * for changes that happen in the background, e.g. the revision cleanup after postprocessing
+	 *
+	 * @param string $file
+	 * @param string $user
+	 * @param int $number
+	 *
+	 * @return void
+	 * @throws Exception
+	 */
+	#[Then('the number of versions of file :file for user :user should eventually be :number')]
+	public function theNumberOfVersionsOfFileForUserShouldEventuallyBe(string $file, string $user, int $number): void {
+		$actualNumber = null;
+		for ($attempt = 0; $attempt < 20; $attempt++) {
+			$response = $this->getFileVersions($user, $file);
+			$this->featureContext->theHTTPStatusCodeShouldBe(207, '', $response);
+			$responseXmlObject = HttpRequestHelper::getResponseXml($response, __METHOD__);
+			$actualNumber = \count($responseXmlObject->xpath("//d:getlastmodified"));
+			if ($actualNumber === $number) {
+				return;
+			}
+			\usleep(500000);
+		}
+		Assert::assertEquals(
+			$number,
+			$actualNumber,
+			"Expected number of versions of file '$file' was '$number', but got '$actualNumber' after 10 seconds"
+		);
+	}
+
+	/**
 	 *
 	 * @param string $file
 	 * @param string $password

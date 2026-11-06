@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -55,6 +56,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/permissions"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/revisioncleanup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/tree/propagator"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/usermapper"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/templates"
@@ -116,6 +118,9 @@ type Tree struct {
 	// files that failed to assimilate, keyed by path, see updateFile()
 	assimilationFailures *assimilation.Failures
 
+	// deletes old revisions after a change on disk created a new one, disabled without a strategy
+	revisionsCleanup *revisioncleanup.Service
+
 	es  events.Stream
 	log *zerolog.Logger
 }
@@ -148,6 +153,24 @@ func New(lu node.PathLookup, bs node.Blobstore, um usermapper.Mapper, trashbin *
 	}
 	t.idResolver = t.lookup
 	t.assimilateFunc = t.assimilate
+	// The tree creates the revision cleanup itself, as assimilation needs it for
+	// revisions created from changes on disk, and the watcher started below may
+	// assimilate right away. posix.New passes the same instance (with the same background
+	// workers) on to Decomposedfs through the aspects (see RevisionsCleanup), which also
+	// stops the workers on Shutdown. An invalid strategy or invalid async settings fail
+	// startup rather than silently keeping or deleting revisions the admin did not expect.
+	revisionsCleanup, err := revisioncleanup.NewServiceFromOptions(&o.Options, t.lookup, t, log)
+	if err != nil {
+		return nil, errors.Wrap(err, "tree: invalid revisions cleanup configuration")
+	}
+	t.revisionsCleanup = revisionsCleanup
+	// stop its workers again if the tree can't be set up after all
+	started := false
+	defer func() {
+		if !started {
+			_ = revisionsCleanup.Shutdown(context.Background())
+		}
+	}()
 	if err := t.checkStorage(); err != nil {
 		return nil, errors.Wrap(err, "tree: unfit storage '"+o.Root+"'")
 	}
@@ -219,6 +242,7 @@ func New(lu node.PathLookup, bs node.Blobstore, um usermapper.Mapper, trashbin *
 		}()
 	}
 
+	started = true
 	return t, nil
 }
 
@@ -548,6 +572,26 @@ func (t *Tree) Move(ctx context.Context, oldNode *node.Node, newNode *node.Node)
 
 // ListFolder lists the content of a folder node
 func (t *Tree) ListFolder(ctx context.Context, n *node.Node) ([]*node.Node, error) {
+	return t.listFolder(ctx, n, true)
+}
+
+var _ revisioncleanup.Walker = (*Tree)(nil)
+
+// ListFolderKnownUnchecked lists the children of n that are known to the storage, for
+// maintenance, see revisioncleanup.Walker. Known children are the files and folders the storage
+// has registered (assimilated), i.e. whose path resolves to a node id in the id cache. Unknown
+// ones exist on disk but are not registered yet, e.g. files just created on disk directly.
+// Unlike ListFolder, it checks no permissions, and it skips the unknown children instead of
+// assimilating them, so that it changes nothing: they are missing from its result until they
+// are assimilated, e.g. by the watcher or the next ListFolder.
+func (t *Tree) ListFolderKnownUnchecked(ctx context.Context, n *node.Node) ([]*node.Node, error) {
+	return t.listFolder(ctx, n, false)
+}
+
+// listFolder lists the children of n. For users, it leaves out the ones denied to the user
+// in ctx and assimilates the ones not known yet; otherwise, for maintenance, it lists all
+// known children, see ListFolderKnownUnchecked.
+func (t *Tree) listFolder(ctx context.Context, n *node.Node, forUser bool) ([]*node.Node, error) {
 	ctx, span := tracer.Start(ctx, "ListFolder")
 	defer span.End()
 	dir := n.InternalPath()
@@ -623,8 +667,21 @@ func (t *Tree) ListFolder(ctx context.Context, n *node.Node) ([]*node.Node, erro
 						// silently turned into an assimilation attempt.
 						return errors.Wrap(err, "tree: error resolving ids for "+path)
 					}
+					if !forUser {
+						// A listing for maintenance (ListFolderKnownUnchecked, e.g. the walk of the
+						// on-demand revision cleanup) must not change anything, so it skips the
+						// item instead of assimilating it. Assimilation registers the item, with a
+						// new id and metadata, and with enable_fs_revisions it can even create a
+						// revision (e.g. for a file whose id is missing from the id cache) and run
+						// the revision cleanup with the driver's own strategy, which a dry run must
+						// not do either. The item has no revisions the storage knows of yet, so
+						// there is nothing to clean up; it is listed once it has been assimilated,
+						// e.g. by the watcher, a scan or a listing for a user.
+						t.log.Debug().Str("path", path).Msg("skipping an item that is unknown to the storage (not assimilated yet)")
+						continue
+					}
 					// we don't know about this node yet, assimilate it on the fly
-					t.log.Info().Err(err).Str("path", path).Msg("encountered unknown entity while listing the directory. Assimilate.")
+					t.log.Info().Err(err).Str("path", path).Msg("encountered an item unknown to the storage while listing the directory, assimilating it")
 					err = t.assimilateFunc(scanItem{Path: path})
 					if err != nil {
 						t.log.Error().Err(err).Str("path", path).Msg("failed to assimilate node")
@@ -643,8 +700,10 @@ func (t *Tree) ListFolder(ctx context.Context, n *node.Node) ([]*node.Node, erro
 					continue
 				}
 
-				// prevent listing denied resources
-				if !child.IsDenied(ctx) {
+				// prevent listing denied resources, for users only: a listing for maintenance
+				// (ListFolderKnownUnchecked) has no user in the context, IsDenied would panic
+				// without one, and it must see all children, also the ones denied to users
+				if !forUser || !child.IsDenied(ctx) {
 					if child.SpaceRoot == nil {
 						child.SpaceRoot = n.SpaceRoot
 					}
@@ -768,6 +827,36 @@ func (t *Tree) DeleteBlob(node *node.Node) error {
 		return fmt.Errorf("could not delete blob, nil node was given")
 	}
 	return t.blobstore.Delete(node)
+}
+
+// RevisionsCleanup returns the revision cleanup, a disabled one without a strategy.
+// It is used to hand the same instance to Decomposedfs via aspects.Aspects, so that
+// uploads, restores and changes on disk are all cleaned up by the same strategy and
+// share the same background workers.
+func (t *Tree) RevisionsCleanup() *revisioncleanup.Service {
+	return t.revisionsCleanup
+}
+
+var _ revisioncleanup.SpaceScoper = (*Tree)(nil)
+
+// ScopeToSpace switches the current goroutine to the group of the space with use_space_groups,
+// as the space group hooks of the storage driver's middleware do for user requests, see
+// revisioncleanup.SpaceScoper. The returned context carries the group, for the goroutines that
+// listFolder starts. Without use_space_groups, it does nothing.
+func (t *Tree) ScopeToSpace(ctx context.Context, spaceID string) (context.Context, func() error, error) {
+	if !t.options.UseSpaceGroups {
+		return ctx, func() error { return nil }, nil
+	}
+	fi, err := os.Stat(t.lookup.InternalPath(spaceID, spaceID))
+	if err != nil {
+		return ctx, nil, errors.Wrapf(err, "could not stat the root of space %q", spaceID)
+	}
+	gid := fi.Sys().(*syscall.Stat_t).Gid
+	unscope, err := t.userMapper.ScopeUserByIds(-1, int(gid))
+	if err != nil {
+		return ctx, nil, errors.Wrap(err, "failed to scope user")
+	}
+	return context.WithValue(ctx, decomposedfs.CtxKeySpaceGID, gid), unscope, nil
 }
 
 // BuildSpaceIDIndexEntry returns the entry for the space id index
