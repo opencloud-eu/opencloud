@@ -383,9 +383,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			Expect(data).To(Equal(thumbBytes))
 			Expect(contentType).To(Equal("image/jpeg"))
 
-			cached, err := testCache.Get(thumbnailStorageKey("cb56752477cae6405f85b131872c60d21b967c6a", "image/jpeg", 128, 128, "jpg", "fill"))
+			cached, err := testCache.Get(thumbnailStorageKey("cb56752477cae6405f85b131872c60d21b967c6a", "image/jpeg", 128, 128, "fill"))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(cached).To(Equal(thumbBytes))
+			Expect(cached.Data).To(Equal(thumbBytes))
+			Expect(cached.ContentType).To(Equal("image/jpeg"))
 		})
 	})
 
@@ -848,13 +849,14 @@ var _ = Describe("ThumbnailWorkflow", func() {
 
 			cached, err := testCache.Get(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", "oc-audio"))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(cached).To(Equal(captured.data), "the cover art is kept as the source, not per size")
+			Expect(cached.Data).To(Equal(captured.data), "the cover art is kept as the source, not per size")
+			Expect(cached.ContentType).To(HavePrefix("image/"), "with the type the extractor named")
 		})
 
 		It("sends the kept source instead of extracting a second time", func() {
 			pngBytes, err := os.ReadFile(filepath.Join("..", "..", "preprocessor", "test_assets", "noise.png"))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(testCache.Put(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", "oc-audio"), pngBytes)).To(Succeed())
+			Expect(testCache.Put(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", "oc-audio"), cache.Image{Data: pngBytes, ContentType: "image/png"})).To(Succeed())
 
 			//the file itself is not an mp3: extracting it would fail, so what
 			//reaches the generator can only come from the cache
@@ -873,7 +875,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 		})
 
 		It("asks once for a file that carries nothing, whatever size follows", func() {
-			Expect(testCache.Put(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", "oc-audio"), nil)).To(Succeed())
+			Expect(testCache.Put(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", "oc-audio"), cache.Image{})).To(Succeed())
 
 			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "song.mp3", []byte("not an mp3"))
 
@@ -888,12 +890,12 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			Expect(err).To(MatchError(ErrNoThumbnail))
 			Expect(captured.data).To(BeEmpty(), "the generator is not asked at all")
 
-			_, err = testCache.Get(thumbnailStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", 256, 256, "jpg", "fill"))
+			_, err = testCache.Get(thumbnailStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", 256, 256, "fill"))
 			Expect(err).To(MatchError(cache.ErrCacheMiss), "only the source entry says there is nothing")
 		})
 
 		It("does not take another extractor's empty answer", func() {
-			Expect(testCache.Put(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", "tika"), nil)).To(Succeed())
+			Expect(testCache.Put(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", "tika"), cache.Image{})).To(Succeed())
 
 			mp3Bytes, err := os.ReadFile(filepath.Join("..", "..", "preprocessor", "test_assets", "empty.mp3"))
 			Expect(err).ToNot(HaveOccurred())
@@ -924,10 +926,12 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Height:   64,
 			}
 
-			_, err = wf2.Execute(context.Background(), tr, testToken, logger)
+			result, err := wf2.Execute(context.Background(), tr, testToken, logger)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(captured.data).ToNot(BeEmpty())
 			Expect(captured.data).ToNot(Equal(ggsBytes))
+			Expect(captured.path).To(ContainSubstring("format(png)"), "the embedded thumbnail is a png and stays one")
+			Expect(result.ContentType).To(Equal("image/png"))
 		})
 
 		It("renders text files to an image", func() {
@@ -1003,18 +1007,19 @@ var _ = Describe("ThumbnailWorkflow", func() {
 				Expect(captured.path).To(ContainSubstring(wantFilter))
 				Expect(contentType).To(Equal(wantType))
 
-				_, err = testCache.Get(wantKey)
-				Expect(err).ToNot(HaveOccurred(), "the format belongs in the cache key")
+				cached, err := testCache.Get(wantKey)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(cached.ContentType).To(Equal(wantType), "the type is kept with the entry")
 			},
 			Entry("a png keeps its alpha channel",
 				"image/png", "img.png", "smart/filters:format(png)", "image/png",
-				thumbnailStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "image/png", 64, 64, "png", "fill")),
+				thumbnailStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "image/png", 64, 64, "fill")),
 			Entry("a gif keeps its animation",
 				"image/gif", "anim.gif", "filters:format(gif)", "image/gif",
-				thumbnailStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "image/gif", 64, 64, "gif", "stretch")),
+				thumbnailStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "image/gif", 64, 64, "stretch")),
 			Entry("a bmp becomes a jpeg",
 				"image/bmp", "scan.bmp", "smart/filters:format(jpg)", "image/jpeg",
-				thumbnailStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "image/bmp", 64, 64, "jpg", "fill")),
+				thumbnailStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "image/bmp", 64, 64, "fill")),
 		)
 
 		It("follows a configured chain into a format the built-in generator cannot write", func() {
@@ -1058,7 +1063,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 	Describe("cache hit shortcut", func() {
 		It("should return cached thumbnail without calling generator or downloading the file", func() {
 			cachedThumb := []byte("cached-thumbnail")
-			err := testCache.Put(thumbnailStorageKey("cb56752477cae6405f85b131872c60d21b967c6a", "image/jpeg", 128, 128, "jpg", "fill"), cachedThumb)
+			err := testCache.Put(thumbnailStorageKey("cb56752477cae6405f85b131872c60d21b967c6a", "image/jpeg", 128, 128, "fill"), cache.Image{Data: cachedThumb, ContentType: "image/png"})
 			Expect(err).ToNot(HaveOccurred())
 
 			// No download expectations are set up. If the workflow tried to
@@ -1074,7 +1079,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			data, contentType := result.Data, result.ContentType
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(Equal(cachedThumb))
-			Expect(contentType).To(Equal("image/jpeg"))
+			Expect(contentType).To(Equal("image/png"), "the type stored with the entry, not one derived from the file")
 		})
 	})
 
@@ -1345,9 +1350,10 @@ var _ = Describe("ThumbnailWorkflow", func() {
 			Expect(data).To(Equal(thumbBytes))
 			Expect(contentType).To(Equal("image/jpeg"))
 
-			cached, err := testCache.Get(thumbnailStorageKey("5ba1b086d95a7e0fd8ff4323caee0c412ab07fc3", "image/jpeg", 64, 64, "jpg", "fill"))
+			cached, err := testCache.Get(thumbnailStorageKey("5ba1b086d95a7e0fd8ff4323caee0c412ab07fc3", "image/jpeg", 64, 64, "fill"))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(cached).To(Equal(thumbBytes))
+			Expect(cached.Data).To(Equal(thumbBytes))
+			Expect(cached.ContentType).To(Equal("image/jpeg"))
 		})
 
 		It("should handle pre-signed public links with signature and expiration", func() {
@@ -1768,7 +1774,7 @@ var _ = Describe("storage keys", func() {
 
 	It("files a thumbnail and its source under one prefix", func() {
 		source := sourceStorageKey("cb56752477cae6405f85b131872c60d21b967c6a", "image/x-nikon-nef", "tika")
-		thumb := thumbnailStorageKey("cb56752477cae6405f85b131872c60d21b967c6a", "image/x-nikon-nef", 64, 64, "jpg", "fill")
+		thumb := thumbnailStorageKey("cb56752477cae6405f85b131872c60d21b967c6a", "image/x-nikon-nef", 64, 64, "fill")
 		Expect(path.Dir(thumb)).To(Equal(path.Dir(source)))
 	})
 })

@@ -20,10 +20,17 @@ func DefaultFileCacheDir() string {
 	return filepath.Join(defaults.BaseDataPath(), "thumbnails", "cache")
 }
 
+// Image is a cached image and its type. An image without data records that a
+// file has no image.
+type Image struct {
+	Data        []byte
+	ContentType string
+}
+
 // ThumbnailCache provides cached storage for generated thumbnails.
 type ThumbnailCache interface {
-	Get(key string) ([]byte, error)
-	Put(key string, data []byte) error
+	Get(key string) (Image, error)
+	Put(key string, img Image) error
 }
 
 // NewThumbnailCache creates a cache instance based on the configured backend. A
@@ -39,7 +46,11 @@ func NewThumbnailCache(backend string, cacheDir string, s3cfg *S3CacheConfig) (T
 		if dir == "" {
 			dir = DefaultFileCacheDir()
 		}
-		return NewFileCache(dir), nil
+		c := NewFileCache(dir)
+		if err := c.probe(); err != nil {
+			return nil, err
+		}
+		return c, nil
 	case "s3":
 		if s3cfg == nil || !s3cfg.IsComplete() {
 			return nil, errors.New("s3 thumbnail cache needs a bucket, a region and credentials")
