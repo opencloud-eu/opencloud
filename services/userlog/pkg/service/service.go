@@ -5,42 +5,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"time"
 
-	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
-	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
-	"github.com/go-chi/chi/v5"
-	"github.com/opencloud-eu/reva/v2/pkg/events"
-	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/utils"
-	"go-micro.dev/v4/store"
-	"go.opentelemetry.io/otel/trace"
-
-	ocEvents "github.com/opencloud-eu/opencloud/pkg/events"
-	"github.com/opencloud-eu/opencloud/pkg/l10n"
 	"github.com/opencloud-eu/opencloud/pkg/log"
-	"github.com/opencloud-eu/opencloud/pkg/roles"
 	ehmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/eventhistory/v0"
 	ehsvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/eventhistory/v0"
-	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
-	"github.com/opencloud-eu/opencloud/services/userlog/pkg/config"
+	"github.com/opencloud-eu/reva/v2/pkg/events"
+	"go-micro.dev/v4/store"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // UserlogService is the service responsible for user activities
 type UserlogService struct {
-	log              log.Logger
-	m                *chi.Mux
-	store            store.Store
-	cfg              *config.Config
-	historyClient    ehsvc.EventHistoryService
-	gatewaySelector  pool.Selectable[gateway.GatewayAPIClient]
-	valueClient      settingssvc.ValueService
-	registeredEvents map[string]events.Unmarshaller
-	tp               trace.TracerProvider
-	tracer           trace.Tracer
-	publisher        events.Publisher
-	filter           *userlogFilter
+	log           log.Logger
+	store         store.Store
+	historyClient ehsvc.EventHistoryService
+	tp            trace.TracerProvider
+	tracer        trace.Tracer
 }
 
 // NewUserlogService returns an EventHistory service
@@ -50,170 +31,19 @@ func NewUserlogService(opts ...Option) (*UserlogService, error) {
 		opt(o)
 	}
 
-	if o.Stream == nil || o.Store == nil {
-		return nil, fmt.Errorf("need non nil stream (%v) and store (%v) to work properly", o.Stream, o.Store)
-	}
-
-	ch, err := events.Consume(o.Stream, "userlog", o.RegisteredEvents...)
-	if err != nil {
-		return nil, err
+	if o.Store == nil {
+		return nil, fmt.Errorf("need non nil store to work properly")
 	}
 
 	ul := &UserlogService{
-		log:              o.Logger,
-		m:                o.Mux,
-		store:            o.Store,
-		cfg:              o.Config,
-		historyClient:    o.HistoryClient,
-		gatewaySelector:  o.GatewaySelector,
-		valueClient:      o.ValueClient,
-		registeredEvents: make(map[string]events.Unmarshaller),
-		tp:               o.TraceProvider,
-		tracer:           o.TraceProvider.Tracer("github.com/opencloud-eu/opencloud/services/userlog/pkg/service"),
-		publisher:        o.Stream,
-		filter:           newUserlogFilter(o.Logger, o.ValueClient),
+		log:           o.Logger,
+		store:         o.Store,
+		historyClient: o.HistoryClient,
+		tp:            o.TraceProvider,
+		tracer:        o.TraceProvider.Tracer("github.com/opencloud-eu/opencloud/services/userlog/pkg/service"),
 	}
-
-	for _, e := range o.RegisteredEvents {
-		typ := reflect.TypeOf(e)
-		ul.registeredEvents[typ.String()] = e
-	}
-
-	m := roles.NewManager(
-		// TODO: caching?
-		roles.Logger(o.Logger),
-		roles.RoleService(o.RoleClient),
-	)
-
-	ul.m.Route("/ocs/v2.php/apps/notifications/api/v1/notifications", func(r chi.Router) {
-		r.Get("/", ul.HandleGetEvents)
-		r.Delete("/", ul.HandleDeleteEvents)
-		r.Post("/global", RequireAdminOrSecret(&m, o.Config.GlobalNotificationsSecret)(ul.HandlePostGlobalEvent))
-		r.Delete("/global", RequireAdminOrSecret(&m, o.Config.GlobalNotificationsSecret)(ul.HandleDeleteGlobalEvent))
-	})
-
-	go ul.MemorizeEvents(ch)
 
 	return ul, nil
-}
-
-// MemorizeEvents stores eventIDs a user wants to receive
-func (ul *UserlogService) MemorizeEvents(ch <-chan events.Event) {
-	for i := 0; i < ul.cfg.MaxConcurrency; i++ {
-		go func(ch <-chan events.Event) {
-			for event := range ch {
-				go ul.processEvent(event)
-			}
-		}(ch)
-	}
-}
-
-func (ul *UserlogService) processEvent(event events.Event) {
-	// for each event we need to:
-	// I) find users eligible to receive the event
-	var (
-		users     []string
-		executant *user.UserId
-		err       error
-	)
-
-	gwc, err := ul.gatewaySelector.Next()
-	if err != nil {
-		ul.log.Error().Err(err).Msg("cannot get gateway client")
-		return
-	}
-
-	ctx, err := utils.GetServiceUserContext(ul.cfg.ServiceAccount.ServiceAccountID, gwc, ul.cfg.ServiceAccount.ServiceAccountSecret)
-	if err != nil {
-		ul.log.Error().Err(err).Msg("cannot get service account")
-		return
-	}
-
-	gwc, err = ul.gatewaySelector.Next()
-	if err != nil {
-		ul.log.Error().Err(err).Msg("cannot get gateway client")
-		return
-	}
-	switch e := event.Event.(type) {
-	default:
-		err = errors.New("unhandled event")
-	// file related
-	case events.PostprocessingStepFinished:
-		switch e.FinishedStep {
-		case events.PPStepAntivirus:
-			result := e.Result.(events.VirusscanResult)
-			if !result.Infected {
-				return
-			}
-
-			// TODO: should space mangers also be informed?
-			users = append(users, e.ExecutingUser.GetId().GetOpaqueId())
-		case events.PPStepPolicies:
-			if e.Outcome == events.PPOutcomeContinue {
-				return
-			}
-			users = append(users, e.ExecutingUser.GetId().GetOpaqueId())
-		default:
-			return
-		}
-
-	// space related // TODO: how to find spaceadmins?
-	case events.SpaceDisabled:
-		executant = e.Executant
-		users, err = utils.GetSpaceMembers(ctx, e.ID.GetOpaqueId(), gwc, utils.ViewerRole)
-	case events.SpaceDeleted:
-		executant = e.Executant
-		for u := range e.FinalMembers {
-			users = append(users, u)
-		}
-	case events.SpaceShared:
-		executant = e.Executant
-		users, err = utils.ResolveID(ctx, e.GranteeUserID, e.GranteeGroupID, gwc)
-	case ocEvents.ResourceMention:
-		executant = e.Executant
-		for _, userID := range e.UserIDs {
-			users = append(users, userID.GetOpaqueId())
-		}
-	case events.SpaceUnshared:
-		executant = e.Executant
-		users, err = utils.ResolveID(ctx, e.GranteeUserID, e.GranteeGroupID, gwc)
-	case events.SpaceMembershipExpired:
-		users, err = utils.ResolveID(ctx, e.GranteeUserID, e.GranteeGroupID, gwc)
-
-	// share related
-	case events.ShareCreated:
-		executant = e.Executant
-		users, err = utils.ResolveID(ctx, e.GranteeUserID, e.GranteeGroupID, gwc)
-	case events.ShareRemoved:
-		executant = e.Executant
-		users, err = utils.ResolveID(ctx, e.GranteeUserID, e.GranteeGroupID, gwc)
-	case events.ShareExpired:
-		users, err = utils.ResolveID(ctx, e.GranteeUserID, e.GranteeGroupID, gwc)
-	}
-
-	if err != nil {
-		// TODO: Find out why this errors on ci pipeline
-		ul.log.Debug().Err(err).Interface("event", event).Msg("error gathering members for event")
-		return
-	}
-
-	// II) filter users who want to receive the event
-	users = ul.filter.execute(ctx, event, executant, users)
-
-	// III) store the eventID for each user
-	for _, id := range users {
-		if err := ul.addEventToUser(id, event); err != nil {
-			ul.log.Error().Err(err).Str("userID", id).Str("eventid", event.ID).Msg("failed to store event for user")
-			return
-		}
-	}
-
-	// IV) send sses
-	if !ul.cfg.DisableSSE {
-		if err := ul.sendSSE(ctx, users, event, ul.gatewaySelector); err != nil {
-			ul.log.Error().Err(err).Interface("userid", users).Str("eventid", event.ID).Msg("cannot create sse event")
-		}
-	}
 }
 
 // GetEvents allows retrieving events from the eventhistory by userid
@@ -345,52 +175,10 @@ func (ul *UserlogService) DeleteGlobalEvents(ctx context.Context, evnames []stri
 	})
 }
 
-func (ul *UserlogService) addEventToUser(userid string, event events.Event) error {
+func (ul *UserlogService) AddEventToUser(userid string, event events.Event) error {
 	return ul.alterUserEventList(userid, func(ids []string) []string {
 		return append(ids, event.ID)
 	})
-}
-
-func (ul *UserlogService) sendSSE(ctx context.Context, userIDs []string, event events.Event, gatewaySelector pool.Selectable[gateway.GatewayAPIClient]) error {
-	m := make(map[string]events.SendSSE)
-
-	for _, userid := range userIDs {
-		loc := l10n.MustGetUserLocale(ctx, userid, "", ul.valueClient)
-		if ev, ok := m[loc]; ok {
-			ev.UserIDs = append(m[loc].UserIDs, userid)
-			m[loc] = ev
-			continue
-		}
-
-		ev, err := NewConverter(ctx, loc, gatewaySelector, ul.cfg.Service.Name, ul.cfg.TranslationPath, ul.cfg.DefaultLanguage).ConvertEvent(event.ID, event.Event)
-		if err != nil {
-			if utils.IsErrNotFound(err) || utils.IsErrPermissionDenied(err) {
-				// the resource was not found, we assume it is deleted
-				continue
-			}
-			return err
-		}
-
-		b, err := json.Marshal(ev)
-		if err != nil {
-			return err
-		}
-
-		m[loc] = events.SendSSE{
-			UserIDs: []string{userid},
-			Type:    "userlog-notification",
-			Message: b,
-		}
-
-	}
-
-	for _, ev := range m {
-		if err := events.Publish(ctx, ul.publisher, ev); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (ul *UserlogService) removeExpiredEvents(userid string, all []string, received []*ehmsg.Event) error {
