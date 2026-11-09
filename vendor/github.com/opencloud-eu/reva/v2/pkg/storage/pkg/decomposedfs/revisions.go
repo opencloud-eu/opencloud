@@ -105,10 +105,33 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 	if err != nil {
 		return err
 	}
-	defer func() {
+	// released before the revision cleanup at the end, or on any return before that
+	unlocked := false
+	unlockNode := func() {
+		if unlocked {
+			return
+		}
+		unlocked = true
 		_ = unlock()
 		_ = os.Remove(fs.lu.MetadataBackend().LockfilePath(n))
-	}()
+	}
+	defer unlockNode()
+
+	// The revision must still exist on disk. Its metadata may come from a stale cache
+	// entry: another process, e.g. `opencloud storage-users revisions cleanup` with the
+	// default in-memory metadata cache, may have deleted it. Restoring it anyway would
+	// point the node to the revision's deleted blob, and it would leave a revision of the
+	// current content behind. Checked under the node's lock, which deleting a revision
+	// takes too (Node.DeleteRevisionUnchecked).
+	revisionNode := node.NewBaseNode(spaceID, revisionKey, fs.lu)
+	if _, err := os.Stat(revisionNode.InternalPath()); err != nil {
+		if !os.IsNotExist(err) {
+			return err
+		}
+		// drop the stale cache entry, if there is one
+		_ = fs.lu.MetadataBackend().Purge(ctx, revisionNode)
+		return errtypes.NotFound(revisionKey)
+	}
 
 	// move current version to new revision
 	mtime, err := n.GetMTime(ctx)
@@ -118,13 +141,17 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 	}
 
 	// create a revision of the current node
-	if _, err := fs.tp.CreateRevision(ctx, n, mtime.UTC().Format(time.RFC3339Nano)); err != nil {
+	// (the version is kept around to protect this revision from the cleanup below)
+	// It is named after the mtime of the content it preserves, not after the time it is
+	// created; the revision cleanup takes the age of a revision from this name (see
+	// revisioncleanup.revisionTime).
+	newRevision := mtime.UTC().Format(time.RFC3339Nano)
+	if _, err := fs.tp.CreateRevision(ctx, n, newRevision); err != nil {
 		return err
 	}
 
 	// revision 5, current 10 (restore a smaller blob) -> 5-10 = -5
 	// revision 10, current 5 (restore a bigger blob) -> 10-5 = +5
-	revisionNode := node.NewBaseNode(spaceID, revisionKey, fs.lu)
 	revisionSize, err := fs.lu.MetadataBackend().GetInt64(ctx, revisionNode, prefixes.BlobsizeAttr)
 	if err != nil {
 		return errtypes.InternalError("failed to read blob size xattr from old revision")
@@ -151,7 +178,25 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 		log.Warn().Err(err).Interface("ref", ref).Str("originalnode", kp[0]).Str("revisionKey", revisionKey).Msg("could not purge old revision from cache, continuing")
 	}
 
-	return fs.tp.Propagate(ctx, n, sizeDiff)
+	if err := fs.tp.Propagate(ctx, n, sizeDiff); err != nil {
+		return err
+	}
+
+	// The restore created a new revision from the previous content, so apply the
+	// revision cleanup strategy (see package revisioncleanup). It runs last, once the
+	// restore is complete, and never fails the restore.
+	// The revision holding the state from before the restore is always kept: a restore
+	// is a deliberate user action, and the strategy could otherwise drop the very
+	// content the user just replaced, e.g. the 'auto' strategy thins out revisions
+	// that are close in time.
+	// The node lock is released first: the cleanup takes it itself, and when it runs in the
+	// background, waiting for room in its queue while holding the lock could deadlock with
+	// a worker waiting for the lock. Releasing it also removes the lock file, which must not
+	// happen while the cleanup holds a lock on it, as the next writer would then lock a new
+	// lock file and run concurrently with the cleanup.
+	unlockNode()
+	fs.revisionsCleanup.HandleRevisionCreated(ctx, n, n.ID+node.RevisionIDDelimiter+newRevision)
+	return nil
 }
 
 // DeleteRevision deletes the specified revision of the resource
@@ -177,7 +222,7 @@ func (fs *Decomposedfs) deleteRevisionFile(ctx context.Context, n *node.Node, re
 		return errtypes.NotFound(revisionKey)
 	}
 
-	blobID, err := n.DeleteRevision(ctx, kp[1])
+	blobID, err := n.DeleteRevisionUnchecked(ctx, kp[1])
 	if err != nil {
 		return err
 	}

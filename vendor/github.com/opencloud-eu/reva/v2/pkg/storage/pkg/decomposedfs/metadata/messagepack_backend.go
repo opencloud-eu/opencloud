@@ -33,7 +33,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/cache"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/pkg/xattr"
-	"github.com/rogpeppe/go-internal/lockedfile"
 	"github.com/vmihailenco/msgpack/v5"
 	"go.opentelemetry.io/otel/codes"
 )
@@ -41,12 +40,14 @@ import (
 // MessagePackBackend persists the attributes in messagepack format inside the file
 type MessagePackBackend struct {
 	metaCache cache.FileMetadataCache
+	metrics   *backendMetrics
 }
 
 // NewMessagePackBackend returns a new MessagePackBackend instance
 func NewMessagePackBackend(o cache.Config) MessagePackBackend {
 	return MessagePackBackend{
 		metaCache: cache.GetFileMetadataCache(o),
+		metrics:   newBackendMetrics("messagepack"),
 	}
 }
 
@@ -56,6 +57,7 @@ func (MessagePackBackend) Name() string { return "messagepack" }
 // IdentifyPath returns the id and mtime of a file
 func (b MessagePackBackend) IdentifyPath(_ context.Context, path string) (string, string, string, time.Time, error) {
 	metaPath := filepath.Clean(path + ".mpk")
+	b.metrics.reads.Inc()
 	source, err := os.Open(metaPath)
 	// // No cached entry found. Read from storage and store in cache
 	if err != nil {
@@ -157,6 +159,7 @@ func (b MessagePackBackend) saveAttributes(ctx context.Context, n MetadataNode, 
 		defer func() { _ = unlock() }()
 	}
 	// Read current state
+	b.metrics.reads.Inc()
 	_, subspan := tracer.Start(ctx, "os.ReadFile")
 	var msgBytes []byte
 	msgBytes, err = os.ReadFile(metaPath)
@@ -192,6 +195,7 @@ func (b MessagePackBackend) saveAttributes(ctx context.Context, n MetadataNode, 
 	}
 
 	// overwrite file atomically
+	b.metrics.writes.Inc()
 	_, subspan = tracer.Start(ctx, "renameio.Writefile")
 	err = renameio.WriteFile(metaPath, d, 0600)
 	if err != nil {
@@ -210,6 +214,7 @@ func (b MessagePackBackend) loadAttributes(ctx context.Context, n MetadataNode) 
 	defer span.End()
 	attribs := map[string][]byte{}
 	err := b.metaCache.PullFromCache(b.cacheKey(n), &attribs)
+	b.metrics.cacheLookup(err == nil)
 	if err == nil {
 		return attribs, err
 	}
@@ -217,6 +222,7 @@ func (b MessagePackBackend) loadAttributes(ctx context.Context, n MetadataNode) 
 	metaPath := b.MetadataPath(n)
 
 	// No cached entry found. Read from storage and store in cache
+	b.metrics.reads.Inc()
 	_, subspan := tracer.Start(ctx, "os.Open")
 	source, err := os.Open(metaPath)
 	subspan.End()
@@ -271,6 +277,7 @@ func (b MessagePackBackend) Purge(_ context.Context, n MetadataNode) error {
 		return err
 	}
 
+	b.metrics.writes.Inc()
 	return os.Remove(b.MetadataPath(n))
 }
 
@@ -289,6 +296,7 @@ func (b MessagePackBackend) Rename(oldNode, newNode MetadataNode) error {
 		return err
 	}
 
+	b.metrics.writes.Inc()
 	return os.Rename(b.MetadataPath(oldNode), b.MetadataPath(newNode))
 }
 
@@ -305,7 +313,7 @@ func (b MessagePackBackend) Lock(n MetadataNode) (UnlockFunc, error) {
 	}
 
 	metaLockPath := b.LockfilePath(n)
-	mlock, err := lockedfile.OpenFile(metaLockPath, os.O_RDWR|os.O_CREATE, 0600)
+	mlock, err := lockFile(n, metaLockPath, os.O_RDWR|os.O_CREATE, b.metrics)
 	if err != nil {
 		return nil, err
 	}

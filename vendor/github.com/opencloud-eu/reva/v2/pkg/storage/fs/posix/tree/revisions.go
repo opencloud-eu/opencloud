@@ -155,6 +155,13 @@ func (tp *Tree) ListRevisions(ctx context.Context, ref *provider.Reference) (rev
 		return nil, errtypes.NotFound(f)
 	}
 
+	return tp.ListRevisionsUnchecked(ctx, n)
+}
+
+// ListRevisionsUnchecked lists all revisions of the given node without checking permissions.
+// ListRevisions checks the permissions of the requesting user before delegating here,
+// the revision cleanup calls it directly as it is not acting on behalf of a user.
+func (tp *Tree) ListRevisionsUnchecked(ctx context.Context, n *node.Node) (revisions []*provider.FileVersion, err error) {
 	revisions = []*provider.FileVersion{}
 	versionGlob := tp.lookup.VersionPath(n.SpaceID, n.ID, "*")
 	if items, err := filepath.Glob(versionGlob); err == nil {
@@ -237,6 +244,14 @@ func (tp *Tree) DownloadRevision(ctx context.Context, ref *provider.Reference, r
 	}
 
 	revNode := node.NewBaseNode(spaceID, revisionKey, tp.lookup)
+	// the revision's metadata may come from a stale cache entry, after another process
+	// deleted the revision (see Decomposedfs.RestoreRevision)
+	if _, err := os.Stat(revNode.InternalPath()); err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil, errtypes.NotFound(revisionKey)
+		}
+		return nil, nil, err
+	}
 	_, blobsize, err := tp.lookup.ReadBlobIDAndSizeAttr(ctx, revNode, nil)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "Decomposedfs: could not read blob id and size for revision '%s' of node '%s'", kp[1], n.ID)

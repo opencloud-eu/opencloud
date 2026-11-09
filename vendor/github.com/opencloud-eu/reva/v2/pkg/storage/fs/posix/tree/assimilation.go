@@ -40,6 +40,7 @@ import (
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 
+	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher"
@@ -831,6 +832,12 @@ assimilate:
 			currentPath := currentNode.InternalPath()
 			stat, err := os.Stat(currentPath)
 			if err == nil {
+				// Named after the mtime of '.CURRENT', i.e. the time the content it preserves was
+				// copied there, when the previous change was picked up (normally right after that
+				// content was written), not after the time of this change. The revision cleanup
+				// takes the age of a revision from this name (see revisioncleanup.revisionTime);
+				// whether it should rather be the time of this change is discussed in
+				// https://github.com/opencloud-eu/opencloud/issues/3735.
 				revisionPath := t.lookup.VersionPath(n.SpaceID, n.ID, stat.ModTime().UTC().Format(time.RFC3339Nano))
 
 				err = os.Rename(currentPath, revisionPath)
@@ -838,6 +845,28 @@ assimilate:
 					t.log.Error().Err(err).Str("path", path).Str("revisionPath", revisionPath).Msg("could not create revision")
 					return
 				}
+
+				// A change on disk has just created a revision, apply the revision cleanup
+				// strategy (see package revisioncleanup). This is the only trigger for those
+				// revisions: they are created by the rename above and never go through
+				// CreateRevision or the upload code, where the other triggers are.
+				// It runs when this goroutine is done, after the new content was copied to
+				// '.CURRENT' below (or that failed): '.CURRENT' is missing from the rename above
+				// until then, and a change on disk in between would find no '.CURRENT' to create
+				// a revision from, so the cleanup must not make that window any longer.
+				// The cleanup takes the node lock itself. If the assimilation that started this
+				// goroutine still holds it, the cleanup just waits, as nothing waits for this
+				// goroutine there is no deadlock.
+				// context.Background() carries no logger, pass t.log on or the cleanup's
+				// logging would be lost.
+				// The cleanup is handed the ids, not n: n is still used by the assimilation
+				// that started this goroutine, and a node caches state without locking.
+				// HandleRevisionCreatedByID reads a node of its own only to clean it up: not
+				// at all if the cleanup is disabled, and in the background only in the worker.
+				defer func() {
+					ctx := appctx.WithLogger(context.Background(), t.log)
+					t.revisionsCleanup.HandleRevisionCreatedByID(ctx, n.SpaceID, n.ID)
+				}()
 			}
 
 			// Copy the new version to the current version
