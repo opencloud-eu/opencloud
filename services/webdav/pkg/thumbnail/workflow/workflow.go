@@ -457,7 +457,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	if w.cache != nil {
 		cached, err := w.cache.Get(cacheKey)
 		switch {
-		case err == nil && cached.ContentType != "":
+		case err == nil && cached != nil && cached.ContentType != "":
 			return Thumbnail{Data: cached.Data, ContentType: cached.ContentType}, nil
 		case err == nil:
 			// written without a type, e.g. copied without its xattrs: made again
@@ -508,7 +508,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	}
 
 	if w.cache != nil {
-		if err := w.cache.Put(cacheKey, thumbnail.Image{Data: thumbBytes, ContentType: outputType}); err != nil {
+		if err := w.cache.Put(cacheKey, &thumbnail.Image{ContentType: outputType, Data: thumbBytes}); err != nil {
 			logger.Debug().Err(err).Msg("could not cache thumbnail")
 		}
 	}
@@ -545,7 +545,7 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 	if converter != nil && w.cache != nil {
 		sourceKey = sourceStorageKey(checksum, mimeType, converter.Name())
 		if cached, err := w.cache.Get(sourceKey); err == nil {
-			if len(cached.Data) == 0 {
+			if cached == nil {
 				return nil, "", nil, ErrNoThumbnail
 			}
 			if cached.ContentType != "" {
@@ -573,14 +573,14 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 	if errors.Is(err, preprocessor.ErrNoThumbnail) {
 		//the file carries no image, which is an answer and worth remembering;
 		//a failed extraction is not, it may succeed on the next try
-		w.rememberSource(sourceKey, thumbnail.Image{})
+		w.rememberSource(sourceKey, nil)
 		return nil, "", nil, ErrNoThumbnail
 	}
 	if err != nil || img == nil {
 		logger.Debug().Err(err).Msg("could not convert file to image")
 		return nil, "", nil, fmt.Errorf("%w: could not get image", ErrNotFound)
 	}
-	w.rememberSource(sourceKey, *img)
+	w.rememberSource(sourceKey, img)
 
 	return bytes.NewReader(img.Data), img.ContentType, func() {}, nil
 }
@@ -591,11 +591,11 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 // thumbnails it serves to make room for one source.
 const maxCachedSourceBytes = 8 << 20
 
-// rememberSource keeps what an extractor made of a file, or the empty entry
-// that says it made nothing. An image too large to keep is simply not kept:
+// rememberSource keeps what an extractor made of a file, or nil when it found
+// nothing. An image too large to keep is simply not kept:
 // the extraction runs again next time, which costs time, not correctness.
-func (w *ThumbnailWorkflow) rememberSource(key string, img thumbnail.Image) {
-	if w.cache == nil || len(img.Data) > maxCachedSourceBytes {
+func (w *ThumbnailWorkflow) rememberSource(key string, img *thumbnail.Image) {
+	if w.cache == nil || img != nil && len(img.Data) > maxCachedSourceBytes {
 		return
 	}
 	_ = w.cache.Put(key, img)

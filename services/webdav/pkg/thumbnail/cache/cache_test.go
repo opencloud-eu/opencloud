@@ -37,11 +37,11 @@ var _ = Describe("InMemoryCache", func() {
 	It("should return ErrCacheMiss for missing key", func() {
 		got, err := cache.Get("nonexistent")
 		Expect(err).To(MatchError(ErrCacheMiss))
-		Expect(got.Data).To(BeNil())
+		Expect(got).To(BeNil())
 	})
 
 	It("should store and retrieve data", func() {
-		err := cache.Put("key1", thumbnail.Image{Data: []byte("thumbnail-data")})
+		err := cache.Put("key1", &thumbnail.Image{Data: []byte("thumbnail-data")})
 		Expect(err).ToNot(HaveOccurred())
 
 		got, err := cache.Get("key1")
@@ -50,7 +50,7 @@ var _ = Describe("InMemoryCache", func() {
 	})
 
 	It("should return independent copies on Get", func() {
-		err := cache.Put("key1", thumbnail.Image{Data: []byte("original")})
+		err := cache.Put("key1", &thumbnail.Image{Data: []byte("original")})
 		Expect(err).ToNot(HaveOccurred())
 
 		got, err := cache.Get("key1")
@@ -63,10 +63,10 @@ var _ = Describe("InMemoryCache", func() {
 	})
 
 	It("should overwrite existing keys", func() {
-		err := cache.Put("key1", thumbnail.Image{Data: []byte("v1")})
+		err := cache.Put("key1", &thumbnail.Image{Data: []byte("v1")})
 		Expect(err).ToNot(HaveOccurred())
 
-		err = cache.Put("key1", thumbnail.Image{Data: []byte("v2")})
+		err = cache.Put("key1", &thumbnail.Image{Data: []byte("v2")})
 		Expect(err).ToNot(HaveOccurred())
 
 		got, err := cache.Get("key1")
@@ -74,13 +74,13 @@ var _ = Describe("InMemoryCache", func() {
 		Expect(got.Data).To(Equal([]byte("v2")))
 	})
 
-	It("should handle empty data", func() {
-		err := cache.Put("empty-key", thumbnail.Image{Data: []byte{}})
+	It("remembers a file without an image as nil", func() {
+		err := cache.Put("empty-key", nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		got, err := cache.Get("empty-key")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(got.Data).To(BeEmpty())
+		Expect(got).To(BeNil(), "a file without an image")
 	})
 })
 
@@ -94,19 +94,19 @@ var _ = Describe("NoopCache", func() {
 	It("should always return ErrCacheMiss on Get", func() {
 		got, err := cache.Get("any-key")
 		Expect(err).To(MatchError(ErrCacheMiss))
-		Expect(got.Data).To(BeNil())
+		Expect(got).To(BeNil())
 	})
 
 	It("should accept Put without error", func() {
-		err := cache.Put("key1", thumbnail.Image{Data: []byte("data")})
+		err := cache.Put("key1", &thumbnail.Image{Data: []byte("data")})
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("should still miss after Put", func() {
-		_ = cache.Put("key1", thumbnail.Image{Data: []byte("data")})
+		_ = cache.Put("key1", &thumbnail.Image{Data: []byte("data")})
 		got, err := cache.Get("key1")
 		Expect(err).To(MatchError(ErrCacheMiss))
-		Expect(got.Data).To(BeNil())
+		Expect(got).To(BeNil())
 	})
 })
 
@@ -115,7 +115,7 @@ var _ = Describe("NewThumbnailCache", func() {
 		cache, err := NewThumbnailCache("memory", "", nil)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(cache).ToNot(BeNil())
-		err = cache.Put("k", thumbnail.Image{Data: []byte("v")})
+		err = cache.Put("k", &thumbnail.Image{Data: []byte("v")})
 		Expect(err).ToNot(HaveOccurred())
 		got, err := cache.Get("k")
 		Expect(err).ToNot(HaveOccurred())
@@ -137,7 +137,7 @@ var _ = Describe("NewThumbnailCache", func() {
 		Expect(err).ToNot(HaveOccurred())
 		got, err := cache.Get("k")
 		Expect(err).To(MatchError(ErrCacheMiss))
-		Expect(got.Data).To(BeNil())
+		Expect(got).To(BeNil())
 	})
 
 	It("should create S3Cache for 's3' backend with complete config", func() {
@@ -277,11 +277,11 @@ var _ = Describe("S3Cache", func() {
 	It("should return ErrCacheMiss for missing key", func() {
 		got, err := cache.Get("nonexistent-key")
 		Expect(err).To(MatchError(ErrCacheMiss))
-		Expect(got.Data).To(BeNil())
+		Expect(got).To(BeNil())
 	})
 
 	It("should store and retrieve data", func() {
-		err := cache.Put("sha256:abc123-400x400.jpg", thumbnail.Image{Data: []byte("thumbnail-data")})
+		err := cache.Put("sha256:abc123-400x400.jpg", &thumbnail.Image{Data: []byte("thumbnail-data")})
 		Expect(err).ToNot(HaveOccurred())
 
 		got, err := cache.Get("sha256:abc123-400x400.jpg")
@@ -290,7 +290,7 @@ var _ = Describe("S3Cache", func() {
 	})
 
 	It("should return independent copies on Get", func() {
-		err := cache.Put("key1", thumbnail.Image{Data: []byte("original")})
+		err := cache.Put("key1", &thumbnail.Image{Data: []byte("original")})
 		Expect(err).ToNot(HaveOccurred())
 
 		got, err := cache.Get("key1")
@@ -303,10 +303,10 @@ var _ = Describe("S3Cache", func() {
 	})
 
 	It("should overwrite existing keys", func() {
-		err := cache.Put("key1", thumbnail.Image{Data: []byte("v1")})
+		err := cache.Put("key1", &thumbnail.Image{Data: []byte("v1")})
 		Expect(err).ToNot(HaveOccurred())
 
-		err = cache.Put("key1", thumbnail.Image{Data: []byte("v2")})
+		err = cache.Put("key1", &thumbnail.Image{Data: []byte("v2")})
 		Expect(err).ToNot(HaveOccurred())
 
 		got, err := cache.Get("key1")
@@ -314,18 +314,18 @@ var _ = Describe("S3Cache", func() {
 		Expect(got.Data).To(Equal([]byte("v2")))
 	})
 
-	It("should handle empty data", func() {
-		err := cache.Put("empty-key", thumbnail.Image{Data: []byte{}})
+	It("remembers a file without an image as nil", func() {
+		err := cache.Put("empty-key", nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		got, err := cache.Get("empty-key")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(got.Data).To(BeEmpty())
+		Expect(got).To(BeNil(), "a file without an image")
 	})
 
 	It("should use flat key format", func() {
 		key := "sha256:abc123-400x400.jpg"
-		err := cache.Put(key, thumbnail.Image{Data: []byte("data")})
+		err := cache.Put(key, &thumbnail.Image{Data: []byte("data")})
 		Expect(err).ToNot(HaveOccurred())
 
 		got, err := cache.Get(key)
@@ -336,7 +336,7 @@ var _ = Describe("S3Cache", func() {
 	It("should initialize client lazily on first access", func() {
 		Expect(cache.client).To(BeNil())
 
-		_ = cache.Put("key1", thumbnail.Image{Data: []byte("data")})
+		_ = cache.Put("key1", &thumbnail.Image{Data: []byte("data")})
 		Expect(cache.client).ToNot(BeNil())
 	})
 
@@ -345,7 +345,7 @@ var _ = Describe("S3Cache", func() {
 
 		got, err := cache.Get("any-key")
 		Expect(err).To(HaveOccurred())
-		Expect(got.Data).To(BeNil())
+		Expect(got).To(BeNil())
 	})
 
 	It("should keep an error that is not a missing key an error", func() {
@@ -359,7 +359,7 @@ var _ = Describe("S3Cache", func() {
 	It("should handle S3 errors gracefully on Put", func() {
 		mockClient.putErr = errors.New("connection refused")
 
-		err := cache.Put("key1", thumbnail.Image{Data: []byte("data")})
+		err := cache.Put("key1", &thumbnail.Image{Data: []byte("data")})
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -370,11 +370,11 @@ var _ = Describe("S3Cache", func() {
 
 		got, err := cache.Get("any-key")
 		Expect(err).To(HaveOccurred())
-		Expect(got.Data).To(BeNil())
+		Expect(got).To(BeNil())
 	})
 
 	It("stores the entry's type as the object's Content-Type", func() {
-		Expect(cache.Put("key1", thumbnail.Image{Data: []byte("data"), ContentType: "image/png"})).To(Succeed())
+		Expect(cache.Put("key1", &thumbnail.Image{Data: []byte("data"), ContentType: "image/png"})).To(Succeed())
 		Expect(mockClient.contentTypes["key1"]).To(Equal("image/png"))
 
 		got, err := cache.Get("key1")
@@ -404,12 +404,12 @@ var _ = Describe("FileCache", func() {
 	It("should return ErrCacheMiss for missing key", func() {
 		got, err := cache.Get("ab/cd/ef1234567890/400x400.jpg")
 		Expect(err).To(MatchError(ErrCacheMiss))
-		Expect(got.Data).To(BeNil())
+		Expect(got).To(BeNil())
 	})
 
 	It("should store and retrieve data", func() {
 		key := "ab/cd/ef1234567890/400x400.jpg"
-		err := cache.Put(key, thumbnail.Image{Data: []byte("thumbnail-data")})
+		err := cache.Put(key, &thumbnail.Image{Data: []byte("thumbnail-data")})
 		Expect(err).ToNot(HaveOccurred())
 
 		got, err := cache.Get(key)
@@ -419,7 +419,7 @@ var _ = Describe("FileCache", func() {
 
 	It("should use hierarchical directory layout", func() {
 		key := "ab/cd/ef1234567890/400x400.jpg"
-		err := cache.Put(key, thumbnail.Image{Data: []byte("thumbnail-data")})
+		err := cache.Put(key, &thumbnail.Image{Data: []byte("thumbnail-data")})
 		Expect(err).ToNot(HaveOccurred())
 
 		expectedPath := filepath.Join(tmpdir, "ab", "cd", "ef1234567890", "400x400.jpg")
@@ -430,7 +430,7 @@ var _ = Describe("FileCache", func() {
 
 	It("should create parent directories with 0700 permissions", func() {
 		key := "ab/cd/ef1234567890/400x400.jpg"
-		err := cache.Put(key, thumbnail.Image{Data: []byte("thumbnail-data")})
+		err := cache.Put(key, &thumbnail.Image{Data: []byte("thumbnail-data")})
 		Expect(err).ToNot(HaveOccurred())
 
 		dirPath := filepath.Join(tmpdir, "ab", "cd")
@@ -442,7 +442,7 @@ var _ = Describe("FileCache", func() {
 
 	It("should return independent copies on Get", func() {
 		key := "ab/cd/ef1234567890/400x400.jpg"
-		err := cache.Put(key, thumbnail.Image{Data: []byte("original")})
+		err := cache.Put(key, &thumbnail.Image{Data: []byte("original")})
 		Expect(err).ToNot(HaveOccurred())
 
 		got, err := cache.Get(key)
@@ -456,22 +456,22 @@ var _ = Describe("FileCache", func() {
 
 	It("should overwrite existing keys", func() {
 		key := "ab/cd/ef1234567890/400x400.jpg"
-		Expect(cache.Put(key, thumbnail.Image{Data: []byte("v1")})).To(Succeed())
-		Expect(cache.Put(key, thumbnail.Image{Data: []byte("v2")})).To(Succeed())
+		Expect(cache.Put(key, &thumbnail.Image{Data: []byte("v1")})).To(Succeed())
+		Expect(cache.Put(key, &thumbnail.Image{Data: []byte("v2")})).To(Succeed())
 
 		got, err := cache.Get(key)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(got.Data).To(Equal([]byte("v2")), "a key whose value can change has to be replaceable")
 	})
 
-	It("should handle empty data", func() {
+	It("remembers a file without an image as nil", func() {
 		key := "ab/cd/ef1234567890/400x400.jpg"
-		err := cache.Put(key, thumbnail.Image{Data: []byte{}})
+		err := cache.Put(key, nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		got, err := cache.Get(key)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(got.Data).To(BeEmpty())
+		Expect(got).To(BeNil(), "a file without an image")
 	})
 
 	It("should use atomic write via temp file + rename", func() {
@@ -499,7 +499,7 @@ var _ = Describe("FileCache", func() {
 			}
 		}()
 
-		err := cache.Put(key, thumbnail.Image{Data: bytes.Repeat([]byte("x"), 1024*1024)})
+		err := cache.Put(key, &thumbnail.Image{Data: bytes.Repeat([]byte("x"), 1024*1024)})
 		Expect(err).ToNot(HaveOccurred())
 
 		close(done)
@@ -517,13 +517,13 @@ var _ = Describe("FileCache", func() {
 		// The cache dir path passes through a regular file, so MkdirAll cannot
 		// create the target directory for any user (root or not) -> Put must error.
 		rc := NewFileCache(filepath.Join(blocker, "sub"))
-		err := rc.Put("ab/cd/ef1234567890/400x400.jpg", thumbnail.Image{Data: []byte("data")})
+		err := rc.Put("ab/cd/ef1234567890/400x400.jpg", &thumbnail.Image{Data: []byte("data")})
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("keeps the content type in an extended attribute", func() {
 		key := "ab/cd/ef1234567890/400x400"
-		Expect(cache.Put(key, thumbnail.Image{Data: []byte("thumbnail-data"), ContentType: "image/png"})).To(Succeed())
+		Expect(cache.Put(key, &thumbnail.Image{Data: []byte("thumbnail-data"), ContentType: "image/png"})).To(Succeed())
 
 		got, err := cache.Get(key)
 		Expect(err).ToNot(HaveOccurred())
@@ -562,7 +562,7 @@ var _ = Describe("NewThumbnailCache factory", func() {
 		Expect(ok).To(BeTrue())
 		Expect(fileCache.dir).To(Equal(tmpdir))
 
-		err = cache.Put("ab/cd/ef1234567890/400x400.jpg", thumbnail.Image{Data: []byte("file-data")})
+		err = cache.Put("ab/cd/ef1234567890/400x400.jpg", &thumbnail.Image{Data: []byte("file-data")})
 		Expect(err).ToNot(HaveOccurred())
 
 		got, err := cache.Get("ab/cd/ef1234567890/400x400.jpg")

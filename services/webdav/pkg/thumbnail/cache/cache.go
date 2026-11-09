@@ -21,10 +21,11 @@ func DefaultFileCacheDir() string {
 	return filepath.Join(defaults.BaseDataPath(), "thumbnails", "cache")
 }
 
-// ThumbnailCache provides cached storage for generated thumbnails.
+// ThumbnailCache provides cached storage for generated thumbnails. A nil image
+// records that a file has none.
 type ThumbnailCache interface {
-	Get(key string) (thumbnail.Image, error)
-	Put(key string, img thumbnail.Image) error
+	Get(key string) (*thumbnail.Image, error)
+	Put(key string, img *thumbnail.Image) error
 }
 
 // NewThumbnailCache creates a cache instance based on the configured backend. A

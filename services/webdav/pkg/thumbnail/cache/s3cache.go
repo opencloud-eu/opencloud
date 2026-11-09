@@ -86,28 +86,32 @@ func (c *S3Cache) initClient() error {
 	return c.initErr
 }
 
-func (c *S3Cache) Get(key string) (thumbnail.Image, error) {
+func (c *S3Cache) Get(key string) (*thumbnail.Image, error) {
 	if err := c.initClient(); err != nil {
-		return thumbnail.Image{}, err
+		return nil, err
 	}
 
 	obj, err := c.client.GetObject(context.Background(), c.config.Bucket, key, minio.GetObjectOptions{})
 	if err != nil {
-		return thumbnail.Image{}, asCacheError(err)
+		return nil, asCacheError(err)
 	}
 	defer obj.Close()
 
 	info, err := obj.Stat()
 	if err != nil {
-		return thumbnail.Image{}, asCacheError(err)
+		return nil, asCacheError(err)
 	}
 
 	data, err := io.ReadAll(obj)
 	if err != nil {
-		return thumbnail.Image{}, asCacheError(err)
+		return nil, asCacheError(err)
 	}
 
-	return thumbnail.Image{Data: data, ContentType: info.ContentType}, nil
+	if len(data) == 0 {
+		return nil, nil
+	}
+
+	return &thumbnail.Image{ContentType: info.ContentType, Data: data}, nil
 }
 
 // asCacheError reports a missing object as a cache miss. minio's GetObject only
@@ -127,19 +131,25 @@ func asCacheError(err error) error {
 	return err
 }
 
-func (c *S3Cache) Put(key string, img thumbnail.Image) error {
+func (c *S3Cache) Put(key string, img *thumbnail.Image) error {
 	if err := c.initClient(); err != nil {
 		return err
+	}
+
+	var data []byte
+	var contentType string
+	if img != nil {
+		data, contentType = img.Data, img.ContentType
 	}
 
 	_, err := c.client.PutObject(
 		context.Background(),
 		c.config.Bucket,
 		key,
-		bytes.NewReader(img.Data),
-		int64(len(img.Data)),
+		bytes.NewReader(data),
+		int64(len(data)),
 		minio.PutObjectOptions{
-			ContentType: img.ContentType,
+			ContentType: contentType,
 		},
 	)
 	return err
