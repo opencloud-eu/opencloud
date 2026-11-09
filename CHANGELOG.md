@@ -1,6 +1,6 @@
 # Changelog
 
-## [9.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.1) - 2026-11-06
+## [9.0.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.0.1) - 2026-11-09
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -13,6 +13,7 @@
 
 ### 🐛 Bug Fixes
 
+- Bound the memory of bleve indexing [[#3900](https://github.com/opencloud-eu/opencloud/pull/3900)]
 - fix: filter health checks from the pod ip [[#3914](https://github.com/opencloud-eu/opencloud/pull/3914)]
 - fix: keep the health checks out of the access log [[#3908](https://github.com/opencloud-eu/opencloud/pull/3908)]
 - fix(tracing): set the global text map propagator [[#3906](https://github.com/opencloud-eu/opencloud/pull/3906)]
