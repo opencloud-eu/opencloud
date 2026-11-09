@@ -123,9 +123,8 @@ func fileIsProcessing(info *providerv1beta1.ResourceInfo) bool {
 	return utils.ReadPlainFromOpaque(info.GetOpaque(), "status") == "processing"
 }
 
-// thumbnailStorageKey is <prefix>/wxh-<operation>, with the snapped box as size.
-// The output type depends on the extracted image, so it is stored with the
-// entry, not part of the key.
+// thumbnailStorageKey has no format: the output type depends on the extracted
+// image and is stored with the entry.
 func thumbnailStorageKey(checksum, mimeType string, w, h int, operation string) string {
 	return storageKeyPrefix(checksum, mimeType) + "/" + fmt.Sprintf("%dx%d-%s", w, h, operation)
 }
@@ -460,7 +459,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 		case err == nil && cached != nil && cached.ContentType != "":
 			return Thumbnail{Data: cached.Data, ContentType: cached.ContentType}, nil
 		case err == nil:
-			// written without a type, e.g. copied without its xattrs: made again
+			// no type, e.g. copied without xattrs: made again
 		case !errors.Is(err, cache.ErrCacheMiss):
 			// a miss is the normal answer; anything else is the cache itself
 			// failing, and the thumbnail is made again without a word otherwise
@@ -484,7 +483,6 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	}
 	defer cleanup()
 
-	// the thumbnail keeps the type of the image it is made from, or what that maps to
 	outputType, outputFormat := w.outputFor(srcType)
 
 	// webdav snaps the requested size onto a configured resolution and lets the
@@ -591,9 +589,7 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 // thumbnails it serves to make room for one source.
 const maxCachedSourceBytes = 8 << 20
 
-// rememberSource keeps what an extractor made of a file, or nil when it found
-// nothing. An image too large to keep is simply not kept:
-// the extraction runs again next time, which costs time, not correctness.
+// rememberSource keeps an extractor's result; nil records that it found none.
 func (w *ThumbnailWorkflow) rememberSource(key string, img *thumbnail.Image) {
 	if w.cache == nil || img != nil && len(img.Data) > maxCachedSourceBytes {
 		return
