@@ -575,15 +575,16 @@ func (c *coordinator) finishAsync(ctx context.Context, session Session) error {
 		if _, err = c.commit(ctx, session); err == nil {
 			return nil
 		}
+		ev := appctx.GetLogger(ctx).Warn().Err(err).
+			Int("attempt", attempt).Int("maxAttempts", maxAttempts).
+			Str("uploadid", session.ID()).
+			Str("spaceid", session.SpaceID()).Str("nodeid", session.NodeID())
 		if attempt == maxAttempts {
+			ev.Msg("blob commit failed, giving up")
 			break
 		}
 		backoff = min(backoff, maxCommitRetryBackoff)
-		appctx.GetLogger(ctx).Warn().Err(err).
-			Int("attempt", attempt).Int("maxAttempts", maxAttempts).
-			Dur("backoff", backoff).
-			Str("uploadid", session.ID()).
-			Msg("blob commit failed, retrying after backoff")
+		ev.Dur("backoff", backoff).Msg("blob commit failed, retrying after backoff")
 		t := time.NewTimer(backoff)
 		select {
 		case <-ctx.Done():
