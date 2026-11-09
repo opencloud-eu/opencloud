@@ -78,7 +78,7 @@ Announcing a type and sending it to Tika are separate settings:
 
 A type that Tika takes is attempted even when it is not announced. A direct request can therefore get a preview that a listing reports as absent.
 
-The thumbnail is written in the type that the **file's** own type maps to (`OC_THUMBNAILS_ADDITIONAL_OUTPUT_TYPES`), not in whatever Tika returns. The answer is the same before and after a cache hit. A Windows binary maps to `image/png` by default, because the icon Tika reads from it has transparency that a JPEG would flatten onto black.
+The thumbnail is written in the type that the **image it is made from** maps to (`OC_THUMBNAILS_ADDITIONAL_OUTPUT_TYPES`): the file itself, or the image an extractor found in it. The icon Tika reads out of a Windows binary becomes a PNG, because a JPEG would flatten its transparency onto black, and a JPEG cover stays a JPEG. The type is kept with the cache entry, so the answer is the same before and after a cache hit.
 
 #### Thumbnail Cache
 
@@ -92,6 +92,8 @@ The webdav service caches the thumbnails it generates. Choose a backend with `WE
 | `none`           | turns caching off on purpose                                               |
 
 `s3` needs a bucket, a region and credentials. A service other than AWS also needs `WEBDAV_THUMBNAILS_CACHE_S3_ENDPOINT`, and it is always addressed over https. While previews are enabled, an unknown backend or an incomplete `s3` configuration fails at startup rather than running without a cache.
+
+Every entry keeps the type of its image: `file` in an extended attribute (`user.oc.content_type`), `s3` as the object's `Content-Type`. A `file` cache on a filesystem without extended attributes fails at startup.
 
 ##### What Is Cached
 
@@ -164,10 +166,10 @@ Three settings say what is made of what. Each one is merged onto the built-in de
 | Environment variable                 | Description                                                                                                                                                  |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES`      | Types a preview is announced and attempted for, e.g. `image/vnd.microsoft.icon` for a generator that reads icons. The webdav, graph and ocdav side all read this one name |
-| `OC_THUMBNAILS_ADDITIONAL_OUTPUT_TYPES`      | The type a thumbnail is returned in, per source type, as `mime:mime` entries, e.g. `image/vnd.microsoft.icon:image/png`                                      |
+| `OC_THUMBNAILS_ADDITIONAL_OUTPUT_TYPES`      | The type a thumbnail is returned in, per type of the image it is made from, as `mime:mime` entries, e.g. `image/vnd.microsoft.icon:image/png`                 |
 | `OC_THUMBNAILS_ADDITIONAL_GENERATOR_FORMATS` | The formats the generator writes, as `mime:format` entries, e.g. `image/webp:webp`. The format is the name its own `format(...)` filter uses                 |
 
-Reading them as a chain: a source type is mapped to the type its thumbnail is returned in, and that type is asked for by the name the generator knows it under. An icon becomes `image/png`, which the generator is asked for as `format(png)`. A type nobody mapped becomes a JPEG, and so does a mapping onto a type this service has no format name for: what a generator behind the URL really writes is its own business, and a wrong guess here must not keep the service from starting.
+Reading them as a chain: the type of the image a thumbnail is made from is mapped to the type it is returned in, and that type is asked for by the name the generator knows it under. An icon becomes `image/png`, which the generator is asked for as `format(png)`. A type nobody mapped becomes a JPEG, and so does a mapping onto a type this service has no format name for: what a generator behind the URL really writes is its own business, and a wrong guess here must not keep the service from starting.
 
 The defaults return `image/png` for png, icon and windows binary sources, keep `image/gif` for a gif and return `image/jpeg` for everything else, so a client must read the response's `Content-Type` instead of assuming the type it got before.
 

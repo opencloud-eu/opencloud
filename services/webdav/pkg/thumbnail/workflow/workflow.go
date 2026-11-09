@@ -123,9 +123,11 @@ func fileIsProcessing(info *providerv1beta1.ResourceInfo) bool {
 	return utils.ReadPlainFromOpaque(info.GetOpaque(), "status") == "processing"
 }
 
-// thumbnailStorageKey is <prefix>/wxh-<operation>.format, with the snapped box as size.
-func thumbnailStorageKey(checksum, mimeType string, w, h int, format, operation string) string {
-	return storageKeyPrefix(checksum, mimeType) + "/" + fmt.Sprintf("%dx%d-%s.%s", w, h, operation, format)
+// thumbnailStorageKey is <prefix>/wxh-<operation>, with the snapped box as size.
+// The output type depends on the extracted image, so it is stored with the
+// entry, not part of the key.
+func thumbnailStorageKey(checksum, mimeType string, w, h int, operation string) string {
+	return storageKeyPrefix(checksum, mimeType) + "/" + fmt.Sprintf("%dx%d-%s", w, h, operation)
 }
 
 // sourceStorageKey holds the extracted image for all sizes; empty means the file has none.
@@ -432,14 +434,6 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	}
 	mimeType := info.GetMimeType()
 
-	// The thumbnail is returned in the type the source type maps to, asked for
-	// by the name the generator's filter uses. What an extractor hands on is
-	// re-encoded to that type, because the request has to decide it: a cache
-	// hit knows the key, not the bytes. Keeping a png cover a png needs the
-	// embedded type before the key is built, which is what the preview presence
-	// work puts into the file's metadata.
-	outputType, outputFormat := w.outputFor(mimeType)
-
 	// The operation is resolved up front so it can be part of the cache key: a
 	// fill and a fit-in request with the same dimensions produce different images
 	// and must not share a cache entry. noUpscale reports whether the generator
@@ -458,13 +452,15 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	// requests that produce the same image share one entry and the number of
 	// entries per file stays bounded by the ladder. It needs nothing but the
 	// request, so a hit still returns without touching storage.
-	cacheKey := thumbnailStorageKey(checksum, mimeType, box.Dx(), box.Dy(), outputFormat, operation)
+	cacheKey := thumbnailStorageKey(checksum, mimeType, box.Dx(), box.Dy(), operation)
 
 	if w.cache != nil {
 		cached, err := w.cache.Get(cacheKey)
 		switch {
+		case err == nil && cached.ContentType != "":
+			return Thumbnail{Data: cached.Data, ContentType: cached.ContentType}, nil
 		case err == nil:
-			return Thumbnail{Data: cached, ContentType: outputType}, nil
+			// written without a type, e.g. copied without its xattrs: made again
 		case !errors.Is(err, cache.ErrCacheMiss):
 			// a miss is the normal answer; anything else is the cache itself
 			// failing, and the thumbnail is made again without a word otherwise
@@ -488,6 +484,9 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	}
 	defer cleanup()
 
+	// the thumbnail keeps the type of the image it is made from, or what that maps to
+	outputType, outputFormat := w.outputFor(srcType)
+
 	// webdav snaps the requested size onto a configured resolution and lets the
 	// generator fill that box. Only fit-in suppresses upscaling (noUpscale); for
 	// fill/thumbnail/resize the generator may enlarge a small source (e.g. a text
@@ -509,7 +508,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	}
 
 	if w.cache != nil {
-		if err := w.cache.Put(cacheKey, thumbBytes); err != nil {
+		if err := w.cache.Put(cacheKey, cache.Image{Data: thumbBytes, ContentType: outputType}); err != nil {
 			logger.Debug().Err(err).Msg("could not cache thumbnail")
 		}
 	}
@@ -546,13 +545,12 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 	if converter != nil && w.cache != nil {
 		sourceKey = sourceStorageKey(checksum, mimeType, converter.Name())
 		if cached, err := w.cache.Get(sourceKey); err == nil {
-			if len(cached) == 0 {
+			if len(cached.Data) == 0 {
 				return nil, "", nil, ErrNoThumbnail
 			}
-
-			//the cache holds bytes, so the type comes from them: the generator
-			//sniffs them too, this only tells it what to expect
-			return bytes.NewReader(cached), http.DetectContentType(cached), func() {}, nil
+			if cached.ContentType != "" {
+				return bytes.NewReader(cached.Data), cached.ContentType, func() {}, nil
+			}
 		}
 	}
 
@@ -575,14 +573,14 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 	if errors.Is(err, preprocessor.ErrNoThumbnail) {
 		//the file carries no image, which is an answer and worth remembering;
 		//a failed extraction is not, it may succeed on the next try
-		w.rememberSource(sourceKey, nil)
+		w.rememberSource(sourceKey, cache.Image{})
 		return nil, "", nil, ErrNoThumbnail
 	}
 	if err != nil || img == nil {
 		logger.Debug().Err(err).Msg("could not convert file to image")
 		return nil, "", nil, fmt.Errorf("%w: could not get image", ErrNotFound)
 	}
-	w.rememberSource(sourceKey, img.Data)
+	w.rememberSource(sourceKey, cache.Image{Data: img.Data, ContentType: img.ContentType})
 
 	return bytes.NewReader(img.Data), img.ContentType, func() {}, nil
 }
@@ -596,11 +594,11 @@ const maxCachedSourceBytes = 8 << 20
 // rememberSource keeps what an extractor made of a file, or the empty entry
 // that says it made nothing. An image too large to keep is simply not kept:
 // the extraction runs again next time, which costs time, not correctness.
-func (w *ThumbnailWorkflow) rememberSource(key string, data []byte) {
-	if w.cache == nil || len(data) > maxCachedSourceBytes {
+func (w *ThumbnailWorkflow) rememberSource(key string, img cache.Image) {
+	if w.cache == nil || len(img.Data) > maxCachedSourceBytes {
 		return
 	}
-	_ = w.cache.Put(key, data)
+	_ = w.cache.Put(key, img)
 }
 
 // supportsMimeType reports whether a preview is attempted for the type: the

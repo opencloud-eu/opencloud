@@ -11,7 +11,7 @@ const InMemoryCacheMaxBytes = 128 << 20
 // InMemoryCacheMaxBytes and evicting in insertion order.
 type InMemoryCache struct {
 	mu      sync.RWMutex
-	data    map[string][]byte
+	data    map[string]Image
 	order   []string
 	size    int
 	maxSize int
@@ -19,45 +19,45 @@ type InMemoryCache struct {
 
 func NewInMemoryCache() *InMemoryCache {
 	return &InMemoryCache{
-		data:    make(map[string][]byte),
+		data:    make(map[string]Image),
 		maxSize: InMemoryCacheMaxBytes,
 	}
 }
 
-func (c *InMemoryCache) Get(key string) ([]byte, error) {
+func (c *InMemoryCache) Get(key string) (Image, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	data, ok := c.data[key]
+	img, ok := c.data[key]
 	if !ok {
-		return nil, ErrCacheMiss
+		return Image{}, ErrCacheMiss
 	}
 
-	result := make([]byte, len(data))
-	copy(result, data)
-	return result, nil
+	data := make([]byte, len(img.Data))
+	copy(data, img.Data)
+	return Image{Data: data, ContentType: img.ContentType}, nil
 }
 
-func (c *InMemoryCache) Put(key string, data []byte) error {
+func (c *InMemoryCache) Put(key string, img Image) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	cp := make([]byte, len(data))
-	copy(cp, data)
+	data := make([]byte, len(img.Data))
+	copy(data, img.Data)
 
 	if old, ok := c.data[key]; ok {
-		c.size -= len(old)
+		c.size -= len(old.Data)
 	} else {
 		c.order = append(c.order, key)
 	}
-	c.data[key] = cp
-	c.size += len(cp)
+	c.data[key] = Image{Data: data, ContentType: img.ContentType}
+	c.size += len(data)
 
 	// the entry just written stays, even when it is larger than the budget
 	for c.size > c.maxSize && len(c.order) > 1 {
 		oldest := c.order[0]
 		c.order = c.order[1:]
-		c.size -= len(c.data[oldest])
+		c.size -= len(c.data[oldest].Data)
 		delete(c.data, oldest)
 	}
 

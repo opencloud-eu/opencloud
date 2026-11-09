@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"mime"
 	"net/http"
-	"path/filepath"
 	"sync"
 
 	minio "github.com/minio/minio-go/v7"
@@ -30,6 +28,7 @@ func (c S3CacheConfig) IsComplete() bool {
 // s3Object is the subset of minio.Object used by S3Cache.
 type s3Object interface {
 	io.ReadCloser
+	Stat() (minio.ObjectInfo, error)
 }
 
 // s3Client is the subset of minio.Client used by S3Cache.
@@ -85,23 +84,28 @@ func (c *S3Cache) initClient() error {
 	return c.initErr
 }
 
-func (c *S3Cache) Get(key string) ([]byte, error) {
+func (c *S3Cache) Get(key string) (Image, error) {
 	if err := c.initClient(); err != nil {
-		return nil, err
+		return Image{}, err
 	}
 
 	obj, err := c.client.GetObject(context.Background(), c.config.Bucket, key, minio.GetObjectOptions{})
 	if err != nil {
-		return nil, asCacheError(err)
+		return Image{}, asCacheError(err)
 	}
 	defer obj.Close()
 
-	data, err := io.ReadAll(obj)
+	info, err := obj.Stat()
 	if err != nil {
-		return nil, asCacheError(err)
+		return Image{}, asCacheError(err)
 	}
 
-	return data, nil
+	data, err := io.ReadAll(obj)
+	if err != nil {
+		return Image{}, asCacheError(err)
+	}
+
+	return Image{Data: data, ContentType: info.ContentType}, nil
 }
 
 // asCacheError reports a missing object as a cache miss. minio's GetObject only
@@ -121,25 +125,19 @@ func asCacheError(err error) error {
 	return err
 }
 
-func (c *S3Cache) Put(key string, data []byte) error {
+func (c *S3Cache) Put(key string, img Image) error {
 	if err := c.initClient(); err != nil {
 		return err
-	}
-
-	ext := filepath.Ext(key)
-	contentType := mime.TypeByExtension(ext)
-	if contentType == "" {
-		contentType = "application/octet-stream"
 	}
 
 	_, err := c.client.PutObject(
 		context.Background(),
 		c.config.Bucket,
 		key,
-		bytes.NewReader(data),
-		int64(len(data)),
+		bytes.NewReader(img.Data),
+		int64(len(img.Data)),
 		minio.PutObjectOptions{
-			ContentType: contentType,
+			ContentType: img.ContentType,
 		},
 	)
 	return err
