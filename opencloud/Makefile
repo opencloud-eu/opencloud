@@ -3,9 +3,6 @@ NAME := opencloud
 TAGS := disable_crypt
 GOARCH := $(shell go env GOARCH)
 CONFIG_DOCS_BASE_PATH := ../docs
-ifdef ENABLE_VIPS
-	TAGS := ${TAGS},enable_vips
-endif
 
 ifneq (, $(shell command -v go 2> /dev/null)) # suppress `command not found warnings` for non go targets in CI
 include ../.bingo/Variables.mk
