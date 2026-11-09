@@ -26,17 +26,9 @@ import (
 
 // FileConverter is the interface for the file converter
 type FileConverter interface {
-	Convert(r io.Reader) (*Image, error)
+	Convert(r io.Reader) (*thumbnail.Image, error)
 	// Name tells cached results of different extractors apart.
 	Name() string
-}
-
-// Image is what a converter hands on: the bytes and the type they are in.
-// webdav does not decode them, the generator does the image work, so an
-// embedded cover reaches it the way a plain image file does.
-type Image struct {
-	ContentType string
-	Data        []byte
 }
 
 // GgsDecoder is a converter for the geogebra slides file.
@@ -57,7 +49,7 @@ func (GgsDecoder) Name() string { return "oc-ggs" }
 // embedded thumbnail out of the .ggs container). The image itself is handed on
 // undecoded, but reading the container in webdav is an attack vector of its
 // own; Tika is the intended out-of-process extractor for embedded images.
-func (g GgsDecoder) Convert(r io.Reader) (*Image, error) {
+func (g GgsDecoder) Convert(r io.Reader) (*thumbnail.Image, error) {
 	var buf bytes.Buffer
 	_, err := io.Copy(&buf, r)
 	if err != nil {
@@ -73,13 +65,13 @@ func (g GgsDecoder) Convert(r io.Reader) (*Image, error) {
 				return nil, errors.Errorf("the embedded image declares %d bytes, more than the %d allowed", file.UncompressedSize64, g.maxSize)
 			}
 
-			thumbnail, err := file.Open()
+			entry, err := file.Open()
 			if err != nil {
 				return nil, err
 			}
 			// archive/zip holds the entry to its declared size while reading,
 			// so the bound here is what makes that declaration ours
-			data, err := io.ReadAll(io.LimitReader(thumbnail, int64(g.maxSize)+1))
+			data, err := io.ReadAll(io.LimitReader(entry, int64(g.maxSize)+1))
 			if err != nil {
 				return nil, errors.Wrap(err, `could not read the embedded image`)
 			}
@@ -87,7 +79,7 @@ func (g GgsDecoder) Convert(r io.Reader) (*Image, error) {
 				return nil, errors.Errorf("the embedded image is larger than the %d bytes allowed", g.maxSize)
 			}
 
-			return &Image{ContentType: "image/png", Data: data}, nil
+			return &thumbnail.Image{ContentType: "image/png", Data: data}, nil
 		}
 	}
 	return nil, ErrNoThumbnail
@@ -106,7 +98,7 @@ func (AudioDecoder) Name() string { return "oc-audio" }
 // metadata and pulls the embedded APIC picture). The picture itself is handed
 // on undecoded, but reading the metadata in webdav is an attack vector of its
 // own; Tika is the intended out-of-process extractor for embedded images.
-func (i AudioDecoder) Convert(r io.Reader) (*Image, error) {
+func (i AudioDecoder) Convert(r io.Reader) (*thumbnail.Image, error) {
 	b, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -121,7 +113,7 @@ func (i AudioDecoder) Convert(r io.Reader) (*Image, error) {
 		return nil, ErrNoThumbnail
 	}
 
-	return &Image{ContentType: picture.MIMEType, Data: picture.Data}, nil
+	return &thumbnail.Image{ContentType: picture.MIMEType, Data: picture.Data}, nil
 }
 
 // TxtToImageConverter is a converter for the text file
@@ -132,7 +124,7 @@ type TxtToImageConverter struct {
 func (TxtToImageConverter) Name() string { return "oc-text" }
 
 // Convert reads the text file and renders it into a thumbnail image
-func (t TxtToImageConverter) Convert(r io.Reader) (*Image, error) {
+func (t TxtToImageConverter) Convert(r io.Reader) (*thumbnail.Image, error) {
 	img := image.NewRGBA(image.Rect(0, 0, 640, 480))
 
 	imgBounds := img.Bounds()
@@ -218,7 +210,7 @@ Scan: // Label for the scanner loop, so we can break it easily
 		return nil, errors.Wrap(err, `could not encode the rendered text`)
 	}
 
-	return &Image{ContentType: "image/png", Data: buf.Bytes()}, nil
+	return &thumbnail.Image{ContentType: "image/png", Data: buf.Bytes()}, nil
 }
 
 // GGPStruct is the layout of a ggp file (which is basically json)
@@ -247,7 +239,7 @@ func (GgpDecoder) Name() string { return "oc-ggp" }
 // the embedded image). The image itself is handed on undecoded, but reading the
 // document in webdav is an attack vector of its own; Tika is the intended
 // out-of-process extractor for embedded images.
-func (j GgpDecoder) Convert(r io.Reader) (*Image, error) {
+func (j GgpDecoder) Convert(r io.Reader) (*thumbnail.Image, error) {
 	ggp := &GGPStruct{}
 	err := json.NewDecoder(r).Decode(ggp)
 	if err != nil {
@@ -269,7 +261,7 @@ func (j GgpDecoder) Convert(r io.Reader) (*Image, error) {
 		return nil, ErrNoThumbnail
 	}
 
-	return &Image{ContentType: contentType, Data: b}, nil
+	return &thumbnail.Image{ContentType: contentType, Data: b}, nil
 }
 
 func extractBase64ImageFromGGP(ggp *GGPStruct) (string, error) {

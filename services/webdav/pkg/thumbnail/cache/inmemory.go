@@ -1,6 +1,10 @@
 package cache
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
+)
 
 // InMemoryCacheMaxBytes is how much the memory backend keeps before it drops the
 // oldest entries. The backend is a convenience for a single process; file and s3
@@ -11,7 +15,7 @@ const InMemoryCacheMaxBytes = 128 << 20
 // InMemoryCacheMaxBytes and evicting in insertion order.
 type InMemoryCache struct {
 	mu      sync.RWMutex
-	data    map[string]Image
+	data    map[string]thumbnail.Image
 	order   []string
 	size    int
 	maxSize int
@@ -19,26 +23,26 @@ type InMemoryCache struct {
 
 func NewInMemoryCache() *InMemoryCache {
 	return &InMemoryCache{
-		data:    make(map[string]Image),
+		data:    make(map[string]thumbnail.Image),
 		maxSize: InMemoryCacheMaxBytes,
 	}
 }
 
-func (c *InMemoryCache) Get(key string) (Image, error) {
+func (c *InMemoryCache) Get(key string) (thumbnail.Image, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	img, ok := c.data[key]
 	if !ok {
-		return Image{}, ErrCacheMiss
+		return thumbnail.Image{}, ErrCacheMiss
 	}
 
 	data := make([]byte, len(img.Data))
 	copy(data, img.Data)
-	return Image{Data: data, ContentType: img.ContentType}, nil
+	return thumbnail.Image{Data: data, ContentType: img.ContentType}, nil
 }
 
-func (c *InMemoryCache) Put(key string, img Image) error {
+func (c *InMemoryCache) Put(key string, img thumbnail.Image) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -50,7 +54,7 @@ func (c *InMemoryCache) Put(key string, img Image) error {
 	} else {
 		c.order = append(c.order, key)
 	}
-	c.data[key] = Image{Data: data, ContentType: img.ContentType}
+	c.data[key] = thumbnail.Image{Data: data, ContentType: img.ContentType}
 	c.size += len(data)
 
 	// the entry just written stays, even when it is larger than the budget
