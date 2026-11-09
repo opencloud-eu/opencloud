@@ -12,18 +12,45 @@ import (
 // KV is a generic key-value map.
 type KV map[string]any
 
-// MergeKV merges the given key-value maps.
+// MergeKV merges the given key-value maps into a new map. The inputs are
+// left untouched: mergo would otherwise reuse their nested maps in the result
+// and write the later values into them.
 func MergeKV(values ...KV) (KV, error) {
 	var kv KV
 
 	for _, v := range values {
-		err := mergo.Merge(&kv, v, mergo.WithOverride)
+		err := mergo.Merge(&kv, deepCopy(v).(KV), mergo.WithOverride)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return kv, nil
+}
+
+func deepCopy(v any) any {
+	switch t := v.(type) {
+	case KV:
+		out := make(KV, len(t))
+		for k, val := range t {
+			out[k] = deepCopy(val)
+		}
+		return out
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, val := range t {
+			out[k] = deepCopy(val)
+		}
+		return out
+	case []any:
+		out := make([]any, len(t))
+		for i, val := range t {
+			out[i] = deepCopy(val)
+		}
+		return out
+	default:
+		return v
+	}
 }
 
 // PatchKV injects the given values into to v.
