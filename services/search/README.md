@@ -27,6 +27,12 @@ The following optional settings can be set:
 
 *   `SEARCH_ENGINE_BLEVE_DATA_PATH=/path/to/bleve/index` (default: `$OC_BASE_DATA_PATH/search`): Path to store the bleve index.
 
+#### Memory
+
+Bleve stores the index in segments and merges smaller segments into larger ones in the background. A merge keeps the positions of each word across the whole new segment in memory, so it can briefly need much more memory than indexing or searching. How much depends on the size of the segments, and they grow with the index.
+
+This mostly matters with content extraction and many large text files, such as books or long documents. As a rough guide, keep about a tenth of the index size (the size of the bleve directory in the data path) free in addition to what OpenCloud otherwise uses, and expect that to grow along with the index. Merges run whenever bleve decides to, not only during a reindex. If the search service is killed for running out of memory while or after indexing, give it more memory.
+
 ### OpenSearch
 
 OpenSearch is a distributed, RESTful search and analytics engine capable of addressing a growing number of use cases.
