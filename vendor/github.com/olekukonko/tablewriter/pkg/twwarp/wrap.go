@@ -193,7 +193,8 @@ func WrapWords(words []string, spc, lim, pen int) [][]string {
 		if i < n-1 {
 			remainderLen += spc + lengths[i]
 		}
-		if remainderLen <= lim {
+		// the last word has no following break to choose, so it must end the chain
+		if remainderLen <= lim || i == n-1 {
 			cost[i] = 0
 			nbrk[i] = n
 			continue

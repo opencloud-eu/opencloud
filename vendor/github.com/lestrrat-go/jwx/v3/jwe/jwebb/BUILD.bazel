@@ -4,6 +4,7 @@ go_library(
     name = "jwebb",
     srcs = [
         "content_cipher.go",
+        "jwebb.go",
         "key_decrypt_asymmetric.go",
         "key_decrypt_symmetric.go",
         "key_encrypt_asymmetric.go",
@@ -16,11 +17,11 @@ go_library(
     deps = [
         "//internal/keyconv",
         "//internal/pool",
+        "//internal/tokens",
         "//jwe/internal/cipher",
         "//jwe/internal/concatkdf",
         "//jwe/internal/content_crypt",
         "//jwe/internal/keygen",
-        "//internal/tokens",
         "@org_golang_x_crypto//pbkdf2",
     ],
 )
@@ -32,12 +33,18 @@ go_test(
         "jwebb_test.go",
         "keywrap_test.go",
     ],
-    embed = [":jwebb"],
     deps = [
+        ":jwebb",
         "//internal/jwxtest",
+        "//internal/tokens",
         "//jwa",
         "//jwe/internal/keygen",
-        "//internal/tokens",
         "@com_github_stretchr_testify//require",
     ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":jwebb",
+    visibility = ["//visibility:public"],
 )

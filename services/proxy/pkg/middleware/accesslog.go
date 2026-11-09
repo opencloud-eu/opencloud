@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/opencloud-eu/opencloud/pkg/checks"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	ocmiddleware "github.com/opencloud-eu/opencloud/pkg/middleware"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -20,12 +22,16 @@ func AccessLog(logger log.Logger) func(http.Handler) http.Handler {
 			wrap := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 			next.ServeHTTP(wrap, r)
 
+			if checks.IsLocalHealthCheck(r) {
+				return
+			}
+
 			spanContext := trace.SpanContextFromContext(r.Context())
 			logger.Info().
 				Str("proto", r.Proto).
 				Str(log.RequestIDString, requestID).
 				Str("traceid", spanContext.TraceID().String()).
-				Str("remote-addr", r.RemoteAddr).
+				Str("remote-addr", ocmiddleware.ClientAddress(r)).
 				Str("method", r.Method).
 				Int("status", wrap.Status()).
 				Str("path", r.URL.Path).

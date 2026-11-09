@@ -16,11 +16,18 @@ import (
 
 var _ search.BatchOperator = (*Batch)(nil) // ensure Batch implements BatchOperator
 
+// maxBatchBytes caps the document data a batch collects before it is pushed.
+// bleve analyzes a whole batch in memory before writing it, and with term
+// vectors that costs more than ten times the text, so a document count alone
+// does not bound memory once documents carry extracted content.
+const maxBatchBytes = 16 * 1024 * 1024
+
 type Batch struct {
-	batch *bleve.Batch
-	index bleve.Index
-	size  int
-	log   log.Logger
+	batch    *bleve.Batch
+	index    bleve.Index
+	size     int
+	maxBytes uint64
+	log      log.Logger
 }
 
 func NewBatch(index bleve.Index, size int) (*Batch, error) {
@@ -29,9 +36,10 @@ func NewBatch(index bleve.Index, size int) (*Batch, error) {
 	}
 
 	return &Batch{
-		batch: index.NewBatch(),
-		index: index,
-		size:  size,
+		batch:    index.NewBatch(),
+		index:    index,
+		size:     size,
+		maxBytes: maxBatchBytes,
 	}, nil
 }
 
@@ -49,137 +57,116 @@ func (b *Batch) indexResource(id string, r search.Resource) error {
 	if err != nil {
 		return err
 	}
+	// push first if r would overflow the batch, so a batch holds at most
+	// maxBytes or a single larger document
+	if b.batch.Size() > 0 && b.batch.TotalDocsSize()+uint64(len(r.Content)) > b.maxBytes {
+		if err := b.Push(); err != nil {
+			return err
+		}
+	}
 	return b.batch.Index(id, doc)
 }
 
 func (b *Batch) Move(id, parentID, location string) error {
 	return b.withSizeLimit(func() error {
-		rootResource, err := searchResourceByID(id, b.index)
-		if err != nil {
-			return err
-		}
-		currentPath := rootResource.Path
 		nextPath := utils.MakeRelativePath(location)
-
-		rootResource.Path = nextPath
-		rootResource.Name = path.Base(nextPath)
-		rootResource.ParentID = parentID
-
-		resources := []*search.Resource{rootResource}
-
-		if rootResource.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER) {
-			descendantResources, err := searchResourcesByPath(rootResource.RootID, currentPath, b.index)
-			if err != nil {
-				return err
+		var currentPath string
+		return b.forSelfAndDescendants(id, func(resource *search.Resource) error {
+			if resource.ID == id {
+				currentPath = resource.Path
+				resource.Path = nextPath
+				resource.Name = path.Base(nextPath)
+				resource.ParentID = parentID
+			} else {
+				resource.Path = strings.Replace(resource.Path, currentPath, nextPath, 1)
 			}
-
-			for _, descendantResource := range descendantResources {
-				descendantResource.Path = strings.Replace(descendantResource.Path, currentPath, nextPath, 1)
-				resources = append(resources, descendantResource)
-			}
-		}
-
-		for _, resource := range resources {
 			resource.Hidden = search.IsHidden(resource.Path)
-
-			if err := b.indexResource(resource.ID, *resource); err != nil {
-				return err
-			}
-			if b.batch.Size() >= b.size {
-				if err := b.Push(); err != nil {
-					return err
-				}
-			}
-		}
-
-		return nil
+			return b.indexResource(resource.ID, *resource)
+		})
 	})
 }
 
 func (b *Batch) Delete(id string) error {
 	return b.withSizeLimit(func() error {
-		affectedResources, err := searchAndUpdateResourcesDeletionState(id, true, b.index)
-		if err != nil {
-			return err
-		}
-
-		for _, resource := range affectedResources {
-			if err := b.indexResource(resource.ID, *resource); err != nil {
-				return err
-			}
-			if b.batch.Size() >= b.size {
-				if err := b.Push(); err != nil {
-					return err
-				}
-			}
-		}
-
-		return nil
+		return b.setDeleted(id, true)
 	})
 }
 
 func (b *Batch) Restore(id string) error {
 	return b.withSizeLimit(func() error {
-		affectedResources, err := searchAndUpdateResourcesDeletionState(id, false, b.index)
-		if err != nil {
-			return err
-		}
+		return b.setDeleted(id, false)
+	})
+}
 
-		for _, resource := range affectedResources {
-			if err := b.indexResource(resource.ID, *resource); err != nil {
-				return err
-			}
-			if b.batch.Size() >= b.size {
-				if err := b.Push(); err != nil {
-					return err
-				}
-			}
-		}
-
-		return nil
+func (b *Batch) setDeleted(id string, deleted bool) error {
+	return b.forSelfAndDescendants(id, func(resource *search.Resource) error {
+		resource.Deleted = deleted
+		return b.indexResource(resource.ID, *resource)
 	})
 }
 
 func (b *Batch) Purge(id string, onlyDeleted bool) error {
 	return b.withSizeLimit(func() error {
-		rootResource, err := searchResourceByID(id, b.index)
+		purge := func(resource *search.Resource) error {
+			b.batch.Delete(resource.ID)
+			return nil
+		}
+		if !onlyDeleted {
+			return b.forSelfAndDescendants(id, purge)
+		}
+
+		root, err := searchResourceByID(id, b.index)
 		if err != nil {
 			return err
 		}
-
-		var affectResources []*search.Resource
-		add := func(resource *search.Resource) {
-			if onlyDeleted && !resource.Deleted {
-				return
-			}
-
-			affectResources = append(affectResources, resource)
-		}
-
-		add(rootResource)
-
-		if rootResource.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER) {
-			descendantResources, err := searchResourcesByPath(rootResource.RootID, rootResource.Path, b.index)
-			if err != nil {
-				return err
-			}
-
-			for _, descendantResource := range descendantResources {
-				add(descendantResource)
-			}
-		}
-
-		for _, resource := range affectResources {
-			b.batch.Delete(resource.ID)
-			if b.batch.Size() >= b.size {
-				if err := b.Push(); err != nil {
-					return err
-				}
-			}
-		}
-
-		return nil
+		// the Path term matches the root too: a trashed root is purged, a live one kept
+		return forEachMatch(trashedTreeQuery(root), b.index, b.pushing(purge))
 	})
+}
+
+// fn sees the root first; the root's original path and trash state drive the
+// descendant lookup. A trashed folder keeps its path, so a live folder can take
+// the same one: the descendants are the ones in the root's trash state.
+func (b *Batch) forSelfAndDescendants(id string, fn func(*search.Resource) error) error {
+	root, err := searchResourceByID(id, b.index)
+	if err != nil {
+		return err
+	}
+	// built before fn changes the root's path or trash state
+	q := treeQuery(root)
+	isContainer := root.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER)
+
+	apply := b.pushing(fn)
+	if err := apply(root); err != nil {
+		return err
+	}
+	if !isContainer {
+		return nil
+	}
+	return forEachMatch(q, b.index, func(resource *search.Resource) error {
+		if resource.ID == id {
+			return nil
+		}
+		return apply(resource)
+	})
+}
+
+// pushing wraps fn to push the batch whenever it is full
+func (b *Batch) pushing(fn func(*search.Resource) error) func(*search.Resource) error {
+	return func(resource *search.Resource) error {
+		if err := fn(resource); err != nil {
+			return err
+		}
+		if b.full() {
+			return b.Push()
+		}
+		return nil
+	}
+}
+
+// full reports whether the batch holds enough documents or enough data to be pushed
+func (b *Batch) full() bool {
+	return b.batch.Size() >= b.size || b.batch.TotalDocsSize() >= b.maxBytes
 }
 
 func (b *Batch) Push() error {
@@ -201,7 +188,7 @@ func (b *Batch) withSizeLimit(f func() error) error {
 		return err
 	}
 
-	if b.batch.Size() >= b.size {
+	if b.full() {
 		return b.Push()
 	}
 

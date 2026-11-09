@@ -100,7 +100,6 @@ func (c *cache) isValid(services []*registry.Service, ttl time.Time) bool {
 		for _, n := range s.Nodes {
 			nttl := c.nttls[s.Name][n.Id]
 			if time.Since(nttl) > 0 {
-				delete(c.nttls, s.Name)
 				return false
 			}
 		}
@@ -221,6 +220,13 @@ func (c *cache) updateNodeTTLs(name string, nodes []*registry.Node) {
 	}
 	for _, node := range nodes {
 		c.nttls[name][node.Id] = time.Now().Add(c.opts.TTL)
+	}
+
+	// clean up expired nodes
+	for nodeId, nttl := range c.nttls[name] {
+		if time.Since(nttl) > 0 {
+			delete(c.nttls[name], nodeId)
+		}
 	}
 }
 
@@ -382,7 +388,7 @@ func (c *cache) run(service string) {
 			c.setStatus(err)
 
 			if a > 3 {
-				logger.Logf(log.DebugLevel, "rcache: ", err, " backing off ", d)
+				logger.Logf(log.DebugLevel, "rcache: %v backing off %v", err, d)
 				a = 0
 			}
 
@@ -405,7 +411,7 @@ func (c *cache) run(service string) {
 			c.setStatus(err)
 
 			if b > 3 {
-				logger.Logf(log.DebugLevel, "rcache: ", err, " backing off ", d)
+				logger.Logf(log.DebugLevel, "rcache: %v backing off %v", err, d)
 				b = 0
 			}
 

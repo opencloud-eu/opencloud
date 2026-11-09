@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/defaults"
+	"github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
@@ -45,6 +46,10 @@ func DefaultConfig() *config.Config {
 				TLSHandshakeTimeout:   10 * time.Second,
 				ExpectContinueTimeout: 1 * time.Second,
 			},
+		},
+		ClientIP: config.ClientIP{
+			TrustedProxies: middleware.DefaultTrustedProxies(),
+			Header:         middleware.DefaultClientIPHeader,
 		},
 		Service: config.Service{
 			Name: "proxy",
@@ -114,6 +119,9 @@ func DefaultConfig() *config.Config {
 		},
 		AuthMiddleware: config.AuthMiddleware{
 			AllowAppAuth: true,
+		},
+		GuestLinkAuth: config.GuestLinkAuth{
+			CookieName: "__Host-oc_guest_session",
 		},
 	}
 }
@@ -284,6 +292,11 @@ func DefaultPolicies() []config.Policy {
 					Service:  "eu.opencloud.web.invitations",
 				},
 				{
+					Endpoint:    "/graph/v1beta1/extensions/org.libregraph/guestLinks",
+					Service:     "eu.opencloud.web.auth-guest",
+					Unprotected: true,
+				},
+				{
 					Endpoint: "/graph/",
 					Service:  "eu.opencloud.web.graph",
 				},
@@ -302,14 +315,8 @@ func DefaultPolicies() []config.Policy {
 					SkipXAccessToken: true,
 				},
 				{
-					Endpoint: "/collaboration/fonts/manage",
+					Endpoint: "/collaboration",
 					Service:  "eu.opencloud.web.collaboration",
-					// Method: "POST" // toDo: fails with method, WHY???
-				},
-				{
-					Endpoint:    "/collaboration",
-					Service:     "eu.opencloud.web.collaboration",
-					Unprotected: true,
 				},
 			},
 		},

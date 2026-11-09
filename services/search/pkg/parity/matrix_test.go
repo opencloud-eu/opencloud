@@ -394,19 +394,21 @@ func matrixNames(names []string) string {
 }
 
 func shorten(name string) string {
-	if len(name) <= 24 {
-		return name
-	}
-
-	return name[:10] + "..." + name[len(name)-8:]
+	return ellipsize(name, 24, 10, 8)
 }
 
 func shortenQuery(q string) string {
-	if len(q) <= 64 {
-		return q
+	return ellipsize(q, 64, 32, 24)
+}
+
+// ellipsize truncates by runes so the cut never splits a UTF-8 sequence.
+func ellipsize(s string, limit, head, tail int) string {
+	r := []rune(s)
+	if len(r) <= limit {
+		return s
 	}
 
-	return q[:32] + "..." + q[len(q)-24:]
+	return string(r[:head]) + "..." + string(r[len(r)-tail:])
 }
 
 func matrixVerdict(row *matrixResult) string {

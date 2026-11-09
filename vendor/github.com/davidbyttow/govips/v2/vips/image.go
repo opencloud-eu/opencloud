@@ -41,6 +41,12 @@ type ImageRef struct {
 	lock                sync.Mutex
 	preMultiplication   *PreMultiplicationState
 	optimizedIccProfile string
+
+	// streamSource is non-nil for sequentially stream-loaded images
+	// (LoadImageFromReader with AccessSequential): the image pulls
+	// pixels from the source on demand, so the C source and the Go
+	// reader stay alive until Close or materialize. See stream.go.
+	streamSource *streamSourceRef
 }
 
 // ImageMetadata is a data structure holding the width, height, orientation and other metadata of the picture.
@@ -249,6 +255,13 @@ type JpegExportParams struct {
 	OvershootDeringing bool
 	OptimizeScans      bool
 	QuantTable         int
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewJpegExportParams creates default values for an export of a JPEG image.
@@ -271,6 +284,13 @@ type PngExportParams struct {
 	Dither        float64
 	Bitdepth      int
 	Profile       string
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewPngExportParams creates default values for an export of a PNG image.
@@ -297,6 +317,34 @@ type WebpExportParams struct {
 	MinSize         bool
 	MinKeyFrames    int
 	MaxKeyFrames    int
+	// TargetSize is the desired output size in bytes (libvips's webpsave
+	// "target_size" option, passed straight through to libwebp's own
+	// WebPConfig.target_size). When set (> 0), it takes precedence over
+	// Quality: libwebp runs its own internal search over the quality range,
+	// using more encoding passes, to produce output close to this size. It
+	// is a best effort: the resulting size may still land above or below
+	// the target. Leave at 0 (the default) to encode at Quality instead.
+	//
+	// Requires libvips 8.17.4+ (when target_size was added to webpsave);
+	// ExportWebp returns an error if TargetSize is set on an older libvips.
+	TargetSize int
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata decides,
+	// as for the other formats: the source image's ICC profile is kept
+	// unless StripMetadata is set. A profile from IccProfile or
+	// OptimizeICCProfile replaces the source profile and is embedded even
+	// when StripMetadata is set. When set, Keep takes precedence over
+	// StripMetadata, and it
+	// alone decides whether an ICC profile is written: without
+	// ForeignKeepIcc no profile is embedded, whatever its source. With
+	// ForeignKeepIcc, the embedded profile is the one the path already
+	// chooses: ExportWebp uses the profile picked by OptimizeICCProfile
+	// (and ignores IccProfile, as before), while SaveToWriterWebp uses
+	// IccProfile. With neither, the source image's profile is kept.
+	// Requires libvips 8.15+; saving returns an error if Keep is set on an
+	// older libvips.
+	Keep ForeignKeep
 }
 
 // NewWebpExportParams creates default values for an export of a WEBP image.
@@ -320,6 +368,13 @@ type TiffExportParams struct {
 	Tile          bool
 	TileHeight    int
 	TileWidth     int
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewTiffExportParams creates default values for an export of a TIFF image.
@@ -353,6 +408,13 @@ type GifExportParams struct {
 	Dither   float64
 	Effort   int
 	Bitdepth int
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewGifExportParams creates default values for an export of a GIF image.
@@ -370,6 +432,13 @@ type HeifExportParams struct {
 	Bitdepth int
 	Effort   int
 	Lossless bool
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewHeifExportParams creates default values for an export of a HEIF image.
@@ -392,6 +461,13 @@ type AvifExportParams struct {
 
 	// DEPRECATED - Use Effort instead.
 	Speed int
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewAvifExportParams creates default values for an export of an AVIF image.
@@ -411,6 +487,13 @@ type Jp2kExportParams struct {
 	TileWidth     int
 	TileHeight    int
 	SubsampleMode SubsampleMode
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewJp2kExportParams creates default values for an export of an JPEG2000 image.
@@ -430,6 +513,13 @@ type JxlExportParams struct {
 	Tier     int
 	Distance float64
 	Effort   int
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewJxlExportParams creates default values for an export of an JXL image.
@@ -449,6 +539,13 @@ type MagickExportParams struct {
 	OptimizeGifFrames       bool
 	OptimizeGifTransparency bool
 	BitDepth                int
+
+	// Keep selects which metadata to retain (libvips's "keep" option; see
+	// ForeignKeep). The zero value leaves it unset, so StripMetadata (where
+	// present) decides as before. When set, it takes precedence over
+	// StripMetadata. Requires libvips 8.15+; saving returns an error if Keep
+	// is set on an older libvips.
+	Keep ForeignKeep
 }
 
 // NewMagickExportParams creates default values for an export of an image by ImageMagick.
@@ -458,7 +555,10 @@ func NewMagickExportParams() *MagickExportParams {
 	}
 }
 
-// NewImageFromReader loads an ImageRef from the given reader
+// NewImageFromReader loads an ImageRef from the given reader by reading
+// the entire stream into memory first (io.ReadAll). For large inputs
+// prefer LoadImageFromReader, which streams compressed bytes through
+// libvips without buffering the whole input in Go memory.
 func NewImageFromReader(r io.Reader) (*ImageRef, error) {
 	buf, err := io.ReadAll(r)
 	if err != nil {
@@ -715,6 +815,70 @@ func NewImageFromGoImage(img image.Image) (*ImageRef, error) {
 	return newImageRef(vipsImage, ImageTypeUnknown, ImageTypeUnknown, nil), nil
 }
 
+// NewImageFromMemory creates a new ImageRef from a raw, uncompressed pixel
+// buffer. The buffer is interpreted as height rows of width pixels, each pixel
+// holding bands samples of the given BandFormat, laid out contiguously (no row
+// stride padding).
+//
+// Use this for raw byte arrays from sources like ML inference outputs (ONNX,
+// TensorFlow), camera sensors, or any in-memory pixel data. For Go's
+// image.Image, use NewImageFromGoImage. For compressed bytes (PNG, JPEG, etc.),
+// use NewImageFromBuffer.
+//
+// The pixel data is copied into libvips, so the caller is free to reuse or
+// free the input slice after this call returns.
+func NewImageFromMemory(pixels []byte, width, height, bands int, format BandFormat, interpretation Interpretation) (*ImageRef, error) {
+	if err := startupIfNeeded(); err != nil {
+		return nil, err
+	}
+
+	if width <= 0 || height <= 0 || bands <= 0 {
+		return nil, fmt.Errorf("invalid dimensions: width=%d height=%d bands=%d", width, height, bands)
+	}
+
+	bytesPerSample, ok := bandFormatSizes[format]
+	if !ok {
+		return nil, fmt.Errorf("unsupported band format: %d", format)
+	}
+
+	expected := width * height * bands * bytesPerSample
+	if len(pixels) != expected {
+		return nil, fmt.Errorf("pixel buffer size mismatch: got %d bytes, expected %d (%dx%dx%d samples of %d bytes)",
+			len(pixels), expected, width, height, bands, bytesPerSample)
+	}
+
+	vipsImage := C.create_image_from_memory_copy(
+		unsafe.Pointer(&pixels[0]),
+		C.size_t(len(pixels)),
+		C.int(width),
+		C.int(height),
+		C.int(bands),
+		C.VipsBandFormat(format),
+	)
+	runtime.KeepAlive(pixels)
+	if vipsImage == nil {
+		return nil, errors.New("failed to create vips image from memory")
+	}
+
+	vipsImage.Type = C.VipsInterpretation(interpretation)
+
+	return newImageRef(vipsImage, ImageTypeUnknown, ImageTypeUnknown, nil), nil
+}
+
+// bandFormatSizes is the byte size of one sample for each supported BandFormat.
+// Complex/DPComplex are excluded — vips_image_new_from_memory rejects them in
+// practice and the size depends on real/imag pairing semantics.
+var bandFormatSizes = map[BandFormat]int{
+	BandFormatUchar:  1,
+	BandFormatChar:   1,
+	BandFormatUshort: 2,
+	BandFormatShort:  2,
+	BandFormatUint:   4,
+	BandFormatInt:    4,
+	BandFormatFloat:  4,
+	BandFormatDouble: 8,
+}
+
 func newImageRef(vipsImage *C.VipsImage, currentFormat ImageType, originalFormat ImageType, buf []byte) *ImageRef {
 	imageRef := &ImageRef{
 		image:          vipsImage,
@@ -747,7 +911,26 @@ func (r *ImageRef) Close() {
 
 	r.buf = nil
 
+	// Release the streaming source only after the image is gone: the
+	// image may still hold references that read from the source.
+	src := r.streamSource
+	r.streamSource = nil
+
 	r.lock.Unlock()
+
+	if src != nil {
+		src.release()
+	}
+}
+
+// SetKill sets the libvips kill flag used to stop image evaluation.
+func (r *ImageRef) SetKill(kill bool) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	if r.image != nil {
+		C.vips_image_set_kill(r.image, toGboolean(kill))
+	}
 }
 
 // setImage resets the image for this image and frees the previous one
@@ -772,6 +955,12 @@ func vipsHasAlpha(in *C.VipsImage) bool {
 
 func clearImage(ref *C.VipsImage) {
 	C.clear_image(&ref)
+}
+
+// vipsRefCount reads the GObject reference count. Test-only: it lets tests
+// catch a stray unref without relying on a use-after-free to crash.
+func vipsRefCount(in *C.VipsImage) int {
+	return int((*C.GObject)(unsafe.Pointer(in)).ref_count)
 }
 
 // Coding represents VIPS_CODING type

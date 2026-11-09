@@ -13,7 +13,7 @@ import (
 type SpaceDebouncer struct {
 	after      time.Duration
 	timeout    time.Duration
-	f          func(id *provider.StorageSpaceId)
+	f          func(id *provider.StorageSpaceId, force bool)
 	pending    map[string]*workItem
 	inProgress sync.Map
 
@@ -24,6 +24,7 @@ type SpaceDebouncer struct {
 type workItem struct {
 	t       *time.Timer
 	timeout *time.Timer
+	force   bool
 
 	work func()
 }
@@ -31,7 +32,7 @@ type workItem struct {
 type AckFunc func() error
 
 // NewSpaceDebouncer returns a new SpaceDebouncer instance
-func NewSpaceDebouncer(d time.Duration, timeout time.Duration, f func(id *provider.StorageSpaceId), logger log.Logger) *SpaceDebouncer {
+func NewSpaceDebouncer(d time.Duration, timeout time.Duration, f func(id *provider.StorageSpaceId, force bool), logger log.Logger) *SpaceDebouncer {
 	return &SpaceDebouncer{
 		after:      d,
 		timeout:    timeout,
@@ -42,12 +43,15 @@ func NewSpaceDebouncer(d time.Duration, timeout time.Duration, f func(id *provid
 	}
 }
 
-// Debounce restars the debounce timer for the given space
-func (d *SpaceDebouncer) Debounce(id *provider.StorageSpaceId, ack AckFunc) {
+// Debounce restarts the debounce timer for the given space. If force is set,
+// the scheduled run is a forced one. A pending run stays forced even if it is
+// debounced again without force.
+func (d *SpaceDebouncer) Debounce(id *provider.StorageSpaceId, ack AckFunc, force bool) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 
 	if wi := d.pending[id.OpaqueId]; wi != nil {
+		wi.force = wi.force || force
 		if ack != nil {
 			go ack() // Acknowledge the event immediately, the according space is already scheduled for indexing
 		}
@@ -55,7 +59,7 @@ func (d *SpaceDebouncer) Debounce(id *provider.StorageSpaceId, ack AckFunc) {
 		return
 	}
 
-	wi := &workItem{}
+	wi := &workItem{force: force}
 	wi.work = func() {
 		if _, ok := d.inProgress.Load(id.OpaqueId); ok {
 			// Reschedule this run for when the previous run has finished
@@ -70,13 +74,14 @@ func (d *SpaceDebouncer) Debounce(id *provider.StorageSpaceId, ack AckFunc) {
 		d.mutex.Lock()
 		wi.timeout.Stop() // stop the timeout timer if it is running
 		delete(d.pending, id.OpaqueId)
+		force := wi.force
 		d.inProgress.Store(id.OpaqueId, true)
 		defer func() {
 			d.inProgress.Delete(id.OpaqueId)
 		}()
 		d.mutex.Unlock() // release the lock early to allow other goroutines to debounce
 
-		d.f(id)
+		d.f(id, force)
 		go func() {
 			if ack != nil {
 				if err := ack(); err != nil {

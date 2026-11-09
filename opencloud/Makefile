@@ -19,6 +19,10 @@ include ../.make/docs.mk
 dev-docker:
 	docker build -f docker/Dockerfile.multiarch -t opencloudeu/opencloud:dev ..
 
+.PHONY: dev-docker-amd64 dev-docker-arm64
+dev-docker-amd64 dev-docker-arm64: dev-docker-%:
+	docker buildx build --platform linux/$* --load -f docker/Dockerfile.multiarch -t opencloudeu/opencloud:dev-$* ..
+
 dev-docker-with-workspace:
 	docker build -f docker/Dockerfile.multiarch -t opencloudeu/opencloud:dev --build-arg SRCDIR=opencloud ../..
 

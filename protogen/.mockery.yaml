@@ -19,6 +19,3 @@ packages:
   github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0:
     interfaces:
       ValueService: {}
-  github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/thumbnails/v0:
-    interfaces:
-      ThumbnailService: {}

@@ -35,6 +35,7 @@ use TestHelpers\GraphHelper;
 use Behat\Step\Given;
 use Behat\Step\Then;
 use Behat\Step\When;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * WebDav functions
@@ -976,7 +977,7 @@ trait WebDav {
 				echo "[INFO] File content mismatch. $message, checking content again ($retried)...\n";
 
 				// break the loop if status is 425 as the request will already be retried
-				if ($status === HttpRequestHelper::HTTP_TOO_EARLY) {
+				if ($status === Response::HTTP_TOO_EARLY) {
 					break;
 				}
 

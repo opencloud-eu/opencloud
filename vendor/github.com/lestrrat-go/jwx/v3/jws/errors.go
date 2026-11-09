@@ -3,6 +3,8 @@ package jws
 import (
 	"errors"
 	"fmt"
+
+	"github.com/lestrrat-go/jwx/v3/jws/internal/keyalg"
 )
 
 // errCritPresent is returned by VerifyCompactFast when the protected
@@ -45,25 +47,17 @@ func ErrB64Present() error {
 	return errB64Present
 }
 
-// errUnclassifiableKey is the common sentinel for AlgorithmsForKey
-// failures: the key shape cannot be matched to any registered key type
-// for signing. Three different code paths land here — Import-failed,
-// kty-not-registered, and shape-rejected (e.g. ecdh) — but they're all
-// the same logical "we can't classify this key" outcome from the
-// caller's perspective. Wrap-with-this lets callers branch on
-// errors.Is(err, jws.ErrUnclassifiableKey()) instead of pattern-matching
-// the three error-message shapes the function previously emitted.
-var errUnclassifiableKey = errors.New("jws: key cannot be classified for signing")
-
-// ErrUnclassifiableKey returns the sentinel that jws.AlgorithmsForKey
-// (and indirectly jws.Sign / jws.Verify when option-time validation
-// fails) wraps when the supplied key cannot be matched to a registered
-// key type. Branching on this sentinel is the right way to ask "is this
-// a 'we can't tell what this key is' failure?" — the wrapping error
-// also carries the concrete %T or %q diagnostic in its message, so the
-// human-readable error stays specific.
+// ErrUnclassifiableKey returns the sentinel that jws.Sign and jws.Verify
+// wrap when option-time validation cannot match the supplied key to a
+// registered key type. Branching on this sentinel is the right way to ask
+// "is this a 'we can't tell what this key is' failure?" — the wrapping
+// error also carries the concrete %T or %q diagnostic in its message, so
+// the human-readable error stays specific.
+//
+// The sentinel itself lives in jws/internal/keyalg, which owns key
+// classification.
 func ErrUnclassifiableKey() error {
-	return errUnclassifiableKey
+	return keyalg.ErrUnclassifiableKey
 }
 
 type signError struct {

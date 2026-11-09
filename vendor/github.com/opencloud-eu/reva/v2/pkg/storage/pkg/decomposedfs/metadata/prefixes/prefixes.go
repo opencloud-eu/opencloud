@@ -19,6 +19,9 @@
 package prefixes
 
 import (
+	"fmt"
+	"sync"
+
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/ace"
 )
@@ -31,7 +34,7 @@ import (
 // we will use to store decomposedfs specific metadata. To prevent name
 // collisions with other apps We are going to introduce a sub namespace
 // "user.oc." in the xattrs_prefix*.go files.
-const (
+var (
 	TypeAttr      string = OcPrefix + "type"
 	IDAttr        string = OcPrefix + "id"
 	ParentidAttr  string = OcPrefix + "parentid"
@@ -110,4 +113,77 @@ const (
 func FavoriteKey(uid *userpb.UserId) string {
 	// the favorite flag is specific to the user, so we need to incorporate the userid
 	return FavPrefix + uid.OpaqueId
+}
+
+var (
+	defaultOcPrefix = OcPrefix
+
+	mu    sync.Mutex
+	fixed bool
+)
+
+// SetOcPrefix sets the key prefix for the whole process, empty means the
+// default. The first call fixes it, a later call with another prefix fails.
+// It has to run before any key is used.
+func SetOcPrefix(prefix string) error {
+	if prefix == "" {
+		prefix = defaultOcPrefix
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if fixed {
+		if prefix != OcPrefix {
+			return fmt.Errorf("metadata prefix is already set to %q, cannot change it to %q", OcPrefix, prefix)
+		}
+		return nil
+	}
+
+	fixed = true
+	if prefix != OcPrefix {
+		setKeys(prefix)
+	}
+	return nil
+}
+
+func setKeys(p string) {
+	OcPrefix = p
+	TypeAttr = p + "type"
+	IDAttr = p + "id"
+	ParentidAttr = p + "parentid"
+	OwnerIDAttr = p + "owner.id"
+	OwnerIDPAttr = p + "owner.idp"
+	OwnerTypeAttr = p + "owner.type"
+	NameAttr = p + "name"
+	BlobIDAttr = p + "blobid"
+	BlobsizeAttr = p + "blobsize"
+	StatusPrefix = p + "nodestatus"
+	ScanStatusPrefix = p + "scanstatus"
+	ScanDatePrefix = p + "scandate"
+	GrantPrefix = p + "grant."
+	GrantUserAcePrefix = p + "grant." + ace.UserAcePrefix
+	GrantGroupAcePrefix = p + "grant." + ace.GroupAcePrefix
+	GrantMailAcePrefix = p + "grant." + ace.MailAcePrefix
+	MetadataPrefix = p + "md."
+	FavPrefix = p + "fav."
+	TmpEtagAttr = p + "tmp.etag"
+	ReferenceAttr = p + "cs3.ref"
+	ChecksumPrefix = p + "cs."
+	TrashOriginAttr = p + "trash.origin"
+	PropagationAttr = p + "propagation"
+	MTimeAttr = p + "mtime"
+	TreeMTimeAttr = p + "tmtime"
+	DTimeAttr = p + "dtime"
+	TreesizeAttr = p + "treesize"
+	QuotaAttr = p + "quota"
+	SpaceIDAttr = p + "space.id"
+	SpaceNameAttr = p + "space.name"
+	SpaceTypeAttr = p + "space.type"
+	SpaceDescriptionAttr = p + "space.description"
+	SpaceReadmeAttr = p + "space.readme"
+	SpaceImageAttr = p + "space.image"
+	SpaceAliasAttr = p + "space.alias"
+	SpaceTenantIDAttr = p + "space.tenantid"
+	SpaceContentTypeAttr = p + "space.contenttype"
 }

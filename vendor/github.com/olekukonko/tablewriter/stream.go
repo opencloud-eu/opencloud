@@ -673,12 +673,24 @@ func (t *Table) streamCalculateWidths(sampling []string, config tw.CellConfig) i
 				})
 				if len(colsToAdjust) > 0 {
 					for i := 0; i < int(math.Abs(float64(remainingSpace))); i++ {
-						colIdx := colsToAdjust[i%len(colsToAdjust)]
-						currentColWidth := t.streamWidths.Get(colIdx)
 						if remainingSpace > 0 {
+							colIdx := colsToAdjust[i%len(colsToAdjust)]
+							currentColWidth := t.streamWidths.Get(colIdx)
 							t.streamWidths.Set(colIdx, currentColWidth+1)
-						} else if remainingSpace < 0 && currentColWidth > 1 { // Don't reduce below 1
-							t.streamWidths.Set(colIdx, currentColWidth-1)
+						} else {
+							// Find next column that can be reduced (skip columns already at minimum width)
+							reduced := false
+							for j := 0; j < len(colsToAdjust); j++ {
+								colIdx := colsToAdjust[(i+j)%len(colsToAdjust)]
+								if t.streamWidths.Get(colIdx) > 1 {
+									t.streamWidths.Set(colIdx, t.streamWidths.Get(colIdx)-1)
+									reduced = true
+									break
+								}
+							}
+							if !reduced {
+								break // All columns at minimum width, no further reduction possible
+							}
 						}
 					}
 				}

@@ -233,14 +233,14 @@ func (d *driver) TouchFile(ctx context.Context, ref *provider.Reference, markpro
 	return client.Write(rel, []byte{}, 0)
 }
 
-func (d *driver) Move(ctx context.Context, oldRef, newRef *provider.Reference) error {
+func (d *driver) Move(ctx context.Context, oldRef, newRef *provider.Reference) (*storage.MoveResult, error) {
 	client, _, relOld, err := d.webdavClient(ctx, nil, oldRef)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	_, relNew := shareInfoFromReference(newRef)
 
-	return client.Rename(relOld, relNew, false)
+	return nil, client.Rename(relOld, relNew, false)
 }
 
 func getPathFromShareIDAndRelPath(shareID *ocmpb.ShareId, relPath string) string {

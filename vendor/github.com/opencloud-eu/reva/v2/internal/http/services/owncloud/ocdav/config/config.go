@@ -37,6 +37,8 @@ type Config struct {
 	URLSigningSharedSecret string `mapstructure:"url_signing_shared_secret"`
 
 	MachineAuthAPIKey string `mapstructure:"machine_auth_apikey"`
+
+	PreviewMimeTypes []string `mapstructure:"preview_mime_types"`
 }
 
 // NameValidation is the validation configuration for file and folder names

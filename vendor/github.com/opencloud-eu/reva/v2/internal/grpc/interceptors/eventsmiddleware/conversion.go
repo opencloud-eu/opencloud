@@ -30,6 +30,7 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rhttp/router"
+	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
@@ -284,12 +285,19 @@ func ItemTrashed(r *provider.DeleteResponse, req *provider.DeleteRequest, spaceO
 }
 
 // ItemMoved converts the response to an event
-func ItemMoved(r *provider.MoveResponse, req *provider.MoveRequest, spaceOwner *user.UserId, executant *user.User) events.ItemMoved {
+func ItemMoved(r *provider.MoveResponse, req *provider.MoveRequest, result *storage.MoveResult, executant *user.User) events.ItemMoved {
+	var spaceOwner *user.UserId
+	var newRef, oldRef *provider.Reference
+	if result != nil {
+		spaceOwner = result.SpaceOwner
+		newRef = result.NewReference
+		oldRef = result.OldReference
+	}
 	return events.ItemMoved{
 		SpaceOwner:        spaceOwner,
 		Executant:         executant.GetId(),
-		Ref:               req.Destination,
-		OldReference:      req.Source,
+		Ref:               newRef,
+		OldReference:      oldRef,
 		Timestamp:         utils.TSNow(),
 		ImpersonatingUser: extractImpersonator(executant),
 	}
@@ -420,6 +428,7 @@ func SpaceEnabled(r *provider.UpdateStorageSpaceResponse, req *provider.UpdateSt
 func SpaceShared(r *collaboration.CreateShareResponse, executant *user.User) events.SpaceShared {
 	id := storagespace.FormatStorageID(r.GetShare().GetResourceId().GetStorageId(), r.GetShare().GetResourceId().GetSpaceId())
 	return events.SpaceShared{
+		ShareID:        r.GetShare().GetId(),
 		Executant:      executant.GetId(),
 		Creator:        r.Share.GetCreator(),
 		GranteeUserID:  r.Share.GetGrantee().GetUserId(),
@@ -433,6 +442,7 @@ func SpaceShared(r *collaboration.CreateShareResponse, executant *user.User) eve
 func SpaceShareUpdated(r *collaboration.UpdateShareResponse, executant *user.User) events.SpaceShareUpdated {
 	id := storagespace.FormatStorageID(r.GetShare().GetResourceId().GetStorageId(), r.GetShare().GetResourceId().GetSpaceId())
 	return events.SpaceShareUpdated{
+		ShareID:        r.GetShare().GetId(),
 		Executant:      executant.GetId(),
 		GranteeUserID:  r.GetShare().GetGrantee().GetUserId(),
 		GranteeGroupID: r.GetShare().GetGrantee().GetGroupId(),
@@ -447,12 +457,15 @@ func SpaceUnshared(r *collaboration.RemoveShareResponse, req *collaboration.Remo
 		userid  *user.UserId
 		groupid *group.GroupId
 		rid     *provider.ResourceId
+		shareid *collaboration.ShareId
 	)
 	_ = utils.ReadJSONFromOpaque(r.Opaque, "granteeuserid", &userid)
 	_ = utils.ReadJSONFromOpaque(r.Opaque, "granteegroupid", &groupid)
 	_ = utils.ReadJSONFromOpaque(r.Opaque, "resourceid", &rid)
+	_ = utils.ReadJSONFromOpaque(r.Opaque, "shareid", &shareid)
 	id := storagespace.FormatStorageID(rid.StorageId, rid.SpaceId)
 	return events.SpaceUnshared{
+		ShareID:        shareid,
 		Executant:      executant.GetId(),
 		GranteeUserID:  userid,
 		GranteeGroupID: groupid,

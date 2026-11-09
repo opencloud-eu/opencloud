@@ -53,6 +53,7 @@ func DefaultConfig() *config.Config {
 		AppRegistryEndpoint:       "eu.opencloud.api.app-registry",
 		AuthAppEndpoint:           "eu.opencloud.api.auth-app",
 		AuthBasicEndpoint:         "eu.opencloud.api.auth-basic",
+		AuthGuestLinkEndpoint:     "eu.opencloud.api.auth-guest",
 		AuthMachineEndpoint:       "eu.opencloud.api.auth-machine",
 		AuthServiceEndpoint:       "eu.opencloud.api.auth-service",
 		GroupsEndpoint:            "eu.opencloud.api.groups",

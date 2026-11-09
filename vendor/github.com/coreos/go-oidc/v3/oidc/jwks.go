@@ -278,6 +278,20 @@ func (j *jwkJSON) UnmarshalJSON(data []byte) error {
 		}
 		var jwk jose.JSONWebKey
 		if err := json.Unmarshal(key, &jwk); err != nil {
+			// Ignore keys with types that go-jose doesn't support, such as
+			// OKP keys with Ed448 or X448 curves. Some providers include
+			// them in their key sets without an "alg" value, so the check
+			// above doesn't catch them.
+			//
+			// https://datatracker.ietf.org/doc/html/rfc7517#section-5
+			//
+			//     Implementations SHOULD ignore JWKs within a JWK Set that use
+			//     "kty" (key type) values that are not understood by them, that
+			//     are missing required members, or for which values are out of
+			//     the supported ranges.
+			if errors.Is(err, jose.ErrUnsupportedKeyType) {
+				continue
+			}
 			return err
 		}
 		j.Keys = append(j.Keys, jwk)

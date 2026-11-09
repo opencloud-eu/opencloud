@@ -2,12 +2,13 @@ package jsonpatch
 
 import (
 	"bytes"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
 
-	"github.com/pkg/errors"
+	"github.com/evanphx/json-patch/v5/internal/json"
 )
 
 const (
@@ -37,6 +38,8 @@ var (
 	ErrInvalid      = errors.New("invalid state detected")
 	ErrInvalidIndex = errors.New("invalid index referenced")
 
+	ErrExpectedObject = errors.New("invalid value, expected object")
+
 	rawJSONArray  = []byte("[]")
 	rawJSONObject = []byte("{}")
 	rawJSONNull   = []byte("null")
@@ -45,7 +48,7 @@ var (
 type lazyNode struct {
 	raw   *json.RawMessage
 	doc   *partialDoc
-	ary   partialArray
+	ary   *partialArray
 	which int
 }
 
@@ -56,11 +59,17 @@ type Operation map[string]*json.RawMessage
 type Patch []Operation
 
 type partialDoc struct {
+	self *lazyNode
 	keys []string
 	obj  map[string]*lazyNode
+
+	opts *ApplyOptions
 }
 
-type partialArray []*lazyNode
+type partialArray struct {
+	self  *lazyNode
+	nodes []*lazyNode
+}
 
 type container interface {
 	get(key string, options *ApplyOptions) (*lazyNode, error)
@@ -85,6 +94,8 @@ type ApplyOptions struct {
 	// EnsurePathExistsOnAdd instructs json-patch to recursively create the missing parts of path on "add" operation.
 	// Default to false.
 	EnsurePathExistsOnAdd bool
+
+	EscapeHTML bool
 }
 
 // NewApplyOptions creates a default set of options for calls to ApplyWithOptions.
@@ -94,6 +105,7 @@ func NewApplyOptions() *ApplyOptions {
 		AccumulatedCopySizeLimit: AccumulatedCopySizeLimit,
 		AllowMissingPathOnRemove: false,
 		EnsurePathExistsOnAdd:    false,
+		EscapeHTML:               true,
 	}
 }
 
@@ -107,14 +119,14 @@ func newRawMessage(buf []byte) *json.RawMessage {
 	return &ra
 }
 
-func (n *lazyNode) MarshalJSON() ([]byte, error) {
+func (n *lazyNode) RedirectMarshalJSON() (any, error) {
 	switch n.which {
 	case eRaw:
-		return json.Marshal(n.raw)
+		return n.raw, nil
 	case eDoc:
-		return json.Marshal(n.doc)
+		return n.doc, nil
 	case eAry:
-		return json.Marshal(n.ary)
+		return n.ary.nodes, nil
 	default:
 		return nil, ErrUnknownType
 	}
@@ -128,39 +140,50 @@ func (n *lazyNode) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (n *partialDoc) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	if _, err := buf.WriteString("{"); err != nil {
-		return nil, err
+func (n *partialDoc) TrustMarshalJSON(buf *bytes.Buffer) error {
+	if n.obj == nil {
+		return ErrExpectedObject
 	}
+
+	if err := buf.WriteByte('{'); err != nil {
+		return err
+	}
+	escaped := true
+
+	// n.opts should always be set, but in case we missed a case,
+	// guard.
+	if n.opts != nil {
+		escaped = n.opts.EscapeHTML
+	}
+
 	for i, k := range n.keys {
 		if i > 0 {
-			if _, err := buf.WriteString(", "); err != nil {
-				return nil, err
+			if err := buf.WriteByte(','); err != nil {
+				return err
 			}
 		}
-		key, err := json.Marshal(k)
+		key, err := json.MarshalEscaped(k, escaped)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if _, err := buf.Write(key); err != nil {
-			return nil, err
+			return err
 		}
-		if _, err := buf.WriteString(": "); err != nil {
-			return nil, err
+		if err := buf.WriteByte(':'); err != nil {
+			return err
 		}
-		value, err := json.Marshal(n.obj[k])
+		value, err := json.MarshalEscaped(n.obj[k], escaped)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if _, err := buf.Write(value); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	if _, err := buf.WriteString("}"); err != nil {
-		return nil, err
+	if err := buf.WriteByte('}'); err != nil {
+		return err
 	}
-	return buf.Bytes(), nil
+	return nil
 }
 
 type syntaxError struct {
@@ -172,70 +195,29 @@ func (err *syntaxError) Error() string {
 }
 
 func (n *partialDoc) UnmarshalJSON(data []byte) error {
-	if err := json.Unmarshal(data, &n.obj); err != nil {
-		return err
-	}
-	buffer := bytes.NewBuffer(data)
-	d := json.NewDecoder(buffer)
-	if t, err := d.Token(); err != nil {
-		return err
-	} else if t != startObject {
-		return &syntaxError{fmt.Sprintf("unexpected JSON token in document node: %s", t)}
-	}
-	for d.More() {
-		k, err := d.Token()
-		if err != nil {
-			return err
-		}
-		key, ok := k.(string)
-		if !ok {
-			return &syntaxError{fmt.Sprintf("unexpected JSON token as document node key: %s", k)}
-		}
-		if err := skipValue(d); err != nil {
-			return err
-		}
-		n.keys = append(n.keys, key)
-	}
-	return nil
-}
-
-func skipValue(d *json.Decoder) error {
-	t, err := d.Token()
+	keys, err := json.UnmarshalValidWithKeys(data, &n.obj)
 	if err != nil {
 		return err
 	}
-	if t != startObject && t != startArray {
-		return nil
-	}
-	for d.More() {
-		if t == startObject {
-			// consume key token
-			if _, err := d.Token(); err != nil {
-				return err
-			}
-		}
-		if err := skipValue(d); err != nil {
-			return err
-		}
-	}
-	end, err := d.Token()
-	if err != nil {
-		return err
-	}
-	if t == startObject && end != endObject {
-		return &syntaxError{msg: "expected close object token"}
-	}
-	if t == startArray && end != endArray {
-		return &syntaxError{msg: "expected close object token"}
-	}
+
+	n.keys = keys
+
 	return nil
 }
 
-func deepCopy(src *lazyNode) (*lazyNode, int, error) {
+func (n *partialArray) UnmarshalJSON(data []byte) error {
+	return json.UnmarshalValid(data, &n.nodes)
+}
+
+func (n *partialArray) RedirectMarshalJSON() (interface{}, error) {
+	return n.nodes, nil
+}
+
+func deepCopy(src *lazyNode, options *ApplyOptions) (*lazyNode, int, error) {
 	if src == nil {
 		return nil, 0, nil
 	}
-	a, err := src.MarshalJSON()
+	a, err := json.MarshalEscaped(src, options.EscapeHTML)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -243,7 +225,17 @@ func deepCopy(src *lazyNode) (*lazyNode, int, error) {
 	return newLazyNode(newRawMessage(a)), sz, nil
 }
 
-func (n *lazyNode) intoDoc() (*partialDoc, error) {
+func (n *lazyNode) nextByte() byte {
+	s := []byte(*n.raw)
+
+	for unicode.IsSpace(rune(s[0])) {
+		s = s[1:]
+	}
+
+	return s[0]
+}
+
+func (n *lazyNode) intoDoc(options *ApplyOptions) (*partialDoc, error) {
 	if n.which == eDoc {
 		return n.doc, nil
 	}
@@ -252,8 +244,17 @@ func (n *lazyNode) intoDoc() (*partialDoc, error) {
 		return nil, ErrInvalid
 	}
 
-	err := json.Unmarshal(*n.raw, &n.doc)
+	if n.nextByte() != '{' {
+		return nil, ErrInvalid
+	}
 
+	err := unmarshal(*n.raw, &n.doc)
+
+	if n.doc == nil {
+		return nil, ErrInvalid
+	}
+
+	n.doc.opts = options
 	if err != nil {
 		return nil, err
 	}
@@ -264,21 +265,21 @@ func (n *lazyNode) intoDoc() (*partialDoc, error) {
 
 func (n *lazyNode) intoAry() (*partialArray, error) {
 	if n.which == eAry {
-		return &n.ary, nil
+		return n.ary, nil
 	}
 
 	if n.raw == nil {
 		return nil, ErrInvalid
 	}
 
-	err := json.Unmarshal(*n.raw, &n.ary)
+	err := unmarshal(*n.raw, &n.ary)
 
 	if err != nil {
 		return nil, err
 	}
 
 	n.which = eAry
-	return &n.ary, nil
+	return n.ary, nil
 }
 
 func (n *lazyNode) compact() []byte {
@@ -302,9 +303,13 @@ func (n *lazyNode) tryDoc() bool {
 		return false
 	}
 
-	err := json.Unmarshal(*n.raw, &n.doc)
+	err := unmarshal(*n.raw, &n.doc)
 
 	if err != nil {
+		return false
+	}
+
+	if n.doc == nil {
 		return false
 	}
 
@@ -317,7 +322,7 @@ func (n *lazyNode) tryAry() bool {
 		return false
 	}
 
-	err := json.Unmarshal(*n.raw, &n.ary)
+	err := unmarshal(*n.raw, &n.ary)
 
 	if err != nil {
 		return false
@@ -327,6 +332,18 @@ func (n *lazyNode) tryAry() bool {
 	return true
 }
 
+func (n *lazyNode) isNull() bool {
+	if n == nil {
+		return true
+	}
+
+	if n.raw == nil {
+		return true
+	}
+
+	return bytes.Equal(n.compact(), rawJSONNull)
+}
+
 func (n *lazyNode) equal(o *lazyNode) bool {
 	if n.which == eRaw {
 		if !n.tryDoc() && !n.tryAry() {
@@ -334,7 +351,27 @@ func (n *lazyNode) equal(o *lazyNode) bool {
 				return false
 			}
 
-			return bytes.Equal(n.compact(), o.compact())
+			nc := n.compact()
+			oc := o.compact()
+
+			if nc[0] == '"' && oc[0] == '"' {
+				// ok, 2 strings
+
+				var ns, os string
+
+				err := json.UnmarshalValid(nc, &ns)
+				if err != nil {
+					return false
+				}
+				err = json.UnmarshalValid(oc, &os)
+				if err != nil {
+					return false
+				}
+
+				return ns == os
+			}
+
+			return bytes.Equal(nc, oc)
 		}
 	}
 
@@ -380,12 +417,12 @@ func (n *lazyNode) equal(o *lazyNode) bool {
 		return false
 	}
 
-	if len(n.ary) != len(o.ary) {
+	if len(n.ary.nodes) != len(o.ary.nodes) {
 		return false
 	}
 
-	for idx, val := range n.ary {
-		if !val.equal(o.ary[idx]) {
+	for idx, val := range n.ary.nodes {
+		if !val.equal(o.ary.nodes[idx]) {
 			return false
 		}
 	}
@@ -398,7 +435,7 @@ func (o Operation) Kind() string {
 	if obj, ok := o["op"]; ok && obj != nil {
 		var op string
 
-		err := json.Unmarshal(*obj, &op)
+		err := unmarshal(*obj, &op)
 
 		if err != nil {
 			return "unknown"
@@ -415,7 +452,7 @@ func (o Operation) Path() (string, error) {
 	if obj, ok := o["path"]; ok && obj != nil {
 		var op string
 
-		err := json.Unmarshal(*obj, &op)
+		err := unmarshal(*obj, &op)
 
 		if err != nil {
 			return "unknown", err
@@ -424,7 +461,7 @@ func (o Operation) Path() (string, error) {
 		return op, nil
 	}
 
-	return "unknown", errors.Wrapf(ErrMissing, "operation missing path field")
+	return "unknown", fmt.Errorf("operation missing path field: %w", ErrMissing)
 }
 
 // From reads the "from" field of the Operation.
@@ -432,7 +469,7 @@ func (o Operation) From() (string, error) {
 	if obj, ok := o["from"]; ok && obj != nil {
 		var op string
 
-		err := json.Unmarshal(*obj, &op)
+		err := unmarshal(*obj, &op)
 
 		if err != nil {
 			return "unknown", err
@@ -441,11 +478,15 @@ func (o Operation) From() (string, error) {
 		return op, nil
 	}
 
-	return "unknown", errors.Wrapf(ErrMissing, "operation, missing from field")
+	return "unknown", fmt.Errorf("operation, missing from field: %w", ErrMissing)
 }
 
 func (o Operation) value() *lazyNode {
 	if obj, ok := o["value"]; ok {
+		// A `null` gets decoded as a nil RawMessage, so let's fix it up here.
+		if obj == nil {
+			return newLazyNode(newRawMessage(rawJSONNull))
+		}
 		return newLazyNode(obj)
 	}
 
@@ -454,10 +495,14 @@ func (o Operation) value() *lazyNode {
 
 // ValueInterface decodes the operation value into an interface.
 func (o Operation) ValueInterface() (interface{}, error) {
-	if obj, ok := o["value"]; ok && obj != nil {
+	if obj, ok := o["value"]; ok {
+		if obj == nil {
+			return nil, nil
+		}
+
 		var v interface{}
 
-		err := json.Unmarshal(*obj, &v)
+		err := unmarshal(*obj, &v)
 
 		if err != nil {
 			return nil, err
@@ -466,7 +511,7 @@ func (o Operation) ValueInterface() (interface{}, error) {
 		return v, nil
 	}
 
-	return nil, errors.Wrapf(ErrMissing, "operation, missing value field")
+	return nil, fmt.Errorf("operation, missing value field: %w", ErrMissing)
 }
 
 func isArray(buf []byte) bool {
@@ -493,6 +538,9 @@ func findObject(pd *container, path string, options *ApplyOptions) (container, s
 	split := strings.Split(path, "/")
 
 	if len(split) < 2 {
+		if path == "" {
+			return doc, ""
+		}
 		return nil, ""
 	}
 
@@ -517,7 +565,7 @@ func findObject(pd *container, path string, options *ApplyOptions) (container, s
 				return nil, ""
 			}
 		} else {
-			doc, err = next.intoDoc()
+			doc, err = next.intoDoc(options)
 
 			if err != nil {
 				return nil, ""
@@ -529,6 +577,10 @@ func findObject(pd *container, path string, options *ApplyOptions) (container, s
 }
 
 func (d *partialDoc) set(key string, val *lazyNode, options *ApplyOptions) error {
+	if d.obj == nil {
+		return ErrExpectedObject
+	}
+
 	found := false
 	for _, k := range d.keys {
 		if k == key {
@@ -548,20 +600,32 @@ func (d *partialDoc) add(key string, val *lazyNode, options *ApplyOptions) error
 }
 
 func (d *partialDoc) get(key string, options *ApplyOptions) (*lazyNode, error) {
+	if key == "" {
+		return d.self, nil
+	}
+
+	if d.obj == nil {
+		return nil, ErrExpectedObject
+	}
+
 	v, ok := d.obj[key]
 	if !ok {
-		return v, errors.Wrapf(ErrMissing, "unable to get nonexistent key: %s", key)
+		return v, fmt.Errorf("unable to get nonexistent key: %s: %w", key, ErrMissing)
 	}
 	return v, nil
 }
 
 func (d *partialDoc) remove(key string, options *ApplyOptions) error {
+	if d.obj == nil {
+		return ErrExpectedObject
+	}
+
 	_, ok := d.obj[key]
 	if !ok {
 		if options.AllowMissingPathOnRemove {
 			return nil
 		}
-		return errors.Wrapf(ErrMissing, "unable to remove nonexistent key: %s", key)
+		return fmt.Errorf("unable to remove nonexistent key: %s: %w", key, ErrMissing)
 	}
 	idx := -1
 	for i, k := range d.keys {
@@ -585,58 +649,62 @@ func (d *partialArray) set(key string, val *lazyNode, options *ApplyOptions) err
 
 	if idx < 0 {
 		if !options.SupportNegativeIndices {
-			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+			return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 		}
-		if idx < -len(*d) {
-			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+		if idx < -len(d.nodes) {
+			return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 		}
-		idx += len(*d)
+		idx += len(d.nodes)
 	}
 
-	(*d)[idx] = val
+	d.nodes[idx] = val
 	return nil
 }
 
 func (d *partialArray) add(key string, val *lazyNode, options *ApplyOptions) error {
 	if key == "-" {
-		*d = append(*d, val)
+		d.nodes = append(d.nodes, val)
 		return nil
 	}
 
 	idx, err := strconv.Atoi(key)
 	if err != nil {
-		return errors.Wrapf(err, "value was not a proper array index: '%s'", key)
+		return fmt.Errorf("value was not a proper array index: '%s': %w", key, err)
 	}
 
-	sz := len(*d) + 1
+	sz := len(d.nodes) + 1
 
 	ary := make([]*lazyNode, sz)
 
-	cur := *d
+	cur := d
 
 	if idx >= len(ary) {
-		return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+		return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 	}
 
 	if idx < 0 {
 		if !options.SupportNegativeIndices {
-			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+			return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 		}
 		if idx < -len(ary) {
-			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+			return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 		}
 		idx += len(ary)
 	}
 
-	copy(ary[0:idx], cur[0:idx])
+	copy(ary[0:idx], cur.nodes[0:idx])
 	ary[idx] = val
-	copy(ary[idx+1:], cur[idx:])
+	copy(ary[idx+1:], cur.nodes[idx:])
 
-	*d = ary
+	d.nodes = ary
 	return nil
 }
 
 func (d *partialArray) get(key string, options *ApplyOptions) (*lazyNode, error) {
+	if key == "" {
+		return d.self, nil
+	}
+
 	idx, err := strconv.Atoi(key)
 
 	if err != nil {
@@ -645,19 +713,19 @@ func (d *partialArray) get(key string, options *ApplyOptions) (*lazyNode, error)
 
 	if idx < 0 {
 		if !options.SupportNegativeIndices {
-			return nil, errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+			return nil, fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 		}
-		if idx < -len(*d) {
-			return nil, errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+		if idx < -len(d.nodes) {
+			return nil, fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 		}
-		idx += len(*d)
+		idx += len(d.nodes)
 	}
 
-	if idx >= len(*d) {
-		return nil, errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+	if idx >= len(d.nodes) {
+		return nil, fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 	}
 
-	return (*d)[idx], nil
+	return d.nodes[idx], nil
 }
 
 func (d *partialArray) remove(key string, options *ApplyOptions) error {
@@ -666,41 +734,68 @@ func (d *partialArray) remove(key string, options *ApplyOptions) error {
 		return err
 	}
 
-	cur := *d
+	cur := d
 
-	if idx >= len(cur) {
+	if idx >= len(cur.nodes) {
 		if options.AllowMissingPathOnRemove {
 			return nil
 		}
-		return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+		return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 	}
 
 	if idx < 0 {
 		if !options.SupportNegativeIndices {
-			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+			return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 		}
-		if idx < -len(cur) {
+		if idx < -len(cur.nodes) {
 			if options.AllowMissingPathOnRemove {
 				return nil
 			}
-			return errors.Wrapf(ErrInvalidIndex, "Unable to access invalid index: %d", idx)
+			return fmt.Errorf("Unable to access invalid index: %d: %w", idx, ErrInvalidIndex)
 		}
-		idx += len(cur)
+		idx += len(cur.nodes)
 	}
 
-	ary := make([]*lazyNode, len(cur)-1)
+	ary := make([]*lazyNode, len(cur.nodes)-1)
 
-	copy(ary[0:idx], cur[0:idx])
-	copy(ary[idx:], cur[idx+1:])
+	copy(ary[0:idx], cur.nodes[0:idx])
+	copy(ary[idx:], cur.nodes[idx+1:])
 
-	*d = ary
+	d.nodes = ary
 	return nil
 }
 
 func (p Patch) add(doc *container, op Operation, options *ApplyOptions) error {
 	path, err := op.Path()
 	if err != nil {
-		return errors.Wrapf(ErrMissing, "add operation failed to decode path")
+		return fmt.Errorf("add operation failed to decode path: %w", ErrMissing)
+	}
+
+	// special case, adding to empty means replacing the container with the value given
+	if path == "" {
+		val := op.value()
+
+		var pd container
+		if (*val.raw)[0] == '[' {
+			pd = &partialArray{
+				self: val,
+			}
+		} else {
+			pd = &partialDoc{
+				self: val,
+				opts: options,
+			}
+		}
+
+		err := json.UnmarshalValid(*val.raw, pd)
+
+		if err != nil {
+			return err
+		}
+
+		*doc = pd
+
+		return nil
 	}
 
 	if options.EnsurePathExistsOnAdd {
@@ -714,12 +809,12 @@ func (p Patch) add(doc *container, op Operation, options *ApplyOptions) error {
 	con, key := findObject(doc, path, options)
 
 	if con == nil {
-		return errors.Wrapf(ErrMissing, "add operation does not apply: doc is missing path: \"%s\"", path)
+		return fmt.Errorf("add operation does not apply: doc is missing path: \"%s\": %w", path, ErrMissing)
 	}
 
 	err = con.add(key, op.value(), options)
 	if err != nil {
-		return errors.Wrapf(err, "error in add for path: '%s'", path)
+		return fmt.Errorf("error in add for path: '%s': %w", path, err)
 	}
 
 	return nil
@@ -758,25 +853,25 @@ func ensurePathExists(pd *container, path string, options *ApplyOptions) error {
 			if arrIndex, err = strconv.Atoi(part); err == nil {
 				pa, ok := doc.(*partialArray)
 
-				if ok && arrIndex >= len(*pa)+1 {
+				if ok && arrIndex >= len(pa.nodes)+1 {
 					// Pad the array with null values up to the required index.
-					for i := len(*pa); i <= arrIndex-1; i++ {
+					for i := len(pa.nodes); i <= arrIndex-1; i++ {
 						doc.add(strconv.Itoa(i), newLazyNode(newRawMessage(rawJSONNull)), options)
 					}
 				}
 			}
 
-			// Check if the next part is a numeric index.
+			// Check if the next part is a numeric index or "-".
 			// If yes, then create an array, otherwise, create an object.
-			if arrIndex, err = strconv.Atoi(parts[pi+1]); err == nil {
+			if arrIndex, err = strconv.Atoi(parts[pi+1]); err == nil || parts[pi+1] == "-" {
 				if arrIndex < 0 {
 
 					if !options.SupportNegativeIndices {
-						return errors.Wrapf(ErrInvalidIndex, "Unable to ensure path for invalid index: %d", arrIndex)
+						return fmt.Errorf("Unable to ensure path for invalid index: %d: %w", arrIndex, ErrInvalidIndex)
 					}
 
 					if arrIndex < -1 {
-						return errors.Wrapf(ErrInvalidIndex, "Unable to ensure path for negative index other than -1: %d", arrIndex)
+						return fmt.Errorf("Unable to ensure path for negative index other than -1: %d: %w", arrIndex, ErrInvalidIndex)
 					}
 
 					arrIndex = 0
@@ -794,7 +889,10 @@ func ensurePathExists(pd *container, path string, options *ApplyOptions) error {
 				newNode := newLazyNode(newRawMessage(rawJSONObject))
 
 				doc.add(part, newNode, options)
-				doc, _ = newNode.intoDoc()
+				doc, err = newNode.intoDoc(options)
+				if err != nil {
+					return err
+				}
 			}
 		} else {
 			if isArray(*target.raw) {
@@ -804,7 +902,7 @@ func ensurePathExists(pd *container, path string, options *ApplyOptions) error {
 					return err
 				}
 			} else {
-				doc, err = target.intoDoc()
+				doc, err = target.intoDoc(options)
 
 				if err != nil {
 					return err
@@ -816,10 +914,47 @@ func ensurePathExists(pd *container, path string, options *ApplyOptions) error {
 	return nil
 }
 
+func validateOperation(op Operation) error {
+	switch op.Kind() {
+	case "add", "replace":
+		if _, err := op.ValueInterface(); err != nil {
+			return fmt.Errorf("failed to decode 'value': %w", err)
+		}
+	case "move", "copy":
+		if _, err := op.From(); err != nil {
+			return fmt.Errorf("failed to decode 'from': %w", err)
+		}
+	case "remove", "test":
+	default:
+		return fmt.Errorf("unsupported operation")
+	}
+
+	if _, err := op.Path(); err != nil {
+		return fmt.Errorf("failed to decode 'path': %w", err)
+	}
+
+	return nil
+}
+
+func validatePatch(p Patch) error {
+	for _, op := range p {
+		if err := validateOperation(op); err != nil {
+			opData, infoErr := json.Marshal(op)
+			if infoErr != nil {
+				return fmt.Errorf("invalid operation: %w", err)
+			}
+
+			return fmt.Errorf("invalid operation %s: %w", opData, err)
+		}
+	}
+
+	return nil
+}
+
 func (p Patch) remove(doc *container, op Operation, options *ApplyOptions) error {
 	path, err := op.Path()
 	if err != nil {
-		return errors.Wrapf(ErrMissing, "remove operation failed to decode path")
+		return fmt.Errorf("remove operation failed to decode path: %w", ErrMissing)
 	}
 
 	con, key := findObject(doc, path, options)
@@ -828,12 +963,12 @@ func (p Patch) remove(doc *container, op Operation, options *ApplyOptions) error
 		if options.AllowMissingPathOnRemove {
 			return nil
 		}
-		return errors.Wrapf(ErrMissing, "remove operation does not apply: doc is missing path: \"%s\"", path)
+		return fmt.Errorf("remove operation does not apply: doc is missing path: \"%s\": %w", path, ErrMissing)
 	}
 
 	err = con.remove(key, options)
 	if err != nil {
-		return errors.Wrapf(err, "error in remove for path: '%s'", path)
+		return fmt.Errorf("error in remove for path: '%s': %w", path, err)
 	}
 
 	return nil
@@ -842,23 +977,48 @@ func (p Patch) remove(doc *container, op Operation, options *ApplyOptions) error
 func (p Patch) replace(doc *container, op Operation, options *ApplyOptions) error {
 	path, err := op.Path()
 	if err != nil {
-		return errors.Wrapf(err, "replace operation failed to decode path")
+		return fmt.Errorf("replace operation failed to decode path: %w", err)
+	}
+
+	if path == "" {
+		val := op.value()
+
+		if val.which == eRaw {
+			if !val.tryDoc() {
+				if !val.tryAry() {
+					return fmt.Errorf("replace operation value must be object or array: %w", err)
+				}
+			} else {
+				val.doc.opts = options
+			}
+		}
+
+		switch val.which {
+		case eAry:
+			*doc = val.ary
+		case eDoc:
+			*doc = val.doc
+		case eRaw:
+			return fmt.Errorf("replace operation hit impossible case: %w", err)
+		}
+
+		return nil
 	}
 
 	con, key := findObject(doc, path, options)
 
 	if con == nil {
-		return errors.Wrapf(ErrMissing, "replace operation does not apply: doc is missing path: %s", path)
+		return fmt.Errorf("replace operation does not apply: doc is missing path: %s: %w", path, ErrMissing)
 	}
 
 	_, ok := con.get(key, options)
 	if ok != nil {
-		return errors.Wrapf(ErrMissing, "replace operation does not apply: doc is missing key: %s", path)
+		return fmt.Errorf("replace operation does not apply: doc is missing key: %s: %w", path, ErrMissing)
 	}
 
 	err = con.set(key, op.value(), options)
 	if err != nil {
-		return errors.Wrapf(err, "error in remove for path: '%s'", path)
+		return fmt.Errorf("error in remove for path: '%s': %w", path, err)
 	}
 
 	return nil
@@ -867,39 +1027,43 @@ func (p Patch) replace(doc *container, op Operation, options *ApplyOptions) erro
 func (p Patch) move(doc *container, op Operation, options *ApplyOptions) error {
 	from, err := op.From()
 	if err != nil {
-		return errors.Wrapf(err, "move operation failed to decode from")
+		return fmt.Errorf("move operation failed to decode from: %w", err)
+	}
+
+	if from == "" {
+		return fmt.Errorf("unable to move entire document to another path: %w", ErrInvalid)
 	}
 
 	con, key := findObject(doc, from, options)
 
 	if con == nil {
-		return errors.Wrapf(ErrMissing, "move operation does not apply: doc is missing from path: %s", from)
+		return fmt.Errorf("move operation does not apply: doc is missing from path: %s: %w", from, ErrMissing)
 	}
 
 	val, err := con.get(key, options)
 	if err != nil {
-		return errors.Wrapf(err, "error in move for path: '%s'", key)
+		return fmt.Errorf("error in move for path: '%s': %w", key, err)
 	}
 
 	err = con.remove(key, options)
 	if err != nil {
-		return errors.Wrapf(err, "error in move for path: '%s'", key)
+		return fmt.Errorf("error in move for path: '%s': %w", key, err)
 	}
 
 	path, err := op.Path()
 	if err != nil {
-		return errors.Wrapf(err, "move operation failed to decode path")
+		return fmt.Errorf("move operation failed to decode path: %w", err)
 	}
 
 	con, key = findObject(doc, path, options)
 
 	if con == nil {
-		return errors.Wrapf(ErrMissing, "move operation does not apply: doc is missing destination path: %s", path)
+		return fmt.Errorf("move operation does not apply: doc is missing destination path: %s: %w", path, ErrMissing)
 	}
 
 	err = con.add(key, val, options)
 	if err != nil {
-		return errors.Wrapf(err, "error in move for path: '%s'", path)
+		return fmt.Errorf("error in move for path: '%s': %w", path, err)
 	}
 
 	return nil
@@ -908,67 +1072,88 @@ func (p Patch) move(doc *container, op Operation, options *ApplyOptions) error {
 func (p Patch) test(doc *container, op Operation, options *ApplyOptions) error {
 	path, err := op.Path()
 	if err != nil {
-		return errors.Wrapf(err, "test operation failed to decode path")
+		return fmt.Errorf("test operation failed to decode path: %w", err)
+	}
+
+	if path == "" {
+		var self lazyNode
+
+		switch sv := (*doc).(type) {
+		case *partialDoc:
+			self.doc = sv
+			self.which = eDoc
+		case *partialArray:
+			self.ary = sv
+			self.which = eAry
+		}
+
+		if self.equal(op.value()) {
+			return nil
+		}
+
+		return fmt.Errorf("testing value %s failed: %w", path, ErrTestFailed)
 	}
 
 	con, key := findObject(doc, path, options)
 
 	if con == nil {
-		return errors.Wrapf(ErrMissing, "test operation does not apply: is missing path: %s", path)
+		return fmt.Errorf("test operation does not apply: is missing path: %s: %w", path, ErrMissing)
 	}
 
 	val, err := con.get(key, options)
-	if err != nil && errors.Cause(err) != ErrMissing {
-		return errors.Wrapf(err, "error in test for path: '%s'", path)
+	if err != nil && errors.Unwrap(err) != ErrMissing {
+		return fmt.Errorf("error in test for path: '%s': %w", path, err)
 	}
 
+	ov := op.value()
+
 	if val == nil {
-		if op.value().raw == nil {
+		if ov.isNull() {
 			return nil
 		}
-		return errors.Wrapf(ErrTestFailed, "testing value %s failed", path)
-	} else if op.value() == nil {
-		return errors.Wrapf(ErrTestFailed, "testing value %s failed", path)
+		return fmt.Errorf("testing value %s failed: %w", path, ErrTestFailed)
+	} else if ov.isNull() {
+		return fmt.Errorf("testing value %s failed: %w", path, ErrTestFailed)
 	}
 
 	if val.equal(op.value()) {
 		return nil
 	}
 
-	return errors.Wrapf(ErrTestFailed, "testing value %s failed", path)
+	return fmt.Errorf("testing value %s failed: %w", path, ErrTestFailed)
 }
 
 func (p Patch) copy(doc *container, op Operation, accumulatedCopySize *int64, options *ApplyOptions) error {
 	from, err := op.From()
 	if err != nil {
-		return errors.Wrapf(err, "copy operation failed to decode from")
+		return fmt.Errorf("copy operation failed to decode from: %w", err)
 	}
 
 	con, key := findObject(doc, from, options)
 
 	if con == nil {
-		return errors.Wrapf(ErrMissing, "copy operation does not apply: doc is missing from path: %s", from)
+		return fmt.Errorf("copy operation does not apply: doc is missing from path: \"%s\": %w", from, ErrMissing)
 	}
 
 	val, err := con.get(key, options)
 	if err != nil {
-		return errors.Wrapf(err, "error in copy for from: '%s'", from)
+		return fmt.Errorf("error in copy for from: '%s': %w", from, err)
 	}
 
 	path, err := op.Path()
 	if err != nil {
-		return errors.Wrapf(ErrMissing, "copy operation failed to decode path")
+		return fmt.Errorf("copy operation failed to decode path: %w", ErrMissing)
 	}
 
 	con, key = findObject(doc, path, options)
 
 	if con == nil {
-		return errors.Wrapf(ErrMissing, "copy operation does not apply: doc is missing destination path: %s", path)
+		return fmt.Errorf("copy operation does not apply: doc is missing destination path: %s: %w", path, ErrMissing)
 	}
 
-	valCopy, sz, err := deepCopy(val)
+	valCopy, sz, err := deepCopy(val, options)
 	if err != nil {
-		return errors.Wrapf(err, "error while performing deep copy")
+		return fmt.Errorf("error while performing deep copy: %w", err)
 	}
 
 	(*accumulatedCopySize) += int64(sz)
@@ -978,7 +1163,7 @@ func (p Patch) copy(doc *container, op Operation, accumulatedCopySize *int64, op
 
 	err = con.add(key, valCopy, options)
 	if err != nil {
-		return errors.Wrapf(err, "error while adding value during copy")
+		return fmt.Errorf("error while adding value during copy: %w", err)
 	}
 
 	return nil
@@ -994,11 +1179,19 @@ func Equal(a, b []byte) bool {
 
 // DecodePatch decodes the passed JSON document as an RFC 6902 patch.
 func DecodePatch(buf []byte) (Patch, error) {
+	if !json.Valid(buf) {
+		return nil, ErrInvalid
+	}
+
 	var p Patch
 
-	err := json.Unmarshal(buf, &p)
+	err := unmarshal(buf, &p)
 
 	if err != nil {
+		return nil, err
+	}
+
+	if err := validatePatch(p); err != nil {
 		return nil, err
 	}
 
@@ -1030,14 +1223,26 @@ func (p Patch) ApplyIndentWithOptions(doc []byte, indent string, options *ApplyO
 		return doc, nil
 	}
 
-	var pd container
-	if doc[0] == '[' {
-		pd = &partialArray{}
-	} else {
-		pd = &partialDoc{}
+	if !json.Valid(doc) {
+		return nil, ErrInvalid
 	}
 
-	err := json.Unmarshal(doc, pd)
+	raw := json.RawMessage(doc)
+	self := newLazyNode(&raw)
+
+	var pd container
+	if doc[0] == '[' {
+		pd = &partialArray{
+			self: self,
+		}
+	} else {
+		pd = &partialDoc{
+			self: self,
+			opts: options,
+		}
+	}
+
+	err := unmarshal(doc, pd)
 
 	if err != nil {
 		return nil, err
@@ -1070,11 +1275,18 @@ func (p Patch) ApplyIndentWithOptions(doc []byte, indent string, options *ApplyO
 		}
 	}
 
-	if indent != "" {
-		return json.MarshalIndent(pd, "", indent)
+	data, err := json.MarshalEscaped(pd, options.EscapeHTML)
+	if err != nil {
+		return nil, err
 	}
 
-	return json.Marshal(pd)
+	if indent == "" {
+		return data, nil
+	}
+
+	var buf bytes.Buffer
+	json.Indent(&buf, data, "", indent)
+	return buf.Bytes(), nil
 }
 
 // From http://tools.ietf.org/html/rfc6901#section-4 :

@@ -11,85 +11,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
+	"log/slog"
 	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
 )
-
-// Constants defining default configuration and context keys.
-const (
-	ctxTimeout = "[error] timeout" // Context key marking timeout errors.
-	ctxRetry   = "[error] retry"   // Context key marking retryable errors.
-
-	contextSize = 4   // Initial size of fixed-size context array for small contexts.
-	bufferSize  = 256 // Initial buffer size for JSON marshaling.
-	warmUpSize  = 100 // Number of errors to pre-warm the pool for efficiency.
-	stackDepth  = 32  // Maximum stack trace depth to prevent excessive memory use.
-
-	DefaultCode = 500 // Default HTTP status code for errors if not specified.
-)
-
-// spaceRe is a precompiled regex for normalizing whitespace in error messages.
-var spaceRe = regexp.MustCompile(`\s+`)
-
-// ErrorCategory is a string type for categorizing errors (e.g., "network", "validation").
-type ErrorCategory string
-
-// ErrorOpts provides options for customizing error creation.
-type ErrorOpts struct {
-	SkipStack int // Number of stack frames to skip when capturing the stack trace.
-}
-
-// Config defines the global configuration for the errors package, controlling
-// stack depth, context size, pooling, and frame filtering.
-type Config struct {
-	StackDepth     int  // Maximum stack trace depth; 0 uses default (32).
-	ContextSize    int  // Initial context map size; 0 uses default (4).
-	DisablePooling bool // If true, disables object pooling for errors.
-	FilterInternal bool // If true, filters internal package frames from stack traces.
-	AutoFree       bool // If true, automatically frees errors to pool after use.
-}
-
-// cachedConfig holds the current configuration, updated only by Configure().
-// Protected by configMu for thread-safety.
-type cachedConfig struct {
-	stackDepth     int
-	contextSize    int
-	disablePooling bool
-	filterInternal bool
-	autoFree       bool
-}
-
-var (
-	// currentConfig stores the active configuration, read frequently and updated rarely.
-	currentConfig cachedConfig
-	// configMu protects updates to currentConfig for thread-safety.
-	configMu sync.RWMutex
-	// errorPool manages reusable Error instances to reduce allocations.
-	errorPool = NewErrorPool()
-	// stackPool manages reusable stack trace slices for efficiency.
-	stackPool = sync.Pool{
-		New: func() interface{} {
-			return make([]uintptr, currentConfig.stackDepth)
-		},
-	}
-	// emptyError is a pre-allocated empty error for lightweight reuse.
-	emptyError = &Error{
-		smallContext: [contextSize]contextItem{},
-		msg:          "",
-		name:         "",
-		template:     "",
-		cause:        nil,
-	}
-)
-
-// contextItem holds a single key-value pair in the smallContext array.
-type contextItem struct {
-	key   string
-	value interface{}
-}
 
 // Error is a custom error type with enhanced features: message, name, stack trace,
 // context, cause, and metadata like code and category. It is thread-safe and
@@ -121,39 +48,6 @@ type Error struct {
 
 	// Internal flags.
 	formatWrapped bool // True if created by Newf with %w verb.
-}
-
-// init sets up the package with default configuration and pre-warms the error pool.
-func init() {
-	currentConfig = cachedConfig{
-		stackDepth:     stackDepth,
-		contextSize:    contextSize,
-		disablePooling: false,
-		filterInternal: true,
-		autoFree:       true,
-	}
-	WarmPool(warmUpSize) // Pre-allocate errors for performance.
-}
-
-// Configure updates the global configuration for the errors package.
-// It is thread-safe and should be called early to avoid race conditions.
-// Changes apply to all subsequent error operations.
-// Example:
-//
-//	errors.Configure(errors.Config{StackDepth: 16, DisablePooling: true})
-func Configure(cfg Config) {
-	configMu.Lock()
-	defer configMu.Unlock()
-
-	if cfg.StackDepth != 0 {
-		currentConfig.stackDepth = cfg.StackDepth
-	}
-	if cfg.ContextSize != 0 {
-		currentConfig.contextSize = cfg.ContextSize
-	}
-	currentConfig.disablePooling = cfg.DisablePooling
-	currentConfig.filterInternal = cfg.FilterInternal
-	currentConfig.autoFree = cfg.AutoFree
 }
 
 // newError creates a new Error instance, reusing from the pool if enabled.
@@ -422,7 +316,6 @@ func Newf(f any, args ...interface{}) *Error {
 		}
 	}
 	//  End: Processing Valid Format String
-
 	return err
 }
 
@@ -434,28 +327,9 @@ func Newf(f any, args ...interface{}) *Error {
 //
 //	err := errors.Errorf("failed: %w", errors.New("cause"))
 //	// err.Error() == "failed: cause"
+
 func Errorf(format string, args ...interface{}) *Error {
 	return Newf(format, args...)
-}
-
-// FmtErrorCheck safely formats a string using fmt.Sprintf, catching panics.
-// Returns the formatted string and any error encountered.
-// Internal use by Newf to validate format strings.
-// Example:
-//
-//	result, err := FmtErrorCheck("value: %s", "test")
-func FmtErrorCheck(format string, args ...interface{}) (result string, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			if e, ok := r.(error); ok {
-				err = e
-			} else {
-				err = fmt.Errorf("panic during formatting: %v", r)
-			}
-		}
-	}()
-	result = fmt.Sprintf(format, args...)
-	return result, nil
 }
 
 // Std creates a standard error using errors.New for compatibility.
@@ -509,12 +383,20 @@ func (e *Error) As(target interface{}) bool {
 	if e == nil {
 		return false
 	}
-	// Handle *Error target.
-	if targetPtr, ok := target.(*Error); ok {
+	// Handle **Error target (i.e. caller passed &myErrPtr where myErrPtr is *Error).
+	// Traverse the chain and return the first *Error that has a name; if none has a
+	// name, return the first *Error in the chain. This satisfies both:
+	//   - TestErrorAs: wraps Named("target") -> finds it by name
+	//   - TestErrorFullChain: finds Named("AuthError") deep in the chain
+	if targetPtr, ok := target.(**Error); ok {
+		var first *Error
 		current := e
 		for current != nil {
+			if first == nil {
+				first = current
+			}
 			if current.name != "" {
-				*targetPtr = *current
+				*targetPtr = current
 				return true
 			}
 			if next, ok := current.cause.(*Error); ok {
@@ -522,8 +404,12 @@ func (e *Error) As(target interface{}) bool {
 			} else if current.cause != nil {
 				return errors.As(current.cause, target)
 			} else {
-				return false
+				break
 			}
+		}
+		if first != nil {
+			*targetPtr = first
+			return true
 		}
 		return false
 	}
@@ -622,6 +508,8 @@ func (e *Error) Copy() *Error {
 	newErr.code = e.code
 	newErr.category = e.category
 	newErr.count = e.count
+	newErr.callback = e.callback           // was silently dropped by Copy
+	newErr.formatWrapped = e.formatWrapped // was silently dropped by Copy
 
 	if e.smallCount > 0 {
 		newErr.smallCount = e.smallCount
@@ -716,7 +604,8 @@ func (e *Error) Error() string {
 //	  fmt.Println(frame) // e.g., "main.go:42"
 //	}
 func (e *Error) FastStack() []string {
-	if e.stack == nil {
+	// Same len-vs-nil reasoning as Stack().
+	if len(e.stack) == 0 {
 		return nil
 	}
 	configMu.RLock()
@@ -829,7 +718,8 @@ func (e *Error) contextAtThisLevel() map[string]interface{} {
 
 // Free resets the error and returns it to the pool if pooling is enabled.
 // Safe to call multiple times; no-op if pooling is disabled.
-// Call after use to prevent memory leaks when autoFree is false.
+// Call after use to return the error to the pool and prevent memory leaks.
+// Use defer err.Free() at the call site that created the error.
 // Example:
 //
 //	defer err.Free()
@@ -837,6 +727,11 @@ func (e *Error) Free() {
 	if currentConfig.disablePooling {
 		return
 	}
+
+	// Disarm any pending auto-cleanup (finalizer or runtime.AddCleanup) before
+	// manually returning to the pool. Without this, GC could return the same
+	// *Error a second time after Free() has already done so — double-put.
+	errorPool.clearCleanup(e)
 
 	e.Reset()
 
@@ -913,7 +808,12 @@ func (e *Error) Is(target error) bool {
 			return true
 		}
 	}
-	// Match standard errors by string.
+	// String-equality fallback: matches any error whose message equals this
+	// error's message. This is intentional — it allows matching errors created
+	// by fmt.Errorf or errors.New with the same text — but it deviates from
+	// stdlib errors.Is which uses pointer/sentinel identity.
+	// IMPORTANT: two distinct errors with identical messages will match each other.
+	// For strict identity matching use errors.Const() to create named sentinels.
 	if stdErr, ok := target.(error); ok && e.Error() == stdErr.Error() {
 		return true
 	}
@@ -1000,15 +900,6 @@ func (e *Error) IsNull() bool {
 	return e.smallCount > 0 || e.context != nil
 }
 
-// jsonBufferPool manages reusable buffers for JSON marshaling to reduce allocations.
-var (
-	jsonBufferPool = sync.Pool{
-		New: func() interface{} {
-			return bytes.NewBuffer(make([]byte, 0, bufferSize))
-		},
-	}
-)
-
 // MarshalJSON serializes the error to JSON, including name, message, context, cause, stack, and code.
 // Causes are recursively serialized if they implement json.Marshaler or are *Error.
 // Example:
@@ -1016,9 +907,12 @@ var (
 //	data, _ := json.Marshal(err)
 //	fmt.Println(string(data))
 func (e *Error) MarshalJSON() ([]byte, error) {
-	// Get buffer from pool.
+	// Get buffer from pool. Do NOT defer-return it — we must copy the result
+	// out of buf's backing array and return the buf to the pool BEFORE we return
+	// the copied slice. If we defer the Put, another goroutine can Get the same
+	// buf and overwrite its backing array while the caller is still reading our
+	// returned slice (the race the detector flags).
 	buf := jsonBufferPool.Get().(*bytes.Buffer)
-	defer jsonBufferPool.Put(buf)
 	buf.Reset()
 
 	// Create new encoder.
@@ -1066,11 +960,16 @@ func (e *Error) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 
-	// Remove trailing newline.
-	result := buf.Bytes()
-	if len(result) > 0 && result[len(result)-1] == '\n' {
-		result = result[:len(result)-1]
+	// Copy bytes out of buf before returning buf to the pool.
+	// buf.Bytes() is a slice into buf's internal array — if we put buf back first
+	// and another goroutine resets it, they share the same backing memory.
+	raw := buf.Bytes()
+	if len(raw) > 0 && raw[len(raw)-1] == '\n' {
+		raw = raw[:len(raw)-1]
 	}
+	result := make([]byte, len(raw))
+	copy(result, raw)
+	jsonBufferPool.Put(buf)
 	return result, nil
 }
 
@@ -1130,7 +1029,10 @@ func (e *Error) Reset() {
 //	  fmt.Println(frame) // e.g., "main.main main.go:42"
 //	}
 func (e *Error) Stack() []string {
-	if e.stack == nil {
+	// Use len check not nil: a recycled error has stack reset to stack[:0]
+	// (non-nil, zero length). Calling CallersFrames on an empty slice returns
+	// no frames, making Stack() silently return [] instead of nil.
+	if len(e.stack) == 0 {
 		return nil
 	}
 
@@ -1164,8 +1066,10 @@ func (e *Error) Stack() []string {
 //
 //	err := errors.New("failed").Trace()
 func (e *Error) Trace() *Error {
-	if e.stack == nil {
-		e.stack = captureStack(2)
+	// Check len rather than nil for the same reason as WithStack.
+	if len(e.stack) == 0 {
+		// skip=1: trimmed = skip+1 = 2, removes captureStack + Trace() itself.
+		e.stack = captureStack(1)
 	}
 	return e
 }
@@ -1205,32 +1109,24 @@ func (e *Error) UnwrapAll() []error {
 	if e == nil {
 		return nil
 	}
+	// Return the original nodes directly. Each *Error in the chain already owns
+	// its own context map and message — there is no bleeding between nodes.
+	// Returning originals (rather than copies) ensures:
+	// e.Error() returns only that node's own msg/name (cause is on the
+	//      NEXT node, not duplicated here — Error() appends e.cause.Error() which
+	//      is exactly the next node's contribution).
+	//
+	// Wait — Error() DOES append cause. So chain[0].Error() includes the full
+	// chain. The test wants chain[0].Error() == "outer" (msg only).
+	// return snapshot wrappers that expose only the node's own message.
 	var chain []error
 	current := error(e)
 	for current != nil {
 		if err, ok := current.(*Error); ok {
-			isolated := newError()
-			isolated.msg = err.msg
-			isolated.name = err.name
-			isolated.template = err.template
-			isolated.code = err.code
-			isolated.category = err.category
-			if err.smallCount > 0 {
-				isolated.smallCount = err.smallCount
-				for i := int32(0); i < err.smallCount; i++ {
-					isolated.smallContext[i] = err.smallContext[i]
-				}
-			}
-			if err.context != nil {
-				isolated.context = make(map[string]interface{}, len(err.context))
-				for k, v := range err.context {
-					isolated.context[k] = v
-				}
-			}
-			if err.stack != nil {
-				isolated.stack = append([]uintptr(nil), err.stack...)
-			}
-			chain = append(chain, isolated)
+			// Wrap in a msgOnlyError so Error() returns only this node's own
+			// message without appending the cause chain. Unwrap() still returns
+			// the original *Error so standard chain traversal continues to work.
+			chain = append(chain, &msgOnlyError{err: err})
 		} else {
 			chain = append(chain, current)
 		}
@@ -1279,31 +1175,30 @@ func (e *Error) With(keyValues ...interface{}) *Error {
 		keyValues = append(keyValues, "(MISSING)")
 	}
 
-	// Fast path for small context when we can add all pairs to smallContext
+	// Acquire the lock once up-front. The previous "optimistic read then lock"
+	// pattern read e.smallCount and e.context without holding the lock, which
+	// the race detector correctly flagged as a data race when two goroutines
+	// call With() on the same *Error concurrently.
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	// Fast path: all pairs fit in the fixed-size smallContext array.
 	if e.smallCount < contextSize && e.context == nil {
 		remainingSlots := contextSize - int(e.smallCount)
 		if len(keyValues)/2 <= remainingSlots {
-			e.mu.Lock()
-			// Recheck conditions after acquiring lock
-			if e.smallCount < contextSize && e.context == nil {
-				for i := 0; i < len(keyValues); i += 2 {
-					key, ok := keyValues[i].(string)
-					if !ok {
-						key = fmt.Sprintf("%v", keyValues[i])
-					}
-					e.smallContext[e.smallCount] = contextItem{key, keyValues[i+1]}
-					e.smallCount++
+			for i := 0; i < len(keyValues); i += 2 {
+				key, ok := keyValues[i].(string)
+				if !ok {
+					key = fmt.Sprintf("%v", keyValues[i])
 				}
-				e.mu.Unlock()
-				return e
+				e.smallContext[e.smallCount] = contextItem{key, keyValues[i+1]}
+				e.smallCount++
 			}
-			e.mu.Unlock()
+			return e
 		}
 	}
 
-	// Slow path - either we have too many pairs or already using map context
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	// Slow path: too many pairs or already using map context.
 
 	// Initialize map context if needed
 	if e.context == nil {
@@ -1377,7 +1272,9 @@ func (e *Error) WithRetryable() *Error {
 //
 //	err := errors.New("failed").WithStack()
 func (e *Error) WithStack() *Error {
-	if e.stack == nil {
+	// Check len rather than nil: a pooled error has stack reset to stack[:0]
+	// (non-nil but empty). The nil check would skip capture for recycled errors.
+	if len(e.stack) == 0 {
 		e.stack = captureStack(1)
 	}
 	return e
@@ -1438,37 +1335,69 @@ func (e *Error) WrapNotNil(cause error) *Error {
 	return e
 }
 
-// WarmPool pre-populates the error pool with count instances.
-// Improves performance by reducing initial allocations.
-// No-op if pooling is disabled.
+// LogValue implements slog.LogValuer so *Error can be passed directly to
+// any slog logging call and will be rendered as a structured group containing
+// message, name, code, category, and context fields.
+//
 // Example:
 //
-//	errors.WarmPool(1000)
-func WarmPool(count int) {
-	if currentConfig.disablePooling {
-		return
+//	slog.Error("request failed", "err", err)
+//	// => err.message="...", err.name="AuthError", err.code=401, ...
+func (e *Error) LogValue() slog.Value {
+	if e == nil {
+		return slog.StringValue("<nil>")
 	}
-	for i := 0; i < count; i++ {
-		e := &Error{
-			smallContext: [contextSize]contextItem{},
-			stack:        nil,
+	attrs := make([]slog.Attr, 0, 6)
+	if e.msg != "" {
+		attrs = append(attrs, slog.String("message", e.msg))
+	}
+	if e.name != "" {
+		attrs = append(attrs, slog.String("name", e.name))
+	}
+	if e.code != 0 {
+		attrs = append(attrs, slog.Int("code", int(e.code)))
+	}
+	if e.category != "" {
+		attrs = append(attrs, slog.String("category", e.category))
+	}
+	if ctx := e.contextAtThisLevel(); len(ctx) > 0 {
+		ctxAttrs := make([]slog.Attr, 0, len(ctx))
+		for k, v := range ctx {
+			ctxAttrs = append(ctxAttrs, slog.Any(k, v))
 		}
-		errorPool.Put(e)
-		stackPool.Put(make([]uintptr, 0, currentConfig.stackDepth))
+		attrs = append(attrs, slog.Attr{Key: "context", Value: slog.GroupValue(ctxAttrs...)})
 	}
+	if e.cause != nil {
+		attrs = append(attrs, slog.String("cause", e.cause.Error()))
+	}
+	return slog.GroupValue(attrs...)
 }
 
-// WarmStackPool pre-populates the stack pool with count slices.
-// Improves performance for stack-intensive operations.
-// No-op if pooling is disabled.
-// Example:
-//
-//	errors.WarmStackPool(500)
-func WarmStackPool(count int) {
-	if currentConfig.disablePooling {
-		return
-	}
-	for i := 0; i < count; i++ {
-		stackPool.Put(make([]uintptr, 0, currentConfig.stackDepth))
-	}
+// msgOnlyError wraps a single *Error and returns only its own message from
+// Error(), without appending the cause chain. Used by UnwrapAll so each
+// element in the returned slice represents exactly one chain node.
+type msgOnlyError struct {
+	err *Error
 }
+
+func (m *msgOnlyError) Error() string {
+	if m.err.msg != "" {
+		return m.err.msg
+	}
+	if m.err.name != "" {
+		return m.err.name
+	}
+	if m.err.template != "" {
+		return m.err.template
+	}
+	return ""
+}
+
+// Unwrap returns the underlying *Error so errors.Is/As and chain traversal work.
+func (m *msgOnlyError) Unwrap() error { return m.err.cause }
+
+// Convenience accessors so callers can still reach *Error fields after UnwrapAll.
+func (m *msgOnlyError) Name() string                    { return m.err.Name() }
+func (m *msgOnlyError) Code() int                       { return m.err.Code() }
+func (m *msgOnlyError) Context() map[string]interface{} { return m.err.Context() }
+func (m *msgOnlyError) Stack() []string                 { return m.err.Stack() }

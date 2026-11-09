@@ -47,7 +47,7 @@ func Validate(cfg *config.Config) error {
 	}
 
 	if cfg.Events.Disabled && cfg.HTTP.Disabled {
-		return shared.AllApiHandlersDisabledError(cfg.Service.Name)
+		return shared.AllComponentsDisabledError(cfg.Service.Name)
 	}
 
 	return nil

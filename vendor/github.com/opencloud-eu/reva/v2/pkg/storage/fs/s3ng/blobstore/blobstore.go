@@ -77,6 +77,7 @@ func New(endpoint, region, bucket, accessKey, secretKey string, defaultPutOption
 }
 
 // Upload stores some data in the blobstore under the given key
+// TODO(OCISDEV-901): remove once FinishUploadDecomposed is replaced by the upload coordinator (OCISDEV-900).
 func (bs *Blobstore) Upload(node *node.Node, source string) error {
 	reader, err := os.Open(source)
 	if err != nil {
@@ -94,6 +95,23 @@ func (bs *Blobstore) Upload(node *node.Node, source string) error {
 		DisableContentSha256:  bs.defaultPutOptions.DisableContentSha256,
 	})
 
+	if err != nil {
+		return errors.Wrapf(err, "could not store object '%s' into bucket '%s'", bs.Path(node), bs.bucket)
+	}
+	return nil
+}
+
+// UploadFromReader stores data from a reader directly into S3 without local buffering.
+func (bs *Blobstore) UploadFromReader(node *node.Node, r io.Reader, size int64) error {
+	_, err := bs.client.PutObject(context.Background(), bs.bucket, bs.Path(node), r, size, minio.PutObjectOptions{
+		ContentType:           "application/octet-stream",
+		SendContentMd5:        bs.defaultPutOptions.SendContentMd5,
+		ConcurrentStreamParts: bs.defaultPutOptions.ConcurrentStreamParts,
+		NumThreads:            bs.defaultPutOptions.NumThreads,
+		PartSize:              bs.defaultPutOptions.PartSize,
+		DisableMultipart:      bs.defaultPutOptions.DisableMultipart,
+		DisableContentSha256:  bs.defaultPutOptions.DisableContentSha256,
+	})
 	if err != nil {
 		return errors.Wrapf(err, "could not store object '%s' into bucket '%s'", bs.Path(node), bs.bucket)
 	}

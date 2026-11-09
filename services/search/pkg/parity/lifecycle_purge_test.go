@@ -7,6 +7,7 @@ import (
 
 func purgeLifecycle() lifecycleGroup {
 	parent, child := fixtureTree()
+	trashed, _, samePath := fixtureSamePath()
 
 	return lifecycleGroup{
 		name:     "purge",
@@ -34,6 +35,13 @@ func purgeLifecycle() lifecycleGroup {
 					return e.Purge(parent.ID, true)
 				},
 				expect: treeIsLeft("parent"),
+			},
+			{
+				id: 4, title: "leaves the live folder that took the trashed one's path alone",
+				fixtures:     samePath,
+				do:           func(e search.Engine) error { return e.Purge(trashed.ID, false) },
+				expect:       []expectation{{`path:"./a"`, []string{"a", "y.txt"}}},
+				wantDocCount: conversions.ToPointer(uint64(2)),
 			},
 		},
 	}

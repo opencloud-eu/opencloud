@@ -18,18 +18,27 @@ import (
 
 var (
 	unifiedRolesNames = map[string]string{
-		unifiedrole.UnifiedRoleViewerID:                     "Viewer",
-		unifiedrole.UnifiedRoleViewerListGrantsID:           "ViewerListGrants",
-		unifiedrole.UnifiedRoleSpaceViewerID:                "SpaceViewer",
-		unifiedrole.UnifiedRoleEditorID:                     "Editor",
-		unifiedrole.UnifiedRoleEditorListGrantsID:           "EditorListGrants",
-		unifiedrole.UnifiedRoleSpaceEditorID:                "SpaceEditor",
-		unifiedrole.UnifiedRoleSpaceEditorWithoutVersionsID: "SpaceEditorWithoutVersions",
-		unifiedrole.UnifiedRoleFileEditorID:                 "FileEditor",
-		unifiedrole.UnifiedRoleFileEditorListGrantsID:       "FileEditorListGrants",
-		unifiedrole.UnifiedRoleEditorLiteID:                 "EditorLite",
-		unifiedrole.UnifiedRoleManagerID:                    "SpaceManager",
-		unifiedrole.UnifiedRoleSecureViewerID:               "SecureViewer",
+		unifiedrole.UnifiedRoleViewerID:                                    "Viewer",
+		unifiedrole.UnifiedRoleViewerWithVersionsID:                        "ViewerWithVersions",
+		unifiedrole.UnifiedRoleViewerListGrantsID:                          "ViewerListGrants",
+		unifiedrole.UnifiedRoleSpaceViewerID:                               "SpaceViewer",
+		unifiedrole.UnifiedRoleSpaceViewerWithVersionsID:                   "SpaceViewerWithVersions",
+		unifiedrole.UnifiedRoleEditorID:                                    "Editor",
+		unifiedrole.UnifiedRoleEditorWithVersionsID:                        "EditorWithVersions",
+		unifiedrole.UnifiedRoleEditorListGrantsID:                          "EditorListGrants",
+		unifiedrole.UnifiedRoleEditorListGrantsWithVersionsID:              "EditorListGrantsWithVersions",
+		unifiedrole.UnifiedRoleSpaceEditorID:                               "SpaceEditor",
+		unifiedrole.UnifiedRoleSpaceEditorWithoutVersionsID:                "SpaceEditorWithoutVersions",
+		unifiedrole.UnifiedRoleSpaceEditorWithoutTrashbinID:                "SpaceEditorWithoutTrashbin",
+		unifiedrole.UnifiedRoleSpaceEditorWithoutVersionsWithoutTrashbinID: "SpaceEditorWithoutVersionsWithoutTrashbin",
+		unifiedrole.UnifiedRoleFileEditorID:                                "FileEditor",
+		unifiedrole.UnifiedRoleFileEditorWithVersionsID:                    "FileEditorWithVersions",
+		unifiedrole.UnifiedRoleFileEditorListGrantsID:                      "FileEditorListGrants",
+		unifiedrole.UnifiedRoleFileEditorListGrantsWithVersionsID:          "FileEditorListGrantsWithVersions",
+		unifiedrole.UnifiedRoleEditorLiteID:                                "EditorLite",
+		unifiedrole.UnifiedRoleManagerID:                                   "SpaceManager",
+		unifiedrole.UnifiedRoleSecureViewerID:                              "SecureViewer",
+		unifiedrole.UnifiedRoleDeniedID:                                    "Denied",
 	}
 )
 
@@ -51,10 +60,15 @@ func UnifiedRoles(cfg *config.Config) []*cobra.Command {
 
 // unifiedRolesStatus lists available unified roles, it contains an indicator to show if the role is enabled or not
 func listUnifiedRoles(cfg *config.Config) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "list available unified roles",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			outputFormat, err := cmd.Flags().GetString("output-format")
+			if err != nil {
+				return err
+			}
+
 			r := tw.Rendition{
 				Settings: tw.Settings{
 					Separators: tw.Separators{
@@ -62,7 +76,17 @@ func listUnifiedRoles(cfg *config.Config) *cobra.Command {
 					},
 				},
 			}
-			tbl := tablewriter.NewTable(os.Stdout, tablewriter.WithRenderer(renderer.NewBlueprint(r)))
+
+			var opt tablewriter.Option
+			switch outputFormat {
+			case "md":
+				opt = tablewriter.WithRenderer(renderer.NewMarkdown())
+			case "colorized":
+				opt = tablewriter.WithRenderer(renderer.NewColorized())
+			default:
+				opt = tablewriter.WithRenderer(renderer.NewBlueprint(r))
+			}
+			tbl := tablewriter.NewTable(os.Stdout, opt)
 
 			headers := []string{"Name", "UID", "Enabled", "Description", "Condition", "Allowed resource actions"}
 			tbl.Header(headers)
@@ -100,4 +124,9 @@ func listUnifiedRoles(cfg *config.Config) *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().StringP("output-format", "o", "",
+		"Adjust the basic table output. Available options: md, colorized")
+
+	return cmd
 }

@@ -63,10 +63,6 @@ Store specific notes:
   -   When using `nats-js-kv` it is recommended to set `OC_CACHE_STORE_NODES` to the same value as `OC_EVENTS_ENDPOINT`. That way the cache uses the same nats instance as the event bus.
   -   When using the `nats-js-kv` store, it is possible to set `OC_CACHE_DISABLE_PERSISTENCE` to instruct nats to not persist cache data on disc.
 
-### Auto-Accept Shares
-
-When setting the `SHARING_AUTO_ACCEPT_SHARES` to `true` (sharing service), all incoming shares will be accepted automatically. Users can overwrite this setting individually in their profile. The deprecated `FRONTEND_AUTO_ACCEPT_SHARES` is still supported for backwards compatibility.
-
 ## Passwords
 
 ### The Password Policy

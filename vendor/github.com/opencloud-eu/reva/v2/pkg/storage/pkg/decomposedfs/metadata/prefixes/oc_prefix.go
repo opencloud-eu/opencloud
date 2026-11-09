@@ -24,6 +24,6 @@ package prefixes
 // manipulate the user. namespace, which is what is used to store decomposedfs
 // specific metadata. To prevent name collisions with other apps, we are going
 // to introduce a sub namespace "user.oc."
-const (
+var (
 	OcPrefix string = "user.oc."
 )

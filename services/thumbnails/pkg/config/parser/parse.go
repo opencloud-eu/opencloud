@@ -34,6 +34,8 @@ func ParseConfig(cfg *config.Config) error {
 }
 
 // Validate can validate the configuration
-func Validate(_ *config.Config) error {
-	return nil
+func Validate(cfg *config.Config) error {
+	_, err := cfg.Thumbnail.MaxInputBytes()
+
+	return err
 }

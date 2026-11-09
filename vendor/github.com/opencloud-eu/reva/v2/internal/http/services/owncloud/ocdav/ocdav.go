@@ -35,6 +35,7 @@ import (
 	"github.com/jellydator/ttlcache/v2"
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/config"
 	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/net"
+	"github.com/opencloud-eu/reva/v2/internal/http/services/owncloud/ocdav/propfind"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
@@ -69,6 +70,7 @@ type svc struct {
 	userIdentifierCache *ttlcache.Cache
 	nameValidators      []Validator
 	urlSigner           signedurl.Signer
+	previewMimeTypes    map[string]struct{}
 }
 
 func (s *svc) Config() *config.Config {
@@ -128,6 +130,7 @@ func NewWith(conf *config.Config, ls LockSystem, _ *zerolog.Logger, selector poo
 		userIdentifierCache: ttlcache.NewCache(),
 		nameValidators:      ValidatorsFromConfig(conf),
 		urlSigner:           signer,
+		previewMimeTypes:    propfind.PreviewMimeTypes(conf),
 	}
 	_ = s.userIdentifierCache.SetTTL(60 * time.Second)
 

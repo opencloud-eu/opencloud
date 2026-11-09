@@ -23,7 +23,7 @@ type Config struct {
 	SkipUserGroupsInToken   bool `yaml:"skip_user_groups_in_token" env:"STORAGE_USERS_SKIP_USER_GROUPS_IN_TOKEN" desc:"Disables the loading of user's group memberships from the reva access token." introductionVersion:"1.0.0"`
 	GracefulShutdownTimeout int  `yaml:"graceful_shutdown_timeout" env:"STORAGE_USERS_GRACEFUL_SHUTDOWN_TIMEOUT" desc:"The number of seconds to wait for the 'storage-users' service to shutdown cleanly before exiting with an error that gets logged. Note: This setting is only applicable when running the 'storage-users' service as a standalone service. See the text description for more details." introductionVersion:"1.0.0"`
 
-	Driver        string  `yaml:"driver" env:"STORAGE_USERS_DRIVER" desc:"The storage driver which should be used by the service. Defaults to 'posix'. Supported values are: 'posix', 'decomposed', 'decomposeds3' and 'owncloudsql'. For backwards compatibility reasons it's also possible to use the 'ocis' and 's3ng' driver and configure them using the 'decomposed'/'decomposeds3' options. The 'posix' driver stores data directly on a POSIX-compliant filesystem. The 'decomposed' driver stores all data (blob and meta data) in a POSIX compliant volume. The 'decomposeds3' driver stores metadata in a POSIX compliant volume and uploads blobs to the s3 bucket." introductionVersion:"1.0.0"`
+	Driver        string  `yaml:"driver" env:"STORAGE_USERS_DRIVER" desc:"The storage driver which should be used by the service. Defaults to 'posix'. Supported values are: 'posix', 'decomposed', 'decomposeds3' and 'owncloudsql'. The deprecated 'ocis' and 's3ng' aliases use the 'decomposed' and 'decomposeds3' drivers with the legacy metadata prefix, overriding OC_METADATA_PREFIX. The 'posix' driver stores data directly on a POSIX-compliant filesystem. The 'decomposed' driver stores all data (blob and meta data) in a POSIX compliant volume. The 'decomposeds3' driver stores metadata in a POSIX compliant volume and uploads blobs to the s3 bucket." introductionVersion:"1.0.0"`
 	Drivers       Drivers `yaml:"drivers"`
 	DataServerURL string  `yaml:"data_server_url" env:"STORAGE_USERS_DATA_SERVER_URL" desc:"URL of the data server, needs to be reachable by the data gateway provided by the frontend service or the user if directly exposed." introductionVersion:"1.0.0"`
 
@@ -124,6 +124,7 @@ type DecomposedDriver struct {
 	AsyncUploads            bool   `yaml:"async_uploads" env:"OC_ASYNC_UPLOADS" desc:"Enable asynchronous file uploads." introductionVersion:"1.0.0"`
 	MaxQuota                uint64 `yaml:"max_quota" env:"OC_SPACES_MAX_QUOTA;STORAGE_USERS_DECOMPOSED_MAX_QUOTA" desc:"Set a global max quota for spaces in bytes. A value of 0 equals unlimited. If not using the global OC_SPACES_MAX_QUOTA, you must define the FRONTEND_MAX_QUOTA in the frontend service." introductionVersion:"1.0.0"`
 	DisableVersioning       bool   `yaml:"disable_versioning" env:"OC_DISABLE_VERSIONING" desc:"Disables versioning of files. When set to true, new uploads with the same filename will overwrite existing files instead of creating a new version." introductionVersion:"1.0.0"`
+	MetadataPrefix          string `yaml:"metadata_prefix" env:"OC_METADATA_PREFIX" desc:"The attribute key prefix of the metadata on disk. Defaults to the native 'user.oc.' prefix. It applies to all storage drivers of the instance, they must share the prefix because it is set process wide." introductionVersion:"9.0.0"`
 }
 
 // DecomposedS3Driver is the storage driver configuration when using 'decomposeds3' storage driver
@@ -160,6 +161,7 @@ type DecomposedS3Driver struct {
 	MaxConcurrency          int    `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;STORAGE_USERS_DECOMPOSEDS3_MAX_CONCURRENCY" desc:"Maximum number of concurrent go-routines. Higher values can potentially get work done faster but will also cause more load on the system. Values of 0 or below will be ignored and the default value of 100 will be used." introductionVersion:"1.0.0"`
 	AsyncUploads            bool   `yaml:"async_uploads" env:"OC_ASYNC_UPLOADS" desc:"Enable asynchronous file uploads." introductionVersion:"1.0.0"`
 	DisableVersioning       bool   `yaml:"disable_versioning" env:"OC_DISABLE_VERSIONING" desc:"Disables versioning of files. When set to true, new uploads with the same filename will overwrite existing files instead of creating a new version." introductionVersion:"1.0.0"`
+	MetadataPrefix          string `yaml:"metadata_prefix" env:"OC_METADATA_PREFIX" desc:"The attribute key prefix of the metadata on disk. Defaults to the native 'user.oc.' prefix. It applies to all storage drivers of the instance, they must share the prefix because it is set process wide." introductionVersion:"9.0.0"`
 }
 
 // OwnCloudSQLDriver is the storage driver configuration when using 'owncloudsql' storage driver
@@ -196,6 +198,7 @@ type PosixDriver struct {
 	LockCycleDurationFactor    int                    `yaml:"lock_cycle_duration_factor" env:"STORAGE_USERS_POSIX_LOCK_CYCLE_DURATION_FACTOR" desc:"When trying to lock files, OpenCloud will multiply the cycle with this factor and use it as a millisecond timeout. Values of 0 or below will be ignored and the default value will be used." introductionVersion:"2.0.0"`
 	MaxConcurrency             int                    `yaml:"max_concurrency" env:"OC_MAX_CONCURRENCY;STORAGE_USERS_POSIX_MAX_CONCURRENCY" desc:"Maximum number of concurrent go-routines. Higher values can potentially get work done faster but will also cause more load on the system. Values of 0 or below will be ignored and the default value will be used." introductionVersion:"2.0.0"`
 	DisableVersioning          bool                   `yaml:"disable_versioning" env:"OC_DISABLE_VERSIONING" desc:"Disables versioning of files. When set to true, new uploads with the same filename will overwrite existing files instead of creating a new version." introductionVersion:"2.0.0"`
+	MetadataPrefix             string                 `yaml:"metadata_prefix" env:"OC_METADATA_PREFIX" desc:"The attribute key prefix of the metadata on disk. Defaults to the native 'user.oc.' prefix. It applies to all storage drivers of the instance, they must share the prefix because it is set process wide." introductionVersion:"9.0.0"`
 
 	UseSpaceGroups bool `yaml:"use_space_groups" env:"STORAGE_USERS_POSIX_USE_SPACE_GROUPS" desc:"Use space groups to manage permissions on spaces." introductionVersion:"1.0.0"`
 

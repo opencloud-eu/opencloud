@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -16,7 +15,7 @@ import (
 	"github.com/blevesearch/bleve/v2/analysis/token/lowercase"
 	"github.com/blevesearch/bleve/v2/analysis/tokenizer/unicode"
 	"github.com/blevesearch/bleve/v2/mapping"
-	storageProvider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/blevesearch/bleve/v2/search/query"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/search/pkg/bleve/hierarchy"
@@ -263,55 +262,52 @@ func searchResourceByID(id string, index bleve.Index) (*search.Resource, error) 
 	return matchToResource(res.Hits[0]), nil
 }
 
-// searchResourcesByPath returns the descendants of the folder at lookupPath.
-// The folder term matches the folder and everything below it in one term
-// query (see PathAnalyzer); the folder itself is dropped from the result.
-func searchResourcesByPath(rootID string, lookupPath string, index bleve.Index) ([]*search.Resource, error) {
-	rootQuery := bleve.NewTermQuery(rootID)
-	rootQuery.SetField("RootID")
-	pathQuery := bleve.NewTermQuery(lookupPath)
-	pathQuery.SetField("Path")
-	q := bleve.NewConjunctionQuery(rootQuery, pathQuery)
-	bleveReq := bleve.NewSearchRequest(q)
-	bleveReq.Size = math.MaxInt
-	bleveReq.Fields = []string{"*"}
-	res, err := index.Search(bleveReq)
-	if err != nil {
-		return nil, err
-	}
+// every page re-sorts the full match set by id, so a bigger page trades live
+// memory (about 7 MB per 5k hits) for fewer rescans
+var descendantPageSize = 20_000
 
-	resources := make([]*search.Resource, 0, res.Hits.Len())
-	for _, match := range res.Hits {
-		resource := matchToResource(match)
-		if resource.Path == lookupPath {
-			continue
-		}
-		resources = append(resources, resource)
-	}
-
-	return resources, nil
+// treeQuery matches root and its descendants that share root's trash state: a
+// trashed folder keeps its path, so a live folder can take the same one
+func treeQuery(root *search.Resource) query.Query {
+	return bleve.NewConjunctionQuery(
+		&query.TermQuery{FieldVal: "RootID", Term: root.RootID},
+		&query.TermQuery{FieldVal: "Path", Term: root.Path},
+		&query.BoolFieldQuery{FieldVal: "Deleted", Bool: root.Deleted},
+	)
 }
 
-func searchAndUpdateResourcesDeletionState(id string, state bool, index bleve.Index) ([]*search.Resource, error) {
-	rootResource, err := searchResourceByID(id, index)
-	if err != nil {
-		return nil, err
-	}
-	rootResource.Deleted = state
+// trashedTreeQuery matches the trashed resources at and below root's path, even
+// if root itself is live
+func trashedTreeQuery(root *search.Resource) query.Query {
+	return bleve.NewConjunctionQuery(
+		&query.TermQuery{FieldVal: "RootID", Term: root.RootID},
+		&query.TermQuery{FieldVal: "Path", Term: root.Path},
+		&query.BoolFieldQuery{FieldVal: "Deleted", Bool: true},
+	)
+}
 
-	resources := []*search.Resource{rootResource}
+// forEachMatch streams the resources matching q; paged by id so memory is
+// bounded by the page and fn may write to the index between pages
+func forEachMatch(q query.Query, index bleve.Index, fn func(*search.Resource) error) error {
+	pageSize := descendantPageSize
+	bleveReq := bleve.NewSearchRequest(q)
+	bleveReq.Size = pageSize
+	bleveReq.Fields = []string{"*"}
+	bleveReq.SortBy([]string{"_id"})
 
-	if rootResource.Type == uint64(storageProvider.ResourceType_RESOURCE_TYPE_CONTAINER) {
-		descendantResources, err := searchResourcesByPath(rootResource.RootID, rootResource.Path, index)
+	for {
+		res, err := index.Search(bleveReq)
 		if err != nil {
-			return nil, err
+			return err
 		}
-
-		for _, descendantResource := range descendantResources {
-			descendantResource.Deleted = state
-			resources = append(resources, descendantResource)
+		for _, match := range res.Hits {
+			if err := fn(matchToResource(match)); err != nil {
+				return err
+			}
 		}
+		if res.Hits.Len() < pageSize {
+			return nil
+		}
+		bleveReq.SearchAfter = []string{res.Hits[res.Hits.Len()-1].ID}
 	}
-
-	return resources, nil
 }

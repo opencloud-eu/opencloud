@@ -73,17 +73,10 @@ func (s *OcisSession) executantUser() *userpb.User {
 }
 
 // Purge deletes the upload session metadata and written binary data
-func (s *OcisSession) Purge(ctx context.Context) error {
+func (s *OcisSession) Purge(ctx context.Context) {
 	_, span := tracer.Start(ctx, "Purge")
 	defer span.End()
-	sessionPath := sessionPath(s.store.root, s.info.ID)
-	if err := os.Remove(sessionPath); err != nil {
-		return err
-	}
-	if err := os.Remove(s.binPath()); err != nil {
-		return err
-	}
-	return nil
+	s.Cleanup(true, true, true, true)
 }
 
 // TouchBin creates a file to contain the binary data. It's size will be used to keep track of the tus upload offset.
@@ -101,9 +94,9 @@ func (s *OcisSession) TouchBin() error {
 func (s *OcisSession) Persist(ctx context.Context) error {
 	_, span := tracer.Start(ctx, "Persist")
 	defer span.End()
-	sessionPath := sessionPath(s.store.root, s.info.ID)
+	infoPath := s.infoPath()
 	// create folder structure (if needed)
-	if err := os.MkdirAll(filepath.Dir(sessionPath), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(infoPath), 0700); err != nil {
 		return err
 	}
 
@@ -112,7 +105,7 @@ func (s *OcisSession) Persist(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return renameio.WriteFile(sessionPath, d, 0600)
+	return renameio.WriteFile(infoPath, d, 0600)
 }
 
 // ToFileInfo returns tus compatible FileInfo so the tus handler can access the upload offset
@@ -315,6 +308,11 @@ func (s *OcisSession) IsProcessing() bool {
 // binPath returns the path to the file storing the binary data.
 func (s *OcisSession) binPath() string {
 	return filepath.Join(s.store.root, "uploads", s.info.ID)
+}
+
+// infoPath returns the path to the .info file storing the file's info.
+func (s *OcisSession) infoPath() string {
+	return sessionPath(s.store.root, s.info.ID)
 }
 
 // InitiatorID returns the id of the initiating client

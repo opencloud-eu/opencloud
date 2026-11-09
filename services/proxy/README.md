@@ -300,6 +300,27 @@ In a production deployment, you want to have basic authentication (`PROXY_ENABLE
 Configure `PROXY_OIDC_AUDIENCES` as described in [OIDC Access Token Audiences](#oidc-access-token-audiences).
 Enabling this check is strongly recommended for production deployments.
 
+Check `PROXY_TRUSTED_PROXIES` as described in [Trusted Reverse Proxies](#trusted-reverse-proxies) if your reverse proxy is not in a private network.
+
+### Trusted Reverse Proxies
+
+Behind a reverse proxy, the proxy service sees the address of the reverse proxy, the address of the client comes in the `X-Forwarded-For` header. Any client can send this header, so the proxy service only uses it when the request comes from a trusted reverse proxy. The client address is used in the access log.
+
+`PROXY_TRUSTED_PROXIES` takes a list of IP addresses and CIDR ranges. The default trusts the loopback and the private network ranges: `127.0.0.0/8`, `::1/128`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` and `fc00::/7`. This works for a reverse proxy in the same Docker network or a Kubernetes ingress.
+
+Change the setting in these cases:
+
+- Your reverse proxy reaches OpenCloud from a public address, e.g. Cloudflare, a load balancer of a cloud provider or a proxy on another server. With the default its headers are ignored, every request then has the address of the reverse proxy. Add the addresses of your reverse proxy, for Cloudflare its published IP ranges.
+- Clients can reach OpenCloud from a private network without passing your reverse proxy. With the default they can set their address themselves. Set the addresses of your reverse proxies only.
+
+`PROXY_TRUSTED_PROXIES` replaces the default, list the loopback and private ranges again if you still need them.
+
+`X-Forwarded-For` is read from the right: the first address that is not a trusted proxy is the client, addresses a client added in front of it are ignored. If all addresses are trusted, e.g. for a client in your company network, the leftmost one is the client. If your reverse proxy sends the client address in another header, e.g. `X-Real-IP` or `CF-Connecting-IP`, set `PROXY_CLIENT_IP_HEADER`. A request from a trusted proxy without a usable header gets the address of the proxy.
+
+The proxy service passes the client address on to the other services in `X-Forwarded-For` and, if set, in the header from `PROXY_CLIENT_IP_HEADER`.
+
+`OC_TRUSTED_PROXIES` and `OC_CLIENT_IP_HEADER` set both values for the proxy and the collaboration service.
+
 ### Content Security Policy
 
 For OpenCloud, external resources like an IDP (e.g. Keycloak) or when using web office documents or web apps, require defining a CSP. If not defined, the referenced services will not work.
@@ -369,12 +390,17 @@ In this mode, the proxy service only exposes its own metrics. The metrics of the
 ### Available Metrics
 The following metrics are exposed by the proxy service:
 
-| Metric Name                      | Description                                                                                                                                                                                                                   | Labels                                |
-|----------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------|
-| `opencloud_proxy_requests_total`      | [Counter](https://prometheus.io/docs/tutorials/understanding_metric_types/#counter) metric which reports the total number of HTTP requests.                                                                                   | `method`: HTTP method of the request  |
-| `opencloud_proxy_errors_total`        | [Counter](https://prometheus.io/docs/tutorials/understanding_metric_types/#counter) metric which reports the total number of HTTP requests which have failed. That counts all response codes >= 500                           | `method`: HTTP method of the request  |
-| `opencloud_proxy_duration_seconds`    | [Histogram](https://prometheus.io/docs/tutorials/understanding_metric_types/#histogram) of the time (in seconds) each request took. A histogram metric uses buckets to count the number of events that fall into each bucket. | `method`: HTTP method of the request  |
-| `opencloud_proxy_build_info{version}` | A metric with a constant `1` value labeled by version, exposing the version of the OpenCloud proxy service.                                                                                                                        | `version`: Build version of the proxy |
+| Name | Labels | Description |
+| ---- | ------ | ----------- |
+| `opencloud_proxy_requests_total` | • `method`: HTTP method of the request | [Counter](https://prometheus.io/docs/tutorials/understanding_metric_types/#counter) metric which reports the total number of HTTP requests |
+| `opencloud_proxy_errors_total` | • `method`: HTTP method of the request | [Counter](https://prometheus.io/docs/tutorials/understanding_metric_types/#counter) metric which reports the total number of HTTP requests which have failed. That counts all response codes >= 500. |
+| `opencloud_proxy_duration_seconds` | • `method`: HTTP method of the request | [Histogram](https://prometheus.io/docs/tutorials/understanding_metric_types/#histogram) of the time (in seconds) each request took. A histogram metric uses buckets to count the number of events that fall into each bucket |
+| `opencloud_proxy_concurrent_service_requests` | • `service`: identifier of the service the request is proxied to | Counts the number of in-flight requests that are being processed at a given time |
+| `opencloud_proxy_routing_failure_count` | | Counts the number of inbound requests that cannot be proxied due to a failure of determining how to route it |
+| `opencloud_proxy_duration_seconds` | • `service`: identifier of the service the request is proxied to | Classic histogram that measures the duration of proxied HTTP requests, per service |
+| `opencloud_proxy_request_total` | • `method`: the HTTP method<br />• `result`: one of `success` (`<=299`), `client-error` (`<= 499`), `server-error` (`>= 500`), depending on the status code in the response of the proxied HTTP request<br />• `services`: identifier of the service the request is proxied to | Counts the number of proxied requests |
+| `opencloud_proxy_request_duration_seconds_bucket` | • `method`: the HTTP method<br />• `result`: one of `success`, `client-error`, `server-error`, depending on the status code in the response of the proxied HTTP request<br />• `services`: identifier of the service the request is proxied to | Native histogram that measures the duration of proxied HTTP requests, per service |
+| `opencloud_proxy_build_info` | • `version`: build version of the proxy | A gauge with a constant value of `1` |
 
 ### Prometheus Configuration
 The following is an example prometheus configuration for the single process mode. It assumes that the proxy debug address is configured to bind on all interfaces `PROXY_DEBUG_ADDR=0.0.0.0:9205` and that the proxy is available via the `opencloud` service name (typically in docker-compose). The prometheus service detects the `/metrics` endpoint automatically and scrapes it every 15 seconds.
@@ -387,3 +413,17 @@ scrape_configs:
     static_configs:
     - targets: ["opencloud:9205"]
 ```
+
+In order to process native histograms, use this configuration instead:
+
+```yaml
+global:
+  scrape_interval: 15s
+  scrape_native_histograms: true
+  scrape_protocols: ['PrometheusProto', 'OpenMetricsText1.0.0']
+scrape_configs:
+  - job_name: opencloud_proxy
+    static_configs:
+    - targets: ["opencloud:9205"]
+```
+

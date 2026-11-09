@@ -118,7 +118,9 @@ func New(registerer prometheus.Registerer, logger *log.Logger, httpPathSplitter 
 
 	m, err := ocmetrics.Register(registerer, m, logger)
 	// must additionally register unexported metrics:
-	err = errors.Join(err, ocmetrics.RegisterMetric(registerer, m.httpRequestDuration, logger))
+	err = errors.Join(err, ocmetrics.RegisterMetrics(registerer, logger,
+		m.httpRequestDuration,
+	))
 	return m, err
 }
 

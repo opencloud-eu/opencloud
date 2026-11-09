@@ -42,6 +42,17 @@ func DefaultConfig() *config.Config {
 		OpenCloudPublicURL: "https://localhost:9200",
 		WebdavNamespace:    "/users/{{.Id.OpaqueId}}",
 		RevaGateway:        shared.DefaultRevaConfig().Address,
+
+		Thumbnails: config.Thumbnails{
+			GeneratorURL:     "http://127.0.0.1:9186",
+			GeneratorTimeout: "30s",
+			MaxInputFileSize: "50MB",
+			CacheBackend:     "file",
+			Resolutions: []string{
+				"16", "32", "64", "128", "192", "256", "320", "384", "448",
+				"512", "640", "768", "1024", "1280", "1920", "2048",
+			},
+		},
 	}
 }
 
@@ -67,4 +78,9 @@ func Sanitize(cfg *config.Config) {
 		cfg.HTTP.Root = strings.TrimSuffix(cfg.HTTP.Root, "/")
 	}
 
+	// a yaml configuration that joined the resolutions into one entry kept
+	// working in the thumbnails service, so it keeps working here
+	if len(cfg.Thumbnails.Resolutions) == 1 && strings.Contains(cfg.Thumbnails.Resolutions[0], ",") {
+		cfg.Thumbnails.Resolutions = strings.Split(cfg.Thumbnails.Resolutions[0], ",")
+	}
 }

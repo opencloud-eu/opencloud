@@ -375,17 +375,20 @@ func (t *Tree) ListFolder(ctx context.Context, n *node.Node) ([]*node.Node, erro
 				if nodeID == "" {
 					nodeID, err = node.ReadChildNodeFromLink(ctx, path)
 					if err != nil {
-						return err
+						appctx.GetLogger(ctx).Error().Err(err).Str("path", path).Msg("cannot read node from link")
+						continue
 					}
 					err = storeNodeIDInCache(ctx, path, nodeID, t.idCache)
 					if err != nil {
-						return err
+						appctx.GetLogger(ctx).Warn().Err(err).Str("node", nodeID).Msg("cannot store node in the cache")
+						// failing to write in the cache is fine because we can keep going
 					}
 				}
 
 				child, err := node.ReadNode(ctx, t.lookup, n.SpaceID, nodeID, "", false, n.SpaceRoot, true)
 				if err != nil {
-					return err
+					appctx.GetLogger(ctx).Error().Err(err).Str("node", nodeID).Msg("cannot read node")
+					continue
 				}
 
 				// prevent listing denied resources
@@ -787,6 +790,11 @@ func (t *Tree) Propagate(ctx context.Context, n *node.Node, sizeDiff int64) (err
 // WriteBlob writes a blob to the blobstore
 func (t *Tree) WriteBlob(node *node.Node, source string) error {
 	return t.blobstore.Upload(node, source, "")
+}
+
+// WriteBlobFromReader writes a blob to the blobstore from a reader.
+func (t *Tree) WriteBlobFromReader(node *node.Node, r io.Reader, size int64) error {
+	return t.blobstore.UploadFromReader(node, r, size)
 }
 
 // ReadBlob reads a blob from the blobstore

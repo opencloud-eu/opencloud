@@ -235,17 +235,17 @@ func (m SignedURLAuthenticator) createSignature(url string, signingKey []byte) s
 }
 
 // Authenticate implements the authenticator interface to authenticate requests via signed URL auth.
-func (m SignedURLAuthenticator) Authenticate(r *http.Request) (*http.Request, bool) {
+func (m SignedURLAuthenticator) Authenticate(r *http.Request) AuthenticationResult {
 	switch {
 	case m.shouldServeLegacy(r):
 		return m.authenticateLegacy(r)
 	case m.shouldServe(r):
 		return m.authenticate(r)
 	}
-	return nil, false
+	return NotApplicable()
 }
 
-func (m SignedURLAuthenticator) authenticate(r *http.Request) (*http.Request, bool) {
+func (m SignedURLAuthenticator) authenticate(r *http.Request) AuthenticationResult {
 	if err := m.requestMethodIsAllowed(r.Method); err != nil {
 		m.Logger.Error().
 			Err(err).
@@ -253,7 +253,7 @@ func (m SignedURLAuthenticator) authenticate(r *http.Request) (*http.Request, bo
 			Str("path", r.URL.Path).
 			Str("method", r.Method).
 			Msg("Request method not allowed for signed urls")
-		return nil, false
+		return Failed()
 	}
 
 	u := r.URL.String()
@@ -269,7 +269,7 @@ func (m SignedURLAuthenticator) authenticate(r *http.Request) (*http.Request, bo
 			Str("path", r.URL.Path).
 			Str("url", u).
 			Msg("Could not verify JWT signature")
-		return nil, false
+		return FailedWithErr(err)
 	}
 	user, _, err := m.UserProvider.GetUserByClaims(r.Context(), "userid", userid)
 	if err != nil {
@@ -278,7 +278,7 @@ func (m SignedURLAuthenticator) authenticate(r *http.Request) (*http.Request, bo
 			Str("authenticator", "signed_url_jwt").
 			Str("path", r.URL.Path).
 			Msg("Could not get user by claim")
-		return nil, false
+		return FailedWithErr(err)
 	}
 	user, err = m.UserRoleAssigner.ApplyUserRole(r.Context(), user)
 	if err != nil {
@@ -287,7 +287,7 @@ func (m SignedURLAuthenticator) authenticate(r *http.Request) (*http.Request, bo
 			Str("authenticator", "signed_url").
 			Str("path", r.URL.Path).
 			Msg("Could not get user by claim")
-		return nil, false
+		return FailedWithErr(err)
 	}
 	ctx := revactx.ContextSetUser(r.Context(), user)
 	r = r.WithContext(ctx)
@@ -295,12 +295,12 @@ func (m SignedURLAuthenticator) authenticate(r *http.Request) (*http.Request, bo
 		Str("authenticator", "signed_url").
 		Str("path", r.URL.Path).
 		Msg("successfully authenticated request")
-	return r, true
+	return Succeeded(r)
 }
 
 // authenticateLegacy is a helper function to authenticate requests that use the legacy
 // client side signed URLs
-func (m SignedURLAuthenticator) authenticateLegacy(r *http.Request) (*http.Request, bool) {
+func (m SignedURLAuthenticator) authenticateLegacy(r *http.Request) AuthenticationResult {
 	user, _, err := m.UserProvider.GetUserByClaims(r.Context(), "username", r.URL.Query().Get(_paramOCCredential))
 	if err != nil {
 		m.Logger.Error().
@@ -308,7 +308,7 @@ func (m SignedURLAuthenticator) authenticateLegacy(r *http.Request) (*http.Reque
 			Str("authenticator", "signed_url").
 			Str("path", r.URL.Path).
 			Msg("Could not get user by claim")
-		return nil, false
+		return FailedWithErr(err)
 	}
 
 	user, err = m.UserRoleAssigner.ApplyUserRole(r.Context(), user)
@@ -318,7 +318,7 @@ func (m SignedURLAuthenticator) authenticateLegacy(r *http.Request) (*http.Reque
 			Str("authenticator", "signed_url").
 			Str("path", r.URL.Path).
 			Msg("Could not get user by claim")
-		return nil, false
+		return FailedWithErr(err)
 	}
 
 	ctx := revactx.ContextSetUser(r.Context(), user)
@@ -332,12 +332,12 @@ func (m SignedURLAuthenticator) authenticateLegacy(r *http.Request) (*http.Reque
 			Str("path", r.URL.Path).
 			Str("url", r.URL.String()).
 			Msg("Could not get user by claim")
-		return nil, false
+		return FailedWithErr(err)
 	}
 
 	m.Logger.Debug().
 		Str("authenticator", "signed_url").
 		Str("path", r.URL.Path).
 		Msg("successfully authenticated request")
-	return r, true
+	return Succeeded(r)
 }

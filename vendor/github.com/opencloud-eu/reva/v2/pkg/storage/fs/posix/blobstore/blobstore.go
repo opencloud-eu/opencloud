@@ -95,6 +95,7 @@ func (bs *Blobstore) Upload(n *node.Node, source, copyTarget string) error {
 		}
 
 		if err := copyWithPeriodicSync(tempFile, sourceFile); err != nil {
+			_ = tempFile.Close()
 			return fmt.Errorf("failed to copy source file '%s' to temp file '%s' - %v", source, tempName, err)
 		}
 
@@ -142,6 +143,20 @@ func (bs *Blobstore) Upload(n *node.Node, source, copyTarget string) error {
 		return fmt.Errorf("failed to set mtime on temp file '%s' - %v", tempName, err)
 	}
 
+	// keep a handle on the blob before it moves to its final location. the handle stays valid
+	// across the rename, so the copy below needs neither the source file, which the rename above
+	// may have consumed, nor a second lookup of the final path
+	var blobFile *os.File
+	if copyTarget != "" {
+		blobFile, err = os.Open(tempName)
+		if err != nil {
+			return errors.Wrapf(err, "could not open temp file '%s' for reading", tempName)
+		}
+		defer func() {
+			_ = blobFile.Close()
+		}()
+	}
+
 	// atomically move the file to its final location,
 	// on Windows systems (unsupported oc os) os.Rename is not atomic
 	if err := os.Rename(tempName, n.InternalPath()); err != nil {
@@ -154,14 +169,6 @@ func (bs *Blobstore) Upload(n *node.Node, source, copyTarget string) error {
 	}
 
 	// also "upload" the file to a local path, e.g., for keeping the "current" version of the file
-	sourceFile, err := os.Open(source)
-	if err != nil {
-		return errors.Wrapf(err, "could not open source file '%s' for reading", source)
-	}
-	defer func() {
-		_ = sourceFile.Close()
-	}()
-
 	if err := os.MkdirAll(filepath.Dir(copyTarget), 0700); err != nil {
 		return err
 	}
@@ -174,11 +181,43 @@ func (bs *Blobstore) Upload(n *node.Node, source, copyTarget string) error {
 		_ = copyFile.Close()
 	}()
 
-	if err := copyWithPeriodicSync(copyFile, sourceFile); err != nil {
+	if err := copyWithPeriodicSync(copyFile, blobFile); err != nil {
 		return errors.Wrapf(err, "could not write blob copy of '%s' to '%s'", n.InternalPath(), copyTarget)
 	}
 
 	return nil
+}
+
+// UploadFromReader stages data on the space filesystem before atomically replacing the node.
+func (bs *Blobstore) UploadFromReader(n *node.Node, r io.Reader, size int64) error {
+	if n.SpaceRoot == nil {
+		return errors.New("node has no space root")
+	}
+	f, err := os.CreateTemp(n.SpaceRoot.InternalPath(), ".upload-*")
+	if err != nil {
+		return errors.Wrap(err, "could not create temporary upload file")
+	}
+	tempPath := f.Name()
+	defer func() { _ = os.Remove(tempPath) }()
+
+	written, err := io.Copy(f, r)
+	if err != nil {
+		_ = f.Close()
+		return errors.Wrap(err, "could not write temporary upload file")
+	}
+	if written != size {
+		_ = f.Close()
+		return fmt.Errorf("unexpected upload length: expected %d bytes, got %d", size, written)
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return errors.Wrap(err, "could not sync temporary upload file")
+	}
+	if err := f.Close(); err != nil {
+		return errors.Wrap(err, "could not close temporary upload file")
+	}
+
+	return bs.Upload(n, tempPath, "")
 }
 
 // Download retrieves a blob from the blobstore for reading
@@ -204,8 +243,7 @@ func copyWithPeriodicSync(dst, src *os.File) error {
 			}
 		}
 		if err == io.EOF {
-			_ = dst.Sync()
-			return nil
+			return dst.Sync()
 		}
 		if err != nil {
 			return err

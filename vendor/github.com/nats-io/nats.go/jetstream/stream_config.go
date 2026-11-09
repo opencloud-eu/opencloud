@@ -36,6 +36,9 @@ type (
 		// bytes, etc.
 		State StreamState `json:"state"`
 
+		// Domain is the JetStream domain the stream is in.
+		Domain string `json:"domain,omitempty"`
+
 		// Cluster contains information about the cluster to which this stream
 		// belongs (if applicable).
 		Cluster *ClusterInfo `json:"cluster,omitempty"`
@@ -49,6 +52,11 @@ type (
 		// Sources is a list of source streams from which this stream collects
 		// data.
 		Sources []*StreamSourceInfo `json:"sources,omitempty"`
+
+		// Alternates is a list of mirrors and alternate copies of this stream,
+		// along with the stream itself, that the client may use to read
+		// messages. Ordered by proximity to the requesting client.
+		Alternates []StreamAlternate `json:"alternates,omitempty"`
 
 		// TimeStamp indicates when the info was gathered by the server.
 		TimeStamp time.Time `json:"ts"`
@@ -225,14 +233,26 @@ type (
 		// Name is the name of the stream that is being replicated.
 		Name string `json:"name"`
 
+		// External contains the API and delivery prefixes used to reach the
+		// stream when it lives in another account or JetStream domain.
+		External *ExternalStream `json:"external,omitempty"`
+
 		// Lag informs how many messages behind the source/mirror operation is.
 		// This will only show correctly if there is active communication
 		// with stream/mirror.
 		Lag uint64 `json:"lag"`
 
+		// Seq is the last message sequence seen from the source stream. Not
+		// reported for mirrors.
+		Seq uint64 `json:"seq,omitempty"`
+
 		// Active informs when last the mirror or sourced stream had activity.
 		// Value will be -1 when there has been no activity.
 		Active time.Duration `json:"active"`
+
+		// Error is the error reported by the server if the source/mirror
+		// replication is failing. It is nil when replication is healthy.
+		Error *APIError `json:"error,omitempty"`
 
 		// FilterSubject is the subject filter defined for this source/mirror.
 		FilterSubject string `json:"filter_subject,omitempty"`
@@ -284,6 +304,34 @@ type (
 		// with message count per subject. This field will only be returned if
 		// the stream has been fetched with the SubjectFilter option.
 		Subjects map[string]uint64 `json:"subjects"`
+
+		// Lost contains information about messages and bytes the server has
+		// lost, for example as a result of file store corruption. It is nil
+		// when no data has been lost.
+		Lost *LostStreamData `json:"lost,omitempty"`
+	}
+
+	// LostStreamData contains information about data lost by the server for
+	// a stream.
+	LostStreamData struct {
+		// Msgs is the list of sequence numbers of the lost messages.
+		Msgs []uint64 `json:"msgs"`
+
+		// Bytes is the number of bytes lost.
+		Bytes uint64 `json:"bytes"`
+	}
+
+	// StreamAlternate is an alternate location of a stream, either a mirror
+	// or the stream itself.
+	StreamAlternate struct {
+		// Name is the name of the alternate stream.
+		Name string `json:"name"`
+
+		// Domain is the JetStream domain the alternate stream belongs to.
+		Domain string `json:"domain,omitempty"`
+
+		// Cluster is the name of the cluster hosting the alternate stream.
+		Cluster string `json:"cluster"`
 	}
 
 	// ClusterInfo shows information about the underlying set of servers that
@@ -312,6 +360,80 @@ type (
 
 		// Replicas is the list of members of the RAFT cluster.
 		Replicas []*PeerInfo `json:"replicas,omitempty"`
+
+		// Desired is the desired set of servers that should make up the
+		// stream or consumer. Absent when no reconfiguration is in progress.
+		Desired *DesiredClusterInfo `json:"desired,omitempty"`
+	}
+
+	// DesiredClusterInfo shows the desired set of servers that should make up
+	// the stream or consumer.
+	DesiredClusterInfo struct {
+		// Created is when the desired state was recorded on the assignment.
+		Created time.Time `json:"created"`
+
+		// Name is the name of the target cluster the group should end up in.
+		Name string `json:"name,omitempty"`
+
+		// Replicas are the peers chosen to be the final peer set, whereas
+		// ClusterInfo.Replicas holds the peers that currently host the stream
+		// or consumer. Absent while scaling down until the final peer set is
+		// selected.
+		Replicas []*DesiredPeerInfo `json:"replicas,omitempty"`
+
+		// Origin is the configuration the reconfiguration can be rolled back
+		// to if it is canceled.
+		Origin *DesiredClusterInfoOrigin `json:"origin,omitempty"`
+
+		// Status is what the group leader is currently doing to reach the
+		// desired state, or what it is waiting on.
+		Status *DesiredClusterInfoStatus `json:"status,omitempty"`
+	}
+
+	// DesiredClusterInfoOrigin is the configuration the reconfiguration can
+	// be rolled back to if it is canceled.
+	DesiredClusterInfoOrigin struct {
+		// Replicas is the original replicas before it was updated.
+		Replicas int `json:"replicas"`
+
+		// Placement is the original placement before it was updated.
+		Placement *Placement `json:"placement,omitempty"`
+
+		// Retention remains active while changing between retention
+		// policies, until unset.
+		Retention *RetentionPolicy `json:"retention,omitempty"`
+	}
+
+	// DesiredPeerInfo is a minimal version of PeerInfo describing a peer in
+	// the desired peer set.
+	DesiredPeerInfo struct {
+		// Name is the unique name for the peer.
+		Name string `json:"name"`
+
+		// Offline indicates the peer has not been seen recently.
+		Offline bool `json:"offline,omitempty"`
+
+		// Peer is the unique ID for the peer.
+		Peer string `json:"peer"`
+	}
+
+	// DesiredClusterInfoStatus is what the group leader is currently doing to
+	// reach the desired state, or what it is waiting on.
+	DesiredClusterInfoStatus struct {
+		// Description is a short status line describing what the group leader
+		// is currently doing to move this group toward its desired state, or
+		// what it is waiting on.
+		Description string `json:"description"`
+
+		// Type classifies the description by what has to change for the
+		// migration to advance, so it can be matched on without parsing the
+		// status line.
+		Type MigrationStatusType `json:"type"`
+
+		// Err is the underlying failure behind this status, if it had one.
+		// Only set for faults that persist across cycles, never for races
+		// that resolve themselves.
+		Err string `json:"err,omitempty"`
 	}
 
 	// PeerInfo shows information about the peers in the cluster that are
@@ -333,6 +455,13 @@ type (
 		// Lag is the number of uncommitted operations this peer is behind the
 		// leader.
 		Lag uint64 `json:"lag,omitempty"`
+
+		// Peer is the unique ID for the peer.
+		Peer string `json:"peer"`
+
+		// Pending indicates the peer is part of the assignment, but is not a
+		// peer of the Raft group yet or is being removed.
+		Pending bool `json:"pending,omitempty"`
 	}
 
 	// SubjectTransformConfig is for applying a subject transform (to matching
@@ -457,6 +586,38 @@ type (
 
 	// PersistModeType determines what persistence mode the stream uses.
 	PersistModeType int
+
+	// MigrationStatusType classifies a migration status by what has to
+	// change for the migration to advance.
+	MigrationStatusType string
+)
+
+const (
+	// MigrationStatusMeta means the meta leader must record or advance the
+	// desired state.
+	MigrationStatusMeta MigrationStatusType = "meta"
+
+	// MigrationStatusMembership means a proposed membership change must
+	// commit.
+	MigrationStatusMembership MigrationStatusType = "membership"
+
+	// MigrationStatusSnapshot means a snapshot must be installed.
+	MigrationStatusSnapshot MigrationStatusType = "snapshot"
+
+	// MigrationStatusCatchup means more peers must catch up before one can
+	// be removed.
+	MigrationStatusCatchup MigrationStatusType = "catchup"
+
+	// MigrationStatusQuorum means more peers must come online before acting
+	// without losing quorum.
+	MigrationStatusQuorum MigrationStatusType = "quorum"
+
+	// MigrationStatusBlocked means another asset must move first.
+	MigrationStatusBlocked MigrationStatusType = "blocked"
+
+	// MigrationStatusUnavailable means there is nothing to do: shutting down,
+	// or the assignment is gone.
+	MigrationStatusUnavailable MigrationStatusType = "unavailable"
 )
 
 const (

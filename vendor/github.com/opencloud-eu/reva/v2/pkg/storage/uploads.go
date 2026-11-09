@@ -89,8 +89,8 @@ type UploadSession interface {
 	// The actual postprocessing state is tracked in the postprocessing service.
 	IsProcessing() bool
 
-	// Purge allows completely removing an upload. Should emit a PostprocessingFinished event with a Delete outcome
-	Purge(ctx context.Context) error
+	// Purge allows completely removing an upload.
+	Purge(ctx context.Context)
 
 	// ScanData returns the scan data for the UploadSession
 	ScanData() (string, time.Time)

@@ -3,6 +3,7 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -68,7 +69,8 @@ func (m createHome) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	createHomeReq := &provider.CreateHomeRequest{}
 	u, ok := revactx.ContextGetUser(ctx)
 	if ok {
-		if u.GetId().GetType() == userv1beta1.UserType_USER_TYPE_LIGHTWEIGHT || u.GetId().GetType() == userv1beta1.UserType_USER_TYPE_SERVICE {
+		userType := u.GetId().GetType()
+		if slices.Contains([]userv1beta1.UserType{userv1beta1.UserType_USER_TYPE_LIGHTWEIGHT, userv1beta1.UserType_USER_TYPE_SERVICE, userv1beta1.UserType_USER_TYPE_GUEST}, userType) {
 			next()
 			return
 		}

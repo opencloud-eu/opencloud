@@ -537,7 +537,13 @@ func (s *svc) removeShare(ctx context.Context, req *collaboration.RemoveShareReq
 			return nil, errors.Wrap(err, "gateway: error calling GetShare")
 		}
 
-		if getShareRes.Status.Code != rpc.Code_CODE_OK {
+		switch getShareRes.GetStatus().GetCode() {
+		case rpc.Code_CODE_OK:
+		case rpc.Code_CODE_NOT_FOUND:
+			return &collaboration.RemoveShareResponse{
+				Status: getShareRes.GetStatus(),
+			}, nil
+		default:
 			res := &collaboration.RemoveShareResponse{
 				Status: status.NewInternal(ctx,
 					"error getting share when committing to the storage"),

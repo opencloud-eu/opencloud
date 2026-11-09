@@ -25,15 +25,16 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 
+	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	link "github.com/cs3org/go-cs3apis/cs3/sharing/link/v1beta1"
@@ -50,9 +51,14 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/publicshare/manager/registry"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/metadata"
+	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
+
+// defaultStatConcurrency bounds concurrent Stat RPCs in ListPublicShares, mirroring the decomposedfs share manager.
+const defaultStatConcurrency = 5
 
 func init() {
 	registry.Register("json", NewFile)
@@ -111,6 +117,7 @@ func NewCS3(c map[string]interface{}) (publicshare.Manager, error) {
 func New(gwAddr string, pwHashCost, janitorRunInterval int, enableCleanup bool, p persistence.Persistence) (publicshare.Manager, error) {
 	m := &manager{
 		gatewayAddr:                gwAddr,
+		maxConcurrency:             defaultStatConcurrency,
 		mutex:                      &sync.Mutex{},
 		passwordHashCost:           pwHashCost,
 		janitorRunInterval:         janitorRunInterval,
@@ -154,6 +161,9 @@ func (c *commonConfig) init() {
 }
 
 type manager struct {
+	// maxConcurrency bounds concurrent Stat RPCs in ListPublicShares.
+	maxConcurrency int
+
 	gatewayAddr string
 	mutex       *sync.Mutex
 	persistence persistence.Persistence
@@ -481,33 +491,30 @@ func (m *manager) GetPublicShare(ctx context.Context, u *user.User, ref *link.Pu
 	return nil, errtypes.NotFound("no shares found by id:" + ref.GetId().String())
 }
 
-// ListPublicShares retrieves all the shares on the manager that are valid.
-func (m *manager) ListPublicShares(ctx context.Context, u *user.User, filters []*link.ListPublicSharesRequest_Filter, sign bool) ([]*link.PublicShare, error) {
+// collectShares splits the persisted shares into own and foreign ones, plus the distinct resources the foreign ones point at.
+func (m *manager) collectShares(ctx context.Context, u *user.User, filters []*link.ListPublicSharesRequest_Filter) ([]*publicShare, []*publicShare, map[string]*provider.ResourceId, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
 	if err := m.init(); err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	log := appctx.GetLogger(ctx)
 
 	db, err := m.persistence.Read(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
-	client, err := pool.GetGatewayServiceClient(m.gatewayAddr)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to list shares")
-	}
-	cache := make(map[string]struct{})
+	ownShares := make([]*publicShare, 0)
+	foreignShares := make([]*publicShare, 0)
+	foreignResourceIDs := make(map[string]*provider.ResourceId)
 
-	shares := []*link.PublicShare{}
 	for _, v := range db {
 		var local publicShare
 		if err := utils.UnmarshalJSONToProtoV1([]byte(v.(map[string]interface{})["share"].(string)), &local.PublicShare); err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
 
 		if publicshare.IsExpired(&local.PublicShare) {
@@ -523,49 +530,201 @@ func (m *manager) ListPublicShares(ctx context.Context, u *user.User, filters []
 			continue
 		}
 
-		key := strings.Join([]string{local.ResourceId.StorageId, local.ResourceId.OpaqueId}, "!")
-		if _, hit := cache[key]; !hit && !publicshare.IsCreatedByUser(&local.PublicShare, u) {
-			sRes, err := client.Stat(ctx, &provider.StatRequest{Ref: &provider.Reference{ResourceId: local.ResourceId}})
-			if err != nil {
-				log.Error().
-					Err(err).
-					Interface("resource_id", local.ResourceId).
-					Msg("ListShares: an error occurred during stat on the resource")
-				continue
-			}
-			if sRes.Status.Code != rpc.Code_CODE_OK {
-				if sRes.Status.Code == rpc.Code_CODE_NOT_FOUND {
-					log.Debug().
-						Str("message", sRes.Status.Message).
-						Interface("status", sRes.Status).
-						Interface("resource_id", local.ResourceId).
-						Msg("ListShares: Resource not found")
-					continue
-				}
-				log.Error().
-					Str("message", sRes.Status.Message).
-					Interface("status", sRes.Status).
-					Interface("resource_id", local.ResourceId).
-					Msg("ListShares: could not stat resource")
-				continue
-			}
-			if !sRes.Info.PermissionSet.ListGrants {
-				// skip because the user doesn't have the permissions to list
-				// shares of this file.
-				continue
-			}
-			cache[key] = struct{}{}
+		if local.ResourceId == nil {
+			log.Warn().
+				Str("share_id", local.PublicShare.GetId().GetOpaqueId()).
+				Str("share_token", local.Token).
+				Msg("ListPublicShares: skipping share with nil resource_id")
+			continue
 		}
 
+		if publicshare.IsCreatedByUser(&local.PublicShare, u) {
+			ownShares = append(ownShares, &local)
+			continue
+		}
+
+		foreignShares = append(foreignShares, &local)
+		foreignResourceIDs[storagespace.FormatResourceID(local.ResourceId)] = local.ResourceId
+	}
+
+	return ownShares, foreignShares, foreignResourceIDs, nil
+}
+
+// ListPublicShares retrieves all the shares on the manager that are valid.
+func (m *manager) ListPublicShares(ctx context.Context, u *user.User, filters []*link.ListPublicSharesRequest_Filter, sign bool) ([]*link.PublicShare, error) {
+	// collectShares holds the lock; nothing below it touches manager state
+	ownShares, foreignShares, foreignResourceIDs, err := m.collectShares(ctx, u, filters)
+	if err != nil {
+		return nil, err
+	}
+
+	// stat each distinct foreign resource once, concurrently, within a time budget
+	var permitted map[string]bool
+	if len(foreignResourceIDs) > 0 {
+		client, err := pool.GetGatewayServiceClient(m.gatewayAddr)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to list shares")
+		}
+		permitted = m.statForeignResources(ctx, u, client, foreignResourceIDs)
+	}
+
+	shares := make([]*link.PublicShare, 0, len(ownShares)+len(foreignShares))
+	for _, local := range ownShares {
 		if local.PasswordProtected && sign {
 			if err := publicshare.AddSignature(&local.PublicShare, local.Password); err != nil {
 				return nil, err
 			}
 		}
-
+		shares = append(shares, &local.PublicShare)
+	}
+	for _, local := range foreignShares {
+		// fail closed: a resource left undecided is absent here and stays excluded
+		if !permitted[storagespace.FormatResourceID(local.ResourceId)] {
+			continue
+		}
+		if local.PasswordProtected && sign {
+			if err := publicshare.AddSignature(&local.PublicShare, local.Password); err != nil {
+				return nil, err
+			}
+		}
 		shares = append(shares, &local.PublicShare)
 	}
 	return shares, nil
+}
+
+// statForeignResources stats each resource once within a time budget and reports who may list its grants; anything absent was never decided.
+func (m *manager) statForeignResources(ctx context.Context, u *user.User, client gateway.GatewayAPIClient, resourceIDs map[string]*provider.ResourceId) map[string]bool {
+	log := appctx.GetLogger(ctx)
+
+	statCtx, cancel := m.statBudgetContext(ctx)
+	defer cancel()
+
+	results := newStatResults()
+
+	numWorkers := m.maxConcurrency
+	if numWorkers > len(resourceIDs) {
+		numWorkers = len(resourceIDs)
+	}
+	if numWorkers < 1 {
+		numWorkers = 1
+	}
+
+	type job struct {
+		rid *provider.ResourceId
+	}
+	jobs := make(chan job)
+
+	g, gctx := errgroup.WithContext(statCtx)
+
+	// stop feeding jobs once the budget runs out so workers drain instead of blocking
+	g.Go(func() error {
+		defer close(jobs)
+		for _, rid := range resourceIDs {
+			select {
+			case jobs <- job{rid}:
+			case <-gctx.Done():
+				return nil
+			}
+		}
+		return nil
+	})
+
+	// workers, bounded by numWorkers <= m.maxConcurrency concurrent Stat RPCs
+	for i := 0; i < numWorkers; i++ {
+		g.Go(func() error {
+			for j := range jobs {
+				if gctx.Err() != nil {
+					// budget exhausted: leave the rest undecided, the caller treats them as denied
+					continue
+				}
+				m.userCanListGrants(statCtx, client, results, j.rid)
+			}
+			return nil
+		})
+	}
+	_ = g.Wait()
+
+	result := results.snapshot()
+	if skipped := len(resourceIDs) - len(result); skipped > 0 {
+		log.Warn().
+			Str("user_id", u.GetId().GetOpaqueId()).
+			Int("resources_checked", len(result)).
+			Int("resources_skipped", skipped).
+			Msg("ListPublicShares: stat time budget exhausted before every resource could be checked, returned list may be incomplete")
+	}
+	return result
+}
+
+// statBudgetContext bounds the stat fan-out to the caller's own deadline minus a margin, or not at all if it has none.
+func (m *manager) statBudgetContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	const margin = 200 * time.Millisecond
+
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		return ctx, func() {}
+	}
+
+	budget := time.Until(deadline) - margin
+	if budget < 0 {
+		budget = 0
+	}
+	return context.WithTimeout(ctx, budget)
+}
+
+// statResults collects ListGrants answers keyed by storagespace.FormatResourceID, safe for concurrent use.
+type statResults struct {
+	mu   sync.Mutex
+	data map[string]bool
+}
+
+func newStatResults() *statResults {
+	return &statResults{data: make(map[string]bool)}
+}
+
+func (r *statResults) set(key string, allowed bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.data[key] = allowed
+}
+
+// snapshot copies the results collected so far; call it only once no writers remain.
+func (r *statResults) snapshot() map[string]bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make(map[string]bool, len(r.data))
+	for k, v := range r.data {
+		out[k] = v
+	}
+	return out
+}
+
+// userCanListGrants stats the resource, records whether the user may list its grants, and reports the answer.
+func (m *manager) userCanListGrants(ctx context.Context, client gateway.GatewayAPIClient, results *statResults, rid *provider.ResourceId) bool {
+	log := appctx.GetLogger(ctx)
+	key := storagespace.FormatResourceID(rid)
+
+	sRes, err := client.Stat(ctx, &provider.StatRequest{
+		Ref:       &provider.Reference{ResourceId: rid},
+		FieldMask: &fieldmaskpb.FieldMask{Paths: []string{"permissions"}},
+	})
+	switch {
+	case err != nil:
+		log.Error().Err(err).Interface("resource_id", rid).Msg("ListShares: an error occurred during stat on the resource")
+		results.set(key, false)
+		return false
+	case sRes.Status.Code == rpc.Code_CODE_NOT_FOUND:
+		log.Debug().Str("message", sRes.Status.Message).Interface("status", sRes.Status).Interface("resource_id", rid).Msg("ListShares: Resource not found")
+		results.set(key, false)
+		return false
+	case sRes.Status.Code != rpc.Code_CODE_OK:
+		log.Error().Str("message", sRes.Status.Message).Interface("status", sRes.Status).Interface("resource_id", rid).Msg("ListShares: could not stat resource")
+		results.set(key, false)
+		return false
+	}
+
+	allowed := sRes.GetInfo().GetPermissionSet().GetListGrants()
+	results.set(key, allowed)
+	return allowed
 }
 
 func (m *manager) cleanupExpiredShares() {

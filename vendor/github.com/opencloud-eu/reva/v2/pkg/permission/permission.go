@@ -31,6 +31,8 @@ const (
 	WritePublicLink string = "PublicLink.Write"
 	// WriteShare is the hardcoded name for the Shares.Write permission
 	WriteShare string = "Shares.Write"
+	// GuestMailWrite is the hardcoded name for the Shares.GuestMailWrite permission
+	GuestMailWrite string = "Shares.GuestMailWrite"
 	// ListFavorites is the hardcoded name for the Favorites.List permission
 	ListFavorites string = "Favorites.List"
 	// WriteFavorites is the hardcoded name for the Favorites.Write permission

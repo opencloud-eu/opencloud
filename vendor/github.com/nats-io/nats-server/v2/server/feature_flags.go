@@ -20,8 +20,10 @@ import (
 )
 
 const (
-	FeatureFlagJsAckFormatV2     = "js_ack_fc_v2"
-	FeatureFlagJsRaftDeleteRange = "js_raft_delete_range"
+	FeatureFlagJsAckFormatV2      = "js_ack_fc_v2"
+	FeatureFlagJsAPIReplyFormatV2 = "js_api_reply_v2"
+	FeatureFlagJsRaftDeleteRange  = "js_raft_delete_range"
+	FeatureFlagJsSnapshotSources  = "js_snapshot_sources"
 )
 
 var featureFlags = map[string]bool{
@@ -34,16 +36,41 @@ var featureFlags = map[string]bool{
 	// See also: https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-15.md#jsack
 	FeatureFlagJsAckFormatV2: false,
 
+	// Use a scoped v2 format for replies to internally-issued JetStream API
+	// requests. This permits a leafnode to authorize only the replies for a
+	// specific remote stream/consumer instead of every $JSC.R reply in an
+	// account.
+	//
+	// - v1: $JSC.R.<uid>
+	// - v2: $JSC.R.<domain>.<account hash>.<stream name>.<consumer name>.<uid>
+	//
+	// The reply subject is opaque to the remote API server, so this is safe to
+	// enable independently on the server issuing the request.
+	FeatureFlagJsAPIReplyFormatV2: false,
+
 	// Propose delete range gaps as a single `deleteRangeOp` Raft append entry
 	// instead of one entry per deleted sequence. Dramatically reduces Raft cost
 	// on mirrors whose origin has a large number of interior deletes.
 	// - Introduced: 2.14.0, apply-side always supports receiving `deleteRangeOp`.
-	// - Enabled: TBD, once all supported versions carry the apply-side.
+	// - Enabled: 2.15.0, when upgrading all servers should be 2.14.0+
+	// - To be removed in 2.16.0
 	//
 	// WARNING: Only enable once every peer in the cluster is on a version that
 	// supports receiving `deleteRangeOp`. Older peers panic on apply of an
 	// unknown stream entry operation.
-	FeatureFlagJsRaftDeleteRange: false,
+	FeatureFlagJsRaftDeleteRange: true,
+
+	// Include the stream's sourcing state in the replicated stream snapshot.
+	// Unlike other per-message derived state, it outlives the messages it was
+	// collected from, so a replica that caught up after those messages were
+	// removed can't derive it locally and would resume sourcing from an earlier
+	// position once it becomes leader.
+	// - Introduced: 2.15.0, both encoding versions are accepted, only emitting v1.
+	// - Enabled: TBD, once all supported versions accept v2.
+	//
+	// WARNING: Only enable once every peer in the cluster is on a version that
+	// accepts the v2 encoding. Older peers reject the snapshot outright.
+	FeatureFlagJsSnapshotSources: false,
 }
 
 // getFeatureFlag is used to retrieve either the default or overwritten value for a feature flag.

@@ -1303,51 +1303,51 @@ func (fs *owncloudsqlfs) trashVersions(ctx context.Context, ip string, origin st
 	return nil
 }
 
-func (fs *owncloudsqlfs) Move(ctx context.Context, oldRef, newRef *provider.Reference) (err error) {
-	var oldIP string
-	if oldIP, err = fs.resolve(ctx, oldRef); err != nil {
-		return errors.Wrap(err, "owncloudsql: error resolving reference")
+func (fs *owncloudsqlfs) Move(ctx context.Context, oldRef, newRef *provider.Reference) (*storage.MoveResult, error) {
+	oldIP, err := fs.resolve(ctx, oldRef)
+	if err != nil {
+		return nil, errors.Wrap(err, "owncloudsql: error resolving reference")
 	}
 
 	// check permissions
 	if perm, err := fs.readPermissions(ctx, oldIP); err == nil {
 		if !perm.Move { // TODO add dedicated permission?
-			return errtypes.PermissionDenied("")
+			return nil, errtypes.PermissionDenied("")
 		}
 	} else {
 		if isNotFound(err) {
-			return errtypes.NotFound(fs.toStoragePath(ctx, filepath.Dir(oldIP)))
+			return nil, errtypes.NotFound(fs.toStoragePath(ctx, filepath.Dir(oldIP)))
 		}
-		return errors.Wrap(err, "owncloudsql: error reading permissions")
+		return nil, errors.Wrap(err, "owncloudsql: error reading permissions")
 	}
 
-	var newIP string
-	if newIP, err = fs.resolve(ctx, newRef); err != nil {
-		return errors.Wrap(err, "owncloudsql: error resolving reference")
+	newIP, err := fs.resolve(ctx, newRef)
+	if err != nil {
+		return nil, errors.Wrap(err, "owncloudsql: error resolving reference")
 	}
 
 	// TODO check target permissions ... if it exists
-	storage, err := fs.getStorage(ctx, oldIP)
+	stor, err := fs.getStorage(ctx, oldIP)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	err = fs.filecache.Move(ctx, storage, fs.toDatabasePath(oldIP), fs.toDatabasePath(newIP))
+	err = fs.filecache.Move(ctx, stor, fs.toDatabasePath(oldIP), fs.toDatabasePath(newIP))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err = os.Rename(oldIP, newIP); err != nil {
-		return errors.Wrap(err, "owncloudsql: error moving "+oldIP+" to "+newIP)
+		return nil, errors.Wrap(err, "owncloudsql: error moving "+oldIP+" to "+newIP)
 	}
 
 	if err := fs.propagate(ctx, newIP); err != nil {
-		return err
+		return nil, err
 	}
 	if filepath.Dir(newIP) != filepath.Dir(oldIP) {
 		if err := fs.propagate(ctx, filepath.Dir(oldIP)); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func (fs *owncloudsqlfs) GetMD(ctx context.Context, ref *provider.Reference, mdKeys []string, fieldMask []string) (*provider.ResourceInfo, error) {

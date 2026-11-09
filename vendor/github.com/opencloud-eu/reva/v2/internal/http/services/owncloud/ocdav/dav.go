@@ -50,6 +50,9 @@ const (
 
 	// WwwAuthenticate captures the Www-Authenticate header string.
 	WwwAuthenticate = "Www-Authenticate"
+
+	HeaderXRequestedWith = "X-Requested-With"
+	XMLHttpRequest       = "XMLHttpRequest"
 )
 
 const (
@@ -297,12 +300,12 @@ func (h *DavHandler) Handler(s *svc) http.Handler {
 				}
 			}
 
+			q := r.URL.Query()
+			sig := q.Get("signature")
+			expiration := q.Get("expiration")
 			if _, pass, hasValidBasicAuthHeader = r.BasicAuth(); hasValidBasicAuthHeader {
 				res, err = handleBasicAuth(r.Context(), s.gatewaySelector, token, pass)
 			} else {
-				q := r.URL.Query()
-				sig := q.Get("signature")
-				expiration := q.Get("expiration")
 				// We restrict the pre-signed urls to downloads.
 				if sig != "" && expiration != "" && (r.Method != http.MethodGet && r.Method != http.MethodHead) {
 					w.WriteHeader(http.StatusUnauthorized)
@@ -318,6 +321,9 @@ func (h *DavHandler) Handler(s *svc) http.Handler {
 			case res.Status.Code == rpc.Code_CODE_PERMISSION_DENIED:
 				fallthrough
 			case res.Status.Code == rpc.Code_CODE_UNAUTHENTICATED:
+				if sig == "" && r.Header.Get(HeaderXRequestedWith) != XMLHttpRequest {
+					w.Header().Add(WwwAuthenticate, authChallenge("Basic", r.Host))
+				}
 				w.WriteHeader(http.StatusUnauthorized)
 				if hasValidBasicAuthHeader {
 					b, err := errors.Marshal(http.StatusUnauthorized, "Username or password was incorrect", "", ErrInvalidCredentials)
@@ -364,7 +370,7 @@ func (h *DavHandler) Handler(s *svc) http.Handler {
 			case sRes.Status.Code == rpc.Code_CODE_OK && grants.PermissionsEqual(sRes.GetInfo().GetPermissionSet(), &provider.ResourcePermissions{}):
 				// If the link is internal
 				if !userExists {
-					w.Header().Add(WwwAuthenticate, fmt.Sprintf("Bearer realm=\"%s\", charset=\"UTF-8\"", r.Host))
+					w.Header().Add(WwwAuthenticate, authChallenge("Bearer", r.Host))
 					w.WriteHeader(http.StatusUnauthorized)
 					b, err := errors.Marshal(http.StatusUnauthorized, "No 'Authorization: Bearer' header found", "", ErrMissingBearerAuth)
 					errors.HandleWebdavError(log, w, b, err)
@@ -429,6 +435,10 @@ func handleBasicAuth(ctx context.Context, selector pool.Selectable[gatewayv1beta
 	}
 
 	return c.Authenticate(ctx, &authenticateRequest)
+}
+
+func authChallenge(scheme, realm string) string {
+	return fmt.Sprintf("%s realm=\"%s\", charset=\"UTF-8\"", scheme, realm)
 }
 
 func handleSignatureAuth(ctx context.Context, selector pool.Selectable[gatewayv1beta1.GatewayAPIClient], token, sig, expiration string) (*gatewayv1beta1.AuthenticateResponse, error) {

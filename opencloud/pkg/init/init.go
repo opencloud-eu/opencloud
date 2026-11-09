@@ -68,7 +68,7 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 		systemUserID, adminUserID, graphApplicationID, storageUsersMountID, serviceAccountID string
 		idmServicePassword, idpServicePassword, ocAdminServicePassword, revaServicePassword  string
 		tokenManagerJwtSecret, collaborationWOPISecret, machineAuthAPIKey, systemUserAPIKey  string
-		revaTransferSecret, thumbnailsTransferSecret, serviceAccountSecret, urlSigningSecret string
+		revaTransferSecret, serviceAccountSecret, urlSigningSecret string
 		adminPasswdwordGenerated                                                             bool
 	)
 
@@ -94,7 +94,6 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 		machineAuthAPIKey = oldCfg.MachineAuthAPIKey
 		systemUserAPIKey = oldCfg.SystemUserAPIKey
 		revaTransferSecret = oldCfg.TransferSecret
-		thumbnailsTransferSecret = oldCfg.Thumbnails.Thumbnail.TransferSecret
 		serviceAccountSecret = oldCfg.Graph.ServiceAccount.ServiceAccountSecret
 		urlSigningSecret = oldCfg.URLSigningSecret
 		if urlSigningSecret == "" {
@@ -155,10 +154,6 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 		if err != nil {
 			return fmt.Errorf("could not generate random secret for urlSigningSecret: %s", err)
 		}
-		thumbnailsTransferSecret, err = generators.GenerateRandomPassword(passwordLength)
-		if err != nil {
-			return fmt.Errorf("could not generate random password for thumbnailsTransferSecret: %s", err)
-		}
 		serviceAccountSecret, err = generators.GenerateRandomPassword(passwordLength)
 		if err != nil {
 			return fmt.Errorf("could not generate random secret for serviceAccountSecret: %s", err)
@@ -212,6 +207,9 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 				},
 			},
 		},
+		AuthGuest: AuthGuest{
+			ServiceAccount: serviceAccount,
+		},
 		Users: UsersAndGroupsService{
 			Drivers: LdapBasedService{
 				Ldap: LdapSettings{
@@ -229,11 +227,6 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 				},
 			},
 			ServiceAccount: serviceAccount,
-		},
-		Thumbnails: ThumbnailService{
-			Thumbnail: ThumbnailSettings{
-				TransferSecret: thumbnailsTransferSecret,
-			},
 		},
 		Gateway: Gateway{
 			StorageRegistry: StorageRegistry{
@@ -302,9 +295,6 @@ func CreateConfig(insecure, forceOverwrite, diff bool, configPath, adminPassword
 			},
 			ServiceAccount: serviceAccount,
 		}
-
-		cfg.Thumbnails.Thumbnail.WebdavAllowInsecure = true
-		cfg.Thumbnails.Thumbnail.Cs3AllowInsecure = true
 	}
 	yamlOutput, err := yaml.Marshal(cfg)
 	if err != nil {

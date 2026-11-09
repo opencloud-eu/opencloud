@@ -25,8 +25,6 @@ var (
 	_nodesGlobPattern = "spaces/*/*/nodes/"
 )
 
-const posixDriver = "posix"
-
 // RevisionsCommand is the entrypoint for the revisions command.
 func RevisionsCommand(cfg *config.Config) *cobra.Command {
 	revCmd := &cobra.Command{
@@ -88,7 +86,7 @@ func PurgeRevisionsCommand(cfg *config.Config) *cobra.Command {
 				mechanism = "glob"
 			}
 
-			var posix = cfg.StorageUsers.Driver == posixDriver
+			posix := isPosixStorage(basePath, cfg.StorageUsers.Driver)
 
 			var ch <-chan string
 			switch mechanism {

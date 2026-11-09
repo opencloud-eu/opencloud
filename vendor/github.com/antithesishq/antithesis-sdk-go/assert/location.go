@@ -1,4 +1,4 @@
-//go:build !no_antithesis_sdk
+//go:build enable_antithesis_sdk
 
 package assert
 

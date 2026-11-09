@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/opencloud-eu/opencloud/services/notifications/pkg/channels"
 )
@@ -39,24 +40,21 @@ func RenderEmailTemplate(mt MessageTemplate, locale, defaultLocale string, email
 	if err != nil {
 		return nil, err
 	}
-	htmlMt, err := NewHTMLTemplate(mt, locale, defaultLocale, translationPath, escapeStringMap(vars))
+	htmlContent, err := newMessageHTML(mt, locale, defaultLocale, translationPath, vars)
 	if err != nil {
 		return nil, err
 	}
-	htmlTpl, err := parseTemplate(emailTemplatePath, mt.htmlTemplate)
+	htmlTpl, err := parseHTMLTemplate(emailTemplatePath, mt.htmlTemplate)
 	if err != nil {
 		return nil, err
 	}
-	htmlBody, err := emailTemplate(htmlTpl, htmlMt)
+	htmlBody, err := executeTemplate(htmlTpl, htmlContent)
 	if err != nil {
 		return nil, err
 	}
-	var data map[string][]byte
-	if emailTemplatePath != "" {
-		data, err = readImages(emailTemplatePath)
-		if err != nil {
-			return nil, err
-		}
+	data, err := readImages(emailTemplatePath)
+	if err != nil {
+		return nil, err
 	}
 
 	return &channels.Message{
@@ -68,7 +66,8 @@ func RenderEmailTemplate(mt MessageTemplate, locale, defaultLocale string, email
 }
 
 // RenderGroupedEmailTemplate is responsible to prepare a message which than can be used to notify the user via email.
-func RenderGroupedEmailTemplate(gmt GroupedMessageTemplate, vars map[string]string, locale, defaultLocale string, emailTemplatePath string, translationPath string, mts []MessageTemplate, mtsVars []map[string]string) (*channels.Message, error) {
+// times holds the time of each grouped event, it is shown in the timeline of the html email.
+func RenderGroupedEmailTemplate(gmt GroupedMessageTemplate, vars map[string]string, locale, defaultLocale string, emailTemplatePath string, translationPath string, mts []MessageTemplate, mtsVars []map[string]string, times []time.Time) (*channels.Message, error) {
 	textMt, err := NewGroupedTextTemplate(gmt, vars, locale, defaultLocale, translationPath, mts, mtsVars)
 	if err != nil {
 		return nil, err
@@ -82,28 +81,21 @@ func RenderGroupedEmailTemplate(gmt GroupedMessageTemplate, vars map[string]stri
 		return nil, err
 	}
 
-	escapedMtsVars := make([]map[string]string, 0, len(mtsVars))
-	for _, m := range mtsVars {
-		escapedMtsVars = append(escapedMtsVars, escapeStringMap(m))
-	}
-	htmlMt, err := NewGroupedHTMLTemplate(gmt, escapeStringMap(vars), locale, defaultLocale, translationPath, mts, escapedMtsVars)
+	htmlContent, err := newDigestHTML(gmt, vars, locale, defaultLocale, translationPath, mts, mtsVars, times)
 	if err != nil {
 		return nil, err
 	}
-	htmlTpl, err := parseTemplate(emailTemplatePath, gmt.htmlTemplate)
+	htmlTpl, err := parseHTMLTemplate(emailTemplatePath, gmt.htmlTemplate)
 	if err != nil {
 		return nil, err
 	}
-	htmlBody, err := groupedEmailTemplate(htmlTpl, htmlMt)
+	htmlBody, err := executeTemplate(htmlTpl, htmlContent)
 	if err != nil {
 		return nil, err
 	}
-	var data map[string][]byte
-	if emailTemplatePath != "" {
-		data, err = readImages(emailTemplatePath)
-		if err != nil {
-			return nil, err
-		}
+	data, err := readImages(emailTemplatePath)
+	if err != nil {
+		return nil, err
 	}
 
 	return &channels.Message{
@@ -146,6 +138,21 @@ func parseTemplate(emailTemplatePath string, file string) (*template.Template, e
 	return template.ParseFS(templatesFS, filepath.Join(file))
 }
 
+// parseHTMLTemplate parses the html layout together with the given child template. A custom
+// template folder without the layout is a folder made for the legacy single html template,
+// which is used instead; it gets the same data with the Greeting, MessageBody and CallToAction
+// placeholders.
+func parseHTMLTemplate(emailTemplatePath string, child string) (*template.Template, error) {
+	if emailTemplatePath == "" {
+		return template.ParseFS(templatesFS, _htmlLayout, child)
+	}
+	layout := filepath.Join(emailTemplatePath, _htmlLayout)
+	if _, err := os.Stat(layout); errors.Is(err, fs.ErrNotExist) {
+		return template.ParseFiles(filepath.Join(emailTemplatePath, _htmlLegacyTemplate))
+	}
+	return template.ParseFiles(layout, filepath.Join(emailTemplatePath, child))
+}
+
 func executeTemplate(tpl *template.Template, vars any) (string, error) {
 	var writer bytes.Buffer
 	if err := tpl.Execute(&writer, vars); err != nil {
@@ -154,7 +161,16 @@ func executeTemplate(tpl *template.Template, vars any) (string, error) {
 	return writer.String(), nil
 }
 
+// readImages reads the images that are attached inline, from the custom template folder if one
+// is set, else the embedded ones
 func readImages(emailTemplatePath string) (map[string][]byte, error) {
+	if emailTemplatePath == "" {
+		entries, err := fs.ReadDir(templatesFS, imgDir)
+		if err != nil {
+			return nil, err
+		}
+		return read(entries, templatesFS)
+	}
 	dir := filepath.Join(emailTemplatePath, imgDir)
 	entries, err := os.ReadDir(dir)
 	if err != nil {

@@ -8,18 +8,22 @@ docker_repo_slug = "opencloudeu/opencloud"
 
 # images
 ALPINE_GIT = "alpine/git:latest"
-APACHE_TIKA = "apache/tika:4.1.0-SNAPSHOT"
+APACHE_TIKA = "apache/tika:4.2.1-SNAPSHOT"
 CHKO_DOCKER_PUSHRM = "chko/docker-pushrm:1"
 CODACY_COVERAGE_REPORTER = "codacy/codacy-coverage-reporter:14.1.3"
 COLLABORA_CODE = "collabora/code:24.04.5.1.1"
 OPEN_SEARCH = "opensearchproject/opensearch:2"
+
+# imagor for the thumbnail parity suite, keep equal to imagortest.Variants
+IMAGOR = "shumc/imagor:1.9.11"
+IMAGOR_MAGICK = "ghcr.io/cshum/imagor-magick:1.9.11"
 INBUCKET_INBUCKET = "inbucket/inbucket"
 MINIO_MC = "quay.io/opencloudeu/minio-mc-ci:1.0"
 OC_CI_ALPINE = "owncloudci/alpine:latest"
 OC_CI_BAZEL_BUILDIFIER = "quay.io/opencloudeu/bazel-buildifier-ci:latest"
 OC_CI_CLAMAVD = "quay.io/opencloudeu/clamav-ci:latest"
 OC_CI_DRONE_ANSIBLE = "owncloudci/drone-ansible:latest"
-OC_CI_GOLANG = "quay.io/opencloudeu/golang-ci:1.25"
+OC_CI_GOLANG = "quay.io/opencloudeu/golang-ci:1.26"
 OC_CI_NODEJS = "quay.io/opencloudeu/nodejs-ci:24"
 OC_CI_NODEJS_ALPINE = "quay.io/opencloudeu/nodejs-alpine-ci:24"
 OC_CI_PHP = "quay.io/opencloudeu/php-alpine-ci:%s"
@@ -81,6 +85,15 @@ event = {
     "cron": {
         "event": "cron",
         "branch": "main",
+        "cron": "nightly*",
+    },
+    "translation_sync": {
+        "event": "cron",
+        "cron": "translation-sync",
+    },
+    "purge_cache": {
+        "event": "cron",
+        "cron": "purge-cache",
     },
     "pull_request": {
         "event": "pull_request",
@@ -232,9 +245,16 @@ config = {
             ],
             "skip": False,
         },
+        "sharingNgAdditionalShareRole": {
+            "suites": [
+                "apiSharingNgAdditionalShareRole",
+            ],
+            "skip": False,
+        },
         "notification": {
             "suites": [
                 "apiNotification",
+                "apiGuestLink",
             ],
             "skip": False,
             "withRemotePhp": False,
@@ -250,6 +270,7 @@ config = {
                 "NOTIFICATIONS_SMTP_INSECURE": True,
                 "NOTIFICATIONS_SMTP_SENDER": "ownCloud <noreply@example.com>",
                 "NOTIFICATIONS_DEBUG_ADDR": "0.0.0.0:9174",
+                "OC_ENABLE_GUEST_LINKS": True,
             },
         },
         "antivirus": {
@@ -515,13 +536,6 @@ def pipelineDependsOn(pipeline, dependant_pipelines, optional = False):
         pipeline["depends_on"] = depends
     return pipeline
 
-def pipelinesDependsOn(pipelines, dependant_pipelines):
-    pipes = []
-    for pipeline in pipelines:
-        pipes.append(pipelineDependsOn(pipeline, dependant_pipelines))
-
-    return pipes
-
 def getPipelineNames(pipelines = [], optional = False):
     names = []
     for pipeline in pipelines:
@@ -544,6 +558,9 @@ def main(ctx):
     if ctx.build.event == "cron" and ctx.build.cron == "translation-sync":
         return translation_sync(ctx)
 
+    if ctx.build.event == "cron" and ctx.build.cron == "purge-cache":
+        return [purgeS3Cache()]
+
     is_release_pr = (ctx.build.event == "pull_request" and "🎉 release" in ctx.build.title.lower())
     if is_release_pr:
         return checkVersionPlaceholder() + \
@@ -564,10 +581,10 @@ def main(ctx):
         codestyle(ctx) + \
         checkGherkinLint(ctx) + \
         checkTestSuitesInExpectedFailures(ctx) + \
-        pipelinesDependsOn(buildWebCache(ctx), savePipelineNumber(ctx)) + \
-        pipelinesDependsOn(cacheBrowsers(ctx), savePipelineNumber(ctx)) + \
+        buildWebCache(ctx) + \
+        cacheBrowsers(ctx) + \
         getGoBinForTesting(ctx) + \
-        pipelinesDependsOn(buildOpencloudBinaryForTesting(ctx), savePipelineNumber(ctx)) + \
+        buildOpencloudBinaryForTesting(ctx) + \
         checkStarlark(ctx) + \
         build_release_helpers + \
         testOpencloudAndUploadResults(ctx) + \
@@ -577,84 +594,25 @@ def main(ctx):
         dockerReleases(ctx) + \
         binaryReleases(ctx)
 
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeBuildArtifactCache(ctx),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeBrowserCache(ctx),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeTracingCache(ctx),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeOpencloudWebBuildCache(ctx),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgeGoBinCache(ctx),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
-
-    test_pipelines.append(
-        pipelineDependsOn(
-            purgePipelineInfoCache(),
-            testPipelines(ctx),
-            optional = True,
-        ),
-    )
-
     pipelines = test_pipelines + build_release_pipelines + genDocsPr(ctx) + serverTestingDocs(ctx) + notifyMatrixCheckSteps(ctx, getPipelineNames(testPipelines(ctx), optional = True))
 
     pipelineSanityChecks(pipelines)
-    return savePipelineNumber(ctx) + pipelines
+    return pipelines
 
-def savePipelineNumber(ctx):
+def savePipelineInfoStep(ctx):
     base_url = "https://raw.githubusercontent.com/%s" % repo_slug
     script_link = "%s/%s/tests/config/woodpecker/upload_pipeline_info.sh" % (base_url, ctx.build.commit)
-    return [{
-        "name": "save-pipeline-info",
-        "skip_clone": True,
-        "steps": [{
-            "name": "upload-info",
+    return [
+        {
+            "name": "save-pipeline-info",
             "image": MINIO_MC,
             "environment": MINIO_MC_ENV,
             "commands": [
                 "curl -s -o upload_pipeline_info.sh %s" % script_link,
                 "bash -x upload_pipeline_info.sh",
             ],
-        }],
-        "when": [
-            {
-                "event": ["push", "manual"],
-                "branch": ["main", "stable-*"],
-            },
-            event["tag"],
-            event["cron"],
-            event["pull_request"],
-        ],
-    }]
+        },
+    ]
 
 def evaluateWorkflowStep():
     return [{
@@ -832,16 +790,32 @@ def testOpencloud(ctx):
             ],
             "environment": CI_HTTP_PROXY_ENV,
         },
-    ] + waitForOpenSearch() + [
+    ] + waitForOpenSearch() + waitForImagor() + [
         {
             "name": "test",
             "image": OC_CI_GOLANG,
             "environment": {
                 "SEARCH_ENGINE_OPEN_SEARCH_CLIENT_ADDRESSES": "http://open-search:9200",
+                "THUMBNAILS_PARITY_IMAGOR_URL": "http://imagor:8000",
+                "THUMBNAILS_PARITY_IMAGOR_MAGICK_URL": "http://imagor-magick:8000",
             },
             "commands": [
                 "make test",
                 "mv coverage.out unit.coverage.out",
+            ],
+        },
+        {
+            # the only run that covers the resize code the official docker
+            # images ship
+            # FIXME: run it with the libvips those images ship, see issue 3746
+            "name": "test-thumbnail-parity-vips",
+            "image": OC_CI_GOLANG,
+            "environment": {
+                "THUMBNAILS_PARITY_IMAGOR_URL": "http://imagor:8000",
+                "THUMBNAILS_PARITY_IMAGOR_MAGICK_URL": "http://imagor-magick:8000",
+            },
+            "commands": [
+                "go test -tags enable_vips ./services/thumbnails/pkg/parity/...",
             ],
         },
         {
@@ -864,7 +838,7 @@ def testOpencloud(ctx):
     pipeline = {
         "name": "test-lint-unit",
         "steps": steps,
-        "services": openSearchService(),
+        "services": openSearchService() + imagorServices(),
         "when": [
             event["base"],
             event["cron"],
@@ -918,7 +892,8 @@ def scanOpencloud(ctx):
 def buildOpencloudBinaryForTesting(ctx):
     pipeline = {
         "name": "build-opencloud-for-testing",
-        "steps": makeNodeGenerate("") +
+        "steps": savePipelineInfoStep(ctx) +
+                 makeNodeGenerate("") +
                  makeGoGenerate("") +
                  build() +
                  rebuildBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]),
@@ -1307,9 +1282,9 @@ def localApiTestPipeline(ctx):
                 if ctx.build.event == "cron":
                     params["storages"] = OPENCLOUD_STORAGES
 
-                    # skip CLI tests in nightly pipeline
+                    # run CLI tests only with decomposed storage in the nightly
                     if name.startswith("cli"):
-                        continue
+                        params["storages"] = ["decomposed"]
 
                 # use decomposed storage if specified in the PR title
                 if "[decomposed]" in ctx.build.title.lower():
@@ -1548,6 +1523,8 @@ def e2eTestPipeline(ctx):
         "OC_SHOW_USER_EMAIL_IN_RESULTS": True,
         # Needed for enabling all roles
         "GRAPH_AVAILABLE_ROLES": "%s" % GRAPH_AVAILABLE_ROLES,
+        # keep the indexed content as written, the e2e tests check the found content in the search
+        "SEARCH_EXTRACTOR_TIKA_CLEAN_STOP_WORDS": False,
     }
 
     e2e_trigger = [
@@ -1701,6 +1678,8 @@ def multiServiceE2ePipeline(ctx):
         "OC_SHOW_USER_EMAIL_IN_RESULTS": True,
         # Needed for enabling all roles
         "GRAPH_AVAILABLE_ROLES": "%s" % GRAPH_AVAILABLE_ROLES,
+        # keep the indexed content as written, the e2e tests check the found content in the search
+        "SEARCH_EXTRACTOR_TIKA_CLEAN_STOP_WORDS": False,
     }
 
     storage_users_environment = {
@@ -2310,7 +2289,7 @@ def genDocsPr(ctx):
         "steps": [
             {
                 "name": "make-docs-pr",
-                "image": "quay.io/opencloudeu/golang-ci",
+                "image": OC_CI_GOLANG,
                 "pull": True,
                 "environment": {
                     "GH_TOKEN": {
@@ -2476,6 +2455,7 @@ def opencloudServer(storage = "decomposed", depends_on = [], deploy_type = "", e
         "OC_TRANSLATION_PATH": "%s/tests/config/translations" % dirs["base"],
         "ACTIVITYLOG_WRITE_BUFFER_DURATION": "0",  # Disable write buffer so that test expectations are met in time
         "OC_LDAP_LOOKUP_CACHE_TTL": "0",  # disable ldap lookup cache so that test fixture change are applied right away
+        "OC_ENABLE_GUEST_LINKS": True,
         # search grpc port needed for index cli tests
         "SEARCH_GRPC_ADDR": "0.0.0.0:9220",
         # debug addresses required for running services health tests
@@ -2502,6 +2482,8 @@ def opencloudServer(storage = "decomposed", depends_on = [], deploy_type = "", e
         "SEARCH_DEBUG_ADDR": "0.0.0.0:9224",
         "SETTINGS_DEBUG_ADDR": "0.0.0.0:9194",
         "SHARING_DEBUG_ADDR": "0.0.0.0:9151",
+        # the ocwrapper restarts the server mid-migration and leaves a stale migration lock behind
+        "SHARING_USER_JSONCS3_SKIP_MIGRATIONS": True,
         "SSE_DEBUG_ADDR": "0.0.0.0:9139",
         "STORAGE_PUBLICLINK_DEBUG_ADDR": "0.0.0.0:9179",
         "STORAGE_SHARES_DEBUG_ADDR": "0.0.0.0:9156",
@@ -2751,10 +2733,7 @@ def translation_sync(ctx):
             },
         ],
         "when": [
-            {
-                "event": "cron",
-                "cron": "translation-sync",
-            },
+            event["translation_sync"],
         ],
     }]
 
@@ -2827,26 +2806,32 @@ def genericCache(name, action, mounts, cache_path):
     }
     return step
 
-def purgeCache(name, flush_path, flush_age):
+PURGE_TARGETS = [
+    # short lived build artifacts (binaries, s3-cache)
+    ("cache", 1),
+    # reusable build caches and debug artifacts (reports, traces, logs)
+    ("dev", 14),
+    ("public", 14),
+]
+
+def purgeS3Cache():
+    commands = ["mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY"]
+    for bucket, flush_age in PURGE_TARGETS:
+        commands.append("to_delete=$(mc find s3/%s/ --older-than %sd || true)" % (bucket, flush_age))
+        commands.append('if [ -n "$to_delete" ]; then mc rm $to_delete; fi')
+
     return {
-        "name": name,
+        "name": "purge_ci_cache",
         "skip_clone": True,
         "when": [
-            dict(event["cron"], status = ["success", "failure"]),
-            dict(event["base"], status = ["success", "failure"]),
-            dict(event["pull_request"], status = ["success", "failure"]),
+            event["purge_cache"],
         ],
         "steps": [
             {
                 "name": "purge",
                 "image": MINIO_MC,
                 "environment": MINIO_MC_ENV,
-                "commands": [
-                    "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
-                    "to_delete=$(mc find s3/%s/ --older-than %sd || true)" % (flush_path, flush_age),
-                    'if [ -z "$to_delete" ]; then exit 0; fi',
-                    "mc rm $to_delete",
-                ],
+                "commands": commands,
             },
         ],
     }
@@ -2857,8 +2842,6 @@ def genericBuildArtifactCache(ctx, name, action, path):
         name = "%s_build_artifact_cache" % name
         return genericCache(name, action, [path], cache_path)
 
-    if action == "purge":
-        return purgeCache("purge_opencloud_build_artifact_cache", "cache/%s" % repo_slug, 1)
     return []
 
 def restoreBuildArtifactCache(ctx, name, path):
@@ -2866,24 +2849,6 @@ def restoreBuildArtifactCache(ctx, name, path):
 
 def rebuildBuildArtifactCache(ctx, name, path):
     return [genericBuildArtifactCache(ctx, name, "rebuild", path)]
-
-def purgeBuildArtifactCache(ctx):
-    return genericBuildArtifactCache(ctx, "", "purge", [])
-
-def purgeBrowserCache(ctx):
-    return purgeCache("purge_browser_build_cache", "dev/web", 14)
-
-def purgeTracingCache(ctx):
-    return purgeCache("purge_playwright_tracing_cache", "public/web/tracing", 14)
-
-def purgeOpencloudWebBuildCache(ctx):
-    return purgeCache("purge_opencloud_web_build_cache", "dev/opencloud/web-test-runner", 14)
-
-def purgeGoBinCache(ctx):
-    return purgeCache("purge_go_bin_cache", "dev/opencloud/go-bin", 14)
-
-def purgePipelineInfoCache():
-    return purgeCache("purge_pipeline_info_cache", "public/opencloud/pipelines", 14)
 
 def pipelineSanityChecks(pipelines):
     """pipelineSanityChecks helps the CI developers to find errors before running it
@@ -2968,7 +2933,8 @@ def litmus(ctx, storage):
         "name": "test-litmus",
         "steps": evaluateWorkflowStep() +
                  restoreBuildArtifactCache(ctx, dirs["opencloudBinArtifact"], dirs["opencloudBinPath"]) +
-                 opencloudServer(storage) +
+                 # litmus does a GET right after a PUT, which fails with 425 Too Early while postprocessing is still running
+                 opencloudServer(storage, extra_server_environment = {"OC_ASYNC_UPLOADS": False}) +
                  setupForLitmus() +
                  [
                      {
@@ -3479,6 +3445,53 @@ def waitForOpenSearch():
             "  sleep 5\n" +
             "done\n" +
             "echo \"http://open-search:9200 healthy...\"\n" +
+            "'",
+        ],
+    }]
+
+def imagorServices():
+    environment = {
+        # the parity suite posts every image, and there is nothing to sign with
+        "IMAGOR_UNSAFE": True,
+        "UPLOAD_LOADER_ENABLE": True,
+        "HTTP_LOADER_DISABLE": True,
+        # the limits of the thumbnails service, so both sides refuse the same
+        # requests; keep in step with imagortest.Args, which configures imagor
+        # the same way when the suite starts it through testcontainers
+        "VIPS_MAX_WIDTH": 7680,
+        "VIPS_MAX_HEIGHT": 7680,
+        "VIPS_MAX_ANIMATION_FRAMES": 100,
+        # quoted: a number this large reaches the container as 5e+07, which imagor cannot parse
+        "UPLOAD_LOADER_MAX_ALLOWED_SIZE": "50000000",
+        "IMAGOR_PROCESS_CONCURRENCY": -1,
+    }
+
+    return [
+        {
+            "name": "imagor",
+            "image": IMAGOR,
+            "environment": environment,
+        },
+        {
+            "name": "imagor-magick",
+            "image": IMAGOR_MAGICK,
+            "environment": environment,
+        },
+    ]
+
+def waitForImagor():
+    return [{
+        "name": "wait-for-imagor",
+        "image": OC_CI_ALPINE,
+        "commands": [
+            "bash -c '" +
+            "for host in imagor imagor-magick; do\n" +
+            "  until curl -sS -o /dev/null \"http://$host:8000/\"; do\n" +
+            "    echo \"Waiting for http://$host:8000 to be healthy...\"\n" +
+            "    sleep 2\n" +
+            "  done\n" +
+            "  echo \"http://$host:8000 healthy...\"\n" +
+            "done\n" +
             "'",
         ],
     }]

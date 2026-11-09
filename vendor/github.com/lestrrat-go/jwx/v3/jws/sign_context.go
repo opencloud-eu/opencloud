@@ -14,6 +14,7 @@ type signContext struct {
 	format        int
 	detached      bool
 	validateKey   bool
+	strictECDSA   bool
 	payload       []byte
 	payloadReader io.Reader
 	encoder       Base64Encoder
@@ -39,6 +40,7 @@ func freeSignContext(ctx *signContext) *signContext {
 	ctx.sigbuilders = ctx.sigbuilders[:0]
 	ctx.detached = false
 	ctx.validateKey = false
+	ctx.strictECDSA = false
 	ctx.encoder = base64.DefaultEncoder()
 	ctx.none = nil
 	ctx.payload = nil
@@ -132,6 +134,10 @@ func (sc *signContext) ProcessOptions(options []SignOption) error {
 		case identValidateKey{}:
 			if err := option.Value(&sc.validateKey); err != nil {
 				return makeSignError(prefixJwsSign, `failed to retrieve validate-key option value: %w`, err)
+			}
+		case identStrictECDSA{}:
+			if err := option.Value(&sc.strictECDSA); err != nil {
+				return makeSignError(prefixJwsSign, `failed to retrieve strict-ECDSA option value: %w`, err)
 			}
 		case identBase64Encoder{}:
 			if err := option.Value(&sc.encoder); err != nil {

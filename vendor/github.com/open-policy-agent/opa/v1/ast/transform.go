@@ -32,6 +32,11 @@ func Transform(t Transformer, x any) (any, error) {
 		return nil, nil
 	}
 
+	// The cases below that hold a slice mutate it in place, so this interface
+	// value goes on describing what they produce. Returning it costs nothing,
+	// where returning the case variable would box a slice header afresh.
+	orig := y
+
 	var ok bool
 	switch y := y.(type) {
 	case *Module:
@@ -89,14 +94,10 @@ func Transform(t Transformer, x any) (any, error) {
 		}
 		return y, nil
 	case *Import:
-		y.Path, err = transformTerm(t, y.Path)
-		if err != nil {
-			return nil, err
+		if y.Path, err = transformTerm(t, y.Path); err == nil {
+			y.Alias, err = transformVar(t, y.Alias)
 		}
-		if y.Alias, err = transformVar(t, y.Alias); err != nil {
-			return nil, err
-		}
-		return y, nil
+		return y, err
 	case *Rule:
 		if y.Head, err = transformHead(t, y.Head); err != nil {
 			return nil, err
@@ -141,7 +142,7 @@ func Transform(t Transformer, x any) (any, error) {
 				return nil, err
 			}
 		}
-		return y, nil
+		return orig, nil
 	case Body:
 		for i, e := range y {
 			e, err := Transform(t, e)
@@ -152,7 +153,7 @@ func Transform(t Transformer, x any) (any, error) {
 				return nil, fmt.Errorf("illegal transform: %T != %T", y[i], e)
 			}
 		}
-		return y, nil
+		return orig, nil
 	case *Expr:
 		switch ts := y.Terms.(type) {
 		case *SomeDecl:
@@ -242,7 +243,7 @@ func Transform(t Transformer, x any) (any, error) {
 				return nil, err
 			}
 		}
-		return y, nil
+		return orig, nil
 	case *object:
 		return y.Map(func(k, v *Term) (*Term, *Term, error) {
 			k, err := transformTerm(t, k)
@@ -264,14 +265,10 @@ func Transform(t Transformer, x any) (any, error) {
 			y.set(i, v)
 		}
 		return y, nil
-	case Set:
-		y, err = y.Map(func(term *Term) (*Term, error) {
+	case *set:
+		return y.Map(func(term *Term) (*Term, error) {
 			return transformTerm(t, term)
 		})
-		if err != nil {
-			return nil, err
-		}
-		return y, nil
 	case *ArrayComprehension:
 		if y.Term, err = transformTerm(t, y.Term); err != nil {
 			return nil, err
@@ -305,7 +302,7 @@ func Transform(t Transformer, x any) (any, error) {
 				return nil, err
 			}
 		}
-		return y, nil
+		return orig, nil
 	case *TemplateString:
 		for i := range y.Parts {
 			if expr, ok := y.Parts[i].(*Expr); ok {
@@ -326,29 +323,29 @@ func Transform(t Transformer, x any) (any, error) {
 
 // TransformRefs calls the function f on all references under x.
 func TransformRefs(x any, f func(Ref) (Value, error)) (any, error) {
-	t := NewGenericTransformer(func(x any) (any, error) {
+	t := GenericTransformer{f: func(x any) (any, error) {
 		if r, ok := x.(Ref); ok {
 			return f(r)
 		}
 		return x, nil
-	})
+	}}
 	return Transform(t, x)
 }
 
 // TransformVars calls the function f on all vars under x.
 func TransformVars(x any, f func(Var) (Value, error)) (any, error) {
-	t := NewGenericTransformer(func(x any) (any, error) {
+	t := GenericTransformer{f: func(x any) (any, error) {
 		if v, ok := x.(Var); ok {
 			return f(v)
 		}
 		return x, nil
-	})
+	}}
 	return Transform(t, x)
 }
 
 // TransformComprehensions calls the function f on all comprehensions under x.
 func TransformComprehensions(x any, f func(any) (Value, error)) (any, error) {
-	t := NewGenericTransformer(func(x any) (any, error) {
+	t := GenericTransformer{f: func(x any) (any, error) {
 		switch x := x.(type) {
 		case *ArrayComprehension:
 			return f(x)
@@ -358,7 +355,7 @@ func TransformComprehensions(x any, f func(any) (Value, error)) (any, error) {
 			return f(x)
 		}
 		return x, nil
-	})
+	}}
 	return Transform(t, x)
 }
 
@@ -371,13 +368,11 @@ type GenericTransformer struct {
 // NewGenericTransformer returns a new GenericTransformer that will transform
 // AST nodes using the function f.
 func NewGenericTransformer(f func(x any) (any, error)) *GenericTransformer {
-	return &GenericTransformer{
-		f: f,
-	}
+	return &GenericTransformer{f: f}
 }
 
 // Transform calls the function f on the GenericTransformer.
-func (t *GenericTransformer) Transform(x any) (any, error) {
+func (t GenericTransformer) Transform(x any) (any, error) {
 	return t.f(x)
 }
 
@@ -418,11 +413,24 @@ func transformBody(t Transformer, body Body) (Body, error) {
 }
 
 func transformTerm(t Transformer, term *Term) (*Term, error) {
-	v, err := transformValue(t, term.Value)
+	tv, err := transformValue(t, term.Value)
 	if err != nil {
 		return nil, err
 	}
-	return &Term{Value: v, Location: term.Location}, nil
+
+	// If the term was interned, make sure to return a new one instead
+	// of replacing the value of the interned term, as that'll be used
+	// elsewhere, leading to data races
+	if s, ok := tv.(String); ok {
+		if it, ok := internedStringTerms[string(s)]; ok && term == it {
+			return &Term{Value: tv, Location: term.Location}, nil
+		}
+	}
+
+	// Not interned = modify the value in place
+	term.Value = tv
+
+	return term, err
 }
 
 func transformValue(t Transformer, v Value) (Value, error) {

@@ -169,6 +169,7 @@ type withKeySetSuboption struct {
 
 func (*withKeySetSuboption) withKeySetSuboption() {}
 
+type identAuthenticateData struct{}
 type identCBCBufferSize struct{}
 type identCEK struct{}
 type identCompress struct{}
@@ -192,6 +193,10 @@ type identPretty struct{}
 type identProtectedHeaders struct{}
 type identRequireKid struct{}
 type identSerialization struct{}
+
+func (identAuthenticateData) String() string {
+	return "WithAuthenticateData"
+}
 
 func (identCBCBufferSize) String() string {
 	return "WithCBCBufferSize"

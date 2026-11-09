@@ -100,6 +100,23 @@ func (bs *Blobstore) Upload(node *node.Node, source, _copyTarget string) error {
 	return nil
 }
 
+// UploadFromReader stores data from a reader under the given blob key.
+func (bs *Blobstore) UploadFromReader(node *node.Node, reader io.Reader, size int64) error {
+	_, err := bs.client.PutObject(context.Background(), bs.bucket, bs.Path(node), reader, size, minio.PutObjectOptions{
+		ContentType:           "application/octet-stream",
+		SendContentMd5:        bs.defaultPutOptions.SendContentMd5,
+		ConcurrentStreamParts: bs.defaultPutOptions.ConcurrentStreamParts,
+		NumThreads:            bs.defaultPutOptions.NumThreads,
+		PartSize:              bs.defaultPutOptions.PartSize,
+		DisableMultipart:      bs.defaultPutOptions.DisableMultipart,
+		DisableContentSha256:  bs.defaultPutOptions.DisableContentSha256,
+	})
+	if err != nil {
+		return errors.Wrapf(err, "could not store object '%s' into bucket '%s'", bs.Path(node), bs.bucket)
+	}
+	return nil
+}
+
 // Download retrieves a blob from the blobstore for reading
 func (bs *Blobstore) Download(node *node.Node) (io.ReadCloser, error) {
 	reader, err := bs.client.GetObject(context.Background(), bs.bucket, bs.Path(node), minio.GetObjectOptions{})

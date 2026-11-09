@@ -9,7 +9,6 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/service/http"
 	"github.com/opencloud-eu/opencloud/pkg/version"
 	svc "github.com/opencloud-eu/opencloud/services/thumbnails/pkg/service/http/v0"
-	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/thumbnail/storage"
 	"go-micro.dev/v4"
 )
 
@@ -38,7 +37,6 @@ func Server(opts ...Option) (http.Service, error) {
 		svc.Logger(options.Logger),
 		svc.Config(options.Config),
 		svc.Middleware(
-			middleware.RealIP,
 			middleware.RequestID,
 			opencloudmiddleware.Cors(
 				cors.Logger(options.Logger),
@@ -53,18 +51,7 @@ func Server(opts ...Option) (http.Service, error) {
 			),
 			opencloudmiddleware.Logger(options.Logger),
 		),
-		svc.ThumbnailStorage(
-			storage.NewFileSystemStorage(
-				options.Config.Thumbnail.FileSystemStorage,
-				options.Logger,
-			),
-		),
 	)
-
-	{
-		handle = svc.NewInstrument(handle, options.Metrics)
-		handle = svc.NewLogging(handle, options.Logger)
-	}
 
 	if err := micro.RegisterHandler(service.Server(), handle); err != nil {
 		return http.Service{}, err

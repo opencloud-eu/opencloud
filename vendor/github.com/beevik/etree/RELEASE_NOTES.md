@@ -1,3 +1,22 @@
+Release 1.8.1
+=============
+
+**Fixes**
+
+* Fixed a panic-causing bug in all Remove functions.
+
+Release 1.8.0
+=============
+
+**Changes**
+
+* Added the `Remove` function to all token types, allowing for the easy
+  removal of a token from its parent element.
+
+**Fixes**
+
+* Cleaned up several comments for clarity and typo corrections.
+
 Release 1.7.1
 =============
 

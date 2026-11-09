@@ -2,6 +2,14 @@
 
 Purpose and description to be added
 
+## Legacy storage drivers
+
+The deprecated `STORAGE_USERS_DRIVER=ocis` and `STORAGE_USERS_DRIVER=s3ng` settings use the `decomposed` and `decomposeds3` drivers respectively, with the legacy metadata prefix (`user.ocis.` on Linux, `ocis.` on FreeBSD). This prefix takes precedence over `OC_METADATA_PREFIX` for these aliases. The legacy `STORAGE_SYSTEM_DRIVER=ocis` setting is treated similarly.
+
+The metadata prefix is process-wide. Services sharing a process must use the same prefix; an installation with legacy user storage and system storage using the native `user.oc.` prefix must run these services in separate processes or otherwise arrange for their metadata prefixes to match before upgrading. Conflicting prefixes fail at startup.
+
+When replacing a legacy driver name in configuration, also configure the legacy metadata prefix explicitly. Do not change the prefix of existing data without migrating it. For separate service processes, configure the prefix on the appropriate service; `OC_METADATA_PREFIX` applies to every service that receives it.
+
 ## Graceful Shutdown
 
 You can define a graceful shutdown period for the `storage-users` service.
@@ -55,7 +63,8 @@ opencloud storage-users uploads <command>
 
 ```plaintext
 COMMANDS:
-   sessions   Print a list of upload sessions
+   delete-stale-nodes Delete (or revert) all nodes in processing state that are not referenced by any upload session
+   sessions           Print a list of upload sessions
 ```
 
 #### Sessions command
@@ -138,6 +147,103 @@ opencloud storage-users uploads sessions --expired=true --clean
 
 # resumes all uploads that are processing and are not virus infected
 opencloud storage-users uploads sessions --processing=false --has-virus=false --resume
+```
+
+
+#### Delete Stale Nodes command
+
+This command allows to remove (or revert) nodes that are stale, meaning they are in postprocessing but their upload session is gone.
+It will check all nodes that are in postprocessing and find those without an upload session. Then it will delete the node if there are no other versions. If there are other versions, it will instead revert the node to the previous version.
+The command reads the decomposed storage directly, so it only finds nodes when the msgpack metadata backend (`.mpk` files) is used. The stale nodes are cleaned up by `DeleteRevision` events, which are consumed by the running `storage-users` service: it needs to be up for the cleanup to actually happen.
+
+```bash
+    opencloud storage-users uploads delete-stale-nodes <commandoptions>
+```
+```plaintext
+Delete (or revert) all nodes in processing state that are not referenced by any upload session
+
+Usage:
+  opencloud storage-users uploads delete-stale-nodes [flags]
+
+Flags:
+      --dry-run          Only show what would be deleted without actually deleting (default true)
+  -h, --help             help for delete-stale-nodes
+      --spaceid string   Space ID to check for processing nodes (omit to check all spaces)
+      --verbose          Enable verbose logging
+```
+
+#### Command Examples
+
+Dry run to see what would be deleted (recommended first step)
+
+```bash
+opencloud storage-users uploads delete-stale-nodes
+```
+
+Set `--dry-run=false` to actually delete the stale nodes
+
+```bash
+opencloud storage-users uploads delete-stale-nodes --dry-run=false
+```
+
+Use `--verbose` to get more information about what is happening
+
+```bash
+opencloud storage-users uploads delete-stale-nodes --dry-run=false --verbose
+```
+
+
+### Check and Inspect the Blobstore
+
+The `blobstore` command group verifies connectivity to the configured blobstore and inspects individual blobs. The `ocis`/`decomposed` and `s3ng`/`decomposeds3` storage drivers are supported.
+
+```bash
+opencloud storage-users blobstore <command>
+```
+
+```plaintext
+COMMANDS:
+   check  check blobstore connectivity via an upload/download/delete round-trip
+   get    get a blob from the blobstore by ID
+```
+
+#### Check
+
+Uploads a random blob, downloads and verifies it, then deletes it. All three steps must succeed.
+
+```bash
+opencloud storage-users blobstore check [flags]
+```
+
+`--blob-size` sets the random payload size and accepts values such as `64`, `1KB`, `1MB`, or `4MiB` (default: `64` bytes).
+
+```bash
+# Check the configured blobstore using the default payload
+opencloud storage-users blobstore check
+
+# Use a larger payload
+opencloud storage-users blobstore check --blob-size=4MiB
+```
+
+#### Get
+
+Downloads a blob to verify that it is readable. Identify the blob by passing the raw path from a log line with `--path`, or by setting `--blob-id` and `--space-id`.
+
+```bash
+opencloud storage-users blobstore get [flags]
+```
+
+For S3-backed drivers, `--blob-size` can specify the expected size when known. If it is wrong or omitted, the command retries once using the actual size returned by S3.
+
+```bash
+# Use a path from an s3ng/decomposeds3 log line
+opencloud storage-users blobstore get --path="b19ec764-5398-458a-8ff1-1925bd906999/61/03/ab/c3/-b08a-4556-9937-2bf3065c1202"
+
+# Use a full filesystem path from an ocis/decomposed log line
+opencloud storage-users blobstore get --path="/var/lib/opencloud/storage/users/spaces/b1/9ec764-5398-458a-8ff1-1925bd906999/blobs/61/03/ab/c3/-b08a-4556-9937-2bf3065c1202"
+
+# Or provide the space and blob IDs directly
+opencloud storage-users blobstore get --space-id=b19ec764-5398-458a-8ff1-1925bd906999 --blob-id=6103abc3-b08a-4556-9937-2bf3065c1202
 ```
 
 ### Manage Trash-Bin Items

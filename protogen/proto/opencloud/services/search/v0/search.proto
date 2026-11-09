@@ -112,6 +112,17 @@ message IndexSpaceRequest {
 }
 
 message IndexSpaceResponse {
+  enum Status {
+    STATUS_UNKNOWN = 0;
+    // The space has been indexed successfully.
+    STATUS_SUCCESS = 1;
+    // The space has been skipped because it is disabled. It will be indexed
+    // once it gets enabled again.
+    STATUS_SKIPPED = 2;
+    // Indexing the space failed, see the error field for details.
+    STATUS_ERROR = 3;
+  }
+
   // The id of the space that has just been indexed.
   string space_id = 1;
   // The duration it took to index this space.
@@ -122,4 +133,6 @@ message IndexSpaceResponse {
   int64 total_spaces = 4;
   // Contains an error message in case indexing this particular space failed.
   string error = 5;
+  // The outcome of indexing this particular space.
+  Status status = 6;
 }

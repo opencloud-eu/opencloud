@@ -125,6 +125,36 @@ class OcConfigContext implements Context {
 
 	/**
 	 *
+	 * @param TableNode $table
+	 *
+	 * @return void
+	 */
+	#[Given('the administrator has enabled the following share permissions roles:')]
+	public function theAdministratorHasEnabledTheFollowingSharePermissionsRoles(TableNode $table): void {
+		$defaultRoles = array_values(GraphHelper::DEFAULT_PERMISSIONS_ROLES);
+		$roles = [];
+		foreach ($table->getHash() as $row) {
+			$roles[] = $row['permissions-role'];
+			$roleId = GraphHelper::getPermissionsRoleIdByName($row['permissions-role']);
+			if (!\in_array($roleId, $defaultRoles)) {
+				$defaultRoles[] = $roleId;
+			}
+		}
+		$envs = [
+			"GRAPH_AVAILABLE_ROLES" => implode(',', $defaultRoles),
+		];
+		$response =  OcConfigHelper::reConfigureOc($envs);
+		Assert::assertEquals(
+			200,
+			$response->getStatusCode(),
+			"Failed to enable roles: " . implode(', ', $roles)
+			. ". Response: " . $response->getBody()->getContents()
+		);
+		$this->setEnabledPermissionsRoles($defaultRoles);
+	}
+
+	/**
+	 *
 	 * @param string $role
 	 *
 	 * @return void

@@ -37,7 +37,7 @@ func vipsGetPoint(in *C.VipsImage, n int, x int, y int) ([]float64, error) {
 
 	// Copy from C memory into a Go slice, then free the C allocation.
 	result := make([]float64, n)
-	copy(result, (*[4]float64)(unsafe.Pointer(out))[:n:n])
+	copy(result, unsafe.Slice((*float64)(unsafe.Pointer(out)), n))
 	gFreePointer(unsafe.Pointer(out))
 	return result, nil
 }
@@ -371,26 +371,43 @@ func vipsExtractArea(in *C.VipsImage, left, top, width, height int) (*C.VipsImag
 func vipsExtractAreaMultiPage(in *C.VipsImage, left, top, width, height int) (*C.VipsImage, error) {
 	incOpCounter("extractAreaMultiPage")
 
+	return vipsMapPages(in, func(page *C.VipsImage) (*C.VipsImage, error) {
+		return vipsGenExtractArea(page, left, top, width, height)
+	})
+}
+
+// vipsMapPages applies op to each loaded page of a multi-page image and
+// restacks the results. Operations that act on the whole strip (flip,
+// rot180, resize) would otherwise reorder or merge the frames. The page
+// height of the result is taken from the first mapped page.
+func vipsMapPages(in *C.VipsImage, op func(page *C.VipsImage) (*C.VipsImage, error)) (*C.VipsImage, error) {
 	pageHeight := vipsGetPageHeight(in)
 	nPages := int(in.Ysize) / pageHeight
+	if nPages < 1 {
+		nPages, pageHeight = 1, int(in.Ysize)
+	}
 
-	pages := make([]*C.VipsImage, nPages)
+	pages := make([]*C.VipsImage, 0, nPages)
+	defer func() {
+		for _, p := range pages {
+			clearImage(p)
+		}
+	}()
 	for i := 0; i < nPages; i++ {
-		page, err := vipsGenExtractArea(in, left, pageHeight*i+top, width, height)
+		page, err := vipsGenExtractArea(in, 0, pageHeight*i, int(in.Xsize), pageHeight)
 		if err != nil {
-			for j := 0; j < i; j++ {
-				clearImage(pages[j])
-			}
 			return nil, err
 		}
-		pages[i] = page
+		mapped, err := op(page)
+		clearImage(page)
+		if err != nil {
+			return nil, err
+		}
+		pages = append(pages, mapped)
 	}
 
 	across := 1
 	joined, err := vipsGenArrayjoin(pages, &ArrayjoinOptions{Across: &across})
-	for _, p := range pages {
-		clearImage(p)
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -401,7 +418,7 @@ func vipsExtractAreaMultiPage(in *C.VipsImage, left, top, width, height int) (*C
 		return nil, err
 	}
 
-	vipsSetPageHeight(out, height)
+	vipsSetPageHeight(out, int(pages[0].Ysize))
 	return out, nil
 }
 
@@ -458,8 +475,11 @@ func vipsJoin(input1 *C.VipsImage, input2 *C.VipsImage, dir Direction) (*C.VipsI
 	incOpCounter("join")
 	var out *C.VipsImage
 
-	defer C.g_object_unref(C.gpointer(input1))
-	defer C.g_object_unref(C.gpointer(input2))
+	// NOTE: do NOT unref input1/input2 here. They are borrowed from the
+	// caller's ImageRefs, which own those references and unref them in
+	// Close/finalize. vips_join takes its own refs on its inputs for the
+	// lifetime of the output. Unref'ing here drops refs we never owned,
+	// which double-frees the inputs once their ImageRefs are collected.
 	if err := C.join(input1, input2, &out, C.int(dir)); err != 0 {
 		return nil, handleVipsError()
 	}
@@ -565,7 +585,9 @@ func vipsDrawRect(in *C.VipsImage, color ColorRGBA, left int, top int, width int
 
 	if err := C.draw_rect(in, C.double(color.R), C.double(color.G), C.double(color.B), C.double(color.A),
 		C.int(left), C.int(top), C.int(width), C.int(height), C.int(fillBit)); err != 0 {
-		return handleImageError(in)
+		// draw_rect works in place: there's no output image to release, and
+		// the ref on in belongs to the caller's ImageRef.
+		return handleVipsError()
 	}
 
 	return nil
@@ -777,12 +799,13 @@ func vipsDetermineImageTypeFromMetaLoader(in *C.VipsImage) ImageType {
 }
 
 func vipsImageSetBlob(in *C.VipsImage, name string, data []byte) {
-	cData := unsafe.Pointer(&data)
-	cDataLength := C.size_t(len(data))
+	if len(data) == 0 {
+		return
+	}
 
 	cField := C.CString(name)
 	defer freeCString(cField)
-	C.image_set_blob(in, cField, cData, cDataLength)
+	C.image_set_blob(in, cField, unsafe.Pointer(&data[0]), C.size_t(len(data)))
 }
 
 func vipsImageGetBlob(in *C.VipsImage, name string) []byte {

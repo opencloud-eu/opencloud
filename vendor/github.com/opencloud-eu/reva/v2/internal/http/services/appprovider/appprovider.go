@@ -35,6 +35,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-viper/mapstructure/v2"
 	ua "github.com/mileusna/useragent"
+	"github.com/opencloud-eu/reva/v2/pkg/app/registry/micro"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -401,10 +402,38 @@ func (s *svc) handleOpen(openMode int) http.HandlerFunc {
 			}
 		}
 
+		appName := r.Form.Get("app_name")
+		if appName == "" {
+			defRes, err := client.GetDefaultAppProviderForMimeType(ctx, &appregistry.GetDefaultAppProviderForMimeTypeRequest{
+				MimeType: statRes.GetInfo().GetMimeType(),
+			})
+			if err == nil && defRes.GetStatus().GetCode() == rpc.Code_CODE_OK && defRes.GetProvider() != nil {
+				appName = defRes.GetProvider().GetName()
+			} else {
+				apps, err := client.GetAppProviders(ctx, &appregistry.GetAppProvidersRequest{
+					ResourceInfo: statRes.GetInfo(),
+				})
+				if err != nil {
+					writeError(w, r, appErrorServerError, "error getting app providers", err)
+					return
+				}
+				if apps.GetStatus().GetCode() != rpc.Code_CODE_OK {
+					writeError(w, r, appErrorServerError, "error getting app providers", nil)
+					return
+				}
+				if len(apps.GetProviders()) == 0 {
+					writeError(w, r, appErrorProviderNotFound, "no app providers found", nil)
+					return
+				}
+				micro.SortByPriorityThenName(apps.Providers)
+				appName = apps.GetProviders()[0].GetName()
+			}
+		}
+
 		openReq := gateway.OpenInAppRequest{
 			Ref:      fileRef,
 			ViewMode: viewMode,
-			App:      r.Form.Get("app_name"),
+			App:      appName,
 			Opaque:   utils.AppendPlainToOpaque(nil, "lang", lang),
 		}
 
@@ -412,6 +441,12 @@ func (s *svc) handleOpen(openMode int) http.HandlerFunc {
 		if templateID != "" {
 			openReq.Opaque = utils.AppendPlainToOpaque(openReq.Opaque, "template", templateID)
 		}
+
+		// the app provider decides whether it opens a mobile view.
+		if mobile := r.Form.Get("mobile"); mobile == "true" || mobile == "1" {
+			openReq.Opaque = utils.AppendPlainToOpaque(openReq.Opaque, "mobile", "1")
+		}
+
 		openRes, err := client.OpenInApp(ctx, &openReq)
 		if err != nil {
 			writeError(w, r, appErrorServerError,
@@ -435,7 +470,7 @@ func (s *svc) handleOpen(openMode int) http.HandlerFunc {
 			payload = openRes.AppUrl
 
 		case openModeWeb:
-			payload, err = newOpenInWebResponse(s.conf.WebBaseURI, s.conf.Web.URLParamsMapping, s.conf.Web.StaticURLParams, fileID, r.Form.Get("app_name"), r.Form.Get("view_mode"))
+			payload, err = newOpenInWebResponse(s.conf.WebBaseURI, s.conf.Web.URLParamsMapping, s.conf.Web.StaticURLParams, fileID, appName, r.Form.Get("view_mode"))
 			if err != nil {
 				writeError(w, r, appErrorServerError, "Internal error",
 					errors.Wrap(err, "error building OpenInWeb response"))
@@ -449,17 +484,12 @@ func (s *svc) handleOpen(openMode int) http.HandlerFunc {
 
 		}
 
-		js, err := json.Marshal(payload)
-		if err != nil {
-			writeError(w, r, appErrorServerError, "Internal error with JSON payload",
-				errors.Wrap(err, "error marshalling JSON response"))
-			return
-		}
-
 		w.Header().Set("Content-Type", "application/json")
-		if _, err = w.Write(js); err != nil {
+		encoder := json.NewEncoder(w)
+		encoder.SetEscapeHTML(false)
+		if err := encoder.Encode(payload); err != nil {
 			writeError(w, r, appErrorServerError, "Internal error with JSON payload",
-				errors.Wrap(err, "error writing JSON response"))
+				errors.Wrap(err, "error encoding JSON response"))
 			return
 		}
 	}

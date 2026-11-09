@@ -35,6 +35,17 @@ func Or[T comparable](val T, suppliers ...func() T) T {
 	return val
 }
 
+// NilOr returns the first non-nil value from the provided list of pointers, or nil if all are nil.
+func NilOr[T any](vals ...*T) *T {
+	for _, val := range vals {
+		if val != nil {
+			return val
+		}
+	}
+
+	return nil
+}
+
 // SliceLenCompare is a convenience function for comparing / sorting
 // slices by their length using the various slices.SortX functions.
 func SliceLenCompare[T any, S ~[]T](a, b S) int {
@@ -46,6 +57,14 @@ func SliceLenCompare[T any, S ~[]T](a, b S) int {
 	}
 
 	return 1
+}
+
+// CmpEqual is a functional helper for equals comparison of comparable values
+// (i.e. using ==), meant to be used for stdlib funtions like [slices.DeleteFunc].
+func CmpEqual[T comparable](a T) func(b T) bool {
+	return func(b T) bool {
+		return a == b
+	}
 }
 
 // Compare returns 0 if a equals b, -1 if a is less than b, and 1 if b is than a.
@@ -66,8 +85,7 @@ func Compare(a, b any) int {
 	case nil:
 		return 0
 	case bool:
-		switch b := b.(type) {
-		case bool:
+		if b, ok := b.(bool); ok {
 			if a == b {
 				return 0
 			}
@@ -77,13 +95,11 @@ func Compare(a, b any) int {
 			return 1
 		}
 	case json.Number:
-		switch b := b.(type) {
-		case json.Number:
+		if b, ok := b.(json.Number); ok {
 			return compareJSONNumber(a, b)
 		}
 	case int:
-		switch b := b.(type) {
-		case int:
+		if b, ok := b.(int); ok {
 			if a == b {
 				return 0
 			} else if a < b {
@@ -92,8 +108,7 @@ func Compare(a, b any) int {
 			return 1
 		}
 	case float64:
-		switch b := b.(type) {
-		case float64:
+		if b, ok := b.(float64); ok {
 			if a == b {
 				return 0
 			} else if a < b {
@@ -102,8 +117,7 @@ func Compare(a, b any) int {
 			return 1
 		}
 	case string:
-		switch b := b.(type) {
-		case string:
+		if b, ok := b.(string); ok {
 			if a == b {
 				return 0
 			} else if a < b {
@@ -112,8 +126,7 @@ func Compare(a, b any) int {
 			return 1
 		}
 	case []any:
-		switch b := b.(type) {
-		case []any:
+		if b, ok := b.([]any); ok {
 			bLen := len(b)
 			aLen := len(a)
 			minLen := min(bLen, aLen)
@@ -131,8 +144,7 @@ func Compare(a, b any) int {
 			return 1
 		}
 	case map[string]any:
-		switch b := b.(type) {
-		case map[string]any:
+		if b, ok := b.(map[string]any); ok {
 			aKeys := KeysSorted(a)
 			bKeys := KeysSorted(b)
 			aLen := len(aKeys)
@@ -164,6 +176,15 @@ func Compare(a, b any) int {
 }
 
 func compareJSONNumber(a, b json.Number) int {
+	if a == b {
+		return 0
+	}
+	if ai, ok := Atoi(string(a)); ok {
+		if bi, ok := Atoi(string(b)); ok {
+			return ai - bi
+		}
+		return -1
+	}
 	bigA, ok := new(big.Float).SetString(string(a))
 	if !ok {
 		panic("illegal value")

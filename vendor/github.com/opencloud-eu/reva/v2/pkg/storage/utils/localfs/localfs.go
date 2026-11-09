@@ -859,40 +859,40 @@ func (fs *localfs) Delete(ctx context.Context, ref *provider.Reference) error {
 	return fs.propagate(ctx, path.Dir(fp))
 }
 
-func (fs *localfs) Move(ctx context.Context, oldRef, newRef *provider.Reference) error {
+func (fs *localfs) Move(ctx context.Context, oldRef, newRef *provider.Reference) (*storage.MoveResult, error) {
 	oldName, err := fs.resolve(ctx, oldRef)
 	if err != nil {
-		return errors.Wrap(err, "localfs: error resolving ref")
+		return nil, errors.Wrap(err, "localfs: error resolving ref")
 	}
 
 	newName, err := fs.resolve(ctx, newRef)
 	if err != nil {
-		return errors.Wrap(err, "localfs: error resolving ref")
+		return nil, errors.Wrap(err, "localfs: error resolving ref")
 	}
 
 	if fs.isShareFolder(ctx, oldName) || fs.isShareFolder(ctx, newName) {
-		return fs.moveReferences(ctx, oldName, newName)
+		return nil, fs.moveReferences(ctx, oldName, newName)
 	}
 
 	oldName = fs.wrap(ctx, oldName)
 	newName = fs.wrap(ctx, newName)
 
 	if err := os.Rename(oldName, newName); err != nil {
-		return errors.Wrap(err, "localfs: error moving "+oldName+" to "+newName)
+		return nil, errors.Wrap(err, "localfs: error moving "+oldName+" to "+newName)
 	}
 
 	if err := fs.copyMD(oldName, newName); err != nil {
-		return errors.Wrap(err, "localfs: error copying metadata")
+		return nil, errors.Wrap(err, "localfs: error copying metadata")
 	}
 
 	if err := fs.propagate(ctx, newName); err != nil {
-		return err
+		return nil, err
 	}
 	if err := fs.propagate(ctx, path.Dir(oldName)); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (fs *localfs) moveReferences(ctx context.Context, oldName, newName string) error {

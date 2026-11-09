@@ -68,44 +68,44 @@ var _ = Describe("Authenticating requests", Label("OIDCAuthenticator"), func() {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com/example/path", http.NoBody)
 			req.Header.Set(_headerAuthorization, "Bearer jwt.token.sig")
 
-			req2, valid := authenticator.Authenticate(req)
+			result := authenticator.Authenticate(req)
 
-			Expect(valid).To(Equal(true))
-			Expect(req2).ToNot(BeNil())
+			Expect(result.State).To(Equal(AuthenticationSucceeded))
+			Expect(result.Request).ToNot(BeNil())
 		})
 		It("should successfully authenticate", func() {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com/dav/public-files", http.NoBody)
 			req.Header.Set(_headerAuthorization, "Bearer jwt.token.sig")
 
-			req2, valid := authenticator.Authenticate(req)
+			result := authenticator.Authenticate(req)
 
-			Expect(valid).To(Equal(true))
-			Expect(req2).ToNot(BeNil())
+			Expect(result.State).To(Equal(AuthenticationSucceeded))
+			Expect(result.Request).ToNot(BeNil())
 		})
 		It("should skip authenticate if the header ShareToken is set", func() {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com/dav/public-files/", http.NoBody)
 			req.Header.Set(_headerAuthorization, "Bearer jwt.token.sig")
 			req.Header.Set(headerShareToken, "sharetoken")
 
-			req2, valid := authenticator.Authenticate(req)
+			result := authenticator.Authenticate(req)
 
 			// TODO Should the authentication of public path requests is handled by another authenticator?
-			//Expect(valid).To(Equal(false))
-			//Expect(req2).To(BeNil())
-			Expect(valid).To(Equal(true))
-			Expect(req2).ToNot(BeNil())
+			//Expect(result.State).To(Equal(AuthenticationNotApplicable))
+			//Expect(result.Request).To(BeNil())
+			Expect(result.State).To(Equal(AuthenticationSucceeded))
+			Expect(result.Request).ToNot(BeNil())
 		})
 		It("should skip authenticate if the 'public-token' is set", func() {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com/dav/public-files/?public-token=sharetoken", http.NoBody)
 			req.Header.Set(_headerAuthorization, "Bearer jwt.token.sig")
 
-			req2, valid := authenticator.Authenticate(req)
+			result := authenticator.Authenticate(req)
 
 			// TODO Should the authentication of public path requests is handled by another authenticator?
-			//Expect(valid).To(Equal(false))
-			//Expect(req2).To(BeNil())
-			Expect(valid).To(Equal(true))
-			Expect(req2).ToNot(BeNil())
+			//Expect(result.State).To(Equal(AuthenticationNotApplicable))
+			//Expect(result.Request).To(BeNil())
+			Expect(result.State).To(Equal(AuthenticationSucceeded))
+			Expect(result.Request).ToNot(BeNil())
 		})
 	})
 
@@ -114,7 +114,7 @@ var _ = Describe("Authenticating requests", Label("OIDCAuthenticator"), func() {
 		expiredAuthenticator := &OIDCAuthenticator{
 			OIDCIss:       "http://idp.example.com",
 			Logger:        log.Logger{zerolog.New(&buf).Level(zerolog.DebugLevel)},
-			oidcClient: &oidcmocks.OIDCClient{},
+			oidcClient:    &oidcmocks.OIDCClient{},
 			userInfoCache: store.NewMemoryStore(),
 			skipUserInfo:  true,
 		}
@@ -129,10 +129,9 @@ var _ = Describe("Authenticating requests", Label("OIDCAuthenticator"), func() {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com/example/path", http.NoBody)
 			req.Header.Set(_headerAuthorization, "Bearer jwt.token.sig")
 
-			req2, valid := expiredAuthenticator.Authenticate(req)
+			result := expiredAuthenticator.Authenticate(req)
 
-			Expect(valid).To(Equal(false))
-			Expect(req2).To(BeNil())
+			Expect(result.State).To(Equal(AuthenticationFailed))
 		})
 
 		It("should log the authentication failure at debug level", func() {
@@ -152,7 +151,7 @@ var _ = Describe("Authenticating requests", Label("OIDCAuthenticator"), func() {
 		failingAuthenticator := &OIDCAuthenticator{
 			OIDCIss:       "http://idp.example.com",
 			Logger:        log.Logger{zerolog.New(&buf).Level(zerolog.DebugLevel)},
-			oidcClient: &oidcmocks.OIDCClient{},
+			oidcClient:    &oidcmocks.OIDCClient{},
 			userInfoCache: store.NewMemoryStore(),
 			skipUserInfo:  true,
 		}

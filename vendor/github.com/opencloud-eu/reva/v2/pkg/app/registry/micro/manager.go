@@ -22,6 +22,7 @@ import (
 	"context"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -222,7 +223,7 @@ func (m *manager) updateProvidersFromMicroRegistry() error {
 	if err != nil {
 		return err
 	}
-	sortByPriority(lst)
+	SortByPriorityThenName(lst)
 	for _, outer := range lst {
 		for _, inner := range outer.MimeTypes {
 			ma[inner] = append(ma[inner], outer)
@@ -245,7 +246,7 @@ func equalsProviderInfo(p1, p2 *registrypb.ProviderInfo) bool {
 	return false
 }
 
-func getPriority(p *registrypb.ProviderInfo) string {
+func GetPriority(p *registrypb.ProviderInfo) string {
 	if p.Opaque != nil && len(p.Opaque.Map) != 0 {
 		if priority, ok := p.Opaque.Map["priority"]; ok {
 			return string(priority.GetValue())
@@ -254,12 +255,13 @@ func getPriority(p *registrypb.ProviderInfo) string {
 	return defaultPriority
 }
 
-func sortByPriority(providers []*registrypb.ProviderInfo) {
-	less := func(i, j int) bool {
-		prioI, _ := strconv.ParseInt(getPriority(providers[i]), 10, 64)
-		prioJ, _ := strconv.ParseInt(getPriority(providers[j]), 10, 64)
-		return prioI < prioJ
-	}
-
-	sort.Slice(providers, less)
+func SortByPriorityThenName(providers []*registrypb.ProviderInfo) {
+	sort.Slice(providers, func(i, j int) bool {
+		prioI, _ := strconv.ParseInt(GetPriority(providers[i]), 10, 64)
+		prioJ, _ := strconv.ParseInt(GetPriority(providers[j]), 10, 64)
+		if prioI != prioJ {
+			return prioI < prioJ
+		}
+		return strings.ToLower(providers[i].GetName()) < strings.ToLower(providers[j].GetName())
+	})
 }

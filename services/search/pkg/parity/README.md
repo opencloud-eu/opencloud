@@ -250,6 +250,15 @@ Fixtures:
 | PATH-06 | `path:"./DOCUMENTS"` | docs-upper | docs-upper | docs-upper | ✅ |
 | PATH-07 | `path:"./Documents"` | docs-mixed | docs-mixed | docs-mixed | ✅ |
 | PATH-08 | `path:"./parent/"` | child.jpg, parent | child.jpg, parent | child.jpg, parent | ✅ |
+| PATH-09 | `path:"/"` | child.jpg, docs-lower, docs-mixed, docs-upper, parent | child.jpg, docs-lower, docs-mixed, docs-upper, parent | child.jpg, docs-lower, docs-mixed, docs-upper, parent | ✅ |
+| PATH-10 | `path:""` | child.jpg, docs-lower, docs-mixed, docs-upper, parent | child.jpg, docs-lower, docs-mixed, docs-upper, parent | child.jpg, docs-lower, docs-mixed, docs-upper, parent | ✅ |
+| PATH-11 | `path:"/parent"` | child.jpg, parent | child.jpg, parent | child.jpg, parent | ✅ |
+| PATH-12 | `path:"parent"` | child.jpg, parent | child.jpg, parent | child.jpg, parent | ✅ |
+| PATH-13 | `path:"parent/*"` | child.jpg | child.jpg | child.jpg | ✅ |
+| PATH-14 | `path:"*/parent"` | child.jpg, parent | child.jpg, parent | child.jpg, parent | ✅ |
+| PATH-15 | `path:"?/parent"` | child.jpg, parent | child.jpg, parent | child.jpg, parent | ✅ |
+| PATH-16 | `path:"*/Documents"` | docs-mixed | docs-mixed | docs-mixed | ✅ |
+| PATH-17 | `path:"*/parent/"` | child.jpg, parent | child.jpg, parent | child.jpg, parent | ✅ |
 
 ### fields
 
@@ -320,6 +329,23 @@ Fixtures:
 | VISIBILITY-05 | `path:"./.private"` | .private, secret.txt | .private, secret.txt | .private, secret.txt | ✅ |
 | VISIBILITY-06 | `hidden:banana` | no match | no match | no match | ✅ |
 | VISIBILITY-07 | `hidden:"true"` | .private, dotfile.txt, secret.txt | .private, dotfile.txt, secret.txt | .private, dotfile.txt, secret.txt | ✅ |
+
+### filter
+
+Fixtures:
+
+- `alice`, ID = 1$1!1, folder, Path = .
+- `.space`, ID = 1$1!.space, folder
+- `readme.md`, ID = 1$1!readme.md, Path = ./.space/readme.md
+- `.spaces`, ID = 1$1!.spaces, folder
+- `notes.md`, ID = 1$1!notes.md
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| FILTER-01 | `path:"./.space"` | .space, readme.md | .space, readme.md | .space, readme.md | ✅ |
+| FILTER-02 | `(name:"*.md") AND (NOT path:"./....NOT id:"none$none!none")` | notes.md | notes.md | notes.md | ✅ |
+| FILTER-03 | `(name:"alice" OR name:".spaces")...ace" AND NOT id:"1$1!1")` | .spaces | .spaces | .spaces | ✅ |
+| FILTER-04 | `(name:"alice") AND (NOT path:"./...NOT id:"none$none!none")` | alice | alice | alice | ✅ |
 
 ### boolean
 
@@ -448,7 +474,46 @@ Fixtures:
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
 | INVALID-01 | `AND mediatype:document` | bad request | bad request | bad request | ✅ |
-| INVALID-02 | `mediatype:document AND` | alpha.txt | alpha.txt | alpha.txt | ✅ |
+| INVALID-02 | `mediatype:document AND` | bad request | bad request | bad request | ✅ |
+| INVALID-03 | `mediatype:document NOT` | bad request | bad request | bad request | ✅ |
+| INVALID-04 | `mediatype:document AND OR name:alpha` | bad request | bad request | bad request | ✅ |
+| INVALID-05 | `(mediatype:document` | bad request | bad request | bad request | ✅ |
+| INVALID-06 | `mediatype:document) OR (name:alpha` | bad request | bad request | bad request | ✅ |
+
+### quoting
+
+Fixtures:
+
+- `Angebot "Quote" Test.txt`, Content = "Der Kunde sagte \"Quotewort\" im Gespraech."
+- `Angebot Quote.txt`, Content = "Quotewort ohne Anfuehrungszeichen"
+- `back\slash.txt`, Content = "liegt unter C:\\temp\\new"
+- `hi-tag.txt`, Tags = say "hi"
+- `slash-tag.txt`, Tags = a/b
+- `root-tag.txt`, Tags = /
+- `backslash-tag.txt`, Tags = back\slash
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| QUOTING-01 | `name:"*""Quote""*"` | Angebot "Quote" Test.txt | Angebot "Quote" Test.txt | Angebot "Quote" Test.txt | ✅ |
+| QUOTING-02 | `name:"*Quote*"` | Angebot "Quote" Test.txt, Angebot Quote.txt | Angebot "Quote" Test.txt, Angebot Quote.txt | Angebot "Quote" Test.txt, Angebot Quote.txt | ✅ |
+| QUOTING-03 | `name:"Angebot ""Quote"" Test.txt"` | Angebot "Quote" Test.txt | Angebot "Quote" Test.txt | Angebot "Quote" Test.txt | ✅ |
+| QUOTING-04 | `name="Angebot ""Quote"" Test.txt"` | Angebot "Quote" Test.txt | Angebot "Quote" Test.txt | Angebot "Quote" Test.txt | ✅ |
+| QUOTING-05 | `content:"""Quotewort"""` | Angebot "Quote" Test.txt, Angebot Quote.txt | Angebot "Quote" Test.txt, Angebot Quote.txt | Angebot "Quote" Test.txt, Angebot Quote.txt | ✅ |
+| QUOTING-06 | `content:"sagte ""Quotewort"""` | Angebot "Quote" Test.txt | Angebot "Quote" Test.txt | Angebot "Quote" Test.txt | ✅ |
+| QUOTING-07 | `name:"*back\slash*"` | back\slash.txt | back\slash.txt | back\slash.txt | ✅ |
+| QUOTING-08 | `name:back\slash.txt` | back\slash.txt | back\slash.txt | back\slash.txt | ✅ |
+| QUOTING-09 | `content:"C:\temp\new"` | back\slash.txt | back\slash.txt | back\slash.txt | ✅ |
+| QUOTING-10 | `content:"foo\"` | no match | no match | no match | ✅ |
+| QUOTING-11 | `name:"*\"Quote\"*"` | no match | no match | no match | ✅ |
+| QUOTING-12 | `tag:"say ""hi"""` | hi-tag.txt | hi-tag.txt | hi-tag.txt | ✅ |
+| QUOTING-13 | `tag:"a/b"` | slash-tag.txt | slash-tag.txt | slash-tag.txt | ✅ |
+| QUOTING-14 | `tag:a/b` | slash-tag.txt | slash-tag.txt | slash-tag.txt | ✅ |
+| QUOTING-15 | `tag:"/"` | root-tag.txt | root-tag.txt | root-tag.txt | ✅ |
+| QUOTING-16 | `tag:"back\slash"` | backslash-tag.txt | backslash-tag.txt | backslash-tag.txt | ✅ |
+| QUOTING-17 | `tag:"*\*"` | backslash-tag.txt | backslash-tag.txt | backslash-tag.txt | ✅ |
+| QUOTING-18 | `name:Quote"` | bad request | bad request | bad request | ✅ |
+| QUOTING-19 | `content:"foo\""` | bad request | bad request | bad request | ✅ |
+| QUOTING-20 | `name:"""` | bad request | bad request | bad request | ✅ |
 
 ## Operations
 
@@ -488,6 +553,10 @@ Fixtures:
 
 - `parent`, ID = 1$1!2, folder
 - `child.pdf`, ID = 1$1!3, Path = ./parent/child.pdf
+- `a`, ID = 1$1!trashed, folder, deleted
+- `x.txt`, ID = 1$1!trashed-x, Path = ./a/x.txt, deleted
+- `a`, ID = 1$1!live, folder
+- `y.txt`, ID = 1$1!live-y, Path = ./a/y.txt
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
@@ -499,6 +568,8 @@ Fixtures:
 | PURGE-02 | removes the tree, then `DocCount()` | 0 | 0 | 0 | ✅ |
 | PURGE-03 | takes only the deleted ones when it is told to, then `name:"*parent*"` | parent | parent | parent | ✅ |
 | PURGE-03 | takes only the deleted ones when it is told to, then `name:"*child*"` | no match | no match | no match | ✅ |
+| PURGE-04 | leaves the live folder that took the trashed one's path alone, then `path:"./a"` | a, y.txt | a, y.txt | a, y.txt | ✅ |
+| PURGE-04 | leaves the live folder that took the trashed one's path alone, then `DocCount()` | 2 | 2 | 2 | ✅ |
 
 ### purgespace
 
@@ -535,6 +606,10 @@ Fixtures:
 - `x.txt`, ID = 1$1!6, Path = ./big2/x.txt
 - `odd name (1)`, ID = 1$1!7, folder
 - `f:x+y.txt`, ID = 1$1!8, Path = ./odd name (1)/f:x+y.txt
+- `a`, ID = 1$1!trashed, folder, deleted
+- `x.txt`, ID = 1$1!trashed-x, Path = ./a/x.txt, deleted
+- `a`, ID = 1$1!live, folder
+- `y.txt`, ID = 1$1!live-y, Path = ./a/y.txt
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
@@ -546,6 +621,8 @@ Fixtures:
 | MOVE-03 | leaves a sibling folder that shares the prefix alone, then `path:"./big2"` | x.txt | x.txt | x.txt | ✅ |
 | MOVE-04 | carries the descendants of a path with special characters, then `path:"./odd name (2)"` | f:x+y.txt, odd name (2) | f:x+y.txt, odd name (2) | f:x+y.txt, odd name (2) | ✅ |
 | MOVE-04 | carries the descendants of a path with special characters, then `path:"./odd name (1)"` | no match | no match | no match | ✅ |
+| MOVE-05 | leaves a trashed folder that shares the path where it is, then `path:"./a"` | a, x.txt | a, x.txt | a, x.txt | ✅ |
+| MOVE-05 | leaves a trashed folder that shares the path where it is, then `path:"./b"` | b, y.txt | b, y.txt | b, y.txt | ✅ |
 
 ### rootscope
 
@@ -697,9 +774,11 @@ Fixtures:
 
 - `some_song.mp3`, ID = 1$1!5, MimeType = audio/mpeg
 - `team.jpg`, ID = 1$1!6, MimeType = image/jpeg
+- `lost.jpg`, ID = 1$1!7, MimeType = image/jpeg
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
 | METADATA-01 | `*song*` reads `Audio` | all 16 fields unchanged | all 16 fields unchanged | all 16 fields unchanged | ✅ |
 | METADATA-02 | `*team*` reads `Location` | all 3 fields unchanged | all 3 fields unchanged | all 3 fields unchanged | ✅ |
+| METADATA-04 | `*lost*` reads `Location` | Latitude=100, Longitude=11.1 | Latitude=100, Longitude=11.1 | Latitude=100, Longitude=11.1 | ✅ |
 | METADATA-03 | `*team*` reads `Audio` | none | none | none | ✅ |

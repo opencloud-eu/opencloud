@@ -262,6 +262,14 @@ func (s *svc) handleMove(ctx context.Context, w http.ResponseWriter, r *http.Req
 			w.WriteHeader(http.StatusPreconditionFailed) // 412, see https://tools.ietf.org/html/rfc4918#section-9.9.4
 			return
 		}
+		// the storage rejects moves across spaces, so fail before the existing tree gets deleted
+		if isCrossSpaceOverwrite(srcStatRes.GetInfo().GetId(), dstStatRes.GetInfo().GetId()) {
+			log.Debug().Interface("src", src).Interface("dst", dst).Msg("cross storage move")
+			w.WriteHeader(http.StatusBadGateway)
+			b, err := errors.Marshal(http.StatusBadGateway, "cross storage moves are not supported, use copy instead", "", "")
+			errors.HandleWebdavError(&log, w, b, err)
+			return
+		}
 		// delete existing tree
 		delReq := &provider.DeleteRequest{Ref: dst}
 		delRes, err := client.Delete(ctx, delReq)
@@ -358,4 +366,13 @@ func (s *svc) handleMove(ctx context.Context, w http.ResponseWriter, r *http.Req
 	w.Header().Set(net.HeaderOCFileID, storagespace.FormatResourceID(info.Id))
 	w.Header().Set(net.HeaderOCETag, info.Etag)
 	w.WriteHeader(successCode)
+}
+
+// isCrossSpaceOverwrite returns whether the destination is a resource in another space than the source.
+// A destination that is the root of a space, like the virtual root of the share jail, is left to the storage.
+func isCrossSpaceOverwrite(src, dst *provider.ResourceId) bool {
+	if dst.GetOpaqueId() == dst.GetSpaceId() {
+		return false
+	}
+	return src.GetStorageId() != dst.GetStorageId() || src.GetSpaceId() != dst.GetSpaceId()
 }

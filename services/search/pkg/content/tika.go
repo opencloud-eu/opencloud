@@ -63,12 +63,12 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 		return doc, nil
 	}
 
-	if ri.Size > t.ContentExtractionSizeLimit {
-		t.logger.Info().Interface("ResourceID", ri.Id).Str("Name", ri.Name).Msg("file exceeds content extraction size limit. skipping.")
+	if ri.Type != provider.ResourceType_RESOURCE_TYPE_FILE {
 		return doc, nil
 	}
 
-	if ri.Type != provider.ResourceType_RESOURCE_TYPE_FILE {
+	if ri.Size > t.ContentExtractionSizeLimit {
+		t.logger.Info().Interface("ResourceID", ri.Id).Str("Name", ri.Name).Msg("file exceeds content extraction size limit. skipping.")
 		return doc, nil
 	}
 
@@ -95,10 +95,10 @@ func (t Tika) Extract(ctx context.Context, ri *provider.ResourceInfo) (Document,
 			doc.Title = strings.TrimSpace(fmt.Sprintf("%s %s", doc.Title, title))
 		}
 
-		// tika 4 renamed the meta prefix from X-TIKA: to tk:
-		if content, err := getFirstValue(meta, "tk:content"); err == nil {
-			doc.Content = strings.TrimSpace(fmt.Sprintf("%s %s", doc.Content, content))
-		} else if content, err := getFirstValue(meta, "X-TIKA:content"); err == nil {
+		if content, err := getFirstValue(meta,
+			"tk:content",     // tika 4
+			"X-TIKA:content", // tika 3 legacy
+		); err == nil {
 			doc.Content = strings.TrimSpace(fmt.Sprintf("%s %s", doc.Content, content))
 		}
 	}

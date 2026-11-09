@@ -85,13 +85,6 @@ func (s *Store[K, V]) Lock(key K) func() {
 	return mu.Unlock
 }
 
-// IsCached reports whether key has a cached entry without consulting storage.
-// The caller must hold the per-key lock.
-func (s *Store[K, V]) IsCached(key K) bool {
-	_, ok := s.entries.Load(key)
-	return ok
-}
-
 // Get syncs from storage and returns the current value for key.
 // The caller must hold the per-key lock.
 // Returns (zero, false, nil) when the key does not exist in storage.
@@ -129,8 +122,8 @@ func (s *Store[K, V]) Set(key K, v V) {
 }
 
 // Sync downloads the current state of key from storage and updates the cache.
-// It is a no-op (returns nil) when the key does not exist in storage or when
-// the stored etag matches the cached etag (NotModified).
+// It is a no-op (returns nil) when the stored etag matches the cached etag (NotModified).
+// If the key does not exist in storage, the cached entry is removed and nil is returned.
 // The caller must hold the per-key lock.
 func (s *Store[K, V]) Sync(ctx context.Context, key K) error {
 	ctx, span := appctx.GetTracerProvider(ctx).Tracer(tracerName).Start(ctx, "Sync")
@@ -151,6 +144,7 @@ func (s *Store[K, V]) Sync(ctx context.Context, key K) error {
 		// fall through to unmarshal
 	case errtypes.NotFound:
 		span.SetStatus(codes.Ok, "not found")
+		s.entries.Delete(key)
 		return nil
 	case errtypes.NotModified:
 		span.SetStatus(codes.Ok, "not modified")
@@ -231,7 +225,8 @@ func (s *Store[K, V]) Persist(ctx context.Context, key K) error {
 }
 
 // Update atomically reads, transforms, and (conditionally) persists the value
-// for key.  It acquires the per-key lock internally; callers must not hold it.
+// for key. It synchronizes the value from storage first and acquires the
+// per-key lock internally; callers must not hold it.
 //
 // fn receives the current value and returns (newValue, shouldPersist, error).
 // When shouldPersist is false the update is skipped entirely (useful for
@@ -256,13 +251,12 @@ func (s *Store[K, V]) Update(ctx context.Context, key K, createIfNotFound bool, 
 	unlock := s.Lock(key)
 	defer unlock()
 
-	// Warm the cache on first access.
-	if !s.IsCached(key) {
-		if err := s.Sync(ctx, key); err != nil {
-			span.RecordError(err)
-			span.SetStatus(codes.Error, err.Error())
-			return err
-		}
+	// Always synchronize before updating, so changes from other processes are
+	// included. Sync uses the cached etag for a conditional download.
+	if err := s.Sync(ctx, key); err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		return err
 	}
 
 	var lastErr error

@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "ecdsa",
@@ -12,4 +12,14 @@ alias(
     name = "go_default_library",
     actual = ":ecdsa",
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "ecdsa_test",
+    srcs = ["ecdsa_test.go"],
+    embed = [":ecdsa"],
+    deps = [
+        "//jwa",
+        "@com_github_stretchr_testify//require",
+    ],
 )

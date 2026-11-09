@@ -35,6 +35,8 @@ import (
 type wayfHandler struct {
 	directoryServices []ocmd.DirectoryService
 	ocmClient         *ocmd.OCMClient
+	// for /discover, where the host comes from the request body, not from config
+	untrustedClient *ocmd.OCMClient
 }
 
 type DiscoverRequest struct {
@@ -66,6 +68,7 @@ func (h *wayfHandler) init(c *config) error {
 
 	// Create OCM client for discovery from config
 	h.ocmClient = ocmd.NewClient(time.Duration(c.OCMClientTimeout)*time.Second, c.OCMClientInsecure)
+	h.untrustedClient = ocmd.NewPublicOnlyClient(time.Duration(c.OCMClientTimeout)*time.Second, c.OCMClientInsecure)
 	log.Debug().
 		Int("timeout_seconds", c.OCMClientTimeout).
 		Bool("insecure", c.OCMClientInsecure).
@@ -216,7 +219,7 @@ func (h *wayfHandler) DiscoverProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Debug().Str("domain", domain).Msg("Attempting OCM discovery")
-	disco, err := h.ocmClient.Discover(ctx, domain)
+	disco, err := h.untrustedClient.Discover(ctx, domain)
 	if err != nil {
 		log.Info().Err(err).Str("domain", domain).Msg("Discovery failed")
 		reqres.WriteError(w, r, reqres.APIErrorNotFound,

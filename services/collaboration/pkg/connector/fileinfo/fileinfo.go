@@ -51,6 +51,7 @@ const (
 	KeyIsAnonymousUser              = "IsAnonymousUser"
 	KeyIsEduUser                    = "IsEduUser"
 	KeyIsAdminUser                  = "IsAdminUser"
+	KeyIsUserLocked                 = "IsUserLocked"
 	KeyLicenseCheckForEditIsEnabled = "LicenseCheckForEditIsEnabled"
 	KeyUserFriendlyName             = "UserFriendlyName"
 	KeyUserInfo                     = "UserInfo"

@@ -200,7 +200,9 @@ func sendEvent(ev *Event, s *subscriber) error {
 	}
 	evCopy.SetAckFunc(ackFunc(s, evCopy))
 	evCopy.SetNackFunc(nackFunc(s, evCopy))
+	s.Lock()
 	s.retryMap[evCopy.ID] = 0
+	s.Unlock()
 	tick := time.NewTicker(s.ackWait)
 	defer tick.Stop()
 	for range tick.C {

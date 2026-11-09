@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/url"
@@ -39,7 +39,6 @@ import (
 
 	"github.com/klauspost/compress/s2"
 	"github.com/nats-io/jwt/v2"
-	"github.com/nats-io/nats-server/v2/internal/fastrand"
 )
 
 // Type of client connection.
@@ -229,6 +228,7 @@ const (
 
 // Some flags passed to processMsgResults
 const pmrNoFlag int = 0
+
 const (
 	pmrCollectQueueNames int = 1 << iota
 	pmrIgnoreEmptyQueueFilter
@@ -362,9 +362,11 @@ type outbound struct {
 
 const nbMaxVectorSize = 1024 // == IOV_MAX on Linux/Darwin and most other Unices (except Solaris/AIX)
 
-const nbPoolSizeSmall = 512   // Underlying array size of small buffer
-const nbPoolSizeMedium = 4096 // Underlying array size of medium buffer
-const nbPoolSizeLarge = 65536 // Underlying array size of large buffer
+const (
+	nbPoolSizeSmall  = 512   // Underlying array size of small buffer
+	nbPoolSizeMedium = 4096  // Underlying array size of medium buffer
+	nbPoolSizeLarge  = 65536 // Underlying array size of large buffer
+)
 
 var nbPoolSmall = &sync.Pool{
 	New: func() any {
@@ -647,6 +649,7 @@ type subscription struct {
 	im      *streamImport // This is for import stream support.
 	rsi     bool
 	si      bool
+	leaf    bool            // Subscription interest originated from a leaf node.
 	shadow  []*subscription // This is to track shadowed accounts.
 	icb     msgHandler
 	subject []byte
@@ -703,8 +706,10 @@ type ClientOpts struct {
 	ProxySig string `json:"proxy_sig,omitempty"`
 }
 
-var defaultOpts = ClientOpts{Verbose: true, Pedantic: true, Echo: true}
-var internalOpts = ClientOpts{Verbose: false, Pedantic: false, Echo: false}
+var (
+	defaultOpts  = ClientOpts{Verbose: true, Pedantic: true, Echo: true}
+	internalOpts = ClientOpts{Verbose: false, Pedantic: false, Echo: false}
+)
 
 func (c *client) setTraceLevel() {
 	if c.kind == SYSTEM && !(atomic.LoadInt32(&c.srv.logging.traceSysAcc) != 0) {
@@ -720,7 +725,7 @@ func (c *client) initClient() {
 	c.cid = atomic.AddUint64(&s.gcid, 1)
 
 	// Outbound data structure setup
-	c.out.sg = sync.NewCond(&(c.mu))
+	c.out.sg = sync.NewCond(&c.mu)
 	opts := s.getOpts()
 	// Snapshots to avoid mutex access in fast paths.
 	c.out.wdl = opts.WriteDeadline
@@ -876,8 +881,11 @@ func (c *client) registerWithAccount(acc *Account) error {
 		return ErrBadAccount
 	}
 	// If we were previously registered, usually to $G, do accounting here to remove.
-	if c.acc != nil {
-		if prev := c.acc.removeClient(c); prev == 1 && c.srv != nil {
+	c.mu.Lock()
+	prevAcc := c.acc
+	c.mu.Unlock()
+	if prevAcc != nil {
+		if prev := prevAcc.removeClient(c); prev == 1 && c.srv != nil {
 			c.srv.decActiveAccounts()
 		}
 	}
@@ -1691,7 +1699,7 @@ func (c *client) readLoop(pre []byte) {
 			return
 		}
 
-		if cpacc && (c.in.start.Sub(lpacc)) >= closedSubsCheckInterval {
+		if cpacc && c.in.start.Sub(lpacc) >= closedSubsCheckInterval {
 			c.pruneClosedSubFromPerAccountCache()
 			lpacc = time.Now()
 		}
@@ -1810,7 +1818,7 @@ func (c *client) flushOutbound() bool {
 	}
 
 	// This is safe to do outside of the lock since "collapsed" is no longer
-	// referenced in c.out.nb (which can be modified in queueOutboud() while
+	// referenced in c.out.nb (which can be modified in queueOutbound() while
 	// the lock is released).
 	c.out.wnb = append(c.out.wnb, collapsed...)
 	var _orig [nbMaxVectorSize][]byte
@@ -1841,7 +1849,6 @@ func (c *client) flushOutbound() bool {
 		// can be tuned to a known maximum quantity (64MB).
 		nc.SetWriteDeadline(time.Now().Add(wdl))
 		wn, err = wnb.WriteTo(nc)
-		nc.SetWriteDeadline(time.Time{})
 
 		// Update accounting, move wnb slice onwards if needed, or stop
 		// if a write error was reported that wasn't a short write.
@@ -1851,6 +1858,10 @@ func (c *client) flushOutbound() bool {
 			break
 		}
 	}
+
+	// The deadline is overwritten at the start of each iteration anyway,
+	// so only needed to clear the write deadline once after the loop.
+	nc.SetWriteDeadline(time.Time{})
 
 	lft := time.Since(start)
 
@@ -1862,6 +1873,20 @@ func (c *client) flushOutbound() bool {
 		c.out.pb += attempted
 		if c.isWebsocket() {
 			c.ws.fs += attempted
+		}
+	}
+
+	// In case of a partial write, WriteTo will have resliced the buffer
+	// to drop the written bytes. As a side effect this will also change
+	// its capacity so it can't be recycled by nbPoolPut as originally intended
+	// and may either leak or land in the wrong pool.
+	// Prevent this by putting the remaining bytes back to the start of the slice
+	// so that it keeps its full capacity and is recycled once fully written or
+	// when the connection is closed.
+	if rem := len(c.out.wnb); rem > 0 && rem <= len(orig) {
+		if k := len(orig) - rem; len(c.out.wnb[0]) < len(orig[k]) {
+			n := copy(orig[k], c.out.wnb[0])
+			c.out.wnb[0] = orig[k][:n]
 		}
 	}
 
@@ -1885,7 +1910,7 @@ func (c *client) flushOutbound() bool {
 	// If we've written everything but the underlying array of our working
 	// buffer has grown excessively then free it — the GC will tidy it up
 	// and we can allocate a new one next time.
-	if len(c.out.wnb) == 0 && cap(c.out.wnb) > nbPoolSizeLarge*8 {
+	if len(c.out.wnb) == 0 && cap(c.out.wnb) > nbMaxVectorSize {
 		c.out.wnb = nil
 	}
 
@@ -5222,7 +5247,7 @@ func (c *client) processMsgResults(acc *Account, r *SublistResult, msg, deliver,
 	}
 
 	var rplyHasGWPrefix bool
-	var creply = reply
+	creply := reply
 
 	// If the reply subject is a GW routed reply, we will perform some
 	// tracking in deliverMsg(). We also want to send to the user the
@@ -5496,7 +5521,7 @@ func (c *client) processMsgResults(acc *Account, r *SublistResult, msg, deliver,
 						// We already have a LEAF and this is another one.
 						// Flip a coin to see if we swap it or not.
 						// See https://github.com/nats-io/nats-server/issues/6040
-						if fastrand.Uint32()%2 == 1 {
+						if rand.Uint32()%2 == 1 {
 							rsub = sub
 						}
 					}
@@ -5510,7 +5535,7 @@ func (c *client) processMsgResults(acc *Account, r *SublistResult, msg, deliver,
 		sindex := 0
 		lqs := len(qsubs)
 		if lqs > 1 {
-			sindex = int(fastrand.Uint32() % uint32(lqs))
+			sindex = int(rand.Uint32() % uint32(lqs))
 		}
 
 		// Find a subscription that is able to deliver this message starting at a random index.
@@ -5551,9 +5576,8 @@ func (c *client) processMsgResults(acc *Account, r *SublistResult, msg, deliver,
 					continue
 				} else {
 					// We want to favor qsubs in our own cluster. If the routed
-					// qsub has an origin, it means that is on behalf of a leaf.
-					// We need to treat it differently.
-					if len(sub.origin) > 0 {
+					// qsub is on behalf of a leaf, we need to treat it differently.
+					if sub.leaf {
 						// If we already have an rsub, nothing to do. Also, do
 						// not pick a routed qsub for a LEAF origin cluster
 						// that is the same than where the message comes from.
@@ -6309,12 +6333,12 @@ func (c *client) clearAccountSubs(close bool) {
 		// Process any qsubs here.
 		for _, esub := range qsubs {
 			if !spoke {
-				srv.updateRouteSubscriptionMap(acc, esub.sub, -(esub.n))
+				srv.updateRouteSubscriptionMap(acc, esub.sub, -esub.n)
 				if srv.gateway.enabled {
-					srv.gatewayUpdateSubInterest(acc.Name, esub.sub, -(esub.n))
+					srv.gatewayUpdateSubInterest(acc.Name, esub.sub, -esub.n)
 				}
 			}
-			acc.updateLeafNodes(esub.sub, -(esub.n))
+			acc.updateLeafNodes(esub.sub, -esub.n)
 		}
 	}
 
@@ -7013,7 +7037,7 @@ func (c *client) setFirstPingTimer() {
 		}
 	}
 	// We randomize the first one by an offset up to 20%, e.g. 2m ~= max 24s.
-	addDelay := rand.Int63n(int64(d / 5))
+	addDelay := rand.Int64N(int64(d / 5))
 	d += time.Duration(addDelay)
 	// In the case of ROUTER/LEAF and when compression is configured, it is possible
 	// that this timer was already set, but just to detect a stale connection

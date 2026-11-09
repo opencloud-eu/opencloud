@@ -50,7 +50,8 @@ func (i *Ignorer) IsIgnored(path string) bool {
 		i.IsTemporary(path) ||
 		i.IsUpload(path) ||
 		i.IsRootPath(path) ||
-		i.IsSpaceRoot(path)
+		i.IsSpaceRoot(path) ||
+		i.IsPurging(path)
 }
 
 func (i *Ignorer) IsChanges(path string) bool {
@@ -74,6 +75,16 @@ func (i *Ignorer) IsRootPath(path string) bool {
 func (i *Ignorer) IsSpaceRoot(path string) bool {
 	parent := filepath.Dir(path)
 	return parent == i.personalSpacesRoot || parent == i.projectSpacesRoot
+}
+
+// IsPurging checks if the path lies in a space root that was renamed for purging
+func (i *Ignorer) IsPurging(path string) bool {
+	for _, root := range []string{i.personalSpacesRoot, i.projectSpacesRoot} {
+		if rel, ok := strings.CutPrefix(path, root+string(filepath.Separator)); ok && strings.HasPrefix(rel, lookup.PurgeDirPrefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func IsLockFile(path string) bool {

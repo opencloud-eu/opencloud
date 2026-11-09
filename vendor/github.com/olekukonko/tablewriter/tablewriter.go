@@ -981,7 +981,7 @@ func (t *Table) prepareContent(cells []string, config tw.CellConfig) [][]string 
 		padLeftWidth := twwidth.Width(colPad.Left)
 		padRightWidth := twwidth.Width(colPad.Right)
 
-		effectiveContentMaxWidth := t.calculateContentMaxWidth(i, config, padLeftWidth, padRightWidth, isStreaming)
+		effectiveContentMaxWidth := t.calculateContentMaxWidth(i, config, padLeftWidth, padRightWidth, isStreaming, effectiveNumCols)
 
 		if config.Formatting.AutoFormat.Enabled() {
 			cellContent = tw.Title(strings.Join(tw.SplitCamelCase(cellContent), tw.Space))

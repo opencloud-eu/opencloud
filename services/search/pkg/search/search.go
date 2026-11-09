@@ -11,12 +11,13 @@ import (
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
-	"github.com/opencloud-eu/opencloud/pkg/ast"
-	"github.com/opencloud-eu/opencloud/pkg/kql"
 	"github.com/opencloud-eu/reva/v2/pkg/conversions"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/grants"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
+
+	"github.com/opencloud-eu/opencloud/pkg/ast"
+	"github.com/opencloud-eu/opencloud/pkg/kql"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	searchmsg "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/messages/search/v0"
@@ -31,7 +32,8 @@ import (
 // colliding with the old one. No migration; reindex to populate.
 const SchemaVersion = 5
 
-var scopeRegex = regexp.MustCompile(`scope:\s*([^" "\n\r]*)`)
+// the scope clause is removed together with the boolean operator that joins it to the rest of the query.
+var scopeRegex = regexp.MustCompile(`(?:(?:AND|OR)\s+)?scope:\s*([^" "\n\r]*)(?:\s+(?:AND|OR)\b)?`)
 
 // Engine is the interface to the search engine
 type Engine interface {
@@ -249,6 +251,10 @@ func PinnedRootID(query string) string {
 	if err != nil {
 		return ""
 	}
+	return pinnedRootID(a)
+}
+
+func pinnedRootID(a *ast.Ast) string {
 	pinned := ""
 	negated := false
 	for _, n := range a.Nodes {
@@ -297,18 +303,4 @@ func ParseScope(query string) (string, string) {
 		return strings.TrimSpace(strings.ReplaceAll(query, cut, "")), strings.TrimSpace(match[1])
 	}
 	return query, ""
-}
-
-// ParseFlags extracts supported flags from the query string and returns the cleaned query and a map of flags
-func ParseFlags(query string) (string, []string) {
-	supportedFlags := []string{"is:favorite"}
-	flags := []string{}
-	for _, flag := range supportedFlags {
-		if strings.Contains(query, flag) {
-			flags = append(flags, flag)
-			query = strings.ReplaceAll(query, flag, "")
-		}
-	}
-
-	return strings.TrimSpace(query), flags
 }

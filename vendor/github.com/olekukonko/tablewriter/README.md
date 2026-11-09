@@ -28,7 +28,7 @@ go get github.com/olekukonko/tablewriter@v0.0.5
 #### Latest  Version
 The latest stable version
 ```bash
-go get github.com/olekukonko/tablewriter@v1.1.3
+go get github.com/olekukonko/tablewriter@v1.1.5
 ```
 
 **Warning:** Version `v1.0.0` contains missing functionality and should not be used.
@@ -62,7 +62,7 @@ func main() {
 	data := [][]string{
 		{"Package", "Version", "Status"},
 		{"tablewriter", "v0.0.5", "legacy"},
-		{"tablewriter", "v1.1.3", "latest"},
+		{"tablewriter", "v1.1.5", "latest"},
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
@@ -77,7 +77,7 @@ func main() {
 │   PACKAGE   │ VERSION │ STATUS │
 ├─────────────┼─────────┼────────┤
 │ tablewriter │ v0.0.5  │ legacy │
-│ tablewriter │ v1.1.3  │ latest │
+│ tablewriter │ v1.1.5  │ latest │
 └─────────────┴─────────┴────────┘
 ```
 
@@ -425,6 +425,30 @@ func main() {
 **Output** (colors visible in ANSI-compatible terminals):
 
 ![Colorized Table with Long Values](_readme/color_1.png "Title")
+
+##### 24-bit (RGB / true color) tints
+
+Besides the named `color.Fg*`/`color.Bg*` attributes, tints accept 24-bit
+colors. `renderer.RGB` and `renderer.BgRGB` take red, green and blue channels
+(0-255, out-of-range values are clamped), while `renderer.Hex`/`renderer.BgHex`
+parse a `#RRGGBB` or `#RGB` string. All of them return a `renderer.Colors`, so
+they slot in wherever named attributes do and can be combined with `append`:
+
+```go
+orange, _ := renderer.Hex("#ff8800")
+
+colorCfg := renderer.ColorizedConfig{
+	// Bold orange headers on a dark-grey background.
+	Header: renderer.Tint{
+		FG: append(orange, color.Bold),
+		BG: renderer.BgRGB(30, 30, 30),
+	},
+	// Teal rows.
+	Column: renderer.Tint{FG: renderer.RGB(0, 200, 180)},
+}
+```
+
+Terminals without true-color support may approximate or ignore these colors.
 
 #### 5. Streaming Table with Truncation
 

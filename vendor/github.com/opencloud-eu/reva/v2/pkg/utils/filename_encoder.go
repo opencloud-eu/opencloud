@@ -2,7 +2,6 @@ package utils
 
 import (
 	"encoding/base64"
-	"strings"
 
 	grouppb "github.com/cs3org/go-cs3apis/cs3/identity/group/v1beta1"
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
@@ -28,7 +27,7 @@ func (id FSSafeUserID) SafeFilename() string {
 		// it lowercase: RFC 5321 does specify that email address local-parts
 		// are case sensitive but, in practice, it's a de-facto standard that
 		// email providers consider them to be case insensitive:
-		return base64.RawURLEncoding.EncodeToString([]byte(strings.ToLower(opaqueID)))
+		return base64.RawURLEncoding.EncodeToString([]byte(LowerASCII(opaqueID)))
 	}
 	return opaqueID
 }

@@ -134,19 +134,38 @@ Note that a disabled role does not lose previously assigned permissions. It only
 
 The following roles are **enabled** by default:
 
-- `UnifiedRoleViewerID`
-- `UnifiedRoleSpaceViewer`
-- `UnifiedRoleEditor`
-- `UnifiedRoleSpaceEditor`
-- `UnifiedRoleFileEditor`
-- `UnifiedRoleEditorLite`
-- `UnifiedRoleManager`
+| Role                       | UID                                    |
+|----------------------------|----------------------------------------|
+| `UnifiedRoleViewerID`      | `b1e2218d-eef8-4d4c-b82d-0f1a1b48f3b5` |
+| `UnifiedRoleSpaceViewerID` | `a8d5fe5e-96e3-418d-825b-534dbdf22b99` |
+| `UnifiedRoleEditorID`      | `fb6c3e19-e378-47e5-b277-9732f9de6e21` |
+| `UnifiedRoleSpaceEditorID` | `58c63c02-1d89-4572-916a-870abc5a1b7d` |
+| `UnifiedRoleFileEditorID`  | `2d00ce52-1fc2-4dbc-8b95-a73b73395f5a` |
+| `UnifiedRoleEditorLiteID`  | `1c996275-f1c9-4e71-abdf-a42f6495e960` |
+| `UnifiedRoleManagerID`     | `312c0871-5ef7-4b3a-85b6-0e4074c64049` |
 
-The following role is **disabled** by default:
+The following roles are **disabled** by default:
 
-- `UnifiedRoleSecureViewer`
+| Role                                                     | UID                                    |
+|----------------------------------------------------------|----------------------------------------|
+| `UnifiedRoleSecureViewerID`                              | `aa97fe03-7980-45ac-9e50-b325749fd7e6` |
+| `UnifiedRoleSpaceViewerWithVersionsID`                   | `3de465fc-6e17-4839-8b8a-a77cc497878b` |
+| `UnifiedRoleSpaceEditorWithoutVersionsID`                | `3284f2d5-0070-4ad8-ac40-c247f7c1fb27` |
+| `UnifiedRoleSpaceEditorWithoutTrashbinID`                | `8f4701d9-c68f-4109-a482-88e22ee32805` |
+| `UnifiedRoleSpaceEditorWithoutVersionsWithoutTrashbinID` | `a5f73816-4d4b-452d-8973-3b61c3d0bed4` |
+| `UnifiedRoleViewerListGrantsID`                          | `d5041006-ebb3-4b4a-b6a4-7c180ecfb17d` |
+| `UnifiedRoleEditorListGrantsID`                          | `e8ea8b21-abd4-45d2-b893-8d1546378e9e` |
+| `UnifiedRoleEditorListGrantsWithVersionsID`              | `0911d62b-1e3f-4778-8b1b-903b7e4e8476` |
+| `UnifiedRoleFileEditorListGrantsID`                      | `c1235aea-d106-42db-8458-7d5610fb0a67` |
+| `UnifiedRoleFileEditorListGrantsWithVersionsID`          | `b173329d-cf2e-42f0-a595-ee410645d840` |
+| `UnifiedRoleViewerWithVersionsID`                        | `d1e2218d-eef8-4d4c-b82d-0f1a1b48f3b5` |
+| `UnifiedRoleEditorWithVersionsID`                        | `b8c6e1c9-5d2a-4f0e-9c3b-1a2b3c4d5e6f` |
+| `UnifiedRoleFileEditorWithVersionsID`                    | `3d00ce52-1fc2-4dbc-8b95-a73b73395f5a` |
+| `UnifiedRoleDeniedID`                                    | `63e64e19-8d43-42ec-a738-2b6af2610efa` |
 
-To enable disabled roles like the `UnifiedRoleSecureViewer`, you must provide the UID(s) by one of the following methods:
+The list of disabled roles is defined in `_disabledByDefaultUnifiedRoleRoleIDs` in `pkg/config/defaults/defaultconfig.go`.
+
+To enable disabled roles like the `UnifiedRoleSecureViewerID`, you must provide the UID(s) by one of the following methods:
 
 - Using the `GRAPH_AVAILABLE_ROLES` environment variable.
 - Setting the `available_roles` configuration value.
@@ -183,6 +202,34 @@ The output of this command includes the following information for each role:
 |                                      |          |                                |                                | libre.graph/driveItem/basic/read         |
 +--------------------------------------+----------+--------------------------------+--------------------------------+------------------------------------------+
 ```
+
+### Allowed Resource Actions
+
+The permissions of a role are Libre Graph actions on the shared `driveItem`. Each action maps to exactly one [CS3 ResourcePermission](https://cs3org.github.io/cs3apis/#cs3.storage.provider.v1beta1.ResourcePermissions) of the storage:
+
+| Action                                     | CS3 permission           | Meaning                                           |
+|--------------------------------------------|--------------------------|---------------------------------------------------|
+| `libre.graph/driveItem/basic/read`         | `stat`                   | See the item and its details (name, size, date)   |
+| `libre.graph/driveItem/path/read`          | `get_path`               | See where the item is located                     |
+| `libre.graph/driveItem/quota/read`         | `get_quota`              | See the quota                                     |
+| `libre.graph/driveItem/children/read`      | `list_container`         | List the contents of a folder                     |
+| `libre.graph/driveItem/content/read`       | `initiate_file_download` | Download and open files                           |
+| `libre.graph/driveItem/upload/create`      | `initiate_file_upload`   | Upload files and save changes                     |
+| `libre.graph/driveItem/children/create`    | `create_container`       | Create folders                                    |
+| `libre.graph/driveItem/path/update`        | `move`                   | Rename and move                                   |
+| `libre.graph/driveItem/standard/delete`    | `delete`                 | Delete                                            |
+| `libre.graph/driveItem/versions/read`      | `list_file_versions`     | List the versions of a file                       |
+| `libre.graph/driveItem/versions/update`    | `restore_file_version`   | Restore a version                                 |
+| `libre.graph/driveItem/deleted/read`       | `list_recycle`           | List deleted items                                |
+| `libre.graph/driveItem/deleted/update`     | `restore_recycle_item`   | Restore deleted items                             |
+| `libre.graph/driveItem/deleted/delete`     | `purge_recycle`          | Empty the trash bin                               |
+| `libre.graph/driveItem/permissions/read`   | `list_grants`            | See who has access                                |
+| `libre.graph/driveItem/permissions/create` | `add_grant`              | Add people                                        |
+| `libre.graph/driveItem/permissions/update` | `update_grant`           | Change the access of people                       |
+| `libre.graph/driveItem/permissions/delete` | `remove_grant`           | Remove people                                     |
+| `libre.graph/driveItem/permissions/deny`   | `deny_grant`             | Deny access (Experimental, candidate for removal) |
+
+The conversion is implemented in `CS3ResourcePermissionsToLibregraphActions` and `PermissionsToCS3ResourcePermissions` in `pkg/unifiedrole/conversion.go`.
 
 ## API Handlers
 

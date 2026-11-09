@@ -28,7 +28,9 @@ import (
 
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/google/uuid"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/metadata/prefixes"
 	"github.com/pkg/errors"
+	"github.com/rogpeppe/go-internal/lockedfile"
 	tusd "github.com/tus/tusd/v2/pkg/handler"
 
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
@@ -44,8 +46,7 @@ import (
 )
 
 // Upload uploads data to the given resource
-// TODO Upload (and InitiateUpload) needs a way to receive the expected checksum.
-// Maybe in metadata as 'checksum' => 'sha1 aeosvp45w5xaeoe' = lowercase, space separated?
+// TODO(OCISDEV-901): remove Upload once all drivers are migrated to CommitUpload and the coordinator (OCISDEV-900) is in place.
 func (fs *Decomposedfs) Upload(ctx context.Context, req storage.UploadRequest, uff storage.UploadFinishedFunc) (*provider.ResourceInfo, error) {
 	_, span := tracer.Start(ctx, "Upload")
 	defer span.End()
@@ -129,8 +130,7 @@ func (fs *Decomposedfs) Upload(ctx context.Context, req storage.UploadRequest, u
 }
 
 // InitiateUpload returns upload ids corresponding to different protocols it supports
-// TODO read optional content for small files in this request
-// TODO InitiateUpload (and Upload) needs a way to receive the expected checksum. Maybe in metadata as 'checksum' => 'sha1 aeosvp45w5xaeoe' = lowercase, space separated?
+// TODO(OCISDEV-901): remove InitiateUpload once all drivers are migrated to CommitUpload and the coordinator (OCISDEV-900) is in place.
 func (fs *Decomposedfs) InitiateUpload(ctx context.Context, ref *provider.Reference, uploadLength int64, metadata map[string]string) (map[string]string, error) {
 	_, span := tracer.Start(ctx, "InitiateUpload")
 	defer span.End()
@@ -339,6 +339,92 @@ func (fs *Decomposedfs) InitiateUpload(ctx context.Context, ref *provider.Refere
 		"simple": session.ID(),
 		"tus":    session.ID(),
 	}, nil
+}
+
+// MarkProcessing toggles a processing flag on the resource.
+func (fs *Decomposedfs) MarkProcessing(ctx context.Context, ref *provider.Reference, processing bool, sessionID string) error {
+	n, err := fs.lu.NodeFromResource(ctx, ref)
+	if err != nil {
+		return err
+	}
+	if !n.Exists {
+		return errtypes.NotFound(ref.String())
+	}
+
+	// Early lock, so MarkProcessing is atomic.
+	f, err := lockedfile.OpenFile(fs.lu.MetadataBackend().LockfilePath(n.InternalPath()), os.O_RDWR|os.O_CREATE, 0600)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if cerr := f.Close(); cerr != nil {
+			appctx.GetLogger(ctx).Error().Err(cerr).Str("nodeid", n.ID).Msg("could not close mark-processing lock")
+		}
+	}()
+
+	// Evict the node's in-process xattr cache so IsProcessing reads from disk while we hold the lock.
+	n.ResetXattrsCache()
+
+	if !processing {
+		if !n.IsProcessing(ctx) {
+			return nil
+		}
+		id, _ := n.ProcessingID(ctx)
+		if id != sessionID {
+			return nil // owned by a different session, do not clear
+		}
+		return n.RemoveXattr(ctx, prefixes.StatusPrefix, false)
+	}
+
+	if n.IsProcessing(ctx) {
+		return errtypes.ResourceProcessing(ref.String())
+	}
+	return n.SetXattrsWithContext(ctx, node.Attributes{
+		prefixes.StatusPrefix: []byte(node.ProcessingStatus + sessionID),
+	}, false) // acquireLock=false, because outer lock already held
+}
+
+// CommitUpload writes the staged bytes from source to the resource at ref.
+// sessionID is used to identify the correct blob slot prepared before postprocessing.
+// Caller owns source.Body and must close it after CommitUpload returns.
+func (fs *Decomposedfs) CommitUpload(ctx context.Context, ref *provider.Reference, sessionID string, source storage.UploadSource) error {
+	if source.Body == nil {
+		return errtypes.BadRequest("Decomposedfs: source body is nil")
+	}
+	if sessionID == "" {
+		return errtypes.BadRequest("Decomposedfs: sessionID is empty")
+	}
+
+	n, err := fs.lu.NodeFromResource(ctx, ref)
+	if err != nil {
+		appctx.GetLogger(ctx).Error().Err(err).Msg("CommitUpload: unexpected NodeFromResource failure")
+		return errtypes.InternalError("CommitUpload: node lookup failed unexpectedly")
+	}
+	if !n.Exists {
+		return errtypes.NotFound(ref.String())
+	}
+
+	blobNode := node.New(n.SpaceID, n.ID, "", "", source.Length, sessionID,
+		provider.ResourceType_RESOURCE_TYPE_FILE, nil, fs.lu)
+
+	if err := fs.tp.WriteBlobFromReader(blobNode, source.Body, source.Length); err != nil {
+		if derr := fs.tp.DeleteBlob(blobNode); derr != nil {
+			appctx.GetLogger(ctx).Error().Err(derr).Str("nodeid", n.ID).Str("blobid", sessionID).Msg("could not clean up orphaned blob after failed write")
+		}
+		return errors.Wrap(err, "Decomposedfs: failed to write blob")
+	}
+
+	now := time.Now()
+	if p, err := n.Parent(ctx); err != nil {
+		appctx.GetLogger(ctx).Error().Err(err).Str("nodeid", n.ID).Msg("could not read parent for etag propagation")
+	} else {
+		_ = p.SetTMTime(ctx, &now)
+		if err := fs.tp.Propagate(ctx, p, 0); err != nil {
+			appctx.GetLogger(ctx).Error().Err(err).Str("nodeid", n.ID).Msg("could not propagate etag change")
+		}
+	}
+
+	return nil
 }
 
 // UseIn tells the tus upload middleware which extensions it supports.

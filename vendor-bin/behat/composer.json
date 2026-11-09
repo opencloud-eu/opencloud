@@ -6,7 +6,7 @@
     "rdx/behat-variables": "^1.2",
     "sabre/xml": "^4.1",
     "guzzlehttp/guzzle": "^8.0",
-    "phpunit/phpunit": "^13.3",
+    "phpunit/phpunit": "~13.3.0",
     "laminas/laminas-ldap": "^2.20",
     "swaggest/json-schema": "^0.12",
     "splitbrain/php-archive": "^1.5",

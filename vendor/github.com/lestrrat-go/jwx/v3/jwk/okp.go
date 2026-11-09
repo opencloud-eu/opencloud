@@ -40,7 +40,7 @@ func (k *okpPrivateKey) KeyKind() KeyKind { return okpKeyKind(k.Crv) }
 // Because this is an elliptic curve based Diffie Hellman protocol, it is also referred to
 // as ECDH.
 //
-// OKP keys are used to represent private/public pairs of thse elliptic curve
+// OKP keys are used to represent private/public pairs of these elliptic curve
 // keys. But note that the name just means Octet Key Pair.
 
 func (k *okpPublicKey) Import(rawKeyIf any) error {

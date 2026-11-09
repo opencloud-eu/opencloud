@@ -67,7 +67,10 @@ func (session *DecomposedFsSession) WriteChunk(ctx context.Context, _ int64, src
 	_, subspan := tracer.Start(ctx, "os.OpenFile")
 	file, err := os.OpenFile(session.binPath(), os.O_WRONLY|os.O_APPEND, defaultFilePerm)
 	subspan.End()
+
+	log := appctx.GetLogger(ctx)
 	if err != nil {
+		log.Error().Err(err).Msg("WriteChunk: error opening upload file")
 		return 0, err
 	}
 	defer func() {
@@ -91,6 +94,7 @@ func (session *DecomposedFsSession) WriteChunk(ctx context.Context, _ int64, src
 	// However, for the decompsedfs driver it's not important whether the stream has ended
 	// on purpose or accidentally.
 	if err != nil && err != io.ErrUnexpectedEOF {
+		log.Error().Err(err).Msg("WriteChunk: error copying data to upload file")
 		return n, err
 	}
 
@@ -119,12 +123,21 @@ func (session *DecomposedFsSession) GetReader(ctx context.Context) (io.ReadClose
 func (session *DecomposedFsSession) FinishUpload(ctx context.Context) error {
 	err := session.FinishUploadDecomposed(ctx)
 
+	if err != nil {
+		// this is part of the tusd integration and we might be able to
+		// log the error in another place
+		log := appctx.GetLogger(ctx)
+		log.Error().Err(err).Msg("failed to finish upload")
+	}
+
 	//  we need to return a tusd error here to make the tusd handler return the correct status code
 	switch err.(type) {
 	case errtypes.AlreadyExists:
 		return tusd.NewError("ERR_ALREADY_EXISTS", err.Error(), http.StatusConflict)
 	case errtypes.Aborted:
 		return tusd.NewError("ERR_PRECONDITION_FAILED", err.Error(), http.StatusPreconditionFailed)
+	case errtypes.InsufficientStorage:
+		return tusd.NewError("ERR_INSUFFICIENT_STORAGE", err.Error(), http.StatusInsufficientStorage)
 	default:
 		return err
 	}
@@ -164,7 +177,7 @@ func (session *DecomposedFsSession) FinishUploadDecomposed(ctx context.Context) 
 			err = errtypes.BadRequest("unsupported checksum algorithm: " + parts[0])
 		}
 		if err != nil {
-			session.store.Cleanup(ctx, session, true, false, false)
+			session.Cleanup(false, true, true, false)
 			return err
 		}
 	}
@@ -245,7 +258,7 @@ func (session *DecomposedFsSession) FinishUploadDecomposed(ctx context.Context) 
 	if !session.store.async || session.info.Size == 0 {
 		// handle postprocessing synchronously
 		err = session.Finalize(ctx)
-		session.store.Cleanup(ctx, session, err != nil, false, err == nil)
+		session.Cleanup(err != nil, err == nil, true, true)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to upload")
 			return err
@@ -258,7 +271,7 @@ func (session *DecomposedFsSession) FinishUploadDecomposed(ctx context.Context) 
 
 // Terminate terminates the upload
 func (session *DecomposedFsSession) Terminate(_ context.Context) error {
-	session.Cleanup(true, true, true)
+	session.Cleanup(true, true, true, true)
 	return nil
 }
 
@@ -342,22 +355,29 @@ func (session *DecomposedFsSession) Finalize(ctx context.Context) (err error) {
 
 	// another upload on this node is in progress or has finished since we started
 	if !isProcessing || processingID != session.ID() {
-		versionID := n.ID + node.RevisionIDDelimiter + session.MTime().UTC().Format(time.RFC3339Nano)
-		// There should be a revision node (created by the other upload that finished before us), read it and upload our blob there.
-		existingRevisionNode, revisionNodeUnlock, err := node.LockAndReadNode(ctx, session.store.lu, session.SpaceID(), versionID, "", false, spaceRoot, false)
-		if err != nil || !existingRevisionNode.Exists {
-			// The revision node has not been created. Likely because the file on disk was modified externally and re-assilimated (watchfs == true)
-			// Let's create the revision node now and upload the blob to it.
-			n, revisionNodeUnlock, err = session.createRevisionNodeForUpload(ctx, n, session.MTime().UTC().Format(time.RFC3339Nano))
-			if err != nil {
-				appctx.GetLogger(ctx).Debug().Err(err).Str("versionID", session.MTime().UTC().Format(time.RFC3339Nano)).Msg("failed to create revision node for upload finalization")
-				return err
-			}
+		// The node's current content is already this upload's content (e.g. a
+		// newer upload was reverted in the meantime) - no revision is needed,
+		// upload the blob to the node itself.
+		if attribs.String(prefixes.BlobIDAttr) == session.ID() {
+			appctx.GetLogger(ctx).Debug().Str("nodepath", n.InternalPath()).Msg("node already contains this upload's content, no revision needed")
 		} else {
-			n = existingRevisionNode
+			versionID := n.ID + node.RevisionIDDelimiter + session.MTime().UTC().Format(time.RFC3339Nano)
+			// There should be a revision node (created by the other upload that finished before us), read it and upload our blob there.
+			existingRevisionNode, revisionNodeUnlock, err := node.LockAndReadNode(ctx, session.store.lu, session.SpaceID(), versionID, "", false, spaceRoot, false)
+			if err != nil || !existingRevisionNode.Exists {
+				// The revision node has not been created. Likely because the file on disk was modified externally and re-assilimated (watchfs == true)
+				// Let's create the revision node now and upload the blob to it.
+				n, revisionNodeUnlock, err = session.createRevisionNodeForUpload(ctx, n, session.MTime().UTC().Format(time.RFC3339Nano))
+				if err != nil {
+					appctx.GetLogger(ctx).Debug().Err(err).Str("versionID", session.MTime().UTC().Format(time.RFC3339Nano)).Msg("failed to create revision node for upload finalization")
+					return err
+				}
+			} else {
+				n = existingRevisionNode
+			}
+			appctx.GetLogger(ctx).Debug().Str("new nodepath", n.InternalPath()).Msg("uploading to revision node, that was created for us by another upload")
+			defer func() { _ = revisionNodeUnlock() }()
 		}
-		appctx.GetLogger(ctx).Debug().Str("new nodepath", n.InternalPath()).Msg("uploading to revision node, that was created for us by another upload")
-		defer func() { _ = revisionNodeUnlock() }()
 	}
 
 	// upload the data to the blobstore
@@ -422,56 +442,23 @@ func checkHash(expected string, h hash.Hash) error {
 	return nil
 }
 
-func (session *DecomposedFsSession) removeNode(ctx context.Context) {
-	n, err := session.Node(ctx)
-	if err != nil {
-		appctx.GetLogger(ctx).Error().Str("session", session.ID()).Err(err).Msg("getting node from session failed")
-		return
-	}
-	if err := n.Purge(ctx); err != nil {
-		appctx.GetLogger(ctx).Error().Str("nodepath", n.InternalPath()).Err(err).Msg("purging node failed")
-	}
-}
-
 // cleanup cleans up after the upload is finished
-func (session *DecomposedFsSession) Cleanup(revertNodeMetadata, cleanBin, cleanInfo bool) {
+func (session *DecomposedFsSession) Cleanup(revertNodeMetadata, cleanBin, cleanInfo, unmarkPostprocessing bool) {
 	ctx := session.Context(context.Background())
 	sublog := session.store.log.With().Str("cleanup sessionid", session.ID()).Bool("revertNodeMetadata", revertNodeMetadata).Bool("cleanBin", cleanBin).
-		Bool("cleanInfo", cleanInfo).Logger()
+		Bool("cleanInfo", cleanInfo).Bool("unmarkPostprocessing", unmarkPostprocessing).Logger()
 
 	if revertNodeMetadata {
 		n, err := session.Node(ctx)
 		if err != nil {
 			sublog.Error().Err(err).Msg("reading node for session failed")
 		} else {
-			if session.NodeExists() && session.info.MetaData["versionID"] != "" {
-				versionID := session.info.MetaData["versionID"]
+			versionID := strings.TrimPrefix(session.info.MetaData["versionID"], n.ID+node.RevisionIDDelimiter)
+			if session.NodeExists() && versionID != "" {
 				sublog.Debug().Str("nodepath", n.InternalPath()).Str("versionID", versionID).Msg("restoring revision")
-				revisionNode, err := node.ReadNode(ctx, session.store.lu, session.SpaceID(), versionID, "", false, n.SpaceRoot, false)
-				if err != nil {
-					sublog.Error().Err(err).Str("versionID", versionID).Msg("reading revision node failed")
+				if err := n.RevertUpload(ctx, versionID); err != nil {
+					sublog.Error().Err(err).Str("versionID", versionID).Msg("reverting node metadata failed")
 					return
-				}
-
-				if !revisionNode.Exists {
-					sublog.Error().Str("versionID", versionID).Msg("revision node does not exist")
-					return
-				}
-
-				// restore the revision
-				mtime, err := revisionNode.GetMTime(ctx)
-				if err != nil {
-					sublog.Error().Err(err).Str("versionID", versionID).Msg("getting mtime of revision node failed")
-					mtime = time.Now()
-				}
-
-				if err := session.store.tp.RestoreRevision(ctx, revisionNode, n, mtime); err != nil {
-					sublog.Error().Err(err).Str("versionID", versionID).Msg("restoring revision node failed")
-					return
-				}
-
-				if err := os.RemoveAll(revisionNode.InternalPath()); err != nil {
-					sublog.Error().Err(err).Str("revisionpath", revisionNode.InternalPath()).Msg("removing restored revision file failed")
 				}
 			} else {
 				// if no other upload session is in progress (processing id != session id) or has finished (processing id == "")
@@ -481,7 +468,9 @@ func (session *DecomposedFsSession) Cleanup(revertNodeMetadata, cleanBin, cleanI
 				}
 				if latestSession == session.ID() {
 					// actually delete the node
-					session.removeNode(ctx)
+					if err := n.Purge(ctx); err != nil {
+						sublog.Error().Err(err).Str("nodepath", n.InternalPath()).Msg("purging node failed")
+					}
 				}
 				// FIXME else if the upload has become a revision, delete the revision, or if it is the last one, delete the node
 			}
@@ -495,8 +484,23 @@ func (session *DecomposedFsSession) Cleanup(revertNodeMetadata, cleanBin, cleanI
 	}
 
 	if cleanInfo {
-		if err := session.Purge(ctx); err != nil && !errors.Is(err, fs.ErrNotExist) {
-			appctx.GetLogger(ctx).Error().Err(err).Str("session", session.ID()).Msg("removing upload info failed")
+		if err := os.Remove(session.infoPath()); err != nil {
+			sublog.Error().Err(err).Msg("removing upload info failed")
+			return
+		}
+	}
+
+	if unmarkPostprocessing {
+		n, err := session.Node(ctx)
+		if err != nil {
+			sublog.Info().Err(err).Msg("could not read node")
+			return
+		}
+		// FIXME: after cleanup the node might already be deleted ...
+		if n != nil { // node can be nil when there was an error before it was created (eg. checksum-mismatch)
+			if err := n.UnmarkProcessing(ctx, session.ID()); err != nil {
+				sublog.Info().Err(err).Str("path", n.InternalPath()).Msg("unmarking processing failed")
+			}
 		}
 	}
 }

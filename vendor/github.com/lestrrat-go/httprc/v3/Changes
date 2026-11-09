@@ -1,6 +1,13 @@
 Changes
 =======
 
+v3.0.6 07 Jun 2026
+  * Back off on HTTP fetch failure (connection refused, DNS failure,
+    timeout) by scheduling the next refresh at now+MinInterval, instead
+    of re-dispatching the resource in a tight ~1s loop (#119, #130)
+  * Document anchoring of RegexpWhitelist patterns
+    (e.g. `^https://example\.com/`) and add a runnable example (#125)
+
 v3.0.5 30 Mar 2026
   * Fix periodic check deadlock when number of ready resources exceeds
     outgoing channel buffer, which caused circular wait between controller

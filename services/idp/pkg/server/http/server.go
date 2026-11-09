@@ -57,7 +57,6 @@ func Server(opts ...Option) (http.Service, error) {
 		svc.Logger(options.Logger),
 		svc.Config(options.Config),
 		svc.Middleware(
-			chimiddleware.RealIP,
 			chimiddleware.RequestID,
 			middleware.TraceContext,
 			middleware.NoCache,

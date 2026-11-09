@@ -298,7 +298,7 @@ func (m *manager) InvalidateAppPassword(ctx context.Context, secretOrId string) 
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("store.Update failed")
-		return errtypes.NotFound("password not found")
+		return err
 	}
 
 	m.removeFromAuthCache(userID.GetOpaqueId(), secretOrId)
@@ -321,60 +321,62 @@ func (m *manager) GetAppPassword(ctx context.Context, user *userpb.UserId, secre
 		matchedID string
 	)
 
-	// check for a previously validated authentication result from memory first, to avoid
-	// recomputing the Argon2id hash for every stored password.
+	// A cached authentication result avoids recomputing the Argon2id hash, but
+	// the token ID still needs to be validated against synchronized storage.
 	cacheKey := createAuthCacheKey(user.GetOpaqueId(), secret)
-	if cached, ok := m.authCache.Get(cacheKey); ok {
-		if isAppPasswordExpired(cached) {
-			m.authCache.Remove(cacheKey)
-			return nil, errtypes.NotFound("password not found")
-		}
-		result := proto.Clone(cached).(*apppb.AppPassword)
-		result.Password = cached.Password
-		return result, nil
-	}
+	cached, cacheHit := m.authCache.Get(cacheKey)
 
 	err := m.store.Update(ctx, user.GetOpaqueId(), false, func(a map[string]*apppb.AppPassword) (map[string]*apppb.AppPassword, bool, error) {
 		matchedPw = nil
-		for id, pw := range a {
-			ok, err := argon2id.ComparePasswordAndHash(secret, pw.Password)
-			switch {
-			case err != nil:
-				log.Debug().Err(err).Msg("Error comparing password and hash")
-			case ok:
-				// password found
-				if isAppPasswordExpired(pw) {
-					log.Debug().Str("AppPasswordId", id).Msg("password expired")
-					return nil, false, errtypes.NotFound("password not found")
+		if cacheHit {
+			matchedID = cached.Password
+			matchedPw = a[matchedID]
+		} else {
+			for id, pw := range a {
+				ok, err := argon2id.ComparePasswordAndHash(secret, pw.Password)
+				switch {
+				case err != nil:
+					log.Debug().Err(err).Msg("Error comparing password and hash")
+				case ok:
+					matchedPw = pw
+					matchedID = id
 				}
-
-				matchedPw = pw
-				matchedID = id
-				// Updating the Utime will cause an Upload for every single GetAppPassword request. We are limiting this to one
-				// update per 'uTimeUpdateInterval' (default 5 min) otherwise this backend will become unusable.
-				persist := false
-				if time.Since(utils.TSToTime(pw.Utime)) > m.uTimeUpdateInterval {
-					a[id].Utime = utils.TSNow()
-					persist = true
+				if matchedPw != nil {
+					break
 				}
-
-				if persist {
-					return a, true, nil
-				}
-				return a, false, nil
 			}
 		}
-		return nil, false, errtypes.NotFound("password not found")
+
+		if matchedPw == nil {
+			return nil, false, errtypes.NotFound("password not found")
+		}
+		if isAppPasswordExpired(matchedPw) {
+			log.Debug().Str("AppPasswordId", matchedID).Msg("password expired")
+			return nil, false, errtypes.NotFound("password not found")
+		}
+
+		// Updating the Utime will cause an Upload for every single GetAppPassword request. We are limiting this to one
+		// update per 'uTimeUpdateInterval' (default 5 min) otherwise this backend will become unusable.
+		if time.Since(utils.TSToTime(matchedPw.Utime)) > m.uTimeUpdateInterval {
+			a[matchedID].Utime = utils.TSNow()
+			return a, true, nil
+		}
+		return a, false, nil
 	})
 	if err != nil {
-		return nil, errtypes.NotFound("password not found")
+		if cacheHit {
+			m.authCache.Remove(cacheKey)
+		}
+		return nil, err
 	}
 
 	// Return a clone with the ID in the password field so the cached entry
 	// is not corrupted.
 	result := proto.Clone(matchedPw).(*apppb.AppPassword)
 	result.Password = matchedID
-	m.authCache.Add(cacheKey, result)
+	if !cacheHit {
+		m.authCache.Add(cacheKey, result)
+	}
 
 	return result, nil
 }

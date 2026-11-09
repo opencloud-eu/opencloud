@@ -66,8 +66,10 @@ func (fs *Decomposedfs) SetArbitraryMetadata(ctx context.Context, ref *provider.
 
 	errs := []error{}
 	// TODO should we really continue updating when an error occurs?
+	changed := false
 	if md.Metadata != nil {
 		if val, ok := md.Metadata["mtime"]; ok {
+			changed = true
 			delete(md.Metadata, "mtime")
 			if err := n.SetMtimeString(ctx, val); err != nil {
 				errs = append(errs, errors.Wrap(err, "could not set mtime"))
@@ -79,27 +81,40 @@ func (fs *Decomposedfs) SetArbitraryMetadata(ctx context.Context, ref *provider.
 		// TODO unset when file is updated
 		// TODO unset when folder is updated or add timestamp to etag?
 		if val, ok := md.Metadata["etag"]; ok {
+			changed = true
 			delete(md.Metadata, "etag")
 			if err := n.SetEtag(ctx, val); err != nil {
 				errs = append(errs, errors.Wrap(err, "could not set etag"))
 			}
 		}
 	}
+
 	// one write for the whole set: a per key write publishes every intermediate
 	// state to the unlocked, cache first readers
-	if len(md.Metadata) > 0 {
-		attribs := make(map[string][]byte, len(md.Metadata))
-		for k, v := range md.Metadata {
-			attribs[prefixes.MetadataPrefix+k] = []byte(v)
+	attribs := make(map[string][]byte, len(md.Metadata))
+	existingAttribs, err := n.Xattrs(ctx)
+	for k, v := range md.Metadata {
+		if existingVal, ok := existingAttribs[prefixes.MetadataPrefix+k]; ok && string(existingVal) == v {
+			continue // no change needed
 		}
+		changed = true
+		attribs[prefixes.MetadataPrefix+k] = []byte(v)
+	}
+	if len(attribs) > 0 {
 		if err = n.SetXattrsWithContext(ctx, attribs); err != nil {
 			errs = append(errs, errors.Wrap(err, "Decomposedfs: could not set metadata attributes"))
 		}
 	}
 
+	if changed {
+		if err = fs.tp.Propagate(ctx, n, 0); err != nil {
+			errs = append(errs, errors.Wrap(err, "Decomposedfs: could not propagate metadata changes"))
+		}
+	}
+
 	switch len(errs) {
 	case 0:
-		return fs.tp.Propagate(ctx, n, 0)
+		return nil
 	case 1:
 		// TODO Propagate if anything changed
 		return errs[0]

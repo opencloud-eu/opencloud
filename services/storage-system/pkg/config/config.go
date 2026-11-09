@@ -26,7 +26,7 @@ type Config struct {
 	SkipUserGroupsInToken bool `yaml:"skip_user_groups_in_token" env:"STORAGE_SYSTEM_SKIP_USER_GROUPS_IN_TOKEN" desc:"Disables the loading of user's group memberships from the reva access token." introductionVersion:"1.0.0"`
 
 	FileMetadataCache Cache   `yaml:"cache"`
-	Driver            string  `yaml:"driver" env:"STORAGE_SYSTEM_DRIVER" desc:"The driver which should be used by the service. The only supported driver is 'decomposed'. For backwards compatibility reasons it's also possible to use the 'ocis' driver and configure it using the 'decomposed' options. " introductionVersion:"1.0.0"`
+	Driver            string  `yaml:"driver" env:"STORAGE_SYSTEM_DRIVER" desc:"The driver which should be used by the service. The supported driver is 'decomposed'. The deprecated 'ocis' alias uses 'decomposed' with the legacy metadata prefix, overriding OC_METADATA_PREFIX." introductionVersion:"1.0.0"`
 	Drivers           Drivers `yaml:"drivers"`
 	DataServerURL     string  `yaml:"data_server_url" env:"STORAGE_SYSTEM_DATA_SERVER_URL" desc:"URL of the data server, needs to be reachable by other services using this service." introductionVersion:"1.0.0"`
 
@@ -71,8 +71,9 @@ type DecomposedDriver struct {
 	// Root is the absolute path to the location of the data
 	Root string `yaml:"root" env:"STORAGE_SYSTEM_OC_ROOT" desc:"Path for the directory where the STORAGE-SYSTEM service stores it's persistent data. If not defined, the root directory derives from $OC_BASE_DATA_PATH/storage." introductionVersion:"1.0.0"`
 
-	MaxAcquireLockCycles    int `yaml:"max_acquire_lock_cycles" env:"STORAGE_SYSTEM_OC_MAX_ACQUIRE_LOCK_CYCLES" desc:"When trying to lock files, OpenCloud will try this amount of times to acquire the lock before failing. After each try it will wait for an increasing amount of time. Values of 0 or below will be ignored and the default value of 20 will be used." introductionVersion:"1.0.0"`
-	LockCycleDurationFactor int `yaml:"lock_cycle_duration_factor" env:"STORAGE_SYSTEM_OC_LOCK_CYCLE_DURATION_FACTOR" desc:"When trying to lock files, OpenCloud will multiply the cycle with this factor and use it as a millisecond timeout. Values of 0 or below will be ignored and the default value of 30 will be used." introductionVersion:"1.0.0"`
+	MaxAcquireLockCycles    int    `yaml:"max_acquire_lock_cycles" env:"STORAGE_SYSTEM_OC_MAX_ACQUIRE_LOCK_CYCLES" desc:"When trying to lock files, OpenCloud will try this amount of times to acquire the lock before failing. After each try it will wait for an increasing amount of time. Values of 0 or below will be ignored and the default value of 20 will be used." introductionVersion:"1.0.0"`
+	LockCycleDurationFactor int    `yaml:"lock_cycle_duration_factor" env:"STORAGE_SYSTEM_OC_LOCK_CYCLE_DURATION_FACTOR" desc:"When trying to lock files, OpenCloud will multiply the cycle with this factor and use it as a millisecond timeout. Values of 0 or below will be ignored and the default value of 30 will be used." introductionVersion:"1.0.0"`
+	MetadataPrefix          string `yaml:"metadata_prefix" env:"OC_METADATA_PREFIX" desc:"The attribute key prefix of the metadata on disk. Defaults to the native 'user.oc.' prefix. It applies to all storage drivers of the instance, they must share the prefix because it is set process wide." introductionVersion:"9.0.0"`
 }
 
 // Cache holds cache config

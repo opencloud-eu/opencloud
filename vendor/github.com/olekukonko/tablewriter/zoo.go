@@ -795,14 +795,20 @@ func (t *Table) calculateAndNormalizeWidths(ctx *renderContext) error {
 						// Sort columns for deterministic reduction
 						sortedCols := workingWidths.SortedKeys()
 						for i := 0; i < overDistributed; i++ {
+							reduced := false
 							// Reduce from highest-indexed column
 							for j := len(sortedCols) - 1; j >= 0; j-- {
 								col := sortedCols[j]
 								if workingWidths.Get(col) > 1 && naturalColumnWidths.Get(col) < workingWidths.Get(col) {
 									workingWidths.Set(col, workingWidths.Get(col)-1)
 									ctx.logger.Debugf("Reduced col %d by 1 to %d", col, workingWidths.Get(col))
+									reduced = true
 									break
 								}
+							}
+							if !reduced {
+								// No eligible column found, no further reduction possible
+								break
 							}
 						}
 					}
@@ -970,7 +976,7 @@ func (t *Table) calculateAndNormalizeWidths(ctx *renderContext) error {
 
 // calculateContentMaxWidth computes the maximum content width for a column, accounting for padding and mode-specific constraints.
 // Returns the effective content width (after subtracting padding) for the given column index.
-func (t *Table) calculateContentMaxWidth(colIdx int, config tw.CellConfig, padLeftWidth, padRightWidth int, isStreaming bool) int {
+func (t *Table) calculateContentMaxWidth(colIdx int, config tw.CellConfig, padLeftWidth, padRightWidth int, isStreaming bool, numCols int) int {
 	var effectiveContentMaxWidth int
 
 	if isStreaming {
@@ -1001,11 +1007,26 @@ func (t *Table) calculateContentMaxWidth(colIdx int, config tw.CellConfig, padLe
 					colIdx, constraintTotalCellWidth)
 			}
 
-			// Check new Widths.Global
+			// Check new Widths.Global. It is a table-wide limit, so split it
+			// across columns (same idea as MaxWidth). Applying the full Global
+			// value per column wraps too wide, then later shrink+truncate
+			// drops characters (see #328).
 			if !hasConstraint && t.config.Widths.Global > 0 {
-				constraintTotalCellWidth = t.config.Widths.Global
+				n := numCols
+				if n < 1 {
+					n = 1
+				}
+				sepW := 0
+				if n > 1 && t.renderer != nil && t.renderer.Config().Settings.Separators.BetweenColumns.Enabled() {
+					sepW = twwidth.Width(t.renderer.Config().Symbols.Column()) * (n - 1)
+				}
+				available := t.config.Widths.Global - sepW
+				if available < n {
+					available = n
+				}
+				constraintTotalCellWidth = available / n
 				hasConstraint = true
-				t.logger.Debugf("calculateContentMaxWidth: Using Widths.Global = %d", constraintTotalCellWidth)
+				t.logger.Debugf("calculateContentMaxWidth: Using Widths.Global = %d as per-column %d (%d cols)", t.config.Widths.Global, constraintTotalCellWidth, n)
 			}
 		}
 
@@ -1644,93 +1665,4 @@ func (t *Table) updateWidths(row []string, widths tw.Mapper[int, int], padding t
 			t.logger.Debugf("  Col %d: Width %d not greater than current max %d for cell '%s'", i, totalWidth, currentMax, cell)
 		}
 	}
-}
-
-// extractHeadersFromStruct is now a thin wrapper around the new unified function.
-// It only cares about the header names.
-func (t *Table) extractHeadersFromStruct(sample interface{}) []string {
-	headers, _ := t.extractFieldsAndValuesFromStruct(sample)
-	return headers
-}
-
-// extractFieldsAndValuesFromStruct is the new single source of truth for struct reflection.
-// It recursively processes a struct, handling pointers and embedded structs,
-// and returns two slices: one for header names and one for string-converted values.
-func (t *Table) extractFieldsAndValuesFromStruct(sample interface{}) ([]string, []string) {
-	v := reflect.ValueOf(sample)
-	if v.Kind() == reflect.Ptr {
-		if v.IsNil() {
-			return nil, nil
-		}
-		v = v.Elem()
-	}
-
-	if v.Kind() != reflect.Struct {
-		return nil, nil
-	}
-
-	typ := v.Type()
-	headers := make([]string, 0, typ.NumField())
-	values := make([]string, 0, typ.NumField())
-
-	for i := 0; i < typ.NumField(); i++ {
-		field := typ.Field(i)
-		fieldValue := v.Field(i)
-
-		// Skip unexported fields
-		if field.PkgPath != "" {
-			continue
-		}
-
-		// Handle embedded structs recursively
-		if field.Anonymous {
-			h, val := t.extractFieldsAndValuesFromStruct(fieldValue.Interface())
-			if h != nil {
-				headers = append(headers, h...)
-				values = append(values, val...)
-			}
-			continue
-		}
-
-		var tagName string
-		skipField := false
-
-		// Loop through the priority list of configured tags (e.g., ["json", "db"])
-		for _, tagKey := range t.config.Behavior.Structs.Tags {
-			tagValue := field.Tag.Get(tagKey)
-
-			// If a tag is found...
-			if tagValue != "" {
-				// If the tag is "-", this field should be skipped entirely.
-				if tagValue == "-" {
-					skipField = true
-					break // Stop processing tags for this field.
-				}
-				// Otherwise, we've found our highest-priority tag. Store it and stop.
-				tagName = tagValue
-				break // Stop processing tags for this field.
-			}
-		}
-
-		// If the field was marked for skipping, continue to the next field.
-		if skipField {
-			continue
-		}
-
-		// Determine header name from the tag or fallback to the field name
-		headerName := field.Name
-		if tagName != "" {
-			headerName = strings.Split(tagName, ",")[0]
-		}
-		headers = append(headers, tw.Title(headerName))
-
-		// Determine value, respecting omitempty from the found tag
-		value := ""
-		if !strings.Contains(tagName, ",omitempty") || !fieldValue.IsZero() {
-			value = t.convertToString(fieldValue.Interface())
-		}
-		values = append(values, value)
-	}
-
-	return headers, values
 }

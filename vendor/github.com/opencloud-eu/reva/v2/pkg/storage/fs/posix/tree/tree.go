@@ -48,6 +48,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/options"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/trashbin"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/tree/assimilation"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher/natswatcher"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
@@ -69,6 +70,14 @@ var (
 
 func init() {
 	tracer = otel.Tracer("github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/tree")
+}
+
+// Blobstore defines an interface for storing blobs in a blobstore
+type Blobstore interface {
+	Upload(node *node.Node, source, copyTarget string) error
+	UploadFromReader(node *node.Node, r io.Reader, size int64) error
+	Download(node *node.Node) (io.ReadCloser, error)
+	Delete(node *node.Node) error
 }
 
 type Watcher interface {
@@ -104,6 +113,8 @@ type Tree struct {
 	watcher       Watcher
 	scanQueue     chan scanItem
 	scanDebouncer *ScanDebouncer
+	// files that failed to assimilate, keyed by path, see updateFile()
+	assimilationFailures *assimilation.Failures
 
 	es  events.Stream
 	log *zerolog.Logger
@@ -130,9 +141,10 @@ func New(lu node.PathLookup, bs node.Blobstore, um usermapper.Mapper, trashbin *
 		scanDebouncer: NewScanDebouncer(o.ScanDebounceDelay, func(item scanItem) {
 			scanQueue <- item
 		}),
-		es:      es,
-		log:     log,
-		Ignorer: ignore.NewIgnorer(o, log),
+		assimilationFailures: assimilation.NewFailures(),
+		es:                   es,
+		log:                  log,
+		Ignorer:              ignore.NewIgnorer(o, log),
 	}
 	t.idResolver = t.lookup
 	t.assimilateFunc = t.assimilate
@@ -738,6 +750,11 @@ func (t *Tree) WriteBlob(n *node.Node, source string) error {
 
 	err = t.blobstore.Upload(n, source, currentPath)
 	return err
+}
+
+// WriteBlobFromReader writes a blob to the blobstore from a reader
+func (t *Tree) WriteBlobFromReader(node *node.Node, r io.Reader, size int64) error {
+	return t.blobstore.UploadFromReader(node, r, size)
 }
 
 // ReadBlob reads a blob from the blobstore

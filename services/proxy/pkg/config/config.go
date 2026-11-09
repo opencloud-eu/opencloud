@@ -19,6 +19,8 @@ type Config struct {
 
 	HTTP HTTP `yaml:"http"`
 
+	ClientIP ClientIP `yaml:"client_ip"`
+
 	Reva          *shared.Reva          `yaml:"reva"`
 	GRPCClientTLS *shared.GRPCClientTLS `yaml:"grpc_client_tls"`
 	GrpcClient    client.Client         `yaml:"-"`
@@ -49,6 +51,7 @@ type Config struct {
 	CSPConfigFileLocation         string              `yaml:"csp_config_file_location" env:"PROXY_CSP_CONFIG_FILE_LOCATION" desc:"The location of the CSP configuration file." introductionVersion:"1.0.0"`
 	CSPConfigFileOverrideLocation string              `yaml:"csp_config_file_override_location" env:"PROXY_CSP_CONFIG_FILE_OVERRIDE_LOCATION" desc:"The location of the CSP configuration file override." introductionVersion:"4.0.0"`
 	Events                        Events              `yaml:"events"`
+	GuestLinkAuth                 GuestLinkAuth       `yaml:"guest_link_auth"`
 
 	Context context.Context `json:"-" yaml:"-"`
 }
@@ -95,6 +98,12 @@ var (
 	RouteTypes = []RouteType{QueryRoute, RegexRoute, PrefixRoute}
 )
 
+// ClientIP configures how the proxy determines the address of the client.
+type ClientIP struct {
+	TrustedProxies []string `yaml:"trusted_proxies" env:"OC_TRUSTED_PROXIES;PROXY_TRUSTED_PROXIES" desc:"IP addresses and CIDR ranges of the reverse proxies in front of OpenCloud. The client address is only taken from the header set in PROXY_CLIENT_IP_HEADER if the request comes from one of these. Defaults to the loopback and private network ranges. Set it to the addresses of your reverse proxies if clients can reach OpenCloud from a private network. See the Environment Variable Types description for more details." introductionVersion:"%%NEXT%%"`
+	Header         string   `yaml:"header" env:"OC_CLIENT_IP_HEADER;PROXY_CLIENT_IP_HEADER" desc:"The header a trusted reverse proxy sends the client address in, e.g. X-Real-IP or CF-Connecting-IP. X-Forwarded-For is read from the right, the first address that is not a trusted proxy is the client." introductionVersion:"%%NEXT%%"`
+}
+
 // AuthMiddleware configures the proxy http auth middleware.
 type AuthMiddleware struct {
 	CredentialsByUserAgent map[string]string `yaml:"credentials_by_user_agent"`
@@ -116,7 +125,7 @@ const (
 // OIDC is the config for the OpenID-Connect middleware. If set the proxy will try to authenticate every request
 // with the configured oidc-provider
 type OIDC struct {
-	Audiences               []string `yaml:"audiences" env:"PROXY_OIDC_AUDIENCES" desc:"Optional comma-separated list of allowed audiences for OIDC access tokens. Empty disables audience validation for compatibility. Configuring audiences is recommended for production and requires PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD=jwt. Tokens must contain at least one exactly matching, case-sensitive audience in their aud claim." introductionVersion:"%%NEXT%%"`
+	Audiences               []string `yaml:"audiences" env:"PROXY_OIDC_AUDIENCES" desc:"Optional comma-separated list of allowed audiences for OIDC access tokens. Empty disables audience validation for compatibility. Configuring audiences is recommended for production and requires PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD=jwt. Tokens must contain at least one exactly matching, case-sensitive audience in their aud claim." introductionVersion:"8.1.0"`
 	Issuer                  string   `yaml:"issuer" env:"OC_URL;OC_OIDC_ISSUER;PROXY_OIDC_ISSUER" desc:"URL of the OIDC issuer. It defaults to URL of the builtin IDP." introductionVersion:"1.0.0"`
 	Insecure                bool     `yaml:"insecure" env:"OC_INSECURE;PROXY_OIDC_INSECURE" desc:"Disable TLS certificate validation for connections to the IDP. Note that this is not recommended for production environments." introductionVersion:"1.0.0"`
 	AccessTokenVerifyMethod string   `yaml:"access_token_verify_method" env:"PROXY_OIDC_ACCESS_TOKEN_VERIFY_METHOD" desc:"Sets how OIDC access tokens should be verified. Possible values are 'none' and 'jwt'. When using 'none', no special validation apart from using it for accessing the IDP's userinfo endpoint will be done. When using 'jwt', it tries to parse the access token as a jwt token and verifies the signature using the keys published on the IDP's 'jwks_uri'." introductionVersion:"1.0.0"`
@@ -243,4 +252,9 @@ type Events struct {
 	EnableTLS            bool   `yaml:"enable_tls" env:"OC_EVENTS_ENABLE_TLS;PROXY_EVENTS_ENABLE_TLS" desc:"Enable TLS for the connection to the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	AuthUsername         string `yaml:"username" env:"OC_EVENTS_AUTH_USERNAME;PROXY_EVENTS_AUTH_USERNAME" desc:"The username to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
 	AuthPassword         string `yaml:"password" env:"OC_EVENTS_AUTH_PASSWORD;PROXY_EVENTS_AUTH_PASSWORD" desc:"The password to authenticate with the events broker. The events broker is the OpenCloud service which receives and delivers events between the services." introductionVersion:"1.0.0"`
+}
+
+// GuestLinkAuth configures the guest-link cookie authentication flow.
+type GuestLinkAuth struct {
+	CookieName string `yaml:"cookie_name" env:"PROXY_GUEST_LINK_COOKIE_NAME" desc:"The name of the guest-session cookie. Defaults to __Host-opencloud-guest." introductionVersion:"9.0.0"`
 }

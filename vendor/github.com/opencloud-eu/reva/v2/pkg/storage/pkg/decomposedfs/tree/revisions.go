@@ -275,62 +275,6 @@ func (tp *Tree) DownloadRevision(ctx context.Context, ref *provider.Reference, r
 	return ri, reader, nil
 }
 
-// DeleteRevision deletes the specified revision of the resource
-func (tp *Tree) DeleteRevision(ctx context.Context, ref *provider.Reference, revisionKey string) error {
-	_, span := tracer.Start(ctx, "DeleteRevision")
-	defer span.End()
-	n, err := tp.getRevisionNode(ctx, ref, revisionKey, func(rp *provider.ResourcePermissions) bool {
-		return rp.RestoreFileVersion
-	})
-	if err != nil {
-		return err
-	}
-
-	if err := os.RemoveAll(tp.lookup.InternalPath(n.SpaceID, revisionKey)); err != nil {
-		return err
-	}
-
-	return tp.DeleteBlob(n)
-}
-
-func (tp *Tree) getRevisionNode(ctx context.Context, ref *provider.Reference, revisionKey string, hasPermission func(*provider.ResourcePermissions) bool) (*node.Node, error) {
-	_, span := tracer.Start(ctx, "getRevisionNode")
-	defer span.End()
-	log := appctx.GetLogger(ctx)
-
-	// verify revision key format
-	kp := strings.SplitN(revisionKey, node.RevisionIDDelimiter, 2)
-	if len(kp) != 2 {
-		log.Error().Str("revisionKey", revisionKey).Msg("malformed revisionKey")
-		return nil, errtypes.NotFound(revisionKey)
-	}
-	log.Debug().Str("revisionKey", revisionKey).Msg("DownloadRevision")
-
-	spaceID := ref.ResourceId.SpaceId
-	// check if the node is available and has not been deleted
-	n, err := node.ReadNode(ctx, tp.lookup, spaceID, kp[0], "", false, nil, false)
-	if err != nil {
-		return nil, err
-	}
-	if !n.Exists {
-		err = errtypes.NotFound(filepath.Join(n.ParentID, n.Name))
-		return nil, err
-	}
-
-	p, err := tp.permissions.AssemblePermissions(ctx, n)
-	switch {
-	case err != nil:
-		return nil, err
-	case !hasPermission(p):
-		return nil, errtypes.PermissionDenied(filepath.Join(n.ParentID, n.Name))
-	}
-
-	// Set space owner in context
-	storagespace.ContextSendSpaceOwnerID(ctx, n.SpaceOwnerOrManager(ctx))
-
-	return n, nil
-}
-
 func (tp *Tree) RestoreRevision(ctx context.Context, sourceNode, targetNode metadata.MetadataNode, mtime time.Time) error {
 	err := tp.lookup.CopyMetadata(ctx, sourceNode, targetNode, func(attributeName string, value []byte) (newValue []byte, copy bool) {
 		return value, strings.HasPrefix(attributeName, prefixes.ChecksumPrefix) ||

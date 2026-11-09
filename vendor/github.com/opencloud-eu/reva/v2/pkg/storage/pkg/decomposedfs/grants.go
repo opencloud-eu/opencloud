@@ -89,6 +89,10 @@ func (fs *Decomposedfs) AddGrant(ctx context.Context, ref *provider.Reference, g
 		_ = unlockFunc()
 	}()
 
+	if grantNode.IsProcessing(ctx) {
+		return errtypes.ResourceProcessing(ref.String())
+	}
+
 	if grant != nil {
 		return errtypes.AlreadyExists(filepath.Join(grantNode.ParentID, grantNode.Name))
 	}

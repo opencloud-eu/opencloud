@@ -27,6 +27,7 @@ import (
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	sdk "github.com/opencloud-eu/reva/v2/pkg/sdk/common"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/cache"
+	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
@@ -129,7 +130,17 @@ func (c *cachedSpacesAPIClient) UpdateStorageSpace(ctx context.Context, in *prov
 	return c.c.UpdateStorageSpace(ctx, in, opts...)
 }
 func (c *cachedSpacesAPIClient) DeleteStorageSpace(ctx context.Context, in *provider.DeleteStorageSpaceRequest, opts ...grpc.CallOption) (*provider.DeleteStorageSpaceResponse, error) {
-	return c.c.DeleteStorageSpace(ctx, in, opts...)
+	resp, err := c.c.DeleteStorageSpace(ctx, in, opts...)
+	switch {
+	case err != nil:
+		return nil, err
+	case resp.Status.Code != rpc.Code_CODE_OK:
+		return resp, nil
+	default:
+		_, spaceid, _, _ := storagespace.SplitID(in.GetId().GetOpaqueId())
+		_ = c.createPersonalSpaceCache.Delete(spaceid)
+		return resp, nil
+	}
 }
 
 /*

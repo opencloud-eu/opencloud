@@ -76,6 +76,7 @@ var mimeTypes = map[string]string{
 	"atx":                      "application/vnd.antix.game-component",
 	"au":                       "audio/basic",
 	"avi":                      "video/x-msvideo",
+	"avif":                     "image/avif",
 	"aw":                       "application/applixware",
 	"azf":                      "application/vnd.airzip.filesecure.azf",
 	"azs":                      "application/vnd.airzip.filesecure.azs",
@@ -366,6 +367,7 @@ var mimeTypes = map[string]string{
 	"heif":                     "image/heif",
 	"heifs":                    "image/heif-sequence",
 	"hh":                       "text/x-c",
+	"hif":                      "image/heif",
 	"hjson":                    "application/hjson",
 	"hlp":                      "application/winhlp",
 	"hpgl":                     "application/vnd.hp-hpgl",
@@ -792,6 +794,7 @@ var mimeTypes = map[string]string{
 	"rtf":                      "text/rtf",
 	"rtx":                      "text/richtext",
 	"run":                      "application/x-makeself",
+	"rw2":                      "image/x-panasonic-rw2",
 	"s":                        "text/x-asm",
 	"s3m":                      "audio/s3m",
 	"saf":                      "application/vnd.yamaha.smaf-audio",
@@ -1014,9 +1017,15 @@ var mimeTypes = map[string]string{
 	"vox":                      "application/x-authorware-bin",
 	"vrml":                     "model/vrml",
 	"vsd":                      "application/vnd.visio",
+	"vsdm":                     "application/vnd.ms-visio.drawing.macroEnabled.main+xml",
+	"vsdx":                     "application/vnd.ms-visio.drawing.main+xml",
 	"vsf":                      "application/vnd.vsf",
 	"vss":                      "application/vnd.visio",
+	"vssm":                     "application/vnd.ms-visio.stencil.macroEnabled.main+xml",
+	"vssx":                     "application/vnd.ms-visio.stencil.main+xml",
 	"vst":                      "application/vnd.visio",
+	"vstm":                     "application/vnd.ms-visio.template.macroEnabled.main+xml",
+	"vstx":                     "application/vnd.ms-visio.template.main+xml",
 	"vsw":                      "application/vnd.visio",
 	"vtf":                      "image/vnd.valve.source.texture",
 	"vtt":                      "text/vtt",
@@ -1156,10 +1165,11 @@ func init() {
 }
 
 // RegisterMime is a package level function that registers
-// a mime type with the given extension.
+// a mime type with the given extension. The extension is stored the way Detect
+// looks it up, so a leading dot and upper case letters are accepted.
 // TODO(labkode): check that we do not override mime type mappings?
 func RegisterMime(ext, mime string) {
-	mimes.Store(ext, mime)
+	mimes.Store(strings.ToLower(strings.TrimPrefix(ext, ".")), mime)
 }
 
 // Detect returns the mimetype associated with the given filename.

@@ -20,6 +20,9 @@ exclude_paths:
   - 'tests/acceptance/expected-failures-*.md'
   # written by the search engine parity suite, table rows are as wide as they are
   - 'services/search/pkg/parity/README.md'
+  # thumbnail docs: wide tables and prose that is not hard-wrapped
+  - 'services/thumbnails/README.md'
+  - 'services/webdav/README.md'
   - 'tests/acceptance/bootstrap/**'
   - 'tests/acceptance/TestHelpers/**'
   - 'tests/acceptance/scripts/run.sh'

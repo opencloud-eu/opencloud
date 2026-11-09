@@ -21,7 +21,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 )
 
-var _metadataOffloadedAttr = prefixes.OcPrefix + "metadata_offloaded"
+func metadataOffloadedAttr() string { return prefixes.OcPrefix + "metadata_offloaded" }
 
 type MetadataPathFunc func(MetadataNode) string
 
@@ -72,7 +72,7 @@ func (b HybridBackend) Get(ctx context.Context, n MetadataNode, key string) ([]b
 
 	if isOffloadingAttribute(key) {
 		// check if key is offloaded
-		offloaded, err := xattr.Get(n.InternalPath(), _metadataOffloadedAttr)
+		offloaded, err := xattr.Get(n.InternalPath(), metadataOffloadedAttr())
 		if err == nil && string(offloaded) == "1" {
 			msgpackAttribs := map[string][]byte{}
 			msgBytes, err := os.ReadFile(b.MetadataPath(n))
@@ -113,7 +113,7 @@ func (b HybridBackend) list(ctx context.Context, n MetadataNode) (attribs []stri
 		return nil, &xattr.Error{Op: "HybridBackend.list", Path: n.InternalPath(), Err: syscall.ENOENT} // attribute not found
 	}
 
-	return listXattr(filePath)
+	return listXattr(ctx, filePath)
 }
 
 // All reads all extended attributes for a node. It acquires a shared file lock
@@ -174,7 +174,7 @@ func (b HybridBackend) getAll(ctx context.Context, n MetadataNode, skipOffloaded
 	}
 
 	// merge the attributes from the offload file
-	offloaded, err := xattr.Get(path, _metadataOffloadedAttr)
+	offloaded, err := xattr.Get(path, metadataOffloadedAttr())
 	if err != nil && !IsAttrUnset(err) {
 		return nil, err
 	}
@@ -217,7 +217,7 @@ func (b HybridBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs 
 		defer func() { _ = unlock() }()
 	}
 
-	offloadAttr, err := xattr.Get(path, _metadataOffloadedAttr)
+	offloadAttr, err := xattr.Get(path, metadataOffloadedAttr())
 	offloaded := err == nil && string(offloadAttr) == "1"
 
 	// offload if the offloading metadata size exceeds the limit
@@ -346,7 +346,7 @@ func (b HybridBackend) offloadMetadata(ctx context.Context, n MetadataNode) erro
 	}
 
 	// set the metadata offloaded attribute
-	err = xattr.Set(path, _metadataOffloadedAttr, []byte("1"))
+	err = xattr.Set(path, metadataOffloadedAttr(), []byte("1"))
 	if err != nil {
 		return err
 	}
@@ -376,7 +376,7 @@ func (b HybridBackend) Remove(ctx context.Context, n MetadataNode, key string) e
 	}
 
 	if isOffloadingAttribute(key) {
-		offloadAttr, err := xattr.Get(path, _metadataOffloadedAttr)
+		offloadAttr, err := xattr.Get(path, metadataOffloadedAttr())
 		offloaded := err == nil && string(offloadAttr) == "1"
 		if offloaded {
 			// remove from offloaded metadata
@@ -509,13 +509,13 @@ func (b HybridBackend) Lock(n MetadataNode) (UnlockFunc, error) {
 			if base == "" {
 				return nil, err
 			}
-			// base is the space's metadata directory (e.g. <spaceRoot>/.oc-nodes),
-			// so its parent is the space's base directory.
-			if _, statErr := os.Stat(filepath.Dir(base)); statErr != nil {
-				return nil, statErr
-			}
-			if err = os.MkdirAll(filepath.Dir(metaLockPath), 0700); err != nil {
-				return nil, err
+			// base is the space's metadata directory (e.g. <spaceRoot>/.oc-nodes).
+			// Create it and the locks directory one level at a time: unlike MkdirAll,
+			// Mkdir fails when the space root is removed concurrently.
+			for _, dir := range []string{base, filepath.Dir(metaLockPath)} {
+				if err = os.Mkdir(dir, 0700); err != nil && !errors.Is(err, os.ErrExist) {
+					return nil, err
+				}
 			}
 			mlock, err = lockedfile.OpenFile(metaLockPath, os.O_RDWR|os.O_CREATE, 0600)
 			if err != nil {

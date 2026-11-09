@@ -2,6 +2,7 @@ package command
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
 	"github.com/opencloud-eu/opencloud/pkg/generators"
@@ -61,7 +62,12 @@ func RestartPostprocessing(cfg *config.Config) *cobra.Command {
 				}
 			}
 
-			return events.Publish(context.Background(), stream, ev)
+			if err := events.Publish(context.Background(), stream, ev); err != nil {
+				return err
+			}
+
+			fmt.Println("Postprocessing event published successfully")
+			return nil
 		},
 	}
 

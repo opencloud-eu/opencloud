@@ -13,6 +13,10 @@ type OnlyOffice struct {
 	BaseFileName string `json:"BaseFileName,omitempty"`
 	// copied from MS WOPI
 	Version string `json:"Version,omitempty"`
+	// The size of the file in bytes. A pointer because an empty pdf has to
+	// carry its 0, while an empty ods, odt or odp must not send the property
+	// at all, EuroOffice fails to open those when it is there.
+	Size *int64 `json:"Size,omitempty"`
 
 	//
 	// Breadcrumb properties
@@ -137,7 +141,9 @@ func (oinfo *OnlyOffice) SetProperties(props map[string]any) {
 			oinfo.BaseFileName = value.(string)
 		case KeyVersion:
 			oinfo.Version = value.(string)
-
+		case KeySize:
+			size := value.(int64)
+			oinfo.Size = &size
 		case KeyBreadcrumbBrandName:
 			oinfo.BreadcrumbBrandName = value.(string)
 		case KeyBreadcrumbBrandURL:

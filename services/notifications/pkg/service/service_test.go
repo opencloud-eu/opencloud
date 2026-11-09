@@ -13,6 +13,7 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	ocEvents "github.com/opencloud-eu/opencloud/pkg/events"
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
@@ -98,7 +99,7 @@ var _ = Describe("Notifications", func() {
 			cfg.GRPCClientTLS = &shared.GRPCClientTLS{}
 			ch := make(chan events.Event)
 			evts := service.NewEventsNotifier(ch, tc, log.NewLogger(), gatewaySelector, vs, "",
-				"", "", "", "", "", "",
+				"", "", "", testOpenCloudURL, "", "",
 				store.Create(), nil, nil)
 			go evts.Run()
 
@@ -118,7 +119,7 @@ var _ = Describe("Notifications", func() {
 
 Dr. S. Harer has shared "secrets of the board" with you.
 
-Click here to view it: files/shares/with-me
+Click here to view it: https://cloud.example.com/files/shares/with-me
 
 
 ---
@@ -126,6 +127,7 @@ OpenCloud - a safe home for all your data
 https://opencloud.eu
 `,
 			expectedSender: sharer.GetDisplayName(),
+			expectedLink:   testOpenCloudURL + "/files/shares/with-me",
 			done:           make(chan struct{}),
 		}, events.Event{
 			Event: events.ShareCreated{
@@ -192,7 +194,7 @@ https://opencloud.eu
 
 Dr. S. Harer has invited you to join "secret space".
 
-Click here to view it: f/spaceid
+Click here to view it: https://cloud.example.com/f/spaceid
 
 
 ---
@@ -200,6 +202,7 @@ OpenCloud - a safe home for all your data
 https://opencloud.eu
 `,
 			expectedSender: sharer.GetDisplayName(),
+			expectedLink:   testOpenCloudURL + "/f/spaceid",
 			done:           make(chan struct{}),
 		}, events.Event{
 			Event: events.SpaceShared{
@@ -219,7 +222,7 @@ Dr. S. Harer has removed you from "secret space".
 
 You might still have access through your other groups or direct membership.
 
-Click here to check it: f/spaceid
+Click here to check it: https://cloud.example.com/f/spaceid
 
 
 ---
@@ -227,6 +230,7 @@ OpenCloud - a safe home for all your data
 https://opencloud.eu
 `,
 			expectedSender: sharer.GetDisplayName(),
+			expectedLink:   testOpenCloudURL + "/f/spaceid",
 			done:           make(chan struct{}),
 		}, events.Event{
 			Event: events.SpaceUnshared{
@@ -259,6 +263,107 @@ https://opencloud.eu
 				SpaceID:       &provider.StorageSpaceId{OpaqueId: "spaceid"},
 				SpaceName:     "secret space",
 				ExpiredAt:     time.Date(2023, 4, 17, 16, 42, 0, 0, time.UTC),
+			},
+		}),
+
+		Entry("Guest Token Created", testChannel{
+			expectedReceipients: []string{"guest@example.com"},
+			expectedSubject:     "Dr. S. Harer shared 'guest folder' with you",
+			expectedTextBody: `Hello,
+
+Dr. S. Harer has shared "guest folder" with you.
+
+The link below is personal and can only be used once. Please do not forward it.
+
+The link is only valid for 30 minutes.
+
+Click here to view it: https://cloud.example.com/g/v1.sharehash.secret
+
+
+---
+OpenCloud - a safe home for all your data
+https://opencloud.eu
+`,
+			expectedHTMLParts: []string{
+				`<p style="margin: 0;">Hello,</p>`,
+				`<p style="margin: 12px 0 0;">Dr. S. Harer has shared &#34;guest folder&#34; with you.</p>`,
+				`<p style="margin: 12px 0 0;">The link below is personal and can only be used once. Please do not forward it.</p>`,
+				`>Open link</a>`,
+				`The link is only valid for 30 minutes.</td>`,
+			},
+			expectedSender: sharer.GetDisplayName(),
+			expectedLink:   testOpenCloudURL + "/g/v1.sharehash.secret",
+			done:           make(chan struct{}),
+		}, events.Event{
+			Event: ocEvents.GuestTokenCreated{
+				Sharer:       sharer.GetId(),
+				GranteeEmail: "guest@example.com",
+				ItemID:       resourceid,
+				ResourceName: "guest folder",
+				Token:        "v1.sharehash.secret",
+			},
+		}),
+
+		Entry("Guest Token Renewed", testChannel{
+			expectedReceipients: []string{"guest@example.com"},
+			expectedSubject:     "Your new link to 'secrets of the board'",
+			expectedTextBody: `Hello,
+
+A new link to "secrets of the board", shared with you by Dr. S. Harer, has been requested.
+
+Your PIN: 123456
+
+Open the link below or enter the PIN on the page where you requested the new link. The link and the PIN are personal and can only be used once. Please do not forward them.
+
+The link and the PIN are only valid for 30 minutes.
+
+Click here to view it: https://cloud.example.com/g/v1.sharehash.newsecret
+
+
+---
+OpenCloud - a safe home for all your data
+https://opencloud.eu
+`,
+			expectedSender: sharer.GetDisplayName(),
+			expectedLink:   testOpenCloudURL + "/g/v1.sharehash.newsecret",
+			done:           make(chan struct{}),
+		}, events.Event{
+			Event: ocEvents.GuestTokenRenewed{
+				Sharer:       sharer.GetId(),
+				GranteeEmail: "guest@example.com",
+				ItemID:       resourceid,
+				Token:        "v1.sharehash.newsecret",
+				Pin:          "123456",
+			},
+		}),
+
+		Entry("Guest Token Renewed without PIN", testChannel{
+			expectedReceipients: []string{"guest@example.com"},
+			expectedSubject:     "Your new link to 'secrets of the board'",
+			expectedTextBody: `Hello,
+
+A new link to "secrets of the board", shared with you by Dr. S. Harer, has been requested.
+
+The link below is personal and can only be used once. Please do not forward it.
+
+The link is only valid for 30 minutes.
+
+Click here to view it: https://cloud.example.com/g/v1.sharehash.newsecret
+
+
+---
+OpenCloud - a safe home for all your data
+https://opencloud.eu
+`,
+			expectedSender: sharer.GetDisplayName(),
+			expectedLink:   testOpenCloudURL + "/g/v1.sharehash.newsecret",
+			done:           make(chan struct{}),
+		}, events.Event{
+			Event: ocEvents.GuestTokenRenewed{
+				Sharer:       sharer.GetId(),
+				GranteeEmail: "guest@example.com",
+				ItemID:       resourceid,
+				Token:        "v1.sharehash.newsecret",
 			},
 		}),
 	)
@@ -339,7 +444,7 @@ var _ = Describe("Notifications X-Site Scripting", func() {
 			cfg.GRPCClientTLS = &shared.GRPCClientTLS{}
 			ch := make(chan events.Event)
 			evts := service.NewEventsNotifier(ch, tc, log.NewLogger(), gatewaySelector, vs, "",
-				"", "", "", "", "", "",
+				"", "", "", testOpenCloudURL, "", "",
 				store.Create(), nil, nil)
 			go evts.Run()
 
@@ -359,58 +464,22 @@ var _ = Describe("Notifications X-Site Scripting", func() {
 
 Dr. O'reilly has shared "<script>alert('secrets of the board');</script>" with you.
 
-Click here to view it: files/shares/with-me
+Click here to view it: https://cloud.example.com/files/shares/with-me
 
 
 ---
 OpenCloud - a safe home for all your data
 https://opencloud.eu
 `,
-			expectedHTMLBody: `<!DOCTYPE html>
-<html>
-<body>
-<table cellspacing="0" cellpadding="0" border="0" width="100%">
-    <tr>
-        <td>
-            <table cellspacing="0" cellpadding="0" border="0" width="600px">
-                <tr>
-                    <td width="20px">&nbsp;</td>
-                    <td style="font-weight:normal; font-size:0.8em; line-height:1.2em; font-family:verdana,'arial',sans;">
-                        Hello &lt;script&gt;alert(&#39;Eric Expireling&#39;);&lt;/script&gt;
-                        <br><br>
-                        Dr. O&#39;reilly has shared "&lt;script&gt;alert(&#39;secrets of the board&#39;);&lt;/script&gt;" with you.
-                        <br><br>
-                        Click here to view it: <a href="files/shares/with-me">files/shares/with-me</a>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2">&nbsp;</td>
-                </tr>
-                <tr>
-                    <td width="20px">&nbsp;</td>
-                    <td style="font-weight:normal; font-size:0.8em; line-height:1.2em; font-family:verdana,'arial',sans;">
-                        <footer>
-                            <br>
-                            <br>
-                            --- <br>
-                            OpenCloud - a safe home for all your data<br>
-                            <a href="https://opencloud.eu">https://opencloud.eu</a>
-                        </footer>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2">&nbsp;</td>
-                </tr>
-            </table>
-        </td>
-    </tr>
-</table>
-</body>
-</html>
-`,
+			expectedHTMLParts: []string{
+				`<p style="margin: 0;">Hello &lt;script&gt;alert(&#39;Eric Expireling&#39;);&lt;/script&gt;</p>`,
+				`<p style="margin: 12px 0 0;">Dr. O&#39;reilly has shared &#34;&lt;script&gt;alert(&#39;secrets of the board&#39;);&lt;/script&gt;&#34; with you.</p>`,
+				`>View shares</a>`,
+			},
 			expectedSender: sharer.GetDisplayName(),
 
-			done: make(chan struct{}),
+			expectedLink: testOpenCloudURL + "/files/shares/with-me",
+			done:         make(chan struct{}),
 		}, events.Event{
 			Event: events.ShareCreated{
 				Sharer:        sharer.GetId(),
@@ -427,7 +496,7 @@ https://opencloud.eu
 
 Dr. O'reilly has invited you to join "<script>alert('secret space');</script>".
 
-Click here to view it: f/spaceid
+Click here to view it: https://cloud.example.com/f/spaceid
 
 
 ---
@@ -435,49 +504,13 @@ OpenCloud - a safe home for all your data
 https://opencloud.eu
 `,
 			expectedSender: sharer.GetDisplayName(),
-			expectedHTMLBody: `<!DOCTYPE html>
-<html>
-<body>
-<table cellspacing="0" cellpadding="0" border="0" width="100%">
-    <tr>
-        <td>
-            <table cellspacing="0" cellpadding="0" border="0" width="600px">
-                <tr>
-                    <td width="20px">&nbsp;</td>
-                    <td style="font-weight:normal; font-size:0.8em; line-height:1.2em; font-family:verdana,'arial',sans;">
-                        Hello &lt;script&gt;alert(&#39;Eric Expireling&#39;);&lt;/script&gt;,
-                        <br><br>
-                        Dr. O&#39;reilly has invited you to join "&lt;script&gt;alert(&#39;secret space&#39;);&lt;/script&gt;".
-                        <br><br>
-                        Click here to view it: <a href="f/spaceid">f/spaceid</a>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2">&nbsp;</td>
-                </tr>
-                <tr>
-                    <td width="20px">&nbsp;</td>
-                    <td style="font-weight:normal; font-size:0.8em; line-height:1.2em; font-family:verdana,'arial',sans;">
-                        <footer>
-                            <br>
-                            <br>
-                            --- <br>
-                            OpenCloud - a safe home for all your data<br>
-                            <a href="https://opencloud.eu">https://opencloud.eu</a>
-                        </footer>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan="2">&nbsp;</td>
-                </tr>
-            </table>
-        </td>
-    </tr>
-</table>
-</body>
-</html>
-`,
-			done: make(chan struct{}),
+			expectedHTMLParts: []string{
+				`<p style="margin: 0;">Hello &lt;script&gt;alert(&#39;Eric Expireling&#39;);&lt;/script&gt;,</p>`,
+				`<p style="margin: 12px 0 0;">Dr. O&#39;reilly has invited you to join &#34;&lt;script&gt;alert(&#39;secret space&#39;);&lt;/script&gt;&#34;.</p>`,
+				`>Open space</a>`,
+			},
+			expectedLink: testOpenCloudURL + "/f/spaceid",
+			done:         make(chan struct{}),
 		}, events.Event{
 			Event: events.SpaceShared{
 				Executant:     sharer.GetId(),
@@ -489,14 +522,18 @@ https://opencloud.eu
 	)
 })
 
-// NOTE: This is explictitly not testing the message itself. Should we?
+const testOpenCloudURL = "https://cloud.example.com"
+
 type testChannel struct {
 	expectedReceipients []string
 	expectedSubject     string
 	expectedTextBody    string
-	expectedHTMLBody    string
+	expectedHTMLParts   []string
 	expectedSender      string
-	done                chan struct{}
+	// expectedLink, if set, must be an absolute URL on the OpenCloud instance
+	// and must be linked in the HTML body.
+	expectedLink string
+	done         chan struct{}
 }
 
 func (tc testChannel) SendMessage(ctx context.Context, m *channels.Message) error {
@@ -506,8 +543,16 @@ func (tc testChannel) SendMessage(ctx context.Context, m *channels.Message) erro
 	Expect(tc.expectedSubject).To(Equal(m.Subject))
 	Expect(tc.expectedTextBody).To(Equal(m.TextBody))
 	Expect(tc.expectedSender).To(Equal(m.Sender))
-	if tc.expectedHTMLBody != "" {
-		Expect(tc.expectedHTMLBody).To(Equal(m.HTMLBody))
+	Expect(m.HTMLBody).ToNot(BeEmpty())
+	for _, part := range tc.expectedHTMLParts {
+		Expect(m.HTMLBody).To(ContainSubstring(part))
+	}
+	// user input must never reach the html body unescaped
+	Expect(m.HTMLBody).ToNot(ContainSubstring("<script>"))
+	if tc.expectedLink != "" {
+		Expect(tc.expectedLink).To(HavePrefix(testOpenCloudURL + "/"))
+		Expect(m.TextBody).To(ContainSubstring(tc.expectedLink))
+		Expect(m.HTMLBody).To(ContainSubstring(`href="` + tc.expectedLink + `"`))
 	}
 	tc.done <- struct{}{}
 	return nil

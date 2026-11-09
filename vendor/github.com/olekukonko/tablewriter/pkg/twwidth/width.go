@@ -333,7 +333,11 @@ func Width(str string) int {
 		if IsTab(rune(str[0])) {
 			return TabWidth()
 		}
-		return 1
+		// Only printable ASCII has a guaranteed width of 1; control
+		// characters (width 0) fall through to the accurate path below.
+		if str[0] >= 0x20 && str[0] != 0x7f {
+			return 1
+		}
 	}
 
 	mu.Lock()

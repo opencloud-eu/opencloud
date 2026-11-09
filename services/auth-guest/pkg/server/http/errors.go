@@ -1,0 +1,91 @@
+// Copyright 2026 OpenCloud GmbH <mail@opencloud.eu>
+// SPDX-License-Identifier: Apache-2.0
+
+package http
+
+import (
+	"encoding/json"
+	"errors"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/authguest"
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/jwt"
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/storage"
+	"github.com/opencloud-eu/opencloud/services/auth-guest/pkg/service/token"
+)
+
+type errorResponse struct {
+	ErrorType    string `json:"errorType"`
+	Message      string `json:"message"`
+	PermissionID string `json:"permissionId"`
+	RetryAfter   int    `json:"retryAfter,omitempty"`
+}
+
+func writeError(w http.ResponseWriter, status int, body errorResponse) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(body)
+}
+
+func writeGuestError(w http.ResponseWriter, err error) {
+	if errors.Is(err, authguest.ErrEventsNotConfigured) {
+		writeError(w, http.StatusServiceUnavailable, errorResponse{ErrorType: "serviceUnavailable", Message: err.Error()})
+		return
+	}
+
+	var ge *authguest.GuestError
+	if !errors.As(err, &ge) {
+		writeError(w, http.StatusInternalServerError, errorResponse{ErrorType: "internalError", Message: "An internal error occurred."})
+		return
+	}
+
+	status := http.StatusInternalServerError
+	errorType := "internalError"
+	switch {
+	case errors.Is(ge.ErrorType, authguest.ErrExpired):
+		status, errorType = http.StatusUnauthorized, "tokenExpired"
+	case errors.Is(ge.ErrorType, token.ErrInvalidToken):
+		status, errorType = http.StatusUnauthorized, "tokenInvalid"
+	case errors.Is(ge.ErrorType, storage.ErrNotFound):
+		status, errorType = http.StatusNotFound, "tokenNotFound"
+	case errors.Is(ge.ErrorType, storage.ErrInvalidHash):
+		status, errorType = http.StatusUnauthorized, "tokenInvalid"
+	case errors.Is(ge.ErrorType, storage.ErrConflict):
+		status, errorType = http.StatusConflict, "conflict"
+	case errors.Is(ge.ErrorType, authguest.ErrAlreadyRedeemed):
+		status, errorType = http.StatusConflict, "tokenAlreadyRedeemed"
+	case errors.Is(ge.ErrorType, authguest.ErrShareNotFound):
+		status, errorType = http.StatusNotFound, "shareNotFound"
+	case errors.Is(ge.ErrorType, authguest.ErrShareExpired):
+		status, errorType = http.StatusGone, "shareExpired"
+	case errors.Is(ge.ErrorType, authguest.ErrPinInvalid):
+		status, errorType = http.StatusUnauthorized, "pinInvalid"
+	case errors.Is(ge.ErrorType, authguest.ErrPinExpired):
+		status, errorType = http.StatusUnauthorized, "pinExpired"
+	case errors.Is(ge.ErrorType, jwt.ErrInvalidSession):
+		status, errorType = http.StatusUnauthorized, "sessionInvalid"
+	case errors.Is(ge.ErrorType, authguest.ErrNonceInvalid):
+		status, errorType = http.StatusUnauthorized, "nonceInvalid"
+	case errors.Is(ge.ErrorType, authguest.ErrNonceExpired):
+		status, errorType = http.StatusUnauthorized, "nonceExpired"
+	case errors.Is(ge.ErrorType, authguest.ErrTooManyAttempts):
+		status, errorType = http.StatusTooManyRequests, "tooManyRequests"
+	case errors.Is(ge.ErrorType, authguest.ErrPermissionMismatch):
+		status, errorType = http.StatusBadRequest, "invalidRequest"
+	}
+
+	message := ge.ErrorType.Error()
+	if errorType == "internalError" {
+		message = "An internal error occurred."
+	}
+
+	retryAfter := 0
+	if ge.RetryAfter > 0 {
+		retryAfter = int((ge.RetryAfter + time.Second - 1) / time.Second)
+		w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
+	}
+
+	writeError(w, status, errorResponse{ErrorType: errorType, Message: message, PermissionID: ge.ShareID, RetryAfter: retryAfter})
+}

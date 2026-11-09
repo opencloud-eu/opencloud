@@ -39,7 +39,12 @@ func Server(opts ...Option) (http.Service, error) {
 		return http.Service{}, fmt.Errorf("could not initialize http service: %w", err)
 	}
 
+	// validated by the config parser
+	trustedProxies, _ := middleware.ParseTrustedProxies(options.Config.HTTP.TrustedProxies)
+
 	middlewares := []func(stdhttp.Handler) stdhttp.Handler{
+		// Traefik routes to us directly, not through the proxy service
+		middleware.ClientIP(trustedProxies, options.Config.HTTP.ClientIPHeader),
 		chimiddleware.RequestID,
 		middleware.Version(
 			options.Config.Service.Name,
@@ -221,7 +226,7 @@ func prepareRoutes(r *chi.Mux, options Options) {
 		r.Route("/fonts", func(r chi.Router) {
 			r.Get("/", fontService.ListFonts)
 			r.Get("/{id}", fontService.GetFont)
-			r.Get("/preview/{id}", fontService.PreviewFont)
+			r.With(auth).Get("/preview/{id}", fontService.PreviewFont)
 			r.With(auth).Route("/manage", func(r chi.Router) {
 				r.Post("/", fontService.UploadFont)
 				r.Delete("/{id}", fontService.DeleteFont)

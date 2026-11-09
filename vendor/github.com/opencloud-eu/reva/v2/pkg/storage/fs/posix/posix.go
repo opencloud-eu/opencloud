@@ -46,6 +46,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/aspects"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/permissions"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/upload"
@@ -104,6 +105,9 @@ func New(o *options.Options, stream events.Stream, cache, historyCache *idcache.
 	}
 	if o.FileMetadataCache.Store == "noop" {
 		return nil, fmt.Errorf("the posix driver requires a file metadata cache")
+	}
+	if err := prefixes.SetOcPrefix(o.MetadataPrefix); err != nil {
+		return nil, err
 	}
 
 	var err error

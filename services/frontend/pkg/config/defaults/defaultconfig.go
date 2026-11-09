@@ -82,6 +82,7 @@ func DefaultConfig() *config.Config {
 		Reva:                     shared.DefaultRevaConfig(),
 		PublicURL:                "https://localhost:9200",
 		UploadMaxChunkSize:       1e+7,
+		DefaultQuota:             "1000000000",
 		UploadHTTPMethodOverride: "",
 		DefaultUploadProtocol:    "tus",
 		DefaultLinkPermissions:   1,

@@ -28,6 +28,7 @@ Feature: REPORT request to project space
       | oc:file-parent     | %file_id_pattern%         |
       | oc:name            | testFile.txt              |
       | d:getcontenttype   | text/plain                |
+      | oc:has-preview     | 1                         |
       | oc:permissions     | RDNVW                     |
       | oc:privatelink     | %base_url%/f/[0-9a-z-$%]+ |
       | d:getcontentlength | 12                        |
@@ -49,9 +50,27 @@ Feature: REPORT request to project space
       | oc:file-parent     | %file_id_pattern%         |
       | oc:name            | insideTheFolder.txt       |
       | d:getcontenttype   | text/plain                |
+      | oc:has-preview     | 1                         |
       | oc:permissions     | RDNVW                     |
       | oc:privatelink     | %base_url%/f/[0-9a-z-$%]+ |
       | d:getcontentlength | 12                        |
+
+
+  Scenario Outline: check has-preview property in the REPORT response of the searched file
+    Given user "Alice" has uploaded a file "filesForUpload/<file>" to "<file>" in space "findData"
+    When user "Alice" searches for "<file>" using the WebDAV API
+    Then the HTTP status code should be "207"
+    And the search result of user "Alice" should contain only these entries:
+      | <file> |
+    And as user "Alice" the REPORT response should contain a resource "<file>" with these key and value pairs:
+      | key              | value          |
+      | oc:name          | <file>         |
+      | d:getcontenttype | <content-type> |
+      | oc:has-preview   | <has-preview>  |
+    Examples:
+      | file           | content-type    | has-preview |
+      | testavatar.jpg | image/jpeg      | 1           |
+      | simple.pdf     | application/pdf | 0           |
 
   @issue-10329
   Scenario: check the response of the searched folder

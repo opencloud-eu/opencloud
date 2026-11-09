@@ -32,6 +32,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	appprovider "github.com/cs3org/go-cs3apis/cs3/app/provider/v1beta1"
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -240,9 +241,32 @@ func CanonicalUserID(id *userpb.UserId) string {
 		// comparisons: those are email addresses, and while RFC 5321 states
 		// that the local-part is case sensitive, in practice, it's a de facto
 		// standard that email providers consider them to be case insensitive.
-		return strings.ToLower(id.GetOpaqueId())
+		return LowerASCII(id.GetOpaqueId())
 	}
 	return id.GetOpaqueId()
+}
+
+// LowerASCII lowercases only the ASCII letters A-Z in s and leaves all other
+// characters untouched. Unlike strings.ToLower it never maps a non-ASCII
+// character to an ASCII one (e.g. 'İ' -> 'i' or the Kelvin sign 'K' -> 'k'),
+// so two different email addresses can't end up with the same canonical form.
+func LowerASCII(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= 'A' && r <= 'Z' {
+			return r + ('a' - 'A')
+		}
+		return r
+	}, s)
+}
+
+// IsASCII returns true if s contains only ASCII characters.
+func IsASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= utf8.RuneSelf {
+			return false
+		}
+	}
+	return true
 }
 
 // GroupEqual returns whether two groups have the same field values.
@@ -424,6 +448,41 @@ func AppendJSONToOpaque(o *types.Opaque, key string, value interface{}) *types.O
 		Value:   b,
 	}
 	return o
+}
+
+// AncestorGrantsKey is the field mask path to request the active grants on a resource and its
+// ancestors from a storage, and the opaque key they are returned under (see ReadGrantsFromOpaque).
+const AncestorGrantsKey = "ancestor-grants"
+
+// AppendGrantsToOpaque adds the grants as json on the given opaque and returns it.
+// If the grants can't be marshaled, e.g. because an id is not valid UTF-8, the opaque is returned unchanged.
+func AppendGrantsToOpaque(o *types.Opaque, key string, grants []*provider.Grant) (*types.Opaque, error) {
+	// grantees are oneofs, which only protojson can marshal
+	b, err := MarshalProtoV1ToJSON(&provider.ListGrantsResponse{Grants: grants})
+	if err != nil {
+		return o, err
+	}
+
+	o = ensureOpaque(o)
+	o.Map[key] = &types.OpaqueEntry{
+		Decoder: "json",
+		Value:   b,
+	}
+	return o, nil
+}
+
+// ReadGrantsFromOpaque reads grants added with AppendGrantsToOpaque from the given opaque map
+func ReadGrantsFromOpaque(o *types.Opaque, key string) ([]*provider.Grant, error) {
+	e, ok := o.GetMap()[key]
+	if !ok || e.Decoder != "json" {
+		return nil, errors.New("not found")
+	}
+
+	res := &provider.ListGrantsResponse{}
+	if err := UnmarshalJSONToProtoV1(e.Value, res); err != nil {
+		return nil, err
+	}
+	return res.GetGrants(), nil
 }
 
 // ReadPlainFromOpaque reads a plain string from the given opaque map

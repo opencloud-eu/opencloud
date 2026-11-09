@@ -232,6 +232,10 @@ func (r *ResourceBase[T]) Sync(ctx context.Context) error {
 	traceSink.Put(ctx, fmt.Sprintf("httprc.Resource.Sync: fetching %q", r.u))
 	res, err := httpcl.Do(req)
 	if err != nil {
+		// Schedule retry after MinInterval so that connection failures
+		// don't cause a tight retry loop (the resource's Next stays at
+		// epoch if we don't update it here).
+		r.SetNext(time.Now().Add(r.MinInterval()))
 		return fmt.Errorf(`httprc.Resource.Sync: failed to execute HTTP request: %w`, err)
 	}
 	defer res.Body.Close()

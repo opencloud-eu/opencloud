@@ -203,8 +203,15 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 			ImpersonatingUser: ev.ImpersonatingUser,
 			StartTime:         time.Now(),
 		}
+		pps.log.Info().Str("UploadID", ev.UploadID).Msg("processing init")
 		next = pp.Init(ev)
 	case events.PostprocessingStepFinished:
+		sublog := pps.log.Debug()
+		if ev.Outcome == events.PPOutcomeRetry {
+			sublog = pps.log.Error()
+		}
+		sublog.Str("UploadID", ev.UploadID).Str("step", string(ev.FinishedStep)).Str("outcome", string(ev.Outcome)).Msg("processing step finished")
+
 		if ev.UploadID == "" {
 			// no current upload - this was an on demand scan
 			return nil
@@ -216,10 +223,10 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 		}
 		next = pp.NextStep(ev)
 
-		switch pp.Status.Outcome {
-		case events.PPOutcomeRetry:
+		if pp.Status.Outcome == events.PPOutcomeRetry {
 			// schedule retry
 			backoff := pp.BackoffDuration()
+			pps.log.Info().Str("UploadID", ev.UploadID).Str("step", string(ev.FinishedStep)).Err(ev.Error).Msg("retrying step in " + backoff.String())
 			go func() {
 				time.Sleep(backoff)
 				retryEvent := events.StartPostprocessingStep{
@@ -238,7 +245,13 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 				}
 			}()
 		}
+
+		if pp.Status.CurrentStep == events.PPStepFinished {
+			pps.log.Info().Str("UploadID", e.ID).Msg("processing finished")
+		}
+
 	case events.StartPostprocessingStep:
+		pps.log.Debug().Str("UploadID", ev.UploadID).Str("step", string(ev.StepToStart)).Msg("processing step started")
 		if ev.StepToStart != events.PPStepDelay {
 			return nil
 		}
@@ -253,6 +266,7 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 			}
 		})
 	case events.UploadReady:
+		pps.log.Debug().Str("UploadID", e.ID).Str("filename", ev.Filename).Msg("processing UploadReady")
 		// the upload failed - let's keep it around for a while - but mark it as finished
 		pp, err = pps.getPP(pps.store, ev.UploadID)
 		if err != nil {
@@ -279,6 +293,7 @@ func (pps *PostprocessingService) processEvent(e raw.Event) error {
 			return fmt.Errorf("%w: cannot delete upload", ErrEvent)
 		}
 	case events.ResumePostprocessing:
+		pps.log.Info().Str("UploadID", ev.UploadID).Str("step", string(ev.Step)).Msg("processing resumed")
 		return pps.handleResumePPEvent(ctx, ev)
 	}
 
@@ -357,22 +372,27 @@ func (pps *PostprocessingService) getPP(sto store.Store, uploadID string) (*post
 	recs, err := sto.Read(uploadID)
 	if err != nil {
 		if err == store.ErrNotFound {
+			pps.log.Error().Str("uploadID", uploadID).Err(err).Msg("reading from store: upload not found in the store")
 			return nil, ErrNotFound
 		}
+		pps.log.Error().Str("uploadID", uploadID).Err(err).Msg("reading from store: upload store read error")
 		return nil, err
 	}
 
 	if len(recs) == 0 {
+		pps.log.Error().Str("uploadID", uploadID).Err(err).Msg("reading from store: empty upload records in the store")
 		return nil, ErrNotFound
 	}
 
 	if len(recs) > 1 {
+		pps.log.Error().Str("uploadID", uploadID).Int("records", len(recs)).Err(err).Msg("reading from store: expected only one result")
 		return nil, fmt.Errorf("expected only one result for '%s', got %d", uploadID, len(recs))
 	}
 
 	pp := postprocessing.New(pps.c)
 	err = json.Unmarshal(recs[0].Value, pp)
 	if err != nil {
+		pps.log.Error().Str("uploadID", uploadID).Err(err).Msg("reading from store: unmarshaling error")
 		return nil, err
 	}
 
