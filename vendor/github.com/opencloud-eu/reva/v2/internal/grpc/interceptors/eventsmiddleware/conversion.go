@@ -69,7 +69,7 @@ func ShareRemoved(r *collaboration.RemoveShareResponse, req *collaboration.Remov
 		rid     *provider.ResourceId
 	)
 	_ = utils.ReadJSONFromOpaque(r.Opaque, "granteeuserid", &userid)
-	_ = utils.ReadJSONFromOpaque(r.Opaque, "granteegroupid", &userid)
+	_ = utils.ReadJSONFromOpaque(r.Opaque, "granteegroupid", &groupid)
 	_ = utils.ReadJSONFromOpaque(r.Opaque, "resourceid", &rid)
 	return events.ShareRemoved{
 		Executant:      executant.GetId(),

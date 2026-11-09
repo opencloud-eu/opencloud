@@ -14,7 +14,6 @@ import (
 	"github.com/google/renameio/v2"
 	"github.com/pkg/errors"
 	"github.com/pkg/xattr"
-	"github.com/rogpeppe/go-internal/lockedfile"
 	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/opencloud-eu/reva/v2/pkg/storage/cache"
@@ -30,6 +29,7 @@ type HybridBackend struct {
 	offloadLimit     int
 	metaCache        cache.FileMetadataCache
 	metadataPathFunc MetadataPathFunc
+	metrics          *backendMetrics
 }
 
 // NewMessageBackend returns a new HybridBackend instance
@@ -38,6 +38,7 @@ func NewHybridBackend(offloadLimit int, metadataPathFunc MetadataPathFunc, o cac
 		offloadLimit:     offloadLimit,
 		metaCache:        cache.GetFileMetadataCache(o),
 		metadataPathFunc: metadataPathFunc,
+		metrics:          newBackendMetrics("hybrid"),
 	}
 }
 
@@ -46,6 +47,7 @@ func (HybridBackend) Name() string { return "hybrid" }
 
 // IdentifyPath returns the space id, node id and mtime of a file
 func (b HybridBackend) IdentifyPath(_ context.Context, path string) (string, string, string, time.Time, error) {
+	b.metrics.reads.Inc()
 	spaceID, err := xattr.Get(path, prefixes.SpaceIDAttr)
 	if err != nil {
 		if IsNotExist(err) {
@@ -66,10 +68,13 @@ func (b HybridBackend) IdentifyPath(_ context.Context, path string) (string, str
 func (b HybridBackend) Get(ctx context.Context, n MetadataNode, key string) ([]byte, error) {
 	attribs := map[string][]byte{}
 	err := b.metaCache.PullFromCache(b.cacheKey(n), &attribs)
-	if err == nil && len(attribs[key]) > 0 {
+	found := err == nil && len(attribs[key]) > 0
+	b.metrics.cacheLookup(found)
+	if found {
 		return attribs[key], err
 	}
 
+	b.metrics.reads.Inc()
 	if isOffloadingAttribute(key) {
 		// check if key is offloaded
 		offloaded, err := xattr.Get(n.InternalPath(), metadataOffloadedAttr())
@@ -122,6 +127,7 @@ func (b HybridBackend) All(ctx context.Context, n MetadataNode) (map[string][]by
 	attribs := map[string][]byte{}
 
 	err := b.metaCache.PullFromCache(b.cacheKey(n), &attribs)
+	b.metrics.cacheLookup(err == nil)
 	if err == nil {
 		return attribs, err
 	}
@@ -138,6 +144,7 @@ func (b HybridBackend) All(ctx context.Context, n MetadataNode) (map[string][]by
 }
 
 func (b HybridBackend) getAll(ctx context.Context, n MetadataNode, skipOffloaded bool) (map[string][]byte, error) {
+	b.metrics.reads.Inc()
 	attribs := map[string][]byte{}
 	attrNames, err := b.list(ctx, n)
 	if err != nil {
@@ -217,6 +224,8 @@ func (b HybridBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs 
 		defer func() { _ = unlock() }()
 	}
 
+	// counts once together with reading the offloaded metadata below
+	b.metrics.reads.Inc()
 	offloadAttr, err := xattr.Get(path, metadataOffloadedAttr())
 	offloaded := err == nil && string(offloadAttr) == "1"
 
@@ -254,6 +263,7 @@ func (b HybridBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs 
 		}
 	}
 
+	b.metrics.writes.Inc()
 	if offloaded {
 		metaPath := b.MetadataPath(n)
 		var msgBytes []byte
@@ -340,6 +350,7 @@ func (b HybridBackend) offloadMetadata(ctx context.Context, n MetadataNode) erro
 		return err
 	}
 
+	b.metrics.writes.Inc()
 	err = renameio.WriteFile(b.MetadataPath(n), d, 0600)
 	if err != nil {
 		return err
@@ -376,6 +387,7 @@ func (b HybridBackend) Remove(ctx context.Context, n MetadataNode, key string) e
 	}
 
 	if isOffloadingAttribute(key) {
+		b.metrics.reads.Inc()
 		offloadAttr, err := xattr.Get(path, metadataOffloadedAttr())
 		offloaded := err == nil && string(offloadAttr) == "1"
 		if offloaded {
@@ -412,12 +424,14 @@ func (b HybridBackend) Remove(ctx context.Context, n MetadataNode, key string) e
 				return err
 			}
 
+			b.metrics.writes.Inc()
 			err = renameio.WriteFile(b.MetadataPath(n), d, 0600)
 			if err != nil {
 				return err
 			}
 		} else {
 			// remove from xattrs
+			b.metrics.writes.Inc()
 			err := xattr.Remove(path, key)
 			if err != nil {
 				return err
@@ -425,6 +439,7 @@ func (b HybridBackend) Remove(ctx context.Context, n MetadataNode, key string) e
 		}
 	} else {
 		// remove from xattrs
+		b.metrics.writes.Inc()
 		err := xattr.Remove(path, key)
 		if err != nil {
 			return err
@@ -452,6 +467,7 @@ func (b HybridBackend) Purge(ctx context.Context, n MetadataNode) error {
 
 		attribs, err := b.getAll(ctx, n, false)
 		if err == nil {
+			b.metrics.writes.Inc()
 			for attr := range attribs {
 				if strings.HasPrefix(attr, prefixes.OcPrefix) {
 					_ = xattr.Remove(path, attr)
@@ -497,7 +513,7 @@ func (b HybridBackend) Lock(n MetadataNode) (UnlockFunc, error) {
 	}
 
 	metaLockPath := b.LockfilePath(n)
-	mlock, err := lockedfile.OpenFile(metaLockPath, os.O_RDWR|os.O_CREATE, 0600)
+	mlock, err := lockFile(n, metaLockPath, os.O_RDWR|os.O_CREATE, b.metrics)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			// The lock file's parent directories don't exist yet (or anymore).
@@ -517,7 +533,7 @@ func (b HybridBackend) Lock(n MetadataNode) (UnlockFunc, error) {
 					return nil, err
 				}
 			}
-			mlock, err = lockedfile.OpenFile(metaLockPath, os.O_RDWR|os.O_CREATE, 0600)
+			mlock, err = lockFile(n, metaLockPath, os.O_RDWR|os.O_CREATE, b.metrics)
 			if err != nil {
 				return nil, err
 			}

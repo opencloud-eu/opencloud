@@ -35,7 +35,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/share/manager/jsoncs3/shareid"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/mtimesyncedcache"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/mtimesyncedcache"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/metadata"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 )
