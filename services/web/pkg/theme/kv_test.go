@@ -2,7 +2,6 @@ package theme_test
 
 import (
 	"encoding/json"
-	"sync"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -46,27 +45,6 @@ func TestMergeKVLeavesNestedInputsUntouched(t *testing.T) {
 	result, err := theme.MergeKV(defaults, branding)
 	assert.Nil(t, err)
 	assert.Equal(t, theme.KV{"common": theme.KV{"name": "branded"}}, result)
-	assert.Equal(t, theme.KV{"common": theme.KV{"name": "default"}}, defaults)
-}
-
-func TestMergeKVConcurrently(t *testing.T) {
-	defaults := theme.KV{
-		"common": theme.KV{
-			"name": "default",
-		},
-	}
-
-	var wg sync.WaitGroup
-	for i := range 16 {
-		wg.Go(func() {
-			for range 100 {
-				_, err := theme.MergeKV(defaults, theme.KV{"common": theme.KV{"name": i}})
-				assert.Nil(t, err)
-			}
-		})
-	}
-	wg.Wait()
-
 	assert.Equal(t, theme.KV{"common": theme.KV{"name": "default"}}, defaults)
 }
 

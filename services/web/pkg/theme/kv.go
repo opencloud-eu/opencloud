@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"dario.cat/mergo"
+	"github.com/mohae/deepcopy"
 	"github.com/spf13/afero"
 )
 
@@ -19,38 +20,13 @@ func MergeKV(values ...KV) (KV, error) {
 	var kv KV
 
 	for _, v := range values {
-		err := mergo.Merge(&kv, deepCopy(v).(KV), mergo.WithOverride)
+		err := mergo.Merge(&kv, deepcopy.Copy(v).(KV), mergo.WithOverride)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return kv, nil
-}
-
-func deepCopy(v any) any {
-	switch t := v.(type) {
-	case KV:
-		out := make(KV, len(t))
-		for k, val := range t {
-			out[k] = deepCopy(val)
-		}
-		return out
-	case map[string]any:
-		out := make(map[string]any, len(t))
-		for k, val := range t {
-			out[k] = deepCopy(val)
-		}
-		return out
-	case []any:
-		out := make([]any, len(t))
-		for i, val := range t {
-			out[i] = deepCopy(val)
-		}
-		return out
-	default:
-		return v
-	}
 }
 
 // PatchKV injects the given values into to v.
