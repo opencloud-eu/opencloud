@@ -24,7 +24,6 @@ func NewFileCache(dir string) *FileCache {
 	return &FileCache{dir: dir}
 }
 
-// probe fails when the filesystem cannot keep the content type next to the bytes.
 func (c *FileCache) probe() error {
 	if err := os.MkdirAll(c.dir, 0700); err != nil {
 		return err

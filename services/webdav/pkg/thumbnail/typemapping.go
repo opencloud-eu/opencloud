@@ -6,11 +6,9 @@ import (
 	"github.com/opencloud-eu/opencloud/services/webdav/pkg/generator"
 )
 
-// DefaultTypeMapping maps the type of the image a thumbnail is made from, the
-// file itself or what an extractor found in it. Types that carry alpha or
-// animation keep their own format, everything else becomes a JPEG. An icon is
-// the one type no generator writes back: it has to become a PNG, or JPEG would
-// flatten its transparent pixels onto black.
+// DefaultTypeMapping maps the type of the image a thumbnail is made from, not
+// the file's. Icons become PNG: no generator writes icons, and JPEG would
+// flatten their transparency.
 var DefaultTypeMapping = []string{
 	"image/png:image/png",
 	"image/gif:image/gif",
