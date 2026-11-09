@@ -1,12 +1,14 @@
 package cache
 
+import "github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
+
 // NoopCache always returns a cache miss and discards puts.
 type NoopCache struct{}
 
-func (NoopCache) Get(_ string) ([]byte, error) {
+func (NoopCache) Get(_ string) (*thumbnail.Image, error) {
 	return nil, ErrCacheMiss
 }
 
-func (NoopCache) Put(_ string, _ []byte) error {
+func (NoopCache) Put(_ string, _ *thumbnail.Image) error {
 	return nil
 }

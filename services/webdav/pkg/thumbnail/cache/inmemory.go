@@ -1,6 +1,10 @@
 package cache
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
+)
 
 // InMemoryCacheMaxBytes is how much the memory backend keeps before it drops the
 // oldest entries. The backend is a convenience for a single process; file and s3
@@ -11,7 +15,7 @@ const InMemoryCacheMaxBytes = 128 << 20
 // InMemoryCacheMaxBytes and evicting in insertion order.
 type InMemoryCache struct {
 	mu      sync.RWMutex
-	data    map[string][]byte
+	data    map[string]*thumbnail.Image
 	order   []string
 	size    int
 	maxSize int
@@ -19,47 +23,58 @@ type InMemoryCache struct {
 
 func NewInMemoryCache() *InMemoryCache {
 	return &InMemoryCache{
-		data:    make(map[string][]byte),
+		data:    make(map[string]*thumbnail.Image),
 		maxSize: InMemoryCacheMaxBytes,
 	}
 }
 
-func (c *InMemoryCache) Get(key string) ([]byte, error) {
+func (c *InMemoryCache) Get(key string) (*thumbnail.Image, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	data, ok := c.data[key]
+	img, ok := c.data[key]
 	if !ok {
 		return nil, ErrCacheMiss
 	}
 
-	result := make([]byte, len(data))
-	copy(result, data)
-	return result, nil
+	return clone(img), nil
 }
 
-func (c *InMemoryCache) Put(key string, data []byte) error {
+func (c *InMemoryCache) Put(key string, img *thumbnail.Image) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	cp := make([]byte, len(data))
-	copy(cp, data)
-
 	if old, ok := c.data[key]; ok {
-		c.size -= len(old)
+		c.size -= imageSize(old)
 	} else {
 		c.order = append(c.order, key)
 	}
-	c.data[key] = cp
-	c.size += len(cp)
+	c.data[key] = clone(img)
+	c.size += imageSize(img)
 
 	// the entry just written stays, even when it is larger than the budget
 	for c.size > c.maxSize && len(c.order) > 1 {
 		oldest := c.order[0]
 		c.order = c.order[1:]
-		c.size -= len(c.data[oldest])
+		c.size -= imageSize(c.data[oldest])
 		delete(c.data, oldest)
 	}
 
 	return nil
+}
+
+func clone(img *thumbnail.Image) *thumbnail.Image {
+	if img == nil {
+		return nil
+	}
+	data := make([]byte, len(img.Data))
+	copy(data, img.Data)
+	return &thumbnail.Image{ContentType: img.ContentType, Data: data}
+}
+
+func imageSize(img *thumbnail.Image) int {
+	if img == nil {
+		return 0
+	}
+	return len(img.Data)
 }

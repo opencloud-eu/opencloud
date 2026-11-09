@@ -1,6 +1,8 @@
 package thumbnail_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -11,9 +13,11 @@ import (
 var _ = Describe("TypeMapping", func() {
 	m := thumbnail.NewTypeMapping(nil)
 
-	It("answers for every type a preview is made of", func() {
+	It("answers for every image type a preview is made of", func() {
 		for _, mimeType := range thumbnail.NewSourceTypes(nil).List() {
-			Expect(m.TargetFor(mimeType)).ToNot(BeEmpty(), "%s has no output type", mimeType)
+			if strings.HasPrefix(mimeType, "image/") {
+				Expect(m.TargetFor(mimeType)).ToNot(BeEmpty(), "%s has no output type", mimeType)
+			}
 		}
 	})
 
@@ -27,8 +31,9 @@ var _ = Describe("TypeMapping", func() {
 		Expect(m.TargetFor("image/x-icon")).To(Equal("image/png"))
 	})
 
-	It("writes the icon of a windows binary as a png", func() {
-		Expect(m.TargetFor("application/x-msdownload")).To(Equal("image/png"))
+	It("maps no file type that is not an image, the image made of it decides", func() {
+		Expect(m.TargetFor("application/x-msdownload")).To(BeEmpty())
+		Expect(m.TargetFor("audio/mpeg")).To(BeEmpty())
 	})
 
 	It("reads a type with parameters", func() {
