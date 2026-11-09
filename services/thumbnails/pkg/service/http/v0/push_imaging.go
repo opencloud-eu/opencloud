@@ -1,5 +1,3 @@
-//go:build !enable_vips
-
 package svc
 
 import (
@@ -15,9 +13,7 @@ import (
 	"github.com/kovidgoyal/imaging/prism/meta/autometa"
 )
 
-// The backend this build resizes with. The implementations keep their own names
-// so a symbol search finds both builds' versions side by side, the variables are
-// what the shared handler calls.
+// The backend the service resizes with, as variables the shared handler calls.
 var (
 	loadSource         = loadSourceImaging
 	extForSourceFormat = extForSourceFormatImaging
@@ -28,7 +24,7 @@ var (
 	encodeWebP         = encodeWebPImaging
 )
 
-// imagingSource is a request's body as this build holds it between the header
+// imagingSource is a request's body as the service holds it between the header
 // read and the resize: the bytes plus what the header said about them. The
 // pixels are decoded in resizeSourceImaging, so the dimension guard has its say
 // before anything allocates a frame buffer.
@@ -38,8 +34,8 @@ type imagingSource struct {
 	format string
 }
 
-// loadSourceImaging reads the header through the stdlib decoder registry, which this
-// build also decodes with: png, jpeg and gif from the stdlib, bmp, tiff and webp
+// loadSourceImaging reads the header through the stdlib decoder registry, which the
+// service also decodes with: png, jpeg and gif from the stdlib, bmp, tiff and webp
 // from the imaging library.
 func loadSourceImaging(data []byte) (*imagingSource, error) {
 	config, format, err := image.DecodeConfig(bytes.NewReader(data))
@@ -51,14 +47,14 @@ func loadSourceImaging(data []byte) (*imagingSource, error) {
 }
 
 // Width and Height are what the header declared, so the dimension guard can ask
-// before the pixels exist. Close is there because the libvips build's image has
-// one; this build holds nothing that needs releasing.
+// before the pixels exist. Close is a no-op, the source holds nothing that
+// needs releasing.
 func (s *imagingSource) Width() int  { return s.config.Width }
 func (s *imagingSource) Height() int { return s.config.Height }
 func (s *imagingSource) Close()      {}
 
 // extForSourceFormatImaging is the output format for a request that asked for none: the
-// input's own where this build can write it, a JPEG for the rest, which is how
+// input's own where the service can write it, a JPEG for the rest, which is how
 // imagor answers a format it cannot write either.
 func extForSourceFormatImaging(src *imagingSource) string {
 	switch src.format {
@@ -160,8 +156,8 @@ func resizeSourceImaging(src *imagingSource, req resizeRequest) (image.Image, er
 			return img, nil
 		}
 
-		// smart() asks for the most interesting window, which needs libvips;
-		// this build crops the centre for it, the way main always did
+		// smart() asks for the most interesting window, which real imagor
+		// finds with libvips; this service crops the centre for it.
 
 		return imaging.Thumbnail(img, req.Width, req.Height, imaging.Lanczos), nil
 	}
@@ -176,6 +172,6 @@ func encodeGIFImaging(w io.Writer, img image.Image) error {
 	return gif.Encode(w, palettedAtOrigin(img, palette.Plan9), nil)
 }
 
-// encodeWebPImaging refuses: there is no webp encoder in the pure Go build, so a
-// deployment that needs webp output runs the libvips build or a real imagor.
+// encodeWebPImaging refuses: there is no webp encoder in pure Go, so a
+// deployment that needs webp output runs a real imagor.
 func encodeWebPImaging(io.Writer, image.Image) error { return errFormatUnsupported }

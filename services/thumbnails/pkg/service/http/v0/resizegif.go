@@ -10,9 +10,7 @@ import (
 
 // resizeGIF resizes every frame of an animated gif, compositing each frame onto
 // a running canvas to honour the gif disposal method and re-palletting with
-// Floyd-Steinberg dithering. Both backends share it: the frames go through
-// imaging either way, because neither libvips nor the pure Go path has anything
-// better for a paletted animation. Code adapted from
+// Floyd-Steinberg dithering. Code adapted from
 // https://github.com/willnorris/gifresize. The only error is errBoxTooLarge.
 func resizeGIF(m *gif.GIF, req resizeRequest) (*gif.GIF, error) {
 	srcX, srcY := m.Config.Width, m.Config.Height
