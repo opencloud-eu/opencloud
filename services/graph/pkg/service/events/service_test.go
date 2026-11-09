@@ -50,7 +50,7 @@ func TestSuccessfulCall(t *testing.T) {
 	metricstest.RequireEqual(t, 0, m.UnsupportedEvents)
 	metricstest.RequireIsNotSet(t, m.EventsProcessed)
 
-	_ = bus.Publish(events.UserSignedIn{
+	_ = bus.Push(events.UserSignedIn{
 		Timestamp: nil,
 		Executant: &userv1beta1.UserId{
 			OpaqueId: userId,
@@ -93,7 +93,7 @@ func TestBackendReturningAnError(t *testing.T) {
 	metricstest.RequireEqual(t, 0, m.UnsupportedEvents)
 	metricstest.RequireIsNotSet(t, m.EventsProcessed)
 
-	_ = bus.Publish(events.UserSignedIn{
+	_ = bus.Push(events.UserSignedIn{
 		Timestamp: nil,
 		Executant: &userv1beta1.UserId{
 			OpaqueId: userId,

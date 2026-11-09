@@ -1,4 +1,4 @@
-package service
+package http
 
 import (
 	"context"
@@ -6,37 +6,53 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/roles"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	settings "github.com/opencloud-eu/opencloud/services/settings/pkg/service/v0"
+	"github.com/opencloud-eu/opencloud/services/userlog/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/userlog/pkg/service"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
+	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
+	settingssvc "github.com/opencloud-eu/opencloud/protogen/gen/opencloud/services/settings/v0"
+	"github.com/opencloud-eu/reva/v2/pkg/events"
 )
+
+// Service is the http service responsible for serving userlog requests
+type Service struct {
+	log              log.Logger
+	cfg              *config.Config
+	userlog          *service.UserlogService
+	gatewaySelector  pool.Selectable[gateway.GatewayAPIClient]
+	valueClient      settingssvc.ValueService
+	registeredEvents map[string]events.Unmarshaller
+	tp               trace.TracerProvider
+	tracer           trace.Tracer
+}
 
 // HeaderAcceptLanguage is the header where the client can set the locale
 var HeaderAcceptLanguage = "Accept-Language"
 
-// ServeHTTP fulfills Handler interface
-func (ul *UserlogService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ul.m.ServeHTTP(w, r)
-}
-
 // HandleGetEvents is the GET handler for events
-func (ul *UserlogService) HandleGetEvents(w http.ResponseWriter, r *http.Request) {
-	ctx, span := ul.tracer.Start(r.Context(), "HandleGetEvents")
+func (s *Service) HandleGetEvents(w http.ResponseWriter, r *http.Request) {
+	ctx, span := s.tracer.Start(r.Context(), "HandleGetEvents")
 	defer span.End()
 	u, ok := revactx.ContextGetUser(ctx)
 	if !ok {
-		ul.log.Error().Int("returned statuscode", http.StatusUnauthorized).Msg("user unauthorized")
+		s.log.Error().Int("returned statuscode", http.StatusUnauthorized).Msg("user unauthorized")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	evs, err := ul.GetEvents(ctx, u.GetId().GetOpaqueId())
+	evs, err := s.userlog.GetEvents(ctx, u.GetId().GetOpaqueId())
 	if err != nil {
-		ul.log.Error().Err(err).Int("returned statuscode", http.StatusInternalServerError).Msg("get events failed")
+		s.log.Error().Err(err).Int("returned statuscode", http.StatusInternalServerError).Msg("get events failed")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -45,33 +61,33 @@ func (ul *UserlogService) HandleGetEvents(w http.ResponseWriter, r *http.Request
 		Value: attribute.IntValue(len(evs)),
 	})
 
-	gwc, err := ul.gatewaySelector.Next()
+	gwc, err := s.gatewaySelector.Next()
 	if err != nil {
-		ul.log.Error().Err(err).Msg("cant get gateway client")
+		s.log.Error().Err(err).Msg("cant get gateway client")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	ctx, err = utils.GetServiceUserContext(ul.cfg.ServiceAccount.ServiceAccountID, gwc, ul.cfg.ServiceAccount.ServiceAccountSecret)
+	ctx, err = utils.GetServiceUserContext(s.cfg.ServiceAccount.ServiceAccountID, gwc, s.cfg.ServiceAccount.ServiceAccountSecret)
 	if err != nil {
-		ul.log.Error().Err(err).Msg("cant get service account")
+		s.log.Error().Err(err).Msg("cant get service account")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	conv := NewConverter(ctx, r.Header.Get(HeaderAcceptLanguage), ul.gatewaySelector, ul.cfg.Service.Name, ul.cfg.TranslationPath, ul.cfg.DefaultLanguage)
+	conv := service.NewConverter(ctx, r.Header.Get(HeaderAcceptLanguage), s.gatewaySelector, s.cfg.Service.Name, s.cfg.TranslationPath, s.cfg.DefaultLanguage)
 
 	var outdatedEvents []string
 	resp := GetEventResponseOC10{}
 	for _, e := range evs {
-		etype, ok := ul.registeredEvents[e.Type]
+		etype, ok := s.registeredEvents[e.Type]
 		if !ok {
-			ul.log.Error().Str("eventid", e.Id).Str("eventtype", e.Type).Msg("event not registered")
+			s.log.Error().Str("eventid", e.Id).Str("eventtype", e.Type).Msg("event not registered")
 			continue
 		}
 
 		einterface, err := etype.Unmarshal(e.Event)
 		if err != nil {
-			ul.log.Error().Str("eventid", e.Id).Str("eventtype", e.Type).Msg("failed to umarshal event")
+			s.log.Error().Str("eventid", e.Id).Str("eventtype", e.Type).Msg("failed to umarshal event")
 			continue
 		}
 
@@ -81,7 +97,7 @@ func (ul *UserlogService) HandleGetEvents(w http.ResponseWriter, r *http.Request
 				outdatedEvents = append(outdatedEvents, e.Id)
 				continue
 			}
-			ul.log.Error().Err(err).Str("eventid", e.Id).Str("eventtype", e.Type).Msg("failed to convert event")
+			s.log.Error().Err(err).Str("eventid", e.Id).Str("eventtype", e.Type).Msg("failed to convert event")
 			continue
 		}
 
@@ -91,16 +107,16 @@ func (ul *UserlogService) HandleGetEvents(w http.ResponseWriter, r *http.Request
 	// delete outdated events asynchronously
 	if len(outdatedEvents) > 0 {
 		go func() {
-			err := ul.DeleteEvents(u.GetId().GetOpaqueId(), outdatedEvents)
+			err := s.userlog.DeleteEvents(u.GetId().GetOpaqueId(), outdatedEvents)
 			if err != nil {
-				ul.log.Error().Err(err).Msg("failed to delete events")
+				s.log.Error().Err(err).Msg("failed to delete events")
 			}
 		}()
 	}
 
-	glevs, err := ul.GetGlobalEvents(ctx)
+	glevs, err := s.userlog.GetGlobalEvents(ctx)
 	if err != nil {
-		ul.log.Error().Err(err).Int("returned statuscode", http.StatusInternalServerError).Msg("get global events failed")
+		s.log.Error().Err(err).Int("returned statuscode", http.StatusInternalServerError).Msg("get global events failed")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -108,7 +124,7 @@ func (ul *UserlogService) HandleGetEvents(w http.ResponseWriter, r *http.Request
 	for t, data := range glevs {
 		noti, err := conv.ConvertGlobalEvent(t, data)
 		if err != nil {
-			ul.log.Error().Err(err).Str("eventtype", t).Msg("failed to convert event")
+			s.log.Error().Err(err).Str("eventtype", t).Msg("failed to convert event")
 			continue
 		}
 
@@ -121,16 +137,16 @@ func (ul *UserlogService) HandleGetEvents(w http.ResponseWriter, r *http.Request
 }
 
 // HandlePostGlobaelEvent is the POST handler for global events
-func (ul *UserlogService) HandlePostGlobalEvent(w http.ResponseWriter, r *http.Request) {
+func (s *Service) HandlePostGlobalEvent(w http.ResponseWriter, r *http.Request) {
 	var req PostEventsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		ul.log.Error().Err(err).Int("returned statuscode", http.StatusBadRequest).Msg("request body is malformed")
+		s.log.Error().Err(err).Int("returned statuscode", http.StatusBadRequest).Msg("request body is malformed")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	if err := ul.StoreGlobalEvent(r.Context(), req.Type, req.Data); err != nil {
-		ul.log.Error().Err(err).Msg("post: error storing global event")
+	if err := s.userlog.StoreGlobalEvent(r.Context(), req.Type, req.Data); err != nil {
+		s.log.Error().Err(err).Msg("post: error storing global event")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -139,16 +155,16 @@ func (ul *UserlogService) HandlePostGlobalEvent(w http.ResponseWriter, r *http.R
 }
 
 // HandleDeleteGlobalEvent is the DELETE handler for global events
-func (ul *UserlogService) HandleDeleteGlobalEvent(w http.ResponseWriter, r *http.Request) {
+func (s *Service) HandleDeleteGlobalEvent(w http.ResponseWriter, r *http.Request) {
 	var req DeleteEventsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		ul.log.Error().Err(err).Int("returned statuscode", http.StatusBadRequest).Msg("request body is malformed")
+		s.log.Error().Err(err).Int("returned statuscode", http.StatusBadRequest).Msg("request body is malformed")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	if err := ul.DeleteGlobalEvents(r.Context(), req.IDs); err != nil {
-		ul.log.Error().Err(err).Int("returned statuscode", http.StatusInternalServerError).Msg("delete events failed")
+	if err := s.userlog.DeleteGlobalEvents(r.Context(), req.IDs); err != nil {
+		s.log.Error().Err(err).Int("returned statuscode", http.StatusInternalServerError).Msg("delete events failed")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -157,53 +173,28 @@ func (ul *UserlogService) HandleDeleteGlobalEvent(w http.ResponseWriter, r *http
 }
 
 // HandleDeleteEvents is the DELETE handler for events
-func (ul *UserlogService) HandleDeleteEvents(w http.ResponseWriter, r *http.Request) {
+func (s *Service) HandleDeleteEvents(w http.ResponseWriter, r *http.Request) {
 	u, ok := revactx.ContextGetUser(r.Context())
 	if !ok {
-		ul.log.Error().Int("returned statuscode", http.StatusUnauthorized).Msg("user unauthorized")
+		s.log.Error().Int("returned statuscode", http.StatusUnauthorized).Msg("user unauthorized")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
 	var req DeleteEventsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		ul.log.Error().Err(err).Int("returned statuscode", http.StatusBadRequest).Msg("request body is malformed")
+		s.log.Error().Err(err).Int("returned statuscode", http.StatusBadRequest).Msg("request body is malformed")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	if err := ul.DeleteEvents(u.GetId().GetOpaqueId(), req.IDs); err != nil {
-		ul.log.Error().Err(err).Int("returned statuscode", http.StatusInternalServerError).Msg("delete events failed")
+	if err := s.userlog.DeleteEvents(u.GetId().GetOpaqueId(), req.IDs); err != nil {
+		s.log.Error().Err(err).Int("returned statuscode", http.StatusInternalServerError).Msg("delete events failed")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-}
-
-// GetEventResponseOC10 is the response from GET events endpoint in oc10 style
-type GetEventResponseOC10 struct {
-	OCS struct {
-		Meta struct {
-			Message    string `json:"message"`
-			Status     string `json:"status"`
-			StatusCode int    `json:"statuscode"`
-		} `json:"meta"`
-		Data []OC10Notification `json:"data"`
-	} `json:"ocs"`
-}
-
-// DeleteEventsRequest is the expected body for the delete request
-type DeleteEventsRequest struct {
-	IDs []string `json:"ids"`
-}
-
-// PostEventsRequest is the expected body for the post request
-type PostEventsRequest struct {
-	// the event type, e.g. "deprovision"
-	Type string `json:"type"`
-	// arbitray data for the event
-	Data map[string]string `json:"data"`
 }
 
 // RequireAdminOrSecret middleware allows only requests if the requesting user is an admin or knows the static secret
@@ -228,7 +219,6 @@ func RequireAdminOrSecret(rm *roles.Manager, secret string) func(http.HandlerFun
 			}
 
 			errorcode.ItemNotFound.Render(w, r, http.StatusNotFound, "Not found")
-			return
 		}
 	}
 }
