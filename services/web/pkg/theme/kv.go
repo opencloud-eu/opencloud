@@ -13,9 +13,7 @@ import (
 // KV is a generic key-value map.
 type KV map[string]any
 
-// MergeKV merges the given key-value maps into a new map. The inputs are
-// left untouched: mergo would otherwise reuse their nested maps in the result
-// and write the later values into them.
+// MergeKV merges copies of the given key-value maps; the inputs stay untouched.
 func MergeKV(values ...KV) (KV, error) {
 	var kv KV
 
