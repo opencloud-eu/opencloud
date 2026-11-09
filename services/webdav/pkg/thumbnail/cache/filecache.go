@@ -46,30 +46,34 @@ func (c *FileCache) probe() error {
 
 // The cache key is already a hierarchical relative path, so the on-disk
 // location is the cache dir joined with it.
-func (c *FileCache) Get(key string) (thumbnail.Image, error) {
+func (c *FileCache) Get(key string) (*thumbnail.Image, error) {
 	f, err := os.Open(filepath.Join(c.dir, key))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return thumbnail.Image{}, ErrCacheMiss
+			return nil, ErrCacheMiss
 		}
-		return thumbnail.Image{}, err
+		return nil, err
 	}
 	defer f.Close()
 
 	data, err := io.ReadAll(f)
 	if err != nil {
-		return thumbnail.Image{}, err
+		return nil, err
 	}
 
 	contentType, err := xattr.FGet(f, contentTypeAttr)
 	if err != nil && !errors.Is(err, xattr.ENOATTR) {
-		return thumbnail.Image{}, err
+		return nil, err
 	}
 
-	return thumbnail.Image{Data: data, ContentType: string(contentType)}, nil
+	if len(data) == 0 {
+		return nil, nil
+	}
+
+	return &thumbnail.Image{ContentType: string(contentType), Data: data}, nil
 }
 
-func (c *FileCache) Put(key string, img thumbnail.Image) error {
+func (c *FileCache) Put(key string, img *thumbnail.Image) error {
 	imgPath := filepath.Join(c.dir, key)
 	dir := filepath.Dir(imgPath)
 
@@ -83,13 +87,15 @@ func (c *FileCache) Put(key string, img thumbnail.Image) error {
 	}
 	tempPath := f.Name()
 
-	if _, err := f.Write(img.Data); err != nil {
-		f.Close()
-		os.Remove(tempPath)
-		return err
+	if img != nil {
+		if _, err := f.Write(img.Data); err != nil {
+			f.Close()
+			os.Remove(tempPath)
+			return err
+		}
 	}
 
-	if img.ContentType != "" {
+	if img != nil && img.ContentType != "" {
 		if err := xattr.FSet(f, contentTypeAttr, []byte(img.ContentType)); err != nil {
 			f.Close()
 			os.Remove(tempPath)

@@ -15,7 +15,7 @@ const InMemoryCacheMaxBytes = 128 << 20
 // InMemoryCacheMaxBytes and evicting in insertion order.
 type InMemoryCache struct {
 	mu      sync.RWMutex
-	data    map[string]thumbnail.Image
+	data    map[string]*thumbnail.Image
 	order   []string
 	size    int
 	maxSize int
@@ -23,47 +23,58 @@ type InMemoryCache struct {
 
 func NewInMemoryCache() *InMemoryCache {
 	return &InMemoryCache{
-		data:    make(map[string]thumbnail.Image),
+		data:    make(map[string]*thumbnail.Image),
 		maxSize: InMemoryCacheMaxBytes,
 	}
 }
 
-func (c *InMemoryCache) Get(key string) (thumbnail.Image, error) {
+func (c *InMemoryCache) Get(key string) (*thumbnail.Image, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	img, ok := c.data[key]
 	if !ok {
-		return thumbnail.Image{}, ErrCacheMiss
+		return nil, ErrCacheMiss
 	}
 
-	data := make([]byte, len(img.Data))
-	copy(data, img.Data)
-	return thumbnail.Image{Data: data, ContentType: img.ContentType}, nil
+	return clone(img), nil
 }
 
-func (c *InMemoryCache) Put(key string, img thumbnail.Image) error {
+func (c *InMemoryCache) Put(key string, img *thumbnail.Image) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	data := make([]byte, len(img.Data))
-	copy(data, img.Data)
-
 	if old, ok := c.data[key]; ok {
-		c.size -= len(old.Data)
+		c.size -= imageSize(old)
 	} else {
 		c.order = append(c.order, key)
 	}
-	c.data[key] = thumbnail.Image{Data: data, ContentType: img.ContentType}
-	c.size += len(data)
+	c.data[key] = clone(img)
+	c.size += imageSize(img)
 
 	// the entry just written stays, even when it is larger than the budget
 	for c.size > c.maxSize && len(c.order) > 1 {
 		oldest := c.order[0]
 		c.order = c.order[1:]
-		c.size -= len(c.data[oldest].Data)
+		c.size -= imageSize(c.data[oldest])
 		delete(c.data, oldest)
 	}
 
 	return nil
+}
+
+func clone(img *thumbnail.Image) *thumbnail.Image {
+	if img == nil {
+		return nil
+	}
+	data := make([]byte, len(img.Data))
+	copy(data, img.Data)
+	return &thumbnail.Image{ContentType: img.ContentType, Data: data}
+}
+
+func imageSize(img *thumbnail.Image) int {
+	if img == nil {
+		return 0
+	}
+	return len(img.Data)
 }
