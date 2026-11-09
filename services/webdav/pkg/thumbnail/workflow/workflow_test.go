@@ -856,7 +856,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 		It("sends the kept source instead of extracting a second time", func() {
 			pngBytes, err := os.ReadFile(filepath.Join("..", "..", "preprocessor", "test_assets", "noise.png"))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(testCache.Put(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", "oc-audio"), cache.Image{Data: pngBytes, ContentType: "image/png"})).To(Succeed())
+			Expect(testCache.Put(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", "oc-audio"), thumbnail.Image{Data: pngBytes, ContentType: "image/png"})).To(Succeed())
 
 			//the file itself is not an mp3: extracting it would fail, so what
 			//reaches the generator can only come from the cache
@@ -875,7 +875,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 		})
 
 		It("asks once for a file that carries nothing, whatever size follows", func() {
-			Expect(testCache.Put(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", "oc-audio"), cache.Image{})).To(Succeed())
+			Expect(testCache.Put(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", "oc-audio"), thumbnail.Image{})).To(Succeed())
 
 			wf2, captured := setupPreprocessTest(GinkgoT(), gatewayClient, logger, testCache, "audio/mpeg", "song.mp3", []byte("not an mp3"))
 
@@ -895,7 +895,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 		})
 
 		It("does not take another extractor's empty answer", func() {
-			Expect(testCache.Put(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", "tika"), cache.Image{})).To(Succeed())
+			Expect(testCache.Put(sourceStorageKey("1f0c9f1b6e4b4b2a9c1d7f3e8a5b6c7d8e9f0a1b", "audio/mpeg", "tika"), thumbnail.Image{})).To(Succeed())
 
 			mp3Bytes, err := os.ReadFile(filepath.Join("..", "..", "preprocessor", "test_assets", "empty.mp3"))
 			Expect(err).ToNot(HaveOccurred())
@@ -1063,7 +1063,7 @@ var _ = Describe("ThumbnailWorkflow", func() {
 	Describe("cache hit shortcut", func() {
 		It("should return cached thumbnail without calling generator or downloading the file", func() {
 			cachedThumb := []byte("cached-thumbnail")
-			err := testCache.Put(thumbnailStorageKey("cb56752477cae6405f85b131872c60d21b967c6a", "image/jpeg", 128, 128, "fill"), cache.Image{Data: cachedThumb, ContentType: "image/png"})
+			err := testCache.Put(thumbnailStorageKey("cb56752477cae6405f85b131872c60d21b967c6a", "image/jpeg", 128, 128, "fill"), thumbnail.Image{Data: cachedThumb, ContentType: "image/png"})
 			Expect(err).ToNot(HaveOccurred())
 
 			// No download expectations are set up. If the workflow tried to

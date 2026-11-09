@@ -9,6 +9,8 @@ import (
 
 	minio "github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
 // S3CacheConfig holds the configuration for an S3 cache backend.
@@ -84,28 +86,28 @@ func (c *S3Cache) initClient() error {
 	return c.initErr
 }
 
-func (c *S3Cache) Get(key string) (Image, error) {
+func (c *S3Cache) Get(key string) (thumbnail.Image, error) {
 	if err := c.initClient(); err != nil {
-		return Image{}, err
+		return thumbnail.Image{}, err
 	}
 
 	obj, err := c.client.GetObject(context.Background(), c.config.Bucket, key, minio.GetObjectOptions{})
 	if err != nil {
-		return Image{}, asCacheError(err)
+		return thumbnail.Image{}, asCacheError(err)
 	}
 	defer obj.Close()
 
 	info, err := obj.Stat()
 	if err != nil {
-		return Image{}, asCacheError(err)
+		return thumbnail.Image{}, asCacheError(err)
 	}
 
 	data, err := io.ReadAll(obj)
 	if err != nil {
-		return Image{}, asCacheError(err)
+		return thumbnail.Image{}, asCacheError(err)
 	}
 
-	return Image{Data: data, ContentType: info.ContentType}, nil
+	return thumbnail.Image{Data: data, ContentType: info.ContentType}, nil
 }
 
 // asCacheError reports a missing object as a cache miss. minio's GetObject only
@@ -125,7 +127,7 @@ func asCacheError(err error) error {
 	return err
 }
 
-func (c *S3Cache) Put(key string, img Image) error {
+func (c *S3Cache) Put(key string, img thumbnail.Image) error {
 	if err := c.initClient(); err != nil {
 		return err
 	}

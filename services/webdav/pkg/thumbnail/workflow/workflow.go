@@ -508,7 +508,7 @@ func (w *ThumbnailWorkflow) generate(ctx context.Context, ref *providerv1beta1.R
 	}
 
 	if w.cache != nil {
-		if err := w.cache.Put(cacheKey, cache.Image{Data: thumbBytes, ContentType: outputType}); err != nil {
+		if err := w.cache.Put(cacheKey, thumbnail.Image{Data: thumbBytes, ContentType: outputType}); err != nil {
 			logger.Debug().Err(err).Msg("could not cache thumbnail")
 		}
 	}
@@ -573,14 +573,14 @@ func (w *ThumbnailWorkflow) sourceImage(ctx context.Context, ref *providerv1beta
 	if errors.Is(err, preprocessor.ErrNoThumbnail) {
 		//the file carries no image, which is an answer and worth remembering;
 		//a failed extraction is not, it may succeed on the next try
-		w.rememberSource(sourceKey, cache.Image{})
+		w.rememberSource(sourceKey, thumbnail.Image{})
 		return nil, "", nil, ErrNoThumbnail
 	}
 	if err != nil || img == nil {
 		logger.Debug().Err(err).Msg("could not convert file to image")
 		return nil, "", nil, fmt.Errorf("%w: could not get image", ErrNotFound)
 	}
-	w.rememberSource(sourceKey, cache.Image{Data: img.Data, ContentType: img.ContentType})
+	w.rememberSource(sourceKey, *img)
 
 	return bytes.NewReader(img.Data), img.ContentType, func() {}, nil
 }
@@ -594,7 +594,7 @@ const maxCachedSourceBytes = 8 << 20
 // rememberSource keeps what an extractor made of a file, or the empty entry
 // that says it made nothing. An image too large to keep is simply not kept:
 // the extraction runs again next time, which costs time, not correctness.
-func (w *ThumbnailWorkflow) rememberSource(key string, img cache.Image) {
+func (w *ThumbnailWorkflow) rememberSource(key string, img thumbnail.Image) {
 	if w.cache == nil || len(img.Data) > maxCachedSourceBytes {
 		return
 	}

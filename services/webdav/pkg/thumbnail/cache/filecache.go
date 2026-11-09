@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 
 	"github.com/pkg/xattr"
+
+	"github.com/opencloud-eu/opencloud/services/webdav/pkg/thumbnail"
 )
 
 const contentTypeAttr = "user.oc.content_type"
@@ -44,30 +46,30 @@ func (c *FileCache) probe() error {
 
 // The cache key is already a hierarchical relative path, so the on-disk
 // location is the cache dir joined with it.
-func (c *FileCache) Get(key string) (Image, error) {
+func (c *FileCache) Get(key string) (thumbnail.Image, error) {
 	f, err := os.Open(filepath.Join(c.dir, key))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return Image{}, ErrCacheMiss
+			return thumbnail.Image{}, ErrCacheMiss
 		}
-		return Image{}, err
+		return thumbnail.Image{}, err
 	}
 	defer f.Close()
 
 	data, err := io.ReadAll(f)
 	if err != nil {
-		return Image{}, err
+		return thumbnail.Image{}, err
 	}
 
 	contentType, err := xattr.FGet(f, contentTypeAttr)
 	if err != nil && !errors.Is(err, xattr.ENOATTR) {
-		return Image{}, err
+		return thumbnail.Image{}, err
 	}
 
-	return Image{Data: data, ContentType: string(contentType)}, nil
+	return thumbnail.Image{Data: data, ContentType: string(contentType)}, nil
 }
 
-func (c *FileCache) Put(key string, img Image) error {
+func (c *FileCache) Put(key string, img thumbnail.Image) error {
 	imgPath := filepath.Join(c.dir, key)
 	dir := filepath.Dir(imgPath)
 
