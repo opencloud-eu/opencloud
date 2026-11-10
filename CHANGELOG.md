@@ -13,6 +13,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(auth-guest): add missing guest link logout endpoint [[#3932](https://github.com/opencloud-eu/opencloud/pull/3932)]
 - Remove redis-sentinel from store descriptions [[#3936](https://github.com/opencloud-eu/opencloud/pull/3936)]
 - Bound the memory of bleve indexing [[#3900](https://github.com/opencloud-eu/opencloud/pull/3900)]
 - fix: filter health checks from the pod ip [[#3914](https://github.com/opencloud-eu/opencloud/pull/3914)]
