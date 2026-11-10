@@ -3,6 +3,7 @@ package search
 import (
 	"context"
 	"fmt"
+	"html"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -423,6 +424,7 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 		}
 		match.Entity.ShareRootName = rootName
 		match.Entity.RemoteItemId = remoteItemId
+		match.Entity.Highlights = SanitizeHighlights(match.Entity.GetHighlights())
 
 		isShared := match.GetEntity().GetRef().GetResourceId().GetSpaceId() == utils.ShareStorageSpaceID
 		isMountpoint := isShared && match.GetEntity().GetRef().GetPath() == "."
@@ -648,6 +650,23 @@ func (s *Service) doUpsertItem(ref *provider.Reference, batch BatchOperator) {
 		s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error storing metadata")
 		return
 	}
+}
+
+// SanitizeHighlights keeps the <mark> tags and escapes everything else.
+func SanitizeHighlights(highlights string) string {
+	var b strings.Builder
+	for i, open := range strings.Split(highlights, "<mark>") {
+		if i > 0 {
+			b.WriteString("<mark>")
+		}
+		for j, closed := range strings.Split(open, "</mark>") {
+			if j > 0 {
+				b.WriteString("</mark>")
+			}
+			b.WriteString(html.EscapeString(html.UnescapeString(closed)))
+		}
+	}
+	return b.String()
 }
 
 func addAudioMetadata(metadata map[string]string, audio *libregraph.Audio) {

@@ -25,6 +25,14 @@ func TestCleanContent(t *testing.T) {
 			given:  "content contains https://localhost/remote.php/dav/files/admin/Photos/San%20Francisco.jpg and stop word",
 			expect: "content contains https://localhost/remote.php/dav/files/admin/photos/san%20francisco.jpg stop word",
 		},
+		{
+			given:  "needle &lt;img src=x&gt; needle",
+			expect: "needle &lt;img src=x&gt; needle",
+		},
+		{
+			given:  "List<String> names from Alice <alice@example.com>",
+			expect: "list<string> names alice <alice@example.com>",
+		},
 	}
 
 	for _, tc := range tests {

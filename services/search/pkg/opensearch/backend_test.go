@@ -73,6 +73,44 @@ func TestEngine_Search(t *testing.T) {
 	})
 }
 
+func TestEngine_SearchHighlights(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		query    string
+		expected string
+	}{
+		{name: "markup", content: "foo <img src=x> qux", query: "content:qux", expected: "foo &lt;img src=x&gt; <mark>qux</mark>"},
+		{name: "escaped text", content: "foo &lt;img src=x&gt; zap", query: "content:zap", expected: "foo &amp;lt;img src=x&amp;gt; <mark>zap</mark>"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			indexName := "opencloud-test-engine-search-highlights"
+			tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
+			tc.Require.IndicesReset([]string{indexName})
+			tc.Require.IndicesCount([]string{indexName}, nil, 0)
+
+			defer tc.Require.IndicesDelete([]string{indexName})
+
+			backend, err := opensearch.NewBackend(indexName, tc.Client())
+			require.NoError(t, err)
+
+			document := opensearchtest.Testdata.Resources.File
+			document.Content = tt.content
+			tc.Require.DocumentCreate(indexName, document.ID, strings.NewReader(opensearchtest.JSONMustMarshal(t, document)))
+			tc.Require.IndicesCount([]string{indexName}, nil, 1)
+
+			resp, err := backend.Search(t.Context(), &searchService.SearchIndexRequest{
+				Query: tt.query,
+			})
+			require.NoError(t, err)
+			require.Len(t, resp.Matches, 1)
+			require.Equal(t, tt.expected, resp.Matches[0].Entity.Highlights)
+		})
+	}
+}
+
 func TestEngine_Upsert(t *testing.T) {
 	indexName := "opencloud-test-engine-upsert"
 	tc := opensearchtest.NewDefaultTestClient(t, defaultConfig.Engine.OpenSearch.Client)
