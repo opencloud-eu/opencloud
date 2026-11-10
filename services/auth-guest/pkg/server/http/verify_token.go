@@ -78,6 +78,18 @@ func setSessionCookie(w http.ResponseWriter, cfg *config.Config, sessionToken st
 	})
 }
 
+func clearSessionCookie(w http.ResponseWriter, cfg *config.Config) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     cfg.JWT.CookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+	})
+}
+
 func setNonceCookie(w http.ResponseWriter, cfg *config.Config, shareID, nonce string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     nonceCookieName(cfg.Nonce.CookieBaseName, shareID),
