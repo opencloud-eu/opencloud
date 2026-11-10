@@ -153,9 +153,15 @@ func (api DriveItemPermissionsApi) CreateLink(w http.ResponseWriter, r *http.Req
 	logger := api.logger.SubloggerWithRequestID(r.Context())
 	logger.Info().Msg("calling create link")
 
-	_, driveItemID, err := GetDriveAndItemIDParam(r, &logger)
+	driveID, driveItemID, err := GetDriveAndItemIDParam(r, &logger)
 	if err != nil {
 		errorcode.RenderError(w, r, err)
+		return
+	}
+
+	if IsShareJail(driveID) && driveID.GetSpaceId() == driveItemID.GetOpaqueId() {
+		logger.Debug().Interface("driveItemID", driveItemID).Msg("cannot create link on shares space root")
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "cannot create link on shares space root")
 		return
 	}
 

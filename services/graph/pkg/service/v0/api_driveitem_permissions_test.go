@@ -3762,6 +3762,27 @@ var _ = Describe("DriveItemPermissionsApi", func() {
 			Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
 		})
 	})
+	Describe("CreateLink", func() {
+		It("rejects links on the shares space root", func() {
+			shareJailID := utils.ShareStorageProviderID + "$" + utils.ShareStorageSpaceID
+			rCTX = chi.NewRouteContext()
+			rCTX.URLParams.Add("driveID", shareJailID)
+			rCTX.URLParams.Add("itemID", shareJailID+"!"+utils.ShareStorageSpaceID)
+
+			responseRecorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"type":"view"}`)).
+				WithContext(
+					context.WithValue(context.Background(), chi.RouteCtxKey, rCTX),
+				)
+
+			httpAPI.CreateLink(responseRecorder, request)
+
+			Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
+			jsonData := gjson.Get(responseRecorder.Body.String(), "error")
+			Expect(jsonData.Get("message").String()).To(Equal("cannot create link on shares space root"))
+		})
+	})
+
 	Describe("ListPermissions", func() {
 		It("calls the ListPermissions provider with the correct arguments", func() {
 			rCTX.URLParams.Add("itemID", "1$2!3")
