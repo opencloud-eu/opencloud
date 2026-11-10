@@ -78,20 +78,27 @@ func (a *AppURLs) GetAppURLFor(action, fileExt string) string {
 	return ""
 }
 
-// GetAppURLs gets the edit and view urls for different file types from the
-// target WOPI app (onlyoffice, collabora, etc) via their "/hosting/discovery"
-// endpoint.
-func GetAppURLs(cfg *config.Config, logger log.Logger) (map[string]map[string]string, error) {
-	wopiAppUrl := cfg.App.Addr + "/hosting/discovery"
-
-	httpClient := http.Client{
+// NewDiscoveryClient returns the HTTP client used to fetch the WOPI app's
+// "/hosting/discovery" document. Create it once and reuse it for every fetch,
+// so its transport keeps reusing one connection instead of leaving a new idle
+// connection open on each periodic fetch.
+func NewDiscoveryClient(insecure bool) *http.Client {
+	return &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				MinVersion:         tls.VersionTLS12,
-				InsecureSkipVerify: cfg.App.Insecure,
+				InsecureSkipVerify: insecure,
 			},
 		},
 	}
+}
+
+// GetAppURLs gets the edit and view urls for different file types from the
+// target WOPI app (onlyoffice, collabora, etc) via their "/hosting/discovery"
+// endpoint. httpClient should come from NewDiscoveryClient and be reused
+// across calls.
+func GetAppURLs(httpClient *http.Client, cfg *config.Config, logger log.Logger) (map[string]map[string]string, error) {
+	wopiAppUrl := cfg.App.Addr + "/hosting/discovery"
 
 	httpResp, err := httpClient.Get(wopiAppUrl)
 	if err != nil {
