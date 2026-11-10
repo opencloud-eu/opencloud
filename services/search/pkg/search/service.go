@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"html"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -482,6 +483,7 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 		}
 		match.Entity.ShareRootName = rootName
 		match.Entity.RemoteItemId = remoteItemId
+		match.Entity.Highlights = SanitizeHighlights(match.Entity.GetHighlights())
 
 		isShared := match.GetEntity().GetRef().GetResourceId().GetSpaceId() == utils.ShareStorageSpaceID
 		isMountpoint := isShared && match.GetEntity().GetRef().GetPath() == "."
@@ -788,6 +790,23 @@ func (s *Service) doUpsertItem(ctx context.Context, ref *provider.Reference, bat
 			s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error removing stale metadata")
 		}
 	}
+}
+
+// SanitizeHighlights keeps the <mark> tags and escapes everything else.
+func SanitizeHighlights(highlights string) string {
+	var b strings.Builder
+	for i, open := range strings.Split(highlights, "<mark>") {
+		if i > 0 {
+			b.WriteString("<mark>")
+		}
+		for j, closed := range strings.Split(open, "</mark>") {
+			if j > 0 {
+				b.WriteString("</mark>")
+			}
+			b.WriteString(html.EscapeString(html.UnescapeString(closed)))
+		}
+	}
+	return b.String()
 }
 
 // IsHidden identifies if a node is hidden or not based on its name & path.
