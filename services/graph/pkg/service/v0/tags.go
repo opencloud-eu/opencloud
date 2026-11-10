@@ -161,16 +161,30 @@ func (g Graph) UnassignTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A request without any tags is treated as malformed. That is a choice:
+	// as it asks to remove nothing, succeeding with 200 or 204 would be
+	// defensible too, but an empty list is more likely a client bug than
+	// intended.
+	if len(unassignment.Tags) == 0 {
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "no tags in tag unassignment request")
+		return
+	}
+
+	logger := g.logger.SubloggerWithRequestID(ctx).With().
+		Str("resourceID", unassignment.ResourceId).
+		Strs("tags", unassignment.Tags).
+		Logger()
+
 	rid, err := storagespace.ParseID(unassignment.ResourceId)
 	if err != nil {
-		g.logger.Debug().Err(err).Msg("could not parse resourceId")
+		logger.Debug().Err(err).Msg("could not parse resourceId")
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "invalid resourceId")
 		return
 	}
 
 	client, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Error().Err(err).Msg("error selecting next gateway client")
+		logger.Error().Err(err).Msg("error selecting next gateway client")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -178,7 +192,7 @@ func (g Graph) UnassignTags(w http.ResponseWriter, r *http.Request) {
 		Ref: &provider.Reference{ResourceId: &rid},
 	})
 	if err != nil {
-		g.logger.Error().Err(err).Msg("error stating file")
+		logger.Error().Err(err).Msg("error stating file")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -193,14 +207,14 @@ func (g Graph) UnassignTags(w http.ResponseWriter, r *http.Request) {
 
 	pm := sres.GetInfo().GetPermissionSet()
 	if pm == nil {
-		g.logger.Error().Err(err).Msg("no permissionset on file")
+		logger.Error().Msg("no permissionset on file")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	// it says we need "write access" to set tags. One of those should do
 	if !pm.InitiateFileUpload && !pm.CreateContainer {
-		g.logger.Info().Msg("no permission to create a tag")
+		logger.Info().Msg("no permission to remove a tag")
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
@@ -210,24 +224,24 @@ func (g Graph) UnassignTags(w http.ResponseWriter, r *http.Request) {
 		currentTags = m["tags"]
 	}
 
+	// Removing tags that the resource doesn't have is not an error: the result
+	// is the same, and the event below still goes out, so that the search
+	// index drops tags it may have although the resource doesn't.
 	allTags := tags.New(currentTags)
-	if !allTags.Remove(unassignment.Tags...) {
-		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "no new tags in createtagsrequest or maximum reached")
-		return
-	}
-
-	resp, err := client.SetArbitraryMetadata(ctx, &provider.SetArbitraryMetadataRequest{
-		Ref: &provider.Reference{ResourceId: &rid},
-		ArbitraryMetadata: &provider.ArbitraryMetadata{
-			Metadata: map[string]string{
-				"tags": allTags.AsList(),
+	if allTags.Remove(unassignment.Tags...) {
+		resp, err := client.SetArbitraryMetadata(ctx, &provider.SetArbitraryMetadataRequest{
+			Ref: &provider.Reference{ResourceId: &rid},
+			ArbitraryMetadata: &provider.ArbitraryMetadata{
+				Metadata: map[string]string{
+					"tags": allTags.AsList(),
+				},
 			},
-		},
-	})
-	if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
-		g.logger.Error().Err(err).Msg("error setting tags")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		})
+		if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
+			logger.Error().Err(err).Interface("status", resp.GetStatus()).Msg("error setting tags")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	}
 
 	if g.eventsPublisher != nil {
@@ -241,7 +255,7 @@ func (g Graph) UnassignTags(w http.ResponseWriter, r *http.Request) {
 			Executant:  revaCtx.ContextMustGetUser(r.Context()).Id,
 		}
 		if err := events.Publish(ctx, g.eventsPublisher, ev); err != nil {
-			g.logger.Error().Err(err).Msg("Failed to publish TagsAdded event")
+			logger.Error().Err(err).Msg("Failed to publish TagsRemoved event")
 		}
 	}
 }
