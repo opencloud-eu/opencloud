@@ -299,8 +299,19 @@ func (g Graph) getDrives(r *http.Request, unrestricted bool, apiVersion APIVersi
 	return spaces, nil
 }
 
-// GetSingleDrive does a lookup of a single space by spaceId
+// GetSingleDrive returns the space with the given ID, in the v1.0 format.
 func (g Graph) GetSingleDrive(w http.ResponseWriter, r *http.Request) {
+	g.getSingleDrive(w, r, APIVersion_1)
+}
+
+// GetSingleDriveV1Beta1 returns the space with the given ID, in the v1beta1
+// format: its expanded root permissions name unified roles.
+func (g Graph) GetSingleDriveV1Beta1(w http.ResponseWriter, r *http.Request) {
+	g.getSingleDrive(w, r, APIVersion_1_Beta_1)
+}
+
+// getSingleDrive returns the space with the given ID, in the format of the given API version.
+func (g Graph) getSingleDrive(w http.ResponseWriter, r *http.Request, apiVersion APIVersion) {
 	ctx := r.Context()
 	log := g.logger.SubloggerWithRequestID(ctx).With().Interface("query", r.URL.Query()).Logger()
 	log.Debug().Msg("calling get drive")
@@ -355,7 +366,7 @@ func (g Graph) GetSingleDrive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spaces, err := g.formatDrives(ctx, webDavBaseURL, res.StorageSpaces, APIVersion_1, expandPermissions, getFieldMask(odataReq))
+	spaces, err := g.formatDrives(ctx, webDavBaseURL, res.StorageSpaces, apiVersion, expandPermissions, getFieldMask(odataReq))
 	if err != nil {
 		log.Debug().Err(err).Msg("could not get drive: error parsing grpc response")
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
@@ -390,8 +401,18 @@ func (g Graph) canCreateSpace(ctx context.Context, ownPersonalHome bool) bool {
 	return true
 }
 
-// CreateDrive creates a storage drive (space).
+// CreateDrive creates a space and returns it in the v1.0 format.
 func (g Graph) CreateDrive(w http.ResponseWriter, r *http.Request) {
+	g.createDrive(w, r, APIVersion_1)
+}
+
+// CreateDriveV1Beta1 creates a space and returns it in the v1beta1 format.
+func (g Graph) CreateDriveV1Beta1(w http.ResponseWriter, r *http.Request) {
+	g.createDrive(w, r, APIVersion_1_Beta_1)
+}
+
+// createDrive creates a space and returns it in the format of the given API version.
+func (g Graph) createDrive(w http.ResponseWriter, r *http.Request, apiVersion APIVersion) {
 	ctx := r.Context()
 	log := g.logger.SubloggerWithRequestID(ctx).With().Interface("query", r.URL.Query()).Logger()
 	log.Debug().Msg("calling create drive")
@@ -544,7 +565,7 @@ func (g Graph) CreateDrive(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	spaces, err := g.formatDrives(ctx, webDavBaseURL, []*storageprovider.StorageSpace{space}, APIVersion_1, false, nil)
+	spaces, err := g.formatDrives(ctx, webDavBaseURL, []*storageprovider.StorageSpace{space}, apiVersion, false, nil)
 	if err != nil {
 		log.Debug().Err(err).Msg("could not get drive: error parsing grpc response")
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())
@@ -560,8 +581,19 @@ func (g Graph) CreateDrive(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, spaces[0])
 }
 
-// UpdateDrive updates the properties of a storage drive (space).
+// UpdateDrive updates the properties of a space and returns it in the v1.0 format.
 func (g Graph) UpdateDrive(w http.ResponseWriter, r *http.Request) {
+	g.updateDrive(w, r, APIVersion_1)
+}
+
+// UpdateDriveV1Beta1 updates the properties of a space and returns it in the
+// v1beta1 format.
+func (g Graph) UpdateDriveV1Beta1(w http.ResponseWriter, r *http.Request) {
+	g.updateDrive(w, r, APIVersion_1_Beta_1)
+}
+
+// updateDrive updates the properties of a space and returns it in the format of the given API version.
+func (g Graph) updateDrive(w http.ResponseWriter, r *http.Request, apiVersion APIVersion) {
 	log := g.logger.SubloggerWithRequestID(r.Context()).With().Interface("query", r.URL.Query()).Logger()
 	log.Debug().Msg("calling update drive")
 
@@ -733,7 +765,7 @@ func (g Graph) UpdateDrive(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	spaces, err := g.formatDrives(r.Context(), webDavBaseURL, []*storageprovider.StorageSpace{resp.StorageSpace}, APIVersion_1, false, nil)
+	spaces, err := g.formatDrives(r.Context(), webDavBaseURL, []*storageprovider.StorageSpace{resp.StorageSpace}, apiVersion, false, nil)
 	if err != nil {
 		log.Debug().Err(err).Msg("could not update drive: error parsing grpc response")
 		errorcode.GeneralException.Render(w, r, http.StatusInternalServerError, err.Error())

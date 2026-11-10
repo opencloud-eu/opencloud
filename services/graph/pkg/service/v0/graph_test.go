@@ -843,7 +843,7 @@ var _ = Describe("Graph", func() {
 				Expect(libreError.Error.Message).To(Equal("invalid spacename: spacenames must not contain [/ \\ . : ? * \" > < |]"))
 				Expect(libreError.Error.Code).To(Equal(errorcode.InvalidRequest.String()))
 			})
-			It("can create a project space", func() {
+			DescribeTable("can create a project space", func(path string, createDrive func(service.Service, http.ResponseWriter, *http.Request)) {
 				gatewayClient.On("CreateStorageSpace", mock.Anything, mock.Anything).Return(&provider.CreateStorageSpaceResponse{
 					Status: status.NewOK(ctx),
 					StorageSpace: &provider.StorageSpace{
@@ -878,9 +878,9 @@ var _ = Describe("Graph", func() {
 				}, nil)
 
 				jsonBody := []byte(`{"name": "Test Space", "driveType": "project", "description": "This space is for testing", "DriveAlias": "project/testspace", "@libre.graph.contentType": "application/vnd.opencloud.test"}`)
-				r := httptest.NewRequest(http.MethodPost, "/graph/v1.0/drives", bytes.NewBuffer(jsonBody)).WithContext(ctx)
+				r := httptest.NewRequest(http.MethodPost, path, bytes.NewBuffer(jsonBody)).WithContext(ctx)
 				rr := httptest.NewRecorder()
-				svc.CreateDrive(rr, r)
+				createDrive(svc, rr, r)
 				Expect(rr.Code).To(Equal(http.StatusCreated))
 
 				body, _ := io.ReadAll(rr.Body)
@@ -892,7 +892,10 @@ var _ = Describe("Graph", func() {
 				Expect(*response.DriveAlias).To(Equal("project/testspace"))
 				Expect(*response.Description).To(Equal("This space is for testing"))
 				Expect(*response.LibreGraphContentType).To(Equal("application/vnd.opencloud.test"))
-			})
+			},
+				Entry("with v1.0", "/graph/v1.0/drives", service.Service.CreateDrive),
+				Entry("with v1beta1", "/graph/v1beta1/drives", service.Service.CreateDriveV1Beta1),
+			)
 			Context("drive id handling", func() {
 				const spaceID = "0b9a7b84-3e71-4a4e-9c34-0e6a4c3f5f21"
 
@@ -1235,6 +1238,54 @@ var _ = Describe("Graph", func() {
 			Expect(*drive.GetQuota().Total).To(Equal(int64(500)))
 		})
 
+		DescribeTable("returns the expanded root permissions in the format of the API version",
+			func(path string, getSingleDrive func(service.Service, http.ResponseWriter, *http.Request), check func(permission gjson.Result)) {
+				gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+					Status: status.NewOK(ctx),
+					StorageSpaces: []*provider.StorageSpace{
+						{
+							Opaque: utils.AppendJSONToOpaque(nil, "grants", map[string]provider.ResourcePermissions{
+								"1": *conversions.NewManagerRole().CS3ResourcePermissions(),
+							}),
+							Id:        &provider.StorageSpaceId{OpaqueId: "spaceid"},
+							SpaceType: "project",
+							Root: &provider.ResourceId{
+								StorageId: "pro-1",
+								SpaceId:   "spaceid",
+								OpaqueId:  "spaceid",
+							},
+							Name: "aspacename",
+						},
+					},
+				}, nil)
+				gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(&userprovider.GetUserResponse{
+					Status: status.NewUnimplemented(ctx, fmt.Errorf("not supported"), "not supported"),
+				}, nil)
+
+				r := httptest.NewRequest(http.MethodGet, path+"?$expand=root($expand=permissions)", nil)
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("driveID", "spaceid")
+				r = r.WithContext(context.WithValue(ctx, chi.RouteCtxKey, rctx))
+				getSingleDrive(svc, rr, r)
+				Expect(rr.Code).To(Equal(http.StatusOK))
+
+				permissions := gjson.Get(rr.Body.String(), "root.permissions")
+				Expect(permissions.Get("#").Int()).To(Equal(int64(1)))
+				Expect(permissions.Get("0.grantedToV2.user.id").Str).To(Equal("1"))
+				check(permissions.Get("0"))
+			},
+			Entry("with v1.0: the old role name", "/graph/v1.0/drives/spaceid", service.Service.GetSingleDrive,
+				func(permission gjson.Result) {
+					Expect(permission.Get("roles").Array()).To(ConsistOf(HaveField("Str", "manager")))
+					Expect(permission.Get("grantedToIdentities").Exists()).To(BeTrue())
+				}),
+			Entry("with v1beta1: the ID of the unified role", "/graph/v1beta1/drives/spaceid", service.Service.GetSingleDriveV1Beta1,
+				func(permission gjson.Result) {
+					Expect(permission.Get("roles").Array()).To(ConsistOf(HaveField("Str", unifiedrole.UnifiedRoleManagerID)))
+					Expect(permission.Get("grantedToIdentities").Exists()).To(BeFalse())
+				}),
+		)
+
 		It("gets the special drive items", func() {
 			gatewayClient.On("GetPath", mock.Anything, mock.Anything).Return(&provider.GetPathResponse{
 				Status: status.NewOK(ctx),
@@ -1343,7 +1394,7 @@ var _ = Describe("Graph", func() {
 			Expect(rr.Code).To(Equal(http.StatusBadRequest))
 		})
 
-		It("sets the description, alias, name and content type", func() {
+		DescribeTable("sets the description, alias, name and content type", func(path string, updateDrive func(service.Service, http.ResponseWriter, *http.Request)) {
 			drive := libregraph.NewDrive("thename")
 			drive.SetDriveAlias("thealias")
 			drive.SetDescription("thedescription")
@@ -1362,11 +1413,11 @@ var _ = Describe("Graph", func() {
 				Status: status.NewNotFound(ctx, "no special files found"),
 			}, nil)
 
-			r := httptest.NewRequest(http.MethodPatch, "/graph/v1.0/drives/{driveID}/", bytes.NewBuffer(driveJson))
+			r := httptest.NewRequest(http.MethodPatch, path, bytes.NewBuffer(driveJson))
 			rctx := chi.NewRouteContext()
 			rctx.URLParams.Add("driveID", "spaceid")
 			r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, nil), chi.RouteCtxKey, rctx))
-			svc.UpdateDrive(rr, r)
+			updateDrive(svc, rr, r)
 			Expect(rr.Code).To(Equal(http.StatusOK))
 
 			gatewayClient.AssertCalled(GinkgoT(), "UpdateStorageSpace", mock.Anything, mock.MatchedBy(func(req *provider.UpdateStorageSpaceRequest) bool {
@@ -1375,7 +1426,10 @@ var _ = Describe("Graph", func() {
 					utils.ReadPlainFromOpaque(req.StorageSpace.Opaque, "spaceAlias") == drive.GetDriveAlias() &&
 					utils.ReadPlainFromOpaque(req.StorageSpace.Opaque, "contentType") == drive.GetLibreGraphContentType()
 			}))
-		})
+		},
+			Entry("with v1.0", "/graph/v1.0/drives/spaceid", service.Service.UpdateDrive),
+			Entry("with v1beta1", "/graph/v1beta1/drives/spaceid", service.Service.UpdateDriveV1Beta1),
+		)
 
 		DescribeTable("rejects an invalid name without updating the space",
 			func(name string) {
