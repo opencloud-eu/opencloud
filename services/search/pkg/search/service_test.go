@@ -369,6 +369,19 @@ var _ = Describe("Searchprovider", func() {
 				}))
 			})
 
+			It("continues with the remaining spaces when one fails", func() {
+				failingClient := &engineMocks.Engine{}
+				failingClient.On("Search", mock.Anything, mock.Anything).Run(func(mock.Arguments) {
+					panic("unexpected")
+				}).Return(nil, nil)
+				s := search.NewService(gatewaySelector, failingClient, extractor, nil, logger, &config.Config{})
+
+				res, err := s.Search(ctx, &searchsvc.SearchRequest{Query: "foo"})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res.TotalMatches).To(Equal(int32(0)))
+				Expect(res.Matches).To(BeEmpty())
+			})
+
 			It("searches the personal user space", func() {
 				res, err := s.Search(ctx, &searchsvc.SearchRequest{
 					Query: "foo",
