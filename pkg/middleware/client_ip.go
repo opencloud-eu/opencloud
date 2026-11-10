@@ -60,6 +60,11 @@ func ParseTrustedProxies(list []string) ([]netip.Prefix, error) {
 // e.g. X-Real-IP or CF-Connecting-IP, it is its value. Without a usable
 // header, e.g. on health checks, it is the address of the proxy.
 func ClientIP(trusted []netip.Prefix, header string) func(http.Handler) http.Handler {
+	if len(trusted) == 0 {
+		// nobody may set the header, and chi's ClientIPFromXFF panics without
+		// a trusted prefix
+		return chimiddleware.ClientIPFromRemoteAddr
+	}
 	cidrs := make([]string, len(trusted))
 	for i, p := range trusted {
 		cidrs[i] = p.String()
