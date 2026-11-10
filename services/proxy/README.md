@@ -335,7 +335,6 @@ See the [Content Security Policy (CSP) Quick Reference Guide](https://content-se
 
 The `proxy` service can use a configured store via `PROXY_OIDC_USERINFO_CACHE_STORE`. Possible stores are:
   -   `memory`: Basic in-memory store and the default.
-  -   `redis-sentinel`: Stores data in a configured Redis Sentinel cluster.
   -   `nats-js-kv`: Stores data using key-value-store feature of [nats jetstream](https://docs.nats.io/nats-concepts/jetstream/key-value-store)
   -   `noop`: Stores nothing. Useful for testing. Not recommended in production environments.
 
@@ -346,7 +345,6 @@ Note: The service can only be scaled if not using `memory` store and the stores 
 Note that if you have used one of the deprecated stores, you should reconfigure to one of the supported ones as the deprecated stores will be removed in a later version.
 
 Store specific notes:
-  -   When using `redis-sentinel`, the Redis master to use is configured via e.g. `OC_CACHE_STORE_NODES` in the form of `<sentinel-host>:<sentinel-port>/<redis-master>` like `10.10.0.200:26379/mymaster`.
   -   When using `nats-js-kv` it is recommended to set `OC_CACHE_STORE_NODES` to the same value as `OC_EVENTS_ENDPOINT`. That way the cache uses the same nats instance as the event bus.
   -   When using the `nats-js-kv` store, it is possible to set `OC_CACHE_DISABLE_PERSISTENCE` to instruct nats to not persist cache data on disc.
 
@@ -355,7 +353,6 @@ Store specific notes:
 
 To authenticate presigned URLs the proxy service needs to read signing keys from a store that is populated by the ocs service. Possible stores are:
   -   `nats-js-kv`: Stores data using key-value-store feature of [nats jetstream](https://docs.nats.io/nats-concepts/jetstream/key-value-store)
-  -   `redis-sentinel`: Stores data in a configured Redis Sentinel cluster.
   -   `opencloudstoreservice`:  Stores data in the legacy OpenCloud store service. Requires setting `PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_NODES` to `eu.opencloud.api.store`.
 
 The `memory` store cannot be used as it does not share the memory from the ocs service signing key memory store, even in a single process.
@@ -363,7 +360,6 @@ The `memory` store cannot be used as it does not share the memory from the ocs s
 Make sure to configure the same store in the ocs service.
 
 Store specific notes:
-  -   When using `redis-sentinel`, the Redis master to use is configured via e.g. `OC_CACHE_STORE_NODES` in the form of `<sentinel-host>:<sentinel-port>/<redis-master>` like `10.10.0.200:26379/mymaster`.
   -   When using `nats-js-kv` it is recommended to set `OCS_PRESIGNEDURL_SIGNING_KEYS_STORE_NODES` to the same value as `PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_NODES`. That way the ocs uses the same nats instance as the proxy service.
   -   When using the `nats-js-kv` store, it is possible to set `PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_DISABLE_PERSISTENCE` to instruct nats to not persist signing key data on disc.
   -   When using `opencloudstoreservice` the `PROXY_PRESIGNEDURL_SIGNING_KEYS_STORE_NODES` must be set to the service name `eu.opencloud.api.store`. It does not support TTL and stores the presigning keys indefinitely. Also, the store service needs to be started.

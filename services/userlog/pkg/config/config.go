@@ -39,7 +39,7 @@ type Config struct {
 
 // Persistence configures the store to use
 type Persistence struct {
-	Store                string        `yaml:"store" env:"OC_PERSISTENT_STORE;USERLOG_STORE" desc:"The type of the store. Supported values are: 'memory', 'nats-js-kv', 'redis-sentinel', 'noop'. See the text description for details." introductionVersion:"1.0.0"`
+	Store                string        `yaml:"store" env:"OC_PERSISTENT_STORE;USERLOG_STORE" desc:"The type of the store. Supported values are: 'memory', 'nats-js-kv', 'noop'. See the text description for details." introductionVersion:"1.0.0"`
 	Nodes                []string      `yaml:"nodes" env:"OC_PERSISTENT_STORE_NODES;USERLOG_STORE_NODES" desc:"A list of nodes to access the configured store. This has no effect when 'memory' store is configured. Note that the behaviour how nodes are used is dependent on the library of the configured store. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
 	Database             string        `yaml:"database" env:"USERLOG_STORE_DATABASE" desc:"The database name the configured store should use." introductionVersion:"1.0.0"`
 	Table                string        `yaml:"table" env:"USERLOG_STORE_TABLE" desc:"The database table the store should use." introductionVersion:"1.0.0"`
