@@ -23,6 +23,7 @@ import (
 	"github.com/go-chi/render"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/publicshare"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/share"
@@ -633,7 +634,12 @@ func (s DriveItemPermissionsService) ListPermissions(ctx context.Context, itemID
 		driveItems, err = s.listPublicShares(ctx, []*link.ListPublicSharesRequest_Filter{
 			publicshare.ResourceIDFilter(itemID),
 		}, driveItems)
-		if err != nil {
+		switch {
+		case err != nil && strings.Contains(err.Error(), errtypes.AlreadyExists("").Error()):
+			// the public share manager reports an already exists error when its metadata space is
+			// not accessible, e.g. after an upgrade. Still list the user and space permissions.
+			logger.Warn().Err(err).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Msg("could not list public shares, skipping link permissions")
+		case err != nil:
 			errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Msg("could not list public shares")
 			return collectionOfPermissions, err
 		}
