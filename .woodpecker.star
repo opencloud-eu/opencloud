@@ -13,7 +13,7 @@ CHKO_DOCKER_PUSHRM = "chko/docker-pushrm:1"
 COLLABORA_CODE = "collabora/code:24.04.5.1.1"
 OPEN_SEARCH = "opensearchproject/opensearch:2"
 INBUCKET_INBUCKET = "inbucket/inbucket"
-MINIO_MC = "minio/mc:RELEASE.2021-10-07T04-19-58Z"
+MINIO_MC = "quay.io/opencloudeu/minio-mc-ci:1.0"
 OC_CI_ALPINE = "owncloudci/alpine:latest"
 OC_CI_BAZEL_BUILDIFIER = "owncloudci/bazel-buildifier:latest"
 OC_CI_CLAMAVD = "owncloudci/clamavd"
@@ -24,7 +24,7 @@ OC_CI_PHP = "quay.io/opencloudeu/php-alpine-ci:%s"
 OC_CI_WAIT_FOR = "owncloudci/wait-for:latest"
 OC_CS3_API_VALIDATOR = "opencloudeu/cs3api-validator:latest"
 OC_LITMUS = "owncloudci/litmus:latest"
-OC_UBUNTU = "owncloud/ubuntu:20.04"
+OC_UBUNTU = "quay.io/opencloudeu/nodejs-ci:24"
 ONLYOFFICE_DOCUMENT_SERVER = "onlyoffice/documentserver:7.5.1"
 PLUGINS_DOCKER_BUILDX = "woodpeckerci/plugin-docker-buildx:latest"
 PLUGINS_NOTATION = "registry.heinlein.group/opencloud/notation-wp-plugin:latest"
@@ -2638,7 +2638,7 @@ def purgeCache(name, flush_path, flush_age):
                 "environment": MINIO_MC_ENV,
                 "commands": [
                     "mc alias set s3 $MC_HOST $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY",
-                    "to_delete=$(mc find s3/%s/ --older-than %sd)" % (flush_path, flush_age),
+                    "to_delete=$(mc find s3/%s/ --older-than %sd || true)" % (flush_path, flush_age),
                     'if [ -z "$to_delete" ]; then exit 0; fi',
                     "mc rm $to_delete",
                 ],
