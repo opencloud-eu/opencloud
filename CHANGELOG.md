@@ -1,6 +1,6 @@
 # Changelog
 
-## [9.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.0) - 2026-11-09
+## [9.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.0) - 2026-11-10
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -11,12 +11,9 @@
 - fix(chore): upd deprecated chi RealIP middelware [[#3464](https://github.com/opencloud-eu/opencloud/pull/3464)]
 - Add files for the Anthropic OSS-Scanner to run [[#3865](https://github.com/opencloud-eu/opencloud/pull/3865)]
 
-### 📈 Enhancement
-
-- ability to disable http and/or event consumer for user log service [[#3285](https://github.com/opencloud-eu/opencloud/pull/3285)]
-
 ### 🐛 Bug Fixes
 
+- Remove redis-sentinel from store descriptions [[#3936](https://github.com/opencloud-eu/opencloud/pull/3936)]
 - Bound the memory of bleve indexing [[#3900](https://github.com/opencloud-eu/opencloud/pull/3900)]
 - fix: filter health checks from the pod ip [[#3914](https://github.com/opencloud-eu/opencloud/pull/3914)]
 - fix: keep the health checks out of the access log [[#3908](https://github.com/opencloud-eu/opencloud/pull/3908)]
@@ -28,6 +25,10 @@
 - fix(graph): expose allowedValues on driveItem children [[#3476](https://github.com/opencloud-eu/opencloud/pull/3476)]
 - fix(search): index resources with out-of-range coordinates without a geopoint [[#3496](https://github.com/opencloud-eu/opencloud/pull/3496)]
 - perf(search): skip unchanged facet keys when storing metadata [[#3682](https://github.com/opencloud-eu/opencloud/pull/3682)]
+
+### 📈 Enhancement
+
+- ability to disable http and/or event consumer for user log service [[#3285](https://github.com/opencloud-eu/opencloud/pull/3285)]
 
 ### 📚 Documentation
 
