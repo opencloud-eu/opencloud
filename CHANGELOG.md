@@ -1,10 +1,14 @@
 # Changelog
 
-## [7.2.5](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.5) - 2026-11-10
+## [7.2.5](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.5) - 2026-11-11
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @micbar, @rhafer, @v-scharf
+
+### 🔒 Security
+
+- [full-ci] [stable-7.2] preparing 7.2.5 [[#3953](https://github.com/opencloud-eu/opencloud/pull/3953)]
 
 ### 🐛 Bug Fixes
 
