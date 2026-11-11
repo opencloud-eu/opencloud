@@ -29,7 +29,6 @@ import (
 
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/upload"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 )
 
@@ -94,21 +93,21 @@ func (f *FS) GetUpload(ctx context.Context, id string) (upload tusd.Upload, err 
 // To implement the termination extension as specified in https://tus.io/protocols/resumable-upload.html#termination
 // the storage needs to implement AsTerminatableUpload
 func (f *FS) AsTerminatableUpload(up tusd.Upload) tusd.TerminatableUpload {
-	return up.(*upload.OcisSession)
+	return f.next.(tusd.TerminaterDataStore).AsTerminatableUpload(up)
 }
 
 // AsLengthDeclarableUpload returns a LengthDeclarableUpload
 // To implement the creation-defer-length extension as specified in https://tus.io/protocols/resumable-upload.html#creation
 // the storage needs to implement AsLengthDeclarableUpload
 func (f *FS) AsLengthDeclarableUpload(up tusd.Upload) tusd.LengthDeclarableUpload {
-	return up.(*upload.OcisSession)
+	return f.next.(tusd.LengthDeferrerDataStore).AsLengthDeclarableUpload(up)
 }
 
 // AsConcatableUpload returns a ConcatableUpload
 // To implement the concatenation extension as specified in https://tus.io/protocols/resumable-upload.html#concatenation
 // the storage needs to implement AsConcatableUpload
 func (f *FS) AsConcatableUpload(up tusd.Upload) tusd.ConcatableUpload {
-	return up.(*upload.OcisSession)
+	return f.next.(tusd.ConcaterDataStore).AsConcatableUpload(up)
 }
 
 func (f *FS) GetHome(ctx context.Context) (string, error) {
@@ -165,7 +164,7 @@ func (f *FS) CreateHome(ctx context.Context) error {
 	return res0
 }
 
-func (f *FS) CreateDir(ctx context.Context, ref *provider.Reference) error {
+func (f *FS) CreateDir(ctx context.Context, ref *provider.Reference) (*storage.CreateDirResult, error) {
 	var (
 		err     error
 		unhook  UnHook
@@ -174,25 +173,25 @@ func (f *FS) CreateDir(ctx context.Context, ref *provider.Reference) error {
 	for _, hook := range f.hooks {
 		ctx, unhook, err = hook("CreateDir", ctx, ref.GetResourceId().GetSpaceId())
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if unhook != nil {
 			unhooks = append(unhooks, unhook)
 		}
 	}
 
-	res0 := f.next.CreateDir(ctx, ref)
+	result, err := f.next.CreateDir(ctx, ref)
 
 	for _, unhook := range unhooks {
 		if err := unhook(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return res0
+	return result, err
 }
 
-func (f *FS) TouchFile(ctx context.Context, ref *provider.Reference, markprocessing bool, mtime string) error {
+func (f *FS) TouchFile(ctx context.Context, ref *provider.Reference, markprocessing bool, mtime string) (*storage.TouchFileResult, error) {
 	var (
 		err     error
 		unhook  UnHook
@@ -201,25 +200,25 @@ func (f *FS) TouchFile(ctx context.Context, ref *provider.Reference, markprocess
 	for _, hook := range f.hooks {
 		ctx, unhook, err = hook("TouchFile", ctx, ref.GetResourceId().GetSpaceId())
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if unhook != nil {
 			unhooks = append(unhooks, unhook)
 		}
 	}
 
-	res0 := f.next.TouchFile(ctx, ref, markprocessing, mtime)
+	result, err := f.next.TouchFile(ctx, ref, markprocessing, mtime)
 
 	for _, unhook := range unhooks {
 		if err := unhook(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return res0
+	return result, err
 }
 
-func (f *FS) Delete(ctx context.Context, ref *provider.Reference) error {
+func (f *FS) Delete(ctx context.Context, ref *provider.Reference) (*storage.DeleteResult, error) {
 	var (
 		err     error
 		unhook  UnHook
@@ -228,22 +227,22 @@ func (f *FS) Delete(ctx context.Context, ref *provider.Reference) error {
 	for _, hook := range f.hooks {
 		ctx, unhook, err = hook("Delete", ctx, ref.GetResourceId().GetSpaceId())
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if unhook != nil {
 			unhooks = append(unhooks, unhook)
 		}
 	}
 
-	res0 := f.next.Delete(ctx, ref)
+	res0, err := f.next.Delete(ctx, ref)
 
 	for _, unhook := range unhooks {
 		if err := unhook(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return res0
+	return res0, err
 }
 
 func (f *FS) Move(ctx context.Context, oldRef, newRef *provider.Reference) (*storage.MoveResult, error) {
@@ -516,7 +515,7 @@ func (f *FS) DownloadRevision(ctx context.Context, ref *provider.Reference, key 
 	return res0, res1, res2
 }
 
-func (f *FS) RestoreRevision(ctx context.Context, ref *provider.Reference, key string) error {
+func (f *FS) RestoreRevision(ctx context.Context, ref *provider.Reference, key string) (*storage.RestoreRevisionResult, error) {
 	var (
 		err     error
 		unhook  UnHook
@@ -525,22 +524,22 @@ func (f *FS) RestoreRevision(ctx context.Context, ref *provider.Reference, key s
 	for _, hook := range f.hooks {
 		ctx, unhook, err = hook("RestoreRevision", ctx, ref.GetResourceId().GetSpaceId())
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if unhook != nil {
 			unhooks = append(unhooks, unhook)
 		}
 	}
 
-	res0 := f.next.RestoreRevision(ctx, ref, key)
+	result, err := f.next.RestoreRevision(ctx, ref, key)
 
 	for _, unhook := range unhooks {
 		if err := unhook(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return res0
+	return result, err
 }
 
 func (f *FS) ListRecycle(ctx context.Context, ref *provider.Reference, key, relativePath string) ([]*provider.RecycleItem, error) {
@@ -570,7 +569,7 @@ func (f *FS) ListRecycle(ctx context.Context, ref *provider.Reference, key, rela
 	return res0, res1
 }
 
-func (f *FS) RestoreRecycleItem(ctx context.Context, ref *provider.Reference, key, relativePath string, restoreRef *provider.Reference) error {
+func (f *FS) RestoreRecycleItem(ctx context.Context, ref *provider.Reference, key, relativePath string, restoreRef *provider.Reference) (*storage.RestoreRecycleItemResult, error) {
 	var (
 		err     error
 		unhook  UnHook
@@ -579,22 +578,22 @@ func (f *FS) RestoreRecycleItem(ctx context.Context, ref *provider.Reference, ke
 	for _, hook := range f.hooks {
 		ctx, unhook, err = hook("RestoreRecycleItem", ctx, ref.GetResourceId().GetSpaceId())
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if unhook != nil {
 			unhooks = append(unhooks, unhook)
 		}
 	}
 
-	res0 := f.next.RestoreRecycleItem(ctx, ref, key, relativePath, restoreRef)
+	result, err := f.next.RestoreRecycleItem(ctx, ref, key, relativePath, restoreRef)
 
 	for _, unhook := range unhooks {
 		if err := unhook(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return res0
+	return result, err
 }
 
 func (f *FS) PurgeRecycleItem(ctx context.Context, ref *provider.Reference, key, relativePath string) error {
@@ -944,7 +943,7 @@ func (f *FS) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Reference
 	return res0
 }
 
-func (f *FS) SetLock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) error {
+func (f *FS) SetLock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) (*storage.SetLockResult, error) {
 	var (
 		err     error
 		unhook  UnHook
@@ -953,22 +952,22 @@ func (f *FS) SetLock(ctx context.Context, ref *provider.Reference, lock *provide
 	for _, hook := range f.hooks {
 		ctx, unhook, err = hook("SetLock", ctx, ref.GetResourceId().GetSpaceId())
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if unhook != nil {
 			unhooks = append(unhooks, unhook)
 		}
 	}
 
-	res0 := f.next.SetLock(ctx, ref, lock)
+	result, err := f.next.SetLock(ctx, ref, lock)
 
 	for _, unhook := range unhooks {
 		if err := unhook(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return res0
+	return result, err
 }
 
 func (f *FS) GetLock(ctx context.Context, ref *provider.Reference) (*provider.Lock, error) {
@@ -1025,7 +1024,7 @@ func (f *FS) RefreshLock(ctx context.Context, ref *provider.Reference, lock *pro
 	return res0
 }
 
-func (f *FS) Unlock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) error {
+func (f *FS) Unlock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) (*storage.UnlockResult, error) {
 	var (
 		err     error
 		unhook  UnHook
@@ -1034,22 +1033,22 @@ func (f *FS) Unlock(ctx context.Context, ref *provider.Reference, lock *provider
 	for _, hook := range f.hooks {
 		ctx, unhook, err = hook("Unlock", ctx, ref.GetResourceId().GetSpaceId())
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if unhook != nil {
 			unhooks = append(unhooks, unhook)
 		}
 	}
 
-	res0 := f.next.Unlock(ctx, ref, lock)
+	result, err := f.next.Unlock(ctx, ref, lock)
 
 	for _, unhook := range unhooks {
 		if err := unhook(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return res0
+	return result, err
 }
 
 func (f *FS) ListStorageSpaces(ctx context.Context, filter []*provider.ListStorageSpacesRequest_Filter, unrestricted bool) ([]*provider.StorageSpace, error) {
@@ -1136,7 +1135,7 @@ func (f *FS) UpdateStorageSpace(ctx context.Context, req *provider.UpdateStorage
 	return res0, res1
 }
 
-func (f *FS) DeleteStorageSpace(ctx context.Context, req *provider.DeleteStorageSpaceRequest) error {
+func (f *FS) DeleteStorageSpace(ctx context.Context, req *provider.DeleteStorageSpaceRequest) (*storage.DeleteStorageSpaceResult, error) {
 	var (
 		err     error
 		unhook  UnHook
@@ -1145,22 +1144,22 @@ func (f *FS) DeleteStorageSpace(ctx context.Context, req *provider.DeleteStorage
 	for _, hook := range f.hooks {
 		ctx, unhook, err = hook("DeleteStorageSpace", ctx, req.GetId().GetOpaqueId())
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if unhook != nil {
 			unhooks = append(unhooks, unhook)
 		}
 	}
 
-	res0 := f.next.DeleteStorageSpace(ctx, req)
+	res0, err := f.next.DeleteStorageSpace(ctx, req)
 
 	for _, unhook := range unhooks {
 		if err := unhook(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return res0
+	return res0, err
 }
 
 func (f *FS) AddLabel(ctx context.Context, ref *provider.Reference, userID *userpb.UserId, label string) error {

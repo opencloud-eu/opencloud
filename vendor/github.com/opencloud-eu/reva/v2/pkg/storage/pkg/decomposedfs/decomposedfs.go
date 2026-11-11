@@ -41,6 +41,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
@@ -803,13 +804,13 @@ func (fs *Decomposedfs) GetPathByID(ctx context.Context, id *provider.ResourceId
 }
 
 // CreateDir creates the specified directory
-func (fs *Decomposedfs) CreateDir(ctx context.Context, ref *provider.Reference) (err error) {
+func (fs *Decomposedfs) CreateDir(ctx context.Context, ref *provider.Reference) (_ *storage.CreateDirResult, err error) {
 	ctx, span := tracer.Start(ctx, "CreateDir")
 	defer span.End()
 
 	name := path.Base(ref.Path)
 	if name == "" || name == "." || name == "/" {
-		return errtypes.BadRequest("Invalid path: " + ref.Path)
+		return nil, errtypes.BadRequest("Invalid path: " + ref.Path)
 	}
 
 	parentRef := &provider.Reference{
@@ -821,52 +822,51 @@ func (fs *Decomposedfs) CreateDir(ctx context.Context, ref *provider.Reference) 
 	var n *node.Node
 	if n, err = fs.lu.NodeFromResource(ctx, parentRef); err != nil {
 		if e, ok := err.(errtypes.NotFound); ok {
-			return errtypes.PreconditionFailed(e.Error())
+			return nil, errtypes.PreconditionFailed(e.Error())
 		}
-		return
+		return nil, err
 	}
 	// TODO check if user has access to root / space
 	if !n.Exists {
-		return errtypes.PreconditionFailed(parentRef.Path)
+		return nil, errtypes.PreconditionFailed(parentRef.Path)
 	}
 
 	rp, err := fs.p.AssemblePermissions(ctx, n)
 	switch {
 	case err != nil:
-		return err
+		return nil, err
 	case !rp.CreateContainer:
 		f, _ := storagespace.FormatReference(ref)
 		if rp.Stat {
-			return errtypes.PermissionDenied(f)
+			return nil, errtypes.PermissionDenied(f)
 		}
-		return errtypes.NotFound(f)
+		return nil, errtypes.NotFound(f)
 	}
 
-	// Set space owner in context
-	storagespace.ContextSendSpaceOwnerID(ctx, n.SpaceOwnerOrManager(ctx))
+	spaceOwner := n.SpaceOwnerOrManager(ctx)
 
 	// check lock
 	if err := n.CheckLock(ctx); err != nil {
-		return err
+		return nil, err
 	}
 
 	// verify child does not exist, yet
 	if n, err = n.Child(ctx, name); err != nil {
-		return
+		return nil, err
 	}
 	if n.Exists {
-		return errtypes.AlreadyExists(ref.Path)
+		return nil, errtypes.AlreadyExists(ref.Path)
 	}
 
 	if err = fs.tp.CreateDir(ctx, n); err != nil {
-		return
+		return nil, err
 	}
 
-	return
+	return &storage.CreateDirResult{SpaceOwner: spaceOwner, SpaceID: n.SpaceID, ResourceID: &provider.ResourceId{OpaqueId: n.ID, SpaceId: n.SpaceID}}, nil
 }
 
 // TouchFile as defined in the storage.FS interface
-func (fs *Decomposedfs) TouchFile(ctx context.Context, ref *provider.Reference, markprocessing bool, mtime string) error {
+func (fs *Decomposedfs) TouchFile(ctx context.Context, ref *provider.Reference, markprocessing bool, mtime string) (*storage.TouchFileResult, error) {
 	ctx, span := tracer.Start(ctx, "TouchFile")
 	defer span.End()
 	parentRef := &provider.Reference{
@@ -877,15 +877,15 @@ func (fs *Decomposedfs) TouchFile(ctx context.Context, ref *provider.Reference, 
 	// verify parent exists
 	parent, err := fs.lu.NodeFromResource(ctx, parentRef)
 	if err != nil {
-		return errtypes.InternalError(err.Error())
+		return nil, errtypes.InternalError(err.Error())
 	}
 	if !parent.Exists {
-		return errtypes.NotFound(parentRef.Path)
+		return nil, errtypes.NotFound(parentRef.Path)
 	}
 
 	n, err := fs.lu.NodeFromResource(ctx, ref)
 	if err != nil {
-		return errtypes.InternalError(err.Error())
+		return nil, errtypes.InternalError(err.Error())
 	}
 
 	// new file: check write permission on parent, not the not-yet-existing node
@@ -896,23 +896,25 @@ func (fs *Decomposedfs) TouchFile(ctx context.Context, ref *provider.Reference, 
 	rp, err := fs.p.AssemblePermissions(ctx, permNode)
 	switch {
 	case err != nil:
-		return err
+		return nil, err
 	case !rp.InitiateFileUpload:
 		f, _ := storagespace.FormatReference(ref)
 		if rp.Stat {
-			return errtypes.PermissionDenied(f)
+			return nil, errtypes.PermissionDenied(f)
 		}
-		return errtypes.NotFound(f)
+		return nil, errtypes.NotFound(f)
 	}
 
-	// Set space owner in context
-	storagespace.ContextSendSpaceOwnerID(ctx, n.SpaceOwnerOrManager(ctx))
+	spaceOwner := n.SpaceOwnerOrManager(ctx)
 
 	// check lock
 	if err := n.CheckLock(ctx); err != nil {
-		return err
+		return nil, err
 	}
-	return fs.tp.TouchFile(ctx, n, markprocessing, mtime)
+	if err := fs.tp.TouchFile(ctx, n, markprocessing, mtime); err != nil {
+		return nil, err
+	}
+	return &storage.TouchFileResult{SpaceOwner: spaceOwner, SpaceID: n.SpaceID, ResourceID: &provider.ResourceId{OpaqueId: n.ID, SpaceId: n.SpaceID}}, nil
 }
 
 // CreateReference creates a reference as a node folder with the target stored in extended attributes
@@ -980,6 +982,9 @@ func (fs *Decomposedfs) Move(ctx context.Context, oldRef, newRef *provider.Refer
 		}
 		return nil, errtypes.NotFound(f)
 	}
+
+	// Set space owner in context
+	storagespace.ContextSetSpaceOwner(ctx, newNode.SpaceOwnerOrManager(ctx))
 
 	// check lock on source
 	if err := oldNode.CheckLock(ctx); err != nil {
@@ -1113,7 +1118,8 @@ func (fs *Decomposedfs) ListFolder(ctx context.Context, ref *provider.Reference,
 	for i := 0; i < numWorkers; i++ {
 		g.Go(func() error {
 			for child := range work {
-				np := rp
+				// copy the parent's permissions: the workers must not share them
+				np := proto.Clone(rp).(*provider.ResourcePermissions)
 				// add this childs permissions
 				pset, _ := child.PermissionSet(ctx)
 				node.AddPermissions(np, pset)
@@ -1206,46 +1212,56 @@ func (fs *Decomposedfs) RemoveLabel(ctx context.Context, ref *provider.Reference
 }
 
 // Delete deletes the specified resource
-func (fs *Decomposedfs) Delete(ctx context.Context, ref *provider.Reference) (err error) {
+func (fs *Decomposedfs) Delete(ctx context.Context, ref *provider.Reference) (dr *storage.DeleteResult, err error) {
 	ctx, span := tracer.Start(ctx, "Delete")
 	defer span.End()
 	var node *node.Node
 	if node, err = fs.lu.NodeFromResource(ctx, ref); err != nil {
-		return
+		return nil, err
 	}
 	if !node.Exists {
-		return errtypes.NotFound(filepath.Join(node.ParentID, node.Name))
+		return nil, errtypes.NotFound(filepath.Join(node.ParentID, node.Name))
+	}
+
+	if node.IsProcessing(ctx) {
+		return nil, errtypes.TooEarly("file is processing")
 	}
 
 	rp, err := fs.p.AssemblePermissions(ctx, node)
 	switch {
 	case err != nil:
-		return err
+		return nil, err
 	case !rp.Delete:
 		f, _ := storagespace.FormatReference(ref)
 		if rp.Stat {
-			return errtypes.PermissionDenied(f)
+			return nil, errtypes.PermissionDenied(f)
 		}
-		return errtypes.NotFound(f)
+		return nil, errtypes.NotFound(f)
 	}
 	parentAllowsDelete := func(parentPerms *provider.ResourcePermissions) bool {
 		return parentPerms.GetDelete()
 	}
 	if err := fs.checkParentPermission(ctx, node, ref, parentAllowsDelete); err != nil {
-		return err
+		return nil, err
 	}
-
-	// Set space owner in context
-	storagespace.ContextSendSpaceOwnerID(ctx, node.SpaceOwnerOrManager(ctx))
 
 	if err := node.CheckLock(ctx); err != nil {
-		return err
+		return nil, err
 	}
 	if node.IsProcessing(ctx) {
-		return errtypes.ResourceProcessing(ref.String())
+		return nil, errtypes.ResourceProcessing(ref.String())
 	}
 
-	return fs.tp.Delete(ctx, node)
+	if err := fs.tp.Delete(ctx, node); err != nil {
+		return nil, err
+	}
+	return &storage.DeleteResult{
+		SpaceOwner: node.SpaceOwnerOrManager(ctx),
+		ResourceId: &provider.ResourceId{
+			SpaceId:  node.SpaceID,
+			OpaqueId: node.ID,
+		},
+	}, nil
 }
 
 // Download returns a reader to the specified resource
@@ -1328,31 +1344,36 @@ func (fs *Decomposedfs) GetLock(ctx context.Context, ref *provider.Reference) (*
 }
 
 // SetLock puts a lock on the given reference
-func (fs *Decomposedfs) SetLock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) error {
+func (fs *Decomposedfs) SetLock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) (*storage.SetLockResult, error) {
 	ctx, span := tracer.Start(ctx, "SetLock")
 	defer span.End()
 	node, err := fs.lu.NodeFromResource(ctx, ref)
 	if err != nil {
-		return errors.Wrap(err, "Decomposedfs: error resolving ref")
+		return nil, errors.Wrap(err, "Decomposedfs: error resolving ref")
 	}
 
 	if !node.Exists {
-		return errtypes.NotFound(filepath.Join(node.ParentID, node.Name))
+		return nil, errtypes.NotFound(filepath.Join(node.ParentID, node.Name))
 	}
 
 	rp, err := fs.p.AssemblePermissions(ctx, node)
 	switch {
 	case err != nil:
-		return err
+		return nil, err
 	case !rp.InitiateFileUpload:
 		f, _ := storagespace.FormatReference(ref)
 		if rp.Stat {
-			return errtypes.PermissionDenied(f)
+			return nil, errtypes.PermissionDenied(f)
 		}
-		return errtypes.NotFound(f)
+		return nil, errtypes.NotFound(f)
 	}
 
-	return node.SetLock(ctx, lock)
+	spaceOwner := node.SpaceOwnerOrManager(ctx)
+
+	if err := node.SetLock(ctx, lock); err != nil {
+		return nil, err
+	}
+	return &storage.SetLockResult{SpaceOwner: spaceOwner, SpaceID: node.SpaceID}, nil
 }
 
 // RefreshLock refreshes an existing lock on the given reference
@@ -1388,35 +1409,40 @@ func (fs *Decomposedfs) RefreshLock(ctx context.Context, ref *provider.Reference
 }
 
 // Unlock removes an existing lock from the given reference
-func (fs *Decomposedfs) Unlock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) error {
+func (fs *Decomposedfs) Unlock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) (*storage.UnlockResult, error) {
 	ctx, span := tracer.Start(ctx, "Unlock")
 	defer span.End()
 	if lock.LockId == "" {
-		return errtypes.BadRequest("missing lockid")
+		return nil, errtypes.BadRequest("missing lockid")
 	}
 
 	node, err := fs.lu.NodeFromResource(ctx, ref)
 	if err != nil {
-		return errors.Wrap(err, "Decomposedfs: error resolving ref")
+		return nil, errors.Wrap(err, "Decomposedfs: error resolving ref")
 	}
 
 	if !node.Exists {
-		return errtypes.NotFound(filepath.Join(node.ParentID, node.Name))
+		return nil, errtypes.NotFound(filepath.Join(node.ParentID, node.Name))
 	}
 
 	rp, err := fs.p.AssemblePermissions(ctx, node)
 	switch {
 	case err != nil:
-		return err
+		return nil, err
 	case !rp.InitiateFileUpload: // TODO do we need a dedicated permission?
 		f, _ := storagespace.FormatReference(ref)
 		if rp.Stat {
-			return errtypes.PermissionDenied(f)
+			return nil, errtypes.PermissionDenied(f)
 		}
-		return errtypes.NotFound(f)
+		return nil, errtypes.NotFound(f)
 	}
 
-	return node.Unlock(ctx, lock)
+	spaceOwner := node.SpaceOwnerOrManager(ctx)
+
+	if err := node.Unlock(ctx, lock); err != nil {
+		return nil, err
+	}
+	return &storage.UnlockResult{SpaceOwner: spaceOwner, SpaceID: node.SpaceID}, nil
 }
 
 func (fs *Decomposedfs) ListRecycle(ctx context.Context, space *provider.Reference, key, relativePath string) ([]*provider.RecycleItem, error) {
@@ -1455,16 +1481,16 @@ func (fs *Decomposedfs) ListRecycle(ctx context.Context, space *provider.Referen
 // The key is used to determine the recycle item. It is the node id of the recycle item, returned by ListRecycle
 // The relativePath is the path is the path relative to the recycle item in case a child should be restored
 // The restoreRef is the reference where the item should be restored to
-func (fs *Decomposedfs) RestoreRecycleItem(ctx context.Context, space *provider.Reference, key, relativePath string, restoreRef *provider.Reference) error {
+func (fs *Decomposedfs) RestoreRecycleItem(ctx context.Context, space *provider.Reference, key, relativePath string, restoreRef *provider.Reference) (*storage.RestoreRecycleItemResult, error) {
 	_, span := tracer.Start(ctx, "RestoreRecycleItem")
 	defer span.End()
 
 	spaceID := space.GetResourceId().GetSpaceId()
 	if spaceID == "" {
-		return errtypes.BadRequest("missing space reference, needs a space id")
+		return nil, errtypes.BadRequest("missing space reference, needs a space id")
 	}
 	if key == "" && relativePath != "" {
-		return errtypes.BadRequest("key is required when navigating with a path")
+		return nil, errtypes.BadRequest("key is required when navigating with a path")
 	}
 
 	trashItem := &provider.ResourceId{
@@ -1474,31 +1500,31 @@ func (fs *Decomposedfs) RestoreRecycleItem(ctx context.Context, space *provider.
 
 	restoreBaseNode, err := fs.lu.NodeFromID(ctx, trashItem)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// check permissions of deleted node
 	rp, err := fs.p.AssembleTrashPermissions(ctx, restoreBaseNode)
 	switch {
 	case err != nil:
-		return err
+		return nil, err
 	case !rp.RestoreRecycleItem:
 		if rp.Stat {
-			return errtypes.PermissionDenied(key)
+			return nil, errtypes.PermissionDenied(key)
 		}
-		return errtypes.NotFound(key)
+		return nil, errtypes.NotFound(key)
 	}
 
 	restoredNode, err := fs.trashbin.RestoreRecycleItem(ctx, spaceID, key, relativePath, restoreRef)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var sizeDiff int64
 	if restoredNode.IsDir(ctx) {
 		treeSize, err := restoredNode.GetTreeSize(ctx)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		sizeDiff = int64(treeSize)
 
@@ -1510,7 +1536,10 @@ func (fs *Decomposedfs) RestoreRecycleItem(ctx context.Context, space *provider.
 		sizeDiff = restoredNode.Blobsize
 	}
 
-	return fs.tp.Propagate(ctx, restoredNode, sizeDiff)
+	if err := fs.tp.Propagate(ctx, restoredNode, sizeDiff); err != nil {
+		return nil, err
+	}
+	return &storage.RestoreRecycleItemResult{SpaceOwner: restoredNode.SpaceOwnerOrManager(ctx), SpaceID: restoredNode.SpaceID}, nil
 }
 
 func (fs *Decomposedfs) PurgeRecycleItem(ctx context.Context, space *provider.Reference, key, relativePath string) error {
