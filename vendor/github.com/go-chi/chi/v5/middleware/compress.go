@@ -148,13 +148,21 @@ func NewCompressor(level int, types ...string) *Compressor {
 //
 // For example, add the Brotli algorithm:
 //
-//	import brotli_enc "gopkg.in/kothar/brotli-go.v0/enc"
+//	import "github.com/google/brotli/go/cbrotli"
 //
 //	compressor := middleware.NewCompressor(5, "text/html")
 //	compressor.SetEncoder("br", func(w io.Writer, level int) io.Writer {
-//		params := brotli_enc.NewBrotliParams()
-//		params.SetQuality(level)
-//		return brotli_enc.NewBrotliWriter(params, w)
+//		return cbrotli.NewWriter(w, cbrotli.WriterOptions{Quality: level})
+//	})
+//
+// Alternatively, this Cgo-free Brotli module can be used:
+//
+//	import "github.com/andybalholm/brotli"
+//
+//	compressor := middleware.NewCompressor(5, "text/html")
+//
+//	compressor.SetEncoder("br", func(w io.Writer, level int) io.Writer {
+//		return brotli.NewWriterV2(w, level)
 //	})
 func (c *Compressor) SetEncoder(encoding string, fn EncoderFunc) {
 	encoding = strings.ToLower(encoding)
@@ -174,7 +182,7 @@ func (c *Compressor) SetEncoder(encoding string, fn EncoderFunc) {
 	encoder := fn(io.Discard, c.level)
 	if _, ok := encoder.(ioResetterWriter); ok {
 		pool := &sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				return fn(io.Discard, c.level)
 			},
 		}

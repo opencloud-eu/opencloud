@@ -839,8 +839,8 @@ func (ns nodes) Less(i, j int) bool { return ns[i].label < ns[j].label }
 // tailSort pushes nodes with '/' as the tail to the end of the list for param nodes.
 // The list order determines the traversal order.
 func (ns nodes) tailSort() {
-	for i := len(ns) - 1; i >= 0; i-- {
-		if ns[i].typ > ntStatic && ns[i].tail == '/' {
+	for i, n := range slices.Backward(ns) {
+		if n.typ > ntStatic && n.tail == '/' {
 			ns.Swap(i, len(ns)-1)
 			return
 		}
