@@ -19,7 +19,8 @@ OC_CI_BAZEL_BUILDIFIER = "owncloudci/bazel-buildifier:latest"
 OC_CI_CLAMAVD = "owncloudci/clamavd"
 OC_CI_DRONE_ANSIBLE = "owncloudci/drone-ansible:latest"
 OC_CI_GOLANG = "registry.heinlein.group/opencloud/golang-ci:1.25"
-OC_CI_NODEJS = "owncloudci/nodejs:%s"
+OC_CI_NODEJS = "quay.io/opencloudeu/nodejs-ci:24"
+OC_CI_NODEJS_ALPINE = "quay.io/opencloudeu/nodejs-alpine-ci:24"
 OC_CI_PHP = "quay.io/opencloudeu/php-alpine-ci:%s"
 OC_CI_WAIT_FOR = "owncloudci/wait-for:latest"
 OC_CS3_API_VALIDATOR = "opencloudeu/cs3api-validator:latest"
@@ -38,7 +39,6 @@ READY_RELEASE_GO = "woodpeckerci/plugin-ready-release-go:latest"
 OPENLDAP = "bitnamilegacy/openldap:2.6"
 
 DEFAULT_PHP_VERSION = "8.4"
-DEFAULT_NODEJS_VERSION = "20"
 
 CACHE_S3_SERVER = "https://s3.ci.opencloud.eu"
 
@@ -610,7 +610,7 @@ def savePipelineNumber(ctx):
 def evaluateWorkflowStep():
     return [{
         "name": "evaluate-previous-run",
-        "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+        "image": OC_CI_NODEJS_ALPINE,
         "commands": [
             "node tests/config/woodpecker/evaluate_pipeline.js",
         ],
@@ -967,7 +967,7 @@ def checkGherkinLint(ctx):
         "steps": [
             {
                 "name": "lint-feature-files",
-                "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+                "image": OC_CI_NODEJS_ALPINE,
                 "commands": [
                     "npm install -g @gherlint/gherlint@1.1.0",
                     "make test-gherkin-lint",
@@ -1553,7 +1553,7 @@ def e2eTestPipeline(ctx):
 
                 step_e2e = {
                     "name": "e2e-tests",
-                    "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+                    "image": OC_CI_NODEJS,
                     "environment": {
                         "OC_BASE_URL": OC_DOMAIN,
                         "HEADLESS": True,
@@ -1728,7 +1728,7 @@ def multiServiceE2ePipeline(ctx):
                     storage_users_services + \
                     [{
                         "name": "e2e-tests",
-                        "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+                        "image": OC_CI_NODEJS,
                         "environment": {
                             "OC_BASE_URL": OC_DOMAIN,
                             "HEADLESS": True,
@@ -2047,14 +2047,14 @@ def licenseCheck(ctx):
         "steps": restoreGoBinCache() + [
             {
                 "name": "node-check-licenses",
-                "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+                "image": OC_CI_NODEJS_ALPINE,
                 "commands": [
                     "make ci-node-check-licenses",
                 ],
             },
             {
                 "name": "node-save-licenses",
-                "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+                "image": OC_CI_NODEJS_ALPINE,
                 "commands": [
                     "make ci-node-save-licenses",
                 ],
@@ -2175,7 +2175,7 @@ def makeNodeGenerate(module):
     return [
         {
             "name": "generate nodejs",
-            "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+            "image": OC_CI_NODEJS,
             "environment": {
                 "CHROMEDRIVER_SKIP_DOWNLOAD": True,  # install fails on arm and chromedriver is a test only dependency
             },
@@ -2889,7 +2889,7 @@ def checkForWebCache(name):
 def cloneWeb():
     return {
         "name": "clone-web",
-        "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+        "image": OC_CI_NODEJS,
         "commands": [
             ". ./.woodpecker.env",
             "if $WEB_CACHE_FOUND; then exit 0; fi",
@@ -2906,7 +2906,7 @@ def generateWebPnpmCache(ctx):
         cloneWeb(),
         {
             "name": "install-pnpm",
-            "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+            "image": OC_CI_NODEJS,
             "commands": [
                 ". ./.woodpecker.env",
                 "if $WEB_CACHE_FOUND; then exit 0; fi",
@@ -2918,7 +2918,7 @@ def generateWebPnpmCache(ctx):
         },
         {
             "name": "zip-pnpm",
-            "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+            "image": OC_CI_NODEJS,
             "commands": [
                 ". ./.woodpecker.env",
                 "if $WEB_CACHE_FOUND; then exit 0; fi",
@@ -2980,7 +2980,7 @@ def cacheBrowsers(ctx):
     browser_cache_steps = [
         {
             "name": "install-browsers",
-            "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+            "image": OC_CI_NODEJS,
             "environment": {
                 "PLAYWRIGHT_BROWSERS_PATH": ".playwright",
             },
@@ -3078,7 +3078,7 @@ def restoreWebPnpmCache(extra_commands = []):
     }, {
         # we need to install again because the node_modules are not cached
         "name": "unzip-and-install-pnpm",
-        "image": OC_CI_NODEJS % DEFAULT_NODEJS_VERSION,
+        "image": OC_CI_NODEJS,
         "commands": extra_commands + [
             "cd %s" % dirs["web"],
             "rm -rf .pnpm-store",
