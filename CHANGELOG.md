@@ -39,6 +39,7 @@
 
 ### 📦️ Dependencies
 
+- [full-ci] chore: bump reva to 2.52.2 [[#3955](https://github.com/opencloud-eu/opencloud/pull/3955)]
 - [full-ci] chore: bump web to v8.2.2 [[#3962](https://github.com/opencloud-eu/opencloud/pull/3962)]
 - [full-ci] chore: bump web to v8.2.2-beta.1 [[#3923](https://github.com/opencloud-eu/opencloud/pull/3923)]
 - build(deps): bump github.com/prometheus/client_golang from 1.24.1 to 1.25.0 [[#3897](https://github.com/opencloud-eu/opencloud/pull/3897)]
