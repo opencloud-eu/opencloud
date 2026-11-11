@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/CiscoM31/godata"
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
@@ -403,7 +404,7 @@ func (g Graph) CreateDrive(w http.ResponseWriter, r *http.Request) {
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "invalid body schema definition")
 		return
 	}
-	spaceName := strings.TrimSpace(drive.Name)
+	spaceName := trimSpaceName(drive.Name)
 	if err := validateSpaceName(spaceName); err != nil {
 		log.Debug().Str("name", spaceName).Err(err).Msg("could not create drive: name validation failed")
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, fmt.Sprintf("invalid spacename: %s", err.Error()))
@@ -580,8 +581,8 @@ func (g Graph) UpdateDrive(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if drive.GetName() != "" {
-		spacename := strings.TrimSpace(drive.GetName())
+	if _, ok := drive.GetNameOk(); ok {
+		spacename := trimSpaceName(drive.GetName())
 		if err := validateSpaceName(spacename); err != nil {
 			log.Info().Err(err).Msg("could not update drive: spacename invalid")
 			errorcode.GeneralException.Render(w, r, http.StatusBadRequest, err.Error())
@@ -1176,6 +1177,18 @@ func sortSpaces(req *godata.GoDataRequest, spaces []*libregraph.Drive) ([]*libre
 		sort.Slice(spaces, less)
 	}
 	return spaces, nil
+}
+
+// trimSpaceName removes whitespace and invisible formatting characters from both ends of a
+// space name. strings.TrimSpace alone isn't enough: characters such as the zero-width space
+// (U+200B), the word joiner (U+2060) or the byte order mark (U+FEFF) aren't whitespace in
+// Unicode, but they are invisible, so a name made only of them would look empty in every client.
+// Formatting characters inside a name are kept, since some of them are needed there, e.g. the
+// zero-width joiner (U+200D) in emoji sequences.
+func trimSpaceName(name string) string {
+	return strings.TrimFunc(name, func(r rune) bool {
+		return unicode.IsSpace(r) || unicode.Is(unicode.Cf, r)
+	})
 }
 
 func validateSpaceName(name string) error {

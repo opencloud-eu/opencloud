@@ -1177,6 +1177,67 @@ var _ = Describe("Graph", func() {
 			}))
 		})
 
+		DescribeTable("rejects an invalid name without updating the space",
+			func(name string) {
+				body, err := json.Marshal(map[string]string{"name": name})
+				Expect(err).ToNot(HaveOccurred())
+				r := httptest.NewRequest(http.MethodPatch, "/graph/v1.0/drives/{driveID}/", bytes.NewBuffer(body))
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("driveID", "spaceid")
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, nil), chi.RouteCtxKey, rctx))
+				svc.UpdateDrive(rr, r)
+				Expect(rr.Code).To(Equal(http.StatusBadRequest))
+
+				gatewayClient.AssertNotCalled(GinkgoT(), "UpdateStorageSpace", mock.Anything, mock.Anything)
+			},
+			// the names are written as escape sequences on purpose: written directly, these
+			// characters would be invisible or look like ordinary spaces in the source code
+			Entry("empty name", ""),
+			Entry("name of only spaces", "   "),
+			Entry("name of only tabs and line breaks", "\t\n\r"),
+			// U+00A0 no-break space, U+202F narrow no-break space
+			Entry("name of only no-break spaces", "\u00a0\u202f"),
+			// U+2003 em space, U+2009 thin space, U+3000 ideographic space
+			Entry("name of only wide spaces", "\u2003\u2009\u3000"),
+			// U+200B zero-width space: invisible, but not whitespace in Unicode
+			Entry("name of only zero-width spaces", "\u200b\u200b"),
+			// U+200C zero-width non-joiner, U+200D zero-width joiner
+			Entry("name of only zero-width joiners", "\u200c\u200d"),
+			// U+2060 word joiner, U+FEFF byte order mark (zero-width no-break space)
+			Entry("name of only a word joiner and a byte order mark", "\u2060\ufeff"),
+			// space, U+200B zero-width space, U+00A0 no-break space, U+FEFF byte order mark, space
+			Entry("name of mixed invisible characters", " \u200b\u00a0\ufeff "),
+		)
+
+		DescribeTable("keeps the name when the request doesn't set one",
+			func(jsonBody string) {
+				gatewayClient.On("UpdateStorageSpace", mock.Anything, mock.Anything).Return(func(_ context.Context, req *provider.UpdateStorageSpaceRequest, _ ...grpc.CallOption) *provider.UpdateStorageSpaceResponse {
+					return &provider.UpdateStorageSpaceResponse{
+						Status:       status.NewOK(ctx),
+						StorageSpace: req.StorageSpace,
+					}
+				}, nil)
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&provider.StatResponse{
+					Status: status.NewNotFound(ctx, "no special files found"),
+				}, nil).Maybe()
+
+				r := httptest.NewRequest(http.MethodPatch, "/graph/v1.0/drives/{driveID}/", bytes.NewBufferString(jsonBody))
+				rctx := chi.NewRouteContext()
+				rctx.URLParams.Add("driveID", "spaceid")
+				r = r.WithContext(context.WithValue(revactx.ContextSetUser(ctx, nil), chi.RouteCtxKey, rctx))
+				svc.UpdateDrive(rr, r)
+				Expect(rr.Code).To(Equal(http.StatusOK))
+
+				gatewayClient.AssertCalled(GinkgoT(), "UpdateStorageSpace", mock.Anything, mock.MatchedBy(func(req *provider.UpdateStorageSpaceRequest) bool {
+					return req.StorageSpace.Id.OpaqueId == "spaceid" &&
+						req.StorageSpace.Name == "" &&
+						utils.ReadPlainFromOpaque(req.StorageSpace.Opaque, "description") == "thedescription"
+				}))
+			},
+			Entry("no name", `{"description": "thedescription"}`),
+			Entry("null name", `{"name": null, "description": "thedescription"}`),
+		)
+
 		It("restores", func() {
 			drive := libregraph.NewDrive("thename")
 			driveJson, err := json.Marshal(drive)

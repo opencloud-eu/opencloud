@@ -1637,6 +1637,30 @@ class SpacesContext implements Context {
 	}
 
 	/**
+	 * Like updateSpaceName, but the new name is written with JSON escape sequences,
+	 * e.g. "\u200b" for a zero-width space. Characters such as invisible or unusual
+	 * spaces can't be told apart from ordinary spaces, or can't be seen at all, when
+	 * written directly into a feature file.
+	 *
+	 * @param string $user
+	 * @param string $spaceName
+	 * @param string $escapedNewName
+	 *
+	 * @return void
+	 * @throws GuzzleException
+	 * @throws JsonException
+	 */
+	#[When('/^user "([^"]*)" (?:changes|tries to change) the name of the "([^"]*)" space to the escaped name "([^"]*)"$/')]
+	public function updateSpaceNameEscaped(
+		string $user,
+		string $spaceName,
+		string $escapedNewName
+	): void {
+		$newName = json_decode('"' . $escapedNewName . '"', false, 512, JSON_THROW_ON_ERROR);
+		$this->updateSpaceName($user, $spaceName, $newName);
+	}
+
+	/**
 	 *
 	 * @param string $user
 	 * @param string $spaceName
