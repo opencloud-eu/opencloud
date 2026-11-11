@@ -21,9 +21,11 @@ package sciencemesh
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -47,20 +49,56 @@ type DiscoverResponse struct {
 	InviteAcceptDialog string `json:"inviteAcceptDialog"`
 }
 
-// makeAbsoluteURL takes a base URL and a path/URL and returns an absolute URL.
-// If dialogURL is already absolute (has scheme and host), it returns it as-is.
-// Otherwise, it joins the dialogURL with the baseURL to create an absolute URL.
-func makeAbsoluteURL(baseURL, dialogURL string) (string, error) {
-	if dialogURL == "" {
-		return "", nil
+var (
+	errInvalidProviderURL  = errors.New("invalid provider URL")
+	errInvalidInviteDialog = errors.New("invalid invite accept dialog")
+)
+
+// resolveInviteAcceptDialog builds the invite page on the provider origin.
+// The discovery value is a path. An absolute URL is accepted only when its
+// scheme and host, including port, match the provider; the result is rebuilt
+// from those fields and the path, never returned as received.
+func resolveInviteAcceptDialog(providerBase, dialog string) (string, error) {
+	base, err := url.Parse(providerBase)
+	if err != nil || (base.Scheme != "http" && base.Scheme != "https") || base.Host == "" || base.User != nil {
+		return "", errInvalidProviderURL
 	}
 
-	parsed, err := url.Parse(dialogURL)
-	if err == nil && parsed.Scheme != "" && parsed.Host != "" {
-		return dialogURL, nil
+	dialog = strings.TrimSpace(dialog)
+	if dialog == "" || strings.ContainsAny(dialog, "\\#") || containsControl(dialog) {
+		return "", errInvalidInviteDialog
+	}
+	ref, err := url.Parse(dialog)
+	if err != nil || ref.Opaque != "" || ref.User != nil {
+		return "", errInvalidInviteDialog
+	}
+	if (ref.Scheme != "" || ref.Host != "") &&
+		(ref.Scheme != base.Scheme || !strings.EqualFold(ref.Host, base.Host)) {
+		return "", errInvalidInviteDialog
 	}
 
-	return url.JoinPath(baseURL, dialogURL)
+	p := ref.Path
+	if ref.Scheme != "" && p == "" {
+		p = "/"
+	}
+	if !strings.HasPrefix(p, "/") || strings.HasPrefix(p, "//") ||
+		strings.ContainsAny(p, "\\?#") || containsControl(p) {
+		return "", errInvalidInviteDialog
+	}
+	p = path.Clean(p)
+	if !strings.HasPrefix(p, "/") {
+		return "", errInvalidInviteDialog
+	}
+	return (&url.URL{Scheme: base.Scheme, Host: base.Host, Path: p}).String(), nil
+}
+
+func containsControl(s string) bool {
+	for _, r := range s {
+		if r < 0x20 || r == 0x7f {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *wayfHandler) init(c *config) error {
@@ -130,20 +168,20 @@ func (h *wayfHandler) init(c *config) error {
 			inviteDialog := disco.InviteAcceptDialog
 
 			if inviteDialog != "" {
-				absoluteURL, err := makeAbsoluteURL(srv.URL, inviteDialog)
+				resolved, err := resolveInviteAcceptDialog(srv.URL, inviteDialog)
 				if err != nil {
 					log.Debug().Err(err).
 						Str("federation", directoryService.Federation).
 						Str("server", srv.DisplayName).
 						Str("url", srv.URL).
 						Str("inviteDialog", disco.InviteAcceptDialog).
-						Msg("Failed to construct absolute URL, skipping server")
+						Msg("Invalid invite accept dialog, skipping server")
 					continue
 				}
-				if absoluteURL != inviteDialog {
-					log.Debug().Str("original", inviteDialog).Str("absolute", absoluteURL).Msg("Converted to absolute URL")
+				if resolved != inviteDialog {
+					log.Debug().Str("original", inviteDialog).Str("resolved", resolved).Msg("Resolved invite accept dialog")
 				}
-				inviteDialog = absoluteURL
+				inviteDialog = resolved
 			}
 
 			validServers = append(validServers, ocmd.DirectoryServiceServer{
@@ -227,19 +265,15 @@ func (h *wayfHandler) DiscoverProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	inviteDialog := disco.InviteAcceptDialog
-
-	if inviteDialog == "" {
-		log.Info().Str("domain", domain).Msg("Provider does not provide invite accept dialog")
-		reqres.WriteError(w, r, reqres.APIErrorNotFound,
-			fmt.Sprintf("Provider at '%s' does not provide an invite accept dialog", req.Domain), nil)
-		return
-	}
-
-	inviteDialog, err = makeAbsoluteURL(domain, inviteDialog)
+	inviteDialog, err := resolveInviteAcceptDialog(domain, disco.InviteAcceptDialog)
 	if err != nil {
-		log.Info().Err(err).Str("domain", domain).Str("inviteDialog", disco.InviteAcceptDialog).Msg("Failed to construct invite accept dialog URL")
-		reqres.WriteError(w, r, reqres.APIErrorServerError, "Failed to construct invite accept dialog URL", err)
+		log.Info().Err(err).Str("domain", domain).Str("inviteDialog", disco.InviteAcceptDialog).Msg("Provider does not provide a usable invite accept dialog")
+		if errors.Is(err, errInvalidProviderURL) {
+			reqres.WriteError(w, r, reqres.APIErrorInvalidParameter, "Invalid domain format", err)
+			return
+		}
+		reqres.WriteError(w, r, reqres.APIErrorNotFound,
+			fmt.Sprintf("Provider at '%s' does not provide an invite accept dialog", req.Domain), err)
 		return
 	}
 

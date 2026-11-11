@@ -33,5 +33,5 @@ type Document struct {
 }
 
 func CleanString(content, langCode string) string {
-	return strings.TrimSpace(stopwords.CleanString(content, langCode, true))
+	return strings.TrimSpace(stopwords.CleanString(content, langCode, false))
 }

@@ -748,6 +748,8 @@ Fixtures:
 - `parent`, ID = 1$1!2, folder
 - `bar.pdf`, ID = 1$1!3, MimeType = application/pdf, Path = ./parent/bar.pdf, Size = 1234
 - `notes.txt`, ID = 1$1!4, Content = "foo bar baz"
+- `markup.txt`, ID = 1$1!5, Content = "foo <img src=x> qux"
+- `escaped.txt`, ID = 1$1!6, Content = "foo &lt;img src=x&gt; zap"
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
@@ -764,6 +766,8 @@ Fixtures:
 | ENTITY-11 | `path:"./parent"` reads `TotalMatches` | 2 | 2 | 2 | ✅ |
 | ENTITY-12 | `name:"*notes*"` reads `Highlights` | "" | "" | "" | ✅ |
 | ENTITY-13 | `content:bar` reads `Highlights` | foo <mark>bar</mark> baz | foo <mark>bar</mark> baz | foo <mark>bar</mark> baz | ✅ |
+| ENTITY-17 | `content:qux` reads `Highlights` | foo &lt;im...x</mark> | foo &lt;im...x</mark> | foo &lt;im...x</mark> | ✅ |
+| ENTITY-18 | `content:zap` reads `Highlights` | foo &amp;l...p</mark> | foo &amp;l...p</mark> | foo &amp;l...p</mark> | ✅ |
 | ENTITY-14 | moved to another parent, then `name:"newname"` reads `ParentId` | 1$1!9 | 1$1!9 | 1$1!9 | ✅ |
 | ENTITY-15 | moved to another parent, then `name:"bar.pdf"` reads `ParentId` | 1$1!2 | 1$1!2 | 1$1!2 | ✅ |
 | ENTITY-16 | moved to another parent, then `name:"bar.pdf"` reads `Ref.Path` | ./somewher.../bar.pdf | ./somewher.../bar.pdf | ./somewher.../bar.pdf | ✅ |

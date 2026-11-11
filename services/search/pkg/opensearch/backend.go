@@ -130,6 +130,7 @@ func (b *Backend) Search(ctx context.Context, sir *searchService.SearchIndexRequ
 		osu.SearchBodyParams{
 			Highlight: &osu.BodyParamHighlight{
 				HighlightOptions: osu.HighlightOptions{
+					Encoder:           "html",
 					NumberOfFragments: 2,
 					PreTags:           []string{"<mark>"},
 					PostTags:          []string{"</mark>"},
