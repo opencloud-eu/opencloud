@@ -40,6 +40,9 @@ func DefaultConfig() *config.Config {
 			AssetPath:   filepath.Join(defaults.BaseDataPath(), "collaboration/fonts"),
 			PreviewText: "OpenCloud",
 		},
+		Settings: config.Settings{
+			DataPath: filepath.Join(defaults.BaseDataPath(), "collaboration/settings"),
+		},
 		Store: config.Store{
 			Store:    "nats-js-kv",
 			Nodes:    []string{"127.0.0.1:9233"},

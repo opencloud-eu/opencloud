@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -29,6 +30,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/server/debug"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/server/grpc"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/server/http"
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/settings"
 )
 
 // Server is the entrypoint for the server command.
@@ -176,14 +178,28 @@ func Server(cfg *config.Config) *cobra.Command {
 			}
 
 			// start HTTP server
+			adapter := connector.NewHttpAdapter(gatewaySelector, cfg, st, selector.NewSelector(selector.Registry(registry.GetRegistry())))
+
+			var settingsService *settings.Service
+			if !cfg.Settings.Disabled && strings.ToLower(cfg.App.Product) == "collabora" {
+				settingsFS := afero.NewBasePathFs(fsx.NewOsFs(), cfg.Settings.DataPath)
+				if err := settingsFS.MkdirAll("/", 0o750); err != nil {
+					logger.Error().Err(err).Msg("Failed to initialize the settings directory")
+					return err
+				}
+				settingsService = settings.NewService(settingsFS, settings.BaseURL(cfg), gatewaySelector)
+				adapter.WithSettings(settingsService)
+			}
+
 			httpServer, err := http.Server(
-				http.Adapter(connector.NewHttpAdapter(gatewaySelector, cfg, st, selector.NewSelector(selector.Registry(registry.GetRegistry())))),
+				http.Adapter(adapter),
 				http.Logger(logger),
 				http.Config(cfg),
 				http.Context(ctx),
 				http.TracerProvider(traceProvider),
 				http.Store(st),
 				http.FontService(fontService),
+				http.SettingsService(settingsService),
 			)
 			if err != nil {
 				logger.Info().Err(err).Str("transport", "http").Msg("Failed to initialize server")

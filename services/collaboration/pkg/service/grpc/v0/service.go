@@ -22,6 +22,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/helpers"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/middleware"
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/settings"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/wopisrc"
 )
 
@@ -161,18 +162,24 @@ func (s *Service) OpenInApp(
 
 	logger.Debug().Msg("OpenInApp: success")
 
+	formParameters := map[string]string{
+		// these parameters will be passed to the web server by the app provider application
+		"access_token": accessToken,
+		// milliseconds since Jan 1, 1970 UTC as required in https://docs.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/concepts#access_token_ttl
+		//"access_token_ttl": strconv.FormatInt(claims.ExpiresAt.UnixMilli(), 10),
+		"access_token_ttl": strconv.FormatInt(accessExpiration, 10),
+	}
+	// Collabora only offers the Options dialog if it knows where to store the settings
+	if strings.ToLower(s.config.App.Product) == "collabora" && !s.config.Settings.Disabled {
+		formParameters["wopi_setting_base_url"] = settings.BaseURL(s.config)
+	}
+
 	return &appproviderv1beta1.OpenInAppResponse{
 		Status: &rpcv1beta1.Status{Code: rpcv1beta1.Code_CODE_OK},
 		AppUrl: &appproviderv1beta1.OpenInAppURL{
-			AppUrl: appURL,
-			Method: "POST",
-			FormParameters: map[string]string{
-				// these parameters will be passed to the web server by the app provider application
-				"access_token": accessToken,
-				// milliseconds since Jan 1, 1970 UTC as required in https://docs.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/concepts#access_token_ttl
-				//"access_token_ttl": strconv.FormatInt(claims.ExpiresAt.UnixMilli(), 10),
-				"access_token_ttl": strconv.FormatInt(accessExpiration, 10),
-			},
+			AppUrl:         appURL,
+			Method:         "POST",
+			FormParameters: formParameters,
 		},
 	}, nil
 }

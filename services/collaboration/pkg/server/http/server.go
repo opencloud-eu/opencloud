@@ -217,6 +217,23 @@ func prepareRoutes(r *chi.Mux, options Options) {
 			})
 		})
 
+		// Office settings of the Collabora Options dialog, called by Collabora
+		// server side with the WOPI token of the editing session.
+		if settingsService := options.SettingsService; settingsService != nil {
+			r.Route("/settings", func(r chi.Router) {
+				r.Use(
+					func(h stdhttp.Handler) stdhttp.Handler {
+						return colabmiddleware.WopiContextAuthMiddleware(options.Config, options.Store, h)
+					},
+					colabmiddleware.CollaborationTracingMiddleware,
+				)
+				r.Get("/", settingsService.GetConfig)
+				r.Delete("/", settingsService.Delete)
+				r.Post("/upload", settingsService.Upload)
+				r.Get("/file", settingsService.GetFile)
+			})
+		}
+
 	})
 	r.Route("/collaboration", func(r chi.Router) {
 		auth := middleware.ExtractAccountUUID(
