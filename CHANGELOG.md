@@ -4,7 +4,7 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@JammingBen, @RyoKusnadi, @aduffeck, @butonic, @dragotin, @dschmidt, @maki5, @micbar, @pascalwengerter, @rhafer
+@JammingBen, @RyoKusnadi, @aduffeck, @butonic, @dragotin, @dschmidt, @maki5, @micbar, @pascalwengerter, @rhafer, @v-scharf
 
 ### 🔒 Security
 
@@ -39,6 +39,7 @@
 
 ### 📦️ Dependencies
 
+- [full-ci] chore: bump web to v8.2.2 [[#3962](https://github.com/opencloud-eu/opencloud/pull/3962)]
 - [full-ci] chore: bump web to v8.2.2-beta.1 [[#3923](https://github.com/opencloud-eu/opencloud/pull/3923)]
 - build(deps): bump github.com/prometheus/client_golang from 1.24.1 to 1.25.0 [[#3897](https://github.com/opencloud-eu/opencloud/pull/3897)]
 - build(deps): bump github.com/nats-io/nats.go from 1.54.0 to 1.55.0 [[#3904](https://github.com/opencloud-eu/opencloud/pull/3904)]
