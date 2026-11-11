@@ -41,6 +41,7 @@ func (q QueryReqBody[O]) MarshalJSON() ([]byte, error) {
 //----------------------------------------------------------------------------//
 
 type BodyParamHighlight struct {
+	Encoder  string                        `json:"encoder,omitempty"`
 	PreTags  []string                      `json:"pre_tags,omitempty"`
 	PostTags []string                      `json:"post_tags,omitempty"`
 	Fields   map[string]BodyParamHighlight `json:"fields,omitempty"`
