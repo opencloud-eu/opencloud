@@ -1,6 +1,9 @@
 package metrics
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	ocmetrics "github.com/opencloud-eu/opencloud/pkg/metrics"
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 var (
 	// Namespace defines the namespace for the defines metrics.
@@ -49,33 +52,8 @@ func New(opts ...Option) *Metrics {
 		}, []string{}),
 	}
 
-	if err := prometheus.Register(m.BuildInfo); err != nil {
-		options.Logger.Error().
-			Err(err).
-			Str("metric", "BuildInfo").
-			Msg("Failed to register prometheus metric")
-	}
-
-	if err := prometheus.Register(m.Counter); err != nil {
-		options.Logger.Error().
-			Err(err).
-			Str("metric", "counter").
-			Msg("Failed to register prometheus metric")
-	}
-
-	if err := prometheus.Register(m.Latency); err != nil {
-		options.Logger.Error().
-			Err(err).
-			Str("metric", "latency").
-			Msg("Failed to register prometheus metric")
-	}
-
-	if err := prometheus.Register(m.Duration); err != nil {
-		options.Logger.Error().
-			Err(err).
-			Str("metric", "duration").
-			Msg("Failed to register prometheus metric")
-	}
+	// errors are logged by Register
+	_, _ = ocmetrics.Register(prometheus.DefaultRegisterer, m, &options.Logger)
 
 	return m
 }

@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"errors"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -116,16 +115,12 @@ func New(registerer prometheus.Registerer, logger *log.Logger, httpPathSplitter 
 		httpPathSplitter: httpPathSplitter,
 	}
 
-	m, err := ocmetrics.Register(registerer, m, logger)
-	// must additionally register unexported metrics:
-	err = errors.Join(err, ocmetrics.RegisterMetrics(registerer, logger,
-		m.httpRequestDuration,
-	))
-	return m, err
+	// must additionally pass the unexported metrics:
+	return ocmetrics.Register(registerer, m, logger, ocmetrics.WithVecRef(&m.httpRequestDuration))
 }
 
 func (m Metrics) InitHttpInFlightGauge(inFlight *atomic.Int64) {
-	_ = prometheus.Register(prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+	_ = ocmetrics.RegisterMetrics(prometheus.DefaultRegisterer, nil, ocmetrics.WithFunc(prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: Namespace,
 		Subsystem: Subsystem,
 		Unit:      "requests",
@@ -133,7 +128,7 @@ func (m Metrics) InitHttpInFlightGauge(inFlight *atomic.Int64) {
 		Help:      "Concurrent inbound HTTP requests.",
 	}, func() float64 {
 		return float64(inFlight.Load())
-	}))
+	})))
 }
 
 func (m Metrics) RecordHTTPDuration(method string, pattern string, statusCode int, duration time.Duration) {
