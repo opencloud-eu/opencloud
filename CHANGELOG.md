@@ -1,6 +1,6 @@
 # Changelog
 
-## [9.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.0) - 2026-11-10
+## [9.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.0) - 2026-11-11
 
 ### ❤️ Thanks to all contributors! ❤️
 
@@ -13,6 +13,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(proxy): allow blob: in media-src for motion and live photo playback [[#3896](https://github.com/opencloud-eu/opencloud/pull/3896)]
 - fix(middleware): do not build the XFF middleware without trusted proxies [[#3937](https://github.com/opencloud-eu/opencloud/pull/3937)]
 - fix(auth-guest): add missing guest link logout endpoint [[#3932](https://github.com/opencloud-eu/opencloud/pull/3932)]
 - Remove redis-sentinel from store descriptions [[#3936](https://github.com/opencloud-eu/opencloud/pull/3936)]
