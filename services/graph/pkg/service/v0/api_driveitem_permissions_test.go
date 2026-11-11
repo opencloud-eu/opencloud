@@ -22,12 +22,15 @@ import (
 	. "github.com/onsi/gomega"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
 	"github.com/tidwall/gjson"
+	"google.golang.org/grpc"
 
 	roleconversions "github.com/opencloud-eu/reva/v2/pkg/conversions"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
+	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
@@ -39,6 +42,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	identitycache "github.com/opencloud-eu/opencloud/services/graph/pkg/identity/cache"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/linktype"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
 	svc "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/unifiedrole"
 )
@@ -746,6 +750,73 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		})
 
 	})
+	Describe("GetPermission", func() {
+		viewLink := func(id string) *link.PublicShare {
+			return &link.PublicShare{
+				Id:          &link.PublicShareId{OpaqueId: id},
+				Token:       id,
+				ResourceId:  driveItemId,
+				Permissions: &link.PublicSharePermissions{Permissions: roleconversions.NewViewerRole().CS3ResourcePermissions()},
+			}
+		}
+
+		BeforeEach(func() {
+			statResponse.Info = &provider.ResourceInfo{
+				Id:            driveItemId,
+				Type:          provider.ResourceType_RESOURCE_TYPE_FILE,
+				PermissionSet: roleconversions.NewEditorRole().CS3ResourcePermissions(),
+			}
+		})
+
+		It("returns not found for a permission that is not listed for the item", func() {
+			// shares are only listed for the requested item; permissions of other resources
+			// must not be resolved by ID (the strict gateway mock fails on GetShare/GetPublicShare)
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+			gatewayClient.On("ListShares", mock.Anything, mock.MatchedBy(func(req *collaboration.ListSharesRequest) bool {
+				return slices.ContainsFunc(req.GetFilters(), func(f *collaboration.Filter) bool {
+					return utils.ResourceIDEqual(f.GetResourceId(), driveItemId)
+				})
+			})).Return(&collaboration.ListSharesResponse{Status: status.NewOK(ctx)}, nil)
+			listPublicSharesResponse.Share = []*link.PublicShare{viewLink("aaaaaaaaaaaaaaa")}
+			gatewayClient.On("ListPublicShares", mock.Anything, mock.MatchedBy(func(req *link.ListPublicSharesRequest) bool {
+				return slices.ContainsFunc(req.GetFilters(), func(f *link.ListPublicSharesRequest_Filter) bool {
+					return utils.ResourceIDEqual(f.GetResourceId(), driveItemId)
+				})
+			})).Return(listPublicSharesResponse, nil)
+
+			_, err := driveItemPermissionsService.GetPermission(ctx, driveItemId, "ccccccccccccccc")
+			Expect(errorcode.IsErrorCode(err, errorcode.ItemNotFound)).To(BeTrue())
+		})
+
+		It("propagates stat errors without listing permissions", func() {
+			statResponse.Status = status.NewPermissionDenied(ctx, nil, "denied")
+			gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+
+			_, err := driveItemPermissionsService.GetPermission(ctx, driveItemId, "aaaaaaaaaaaaaaa")
+			Expect(errorcode.IsErrorCode(err, errorcode.AccessDenied)).To(BeTrue())
+		})
+	})
+
+	Describe("GetSpaceRootPermission", func() {
+		DescribeTable("rejects space types other than project",
+			func(spaceType string) {
+				gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+					Status: status.NewOK(ctx),
+					StorageSpaces: []*provider.StorageSpace{{
+						Id:        &provider.StorageSpaceId{OpaqueId: "1$2"},
+						SpaceType: spaceType,
+						Root:      &provider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "2"},
+					}},
+				}, nil)
+
+				_, err := driveItemPermissionsService.GetSpaceRootPermission(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, "aaaaaaaaaaaaaaa")
+				Expect(err).To(MatchError(errorcode.New(errorcode.InvalidRequest, "unsupported space type")))
+			},
+			Entry("personal", "personal"),
+			Entry("virtual", "virtual"),
+		)
+	})
+
 	Describe("DeletePermission", func() {
 		var (
 			getShareResponse       collaboration.GetShareResponse
@@ -1493,6 +1564,175 @@ var _ = Describe("DriveItemPermissionsApi", func() {
 
 			Expect(responseRecorder.Code).To(Equal(http.StatusBadRequest))
 		})
+	})
+
+	Describe("GetPermission", func() {
+		get := func() *httptest.ResponseRecorder {
+			responseRecorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, "/", nil).
+				WithContext(context.WithValue(context.Background(), chi.RouteCtxKey, rCTX))
+			httpAPI.GetPermission(responseRecorder, request)
+			return responseRecorder
+		}
+
+		It("passes the item and permission ID to the provider and renders the permission", func() {
+			rCTX.URLParams.Add("itemID", "1$2!3")
+			rCTX.URLParams.Add("permissionID", "perm%2Fid")
+			mockProvider.On("GetPermission", mock.Anything, mock.Anything, mock.Anything).
+				Return(func(ctx context.Context, itemID *provider.ResourceId, permissionID string) (libregraph.Permission, error) {
+					Expect(storagespace.FormatResourceID(itemID)).To(Equal("1$2!3"))
+					Expect(permissionID).To(Equal("perm/id"))
+					return libregraph.Permission{Id: libregraph.PtrString("perm/id")}, nil
+				}).Once()
+
+			rr := get()
+			Expect(rr.Code).To(Equal(http.StatusOK))
+			Expect(gjson.Get(rr.Body.String(), "id").String()).To(Equal("perm/id"))
+		})
+
+		It("rejects an itemID that does not belong to the drive", func() {
+			rCTX.URLParams.Add("itemID", "3$4!5")
+			rCTX.URLParams.Add("permissionID", "permid")
+			Expect(get().Code).To(Equal(http.StatusNotFound))
+		})
+
+		It("rejects an empty permissionID", func() {
+			rCTX.URLParams.Add("itemID", "1$2!3")
+			Expect(get().Code).To(Equal(http.StatusBadRequest))
+		})
+
+		It("renders a not found error of the provider", func() {
+			rCTX.URLParams.Add("itemID", "1$2!3")
+			rCTX.URLParams.Add("permissionID", "permid")
+			mockProvider.On("GetPermission", mock.Anything, mock.Anything, mock.Anything).
+				Return(libregraph.Permission{}, errorcode.New(errorcode.ItemNotFound, "permission not found")).Once()
+
+			Expect(get().Code).To(Equal(http.StatusNotFound))
+		})
+	})
+
+	Describe("GetSpaceRootPermission", func() {
+		It("rejects an invalid driveID", func() {
+			rCTX = chi.NewRouteContext()
+			rCTX.URLParams.Add("permissionID", "permid")
+			responseRecorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, "/", nil).
+				WithContext(context.WithValue(context.Background(), chi.RouteCtxKey, rCTX))
+			httpAPI.GetSpaceRootPermission(responseRecorder, request)
+
+			Expect(responseRecorder.Code).To(Equal(http.StatusUnprocessableEntity))
+		})
+	})
+})
+
+var _ = Describe("DriveItemPermissions routes", func() {
+	var (
+		graphService  svc.Service
+		gatewayClient *cs3mocks.GatewayAPIClient
+		ctx           context.Context
+		rr            *httptest.ResponseRecorder
+	)
+
+	BeforeEach(func() {
+		ctx = revactx.ContextSetUser(context.Background(), &userpb.User{Id: &userpb.UserId{OpaqueId: "user"}})
+		rr = httptest.NewRecorder()
+
+		cfg := defaults.FullDefaultConfig()
+		cfg.Identity.LDAP.CACert = ""
+		cfg.TokenManager.JWTSecret = "loremipsum"
+		cfg.Commons = &shared.Commons{}
+		cfg.GRPCClientTLS = &shared.GRPCClientTLS{}
+
+		pool.RemoveSelector("GatewaySelector" + "eu.opencloud.api.gateway")
+		gatewayClient = &cs3mocks.GatewayAPIClient{}
+		gatewaySelector := pool.GetSelector[gateway.GatewayAPIClient](
+			"GatewaySelector",
+			"eu.opencloud.api.gateway",
+			func(cc grpc.ClientConnInterface) gateway.GatewayAPIClient {
+				return gatewayClient
+			},
+		)
+
+		logger := log.NewLogger()
+		m, _ := metrics.New(prometheus.NewRegistry(), &logger, func([]string) (string, string) { return "", "" })
+
+		var err error
+		graphService, err = svc.NewService(
+			svc.Config(cfg),
+			svc.Metrics(m),
+			svc.WithGatewaySelector(gatewaySelector),
+			svc.EventsPublisher(&mocks.Publisher{}),
+		)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("GET .../items/{itemID}/permissions/{permissionID} returns the matching permission", func() {
+		itemID := &provider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "3"}
+		gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&provider.StatResponse{
+			Status: status.NewOK(ctx),
+			Info: &provider.ResourceInfo{
+				Id:            itemID,
+				Type:          provider.ResourceType_RESOURCE_TYPE_CONTAINER,
+				PermissionSet: roleconversions.NewEditorRole().CS3ResourcePermissions(),
+			},
+		}, nil)
+		gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(&collaboration.ListSharesResponse{Status: status.NewOK(ctx)}, nil)
+		viewLink := func(id string) *link.PublicShare {
+			return &link.PublicShare{
+				Id:          &link.PublicShareId{OpaqueId: id},
+				Token:       id,
+				ResourceId:  itemID,
+				Permissions: &link.PublicSharePermissions{Permissions: roleconversions.NewViewerRole().CS3ResourcePermissions()},
+				Ctime:       &types.Timestamp{Seconds: uint64(time.Now().Unix())},
+			}
+		}
+		gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(&link.ListPublicSharesResponse{
+			Status: status.NewOK(ctx),
+			Share:  []*link.PublicShare{viewLink("aaaaaaaaaaaaaaa"), viewLink("bbbbbbbbbbbbbbb")},
+		}, nil)
+
+		r := httptest.NewRequest(http.MethodGet, "/graph/v1beta1/drives/1$2/items/1$2!3/permissions/bbbbbbbbbbbbbbb", nil).WithContext(ctx)
+		graphService.ServeHTTP(rr, r)
+
+		Expect(rr.Code).To(Equal(http.StatusOK))
+		Expect(gjson.Get(rr.Body.String(), "id").String()).To(Equal("bbbbbbbbbbbbbbb"))
+		Expect(gjson.Get(rr.Body.String(), "link.type").String()).To(Equal("view"))
+	})
+
+	It("GET .../root/permissions/{permissionID} returns the matching permission of a project space", func() {
+		rootID := &provider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "2"}
+		gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+			Status: status.NewOK(ctx),
+			StorageSpaces: []*provider.StorageSpace{{
+				Id:        &provider.StorageSpaceId{OpaqueId: "1$2"},
+				SpaceType: "project",
+				Root:      rootID,
+			}},
+		}, nil)
+		gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(&provider.StatResponse{
+			Status: status.NewOK(ctx),
+			Info: &provider.ResourceInfo{
+				Id:            rootID,
+				Type:          provider.ResourceType_RESOURCE_TYPE_CONTAINER,
+				PermissionSet: roleconversions.NewManagerRole().CS3ResourcePermissions(),
+			},
+		}, nil)
+		gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(&collaboration.ListSharesResponse{Status: status.NewOK(ctx)}, nil)
+		gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(&link.ListPublicSharesResponse{
+			Status: status.NewOK(ctx),
+			Share: []*link.PublicShare{{
+				Id:          &link.PublicShareId{OpaqueId: "aaaaaaaaaaaaaaa"},
+				Token:       "aaaaaaaaaaaaaaa",
+				ResourceId:  rootID,
+				Permissions: &link.PublicSharePermissions{Permissions: roleconversions.NewViewerRole().CS3ResourcePermissions()},
+			}},
+		}, nil)
+
+		r := httptest.NewRequest(http.MethodGet, "/graph/v1beta1/drives/1$2/root/permissions/aaaaaaaaaaaaaaa", nil).WithContext(ctx)
+		graphService.ServeHTTP(rr, r)
+
+		Expect(rr.Code).To(Equal(http.StatusOK))
+		Expect(gjson.Get(rr.Body.String(), "id").String()).To(Equal("aaaaaaaaaaaaaaa"))
 	})
 })
 

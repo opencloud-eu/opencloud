@@ -62,6 +62,8 @@ type DriveItemPermissionsProvider interface {
 	CreateSpaceRootLink(ctx context.Context, driveID *storageprovider.ResourceId, createLink libregraph.DriveItemCreateLink) (libregraph.Permission, error)
 	SetPublicLinkPassword(ctx context.Context, driveItemID *storageprovider.ResourceId, permissionID string, password string) (libregraph.Permission, error)
 	SetPublicLinkPasswordOnSpaceRoot(ctx context.Context, driveID *storageprovider.ResourceId, permissionID string, password string) (libregraph.Permission, error)
+	GetPermission(ctx context.Context, itemID *storageprovider.ResourceId, permissionID string) (libregraph.Permission, error)
+	GetSpaceRootPermission(ctx context.Context, driveID *storageprovider.ResourceId, permissionID string) (libregraph.Permission, error)
 }
 
 // DriveItemPermissionsService contains the production business logic for everything that relates to permissions on drive items.
@@ -687,6 +689,42 @@ func (s DriveItemPermissionsService) UpdateSpaceRootPermission(ctx context.Conte
 	return s.UpdatePermission(ctx, rootResourceID, permissionID, newPermission)
 }
 
+// GetPermission returns a single permission of a drive item.
+// It reuses ListPermissions, so only permissions visible in the listing of the item can be retrieved.
+func (s DriveItemPermissionsService) GetPermission(ctx context.Context, itemID *storageprovider.ResourceId, permissionID string) (libregraph.Permission, error) {
+	collection, err := s.ListPermissions(ctx, itemID, ListPermissionsQueryOptions{})
+	if err != nil {
+		return libregraph.Permission{}, err
+	}
+
+	for _, permission := range collection.Value {
+		if permission.GetId() == permissionID {
+			return permission, nil
+		}
+	}
+
+	return libregraph.Permission{}, errorcode.New(errorcode.ItemNotFound, "permission not found")
+}
+
+// GetSpaceRootPermission returns a single permission on the root item of a project space
+func (s DriveItemPermissionsService) GetSpaceRootPermission(ctx context.Context, driveID *storageprovider.ResourceId, permissionID string) (libregraph.Permission, error) {
+	gatewayClient, err := s.gatewaySelector.Next()
+	if err != nil {
+		return libregraph.Permission{}, err
+	}
+
+	space, err := utils.GetSpace(ctx, storagespace.FormatResourceID(driveID), gatewayClient)
+	if err != nil {
+		return libregraph.Permission{}, errorcode.FromUtilsStatusCodeError(err)
+	}
+
+	if space.GetSpaceType() != _spaceTypeProject {
+		return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "unsupported space type")
+	}
+
+	return s.GetPermission(ctx, space.GetRoot(), permissionID)
+}
+
 // DriveItemPermissionsApi is the api that registers the http endpoints which expose needed operation to the graph api.
 // the business logic is delegated to the permissions service and further down to the cs3 client.
 type DriveItemPermissionsApi struct {
@@ -1022,4 +1060,54 @@ func (api DriveItemPermissionsApi) UpdateSpaceRootPermission(w http.ResponseWrit
 	}
 	render.Status(r, http.StatusOK)
 	render.JSON(w, r, &updatedPermission)
+}
+
+// GetPermission handles GetPermission requests
+func (api DriveItemPermissionsApi) GetPermission(w http.ResponseWriter, r *http.Request) {
+	_, itemID, err := GetDriveAndItemIDParam(r, &api.logger)
+	if err != nil {
+		api.logger.Debug().Err(err).Msg(invalidIdMsg)
+		errorcode.RenderError(w, r, err)
+		return
+	}
+
+	permissionID, err := url.PathUnescape(chi.URLParam(r, "permissionID"))
+	if err != nil || permissionID == "" {
+		api.logger.Debug().Err(err).Msg("could not parse permissionID")
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "invalid permissionID")
+		return
+	}
+
+	permission, err := api.driveItemPermissionsService.GetPermission(r.Context(), itemID, permissionID)
+	if err != nil {
+		errorcode.RenderError(w, r, err)
+		return
+	}
+	render.Status(r, http.StatusOK)
+	render.JSON(w, r, &permission)
+}
+
+// GetSpaceRootPermission handles GetPermission requests on a space root
+func (api DriveItemPermissionsApi) GetSpaceRootPermission(w http.ResponseWriter, r *http.Request) {
+	driveID, err := parseIDParam(r, "driveID")
+	if err != nil {
+		api.logger.Debug().Err(err).Msg(parseDriveIDErrMsg)
+		errorcode.InvalidRequest.Render(w, r, http.StatusUnprocessableEntity, parseDriveIDErrMsg)
+		return
+	}
+
+	permissionID, err := url.PathUnescape(chi.URLParam(r, "permissionID"))
+	if err != nil || permissionID == "" {
+		api.logger.Debug().Err(err).Msg("could not parse permissionID")
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "invalid permissionID")
+		return
+	}
+
+	permission, err := api.driveItemPermissionsService.GetSpaceRootPermission(r.Context(), &driveID, permissionID)
+	if err != nil {
+		errorcode.RenderError(w, r, err)
+		return
+	}
+	render.Status(r, http.StatusOK)
+	render.JSON(w, r, &permission)
 }
