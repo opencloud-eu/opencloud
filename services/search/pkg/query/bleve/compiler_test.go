@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/blevesearch/bleve/v2/search/query"
+	tAssert "github.com/stretchr/testify/assert"
+
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	searchquery "github.com/opencloud-eu/opencloud/services/search/pkg/query"
-	tAssert "github.com/stretchr/testify/assert"
 )
 
 var timeMustParse = func(t *testing.T, ts string) time.Time {
@@ -622,6 +623,25 @@ func Test_compile(t *testing.T) {
 				}(),
 			}),
 			wantErr: false,
+		},
+		{
+			name: `missing right operand`,
+			args: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Value: "foo"},
+					&ast.OperatorNode{Value: "NOT"},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: `no operands`,
+			args: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.OperatorNode{Value: "NOT"},
+				},
+			},
+			wantErr: true,
 		},
 	}
 

@@ -67,8 +67,8 @@ type LogFormatter interface {
 // LogEntry records the final log when a request completes.
 // See defaultLogEntry for an example implementation.
 type LogEntry interface {
-	Write(status, bytes int, header http.Header, elapsed time.Duration, extra interface{})
-	Panic(v interface{}, stack []byte)
+	Write(status, bytes int, header http.Header, elapsed time.Duration, extra any)
+	Panic(v any, stack []byte)
 }
 
 // GetLogEntry returns the in-context LogEntry for a request.
@@ -85,7 +85,7 @@ func WithLogEntry(r *http.Request, entry LogEntry) *http.Request {
 
 // LoggerInterface accepts printing to stdlib logger or compatible logger.
 type LoggerInterface interface {
-	Print(v ...interface{})
+	Print(v ...any)
 }
 
 // DefaultLogFormatter is a simple logger that implements a LogFormatter.
@@ -137,7 +137,7 @@ type defaultLogEntry struct {
 	useColor bool
 }
 
-func (l *defaultLogEntry) Write(status, bytes int, header http.Header, elapsed time.Duration, extra interface{}) {
+func (l *defaultLogEntry) Write(status, bytes int, header http.Header, elapsed time.Duration, extra any) {
 	switch {
 	case status < 200:
 		cW(l.buf, l.useColor, bBlue, "%03d", status)
@@ -165,7 +165,7 @@ func (l *defaultLogEntry) Write(status, bytes int, header http.Header, elapsed t
 	l.Logger.Print(l.buf.String())
 }
 
-func (l *defaultLogEntry) Panic(v interface{}, stack []byte) {
+func (l *defaultLogEntry) Panic(v any, stack []byte) {
 	printPrettyStack(v, l.useColor)
 }
 
