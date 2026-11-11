@@ -11,6 +11,12 @@ import (
 type storeOptionsKey struct{}
 type defaultTTLKey struct{}
 type serviceNameKey struct{}
+type authKey struct{}
+
+type auth struct {
+	username string
+	password string
+}
 
 // StoreOptions sets the options for the underlying store
 func StoreOptions(opts []store.Option) registry.Option {
@@ -29,6 +35,17 @@ func DefaultTTL(t time.Duration) registry.Option {
 			o.Context = context.Background()
 		}
 		o.Context = context.WithValue(o.Context, defaultTTLKey{}, t)
+	}
+}
+
+// Authenticate sets the username and password for the connection to NATS.
+// Without it, they are read from the MICRO_REGISTRY_AUTH_* env vars.
+func Authenticate(username, password string) registry.Option {
+	return func(o *registry.Options) {
+		if o.Context == nil {
+			o.Context = context.Background()
+		}
+		o.Context = context.WithValue(o.Context, authKey{}, auth{username: username, password: password})
 	}
 }
 

@@ -187,3 +187,30 @@ clientlog:
 
 	assert.Equal(t, c.Graph.Identity.LDAP.BindPassword, "$ZZ8fSJR&YA02jBBPx6IRCzW0kVZ#cBO")
 }
+
+func TestBindSourcesToStructs_Registry(t *testing.T) {
+	// setup test env
+	yaml := `
+service_registry:
+  addresses:
+  - nats-1:9233
+  - nats-2:9233
+  auth_username: registry-user
+  auth_password: registry-password
+`
+	filePath := "etc/opencloud/opencloud.yaml"
+	fs := fstest.MapFS{
+		filePath: {Data: []byte(yaml)},
+	}
+	// perform test
+	c := DefaultConfig()
+	err := bindSourcesToStructs(fs, filePath, "opencloud", c)
+	if err != nil {
+		t.Error(err)
+	}
+
+	assert.Equal(t, c.ServiceRegistry.Type, "nats-js-kv")
+	assert.DeepEqual(t, c.ServiceRegistry.Addresses, []string{"nats-1:9233", "nats-2:9233"})
+	assert.Equal(t, c.ServiceRegistry.AuthUsername, "registry-user")
+	assert.Equal(t, c.ServiceRegistry.AuthPassword, "registry-password")
+}

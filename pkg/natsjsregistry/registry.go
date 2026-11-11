@@ -27,17 +27,34 @@ var (
 	_registryPasswordEnv = "MICRO_REGISTRY_AUTH_PASSWORD"
 
 	_serviceDelimiter = "@"
+
+	_microOptsLock sync.RWMutex
+	_microOpts     []registry.Option
 )
 
 func init() {
 	cmd.DefaultRegistries[_registryName] = NewRegistryMicro
 }
 
+// SetMicroOptions sets options that NewRegistryMicro applies before the ones
+// passed to it. go-micro creates its own registry in service.Init() when
+// MICRO_REGISTRY is set, this makes it connect like the OpenCloud registry.
+func SetMicroOptions(opts ...registry.Option) {
+	_microOptsLock.Lock()
+	defer _microOptsLock.Unlock()
+	_microOpts = append([]registry.Option(nil), opts...)
+}
+
 // NewRegistryMicro returns a new natsjs registry, forcing the service name
 // to be "_go-micro". This is the registry that is intended to be used by
 // go-micro
 func NewRegistryMicro(opts ...registry.Option) registry.Registry {
-	overwrittenOpts := append(opts, ServiceName("_go-micro"))
+	_microOptsLock.RLock()
+	overwrittenOpts := append([]registry.Option(nil), _microOpts...)
+	_microOptsLock.RUnlock()
+
+	overwrittenOpts = append(overwrittenOpts, opts...)
+	overwrittenOpts = append(overwrittenOpts, ServiceName("_go-micro"))
 	return NewRegistry(overwrittenOpts...)
 }
 
@@ -210,7 +227,7 @@ func (n *storeregistry) storeOptions(opts registry.Options) []store.Option {
 
 	natsOptions := nats.GetDefaultOptions()
 	natsOptions.Name = generators.GenerateConnectionName(serviceName, generators.NTypeRegistry)
-	natsOptions.User, natsOptions.Password = getAuth()
+	natsOptions.User, natsOptions.Password = getAuth(opts)
 	natsOptions.ReconnectedCB = func(_ *nats.Conn) {
 		if err := n.Init(); err != nil {
 			fmt.Println("cannot reconnect to nats")
@@ -230,6 +247,9 @@ func (n *storeregistry) storeOptions(opts registry.Options) []store.Option {
 	return storeoptions
 }
 
-func getAuth() (string, string) {
+func getAuth(opts registry.Options) (string, string) {
+	if a, ok := opts.Context.Value(authKey{}).(auth); ok {
+		return a.username, a.password
+	}
 	return os.Getenv(_registryUsernameEnv), os.Getenv(_registryPasswordEnv)
 }
