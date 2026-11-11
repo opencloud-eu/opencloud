@@ -56,6 +56,37 @@ var _ = Describe("Bleve", func() {
 		parentResource search.Resource
 		childResource  search.Resource
 		childResource2 search.Resource
+
+		// samePath returns a trashed folder and the live folder that took its
+		// path, with a file in each
+		samePath = func() (trashed, trashedFile, live, liveFile search.Resource) {
+			folder := func(id string, deleted bool) search.Resource {
+				return search.Resource{
+					ID:       id,
+					ParentID: rootResource.ID,
+					RootID:   rootResource.ID,
+					Path:     "./a",
+					Type:     uint64(sprovider.ResourceType_RESOURCE_TYPE_CONTAINER),
+					Deleted:  deleted,
+					Document: content.Document{Name: "a"},
+				}
+			}
+			file := func(id string, parent search.Resource, name string) search.Resource {
+				return search.Resource{
+					ID:       id,
+					ParentID: parent.ID,
+					RootID:   rootResource.ID,
+					Path:     parent.Path + "/" + name,
+					Type:     uint64(sprovider.ResourceType_RESOURCE_TYPE_FILE),
+					Deleted:  parent.Deleted,
+					Document: content.Document{Name: name},
+				}
+			}
+
+			trashed = folder("1$2!trashed", true)
+			live = folder("1$2!live", false)
+			return trashed, file("1$2!trashed-x", trashed, "x.txt"), live, file("1$2!live-y", live, "y.txt")
+		}
 	)
 
 	BeforeEach(func() {
@@ -557,6 +588,36 @@ var _ = Describe("Bleve", func() {
 			assertDocCount(rootResource.ID, `"`+parentResource.Document.Name+`"`, 0)
 			assertDocCount(rootResource.ID, `"`+childResource.Document.Name+`"`, 1)
 		})
+		It("removes only the deleted children of a live resource when told to", func() {
+			for _, resource := range []search.Resource{parentResource, childResource, childResource2} {
+				Expect(eng.Upsert(resource.ID, resource)).To(Succeed())
+			}
+			Expect(eng.Delete(childResource.ID)).To(Succeed())
+
+			Expect(eng.Purge(parentResource.ID, true)).To(Succeed())
+
+			count, err := idx.DocCount()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(count).To(Equal(uint64(2)))
+			assertDocCount(rootResource.ID, `"`+parentResource.Document.Name+`"`, 1)
+			assertDocCount(rootResource.ID, "Name:child2.pdf", 1)
+		})
+		It("leaves the live folder that took the trashed one's path alone", func() {
+			trashed, trashedFile, live, liveFile := samePath()
+			for _, resource := range []search.Resource{trashed, trashedFile, live, liveFile} {
+				Expect(eng.Upsert(resource.ID, resource)).To(Succeed())
+			}
+
+			Expect(eng.Purge(trashed.ID, false)).To(Succeed())
+
+			count, err := idx.DocCount()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(count).To(Equal(uint64(2)))
+			matches := assertDocCount(rootResource.ID, "Name:a", 1)
+			Expect(matches[0].Entity.Id.OpaqueId).To(Equal("live"))
+			matches = assertDocCount(rootResource.ID, "Name:y.txt", 1)
+			Expect(matches[0].Entity.Ref.Path).To(Equal(liveFile.Path))
+		})
 	})
 
 	Describe("Move", func() {
@@ -600,6 +661,26 @@ var _ = Describe("Bleve", func() {
 			Expect(matches[0].Entity.ParentId.OpaqueId).To(Equal("somewhereopaqueid"))
 			Expect(matches[0].Entity.Ref.Path).To(Equal("./somewhere/else/newname"))
 
+		})
+
+		It("leaves a trashed folder that shares the path where it is", func() {
+			trashed, trashedFile, live, liveFile := samePath()
+			for _, resource := range []search.Resource{trashed, trashedFile, live, liveFile} {
+				Expect(eng.Upsert(resource.ID, resource)).To(Succeed())
+			}
+
+			Expect(eng.Move(live.ID, live.ParentID, "./b")).To(Succeed())
+			// results only show the trashed folder once it is back
+			Expect(eng.Restore(trashed.ID)).To(Succeed())
+
+			matches := assertDocCount(rootResource.ID, "Name:a", 1)
+			Expect(matches[0].Entity.Ref.Path).To(Equal("./a"))
+			matches = assertDocCount(rootResource.ID, "Name:x.txt", 1)
+			Expect(matches[0].Entity.Ref.Path).To(Equal(trashedFile.Path))
+			matches = assertDocCount(rootResource.ID, "Name:b", 1)
+			Expect(matches[0].Entity.Ref.Path).To(Equal("./b"))
+			matches = assertDocCount(rootResource.ID, "Name:y.txt", 1)
+			Expect(matches[0].Entity.Ref.Path).To(Equal("./b/y.txt"))
 		})
 	})
 
