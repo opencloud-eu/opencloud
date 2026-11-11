@@ -1,5 +1,16 @@
 # Changelog
 
+## [4.0.9](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.9) - 2026-11-11
+
+### ❤️ Thanks to all contributors! ❤️
+
+@rhafer, @v-scharf
+
+### 🔒 Security
+
+- chore: bump web to v4.2.3 [[#3960](https://github.com/opencloud-eu/opencloud/pull/3960)]
+- [stable-4.0] preparing 4.0.9 [[#3954](https://github.com/opencloud-eu/opencloud/pull/3954)]
+
 ## [4.0.8](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.8) - 2026-06-25
 
 ### ❤️ Thanks to all contributors! ❤️
