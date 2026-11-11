@@ -166,11 +166,9 @@ func TestRegisterAllEmbeddedContainer(t *testing.T) {
 	logger := log.NewLogger()
 	service := "sub-" + randName()
 
-	m, err := New(reg, &logger, service, WithHTTPMetrics())
+	m, err := New(reg, &logger, service, WithHTTP(true), WithHTTPRequestMetrics(true), WithEvents(true))
 	require.NoError(err)
 	require.NotNil(m)
-	m.EnableHTTP(true)
-	m.EnableEvents(true)
 
 	// a service can embed the container to register its own metrics with it
 	type svcMetrics struct {
@@ -288,14 +286,13 @@ func TestServiceMetrics(t *testing.T) {
 	logger := log.NewLogger()
 	service := "sub-" + randName()
 
-	m, err := New(reg, &logger, service)
+	m, err := New(reg, &logger, service, WithHTTP(true), WithEvents(true))
 	require.NoError(err)
 	require.NotNil(m)
 
 	buildInfoName := Namespace + "_" + service + "_build_info"
 	httpEnabledName := Namespace + "_" + service + "_http_enabled"
 	eventsEnabledName := Namespace + "_" + service + "_events_enabled"
-	grpcEnabledName := Namespace + "_" + service + "_grpc_enabled"
 	eventsName := Namespace + "_" + service + "_events"
 
 	// the build info metric is set to 1 with the current version
@@ -311,24 +308,14 @@ func TestServiceMetrics(t *testing.T) {
 		require.Equal(1.0, ms[0].GetGauge().GetValue())
 	}
 
-	// all enabled gauges are exposed and default to disabled
+	// the enabled gauges of the declared APIs are exposed and enabled
 	{
 		mfs := gatherByName(t, reg)
-		for _, name := range []string{httpEnabledName, grpcEnabledName, eventsEnabledName} {
+		for _, name := range []string{httpEnabledName, eventsEnabledName} {
 			mf := mfs[name]
 			require.NotNil(mf, "expected metric %q", name)
-			require.Equal(0.0, mf.GetMetric()[0].GetGauge().GetValue())
+			require.Equal(1.0, mf.GetMetric()[0].GetGauge().GetValue())
 		}
-	}
-
-	// enabling the served APIs flips their gauges only
-	m.EnableHTTP(true)
-	m.EnableEvents(true)
-	{
-		mfs := gatherByName(t, reg)
-		require.Equal(1.0, mfs[httpEnabledName].GetMetric()[0].GetGauge().GetValue())
-		require.Equal(1.0, mfs[eventsEnabledName].GetMetric()[0].GetGauge().GetValue())
-		require.Equal(0.0, mfs[grpcEnabledName].GetMetric()[0].GetGauge().GetValue())
 	}
 
 	// the events counter is only present once there is a series
@@ -352,26 +339,143 @@ func TestServiceMetrics(t *testing.T) {
 	}
 }
 
-func TestServiceMetricsEnableGRPC(t *testing.T) {
+func TestServiceMetricsUndeclaredAPIs(t *testing.T) {
 	require := require.New(t)
 
 	reg := prometheus.NewRegistry()
 	logger := log.NewLogger()
 	service := "sub-" + randName()
 
-	m, err := New(reg, &logger, service)
+	m, err := New(reg, &logger, service, WithHTTP(true))
 	require.NoError(err)
 
-	require.Equal(0.0, gaugeValue(t, m.GRPC.enabled))
+	require.NotNil(m.HTTP)
+	require.Nil(m.GRPC)
+	require.Nil(m.Events)
 
-	m.EnableGRPC(true)
-	require.Equal(1.0, gaugeValue(t, m.GRPC.enabled))
+	// only the declared API is exposed
+	mfs := gatherByName(t, reg)
+	require.NotNil(mfs[Namespace+"_"+service+"_http_enabled"])
+	require.Nil(mfs[Namespace+"_"+service+"_grpc_enabled"])
+	require.Nil(mfs[Namespace+"_"+service+"_events_enabled"])
 
-	m.EnableGRPC(false)
-	require.Equal(0.0, gaugeValue(t, m.GRPC.enabled))
+	// recording on an undeclared API is a no-op
+	m.Events.RecordSuccess("Foo")
+	m.GRPC.RecordDuration("/svc/Method", nil, time.Millisecond)
+}
 
-	// still exposed on the registry
-	require.NotNil(gatherByName(t, reg)[Namespace+"_"+service+"_grpc_enabled"])
+func TestServiceMetricsWithGRPC(t *testing.T) {
+	require := require.New(t)
+
+	logger := log.NewLogger()
+
+	for _, enabled := range []bool{true, false} {
+		reg := prometheus.NewRegistry()
+		service := "sub-" + randName()
+
+		m, err := New(reg, &logger, service, WithGRPC(enabled))
+		require.NoError(err)
+
+		require.Equal(boolToFloat64(enabled), gaugeValue(t, m.GRPC.enabled))
+		require.NotNil(gatherByName(t, reg)[Namespace+"_"+service+"_grpc_enabled"])
+	}
+}
+
+func TestServiceMetricsWithHTTP(t *testing.T) {
+	require := require.New(t)
+
+	logger := log.NewLogger()
+
+	for _, enabled := range []bool{true, false} {
+		reg := prometheus.NewRegistry()
+		service := "sub-" + randName()
+
+		m, err := New(reg, &logger, service, WithHTTP(enabled))
+		require.NoError(err)
+
+		httpEnabledName := Namespace + "_" + service + "_http_enabled"
+		mf := gatherByName(t, reg)[httpEnabledName]
+		require.NotNil(mf, "expected metric %q", httpEnabledName)
+		require.Equal(boolToFloat64(enabled), mf.GetMetric()[0].GetGauge().GetValue())
+		require.Equal(boolToFloat64(enabled), gaugeValue(t, m.HTTP.enabled))
+	}
+}
+
+func TestServiceMetricsHTTPRequestMetricsOptionOrder(t *testing.T) {
+	logger := log.NewLogger()
+
+	tests := []struct {
+		name     string
+		enabled  bool
+		opts     func(enabled bool) []Option
+		expected float64
+	}{
+		{
+			name:    "http first, enabled",
+			enabled: true,
+			opts: func(enabled bool) []Option {
+				return []Option{WithHTTP(enabled), WithHTTPRequestMetrics(true)}
+			},
+			expected: 1,
+		},
+		{
+			name:    "request metrics first, enabled",
+			enabled: true,
+			opts: func(enabled bool) []Option {
+				return []Option{WithHTTPRequestMetrics(true), WithHTTP(enabled)}
+			},
+			expected: 1,
+		},
+		{
+			name:    "http first, disabled",
+			enabled: false,
+			opts: func(enabled bool) []Option {
+				return []Option{WithHTTP(enabled), WithHTTPRequestMetrics(true)}
+			},
+			expected: 0,
+		},
+		{
+			name:    "request metrics first, disabled",
+			enabled: false,
+			opts: func(enabled bool) []Option {
+				return []Option{WithHTTPRequestMetrics(true), WithHTTP(enabled)}
+			},
+			expected: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require := require.New(t)
+
+			reg := prometheus.NewRegistry()
+			service := "sub-" + randName()
+
+			m, err := New(reg, &logger, service, tt.opts(tt.enabled)...)
+			require.NoError(err)
+
+			require.NotNil(m.HTTP)
+			require.NotNil(m.HTTP.requests)
+			require.Equal(tt.expected, gaugeValue(t, m.HTTP.enabled))
+
+			mfs := gatherByName(t, reg)
+			require.NotNil(mfs[Namespace+"_"+service+"_http_requests"])
+			require.Equal(tt.expected, mfs[Namespace+"_"+service+"_http_enabled"].GetMetric()[0].GetGauge().GetValue())
+		})
+	}
+}
+
+func TestServiceMetricsRequestMetricsDisabled(t *testing.T) {
+	require := require.New(t)
+
+	reg := prometheus.NewRegistry()
+	logger := log.NewLogger()
+	service := "sub-" + randName()
+
+	m, err := New(reg, &logger, service, WithHTTPRequestMetrics(false), WithGRPCRequestMetrics(false))
+	require.NoError(err)
+
+	require.Nil(m.HTTP)
+	require.Nil(m.GRPC)
 }
 
 func gaugeValue(t *testing.T, g prometheus.Gauge) float64 {
@@ -403,9 +507,8 @@ func TestHTTPMetrics(t *testing.T) {
 	logger := log.NewLogger()
 	service := "sub-" + randName()
 
-	m, err := New(reg, &logger, service, WithHTTPMetrics())
+	m, err := New(reg, &logger, service, WithHTTP(true), WithHTTPRequestMetrics(true))
 	require.NoError(err)
-	m.EnableHTTP(true)
 
 	durationName := Namespace + "_" + service + "_http_request_duration_seconds"
 	requestsName := Namespace + "_" + service + "_http_requests_total"
@@ -473,9 +576,8 @@ func TestHTTPMetricsMiddlewareWithoutRequestMetrics(t *testing.T) {
 	logger := log.NewLogger()
 	service := "sub-" + randName()
 
-	m, err := New(reg, &logger, service)
+	m, err := New(reg, &logger, service, WithHTTP(true))
 	require.NoError(err)
-	m.EnableHTTP(true)
 
 	// without the request metrics enabled, the middleware must be a pass-through
 	require.NotNil(m.HTTP)
@@ -496,6 +598,26 @@ func TestHTTPMetricsMiddlewareWithoutRequestMetrics(t *testing.T) {
 	require.Nil(gatherByName(t, reg)[Namespace+"_"+service+"_http_requests"])
 }
 
+func TestHTTPMetricsMiddlewareNilReceiver(t *testing.T) {
+	require := require.New(t)
+
+	var h *httpMetrics
+
+	router := chi.NewRouter()
+	router.Use(h.Middleware)
+	router.Get("/foo", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	srv := httptest.NewServer(router)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/foo")
+	require.NoError(err)
+	require.Equal(http.StatusOK, resp.StatusCode)
+	require.NoError(resp.Body.Close())
+}
+
 func TestGRPCMetrics(t *testing.T) {
 	require := require.New(t)
 
@@ -503,9 +625,8 @@ func TestGRPCMetrics(t *testing.T) {
 	logger := log.NewLogger()
 	service := "sub-" + randName()
 
-	m, err := New(reg, &logger, service, WithGRPCMetrics())
+	m, err := New(reg, &logger, service, WithGRPC(true), WithGRPCRequestMetrics(true))
 	require.NoError(err)
-	m.EnableGRPC(true)
 
 	durationName := Namespace + "_" + service + "_grpc_request_duration_seconds"
 	requestsName := Namespace + "_" + service + "_grpc_requests_total"

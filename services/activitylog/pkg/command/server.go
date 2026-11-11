@@ -71,17 +71,14 @@ func Server(cfg *config.Config) *cobra.Command {
 			ctx, cancel := context.WithCancel(cmd.Context())
 			defer cancel()
 
-			metricsOpts := []ocmetrics.Option{}
-			if !cfg.HTTP.Metrics.Disabled {
-				metricsOpts = append(metricsOpts, ocmetrics.WithHTTPMetrics())
-			}
-
-			mtrcs, err := ocmetrics.New(prometheus.DefaultRegisterer, &logger, cfg.Service.Name, metricsOpts...)
+			mtrcs, err := ocmetrics.New(prometheus.DefaultRegisterer, &logger, cfg.Service.Name,
+				ocmetrics.WithHTTP(!cfg.HTTP.Disabled),
+				ocmetrics.WithHTTPRequestMetrics(!cfg.HTTP.Metrics.Disabled),
+				ocmetrics.WithEvents(!cfg.Events.Disabled),
+			)
 			if err != nil {
 				return err
 			}
-			mtrcs.EnableHTTP(!cfg.HTTP.Disabled)
-			mtrcs.EnableEvents(!cfg.Events.Disabled)
 
 			tm, err := pool.StringToTLSMode(cfg.GRPCClientTLS.Mode)
 			if err != nil {

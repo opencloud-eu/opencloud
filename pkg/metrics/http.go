@@ -35,13 +35,30 @@ type httpRequestMetrics struct {
 
 func newHTTPMetrics(namespace, subsystem string) *httpMetrics {
 	return &httpMetrics{
-		enabled: newEnabledGauge(namespace, subsystem, APIHTTP),
+		enabled: newEnabledGauge(namespace, subsystem, APIHTTP, "HTTP API calls"),
 	}
 }
 
-// WithHTTPMetrics enables the inbound HTTP request metrics.
-func WithHTTPMetrics() Option {
+// WithHTTP declares that the service has an HTTP API, and whether it is enabled.
+func WithHTTP(enabled bool) Option {
 	return func(m *Metrics) {
+		if m.HTTP == nil {
+			m.HTTP = newHTTPMetrics(m.namespace, m.subsystem)
+		}
+		m.HTTP.setEnabled(enabled)
+	}
+}
+
+// WithHTTPRequestMetrics enables the inbound HTTP request metrics when enabled
+// is true, and declares the HTTP API if WithHTTP has not been given.
+func WithHTTPRequestMetrics(enabled bool) Option {
+	return func(m *Metrics) {
+		if !enabled {
+			return
+		}
+		if m.HTTP == nil {
+			m.HTTP = newHTTPMetrics(m.namespace, m.subsystem)
+		}
 		m.HTTP.enableRequestMetrics(m.namespace, m.subsystem)
 	}
 }

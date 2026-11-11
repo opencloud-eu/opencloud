@@ -28,13 +28,30 @@ type grpcRequestMetrics struct {
 
 func newGRPCMetrics(namespace, subsystem string) *grpcMetrics {
 	return &grpcMetrics{
-		enabled: newEnabledGauge(namespace, subsystem, APIGRPC),
+		enabled: newEnabledGauge(namespace, subsystem, APIGRPC, "gRPC API calls"),
 	}
 }
 
-// WithGRPCMetrics enables the inbound gRPC request metrics.
-func WithGRPCMetrics() Option {
+// WithGRPC declares that the service has a gRPC API, and whether it is enabled.
+func WithGRPC(enabled bool) Option {
 	return func(m *Metrics) {
+		if m.GRPC == nil {
+			m.GRPC = newGRPCMetrics(m.namespace, m.subsystem)
+		}
+		m.GRPC.setEnabled(enabled)
+	}
+}
+
+// WithGRPCRequestMetrics enables the inbound gRPC request metrics when enabled
+// is true, and declares the gRPC API if WithGRPC has not been given.
+func WithGRPCRequestMetrics(enabled bool) Option {
+	return func(m *Metrics) {
+		if !enabled {
+			return
+		}
+		if m.GRPC == nil {
+			m.GRPC = newGRPCMetrics(m.namespace, m.subsystem)
+		}
 		m.GRPC.enableRequestMetrics(m.namespace, m.subsystem)
 	}
 }

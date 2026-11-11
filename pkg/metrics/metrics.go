@@ -16,18 +16,15 @@ type BuildInfoMetric = *prometheus.GaugeVec
 // Namespace is the Prometheus namespace shared by all OpenCloud metrics.
 const Namespace = "opencloud"
 
-// APIType identifies an API that a service instance can serve.
-type APIType string
-
 const (
 	ResultSuccess = "success"
 	LabelResult   = "result"
 	ResultFailure = "failure"
 	LabelEvent    = "event"
 
-	APIHTTP   APIType = "http"
-	APIGRPC   APIType = "grpc"
-	APIEvents APIType = "events"
+	APIHTTP   = "http"
+	APIGRPC   = "grpc"
+	APIEvents = "events"
 )
 
 // Metrics is a container for the metrics of a service instance.
@@ -253,9 +250,6 @@ func New(reg prometheus.Registerer, logger *log.Logger, service string, opts ...
 		namespace: Namespace,
 		subsystem: service,
 		BuildInfo: BuildInfo(Namespace, service),
-		HTTP:      newHTTPMetrics(Namespace, service),
-		GRPC:      newGRPCMetrics(Namespace, service),
-		Events:    newEventsMetrics(Namespace, service),
 	}
 
 	for _, o := range opts {
@@ -289,36 +283,13 @@ func (m *Metrics) Collectors() []prometheus.Collector {
 	return collectors
 }
 
-// EnableHTTP sets whether this instance serves the HTTP API.
-func (m *Metrics) EnableHTTP(enabled bool) { m.HTTP.setEnabled(enabled) }
-
-// EnableGRPC sets whether this instance serves the gRPC API.
-func (m *Metrics) EnableGRPC(enabled bool) { m.GRPC.setEnabled(enabled) }
-
-// EnableEvents sets whether this instance consumes events.
-func (m *Metrics) EnableEvents(enabled bool) { m.Events.setEnabled(enabled) }
-
-func newEnabledGauge(namespace, subsystem string, api APIType) prometheus.Gauge {
+func newEnabledGauge(namespace, subsystem, api, display string) prometheus.Gauge {
 	return prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
-		Name:      string(api) + "_enabled",
-		Help:      "Whether this instance processes " + api.display() + " (1) or not (0)",
+		Name:      api + "_enabled",
+		Help:      "Whether this instance processes " + display + " (1) or not (0)",
 	})
-}
-
-// display returns the human-readable API name for the gauge help text.
-func (a APIType) display() string {
-	switch a {
-	case APIHTTP:
-		return "HTTP API calls"
-	case APIGRPC:
-		return "gRPC API calls"
-	case APIEvents:
-		return "events"
-	default:
-		return string(a)
-	}
 }
 
 func boolToFloat64(b bool) float64 {
