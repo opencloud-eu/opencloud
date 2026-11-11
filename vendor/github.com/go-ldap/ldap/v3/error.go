@@ -90,6 +90,7 @@ const (
 	ErrorUnexpectedMessage  = 204
 	ErrorUnexpectedResponse = 205
 	ErrorEmptyPassword      = 206
+	ErrorMalformedPacket    = 207
 )
 
 // LDAPResultCodeMap contains string descriptions for LDAP error codes
@@ -175,6 +176,7 @@ var LDAPResultCodeMap = map[uint16]string{
 	ErrorUnexpectedMessage:  "Unexpected Message",
 	ErrorUnexpectedResponse: "Unexpected Response",
 	ErrorEmptyPassword:      "Empty password not allowed by the client",
+	ErrorMalformedPacket:    "Malformed Packet",
 }
 
 // Error holds LDAP error information
@@ -195,47 +197,93 @@ func (e *Error) Error() string {
 
 func (e *Error) Unwrap() error { return e.Err }
 
+// parseLDAPResult extracts resultCode, matchedDN, and diagnosticMessage from a
+// BER packet representing an LDAPResult (e.g. SearchResultDone).
+//
+// Unlike GetLDAPError, parseLDAPResult does not return early when resultCode is
+// success (0). This allows callers to read the diagnosticMessage even on a
+// successful operation, which some servers use to signal warnings or degraded
+// state (for example, a directory in read-only / reinitializing mode).
+//
+// Per RFC 4511, an LDAPResult must contain resultCode, matchedDN, and
+// diagnosticMessage. An error is returned if the packet is malformed.
+func parseLDAPResult(packet *ber.Packet) (resultCode uint16, matchedDN, diagnosticMessage string, err error) {
+	response, err := packetChild(packet, 1)
+	if err != nil {
+		return 0, "", "", err
+	}
+
+	children, err := packetChildCount(response, 3, 4, "LDAP Result")
+	if err != nil {
+		return 0, "", "", err
+	}
+
+	resultCode, err = packetResultCode(children[0])
+	if err != nil {
+		return
+	}
+
+	if matchedDN, err = packetString(children[1]); err != nil {
+		return
+	}
+	diagnosticMessage, err = packetString(children[2])
+	return
+}
+
 // GetLDAPError creates an Error out of a BER packet representing a LDAPResult
 // The return is an error object. It can be casted to a Error structure.
 // This function returns nil if resultCode in the LDAPResult sequence is success(0).
 func GetLDAPError(packet *ber.Packet) error {
 	if packet == nil {
-		return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("Empty packet")}
+		return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("empty packet")}
 	}
 
-	if len(packet.Children) >= 2 {
-		response := packet.Children[1]
-		if response == nil {
-			return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("Empty response in packet"), Packet: packet}
+	if _, err := packetChildCount(packet, 2, -1, "LDAP response"); err == nil {
+		response, err := packetChild(packet, 1)
+		if err != nil {
+			return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("empty response in packet"), Packet: packet}
 		}
-		if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed && len(response.Children) >= 3 {
-			if ber.Type(response.Children[0].Tag) == ber.Type(ber.TagInteger) || ber.Type(response.Children[0].Tag) == ber.Type(ber.TagEnumerated) {
-				if response.Children[0].Value == nil {
-					return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("Invalid result code in packet"), Packet: packet}
+		if response.ClassType == ber.ClassApplication && response.TagType == ber.TypeConstructed {
+			if _, err := packetChildCount(response, 3, -1, "LDAP result"); err == nil {
+				resultCodeChild, err := packetChild(response, 0)
+				if err != nil {
+					return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("invalid result code in packet"), Packet: packet}
 				}
-
-				resultCode := uint16(response.Children[0].Value.(int64))
-				if resultCode == 0 { // No error
-					return nil
-				}
-
-				if ber.Type(response.Children[1].Tag) == ber.Type(ber.TagOctetString) &&
-					ber.Type(response.Children[2].Tag) == ber.Type(ber.TagOctetString) {
-					if response.Children[1].Value == nil {
-						return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("Invalid matchedDN in packet"), Packet: packet}
+				if ber.Type(resultCodeChild.Tag) == ber.Type(ber.TagInteger) || ber.Type(resultCodeChild.Tag) == ber.Type(ber.TagEnumerated) {
+					resultCode, err := packetResultCode(resultCodeChild)
+					if err != nil {
+						return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("invalid result code in packet"), Packet: packet}
 					}
-					return &Error{
-						ResultCode: resultCode,
-						MatchedDN:  response.Children[1].Value.(string),
-						Err:        fmt.Errorf("%v", response.Children[2].Value),
-						Packet:     packet,
+
+					if resultCode == 0 { // No error
+						return nil
+					}
+
+					matchedDNChild, matchedDNErr := packetChild(response, 1)
+					errorMessageChild, errorMessageErr := packetChild(response, 2)
+					if matchedDNErr != nil || errorMessageErr != nil {
+						return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("invalid packet format"), Packet: packet}
+					}
+
+					if ber.Type(matchedDNChild.Tag) == ber.Type(ber.TagOctetString) &&
+						ber.Type(errorMessageChild.Tag) == ber.Type(ber.TagOctetString) {
+						matchedDN, err := packetString(matchedDNChild)
+						if err != nil {
+							return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("invalid matchedDN in packet"), Packet: packet}
+						}
+						return &Error{
+							ResultCode: resultCode,
+							MatchedDN:  matchedDN,
+							Err:        fmt.Errorf("%v", errorMessageChild.Value),
+							Packet:     packet,
+						}
 					}
 				}
 			}
 		}
 	}
 
-	return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("Invalid packet format"), Packet: packet}
+	return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("invalid packet format"), Packet: packet}
 }
 
 // NewError creates an LDAP error with the given code and underlying error

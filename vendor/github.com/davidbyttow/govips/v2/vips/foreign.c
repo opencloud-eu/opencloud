@@ -230,6 +230,14 @@ int save_buffer(const char *operationName, SaveParams *params,
     return 1;
   }
 
+  // "keep" is set here rather than in each per-format setter so every
+  // saver gets it the same way. It overrides the deprecated "strip".
+  if (params->keepSet &&
+      vips_object_set(VIPS_OBJECT(operation), "keep", params->keep, NULL)) {
+    g_object_unref(operation);
+    return 1;
+  }
+
   if (vips_cache_operation_buildp(&operation)) {
     vips_object_unref_outputs(VIPS_OBJECT(operation));
     g_object_unref(operation);
@@ -300,11 +308,23 @@ int set_webpsave_options(VipsOperation *operation, SaveParams *params) {
                       "lossless", params->webpLossless,
                       "near_lossless", params->webpNearLossless,
                       "reduction_effort", params->webpReductionEffort,
-                      "profile", params->webpIccProfile ? params->webpIccProfile : "none",
                       "min_size", params->webpMinSize,
                       "kmin", params->webpKMin,
                       "kmax", params->webpKMax,
                       NULL);
+
+  // Only pass a profile the caller chose; leaving "profile" unset lets
+  // strip/keep decide about the source image's own ICC, as for the other
+  // savers. With StripMetadata and no Keep, still pass "none": webpsave in
+  // libvips 8.14.0-8.14.1 ignores "strip" (a shadowed field, fixed in
+  // 8.14.2), and "none" is what keeps the ICC out there. Elsewhere strip
+  // already drops it.
+  if (!ret && params->webpIccProfile) {
+    ret = vips_object_set(VIPS_OBJECT(operation), "profile",
+                          params->webpIccProfile, NULL);
+  } else if (!ret && params->stripMetadata && !params->keepSet) {
+    ret = vips_object_set(VIPS_OBJECT(operation), "profile", "none", NULL);
+  }
 
   if (!ret && params->quality) {
     ret = vips_object_set(VIPS_OBJECT(operation), "Q", params->quality, NULL);
@@ -551,6 +571,8 @@ static SaveParams defaultSaveParams = {
     .interlace = FALSE,
     .quality = 0,
     .stripMetadata = FALSE,
+    .keep = 0,
+    .keepSet = FALSE,
 
     .jpegOptimizeCoding = FALSE,
     .jpegSubsample = VIPS_FOREIGN_SUBSAMPLE_ON,

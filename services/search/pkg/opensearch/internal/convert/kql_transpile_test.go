@@ -43,6 +43,15 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 			Want: osu.NewWildcardQuery("Name_lowercase").Value("open*"),
 		},
 		{
+			Name: "a backslash in a wildcard is a plain character",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Name", Value: `*"a"\b*`, CaseInsensitive: true},
+				},
+			},
+			Want: osu.NewWildcardQuery("Name_lowercase").Value(`*"a"\\b*`),
+		},
+		{
 			Name: "full-text field uses an analyzed match query, not an unanalyzed term",
 			Got: &ast.Ast{
 				Nodes: []ast.Node{

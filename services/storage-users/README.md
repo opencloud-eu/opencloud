@@ -2,6 +2,14 @@
 
 Purpose and description to be added
 
+## Legacy storage drivers
+
+The deprecated `STORAGE_USERS_DRIVER=ocis` and `STORAGE_USERS_DRIVER=s3ng` settings use the `decomposed` and `decomposeds3` drivers respectively, with the legacy metadata prefix (`user.ocis.` on Linux, `ocis.` on FreeBSD). This prefix takes precedence over `OC_METADATA_PREFIX` for these aliases. The legacy `STORAGE_SYSTEM_DRIVER=ocis` setting is treated similarly.
+
+The metadata prefix is process-wide. Services sharing a process must use the same prefix; an installation with legacy user storage and system storage using the native `user.oc.` prefix must run these services in separate processes or otherwise arrange for their metadata prefixes to match before upgrading. Conflicting prefixes fail at startup.
+
+When replacing a legacy driver name in configuration, also configure the legacy metadata prefix explicitly. Do not change the prefix of existing data without migrating it. For separate service processes, configure the prefix on the appropriate service; `OC_METADATA_PREFIX` applies to every service that receives it.
+
 ## Graceful Shutdown
 
 You can define a graceful shutdown period for the `storage-users` service.
@@ -310,18 +318,18 @@ When the CLI tool restores the item with the `replace` option, the existing item
 ## Caching
 
 The `storage-users` service caches stat, metadata and uuids of files and folders via the configured store in `STORAGE_USERS_FILEMETADATA_CACHE_STORE` and `STORAGE_USERS_ID_CACHE_STORE`. Possible stores are:
-  -   `memory`: Basic in-memory store and the default.
-  -   `redis-sentinel`: Stores data in a configured Redis Sentinel cluster.
-  -   `nats-js-kv`: Stores data using key-value-store feature of [nats jetstream](https://docs.nats.io/nats-concepts/jetstream/key-value-store)
+  -   `memory`: Basic in-memory store.
+  -   `nats-js-kv`: Stores data using key-value-store feature of [nats jetstream](https://docs.nats.io/nats-concepts/jetstream/key-value-store). This is the default.
   -   `noop`: Stores nothing. Useful for testing. Not recommended in production environments.
 
 Other store types may work but are not supported currently.
+
+The `posix` driver, which is the default, only supports `nats-js-kv` for `STORAGE_USERS_ID_CACHE_STORE` and refuses to start with any other store. `STORAGE_USERS_ID_CACHE_STORE` falls back to `OC_CACHE_STORE`, so if `OC_CACHE_STORE` is set to something else, set `STORAGE_USERS_ID_CACHE_STORE=nats-js-kv` and `STORAGE_USERS_ID_CACHE_STORE_NODES` to the nats address (usually the same as `OC_EVENTS_ENDPOINT`) explicitly.
 
 Note: The service can only be scaled if not using `memory` store and the stores are configured identically over all instances!
 
 Note that if you have used one of the deprecated stores, you should reconfigure to one of the supported ones as the deprecated stores will be removed in a later version.
 
 Store specific notes:
-  -   When using `redis-sentinel`, the Redis master to use is configured via e.g. `OC_CACHE_STORE_NODES` in the form of `<sentinel-host>:<sentinel-port>/<redis-master>` like `10.10.0.200:26379/mymaster`.
   -   When using `nats-js-kv` it is recommended to set `OC_CACHE_STORE_NODES` to the same value as `OC_EVENTS_ENDPOINT`. That way the cache uses the same nats instance as the event bus.
   -   When using the `nats-js-kv` store, it is possible to set `OC_CACHE_DISABLE_PERSISTENCE` to instruct nats to not persist cache data on disc.

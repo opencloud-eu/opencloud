@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	rtrace "github.com/opencloud-eu/reva/v2/pkg/trace"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
@@ -96,6 +97,12 @@ func GetTraceProvider(ctx context.Context, exporter, serviceName string) (*sdktr
 
 	// Set as global default
 	rtrace.SetDefaultTracerProvider(tp)
+
+	// The go-micro tracing wrappers and otelhttp inject and extract the trace
+	// context with the global propagator. It defaults to a no-op, which would
+	// make every go-micro service start a new trace instead of joining the
+	// caller's.
+	otel.SetTextMapPropagator(GetPropagator())
 
 	return tp, nil
 }

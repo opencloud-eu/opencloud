@@ -16,11 +16,18 @@ import (
 
 var _ search.BatchOperator = (*Batch)(nil) // ensure Batch implements BatchOperator
 
+// maxBatchBytes caps the document data a batch collects before it is pushed.
+// bleve analyzes a whole batch in memory before writing it, and with term
+// vectors that costs more than ten times the text, so a document count alone
+// does not bound memory once documents carry extracted content.
+const maxBatchBytes = 16 * 1024 * 1024
+
 type Batch struct {
-	batch *bleve.Batch
-	index bleve.Index
-	size  int
-	log   log.Logger
+	batch    *bleve.Batch
+	index    bleve.Index
+	size     int
+	maxBytes uint64
+	log      log.Logger
 }
 
 func NewBatch(index bleve.Index, size int) (*Batch, error) {
@@ -29,9 +36,10 @@ func NewBatch(index bleve.Index, size int) (*Batch, error) {
 	}
 
 	return &Batch{
-		batch: index.NewBatch(),
-		index: index,
-		size:  size,
+		batch:    index.NewBatch(),
+		index:    index,
+		size:     size,
+		maxBytes: maxBatchBytes,
 	}, nil
 }
 
@@ -48,6 +56,13 @@ func (b *Batch) indexResource(id string, r search.Resource) error {
 	doc, err := mapping.PrepareForIndex(r, r.SearchFieldOverrides())
 	if err != nil {
 		return err
+	}
+	// push first if r would overflow the batch, so a batch holds at most
+	// maxBytes or a single larger document
+	if b.batch.Size() > 0 && b.batch.TotalDocsSize()+uint64(len(r.Content)) > b.maxBytes {
+		if err := b.Push(); err != nil {
+			return err
+		}
 	}
 	return b.batch.Index(id, doc)
 }
@@ -142,11 +157,16 @@ func (b *Batch) pushing(fn func(*search.Resource) error) func(*search.Resource) 
 		if err := fn(resource); err != nil {
 			return err
 		}
-		if b.batch.Size() >= b.size {
+		if b.full() {
 			return b.Push()
 		}
 		return nil
 	}
+}
+
+// full reports whether the batch holds enough documents or enough data to be pushed
+func (b *Batch) full() bool {
+	return b.batch.Size() >= b.size || b.batch.TotalDocsSize() >= b.maxBytes
 }
 
 func (b *Batch) Push() error {
@@ -168,7 +188,7 @@ func (b *Batch) withSizeLimit(f func() error) error {
 		return err
 	}
 
-	if b.batch.Size() >= b.size {
+	if b.full() {
 		return b.Push()
 	}
 

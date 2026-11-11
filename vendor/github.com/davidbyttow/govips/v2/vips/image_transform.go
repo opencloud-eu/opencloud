@@ -79,8 +79,27 @@ func (r *ImageRef) ResizeWithVScale(hScale, vScale float64, kernel Kernel) error
 		return err
 	}
 
-	pages := r.Pages()
-	pageHeight := r.PageHeight()
+	pages := r.loadedPages()
+	newPageHeight := 0
+	if pages > 1 {
+		scale := hScale
+		if vScale > 0 {
+			scale = vScale
+		}
+		newPageHeight = int(math.Round(float64(r.PageHeight()) * scale))
+		if newPageHeight < 1 {
+			newPageHeight = 1
+		}
+		// libvips resizes the stacked frames as one strip, so rounding the
+		// strip and the page height separately can leave the strip a few
+		// rows short of pages*newPageHeight (#350, #554). When that happens,
+		// pick the vertical scale that makes the strip height exact, as
+		// vips_thumbnail does. Output is unchanged when the rounding agrees.
+		height := r.Height()
+		if int(math.Round(float64(height)*scale)) != pages*newPageHeight {
+			vScale = float64(pages*newPageHeight) / float64(height)
+		}
+	}
 
 	out, err := vipsResizeWithVScale(r.image, hScale, vScale, kernel)
 	if err != nil {
@@ -89,17 +108,22 @@ func (r *ImageRef) ResizeWithVScale(hScale, vScale float64, kernel Kernel) error
 	r.setImage(out)
 
 	if pages > 1 {
-		scale := hScale
-		if vScale != -1 {
-			scale = vScale
-		}
-		newPageHeight := int(math.Round(float64(pageHeight) * scale))
 		if err := r.SetPageHeight(newPageHeight); err != nil {
 			return err
 		}
 	}
 
 	return r.UnpremultiplyAlpha()
+}
+
+// loadedPages is the number of pages stacked in the image. Pages() reports
+// the page count of the file, which is larger when only some were loaded.
+func (r *ImageRef) loadedPages() int {
+	pageHeight := r.PageHeight()
+	if pageHeight <= 0 {
+		return 1
+	}
+	return r.Height() / pageHeight
 }
 
 // Thumbnail resizes the image to the given width and height.
@@ -196,11 +220,17 @@ func (r *ImageRef) EmbedBackgroundRGBA(left, top, width, height int, backgroundC
 // Zoom zooms the image by repeating pixels (fast nearest-neighbour)
 func (r *ImageRef) Zoom(xFactor int, yFactor int) error {
 	defer runtime.KeepAlive(r)
+	pages := r.loadedPages()
+	pageHeight := r.PageHeight()
 	out, err := vipsGenZoom(r.image, xFactor, yFactor)
 	if err != nil {
 		return err
 	}
 	r.setImage(out)
+	if pages > 1 {
+		// Zooming the strip zooms every frame; only the page height is stale.
+		return r.SetPageHeight(pageHeight * yFactor)
+	}
 	return nil
 }
 
@@ -218,7 +248,16 @@ func (r *ImageRef) Gravity(gravity Gravity, width int, height int) error {
 // Flip flips the image either horizontally or vertically based on the parameter
 func (r *ImageRef) Flip(direction Direction) error {
 	defer runtime.KeepAlive(r)
-	out, err := vipsFlip(r.image, direction)
+	var out *C.VipsImage
+	var err error
+	if direction == DirectionVertical && r.loadedPages() > 1 {
+		// Flipping the strip would reverse the frame order.
+		out, err = vipsMapPages(r.image, func(page *C.VipsImage) (*C.VipsImage, error) {
+			return vipsFlip(page, direction)
+		})
+	} else {
+		out, err = vipsFlip(r.image, direction)
+	}
 	if err != nil {
 		return err
 	}
@@ -279,15 +318,28 @@ func (r *ImageRef) Recomb(matrix [][]float64) error {
 func (r *ImageRef) Rotate(angle Angle) error {
 	defer runtime.KeepAlive(r)
 	width := r.Width()
+	pages := r.loadedPages()
 
-	if r.Pages() > 1 && (angle == Angle90 || angle == Angle270) {
+	if pages > 1 && angle == Angle180 {
+		// Rotating the strip would reverse the frame order.
+		out, err := vipsMapPages(r.image, func(page *C.VipsImage) (*C.VipsImage, error) {
+			return vipsGenRot(page, angle)
+		})
+		if err != nil {
+			return err
+		}
+		r.setImage(out)
+		return nil
+	}
+
+	if pages > 1 && (angle == Angle90 || angle == Angle270) {
 		if angle == Angle270 {
 			if err := r.Flip(DirectionHorizontal); err != nil {
 				return err
 			}
 		}
 
-		if err := r.Grid(r.PageHeight(), r.Pages(), 1); err != nil {
+		if err := r.Grid(r.PageHeight(), pages, 1); err != nil {
 			return err
 		}
 
@@ -305,7 +357,7 @@ func (r *ImageRef) Rotate(angle Angle) error {
 	}
 	r.setImage(out)
 
-	if r.Pages() > 1 && (angle == Angle90 || angle == Angle270) {
+	if pages > 1 && (angle == Angle90 || angle == Angle270) {
 		if err := r.SetPageHeight(width); err != nil {
 			return err
 		}

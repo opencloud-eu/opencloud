@@ -250,6 +250,15 @@ Fixtures:
 | PATH-06 | `path:"./DOCUMENTS"` | docs-upper | docs-upper | docs-upper | ✅ |
 | PATH-07 | `path:"./Documents"` | docs-mixed | docs-mixed | docs-mixed | ✅ |
 | PATH-08 | `path:"./parent/"` | child.jpg, parent | child.jpg, parent | child.jpg, parent | ✅ |
+| PATH-09 | `path:"/"` | child.jpg, docs-lower, docs-mixed, docs-upper, parent | child.jpg, docs-lower, docs-mixed, docs-upper, parent | child.jpg, docs-lower, docs-mixed, docs-upper, parent | ✅ |
+| PATH-10 | `path:""` | child.jpg, docs-lower, docs-mixed, docs-upper, parent | child.jpg, docs-lower, docs-mixed, docs-upper, parent | child.jpg, docs-lower, docs-mixed, docs-upper, parent | ✅ |
+| PATH-11 | `path:"/parent"` | child.jpg, parent | child.jpg, parent | child.jpg, parent | ✅ |
+| PATH-12 | `path:"parent"` | child.jpg, parent | child.jpg, parent | child.jpg, parent | ✅ |
+| PATH-13 | `path:"parent/*"` | child.jpg | child.jpg | child.jpg | ✅ |
+| PATH-14 | `path:"*/parent"` | child.jpg, parent | child.jpg, parent | child.jpg, parent | ✅ |
+| PATH-15 | `path:"?/parent"` | child.jpg, parent | child.jpg, parent | child.jpg, parent | ✅ |
+| PATH-16 | `path:"*/Documents"` | docs-mixed | docs-mixed | docs-mixed | ✅ |
+| PATH-17 | `path:"*/parent/"` | child.jpg, parent | child.jpg, parent | child.jpg, parent | ✅ |
 
 ### fields
 
@@ -470,6 +479,41 @@ Fixtures:
 | INVALID-04 | `mediatype:document AND OR name:alpha` | bad request | bad request | bad request | ✅ |
 | INVALID-05 | `(mediatype:document` | bad request | bad request | bad request | ✅ |
 | INVALID-06 | `mediatype:document) OR (name:alpha` | bad request | bad request | bad request | ✅ |
+
+### quoting
+
+Fixtures:
+
+- `Angebot "Quote" Test.txt`, Content = "Der Kunde sagte \"Quotewort\" im Gespraech."
+- `Angebot Quote.txt`, Content = "Quotewort ohne Anfuehrungszeichen"
+- `back\slash.txt`, Content = "liegt unter C:\\temp\\new"
+- `hi-tag.txt`, Tags = say "hi"
+- `slash-tag.txt`, Tags = a/b
+- `root-tag.txt`, Tags = /
+- `backslash-tag.txt`, Tags = back\slash
+
+| Case | Query | expected | bleve | OpenSearch | same? |
+|---|---|---|---|---|---|
+| QUOTING-01 | `name:"*""Quote""*"` | Angebot "Quote" Test.txt | Angebot "Quote" Test.txt | Angebot "Quote" Test.txt | ✅ |
+| QUOTING-02 | `name:"*Quote*"` | Angebot "Quote" Test.txt, Angebot Quote.txt | Angebot "Quote" Test.txt, Angebot Quote.txt | Angebot "Quote" Test.txt, Angebot Quote.txt | ✅ |
+| QUOTING-03 | `name:"Angebot ""Quote"" Test.txt"` | Angebot "Quote" Test.txt | Angebot "Quote" Test.txt | Angebot "Quote" Test.txt | ✅ |
+| QUOTING-04 | `name="Angebot ""Quote"" Test.txt"` | Angebot "Quote" Test.txt | Angebot "Quote" Test.txt | Angebot "Quote" Test.txt | ✅ |
+| QUOTING-05 | `content:"""Quotewort"""` | Angebot "Quote" Test.txt, Angebot Quote.txt | Angebot "Quote" Test.txt, Angebot Quote.txt | Angebot "Quote" Test.txt, Angebot Quote.txt | ✅ |
+| QUOTING-06 | `content:"sagte ""Quotewort"""` | Angebot "Quote" Test.txt | Angebot "Quote" Test.txt | Angebot "Quote" Test.txt | ✅ |
+| QUOTING-07 | `name:"*back\slash*"` | back\slash.txt | back\slash.txt | back\slash.txt | ✅ |
+| QUOTING-08 | `name:back\slash.txt` | back\slash.txt | back\slash.txt | back\slash.txt | ✅ |
+| QUOTING-09 | `content:"C:\temp\new"` | back\slash.txt | back\slash.txt | back\slash.txt | ✅ |
+| QUOTING-10 | `content:"foo\"` | no match | no match | no match | ✅ |
+| QUOTING-11 | `name:"*\"Quote\"*"` | no match | no match | no match | ✅ |
+| QUOTING-12 | `tag:"say ""hi"""` | hi-tag.txt | hi-tag.txt | hi-tag.txt | ✅ |
+| QUOTING-13 | `tag:"a/b"` | slash-tag.txt | slash-tag.txt | slash-tag.txt | ✅ |
+| QUOTING-14 | `tag:a/b` | slash-tag.txt | slash-tag.txt | slash-tag.txt | ✅ |
+| QUOTING-15 | `tag:"/"` | root-tag.txt | root-tag.txt | root-tag.txt | ✅ |
+| QUOTING-16 | `tag:"back\slash"` | backslash-tag.txt | backslash-tag.txt | backslash-tag.txt | ✅ |
+| QUOTING-17 | `tag:"*\*"` | backslash-tag.txt | backslash-tag.txt | backslash-tag.txt | ✅ |
+| QUOTING-18 | `name:Quote"` | bad request | bad request | bad request | ✅ |
+| QUOTING-19 | `content:"foo\""` | bad request | bad request | bad request | ✅ |
+| QUOTING-20 | `name:"""` | bad request | bad request | bad request | ✅ |
 
 ## Operations
 
@@ -730,9 +774,11 @@ Fixtures:
 
 - `some_song.mp3`, ID = 1$1!5, MimeType = audio/mpeg
 - `team.jpg`, ID = 1$1!6, MimeType = image/jpeg
+- `lost.jpg`, ID = 1$1!7, MimeType = image/jpeg
 
 | Case | Query | expected | bleve | OpenSearch | same? |
 |---|---|---|---|---|---|
 | METADATA-01 | `*song*` reads `Audio` | all 16 fields unchanged | all 16 fields unchanged | all 16 fields unchanged | ✅ |
 | METADATA-02 | `*team*` reads `Location` | all 3 fields unchanged | all 3 fields unchanged | all 3 fields unchanged | ✅ |
+| METADATA-04 | `*lost*` reads `Location` | Latitude=100, Longitude=11.1 | Latitude=100, Longitude=11.1 | Latitude=100, Longitude=11.1 | ✅ |
 | METADATA-03 | `*team*` reads `Audio` | none | none | none | ✅ |

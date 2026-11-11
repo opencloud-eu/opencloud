@@ -59,11 +59,16 @@ There are a few variables that you need to set:
 
 The application can be customized further by changing the `COLLABORATION_APP_*` options to better describe the application.
 
+## Client Address
+
+The WOPI requests reach the collaboration service either directly from your reverse proxy or through the proxy service. The collaboration service determines the client address in its access log itself, with `COLLABORATION_HTTP_TRUSTED_PROXIES` and `COLLABORATION_HTTP_CLIENT_IP_HEADER`. They work like `PROXY_TRUSTED_PROXIES` and `PROXY_CLIENT_IP_HEADER`, see [Trusted Reverse Proxies](../proxy/README.md#trusted-reverse-proxies) in the proxy service.
+
+Behind the proxy service, the address of the proxy service must be trusted, which the default does when both run on the same host or in the same network. The proxy service passes the client address in `X-Forwarded-For` and in the header set in `PROXY_CLIENT_IP_HEADER`.
+
 ## Storing
 
 The `collaboration` service persists information via the configured store in `COLLABORATION_STORE`. Possible stores are:
   -   `memory`: Basic in-memory store. Will not survive a restart. This is not recommended for this service.
-  -   `redis-sentinel`: Stores data in a configured Redis Sentinel cluster.
   -   `nats-js-kv`: Stores data using key-value-store feature of [nats jetstream](https://docs.nats.io/nats-concepts/jetstream/key-value-store). This is the default value.
   -   `noop`: Stores nothing. Useful for testing. Not recommended in production environments.
 
@@ -74,7 +79,6 @@ Note: The service can only be scaled if not using `memory` store and the stores 
 Note that if you have used one of the deprecated stores, you should reconfigure to one of the supported ones as the deprecated stores will be removed in a later version.
 
 Store specific notes:
-  -   When using `redis-sentinel`, the Redis master to use is configured via e.g. `OC_CACHE_STORE_NODES` in the form of `<sentinel-host>:<sentinel-port>/<redis-master>` like `10.10.0.200:26379/mymaster`.
   -   When using `nats-js-kv` it is recommended to set `OC_CACHE_STORE_NODES` to the same value as `OC_EVENTS_ENDPOINT`. That way the cache uses the same nats instance as the event bus.
   -   When using the `nats-js-kv` store, it is possible to set `OC_CACHE_DISABLE_PERSISTENCE` to instruct nats to not persist cache data on disc.
 
