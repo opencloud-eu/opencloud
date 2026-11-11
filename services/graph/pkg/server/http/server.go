@@ -56,6 +56,7 @@ func Server(identityBackend identity.Backend, eduBackend identity.EducationBacke
 
 	middlewares := []func(stdhttp.Handler) stdhttp.Handler{
 		middleware.TraceContext,
+		middleware.AuditContext,
 		chimiddleware.RequestID,
 		middleware.Version(
 			options.Config.Service.Name,
@@ -167,6 +168,7 @@ func Server(identityBackend identity.Backend, eduBackend identity.EducationBacke
 		svc.Metrics(options.Metrics),
 		svc.Middleware(middlewares...),
 		svc.EventsPublisher(eventsStream), // is required even when event consumption is disabled
+		svc.AuditEmitter(options.AuditEmitter),
 		svc.WithRoleService(roleService),
 		svc.WithValueService(valueService),
 		svc.WithRequireAdminMiddleware(requireAdminMiddleware),

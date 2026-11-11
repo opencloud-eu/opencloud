@@ -144,6 +144,9 @@ func SharingConfigFromStruct(cfg *config.Config, logger log.Logger) (map[string]
 					"name":             generators.GenerateConnectionName(cfg.Service.Name, generators.NTypeBus),
 					"username":         cfg.Events.AuthUsername,
 					"password":         cfg.Events.AuthPassword,
+					"audit_enabled":    cfg.Audit.Enabled,
+					"audit_mode":       cfg.Audit.Mode,
+					"audit_service":    cfg.Service.Name,
 				},
 				"prometheus": map[string]any{
 					"namespace": "opencloud",

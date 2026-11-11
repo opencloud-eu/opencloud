@@ -53,6 +53,7 @@ type Config struct {
 	Middleware Middleware `yaml:"middleware"`
 
 	Events           Events                `yaml:"events"`
+	Audit            Audit                 `yaml:"audit"`
 	GRPCClientTLS    *shared.GRPCClientTLS `yaml:"grpc_client_tls" deprecationVersion:"8.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"The GRPC client TLS configuration is deprecated and will be removed in a future version. The auto-accept shares event handler now lives in the sharing service. Please use the 'reva.tls' configuration of the sharing service instead." deprecationReplacement:""`
 	AutoAcceptShares bool                  `yaml:"auto_accept_shares" env:"FRONTEND_AUTO_ACCEPT_SHARES" desc:"Defines if shares should be auto accepted by default. Users can change this setting individually in their profile." introductionVersion:"1.0.0" deprecationVersion:"8.0.0" removalVersion:"%%NEXT_PRODUCTION_VERSION%%" deprecationInfo:"FRONTEND_AUTO_ACCEPT_SHARES is deprecated and will be removed in a future version. Please use SHARING_AUTO_ACCEPT_SHARES (sharing service) instead." deprecationReplacement:"SHARING_AUTO_ACCEPT_SHARES"`
 	ServiceAccount   ServiceAccount        `yaml:"service_account"`
@@ -195,6 +196,12 @@ type CBOXDriver struct {
 type Checksums struct {
 	SupportedTypes      []string `yaml:"supported_types" env:"FRONTEND_CHECKSUMS_SUPPORTED_TYPES" desc:"A list of checksum types that indicate to clients which hashes the server can use to verify upload integrity. Supported types are 'sha1', 'md5' and 'adler32'. See the Environment Variable Types description for more details." introductionVersion:"1.0.0"`
 	PreferredUploadType string   `yaml:"preferred_upload_type" env:"FRONTEND_CHECKSUMS_PREFERRED_UPLOAD_TYPE" desc:"The supported checksum type for uploads that indicates to clients supporting multiple hash algorithms which one is preferred by the server. Must be one out of the defined list of SUPPORTED_TYPES." introductionVersion:"1.0.0"`
+}
+
+// Audit configures the audit events of the service.
+type Audit struct {
+	Enabled bool   `yaml:"enabled" env:"OC_AUDIT_ENABLED;FRONTEND_AUDIT_ENABLED" desc:"Emit audit events for archive downloads to the audit stream." introductionVersion:"%%NEXT%%"`
+	Mode    string `yaml:"mode" env:"OC_AUDIT_MODE;FRONTEND_AUDIT_MODE" desc:"What happens when an audit event can't be stored. 'best_effort' never blocks a request and counts dropped events, 'strict' waits until the event is stored." introductionVersion:"%%NEXT%%"`
 }
 
 // Events combines the configuration options for the event bus.
