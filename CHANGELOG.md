@@ -1,5 +1,22 @@
 # Changelog
 
+## [7.2.5](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.5) - 2026-11-11
+
+### ❤️ Thanks to all contributors! ❤️
+
+@micbar, @rhafer, @v-scharf
+
+### 🔒 Security
+
+- chore: bump web to v7.1.6 [[#3961](https://github.com/opencloud-eu/opencloud/pull/3961)]
+- [full-ci] [stable-7.2] preparing 7.2.5 [[#3953](https://github.com/opencloud-eu/opencloud/pull/3953)]
+- [full-ci] chore: bump reva to 2.46.9 [[#3935](https://github.com/opencloud-eu/opencloud/pull/3935)]
+
+### 🐛 Bug Fixes
+
+- [stable-7.2] fix empty call to action translations [[#3833](https://github.com/opencloud-eu/opencloud/pull/3833)]
+- [stable-7.2] fix(thumbnails): bound declared image dimensions before decoding [[#3489](https://github.com/opencloud-eu/opencloud/pull/3489)]
+
 ## [7.2.4](https://github.com/opencloud-eu/opencloud/releases/tag/v7.2.4) - 2026-08-20
 
 ### ❤️ Thanks to all contributors! ❤️
