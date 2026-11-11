@@ -8,6 +8,7 @@
 
 ### 🔒 Security
 
+- chore: bump web to v7.1.6 [[#3961](https://github.com/opencloud-eu/opencloud/pull/3961)]
 - [full-ci] [stable-7.2] preparing 7.2.5 [[#3953](https://github.com/opencloud-eu/opencloud/pull/3953)]
 - [full-ci] chore: bump reva to 2.46.9 [[#3935](https://github.com/opencloud-eu/opencloud/pull/3935)]
 
