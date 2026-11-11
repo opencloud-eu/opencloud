@@ -31,18 +31,19 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/filelocks"
 	"github.com/pkg/errors"
 	"github.com/pkg/xattr"
-	"github.com/rogpeppe/go-internal/lockedfile"
 )
 
 // XattrsBackend stores the file attributes in extended attributes
 type XattrsBackend struct {
 	metaCache cache.FileMetadataCache
+	metrics   *backendMetrics
 }
 
 // NewMessageBackend returns a new XattrsBackend instance
 func NewXattrsBackend(o cache.Config) XattrsBackend {
 	return XattrsBackend{
 		metaCache: cache.GetFileMetadataCache(o),
+		metrics:   newBackendMetrics("xattrs"),
 	}
 }
 
@@ -51,6 +52,7 @@ func (XattrsBackend) Name() string { return "xattrs" }
 
 // IdentifyPath returns the space id, node id and mtime of a file
 func (b XattrsBackend) IdentifyPath(_ context.Context, path string) (string, string, string, time.Time, error) {
+	b.metrics.reads.Inc()
 	spaceID, _ := xattr.Get(path, prefixes.SpaceIDAttr)
 	id, _ := xattr.Get(path, prefixes.IDAttr)
 	parentID, _ := xattr.Get(path, prefixes.ParentidAttr)
@@ -66,10 +68,13 @@ func (b XattrsBackend) IdentifyPath(_ context.Context, path string) (string, str
 func (b XattrsBackend) Get(ctx context.Context, n MetadataNode, key string) ([]byte, error) {
 	attribs := map[string][]byte{}
 	err := b.metaCache.PullFromCache(b.cacheKey(n), &attribs)
-	if err == nil && len(attribs[key]) > 0 {
+	found := err == nil && len(attribs[key]) > 0
+	b.metrics.cacheLookup(found)
+	if found {
 		return attribs[key], err
 	}
 
+	b.metrics.reads.Inc()
 	return xattr.Get(n.InternalPath(), key)
 }
 
@@ -102,7 +107,7 @@ func (b XattrsBackend) list(ctx context.Context, n MetadataNode, acquireLock boo
 
 	// listing xattrs failed, try again, either with lock or without
 	if acquireLock {
-		f, err := lockedfile.OpenFile(filePath+filelocks.LockFileSuffix, os.O_CREATE|os.O_WRONLY, 0600)
+		f, err := lockFile(n, filePath+filelocks.LockFileSuffix, os.O_CREATE|os.O_WRONLY, b.metrics)
 		if err != nil {
 			return nil, err
 		}
@@ -128,11 +133,13 @@ func (b XattrsBackend) getAll(ctx context.Context, n MetadataNode, skipCache, ac
 
 	if !skipCache {
 		err := b.metaCache.PullFromCache(b.cacheKey(n), &attribs)
+		b.metrics.cacheLookup(err == nil)
 		if err == nil {
 			return attribs, err
 		}
 	}
 
+	b.metrics.reads.Inc()
 	attrNames, err := b.list(ctx, n, acquireLock)
 	if err != nil {
 		return nil, err
@@ -184,7 +191,7 @@ func (b XattrsBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs 
 		if err != nil {
 			return err
 		}
-		lockedFile, err := lockedfile.OpenFile(b.LockfilePath(n), os.O_CREATE|os.O_WRONLY, 0600)
+		lockedFile, err := lockFile(n, b.LockfilePath(n), os.O_CREATE|os.O_WRONLY, b.metrics)
 		if err != nil {
 			return err
 		}
@@ -202,6 +209,7 @@ func (b XattrsBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs 
 		xerrs = 0
 		xerr  error
 	)
+	b.metrics.writes.Inc()
 	for key, val := range attribs {
 		if xerr = xattr.Set(path, key, val); xerr != nil {
 			// log
@@ -223,7 +231,7 @@ func (b XattrsBackend) SetMultiple(ctx context.Context, n MetadataNode, attribs 
 func (b XattrsBackend) Remove(ctx context.Context, n MetadataNode, key string) error {
 	path := n.InternalPath()
 	if !n.LockHeld() {
-		lockedFile, err := lockedfile.OpenFile(path+filelocks.LockFileSuffix, os.O_CREATE|os.O_WRONLY, 0600)
+		lockedFile, err := lockFile(n, path+filelocks.LockFileSuffix, os.O_CREATE|os.O_WRONLY, b.metrics)
 		if err != nil {
 			return err
 		}
@@ -235,6 +243,7 @@ func (b XattrsBackend) Remove(ctx context.Context, n MetadataNode, key string) e
 		}()
 	}
 
+	b.metrics.writes.Inc()
 	err := xattr.Remove(path, key)
 	if err != nil {
 		return err
@@ -259,6 +268,7 @@ func (b XattrsBackend) Purge(ctx context.Context, n MetadataNode) error {
 			return err
 		}
 
+		b.metrics.writes.Inc()
 		for attr := range attribs {
 			if strings.HasPrefix(attr, prefixes.OcPrefix) {
 				err := xattr.Remove(path, attr)
@@ -298,7 +308,7 @@ func (b XattrsBackend) Lock(n MetadataNode) (UnlockFunc, error) {
 	}
 
 	metaLockPath := b.LockfilePath(n)
-	mlock, err := lockedfile.OpenFile(metaLockPath, os.O_RDWR|os.O_CREATE, 0600)
+	mlock, err := lockFile(n, metaLockPath, os.O_RDWR|os.O_CREATE, b.metrics)
 	if err != nil {
 		return nil, err
 	}

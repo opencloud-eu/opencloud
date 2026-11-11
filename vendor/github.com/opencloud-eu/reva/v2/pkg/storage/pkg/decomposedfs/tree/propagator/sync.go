@@ -35,6 +35,7 @@ type SyncPropagator struct {
 	treeSizeAccounting bool
 	treeTimeAccounting bool
 	lookup             node.PathLookup
+	metrics            metrics
 }
 
 // NewSyncPropagator returns a new AsyncPropagator instance
@@ -43,6 +44,7 @@ func NewSyncPropagator(treeSizeAccounting, treeTimeAccounting bool, lookup node.
 		treeSizeAccounting: treeSizeAccounting,
 		treeTimeAccounting: treeTimeAccounting,
 		lookup:             lookup,
+		metrics:            newMetrics(lookup.InternalRoot()),
 	}
 }
 
@@ -62,6 +64,7 @@ func (p SyncPropagator) Propagate(ctx context.Context, n *node.Node, sizeDiff in
 		sublog.Debug().Msg("propagation disabled or nothing to propagate")
 		return nil
 	}
+	p.metrics.changes.Inc()
 
 	// is propagation enabled for the parent node?
 	root := n.SpaceRoot
@@ -80,6 +83,7 @@ func (p SyncPropagator) Propagate(ctx context.Context, n *node.Node, sizeDiff in
 	}
 
 	if err != nil {
+		p.metrics.failures.Inc()
 		sublog.Error().Err(err).Msg("error propagating")
 		return err
 	}
@@ -195,6 +199,7 @@ func (p SyncPropagator) propagateItem(ctx context.Context, n *node.Node, sTime t
 		log.Error().Err(err).Msg("Failed to update extend attributes of parent node")
 		return n, true, err
 	}
+	p.metrics.updates.Inc()
 
 	return n, false, nil
 }
