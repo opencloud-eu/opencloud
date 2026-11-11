@@ -166,7 +166,7 @@ func TestRegisterAllEmbeddedContainer(t *testing.T) {
 
 	reg := prometheus.NewRegistry()
 	logger := log.NewLogger()
-	service := "sub-" + randName()
+	service := "sub_" + randName()
 
 	m, err := New(reg, &logger, service, WithHTTP(true), WithHTTPRequestMetrics(true), WithEvents(true))
 	require.NoError(err)
@@ -239,7 +239,7 @@ func TestRegisterAllEmbeddedContainer(t *testing.T) {
 	require.Equal(http.StatusOK, resp.StatusCode)
 	require.NoError(resp.Body.Close())
 
-	require.NotNil(gatherByName(t, svcReg)[Namespace+"_"+service+"_http_requests_total"])
+	require.NotNil(gatherByName(t, svcReg)[Namespace+"_"+service+"_http_request_duration_seconds"])
 }
 
 func TestRegisterAllEmbeddedNilContainer(t *testing.T) {
@@ -281,12 +281,44 @@ func gatherByName(t *testing.T, reg *prometheus.Registry) map[string]*dto.Metric
 	return out
 }
 
+func TestNormalizeServiceName(t *testing.T) {
+	tests := []struct {
+		service  string
+		expected string
+	}{
+		{service: "activitylog", expected: "activitylog"},
+		{service: "auth-basic", expected: "auth_basic"},
+		{service: "storage-users", expected: "storage_users"},
+		{service: "opencloud-resource", expected: "opencloud_resource"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.service, func(t *testing.T) {
+			require.Equal(t, tt.expected, normalizeServiceName(tt.service))
+		})
+	}
+}
+
+func TestNewNormalizesServiceName(t *testing.T) {
+	require := require.New(t)
+
+	reg := prometheus.NewRegistry()
+	logger := log.NewLogger()
+
+	m, err := New(reg, &logger, "auth-basic")
+	require.NoError(err)
+	require.NotNil(m)
+
+	buildInfoName := "opencloud_auth_basic_build_info"
+	require.NotNil(gatherByName(t, reg)[buildInfoName], "expected metric %q", buildInfoName)
+}
+
 func TestServiceMetrics(t *testing.T) {
 	require := require.New(t)
 
 	reg := prometheus.NewRegistry()
 	logger := log.NewLogger()
-	service := "sub-" + randName()
+	service := "sub_" + randName()
 
 	m, err := New(reg, &logger, service, WithHTTP(true), WithEvents(true))
 	require.NoError(err)
@@ -295,7 +327,7 @@ func TestServiceMetrics(t *testing.T) {
 	buildInfoName := Namespace + "_" + service + "_build_info"
 	httpEnabledName := Namespace + "_" + service + "_http_enabled"
 	eventsEnabledName := Namespace + "_" + service + "_events_enabled"
-	eventsName := Namespace + "_" + service + "_events"
+	eventsName := Namespace + "_" + service + "_events_processed_total"
 
 	// the build info metric is set to 1 with the current version
 	{
@@ -346,7 +378,7 @@ func TestServiceMetricsUndeclaredAPIs(t *testing.T) {
 
 	reg := prometheus.NewRegistry()
 	logger := log.NewLogger()
-	service := "sub-" + randName()
+	service := "sub_" + randName()
 
 	m, err := New(reg, &logger, service, WithHTTP(true))
 	require.NoError(err)
@@ -373,7 +405,7 @@ func TestServiceMetricsWithGRPC(t *testing.T) {
 
 	for _, enabled := range []bool{true, false} {
 		reg := prometheus.NewRegistry()
-		service := "sub-" + randName()
+		service := "sub_" + randName()
 
 		m, err := New(reg, &logger, service, WithGRPC(enabled))
 		require.NoError(err)
@@ -390,7 +422,7 @@ func TestServiceMetricsWithHTTP(t *testing.T) {
 
 	for _, enabled := range []bool{true, false} {
 		reg := prometheus.NewRegistry()
-		service := "sub-" + randName()
+		service := "sub_" + randName()
 
 		m, err := New(reg, &logger, service, WithHTTP(enabled))
 		require.NoError(err)
@@ -450,7 +482,7 @@ func TestServiceMetricsHTTPRequestMetricsOptionOrder(t *testing.T) {
 			require := require.New(t)
 
 			reg := prometheus.NewRegistry()
-			service := "sub-" + randName()
+			service := "sub_" + randName()
 
 			m, err := New(reg, &logger, service, tt.opts(tt.enabled)...)
 			require.NoError(err)
@@ -460,7 +492,7 @@ func TestServiceMetricsHTTPRequestMetricsOptionOrder(t *testing.T) {
 			require.Equal(tt.expected, gaugeValue(t, m.HTTP.enabled))
 
 			mfs := gatherByName(t, reg)
-			require.NotNil(mfs[Namespace+"_"+service+"_http_requests"])
+			require.NotNil(mfs[Namespace+"_"+service+"_http_requests_in_flight"])
 			require.Equal(tt.expected, mfs[Namespace+"_"+service+"_http_enabled"].GetMetric()[0].GetGauge().GetValue())
 		})
 	}
@@ -471,7 +503,7 @@ func TestServiceMetricsRequestMetricsDisabled(t *testing.T) {
 
 	reg := prometheus.NewRegistry()
 	logger := log.NewLogger()
-	service := "sub-" + randName()
+	service := "sub_" + randName()
 
 	m, err := New(reg, &logger, service, WithHTTPRequestMetrics(false), WithGRPCRequestMetrics(false))
 	require.NoError(err)
@@ -492,7 +524,7 @@ func TestServiceMetricsAlreadyRegistered(t *testing.T) {
 
 	reg := prometheus.NewRegistry()
 	logger := log.NewLogger()
-	service := "sub-" + randName()
+	service := "sub_" + randName()
 
 	_, err := New(reg, &logger, service)
 	require.NoError(err)
@@ -507,20 +539,18 @@ func TestHTTPMetrics(t *testing.T) {
 
 	reg := prometheus.NewRegistry()
 	logger := log.NewLogger()
-	service := "sub-" + randName()
+	service := "sub_" + randName()
 
 	m, err := New(reg, &logger, service, WithHTTP(true), WithHTTPRequestMetrics(true))
 	require.NoError(err)
 
 	durationName := Namespace + "_" + service + "_http_request_duration_seconds"
-	requestsName := Namespace + "_" + service + "_http_requests_total"
-	inFlightName := Namespace + "_" + service + "_http_requests"
+	inFlightName := Namespace + "_" + service + "_http_requests_in_flight"
 
 	// nothing is exposed until the first request is observed
 	{
 		mfs := gatherByName(t, reg)
 		require.Nil(mfs[durationName])
-		require.Nil(mfs[requestsName])
 		require.NotNil(mfs[inFlightName], "in-flight gauge should always be exposed")
 		require.Equal(0.0, mfs[inFlightName].GetMetric()[0].GetGauge().GetValue())
 	}
@@ -555,20 +585,19 @@ func TestHTTPMetrics(t *testing.T) {
 
 	mfs := gatherByName(t, reg)
 	require.NotNil(mfs[durationName])
-	require.NotNil(mfs[requestsName])
 
 	type key struct{ method, path, code, result string }
-	counts := map[key]float64{}
-	for _, ms := range mfs[requestsName].GetMetric() {
+	counts := map[key]uint64{}
+	for _, ms := range mfs[durationName].GetMetric() {
 		labels := map[string]string{}
 		for _, l := range ms.GetLabel() {
 			labels[l.GetName()] = l.GetValue()
 		}
-		counts[key{labels[LabelMethod], labels[LabelPath], labels[LabelCode], labels[LabelResult]}] = ms.GetCounter().GetValue()
+		counts[key{labels[LabelMethod], labels[LabelPath], labels[LabelCode], labels[LabelResult]}] = ms.GetHistogram().GetSampleCount()
 	}
-	require.Equal(1.0, counts[key{"GET", "/foo/{id}", "200", ResultSuccess}])
-	require.Equal(1.0, counts[key{"GET", "/bar", "500", ResultServerError}])
-	require.Equal(1.0, counts[key{"GET", "/empty", "200", ResultSuccess}])
+	require.Equal(uint64(1), counts[key{"GET", "/foo/{id}", "200", ResultSuccess}])
+	require.Equal(uint64(1), counts[key{"GET", "/bar", "500", ResultServerError}])
+	require.Equal(uint64(1), counts[key{"GET", "/empty", "200", ResultSuccess}])
 }
 
 func TestHTTPMetricsMiddlewareWithoutRequestMetrics(t *testing.T) {
@@ -576,7 +605,7 @@ func TestHTTPMetricsMiddlewareWithoutRequestMetrics(t *testing.T) {
 
 	reg := prometheus.NewRegistry()
 	logger := log.NewLogger()
-	service := "sub-" + randName()
+	service := "sub_" + randName()
 
 	m, err := New(reg, &logger, service, WithHTTP(true))
 	require.NoError(err)
@@ -597,7 +626,7 @@ func TestHTTPMetricsMiddlewareWithoutRequestMetrics(t *testing.T) {
 	require.Equal(http.StatusOK, resp.StatusCode)
 	require.NoError(resp.Body.Close())
 
-	require.Nil(gatherByName(t, reg)[Namespace+"_"+service+"_http_requests"])
+	require.Nil(gatherByName(t, reg)[Namespace+"_"+service+"_http_requests_in_flight"])
 }
 
 func TestHTTPMetricsMiddlewareNilReceiver(t *testing.T) {
@@ -625,20 +654,18 @@ func TestGRPCMetrics(t *testing.T) {
 
 	reg := prometheus.NewRegistry()
 	logger := log.NewLogger()
-	service := "sub-" + randName()
+	service := "sub_" + randName()
 
 	m, err := New(reg, &logger, service, WithGRPC(true), WithGRPCRequestMetrics(true))
 	require.NoError(err)
 
 	durationName := Namespace + "_" + service + "_grpc_request_duration_seconds"
-	requestsName := Namespace + "_" + service + "_grpc_requests_total"
-	inFlightName := Namespace + "_" + service + "_grpc_requests"
+	inFlightName := Namespace + "_" + service + "_grpc_requests_in_flight"
 
-	// the in-flight gauge is always exposed, the others only after a call
+	// the in-flight gauge is always exposed, the duration only after a call
 	{
 		mfs := gatherByName(t, reg)
 		require.Nil(mfs[durationName])
-		require.Nil(mfs[requestsName])
 		require.NotNil(mfs[inFlightName])
 	}
 
@@ -648,20 +675,19 @@ func TestGRPCMetrics(t *testing.T) {
 
 	mfs := gatherByName(t, reg)
 	require.NotNil(mfs[durationName])
-	require.NotNil(mfs[requestsName])
 
 	type key struct{ method, code, result string }
-	counts := map[key]float64{}
-	for _, ms := range mfs[requestsName].GetMetric() {
+	counts := map[key]uint64{}
+	for _, ms := range mfs[durationName].GetMetric() {
 		labels := map[string]string{}
 		for _, l := range ms.GetLabel() {
 			labels[l.GetName()] = l.GetValue()
 		}
-		counts[key{labels[LabelMethod], labels[LabelCode], labels[LabelResult]}] = ms.GetCounter().GetValue()
+		counts[key{labels[LabelMethod], labels[LabelCode], labels[LabelResult]}] = ms.GetHistogram().GetSampleCount()
 	}
-	require.Equal(1.0, counts[key{"/svc/Method", "200", ResultSuccess}])
-	require.Equal(1.0, counts[key{"/svc/Method", "404", ResultClientError}])
-	require.Equal(1.0, counts[key{"/svc/MicroMethod", "404", ResultClientError}])
+	require.Equal(uint64(1), counts[key{"/svc/Method", "200", ResultSuccess}])
+	require.Equal(uint64(1), counts[key{"/svc/Method", "404", ResultClientError}])
+	require.Equal(uint64(1), counts[key{"/svc/MicroMethod", "404", ResultClientError}])
 }
 
 func TestGRPCStatusCode(t *testing.T) {

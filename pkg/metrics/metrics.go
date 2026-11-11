@@ -245,7 +245,15 @@ func (r *LoggingPrometheusRegisterer) Unregister(c prometheus.Collector) bool {
 
 var _ prometheus.Registerer = &LoggingPrometheusRegisterer{}
 
+// Turn the name of a service into the subsystem of its metrics: service names
+// may contain dashes (e.g. "auth-basic"), which are not allowed in the names of
+// Prometheus metrics, unless they are quoted in PromQL.
+func normalizeServiceName(service string) string {
+	return strings.ReplaceAll(service, "-", "_")
+}
+
 func New(reg prometheus.Registerer, logger *log.Logger, service string, opts ...Option) (*Metrics, error) {
+	service = normalizeServiceName(service)
 	m := &Metrics{
 		namespace: Namespace,
 		subsystem: service,

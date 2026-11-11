@@ -13,7 +13,7 @@ func newEventsMetrics(namespace, subsystem string) *eventsMetrics {
 		processed: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
-			Name:      "events",
+			Name:      "events_processed_total",
 			Help:      "Number of consumed events",
 		}, []string{LabelEvent, LabelResult}),
 	}

@@ -28,7 +28,6 @@ type httpMetrics struct {
 
 type httpRequestMetrics struct {
 	duration      *prometheus.HistogramVec
-	total         *prometheus.CounterVec
 	inFlight      prometheus.GaugeFunc
 	inFlightCount *atomic.Int64
 }
@@ -76,7 +75,6 @@ func (h *httpMetrics) RecordDuration(method, pattern string, statusCode int, dur
 	}
 	code := strconv.Itoa(statusCode)
 	h.requests.duration.WithLabelValues(method, pattern, code, result).Observe(duration.Seconds())
-	h.requests.total.WithLabelValues(method, pattern, code, result).Inc()
 }
 
 func (h *httpMetrics) Middleware(next http.Handler) http.Handler {
@@ -130,9 +128,7 @@ func (h *httpMetrics) enableRequestMetrics(namespace, subsystem string) {
 		return
 	}
 	h.requests = &httpRequestMetrics{
-		// TODO(pbleser-oc): use Prometheus native histograms instead once the
-		// minimum supported Prometheus (and Grafana) version allows it; track both
-		// for now to remain backwards compatible.
+		// TODO: use Prometheus native histograms, see https://github.com/opencloud-eu/opencloud/issues/3817
 		duration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
@@ -140,19 +136,12 @@ func (h *httpMetrics) enableRequestMetrics(namespace, subsystem string) {
 			Help:      "Duration of inbound HTTP requests in seconds.",
 			Buckets:   prometheus.DefBuckets,
 		}, []string{LabelMethod, LabelPath, LabelCode, LabelResult}),
-		total: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: namespace,
-			Subsystem: subsystem,
-			Name:      "http_requests_total",
-			Help:      "Number of inbound HTTP requests.",
-		}, []string{LabelMethod, LabelPath, LabelCode, LabelResult}),
 		inFlightCount: new(atomic.Int64),
 	}
 	h.requests.inFlight = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
-		Unit:      "requests",
-		Name:      "http_requests",
+		Name:      "http_requests_in_flight",
 		Help:      "Concurrent inbound HTTP requests.",
 	}, func() float64 {
 		return float64(h.requests.inFlightCount.Load())
@@ -162,7 +151,7 @@ func (h *httpMetrics) enableRequestMetrics(namespace, subsystem string) {
 func (h *httpMetrics) collectors() []prometheus.Collector {
 	collectors := []prometheus.Collector{h.enabled}
 	if h.requests != nil {
-		collectors = append(collectors, h.requests.duration, h.requests.total, h.requests.inFlight)
+		collectors = append(collectors, h.requests.duration, h.requests.inFlight)
 	}
 	return collectors
 }

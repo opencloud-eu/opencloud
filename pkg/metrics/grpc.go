@@ -21,7 +21,6 @@ type grpcMetrics struct {
 
 type grpcRequestMetrics struct {
 	duration      *prometheus.HistogramVec
-	total         *prometheus.CounterVec
 	inFlight      prometheus.GaugeFunc
 	inFlightCount *atomic.Int64
 }
@@ -90,7 +89,6 @@ func (g *grpcMetrics) RecordDuration(method string, err error, duration time.Dur
 		result = ResultClientError
 	}
 	g.requests.duration.WithLabelValues(method, strconv.Itoa(code), result).Observe(duration.Seconds())
-	g.requests.total.WithLabelValues(method, strconv.Itoa(code), result).Inc()
 }
 
 // grpcStatusCode maps a gRPC status code to the equivalent HTTP status code,
@@ -117,6 +115,7 @@ func (g *grpcMetrics) enableRequestMetrics(namespace, subsystem string) {
 		return
 	}
 	g.requests = &grpcRequestMetrics{
+		// TODO: use Prometheus native histograms, see https://github.com/opencloud-eu/opencloud/issues/3817
 		duration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: namespace,
 			Subsystem: subsystem,
@@ -124,19 +123,12 @@ func (g *grpcMetrics) enableRequestMetrics(namespace, subsystem string) {
 			Help:      "Duration of inbound gRPC requests in seconds.",
 			Buckets:   prometheus.DefBuckets,
 		}, []string{LabelMethod, LabelCode, LabelResult}),
-		total: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Namespace: namespace,
-			Subsystem: subsystem,
-			Name:      "grpc_requests_total",
-			Help:      "Number of inbound gRPC requests.",
-		}, []string{LabelMethod, LabelCode, LabelResult}),
 		inFlightCount: new(atomic.Int64),
 	}
 	g.requests.inFlight = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,
-		Unit:      "requests",
-		Name:      "grpc_requests",
+		Name:      "grpc_requests_in_flight",
 		Help:      "Concurrent inbound gRPC requests.",
 	}, func() float64 {
 		return float64(g.requests.inFlightCount.Load())
@@ -146,7 +138,7 @@ func (g *grpcMetrics) enableRequestMetrics(namespace, subsystem string) {
 func (g *grpcMetrics) collectors() []prometheus.Collector {
 	collectors := []prometheus.Collector{g.enabled}
 	if g.requests != nil {
-		collectors = append(collectors, g.requests.duration, g.requests.total, g.requests.inFlight)
+		collectors = append(collectors, g.requests.duration, g.requests.inFlight)
 	}
 	return collectors
 }
