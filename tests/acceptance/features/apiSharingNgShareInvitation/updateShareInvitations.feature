@@ -1230,47 +1230,6 @@ Feature: Update permission of a share
       | textfile.txt  | File Editor      |
       | textfile.txt  | Viewer           |
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   @issue-10768
   Scenario Outline: sharer tries to update share permissions role of a resource to Denied without enabling it
     Given user "Alice" has created folder "folderToShare"
@@ -1315,43 +1274,6 @@ Feature: Update permission of a share
       | Uploader         |
       | Editor           |
       | Viewer           |
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   @issue-10768
   Scenario Outline: sharer tries to update share permissions role of space to Space Editor Without Versions without enabling it
@@ -1399,31 +1321,3 @@ Feature: Update permission of a share
       | Space Viewer     |
       | Space Editor     |
       | Manager          |
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
