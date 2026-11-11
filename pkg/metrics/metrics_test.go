@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"errors"
 	"fmt"
 	"math/rand/v2"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
+	merrors "go-micro.dev/v4/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -642,6 +644,7 @@ func TestGRPCMetrics(t *testing.T) {
 
 	m.GRPC.RecordDuration("/svc/Method", nil, 100*time.Millisecond)
 	m.GRPC.RecordDuration("/svc/Method", status.Error(codes.NotFound, "nope"), time.Millisecond)
+	m.GRPC.RecordDuration("/svc/MicroMethod", merrors.NotFound("svc", "nope"), time.Millisecond)
 
 	mfs := gatherByName(t, reg)
 	require.NotNil(mfs[durationName])
@@ -658,4 +661,42 @@ func TestGRPCMetrics(t *testing.T) {
 	}
 	require.Equal(1.0, counts[key{"/svc/Method", "200", ResultSuccess}])
 	require.Equal(1.0, counts[key{"/svc/Method", "404", ResultClientError}])
+	require.Equal(1.0, counts[key{"/svc/MicroMethod", "404", ResultClientError}])
+}
+
+func TestGRPCStatusCode(t *testing.T) {
+	merr := merrors.NotFound("svc", "x")
+
+	tests := []struct {
+		name     string
+		err      error
+		expected int
+	}{
+		{name: "nil", err: nil, expected: http.StatusOK},
+		{name: "go-micro not found", err: merr, expected: http.StatusNotFound},
+		{
+			name:     "go-micro internal server error",
+			err:      merrors.InternalServerError("svc", "x"),
+			expected: http.StatusInternalServerError,
+		},
+		{
+			name:     "wrapped go-micro error",
+			err:      fmt.Errorf("lookup failed: %w", merr),
+			expected: http.StatusNotFound,
+		},
+		{name: "grpc not found", err: status.Error(codes.NotFound, "x"), expected: http.StatusNotFound},
+		{name: "grpc already exists", err: status.Error(codes.AlreadyExists, "x"), expected: http.StatusConflict},
+		{
+			name:     "grpc deadline exceeded",
+			err:      status.Error(codes.DeadlineExceeded, "x"),
+			expected: http.StatusGatewayTimeout,
+		},
+		{name: "plain error", err: errors.New("plain"), expected: http.StatusInternalServerError},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expected, grpcStatusCode(tt.err))
+		})
+	}
 }

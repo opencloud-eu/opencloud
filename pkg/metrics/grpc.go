@@ -2,14 +2,14 @@ package metrics
 
 import (
 	"context"
-	"net/http"
 	"strconv"
 	"sync/atomic"
 	"time"
 
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus"
+	merrors "go-micro.dev/v4/errors"
 	"go-micro.dev/v4/server"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
@@ -95,23 +95,14 @@ func (g *grpcMetrics) RecordDuration(method string, err error, duration time.Dur
 
 // grpcStatusCode maps a gRPC status code to the equivalent HTTP status code,
 // so that the code and result labels mean the same for both transports.
+// go-micro errors already carry an HTTP status code and are checked first,
+// otherwise the gRPC code is mapped using the grpc-gateway mapping.
 func grpcStatusCode(err error) int {
-	switch status.Code(err) {
-	case codes.OK:
-		return http.StatusOK
-	case codes.InvalidArgument:
-		return http.StatusBadRequest
-	case codes.Unauthenticated:
-		return http.StatusUnauthorized
-	case codes.PermissionDenied:
-		return http.StatusForbidden
-	case codes.NotFound:
-		return http.StatusNotFound
-	case codes.Unavailable:
-		return http.StatusServiceUnavailable
-	default:
-		return http.StatusInternalServerError
+	merr, ok := merrors.As(err)
+	if ok && merr.GetCode() != 0 {
+		return int(merr.GetCode())
 	}
+	return runtime.HTTPStatusFromCode(status.Code(err))
 }
 
 func (g *grpcMetrics) setEnabled(enabled bool) {
