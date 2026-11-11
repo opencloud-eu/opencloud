@@ -116,6 +116,19 @@ func TestNewClamAV_Scan(t *testing.T) {
 		}
 	})
 
+	t.Run("returns an error if clamd closes the connection without replying", func(t *testing.T) {
+		ul := newUnixListener(t, net.ListenConfig{}, "PONG\n", "")
+		defer func() {
+			assert.NoError(t, ul.Close())
+		}()
+
+		scanner, err := scanners.NewClamAV(ul.Addr().String(), 10*time.Second)
+		require.NoError(t, err)
+
+		_, err = scanner.Scan(scanners.Input{Body: strings.NewReader("DATA")})
+		assert.ErrorIs(t, err, scanners.ErrScanFailed)
+	})
+
 	t.Run("aborts after a certain time", func(t *testing.T) {
 		ul := newUnixListener(t, net.ListenConfig{}, "PONG\n", "stream: Win.Test.EICAR_HDB-1 FOUND\n")
 		defer func() {
