@@ -3,6 +3,7 @@ package search
 import (
 	"context"
 	"fmt"
+	"html"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -297,7 +298,15 @@ func (s *Service) Search(ctx context.Context, req *searchsvc.SearchRequest) (*se
 	}, nil
 }
 
-func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, space *provider.StorageSpace, mountpointID string) (*searchsvc.SearchIndexResponse, error) {
+func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest, space *provider.StorageSpace, mountpointID string) (res *searchsvc.SearchIndexResponse, err error) {
+	// the workers run in an errgroup, which does not recover, one failing space must not affect the others
+	defer func() {
+		if r := recover(); r != nil {
+			s.logger.Error().Interface("recover", r).Str("space", space.GetId().GetOpaqueId()).Str("query", req.GetQuery()).Msg("failed to search a space")
+			res, err = nil, errSkipSpace
+		}
+	}()
+
 	if req.Ref != nil &&
 		(req.Ref.ResourceId.StorageId != space.Root.StorageId ||
 			req.Ref.ResourceId.SpaceId != space.Root.SpaceId) {
@@ -402,7 +411,7 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 		PageSize: req.PageSize,
 	}
 	start := time.Now()
-	res, err := s.engine.Search(ctx, searchRequest)
+	res, err = s.engine.Search(ctx, searchRequest)
 	duration := time.Since(start)
 	if err != nil {
 		s.logger.Error().Err(err).Str("duration", fmt.Sprint(duration)).Str("space", space.Id.OpaqueId).Msg("failed to search the index")
@@ -425,6 +434,7 @@ func (s *Service) searchIndex(ctx context.Context, req *searchsvc.SearchRequest,
 		}
 		match.Entity.ShareRootName = rootName
 		match.Entity.RemoteItemId = remoteItemId
+		match.Entity.Highlights = SanitizeHighlights(match.Entity.GetHighlights())
 
 		isShared := match.GetEntity().GetRef().GetResourceId().GetSpaceId() == utils.ShareStorageSpaceID
 		isMountpoint := isShared && match.GetEntity().GetRef().GetPath() == "."
@@ -685,6 +695,23 @@ func (s *Service) doUpsertItem(ref *provider.Reference, batch BatchOperator) {
 		s.logger.Error().Err(err).Int32("status", int32(resp.GetStatus().GetCode())).Msg("error storing metadata")
 		return
 	}
+}
+
+// SanitizeHighlights keeps the <mark> tags and escapes everything else.
+func SanitizeHighlights(highlights string) string {
+	var b strings.Builder
+	for i, open := range strings.Split(highlights, "<mark>") {
+		if i > 0 {
+			b.WriteString("<mark>")
+		}
+		for j, closed := range strings.Split(open, "</mark>") {
+			if j > 0 {
+				b.WriteString("</mark>")
+			}
+			b.WriteString(html.EscapeString(html.UnescapeString(closed)))
+		}
+	}
+	return b.String()
 }
 
 func addAudioMetadata(metadata map[string]string, audio *libregraph.Audio) {

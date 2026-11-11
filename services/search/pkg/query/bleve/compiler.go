@@ -6,6 +6,7 @@ import (
 
 	"github.com/blevesearch/bleve/v2"
 	bleveQuery "github.com/blevesearch/bleve/v2/search/query"
+
 	"github.com/opencloud-eu/opencloud/pkg/ast"
 	"github.com/opencloud-eu/opencloud/pkg/kql"
 )
@@ -215,6 +216,10 @@ func walk(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
 }
 
 func nextNode(offset int, nodes []ast.Node) (bleveQuery.Query, int, error) {
+	if offset >= len(nodes) {
+		return nil, 0, fmt.Errorf("operator without an operand")
+	}
+
 	if n, ok := nodes[offset].(*ast.GroupNode); ok {
 		gq, _, err := walk(0, n.Nodes)
 		if err != nil {

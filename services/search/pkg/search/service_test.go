@@ -171,7 +171,8 @@ var _ = Describe("Searchprovider", func() {
 									StorageId: personalSpace.Root.StorageId,
 									OpaqueId:  "foo-id",
 								},
-								Name: "Foo.pdf",
+								Name:       "Foo.pdf",
+								Highlights: `foo <img src=x> <mark>bar</mark>`,
 							},
 						},
 					},
@@ -182,6 +183,15 @@ var _ = Describe("Searchprovider", func() {
 				}, nil)
 			})
 
+			It("escapes the highlights whatever the engine returned", func() {
+				res, err := s.Search(ctx, &searchsvc.SearchRequest{
+					Query: "bar",
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res.Matches).To(HaveLen(1))
+				Expect(res.Matches[0].Entity.Highlights).To(Equal(`foo &lt;img src=x&gt; <mark>bar</mark>`))
+			})
+
 			It("does not mess with field-based searches", func() {
 				_, err := s.Search(ctx, &searchsvc.SearchRequest{
 					Query: "Size:<10",
@@ -190,6 +200,19 @@ var _ = Describe("Searchprovider", func() {
 				indexClient.AssertCalled(GinkgoT(), "Search", mock.Anything, mock.MatchedBy(func(req *searchsvc.SearchIndexRequest) bool {
 					return req.Query == "Size:<10"
 				}))
+			})
+
+			It("continues with the remaining spaces when one fails", func() {
+				failingClient := &engineMocks.Engine{}
+				failingClient.On("Search", mock.Anything, mock.Anything).Run(func(mock.Arguments) {
+					panic("unexpected")
+				}).Return(nil, nil)
+				s := search.NewService(gatewaySelector, failingClient, extractor, nil, logger, &config.Config{})
+
+				res, err := s.Search(ctx, &searchsvc.SearchRequest{Query: "foo"})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res.TotalMatches).To(Equal(int32(0)))
+				Expect(res.Matches).To(BeEmpty())
 			})
 
 			It("searches the personal user space", func() {
@@ -489,6 +512,20 @@ var _ = Describe("Searchprovider", func() {
 		})
 	})
 })
+
+var _ = DescribeTable("SanitizeHighlights",
+	func(highlights, expected string) {
+		Expect(search.SanitizeHighlights(highlights)).To(Equal(expected))
+	},
+	Entry("plain text", "foo <mark>bar</mark> baz", "foo <mark>bar</mark> baz"),
+	Entry("raw markup", "<img src=x> <mark>bar</mark>", "&lt;img src=x&gt; <mark>bar</mark>"),
+	Entry("already escaped", "&lt;img src=x&gt; <mark>bar</mark>", "&lt;img src=x&gt; <mark>bar</mark>"),
+	Entry("escaped text from the file stays as typed", "&amp;lt;img src=x&amp;gt; <mark>bar</mark>", "&amp;lt;img src=x&amp;gt; <mark>bar</mark>"),
+	Entry("markup inside a mark", "<mark><b>bar</b></mark>", "<mark>&lt;b&gt;bar&lt;/b&gt;</mark>"),
+	Entry("a mark with attributes", `<mark class="x">bar</mark>`, "&lt;mark class=&#34;x&#34;&gt;bar</mark>"),
+	Entry("an escaped ampersand stays single", "Tom &amp; Jerry", "Tom &amp; Jerry"),
+	Entry("empty", "", ""),
+)
 
 var _ = DescribeTable("Parse Scope",
 	func(pattern, wantSearch, wantScope string) {

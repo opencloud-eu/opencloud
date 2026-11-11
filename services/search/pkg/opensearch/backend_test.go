@@ -140,6 +140,26 @@ var _ = Describe("Backend", func() {
 			Expect(resp.TotalMatches).To(Equal(int32(1)))
 			Expect(fmt.Sprintf("%s$%s!%s", resp.Matches[0].Entity.Id.StorageId, resp.Matches[0].Entity.Id.SpaceId, resp.Matches[0].Entity.Id.OpaqueId)).To(Equal(document.ID))
 		})
+
+		DescribeTable("returns the content highlights as text",
+			func(content, query, expected string) {
+				highlighted := opensearchtest.Testdata.Resources.File
+				highlighted.ID = "1$2!5"
+				highlighted.Content = content
+
+				tc.Require.DocumentCreate(indexName, highlighted.ID, strings.NewReader(opensearchtest.JSONMustMarshal(GinkgoTB(), highlighted)))
+				tc.Require.IndicesCount([]string{indexName}, nil, 2)
+
+				resp, err := backend.Search(context.Background(), &searchService.SearchIndexRequest{
+					Query: query,
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.Matches).To(HaveLen(1))
+				Expect(resp.Matches[0].Entity.Highlights).To(Equal(expected))
+			},
+			Entry("markup", "foo <img src=x> qux", "content:qux", "foo &lt;img src=x&gt; <mark>qux</mark>"),
+			Entry("escaped text", "foo &lt;img src=x&gt; zap", "content:zap", "foo &amp;lt;img src=x&amp;gt; <mark>zap</mark>"),
+		)
 	})
 
 	Describe("Upsert", func() {
