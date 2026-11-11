@@ -39,6 +39,7 @@ func Server(opts ...Option) (grpc.Service, error) {
 		svc.Metrics(options.Metrics),
 		svc.GatewaySelector(options.GatewaySelector),
 		svc.Searcher(options.Searcher),
+		svc.SkippedSpaces(options.SkippedSpaces),
 	)
 	if err != nil {
 		options.Logger.Error().
