@@ -1,12 +1,14 @@
 # Changelog
 
-## [4.0.9](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.9) - 2026-11-10
+## [4.0.9](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.9) - 2026-11-11
 
 ### ❤️ Thanks to all contributors! ❤️
 
 @rhafer
 
+### 🔒 Security
 
+- [stable-4.0] preparing 4.0.9 [[#3954](https://github.com/opencloud-eu/opencloud/pull/3954)]
 
 ## [4.0.8](https://github.com/opencloud-eu/opencloud/releases/tag/v4.0.8) - 2026-06-25
 
