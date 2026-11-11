@@ -46,6 +46,7 @@ type OpenCloudConfig struct {
 	AuthService       AuthService           `yaml:"auth_service"`
 	Clientlog         Clientlog             `yaml:"clientlog"`
 	Activitylog       Activitylog           `yaml:"activitylog"`
+	Webfinger         InsecureService       `yaml:"webfinger"`
 }
 
 // Activitylog is the configuration for the activitylog service
