@@ -592,7 +592,7 @@ var _ = Describe("Driveitems", func() {
 				Expect(res.Value[0].LibreGraphShareTypes).To(ConsistOf("user", "group", "link"))
 			})
 
-			It("reports a guest share as a guest share type", func() {
+			It("reports an email share as an email share type", func() {
 				q := r.URL.Query()
 				q.Add("$select", "@libre.graph.shareTypes")
 				r.URL.RawQuery = q.Encode()
@@ -614,10 +614,10 @@ var _ = Describe("Driveitems", func() {
 				}, nil)
 
 				res := assertItemsList(1)
-				Expect(res.Value[0].LibreGraphShareTypes).To(ConsistOf("guest"))
+				Expect(res.Value[0].LibreGraphShareTypes).To(ConsistOf("email"))
 			})
 
-			It("reports user and guest shares as separate share types", func() {
+			It("reports user and email shares as separate share types", func() {
 				q := r.URL.Query()
 				q.Add("$select", "@libre.graph.shareTypes")
 				r.URL.RawQuery = q.Encode()
@@ -639,7 +639,7 @@ var _ = Describe("Driveitems", func() {
 				}, nil)
 
 				res := assertItemsList(1)
-				Expect(res.Value[0].LibreGraphShareTypes).To(Equal([]string{"user", "guest"}))
+				Expect(res.Value[0].LibreGraphShareTypes).To(Equal([]string{"user", "email"}))
 			})
 
 			It("reports only the link when the item has no grants", func() {

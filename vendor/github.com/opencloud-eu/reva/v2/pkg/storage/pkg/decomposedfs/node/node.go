@@ -970,7 +970,7 @@ func (n *Node) AsResourceInfo(ctx context.Context, rp *provider.ResourcePermissi
 				if !first {
 					s.WriteString(",")
 				}
-				s.WriteString(strconv.Itoa(int(conversions.ShareTypeGuest)))
+				s.WriteString(strconv.Itoa(int(conversions.ShareTypeEmail)))
 			}
 			ri.Opaque = utils.AppendPlainToOpaque(ri.Opaque, "share-types", s.String())
 		}

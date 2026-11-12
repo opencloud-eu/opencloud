@@ -405,3 +405,4 @@ exclude github.com/mattn/go-sqlite3 v2.0.3+incompatible
 
 replace github.com/go-micro/plugins/v4/store/nats-js-kv => github.com/opencloud-eu/go-micro-plugins/v4/store/nats-js-kv v0.0.0-20250512152754-23325793059a
 
+replace github.com/opencloud-eu/reva/v2 => github.com/maki5/reva/v2 v2.52.2-0.20261112151323-a43588e7e97d
