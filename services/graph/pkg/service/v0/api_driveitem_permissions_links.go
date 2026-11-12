@@ -231,7 +231,7 @@ func (api DriveItemPermissionsApi) SetLinkPassword(w http.ResponseWriter, r *htt
 	newPermission, err := api.driveItemPermissionsService.SetPublicLinkPassword(ctx, itemID, permissionID, password.GetPassword())
 	if err != nil {
 		logger := api.logger.SubloggerWithRequestID(ctx)
-		errorEvent(&logger, err).Str("itemID", storagespace.FormatResourceID(itemID)).Str("permissionID", permissionID).Msg("could not set link password")
+		errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Str(_logKeyPermissionID, permissionID).Msg("could not set link password")
 		errorcode.RenderError(w, r, err)
 		return
 	}
@@ -267,7 +267,7 @@ func (api DriveItemPermissionsApi) SetSpaceRootLinkPassword(w http.ResponseWrite
 	newPermission, err := api.driveItemPermissionsService.SetPublicLinkPasswordOnSpaceRoot(ctx, &driveID, permissionID, password.GetPassword())
 	if err != nil {
 		logger := api.logger.SubloggerWithRequestID(ctx)
-		errorEvent(&logger, err).Str("driveID", storagespace.FormatResourceID(&driveID)).Str("permissionID", permissionID).Msg("could not set link password")
+		errorEvent(&logger, err).Str(_logKeyDriveID, storagespace.FormatResourceID(&driveID)).Str(_logKeyPermissionID, permissionID).Msg("could not set link password")
 		errorcode.RenderError(w, r, err)
 		return
 	}
@@ -279,7 +279,8 @@ func (api DriveItemPermissionsApi) SetSpaceRootLinkPassword(w http.ResponseWrite
 func (s DriveItemPermissionsService) updatePublicLinkPermission(ctx context.Context, permissionID string, itemID *storageprovider.ResourceId, newPermission *libregraph.Permission) (perm *libregraph.Permission, err error) {
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
-		s.logger.Debug().Err(err).Msg("could not select next gateway client")
+		logger := s.logger.SubloggerWithRequestID(ctx)
+		logger.Error().Err(err).Str(_logKeyPermissionID, permissionID).Msg("could not select next gateway client")
 		return nil, errorcode.New(errorcode.GeneralException, err.Error())
 	}
 

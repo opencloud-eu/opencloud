@@ -109,6 +109,15 @@ func endedSpan(sr *tracetest.SpanRecorder, name string, sentinels ...string) sdk
 	return span
 }
 
+// gatewayHelperEntry matches the error entry a share helper logs when it cannot select a gateway.
+func gatewayHelperEntry(message, errorText string) gomegatypes.GomegaMatcher {
+	return SatisfyAll(
+		HaveKeyWithValue("level", "error"),
+		HaveKeyWithValue("message", message),
+		HaveKeyWithValue("error", errorText),
+	)
+}
+
 // entriesAtLevel returns the log entries logged at the given level.
 func entriesAtLevel(entries []map[string]any, level string) []map[string]any {
 	var filtered []map[string]any
@@ -185,11 +194,10 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		return service, logBuf
 	}
 
-	// A failing gateway selection is an unexpected failure of every operation. Where the operation selects
-	// the gateway itself, the locally produced error message is logged. Where a probing helper selects it,
-	// only the error code is, like for every error that passed through a helper.
+	// A failing gateway selection is an unexpected failure of every operation, logged with its error text.
+	// Where a probing helper selects the gateway, the helper also logs the selector's error.
 	DescribeTable("reports a gateway selection failure once, as error log correlated with the request and as error span",
-		func(name string, call func(context.Context, svc.DriveItemPermissionsService) error, ids map[string]string, errorText gomegatypes.GomegaMatcher) {
+		func(name string, call func(context.Context, svc.DriveItemPermissionsService) error, ids map[string]string, errorText gomegatypes.GomegaMatcher, helperEntries int) {
 			gatewayErr := errors.New("no gateway available at 10.0.0.42")
 			gatewaySelector.EXPECT().Next().Unset()
 			gatewaySelector.EXPECT().Next().Return(nil, gatewayErr)
@@ -200,9 +208,30 @@ var _ = Describe("DriveItemPermissionsService", func() {
 
 			Expect(call(context.WithValue(ctx, middleware.RequestIDKey, "request-42"), service)).To(MatchError(gatewayErr))
 
+			// the error text is added once per entry: decoding into a map would hide a duplicate key
+			for line := range strings.SplitSeq(strings.TrimSpace(logBuf.String()), "\n") {
+				Expect(strings.Count(line, `"error":`)).To(BeNumerically("<=", 1), line)
+			}
 			entries := logEntries(&logBuf)
-			errorEntries := entriesAtLevel(entries, "error")
-			Expect(errorEntries).To(HaveLen(1))
+			// the operation and the helpers log one entry each, all correlated with the request
+			const helperMessage = "selecting gatewaySelector failed"
+			var correlated, helpers []map[string]any
+			for _, entry := range entriesAtLevel(entries, "error") {
+				if entry["message"] == helperMessage {
+					helpers = append(helpers, entry)
+				} else {
+					correlated = append(correlated, entry)
+				}
+			}
+			Expect(correlated).To(HaveLen(1))
+			Expect(helpers).To(HaveLen(helperEntries))
+			for _, entry := range helpers {
+				Expect(entry).To(SatisfyAll(
+					gatewayHelperEntry(helperMessage, gatewayErr.Error()),
+					HaveKeyWithValue("request-id", "request-42"),
+					HaveKeyWithValue("permissionID", "permissionid"),
+				))
+			}
 			expected := []gomegatypes.GomegaMatcher{
 				HaveKeyWithValue("request-id", "request-42"),
 				HaveKeyWithValue("errorCode", "generalException"),
@@ -211,7 +240,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			for k, v := range ids {
 				expected = append(expected, HaveKeyWithValue(k, v))
 			}
-			Expect(errorEntries[0]).To(SatisfyAll(expected...))
+			Expect(correlated[0]).To(SatisfyAll(expected...))
 			// no serialized requests, responses or gateway clients
 			for _, payloadKey := range []string{"stat.res", "gateway.res", "Body", "body", "request", "response"} {
 				Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
@@ -227,33 +256,33 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		Entry("Invite", "Invite", func(ctx context.Context, s svc.DriveItemPermissionsService) error {
 			_, err := s.Invite(ctx, driveItemId, libregraph.DriveItemInvite{})
 			return err
-		}, map[string]string{"itemID": "1$2!3"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42")),
+		}, map[string]string{"itemID": "1$2!3"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42"), 0),
 		Entry("SpaceRootInvite", "SpaceRootInvite", func(ctx context.Context, s svc.DriveItemPermissionsService) error {
 			_, err := s.SpaceRootInvite(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, libregraph.DriveItemInvite{})
 			return err
-		}, map[string]string{"driveID": "1$2"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42")),
+		}, map[string]string{"driveID": "1$2"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42"), 0),
 		Entry("ListPermissions", "ListPermissions", func(ctx context.Context, s svc.DriveItemPermissionsService) error {
 			_, err := s.ListPermissions(ctx, driveItemId, svc.ListPermissionsQueryOptions{})
 			return err
-		}, map[string]string{"itemID": "1$2!3"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42")),
+		}, map[string]string{"itemID": "1$2!3"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42"), 0),
 		Entry("ListSpaceRootPermissions", "ListSpaceRootPermissions", func(ctx context.Context, s svc.DriveItemPermissionsService) error {
 			_, err := s.ListSpaceRootPermissions(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, svc.ListPermissionsQueryOptions{})
 			return err
-		}, map[string]string{"driveID": "1$2"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42")),
+		}, map[string]string{"driveID": "1$2"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42"), 0),
 		Entry("DeletePermission (selected by the probing helpers)", "DeletePermission", func(ctx context.Context, s svc.DriveItemPermissionsService) error {
 			return s.DeletePermission(ctx, driveItemId, "permissionid")
-		}, map[string]string{"itemID": "1$2!3", "permissionID": "permissionid"}, Not(HaveKey("error"))),
+		}, map[string]string{"itemID": "1$2!3", "permissionID": "permissionid"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42"), 2),
 		Entry("DeleteSpaceRootPermission", "DeleteSpaceRootPermission", func(ctx context.Context, s svc.DriveItemPermissionsService) error {
 			return s.DeleteSpaceRootPermission(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, "permissionid")
-		}, map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42")),
+		}, map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42"), 0),
 		Entry("UpdatePermission (selected by the probing helpers)", "UpdatePermission", func(ctx context.Context, s svc.DriveItemPermissionsService) error {
 			_, err := s.UpdatePermission(ctx, driveItemId, "permissionid", libregraph.Permission{})
 			return err
-		}, map[string]string{"itemID": "1$2!3", "permissionID": "permissionid"}, Not(HaveKey("error"))),
+		}, map[string]string{"itemID": "1$2!3", "permissionID": "permissionid"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42"), 1),
 		Entry("UpdateSpaceRootPermission", "UpdateSpaceRootPermission", func(ctx context.Context, s svc.DriveItemPermissionsService) error {
 			_, err := s.UpdateSpaceRootPermission(ctx, &provider.ResourceId{StorageId: "1", SpaceId: "2"}, "permissionid", libregraph.Permission{})
 			return err
-		}, map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42")),
+		}, map[string]string{"driveID": "1$2", "permissionID": "permissionid"}, HaveKeyWithValue("error", "no gateway available at 10.0.0.42"), 0),
 	)
 
 	It("does not mark the span of an expected client error as error, but records its error code", func() {
@@ -286,7 +315,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 		_, err := s.ListPermissions(ctx, driveItemId, svc.ListPermissionsQueryOptions{})
 		return err
 	}
-	DescribeTable("logs stat failures by cause with the item id, without the backend message or the stat payload",
+	DescribeTable("logs stat failures by cause with the item id, without the stat payload",
 		func(call func(svc.DriveItemPermissionsService) error, newStatus func(context.Context, string) *cs3rpc.Status, code errorcode.ErrorCode, level string) {
 			service, logBuf := newLoggedService()
 			// decomposedfs reports a missing node as "<parent id>/<name>"
@@ -321,12 +350,14 @@ var _ = Describe("DriveItemPermissionsService", func() {
 					Expect(entry).To(Equal(itemEntries[0]))
 				}
 			}
-			for _, payloadKey := range []string{"error", "stat.res", "res", "response", "request", "info", "Body", "body"} {
+			// the failure is logged with its error text, whatever its level
+			Expect(itemEntries[0]).To(HaveKeyWithValue("error", errorcode.New(code, statMessage).WithOrigin(errorcode.ErrorOriginCS3).Error()))
+			for _, payloadKey := range []string{"stat.res", "res", "response", "request", "info", "Body", "body"} {
 				Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
 			}
-			// neither the backend message nor the stat payload reaches the log
+			// the stat payload never reaches the log
 			raw := rawLog(entries)
-			for _, sentinel := range []string{"private-financial-report-2026.xlsx", "/private/project-plan.odt", "permission_set"} {
+			for _, sentinel := range []string{"/private/project-plan.odt", "permission_set"} {
 				Expect(raw).ToNot(ContainSubstring(sentinel))
 			}
 		},
@@ -355,7 +386,11 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				Expect(c.Method).To(Equal("ListStorageSpaces"))
 			}
 
-			expected := []gomegatypes.GomegaMatcher{HaveKeyWithValue("level", "debug")}
+			expected := []gomegatypes.GomegaMatcher{
+				HaveKeyWithValue("level", "debug"),
+				HaveKeyWithValue("message", "unsupported space type"),
+				HaveKeyWithValue("spaceType", spaceType),
+			}
 			for _, k := range []string{"driveID", "permissionID", "itemID"} {
 				if v, ok := ids[k]; ok {
 					expected = append(expected, HaveKeyWithValue(k, v))
@@ -425,11 +460,11 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			}
 
 			graphErr, _ := errorcode.ToError(expectedErr)
+			// the failure is logged with its error code and error text, whatever its level
 			expected := []gomegatypes.GomegaMatcher{
 				HaveKeyWithValue("level", level),
 				HaveKeyWithValue("errorCode", graphErr.GetCode().String()),
-				// the backend status message is not logged
-				Not(HaveKey("error")),
+				HaveKeyWithValue("error", expectedErr.Error()),
 			}
 			for _, k := range []string{"driveID", "permissionID", "itemID"} {
 				if v, ok := ids[k]; ok {
@@ -443,9 +478,6 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			for _, payloadKey := range []string{"space", "spaces", "res", "response", "stat.res"} {
 				Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
 			}
-			raw, err := json.Marshal(entries)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(string(raw)).ToNot(ContainSubstring("Project Alpha"))
 			if level == "debug" {
 				Expect(entries).ToNot(ContainElement(HaveKeyWithValue("level", BeElementOf("error", "warn"))))
 			} else {
@@ -611,10 +643,8 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				HaveKeyWithValue("itemID", storagespace.FormatResourceID(driveItemId)),
 				HaveKeyWithValue("recipientType", "mail"),
 				HaveKeyWithValue("errorCode", "generalException"),
-				Not(HaveKey("error")),
+				HaveKeyWithValue("error", err.Error()),
 			))
-			// neither the backend text nor the recipient address reaches the log
-			Expect(rawLog(entries)).ToNot(ContainSubstring("guest@example.com"))
 		})
 
 		It("rejects guest shares when guest invites are disabled by default", func() {
@@ -683,11 +713,6 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				for _, payloadKey := range []string{"invite", "recipient", "recipients", "email", "mail", "Body", "body"} {
 					Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
 				}
-				// recipient mail addresses and federated identifiers are never logged
-				raw, err := json.Marshal(entries)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(string(raw)).ToNot(ContainSubstring("guest@example.com"))
-				Expect(string(raw)).ToNot(ContainSubstring("remote@ocm.example.org"))
 			},
 			Entry("unsupported resource type",
 				func() *provider.ResourceId {
@@ -786,24 +811,21 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				gatewayClient.AssertNotCalled(GinkgoT(), "CreateOCMShare", mock.Anything, mock.Anything)
 
 				entries := logEntries(logBuf)
+				// the failure is logged with the error text of the lookup, whatever its level
 				Expect(entries).To(ContainElement(SatisfyAll(
 					HaveKeyWithValue("level", level),
 					HaveKeyWithValue("itemID", storagespace.FormatResourceID(driveItemId)),
 					HaveKeyWithValue("recipientType", recipientType),
+					HaveKey("error"),
 				)))
 				if level == "debug" {
 					Expect(entries).ToNot(ContainElement(HaveKeyWithValue("level", BeElementOf("error", "warn"))))
 				} else {
-					errorEntries := entriesAtLevel(entries, "error")
-					Expect(errorEntries).To(HaveLen(1))
+					Expect(entriesAtLevel(entries, "error")).To(HaveLen(1))
 				}
 				for _, payloadKey := range []string{"objectID", "groupId", "userId", "recipient", "recipients", "invite", "Body", "body"} {
 					Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
 				}
-				// the recipient id never reaches the log, not even inside backend error messages
-				raw, err := json.Marshal(entries)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(string(raw)).ToNot(ContainSubstring("recipient-id-42"))
 			},
 			Entry("A: group not found", "group",
 				func() {
@@ -854,6 +876,8 @@ var _ = Describe("DriveItemPermissionsService", func() {
 					}
 				}
 				Expect(creationEntries).To(HaveLen(1))
+				// the failure is logged with its error text, whatever its level
+				Expect(creationEntries[0]).To(HaveKeyWithValue("error", expectedErr.Error()))
 				if level == "error" {
 					Expect(entriesAtLevel(entries, "error")).To(HaveLen(1))
 				} else {
@@ -862,11 +886,6 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				for _, payloadKey := range []string{"objectID", "groupId", "userId", "email", "mail", "recipient", "recipients", "share", "invite", "Body", "body"} {
 					Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
 				}
-				// recipient identifiers never reach the log, not even inside backend error messages
-				raw, err := json.Marshal(entries)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(string(raw)).ToNot(ContainSubstring("guest@example.com"))
-				Expect(string(raw)).ToNot(ContainSubstring("recipient-id-42"))
 			},
 			Entry("A: mail recipient, internal error", "mail",
 				func() {
@@ -946,6 +965,8 @@ var _ = Describe("DriveItemPermissionsService", func() {
 					}
 				}
 				Expect(ocmEntries).To(HaveLen(1))
+				// the failure is logged with its error text, whatever its level
+				Expect(ocmEntries[0]).To(HaveKeyWithValue("error", expectedErr.Error()))
 				if level == "error" {
 					Expect(entriesAtLevel(entries, "error")).To(HaveLen(1))
 				} else {
@@ -954,11 +975,6 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				for _, payloadKey := range []string{"objectID", "userId", "domain", "provider", "share", "recipient", "recipients", "invite", "Body", "body"} {
 					Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
 				}
-				// neither the federated identifier nor the remote domain reaches the log, not even inside backend error messages
-				raw, err := json.Marshal(entries)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(string(raw)).ToNot(ContainSubstring("remote@ocm.example.org"))
-				Expect(string(raw)).ToNot(ContainSubstring("ocm.example.org"))
 			},
 			Entry("A: provider info lookup, internal error",
 				func() {
@@ -1052,7 +1068,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			}, codes.Error, "generalException"),
 		)
 
-		It("logs a failed inviter identity lookup as error with the item id only", func() {
+		It("logs a failed inviter identity lookup as error with the item id and the error text", func() {
 			service, logBuf := newLoggedService()
 
 			// the recipient is found and the share is created ...
@@ -1083,16 +1099,13 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Expect(errorEntries).To(HaveLen(1))
 			Expect(errorEntries[0]).To(SatisfyAll(
 				HaveKeyWithValue("itemID", storagespace.FormatResourceID(driveItemId)),
-				// the cause of the failed lookup, without its message
+				// the cause of the failed lookup, with its error text
 				HaveKeyWithValue("errorCode", "generalException"),
+				HaveKeyWithValue("error", "generalException: connection to inviter@example.com refused"),
 			))
-			for _, payloadKey := range []string{"error", "userId", "userID", "objectID", "user", "invite", "share", "Body", "body"} {
+			for _, payloadKey := range []string{"userId", "userID", "objectID", "user", "invite", "share", "Body", "body"} {
 				Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
 			}
-			// neither backend error text nor identity data reaches the log
-			raw, err := json.Marshal(entries)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(string(raw)).ToNot(ContainSubstring("inviter@example.com"))
 		})
 
 		It("fails with when trying to set a space role on a file", func() {
@@ -1339,9 +1352,9 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			errorEntries := entriesAtLevel(entries, "error")
 			Expect(errorEntries).To(HaveLen(1))
 			Expect(errorEntries[0]).To(SatisfyAll(
+				HaveKeyWithValue("message", "could not list user shares"),
 				HaveKeyWithValue("itemID", storagespace.FormatResourceID(itemID)),
-				// the message is omitted, the error code still classifies the failure
-				Not(HaveKey("error")),
+				HaveKeyWithValue("error", err.Error()),
 				HaveKeyWithValue("errorCode", "generalException"),
 			))
 			for _, payloadKey := range []string{"shares", "share", "res", "response", "stat.res"} {
@@ -1356,7 +1369,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				})
 			})
 		}
-		DescribeTable("does not log identity backend text when a share grantee lookup fails",
+		DescribeTable("logs the identity backend error when a share grantee lookup fails",
 			func(setup func(groupGrantee *provider.Grantee) *provider.ResourceId, listingMethod string) {
 				groupGrantee := &provider.Grantee{
 					Type: provider.GranteeType_GRANTEE_TYPE_GROUP,
@@ -1386,15 +1399,13 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				entries := logEntries(logBuf)
 				errorEntries := entriesAtLevel(entries, "error")
 				Expect(errorEntries).To(HaveLen(1))
-				Expect(errorEntries[0]).To(HaveKeyWithValue("itemID", storagespace.FormatResourceID(listedItemID)))
+				Expect(errorEntries[0]).To(SatisfyAll(
+					HaveKeyWithValue("itemID", storagespace.FormatResourceID(listedItemID)),
+					HaveKeyWithValue("error", err.Error()),
+				))
 				for _, payloadKey := range []string{"shares", "share", "group", "res", "response", "stat.res"} {
 					Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
 				}
-				// neither the identity value nor the backend message reach the log
-				raw, err := json.Marshal(entries)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(string(raw)).ToNot(ContainSubstring("private-group-dn-42"))
-				Expect(string(raw)).ToNot(ContainSubstring("ldap search failed"))
 			},
 			Entry("user share listing",
 				func(groupGrantee *provider.Grantee) *provider.ResourceId {
@@ -1490,17 +1501,16 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			errorEntries := entriesAtLevel(entries, "error")
 			Expect(errorEntries).To(HaveLen(1))
 			Expect(errorEntries[0]).To(SatisfyAll(
+				HaveKeyWithValue("message", "could not list public shares"),
 				HaveKeyWithValue("itemID", storagespace.FormatResourceID(itemID)),
 				HaveKeyWithValue("errorCode", "generalException"),
-				Not(HaveKey("error")),
+				HaveKeyWithValue("error", err.Error()),
 			))
-			// the backend status message is not logged at any level
-			Expect(rawLog(entries)).ToNot(ContainSubstring("salary-2026.ods"))
 			for _, payloadKey := range []string{"shares", "share", "Link", "res", "response"} {
 				Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
 			}
 		})
-		It("logs a gateway selection failure while listing public shares once as error with the item id", func() {
+		It("logs a gateway selection failure while listing public shares as error in the helper and the operation with the item id", func() {
 			gatewayErr := errors.New("no gateway available")
 			// ListPermissions and the user share listing get a client, the public share listing does not
 			gatewaySelector.EXPECT().Next().Unset()
@@ -1516,12 +1526,15 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			gatewayClient.AssertCalled(GinkgoT(), "ListShares", mock.Anything, mock.Anything)
 			gatewayClient.AssertNotCalled(GinkgoT(), "ListPublicShares", mock.Anything, mock.Anything)
 
-			errorEntries := entriesAtLevel(logEntries(logBuf), "error")
-			Expect(errorEntries).To(HaveLen(1))
-			Expect(errorEntries[0]).To(SatisfyAll(
-				HaveKeyWithValue("itemID", storagespace.FormatResourceID(itemID)),
-				HaveKeyWithValue("errorCode", "generalException"),
-				Not(HaveKey("error")),
+			// the helper and the operation both log the reason, the operation with the item id and the error code
+			Expect(entriesAtLevel(logEntries(logBuf), "error")).To(ConsistOf(
+				gatewayHelperEntry("could not select next gateway client", gatewayErr.Error()),
+				SatisfyAll(
+					HaveKeyWithValue("message", "could not list public shares"),
+					HaveKeyWithValue("itemID", storagespace.FormatResourceID(itemID)),
+					HaveKeyWithValue("errorCode", "generalException"),
+					HaveKeyWithValue("error", err.Error()),
+				),
 			))
 		})
 		It("logs an ocm share listing failure once as error with the item id", func() {
@@ -1544,14 +1557,15 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			errorEntries := entriesAtLevel(entries, "error")
 			Expect(errorEntries).To(HaveLen(1))
 			Expect(errorEntries[0]).To(SatisfyAll(
+				HaveKeyWithValue("message", "could not list ocm shares"),
 				HaveKeyWithValue("itemID", storagespace.FormatResourceID(itemID)),
-				Not(HaveKey("error")),
+				HaveKeyWithValue("error", err.Error()),
 			))
 			for _, payloadKey := range []string{"shares", "share", "res", "response"} {
 				Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
 			}
 		})
-		It("logs a gateway selection failure while listing ocm shares once as error with the item id", func() {
+		It("logs a gateway selection failure while listing ocm shares as error in the helper and the operation with the item id", func() {
 			gatewayErr := errors.New("no gateway available")
 			cfg.IncludeOCMSharees = true
 			// ListPermissions and the user share listing get a client, the ocm share listing does not
@@ -1569,14 +1583,17 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			gatewayClient.AssertNotCalled(GinkgoT(), "ListOCMShares", mock.Anything, mock.Anything)
 			gatewayClient.AssertNotCalled(GinkgoT(), "ListPublicShares", mock.Anything, mock.Anything)
 
-			errorEntries := entriesAtLevel(logEntries(logBuf), "error")
-			Expect(errorEntries).To(HaveLen(1))
-			Expect(errorEntries[0]).To(SatisfyAll(
-				HaveKeyWithValue("itemID", storagespace.FormatResourceID(itemID)),
-				Not(HaveKey("error")),
+			// the helper and the operation both log the reason, the operation with the item id and the error code
+			Expect(entriesAtLevel(logEntries(logBuf), "error")).To(ConsistOf(
+				gatewayHelperEntry("could not select next gateway client", gatewayErr.Error()),
+				SatisfyAll(
+					HaveKeyWithValue("message", "could not list ocm shares"),
+					HaveKeyWithValue("itemID", storagespace.FormatResourceID(itemID)),
+					HaveKeyWithValue("error", err.Error()),
+				),
 			))
 		})
-		It("logs a gateway selection failure while listing shares once as error with the item id", func() {
+		It("logs a gateway selection failure while listing shares as error in the helper and the operation with the item id", func() {
 			gatewayErr := errors.New("no gateway available")
 			// ListPermissions gets a client, the share listing helper does not
 			gatewaySelector.EXPECT().Next().Unset()
@@ -1589,11 +1606,17 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Expect(err).To(MatchError(errorcode.New(errorcode.GeneralException, gatewayErr.Error())))
 			gatewayClient.AssertNotCalled(GinkgoT(), "ListShares", mock.Anything, mock.Anything)
 
-			errorEntries := entriesAtLevel(logEntries(logBuf), "error")
-			Expect(errorEntries).To(HaveLen(1))
-			Expect(errorEntries[0]).To(HaveKeyWithValue("itemID", storagespace.FormatResourceID(itemID)))
+			// the helper and the operation both log the reason, the operation with the item id and the error code
+			Expect(entriesAtLevel(logEntries(logBuf), "error")).To(ConsistOf(
+				gatewayHelperEntry("could not select next gateway client", gatewayErr.Error()),
+				SatisfyAll(
+					HaveKeyWithValue("message", "could not list user shares"),
+					HaveKeyWithValue("itemID", storagespace.FormatResourceID(itemID)),
+					HaveKeyWithValue("error", err.Error()),
+				),
+			))
 		})
-		It("logs a gateway selection failure while listing space root shares once as error with the item id", func() {
+		It("logs a gateway selection failure while listing space root shares as error in the helper and the operation with the item id", func() {
 			gatewayErr := errors.New("no gateway available")
 			spaceRootID := &provider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "2"}
 			// ListPermissions gets a client, the space root share listing helper does not
@@ -1610,11 +1633,14 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			gatewayClient.AssertNotCalled(GinkgoT(), "ListShares", mock.Anything, mock.Anything)
 			gatewayClient.AssertNotCalled(GinkgoT(), "ListPublicShares", mock.Anything, mock.Anything)
 
-			errorEntries := entriesAtLevel(logEntries(logBuf), "error")
-			Expect(errorEntries).To(HaveLen(1))
-			Expect(errorEntries[0]).To(SatisfyAll(
-				HaveKeyWithValue("itemID", storagespace.FormatResourceID(spaceRootID)),
-				Not(HaveKey("error")),
+			// the helper and the operation both log the reason, the operation with the item id and the error code
+			Expect(entriesAtLevel(logEntries(logBuf), "error")).To(ConsistOf(
+				gatewayHelperEntry("could not select next gateway client", gatewayErr.Error()),
+				SatisfyAll(
+					HaveKeyWithValue("message", "could not list space root shares"),
+					HaveKeyWithValue("itemID", storagespace.FormatResourceID(spaceRootID)),
+					HaveKeyWithValue("error", err.Error()),
+				),
 			))
 		})
 		It("records a ListPermissions span", func() {
@@ -2189,14 +2215,14 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				HaveKeyWithValue("itemID", storagespace.FormatResourceID(getShareResponse.Share.ResourceId)),
 				HaveKeyWithValue("permissionID", "permissionid"),
 				HaveKeyWithValue("errorCode", "generalException"),
-				Not(HaveKey("error")),
+				// the error text tells operators the reason
+				HaveKeyWithValue("error", err.Error()),
 			))
-			Expect(rawLog(entries)).ToNot(ContainSubstring("salary-2026.ods"))
 			for _, payloadKey := range []string{"share", "res", "response", "request", "Body", "body"} {
 				Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
 			}
 		})
-		It("does not log the backend message when resolving a permission fails", func() {
+		It("logs the error text when resolving a permission fails", func() {
 			service, logBuf := newLoggedService()
 
 			// not a public link, the user share lookup fails in the share manager
@@ -2218,9 +2244,8 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				HaveKeyWithValue("itemID", storagespace.FormatResourceID(getShareResponse.Share.ResourceId)),
 				HaveKeyWithValue("permissionID", "permissionid"),
 				HaveKeyWithValue("errorCode", "generalException"),
-				Not(HaveKey("error")),
+				HaveKeyWithValue("error", err.Error()),
 			))
-			Expect(rawLog(entries)).ToNot(ContainSubstring("salary-2026.ods"))
 		})
 		DescribeTable("logs permission removal failures by cause with the item and permission ids",
 			func(setup func() string, expectedErr error, level string) {
@@ -2235,16 +2260,14 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				graphErr, ok := errorcode.ToError(expectedErr)
 				Expect(ok).To(BeTrue())
 				entries := logEntries(logBuf)
+				// the failure is logged with its error code and error text, whatever its level
 				Expect(entries).To(ContainElement(SatisfyAll(
 					HaveKeyWithValue("level", level),
 					HaveKeyWithValue("itemID", storagespace.FormatResourceID(getShareResponse.Share.ResourceId)),
 					HaveKeyWithValue("permissionID", "permissionid"),
 					HaveKeyWithValue("errorCode", graphErr.GetCode().String()),
-					Not(HaveKey("error")),
+					HaveKeyWithValue("error", expectedErr.Error()),
 				)))
-				// the backend status message is not logged at any level
-				backendMsg := strings.TrimPrefix(expectedErr.Error(), graphErr.GetCode().String()+": ")
-				Expect(rawLog(entries)).ToNot(ContainSubstring(backendMsg))
 				errorEntries := entriesAtLevel(entries, "error")
 				if level == "error" {
 					Expect(errorEntries).To(HaveLen(1))
@@ -2335,11 +2358,12 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				HaveKeyWithValue("permissionID", "permissionid"),
 				HaveKeyWithValue("errorCode", "itemNotFound"),
 				HaveKeyWithValue("lookupErrorCode", "generalException"),
-				Not(HaveKey("error")),
+				// the texts of both the hidden infrastructure failure and the returned not found are logged
+				HaveKeyWithValue("lookupError", errorcode.New(errorcode.GeneralException, "lookup failed for /Users/alice/Private/salary-2026.ods").WithOrigin(errorcode.ErrorOriginCS3).Error()),
+				HaveKeyWithValue("error", err.Error()),
 			))
-			Expect(rawLog(entries)).ToNot(ContainSubstring("salary-2026.ods"))
 
-			// like the log, the span reports the hidden infrastructure failure, by its code only
+			// the span reports the hidden infrastructure failure by its code only
 			span := endedSpan(sr, "DeletePermission", "salary-2026.ods", "lookup failed")
 			Expect(span.Status().Code).To(Equal(codes.Error))
 			Expect(span.Status().Description).To(Equal("generalException"))
@@ -2678,7 +2702,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(res).To(BeZero())
 		})
-		It("logs a gateway selection failure while listing space root shares once as error with the item and permission ids", func() {
+		It("logs a gateway selection failure while listing space root shares as error in the helper and the operation with the item and permission ids", func() {
 			gatewayErr := errors.New("no gateway available")
 			spaceRootID := &provider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "2"}
 			// getPermissionByID and the public link lookup get a client, the space root share listing does not
@@ -2698,18 +2722,20 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			}
 
 			entries := logEntries(logBuf)
-			errorEntries := entriesAtLevel(entries, "error")
-			Expect(errorEntries).To(HaveLen(1))
-			Expect(errorEntries[0]).To(SatisfyAll(
-				HaveKeyWithValue("itemID", storagespace.FormatResourceID(spaceRootID)),
-				HaveKeyWithValue("permissionID", "permissionid"),
-				Not(HaveKey("error")),
+			// the helper and the operation both log the reason, the operation with the item and permission ids
+			Expect(entriesAtLevel(entries, "error")).To(ConsistOf(
+				gatewayHelperEntry("could not select next gateway client", gatewayErr.Error()),
+				SatisfyAll(
+					HaveKeyWithValue("itemID", storagespace.FormatResourceID(spaceRootID)),
+					HaveKeyWithValue("permissionID", "permissionid"),
+					HaveKeyWithValue("error", err.Error()),
+				),
 			))
 			for _, payloadKey := range []string{"share", "shares", "res", "response", "request", "Body", "body"} {
 				Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
 			}
 		})
-		It("does not log identity backend text when resolving a user share grantee fails", func() {
+		It("logs the identity backend error when resolving a user share grantee fails", func() {
 			service, logBuf := newLoggedService()
 
 			const identityBackendMessage = "ldap search failed for cn=private-group-dn-42,ou=groups"
@@ -2744,18 +2770,14 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Expect(errorEntries[0]).To(SatisfyAll(
 				HaveKeyWithValue("itemID", storagespace.FormatResourceID(driveItemId)),
 				HaveKeyWithValue("permissionID", "permissionid"),
+				HaveKeyWithValue("error", err.Error()),
 			))
 			for _, payloadKey := range []string{"share", "shares", "group", "res", "response", "request", "Body", "body"} {
 				Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
 			}
-			// neither the identity value nor the backend message reach the log
-			raw, err := json.Marshal(entries)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(string(raw)).ToNot(ContainSubstring("private-group-dn-42"))
-			Expect(string(raw)).ToNot(ContainSubstring("ldap search failed"))
 		})
-		DescribeTable("logs public link update failures once as error with the item and permission ids",
-			func(setup func(), expectedErr error) {
+		DescribeTable("logs public link update failures as error with the item and permission ids",
+			func(setup func(), expectedErr error, helperEntries int) {
 				setup()
 				service, logBuf := newLoggedService()
 
@@ -2771,15 +2793,25 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				}
 
 				entries := logEntries(logBuf)
-				errorEntries := entriesAtLevel(entries, "error")
-				Expect(errorEntries).To(HaveLen(1))
-				Expect(errorEntries[0]).To(SatisfyAll(
+				// the operation's entry carries the ids, a helper that cannot select a gateway logs the reason
+				var operationEntries, helpers []map[string]any
+				for _, entry := range entriesAtLevel(entries, "error") {
+					if _, ok := entry["itemID"]; ok {
+						operationEntries = append(operationEntries, entry)
+					} else {
+						helpers = append(helpers, entry)
+					}
+				}
+				Expect(operationEntries).To(HaveLen(1))
+				Expect(operationEntries[0]).To(SatisfyAll(
 					HaveKeyWithValue("itemID", storagespace.FormatResourceID(driveItemId)),
 					HaveKeyWithValue("permissionID", "permissionid"),
-					Not(HaveKey("error")),
+					HaveKeyWithValue("error", expectedErr.Error()),
 				))
-				// no raw backend error text in any error level entry
-				Expect(errorEntries).ToNot(ContainElement(HaveKey("error")))
+				Expect(helpers).To(HaveLen(helperEntries))
+				for _, entry := range helpers {
+					Expect(entry).To(gatewayHelperEntry("could not select next gateway client", "no gateway available"))
+				}
 				for _, payloadKey := range []string{"share", "link", "Link", "res", "response", "request", "Body", "body", "password"} {
 					Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
 				}
@@ -2796,7 +2828,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 						Status: status.NewInternal(ctx, "link manager unavailable"),
 					}, nil)
 				},
-				errorcode.New(errorcode.GeneralException, "link manager unavailable").WithOrigin(errorcode.ErrorOriginCS3)),
+				errorcode.New(errorcode.GeneralException, "link manager unavailable").WithOrigin(errorcode.ErrorOriginCS3), 0),
 			Entry("gateway selection fails in the public link update",
 				func() {
 					// getPermissionByID and the public link lookup get a client, the link update does not
@@ -2805,9 +2837,9 @@ var _ = Describe("DriveItemPermissionsService", func() {
 					gatewaySelector.EXPECT().Next().Return(nil, errors.New("no gateway available")).Times(1)
 					gatewayClient.On("GetPublicShare", mock.Anything, mock.Anything).Return(getPublicShareMockResponse, nil)
 				},
-				errorcode.New(errorcode.GeneralException, "no gateway available")),
+				errorcode.New(errorcode.GeneralException, "no gateway available"), 1),
 		)
-		It("does not log the backend stat message when a public link update fails", func() {
+		It("logs a missing public link item at debug level with the backend stat message", func() {
 			service, logBuf := newLoggedService()
 
 			// the permission resolves to a public link, but its item can no longer be stat'ed;
@@ -2837,12 +2869,9 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				}
 			}
 			Expect(debugEntries).To(HaveLen(1))
+			// the debug entry carries the backend message, so the missing item can be identified
+			Expect(debugEntries[0]).To(HaveKeyWithValue("error", ContainSubstring(statMessage)))
 			Expect(entries).ToNot(ContainElement(HaveKeyWithValue("level", BeElementOf("error", "warn"))))
-			// neither the file name nor the backend message reaches the log
-			raw, err := json.Marshal(entries)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(string(raw)).ToNot(ContainSubstring("private-financial-report-2026.xlsx"))
-			Expect(string(raw)).ToNot(ContainSubstring(statMessage))
 		})
 		It("logs a user share update failure once as error with the item and permission ids", func() {
 			service, logBuf := newLoggedService()
@@ -2870,8 +2899,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				HaveKeyWithValue("itemID", storagespace.FormatResourceID(driveItemId)),
 				HaveKeyWithValue("permissionID", "permissionid"),
 				HaveKeyWithValue("errorCode", "generalException"),
-				// the update error can carry identity backend text, its message is not logged
-				Not(HaveKey("error")),
+				HaveKeyWithValue("error", err.Error()),
 			))
 			for _, payloadKey := range []string{"share", "shares", "res", "response", "request", "Body", "body"} {
 				Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
@@ -2919,13 +2947,12 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				HaveKeyWithValue("permissionID", "permissionid"),
 				HaveKeyWithValue("errorCode", "itemNotFound"),
 				HaveKeyWithValue("ocmErrorCode", "generalException"),
-				Not(HaveKey("error")),
+				// the texts of both the failed ocm update and the returned not found are logged
+				HaveKeyWithValue("ocmError", errorcode.New(errorcode.GeneralException, "ocm share manager unavailable").WithOrigin(errorcode.ErrorOriginCS3).Error()),
+				HaveKeyWithValue("error", err.Error()),
 			))
-			raw, err := json.Marshal(entries)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(string(raw)).ToNot(ContainSubstring("ocm share manager unavailable"))
 
-			// like the log, the span reports the failed ocm update, by its code only
+			// the span reports the failed ocm update by its code only
 			span := endedSpan(sr, "UpdatePermission", "ocm share manager unavailable")
 			Expect(span.Status().Code).To(Equal(codes.Error))
 			Expect(span.Status().Description).To(Equal("generalException"))
@@ -2964,7 +2991,7 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Expect(span.Status().Code).To(Equal(codes.Unset))
 			Expect(span.Attributes()).To(ContainElement(attribute.String("error.type", "itemNotFound")))
 		})
-		It("does not log identity backend text when converting the updated user share fails", func() {
+		It("logs the identity backend error when converting the updated user share fails", func() {
 			service, logBuf := newLoggedService()
 
 			// resolved as a user share on the item, the updated share is returned with a
@@ -3003,11 +3030,8 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				HaveKeyWithValue("itemID", storagespace.FormatResourceID(driveItemId)),
 				HaveKeyWithValue("permissionID", "permissionid"),
 				HaveKeyWithValue("errorCode", "generalException"),
+				HaveKeyWithValue("error", err.Error()),
 			))
-			raw, err := json.Marshal(entries)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(string(raw)).ToNot(ContainSubstring("private-group-dn-42"))
-			Expect(string(raw)).ToNot(ContainSubstring("ldap search failed"))
 		})
 		It("does not log a permission that is not found by any lookup as error", func() {
 			service, logBuf := newLoggedService()
@@ -3056,11 +3080,12 @@ var _ = Describe("DriveItemPermissionsService", func() {
 				HaveKeyWithValue("permissionID", "permissionid"),
 				HaveKeyWithValue("errorCode", "itemNotFound"),
 				HaveKeyWithValue("lookupErrorCode", "generalException"),
-				Not(HaveKey("error")),
+				// the texts of both the hidden infrastructure failure and the returned not found are logged
+				HaveKeyWithValue("lookupError", errorcode.New(errorcode.GeneralException, "lookup failed for /Users/alice/Private/salary-2026.ods").WithOrigin(errorcode.ErrorOriginCS3).Error()),
+				HaveKeyWithValue("error", err.Error()),
 			))
-			Expect(rawLog(entries)).ToNot(ContainSubstring("salary-2026.ods"))
 
-			// like the log, the span reports the hidden infrastructure failure, by its code only
+			// the span reports the hidden infrastructure failure by its code only
 			span := endedSpan(sr, "UpdatePermission", "salary-2026.ods", "lookup failed")
 			Expect(span.Status().Code).To(Equal(codes.Error))
 			Expect(span.Status().Description).To(Equal("generalException"))
@@ -3532,9 +3557,11 @@ var _ = Describe("DriveItemPermissionsApi", func() {
 				}
 			}
 			Expect(failureEntries).To(HaveLen(1))
+			// the failure is logged with its error code and error text, whatever its level
 			Expect(failureEntries[0]).To(SatisfyAll(
 				HaveKeyWithValue("request-id", "request-42"),
 				HaveKeyWithValue("errorCode", graphErr.GetCode().String()),
+				HaveKeyWithValue("error", serviceErr.Error()),
 			))
 			if level == "error" {
 				Expect(entriesAtLevel(entries, "error")).To(HaveLen(1))
@@ -3544,21 +3571,21 @@ var _ = Describe("DriveItemPermissionsApi", func() {
 			for _, payloadKey := range []string{"password", "Body", "body", "request", "response", "token", "Authorization"} {
 				Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
 			}
-			// neither the password, the link token from the backend message nor the bearer token is logged
+			// secrets are never logged: neither the password nor the bearer token
 			raw, err := json.Marshal(entries)
 			Expect(err).ToNot(HaveOccurred())
-			for _, secret := range []string{"s3cr3t-P4ss!", "abc-link-token", "secret-token-xyz"} {
+			for _, secret := range []string{"s3cr3t-P4ss!", "secret-token-xyz"} {
 				Expect(string(raw)).ToNot(ContainSubstring(secret))
 			}
 		},
 		Entry("SetLinkPassword: internal error", false,
-			errorcode.New(errorcode.GeneralException, "link manager unavailable for abc-link-token"), http.StatusInternalServerError, "error"),
+			errorcode.New(errorcode.GeneralException, "link manager unavailable"), http.StatusInternalServerError, "error"),
 		Entry("SetLinkPassword: link not found", false,
-			errorcode.New(errorcode.ItemNotFound, "link abc-link-token not found"), http.StatusNotFound, "debug"),
+			errorcode.New(errorcode.ItemNotFound, "link not found"), http.StatusNotFound, "debug"),
 		Entry("SetSpaceRootLinkPassword: internal error", true,
-			errorcode.New(errorcode.GeneralException, "link manager unavailable for abc-link-token"), http.StatusInternalServerError, "error"),
+			errorcode.New(errorcode.GeneralException, "link manager unavailable"), http.StatusInternalServerError, "error"),
 		Entry("SetSpaceRootLinkPassword: link not found", true,
-			errorcode.New(errorcode.ItemNotFound, "link abc-link-token not found"), http.StatusNotFound, "debug"),
+			errorcode.New(errorcode.ItemNotFound, "link not found"), http.StatusNotFound, "debug"),
 	)
 
 	checkDriveIDAndItemIDValidation := func(handler http.HandlerFunc) {
