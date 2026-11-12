@@ -30,6 +30,7 @@ import (
 
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
@@ -54,7 +55,7 @@ func (fs *Decomposedfs) DownloadRevision(ctx context.Context, ref *provider.Refe
 }
 
 // RestoreRevision restores the specified revision of the resource
-func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Reference, revisionKey string) (returnErr error) {
+func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Reference, revisionKey string) (_ *storage.RestoreRevisionResult, returnErr error) {
 	_, span := tracer.Start(ctx, "RestoreRevision")
 	defer span.End()
 	log := appctx.GetLogger(ctx)
@@ -63,47 +64,46 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 	kp := strings.SplitN(revisionKey, node.RevisionIDDelimiter, 2)
 	if len(kp) != 2 {
 		log.Error().Str("revisionKey", revisionKey).Msg("malformed revisionKey")
-		return errtypes.NotFound(revisionKey)
+		return nil, errtypes.NotFound(revisionKey)
 	}
 
 	spaceID := ref.ResourceId.SpaceId
 	// check if the node is available and has not been deleted
 	n, err := node.ReadNode(ctx, fs.lu, spaceID, kp[0], "", false, nil, false)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !n.Exists {
 		err = errtypes.NotFound(filepath.Join(n.ParentID, n.Name))
-		return err
+		return nil, err
 	}
 
 	rp, err := fs.p.AssemblePermissions(ctx, n)
 	switch {
 	case err != nil:
-		return err
+		return nil, err
 	case !rp.RestoreFileVersion:
 		f, _ := storagespace.FormatReference(ref)
 		if rp.Stat {
-			return errtypes.PermissionDenied(f)
+			return nil, errtypes.PermissionDenied(f)
 		}
-		return errtypes.NotFound(f)
+		return nil, errtypes.NotFound(f)
 	}
 
-	// Set space owner in context
-	storagespace.ContextSendSpaceOwnerID(ctx, n.SpaceOwnerOrManager(ctx))
+	spaceOwner := n.SpaceOwnerOrManager(ctx)
 
 	// check lock
 	if err := n.CheckLock(ctx); err != nil {
-		return err
+		return nil, err
 	}
 	if n.IsProcessing(ctx) {
-		return errtypes.ResourceProcessing(ref.String())
+		return nil, errtypes.ResourceProcessing(ref.String())
 	}
 
 	// write lock node before copying metadata
 	unlock, err := fs.lu.MetadataBackend().Lock(n)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer func() {
 		_ = unlock()
@@ -114,12 +114,12 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 	mtime, err := n.GetMTime(ctx)
 	if err != nil {
 		log.Error().Err(err).Interface("ref", ref).Str("originalnode", kp[0]).Str("revisionKey", revisionKey).Msg("cannot read mtime")
-		return err
+		return nil, err
 	}
 
 	// create a revision of the current node
 	if _, err := fs.tp.CreateRevision(ctx, n, mtime.UTC().Format(time.RFC3339Nano)); err != nil {
-		return err
+		return nil, err
 	}
 
 	// revision 5, current 10 (restore a smaller blob) -> 5-10 = -5
@@ -127,14 +127,14 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 	revisionNode := node.NewBaseNode(spaceID, revisionKey, fs.lu)
 	revisionSize, err := fs.lu.MetadataBackend().GetInt64(ctx, revisionNode, prefixes.BlobsizeAttr)
 	if err != nil {
-		return errtypes.InternalError("failed to read blob size xattr from old revision")
+		return nil, errtypes.InternalError("failed to read blob size xattr from old revision")
 	}
 	sizeDiff := revisionSize - n.Blobsize
 
 	// restore revision
 	restoredRevisionPath := fs.lu.InternalPath(spaceID, revisionKey)
 	if err := fs.tp.RestoreRevision(ctx, revisionNode, n, time.Now()); err != nil {
-		return err
+		return nil, err
 	}
 
 	// drop old revision
@@ -151,7 +151,10 @@ func (fs *Decomposedfs) RestoreRevision(ctx context.Context, ref *provider.Refer
 		log.Warn().Err(err).Interface("ref", ref).Str("originalnode", kp[0]).Str("revisionKey", revisionKey).Msg("could not purge old revision from cache, continuing")
 	}
 
-	return fs.tp.Propagate(ctx, n, sizeDiff)
+	if err := fs.tp.Propagate(ctx, n, sizeDiff); err != nil {
+		return nil, err
+	}
+	return &storage.RestoreRevisionResult{SpaceOwner: spaceOwner, SpaceID: n.SpaceID}, nil
 }
 
 // DeleteRevision deletes the specified revision of the resource
@@ -222,7 +225,7 @@ func (fs *Decomposedfs) getRevisionNode(ctx context.Context, ref *provider.Refer
 	}
 
 	// Set space owner in context
-	storagespace.ContextSendSpaceOwnerID(ctx, n.SpaceOwnerOrManager(ctx))
+	storagespace.ContextSetSpaceOwner(ctx, n.SpaceOwnerOrManager(ctx))
 
 	return n, nil
 }
