@@ -6,6 +6,7 @@ import (
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/opencloud-eu/opencloud/pkg/log"
+	ocmetrics "github.com/opencloud-eu/opencloud/pkg/metrics"
 	"github.com/opencloud-eu/opencloud/services/activitylog/pkg/config"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -24,6 +25,7 @@ type Options struct {
 	GatewaySelector     pool.Selectable[gateway.GatewayAPIClient]
 	WriteBufferDuration time.Duration
 	NumConsumers        int
+	Metrics             *ocmetrics.Metrics
 }
 
 func Context(ctx context.Context) Option {
@@ -70,5 +72,12 @@ func GatewaySelector(gatewaySelector pool.Selectable[gateway.GatewayAPIClient]) 
 func NumConsumers(num int) Option {
 	return func(o *Options) {
 		o.NumConsumers = num
+	}
+}
+
+// Metrics configures the metrics to record the processed events with
+func Metrics(m *ocmetrics.Metrics) Option {
+	return func(o *Options) {
+		o.Metrics = m
 	}
 }
