@@ -161,11 +161,15 @@ func (g Graph) UnassignTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The requested tags, split and cleaned up the same way as the stored ones,
+	// so that e.g. [""] or [","] count as no tags at all.
+	requested := tags.New(unassignment.Tags...).AsSlice()
+
 	// A request without any tags is treated as malformed. That is a choice:
 	// as it asks to remove nothing, succeeding with 200 or 204 would be
 	// defensible too, but an empty list is more likely a client bug than
 	// intended.
-	if len(unassignment.Tags) == 0 {
+	if len(requested) == 0 {
 		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "no tags in tag unassignment request")
 		return
 	}
@@ -228,7 +232,13 @@ func (g Graph) UnassignTags(w http.ResponseWriter, r *http.Request) {
 	// is the same, and the event below still goes out, so that the search
 	// index drops tags it may have although the resource doesn't.
 	allTags := tags.New(currentTags)
-	if allTags.Remove(unassignment.Tags...) {
+	removed := make([]string, 0, len(requested))
+	for _, tag := range requested {
+		if allTags.Remove(tag) {
+			removed = append(removed, tag)
+		}
+	}
+	if len(removed) > 0 {
 		resp, err := client.SetArbitraryMetadata(ctx, &provider.SetArbitraryMetadataRequest{
 			Ref: &provider.Reference{ResourceId: &rid},
 			ArbitraryMetadata: &provider.ArbitraryMetadata{
@@ -239,14 +249,21 @@ func (g Graph) UnassignTags(w http.ResponseWriter, r *http.Request) {
 		})
 		if err != nil || resp.GetStatus().GetCode() != rpc.Code_CODE_OK {
 			logger.Error().Err(err).Interface("status", resp.GetStatus()).Msg("error setting tags")
+			if resp.GetStatus().GetCode() == rpc.Code_CODE_LOCKED {
+				errorcode.InvalidRequest.Render(w, r, http.StatusLocked, "file is locked")
+				return
+			}
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 	}
 
 	if g.eventsPublisher != nil {
+		// Tags lists only the tags that were actually removed, and is empty
+		// when the resource had none of them. The event is sent in that case
+		// too, so that consumers such as search read the resource again.
 		ev := events.TagsRemoved{
-			Tags: strings.Join(unassignment.Tags, ","),
+			Tags: strings.Join(removed, ","),
 			Ref: &provider.Reference{
 				ResourceId: &rid,
 				Path:       ".",

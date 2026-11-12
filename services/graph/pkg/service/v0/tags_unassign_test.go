@@ -132,31 +132,44 @@ var _ = Describe("UnassignTags", func() {
 	It("succeeds for a tag the resource doesn't have, without changing it, and still sends the event", func() {
 		resourceHasTags("a,b")
 		// no SetArbitraryMetadata expected: the mock fails the test if it is called
-		expectEvent("x", nil)
+		expectEvent("", nil)
 		unassignTags("x")
 		Expect(tape.Code).To(Equal(http.StatusOK))
 	})
 
 	It("succeeds for a resource without any tags", func() {
 		resourceHasTags("")
-		expectEvent("x", nil)
+		expectEvent("", nil)
 		unassignTags("x")
 		Expect(tape.Code).To(Equal(http.StatusOK))
 	})
 
-	It("removes the tags the resource has, and sends the event for all requested tags", func() {
+	It("removes the tags the resource has, and sends the event only for those", func() {
 		resourceHasTags("a,b,c")
 		expectStoredTags("b")
-		expectEvent("a,x,c", nil)
+		expectEvent("a,c", nil)
 		unassignTags("a", "x", "c")
 		Expect(tape.Code).To(Equal(http.StatusOK))
 	})
 
-	It("rejects a request without tags", func() {
-		// no gateway call and no event expected
-		unassignTags()
-		Expect(tape.Code).To(Equal(http.StatusBadRequest))
+	It("lists a tag requested twice only once in the event", func() {
+		resourceHasTags("a,b")
+		expectStoredTags("b")
+		expectEvent("a", nil)
+		unassignTags("a", "a,a")
+		Expect(tape.Code).To(Equal(http.StatusOK))
 	})
+
+	DescribeTable("rejects a request without tags",
+		func(tags ...string) {
+			// no gateway call and no event expected
+			unassignTags(tags...)
+			Expect(tape.Code).To(Equal(http.StatusBadRequest))
+		},
+		Entry("no tags at all"),
+		Entry("an empty tag", ""),
+		Entry("only separators", ","),
+	)
 
 	It("sends no event if the tags can't be stored", func() {
 		resourceHasTags("a,b")
@@ -164,6 +177,14 @@ var _ = Describe("UnassignTags", func() {
 			Return(&provider.SetArbitraryMetadataResponse{Status: status.NewInternal(context.Background(), "failure")}, nil)
 		unassignTags("a")
 		Expect(tape.Code).To(Equal(http.StatusInternalServerError))
+	})
+
+	It("answers 423 and sends no event if the resource is locked", func() {
+		resourceHasTags("a,b")
+		gatewayClient.EXPECT().SetArbitraryMetadata(mock.Anything, mock.Anything).
+			Return(&provider.SetArbitraryMetadataResponse{Status: status.NewLocked(context.Background(), "locked")}, nil)
+		unassignTags("a")
+		Expect(tape.Code).To(Equal(http.StatusLocked))
 	})
 
 	It("keeps the removal if the event can't be sent", func() {
