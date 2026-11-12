@@ -7,8 +7,10 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 
 	gateway "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
+	cs3rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	collaborationv1beta1 "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	storageprovider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/go-chi/chi/v5"
@@ -27,6 +29,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/mocks"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
+	graphm "github.com/opencloud-eu/opencloud/services/graph/pkg/middleware"
 	svc "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
 )
 
@@ -42,7 +45,7 @@ var _ = Describe("DrivesDriveItemService", func() {
 		gatewayClient = cs3mocks.NewGatewayAPIClient(GinkgoT())
 
 		gatewaySelector = mocks.NewSelectable[gateway.GatewayAPIClient](GinkgoT())
-		gatewaySelector.EXPECT().Next().Return(gatewayClient, nil)
+		gatewaySelector.EXPECT().Next().Return(gatewayClient, nil).Maybe()
 
 		service, err := svc.NewDrivesDriveItemService(logger, gatewaySelector)
 		Expect(err).ToNot(HaveOccurred())
@@ -365,7 +368,6 @@ var _ = Describe("DrivesDriveItemService", func() {
 
 	var _ = Describe("MountShare", func() {
 		It("fails if name is interpreted as absolute path", func() {
-			_, _ = gatewaySelector.Next() // make mockery call count happy
 			_, err := drivesDriveItemService.MountShare(context.Background(), nil, "/some")
 			Expect(err).To(MatchError(svc.ErrAbsoluteNamePath))
 		})
@@ -478,6 +480,216 @@ var _ = Describe("DrivesDriveItemService", func() {
 			Expect(shares).To(HaveLen(1))
 		})
 	})
+
+	var _ = Describe("CreateChild", func() {
+		parentID := &storageprovider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "2"}
+
+		It("rejects invalid names", func() {
+			for _, name := range []string{"", ".", "..", "a/b", "/a"} {
+				_, err := drivesDriveItemService.CreateChild(context.Background(), parentID, name, true, false)
+				Expect(err).To(MatchError(svc.ErrInvalidItemName))
+			}
+		})
+
+		It("creates a folder", func() {
+			gatewayClient.
+				EXPECT().
+				CreateContainer(mock.Anything, mock.Anything, mock.Anything).
+				RunAndReturn(func(ctx context.Context, request *storageprovider.CreateContainerRequest, _ ...grpc.CallOption) (*storageprovider.CreateContainerResponse, error) {
+					Expect(request.GetRef().GetResourceId().GetOpaqueId()).To(Equal("2"))
+					Expect(request.GetRef().GetPath()).To(Equal("./New Folder"))
+					return &storageprovider.CreateContainerResponse{Status: status.NewOK(ctx)}, nil
+				}).
+				Once()
+			gatewayClient.
+				EXPECT().
+				Stat(mock.Anything, mock.Anything, mock.Anything).
+				Return(&storageprovider.StatResponse{
+					Status: status.NewOK(context.Background()),
+					Info:   &storageprovider.ResourceInfo{Id: &storageprovider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "3"}},
+				}, nil).
+				Times(2)
+
+			info, err := drivesDriveItemService.CreateChild(context.Background(), parentID, "New Folder", true, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(info.GetId().GetOpaqueId()).To(Equal("3"))
+		})
+
+		It("creates an empty file", func() {
+			gatewayClient.
+				EXPECT().
+				TouchFile(mock.Anything, mock.Anything, mock.Anything).
+				RunAndReturn(func(ctx context.Context, request *storageprovider.TouchFileRequest, _ ...grpc.CallOption) (*storageprovider.TouchFileResponse, error) {
+					Expect(request.GetRef().GetPath()).To(Equal("./file.txt"))
+					return &storageprovider.TouchFileResponse{Status: status.NewOK(ctx)}, nil
+				}).
+				Once()
+			gatewayClient.
+				EXPECT().
+				Stat(mock.Anything, mock.Anything, mock.Anything).
+				Return(&storageprovider.StatResponse{
+					Status: status.NewOK(context.Background()),
+					Info:   &storageprovider.ResourceInfo{Id: &storageprovider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "3"}},
+				}, nil).
+				Times(2)
+
+			_, err := drivesDriveItemService.CreateChild(context.Background(), parentID, "file.txt", false, false)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("fails with nameAlreadyExists without replace", func() {
+			gatewayClient.
+				EXPECT().
+				TouchFile(mock.Anything, mock.Anything, mock.Anything).
+				Return(&storageprovider.TouchFileResponse{Status: status.NewAlreadyExists(context.Background(), nil, "exists")}, nil).
+				Once()
+
+			_, err := drivesDriveItemService.CreateChild(context.Background(), parentID, "file.txt", false, false)
+			var lgErr errorcode.Error
+			Expect(errors.As(err, &lgErr)).To(BeTrue())
+			Expect(lgErr.GetCode()).To(Equal(errorcode.NameAlreadyExists))
+		})
+
+		It("deletes the existing item with replace", func() {
+			gatewayClient.
+				EXPECT().
+				CreateContainer(mock.Anything, mock.Anything, mock.Anything).
+				Return(&storageprovider.CreateContainerResponse{Status: status.NewAlreadyExists(context.Background(), nil, "exists")}, nil).
+				Once()
+			gatewayClient.
+				EXPECT().
+				Delete(mock.Anything, mock.Anything, mock.Anything).
+				RunAndReturn(func(ctx context.Context, request *storageprovider.DeleteRequest, _ ...grpc.CallOption) (*storageprovider.DeleteResponse, error) {
+					Expect(request.GetRef().GetPath()).To(Equal("./New Folder"))
+					return &storageprovider.DeleteResponse{Status: status.NewOK(ctx)}, nil
+				}).
+				Once()
+			gatewayClient.
+				EXPECT().
+				CreateContainer(mock.Anything, mock.Anything, mock.Anything).
+				Return(&storageprovider.CreateContainerResponse{Status: status.NewOK(context.Background())}, nil).
+				Once()
+			gatewayClient.
+				EXPECT().
+				Stat(mock.Anything, mock.Anything, mock.Anything).
+				Return(&storageprovider.StatResponse{
+					Status: status.NewOK(context.Background()),
+					Info:   &storageprovider.ResourceInfo{Id: &storageprovider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "3"}},
+				}, nil).
+				Times(2)
+
+			_, err := drivesDriveItemService.CreateChild(context.Background(), parentID, "New Folder", true, true)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	var _ = Describe("ResolvePath", func() {
+		parentID := &storageprovider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "2"}
+		pathID := &storageprovider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "3"}
+
+		statResponse := func(code *cs3rpc.Status) *storageprovider.StatResponse {
+			res := &storageprovider.StatResponse{Status: code}
+			if code.GetCode() == cs3rpc.Code_CODE_OK {
+				res.Info = &storageprovider.ResourceInfo{Id: pathID}
+			}
+			return res
+		}
+
+		It("rejects invalid path segments", func() {
+			for _, relPath := range []string{"", ".", "..", "a/../b", "a//b"} {
+				_, err := drivesDriveItemService.ResolvePath(context.Background(), parentID, relPath, false)
+				Expect(err).To(MatchError(svc.ErrInvalidItemName))
+			}
+		})
+
+		It("returns the id without creating anything when the path exists", func() {
+			gatewayClient.
+				EXPECT().
+				Stat(mock.Anything, mock.Anything, mock.Anything).
+				RunAndReturn(func(ctx context.Context, request *storageprovider.StatRequest, _ ...grpc.CallOption) (*storageprovider.StatResponse, error) {
+					Expect(request.GetRef().GetPath()).To(Equal("./a/b"))
+					return statResponse(status.NewOK(ctx)), nil
+				}).
+				Once()
+
+			id, err := drivesDriveItemService.ResolvePath(context.Background(), parentID, "/a/b", true)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(id.GetOpaqueId()).To(Equal("3"))
+		})
+
+		It("returns ErrPathNotFound for a missing path without createMissing", func() {
+			gatewayClient.
+				EXPECT().
+				Stat(mock.Anything, mock.Anything, mock.Anything).
+				Return(statResponse(status.NewNotFound(context.Background(), "missing")), nil).
+				Once()
+
+			_, err := drivesDriveItemService.ResolvePath(context.Background(), parentID, "/a/b", false)
+			Expect(err).To(MatchError(svc.ErrPathNotFound))
+		})
+
+		It("returns ErrPathNotFound for a denied path without createMissing", func() {
+			gatewayClient.
+				EXPECT().
+				Stat(mock.Anything, mock.Anything, mock.Anything).
+				Return(statResponse(status.NewPermissionDenied(context.Background(), nil, "denied")), nil).
+				Once()
+
+			_, err := drivesDriveItemService.ResolvePath(context.Background(), parentID, "/a/b", false)
+			Expect(err).To(MatchError(svc.ErrPathNotFound))
+		})
+
+		It("creates the folders along a missing path, reusing existing ones", func() {
+			gatewayClient.
+				EXPECT().
+				Stat(mock.Anything, mock.Anything, mock.Anything).
+				Return(statResponse(status.NewNotFound(context.Background(), "missing")), nil).
+				Once()
+			gatewayClient.
+				EXPECT().
+				CreateContainer(mock.Anything, mock.Anything, mock.Anything).
+				RunAndReturn(func(ctx context.Context, request *storageprovider.CreateContainerRequest, _ ...grpc.CallOption) (*storageprovider.CreateContainerResponse, error) {
+					switch request.GetRef().GetPath() {
+					case "./a":
+						// exists already, reused
+						return &storageprovider.CreateContainerResponse{Status: status.NewAlreadyExists(ctx, nil, "exists")}, nil
+					case "./a/b":
+						return &storageprovider.CreateContainerResponse{Status: status.NewOK(ctx)}, nil
+					default:
+						Fail("unexpected CreateContainer path " + request.GetRef().GetPath())
+						return nil, nil
+					}
+				}).
+				Times(2)
+			gatewayClient.
+				EXPECT().
+				Stat(mock.Anything, mock.Anything, mock.Anything).
+				Return(statResponse(status.NewOK(context.Background())), nil).
+				Once()
+
+			id, err := drivesDriveItemService.ResolvePath(context.Background(), parentID, "/a/b", true)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(id.GetOpaqueId()).To(Equal("3"))
+		})
+
+		It("fails when folder creation is denied", func() {
+			gatewayClient.
+				EXPECT().
+				Stat(mock.Anything, mock.Anything, mock.Anything).
+				Return(statResponse(status.NewNotFound(context.Background(), "missing")), nil).
+				Once()
+			gatewayClient.
+				EXPECT().
+				CreateContainer(mock.Anything, mock.Anything, mock.Anything).
+				Return(&storageprovider.CreateContainerResponse{Status: status.NewPermissionDenied(context.Background(), nil, "denied")}, nil).
+				Once()
+
+			_, err := drivesDriveItemService.ResolvePath(context.Background(), parentID, "/a", true)
+			var lgErr errorcode.Error
+			Expect(errors.As(err, &lgErr)).To(BeTrue())
+			Expect(lgErr.GetCode()).To(Equal(errorcode.AccessDenied))
+		})
+	})
 })
 
 var _ = Describe("DrivesDriveItemApi", func() {
@@ -494,7 +706,9 @@ var _ = Describe("DrivesDriveItemApi", func() {
 		baseGraphProvider = mocks.NewBaseGraphProvider(GinkgoT())
 
 		drivesDriveItemProvider = mocks.NewDrivesDriveItemProvider(GinkgoT())
-		api, err := svc.NewDrivesDriveItemApi(drivesDriveItemProvider, baseGraphProvider, logger)
+		publicBaseURL, err := url.Parse("https://localhost:9200")
+		Expect(err).ToNot(HaveOccurred())
+		api, err := svc.NewDrivesDriveItemApi(drivesDriveItemProvider, baseGraphProvider, publicBaseURL, logger)
 		Expect(err).ToNot(HaveOccurred())
 
 		drivesDriveItemApi = api
@@ -1037,9 +1251,57 @@ var _ = Describe("DrivesDriveItemApi", func() {
 			Expect(jsonData.Get("code").String() + ": " + jsonData.Get("message").String()).To(Equal(svc.ErrInvalidDriveIDOrItemID.Error()))
 		})
 
-		failOnNonShareJailDriveID(drivesDriveItemApi.CreateDriveItem)
-
 		failOninvalidDriveItemBody(drivesDriveItemApi.CreateDriveItem)
+
+		It("fails on non share jail driveID when mounting a share", func() {
+			rCTX.URLParams.Add("driveID", "1$2")
+
+			w := httptest.NewRecorder()
+
+			driveItemJson, err := json.Marshal(libregraph.DriveItem{
+				RemoteItem: &libregraph.RemoteItem{
+					Id: conversions.ToPointer("123"),
+				},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			r := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(driveItemJson)).
+				WithContext(
+					context.WithValue(context.Background(), chi.RouteCtxKey, rCTX),
+				)
+
+			drivesDriveItemApi.CreateDriveItem(w, r)
+			Expect(w.Code).To(Equal(http.StatusBadRequest))
+
+			jsonData := gjson.Get(w.Body.String(), "error")
+			Expect(jsonData.Get("code").String() + ": " + jsonData.Get("message").String()).To(Equal(svc.ErrNotAShareJail.Error()))
+		})
+
+		It("fails if not exactly one facet is set", func() {
+			rCTX.URLParams.Add("driveID", "1$2")
+
+			for _, driveItem := range []libregraph.DriveItem{
+				{},
+				{Folder: &libregraph.Folder{}, File: &libregraph.OpenGraphFile{}},
+				{Folder: &libregraph.Folder{}, RemoteItem: &libregraph.RemoteItem{}},
+			} {
+				w := httptest.NewRecorder()
+
+				driveItemJson, err := json.Marshal(driveItem)
+				Expect(err).ToNot(HaveOccurred())
+
+				r := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(driveItemJson)).
+					WithContext(
+						context.WithValue(context.Background(), chi.RouteCtxKey, rCTX),
+					)
+
+				drivesDriveItemApi.CreateDriveItem(w, r)
+				Expect(w.Code).To(Equal(http.StatusBadRequest))
+
+				jsonData := gjson.Get(w.Body.String(), "error")
+				Expect(jsonData.Get("code").String() + ": " + jsonData.Get("message").String()).To(Equal(svc.ErrExactlyOneFacet.Error()))
+			}
+		})
 
 		It("fails on invalid request body id", func() {
 			rCTX.URLParams.Add("driveID", "a0ca6a90-a365-4782-871e-d44447bbc668$a0ca6a90-a365-4782-871e-d44447bbc668")
@@ -1047,7 +1309,9 @@ var _ = Describe("DrivesDriveItemApi", func() {
 
 			w := httptest.NewRecorder()
 
-			driveItemJson, err := json.Marshal(libregraph.DriveItem{})
+			driveItemJson, err := json.Marshal(libregraph.DriveItem{
+				RemoteItem: &libregraph.RemoteItem{},
+			})
 			Expect(err).ToNot(HaveOccurred())
 
 			r := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(driveItemJson)).
@@ -1178,6 +1442,272 @@ var _ = Describe("DrivesDriveItemApi", func() {
 
 			drivesDriveItemApi.CreateDriveItem(w, r)
 			Expect(w.Code).To(Equal(http.StatusCreated))
+		})
+
+		It("fails on an invalid conflictBehavior", func() {
+			rCTX.URLParams.Add("driveID", "1$2")
+
+			w := httptest.NewRecorder()
+
+			driveItemJson, err := json.Marshal(libregraph.DriveItem{
+				Name:   conversions.ToPointer("New Folder"),
+				Folder: &libregraph.Folder{},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			r := httptest.NewRequest(http.MethodPost, "/?%40libre.graph.conflictBehavior=rename", bytes.NewBuffer(driveItemJson)).
+				WithContext(
+					context.WithValue(context.Background(), chi.RouteCtxKey, rCTX),
+				)
+
+			drivesDriveItemApi.CreateDriveItem(w, r)
+			Expect(w.Code).To(Equal(http.StatusBadRequest))
+
+			jsonData := gjson.Get(w.Body.String(), "error")
+			Expect(jsonData.Get("code").String() + ": " + jsonData.Get("message").String()).To(Equal(svc.ErrInvalidConflictBehavior.Error()))
+		})
+
+		It("successfully creates a folder at the drive root", func() {
+			rCTX.URLParams.Add("driveID", "1$2")
+
+			w := httptest.NewRecorder()
+
+			driveItemJson, err := json.Marshal(libregraph.DriveItem{
+				Name:   conversions.ToPointer("New Folder"),
+				Folder: &libregraph.Folder{},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			drivesDriveItemProvider.
+				EXPECT().
+				CreateChild(mock.Anything, mock.MatchedBy(func(id *storageprovider.ResourceId) bool {
+					return id.GetStorageId() == "1" && id.GetSpaceId() == "2" && id.GetOpaqueId() == "2"
+				}), "New Folder", true, false).
+				Return(&storageprovider.ResourceInfo{
+					Id:   &storageprovider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "3"},
+					Path: "./New Folder",
+					Type: storageprovider.ResourceType_RESOURCE_TYPE_CONTAINER,
+				}, nil).
+				Once()
+
+			r := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(driveItemJson)).
+				WithContext(
+					context.WithValue(context.Background(), chi.RouteCtxKey, rCTX),
+				)
+
+			drivesDriveItemApi.CreateDriveItem(w, r)
+			Expect(w.Code).To(Equal(http.StatusCreated))
+			Expect(gjson.Get(w.Body.String(), "name").String()).To(Equal("New Folder"))
+			Expect(gjson.Get(w.Body.String(), "folder").Exists()).To(BeTrue())
+		})
+
+		It("passes replace on conflictBehavior=replace", func() {
+			rCTX.URLParams.Add("driveID", "1$2")
+
+			w := httptest.NewRecorder()
+
+			driveItemJson, err := json.Marshal(libregraph.DriveItem{
+				Name: conversions.ToPointer("file.txt"),
+				File: &libregraph.OpenGraphFile{},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			drivesDriveItemProvider.
+				EXPECT().
+				CreateChild(mock.Anything, mock.Anything, "file.txt", false, true).
+				Return(&storageprovider.ResourceInfo{
+					Id:   &storageprovider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "3"},
+					Path: "./file.txt",
+					Type: storageprovider.ResourceType_RESOURCE_TYPE_FILE,
+				}, nil).
+				Once()
+
+			r := httptest.NewRequest(http.MethodPost, "/?%40libre.graph.conflictBehavior=replace", bytes.NewBuffer(driveItemJson)).
+				WithContext(
+					context.WithValue(context.Background(), chi.RouteCtxKey, rCTX),
+				)
+
+			drivesDriveItemApi.CreateDriveItem(w, r)
+			Expect(w.Code).To(Equal(http.StatusCreated))
+		})
+	})
+
+	Describe("CreateChildDriveItem", func() {
+		failOnInvalidDriveIDOrItemID(drivesDriveItemApi.CreateChildDriveItem)
+
+		failOninvalidDriveItemBody(drivesDriveItemApi.CreateChildDriveItem)
+
+		It("fails if not exactly one of folder and file is set", func() {
+			rCTX.URLParams.Add("driveID", "1$2")
+			rCTX.URLParams.Add("itemID", "1$2!3")
+
+			for _, driveItem := range []libregraph.DriveItem{
+				{},
+				{Folder: &libregraph.Folder{}, File: &libregraph.OpenGraphFile{}},
+				{RemoteItem: &libregraph.RemoteItem{}},
+			} {
+				w := httptest.NewRecorder()
+
+				driveItemJson, err := json.Marshal(driveItem)
+				Expect(err).ToNot(HaveOccurred())
+
+				r := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(driveItemJson)).
+					WithContext(
+						context.WithValue(context.Background(), chi.RouteCtxKey, rCTX),
+					)
+
+				drivesDriveItemApi.CreateChildDriveItem(w, r)
+				Expect(w.Code).To(Equal(http.StatusBadRequest))
+
+				jsonData := gjson.Get(w.Body.String(), "error")
+				Expect(jsonData.Get("code").String() + ": " + jsonData.Get("message").String()).To(Equal(svc.ErrExactlyOneChildFacet.Error()))
+			}
+		})
+
+		It("renders the service error", func() {
+			rCTX.URLParams.Add("driveID", "1$2")
+			rCTX.URLParams.Add("itemID", "1$2!3")
+
+			w := httptest.NewRecorder()
+
+			driveItemJson, err := json.Marshal(libregraph.DriveItem{
+				Name:   conversions.ToPointer("New Folder"),
+				Folder: &libregraph.Folder{},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			drivesDriveItemProvider.
+				EXPECT().
+				CreateChild(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+				Return(nil, errorcode.New(errorcode.NameAlreadyExists, "already exists")).
+				Once()
+
+			r := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(driveItemJson)).
+				WithContext(
+					context.WithValue(context.Background(), chi.RouteCtxKey, rCTX),
+				)
+
+			drivesDriveItemApi.CreateChildDriveItem(w, r)
+			Expect(w.Code).To(Equal(http.StatusConflict))
+		})
+
+		It("successfully creates a file below the parent", func() {
+			rCTX.URLParams.Add("driveID", "1$2")
+			rCTX.URLParams.Add("itemID", "1$2!3")
+
+			w := httptest.NewRecorder()
+
+			driveItemJson, err := json.Marshal(libregraph.DriveItem{
+				Name: conversions.ToPointer("file.txt"),
+				File: &libregraph.OpenGraphFile{},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			drivesDriveItemProvider.
+				EXPECT().
+				CreateChild(mock.Anything, mock.MatchedBy(func(id *storageprovider.ResourceId) bool {
+					return id.GetStorageId() == "1" && id.GetSpaceId() == "2" && id.GetOpaqueId() == "3"
+				}), "file.txt", false, false).
+				Return(&storageprovider.ResourceInfo{
+					Id:       &storageprovider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "4"},
+					Path:     "./file.txt",
+					Type:     storageprovider.ResourceType_RESOURCE_TYPE_FILE,
+					MimeType: "text/plain",
+				}, nil).
+				Once()
+
+			r := httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(driveItemJson)).
+				WithContext(
+					context.WithValue(context.Background(), chi.RouteCtxKey, rCTX),
+				)
+
+			drivesDriveItemApi.CreateChildDriveItem(w, r)
+			Expect(w.Code).To(Equal(http.StatusCreated))
+			Expect(gjson.Get(w.Body.String(), "name").String()).To(Equal("file.txt"))
+			Expect(gjson.Get(w.Body.String(), "file.mimeType").String()).To(Equal("text/plain"))
+		})
+
+		It("resolves the parent path from the context first", func() {
+			rCTX.URLParams.Add("driveID", "1$2")
+			rCTX.URLParams.Add("itemID", "1$2!2")
+
+			w := httptest.NewRecorder()
+
+			driveItemJson, err := json.Marshal(libregraph.DriveItem{
+				Name:   conversions.ToPointer("New Folder"),
+				Folder: &libregraph.Folder{},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			parentID := &storageprovider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "3"}
+			drivesDriveItemProvider.
+				EXPECT().
+				ResolvePath(mock.Anything, mock.MatchedBy(func(id *storageprovider.ResourceId) bool {
+					return id.GetOpaqueId() == "2"
+				}), "/a/b", true).
+				Return(parentID, nil).
+				Once()
+			drivesDriveItemProvider.
+				EXPECT().
+				CreateChild(mock.Anything, parentID, "New Folder", true, false).
+				Return(&storageprovider.ResourceInfo{
+					Id:   &storageprovider.ResourceId{StorageId: "1", SpaceId: "2", OpaqueId: "4"},
+					Path: "./New Folder",
+					Type: storageprovider.ResourceType_RESOURCE_TYPE_CONTAINER,
+				}, nil).
+				Once()
+
+			ctx := context.WithValue(context.Background(), chi.RouteCtxKey, rCTX)
+			ctx = context.WithValue(ctx, graphm.ParentPathContextKey, "/a/b")
+			r := httptest.NewRequest(http.MethodPost, "/?%40libre.graph.missingParentsBehavior=create", bytes.NewBuffer(driveItemJson)).WithContext(ctx)
+
+			drivesDriveItemApi.CreateChildDriveItem(w, r)
+			Expect(w.Code).To(Equal(http.StatusCreated))
+		})
+
+		It("fails on an invalid missingParentsBehavior without calling the provider", func() {
+			rCTX.URLParams.Add("driveID", "1$2")
+			rCTX.URLParams.Add("itemID", "1$2!2")
+
+			w := httptest.NewRecorder()
+
+			driveItemJson, err := json.Marshal(libregraph.DriveItem{
+				Name:   conversions.ToPointer("New Folder"),
+				Folder: &libregraph.Folder{},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			ctx := context.WithValue(context.Background(), chi.RouteCtxKey, rCTX)
+			ctx = context.WithValue(ctx, graphm.ParentPathContextKey, "/a/b")
+			r := httptest.NewRequest(http.MethodPost, "/?%40libre.graph.missingParentsBehavior=maybe", bytes.NewBuffer(driveItemJson)).WithContext(ctx)
+
+			// no ResolvePath / CreateChild expectations: the provider must not be called
+			drivesDriveItemApi.CreateChildDriveItem(w, r)
+			Expect(w.Code).To(Equal(http.StatusBadRequest))
+
+			jsonData := gjson.Get(w.Body.String(), "error")
+			Expect(jsonData.Get("code").String() + ": " + jsonData.Get("message").String()).To(Equal(svc.ErrInvalidMissingParentsBehavior.Error()))
+		})
+
+		It("does not resolve parent folders when the request is invalid", func() {
+			rCTX.URLParams.Add("driveID", "1$2")
+			rCTX.URLParams.Add("itemID", "1$2!2")
+
+			w := httptest.NewRecorder()
+
+			driveItemJson, err := json.Marshal(libregraph.DriveItem{
+				Name:   conversions.ToPointer("New Folder"),
+				Folder: &libregraph.Folder{},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			ctx := context.WithValue(context.Background(), chi.RouteCtxKey, rCTX)
+			ctx = context.WithValue(ctx, graphm.ParentPathContextKey, "/a/b")
+			r := httptest.NewRequest(http.MethodPost, "/?%40libre.graph.conflictBehavior=rename", bytes.NewBuffer(driveItemJson)).WithContext(ctx)
+
+			// no ResolvePath / CreateChild expectations: the provider must not be called
+			drivesDriveItemApi.CreateChildDriveItem(w, r)
+			Expect(w.Code).To(Equal(http.StatusBadRequest))
 		})
 	})
 })
