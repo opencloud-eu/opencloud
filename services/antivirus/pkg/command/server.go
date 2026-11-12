@@ -3,7 +3,6 @@ package command
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/signal"
 
 	"github.com/opencloud-eu/opencloud/pkg/config/configlog"
@@ -43,8 +42,7 @@ func Server(cfg *config.Config) *cobra.Command {
 			{
 				svc, err := service.NewAntivirus(cfg, logger, traceProvider)
 				if err != nil {
-					logger.Error().Err(err).Str("server", "antivirus").Msg("Failed to initialize antivirus service")
-					os.Exit(1)
+					return fmt.Errorf("failed to initialize antivirus service: %w", err)
 				}
 
 				gr.Add(runner.New(cfg.Service.Name+".svc", func() error {
