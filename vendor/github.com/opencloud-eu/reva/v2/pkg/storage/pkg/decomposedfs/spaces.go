@@ -677,7 +677,7 @@ func (fs *Decomposedfs) UpdateStorageSpace(ctx context.Context, req *provider.Up
 
 	}
 
-	if !restore && len(metadata) == 0 && !permissions.IsViewer(sp) {
+	if !restore && len(metadata) == 0 && !permissions.IsSpaceViewer(sp) {
 		// you may land here when making an update request without changes
 		// check if user has access to the drive before continuing
 		return &provider.UpdateStorageSpaceResponse{
@@ -685,10 +685,10 @@ func (fs *Decomposedfs) UpdateStorageSpace(ctx context.Context, req *provider.Up
 		}, nil
 	}
 
-	if !permissions.IsManager(sp) {
+	if !permissions.IsSpaceManager(sp) {
 		// We are not a space manager. We need to check for additional permissions.
 		k := []string{prefixes.NameAttr, prefixes.SpaceDescriptionAttr, prefixes.SpaceContentTypeAttr}
-		if !permissions.IsEditor(sp) {
+		if !permissions.IsSpaceEditor(sp) {
 			k = append(k, prefixes.SpaceReadmeAttr, prefixes.SpaceAliasAttr, prefixes.SpaceImageAttr)
 		}
 
@@ -778,6 +778,26 @@ func (fs *Decomposedfs) DeleteStorageSpace(ctx context.Context, req *provider.De
 			return errtypes.NewErrtypeFromStatus(status.NewInvalid(ctx, "can't purge enabled space"))
 		}
 
+		// delete the blobs of all nodes first, so that a failed purge can be retried
+		// https://github.com/opencloud-eu/opencloud/issues/1865
+		// NOTE: This isn't needed when no s3 is used, but we can't differentiate that here...
+		spaceRoot := fs.lu.InternalSpaceRoot(spaceID)
+		if spaceRoot != "" {
+			err := filepath.Walk(spaceRoot, func(path string, info os.FileInfo, err error) error {
+				// skip child symlinks, e.g. of a user file named backup.mpk
+				if err == nil && info.Mode().IsRegular() && filepath.Ext(path) == ".mpk" {
+					err = fs.deleteBlobOf(ctx, spaceID, path)
+				}
+				if os.IsNotExist(err) {
+					return nil
+				}
+				return err
+			})
+			if err != nil {
+				return err
+			}
+		}
+
 		spaceType, err := n.XattrString(ctx, prefixes.SpaceTypeAttr)
 		if err != nil {
 			return err
@@ -834,50 +854,7 @@ func (fs *Decomposedfs) DeleteStorageSpace(ctx context.Context, req *provider.De
 
 		root := n.InternalPath()
 
-		// walkfn will delete the blob if the node has one
-		walkfn := func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			if filepath.Ext(path) != ".mpk" {
-				return nil
-			}
-
-			b, err := os.ReadFile(path)
-			if err != nil {
-				return err
-			}
-
-			m := map[string][]byte{}
-			if err := msgpack.Unmarshal(b, &m); err != nil {
-				return err
-			}
-
-			bid := m["user.oc.blobid"]
-			if string(bid) == "" {
-				return nil
-			}
-
-			if err := fs.tp.DeleteBlob(&node.Node{
-				BaseNode: node.BaseNode{SpaceID: spaceID},
-				BlobID:   string(bid),
-			}); err != nil {
-				return err
-			}
-
-			// remove .mpk file so subsequent attempts will not try to delete the blob again
-			return os.Remove(path)
-		}
-
-		// This is deletes all blobs of the space
-		// NOTE: This isn't needed when no s3 is used, but we can't differentiate that here...
-		if err := filepath.Walk(root, walkfn); err != nil {
-			return err
-		}
-
 		// remove space metadata
-		spaceRoot := fs.lu.InternalSpaceRoot(spaceID)
 		if spaceRoot != "" {
 			if err := removeSpaceRoot(spaceRoot); err != nil {
 				return err
@@ -962,7 +939,7 @@ func (fs *Decomposedfs) StorageSpaceFromNode(ctx context.Context, n *node.Node, 
 
 		if n.SpaceRoot.IsDisabled(ctx) {
 			rp, err := fs.p.AssemblePermissions(ctx, n)
-			if err != nil || !permissions.IsManager(rp) {
+			if err != nil || !permissions.IsSpaceManager(rp) {
 				return nil, errtypes.PermissionDenied(fmt.Sprintf("user %s is not allowed to list deleted spaces %s", user.Username, n.GetID()))
 			}
 		}
@@ -1220,6 +1197,27 @@ func isGrantExpired(g *provider.Grant) bool {
 	return time.Now().After(time.Unix(int64(g.Expiration.Seconds), int64(g.Expiration.Nanos)))
 }
 
+// deleteBlobOf deletes the blob referenced by the metadata file at path, then the file itself
+func (fs *Decomposedfs) deleteBlobOf(ctx context.Context, spaceID, path string) error {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	m := map[string][]byte{}
+	if err := msgpack.Unmarshal(b, &m); err != nil {
+		appctx.GetLogger(ctx).Error().Err(err).Str("spaceid", spaceID).Str("path", path).Msg("could not parse metadata, skipping")
+		return nil
+	}
+	bid := string(m[prefixes.BlobIDAttr])
+	if bid == "" {
+		return nil
+	}
+	if err := fs.tp.DeleteBlob(&node.Node{BaseNode: node.BaseNode{SpaceID: spaceID}, BlobID: bid}); err != nil {
+		return err
+	}
+	return os.Remove(path)
+}
+
 // removeSpaceRoot moves the space root out of the way before deleting it. Concurrent requests may
 // still lock nodes of the space and recreate lock files inside it, which makes an in-place
 // RemoveAll fail with "directory not empty". Once the space root is gone they can't do that anymore.
@@ -1259,7 +1257,7 @@ func canDeleteSpace(ctx context.Context, spaceID string, typ string, purge bool,
 
 	// space managers are allowed to disable their project spaces
 	rp, err := p.AssemblePermissions(ctx, n)
-	if err == nil && !purge && permissions.IsManager(rp) {
+	if err == nil && !purge && permissions.IsSpaceManager(rp) {
 		return nil
 	}
 

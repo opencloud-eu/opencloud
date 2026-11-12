@@ -29,13 +29,18 @@ func lockFile(n MetadataNode, path string, flag int, m *backendMetrics) (*heldLo
 
 // heldLock is a locked lock file
 type heldLock struct {
-	f     *lockedfile.File
-	held  prometheus.Observer
-	since time.Time
+	f      *lockedfile.File
+	held   prometheus.Observer
+	since  time.Time
+	closed bool
 }
 
-// Close unlocks and closes the lock file
+// Close unlocks and closes the lock file. Only the first call records how long the lock has been held: callers
+// may unlock explicitly and again in a defer, and the lock is no longer held by then.
 func (l *heldLock) Close() error {
-	l.held.Observe(time.Since(l.since).Seconds())
+	if !l.closed {
+		l.closed = true
+		l.held.Observe(time.Since(l.since).Seconds())
+	}
 	return l.f.Close()
 }
