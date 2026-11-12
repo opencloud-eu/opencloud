@@ -328,7 +328,9 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 				r.Route("/{userID}", func(r chi.Router) {
 					r.Get("/", svc.GetUser)
 					r.Get("/drive", svc.GetUserDrive)
-					r.Post("/exportPersonalData", svc.ExportPersonalData)
+					// users may only export their own personal data, never
+					// that of another user
+					r.With(graphm.RequireOwnUserID("userID", options.Logger)).Post("/exportPersonalData", svc.ExportPersonalData)
 					r.Post("/teamwork/sendActivityNotification", svc.SendActivityNotification)
 					r.Route("/photo/$value", func(r chi.Router) {
 						r.Get("/", usersUserProfilePhotoApi.GetProfilePhoto(GetSlugValue("userID")))
