@@ -35,4 +35,7 @@ type Aspects struct {
 	EventStream       events.Stream
 	DisableVersioning bool
 	UserMapper        usermapper.Mapper
+	// SeparateBlobs is set when the blobstore keeps blobs apart from the nodes,
+	// so a blob can be stored before any node references it.
+	SeparateBlobs bool
 }

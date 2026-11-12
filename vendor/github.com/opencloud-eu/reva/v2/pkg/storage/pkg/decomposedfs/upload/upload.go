@@ -205,12 +205,22 @@ func (session *DecomposedFsSession) FinishUploadDecomposed(ctx context.Context) 
 		}
 	}
 
+	// uploads that are finished right away store their blob first, if the
+	// blobstore allows it
+	if session.store.separateBlobs && (!session.store.async || session.info.Size == 0) {
+		return session.finishBlobFirst(ctx, attrs)
+	}
+
+	attrs.SetString(prefixes.StatusPrefix, node.ProcessingStatus+session.ID())
 	n, err := session.store.CreateNodeForUpload(ctx, session, attrs)
+	if err == nil {
+		// postprocessing needs what CreateNodeForUpload learned about the node
+		err = session.store.um.RunInBaseScope(func() error {
+			return session.Persist(ctx)
+		})
+	}
 	if err != nil {
-		session.SetStatus(SessionStatusFailed, err.Error())
-		if perr := session.Persist(ctx); perr != nil {
-			log.Error().Err(perr).Msg("failed to persist upload session after setting status to failed")
-		}
+		session.markFailed(ctx, err)
 		return err
 	}
 
@@ -224,33 +234,8 @@ func (session *DecomposedFsSession) FinishUploadDecomposed(ctx context.Context) 
 	metrics.UploadProcessing.Inc()
 	metrics.UploadSessionsBytesReceived.Inc()
 
-	if session.store.pub != nil && session.info.Size > 0 {
-		u, _ := ctxpkg.ContextGetUser(ctx)
-		s, err := session.URL(ctx)
-		if err != nil {
-			return err
-		}
-
-		var iu *userpb.User
-		if utils.ExistsInOpaque(u.Opaque, "impersonating-user") {
-			iu = &userpb.User{}
-			if err := utils.ReadJSONFromOpaque(u.Opaque, "impersonating-user", iu); err != nil {
-				return err
-			}
-		}
-
-		if err := events.Publish(ctx, session.store.pub, events.BytesReceived{
-			UploadID:          session.ID(),
-			URL:               s,
-			SpaceOwner:        n.SpaceOwnerOrManager(session.Context(ctx)),
-			ExecutingUser:     u,
-			ResourceID:        &provider.ResourceId{SpaceId: n.SpaceID, OpaqueId: n.ID},
-			Filename:          session.Filename(),
-			Filesize:          uint64(session.Size()),
-			ImpersonatingUser: iu,
-		}); err != nil {
-			return err
-		}
+	if err := session.publishBytesReceived(ctx, n); err != nil {
+		return err
 	}
 
 	// if the upload is synchronous or the upload is empty, finalize it now
@@ -267,6 +252,76 @@ func (session *DecomposedFsSession) FinishUploadDecomposed(ctx context.Context) 
 	}
 
 	return session.store.tp.Propagate(ctx, n, session.SizeDiff())
+}
+
+// finishBlobFirst stores the blob before the node points to it. Readers then
+// get either the old or the new content, and the node is never marked as
+// processing, a marker nothing would remove if the upload was interrupted.
+func (session *DecomposedFsSession) finishBlobFirst(ctx context.Context, attrs node.Attributes) error {
+	blob := node.New(session.SpaceID(), session.NodeID(), "", "", session.Size(), session.ID(),
+		provider.ResourceType_RESOURCE_TYPE_FILE, nil, session.store.lu)
+	if err := session.store.tp.WriteBlob(blob, session.binPath()); err != nil {
+		return errors.Wrap(err, "failed to upload file to blobstore")
+	}
+
+	n, err := session.store.CreateNodeForUpload(ctx, session, attrs)
+	if err != nil {
+		// a node comes back if writing it failed, it might point to the blob
+		if n == nil {
+			if derr := session.store.tp.DeleteBlob(blob); derr != nil {
+				appctx.GetLogger(ctx).Error().Err(derr).Msg("failed to delete the blob of a failed upload")
+			}
+		}
+		session.markFailed(ctx, err)
+		return err
+	}
+	metrics.UploadSessionsBytesReceived.Inc()
+
+	if err := session.publishBytesReceived(ctx, n); err != nil {
+		return err
+	}
+
+	session.Cleanup(false, true, true, false)
+	metrics.UploadSessionsFinalized.Inc()
+	return session.store.tp.Propagate(ctx, n, session.SizeDiff())
+}
+
+func (session *DecomposedFsSession) markFailed(ctx context.Context, err error) {
+	session.SetStatus(SessionStatusFailed, err.Error())
+	if perr := session.Persist(ctx); perr != nil {
+		appctx.GetLogger(ctx).Error().Err(perr).Msg("failed to persist upload session after setting status to failed")
+	}
+}
+
+func (session *DecomposedFsSession) publishBytesReceived(ctx context.Context, n *node.Node) error {
+	if session.store.pub == nil || session.info.Size <= 0 {
+		return nil
+	}
+
+	u, _ := ctxpkg.ContextGetUser(ctx)
+	s, err := session.URL(ctx)
+	if err != nil {
+		return err
+	}
+
+	var iu *userpb.User
+	if utils.ExistsInOpaque(u.Opaque, "impersonating-user") {
+		iu = &userpb.User{}
+		if err := utils.ReadJSONFromOpaque(u.Opaque, "impersonating-user", iu); err != nil {
+			return err
+		}
+	}
+
+	return events.Publish(ctx, session.store.pub, events.BytesReceived{
+		UploadID:          session.ID(),
+		URL:               s,
+		SpaceOwner:        n.SpaceOwnerOrManager(session.Context(ctx)),
+		ExecutingUser:     u,
+		ResourceID:        &provider.ResourceId{SpaceId: n.SpaceID, OpaqueId: n.ID},
+		Filename:          session.Filename(),
+		Filesize:          uint64(session.Size()),
+		ImpersonatingUser: iu,
+	})
 }
 
 // Terminate terminates the upload

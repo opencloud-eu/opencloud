@@ -66,6 +66,7 @@ type DecomposedFsStore struct {
 	async             bool
 	tknopts           options.TokenOptions
 	disableVersioning bool
+	separateBlobs     bool
 	log               *zerolog.Logger
 }
 
@@ -80,6 +81,7 @@ func NewSessionStore(fs storage.FS, aspects aspects.Aspects, root string, async 
 		async:             async,
 		tknopts:           tknopts,
 		disableVersioning: aspects.DisableVersioning,
+		separateBlobs:     aspects.SeparateBlobs,
 		um:                aspects.UserMapper,
 		log:               log,
 	}
@@ -185,7 +187,9 @@ type Session interface {
 	Cleanup(revertNodeMetadata, cleanBin, cleanInfo bool)
 }
 
-// CreateNodeForUpload will create the target node for the Upload
+// CreateNodeForUpload will create the target node for the Upload. If writing
+// the node's metadata fails, the node is returned along with the error, as the
+// write might have happened anyway.
 // TODO move this to the node package as NodeFromUpload?
 // should we in InitiateUpload create the node first? and then the upload?
 func (store DecomposedFsStore) CreateNodeForUpload(ctx context.Context, session *DecomposedFsSession, initAttrs node.Attributes) (*node.Node, error) {
@@ -262,7 +266,16 @@ func (store DecomposedFsStore) CreateNodeForUpload(ctx context.Context, session 
 	initAttrs.SetString(prefixes.NameAttr, n.Name)
 	initAttrs.SetString(prefixes.BlobIDAttr, n.BlobID)
 	initAttrs.SetInt64(prefixes.BlobsizeAttr, n.Blobsize)
-	initAttrs.SetString(prefixes.StatusPrefix, node.ProcessingStatus+session.ID())
+	// The caller puts a processing marker into initAttrs if the upload still
+	// needs processing, and it replaces whatever marker the node has. Without
+	// one the node is complete after this write, so the marker of an earlier
+	// upload, like one that was interrupted, is cleared in the same write.
+	// Removing it beforehand could leave the node pointing to that upload's
+	// blob without the marker that recovering the upload relies on.
+	_, needsProcessing := initAttrs[prefixes.StatusPrefix]
+	if !needsProcessing && n.IsProcessing(ctx) {
+		initAttrs.SetString(prefixes.StatusPrefix, "")
+	}
 
 	// set mtime on the new node
 	mtime := time.Now()
@@ -278,14 +291,7 @@ func (store DecomposedFsStore) CreateNodeForUpload(ctx context.Context, session 
 	// update node metadata with new blobid etc
 	err = n.SetXattrsWithContext(ctx, initAttrs)
 	if err != nil {
-		return nil, errors.Wrap(err, "Decomposedfs: could not write metadata")
-	}
-
-	err = store.um.RunInBaseScope(func() error {
-		return session.Persist(ctx)
-	})
-	if err != nil {
-		return nil, err
+		return n, errors.Wrap(err, "Decomposedfs: could not write metadata")
 	}
 
 	return n, nil

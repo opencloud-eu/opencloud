@@ -18,6 +18,11 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/logger"
 )
 
+const (
+	mainQueueName   = "main-queue"
+	mainQueueMaxAge = 7 * 24 * time.Hour
+)
+
 // NatsConfig is the configuration needed for a NATS event stream
 type NatsConfig struct {
 	Endpoint             string `mapstructure:"address"`          // Endpoint of the nats server
@@ -87,19 +92,41 @@ func NatsFromConfig(connName string, disableDurability bool, cfg NatsConfig) (ev
 	if err != nil {
 		return nil, err
 	}
-	streamCfg := jetstream.StreamConfig{
-		Name:   "main-queue",
-		MaxAge: 7 * 24 * time.Hour,
-	}
-	_, err = jsConn.CreateStream(ctx, streamCfg)
-	if err != nil {
-		// If the stream already exists, update its configuration
-		if err == jetstream.ErrStreamNameAlreadyInUse {
-			_, _ = jsConn.UpdateStream(ctx, streamCfg)
-		}
+	if err := ensureMainQueueMaxAge(ctx, jsConn); err != nil {
+		logger.New().Warn().Err(err).Str("stream", mainQueueName).Msg("could not apply max age to the main queue")
 	}
 
 	return s, nil
+}
+
+// ensureMainQueueMaxAge creates the main queue with a MaxAge or sets the MaxAge
+// on an existing main queue that doesn't have one yet. All other settings of an
+// existing stream, like the number of replicas, are left alone because a stream
+// update replaces the whole config and would reset them to their defaults.
+func ensureMainQueueMaxAge(ctx context.Context, js jetstream.JetStream) error {
+	stream, err := js.Stream(ctx, mainQueueName)
+	if errors.Is(err, jetstream.ErrStreamNotFound) {
+		_, err = js.CreateStream(ctx, jetstream.StreamConfig{
+			Name:   mainQueueName,
+			MaxAge: mainQueueMaxAge,
+		})
+		if !errors.Is(err, jetstream.ErrStreamNameAlreadyInUse) {
+			return err
+		}
+		// another service created it in the meantime
+		stream, err = js.Stream(ctx, mainQueueName)
+	}
+	if err != nil {
+		return err
+	}
+
+	cfg := stream.CachedInfo().Config
+	if cfg.MaxAge != 0 {
+		return nil
+	}
+	cfg.MaxAge = mainQueueMaxAge
+	_, err = js.UpdateStream(ctx, cfg)
+	return err
 }
 
 // nats returns a nats streaming client

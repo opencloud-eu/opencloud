@@ -22,7 +22,6 @@ import (
 	"context"
 	"fmt"
 
-	user "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	ocmcore "github.com/cs3org/go-cs3apis/cs3/ocm/core/v1beta1"
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	collaboration "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
@@ -58,24 +57,22 @@ func NewUnary(m map[string]interface{}) (grpc.UnaryServerInterceptor, int, error
 	}
 
 	interceptor := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		// Register a channel in the context to receive the space owner id from the handler(s) further down the stack
-		var ownerID *user.UserId
-		sendOwnerChan := make(chan *user.UserId)
-		ctx = storagespace.ContextRegisterSendOwnerChan(ctx, sendOwnerChan)
+		// Register slots so the storage driver can pass data back up through
+		// the immutable context chain; values are read here after the handler returns.
+		ctx = storagespace.ContextRegisterSpaceOwnerSlot(ctx)
+		ctx = storagespace.ContextRegisterMoveResultSlot(ctx)
+		// Register a slot for typed Delete results
+		ctx = storagespace.ContextRegisterDeleteResultSlot(ctx)
 
-		moveSlot := &storagespace.MoveResultSlot{}
-		ctx = storagespace.ContextRegisterMoveResultSlot(ctx, moveSlot)
+		// Register a slot for typed DeleteStorageSpace results
+		ctx = storagespace.ContextRegisterDeleteStorageSpaceResultSlot(ctx)
 
 		res, err := handler(ctx, req)
 		if err != nil {
 			return res, err
 		}
 
-		// Read the space owner id from the channel
-		select {
-		case ownerID = <-sendOwnerChan:
-		default:
-		}
+		spaceOwnerID := storagespace.ContextGetSpaceOwner(ctx) // nil if not set by handler
 
 		executant, _ := revactx.ContextGetUser(ctx)
 
@@ -83,7 +80,9 @@ func NewUnary(m map[string]interface{}) (grpc.UnaryServerInterceptor, int, error
 		switch v := res.(type) {
 		case *provider.MoveResponse:
 			if isSuccess(v) {
-				ev = ItemMoved(v, req.(*provider.MoveRequest), moveSlot.Result, executant)
+				if result := storagespace.ContextGetMoveResult(ctx); result != nil {
+					ev = ItemMoved(v, req.(*provider.MoveRequest), result, executant)
+				}
 			}
 		case *collaboration.CreateShareResponse:
 			if isSuccess(v) {
@@ -140,7 +139,7 @@ func NewUnary(m map[string]interface{}) (grpc.UnaryServerInterceptor, int, error
 			}
 		case *provider.CreateContainerResponse:
 			if isSuccess(v) {
-				ev = ContainerCreated(v, req.(*provider.CreateContainerRequest), ownerID, executant)
+				ev = ContainerCreated(v, req.(*provider.CreateContainerRequest), spaceOwnerID, executant)
 			}
 		case *provider.InitiateFileDownloadResponse:
 			if isSuccess(v) {
@@ -148,7 +147,7 @@ func NewUnary(m map[string]interface{}) (grpc.UnaryServerInterceptor, int, error
 			}
 		case *provider.DeleteResponse:
 			if isSuccess(v) {
-				ev = ItemTrashed(v, req.(*provider.DeleteRequest), ownerID, executant)
+				ev = ItemTrashed(v, req.(*provider.DeleteRequest), storagespace.ContextGetDeleteResult(ctx), executant)
 			}
 		case *provider.PurgeRecycleResponse:
 			if isSuccess(v) {
@@ -162,11 +161,11 @@ func NewUnary(m map[string]interface{}) (grpc.UnaryServerInterceptor, int, error
 			}
 		case *provider.RestoreRecycleItemResponse:
 			if isSuccess(v) {
-				ev = ItemRestored(v, req.(*provider.RestoreRecycleItemRequest), ownerID, executant)
+				ev = ItemRestored(v, req.(*provider.RestoreRecycleItemRequest), spaceOwnerID, executant)
 			}
 		case *provider.RestoreFileVersionResponse:
 			if isSuccess(v) {
-				ev = FileVersionRestored(v, req.(*provider.RestoreFileVersionRequest), ownerID, executant)
+				ev = FileVersionRestored(v, req.(*provider.RestoreFileVersionRequest), spaceOwnerID, executant)
 			}
 		case *provider.CreateStorageSpaceResponse:
 			if isSuccess(v) && v.StorageSpace != nil { // TODO: Why are there CreateStorageSpaceResponses with nil StorageSpace?
@@ -188,22 +187,22 @@ func NewUnary(m map[string]interface{}) (grpc.UnaryServerInterceptor, int, error
 			if isSuccess(v) {
 				r := req.(*provider.DeleteStorageSpaceRequest)
 				if utils.ExistsInOpaque(r.Opaque, "purge") {
-					ev = SpaceDeleted(v, r, executant)
+					ev = SpaceDeleted(v, r, storagespace.ContextGetDeleteStorageSpaceResult(ctx), executant)
 				} else {
 					ev = SpaceDisabled(v, r, executant)
 				}
 			}
 		case *provider.TouchFileResponse:
 			if isSuccess(v) {
-				ev = FileTouched(v, req.(*provider.TouchFileRequest), ownerID, executant)
+				ev = FileTouched(v, req.(*provider.TouchFileRequest), spaceOwnerID, executant)
 			}
 		case *provider.SetLockResponse:
 			if isSuccess(v) {
-				ev = FileLocked(v, req.(*provider.SetLockRequest), ownerID, executant)
+				ev = FileLocked(v, req.(*provider.SetLockRequest), spaceOwnerID, executant)
 			}
 		case *provider.UnlockResponse:
 			if isSuccess(v) {
-				ev = FileUnlocked(v, req.(*provider.UnlockRequest), ownerID, executant)
+				ev = FileUnlocked(v, req.(*provider.UnlockRequest), spaceOwnerID, executant)
 			}
 		}
 
