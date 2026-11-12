@@ -41,7 +41,18 @@ func (s ClamAV) Scan(in Input) (Result, error) {
 	case <-time.After(s.timeout):
 		abort <- true
 		return Result{}, fmt.Errorf("%w: %s", ErrScanTimeout, in.Url)
-	case s := <-ch:
+	case s, ok := <-ch:
+		// go-clamd closes the channel without a result when clamd hangs up without replying
+		if !ok || s == nil {
+			return Result{}, fmt.Errorf("%w: no reply from clamd", ErrScanFailed)
+		}
+
+		// only a definite answer counts: anything but OK or FOUND (ERROR,
+		// PARSE ERROR, ...) means the scan did not finish, so it must not pass as clean.
+		if s.Status != clamd.RES_OK && s.Status != clamd.RES_FOUND {
+			return Result{}, fmt.Errorf("%w: %s: %s", ErrScanFailed, s.Status, s.Description)
+		}
+
 		return Result{
 			Infected:    s.Status == clamd.RES_FOUND,
 			Description: s.Description,
