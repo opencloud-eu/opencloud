@@ -291,6 +291,9 @@ Fixtures:
 | FIELDS-13 | `audio.artist:"Some Artist"` | song.mp3 | song.mp3 | song.mp3 | ✅ |
 | FIELDS-14 | `audio.artist:"some artist"` | song.mp3 | song.mp3 | song.mp3 | ✅ |
 | FIELDS-15 | `audio.duration>100` | no match | no match | no match | ✅ |
+| FIELDS-16 | `type:banana` | no match | no match | no match | ✅ |
+| FIELDS-17 | `audio.duration:200` | song.mp3 | song.mp3 | song.mp3 | ✅ |
+| FIELDS-18 | `audio.duration:long` | no match | no match | no match | ✅ |
 
 ### deleted
 
@@ -443,6 +446,21 @@ Fixtures:
 | RANGE-06 | `Mtime:"yesterday"` | no match | no match | no match | ✅ |
 | RANGE-07 | `mtime>2021` | no match | no match | no match | ✅ |
 | RANGE-08 | `name>100` | no match | no match | no match | ✅ |
+| RANGE-09 | `size>=50` | big.txt, small.txt | big.txt, small.txt | big.txt, small.txt | ✅ |
+| RANGE-10 | `size<=50` | ancient.txt, small.txt | ancient.txt, small.txt | ancient.txt, small.txt | ✅ |
+| RANGE-11 | `size>100 AND size<1000` | big.txt | big.txt | big.txt | ✅ |
+| RANGE-12 | `mtime>=2021-01-01` | big.txt, small.txt | big.txt, small.txt | big.txt, small.txt | ✅ |
+| RANGE-13 | `size:50` | small.txt | small.txt | small.txt | ✅ |
+| RANGE-14 | `size=50` | small.txt | small.txt | small.txt | ✅ |
+| RANGE-15 | `size:1.5` | no match | no match | no match | ✅ |
+| RANGE-16 | `size:5*` | no match | no match | no match | ✅ |
+| RANGE-17 | `size:>100` | no match | no match | no match | ✅ |
+| RANGE-18 | `size:<100` | no match | no match | no match | ✅ |
+| RANGE-19 | `size:>=100` | no match | no match | no match | ✅ |
+| RANGE-20 | `mtime:>"2021-01-01T00:00:00Z"` | no match | no match | no match | ✅ |
+| RANGE-21 | `mtime:>2021-01-01` | no match | no match | no match | ✅ |
+| RANGE-22 | `size:50..500` | no match | no match | no match | ✅ |
+| RANGE-23 | `mtime:2019-01-01..2020-12-31` | no match | no match | no match | ✅ |
 
 ### scope
 

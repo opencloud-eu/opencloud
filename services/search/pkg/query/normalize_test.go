@@ -53,6 +53,36 @@ var _ = Describe("FieldIsWordBroken", func() {
 	})
 })
 
+var _ = Describe("FieldIsNumeric and FieldIsDatetime", func() {
+	It("report the field type, facets included", func() {
+		for _, f := range []string{"Size", "Type", "audio.duration"} {
+			Expect(query.FieldIsNumeric(f)).To(BeTrue(), f)
+			Expect(query.FieldIsDatetime(f)).To(BeFalse(), f)
+		}
+		Expect(query.FieldIsDatetime("Mtime")).To(BeTrue())
+		for _, f := range []string{"Name", "Tags", "Hidden", "Content", "Path", "unknown"} {
+			Expect(query.FieldIsNumeric(f)).To(BeFalse(), f)
+			Expect(query.FieldIsDatetime(f)).To(BeFalse(), f)
+		}
+	})
+})
+
+var _ = DescribeTable("ParseNumber",
+	func(value string, want float64, wantOK bool) {
+		got, ok := query.ParseNumber(value)
+		Expect(ok).To(Equal(wantOK))
+		Expect(got).To(Equal(want))
+	},
+	Entry("an integer", "50", 50.0, true),
+	Entry("a decimal", "1.5", 1.5, true),
+	Entry("a comparison", ">100", 0.0, false),
+	Entry("a range", "50..500", 0.0, false),
+	Entry("a wildcard", "5*", 0.0, false),
+	Entry("a word", "long", 0.0, false),
+	Entry("not a finite number", "NaN", 0.0, false),
+	Entry("nothing", "", 0.0, false),
+)
+
 var _ = Describe("Normalize", func() {
 	It("resolves fields and expands mediatype", func() {
 		got := norm(

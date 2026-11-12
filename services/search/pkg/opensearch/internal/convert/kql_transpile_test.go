@@ -52,6 +52,33 @@ func TestTranspileKQLToOpenSearch(t *testing.T) {
 			Want: osu.NewWildcardQuery("Name_lowercase").Value(`*"a"\\b*`),
 		},
 		{
+			Name: "a numeric field takes a number",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Size", Value: "50", Exact: true},
+				},
+			},
+			Want: osu.NewTermQuery[float64]("Size").Value(50),
+		},
+		{
+			Name: "a colon before the comparison is no number and matches nothing",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Size", Value: ">100"},
+				},
+			},
+			Want: osu.NewMatchNoneQuery(),
+		},
+		{
+			Name: "text on a date field matches nothing",
+			Got: &ast.Ast{
+				Nodes: []ast.Node{
+					&ast.StringNode{Key: "Mtime", Value: ">2021-01-01"},
+				},
+			},
+			Want: osu.NewMatchNoneQuery(),
+		},
+		{
 			Name: "full-text field uses an analyzed match query, not an unanalyzed term",
 			Got: &ast.Ast{
 				Nodes: []ast.Node{

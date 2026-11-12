@@ -37,6 +37,9 @@ func fieldsGroup() queryGroup {
 			{id: 13, query: `audio.artist:"Some Artist"`, want: []string{"song.mp3"}},
 			{id: 14, query: `audio.artist:"some artist"`, want: []string{"song.mp3"}}, // facets search case-insensitively
 			{id: 15, query: `audio.duration>100`},                                     // number queries are gated to Size and Type on both engines
+			{id: 16, query: `type:banana`},
+			{id: 17, query: `audio.duration:200`, want: []string{"song.mp3"}},
+			{id: 18, query: `audio.duration:long`},
 		},
 	}
 }

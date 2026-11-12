@@ -1,7 +1,9 @@
 package query
 
 import (
+	"math"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -31,6 +33,12 @@ var fieldIndex = sync.OnceValue(func() map[string]string {
 // resource struct and its overrides.
 var siblingFields = sync.OnceValue(func() map[string]mapping.Siblings {
 	return mapping.SearchSiblings(reflect.TypeFor[search.Resource](), search.Resource{}.SearchFieldOverrides())
+})
+
+// fieldTypes holds the mapping type of every field, from the resource struct
+// and its overrides.
+var fieldTypes = sync.OnceValue(func() map[string]string {
+	return mapping.FieldTypes(reflect.TypeFor[search.Resource](), search.Resource{}.SearchFieldOverrides())
 })
 
 // pathFields are hierarchical path fields (TypePath), derived from the overrides.
@@ -101,4 +109,24 @@ func FieldIsFulltext(field string) bool {
 // without a wildcard matches it as a phrase of those words instead of as a whole.
 func FieldIsWordBroken(field string) bool {
 	return siblingFields()[field].Words
+}
+
+// FieldIsNumeric reports whether a field holds numbers.
+func FieldIsNumeric(field string) bool {
+	return fieldTypes()[field] == mapping.TypeNumeric
+}
+
+// FieldIsDatetime reports whether a field holds a point in time.
+func FieldIsDatetime(field string) bool {
+	return fieldTypes()[field] == mapping.TypeDatetime
+}
+
+// ParseNumber reads the value of a restriction on a numeric field. ok is false
+// for anything but a finite number, ">100" and "50..500" included.
+func ParseNumber(value string) (float64, bool) {
+	v, err := strconv.ParseFloat(value, 64)
+	if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
+		return 0, false
+	}
+	return v, true
 }
