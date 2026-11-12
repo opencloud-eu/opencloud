@@ -16,6 +16,7 @@ import (
 
 	"github.com/opencloud-eu/reva/v2/pkg/store"
 
+	ocmiddleware "github.com/opencloud-eu/opencloud/pkg/middleware"
 	"github.com/opencloud-eu/opencloud/pkg/roles"
 	"github.com/opencloud-eu/opencloud/pkg/service/grpc"
 	"github.com/opencloud-eu/opencloud/pkg/tracing"
@@ -328,9 +329,17 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 				r.Route("/{userID}", func(r chi.Router) {
 					r.Get("/", svc.GetUser)
 					r.Get("/drive", svc.GetUserDrive)
-					// users may only export their own personal data, never
-					// that of another user
-					r.With(graphm.RequireOwnUserID("userID", options.Logger)).Post("/exportPersonalData", svc.ExportPersonalData)
+					r.With(
+						// users may only export their own personal data, never
+						// that of another user; this comes before the rate
+						// limit, so that requests for other users are rejected
+						// without counting against anyone's limit
+						graphm.RequireOwnUserID("userID", options.Logger),
+						// every export collects all the data of the user and
+						// writes it into their personal space, which is
+						// expensive: limit how often a user can start one
+						ocmiddleware.RateLimitPerAuthenticatedUser(options.Config.API.ExportPersonalDataRateLimit, time.Minute),
+					).Post("/exportPersonalData", svc.ExportPersonalData)
 					r.Post("/teamwork/sendActivityNotification", svc.SendActivityNotification)
 					r.Route("/photo/$value", func(r chi.Router) {
 						r.Get("/", usersUserProfilePhotoApi.GetProfilePhoto(GetSlugValue("userID")))

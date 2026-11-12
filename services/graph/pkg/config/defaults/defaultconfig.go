@@ -70,10 +70,11 @@ func DefaultConfig() *config.Config {
 			DisplayName: "OpenCloud",
 		},
 		API: config.API{
-			GroupMembersPatchLimit:  20,
-			UsernameMatch:           "default",
-			AssignDefaultUserRole:   true,
-			IdentitySearchMinLength: 3,
+			GroupMembersPatchLimit:      20,
+			UsernameMatch:               "default",
+			AssignDefaultUserRole:       true,
+			IdentitySearchMinLength:     3,
+			ExportPersonalDataRateLimit: 5,
 		},
 		Reva: shared.DefaultRevaConfig(),
 		Spaces: config.Spaces{
