@@ -80,11 +80,11 @@ MACHINE_AUTH_API_KEY = "fjsdlfgkjsdlktgersoiulersiltjlekir5[345;lesirtuwe542345w
 event = {
     "base": {
         "event": ["push", "manual"],
-        "branch": "main",
+        "branch": "stable-*",
     },
     "cron": {
         "event": "cron",
-        "branch": "main",
+        "branch": "stable-*",
         "cron": "nightly*",
     },
     "translation_sync": {
@@ -466,9 +466,10 @@ config = {
         "architectures": ["arm64", "amd64"],
         "production": {
             # NOTE: need to be updated if new production releases are determined
-            "tags": ["2.0", "4.0"],
+            "tags": ["2.0", "4.0", "7.2", "9.1"],
             # NOTE: need to be set to true if patch releases are made from stable-X-branches
-            "skip_rolling": "false",
+            "skip_rolling": True,
+            "skip_daily": True,
             "repo": docker_repo_slug,
             "build_type": "production",
         },
@@ -558,8 +559,9 @@ def main(ctx):
     if ctx.build.event == "cron" and ctx.build.cron == "translation-sync":
         return translation_sync(ctx)
 
+    # the S3 cache purge only runs from main
     if ctx.build.event == "cron" and ctx.build.cron == "purge-cache":
-        return [purgeS3Cache()]
+        return []
 
     is_release_pr = (ctx.build.event == "pull_request" and "🎉 release" in ctx.build.title.lower())
     if is_release_pr:
@@ -1829,7 +1831,7 @@ def dockerReleases(ctx):
             docker_releases.append("rolling")
 
         # on non tag events, do daily build
-    else:
+    elif not config["dockerReleases"]["production"]["skip_daily"]:
         docker_releases.append("daily")
 
     for releaseConfigName in docker_releases:
@@ -2194,6 +2196,7 @@ def readyReleaseGo():
                 "image": READY_RELEASE_GO,
                 "settings": {
                     "git_email": "devops@opencloud.eu",
+                    "release_branch": "stable-9.1",
                     "forge_type": "github",
                     "forge_token": {
                         "from_secret": "github_token",
