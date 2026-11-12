@@ -112,19 +112,23 @@ Confirm the reva line in `go.mod` is exactly `github.com/opencloud-eu/reva/v2 RE
 
 - Create a branch (do not commit on `main`), e.g. `reva-bump-2.48.0`.
 - Stage everything the bump touched: `git add go.mod go.sum vendor pkg/version/version.go`.
-- One commit, conventional-commits format, **empty body**:
+- One commit, conventional-commits format, with no body other than the `Assisted-by:` trailer that the org's [AI guideline](https://github.com/opencloud-eu/.github/blob/main/profile/AI_GUIDELINE.md) asks for. Name the agent and the model actually used, and never add a `Co-authored-by` trailer for an AI tool:
   ```
   chore: bump reva to 2.48.0
+
+  Assisted-by: Claude Code:claude-opus-5-5
   ```
 - PR base: **`main`** (reva bumps always target main).
 - PR title: `[full-ci] chore: bump reva to 2.48.0` (the commit message prefixed with `[full-ci] `).
 - PR body: the file from step 4.
-- Add the label `Type:Maintenance`.
+- End the PR body with one line saying which AI did the bump, e.g. `AI assistance: Claude Code (claude-opus-5-5) did the bump.`
+- Add the labels `Type:Maintenance` and `Status:Needs-Review`, and assign the PR to yourself.
 
 ```bash
 gh pr create --base main \
   --title "[full-ci] chore: bump reva to $REVA_VERSION_NO_V" \
-  --label "Type:Maintenance" \
+  --label "Type:Maintenance,Status:Needs-Review" \
+  --assignee @me \
   --body-file <body-file>
 ```
 
@@ -148,6 +152,6 @@ gh api "repos/opencloud-eu/reva/contents/CHANGELOG.md?ref=$REVA_VERSION" --jq '.
 - Forgetting to re-run `go mod vendor` after `go mod tidy`, leaving `vendor/` out of sync with `go.mod`.
 - Asking for or hardcoding `OC_VERSION` — always derive it from the open `next-release/main` release PR (step 3); it can even be a new major after a breaking change.
 - Reading the changelog from reva `main` instead of the tag (`?ref=$REVA_VERSION`). Always pin to the tag.
-- Missing the `[full-ci] ` prefix in the PR title, the `Type:Maintenance` label, or the two summary bullets at the top of the body.
+- Missing the `[full-ci] ` prefix in the PR title, the `Type:Maintenance` and `Status:Needs-Review` labels, or the two summary bullets at the top of the body.
 - Dumping the full `vendor/` diff at the confirmation step instead of `go.mod` + `version.go` + a `--stat` summary.
 - Committing before the user confirms the diff.
