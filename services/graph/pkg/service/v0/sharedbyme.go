@@ -7,7 +7,9 @@ import (
 	rpc "github.com/cs3org/go-cs3apis/cs3/rpc/v1beta1"
 	"github.com/go-chi/render"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
+	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 
+	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 )
 
@@ -15,11 +17,15 @@ type driveItemsByResourceID map[string]libregraph.DriveItem
 
 // GetSharedByMe implements the Service interface (/me/drives/sharedByMe endpoint)
 func (g Graph) GetSharedByMe(w http.ResponseWriter, r *http.Request) {
-	g.logger.Debug().Msg("Calling GetRootDriveChildren")
 	ctx := r.Context()
+	logger := g.logger.SubloggerWithRequestID(ctx)
+	if user, ok := revactx.ContextGetUser(ctx); ok {
+		logger = log.Logger{Logger: logger.With().Str(_logKeyUserID, user.GetId().GetOpaqueId()).Logger()}
+	}
 
 	driveItems, err := g.listUserShares(ctx, nil, make(driveItemsByResourceID))
 	if err != nil {
+		errorEvent(&logger, err).Msg("could not list user shares")
 		errorcode.RenderError(w, r, err)
 		return
 	}
@@ -27,6 +33,7 @@ func (g Graph) GetSharedByMe(w http.ResponseWriter, r *http.Request) {
 	if g.config.IncludeOCMSharees {
 		driveItems, err = g.listOCMShares(ctx, nil, driveItems)
 		if err != nil {
+			errorEvent(&logger, err).Msg("could not list ocm shares")
 			errorcode.RenderError(w, r, err)
 			return
 		}
@@ -34,6 +41,7 @@ func (g Graph) GetSharedByMe(w http.ResponseWriter, r *http.Request) {
 
 	driveItems, err = g.listPublicShares(ctx, nil, driveItems)
 	if err != nil {
+		errorEvent(&logger, err).Msg("could not list public shares")
 		errorcode.RenderError(w, r, err)
 		return
 	}

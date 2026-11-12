@@ -28,6 +28,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/mock"
 	"github.com/tidwall/gjson"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"google.golang.org/grpc"
 
 	"github.com/opencloud-eu/opencloud/pkg/log"
@@ -101,6 +103,48 @@ var _ = Describe("Graph", func() {
 	Describe("NewService", func() {
 		It("returns a service", func() {
 			Expect(svc).ToNot(BeNil())
+		})
+	})
+
+	Describe("permissions tracing", func() {
+		It("records a span for the permissions service when a TraceProvider is configured", func() {
+			sr := tracetest.NewSpanRecorder()
+			tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sr))
+			DeferCleanup(func() {
+				Expect(tp.Shutdown(context.Background())).To(Succeed())
+			})
+
+			logger := log.NewLogger()
+			m, err := metrics.New(prometheus.NewRegistry(), &logger, func([]string) (string, string) { return "", "" })
+			Expect(err).ToNot(HaveOccurred())
+			tracedSvc, err := service.NewService(
+				service.Config(cfg),
+				service.Metrics(m),
+				service.WithGatewaySelector(gatewaySelector),
+				service.EventsPublisher(&eventsPublisher),
+				service.PermissionService(&permissionService),
+				service.TraceProvider(tp),
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			gatewayClient.On("ListStorageSpaces", mock.Anything, mock.Anything).Return(&provider.ListStorageSpacesResponse{
+				Status: status.NewOK(ctx),
+			}, nil)
+
+			r := httptest.NewRequest(http.MethodGet, "/graph/v1beta1/drives/1$2/root/permissions", nil).WithContext(ctx)
+			tracedSvc.ServeHTTP(rr, r)
+
+			// the request was routed to the permissions service, which looked up the space
+			Expect(rr.Code).To(Equal(http.StatusNotFound))
+			gatewayClient.AssertCalled(GinkgoT(), "ListStorageSpaces", mock.Anything, mock.Anything)
+			// http tracing works with this provider
+			Expect(sr.Ended()).ToNot(BeEmpty())
+
+			var names []string
+			for _, s := range sr.Ended() {
+				names = append(names, s.Name())
+			}
+			Expect(names).To(ContainElement("ListSpaceRootPermissions"))
 		})
 	})
 

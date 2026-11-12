@@ -1,6 +1,7 @@
 package svc_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,17 +15,21 @@ import (
 	userpb "github.com/cs3org/go-cs3apis/cs3/identity/user/v1beta1"
 	collaboration "github.com/cs3org/go-cs3apis/cs3/sharing/collaboration/v1beta1"
 	link "github.com/cs3org/go-cs3apis/cs3/sharing/link/v1beta1"
+	ocm "github.com/cs3org/go-cs3apis/cs3/sharing/ocm/v1beta1"
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
+	"github.com/go-chi/chi/v5/middleware"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	libregraph "github.com/opencloud-eu/libre-graph-api-go"
 	"github.com/opencloud-eu/reva/v2/pkg/conversions"
+	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
 	cs3mocks "github.com/opencloud-eu/reva/v2/tests/cs3mocks/mocks"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"
 
@@ -33,6 +38,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/mocks"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config/defaults"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	identitymocks "github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/linktype"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/metrics"
@@ -279,6 +285,260 @@ var _ = Describe("sharedbyme", func() {
 			nil,
 		)
 	}
+	Describe("GetSharedByMe logging", func() {
+		var logBuf *bytes.Buffer
+
+		newLoggedService := func(selector pool.Selectable[gateway.GatewayAPIClient]) service.Service {
+			logBuf = &bytes.Buffer{}
+			logger := log.NewLogger()
+			m, err := metrics.New(prometheus.NewRegistry(), &logger, func([]string) (string, string) { return "", "" })
+			Expect(err).ToNot(HaveOccurred())
+			s, err := service.NewService(
+				service.Config(cfg),
+				service.Metrics(m),
+				service.WithGatewaySelector(selector),
+				service.EventsPublisher(&eventsPublisher),
+				service.WithIdentityBackend(identityBackend),
+				service.Logger(log.Logger{Logger: zerolog.New(logBuf)}),
+			)
+			Expect(err).ToNot(HaveOccurred())
+			return s
+		}
+		errorEntries := func() []map[string]any {
+			return entriesAtLevel(logEntries(logBuf), "error")
+		}
+		odataError := func() libregraph.OdataError {
+			var odataErr libregraph.OdataError
+			Expect(json.Unmarshal(rr.Body.Bytes(), &odataErr)).To(Succeed())
+			return odataErr
+		}
+
+		It("logs a gateway selection failure while listing shares as error in the helper and the operation", func() {
+			failingSelector := mocks.NewSelectable[gateway.GatewayAPIClient](GinkgoT())
+			failingSelector.EXPECT().Next().Return(nil, errors.New("no gateway available"))
+			s := newLoggedService(failingSelector)
+
+			s.GetSharedByMe(rr, httptest.NewRequest(http.MethodGet, "/graph/v1.0/me/drives/sharedByMe", nil))
+
+			Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+			Expect(odataError().Error.Code).To(Equal("generalException"))
+			Expect(odataError().Error.Message).To(Equal("no gateway available"))
+			// the helper and the handler both log the reason, the handler with the error code
+			Expect(errorEntries()).To(ConsistOf(
+				gatewayHelperEntry("could not select next gateway client", "no gateway available"),
+				SatisfyAll(
+					HaveKeyWithValue("message", "could not list user shares"),
+					HaveKeyWithValue("errorCode", "generalException"),
+					HaveKeyWithValue("error", errorcode.New(errorcode.GeneralException, "no gateway available").Error()),
+				),
+			))
+		})
+
+		It("logs a share listing failure once as error", func() {
+			emptyListPublicSharesMock()
+			gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(
+				&collaboration.ListSharesResponse{Status: status.NewInternal(ctx, "error listing shares")},
+				nil,
+			)
+			s := newLoggedService(gatewaySelector)
+
+			r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/me/drives/sharedByMe", nil)
+			reqCtx := context.WithValue(r.Context(), middleware.RequestIDKey, "request-42")
+			reqCtx = revactx.ContextSetUser(reqCtx, &userpb.User{Id: &userpb.UserId{OpaqueId: "user-42"}})
+			s.GetSharedByMe(rr, r.WithContext(reqCtx))
+
+			Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+			Expect(odataError().Error.Code).To(Equal("generalException"))
+			Expect(odataError().Error.Message).To(Equal("error listing shares"))
+			entries := errorEntries()
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0]).To(SatisfyAll(
+				HaveKeyWithValue("message", "could not list user shares"),
+				HaveKeyWithValue("error", errorcode.New(errorcode.GeneralException, "error listing shares").Error()),
+				HaveKeyWithValue("errorCode", "generalException"),
+				HaveKeyWithValue("request-id", "request-42"),
+				HaveKeyWithValue("userID", "user-42"),
+			))
+		})
+
+		DescribeTable("logs the identity backend error when a share grantee lookup fails",
+			func(setup func(identityClient *cs3mocks.GatewayAPIClient, resourceID *provider.ResourceId, groupGrantee *provider.Grantee), listingMethod string) {
+				const identityBackendMessage = "ldap search failed for cn=private-group-dn-42,ou=groups"
+				identityClient := cs3mocks.NewGatewayAPIClient(GinkgoT())
+				selector := mocks.NewSelectable[gateway.GatewayAPIClient](GinkgoT())
+				selector.EXPECT().Next().Return(identityClient, nil)
+				resourceID := &provider.ResourceId{StorageId: "storageid", SpaceId: "spaceid", OpaqueId: "opaqueid"}
+				groupGrantee := &provider.Grantee{
+					Type: provider.GranteeType_GRANTEE_TYPE_GROUP,
+					Id:   &provider.Grantee_GroupId{GroupId: &grouppb.GroupId{OpaqueId: "groupid"}},
+				}
+				setup(identityClient, resourceID, groupGrantee)
+				identityClient.On("Stat", mock.Anything, mock.Anything).Return(&provider.StatResponse{
+					Status: status.NewOK(ctx),
+					Info:   &provider.ResourceInfo{Id: resourceID, Type: provider.ResourceType_RESOURCE_TYPE_CONTAINER},
+				}, nil)
+				identityClient.On("GetGroup", mock.Anything, mock.Anything).Return(&grouppb.GetGroupResponse{
+					Status: status.NewInternal(ctx, identityBackendMessage),
+				}, nil)
+				s := newLoggedService(selector)
+
+				s.GetSharedByMe(rr, httptest.NewRequest(http.MethodGet, "/graph/v1.0/me/drives/sharedByMe", nil))
+
+				// the rendered error is unchanged
+				Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+				Expect(odataError().Error.Code).To(Equal("generalException"))
+				Expect(odataError().Error.Message).To(Equal(
+					errorcode.New(errorcode.GeneralException,
+						errorcode.New(errorcode.GeneralException, identityBackendMessage).Error()).Error()))
+				// the shares were listed and the group grantee was looked up, listing stops before the public shares
+				identityClient.AssertCalled(GinkgoT(), listingMethod, mock.Anything, mock.Anything)
+				identityClient.AssertCalled(GinkgoT(), "GetGroup", mock.Anything, mock.MatchedBy(func(req *grouppb.GetGroupRequest) bool {
+					return req.GetGroupId().GetOpaqueId() == "groupid"
+				}))
+				identityClient.AssertNotCalled(GinkgoT(), "ListPublicShares", mock.Anything, mock.Anything)
+
+				entries := logEntries(logBuf)
+				errorEntries := entriesAtLevel(entries, "error")
+				Expect(errorEntries).To(HaveLen(1))
+				// the handler logs the error text, which carries the identity backend message
+				Expect(errorEntries[0]).To(HaveKeyWithValue("error", ContainSubstring(identityBackendMessage)))
+				for _, payloadKey := range []string{"shares", "share", "group", "res", "response"} {
+					Expect(entries).ToNot(ContainElement(HaveKey(payloadKey)))
+				}
+			},
+			Entry("user share listing",
+				func(identityClient *cs3mocks.GatewayAPIClient, resourceID *provider.ResourceId, groupGrantee *provider.Grantee) {
+					identityClient.On("ListShares", mock.Anything, mock.Anything).Return(&collaboration.ListSharesResponse{
+						Status: status.NewOK(ctx),
+						Shares: []*collaboration.Share{{
+							Id:          &collaboration.ShareId{OpaqueId: "groupshareid"},
+							ResourceId:  resourceID,
+							Grantee:     groupGrantee,
+							Permissions: &collaboration.SharePermissions{Permissions: editorResourcePermissions},
+						}},
+					}, nil)
+				},
+				"ListShares",
+			),
+			Entry("ocm share listing",
+				func(identityClient *cs3mocks.GatewayAPIClient, resourceID *provider.ResourceId, groupGrantee *provider.Grantee) {
+					cfg.IncludeOCMSharees = true
+					identityClient.On("ListShares", mock.Anything, mock.Anything).Return(&collaboration.ListSharesResponse{
+						Status: status.NewOK(ctx),
+						Shares: []*collaboration.Share{},
+					}, nil)
+					identityClient.On("ListOCMShares", mock.Anything, mock.Anything).Return(&ocm.ListOCMSharesResponse{
+						Status: status.NewOK(ctx),
+						Shares: []*ocm.Share{{
+							Id:         &ocm.ShareId{OpaqueId: "ocmgroupshareid"},
+							ResourceId: resourceID,
+							Grantee:    groupGrantee,
+						}},
+					}, nil)
+				},
+				"ListOCMShares",
+			),
+		)
+
+		It("logs an ocm share listing failure once as error", func() {
+			cfg.IncludeOCMSharees = true
+			emptyListSharesMock()
+			gatewayClient.On("ListOCMShares", mock.Anything, mock.Anything).Return(
+				&ocm.ListOCMSharesResponse{Status: status.NewInternal(ctx, "error listing ocm shares")},
+				nil,
+			)
+			s := newLoggedService(gatewaySelector)
+
+			s.GetSharedByMe(rr, httptest.NewRequest(http.MethodGet, "/graph/v1.0/me/drives/sharedByMe", nil))
+
+			Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+			Expect(odataError().Error.Code).To(Equal("generalException"))
+			Expect(odataError().Error.Message).To(Equal("error listing ocm shares"))
+			gatewayClient.AssertNotCalled(GinkgoT(), "ListPublicShares", mock.Anything, mock.Anything)
+			entries := errorEntries()
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0]).To(SatisfyAll(
+				HaveKeyWithValue("message", "could not list ocm shares"),
+				HaveKeyWithValue("error", errorcode.New(errorcode.GeneralException, "error listing ocm shares").Error()),
+			))
+		})
+
+		It("logs a gateway selection failure while listing ocm shares as error in the helper and the operation", func() {
+			cfg.IncludeOCMSharees = true
+			emptyListSharesMock()
+			// the user share listing gets a client, the ocm share listing does not
+			selector := mocks.NewSelectable[gateway.GatewayAPIClient](GinkgoT())
+			selector.EXPECT().Next().Return(gatewayClient, nil).Times(1)
+			selector.EXPECT().Next().Return(nil, errors.New("no gateway available")).Times(1)
+			s := newLoggedService(selector)
+
+			s.GetSharedByMe(rr, httptest.NewRequest(http.MethodGet, "/graph/v1.0/me/drives/sharedByMe", nil))
+
+			Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+			Expect(odataError().Error.Code).To(Equal("generalException"))
+			Expect(odataError().Error.Message).To(Equal("no gateway available"))
+			gatewayClient.AssertCalled(GinkgoT(), "ListShares", mock.Anything, mock.Anything)
+			gatewayClient.AssertNotCalled(GinkgoT(), "ListOCMShares", mock.Anything, mock.Anything)
+			// the helper and the handler both log the reason, the handler with the error code
+			Expect(errorEntries()).To(ConsistOf(
+				gatewayHelperEntry("could not select next gateway client", "no gateway available"),
+				SatisfyAll(
+					HaveKeyWithValue("message", "could not list ocm shares"),
+					HaveKeyWithValue("error", errorcode.New(errorcode.GeneralException, "no gateway available").Error()),
+				),
+			))
+		})
+
+		It("logs a public share listing failure once as error", func() {
+			emptyListSharesMock()
+			gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(
+				&link.ListPublicSharesResponse{Status: status.NewInternal(ctx, "listing failed for /Users/alice/Private/salary-2026.ods")},
+				nil,
+			)
+			s := newLoggedService(gatewaySelector)
+
+			s.GetSharedByMe(rr, httptest.NewRequest(http.MethodGet, "/graph/v1.0/me/drives/sharedByMe", nil))
+
+			Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+			Expect(odataError().Error.Code).To(Equal("generalException"))
+			// the response is unchanged
+			Expect(odataError().Error.Message).To(Equal("listing failed for /Users/alice/Private/salary-2026.ods"))
+			gatewayClient.AssertCalled(GinkgoT(), "ListShares", mock.Anything, mock.Anything)
+			entries := errorEntries()
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0]).To(SatisfyAll(
+				HaveKeyWithValue("message", "could not list public shares"),
+				HaveKeyWithValue("errorCode", "generalException"),
+				HaveKeyWithValue("error", errorcode.New(errorcode.GeneralException, "listing failed for /Users/alice/Private/salary-2026.ods").Error()),
+			))
+		})
+
+		It("logs a gateway selection failure while listing public shares as error in the helper and the operation", func() {
+			emptyListSharesMock()
+			// the user share listing gets a client, the public share listing does not
+			selector := mocks.NewSelectable[gateway.GatewayAPIClient](GinkgoT())
+			selector.EXPECT().Next().Return(gatewayClient, nil).Times(1)
+			selector.EXPECT().Next().Return(nil, errors.New("no gateway available")).Times(1)
+			s := newLoggedService(selector)
+
+			s.GetSharedByMe(rr, httptest.NewRequest(http.MethodGet, "/graph/v1.0/me/drives/sharedByMe", nil))
+
+			Expect(rr.Code).To(Equal(http.StatusInternalServerError))
+			Expect(odataError().Error.Code).To(Equal("generalException"))
+			Expect(odataError().Error.Message).To(Equal("no gateway available"))
+			gatewayClient.AssertCalled(GinkgoT(), "ListShares", mock.Anything, mock.Anything)
+			gatewayClient.AssertNotCalled(GinkgoT(), "ListPublicShares", mock.Anything, mock.Anything)
+			// the helper and the handler both log the reason, the handler with the error code
+			Expect(errorEntries()).To(ConsistOf(
+				gatewayHelperEntry("could not select next gateway client", "no gateway available"),
+				SatisfyAll(
+					HaveKeyWithValue("message", "could not list public shares"),
+					HaveKeyWithValue("error", errorcode.New(errorcode.GeneralException, "no gateway available").Error()),
+				),
+			))
+		})
+	})
+
 	Describe("GetSharedByMe", func() {
 		It("handles a failing ListShares", func() {
 			emptyListPublicSharesMock()

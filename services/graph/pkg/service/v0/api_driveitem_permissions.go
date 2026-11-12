@@ -28,6 +28,11 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/share"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
+	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel/codes"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/opencloud-eu/opencloud/pkg/conversions"
 	"github.com/opencloud-eu/opencloud/pkg/l10n"
@@ -46,6 +51,28 @@ const (
 	parseDriveIDErrMsg        = "could not parse driveID"
 	federatedRolesODataFilter = "@libre.graph.permissions.roles.allowedValues/rolePermissions/any(p:contains(p/condition, '@Subject.UserType==\"Federated\"'))"
 	noLinksODataFilter        = "grantedToV2 ne ''"
+
+	// _tracerName is the name of the tracer that records the spans of the permission operations
+	_tracerName = "graph"
+
+	// log keys of the permission operations
+	_logKeyItemID         = "itemID"
+	_logKeyDriveID        = "driveID"
+	_logKeyPermissionID   = "permissionID"
+	_logKeyPermissionType = "permissionType"
+	_logKeyRoleID         = "roleID"
+	_logKeyRecipientType  = "recipientType"
+	_logKeySpaceType      = "spaceType"
+	_logKeyUserID         = "userID"
+	_logKeyErrorCode      = "errorCode"
+	_logKeyLookupError    = "lookupError"
+	_logKeyOCMError       = "ocmError"
+
+	// recipient types of an invitation
+	_recipientTypeUser  = "user"
+	_recipientTypeGroup = "group"
+	_recipientTypeMail  = "mail"
+	_recipientTypeOCM   = "ocm"
 )
 
 // DriveItemPermissionsProvider contains the methods related to handling permissions on drive items
@@ -69,6 +96,7 @@ type DriveItemPermissionsProvider interface {
 // DriveItemPermissionsService contains the production business logic for everything that relates to permissions on drive items.
 type DriveItemPermissionsService struct {
 	BaseGraphService
+	tp trace.TracerProvider
 }
 
 type permissionType int
@@ -90,10 +118,13 @@ type ListPermissionsQueryOptions struct {
 }
 
 // NewDriveItemPermissionsService creates a new DriveItemPermissionsService
-func NewDriveItemPermissionsService(logger log.Logger, gatewaySelector pool.Selectable[gateway.GatewayAPIClient], identityCache cache.IdentityCache, config *config.Config) (DriveItemPermissionsService, error) {
+func NewDriveItemPermissionsService(logger log.Logger, gatewaySelector pool.Selectable[gateway.GatewayAPIClient], identityCache cache.IdentityCache, config *config.Config, tp trace.TracerProvider) (DriveItemPermissionsService, error) {
 	publicBaseURL, err := url.Parse(config.Spaces.WebDavBase)
 	if err != nil {
 		return DriveItemPermissionsService{}, fmt.Errorf("could not parse graph.spaces.webdav_base: %w", err)
+	}
+	if tp == nil {
+		tp = noop.NewTracerProvider()
 	}
 	return DriveItemPermissionsService{
 		BaseGraphService: BaseGraphService{
@@ -104,25 +135,99 @@ func NewDriveItemPermissionsService(logger log.Logger, gatewaySelector pool.Sele
 			availableRoles:  unifiedrole.GetRoles(unifiedrole.RoleFilterIDs(config.UnifiedRoles.AvailableRoles...)),
 			publicBaseURL:   publicBaseURL,
 		},
+		tp: tp,
 	}, nil
 }
 
+// logLevelForError returns the log level matching the cause of err:
+// expected client errors are logged at debug level, everything else at error level.
+// Client errors are the codes errorcode.Error.Render maps to a 4xx status. This is a
+// default only: call sites that know the operational context better (e.g. a
+// NOT_FOUND that is part of a lookup chain) should choose their level explicitly.
+func logLevelForError(err error) zerolog.Level {
+	if e, ok := errorcode.ToError(err); ok {
+		switch e.GetCode() {
+		case errorcode.ItemNotFound, errorcode.AccessDenied, errorcode.InvalidRequest,
+			errorcode.NameAlreadyExists, errorcode.InvalidRange, errorcode.ItemIsLocked,
+			errorcode.PreconditionFailed, errorcode.NotAllowed:
+			return zerolog.DebugLevel
+		}
+	}
+	return zerolog.ErrorLevel
+}
+
+// errorCodeForError returns the graph error code err is rendered with. It classifies the failure
+// in logs and spans.
+func errorCodeForError(err error) string {
+	if e, ok := errorcode.ToError(err); ok {
+		return e.GetCode().String()
+	}
+	return errorcode.GeneralException.String()
+}
+
+// errorEvent starts a log event for err at the level matching its cause. It carries the error
+// code and the error text, so operators see the reason.
+func errorEvent(logger *log.Logger, err error) *zerolog.Event {
+	return logger.WithLevel(logLevelForError(err)).Str(_logKeyErrorCode, errorCodeForError(err)).Err(err)
+}
+
+// fallbackErrorEvent starts a log event for err, the error returned after a fallback attempt that
+// failed with otherErr (which may be nil). The level matches the more severe of both causes, so an
+// infrastructure failure is not hidden behind the not found of the other attempt. Like errorEvent,
+// it carries the code and the text of err; those of otherErr are logged under otherKey+"Code" and
+// otherKey.
+func fallbackErrorEvent(logger *log.Logger, err, otherErr error, otherKey string) *zerolog.Event {
+	if otherErr == nil {
+		return errorEvent(logger, err)
+	}
+	level := max(logLevelForError(err), logLevelForError(otherErr))
+	return logger.WithLevel(level).
+		Str(_logKeyErrorCode, errorCodeForError(err)).Err(err).
+		Str(otherKey+"Code", errorCodeForError(otherErr)).AnErr(otherKey, otherErr)
+}
+
+// endSpan ends span, recording the error code of a failed operation. Like the log level, the span
+// status only marks unexpected failures as error. Spans classify the failure by its code only,
+// the error text is in the log entry of the same request.
+func endSpan(span trace.Span, err error) {
+	if err != nil {
+		span.SetAttributes(semconv.ErrorTypeKey.String(errorCodeForError(err)))
+		setSpanErrorStatus(span, err)
+	}
+	span.End()
+}
+
+// setSpanErrorStatus marks span as error when the cause of err is an unexpected failure, with the error
+// code as description. Call sites that return a different error than the cause use it to keep the cause
+// visible, endSpan never clears the status again. A nil err leaves the status untouched.
+func setSpanErrorStatus(span trace.Span, err error) {
+	if err != nil && logLevelForError(err) == zerolog.ErrorLevel {
+		span.SetStatus(codes.Error, errorCodeForError(err))
+	}
+}
+
 // Invite invites a user to a drive item.
-func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *storageprovider.ResourceId, invite libregraph.DriveItemInvite) (libregraph.Permission, error) {
+func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *storageprovider.ResourceId, invite libregraph.DriveItemInvite) (_ libregraph.Permission, err error) {
+	ctx, span := s.tp.Tracer(_tracerName).Start(ctx, "Invite")
+	defer func() { endSpan(span, err) }()
+	logger := s.logger.SubloggerWithRequestID(ctx)
+
 	tenantId := revactx.ContextMustGetUser(ctx).GetId().GetTenantId()
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
+		errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Msg("could not select next gateway client")
 		return libregraph.Permission{}, err
 	}
 
 	statResponse, err := gatewayClient.Stat(ctx, &storageprovider.StatRequest{Ref: &storageprovider.Reference{ResourceId: resourceId}})
 	if err := errorcode.FromStat(statResponse, err); err != nil {
-		s.logger.Warn().Err(err).Interface("stat.res", statResponse).Msg("stat failed")
+		errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Msg("stat failed")
 		return libregraph.Permission{}, err
 	}
 
 	var condition string
 	if condition, err = roleConditionForResourceType(statResponse.GetInfo()); err != nil {
+		logger.Debug().Err(err).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Msg("unsupported resource type")
 		return libregraph.Permission{}, err
 	}
 
@@ -130,18 +235,21 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 	for _, roleID := range invite.GetRoles() {
 		// only allow roles that are enabled in the config
 		if !slices.Contains(s.config.UnifiedRoles.AvailableRoles, roleID) {
+			logger.Debug().Err(unifiedrole.ErrUnknownRole).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Str(_logKeyRoleID, roleID).Msg("unknown role")
 			return libregraph.Permission{}, unifiedrole.ErrUnknownRole
 		}
 
 		role, err := unifiedrole.GetRole(unifiedrole.RoleFilterIDs(roleID))
 		if err != nil {
-			s.logger.Debug().Err(err).Interface("role", invite.GetRoles()[0]).Msg("unable to convert requested role")
+			logger.Debug().Err(err).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Str(_logKeyRoleID, roleID).Msg("unable to convert requested role")
 			return libregraph.Permission{}, err
 		}
 
 		allowedResourceActions := unifiedrole.GetAllowedResourceActions(role, condition)
 		if len(allowedResourceActions) == 0 && role.GetId() != unifiedrole.UnifiedRoleDeniedID {
-			return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "role not applicable to this resource")
+			notApplicableErr := errorcode.New(errorcode.InvalidRequest, "role not applicable to this resource")
+			logger.Debug().Err(notApplicableErr).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Str(_logKeyRoleID, roleID).Msg("role not applicable to this resource")
+			return libregraph.Permission{}, notApplicableErr
 		}
 
 		unifiedRolePermissions = append(unifiedRolePermissions, conversions.ToPointerSlice(role.GetRolePermissions())...)
@@ -167,7 +275,9 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 	var cTime *types.Timestamp
 	if email := driveRecipient.GetEmail(); email != "" {
 		if s.config.Commons == nil || !s.config.Commons.EnableGuestLinks {
-			return libregraph.Permission{}, errorcode.New(errorcode.NotSupported, "sharing with mail recipients is not enabled")
+			mailErr := errorcode.New(errorcode.NotSupported, "sharing with mail recipients is not enabled")
+			logger.Debug().Err(mailErr).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Msg("sharing with mail recipients is not enabled")
+			return libregraph.Permission{}, mailErr
 		}
 		createShareRequest := createShareRequestToMail(email, statResponse.GetInfo(), cs3ResourcePermissions)
 
@@ -177,7 +287,7 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 		createShareResponse, err := gatewayClient.CreateShare(ctx, createShareRequest)
 
 		if err := errorcode.FromCS3Status(createShareResponse.GetStatus(), err); err != nil {
-			s.logger.Debug().Err(err).Msg("share creation failed")
+			errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Str(_logKeyRecipientType, _recipientTypeMail).Msg("share creation failed")
 			return libregraph.Permission{}, err
 		}
 		shareid = createShareResponse.GetShare().GetId().GetOpaqueId()
@@ -187,7 +297,7 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 		// the share provider stores the guest's mail address in its canonical form
 		guestIdentity, err := cs3UserIdToIdentity(ctx, s.identityCache, createShareResponse.GetShare().GetGrantee().GetUserId())
 		if err != nil {
-			s.logger.Debug().Err(err).Msg("failed to convert guest user id to identity")
+			errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Str(_logKeyRecipientType, _recipientTypeMail).Msg("failed to convert guest user id to identity")
 			return libregraph.Permission{}, err
 		}
 
@@ -197,10 +307,11 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 
 	} else {
 		switch driveRecipient.GetLibreGraphRecipientType() {
-		case "group":
+		case _recipientTypeGroup:
 			group, err := s.identityCache.GetGroup(ctx, objectID)
 			if err != nil {
-				s.logger.Debug().Err(err).Interface("groupId", objectID).Msg("failed group lookup")
+				errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Str(_logKeyRecipientType, _recipientTypeGroup).Msg("recipient lookup failed")
+				setSpanErrorStatus(span, err)
 				return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, err.Error())
 			}
 			permission.GrantedToV2 = &libregraph.SharePointIdentitySet{
@@ -215,7 +326,7 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 			}
 			createShareResponse, err := gatewayClient.CreateShare(ctx, createShareRequest)
 			if err := errorcode.FromCS3Status(createShareResponse.GetStatus(), err); err != nil {
-				s.logger.Debug().Err(err).Msg("share creation failed")
+				errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Str(_logKeyRecipientType, _recipientTypeGroup).Msg("share creation failed")
 				return libregraph.Permission{}, err
 			}
 			shareid = createShareResponse.GetShare().GetId().GetOpaqueId()
@@ -226,11 +337,14 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 			if errors.Is(err, identity.ErrNotFound) && s.config.IncludeOCMSharees {
 				user, err = s.identityCache.GetAcceptedCS3User(ctx, objectID)
 				if err == nil && IsSpaceRoot(statResponse.GetInfo().GetId()) {
-					return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "federated user can not become a space member")
+					federatedErr := errorcode.New(errorcode.InvalidRequest, "federated user can not become a space member")
+					logger.Debug().Err(federatedErr).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Msg("federated user can not become a space member")
+					return libregraph.Permission{}, federatedErr
 				}
 			}
 			if err != nil {
-				s.logger.Debug().Err(err).Interface("userId", objectID).Msg("failed user lookup")
+				errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Str(_logKeyRecipientType, _recipientTypeUser).Msg("recipient lookup failed")
+				setSpanErrorStatus(span, err)
 				return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, err.Error())
 			}
 			permission.GrantedToV2 = &libregraph.SharePointIdentitySet{
@@ -246,7 +360,7 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 					Domain: user.GetId().GetIdp(),
 				})
 				if err = errorcode.FromCS3Status(providerInfoResp.GetStatus(), err); err != nil {
-					s.logger.Error().Err(err).Msg("getting provider info failed")
+					errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Str(_logKeyRecipientType, _recipientTypeOCM).Msg("getting provider info failed")
 					return libregraph.Permission{}, err
 				}
 
@@ -256,7 +370,7 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 				}
 				createShareResponse, err := gatewayClient.CreateOCMShare(ctx, createShareRequest)
 				if err = errorcode.FromCS3Status(createShareResponse.GetStatus(), err); err != nil {
-					s.logger.Error().Err(err).Msg("share creation failed")
+					errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Str(_logKeyRecipientType, _recipientTypeOCM).Msg("share creation failed")
 					return libregraph.Permission{}, err
 				}
 				shareid = createShareResponse.GetShare().GetId().GetOpaqueId()
@@ -269,7 +383,7 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 				}
 				createShareResponse, err := gatewayClient.CreateShare(ctx, createShareRequest)
 				if err = errorcode.FromCS3Status(createShareResponse.GetStatus(), err); err != nil {
-					s.logger.Error().Err(err).Msg("share creation failed")
+					errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Str(_logKeyRecipientType, _recipientTypeUser).Msg("share creation failed")
 					return libregraph.Permission{}, err
 				}
 				shareid = createShareResponse.GetShare().GetId().GetOpaqueId()
@@ -297,7 +411,8 @@ func (s DriveItemPermissionsService) Invite(ctx context.Context, resourceId *sto
 	if user, ok := revactx.ContextGetUser(ctx); ok {
 		userIdentity, err := userIdToIdentity(ctx, s.identityCache, tenantId, user.GetId().GetOpaqueId())
 		if err != nil {
-			s.logger.Error().Err(err).Msg("identity lookup failed")
+			logger.Error().Err(err).Str(_logKeyErrorCode, errorCodeForError(err)).Str(_logKeyItemID, storagespace.FormatResourceID(resourceId)).Msg("identity lookup failed")
+			setSpanErrorStatus(span, err)
 			return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, err.Error())
 		}
 		permission.SetInvitation(libregraph.SharingInvitation{
@@ -387,19 +502,28 @@ func createShareRequestToMail(mail string, info *storageprovider.ResourceInfo, c
 }
 
 // SpaceRootInvite handles invitation request on project spaces
-func (s DriveItemPermissionsService) SpaceRootInvite(ctx context.Context, driveID *storageprovider.ResourceId, invite libregraph.DriveItemInvite) (libregraph.Permission, error) {
+func (s DriveItemPermissionsService) SpaceRootInvite(ctx context.Context, driveID *storageprovider.ResourceId, invite libregraph.DriveItemInvite) (_ libregraph.Permission, err error) {
+	ctx, span := s.tp.Tracer(_tracerName).Start(ctx, "SpaceRootInvite")
+	defer func() { endSpan(span, err) }()
+	logger := s.logger.SubloggerWithRequestID(ctx)
+
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
+		errorEvent(&logger, err).Str(_logKeyDriveID, storagespace.FormatResourceID(driveID)).Msg("could not select next gateway client")
 		return libregraph.Permission{}, err
 	}
 
 	space, err := utils.GetSpace(ctx, storagespace.FormatResourceID(driveID), gatewayClient)
 	if err != nil {
-		return libregraph.Permission{}, errorcode.FromUtilsStatusCodeError(err)
+		spaceErr := errorcode.FromUtilsStatusCodeError(err)
+		errorEvent(&logger, spaceErr).Str(_logKeyDriveID, storagespace.FormatResourceID(driveID)).Msg("could not get space")
+		return libregraph.Permission{}, spaceErr
 	}
 
 	if space.SpaceType != _spaceTypeProject {
-		return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "unsupported space type")
+		spaceTypeErr := errorcode.New(errorcode.InvalidRequest, "unsupported space type")
+		logger.Debug().Err(spaceTypeErr).Str(_logKeyDriveID, storagespace.FormatResourceID(driveID)).Str(_logKeySpaceType, space.GetSpaceType()).Msg("unsupported space type")
+		return libregraph.Permission{}, spaceTypeErr
 	}
 
 	rootResourceID := space.GetRoot()
@@ -407,21 +531,27 @@ func (s DriveItemPermissionsService) SpaceRootInvite(ctx context.Context, driveI
 }
 
 // ListPermissions lists the permissions of a driveItem
-func (s DriveItemPermissionsService) ListPermissions(ctx context.Context, itemID *storageprovider.ResourceId, queryOptions ListPermissionsQueryOptions) (libregraph.CollectionOfPermissionsWithAllowedValues, error) {
+func (s DriveItemPermissionsService) ListPermissions(ctx context.Context, itemID *storageprovider.ResourceId, queryOptions ListPermissionsQueryOptions) (_ libregraph.CollectionOfPermissionsWithAllowedValues, err error) {
+	ctx, span := s.tp.Tracer(_tracerName).Start(ctx, "ListPermissions")
+	defer func() { endSpan(span, err) }()
+	logger := s.logger.SubloggerWithRequestID(ctx)
+
 	collectionOfPermissions := libregraph.CollectionOfPermissionsWithAllowedValues{}
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
+		errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Msg("could not select next gateway client")
 		return collectionOfPermissions, err
 	}
 
 	statResponse, err := gatewayClient.Stat(ctx, &storageprovider.StatRequest{Ref: &storageprovider.Reference{ResourceId: itemID}})
 	if err := errorcode.FromStat(statResponse, err); err != nil {
-		s.logger.Warn().Err(err).Interface("stat.res", statResponse).Msg("stat failed")
+		errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Msg("stat failed")
 		return collectionOfPermissions, err
 	}
 
 	var condition string
 	if condition, err = roleConditionForResourceType(statResponse.GetInfo()); err != nil {
+		logger.Debug().Err(err).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Msg("unsupported resource type")
 		return collectionOfPermissions, err
 	}
 
@@ -472,6 +602,7 @@ func (s DriveItemPermissionsService) ListPermissions(ctx context.Context, itemID
 			share.ResourceIDFilter(itemID),
 		}, driveItems)
 		if err != nil {
+			errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Msg("could not list space root shares")
 			return collectionOfPermissions, err
 		}
 	} else {
@@ -480,6 +611,7 @@ func (s DriveItemPermissionsService) ListPermissions(ctx context.Context, itemID
 			share.ResourceIDFilter(itemID),
 		}, driveItems)
 		if err != nil {
+			errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Msg("could not list user shares")
 			return collectionOfPermissions, err
 		}
 		if s.config.IncludeOCMSharees {
@@ -490,6 +622,7 @@ func (s DriveItemPermissionsService) ListPermissions(ctx context.Context, itemID
 				},
 			}, driveItems)
 			if err != nil {
+				errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Msg("could not list ocm shares")
 				return collectionOfPermissions, err
 			}
 		}
@@ -501,6 +634,7 @@ func (s DriveItemPermissionsService) ListPermissions(ctx context.Context, itemID
 			publicshare.ResourceIDFilter(itemID),
 		}, driveItems)
 		if err != nil {
+			errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Msg("could not list public shares")
 			return collectionOfPermissions, err
 		}
 	}
@@ -520,21 +654,30 @@ func (s DriveItemPermissionsService) ListPermissions(ctx context.Context, itemID
 }
 
 // ListSpaceRootPermissions handles ListPermissions request on project spaces
-func (s DriveItemPermissionsService) ListSpaceRootPermissions(ctx context.Context, driveID *storageprovider.ResourceId, queryOptions ListPermissionsQueryOptions) (libregraph.CollectionOfPermissionsWithAllowedValues, error) {
+func (s DriveItemPermissionsService) ListSpaceRootPermissions(ctx context.Context, driveID *storageprovider.ResourceId, queryOptions ListPermissionsQueryOptions) (_ libregraph.CollectionOfPermissionsWithAllowedValues, err error) {
+	ctx, span := s.tp.Tracer(_tracerName).Start(ctx, "ListSpaceRootPermissions")
+	defer func() { endSpan(span, err) }()
+	logger := s.logger.SubloggerWithRequestID(ctx)
+
 	collectionOfPermissions := libregraph.CollectionOfPermissionsWithAllowedValues{}
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
+		errorEvent(&logger, err).Str(_logKeyDriveID, storagespace.FormatResourceID(driveID)).Msg("could not select next gateway client")
 		return collectionOfPermissions, err
 	}
 
 	space, err := utils.GetSpace(ctx, storagespace.FormatResourceID(driveID), gatewayClient)
 	if err != nil {
-		return collectionOfPermissions, errorcode.FromUtilsStatusCodeError(err)
+		spaceErr := errorcode.FromUtilsStatusCodeError(err)
+		errorEvent(&logger, spaceErr).Str(_logKeyDriveID, storagespace.FormatResourceID(driveID)).Msg("could not get space")
+		return collectionOfPermissions, spaceErr
 	}
 
 	isSupportedSpaceType := slices.Contains([]string{_spaceTypeProject, _spaceTypePersonal, _spaceTypeVirtual}, space.GetSpaceType())
 	if !isSupportedSpaceType {
-		return collectionOfPermissions, errorcode.New(errorcode.InvalidRequest, "unsupported space type")
+		spaceTypeErr := errorcode.New(errorcode.InvalidRequest, "unsupported space type")
+		logger.Debug().Err(spaceTypeErr).Str(_logKeyDriveID, storagespace.FormatResourceID(driveID)).Str(_logKeySpaceType, space.GetSpaceType()).Msg("unsupported space type")
+		return collectionOfPermissions, spaceTypeErr
 	}
 
 	rootResourceID := space.GetRoot()
@@ -542,7 +685,11 @@ func (s DriveItemPermissionsService) ListSpaceRootPermissions(ctx context.Contex
 }
 
 // DeletePermission deletes a permission from a drive item
-func (s DriveItemPermissionsService) DeletePermission(ctx context.Context, itemID *storageprovider.ResourceId, permissionID string) error {
+func (s DriveItemPermissionsService) DeletePermission(ctx context.Context, itemID *storageprovider.ResourceId, permissionID string) (err error) {
+	ctx, span := s.tp.Tracer(_tracerName).Start(ctx, "DeletePermission")
+	defer func() { endSpan(span, err) }()
+	logger := s.logger.SubloggerWithRequestID(ctx)
+
 	var permissionType permissionType
 
 	sharedResourceID, err := s.getLinkPermissionResourceID(ctx, permissionID)
@@ -565,7 +712,10 @@ func (s DriveItemPermissionsService) DeletePermission(ctx context.Context, itemI
 		}
 	}
 
+	// the ocm lookup replaces the error of the share lookups, keep it for logging
+	var lookupErr error
 	if sharedResourceID == nil && s.config.IncludeOCMSharees {
+		lookupErr = err
 		sharedResourceID, err = s.getOCMPermissionResourceID(ctx, permissionID)
 		if err == nil {
 			permissionType = OCM
@@ -574,47 +724,74 @@ func (s DriveItemPermissionsService) DeletePermission(ctx context.Context, itemI
 
 	switch {
 	case err != nil:
+		fallbackErrorEvent(&logger, err, lookupErr, _logKeyLookupError).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Str(_logKeyPermissionID, permissionID).Msg("could not resolve permission")
+		setSpanErrorStatus(span, lookupErr)
 		return err
 	case permissionType == Unknown:
+		logger.Debug().Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Str(_logKeyPermissionID, permissionID).Msg("permission not found")
 		return errorcode.New(errorcode.ItemNotFound, "permission not found")
 	case sharedResourceID == nil:
+		logger.Debug().Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Str(_logKeyPermissionID, permissionID).Msg("could not resolve the shared resource of the permission")
 		return errorcode.New(errorcode.ItemNotFound, "failed to resolve resource id for shared resource")
 	}
 
 	// The resourceID of the shared resource need to match the item ID from the Request Path
 	// otherwise this is an invalid Request.
 	if !utils.ResourceIDEqual(sharedResourceID, itemID) {
-		s.logger.Debug().Msg("resourceID of shared does not match itemID")
+		logger.Debug().Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Str(_logKeyPermissionID, permissionID).Msg("resourceID of shared does not match itemID")
 		return errorcode.New(errorcode.InvalidRequest, "permissionID and itemID do not match")
 	}
 
 	switch permissionType {
 	case User, Space:
-		return s.removeUserShare(ctx, permissionID)
+		if err := s.removeUserShare(ctx, permissionID); err != nil {
+			errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Str(_logKeyPermissionID, permissionID).Msg("could not remove permission")
+			return err
+		}
+		return nil
 	case Public:
-		return s.removePublicShare(ctx, permissionID)
+		if err := s.removePublicShare(ctx, permissionID); err != nil {
+			errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Str(_logKeyPermissionID, permissionID).Msg("could not remove permission")
+			return err
+		}
+		return nil
 	case OCM:
-		return s.removeOCMPermission(ctx, permissionID)
+		if err := s.removeOCMPermission(ctx, permissionID); err != nil {
+			errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Str(_logKeyPermissionID, permissionID).Msg("could not remove permission")
+			return err
+		}
+		return nil
 	default:
 		// This should never be reached
-		return errorcode.New(errorcode.GeneralException, "failed to delete permission")
+		unknownTypeErr := errorcode.New(errorcode.GeneralException, "failed to delete permission")
+		errorEvent(&logger, unknownTypeErr).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Str(_logKeyPermissionID, permissionID).Int(_logKeyPermissionType, int(permissionType)).Msg("unknown permission type")
+		return unknownTypeErr
 	}
 }
 
 // DeleteSpaceRootPermission deletes a permission on the root item of a project space
-func (s DriveItemPermissionsService) DeleteSpaceRootPermission(ctx context.Context, driveID *storageprovider.ResourceId, permissionID string) error {
+func (s DriveItemPermissionsService) DeleteSpaceRootPermission(ctx context.Context, driveID *storageprovider.ResourceId, permissionID string) (err error) {
+	ctx, span := s.tp.Tracer(_tracerName).Start(ctx, "DeleteSpaceRootPermission")
+	defer func() { endSpan(span, err) }()
+	logger := s.logger.SubloggerWithRequestID(ctx)
+
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
+		errorEvent(&logger, err).Str(_logKeyDriveID, storagespace.FormatResourceID(driveID)).Str(_logKeyPermissionID, permissionID).Msg("could not select next gateway client")
 		return err
 	}
 
 	space, err := utils.GetSpace(ctx, storagespace.FormatResourceID(driveID), gatewayClient)
 	if err != nil {
-		return errorcode.FromUtilsStatusCodeError(err)
+		spaceErr := errorcode.FromUtilsStatusCodeError(err)
+		errorEvent(&logger, spaceErr).Str(_logKeyDriveID, storagespace.FormatResourceID(driveID)).Str(_logKeyPermissionID, permissionID).Msg("could not get space")
+		return spaceErr
 	}
 
 	if space.SpaceType != _spaceTypeProject {
-		return errorcode.New(errorcode.InvalidRequest, "unsupported space type")
+		spaceTypeErr := errorcode.New(errorcode.InvalidRequest, "unsupported space type")
+		logger.Debug().Err(spaceTypeErr).Str(_logKeyDriveID, storagespace.FormatResourceID(driveID)).Str(_logKeyPermissionID, permissionID).Str(_logKeySpaceType, space.GetSpaceType()).Msg("unsupported space type")
+		return spaceTypeErr
 	}
 
 	rootResourceID := space.GetRoot()
@@ -622,23 +799,32 @@ func (s DriveItemPermissionsService) DeleteSpaceRootPermission(ctx context.Conte
 }
 
 // UpdatePermission updates a permission on a drive item
-func (s DriveItemPermissionsService) UpdatePermission(ctx context.Context, itemID *storageprovider.ResourceId, permissionID string, newPermission libregraph.Permission) (libregraph.Permission, error) {
+func (s DriveItemPermissionsService) UpdatePermission(ctx context.Context, itemID *storageprovider.ResourceId, permissionID string, newPermission libregraph.Permission) (_ libregraph.Permission, err error) {
+	ctx, span := s.tp.Tracer(_tracerName).Start(ctx, "UpdatePermission")
+	defer func() { endSpan(span, err) }()
+	logger := s.logger.SubloggerWithRequestID(ctx)
+
 	oldPermission, sharedResourceID, err := s.getPermissionByID(ctx, permissionID, itemID)
 
-	// try to get the permission from ocm if the permission was not found first place
+	// try to get the permission from ocm if the permission was not found first place,
+	// the ocm lookup replaces the error of the share lookup, keep it for logging
+	var lookupErr error
 	if err != nil && s.config.IncludeOCMSharees {
+		lookupErr = err
 		oldPermission, sharedResourceID, err = s.getOCMPermissionByID(ctx, permissionID, itemID)
 	}
 
 	// if we still can't find the permission, return an error
 	if err != nil {
+		fallbackErrorEvent(&logger, err, lookupErr, _logKeyLookupError).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Str(_logKeyPermissionID, permissionID).Msg("could not resolve permission")
+		setSpanErrorStatus(span, lookupErr)
 		return libregraph.Permission{}, err
 	}
 
 	// The resourceID of the shared resource need to match the item ID from the Request Path
 	// otherwise this is an invalid Request.
 	if !utils.ResourceIDEqual(sharedResourceID, itemID) {
-		s.logger.Debug().Msg("resourceID of shared does not match itemID")
+		logger.Debug().Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Str(_logKeyPermissionID, permissionID).Msg("resourceID of shared does not match itemID")
 		return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "permissionID and itemID do not match")
 	}
 
@@ -646,6 +832,7 @@ func (s DriveItemPermissionsService) UpdatePermission(ctx context.Context, itemI
 	if _, ok := oldPermission.GetLinkOk(); ok {
 		updatedPermission, err := s.updatePublicLinkPermission(ctx, permissionID, itemID, &newPermission)
 		if err != nil {
+			errorEvent(&logger, err).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Str(_logKeyPermissionID, permissionID).Msg("could not update permission")
 			return libregraph.Permission{}, err
 		}
 		return *updatedPermission, nil
@@ -658,31 +845,47 @@ func (s DriveItemPermissionsService) UpdatePermission(ctx context.Context, itemI
 	}
 
 	// This is an ocm share
+	var ocmErr error
 	if s.config.IncludeOCMSharees {
-		updatePermission, err := s.updateOCMPermission(ctx, permissionID, itemID, &newPermission)
-		if err == nil {
+		var updatePermission *libregraph.Permission
+		updatePermission, ocmErr = s.updateOCMPermission(ctx, permissionID, itemID, &newPermission)
+		if ocmErr == nil {
 			return *updatePermission, nil
 		}
 	}
 
+	if err != nil {
+		// the user share error is returned, but the ocm update may have failed for the more severe cause
+		fallbackErrorEvent(&logger, err, ocmErr, _logKeyOCMError).Str(_logKeyItemID, storagespace.FormatResourceID(itemID)).Str(_logKeyPermissionID, permissionID).Msg("could not update permission")
+		setSpanErrorStatus(span, ocmErr)
+	}
 	return libregraph.Permission{}, err
 
 }
 
 // UpdateSpaceRootPermission updates a permission on the root item of a project space
-func (s DriveItemPermissionsService) UpdateSpaceRootPermission(ctx context.Context, driveID *storageprovider.ResourceId, permissionID string, newPermission libregraph.Permission) (libregraph.Permission, error) {
+func (s DriveItemPermissionsService) UpdateSpaceRootPermission(ctx context.Context, driveID *storageprovider.ResourceId, permissionID string, newPermission libregraph.Permission) (_ libregraph.Permission, err error) {
+	ctx, span := s.tp.Tracer(_tracerName).Start(ctx, "UpdateSpaceRootPermission")
+	defer func() { endSpan(span, err) }()
+	logger := s.logger.SubloggerWithRequestID(ctx)
+
 	gatewayClient, err := s.gatewaySelector.Next()
 	if err != nil {
+		errorEvent(&logger, err).Str(_logKeyDriveID, storagespace.FormatResourceID(driveID)).Str(_logKeyPermissionID, permissionID).Msg("could not select next gateway client")
 		return libregraph.Permission{}, err
 	}
 
 	space, err := utils.GetSpace(ctx, storagespace.FormatResourceID(driveID), gatewayClient)
 	if err != nil {
-		return libregraph.Permission{}, errorcode.FromUtilsStatusCodeError(err)
+		spaceErr := errorcode.FromUtilsStatusCodeError(err)
+		errorEvent(&logger, spaceErr).Str(_logKeyDriveID, storagespace.FormatResourceID(driveID)).Str(_logKeyPermissionID, permissionID).Msg("could not get space")
+		return libregraph.Permission{}, spaceErr
 	}
 
 	if space.SpaceType != _spaceTypeProject {
-		return libregraph.Permission{}, errorcode.New(errorcode.InvalidRequest, "unsupported space type")
+		spaceTypeErr := errorcode.New(errorcode.InvalidRequest, "unsupported space type")
+		logger.Debug().Err(spaceTypeErr).Str(_logKeyDriveID, storagespace.FormatResourceID(driveID)).Str(_logKeyPermissionID, permissionID).Str(_logKeySpaceType, space.GetSpaceType()).Msg("unsupported space type")
+		return libregraph.Permission{}, spaceTypeErr
 	}
 
 	rootResourceID := space.GetRoot()
