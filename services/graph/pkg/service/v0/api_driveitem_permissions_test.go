@@ -29,6 +29,7 @@ import (
 
 	roleconversions "github.com/opencloud-eu/reva/v2/pkg/conversions"
 	revactx "github.com/opencloud-eu/reva/v2/pkg/ctx"
+	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
@@ -511,6 +512,46 @@ var _ = Describe("DriveItemPermissionsService", func() {
 			Expect(len(permissions.LibreGraphPermissionsActionsAllowedValues)).ToNot(BeZero())
 			Expect(len(permissions.LibreGraphPermissionsRolesAllowedValues)).ToNot(BeZero())
 			Expect(len(permissions.Value)).To(Equal(2))
+		})
+		Context("when listing the public shares fails", func() {
+			BeforeEach(func() {
+				statResponse.Info.PermissionSet = roleconversions.NewEditorRole().CS3ResourcePermissions()
+				listSharesResponse.Shares = []*collaboration.Share{
+					{
+						Id: &collaboration.ShareId{OpaqueId: "1"},
+						Permissions: &collaboration.SharePermissions{
+							Permissions: roleconversions.NewViewerRole().CS3ResourcePermissions(),
+						},
+						ResourceId: itemID,
+						Grantee: &provider.Grantee{
+							Type: provider.GranteeType_GRANTEE_TYPE_USER,
+							Id: &provider.Grantee_UserId{
+								UserId: &userpb.UserId{
+									OpaqueId: "user-id",
+								},
+							},
+						},
+					},
+				}
+				gatewayClient.On("Stat", mock.Anything, mock.Anything).Return(statResponse, nil)
+				gatewayClient.On("ListShares", mock.Anything, mock.Anything).Return(listSharesResponse, nil)
+				gatewayClient.On("GetUser", mock.Anything, mock.Anything).Return(getUserResponse, nil).Maybe()
+			})
+			It("still returns the other permissions on an already exists error", func() {
+				gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(&link.ListPublicSharesResponse{
+					Status: status.NewInternal(ctx, errtypes.AlreadyExists("metadata space").Error()),
+				}, nil)
+				permissions, err := driveItemPermissionsService.ListPermissions(context.Background(), itemID, svc.ListPermissionsQueryOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(permissions.Value)).To(Equal(1))
+			})
+			It("returns the error on any other error", func() {
+				gatewayClient.On("ListPublicShares", mock.Anything, mock.Anything).Return(&link.ListPublicSharesResponse{
+					Status: status.NewInternal(ctx, "transport error"),
+				}, nil)
+				_, err := driveItemPermissionsService.ListPermissions(context.Background(), itemID, svc.ListPermissionsQueryOptions{})
+				Expect(err).To(HaveOccurred())
+			})
 		})
 		It("returns role denied", func() {
 			statResponse.Info.PermissionSet = roleconversions.NewManagerRole().CS3ResourcePermissions()
