@@ -4,11 +4,15 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @jmrplens
+@aduffeck, @jmrplens, @micbar
 
 ### 🐛 Bug Fixes
 
 - fix(search): honor the gRPC client TLS mode in the index command [[#3620](https://github.com/opencloud-eu/opencloud/pull/3620)]
+
+### 📦️ Dependencies
+
+- [stable-9.1] chore: bump reva to latest stable-2.52 [[#3980](https://github.com/opencloud-eu/opencloud/pull/3980)]
 
 ## [9.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.0) - 2026-11-11
 
