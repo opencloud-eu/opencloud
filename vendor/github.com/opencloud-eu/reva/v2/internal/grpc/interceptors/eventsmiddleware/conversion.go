@@ -248,7 +248,7 @@ func FileDownloaded(r *provider.InitiateFileDownloadResponse, req *provider.Init
 }
 
 // FileLocked converts the response to an events
-func FileLocked(r *provider.SetLockResponse, req *provider.SetLockRequest, owner *user.UserId, executant *user.User) events.FileLocked {
+func FileLocked(r *provider.SetLockResponse, req *provider.SetLockRequest, spaceOwner *user.UserId, executant *user.User) events.FileLocked {
 	return events.FileLocked{
 		Executant:         executant.GetId(),
 		Ref:               req.Ref,
@@ -258,7 +258,7 @@ func FileLocked(r *provider.SetLockResponse, req *provider.SetLockRequest, owner
 }
 
 // FileUnlocked converts the response to an event
-func FileUnlocked(r *provider.UnlockResponse, req *provider.UnlockRequest, owner *user.UserId, executant *user.User) events.FileUnlocked {
+func FileUnlocked(r *provider.UnlockResponse, req *provider.UnlockRequest, spaceOwner *user.UserId, executant *user.User) events.FileUnlocked {
 	return events.FileUnlocked{
 		Executant:         executant.GetId(),
 		Ref:               req.Ref,
@@ -268,17 +268,37 @@ func FileUnlocked(r *provider.UnlockResponse, req *provider.UnlockRequest, owner
 }
 
 // ItemTrashed converts the response to an event
-func ItemTrashed(r *provider.DeleteResponse, req *provider.DeleteRequest, spaceOwner *user.UserId, executant *user.User) events.ItemTrashed {
-	opaqueID := utils.ReadPlainFromOpaque(r.Opaque, "opaque_id")
+func ItemTrashed(r *provider.DeleteResponse, req *provider.DeleteRequest, result *storage.DeleteResult, executant *user.User) events.ItemTrashed {
+	var spaceOwner *user.UserId
+	var id *provider.ResourceId
+	if result != nil {
+		spaceOwner = result.SpaceOwner
+		id = result.ResourceId
+	}
+	reqID := req.GetRef().GetResourceId()
+	if id == nil {
+		// drivers without a typed result: the storageprovider puts the id of
+		// the deleted node into the response opaque, the request may only
+		// carry the id of a parent and a relative path
+		opaqueID := utils.ReadPlainFromOpaque(r.GetOpaque(), "opaque_id")
+		if opaqueID == "" {
+			opaqueID = reqID.GetOpaqueId()
+		}
+		if reqID != nil || opaqueID != "" {
+			id = &provider.ResourceId{
+				StorageId: reqID.GetStorageId(),
+				SpaceId:   reqID.GetSpaceId(),
+				OpaqueId:  opaqueID,
+			}
+		}
+	} else if id.GetStorageId() == "" {
+		id.StorageId = reqID.GetStorageId()
+	}
 	return events.ItemTrashed{
-		SpaceOwner: spaceOwner,
-		Executant:  executant.GetId(),
-		Ref:        req.Ref,
-		ID: &provider.ResourceId{
-			StorageId: req.Ref.GetResourceId().GetStorageId(),
-			SpaceId:   req.Ref.GetResourceId().GetSpaceId(),
-			OpaqueId:  opaqueID,
-		},
+		SpaceOwner:        spaceOwner,
+		Executant:         executant.GetId(),
+		Ref:               req.Ref,
+		ID:                id,
 		Timestamp:         utils.TSNow(),
 		ImpersonatingUser: extractImpersonator(executant),
 	}
@@ -286,18 +306,11 @@ func ItemTrashed(r *provider.DeleteResponse, req *provider.DeleteRequest, spaceO
 
 // ItemMoved converts the response to an event
 func ItemMoved(r *provider.MoveResponse, req *provider.MoveRequest, result *storage.MoveResult, executant *user.User) events.ItemMoved {
-	var spaceOwner *user.UserId
-	var newRef, oldRef *provider.Reference
-	if result != nil {
-		spaceOwner = result.SpaceOwner
-		newRef = result.NewReference
-		oldRef = result.OldReference
-	}
 	return events.ItemMoved{
-		SpaceOwner:        spaceOwner,
+		SpaceOwner:        result.SpaceOwner,
 		Executant:         executant.GetId(),
-		Ref:               newRef,
-		OldReference:      oldRef,
+		Ref:               result.NewReference,
+		OldReference:      result.OldReference,
 		Timestamp:         utils.TSNow(),
 		ImpersonatingUser: extractImpersonator(executant),
 	}
@@ -487,13 +500,21 @@ func SpaceDisabled(r *provider.DeleteStorageSpaceResponse, req *provider.DeleteS
 }
 
 // SpaceDeleted converts the response to an event
-func SpaceDeleted(r *provider.DeleteStorageSpaceResponse, req *provider.DeleteStorageSpaceRequest, executant *user.User) events.SpaceDeleted {
+func SpaceDeleted(r *provider.DeleteStorageSpaceResponse, req *provider.DeleteStorageSpaceRequest, result *storage.DeleteStorageSpaceResult, executant *user.User) events.SpaceDeleted {
+	var spaceName string
 	var final map[string]provider.ResourcePermissions
-	_ = utils.ReadJSONFromOpaque(r.GetOpaque(), "grants", &final)
+	if result != nil {
+		spaceName = result.SpaceName
+		final = result.FinalMembers
+	} else {
+		// drivers without a typed result: fall back to the response opaque
+		spaceName = utils.ReadPlainFromOpaque(r.GetOpaque(), "spacename")
+		_ = utils.ReadJSONFromOpaque(r.GetOpaque(), "grants", &final)
+	}
 	return events.SpaceDeleted{
 		Executant:    executant.GetId(),
 		ID:           req.Id,
-		SpaceName:    utils.ReadPlainFromOpaque(r.GetOpaque(), "spacename"),
+		SpaceName:    spaceName,
 		FinalMembers: final,
 		Timestamp:    time.Now(),
 	}
