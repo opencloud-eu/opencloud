@@ -61,8 +61,8 @@ const (
 	// ShareTypeSpaceMembershipGroup represents an action regarding group type space members
 	ShareTypeSpaceMembershipGroup ShareType = 8
 
-	// ShareTypeGuest represents a guest share
-	ShareTypeGuest ShareType = 4
+	// ShareTypeEmail represents a share to an guest email address (magic-link guest without a user account)
+	ShareTypeEmail ShareType = 4
 
 	// ShareWithUserTypeUser represents a normal user
 	ShareWithUserTypeUser ShareWithUserType = 0
