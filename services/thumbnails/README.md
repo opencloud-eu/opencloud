@@ -22,7 +22,7 @@ source file to this endpoint and receives the processed image back.
 | `POST /unsafe/fit-in/{width}x{height}/filters:{filters}`  | Scale to fit within width x height, preserving aspect ratio and never upscaling   |
 | `POST /unsafe/stretch/{width}x{height}/filters:{filters}` | Resize to the exact width x height without preserving aspect ratio (distorts)     |
 
-A `smart` segment behind the box, `POST /unsafe/{width}x{height}/smart/filters:{filters}`, asks for the crop that keeps the region carrying the image rather than the middle, which is what webdav sends for every cropping resize. With libvips that is an attention crop; the pure Go build has nothing of the kind and crops the centre, as the thumbnails service has always done without libvips.
+A `smart` segment behind the box, `POST /unsafe/{width}x{height}/smart/filters:{filters}`, asks for the crop that keeps the region carrying the image rather than the middle, which is what webdav sends for every cropping resize. A real imagor answers it with an attention crop; this service has nothing of the kind and crops the centre.
 
 The path is imagor's. The filters segment is optional and may be empty
 (`filters:`), and an image key behind it is accepted and ignored, because the
@@ -34,11 +34,10 @@ resized, while this service treats it as the box. Inside the filters segment,
 filter is ignored. `format` itself is optional: without it the input's own format is
 preserved, the same way imagor does it. An input this service cannot write
 (tiff, bmp) becomes a JPEG; imagor writes tiff back in its own format and only
-falls back to JPEG for the ones it cannot write either. Which formats those are
-depends on the build: with libvips a webp source stays a webp, the pure Go build
-answers it as a JPEG because it has no webp encoder.
+falls back to JPEG for the ones it cannot write either. A webp source is
+answered as a JPEG, because this service has no webp encoder.
 
-What a build can read is its own backend's answer rather than a list: the library
+What this service can read is its decoders' answer rather than a list: the library
 that will decode the image reads the header first, so a source it cannot read
 answers `406` before anything is decoded, and the maximum dimensions are checked
 on that same header.
@@ -61,13 +60,11 @@ decides it, are the webdav service's business and documented in
 
 The request body is a `multipart/form-data` upload with a single file field
 named `image`, typed `image/*`; an untyped part is refused the way imagor's
-upload loader refuses it. Output formats are `jpg`, `png`, `gif` and, with
-libvips, `webp`; the pure Go build answers `406` for `format(webp)` because it
-has no webp encoder. An animated gif asked for a still format is flattened to
+upload loader refuses it. Output formats are `jpg`, `png` and `gif`; `format(webp)`
+is answered with `406` because this service has no webp encoder. An animated gif asked for a still format is flattened to
 its first frame, and a still source asked for `format(gif)` is palettised.
 
-Reading an ICO needs libvips with its magick loader; the pure Go build answers
-`406` for one.
+An ICO is answered with `406`; imagor reads one only with its magick loader.
 
 An animation is the one source whose frames are all decoded here, so what its
 blocks declare is read before any of them is: a gif with more frames than
@@ -82,7 +79,7 @@ none.
 The answers are imagor's: `400` for a malformed request, which includes a
 `format` nobody writes (anything but `jpg`, `png`, `gif` and `webp`); `406` for a
 source it cannot read, for an upload part that is not typed `image/*`, and for a
-format this build has no encoder for (`webp` without libvips); `422` for an image
+format this service has no encoder for (`webp`); `422` for an image
 above the configured maximum dimensions and for an animation above the frame
 limit; `429` when the concurrency limit is reached; `413` for a body above
 `THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE`.
@@ -107,41 +104,12 @@ The source and the thumbnail have ceilings of their own, for different reasons. 
 
 A real imagor has one pair of knobs for both, `-vips-max-width` and `-vips-max-height`, which bound every image in its pipeline, the loaded source as well as the result. Set them to the source ceiling. They are also more forgiving than this service for formats libvips can shrink while loading: a 9000 pixel wide JPEG passes a 2048 limit there, where this service refuses it on the header.
 
-## Using libvips for Image Processing
+## Supported Formats
 
-To improve performance and to support a wider range of image formats, the
-thumbnails service is able to utilize the
-[libvips library](https://www.libvips.org/) for image processing. Support for
-libvips needs to be enabled at buildtime and has a couple of implications:
-
-- With libvips support enabled, it is not possible to create a statically
-   linked OpenCloud binary.
-- Therefore, the libvips shared libraries need to be available at runtime in
-   the same release that was used to build the OpenCloud binary.
-- When using the OpenCloud docker images, the libvips shared libraries are
-   included in the image and are correctly embedded.
-
-Support of libvips is disabled by default. To enable it, make sure libvips
-and its buildtime dependencies are installed in your build environment. For
-macOS users, add the build time dependencies via:
-
-```shell
-brew install vips pkg-config
-export PKG_CONFIG_PATH="/usr/local/opt/libffi/lib/pkgconfig"
-```
-
-Then you just need to set the `ENABLE_VIPS` variable on the `make` command:
-
-```shell
-make -C opencloud build ENABLE_VIPS=1
-```
-
-Or include the `enable_vips` build tag in the `go build` command:
-
-```shell
-go build -tags enable_vips -o opencloud -o bin/opencloud ./cmd/opencloud
-```
-
-When building a docker image using the Dockerfile in the top-level directory of
-OpenCloud, libvips support is enabled and the libvips shared libraries are
-included in the resulting docker image.
+This service deliberately supports a small set of formats, decoded and encoded in
+pure Go: it reads `jpeg`, `png`, `gif`, `bmp`, `tiff` and `webp` and writes `jpg`,
+`png` and `gif`. It is meant as a fallback generator that keeps working when
+libvips or imagor need to be taken out of a deployment, for example while a
+security issue in them is being fixed. A deployment that wants more formats,
+webp output or an attention crop runs a real [imagor](https://imagor.net) and
+points `WEBDAV_THUMBNAILS_GENERATOR_URL` at it.

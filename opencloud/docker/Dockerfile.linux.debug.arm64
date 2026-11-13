@@ -3,7 +3,7 @@ FROM arm64v8/alpine:edge
 ARG VERSION=""
 ARG REVISION=""
 
-RUN apk add --no-cache attr bash ca-certificates curl delve inotify-tools libc6-compat mailcap tree vips patch && \
+RUN apk add --no-cache attr bash ca-certificates curl delve inotify-tools libc6-compat mailcap tree patch && \
 	echo 'hosts: files dns' >| /etc/nsswitch.conf
 
 LABEL maintainer="OpenCloud GmbH <devops@opencloud.eu>" \

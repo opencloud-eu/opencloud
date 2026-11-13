@@ -141,10 +141,9 @@ func (s Thumbnails) pushHandler(w http.ResponseWriter, r *http.Request) {
 		MaxOutWidth: s.maxOutWidth, MaxOutHeight: s.maxOutHeight,
 	}
 
-	// An animated gif is the one source both builds treat the same way: neither
-	// libvips nor the pure Go path has anything better for a paletted animation,
-	// so it never reaches a backend. Asking for a still format flattens it, and
-	// that is a backend's job again.
+	// An animated gif never reaches the still image backend, it is resized
+	// frame by frame. Asking for a still format flattens it, and that is the
+	// backend's job again.
 	if bytes.HasPrefix(imgData, gifMagic) && (ext == "gif" || !hasFormat) {
 		s.serveAnimation(w, imgData, req)
 
