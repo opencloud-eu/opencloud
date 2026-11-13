@@ -43,7 +43,7 @@ var _ = Describe("the maximum size of a space image", func() {
 			generator := thumbnailsdefaults.DefaultConfig()
 			Expect(thumbnailsparser.ParseConfig(generator)).To(Succeed())
 
-			Expect(cfg.Thumbnails.MaxInputImageFileSize).To(Equal(want))
+			Expect(cfg.Thumbnails.SpaceImageMaxInputImageFileSize).To(Equal(want))
 			Expect(generator.Thumbnail.MaxInputImageFileSize).To(Equal(want))
 		},
 		Entry("from the shared name", map[string]string{
@@ -60,9 +60,9 @@ var _ = Describe("the maximum size of a space image", func() {
 
 	It("can be set lower for graph alone", func() {
 		GinkgoT().Setenv("OC_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE", "100MB")
-		GinkgoT().Setenv("GRAPH_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE", "10MB")
+		GinkgoT().Setenv("OC_SPACE_IMAGE_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE", "10MB")
 
-		Expect(decodeEnv().Thumbnails.MaxInputImageFileSize).To(Equal("10MB"))
+		Expect(decodeEnv().Thumbnails.SpaceImageMaxInputImageFileSize).To(Equal("10MB"))
 	})
 })
 

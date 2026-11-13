@@ -63,7 +63,7 @@ var _ = Describe("setting the image of a space", func() {
 
 	// sets the maximum size of a space image, as the configuration does
 	setMaxSize := func(size string) {
-		cfg.Thumbnails.MaxInputImageFileSize = size
+		cfg.Thumbnails.SpaceImageMaxInputImageFileSize = size
 		var err error
 		svc, err = newService()
 		Expect(err).ToNot(HaveOccurred())
@@ -223,8 +223,8 @@ var _ = Describe("setting the image of a space", func() {
 	)
 
 	It("doesn't start with a maximum size that isn't a size", func() {
-		cfg.Thumbnails.MaxInputImageFileSize = "fifty megabytes"
+		cfg.Thumbnails.SpaceImageMaxInputImageFileSize = "fifty megabytes"
 		_, err := newService()
-		Expect(err).To(MatchError(ContainSubstring("thumbnails.max_input_image_file_size")))
+		Expect(err).To(MatchError(ContainSubstring("thumbnails.space_image_max_input_image_file_size")))
 	})
 })
