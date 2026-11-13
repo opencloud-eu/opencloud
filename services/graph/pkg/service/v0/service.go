@@ -338,7 +338,7 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 						// every export collects all the data of the user and
 						// writes it into their personal space, which is
 						// expensive: limit how often a user can start one
-						ocmiddleware.RateLimitPerAuthenticatedUser(options.Config.API.ExportPersonalDataRateLimit, time.Minute),
+						ocmiddleware.RateLimitPerAuthenticatedUser(options.Config.API.ExportPersonalDataRateLimit, time.Minute, exportPersonalDataLimitReached),
 					).Post("/exportPersonalData", svc.ExportPersonalData)
 					r.Post("/teamwork/sendActivityNotification", svc.SendActivityNotification)
 					r.Route("/photo/$value", func(r chi.Router) {

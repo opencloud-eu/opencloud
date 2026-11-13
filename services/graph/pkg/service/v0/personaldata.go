@@ -80,6 +80,13 @@ func (g Graph) getPersonalSpace(ctx context.Context, u *user.UserId) (*provider.
 	return res.GetStorageSpaces()[0], nil
 }
 
+// exportPersonalDataLimitReached answers a request to export the personal data
+// beyond the rate limit, in the error format of the other graph endpoints. The
+// rate limit has set the Retry-After header already.
+func exportPersonalDataLimitReached(w http.ResponseWriter, r *http.Request) {
+	errorcode.ActivityLimitReached.Render(w, r, http.StatusTooManyRequests, "too many exports of personal data, try again later")
+}
+
 // ExportPersonalData exports all personal data the system holds
 func (g Graph) ExportPersonalData(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

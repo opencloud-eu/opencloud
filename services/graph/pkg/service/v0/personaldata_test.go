@@ -2,6 +2,7 @@ package svc_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -94,6 +95,23 @@ var _ = Describe("ExportPersonalData", func() {
 		Expect(reachedHandler(export(svc, "/graph/v1.0/users/alice/exportPersonalData"))).To(BeTrue())
 		Expect(reachedHandler(export(svc, "/graph/v1.0/users/alice/exportPersonalData/"))).To(BeTrue())
 		Expect(export(svc, "/graph/v1.0/users/al%69ce/exportPersonalData").Code).To(Equal(http.StatusTooManyRequests))
+	})
+
+	It("answers beyond the limit in the error format of graph, with Retry-After", func() {
+		svc := newService()
+		export(svc, "/graph/v1.0/users/alice/exportPersonalData")
+		export(svc, "/graph/v1.0/users/alice/exportPersonalData")
+		rr := export(svc, "/graph/v1.0/users/alice/exportPersonalData")
+		Expect(rr.Code).To(Equal(http.StatusTooManyRequests))
+		Expect(rr.Header().Get("Retry-After")).ToNot(BeEmpty())
+
+		var body struct {
+			Error struct {
+				Code string `json:"code"`
+			} `json:"error"`
+		}
+		Expect(json.Unmarshal(rr.Body.Bytes(), &body)).To(Succeed())
+		Expect(body.Error.Code).To(Equal("activityLimitReached"))
 	})
 
 	It("rejects requests for other users before they count against any limit", func() {

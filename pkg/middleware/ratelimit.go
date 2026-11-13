@@ -16,6 +16,11 @@ var errNoAuthenticatedUser = errors.New("no authenticated user")
 // limit get a 429 response with a Retry-After header. A limit of 0 or less
 // disables the limit.
 //
+// limitReached writes the response to a request beyond the limit, so that a
+// service can answer in its own error format. The Retry-After header is set
+// already when it is called, and it must set the status 429 itself. If it is
+// nil, the response is a plain text 429.
+//
 // It requires an authenticated user in the request context, and so must come
 // after the middleware that authenticates the request: requests without one
 // get a 401 response. The requests are counted by the id of that user, not by
@@ -25,13 +30,15 @@ var errNoAuthenticatedUser = errors.New("no authenticated user")
 // The counters are kept in memory, separately by every instance of the
 // service, and by every call of this function: use one call per route that
 // needs its own limit.
-func RateLimitPerAuthenticatedUser(limit int, window time.Duration) func(http.Handler) http.Handler {
+func RateLimitPerAuthenticatedUser(limit int, window time.Duration, limitReached http.HandlerFunc) func(http.Handler) http.Handler {
 	if limit <= 0 {
 		return func(next http.Handler) http.Handler {
 			return next
 		}
 	}
 	return httprate.LimitBy(limit, window, authenticatedUserID,
+		// httprate answers with its plain text 429 if this is nil
+		httprate.WithLimitHandler(limitReached),
 		httprate.WithErrorHandler(func(w http.ResponseWriter, _ *http.Request, _ error) {
 			// the only error is a missing user: the default answer
 			// would be a 428, which is misleading
