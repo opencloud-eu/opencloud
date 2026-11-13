@@ -164,6 +164,20 @@ The client that is used to authenticate with keycloak has to be able to list use
 These roles are only available to assign if the client is in the `master` realm.
 :::
 
+## Rate Limit For The Personal Data Export
+
+Every personal data export collects the data of the user and writes it to a file in the user's personal space, which takes time and resources. To keep users from starting exports over and over, the number of exports a user can start is limited to 5 per minute. Further requests within the same minute are answered with the HTTP status `429 Too Many Requests` and a `Retry-After` header that tells the client how long to wait at most before trying again.
+
+The limit can be changed with `GRAPH_EXPORT_PERSONAL_DATA_RATE_LIMIT`, for example to allow 2 exports per minute:
+
+```bash
+GRAPH_EXPORT_PERSONAL_DATA_RATE_LIMIT=2
+```
+
+Setting it to `0` disables the limit.
+
+Every instance of the `graph` service counts the requests on its own, in memory. When several instances run behind a load balancer, a user can start up to this number of exports per minute on each of them, and a restart of an instance resets its counts.
+
 ## Translations
 
 The `graph` service has embedded translations sourced via transifex to provide a basic set of translated languages. These embedded translations are available for all deployment scenarios. In addition, the service supports custom translations, though it is currently not possible to just add custom translations to embedded ones. If custom translations are configured, the embedded ones are not used. To configure custom translations, the `GRAPH_TRANSLATION_PATH` environment variable needs to point to a base folder that will contain the translation files. This path must be available from all instances of the graph service, a shared storage is recommended. Translation files must be of type  [.po](https://www.gnu.org/software/gettext/manual/html_node/PO-Files.html#PO-Files) or [.mo](https://www.gnu.org/software/gettext/manual/html_node/Binaries.html). For each language, the filename needs to be `graph.po` (or `graph.mo`) and stored in a folder structure defining the language code. In general the path/name pattern for a translation file needs to be:

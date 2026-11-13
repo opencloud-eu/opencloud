@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strconv"
 
@@ -79,14 +80,25 @@ func (g Graph) getPersonalSpace(ctx context.Context, u *user.UserId) (*provider.
 	return res.GetStorageSpaces()[0], nil
 }
 
+// exportPersonalDataLimitReached answers a request to export the personal data
+// beyond the rate limit, in the error format of the other graph endpoints. The
+// rate limit has set the Retry-After header already.
+func exportPersonalDataLimitReached(w http.ResponseWriter, r *http.Request) {
+	errorcode.ActivityLimitReached.Render(w, r, http.StatusTooManyRequests, "too many exports of personal data, try again later")
+}
+
 // ExportPersonalData exports all personal data the system holds
 func (g Graph) ExportPersonalData(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	u := revactx.ContextMustGetUser(ctx)
-	if reqUserID := chi.URLParam(r, "userID"); reqUserID != u.GetId().GetOpaqueId() {
-		g.logger.Info().Msg("uid mismatch")
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("personal data export for other users are not permitted"))
+	// The RequireOwnUserID middleware on the route rejects requests for other
+	// users already. Check it here again all the same: exporting the data of
+	// one user to another must never happen, also when the route is changed
+	// by mistake.
+	if userID, err := url.PathUnescape(chi.URLParam(r, "userID")); err != nil || userID == "" || userID != u.GetId().GetOpaqueId() {
+		g.logger.Error().Err(err).Str("userid", u.GetId().GetOpaqueId()).Str("requestedUserID", chi.URLParam(r, "userID")).
+			Msg("personal data export for another user reached the handler: is the RequireOwnUserID middleware missing on the route?")
+		errorcode.InvalidRequest.Render(w, r, http.StatusBadRequest, "not permitted for other users")
 		return
 	}
 	// Get location from request
