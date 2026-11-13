@@ -15,6 +15,8 @@ type Permission string
 
 const (
 	PermissionCollaborationManageFonts Permission = "Collaboration.Fonts.Manage"
+	// PermissionWebOfficeManage is also what CheckFileInfo uses for IsAdminUser.
+	PermissionWebOfficeManage Permission = "WebOffice.Manage"
 )
 
 func CheckPermissions(gatewayClient gateway.GatewayAPIClient, ctx context.Context, permission Permission) (*userpb.User, bool, error) {

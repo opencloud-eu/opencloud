@@ -10,6 +10,7 @@ import (
 
 	gatewayv1beta1 "github.com/cs3org/go-cs3apis/cs3/gateway/v1beta1"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/config"
+	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/connector/fileinfo"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/connector/utf7"
 	"github.com/opencloud-eu/opencloud/services/collaboration/pkg/locks"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
@@ -42,8 +43,20 @@ const (
 // All operations are expected to follow the definitions found in
 // https://learn.microsoft.com/en-us/microsoft-365/cloud-storage-partner-program/rest/endpoints
 type HttpAdapter struct {
-	con   ConnectorService
-	locks locks.LockParser
+	con      ConnectorService
+	locks    locks.LockParser
+	settings SettingsRefProvider
+}
+
+// SettingsRefProvider returns the office settings references for CheckFileInfo.
+type SettingsRefProvider interface {
+	SettingsRefs(r *http.Request) (userRef, sharedRef *fileinfo.SettingsRef)
+}
+
+// WithSettings makes CheckFileInfo point Collabora to the office settings.
+func (h *HttpAdapter) WithSettings(p SettingsRefProvider) *HttpAdapter {
+	h.settings = p
+	return h
 }
 
 // NewHttpAdapter will create a new HTTP adapter. A new connector using the
@@ -158,6 +171,10 @@ func (h *HttpAdapter) CheckFileInfo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
+	}
+
+	if info, ok := response.Body.(*fileinfo.Collabora); ok && h.settings != nil {
+		info.UserSettings, info.SharedSettings = h.settings.SettingsRefs(r)
 	}
 
 	h.writeConnectorResponse(w, r, response)
