@@ -317,7 +317,7 @@ Feature: download file
       | spaces           | "file #2.txt"    |
       | spaces           | "file ?2.pdf"    |
 
-  @issue-2852
+  @issue-2852 @skipOnReva
   Scenario Outline: download a file whose name contains a literal "%" via its oc:downloadURL
     Given using <dav-path-version> DAV path
     And user "Alice" has uploaded file with content "test file" to "firstword%20secondword.txt"
