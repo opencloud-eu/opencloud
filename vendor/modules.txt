@@ -458,8 +458,8 @@ github.com/go-acme/lego/v5/challenge
 # github.com/go-asn1-ber/asn1-ber v1.5.8
 ## explicit; go 1.13
 github.com/go-asn1-ber/asn1-ber
-# github.com/go-chi/chi/v5 v5.3.2
-## explicit; go 1.23
+# github.com/go-chi/chi/v5 v5.4.0
+## explicit; go 1.24
 github.com/go-chi/chi/v5
 github.com/go-chi/chi/v5/middleware
 # github.com/go-chi/render v1.0.3
@@ -534,7 +534,7 @@ github.com/go-jose/go-jose/v3
 github.com/go-jose/go-jose/v3/cipher
 github.com/go-jose/go-jose/v3/json
 github.com/go-jose/go-jose/v3/jwt
-# github.com/go-jose/go-jose/v4 v4.1.5
+# github.com/go-jose/go-jose/v4 v4.1.6
 ## explicit; go 1.24.0
 github.com/go-jose/go-jose/v4
 github.com/go-jose/go-jose/v4/cipher
@@ -596,7 +596,7 @@ github.com/go-micro/plugins/v4/wrapper/trace/opentelemetry
 ## explicit; go 1.12
 github.com/go-ole/go-ole
 github.com/go-ole/go-ole/oleutil
-# github.com/go-playground/locales v0.14.1
+# github.com/go-playground/locales v0.14.2
 ## explicit; go 1.17
 github.com/go-playground/locales
 github.com/go-playground/locales/currency
@@ -604,8 +604,8 @@ github.com/go-playground/locales/en
 # github.com/go-playground/universal-translator v0.18.2
 ## explicit; go 1.26
 github.com/go-playground/universal-translator
-# github.com/go-playground/validator/v10 v10.30.3
-## explicit; go 1.25.0
+# github.com/go-playground/validator/v10 v10.30.5
+## explicit; go 1.26.0
 github.com/go-playground/validator/v10
 github.com/go-playground/validator/v10/translations/en
 # github.com/go-redis/redis/v8 v8.11.5
@@ -889,8 +889,8 @@ github.com/kovidgoyal/imaging/prism/meta/webpmeta
 github.com/kovidgoyal/imaging/streams
 github.com/kovidgoyal/imaging/types
 github.com/kovidgoyal/imaging/webp
-# github.com/leodido/go-urn v1.4.0
-## explicit; go 1.18
+# github.com/leodido/go-urn v1.5.0
+## explicit; go 1.24.0
 github.com/leodido/go-urn
 github.com/leodido/go-urn/scim/schema
 # github.com/leonelquinteros/gotext v1.7.3-0.20260422134830-b012b4ccae69
@@ -1360,7 +1360,7 @@ github.com/opencloud-eu/icap-client
 # github.com/opencloud-eu/libre-graph-api-go v1.0.9-0.20261016073229-17ed3d5dd346
 ## explicit; go 1.23
 github.com/opencloud-eu/libre-graph-api-go
-# github.com/opencloud-eu/reva/v2 v2.52.1
+# github.com/opencloud-eu/reva/v2 v2.52.3-0.20261113144838-03685668969d
 ## explicit; go 1.26.0
 github.com/opencloud-eu/reva/v2/cmd/revad/internal/grace
 github.com/opencloud-eu/reva/v2/cmd/revad/runtime
@@ -1620,8 +1620,6 @@ github.com/opencloud-eu/reva/v2/pkg/storage/fs/loader
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/local
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/localhome
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/nextcloud
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/ocis
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/ocis/blobstore
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/owncloudsql
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/owncloudsql/filecache
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix
@@ -1637,8 +1635,6 @@ github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/tree/assimilation
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/watcher/natswatcher
 github.com/opencloud-eu/reva/v2/pkg/storage/fs/registry
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/s3ng
-github.com/opencloud-eu/reva/v2/pkg/storage/fs/s3ng/blobstore
 github.com/opencloud-eu/reva/v2/pkg/storage/internal/goroutinelock
 github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs
 github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/aspects
@@ -1655,7 +1651,6 @@ github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/timemanager
 github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/trashbin
 github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/tree
 github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/tree/propagator
-github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/upload
 github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/usermapper
 github.com/opencloud-eu/reva/v2/pkg/storage/registry/loader
 github.com/opencloud-eu/reva/v2/pkg/storage/registry/registry
@@ -1664,23 +1659,6 @@ github.com/opencloud-eu/reva/v2/pkg/storage/registry/static
 github.com/opencloud-eu/reva/v2/pkg/storage/utils/ace
 github.com/opencloud-eu/reva/v2/pkg/storage/utils/acl
 github.com/opencloud-eu/reva/v2/pkg/storage/utils/chunking
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/aspects
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/lookup
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/metadata
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/metadata/prefixes
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/migrator
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/mtimesyncedcache
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/node
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/options
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/permissions
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/spaceidindex
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/timemanager
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/trashbin
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/tree
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/tree/propagator
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/upload
-github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/usermapper
 github.com/opencloud-eu/reva/v2/pkg/storage/utils/downloader
 github.com/opencloud-eu/reva/v2/pkg/storage/utils/eosfs
 github.com/opencloud-eu/reva/v2/pkg/storage/utils/filelocks
@@ -1708,6 +1686,7 @@ github.com/opencloud-eu/reva/v2/pkg/token/manager/jwt
 github.com/opencloud-eu/reva/v2/pkg/token/manager/loader
 github.com/opencloud-eu/reva/v2/pkg/token/manager/registry
 github.com/opencloud-eu/reva/v2/pkg/trace
+github.com/opencloud-eu/reva/v2/pkg/upload
 github.com/opencloud-eu/reva/v2/pkg/user
 github.com/opencloud-eu/reva/v2/pkg/user/manager/demo
 github.com/opencloud-eu/reva/v2/pkg/user/manager/json

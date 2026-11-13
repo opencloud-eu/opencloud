@@ -31,6 +31,7 @@ type Handler struct {
 	c                     ocs.CapabilitiesData
 	defaultUploadProtocol string
 	userAgentChunkingMap  map[string]string
+	gatewayAddr           string
 }
 
 // Init initializes this and any contained handlers
@@ -38,6 +39,7 @@ func (h *Handler) Init(c *config.Config) {
 	h.c = c.Capabilities
 	h.defaultUploadProtocol = c.DefaultUploadProtocol
 	h.userAgentChunkingMap = c.UserAgentChunkingMap
+	h.gatewayAddr = c.GatewaySvc
 
 	// capabilities
 	if h.c.Capabilities == nil {
@@ -120,8 +122,9 @@ func (h *Handler) Init(c *config.Config) {
 	if h.c.Capabilities.Dav == nil {
 		h.c.Capabilities.Dav = &ocs.CapabilitiesDav{}
 	}
-	if h.c.Capabilities.Dav.Trashbin == "" {
-		h.c.Capabilities.Dav.Trashbin = "1.0"
+	// Trashbin is deprecated for clients, but we keep announcing it until they read the providers section.
+	if h.c.Capabilities.Dav.Trashbin == "" { //nolint:staticcheck // SA1019: still announced for older clients
+		h.c.Capabilities.Dav.Trashbin = "1.0" //nolint:staticcheck // SA1019: still announced for older clients
 	}
 	if h.c.Capabilities.Dav.Reports == nil {
 		h.c.Capabilities.Dav.Reports = []string{}
@@ -241,5 +244,10 @@ func (h *Handler) Init(c *config.Config) {
 // Handler renders the capabilities
 func (h *Handler) GetCapabilities(w http.ResponseWriter, r *http.Request) {
 	c := h.getCapabilitiesForUserAgent(r.UserAgent())
+	if providers := h.resolveProviders(r.Context()); len(providers) > 0 && c.Capabilities != nil {
+		caps := *c.Capabilities
+		caps.Providers = providers
+		c.Capabilities = &caps
+	}
 	response.WriteOCSSuccess(w, r, c)
 }

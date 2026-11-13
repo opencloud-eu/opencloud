@@ -33,7 +33,7 @@ import (
 	provider "github.com/cs3org/go-cs3apis/cs3/storage/provider/v1beta1"
 	"github.com/opencloud-eu/reva/v2/pkg/appctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/decomposedfs/mtimesyncedcache"
+	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/mtimesyncedcache"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/metadata"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"

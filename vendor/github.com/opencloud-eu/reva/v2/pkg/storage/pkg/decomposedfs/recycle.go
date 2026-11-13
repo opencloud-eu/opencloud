@@ -38,7 +38,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/node"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/tree"
-	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 )
 
 type DecomposedfsTrashbin struct {
@@ -361,6 +360,9 @@ func (tb *DecomposedfsTrashbin) RestoreRecycleItem(ctx context.Context, spaceID 
 
 	rn, parent, restoreFunc, err := tb.fs.tp.(*tree.Tree).RestoreRecycleItemFunc(ctx, spaceID, key, relativePath, targetNode)
 	if err != nil {
+		if errors.Is(err, iofs.ErrNotExist) {
+			return nil, errtypes.NotFound(key)
+		}
 		return nil, err
 	}
 
@@ -375,9 +377,6 @@ func (tb *DecomposedfsTrashbin) RestoreRecycleItem(ctx context.Context, spaceID 
 		}
 		return nil, errtypes.NotFound(key)
 	}
-
-	// Set space owner in context
-	storagespace.ContextSendSpaceOwnerID(ctx, rn.SpaceOwnerOrManager(ctx))
 
 	// check we can write to the parent of the restore reference
 	pp, err := tb.fs.p.AssemblePermissions(ctx, parent)

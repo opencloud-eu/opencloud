@@ -20,6 +20,7 @@ package trashbin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -332,6 +333,9 @@ func (tb *Trashbin) RestoreRecycleItem(ctx context.Context, spaceID string, key,
 	} else {
 		originalPath, _, err := tb.readInfoFile(trashRoot, key)
 		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil, errtypes.NotFound(key)
+			}
 			return nil, err
 		}
 		restorePath = filepath.Join(tb.lu.InternalPath(spaceID, spaceID), originalPath, relativePath)
