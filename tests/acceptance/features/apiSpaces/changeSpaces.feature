@@ -372,6 +372,14 @@ Feature: Change data of space
     When user "Bob" sets the file ".space/someImageFile.jpg" as a space image in a special section of the "Project Jupiter" space
     Then the HTTP status code should be "404"
 
+  @env-config
+  Scenario: user cannot set an image file larger than the maximum size as space image of the space via the Graph API
+    Given the config "GRAPH_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE" has been set to "10"
+    And user "Alice" has created a folder ".space" in space "Project Jupiter"
+    And user "Alice" has uploaded a file inside space "Project Jupiter" with content "nineteen bytes long" to ".space/spaceImage.jpg"
+    When user "Alice" sets the file ".space/spaceImage.jpg" as a space image in a special section of the "Project Jupiter" space
+    Then the HTTP status code should be "413"
+
 
   Scenario Outline: user set new readme file as description of the space via the graph API
     Given user "Alice" has created a folder ".space" in space "Project Jupiter"

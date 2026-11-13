@@ -1,6 +1,7 @@
 package defaults
 
 import (
+	ocdefaults "github.com/opencloud-eu/opencloud/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/services/thumbnails/pkg/config"
 )
 
@@ -39,7 +40,7 @@ func DefaultConfig() *config.Config {
 			MaxInputHeight:        7680,
 			MaxOutputWidth:        2048,
 			MaxOutputHeight:       2048,
-			MaxInputImageFileSize: "50MB",
+			MaxInputImageFileSize: ocdefaults.ThumbnailsMaxInputImageFileSize,
 			MaxAnimationFrames:    100,
 		},
 	}

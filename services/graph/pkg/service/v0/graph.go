@@ -72,6 +72,8 @@ type Graph struct {
 	metrics                  *metrics.Metrics
 	traceProvider            trace.TracerProvider
 	natskv                   jetstream.KeyValue
+	// the maximum file size of a space image in bytes, 0 for unlimited
+	maxSpaceImageSize uint64
 }
 
 var _ Service = Graph{} // ensure that the Graph struct implements all of the Service interface

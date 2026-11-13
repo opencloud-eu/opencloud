@@ -63,7 +63,36 @@ var (
 
 	// ErrForbiddenCharacter is thrown when the spacename contains an invalid character
 	ErrForbiddenCharacter = fmt.Errorf("spacenames must not contain %v", _invalidSpaceNameCharacters)
+
+	// ErrSpaceImageTooLarge is returned when the file set as the image of a space is larger than
+	// the maximum size of a space image
+	ErrSpaceImageTooLarge = errors.New("the space image is too large")
 )
+
+// checkSpaceImageSize returns ErrSpaceImageTooLarge if the file with the given
+// id is larger than the maximum size of a space image. A space image is only
+// ever shown as a thumbnail, and no thumbnail is made of a file above that
+// size, so such an image would be stored but never shown.
+func (g Graph) checkSpaceImageSize(ctx context.Context, gatewayClient gateway.GatewayAPIClient, fileID string) error {
+	if g.maxSpaceImageSize == 0 {
+		return nil
+	}
+
+	rid, err := storagespace.ParseID(fileID)
+	if err != nil {
+		return errorcode.New(errorcode.InvalidRequest, fmt.Sprintf("invalid space image id %q: %v", fileID, err))
+	}
+
+	res, err := gatewayClient.Stat(ctx, &storageprovider.StatRequest{Ref: &storageprovider.Reference{ResourceId: &rid}})
+	if err := errorcode.FromStat(res, err); err != nil {
+		return err
+	}
+
+	if size := res.GetInfo().GetSize(); size > g.maxSpaceImageSize {
+		return fmt.Errorf("%w: %d bytes, the maximum is %d bytes", ErrSpaceImageTooLarge, size, g.maxSpaceImageSize)
+	}
+	return nil
+}
 
 // GetDrives serves as a factory method that returns the appropriate
 // http.Handler function based on the specified API version.
@@ -604,9 +633,26 @@ func (g Graph) UpdateDrive(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, special := range drive.Special {
-		if special.Id != nil {
-			updateSpaceRequest.StorageSpace.Opaque = utils.AppendPlainToOpaque(updateSpaceRequest.StorageSpace.Opaque, *special.SpecialFolder.Name, *special.Id)
+		// an entry without an id names no file to set, so it changes nothing, as it always did;
+		// the web UI, for one, sends such an entry after it has deleted the file of the space image
+		if special.Id == nil {
+			continue
 		}
+
+		// an empty id names no file, so there is nothing to look at
+		if special.SpecialFolder.GetName() == SpaceImageSpecialFolderName && *special.Id != "" {
+			if err := g.checkSpaceImageSize(r.Context(), gatewayClient, *special.Id); err != nil {
+				log.Warn().Err(err).Str("image", *special.Id).Msg("could not update drive: space image refused")
+				if errors.Is(err, ErrSpaceImageTooLarge) {
+					errorcode.InvalidRequest.Render(w, r, http.StatusRequestEntityTooLarge, err.Error())
+					return
+				}
+				errorcode.RenderError(w, r, err)
+				return
+			}
+		}
+
+		updateSpaceRequest.StorageSpace.Opaque = utils.AppendPlainToOpaque(updateSpaceRequest.StorageSpace.Opaque, *special.SpecialFolder.Name, *special.Id)
 	}
 
 	if _, ok := drive.GetNameOk(); ok {
