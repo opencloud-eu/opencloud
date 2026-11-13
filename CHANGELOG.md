@@ -1,5 +1,20 @@
 # Changelog
 
+## [9.1.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.1) - 2026-11-13
+
+### ❤️ Thanks to all contributors! ❤️
+
+@aduffeck, @jmrplens, @micbar, @v-scharf
+
+### 🐛 Bug Fixes
+
+- [stable-9.1] backport Pflum/fix-revaconfig [[#3988](https://github.com/opencloud-eu/opencloud/pull/3988)]
+- fix(search): honor the gRPC client TLS mode in the index command [[#3620](https://github.com/opencloud-eu/opencloud/pull/3620)]
+
+### 📦️ Dependencies
+
+- [stable-9.1] chore: bump reva to latest stable-2.52 [[#3980](https://github.com/opencloud-eu/opencloud/pull/3980)]
+
 ## [9.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.0) - 2026-11-11
 
 ### ❤️ Thanks to all contributors! ❤️
