@@ -40,6 +40,8 @@ func NewOIDCAuthenticator(opts ...Option) *OIDCAuthenticator {
 		oidcClient:              options.OIDCClient,
 		AccessTokenVerifyMethod: options.AccessTokenVerifyMethod,
 		skipUserInfo:            options.SkipUserInfo,
+		logoutMarkers:           options.LogoutMarkers,
+		maxAccessTokenLifetime:  options.MaxAccessTokenLifetime,
 		TimeFunc:                time.Now,
 	}
 }
@@ -54,6 +56,8 @@ type OIDCAuthenticator struct {
 	oidcClient              oidc.OIDCClient
 	AccessTokenVerifyMethod string
 	skipUserInfo            bool
+	logoutMarkers           *bcl.LogoutMarkers
+	maxAccessTokenLifetime  time.Duration
 	TimeFunc                func() time.Time
 }
 
@@ -70,12 +74,22 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 		m.Logger.Error().Err(err).Msg("could not read from userinfo cache")
 	}
 	if len(record) > 0 {
-		if err = msgpack.Unmarshal(record[0].Value, &claims); err == nil {
-			m.Logger.Debug().Interface("claims", claims).Msg("cache hit for userinfo")
-			if verifyExpiresAt(claims, m.TimeFunc()) {
-				return claims, false, nil
+		var cached bcl.TokenRecord
+		if err = msgpack.Unmarshal(record[0].Value, &cached); err == nil {
+			m.Logger.Debug().Interface("claims", cached.Claims).Msg("cache hit for userinfo")
+			if verifyExpiresAt(cached.Claims, m.TimeFunc()) {
+				markerErr := m.verifyNotLoggedOut(cached.Subject, cached.SessionID, cached.IssuedAt)
+				if markerErr == nil {
+					return cached.Claims, false, nil
+				}
+				if !m.canFallBackToUserInfo(markerErr) {
+					return nil, false, markerErr
+				}
+				// The markers cannot be read, so the cached claims prove nothing.
+				// The token is verified again below and the IDP is asked about it.
+			} else {
+				m.Logger.Debug().Msg("cached userinfo claims expired, ignoring cache")
 			}
-			m.Logger.Debug().Msg("cached userinfo claims expired, ignoring cache")
 		} else {
 			m.Logger.Error().Err(err).Msg("failed to unmarshal cached userinfo, ignoring cache")
 		}
@@ -84,6 +98,19 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 	aClaims, claims, err := m.oidcClient.VerifyAccessToken(req.Context(), token)
 	if err != nil {
 		return nil, false, errors.Wrap(err, "failed to verify access token")
+	}
+
+	m.warnAboutLifetime(aClaims)
+
+	issuedAt := int64(0)
+	if aClaims.IssuedAt != nil {
+		issuedAt = aClaims.IssuedAt.Unix()
+	}
+	if err := m.verifyNotLoggedOut(aClaims.Subject, aClaims.SessionID, issuedAt); err != nil {
+		if !m.canFallBackToUserInfo(err) {
+			return nil, false, err
+		}
+		m.Logger.Warn().Err(err).Msg("could not read the backchannel logout markers, asking the userinfo endpoint instead")
 	}
 
 	if !m.skipUserInfo {
@@ -107,7 +134,12 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 	// always set an exp claim
 	claims["exp"] = expiration.Unix()
 
-	d, err := msgpack.Marshal(claims)
+	d, err := msgpack.Marshal(bcl.TokenRecord{
+		Claims:    claims,
+		Subject:   aClaims.Subject,
+		SessionID: aClaims.SessionID,
+		IssuedAt:  issuedAt,
+	})
 	if err != nil {
 		m.Logger.Error().Err(err).Msg("failed to marshal claims for userinfo cache")
 
@@ -163,6 +195,47 @@ func (m *OIDCAuthenticator) getClaims(token string, req *http.Request) (map[stri
 	return claims, true, nil
 }
 
+// verifyNotLoggedOut returns an error for a token that is covered by a backchannel
+// logout, and for a token whose markers cannot be read.
+func (m *OIDCAuthenticator) verifyNotLoggedOut(subject, session string, issuedAt int64) error {
+	if m.logoutMarkers == nil {
+		return nil
+	}
+	return m.logoutMarkers.Verify(subject, session, issuedAt)
+}
+
+// canFallBackToUserInfo reports whether the userinfo endpoint can decide about a
+// token instead of the markers. That is the case if the marker store cannot be
+// read and the userinfo lookup is enabled. Without the lookup there is no other
+// check, so a store failure must not make a logged out token valid again.
+func (m *OIDCAuthenticator) canFallBackToUserInfo(err error) bool {
+	return !m.skipUserInfo && errors.Is(err, bcl.ErrMarkersUnavailable)
+}
+
+// warnAboutLifetime logs a warning for JWT access tokens that can outlive the
+// logout markers. Markers are only kept for the maximum lifetime, so a
+// longer-lived token could become valid again after its marker has expired.
+func (m *OIDCAuthenticator) warnAboutLifetime(aClaims oidc.RegClaimsWithSID) {
+	if m.logoutMarkers == nil || m.maxAccessTokenLifetime <= 0 || m.AccessTokenVerifyMethod != config.AccessTokenVerificationJWT {
+		return
+	}
+	if aClaims.ExpiresAt == nil {
+		m.Logger.Warn().Msg("access token has no expiration, a backchannel logout might not cover it for its whole lifetime")
+		return
+	}
+
+	start := m.TimeFunc()
+	if aClaims.IssuedAt != nil {
+		start = aClaims.IssuedAt.Time
+	}
+	if lifetime := aClaims.ExpiresAt.Sub(start); lifetime > m.maxAccessTokenLifetime {
+		m.Logger.Warn().
+			Str("lifetime", lifetime.String()).
+			Str("max_lifetime", m.maxAccessTokenLifetime.String()).
+			Msg("access token lifetime exceeds PROXY_OIDC_MAX_ACCESS_TOKEN_LIFETIME, a backchannel logout might not cover it for its whole lifetime")
+	}
+}
+
 // extractExpiration tries to extract the expriration time from the access token
 // If the access token does not have an exp claim it will fallback to the configured
 // default expiration
@@ -188,11 +261,12 @@ func verifyExpiresAt(claims map[string]any, cmp time.Time) bool {
 	return cmp.Before(expiry)
 }
 
-// isExpectedTokenTimeError reports whether the error is caused by a token that
-// failed its expiry (or not-before) validation. These are expected as part of
-// the normal token renewal cycle and should not be logged at error level.
-func isExpectedTokenTimeError(err error) bool {
-	return errors.Is(err, jwt.ErrTokenExpired) || errors.Is(err, jwt.ErrTokenNotValidYet)
+// isExpectedTokenError reports whether the error is caused by a token that
+// failed its expiry (or not-before) validation or was issued before a backchannel
+// logout. These are expected as part of the normal token renewal cycle and
+// should not be logged at error level.
+func isExpectedTokenError(err error) bool {
+	return errors.Is(err, jwt.ErrTokenExpired) || errors.Is(err, jwt.ErrTokenNotValidYet) || errors.Is(err, bcl.ErrLoggedOut)
 }
 
 func (m OIDCAuthenticator) shouldServe(req *http.Request) bool {
@@ -227,7 +301,7 @@ func (m *OIDCAuthenticator) Authenticate(r *http.Request) AuthenticationResult {
 		// past its expiry, receives a 401 challenge and refreshes. This is not
 		// a failure of the proxy, so we log it at debug level to avoid noise.
 		logEvent := m.Logger.Debug()
-		if !isExpectedTokenTimeError(err) {
+		if !isExpectedTokenError(err) {
 			logEvent = m.Logger.Error()
 		}
 

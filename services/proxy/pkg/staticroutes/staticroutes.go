@@ -7,6 +7,7 @@ import (
 	"github.com/opencloud-eu/opencloud/pkg/log"
 	"github.com/opencloud-eu/opencloud/pkg/oidc"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/config"
+	bcl "github.com/opencloud-eu/opencloud/services/proxy/pkg/staticroutes/backchannellogout"
 	"github.com/opencloud-eu/opencloud/services/proxy/pkg/user/backend"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	microstore "go-micro.dev/v4/store"
@@ -17,6 +18,7 @@ type StaticRouteHandler struct {
 	Prefix          string
 	Proxy           http.Handler
 	UserInfoCache   microstore.Store
+	LogoutMarkers   *bcl.LogoutMarkers
 	Logger          log.Logger
 	Config          config.Config
 	OidcClient      oidc.OIDCClient
