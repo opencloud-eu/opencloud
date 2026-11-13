@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(graph): name the space image size limit after space images [[#3993](https://github.com/opencloud-eu/opencloud/pull/3993)]
 - fix(graph): succeed when unassigning tags a resource doesn't have [[#3950](https://github.com/opencloud-eu/opencloud/pull/3950)]
 - fix(graph): port share permission and link fixes [[#3944](https://github.com/opencloud-eu/opencloud/pull/3944)]
 - fix(graph): refuse space images too large for a thumbnail [[#3986](https://github.com/opencloud-eu/opencloud/pull/3986)]
