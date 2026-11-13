@@ -8,6 +8,7 @@
 
 ### 🐛 Bug Fixes
 
+- fix(graph): port share permission and link fixes [[#3944](https://github.com/opencloud-eu/opencloud/pull/3944)]
 - fix(graph): refuse space images too large for a thumbnail [[#3986](https://github.com/opencloud-eu/opencloud/pull/3986)]
 - Fix Reva config to also validate OC_CACHE_* tls settings and fix the disable_persistence key [[#3913](https://github.com/opencloud-eu/opencloud/pull/3913)]
 - fix(graph): return the identities of the identity backend on /me [[#3981](https://github.com/opencloud-eu/opencloud/pull/3981)]
