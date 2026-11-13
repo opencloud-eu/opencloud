@@ -21,6 +21,7 @@
 namespace TestHelpers;
 
 use GuzzleHttp\Exception\GuzzleException;
+use InvalidArgumentException;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 
@@ -205,6 +206,24 @@ class GraphHelper {
 	public static function getBetaFullUrl(string $baseUrl, string $path): string {
 		$baseUrl = rtrim($baseUrl, "/");
 		return $baseUrl . '/graph/v1beta1/' . $path;
+	}
+
+	/**
+	 * the URL of a path of the Graph API, in the given version of the API
+	 *
+	 * @param string $baseUrl
+	 * @param string $apiVersion "v1.0" or "v1beta1"
+	 * @param string $path
+	 *
+	 * @return string
+	 * @throws InvalidArgumentException
+	 */
+	public static function getFullUrlForApiVersion(string $baseUrl, string $apiVersion, string $path): string {
+		return match ($apiVersion) {
+			'v1.0' => self::getFullUrl($baseUrl, $path),
+			'v1beta1' => self::getBetaFullUrl($baseUrl, $path),
+			default => throw new InvalidArgumentException("unknown Graph API version '$apiVersion'"),
+		};
 	}
 
 	/**
@@ -953,6 +972,7 @@ class GraphHelper {
 	 * @param  string $body
 	 * @param  string $xRequestId
 	 * @param  array  $headers
+	 * @param  string $apiVersion "v1.0" or "v1beta1"
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -963,9 +983,10 @@ class GraphHelper {
 		string $password,
 		string $body,
 		string $xRequestId = '',
-		array $headers = []
+		array $headers = [],
+		string $apiVersion = 'v1.0'
 	): ResponseInterface {
-		$url = self::getFullUrl($baseUrl, 'drives');
+		$url = self::getFullUrlForApiVersion($baseUrl, $apiVersion, 'drives');
 
 		return HttpRequestHelper::post($url, $xRequestId, $user, $password, $headers, $body);
 	}
@@ -980,6 +1001,7 @@ class GraphHelper {
 	 * @param  string $spaceId
 	 * @param  string $xRequestId
 	 * @param  array  $headers
+	 * @param  string $apiVersion "v1.0" or "v1beta1"
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -991,9 +1013,10 @@ class GraphHelper {
 		$body,
 		string $spaceId,
 		string $xRequestId = '',
-		array $headers = []
+		array $headers = [],
+		string $apiVersion = 'v1.0'
 	): ResponseInterface {
-		$url = self::getFullUrl($baseUrl, 'drives/' . $spaceId);
+		$url = self::getFullUrlForApiVersion($baseUrl, $apiVersion, 'drives/' . $spaceId);
 
 		return HttpRequestHelper::sendRequest($url, $xRequestId, 'PATCH', $user, $password, $headers, $body);
 	}
@@ -1067,6 +1090,7 @@ class GraphHelper {
 	 * @param string $xRequestId
 	 * @param array $body
 	 * @param array $headers
+	 * @param string $apiVersion "v1.0" or "v1beta1"
 	 *
 	 * @return ResponseInterface
 	 *
@@ -1080,9 +1104,10 @@ class GraphHelper {
 		string $urlArguments = '',
 		string $xRequestId = '',
 		array  $body = [],
-		array  $headers = []
+		array  $headers = [],
+		string $apiVersion = 'v1.0'
 	): ResponseInterface {
-		$url = self::getFullUrl($baseUrl, 'drives/' . $spaceId . "/" . $urlArguments);
+		$url = self::getFullUrlForApiVersion($baseUrl, $apiVersion, 'drives/' . $spaceId . "/" . $urlArguments);
 
 		return HttpRequestHelper::get($url, $xRequestId, $user, $password, $headers, $body);
 	}
@@ -1095,6 +1120,7 @@ class GraphHelper {
 	 * @param string $password
 	 * @param string $spaceId
 	 * @param string $xRequestId
+	 * @param string $apiVersion "v1.0" or "v1beta1"
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -1104,9 +1130,10 @@ class GraphHelper {
 		string $user,
 		string $password,
 		string $spaceId,
-		string $xRequestId = ''
+		string $xRequestId = '',
+		string $apiVersion = 'v1.0'
 	): ResponseInterface {
-		$url = self::getFullUrl($baseUrl, 'drives/' . $spaceId);
+		$url = self::getFullUrlForApiVersion($baseUrl, $apiVersion, 'drives/' . $spaceId);
 
 		return HttpRequestHelper::delete(
 			$url,
@@ -1124,6 +1151,7 @@ class GraphHelper {
 	 * @param string $password
 	 * @param string $spaceId
 	 * @param string $xRequestId
+	 * @param string $apiVersion "v1.0" or "v1beta1"
 	 *
 	 * @return ResponseInterface
 	 * @throws GuzzleException
@@ -1133,9 +1161,10 @@ class GraphHelper {
 		string $user,
 		string $password,
 		string $spaceId,
-		string $xRequestId = ''
+		string $xRequestId = '',
+		string $apiVersion = 'v1.0'
 	): ResponseInterface {
-		$url = self::getFullUrl($baseUrl, 'drives/' . $spaceId);
+		$url = self::getFullUrlForApiVersion($baseUrl, $apiVersion, 'drives/' . $spaceId);
 		$header = ["Purge" => "T"];
 
 		return HttpRequestHelper::delete(

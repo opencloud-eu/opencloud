@@ -58,8 +58,9 @@ on the filters supported when querying users.
 ## Space Images
 
 The image of a space is a file in the space, usually in its `.space` folder. A space manager
-uploads the file, and then assigns it with `PATCH /graph/v1.0/drives/{drive-id}`, naming the id of
-the file in the `image` entry of `special`:
+uploads the file, and then assigns it with `PATCH /graph/v1.0/drives/{drive-id}` (or
+`PATCH /graph/v1beta1/drives/{drive-id}`, which works the same way), naming the id of the file in
+the `image` entry of `special`:
 
 ```bash
 # upload the image into the .space folder of the space; the response header
