@@ -4,10 +4,11 @@
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@aduffeck, @butonic, @jmrplens
+@Pflum, @aduffeck, @butonic, @jmrplens
 
 ### 🐛 Bug Fixes
 
+- Fix Reva config to also validate OC_CACHE_* tls settings and fix the disable_persistence key [[#3913](https://github.com/opencloud-eu/opencloud/pull/3913)]
 - fix(search): honor the gRPC client TLS mode in the index command [[#3620](https://github.com/opencloud-eu/opencloud/pull/3620)]
 
 ## [9.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.0) - 2026-11-11
