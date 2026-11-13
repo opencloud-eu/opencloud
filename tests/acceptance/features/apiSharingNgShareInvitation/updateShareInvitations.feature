@@ -1183,7 +1183,7 @@ Feature: Update permission of a share
       | Manager          | Space Editor         |
 
   @issue-10768
-  Scenario Outline: sharer updates share permissions role of a resource to Secure Viewer without enabling it
+  Scenario Outline: sharer tries to update share permissions role of a resource to Secure Viewer without enabling it
     Given user "Alice" has created folder "folderToShare"
     And user "Alice" has uploaded file with content "hello world" to "textfile.txt"
     And user "Alice" has sent the following resource share invitation:
@@ -1196,67 +1196,26 @@ Feature: Update permission of a share
       | permissionsRole | Secure Viewer |
       | space           | Personal      |
       | resource        | <resource>    |
-    Then the HTTP status code should be "200"
+    Then the HTTP status code should be "400"
     And the JSON data of the response should match
       """
       {
         "type": "object",
-        "required": [
-          "@libre.graph.permissions.actions",
-          "grantedToV2",
-          "id",
-          "invitation"
-        ],
+        "required": ["error"],
         "properties": {
-          "@libre.graph.permissions.actions": {
-            "const": [
-              "libre.graph/driveItem/path/read",
-              "libre.graph/driveItem/children/read",
-              "libre.graph/driveItem/basic/read"
-            ]
-          },
-          "grantedToV2": {
+          "error": {
             "type": "object",
-            "required": ["user"],
+            "required": ["code", "innererror", "message"],
             "properties": {
-              "user": {
+              "code": {
+                "const": "invalidRequest"
+              },
+              "innererror": {
                 "type": "object",
-                "required": ["displayName", "id"],
-                "properties": {
-                  "displayName": {
-                    "const": "Brian Murphy"
-                  },
-                  "id": {
-                    "pattern": "^%user_id_pattern%$"
-                  }
-                }
-              }
-            }
-          },
-          "id": {
-            "pattern": "^%permissions_id_pattern%$"
-          },
-          "invitation": {
-            "type": "object",
-            "required": ["invitedBy"],
-            "properties": {
-              "invitedBy": {
-                "type": "object",
-                "required": ["user"],
-                "properties": {
-                  "user": {
-                    "type": "object",
-                    "required": ["displayName", "id"],
-                    "properties": {
-                      "displayName": {
-                        "const": "Alice Hansen"
-                      },
-                      "id": {
-                        "pattern": "^%user_id_pattern%$"
-                      }
-                    }
-                  }
-                }
+                "required": ["date", "request-id"]
+              },
+              "message": {
+                "const": "Key: 'Permission.Roles' Error:Field validation for 'Roles' failed on the 'available_role' tag"
               }
             }
           }
@@ -1272,7 +1231,7 @@ Feature: Update permission of a share
       | textfile.txt  | Viewer           |
 
   @issue-10768
-  Scenario Outline: sharer updates share permissions role of a resource to Denied without enabling it
+  Scenario Outline: sharer tries to update share permissions role of a resource to Denied without enabling it
     Given user "Alice" has created folder "folderToShare"
     And user "Alice" has sent the following resource share invitation:
       | resource        | folderToShare      |
@@ -1284,63 +1243,26 @@ Feature: Update permission of a share
       | permissionsRole | Denied        |
       | space           | Personal      |
       | resource        | folderToShare |
-    Then the HTTP status code should be "200"
+    Then the HTTP status code should be "400"
     And the JSON data of the response should match
       """
       {
         "type": "object",
-        "required": [
-          "@libre.graph.permissions.actions",
-          "grantedToV2",
-          "id",
-          "invitation"
-        ],
+        "required": ["error"],
         "properties": {
-          "@libre.graph.permissions.actions": {
-            "const": ["none"]
-          },
-          "grantedToV2": {
+          "error": {
             "type": "object",
-            "required": ["user"],
+            "required": ["code", "innererror", "message"],
             "properties": {
-              "user": {
+              "code": {
+                "const": "invalidRequest"
+              },
+              "innererror": {
                 "type": "object",
-                "required": ["displayName", "id"],
-                "properties": {
-                  "displayName": {
-                    "const": "Brian Murphy"
-                  },
-                  "id": {
-                    "pattern": "^%user_id_pattern%$"
-                  }
-                }
-              }
-            }
-          },
-          "id": {
-            "pattern": "^%permissions_id_pattern%$"
-          },
-          "invitation": {
-            "type": "object",
-            "required": ["invitedBy"],
-            "properties": {
-              "invitedBy": {
-                "type": "object",
-                "required": ["user"],
-                "properties": {
-                  "user": {
-                    "type": "object",
-                    "required": ["displayName", "id"],
-                    "properties": {
-                      "displayName": {
-                        "const": "Alice Hansen"
-                      },
-                      "id": {
-                        "pattern": "^%user_id_pattern%$"
-                      }
-                    }
-                  }
-                }
+                "required": ["date", "request-id"]
+              },
+              "message": {
+                "const": "Key: 'Permission.Roles' Error:Field validation for 'Roles' failed on the 'available_role' tag"
               }
             }
           }
@@ -1354,7 +1276,7 @@ Feature: Update permission of a share
       | Viewer           |
 
   @issue-10768
-  Scenario Outline: sharer updates share permissions role of space to Space Editor Without Versions without enabling it
+  Scenario Outline: sharer tries to update share permissions role of space to Space Editor Without Versions without enabling it
     Given using spaces DAV path
     And the administrator has assigned the role "Space Admin" to user "Alice" using the Graph API
     And user "Alice" has created a space "new-space" with the default quota using the Graph API
@@ -1368,56 +1290,28 @@ Feature: Update permission of a share
       | space           | new-space                     |
       | shareType       | user                          |
       | sharee          | Brian                         |
-    Then the HTTP status code should be "200"
+    Then the HTTP status code should be "400"
     And the JSON data of the response should match
       """
       {
         "type": "object",
-        "required": [
-          "@libre.graph.permissions.actions",
-          "grantedToV2",
-          "id"
-        ],
+        "required": ["error"],
         "properties": {
-          "@libre.graph.permissions.actions": {
-            "const": [
-              "libre.graph/driveItem/children/create",
-              "libre.graph/driveItem/standard/delete",
-              "libre.graph/driveItem/path/read",
-              "libre.graph/driveItem/quota/read",
-              "libre.graph/driveItem/content/read",
-              "libre.graph/driveItem/upload/create",
-              "libre.graph/driveItem/permissions/read",
-              "libre.graph/driveItem/children/read",
-              "libre.graph/driveItem/deleted/read",
-              "libre.graph/driveItem/path/update",
-              "libre.graph/driveItem/deleted/update",
-              "libre.graph/driveItem/basic/read"
-            ]
-          },
-          "grantedToV2": {
+          "error": {
             "type": "object",
-            "required": ["user"],
-            "properties":{
-              "user": {
+            "required": ["code", "innererror", "message"],
+            "properties": {
+              "code": {
+                "const": "invalidRequest"
+              },
+              "innererror": {
                 "type": "object",
-                "required": [
-                  "displayName",
-                  "id"
-                ],
-                "properties": {
-                  "displayName": {
-                    "const": "Brian Murphy"
-                  },
-                  "id": {
-                    "pattern": "^%user_id_pattern%$"
-                  }
-                }
+                "required": ["date", "request-id"]
+              },
+              "message": {
+                "const": "Key: 'Permission.Roles' Error:Field validation for 'Roles' failed on the 'available_role' tag"
               }
             }
-          },
-          "id": {
-            "pattern": "^%permissions_id_pattern%$"
           }
         }
       }
