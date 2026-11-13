@@ -55,6 +55,75 @@ is based on the [OData Specification](https://docs.oasis-open.org/odata/odata/v4
 See the [Libre Graph API](https://docs.opencloud.eu/swagger/libre-graph-api/#/users/ListUsers) for examples
 on the filters supported when querying users.
 
+## Space Images
+
+The image of a space is a file in the space, usually in its `.space` folder. A space manager
+uploads the file, and then assigns it with `PATCH /graph/v1.0/drives/{drive-id}`, naming the id of
+the file in the `image` entry of `special`:
+
+```bash
+# upload the image into the .space folder of the space; the response header
+# OC-FileId holds the id of the file
+curl -i -X PUT -H "Authorization: Bearer $TOKEN" --data-binary @image.png \
+  "https://cloud.example.com/dav/spaces/$DRIVE_ID/.space/image.png"
+
+# assign the file as the image of the space
+curl -X PATCH -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"special": [{"specialFolder": {"name": "image"}, "id": "'"$FILE_ID"'"}]}' \
+  "https://cloud.example.com/graph/v1.0/drives/$DRIVE_ID"
+```
+
+Clients only ever show a space image as a thumbnail. A file that is too large for the thumbnail
+generator is therefore never shown at all: the space would keep a broken image, and nobody would
+get an error.
+
+So the graph service looks at the size of the file when it is assigned, and refuses a file above
+the limit with `413 Request Entity Too Large`, without changing the space:
+
+```json
+{
+  "error": {
+    "code": "invalidRequest",
+    "message": "the space image is too large: 73400320 bytes, the maximum is 50000000 bytes",
+    "innererror": {
+      "date": "2026-11-13T15:04:05Z",
+      "request-id": "..."
+    }
+  }
+}
+```
+
+The space keeps the image it had, as long as that is a different file. A client that overwrites the
+file of the current image with the new content has replaced that content already, so the space
+then shows no image.
+
+The limit is the one of the thumbnail generator, which the graph service reads under the same names
+as the webdav and thumbnails services: `OC_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE`, `50MB` by default.
+An empty value means unlimited.
+
+Setting the limit there sets it for all three services:
+
+```bash
+# space images, and thumbnails in general, up to 100 MB
+OC_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE=100MB
+```
+
+`GRAPH_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE` sets a limit for space images alone. It only makes sense
+to set it lower than the limit of the thumbnail generator: a space image between the two would be
+accepted, but not shown.
+
+```bash
+# thumbnails up to 100 MB, but space images only up to 10 MB
+OC_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE=100MB
+GRAPH_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE=10MB
+```
+
+Only the file size is checked. The thumbnail generator also has limits for the width and the height
+of an image (`THUMBNAILS_MAX_INPUT_WIDTH` and `THUMBNAILS_MAX_INPUT_HEIGHT`), and for the number of
+frames of an animation. The graph service can't check those without reading the whole image, so a
+small file with too many pixels is still accepted, and still not shown. The space readme has no
+size limit.
+
 ## Caching
 
 The `graph` service can use a configured store via `GRAPH_CACHE_STORE`. Possible stores are:

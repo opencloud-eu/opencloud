@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -14,6 +15,7 @@ import (
 	"github.com/riandyrn/otelchi"
 	microstore "go-micro.dev/v4/store"
 
+	"github.com/opencloud-eu/reva/v2/pkg/bytesize"
 	"github.com/opencloud-eu/reva/v2/pkg/store"
 
 	"github.com/opencloud-eu/opencloud/pkg/roles"
@@ -197,6 +199,14 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 		traceProvider:            options.TraceProvider,
 		valueService:             options.ValueService,
 		natskv:                   options.NatsKeyValue,
+	}
+
+	if raw := strings.TrimSpace(options.Config.Thumbnails.MaxInputImageFileSize); raw != "" {
+		size, err := bytesize.Parse(raw)
+		if err != nil {
+			return svc, fmt.Errorf("invalid thumbnails.max_input_image_file_size %q: %w", raw, err)
+		}
+		svc.maxSpaceImageSize = size.Bytes()
 	}
 
 	if options.PermissionService == nil {
