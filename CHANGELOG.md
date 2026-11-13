@@ -1,15 +1,24 @@
 # Changelog
 
-## [9.1.1](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.1) - 2026-11-13
+## [9.2.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.2.0) - 2026-11-13
 
 ### ❤️ Thanks to all contributors! ❤️
 
-@Pflum, @aduffeck, @butonic, @jmrplens
+@Pflum, @aduffeck, @asaah262, @butonic, @dragonchaser, @jmrplens, @pbleser-oc
+
+### 📈 Enhancement
+
+- feat: merge the workpagages branch into main [[#3956](https://github.com/opencloud-eu/opencloud/pull/3956)]
+- feat(graph): allow client-supplied drive IDs when creating spaces [[#3899](https://github.com/opencloud-eu/opencloud/pull/3899)]
+- feat(graph): improve logging and tracing for drive item permissions [[#3881](https://github.com/opencloud-eu/opencloud/pull/3881)]
+- feat(graph): add GET endpoints for single sharing permissions [[#3928](https://github.com/opencloud-eu/opencloud/pull/3928)]
 
 ### 🐛 Bug Fixes
 
 - Fix Reva config to also validate OC_CACHE_* tls settings and fix the disable_persistence key [[#3913](https://github.com/opencloud-eu/opencloud/pull/3913)]
+- fix(graph): return the identities of the identity backend on /me [[#3981](https://github.com/opencloud-eu/opencloud/pull/3981)]
 - fix(search): honor the gRPC client TLS mode in the index command [[#3620](https://github.com/opencloud-eu/opencloud/pull/3620)]
+- fix(graph): reject empty and invisible drive names on update [[#3946](https://github.com/opencloud-eu/opencloud/pull/3946)]
 
 ## [9.1.0](https://github.com/opencloud-eu/opencloud/releases/tag/v9.1.0) - 2026-11-11
 
