@@ -459,6 +459,9 @@ github.com/go-asn1-ber/asn1-ber
 ## explicit; go 1.24
 github.com/go-chi/chi/v5
 github.com/go-chi/chi/v5/middleware
+# github.com/go-chi/httprate v0.16.1
+## explicit; go 1.23.0
+github.com/go-chi/httprate
 # github.com/go-chi/render v1.0.3
 ## explicit; go 1.16
 github.com/go-chi/render
