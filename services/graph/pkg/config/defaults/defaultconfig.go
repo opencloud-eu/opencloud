@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	ocdefaults "github.com/opencloud-eu/opencloud/pkg/config/defaults"
 	"github.com/opencloud-eu/opencloud/pkg/shared"
 	"github.com/opencloud-eu/opencloud/pkg/structs"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
@@ -87,6 +88,9 @@ func DefaultConfig() *config.Config {
 			GroupsCacheTTL: 60,
 			// 1 minute
 			UsersCacheTTL: 60,
+		},
+		Thumbnails: config.Thumbnails{
+			MaxInputImageFileSize: ocdefaults.ThumbnailsMaxInputImageFileSize,
 		},
 		Identity: config.Identity{
 			Backend: "ldap",

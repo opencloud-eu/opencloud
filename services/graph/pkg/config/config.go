@@ -210,8 +210,12 @@ type Store struct {
 	TLSRootCACertificate string   `yaml:"tls_root_ca_certificate" env:"OC_PERSISTENT_STORE_TLS_ROOT_CA_CERTIFICATE;GRAPH_STORE_TLS_ROOT_CA_CERTIFICATE" desc:"The root CA certificate used to validate the server's TLS certificate. If provided GRAPH_STORE_TLS_INSECURE will be seen as false." introductionVersion:"7.3.0"`
 }
 
-// Thumbnails is what this service announces a preview for. The names match the
-// ones the webdav service uses for the same list.
+// Thumbnails is what this service announces a preview for, and which space
+// images it accepts, since a space image is only ever shown as a thumbnail. The
+// names match the ones the webdav service uses for the same settings.
 type Thumbnails struct {
 	AdditionalSourceTypes []string `yaml:"additional_source_types" env:"OC_THUMBNAILS_ADDITIONAL_SOURCE_TYPES;GRAPH_THUMBNAILS_ADDITIONAL_SOURCE_TYPES" desc:"Additional mime types a preview is announced for, the same list the webdav service attempts previews for. The types the build ships are included; this only adds to them." introductionVersion:"9.0.0"`
+	// read under the same names as by webdav and the thumbnails service, so that
+	// graph doesn't accept a space image no thumbnail can be made of
+	MaxInputImageFileSize string `yaml:"max_input_image_file_size" env:"OC_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE;THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE;GRAPH_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE" desc:"The maximum file size of an image that can be set as the image of a space. A larger one is refused with HTTP 413, because no thumbnail can be made of it, and space images are only shown as thumbnails. Usable common abbreviations: [KB, KiB, MB, MiB, GB, GiB], example: 50MB. An empty value means unlimited." introductionVersion:"%%NEXT%%"`
 }
