@@ -106,13 +106,13 @@ func New(registerer prometheus.Registerer, logger *log.Logger, httpPathSplitter 
 		}, []string{LabelResult, LabelReason}),
 		// keeping this one private as it should only be used via the RecordHTTPDuration() method below,
 		// as its number of labels is too fragile to keep in check if they ever change
-		httpRequestDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		httpRequestDuration: prometheus.NewHistogramVec(ocmetrics.DualHistogramOpts(prometheus.HistogramOpts{
 			Namespace: Namespace,
 			Subsystem: Subsystem,
 			Name:      "http_request_duration_seconds",
 			Help:      "Duration of HTTP operations in seconds.",
 			Buckets:   prometheus.DefBuckets,
-		}, []string{LabelMethod, LabelPath, LabelVersion, LabelResource, LabelCode, LabelResult}), // when changing these, make sure to also modify the methods below accordingly
+		}), []string{LabelMethod, LabelPath, LabelVersion, LabelResource, LabelCode, LabelResult}), // when changing these, make sure to also modify the methods below accordingly
 		httpPathSplitter: httpPathSplitter,
 	}
 
