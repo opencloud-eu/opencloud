@@ -226,7 +226,7 @@ var _ = Describe("outputFormatFromFilters", func() {
 		Entry("jpeg maps onto our jpg", "format(jpeg)", "jpg", true, false),
 		Entry("png", "format(png)", "png", true, false),
 		Entry("gif", "format(gif)", "gif", true, false),
-		Entry("webp, which only the libvips build writes", "format(webp)", "webp", true, false),
+		Entry("webp, which only imagor writes", "format(webp)", "webp", true, false),
 		Entry("behind another filter", "no_upscale():format(png)", "png", true, false),
 		Entry("no format filter at all", "no_upscale()", "", false, false),
 		Entry("an empty segment", "", "", false, false),

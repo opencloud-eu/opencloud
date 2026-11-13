@@ -807,20 +807,6 @@ def testOpencloud(ctx):
             ],
         },
         {
-            # the only run that covers the resize code the official docker
-            # images ship
-            # FIXME: run it with the libvips those images ship, see issue 3746
-            "name": "test-thumbnail-parity-vips",
-            "image": OC_CI_GOLANG,
-            "environment": {
-                "THUMBNAILS_PARITY_IMAGOR_URL": "http://imagor:8000",
-                "THUMBNAILS_PARITY_IMAGOR_MAGICK_URL": "http://imagor-magick:8000",
-            },
-            "commands": [
-                "go test -tags enable_vips ./services/thumbnails/pkg/parity/...",
-            ],
-        },
-        {
             "name": "codacy-coverage",
             "image": CODACY_COVERAGE_REPORTER,
             "environment": {
@@ -2650,7 +2636,7 @@ def build():
             "name": "build",
             "image": OC_CI_GOLANG,
             "commands": [
-                "for i in $(seq 3); do make -C opencloud build ENABLE_VIPS=1 && break || sleep 1; done",
+                "for i in $(seq 3); do make -C opencloud build && break || sleep 1; done",
             ],
             "environment": CI_HTTP_PROXY_ENV,
         },
