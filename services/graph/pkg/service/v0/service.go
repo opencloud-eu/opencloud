@@ -201,10 +201,10 @@ func NewService(opts ...Option) (Graph, error) { //nolint:maintidx
 		natskv:                   options.NatsKeyValue,
 	}
 
-	if raw := strings.TrimSpace(options.Config.Thumbnails.MaxInputImageFileSize); raw != "" {
+	if raw := strings.TrimSpace(options.Config.Thumbnails.SpaceImageMaxInputImageFileSize); raw != "" {
 		size, err := bytesize.Parse(raw)
 		if err != nil {
-			return svc, fmt.Errorf("invalid thumbnails.max_input_image_file_size %q: %w", raw, err)
+			return svc, fmt.Errorf("invalid thumbnails.space_image_max_input_image_file_size %q: %w", raw, err)
 		}
 		svc.maxSpaceImageSize = size.Bytes()
 	}

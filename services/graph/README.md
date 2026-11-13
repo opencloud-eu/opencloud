@@ -108,14 +108,14 @@ Setting the limit there sets it for all three services:
 OC_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE=100MB
 ```
 
-`GRAPH_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE` sets a limit for space images alone. It only makes sense
-to set it lower than the limit of the thumbnail generator: a space image between the two would be
-accepted, but not shown.
+`OC_SPACE_IMAGE_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE` sets a limit for space images alone. It only
+makes sense to set it lower than the limit of the thumbnail generator: a space image between the two
+would be accepted, but not shown.
 
 ```bash
 # thumbnails up to 100 MB, but space images only up to 10 MB
 OC_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE=100MB
-GRAPH_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE=10MB
+OC_SPACE_IMAGE_THUMBNAILS_MAX_INPUT_IMAGE_FILE_SIZE=10MB
 ```
 
 Only the file size is checked. The thumbnail generator also has limits for the width and the height
