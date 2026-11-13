@@ -493,9 +493,12 @@ func cs3ResourceToDriveItem(logger *log.Logger, publicBaseURL *url.URL, res *sto
 	webURL.Path = path.Join(webURL.Path, "f", storagespace.FormatResourceID(res.GetId()))
 	driveItem.WebUrl = libregraph.PtrString(webURL.String())
 
-	if name := path.Base(res.GetPath()); name != "" {
-		driveItem.Name = &name
+	name := res.GetName()
+	if name == "" {
+		name = path.Base(res.GetPath())
 	}
+	driveItem.Name = &name
+
 	if res.GetEtag() != "" {
 		driveItem.ETag = &res.Etag
 	}

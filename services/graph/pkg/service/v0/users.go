@@ -42,7 +42,6 @@ import (
 // GetMe implements the Service interface.
 func (g Graph) GetMe(w http.ResponseWriter, r *http.Request) {
 	logger := g.logger.SubloggerWithRequestID(r.Context())
-	logger.Debug().Msg("calling get user in /me")
 	sanitizedPath := strings.TrimPrefix(r.URL.Path, "/graph/v1.0/")
 
 	odataReq, err := godata.ParseRequest(r.Context(), sanitizedPath, r.URL.Query())
@@ -66,22 +65,23 @@ func (g Graph) GetMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var me *libregraph.User
-	// We can just return the user from context unless we need to expand the group memberships
-	if !slices.Contains(exp, "memberOf") {
-		me = identity.CreateUserModelFromCS3(u)
-	} else {
-		var err error
-		logger.Debug().Msg("calling get user on backend")
-		me, err = g.identityBackend.GetUser(r.Context(), u.GetId().GetOpaqueId(), odataReq)
-		if err != nil {
-			logger.Debug().Err(err).Interface("user", u).Msg("could not get user from backend")
-			errorcode.RenderError(w, r, err)
-			return
-		}
-		if me.MemberOf == nil {
-			me.MemberOf = []libregraph.Group{}
-		}
+	// The user is always read from the identity backend: the CS3 user of the request
+	// context doesn't know the identities the user signed in with, and a model built
+	// from it would report the internal user ID as identities[].issuerAssignedId
+	// instead of the subject assigned by the identity provider. The group memberships
+	// are only looked up when $expand=memberOf asks for them.
+	me, err := g.identityBackend.GetUser(r.Context(), u.GetId().GetOpaqueId(), odataReq)
+	if err != nil {
+		// a user the backend doesn't know is logged at debug level, a failing backend as error
+		errorEvent(&logger, err).Str(_logKeyUserID, u.GetId().GetOpaqueId()).Msg("could not get user from backend")
+		errorcode.RenderError(w, r, err)
+		return
+	}
+	// An expanded relation without entries is returned as an empty array rather than
+	// left out, so that clients that asked for it can rely on the attribute being there.
+	// The JSON encoding leaves out a nil slice, but keeps an empty one.
+	if slices.Contains(exp, "memberOf") && me.MemberOf == nil {
+		me.MemberOf = []libregraph.Group{}
 	}
 
 	// expand appRoleAssignments if requested

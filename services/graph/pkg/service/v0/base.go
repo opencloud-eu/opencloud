@@ -267,7 +267,8 @@ func (g BaseGraphService) listSpaceRootUserShares(ctx context.Context, filters [
 func (g BaseGraphService) listSharesWithSpaceRootFilter(ctx context.Context, spaceRoot bool, filters []*collaboration.Filter, driveItems driveItemsByResourceID) (driveItemsByResourceID, error) {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Error().Err(err).Msg("could not select next gateway client")
+		logger := g.logger.SubloggerWithRequestID(ctx)
+		logger.Error().Err(err).Msg("could not select next gateway client")
 		return driveItems, errorcode.New(errorcode.GeneralException, err.Error())
 	}
 
@@ -299,7 +300,8 @@ func (g BaseGraphService) listSharesWithSpaceRootFilter(ctx context.Context, spa
 func (g BaseGraphService) listOCMShares(ctx context.Context, filters []*ocm.ListOCMSharesRequest_Filter, driveItems driveItemsByResourceID) (driveItemsByResourceID, error) {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Error().Err(err).Msg("could not select next gateway client")
+		logger := g.logger.SubloggerWithRequestID(ctx)
+		logger.Error().Err(err).Msg("could not select next gateway client")
 		return driveItems, errorcode.New(errorcode.GeneralException, err.Error())
 	}
 
@@ -328,7 +330,8 @@ func (g BaseGraphService) listPublicShares(ctx context.Context, filters []*link.
 
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Error().Err(err).Msg("could not select next gateway client")
+		logger := g.logger.SubloggerWithRequestID(ctx)
+		logger.Error().Err(err).Msg("could not select next gateway client")
 		return driveItems, errorcode.New(errorcode.GeneralException, err.Error())
 	}
 
@@ -815,7 +818,8 @@ func (g BaseGraphService) getLinkPermissionResourceID(ctx context.Context, permi
 func (g BaseGraphService) getCS3PublicShareByID(ctx context.Context, permissionID string) (*link.PublicShare, error) {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Debug().Err(err).Msg("selecting gatewaySelector failed")
+		logger := g.logger.SubloggerWithRequestID(ctx)
+		logger.Error().Err(err).Str(_logKeyPermissionID, permissionID).Msg("selecting gatewaySelector failed")
 		return nil, err
 	}
 
@@ -840,7 +844,8 @@ func (g BaseGraphService) getCS3PublicShareByID(ctx context.Context, permissionI
 func (g BaseGraphService) removeOCMPermission(ctx context.Context, permissionID string) error {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Debug().Err(err).Msg("selecting gatewaySelector failed")
+		logger := g.logger.SubloggerWithRequestID(ctx)
+		logger.Error().Err(err).Str(_logKeyPermissionID, permissionID).Msg("selecting gatewaySelector failed")
 		return err
 	}
 
@@ -866,7 +871,8 @@ func (g BaseGraphService) removeOCMPermission(ctx context.Context, permissionID 
 func (g BaseGraphService) removePublicShare(ctx context.Context, permissionID string) error {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Debug().Err(err).Msg("selecting gatewaySelector failed")
+		logger := g.logger.SubloggerWithRequestID(ctx)
+		logger.Error().Err(err).Str(_logKeyPermissionID, permissionID).Msg("selecting gatewaySelector failed")
 		return err
 	}
 
@@ -892,7 +898,8 @@ func (g BaseGraphService) removePublicShare(ctx context.Context, permissionID st
 func (g BaseGraphService) removeUserShare(ctx context.Context, permissionID string) error {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Debug().Err(err).Msg("selecting gatewaySelector failed")
+		logger := g.logger.SubloggerWithRequestID(ctx)
+		logger.Error().Err(err).Str(_logKeyPermissionID, permissionID).Msg("selecting gatewaySelector failed")
 		return err
 	}
 
@@ -927,7 +934,8 @@ func (g BaseGraphService) getOCMPermissionResourceID(ctx context.Context, permis
 func (g BaseGraphService) getCS3OCMShareByID(ctx context.Context, permissionID string) (*ocm.Share, error) {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Debug().Err(err).Msg("selecting gatewaySelector failed")
+		logger := g.logger.SubloggerWithRequestID(ctx)
+		logger.Error().Err(err).Str(_logKeyPermissionID, permissionID).Msg("selecting gatewaySelector failed")
 		return nil, err
 	}
 
@@ -961,7 +969,8 @@ func (g BaseGraphService) getUserPermissionResourceID(ctx context.Context, permi
 func (g BaseGraphService) getCS3UserShareByID(ctx context.Context, permissionID string) (*collaboration.Share, error) {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Debug().Err(err).Msg("selecting gatewaySelector failed")
+		logger := g.logger.SubloggerWithRequestID(ctx)
+		logger.Error().Err(err).Str(_logKeyPermissionID, permissionID).Msg("selecting gatewaySelector failed")
 		return nil, err
 	}
 
@@ -986,7 +995,8 @@ func (g BaseGraphService) getCS3UserShareByID(ctx context.Context, permissionID 
 func (g BaseGraphService) getOCMPermissionByID(ctx context.Context, permissionID string, itemID *storageprovider.ResourceId) (*libregraph.Permission, *storageprovider.ResourceId, error) {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Debug().Err(err).Msg("selecting gatewaySelevtor failed")
+		logger := g.logger.SubloggerWithRequestID(ctx)
+		logger.Error().Err(err).Str(_logKeyPermissionID, permissionID).Msg("selecting gatewaySelector failed")
 		return nil, nil, err
 	}
 
@@ -1016,7 +1026,8 @@ func (g BaseGraphService) getOCMPermissionByID(ctx context.Context, permissionID
 func (g BaseGraphService) getPermissionByID(ctx context.Context, permissionID string, itemID *storageprovider.ResourceId) (*libregraph.Permission, *storageprovider.ResourceId, error) {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Debug().Err(err).Msg("selecting gatewaySelector failed")
+		logger := g.logger.SubloggerWithRequestID(ctx)
+		logger.Error().Err(err).Str(_logKeyPermissionID, permissionID).Msg("selecting gatewaySelector failed")
 		return nil, nil, err
 	}
 	publicShare, err := g.getCS3PublicShareByID(ctx, permissionID)
@@ -1075,7 +1086,8 @@ func (g BaseGraphService) getPermissionByID(ctx context.Context, permissionID st
 func (g BaseGraphService) updateOCMPermission(ctx context.Context, permissionID string, itemID *storageprovider.ResourceId, newPermission *libregraph.Permission) (*libregraph.Permission, error) {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Debug().Err(err).Msg("selecting gatewaySelector failed")
+		logger := g.logger.SubloggerWithRequestID(ctx)
+		logger.Error().Err(err).Str(_logKeyPermissionID, permissionID).Msg("selecting gatewaySelector failed")
 		return nil, err
 	}
 
@@ -1181,7 +1193,8 @@ func (g BaseGraphService) updateOCMPermission(ctx context.Context, permissionID 
 func (g BaseGraphService) updateUserShare(ctx context.Context, permissionID string, itemID *storageprovider.ResourceId, newPermission *libregraph.Permission) (*libregraph.Permission, error) {
 	gatewayClient, err := g.gatewaySelector.Next()
 	if err != nil {
-		g.logger.Debug().Err(err).Msg("selecting gatewaySelector failed")
+		logger := g.logger.SubloggerWithRequestID(ctx)
+		logger.Error().Err(err).Str(_logKeyPermissionID, permissionID).Msg("selecting gatewaySelector failed")
 		return nil, err
 	}
 

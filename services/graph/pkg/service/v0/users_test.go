@@ -40,6 +40,7 @@ import (
 	"github.com/opencloud-eu/opencloud/services/graph/mocks"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config"
 	"github.com/opencloud-eu/opencloud/services/graph/pkg/config/defaults"
+	"github.com/opencloud-eu/opencloud/services/graph/pkg/errorcode"
 	identitymocks "github.com/opencloud-eu/opencloud/services/graph/pkg/identity/mocks"
 	service "github.com/opencloud-eu/opencloud/services/graph/pkg/service/v0"
 )
@@ -131,6 +132,14 @@ var _ = Describe("Users", func() {
 			})
 
 			It("gets the information", func() {
+				user := &libregraph.User{
+					Id: libregraph.PtrString("user"),
+					Identities: []libregraph.ObjectIdentity{{
+						Issuer:           libregraph.PtrString("https://idp.example.org"),
+						IssuerAssignedId: libregraph.PtrString("subject-of-the-idp"),
+					}},
+				}
+				identityBackend.On("GetUser", mock.Anything, "user", mock.Anything).Return(user, nil)
 				valueService.On("GetValueByUniqueIdentifiers", mock.Anything, mock.Anything, mock.Anything).
 					Return(&settings.GetValueResponse{
 						Value: &settingsmsg.ValueWithIdentifier{
@@ -155,6 +164,32 @@ var _ = Describe("Users", func() {
 				svc.GetMe(rr, r)
 
 				Expect(rr.Code).To(Equal(http.StatusOK))
+
+				data, err := io.ReadAll(rr.Body)
+				Expect(err).ToNot(HaveOccurred())
+
+				responseUser := &libregraph.User{}
+				err = json.Unmarshal(data, &responseUser)
+				Expect(err).ToNot(HaveOccurred())
+
+				// the identities come from the identity backend, not from the user ID
+				Expect(responseUser.GetIdentities()).To(HaveLen(1))
+				Expect(responseUser.GetIdentities()[0].GetIssuer()).To(Equal("https://idp.example.org"))
+				Expect(responseUser.GetIdentities()[0].GetIssuerAssignedId()).To(Equal("subject-of-the-idp"))
+				// without $expand=memberOf, the group memberships are left out
+				Expect(responseUser.HasMemberOf()).To(BeFalse())
+			})
+
+			It("renders the error of the identity backend", func() {
+				identityBackend.On("GetUser", mock.Anything, "user", mock.Anything).
+					Return(nil, errorcode.New(errorcode.ItemNotFound, "user not found"))
+
+				r := httptest.NewRequest(http.MethodGet, "/graph/v1.0/me", nil)
+				r = r.WithContext(revactx.ContextSetUser(ctx, currentUser))
+				svc.GetMe(rr, r)
+
+				Expect(rr.Code).To(Equal(http.StatusNotFound))
+				valueService.AssertNotCalled(GinkgoT(), "GetValueByUniqueIdentifiers", mock.Anything, mock.Anything, mock.Anything)
 			})
 
 			It("expands the memberOf", func() {
@@ -209,6 +244,7 @@ var _ = Describe("Users", func() {
 						RoleId:      "some-appRole-ID",
 					},
 				}
+				identityBackend.On("GetUser", mock.Anything, "user", mock.Anything).Return(&libregraph.User{Id: libregraph.PtrString("user")}, nil)
 				roleService.On("ListRoleAssignments", mock.Anything, mock.Anything, mock.Anything).Return(&settings.ListRoleAssignmentsResponse{Assignments: assignments}, nil)
 				valueService.On("GetValueByUniqueIdentifiers", mock.Anything, mock.Anything, mock.Anything).
 					Return(&settings.GetValueResponse{

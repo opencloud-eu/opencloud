@@ -40,6 +40,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/studio-b12/gowebdav"
 
+	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/mime"
@@ -209,28 +210,37 @@ func (d *driver) webdavClient(ctx context.Context, forUser *userpb.UserId, ref *
 	return c, share, rel, nil
 }
 
-func (d *driver) CreateDir(ctx context.Context, ref *provider.Reference) error {
+func (d *driver) CreateDir(ctx context.Context, ref *provider.Reference) (*storage.CreateDirResult, error) {
 	client, _, rel, err := d.webdavClient(ctx, nil, ref)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return client.MkdirAll(rel, 0)
+	if err := client.MkdirAll(rel, 0); err != nil {
+		return nil, err
+	}
+	return &storage.CreateDirResult{}, nil
 }
 
-func (d *driver) Delete(ctx context.Context, ref *provider.Reference) error {
-	client, _, rel, err := d.webdavClient(ctx, nil, ref)
+func (d *driver) Delete(ctx context.Context, ref *provider.Reference) (*storage.DeleteResult, error) {
+	client, _, rel, err := d.serviceWebdavClient(ctx, ref)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return client.RemoveAll(rel)
+	if err := client.RemoveAll(rel); err != nil {
+		return nil, err
+	}
+	return &storage.DeleteResult{}, nil
 }
 
-func (d *driver) TouchFile(ctx context.Context, ref *provider.Reference, markprocessing bool, mtime string) error {
-	client, _, rel, err := d.webdavClient(ctx, nil, ref)
+func (d *driver) TouchFile(ctx context.Context, ref *provider.Reference, markprocessing bool, mtime string) (*storage.TouchFileResult, error) {
+	client, _, rel, err := d.serviceWebdavClient(ctx, ref)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return client.Write(rel, []byte{}, 0)
+	if err := client.Write(rel, []byte{}, 0); err != nil {
+		return nil, err
+	}
+	return &storage.TouchFileResult{}, nil
 }
 
 func (d *driver) Move(ctx context.Context, oldRef, newRef *provider.Reference) (*storage.MoveResult, error) {
@@ -327,7 +337,19 @@ func extractChecksum(props gowebdav.Props) *provider.ResourceChecksum {
 }
 
 func (d *driver) GetMD(ctx context.Context, ref *provider.Reference, _ []string, _ []string) (*provider.ResourceInfo, error) {
-	client, share, rel, err := d.webdavClient(ctx, nil, ref)
+	var (
+		client *gowebdav.Client
+		share  *ocmpb.ReceivedShare
+		rel    string
+		err    error
+	)
+	if token, ok := ctxpkg.ContextGetToken(ctx); ok && token != "" {
+		client, share, rel, err = d.webdavClient(ctx, nil, ref)
+	} else {
+		// the upload coordinator stats an upload it finishes with the context of the
+		// upload's executant, whose request, and with it the token, is gone by then
+		client, share, rel, err = d.serviceWebdavClient(ctx, ref)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -418,16 +440,16 @@ func (d *driver) DownloadRevision(ctx context.Context, ref *provider.Reference, 
 	return nil, nil, errtypes.NotSupported("operation not supported")
 }
 
-func (d *driver) RestoreRevision(ctx context.Context, ref *provider.Reference, key string) error {
-	return errtypes.NotSupported("operation not supported")
+func (d *driver) RestoreRevision(ctx context.Context, ref *provider.Reference, key string) (*storage.RestoreRevisionResult, error) {
+	return nil, errtypes.NotSupported("operation not supported")
 }
 
 func (d *driver) ListRecycle(ctx context.Context, ref *provider.Reference, key, relativePath string) ([]*provider.RecycleItem, error) {
 	return nil, errtypes.NotSupported("operation not supported")
 }
 
-func (d *driver) RestoreRecycleItem(ctx context.Context, ref *provider.Reference, key, relativePath string, restoreRef *provider.Reference) error {
-	return errtypes.NotSupported("operation not supported")
+func (d *driver) RestoreRecycleItem(ctx context.Context, ref *provider.Reference, key, relativePath string, restoreRef *provider.Reference) (*storage.RestoreRecycleItemResult, error) {
+	return nil, errtypes.NotSupported("operation not supported")
 }
 
 func (d *driver) PurgeRecycleItem(ctx context.Context, ref *provider.Reference, key, relativePath string) error {
@@ -475,13 +497,16 @@ func (d *driver) UnsetArbitraryMetadata(ctx context.Context, ref *provider.Refer
 }
 
 // SetLock sets a lock on a file
-func (d *driver) SetLock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) error {
+func (d *driver) SetLock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) (*storage.SetLockResult, error) {
 	client, _, rel, err := d.webdavClient(ctx, nil, ref)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return client.Lock(rel, lock.GetLockId())
+	if err := client.Lock(rel, lock.GetLockId()); err != nil {
+		return nil, err
+	}
+	return &storage.SetLockResult{}, nil
 }
 
 func (d *driver) GetLock(ctx context.Context, ref *provider.Reference) (*provider.Lock, error) {
@@ -493,6 +518,10 @@ func (d *driver) GetLock(ctx context.Context, ref *provider.Reference) (*provide
 	token, err := client.GetLock(rel)
 	if err != nil {
 		return nil, err
+	}
+	// gowebdav formats a missing lockdiscovery property as "<nil>"
+	if token == "" || token == "<nil>" {
+		return nil, errtypes.NotFound("no lock found")
 	}
 
 	return &provider.Lock{LockId: token, Type: provider.LockType_LOCK_TYPE_EXCL}, nil
@@ -508,13 +537,16 @@ func (d *driver) RefreshLock(ctx context.Context, ref *provider.Reference, lock 
 }
 
 // Unlock removes a lock from a file
-func (d *driver) Unlock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) error {
+func (d *driver) Unlock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) (*storage.UnlockResult, error) {
 	client, _, rel, err := d.webdavClient(ctx, nil, ref)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return client.Unlock(rel, lock.GetLockId())
+	if err := client.Unlock(rel, lock.GetLockId()); err != nil {
+		return nil, err
+	}
+	return &storage.UnlockResult{}, nil
 }
 
 func (d *driver) ListStorageSpaces(ctx context.Context, filters []*provider.ListStorageSpacesRequest_Filter, _ bool) ([]*provider.StorageSpace, error) {
@@ -606,8 +638,8 @@ func (d *driver) UpdateStorageSpace(ctx context.Context, req *provider.UpdateSto
 	return nil, errtypes.NotSupported("operation not supported")
 }
 
-func (d *driver) DeleteStorageSpace(ctx context.Context, req *provider.DeleteStorageSpaceRequest) error {
-	return errtypes.NotSupported("operation not supported")
+func (d *driver) DeleteStorageSpace(ctx context.Context, req *provider.DeleteStorageSpaceRequest) (*storage.DeleteStorageSpaceResult, error) {
+	return nil, errtypes.NotSupported("operation not supported")
 }
 
 func (d *driver) AddLabel(ctx context.Context, ref *provider.Reference, userID *userpb.UserId, label string) error {
@@ -616,4 +648,12 @@ func (d *driver) AddLabel(ctx context.Context, ref *provider.Reference, userID *
 
 func (d *driver) RemoveLabel(ctx context.Context, ref *provider.Reference, userID *userpb.UserId, label string) error {
 	return errtypes.NotSupported("RemoveLabel not implemented")
+}
+
+func (d *driver) PrepareUpload(_ context.Context, _ *provider.Reference, _ string, info storage.UploadInfo) (*storage.PrepareUploadResult, error) {
+	return &storage.PrepareUploadResult{VersionCreated: info.NodeExisted}, nil
+}
+
+func (d *driver) RollbackUpload(_ context.Context, _ *provider.Reference, _ string, _ storage.RollbackInfo) error {
+	return nil
 }

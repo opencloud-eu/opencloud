@@ -36,7 +36,6 @@ import (
 	"github.com/jellydator/ttlcache/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	tusd "github.com/tus/tusd/v2/pkg/handler"
 	microstore "go-micro.dev/v4/store"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
@@ -48,7 +47,6 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
 	"github.com/opencloud-eu/reva/v2/pkg/events"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
-	"github.com/opencloud-eu/reva/v2/pkg/rhttp/datatx/metrics"
 	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/aspects"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/lookup"
@@ -61,9 +59,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/timemanager"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/trashbin"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/tree"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/upload"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/usermapper"
-	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/chunking"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/filelocks"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/utils/templates"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
@@ -81,11 +77,6 @@ var (
 	tracer trace.Tracer
 
 	_registeredEvents = []events.Unmarshaller{
-		events.PostprocessingFinished{},
-		events.PostprocessingStepFinished{},
-		events.RestartPostprocessing{},
-		events.StartPostprocessingStep{},
-		events.CleanUpload{},
 		events.DeleteRevision{},
 	}
 )
@@ -94,41 +85,21 @@ func init() {
 	tracer = otel.Tracer("github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs")
 }
 
-// Session is the interface that DecomposedfsSession implements. By combining tus.Upload,
-// storage.UploadSession and custom functions we can reuse the same struct throughout
-// the whole upload lifecycle.
-//
-// Some functions that are only used by decomposedfs are not yet part of this interface.
-// They might be added after more refactoring.
-type Session interface {
-	tusd.Upload
-	storage.UploadSession
-	upload.Session
-	LockID() string
-}
-
 type IDCachingTree interface {
 	WarmupIDCache(root string, assimilate, onlyDirty bool) error
 }
 
-type SessionStore interface {
-	New(ctx context.Context) *upload.DecomposedFsSession
-	SessionFromInfo(info tusd.FileInfo) *upload.DecomposedFsSession
-	List(ctx context.Context) ([]*upload.DecomposedFsSession, error)
-	Get(ctx context.Context, id string) (*upload.DecomposedFsSession, error)
-}
-
 // Decomposedfs provides the base for decomposed filesystem implementations
 type Decomposedfs struct {
-	lu           node.PathLookup
-	tp           node.Tree
-	trashbin     trashbin.Trashbin
-	o            *options.Options
-	p            permissions.Permissions
-	um           usermapper.Mapper
-	chunkHandler *chunking.ChunkHandler
-	stream       events.Stream
-	sessionStore SessionStore
+	lu       node.PathLookup
+	tp       node.Tree
+	trashbin trashbin.Trashbin
+	o        *options.Options
+	p        permissions.Permissions
+	um       usermapper.Mapper
+	stream   events.Stream
+	// separateBlobs is set when the blobstore keeps blobs apart from the nodes
+	separateBlobs bool
 
 	UserCache       *ttlcache.Cache
 	userSpaceIndex  *spaceidindex.Index
@@ -185,12 +156,12 @@ func NewDefault(m map[string]interface{}, bs node.Blobstore, es events.Stream, l
 	), log)
 
 	aspects := aspects.Aspects{
-		Lookup:            lu,
-		Tree:              tp,
-		Permissions:       p,
-		EventStream:       es,
-		DisableVersioning: o.DisableVersioning,
-		Trashbin:          &DecomposedfsTrashbin{},
+		Lookup:        lu,
+		Tree:          tp,
+		Permissions:   p,
+		EventStream:   es,
+		Trashbin:      &DecomposedfsTrashbin{},
+		SeparateBlobs: true,
 	}
 
 	return New(o, aspects, log)
@@ -252,8 +223,8 @@ func New(o *options.Options, aspects aspects.Aspects, log *zerolog.Logger) (stor
 		o:               o,
 		p:               aspects.Permissions,
 		um:              aspects.UserMapper,
-		chunkHandler:    chunking.NewChunkHandler(filepath.Join(o.Root, "uploads")),
 		stream:          aspects.EventStream,
+		separateBlobs:   aspects.SeparateBlobs,
 		UserCache:       ttlcache.NewCache(),
 		userSpaceIndex:  userSpaceIndex,
 		groupSpaceIndex: groupSpaceIndex,
@@ -261,7 +232,6 @@ func New(o *options.Options, aspects aspects.Aspects, log *zerolog.Logger) (stor
 		spaceTypeIndex:  spaceTypeIndex,
 		log:             log,
 	}
-	fs.sessionStore = upload.NewSessionStore(fs, aspects, o.Root, o.AsyncFileUploads, o.Tokens, log)
 	if err = fs.trashbin.Setup(fs); err != nil {
 		return nil, err
 	}
@@ -272,7 +242,9 @@ func New(o *options.Options, aspects aspects.Aspects, log *zerolog.Logger) (stor
 			return nil, errors.New("need nats for async file processing")
 		}
 
-		ch, err := events.Consume(fs.stream, "dcfs", _registeredEvents...)
+		// a group of its own: the upload coordinator holds the "dcfs" group, and one
+		// group gets one copy of each event
+		ch, err := events.Consume(fs.stream, "dcfs-revisions", _registeredEvents...)
 		if err != nil {
 			return nil, err
 		}
@@ -282,201 +254,32 @@ func New(o *options.Options, aspects aspects.Aspects, log *zerolog.Logger) (stor
 		}
 
 		for i := 0; i < o.Events.NumConsumers; i++ {
-			go fs.Postprocessing(ch)
+			go fs.ConsumeRevisionEvents(ch)
 		}
 	}
 
 	return fs, nil
 }
 
-// Postprocessing starts the postprocessing result collector
-func (fs *Decomposedfs) Postprocessing(ch <-chan events.Event) {
+// ConsumeRevisionEvents starts the revision event collector. Upload postprocessing
+// results are consumed by the upload coordinator.
+func (fs *Decomposedfs) ConsumeRevisionEvents(ch <-chan events.Event) {
 	for event := range ch {
 		// derive a per-event context from the event's W3C trace context so the
-		// postprocessing work is linked to the originating request
+		// work is linked to the originating request
 		ctx := event.GetTraceContext(context.Background())
 		ctx = ctxpkg.ContextSetInitiator(ctx, event.InitiatorID)
-		fs.handlePostprocessingEvent(ctx, event)
+		fs.handleRevisionEvent(ctx, event)
 	}
 }
 
-// handlePostprocessingEvent processes a single postprocessing event under a span
-// scoped to that event's trace context.
-func (fs *Decomposedfs) handlePostprocessingEvent(ctx context.Context, event events.Event) {
-	ctx, span := tracer.Start(ctx, "Postprocessing/"+event.Type)
+// handleRevisionEvent processes a single revision event under a span scoped to
+// that event's trace context.
+func (fs *Decomposedfs) handleRevisionEvent(ctx context.Context, event events.Event) {
+	ctx, span := tracer.Start(ctx, "ConsumeRevisionEvents/"+event.Type)
 	defer span.End()
 	log := fs.log
 	switch ev := event.Event.(type) {
-	case events.PostprocessingFinished:
-		sublog := log.With().Str("event", "PostprocessingFinished").Str("uploadid", ev.UploadID).Logger()
-		session, err := fs.sessionStore.Get(ctx, ev.UploadID)
-		if err != nil {
-			sublog.Error().Err(err).Msg("Failed to get upload")
-			return // NOTE: since we can't get the upload, we can't delete the blob
-		}
-
-		n, err := session.Node(ctx)
-		if err != nil {
-			sublog.Error().Err(err).Msg("could not read node")
-			return
-		}
-		sublog = log.With().Str("spaceid", session.SpaceID()).Str("nodeid", session.NodeID()).Logger()
-		if !n.Exists {
-			sublog.Debug().Msg("node no longer exists")
-			session.Cleanup(false, true, true, false)
-			return
-		}
-
-		var (
-			failed             bool
-			revertNodeMetadata bool
-			keepUpload         bool
-		)
-		unmarkPostprocessing := true
-
-		switch ev.Outcome {
-		default:
-			sublog.Error().Str("outcome", string(ev.Outcome)).Msg("unknown postprocessing outcome - aborting")
-			fallthrough
-		case events.PPOutcomeAbort:
-			failed = true
-			revertNodeMetadata = true
-			keepUpload = true
-			metrics.UploadSessionsAborted.Inc()
-		case events.PPOutcomeContinue:
-			if err := session.Finalize(ctx); err != nil {
-				sublog.Error().Err(err).Msg("could not finalize upload")
-				failed = true
-				revertNodeMetadata = false
-				keepUpload = true
-				// keep postprocessing status so the upload is not deleted during housekeeping
-				unmarkPostprocessing = false
-			} else {
-				metrics.UploadSessionsFinalized.Inc()
-			}
-		case events.PPOutcomeDelete:
-			failed = true
-			revertNodeMetadata = true
-			metrics.UploadSessionsDeleted.Inc()
-		}
-
-		getParent := func() *node.Node {
-			p, err := n.Parent(ctx)
-			if err != nil {
-				sublog.Error().Err(err).Msg("could not read parent")
-				return nil
-			}
-			return p
-		}
-
-		now := time.Now()
-		var parentId *provider.ResourceId
-		if failed {
-			// if no other upload session is in progress (processing id != session id) or has finished (processing id == "")
-			latestSession, err := n.ProcessingID(ctx)
-			if err != nil {
-				sublog.Error().Err(err).Msg("reading node for session failed")
-			}
-			if latestSession == session.ID() {
-				// propagate reverted sizeDiff after failed postprocessing
-				if err := fs.tp.Propagate(ctx, n, -session.SizeDiff()); err != nil {
-					sublog.Error().Err(err).Msg("could not propagate tree size change")
-				}
-			}
-		} else if p := getParent(); p != nil {
-			parentId = &provider.ResourceId{
-				StorageId: session.ProviderID(),
-				SpaceId:   session.SpaceID(),
-				OpaqueId:  p.ID,
-			}
-			// update parent tmtime to propagate etag change after successful postprocessing
-			_ = p.SetTMTime(ctx, &now)
-			if err := fs.tp.Propagate(ctx, p, 0); err != nil {
-				sublog.Error().Err(err).Msg("could not propagate etag change")
-			}
-		}
-
-		session.Cleanup(revertNodeMetadata, !keepUpload, !keepUpload, unmarkPostprocessing)
-
-		var isVersion bool
-		if session.NodeExists() {
-			info, err := session.GetInfo(ctx)
-			if err == nil && info.MetaData["versionID"] != "" {
-				isVersion = true
-			}
-		}
-
-		if err := events.Publish(
-			ctx,
-			fs.stream,
-			events.UploadReady{
-				UploadID:      ev.UploadID,
-				Failed:        failed,
-				ExecutingUser: ev.ExecutingUser,
-				Filename:      ev.Filename,
-				FileRef: &provider.Reference{
-					ResourceId: &provider.ResourceId{
-						StorageId: session.ProviderID(),
-						SpaceId:   session.SpaceID(),
-						OpaqueId:  session.SpaceID(),
-					},
-					Path: utils.MakeRelativePath(filepath.Join(session.Dir(), session.Filename())),
-				},
-				ResourceID: &provider.ResourceId{
-					StorageId: session.ProviderID(),
-					SpaceId:   session.SpaceID(),
-					OpaqueId:  session.NodeID(),
-				},
-				ParentID:          parentId,
-				Timestamp:         utils.TimeToTS(now),
-				SpaceOwner:        n.SpaceOwnerOrManager(ctx),
-				IsVersion:         isVersion,
-				ImpersonatingUser: ev.ImpersonatingUser,
-			},
-		); err != nil {
-			sublog.Error().Err(err).Msg("Failed to publish UploadReady event")
-		}
-	case events.RestartPostprocessing:
-		sublog := log.With().Str("event", "RestartPostprocessing").Str("uploadid", ev.UploadID).Logger()
-		session, err := fs.sessionStore.Get(ctx, ev.UploadID)
-		if err != nil {
-			sublog.Error().Err(err).Msg("Failed to get upload")
-			return
-		}
-		n, err := session.Node(ctx)
-		if err != nil {
-			sublog.Error().Err(err).Msg("could not read node")
-			return
-		}
-		sublog = log.With().Str("spaceid", session.SpaceID()).Str("nodeid", session.NodeID()).Logger()
-		s, err := session.URL(ctx)
-		if err != nil {
-			sublog.Error().Err(err).Msg("could not create url")
-			return
-		}
-
-		metrics.UploadSessionsRestarted.Inc()
-
-		// restart postprocessing
-		if err := events.Publish(ctx, fs.stream, events.BytesReceived{
-			UploadID:      session.ID(),
-			URL:           s,
-			SpaceOwner:    n.SpaceOwnerOrManager(ctx),
-			ExecutingUser: &user.User{Id: &user.UserId{OpaqueId: "postprocessing-restart"}}, // send nil instead?
-			ResourceID:    &provider.ResourceId{SpaceId: n.SpaceID, OpaqueId: n.ID},
-			Filename:      session.Filename(),
-			Filesize:      uint64(session.Size()),
-		}); err != nil {
-			sublog.Error().Err(err).Msg("Failed to publish BytesReceived event")
-		}
-	case events.CleanUpload:
-		sublog := log.With().Str("event", "CleanUpload").Str("uploadid", ev.UploadID).Logger()
-		session, err := fs.sessionStore.Get(ctx, ev.UploadID)
-		if err != nil {
-			sublog.Error().Err(err).Msg("Failed to get upload")
-			return // NOTE: since we can't get the upload, we can't delete the blob
-		}
-		session.Cleanup(true, !ev.KeepUpload, !ev.KeepUpload, true)
 	case events.DeleteRevision:
 		sublog := log.With().Str("event", "DeleteRevision").Interface("nodeid", ev.ResourceID).Logger()
 		n, err := fs.lu.NodeFromID(ctx, ev.ResourceID)
@@ -502,152 +305,6 @@ func (fs *Decomposedfs) handlePostprocessingEvent(ctx context.Context, event eve
 		if deleteErr != nil {
 			sublog.Error().Err(deleteErr).Msg("Failed to delete revision")
 		}
-	case events.StartPostprocessingStep:
-		sublog := log.With().Str("event", "StartPostprocessingStep").Str("uploadid", ev.UploadID).Logger()
-		if ev.UploadID == "" {
-			sublog.Error().Msg("UploadID is empty, cannot start postprocessing step")
-			return
-		}
-		session, err := fs.sessionStore.Get(ctx, ev.UploadID)
-		if err != nil {
-			sublog.Error().Err(err).Msg("Failed to get upload")
-			return
-		}
-		session.SetStatus(upload.SessionStatusProcessing, "started postprocessing step: "+string(ev.StepToStart))
-		err = session.Persist(ctx)
-		if err != nil {
-			sublog.Error().Err(err).Msg("Failed to persist upload session after starting postprocessing step")
-		}
-	case events.PostprocessingStepFinished:
-		sublog := log.With().Str("event", "PostprocessingStepFinished").Str("uploadid", ev.UploadID).Logger()
-		if ev.FinishedStep != events.PPStepAntivirus {
-			// atm we are only interested in antivirus results
-			return
-		}
-
-		res := ev.Result.(events.VirusscanResult)
-		if res.ErrorMsg != "" {
-			// scan failed somehow
-			// Should we handle this here?
-			return
-		}
-		sublog = log.With().Str("scan_description", res.Description).Bool("infected", res.Infected).Logger()
-
-		var n *node.Node
-		switch ev.UploadID {
-		case "":
-			// uploadid is empty -> this was an on-demand scan
-			/* ON DEMAND SCANNING NOT SUPPORTED ATM
-			ctx := ctxpkg.ContextSetUser(context.Background(), ev.ExecutingUser)
-			ref := &provider.Reference{ResourceId: ev.ResourceID}
-
-			no, err := fs.lu.NodeFromResource(ctx, ref)
-			if err != nil {
-				log.Error().Err(err).Interface("resourceID", ev.ResourceID).Msg("Failed to get node after scan")
-				continue
-
-			}
-			n = no
-			if ev.Outcome == events.PPOutcomeDelete {
-				// antivir wants us to delete the file. We must obey and need to
-
-				// check if there a previous versions existing
-				revs, err := fs.ListRevisions(ctx, ref)
-				if len(revs) == 0 {
-					if err != nil {
-						log.Error().Err(err).Interface("resourceID", ev.ResourceID).Msg("Failed to list revisions. Fallback to delete file")
-					}
-
-					// no versions -> trash file
-					err := fs.Delete(ctx, ref)
-					if err != nil {
-						log.Error().Err(err).Interface("resourceID", ev.ResourceID).Msg("Failed to delete infected resource")
-						continue
-					}
-
-					// now purge it from the recycle bin
-					if err := fs.PurgeRecycleItem(ctx, &provider.Reference{ResourceId: &provider.ResourceId{SpaceId: n.SpaceID, OpaqueId: n.SpaceID}}, n.ID, "/"); err != nil {
-						log.Error().Err(err).Interface("resourceID", ev.ResourceID).Msg("Failed to purge infected resource from trash")
-					}
-
-					// remove cache entry in gateway
-					fs.cache.RemoveStatContext(ctx, ev.ExecutingUser.GetId(), &provider.ResourceId{SpaceId: n.SpaceID, OpaqueId: n.ID})
-					continue
-				}
-
-				// we have versions - find the newest
-				versions := make(map[uint64]string) // remember all versions - we need them later
-				var nv uint64
-				for _, v := range revs {
-					versions[v.Mtime] = v.Key
-					if v.Mtime > nv {
-						nv = v.Mtime
-					}
-				}
-
-				// restore newest version
-				if err := fs.RestoreRevision(ctx, ref, versions[nv]); err != nil {
-					log.Error().Err(err).Interface("resourceID", ev.ResourceID).Str("revision", versions[nv]).Msg("Failed to restore revision")
-					continue
-				}
-
-				// now find infected version
-				revs, err = fs.ListRevisions(ctx, ref)
-				if err != nil {
-					log.Error().Err(err).Interface("resourceID", ev.ResourceID).Msg("Error listing revisions after restore")
-				}
-
-				for _, v := range revs {
-					// we looking for a version that was previously not there
-					if _, ok := versions[v.Mtime]; ok {
-						continue
-					}
-
-					if err := fs.DeleteRevision(ctx, ref, v.Key); err != nil {
-						log.Error().Err(err).Interface("resourceID", ev.ResourceID).Str("revision", v.Key).Msg("Failed to delete revision")
-					}
-				}
-
-				// remove cache entry in gateway
-				fs.cache.RemoveStatContext(ctx, ev.ExecutingUser.GetId(), &provider.ResourceId{SpaceId: n.SpaceID, OpaqueId: n.ID})
-				continue
-			}
-			*/
-		default:
-			// uploadid is not empty -> this is an async upload
-			session, err := fs.sessionStore.Get(ctx, ev.UploadID)
-			if err != nil {
-				sublog.Error().Err(err).Msg("Failed to get upload")
-				return
-			}
-
-			n, err = session.Node(ctx)
-			if err != nil {
-				sublog.Error().Err(err).Msg("Failed to get node after scan")
-				return
-			}
-			sublog = log.With().Str("spaceid", session.SpaceID()).Str("nodeid", session.NodeID()).Logger()
-
-			session.SetScanData(res.Description, res.Scandate)
-			var status string
-			switch ev.Outcome {
-			case events.PPOutcomeAbort, events.PPOutcomeDelete:
-				status = upload.SessionStatusFailed
-			default:
-				status = upload.SessionStatusProcessing
-			}
-			session.SetStatus(status, "finished postprocessing step: "+string(ev.FinishedStep))
-			if err := session.Persist(ctx); err != nil {
-				sublog.Error().Err(err).Msg("Failed to persist scan results")
-			}
-		}
-
-		if err := n.SetScanData(ctx, res.Description, res.Scandate); err != nil {
-			sublog.Error().Err(err).Msg("Failed to set scan results")
-			return
-		}
-
-		metrics.UploadSessionsScanned.Inc()
 	default:
 		log.Error().Interface("event", ev).Msg("Unknown event")
 	}
@@ -663,6 +320,12 @@ func (fs *Decomposedfs) WithDisabledSpaces() storage.FS {
 // Shutdown shuts down the storage
 func (fs *Decomposedfs) Shutdown(ctx context.Context) error {
 	return nil
+}
+
+// Capabilities declares decomposedfs fully writeable, stated explicitly so it is
+// a decision here and not an inherited default.
+func (fs *Decomposedfs) Capabilities(_ context.Context) storage.Capabilities {
+	return storage.FullCapabilities()
 }
 
 // GetQuota returns the quota available
@@ -804,13 +467,13 @@ func (fs *Decomposedfs) GetPathByID(ctx context.Context, id *provider.ResourceId
 }
 
 // CreateDir creates the specified directory
-func (fs *Decomposedfs) CreateDir(ctx context.Context, ref *provider.Reference) (err error) {
+func (fs *Decomposedfs) CreateDir(ctx context.Context, ref *provider.Reference) (_ *storage.CreateDirResult, err error) {
 	ctx, span := tracer.Start(ctx, "CreateDir")
 	defer span.End()
 
 	name := path.Base(ref.Path)
 	if name == "" || name == "." || name == "/" {
-		return errtypes.BadRequest("Invalid path: " + ref.Path)
+		return nil, errtypes.BadRequest("Invalid path: " + ref.Path)
 	}
 
 	parentRef := &provider.Reference{
@@ -822,52 +485,51 @@ func (fs *Decomposedfs) CreateDir(ctx context.Context, ref *provider.Reference) 
 	var n *node.Node
 	if n, err = fs.lu.NodeFromResource(ctx, parentRef); err != nil {
 		if e, ok := err.(errtypes.NotFound); ok {
-			return errtypes.PreconditionFailed(e.Error())
+			return nil, errtypes.PreconditionFailed(e.Error())
 		}
-		return
+		return nil, err
 	}
 	// TODO check if user has access to root / space
 	if !n.Exists {
-		return errtypes.PreconditionFailed(parentRef.Path)
+		return nil, errtypes.PreconditionFailed(parentRef.Path)
 	}
 
 	rp, err := fs.p.AssemblePermissions(ctx, n)
 	switch {
 	case err != nil:
-		return err
+		return nil, err
 	case !rp.CreateContainer:
 		f, _ := storagespace.FormatReference(ref)
 		if rp.Stat {
-			return errtypes.PermissionDenied(f)
+			return nil, errtypes.PermissionDenied(f)
 		}
-		return errtypes.NotFound(f)
+		return nil, errtypes.NotFound(f)
 	}
 
-	// Set space owner in context
-	storagespace.ContextSendSpaceOwnerID(ctx, n.SpaceOwnerOrManager(ctx))
+	spaceOwner := n.SpaceOwnerOrManager(ctx)
 
 	// check lock
 	if err := n.CheckLock(ctx); err != nil {
-		return err
+		return nil, err
 	}
 
 	// verify child does not exist, yet
 	if n, err = n.Child(ctx, name); err != nil {
-		return
+		return nil, err
 	}
 	if n.Exists {
-		return errtypes.AlreadyExists(ref.Path)
+		return nil, errtypes.AlreadyExists(ref.Path)
 	}
 
 	if err = fs.tp.CreateDir(ctx, n); err != nil {
-		return
+		return nil, err
 	}
 
-	return
+	return &storage.CreateDirResult{SpaceOwner: spaceOwner, SpaceID: n.SpaceID, ResourceID: &provider.ResourceId{OpaqueId: n.ID, SpaceId: n.SpaceID}}, nil
 }
 
 // TouchFile as defined in the storage.FS interface
-func (fs *Decomposedfs) TouchFile(ctx context.Context, ref *provider.Reference, markprocessing bool, mtime string) error {
+func (fs *Decomposedfs) TouchFile(ctx context.Context, ref *provider.Reference, markprocessing bool, mtime string) (*storage.TouchFileResult, error) {
 	ctx, span := tracer.Start(ctx, "TouchFile")
 	defer span.End()
 	parentRef := &provider.Reference{
@@ -878,15 +540,15 @@ func (fs *Decomposedfs) TouchFile(ctx context.Context, ref *provider.Reference, 
 	// verify parent exists
 	parent, err := fs.lu.NodeFromResource(ctx, parentRef)
 	if err != nil {
-		return errtypes.InternalError(err.Error())
+		return nil, errtypes.InternalError(err.Error())
 	}
 	if !parent.Exists {
-		return errtypes.NotFound(parentRef.Path)
+		return nil, errtypes.NotFound(parentRef.Path)
 	}
 
 	n, err := fs.lu.NodeFromResource(ctx, ref)
 	if err != nil {
-		return errtypes.InternalError(err.Error())
+		return nil, errtypes.InternalError(err.Error())
 	}
 
 	// new file: check write permission on parent, not the not-yet-existing node
@@ -897,23 +559,25 @@ func (fs *Decomposedfs) TouchFile(ctx context.Context, ref *provider.Reference, 
 	rp, err := fs.p.AssemblePermissions(ctx, permNode)
 	switch {
 	case err != nil:
-		return err
+		return nil, err
 	case !rp.InitiateFileUpload:
 		f, _ := storagespace.FormatReference(ref)
 		if rp.Stat {
-			return errtypes.PermissionDenied(f)
+			return nil, errtypes.PermissionDenied(f)
 		}
-		return errtypes.NotFound(f)
+		return nil, errtypes.NotFound(f)
 	}
 
-	// Set space owner in context
-	storagespace.ContextSendSpaceOwnerID(ctx, n.SpaceOwnerOrManager(ctx))
+	spaceOwner := n.SpaceOwnerOrManager(ctx)
 
 	// check lock
 	if err := n.CheckLock(ctx); err != nil {
-		return err
+		return nil, err
 	}
-	return fs.tp.TouchFile(ctx, n, markprocessing, mtime)
+	if err := fs.tp.TouchFile(ctx, n, markprocessing, mtime); err != nil {
+		return nil, err
+	}
+	return &storage.TouchFileResult{SpaceOwner: spaceOwner, SpaceID: n.SpaceID, ResourceID: &provider.ResourceId{OpaqueId: n.ID, SpaceId: n.SpaceID}}, nil
 }
 
 // CreateReference creates a reference as a node folder with the target stored in extended attributes
@@ -981,6 +645,9 @@ func (fs *Decomposedfs) Move(ctx context.Context, oldRef, newRef *provider.Refer
 		}
 		return nil, errtypes.NotFound(f)
 	}
+
+	// Set space owner in context
+	storagespace.ContextSetSpaceOwner(ctx, newNode.SpaceOwnerOrManager(ctx))
 
 	// check lock on source
 	if err := oldNode.CheckLock(ctx); err != nil {
@@ -1208,46 +875,56 @@ func (fs *Decomposedfs) RemoveLabel(ctx context.Context, ref *provider.Reference
 }
 
 // Delete deletes the specified resource
-func (fs *Decomposedfs) Delete(ctx context.Context, ref *provider.Reference) (err error) {
+func (fs *Decomposedfs) Delete(ctx context.Context, ref *provider.Reference) (dr *storage.DeleteResult, err error) {
 	ctx, span := tracer.Start(ctx, "Delete")
 	defer span.End()
 	var node *node.Node
 	if node, err = fs.lu.NodeFromResource(ctx, ref); err != nil {
-		return
+		return nil, err
 	}
 	if !node.Exists {
-		return errtypes.NotFound(filepath.Join(node.ParentID, node.Name))
+		return nil, errtypes.NotFound(filepath.Join(node.ParentID, node.Name))
+	}
+
+	if node.IsProcessing(ctx) {
+		return nil, errtypes.TooEarly("file is processing")
 	}
 
 	rp, err := fs.p.AssemblePermissions(ctx, node)
 	switch {
 	case err != nil:
-		return err
+		return nil, err
 	case !rp.Delete:
 		f, _ := storagespace.FormatReference(ref)
 		if rp.Stat {
-			return errtypes.PermissionDenied(f)
+			return nil, errtypes.PermissionDenied(f)
 		}
-		return errtypes.NotFound(f)
+		return nil, errtypes.NotFound(f)
 	}
 	parentAllowsDelete := func(parentPerms *provider.ResourcePermissions) bool {
 		return parentPerms.GetDelete()
 	}
 	if err := fs.checkParentPermission(ctx, node, ref, parentAllowsDelete); err != nil {
-		return err
+		return nil, err
 	}
-
-	// Set space owner in context
-	storagespace.ContextSendSpaceOwnerID(ctx, node.SpaceOwnerOrManager(ctx))
 
 	if err := node.CheckLock(ctx); err != nil {
-		return err
+		return nil, err
 	}
 	if node.IsProcessing(ctx) {
-		return errtypes.ResourceProcessing(ref.String())
+		return nil, errtypes.ResourceProcessing(ref.String())
 	}
 
-	return fs.tp.Delete(ctx, node)
+	if err := fs.tp.Delete(ctx, node); err != nil {
+		return nil, err
+	}
+	return &storage.DeleteResult{
+		SpaceOwner: node.SpaceOwnerOrManager(ctx),
+		ResourceId: &provider.ResourceId{
+			SpaceId:  node.SpaceID,
+			OpaqueId: node.ID,
+		},
+	}, nil
 }
 
 // Download returns a reader to the specified resource
@@ -1270,7 +947,7 @@ func (fs *Decomposedfs) Download(ctx context.Context, ref *provider.Reference, o
 		return nil, nil, err
 	}
 
-	if n.IsProcessing(ctx) {
+	if n.IsProcessing(ctx) && !fs.recoverInterruptedUpload(ctx, n) {
 		return nil, nil, errtypes.TooEarly("file is still being processed")
 	}
 
@@ -1330,31 +1007,36 @@ func (fs *Decomposedfs) GetLock(ctx context.Context, ref *provider.Reference) (*
 }
 
 // SetLock puts a lock on the given reference
-func (fs *Decomposedfs) SetLock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) error {
+func (fs *Decomposedfs) SetLock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) (*storage.SetLockResult, error) {
 	ctx, span := tracer.Start(ctx, "SetLock")
 	defer span.End()
 	node, err := fs.lu.NodeFromResource(ctx, ref)
 	if err != nil {
-		return errors.Wrap(err, "Decomposedfs: error resolving ref")
+		return nil, errors.Wrap(err, "Decomposedfs: error resolving ref")
 	}
 
 	if !node.Exists {
-		return errtypes.NotFound(filepath.Join(node.ParentID, node.Name))
+		return nil, errtypes.NotFound(filepath.Join(node.ParentID, node.Name))
 	}
 
 	rp, err := fs.p.AssemblePermissions(ctx, node)
 	switch {
 	case err != nil:
-		return err
+		return nil, err
 	case !rp.InitiateFileUpload:
 		f, _ := storagespace.FormatReference(ref)
 		if rp.Stat {
-			return errtypes.PermissionDenied(f)
+			return nil, errtypes.PermissionDenied(f)
 		}
-		return errtypes.NotFound(f)
+		return nil, errtypes.NotFound(f)
 	}
 
-	return node.SetLock(ctx, lock)
+	spaceOwner := node.SpaceOwnerOrManager(ctx)
+
+	if err := node.SetLock(ctx, lock); err != nil {
+		return nil, err
+	}
+	return &storage.SetLockResult{SpaceOwner: spaceOwner, SpaceID: node.SpaceID}, nil
 }
 
 // RefreshLock refreshes an existing lock on the given reference
@@ -1390,35 +1072,40 @@ func (fs *Decomposedfs) RefreshLock(ctx context.Context, ref *provider.Reference
 }
 
 // Unlock removes an existing lock from the given reference
-func (fs *Decomposedfs) Unlock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) error {
+func (fs *Decomposedfs) Unlock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) (*storage.UnlockResult, error) {
 	ctx, span := tracer.Start(ctx, "Unlock")
 	defer span.End()
 	if lock.LockId == "" {
-		return errtypes.BadRequest("missing lockid")
+		return nil, errtypes.BadRequest("missing lockid")
 	}
 
 	node, err := fs.lu.NodeFromResource(ctx, ref)
 	if err != nil {
-		return errors.Wrap(err, "Decomposedfs: error resolving ref")
+		return nil, errors.Wrap(err, "Decomposedfs: error resolving ref")
 	}
 
 	if !node.Exists {
-		return errtypes.NotFound(filepath.Join(node.ParentID, node.Name))
+		return nil, errtypes.NotFound(filepath.Join(node.ParentID, node.Name))
 	}
 
 	rp, err := fs.p.AssemblePermissions(ctx, node)
 	switch {
 	case err != nil:
-		return err
+		return nil, err
 	case !rp.InitiateFileUpload: // TODO do we need a dedicated permission?
 		f, _ := storagespace.FormatReference(ref)
 		if rp.Stat {
-			return errtypes.PermissionDenied(f)
+			return nil, errtypes.PermissionDenied(f)
 		}
-		return errtypes.NotFound(f)
+		return nil, errtypes.NotFound(f)
 	}
 
-	return node.Unlock(ctx, lock)
+	spaceOwner := node.SpaceOwnerOrManager(ctx)
+
+	if err := node.Unlock(ctx, lock); err != nil {
+		return nil, err
+	}
+	return &storage.UnlockResult{SpaceOwner: spaceOwner, SpaceID: node.SpaceID}, nil
 }
 
 func (fs *Decomposedfs) ListRecycle(ctx context.Context, space *provider.Reference, key, relativePath string) ([]*provider.RecycleItem, error) {
@@ -1457,16 +1144,16 @@ func (fs *Decomposedfs) ListRecycle(ctx context.Context, space *provider.Referen
 // The key is used to determine the recycle item. It is the node id of the recycle item, returned by ListRecycle
 // The relativePath is the path is the path relative to the recycle item in case a child should be restored
 // The restoreRef is the reference where the item should be restored to
-func (fs *Decomposedfs) RestoreRecycleItem(ctx context.Context, space *provider.Reference, key, relativePath string, restoreRef *provider.Reference) error {
+func (fs *Decomposedfs) RestoreRecycleItem(ctx context.Context, space *provider.Reference, key, relativePath string, restoreRef *provider.Reference) (*storage.RestoreRecycleItemResult, error) {
 	_, span := tracer.Start(ctx, "RestoreRecycleItem")
 	defer span.End()
 
 	spaceID := space.GetResourceId().GetSpaceId()
 	if spaceID == "" {
-		return errtypes.BadRequest("missing space reference, needs a space id")
+		return nil, errtypes.BadRequest("missing space reference, needs a space id")
 	}
 	if key == "" && relativePath != "" {
-		return errtypes.BadRequest("key is required when navigating with a path")
+		return nil, errtypes.BadRequest("key is required when navigating with a path")
 	}
 
 	trashItem := &provider.ResourceId{
@@ -1476,31 +1163,31 @@ func (fs *Decomposedfs) RestoreRecycleItem(ctx context.Context, space *provider.
 
 	restoreBaseNode, err := fs.lu.NodeFromID(ctx, trashItem)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// check permissions of deleted node
 	rp, err := fs.p.AssembleTrashPermissions(ctx, restoreBaseNode)
 	switch {
 	case err != nil:
-		return err
+		return nil, err
 	case !rp.RestoreRecycleItem:
 		if rp.Stat {
-			return errtypes.PermissionDenied(key)
+			return nil, errtypes.PermissionDenied(key)
 		}
-		return errtypes.NotFound(key)
+		return nil, errtypes.NotFound(key)
 	}
 
 	restoredNode, err := fs.trashbin.RestoreRecycleItem(ctx, spaceID, key, relativePath, restoreRef)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var sizeDiff int64
 	if restoredNode.IsDir(ctx) {
 		treeSize, err := restoredNode.GetTreeSize(ctx)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		sizeDiff = int64(treeSize)
 
@@ -1512,7 +1199,10 @@ func (fs *Decomposedfs) RestoreRecycleItem(ctx context.Context, space *provider.
 		sizeDiff = restoredNode.Blobsize
 	}
 
-	return fs.tp.Propagate(ctx, restoredNode, sizeDiff)
+	if err := fs.tp.Propagate(ctx, restoredNode, sizeDiff); err != nil {
+		return nil, err
+	}
+	return &storage.RestoreRecycleItemResult{SpaceOwner: restoredNode.SpaceOwnerOrManager(ctx), SpaceID: restoredNode.SpaceID}, nil
 }
 
 func (fs *Decomposedfs) PurgeRecycleItem(ctx context.Context, space *provider.Reference, key, relativePath string) error {

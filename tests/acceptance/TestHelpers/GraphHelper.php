@@ -2189,6 +2189,35 @@ class GraphHelper {
 	 * @param string $user
 	 * @param string $password
 	 * @param string $spaceId
+	 * @param string $permissionId
+	 *
+	 * @return ResponseInterface
+	 * @throws GuzzleException
+	 */
+	public static function getDrivePermission(
+		string $baseUrl,
+		string $xRequestId,
+		string $user,
+		string $password,
+		string $spaceId,
+		string $permissionId
+	): ResponseInterface {
+		$url = self::getBetaFullUrl($baseUrl, "drives/$spaceId/root/permissions/$permissionId");
+		return HttpRequestHelper::get(
+			$url,
+			$xRequestId,
+			$user,
+			$password,
+			self::getRequestHeaders()
+		);
+	}
+
+	/**
+	 * @param string $baseUrl
+	 * @param string $xRequestId
+	 * @param string $user
+	 * @param string $password
+	 * @param string $spaceId
 	 * @param array $shareeIds
 	 * @param array $shareTypes
 	 * @param string|null $permissionsRole

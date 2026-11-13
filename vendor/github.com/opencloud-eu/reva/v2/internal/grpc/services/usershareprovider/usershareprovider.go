@@ -53,6 +53,7 @@ import (
 )
 
 const (
+	_fieldMaskPathExpiration  = "expiration"
 	_fieldMaskPathMountPoint  = "mount_point"
 	_fieldMaskPathPermissions = "permissions"
 	_fieldMaskPathState       = "state"
@@ -268,6 +269,9 @@ func (s *service) CreateShare(ctx context.Context, req *collaboration.CreateShar
 		if sRes.GetInfo().GetSpace().GetSpaceType() == _spaceTypePersonal || sRes.GetInfo().GetSpace().GetSpaceType() == _spaceTypeVirtual {
 			return &collaboration.CreateShareResponse{Status: status.NewInvalid(ctx, "space type is not eligible for sharing")}, nil
 		}
+		if HasPartialGrantPermissions(req.GetGrant().GetPermissions().GetPermissions()) {
+			return &collaboration.CreateShareResponse{Status: status.NewInvalid(ctx, "partial grant management permissions are not allowed on space roots")}, nil
+		}
 	}
 
 	// do not allow share to myself or the owner if share is for a user
@@ -363,8 +367,19 @@ func HasGrantPermissions(p *provider.ResourcePermissions) bool {
 	return p.GetAddGrant() || p.GetUpdateGrant() || p.GetRemoveGrant() || p.GetDenyGrant()
 }
 
+// managerPerms is the manager bitmap a space root share needs if it carries any grant management permission
+var managerPerms = conversions.NewManagerRole().CS3ResourcePermissions()
+
+// HasPartialGrantPermissions returns true if p carries some grant management permissions
+// without being a full manager. On a space root such a share would make the grantee a
+// manager the UI does not show as one.
+func HasPartialGrantPermissions(p *provider.ResourcePermissions) bool {
+	return HasGrantPermissions(p) && !conversions.SufficientCS3Permissions(p, managerPerms)
+}
+
 // spaceRootHasRemainingManager returns true if the given resource has at least one share
-// (excluding the share with excludeShareOpaqueID) that grants both AddGrant and RemoveGrant.
+// (excluding the share with excludeShareOpaqueID) that grants both AddGrant and RemoveGrant
+// and does not expire.
 func (s *service) spaceRootHasRemainingManager(ctx context.Context, resourceID *provider.ResourceId, excludeShareOpaqueID string) (bool, error) {
 	shares, err := s.sm.ListShares(ctx, []*collaboration.Filter{
 		{
@@ -380,11 +395,32 @@ func (s *service) spaceRootHasRemainingManager(ctx context.Context, resourceID *
 			continue
 		}
 		perms := s.GetPermissions().GetPermissions()
-		if perms.GetAddGrant() && perms.GetRemoveGrant() {
+		// Expirable shares won't be computed because the space needs
+		// at least one permanent space manager.
+		if perms.GetAddGrant() && perms.GetRemoveGrant() && s.GetExpiration() == nil {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+// mayRemoveLastPermanentManager reports whether an update could leave a space without a permanent
+// manager share, so the caller must verify that another one remains. That is the case when the new
+// permissions strip AddGrant or RemoveGrant, or when the share keeps the manager permissions but gets
+// an expiration, because expiring shares do not count as permanent managers.
+func mayRemoveLastPermanentManager(currentShare *collaboration.Share, newPermissions *provider.ResourcePermissions, req *collaboration.UpdateShareRequest) bool {
+	if newPermissions != nil && (!newPermissions.GetAddGrant() || !newPermissions.GetRemoveGrant()) {
+		return true
+	}
+	permissions := newPermissions
+	if permissions == nil {
+		permissions = currentShare.GetPermissions().GetPermissions()
+	}
+	expiration := currentShare.GetExpiration()
+	if slices.Contains(req.GetUpdateMask().GetPaths(), _fieldMaskPathExpiration) {
+		expiration = req.GetShare().GetExpiration()
+	}
+	return permissions.GetAddGrant() && permissions.GetRemoveGrant() && expiration != nil
 }
 
 func (s *service) RemoveShare(ctx context.Context, req *collaboration.RemoveShareRequest) (*collaboration.RemoveShareResponse, error) {
@@ -597,15 +633,20 @@ func (s *service) UpdateShare(ctx context.Context, req *collaboration.UpdateShar
 	} else {
 		newPermissions = req.GetField().GetPermissions().GetPermissions()
 	}
+	if utils.IsSpaceRoot(sRes.GetInfo()) && HasPartialGrantPermissions(newPermissions) {
+		return &collaboration.UpdateShareResponse{
+			Status: status.NewInvalid(ctx, "partial grant management permissions are not allowed on space roots"),
+		}, nil
+	}
 	if newPermissions != nil && !conversions.SufficientCS3Permissions(sRes.GetInfo().GetPermissionSet(), newPermissions) {
 		return &collaboration.UpdateShareResponse{
 			Status: status.NewPermissionDenied(ctx, nil, "insufficient permissions to create that kind of share"),
 		}, nil
 	}
 
-	// For space root shares, if the new permissions would strip AddGrant or RemoveGrant from this share,
-	// ensure at least one other share still has both so the space retains a manager.
-	if utils.IsSpaceRoot(sRes.GetInfo()) && newPermissions != nil && (!newPermissions.GetAddGrant() || !newPermissions.GetRemoveGrant()) {
+	// For space root shares, if the update would strip AddGrant or RemoveGrant from this share or give
+	// a manager share an expiration, ensure at least one other permanent manager share remains.
+	if utils.IsSpaceRoot(sRes.GetInfo()) && mayRemoveLastPermanentManager(currentShare, newPermissions, req) {
 		if ok, err := s.spaceRootHasRemainingManager(ctx, currentShare.GetResourceId(), currentShare.GetId().GetOpaqueId()); err != nil {
 			return &collaboration.UpdateShareResponse{
 				Status: status.NewInternal(ctx, "failed to list shares for space root"),
