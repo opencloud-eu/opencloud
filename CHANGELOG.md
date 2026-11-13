@@ -6,6 +6,10 @@
 
 @Pflum, @aduffeck, @asaah262, @butonic, @dragonchaser, @jmrplens, @pbleser-oc
 
+### ✅ Tests
+
+- test(search): wait for the first debouncer run instead of sleeping [[#3990](https://github.com/opencloud-eu/opencloud/pull/3990)]
+
 ### 📈 Enhancement
 
 - feat: merge the workpagages branch into main [[#3956](https://github.com/opencloud-eu/opencloud/pull/3956)]
