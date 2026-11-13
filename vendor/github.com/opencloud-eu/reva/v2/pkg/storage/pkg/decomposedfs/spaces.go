@@ -46,6 +46,7 @@ import (
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/status"
 	"github.com/opencloud-eu/reva/v2/pkg/rgrpc/todo/pool"
 	sdk "github.com/opencloud-eu/reva/v2/pkg/sdk/common"
+	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/posix/lookup"
 	dfslookup "github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/lookup"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/pkg/decomposedfs/metadata/prefixes"
@@ -722,11 +723,33 @@ func (fs *Decomposedfs) UpdateStorageSpace(ctx context.Context, req *provider.Up
 			}, nil
 		}
 	}
+
+	// capture old image id to delete it after successful update
+	var oldImageID string
+	if v, e := spaceNode.XattrString(ctx, prefixes.SpaceImageAttr); e == nil {
+		oldImageID = v
+	}
+
 	metadata[prefixes.TreeMTimeAttr] = []byte(time.Now().UTC().Format(time.RFC3339Nano))
 
 	err = spaceNode.SetXattrsWithContext(ctx, metadata)
 	if err != nil {
 		return nil, err
+	}
+
+	// housekeeping: if the space image is being updated, remove the old one
+	if newImageID, ok := metadata[prefixes.SpaceImageAttr]; ok {
+		if oldImageID != "" && oldImageID != string(newImageID) {
+			delRef := &provider.Reference{
+				ResourceId: &provider.ResourceId{
+					SpaceId:  spaceID,
+					OpaqueId: oldImageID,
+				},
+			}
+			// delete old image after new image was successfully set
+			_, _ = fs.Delete(ctx, delRef)
+			// silently ignore failed deletion
+		}
 	}
 
 	if restore {
@@ -748,7 +771,7 @@ func (fs *Decomposedfs) UpdateStorageSpace(ctx context.Context, req *provider.Up
 }
 
 // DeleteStorageSpace deletes a storage space
-func (fs *Decomposedfs) DeleteStorageSpace(ctx context.Context, req *provider.DeleteStorageSpaceRequest) error {
+func (fs *Decomposedfs) DeleteStorageSpace(ctx context.Context, req *provider.DeleteStorageSpaceRequest) (*storage.DeleteStorageSpaceResult, error) {
 	opaque := req.Opaque
 	var purge bool
 	if opaque != nil {
@@ -757,25 +780,39 @@ func (fs *Decomposedfs) DeleteStorageSpace(ctx context.Context, req *provider.De
 
 	_, spaceID, _, err := storagespace.SplitID(req.GetId().GetOpaqueId())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	n, err := node.ReadNode(ctx, fs.lu, spaceID, spaceID, "", true, nil, false) // permission to read disabled space is checked later
 	if err != nil {
-		return err
+		return nil, err
+	}
+	if !n.Exists {
+		return nil, errtypes.NotFound(spaceID)
 	}
 
 	st, err := n.SpaceRoot.XattrString(ctx, prefixes.SpaceTypeAttr)
 	if err != nil {
-		return errtypes.InternalError(fmt.Sprintf("space %s does not have a spacetype, possible corrupt decompsedfs", n.GetID()))
+		return nil, errtypes.InternalError(fmt.Sprintf("space %s does not have a spacetype, possible corrupt decompsedfs", n.GetID()))
 	}
 
 	if err := canDeleteSpace(ctx, spaceID, st, purge, n, fs.p); err != nil {
-		return err
+		return nil, err
 	}
 	if purge {
 		if !n.IsDisabled(ctx) {
-			return errtypes.NewErrtypeFromStatus(status.NewInvalid(ctx, "can't purge enabled space"))
+			return nil, errtypes.NewErrtypeFromStatus(status.NewInvalid(ctx, "can't purge enabled space"))
+		}
+
+		// capture what the SpaceDeleted event needs before any destructive work
+		spaceName, _ := n.SpaceRoot.XattrString(ctx, prefixes.SpaceNameAttr)
+		grants, err := n.ListGrants(ctx)
+		if err != nil {
+			return nil, err
+		}
+		finalMembers, err := activeMembers(grants)
+		if err != nil {
+			return nil, err
 		}
 
 		// delete the blobs of all nodes first, so that a failed purge can be retried
@@ -794,16 +831,16 @@ func (fs *Decomposedfs) DeleteStorageSpace(ctx context.Context, req *provider.De
 				return err
 			})
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 
 		spaceType, err := n.XattrString(ctx, prefixes.SpaceTypeAttr)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if err := fs.spaceTypeIndex.Remove(spaceType, spaceID); err != nil {
-			return err
+			return nil, err
 		}
 
 		// the by-type index is handled above; also remove the space from the user
@@ -819,10 +856,6 @@ func (fs *Decomposedfs) DeleteStorageSpace(ctx context.Context, req *provider.De
 			if err := fs.userSpaceIndex.Remove(ownerID, spaceID); err != nil {
 				sublog.Error().Err(err).Msg("could not remove owner from user index")
 			}
-		}
-		grants, err := n.ListGrants(ctx)
-		if err != nil {
-			sublog.Error().Err(err).Msg("could not list grants")
 		}
 		for _, g := range grants {
 			switch g.Grantee.Type {
@@ -849,7 +882,7 @@ func (fs *Decomposedfs) DeleteStorageSpace(ctx context.Context, req *provider.De
 
 		// invalidate cache
 		if err := fs.lu.MetadataBackend().Purge(ctx, n); err != nil {
-			return err
+			return nil, err
 		}
 
 		root := n.InternalPath()
@@ -857,14 +890,14 @@ func (fs *Decomposedfs) DeleteStorageSpace(ctx context.Context, req *provider.De
 		// remove space metadata
 		if spaceRoot != "" {
 			if err := removeSpaceRoot(spaceRoot); err != nil {
-				return err
+				return nil, err
 			}
 		}
 
 		// invalidate id in cache
 		if l, ok := fs.lu.(*lookup.Lookup); ok {
 			if err := l.IDCache.DeleteByPath(ctx, root); err != nil {
-				return err
+				return nil, err
 			}
 		}
 
@@ -872,12 +905,52 @@ func (fs *Decomposedfs) DeleteStorageSpace(ctx context.Context, req *provider.De
 		// Note that this will fail when there are other spaceids starting with the same two digits.
 		_ = os.Remove(filepath.Dir(root))
 
-		return nil
+		return &storage.DeleteStorageSpaceResult{
+			SpaceName:    spaceName,
+			FinalMembers: finalMembers,
+		}, nil
 	}
 
 	// mark as disabled by writing a dtime attribute
 	dtime := time.Now()
-	return n.SetDTime(ctx, &dtime)
+	if err := n.SetDTime(ctx, &dtime); err != nil {
+		return nil, err
+	}
+	return &storage.DeleteStorageSpaceResult{}, nil
+}
+
+// activeMembers returns the permissions of all user and group grants that
+// have not expired, keyed by grantee opaque id. Expired grants are skipped,
+// they are removed together with the space.
+func activeMembers(grants []*provider.Grant) (map[string]provider.ResourcePermissions, error) {
+	tmp := make(map[string]*provider.ResourcePermissions, len(grants))
+	for _, g := range grants {
+		var id string
+		switch g.Grantee.Type {
+		case provider.GranteeType_GRANTEE_TYPE_USER:
+			id = g.Grantee.GetUserId().GetOpaqueId()
+		case provider.GranteeType_GRANTEE_TYPE_GROUP:
+			id = g.Grantee.GetGroupId().GetOpaqueId()
+		default:
+			continue
+		}
+		if g.Expiration != nil && isGrantExpired(g) {
+			continue
+		}
+		tmp[id] = g.Permissions
+	}
+
+	// round trip through json to get value types without copying the
+	// protobuf internals (and their mutex)
+	b, err := json.Marshal(tmp)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]provider.ResourcePermissions, len(tmp))
+	if err := json.Unmarshal(b, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // the value of `target` depends on the implementation:

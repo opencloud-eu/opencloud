@@ -71,6 +71,11 @@ func NewDefault(m map[string]interface{}, stream events.Stream, log *zerolog.Log
 		return nil, err
 	}
 
+	// Check this before connecting, otherwise a non-nats store keeps us retrying for minutes
+	if err := checkIDCacheStore(o); err != nil {
+		return nil, err
+	}
+
 	o.IDCache.Database += "_v2" // Use a versioned bucket name to avoid conflicts with previous implementations
 	o.IDCache.TTL = 0           // Disable TTL for the ID cache, as the posix driver relies on it for caching file IDs and we don't want them to expire
 	kv, err := cache.NewNatsKeyValue(o.IDCache, log)
@@ -96,9 +101,16 @@ func NewDefault(m map[string]interface{}, stream events.Stream, log *zerolog.Log
 	return New(o, stream, c, historyCache, log)
 }
 
-func New(o *options.Options, stream events.Stream, cache, historyCache *idcache.IDCache, log *zerolog.Logger) (storage.FS, error) {
+func checkIDCacheStore(o *options.Options) error {
 	if o.IDCache.Store != "nats-js-kv" {
-		return nil, fmt.Errorf("the posix driver requires a nats-js-kv cache")
+		return fmt.Errorf("the posix driver requires a nats-js-kv id cache, got '%s'", o.IDCache.Store)
+	}
+	return nil
+}
+
+func New(o *options.Options, stream events.Stream, cache, historyCache *idcache.IDCache, log *zerolog.Logger) (storage.FS, error) {
+	if err := checkIDCacheStore(o); err != nil {
+		return nil, err
 	}
 	if o.FileMetadataCache.Store == "noop" {
 		return nil, fmt.Errorf("the posix driver requires a file metadata cache")

@@ -29,6 +29,7 @@ import (
 	types "github.com/cs3org/go-cs3apis/cs3/types/v1beta1"
 	ctxpkg "github.com/opencloud-eu/reva/v2/pkg/ctx"
 	"github.com/opencloud-eu/reva/v2/pkg/errtypes"
+	"github.com/opencloud-eu/reva/v2/pkg/storage"
 	"github.com/opencloud-eu/reva/v2/pkg/storage/fs/owncloudsql/filecache"
 	"github.com/opencloud-eu/reva/v2/pkg/storagespace"
 	"github.com/opencloud-eu/reva/v2/pkg/utils"
@@ -104,8 +105,8 @@ func (fs *owncloudsqlfs) UpdateStorageSpace(ctx context.Context, req *provider.U
 }
 
 // DeleteStorageSpace deletes a storage space
-func (fs *owncloudsqlfs) DeleteStorageSpace(ctx context.Context, req *provider.DeleteStorageSpaceRequest) error {
-	return errtypes.NotSupported("delete storage space")
+func (fs *owncloudsqlfs) DeleteStorageSpace(ctx context.Context, req *provider.DeleteStorageSpaceRequest) (*storage.DeleteStorageSpaceResult, error) {
+	return nil, errtypes.NotSupported("delete storage space")
 }
 
 //  Note: currently unused but will be used later

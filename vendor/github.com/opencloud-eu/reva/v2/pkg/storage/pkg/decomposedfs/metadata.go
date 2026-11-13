@@ -57,7 +57,7 @@ func (fs *Decomposedfs) SetArbitraryMetadata(ctx context.Context, ref *provider.
 	}
 
 	// Set space owner in context
-	storagespace.ContextSendSpaceOwnerID(ctx, n.SpaceOwnerOrManager(ctx))
+	storagespace.ContextSetSpaceOwner(ctx, n.SpaceOwnerOrManager(ctx))
 
 	// check lock
 	if err := n.CheckLock(ctx); err != nil {
@@ -153,7 +153,7 @@ func (fs *Decomposedfs) UnsetArbitraryMetadata(ctx context.Context, ref *provide
 	}
 
 	// Set space owner in context
-	storagespace.ContextSendSpaceOwnerID(ctx, n.SpaceOwnerOrManager(ctx))
+	storagespace.ContextSetSpaceOwner(ctx, n.SpaceOwnerOrManager(ctx))
 
 	// check lock
 	if err := n.CheckLock(ctx); err != nil {

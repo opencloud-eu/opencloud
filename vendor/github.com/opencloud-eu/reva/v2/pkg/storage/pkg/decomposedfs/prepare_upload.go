@@ -39,6 +39,11 @@ func (fs *Decomposedfs) PrepareCreatesNode() bool {
 // another upload is still processing the node, it is snapshotted even with versioning
 // disabled, together with that upload's processing mark: if this upload is rolled back, the
 // other one is restored and can still finish.
+//
+// With info.Source set and a blobstore that keeps blobs apart from the nodes, the upload is
+// finished right here: the blob is stored before the node points to it, and the node is
+// never marked. Readers get either the old or the new content, and an interrupted upload
+// leaves no processing mark that nothing would ever remove.
 func (fs *Decomposedfs) PrepareUpload(ctx context.Context, ref *provider.Reference, sessionID string, info storage.UploadInfo) (*storage.PrepareUploadResult, error) {
 	ctx, span := tracer.Start(ctx, "PrepareUpload")
 	defer span.End()
@@ -66,7 +71,40 @@ func (fs *Decomposedfs) PrepareUpload(ctx context.Context, ref *provider.Referen
 		// only a node this upload created is purged, one it is creating only once
 		// the name is its own: Purge removes the name
 		purge = !info.NodeExisted && !create
+
+		// the upload is finished right here, see above
+		inline   = info.Source != nil && (info.Source.Path != "" || info.Source.Body != nil) && fs.separateBlobs
+		stored   bool
+		switched bool
 	)
+	blob := node.New(n.SpaceID, n.ID, "", "", info.Size, sessionID, provider.ResourceType_RESOURCE_TYPE_FILE, nil, fs.lu)
+	storeBlob := func() error {
+		var err error
+		if info.Source.Path != "" {
+			err = fs.tp.WriteBlob(blob, info.Source.Path)
+		} else {
+			err = fs.tp.WriteBlobFromReader(blob, info.Source.Body, info.Source.Length)
+		}
+		if err != nil {
+			if derr := fs.tp.DeleteBlob(blob); derr != nil {
+				appctx.GetLogger(ctx).Error().Err(derr).Str("nodeid", n.ID).Str("blobid", sessionID).Msg("could not clean up the blob of a failed write")
+			}
+			// the staged bytes are still the only copy of the upload
+			return fmt.Errorf("%w: %w", storage.ErrSourceNotStored, err)
+		}
+		stored = true
+		return nil
+	}
+	// a failed write of the node might have happened anyway, then the node
+	// might point to the blob: rather leak it than lose the content
+	defer func() {
+		if !stored || committed || switched {
+			return
+		}
+		if err := fs.tp.DeleteBlob(blob); err != nil {
+			appctx.GetLogger(ctx).Error().Err(err).Str("nodeid", n.ID).Str("blobid", sessionID).Msg("could not delete the blob of a failed upload")
+		}
+	}()
 	// registered before the lock is taken, so it runs once the lock is released.
 	// Purge, not trash: the file never had content, and Purge needs no Delete permission
 	defer func() {
@@ -105,6 +143,13 @@ func (fs *Decomposedfs) PrepareUpload(ctx context.Context, ref *provider.Referen
 
 	var unlock metadata.UnlockFunc
 	if create {
+		// Before the node exists: an upload interrupted while its blob is written
+		// must not leave a node without metadata behind, which blocks the name.
+		if inline {
+			if err := storeBlob(); err != nil {
+				return nil, err
+			}
+		}
 		// InitNewNode refuses a name already taken, checks the quota, and on failure
 		// removes what it made and releases its lock. It returns the node lock.
 		unlock, err = fs.tp.InitNewNode(ctx, n, uint64(info.Size))
@@ -215,7 +260,9 @@ func (fs *Decomposedfs) PrepareUpload(ctx context.Context, ref *provider.Referen
 
 		// another upload is still processing the node: keep its state, so a rollback
 		// of this upload can hand the node back to it
-		supersededMark, superseding := oldAttrs[prefixes.StatusPrefix]
+		// an upload that finished right away clears a mark by emptying it
+		supersededMark := oldAttrs[prefixes.StatusPrefix]
+		superseding := strings.HasPrefix(string(supersededMark), node.ProcessingStatus)
 		if !fs.o.DisableVersioning || superseding {
 			timestamp := oldMtime.UTC().Format(time.RFC3339Nano)
 			versionPath, err := fs.tp.CreateRevision(ctx, n, timestamp)
@@ -250,6 +297,12 @@ func (fs *Decomposedfs) PrepareUpload(ctx context.Context, ref *provider.Referen
 		sizeDiff = info.Size
 	}
 
+	if inline && !create {
+		if err := storeBlob(); err != nil {
+			return nil, err
+		}
+	}
+
 	attrs := node.Attributes{}
 	attrs.SetString(prefixes.IDAttr, n.ID)
 	attrs.SetInt64(prefixes.TypeAttr, int64(provider.ResourceType_RESOURCE_TYPE_FILE))
@@ -260,8 +313,16 @@ func (fs *Decomposedfs) PrepareUpload(ctx context.Context, ref *provider.Referen
 	attrs[prefixes.ChecksumPrefix+"sha1"] = info.Checksums.SHA1
 	attrs[prefixes.ChecksumPrefix+"md5"] = info.Checksums.MD5
 	attrs[prefixes.ChecksumPrefix+"adler32"] = info.Checksums.Adler32
-	// in the same batch, so marking the node costs no write of its own
-	attrs.SetString(prefixes.StatusPrefix, node.ProcessingStatus+sessionID)
+	if !inline {
+		// in the same batch, so marking the node costs no write of its own
+		attrs.SetString(prefixes.StatusPrefix, node.ProcessingStatus+sessionID)
+	} else if _, marked := oldAttrs[prefixes.StatusPrefix]; marked {
+		// The node is complete after this write, so the mark of another upload,
+		// like one that was interrupted, goes in the same write. Removing it
+		// beforehand could leave the node pointing to that upload's blob without
+		// the mark that recovering the upload relies on.
+		attrs.SetString(prefixes.StatusPrefix, "")
+	}
 
 	mtime := time.Now()
 	if !info.MTime.IsZero() {
@@ -271,6 +332,7 @@ func (fs *Decomposedfs) PrepareUpload(ctx context.Context, ref *provider.Referen
 		return nil, errors.Wrap(err, "failed to set mtime")
 	}
 
+	switched = true
 	if err := n.SetXattrsWithContext(ctx, attrs); err != nil {
 		return nil, errors.Wrap(err, "could not write metadata")
 	}
@@ -279,8 +341,16 @@ func (fs *Decomposedfs) PrepareUpload(ctx context.Context, ref *provider.Referen
 		return nil, errors.Wrap(err, "could not propagate size change")
 	}
 	committed = true
+	if inline {
+		// what CommitUpload does after a live commit: the revisions kept only
+		// for a rollback of this upload served their purpose. Not before the
+		// upload can no longer fail: a rollback restores the node from them,
+		// and their blobs are deleted with them.
+		n.BlobID = sessionID
+		fs.removeRevisions(ctx, n)
+	}
 
-	result := &storage.PrepareUploadResult{VersionCreated: versionCreated, SizeDiff: sizeDiff}
+	result := &storage.PrepareUploadResult{VersionCreated: versionCreated, SizeDiff: sizeDiff, Committed: inline}
 	if !info.NodeExisted {
 		// read off the disk, not through ListGrants: an uploader who cannot see the
 		// space root still needs the manager of a project space reported

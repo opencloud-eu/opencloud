@@ -48,26 +48,26 @@ func (fs *hellofs) UpdateStorageSpace(ctx context.Context, req *provider.UpdateS
 }
 
 // DeleteStorageSpace deletes a storage space
-func (fs *hellofs) DeleteStorageSpace(ctx context.Context, req *provider.DeleteStorageSpaceRequest) error {
-	return errtypes.NotSupported("delete storage space")
+func (fs *hellofs) DeleteStorageSpace(ctx context.Context, req *provider.DeleteStorageSpaceRequest) (*storage.DeleteStorageSpaceResult, error) {
+	return nil, errtypes.NotSupported("delete storage space")
 }
 
 // CreateDir creates a resource of type container
-func (fs *hellofs) CreateDir(ctx context.Context, ref *provider.Reference) error {
-	return errtypes.NotSupported("unimplemented")
+func (fs *hellofs) CreateDir(ctx context.Context, ref *provider.Reference) (*storage.CreateDirResult, error) {
+	return nil, errtypes.NotSupported("unimplemented")
 }
 
 // TouchFile sets the mtime of a resource, creating an empty file if it does not exist
 // FIXME the markprocessing flag is an implementation detail of decomposedfs, remove it from the function
 // FIXME the mtime should either be a time.Time or a CS3 Timestamp, not a string
-func (fs *hellofs) TouchFile(ctx context.Context, ref *provider.Reference, _ bool, _ string) error {
-	return errtypes.NotSupported("unimplemented")
+func (fs *hellofs) TouchFile(ctx context.Context, ref *provider.Reference, _ bool, _ string) (*storage.TouchFileResult, error) {
+	return nil, errtypes.NotSupported("unimplemented")
 }
 
 // Delete deletes a resource.
 // If the storage driver supports a recycle bin it should moves it to the recycle bin
-func (fs *hellofs) Delete(ctx context.Context, ref *provider.Reference) error {
-	return errtypes.NotSupported("unimplemented")
+func (fs *hellofs) Delete(ctx context.Context, ref *provider.Reference) (*storage.DeleteResult, error) {
+	return nil, errtypes.NotSupported("unimplemented")
 }
 
 // Move changes the path of a resource
@@ -149,8 +149,8 @@ func (fs *hellofs) GetLock(ctx context.Context, ref *provider.Reference) (*provi
 }
 
 // SetLock puts a lock on the given reference
-func (fs *hellofs) SetLock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) error {
-	return errtypes.NotSupported("unimplemented")
+func (fs *hellofs) SetLock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) (*storage.SetLockResult, error) {
+	return nil, errtypes.NotSupported("unimplemented")
 }
 
 // RefreshLock refreshes an existing lock on the given reference
@@ -159,8 +159,8 @@ func (fs *hellofs) RefreshLock(ctx context.Context, ref *provider.Reference, loc
 }
 
 // Unlock removes an existing lock from the given reference
-func (fs *hellofs) Unlock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) error {
-	return errtypes.NotSupported("unimplemented")
+func (fs *hellofs) Unlock(ctx context.Context, ref *provider.Reference, lock *provider.Lock) (*storage.UnlockResult, error) {
+	return nil, errtypes.NotSupported("unimplemented")
 }
 
 // revisions
@@ -176,8 +176,8 @@ func (fs *hellofs) DownloadRevision(ctx context.Context, ref *provider.Reference
 }
 
 // RestoreRevision restores a revision
-func (fs *hellofs) RestoreRevision(ctx context.Context, ref *provider.Reference, revisionKey string) error {
-	return errtypes.NotSupported("unimplemented")
+func (fs *hellofs) RestoreRevision(ctx context.Context, ref *provider.Reference, revisionKey string) (*storage.RestoreRevisionResult, error) {
+	return nil, errtypes.NotSupported("unimplemented")
 }
 
 // trash
@@ -199,8 +199,8 @@ func (fs *hellofs) ListRecycle(ctx context.Context, ref *provider.Reference, key
 
 // RestoreRecycleItem restores an item from the recyle bin
 // if restoreRef is nil the resource should be restored at the original path
-func (fs *hellofs) RestoreRecycleItem(ctx context.Context, ref *provider.Reference, key, relativePath string, restoreRef *provider.Reference) error {
-	return errtypes.NotSupported("unimplemented")
+func (fs *hellofs) RestoreRecycleItem(ctx context.Context, ref *provider.Reference, key, relativePath string, restoreRef *provider.Reference) (*storage.RestoreRecycleItemResult, error) {
+	return nil, errtypes.NotSupported("unimplemented")
 }
 
 // CreateHome creates a users home
