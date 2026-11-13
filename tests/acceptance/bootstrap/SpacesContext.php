@@ -806,6 +806,30 @@ class SpacesContext implements Context {
 	}
 
 	/**
+	 * @param string $user
+	 * @param string $spaceName
+	 * @param string $spaceType
+	 * @param string $spaceId
+	 *
+	 * @return void
+	 *
+	 * @throws GuzzleException
+	 * @throws Exception
+	 */
+	#[When('/^user "([^"]*)" (?:creates|tries to create) a space "([^"]*)" of type "([^"]*)" with id "([^"]*)" using the Graph API$/')]
+	public function theUserCreatesASpaceWithIdUsingTheGraphApi(
+		string $user,
+		string $spaceName,
+		string $spaceType,
+		string $spaceId
+	): void {
+		$space = ["name" => $spaceName, "driveType" => $spaceType, "id" => $spaceId];
+		$this->featureContext->setResponse(
+			$this->createSpace($user, $space)
+		);
+	}
+
+	/**
 	 * Remember the available Spaces
 	 *
 	 * @param ResponseInterface|null $response
