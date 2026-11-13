@@ -134,3 +134,11 @@ For public accessible writable shares, a password can be enforced. To change the
 Note that changing this environment variable only makes sense if\
 `OC_SHARING_PUBLIC_SHARE_MUST_HAVE_PASSWORD`\
 is set to `false`.
+
+## Server Managed Spaces
+
+The `frontend` service can announce that the membership of spaces is managed by the server instead of by users. To enable this, set the following environment variable to `true`:
+
+`OC_CLAIM_MANAGED_SPACES_ENABLED`
+
+When enabled, the `spaces` capability contains `server_managed: true`. Clients like the web UI evaluate this capability and block adding or removing users to or from spaces.
